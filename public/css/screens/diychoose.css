@@ -63,7 +63,8 @@
 .dclv__nonetag { position: absolute; right: 1.8rem; top: 50%; transform: translateY(-50%); font-family: var(--font-num); letter-spacing: -.06em; font-size: .34rem; color: #777; }
 .dclv__nonetag img { width: 1.2rem; display: block; }
 
-/* ---- a card (auto_chess_deploy_char_item_view, 140×266; its level column left out) ---- */
+/* ---- a card (ui/diyCard.js DiyCard: auto_chess_deploy_char_item_view, 140×266 — also the 自选编队 tab's lineup slots,
+   css/screens/loadout.css `.diy-slot .dccard`) ---- */
 .dccard { all: unset; box-sizing: border-box; position: relative; flex: none; width: calc(140 * var(--u)); height: calc(266 * var(--u)); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .dccard:focus-visible { outline: .03rem solid var(--mint-400, #3fe6b4); outline-offset: .02rem; }
 .dccard > *, .dccard__char > * { position: absolute; display: block; }
@@ -82,8 +83,27 @@
 .dccard__box.is-mod { left: calc(45.5 * var(--u)); }
 .dccard__lv { left: calc(7 * var(--u)); top: calc(24 * var(--u)); width: calc(40 * var(--u)); height: calc(40 * var(--u)); display: grid !important; place-items: center; }
 .dccard__lv img { width: 100%; height: 100%; }
+/* obj_left_info_part (30×98 at 12, 76 of the 140-wide card — maintainer decision 2026-11-19): img_char_level_normal_bg,
+   the normal level on char_elite_base_<phase> (#acacac 16), the elite on char_elite_gold_<phase> (#fff3b6 17), the 潜能
+   (potential_<p−1>_small over potential_bg #4f4f4f, 1.82 lower). Before the tier mark in the markup, as the prefab's order */
+.dccard__col { left: calc(12 * var(--u)); top: calc(76 * var(--u)); width: calc(30 * var(--u)); height: calc(98 * var(--u)); pointer-events: none; }
+.dccard__col > * { position: absolute; display: block; }
+.dccard__colbg { inset: 0; background: var(--dc-lvbg, linear-gradient(#1b1d1e, #2a2d2f)) 0 0 / 100% 100% no-repeat; }
+.dccard__ph { left: calc(-5 * var(--u)); width: calc(39 * var(--u)); height: calc(49 * var(--u)); background: var(--ph) 0 0 / 100% 100% no-repeat; }
+.dccard__ph.is-n { top: calc(11.5 * var(--u)); } .dccard__ph.is-g { top: calc(47.5 * var(--u)); }
+/* the level numbers in the mockup's face (Bender bold, as picked 2026-11-19) */
+.dccard__clv { left: calc(2 * var(--u)); width: calc(25 * var(--u)); height: calc(20 * var(--u)); display: grid !important; place-items: center; font-family: 'Bender', var(--font-num); font-weight: 700; line-height: 1; }
+.dccard__clv.is-n { top: calc(26 * var(--u)); font-size: calc(16 * var(--u)); color: #acacac; }
+.dccard__clv.is-g { top: calc(64 * var(--u)); font-size: calc(17 * var(--u)); color: #fff3b6; }
+.dccard__pot { left: calc(2.5 * var(--u)); top: calc(102.7 * var(--u)); width: calc(25 * var(--u)); height: calc(25 * var(--u)); }
+.dccard__pot > * { position: absolute; display: block; left: calc(.5 * var(--u)); width: calc(24 * var(--u)); height: calc(24 * var(--u)); }
+.dccard__potbk { top: calc(2.32 * var(--u)); background: var(--dc-potbg, radial-gradient(circle, #fff 60%, transparent 64%)) 0 0 / 100% 100% no-repeat; filter: brightness(.31); }
+.dccard__potic { top: calc(.5 * var(--u)); background: var(--pot) 0 0 / 100% 100% no-repeat; }
+.dccard__potn { top: calc(.5 * var(--u)); display: grid !important; place-items: center; font: 700 calc(14 * var(--u)) / 1 'Bender', var(--font-num); color: #fff; }
 .dccard__stars { right: calc(9 * var(--u)); top: calc(172 * var(--u)); font-size: calc(14 * var(--u)); line-height: 1; letter-spacing: calc(-1.5 * var(--u)); color: #bdbdbd; }
-.dccard__name { right: calc(9.5 * var(--u)); top: calc(193 * var(--u)); width: calc(118 * var(--u)); text-align: right; font-size: calc(18 * var(--u)); line-height: calc(26 * var(--u)); font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* txt_char_name bestFit (1–18): ui/fitLine.js shrinks the font until the name fits (maintainer decision 2026-11-19 — an
+   ellipsis until then); the clip only guards the moment before it measures */
+.dccard__name { right: calc(9.5 * var(--u)); top: calc(193 * var(--u)); width: calc(118 * var(--u)); text-align: right; font-size: calc(18 * var(--u)); line-height: calc(26 * var(--u)); font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; }
 .dccard__bonds { right: calc(10 * var(--u)); top: calc(220 * var(--u)); height: calc(33 * var(--u)); display: flex !important; gap: calc(1 * var(--u)); justify-content: flex-end; }
 /* auto_chess_deploy_char_card_bond_item: the mint disc bkg_char_card_bond_active (45) and the glyph (28) in #051c17 */
 .dccard__bond { position: relative; width: calc(35 * var(--u)); height: calc(35 * var(--u)); }

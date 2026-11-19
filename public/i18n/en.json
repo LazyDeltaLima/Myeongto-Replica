@@ -2126,5 +2126,14 @@
   "加入其他赛季战场：{names}": "Other seasons' battlefields added: {names}",
   "请选择一组在本次模拟中激活的盟约，未被选择的盟约将不会出现在本次模拟中": "Choose the group of Alliances to activate in this simulation. The Alliances not chosen will not appear in this simulation",
   "部分盟约所含干员阵容不完整": "Some Alliances have an incomplete operator lineup",
-  "第{n}组": "Group {n}"
+  "第{n}组": "Group {n}",
+  "每阶最多预选六名自选干员，开局时在「确定自选编队」每阶最多选两名上场。点击栏位选择该阶干员。": "Pick up to six custom operators per tier; at the start of a simulation, Confirm Custom Squad sends up to two per tier. Tap a slot to choose that tier's operators.",
+  "展开阵营预设、关联策略与说明": "Show the faction presets, linked strategies and notes",
+  "{n}个": "{n}",
+  "可选择{n}名干员加入作战编队": "Pick up to {n} operators for the squad",
+  "已选干员": "Selected",
+  "{tier}阶自选编队最多{n}名。再次点击已选择的干员可将其移出": "A tier {tier} custom squad holds up to {n}. Tap a selected operator again to take it out",
+  "第{n}个选择": "Pick {n}",
+  "{name} 详情": "{name} details",
+  "清空选择": "Clear selection"
 }

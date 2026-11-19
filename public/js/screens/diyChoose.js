@@ -6,10 +6,10 @@
 // maintainer report 2026-11-18: the 3/3 screen kept the single 本局信息 button). Centre: one row per tier (auto_chess_diy_choose_level_view:
 // Ⅴ above Ⅵ, 255 units high on the doc_color band) holding the seat's 自选编队 cards from the right, the tier's big mark
 // (diy_choose_level_icon_<tier>_c, _g when the lineup has none of that tier) and 「n/2」 (num_bg); a tier without cards
-// shows the empty figure and 「尚不存在n阶自选编队」. A card is the 干员调配 card (auto_chess_deploy_char_item_view: the
-// slab, the portrait on its backing with the bottom shade and frame, the profession corner, the skill and module boxes,
-// the tier mark, rarity, name and the bonds on their mint badges) without its level column (maintainer decision
-// 2026-11-11); a chosen one wears the select outline in its tier's colour (Ⅴ #ebb85e, Ⅵ #fb752a), and one all of whose
+// shows the empty figure and 「尚不存在n阶自选编队」. A card is the 干员调配 card (ui/diyCard.js DiyCard,
+// auto_chess_deploy_char_item_view: the slab, the portrait on its backing with the bottom shade and frame, the
+// profession corner, the skill and module boxes, the level column, the tier mark, rarity, the bestFit name and the bonds
+// on their mint badges — the level column since maintainer decision 2026-11-19, left out from 2026-11-11); a chosen one wears the select outline in its tier's colour (Ⅴ #ebb85e, Ⅵ #fb752a), and one all of whose
 // bonds are off this match is 本局禁用 (the server would leave it out of the shop) and cannot be chosen. A tap toggles a
 // card; on a full tier the earliest choice of the tier makes room (maintainer decision 2026-11-11, gameLogic
 // toggleDiyChoice). 准备就绪 locks the choice: the centre turns into panel_team_selected (the 已选择自选编队 mark) and the
@@ -25,23 +25,22 @@
 // screen, so its matches borrow it: ui/assetUrls.js withDiyChooseArt); without it the CSS draws plain fills. Styles: css/screens/diychoose.css on the strategy draft's frame (css/screens/draft.css).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, TierChip, MicroLabel } from '../ui/components.js';
+import { html, MicroLabel } from '../ui/components.js';
 import { useGameData } from '../ui/gameComponents.js';
-import { chessPortraitUrl, profIconUrl, bondIconUrl, skillRecordIconUrl, moduleTypeIconUrl, uiUrl, withDiyChooseArt } from '../ui/assetUrls.js';
-import { skinArt, skinPic } from '../ui/skins.js';
+import { uiUrl, withDiyChooseArt } from '../ui/assetUrls.js';
+import { DiyCard, diyCardArt, cssUrlVars } from '../ui/diyCard.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfoDialog, matchInfoModel } from '../ui/matchInfo.js';
 import { MatchIntelDialog } from '../ui/matchIntel.js';
 import { actions } from '../ui/gameActions.js';
 import { sortedPlayers, diyPickOff, diyChooseRows, toggleDiyChoice, startStepCount } from '../ui/gameLogic.js';
-import { slotRecord } from '../ui/diyModel.js';
 import { useStore } from '../store.js';
 import { data, localAsset } from '../data.js';
 import { audio } from '../audio.js';
 import { OrderRow, useOrderArt, draftArt, PresetPicker, presetChoiceTags, DraftInfoButtons } from './bandDraft.js';
 import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand } from '../ui/diyPresets.js';
 import { applyPresetChoice } from '../ui/factionPick.js';
-import { flushDiySync } from '../ui/loadoutSync.js';
+import { flushDiySync, loadoutStore } from '../ui/loadoutSync.js';
 import { t } from '../../../shared/i18n.js';
 import { seasonFeature } from '../../../shared/seasons.js';
 
@@ -52,57 +51,16 @@ const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x))
 /** The sprites the CSS draws (custom properties on the screen): the season's extract, else none (the CSS fills). */
 function artVars(m) {
   const art = (n) => uiUrl(m, `diyChooseArt/${n}`);
-  const vars = {
-    '--dc-doc': art('doc_color'), '--dc-num': art('num_bg'), '--dc-tips': art('tips'),
-    '--dc-slab': art('img_char_chess_normal_bg'), '--dc-cardbg': art('img_char_card_bg'), '--dc-frame': art('img_cahr_card_frame'),
-    '--dc-shade': art('img_char_card_bg_mask') || localAsset('ui/outer', 'img_char_card_bg_mask'),
-    '--dc-outline': art('img_char_card_select_outline'), '--dc-bond': art('bkg_char_card_bond_active'),
-    '--dc-ok': art('btn_confirm'), '--dc-cancel': art('cancel'), '--dc-side': art('team_list_left_side'),
-    '--dc-pbg': localAsset('ui/outer', 'img_player_bg'), '--dc-pon': localAsset('ui/outer', 'img_player_confirmed'),
-  };
-  return Object.entries(vars).filter(([, v]) => v).map(([k, v]) => `${k}:url("${v}")`).join(';');
-}
-
-/** One 自选编队 card (auto_chess_diy_choose_char_view holding the 干员调配 card). */
-function DiyCard({ m, slotId, pick, tier, chosen, off, locked, onTap }) {
-  const skinCtx = skinArt(); // the operator's portrait in this browser's chosen skin (ui/skins.js skinPic)
-  const D = { chess: data.get('chess'), backups: data.get('backups') };
-  const rec = slotRecord(slotId, pick, D);
-  const elite = slotRecord(slotId, pick, D, { elite: true });
-  const name = rec?.name || pick?.charId || '?';
-  const sk = rec?.skill ? skillRecordIconUrl(m, rec.skill, { empty: false }) : null;
-  const mod = elite?.module?.active ? elite.module : null;
-  const modIcon = mod ? moduleTypeIconUrl(data.get('local'), mod.type) : null;
-  const prof = profIconUrl(m, rec?.profession);
-  const none = uiUrl(m, 'diyChooseArt/img_module_no');
-  const lv = uiUrl(m, `chessLevelSprite/chess_level_icon_${tier}`);
-  const ban = uiUrl(m, 'diyChooseArt/ban');
-  const state = off ? t('本局禁用') : chosen ? t('已选择') : null;
-  return html`<button type="button" class=${cx('dccard', chosen && 'is-on', off && 'is-off')} data-tier=${tier} data-slot=${slotId}
-      data-testid="diy-choose-card" aria-pressed=${chosen ? 'true' : 'false'} aria-disabled=${off || locked ? 'true' : 'false'}
-      title=${state ? `${name} · ${state}` : name} onClick=${() => onTap(slotId)}>
-    <i class="dccard__slab" aria-hidden="true"></i>
-    <span class="dccard__char" aria-hidden="true">
-      <span class="dccard__por">${rec ? html`<img src=${skinPic(rec, 'portrait', skinCtx, { own: true }) || chessPortraitUrl(m, elite || rec)} alt="" draggable=${false} />` : null}</span>
-      <i class="dccard__shade"></i><i class="dccard__frame"></i>
-      <span class="dccard__prof">${prof ? html`<img src=${prof} alt="" draggable=${false} />` : null}</span>
-      <span class="dccard__box is-skill">${sk || none ? html`<img src=${sk || none} alt="" draggable=${false} />` : null}</span>
-      <span class="dccard__box is-mod">${modIcon || none ? html`<img src=${modIcon || none} alt="" draggable=${false} />` : null}</span>
-    </span>
-    <span class="dccard__lv" aria-hidden="true">${lv ? html`<img src=${lv} alt="" draggable=${false} />` : html`<${TierChip} tier=${tier} size="sm" />`}</span>
-    <span class="dccard__stars" aria-hidden="true">${'★'.repeat(Math.max(1, Math.min(6, Number(rec?.rarity) || 6)))}</span>
-    <span class="dccard__name">${name}</span>
-    <span class="dccard__bonds" aria-hidden="true">${(rec?.bonds || []).slice(0, 3).map((b) => {
-      const u = bondIconUrl(m, b);
-      return html`<i key=${b} class="dccard__bond" style=${u ? `--b:url("${u}")` : null}></i>`;
-    })}</span>
-    ${chosen ? html`<i class="dccard__sel" aria-hidden="true"></i>` : null}
-    ${off ? html`<span class="dccard__ban" aria-hidden="true">${ban ? html`<img src=${ban} alt="" draggable=${false} />` : null}<b>${t('本局禁用')}</b></span>` : null}
-  </button>`;
+  return cssUrlVars([
+    ['--dc-doc', art('doc_color')], ['--dc-num', art('num_bg')], ['--dc-tips', art('tips')],
+    ...diyCardArt(m),
+    ['--dc-ok', art('btn_confirm')], ['--dc-cancel', art('cancel')], ['--dc-side', art('team_list_left_side')],
+    ['--dc-pbg', localAsset('ui/outer', 'img_player_bg')], ['--dc-pon', localAsset('ui/outer', 'img_player_confirmed')],
+  ]);
 }
 
 /** One tier row (auto_chess_diy_choose_level_view): its cards from the right, the tier mark and n/limit. */
-function TierRow({ m, row, ready, onTap }) {
+function TierRow({ m, row, ready, onTap, ops }) {
   const has = row.slots.length > 0;
   const shown = ready ? row.slots.filter((s) => s.chosen) : row.slots;
   const glyph = uiUrl(m, `diyChooseLevelSprite/diy_choose_level_icon_${row.tier}_${has ? 'c' : 'g'}`);
@@ -113,7 +71,7 @@ function TierRow({ m, row, ready, onTap }) {
     ${glyph ? html`<img class="dclv__glyph" src=${glyph} alt="" draggable=${false} />` : html`<b class="dclv__glyph is-text" aria-hidden="true">${ROMAN[row.tier] || row.tier}</b>`}
     ${ready ? null : html`<span class="dclv__num num" data-testid="diy-choose-count"><b>${row.count}</b>/${row.limit}</span>`}
     <div class="dclv__cards">${shown.map((s) => html`<${DiyCard} key=${s.slotId} m=${m} slotId=${s.slotId} pick=${s.pick} tier=${row.tier}
-      chosen=${s.chosen} off=${s.off} locked=${ready} onTap=${onTap} />`)}</div>
+      chosen=${s.chosen} off=${s.off} locked=${ready} onTap=${onTap} ops=${ops} />`)}</div>
     ${!ready && !has ? html`<div class="dclv__none">${empty ? html`<img src=${empty} alt="" draggable=${false} />` : null}
       <span>${t('尚不存在{tier}阶自选编队', { tier: row.tier })}</span></div>` : null}
     ${ready && !shown.length ? html`<span class="dclv__nonetag">${none ? html`<img src=${none} alt="NONE" draggable=${false} />` : 'NONE'}</span>` : null}
@@ -177,6 +135,7 @@ export function DiyChooseScreen() {
   const roomSolo = useStore((s) => s.room?.mode === 'solo');
   const roomSeason = useStore((s) => s.room?.season);
   const gd = useGameData();
+  const ops = useStore((s) => s.ops, Object.is, loadoutStore); // the 潜能 of the cards' level column (the 干员调配 settings)
   const m = withDiyChooseArt(gd.m, data.get('local')); // 盟约 too draws 规程's 3/3 art (the header's note)
   const view = priv?.diyChoose || null;
   const ready = !!view?.ready;
@@ -248,7 +207,7 @@ export function DiyChooseScreen() {
         ${ready ? html`<${DoneMark} m=${m} />` : null}
         <div class="dchoose__levels">
           ${presetBand ? html`<${DiyPresetBox} key=${presetBand} bandId=${presetBand} band=${gd.band(presetBand)} off=${pub?.disabledBonds ?? null} locked=${ready || busy} />` : null}
-          ${view ? rows.map((row) => html`<${TierRow} key=${row.tier} m=${m} row=${row} ready=${ready} onTap=${tap} />`)
+          ${view ? rows.map((row) => html`<${TierRow} key=${row.tier} m=${m} row=${row} ready=${ready} onTap=${tap} ops=${ops} />`)
             : html`<p class="dchoose__spec t-dim">${t('观战中')}</p>`}
         </div>
         <div class="dchoose__foot">

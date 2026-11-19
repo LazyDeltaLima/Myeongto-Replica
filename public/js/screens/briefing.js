@@ -25,13 +25,14 @@
 // round and abilities, the type's text). No battlefield name or pool line there (the official view has none). Sized in
 // prefab units: the view is drawn at 0.9 of the 720 canvas, one unit = the screen height / 800 (css .brief2).
 
-import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, Modal } from '../ui/components.js';
 import { useGameData, Img, RichText } from '../ui/gameComponents.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfo, matchInfoModel, BondGroups, IncompleteTip, BannedOperators, InfoBond, stageArt } from '../ui/matchInfo.js';
 import { MatchIntel } from '../ui/matchIntel.js';
 import { LoadoutButton } from './loadout.js';
+import { useFitLine } from '../ui/fitLine.js';
 import { actions } from '../ui/gameActions.js';
 import { factionTypes, sortedPlayers, phaseTotalSeconds, startStepCount } from '../ui/gameLogic.js';
 import { enemyIconUrl, factionIconUrl } from '../ui/assetUrls.js';
@@ -131,31 +132,6 @@ export function BriefingScreen() {
     </footer>
     <${ExitModal} open=${exit} onClose=${() => setExit(false)} solo=${solo} />
   </div>`;
-}
-
-/**
- * Unity's bestFit on one line (text_tips, 1–18): the font shrinks until the line fits its box, not under 9 px — then it
- * wraps. Measured after each render and on resize.
- * @param {{ current: HTMLElement|null }} ref
- * @param {any} dep
- */
-function useFitLine(ref, dep) {
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el || typeof getComputedStyle !== 'function') return undefined;
-    const fit = () => {
-      el.classList.remove('is-wrap');
-      el.style.fontSize = '';
-      let fs = parseFloat(getComputedStyle(el).fontSize) || 12;
-      const room = () => el.clientWidth - parseFloat(getComputedStyle(el).paddingLeft) - parseFloat(getComputedStyle(el).paddingRight);
-      const need = () => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect().width; };
-      for (let n = 0; n < 60 && need() > room() + 0.5 && fs > 9; n++) { fs = Math.max(9, fs - 0.25); el.style.fontSize = `${fs}px`; }
-      if (need() > room() + 0.5) el.classList.add('is-wrap');
-    };
-    fit();
-    addEventListener('resize', fit);
-    return () => removeEventListener('resize', fit);
-  }, [dep]);
 }
 
 /**

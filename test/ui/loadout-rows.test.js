@@ -1,7 +1,7 @@
 // test/ui/loadout-rows.test.js — the 干员调配 roster as one list (0.2.2): the quick choices of PR #301 (by @farridge) laid
 // out as one row per operator with aligned columns instead of three columns of cards (the owner's decision of 2026-10-08:
 // 「三个竖排有点乱影响观感」), and the per-operator 潜能 / 练度 controls (「调配干员里自己设置吧，默认满潜满加成」): the row's skill
-// / module buttons and selects (state, labels, what a tap sets), the detail's section, a 自选 slot's selects, the 局内数值 at
+// / module buttons and selects (state, labels, what a tap sets), the detail's section, a 自选 picker row's selects, the 局内数值 at
 // the settings, and the css that keeps the columns aligned and the detail sliding over the list below 1000 px. Hook-free
 // views drawn as vnode trees. (The browser side: test/ui/loadout.e2e.test.js.)
 import { test } from 'node:test';
@@ -17,7 +17,8 @@ globalThis.fetch = async (url) => {
 };
 const { RosterRow, RosterHead, statsPreview, LoadoutStats, ModuleInfo } = await import('../../public/js/screens/loadout.js');
 const { CultivationSelects, CultivationSection, cultivateName } = await import('../../public/js/screens/cultivation.js');
-const { DiyPanelView } = await import('../../public/js/screens/diy.js');
+const { DiyPickerView } = await import('../../public/js/screens/diy.js');
+const { KITTED_CHARS } = await import('../../server/sim/content/kits/index.js');
 const { data } = await import('../../public/js/data.js');
 await data.loadAll('chess', 'garrisons', 'assets', 'bonds', 'effects', 'backups');
 
@@ -30,7 +31,7 @@ function* walk(v) {
   if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
   if (!v || typeof v !== 'object') return;
   yield v;
-  if (typeof v.type === 'function' && ['QuickSkill', 'QuickModule', 'CultivationSelects', 'SlotCard', 'KindTag', 'Bonds'].includes(v.type.name)) { yield* walk(v.type(v.props)); return; }
+  if (typeof v.type === 'function' && ['QuickSkill', 'QuickModule', 'CultivationSelects', 'DiyRow'].includes(v.type.name)) { yield* walk(v.type(v.props)); return; }
   yield* walk(v.props?.children);
 }
 const hasClass = (v, c) => typeof v?.props?.class === 'string' && v.props.class.split(/\s+/).includes(c);
@@ -119,18 +120,21 @@ test('the detail\'s section: 潜能 1–6 and the four official 练度 tiers, th
 });
 
 // ours: the pool has no prototypes (shared/local-diy.js, 2026-10-07), so upstream's 原型 card (「原型干员没有潜能与练度」)
-// cannot be drawn from our data; two owned picks of our pool instead (upstream: 凯尔希 + a prototype)
-test('自选编队: an owned pick\'s card carries its operator\'s selects', () => {
+// cannot be drawn from our data; two owned picks of our pool instead (upstream: 凯尔希 + a prototype). The selects are the
+// tier picker's rows since the tab draws its slots as the official cards (maintainer decision 2026-11-19)
+test('自选编队: an owned pick\'s picker row carries its operator\'s selects', () => {
   const sets = [];
   const picks = { chess_char_6_diy1_a: { charId: 'char_1035_wisdel', skillIndex: 0 }, chess_char_5_diy1_a: { charId: 'char_1050_chen3', skillIndex: 0 } };
-  const tree = DiyPanelView({ m: null, picks, legal: picks, kitted: null, onSet: () => {}, picking: null, onPicking: () => {}, ops: { char_1035_wisdel: { cultivate: 1 } }, onOps: (c, p) => sets.push([c, p]) });
-  const cult = find(tree, (v) => hasClass(v, 'diy-slot__cult'));
-  assert.equal(cult.length, 2);
-  const sel = find(tree, (v) => v.type === 'select');
+  const ops = { char_1035_wisdel: { cultivate: 1 } };
+  const rowOf = (tier, charId) => {
+    const tree = DiyPickerView({ m: null, tier, picks, kitted: [...KITTED_CHARS], onDone() {}, onClose() {}, order: [], edits: {}, ops, onOps: (c, p) => sets.push([c, p]) });
+    return find(tree, (v) => hasClass(v, 'diy-opt') && v.props['data-char'] === charId)[0];
+  };
+  const sel = [...find(rowOf(5, 'char_1050_chen3'), (v) => v.type === 'select'), ...find(rowOf(6, 'char_1035_wisdel'), (v) => v.type === 'select')];
   assert.deepEqual(sel.map((s) => s.props.value), ['6', '3', '6', '1'], '赤刃明霄陈 (tier V): the defaults; 维什戴尔 (tier VI): 潜能 6, 精英1');
   sel[2].props.onChange({ currentTarget: { value: '4' } });
   assert.deepEqual(sets, [['char_1035_wisdel', { potential: 4 }]]);
-  assert.ok(!cult.some((v) => textOf(v) === '原型干员没有潜能与练度'));
+  assert.ok(!find(rowOf(6, 'char_1035_wisdel'), (v) => textOf(v) === '原型干员没有潜能与练度').length);
 });
 
 test('局内数值 at the operator\'s settings: 刺玫 at 潜能1 / 未精英化 and at the defaults (×1.1)', () => {

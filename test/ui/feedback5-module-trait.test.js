@@ -107,9 +107,9 @@ test('the 干员调配 module card: 特性 = the class trait (or the rewrite), �
 
 test('the 自选 picker\'s module card: the class trait, then the module\'s line (the roster\'s ModuleInfo)', () => {
   const pick = { charId: 'char_2027_wang', skillIndex: 2, uniEquipId: 'uniequip_002_wang' };
-  const slot = { slotId: 'chess_char_5_diy1_a', tier: 5, shopLevel: 5 };
-  const tree = DiyPickerView({ m: null, slot, picks: { [slot.slotId]: pick }, kitted: [...KITTED_CHARS], onDone() {}, onClose() {},
-    query: '', draft: { ...pick }, onQuery() {}, onDraft() {} });
+  const picks = { chess_char_5_diy1_a: pick };
+  const tree = DiyPickerView({ m: null, tier: 5, picks, kitted: [...KITTED_CHARS], onDone() {}, onClose() {},
+    query: '', order: [pick.charId], edits: { [pick.charId]: { ...pick } }, focus: pick.charId });
   const expand = (v, d = 6) => {
     if (Array.isArray(v)) return v.map((x) => expand(x, d));
     if (!v || typeof v !== 'object') return v;

@@ -208,6 +208,9 @@ export const SEASON_UI_FOLDERS = Object.freeze({
   // the 3/3 确定自选编队 screen (screens/diyChoose.js): its tier marks, and the sprites its prefabs and the 干员调配 card show
   // (season_ui.py 'prefabs': plain and atlas images)
   diychooselevelsprite: 'diyChooseLevelSprite', diychoose: 'diyChooseArt',
+  // the 自选编队 window's lineup (screens/diy.js: the row bands and tags, the empty slot) and the card's level column
+  // (ui/diyCard.js: the promotion phases and the 潜能 icons the client sets at run time — season_ui.py 'named')
+  diylineup: 'diyLineupArt',
   // no screen of ours draws these yet (模式说明 titles, bond phase marks)
   modeinfotitle: 'modeInfoTitle', bondphaseicon: 'bondPhaseIcon',
 });
@@ -259,15 +262,16 @@ export function withSeasonArt(m, local, season, records = {}) {
 }
 
 /** The season whose 3/3 确定自选编队 art (SEASON_UI_FOLDERS diychoose, diychooselevelsprite) a season without its own
- * draws: 盟约's client has no such screen, and since 盟约 took the step it shows 规程's (maintainer decision 2026-11-19). */
+ * draws: 盟约's client has no such screen, and since 盟约 took the step it shows 规程's (maintainer decision 2026-11-19).
+ * The 自选编队 tab's lineup art (diylineup) comes with it: the tab draws the same card in both seasons. */
 const DIY_CHOOSE_ART_SEASON = 'act3autochess';
-const DIY_CHOOSE_FOLDERS = Object.freeze(['diychoose', 'diychooselevelsprite']);
+const DIY_CHOOSE_FOLDERS = Object.freeze(['diychoose', 'diychooselevelsprite', 'diylineup']);
 /** @type {WeakMap<object, { local: any, value: any }>} */
 const diyChooseMemo = new WeakMap();
 
 /**
- * The manifest as the 3/3 screen reads it (screens/diyChoose.js): `m` with 规程's 3/3 art (withSeasonArt of the two
- * folders above, from its extract `season/act3autochess/…`) when `m` has none of its own — the default season, whose
+ * The manifest as the 3/3 screen and the 自选编队 tab read it (screens/diyChoose.js, screens/diy.js): `m` with 规程's
+ * 3/3 and lineup art (withSeasonArt of the folders above, from its extract `season/act3autochess/…`) when `m` has none of its own — the default season, whose
  * manifest the data store hands over as the file (data.js ownSeasonAssets). `m` itself when it has the art (规程's view)
  * or the extract lacks it (the CSS then draws plain fills). Built once per manifest and extract.
  * @param {any} m data/assets.json (or a season's view of it) @param {any} local data/local-assets.json

@@ -265,11 +265,12 @@ describe("规程's default UI theme in its shop and HUD (maintainer decision 202
 });
 
 describe('the 3/3 确定自选编队 art', () => {
-  test("盟约's 3/3 screen draws 规程's extract (withDiyChooseArt), only those two folders; 规程 keeps its view", async () => {
+  test("盟约's 3/3 screen and 自选编队 tab draw 规程's extract (withDiyChooseArt), only those folders; 规程 keeps its view", async () => {
     const { withDiyChooseArt, withSeasonArt, uiUrl, bandIconUrl } = await import('../../public/js/ui/assetUrls.js');
     const ext = { groups: {
       [`season/${S}/diychoose`]: { doc_color: entry('/s/dc/doc_color.png'), btn_confirm: entry('/s/dc/btn_confirm.png') },
       [`season/${S}/diychooselevelsprite`]: { diy_choose_level_icon_5_c: entry('/s/dcl/5_c.png') },
+      [`season/${S}/diylineup`]: { pop_diy_item_add: entry('/s/dl/pop_diy_item_add.png') },
       [`season/${S}/bandicon`]: { icon_amiya: entry('/s/band/icon_amiya.png') },
       [`season/${S}/medalicon`]: { trophy_level1_icon: entry('/s/medal/1.png') },
     } };
@@ -278,6 +279,7 @@ describe('the 3/3 确定自选编队 art', () => {
     const why = "盟约 took the 3/3 step without a client screen of its own: see docs/rules/ui.md 「규정 선발 편성 확정 화면」";
     assert.equal(uiUrl(m, 'diyChooseArt/doc_color'), '/s/dc/doc_color.png', why);
     assert.equal(uiUrl(m, 'diyChooseLevelSprite/diy_choose_level_icon_5_c'), '/s/dcl/5_c.png', why);
+    assert.equal(uiUrl(m, 'diyLineupArt/pop_diy_item_add'), '/s/dl/pop_diy_item_add.png', "the 自选编队 tab's lineup draws the same card in both seasons (docs/rules/ui.md 「선발 편성 탭」)");
     assert.equal(uiUrl(m, 'medalIcon/trophy_level1_icon'), '/en/1.png', "盟约's other art stays its own");
     assert.equal(bandIconUrl(m, 'band_amiya'), '/assets/band/band_amiya.png');
     assert.ok(withDiyChooseArt(base, ext) === m, 'built once per manifest and extract');

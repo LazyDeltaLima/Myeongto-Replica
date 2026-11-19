@@ -56,9 +56,9 @@ const pickRow = async (c, sel) => {
   else await c.click(`${sel} .diy-opt__pick`);
 };
 
-describe('自选编队 picker: reselecting retains the draft (real server, no art needed)', { skip: !UI_ENABLED && 'set SP_E2E=1 (and have Chrome)' }, () => {
+describe('自选编队 tier picker: several at once, edits stay with the operator (real server, no art needed)', { skip: !UI_ENABLED && 'set SP_E2E=1 (and have Chrome)' }, () => {
   for (const slot of [SLOT, 'chess_char_6_diy1_a']) {
-    test(`${slot}: same operator retains skill/module edits; cancel, confirm and reload keep their semantics`, { timeout: 90000 }, async () => {
+    test(`${slot}: a second tap takes an operator out and its edits come back with it; cancel, confirm and reload keep their semantics`, { timeout: 90000 }, async () => {
       const srv = await startRealServer();
       const P = (await import('puppeteer-core')).default;
       const c = new Client(P, srv.base, 'diy-reselect', { prefix: `diy-reselect-${slot}`, w: 1280, h: 720 });
@@ -70,10 +70,11 @@ describe('自选编队 picker: reselecting retains the draft (real server, no ar
         return { skill: el?.querySelector('.diy-pick__detail [data-skill][aria-checked="true"]')?.dataset.skill,
           module: el?.querySelector('.diy-pick__detail [data-module][aria-checked="true"]')?.dataset.module };
       }, picker);
+      const chosen = () => c.page.evaluate((sel) => [...document.querySelectorAll(`${sel} .diy-opt.is-on`)].map((r) => [r.dataset.char, r.querySelector('.diy-opt__idx')?.textContent]), picker);
       const edited = { charId: ASCLN, skillIndex: 0, uniEquipId: null };
       const changed = { charId: ASCLN, skillIndex: 1, uniEquipId: 'uniequip_003_ascln' };
       const open = async () => {
-        await c.click(`.diy-slot[data-slot="${slot}"] :is(.diy-slot__fill, [data-testid="diy-change"])`);
+        await c.click(`.diy-slot[data-slot="${slot}"] :is(.diy-slot__fill, .dccard)`);
         await c.page.waitForSelector(picker, { visible: true, timeout: 8000 });
       };
       const confirm = async (expected) => {
@@ -88,29 +89,31 @@ describe('自选编队 picker: reselecting retains the draft (real server, no ar
         await c.click('.lo .lo-tab[data-tab="diy"]');
         await open();
         await pickRow(c, operator);
+        assert.deepEqual(await chosen(), [[ASCLN, '1']], 'a tap puts it in the choice, numbered');
         await c.click(`${picker} .diy-pick__detail [data-skill="0"]`);
         await c.click(`${picker} .diy-pick__detail [data-module="none"]`);
         await c.shot('empty-edited');
         await pickRow(c, operator);
+        assert.deepEqual(await chosen(), [], 'a second tap takes it out');
+        await pickRow(c, operator);
         await c.shot('empty-reselected');
-        assert.deepEqual(await choices(), { skill: '0', module: 'none' }, 'an empty slot retains its edited draft');
-        // Search the current operator out, then back in and reselect it (no 原型 / 已持有 filter since 2026-10-07)
+        assert.deepEqual(await choices(), { skill: '0', module: 'none' }, 'its edits come back with it');
+        // Search the current operator out, then back in (no 原型 / 已持有 filter since 2026-10-07)
         await c.click(`${picker} .lo-search input`);
         await c.page.keyboard.type('no matching operator');
         assert.equal(await c.page.$(operator), null);
         await c.page.evaluate((sel) => { const el = document.querySelector(sel); el.select(); }, `${picker} .lo-search input`);
         await c.page.keyboard.type('阿斯卡纶');
-        await pickRow(c, operator);
+        assert.deepEqual(await chosen(), [[ASCLN, '1']]);
         assert.deepEqual(await choices(), { skill: '0', module: 'none' });
         await confirm(edited);
         await c.shot('empty-saved');
-        // A saved non-default pick must not overwrite new edits on a repeated operator click.
+        // edits then 取消: the saved pick stays
         await open();
         await c.click(`${picker} .diy-pick__detail [data-skill="1"]`);
         await c.click(`${picker} .diy-pick__detail [data-module="uniequip_003_ascln"]`);
-        await pickRow(c, operator);
         assert.deepEqual(await choices(), { skill: '1', module: 'uniequip_003_ascln' });
-        await c.shot('saved-reselected');
+        await c.shot('saved-edited');
         await c.click(`${picker} .diy-pick__foot button`, '取消');
         await c.page.waitForSelector(picker, { hidden: true, timeout: 3000 });
         assert.deepEqual(await saved(), edited, 'cancel leaves the saved pick unchanged');
@@ -118,7 +121,6 @@ describe('自选编队 picker: reselecting retains the draft (real server, no ar
         assert.deepEqual(await choices(), { skill: '0', module: 'none' });
         await c.click(`${picker} .diy-pick__detail [data-skill="1"]`);
         await c.click(`${picker} .diy-pick__detail [data-module="uniequip_003_ascln"]`);
-        await pickRow(c, operator);
         await confirm(changed);
         await c.page.reload({ waitUntil: 'domcontentloaded' });
         await c.page.waitForSelector('.lobby-screen', { timeout: 20000 });
@@ -126,7 +128,7 @@ describe('自选编队 picker: reselecting retains the draft (real server, no ar
         await c.click('.lo .lo-tab[data-tab="diy"]');
         await open();
         assert.deepEqual(await choices(), { skill: '1', module: 'uniequip_003_ascln' });
-        assert.deepEqual(await saved(), changed, 'confirm persists the current draft across reload');
+        assert.deepEqual(await saved(), changed, 'confirm persists the current pick across reload');
         await c.shot('reload');
         assert.deepEqual(c.problems.filter((p) => p.startsWith('pageerror:')), []);
       } finally {
@@ -139,7 +141,7 @@ describe('自选编队 picker: reselecting retains the draft (real server, no ar
 });
 
 // GitHub #284 (idea from PR #286): Esc in the picker cancels only the picker, like its 取消, also from its search
-// field — the 干员调配 overlay and its four slots stay, and the saved picks do not change; the next Esc closes the overlay
+// field — the 干员调配 overlay and its twelve slots stay, and the saved picks do not change; the next Esc closes the overlay
 describe('自选编队 picker: Esc closes only the picker (real server, no art needed)', { skip: !UI_ENABLED && 'set SP_E2E=1 (and have Chrome)' }, () => {
   test('5阶 / 6阶 slots: Esc cancels the picker, the overlay stays; a second Esc closes the overlay', { timeout: 90000 }, async () => {
     const srv = await startRealServer();
@@ -221,8 +223,8 @@ describe('0.2.0 自选编队 — a slotted operator in the own shop and battle (
       await c.click('[data-testid="diy-confirm"]');
       await c.page.waitForFunction((slot, id) => document.querySelector(`.diy-slot[data-slot="${slot}"]`)?.dataset.char === id, { timeout: 4000 }, SLOT, CHEN3);
       await c.page.waitForFunction(() => /已同步/.test(document.querySelector('[data-testid="diy-sync"]')?.textContent || ''), { timeout: 8000 });
-      const card = await c.page.evaluate((slot) => document.querySelector(`.diy-slot[data-slot="${slot}"]`)?.textContent || '', SLOT);
-      assert.ok(card.includes('赤刃明霄陈') && card.includes('AFT-X'), card);
+      const card = await c.page.evaluate((slot) => document.querySelector(`.diy-slot[data-slot="${slot}"] .dccard__name`)?.textContent || '', SLOT);
+      assert.equal(card, '赤刃明霄陈', 'the slot draws the operator\'s card');
       const stored = await c.page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.diy') || 'null'));
       assert.deepEqual(stored, { v: 1, picks: { [SLOT]: PICK } });
       await c.shot('slotted');

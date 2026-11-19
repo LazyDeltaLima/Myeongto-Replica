@@ -18,7 +18,7 @@
 // The loadout lives in ui/loadoutSync.js (localStorage + room.loadout); the model is ui/loadoutModel.js.
 // The second tab, 干员持有 (0.2.0 补位, screens/ownership.js): which NORMAL chess the player owns — a chess marked 未持有 is
 // deployed as its official stand-in (room.ownership; ui/ownershipModel.js) — with its own 导出 / 导入 / 全部持有.
-// The third tab, 自选编队 (0.2.0 DIY, screens/diy.js): the operators of the four DIY slots (room.diy; ui/diyModel.js) —
+// The third tab, 自选编队 (0.2.0 DIY, screens/diy.js): the operators of the twelve DIY slots (room.diy; ui/diyModel.js) —
 // with its own 导出 / 导入 / 全部清空.
 // Keyboard: Esc closes, ←/→ move through the (filtered) roster when focus is not in the search field (干员调配 tab).
 // 卡片视图 (optional, PR #643 split item 5 / PR #811; the list stays the default): the 干员调配 tab laid out after the
@@ -56,7 +56,7 @@ import { SkinSection } from '../ui/skinPicker.js';
 import { SkillIcon, ModuleGlyph, SkillSection, ModuleSection, ProfFilter } from './loadoutSections.js';
 // the detail's sections moved to loadoutSections.js (the 自选 picker draws them too); the tests still import these two here
 export { ModuleGlyph, ModuleInfo } from './loadoutSections.js';
-import { cultivationCharIds } from '../../../shared/protocol.js';
+import { cultivationCharIds, DIY_LIMITS } from '../../../shared/protocol.js';
 import { setOwned, notOwnedCount, serializeOwnership, parseOwnershipImport, OWNERSHIP_IMPORT_MAX_BYTES } from '../ui/ownershipModel.js';
 import { OwnershipPanel, useOwnershipRoster } from './ownership.js';
 import { DiyPanel, diyData } from './diy.js';
@@ -630,6 +630,8 @@ function LoadoutScreen({ st }) {
   const nDiy = diyCount(st.diy);
   const diyLegal = ready ? sanitizeDiyPicks(st.diy, diyData(), st.diyKitted || []) : {};
   const setDiySlot = (slotId, pick) => setDiyPicks(setPick(loadoutStore.get().diy, slotId, pick));
+  // the tier picker's 确认: its slots in one write (one sync)
+  const setDiySlots = (entries) => setDiyPicks(entries.reduce((p, [slotId, pick]) => setPick(p, slotId, pick), loadoutStore.get().diy));
   const clearDiy = async () => {
     if (!nDiy) return;
     const ok = await confirmDialog({ title: t('全部清空'), text: t('清空全部 {n} 个自选名额？', { n: nDiy }), okText: t('全部清空') });
@@ -761,8 +763,8 @@ function LoadoutScreen({ st }) {
     const onKey = (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (document.querySelector('.modal')) return; // a confirm dialog handles its own keys
-      // the 自选 picker's / strategy grid's Esc closes only that (diy.js)
-      if (e.key === 'Escape' && document.querySelector('.diy-pick, .diy-links__grid')) return;
+      // the 自选 picker's / strategy grid's / phone fold's Esc closes only that (diy.js)
+      if (e.key === 'Escape' && document.querySelector('.diy-pick, .diy-links__grid, .diy.is-fold-open')) return;
       const typing = e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
       if (e.key === 'Escape') {
         e.preventDefault(); e.stopImmediatePropagation();
@@ -885,7 +887,7 @@ function LoadoutScreen({ st }) {
       </div>`}
       ${tab === 'diy' ? html`<div class="lo-top__right">
         ${syncText ? html`<span class=${cx('lo-sync', syncCls)} role="status" data-testid="diy-sync">${t(syncText)}</span>` : null}
-        <span class="lo-count">${t('已选')} <b class="num">${nDiy}</b><span class="num t-dim">/4</span></span>
+        <span class="lo-count">${t('已选')} <b class="num">${nDiy}</b><span class="num t-dim">/${diySlots.length || DIY_LIMITS.slots}</span></span>
         <${Button} variant="ghost" size="sm" data-testid="diy-export" disabled=${!nDiy} onClick=${openExport} title=${t('导出自选编队（可复制或下载）')}>${t('导出')}<//>
         <${Button} variant="ghost" size="sm" data-testid="diy-import" disabled=${!ready} onClick=${openImport} title=${t('导入自选编队（粘贴或选择文件）')}>${t('导入')}<//>
         <${Button} variant="secondary" size="sm" icon="refresh" data-testid="diy-reset" disabled=${!nDiy} onClick=${clearDiy}>${t('全部清空')}<//>
@@ -958,7 +960,7 @@ function LoadoutScreen({ st }) {
       : html`<p class=${cx('lo-note', locked && 'is-locked')}><${Icon} name="info" />${locked ? lockedText : fromText}</p>`}
     ${!ready ? html`<div class="lo-loading"><${Spinner} size="sm" />${t('正在载入干员数据（打开页面后仅载入一次）…')}</div>`
       : lost.length ? html`<${DataMissing} files=${lost} />` : tab === 'diy'
-      ? html`<${DiyPanel} m=${m} picks=${st.diy || {}} legal=${diyLegal} kitted=${st.diyKitted} onSet=${setDiySlot} ops=${st.ops} onOps=${setOpsOf} />`
+      ? html`<${DiyPanel} m=${m} picks=${st.diy || {}} legal=${diyLegal} kitted=${st.diyKitted} onSet=${setDiySlot} onSetMany=${setDiySlots} ops=${st.ops} onOps=${setOpsOf} />`
       : tab === 'ownership'
       ? html`<${OwnershipPanel} m=${m} roster=${ownRoster} notOwned=${st.notOwned} onToggle=${toggleOwned} />`
       : deck ? html`<main class="lo-deckwrap">

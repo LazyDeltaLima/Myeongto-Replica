@@ -1,7 +1,8 @@
 // 0.2.0 自选编队 — client side (research 0.2.0 §2; the owner's decisions of 2026-10-05): the 自选编队 tab's model (storage,
 // the slots, the picker's operators with the kit list — our picks, shared/local-diy.js, no prototype —, skill / module
 // choices without 集成战略 modules, export / import)
-// and its server sync (room.diy; welcome.diyKitted), the tab's components (four slots, the picker, 确认), and the match
+// and its server sync (room.diy; welcome.diyKitted), the tab's components (the twelve slots as the official lineup, the
+// tier picker choosing several at once, 确认), and the match
 // UI of a 自选 piece — the shop / reward card and the detail card show the operator (name, art, class, derived bonds,
 // the pick's skill and module) with a 「自选」 badge, the own pieces get a tag, placement reads the operator's position, and
 // the bond popup lists the 自选 member (own and a teammate's).
@@ -31,7 +32,7 @@ const { ChessDetail, resolveDetail } = await import('../../public/js/ui/detailPa
 const { BondPopup } = await import('../../public/js/ui/bondStrip.js');
 const { ownerBoard } = await import('../../public/js/ui/watchBonds.js');
 const { standInPieces } = await import('../../public/js/screens/game/standInTags.js');
-const { DiyPanelView, DiyPickerView } = await import('../../public/js/screens/diy.js');
+const { DiyPanelView, DiyPickerView, pickerStart } = await import('../../public/js/screens/diy.js');
 const { data } = await import('../../public/js/data.js');
 const { DATA } = await import('../match/harness.js');
 const { KITTED_CHARS } = await import('../../server/sim/content/kits/index.js');
@@ -88,7 +89,7 @@ describe('自选编队 model (ui/diyModel.js)', () => {
     assert.deepEqual(M.diySlotList(D).map((s) => [s.slotId, s.tier, s.shopLevel]), [5, 6].flatMap((t) => [1, 2, 3, 4, 5, 6].map((n) => [`chess_char_${t}_diy${n}_a`, t, t])));
   });
 
-  test('the picker lists only kitted operators — our picks, no prototype —, marks one another slot holds', () => {
+  test('the picker lists only kitted operators — our picks, no prototype —, marks one a slot of the other tier holds', () => {
     const opts = M.pickOptions(T5A, {}, D, KIT);
     const ids = opts.map((o) => o.charId);
     assert.deepEqual([...ids].sort(), [...LOCAL_DIY_PICKS].sort(), 'our picks');
@@ -98,11 +99,12 @@ describe('自选编队 model (ui/diyModel.js)', () => {
     assert.deepEqual(opts.find((o) => o.charId === ASCLN).bonds, ['emptyShip']);
     assert.deepEqual(opts.find((o) => o.charId === WANG).bonds, ['yanShip']);
     assert.deepEqual(M.pickOptions(T6A, {}, D, KIT).map((o) => o.charId).sort(), [...ids].sort(), 'the same five at tier 6');
-    // taken: an owned operator in any other slot
+    // taken: an owned operator in a slot of the other tier; the tier's own slots are the picker's choices (it fills the
+    // whole tier at once — docs/rules/ui.md 「선발 편성 탭」)
     const roster = { [T5B]: { charId: WANG, skillIndex: 0 }, [T6A]: MAIN_PICK };
     const at5 = M.pickOptions(T5A, roster, D, KIT);
     assert.equal(at5.find((o) => o.charId === ASCLN).taken, T6A);
-    assert.equal(at5.find((o) => o.charId === WANG).taken, T5B);
+    assert.equal(at5.find((o) => o.charId === WANG).taken, null, 'another slot of the same tier: still a choice');
     assert.equal(at5.find((o) => o.charId === CHEN3).taken, null);
     assert.deepEqual(M.pickOptions(T5A, {}, D, []), [], 'no kit list (not connected): nothing to pick');
   });
@@ -222,114 +224,134 @@ test('diy sync: welcome brings the kit list and sends room.diy; edits are deboun
 // ---- the tab --------------------------------------------------------------------------------------------------------------
 
 describe('自选编队 tab (screens/diy.js)', () => {
-  for (const slotId of [T5A, T6A]) {
+  /**
+   * The tier picker driven like the component (DiyPicker keeps this state): `st` holds order / edits / focus and what
+   * the callbacks received; `view()` draws it again.
+   */
+  const pickerOf = (tier, picks, extra = {}) => {
+    const start = pickerStart(tier, picks, D);
+    const st = { order: start.order, edits: start.edits, focus: start.order[0] ?? null, query: '', done: [], refused: 0, detail: 0 };
+    const view = () => expand(DiyPickerView({ m: null, tier, picks, kitted: KIT, onDone: (l) => st.done.push(l), onClose() {},
+      query: st.query, order: st.order, edits: st.edits, focus: st.focus, top: start.order,
+      onOrder: (o) => { st.order = o; }, onEdits: (f) => { st.edits = f(st.edits); }, onFocus: (f) => { st.focus = f; },
+      onRefuse: () => { st.refused++; }, onNarrowDetail: (v) => { if (v) st.detail++; }, ...extra }));
+    const nodes = () => [...walk(view())];
+    const row = (charId) => nodes().find((v) => hasClass(v, 'diy-opt') && v.props['data-char'] === charId);
+    const tap = (charId) => { const r = row(charId); assert.ok(r, `${charId} is listed`); r.props.onClick({ target: { closest: () => null } }); };
+    const click = (key, value) => {
+      const node = nodes().find((v) => v.props?.[key] === value && typeof v.props.onClick === 'function' && (key === 'data-testid' || v.props.role === 'radio'));
+      assert.ok(node, `${key}=${value} is clickable`);
+      node.props.onClick();
+    };
+    return { st, view, nodes, row, tap, click };
+  };
+  const numberOf = (r) => textOf([...walk(r)].find((v) => hasClass(v, 'diy-opt__idx')) ?? null);
+
+  for (const tier of [5, 6]) {
+    const slot = tier === 5 ? T5A : T6A;
     for (const saved of [null, MAIN_PICK]) {
-      test(`the picker: ${slotId}, ${saved ? 'saved' : 'empty'} slot retains edits when reselecting its operator`, () => {
-        const picks = saved ? { [slotId]: saved } : {};
-        const done = [];
-        let draft = saved ? { ...saved } : null;
-        let filter = 'all';
-        let query = '';
-        const view = () => expand(DiyPickerView({ m: null, slot: { slotId }, picks, kitted: KIT,
-          onDone: (p) => done.push(p), onClose() {}, filter, query, draft,
-          onFilter: (f) => { filter = f; }, onQuery: (q) => { query = q; }, onDraft: (d) => { draft = d; } }));
-        // the detail's choices (role radio): a row's own quick choices carry the same data-skill / data-module
-        const click = (key, value) => {
-          const node = [...walk(view())].find((v) => v.props?.[key] === value && typeof v.props.onClick === 'function'
-            && (key === 'data-char' || key === 'data-testid' || v.props.role === 'radio'));
-          assert.ok(node, `${key}=${value} is clickable`);
-          node.props.onClick();
-        };
-        click('data-char', ASCLN);
-        click('data-skill', 0);
-        click('data-module', 'none');
+      test(`the tier ${tier} picker, ${saved ? 'a saved' : 'no'} pick: a row's edits stay with the operator, out of the choice and back`, () => {
+        const p = pickerOf(tier, saved ? { [slot]: saved } : {});
+        assert.deepEqual(p.st.order, saved ? [ASCLN] : []);
+        if (saved) p.tap(ASCLN); // out, to come back below
+        p.tap(ASCLN);
+        assert.deepEqual(p.st.order, [ASCLN]);
+        assert.equal(p.st.focus, ASCLN, 'the detail shows the last row tapped');
+        p.click('data-skill', 0);
+        p.click('data-module', 'none');
         const edited = { charId: ASCLN, skillIndex: 0, uniEquipId: null };
-        assert.deepEqual(draft, edited);
-        click('data-char', ASCLN);
-        assert.deepEqual(draft, edited, 'reselecting keeps both the skill and explicit no-module choice');
-        // Searching the operator out and back in must not change the draft either (no 原型 / 已持有 filter here since 2026-10-07).
-        query = 'no matching operator';
-        assert.ok(![...walk(view())].some((v) => hasClass(v, 'diy-opt')));
-        query = '阿斯卡纶';
-        click('data-char', ASCLN);
-        assert.deepEqual(draft, edited);
-        click('data-testid', 'diy-confirm');
-        assert.deepEqual(done, [edited]);
-        assert.deepEqual(picks, saved ? { [slotId]: saved } : {}, 'the saved picks stay unchanged until the parent saves');
-        // Switching operators still initializes the new pick, and returning restores the saved/default pick.
-        query = '';
-        click('data-char', WANG);
-        assert.deepEqual(draft, M.defaultPick(WANG, slotId, D));
-        click('data-char', ASCLN);
-        assert.deepEqual(draft, saved || M.defaultPick(ASCLN, slotId, D));
+        assert.deepEqual(p.st.edits[ASCLN], edited);
+        p.tap(ASCLN);
+        assert.deepEqual(p.st.order, [], 'a second tap takes it out');
+        p.tap(ASCLN);
+        assert.deepEqual(p.st.edits[ASCLN], edited, 'its edits come back with it');
+        // searching it out and back in changes nothing either
+        p.st.query = 'no matching operator';
+        assert.ok(!p.nodes().some((v) => hasClass(v, 'diy-opt')));
+        p.st.query = '阿斯卡纶';
+        assert.ok(p.row(ASCLN));
+        p.click('data-testid', 'diy-confirm');
+        assert.deepEqual(p.st.done, [[edited]]);
+        // another operator starts at its default pick
+        p.st.query = '';
+        p.tap(WANG);
+        p.click('data-testid', 'diy-confirm');
+        assert.deepEqual(p.st.done.at(-1), [edited, M.defaultPick(WANG, slot, D)]);
       });
     }
   }
 
-  test('twelve slots by tier: an empty slot to fill, a filled one shows the operator, its skill and module — no 原型 / 已持有 tag', () => {
-    const tree = expand(DiyPanelView({ m: data.get('assets'), picks: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK }, legal: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK }, kitted: KIT, onSet() {}, picking: null, onPicking() {} }));
+  test('the picker: several at once, numbered in the order chosen, six at most (a seventh refused), 清空选择, the other tier greyed', () => {
+    const picks = { [T5B]: WANG_PICK, [T5A]: MAIN_PICK, [T6A]: { charId: CHEN3, skillIndex: 0 } };
+    const p = pickerOf(5, picks);
+    // the tier's operators first, in slot order (T5A before T5B), numbered 1, 2
+    assert.deepEqual(p.st.order, [ASCLN, WANG]);
+    const rows = p.nodes().filter((v) => hasClass(v, 'diy-opt'));
+    assert.deepEqual(rows.slice(0, 2).map((v) => v.props['data-char']), [ASCLN, WANG]);
+    assert.deepEqual([numberOf(p.row(ASCLN)), numberOf(p.row(WANG))], ['1', '2']);
+    assert.ok(hasClass(p.row(ASCLN), 'is-on') && !hasClass(p.row(ASCLN), 'is-taken'), 'the same tier\'s other slot: a choice, not greyed');
+    // the other tier's operator: greyed, its row does nothing
+    assert.ok(hasClass(p.row(CHEN3), 'is-taken'));
+    p.tap(CHEN3);
+    assert.deepEqual(p.st.order, [ASCLN, WANG]);
+    // taking the first out renumbers the rest
+    p.tap(ASCLN);
+    assert.equal(numberOf(p.row(WANG)), '1');
+    // fill to six, then a seventh is refused and nothing changes
+    const free = rows.map((v) => v.props['data-char']).filter((c) => c !== CHEN3 && c !== WANG);
+    for (const c of free.slice(0, 5)) p.tap(c);
+    assert.equal(p.st.order.length, 6);
+    assert.equal(textOf(p.nodes().find((v) => v.props?.['data-testid'] === 'diy-pick-count')), '6/6');
+    const before = [...p.st.order];
+    const seventh = free[5];
+    assert.ok(seventh, 'a seventh operator to try');
+    p.tap(seventh);
+    assert.deepEqual([p.st.order, p.st.refused], [before, 1], 'refused: the choice stays as it was');
+    // 清空选择 empties the choice (the slots change only on 确认)
+    p.click('data-testid', 'diy-pick-clear');
+    assert.deepEqual(p.st.order, []);
+  });
+
+  test('确认 fills the tier\'s slots 1… in the order chosen and empties the rest (one write); 取消 changes nothing', () => {
+    const many = [];
+    const closed = [];
+    const picks = { [T5B]: WANG_PICK };
+    const panel = DiyPanelView({ m: null, picks, legal: picks, kitted: KIT, onSet() { throw new Error('one write'); }, onSetMany: (e) => many.push(e),
+      picking: 5, onPicking: (v) => closed.push(v) });
+    const picker = [...walk(panel)].find((v) => v.props?.tier === 5 && typeof v.props.onDone === 'function');
+    picker.props.onDone([{ ...MAIN_PICK }, WANG_PICK]);
+    const slots5 = M.diySlotList(D).filter((s) => s.tier === 5).map((s) => s.slotId);
+    assert.deepEqual(many, [slots5.map((id, i) => [id, [MAIN_PICK, WANG_PICK][i] ?? null])]);
+    assert.deepEqual(closed, [null]);
+    picker.props.onClose();
+    assert.equal(many.length, 1);
+  });
+
+  test('narrow screens: 详情 › opens the row\'s detail and leaves the choice alone', () => {
+    const p = pickerOf(5, {});
+    const det = [...walk(p.row(WANG))].find((v) => hasClass(v, 'diy-opt__det'));
+    assert.ok(det, 'every row ends with 详情');
+    det.props.onClick();
+    assert.deepEqual([p.st.focus, p.st.detail, p.st.order], [WANG, 1, []]);
+  });
+
+  test('twelve slots by tier: an empty one is the official empty slot, a filled one the 干员调配 card; a tap opens the slot\'s tier', () => {
+    const opened = [];
+    const tree = expand(DiyPanelView({ m: data.get('assets'), picks: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK }, legal: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK }, kitted: KIT,
+      onSet() {}, picking: null, onPicking: (v) => opened.push(v) }));
     const slots = [...walk(tree)].filter((v) => hasClass(v, 'diy-slot'));
     assert.deepEqual(slots.map((v) => v.props['data-slot']), [5, 6].flatMap((t) => [1, 2, 3, 4, 5, 6].map((n) => `chess_char_${t}_diy${n}_a`)));
-    const first = slots[0];
-    assert.equal(first.props['data-char'], ASCLN);
-    const txt = textOf(first);
-    assert.ok(txt.includes(DATA.backups.units[ASCLN].name) && txt.includes('S3') && txt.includes('AMB-X'), txt);
-    assert.equal(slots[6].props['data-char'], WANG);
-    // every pick here is an owned 6★ (no prototypes): no 原型 / 已持有 tag on any slot (maintainer decision 2026-10-07)
-    for (const v of slots) assert.ok(!textOf(v).includes('已持有') && !textOf(v).includes('原型') && ![...walk(v)].some((x) => hasClass(x, 'diy-tag')), v.props['data-slot']);
-    assert.ok(hasClass(slots[1], 'is-empty') && textOf(slots[1]).includes('选择干员'));
-  });
-
-  test('the picker: the slot\'s operators; choosing one and its skill / module confirms the pick', () => {
-    const done = [];
-    let draft = { ...MAIN_PICK };
-    const view = () => expand(DiyPickerView({ m: null, slot: { slotId: T5A, tier: 5, shopLevel: 5 }, picks: { [T5A]: MAIN_PICK }, kitted: KIT, onDone: (p) => done.push(p), onClose() {},
-      filter: 'all', query: '', draft, onFilter() {}, onQuery() {}, onDraft: (d) => { draft = d; } }));
-    let tree = view();
-    const opts = [...walk(tree)].filter((v) => hasClass(v, 'diy-opt'));
-    assert.deepEqual(opts.map((v) => v.props['data-char']).sort(), [...LOCAL_DIY_PICKS].sort());
-    // no 全部 / 原型 / 已持有 filter chips and no kind tags (maintainer decision 2026-10-07); the roster's 职业 chips only
-    assert.ok(![...walk(tree)].some((v) => v.props?.['data-filter'] != null || hasClass(v, 'diy-tag')), 'no filter chips, no tags');
-    assert.ok([...walk(tree)].filter((v) => hasClass(v, 'lo-chip')).every((v) => hasClass(v, 'lo-chip--prof')), 'only the 职业 chips');
-    // the current pick is shown with its three skills and its modules (none + X + Y)
-    const skills = [...walk(tree)].filter((v) => v.props?.role === 'radio' && v.props['data-skill'] != null);
-    assert.deepEqual(skills.map((v) => v.props['data-skill']), [0, 1, 2]);
-    assert.equal(skills.find((v) => v.props['aria-checked'] === 'true').props['data-skill'], 2);
-    const mods = [...walk(tree)].filter((v) => v.props?.role === 'radio' && v.props['data-module'] != null);
-    assert.deepEqual(mods.map((v) => v.props['data-module']), ['none', 'uniequip_002_ascln', 'uniequip_003_ascln']);
-    // another skill and no module, then 确认
-    skills.find((v) => v.props['data-skill'] === 0).props.onClick();
-    tree = view();
-    [...walk(tree)].find((v) => v.props?.role === 'radio' && v.props['data-module'] === 'none').props.onClick();
-    tree = view();
-    [...walk(tree)].find((v) => v.props?.['data-testid'] === 'diy-confirm').props.onClick();
-    assert.deepEqual(done, [{ charId: ASCLN, skillIndex: 0, uniEquipId: null }]);
-    // another operator: its default pick (S3, its first module) until changed
-    [...walk(tree)].find((v) => hasClass(v, 'diy-opt') && v.props['data-char'] === WANG).props.onClick();
-    tree = view();
-    assert.deepEqual([...walk(tree)].filter((v) => v.props?.role === 'radio' && v.props['data-module'] != null).map((v) => v.props['data-module']), ['none', 'uniequip_002_wang']);
-    [...walk(tree)].find((v) => v.props?.['data-testid'] === 'diy-confirm').props.onClick();
-    assert.deepEqual(done.at(-1), { charId: WANG, skillIndex: 2, uniEquipId: 'uniequip_002_wang' });
-  });
-
-  test('the picker of a filled slot carries 清空 (the draft\'s preset slot opens it — maintainer request 2026-10-13)', () => {
-    let cleared = 0;
-    const view = (picks, onClear) => expand(DiyPickerView({ m: null, slot: { slotId: T5A, tier: 5, shopLevel: 5 }, picks, kitted: KIT, onDone() {}, onClose() {},
-      onClear, filter: 'all', query: '', draft: picks[T5A] ? { ...picks[T5A] } : null, onFilter() {}, onQuery() {}, onDraft() {} }));
-    const clear = (tree) => [...walk(tree)].find((v) => v.props?.['data-testid'] === 'diy-pick-clear');
-    clear(view({ [T5A]: MAIN_PICK }, () => cleared++)).props.onClick();
-    assert.equal(cleared, 1);
-    assert.equal(clear(view({}, () => cleared++)), undefined, 'an empty slot: nothing to clear');
-    assert.equal(clear(view({ [T5A]: MAIN_PICK }, null)), undefined, 'no handler: no button');
-    // the panel: 清空 empties the slot and closes the picker
-    const set = [];
-    const closed = [];
-    const panel = DiyPanelView({ m: null, picks: { [T5A]: MAIN_PICK }, legal: { [T5A]: true }, kitted: KIT, onSet: (id, p) => set.push([id, p]),
-      picking: T5A, onPicking: (v) => closed.push(v) });
-    const picker = [...walk(panel)].find((v) => v.props?.slot?.slotId === T5A && typeof v.props.onDone === 'function');
-    picker.props.onClear();
-    assert.deepEqual(set, [[T5A, null]]);
-    assert.deepEqual(closed, [null]);
+    assert.deepEqual([slots[0].props['data-char'], slots[6].props['data-char']], [ASCLN, WANG]);
+    const card = [...walk(slots[0])].find((v) => v.props?.testid === 'diy-slot-card');
+    assert.ok(card && card.props.pick === MAIN_PICK && card.props.tier === 5, 'the filled slot draws the shared card (ui/diyCard.js)');
+    const fill = [...walk(slots[1])].find((v) => hasClass(v, 'diy-slot__fill'));
+    assert.ok(hasClass(slots[1], 'is-empty') && fill);
+    fill.props.onClick();
+    card.props.onTap(T5A);
+    [...walk(slots[7])].find((v) => hasClass(v, 'diy-slot__fill')).props.onClick();
+    assert.deepEqual(opened, [5, 5, 6], 'a slot opens its tier\'s picker');
+    // no 潜能 / 练度 selects on the tab (the picker's rows carry them) and no 原型 / 已持有 tag (maintainer decision 2026-10-07)
+    assert.ok(![...walk(tree)].some((v) => v.type === 'select' || hasClass(v, 'diy-tag')));
   });
 
   test('the picker detail (upstream 0.2.4): 潜能与练度, 局内数值, and skill numbers at the rank each slot piece fights at', async () => {
@@ -337,8 +359,8 @@ describe('自选编队 tab (screens/diy.js)', () => {
     const ds = getDefaultSource();
     const pick = { charId: CHEN3, skillIndex: 0, uniEquipId: null };
     const ops = { [CHEN3]: { potential: 6, cultivate: 3 } };
-    const view = (previewLevel, o = {}) => expand(DiyPickerView({ m: null, slot: { slotId: T5A, tier: 5, shopLevel: 5 }, picks: {}, kitted: KIT, onDone() {}, onClose() {},
-      filter: 'all', query: '', draft: pick, onFilter() {}, onQuery() {}, onDraft() {}, ops, onOps() {}, previewLevel, onPreviewLevel() {}, ...o }), 8);
+    const view = (previewLevel, o = {}) => expand(DiyPickerView({ m: null, tier: 5, picks: {}, kitted: KIT, onDone() {}, onClose() {},
+      query: '', order: [CHEN3], edits: { [CHEN3]: pick }, focus: CHEN3, ops, onOps() {}, previewLevel, onPreviewLevel() {}, ...o }), 8);
     const s1 = (tree) => [...walk(tree)].find((v) => v.props?.role === 'radio' && v.props['data-skill'] === 0);
     // the sim's def of each piece: the slot's `_a` form is skill rank 4, the `_b` (精锐) rank 7 — 潜能 / 练度 never change it
     const simA = ds.getChess(T5A, { diy: pick, potential: 6 });
@@ -362,6 +384,19 @@ describe('自选编队 tab (screens/diy.js)', () => {
     const cult = (tree) => [...walk(tree)].some((v) => v.type === 'h3' && textOf(v).includes('潜能与练度'));
     assert.ok(cult(view('elite')), 'the cultivation selects');
     assert.ok(!cult(view('elite', { onOps: null })), 'none without a setter');
+  });
+
+  test('the shared card: the level column on both screens, the name in bestFit (no ellipsis), the lineup art borrowed by 盟约', () => {
+    const card = readFileSync(path.join(ROOT, 'public/js/ui/diyCard.js'), 'utf8');
+    assert.match(card, /<\$\{LevelColumn\} /, 'the level column (obj_left_info_part) is part of the card — docs/rules/ui.md 「카드」');
+    assert.match(card, /useFitLine\(nameRef, name, CARD_NAME_FIT\)/, 'txt_char_name bestFit — docs/rules/ui.md 「카드」');
+    assert.match(card, /CARD_NAME_FIT = Object\.freeze\(\{ min: 6, wrap: false/);
+    const css = readFileSync(path.join(ROOT, 'public/css/screens/diychoose.css'), 'utf8');
+    assert.doesNotMatch(css.match(/\.dccard__name \{[^}]*\}/)[0], /text-overflow/, 'no ellipsis on the card name');
+    for (const f of ['public/js/screens/diyChoose.js', 'public/js/screens/diy.js']) {
+      assert.match(readFileSync(path.join(ROOT, f), 'utf8'), /import \{ DiyCard[^}]*\} from '\.\.\/ui\/diyCard\.js'/, `${f} draws the shared card`);
+    }
+    assert.match(readFileSync(path.join(ROOT, 'public/js/screens/diy.js'), 'utf8'), /const art = withDiyChooseArt\(m, data\.get\('local'\)\);/, "盟约's tab draws 规程's lineup art");
   });
 });
 

@@ -123,9 +123,11 @@ export function defaultPick(charId, slotId, data) {
 }
 
 /**
- * The operators a slot lists (shared/diy.js diyPool of its tier with the kit list — prototypes first, then the owned
- * 6★), each with what the picker card shows and whether another slot holds it: `taken` names that slot (an owned
- * operator fills one slot; the two picks of a tier differ).
+ * The operators a slot's tier lists (shared/diy.js diyPool of its tier with the kit list — prototypes first, then the
+ * owned 6★), each with what the picker card shows and whether a slot of the OTHER tier holds it: `taken` names that slot
+ * (an owned operator fills one slot of the twelve). The tier's own slots never take an operator from its list: the
+ * picker fills the whole tier at once (screens/diy.js, maintainer decision 2026-11-19), so an operator another slot of
+ * the tier holds is one of its choices.
  * @param {string} slotId @param {Record<string, any>} picks the current roster @param {any} data
  * @param {Iterable<string>|null} kitted
  * @returns {Array<{ charId: string, unit: any, bonds: string[], proto: boolean, taken: string|null }>}
@@ -141,9 +143,9 @@ export function pickOptions(slotId, picks, data, kitted) {
     const proto = isPrototypePick(data, slot.tier, charId);
     let taken = null;
     for (const [other, p] of Object.entries(roster)) {
-      if (other === slot.baseId || p.charId !== charId) continue;
-      // the same tier: never twice; another tier: an owned operator only once (a prototype may repeat across tiers)
-      if (tierOf(other) === slot.tier || !isPrototypePick(data, tierOf(other), charId)) { taken = other; break; }
+      if (p.charId !== charId || tierOf(other) === slot.tier) continue;
+      // another tier: an owned operator only once (a prototype may repeat across tiers)
+      if (!isPrototypePick(data, tierOf(other), charId)) { taken = other; break; }
     }
     return { charId, unit: backups.units?.[charId] ?? null, bonds: backups.diy?.operators?.[charId]?.bonds ?? [], proto, taken };
   });
