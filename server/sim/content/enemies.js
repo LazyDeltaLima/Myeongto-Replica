@@ -114,7 +114,7 @@
 // Every name this file exported before the split is still exported from here.
 
 import { TICK } from '../constants.js';
-import { stOf, abOf, attach, safe, dispatch, canCast, elem, alliesInTiles } from './enemies/helpers.js';
+import { stOf, abOf, attach, safe, dispatch, canCast, elem, alliesInTiles, castLength, castStrikeAt } from './enemies/helpers.js';
 import { INVISIBLE_KITS } from './enemies/invisible.js';
 import { TIMES_KITS } from './enemies/times.js';
 import { ELEMENT_KITS } from './enemies/element.js';
@@ -134,6 +134,8 @@ export {
   targetsNear, allTargets, areaAllies, areaAlliesInTiles, fieldAllies, auraAllies, targetAndArea, byPriority, zone,
   remainingRoute, stayRoute, spawnChildren, stepToward, setHits, hitCount, isHitCount, setForm, lpLoss, expose,
   expectedFinal, absorbArts,
+  // a skill's cast length and the frame of its effect (kept beside atCastEvent, which the kits time their parts with)
+  castLength, castStrikeAt,
 } from './enemies/helpers.js';
 export { TRANSLATOR_CHANGE } from './enemies/leaders.js';
 export { BOMBD_RELEASE, BOMBD_POST_DELAY } from './enemies/fly.js';
@@ -382,115 +384,6 @@ function slotSkill(e, ab, a) {
   const s = a.name != null ? ab.sk[a.name] : null;
   const slot = enemyHasAttack(e) || !!ab.ownAttack || !!(e.def && e.def.raw && e.def.raw.attackAbility && !(e.profile && e.profile.noAttack));
   return !!(s && s.cast) && slot;
-}
-
-/**
- * The length of a skill's cast (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 시전 길이), by the class of its ability
- * (`skillCast.kind`, tools/local-extract/attack_timing.py cast_fields):
- * - an animated ability: the attack time it plays to — the client's `AbstractAnimatedAbility.get_cooldown` by `_timeMode`
- *   (`time`): 0 the enemy's attack interval, 1 its clip (`DoAttach` writes the clip's length into `_cooldown`; without a
- *   clip the prefab's `_cooldown`, 0 in this mode), 2 its `_cooldown` (`cd`), 3 the skill blackboard's `_cooldownKey`
- *   (`cdKey`, read at attach). With a clip the cast is the clip × clamp(attack time / clip, 0.1, `max`), `max` −1 = no
- *   bound (`UpdatePlaybackSpeed`, as ai.js attackTiming) — so `_timeMode` 1 plays the clip as it is. Without one
- *   (`UpdatePlaybackSpeed`: `GetAnimationTime` fails → `m_attackTime` = that attack time, scale 1) it casts the attack time
- *   itself (`EasyToStartAbility.OnCastStart`: `m_cachedDuration` = `GetDuration` = `m_attackTime`; the post-delay waits out
- *   the rest) — the channels' ThreePartChannelingAnimation stretches its loop to the same total;
- * - `buff` (ActiveBuffAbility, none of this mode's with `_waitForCasting`): one fixed update before its spell and one after
- *   (`<OnWaitForPreDelay>` / `<OnWaitForPostDelay>` yield `sharedWaitForFixedUpdate`) — two ticks;
- * - `seq` (AbilitySequenceGroup): its children one after another (`_MoveToNextActiveAbility` as each finishes), the sum;
- * - `par` (AbilityParallelGroup): its children cast together and it finishes as the last one does (`_OnSubAbilityFinished`
- *   counts them down), the longest; with `_finishAllAbilitiesIfOneFinish` (`one`) the finish of its `_mainAbility`
- *   (`main`, the index among `subs`), or without one the first child's to finish, ends the others — that child's length;
- * - `sel` (AbilitySelectableGroup): one child per cast (the first ready one whose trigger finds a target, or the next in
- *   turn with `_selectAbilitySequentially`), finishing as it does — read as the first child's length (the children of each
- *   such skill in this mode are alike: 【悲惨之雨】's Left / Right both play `Skill_2`);
- * - 0 for a clip the data lacks (`miss`, none since 2026-11-14).
- * A RangedAttack with `_waitForProjectileInvalid` (`proj`) casts until its projectile is gone (onSkillSlot's open cast) and
- * at least this: its `m_cachedDuration` is the same `GetDuration` — with no clip the attack time too (`RangedAttack.
- * OnCastStart` → … → `EasyToStartAbility.OnCastStart` after `AbilityStandard.OnCastStart` updated the playback speed).
- */
-export function castLength(e, cast, bb) {
-  if (!cast) return 0;
-  if (cast.kind === 'buff') return 2 * TICK;
-  const subs = cast.subs || [];
-  if (cast.kind === 'seq') return subs.reduce((t, c) => t + castLength(e, c, bb), 0);
-  if (cast.kind === 'par') {
-    if (!subs.length) return 0;
-    const lens = subs.map((c) => castLength(e, c, bb));
-    if (!cast.one) return Math.max(...lens);
-    return cast.main != null && lens[cast.main] != null ? lens[cast.main] : Math.min(...lens);
-  }
-  if (cast.kind === 'sel') return subs.length ? castLength(e, subs[0], bb) : 0;
-  if (cast.kind || cast.miss) return 0;
-  const dur = cast.dur > 0 ? cast.dur : 0;
-  const time = cast.time ?? 0;
-  const at = time === 1 ? dur : time === 2 ? (cast.cd > 0 ? cast.cd : 0)
-    : time === 3 ? Math.max(0, Number((bb && bb[cast.cdKey || 'duration']) ?? 0) || 0) : e.s.interval;
-  if (!dur) return at;
-  const hi = cast.max > 0 ? cast.max : cast.max < 0 ? Infinity : 1;
-  const k = Math.min(hi, Math.max(0.1, at / dur));
-  return dur * k;
-}
-
-/**
- * When the effect of a skill's cast comes, s from the cast's start (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 효과가 나는 때):
- * the frame its ability waits for before its spell (공식 클라에서 확인 — `EasyToStartAbility.OnCastStart` → `<OnWaitForPreDelay>`
- * → spell; the same for the attack abilities, `AnimatedActionTo*` and `GloballUniqueBuffAbility`):
- * - an animated ability with a clip that waits for its attack event (`_waitForAttackEvent` 1): the clip's first OnAttack frame
- *   (`hit`) × the scale the cast plays at (castLength ÷ clip, `UpdatePlaybackSpeed`); a clip without one: the whole cast
- *   (`WaitForNextEvent` waits up to `m_cachedDuration`); one that does not wait (`wait` 0): its `_preDelay` × that scale;
- * - one without a clip: its attack time, the whole cast (as castLength);
- * - a three-part channel (ThreePartChannelingAnimation, `chan`): chanStrikeAt — the first OnAttack frame of its clips in
- *   the order they play, or `_preDelay` when the ability does not wait for the event;
- * - an ActiveBuffAbility (`buff`): its spell after one fixed update (`<OnWaitForPreDelay>` yields `sharedWaitForFixedUpdate`);
- * - a selectable group (`sel`): its child's; a sequence (`seq`): the last child's, after the others; a parallel group: null
- *   (its children's own frames — no kit casts one at the attack slot through this path).
- * A kit whose skill fires at that frame says `atStrike` (archetypes.js skill); one with a part at the cast's start keeps
- * `fire` and times its effect itself (enemies/helpers.js atCastEvent).
- */
-export function castStrikeAt(e, cast, bb) {
-  if (!cast) return 0;
-  if (cast.kind === 'buff') return TICK;
-  const subs = cast.subs || [];
-  if (cast.kind === 'sel') return subs.length ? castStrikeAt(e, subs[0], bb) : 0;
-  if (cast.kind === 'seq') {
-    if (!subs.length) return 0;
-    let t = 0;
-    for (let i = 0; i < subs.length - 1; i++) t += castLength(e, subs[i], bb);
-    const last = castStrikeAt(e, subs[subs.length - 1], bb);
-    return last == null ? null : t + last;
-  }
-  if (cast.kind === 'par') return null;
-  const len = castLength(e, cast, bb);
-  if (cast.chan) return chanStrikeAt(cast, len);
-  if (!(cast.dur > 0)) return len;
-  const scale = len / cast.dur;
-  if (cast.wait === 0) return Math.min(len, (cast.pre > 0 ? cast.pre : 0) * scale);
-  return Number.isFinite(cast.hit) ? Math.min(len, cast.hit * scale) : len;
-}
-
-/**
- * When the spell of a three-part channel's ability comes, s from the cast's start (castStrikeAt; 공식 클라에서 확인): the ability
- * plays no clip of its own — its ThreePartChannelingAnimation plays the begin clip, the loop for what is left of the
- * ability's time `len` and the end clip (`UpdatePlaybackSpeed`: begin and end squeezed into `len` when longer, the loop
- * then 0; `_waitForAttachFinishEvent` (`chan.wait`) holds the loop until the attack-finish event), and the model's Spine
- * OnAttack event in any of them is the entity's attack event (`SpineAnimator._OnEvent`), which the ability waits for
- * (`_waitForAttackEvent`, EasyToStartAbility.<OnWaitForPreDelay>) up to its time — the begin clip's frame (假想敌：黑云
- * `KillOthers` 0.633 s, “萨米的意志” `Lasso` 1 s), else the loop's, else the end clip's (扎罗 【溶血骇惧】 5 s − `A_Skill_End`
- * 1 s + its 0.367 s frame = 4.367 s), else the whole cast. One that does not wait (`wait` 0) casts its spell after
- * `_preDelay` (假想敌：铳 (隐秘核心) 【末日布道】 at once, 魂灵残迹 `Laser` 0.2 s). Data: `skillCast` `chanBegin` / `chanLoop` /
- * `chanEnd` ({ dur, hit? }, tools/build-data.mjs enemySkillCast).
- */
-function chanStrikeAt(cast, len) {
-  if (cast.wait === 0) return Math.min(len, cast.pre > 0 ? cast.pre : 0);
-  const bg = cast.chanBegin, lp = cast.chanLoop, en = cast.chanEnd;
-  const bd = bg && bg.dur > 0 ? bg.dur : 0, ed = en && en.dur > 0 ? en.dur : 0;
-  const k = bd + ed > len && bd + ed > 0 ? len / (bd + ed) : 1;
-  if (bg && Number.isFinite(bg.hit)) return Math.min(len, bg.hit * k);
-  const loop = cast.chan.wait ? Infinity : Math.max(0, len - (bd + ed) * k);
-  if (lp && Number.isFinite(lp.hit) && lp.hit < loop) return Math.min(len, bd * k + lp.hit);
-  if (en && Number.isFinite(en.hit) && !cast.chan.wait) return Math.max(0, len - ed * k + en.hit * k);
-  return len;
 }
 
 /**

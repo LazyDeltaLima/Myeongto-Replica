@@ -7,7 +7,7 @@
 
 import { canTargetAlly, areaSelectable } from '../../targeting.js';
 import { ALLY_COLLIDER_RADIUS, TICK } from '../../constants.js';
-import { T, hurt, areaAllies, lineShot, crossTargets, shoot, atCastEvent, mode, setForm, targetsNear, byPriority } from './helpers.js';
+import { T, hurt, areaAllies, lineShot, crossTargets, shoot, atCastEvent, castLength, castStrikeAt, mode, setForm, targetsNear, byPriority } from './helpers.js';
 import { unbalancedBleed, skill } from './archetypes.js';
 import { hypot, sin, cos } from '../../detmath.js';
 import { hitFx } from '../../damage.js';
@@ -188,7 +188,7 @@ function kitRapidCrossbow(ab) {
     const t = crossTargets(b, e)[0];
     if (!t) return;
     const aim = { x: t.x, y: t.y };
-    const hit = s.cast && Number.isFinite(s.cast.hit) ? s.cast.hit : 0;
+    const hit = castStrikeAt(e, s.cast, s.bb) ?? 0;   // the clip's event as the cast plays (a quicker attack time squeezes it)
     for (let i = 0; i < n; i++) {
       atCastEvent(b, e, s, () => crossShot(b, e, t, aim, s.proj, (u) => hurt(b, e, u, e.s.atk * (s.bb.atk_scale ?? 1), 'phys'), undefined, muzzleAt(e, aim, GUNSHO_MUZZLE)), hit + i * step);
     }
@@ -216,12 +216,15 @@ function kitMatteoGuard(ab) {
   }];
   if (s) {
     const r = s.bb.projectile_range ?? 1, scale = s.bb.atk_scale ?? 1;
-    const hit = s.cast && Number.isFinite(s.cast.hit) ? s.cast.hit : 0;
-    const times = [hit, BDGUAD_SECOND_BOMB].slice(0, Math.max(1, s.bb.times ?? 1));
+    const hit = s.cast && Number.isFinite(s.cast.hit) ? s.cast.hit : 0, n = Math.max(1, s.bb.times ?? 1);
     out.push(skill(s, (b, e) => {
       const t = crossTargets(b, e)[0];
       if (!t) return;
       const aim = { x: t.x, y: t.y };
+      // the clip's two events at the scale the cast plays at (castStrikeAt: its first; a quicker attack time squeezes both)
+      const k = s.cast && s.cast.dur > 0 ? castLength(e, s.cast, s.bb) / s.cast.dur : 1;
+      const first = castStrikeAt(e, s.cast, s.bb) ?? hit * k;
+      const times = [first, first + (BDGUAD_SECOND_BOMB - hit) * k].slice(0, n);
       times.forEach((at, i) => atCastEvent(b, e, s, () => crossShot(b, e, t, aim, s.proj, (u, spot) => bombBlast(b, e, spot ?? u, r, scale), BOMB_TOUCH,
         muzzleAt(e, aim, BDGUAD_MUZZLES[i] ?? BDGUAD_MUZZLES[0])), at));
     }, { sil: true, cond: (b, e) => crossTargets(b, e).length > 0 }));
@@ -1046,12 +1049,14 @@ function kitParadulis(ab) {
     let r = Math.round(e.y), c = Math.round(e.x);
     while ((r !== t.tileR || c !== t.tileC) && g.walkable(r + d[1], c + d[0])) { r += d[1]; c += d[0]; }
     const to = { r, c };
-    atCastEvent(b, e, s, () => {   // (a cast cut short never gets here: onCut below)
+    // its ActionToOwner's SwitchMode runs on ON_CAST_END (`_runActionOnEvent` 3), not at the spell (`wait` 0: at once) —
+    // the cast's end, Skill_Begin played out (a cast cut short never gets here: onCut below)
+    atCastEvent(b, e, s, () => {
       P.state = 'run';
       mode(b, e, 'Run');
       setForm(b, e, 'Run');
       e.trace = to;
-    });
+    }, castLength(e, s.cast, s.bb));
   }, { cond: (b, e) => P.state === 'idle' && !e.blockedBy && ahead(b, e).length > 0 });
   // a cast cut short (stun, freeze …) never runs
   if (rush) rush.onCut = () => { if (P.state === 'begin') P.state = 'idle'; };

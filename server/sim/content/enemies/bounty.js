@@ -5,10 +5,10 @@
 // are not in the EN client); the buff templates are the CN table's. The two others of the cards sit with their kin:
 // 搏命养家者 and 赏金猎人“骑士” in special.js.
 
-import { ALLY_COLLIDER_RADIUS, TICK } from '../../constants.js';
+import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import { canTargetAlly } from '../../targeting.js';
 import { interruptEnemyCast } from '../../ai.js';
-import { T, hurt, areaAllies, byPriority, remainingRoute, spawnChildren, auraBuff, atCastEvent, canCast, mode, setForm } from './helpers.js';
+import { T, hurt, areaAllies, byPriority, remainingRoute, spawnChildren, auraBuff, atCastEvent, castStrikeAt, canCast, mode, setForm } from './helpers.js';
 import { blockWeight, skill } from './archetypes.js';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -24,8 +24,6 @@ const NSBOMB_FALL = 0.5;
 const UAREAP_SHOT_EVERY = 0.2, UAREAP_SHOTS = 3;
 /** 破城者's missile: projectile_enemy_uareap_skill — AttachToTarget `_delayToStart` 0.6 s, then its CircleRange 1.1. */
 const UAREAP_MISSILE_DELAY = 0.6, UAREAP_MISSILE_RADIUS = 1.1;
-/** 破城者's volley is an AbilitySequenceGroup: an ActiveBuffAbility (two fixed updates) before the F_Skill clip. */
-const UAREAP_PRE = 2 * TICK;
 /** 暴走食人花's bite reach (its Attack's ParallelGroupSelector: CircleRange 1.0 — no range in its data to scale it). */
 const TRWLPL_BITE_RADIUS = 1;
 /** What 暴走食人花 shrugs off while it bites (BuffToOwnerDuringAbility enemy_trwlpl_eat: abnormalImmunes STUNNED, LEVITATE,
@@ -146,8 +144,6 @@ function kitMpbarr(ab) {
  */
 function kitUareap(ab) {
   const s = ab.sk.SkyProjectile, scale = (s && s.bb.atk_scale) ?? 0;
-  const clip = s && s.cast && Array.isArray(s.cast.subs) ? s.cast.subs.find((x) => x && x.clip) : null;
-  const first = UAREAP_PRE + (clip && Number.isFinite(clip.hit) ? clip.hit : 0);
   const inRange = (b, e) => b.alliesInRadius(e.x, e.y, (e.base.rangeRadius || 0) + ALLY_COLLIDER_RADIUS, null).filter((u) => !u.isFlying && canTargetAlly(e, u, true));
   const land = (b, e, t, atk) => {
     let x = t.x, y = t.y;
@@ -163,6 +159,8 @@ function kitUareap(ab) {
     if (k) e.skillAnimUntil = k.until;
     const hit = new Set();
     const atk = e.s.atk * scale;
+    // the first shot at the sequence's spell: its ActiveBuffAbility's two fixed updates, then F_Skill's event (castStrikeAt)
+    const first = castStrikeAt(e, s.cast, s.bb) ?? 0;
     for (let i = 0; i < UAREAP_SHOTS; i++) {
       atCastEvent(b, e, s, () => {
         const t = byPriority(e, inRange(b, e).filter((u) => !hit.has(u)))[0];

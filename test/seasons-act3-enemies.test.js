@@ -1398,6 +1398,23 @@ test('速射轻弩手: 直击 on its row / column at any distance — 3 bolts 0.
   assert.equal(hits.length, 3, 'one cast');
 });
 
+test('速射轻弩手 attacking quicker than its clip: its cast is squeezed (`_timeMode` 0) and its first bolt leaves at the clip\'s event × that scale (enemies/helpers.js atCastEvent → castStrikeAt)', () => {
+  const { h } = waveField([GUNSHO], [{ chessId: 't_wall', row: 10, col: 1 }]);
+  const e = put(h, GUNSHO, [10, 10], { tag: null });
+  h.b.addBuff(e, { key: 't:aspd', persist: true, mods: { aspd: 100 } });   // attack interval 2 → 1 s, under the clip's 1.567 s
+  const casts = [], shots = [];
+  onSkill(h, e, (ab) => { if (ab === 'CrossAttack') casts.push(h.b.time); });
+  const fx0 = h.b.fx.bind(h.b);
+  h.b.fx = (kind, p) => { if (kind === 'enemyShot' && p?.id === e.id) shots.push(h.b.time); return fx0(kind, p); };
+  h.runUntil(() => shots.length >= 3, 10);
+  const c = E3[GUNSHO].skillCast.crossattack, k = e.s.interval / c.dur;
+  assert.ok(k < 0.7, `the cast plays squeezed (${k})`);
+  const first = shots[0] - casts[0];
+  // (until 2026-11-20 at the clip's own 1.033 s, past the squeezed cast's end — the ability waits for the event as it plays)
+  assert.ok(Math.abs(first - c.hit * k) <= TICK + 1e-6, `the first bolt at ${(c.hit * k).toFixed(3)} s (${first.toFixed(3)})`);
+  assert.ok(Math.abs(shots[1] - shots[0] - 0.1) <= TICK + 1e-6, 'the next one `_triggerDelta` 0.1 s later');
+});
+
 test('速射轻弩手: a bolt up its column leaves from the Skill_Up clip\'s Muzzle (0.236 to its facing side, 0.745 up)', () => {
   const { h } = waveField([GUNSHO], [{ chessId: 't_wall', row: 12, col: 4 }]);
   const e = put(h, GUNSHO, [9, 4], { tag: null });
