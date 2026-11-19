@@ -67,13 +67,18 @@ from client_path import ROOT, ensure_extract_env, client_data, client_data_cn  #
 # decision 2026-11-08): bkg_1 bkg_season_on, bkg_2 bg_season_on and bg_front bg_front_season_on, each centred in a
 # 1559×960 frame, bg_front 149 units below the centre (its RectTransform pos y −149). Between bkg_1 and bkg_2 the
 # effect holder's three UI meshes (effect_season_on/mask/mesh_1–3: the trapezoid mesh_trapezoid in material
-# mat_bg_mesh, the red jagged rays behind the statue) are drawn as the client draws them (backdrop_meshes; still — the
-# material has no time keyword). The smoke / dust particles are not drawn.
+# mat_bg_mesh, the red jagged rays behind the statue) are drawn as the client draws them (backdrop_meshes). The client
+# scrolls the rays' first dissolve texture by _Dissolve_Speed × _Time (a 10 s loop); the backdrop is one picture, the
+# moment `time` of that loop — the one an official CN hub screenshot (2026-11-18) shows. The smoke / dust particles are
+# not drawn.
 SEASONS = {
     'act3autochess': {
         'bundle': 'activity/[uc]act3autochess.ab',
         'backdrop': {'size': (1559, 960), 'layers': [('bkg_season_on', 0), ('bg_season_on', 0), ('bg_front_season_on', -149)],
-                     'meshes': {'panel': 'panel_act3autochess_on_entry', 'holder': 'effect_holder', 'after': 'bkg_season_on'}},
+                     'meshes': {'panel': 'panel_act3autochess_on_entry', 'holder': 'effect_holder', 'after': 'bkg_season_on',
+                                # _Time.y in seconds: the rays of that screenshot (mean alpha off by 0.046 over its open
+                                # red, against 0.44 at time 0; 2.55–2.70 s all under 0.06)
+                                'time': 2.64}},
         # title_season: the hub's logo (root_title of the entry panel); season_logo: the bare emblem; season_logo_settle_game: the result screen's
         'logos': ['title_season', 'season_logo', 'season_logo_settle_game'],
         # group_season_background (1189×494, the home screen's activity card while the season runs): its logo with the
@@ -469,27 +474,30 @@ def compose_backdrop(images, spec, meshes=None):
     return canvas.convert('RGB')
 
 
-# Torappu/UI/UI-Fx-Common, as its pixel stage draws with no keyword on (no time: the material's _Dissolve_Speed only
-# moves the _HG_UI_ANM_ON / TORAPPU_UI_UNSCALED_TIME variants): rgb = _Color · vertex colour (the Graphic's m_Color),
+# Torappu/UI/UI-Fx-Common, as its pixel stage draws with no keyword on (UNITY_UI_CLIP_RECT only clips — the meshes'
+# RectMask2D is the backdrop's own size): rgb = _Color · vertex colour (the Graphic's m_Color),
 # a = Π smoothstep(saturate((tex.r · tex.a, or 1 − that when _DissolveN_Invert) − _DissolveN_Threshold) ÷
-# _DissolveN_Smoothness) over the two dissolve textures (when _Dissolve), × vertex alpha, × _Mask_Tex.a (when _Mask),
-# all × _Intensity, blended SrcAlpha / OneMinusSrcAlpha (_Dst 10). An unset texture is the shader's default white.
+# _DissolveN_Smoothness) over the two dissolve textures (when _Dissolve), each sampled at uv · _ST.xy + _ST.zw +
+# _Dissolve_Speed (.xy the first, .zw the second) × _Time.y — the UnityPerCamera clock in this variant, the
+# TORAPPU_UI_UNSCALED_TIME ones read _TorappuUnscaledTime instead — × vertex alpha, × _Mask_Tex.a (when _Mask), all ×
+# _Intensity, blended SrcAlpha / OneMinusSrcAlpha (_Dst 10). An unset texture is the shader's default white.
 FX_COMMON_ZERO = ('_Distortion', '_RgbCtrl', '_BaseTex_Channel', '_Dissolve1_Distortion', '_Dissolve2_Distortion')
 FX_COMMON_UNSET = ('_MainTex', '_BaseTex', '_Mask_Tex')
 
 
 def backdrop_meshes(env, game, spec, cab_index):
     """The UI meshes of the hub panel's effect holder (SEASONS[id]['backdrop']['meshes']), each drawn into a frame of
-    the backdrop's size as the client draws it: the mesh scaled to its RectTransform's width (_matchRect /
-    _matchByWidth), turned by _targetRotation (y 180 mirrors it), then the node's scale, z rotation and position from
-    the frame's centre. Stops on any setting this does not draw (another shader form, a keyword, distortion, an
-    offset or turned parent, an anchor off the centre)."""
+    the backdrop's size as the client draws it (UIMeshImage: the mesh scaled by its bounds to its RectTransform's width
+    — _matchRect / _matchByWidth —, turned by _targetRotation, y 180 mirroring it; then the node's scale, z rotation and
+    position from the frame's centre) at the shader clock spec['time']. Stops on any setting this does not draw
+    (another shader form, a keyword, distortion, an offset or turned parent, an anchor off the centre)."""
     import math
     import UnityPy
     import numpy as np
     from PIL import Image
     ms = spec['meshes']
     w, h = spec['size']
+    clock = ms['time']
     objs = {o.path_id: o for o in env.objects}
     cache = {}
 
@@ -601,7 +609,7 @@ def backdrop_meshes(env, game, spec, cab_index):
         p = md['m_SavedProperties']
         f, tex, col = dict(p['m_Floats']), dict(p['m_TexEnvs']), dict(p['m_Colors'])
         if '_Dissolve1_Tex' not in tex or '_Dissolve_Speed' not in col or md.get('m_ValidKeywords') or f.get('_HG_UI_ANM_ON'):
-            raise SystemExit(f"backdrop meshes: {where}'s material {md['m_Name']} is not a still UI-Fx-Common one")
+            raise SystemExit(f"backdrop meshes: {where}'s material {md['m_Name']} is not a UI-Fx-Common one without keywords")
         if any(f.get(k, 0) for k in FX_COMMON_ZERO) or any(tex.get(k, {}).get('m_Texture', {}).get('m_PathID') for k in FX_COMMON_UNSET):
             raise SystemExit(f"backdrop meshes: {md['m_Name']} uses distortion, a base / mask texture or vertex-colour control")
         if f.get('_Dst') != 10:
@@ -656,7 +664,9 @@ def backdrop_meshes(env, game, spec, cab_index):
                 if t is None:
                     continue  # white: tex.r · tex.a = 1 everywhere
                 sc, off = tex[f'_Dissolve{i}_Tex']['m_Scale'], tex[f'_Dissolve{i}_Tex']['m_Offset']
-                v = sample(t, uv0 * [sc['x'], sc['y']] + [off['x'], off['y']])
+                sp = col['_Dissolve_Speed']
+                drift = [sp['r'], sp['g']] if i == 1 else [sp['b'], sp['a']]
+                v = sample(t, uv0 * [sc['x'], sc['y']] + [off['x'] + drift[0] * clock, off['y'] + drift[1] * clock])
                 dv = v[..., 0] * v[..., 3]
                 if f.get(f'_Dissolve{i}_Invert', 0):
                     dv = 1 - dv
