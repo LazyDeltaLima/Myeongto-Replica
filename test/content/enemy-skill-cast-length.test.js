@@ -2,7 +2,8 @@
 // 시전 길이; content/enemies.js castLength): the client times it by the ability's class — an animated ability casts the
 // attack time of its `_timeMode` (`EasyToStartAbility.m_cachedDuration` = `m_attackTime`; a channel's
 // ThreePartChannelingAnimation stretches its loop to it), an ActiveBuffAbility two fixed updates, a sequence group the sum of
-// its children. Until 2026-11-07 every such cast lasted 0: 重弩突袭者 shot 直击 and walked on, “自在” held its 破桎而出
+// its children, a parallel group its longest child (or the one that ends the rest), a selectable group the child it casts
+// (2026-11-20; until then 0). Until 2026-11-07 every such cast lasted 0: 重弩突袭者 shot 直击 and walked on, “自在” held its 破桎而出
 // barrier while it kept attacking. An interrupted cast restarts the skill's cooldown then (`EnemySkill._OnCastFinish`).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,6 +14,7 @@ import * as bossesMod from '../../server/sim/content/bosses.js';
 import { TICK } from '../../server/sim/constants.js';
 
 const E = JSON.parse(fs.readFileSync(new URL('../../data/enemies.json', import.meta.url), 'utf8'));
+const E3 = JSON.parse(fs.readFileSync(new URL('../../data/seasons/act3autochess/enemies.json', import.meta.url), 'utf8'));
 const WALL = (id) => chessRec({ id, profession: 'TANK', stats: { atk: 0, maxHp: 1e9, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
 const NOATK = () => ({ trait: { noAttack: true } });
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -41,6 +43,10 @@ test('skillCast records the class of each skill\'s ability (attack_timing.py cas
   assert.equal(c('enemy_1275_dwlock_2', 'deatheye').kind, 'seq');
   assert.deepEqual(c('enemy_1275_dwlock_2', 'deatheye').subs[0], { time: 0, proj: 1, chan: { begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End', wait: 1 } });   // + its ThreePartChannelingAnimation (`_waitForAttachFinishEvent`)
   assert.equal(c('enemy_1272_nhtank', 'pollutedrangedatk').kind, 'par');
+  assert.equal(c('enemy_1272_nhtank', 'pollutedrangedatk').one, 1, '`_finishAllAbilitiesIfOneFinish`');
+  // a selectable group's children come from `_abilityConfigs[i]._ability`
+  assert.deepEqual(E3.enemy_9035_acspider_2.skillCast.acidrain.subs.map((x) => x.clip), ['Skill_2', 'Skill_2']);
+  assert.equal(E3.enemy_9035_acspider_2.skillCast.acidrain.seqSel, 1, '`_selectAbilitySequentially`');
   // (its key `Born` is the clip `Revive` through the prefab animator's key table — docs/rules/sim.md 「적 클립의 키 표」)
   assert.deepEqual(c('enemy_9014_acstma', '2'), { family: 3, clip: 'Revive', dur: 4.433, max: 1, time: 1 });
   assert.deepEqual(c('enemy_1404_msnip', 'crossattack'), {
@@ -50,7 +56,7 @@ test('skillCast records the class of each skill\'s ability (attack_timing.py cas
   });
 });
 
-test('castLength by class: the attack time of a clipless ability, two ticks of an ActiveBuffAbility, the sum of a sequence', () => {
+test('castLength by class: the attack time of a clipless ability, two ticks of an ActiveBuffAbility, the sum of a sequence, a group\'s children', () => {
   const e = { s: { interval: 3 } };
   const L = (k, n, bb = {}) => enemiesMod.castLength(e, E[k].skillCast[n], bb);
   assert.ok(near(L('enemy_1404_msnip', 'crossattack'), 2.5), '直击 `_timeMode` 2: its `_cooldown`');
@@ -62,7 +68,13 @@ test('castLength by class: the attack time of a clipless ability, two ticks of a
   // a projectile-waiting channel without a clip: at least its attack time (`m_cachedDuration`; the open cast waits for the
   // projectile on top, content/enemies.js projCastOver) — `_timeMode` 0, the 3 s interval
   assert.ok(near(L('enemy_9012_acloon', 'skill'), 3), 'a clipless projectile wait: its attack time');
-  assert.equal(L('enemy_1272_nhtank', 'pollutedrangedatk'), 0, 'a parallel group [ASSUMED·미조사]');
+  // a parallel group with `_finishAllAbilitiesIfOneFinish` and no `_mainAbility`: the first child to finish ends the others —
+  // Attack (1 s clip, max 1) before the clipless child's 3 s attack time
+  assert.ok(near(L('enemy_1272_nhtank', 'pollutedrangedatk'), 1), 'a parallel group ended by its first child');
+  assert.ok(near(enemiesMod.castLength(e, { kind: 'par', subs: [{ time: 2, cd: 2 }, { time: 2, cd: 5 }] }, {}), 5), 'all children: the longest');
+  assert.ok(near(enemiesMod.castLength(e, { kind: 'par', one: 1, main: 1, subs: [{ time: 2, cd: 2 }, { time: 2, cd: 5 }] }, {}), 5), 'its `_mainAbility`');
+  // a selectable group: the child it casts — 【悲惨之雨】's Left / Right, Skill_2 1.833 s each (`_timeMode` 1)
+  assert.ok(near(enemiesMod.castLength(e, E3.enemy_9035_acspider_2.skillCast.acidrain, {}), 1.833), 'a selectable group: its child');
   assert.ok(near(L('enemy_9014_acstma', '2'), 4.433), 'its key through the key table: `Revive` as it is (`_timeMode` 1)');
   // a clip of its own is unchanged: 【末日】 4.467 s as it is (`_timeMode` 1)
   assert.ok(near(enemiesMod.castLength(e, E.enemy_1521_dslily.skillCast.doom, {}), 4.467));

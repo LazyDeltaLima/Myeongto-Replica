@@ -451,8 +451,12 @@ test('假想敌：茧 隐秘核心: 4 per field and poison on hit; 【悲惨之�
   const t0 = R[0].stats.taken;
   runFor(h, 1.05);
   assert.ok(R[0].stats.taken - t0 >= bb['Poison.attack@damage'] - 1e-6, 'the poison ticks');
-  // 【悲惨之雨】 (Left: its own field) at 25 s
+  // 【悲惨之雨】 (Left: its own field) at 25 s, cast at an attack slot: its selectable group's child Skill_2 (1.833 s,
+  // `_timeMode` 1) is the cast — the boss makes no normal attack meanwhile (until 2026-11-20 a cast of 0)
+  let castAt = null;
+  onSkill(h, boss, (ab) => { if (ab === 'AcidRain' && castAt == null) castAt = { t: h.b.time, left: (boss.mem.ab.casting?.until ?? h.b.time) - h.b.time }; });
   runFor(h, rain.initCooldown + 0.6 - h.b.time);
+  assert.ok(castAt && Math.abs(castAt.left - 1.833) <= TICK + 1e-6, `AcidRain casts its child's clip (${castAt && castAt.left})`);
   assert.ok(L.every((u) => u.findBuff('boss:acspiderRain')) && !R[0].findBuff('boss:acspiderRain'), 'p1\'s field');
   assert.equal(L[4].s.aspd, Math.max(20, 100 + rain.bb.attack_speed));
   const lt = L[4].stats.taken;

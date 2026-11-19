@@ -1461,7 +1461,9 @@ function enemyAttack(b, e, dt) {
   if (unarmed && !(def.raw && def.raw.attackAbility)) return cutSwing(e), false;
   // 恐惧 / 缴械 / 战栗 (被阻挡后无法进行普通攻击): no normal attack, and the one swung is interrupted; 恐惧 cuts a skill's cast
   // too, 缴械 / 战栗 only the normal swing — the kits' own channels hold 缴械 for "no normal attack meanwhile" (直击 aside:
-  // 蓄力攻击, 角力对决) [ASSUMED·미조사: whether the client's 缴械 interrupts a skill ability's cast]
+  // 蓄力攻击, 角力对决). The client's enemy reads 缴械 only as it picks a cast (`Entity.get_canUseAtkOrCbt` in
+  // `AttackWrapper.SearchTarget` / `CombatWrapper.PickCombatAbility`); `Enemy.States.AttackState.OnTick` / `CombatState.OnTick`
+  // go on while the cast ability `isCasting` (공식 클라에서 확인), so a skill's cast plays on
   if (e.s.flags.fear) return cutEnemySwing(b, e), false;
   if (e.s.flags.disarm || (e.s.flags.tremble && e.blockedBy)) {
     if (e.swing || e.castSwing) cutSwing(e);

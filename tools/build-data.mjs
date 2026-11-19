@@ -2847,6 +2847,10 @@ function enemySkillCast(ctx, manifest, spineId, key) {
       ...(s.kind ? { kind: s.kind } : {}),
       ...(s.kind === 'buff' && s.wfc ? { wfc: 1 } : {}),
       ...(Array.isArray(s.subs) ? { subs: s.subs.map((c) => castOf(name, c)) } : {}),
+      // a parallel group ended by one child (`_finishAllAbilitiesIfOneFinish`: its `_mainAbility`, the index among subs, or
+      // without one the first to finish); a selectable group taking its children in turn (`_selectAbilitySequentially`)
+      ...(s.kind === 'par' && s.one ? { one: 1, ...(Number.isInteger(s.main) ? { main: s.main } : {}) } : {}),
+      ...(s.kind === 'sel' && s.seqSel ? { seqSel: 1 } : {}),
       ...(dur > 0 ? { clip, dur, ...(hit != null ? { hit } : {}), ...(Number.isFinite(s.max) ? { max: s.max } : {}) } : clip ? { miss: 1 } : {}),
       ...(Number.isFinite(s.time) ? { time: s.time } : {}),
       ...(s.time === 2 ? { cd: s.cd || 0 } : s.time === 3 ? { cdKey: s.cdKey || 'duration' } : {}),

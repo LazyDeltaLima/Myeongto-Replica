@@ -1527,14 +1527,26 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     공격 시간 — 뒤에 `m_cachedDuration` = `GetDuration` = `m_attackTime`; 이전 우리 값 0 [가정이었음]): 넷 다 `_timeMode` 0이라 적의 공격 간격 — 살카즈 왕정군 정예 캐스터
     `DeathEye` 4초·'사미의 의지' `Lasso` 6초·'염의 가호' 2.5초·축제 재즈 연주가 `fire` 1초. 채널(투사체)이 그보다 일찍 끝날 때만 차이 난다: 정예 캐스터의 대상이 죽거나
     철수하면 시전 시작 4초까지 서 있다. 시험 `test/content/enemy-skill-proj-wait.test.js` 「its target gone early」.
-  - **[ASSUMED·미조사]** 0으로 남긴 것: 병렬·선택 묶음(`AbilityParallelGroup`·`AbilitySelectableGroup` — 끝나는 조건을 안 읽음; 공격 차례로 시전하는 키트 없음:
-    살카즈 부패의 전차 `PollutedRangedAtk`·'제국의 갑옷' `Appear`·래트킹 `Mark`·'즈자이' `CrossAttackMarkReborn`·알리스테어, 제국의 여광 `store`). 투사체 기다림은
-    모두 키트가 끝을 안다(2026-11-14 — 데이터의 `proj` 일곱 가운데 '염의 가호'는 아군 소환물 키트, 살카즈 후예 기술자 `charge_gunctrl`은 이 모드에 충전할 부포가 없어 시전 안 함).
+  - 병렬·선택 묶음(2026-11-20, 공식 클라에서 확인 — 이전: 시전 길이 0 [가정이었음]): 병렬 묶음(`AbilityParallelGroup`)은 준비된 자식을 모두 한꺼번에 시전하고
+    (`CastToTarget`: 자식마다 `isReady`면 시전, 시작한 수를 `m_remainingJobCnt`에) 자식이 끝날 때마다 하나씩 세어 마지막 자식이 끝날 때 끝난다(`_OnSubAbilityFinished`)
+    → 가장 긴 자식. `_finishAllAbilitiesIfOneFinish`면 `_mainAbility`가 끝날 때(없으면 아무 자식이든 처음 끝날 때) 시전 중인 다른 자식을 같은 이유로 끝내(`DoFinish`)
+    그 자식의 길이다 — 살카즈 부패의 전차 `PollutedRangedAtk`는 주 능력이 없어 `Attack` 1초 클립이 끝날 때(키트가 공격 훅으로 쏘므로 공격 차례 시전은 아님). 선택 묶음
+    (`AbilitySelectableGroup`)은 시전마다 자식 하나(`_DoCastInternal`: 준비됐고 제 트리거가 대상을 찾은 첫 설정, `_selectAbilitySequentially`면 차례의 것)를 시전하고 그 자식이
+    끝날 때 끝난다 → 그 자식의 길이. 이 모드에서 공격 차례로 시전되는 것은 가상적: 고치 숨은 핵심의 【비참한 비】(`AcidRain`, 차례로 `Left`·`Right` — 둘 다 `Skill_2`
+    1.833초, `_timeMode` 1)뿐이라 1.833초 서서 시전하고 그동안 일반 공격이 없다(쿨 30초는 시전 끝에서). 묶음 자체의 앞뒤 대기는 없다(`CastToTarget`이 기반 코루틴을
+    부르지 않고 `StartCastingInternal`만). 데이터: `attack_timing.py cast_fields`가 선택 묶음의 자식(`_abilityConfigs[i]._ability`)·`seqSel`, 병렬 묶음의 `one`·`main`을
+    읽는다. 투사체 기다림은 모두 키트가 끝을 안다(2026-11-14 — 데이터의 `proj` 일곱 가운데 '염의 가호'는 아군 소환물 키트, 살카즈 후예 기술자 `charge_gunctrl`은 이 모드에
+    충전할 부포가 없어 시전 안 함). 시험 `test/content/enemy-skill-cast-length.test.js`, `test/seasons-act3-enemies.test.js` 「…【悲惨之雨】…」.
   - **끊긴 시전**: 기절·빙결·수면·공중 띄우기·강제 이동(失衡)·공포·필드 이탈이 시전을 끊으면(`ai.js cutEnemySwing` → 훅 `enemySkillCut`) 그 스킬의 쿨이 그때 다시 돈다 — 클라의
     `AttackState.OnExit` → `InterruptIfNot` → `FinishIfNot(1)`이고 `EnemySkill._OnCastFinish`는 이유와 상관없이 `m_cooldownTimer.Reset`·(`resetMain`이면) 주 공격
     `ResetCooldown`을 한다(이전: 끊겨도 쿨 + 시전 길이 그대로). '즈자이' `ShieldBurst`는 방벽 마지막 층이 깨지면(`InterruptEnemyAbility`) 시전이 끝나고, 시전이 끊기면
-    방벽(`BuffDuringCasting`)도 폭발 없이 사라진다. 무장 해제(缴械)·전율(战栗)은 일반 휘두름만 끊고 스킬 시전은 이어진다 [ASSUMED·미조사: 클라의 缴械가 스킬 능력의 시전을 끊는지 —
-    키트가 제 채널 동안 缴械를 붙여 「그동안 일반 공격 없음」으로 쓴다: 부패한 기사 `ChargeAttack`·검은 뿔의 루울 `skill`].
+    방벽(`BuffDuringCasting`)도 폭발 없이 사라진다. 무장 해제(缴械)·전율(战栗)은 일반 휘두름만 끊고 스킬 시전은 이어진다(키트가 제 채널 동안 缴械를 붙여 「그동안 일반 공격 없음」으로
+    쓴다: 부패한 기사 `ChargeAttack`·검은 뿔의 루울 `skill`). 스킬 시전이 이어지는 것은 공식 클라에서 확인(2026-11-20): 적은 缴械(`DISARMED`, 무적이면 빼고; `FORCE_DISARMED`는
+    늘)를 `Entity.get_canUseAtkOrCbt`로만 읽고, 이를 묻는 것은 새 시전을 고를 때(`Enemy._SearchAttackTarget`·`AttackWrapper.SearchTarget`/`get_isValid`·
+    `CombatWrapper.PickCombatAbility`/`_PickAbility`/`get_isValid`)뿐이다 — `Enemy.States.AttackState.OnTick`·`CombatState.OnTick`은 공중 띄우기·기절·빙결·마비 진동만 보고
+    시전한 능력이 `isCasting`이면 그대로 두며, 이상 상태 변경 이벤트(`ON_ABNORMALFLAG_DIRTY`)에 시전을 끊는 쪽은 없다. 그런데 같은 이유로 **일반 휘두름도 끊지 않는다**
+    (오퍼레이터의 `Character.States.AttackState.OnTick`만 `canUseAtkOrCbt`를 봄) — 우리는 PRTS 异常效果 「正在进行的普通攻击将被中断」대로 적의 휘두름을 끊는다
+    [추정·미조사: PRTS 문구는 오퍼레이터 쪽일 수 있음 — 묶음 sim-D 줄 「적의 缴械가 일반 휘두름을 끊는지」].
   - 효과가 나는 때는 키트대로 시전 시작이다(클립이 있는 스킬도 같음): 공식은 능력이 기다리는 프레임(채널 클립의 `OnAttack`, 없으면 공격 시간 끝)이다 — 자로, '늑대 군주'
     `FearCage`는 끝 클립 `A_Skill_End`의 `OnAttack`(시전 4.37초째) [ASSUMED·미조사: 적 스킬 효과의 프레임은 키트마다 따로 옮겨야 함].
   적에게는 시간 늦추기

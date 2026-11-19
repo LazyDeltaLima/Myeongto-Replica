@@ -383,8 +383,13 @@ function slotSkill(e, ab, a) {
  * - `buff` (ActiveBuffAbility, none of this mode's with `_waitForCasting`): one fixed update before its spell and one after
  *   (`<OnWaitForPreDelay>` / `<OnWaitForPostDelay>` yield `sharedWaitForFixedUpdate`) — two ticks;
  * - `seq` (AbilitySequenceGroup): its children one after another (`_MoveToNextActiveAbility` as each finishes), the sum;
- * - 0 [ASSUMED·미조사] for a parallel / selectable group (`par`, `sel`: their finish was not read — no kit casts one at the
- *   slot) and for a clip the data lacks (`miss`, none since 2026-11-14).
+ * - `par` (AbilityParallelGroup): its children cast together and it finishes as the last one does (`_OnSubAbilityFinished`
+ *   counts them down), the longest; with `_finishAllAbilitiesIfOneFinish` (`one`) the finish of its `_mainAbility`
+ *   (`main`, the index among `subs`), or without one the first child's to finish, ends the others — that child's length;
+ * - `sel` (AbilitySelectableGroup): one child per cast (the first ready one whose trigger finds a target, or the next in
+ *   turn with `_selectAbilitySequentially`), finishing as it does — read as the first child's length (the children of each
+ *   such skill in this mode are alike: 【悲惨之雨】's Left / Right both play `Skill_2`);
+ * - 0 for a clip the data lacks (`miss`, none since 2026-11-14).
  * A RangedAttack with `_waitForProjectileInvalid` (`proj`) casts until its projectile is gone (onSkillSlot's open cast) and
  * at least this: its `m_cachedDuration` is the same `GetDuration` — with no clip the attack time too (`RangedAttack.
  * OnCastStart` → … → `EasyToStartAbility.OnCastStart` after `AbilityStandard.OnCastStart` updated the playback speed).
@@ -392,7 +397,15 @@ function slotSkill(e, ab, a) {
 export function castLength(e, cast, bb) {
   if (!cast) return 0;
   if (cast.kind === 'buff') return 2 * TICK;
-  if (cast.kind === 'seq') return (cast.subs || []).reduce((t, c) => t + castLength(e, c, bb), 0);
+  const subs = cast.subs || [];
+  if (cast.kind === 'seq') return subs.reduce((t, c) => t + castLength(e, c, bb), 0);
+  if (cast.kind === 'par') {
+    if (!subs.length) return 0;
+    const lens = subs.map((c) => castLength(e, c, bb));
+    if (!cast.one) return Math.max(...lens);
+    return cast.main != null && lens[cast.main] != null ? lens[cast.main] : Math.min(...lens);
+  }
+  if (cast.kind === 'sel') return subs.length ? castLength(e, subs[0], bb) : 0;
   if (cast.kind || cast.miss) return 0;
   const dur = cast.dur > 0 ? cast.dur : 0;
   const time = cast.time ?? 0;

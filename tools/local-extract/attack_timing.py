@@ -405,14 +405,25 @@ def cast_fields(d, by_pid, depth=0, by_go=None):
         `_waitForProjectileInvalid`);
       `kind` 'buff' — an ActiveBuffAbility (`wfc` 1 with `_waitForCasting`: it waits out its life time, else one tick before
         and one after its spell);
-      `kind` 'seq' / 'par' / 'sel' — a group, `subs` = its children's records in `_abilities` order (a selectable group's
-        are not read: `subs` empty)."""
+      `kind` 'seq' / 'par' / 'sel' — a group, `subs` = its children's records in `_abilities` order (a selectable
+        group's: `_abilityConfigs[i]._ability`, `seqSel` 1 with `_selectAbilitySequentially`); a parallel group with
+        `_finishAllAbilitiesIfOneFinish` has `one` 1 and `main` = the index of its `_mainAbility` among `subs` (none: the
+        first child to finish ends them all — the client's `AbilityParallelGroup._OnSubAbilityFinished`)."""
     kind = group_kind(d)
     if kind:
         rec = {'kind': kind}
-        if kind != 'sel' and depth < 4:
-            rec['subs'] = [cast_fields(by_pid[r['m_PathID']], by_pid, depth + 1, by_go) for r in d['_abilities']
-                           if isinstance(r, dict) and r.get('m_PathID') in by_pid]
+        refs = d['_abilities'] if kind != 'sel' else [(c or {}).get('_ability') for c in d['_abilityConfigs']]
+        refs = [r for r in refs if isinstance(r, dict) and r.get('m_PathID') in by_pid]
+        if depth < 4:
+            rec['subs'] = [cast_fields(by_pid[r['m_PathID']], by_pid, depth + 1, by_go) for r in refs]
+        if kind == 'sel' and d.get('_selectAbilitySequentially'):
+            rec['seqSel'] = 1
+        if kind == 'par' and d.get('_finishAllAbilitiesIfOneFinish'):
+            rec['one'] = 1
+            main = (d.get('_mainAbility') or {}).get('m_PathID')
+            idx = [r['m_PathID'] for r in refs].index(main) if main in [r['m_PathID'] for r in refs] else -1
+            if idx >= 0:
+                rec['main'] = idx
         return rec
     if is_buff_ability(d):
         return {'kind': 'buff', **({'wfc': 1} if d.get('_waitForCasting') else {})}
