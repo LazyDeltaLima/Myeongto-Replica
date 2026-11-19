@@ -18,7 +18,6 @@ const SEASONS = [[null, 'data/enemies.json'], ['act3autochess', 'data/seasons/ac
 const read = (f) => JSON.parse(fs.readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8'));
 
 const ACE = 'times its effect itself (enemies/helpers.js atCastEvent): it has a part at the cast start';
-const BOSS = '[미조사] boss pattern not moved yet — bundles line 「보스 스킬 효과 프레임」 (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 효과가 나는 때)';
 const OWN = '[미조사] a channel, projectile wait or kit timer of its own, not moved yet — bundles line 「채널·투사체 적 스킬 효과 프레임」 (same section)';
 /** enemy key → skill name → why its kit does not say `atStrike` (a cast whose frame is 0 needs no entry). */
 const EXCEPT = {
@@ -36,15 +35,12 @@ const EXCEPT = {
   enemy_1404_msnip: { CrossAttack: OWN }, enemy_1429_lrwzrd: { Laser: OWN }, enemy_1429_lrwzrd_2: { Laser: OWN },
   enemy_1504_cqbw: { C4: OWN }, enemy_1513_dekght: { ChargeAttack: OWN }, enemy_1517_xi: { ShieldBurst: OWN, ShieldBurstReborn: OWN },
   enemy_2050_smsha: { ChainBuff: OWN },
-  enemy_1521_dslily: Object.fromEntries(['Doom', 'Rockfall', 'RockfallG1', 'RockfallG2', 'SummonTentac', 'SummonTentacG1', 'SummonTentacG2',
-    'Tidewater', 'TidewaterG1', 'TidewaterG2'].map((n) => [n, BOSS])),
-  enemy_2016_csphtm: { aoe: BOSS, blink: BOSS }, enemy_2017_csphts: { aoe: BOSS },
-  enemy_9009_acfort: { FireWeapon: BOSS, KillOthers: BOSS },
-  enemy_9013_acstmk: { 1: BOSS, 2: BOSS }, enemy_9013_acstmk_2: { 1: BOSS, 2: BOSS }, enemy_9014_acstma: { 1: BOSS }, enemy_9015_acstmb: { 1: BOSS },
-  enemy_9017_achunt: { 1: BOSS }, enemy_9017_achunt_2: { 1: BOSS, 2: BOSS }, enemy_9021_acduml: { 1: BOSS }, enemy_9021_acduml_2: { 1: BOSS },
-  enemy_9022_acdumm: { 1: BOSS }, enemy_9029_acfnc: { SommonSquad: BOSS }, enemy_9029_acfnc_2: { SommonSquad: BOSS, LaunchArmor: BOSS, SkSummonArmor: BOSS },
-  enemy_9032_aclionk: { equip: BOSS, equipA: BOSS, Suicide: BOSS }, enemy_9033_acdeer: { Doom: BOSS, Lasso: BOSS },
-  enemy_9035_acspider: { Net: BOSS }, enemy_9035_acspider_2: { Net: BOSS, AcidRain: BOSS }, enemy_9037_aceel: { Discharge: BOSS }, enemy_9037_aceel_2: { Discharge: BOSS },
+  // boss skills that spend their SP as the cast begins (bosses.js atSpell)
+  enemy_9021_acduml: { 1: ACE }, enemy_9021_acduml_2: { 1: ACE }, enemy_9022_acdumm: { 1: ACE },
+  enemy_9032_aclionk: { equip: ACE, equipA: ACE }, enemy_9029_acfnc: { SommonSquad: ACE }, enemy_9029_acfnc_2: { SommonSquad: ACE, SkSummonArmor: ACE },
+  // boss channels: 假想敌：黑云 【吞噬】 and 假想敌：铳 (隐秘核心) 【末日布道】 (three-part channels, the kit times its parts),
+  // “萨米的意志” 【自然涌动】 (a RangedAttack waiting for its lassos)
+  enemy_9009_acfort: { KillOthers: OWN }, enemy_9017_achunt_2: { 2: OWN }, enemy_9033_acdeer: { Lasso: OWN },
 };
 
 test('every attack-slot enemy skill with a frame to wait for takes effect there (`atStrike`), or says why not', () => {

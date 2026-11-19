@@ -210,6 +210,8 @@ function machineField(key, { hp = 1e7, walls = [['t_wall', 4, 4], ['t_wall2', 5,
 const alive = (h, key) => h.b.enemies.filter((o) => o.alive && o.defId === key);
 const runFor = (h, s) => { const t = h.b.time; h.runUntil(() => h.b.time >= t + s - 1e-9, s + 1); };
 /** `f(ability)` as enemy `e` starts a skill's cast (the fx 'enemySkill' content/enemies.js makes). */
+/** When enemy `e`'s skill `name` takes effect, s from its cast's start (content/enemies.js castStrikeAt: the frame its ability waits for). */
+const strikeOf = (e, name) => { const k = e.mem.ab.sk[name]; return enemiesMod.castStrikeAt(e, k.cast, k.bb); };
 const onSkill = (h, e, f) => { const fx = h.b.fx.bind(h.b); h.b.fx = (kind, p) => { if (kind === 'enemySkill' && p?.id === e.id) f(p.ability); return fx(kind, p); }; };
 
 test('假想敌：械: self-bound, every hit summons a 量变之械 by its target; 冲击之械 once at 50 % HP halve the damage from beyond them', () => {
@@ -257,8 +259,9 @@ test('假想敌：械 隐秘核心: bouncing shot, 冲击之械 at once, launche
   const casts = [], shots = [];
   onSkill(h, boss, (ability) => casts.push([ability, Math.round(h.b.time)]));
   h.b.on('hit', ({ source, target }) => { if (source === boss) shots.push(target); });
-  // LaunchArmor (cooldown 10, WithArmor mode only): both fly outward along row 4
-  runFor(h, 14.5 - h.b.time);
+  // LaunchArmor (cooldown 10, WithArmor mode only): both fly outward along row 4 — at B_Skill_2's frame (stretched over
+  // its 10 s cast: 2.5 s in)
+  runFor(h, 14 + strikeOf(boss, 'LaunchArmor') + 0.5 - h.b.time);
   // the skills take the attack slots (skillCast, 「적 스킬 = 일반 공격 차례」): 【洪流攻势】 (cooldown 45, ready at once) at
   // the first one — its A_Skill_1 casts 3.467 s (「적 클립의 키 표」) and the attack's cooldown restarts at its end
   // (resetMain, waitFirst) —, LaunchArmor (ready at 10 s) at the next slot, 14 s — no shot yet
@@ -288,7 +291,7 @@ test('假想敌：械 隐秘核心: bouncing shot, 冲击之械 at once, launche
   assert.equal(alive(h, ARMOR).length, 0, 'all destroyed');
   h.runUntil(() => alive(h, ARMOR).length === 2, 50);
   assert.deepEqual(alive(h, ARMOR).map((o) => [o.y, o.x]).sort((p, q) => p[1] - q[1]), [[4, 8], [4, 12]], 'SkSummonArmor');
-  assert.ok(boss.mem.lpSp[0] < 1, 'its SP spent');
+  assert.ok(boss.mem.lpSp[0] < strikeOf(boss, 'SkSummonArmor') + 1, 'its SP spent as it was cast (A_Skill_2, 2.5 s before they come)');
   // projectile_enemy_acfnc_2: `attack@hit_times` 2 hits, the second × 0.8 on the other operator (RANDOM; alone: the same)
   assert.ok(boss.stats.attacks >= 1 && shots.includes(w) && shots.includes(w2), 'the shot bounced to the other operator');
 });
@@ -306,7 +309,7 @@ test('假想敌：械 【洪流攻势】: 量变之械 on every passable side of
   h.runUntil(() => cast != null, 12);
   const slot = (t) => (t - TICK + 1e-6) % E3[FNC].stats.bat;
   assert.ok(cast >= full && slot(cast) < 0.05, `at an attack slot (${cast})`);
-  runFor(h, 0.5);
+  runFor(h, strikeOf(boss, 'SommonSquad') + 0.5);   // (they come at A_Skill_1's frame, 2 s in)
   const fresh = alive(h, PART).slice(before).map((p) => [Math.round(p.y), Math.round(p.x)]).sort();
   assert.deepEqual(fresh, [[3, 4], [5, 4]]);
 });
@@ -457,6 +460,8 @@ test('假想敌：茧 隐秘核心: 4 per field and poison on hit; 【悲惨之�
   onSkill(h, boss, (ab) => { if (ab === 'AcidRain' && castAt == null) castAt = { t: h.b.time, left: (boss.mem.ab.casting?.until ?? h.b.time) - h.b.time }; });
   runFor(h, rain.initCooldown + 0.6 - h.b.time);
   assert.ok(castAt && Math.abs(castAt.left - 1.833) <= TICK + 1e-6, `AcidRain casts its child's clip (${castAt && castAt.left})`);
+  // the rain falls as Skill_2 has played (it has no attack event), its first tick 0.5 s later
+  runFor(h, castAt.t + strikeOf(boss, 'AcidRain') + 0.6 - h.b.time);
   assert.ok(L.every((u) => u.findBuff('boss:acspiderRain')) && !R[0].findBuff('boss:acspiderRain'), 'p1\'s field');
   assert.equal(L[4].s.aspd, Math.max(20, 100 + rain.bb.attack_speed));
   const lt = L[4].stats.taken;
@@ -523,7 +528,7 @@ test('假想敌：鳍 【离子环波】: at its cooldown, arts ATK × atk_scale
   const e = put(h, EEL, [9, 7], { tag: null });
   h.runUntil(() => hits.some((x) => x.tags.includes('aceelDischarge')), 30);
   const ds = hits.filter((x) => x.tags.includes('aceelDischarge'));
-  assert.ok(Math.abs(ds[0].at - dis.initCooldown) < 0.5, `at ${ds[0].at}`);
+  assert.ok(Math.abs(ds[0].at - dis.initCooldown - strikeOf(e, 'Discharge')) < 0.5, `at Skill1's frame after its cooldown (${ds[0].at})`);
   const near = new Set(ds.map((x) => x.t));
   assert.ok(near.has(h.unit('t_wall')) && near.size === 2 && ![...near].some((u) => u.tileR === 11), 'the two within 1.5 (beside it, diagonal), not the one two rows away');
   assert.ok(Math.abs(ds.find((x) => x.t === h.unit('t_wall')).n - E3[EEL].stats.atk * dis.bb.atk_scale) < 1e-6);

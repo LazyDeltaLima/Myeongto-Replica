@@ -3171,8 +3171,10 @@ test('假想敌：胄 死亡集群: drones from the branch; a drone that dies (w
   h.step();
   const s2 = skb('enemy_9013_acstmk', '2');
   const loss = 675000 * s2.bb.hp_ratio;
+  assert.equal(alive(h, 'enemy_1005_yokai').length, 0, 'cast at once (icd 0), the drone not yet');
+  h.run(strikeOf(boss, '2') + 0.05);
   const d = alive(h, 'enemy_1005_yokai')[0];
-  assert.ok(d, 'drone summoned at once (icd 0)');
+  assert.ok(d, 'drone summoned at Skill_3\'s frame');
   assert.equal(d.s.maxHp, E.enemy_1005_yokai.stats.maxHp, 'boss_1 drones: no summon.hp_ratio — data HP (max_hp is not read)');
   let before = h.b.sharedBoss.hp;
   h.b.kill(d, h.unit('t_gun'));
@@ -3209,8 +3211,9 @@ test('假想敌：胄 死亡集群: the 2 % reads the leader\'s shown max HP (th
   assert.equal(boss.s.maxHp, 3600000, 'the unit shows the pool');
   assert.equal(droneLinkBase(boss), 3600000, 'the link reads the shown max HP (the pool)');
   assert.equal(droneLinkBase(boss, 'unit'), 600000, "the 'unit' switch reads the data max HP");
+  h.run(strikeOf(boss, '2') + 0.05);
   const d = alive(h, 'enemy_1005_yokai')[0];
-  assert.ok(d, 'drone summoned at once (icd 0)');
+  assert.ok(d, 'drone summoned (icd 0) at Skill_3\'s frame');
   const before = h.b.sharedBoss.hp;
   h.b.kill(d, h.unit('t_gun'));
   approx(before - h.b.sharedBoss.hp, 3600000 * skb('enemy_9013_acstmk', '2').bb.hp_ratio);
@@ -3219,8 +3222,9 @@ test('假想敌：胄 死亡集群: the 2 % reads the leader\'s shown max HP (th
   // a small pool (61 875): still 2 % of the bar, never the 19 % a fixed 12 000 would take
   const solo = bossArena({ hp: 61875, units: [{ chessId: 't_gun', row: 12, col: 3 }], setup: setTpl('act1autochess_h07_01') });
   solo.step();
-  put(solo, 'enemy_9013_acstmk', [3, 10], { tag: 'boss' });
+  const sb = put(solo, 'enemy_9013_acstmk', [3, 10], { tag: 'boss' });
   solo.step();
+  solo.run(strikeOf(sb, '2') + 0.05);
   const d2 = alive(solo, 'enemy_1005_yokai')[0];
   assert.ok(d2);
   const b2 = solo.b.sharedBoss.hp;
@@ -3299,7 +3303,7 @@ for (const key of ['enemy_9014_acstma', 'enemy_9015_acstmb']) {
     const origin = handRoute(key, 'origin'), blink = handRoute(key, 'blink');
     const p = put(h, key, origin.start, { tag: 'part' });              // pinned: the dive never lands
     assert.ok(p.s.flags.invulnerable && p.s.flags.untargetable && p.s.flags.unblockable);
-    h.run(s.initCooldown + 0.1);
+    h.run(s.initCooldown + strikeOf(p, '1') + 0.1);   // (the dive leaves as Launch_Begin has played: it has no attack event)
     assert.ok(!p.s.flags.invulnerable && !p.s.flags.untargetable, '出击模式');
     assert.deepEqual([p.y, p.x], blink.start, 'blinked to the start of its blink route');
     assert.ok(p.s.flags.disarm, '出击模式: no normal attack');
@@ -3337,7 +3341,7 @@ for (const key of ['enemy_9014_acstma', 'enemy_9015_acstmb']) {
     assert.equal(h.b.killed, killed0, 'a part: not counted');
     assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'kitHit' && x[4]?.id === n[0].id && x[4].k === `${key === 'enemy_9015_acstmb' ? 'acstmb' : 'acstma'}:back`).length, 1,
       'its Back_End passive sounds as the copy appears (audio)');
-    h.run(s.initCooldown - 0.2);
+    h.run(s.initCooldown + strikeOf(n[0], '1') - 0.2);
     assert.ok(n[0].s.flags.invulnerable, 'a new unit: 掷 waits for its initial cooldown');
     h.run(0.3);
     assert.ok(!n[0].s.flags.invulnerable);
@@ -3350,7 +3354,7 @@ test('“斩胄之剑” dive that lands: 3×3 stun + physical DoT at the lowest
   const origin = handRoute('enemy_9014_acstma', 'origin');
   const p = put(h, 'enemy_9014_acstma', origin.start, { tag: 'part', move: true });
   const s = skb('enemy_9014_acstma', '1');
-  h.run(s.initCooldown + 0.1);
+  h.run(s.initCooldown + strikeOf(p, '1') + 0.1);
   assert.ok(p.alive && !p.s.flags.invulnerable, 'flying from the blink start (5,16) to t_wall (5,15)');
   p.hp -= 1000;
   h.runUntil(() => statuses(h, h.unit('t_wall').id, 'stun').length > 0, 30);
@@ -3902,7 +3906,7 @@ test('假想敌：管 【裂管之奏】 at 50 s (official SP): 3 shots on every
   h.runUntil(() => h.eventsOf('fx').some((f) => f[1] === 'enemySkill' && f[4].id === e.id), e.s.interval + 0.5);
   assert.ok(h.b.time >= at && h.b.time <= at + e.s.interval + 1e-6, `cast at ${h.b.time}`);
   const n0 = hits.length;
-  h.run(1.5);                                                                  // 6 tiles at 10 tiles/s, last shot 0.5 s in
+  h.run(strikeOf(e, '1') + 1.5);   // the first shot at Skill's frame; 6 tiles at 10 tiles/s, last shot 0.5 s later
   assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'explode' && f[4].kind === 'pipeStrike').length, 3);
   const cast = hits.slice(n0), ep = skb('enemy_9021_acduml', '1').bb.ep_damage_ratio;
   const of = (u, type) => cast.filter((x) => x.to === u && x.type === type);
@@ -3957,7 +3961,8 @@ test('假想敌：管 (隐秘核心) + 假想敌：弦: 弦 is invulnerable, 断
   assert.ok(str.s.flags.invulnerable);
   const echo = put(h, 'enemy_9023_acdums', [3, 6], { tag: 'part' });
   bossesMod.setEchoForm(h.b, echo, 'gold');
-  h.run(firstCast('enemy_9022_acdumm', '1') + 0.7);   // the shot flies 5 tiles at 10 tiles/s (projectile_enemy_acdumm)
+  // the shot leaves at Skill's frame and flies 5 tiles at 10 tiles/s (projectile_enemy_acdumm)
+  h.run(firstCast('enemy_9022_acdumm', '1') + strikeOf(str, '1') + 0.7);
   assert.equal(echo.mem.ab.form, 'dark');
   assert.ok(h.unit('t_wall').stats.taken > 0);
   h.b.kill(pipe, null);
@@ -4289,7 +4294,7 @@ test('不祥幻影: same evade / DEF penetration / AoE skill (radius 2) as 卢�
   h.step(2);
   assert.equal(e.s.dodgePhys, tb('enemy_2017_csphts', 'evade.prob'));
   approx(e.s.defIgnorePct, tb('enemy_2017_csphts', 'penetrate.def_penetrate'));
-  h.run(skb('enemy_2017_csphts', 'aoe').initCooldown + 0.1);
+  h.run(skb('enemy_2017_csphts', 'aoe').initCooldown + strikeOf(e, 'aoe') + 0.1);
   assert.ok(h.unit('t_wall').stats.taken > 0 && h.unit('t_wall2').stats.taken > 0);
   assert.ok(h.unit('t_wall2').elem.neural > 0);
 });
@@ -4905,7 +4910,8 @@ test('阿利斯泰尔: 王权号令 with full SP waits for the attack\'s turn an
   h.step();
   const e = put(h, 'enemy_9032_aclionk', [3, 11], { tag: 'boss' });
   const swings = () => h.eventsOf('swing').filter((x) => x[1] === e.id).length;
-  const turns = turnsOf(h, e, 60, swings, (k, o) => k === 'telegraph' && o.kind === 'royalDecree');
+  // (a cast is its start: the strike and the drop come at Skill_1's frame, 0.9 s in — bosses.js atSpell)
+  const turns = turnsOf(h, e, 60, swings, (k, o) => k === 'enemySkill' && /^equip/.test(o.ability));
   const cost = ov.enemy_9032_aclionk.skills.find((s) => s.prefabKey === 'equip').spCost;
   const casts = turns.filter((t) => t[1] === 'cast');
   assert.ok(casts.length >= 1 && casts[0][0] >= cost, `王权号令 at ${casts.map((t) => t[0].toFixed(2))}`);
@@ -4923,6 +4929,7 @@ test('盐风主教昆图斯 【断裂生殖】: once the branch dslily_dstnta is
   const n = W.act1autochess_h07_04.branches.dslily_dstnta.length;
   h.runUntil(() => casts() >= n, 200);
   assert.equal(casts(), n);
+  h.run(strikeOf(boss, 'SummonTentac') + 0.05);   // (the phase is taken at Skill_03's frame)
   assert.ok(!tent.cond(h.b, boss, tent), 'spent: not ready');
   const atk0 = boss.stats.attacks;
   h.run(30);

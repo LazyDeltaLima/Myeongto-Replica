@@ -1329,7 +1329,7 @@
       "hooks": [1,62,6900,224,224,224,224,0,35,58,3,3,0,8848,0,0,36,23,1,23,0,0,0],
       "events": {"atk":224,"deploy":24,"die":35,"dmg":224,"fx":88,"leak":23,"skill":6,"spawn":50,"status":24,"swing":237},
       "fx": {"beam":33,"enemyShot":12,"enemySkill":33,"vvanaCharge":10},
-      "snaps": "bf4aa905 564cee52 0c375649 23a90a68 7e086732 f94092dc 6d6ac576 3e530e6a 03222dd1 f3572aaa eb6486f2 d81c4279 8bb79587 f60d3c66 7ced2e45 95edc003 90d18bf8 841784a7 644e3671 53851be0 ae92c11d 3dbb8215 aae7c3e0"
+      "snaps": "bf4aa905 564cee52 882081c5 316eae58 4d283b02 b023d4b8 d6bb3efa c9291690 a41afbf4 6729deb4 67490130 63121bb5 43b6132b 23c0c89c ce63fb96 c7c91f4a dd563d3a 999339ce 366cc71d 4d627947 9f4b1e5c a698adc3 b6dc3702"
     },
     "diy-032": {
       "about": "6_diy1_b=vvana/S1/002_vvana 6_diy2_b=vvana/S2/002_vvana 6_diy1_b=vvana/S3/002_vvana 6_diy2_b=vvana/S1/003_vvana 6_diy1_b=vvana/S2/003_vvana 6_diy2_b=vvana/S3/003_vvana 5_diy1_a=demetr/S1 5_diy2_a=demetr/S2 5_diy1_a=demetr/S3 5_diy2_b=demetr/S1 5_diy1_b=demetr/S2 5_diy2_b=demetr/S3",

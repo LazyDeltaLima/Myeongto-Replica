@@ -99,7 +99,7 @@ function kitBlackCloud(ab, e) {
         b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'fireWeapon' });
         shoot(b, e2, t, f.proj, (tt) => { if (tt && tt.alive) hurt(b, e2, tt, e2.s.atk * num(f.bb.atk_scale, 1), 'phys'); });
       }
-    }, { sil: true, cond: (b, e2) => (e2.mem.ab.ammo ?? 0) >= Math.max(1, num(f.sp, 1)) && allTargets(b, e2).length > 0 }),
+    }, { sil: true, atStrike: true, cond: (b, e2) => (e2.mem.ab.ammo ?? 0) >= Math.max(1, num(f.sp, 1)) && allTargets(b, e2).length > 0 }),
   ];
 }
 
