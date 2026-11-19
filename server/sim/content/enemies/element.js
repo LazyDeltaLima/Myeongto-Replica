@@ -271,6 +271,15 @@ function kitIgnitable(ab) {
   return [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, type: 'arts', r: FTZLC_BOOM.r, delay: FTZLC_BOOM.life, cond: (e) => !!e.mem.ab.ignited, sil: true, ability: 'boom' })];
 }
 
+/**
+ * 灼藤's ramp stage (2026-11-20, official client): its prefab's Talents/pow buff enemy_ftsjc[first_attack] carries the
+ * blackboard effect_1 0.5 and effect_2 0.99, and its ON_BUFF_TRIGGER sets effect_level 1 while the ramp's ratio (the ATK
+ * gained ÷ add_max_atk) is below effect_1, 2 below effect_2, else 3 — the level the buff's effect enemy_ftsjc_buff
+ * (SwitchableEffectByBlackboardValue) shows enemy_ftsjc_buff_01…03 by.
+ */
+const FLAME_VINE_STAGES = Object.freeze([0.5, 0.99]);
+const flameVineStage = (ratio) => 1 + FLAME_VINE_STAGES.filter((x) => ratio >= x).length;
+
 function kitFlameVine(ab) {
   const add = T(ab, 'pow.add_max_atk') ?? 0, time = T(ab, 'pow.time') ?? 0;
   const first = T(ab, 'pow.attack@ep_damage_ratio') ?? 0, normal = T(ab, 'pow.attack@ep_damage_ratio_normal') ?? 0;
@@ -280,7 +289,10 @@ function kitFlameVine(ab) {
     tick(b, e, a) {
       if (!a.first || !(time > 0)) return;
       const k = Math.min(1, (b.time - a.t0) / time);
-      b.addBuff(e, { key: 'ab:pow', mods: { atkPct: add * k }, persist: true });
+      // the status stands for enemy_ftsjc[first_attack] (its effect: render/fxgame.js stepSwitchBB); its count is the stage
+      b.addBuff(e, { key: 'ab:pow', mods: { atkPct: add * k }, persist: true, visible: true, fxTag: 'buff:enemy_ftsjc[first_attack]' });
+      const stage = flameVineStage(k);
+      if (stage !== a.stage) { a.stage = stage; b.fx('stacks', { x: e.x, y: e.y, id: e.id, buff: 'ab:pow', n: stage }); }
     },
     dealt(c, b, e, a) {
       const t = c.target;

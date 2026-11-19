@@ -911,6 +911,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // units that left the field: an effect bound to one (buff / one-shot on it) whose file finished loading after its
   // 'die' would never be stopped — a 棋子 placed and used up in the same tick kept its looping cross for good
   const gone = new Set();
+  // 2026-11-20 (official client `Enemy.isDisappeared`; docs/rules/fx.md 「사라진 적의 이펙트 멈춤」): the enemies the sim hides
+  // (['hide', id, 1|0] — a DISAPPEAR leg, a 驮兽 passenger), whose views leave the board as a leaked one's would
+  const disappeared = new Set();
   // 2026-10-27 (official client `ParticleEffect.OnBeforePlay` → `ParticleEffectManager.CheckEffectByPos`, effect bundle W2d;
   // docs/rules/fx.md 「이펙트 개수 상한」): a looping effect the manager counts (fx_extract.py `posCap`: `_isLoop`, not
   // `_ignoredByParticleEffectManager`) is finished at once, unplayed, when its prefab already plays `effectPositionMaxCount`
@@ -1263,8 +1266,40 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       pz.held.clear();
     }
   }
-  /** Each frame, before the effect steps: its pause / finish behaviours on its owner (entryOwner). */
-  function stepPauses(l) {
+  /**
+   * 2026-11-20: the unit an effect sits on as the client's owner — a status's unit, the target of a hit (play's anchor
+   * carries its ground's id), else its owner — for PauseEffectIfDisappeared (`pauseGone`).
+   */
+  const sitsOn = (l) => (l.unit ? ownerOf(l.unit) : l.view?.info ? l.view.id : l.on ?? l.owner) ?? null;
+  /**
+   * PauseEffectIfDisappeared (`Update`: `set_isPaused(isDisappeared)` of an Enemy owner each frame, official client): paused
+   * while the enemy it sits on is disappeared (`disappeared`). A paused effect does not run, so its end (`until`) waits by the
+   * battle time it stood paused (`dtGame`). As the enemy shows again its view is a new one — the old left the board with it:
+   * the effect is put on that view, then plays on (kept paused until the view is there, ≤ 1 s); one whose enemy died
+   * meanwhile ends.
+   */
+  function goneHold(l, pz, dtGame) {
+    const id = sitsOn(l);
+    if (id != null && disappeared.has(id)) {
+      pz.held = true; pz.wait = null;
+      if (l.until != null) l.until += dtGame;
+      return true;
+    }
+    if (!pz.held) return false;
+    if (gone.has(id)) { pz.held = false; if (!l.inst.stopping) l.inst.stop(); return false; }
+    const v = lastViews?.get(id);
+    if (v && v.alive !== false && !v.remove) {
+      pz.held = false;
+      if (l.view?.info && l.view.id === id && !l.unit) l.view = lifted(v, l.inst.def, !!l.buff);
+      return false;
+    }
+    pz.wait ??= clockS + 1;
+    if (clockS < pz.wait) { if (l.until != null) l.until += dtGame; return true; }
+    pz.held = false;
+    return false;
+  }
+  /** Each frame, before the effect steps: its pause / finish behaviours on its owner (entryOwner); `dtGame` this frame's battle s. */
+  function stepPauses(l, dtGame = 0) {
     const inst = l.inst, v = entryOwner(l);
     for (const pz of inst.pausers) {
       const r = pz.rec;
@@ -1277,6 +1312,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       } else if (pz.k === 'pauseMove') {
         const x = movePause(v);
         if (x != null) l.pzSelf = x;
+      } else if (pz.k === 'pauseGone') {
+        l.pzSelf = goneHold(l, pz, dtGame);
       } else if (pz.k === 'pauseMenu') {
         // 2026-11-01 (CN client, PauseEffectIfCharMenuNotOpen): paused unless the operator menu is open — this mode's battle
         // opens none [ASSUMED·CN: from the class name] (冻河's tocka_skill_01_buff_02 / _skill_02_buff_02)
@@ -1989,11 +2026,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     };
   }
   const statusFailed = new Set();   // `${bundle}/${name}` that did not load: their units keep the icon (statusReady false)
-  async function playStatus(view, bundle, name, key, frac, hold = null, under = false, once = false, kept = false, src = view) {
+  async function playStatus(view, bundle, name, key, frac, hold = null, under = false, once = false, kept = false, src = view, bb = null) {
     if (!(await ensure())) return;
     const def = await lib.load(bundle, skinOf(src) ? await skinNameNow(src, name) : name);   // 2026-11-17: its source drawn in a skin, the skin's
     if (mod && !def) { statusFailed.add(`${bundle}/${name}`); view._fxStatusOn?.delete(key); return; }
     if (!mod || !view._fxStatusOn?.has(key)) return;   // destroyed, or turned off while it loaded
+    // 2026-11-20: a blackboard switch (fx_extract.py `swBB`) draws nothing itself — its effect for the value plays (stepSwitchBB)
+    if (def.swBB && !bb) { if (!bbSwitches.some((x) => x.view === view && x.key === key)) bbSwitches.push({ view, bundle, key, frac, sw: def.swBB, cur: null, next: 0 }); return; }
+    if (bb && bb.sw.fx[bb.cur - 1] !== name) return;   // the value moved on while its file loaded
     // local patch (maintainer report 2026-10-08: the stun marks stacked over a re-stunned enemy): one effect per unit and
     // status — a status turned off and on again while its file loaded started a second load; the first one lands here too
     if (live.some((l) => l.status === key && l.unit === view && !l.inst.stopping && !ended(l))) return;
@@ -2020,8 +2060,43 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // (`once`: finished the frame it lands — FxInstance.finish, then gone def.finish s later — and never started again)
     const fin = once ? Math.max(0, Number(def.finish) || 0) : 0;
     addLive(inst, { view: anchor, owner: ownerOf(view), buff: true, status: key, again: once || kept ? null : () => playStatus(view, bundle, name, key, frac, hold, under, false, false, src), unit: view, held: emitsOnly(inst),
-      ...(once ? { until: clockS, finishAt: clockS + fin } : null) }, split ? layers.split : under ? layers.under : layers.over);
+      ...(once ? { until: clockS, finishAt: clockS + fin } : null), ...(bb ? { bbSw: bb } : null) }, split ? layers.split : under ? layers.under : layers.over);
     trimLive();
+  }
+
+  // ---- SwitchableEffectByBlackboardValue (2026-11-20, official client; docs/rules/fx.md 「블랙보드 값으로 고르는 이펙트」) ----
+  // A status prefab whose root is the client's SwitchableEffectByBlackboardValue (fx_extract.py `swBB`: 灼藤's enemy_ftsjc_buff,
+  // the effect of its ramp buff enemy_ftsjc[first_attack]) draws nothing itself: every `_updateInterval` s (`iv`) its
+  // `_UpdateEffect` reads the int `_blackboardKey` of its owner's buff `_buffKey` and, when that changed, creates
+  // `_effects[v − 1]` on the owner (none outside 1…count) and finishes the others (Effect.FinishMe). The value here is the
+  // sim's count of the status standing for that buff (its `fx` hint 'buff:<key>', the count of a kit's fx 'stacks' —
+  // UnitView.onStatusCount; server/sim/content/enemies/element.js kitFlameVine: its effect_level).
+  const bbSwitches = [];   // { view, bundle, key, frac, sw: the `swBB` record, cur: the value shown, next: clockS of the next look }
+  /** The count of `v`'s status whose `fx` hint names client buff `buff` (0 without one). */
+  function bbValue(v, buff) {
+    if (!v?.statusFrom) return 0;
+    for (const [k, from] of v.statusFrom) {
+      if (v.statuses?.has(k) && typeof from?.fx === 'string' && from.fx.startsWith('buff:') && from.fx.slice(5).split(',').includes(buff)) return Number(from.n) || 0;
+    }
+    return 0;
+  }
+  function stepSwitchBB() {
+    for (let i = bbSwitches.length - 1; i >= 0; i--) {
+      const x = bbSwitches[i];
+      if (!x.view._fxStatusOn?.has(x.key) || x.view.remove) { bbSwitches.splice(i, 1); continue; }   // (statusOff ended its effect)
+      if (clockS < x.next) continue;
+      x.next = clockS + (Number(x.sw.iv) > 0 ? Number(x.sw.iv) : 0);
+      const v = bbValue(x.view, x.sw.buff);
+      if (v === x.cur) continue;
+      x.cur = v;
+      for (const l of live) {
+        if (l.bbSw !== x || l.inst.stopping) continue;
+        const fin = Number(l.inst.def?.finish);
+        if (fin > 0) { l.inst.finish(); l.finishAt = clockS + fin; } else l.inst.stop(true);
+      }
+      const n = v >= 1 && v <= x.sw.fx.length ? x.sw.fx[v - 1] : null;
+      if (n && fxIn(x.bundle, n)) playStatus(x.view, x.bundle, n, x.key, x.frac, null, false, false, true, x.view, x);
+    }
   }
 
   /** 2026-10-21: a one-shot status prefab on `view` at its own `_spawnLocation` (a buff's end effect: api.statusOnce). */
@@ -6565,12 +6640,43 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (rec) { endBreathOn(rec); ebreath.delete(id); }
     for (const l of elines.values()) if (l.src === v) l.until = Math.min(l.until, clockS);
   }
+  /** A line's effects (the line, its start effect) paused or played on (setPaused). */
+  function pauseLine(rec, on) {
+    for (const l of [rec.l, rec.spLive]) if (l) { l.pzSelf = on; setPaused(l); }
+  }
+  /**
+   * 2026-11-20 (official client `LineEffectEmitterDynamic._PauseIfDisappear`, `lineDyn.gonePause`: 隐德来希 S3's line): while
+   * either end is a disappeared enemy (`disappeared`) the line and its start / end effects are paused, not finished — its
+   * buff runs on (`until` is not moved). As the enemy shows again the end is its new view (the old one left the board with
+   * it), the line plays on (held ≤ 1 s for the view to come). true = held this frame.
+   */
+  function lineHeld(rec) {
+    const idOf = (v) => (v?.info ? ownerOf(v) : null);
+    if ([rec.src, rec.tgt].some((v) => idOf(v) != null && disappeared.has(idOf(v)))) {
+      rec.held = true; rec.heldWait = null;
+      pauseLine(rec, true);
+      return true;
+    }
+    if (!rec.held) return false;
+    let ready = true;
+    for (const end of ['src', 'tgt']) {
+      const v = rec[end], id = idOf(v);
+      if (id == null || !(v.alive === false || v.remove)) continue;
+      const now = lastViews?.get(id);
+      if (now && now.alive !== false && !now.remove) rec[end] = now; else if (!gone.has(id)) ready = false;
+    }
+    if (!ready && clockS < (rec.heldWait ??= clockS + 1)) return true;
+    rec.held = false;
+    pauseLine(rec, false);
+    return false;
+  }
   /**
    * Each frame: the lines follow their two units. One whose buff ended keeps drawing `_delayToFinish` (0.5 s) and then stops
    * (Effect.FinishMe); one of whose units is gone ends at once (its buff goes with it).
    */
   function stepLines() {
     for (const [k, rec] of elines) {
+      if (rec.dyn?.gonePause && rec.l && lineHeld(rec)) { if (clockS > rec.until) { rec.ended = true; rec.l.inst.stop(true); elines.delete(k); } continue; }
       // 2026-10-27 (official client `LineEffectEmitterDynamic.Update`, effect bundle W2d): `_finishIfEitherOfOwnersNotExist`
       // (`endDead` 'alive') also finishes it while an end is in its 重生 (`alive` false there; 'reborn', `aliveOrReborn`,
       // keeps it, as a line without either does)
@@ -7630,11 +7736,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     onEvent(e, views) {
       lastViews = views;
       if (Array.isArray(e)) {
-        if (e[0] === 'die') { gone.add(e[1]); onField.delete(e[1]); }
+        if (e[0] === 'die') { gone.add(e[1]); onField.delete(e[1]); disappeared.delete(e[1]); }
+        else if (e[0] === 'hide') { if (e[2]) disappeared.add(e[1]); else disappeared.delete(e[1]); }
+        else if (e[0] === 'leak') disappeared.delete(e[1]);
         else if (e[0] === 'deploy') { gone.delete(e[1]); opDead.delete(e[1]); if (e[2] !== 1) deployed.set(e[1], clockS);   // (e[2] 1: a flight's landing, no deploy effect)
           if (onField.has(e[1])) moved.add(e[1]); else { onField.add(e[1]); moved.delete(e[1]); }
           const v = views?.get?.(e[1]); if (v) { v._fxCast = null; if (e[3] === 'back') v._fxReturn = true; } } // 2026-10-11: its deploy effect (flushDeploys); 2026-11-04: a 【返回】 (the sim's deploy key 'back': returnMode)
-        else if (e[0] === 'spawn') { gone.delete(e[1]?.id ?? e[1]); if (e[1]?.side === 'enemy' && e[1].id != null) eborn.set(e[1].id, clockS); } // 2026-10-10: its start effect (flushEnemyBirths)
+        else if (e[0] === 'spawn') { gone.delete(e[1]?.id ?? e[1]); disappeared.delete(e[1]?.id ?? e[1]); if (e[1]?.side === 'enemy' && e[1].id != null) eborn.set(e[1].id, clockS); } // 2026-10-10: its start effect (flushEnemyBirths)
         else if (e[0] === 'fx' && e[1] === 'summon' && e[4]) gone.delete(e[4].id);
         // local patch: a stone spawned (its 'summon' fx of the same moment, if any, takes it off — stoneFx)
         if (e[0] === 'spawn' && e[1] && (e[1].defId === STONE || e[1].spine === STONE)) stoneBirth.add(e[1].id);
@@ -8024,6 +8132,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (index) stepTokenAuras(lastViews); // 2026-10-22: the summons' skill auras
       if (index) stepBountyMarks(lastViews); // 2026-11-14: 规程's 悬赏 mark over a bounty enemy's head
       stepLines(); // 2026-10-10: buff line effects follow their units
+      if (bbSwitches.length) stepSwitchBB(); // 2026-11-20: SwitchableEffectByBlackboardValue
       // a frame without effects costs them nothing: the means decay (they used to stand at the last effect frame's cost)
       if (!mod || !live.length) { perf.updateMs *= 0.9; perf.renderMs *= 0.9; perf.calls = 0; }
       if (!mod) return;
@@ -8090,7 +8199,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (l.shotEnd != null && clockS >= l.shotEnd) { l.shotEnd = null; finishShot(l.inst, l); } // 2026-10-11: a flown main effect arrives
         if (l.finishAt != null && clockS >= l.finishAt) { l.finishAt = null; l.inst.stop(true); } // 2026-10-11: statusOff's delay
         if (l.backOf && (l.backOf.inst.stopping || !live.includes(l.backOf)) && !l.inst.stopping) l.inst.stop(); // 2026-10-10: a back copy ends with its front
-        if (l.inst.pausers?.length) stepPauses(l); // 2026-10-21: the client's pause / finish behaviours
+        if (l.inst.pausers?.length) stepPauses(l, dt * rate2); // 2026-10-21: the client's pause / finish behaviours
         const mount = l.inst.def?.mount && l.view && typeof l.view.invalid === 'boolean';
         const tu = performance.now();   // the perf HUD's top effects (perfTop): mount, update and scale
         if (mount) stepMount(l); // 2026-10-27: FollowMountPoint's pause
@@ -8184,7 +8293,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       frameGate = fxFrameGate();   // the time a held frame kept was the last battle's
       for (const l of live) dropLive(l);
       live.length = 0;
-      lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); wolves.clear(); packs.clear(); lemMarks.clear(); lemMarkFx.clear();
+      lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); disappeared.clear(); bbSwitches.length = 0; wolves.clear(); packs.clear(); lemMarks.clear(); lemMarkFx.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
       castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); ebreath.clear(); eshotLand.clear(); eshotLast.clear(); emortars.length = 0; dshells.length = 0; dblasts.clear();

@@ -122,8 +122,8 @@
         "enemy_1006_shield": [1,0,1,0,760]
       },
       "hooks": [1,92,5700,327,327,568,541,0,30,86,7,7,0,12967,0,13,68,56,1,30,3,0,38],
-      "events": {"atk":336,"deploy":24,"die":30,"dmg":541,"engage":11,"face":2,"fx":79,"layer":3,"leak":56,"skill":14,"spawn":80,"swing":343},
-      "fx": {"aoe":2,"dodge":38,"dp":3,"explode":29,"garrison":3,"garrisonGrant":1,"phase":2,"zone":1},
+      "events": {"atk":336,"deploy":24,"die":30,"dmg":541,"engage":11,"face":2,"fx":80,"layer":3,"leak":56,"skill":14,"spawn":80,"status":1,"swing":343},
+      "fx": {"aoe":2,"dodge":38,"dp":3,"explode":29,"garrison":3,"garrisonGrant":1,"phase":2,"stacks":1,"zone":1},
       "snaps": "4ec72cb7 82c0fce2 c102670c fc7d50e8 bfc05a14 89fea894 d8cefbef 479a5d9a ba22d2ff dff161aa 20575c30 bedcc20d 67e53a3c 2cd0d78a 09388c3c 9e6dcb38 8224856d 7da40ff9 857e220a"
     },
     "standin-03": {
@@ -288,7 +288,7 @@
         "enemy_1387_winshd": [30,1,29,10608,106997]
       },
       "hooks": [1,133,6357,528,528,892,892,0,23,125,5,20,0,12600,1663,24,104,101,1,23,0,0,0],
-      "events": {"atk":559,"deploy":26,"die":24,"dmg":812,"engage":6,"face":14,"fx":217,"leak":101,"skill":42,"spawn":114,"status":433,"swing":539},
+      "events": {"atk":559,"deploy":26,"die":24,"dmg":812,"engage":6,"face":14,"fx":217,"hide":10,"leak":101,"skill":42,"spawn":114,"status":433,"swing":539},
       "fx": {"aoe":3,"blink":1,"displace":23,"dp":1,"explode":6,"garrisonGrant":2,"kitHit":5,"phase":6,"slash":8,"stacks":156,"zone":6},
       "snaps": "776858e1 2067fe3b 16682529 fd304846 c7d7cef0 7e942f8e 44fb09e8 372357b2 77351de6 d9f19f0e 536db8ab 090843c2 072c3a01 2191310f 510238b6 ddf27e94 575278a2 8d15cf6b b8482fc4 be0f757b c4e06a64 6e87cc13"
     },

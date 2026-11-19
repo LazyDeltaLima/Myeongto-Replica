@@ -1543,7 +1543,7 @@
 - **전체 추출·떠난 것**: `used_enemies`가 首领 이벤트(`data/choices.json`)의 리더 14종을 빠뜨려 그들 이펙트가 안 뽑혀 있었다 — 넣음. 그리고
   `enemy_bindings.py --extract --all`로 모든 적의 이펙트(지금 797개, 전: 384)를 뽑음 — 凋零骑士·陷落雪祀·迷路的巨像 스킬 탄, 리더 전부, 가상적: 갑주 선,
   `common_enemy_die_01`(이제 자기 사망 이펙트가 없는 적은 절차 퍼프 대신 그것).
-- 안 한 것: 불타는 덩굴 `SwitchableEffectByBlackboardValue`(아래 「추출 누락 보고」). 화면 확인: 아래.
+- 불타는 덩굴 `SwitchableEffectByBlackboardValue`: 2026-11-20부터 그림(아래 「블랙보드 값으로 고르는 이펙트」). 화면 확인: 아래.
 - 확인: `test/render/enemy-buff-fx.test.js`(enemyBuffFx·wantedStatusFx·끝 이펙트·`once`·`ab:aweAura`), `test/sim/enemy-buff-tags.test.js`(상태 이벤트의 `fx`, 重弩突袭者 줄, '리드' 추적·자로 범위 상태),
   `enemy_bindings.py` 재생성 diff(위 `aura` 바뀐 적 목록을 하나씩 클래스로 확인).
 
@@ -2910,8 +2910,8 @@
   우리 선은 이미 한쪽 뷰가 사라지면 끝나고, 이제 그 끝이 重生 중(`form` 'reborn')이어도 끝(`lineDyn.endDead` 'alive'). `_finishIfEitherOfOwnersNotAliveOrReborn`
   (엔텔레키아 S3 `etlchi_skill_03_line_01`)은 重生 중엔 남음 = 예전 그대로. `_finishIfBuffNotExists`·`_checkBuffSourceForFinish`(시작점 유닛이 건 그 버프만)는 우리
   선이 버프의 lifeTime으로 살고 출발·도착 짝마다 하나라 같은 결과. `_forceLineUseWorldSpace`(티티 S3 선)는 그 선이 이미 월드 좌표라 차이 없음. 남긴 것:
-  `_pauseWhenDisappear`(엔텔레키아 S3 선 — 사라진 적을 뷰가 모름, `PauseEffectIfDisappeared`와 같은 일), `_fetchStartEndViaBuff`(그의 `etlchi_skill_03_line_01_end`
-  — 무엇이 트는지 표에 없음).
+  `_fetchStartEndViaBuff`(그의 `etlchi_skill_03_line_01_end` — 2026-11-20 두 클라에서 트는 곳을 못 찾음: 아래 「사라진 적의 이펙트 멈춤」).
+  `_pauseWhenDisappear`는 2026-11-20부터 읽음(같은 절).
 - **같은 자리 상한**(`ParticleEffect.OnBeforePlay` → `ParticleEffectManager.CheckEffectByPos`, 10-10 확인 기록 그대로): `_isLoop`이고
   `_ignoredByParticleEffectManager` 아닌 이펙트(추출 `posCap`)는 같은 `effectKey`(프리팹 이름)가 1칸 격자(`floor(p / 1)`, 세 축)와 0.5칸 어긋난 격자 **둘 다**에서
   이미 3개(`effectPositionMaxCount`) 켜져 있으면 틀지 않고 바로 끝낸다; 아니면 끝날 때까지 센다. 우리 판 좌표 = 클라 월드 좌표로 봄 [추정·엔진: 원점이 같은지 —
@@ -3529,9 +3529,8 @@
       '거대하고 못생긴 것' `mcmstr_buff_03_start`. `RectTransform` 노드(溯光星源 `halo2_skill_01_buff_01`)는 Transform처럼 읽음(캔버스 밖이면 앵커가 안 듦).
     - 판정: `EffectImportData`(검은 뿔의 루울 `enemy_xdelk_skill_start_01`) none — 클라 실행 코드가 그 클래스를 전혀 참조하지 않음(가져오기 설정).
       `Svash2FlyToPredefinedTokenCard` hand — 위 凛御银灰 S3 `startFly`(이 HUD엔 风雪之眼 카드가 없음).
-    - todo로 남김: `PauseEffectIfDisappeared` — 주인이 `Enemy`이고 `isDisappeared`(DISAPPEAR 구간·驮兽 승객)인 동안 멈춤. 우리 뷰는 그런 적이 판에서
-      빠져(`app.js`, 누수와 같은 길) 구별할 표시가 없음 — 엔텔레키아 타격 5개. `SyncEffectScaleWithAuraRangeRadius` — 이 모드 스테이지에 안 나오는 적의
-      `enemy_lrmm_range_01`뿐. `SwitchableEffectByBlackboardValue`(불타는 덩굴) — 위대로 시뮬이 단계를 안 알림.
+    - todo로 남김: `SyncEffectScaleWithAuraRangeRadius` — 이 모드 스테이지에 안 나오는 적의 `enemy_lrmm_range_01`뿐. `PauseEffectIfDisappeared`와
+      `SwitchableEffectByBlackboardValue`(불타는 덩굴)는 2026-11-20부터 읽음(아래 「사라진 적의 이펙트 멈춤」·「블랙보드 값으로 고르는 이펙트」).
     [화면 미확인]: 실제 판에서 퍼퓨머·호시구마의 공격 시작 이펙트가 총구를 따라가는지, '거대하고 못생긴 것'의 버프가 멈춰 설 때 멈추는지.
 - **필드 이름 먼저, 원시 칸은 대비책 (2026-10-20)**: `root_effect`(ParticleEffect·루트의 FxDelay)·`projectile_effect`·`right_effect`·`fx_delay`
   (가지의 FxDelay)·`mount_point`는 컴포넌트의 타입 트리가 읽히면 필드 이름으로 읽고, 원시 칸은 타입 트리가 안 읽힐 때만 쓴다(EN·CN 클라 모두 지금은
@@ -4774,6 +4773,34 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
   - **감싸개 상태 이펙트** (2026-11-17, 관리자 제보 「배포 뒤 빙결된 적에 얼음이 안 나옴」): `buff_frozen_to_enemy`처럼 제 입자·클립·꼬리·선·메시 없이 틀 때 다른 프리팹만 내보내는 루트는 만들자마자 `FxInstance.done`이라, `stepOnEmit`이 「끝나는 중」으로 보고 자식을 한 번도 틀지 않았고 상태 반복이 매 프레임 루트를 새로 만들었다(2026-11-16 손 표를 지운 뒤 적 동결 얼음이 아예 안 보임). 클라의 버프 이펙트는 버프가 끝낼 때(FinishMe)까지 산다 → `playStatus`가 그런 루트를 `held`로 붙들고(`emitsOnly`), `ended(l)`가 멈추기 전까지 끝나지 않은 것으로 센다. 상태가 끝나 멈추면 `_clearWhenFinish` 자식도 같이 끝난다. 재발 방지: `test/render/on-emitter-fx.test.js` 「a status effect that only emits」(실제 추출 프리팹으로; `stepOnEmit`의 `ended(l)`을 `inst.done`으로 되돌리면 실패함을 봄). [화면 미확인: 아레나 2배속]
 - **실버애쉬 더 레인프로스트 S3 아군 위 새**: `projectile_chr_svash2_s3_bird`(방향별 꼬리 `_trail_left_01`·`_right_01`)는 `BirdAttack_Ally` — 플레이어가 「눈보라의 눈」(风雪之眼)을 건넨 아군(`svash2_s_3[target_bird_onuse]` → `[summon_bird]`, `CreateBuffToCardUidCharacter`)에서만 난다. 자동 전투는 건네지 않으므로(키트 `chess_char_5_14-svash2.js`) 목록에 'ok'로 둔다.
 - 확인: `test/render/on-emitter-fx.test.js` 「OnPlayEmitterIf」(조건 호출을 빼면 실패함을 봄; 추출기 멈춤은 검사 표를 비워 한 번 봄), `test/render/status-buff-fx.test.js` 동결, `test/render/fx-bindings.test.js` 양방향 목록, 이펙트 골든. [화면 미확인: 거품·중독·재능 2 오라의 모양, 아레나 2배속]
+
+## 사라진 적의 이펙트 멈춤 (2026-11-20, 공식 클라에서 확인)
+- 공식: `PauseEffectIfDisappeared.Update`는 이펙트 주인이 `Enemy`이면 매 프레임 `set_isPaused(isDisappeared)` — 적이 사라진 동안(DISAPPEAR 구간,
+  驮兽 승객) 멈추고 다시 나타나면 이어 튼다. 붙은 곳: 엔텔레키아 타격 다섯(`etlchi_attack_hit_01`·`_innate_hit_01`·`_skill_01/02/03_hit_01`, 루트).
+  타격 이펙트의 주인은 맞은 대상(`HitEffectOptions.OnCastOnTarget`). 선 `LineEffectEmitterDynamic._PauseIfDisappear`(`_pauseWhenDisappear`, 그의
+  S3 선 `etlchi_skill_03_line_01`·`_end`)는 양 끝 중 하나가 사라진 동안 자기와 시작·끝 이펙트를 멈춘다.
+- 전에는 뷰가 사라진 적과 누수를 구별하지 못했다(스냅숏이 숨은 적을 뺌). 이제 시뮬 `Battle._setHidden`이 늘 `['hide', id, 1|0]`을 보낸다
+  (`fx: false`인 승객 타기·내리기도) — 이 사건을 받는 곳은 `fxgame.js disappeared`, `battle/runner.js`가 상태 사건으로 지킨다(놓치면 멈춘 채 남음).
+- 그림: 추출 `pauseGone`(노드)·`lineDyn.gonePause`. `fxgame.js goneHold` — 이펙트가 앉은 유닛(상태의 유닛, 타격의 대상, 그 밖엔 주인)이 사라진 동안
+  멈추고(숨김), 멈춘 동안 끝(`until`)도 그 전투 시간만큼 미룬다(멈춘 이펙트는 돌지 않음). 다시 나타나면 새 뷰(옛 뷰는 적과 함께 판을 떠남)에 붙여
+  이어 튼다(뷰가 올 때까지 1초까지 기다림); 숨은 채 죽은 적의 것은 끝낸다. 선은 `lineHeld`가 같은 식으로 멈추고 끝을 새 뷰로 바꾼다 — 버프는 그동안도
+  흐르므로 선의 끝 시각은 그대로. [추정·엔진: 다시 나타날 때 새 뷰의 그 점에서 이어진다 — 공식은 같은 Transform이 순간 이동]
+- `_fetchStartEndViaBuff`(`etlchi_skill_03_line_01_end`의 두 끝을 버프 주인·출처에서 가져옴): 버프 템플릿·표·추출 이펙트·그녀 캐릭터 번들·두 클라의
+  skills·dynamicabilities 번들·EN projectiles 번들·心烛(`enemy_5601_entlec`) 프리팹 어디에도 이 프리팹 이름이 없어 아무도 틀지 않는다고 봄 → 커버리지 none.
+- 재발 방지: `test/render/disappear-fx.test.js`
+
+## 블랙보드 값으로 고르는 이펙트 (2026-11-20, 공식 클라에서 확인)
+- 공식: `SwitchableEffectByBlackboardValue._UpdateEffect`(매 `_updateInterval` 초)는 주인 버프 `_buffKey`의 블랙보드 정수 `_blackboardKey` v가 바뀌면
+  `_effects[v − 1]`(1 ≤ v ≤ 개수)을 주인에게 만들고 나머지를 끝낸다. 붙은 곳: 불타는 덩굴(`enemy_10067_ftsjc`) 공격력 상승 버프
+  `enemy_ftsjc[first_attack]`의 이펙트 `enemy_ftsjc_buff`(`effect_level`, `enemy_ftsjc_buff_01…03`, 0.2초).
+- 단계: 그 버프의 ON_BUFF_TRIGGER가 비율(얻은 공격력 ÷ `add_max_atk`)이 `effect_1` 미만이면 1, `effect_2` 미만이면 2, 아니면 3. 두 값은 프리팹
+  Talents/pow 버프의 블랙보드 0.5·0.99(표에 없음) — 시뮬 `content/enemies/element.js FLAME_VINE_STAGES`. 공격력 상승 50초라 25초에 2, 49.5초에 3.
+- 시뮬: 'ab:pow'가 보이는 상태(`fxTag` 'buff:enemy_ftsjc[first_attack]')가 되고 단계가 바뀔 때 fx 'stacks' { buff: 'ab:pow', n: 단계 }.
+  렌더: 추출 `swBB` { buff, key, fx, iv } — `fxgame.js playStatus`가 그 루트(빈 노드)는 그리지 않고 `stepSwitchBB`가 그 버프를 가리키는 상태의 개수로
+  자식을 틀고 앞의 것을 끝낸다(FinishMe). 자식 셋은 `fx_extract.py --index enemy-index.json --bundle pfx_enemy_5 --pack pkgrps/btl_pfb_fx_enemy_5.ab
+  --prefab enemy_ftsjc_buff_02 …`로 뽑음(git 밖). 첫 공격 뒤의 `enemy_ftsjc[common]`(`enemy_ftsjc_buff_01`)은 그리지 않음(이 줄 밖 —
+  그 이펙트의 `FinishEffectViaOwnerBuff`가 `[first_attack]`이 없으면 끝내는지 안 봄). [화면 미확인]
+- 재발 방지: `test/render/disappear-fx.test.js`
 
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 

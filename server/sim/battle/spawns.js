@@ -193,12 +193,17 @@ export class BattleSpawns {
   // =============================================================================================================
   // enemies on the field: hidden, boss pool, clamp, compaction
 
-  /** `fx: false` = no 'disappear' / 'appear' effect (a 驮兽 passenger boarding / getting off: the client plays none). */
+  /**
+   * `fx: false` = no 'disappear' / 'appear' effect (a 驮兽 passenger boarding / getting off: the client plays none). Either
+   * way ['hide', id, 1|0] tells the view (2026-11-20): its snapshot leaves a hidden enemy out as it leaves a leaked one, and
+   * the client's `Enemy.isDisappeared` pauses some effects (render/fxgame.js `disappeared`).
+   */
   _setHidden(e, on, { fx = true } = {}) {
     if (e.hidden === on) return;
     e.hidden = on;
     this._indexEnemy(e);
     if (on) this._unblock(e);
+    this._ev(['hide', e.id, on ? 1 : 0]);
     if (fx) this.fx(on ? 'disappear' : 'appear', { x: e.x, y: e.y, id: e.id });
   }
 

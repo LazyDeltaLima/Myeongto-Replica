@@ -406,7 +406,7 @@
       ],
       "enemies": {"enemy_1010_demon":[7,7,0,4399,130637],"enemy_1422_lrsldr_2":[14,14,0,843,191601],"enemy_1425_lrcmra_2":[3,3,0,14181,186624]},
       "hooks": [1,36,2993,558,558,1194,1363,74,28,28,24,20,0,7663,264,22,24,0,1,33,3,0,0],
-      "events": {"atk":682,"deploy":12,"die":28,"dmg":1194,"engage":7,"face":39,"fx":100,"heal":64,"layer":3,"skill":44,"spawn":34,"status":454,"swing":351,"tplfx":3},
+      "events": {"atk":682,"deploy":12,"die":28,"dmg":1194,"engage":7,"face":39,"fx":100,"heal":64,"hide":6,"layer":3,"skill":44,"spawn":34,"status":454,"swing":351,"tplfx":3},
       "fx": {"cannon":14,"crit":21,"displace":23,"explode":8,"garrison":3,"kitHit":31},
       "snaps": "c599ad8d b5d868f4 3f8e9ee9 245e1e8e 2b4bb571 df310375 ebf2d7f6 7e8d00e7 b2df9fbe 700e6b1b"
     },

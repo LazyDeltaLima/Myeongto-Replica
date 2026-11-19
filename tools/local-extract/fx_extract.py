@@ -203,6 +203,10 @@ PAUSE_MOVE_SCRIPT = -1569843327534094582
 # (2026-11-01, CN client only) Torappu.Battle.Effects.PauseEffectIfCharMenuNotOpen (pause_scripts: `pauseMenu`; its fields
 # `_buffKey`, `_targetType` are not read)
 PAUSE_MENU_SCRIPT = -459260035723506154
+# (2026-11-20, official client) Torappu.Battle.Effects.PauseEffectIfDisappeared (pause_scripts: `pauseGone`, field-less) and
+# SwitchableEffectByBlackboardValue (switch_bb: `swBB`)
+PAUSE_GONE_SCRIPT = 8401462487392191767
+SWITCH_BB_SCRIPT = -7751344843855468294
 # (2026-11-16, official client) the MonoScript PathID of Torappu.Battle.Effects.SpecifyUnitModeEffect (owner_follow: `unitMode`)
 UNIT_MODE_SCRIPT = -7126797585799428801
 # (2026-10-22, official client) the MonoScript PathIDs of the scripts that drive an Animator at the effect's finish / play
@@ -846,7 +850,7 @@ def source_of(index, bundle, name):
 
 def prefab_links(d):
     """The prefab names an extracted effect `d` creates by name (set_emitted's list): its root's SwitchableBackEffect
-    `back`, its face switches' copies `swFace` / `three`, its random group's picks `rgroup`, its module variants `equipFx`
+    `back`, its face switches' copies `swFace` / `three`, its blackboard switch's `swBB` (2026-11-20), its random group's picks `rgroup`, its module variants `equipFx`
     and its nodes' OnPlayEmitter `onPlay` / OnPlayEmitterIf `onPlayIf` / OnFinishEmitter `onFinish`."""
     names = set()
     back = (d.get('back') or {}).get('effect')
@@ -854,6 +858,7 @@ def prefab_links(d):
         names.add(back)
     for k in ('swFace', 'three'):
         names.update(v for v in (d.get(k) or {}).values() if isinstance(v, str) and v)
+    names.update(v for v in (d.get('swBB') or {}).get('fx') or [] if isinstance(v, str) and v)   # (2026-11-20)
     names.update(v for v in (d.get('rgroup') or {}).get('pick') or [] if isinstance(v, str) and v)
     names.update(h[2] for h in (d.get('equipFx') or {}).get('hooks') or [] if isinstance(h[2], str) and h[2])
     for nd in d.get('nodes') or []:
@@ -1478,7 +1483,7 @@ class Extractor:
             out_def['follow'] = follow
         out_def.update(self.owner_follow(root))
         for key, read in (('swFace', self.switch_face), ('three', self.three_face), ('rdir', self.random_direction),
-                          ('tileH', self.tile_height)):
+                          ('tileH', self.tile_height), ('swBB', self.switch_bb)):
             v = read(root)
             if v:
                 out_def[key] = v
@@ -1590,7 +1595,7 @@ class Extractor:
         `_endPosOffset` (`_tweenEndPosition`: lerped from the start over `_tweenDuration`), and `_startEffect` / `_endEffect`
         follow those two ends; the owners come from the node that made it (`Nodes.CreateLineEffect.Execute`: start =
         its source, end = its target). Read by the root component's type tree: { sMount, eMount, start?, end?, mid?, sOff?,
-        eOff?, tween?, finishBuff?, buffSrc?, endDead? } (Entity.MountPointType numbers), None without one."""
+        eOff?, tween?, finishBuff?, buffSrc?, endDead?, gonePause? } (Entity.MountPointType numbers), None without one."""
         try:
             d = root.read_typetree()
         except Exception:
@@ -1626,6 +1631,10 @@ class Extractor:
                 out['endDead'] = 'alive'
             elif t.get('_finishIfEitherOfOwnersNotAliveOrReborn'):
                 out['endDead'] = 'reborn'
+            # (2026-11-20, official client `_PauseIfDisappear`): paused — with its start and end effects — while either end
+            # owner is disappeared (`isDisappeared`), played on as it shows again
+            if t.get('_pauseWhenDisappear'):
+                out['gonePause'] = 1
             return out
         return None
 
@@ -1883,6 +1892,23 @@ class Extractor:
             out['beh'] = 1
         return out
 
+    def switch_bb(self, root):
+        """(2026-11-20, official client) the client's SwitchableEffectByBlackboardValue on the root: { buff, key, fx, iv? }
+        — `_UpdateEffect` (every `_updateInterval` s) reads the int blackboard value v of `_blackboardKey` on its owner's buff
+        `_buffKey`; when v changes it creates `_effects[v − 1]` (1 ≤ v ≤ count) on the owner (with its faceVector when
+        `_useFaceto`, off on its one prefab — not read) and finishes the others, none outside that range. 灼藤's ATK ramp
+        (enemy_ftsjc_buff: its [first_attack]'s `effect_level`). By its field names; None without effects."""
+        t = self.root_script(root, SWITCH_BB_SCRIPT, 'SwitchableEffectByBlackboardValue', '_effects')
+        if t is None:
+            return None
+        fx = [x for x in (t.get('_effects') or []) if isinstance(x, str)]
+        if not fx or not isinstance(t.get('_buffKey'), str) or not isinstance(t.get('_blackboardKey'), str):
+            return None
+        out = {'buff': t['_buffKey'], 'key': t['_blackboardKey'], 'fx': fx}
+        if float(t.get('_updateInterval') or 0) > 0:
+            out['iv'] = r4(float(t['_updateInterval']))
+        return out
+
     def three_face(self, root):
         """(2026-10-22, official client) the client's SwitchableThreeFaceEffect on the root: { up?, down?, check?, start? } —
         `OnPlay` creates both copies on the owner paused when `_createEffectOnStart` (`_CreateEffectOnStart`),
@@ -2021,6 +2047,9 @@ class Extractor:
           effect's shared flag (`set_isPaused`) — also on `pauseSpine`.
         - `pauseMove` (PauseEffectIfNotMove; `Update`, 2026-10-25): paused while its owner, an Enemy, is not moving by itself
           (`Enemy.isMovingBySelf` false); an owner that is not an Enemy leaves it as it is.
+        - `pauseGone` (PauseEffectIfDisappeared; `Update`, 2026-11-20): paused while its owner, an Enemy, is disappeared
+          (`Enemy.isDisappeared`: a DISAPPEAR leg, a 驮兽 passenger) — each frame `set_isPaused` of that flag, so it plays on
+          as the enemy shows again; an owner that is not an Enemy leaves it as it is.
         - `pauseMenu` (PauseEffectIfCharMenuNotOpen, CN client only, 2026-11-01): paused unless the operator menu is open
           [ASSUMED from its name] — 冻河's marks of her S1 / S2 effect on an ally.
         - `pauseIdle` (PauseEffectIfNotIdle; `Update`): paused while the owner is not in its idle state
@@ -2035,9 +2064,9 @@ class Extractor:
           `_finishIfCurrentAnimFinish`)."""
         out = {}
         for sid, _raw, t in self.monos(go):
-            if sid in (PAUSE_MOVE_SCRIPT, PAUSE_MENU_SCRIPT):   # field-less / fields not read
+            if sid in (PAUSE_MOVE_SCRIPT, PAUSE_MENU_SCRIPT, PAUSE_GONE_SCRIPT):   # field-less / fields not read
                 if not (isinstance(t, dict) and t.get('m_Enabled') == 0):
-                    out['pauseMove' if sid == PAUSE_MOVE_SCRIPT else 'pauseMenu'] = 1
+                    out[{PAUSE_MOVE_SCRIPT: 'pauseMove', PAUSE_MENU_SCRIPT: 'pauseMenu', PAUSE_GONE_SCRIPT: 'pauseGone'}[sid]] = 1
                 continue
             what = {PAUSE_IF_SCRIPT: 'PauseEffectIf', PAUSE_OTHER_SCRIPT: 'PauseAnotherEffect', PAUSE_ANIM_SCRIPT: 'PauseEffectWithAnimation',
                     PAUSE_IDLE_SCRIPT: 'PauseEffectIfNotIdle', PAUSE_SPINE_SCRIPT: 'PauseEffectIfSpineEvent',

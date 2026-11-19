@@ -114,6 +114,8 @@ SCRIPTS_READ = {'ParticleEffect', 'ProjectileEffect', 'FxDelay', 'FollowMountPoi
                 # (2026-11-01, CN client only) pause_scripts (`pauseMenu`)
                 'PauseEffectIfCharMenuNotOpen',
                 'SpecifyUnitModeEffect',   # (2026-11-16) owner_follow (`unitMode`)
+                # (2026-11-20) pause_scripts (`pauseGone`, field-less) and switch_bb (`swBB`)
+                'PauseEffectIfDisappeared', 'SwitchableEffectByBlackboardValue',
                 # (2026-10-25) owner_follow (`followOwner`, `rootTile`) and pause_scripts (`pauseMove`): field-less
                 'FollowOwner', 'FollowOwnerRootTileHeight', 'PauseEffectIfNotMove'}
 
@@ -587,7 +589,7 @@ COMP_FIELDS = {
         '_effectGeneratedOnTargetIfFinish': _A('', 'an effect made on the target as it finishes'),
         '_finishIfEitherOfOwnersNotAliveOrReborn': _K('lineDyn.endDead'), '_finishIfEitherOfOwnersNotExist': _K('lineDyn.endDead'),
         '_forceLineUseWorldSpace': _N('its only prefab\'s lines (缇缇 S3 titi_skill_03_line_01) are world space already (`lineR.world`)'),
-        '_pauseWhenDisappear': _A(0, 'paused while an end has disappeared'),
+        '_pauseWhenDisappear': _K('lineDyn.gonePause'),   # (2026-11-20) render/fxgame.js stepLines: paused while an end is disappeared
         '_useSelfEffectOnly': _A(0, 'only its own effect, not the start / end ones'),
         '_switchMaterialParamViaLR': _A(0, 'the material tiling / offset switched by the side'),
         **{f'{f}.{a}': _N('only with _switchMaterialParamViaLR') for f in (
@@ -647,6 +649,7 @@ COMP_FIELDS = {
                               '_finishIfOwnerInvalid': _K('nodes[].finishIf.ownerGone'), '_finishIfNotDummy': _A(0, 'finished when its owner is not a dummy (`finishIf.notDummy` is carried, not played)'),
                               '_finishIfCurrentAnimFinish': _K('nodes[].finishIf.animEnd')},
     'script:PauseEffectIfNotMove': {'m_Enabled': _R('a switched-off one is not read (pause_scripts)')},
+    'script:PauseEffectIfDisappeared': {'m_Enabled': _R('a switched-off one is not read (pause_scripts)')},
     'script:PauseEffectIfCharMenuNotOpen': {'m_Enabled': _R('a switched-off one is not read (pause_scripts)'),
                                              '_buffKey': _N('[ASSUMED] the buff of the menu\'s operator it waits for: this battle '
                                                             'opens no operator menu'),
@@ -667,6 +670,12 @@ COMP_FIELDS = {
         '_oneShot': _K('swFace.oneShot'), '_useBehaviourPause': _A(0, _PAUSE + ' (`swFace.beh` is carried, not played)'),
         # (2026-11-16) the CN 11-08 client's field (홈바운드's hbound_F_Attack_start_01: 0)
         '_useDeployDirection': _A(0, 'picks by the deploy direction instead of the facing [ASSUMED from its name: only 0 seen]')},
+    # (2026-11-20) render/fxgame.js stepSwitchBB: the sim's count of the status standing for `_buffKey` is the value
+    'script:SwitchableEffectByBlackboardValue': {
+        'm_Enabled': _A(1, _OFF), '_buffKey': _K('swBB.buff'), '_blackboardKey': _R('the value is the sim\'s count of the status '
+                                                                                  'standing for `_buffKey` (one key per kit)'),
+        '_effects': _K('swBB.fx'), '_updateInterval': _K('swBB.iv'),
+        '_useFaceto': _A(0, 'created with its owner\'s faceVector')},
     'script:SwitchableThreeFaceEffect': {
         'm_Enabled': _A(1, _OFF), '_upEffect': _K('three.up'), '_downEffect': _K('three.down'),
         '_forceCheckInUpdate': _A(0, 're-applied every frame (`three.check` is carried, not played)'), '_createEffectOnStart': _K('three.start')},
@@ -734,7 +743,8 @@ COMP_READERS = {
     'script:OnPlayEmitter': ('on_emitters',), 'script:OnPlayEmitterIf': ('on_emitters',), 'script:OnFinishEmitter': ('on_emitters',),
     **{f'script:{c}': ('pause_scripts', 'pause_if') for c in (
         'PauseEffectIf', 'PauseAnotherEffect', 'PauseEffectWithAnimation', 'PauseEffectIfNotIdle', 'PauseEffectIfSpineEvent',
-        'FinishEffectIf', 'PauseEffectIfNotMove', 'PauseEffectIfCharMenuNotOpen')},
+        'FinishEffectIf', 'PauseEffectIfNotMove', 'PauseEffectIfCharMenuNotOpen', 'PauseEffectIfDisappeared')},
+    'script:SwitchableEffectByBlackboardValue': ('switch_bb',),
     'script:FollowOwner': ('owner_follow',), 'script:FollowOwnerRootTileHeight': ('owner_follow',),
     'script:SpecifyUnitModeEffect': ('owner_follow',),
     'script:FunnelHitEffect': ('funnel_hit',), 'script:FollowDirection': ('follow_direction',),
@@ -868,7 +878,9 @@ KNOWN = {
     'component:MeshCollider': (_NONE, 'physics / ray casts only'),
     'component:BoxCollider': (_NONE, 'physics / ray casts only'),
     # client scripts
-    'script:FinishEffectViaOwnerBuff': (_HAND, 'finishes when the owner\'s buff ends; only on 余 S3, drawn by render/fxgame.js (its tiles)'),
+    'script:FinishEffectViaOwnerBuff': (_HAND, 'finishes when the owner\'s buff ends; on 余 S3, drawn by render/fxgame.js (its tiles), and '
+                                        '(2026-11-20) 灼藤\'s ramp effects enemy_ftsjc_buff_01…03, ended with the status of its buff '
+                                        '(render/fxgame.js stepSwitchBB)'),
     'script:SwitchableEffectByBuffStackCnt': (_HAND, 'a variant by buff stack count; only 信仰搅拌机\'s rmixer_buff_01 (`_stackCnt` 3, GE): '
                                               'render/fxstatus.js STACK_FX \'rmixer:t1\''),
     'script:SetAnimatorIntByBuffStackCnt': (_HAND, 'a buff\'s stack count to an Animator int every `_checkInterval`; only 斥罪\'s '
@@ -918,27 +930,16 @@ KNOWN = {
     # runtime code of the 2026-10-14 EN client reads it — ProjectileEffect's own `_inactiveOnFinish` is
     # what the client switches off
     'script:EffectData_Projectile': (_NONE, 'data only: no runtime code reads it (ProjectileEffect\'s own `_inactiveOnFinish` is read)'),
-    'script:SwitchableEffectByBlackboardValue': (_TODO, 'plays `_effects[v − 1]` for v = the int `_blackboardKey` of the owner\'s buff '
-                                                 '`_buffKey` (1..count, none otherwise; checked every `_updateInterval` — '
-                                                 '_UpdateEffect): 灼藤\'s ramp, which the sim does not report'),
-    # (2026-10-21) without a serialized field, named from the client's MonoScripts; (2026-10-25) its Update read in the client:
-    # FollowOwner, FollowOwnerRootTileHeight and PauseEffectIfNotMove are read now (SCRIPTS_READ)
-    'script:PauseEffectIfDisappeared': (_TODO, 'pauses the effect while its owner is an Enemy whose `isDisappeared` is set (a DISAPPEAR '
-                                        'leg, a 驮兽 passenger); the view of such an enemy leaves the board (render/app.js) and '
-                                        'cannot tell it from a leak: 5 hit effects of 隐德来希 [todo: a view flag for it]'),
     # particle systems
     # (2026-10-26, effect bundle T) the fields the pipeline does not play, from the first field-level run over the EN client
     # (2158 prefabs); the note says which open bundle takes them (docs/rules/fx.md 「추출 누락 보고」 「입자 필드」)
     # (2026-10-26, effect bundle U) what that bundle left: the start direction turn of 4 systems (圣约送葬人's ranges)
     'field:ShapeModule.alignToDirection ≠ False': (_TODO, 'emission and motion (open): particles turned to their start direction'),
-    # (2026-10-26, effect bundle W1) the other components, the read scripts and the materials, from the first field-level run
-    # over the operators' prefabs (EN + CN clients) and the enemies' (EN): what the pipeline does not do yet
-    **{f'field:{w}': (_TODO, f'components and scripts (open): {n}') for w, n in (
-        ('LineEffectEmitterDynamic._fetchStartEndViaBuff ≠ 0', 'the two ends from a buff\'s owner and source: only 隐德来希 S3\'s '
-         'etlchi_skill_03_line_01_end, which no table names (its maker is not known here)'),
-        ('LineEffectEmitterDynamic._pauseWhenDisappear ≠ 0', 'paused while an end has disappeared: 隐德来希 S3\'s line — the view '
-         'cannot tell a disappeared enemy (as PauseEffectIfDisappeared) [todo: a view flag for it]'),
-        )},
+    # (2026-11-20) the two ends from a buff's owner and source: only 隐德来希 S3's etlchi_skill_03_line_01_end — no buff template,
+    # table or extracted effect names it, nor her charpack, the skills and dynamic abilities packs of either client, the EN
+    # projectiles pack or the 心烛 (enemy_5601_entlec) prefab: never played
+    'field:LineEffectEmitterDynamic._fetchStartEndViaBuff ≠ 0': (_NONE, 'only 隐德来希 S3\'s etlchi_skill_03_line_01_end, which nothing '
+                                                                    'of the clients plays'),
     # materials (values: the extracted materials, 2026-10-16)
     'property:Torappu/Particles/Disturb/Disturb Anchor _Weight': (_NONE, 'the toggle behind keyword _WEIGHT_ON, which the player reads (all 198 materials agree)'),
     # (2026-11-01, the CN client) Ram/VertexDisturb(CustomData)'s vertex stage: each vertex moves in object space by

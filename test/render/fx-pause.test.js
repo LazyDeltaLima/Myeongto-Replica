@@ -108,9 +108,11 @@ const body = (head) => {
 const line = (head) => { const at = SRC.indexOf(head); assert.ok(at >= 0, head); return SRC.slice(at, SRC.indexOf('\n', at)); };
 const method = (head) => { const at = SRC.indexOf(head); assert.ok(at >= 0, head); return SRC.slice(at, SRC.indexOf('\n    },\n', at) + 6); };
 function harness() {
-  const env = { clockS: 0, live: [], lastViews: new Map(), enemyDef: () => null };
+  const env = { clockS: 0, live: [], lastViews: new Map(), enemyDef: () => null, disappeared: new Set(), gone: new Set(),
+    ownerOf: (v) => v.id ?? v.info?.id, lifted: (v) => ({ id: v.id, info: v.info, re: v }) };
   const src = [line('const entryOwner = '), line('const immuneOf = '), body('function setPaused(l)'), line('const behPause = '),
-    body('function ownPause(l, pz, now = false)'), body('function releaseOthers(l)'), body('function stepPauses(l)'), body('function stepMount(l)'),
+    body('function ownPause(l, pz, now = false)'), body('function releaseOthers(l)'), line('const sitsOn = '), body('function goneHold(l, pz, dtGame)'),
+    body('function stepPauses(l, dtGame = 0)'), body('function stepMount(l)'),
     `const spineEvent = ${method('    spineEvent(id, name)').trim().replace(/^spineEvent/, 'function')};`,
     'return { stepPauses, stepMount, setPaused, spineEvent };'].join('\n');
   const make = new Function('env', 'pauseIfNow', 'idlePause', 'animPause', 'clipOf', 'immuneTo',
@@ -215,7 +217,7 @@ test('stepPauses: PauseEffectWithAnimation pauses after its delay and finishes w
 });
 
 test('the layer steps them before each effect, a paused one is not stepped, a back switch keeps it hidden, the model\'s clip events reach the layer', () => {
-  assert.match(SRC, /if \(l\.inst\.pausers\?\.length\) stepPauses\(l\);/);
+  assert.match(SRC, /if \(l\.inst\.pausers\?\.length\) stepPauses\(l, dt \* rate2\);/);
   assert.match(SRC, /!l\.hidden && !l\.held && !l\.paused\) \|\| l\.inst\.stopping\) l\.inst\.update\(/);
   assert.match(SRC, /l\.inst\.object\.visible = !on && !l\.offHeld && !l\.paused;/);
   assert.match(SRC, /function dropLive\(l\) \{ if \(l\.inst\.pausers\?\.length\) releaseOthers\(l\);/);
@@ -282,4 +284,41 @@ test('the frame loop: stepMount after stepPauses, `_followScale` after the clips
   assert.match(SRC, /\(l\.life = \(l\.life \|\| 0\) \+ dt\) >= l\.inst\.def\.maxLife\) \{\n\s*l\.stopped = true; l\.inst\.finish\(\); l\.finishAt = clockS \+ \(l\.inst\.def\.finish \|\| 0\);/);
   const player = readFileSync(path.join(ROOT, 'public/js/render/fxplayer.js'), 'utf8');
   assert.match(player, /const mirror = turn \? \(def\?\.mount\?\.followScaleSign \|\| def\?\.mount\?\.followScale \? facing : 1\) : facing;/);
+});
+
+test('stepPauses (2026-11-20): PauseEffectIfDisappeared holds a hit on its disappeared target — its end waits — and puts it on the new view', () => {
+  const h = harness();
+  const old = { id: 7, info: { side: 'enemy' }, alive: true };
+  h.env.lastViews.set(7, old);
+  const gonePz = () => ({ k: 'pauseGone', rec: 1 });
+  // a hit effect: owner the attacker (3), anchor on its target (7)
+  const e = entry('etlchi_attack_hit_01', 3, [gonePz()], { view: { id: 7, info: old.info }, until: 2, buff: false });
+  h.stepPauses(e, 0.1);
+  assert.equal(e.paused, false, 'shown: it plays');
+  h.env.disappeared.add(7);
+  old.alive = false;
+  for (let i = 0; i < 5; i++) h.stepPauses(e, 0.1);
+  assert.equal(e.paused, true, 'disappeared: paused');
+  assert.equal(e.inst.object.visible, false, 'and not drawn');
+  assert.ok(Math.abs(e.until - 2.5) < 1e-9, `its end waits by the time paused (${e.until})`);
+  h.env.disappeared.delete(7);
+  h.stepPauses(e, 0.1);
+  assert.equal(e.paused, true, 'shown again but no view yet: held');
+  const now = { id: 7, info: old.info, alive: true };
+  h.env.lastViews.set(7, now);
+  h.stepPauses(e, 0.1);
+  assert.equal(e.paused, false, 'its new view: plays on');
+  assert.equal(e.view.re, now, 'on the new view');
+  // one whose enemy died while hidden ends
+  const d = entry('etlchi_skill_01_hit_01', 3, [gonePz()], { view: { id: 8, info: old.info }, until: 2 });
+  h.env.disappeared.add(8);
+  h.stepPauses(d, 0.1);
+  h.env.disappeared.delete(8);
+  h.env.gone.add(8);
+  h.stepPauses(d, 0.1);
+  assert.equal(d.inst.stopping, true);
+  // an effect on a unit never hidden is left alone
+  const o = entry('x', 3, [gonePz()], { view: { id: 9, info: old.info } });
+  h.stepPauses(o, 0.1);
+  assert.equal(o.paused, false);
 });
