@@ -1,11 +1,11 @@
 // The 队员信息 dialog (the official 规程 autochess_player_detail_dialog; docs/rules/ui.md 「팀원 정보 창」): tapping an
 // avatar of the left player list opens one row per player beside the list, in the list's order — the list's own
 // avatar first (ui/teamPanel.js keeps it above the dialog and puts the 前往查看 tag on it: watching moved there from the
-// avatar tap), then the name card (name #tag, 完美连胜 n, the shop level), the player's lit bonds (the HUD strip's .bslot
-// drawn smaller, without the phase mark and n/m — maintainer decision 2026-11-15), the operators on their board (tier,
-// elite frame and the field's own equipment bar: m.public players[].lineup, server/match/match/views.js _lineupView) and
-// their strategy's portrait. Every season (maintainer decision 2026-11-15: a convenience where the official current
-// season has none). Rows touch (no gap between them, maintainer decision 2026-11-15): each row is the list row's height
+// avatar tap), then the name card (name #number — the lobby's own DOCTOR #number, components.js doctorNo —, 完美连胜 n,
+// the shop level), the player's lit bonds (the HUD strip's .bslot drawn smaller, without the phase mark and n/m —
+// maintainer decision 2026-11-15), the operators on their board (tier, elite frame and the field's own equipment bar:
+// m.public players[].lineup, server/match/match/views.js _lineupView) and their strategy's portrait. Every season
+// (maintainer decision 2026-11-15: a convenience where the official current season has none). Rows touch (no gap between them, maintainer decision 2026-11-15): each row is the list row's height
 // plus the list's gap; the name card and the two lists are as tall as the list's avatar and level with it (maintainer
 // report 2026-11-19).
 // The official art (CN battle bundle, season/act3autochess/playerdetail; the default theme's playerdetailshoplevel) is
@@ -14,7 +14,7 @@
 // portrait (its 🔍 likely opens the strategy's details), closing by a tap outside or on an avatar, an eliminated
 // player's row under the row_dead_cover, a solo match without the dialog (its list is hidden)]
 
-import { html, BondDisc } from './components.js';
+import { html, BondDisc, doctorNo } from './components.js';
 import { Img } from './gameComponents.js';
 import { sortBonds } from './gameLogic.js';
 import { bondIconUrl, bandIconUrl, chessAvatarUrl } from './assetUrls.js';
@@ -67,28 +67,6 @@ export function detailBonds(bonds) {
  */
 export function detailLineup(lineup) {
   return (Array.isArray(lineup) ? lineup : []).filter((u) => u && typeof u.char === 'string' && u.char);
-}
-
-/**
- * The number after each name (the official card's 「川 #9512」: there the account's; this game has no accounts, so each
- * player's own id gives it — the same on every screen and for the whole match, maintainer report 2026-11-19), four digits,
- * a clash in the room moved on to the next free number in the list's order.
- * @param {Array<{ playerId: string }>} players
- * @returns {Map<string, string>}
- */
-export function nameTags(players) {
-  const out = new Map();
-  const used = new Set();
-  for (const p of Array.isArray(players) ? players : []) {
-    const id = String(p?.playerId ?? '');
-    let h = 2166136261;
-    for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619) >>> 0;
-    let n = h % 10000;
-    while (used.has(n)) n = (n + 1) % 10000;
-    used.add(n);
-    out.set(id, String(n).padStart(4, '0'));
-  }
-  return out;
 }
 
 function NoInfo() {
@@ -149,7 +127,6 @@ export function PlayerDetail({ players, myId, geo }) {
     + artVar('arrow', 'list_arrow') + artVar('frame', 'char_avatar_frame') + artVar('gold', 'char_avatar_gold_gradient')
     + artVar('tframe', 'team_check_frame') + artVar('tcheck', 'team_check_icon')
     + eqArt('eqbg', 'equip_bg') + eqArt('eqn', 'equip_normal_icon') + eqArt('eqg', 'equip_gold_icon');
-  const tags = nameTags(players);
   return html`<div class="pdetail" role="dialog" aria-label=${t('同盟成员信息')}
       style=${`left:${geo.left}px;top:${geo.top}px;width:${geo.width}px;height:${geo.height}px;--k:${geo.k};${vars}`}>
     ${players.map((p, i) => {
@@ -166,7 +143,7 @@ export function PlayerDetail({ players, myId, geo }) {
           style=${`top:${g.top - geo.top}px;height:${g.height}px;--at:${g.at}px;--ah:${g.ah}px`}>
         <i class="pdetail__hole" style=${`width:${g.hole}px`}></i>
         <div class="pdetail__card">
-          <span class="pdetail__name"><span class="pdetail__nm">${playerName(p.name) || t('博士')}</span><small class="pdetail__tag num">#${tags.get(p.playerId)}</small></span>
+          <span class="pdetail__name"><span class="pdetail__nm">${playerName(p.name) || t('博士')}</span><small class="pdetail__tag num">#${doctorNo(p.playerId)}</small></span>
           ${p.winStreak > 0 ? html`<span class="pdetail__combo">${t('完美连胜 {n}', { n: p.winStreak })}</span>` : null}
           <i class=${cx('pdetail__shop', lvlArt && 'has-sprite')} style=${lvlArt ? `--pd-shop:url("${lvlArt}")` : undefined}
             title=${t('调度中心等级 {n}', { n: lvl })}>${lvlArt ? null : html`<small>LV</small>${lvl}`}</i>
@@ -181,6 +158,17 @@ export function PlayerDetail({ players, myId, geo }) {
       </div>`;
     })}
   </div>`;
+}
+
+/**
+ * The win-streak mark above the 前往查看 frame (the official player_status_item draws win_streak_holder after
+ * normal_ob_part, so over it — maintainer report 2026-11-19 「연승 삼각형이 더 위로」): the inline style of a box at the
+ * avatar button's place in its list row, which ui/teamPanel.js fills with the button's own badges (avatarBadges.js
+ * positions them by that box) while the frame is up.
+ * @param {{ x: number, y: number, w: number, h: number }} bt the avatar button's box in its row (measureDetail rows[].bt)
+ */
+export function streakTopStyle(bt) {
+  return `left:${bt.x}px;top:${bt.y}px;width:${bt.w}px;height:${bt.h}px`;
 }
 
 /**
@@ -205,7 +193,8 @@ export function goFrameStyle(av) {
  * left of the rows to the side layer's right edge less `margin`, each row the list row's height plus the gap between
  * rows (half above, half below: the rows touch), its first `hole` px left open for the list's avatar, `at` / `ah` the
  * avatar's top within the row and its height (the cards are that tall, level with it), `av` the avatar's box in its list
- * row (ui/teamPanel.js puts the 前往查看 frame over it); `k` = the avatar's height / CARD_H.
+ * row (ui/teamPanel.js puts the 前往查看 frame over it), `bt` the avatar button's (the win-streak mark goes there above the
+ * frame, streakTopStyle); `k` = the avatar's height / CARD_H.
  * @param {HTMLElement} aside @param {number} margin
  */
 export function measureDetail(aside, margin) {
@@ -227,6 +216,7 @@ export function measureDetail(aside, margin) {
     left: r1(left - a.left), top: r1(top - a.top), width: r1(right - left), height: r1(bottom - top), k: Math.round(k * 1000) / 1000,
     rows: R.map((r, i) => ({ top: r1(r.top - gap / 2 - a.top), height: r1(r.height + gap), hole: r1(Math.max(B[i].right, A[i].right) - left + 6 * k),
       at: r1(A[i].top - (r.top - gap / 2)), ah: r1(A[i].height),
-      av: { x: r1(A[i].left - r.left), y: r1(A[i].top - r.top), w: r1(A[i].width), h: r1(A[i].height) } })),
+      av: { x: r1(A[i].left - r.left), y: r1(A[i].top - r.top), w: r1(A[i].width), h: r1(A[i].height) },
+      bt: { x: r1(B[i].left - r.left), y: r1(B[i].top - r.top), w: r1(B[i].width), h: r1(B[i].height) } })),
   };
 }

@@ -34,7 +34,7 @@ import { EmoteBubble } from './emotes.js';
 import { STATUS_META, sortedPlayers, teamFrameIds } from './gameLogic.js';
 import { MissTag, uniteRemaining } from './hud.js';
 import { AvatarBadges } from './avatarBadges.js';
-import { PlayerDetail, measureDetail, goFrameStyle } from './playerDetail.js';
+import { PlayerDetail, measureDetail, goFrameStyle, streakTopStyle } from './playerDetail.js';
 import { localAsset } from '../data.js';
 import { t } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
@@ -180,6 +180,7 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
       const offline = p.connected === false && !p.isBot && status !== 'left';
       const av = open && geo ? geo.rows[i]?.av : null;
       const goTag = !!av && !self && !watched && canGo(p);
+      const bt = goTag && p.winStreak > 0 ? geo.rows[i]?.bt : null;
       const back = self && (observe ? observe.observing : !!watching && watchedAny && !watched);
       const title = playerName(p.name) || t('博士');
       const lp = rowLp(p, pub, self ? selfLive : null, { uniteLocal, cap });
@@ -217,6 +218,7 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
         </div>
         ${goTag ? html`<button type="button" class="team__ob pdetail__go" style=${goFrameStyle(av)} title=${t('查看 {name} 的战场', { name: title })}
           onClick=${() => go(p)}><span class="pdetail__gobar"><i class="pdetail__goarrow" aria-hidden="true"></i><span class="btn__label">${t('前往查看')}</span></span></button>` : null}
+        ${bt ? html`<span class="pdetail__streak" style=${streakTopStyle(bt)} aria-hidden="true"><${AvatarBadges} player=${p} self=${self} /></span>` : null}
         ${bubble ? html`<${EmoteBubble} key=${bubble.seq} id=${bubble.id} set=${bubble.set} class="team__bubble" />` : null}
       </div>`;
     })}

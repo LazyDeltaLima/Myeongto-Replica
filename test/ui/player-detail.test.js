@@ -1,6 +1,6 @@
 // The 队员信息 dialog's client half (ui/playerDetail.js, ui/teamPanel.js; docs/rules/ui.md 「팀원 정보 창」): an avatar
 // tap opens the dialog instead of watching, 前往查看 moved onto the avatar inside it, one row per player at the list's
-// rows, the lit bonds only, NOINFO for an empty list, the name's #number, the cards as tall as the list avatar, the
+// rows, the lit bonds only, NOINFO for an empty list, the name's #number (the lobby's), the cards as tall as the list avatar, the
 // field's equipment bar, the official 前往观战 frame over the whole avatar. The server half (m.public players[].lineup) is
 // test/match/player-detail.test.js.
 import { test } from 'node:test';
@@ -12,7 +12,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
-const { PlayerDetail, detailBonds, detailLineup, nameTags, goFrameStyle, CARD_H } = await import('../../public/js/ui/playerDetail.js');
+const { PlayerDetail, detailBonds, detailLineup, goFrameStyle, streakTopStyle, CARD_H } = await import('../../public/js/ui/playerDetail.js');
+const { doctorNo } = await import('../../public/js/ui/components.js');
 
 function* walk(v) {
   if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
@@ -52,7 +53,8 @@ test('one row per player at the measured places; an eliminated player is covered
   assert.match(rows[1].props.style, /top:100px;height:100px/, 'rows touch: each at its own measured top, the list row plus the gap');
   assert.match(rows[1].props.style, /--at:10px;--ah:80px/, 'the cards level with the list avatar and as tall (docs/rules/ui.md 「팀원 정보 창」)');
   const tag = [...walk(rows[1])].find((n) => hasClass(n, 'pdetail__tag'));
-  assert.ok(tag && /^#\d{4}$/.test([tag.props.children].flat().join('')), 'the name card carries the #number');
+  assert.equal([tag?.props.children].flat().join(''), `#${doctorNo('p_1')}`,
+    "the name card carries the lobby's own DOCTOR #number (docs/rules/ui.md 「팀원 정보 창」)");
   const bars = [...walk(rows[1])].filter((n) => hasClass(n, 'pdetail__eq'));
   assert.equal(bars.length, 1, "the field's equipment bar on the two-slot operator, none past two slots (as on the field)");
   const pills = [...walk(bars[0])].filter((n) => n.type === 'i');
@@ -75,17 +77,26 @@ test('wiring: an avatar tap toggles the dialog (no watch), 前往查看 is the d
   assert.match(read('public/css/player-detail.css'), /\.gm__side\.has-pdetail \{ z-index: 19; \}/, 'above the HUD panels while open');
 });
 
-test('the #number: four digits from the player id, the same on every call, a clash moved on', () => {
-  const players = [{ playerId: 'p_0a1b2c3d4e' }, { playerId: 'ai_1234abcd' }, { playerId: 'p_ffeeddccbb' }];
-  const a = nameTags(players), b = nameTags(players.slice().reverse());
-  for (const p of players) {
-    assert.match(a.get(p.playerId), /^\d{4}$/);
-    assert.equal(a.get(p.playerId), b.get(p.playerId), 'the order of the list does not change it');
-  }
-  const twice = nameTags([{ playerId: 'x' }, { playerId: 'x' }]);
-  assert.equal(twice.size, 1);
-  const tags = nameTags(Array.from({ length: 200 }, (_, i) => ({ playerId: `p_${i}` })));
-  assert.equal(new Set(tags.values()).size, 200, 'no two players of a list share a number');
+test("the #number is the lobby's DOCTOR #number: the same function, no numbering of the dialog's own", () => {
+  // maintainer report 2026-11-19 「로비에서 나오는 숫자를 그대로」: the lobby hub and the room's seat cards show
+  // DOCTOR #doctorNo(playerId); the dialog shows that number, never one it makes itself (docs/rules/ui.md 「팀원 정보 창」)
+  const src = read('public/js/ui/playerDetail.js');
+  assert.match(src, /#\$\{doctorNo\(p\.playerId\)\}/, 'the name card calls doctorNo on the player id');
+  assert.match(read('public/js/screens/room.js'), /DOCTOR #\$\{doctorNo\(seat\.playerId\)\}/, "the room's seat card shows the same");
+  assert.match(read('public/js/screens/lobby.js'), /DOCTOR #\$\{doctorNo\(me\.playerId\)\}/, 'the lobby hub shows the same');
+});
+
+test('the win-streak mark stays above the 前往查看 frame (the official win_streak_holder after normal_ob_part)', () => {
+  // maintainer report 2026-11-19 「보러가기의 파란 효과가 연승 삼각형을 덮고 있어」; docs/rules/ui.md 「팀원 정보 창」
+  assert.equal(streakTopStyle({ x: 1, y: 2, w: 94, h: 94 }), 'left:1px;top:2px;width:94px;height:94px');
+  const panel = read('public/js/ui/teamPanel.js');
+  const go = panel.indexOf('class="team__ob pdetail__go"'), top = panel.indexOf('class="pdetail__streak"');
+  assert.ok(go > 0 && top > go, 'the mark is drawn after the frame, in the row');
+  assert.match(panel.slice(top, panel.indexOf('\n', top)), /<\$\{AvatarBadges\} player=\$\{p\}/, "the button's own badges");
+  const css = read('public/css/player-detail.css');
+  const z = (sel) => Number(css.match(new RegExp(`${sel.replace(/[.]/g, '\\.')}[^{]*\\{[^}]*z-index: (\\d+)`))?.[1]);
+  assert.ok(z('.pdetail__streak') > z('.team .team__ob.pdetail__go'), 'above the frame');
+  assert.match(css, /\.team__row\.has-go > \.team__btn \.abadge \{ visibility: hidden; \}/, 'the copy under the frame hidden');
 });
 
 test('前往查看: the official frame over the whole avatar (93 × 84.6 over the 72 avatar, 4 above its centre)', () => {
