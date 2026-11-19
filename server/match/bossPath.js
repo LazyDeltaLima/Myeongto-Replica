@@ -7,7 +7,7 @@
 // path is the sim's: a headless battle of the field with no operators and only the round's leader spawns (the mirrored
 // copy of a pair field comes from its branch as in the real fight), each leader's position sampled every tick from its
 // spawn until it reaches the first checkpoint of its route a second time — the way there plus one patrol lap
-// (content/bosses.js patrolLoop; 卢西恩's list of five laps collapses to one). [추정] what the client walks: no official
+// (sim/ai.js patrolNext; 卢西恩's list of five laps loops after its first, as the client's). [추정] what the client walks: no official
 // per-stage path exists to compare with (research note in the maintainer's notes, 2026-10-08).
 //
 // Deterministic (no operators, a fixed seed) and cached per stage × template × field size × device overrides.

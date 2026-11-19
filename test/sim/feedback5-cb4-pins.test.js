@@ -36,6 +36,7 @@ import { planUnite } from '../../server/match/unite.js';
 import { createRng } from '../../server/sim/rng.js';
 import { DATA, makeMatch } from '../match/harness.js';
 import { COLS } from '../../server/sim/constants.js';
+import { compileRoute, patrolNext } from '../../server/sim/ai.js';
 
 test('item 6: the three briefing types fill 7–9 of the 13 normal waves (险境 / 绝境 / 终极), at most 3 each; the rest are SPECIAL', () => {
   for (const modeId of ['mode_multi_normal', 'mode_single_hard', 'mode_multi_abyss']) {
@@ -196,10 +197,31 @@ test('item 29: 铳 patrols (3,9) → (2,3) → (5,9) on every boss field over wa
   const h = leaderField('boss_5');
   const leaks = [];
   h.b.on('enemyLeak', ({ enemy }) => leaks.push(enemy.defId));
-  let wrapped = false;
-  for (let t = 0; t < 420 * 30; t++) { h.b.step(); const e = h.b.enemies.find((x) => x.alive && x.isBoss); if (e && e.route.legIdx === 0 && h.b.time > 300) wrapped = true; }
-  assert.ok(wrapped, '卢西恩 starts its patrol again after its 19 checkpoints');
+  // its 19 checkpoints are PATROL (3,9) (2,3) (5,9), MOVE (5,9), … — official BasicCursor.PatrolMoveCheckpoint.NextCursor:
+  // after a patrol point whose next checkpoint is a plain MOVE the walk goes back to the first of that patrol run, so it
+  // loops over the first three and never takes the MOVE at index 3 (docs/rules/sim.md 「적이 걷는 법」 순찰)
+  const legs = [];
+  for (let t = 0; t < 420 * 30; t++) {
+    h.b.step();
+    const e = h.b.enemies.find((x) => x.alive && x.isBoss);
+    if (e && legs[legs.length - 1] !== e.route.legIdx) legs.push(e.route.legIdx);
+  }
+  assert.ok(legs.length > 7 && legs.every((i) => i <= 2), `卢西恩 loops over its first three checkpoints: ${legs.join(' ')}`);
+  assert.deepEqual(legs.slice(0, 7), [0, 1, 2, 0, 1, 2, 0]);
   assert.deepEqual(leaks, []);
+});
+
+test('patrolNext (BasicCursor.PatrolMoveCheckpoint.NextCursor): on past a non-MOVE checkpoint, else back to the start of the patrol run', () => {
+  const legsOf = (steps) => compileRoute({ start: [4, 10], end: [2, 2], checkpoints: steps.map(([type, r = 1, c = 1]) => ({ type, pos: [r, c], time: 1 })) });
+  const PMP = legsOf([['PATROL'], ['PATROL'], ['PATROL']]);
+  assert.deepEqual([0, 1, 2].map((i) => patrolNext(PMP, i)), [1, 2, 0], 'all patrol: the last back to the first (the route end is no checkpoint)');
+  const L = legsOf([['PATROL'], ['PATROL'], ['PATROL'], ['MOVE'], ['PATROL']]);
+  assert.equal(patrolNext(L, 2), 0, 'a MOVE next: back to the run\'s first');
+  assert.equal(patrolNext(L, 4), 5, 'a patrol point after a MOVE starts no run: on (here to the route end)');
+  const M = legsOf([['MOVE'], ['PATROL'], ['WAIT'], ['PATROL'], ['MOVE']]);
+  assert.equal(patrolNext(M, 1), 2, 'a WAIT next is part of the run');
+  assert.equal(patrolNext(M, 3), 1, 'back over the WAIT to the run\'s first, not to the MOVE before it');
+  assert.equal(patrolNext(legsOf([['PATROL'], ['MOVE']]), 0), 1, 'a lone first patrol point goes on');
 });
 
 test('item 38: 野鬃\'s pushes towards the red gate never leave a ground enemy off the map (real waves, S2 running)', () => {

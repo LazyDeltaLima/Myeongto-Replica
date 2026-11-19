@@ -1058,12 +1058,29 @@ export function compileRoute(route, rect = null) {
   const cc = (c) => (rect ? Math.max(rect.c0, Math.min(rect.c1, c)) : c);
   for (const cp of route.checkpoints || []) {
     if (cp.type === 'MOVE') legs.push({ t: 'move', r: cr(cp.pos[0]), c: cc(cp.pos[1]), ...(cp.off ? { dr: cp.off[0], dc: cp.off[1] } : {}) });
+    else if (cp.type === 'PATROL') legs.push({ t: 'move', r: cr(cp.pos[0]), c: cc(cp.pos[1]), patrol: true });
     else if (cp.type === 'WAIT') legs.push({ t: 'wait', time: Number.isFinite(cp.time) ? Math.max(0, cp.time) : 0 });
     else if (cp.type === 'DISAPPEAR') legs.push({ t: 'disappear' });
     else if (cp.type === 'APPEAR') legs.push({ t: 'appear', r: cr(cp.pos[0]), c: cc(cp.pos[1]) });
   }
   if (route.end) legs.push({ t: 'move', r: cr(route.end[0]), c: cc(route.end[1]), final: true });
   return legs;
+}
+
+/**
+ * The leg after a PATROL_MOVE checkpoint `i` is reached (official client `BasicCursor.PatrolMoveCheckpoint.NextCursor`,
+ * docs/rules/sim.md 「적이 걷는 법」 순찰): the next checkpoint when it is not a plain MOVE (another patrol point, a WAIT,
+ * DISAPPEAR / APPEAR — `IsValidPatrolCheckPoint`: every checkpoint type but MOVE); else — a MOVE next, or no checkpoint
+ * left (the route's end is no checkpoint) — the first of the unbroken run of such checkpoints that ends at `i`, so the
+ * walk loops over that run; a patrol point with a MOVE (or nothing) before it goes on to `i + 1`. (Its 50-step guard
+ * against a loop of zero-length legs is advanceRoute's per-tick guard here.)
+ */
+export function patrolNext(legs, i) {
+  const loops = (L) => !!L && !L.final && (L.patrol || L.t !== 'move');
+  if (loops(legs[i + 1])) return i + 1;
+  let s = i;
+  while (s > 0 && loops(legs[s - 1])) s--;
+  return s < i ? s : i + 1;
 }
 
 /**
@@ -1320,7 +1337,7 @@ function advanceRoute(b, e, dt, R, standing = false) {
     const tx = legX(leg) - e.x, ty = legY(leg) - e.y;
     if (tx * tx + ty * ty <= REACH_SQ) {
       if (leg.final && !portalPickup(b, e)) { b.leak(e); return; }
-      R.legIdx++;
+      R.legIdx = leg.patrol ? patrolNext(R.legs, R.legIdx) : R.legIdx + 1;
       R.pts = null;
       continue;
     }

@@ -314,6 +314,24 @@ test('假想敌：械 【洪流攻势】: 量变之械 on every passable side of
   assert.deepEqual(fresh, [[3, 4], [5, 4]]);
 });
 
+// official client: a casting EnemySkill sets SP_RECOVER_STOPPED on its enemy (registeredAsModifier from CastToTarget to
+// _OnCastFinish), so the time SP stands still through the cast — 【洪流攻势】 (cooldown 0, spCost 25) is ready again 25 s
+// after its A_Skill_1 ENDS (content/bosses.js skillSp / spGain; docs/rules/ui.md 「전투 화면 UI」 보스 SP 바)
+test('假想敌：械 SP: spent as 【洪流攻势】 begins, still through its cast, +1/s again from its end', () => {
+  const { h, boss } = machineField(FNC);
+  let cast = null;
+  onSkill(h, boss, (ability) => { if (ability === 'SommonSquad') cast ??= h.b.time; });
+  h.runUntil(() => cast != null, 45);
+  assert.ok(cast != null, 'cast');
+  const len = boss.mem.ab.casting.until - cast;
+  assert.ok(Math.abs(len - E3[FNC].skillCast.sommonsquad.dur) < 0.05, `A_Skill_1 (${len})`);
+  runFor(h, len - 0.2);
+  assert.ok(boss.mem.lpSp[0] < 1e-9, `SP 0 to the cast's end (${boss.mem.lpSp[0]})`);
+  runFor(h, 1.2);
+  const want = h.b.time - (cast + len);
+  assert.ok(Math.abs(boss.mem.lpSp[0] - want) < 0.05, `SP counted from the end: ${boss.mem.lpSp[0]} ≈ ${want}`);
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 // 假想敌：茧 (boss_12 / boss_15) and 淤困之茧, on the default boss field with one or two players (p1 the left half, the
 // leader's own field — it stands on column 10 —, p2 the right one)

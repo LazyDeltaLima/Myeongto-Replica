@@ -291,7 +291,7 @@ test('audit: every WALK leg of every wave template (normal / 联防 / boss / hid
         from = to;
       };
       for (const cp of rt.checkpoints) {
-        if (cp.type === 'MOVE') hop(cp.pos);
+        if (cp.type === 'MOVE' || cp.type === 'PATROL') hop(cp.pos);
         else if (cp.type === 'APPEAR') from = cp.pos;
       }
       hop(rt.end);

@@ -624,6 +624,7 @@ function normCpType(t) {
   if (s.includes('DISAPPEAR')) return 'DISAPPEAR';
   if (s.includes('APPEAR')) return 'APPEAR';
   if (s.includes('WAIT')) return 'WAIT';
+  if (s.includes('PATROL')) return 'PATROL';
   return 'MOVE';
 }
 

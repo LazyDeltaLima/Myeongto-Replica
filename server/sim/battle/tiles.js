@@ -212,7 +212,7 @@ export class BattleTiles {
     routes.forEach((route, i) => {
       if (!walk(route) || (any && !used.has(i))) return;
       const pts = [clampPt(route.start)];
-      for (const cp of route.checkpoints || []) if ((cp.type === 'MOVE' || cp.type === 'APPEAR') && ok(cp.pos)) pts.push(clampPt(cp.pos));
+      for (const cp of route.checkpoints || []) if ((cp.type === 'MOVE' || cp.type === 'PATROL' || cp.type === 'APPEAR') && ok(cp.pos)) pts.push(clampPt(cp.pos));
       if (ok(route.end)) pts.push(clampPt(route.end));
       for (let j = 1; j < pts.length; j++) {
         const [a, b] = [pts[j - 1], pts[j]];

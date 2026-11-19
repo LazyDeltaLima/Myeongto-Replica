@@ -748,9 +748,13 @@ CN 플레이 제보, 관리자 결정 2026-11-14(2026-11-12의 「칸 둘마다 
 - 圣堂剑士 탄약: HP 바 바로 아래 같은 폭에 아군과 같은 탄환 칸([추정] `enemy_bullet_bar` 105×7).
 - **보스 SP 바와 관·현의 공식 SP** (관리자 결정 2026-10-07 「공식과 같은 a안」): 공식은 쿨다운이 아니라 SP다(`enemy_database` spData: 管 INCREASE_WITH_TIME
   0/50 +1/s, 裂管之奏 spCost 50·cooldown 50·initCooldown 40; PRTS 「技力 0/50 自动回复 1.0 SP/s」; 阿利斯泰尔 maxSp 25; 胄·萨米的意志·昆图斯·铳·卢西恩은 spData 없음
-  → SP 바 없음). 시뮬레이션 `content/bosses.js skillSp`: SP는 행동할 수 있을 때(기절 아님) 초당 increment, 스킬은 쿨다운이 끝나고 **SP ≥ 비용**일 때 발동
-  [추정·미조사: 둘 다 필요 — 클라 로직을 아직 안 읽음], 발동하면 비용만큼 소모. 管 첫 발동 40초 → 50초(테스트). 같은 구조의 弦(엘리트, spData 0/35, 断弦之奏 25·icd 12)도
-  같은 규칙(첫 발동 12초 → 25초). 阿利斯泰尔은 원래 SP를 세고 있어 값만 노출. 막대는 `b.snap.bsp`(`local-hud.js hudLists` — `ammo`와 한 번에 돈다).
+  → SP 바 없음). 시뮬레이션 `content/bosses.js skillSp`(공식 클라에서 확인 2026-11-20): 스킬은 쿨다운이 끝나고 **SP ≥ 비용**일 때 발동한다(`EnemySkill.CheckAvailable` —
+  켜짐·쿨·횟수·`_ignoreSilence`가 아니면 침묵/기절 아님·스킬 가능·SP 모두), 시전 시작에 비용만큼 소모(`CastToTarget` → `TryReduceSp`). SP는 초당 increment로 오르고
+  (`SpController.OnTick`) 멈추는 것은 이상 상태 SP_RECOVER_STOPPED뿐이다 — 기절·失衡은 그것을 걸지 않아 그동안에도 오르고, 그 적의 스킬이 시전 중이면(시전 시작부터
+  `_OnCastFinish`까지 `registeredAsModifier`, 적 스킬은 늘 `recoverSpWhenAffecting` 거짓) 멈춘다(`spGain`; 이전: 기절 중 멈춤, 시전 중 오름). 그래서 쿨다운 0인
+  SP 스킬(阿利斯泰尔 王权号令, 규정 械 洪流攻势·衰颓与复兴)은 시전이 **끝난 뒤** 비용만큼의 초에 다시 준비된다. 管 첫 발동 40초 → 50초(테스트). 같은 구조의 弦(엘리트,
+  spData 0/35, 断弦之奏 25·icd 12)도 같은 규칙(첫 발동 12초 → 25초). 阿利斯泰尔은 키트가 SP를 세고(같은 `spGain`) 값을 노출. 공식 SP 값은 주기 타이머로 1씩 오르는 정수이고
+  우리 값은 매끈하게 오른다(준비되는 때는 같음). 공식 막대가 그 정수대로 끊어 차는지는 화면으로 안 봤다 [화면 미확인]. 막대는 `b.snap.bsp`(`local-hud.js hudLists` — `ammo`와 한 번에 돈다).
   성능(관리자 요청 점검): SP 틱 0.06µs = 전투 한 스텝(88µs)의 0.07 %, `hudLists` = 스냅샷의 2.2 %(이전 `ammoList`와 같음).
   [추정] 凋亡 폭발 「15秒内无法开启技能，每秒损失1点技力」(적 쪽)은 아직 없음.
 - 맞을 때 흔들림(원본 `shake`)은 새 바에 적용하지 않는다(공식 없음).

@@ -7,12 +7,13 @@
 // constants ([ASSUMED] or PRTS-sourced). Boss HP rules ("<20 %", "≤50 %") read the leader's HP ratio, which the engine
 // syncs from the shared pool, so both mirrored copies switch phase together.
 //
-// Wave template: branches / extraRoutes / devices / patrol steps are read from the template the battle was built
+// Wave template: branches / extraRoutes / devices are read from the template the battle was built
 // from — `opts.waveTemplate|template|templateId|waveId` when the match passes it, else inferred from data/waves.json
 // (the template whose leader spawn matches and whose route list equals battle.routes). Without a template the
 // fallbacks spawn summons at the leader and route them to the nearest goal. Branch spawns keep their literal key
 // unless the match passes the round's placeholder replacements as `opts.slotKeys` ({ NF: key, N: key, … }).
-//   · patrol: a leader / part walking `patrol` steps loops them (never reaches the goal: 卢西恩 lpr 30, 铳, 碎铳之簧).
+//   · patrol: a leader / part on PATROL_MOVE checkpoints loops them by the route itself (ai.js patrolNext — never
+//     reaches the goal: 卢西恩 lpr 30, 铳, 碎铳之簧).
 //   · 'boss_battle_multi_player' (铳, 卢西恩): with ≥2 players on the field the mirrored copy is spawned from the branch
 //     (skipped if the match already spawned a second copy, or opts.bossMirror === false).
 //
@@ -83,7 +84,7 @@
 import { MOVE_SCALE, ROWS, COLS, ALLY_COLLIDER_RADIUS, TICK } from '../constants.js';
 import { GEO } from '../../../shared/constants.js';
 import { aggroCmp, areaSelectable } from '../targeting.js';
-import { compileRoute, attackWindup, enemyMode } from '../ai.js';
+import { attackWindup, enemyMode } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
 import {
   ensureInstalled, abOf, attach, T, elem, hurt, targetsNear, allTargets, byPriority, areaAllies, areaAlliesInTiles, fieldAllies, auraAllies,
@@ -205,24 +206,46 @@ export const SELF_BOUND = Object.freeze([
   'enemy_9013_acstmk', 'enemy_9013_acstmk_2', 'enemy_9021_acduml', 'enemy_9021_acduml_2', 'enemy_1521_dslily',
   'enemy_9032_aclionk', 'enemy_9033_acdeer',
 ]);
-/** 阿利斯泰尔: enemy SP per second [ASSUMED] and 莫非王土 delay after each 王权号令 [ASSUMED]. */
+/** Enemy SP per second when a time-SP record gives no `increment` (the four that have one give 1); 阿利斯泰尔's 莫非王土
+ * delay after each 王权号令 [ASSUMED]. */
 const ENEMY_SP_PER_SEC = 1, ANIMATE_DELAY = 2;
 
 /**
- * Local patch (LOCAL-PATCH.md 「전투 화면 UI」, maintainer decision 2026-10-07 「공식과 같은 a안」): the official enemy SP of a skill
- * with an SP cost (enemy_database spData INCREASE_WITH_TIME — 管 0/50 +1/s with 裂管之奏 spCost 50, PRTS 「技力 0/50 自动回复
- * 1.0 SP/s」; 弦 0/35 with 断弦之奏 25): the skill fires once its cooldown is over AND the SP reaches the cost [추정: both —
- * the client's logic is native], the cast spends the cost; SP is gained only while the enemy can act (as 阿利斯泰尔's
- * 王权号令 below). `e.mem.lpSp` = [sp, max] feeds the boss SP bar (server/sim/local-hud.js). Null without such data.
+ * Is one of enemy `e`'s skills casting now (content/enemies.js onSkillSlot `ab.casting`, until its end or its cut)? The
+ * official client's casting EnemySkill registers itself on its enemy as an attribute modifier from `CastToTarget` to
+ * `_OnCastFinish` (`registeredAsModifier`) and its `abnormalFlagMask` is SP_RECOVER_STOPPED (`recoverSpWhenAffecting`
+ * is false for every enemy skill), so the enemy's SP stands still while any of its skills casts.
+ */
+function enemyCasting(b, e) {
+  const k = e.mem.ab && e.mem.ab.casting;
+  return !!k && b.time < k.until - 1e-9;
+}
+/** The time-SP gain of enemy `e` over `dt` (spData INCREASE_WITH_TIME `increment` a second): see skillSp. */
+function spGain(b, e, d, dt) {
+  if (e.hidden || enemyCasting(b, e)) return 0;
+  return dt * (Number.isFinite(d && d.increment) && d.increment > 0 ? d.increment : ENEMY_SP_PER_SEC);
+}
+
+/**
+ * The official enemy SP of a skill with an SP cost (enemy_database spData INCREASE_WITH_TIME — 管 0/50 +1/s with 裂管之奏
+ * spCost 50, PRTS 「技力 0/50 自动回复 1.0 SP/s」; 弦 0/35 with 断弦之奏 25; 规程's 械 25 / 45), as the official client
+ * (maintainer decision 2026-10-07 「공식과 같은 a안」 for showing it, docs/rules/ui.md 「전투 화면 UI」 보스 SP 바):
+ * `EnemySkill.CheckAvailable` casts the skill only once its cooldown is over AND the enemy's SP ≥ its spCost (with its
+ * mode, its trigger count and, unless `_ignoreSilence`, no silence or stun), and `CastToTarget` spends the cost as the
+ * cast begins (`TryReduceSp`). The SP grows every second (`Entity.OnTick` → `SpController.OnTick`) unless the flag
+ * SP_RECOVER_STOPPED is on — a stun or a 失衡 does not set it; the enemy's own cast does (enemyCasting): the SP stands
+ * still while it casts, so a skill whose cooldown is 0 is ready again its cost in seconds after the cast's END. The
+ * client counts whole points (a periodic timer that keeps its part-second while stopped); the sum here reaches the cost
+ * at the same moment. `e.mem.lpSp` = [sp, max] feeds the boss SP bar (server/sim/local-hud.js). Null without such data.
  */
 function skillSp(e, s) {
   const d = e.def && e.def.raw && e.def.raw.sp;
   if (!s || !(s.sp > 0) || !d || d.type !== 'INCREASE_WITH_TIME') return null;
-  const max = Math.max(s.sp, Number(d.maxSp) || 0), inc = Number.isFinite(d.increment) ? d.increment : ENEMY_SP_PER_SEC;
+  const max = Math.max(s.sp, Number(d.maxSp) || 0);
   const st = { sp: Math.min(max, Number(d.initSp) || 0), max, cost: s.sp };
   st.ready = () => st.sp >= st.cost - 1e-9;
   st.spend = (e2) => { st.sp = Math.max(0, st.sp - st.cost); e2.mem.lpSp = [st.sp, max]; };
-  st.ab = { tick(b2, e2, a, dt) { if (canCast(e2, false)) st.sp = Math.min(max, st.sp + dt * inc); e2.mem.lpSp = [st.sp, max]; } };
+  st.ab = { tick(b2, e2, a, dt) { st.sp = Math.min(max, st.sp + spGain(b2, e2, d, dt)); e2.mem.lpSp = [st.sp, max]; } };
   return st;
 }
 /**
@@ -295,19 +318,6 @@ export function templateOf(b) {
   }
   st.tpl = bestScore >= 9 ? best : null;
   return st.tpl;
-}
-
-const legSig = (legs) => legs.map((l) => `${l.t}:${l.r ?? ''},${l.c ?? ''},${l.time ?? ''}`).join('|');
-
-/** Raw template route an enemy is walking (matched on compiled legs). */
-function rawRouteOf(b, e, tpl) {
-  if (!tpl || !e.route || !Array.isArray(e.route.legs)) return null;
-  const sig = legSig(e.route.legs);
-  for (const r of [...(tpl.routes || []), ...(tpl.extraRoutes || [])]) {
-    if (!r) continue;
-    try { if (legSig(compileRoute(normalizeRoute(r), b.rect)) === sig) return r; } catch { /* skip */ }
-  }
-  return null;
 }
 
 /** Fallback route from a position to the nearest goal. */
@@ -416,21 +426,9 @@ function onSpawn(b, e) {
   let list = [];
   try { list = kit(ab, e, b, tpl) || []; } catch (err) { b._handlerError('content:bosses', e, err); }
   attach(b, e, list);
-  // patrol loop for leaders / parts
-  const raw = rawRouteOf(b, e, tpl);
-  if (raw && Array.isArray(raw.steps) && raw.steps.some((s) => s && s.t === 'patrol')) attach(b, e, [patrolLoop()]);
+  // (a patrol route loops by itself: ai.js patrolNext)
   // mirrored leader for 2 players (boss_battle_multi_player)
   if (e.isBoss || e.tag === 'boss') mirror(b, e, tpl);
-}
-
-function patrolLoop() {
-  return {
-    tick(b, e) {
-      const R = e.route;
-      if (!R || !Array.isArray(R.legs) || R.legs.length < 2) return;
-      if (R.legIdx >= R.legs.length - 1) { R.legIdx = 0; R.pts = null; R.waitLeft = null; }
-    },
-  };
 }
 
 function mirror(b, e, tpl) {
@@ -1677,6 +1675,7 @@ function kitLion(ab, e, b) {
   const golden = (raw.devices || b.data.getEnemy(e.defId)?.raw?.devices || []).find((d) => d && d.key === GOLDEN_KEY) || null;
   const range = () => e.base.rangeRadius || 3.4;
   const cost = eq ? (eq.sp > 0 ? eq.sp : 25) : Infinity;
+  const spData = raw.sp || null, spMax = Math.max(Number.isFinite(cost) ? cost : 0, Number(spData && spData.maxSp) || 0);
   /** Equipment lying on this field, oldest first. */
   const equipment = (b2) => b2.enemies.filter((q) => q.alive && EQUIP_KEYS.includes(q.defId)).sort((p, q) => p.spawnSeq - q.spawnSeq);
   const decree = (b2, e2) => { // 【王权号令】 plus-shaped strike + random equipment
@@ -1751,9 +1750,10 @@ function kitLion(ab, e, b) {
           b2.addBuff(e2, { key: 'boss:advance', persist: true, visible: true, mods: { defPct: T(ab, 'advance.def') ?? 0, resFlat: T(ab, 'advance.magic_resistance') ?? 0 } });
           b2.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: 'lionAdvance' });
         }
-        if (!canCast(e2, false, b2)) return;
-        P.sp += dt * ENEMY_SP_PER_SEC;
+        // its SP (spData INCREASE_WITH_TIME 0/25 +1/s): on through a stun, still while it casts (skillSp, spGain)
+        P.sp = Math.min(spMax, P.sp + spGain(b2, e2, spData, dt));
         if (Number.isFinite(cost)) e2.mem.lpSp = [Math.min(P.sp, cost), cost]; // local patch: the boss SP bar (local-hud.js)
+        if (!canCast(e2, false, b2)) return;
         // 【莫非王土】: ANIMATE_DELAY s after equipment first lies on the field, then once per 王权号令 cycle; when no branch
         // can cast (a lone sword, nobody in range) it fires as soon as one can
         const has = equipment(b2).length > 0;

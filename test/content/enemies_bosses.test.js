@@ -4342,6 +4342,24 @@ test('阿利斯泰尔: 王权号令 strikes a plus shape (ATK×2) and drops equi
   assert.equal(h.hooksOf('lpLoss')[0].amount, 100);
 });
 
+// official client: an enemy's time SP (spData INCREASE_WITH_TIME) grows unless the flag SP_RECOVER_STOPPED is on — a stun
+// does not set it (content/bosses.js spGain; docs/rules/ui.md 「전투 화면 UI」 보스 SP 바)
+test('阿利斯泰尔 SP: +1/s through a stun (SpController stops only for SP_RECOVER_STOPPED, which a stun does not set)', () => {
+  const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }] });
+  h.step();
+  const e = put(h, 'enemy_9032_aclionk', [3, 11], { tag: 'boss' });
+  e.profile.noAttack = true;
+  const t0 = h.b.time;
+  h.run(2);
+  h.b.applyStatus(e, 'stun', { duration: 5 });
+  h.run(1);
+  assert.ok(e.s.flags.stun, 'stunned');
+  h.run(5);
+  assert.ok(!e.s.flags.stun);
+  approx(e.mem.lpSp[0], h.b.time - t0, 0.05, 'SP = the time on the field, the stun included');
+  assert.equal(e.mem.lpSp[1], E.enemy_9032_aclionk.sp.maxSp);
+});
+
 for (const key of ['enemy_10028_vtswd', 'enemy_10029_vtshld', 'enemy_10030_vtwand']) {
   test(`${nm(key)}: dropped equipment is inert (invulnerable, untargetable, never moves) until animated`, () => {
     const h = bossArena({ units: [{ chessId: 't_gun', row: 12, col: 3 }] });
