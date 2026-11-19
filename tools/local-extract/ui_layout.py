@@ -5,17 +5,24 @@ tested with hand-made trees (test/local-extract-ui-layout.test.js). It solves wh
 
   - anchors, anchoredPosition, sizeDelta, pivot, localScale (rotation is not solved: such a node is 「모름」);
   - HorizontalLayoutGroup / VerticalLayoutGroup (padding, spacing, child alignment, control / force expand / scale,
-    reverse), LayoutElement, ContentSizeFitter (min / preferred), and the layout sizes Image gives (sprite size, or
-    its 9-slice border for Sliced / Tiled), in Unity's order: the horizontal pass, then the vertical one.
+    reverse), GridLayoutGroup (cell size, spacing, padding, start corner and axis, child alignment, the flexible /
+    fixed column / fixed row constraint), LayoutElement, ContentSizeFitter (min / preferred), and the layout sizes
+    Image gives (sprite size, or its 9-slice border for Sliced / Tiled), in Unity's order: the horizontal pass, then
+    the vertical one.
+
+A prefab holds no cells of a list the game fills at run time (the 队员信息 bond and operator lists): `solve`'s
+`grid_items` adds that many cells under a grid node, after its own children (`synthetic` in the output), so the cell
+rects and the grid's fitted size come out; without it the grid lays out the children the prefab has.
 
 What it cannot know is written as the string 「모름」 (MOREUM) in place of a number, never a default (CONTRIBUTING
 section 2, a generator stops on what it does not know): a Text's preferred size (it needs the font and the string), a
-GridLayoutGroup, a node with a rotation, and every component that is not a stock one it knows — a game script may
+layout group with a field missing or out of range, a node with a rotation, and every component that is not a stock one it knows — a game script may
 lay out its children or report a layout size of its own. Such a component is listed per node (`unknown`), and
 where the solved numbers depend on it the axis is 「모름」 with the reason in `unresolved`.
 
 Node input (one dict per GameObject):
-  {name, active, rt: {amin, amax, pos, size, pivot, scale, rotated}, comps: [{cls, enabled, f: {fields}}], children}
+  {name, active, rt: {amin, amax, pos, size, pivot, scale, rotated}, comps: [{cls, enabled, f: {fields}}], children,
+   synthetic}
 `cls` is the component's class (`UnityEngine.UI.Image`, a game class, or a built-in type name such as `CanvasGroup`),
 `f` its serialized fields as the bundle stores them. See `solve` for the output.
 """
@@ -52,6 +59,8 @@ ANIMATED = {'Animation', 'Animator'}
 
 GROUP_FIELDS = ('m_Padding', 'm_ChildAlignment', 'm_Spacing', 'm_ChildForceExpandWidth', 'm_ChildForceExpandHeight',
                 'm_ChildControlWidth', 'm_ChildControlHeight', 'm_ChildScaleWidth', 'm_ChildScaleHeight', 'm_ReverseArrangement')
+GRID_FIELDS = ('m_Padding', 'm_CellSize', 'm_Spacing', 'm_StartCorner', 'm_StartAxis', 'm_ChildAlignment', 'm_Constraint',
+               'm_ConstraintCount')
 LE_FIELDS = ('m_IgnoreLayout', 'm_MinWidth', 'm_MinHeight', 'm_PreferredWidth', 'm_PreferredHeight', 'm_FlexibleWidth',
              'm_FlexibleHeight', 'm_LayoutPriority')
 
@@ -59,6 +68,24 @@ LE_FIELDS = ('m_IgnoreLayout', 'm_MinWidth', 'm_MinHeight', 'm_PreferredWidth', 
 def solvable_group(c):
     """A horizontal / vertical group whose fields are all there (a missing one makes the group 「모름」, not a default)."""
     return c['cls'] in (HLG, VLG) and all(k in c['f'] for k in GROUP_FIELDS)
+
+
+def solvable_grid(c):
+    """A GridLayoutGroup whose fields are all there and in range (StartCorner 0–3, StartAxis 0–1, Constraint 0 flexible /
+    1 fixed columns / 2 fixed rows with a count ≥ 1, ChildAlignment 0–8); anything else is 「모름」, not a default."""
+    if c['cls'] != GLG or not all(k in c['f'] for k in GRID_FIELDS):
+        return False
+    f = c['f']
+    vec = lambda v: isinstance(v, dict) and num(v.get('x')) and num(v.get('y'))  # noqa: E731
+    pad = f['m_Padding']
+    return (vec(f['m_CellSize']) and vec(f['m_Spacing']) and isinstance(pad, dict)
+            and all(num(pad.get(k)) for k in ('m_Left', 'm_Right', 'm_Top', 'm_Bottom'))
+            and f['m_StartCorner'] in (0, 1, 2, 3) and f['m_StartAxis'] in (0, 1) and f['m_ChildAlignment'] in range(9)
+            and f['m_Constraint'] in (0, 1, 2) and (f['m_Constraint'] == 0 or (isinstance(f['m_ConstraintCount'], int) and f['m_ConstraintCount'] >= 1)))
+
+
+def solvable(c):
+    return solvable_group(c) or solvable_grid(c)
 
 
 def num(v):
@@ -106,6 +133,8 @@ class Node:
         self.unsure = []               # game scripts that may move this rect or its children
         self.known_axis = [True, True]  # False: this node's own placement on that axis is 「모름」
         self.driven = {}               # what the solver changed: {field: [x, y]}
+        self.rsize = [None, None]      # the rect's size on each axis as the control pass left it (a grid needs both)
+        self.synthetic = bool(d.get('synthetic'))
         if rt.get('norect'):           # a plain Transform: no rect of its own
             self.known_axis = [False, False]
             self.unresolved.append(f'{path}: no RectTransform')
@@ -179,6 +208,8 @@ def element_values(n, axis, ctx):
         elif cls in (HLG, VLG) and solvable_group(c):
             t = group_inputs(n, axis, ctx)
             out.append((0, *t))
+        elif cls == GLG and solvable_grid(c):
+            out.append((0, *grid_inputs(n, c, axis)))
         elif cls in (HLG, VLG, GLG):
             out.append((0, None, None, None))
         elif cls == IMAGE:
@@ -304,6 +335,121 @@ def group_inputs(n, axis, ctx):
         tpref = max(tmin, tpref)
     memo[key] = (tmin, tpref, tflex)
     return memo[key]
+
+
+# ---------------------------------------------------------------- GridLayoutGroup
+
+def ceil_to_int(v):
+    return math.ceil(v)
+
+
+def clamp(v, lo, hi):
+    """Mathf.Clamp (min first: a max below the min wins)."""
+    if v < lo:
+        return lo
+    if v > hi:
+        return hi
+    return v
+
+
+def grid_pad(f, axis):
+    p = f['m_Padding']
+    return (p['m_Left'] + p['m_Right']) if axis == 0 else (p['m_Top'] + p['m_Bottom'])
+
+
+def grid_inputs(n, g, axis):
+    """GridLayoutGroup.CalculateLayoutInputHorizontal / Vertical: (min, preferred, flexible -1 = no say). The vertical
+    input of a flexible grid reads the rect's width the horizontal pass left (None = 「모름」)."""
+    f = g['f']
+    cell, sp = f['m_CellSize'], f['m_Spacing']
+    count = len(rect_children(n))
+    con, k = f['m_Constraint'], f['m_ConstraintCount']
+    if axis == 0:
+        if con == 1:
+            mn = pr = k
+        elif con == 2:
+            mn = pr = ceil_to_int(count / k - 0.001)
+        else:
+            mn, pr = 1, ceil_to_int(math.sqrt(count))
+        pad = grid_pad(f, 0)
+        return pad + (cell['x'] + sp['x']) * mn - sp['x'], pad + (cell['x'] + sp['x']) * pr - sp['x'], -1
+    if con == 1:
+        rows = ceil_to_int(count / k - 0.001)
+    elif con == 2:
+        rows = k
+    else:
+        width = n.rsize[0]
+        if width is None:
+            return None, None, -1
+        cols = max(1, math.floor((width - grid_pad(f, 0) + sp['x'] + 0.001) / (cell['x'] + sp['x'])))
+        rows = ceil_to_int(count / cols)
+    space = grid_pad(f, 1) + (cell['y'] + sp['y']) * rows - sp['y']
+    return space, space, -1
+
+
+def lay_grid(n, g, axis, size):
+    """GridLayoutGroup.SetCellsAlongAxis: the horizontal pass gives every cell the cell size (anchors top left), the
+    vertical pass places them on both axes from the rect's width and height."""
+    f = g['f']
+    kids = rect_children(n)
+    cell, sp = f['m_CellSize'], f['m_Spacing']
+    cs, spc = (cell['x'], cell['y']), (sp['x'], sp['y'])
+    why = f'GridLayoutGroup on {n.path}'
+    if axis == 0:
+        for ch in kids:
+            ch.amin, ch.amax = [0, 1], [0, 1]
+            ch.driven['anchors'] = True
+            ch.size[0], ch.size[1] = cs
+            ch.driven['sizeDelta'] = list(cs)
+        return
+    width, height = n.rsize[0], size
+    if width is None or height is None:
+        for ch in kids:
+            for a in (0, 1):
+                mark(ch, a, f"{why}: the grid's own {'width' if width is None else 'height'} is 「모름」")
+        return
+    count = len(kids)
+    con, k = f['m_Constraint'], f['m_ConstraintCount']
+    big = 2 ** 31 - 1
+    cx = cy = 1
+    if con == 1:
+        cx = k
+        if count > cx:
+            cy = count // cx + (1 if count % cx else 0)
+    elif con == 2:
+        cy = k
+        if count > cy:
+            cx = count // cy + (1 if count % cy else 0)
+    else:
+        cx = big if cs[0] + spc[0] <= 0 else max(1, math.floor((width - grid_pad(f, 0) + spc[0] + 0.001) / (cs[0] + spc[0])))
+        cy = big if cs[1] + spc[1] <= 0 else max(1, math.floor((height - grid_pad(f, 1) + spc[1] + 0.001) / (cs[1] + spc[1])))
+    corner_x, corner_y = f['m_StartCorner'] % 2, f['m_StartCorner'] // 2
+    if f['m_StartAxis'] == 0:
+        per_main = cx
+        ax = clamp(cx, 1, count)
+        ay = clamp(cy, 1, ceil_to_int(count / per_main))
+    else:
+        per_main = cy
+        ay = clamp(cy, 1, count)
+        ax = clamp(cx, 1, ceil_to_int(count / per_main))
+    align = f['m_ChildAlignment']
+    pad = f['m_Padding']
+    start = []
+    for a, (avail, actual) in enumerate(((width, ax), (height, ay))):
+        required = actual * cs[a] + (actual - 1) * spc[a] + grid_pad(f, a)
+        on = ((align % 3) if a == 0 else (align // 3)) * 0.5
+        start.append((pad['m_Left'] if a == 0 else pad['m_Top']) + (avail - required) * on)
+    for i, ch in enumerate(kids):
+        if f['m_StartAxis'] == 0:
+            px, py = i % per_main, i // per_main
+        else:
+            px, py = i // per_main, i % per_main
+        if corner_x == 1:
+            px = ax - 1 - px
+        if corner_y == 1:
+            py = ay - 1 - py
+        set_child(ch, 0, start[0] + (cs[0] + spc[0]) * px, cs[0], 1)
+        set_child(ch, 1, start[1] + (cs[1] + spc[1]) * py, cs[1], 1)
 
 
 # ---------------------------------------------------------------- layout control (SetLayoutHorizontal / Vertical)
@@ -432,11 +578,14 @@ def control_pass(n, axis, parent_size, ctx):
                 n.size[axis] = want - parent_size * (n.amax[axis] - n.amin[axis])
                 n.driven.setdefault('sizeDelta', [None, None])[axis] = n.size[axis]
                 size = want
+        n.rsize[axis] = size
         g = n.layout_group()
         if g and solvable_group(g):
             lay_children(n, axis, size, ctx)
+        elif g and solvable_grid(g):
+            lay_grid(n, g, axis, size)
         elif g:
-            what = 'GridLayoutGroup' if g['cls'] == GLG else f"{g['cls'].rsplit('.', 1)[1]} with a field missing"
+            what = f"{g['cls'].rsplit('.', 1)[1]} with a field missing or out of range"
             for ch in rect_children(n):
                 mark(ch, axis, f'{what} on {n.path}: not solved')
                 ch.size[axis] = None
@@ -552,7 +701,7 @@ def describe(n, ctx):
         elif cls == GLG:
             pad = f.get('m_Padding', {})
             d.setdefault('layout', {})['group'] = {
-                'kind': 'grid', 'solved': False,
+                'kind': 'grid', 'solved': solvable_grid(c),
                 'padding': [pad.get('m_Left', MOREUM), pad.get('m_Right', MOREUM), pad.get('m_Top', MOREUM), pad.get('m_Bottom', MOREUM)],
                 'cellSize': f.get('m_CellSize', MOREUM), 'spacing': f.get('m_Spacing', MOREUM),
                 'startCorner': f.get('m_StartCorner', MOREUM), 'startAxis': f.get('m_StartAxis', MOREUM),
@@ -603,16 +752,36 @@ def canvas_scale(reference, screen, match, mode, ui_scale):
     return f * ui_scale
 
 
+def add_grid_items(root, grid_items):
+    """Append `count` cells (`cell_1` …, synthetic) under each named grid node, after the prefab's own children. A path
+    that names no node, or a node without an enabled GridLayoutGroup, stops the run (never a silent default)."""
+    by_path = {n.path: n for n in walk(root)}
+    for path, count in (grid_items or {}).items():
+        n = by_path.get(path)
+        if n is None:
+            raise ValueError(f'grid items: no node {path!r}')
+        if not n.comp(GLG):
+            raise ValueError(f'grid items: {path!r} has no enabled GridLayoutGroup')
+        if not isinstance(count, int) or count < 0:
+            raise ValueError(f'grid items: {path!r}: {count!r} is not a cell count')
+        for k in range(1, count + 1):
+            d = {'name': f'cell_{k}', 'active': True, 'synthetic': True, 'comps': [], 'children': [],
+                 'rt': {'amin': [0, 1], 'amax': [0, 1], 'pos': [0, 0], 'size': [0, 0], 'pivot': [0.5, 0.5], 'scale': [1, 1]}}
+            name = d['name'] if not any(c.name == d['name'] for c in n.children) else f"{d['name']}#synthetic"
+            n.children.append(Node(d, n, f'{n.path}/{name}'))
+
+
 def solve(tree, canvas_units, ref_ppu=100, sprite=None, name=None, parent_rect=None, px_per_unit=None, offset=(0, 0),
-          css_px_per_unit=None):
+          css_px_per_unit=None, grid_items=None):
     """Lay the tree out in a canvas of `canvas_units` (w, h) and return the node list.
 
     parent_rect: (x, y, w, h) in canvas units, top-left origin, the rect the root is laid into (a slot of another
-    prefab); default the whole canvas. Output rects are canvas units with the origin at the canvas's top left, y down;
+    prefab); default the whole canvas. grid_items: {grid node path: cell count} (add_grid_items). Output rects are canvas units with the origin at the canvas's top left, y down;
     `screen` = offset + rect × px_per_unit (a screenshot), `css` = rect × css_px_per_unit (our pages).
     """
     ctx = {'memo': {}, 'ref_ppu': ref_ppu, 'sprite': sprite or (lambda ref: None), 'name': name or (lambda ref: MOREUM)}
     root = build(tree)
+    add_grid_items(root, grid_items)
     cw, ch = canvas_units
     if parent_rect is None:
         parent_rect = (0, 0, cw, ch)
@@ -636,6 +805,8 @@ def solve(tree, canvas_units, ref_ppu=100, sprite=None, name=None, parent_rect=N
             'active': n.active_self, 'activeInHierarchy': n.active,
             'rect': r,
         }
+        if n.synthetic:
+            node['synthetic'] = True
         if ws != [1, 1]:
             node['worldScale'] = [rnd(v, 4) for v in ws]
         if px_per_unit:

@@ -10,11 +10,14 @@ the 1280×720 canvas unit, Image sprites, legacy Text font size / alignment. Two
       a Text whose font is empty (font=?) takes it by name at run time — `dynFont=` prints that name (DynFontLoader).
       --all prints every GameObject of that name (default: the first, usually the prefab root).
   layout  <bundle> <GameObject name> [--canvas WxH --match M] [--screen WxH] [--css-px-per-unit K] [--out FILE]
-      the same tree solved into absolute rects (ui_layout.py: anchors, pivots, scales, the stock layout groups,
-      layout elements and content size fitters in Unity's order) as JSON, with each node's Image (sprite, type,
-      9-slice border, preserveAspect, colour) and Text (font, size, colour, alignment, line spacing). What the tool
-      cannot know is the string 「모름」, never a default: a Text's preferred size, a GridLayoutGroup, a rotation, a
-      game script (listed per node under `unknown`). The canvas is the root's CanvasScaler, else --canvas / --match
+      the same tree solved into absolute rects (ui_layout.py: anchors, pivots, scales, the stock layout groups —
+      horizontal, vertical, grid —, layout elements and content size fitters in Unity's order) as JSON, with each
+      node's Image (sprite, type, 9-slice border, preserveAspect, colour) and Text (font, size, colour, alignment,
+      line spacing). What the tool cannot know is the string 「모름」, never a default: a Text's preferred size, a
+      layout group with a field missing, a rotation, a game script (listed per node under `unknown`).
+      --grid-items <path>=N (repeatable) adds N cells under that GridLayoutGroup node, after its own children: the
+      cells a list fills at run time are not in the prefab (the 队员信息 bond list: '<row>/part_bond/Scroll View/
+      Viewport/Content=5'); they come out as `cell_1` … with `synthetic`, and the grid's fitter sizes it to them. The canvas is the root's CanvasScaler, else --canvas / --match
       (the battle UI page: 1280x720, match 0 — docs/rules/ui.md 「크기 단위」); --screen gives screen px per unit
       (CanvasScaler ScaleWithScreenSize × --ui-scale, the PC setting, default 1) or --px-per-unit measured on a
       screenshot, --offset where the screen's top left sits in the image; --parent-rect lays a row prefab into a
@@ -52,12 +55,15 @@ Output (layout), schema 1 — kept stable for the tools that read it (a change b
                    alignByGeometry, bestFit: [min, max], text}
             rawImage, tmp, mask, effects, canvasGroup: {alpha}, animated,
             layout: {group: {kind, padding: [l, r, t, b], spacing, childAlignment, controlSize: [w, h],
-                             forceExpand, useScale, reverse}, element: {ignoreLayout, min, preferred, flexible,
+                             forceExpand, useScale, reverse  (kind grid: solved, cellSize, spacing {x, y},
+                             startCorner, startAxis, constraint, constraintCount)}, element: {ignoreLayout, min, preferred, flexible,
                              priority}, fitter: [horizontal, vertical]},
+            synthetic: true               a cell --grid-items added (not in the prefab)
             unknown: [class]              game scripts on the node (their effect on the rect is not known)
             unsure: [text]                those whose name says they may move rects
             unresolved: [text]}]}         why a value is "모름"
-  Paths are unique: a repeated sibling name is suffixed #2, #3, … in prefab order.
+  Paths are unique: a repeated sibling name is suffixed #2, #3, … in prefab order. canvas.gridItems echoes
+  --grid-items ({path: N}). Optional keys added later (synthetic, gridItems, the grid's solved) keep schema 1.
 """
 import argparse
 import json
@@ -335,7 +341,15 @@ def pair(s, kind=float, n=2):
     return v
 
 
+def grid_item(s):
+    path, sep, n = s.rpartition('=')
+    if not sep or not path or not n.isdigit():
+        raise argparse.ArgumentTypeError(f'{s!r}: PATH=N')
+    return path, int(n)
+
+
 def cmd_layout(a):
+    a.grid_items = dict(a.grid_items) if a.grid_items else None
     path = bundle_path(a.bundle, a.client)
     b = Bundle(path)
     scripts = None
@@ -375,8 +389,11 @@ def cmd_layout(a):
         units = [a.screen[0] / ppu, a.screen[1] / ppu]
     else:
         units = list(reference)
-    nodes = ui_layout.solve(tree, units, ref_ppu=ref_ppu, sprite=refs.sprite, name=refs.name, parent_rect=a.parent_rect,
-                            px_per_unit=ppu, offset=a.offset, css_px_per_unit=a.css_px_per_unit)
+    try:
+        nodes = ui_layout.solve(tree, units, ref_ppu=ref_ppu, sprite=refs.sprite, name=refs.name, parent_rect=a.parent_rect,
+                                px_per_unit=ppu, offset=a.offset, css_px_per_unit=a.css_px_per_unit, grid_items=a.grid_items)
+    except ValueError as e:
+        sys.exit(str(e))
     unknown = {}
     for n in nodes:
         for c in n.get('unknown', []):
@@ -386,7 +403,8 @@ def cmd_layout(a):
         'canvas': {'reference': list(reference), 'match': match, 'screenMatchMode': mode, 'uiScale': a.ui_scale,
                    'refPixelsPerUnit': ref_ppu, 'refPixelsPerUnitSource': ref_ppu_source, 'source': source,
                    'units': [ui_layout.rnd(v, 3) for v in units], 'screen': a.screen, 'pxPerUnit': ppu and round(ppu, 6),
-                   'offset': list(a.offset), 'cssPxPerUnit': a.css_px_per_unit, 'parentRect': a.parent_rect},
+                   'offset': list(a.offset), 'cssPxPerUnit': a.css_px_per_unit, 'parentRect': a.parent_rect,
+                   **({'gridItems': a.grid_items} if a.grid_items else {})},
         'unknownClasses': dict(sorted(unknown.items())),
         'unresolved': sum(1 for n in nodes if n.get('unresolved')),
         'nodes': nodes,
@@ -464,6 +482,8 @@ def main():
     q.add_argument('--offset', type=pair, default=(0, 0), metavar='X,Y', help="where the screen's top left sits in the image (a crop: negative)")
     q.add_argument('--parent-rect', type=lambda s: pair(s, n=4), metavar='X,Y,W,H', help='the rect (canvas units, top left) the root is laid into, default the canvas')
     q.add_argument('--css-px-per-unit', type=float, help='our CSS px per canvas unit, for the css rects')
+    q.add_argument('--grid-items', type=grid_item, action='append', metavar='PATH=N',
+                   help='add N cells under that GridLayoutGroup node (repeatable): the cells a list fills at run time')
     q.add_argument('--ref-ppu', type=float, help='the canvas reference pixels per unit (default the CanvasScaler\'s, else 100)')
     q.add_argument('--scripts', help='the bundle holding the MonoScripts, when no CAB index lists it')
     q.add_argument('--cab-index', help='the CAB index of this client (default .cache/fx-cab-index-cn.json or fx-cab-index.json, whichever fits)')

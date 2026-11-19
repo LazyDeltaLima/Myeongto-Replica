@@ -1,7 +1,8 @@
 // tools/local-extract/ui_layout.py (`ui_inspect.py layout`): an official UI prefab's RectTransform tree solved into
 // absolute rects the way Unity's UGUI lays it out — anchors, pivots, scales, Horizontal/VerticalLayoutGroup,
-// LayoutElement, ContentSizeFitter — and 「모름」 (never a default) for what the tool cannot know: a Text's preferred
-// size, a GridLayoutGroup, a rotation, a game script that may report a layout size, a missing field. The solver runs
+// GridLayoutGroup (with the cells a list fills at run time added by `grid_items`), LayoutElement, ContentSizeFitter —
+// and 「모름」 (never a default) for what the tool cannot know: a Text's preferred size, a rotation, a game script that
+// may report a layout size, a missing field. The solver runs
 // without UnityPy on hand-made trees; the last block reads the official 팀원 정보 창 prefab from the CN client and skips
 // when that client (or the extraction environment) is not on this machine.
 
@@ -25,7 +26,7 @@ function solve(tree, opts = {}) {
     + `o = json.loads(sys.stdin.read())\n`
     + `sp = o.get('sprites') or {}\n`
     + `nodes = L.solve(o['tree'], o.get('canvas', [1280, 720]), sprite=lambda r: sp.get(str(r.get('m_PathID'))) if r.get('m_PathID') else False, `
-    + `parent_rect=o.get('parent'), px_per_unit=o.get('ppu'), css_px_per_unit=o.get('css'))\n`
+    + `parent_rect=o.get('parent'), px_per_unit=o.get('ppu'), css_px_per_unit=o.get('css'), grid_items=o.get('grid'))\n`
     + `print(json.dumps(nodes, ensure_ascii=False))`;
   const r = spawnSync(PY, ['-c', src], { encoding: 'utf8', env: ENV, input: JSON.stringify({ tree, ...opts }) });
   assert.equal(r.status, 0, r.stderr);
@@ -39,6 +40,9 @@ const le = (f = {}) => ({ cls: `${UI}LayoutElement`, enabled: true, f: { m_Ignor
 const group = (kind, f = {}) => ({ cls: `${UI}${kind}LayoutGroup`, enabled: true, f: {
   m_Padding: { m_Left: 0, m_Right: 0, m_Top: 0, m_Bottom: 0 }, m_ChildAlignment: 0, m_Spacing: 0, m_ChildForceExpandWidth: 0,
   m_ChildForceExpandHeight: 0, m_ChildControlWidth: 0, m_ChildControlHeight: 0, m_ChildScaleWidth: 0, m_ChildScaleHeight: 0, m_ReverseArrangement: 0, ...f } });
+const grid = (f = {}) => ({ cls: `${UI}GridLayoutGroup`, enabled: true, f: {
+  m_Padding: { m_Left: 0, m_Right: 0, m_Top: 0, m_Bottom: 0 }, m_CellSize: { x: 100, y: 100 }, m_Spacing: { x: 0, y: 0 }, m_StartCorner: 0,
+  m_StartAxis: 0, m_ChildAlignment: 0, m_Constraint: 0, m_ConstraintCount: 2, ...f } });
 const fitter = (h, v) => ({ cls: `${UI}ContentSizeFitter`, enabled: true, f: { m_HorizontalFit: h, m_VerticalFit: v } });
 const text = () => ({ cls: `${UI}Text`, enabled: true, f: { m_Color: { r: 1, g: 1, b: 1, a: 1 }, m_FontData: { m_Font: { m_FileID: 0, m_PathID: 0 }, m_FontSize: 15, m_FontStyle: 0, m_BestFit: 0, m_MinSize: 1, m_MaxSize: 15, m_Alignment: 3, m_AlignByGeometry: 0, m_RichText: 1, m_HorizontalOverflow: 0, m_VerticalOverflow: 0, m_LineSpacing: 1 }, m_Text: '' } });
 const box = (n) => [n.rect.x, n.rect.y, n.rect.w, n.rect.h];
@@ -101,7 +105,7 @@ describe('ui_layout.py solver (no UnityPy needed)', { skip: !PY && 'no python3' 
     assert.match(n['root/turned'].unresolved[0], /rotated/);
   });
 
-  test('「모름」, not a default: a Text\'s preferred width, a game script under a controlling group, a GridLayoutGroup, a missing field', () => {
+  test('「모름」, not a default: a Text\'s preferred width, a game script under a controlling group, a grid with a field missing, a missing field', () => {
     const pill = node('pill', { size: [0, 23] }, [group('Horizontal', { m_Padding: { m_Left: 6, m_Right: 6, m_Top: 0, m_Bottom: 0 }, m_ChildControlWidth: 1 }), fitter(2, 0)], [
       node('label', { size: [0, 20] }, [text()]),
     ]);
@@ -125,16 +129,55 @@ describe('ui_layout.py solver (no UnityPy needed)', { skip: !PY && 'no python3' 
     assert.equal(n3['g/a'].rect.x, M, 'a game script may report a layout size of its own');
     assert.deepEqual(n3['g/a'].unknown, ['Game.UI.SomeView']);
 
-    const grid = { cls: `${UI}GridLayoutGroup`, enabled: true, f: { m_CellSize: { x: 52, y: 68 } } };
-    const n4 = solve(node('g', { size: [200, 80] }, [grid], [node('cell', { size: [52, 68] })]), { canvas: [200, 80] });
+    const partial = { cls: `${UI}GridLayoutGroup`, enabled: true, f: { m_CellSize: { x: 52, y: 68 } } };
+    const n4 = solve(node('g', { size: [200, 80] }, [partial], [node('cell', { size: [52, 68] })]), { canvas: [200, 80] });
     assert.deepEqual(box(n4['g/cell']), [M, M, M, M]);
-    assert.equal(n4.g.layout.group.kind, 'grid');
+    assert.deepEqual([n4.g.layout.group.kind, n4.g.layout.group.solved], ['grid', false]);
+    assert.match(n4['g/cell'].unresolved[0], /GridLayoutGroup with a field missing/);
 
     const broken = group('Vertical');
     delete broken.f.m_ChildControlHeight;
     const n5 = solve(node('g', { size: [100, 100] }, [broken], [node('a', { size: [10, 10] })]), { canvas: [100, 100] });
     assert.equal(n5['g/a'].rect.y, M);
     assert.match(n5['g/a'].unresolved[0], /field missing/);
+  });
+
+  test('GridLayoutGroup: the 팀원 정보 창 bond list — one fixed row, MiddleLeft, its fitter sized to the cells grid_items adds', () => {
+    const t = node('Content', { amin: [0, 1], amax: [1, 1], pivot: [0, 1], size: [0, 82.6] }, [
+      grid({ m_Padding: { m_Left: 16, m_Right: 16, m_Top: 0, m_Bottom: 0 }, m_CellSize: { x: 52, y: 68 }, m_Spacing: { x: 2, y: 0 }, m_ChildAlignment: 3, m_Constraint: 2, m_ConstraintCount: 1 }),
+      fitter(2, 0),
+    ], [node('empty', { size: [10, 10] }, [le({ m_IgnoreLayout: 1 })])]);
+    const n = solve(node('vp', { amin: [0, 0], amax: [1, 1], pivot: [0, 1] }, [], [t]), { canvas: [400, 82.6], grid: { 'vp/Content': 3 } });
+    assert.deepEqual(box(n['vp/Content']), [0, 0, 192, 82.6], 'fitter: 16 + 3 × 52 + 2 × 2 + 16');
+    assert.deepEqual([1, 2, 3].map((k) => box(n[`vp/Content/cell_${k}`])), [[16, 7.3, 52, 68], [70, 7.3, 52, 68], [124, 7.3, 52, 68]],
+      'cells 54 apart from the left padding, centred on the 82.6 height (MiddleLeft)');
+    assert.equal(n['vp/Content/cell_1'].synthetic, true);
+    assert.equal(n['vp/Content/empty'].synthetic, undefined, 'an ignoreLayout child is left where it is, not a cell');
+    assert.deepEqual(n['vp/Content/cell_1'].driven, { anchors: [[0, 1], [0, 1]], anchoredPosition: [42, -41.3], sizeDelta: [52, 68] });
+    assert.equal(n.vp.unresolved, undefined);
+    const none = solve(node('vp', { amin: [0, 0], amax: [1, 1], pivot: [0, 1] }, [], [t]), { canvas: [400, 82.6] });
+    assert.equal(none['vp/Content'].rect.w, 30, 'no cells: the padding less one spacing, as Unity gives');
+  });
+
+  test('GridLayoutGroup: flexible columns from the width, a start corner, the start axis, a fixed column count sizing the height', () => {
+    const cells = (k) => Array.from({ length: k }, (_, i) => node(`c${i}`, { size: [5, 5] }));
+    const f = { m_CellSize: { x: 30, y: 30 }, m_Spacing: { x: 10, y: 10 } };
+    const lr = solve(node('g', { size: [120, 100] }, [grid({ ...f, m_StartCorner: 3 })], cells(5)), { canvas: [120, 100] });
+    assert.deepEqual([0, 1, 2, 3, 4].map((i) => [lr[`g/c${i}`].rect.x, lr[`g/c${i}`].rect.y]), [[80, 40], [40, 40], [0, 40], [80, 0], [40, 0]],
+      'three columns fit 120 (floor((120 + 10) / 40)); LowerRight fills from the bottom right, rows first');
+    const va = solve(node('g', { size: [120, 100] }, [grid({ ...f, m_StartAxis: 1, m_ChildAlignment: 4 })], cells(3)), { canvas: [120, 100] });
+    assert.deepEqual([0, 1, 2].map((i) => [va[`g/c${i}`].rect.x, va[`g/c${i}`].rect.y]), [[25, 15], [25, 55], [65, 15]],
+      'vertical start: two per column (floor((100 + 10) / 40)), the 70 × 70 block centred (MiddleCenter, 70 = 2 × 30 + 10)');
+    const fc = solve(node('g', { size: [80, 0] }, [grid({ ...f, m_Constraint: 1, m_ConstraintCount: 2, m_Padding: { m_Left: 0, m_Right: 0, m_Top: 5, m_Bottom: 5 } }), fitter(0, 2)], cells(5)), { canvas: [200, 200] });
+    assert.equal(fc.g.rect.h, 120, 'three rows of a 2-column grid: 5 + 3 × 30 + 2 × 10 + 5');
+    assert.deepEqual([fc['g/c4'].rect.x - fc.g.rect.x, fc['g/c4'].rect.y - fc.g.rect.y], [0, 85]);
+  });
+
+  test('grid_items stops on a path that names no node or no grid', () => {
+    const run = (grid) => spawnSync(PY, ['-c', `import sys, json\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport ui_layout as L\n`
+      + `L.solve({'name': 'g', 'active': True, 'rt': {'amin': [0, 0], 'amax': [1, 1], 'pos': [0, 0], 'size': [0, 0], 'pivot': [0.5, 0.5]}, 'comps': [], 'children': []}, [10, 10], grid_items=${grid})`], { encoding: 'utf8', env: ENV });
+    assert.match(run("{'nope': 2}").stderr, /no node 'nope'/);
+    assert.match(run("{'g': 2}").stderr, /no enabled GridLayoutGroup/);
   });
 
   test('a game script whose name says it lays out is `unsure`; an Image gives its sprite size, a Sliced one its 9-slice border', () => {
@@ -203,5 +246,24 @@ describe('ui_inspect.py layout on the official 팀원 정보 창 (CN client)', {
     const name = n['autochess_player_detail_row/part_namecard/group_player_name/text_name_normal'].text;
     assert.deepEqual([name.size, name.dynFont, name.align], [15, 'NotoSansHans-Medium', 'MiddleLeft']);
     assert.equal(n['autochess_player_detail_row/part_namecard/group_combo_win'].rect.w, M, 'sized to its Text: 「모름」');
+  });
+
+  test('the row\'s bond and operator lists: GridLayoutGroup cells (52 × 68 two apart / 64 × 64) from the list\'s left padding, centred', () => {
+    const C = 'Scroll View/Viewport/Content';
+    const n = layout('autochess_player_detail_row', '--parent-rect', '0,134.4,1280,80',
+      '--grid-items', `autochess_player_detail_row/part_bond/${C}=3`, '--grid-items', `autochess_player_detail_row/part_operator/${C}=2`);
+    const near = (a, b, what) => assert.ok(Math.abs(a - b) < 1e-3, `${what}: ${a} ≠ ${b}`);
+    for (const [part, cells, w, h, pad, step] of [['part_bond', 3, 52, 68, 16, 54], ['part_operator', 2, 64, 64, 10, 64]]) {
+      const box = n[`autochess_player_detail_row/${part}/Scroll View/Viewport`].rect;
+      const content = n[`autochess_player_detail_row/${part}/${C}`];
+      assert.equal(content.layout.group.solved, true);
+      near(content.rect.x, box.x, `${part} Content left`);
+      for (let k = 1; k <= cells; k++) {
+        const r = n[`autochess_player_detail_row/${part}/${C}/cell_${k}`].rect;
+        near(r.x, box.x + pad + step * (k - 1), `${part} cell ${k} x`);
+        near(r.y, box.y + (box.h - h) / 2, `${part} cell ${k} y`);
+        assert.deepEqual([r.w, r.h], [w, h]);
+      }
+    }
   });
 });
