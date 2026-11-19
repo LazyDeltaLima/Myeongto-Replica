@@ -19,6 +19,7 @@ import { Img } from './gameComponents.js';
 import { sortBonds } from './gameLogic.js';
 import { bondIconUrl, bandIconUrl, chessAvatarUrl } from './assetUrls.js';
 import { bondBoardOf } from './hudArt.js';
+import { H_SCROLL } from './bondStrip.js';
 import { skinArt, skinPic, playerSkins } from './skins.js';
 import { settingsStore } from './settings.js';
 import { data, localAsset } from '../data.js';
@@ -77,7 +78,7 @@ function NoInfo() {
 function Bonds({ bonds, unit }) {
   const m = data.get('assets');
   if (!bonds.length) return html`<${NoInfo} />`;
-  return html`<div class="pdetail__list pdetail__bonds" style=${`--u:${unit}px`}>
+  return html`<div class="pdetail__list pdetail__bonds" style=${`--u:${unit}px`} ...${H_SCROLL}>
     ${bonds.map((b) => {
       const rec = data.lookup('bonds', b.bondId);
       const th = Array.isArray(rec?.thresholds) ? rec.thresholds : [];
@@ -94,7 +95,7 @@ function Operators({ lineup, own, skins }) {
   if (!lineup.length) return html`<${NoInfo} />`;
   const m = data.get('assets');
   const sk = skinArt();
-  return html`<div class="pdetail__list pdetail__ops">
+  return html`<div class="pdetail__list pdetail__ops" ...${H_SCROLL}>
     ${lineup.map((u, i) => {
       const rec = { charId: u.char, assets: { avatar: u.avatar || u.char } };
       const name = charName(u.char);

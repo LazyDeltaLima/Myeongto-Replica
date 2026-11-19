@@ -2834,6 +2834,7 @@ upstream v0.4.0 대조에서 받은 화면 수정(`docs/rules/upstream.md` 「�
     테두리를 못 쓰는 브라우저(Firefox)는 같은 색의 둥근 상자(반지름 5단위). 재발 방지: `test/ui/player-detail.test.js` 「white sprites the client tints are masks」.
 - 맹약 칸 = 위 HUD 맹약 칸(`.bslot`: 원판·문양·중첩 수·이름, 같은 글꼴)을 줄 높이의 0.8로 줄인 것, 단계 Ⅰ·Ⅱ와 「n/m」은 뺀다(관리자 결정 2026-11-15 — 공식
   `autochess_player_detail_bond_item`에 단계 노드가 없음). 하나도 없으면 공식 `icon_noinfo`(「NO INFO」).
+- 맹약·오퍼레이터 목록이 칸을 넘으면 가로로 넘긴다 — 공식 `part_bond`·`part_operator`는 Scroll View, 넘칠 때 오른쪽에 `list_arrow`. 위 HUD 맹약 칸과 같은 처리기(`ui/bondStrip.js H_SCROLL`)로 세로 휠이 가로로 넘기고 마우스로 끌어 넘기며, 터치는 브라우저 기본 스크롤(관리자 제보 2026-11-20 「맹약이 길어지면 스크롤이 안 됨」 — 전에는 `overflow-x`만 있어 마우스로는 넘길 수 없었다). 재발 방지: `test/ui/player-detail.test.js` 「the bond and operator lists scroll」.
 - 오퍼레이터: 서버가 `m.public players[].lineup`으로 보낸다(`server/match/match/views.js _lineupView` — 보이는 몸(补位·선발은 그 오퍼레이터)의 `char`·`avatar`,
   등급, 정예, 장비 `equip`(장비마다 하나, 황금 장비 1)·`slots`(2가 아닐 때만); 보기 전용, 규칙은 안 읽음 — 전투 golden 무관). 칸은 초상 56·
   `char_avatar_frame`(회색, 정예는 #e9871c + `gold_gradient`)·왼쪽 아래 등급 Ⅰ~Ⅵ·초상 위 장비 막대. 장비 막대는 이 창 프리팹의 막대(칸마다 16×5, 찬 칸

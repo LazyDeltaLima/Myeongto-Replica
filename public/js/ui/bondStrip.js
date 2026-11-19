@@ -93,6 +93,17 @@ function stripWheel(e) {
   e.preventDefault();
 }
 
+/**
+ * The strip's sideways scrolling for another list that runs over (the 队员信息 dialog's bond and operator lists,
+ * ui/playerDetail.js): a vertical wheel scrolls it and a mouse drags it, a drag never clicks; touch keeps the native
+ * scroll. Spread on the scrolling element: `<div ...${H_SCROLL}>`.
+ */
+export const H_SCROLL = Object.freeze({
+  onWheel: stripWheel, onPointerDown: stripPointerDown, onPointerMove: stripPointerMove, onPointerUp: stripPointerEnd,
+  onPointerCancel: stripPointerEnd, onLostPointerCapture: stripPointerEnd, onPointerLeave: stripPointerLeave,
+  onClickCapture: stripClick,
+});
+
 const ROMAN = ['', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'];
 
 /**

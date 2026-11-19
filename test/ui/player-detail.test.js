@@ -14,6 +14,7 @@ const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
 const { PlayerDetail, detailBonds, detailLineup, goFrameStyle, streakTopStyle, CARD_H } = await import('../../public/js/ui/playerDetail.js');
 const { doctorNo } = await import('../../public/js/ui/components.js');
+const { H_SCROLL } = await import('../../public/js/ui/bondStrip.js');
 
 function* walk(v) {
   if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
@@ -124,4 +125,26 @@ test('white sprites the client tints are masks, never backgrounds (drawn as is t
   assert.match(css, /\.pdetail__card \{[^}]*height: var\(--ah\)/);
   assert.match(css, /\.pdetail__part \{[^}]*height: var\(--ah\)/);
   assert.equal(CARD_H, 78);
+});
+
+test("the bond and operator lists scroll as the HUD strip does: a vertical wheel and a mouse drag (docs/rules/ui.md 「팀원 정보 창」)", () => {
+  const players = [{ playerId: 'p_0', name: 'A', alive: true, shopLevel: 3,
+    bonds: [{ bondId: 'a', active: true, layers: 2, count: 2 }], lineup: [{ char: 'char_x', tier: 3 }] }];
+  const geo = { left: 0, top: 0, width: 900, height: 100, k: 1, rows: [{ top: 0, height: 100, hole: 98, at: 10, ah: 80 }] };
+  const lists = [...walk(PlayerDetail({ players, myId: 'p_0', geo }))].filter((n) => hasClass(n, 'pdetail__list'));
+  assert.equal(lists.length, 2, 'the bond list and the operator list');
+  for (const l of lists) {
+    for (const k of Object.keys(H_SCROLL)) {
+      assert.ok(l.props[k] === H_SCROLL[k], `${l.props.class}: ${k} is the HUD strip's (ui/bondStrip.js H_SCROLL) — without it a long list cannot be scrolled with a mouse`);
+    }
+  }
+  let prevented = 0;
+  const el = { scrollWidth: 300, clientWidth: 100, scrollLeft: 0 };
+  H_SCROLL.onWheel({ currentTarget: el, deltaX: 0, deltaY: 40, preventDefault: () => { prevented++; } });
+  assert.equal(el.scrollLeft, 40, 'a vertical wheel scrolls the list sideways');
+  assert.equal(prevented, 1);
+  const fits = { scrollWidth: 100, clientWidth: 100, scrollLeft: 0 };
+  H_SCROLL.onWheel({ currentTarget: fits, deltaX: 0, deltaY: 40, preventDefault: () => { prevented++; } });
+  assert.equal(fits.scrollLeft, 0, 'a list that fits leaves the wheel alone');
+  assert.equal(prevented, 1);
 });
