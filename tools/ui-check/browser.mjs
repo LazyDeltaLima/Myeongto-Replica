@@ -14,8 +14,9 @@
 //              `absent` for n polls in a row (default 4), then document.fonts.ready
 //   uiK        the PC UI-size factor (--ui-k on <html>, css/hud-art.css) to force, or a target px per unit (uiPxPerUnit)
 //              solved into one: our unit is linear in k at a given viewport, so two probes give the k
-//   steps      [{click: sel, nth, text} | {wait: sel, timeout} | {sleep: ms} | {move: [x, y]} | {hide: sel} | {key: name}]
-//              in order; a click is a mouse click (a tap with `touch`) at the centre of the nth visible match.
+//   steps      [{click: sel, nth, text} | {wait: sel, timeout} | {sleep: ms} | {move: [x, y]} | {hide: sel} | {key: name}
+//              | {style: css}] in order; a click is a mouse click (a tap with `touch`) at the centre of the nth visible
+//              match; style adds a stylesheet (a what-if, or breaking a cell on purpose to see a check fail).
 
 /* global document, requestAnimationFrame -- inside page.evaluate callbacks, which run in the browser */
 import fs from 'node:fs';
@@ -176,6 +177,8 @@ export async function runSteps(page, steps, { touch = false } = {}) {
       await page.evaluate((sel) => { for (const el of document.querySelectorAll(sel)) el.style.setProperty('visibility', 'hidden', 'important'); }, s.hide);
     } else if (s.key != null) {
       await page.keyboard.press(s.key);
+    } else if (s.style != null) {
+      await page.addStyleTag({ content: String(s.style) });
     } else {
       throw new Error(`ui-check: unknown step ${JSON.stringify(s)}`);
     }
