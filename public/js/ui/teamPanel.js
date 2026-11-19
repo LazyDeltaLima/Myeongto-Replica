@@ -2,10 +2,12 @@
 // tower, status glyph (… acting / ✓ ready / ⌛ deciding / ⚔ combat / door left / ✕ dead), AI badge, "you" marker, the
 // field being watched (eye badge), and emote bubbles. In a boss round the viewer's pair is framed in green from the
 // round's start (gameLogic teamFrameIds; community report of 2026-10-06, item 51).
-// Observing (client-side combat, `observe` prop — the official flow): tapping a teammate's avatar expands a mint
-// "前往查看" button under the row (when that teammate can be observed now; otherwise the reason is toasted through
-// onWatch); while observing, the own row shows a "返回战场" button. Without `observe` (server-run combat) a click
-// watches that player's field at once.
+// Tapping any avatar opens the 队员信息 dialog beside the list (ui/playerDetail.js, the official 规程 dialog — every
+// season, maintainer decision 2026-11-15); a tap outside it or on an avatar again closes it. Watching moved into it: each
+// teammate's avatar wears a 前往查看 tag while the dialog is open (client-side combat, `observe` prop: when that teammate
+// can be observed now — observeTarget; without `observe`, server-run combat: any teammate still in, the reason of a
+// refusal toasted through onWatch). While observing (or, without `observe`, watching another field) the own row shows a
+// "返回战场" button.
 // Live LP (user playtest #3 item 2): during a normal round's battle each row's tower shows lp and, as a −N tick, the
 // loss that player's leaks so far will cost (the number keeps the settled LP, upstream #479): the own row the top bar's
 // live value (`self`, ui/hud.js liveLp), a teammate's row
@@ -23,7 +25,7 @@
 // 规程 (ui/avatarBadges.js): the 完美连胜 badge on a portrait's corner, and in a boss round each portrait's glow by its
 // player's share of the leader, the own share beside the own portrait.
 
-import { useEffect, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { PHASE } from '../../../shared/constants.js';
 import { html, Icon, Tooltip } from './components.js';
 import { PlayerAvatar, LpTower, GIcon, LocalSprite } from './gameComponents.js';
@@ -31,6 +33,7 @@ import { EmoteBubble } from './emotes.js';
 import { STATUS_META, sortedPlayers, teamFrameIds } from './gameLogic.js';
 import { MissTag, uniteRemaining } from './hud.js';
 import { AvatarBadges } from './avatarBadges.js';
+import { PlayerDetail, measureDetail } from './playerDetail.js';
 import { localAsset } from '../data.js';
 import { t } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
@@ -118,23 +121,48 @@ export function rowLpTip(lp, cap = 10) {
  *   after: drawn at the end of the list, positioned against it (the phone's round damage chip, ui/roundDamage.js)
  */
 export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = false, observe = null, self: selfLive = null, cap = 10, uniteLocal = null, after = null }) {
-  const [openPid, setOpenPid] = useState(null);
+  const [detail, setDetail] = useState(false);
+  const [geo, setGeo] = useState(null);
+  const [resized, setResized] = useState(0);
+  const asideRef = useRef(null);
   const phaseKey = `${pub?.phase}:${pub?.round}`;
-  useEffect(() => { setOpenPid(null); }, [phaseKey, watching, observe?.observing]);
+  // [ASSUMED·화면: the dialog closes when the phase or round changes, or the view moves]
+  useEffect(() => { setDetail(false); }, [phaseKey, watching, observe?.observing]);
   const players = sortedPlayers(pub);
+  const open = detail && players.length > 1;
+  // the dialog's place follows the list's rows (measured after each render while open: m.public, a resize)
+  useLayoutEffect(() => {
+    const aside = asideRef.current;
+    if (!open || !aside) { if (geo) setGeo(null); return; }
+    const g = measureDetail(aside, compact || window.innerWidth < 1000 ? 8 : 20); // the right margin: 8 px on a phone (the chosen mockup)
+    if (JSON.stringify(g) !== JSON.stringify(geo)) setGeo(g);
+    // the more-arrow of a bond / operator list that scrolls
+    for (const el of aside.querySelectorAll('.pdetail__part')) {
+      const list = el.querySelector('.pdetail__list');
+      el.classList.toggle('is-more', !!list && list.scrollWidth > list.clientWidth + 1);
+    }
+  });
+  useEffect(() => {
+    if (!open) return undefined;
+    // above the HUD panels while open (css/player-detail.css), and re-measured on a resize
+    const side = asideRef.current?.closest('.gm__side');
+    side?.classList.add('has-pdetail');
+    const onResize = () => setResized((n) => n + 1);
+    window.addEventListener('resize', onResize);
+    return () => { side?.classList.remove('has-pdetail'); window.removeEventListener('resize', onResize); };
+  }, [open]);
+  void resized;
   if (!players.length) return null;
   // a boss round: the viewer's pair framed in green from the round's start (item 51 — the official bg_team_border,
   // tinted like the official green; a plain green ring without the local art)
   const team = teamFrameIds(pub, myId);
   const frameArt = team.size ? localAsset('ui/battle', 'bg_team_border') : null;
-  const click = (p, self) => {
-    if (!observe) { onWatch(p); return; }
-    if (self) { if (observe.observing) observe.onBack(); setOpenPid(null); return; }
-    const t = observe.canObserve(p) || {};
-    if (!t.fieldId) { setOpenPid(null); onWatch(p); return; } // the game screen toasts the reason
-    setOpenPid((cur) => (cur === p.playerId ? null : p.playerId));
-  };
-  return html`<aside class=${cx('team', compact && 'team--compact', watching && players.some((p) => watching === p.fieldId || watching === `n:${p.playerId}`) && 'has-watched', players.length === 1 && 'is-solo' /* local patch: css/hud-art.css */, players.length > 4 && 'is-8' /* the 8-player mode: smaller rows */)} aria-label=${t('同盟成员')}>
+  // a teammate's 前往查看 tag in the dialog: observable now (observeTarget), or without `observe` any teammate still in
+  const canGo = (p) => (observe ? !!(observe.canObserve(p) || {}).fieldId : p.alive !== false && p.status !== 'left');
+  const go = (p) => { setDetail(false); onWatch(p); };
+  const watchedAny = !!watching && players.some((p) => watching === p.fieldId || watching === `n:${p.playerId}`);
+  return [open ? html`<div key="veil" class="pdetail-veil" aria-hidden="true" onPointerDown=${(e) => { e.preventDefault(); setDetail(false); }}></div>` : null,
+    html`<aside key="team" ref=${asideRef} class=${cx('team', compact && 'team--compact', watchedAny && 'has-watched', players.length === 1 && 'is-solo' /* local patch: css/hud-art.css */, players.length > 4 && 'is-8' /* the 8-player mode: smaller rows */, open && 'has-pdetail')} aria-label=${t('同盟成员')}>
     ${players.map((p) => {
       const self = p.playerId === myId;
       const status = p.alive === false ? 'dead' : p.status;
@@ -142,14 +170,14 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
       const watched = watching && (watching === p.fieldId || watching === `n:${p.playerId}`);
       const bubble = bubbles?.get(p.playerId);
       const offline = p.connected === false && !p.isBot && status !== 'left';
-      const open = !!observe && openPid === p.playerId && !self;
-      const back = !!observe && self && observe.observing;
-      const title = observe ? (self ? (observe.observing ? t('返回战场') : t('你自己')) : t('查看 {name} 的战场', { name: playerName(p.name) })) : (self ? t('查看自己的阵地') : t('查看 {name} 的阵地', { name: p.name }));
+      const goTag = open && !self && !watched && canGo(p);
+      const back = self && (observe ? observe.observing : !!watching && watchedAny && !watched);
+      const title = playerName(p.name) || t('博士');
       const lp = rowLp(p, pub, self ? selfLive : null, { uniteLocal, cap });
       const inTeam = team.has(p.playerId);
       const card = cardState(p);
-      return html`<div key=${p.playerId} class=${cx('team__row', self && 'is-self', inTeam && 'is-team', watched && 'is-watched', p.alive === false && 'is-dead', open && 'is-open')}>
-        <button type="button" class="team__btn" onClick=${() => click(p, self)} title=${inTeam && !self ? `${title} · ${t('与你在同一战场')}` : title} aria-expanded=${observe && !self ? String(open) : undefined}>
+      return html`<div key=${p.playerId} class=${cx('team__row', self && 'is-self', inTeam && 'is-team', watched && 'is-watched', p.alive === false && 'is-dead')}>
+        <button type="button" class="team__btn" onClick=${() => setDetail((d) => !d)} title=${inTeam && !self ? `${title} · ${t('与你在同一战场')}` : title} aria-expanded=${players.length > 1 ? String(open) : undefined}>
           <${PlayerAvatar} player=${p} self=${self} />
           ${inTeam ? html`<span class=${cx('team__frame', !frameArt && 'team__frame--plain')} style=${frameArt ? `--frame:url("${frameArt}")` : undefined} aria-hidden="true"></span>` : null}
           <span class="team__seat num">P${(p.seat ?? 0) + 1}</span>
@@ -175,14 +203,15 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
             <//>
             ${watched && !self ? html`<span class="team__eye" title=${t('正在查看')}><${GIcon} name="eye" /></span>` : null}
           </div>
-          ${open ? html`<button type="button" class="btn btn--primary btn--sm team__ob"
-            onClick=${() => { setOpenPid(null); onWatch(p); }}><span class="btn__label">${t('前往查看')}</span></button>` : null}
           ${back ? html`<button type="button" class="btn btn--secondary btn--sm team__back"
-            onClick=${() => observe.onBack()}><span class="btn__label">${t('返回战场')}</span></button>` : null}
+            onClick=${() => { setDetail(false); if (observe) observe.onBack(); else onWatch(p); }}><span class="btn__label">${t('返回战场')}</span></button>` : null}
         </div>
+        ${goTag ? html`<button type="button" class="team__ob pdetail__go" title=${t('查看 {name} 的战场', { name: title })}
+          onClick=${() => go(p)}><span class="btn__label">${t('前往查看')}</span></button>` : null}
         ${bubble ? html`<${EmoteBubble} key=${bubble.seq} id=${bubble.id} set=${bubble.set} class="team__bubble" />` : null}
       </div>`;
     })}
+    ${open && geo ? html`<${PlayerDetail} players=${players} myId=${myId} geo=${geo} />` : null}
     ${after}
-  </aside>`;
+  </aside>`];
 }

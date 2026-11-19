@@ -91,6 +91,9 @@ SEASONS = {
             ('ui/autochess/[uc]autochesscommon.ab', ['bandicon', 'bondicon', 'shopitemicon', 'modeicon', 'modeselecticon', 'garrisontypeicon']),
             ('ui/autochess/[uc]autochessouter.ab', ['medalicon', 'enemytypeicon', 'diychooselevelsprite', 'shoplevelsprite', 'chesslevelsprite']),
             ('ui/autochess/[uc]autochessbattle.ab', ['bondphaseicon', 'bufficon', 'modeinfotitle', 'bondboardicon']),
+            # the 队员信息 dialog's shop level (img_shop_rank, set at run time from the theme): the default theme's own
+            # folder — its names (shop_level_1…6) are the shop's too, so the theme's `skin` group holds the other picture
+            ('ui/autochess/autochessvariantskin/[uc]ac_n_initial.ab', ['playerdetailshoplevel']),
         ],
         # the 3/3 确定自选编队 screen (public/js/screens/diyChoose.js): its state, tier rows and cards, the shared operator
         # card it holds (the out-of-match 干员调配 card) and that card's bond badge
@@ -107,6 +110,9 @@ SEASONS = {
                                                                   'prefab_auto_chess_stage_info_chess_banned_group', 'prefab_auto_chess_stage_info_chess_banned_item',
                                                                   'prefab_auto_chess_stage_info_enemy_leader', 'prefab_auto_chess_stage_info_enemy_type',
                                                                   'prefab_auto_chess_stage_info_map_preview']),
+            # the 队员信息 dialog (public/js/ui/playerDetail.js): its shadow, the row, the bond and operator items
+            ('ui/autochess/[uc]autochessbattle.ab', 'playerdetail', ['autochess_player_detail_dialog', 'autochess_player_detail_row',
+                                                                 'autochess_player_detail_bond_item', 'autochess_player_detail_chess_item']),
         ],
         # activity_table autoChessData.skinConsts.defaultAutoChessSkinId
         'skin': 'ui/autochess/autochessvariantskin/[uc]ac_n_initial.ab',

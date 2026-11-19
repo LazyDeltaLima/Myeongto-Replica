@@ -1,0 +1,111 @@
+/* ---- 队员信息 (js/ui/playerDetail.js): the official 规程 autochess_player_detail_dialog beside the left player list ----
+   Opened by an avatar of the list; the side layer goes above the HUD panels while it is open (.gm__side.has-pdetail —
+   the 机变 screen's own z 21 stays), the transparent veil under the list closes it on a tap (the official bg_btn).
+   The rows are the list rows' places measured (left / top / height in px, --k = the list row's height / 92), each row
+   the list row's height plus the gap between rows so the rows touch (maintainer decision 2026-11-15); the list's own
+   avatar shows through the row's first column (its .team__btn above the dialog). Sizes follow the official row
+   (autochess_player_detail_row: the name card 257 × 78, the scroll lists 82.6 tall on detail_list_back #2f2f2f 60 %,
+   operator items 64, the strategy column 88 × 80) in the --k unit; the art comes as --pd-* variables from the local
+   extract (season/act3autochess/playerdetail), else the plain fills here. */
+.gm__side.has-pdetail { z-index: 19; }
+.pdetail-veil { position: absolute; inset: 0; pointer-events: auto; }
+.team.has-pdetail .team__btn { z-index: 6; }
+.gm .team.has-pdetail .team__back { z-index: 7; }
+.pdetail { position: absolute; z-index: 5; pointer-events: auto; cursor: default; }
+.pdetail::before {
+  content: ''; position: absolute; inset: -6px 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, rgba(0, 0, 0, .72), rgba(0, 0, 0, .6) 60%, rgba(0, 0, 0, .66)); box-shadow: 0 0 40px 20px rgba(0, 0, 0, .45);
+}
+.pdetail__row { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: calc(6px * var(--k)); background: rgba(34, 34, 34, .92); }
+/* an eliminated player's row: the official row_dead_cover [추정·화면: no capture of it] */
+.pdetail__row.is-dead::after { content: ''; position: absolute; inset: 0; background: rgba(40, 40, 40, .86); pointer-events: none; }
+.pdetail__hole { flex: none; align-self: stretch; }
+
+/* the name card (part_namecard): the name (15, MiddleLeft), 完美连胜 n (#f36a1b on combo_win_back), the shop level
+   (img_shop_rank: the default theme's playerdetailshoplevel/shop_level_n); the card picture itself is not drawn (our
+   name cards are another bundle's work) — name_card_cover over a dark plate */
+.pdetail__card {
+  position: relative; flex: none; width: calc(257px * var(--k)); height: calc(78px * var(--k)); overflow: hidden;
+  background: var(--pd-card, none) center / 100% 100% no-repeat, linear-gradient(100deg, #3a4644, #1d2524 70%);
+}
+.pdetail__name {
+  position: absolute; left: calc(12px * var(--k)); top: calc(8px * var(--k)); right: calc(64px * var(--k)); overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; color: #fff; font-size: calc(16px * var(--k)); font-weight: 600; line-height: 1.2; text-shadow: 0 1px 2px #000;
+}
+.pdetail__combo {
+  position: absolute; left: calc(12px * var(--k)); top: calc(36px * var(--k)); height: calc(20px * var(--k)); padding: 0 calc(7px * var(--k));
+  white-space: nowrap; color: #f36a1b; font-size: calc(13px * var(--k)); font-weight: 700; line-height: calc(20px * var(--k));
+  background: var(--pd-combo, rgba(0, 0, 0, .55)) center / 100% 100% no-repeat;
+}
+.pdetail__shop {
+  position: absolute; right: calc(8px * var(--k)); bottom: calc(4px * var(--k)); width: calc(52px * var(--k)); height: calc(48px * var(--k));
+  display: grid; place-items: center; color: #e9e9e9; font-style: normal; font-family: var(--font-num); font-size: calc(22px * var(--k)); font-weight: 700; line-height: 1;
+}
+.pdetail__shop small { display: block; font-size: calc(9px * var(--k)); letter-spacing: .08em; color: #9aa; }
+.pdetail__shop.has-sprite { background: var(--pd-shop) center / contain no-repeat; }
+
+/* the bond and operator lists (part_bond / part_operator: Scroll View, the arrow_right list_arrow when it runs over) */
+.pdetail__part {
+  position: relative; flex: 1 1 0; min-width: 0; height: calc(82px * var(--k)); display: flex; align-items: center;
+  background: var(--pd-list, none) center / 100% 100% no-repeat, rgba(47, 47, 47, .6);
+}
+.pdetail__part.is-bonds { flex-grow: .62; }
+.pdetail__list { display: flex; align-items: center; height: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.pdetail__list::-webkit-scrollbar { display: none; }
+.pdetail__more { display: none; position: absolute; right: calc(4px * var(--k)); top: 50%; width: calc(16px * var(--k)); height: calc(22px * var(--k));
+  margin-top: calc(-11px * var(--k)); pointer-events: none; opacity: .7; background: var(--pd-arrow, none) center / contain no-repeat; }
+.pdetail__part.is-more .pdetail__more { display: block; }
+.pdetail__part.is-more .pdetail__list { padding-right: calc(20px * var(--k)); }
+.pdetail__noinfo {
+  position: absolute; left: 50%; top: 50%; width: calc(136px * var(--k)); height: calc(20px * var(--k)); transform: translate(-50%, -50%);
+  display: grid; place-items: center; opacity: .55; color: #bbb; font-style: normal; font-family: var(--font-num); font-size: calc(13px * var(--k)); letter-spacing: .2em;
+}
+.pdetail__noinfo.has-sprite { background: var(--pd-noinfo) center / contain no-repeat; }
+/* the bonds: the HUD strip's own slot (.bslot, css/hud-art.css), its --u set smaller by the row (playerDetail.js Bonds) */
+.pdetail__bonds { gap: calc(2px * var(--k)); padding-left: calc(12px * var(--k)); }
+.pdetail__bonds .bslot { flex: none; pointer-events: none; }
+
+/* the operators (autochess_player_detail_chess_item, 64): the portrait 56, char_avatar_frame grey — the elite's in
+   #e9871c with gold_gradient —, the tier at the bottom-left, the equipment bar over the top (16 × 5 a slot, a filled
+   slot #f9dc27) [추정·화면: the bar only on an operator that carries something] */
+.pdetail__ops { padding-left: calc(10px * var(--k)); }
+.pdetail__op { position: relative; flex: none; width: calc(64px * var(--k)); height: calc(64px * var(--k)); }
+.pdetail__av { position: absolute; left: 50%; top: 50%; width: calc(56px * var(--k)); height: calc(56px * var(--k)); transform: translate(-50%, -50%); overflow: hidden; background: #222; }
+.pdetail__av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pdetail__glyph { display: grid; place-items: center; width: 100%; height: 100%; color: #ccc; font-style: normal; font-size: calc(22px * var(--k)); }
+.pdetail__fr { position: absolute; inset: 0; pointer-events: none; border: calc(2px * var(--k)) solid #8a8a8a; }
+.pdetail[style*='--pd-frame'] .pdetail__fr { border: 0; background: var(--pd-frame) center / 100% 100% no-repeat; filter: grayscale(1) brightness(.75); }
+.pdetail__op.is-golden .pdetail__fr { border-color: #e9871c; }
+.pdetail[style*='--pd-frame'] .pdetail__op.is-golden .pdetail__fr { filter: none; }
+.pdetail__gg { position: absolute; left: 50%; bottom: calc(3px * var(--k)); width: calc(56px * var(--k)); height: calc(22px * var(--k)); transform: translateX(-50%); pointer-events: none;
+  background: var(--pd-gold, linear-gradient(0deg, rgba(233, 135, 28, .55), rgba(233, 135, 28, 0))) center / 100% 100% no-repeat; }
+.pdetail__rk {
+  position: absolute; left: calc(4px * var(--k)); bottom: calc(4px * var(--k)); min-width: calc(17px * var(--k)); height: calc(17px * var(--k)); padding: 0 2px;
+  background: rgba(0, 0, 0, .85); color: #fff; font-size: calc(12px * var(--k)); font-weight: 700; line-height: calc(17px * var(--k)); text-align: center;
+}
+.pdetail__op.is-golden .pdetail__rk { color: #ffb43c; }
+.pdetail__eq { position: absolute; left: 50%; top: calc(-2px * var(--k)); transform: translateX(-50%); display: flex; gap: 1px; padding: 2px 3px;
+  background: var(--pd-eqback, rgba(0, 0, 0, .7)) center / 100% 100% no-repeat; }
+.pdetail__eq i { width: calc(14px * var(--k)); height: calc(4px * var(--k)); background: rgba(255, 255, 255, .35); }
+.pdetail__eq i.is-on { background: #f9dc27; }
+
+/* the strategy (part_team_info: team_avatar 80 in team_check_frame 76, the 🔍 team_check_icon 40 at its bottom-right) */
+.pdetail__band { position: relative; flex: none; width: calc(88px * var(--k)); height: calc(80px * var(--k)); }
+.pdetail__bandimg { position: absolute; left: 50%; top: 50%; width: calc(66px * var(--k)); height: calc(66px * var(--k)); transform: translate(-50%, -50%); overflow: hidden; background: #111; opacity: .92; }
+.pdetail__bandimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pdetail__bandfr { position: absolute; left: 50%; top: 50%; width: calc(76px * var(--k)); height: calc(76px * var(--k)); transform: translate(-50%, -50%); pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, .25); }
+.pdetail[style*='--pd-tframe'] .pdetail__bandfr { border: 0; background: var(--pd-tframe) center / 100% 100% no-repeat; }
+.pdetail__check { position: absolute; right: calc(2px * var(--k)); bottom: calc(2px * var(--k)); width: calc(30px * var(--k)); height: calc(30px * var(--k)); pointer-events: none;
+  background: var(--pd-tcheck, none) center / contain no-repeat; }
+
+/* 前往查看 on a teammate's avatar while the dialog is open (the official 「前往观战」 tag, chosen mockup): a small mint
+   tag at the portrait's top-left — over the list's own 98 × 98 btn_ob_other look (css/hud-art.css) */
+.team .team__ob.pdetail__go, .gm.has-hud-art.has-hud-card .team__ob.pdetail__go {
+  position: absolute; z-index: 7; left: 2px; top: 2px; width: auto; height: auto; min-width: 0; margin: 0; padding: 0 .5em 0 .3em;
+  display: flex; align-items: center; border: 0; border-radius: 0; background: #10a6c9; color: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+  font-size: clamp(9px, calc(var(--u, .015rem) * 14), 12px); font-weight: 700; line-height: 1.7; white-space: nowrap; animation: none; cursor: pointer; pointer-events: auto;
+}
+.team .team__ob.pdetail__go::before { content: '◂'; margin-right: .3em; }
+.team .team__ob.pdetail__go .btn__label { letter-spacing: .04em; }
+.team .team__ob.pdetail__go:hover { filter: brightness(1.12); }

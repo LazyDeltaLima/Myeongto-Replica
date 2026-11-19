@@ -111,6 +111,37 @@ export class MatchViews {
     return rows.slice(0, BOSS_TOP_ROWS).map((r) => ({ pid: r.pid, chess: r.chess, pct: Math.max(1, Math.min(100, Math.floor((r.d * 100) / pool.maxHp + 1e-9))) }));
   }
 
+  /**
+   * The 队员信息 dialog's operator row of a player (public/js/ui/playerDetail.js, the official
+   * autochess_player_detail_chess_item): the operators on the player's board as { char, avatar?, tier, golden?, items? } —
+   * the body drawn (a 补位 stand-in's, a 自选 slot's operator: PlayerState.fieldRecord, like the prep scout's units), its
+   * tier and elite state, and `items` [equipped, slots] when it carries something (the portrait's equipment bar). Display
+   * only, no rule reads it. Sorted by tier, elites first, then the board's order; [] once eliminated.
+   * [ASSUMED·화면: the official row's pieces — the board only, not the 整备区 — and their order]
+   * @returns {Array<{ char: string, avatar?: string, tier: number, golden?: true, items?: [number, number] }>}
+   */
+  _lineupView(ps) {
+    if (!ps.alive) return [];
+    const gd = ps.gd || this.gd;
+    const out = [];
+    let i = 0;
+    for (const { piece } of boardOrder(ps.board)) {
+      if (piece.kind !== 'chess') continue;
+      const chess = gd.chess(piece.id);
+      const rec = chess ? ps.fieldRecord(chess) : null;
+      const char = (rec && rec.charId) || piece.id;
+      const avatar = rec && rec.assets && rec.assets.avatar;
+      const v = { char, tier: rec && Number.isInteger(rec.tier) ? rec.tier : 1 };
+      if (avatar && avatar !== char) v.avatar = avatar;
+      if (rec && rec.isGolden) v.golden = true;
+      const n = Array.isArray(piece.items) ? piece.items.length : 0;
+      if (n > 0) v.items = [n, gd.equipSlotsOf(piece.id)];
+      out.push({ v, i: i++ });
+    }
+    out.sort((a, b) => b.v.tier - a.v.tier || (b.v.golden ? 1 : 0) - (a.v.golden ? 1 : 0) || a.i - b.i);
+    return out.map((x) => x.v);
+  }
+
   fieldOf(ps) {
     const f = this.fields.find((x) => x.players.includes(ps.playerId));
     return f ? f.fieldId : null;
@@ -169,6 +200,8 @@ export class MatchViews {
         // m.result's own bonds, so their layers would only cost every m.public bytes for the rest of the match
         // (the mode-off bonds with members included, `off: true`, as in m.private — bondsMeta.offBondCounts)
         bonds: ps.alive ? bondList(this.gd, ps.bondsView(), { off: offBondCounts(ps.gd || this.gd, ps) }) : [],
+        // the 队员信息 dialog's operators (_lineupView)
+        lineup: this._lineupView(ps),
         fieldId: this.fieldOf(ps),
         status: this.statusOf(ps),
         autoplay: ps.autoplay,
