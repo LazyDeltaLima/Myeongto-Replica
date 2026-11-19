@@ -277,14 +277,29 @@ export const elemTaken = (a) => Math.max(a.elem.burn, a.elem.neural, a.elem.apop
  */
 export function trigAllyFirst(cands, post) {
   if (!cands.length) return null;
-  const cmp = post === 19 ? (x, y) => y.s.maxHp - x.s.maxHp || x.deploySeq - y.deploySeq
-    : post === 38 ? (x, y) => elemTaken(y) - elemTaken(x) || x.hpRatio - y.hpRatio || x.deploySeq - y.deploySeq
-      : post === 61 ? (x, y) => (x.s.blockCnt || 0) - (y.s.blockCnt || 0) || y.deploySeq - x.deploySeq
-        : null;
+  const cmp = trigAllyCmp(post);
   if (!cmp) return cands[0];
   let best = cands[0];
   for (let i = 1; i < cands.length; i++) if (cmp(cands[i], best) < 0) best = cands[i];
   return best;
+}
+
+/** The order of an ally trigger's `_postFilter` `post` (trigAllyFirst), null for one not modelled. */
+function trigAllyCmp(post) {
+  return post === 19 ? (x, y) => y.s.maxHp - x.s.maxHp || x.deploySeq - y.deploySeq
+    : post === 38 ? (x, y) => elemTaken(y) - elemTaken(x) || x.hpRatio - y.hpRatio || x.deploySeq - y.deploySeq
+      : post === 61 ? (x, y) => (x.s.blockCnt || 0) - (y.s.blockCnt || 0) || y.deploySeq - x.deploySeq
+        : null;
+}
+
+/**
+ * The first `n` of the allies `cands` in the order of an ally selector's `_postFilter` `post` (`FilterUtil.Filter`
+ * with the selector's max target count): trigAllyFirst's order, ties by the deployment order; a copy.
+ */
+export function trigAllyOrder(cands, post, n) {
+  const cmp = trigAllyCmp(post);
+  const out = cmp ? cands.slice().sort(cmp) : cands.slice();
+  return out.slice(0, Math.max(0, n));
 }
 
 /**

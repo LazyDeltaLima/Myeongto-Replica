@@ -1212,8 +1212,9 @@ test('引星棘刺 S3 “我的海疆”: passive skill range; alchemy units on 
         chess: { t_b0: ally('t_b0', { stats: { blockCnt: 0 } }), t_b1: ally('t_b1', { stats: { blockCnt: 1 } }), t_b2: ally('t_b2', { stats: { blockCnt: 2 } }), t_b3: ally('t_b3', { stats: { blockCnt: 3 } }) },
         enemies: { enemy_dummy: dummy('enemy_dummy', { atk: 100, def: 100 }), enemy_res: dummy('enemy_res', { res: 50 }) },
       },
-      units: [entry(id, 'skchr_thorn2_3', { row: 10, col: 3 }), { chessId: 't_b0', row: 12, col: 8 }, { chessId: 't_b1', row: 12, col: 9 }, { chessId: 't_b2', row: 9, col: 9 }, { chessId: 't_b3', row: 9, col: 5 }],
-      enemies: [{ key: 'enemy_dummy', pos: [10, 7] }, { key: 'enemy_dummy', pos: [11, 9] }, { key: 'enemy_dummy', pos: [9, 7] }, { key: 'enemy_res', pos: [12, 7] }],
+      // every operator inside her skill range: its `Selector` takes the operators of that range only (skills.js trigAllyTargets)
+      units: [entry(id, 'skchr_thorn2_3', { row: 10, col: 3 }), { chessId: 't_b0', row: 12, col: 4 }, { chessId: 't_b1', row: 12, col: 5 }, { chessId: 't_b2', row: 9, col: 5 }, { chessId: 't_b3', row: 8, col: 4 }],
+      enemies: [{ key: 'enemy_dummy', pos: [10, 7] }, { key: 'enemy_dummy', pos: [11, 5] }, { key: 'enemy_dummy', pos: [8, 7] }, { key: 'enemy_res', pos: [12, 6] }],
     });
     const u = sel(h, id, 'skchr_thorn2_3');
     const bb = bbOf(u);

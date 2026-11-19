@@ -180,6 +180,8 @@ SELECTOR_FILTERS = {
 }
 # `AbnormalFlag` HEAL_FREE (禁疗)
 HEAL_FREE = 7
+# the fields of the client's `Heal` ability (and its subclasses): the purpose mask of its target trigger holds HEAL (skill_entry)
+HEAL_ABILITY = {'_isCont', '_isHpRatio', '_hasNoActionNode', '_ignoreHealFree', '_applyEPHeal', '_applyHealScaleToEPHealScale'}
 
 
 def ally_filters(d, comps3):
@@ -394,6 +396,12 @@ def skill_entry(sid, comps3, templates):
         if sk.get('_hideRangeToShow') or (sk.get('_forceUseBaseShowRange') and not selector and int(sk.get('_rangeIdModeIndex', -1)) <= 0):
             e['range'] = 0
         tr = trigger_entry(sk, comps3)
+        if tr and tr.get('sel') in ('range', 'blocked') and any(HEAL_ABILITY <= set(d) for d in root):
+            # the trigger's selector takes its purpose from the skill ability (`CastSkill.OnInit` → `SelectorTrigger.Reset`
+            # → `RangeSelector.Reset`: `TargetOptions.purposeMask` = the ability's `purposeMask`), and a Heal ability's
+            # holds HEAL (`Heal.GeneratePurposeMask`: the base mask | 2): `TargetOptions._VerifyAdvanced` then drops a
+            # 禁疗 (HEAL_FREE) target, the unit itself too — `noHeal`, as a validator's (褐果 S1)
+            tr['noHeal'] = 1
         if tr:
             e['trig'] = tr
     else:

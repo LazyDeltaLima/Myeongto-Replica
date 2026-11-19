@@ -100,8 +100,14 @@ test('褐果 S1: its trigger holds an ally in range that is hurt or holds 元素
   a.elem.burn = 200;
   assert.ok(sk.trigTarget(sk.cast.trig) === a, 'an ally with 元素损伤 comes before a lower HP ratio');
   u.hp = u.s.maxHp;
+  assert.ok(sk.cast.trig.noHeal, 'skchr_chnut_1 carries `noHeal`: its skill ability is a Heal, whose purpose mask holds HEAL (skill_cast.py skill_entry)');
   h.b.addBuff(a, { key: 'test:noheal', duration: 99, flags: { noHeal: true } });
   assert.ok(!sk._trigFound(), 'a 禁疗 ally is no target of her heal');
+  u.hp = u.s.maxHp * 0.5;
+  assert.ok(sk.trigTarget(sk.cast.trig) === u, 'she herself, hurt, is');
+  h.b.addBuff(u, { key: 'test:noheal', duration: 99, flags: { noHeal: true } });
+  assert.ok(!sk._trigFound(), 'a 禁疗 Chestnut is no target of her own heal either (`TargetOptions._VerifyAdvanced` drops HEAL_FREE, the owner too) '
+    + '— docs/rules/sim.md 「스킬 프리팹의 대상 트리거」');
 });
 
 test('莎草 S2: another ground operator in range, no 禁疗 one, none holding the validator buff', () => {
@@ -120,17 +126,25 @@ test('莎草 S2: another ground operator in range, no 禁疗 one, none holding t
   assert.ok(!u2.skill._trigFound(), 'a 禁疗 operator is left out (the validator excludes HEAL_FREE)');
 });
 
-test('引星棘刺 S3: an operator in range without her thorn2_s_3[buff] — her own cast marks them, another\'s mark does not count', () => {
-  const h = board([{ chessId: THORN2, row: 9, col: 6, dir: 'RIGHT' }], { [THORN2]: withSkill(THORN2, 'skchr_thorn2_3') });
-  const u = h.unit(THORN2), sk = u.skill;
-  assert.ok(sk.id === 'skchr_thorn2_3' && sk.cast?.trig?.buffSrc && sk.cast.trig.notBuff.includes('thorn2_s_3[buff]'), 'skchr_thorn2_3 carries its buff filter');
-  assert.ok(sk._trigFound() && sk.trigTarget(sk.cast.trig) === u, 'she herself, an operator in her range, is a target');
-  h.b.addBuff(u, { key: 'thorn2_s_3[buff]', duration: 99, source: { id: -1 } });
-  assert.ok(sk._trigFound(), 'the buff from another unit does not count (`_filterBuffSource`)');
+test('引星棘刺 S3: an operator in range casts it; its units go to the operators in her range, the fewest blocked first, then the latest deployed — and no thorn2_s_3[buff] on them', () => {
+  const units = [{ chessId: THORN2, row: 9, col: 6, dir: 'RIGHT' }, { chessId: CHRIST, row: 9, col: 7, dir: 'RIGHT' },
+    { chessId: PAPYRS, row: 9, col: 8, dir: 'RIGHT' }, { chessId: CHNUT, row: 3, col: 1, dir: 'RIGHT' }];
+  const h = board(units, { [THORN2]: withSkill(THORN2, 'skchr_thorn2_3') });
+  const u = h.unit(THORN2), sk = u.skill, far = h.unit(CHNUT);
+  assert.ok(sk.id === 'skchr_thorn2_3' && sk.cast?.trig?.buffSrc && sk.cast.trig.notBuff.includes('thorn2_s_3[buff]') && sk.cast.trig.post === 61,
+    'skchr_thorn2_3 carries its trigger (buff filter, post 61)');
+  assert.ok(sk._trigFound() && sk.trigTarget(sk.cast.trig) !== null, 'an operator in her range is a target');
+  const picked = sk.trigAllyTargets(sk.cast.trig, 3);
+  assert.ok(!picked.includes(far), 'an operator outside her skill range gets no unit (the kit took every operator of her owner)');
+  assert.ok(picked.length === 3 && picked[0] === h.unit(PAPYRS) && picked[1] === h.unit(CHRIST) && picked[2] === u,
+    'with no one blocking, the latest deployed first (BLOCK_CNT_ASC_CREATED_TIME_DES), she herself too');
+  assert.ok(sk.trigAllyTargets(sk.cast.trig, 1).length === 1, '`max_target_token` caps them');
   sk.gainSp(999);
   assert.ok(sk.activate('DEFAULT') !== false, 'S3 casts');
-  assert.ok(h.runUntil(() => u.buffs.some((x) => x.key === 'thorn2_s_3[buff]' && x.source === u), 5), 'her S3 marks the operator it throws its unit at');
-  assert.ok(!sk._trigFound(), 'every operator in her range carries her unit: no target');
+  h.run(3);
+  assert.ok(!h.b.allyUnits.some((a) => a.buffs.some((x) => x.key === 'thorn2_s_3[buff]')),
+    'no thorn2_s_3[buff]: no official node attaches it (docs/rules/sim.md 「스킬 프리팹의 대상 트리거」)');
+  assert.ok(sk._trigFound(), 'so the operators carrying her units still hold her trigger');
 });
 
 test('Miss.Christine S2: a TileSelector trigger finds the enemies of her skill range (HATRED_DES), not tiles', () => {

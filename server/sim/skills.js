@@ -68,7 +68,7 @@
 //   also carries `noAmmo` (set it to true: this attack spends no ammo). onEnd runs while the skill's mods / range are
 //   still applied (`active` is already false); they are removed right after it (unless onEnd re-activated the skill).
 
-import { absoluteRangeKeys, trigFirst, trigAllyFirst, ALLY_TRIG_SORTS, elemTaken } from './targeting.js';
+import { absoluteRangeKeys, trigFirst, trigAllyFirst, trigAllyOrder, ALLY_TRIG_SORTS, elemTaken } from './targeting.js';
 import { castFace } from './ai.js';
 import { BLOCK_SKILL_TICK, COLS, MIN_ANIM_SCALE, TICK } from './constants.js';
 
@@ -545,11 +545,11 @@ export class SkillRuntime {
    * The allies an ally selector of trigger `t` finds (docs/rules/sim.md 「스킬 프리팹의 대상 트리거」, 공식 클라에서 확인): the
    * allies standing in its range box (_trigBoxKeys) — devices aside, by the selector's motion, not a 孤立 one
    * (ALLY_TARGET_FREE, allySelectable) — the unit itself unless `exclSelf` (`AdvancedSelector.OnPostFilter`), a character of
-   * the `prof` professions (`TargetOptions._VerifyAdvanced`), no 禁疗 one for `noHeal` (FilterBuffTargetValidator's excluded
-   * HEAL_FREE), none holding a `notBuff` key (placed by the unit itself for `buffSrc`: AdvancedSelectorWithTagAndBuffKey
-   * `_CheckBuff`, FilterBuffTargetValidator); `_postFilter` HP_RATIO_ASC_EP_MIN_ASC_FIRST_NOT_ALL_FULL (38) drops an ally at
-   * full HP with no 元素损伤 (`FilterUtil.Filter` drops the candidates its weight function refuses), and — as its heal
-   * ability's purpose does — a 禁疗 one other than the unit [추정·미조사: the skill ability's `purposeMask` not read].
+   * the `prof` professions (`TargetOptions._VerifyAdvanced`), no 禁疗 one — the unit itself too — for `noHeal`
+   * (FilterBuffTargetValidator's excluded HEAL_FREE, or a Heal skill ability's purpose mask: skill_cast.py skill_entry), none
+   * holding a `notBuff` key (placed by the unit itself for `buffSrc`: AdvancedSelectorWithTagAndBuffKey `_CheckBuff`,
+   * FilterBuffTargetValidator); `_postFilter` HP_RATIO_ASC_EP_MIN_ASC_FIRST_NOT_ALL_FULL (38) drops an ally at full HP with
+   * no 元素损伤 (`FilterUtil.Filter` drops the candidates its weight function refuses).
    */
   _trigAllies(t) {
     const u = this.unit;
@@ -565,13 +565,22 @@ export class SkillRuntime {
       if (!set.has(a.tileR * COLS + a.tileC)) continue;
       if ((m === 1 && a.isFlying) || (m === 2 && !a.isFlying)) continue;
       if (t.prof && !(t.prof & (PROF_BITS[a.def?.profession] ?? 0))) continue;
-      const noHeal = a.s.flags.noHeal || a.profile?.noHeal;
-      if (noHeal && (t.noHeal || (t.post === 38 && a !== u))) continue;
+      if (t.noHeal && (a.s.flags.noHeal || a.profile?.noHeal)) continue;
       if (t.notBuff.length && a.buffs.some((x) => t.notBuff.includes(x.key) && (!t.buffSrc || x.source === u))) continue;
       if (t.post === 38 && !(a.hp < a.s.maxHp - 1e-6) && !(elemTaken(a) > 0)) continue;
       out.push(a);
     }
     return out;
+  }
+
+  /**
+   * The allies an ally selector shaped as trigger `t` selects for an ability that casts at up to `n` targets (the
+   * skill ability's own `_selector` set up as its trigger's — 引星棘刺 S3 Token): _trigAllies in the `_postFilter` order, the
+   * first `n` (targeting.js trigAllyOrder). undefined when the engine does not model the selector (trigTarget).
+   */
+  trigAllyTargets(t, n) {
+    if (!t || !trigAllyModelled(t)) return undefined;
+    return trigAllyOrder(this._trigAllies(t), t.post, n);
   }
 
   /**

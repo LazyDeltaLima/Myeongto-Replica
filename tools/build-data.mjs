@@ -3115,7 +3115,8 @@ const TRIG_SELECTORS = new Set(['never', 'range', 'blocked', 'group', 'self', 's
  * server/sim/skills.js _trigFound, docs/rules/sim.md 「스킬 프리팹의 대상 트리거」): `sel`, `min`, and as read `side` / `motion` /
  * `extend` / `filter` / `post` (the selector's `_postFilter`, which orders its targets: the one the skill ability is cast at —
  * server/sim/targeting.js trigFirst) / `notBuff` / `hpAtMost` / `cond`, an ally selector's `exclSelf` / `prof` / `noHeal` /
- * `buffSrc` (skill_cast.py ally_filters); a ConstBoxRange's own `rangeId` becomes its `grid`.
+ * `buffSrc` (skill_cast.py ally_filters; `noHeal` also for a Heal skill ability, skill_entry); a ConstBoxRange's own
+ * `rangeId` becomes its `grid`.
  * Stops on a trigger or selector the extractor did not know (`sel` '?'), and on an enemy range selector whose `_postFilter`
  * the engine does not sort by (TRIG_SORTS) — a new shape is read before it is guessed.
  */

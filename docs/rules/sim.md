@@ -342,10 +342,20 @@ render.md 「공격 방향」(`skills.js trigTarget`).
 — 직군·HEAL_FREE(禁疗) 제외 — 와 `_excludeKey`면 `_buffs` 없는 아군). `_postFilter`는 순서이자 거르기다(`FilterUtil.Filter`는 무게 함수가 거짓을 내는 후보를
 버림): MAX_HP_DES 19(최대 HP 높은 순), HP_RATIO_ASC_EP_MIN_ASC_FIRST_NOT_ALL_FULL 38(원소 점수가 가장 낮은 — 元素损伤이 가장 큰 — 아군 먼저, 다음 HP 비율;
 HP도 원소 점수도 가득이면 빠짐), BLOCK_CNT_ASC_CREATED_TIME_DES 61(저지 수 낮은 순, 나중에 만든 쪽). 그래서 체스트넛 S1은 다치거나 元素损伤을 입은 아군(자기 포함)이
-범위에 있어야 켜지고 그 아군을 치료한다(`_useTriggerInManualMode` — 키트 `castPick`이 `trigTarget`); 禁疗 아군은 빠진다 [추정·미조사: 스킬 능력의 목적
-마스크(`Ability` 가상 24)를 안 읽음 — HEAL이면 `_VerifyAdvanced`가 HEAL_FREE를 뺌, 엔진은 치료 대상 고르기와 같이]. 파피루스 S2는 자기 말고 지상 오퍼레이터
-(禁疗·`trap_skzwyx[undeadable]` 없는)가, 쏜즈 더 로드스타 S3는 그녀의 `thorn2_s_3[buff]`가 없는 오퍼레이터(자기 포함)가 범위에 있어야 켜진다 — 키트가 S3로 연금
-유닛을 붙인 오퍼레이터에게 그 키의 버프를 그 유닛 시간만큼 붙인다 [추정·미조사: 버프를 붙이는 공식 노드·지속 시간을 안 읽음]. 블레이즈 디 이그나이팅 스파크
+범위에 있어야 켜지고 그 아군을 치료한다(`_useTriggerInManualMode` — 키트 `castPick`이 `trigTarget`). 禁疗 아군은 빠지고 禁疗인 그녀 자신도 빠진다(2026-11-19,
+공식 클라에서 확인): 트리거의 선택자는 목적을 스킬 능력에서 받고(`CastSkill.OnInit` → `SelectorTrigger.Reset` → `RangeSelector.Reset`: `TargetOptions.purposeMask` =
+능력의 `purposeMask`, `AbilityStandard.DoSetData`가 `GeneratePurposeMask`로 정함), 스킬 능력이 `Heal`이면 HEAL이 들어가(`Heal.GeneratePurposeMask` = 기본 | 2)
+`_VerifyAdvanced`가 HEAL_FREE 대상을 주인 가리지 않고 뺀다 → 추출기가 그런 트리거에 `noHeal`을 단다(`skill_cast.py skill_entry`; 체스트넛 S1, 자동인 사리아 S2).
+공격 능력(`AbstractBasicAttack`)은 DAMAGE만 더하고, 풀의 다른 아군 트리거 능력(블레이즈 디 이그나이팅 스파크 S1 `AnimatedActionToTargetAbility`·파피루스 S2
+`ActiveBuffAbility`·토스카 S1 `EmptyAnimatedAbility`·쏜즈 더 로드스타 S3 `RangedAttack`)은 `Heal`이 아니다 — 행동 노드에서 오는 목적(`ActionUtil.GeneratePurposeMask`)은
+안 읽었지만 이들엔 치료 노드가 없다. 그 전엔 엔진이 `_postFilter` 38일 때만 자기 말고 禁疗 아군을 뺐다. 파피루스 S2는 자기 말고 지상 오퍼레이터
+(禁疗·`trap_skzwyx[undeadable]` 없는)가, 쏜즈 더 로드스타 S3는 오퍼레이터(자기 포함)가 범위에 있어야 켜진다. 그 선택자의 `thorn2_s_3[buff]` 거르기는 아무도 빼지 않는다
+(2026-11-19, 공식 클라에서 확인): 그 키의 버프를 붙이는 것이 EN·CN 스킬 프리팹(모든 구성 요소)·투사체(`projectile_chr_thorn2_s3`은 `_dontAddBuffs`, 다각형
+`projectile_chr_thorn2_s3_polygon*`)·charpack·버프 템플릿(EN·규정)·스킬 표 어디에도 없다. 그래서 연금 유닛을 지닌 오퍼레이터도 다시 대상이 되고, S3는
+SP가 차면 범위에 오퍼레이터가 있는 한 다시 켜진다 — 그 전엔 키트가 그 버프를 유닛 시간만큼 붙여, 범위의 오퍼레이터가 모두 유닛을 지니면 S3가 기다렸다.
+연금 유닛을 받는 오퍼레이터는 스킬 능력(`Token`, `RangedAttack`, `_selectTargetTiming` 1)의 `Selector`가 고르는데, 그 설정은 트리거와 같다(`AutoLoadBoxRange` 스킬 범위,
+오퍼레이터 639, `_postFilter` 61 저지 수 낮은 순 → 나중 배치, `_limitTargetNum` → `max_target_token`) → 키트가 타격 순간 `skills.js trigAllyTargets`(트리거의
+`_trigAllies`를 61 순서로 `max_target_token`명). 그 전엔 범위와 상관없이 주인의 모든 오퍼레이터에서 저지 수 → 거리 순이었다. 블레이즈 디 이그나이팅 스파크
 S1(자동)의 몸 돌리기는 최대 HP 오퍼레이터 쪽이다. 엔진이 정렬을 모르는 아군 `_postFilter`(3·39 — 자동 스킬뿐)는 대상 `undefined`(공격 대상 근사).
 타일 선택자(Miss.Christine S2): `TileSelector`도 유닛은 다른 범위 선택자처럼 찾고(`RangeSelector.DoFindTargets_DISPOSE`: 범위 상자·제 쪽·제 지상/공중) HATRED_DES(4)로
 세운다(`TileSelector.OnPostFilter(List<Entity>)`, 최대 128) — `_options`·`_filterType`은 칸 고르기(FindTiles)에만 쓰인다 → 추출기가 적 'range'(`tile` 1)로 읽는다.

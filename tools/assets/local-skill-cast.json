@@ -953,6 +953,7 @@
     "extend": 0,
     "min": 1,
     "motion": 3,
+    "noHeal": 1,
     "post": 38,
     "sel": "range",
     "side": 1
@@ -1207,6 +1208,7 @@
     "extend": 0,
     "min": 1,
     "motion": 3,
+    "noHeal": 1,
     "post": 3,
     "sel": "range",
     "side": 1

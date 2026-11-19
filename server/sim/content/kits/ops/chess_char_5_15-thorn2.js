@@ -5,7 +5,7 @@ import { COLS } from '../../../constants.js';
 import { sortEnemyTargets } from '../../../targeting.js';
 import { toLocal } from '../../../dir.js';
 import {
-  AURA_IV, AURA_DUR, RING1, num, on, talent, skillGrid, maxCharges, mods, dist, isOp, selectedId, lazySkills,
+  AURA_IV, AURA_DUR, RING1, num, on, talent, skillGrid, maxCharges, mods, isOp, selectedId, lazySkills,
   instantKind, whileOn, permBuff,
 } from '../shared/tier5.js';
 import { hypot } from '../../../detmath.js';
@@ -47,7 +47,7 @@ export default {
   // PRTS 备注 says "生命恢复的提供方式为增加目标的“生命回复速度”属性，不受治疗加成和禁疗影响" (the only other 炼金师): 不屈者 and
   // 禁疗 units recover too (community report: 炼金单元无法给不屈者等禁疗的干员提供生命恢复; it was a heal up to 0.2.1).
   // S3 “我的海疆”: passive — her range is the skill range; active
-  // (instant) — alchemy units on the max_target_token operators with the lowest block count: for projectile_delay_time s
+  // (instant) — alchemy units on the max_target_token operators in her range with the lowest block count: for projectile_delay_time s
   // the enemies around each of them (RING1, following it) get ATK/DEF/RES −, one strongest instance (不叠加), and take
   // atk_scale × ATK arts per second, everything ramping +per_interval each `interval` s up to max_stack_cnt steps.
   chess_char_5_15_a: (bb, chess, def) => {
@@ -112,16 +112,18 @@ export default {
         }),
         skchr_thorn2_3: () => ({
           kind: instantKind(chess, def),
-          onStrike({ battle, unit }) {   // (`_selectTargetTiming` 1)
-            const ops = battle.allies(unit.ownerId).filter((a) => isOp(a) && a.hp > 0)
-              .sort((a, b) => a.s.blockCnt - b.s.blockCnt || dist(a, unit) - dist(b, unit) || a.id - b.id)
-              .slice(0, Math.max(1, num(bb.max_target_token, 3)));
+          // the skill ability (prefab `Token`, a RangedAttack, `_selectTargetTiming` 1: its targets as it strikes) selects
+          // with a `Selector` set up as the skill trigger's: the operators in her skill range, the fewest blocked first, then
+          // the latest deployed (`_postFilter` 61), up to `max_target_token` (skills.js trigAllyTargets). Its
+          // `thorn2_s_3[buff]` filter leaves no one out: no node of the skill, its projectiles, her charpack or the buff
+          // templates attaches that buff (docs/rules/sim.md 「스킬 프리팹의 대상 트리거」)
+          onStrike({ battle, unit, skill }) {
+            const n = Math.max(1, num(bb.max_target_token, 3));
+            const ops = skill.trigAllyTargets(skill.cast?.trig, n)
+              ?? battle.alliesInGrid(unit).filter(isOp).sort((a, b) => (a.s.blockCnt || 0) - (b.s.blockCnt || 0) || b.deploySeq - a.deploySeq).slice(0, n);
             const dur = num(bb.projectile_delay_time, 19) + extend(battle, unit);
             for (const a of ops) {
               (unit.mem.zones ??= []).push({ type: 'sea', anchor: a, x: a.x, y: a.y, t: 0, acc: Math.max(0.1, num(bb.interval, 1)) - AURA_IV, dur });
-              // the operator carrying her unit holds thorn2_s_3[buff] from her, which her skill trigger leaves out (skills.js
-              // _trigAllies `notBuff` + `buffSrc`): S3 waits while every operator in its range carries one
-              battle.addBuff(a, { key: 'thorn2_s_3[buff]', duration: dur, source: unit, refresh: 'independent', maxStacks: 99 });
               // `thrown`: the unit thrown at that operator (skill prefab Token → projectile_chr_thorn2_s3, whose STOP sounds)
               battle.fx('zone', { x: a.x, y: a.y, id: unit.id, r: RING1, duration: dur, thrown: 1 });
             }
