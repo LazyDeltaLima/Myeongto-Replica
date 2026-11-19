@@ -23,7 +23,7 @@
 //              mockup).
 
 import { useMemo, useState } from '../../vendor/hooks.module.js';
-import { html, Icon, Modal, TierChip, roman } from '../ui/components.js';
+import { html, Icon, Modal, TierChip, Roman } from '../ui/components.js';
 import { Img, RichText, GIcon } from '../ui/gameComponents.js';
 import { natSizeVars } from '../ui/components.js';
 import { bondIconUrl, bandIconUrl, enemyIconUrl, factionIconUrl, chessAvatarUrl, itemIconUrl } from '../ui/assetUrls.js';
@@ -210,7 +210,7 @@ function BondPanel({ bond, m, notOwned }) {
       <div class="sw-ops">${members.map((c) => html`<span key=${c.chessId} class=${cx('sw-op', `sw-op--t${c.tier}`, off.has(c.chessId) && 'is-standin')}
           title=${c.name}>
         <${Img} src=${skinPic(c, 'avatar', sk, { own: true }) || chessAvatarUrl(m, c)} fallback=${html`<span class="sw-op__txt">${[...(c.name || '?')][0]}</span>`} />
-        <span class="sw-op__tier">${roman(c.tier)}</span>
+        <span class="sw-op__tier"><${Roman} n=${c.tier} /></span>
         ${off.has(c.chessId) ? html`<span class="sw-op__sub">${t('替补')}</span>` : null}
       </span>`)}</div>
     </div>` : null}

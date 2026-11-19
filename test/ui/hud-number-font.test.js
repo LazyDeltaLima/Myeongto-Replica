@@ -164,3 +164,20 @@ test('the numeral face: --font-num is Lexend Exa pinned at 500, the official Bol
   for (const sel of ['.dart__lv small', '.dart__lv b', '.dart__stat b', '.dart__stat small', '.dart__hp b']) assert.match(rule(hud, sel), normal, sel);
   assert.match(rule(shop, '.shopbar.has-shop-art .shopbar__remain b'), normal);
 });
+
+test('roman numerals that always show as text go through Roman (Krona One), fallbacks of official sprites stay plain', () => {
+  // maintainer decision 2026-11-19: the shop level's face for the loadout tier bar and tier filter, the S.W.E.E.P.
+  // tier tags, the custom rules' tier row and the console's tier marks; the text fallbacks of official sprites (tier
+  // chips, the loadout tier mark, the DIY tags, the bond phase) stay as they are (on hold)
+  const read = (f) => readFileSync(path.join(ROOT, f), 'utf8');
+  const theme = read('public/css/theme.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(theme, /\.roman \{ font-family: 'Krona One', var\(--font-num\); font-weight: 400; font-synthesis: none; font-size: \.92em; letter-spacing: 0; \}/);
+  assert.match(read('public/js/ui/components.js'), /export function Roman\(\{ n \}\) \{\n {2}return html`<span class="roman">\$\{roman\(n\)\}<\/span>`;/);
+  const uses = {
+    'public/js/screens/loadout.js': ['<span class="lo-bbar__roman num"><${Roman} n=${tier} /></span>', '<span class="num"><${Roman} n=${tier} /></span></button>'],
+    'public/js/screens/sweep.js': ['<span class="sw-op__tier"><${Roman} n=${c.tier} /></span>'],
+    'public/js/ui/customRules.js': ["${row(t('阶级'), tiers.map((k) => html`<${Roman} n=${k} />`))}"],
+    'public/js/ui/consolePanel.js': [': html`<${Roman} n=${n} />`}</b>', '<b class="cxp__tier"><${Roman} n=${tier} /></b>', '[n, html`<${Roman} n=${n} />`]'],
+  };
+  for (const [f, list] of Object.entries(uses)) for (const u of list) assert.ok(read(f).includes(u), `${f}: ${u} — roman text in Krona One (docs/rules/ui.md 「HUD 숫자 글꼴」 2026-11-19)`);
+});

@@ -183,6 +183,9 @@ h1, h2, h3, h4, p { margin: 0; }
 /* ---- typography helpers ---------------------------------------------------------------------- */
 /* -.06 em: Lexend Exa's digits are .06 em wider than Novecento's at the same height (docs/rules/ui.md 「HUD 숫자 글꼴」) */
 .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: -.06em; }
+/* roman numerals as text (ui/components.js Roman): the shop level's Krona One, one weight (400, no fake bold),
+   .92 em of the box's size — its .763 em cap height against Lexend's .70 (maintainer decision 2026-11-19) */
+.roman { font-family: 'Krona One', var(--font-num); font-weight: 400; font-synthesis: none; font-size: .92em; letter-spacing: 0; }
 .display { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .12em; }
 .micro {
   font-family: var(--font-display);

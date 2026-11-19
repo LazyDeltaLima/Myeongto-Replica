@@ -14,7 +14,7 @@
 //   openCustomRules({ rules, readonly, roomMode, difficulty, grade, size, onApply })   CustomRulesDialog (mounted by the lobby and the room)
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Icon, Button, Modal, confirmDialog, roman } from './components.js';
+import { html, Icon, Button, Modal, confirmDialog, Roman } from './components.js';
 import { Img } from './gameComponents.js';
 import { bondIconUrl, enemyIconUrl, factionIconUrl, lentTypeIconUrl } from './assetUrls.js';
 import { createStore, useStore, loadPref, savePref } from '../store.js';
@@ -727,7 +727,7 @@ function PoolSec({ work, set, readonly, solo, size, config }) {
     ${pct('items', t('装备库存'), t('每件商店装备全队同时持有的上限'))}
     <div class="crx-note">${t('{who}的每阶数量 — 部分干员和装备的官方数量与本阶不同，同样按比例增减', { who })}</div>
     <div class="crx-ptable" style="--cols:6" data-testid="custom-pool-table">
-      ${row(t('阶级'), tiers.map((k) => roman(k)))}
+      ${row(t('阶级'), tiers.map((k) => html`<${Roman} n=${k} />`))}
       ${row(t('干员（官方）'), chess)}
       ${row(t('干员（自定义）'), chess.map((n) => customPoolCount(n, work.pool.chess)), 'v')}
       ${row(t('装备（官方）'), items)}

@@ -37,7 +37,7 @@
 // lists two slots.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment } from '../ui/components.js';
+import { html, Icon, MicroLabel, Button, TierChip, Roman, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment } from '../ui/components.js';
 import { Img, UnitThumb, PromotionIcon } from '../ui/gameComponents.js';
 import { chessAvatarUrl, chessPortraitUrl, profGlyphUrl, subProfIconUrl, bondIconUrl, uiUrl } from '../ui/assetUrls.js';
 import { skinArt, skinPic, skinsStore, SKINS_KEY, setSkins, clearSkin } from '../ui/skins.js';
@@ -262,7 +262,7 @@ function Filters({ m, filters, onFilters, bonds, onDeck = null }) {
       <div class="lo-chips" role="group" aria-label=${t('阶级')}>
         <button type="button" class=${cx('lo-chip', !filters.tier && 'is-on')} onClick=${() => set({ tier: null })}>${t('全部')}</button>
         ${[1, 2, 3, 4, 5, 6].map((tier) => html`<button key=${tier} type="button" class=${cx('lo-chip', 'lo-chip--tier', `lo-chip--t${tier}`, filters.tier === tier && 'is-on')}
-          aria-pressed=${filters.tier === tier ? 'true' : 'false'} title=${t('{tier}阶', { tier })} onClick=${() => set({ tier: filters.tier === tier ? null : tier })}><span class="num">${ROMAN[tier]}</span></button>`)}
+          aria-pressed=${filters.tier === tier ? 'true' : 'false'} title=${t('{tier}阶', { tier })} onClick=${() => set({ tier: filters.tier === tier ? null : tier })}><span class="num"><${Roman} n=${tier} /></span></button>`)}
       </div>
       <${TextField} size="sm" icon="search" value=${filters.query} placeholder=${t('搜索干员 / 职业 / 盟约')} class="lo-search"
         onInput=${(v) => set({ query: String(v).slice(0, 24) })} />
@@ -474,7 +474,7 @@ export function DeckBar({ counts, active, onJump, diyOpen, quick, onConfirm, loc
       ${DECK_TIERS.map((tier) => html`<button key=${tier} type="button" class=${cx('lo-bbar__tier', active === tier && 'is-on')} disabled=${!counts[tier]}
           data-tier=${tier} onClick=${() => onJump(tier)} title=${t('{tier}阶', { tier })}>
         ${diyOpen[tier] ? html`<span class="lo-bbar__diy" title=${t('{tier}阶 还有 {n} 个自选名额', { tier, n: diyOpen[tier] })}><${Icon} name="user" /><b class="num">${diyOpen[tier]}</b></span>` : null}
-        <span class="lo-bbar__roman num">${ROMAN[tier]}</span><span>${t('{tier}阶', { tier })}</span>
+        <span class="lo-bbar__roman num"><${Roman} n=${tier} /></span><span>${t('{tier}阶', { tier })}</span>
       </button>`)}
     </div>
     ${locked ? html`<span class="lo-bbar__lock" role="status" data-testid="loadout-deck-locked" title=${locked}><${Icon} name="info" /><span>${t('本局已锁定 · 下一局生效')}</span></span>` : null}

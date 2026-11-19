@@ -15,7 +15,7 @@
 // on m.private changes, the icon grid only for the open tab (docs/rules/render.md 「함정」).
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, roman, tierChipUrl } from './components.js';
+import { html, roman, Roman, tierChipUrl } from './components.js';
 import { BondDisc } from './components.js';
 import { act } from './gameActions.js';
 import { toast, toastError } from './toasts.js';
@@ -195,7 +195,7 @@ function TierSeg({ value, onChange }) {
   return html`<span class="cxp__seg">
     <b class=${cx(!value && 'on')} onClick=${() => onChange(0)}>${t('全部')}</b>
     ${TIER_LIST.map((n) => { const u = tierChipUrl(n); return html`<b key=${n} class=${cx(u && 'ti', value === n && 'on')} onClick=${() => onChange(n)} title=${roman(n)}>
-      ${u ? html`<img src=${u} alt=${roman(n)} />` : roman(n)}</b>`; })}
+      ${u ? html`<img src=${u} alt=${roman(n)} />` : html`<${Roman} n=${n} />`}</b>`; })}
   </span>`;
 }
 
@@ -205,7 +205,7 @@ function Seg({ value, options, onChange, amber = false }) {
 
 function TierBadge({ tier }) {
   const u = tierChipUrl(tier);
-  return u ? html`<img class="cxp__tier" src=${u} alt=${roman(tier)} />` : html`<b class="cxp__tier">${roman(tier)}</b>`;
+  return u ? html`<img class="cxp__tier" src=${u} alt=${roman(tier)} />` : html`<b class="cxp__tier"><${Roman} n=${tier} /></b>`;
 }
 
 /** An operator / enemy picture on the official avatar plate and frame (equipReplace avatart_bg / _frame). */
@@ -329,7 +329,7 @@ function DiyPop({ entry, at, priv, tierF, prep, onClose }) {
     <div class="ttl"><img src=${skinPic({ charId: cand.charId }, 'avatar', skinArt(), { own: true }) || chessAvatarUrl(m, { charId: cand.charId }) || ''} alt="" /><span><b>${entry.name}</b><small>${t('自选干员')}</small></span>
       <span class="cxp__sp"></span><button type="button" class="cxp__x" aria-label=${t('关闭')} onClick=${onClose}>×</button></div>
     <div class="cxp__row"><span class="cxp__k">${t('阶级')}</span>
-      <${Seg} value=${tier} options=${Object.keys(cand.tiers).map(Number).map((n) => [n, roman(n)])} onChange=${setTier} /><span class="cxp__sp"></span>
+      <${Seg} value=${tier} options=${Object.keys(cand.tiers).map(Number).map((n) => [n, html`<${Roman} n=${n} />`])} onChange=${setTier} /><span class="cxp__sp"></span>
       <${Seg} amber value=${elite} options=${[[false, t('普通')], [true, t('精锐')]]} onChange=${setElite} /></div>
     <div class="cxp__sk">${rec.skills.map((s) => html`<span key=${s.index} class=${cx(skill === s.index && 'on')} onClick=${() => setSkill(s.index)}>
       <b>S${s.index + 1}</b>${skillName(s)}</span>`)}</div>

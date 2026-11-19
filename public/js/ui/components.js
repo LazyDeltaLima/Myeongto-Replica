@@ -188,6 +188,16 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 export const roman = (n) => ROMAN[n | 0] || '';
 
 /**
+ * A roman numeral drawn as text in the shop level's face (Krona One, `.roman` in css/theme.css: its plain-bar I is
+ * the official roman sprites' shape; maintainer decision 2026-11-19, docs/rules/ui.md 「HUD 숫자 글꼴」). For text
+ * that always shows; where an official sprite exists and the text is only its fallback, keep plain text.
+ * @param {{ n: number }} props
+ */
+export function Roman({ n }) {
+  return html`<span class="roman">${roman(n)}</span>`;
+}
+
+/**
  * Official tier chip sprite URL (a later season's own `chessLevelSprite/chess_level_icon_N` — 规程 redrew them, its
  * theme's chess_level_icon_hub; else the web manifest `shopCard/img_chess_level_N`, else the local-client
  * `ui/battle/img_chess_level_N`), or null (CSS fallback).
