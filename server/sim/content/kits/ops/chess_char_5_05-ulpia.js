@@ -12,6 +12,59 @@ import {
 /** projectile_chr_ulpia_s3 (TRACE_TARGET_WITH_SPEED): tiles per second. */
 const ANCHOR_SPEED = 15;
 
+/**
+ * S3 ③ 【移动】 as the anchor stops (the skill prefab's anchor ability: `_extraActions` on ON_PROJECTILE_STOP) — always made
+ * (PRTS 备注: "目标位置合法性判断必定成功，该【移动】也将必定执行": the legality check ends on his own tile; upstream #903). Only a
+ * change of tile leaves the 从不混淆的方向 ("若目标地块不为当前地块，会在原地部署"). An anchor on his own tile, or no legal tile where
+ * it fell, is a 【移动】 where he stands: a redeploy there (Battle.moveRedeploy — element gauges emptied, deploy effects again,
+ * the enemies he blocks let go and blocked anew), no marker. Checked against the official client: the anchor's arrival
+ * (UlpiaS3Ability.OnProjectileReached) writes the target tile — the landing tile if he can be deployed there, else the tile
+ * one step back toward him (_TryGetTileSecond: landing − his facing; never tried when the landing is his own tile), else his
+ * own tile — and the skill's RespawnCharacter (_forceRespawnInPlace) redeploys him there or, that tile refused, where he
+ * stands, recording ulpia_respawn_in_place (Character.MoveLikeRespawnSelf → Deck.SpawnCharacterOrToken: a new unit, born
+ * like any deployment); ulpia_s3_switch_mode[born] then plays Born as Skill_3_ReStart_B (else _A; render anims skill
+ * `deploys` 'here'). Its born state holds his attacks: constants.js BORN_TIME (`battle.flags.bornTime`) — his prefab plays
+ * Born at speed 1 (`_useRealBornTimeFromAnim`) and Skill_3_ReStart_A / _B last 1 s, as his Start clip does (docs/rules/sim.md
+ * BORN). The throwing clip's own hold (castHolds) ends inside it.
+ * That reborn unit is a mover all the same (ulpia_respawn), so the skill's end brings him "back" where he stands:
+ * UlpiaS3CastSkill._RespawnToLocatedPos finds his deployment tile under him and runs the same 【返回】 (Skill_3_End,
+ * ulpia_s3_restore empties the SP; onEnd).
+ */
+function move(battle, unit, sr, sc, stop, tokenId) {
+  const fromX = unit.x, fromY = unit.y;
+  const born = { born: battle.flags.bornTime };
+  const inPlace = () => {
+    if (battle.moveRedeploy(unit, unit.tileR, unit.tileC, { clip: 'here', ...born }) && unit.alive && unit.skill?.active) {
+      unit.mem.anchorHome = { r: unit.tileR, c: unit.tileC, marker: null };
+    }
+  };
+  if (stop === 0) { inPlace(); return; }
+  // landing tile > the tile one step back from it, toward him (PRTS 备注 "船锚落点后一格处") > his own tile (a
+  // deployable, free, unreserved melee tile).
+  // "可部署" is a tile his player may deploy on: his own board (Battle.onOwnBoard) — never the other half of a 联防 or
+  // boss field nor a boss field's hand / 临时整备区 rows; a teammate's half stays closed to him even where the 突袭
+  // landing may take it (Battle.onFieldBoard, docs/rules/sim.md sim-4). Community report of 2026-10-06 (item 27)
+  // 「乌尔比安使用3技能会在联防阶段跳到红门后」: on the one-helper 联防 map (escaped_single, enemies from the middle gate at
+  // col 10) an anchor that met no enemy flew on to the right half, where no enemy ever walks, and he moved there for
+  // the whole skill
+  const ok = ([r, c]) => (r !== unit.tileR || c !== unit.tileC) && battle.grid.inRect(r, c) && battle.onOwnBoard(unit.player, r, c) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile(r, c);
+  const dest = [[sr, sc], frontOf(unit.tileR, unit.tileC, unit.dir, stop - 1)].find(ok);
+  if (dest == null) { inPlace(); return; }
+  const home = [unit.tileR, unit.tileC];
+  // the 【移动】 is a redeploy on the new tile (Battle.moveRedeploy: a new deployment, deploy effects fire again,
+  // no exit) that keeps the running skill — "【移动】后仅继承下列效果：技能进度、第二天赋叠加层数"; the rest of
+  // his buffs are kept too (owner's deviation, DESIGN §22.3). The marker is deployed after the move (备注 ③)
+  if (!battle.moveRedeploy(unit, dest[0], dest[1], { clip: 'anchor', ...born }) || !unit.alive || !unit.skill?.active) return;
+  // knocked out while moved, he lies and redeploys on his deployment tile (Battle._layBody) — the owner's decision
+  // of 2026-10-07 (community report 28 「乌尔比安3技能期间死亡…应回到初始部署位复活」), a deliberate deviation from
+  // PRTS's "where it fell" (帮助 「原地留下一个“倒地干员”」), for this 【移动】 only; the return or his next
+  // deployment clears it
+  unit.downAtHome = true;
+  const marker = battle.spawnToken(unit, tokenId, home[0], home[1], { untargetable: true, kit: { skill: null, trait: { noAttack: true } } });
+  unit.mem.anchorHome = { r: home[0], c: home[1], marker };
+  battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
+}
+
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 乌尔比安 — S3 必须开辟的通路 (25 s, CUSTOM_RANGE row ahead): max HP/ATK +, throws an anchor forward that stops on the
@@ -79,11 +132,11 @@ export default {
       }),
       skill: {
         kind: 'duration',
-        castHolds: true,   // skchr_ulpia_3 is BuffAbility (`duration` from the cast) → AOEAttack (Skill_3_Begin): no attack before the clip ends
+        castHolds: true,   // skchr_ulpia_3 is BuffAbility (`duration` from the cast) → AOEAttack (Skill_3_Begin): no attack before the clip ends (the 【移动】's born state, from inside the clip, holds longer)
         mods: mods({ hpPct: num(bb.max_hp), atkPct: num(bb.atk) }),
         // AOEAttack picks the anchor's tile as the cast starts (`_selectTargetTiming` 0), throws it on the clip's OnAttack and hits where it lands
-        // (projectile_chr_ulpia_s3, ANCHOR_SPEED tiles/s [ASSUMED·엔진: from his tile, not its mount point]); he moves as the clip ends — officially when the
-        // anchor stops (`_extraActionEvent` 3 = Projectile.Event.ON_PROJECTILE_STOP; not moved yet, docs/rules/sim.md)
+        // (projectile_chr_ulpia_s3, ANCHOR_SPEED tiles/s [ASSUMED·엔진: from his tile, not its mount point]); he moves as the anchor stops
+        // (its ability's `_extraActionEvent` 3 = Projectile.Event.ON_PROJECTILE_STOP, right after it reaches), not as the clip ends
         onStart({ battle, unit }) {
           // PRTS 备注 ② — the anchor's target: his own tile while he blocks an enemy (e.g. just after a 突袭 landing),
           // else the nearest tile ahead in the skill range (straight along his direction) with an enemy on it, else the
@@ -105,6 +158,7 @@ export default {
         onStrike({ battle, unit, skill }) {
           const stop = unit.mem.anchorStop;
           const [sr, sc] = frontOf(unit.tileR, unit.tileC, unit.dir, stop);
+          const seq = unit.deploySeq;
           battle.fx('anchor', { x: sc, y: sr, id: unit.id, fromX: unit.x, fromY: unit.y, r: radius });
           const land = () => {
             skill.castHit();
@@ -113,57 +167,13 @@ export default {
               battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale), type: 'phys', isSkill: true, tags: ['skill', 'anchor'] });
               if (e.alive) battle.applyStatus(e, 'stun', { duration: num(bb.stun), source: unit });
             }
+            // the anchor stops: its extra actions (CheckCharSkillAffecting → RespawnCharacter) — on the deployment that threw
+            // it, its skill still running [ASSUMED·엔진: a stun after the throw cuts the clip, not the flying anchor nor its stop
+            // actions, as its hit above]
+            if (unit.alive && unit.deployed && unit.deploySeq === seq && unit.skill?.active) move(battle, unit, sr, sc, stop, tokenId);
           };
           if (stop > 0) battle.after(stop / ANCHOR_SPEED, land, { owner: unit });
           else land();
-        },
-        onCastEnd({ battle, unit }) {
-          const stop = unit.mem.anchorStop;
-          const [sr, sc] = frontOf(unit.tileR, unit.tileC, unit.dir, stop);
-          const fromX = unit.x, fromY = unit.y;
-          if (!unit.alive) return;
-          // ③ 【移动】 — always made (PRTS 备注: "目标位置合法性判断必定成功，该【移动】也将必定执行": the legality check ends on
-          // his own tile; upstream #903). Only a change of tile leaves the 从不混淆的方向 ("若目标地块不为当前地块，会在原地部署").
-          // An anchor on his own tile, or no legal tile where it fell, is a 【移动】 where he stands: a redeploy there
-          // (Battle.moveRedeploy — element gauges emptied, deploy effects again, the enemies he blocks let go and blocked
-          // anew), no marker. Checked against the official client: the anchor's arrival (UlpiaS3Ability.OnProjectileReached)
-          // writes the target tile — the landing tile if he can be deployed there, else the tile one step back toward him
-          // (_TryGetTileSecond: landing − his facing; never tried when the landing is his own tile), else his own tile —
-          // and the skill's RespawnCharacter (_forceRespawnInPlace) redeploys him there or, that tile refused, where he
-          // stands, recording ulpia_respawn_in_place; ulpia_s3_switch_mode[born] then plays Born as Skill_3_ReStart_B
-          // (else _A; render anims skill `deploys` 'here'). That reborn unit is a mover all the same (ulpia_respawn), so the
-          // skill's end brings him "back" where he stands: UlpiaS3CastSkill._RespawnToLocatedPos finds his deployment tile
-          // under him and runs the same 【返回】 (Skill_3_End, ulpia_s3_restore empties the SP; onEnd below)
-          const inPlace = () => {
-            if (battle.moveRedeploy(unit, unit.tileR, unit.tileC, { clip: 'here' }) && unit.alive && unit.skill?.active) {
-              unit.mem.anchorHome = { r: unit.tileR, c: unit.tileC, marker: null };
-            }
-          };
-          if (stop === 0) { inPlace(); return; }
-          // landing tile > the tile one step back from it, toward him (PRTS 备注 "船锚落点后一格处") > his own tile (a
-          // deployable, free, unreserved melee tile).
-          // "可部署" is a tile his player may deploy on: his own board (Battle.onOwnBoard) — never the other half of a 联防 or
-          // boss field nor a boss field's hand / 临时整备区 rows; a teammate's half stays closed to him even where the 突袭
-          // landing may take it (Battle.onFieldBoard, docs/rules/sim.md sim-4). Community report of 2026-10-06 (item 27)
-          // 「乌尔比安使用3技能会在联防阶段跳到红门后」: on the one-helper 联防 map (escaped_single, enemies from the middle gate at
-          // col 10) an anchor that met no enemy flew on to the right half, where no enemy ever walks, and he moved there for
-          // the whole skill
-          const ok = ([r, c]) => (r !== unit.tileR || c !== unit.tileC) && battle.grid.inRect(r, c) && battle.onOwnBoard(unit.player, r, c) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile(r, c);
-          const dest = [[sr, sc], frontOf(unit.tileR, unit.tileC, unit.dir, stop - 1)].find(ok);
-          if (dest == null) { inPlace(); return; }
-          const home = [unit.tileR, unit.tileC];
-          // the 【移动】 is a redeploy on the new tile (Battle.moveRedeploy: a new deployment, deploy effects fire again,
-          // no exit) that keeps the running skill — "【移动】后仅继承下列效果：技能进度、第二天赋叠加层数"; the rest of
-          // his buffs are kept too (owner's deviation, DESIGN §22.3). The marker is deployed after the move (备注 ③)
-          if (!battle.moveRedeploy(unit, dest[0], dest[1], { clip: 'anchor' }) || !unit.alive || !unit.skill?.active) return;
-          // knocked out while moved, he lies and redeploys on his deployment tile (Battle._layBody) — the owner's decision
-          // of 2026-10-07 (community report 28 「乌尔比安3技能期间死亡…应回到初始部署位复活」), a deliberate deviation from
-          // PRTS's "where it fell" (帮助 「原地留下一个“倒地干员”」), for this 【移动】 only; the return or his next
-          // deployment clears it
-          unit.downAtHome = true;
-          const marker = battle.spawnToken(unit, tokenId, home[0], home[1], { untargetable: true, kit: { skill: null, trait: { noAttack: true } } });
-          unit.mem.anchorHome = { r: home[0], c: home[1], marker };
-          battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
         },
         onEnd({ battle, unit }) {
           const h = unit.mem.anchorHome;

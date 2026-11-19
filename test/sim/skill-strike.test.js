@@ -96,15 +96,18 @@ test('仇白 S2: the targets as the cast starts, the burst + 1.2 s 停顿 on the
   checkInvariants(h.b);
 });
 
-test('乌尔比安 S3: the throw on the clip\'s OnAttack, the hit where the anchor lands (15 tiles/s), the 【移动】 as the clip ends', REAL, () => {
+test('乌尔比安 S3: the throw on the clip\'s OnAttack, the hit where the anchor lands (15 tiles/s), the 【移动】 as it stops', REAL, () => {
   const { h, u, t0, e } = cast('chess_char_5_05_a', 2, { pos: [9, 8] });
   assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'anchor').length, 0, 'not thrown yet');
   at(until(h, () => h.eventsOf('fx').some((f) => f[1] === 'anchor'), t0), 0.433, 'the throw');
   assert.equal(skillDmg(h, u).length, 0, 'it flies');
   at(until(h, () => skillDmg(h, u).length, t0), 0.433 + 3 / 15, 'the hit, 3 tiles out');
   assert.ok(e.s.flags.stun, 'and its stun');
-  assert.equal(u.tileC, 5, 'he has not moved');
-  at(until(h, () => u.tileC === 8, t0), 1, 'the 【移动】');
+  // the anchor ability's actions run on ON_PROJECTILE_STOP, right after it reaches: the 【移动】 in the same tick, inside the
+  // 1 s clip (docs/rules/sim.md 「울피아누스 S3의 【이동】은 반드시 일어난다」)
+  assert.equal(u.tileC, 8, 'he moved with it');
+  at(u.deployedAt - t0, 0.433 + 3 / 15, 'the 【移动】');
+  assert.ok(u.skill._castStage, 'his clip still runs');
   checkInvariants(h.b);
 });
 
@@ -152,7 +155,7 @@ test('a stun before the OnAttack loses the strike and what follows it: 瑕光 S2
   }
 });
 
-test('a stun between the OnAttack and the clip\'s end keeps the strike and loses the rest: 瑕光 S2 sleeps, no regeneration; 乌尔比安 S3 hits, no 【移动】', REAL, () => {
+test('a stun between the OnAttack and the clip\'s end keeps the strike and loses the rest: 瑕光 S2 sleeps, no regeneration; 乌尔比安 S3\'s anchor flies on — the hit and the 【移动】', REAL, () => {
   {
     const { h, u, e } = cast('chess_char_3_12_a', 1, { pos: [9, 5], units: [{ chessId: 'chess_char_1_04_a', row: 9, col: 6 }] });
     h.castStrike(u);
@@ -163,15 +166,19 @@ test('a stun between the OnAttack and the clip\'s end keeps the strike and loses
     checkInvariants(h.b);
   }
   {
-    const { h, u } = cast('chess_char_5_05_a', 2, { pos: [9, 6] });
+    // the anchor and its stop actions are the projectile's, not the clip's [ASSUMED·엔진] (until 2026-11-19 the 【移动】 came
+    // as the clip ended and this stun lost it)
+    const { h, u } = cast('chess_char_5_05_a', 2, { pos: [9, 8] });
     h.castStrike(u);
-    h.step(3);
+    h.step(1);
+    assert.equal(skillDmg(h, u).length, 0, 'the anchor flies');
     stun(h, u);
     h.run(1);
     assert.ok(skillDmg(h, u).length > 0, 'the anchor landed');
-    assert.equal(u.tileC, 5, 'he stays');
+    assert.equal(u.tileC, 8, 'he moved');
     assert.ok(h.runUntil(() => !u.skill.active, 30));
-    assert.equal(u.tileC, 5, 'nothing to return from');
+    h.run(0.2);
+    assert.equal(u.tileC, 5, 'and returns');
     checkInvariants(h.b);
   }
 });

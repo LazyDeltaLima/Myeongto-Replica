@@ -1803,11 +1803,11 @@ bolt 11·bomb·lob 8·orb 10·drone 16)이었고 치료는 즉시였다.
     - 위 S2: 피해·이동은 `OnAttack` 0.5초(대상은 그 순간). 위 S3: 화염벽 그림은 시전 시작(`yu_s_3[effect]`, ON_CAST_START), 효과는 클립 끝 1.6초(`Aura`). 제2재능을 아군 전체에 주는 것은 모드 S3의 `Talents/2/GlobalArua`이고, 그 모드는 `CastAnimation`의 `BuffDuringCastingFixed`(`yu_s_3[mode_restart]`)가 끝날 때 켜진다(2026-11-05) → 클립 끝, 기절로 끊기면 그 순간(벽은 잃고 모드는 들어감, 키트 `onCastCut`). 시험: `test/content/yu_s3_mode.test.js`.
     - 리드 더 플레임 섀도우 S2: 불덩이는 `OnAttack` 0.167초(대상은 그 순간), 수명도 그때부터.
     - 치우바이 S2: 대상은 시전 시작, 피해 + 정지 1.2초(`sword_split` `_activeBuffs`)는 `OnAttack` 0.5초. 지속 정지와 끝의 물리 피해는 클립 끝 1.167초의 `switch_mode`에서 온다.
-    - 울피아누스 S3: 닻 칸은 시전 시작, 던지기는 `OnAttack` 0.433초, 피해·기절은 닻이 닿을 때(`projectile_chr_ulpia_s3` 초속 15칸) [추정·엔진: 출발점을 탑재 위치가 아니라 그의 칸으로 셈], 【이동】은 클립 끝 1초 — 공식은 닻이 멈출 때(`_extraActionEvent` 3 = `ON_PROJECTILE_STOP`; 아래 「울피아누스 S3의 【이동】은 반드시 일어난다」 남은 차이).
+    - 울피아누스 S3: 닻 칸은 시전 시작, 던지기는 `OnAttack` 0.433초, 피해·기절은 닻이 닿을 때(`projectile_chr_ulpia_s3` 초속 15칸) [추정·엔진: 출발점을 탑재 위치가 아니라 그의 칸으로 셈], 【이동】은 닻이 멈출 때 — 닿은 그 틱(`_extraActionEvent` 3 = `ON_PROJECTILE_STOP`), 클립(1초) 안. 2026-11-19까지는 클립 끝이었다(아래 「울피아누스 S3의 【이동】은 반드시 일어난다」 이동 때).
     - 데겐블레허 S3: 마무리 타격은 `Skill_3_End`의 `OnAttack`, 스킬 시간 끝 0.333초 뒤(대상은 그 순간, 스킬 범위). 글래디아 S3: 끝의 捕网은 스킬 시간 끝 0.367초 뒤 [추정·화면: `endHolds`와 같은 이유로 길이를 재지 않음].
     - 안 옮김: 필라에 S1(시전 시작에 붙는 `philae_s_1`의 템플릿이 정화·방벽을 낸다), 스펙터 디 언체인드 S1(`_waitForAttackEvent` 0), 유넥티스 S3(옮길 효과 없음). 벨로네·Mon3tr S3은 아래.
     - 기절·빙결·수면은 Skill 상태를 끝낸다(`SkillState.OnTick` → `OnExit` → `BasicSkill.InterruptIfNot` → `Ability.InterruptIfNot`) — SP는 돌려받지 않음. 끊겨도 **스킬은 끝나지 않고 제 시간만큼 켜져 있다**(2026-11-05, 공식 클라에서 확인): `BasicSkill.OnTick`은 능력이 효과 중이 아닐 때 스킬을 끝내고, 순차 묶음은 `get_isAffecting`이 묶음 쿨다운 타이머가 도는 동안 참이다. 그 타이머는 시전 때 시작하고(`CastToTarget` → `ResetCooldown`) 끊겨도 건드리지 않는다(`FinishIfNot`은 `resetCd`일 때만). 길이는 자식 쿨다운의 합, `_useLongestAbilityCooldown`이면 가장 긴 것(`_UpdateCooldownFromSubAbilities`) → 끝나는 시각이 끊김으로 앞당겨지지 않는다(`durationAfterCast`는 끊겨도 클립 끝부터 잼). 끊긴 뒤 무엇이 남는지는 묶음 값이 정한다(`AbilitySequenceGroup.OnCastEnd`).
-      - 진행 중 능력도 끊음(`_alsoInterruptCurrentSubAbility` 1, 그 순서가 `_interruptableSubAbilityIndice`에 있음): 아직 안 온 단계는 사라진다. 벤델라 S2·블레미샤인 S2·위 S2는 능력치와 공격(`modsAfterCast`)도 클립 뒤 능력의 것이라 잃고 스킬 시간만 흐른다. 위 S2는 묶음 시간이 가장 긴 능력의 것이라 끊기면 시전부터 `duration` 뒤에 끝난다(`durationFromCastWhenCut`). 위 S3·울피아누스 S3·Mon3tr S3은 능력치를 그대로 두고 뒤 단계만 잃는다(울피아누스·Mon3tr은 먼저 시전되는 `BuffAbility`가 능력치를 준다. 위 S3은 `yu_s_3[switch_mode]`가 스킬 시작부터 붙는다).
+      - 진행 중 능력도 끊음(`_alsoInterruptCurrentSubAbility` 1, 그 순서가 `_interruptableSubAbilityIndice`에 있음): 아직 안 온 단계는 사라진다. 벤델라 S2·블레미샤인 S2·위 S2는 능력치와 공격(`modsAfterCast`)도 클립 뒤 능력의 것이라 잃고 스킬 시간만 흐른다. 위 S2는 묶음 시간이 가장 긴 능력의 것이라 끊기면 시전부터 `duration` 뒤에 끝난다(`durationFromCastWhenCut`). 위 S3·울피아누스 S3·Mon3tr S3은 능력치를 그대로 두고 뒤 단계만 잃는다(울피아누스·Mon3tr은 먼저 시전되는 `BuffAbility`가 능력치를 준다. 위 S3은 `yu_s_3[switch_mode]`가 스킬 시작부터 붙는다). 울피아누스는 던진 뒤면 잃을 것이 없다: 닻의 피해와 【이동】은 날아가는 투사체의 것이다 [추정·엔진: 끊긴 클립이 날아가는 닻과 그 멈춤 동작을 끊지 않는다고 봄].
       - 진행 중 능력을 안 끊음(`_alsoInterruptCurrentSubAbility` 0, `castCarriesOn`): 리드 더 플레임 섀도우 S2·치우바이 S2·유넥티스 S3. `_DoCast`는 주인 상태를 묻지 않으니 단계가 그대로 온다. 기절이 클립을 끊으면 `OnAttack`이 오지 않아, 그 전이었던 타격은 대기 상한(클립 끝)에 나간다. 다음 능력도 클립 끝에 시전된다(`_stopMoveNextWhenNotCasting` 0).
       - 묶음 시간 (2026-11-05, 공식 클라에서 확인): `AbilitySequenceGroup.DoSetData`가 자식의 `get_cooldown`을 더해 한 번 정하고(`_updateCooldownAfterSubAbilitiesAttached` 0, 22개 묶음 전부), `_timeMode` 1 묶음은 공속 변화에도 다시 안 정한다. 설정은 붙이기보다 앞이다: `BasicSkill.AssignData`가 능력을 설정하며 `m_owner`를 쓰고, `CastSkill.OnInit`이 그 주인으로 붙인다. 그래서 `_timeMode` 1 자식은 클립 길이가 아니라 프리팹의 `_cooldown`이 더해지고(클립 길이는 `DoAttach`에서야 씀), `ActiveBuffAbility`는 버프의 지속시간이 더해진다(`SetLifeTime`; `durationKey`가 비면 `duration`, `Buff.FetchDuration`). 스킬은 묶음 타이머와 자식의 효과 중 늦은 쪽에 끝나고(`get_isAffecting`), 버프 자식은 시전이 시작된 뒤 제 시간만큼 효과 중이다.
         - 유넥티스 S3·블레미샤인 S2·위 S2·치우바이 S2: 첫 자식 `_cooldown` 0 → 타이머 = 지속시간, 자식이 끝나는 때 = 클립 + 지속시간 → 끝은 클립 + 지속시간. `durationAfterCast` 그대로 맞다.
@@ -2887,8 +2887,8 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 
 ### 울피아누스 S3의 【이동】은 반드시 일어난다 — 제자리 【이동】 (upstream `fbc83fd7`, upstream #903)
 
-- 규칙: 닻이 자기 칸에 떨어지거나(저지 중), 떨어진 칸과 그 **한 칸 앞(그에게 가까운 쪽)**이 모두 배치할 수 없으면, 시전 클립 끝에 **제자리 【이동】**을 한다: 그 칸에 다시 배치(게이지 비움, 배치 효과 다시,
-  막던 적을 놓았다가 다시 막음), 클립 `Skill_3_ReStart_B`(`deploy` 이벤트의 `here`), 표식 「从不混淆的方向」 없음(`chess_char_5_05-ulpia.js onCastEnd`). 스킬이 끝나면
+- 규칙: 닻이 자기 칸에 떨어지거나(저지 중), 떨어진 칸과 그 **한 칸 앞(그에게 가까운 쪽)**이 모두 배치할 수 없으면, 닻이 멈출 때(아래 이동 때) **제자리 【이동】**을 한다: 그 칸에 다시 배치(게이지 비움, 배치 효과 다시,
+  막던 적을 놓았다가 다시 막음), 클립 `Skill_3_ReStart_B`(`deploy` 이벤트의 `here`), 표식 「从不混淆的方向」 없음(`chess_char_5_05-ulpia.js move`). 스킬이 끝나면
   **【반환】도 제자리에서** 한다(SP 비움, 배치 효과 다시, 클립 `back`). 전에는 둘 다 아무것도 안 했고, 자기 칸일 때만 닻을 던질 때 화면 클립을 다시 틀었다(`redeploy` fx — 뷰의 그 길은 지움).
   2026-11-17까지는 두 번째 칸을 떨어진 칸의 **한 칸 너머**로 봤고, 제자리 【이동】 뒤에는 【반환】이 없었다.
 - 근거: PRTS 울피아누스 S3 비고 ③ 「船锚落点可部署地块>船锚落点后一格处可部署地块>自身所在地块」, 「该判断最终仍可选择自身所在地块…该【移动】也将必定执行」, 「若目标地块不为当前地块，
@@ -2903,10 +2903,17 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   - 제자리 【반환】: `RespawnCharacter`는 제자리여도 `ulpia_respawn`을 1로 적고, 새 유닛의 `UlpiaS3CastSkill.AssignData`가 그것을 읽어 「옮겨진 유닛」(`m_isCharacterResapwn`)이 된다.
     스킬 시간이 끝나면(`OnTick` → `InterruptIfNot`) `_RespawnToLocatedPos`가 처음 배치 칸(`ulpia_located_*`, 첫 `OnBorn`이 적음)을 보고 — 그가 그 칸에 서 있거나 그 칸에 그의 표식이
     있으면 — `ulpia_restore` = 1과 복귀 능력(`Skill_3_End`, `WithdrawTokens` → `RespawnCharacter`, 모드 4 `S3_Restore`의 `Born` → `Skill_3_Back`, `ulpia_s3_restore`가 SP를 비움)을 튼다.
-- **남은 차이**: 닻 능력의 추가 동작은 `_extraActionEvent` 3 = `Projectile.Event.ON_PROJECTILE_STOP`(`GetProjectileActions`가 그 사건에만 붙임) — 공식 【이동】은 **닻이 멈출 때**이지
-  시전 클립 끝(1초)이 아니다. 우리는 아직 클립 끝(남은 일: 옮기면 그 뒤 클립 `Skill_3_ReStart_*`와 시전 붙잡기 `castHolds`를 같이 맞춰야 함).
+- **이동 때**(2026-11-19 고침): 닻 능력의 추가 동작은 `_extraActionEvent` 3 = `Projectile.Event.ON_PROJECTILE_STOP`(`GetProjectileActions`가 그 사건에만 붙임) — 【이동】은 **닻이 멈출 때**,
+  곧 닿은 그 틱이다: `OnAttack` 0.433초 + 거리 ÷ 초속 15칸(자기 칸이면 `OnAttack` 그 순간), 시전 클립(1초)이 끝나기 전. 전에는 클립 끝이었다(키트 `onCastEnd`).
+  새 유닛은 다른 배치처럼 등장 상태로 시작한다(공식 클라에서 확인: `RespawnCharacter._DealWithRespawn` → `Character.MoveLikeRespawnSelf` → `Deck.SpawnCharacterOrToken`, 위 「배치 직후(BORN)」의 배치 길):
+  Born 클립 `Skill_3_ReStart_A`/`_B`는 1초, 그의 프리팹은 제 길이로 트니(`_useRealBornTimeFromAnim`) `BORN_TIME` 1초 동안 공격을 시작하지 않는다(`Battle.moveRedeploy`의 `born`,
+  `ai.js updateAlly`). 던지는 클립의 붙잡기(`castHolds`, 클립 끝 1초)는 그 안에서 끝나므로 공격은 【이동】 1초 뒤부터다. 전에는 클립 끝에 옮기자마자 공격했다.
+  닻이 멈출 때 그 배치가 그대로이고 스킬이 켜져 있어야 한다(`CheckCharSkillAffecting`). 던진 뒤 기절해도 옮긴다 [추정·엔진: 위 「지속 스킬의 효과가 나는 시점」의 끊김 — 날아가는 닻은 클립의 것이 아님].
+  남은 차이: 【반환】도 같은 노드 `RespawnCharacter`(같은 배치 길)라 등장 상태로 시작한다(모드 4 `S3_Restore`의 `Born` → `Skill_3_Back` 0.833초) — 엔진은 아직 【반환】에 등장 상태를 두지 않는다.
+  다른 【이동】 키트(Mon3tr·켈시 에스페란타·벨로네·첸 더 던스트릭·안젤리나 더 멜로우 위시)의 다시 태어남은 [추정·미조사: 그 노드가 같은 배치 길인지 안 읽음 — 엔진은 등장 상태 없이 옮김].
 - 테스트 `test/sim/feedback3-ulpia-move.test.js` 「while he blocks: the 【移动】 still happens, where he stands…」·「no legal tile where the anchor fell nor one back from it…」, `test/content/kits_t5.test.js`
-  「乌尔比安 S3 while he blocks…」·「lands one tile back from an occupied anchor tile, toward him…」(옛 코드에서 실패 확인).
+  「乌尔比安 S3 while he blocks…」·「lands one tile back from an occupied anchor tile, toward him…」(옛 코드에서 실패 확인). 이동 때: `test/sim/feedback3-ulpia-move.test.js` 「the unit the 【移动】 makes is born…」·
+  「stunned after the throw, he still moves…」, `test/sim/skill-strike.test.js` 「乌尔比安 S3: the throw on the clip's OnAttack … the 【移动】 as it stops」(옛 코드에서 실패 확인).
 
 ### 후회하는 영혼의 성배는 곁의 적이 받는 피해를 5 %로 줄이고 나머지를 진짜 피해로 받는다 (upstream `0f88afbb`)
 

@@ -14,6 +14,7 @@ import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/batt
 import { hasGeneratedData } from '../../server/sim/simdata.js';
 import { ANIM } from '../../shared/constants.js';
 import { TOKEN_IDS } from '../../server/sim/content/tokens.js';
+import { BORN_TIME } from '../../server/sim/constants.js';
 
 const REAL = { skip: !hasGeneratedData() };
 const ULP = 'chess_char_5_05_a';
@@ -48,8 +49,13 @@ test('乌尔比安 S3: the 【移动】 and the 【返回】 are free redeploys 
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 2));
   const castT = u.skill.lastStart;
+  // the 【移动】 comes as the anchor stops (its ability's ON_PROJECTILE_STOP actions), inside his 1 s throwing clip: the
+  // OnAttack frame, then 3 tiles at 15 tiles/s
+  assert.ok(h.runUntil(() => deploysOf(h, u).length === 2, 2), 'the 【移动】');
+  const landT = u.deployedAt;
+  close(landT - castT, u.skill.castTiming().strike + 3 / 15, 2 / 30 + 1e-9, 'deployedAt = the anchor stopping');
+  assert.ok(landT - castT < u.skill.castTiming().action - 0.1, 'before his clip ends');
   h.castDone(u);
-  const landT = b.time;
   // the 【移动】: a new deployment on the anchor tile, flagged as a move, while the skill keeps running
   assert.deepEqual([u.tileR, u.tileC], [10, 6], 'moved onto the anchor tile');
   const mv = deploysOf(h, u);
@@ -57,8 +63,6 @@ test('乌尔比安 S3: the 【移动】 and the 【返回】 are free redeploys 
   assert.equal(mv[1].move, true, 'deploy { move: true }');
   assert.equal(mv[1].initial, false);
   assert.ok(u.deploySeq > seq0, 'a new deployment');
-  close(u.deployedAt, landT, 1 / 30 + 1e-9, 'deployedAt = the move, as his skill clip ends');
-  close(landT - castT, u.skill.castTiming().action, 1 / 30 + 1e-9, 'his skill clip');
   assert.ok(u.skill.active, '技能进度 carries: the skill runs on');
   assert.ok(b.getPlayer('p1').dp >= dp0 - 1e-9, 'free (no DP paid)');
   assert.equal(u.respawnAt, respawn0, 'no redeploy timer');
@@ -164,7 +168,7 @@ test('乌尔比安 S3: the 阿戈尔 devour gains stay through the 【移动】 
 
 test('乌尔比安 S3 while he blocks: the 【移动】 still happens, where he stands — a new deployment, no marker, and a 【返回】 there (upstream #903)', REAL, () => {
   // PRTS 备注 ③ "【移动】的目标位置合法性判断必定成功，该【移动】也将必定执行": an anchor on his own tile (he blocks) is a
-  // redeploy in place as his clip ends (it used to be skipped, GitHub #33): he stays on his tile, his element gauges empty,
+  // redeploy in place as the anchor stops — at once, on its OnAttack frame (it used to be skipped, GitHub #33): he stays on his tile, his element gauges empty,
   // deploy effects see a new deployment; only a change of tile leaves the 从不混淆的方向. The reborn unit is a mover all the
   // same, so the skill's end is a 【返回】 where he stands, SP emptied (official client: UlpiaS3CastSkill._RespawnToLocatedPos
   // finds his deployment tile under him; docs/rules/sim.md 「울피아누스 S3의 【이동】은 반드시 일어난다」)
@@ -181,15 +185,17 @@ test('乌尔比安 S3 while he blocks: the 【移动】 still happens, where he 
   Object.assign(u.elem, { burn: 400, neural: 250 });
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 2));
-  assert.equal(deploysOf(h, u).length, 1, 'nothing before his clip ends');
+  const castT = u.skill.lastStart;
+  assert.ok(h.strike(u));
+  assert.equal(deploysOf(h, u).length, 2, 'the anchor thrown on his own tile stops at once: the 【移动】 at the OnAttack frame');
+  const landT = u.deployedAt;
+  close(landT - castT, u.skill.castTiming().strike, 2 / 30 + 1e-9, 'deployedAt = the OnAttack frame');
   h.castDone(u);
-  const landT = b.time;
   assert.deepEqual([u.tileR, u.tileC], [9, 3], 'he stays on his tile');
   const mv = deploysOf(h, u);
   assert.equal(mv.length, 2, 'the battle-start deploy and the 【移动】');
   assert.equal(mv[1].move, true);
   assert.ok(u.deploySeq > seq0, 'a new deployment');
-  close(u.deployedAt, landT, 1 / 30 + 1e-9, 'deployedAt = the 【移动】, as his skill clip ends');
   assert.equal(u.elem.burn + u.elem.neural, 0, 'element gauges emptied');
   assert.ok(u.skill.active, 'the skill runs on');
   assert.ok(!b.allyUnits.some((x) => x.kind === 'token'), 'no 从不混淆的方向');
@@ -409,5 +415,53 @@ test('Battle.moveRedeploy: refused like relocate (nothing changes); 气流 follo
   assert.ok(b.moveRedeploy(u, 11, 5));
   h.run(0.2);
   assert.ok(u.findBuff('terrain:airflow') && u.s.atk > 1000, 'the new tile\'s airflow starts');
+  clean(h);
+});
+
+test('乌尔比安 S3: the unit the 【移动】 makes is born — no attack for its Born clip (Skill_3_ReStart_A), past the end of his throwing clip', REAL, () => {
+  // official client: the anchor ability's actions run on ON_PROJECTILE_STOP and RespawnCharacter → Character.MoveLikeRespawnSelf
+  // → Deck.SpawnCharacterOrToken makes a new unit, which is born like any deployment (BornState, 1 s; docs/rules/sim.md
+  // 「울피아누스 S3의 【이동】은 반드시 일어난다」). He used to move as his clip ended and attack at once
+  const h = makeBattle({
+    defs: { enemies: { e_dummy: dummy } },
+    units: [{ chessId: ULP, row: 10, col: 3 }], enemies: [{ key: 'e_dummy', pos: [10, 6] }], hooks: ['deploy'], autoFinish: false, timeLimit: 60,
+    flags: { bornTime: BORN_TIME },   // (the harness turns the born state off)
+  });
+  const b = h.b, u = h.unit(ULP);
+  h.step();
+  h.run(3);
+  u.skill.gainSp(1000);
+  assert.ok(h.runUntil(() => u.skill.active, 2));
+  const castT = u.skill.lastStart;
+  assert.ok(h.runUntil(() => deploysOf(h, u).length === 2, 2), 'the 【移动】');
+  const moveT = u.deployedAt;
+  close(u.bornUntil - moveT, BORN_TIME, 1e-9, 'born for BORN_TIME from the 【移动】');
+  assert.ok(u.bornUntil > castT + u.skill.castTiming().action + 0.3, `longer than the throwing clip holds (${u.bornUntil - castT} vs ${u.skill.castTiming().action}, moved ${moveT - castT})`);
+  let swungAt = null;
+  while (b.time < moveT + 3 && swungAt == null) {
+    h.step();
+    if (u.swing) swungAt = b.time;
+  }
+  assert.ok(swungAt != null, 'he attacks after it');
+  assert.ok(swungAt >= u.bornUntil - 1e-9, `no attack before his born state ends (${(swungAt - moveT).toFixed(3)} s after the 【移动】)`);
+  clean(h);
+});
+
+test('乌尔比安 S3: stunned after the throw, he still moves when the anchor stops (the stun cuts the clip, not the anchor)', REAL, () => {
+  const h = makeBattle({
+    defs: { enemies: { e_dummy: dummy } },
+    units: [{ chessId: ULP, row: 10, col: 3 }], enemies: [{ key: 'e_dummy', pos: [10, 6] }], hooks: ['deploy'], autoFinish: false, timeLimit: 60,
+  });
+  const b = h.b, u = h.unit(ULP);
+  h.step();
+  h.run(3);
+  u.skill.gainSp(1000);
+  assert.ok(h.runUntil(() => u.skill.active, 2));
+  assert.ok(h.strike(u));
+  assert.equal(deploysOf(h, u).length, 1, 'the anchor is in the air');
+  b.applyStatus(u, 'stun', { duration: 0.1 });
+  assert.ok(h.runUntil(() => deploysOf(h, u).length === 2, 1), 'the 【移动】');
+  assert.deepEqual([u.tileR, u.tileC], [10, 6], 'onto the anchor tile');
+  assert.ok(u.skill.active);
   clean(h);
 });

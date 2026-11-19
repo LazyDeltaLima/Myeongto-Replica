@@ -47,8 +47,11 @@ export class BattleTiles {
    * animation (quietDeployAt), so the client shows no drop-in, ring or deploy sound (予愿安洁莉娜 S3: the client respawns
    * her where her flight projectile ends, kits/ops/op-aglna2.js); the deployment itself is the same. `clip`: the deploy
    * clip's key for the client, the event's 4th field (乌尔比安 S3: 'anchor' / 'back'; render anims skill `deploys`) — display only.
+   * `born`: seconds of a born state (constants.js BORN_TIME, ai.js updateAlly: no attack before it ends), for a mover the
+   * client respawns as a new unit (乌尔比安 S3's 【移动】: Character.MoveLikeRespawnSelf → Deck.SpawnCharacterOrToken); without
+   * it the move leaves the born state as it is.
    */
-  moveRedeploy(unit, r, c, { clearSp = false, inPlace = false, clip = null } = {}) {
+  moveRedeploy(unit, r, c, { clearSp = false, inPlace = false, clip = null, born = null } = {}) {
     if (!this.relocate(unit, r, c)) return false;
     // the element gauges start empty like a deployment's (deploy.js) and an element burst's lock goes with them (its
     // onRemove empties the gauges too) — upstream #903; the other buffs stay (above)
@@ -61,6 +64,7 @@ export class BattleTiles {
     unit.swing = null;          // ... and it has no swing under way (battle/deploy.js: a new deployment swings anew)
     unit.deployedAt = this.time;
     unit.quietDeployAt = inPlace ? this.time : null;
+    if (born != null) unit.bornUntil = this.time + Math.max(0, born);
     const sk = unit.skill;
     if (clearSp && sk && !sk.noSkill && sk.kind !== 'passive' && !(sk.active && sk.isTimed)) {
       sk.sp = 0;
