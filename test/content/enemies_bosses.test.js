@@ -3034,29 +3034,51 @@ test(`${nm('enemy_10081_mpplai')}: original form cancels every damage instance; 
   assert.equal(g.stats.attacks, 0);
 });
 
-test(`${nm('enemy_10144_xdelk_2')}: 角力对决 — blocked ⇒ ${skb('enemy_10144_xdelk_2', 'skill').bb.duration} s charge; the push fails ⇒ ×2 damage and a ${tb('enemy_10144_xdelk_2', 'data.attack@fail_duration')} s stun; a stun interrupts`, () => {
+// 2026-11-20 (official client — the prefab's Fail / Fail_stun modes, the buff templates enemy_xdelk_s*): the clash is ATK ×
+// atk_scale_s on the blocker and nothing more (the push and its fail status need act46side's environment system, which no
+// 卫戍协议 level has); a cast cut before its spell switches the mode — stunned or asleep Fail_stun (fail_duration2), else Fail
+// (fail_duration) — a stand of that long once it can act, then Default (docs/rules/sim.md 「일반 공격 타이밍」 적의 모드 전환).
+// Until then the clash dealt ×2 and stunned the blocker fail_duration s, and a cut charge did nothing.
+test(`${nm('enemy_10144_xdelk_2')}: 角力对决 — blocked ⇒ ${skb('enemy_10144_xdelk_2', 'skill').bb.duration} s charge, the clash ATK × atk_scale_s, no stun; cut short ⇒ Fail_stun ${tb('enemy_10144_xdelk_2', 'data.attack@fail_duration2')} s / Fail ${tb('enemy_10144_xdelk_2', 'data.attack@fail_duration')} s stand, then Default`, () => {
+  const K = 'enemy_10144_xdelk_2';
   const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }], captureNoisy: true, hooks: ['statusApplied', 'damaged'] });
   h.step();
-  const e = put(h, 'enemy_10144_xdelk_2', [9, 5]);
-  const s = skb('enemy_10144_xdelk_2', 'skill');
+  const e = put(h, K, [9, 5]);
+  const s = skb(K, 'skill');
   h.run(1);
   assert.ok(e.findBuff('ab:elkCharge'));
   const n = e.stats.attacks;
   h.run(strikeOf(e, 'skill') - 1.3);   // (the clash comes at Skill_End's attack event, `duration` − 0.9 s in)
   assert.equal(e.stats.attacks, n, 'no attacks while charging');
-  assert.equal(statuses(h, h.unit('t_wall').id, 'stun').length, 0);
-  h.runUntil(() => statuses(h, h.unit('t_wall').id, 'stun').length > 0, 3);
-  const clash = h.hooksOf('damaged').find((c) => c.source === e && !c.dmg.isAttack);
-  approx(clash.amount, e.s.atk * s.bb.atk_scale_s * 2);
-  approx(statuses(h, h.unit('t_wall').id, 'stun')[0].duration, tb('enemy_10144_xdelk_2', 'data.attack@fail_duration'));
-  // interrupted
-  const h2 = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }], hooks: ['statusApplied'] });
-  h2.step();
-  const k = put(h2, 'enemy_10144_xdelk_2', [9, 5]);
-  h2.run(1);
-  h2.b.applyStatus(k, 'stun', { duration: 1 });
-  h2.run(s.bb.duration + 1);
-  assert.equal(statuses(h2, h2.unit('t_wall').id, 'stun').length, 0);
+  const clashOf = (hh, src) => hh.hooksOf('damaged').find((c) => c.source === src && !c.dmg.isAttack);
+  assert.ok(h.runUntil(() => clashOf(h, e), 3), 'the clash');
+  approx(clashOf(h, e).dmg.amount, e.s.atk * s.bb.atk_scale_s, 1e-6, 'ATK × atk_scale_s, no ×2');
+  h.run(1.5);
+  assert.equal(statuses(h, h.unit('t_wall').id, 'stun').length, 0, 'no stun on the blocker');
+  assert.equal(e.mode ?? null, null, 'a clash keeps Default');
+  // cut by a stun ⇒ Fail_stun: it stands out the stun, then fail_duration2 s, then Default
+  const cut = (status, want, dur) => {
+    const h2 = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }], captureNoisy: true, hooks: ['damaged'] });
+    h2.step();
+    const k = put(h2, K, [9, 5]);
+    h2.run(1);
+    assert.ok(k.findBuff('ab:elkCharge'), `${status}: charging`);
+    h2.b.applyStatus(k, status, { duration: 1 });
+    h2.run(0.1);
+    assert.equal(k.mode, want, `${status} ⇒ ${want}`);
+    h2.run(1);                                                          // (the status is over)
+    const a0 = k.stats.attacks;
+    h2.run(dur - 0.3);
+    assert.equal(k.mode, want, `${want} lasts ${dur} s once it can act`);
+    assert.equal(k.stats.attacks, a0, `no attacks in ${want}`);
+    h2.run(0.6);
+    assert.equal(k.mode ?? null, null, `${want} ⇒ Default`);
+    assert.ok(h2.runUntil(() => k.stats.attacks > a0, 2), 'it attacks again');
+    assert.ok(!h2.hooksOf('damaged').some((c) => c.source === k && !c.dmg.isAttack), 'no clash');
+    assert.ok(!k.findBuff('ab:elkCharge'), 'no charge again yet: the skill\'s cooldown restarted at the cut and stood still');
+  };
+  cut('stun', 'Fail_stun', tb(K, 'data.attack@fail_duration2'));
+  cut('freeze', 'Fail', tb(K, 'data.attack@fail_duration'));
 });
 
 // ---------------------------------------------------------------------------------------------------------------

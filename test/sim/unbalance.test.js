@@ -255,6 +255,10 @@ test('乌顶巨角卢鲁: a 失衡 before its clash frame cuts the charge, even 
   const clash = () => h.eventsOf('fx').some((x) => x[1] === 'explode' && x[4]?.kind === 'elkClash');
   assert.equal(h.runUntil(clash, 3), false, 'no clash');
   assert.ok(!e.findBuff('ab:elkCharge'), 'the charge is over');
+  // (2026-11-20, enemy_xdelk_s[end]: a cast cut before its spell, not stunned or asleep ⇒ the mode Fail — a fail_duration s
+  // stand once the 失衡 is over, then Default)
+  assert.equal(e.mode, 'Fail', 'cut short ⇒ Fail');
+  assert.ok(h.runUntil(() => (e.mode ?? null) === null, 10), 'back to Default');
 });
 
 test('a route APPEAR (a forced relocation) and a 逐火 重生 end the state', REAL, () => {

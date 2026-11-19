@@ -61,9 +61,6 @@ const XI_CROSS_REACH = 2;
 const WOLF_RANGE = 1.25, WOLF_AWE_RADIUS = 1.5, WOLF_AWE_ASPD = -50;
 
 
-/** 乌顶巨角卢鲁 【角力对决】: the operator cannot be pushed (fixed tiles) ⇒ "更多伤害" multiplier [ASSUMED]. */
-const ELK_FAIL_SCALE = 2;
-
 /** The HP ratio of the half-HP mode switches no blackboard holds (공식 클라에서 확인 2026-11-20: the talents' HpRatioToggleChecker
  *  `_maxHpRatio`; the talent tables give these two no `hp_ratio`): W `Talents/AtkUp` → T1 at 0.5, “墓碑” `Talents/Ignite` → Ignite at 0.9. */
 const W_T1_HP = 0.5, FLKING_IGNITE_HP = 0.9;
@@ -891,42 +888,76 @@ function kitTranslator(ab, e) {
   }];
 }
 
-/** 乌顶巨角卢鲁 · 【角力对决】 when blocked: charges `duration` s (no normal attacks; a stun or 失衡 interrupts), then hits its
- *  blocker; operators hold fixed tiles, so the push always fails ⇒ extra damage and a fail_duration stun. */
+/**
+ * 乌顶巨角卢鲁 · 【角力对决】 (공식 클라에서 확인 2026-11-20 — its prefab, the buff templates `enemy_xdelk_s*`; docs/rules/sim.md
+ * 「일반 공격 타이밍」 적의 모드 전환): blocked, it casts `skill` on its blocker, a `duration` s three-part channel (no walk, no
+ * normal attack). The spell — Skill_End's attack event — gives the target `enemy_xdelk_s`: ATK × `atk_scale_s` physical, then
+ * `Act46SideAvalancheForCharacterFromOutside`, which pushes the operator a tile or, failing that, gives it its event's
+ * "more damage and a stun" status — only through that event's own environment system (`env_037_act46side`), which no
+ * 卫戍协议 level has, so here it does nothing — and the caster `enemy_xdelk_s[on]`. As the cast ends, for any reason
+ * (`enemy_xdelk_s[end]`, ON_CAST_END), a cast that had its spell just drops the mark; one cut before it (a stun, sleep,
+ * freeze, 浮空, 失衡, its target dead — `_interuptIfTargetDead`) switches the mode: stunned or asleep `Fail_stun`, else
+ * `Fail`. That mode's attack and combat abilities are one always-triggered channel (`Skill_Break` / `Stun` / `Stun_End`, no
+ * damage) of `fail_duration2` (4 s) / `fail_duration` (5 s): it stands through it once it can act, and the channel's end —
+ * played out or cut — switches back to Default restarting its state machine (`enemy_xdelk_s[to0]`). The skill belongs to
+ * Default: its cooldown, restarted at the cut, stands still meanwhile. (Until 2026-11-20 the clash dealt ×2 and stunned the
+ * blocker `fail_duration` s, and a cut charge did nothing.)
+ */
 function kitElk(ab) {
   const s = ab.sk.skill;
-  const P = { ch: null };
-  const stop = (b, e) => { P.ch = null; b.removeBuff(e, 'ab:elkCharge'); };
-  const clash = elkClash(ab, s, P, stop);
+  const failFor = { Fail: T(ab, 'data.attack@fail_duration') ?? 0, Fail_stun: T(ab, 'data.attack@fail_duration2') ?? 0 };
+  const P = { ch: null, fail: null };
+  const failing = (e) => e.mode === 'Fail' || e.mode === 'Fail_stun';
+  // CheckAbnormalFlag STUNNED (a stun, not a freeze or 浮空: their own flags) or CheckAbnormalCombo SLEEPING
+  const stunned = (e) => !!e.s.flags.sleep || e.buffs.some((x) => x.flags && x.flags.stun && !x.flags.freeze && !x.flags.levitate);
+  const back = (b, e) => {
+    P.fail = null;
+    b.removeBuff(e, 'ab:elkFail');
+    mode(b, e, null);
+  };
+  const k = skill(s, (b, e) => {
+    const dur = s.bb.duration ?? 0;
+    P.ch = { t: e.blockedBy, on: false };
+    b.addBuff(e, { key: 'ab:elkCharge', duration: dur + 0.1, visible: true, flags: { disarm: true } });
+    b.fx('telegraph', { x: e.blockedBy.x, y: e.blockedBy.y, r: 0.5, dur, kind: 'elkCharge', id: e.id });
+  }, { cond: (b, e) => !P.ch && !failing(e) && !!(e.blockedBy && e.blockedBy.alive), atStrike: (b, e) => {
+    const ch = P.ch;
+    if (!ch || !ch.t.alive) return;
+    ch.on = true;
+    b.removeBuff(e, 'ab:elkCharge');
+    b.fx('explode', { x: ch.t.x, y: ch.t.y, r: 0.5, kind: 'elkClash' });
+    hurt(b, e, ch.t, e.s.atk * (s.bb.atk_scale_s ?? 1), 'phys');
+  } });
+  if (!k) return [];
+  k.pause = (b, e) => failing(e);
+  // the cast's end: played out (it had its spell) or cut (onSkillCut — before the spell: the Fail switch)
+  k.onCut = (b, e) => {
+    const ch = P.ch;
+    P.ch = null;
+    b.removeBuff(e, 'ab:elkCharge');
+    if (!ch || ch.on || !e.alive) return;
+    const m = stunned(e) ? 'Fail_stun' : 'Fail';
+    mode(b, e, m, false);                                            // ([end]'s SwitchMode: no _restartFSM)
+    P.fail = { until: null, dur: failFor[m] };
+    b.addBuff(e, { key: 'ab:elkFail', duration: Infinity, flags: { disarm: true, noMove: true } });
+    b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'chargeBroken' });
+  };
   return [{
     tick(b, e) {
       const ch = P.ch;
-      if (!ch) return;
-      if (e.s.flags.stun || !ch.t.alive || e.blockedBy !== ch.t) { stop(b, e); b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'chargeBroken' }); return; }
+      if (ch && !ch.on && !ch.t.alive) interruptEnemyCast(b, e);   // `_interuptIfTargetDead` (→ onCut)
+      if (ch && e.castLeft <= 0) P.ch = null;                        // (played out)
+      const f = P.fail;
+      if (!f) return;
+      const busy = e.s.flags.stun || e.hidden || unbalancedNow(b, e);
+      if (f.until == null) {
+        if (!busy) f.until = b.time + f.dur;                         // the channel starts once it can act
+        return;
+      }
+      // a stun / freeze / 浮空 / 失衡 cuts the channel (`_ignorePalsyInterrupt`: not 麻痹) — its end all the same
+      if (busy || b.time >= f.until - 1e-9) back(b, e);
     },
-  }, unbalanced((b, e) => { if (P.ch) stop(b, e); }), clash];
-}
-
-/** 乌顶巨角卢鲁's 角力对决 (kitElk): the charge as the cast starts, the clash at its spell. */
-function elkClash(ab, s, P, stop) {
-  // the clash is the ability's spell, Skill_End's attack event — `duration` − 1.4 + 0.5 s into the channel (`atStrike`,
-  // content/enemies.js castStrikeAt; until 2026-11-20 at `duration`), none when the charge broke or the cast was cut first
-  const k = skill(s, (b, e) => {
-    const dur = s.bb.duration ?? 0;
-    P.ch = { t: e.blockedBy };
-    b.addBuff(e, { key: 'ab:elkCharge', duration: dur + 0.1, visible: true, flags: { disarm: true } });
-    b.fx('telegraph', { x: e.blockedBy.x, y: e.blockedBy.y, r: 0.5, dur, kind: 'elkCharge', id: e.id });
-  }, { cond: (b, e) => !P.ch && !!(e.blockedBy && e.blockedBy.alive), atStrike: (b, e) => {
-    const ch = P.ch;
-    if (!ch) return;
-    stop(b, e);
-    b.fx('explode', { x: ch.t.x, y: ch.t.y, r: 0.5, kind: 'elkClash' });
-    hurt(b, e, ch.t, e.s.atk * ((s && s.bb.atk_scale_s) ?? 1) * ELK_FAIL_SCALE, 'phys');
-    const st = T(ab, 'data.attack@fail_duration') ?? 0;
-    if (ch.t.alive && st > 0) b.applyStatus(ch.t, 'stun', { duration: st, source: e });
-  } });
-  if (k) k.onCut = (b, e) => { if (P.ch) stop(b, e); };   // (a cut the tick did not see: freeze, sleep …)
-  return k;
+  }, k];
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -958,7 +989,7 @@ export const LEADER_KITS = Object.freeze({
   enemy_1525_blkswb: kitMace,                                        // 锏 · 抵抗, DEF pen, 速杀 blink, AoE ⇒ form 2 (stealth, double hits, SP clear)
   enemy_1535_wlfmster: kitWolfLord,                                  // 扎罗 · −30 % damage, 溶血骇惧 ⇒ 远古威慑 rebirth ⇒ ranged double hits
   enemy_10081_mpplai: kitTranslator,                                 // 转译基底·α · damage cancelled; 4th phys / 4th arts hit or blocked ⇒ 2 s change ⇒ 寻仇者 / 特战术师 / 幽灵
-  enemy_10144_xdelk_2: kitElk,                                       // 乌顶巨角卢鲁 · 角力对决 charge on its blocker (push fails ⇒ damage + stun)
+  enemy_10144_xdelk_2: kitElk,                                       // 乌顶巨角卢鲁 · 角力对决 charge on its blocker; cut short ⇒ Fail / Fail_stun stand
   // 圆仔 · PRTS 天赋 "无法攻击/被阻挡；受到来源于正面的物理和法术伤害-80%；自身始终朝向我方干员数量最多的方向" (no attack: applyWay
   // NONE; its 倒走 / 【炫耀】 is "仅用于演出，无额外效果"): unblockable, faces the bigger crowd, front damage −80 %
   enemy_2085_skzjxd: (ab) => [unblockable(), frontGuard(T(ab, 'Weakness.damage_resistance') ?? 0, faceCrowd)],
