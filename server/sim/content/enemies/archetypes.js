@@ -197,7 +197,8 @@ const hpToggle = (ratio, on, off) => ({
 
 /** Self buff (`mods`) while HP is at or below ratio (hpToggle). `fxTag` 'buff:<client buff key>': the enemy's own buff
  *  effect the render draws for it (render/fxstatus.js; its prefab's toggled half-HP buff, 2026-10-21). Until 2026-11-20 it
- *  came on at the first hit below the ratio (not by a 流失) and stayed. */
+ *  came on at the first hit below the ratio (not by a 流失) and stayed. Not silence-gated: of its users only 鼠王's mousek_t is
+ *  isSilenceable, and 鼠王 is silence-immune (docs/rules/sim.md 「적의 모드 전환」). */
 const lowHpBuff = (ratio, mods, key = 'ab:lowhp', fxTag = null) => hpToggle(ratio,
   (b, e) => b.addBuff(e, { key, mods, persist: true, visible: true, fxTag }),
   (b, e) => b.removeBuff(e, key));
