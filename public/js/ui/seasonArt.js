@@ -18,6 +18,21 @@ export function seasonArt(season, group, name) {
 export const seasonBackdrop = (season) => seasonArt(season, 'backdrop', 'title');
 
 /**
+ * The pieces of the season's moving hub backdrop (ui/seasonRays.js; season_ui.py writes them beside the JPEG): the
+ * rays' data, the layers under and over them, and `url(name)` for the group's other entries (the dissolve textures) —
+ * null when one of the three is not there (the JPEG alone).
+ * @param {unknown} season
+ * @returns {{ rays: string, base: string, front: string, url: (name: string) => string | null } | null}
+ */
+export function seasonRaysArt(season) {
+  const id = seasonOf(season);
+  if (id === DEFAULT_SEASON) return null;
+  const url = (name) => localAsset(`season/${id}/backdrop`, name);
+  const rays = url('rays'), base = url('base'), front = url('front');
+  return rays && base && front ? { rays, base, front, url } : null;
+}
+
+/**
  * The season's title logo (the hub's root_title), the Korean copy on a Korean page when there is one, or null.
  * @param {unknown} season @param {string} lang
  */

@@ -69,6 +69,7 @@ import { RadarScene, JoinArt } from '../ui/allyArt.js';
 import { ProtocolScene } from '../ui/protocolScene.js';
 import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
 import { seasonBackdrop, seasonLogoSet, logoSizes } from '../ui/seasonArt.js';
+import { SeasonBackdrop } from '../ui/seasonRays.js';
 import { pickSeasonThroughDark } from '../ui/seasonFade.js';
 import { useLang } from '../ui/lang.js';
 import { net, identity } from '../net.js';
@@ -616,14 +617,16 @@ function SweepPlate({ onClick }) {
  * The event's lobby backdrop: its night map giving way to the dusk dunes on a 20 s cycle (ui/allianceScene.js; still
  * under reduced motion). Until those sprites have loaded, the entry's glow (`entry/entry_bkg_01`) and Rhodes Island
  * hologram (`entry/entry_bkg_02`) over a dark field with a faint grid; without the art pack only the field and the grid.
- * A later season with its own art extracted draws its hub instead (ui/seasonArt.js; maintainer decision 2026-11-08).
+ * A later season with its own art extracted draws its hub instead, its rays moving (ui/seasonRays.js; maintainer decision
+ * 2026-11-08).
  */
 function HubBackdrop() {
   const alliance = useLobbyArt();
   useData('local');
-  const own = seasonBackdrop(useStore(pickedSeason));
+  const season = useStore(pickedSeason);
+  const own = seasonBackdrop(season);
   return html`<div class=${`hub-bg${own ? ' has-season' : ''}`} aria-hidden="true">
-    ${own ? html`<img key=${own} class="hub-bg__season" src=${own} alt="" draggable=${false} />`
+    ${own ? html`<${SeasonBackdrop} season=${season} cls="hub-bg__season" />`
     : alliance ? html`<${AllianceBackdrop} />` : html`
     <${Sprite} k="entry/entry_bkg_01" class="hub-bg__glow" />
     <${Sprite} k="entry/entry_bkg_02" class="hub-bg__ship" />

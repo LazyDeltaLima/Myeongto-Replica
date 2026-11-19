@@ -41,6 +41,7 @@ import { InviteSeason, activeSeason, seasonName } from '../ui/season.js';
 import { seasonInfo, DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
 import { seasonBackdrop, seasonLogoSet, logoSizes } from '../ui/seasonArt.js';
+import { SeasonBackdrop } from '../ui/seasonRays.js';
 import { uiUrl } from '../ui/assetUrls.js';
 import { Img } from '../ui/gameComponents.js';
 
@@ -283,7 +284,7 @@ export function TitleScreen() {
   return html`<div class="screen title-screen">
     <div class=${`title-bg${bgLoaded || alliance ? ' has-art' : ''}${alliance ? ' has-alliance' : ''}${seasonBg ? ' has-season' : ''}${ridgesLoaded ? ' has-ridges' : ''}`} aria-hidden="true">
       ${alliance ? html`<${AllianceBackdrop} />` : null}
-      ${seasonBg ? html`<img key=${seasonBg} class="title-bg__season" data-reveal="back" src=${seasonBg} alt="" draggable=${false} />` : null}
+      ${seasonBg ? html`<${SeasonBackdrop} season=${season} cls="title-bg__season" reveal="back" />` : null}
       ${backdrop && !alliance ? html`<img class="title-bg__art" src=${backdrop} alt="" draggable=${false}
         onLoad=${() => setBgLoadedUrl(backdrop)} />` : null}
       <div class="title-bg__glow"></div>

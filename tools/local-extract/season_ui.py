@@ -9,7 +9,10 @@ id of shared/seasons.js:
   season/<id>/backdrop/title      the season hub's background as the event lays it out (SEASONS[id]['backdrop']: the
                                   layers of its on-season entry panel, back to front, at their offsets, and the UI
                                   meshes of its effect holder drawn between them — their dissolve textures may sit in
-                                  another bundle, found through --cab-index), one JPEG
+                                  another bundle, found through --cab-index), one JPEG; and for the moving hub
+                                  (public/js/ui/seasonRays.js) the layers under the meshes (base, JPEG), the ones over
+                                  them (front, WebP with alpha), the meshes and their material values (rays, JSON) and
+                                  their dissolve textures (tex_<texture>)
   season/<id>/logo/<sprite>       the season's logos as they are (SEASONS[id]['logos'])
   season/<id>/banner/tab          the title's season tab picture (SEASONS[id]['banner']): the event's home activity card
                                   art cut to its picture (the part left of `crop` carries the Chinese logo), one JPEG
@@ -68,9 +71,9 @@ from client_path import ROOT, ensure_extract_env, client_data, client_data_cn  #
 # 1559×960 frame, bg_front 149 units below the centre (its RectTransform pos y −149). Between bkg_1 and bkg_2 the
 # effect holder's three UI meshes (effect_season_on/mask/mesh_1–3: the trapezoid mesh_trapezoid in material
 # mat_bg_mesh, the red jagged rays behind the statue) are drawn as the client draws them (backdrop_meshes). The client
-# scrolls the rays' first dissolve texture by _Dissolve_Speed × _Time (a 10 s loop); the backdrop is one picture, the
-# moment `time` of that loop — the one an official CN hub screenshot (2026-11-18) shows. The smoke / dust particles are
-# not drawn.
+# scrolls the rays' first dissolve texture by _Dissolve_Speed × _Time (a 10 s loop); the backdrop JPEG is the moment
+# `time` of that loop — the one an official CN hub screenshot (2026-11-18) shows —, the page moves it from there with
+# the pieces (rays_doc). The smoke / dust particles are not drawn.
 SEASONS = {
     'act3autochess': {
         'bundle': 'activity/[uc]act3autochess.ab',
@@ -140,6 +143,8 @@ FONT_ASSETS = 'resources.assets'
 FONT_NAME = 'SourceHanSansSC-Bold'
 # the backdrop is opaque: a JPEG (a WebP of the local extracts stands for a board PNG beside it, test/render/board3d-extract)
 BACKDROP_JPEG = {'quality': 90, 'optimize': True}
+# the backdrop's layers over its meshes (the moving hub): transparent around the statue, its alpha kept exact
+BACKDROP_WEBP = {'quality': 90, 'alpha_quality': 100, 'method': 6}
 
 
 def bundle_path(game, rel):
@@ -461,17 +466,42 @@ def entry_film(env, spec):
     return pictures, film
 
 
-def compose_backdrop(images, spec, meshes=None):
-    """The backdrop's layers back to front; `meshes` = {layer name: [RGBA frame, …]} drawn right after that layer."""
+def compose_backdrop(images, spec, meshes=None, only=None, opaque=True):
+    """The backdrop's layers back to front (`only`: just these names) on black, RGB — or on nothing, RGBA, when not
+    `opaque`; `meshes` = {layer name: [RGBA frame, …]} drawn right after that layer."""
     from PIL import Image
     w, h = spec['size']
-    canvas = Image.new('RGBA', (w, h), (0, 0, 0, 255))
+    canvas = Image.new('RGBA', (w, h), (0, 0, 0, 255 if opaque else 0))
     for name, dy in spec['layers']:
+        if only is not None and name not in only:
+            continue
         im = images[name]
         canvas.alpha_composite(im, ((w - im.width) // 2, round(h / 2 - dy - im.height / 2)))
         for layer in (meshes or {}).get(name, []):
             canvas.alpha_composite(layer)
-    return canvas.convert('RGB')
+    return canvas.convert('RGB') if opaque else canvas
+
+
+def rays_doc(recs, spec):
+    """The backdrop meshes as data for public/js/ui/seasonRays.js: each mesh once (its own positions, uv, triangles),
+    and per drawn copy the map to the backdrop's pixels (y down: x' = m[0]·(x, y, 1), y' = m[1]·(x, y, 1)), colour,
+    alpha and each dissolve texture's settings — the texture itself is the entry `tex_<name>` of the same group."""
+    ms = spec['meshes']
+    meshes = {}
+    for r in recs:
+        mesh = {'pos': [round(float(v), 6) for v in r['local'].reshape(-1)],
+                'uv': [round(float(v), 6) for v in r['uv'].reshape(-1)],
+                'tri': [int(i) for i in r['tri'].reshape(-1)]}
+        if meshes.setdefault(r['mesh'], mesh) != mesh:
+            raise SystemExit(f"backdrop meshes: two meshes named {r['mesh']}")
+    return {'version': 1, 'size': list(spec['size']), 'time': ms['time'], 'meshes': meshes, 'draws': [{
+        'name': r['name'], 'mesh': r['mesh'], 'matrix': [[round(v, 6) for v in row] for row in r['matrix']],
+        'rgb': [round(v, 6) for v in r['rgb']], 'alpha': round(r['alpha'], 6),
+        'dissolve': [{'tex': f"tex_{t['name']}", 'wrap': list(t['wrap']), 'scale': [round(v, 6) for v in t['scale']],
+                      'offset': [round(v, 6) for v in t['offset']], 'speed': [round(v, 6) for v in t['speed']],
+                      'threshold': round(t['threshold'], 6), 'smoothness': round(t['smoothness'], 6), 'invert': t['invert']}
+                     for t in r['dissolve']],
+    } for r in recs]}
 
 
 # Torappu/UI/UI-Fx-Common, as its pixel stage draws with no keyword on (UNITY_UI_CLIP_RECT only clips — the meshes'
@@ -486,18 +516,18 @@ FX_COMMON_UNSET = ('_MainTex', '_BaseTex', '_Mask_Tex')
 
 
 def backdrop_meshes(env, game, spec, cab_index):
-    """The UI meshes of the hub panel's effect holder (SEASONS[id]['backdrop']['meshes']), each drawn into a frame of
-    the backdrop's size as the client draws it (UIMeshImage: the mesh scaled by its bounds to its RectTransform's width
-    — _matchRect / _matchByWidth —, turned by _targetRotation, y 180 mirroring it; then the node's scale, z rotation and
-    position from the frame's centre) at the shader clock spec['time']. Stops on any setting this does not draw
-    (another shader form, a keyword, distortion, an offset or turned parent, an anchor off the centre)."""
+    """The UI meshes of the hub panel's effect holder (SEASONS[id]['backdrop']['meshes']) as the client places them in
+    the backdrop's frame (UIMeshImage: the mesh scaled by its bounds to its RectTransform's width — _matchRect /
+    _matchByWidth —, turned by _targetRotation, y 180 mirroring it; then the node's scale, z rotation and position from
+    the frame's centre), with their material's colour and dissolve textures: [{name, pos (pixels, y down), uv, tri, rgb,
+    alpha, dissolve: [{name, image, pixels, wrap, scale, offset, speed, threshold, smoothness, invert}]}] — draw_mesh
+    draws one at a clock. Stops on any setting this does not draw (another shader form, a keyword, distortion, an
+    offset or turned parent, an anchor off the centre)."""
     import math
     import UnityPy
     import numpy as np
-    from PIL import Image
     ms = spec['meshes']
     w, h = spec['size']
-    clock = ms['time']
     objs = {o.path_id: o for o in env.objects}
     cache = {}
 
@@ -537,7 +567,7 @@ def backdrop_meshes(env, game, spec, cab_index):
     ext_envs = {}
 
     def texture(mat_obj, ref):
-        """A material's texture as float RGBA rows from v = 0 up, with its wrap mode; None when unset."""
+        """A material's texture as float RGBA rows from v = 0 up, with its wrap mode and name; None when unset."""
         fid, pid = ref.get('m_FileID', 0), ref.get('m_PathID', 0)
         if not pid:
             return None
@@ -554,24 +584,12 @@ def backdrop_meshes(env, game, spec, cab_index):
             if o is None:
                 raise SystemExit(f'backdrop meshes: texture {pid} not in {rel}')
         tex = o.read()
-        a = np.asarray(tex.image.convert('RGBA'), np.float32)[::-1] / 255
         st = tex.m_TextureSettings
-        return a, (st.m_WrapU, st.m_WrapV)
-
-    def sample(t, uv):
-        a, (wu, wv) = t
-        th, tw = a.shape[:2]
-        x = (uv[..., 0] % 1 if wu == 0 else np.clip(uv[..., 0], 0, 1)) * tw - 0.5
-        y = (uv[..., 1] % 1 if wv == 0 else np.clip(uv[..., 1], 0, 1)) * th - 0.5
-        x0, y0 = np.floor(x).astype(int), np.floor(y).astype(int)
-        fx, fy = (x - x0)[..., None], (y - y0)[..., None]
-        ix = (lambda i: i % tw) if wu == 0 else (lambda i: np.clip(i, 0, tw - 1))
-        iy = (lambda i: i % th) if wv == 0 else (lambda i: np.clip(i, 0, th - 1))
-        g = lambda yy, xx: a[iy(yy), ix(xx)]  # noqa: E731
-        return (g(y0, x0) * (1 - fx) + g(y0, x0 + 1) * fx) * (1 - fy) + (g(y0 + 1, x0) * (1 - fx) + g(y0 + 1, x0 + 1) * fx) * fy
-
-    def smooth(x):
-        return x * x * (3 - 2 * x)
+        if st.m_WrapU not in (0, 1) or st.m_WrapV not in (0, 1):
+            raise SystemExit(f'backdrop meshes: texture {tex.m_Name} wraps by {st.m_WrapU}/{st.m_WrapV} (not repeat / clamp)')
+        im = tex.image.convert('RGBA')
+        return {'name': tex.m_Name, 'image': im, 'pixels': np.asarray(im, np.float32)[::-1] / 255,
+                'wrap': (st.m_WrapU, st.m_WrapV)}
 
     out = []
 
@@ -626,63 +644,100 @@ def backdrop_meshes(env, game, spec, cab_index):
         uv = buf[:, ch[4]['offset']:ch[4]['offset'] + 8].copy().view(np.float32).astype(np.float64)
         tri = np.frombuffer(bytes(mt['m_IndexBuffer']), np.uint16).reshape(-1, 3)
         k = rt['m_SizeDelta']['x'] / (pos[:, 0].max() - pos[:, 0].min())
-        if rot['y'] % 360:
-            pos[:, 0] *= -1
-        pos *= k
-        pos[:, 0] *= rt['m_LocalScale']['x']
-        pos[:, 1] *= rt['m_LocalScale']['y']
         q = rt['m_LocalRotation']
         if abs(q['x']) > 1e-6 or abs(q['y']) > 1e-6:
             raise SystemExit(f'backdrop meshes: {where} turns out of the screen plane')
         th = 2 * math.atan2(q['z'], q['w'])
         c, s = math.cos(th), math.sin(th)
-        px = w / 2 + cx + pos[:, 0] * c - pos[:, 1] * s
-        py = h / 2 - (cy + pos[:, 0] * s + pos[:, 1] * c)
-        # each pixel centre takes the uv of the one triangle it falls in (no seam is drawn twice)
-        uvb = np.full((h, w, 2), np.nan, np.float32)
-        for a, b, d in tri:
-            xs, ys = px[[a, b, d]], py[[a, b, d]]
-            x0, x1 = max(math.floor(xs.min()), 0), min(math.ceil(xs.max()), w - 1)
-            y0, y1 = max(math.floor(ys.min()), 0), min(math.ceil(ys.max()), h - 1)
-            den = (ys[1] - ys[2]) * (xs[0] - xs[2]) + (xs[2] - xs[1]) * (ys[0] - ys[2])
-            if x0 > x1 or y0 > y1 or abs(den) < 1e-12:
-                continue
-            gx, gy = np.meshgrid(np.arange(x0, x1 + 1) + 0.5, np.arange(y0, y1 + 1) + 0.5)
-            l0 = ((ys[1] - ys[2]) * (gx - xs[2]) + (xs[2] - xs[1]) * (gy - ys[2])) / den
-            l1 = ((ys[2] - ys[0]) * (gx - xs[2]) + (xs[0] - xs[2]) * (gy - ys[2])) / den
-            l2 = 1 - l0 - l1
-            inside = (l0 >= -1e-6) & (l1 >= -1e-6) & (l2 >= -1e-6)
-            sub = uvb[y0:y1 + 1, x0:x1 + 1]
-            sub[inside] = (l0[..., None] * uv[a] + l1[..., None] * uv[b] + l2[..., None] * uv[d])[inside]
-        cover = ~np.isnan(uvb[..., 0])
-        uv0 = np.nan_to_num(uvb)
-        vc = m['m_Color']
-        alpha = np.where(cover, vc['a'], 0).astype(np.float32)
+        # mesh → backdrop pixels (y down), one affine map: the y 180 mirror, the width match, the node's scale, its z
+        # turn and its place from the frame's centre
+        sx = k * rt['m_LocalScale']['x'] * (-1 if rot['y'] % 360 else 1)
+        sy = k * rt['m_LocalScale']['y']
+        matrix = [[sx * c, -sy * s, w / 2 + cx], [-sx * s, -sy * c, h / 2 - cy]]
+        px = matrix[0][0] * pos[:, 0] + matrix[0][1] * pos[:, 1] + matrix[0][2]
+        py = matrix[1][0] * pos[:, 0] + matrix[1][1] * pos[:, 1] + matrix[1][2]
+        dissolve = []
         if f.get('_Dissolve', 0) > 0:
+            sp = col['_Dissolve_Speed']
             for i in (1, 2):
                 t = texture(mat_obj, tex[f'_Dissolve{i}_Tex']['m_Texture'])
                 if t is None:
                     continue  # white: tex.r · tex.a = 1 everywhere
                 sc, off = tex[f'_Dissolve{i}_Tex']['m_Scale'], tex[f'_Dissolve{i}_Tex']['m_Offset']
-                sp = col['_Dissolve_Speed']
-                drift = [sp['r'], sp['g']] if i == 1 else [sp['b'], sp['a']]
-                v = sample(t, uv0 * [sc['x'], sc['y']] + [off['x'] + drift[0] * clock, off['y'] + drift[1] * clock])
-                dv = v[..., 0] * v[..., 3]
-                if f.get(f'_Dissolve{i}_Invert', 0):
-                    dv = 1 - dv
-                alpha *= smooth(np.clip((dv - f[f'_Dissolve{i}_Threshold']) / f[f'_Dissolve{i}_Smoothness'], 0, 1))
+                dissolve.append({**t, 'scale': (sc['x'], sc['y']), 'offset': (off['x'], off['y']),
+                                 'speed': (sp['r'], sp['g']) if i == 1 else (sp['b'], sp['a']),
+                                 'threshold': f[f'_Dissolve{i}_Threshold'], 'smoothness': f[f'_Dissolve{i}_Smoothness'],
+                                 'invert': bool(f.get(f'_Dissolve{i}_Invert', 0))})
+                if dissolve[-1]['smoothness'] <= 0:
+                    raise SystemExit(f"backdrop meshes: {md['m_Name']} dissolves with no smoothness")
         k_int = f.get('_Intensity', 1)
+        vc = m['m_Color']
         mc = col.get('_Color', {'r': 1, 'g': 1, 'b': 1, 'a': 1})
-        rgb = np.array([mc[a] * vc[a] * k_int for a in 'rgb'], np.float32)
-        img = np.zeros((h, w, 4), np.float32)
-        img[..., :3] = np.clip(rgb, 0, 1)
-        img[..., 3] = np.clip(alpha * mc['a'] * k_int, 0, 1)
-        return Image.fromarray((img * 255 + 0.5).astype(np.uint8), 'RGBA')
+        return {'name': where, 'mesh': mt['m_Name'], 'local': pos, 'matrix': matrix,
+                'pos': np.stack([px, py], 1), 'uv': uv, 'tri': tri.astype(int),
+                'rgb': [float(np.clip(mc[a] * vc[a] * k_int, 0, 1)) for a in 'rgb'],
+                'alpha': float(vc['a'] * mc['a'] * k_int), 'dissolve': dissolve}
 
     walk(holder, 0.0, 0.0, [])
     if not out:
         raise SystemExit(f"backdrop meshes: no UI mesh under {ms['holder']}")
-    return {ms['after']: out}
+    return out
+
+
+def _sample(t, uv):
+    """Bilinear sample of a dissolve texture (backdrop_meshes) at uv, its wrap mode per axis (0 repeat, 1 clamp)."""
+    import numpy as np
+    a, (wu, wv) = t['pixels'], t['wrap']
+    th, tw = a.shape[:2]
+    x = (uv[..., 0] % 1 if wu == 0 else np.clip(uv[..., 0], 0, 1)) * tw - 0.5
+    y = (uv[..., 1] % 1 if wv == 0 else np.clip(uv[..., 1], 0, 1)) * th - 0.5
+    x0, y0 = np.floor(x).astype(int), np.floor(y).astype(int)
+    fx, fy = (x - x0)[..., None], (y - y0)[..., None]
+    ix = (lambda i: i % tw) if wu == 0 else (lambda i: np.clip(i, 0, tw - 1))
+    iy = (lambda i: i % th) if wv == 0 else (lambda i: np.clip(i, 0, th - 1))
+    g = lambda yy, xx: a[iy(yy), ix(xx)]  # noqa: E731
+    return (g(y0, x0) * (1 - fx) + g(y0, x0 + 1) * fx) * (1 - fy) + (g(y0 + 1, x0) * (1 - fx) + g(y0 + 1, x0 + 1) * fx) * fy
+
+
+def draw_mesh(rec, size, clock):
+    """One mesh of backdrop_meshes drawn into a frame of the backdrop's size at the shader clock `clock` (_Time.y, s) —
+    the same arithmetic public/js/ui/seasonRays.js runs on the GPU for the moving hub."""
+    import math
+    import numpy as np
+    from PIL import Image
+    w, h = size
+    px, py = rec['pos'][:, 0], rec['pos'][:, 1]
+    uv = rec['uv']
+    # each pixel centre takes the uv of the one triangle it falls in (no seam is drawn twice)
+    uvb = np.full((h, w, 2), np.nan, np.float32)
+    for a, b, d in rec['tri']:
+        xs, ys = px[[a, b, d]], py[[a, b, d]]
+        x0, x1 = max(math.floor(xs.min()), 0), min(math.ceil(xs.max()), w - 1)
+        y0, y1 = max(math.floor(ys.min()), 0), min(math.ceil(ys.max()), h - 1)
+        den = (ys[1] - ys[2]) * (xs[0] - xs[2]) + (xs[2] - xs[1]) * (ys[0] - ys[2])
+        if x0 > x1 or y0 > y1 or abs(den) < 1e-12:
+            continue
+        gx, gy = np.meshgrid(np.arange(x0, x1 + 1) + 0.5, np.arange(y0, y1 + 1) + 0.5)
+        l0 = ((ys[1] - ys[2]) * (gx - xs[2]) + (xs[2] - xs[1]) * (gy - ys[2])) / den
+        l1 = ((ys[2] - ys[0]) * (gx - xs[2]) + (xs[0] - xs[2]) * (gy - ys[2])) / den
+        l2 = 1 - l0 - l1
+        inside = (l0 >= -1e-6) & (l1 >= -1e-6) & (l2 >= -1e-6)
+        sub = uvb[y0:y1 + 1, x0:x1 + 1]
+        sub[inside] = (l0[..., None] * uv[a] + l1[..., None] * uv[b] + l2[..., None] * uv[d])[inside]
+    cover = ~np.isnan(uvb[..., 0])
+    uv0 = np.nan_to_num(uvb)
+    alpha = cover.astype(np.float32)
+    for t in rec['dissolve']:
+        v = _sample(t, uv0 * t['scale'] + [t['offset'][0] + t['speed'][0] * clock, t['offset'][1] + t['speed'][1] * clock])
+        dv = v[..., 0] * v[..., 3]
+        if t['invert']:
+            dv = 1 - dv
+        x = np.clip((dv - t['threshold']) / t['smoothness'], 0, 1)
+        alpha *= x * x * (3 - 2 * x)
+    img = np.zeros((h, w, 4), np.float32)
+    img[..., :3] = rec['rgb']
+    img[..., 3] = np.clip(alpha * rec['alpha'], 0, 1)
+    return Image.fromarray((img * 255 + 0.5).astype(np.uint8), 'RGBA')
 
 
 def official_font(font_client):
@@ -801,22 +856,42 @@ def main(argv=None):
         fname = f'{name}.{fmt}'
         if fmt == 'jpg':
             im.save(folder / fname, 'JPEG', **BACKDROP_JPEG)
+        elif fmt == 'webp':
+            im.save(folder / fname, 'WEBP', **BACKDROP_WEBP)
         else:
             im.save(folder / fname)
         groups.setdefault(sub, {})[name] = {'path': f'/assets/local/{sub}/{fname}', 'w': im.width, 'h': im.height, 'kind': 'Sprite'}
+
+    def save_json(group, name, doc):
+        sub = f'{base}/{group}'
+        (out_root / sub).mkdir(parents=True, exist_ok=True)
+        (out_root / sub / f'{name}.json').write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+        groups.setdefault(sub, {})[name] = {'path': f'/assets/local/{sub}/{name}.json', 'kind': 'Data'}
 
     env = load(game, spec['bundle'])
     names = {n for n, _ in spec['backdrop']['layers']} | set(spec['logos'])
     if spec.get('banner'):
         names.add(spec['banner']['sprite'])
     art = sprites_by_name(env, names)
-    meshes = None
-    if spec['backdrop'].get('meshes'):
+    bd = spec['backdrop']
+    recs, frames = None, None
+    if bd.get('meshes'):
         cab_path = Path(args.cab_index)
         if not cab_path.exists():
             raise SystemExit(f'{cab_path}: missing (the CAB index of this client: fx_extract.py --build-cab-index)')
-        meshes = backdrop_meshes(env, game, spec['backdrop'], json.loads(cab_path.read_text(encoding='utf-8')))
-    save('backdrop', 'title', compose_backdrop(art, spec['backdrop'], meshes), 'jpg')
+        recs = backdrop_meshes(env, game, bd, json.loads(cab_path.read_text(encoding='utf-8')))
+        frames = {bd['meshes']['after']: [draw_mesh(r, bd['size'], bd['meshes']['time']) for r in recs]}
+    save('backdrop', 'title', compose_backdrop(art, bd, frames), 'jpg')
+    if recs:
+        # the moving hub (public/js/ui/seasonRays.js): the layers under the meshes, the meshes as data, the layers over them
+        names = [n for n, _ in bd['layers']]
+        cut = names.index(bd['meshes']['after']) + 1
+        save('backdrop', 'base', compose_backdrop(art, bd, only=names[:cut]), 'jpg')
+        save('backdrop', 'front', compose_backdrop(art, bd, only=names[cut:], opaque=False), 'webp')
+        textures = {t['name']: t['image'] for r in recs for t in r['dissolve']}
+        for name, im in sorted(textures.items()):
+            save('backdrop', f'tex_{name}', im)
+        save_json('backdrop', 'rays', rays_doc(recs, bd))
     for n in spec['logos']:
         save('logo', n, art[n])
     bn = spec.get('banner')
@@ -877,10 +952,7 @@ def main(argv=None):
         pictures, film = entry_film(env, spec['entry'])
         for name, im in sorted(pictures.items()):
             save('entry', name, im)
-        sub = f'{base}/entry'
-        (out_root / sub).mkdir(parents=True, exist_ok=True)
-        (out_root / sub / 'film.json').write_text(json.dumps(film, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
-        groups.setdefault(sub, {})['film'] = {'path': f'/assets/local/{sub}/film.json', 'kind': 'Data'}
+        save_json('entry', 'film', film)
 
     man = Path(args.manifest)
     doc = {'version': 1, 'source': 'local-client', 'count': 0, 'groups': {}}
