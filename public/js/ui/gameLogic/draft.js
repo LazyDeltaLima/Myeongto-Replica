@@ -114,7 +114,7 @@ export function diySlotTier(id) {
 }
 
 /**
- * Whether the season's start has 确定自选编队 (config.timers.enterSteps CUSTOM_CHECK: 规程): its 自选预设 is picked
+ * Whether the season's start has 确定自选编队 (config.timers.enterSteps CUSTOM_CHECK: 规程, and 盟约 since 2026-11-19): its 自选预设 is picked
  * there, not in the strategy draft (maintainer decision 2026-11-13). @param {any} config the season's config.json
  */
 export function hasDiyChooseStep(config) {
@@ -123,8 +123,9 @@ export function hasDiyChooseStep(config) {
 }
 
 /**
- * How many start steps a match of the season has before 协议启动: config.timers.enterSteps without BATTLE_CHECK — 盟约 2
- * (确认本局信息, 选择策略), 规程 3 (and CUSTOM_CHECK, 确定自选编队). 2 when the list is absent. The step headers' 「n/…」.
+ * How many start steps a match of the season has before 协议启动: config.timers.enterSteps without BATTLE_CHECK — 3 in
+ * both seasons (确认本局信息, 选择策略, CUSTOM_CHECK 确定自选编队: 盟约's data gains the last, maintainer decision
+ * 2026-11-19). 2 when the list is absent. The step headers' 「n/…」.
  * @param {any} config the season's config.json
  */
 export function startStepCount(config) {

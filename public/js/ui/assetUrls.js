@@ -258,6 +258,32 @@ export function withSeasonArt(m, local, season, records = {}) {
   return out;
 }
 
+/** The season whose 3/3 确定自选编队 art (SEASON_UI_FOLDERS diychoose, diychooselevelsprite) a season without its own
+ * draws: 盟约's client has no such screen, and since 盟约 took the step it shows 规程's (maintainer decision 2026-11-19). */
+const DIY_CHOOSE_ART_SEASON = 'act3autochess';
+const DIY_CHOOSE_FOLDERS = Object.freeze(['diychoose', 'diychooselevelsprite']);
+/** @type {WeakMap<object, { local: any, value: any }>} */
+const diyChooseMemo = new WeakMap();
+
+/**
+ * The manifest as the 3/3 screen reads it (screens/diyChoose.js): `m` with 规程's 3/3 art (withSeasonArt of the two
+ * folders above, from its extract `season/act3autochess/…`) when `m` has none of its own — the default season, whose
+ * manifest the data store hands over as the file (data.js ownSeasonAssets). `m` itself when it has the art (规程's view)
+ * or the extract lacks it (the CSS then draws plain fills). Built once per manifest and extract.
+ * @param {any} m data/assets.json (or a season's view of it) @param {any} local data/local-assets.json
+ */
+export function withDiyChooseArt(m, local) {
+  if (!obj(m)) return m;
+  const hit = diyChooseMemo.get(m);
+  if (hit && hit.local === local) return hit.value;
+  const own = Object.keys(obj(m.ui) ?? {}).some((k) => k.startsWith('diyChooseArt/'));
+  const groups = obj(obj(local)?.groups) ?? {};
+  const keys = DIY_CHOOSE_FOLDERS.map((f) => `season/${DIY_CHOOSE_ART_SEASON}/${f}`).filter((k) => obj(groups[k]));
+  const value = own || !keys.length ? m : withSeasonArt(m, { groups: Object.fromEntries(keys.map((k) => [k, groups[k]])) }, DIY_CHOOSE_ART_SEASON);
+  diyChooseMemo.set(m, { local, value });
+  return value;
+}
+
 /**
  * The icon of a 特训敌人 type another season lends (shared/seasonBorrow.js): the manifest's own (factionIconUrl), else
  * the lending season's extract (`season/<season>/enemytypeicon`, local-assets.json) — 规程's CRITIC / REBORN icons

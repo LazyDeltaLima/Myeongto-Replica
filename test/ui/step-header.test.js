@@ -1,6 +1,6 @@
 // The start-step header (ui/matchChrome.js StepHeader / StepChain / stepHeadArt; docs/rules/ui.md 「판 시작 단계 머리」):
 // the official left chain after the exit tile — the mode plate (its picture, the name in the mode's colour) | the 规则 mode |
-// the divider | 规程: the theme's character + the bubble 「n/3 title」, 盟约: 「n/2 title» — in place of the centred title
+// the divider | 规程: the theme's character + the bubble 「n/3 title」, 盟约: 「n/3 title」 — in place of the centred title
 // (maintainer decision 2026-11-18). The plate picture is picked per modeDifficulty by a hand-written name table (TRAINING →
 // guide / train), so the sweep below asserts every mode of both seasons finds its picture in the extract.
 
@@ -93,10 +93,10 @@ test('every mode of both seasons finds its plate picture, 规程 its character, 
     let sized = 0;
     assert.ok(modes.some((m) => m.difficulty === 'TRAINING') && modes.some((m) => m.difficulty === 'ABYSS'), 'the sweep sees the 盟约 modes');
     for (const m of modes) {
-      for (const step of [1, 2]) {
+      for (const step of [1, 2, 3]) {
         const art = stepHeadArt(step, m.difficulty, DEFAULT_SEASON);
         assert.ok(!art.cn && art.plate, `${m.modeId} (${m.difficulty}) step ${step}: no plate picture (${RULE})`);
-        if (step === 2) assert.match(art.plate, /\/bandChoose\/mode_\w+\.png$/, `${m.modeId} step 2: the 选择策略 screen's own sprite, never ui/outer's same-named button (${RULE})`);
+        if (step !== 1) assert.match(art.plate, /\/bandChoose\/mode_\w+\.png$/, `${m.modeId} step 2: the 选择策略 screen's own sprite, never ui/outer's same-named button (${RULE})`);
         if (assertPlateSize(art.plate, `${m.modeId} step ${step}`)) sized++;
         assert.ok(!art.char && !art.bubble, '盟约 has no character and no bubble');
       }
@@ -146,12 +146,20 @@ test('规程: plate (name in the mode colour) | divider | character | bubble 「
   assert.doesNotMatch(src, /stephead__center|stephead__title|btn_game_detail/, `the centred title and its micro label are gone; the 本局信息 button stays out of the header (${RULE})`);
 });
 
-test('盟约: plate | divider | 「n/2 title」, no character or bubble', async () => {
+test('盟约: plate | divider | 「n/3 title」, no character or bubble — its 3/3 too (maintainer decision 2026-11-19)', async () => {
+  const { startStepCount } = await import('../../public/js/ui/gameLogic.js');
   await withSeason(DEFAULT_SEASON, async () => {
-    const chain = StepChain({ step: 2, of: 2, title: '选择策略', pub: { modeId: 'mode_multi_abyss', difficulty: 'ABYSS' }, season: DEFAULT_SEASON });
+    const of = startStepCount(data.get('config'));
+    assert.equal(of, 3, `盟约's data has the three start steps (CUSTOM_CHECK), so its header reads 「n/3」 (${RULE})`);
+    const chain = StepChain({ step: 2, of, title: '选择策略', pub: { modeId: 'mode_multi_abyss', difficulty: 'ABYSS' }, season: DEFAULT_SEASON });
     assert.deepEqual(parts(chain), ['sh-mode', 'sh-split', 'sh-plain']);
-    assert.equal(textOf(find(chain, 'sh-plain')), '2/2选择策略');
+    assert.equal(textOf(find(chain, 'sh-plain')), '2/3选择策略');
     assert.ok(classes(find(chain, 'sh-split')).includes('is-flat'), '盟约 step 2: the flat divider');
+    const three = StepChain({ step: 3, of, title: '确定自选编队', pub: { modeId: 'mode_multi_abyss', difficulty: 'ABYSS' }, season: DEFAULT_SEASON });
+    assert.deepEqual(parts(three), ['sh-mode', 'sh-split', 'sh-plain'], `盟约 step 3: the 盟约 chain, not 规程's character and pop bubble (${RULE})`);
+    assert.equal(textOf(find(three, 'sh-plain')), '3/3确定自选编队');
+    assert.ok(classes(find(three, 'sh-split')).includes('is-flat'));
+    assert.equal(stepHeadArt(3, 'ABYSS', DEFAULT_SEASON).plate, stepHeadArt(2, 'ABYSS', DEFAULT_SEASON).plate, '盟约 step 3: the 选择策略 plate');
   });
 });
 

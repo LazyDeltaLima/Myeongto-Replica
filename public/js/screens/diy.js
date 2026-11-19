@@ -1,5 +1,6 @@
 // 自选编队 (0.2.0 DIY; research 0.2.0 §2, the owner's decisions of 2026-10-05): the third tab of the 干员调配 overlay
-// (screens/loadout.js). Four slots — 5阶 ×2, 6阶 ×2 — each filled with an operator: a 6★ the player owns outside the
+// (screens/loadout.js). Twelve slots — 5阶 ×6, 6阶 ×6, of which a match's 3/3 确定自选编队 (screens/diyChoose.js) takes up
+// to two per tier — each filled with an operator: a 6★ the player owns outside the
 // chess pool (any of its three skills, any module of its elite form but a 集成战略 one) or a prototype (原型干员, its skill
 // and module locked as when it stands in). Only operators with a kit are listed (the server's welcome.diyKitted). The
 // slot picker (upstream 0.3.3's window, maintainer decision 2026-11-07) is the 干员调配 roster's own list — a row per
@@ -530,7 +531,7 @@ export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPickin
   const tiers = [...new Set(slots.map((s) => s.tier))];
   return html`<main class="diy" data-testid="diy">
     <div class="own__bar">
-      <p class="own__lead">${t('5阶与6阶各有两个自选名额：选择持有的 6★ 干员（任选技能与模组）或原型干员（技能锁定）。自选干员只出现在你自己的商店里，调度中心达到该阶等级后才会刷新，价格与同阶干员相同；盟约按干员实际所属阵营分配，没有特质。')}</p>
+      <p class="own__lead">${t('5阶与6阶各有六个自选名额：选择持有的 6★ 干员（任选技能与模组）或原型干员（技能锁定）。开局时在「确定自选编队」每阶最多选两名上场。自选干员只出现在你自己的商店里，调度中心达到该阶等级后才会刷新，价格与同阶干员相同；盟约按干员实际所属阵营分配，没有特质。')}</p>
     </div>
     ${onPreset ? html`<${DiyPresetBar} presets=${presets || {}} active=${activePreset} onSelect=${onPreset} onDelete=${onPresetDelete || (() => {})}
       links=${links} bands=${bands} onToggle=${onToggle} />` : null}

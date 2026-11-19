@@ -263,3 +263,32 @@ describe("规程's default UI theme in its shop and HUD (maintainer decision 202
     });
   });
 });
+
+describe('the 3/3 确定自选编队 art', () => {
+  test("盟约's 3/3 screen draws 规程's extract (withDiyChooseArt), only those two folders; 规程 keeps its view", async () => {
+    const { withDiyChooseArt, withSeasonArt, uiUrl, bandIconUrl } = await import('../../public/js/ui/assetUrls.js');
+    const ext = { groups: {
+      [`season/${S}/diychoose`]: { doc_color: entry('/s/dc/doc_color.png'), btn_confirm: entry('/s/dc/btn_confirm.png') },
+      [`season/${S}/diychooselevelsprite`]: { diy_choose_level_icon_5_c: entry('/s/dcl/5_c.png') },
+      [`season/${S}/bandicon`]: { icon_amiya: entry('/s/band/icon_amiya.png') },
+      [`season/${S}/medalicon`]: { trophy_level1_icon: entry('/s/medal/1.png') },
+    } };
+    const base = { bands: { band_amiya: '/assets/band/band_amiya.png' }, ui: { 'medalIcon/trophy_level1_icon': '/en/1.png' } };
+    const m = withDiyChooseArt(base, ext);
+    const why = "盟约 took the 3/3 step without a client screen of its own: see docs/rules/ui.md 「규정 선발 편성 확정 화면」";
+    assert.equal(uiUrl(m, 'diyChooseArt/doc_color'), '/s/dc/doc_color.png', why);
+    assert.equal(uiUrl(m, 'diyChooseLevelSprite/diy_choose_level_icon_5_c'), '/s/dcl/5_c.png', why);
+    assert.equal(uiUrl(m, 'medalIcon/trophy_level1_icon'), '/en/1.png', "盟约's other art stays its own");
+    assert.equal(bandIconUrl(m, 'band_amiya'), '/assets/band/band_amiya.png');
+    assert.ok(withDiyChooseArt(base, ext) === m, 'built once per manifest and extract');
+    assert.equal(uiUrl(base, 'diyChooseArt/doc_color'), null, 'the manifest itself is not changed');
+    const season = withSeasonArt(base, ext, S);
+    assert.ok(withDiyChooseArt(season, ext) === season, "规程's view already has it");
+    assert.ok(withDiyChooseArt(base, { groups: {} }) === base, 'no extract: the CSS fills');
+  });
+
+  test('the screen reads its art through withDiyChooseArt', () => {
+    const src = readFileSync(path.join(ROOT, 'public/js/screens/diyChoose.js'), 'utf8');
+    assert.match(src, /const m = withDiyChooseArt\(gd\.m, data\.get\('local'\)\);/, "盟约's 3/3 would draw the CSS fills (docs/rules/ui.md 「규정 선발 편성 확정 화면」)");
+  });
+});

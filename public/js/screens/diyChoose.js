@@ -1,4 +1,5 @@
-// 确定自选编队 — 规程's third start step "3/3" (PHASE.DIY_CHOOSE; server/match/match/diyChoose.js), laid out as the official
+// 确定自选编队 — the third start step "3/3" of both seasons (PHASE.DIY_CHOOSE; server/match/match/diyChoose.js; 盟约 since
+// maintainer decision 2026-11-19, the same screen with 规程's art and 盟约's step header), laid out as the official
 // auto_chess_diy_choose_state (CN client; two official screens of a 4-player co-op start, maintainer decision 2026-11-11
 // to draw it after them). Left: the order rows of the strategy draft (bandDraft.js OrderRow: name card, the picked
 // strategy, ✓ = ready for this step) with the draft's 敌方情报 | 盟约信息 row under them (bandDraft.js DraftInfoButtons,
@@ -20,13 +21,13 @@
 // else its nation bond's preset, else 不使用预设); a change applies that roster (ui/factionPick.js applyPresetChoice, the chat
 // faction follows) and sends it at once — the server takes the lineup until I ready, keeping a chosen card only where the
 // same operator stays (match/diyChoose.js setDiyLineup). Locked while ready.
-// The art is the season's extract (`diyChooseArt/…`, tools/local-extract/season_ui.py 'prefabs'); without it the CSS
-// draws plain fills. Styles: css/screens/diychoose.css on the strategy draft's frame (css/screens/draft.css).
+// The art is 规程's extract (`diyChooseArt/…`, tools/local-extract/season_ui.py 'prefabs'; 盟约's client has no such
+// screen, so its matches borrow it: ui/assetUrls.js withDiyChooseArt); without it the CSS draws plain fills. Styles: css/screens/diychoose.css on the strategy draft's frame (css/screens/draft.css).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, TierChip, MicroLabel } from '../ui/components.js';
 import { useGameData } from '../ui/gameComponents.js';
-import { chessPortraitUrl, profIconUrl, bondIconUrl, skillRecordIconUrl, moduleTypeIconUrl, uiUrl } from '../ui/assetUrls.js';
+import { chessPortraitUrl, profIconUrl, bondIconUrl, skillRecordIconUrl, moduleTypeIconUrl, uiUrl, withDiyChooseArt } from '../ui/assetUrls.js';
 import { skinArt, skinPic } from '../ui/skins.js';
 import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfoDialog, matchInfoModel } from '../ui/matchInfo.js';
@@ -176,7 +177,7 @@ export function DiyChooseScreen() {
   const roomSolo = useStore((s) => s.room?.mode === 'solo');
   const roomSeason = useStore((s) => s.room?.season);
   const gd = useGameData();
-  const m = gd.m;
+  const m = withDiyChooseArt(gd.m, data.get('local')); // 盟约 too draws 规程's 3/3 art (the header's note)
   const view = priv?.diyChoose || null;
   const ready = !!view?.ready;
   const [exit, setExit] = useState(false);

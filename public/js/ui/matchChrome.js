@@ -1,5 +1,5 @@
 // Chrome shared by every in-match screen: the step header of the pre-game screens (exit with the ping under it — ExitTile,
-// also the waiting room's — + difficulty | "1/2 确认本局信息" | countdown) and the exit flow (confirm with 暂离 / 放弃, AI 托管 overlay).
+// also the waiting room's — + the mode plate | "1/3 确认本局信息" | countdown) and the exit flow (confirm with 暂离 / 放弃, AI 托管 overlay).
 //
 // 暂离 (co-op): turns on AI 托管 (g.autoplay on) so the seat keeps playing; the overlay's 返回模拟 turns it
 // off. 放弃模拟: g.leave then room.leave (the platform treats it as a quit), back to the lobby. 重新开始 (from the first
