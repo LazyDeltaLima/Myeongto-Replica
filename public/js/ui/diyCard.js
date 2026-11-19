@@ -10,7 +10,7 @@
 
 import { useRef } from '../../vendor/hooks.module.js';
 import { html, TierChip } from './components.js';
-import { chessPortraitUrl, profIconUrl, bondIconUrl, skillRecordIconUrl, moduleTypeIconUrl, uiUrl } from './assetUrls.js';
+import { chessPortraitUrl, profGlyphUrl, bondIconUrl, skillRecordIconUrl, moduleTypeIconUrl, uiUrl } from './assetUrls.js';
 import { skinArt, skinPic } from './skins.js';
 import { slotRecord } from './diyModel.js';
 import { opsOf } from './loadoutModel.js';
@@ -81,7 +81,7 @@ export function DiyCard({ m, slotId, pick, tier, chosen = false, off = false, lo
   const sk = rec?.skill ? skillRecordIconUrl(m, rec.skill, { empty: false }) : null;
   const mod = elite?.module?.active ? elite.module : null;
   const modIcon = mod ? moduleTypeIconUrl(data.get('local'), mod.type) : null;
-  const prof = profIconUrl(m, rec?.profession);
+  const prof = profGlyphUrl(m, rec?.profession); // the square glyph: prof.icon is the wide 「CASTER 术师」 banner
   const none = uiUrl(m, 'diyChooseArt/img_module_no');
   const lv = uiUrl(m, `chessLevelSprite/chess_level_icon_${tier}`);
   const ban = uiUrl(m, 'diyChooseArt/ban');

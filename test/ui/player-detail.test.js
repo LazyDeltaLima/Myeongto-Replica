@@ -115,8 +115,12 @@ test('white sprites the client tints are masks, never backgrounds (drawn as is t
   for (const v of ['--pd-list', '--pd-frame', '--pd-ob']) {
     const uses = [...css.matchAll(new RegExp(`([a-z-]+):\\s*var\\(${v}\\b`, 'g'))].map((m) => m[1]);
     assert.ok(uses.length, `${v} is used`);
-    assert.deepEqual([...new Set(uses)].filter((p) => !/mask$/.test(p)), [], `${v} only as a mask (the white sprite is tinted by its colour)`);
+    assert.deepEqual([...new Set(uses)].filter((p) => !/mask(-box-image-source)?$/.test(p)), [], `${v} only as a mask (the white sprite is tinted by its colour)`);
   }
+  // detail_list_back is Sliced (border L 7 · B 10 · R 9 · T 11): a 9-slice mask, never one mask stretched 100 % × 100 % —
+  // that stretched its corners into long flat curves (maintainer report 2026-11-19; docs/rules/ui.md 「팀원 정보 창」)
+  assert.doesNotMatch(css, /mask:\s*var\(--pd-list/, 'detail_list_back is not stretched whole as one mask');
+  assert.match(css, /-webkit-mask-box-image-slice: 11 9 10 7 fill;/, 'detail_list_back keeps its 9-slice corners');
   assert.match(css, /\.pdetail__card \{[^}]*height: var\(--ah\)/);
   assert.match(css, /\.pdetail__part \{[^}]*height: var\(--ah\)/);
   assert.equal(CARD_H, 78);

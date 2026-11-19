@@ -146,7 +146,7 @@ export function PlayerDetail({ players, myId, geo }) {
           <span class="pdetail__name"><span class="pdetail__nm">${playerName(p.name) || t('博士')}</span><small class="pdetail__tag num">#${doctorNo(p.playerId)}</small></span>
           ${p.winStreak > 0 ? html`<span class="pdetail__combo">${t('完美连胜 {n}', { n: p.winStreak })}</span>` : null}
           <i class=${cx('pdetail__shop', lvlArt && 'has-sprite')} style=${lvlArt ? `--pd-shop:url("${lvlArt}")` : undefined}
-            title=${t('调度中心等级 {n}', { n: lvl })}>${lvlArt ? null : html`<small>LV</small>${lvl}`}</i>
+            title=${t('调度中心等级 {n}', { n: lvl })}>${lvlArt ? null : html`<small>LEVEL</small>${ROMAN[lvl]}`}</i>
         </div>
         <div class="pdetail__part is-bonds"><${Bonds} bonds=${bonds} unit=${(g.ah * 0.82 / 84).toFixed(3)} /><i class="pdetail__more" aria-hidden="true"></i></div>
         <div class="pdetail__part is-ops"><${Operators} lineup=${lineup} own=${own} skins=${own ? null : playerSkins(players, p.playerId, others)} /><i class="pdetail__more" aria-hidden="true"></i></div>

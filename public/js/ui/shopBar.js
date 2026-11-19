@@ -27,7 +27,7 @@
 // upstream 0def7bab's 「自选」 badge removed, docs/LOCAL-PATCH.md 「0.2.0 병합」).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Icon, HexBadge, TierChip, Tooltip, MicroLabel } from './components.js';
+import { html, Icon, HexBadge, TierChip, Tooltip, MicroLabel, roman } from './components.js';
 import { Img, BondGlyph, CoinGlyph, GIcon, RichText } from './gameComponents.js';
 import { priceTone, mergeProgress, mergeTarget, shopBlockReason, chessLoadout, offerHeader, briefingBondTip, ownStandIn, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, diyGetter } from './gameLogic.js';
 import { chessPortraitUrl, itemIconUrl, profIconUrl, uiUrl, skillIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from './assetUrls.js';
@@ -205,7 +205,7 @@ function LevelCard({ shop, reason, armed = false, onTap }) {
     ${!max ? html`<${HexBadge} value=${price} tone=${reason && reason !== t('调度中心已达最高等级') ? 'dark' : 'gold'} size="md" class="lvcard__price" />` : null}
     <span class="lvcard__frame">
       <span class="lvcard__micro">LEVEL</span>
-      <b class="lvcard__num num">${lv}</b>
+      <b class="lvcard__num num">${roman(lv) || lv}</b>
     </span>
     <span class="lvcard__label">${max ? t('已满级') : armed ? t('确认升级') : t('升级')}</span>
     <kbd class="lvcard__key">${hotkeyLabelOf('levelUp')}</kbd>

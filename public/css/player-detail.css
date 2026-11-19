@@ -54,11 +54,23 @@
 .pdetail__shop small { display: block; font-size: calc(9px * var(--k)); letter-spacing: .08em; color: #9aa; }
 .pdetail__shop.has-sprite { background: var(--pd-shop) center / contain no-repeat; }
 
-/* the bond and operator lists (part_bond / part_operator: Scroll View, the arrow_right list_arrow when it runs over) */
+/* the bond and operator lists (part_bond / part_operator: Scroll View, the arrow_right list_arrow when it runs over).
+   The plate is detail_list_back, a Sliced sprite (64 × 68, border L 7 · B 10 · R 9 · T 11): its corners keep their size
+   and only the middle stretches, so it is a 9-slice mask in --k units — stretched whole as one mask its 5-unit corners
+   grew with the box into long flat curves (maintainer report 2026-11-19 「모서리 라운드 처리가 이상해」). Without the art,
+   or in a browser without mask-box-image (Firefox), the same plate as a rounded box. */
 .pdetail__part { position: relative; flex: 1 1 0; min-width: 0; height: var(--ah); display: flex; align-items: center; }
 .pdetail__part::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none; background: rgba(47, 47, 47, .6);
-  -webkit-mask: var(--pd-list, linear-gradient(#000, #000)) center / 100% 100% no-repeat; mask: var(--pd-list, linear-gradient(#000, #000)) center / 100% 100% no-repeat;
+  content: ''; position: absolute; inset: calc(1.5px * var(--k)) 0 calc(2.5px * var(--k)); pointer-events: none; background: rgba(47, 47, 47, .6);
+  border-radius: calc(5px * var(--k));
+}
+@supports (-webkit-mask-box-image-source: none) {
+  .pdetail[style*='--pd-list'] .pdetail__part::before {
+    inset: 0; border-radius: 0;
+    -webkit-mask-box-image-source: var(--pd-list); -webkit-mask-box-image-slice: 11 9 10 7 fill;
+    -webkit-mask-box-image-width: calc(11px * var(--k)) calc(9px * var(--k)) calc(10px * var(--k)) calc(7px * var(--k));
+    -webkit-mask-box-image-repeat: stretch;
+  }
 }
 .pdetail__part.is-bonds { flex-grow: .62; }
 .pdetail__list { position: relative; flex: 1 1 auto; display: flex; align-items: center; height: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }

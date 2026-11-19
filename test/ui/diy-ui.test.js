@@ -436,6 +436,15 @@ describe('自选编队 tab (screens/diy.js)', () => {
     }
     assert.match(readFileSync(path.join(ROOT, 'public/js/screens/diy.js'), 'utf8'), /const art = withDiyChooseArt\(m, data\.get\('local'\)\);/, "盟约's tab draws 规程's lineup art");
   });
+
+  test('the card portrait keeps its full width and the profession slot draws the square glyph (maintainer report 2026-11-19)', () => {
+    const css = readFileSync(path.join(ROOT, 'public/css/screens/diychoose.css'), 'utf8');
+    assert.match(css.match(/\.dccard__por img \{[^}]*\}/)[0], /max-width: none/,
+      "the portrait (102 in its 80.5 window) is cut to 80.5 by theme.css img { max-width: 100% } without max-width none — docs/rules/ui.md 「카드」");
+    const card = readFileSync(path.join(ROOT, 'public/js/ui/diyCard.js'), 'utf8');
+    assert.match(card, /const prof = profGlyphUrl\(m, rec\?\.profession\)/,
+      'img_profession is a 16 × 16 square: the prof.large glyph, not the wide prof.icon banner — docs/rules/ui.md 「카드」');
+  });
 });
 
 // ---- match UI -------------------------------------------------------------------------------------------------------------
