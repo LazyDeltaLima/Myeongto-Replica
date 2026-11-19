@@ -1205,46 +1205,88 @@ test('引星棘刺 S1 度算浪波 (AUTO): fires as soon as its SP is full, no e
   }
 });
 
-test('引星棘刺 S3 “我的海疆”: passive skill range; alchemy units on the 3 lowest-block ops debuff (不叠加) and burn enemies around them, ramping to the max after 15 s', () => {
+test('引星棘刺 S3 “我的海疆”: passive skill range; one area over the 3 lowest-block ops\' tiles, pushed out 0.325, from 0.5 s after the strike for projectile_delay_time s — debuff (不叠加) and one burn per second, ramping to the max after 15 s; the enemies blocked by an ally in it too', () => {
   for (const id of pair('15')) {
     const h = run({
       defs: {
-        chess: { t_b0: ally('t_b0', { stats: { blockCnt: 0 } }), t_b1: ally('t_b1', { stats: { blockCnt: 1 } }), t_b2: ally('t_b2', { stats: { blockCnt: 2 } }), t_b3: ally('t_b3', { stats: { blockCnt: 3 } }) },
+        chess: { t_a: ally('t_a'), t_b: ally('t_b'), t_c: ally('t_c'), t_d: ally('t_d', { stats: { blockCnt: 3 } }), t_e: ally('t_e', { stats: { blockCnt: 3 } }) },
         enemies: { enemy_dummy: dummy('enemy_dummy', { atk: 100, def: 100 }), enemy_res: dummy('enemy_res', { res: 50 }) },
       },
-      // every operator inside her skill range: its `Selector` takes the operators of that range only (skills.js trigAllyTargets)
-      units: [entry(id, 'skchr_thorn2_3', { row: 10, col: 3 }), { chessId: 't_b0', row: 12, col: 4 }, { chessId: 't_b1', row: 12, col: 5 }, { chessId: 't_b2', row: 9, col: 5 }, { chessId: 't_b3', row: 8, col: 4 }],
-      enemies: [{ key: 'enemy_dummy', pos: [10, 7] }, { key: 'enemy_dummy', pos: [11, 5] }, { key: 'enemy_dummy', pos: [8, 7] }, { key: 'enemy_res', pos: [12, 6] }],
+      // t_a / t_b / t_c (no blocking) get the units: the triangle (x, y) (4, 9) – (4, 12) – (7, 10); t_d stands 0.32 off its
+      // upper edge (its 0.25 collider in the pushed-out area), t_e outside it, both blocking 3 (not picked)
+      units: [entry(id, 'skchr_thorn2_3', { row: 10, col: 3 }), { chessId: 't_a', row: 9, col: 4 }, { chessId: 't_b', row: 12, col: 4 },
+        { chessId: 't_c', row: 10, col: 7 }, { chessId: 't_d', row: 9, col: 5 }, { chessId: 't_e', row: 9, col: 9 }],
+      enemies: [
+        { key: 'enemy_dummy', pos: [10, 5] },      // inside
+        { key: 'enemy_dummy', pos: [11.5, 3.6] },  // 0.4 left of the edge x = 4: its 0.1 collider reaches the 0.325 push
+        { key: 'enemy_dummy', pos: [11.5, 3.45] }, // 0.55 left: outside
+        { key: 'enemy_dummy', pos: [8.2, 5] },     // outside, blocked by t_d (held 0.5 above it: 0.79 off the edge)
+        { key: 'enemy_dummy', pos: [8.2, 9] },     // outside, blocked by t_e (outside the area)
+        { key: 'enemy_res', pos: [10.4, 6] },      // inside
+      ],
     });
     const u = sel(h, id, 'skchr_thorn2_3');
     const bb = bbOf(u);
-    const [e1, e2, e3, er] = h.b.enemies;
+    const [eIn, eEdge, eOut, eBlk, eBlkOut, er] = h.b.enemies;
     h.step();
     assert.ok(u.rangeKeySet.has(10 * COLS + 7) && u.baseRangeKeys.includes(10 * COLS + 7), 'passive: the skill range is her range (and trigger range)');
     cast(h, u);
     h.strike(u);
-    const anchors = u.mem.zones.map((z) => z.anchor.defId).sort();
-    const ownBlk = u.s.blockCnt;
-    assert.deepEqual(anchors, (ownBlk <= 1 ? [u.defId, 't_b0', 't_b1'] : ['t_b0', 't_b1', 't_b2']).sort(), 'the 3 lowest block counts');
-    h.run(0.6);
-    const b = e2.findBuff('thorn2:sea');
-    assert.ok(b, 'around t_b0 / t_b1');
-    approx(e2.s.atk, 100 * (1 + bb.atk));
-    approx(e2.s.def, 100 * (1 + bb.def));
+    const seas = u.mem.zones.filter((z) => z.type === 'sea');
+    assert.equal(seas.length, 1, 'one area per cast');
+    assert.deepEqual(seas[0].anchors.map((a) => a.defId).sort(), ['t_a', 't_b', 't_c'], 'the 3 lowest block counts');
+    assert.equal(seas[0].area.poly.length, 6, 'a triangle, each edge pushed out (corners cut)');
+    h.run(0.4);
+    assert.equal(tagged(h, u, 'mySea').length, 0, 'nothing before the area reaches (AttachToTarget _delayToStart 0.5)');
+    assert.equal(eIn.findBuff('thorn2:sea'), null, 'no debuff before it reaches');
+    h.run(0.4);
+    assert.ok(eIn.findBuff('thorn2:sea'), 'inside');
+    approx(eIn.s.atk, 100 * (1 + bb.atk));
+    approx(eIn.s.def, 100 * (1 + bb.def));
     approx(er.s.res, 50 * (1 + bb.magic_resistance), 'RES −%');
-    assert.equal(e2.buffs.filter((x) => x.key === 'thorn2:sea').length, 1, '不叠加: one debuff under two units');
-    const first = tagged(h, u, 'mySea', e2);
-    assert.equal(first.length, 2, 'the first burn lands with the units (two units around e2)');
-    for (const c of first) approx(c.amount, u.s.atk * bb.atk_scale, 'first burn');
-    h.run(bb.max_stack_cnt * bb.interval + 0.5);
-    approx(e2.s.atk, 100 * (1 + bb.max_atk), 'max ATK cut');
-    approx(e2.s.def, 100 * (1 + bb.max_def), 'max DEF cut');
+    const first = tagged(h, u, 'mySea', eIn);
+    assert.equal(first.length, 1, 'one burn: one area (the units do not each burn)');
+    approx(first[0].amount, u.s.atk * bb.atk_scale, 'first burn');
+    assert.equal(tagged(h, u, 'mySea', eEdge).length, 1, 'a collider touching the pushed-out edge');
+    assert.equal(tagged(h, u, 'mySea', eOut).length, 0, 'past the push');
+    assert.ok(eBlk.blockedBy === h.unit('t_d') && eBlkOut.blockedBy === h.unit('t_e'), 'both held by their blockers');
+    assert.equal(tagged(h, u, 'mySea', eBlk).length, 1, 'blocked by an ally in the area (SelectorHitBehaviourWithAllyBlockedEnemy)');
+    assert.equal(tagged(h, u, 'mySea', eBlkOut).length, 0, 'blocked by an ally outside it');
+    mute(h, u);
+    h.run(bb.max_stack_cnt * bb.interval);
+    approx(eIn.s.atk, 100 * (1 + bb.max_atk), 'max ATK cut');
+    approx(eIn.s.def, 100 * (1 + bb.max_def), 'max DEF cut');
     approx(er.s.res, 50 * (1 + bb.max_magic_resistance), 'max RES cut');
-    approx(tagged(h, u, 'mySea', e2).at(-1).amount, u.s.atk * bb.max_atk_scale, 'max scale');
-    assert.equal(tagged(h, u, 'mySea', e3).length, 0, 'not around an anchor');
-    h.run(bb.projectile_delay_time);
-    assert.equal(e2.findBuff('thorn2:sea'), null, 'expired');
-    assert.ok(e1);
+    approx(tagged(h, u, 'mySea', eIn).at(-1).amount, u.s.atk * bb.max_atk_scale, 'max scale');
+    assert.equal(tagged(h, u, 'mySea', eIn).length, bb.max_stack_cnt + 1, 'one burn per interval');
+    // projectile_delay_time (+ 心相's extension: t_a… stand in her range) from the reach, 0.5 s after the strike
+    const dur = seas[0].dur;
+    assert.ok(dur >= bb.projectile_delay_time, 'its time');
+    h.run(0.5 + dur - 0.8 - bb.max_stack_cnt * bb.interval - 0.4);
+    assert.ok(eIn.findBuff('thorn2:sea'), 'still on before projectile_delay_time s after the reach');
+    h.run(1);
+    assert.equal(eIn.findBuff('thorn2:sea'), null, 'expired');
+    done(h);
+  }
+});
+
+test('引星棘刺 S3: three tiles in a row are a 0.325-wide line (the middle one drops out)', () => {
+  for (const id of pair('15')) {
+    const h = run({
+      defs: { chess: { t_a: ally('t_a'), t_b: ally('t_b') }, enemies: { enemy_dummy: dummy('enemy_dummy') } },
+      units: [entry(id, 'skchr_thorn2_3', { row: 10, col: 3 }), { chessId: 't_a', row: 10, col: 5 }, { chessId: 't_b', row: 10, col: 7 }],
+      enemies: [{ key: 'enemy_dummy', pos: [10.25, 6] }, { key: 'enemy_dummy', pos: [10.3, 6] }],
+    });
+    const u = sel(h, id, 'skchr_thorn2_3');
+    const [eNear, eOff] = h.b.enemies;
+    cast(h, u);
+    h.strike(u);
+    const z = u.mem.zones.find((x) => x.type === 'sea');
+    assert.equal(z.anchors.length, 3, 'her and both operators');
+    assert.equal(z.area.poly.length, 4, 'a rectangle along the line');
+    h.run(1);
+    assert.equal(tagged(h, u, 'mySea', eNear).length, 1, '0.25 off the line: the collider (0.1) reaches its half width 0.1625');
+    assert.equal(tagged(h, u, 'mySea', eOff).length, 0, '0.3 off the line: outside');
     done(h);
   }
 });

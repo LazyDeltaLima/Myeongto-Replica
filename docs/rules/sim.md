@@ -355,7 +355,21 @@ HP도 원소 점수도 가득이면 빠짐), BLOCK_CNT_ASC_CREATED_TIME_DES 61(�
 SP가 차면 범위에 오퍼레이터가 있는 한 다시 켜진다 — 그 전엔 키트가 그 버프를 유닛 시간만큼 붙여, 범위의 오퍼레이터가 모두 유닛을 지니면 S3가 기다렸다.
 연금 유닛을 받는 오퍼레이터는 스킬 능력(`Token`, `RangedAttack`, `_selectTargetTiming` 1)의 `Selector`가 고르는데, 그 설정은 트리거와 같다(`AutoLoadBoxRange` 스킬 범위,
 오퍼레이터 639, `_postFilter` 61 저지 수 낮은 순 → 나중 배치, `_limitTargetNum` → `max_target_token`) → 키트가 타격 순간 `skills.js trigAllyTargets`(트리거의
-`_trigAllies`를 61 순서로 `max_target_token`명). 그 전엔 범위와 상관없이 주인의 모든 오퍼레이터에서 저지 수 → 거리 순이었다. 블레이즈 디 이그나이팅 스파크
+`_trigAllies`를 61 순서로 `max_target_token`명). 그 전엔 범위와 상관없이 주인의 모든 오퍼레이터에서 저지 수 → 거리 순이었다.
+**쏜즈 더 로드스타 S3의 영역**(2026-11-19, 공식 클라에서 확인 — 키트 `seaArea`·`seaTargets`): 효과는 오퍼레이터마다가 아니라 시전마다 영역 하나다. 스킬 프리팹의
+`PolygonProjectileToTile`이 타격 순간(`ON_SPELL_ON`) `projectile_chr_thorn2_s3_polygon` 하나를 만들고 그 `polygonRangeTiles`에 스킬 능력의 시전 대상(유닛을 받은
+오퍼레이터들)의 칸을 그때 담는다 — 영역은 그 칸에 머문다(PRTS 备注 「生成的炼金单元/区域独立于干员存在」). `Thorn2PolygonRange`(점 최대 4개)는 칸 중심의 볼록 껍질을
+만들고(`_DoCalculateHull`, 안쪽 점과 일직선 셋의 가운데는 빠짐 — `_OptimizeLineCollider`), 두 점이면 그 선분을 따라 폭 `_polygonLineColliderWide` 0.325의 직사각형
+(양쪽 0.1625씩; PRTS 备注는 0.65라 함), 셋이면 각 변을 바깥 법선으로 `_polygonColliderOffset` 0.325 민 다각형(모서리는 잘린 채)이다. 한 점이면 그 점이다 [추정·엔진: 이때
+클라는 물리 선검색의 상자(`_GetBoxColliderData`)를 만들지 않아 그 검색이 무엇을 내는지 안 정해짐 — PRTS 备注 「仅存在1点时，判定区域为一点」대로]. 적은 충돌체(일반 0.1 원,
+거대 적은 사각형)가 영역에 닿으면 든다(`DoFindTargets_DISPOSE` → `Polygon2DPhysicsUtil.PolygonCircle`·`PolygonRectangle`; 지상·공중 `_targetMotion` 3), 그리고
+영역에 닿은 아군(충돌체 0.25; `_allySelector` `_professionMask` 767 = 장치 빼고 소환물 포함, `_ignoreAllyTargetFree`)이 막은 적도 든다
+(`SelectorHitBehaviourWithAllyBlockedEnemy.DoSelectTargetToHit`). 영역은 0.5초 뒤 닿고(`AttachToTarget` `_delayToStart` 0.5·`_immediatelyReach` — 충돌체는
+`PolygonSelectorHitBehaviour.OnProjectileReached`에서 만들어져 그 전엔 아무도 안 맞음), 닿은 때부터 `projectile_delay_time`(+ 재능 「심상」의 연장)초 간다(`_delayAfterReached` →
+`EnsureLifeTime`; 프리팹의 `_lifeTime` 10은 `_lifeTimeType` INFINITY라 안 쓰임). 피해·약화의 증가도 닿은 때부터 센다(`_onlyIncreaseReached`). 그래서 한 시전에서 적은
+`interval`마다 한 번 맞는다 — 그 전엔 오퍼레이터마다 RING1(1.5) 원이 그 오퍼레이터를 따라다니며 따로 태워, 원 둘에 든 적은 두 번 맞았고, 막힌 적 규칙·0.5초 지연이 없었다.
+다른 시전의 영역끼리는 피해가 더해지고 약화는 가장 센 것 하나다(PRTS 备注). 영역의 그림(`Thorn2S3Renderer` `thorn2_skill_03_line`)은 아직 안 그림(fx 줄).
+시험: `test/content/kits_alt_t5.test.js`의 「引星棘刺 S3」 두 개. 블레이즈 디 이그나이팅 스파크
 S1(자동)의 몸 돌리기는 최대 HP 오퍼레이터 쪽이다. 엔진이 정렬을 모르는 아군 `_postFilter`(3·39 — 자동 스킬뿐)는 대상 `undefined`(공격 대상 근사).
 타일 선택자(Miss.Christine S2): `TileSelector`도 유닛은 다른 범위 선택자처럼 찾고(`RangeSelector.DoFindTargets_DISPOSE`: 범위 상자·제 쪽·제 지상/공중) HATRED_DES(4)로
 세운다(`TileSelector.OnPostFilter(List<Entity>)`, 최대 128) — `_options`·`_filterType`은 칸 고르기(FindTiles)에만 쓰인다 → 추출기가 적 'range'(`tile` 1)로 읽는다.

@@ -1,7 +1,8 @@
 // server/sim/content/kits/ops/chess_char_5_15-thorn2.js — 引星棘刺 (char_1039_thorn2) kit, tier 5.
 // Conventions of the tier-5 kits: ../shared/tier5.js; kit contract and rules: ../README.md.
 
-import { COLS } from '../../../constants.js';
+import { COLS, ALLY_COLLIDER_RADIUS, ENEMY_COLLIDER_RADIUS } from '../../../constants.js';
+import { hitRect } from '../../../body.js';
 import { sortEnemyTargets } from '../../../targeting.js';
 import { toLocal } from '../../../dir.js';
 import {
@@ -9,6 +10,103 @@ import {
   instantKind, whileOn, permBuff,
 } from '../shared/tier5.js';
 import { hypot } from '../../../detmath.js';
+
+// ---------------------------------------------------------------------------------------------------------------
+// S3 “我的海疆”'s area (official client: skchr_thorn2_3 `PolygonProjectileToTile` → projectile_chr_thorn2_s3_polygon,
+// `Thorn2PolygonRange` · `PolygonSelectorHitBehaviour`; docs/rules/sim.md 「스킬 프리팹의 대상 트리거」, 쏜즈 더 로드스타 S3의 영역). One area per cast
+// over the tiles of the operators her units went to, taken as it strikes: their convex hull (`_DoCalculateHull`, Graham scan;
+// a point inside the others' triangle and the middle one of three in a row drop out — `_OptimizeLineCollider`); two tiles are
+// a rectangle `_polygonLineColliderWide` 0.325 wide along their segment (half of it each side — PRTS 备注 says 0.65), three
+// a polygon whose edges are pushed out `_polygonColliderOffset` 0.325 (each edge moved along its outer normal; the corners
+// stay cut), one tile that point [추정·엔진: the client builds no bounding box for its physics pre-search then, so what that
+// search returns is not settled; PRTS 备注 「仅存在1点时，判定区域为一点」]. An enemy is in it when its collider touches it
+// (`DoFindTargets_DISPOSE`: `PolygonCircle` / `PolygonRectangle` with the unit's hit colliders).
+const SEA_LINE_HALF = 0.325 / 2, SEA_OFFSET = 0.325;
+/** `_delayToStart` of its `AttachToTarget`: the area reaches (and starts hitting) this long after the strike. */
+const SEA_DELAY = 0.5;
+
+/** The area over tile centres `pts` ([x, y]): `{ point: [x, y] }` for one, else `{ poly }` (convex, counter-clockwise). */
+function seaArea(pts) {
+  const u = [];
+  for (const p of pts) if (!u.some((q) => q[0] === p[0] && q[1] === p[1])) u.push(p);
+  u.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (u.length <= 1) return u.length ? { point: u[0] } : null;
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], hi = [];
+  for (const p of u) { while (lo.length >= 2 && cross(lo.at(-2), lo.at(-1), p) <= 0) lo.pop(); lo.push(p); }
+  for (let i = u.length - 1; i >= 0; i--) { const p = u[i]; while (hi.length >= 2 && cross(hi.at(-2), hi.at(-1), p) <= 0) hi.pop(); hi.push(p); }
+  const h = lo.slice(0, -1).concat(hi.slice(0, -1));   // counter-clockwise, collinear points dropped
+  if (h.length === 2) {
+    const [a, b] = h, len = hypot(b[0] - a[0], b[1] - a[1]);
+    const nx = -(b[1] - a[1]) / len * SEA_LINE_HALF, ny = (b[0] - a[0]) / len * SEA_LINE_HALF;
+    return { poly: [[a[0] - nx, a[1] - ny], [b[0] - nx, b[1] - ny], [b[0] + nx, b[1] + ny], [a[0] + nx, a[1] + ny]] };
+  }
+  const poly = [];
+  for (let i = 0; i < h.length; i++) {
+    const a = h[i], b = h[(i + 1) % h.length], len = hypot(b[0] - a[0], b[1] - a[1]);
+    const ox = (b[1] - a[1]) / len * SEA_OFFSET, oy = -(b[0] - a[0]) / len * SEA_OFFSET;   // outer normal of a CCW edge
+    poly.push([a[0] + ox, a[1] + oy], [b[0] + ox, b[1] + oy]);
+  }
+  return { poly };
+}
+
+/** Does the circle (x, y, r) touch the area (`PolygonCircle`: an edge within r, or the centre inside)? */
+function seaTouchesCircle(area, x, y, r) {
+  const r2 = r * r + 1e-9;
+  if (area.point) { const dx = x - area.point[0], dy = y - area.point[1]; return dx * dx + dy * dy <= r2; }
+  const P = area.poly;
+  let inside = true;
+  for (let i = 0; i < P.length; i++) {
+    const a = P[i], b = P[(i + 1) % P.length];
+    const ex = b[0] - a[0], ey = b[1] - a[1], px = x - a[0], py = y - a[1];
+    if (ex * py - ey * px < 0) inside = false;
+    const l2 = ex * ex + ey * ey, t = l2 > 0 ? Math.max(0, Math.min(1, (px * ex + py * ey) / l2)) : 0;
+    const dx = px - t * ex, dy = py - t * ey;
+    if (dx * dx + dy * dy <= r2) return true;
+  }
+  return inside;
+}
+
+/** Does the rectangle R ({ x0, x1, y0, y1 }) touch the area (`PolygonRectangle`; both convex: no separating axis)? */
+function seaTouchesRect(area, R) {
+  if (area.point) { const [x, y] = area.point; return x >= R.x0 && x <= R.x1 && y >= R.y0 && y <= R.y1; }
+  const P = area.poly, Q = [[R.x0, R.y0], [R.x1, R.y0], [R.x1, R.y1], [R.x0, R.y1]];
+  const axes = [[1, 0], [0, 1]];
+  for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length]; axes.push([a[1] - b[1], b[0] - a[0]]); }
+  for (const [ax, ay] of axes) {
+    let p0 = Infinity, p1 = -Infinity, q0 = Infinity, q1 = -Infinity;
+    for (const [x, y] of P) { const d = x * ax + y * ay; if (d < p0) p0 = d; if (d > p1) p1 = d; }
+    for (const [x, y] of Q) { const d = x * ax + y * ay; if (d < q0) q0 = d; if (d > q1) q1 = d; }
+    if (p1 < q0 - 1e-9 || q1 < p0 - 1e-9) return false;
+  }
+  return true;
+}
+
+/**
+ * The enemies the area hits this moment: every enemy (ground and air, `_targetMotion` 3) whose collider touches it, and the
+ * enemies blocked by an ally standing in it — operators and summons, no devices (`SelectorHitBehaviourWithAllyBlockedEnemy`:
+ * its `_allySelector`, `_professionMask` 767 = all but TRAP, `_ignoreAllyTargetFree`, finds the allies in the same area and
+ * hits each one's `blockedEnemies`; PRTS 备注 「处于判定区域中的我方单位…阻挡敌人时，被阻挡的敌人视为处于判定区域内」).
+ */
+function seaTargets(battle, z) {
+  const A = z.area, pts = A.point ? [A.point] : A.poly;
+  let cx = 0, cy = 0;
+  for (const p of pts) { cx += p[0]; cy += p[1]; }
+  cx /= pts.length; cy /= pts.length;
+  let reach = 0;
+  for (const p of pts) reach = Math.max(reach, hypot(p[0] - cx, p[1] - cy));
+  const out = new Set();
+  // a wide net (a huge enemy's rectangle reaches past its centre), then the exact test
+  for (const e of battle.foesInRadius(cx, cy, reach + 3)) {
+    const R = e.side === 'enemy' ? hitRect(e) : null;
+    if (R ? seaTouchesRect(A, R) : seaTouchesCircle(A, e.x, e.y, e.side === 'enemy' ? ENEMY_COLLIDER_RADIUS : 0)) out.add(e);
+  }
+  for (const a of battle.allies()) {
+    if (!a.blocking || !a.blocking.length || a.hidden || !seaTouchesCircle(A, a.x, a.y, ALLY_COLLIDER_RADIUS)) continue;
+    for (const e of a.blocking) if (e.blockedBy === a && e.alive && !e.hidden && !e.s.flags.untargetable) out.add(e);
+  }
+  return [...out];
+}
 
 /** Straight-road length through each tile (max of the horizontal and vertical runs of ground-passable tiles). */
 const ROAD_CACHE = new WeakMap();
@@ -47,9 +145,11 @@ export default {
   // PRTS 备注 says "生命恢复的提供方式为增加目标的“生命回复速度”属性，不受治疗加成和禁疗影响" (the only other 炼金师): 不屈者 and
   // 禁疗 units recover too (community report: 炼金单元无法给不屈者等禁疗的干员提供生命恢复; it was a heal up to 0.2.1).
   // S3 “我的海疆”: passive — her range is the skill range; active
-  // (instant) — alchemy units on the max_target_token operators in her range with the lowest block count: for projectile_delay_time s
-  // the enemies around each of them (RING1, following it) get ATK/DEF/RES −, one strongest instance (不叠加), and take
-  // atk_scale × ATK arts per second, everything ramping +per_interval each `interval` s up to max_stack_cnt steps.
+  // (instant) — alchemy units on the max_target_token operators in her range with the lowest block count, and one area over
+  // their tiles (seaArea, above): from SEA_DELAY s after the strike, for projectile_delay_time s, the enemies in it and those
+  // blocked by an ally in it get ATK/DEF/RES −, one strongest instance over her casts (不叠加), and take atk_scale × ATK arts
+  // per second once per area (two casts' areas add up), everything ramping +per_interval each `interval` s up to
+  // max_stack_cnt steps.
   chess_char_5_15_a: (bb, chess, def) => {
     const t0 = talent(chess, 0), t1 = talent(chess, 1), tm = talent(chess, -1);
     const sid = selectedId(chess, def);
@@ -78,12 +178,15 @@ export default {
         }
         return;
       }
-      // sea: follows its operator while it stands on the field; the first burn lands with the unit, then one per
-      // `interval` (so the 15th step — the max — is reached 15 s after the throw, for the debuff and the damage alike)
-      if (z.anchor && z.anchor.alive && z.anchor.deployed) { z.x = z.anchor.x; z.y = z.anchor.y; }
+      // sea: the area stays over the tiles it was cast on (PRTS 备注 「生成的炼金单元/区域独立于干员存在」); z.t counts from
+      // its reach (SEA_DELAY after the strike: nothing before — its colliders are made in `OnProjectileReached`). The first
+      // burn lands as it reaches, then one per `interval` (so the 15th step — the max — is reached 15 s after it reaches,
+      // for the debuff and the damage alike: `ProjectileBBIncreaseByTimeBehaviour` / `CacheAtkToBBBehaviour`
+      // `_onlyIncreaseReached`)
+      if (z.t < AURA_IV - 1e-9) return;
       const iv = Math.max(0.1, num(bb.interval, 1));
       const steps = Math.min(Math.max(0, num(bb.max_stack_cnt, 15)), Math.floor((z.t - AURA_IV + 1e-9) / iv));
-      const foes = battle.foesInRadius(z.x, z.y, RING1);
+      const foes = seaTargets(battle, z);
       for (const e of foes) seaHits.set(e, Math.max(seaHits.get(e) ?? -1, steps));
       if (z.acc >= iv - 1e-9) {
         z.acc -= iv;
@@ -121,11 +224,16 @@ export default {
             const n = Math.max(1, num(bb.max_target_token, 3));
             const ops = skill.trigAllyTargets(skill.cast?.trig, n)
               ?? battle.alliesInGrid(unit).filter(isOp).sort((a, b) => (a.s.blockCnt || 0) - (b.s.blockCnt || 0) || b.deploySeq - a.deploySeq).slice(0, n);
+            // `projectile_delay_time` (+ 心相's extension) is the area's time from its reach (`AttachToTarget` `_delayAfterReached`
+            // → `EnsureLifeTime`; its own `_lifeTime` 10 is unused: `_lifeTimeType` INFINITY)
             const dur = num(bb.projectile_delay_time, 19) + extend(battle, unit);
+            if (!ops.length) return;
+            // one area over the operators' tiles (`polygonRangeTiles` = the cast targets' tiles; at most 4 points)
+            const area = seaArea(ops.slice(0, 4).map((a) => [a.tileC, a.tileR]));
+            (unit.mem.zones ??= []).push({ type: 'sea', anchors: ops, area, t: -SEA_DELAY, acc: Math.max(0.1, num(bb.interval, 1)) - AURA_IV - SEA_DELAY, dur });
             for (const a of ops) {
-              (unit.mem.zones ??= []).push({ type: 'sea', anchor: a, x: a.x, y: a.y, t: 0, acc: Math.max(0.1, num(bb.interval, 1)) - AURA_IV, dur });
               // `thrown`: the unit thrown at that operator (skill prefab Token → projectile_chr_thorn2_s3, whose STOP sounds)
-              battle.fx('zone', { x: a.x, y: a.y, id: unit.id, r: RING1, duration: dur, thrown: 1 });
+              battle.fx('zone', { x: a.x, y: a.y, id: unit.id, r: RING1, duration: SEA_DELAY + dur, thrown: 1 });
             }
           },
         }),
