@@ -1258,7 +1258,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   쿨다운(최대 3 s)과 3 s 클립의 후딜을 기다리지 않고 S1 공격을 바로 휘두른다(이전: 기다렸다), 스킬이 끝나면 Default 공격도 바로.
   떼어진 능력의 휘두름은 기절·缴械에도 끊기지 않는다(2026-11-07, 공식 클라에서 확인): 상태를 나갈 때 끊는 것은 지금 모드의 공격뿐(`AttackState.OnExit`)이고 `Ability.DoDetach`는 `_interruptAbilityOnDetach`가 1일 때만 끊는다. 쓰러지거나 물러나면 없어진다(`battle/deploy.js`). [추정·엔진: 기절로 클립이 바뀐 뒤 OnAttack이 오는지, 휘두름 길이까지 기다리는지는 애니메이터의 몫이다. 시뮬은 제 시각에 친다]
   확인: `test/sim/attack-timing.test.js` 「a skill that switches the attack mode」·「a mode switch during a swing」·「a new attack interval re-times」.
-- **끊긴 휘두름은 쿨다운을 돌려주지 않는다**: 기절·빙결·수면·浮空·失衡, 숨음(적), 缴械·恐惧·战栗(막힘), 퇴각 — `Ability.InterruptIfNot` =
+- **끊긴 휘두름은 쿨다운을 돌려주지 않는다**: 기절·빙결·수면·浮空·失衡, 숨음(적), 恐惧, 缴械·战栗(막힘)(오퍼레이터만 — 적은 아래 「적 스킬 = 일반 공격 차례」 끊긴 시전), 퇴각 — `Ability.InterruptIfNot` =
   `FinishIfNot(INTERRUPTED, false)`, 쿨다운 그대로 → 끊긴 휘두름 시작부터 간격 한 번 뒤 다음 휘두름. 이전: 적은 기절이 풀리면 곧바로 새 휘두름.
 - **쿨다운은 기절 중에도 흐른다(확정)**: `Entity.OnTick`은 `get_alive`(상태기계 동작 중 + HP > 0)일 때 능력마다(첫 캐스트 프레임만 빼고) 그 능력의
   `OnTick`을 부르고, `AbilityStandard.OnTick` → `Ability.OnTick` → `PeriodicTimer.Update`는 조건 없이 남은 시간을 줄인다
@@ -1540,13 +1540,16 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   - **끊긴 시전**: 기절·빙결·수면·공중 띄우기·강제 이동(失衡)·공포·필드 이탈이 시전을 끊으면(`ai.js cutEnemySwing` → 훅 `enemySkillCut`) 그 스킬의 쿨이 그때 다시 돈다 — 클라의
     `AttackState.OnExit` → `InterruptIfNot` → `FinishIfNot(1)`이고 `EnemySkill._OnCastFinish`는 이유와 상관없이 `m_cooldownTimer.Reset`·(`resetMain`이면) 주 공격
     `ResetCooldown`을 한다(이전: 끊겨도 쿨 + 시전 길이 그대로). '즈자이' `ShieldBurst`는 방벽 마지막 층이 깨지면(`InterruptEnemyAbility`) 시전이 끝나고, 시전이 끊기면
-    방벽(`BuffDuringCasting`)도 폭발 없이 사라진다. 무장 해제(缴械)·전율(战栗)은 일반 휘두름만 끊고 스킬 시전은 이어진다(키트가 제 채널 동안 缴械를 붙여 「그동안 일반 공격 없음」으로
-    쓴다: 부패한 기사 `ChargeAttack`·검은 뿔의 루울 `skill`). 스킬 시전이 이어지는 것은 공식 클라에서 확인(2026-11-20): 적은 缴械(`DISARMED`, 무적이면 빼고; `FORCE_DISARMED`는
-    늘)를 `Entity.get_canUseAtkOrCbt`로만 읽고, 이를 묻는 것은 새 시전을 고를 때(`Enemy._SearchAttackTarget`·`AttackWrapper.SearchTarget`/`get_isValid`·
-    `CombatWrapper.PickCombatAbility`/`_PickAbility`/`get_isValid`)뿐이다 — `Enemy.States.AttackState.OnTick`·`CombatState.OnTick`은 공중 띄우기·기절·빙결·마비 진동만 보고
-    시전한 능력이 `isCasting`이면 그대로 두며, 이상 상태 변경 이벤트(`ON_ABNORMALFLAG_DIRTY`)에 시전을 끊는 쪽은 없다. 그런데 같은 이유로 **일반 휘두름도 끊지 않는다**
-    (오퍼레이터의 `Character.States.AttackState.OnTick`만 `canUseAtkOrCbt`를 봄) — 우리는 PRTS 异常效果 「正在进行的普通攻击将被中断」대로 적의 휘두름을 끊는다
-    [추정·미조사: PRTS 문구는 오퍼레이터 쪽일 수 있음 — 묶음 sim-D 줄 「적의 缴械가 일반 휘두름을 끊는지」].
+    방벽(`BuffDuringCasting`)도 폭발 없이 사라진다. 무장 해제(缴械)·전율(战栗, 막혔을 때)은 새 시전(일반 공격·스킬)만 막고 돌던 것은 끊지 않는다 — 하던
+    일반 휘두름도 제 타격 프레임에 치고 후딜까지 서 있으며, 스킬 시전도 이어진다(키트가 제 채널 동안 缴械를 붙여 「그동안 일반 공격 없음」으로 쓴다: 부패한
+    기사 `ChargeAttack`·검은 뿔의 루울 `skill`). 공식 클라에서 확인(2026-11-20): 적은 缴械(`DISARMED`, 무적이면 빼고; `FORCE_DISARMED`는 늘)를
+    `Entity.get_canUseAtkOrCbt`로, 战栗(`DISARMED_COMBAT`)을 `Enemy.get_combatable`로만 읽고, 이를 묻는 것은 새 시전을 고를 때(`Enemy._SearchAttackTarget`·
+    `AttackWrapper.SearchTarget`/`get_isValid`·`CombatWrapper.PickCombatAbility`/`_PickAbility`/`get_isValid`)와 전투 능력이 끝난 뒤(`CombatFinishCallback`)뿐이다 —
+    `Enemy.States.AttackState.OnTick`·`CombatState.OnTick`은 공중 띄우기·기절·빙결·마비 진동만 보고 시전한 능력이 `isCasting`이면 그대로 두며, 이상 상태 변경
+    이벤트(`ON_ABNORMALFLAG_DIRTY`)에 시전을 끊는 쪽은 없고, 능력의 주문(`AbilityStandard.OnSpellStart`)이 묻는 `Enemy.CanDoAbilitySpellOn`은 마비만 본다.
+    PRTS 异常效果 「正在进行的普通攻击将被中断」은 오퍼레이터 쪽이다(`Character.States.AttackState.OnTick`이 `canUseAtkOrCbt`를 봄 — 우리 `ai.js updateAlly`).
+    이전: 적의 일반 휘두름도 끊었다(PRTS 문구를 적에게도 씀). 강제 시전이 하던 일을 끊는 키트(`_interruptCurAbility`: 궤핵의 집양자·이형의 집양자 `enemy_1436_dsdivi`)는 일반 휘두름도 제가 끊는다(`enemies/reborn.js`).
+    시험: `test/sim/feedback5-enemy-swing.test.js` 「缴械 / 战栗 do not cut the swing running」.
   - **효과가 나는 때** (2026-11-20, 공식 클라에서 확인 — 이전: 아래 키트들은 시전 시작에 효과를 냈고 끊긴 시전도 맞혔다 [가정이었음]): 능력은 주문(효과) 전에
     한 프레임을 기다린다(`EasyToStartAbility.OnCastStart` → `<OnWaitForPreDelay>` → 주문; 공격 능력·`AnimatedActionTo*`·`GloballUniqueBuffAbility` 모두).
     `content/enemies.js castStrikeAt`이 그 때를 센다: 클립이 있고 공격 이벤트를 기다리면(`_waitForAttackEvent` 1) 클립의 첫 `OnAttack` × 시전 배율(시전 길이 ÷ 클립),

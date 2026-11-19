@@ -1,6 +1,6 @@
 // test/sim/feedback5-enemy-swing.test.js — an enemy's normal attack strikes at its clip's damage frame, and a stun before the
 // frame cuts the swing (GitHub #187 point 1 「短轴眩晕无法打断敌人攻击，比如：六卡西米尔、异德三、忍冬三」, #170; PRTS 状态机
-// ATTACK / COMBAT "每帧检查异常状态，若有则切换到异常状态的状态", PRTS 异常效果 STUNNED / DISARMED "正在进行的普通攻击将被中断") —
+// ATTACK / COMBAT "每帧检查异常状态，若有则切换到异常状态的状态", PRTS 异常效果 STUNNED "正在进行的普通攻击将被中断"; 缴械 / 战栗 do not cut an enemy's swing, 공식 클라에서 확인) —
 // server/sim/ai.js updateEnemy / enemyAttack / attackWindup. The damage frame is data/enemies.json `attackAnim.hit` (the
 // clip's strike frame) × the clip scale (attackTiming: interval ÷ clip within [0.1, `_maxAnimScale`]); no clip known ⇒ no
 // wind-up. Since 2026-10-10 (official client, docs/rules/sim.md 「일반 공격 타이밍」) the cooldown restarts as the swing starts
@@ -81,7 +81,7 @@ for (const dur of [0.1, 0.2]) {
   });
 }
 
-test('a stun during the cooldown (before the swing) does not hold it; 缴械 cuts a swing like a stun; a strike already made stays made (a ranged shot in flight lands)', () => {
+test('a stun during the cooldown (before the swing) does not hold it; 缴械 / 战栗 do not cut the swing running but start none; a strike already made stays made (a ranged shot in flight lands)', () => {
   // the cooldown runs through a stun (client: `Entity.OnTick` ticks the abilities of every living entity): a 0.5 s stun
   // 0.5 s after a strike leaves the next one where it was
   const a = field();
@@ -99,17 +99,25 @@ test('a stun during the cooldown (before the swing) does not hold it; 缴械 cut
   a.h.run(1.5);
   near(strikes(a.h, a.e)[2], tEnd + HIT, 'swings as the stun ends', 3);
   done(a.h);
-  // 缴械 mid-swing: the swing is cut, the next one a whole interval after its start
-  const b = field();
-  assert.ok(b.h.runUntil(() => strikes(b.h, b.e).length === 1, 2));
-  const u1 = strikes(b.h, b.e)[0];
-  b.h.runUntil(() => b.h.b.time >= u1 + BAT - HIT + 0.2 - 1e-9, 3);
-  const tD = b.h.b.time;
-  b.h.b.addBuff(b.e, { key: 'test:disarm', duration: 0.1, flags: { disarm: true } });
-  b.h.run(BAT + HIT + 0.3);
-  assert.equal(strikes(b.h, b.e).filter((t) => t > u1 && t < tD + 0.1).length, 0, '缴械 "正在进行的普通攻击将被中断"');
-  near(strikes(b.h, b.e)[1], tD - 0.2 + BAT + HIT, 'the next swing a whole interval after the cut one started', 3);
-  done(b.h);
+  // 缴械 / 战栗 mid-swing: the swing plays out and strikes at its frame (the client's enemy reads them only as it picks a
+  // cast — `canUseAtkOrCbt` / `Enemy.get_combatable` —, and its spell asks `Enemy.CanDoAbilitySpellOn`, 麻痹 alone:
+  // docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 끊긴 시전); no new swing until it ends
+  for (const status of ['disarm', 'tremble']) {
+    const b = field();
+    assert.ok(b.h.runUntil(() => strikes(b.h, b.e).length === 1, 2));
+    const u1 = strikes(b.h, b.e)[0];
+    b.h.runUntil(() => b.h.b.time >= u1 + BAT - HIT + 0.2 - 1e-9, 3);
+    const tD = b.h.b.time, len = BAT + 0.5;   // over the next swing's due moment (tD − 0.2 + BAT)
+    assert.ok(b.e.swing && b.e.blockedBy, 'a blocked enemy swinging');
+    b.h.b.applyStatus(b.e, status, { duration: len });
+    assert.ok(b.e.s.flags[status], status);
+    b.h.run(len + HIT + 0.3);
+    const s = strikes(b.h, b.e);
+    near(s[1], tD + 0.2, `${status}: the swing running strikes at its frame`, 3);
+    assert.deepEqual(hits(b.h, b.e), s, `${status}: each strike deals its damage`);
+    near(s[2], tD + len + HIT, `${status}: no new swing until it ends, then one at once`, 3);
+    done(b.h);
+  }
   // ranged: stunned just after the strike — the shot flies on and lands
   const c = field({ ranged: true });
   assert.ok(c.h.runUntil(() => strikes(c.h, c.e).length === 1, 3));

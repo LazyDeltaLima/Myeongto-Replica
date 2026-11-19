@@ -1459,24 +1459,23 @@ function enemyAttack(b, e, dt) {
   // no normal attack — but an Attack ability in its prefab's mode (enemies.json `attackAbility`: the client's
   // `Unit.hasAttack`) still brings its attack slot round for its skills; it never swings
   if (unarmed && !(def.raw && def.raw.attackAbility)) return cutSwing(e), false;
-  // 恐惧 / 缴械 / 战栗 (被阻挡后无法进行普通攻击): no normal attack, and the one swung is interrupted; 恐惧 cuts a skill's cast
-  // too, 缴械 / 战栗 only the normal swing — the kits' own channels hold 缴械 for "no normal attack meanwhile" (直击 aside:
-  // 蓄力攻击, 角力对决). The client's enemy reads 缴械 only as it picks a cast (`Entity.get_canUseAtkOrCbt` in
-  // `AttackWrapper.SearchTarget` / `CombatWrapper.PickCombatAbility`); `Enemy.States.AttackState.OnTick` / `CombatState.OnTick`
-  // go on while the cast ability `isCasting` (공식 클라에서 확인), so a skill's cast plays on
+  // 恐惧 cuts the swing or skill cast running and starts none (its own rule, cutEnemySwing)
   if (e.s.flags.fear) return cutEnemySwing(b, e), false;
-  if (e.s.flags.disarm || (e.s.flags.tremble && e.blockedBy)) {
-    if (e.swing || e.castSwing) cutSwing(e);
-    return false;
-  }
+  // 缴械 / 战栗 (被阻挡后无法进行普通攻击): no new attack nor skill cast — the swing or cast running plays out, its strike
+  // included. The client's enemy reads them only as it picks a cast (`Entity.get_canUseAtkOrCbt` — 缴械 — in
+  // `AttackWrapper.SearchTarget` / `CombatWrapper.PickCombatAbility`; `Enemy.get_combatable` — 战栗 — in
+  // `CombatWrapper._PickAbility`): `Enemy.States.AttackState.OnTick` / `CombatState.OnTick` go on while the cast ability
+  // `isCasting`, and its spell asks only `Enemy.CanDoAbilitySpellOn` (麻痹 alone) — 공식 클라에서 확인. The kits' own
+  // channels hold 缴械 for "no normal attack meanwhile" (直击 aside: 蓄力攻击, 角力对决)
+  const barred = !!(e.s.flags.disarm || (e.s.flags.tremble && e.blockedBy));
   const moves = !!(e.profile?.attackMoves ?? def.attackMoves);
   // the attack slot: the main attack ready (its cooldown over, the last swing or cast played out, no 麻痹震颤) — a ready
   // skill of the enemy is cast in its place before any normal attack is looked for (enemySkillSlot)
-  if (!e.swing && e.atkCd <= 0 && e.castLeft <= 0 && !(b.time < e.palsyUntil - 1e-9) && enemySkillSlot(b, e)) {
+  if (!barred && !e.swing && e.atkCd <= 0 && e.castLeft <= 0 && !(b.time < e.palsyUntil - 1e-9) && enemySkillSlot(b, e)) {
     return e.castLeft > 0 && !moves;
   }
   if (unarmed) return false;   // it never swings (a cast it started plays out: castLeft, atkStandUntil)
-  if (dmgType === 'heal') { if (e.atkCd <= 0) enemyHeal(b, e, e.base.rangeRadius); return false; }
+  if (dmgType === 'heal') { if (!barred && e.atkCd <= 0) enemyHeal(b, e, e.base.rangeRadius); return false; }
   // applyWay MELEE enemies only ever hit their blocker, even when their data carries a rangeRadius (粉碎攻坚手 2.5,
   // 宿主士兵 2.5, 深池伙友卫队 1.4 … — that radius belongs to their abilities/splash, handled by content).
   // Content may flip it with `e.profile.melee = false`.
@@ -1493,6 +1492,7 @@ function enemyAttack(b, e, dt) {
     enemyStrike(b, e, radius, reach, own);
     return false;
   }
+  if (barred) return false;
   if (e.atkCd > 0 || e.castLeft > 0) return false;   // the cooldown runs, or the last swing still plays out
   if (b.time < e.palsyUntil - 1e-9) return false;     // 麻痹震颤 (PALSY_STOP): no new attack
   const targets = enemyTargets(e, attackTargets(b, e, radius, reach, own));

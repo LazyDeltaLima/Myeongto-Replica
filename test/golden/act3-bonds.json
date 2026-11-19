@@ -786,16 +786,16 @@
         ["p1","~1","token","enemy_9024_acsgnt",null,null,158295.14,1,9,5,120997,2565,0,18,null],
         ["p1","~1","token","token_10040_siege2_vlion",null,null,4000,0,21,0,0,0,0,0,null],
         ["p1","~2","token","token_10040_siege2_vlion",null,null,4000,0,22,0,0,0,0,0,null],
-        ["p1","~3","token","token_10040_siege2_vlion",null,null,4000,0,23,0,1425,0,0,3,null],
-        ["p1","~4","token","token_10040_siege2_vlion",null,null,4000,0,24,0,950,0,0,2,null],
+        ["p1","~3","token","token_10040_siege2_vlion",null,null,3437.59,0,23,0,1425,562,0,3,null],
+        ["p1","~4","token","token_10040_siege2_vlion",null,null,2875.19,0,24,0,950,1125,0,2,null],
         ["p1","~5","token","token_10040_siege2_vlion",null,null,3204.4,0,25,0,0,796,0,0,null],
         ["p1","~6","token","token_10040_siege2_vlion",null,null,3204.4,0,26,0,0,796,0,0,null]
       ],
-      "enemies": {"enemy_1045_hammer_2":[2,2,0,0,99533],"enemy_1061_zomshd":[11,11,0,3463,293027]},
-      "hooks": [1,28,2363,147,147,350,350,2906,13,19,11,8,0,7022,41,15,13,0,1,13,0,0,0],
-      "events": {"atk":150,"castHit":4,"deploy":15,"die":19,"dmg":350,"engage":7,"face":30,"fx":73,"heal":8,"skill":25,"spawn":28,"status":58,"swing":171},
+      "enemies": {"enemy_1045_hammer_2":[2,2,0,0,99533],"enemy_1061_zomshd":[11,11,0,5150,293027]},
+      "hooks": [1,28,2363,150,150,353,353,2906,13,19,11,8,0,7022,41,15,13,0,1,13,0,0,0],
+      "events": {"atk":153,"castHit":4,"deploy":15,"die":19,"dmg":353,"engage":7,"face":30,"fx":73,"heal":8,"skill":25,"spawn":28,"status":58,"swing":171},
       "fx": {"cannon":6,"drone":34,"explode":6,"hunterReload":4,"link":1,"lure":3,"phase":7,"strike":4,"summon":6,"volley":2},
-      "snaps": "23a49cda 11354f08 7e43c92b 306dab33 45c73fb3 160dbb0c 8f94464e d25bff95"
+      "snaps": "23a49cda 11354f08 18df5932 9fecaf25 34ee7ef1 7842f08e 25f8c490 cb568c7f"
     },
     "bond-lethaniaShip-low": {
       "about": "莱塔尼亚 low: tier 1 layers 1; chess_char_3_10_a chess_char_3_07_a chess_char_3_11_a chess_char_1_19_a chess_char_2_01_a chess_char_2_07_a chess_char_3_08_a chess_char_3_09_a",
@@ -1956,19 +1956,19 @@
         ["p1",7,"op","chess_char_5_15_b",1,"uniequip_002_rosmon",2158.2,1,8,10,103633,0,0,32,2],
         ["p1",8,"op","chess_char_5_18_b",2,"uniequip_002_halo2",1549.9,1,6,5,52833,0,0,51,3],
         ["p1","~1","token","token_10040_siege2_vlion",null,null,4000,0,41,0,0,0,0,0,null],
-        ["p1","~2","token","token_10040_siege2_vlion",null,null,4000,0,42,0,950,0,0,2,null],
+        ["p1","~2","token","token_10040_siege2_vlion",null,null,2977.57,0,42,0,950,1022,0,2,null],
         ["p1","~3","token","token_10040_siege2_vlion",null,null,4000,0,43,0,532,0,0,1,null],
-        ["p1","~4","token","token_10040_siege2_vlion",null,null,2312.78,0,44,0,3021,1687,0,6,null],
+        ["p1","~4","token","token_10040_siege2_vlion",null,null,1187.96,0,44,0,3021,2812,0,6,null],
         ["p1","~5","token","token_10040_siege2_vlion",null,null,4000,1,132,0,0,0,0,0,null],
         ["p1","~6","token","token_10040_siege2_vlion",null,null,4000,1,133,0,0,0,0,0,null],
         ["p1","~7","token","token_10040_siege2_vlion",null,null,4000,1,134,0,0,0,0,0,null],
-        ["p1","~8","token","token_10040_siege2_vlion",null,null,2977.57,1,135,0,1634,1022,0,3,null]
+        ["p1","~8","token","token_10040_siege2_vlion",null,null,1955.14,1,135,0,1634,2045,0,3,null]
       ],
-      "enemies": {"enemy_10124_uashld_2":[2,2,0,1022,124416],"enemy_1043_zomsbr":[23,23,0,0,151089],"enemy_1061_zomshd":[5,5,0,1687,131334]},
-      "hooks": [1,46,2785,219,219,593,593,4042,30,34,49,46,0,3632,640,7,30,0,1,30,0,0,0],
-      "events": {"atk":251,"castHit":22,"deploy":16,"die":34,"dmg":593,"engage":10,"face":47,"fx":85,"skill":95,"spawn":46,"status":151,"swing":239,"tplfx":85},
+      "enemies": {"enemy_10124_uashld_2":[2,2,0,3067,124416],"enemy_1043_zomsbr":[23,23,0,0,151089],"enemy_1061_zomshd":[5,5,0,2812,131334]},
+      "hooks": [1,46,2785,223,223,597,597,4042,30,34,49,46,0,3632,640,7,30,0,1,30,0,0,0],
+      "events": {"atk":255,"castHit":22,"deploy":16,"die":34,"dmg":597,"engage":10,"face":47,"fx":85,"skill":95,"spawn":46,"status":151,"swing":239,"tplfx":85},
       "fx": {"link":5,"sp":46,"stacks":4,"summon":8,"zone":22},
-      "snaps": "36fcd8cc ef2af392 a31f378f d49c2bdc 8dc9453c 10689a29 41d10e0a d30b0699 7eb5ba4e df787ab5"
+      "snaps": "36fcd8cc ef2af392 a31f378f 3e3c2886 7da2cda7 ecf4153f 1107528c 7da5a31f 43ce2237 40b39fff"
     },
     "bond-ursusShip-low": {
       "about": "乌萨斯 low: tier 1 layers 1; chess_char_1_01_a chess_char_4_07_a chess_char_1_16_a chess_char_4_10_a chess_char_4_08_a chess_char_4_11_a chess_char_2_21_a chess_char_4_09_a",

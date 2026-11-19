@@ -477,6 +477,7 @@ function kitDivider(ab) {
       if (!a.armed || !e.alive || !(e.hpRatio < ratio)) return;
       a.armed = false;
       interruptEnemyCast(b, e);
+      e.swing = null; e.castLeft = 0;   // its normal swing too (`_interruptCurAbility`; its 缴械 no longer cuts one, ai.js)
       e.skillAnimUntil = b.time + len;
       b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: '0', n: 1 });
       b.addBuff(e, { key: 'ab:dsdiviCast', duration: len, flags: { noMove: true, disarm: true } });
