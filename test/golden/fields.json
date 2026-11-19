@@ -75,7 +75,7 @@
         "enemy_9013_acstmk": [1,0,0,36605,3548940],
         "enemy_9016_acstmr": [7,7,0,0,245]
       },
-      "hooks": [1,66,6000,1264,1264,3146,3546,3944,28,36,95,90,70,52038,3025,7,28,0,1,28,0,24,0],
+      "hooks": [1,66,6000,1264,1264,3146,3546,3944,28,36,95,90,70,53825,3025,7,28,0,1,28,0,24,0],
       "events": {"atk":1523,"castHit":11,"deploy":32,"die":36,"dmg":3245,"engage":18,"face":77,"fx":1514,"heal":296,"skill":185,"spawn":64,"status":847,"swing":1285},
       "fx": {
         "airstrike": 1,
@@ -116,7 +116,7 @@
         "wanted": 9,
         "whitw2Drones": 645
       },
-      "snaps": "cc020afd a1ebd871 66ac8747 8171e429 49bdf94f 907d8c5e 112b1320 4182d7f1 acc32738 a63eeea0 bc481f32 46d1c78b d102b9ac e12c0520 ea55a64c c6b6ac52 ba07b339 e1101c6e 7c25ac7e ba5861e7"
+      "snaps": "dfa0679b 93a18cff 5aaf0aa2 7d05998c 52aded11 d546c3a0 fa275c48 2994f8d9 8887c160 9f280a38 5933562a 60f61cf3 81880b44 92d8b6a8 3b2ef4d4 70c0418a a497ee01 bd734566 79d4ab96 cbb05d32"
     },
     "boss-boss_1-solo": {
       "about": "假想敌：胄 solo pool 1800000: chess_char_5_08_b chess_char_5_11_b chess_char_5_05_b chess_char_5_06_b chess_char_5_13_b chess_char_5_07_b chess_char_5_02_b chess_char_5_03_b chess_char_5_10_b chess_char_5_12_b",
@@ -367,7 +367,7 @@
         ["-","~2","device","trap_1105_accrate",null,null,100,1,2,0,0,0,0,0,null],
         ["-","~3","device","trap_1105_accrate",null,null,100,1,3,0,0,0,0,0,null],
         ["-","~4","device","trap_1105_accrate",null,null,100,1,4,0,0,0,0,0,null],
-        ["p1","~1","token","token_10030_mlyss_wtrman",null,null,1582.9,1,24,0,34890,0,0,102,1],
+        ["p1","~1","token","token_10030_mlyss_wtrman",null,null,1582.9,1,24,0,34890,0,0,102,2],
         ["p2","~1","token","token_10019_nearl2_sword",null,null,8280,0,130,0,0,0,0,0,null],
         ["p1","~1","token","token_10017_skadi2_dedant",null,null,100,0,378,0,0,0,0,0,null],
         ["p1","~1","token","token_10040_siege2_vlion",null,null,4000,0,447,0,0,0,0,0,null],
@@ -385,8 +385,8 @@
         "enemy_9021_acduml": [1,0,0,38639,3755765],
         "enemy_9023_acdums": [9,7,0,33987,353]
       },
-      "hooks": [1,65,6000,1592,1592,4065,4726,2756,29,39,67,61,351,43516,2175,2,22,0,1,30,0,12,123],
-      "events": {"atk":1861,"castHit":5,"deploy":39,"die":39,"dmg":4449,"engage":17,"face":126,"fx":1876,"heal":406,"skill":128,"spawn":56,"status":1021,"swing":1613,"tplfx":4},
+      "hooks": [1,65,6000,1592,1592,4065,4726,2756,29,39,68,63,351,48748,2175,2,22,0,1,30,0,12,123],
+      "events": {"atk":1861,"castHit":5,"deploy":39,"die":39,"dmg":4449,"engage":17,"face":126,"fx":1876,"heal":406,"skill":131,"spawn":56,"status":1021,"swing":1613,"tplfx":4},
       "fx": {
         "airstrike": 136,
         "appear": 1,
@@ -436,7 +436,7 @@
         "wanted": 2,
         "whitw2Drones": 480
       },
-      "snaps": "5be63381 f986cadc c0b76b32 f2092e5b 05a2ec67 f136030b 16996580 d0c2e6a2 43d4dd5b 8cfa574c cb9b8212 c18d7f51 80247aff 11ccd157 02186bb3 6759822f b36757c1 bde22f56 c784c909 d44d4f72"
+      "snaps": "0913d6ed 9ca33cde fb58445a efb09035 602f23ea d47cb82a 0ff821d1 94738a97 3ed5c760 0f02c1e5 88909035 e54d4f07 e032cb24 1f459966 24c3cf64 cd3659d4 26318ba4 2732cf5e adca0b59 88aaf337"
     },
     "boss-boss_3-solo": {
       "about": "假想敌：管 solo pool 2000000: chess_char_5_08_b chess_char_5_11_b chess_char_5_05_b chess_char_5_06_b chess_char_5_13_b chess_char_5_07_b chess_char_5_02_b chess_char_5_03_b chess_char_5_10_b chess_char_5_12_b",
@@ -714,8 +714,8 @@
         "enemy_2016_csphtm": [2,2,0,31419,1560000],
         "enemy_2017_csphts": [7,7,0,1118,300987]
       },
-      "hooks": [1,48,2353,536,536,1418,1600,954,14,22,47,34,65,17679,1082,22,17,0,1,12,0,15,104],
-      "events": {"atk":683,"castHit":5,"deploy":31,"die":22,"dmg":1479,"engage":20,"face":64,"fx":767,"heal":190,"skill":81,"spawn":43,"status":609,"swing":554},
+      "hooks": [1,48,2353,536,536,1418,1600,954,14,22,47,35,65,19915,1082,22,17,0,1,12,0,15,104],
+      "events": {"atk":683,"castHit":5,"deploy":31,"die":22,"dmg":1479,"engage":20,"face":64,"fx":767,"heal":190,"skill":82,"spawn":43,"status":609,"swing":554},
       "fx": {
         "airstrike": 13,
         "blink": 12,
@@ -761,7 +761,7 @@
         "wanted": 7,
         "whitw2Drones": 240
       },
-      "snaps": "7536633a f778665d a12e7967 2ef933bf fcd247b7 6ffb6c02 92744fa7 4b6f7a52"
+      "snaps": "e5ff1305 76c194ef 83e862d3 a9909952 37ed0cdf 2d3d2482 3fb51c5c 0bd9da44"
     },
     "boss-boss_5-solo": {
       "about": "卢西恩，“猩红血钻” solo pool 780000: chess_char_5_08_b chess_char_5_11_b chess_char_5_05_b chess_char_5_06_b chess_char_5_13_b chess_char_5_07_b chess_char_5_02_b chess_char_5_03_b chess_char_5_10_b chess_char_5_12_b",
@@ -1020,7 +1020,7 @@
         "enemy_1249_lysdb_2": [4,4,0,0,103196],
         "enemy_9033_acdeer": [1,1,0,44059,4000000]
       },
-      "hooks": [1,50,5256,1423,1423,3331,3625,3222,20,28,81,75,285,41263,1410,1,17,0,1,19,0,10,0],
+      "hooks": [1,50,5256,1423,1423,3331,3625,3222,20,28,81,75,285,42105,1410,1,17,0,1,19,0,10,0],
       "events": {"atk":1598,"deploy":33,"die":28,"dmg":3365,"engage":15,"face":54,"fx":1155,"heal":442,"skill":156,"spawn":46,"status":624,"swing":1472},
       "fx": {
         "airstrike": 85,
@@ -1056,7 +1056,7 @@
         "wanted": 1,
         "whitw2Drones": 496
       },
-      "snaps": "17d0106b b990636b 4e4c2038 00906d28 2050e58b ad085106 a05365ac c27295e3 7979729c eb7e45cc c59c9611 9b695adb ab9b362d 2043548a a88e6221 03c701e4 cafeb2b8 80bd6b79"
+      "snaps": "5a19059a ec2b8020 0498e396 c6a612f1 087790be 046df953 2da13921 0d86692a 9a8b8571 2db57891 1230f9fc 7d488a7a 2df476b8 ad84d47b d1e48d40 de5c3519 7d23ca25 2bf298cc"
     },
     "boss-boss_7-solo": {
       "about": "“萨米的意志” solo pool 2000000: chess_char_5_08_b chess_char_5_11_b chess_char_5_05_b chess_char_5_06_b chess_char_5_13_b chess_char_5_07_b chess_char_5_02_b chess_char_5_03_b chess_char_5_10_b chess_char_5_12_b",
@@ -1333,7 +1333,7 @@
         "enemy_9019_actrpb": [1,0,0,26418,39630],
         "enemy_9020_actrpc": [1,0,0,28083,540710]
       },
-      "hooks": [1,71,6000,1383,1383,5135,6460,3343,40,50,65,61,185,35776,1064,3,13,0,1,41,0,17,0],
+      "hooks": [1,71,6000,1383,1383,5135,6460,3343,40,50,65,61,185,37457,1064,3,13,0,1,41,0,17,0],
       "events": {"atk":1842,"castHit":11,"deploy":52,"die":50,"dmg":5039,"engage":22,"face":77,"fx":2963,"heal":698,"skill":126,"spawn":52,"status":837,"swing":1408,"tplfx":4},
       "fx": {
         "airstrike": 54,
@@ -1383,7 +1383,7 @@
         "whitw2Drones": 643,
         "zone": 6
       },
-      "snaps": "12388efd 0999dfcd b586a6ce d1e89e79 9ea451fe af5e6130 dfdcf862 9120c349 0dcb15e0 9724df29 1ee6508b b89ddd13 76fe955d ff530a63 c1c8d4c0 a0c9de4c 94844dc2 25c809fc 293f501b 1f7db604"
+      "snaps": "453d91c0 344d88de bcc207bf 9a971fad a1fddd81 a5accb30 e34ea262 9addad49 13fb3fe0 2cf04929 1474fa8b bb17c713 b08bbf5d b71b7463 fbf47ec0 be80c84c f3ee77c2 c20d73fc 3a87fa1b baf1a004"
     },
     "hidden-boss_9-solo": {
       "about": "假想敌：铳 solo pool 2800000: chess_char_5_08_b chess_char_5_11_b chess_char_5_05_b chess_char_5_06_b chess_char_5_13_b chess_char_5_07_b chess_char_5_02_b chess_char_5_03_b chess_char_5_10_b chess_char_5_12_b",
@@ -1696,7 +1696,7 @@
         ["p1",6,"op","chess_char_6_13_b",1,"uniequip_002_angel2",2387.77,1,18,0,0,6481,0,0,0],
         ["p1",7,"op","chess_char_6_14_b",2,"uniequip_002_lumen",3655.58,1,20,0,0,0,5691,84,1],
         ["p1",8,"op","chess_char_6_16_b",2,"uniequip_002_halo2",1582.9,1,11,2,46478,0,0,23,1],
-        ["p1",9,"token","token_10030_mlyss_wtrman",null,null,1893,1,14,0,0,0,0,0,1],
+        ["p1",9,"token","token_10030_mlyss_wtrman",null,null,1893,1,14,0,0,0,0,0,2],
         ["p2",10,"op","chess_char_6_19_b",2,"uniequip_002_blkkgt",3043.7,1,6,0,0,0,0,0,0],
         ["p2",11,"op","chess_char_5_01_b",1,"uniequip_002_excu2",1399.97,1,10,0,0,0,0,0,0],
         ["p2",12,"op","chess_char_5_05_b",2,"uniequip_002_ulpia",6770.5,1,86,0,0,0,0,0,0],
@@ -1711,10 +1711,10 @@
         ["-","~4","device","trap_1105_accrate",null,null,100,1,4,0,0,0,0,0,null]
       ],
       "enemies": {"enemy_10029_vtshld":[1,0,0,0,0],"enemy_1249_lysdb_2":[3,3,0,1657,53748],"enemy_1251_lysyta":[4,4,0,0,32846],"enemy_1329_cbshld":[3,3,0,2295,89580]},
-      "hooks": [1,36,6900,194,194,298,523,363,11,14,10,7,0,21871,363,4,11,0,1,11,0,0,0],
-      "events": {"atk":346,"bounty":1,"deploy":21,"die":14,"dmg":295,"engage":4,"face":74,"fx":1038,"heal":170,"skill":17,"spawn":32,"status":84,"swing":200},
+      "hooks": [1,36,6900,194,194,298,523,363,11,14,11,9,0,25147,363,4,11,0,1,11,0,0,0],
+      "events": {"atk":346,"bounty":1,"deploy":21,"die":14,"dmg":295,"engage":4,"face":74,"fx":1038,"heal":170,"skill":20,"spawn":32,"status":84,"swing":200},
       "fx": {"blink":1,"copy":1,"drone":400,"droneLock":3,"drones":4,"garrisonGrant":1,"link":4,"manifoldUp":1,"shieldBreak":3,"sunBurst":1,"talent":3,"whitw2Drones":616},
-      "snaps": "1aa81f77 ba784a58 5f781eb9 0855f81c a6216e31 d7bf7240 e1a48978 a5f2989c 46144cd8 d17fa008 4cb2bcb5 fe788191 9c97428a 42b723c0 a396dbed a605cf09 38a19658 1194ac16 3fbba614 21597ee4 8920e526 aa32886d 9ac4321f"
+      "snaps": "1aa81f77 ba784a58 5f781eb9 0855f81c a6216e31 d7bf7240 e1a48978 a5f2989c 46144cd8 c2a360f7 c7bdc630 dbf6bfab b162804c c319b6b5 505ac9d0 21ce6ca0 828e1a31 af47f3aa 7079bfd7 622b6eaa c74a200f 75e38bf4 e01d3ab0"
     },
     "unite-4-wide": {
       "about": "联防 4 helper(s), 11 leaked: chess_char_5_08_b chess_char_5_11_b chess_char_5_13_b chess_char_5_14_b chess_char_5_07_b chess_char_5_10_b chess_char_5_12_b chess_char_5_15_b | chess_char_5_19_b chess_char_4_01_b chess_char_5_17_b chess_char_5_20_b chess_char_5_21_b chess_char_5_22_b chess_char_5_23_b chess_char_4_02_b | chess_char_4_11_b chess_char_4_04_b chess_char_4_07_b chess_char_4_09_b chess_char_4_06_b chess_char_4_10_b chess_char_4_12_b chess_char_4_13_b token_10041_cathy_catsld token_10041_cathy_catsld | chess_char_4_17_b chess_char_4_18_b chess_char_4_19_b chess_char_4_22_b chess_char_4_16_b chess_char_4_14_b chess_char_4_20_b chess_char_4_21_b",

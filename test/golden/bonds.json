@@ -759,10 +759,10 @@
         ["-","~2","device","trap_1105_accrate",null,null,100,1,2,0,0,0,0,0,null]
       ],
       "enemies": {"enemy_1195_sfyin":[11,11,0,0,19800],"enemy_1196_msfyin":[22,22,0,0,44],"enemy_1197_sfshu":[5,5,0,0,11250],"enemy_1198_msfshu":[15,15,0,0,45]},
-      "hooks": [1,64,1426,92,92,175,175,0,53,53,13,11,0,8119,35,0,53,0,1,53,0,0,0],
-      "events": {"atk":124,"castHit":2,"deploy":9,"die":53,"dmg":175,"engage":7,"face":25,"fx":49,"skill":24,"spawn":64,"status":56,"swing":117},
+      "hooks": [1,64,1426,92,92,175,175,0,53,53,13,12,0,9308,35,0,53,0,1,53,0,0,0],
+      "events": {"atk":124,"castHit":2,"deploy":9,"die":53,"dmg":175,"engage":7,"face":25,"fx":49,"skill":25,"spawn":64,"status":56,"swing":117},
       "fx": {"copy":1,"displace":1,"dp":1,"hunterReload":9,"hunterRound":5,"manifoldUp":1,"pulse":8,"sleep":3,"strike":2,"summon":16,"volley":2},
-      "snaps": "d3494332 71875fe6 0819ba0c bae40405 3bce5aaa"
+      "snaps": "7bee2932 0cefdbb8 628a0043 b36acf1b 6ac7f2d8"
     },
     "bond-maniShip-high": {
       "about": "调和 high: tier 1 layers 999; chess_char_5_19_b chess_char_5_17_b chess_char_6_11_b chess_char_1_03_a chess_char_2_04_a chess_char_5_15_b chess_char_5_20_b chess_char_5_21_b token_10030_mlyss_wtrman",
@@ -802,10 +802,10 @@
         ["p1","~4","token","token_10030_mlyss_wtrman",null,null,1041,0,209,1,851,0,0,7,null]
       ],
       "enemies": {"enemy_1288_duskls":[11,11,0,0,63415],"enemy_1288_duskls_2":[7,7,0,0,48419],"enemy_1292_duskld":[5,5,0,490,57650]},
-      "hooks": [1,39,2514,270,301,492,492,66,23,27,17,14,0,11677,212,27,23,0,1,50,0,0,0],
-      "events": {"atk":329,"castHit":5,"deploy":13,"die":27,"dmg":492,"engage":13,"face":67,"fx":254,"skill":31,"spawn":39,"status":440,"swing":298},
+      "hooks": [1,39,2514,270,301,492,492,66,23,27,17,15,0,14080,212,27,23,0,1,50,0,0,0],
+      "events": {"atk":329,"castHit":5,"deploy":13,"die":27,"dmg":492,"engage":13,"face":67,"fx":254,"skill":32,"spawn":39,"status":440,"swing":298},
       "fx": {"aoe":2,"copy":1,"crit":4,"dp":2,"ember":23,"iceSpike":63,"kitHit":1,"manifoldUp":1,"palsy":4,"refresh":3,"roadTiles":1,"sleep":2,"split":4,"stacks":53,"weightless":2,"zone":88},
-      "snaps": "43a5bd1b 519f4979 19721ed8 2e172321 4fe255be c72bf600 4d8ad6d1 aeff9dbf 7ceb72f0"
+      "snaps": "bb134f30 d8090adb bf5fc5ba ffb07715 373c20bd 40994269 84a6b42f 0520ad6c b84f399f"
     },
     "bond-miraShip-low": {
       "about": "奇迹 low: tier 1 layers 1; chess_char_4_01_a chess_char_2_11_a chess_char_3_18_a chess_char_3_01_a chess_char_3_17_a chess_char_3_20_a chess_char_3_21_a chess_char_4_02_a",

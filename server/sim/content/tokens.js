@@ -922,7 +922,9 @@ const MANIFOLD_PROFILE = Object.freeze(['attack', 'projectile', 'canHitFly', 'dm
  * finishes during_anim. So no attack, no skill and no stun / freeze for 0.667 s from the copy. during_anim also holds
  * abnormalAntis STUNNED, FROZEN: the buff container finishes, as the buff is added, every buff of the 流形 whose abnormal
  * flags meet that mask (`BuffContainer.NewBuff` → `_FilterBuffAbnormalAnti` → `Buff.CheckAbnormalFlagAnti`), so a stun or
- * freeze it carried when it copied ends there (the copy comes whatever it carries).
+ * freeze it carried when it copied ends there (the copy comes whatever it carries). The same switch ends the skill:
+ * `mlyss_wtrman_switch_melee` / `_range` first finish the skill buff `mlyss_wtrman_s_begin`, whose ON_BUFF_FINISH
+ * `InterruptCharacterSkill` ends the 流形 skill — so it is off, recharging from 0 SP, 0.667 s after the copy.
  */
 const MANIFOLD_SWITCH = 0.667;
 const MANIFOLD_SWITCH_KEY = 'mlyss:switching';
@@ -1026,7 +1028,10 @@ function manifold(bb, raw, def) {
       // on the 流形's tile), which counts as a cast. So the copy comes BLOCK_SKILL_TICK passes after the cast. The client
       // also skips the next pass's deployment after the cast (`m_disableDeployNextFrame`): this engine deploys in the pass
       // only 望's stones, not held back here.
-      kind: 'toggle', trigger: 'MLYSS_WTRMAN', spType: 'time', spCost, initSp,
+      // The skill lasts the data's `duration` (20 s: the skill buff mlyss_wtrman_s_begin is LIMITED, durationKey
+      // `duration`) unless the copy's switch ends it first (MANIFOLD_SWITCH); a copied 流形 that casts again (its SP
+      // refilled) copies nothing and runs out its 20 s.
+      kind: 'duration', trigger: 'MLYSS_WTRMAN', spType: 'time', spCost, initSp,
       autoTrigger({ battle, unit, skill }) {
         if (unit.mem.noCopy || unit.mem.mlyssClone) return false;
         if (!skill.active) return skill.canAutoCast && skill.activate('MLYSS_WTRMAN');
@@ -1039,6 +1044,8 @@ function manifold(bb, raw, def) {
         else applyManifoldCopy(battle, unit, t, scale);
         battle.addBuff(unit, { key: MANIFOLD_SWITCH_KEY, duration: MANIFOLD_SWITCH, flags: { disarm: true, skillLock: true } });
         for (const b of unit.buffs.filter(manifoldSwitchAnti)) battle.removeBuff(unit, b);
+        const n = skill.activations;
+        battle.after(MANIFOLD_SWITCH, () => { if (skill.active && skill.activations === n) skill.stop(); }, { owner: unit });
         return true;
       },
     },

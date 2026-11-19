@@ -369,9 +369,10 @@ function mlyss(bb, chess, def) {
             const near = enemiesIn(battle, unit).includes(target) || copies.some((t) => enemiesIn(battle, t).includes(target));
             if (!near) return;
             if (burstScale > 0 && target.alive) battle.dealDamage(unit, target, { amount: unit.s.atk * burstScale, type: 'elemental', element: 'erosion', tags: ['module'] });
-            // [ASSUMED·CN: "流形获得80点技力" names no 流形 — every 流形 of hers on the field; the module is CN-only so far]. In this
-            // mode it lands only on a 流形 back from a fall (its SP cleared, its skill not running until it charges again): the
-            // copy skill otherwise runs the whole battle (SP is not gained while a skill runs) and its split copies have no skill
+            // [ASSUMED·CN: "流形获得80点技力" names no 流形 — every 流形 of hers on the field; the module is CN-only so far]. It lands on
+            // a copied 流形 (its skill ends with the copy's switch, content/tokens.js MANIFOLD_SWITCH) and on one back from a fall
+            // (SP cleared), not while its skill runs (SP is not gained then) nor on split copies (no skill); a full copied 流形
+            // casts again and copies nothing
             if (burstSp > 0) for (const t of copies) t.skill?.gainSp(burstSp, 'talent');
           }, { owner: unit });
         }

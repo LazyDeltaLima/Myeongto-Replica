@@ -681,6 +681,35 @@ test('缪尔赛思: the copy switches the 流形 for 0.667 s — no attack, no s
   assert.ok(h.b.applyStatus(t, 'stun', { duration: 0.1 }), 'stunnable again');
 });
 
+test('缪尔赛思: the copy\'s switch ends the 流形 skill 0.667 s after the copy; a recast copies nothing and lasts 20 s (mlyss_wtrman_s_begin)', () => {
+  const h = battle({
+    units: [
+      { chessId: 'chess_char_6_11_a', row: 12, col: 3 },
+      { chessId: 'test_guard_a', row: 11, col: 5 },
+      { kind: 'token', tokenId: 'token_10030_mlyss_wtrman', row: 10, col: 5, ownerUid: 1 },
+    ],
+    enemies: [{ key: 'enemy_dummy', pos: [10, 6] }],
+  });
+  const tok = () => h.b.allyUnits.find((x) => x.defId === 'token_10030_mlyss_wtrman' && x.alive);
+  const why = 'docs/rules/sim.md 「즉발 스킬의 시전」 유동체의 복사: mlyss_wtrman_switch_* finish mlyss_wtrman_s_begin, whose ON_BUFF_FINISH InterruptCharacterSkill ends the skill';
+  assert.ok(h.runUntil(() => tok()?.mem.mlyss, 8));
+  const t0 = h.b.time, t = tok(), copy = t.mem.mlyss;
+  assert.ok(t.skill.active, 'the skill runs through the switch');
+  h.run(0.6);
+  assert.ok(t.skill.active, `still on before 0.667 s — ${why}`);
+  assert.ok(h.runUntil(() => !t.skill.active, 0.2), `the skill ends with the switch — ${why}`);
+  assert.ok(h.b.time >= t0 + 0.667 - 1e-6, `ended ${h.b.time - t0} s after the copy`);
+  h.run(3);
+  assert.ok(t.skill.sp > 2 && t.skill.sp < 5, `SP recharges from 0 after it (${t.skill.sp}) — ${why}`);
+  t.skill.sp = t.skill.spCost;
+  assert.ok(h.runUntil(() => t.skill.active, 1), 'a full 流形 casts again');
+  const t1 = h.b.time;
+  h.run(19);
+  assert.ok(t.skill.active && t.mem.mlyss === copy, 'the recast copies nothing (its copy kept) and runs on');
+  assert.ok(h.runUntil(() => !t.skill.active, 1.5), 'the recast lasts the skill\'s 20 s (mlyss_wtrman_s_begin LIMITED, durationKey duration)');
+  assert.ok(Math.abs(h.b.time - t1 - t.skill.duration) < 0.3 && t.skill.duration === 20, `recast ran ${h.b.time - t1} s`);
+});
+
 for (const status of ['stun', 'freeze']) {
   test(`缪尔赛思: a 流形 that copies while it carries ${status} loses it at the copy (mlyss_wtrman_during_anim abnormalAntis)`, () => {
     const h = battle({
