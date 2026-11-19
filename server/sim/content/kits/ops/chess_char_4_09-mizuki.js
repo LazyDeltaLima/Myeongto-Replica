@@ -24,10 +24,11 @@ export default withDefaults({
           onStart({ battle, unit }) { battle.fx('ripple', { x: unit.x, y: unit.y, id: unit.id }); },
           onAttack({ battle, unit, targets }) {
             if ((targets || []).filter((e) => e.side === 'enemy').length >= 3) return;
-            // (not silent: mizuki_s_3[damage]'s DamageViaMaxHpRatio creates no effect, but the buff plays mizuki_skill_03_hit_02 on
-            // her, which this 'dmg' carries as its moment; the view's 真实 hit flash comes with it — docs/rules/fx.md
-            // 「효과 없는 주기적 유실」)
-            battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio'], 0.15), { silent: false, tags: ['skill', 'selfLoss'], moment: 'mizuki_s_3[damage]' }); // (no source: not damage dealt)
+            // mizuki_s_3[damage]: its DamageViaMaxHpRatio creates no effect (silent: no 真实 hit flash), the buff's CreateEffect
+            // (common_magic_hit_01, bound to mizuki_skill_03_hit_02) plays on her — the kit's moment (render/fx/kitofficial.js
+            // kitHit; docs/rules/fx.md 「효과 없는 주기적 유실」)
+            battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'mizuki_s_3[damage]' });
+            battle.loseHp(unit, unit.s.maxHp * num(bb['attack@hp_ratio'], 0.15), { silent: true, tags: ['skill', 'selfLoss'] }); // (no source: not damage dealt)
           },
         }),
       }),

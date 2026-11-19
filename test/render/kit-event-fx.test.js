@@ -152,7 +152,7 @@ test("a 'skill' verdict names a skill whose activation draws something", () => {
 const OTHER_OPERATOR_PREFAB = Object.freeze({
   'wang|doroth_bomb_hit': "wang_stone3_t[damage]'s `_extraActions` create 多萝西's hit (skchr_wang_3/SpawnTokenS3/BuildStone)",
 });
-const KIT_HIT_KEYS = [undefined, 'mantra:s1', 'mantra:s2', 'mantra:s1el', 'mantra:s3', 'mantra:s2jump', 'mantra:s3jump', 'robrta:end', 'closur:plane', 'christ:aura', 'brigid:cut', 'pianst:echo', 'pianst:final', 'pianst:finalHit', 'cqbw:grenade', 'heyak:wind', 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot', 'shu:mark', 'lmlee:s3push', 'ebnhlz:yiyin', 'ebnhlz:yiyinAoe', 'amiya3:s1', 'meteo:shell', 'makoto:heal'];
+const KIT_HIT_KEYS = [undefined, 'mantra:s1', 'mantra:s2', 'mantra:s1el', 'mantra:s3', 'mantra:s2jump', 'mantra:s3jump', 'robrta:end', 'closur:plane', 'christ:aura', 'brigid:cut', 'pianst:echo', 'pianst:final', 'pianst:finalHit', 'cqbw:grenade', 'heyak:wind', 'haruka:break', 'ironmn_t_2', 'titi:t1', 'titi:spread', 'judge:barrier', 'logos:lock', 'logos:t1shot', 'logos:s1shot', 'shu:mark', 'lmlee:s3push', 'ebnhlz:yiyin', 'ebnhlz:yiyinAoe', 'amiya3:s1', 'meteo:shell', 'makoto:heal', 'mizuki_s_3[damage]'];
 test('the rules name prefabs the client binds for that operator', () => {
   // each rule's prefab belongs to its operator's bundle (a typo plays nothing); the names come from the buff templates
   for (const [n, by] of Object.entries(KIT_OFFICIAL)) {

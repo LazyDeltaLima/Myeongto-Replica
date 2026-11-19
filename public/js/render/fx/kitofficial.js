@@ -252,9 +252,6 @@ export const KIT_OFFICIAL = {
     amiya3: cite('amiya3_instant_heal', (o) => (o.k === 'trait' ? { play: [once('amiya3_characteristic_01_hit', 'id')] } : null)),
     reed2: cite(['reed2_tr_heal[effect]', 'reed2_t_2', 'reed2_e_002_t'], (o) => (o.k === 'trait' ? { play: [once('reed2_treat_01', 'id')] }
       : o.k === 'reed2_t_2' ? { play: [once('reed2_treat_01')] } : null)),
-    // 水月 S3 镜花水月: an attack hitting fewer than 3 enemies gives her mizuki_s_3[damage] (its DamageViaMaxHpRatio on her —
-    // the sim's HP loss), whose effect mizuki_skill_03_hit_02 plays on her
-    mizuki: cite('mizuki_s_3[damage]', (o) => (o.k === 'mizuki_s_3[damage]' ? { play: [once('mizuki_skill_03_hit_02')] } : null)),
     // (2026-10-24, 묶음 S11) 余: yu_skill3_annex_02 where his 灼燃损伤 lands — S1 yu_s_1[inverse_damage] on the attacker, T1
     // yu_t_1[enemy] on each enemy he blocks, S3 yu_s_3[ally] on the enemy an ally's arts hit across the wall
     yu: cite(YU_HIT, (o) => (YU_HIT.includes(o.k) ? { play: [once('yu_skill3_annex_02', 'id')] } : null)),
@@ -708,6 +705,10 @@ export const KIT_OFFICIAL = {
     // (2026-11-12) 结城理 S3 俄耳甫斯: makoto[s3_heal_others] puts makoto_s3_2_be_healed (0.5 s, its heal ON_BUFF_FINISH) on each
     // ally it picks — ON_BUFF_START CreateEffect makoto_skill_03_p2_heal_01 on the ally (op-makoto.js 'makoto:heal')
     makoto: cite('makoto_s3_2_be_healed', (o) => (o.k === 'makoto:heal' ? { play: [once('makoto_skill_03_p2_heal_01', 'tgt')] } : null)),
+    // 水月 S3 镜花水月: an attack hitting fewer than 3 enemies gives her mizuki_s_3[damage] — its DamageViaMaxHpRatio on her (the
+    // sim's HP loss, silent: the node creates no effect) and its CreateEffect common_magic_hit_01, bound to mizuki_skill_03_hit_02
+    // in her binding, on her (chess_char_4_09-mizuki.js)
+    mizuki: cite('mizuki_s_3[damage]', (o) => (o.k === 'mizuki_s_3[damage]' ? { play: [once('mizuki_skill_03_hit_02')] } : null)),
     // (2026-11-10) 메테오라이트 S2: its shell projectile_meteo_s2 (`_speed` 8, `_raiseHeight` 0.3; its `_effectsWhenHit` once, on the
     // enemy it traces: `_onlyPlayHitEffectOnTraceTarget`) — the kit's projectile, fired at the skill clip's strike (op-meteo.js)
     meteo: cite('projectile_meteo_s2', (o) => (o.k === 'meteo:shell' ? { play: [{ n: 'meteo_skill_02_trail', fly: 8, to: 'target', arc: 0.3, hit: ['meteo_skill_02_hit'] }] } : null)),

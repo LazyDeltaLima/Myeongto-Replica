@@ -42,7 +42,7 @@ test('damage and heal options carry the key (owned by the source); hitFx tags th
   assert.equal(plain.length, 8, 'not on an earlier tick');
 });
 
-test('the kits send their moments: 引星棘刺 S2 ticks, 水月 S3 loss, 休谟斯 trait heal, 泡泡 T1', () => {
+test('the kits send their moments: 引星棘刺 S2 ticks, 休谟斯 trait heal, 泡泡 T1', () => {
   const fight = (units, cast, seconds = 8, enemies = [{ key: 'enemy_walker', pos: [10, 5] }]) => {
     const h = makeBattle({ seed: 3, autoFinish: false, timeLimit: 60, defs: { enemies: { enemy_walker: walker({ atk: 300 }) } }, enemies, units });
     h.step();
@@ -57,9 +57,7 @@ test('the kits send their moments: 引星棘刺 S2 ticks, 水月 S3 loss, 休谟
   let h = fight([{ chessId: 'chess_char_5_15_a', row: 10, col: 3, skillIndex: 1 }], ['chess_char_5_15_a']);
   const thorn = h.unit('chess_char_5_15_a');
   assert.ok(has(dmgKeys(h), 'thorn2_s2_damage', thorn.id), JSON.stringify(dmgKeys(h)));
-  // 水月 S3: an attack hitting fewer than 3 enemies costs her HP
-  h = fight([{ chessId: 'chess_char_4_09_a', row: 10, col: 4, skillIndex: 2 }], ['chess_char_4_09_a']);
-  assert.ok(has(dmgKeys(h), 'mizuki_s_3[damage]'), JSON.stringify(dmgKeys(h)));
+  // (水月 S3's loss sends no 'dmg': its moment is a kitHit — test/content/hp-loss-silent.test.js)
   // 休谟斯 收割者 trait heal (she takes the walker's hits)
   h = fight([{ chessId: 'chess_char_2_09_a', row: 10, col: 4 }], [], 8, [{ key: 'enemy_walker', pos: [10, 5] }]);
   const humus = h.unit('chess_char_2_09_a');

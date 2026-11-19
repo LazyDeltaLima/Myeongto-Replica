@@ -67,7 +67,7 @@ test("a 'hit' moment with no rule plays its one prefab on the unit hit; a rule c
 });
 
 // The client rows (public/assets/local/fx/bindings.json, git-ignored) settle some keys the template rows alone answer
-// otherwise (美树 mizuki_s_3[damage]: the template's common_magic_hit_01): without them there is nothing to compare.
+// otherwise (a template CreateEffect key the operator's binding replaces): without them there is nothing to compare.
 const NO_CLIENT_ROWS = !bindingRows().local && 'needs the client binding rows (extracted locally)';
 
 test('every moment the rows answer agrees with its hand plan: the rule reads the rows as those plans do', { skip: NO_CLIENT_ROWS }, () => {

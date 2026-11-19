@@ -2645,8 +2645,8 @@
         "enemy_2010_csdcr": [1,1,0,800,9600]
       },
       "hooks": [1,64,5559,555,555,867,865,12210,53,54,28,23,36,24959,82,42,47,0,1,54,0,0,8],
-      "events": {"atk":780,"bounty":4,"castHit":3,"deploy":17,"die":54,"dmg":841,"engage":9,"face":55,"fx":269,"heal":17,"skill":51,"spawn":60,"status":375,"swing":587},
-      "fx": {"aoe":3,"beam":3,"charges":10,"devour":4,"displace":48,"dodge":8,"ember":1,"garrisonGrant":1,"link":3,"mote":51,"motes":55,"overload":3,"reweave":3,"riposte":2,"ripple":2,"sentry":5,"shadowWeave":27,"shield":1,"snow":1,"stacks":29,"summon":1,"talent":4,"wake":4},
+      "events": {"atk":780,"bounty":4,"castHit":3,"deploy":17,"die":54,"dmg":838,"engage":9,"face":55,"fx":272,"heal":17,"skill":51,"spawn":60,"status":375,"swing":587},
+      "fx": {"aoe":3,"beam":3,"charges":10,"devour":4,"displace":48,"dodge":8,"ember":1,"garrisonGrant":1,"kitHit":3,"link":3,"mote":51,"motes":55,"overload":3,"reweave":3,"riposte":2,"ripple":2,"sentry":5,"shadowWeave":27,"shield":1,"snow":1,"stacks":29,"summon":1,"talent":4,"wake":4},
       "snaps": "2dbe6f3d 89cb7b4f e141307e 53557aad e66f6aa4 37a0e3c7 1a431c8f dc332ab3 002fdae8 96c6042a d14ccb34 0d89fd0d 96e54b65 19ebd1e4 adb9adb7 ee77549d ac97e813 7766f814 425d9997"
     },
     "roster-042": {
