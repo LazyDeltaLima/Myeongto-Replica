@@ -2171,13 +2171,23 @@ test(`${nm('enemy_10118_ymgprc')}: double hits; after ${skb('enemy_10118_ymgprc'
   assert.deepEqual(d.slice(0, exp.length), exp);
 });
 
-test(`${nm('enemy_10127_rkmbst_2')}: M0 shield — damage taken ×${1 - tb('enemy_10127_rkmbst_2', 'M0Shield.damage_resistance')}, ASPD +${tb('enemy_10127_rkmbst_2', 'M0Shield.attack_speed')}, barrier`, () => {
+test(`${nm('enemy_10127_rkmbst_2')}: M0 shield — physical / arts damage taken ×${1 - tb('enemy_10127_rkmbst_2', 'M0Shield.damage_resistance')}, ASPD +${tb('enemy_10127_rkmbst_2', 'M0Shield.attack_speed')}, no barrier for the players`, () => {
+  // rkmbst_m0_t[shield]: its stone blocks only a 矿工游击队's (enemy_mcreep_self_mark) physical damage; every other source
+  // takes the DamageScale branch (PHYSICAL_AND_MAGICAL) — docs/rules/sim.md 「변종 맹글러비스트 α의 돌 방패」
   const h = arena();
   h.step();
   const e = put(h, 'enemy_10127_rkmbst_2', [10, 7]);
+  const keep = 1 - tb('enemy_10127_rkmbst_2', 'M0Shield.damage_resistance');
   assert.equal(e.s.aspd, 100 + tb('enemy_10127_rkmbst_2', 'M0Shield.attack_speed'));
-  approx(e.s.shield, e.s.maxHp * tb('enemy_10127_rkmbst_2', 'M0Shield.init_shield_hp_ratio'));
-  approx(e.s.dmgTakenMul, 1 - tb('enemy_10127_rkmbst_2', 'M0Shield.damage_resistance'));
+  assert.ok(!(e.s.shield > 0), 'no barrier takes the players\' damage first');
+  approx(e.s.physTakenMul, keep);
+  approx(e.s.artsTakenMul, keep);
+  assert.equal(e.s.dmgTakenMul, 1, 'true damage is not in its DamageScale mask');
+  for (const [type, mul] of [['phys', keep], ['arts', keep], ['true', 1]]) {
+    const before = e.hp;
+    h.b.dealDamage(null, e, { amount: 1000, type, defIgnorePct: 1, resIgnorePct: 1 });
+    approx(before - e.hp, 1000 * mul, 1e-6, type);
+  }
 });
 
 test(`${nm('enemy_10156_mncrer')}: death heals nearby enemies (ATK×${tb('enemy_10156_mncrer', 'Boom.heal_scale')})`, () => {

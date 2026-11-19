@@ -110,6 +110,12 @@ export const KIT_HIT_BANKS = Object.freeze({
   'mlyss:melee': 'battle.ON_BUFF_START.mlyss_wtrman_s_melee_audio',
   'mlyss:range': 'battle.ON_BUFF_START.mlyss_wtrman_s_range_audio',
   'mlyss:pull': 'battle.ON_BUFF_TRIGGER.mlyss_s_3[melee_audio]',
+  // 2026-11-20: its fall (mlyss_wtrman_t_1[listener] ON_BEFORE_TRY_SET_HP_ZERO creates mlyss_wtrman_t_1[audio], audioSignal
+  // [fakedeath] — no ON_UNIT_DEAD: it does not die) and its switch cast out of Recharge (Talents/1 mlyss_wtrman_switch /
+  // _melee / _range, signal T.1: its START as its born trigger or its mlyss_wtrman_t_1[trigger] casts it, 1 s before the
+  // reborn) — the kit's 'manifoldDown' / 'manifoldUp'
+  'mlyss:fakedeath': 'battle.ON_BUFF_START.mlyss_wtrman_t_1[fakedeath]',
+  'mlyss:reborn': 'battle.ON_ABILITY_START.token_10030_mlyss_wtrman.T.1',
   // 2026-10-22: 佩佩 S3 — every attack puts pepe_s_3_fx on its main target, whose ON_BUFF_START plays (PlayAudio, on the
   // target) pepe_s3_hit_03 at her pepe_s3_range[atk] stacks ≥ max_stack_cnt, _02 at ≥ 2, else _01 — with the matching
   // pepe_skill_03_hit_range_0N effect (public/js/audio.js signalFxKey, the kit's 'stacks' fx)

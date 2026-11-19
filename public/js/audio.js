@@ -232,6 +232,12 @@ export function enemyBuffSounds(fx, ex, unitOf) {
 const TRWLPL = /^enemy_10003_trwlpl/;
 /** 2026-11-12: 赘生甲壳 (the ally-side TRAP a 微核沉积者 leaves): its own ON_UNIT_BORN / ON_UNIT_DEAD banks. */
 const DSSHELL = 'trap_156_dsshell';
+/**
+ * 2026-11-20: 뮤엘시스's 流形 — a RallyPoint that falls without dying (mlyss_wtrman_t_1[listener], the kit's 'manifoldDown')
+ * and comes back by RallyPoint.RecoverHpLikeReborn, which is no Unit.OnBorn: neither its ON_UNIT_DEAD nor its ON_UNIT_BORN
+ * sounds for that fall and rise (the sim's 'die' and redeploy 'deploy'); a split copy really dies.
+ */
+const MLYSS_WTRMAN = 'token_10030_mlyss_wtrman';
 /** 2026-11-12: 机械师 (char_4230_mcnist) and 淬羽赫默 (char_1031_slent2), the 规程 chess picks whose kit events sound sfx.kit keys. */
 const MCNIST = 'char_4230_mcnist';
 const SLENT2 = 'char_1031_slent2';
@@ -454,6 +460,10 @@ export function kitHitKey(fx, ex, unitOf) {
     case 'machRun': return ex.form === 'running' && def(ex.id) === 'token_10018_robrta_mach' ? 'robrta:run' : null;
     case 'shield': return def(ex.src) === 'char_4228_closur' ? 'closur:s1block' : null;
     case 'disappear': return def(ex.id) === 'token_10066_closur_ourbase' ? 'closur:fakedeath' : null;
+    // 2026-11-20: 뮤엘시스's 流形 falling (mlyss_wtrman_t_1[fakedeath]; its 'die' in the same batch stays silent — below) and
+    // casting its switch out of Recharge as it is born or comes back (its Talents/1 START, T.1)
+    case 'manifoldDown': return def(ex.id) === MLYSS_WTRMAN ? 'mlyss:fakedeath' : null;
+    case 'manifoldUp': return def(ex.id) === MLYSS_WTRMAN ? 'mlyss:reborn' : null;
     // 2026-11-03: 魔王's 微尘 reaching an operator (an enemy under S2) — its projectile's HIT (cetsyrMoteKey)
     case 'mote': return ex.src !== ex.id ? cetsyrMoteKey(unitOf(ex.src), 'hit') : null;
     // 2026-10-29: 歌蕾蒂娅 S3's tornado forming — its Chant's ON (docs/rules/audio.md 「스킬 시전 능력 소리」)
@@ -2655,6 +2665,9 @@ export class AudioManager {
           // 2026-11-12: 赘生甲壳 broken or eaten — its own ON_UNIT_DEAD bank, not a summon's (a death reason only: Entity.IfReasonIsDeath)
           if (u.defId === DSSHELL) { if (e[2] === 'killed') this._kitSound('dsshell:dead'); continue; }
           const consumed = this.consumed.delete(e[1]);
+          // 2026-11-20: a 流形 falling to come back (MLYSS_WTRMAN): its fall sounds through 'manifoldDown' (kitHitKey), its rise is
+          // no deployment
+          if (u.def === MLYSS_WTRMAN && ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'manifoldDown' && x[4]?.id === e[1])) { u.mlyssDown = true; continue; }
           const m = this.getManifest();
           const url = deathSfxUrl(m, u, { consumed, reason: typeof e[2] === 'string' ? e[2] : null });
           if (!url) continue;
@@ -2677,6 +2690,8 @@ export class AudioManager {
         } else if (kind === 'deploy') {
           const u = this.units.get(e[1]);
           if (u) { u.motes = null; u.gone = false; } // 2026-11-03: a new deployment (motesBack, mlyssS3Range)
+          const mlyssBack = !!u?.mlyssDown; // 2026-11-20: a fallen 流形 back on its tile (MLYSS_WTRMAN) — silent
+          if (u) u.mlyssDown = false;
           if (!u || u.side === 'enemy' || e[2] === 1) continue;   // (e[2] 1: a flight's landing, sim moveRedeploy inPlace — silent)
           // the opening deployment (OPENING_SLACK_MS): the sim brings it in one piece group per PREBUILT_INTERVAL, each
           // piece sounds with its own 'deploy'
@@ -2716,6 +2731,7 @@ export class AudioManager {
           // local patch (maintainer report 2026-10-07): 望's 跟子 is a projectile of hers (PRTS) — it lands with
           // ON_PROJECTILE_BORN (kitStartKey 'wang:thrown', its summon fx `follower` in the same tick), not as a stone's birth
           if (ev.some((x) => Array.isArray(x) && x[0] === 'fx' && x[1] === 'summon' && x[4]?.follower && x[4].id === e[1])) continue;
+          if (mlyssBack) continue;
           this.playDeploySfx(u, e[1]);
           // 2026-11-01: 予愿安洁莉娜's Born clip (AudioWhenPlayAnimation aglna2_born, CN client) beside the deploy sound
           if (u.def === 'char_1015_aglna2') this._kitSound('aglna2:born');

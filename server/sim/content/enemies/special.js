@@ -721,10 +721,14 @@ export const SPECIAL_KITS = Object.freeze({
     const pw = nthAttackPower(nthOf(ab.sk.PowerAttack), scale);
     return [pw, { dealt(c, b, e) { hurt(b, e, c.target, e.s.atk * (pw.power ? scale : 1), 'phys', { isSkill: false }); } }];
   },
-  enemy_10127_rkmbst_2: (ab) => [taunt(1), { spawn(b, e) {           // 异质裂兽·α · M0 shield (damage ×0.5, ASPD +100, barrier)
-    b.addBuff(e, { key: 'ab:m0', persist: true, visible: true, mods: { dmgTakenMul: 1 - (T(ab, 'M0Shield.damage_resistance') ?? 0), aspd: T(ab, 'M0Shield.attack_speed') ?? 0 } });
-    const sh = e.s.maxHp * (T(ab, 'M0Shield.init_shield_hp_ratio') ?? 0);
-    if (sh > 0) b.addBuff(e, { key: 'ab:m0barrier', shield: sh, persist: true });
+  // 异质裂兽·α · M0 shield: physical / arts damage taken ×(1 − damage_resistance), ASPD +attack_speed. Its stone
+  // (rkmbst_m0_t[shield], init_shield_hp_ratio of its max HP) blocks only the physical damage of a unit holding
+  // enemy_mcreep_self_mark (the 矿工游击队) and breaks into mode M1 there; every other source takes the DamageScale
+  // branch, so with no 矿工游击队 in this mode the stone never absorbs or breaks (until 2026-11-20 a barrier of 5 % max HP
+  // took the players' damage first)
+  enemy_10127_rkmbst_2: (ab) => [taunt(1), { spawn(b, e) {
+    const keep = 1 - (T(ab, 'M0Shield.damage_resistance') ?? 0);
+    b.addBuff(e, { key: 'ab:m0', persist: true, visible: true, mods: { physTakenMul: keep, artsTakenMul: keep, aspd: T(ab, 'M0Shield.attack_speed') ?? 0 } });
   } }],
   enemy_10156_mncrer: (ab) => [{ sil: true, death(c, b, e) {         // 新手祭司学徒 · death: heals nearby enemies
     if (c.reason !== 'killed') return;

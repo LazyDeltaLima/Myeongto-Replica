@@ -261,10 +261,10 @@
       "bossHpLeft": null,
       "rngDraws": 189,
       "errors": {"count":0,"kinds":[]},
-      "players": {"p1":{"killed":3,"total":104,"perfect":false,"leaks":101,"leaksUncounted":0,"coins":0,"dmg":369632,"bossDmg":0,"heal":0,"deaths":20,"layerGains":{}}},
+      "players": {"p1":{"killed":3,"total":104,"perfect":false,"leaks":101,"leaksUncounted":0,"coins":0,"dmg":370001,"bossDmg":0,"heal":0,"deaths":20,"layerGains":{}}},
       "units": [
         ["p1",1,"op","chess_char_6_17_a",2,null,0,0,352,0,34793,7339,0,30,1],
-        ["p1",2,"op","chess_char_6_13_a",2,null,0,0,391,0,20702,9232,0,75,0],
+        ["p1",2,"op","chess_char_6_13_a",2,null,0,0,391,0,21070,9232,0,75,0],
         ["p1",3,"op","chess_char_6_19_a",2,null,1154,1,392,0,47035,8078,0,104,0],
         ["p1",4,"op","chess_char_6_12_a",2,null,671.78,1,7,3,139524,975,0,81,2],
         ["p1",5,"op","chess_char_6_15_a",2,null,1624,1,156,0,62061,1624,0,99,1],
@@ -277,7 +277,7 @@
       "enemies": {
         "enemy_10122_uacann_2": [1,0,1,5387,4192],
         "enemy_10124_uashld_2": [1,0,1,0,302],
-        "enemy_10127_rkmbst_2": [1,0,1,0,0],
+        "enemy_10127_rkmbst_2": [1,0,1,0,369],
         "enemy_10138_xdsnow": [1,0,1,0,1276],
         "enemy_10141_xdpeng_2": [1,0,1,0,2194],
         "enemy_10144_xdelk_2": [1,0,1,0,0],
@@ -288,9 +288,9 @@
         "enemy_1387_winshd": [30,1,29,10608,106997]
       },
       "hooks": [1,133,6357,528,528,892,892,0,23,125,5,20,0,12600,1663,24,104,101,1,23,0,0,0],
-      "events": {"atk":559,"deploy":26,"die":24,"dmg":812,"engage":6,"face":14,"fx":217,"hide":10,"leak":101,"skill":42,"spawn":114,"status":433,"swing":539},
+      "events": {"atk":559,"deploy":26,"die":24,"dmg":813,"engage":6,"face":14,"fx":217,"hide":10,"leak":101,"skill":42,"spawn":114,"status":433,"swing":539},
       "fx": {"aoe":3,"blink":1,"displace":23,"dp":1,"explode":6,"garrisonGrant":2,"kitHit":5,"phase":6,"slash":8,"stacks":156,"zone":6},
-      "snaps": "776858e1 2067fe3b 16682529 fd304846 c7d7cef0 7e942f8e 44fb09e8 372357b2 77351de6 d9f19f0e 536db8ab 090843c2 072c3a01 2191310f 510238b6 ddf27e94 575278a2 8d15cf6b b8482fc4 be0f757b c4e06a64 6e87cc13"
+      "snaps": "776858e1 41a4045a 49cb96a5 242dfa35 ddc6dd87 39ede55e 0ce08e38 9d2e03e2 155691f6 11111f1e 8b22e95b 37f1bdf2 957314b1 493fa79f a993df86 01e14fe4 85d5c6d2 6fd7a2db 84f09074 3500280b 12646af4 fb382763"
     },
     "standin-06": {
       "about": "elite band 5 as stand-ins: chess_char_3_12_b→char_608_acpion chess_char_4_09_b→char_617_sharp2 chess_char_3_05_b→char_601_cguard chess_char_3_18_b→char_609_acguad chess_char_4_04_b→char_607_cspec chess_char_4_07_b→char_601_cguard chess_char_4_16_b→char_615_acspec chess_char_3_01_b→char_603_csnipe chess_char_3_04_b→char_605_cmedic chess_char_3_21_b→char_611_acnipe chess_char_4_02_b→char_611_acnipe chess_char_4_13_b→char_614_acsupo",

@@ -15,6 +15,7 @@ import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/batt
 import { hasGeneratedData, getDefaultSource } from '../../server/sim/simdata.js';
 import { TOKEN_IDS, manifoldCopyTarget } from '../../server/sim/content/tokens.js';
 import { AudioManager, deathSfxUrl, deploySfxUrl, unitSoundClass } from '../../public/js/audio.js';
+import { onBattleClock } from '../helpers/audio-sweep.js';
 import { showsDeathFx } from '../../public/js/render/app.js';
 
 const REAL = { skip: !hasGeneratedData() };
@@ -271,6 +272,41 @@ test('#5 流形: a fallen 流形 waits on its tile and stands again after 25 + 1
   const mode = copy.ranged ? 'Range' : 'Melee';
   assert.deepEqual(fx('manifoldDown').map((o) => [o.by, o.mode, o.t]), [[u.id, mode, respawn + 1]]);
   assert.deepEqual(fx('manifoldUp').map((o) => [o.by, o.mode, !!o.born]), [[u.id, 'Default', true], [u.id, mode, false]], 'born once, then back');
+  noErrors(h);
+});
+
+test('#5 流形 sounds: its fall plays mlyss_wtrman_t_1[fakedeath] once and no death sound, its switch cast out of Recharge its T.1 START (born and back), its rise no deploy sound', REAL, () => {
+  // docs/rules/audio.md 「재능·소환물 능력 소리」 뮤엘시스의 유동체: a RallyPoint that falls without dying and comes back by
+  // RallyPoint.RecoverHpLikeReborn (no Unit.OnBorn) — the sim's 'die' and its redeploy 'deploy' stay silent for it
+  const h = makeBattle({
+    defs: { chess: { test_guard: guard() }, enemies: { enemy_dummy: dummy() } }, timeLimit: 120, autoFinish: false,
+    units: [{ chessId: 'chess_char_6_11_a', row: 12, col: 2, uid: 1 }, { chessId: 'test_guard', row: 12, col: 6, uid: 2 }, { kind: 'token', tokenId: MF, row: 9, col: 6, uid: 3, ownerUid: 1 }],
+    enemies: [{ key: 'enemy_dummy', pos: [9, 6] }],
+  });
+  const a = new AudioManager({ win: null, getManifest: () => manifest, random: () => 0 });
+  a.ctx = { currentTime: 0 };
+  a.voice = () => false;
+  a.setFieldUnits([]);
+  const played = [];
+  const file = (u) => String(u).split('/').pop();
+  a._play = (url) => { played.push({ f: file(url), t: h.b.time }); };
+  const respawn = ds.getToken(MF, 'chess_char_6_11_a').talents.find((t) => t.bb.scale != null).bb.interval;
+  let tKill = null;
+  onBattleClock((tick) => {
+    for (let i = 0, n = Math.round((respawn + 12) / h.b.dt); i < n; i++) {
+      const m = standing(h)[0];
+      if (tKill == null && m?.mem.mlyss) { h.b.dealDamage(null, m, { amount: 1e9, type: 'true' }); tKill = h.b.time; }
+      h.step();
+      tick(h.b.time);
+      a.handleBattleEvents(h.events.splice(0));
+    }
+  });
+  assert.ok(tKill != null && standing(h).length === 1, 'it fell and came back');
+  const of = (k) => played.filter((p) => p.f === file(SFX.kit[k]));
+  assert.equal(file(SFX.kit['mlyss:fakedeath']), file(SFX.units[MF].die), 'the same file as its ON_UNIT_DEAD — counted once');
+  assert.deepEqual(of('mlyss:fakedeath').map((p) => Math.round(p.t - tKill)), [0], 'its fall, once (no ON_UNIT_DEAD beside it)');
+  assert.deepEqual(of('mlyss:reborn').map((p) => Math.round(p.t - tKill)), [Math.round(-tKill), respawn], 'T.1 START as it is born and as its switch is cast, 1 s before it stands');
+  assert.deepEqual(played.filter((p) => p.f === file(SFX.units[MF].born)).map((p) => Math.round(p.t)), [0], 'its ON_UNIT_BORN at its deployment only');
   noErrors(h);
 });
 

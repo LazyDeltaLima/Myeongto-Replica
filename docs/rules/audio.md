@@ -397,7 +397,15 @@
     그 모드 큐(`tm`): Melee·Range_S2·Melee_S3 = START p_atk_wtrlime_n·HIT p_imp_wtrlime_remote, Range = attack/combat 둘(근접 combat.3은 p_imp_wtrlime_n).
     복제 순간 `mlyss_wtrman_s_begin`의 소리 버프 `mlyss_wtrman_s_melee_audio`/`_range_audio`(p_skill_wtrlimetrans_melee/range, fx `copy`), S3 근접 복제의
     끌어당김마다 `mlyss_s_3[melee_audio]`(ON_BUFF_TRIGGER, p_atk_wtrlimepull, fx `pulse`). S3 원거리 복제 `mlyss_s_3[range_audio]`(p_skill_wtrlimesplit)는 2026-11-03부터 S3 시작에 — 아래
-    「버프·커스텀 트리거 소리」. 안 한 것: 가짜 죽음·부활(`mlyss_wtrman_t_1`, 재능 T.1 p_skill_wtrlimereborn).
+    「버프·커스텀 트리거 소리」.
+    쓰러짐·다시 섬(2026-11-20, 공식 클라 — 토큰 프리팹·EN 버프 템플릿; sim은 rules/sim.md 「뮤엘시스 유동체의 쓰러짐」): 쓰러질 때 `mlyss_wtrman_t_1[listener]`의
+    ON_BEFORE_TRY_SET_HP_ZERO가 만드는 `mlyss_wtrman_t_1[audio]`의 audioSignal `[fakedeath]`(p_skill_wtrlimedead, 쓰러질 때마다 새 버프 — 덮어쓰기 키 없음) → 키트 fx
+    `manifoldDown` → `kitHitKey` `mlyss:fakedeath`. 죽지 않으므로 ON_UNIT_DEAD(같은 파일)는 안 난다 — 같은 묶음의 그 'die'는 소리 없음. Recharge의 `Talents/1`에 있는
+    전환 능력 셋(`mlyss_wtrman_switch` ReBorn·`_melee` A_Start·`_range` B_Start)의 START가 신호 T.1(p_skill_wtrlimereborn) — 배치 때 `mlyss_wtrman_born_trigger`가
+    (분열 복제가 아니면) 시전하고, 쓰러진 뒤 `[trigger]`가 `interval` 뒤 시전한다(`EasyToStartAbility`: 시작 뒤에 `_preDelay` 1초) → 키트 fx `manifoldUp`(배치·복귀
+    둘 다) → `mlyss:reborn`. 다시 설 때는 `RallyPoint.RecoverHpLikeReborn`(`Character.OnRallyPointLikeReborn`)이라 `Unit.OnBorn`이 없어 ON_UNIT_BORN
+    (p_skill_wtrlimeset)도 안 난다 — sim의 재배치 'deploy'는 소리 없음(`audio.js` `MLYSS_WTRMAN`). 확인: `test/content/tokens_summons.test.js` 「#5 流形 sounds …」
+    (실제 키트 전투 → AudioManager, 횟수와 때; 고치기 전 코드에서 실패 확인). [화면 미확인]
 - 소리 파일: 새 키의 파일 대부분이 아직 없다 → 메인이 `node tools/fetch-assets.mjs --add-only`(매니페스트 `sfx.kit`·`tm` 재생성 + 새 파일만 받음).
 - 확인: `test/local-patch-talent-sounds.test.js`(공식 데이터 위 키·모드 표, 순간별 키, AudioManager 재생, 실제 매치 경로: 크루스 中的 휘두름·타격의 T.1·이그제큐터 'atk' T.1·
   노시스 kitHit 한 번·뮤엘시스 `copy.mode`). [브라우저 미확인]
@@ -856,8 +864,8 @@
     [화면 미확인]
 
 - 안 한 것: 실버애쉬 더 레인프로스트 `svash2_s_2[show]`(EN 클라에
-  그 신호를 내는 PlayAudio 없음)·`svash2_eagle_token[locate]`(독수리 토큰이 키트에 없음), 유동체 재능 T.1 `p_skill_wtrlimereborn`(가짜 죽음·부활이
-  키트에 없음), 카넬리안·노시스·루멘 `[eff_cond]` 외의 단계 버프, 뮤엘시스·비질 가짜 죽음
+  그 신호를 내는 PlayAudio 없음)·`svash2_eagle_token[locate]`(독수리 토큰이 키트에 없음), 카넬리안·노시스·루멘 `[eff_cond]` 외의 단계 버프, 비질 가짜 죽음
+  (뮤엘시스 유동체는 2026-11-20 이음 — 위 「재능·소환물 능력 소리」)
   (관리자 메모 「오퍼레이터 효과음」 조사의 H·I 묶음), 적 버프·커스텀 트리거(→ 아래 「적 버프·커스텀 트리거 소리」).
 - 확인: `test/local-patch-attack-signals.test.js` 「buff and custom-trigger sounds」(표·혼 S3·락락 S2·티티·프라마닉스 더 프레리타 눈 타일·실제 매치 경로 아스카론 S2).
   [브라우저 미확인 — 혼 S3 과부하 후 공격음이 바뀌는지 들어 볼 것]
@@ -956,8 +964,8 @@
     (`from` = 그 적). 공식은 탄약 스킬의 탄만 본다(sim은 특성 탄도 빼앗음 — sim 규칙, 소리는 sim 사건을 따름).
   - 확인: `test/audio-enemy-buff-sounds.test.js` 「골극 · 원핵의 악생자 …」(뱅크, 순수 함수, battleHarness 골극 모드 전환 0.3초·악생자 한 번,
     AudioManager). golden: roster 다섯·diy 하나 fx 수만(kitHit). [화면 미확인]
-- 안 한 것: 변종 맹글러비스트 α `rkmbst_stone_disappear_audio`(방패를 깨는 것은 `enemy_mcreep_self_mark`를 가진 쪽의 피해뿐 — sim에 없음),
-  이 모드에 그 순간이 없는 것: '월장진' `ymtro_t[audio]`(계단 칸), 자로 M2
+- 안 한 것 — 이 모드에 그 순간이 없는 것: 변종 맹글러비스트 α `rkmbst_stone_disappear_audio`(방패를 깨는 것은 `enemy_mcreep_self_mark`를 가진 광부 유격대의
+  물리 피해뿐이고 이 모드에 광부 유격대가 없다 — rules/sim.md 「변종 맹글러비스트 α의 돌 방패」, 2026-11-20 확인), '월장진' `ymtro_t[audio]`(계단 칸), 자로 M2
   `enemy_wlfmster_m2_calling`(WildCalling), 모험을 찾는 선원 `sailor_speed_up`(대포·밧줄), 블러드 앰버 `collect_enemy_dseed`(채집하는 적). PlayAudio
   없이 뱅크 이름만 이펙트 키와 같은 것(눈의 아이 `enemy_xdsnow_die_01`·불안해하는 디자이너 `enemy_crshd_tip_01[audio]`)은 공식도 안 낸다 — 그
   이펙트 프리팹(`btl_pfb_fx_enemy_16`·`_2`)에 소리 부품이 없고 그 신호를 내는 템플릿·적 프리팹도 없음(2026-11-03 EN 클라에서 확인).

@@ -1487,7 +1487,8 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   (`tokens.js ensureReinforcement`, 엔진의 일반 지원군도 만들지 않음 — `professions.js installTactician`은 `removed`가 아닌 지원군을 그녀의 것으로 본다). 전에는
   지우고 25초 뒤 새 유동체를 소환해 다시 복사했고(그녀가 서 있을 때만), 그녀가 쓰러져 있으면 되살리지 않았다. 키트 없는 일반 토큰 경로(`tokens.js manifold`,
   그녀 키트를 일반 키트로 바꾼 시험에서만)는 전처럼 복사 없이 되살린다. 시험 `tokens_summons.test.js` 「a fallen 流形 …」 둘·「a split clone alive …」,
-  `kits_t6.test.js` 「缪尔赛思: a destroyed 流形 waits on its tile …」. 이펙트는 rules/fx.md 「뮤엘시스 유동체의 쓰러짐·모습 바뀜」.
+  `kits_t6.test.js` 「缪尔赛思: a destroyed 流形 waits on its tile …」. 이펙트는 rules/fx.md 「뮤엘시스 유동체의 쓰러짐·모습 바뀜」, 소리는 rules/audio.md
+  「재능·소환물 능력 소리」 뮤엘시스의 유동체.
 
 ## 적 스킬 = 일반 공격 차례 (2026-10-21, 관리자 제보 「퀸투스가 HP가 낮아지면 기억보다 너무 셈」, 관리자 결정 2026-10-21 「엔진 전체로」)
 적 스킬(enemy_database `skills`)을 EN 공식 클라대로 일반 공격 **자리에서** 쓴다. 켜진 Lua 핫픽스(`DefinedFix.lua` en_US·zh_CN)에 아래 클래스 없음.
@@ -3062,6 +3063,18 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 - [추정·엔진: 나누는 때는 우리 `hit` 훅(방어·저항 전) — 회피·`DamageScale` 같은 다른 ON_TAKE_DAMAGE 노드와 같은 단계로 봄, PRTS의 우선순위 −3000은 안 따짐]. 「消失 상태가 아닐 때」는
   이 모드에 성배를 숨기는 수단이 없어 따로 두지 않음.
 - 테스트 `test/content/enemies_bosses.test.js` 「愧悔魂灵圣杯: nearby ground enemies keep 5 %…」, `test/sim/playtest5_elements.test.js` 「a 无来源 burst still passes on…」.
+
+### 변종 맹글러비스트 α의 돌 방패 (2026-11-20, 공식 클라에서 확인 — 적 프리팹 `enemy_10127_rkmbst_2`, EN 클라 버프 템플릿)
+
+- 규칙: 변종 맹글러비스트 α는 M0(`Default`) 동안 물리·마법 피해를 `M0Shield.damage_resistance`(0.5)만큼 덜 받고(진짜·원소 피해는 그대로), 공격 속도가
+  `M0Shield.attack_speed`(+100)이다. 돌 방패(최대 HP의 `init_shield_hp_ratio` 5 %)는 **광부 유격대**(`enemy_mcreep_self_mark`를 가진 쪽)의 물리 피해만 막고,
+  그것이 0이 되면 M1로 바뀌어 능력을 잃는다. 이 모드에는 광부 유격대가 없으므로 방패는 아무 피해도 막지 않고 깨지지도 않는다 → 키트(`content/enemies/special.js`)는
+  배율만 건다(`physTakenMul`·`artsTakenMul`). 전에는 최대 HP 5 %의 보호막이 오퍼레이터의 피해를 먼저 받았고, 배율이 진짜 피해에도 걸렸다(upstream 첫 가져오기부터).
+- 근거: 프리팹 `Modes/Default/Body/Talents/M0Shield`의 `rkmbst_m0_t[shield]` ON_TAKE_DAMAGE — 피해 근원이 `enemy_mcreep_self_mark`를 가졌으면 `BlockDamage`
+  (PHYSICAL, 동적 값) → 0이면 `SwitchMode` 1·`TriggerEnemySkill` `M1Start`·PlayAudio `rkmbst_stone_disappear_audio`; 아니면 `DamageScale`(PHYSICAL_AND_MAGICAL,
+  `_isOneMinus`). 도감 문구 「被<矿工游击队>攻击数次后失去能力」. 그 표식을 가진 유닛은 이 모드의 적·토큰 자료에 없다(광부 유격대 자체가 없음). 그래서
+  방패 깨짐 소리와 M1 전환도 이 모드에서는 나지 않는다(rules/audio.md 「적 버프·커스텀 트리거 소리」 안 한 것).
+- 테스트 `test/content/enemies_bosses.test.js` 「异质裂兽·α: M0 shield …」(물리·마법 반, 진짜 그대로, 보호막 없음).
 
 ### 투사체 채널 스킬은 채널 동안 시전이다 — 축제 재즈 연주가·살카즈 왕정군 정예 캐스터 (upstream `8540e569` `aa471815`, upstream #904)
 
