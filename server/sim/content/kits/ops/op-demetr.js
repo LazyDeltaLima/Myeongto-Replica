@@ -93,6 +93,14 @@ const respawnEndTime = (unit, skill) => {
   return iv > 0 ? Math.min(iv, clip) : clip;
 };
 export const RETURN_GUARD_KEY = 'skill:demetr:respawnEnd';
+/**
+ * S3's respawns are born anew (RespawnCharacter → Character.MoveLikeRespawnSelf, the deployment path), and his prefab plays
+ * Born at speed 1 (`_useRealBornTimeFromAnim`): each born state lasts the clip the mode it lands in plays for Born
+ * (demetr_s3_t[born_sync] restarts it there) — a move's mode 3 S3_Resapwn: Skill_3_ReStart_End, the return's mode 4
+ * S3_Restore: Skill_3_Back. Seconds, the clips' lengths (data/assets.json; test/sim/move-born.test.js holds these to them).
+ */
+export const MOVE_BORN = 0.3;
+export const BACK_BORN = 0.5;
 /** S1: the second strike after the first (Skill_1's OnAttack events, s). */
 const SECOND_STRIKE = 0.2;
 /**
@@ -222,7 +230,9 @@ export default {
       const home = r === hr && c === hc;
       if (home && (unit.tileR !== hr || unit.tileC !== hc)) retreatBond(battle, st);
       const fromX = unit.x, fromY = unit.y;
-      if (!battle.moveRedeploy(unit, r, c)) return false;
+      // FlyToTarget(Second)'s RespawnCharacter: born anew (Character.MoveLikeRespawnSelf), demetr_s3_t[born_sync] restarting it in
+      // mode S3_Resapwn, whose Born is Skill_3_ReStart_End — MOVE_BORN, his prefab playing Born at speed 1
+      if (!battle.moveRedeploy(unit, r, c, { born: MOVE_BORN })) return false;
       battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY, ...(second ? { second: 1 } : null) });
       if (!home && !(st.bond && st.bond.alive)) st.bond = battle.spawnToken(unit, BOND, hr, hc, { untargetable: true, kit: bondKit() });
       return true;
@@ -330,7 +340,8 @@ export default {
               battle.removeBuff(unit, RETURN_GUARD_KEY);
               retreatBond(battle, st);
               if (!unit.alive || !unit.deployed) return;
-              if (!battle.moveRedeploy(unit, hr, hc, { clearSp: true, clip: 'back' })) { battle.retreat(unit, { reason: 'retreat' }); return; }   // (clip: mode S3_Restore's Born pair)
+              // (clip: mode S3_Restore's Born pair; born anew as the moves, Born = Skill_3_Back — BACK_BORN)
+              if (!battle.moveRedeploy(unit, hr, hc, { clearSp: true, clip: 'back', born: BACK_BORN })) { battle.retreat(unit, { reason: 'retreat' }); return; }
               battle.releaseBlocked(unit);
             }, { owner: unit });
           },

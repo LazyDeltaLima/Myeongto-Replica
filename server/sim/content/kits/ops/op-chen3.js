@@ -19,7 +19,7 @@
 // chen3_s2[ban_sp]) [not modelled: its 静默 (abnormalFlags 24) — her own skill is the one running]; a target that leaves
 // the field — knocked out by anyone, removed, hidden [ASSUMED: BT chen3_s2[dead_listener] ON_OWNER_FINISH = every exit] —
 // passes on to the nearest other enemy within 1.7 of it, else of her range, remaining slashes +1; at the end she
-// 【移动】s to a standing, deployable target's tile; then — for the skill's whole `duration` (6 s) from the landing, the
+// 【移动】s to a standing, deployable target's tile, else where she stands — born anew either way; then — for the skill's whole `duration` (6 s) from the landing, the
 // slashing time held (PF RespawnBuff chen3_s2[respawn_buff] durationKey duration; PRTS 「不包括斩击所耗时间」) — ATK
 // +respawn_buff.atk and respawn_buff.prob phys / arts dodge.
 // S3 剑气 (PRTS 备注): "剑气可对空，碰撞半径1.3，移动速度1.5，每次转向前对每个敌人仅判定一次伤害"; "在距离前进方向上的
@@ -178,14 +178,20 @@ function chen3(bb, chess, def) {
       unit.mem.chen3Slashing = false;
       unit.form = null;
       battle.fx('chen3Respawn', { x: unit.x, y: unit.y, id: unit.id, form: null });
-      // the 【移动】 to a standing target's tile (deployable for her, free)
+      // the 【移动】 to a standing target's tile (deployable for her, free), else where she stands: chen3_s2[try_resapwn]'s
+      // projectile ends in RespawnCharacter either way (`_canRespawnInPlace` / `_forceRespawnInPlace`; its target gone,
+      // `_respawnInSameTile`) — the deployment path (Character.MoveLikeRespawnSelf), so she is born anew (chen3_s2_t[hp_ratio_sync]
+      // restarting it in mode S2Respawn, Born = Start_2; her prefab plays Born at the speed of its own length: `born: true`)
+      let moved = false;
       if (!gone(target) && !target.isFlying) {
         const r = Math.round(target.y), c = Math.round(target.x);
         if ((r !== unit.tileR || c !== unit.tileC) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile?.(r, c, null, unit)) {
           const fromX = unit.x, fromY = unit.y;
-          if (battle.moveRedeploy(unit, r, c)) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
+          moved = battle.moveRedeploy(unit, r, c, { born: true });
+          if (moved) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
         }
       }
+      if (!moved && unit.alive && unit.deployed) battle.moveRedeploy(unit, unit.tileR, unit.tileC, { born: true });
       // the skill's `duration` (6 s) starts now ("不包括斩击所耗时间"; PF RespawnBuff chen3_s2[respawn_buff] durationKey
       // duration): ATK + / dodge for all of it, lifted when the skill ends (onEnd)
       const sk = unit.skill;

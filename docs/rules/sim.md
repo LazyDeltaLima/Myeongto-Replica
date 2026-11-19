@@ -2909,8 +2909,22 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   Born 클립 `Skill_3_ReStart_A`/`_B`는 1초, 그의 프리팹은 제 길이로 트니(`_useRealBornTimeFromAnim`) `BORN_TIME` 1초 동안 공격을 시작하지 않는다(`Battle.moveRedeploy`의 `born`,
   `ai.js updateAlly`). 던지는 클립의 붙잡기(`castHolds`, 클립 끝 1초)는 그 안에서 끝나므로 공격은 【이동】 1초 뒤부터다. 전에는 클립 끝에 옮기자마자 공격했다.
   닻이 멈출 때 그 배치가 그대로이고 스킬이 켜져 있어야 한다(`CheckCharSkillAffecting`). 던진 뒤 기절해도 옮긴다 [추정·엔진: 위 「지속 스킬의 효과가 나는 시점」의 끊김 — 날아가는 닻은 클립의 것이 아님].
-  남은 차이: 【반환】도 같은 노드 `RespawnCharacter`(같은 배치 길)라 등장 상태로 시작한다(모드 4 `S3_Restore`의 `Born` → `Skill_3_Back` 0.833초) — 엔진은 아직 【반환】에 등장 상태를 두지 않는다.
-  다른 【이동】 키트(Mon3tr·켈시 에스페란타·벨로네·첸 더 던스트릭·안젤리나 더 멜로우 위시)의 다시 태어남은 [추정·미조사: 그 노드가 같은 배치 길인지 안 읽음 — 엔진은 등장 상태 없이 옮김].
+  【반환】도 같은 노드 `RespawnCharacter`라 다시 태어난다(2026-11-19 고침): 모드 4 `S3_Restore`의 `Born` → `Skill_3_Back` 0.833초 동안 공격 없음. 전에는 【반환】 뒤 바로 공격했다.
+- **다른 【이동】 키트도 다시 태어난다**(2026-11-19 고침, 공식 클라에서 확인 — 스킬 프리팹·charpack·버프 템플릿): 옮기는 노드가 모두 `RespawnCharacter`(`_useExternalRespawn` 꺼짐)라
+  `Character.MoveLikeRespawnSelf` → `Deck.SpawnCharacterOrToken`(`spawnManually` 거짓 — 등장 상태를 건너뛰지 않음)의 배치 길이다. 태어날 때 버프가 `SwitchMode(_restartFSM)`으로 모드를 바꾸면
+  상태 기계가 같은 상태(BORN)로 다시 시작해(`Unit.OnSwitchMode`: `Stop` → `Start(currentStateId)`) 그 모드가 `Born`으로 트는 클립을 튼다. 등장 상태의 길이는 위 「배치 직후(BORN)」대로 —
+  `_useRealBornTimeFromAnim`인 프리팹(울피아누스·벨로네)만 그 클립 길이, 나머지는 1초. 엔진은 `Battle.moveRedeploy`의 `born`(`true` = 1초, 초 = 클립)으로 준다.
+  - Mon3tr S3: 이동 = `monstr_s_3_buff[respawn]`, 【반환】 = `RespawnEnd`의 `RespawnCharacter` — 둘 다 1초(이동은 `monstr_s_3[route]`가 모드 4 `S3_Reborn`, 반환은 모드 3의 `Born` → `Skill_3_Back`).
+  - 벨로네 S3: 【이동】마다(`FlyToTarget`·`FlyToTargetSecond`) `demetr_s3_t[born_sync]`가 모드 3 `S3_Resapwn` → `Born` = `Skill_3_ReStart_End` **0.3초**, 【반환】은 모드 4 `S3_Restore` → `Skill_3_Back` **0.5초**
+    (`op-demetr.js MOVE_BORN`·`BACK_BORN`; 울피아누스는 `chess_char_5_05-ulpia.js MOVE_BORN` 1·`BACK_BORN` 0.833 — 시험이 data/assets.json 클립 길이와 맞춰 봄).
+  - 첸 더 던스트릭 S2: 베기가 끝나면 `chen3_s2[try_resapwn]`의 투사체가 멈출 때 `RespawnCharacter` — 대상이 살아 있으면 그 칸, 대상이 쓰러졌으면(`_respawnInSameTile`) 또는 그 칸이 거절되면
+    (`_canRespawnInPlace`·`_forceRespawnInPlace`) **제자리에서** 다시 배치된다. `chen3_s2_t[hp_ratio_sync]`가 모드 2 `S2Respawn`(`Born` → `Start_2`)로, 1초. 전에는 옮길 칸이 없으면 아무 일도
+    없었다(배치 효과 없음·등장 상태 없음).
+  - 켈시 에스페란타 S3: 착지 = `StartTransporting`(charpack `Talents/-1`)의 `_extraActions` `RespawnCharacter` — 1초. 착지 클립 무장 해제(`RespawnBorn`의 `kalts2_s_3[respawn_anim]`, 1초)와 같은 길이다.
+  - 안젤리나 더 멜로우 위시 S3: 옮기는 것이 CN에만 있는 클래스 `MoveLikeRespawnByProjectileBehaviour`(`_attackCooldownProgress` 0.85)라 등장 상태를 거치는지 못 읽는다 — 엔진은 그대로 등장 상태 없이 내린다
+    [추정·CN: 그 클래스의 코드는 CN 클라에만 있고, 그녀의 S3 모드들은 `_excludeAnimKeys`에 `Born`이 있음].
+  - golden(2026-11-19): `diy` diy-002·003(첸 더 던스트릭)·032·033(벨로네)·summon-monstr, `act3-roster` 017·019(울피아누스)·018(Mon3tr)·054·056(벨로네·Mon3tr), `act3-bonds` bond-maniShip-high·bond-ursusShip-high(Mon3tr),
+    `matches` coop2-NORMAL-14-standins(울피아누스), `fields` hidden-boss_9-solo(울피아누스) — 모두 그 오퍼레이터가 있는 판.
 - **다른 말의 처음 칸**(2026-11-19 고침): 닻 칸과 두 번째 칸은 **다른 카드 오퍼레이터의 처음 놓인 칸**이면 — 그 오퍼레이터가 지금 거기 없어도(기습 착지·【이동】으로 떠남, 다른 칸에 쓰러짐) — 고르지 않는다.
   자기 처음 칸은 (그가 떠나 있으면) 고를 수 있다. 공식 클라에서 확인(2026-11-19): 이 모드의 전투 중 배치 검사는 모두(`BuildCondition._CheckBuildable` → `AutoChessGameMode.CheckBuildable`,
   전투 상태면 `_CheckBuildableInBattle`) 전장 칸이 `battleChessInsts`의 CHAR 말(`ChessInst.chessType` 0 — 소환물 말 TOKEN 3은 아님)의 판 위치(`ChessInst.pos`)이고 그 말의 카드
@@ -2924,7 +2938,8 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   모두 기습 착지 칸이나 비나 빅토리아·시의 소환 칸이 다른 말의 처음 칸을 비켜 간 것. 테스트 `test/content/kits_t5.test.js` 「乌尔比安 S3: never lands on another card's board home…」(옛 코드에서 실패 확인).
 - 테스트 `test/sim/feedback3-ulpia-move.test.js` 「while he blocks: the 【移动】 still happens, where he stands…」·「no legal tile where the anchor fell nor one back from it…」, `test/content/kits_t5.test.js`
   「乌尔比安 S3 while he blocks…」·「lands one tile back from an occupied anchor tile, toward him…」(옛 코드에서 실패 확인). 이동 때: `test/sim/feedback3-ulpia-move.test.js` 「the unit the 【移动】 makes is born…」·
-  「stunned after the throw, he still moves…」, `test/sim/skill-strike.test.js` 「乌尔比安 S3: the throw on the clip's OnAttack … the 【移动】 as it stops」(옛 코드에서 실패 확인).
+  「stunned after the throw, he still moves…」, `test/sim/skill-strike.test.js` 「乌尔比安 S3: the throw on the clip's OnAttack … the 【移动】 as it stops」(옛 코드에서 실패 확인). 다시 태어남: `test/sim/move-born.test.js`(【반환】·Mon3tr·벨로네·첸 더 던스트릭·켈시 에스페란타, 클립 상수 — 옛 코드에서 실패 확인).
+  재발 방지: `test/sim/move-born.test.js`
 
 ### 후회하는 영혼의 성배는 곁의 적이 받는 피해를 5 %로 줄이고 나머지를 진짜 피해로 받는다 (upstream `0f88afbb`)
 

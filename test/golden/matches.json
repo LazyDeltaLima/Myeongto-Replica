@@ -1869,7 +1869,7 @@
           "title": {"id":"comment_3","name":"坚若磐石","picId":"comment_icon_3","text":"目标生命值损失最少"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":179,"bossDamage":270721,"dmgDealt":2939722,"gold":131,"itemsEquipped":16,"kills":293,"leaks":28,"lpLost":0,"merges":4,"perfectRounds":11,"refreshes":13},
+          "stats": {"activatedLayers":179,"bossDamage":269321,"dmgDealt":2936716,"gold":131,"itemsEquipped":16,"kills":293,"leaks":28,"lpLost":0,"merges":4,"perfectRounds":11,"refreshes":13},
           "lineup": ["4_14_a@12,3[4_07_e_b+4_03_e_a]","3_10_b@11,3","6_04_a@11,4","3_09_a@11,8[3_08_e_a]","1_17_b@10,3[1_01_e_a+6_05_e_a]","5_05_a@10,4[3_04_e_a+4_02_e_a]","3_05_b@10,8[5_02_e_b+3_03_e_a]","2_17_a@9,4"],
           "bonds": ["arcaneShip 1/8","deputShip 0/6","egirShip 1/16","emptyShip 0/6","kazimierzShip 0/8","preciShip 1/59","raidShip 0/44","skillfulShip 0/2","soloShip 1/6","steadShip 1/37","suntShip 1/0","swiftShip 1/53","yanShip 0/1"]
         },
@@ -1883,7 +1883,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 4,
           "reward": 400,
-          "stats": {"activatedLayers":281,"bossDamage":509279,"dmgDealt":4243406,"gold":134,"itemsEquipped":19,"kills":322,"leaks":0,"lpLost":0,"merges":4,"perfectRounds":13,"refreshes":18},
+          "stats": {"activatedLayers":281,"bossDamage":510679,"dmgDealt":4244807,"gold":134,"itemsEquipped":19,"kills":322,"leaks":0,"lpLost":0,"merges":4,"perfectRounds":13,"refreshes":18},
           "lineup": ["4_10_a@12,3","4_01_a@12,8[6_02_e_a+2_01_e_a]","6_12_a@11,3[3_05_e_a+3_11_e_a]","4_14_a@11,8","1_01_b@10,3[1_05_e_b+3_01_e_b]","5_07_a@10,7[3_07_e_a+3_05_e_b]","1_18_b@10,8[4_11_e_a+4_05_e_a]","2_01_b@9,8[3_02_e_a+3_06_e_a]"],
           "bonds": ["arcaneShip 1/36","deputShip 0/8","kazimierzShip 0/8","lateranoShip 1/26","preciShip 2/65","raidShip 1/96","sargonShip 0/2","siracusaShip 0/6","steadShip 0/4","suntShip 1/8","swiftShip 1/50"]
         }

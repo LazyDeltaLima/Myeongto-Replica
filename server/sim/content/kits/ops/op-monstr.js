@@ -253,8 +253,10 @@ export default {
             const home = { r: unit.tileR, c: unit.tileC, dir: unit.dir };
             if (up(r)) battle.retreat(r, { reason: 'retreat', permanent: true });   // 撤退场上的重构体（返回待部署区）
             const fromX = unit.x, fromY = unit.y;
-            // (clip 'reborn': she lands in mode S3_Reborn — render/units.js FACE_FRONT_DEPLOYS)
-            if (!battle.moveRedeploy(unit, to[0], to[1], { clip: 'reborn' })) { skill.end('blocked'); skill.addCharge(1); return; }   // 强制结束技能并返还技力
+            // (clip 'reborn': she lands in mode S3_Reborn — render/units.js FACE_FRONT_DEPLOYS). Born anew: monstr_s_3_buff[respawn]'s
+            // RespawnCharacter is the deployment path (Character.MoveLikeRespawnSelf), and monstr_s_3[route] restarts its born state
+            // in that mode — her prefab plays Born at the speed of its own length, so the common 1 s (`born: true`)
+            if (!battle.moveRedeploy(unit, to[0], to[1], { clip: 'reborn', born: true })) { skill.end('blocked'); skill.addCharge(1); return; }   // 强制结束技能并返还技力
             unit.mem.mHome = home;
             battle.holdTile(unit, home.r, home.c);   // the 路标形态 重构体 on the tile she left (完成移动时在原位置部署)
             battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
@@ -271,7 +273,8 @@ export default {
             const fromX = unit.x, fromY = unit.y, dir0 = unit.dir;
             unit.dir = h.dir;
             // (`back`: the return — the 路标形态 marker's mode ends there, render/fx/kitofficial.js)
-            if (!battle.moveRedeploy(unit, h.r, h.c, { clearSp: true, clip: 'back' })) {
+            // (RespawnEnd's RespawnCharacter: born anew as the move, Born = Skill_3_Back in mode S3_Restore — 1 s, as above)
+            if (!battle.moveRedeploy(unit, h.r, h.c, { clearSp: true, clip: 'back', born: true })) {
               // 不能返回的场合（地块已不合法/标志物已不存在）自身将被击倒 (PRTS S3 备注)
               unit.dir = dir0;
               battle.kill(unit, null);

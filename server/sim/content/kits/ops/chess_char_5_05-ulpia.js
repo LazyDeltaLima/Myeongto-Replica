@@ -11,6 +11,14 @@ import {
 
 /** projectile_chr_ulpia_s3 (TRACE_TARGET_WITH_SPEED): tiles per second. */
 const ANCHOR_SPEED = 15;
+/**
+ * The born states of S3's two respawns, seconds: his prefab plays Born at speed 1 (`_useRealBornTimeFromAnim`), so each
+ * lasts the clip the mode it lands in plays for Born — the 【移动】's mode 3 S3_Respawn_A: Skill_3_ReStart_A / _B
+ * (ulpia_s3_switch_mode[born]), the 【返回】's mode 4 S3_Restore: Skill_3_Back (its animator hooker). The clips' lengths
+ * (data/assets.json; test/sim/move-born.test.js holds these to them).
+ */
+export const MOVE_BORN = 1;
+export const BACK_BORN = 0.833;
 
 /**
  * S3 ③ 【移动】 as the anchor stops (the skill prefab's anchor ability: `_extraActions` on ON_PROJECTILE_STOP) — always made
@@ -23,16 +31,15 @@ const ANCHOR_SPEED = 15;
  * own tile — and the skill's RespawnCharacter (_forceRespawnInPlace) redeploys him there or, that tile refused, where he
  * stands, recording ulpia_respawn_in_place (Character.MoveLikeRespawnSelf → Deck.SpawnCharacterOrToken: a new unit, born
  * like any deployment); ulpia_s3_switch_mode[born] then plays Born as Skill_3_ReStart_B (else _A; render anims skill
- * `deploys` 'here'). Its born state holds his attacks: constants.js BORN_TIME (`battle.flags.bornTime`) — his prefab plays
- * Born at speed 1 (`_useRealBornTimeFromAnim`) and Skill_3_ReStart_A / _B last 1 s, as his Start clip does (docs/rules/sim.md
- * BORN). The throwing clip's own hold (castHolds) ends inside it.
+ * `deploys` 'here'). Its born state holds his attacks: MOVE_BORN (docs/rules/sim.md BORN). The throwing clip's own hold
+ * (castHolds) ends inside it.
  * That reborn unit is a mover all the same (ulpia_respawn), so the skill's end brings him "back" where he stands:
  * UlpiaS3CastSkill._RespawnToLocatedPos finds his deployment tile under him and runs the same 【返回】 (Skill_3_End,
- * ulpia_s3_restore empties the SP; onEnd).
+ * ulpia_s3_restore empties the SP; onEnd), born again too (BACK_BORN).
  */
 function move(battle, unit, sr, sc, stop, tokenId) {
   const fromX = unit.x, fromY = unit.y;
-  const born = { born: battle.flags.bornTime };
+  const born = { born: MOVE_BORN };
   const inPlace = () => {
     if (battle.moveRedeploy(unit, unit.tileR, unit.tileC, { clip: 'here', ...born }) && unit.alive && unit.skill?.active) {
       unit.mem.anchorHome = { r: unit.tileR, c: unit.tileC, marker: null };
@@ -190,7 +197,8 @@ export default {
             // return comes "技能结束后"; none of the deploy effects that can reach him reads his stats]
             // (after a 【移动】 where he stood: a 【返回】 where he stands, with no marker to take back)
             const fromX = unit.x, fromY = unit.y, moved = unit.tileR !== h.r || unit.tileC !== h.c;
-            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true, clip: 'back' }) && moved) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
+            // (born again as the move: RespawnCharacter, Born = Skill_3_Back — BACK_BORN)
+            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true, clip: 'back', born: BACK_BORN }) && moved) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
           }
         },
       },

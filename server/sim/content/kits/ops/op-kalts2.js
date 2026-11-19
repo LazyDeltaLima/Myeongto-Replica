@@ -228,7 +228,9 @@ function land(battle, unit) {
   if (f.anchor.alive) battle.retreat(f.anchor, { reason: 'expired' });
   const dir0 = unit.dir;
   unit.dir = f.dir;
-  if (!battle.moveRedeploy(unit, f.r, f.c, { clip: 'land' })) {
+  // (StartTransporting's RespawnCharacter: born anew — Character.MoveLikeRespawnSelf, the deployment path; her prefab plays
+  // Born at the speed of its own length, the common 1 s: `born: true`)
+  if (!battle.moveRedeploy(unit, f.r, f.c, { clip: 'land', born: true })) {
     unit.dir = dir0;
     battle.refreshRange(unit);
   } else {

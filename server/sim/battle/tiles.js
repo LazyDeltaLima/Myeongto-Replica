@@ -47,9 +47,12 @@ export class BattleTiles {
    * animation (quietDeployAt), so the client shows no drop-in, ring or deploy sound (予愿安洁莉娜 S3: the client respawns
    * her where her flight projectile ends, kits/ops/op-aglna2.js); the deployment itself is the same. `clip`: the deploy
    * clip's key for the client, the event's 4th field (乌尔比安 S3: 'anchor' / 'back'; render anims skill `deploys`) — display only.
-   * `born`: seconds of a born state (constants.js BORN_TIME, ai.js updateAlly: no attack before it ends), for a mover the
-   * client respawns as a new unit (乌尔比安 S3's 【移动】: Character.MoveLikeRespawnSelf → Deck.SpawnCharacterOrToken); without
-   * it the move leaves the born state as it is.
+   * `born`: a born state (constants.js BORN_TIME, ai.js updateAlly: no attack before it ends), for a mover the client
+   * respawns as a new unit (the skills' RespawnCharacter node: Character.MoveLikeRespawnSelf → Deck.SpawnCharacterOrToken —
+   * 乌尔比安 S3, Mon3tr S3, 贝洛内 S3, 赤刃明霄陈 S2, 凯尔希·思衡托 S3): `true` = the common one (`flags.bornTime`, the Born
+   * clip played at the speed of its own length), seconds = the Born clip of a prefab with `_useRealBornTimeFromAnim` (the
+   * clip the mode it lands in plays for Born). None while `flags.bornTime` is 0 (the harness's default). Without it the
+   * move leaves the born state as it is.
    */
   moveRedeploy(unit, r, c, { clearSp = false, inPlace = false, clip = null, born = null } = {}) {
     if (!this.relocate(unit, r, c)) return false;
@@ -64,7 +67,7 @@ export class BattleTiles {
     unit.swing = null;          // ... and it has no swing under way (battle/deploy.js: a new deployment swings anew)
     unit.deployedAt = this.time;
     unit.quietDeployAt = inPlace ? this.time : null;
-    if (born != null) unit.bornUntil = this.time + Math.max(0, born);
+    if (born != null && born !== false) unit.bornUntil = this.time + (this.flags.bornTime > 0 ? Math.max(0, born === true ? this.flags.bornTime : Number(born) || 0) : 0);
     const sk = unit.skill;
     if (clearSp && sk && !sk.noSkill && sk.kind !== 'passive' && !(sk.active && sk.isTimed)) {
       sk.sp = 0;

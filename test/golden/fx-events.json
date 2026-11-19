@@ -6307,7 +6307,6 @@
    "char_4098_vvana attackHit vvana_attack_01_hit → foe",
    "char_4098_vvana attackHit vvana_skill_02_hit_01 → foe",
    "char_4098_vvana attackHit vvana_skill_02_hit_02 → foe",
-   "char_4098_vvana attackHit vvana_skill_02_hit_02+vvana_skill_02_hit_01 → foe",
    "char_4098_vvana attackHit vvana_skill_03_L_hit_01 → foe",
    "char_4098_vvana attackHit vvana_skill_03_L_hit_02 → foe",
    "char_4098_vvana attackHit vvana_skill_03_S_hit_01 → foe",
@@ -6331,7 +6330,9 @@
    "char_4098_vvana spawn:born equipment_system_artsfghter_buff_y → self",
    "char_4098_vvana spawn:vvanaS1 vvana_skill_01_S_buff → self",
    "char_4098_vvana status vvana_buff_01",
-   "enemy_9008_acbunn spawn:cast enemy_acbunn_attack_1_start → self"
+   "enemy_9008_acbunn spawn:cast enemy_acbunn_attack_1_start → self",
+   "token_10065_demetr_dmtpos spawn:born common_call_start_01 → self",
+   "token_10065_demetr_dmtpos spawn:tokAura demetr_skill3_token_01 → self"
   ],
   "diy-033": [
    "- spawn demetr_skill1_hit_01 → enemy",
