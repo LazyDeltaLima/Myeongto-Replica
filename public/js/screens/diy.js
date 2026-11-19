@@ -30,7 +30,7 @@ import { chessAvatarUrl, chessPortraitUrl, profIconUrl, profGlyphUrl, subProfIco
 import { DiyCard, diyCardArt, cssUrlVars, CARD_NAME_FIT } from '../ui/diyCard.js';
 import { fitLine } from '../ui/fitLine.js';
 import { toast } from '../ui/toasts.js';
-import { skinArt, skinPic } from '../ui/skins.js';
+import { skinArt, skinPic, skinsStore, SKINS_KEY, setSkin, clearSkin } from '../ui/skins.js';
 import { data } from '../data.js';
 import { MODULE_NONE, PROF_NAME, skillLabel, moduleBadge, quickSkillTags, opsOf, chessOptions } from '../ui/loadoutModel.js';
 import { diySlotList, pickChoices, pickOptions, slotRecord, defaultPick } from '../ui/diyModel.js';
@@ -215,23 +215,18 @@ export function pickerStart(tier, picks, D) {
 export function DiyPicker(props) {
   const [start] = useState(() => pickerStart(props.tier, props.picks, diyData()));
   const [previewLevel, setPreviewLevel] = useState('elite');
-  // phones: the detail over the list — { charId, entry }, the operator and its entry when the detail opened (the detail's
-  // 取消 puts that entry back, its 确认 keeps the changes; both return to the list)
+  // phones: the detail over the list — what the operator had when it opened (detailOpen; the detail's 取消 puts it back,
+  // its 确认 keeps the changes; both return to the list)
   const [detailOf, setDetailOf] = useState(null);
   const [prof, setProf] = useState(null);
   const [query, setQuery] = useState('');
   const [order, setOrder] = useState(start.order);
   const [edits, setEdits] = useState(start.edits);
-  const onNarrowDetail = (charId) => setDetailOf(charId ? { charId, entry: edits[charId] } : null);
+  const onNarrowDetail = (charId) => setDetailOf(charId ? detailOpen(charId, edits, props.ops, skinsStore.get()[SKINS_KEY]) : null);
   const onDetailCancel = () => {
     const was = detailOf;
     setDetailOf(null);
-    if (!was) return;
-    setEdits((prev) => {
-      const next = { ...prev };
-      if (was.entry) next[was.charId] = was.entry; else delete next[was.charId];
-      return next;
-    });
+    if (was) undoDetail(was, { ops: props.ops, skins: skinsStore.get()[SKINS_KEY] }, { setEdits, onOps: props.onOps, setSkin, clearSkin });
   };
   // the detail covers the list below 1000 px only (css/screens/loadout.css): a window widened past that shows both
   // columns again, so the list's footer comes back
@@ -269,6 +264,35 @@ export function DiyPicker(props) {
   return DiyPickerView({ ...props, previewLevel, onPreviewLevel: setPreviewLevel, narrowDetail: !!detailOf, onNarrowDetail, onDetailCancel,
     prof, query, order, edits, focus, top: start.order, bump, onProf: setProf, onQuery: setQuery, onOrder: setOrder, onEdits: setEdits,
     onFocus: setFocus, onRefuse: refuse });
+}
+
+/**
+ * What the phone's detail can change for one operator, as it was when the detail opened: the picker's entry (skill,
+ * module), the stored 潜能 / 练度 and the skin. `ops` / `skins` the stores' maps.
+ * @param {string} charId @param {Record<string, any>} edits @param {Record<string, any>|undefined} ops
+ * @param {Record<string, string>|undefined} skins
+ */
+export function detailOpen(charId, edits, ops, skins) {
+  const { potential, cultivate } = opsOf(ops || {}, charId);
+  return { charId, entry: edits[charId], potential, cultivate, skin: skins?.[charId] ?? null };
+}
+
+/**
+ * The detail's 取消: puts back what `detailOpen` kept — the entry through `setEdits` (an updater), 潜能 / 练度 through
+ * `onOps` and the skin through `setSkin` / `clearSkin`, each only when it changed (`now`: the stores' maps now).
+ * @param {ReturnType<typeof detailOpen>} was @param {{ ops?: Record<string, any>, skins?: Record<string, string> }} now
+ * @param {{ setEdits: Function, onOps?: Function|null, setSkin: Function, clearSkin: Function }} act
+ */
+export function undoDetail(was, now, { setEdits, onOps, setSkin: wear, clearSkin: unwear }) {
+  const { charId } = was;
+  setEdits((prev) => {
+    const next = { ...prev };
+    if (was.entry) next[charId] = was.entry; else delete next[charId];
+    return next;
+  });
+  const cur = opsOf(now.ops || {}, charId);
+  if (onOps && (cur.potential !== was.potential || cur.cultivate !== was.cultivate)) onOps(charId, { potential: was.potential, cultivate: was.cultivate });
+  if ((now.skins?.[charId] ?? null) !== was.skin) { if (was.skin) wear(charId, was.skin); else unwear(charId); }
 }
 
 /**

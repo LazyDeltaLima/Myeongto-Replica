@@ -32,7 +32,7 @@ const { ChessDetail, resolveDetail } = await import('../../public/js/ui/detailPa
 const { BondPopup } = await import('../../public/js/ui/bondStrip.js');
 const { ownerBoard } = await import('../../public/js/ui/watchBonds.js');
 const { standInPieces } = await import('../../public/js/screens/game/standInTags.js');
-const { DiyPanelView, DiyPickerView, pickerStart } = await import('../../public/js/screens/diy.js');
+const { DiyPanelView, DiyPickerView, pickerStart, detailOpen, undoDetail } = await import('../../public/js/screens/diy.js');
 const { data } = await import('../../public/js/data.js');
 const { DATA } = await import('../match/harness.js');
 const { KITTED_CHARS } = await import('../../server/sim/content/kits/index.js');
@@ -345,6 +345,32 @@ describe('自选编队 tab (screens/diy.js)', () => {
     p.click('data-testid', 'diy-detail-ok');
     assert.deepEqual(calls, [['cancel'], ['back', null]]);
     assert.deepEqual(p.st.done, []);
+  });
+
+  test('narrow screens: the detail\'s 取消 puts back everything it changed — skill / module, 潜能 / 练度 and the skin', () => {
+    const run = (edits, ops, skins, nowOps, nowSkins, nowEdits) => {
+      const was = detailOpen(WANG, edits, ops, skins);
+      const calls = [];
+      let out = nowEdits;
+      undoDetail(was, { ops: nowOps, skins: nowSkins }, {
+        setEdits: (f) => { out = f(out); }, onOps: (c, patch) => calls.push(['ops', c, patch]),
+        setSkin: (c, id) => calls.push(['skin', c, id]), clearSkin: (c) => calls.push(['clear', c]) });
+      return { out, calls };
+    };
+    const pick = { charId: WANG, skillIndex: 0 };
+    // opened at defaults, no skin, no entry; then everything changed
+    const a = run({}, {}, {}, { [WANG]: { potential: 1, cultivate: 1 } }, { [WANG]: 'skin_x' }, { [WANG]: { charId: WANG, skillIndex: 1 } });
+    assert.deepEqual(a.out, {}, 'the entry made in the detail goes');
+    const d = detailOpen(WANG, {}, {}, {});
+    assert.deepEqual(a.calls, [['ops', WANG, { potential: d.potential, cultivate: d.cultivate }], ['clear', WANG]]);
+    // opened with an entry, 潜能 / 练度 and a skin; then changed
+    const ops0 = { [WANG]: { potential: 2, cultivate: 1 } };
+    const b = run({ [WANG]: pick }, ops0, { [WANG]: 'skin_a' }, {}, { [WANG]: 'skin_b' }, { [WANG]: { ...pick, skillIndex: 2 } });
+    assert.deepEqual(b.out, { [WANG]: pick });
+    assert.deepEqual(b.calls, [['ops', WANG, { potential: 2, cultivate: 1 }], ['skin', WANG, 'skin_a']]);
+    // nothing changed: only the entry is set back (to itself), no store writes
+    const c = run({ [WANG]: pick }, ops0, { [WANG]: 'skin_a' }, ops0, { [WANG]: 'skin_a' }, { [WANG]: pick });
+    assert.deepEqual([c.out, c.calls], [{ [WANG]: pick }, []]);
   });
 
   test('twelve slots by tier: an empty one is the official empty slot, a filled one the 干员调配 card; a tap opens the slot\'s tier', () => {

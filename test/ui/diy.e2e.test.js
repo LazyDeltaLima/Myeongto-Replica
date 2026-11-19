@@ -193,6 +193,68 @@ describe('自选编队 picker: Esc closes only the picker (real server, no art n
   });
 });
 
+describe('自选编队 picker on a phone: the detail\'s own 取消 / 确认 (real server, no art needed)', { skip: !UI_ENABLED && 'set SP_E2E=1 (and have Chrome)' }, () => {
+  test('取消 puts back the skill, module, 潜能 and 练度 changed in the detail; 确认 keeps them; neither confirms the lineup', { timeout: 90000 }, async () => {
+    const srv = await startRealServer();
+    const P = (await import('puppeteer-core')).default;
+    const c = new Client(P, srv.base, 'diy-phone-detail', { prefix: 'diy-phone-detail', w: 844, h: 390 });
+    const picker = '[data-testid="diy-picker"]';
+    const det = `${picker} .diy-pick__main.is-detail`;
+    const state = () => c.page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      const on = (q) => el?.querySelector(`.diy-pick__detail ${q}[aria-checked="true"]`);
+      const row = el?.querySelector('.diy-opt[data-char="char_4132_ascln"]');
+      return { skill: on('[data-skill]')?.dataset.skill, module: on('[data-module]')?.dataset.module,
+        potential: on('[data-potential]')?.dataset.potential, cultivate: on('[data-cultivate]')?.dataset.cultivate,
+        rowPotential: row?.querySelector('select[data-cult="potential"]')?.value };
+    }, picker);
+    const openDetail = async () => {
+      await c.page.$eval(`${picker} .diy-opt[data-char="${ASCLN}"]`, (e) => e.scrollIntoView({ block: 'nearest' }));
+      await c.click(`${picker} .diy-opt[data-char="${ASCLN}"] .diy-opt__det`);
+      await c.page.waitForSelector(det, { timeout: 3000 });
+    };
+    try {
+      await c.open();
+      await c.enter('自选手机详情');
+      await c.click('.lobby-screen [data-testid="loadout-open"]');
+      await c.click('.lo .lo-tab[data-tab="diy"]');
+      await c.click(`.diy-slot[data-slot="${SLOT}"] :is(.diy-slot__fill, .dccard)`);
+      await c.page.waitForSelector(picker, { visible: true, timeout: 8000 });
+      await openDetail();
+      const before = await state();
+      assert.equal(await c.page.$(`${picker} [data-testid="diy-confirm"]`), null, 'the detail has its own footer');
+      await c.click(`${det} .diy-pick__detail [data-skill="0"]`);
+      await c.click(`${det} .diy-pick__detail [data-module="none"]`);
+      await c.click(`${det} .diy-pick__detail [data-potential="3"]`);
+      await c.click(`${det} .diy-pick__detail [data-cultivate="1"]`);
+      const changed = await state();
+      assert.deepEqual([changed.skill, changed.module, changed.potential, changed.cultivate], ['0', 'none', '3', '1']);
+      assert.notDeepEqual([before.skill, before.module, before.potential, before.cultivate], ['0', 'none', '3', '1']);
+      await c.shot('changed');
+      await c.click('[data-testid="diy-detail-cancel"]');
+      await c.page.waitForSelector(det, { hidden: true, timeout: 3000 });
+      assert.ok(await c.page.$(`${picker} [data-testid="diy-confirm"]`), '取消 returns to the list, the picker stays open');
+      assert.equal((await state()).rowPotential, before.potential, 'the row shows the 潜能 put back');
+      await openDetail();
+      const { rowPotential: _a, ...undone } = await state();
+      const { rowPotential: _b, ...was } = before;
+      assert.deepEqual(undone, was, '取消 put back the skill, module, 潜能 and 练度');
+      // 确认 keeps the change and returns to the list without confirming the lineup
+      await c.click(`${det} .diy-pick__detail [data-potential="3"]`);
+      await c.click('[data-testid="diy-detail-ok"]');
+      await c.page.waitForSelector(det, { hidden: true, timeout: 3000 });
+      assert.ok(await c.page.$(`${picker} [data-testid="diy-confirm"]`), '确认 returns to the list, the picker stays open');
+      assert.equal((await state()).rowPotential, '3', '确认 keeps the 潜能');
+      assert.equal(await c.page.evaluate(() => localStorage.getItem('sp.pref.diy')), null, 'no lineup saved');
+      assert.deepEqual(c.problems.filter((p) => p.startsWith('pageerror:')), []);
+    } finally {
+      console.log(JSON.stringify({ problems: problemsOf([c]) }));
+      await c.close();
+      await srv.stop();
+    }
+  });
+});
+
 describe('0.2.0 自选编队 — a slotted operator in the own shop and battle (real server)', { skip: !ENABLED && 'set SP_E2E=1 (Chrome + public/assets)' }, () => {
   test('自选编队: slot 赤刃明霄陈 → level-5 shop card (自选) → buy → deploy → the local battle fields 赤刃明霄陈', { timeout: 6 * 60 * 1000 }, async () => {
     const srv = await startRealServer({ fast: { timerScale: 0.5, combatSpeed: 2, startRound: 1, kit: 0, level: 5, shop: [SLOT] } });
