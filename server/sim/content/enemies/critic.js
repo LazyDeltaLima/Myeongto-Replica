@@ -741,7 +741,7 @@ const LRMZRD_ORBIT = 0.9, LRMZRD_TURN = 50, LRMZRD_BALL = 0.45;
  * 魂灵残迹's laser, projectile_enemy_lrwzrd_* (LaserHitBehaviour + MultiHitBehaviour): `_laserWidth`, a unit struck again
  * after `_keepAlreadyHitTime` s, gone after `_lifeTime` s at the latest; LrwzrdRangedAttack's `_preDelay` before it is fired.
  */
-const LRWZRD_WIDTH = 0.65, LRWZRD_REHIT = 1, LRWZRD_LIFE = 8, LRWZRD_PRE = 0.2;
+const LRWZRD_WIDTH = 0.65, LRWZRD_REHIT = 1, LRWZRD_LIFE = 8;
 /** BuffDuringCastingFixed enemy_lrwzrd[atk_boost]: its `triggerInterval` (first trigger one interval after the cast starts). */
 const LRWZRD_BOOST_EVERY = 1;
 
@@ -853,7 +853,7 @@ function kitSoulMage(ab) {
  * is the caster's; the highest 仇恨值 first): LrwzrdRangedAttack, `_timeMode` 2 — an 8 s channel (Skill_Begin / _Loop /
  * _End). Through the cast BuffDuringCastingFixed enemy_lrwzrd[atk_boost]: on its start the souls held fix its cap
  * (`atk_ladder` × souls), and every LRWZRD_BOOST_EVERY s ATK × (1 + boost), boost += `atk_step` up to that cap (gone with the
- * cast). After `_preDelay` (LRWZRD_PRE) BuffToOwner enemy_lrwzrd[clear_buff] (SPELL_ON) spends every soul — no
+ * cast). After `_preDelay` (0.2 s, the data's skillCast laser.pre: the skill's `atStrike`) BuffToOwner enemy_lrwzrd[clear_buff] (SPELL_ON) spends every soul — no
  * `_decCntIfStack` — and one laser leaves (DoCastOnTargets): along the map axis toward its target (x if |dx| ≥ |dy|, right
  * on a tie of positions) from its position to the edge of the map (x 0 / width − 1, y 0 / height − 1). The laser strikes
  * every operator-side unit whose collider meets it (`_laserWidth` LRWZRD_WIDTH; ground and air, 迷彩 ignored, through
@@ -885,16 +885,19 @@ function kitSoulWizard(ab) {
       const at = { x: t.x, y: t.y };
       a.boost = { v: 0, cap: ladder * P.souls, next: b.time + LRWZRD_BOOST_EVERY, until: b.time + LRWZRD_LIFE };
       a.laser = null;
-      b.after(LRWZRD_PRE - 1e-9, () => {
-        if (!e.alive || !(e.castLeft > 0) || !a.boost) return;
-        P.setSouls(b, e, 0);
-        const dx = at.x - e.x, dy = at.y - e.y;
-        const dir = Math.abs(dy) <= Math.abs(dx) ? [dx < 0 ? -1 : 1, 0] : [0, dy < 0 ? -1 : 1];
-        const to = dir[0] > 0 ? [b.grid.cols - 1, e.y] : dir[0] < 0 ? [0, e.y] : dir[1] > 0 ? [e.x, b.grid.rows - 1] : [e.x, 0];
-        a.laser = { x: e.x, y: e.y, to, dir, last: new Map() };
-        b.fx('laser', { x: e.x, y: e.y, id: e.id, to, key, w: LRWZRD_WIDTH, tgt: t.id });
-      }, { owner: e });
-    }, { cond: (b, e) => P.souls > 0 && !!pick(b, e) }),
+      a.aim = { at, id: t.id };
+    }, { cond: (b, e) => P.souls > 0 && !!pick(b, e), atStrike: (b, e, a) => {
+      // the spell after `_preDelay` (data skillCast laser.pre; content/enemies.js castStrikeAt)
+      const aim = a.aim;
+      a.aim = null;
+      if (!a.boost || !aim) return;
+      P.setSouls(b, e, 0);
+      const dx = aim.at.x - e.x, dy = aim.at.y - e.y;
+      const dir = Math.abs(dy) <= Math.abs(dx) ? [dx < 0 ? -1 : 1, 0] : [0, dy < 0 ? -1 : 1];
+      const to = dir[0] > 0 ? [b.grid.cols - 1, e.y] : dir[0] < 0 ? [0, e.y] : dir[1] > 0 ? [e.x, b.grid.rows - 1] : [e.x, 0];
+      a.laser = { x: e.x, y: e.y, to, dir, last: new Map() };
+      b.fx('laser', { x: e.x, y: e.y, id: e.id, to, key, w: LRWZRD_WIDTH, tgt: aim.id });
+    } }),
     tick(b, e, a) {
       if (!a.boost) return;
       if (!(e.castLeft > 0) || b.time >= a.boost.until - 1e-9) { stop(b, e, a); return; }

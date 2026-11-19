@@ -18,7 +18,7 @@ const SEASONS = [[null, 'data/enemies.json'], ['act3autochess', 'data/seasons/ac
 const read = (f) => JSON.parse(fs.readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8'));
 
 const ACE = 'times its effect itself (enemies/helpers.js atCastEvent): it has a part at the cast start';
-const OWN = '[미조사] a channel, projectile wait or kit timer of its own, not moved yet — bundles line 「채널·투사체 적 스킬 효과 프레임」 (same section)';
+const OWN = '[미조사] a kit timer of its own, not moved yet — bundles line 「포격·죽음의 눈 효과 프레임」 (same section)';
 /** enemy key → skill name → why its kit does not say `atStrike` (a cast whose frame is 0 needs no entry). */
 const EXCEPT = {
   enemy_10001_trslim: { StartRun: ACE },
@@ -31,16 +31,12 @@ const EXCEPT = {
   enemy_1403_gunsho: { CrossAttack: ACE }, enemy_1403_gunsho_2: { CrossAttack: ACE },
   enemy_1405_boomer_2: { Bomb: ACE }, enemy_1406_chghmr: { PowerHit: ACE }, enemy_1409_bdguad_2: { CrossBomb: ACE },
   enemy_1431_lrmzrd: { summonFireball: ACE }, enemy_1431_lrmzrd_2: { summonFireball: ACE },
-  enemy_10144_xdelk_2: { skill: OWN }, enemy_1273_stmgun_2: { Cannon: OWN }, enemy_1275_dwlock_2: { DeathEye: OWN },
-  enemy_1404_msnip: { CrossAttack: OWN }, enemy_1429_lrwzrd: { Laser: OWN }, enemy_1429_lrwzrd_2: { Laser: OWN },
-  enemy_1504_cqbw: { C4: OWN }, enemy_1513_dekght: { ChargeAttack: OWN }, enemy_1517_xi: { ShieldBurst: OWN, ShieldBurstReborn: OWN },
-  enemy_2050_smsha: { ChainBuff: OWN },
+  // 高准度伦蒂尼姆城防自行炮 `Cannon` (its bombardment is a projectile's buff), 萨卡兹王庭军精锐术师 `DeathEye` (a sequence whose
+  // link waits for its projectile)
+  enemy_1273_stmgun_2: { Cannon: OWN }, enemy_1275_dwlock_2: { DeathEye: OWN },
   // boss skills that spend their SP as the cast begins (bosses.js atSpell)
   enemy_9021_acduml: { 1: ACE }, enemy_9021_acduml_2: { 1: ACE }, enemy_9022_acdumm: { 1: ACE },
   enemy_9032_aclionk: { equip: ACE, equipA: ACE }, enemy_9029_acfnc: { SommonSquad: ACE }, enemy_9029_acfnc_2: { SommonSquad: ACE, SkSummonArmor: ACE },
-  // boss channels: 假想敌：黑云 【吞噬】 and 假想敌：铳 (隐秘核心) 【末日布道】 (three-part channels, the kit times its parts),
-  // “萨米的意志” 【自然涌动】 (a RangedAttack waiting for its lassos)
-  enemy_9009_acfort: { KillOthers: OWN }, enemy_9017_achunt_2: { 2: OWN }, enemy_9033_acdeer: { Lasso: OWN },
 };
 
 test('every attack-slot enemy skill with a frame to wait for takes effect there (`atStrike`), or says why not', () => {
@@ -87,6 +83,13 @@ test('castStrikeAt by class: a clip\'s OnAttack, the end without one, `_preDelay
   assert.ok(near(at('enemy_1504_cqbw', 'c4'), 0.6), 'W C4: `_preDelay` 0.6');
   assert.ok(near(at('enemy_1535_wlfmster', 'fearcage', { duration_s: 5 }), 4.367), '扎罗 【溶血骇惧】: 5 s − A_Skill_End 1 s + its 0.367 s frame');
   assert.ok(near(at('enemy_1502_crowns', 'blink'), TICK), 'an ActiveBuffAbility: one fixed update');
+  // a channel: the first OnAttack of its clips as they play (SpineAnimator._OnEvent → the entity's attack event), or `_preDelay`
+  const A3 = read('data/seasons/act3autochess/enemies.json');
+  assert.ok(near(at('enemy_9009_acfort', 'killothers', { duration: 4 }), 0.633), '假想敌：黑云 KillOthers: Skill_1_Begin\'s event');
+  assert.ok(near(enemiesMod.castStrikeAt({ s: { interval: 6 } }, E.enemy_9033_acdeer.skillCast.lasso, {}), 1), '“萨米的意志” Lasso: Skill_01_Begin\'s event');
+  assert.ok(near(at('enemy_9017_achunt_2', '2', { dog_duration: 5 }), 0), '假想敌：铳 (隐秘核心) 【末日布道】 does not wait (`_preDelay` 0)');
+  assert.ok(near(enemiesMod.castStrikeAt(e, A3.enemy_1429_lrwzrd.skillCast.laser, {}), 0.2), '魂灵残迹 Laser: `_preDelay` 0.2');
+  assert.ok(near(at('enemy_1404_msnip', 'crossattack'), 2.5 - 1.1 + 0.067), '重弩突袭者 CrossAttack: Skill_End\'s event');
   // `_timeMode` 0 played faster than its clip: the frame scales with it (锏 CircleAttack: A_Skill2 2.067 s at a 1.5 s interval)
   assert.ok(near(enemiesMod.castStrikeAt({ s: { interval: 1.5 } }, E.enemy_1525_blkswb.skillCast.circleattack, {}), 0.633 * 1.5 / 2.067), 'scaled');
 });
@@ -138,4 +141,30 @@ test('a cast cut before its frame gives nothing: 迷路的巨像 stunned before 
   };
   assert.equal(go(null), 1, 'uncut: its target is stunned');
   assert.equal(go(0.5), 0, 'stunned 0.5 s in: no boulder');
+});
+
+test('a kit whose spell is a part of its own (`atStrike` a function): 重弩突袭者 reveals itself as it starts, its bolt leaves at Skill_End\'s event — none when stunned first', () => {
+  const go = (stunAt) => {
+    const h = arena([{ chessId: 't_a', row: 10, col: 5 }]);
+    h.step();
+    const e = h.spawn('enemy_1404_msnip', { pos: [10, 8], routeIndex: 0, mods: { speedMul: 0 } });
+    const w = h.unit('t_a');
+    let shot = null;
+    const fx = h.b.fx.bind(h.b);
+    h.b.fx = (k, o) => { if (k === 'enemyShot' && o.id === e.id && shot == null) shot = h.b.time; return fx(k, o); };
+    const t0 = untilCast(h, e, 'CrossAttack');
+    assert.ok(e.findBuff('ab:revealed'), 'revealed as the cast starts');
+    if (stunAt != null) {
+      h.run(t0 + stunAt - h.b.time);
+      assert.ok(h.b.applyStatus(e, 'stun', { duration: 3 }), 'stunned');
+    }
+    h.run(t0 + 3 - h.b.time);
+    return { shot: shot == null ? null : shot - t0, stun: !!w.s.flags.stun };
+  };
+  const a = go(null);
+  assert.ok(a.shot != null && Math.abs(a.shot - (2.5 - 1.1 + 0.067)) <= TICK + 1e-6, `the bolt at 1.467 s (${a.shot})`);
+  assert.ok(a.stun, 'it struck');
+  const c = go(1);
+  assert.equal(c.shot, null, 'stunned 1 s in: no bolt');
+  assert.ok(!c.stun);
 });

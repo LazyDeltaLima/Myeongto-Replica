@@ -733,10 +733,11 @@ function dmgZone(b, src, x, y, r, life, iv, amount, type = 'arts', kind = 'zone'
  * A cooldown skill ability (`id` labels it for tests / other abilities; `name` = the official ability name of its data
  * skill `s` — content/enemies.js onTick puts it on the cast's events). `atStrike`: `fire` is the ability's spell, which an
  * attack-slot cast runs at the frame its ability waits for (content/enemies.js castStrikeAt; docs/rules/sim.md 「적 스킬 =
- * 일반 공격 차례」 효과가 나는 때) — not at all when the cast is cut before it.
+ * 일반 공격 차례」 효과가 나는 때) — not at all when the cast is cut before it. A function `atStrike(b, e, a)` is that spell and
+ * `fire` the cast's start (what it holds while it casts, the target it takes then).
  */
 const skill = (s, fire, { cond = null, sil = false, cd = null, icd = null, id = null, atStrike = false } = {}) => (s || cd != null) && fire ? ({
-  id: id ?? null, name: s?.name ?? null, sil, cd: cd ?? s.cd, icd: icd ?? s.icd, cond, fire, ...(atStrike ? { atStrike: true } : {}),
+  id: id ?? null, name: s?.name ?? null, sil, cd: cd ?? s.cd, icd: icd ?? s.icd, cond, fire, ...(atStrike ? { atStrike: typeof atStrike === 'function' ? atStrike : true } : {}),
 }) : null;
 
 /** Blink past the blocker along the path (弑君者 / 卢西恩). Returns the start position. */

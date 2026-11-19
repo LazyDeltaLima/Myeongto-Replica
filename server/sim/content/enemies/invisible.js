@@ -21,7 +21,7 @@ const ACBUNN_SWITCH_IV = 0.3;
 
 /** 重弩突袭者 直击: the skill's length and its charge before the bolt (PRTS 直击 "蓄力1.4s后向目标方向发射1支弩箭…※技能持续2.5s"). Its
  *  reach is no number: helpers.js crossTargets (until 2026-11-14 an assumed 6 tiles). */
-const CROSS_SKILL = 2.5, CROSS_CHARGE = 1.4;
+const CROSS_SKILL = 2.5;
 const CROSS_BOLT_SPEED = 5;   // projectile_enemy_msnip `_speed` (the data's skills CrossAttack.proj when present)
 /** 重弩突袭者 直击's MUZZLE (map tiles from its position: forward along its facing, up a row) as the bolt leaves — the
  *  `Muzzle` bone at the OnAttack event (0.067 s) of the clip its ThreePartChannelingAnimation ends on, by its direction:
@@ -40,39 +40,41 @@ function kitCrossbow(ab) {
   // `_checkOnTheSameLine` with the uneven offsets X −0.5/0.5, Y −0.5/0.1 (2026-10-21; until then ±0.5 both ways):
   // helpers.js crossTargets, as 速射轻弩手's
   // PRTS 重弩突袭者: 天赋 "隐匿（被阻挡，主动攻击期间均可解除）"; 直击 "蓄力1.4s后向目标方向发射1支弩箭，对击中的首个目标造成攻击力100%
-  // 的法术伤害与5s晕眩 ※技能持续2.5s": revealed for the whole skill, the bolt leaves CROSS_CHARGE s in the way of the unit it
-  // aimed at, and a stun / silence or its death before the release cancels the shot [ASSUMED]. The skill's length is its
+  // 的法术伤害与5s晕眩 ※技能持续2.5s": revealed for the whole skill, the bolt leaves in the way of the unit it aimed at as
+  // the cast starts, at the ability's spell — Skill_End's attack event, 2.5 − 1.1 + 0.067 = 1.467 s in (`atStrike`,
+  // content/enemies.js castStrikeAt; until 2026-11-20 PRTS 「蓄力1.4s」), none when the cast is cut first (a stun …; a
+  // silence meanwhile does not cut it — the enemy's AttackState.OnTick does not look at it; until 2026-11-20 it did [ASSUMED]). The skill's length is its
   // ability's (RangedAttack `_timeMode` 2, `_cooldown` 2.5, a ThreePartChannelingAnimation: content/enemies.js castLength):
   // it stands without a normal attack through the cast, which a stun cuts (until 2026-11-07 a buff of this kit held it 2.5 s
   // whatever happened [ASSUMED]). The blackboard's duration (2) is not the skill's length. Until 0.1.3: revealed 2 s, the
   // bolt at once.
   // Never begun while blocked: its `_familyMask` is ATTACK only (content/enemies.js onSkillSlot; until 2026-10-22 it shot
   // its blocker too); a shot begun before the block still leaves.
-  return [stealth(), skill(s, (b, e) => {
+  return [stealth(), skill(s, (b, e, a) => {
     const t = crossTargets(b, e)[0];
+    a.aim = t ? { x: t.x, y: t.y } : null;
     if (!t) return;
-    const bb = s.bb;
-    const aim = { x: t.x, y: t.y };
     b.addBuff(e, { key: 'ab:revealed', duration: CROSS_SKILL, flags: { reveal: true } });
-    b.after(CROSS_CHARGE, () => {
-      if (!e.alive || e.hidden || e.s.flags.stun || e.s.flags.silence) return;
-      // the bolt: its official projectile (data/enemies.json skills CrossAttack.proj — projectile_enemy_msnip, FIXED_DIRECTION
-      // at 5 tiles/s; until 2026-10-10 12) flies straight along the axis towards the aimed spot and stops on the first ally
-      // it touches — the aimed unit or one in front of it, or one behind when the aimed unit is gone; nobody: it flies on
-      // for its 10 s life (helpers.js lineShot; until 2026-10-10 it homed on the nearest unit still in line)
-      // 2026-10-23: from its MUZZLE (the projectile's `_mountPointType`) at the frame it shoots, not its centre; the
-      // clip by its direction to the aimed spot — Entity.get_direction, the FOUR_WAYS axis nearest (UP, RIGHT, DOWN,
-      // LEFT: a tie takes the first); its model faces the spot's side [추정: straight above / below it faces right]
-      const dx = aim.x - e.x, dy = aim.y - e.y;
-      const ways = [dy, dx, -dy, -dx];
-      const m = CROSS_MUZZLE[['UP', 'side', 'DOWN', 'side'][ways.indexOf(Math.max(...ways))]], face = dx < 0 ? -1 : 1;
-      lineShot(b, e, aim, s.proj || { key: 'projectile_enemy_msnip', move: 'FIXED_DIRECTION', speed: CROSS_BOLT_SPEED, life: 10 }, (u) => {
-        if (!u || !u.alive) return;
-        hurt(b, e, u, e.s.atk * (bb.atk_scale ?? 1), 'arts');
-        if (bb.stun > 0 && u.alive) b.applyStatus(u, 'stun', { duration: bb.stun, source: e });
-      }, { source: e, at: { x: e.x + face * m.f, y: e.y + m.up } });
-    }, { owner: e });
-  }, { sil: true, cond: (b, e) => crossTargets(b, e).length > 0 })];
+  }, { sil: true, cond: (b, e) => crossTargets(b, e).length > 0, atStrike: (b, e, a) => {
+    const aim = a.aim, bb = s.bb;
+    a.aim = null;
+    if (!aim) return;
+    // the bolt: its official projectile (data/enemies.json skills CrossAttack.proj — projectile_enemy_msnip, FIXED_DIRECTION
+    // at 5 tiles/s; until 2026-10-10 12) flies straight along the axis towards the aimed spot and stops on the first ally
+    // it touches — the aimed unit or one in front of it, or one behind when the aimed unit is gone; nobody: it flies on
+    // for its 10 s life (helpers.js lineShot; until 2026-10-10 it homed on the nearest unit still in line)
+    // 2026-10-23: from its MUZZLE (the projectile's `_mountPointType`) at the frame it shoots, not its centre; the
+    // clip by its direction to the aimed spot — Entity.get_direction, the FOUR_WAYS axis nearest (UP, RIGHT, DOWN,
+    // LEFT: a tie takes the first); its model faces the spot's side [추정: straight above / below it faces right]
+    const dx = aim.x - e.x, dy = aim.y - e.y;
+    const ways = [dy, dx, -dy, -dx];
+    const m = CROSS_MUZZLE[['UP', 'side', 'DOWN', 'side'][ways.indexOf(Math.max(...ways))]], face = dx < 0 ? -1 : 1;
+    lineShot(b, e, aim, s.proj || { key: 'projectile_enemy_msnip', move: 'FIXED_DIRECTION', speed: CROSS_BOLT_SPEED, life: 10 }, (u) => {
+      if (!u || !u.alive) return;
+      hurt(b, e, u, e.s.atk * (bb.atk_scale ?? 1), 'arts');
+      if (bb.stun > 0 && u.alive) b.applyStatus(u, 'stun', { duration: bb.stun, source: e });
+    }, { source: e, at: { x: e.x + face * m.f, y: e.y + m.up } });
+  } })];
 }
 
 /**

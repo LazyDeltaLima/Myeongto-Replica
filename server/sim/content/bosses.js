@@ -1976,8 +1976,10 @@ function kitDeer(ab, e) {
       // the boss dead (`_stopWhenSourceInvalid`), or the cast cut short (RangedAttack.OnCastEnd clears its projectiles: a
       // stun, freeze or 浮空 on the boss). The cast lasts while a lasso holds (content/enemies.js projCastOver): no 冰凌 and
       // no other skill meanwhile, and the 60 s cooldown restarts as the last lasso ends. Until 2026-11-14 the cast lasted 0
-      // (the 冰凌 went on, the cooldown ran from its start) and the stun held its 10 s whatever happened.
-      name: lasso.name, cd: lasso.cd, icd: lasso.icd, cond: (b) => allTargets(b, e).length > 0,
+      // (the 冰凌 went on, the cooldown ran from its start) and the stun held its 10 s whatever happened. The lassos leave at
+      // the ability's spell, Skill_01_Begin's attack event 1 s in (`atStrike`, content/enemies.js castStrikeAt; until
+      // 2026-11-20 as the cast began), none when the cast is cut before it.
+      name: lasso.name, cd: lasso.cd, icd: lasso.icd, atStrike: true, cond: (b) => allTargets(b, e).length > 0,
       projAlive: () => P.lassos.size > 0,
       onCut: () => { for (const l of [...P.lassos]) l.end(); },
       fire(b, e2) {

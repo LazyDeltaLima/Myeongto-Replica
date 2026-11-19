@@ -1553,8 +1553,12 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   - **효과가 나는 때** (2026-11-20, 공식 클라에서 확인 — 이전: 아래 키트들은 시전 시작에 효과를 냈고 끊긴 시전도 맞혔다 [가정이었음]): 능력은 주문(효과) 전에
     한 프레임을 기다린다(`EasyToStartAbility.OnCastStart` → `<OnWaitForPreDelay>` → 주문; 공격 능력·`AnimatedActionTo*`·`GloballUniqueBuffAbility` 모두).
     `content/enemies.js castStrikeAt`이 그 때를 센다: 클립이 있고 공격 이벤트를 기다리면(`_waitForAttackEvent` 1) 클립의 첫 `OnAttack` × 시전 배율(시전 길이 ÷ 클립),
-    이벤트가 없는 클립·클립 없는 능력은 시전 끝(`WaitForNextEvent`가 `m_cachedDuration`까지), 기다리지 않으면(`wait` 0) `_preDelay` × 배율, 세 부분 채널은 끝 클립의
-    `OnAttack`(능력 시간에 시작·루프·끝을 맞추므로 시전 길이 − 끝 클립 + 그 프레임: 자로, '늑대 군주' `FearCage` 5 − 1 + 0.367 = 4.367초째), `ActiveBuffAbility`는
+    이벤트가 없는 클립·클립 없는 능력은 시전 끝(`WaitForNextEvent`가 `m_cachedDuration`까지), 기다리지 않으면(`wait` 0) `_preDelay` × 배율, 세 부분 채널은 그 클립들이
+    도는 차례대로 첫 `OnAttack`(2026-11-20 넓힘 — 채널 능력은 제 클립이 없고 `ThreePartChannelingAnimation`이 시작·루프·끝 클립을 능력 시간에 맞춰 틀며(`UpdatePlaybackSpeed`: 시작+끝이
+    더 길면 둘을 줄이고 루프 0), 모델의 Spine `OnAttack`은 어느 클립에서든 엔티티의 공격 이벤트다(`SpineAnimator._OnEvent`): 시작 클립의 것(가상적: 흑운 `KillOthers` 0.633초,
+    '사미의 의지' `Lasso` 1초), 없으면 루프, 없으면 끝 클립(시전 길이 − 끝 클립 + 그 프레임: 자로, '늑대 군주' `FearCage` 5 − 1 + 0.367 = 4.367초째), 없으면 시전 끝; 이벤트를
+    기다리지 않는 채널(`_waitForAttackEvent` 0)은 `_preDelay` 뒤 — 가상적: 총(숨은 핵심) [종말의 포교] 바로, 응집된 영혼의 잔해 `Laser` 0.2초; 이전: 끝 클립만 보고 시작 클립·`_preDelay`를
+    안 봄), `ActiveBuffAbility`는
     고정 업데이트 한 번 뒤, 선택 묶음은 그 자식의 것, 순차 묶음은 앞 자식들 뒤 마지막 자식의 것. 키트가 `atStrike`(`enemies/archetypes.js skill`)라고 하면 엔진이 공격 차례
     시전의 `fire`를 그 프레임에 부르고, 그 전에 시전이 끊기거나(기절 등, `ab.casting`이 바뀜) 적이 사라지면 부르지 않는다; 시작에 할 일이 따로 있는 키트는 `fire`에서 그것을
     하고 효과를 `enemies/helpers.js atCastEvent`로 미룬다(간이 사육 원석충 `StartRun`: 형태 표시는 시작, `Run` 모드·달리기는 `Skill_Begin` 끝 1초). 옮긴 것:
@@ -1568,12 +1572,19 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     0.833초)·`SkSummonArmor` 2.5초(`A_Skill_2` 끝), 고치 `Net` 1.033초·【비참한 비】 1.833초(자식 클립 끝), 지느러미 `Discharge` 2.433초. SP로 시전하는 것(관·현·알리스테어
     [왕권 호령]·기계 `SommonSquad`·`SkSummonArmor`)은 SP를 시전 시작에 쓰고 효과만 그 프레임에 낸다(`bosses.js atSpell` — 엔진의 `atStrike`와 같은 판정; 관·현은 키트 제
     공격 고리로 시전해(`ownAttackTurn`) `castLeft`가 없으므로 시전 기록의 `until`로 끝남을 본다).
-    데이터: `build-data.mjs enemySkillCast`가 `wait` 0·`pre`(`_preDelay`)와 채널 끝 클립의 `chanEnd`(`dur`·`hit`)를 싣는다. 재발 방지:
+    채널·투사체 기다림(2026-11-20 옮김): 시작에 할 일이 있는 키트는 `atStrike`를 함수로 주고(`fire`가 시작 — 시전 동안의 `BuffDuringCasting`·처음 고른 대상, 함수가 주문)
+    엔진이 같은 판정으로 부른다. 투사체를 기다리는 `RangedAttack`도 주문(발사)은 같은 프레임이고 기다림은 그 뒤다(`RangedAttack`은 `<OnWaitForPostDelay>`만 덮어씀). 강화 석궁 기습자
+    `CrossAttack` 1.467초(드러남은 시작; 이전 PRTS 「蓄力1.4s」, 그 사이 침묵에도 안 쐈음 [가정이었음] — 침묵은 시전을 끊지 않음), W `C4` 0.6초, 함락의 제사장 `ChainBuff` `Skill`의
+    0.467초, '즈자이' `ShieldBurst` 폭발(방벽은 시작부터 시전 끝까지, 폭발은 `Skill_02_End` 프레임 — `duration` − 0.3초; 이전: 마지막 층이 끝날 때), 부패한 기사 `ChargeAttack`
+    내려찍기(`duration` − 1.033초, 시작 때 저지자 칸의 십자; 이전 `duration`), 검은 뿔의 루울 `skill` 충돌(`duration` − 0.9초; 이전 `duration`), 응집된 영혼의 잔해 `Laser`(0.2초 —
+    키트가 같은 값을 따로 들고 있던 것), 가상적: 흑운 `KillOthers` 지연 포식(0.633초; 이전 0.5초 [가정이었음] — 스스로의 속박은 시작), '사미의 의지' `Lasso` 올가미(1초).
+    총(숨은 핵심) [종말의 포교]는 기다리지 않아 그대로(시작).
+    데이터: `build-data.mjs enemySkillCast`가 `wait` 0·`pre`(`_preDelay`, 채널도)와 채널 클립의 `chanBegin`·`chanLoop`·`chanEnd`(`dur`·`hit`)를 싣는다(`attack_timing.py cast_fields`가
+    채널 능력의 `_waitForAttackEvent`·`_preDelay`를 읽음). 재발 방지:
     `test/content/enemy-skill-strike.test.js`(두 시즌 공격 차례 스킬 전부 — 프레임이 0보다 늦은데 `atStrike`가 아니면 예외 목록의 이유가 있어야 함).
-    아직 시작에 효과를 내는 것 [추정·미조사: 키트마다 옮겨야 함 — 묶음 sim-D 줄 「채널·투사체 적 스킬 효과 프레임」]: 채널·투사체 기다림·키트 자체 타이머('즈자이' `ShieldBurst`,
-    검은 뿔의 루울, W `C4`(`_preDelay` 0.6초), 부패한 기사 `ChargeAttack`, 강화 석궁 기습자, 고정밀 런디니움 방위군 자주포, 살카즈 왕정군 정예 캐스터, 함락의 제사장, 응집된 영혼의
-    잔해 `Laser`, 그리고 보스의 채널 셋 — 가상적: 흑운 포식 `KillOthers`·총(숨은 핵심) [종말의 포교](세 부분 채널, 끝 클립에 이벤트가 없어 `castStrikeAt`은 시전 끝을 주지만
-    키트가 시작부터 버프·돌진을 낸다), '사미의 의지' [자연의 요동](`_waitForProjectileInvalid`의 `RangedAttack`)). `atCastEvent`는 아직 클립 그대로의 `hit`(없으면 클립 길이)을 써
+    아직 시작에 효과를 내는 것 [추정·미조사: 키트 자체 타이머 — 묶음 sim-D 줄 「포격·죽음의 눈 효과 프레임」]: 고정밀 런디니움 방위군 자주포 `Cannon`(클립 `Skill`의 4.033초에 투사체
+    `projectile_enemy_stmgun_s`가 나가고 포격은 그 투사체의 버프 — 키트는 시작부터 0.5초마다 10발), 살카즈 왕정군 정예 캐스터 `DeathEye`(순차 묶음: 투사체를 기다리는 연결 `LineAttack`
+    `_preDelay` 0.6초, 그 뒤 `ChargeAttack`). `atCastEvent`는 아직 클립 그대로의 `hit`(없으면 클립 길이)을 써
     `castStrikeAt`과 어긋나는 곳이 있다(배율·`wait` 0 — 묶음 sim-D 줄 「atCastEvent를 castStrikeAt으로」).
   적에게는 시간 늦추기
   (`SLOW_DOWN` 속성)가 이 모드에 없어(버프 템플릿·스킬 프리팹 어디에도 없음) `animSlowDown` 갈래는 해당 없음.
@@ -1657,7 +1668,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   `FarthestPointMovement._SetTargetPosAndDirection`: `_useDirToTarget`이면 `MapUtil.NormalizeDirectionToFourWays(대상 − 출발)` = 가까운 네 방향
   축, `_useConstDirection`이면 고정 방향. 투사체는 `Projectile.OnTick`에서 수명(`_lifeTime`)이 다할 때만 멈추고(도착 처리
   `DealProjectileReached`는 멈추지 않음), 맞을 수(`_hitNumType` LIMITED·`_maxHitNum`)를 채우면 `_stopAfterMaxHit`로 멈춘다.
-  - 重弩突袭者 直击(`enemies/invisible.js kitCrossbow` → `enemies/helpers.js lineShot`, 이전: 겨눈 대상에 유도): 1.4 s 충전 뒤 시전 때 겨눈 칸
+  - 重弩突袭者 直击(`enemies/invisible.js kitCrossbow` → `enemies/helpers.js lineShot`, 이전: 겨눈 대상에 유도): 주문 프레임(1.467 s, 「적 스킬 = 일반 공격 차례」 효과가 나는 때; 이전 1.4 s) 뒤 시전 때 겨눈 칸
     쪽 축으로 5 타일/초 직진, `SelectorHitBehaviour`(`_hitPasserby` 1, `_interval` 0.03 — 우리는 매 틱) 원 반경 0.3(Selector0/1의 CircleCollider2D)에
     충돌체(ALLY_COLLIDER_RADIUS 0.25)가 닿는 첫 아군 1명(`_maxHitNum` 1, `_stopAfterMaxHit` 1)에 법술 피해·기절 후 멈춤. 겨눈 대상이 사라지면 그 뒤의
     아군에, 축 위에 아무도 없으면 10 s(50타일) 날다 사라짐. 충돌 선택은 `areaSelectable`(투사체 충돌은 迷彩 무시 — Selector1 `_forceIgnoreCamouflage`).

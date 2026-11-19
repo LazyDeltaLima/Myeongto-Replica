@@ -312,22 +312,25 @@ function castSkill(b, e, a, k = null) {
   const p = a.name ? b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: a.name, n: a.casts, ...(ch ? chanView(e, ch, s.bb) : null) }) : null;
   if (ch && k) { k.chan = true; k.hold = !!ch.chan.wait; }
   // `atStrike`: its effect waits for the frame its ability waits for (castStrikeAt) — nothing when the cast is cut, the enemy
-  // gone or another cast begun before it
-  const at = a.atStrike && k && s ? castStrikeAt(e, s.cast, s.bb) : 0;
+  // gone or another cast begun before it. As a function it is that effect, and `fire` the cast's start (what lasts while
+  // it casts: BuffDuringCasting's buffs, its target taken)
+  const run = (fn) => {
+    const prev = b._castAbility;
+    b._castAbility = a.name ? { id: e.id, ability: a.name } : null;
+    try { return safe(b, e, () => fn(b, e, a)); } finally { b._castAbility = prev; }
+  };
+  // (a skill on its own cooldown, `k` null, casts no attack slot: a plain `atStrike` fires at once, a split one keeps its
+  // two parts apart by the same frame, cut only by the enemy's death)
+  const part = typeof a.atStrike === 'function' ? a.atStrike : null;
+  const at = a.atStrike && (k || part) && s ? castStrikeAt(e, s.cast, s.bb) : 0;
+  const t = at > 1e-9 && !part ? null : run(a.fire);
+  if (ch && p && t && t !== e && t.id != null) p.tgt = t.id;
   if (at > 1e-9) {
     b.after(at - 1e-9, () => {
-      if (!e.alive || e.mem.ab.casting !== k || !(e.castLeft > 0) || e.castSwing) return;
-      const prev2 = b._castAbility;
-      b._castAbility = { id: e.id, ability: a.name };
-      try { safe(b, e, () => a.fire(b, e, a)); } finally { b._castAbility = prev2; }
+      if (!e.alive || (k && (e.mem.ab.casting !== k || !(e.castLeft > 0) || e.castSwing))) return;
+      run(part ?? a.fire);
     }, { owner: e });
-    return;
-  }
-  const prev = b._castAbility;
-  b._castAbility = a.name ? { id: e.id, ability: a.name } : null;
-  let t;
-  try { t = safe(b, e, () => a.fire(b, e, a)); } finally { b._castAbility = prev; }
-  if (ch && p && t && t !== e && t.id != null) p.tgt = t.id;
+  } else if (part) run(part);
 }
 
 /** The cast record of `cast` that plays a three-part channel — itself, else a child of its sequence (死亡之眼's LineAttack) — or null. */
@@ -437,9 +440,8 @@ export function castLength(e, cast, bb) {
  *   (`hit`) × the scale the cast plays at (castLength ÷ clip, `UpdatePlaybackSpeed`); a clip without one: the whole cast
  *   (`WaitForNextEvent` waits up to `m_cachedDuration`); one that does not wait (`wait` 0): its `_preDelay` × that scale;
  * - one without a clip: its attack time, the whole cast (as castLength);
- * - a three-part channel (ThreePartChannelingAnimation, `chan`) with an OnAttack frame on its end clip (`chanEnd`): that
- *   frame, the end clip playing as the cast's last part (`UpdatePlaybackSpeed` fits begin, loop and end into the ability's time: 扎罗 【溶血骇惧】
- *   5 s − `A_Skill_End` 1 s + its 0.367 s frame = 4.367 s); without one: the whole cast;
+ * - a three-part channel (ThreePartChannelingAnimation, `chan`): chanStrikeAt — the first OnAttack frame of its clips in
+ *   the order they play, or `_preDelay` when the ability does not wait for the event;
  * - an ActiveBuffAbility (`buff`): its spell after one fixed update (`<OnWaitForPreDelay>` yields `sharedWaitForFixedUpdate`);
  * - a selectable group (`sel`): its child's; a sequence (`seq`): the last child's, after the others; a parallel group: null
  *   (its children's own frames — no kit casts one at the attack slot through this path).
@@ -460,14 +462,35 @@ export function castStrikeAt(e, cast, bb) {
   }
   if (cast.kind === 'par') return null;
   const len = castLength(e, cast, bb);
-  if (cast.chan) {
-    const end = cast.chanEnd;
-    return end && end.dur > 0 && len >= end.dur ? len - end.dur + end.hit : len;
-  }
+  if (cast.chan) return chanStrikeAt(cast, len);
   if (!(cast.dur > 0)) return len;
   const scale = len / cast.dur;
   if (cast.wait === 0) return Math.min(len, (cast.pre > 0 ? cast.pre : 0) * scale);
   return Number.isFinite(cast.hit) ? Math.min(len, cast.hit * scale) : len;
+}
+
+/**
+ * When the spell of a three-part channel's ability comes, s from the cast's start (castStrikeAt; 공식 클라에서 확인): the ability
+ * plays no clip of its own — its ThreePartChannelingAnimation plays the begin clip, the loop for what is left of the
+ * ability's time `len` and the end clip (`UpdatePlaybackSpeed`: begin and end squeezed into `len` when longer, the loop
+ * then 0; `_waitForAttachFinishEvent` (`chan.wait`) holds the loop until the attack-finish event), and the model's Spine
+ * OnAttack event in any of them is the entity's attack event (`SpineAnimator._OnEvent`), which the ability waits for
+ * (`_waitForAttackEvent`, EasyToStartAbility.<OnWaitForPreDelay>) up to its time — the begin clip's frame (假想敌：黑云
+ * `KillOthers` 0.633 s, “萨米的意志” `Lasso` 1 s), else the loop's, else the end clip's (扎罗 【溶血骇惧】 5 s − `A_Skill_End`
+ * 1 s + its 0.367 s frame = 4.367 s), else the whole cast. One that does not wait (`wait` 0) casts its spell after
+ * `_preDelay` (假想敌：铳 (隐秘核心) 【末日布道】 at once, 魂灵残迹 `Laser` 0.2 s). Data: `skillCast` `chanBegin` / `chanLoop` /
+ * `chanEnd` ({ dur, hit? }, tools/build-data.mjs enemySkillCast).
+ */
+function chanStrikeAt(cast, len) {
+  if (cast.wait === 0) return Math.min(len, cast.pre > 0 ? cast.pre : 0);
+  const bg = cast.chanBegin, lp = cast.chanLoop, en = cast.chanEnd;
+  const bd = bg && bg.dur > 0 ? bg.dur : 0, ed = en && en.dur > 0 ? en.dur : 0;
+  const k = bd + ed > len && bd + ed > 0 ? len / (bd + ed) : 1;
+  if (bg && Number.isFinite(bg.hit)) return Math.min(len, bg.hit * k);
+  const loop = cast.chan.wait ? Infinity : Math.max(0, len - (bd + ed) * k);
+  if (lp && Number.isFinite(lp.hit) && lp.hit < loop) return Math.min(len, bd * k + lp.hit);
+  if (en && Number.isFinite(en.hit) && !cast.chan.wait) return Math.max(0, len - ed * k + en.hit * k);
+  return len;
 }
 
 /**

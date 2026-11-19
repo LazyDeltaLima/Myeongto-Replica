@@ -244,17 +244,17 @@ test('no skill, blink or scripted move while it lasts (失衡免疫 「失衡期
   assert.ok(s.h.runUntil(() => !s.e.alive, 5), 'then it enters range, launches and blows up');
 });
 
-test('乌顶巨角卢鲁: a 失衡 that does not move it holds its clash until the state ends', REAL, () => {
+// (until 2026-11-20 the kit's own timer held the clash through a 失衡 that did not move it; the clash is now the ability's
+// spell — Skill_End's attack event, docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 효과가 나는 때 — and any 失衡 cuts the cast)
+test('乌顶巨角卢鲁: a 失衡 before its clash frame cuts the charge, even one that does not move it — no clash', REAL, () => {
   const { h, e } = real('enemy_10144_xdelk_2', { units: [{ chessId: 't_wall', row: 10, col: 6 }], move: true });
   assert.ok(h.runUntil(() => h.eventsOf('fx').some((x) => x[1] === 'telegraph' && x[4]?.kind === 'elkCharge'), 10), 'the charge starts');
-  const start = h.b.time, dur = 8;
-  h.run(dur - 0.5);
+  const k = e.mem.ab.sk.skill;
+  h.run(enemiesMod.castStrikeAt(e, k.cast, k.bb) - 0.5);
   h.b.pull(e, 5, { to: { x: e.x + 0.2, y: e.y }, center: { x: e.x + 0.2, y: e.y } });   // 急停 at once: 1 s, no movement
-  const until = e.unbalanceUntil;
-  assert.ok(until > start + dur, 'the state outlasts the charge timer');
   const clash = () => h.eventsOf('fx').some((x) => x[1] === 'explode' && x[4]?.kind === 'elkClash');
-  assert.ok(h.runUntil(clash, 3), 'it clashes');
-  assert.ok(h.b.time >= until - 1e-9, `not before the state ends (${h.b.time.toFixed(3)} vs ${until.toFixed(3)})`);
+  assert.equal(h.runUntil(clash, 3), false, 'no clash');
+  assert.ok(!e.findBuff('ab:elkCharge'), 'the charge is over');
 });
 
 test('a route APPEAR (a forced relocation) and a 逐火 重生 end the state', REAL, () => {

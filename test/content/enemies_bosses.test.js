@@ -2331,7 +2331,8 @@ test(`${nm('enemy_1504_cqbw')}: the charge hits its target alone; the cast lasts
   };
   const a = go(null);
   assert.deepEqual(a.blasts.map((x) => x.id), [a.h.unit('t_wall').id], 'one blast, on the target only — its neighbour is not hit');
-  approx(a.blasts[0].t - a.t0, s.proj.life, 2 * a.h.TICK, 'the charge blows as its life ends');
+  // (the charge goes on at the ability's spell, `_preDelay` 0.6 s in: content/enemies.js castStrikeAt)
+  approx(a.blasts[0].t - a.t0, E.enemy_1504_cqbw.skillCast.c4.pre + s.proj.life, 2 * a.h.TICK, 'the charge blows as its life ends');
   const c = go(1);
   assert.deepEqual(c.blasts.map((x) => x.id), [c.h.unit('t_wall').id], 'the cut cast\'s charge blows');
   assert.ok(c.blasts[0].t - c.t0 < 1.2, `at the cut, not after its life (${(c.blasts[0].t - c.t0).toFixed(2)} s)`);
@@ -2666,7 +2667,8 @@ test(`${nm('enemy_2050_smsha')}: 【反自然馈赠】 chains over ${skb('enemy_
     const e = put(h, 'enemy_2050_smsha', [10, 8]);
     const others = [[10, 6], [10, 5], [11, 4], [12, 3]].map((p) => put(h, 'enemy_1007_slime', p));
     if (silenced) h.b.applyStatus(e, 'silence', { duration: 60 });
-    h.run(skb('enemy_2050_smsha', 'ChainBuff').initCooldown + 0.5);   // the hops fly at 15 tiles/s (projectile_enemy_smsha_s)
+    // the chain leaves at Skill's attack event (content/enemies.js castStrikeAt) and its hops fly at 15 tiles/s (projectile_enemy_smsha_s)
+    h.run(skb('enemy_2050_smsha', 'ChainBuff').initCooldown + enemiesMod.castStrikeAt(e, E.enemy_2050_smsha.skillCast.chainbuff, {}) + 0.5);
     return others.map((o) => !!o.findBuff('ab:chainBuff'));
   };
   assert.deepEqual(run(false), [true, true, true, false]);
@@ -3013,7 +3015,7 @@ test(`${nm('enemy_10144_xdelk_2')}: 角力对决 — blocked ⇒ ${skb('enemy_10
   h.run(1);
   assert.ok(e.findBuff('ab:elkCharge'));
   const n = e.stats.attacks;
-  h.run(s.bb.duration - 1.5);
+  h.run(strikeOf(e, 'skill') - 1.3);   // (the clash comes at Skill_End's attack event, `duration` − 0.9 s in)
   assert.equal(e.stats.attacks, n, 'no attacks while charging');
   assert.equal(statuses(h, h.unit('t_wall').id, 'stun').length, 0);
   h.runUntil(() => statuses(h, h.unit('t_wall').id, 'stun').length > 0, 3);
@@ -4600,9 +4602,11 @@ test('“萨米的意志” 自然涌动: casts while its lasso holds (no 冰凌
   assert.ok(a.e.castLeft > 0 && a.w.s.flags.stun, 'still casting, the target still stunned');
   assert.equal(a.e.stats.attacks, atk0, 'no 冰凌 while the lasso holds');
   a.h.runUntil(() => !(a.e.castLeft > 0), 2);
-  approx(a.h.b.time - a.casts[0], life, 3 * a.h.TICK, 'the cast ends with the lasso');
+  // (the lasso leaves at Skill_01_Begin's attack event, 1 s in: content/enemies.js castStrikeAt)
+  const at = strikeOf(a.e, 'Lasso');
+  approx(a.h.b.time - a.casts[0], at + life, 3 * a.h.TICK, 'the cast ends with the lasso');
   a.h.runUntil(() => a.casts.length > 1, s.cooldown + 2 * a.e.s.interval + 1);
-  assert.ok(a.casts[1] >= a.casts[0] + life + s.cooldown - 1e-6, `next cast ${(a.casts[1] - a.casts[0]).toFixed(2)} s after the first (cooldown from the end)`);
+  assert.ok(a.casts[1] >= a.casts[0] + at + life + s.cooldown - 1e-6, `next cast ${(a.casts[1] - a.casts[0]).toFixed(2)} s after the first (cooldown from the end)`);
 
   // its target retreating ends the lasso; the cast still waits out its `m_cachedDuration` — the attack time, `_timeMode` 0
   // (no clip): the attack interval from the cast's start (「적 스킬 = 일반 공격 차례」 시전 길이)

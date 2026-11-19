@@ -135,6 +135,8 @@ function kitLeaderMisc(key, ab, e) {
       // mode T1, 「生命值降至一半以下时炸药包的使用数量增加」) T1's selector takes up to 3 (`_maxNum`, no `max_target` in the
       // blackboard), ground and air (MotionMask ALL). Until 2026-11-14 a 1 s fuse, a 1-tile blast and 2 targets below half
       // [ASSUMED]; a cut cast left its charges. Its switch to mode T1 itself (`switch_mode_restart_fsm`) is not simulated.
+      // The charges go on at the ability's spell, `_preDelay` 0.6 s in (`_waitForAttackEvent` 0 — `atStrike`, content/enemies.js
+      // castStrikeAt; until 2026-11-20 as the cast began), none when the cast is cut before it.
       const s = ab.sk.C4;
       const fuse = s?.proj?.life > 0 ? s.proj.life : 0;
       const r = s?.bb.range_radius ?? e.base.rangeRadius;
@@ -155,7 +157,7 @@ function kitLeaderMisc(key, ab, e) {
           ch.h = b.after(fuse, ch.blow);
           live.add(ch);
         }
-      }, { cond: (b, e2) => picks(b, e2).length > 0 });
+      }, { atStrike: true, cond: (b, e2) => picks(b, e2).length > 0 });
       if (c4) {
         c4.projAlive = () => live.size > 0;
         c4.onCut = () => { for (const ch of [...live]) ch.blow(); };
@@ -234,17 +236,22 @@ function kitLeaderMisc(key, ab, e) {
           for (const u of areaAlliesInTiles(b, e2, t.tileR, t.tileC, 'plus', 1)) if (u !== t) hurt(b, e2, u, e2.s.atk * aoe, 'phys', { tags: ['splash'] });
         },
       },
-        skill(s, (b, e2) => {
+        // the hammer comes at the MeleeAttack's spell, Skill_End's attack event — `duration` − 2.133 + 1.1 s into the channel
+        // (`atStrike`, content/enemies.js castStrikeAt; until 2026-11-20 at `duration`), on the cross of the tile its blocker
+        // stood on as the cast began; none when the cast is cut first
+        skill(s, (b, e2, a) => {
           const t = e2.blockedBy;
           const dur = s.bb.duration ?? 0, r = t.tileR, cc = t.tileC;
+          a.at = { r, cc };
           b.addBuff(e2, { key: 'ab:charging', duration: dur, visible: true, flags: { disarm: true } });
           b.fx('telegraph', { x: cc, y: r, r: 1, dur, kind: 'chargeAttack', tiles: 'plus', id: e2.id });
-          b.after(dur, () => {
-            if (!e2.alive || e2.s.flags.stun) return;
-            b.fx('explode', { x: cc, y: r, r: 1, kind: 'chargeAttack', tiles: 'plus' });
-            for (const u of areaAlliesInTiles(b, e2, r, cc, 'plus', 1)) hurt(b, e2, u, e2.s.atk * (s.bb['dekght[aoe].atk_scale'] ?? s.bb.atk_scale ?? 1), 'phys');
-          }, { owner: e2 });
-        }, { cond: (b, e2) => !!(e2.blockedBy && e2.blockedBy.alive) })];
+        }, { cond: (b, e2) => !!(e2.blockedBy && e2.blockedBy.alive), atStrike: (b, e2, a) => {
+          const at = a.at;
+          a.at = null;
+          if (!at) return;
+          b.fx('explode', { x: at.cc, y: at.r, r: 1, kind: 'chargeAttack', tiles: 'plus' });
+          for (const u of areaAlliesInTiles(b, e2, at.r, at.cc, 'plus', 1)) hurt(b, e2, u, e2.s.atk * (s.bb['dekght[aoe].atk_scale'] ?? s.bb.atk_scale ?? 1), 'phys');
+        } })];
     }
     case 'enemy_1513_dekght_2': {
       // 同时攻击两名目标; 爆炸箭: three targets, after `interval` s ATK×atk_scale arts on each target's cross
@@ -407,12 +414,14 @@ function kitLeaderMisc(key, ab, e) {
           ch.end = Math.max(ch.end, b.time + flight);
         };
         hop(e2, near(e2.x, e2.y, e2.base.rangeRadius || 3.5, seen));
-      }, { sil: true, cond: (b, e2) => b.enemiesInRadius(e2.x, e2.y, e2.base.rangeRadius || 3.5).some((o) => o !== e2) });
+      }, { sil: true, atStrike: true, cond: (b, e2) => b.enemiesInRadius(e2.x, e2.y, e2.base.rangeRadius || 3.5).some((o) => o !== e2) });
       if (chainBuff) {
         // 2026-11-14 (공식 클라에서 확인): the ability is a RangedAttack with `_waitForProjectileInvalid` — the cast lasts while the
         // chain projectile (ChainLightningHitBehaviour) still jumps, at least its clip `Skill` (content/enemies.js
         // projCastOver; the jumps take a few tenths of a second, within the clip). A cut cast clears the projectile
         // (RangedAttack.OnCastEnd; projectile_enemy_smsha_s does not hit as it stops): no further jump lands.
+        // The chain leaves at the ability's spell, `Skill`'s attack event (0.467 s of the clip, played to the attack interval —
+        // `atStrike`, content/enemies.js castStrikeAt; until 2026-11-20 as the cast began), none when the cast is cut first.
         chainBuff.projAlive = (b) => !ch.cut && b.time < ch.end + 1e-9;
         chainBuff.onCut = () => { ch.cut = true; };
       }
@@ -582,16 +591,20 @@ function kitXi(ab) {
     // content/enemies.js castLength), standing without a normal attack, until it bursts or the cast is cut.
     // Each layer's ON_TAKE_DAMAGE BlockDamage has `_specifyBlockEffect` enemy_xi_skill_02_buff_hit, and the last one's
     // (enemy_xi_s2[shield_last]) break plays enemy_xi_skill_02_buff_03 (`blockFx`: fx 'parry', damage.js absorbShields).
+    // The layers last the cast (BuffDuringCasting, cleared as it finishes); the burst is the ability's spell (blast, below).
     for (const l of XI_LAYERS) b.addBuff(e, { key: `ab:xiShield[${l}]`, duration: dur, shield: s.bb.dynamic ?? 0, shieldType: ['phys', 'arts'],
       visible: true, fxTag: `buff:enemy_xi_s2[shield][${l}]`, blockFx: true,
       // (removed before it expires — the last layer broken, or the barrier cleared by its knock-out: the cast ends)
-      onRemove: l !== 'c' ? null : ({ battle }) => interruptEnemyCast(battle, e),
-      // expiry (not breaking: a broken layer is removed without onExpire) of the last layer = the barrier held
-      onExpire: l !== 'c' ? null : ({ battle }) => {
-        if (!e.alive) return;
-        battle.fx('explode', { x: e.x, y: e.y, r, kind: 'breakFree', id: e.id });
-        for (const u of areaAllies(battle, e, e.x, e.y, r)) if (!u.isFlying) hurt(battle, e, u, e.s.atk * (s.bb.atk_scale ?? 0), 'arts'); // local patch: PRTS 「所有非飞行我方单位」, client Selector 1
-      } });
+      onRemove: l !== 'c' ? null : ({ battle }) => interruptEnemyCast(battle, e) });
+  };
+  // the burst: the MeleeAttack's spell at Skill_02_End's attack event — the channel's last 0.667 s clip, its frame 0.367 s, so
+  // 0.3 s before the barrier's `duration` ends (`atStrike`, content/enemies.js castStrikeAt; until 2026-11-20 as the last
+  // layer expired), none when the barrier broke or the cast was cut first
+  const blast = (s) => (b, e) => {
+    if (!e.findBuff('ab:xiShield[c]')) return;   // (its break ends the cast; this holds for a cast outside the attack slot too)
+    const r = s.bb.range_radius ?? 0;
+    b.fx('explode', { x: e.x, y: e.y, r, kind: 'breakFree', id: e.id });
+    for (const u of areaAllies(b, e, e.x, e.y, r)) if (!u.isFlying) hurt(b, e, u, e.s.atk * (s.bb.atk_scale ?? 0), 'arts'); // local patch: PRTS 「所有非飞行我方单位」, client Selector 1
   };
   const re = reborn({
     dur: T(ab, 'reborn.duration') ?? 0, invincible: T(ab, 'reborn.invincible') ?? 0, mode: 'Reborn',
@@ -606,8 +619,8 @@ function kitXi(ab) {
       if (s2) s2.left = s2.icd;
     },
   });
-  const s1 = skill(sb, burst(sb), { cond: () => !P.form2 });
-  const s2 = skill(sb2, sb2 ? burst(sb2) : null, { cond: () => P.form2 });
+  const s1 = skill(sb, burst(sb), { cond: () => !P.form2, atStrike: sb ? blast(sb) : null });
+  const s2 = skill(sb2, sb2 ? burst(sb2) : null, { cond: () => P.form2, atStrike: sb2 ? blast(sb2) : null });
   // a cut cast (a stun, freeze …: content/enemies.js onSkillCut) takes the barrier with it, without the burst — its layers
   // are the skill's BuffDuringCasting, cleared as the cast finishes for any reason (`OnCastFinish` → `_ClearBuffs`)
   const dropBarrier = (b, e) => { for (const l of XI_LAYERS) b.removeBuff(e, `ab:xiShield[${l}]`); };
@@ -870,25 +883,36 @@ function kitElk(ab) {
   const s = ab.sk.skill;
   const P = { ch: null };
   const stop = (b, e) => { P.ch = null; b.removeBuff(e, 'ab:elkCharge'); };
+  const clash = elkClash(ab, s, P, stop);
   return [{
     tick(b, e) {
       const ch = P.ch;
       if (!ch) return;
       if (e.s.flags.stun || !ch.t.alive || e.blockedBy !== ch.t) { stop(b, e); b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'chargeBroken' }); return; }
-      if (b.time + 1e-9 < ch.until || unbalancedNow(b, e)) return;   // a 失衡 that did not move it holds the clash (no skill meanwhile)
-      stop(b, e);
-      b.fx('explode', { x: ch.t.x, y: ch.t.y, r: 0.5, kind: 'elkClash' });
-      hurt(b, e, ch.t, e.s.atk * ((s && s.bb.atk_scale_s) ?? 1) * ELK_FAIL_SCALE, 'phys');
-      const st = T(ab, 'data.attack@fail_duration') ?? 0;
-      if (ch.t.alive && st > 0) b.applyStatus(ch.t, 'stun', { duration: st, source: e });
     },
-  }, unbalanced((b, e) => { if (P.ch) stop(b, e); }),
-  skill(s, (b, e) => {
+  }, unbalanced((b, e) => { if (P.ch) stop(b, e); }), clash];
+}
+
+/** 乌顶巨角卢鲁's 角力对决 (kitElk): the charge as the cast starts, the clash at its spell. */
+function elkClash(ab, s, P, stop) {
+  // the clash is the ability's spell, Skill_End's attack event — `duration` − 1.4 + 0.5 s into the channel (`atStrike`,
+  // content/enemies.js castStrikeAt; until 2026-11-20 at `duration`), none when the charge broke or the cast was cut first
+  const k = skill(s, (b, e) => {
     const dur = s.bb.duration ?? 0;
-    P.ch = { t: e.blockedBy, until: b.time + dur };
+    P.ch = { t: e.blockedBy };
     b.addBuff(e, { key: 'ab:elkCharge', duration: dur + 0.1, visible: true, flags: { disarm: true } });
     b.fx('telegraph', { x: e.blockedBy.x, y: e.blockedBy.y, r: 0.5, dur, kind: 'elkCharge', id: e.id });
-  }, { cond: (b, e) => !P.ch && !!(e.blockedBy && e.blockedBy.alive) })];
+  }, { cond: (b, e) => !P.ch && !!(e.blockedBy && e.blockedBy.alive), atStrike: (b, e) => {
+    const ch = P.ch;
+    if (!ch) return;
+    stop(b, e);
+    b.fx('explode', { x: ch.t.x, y: ch.t.y, r: 0.5, kind: 'elkClash' });
+    hurt(b, e, ch.t, e.s.atk * ((s && s.bb.atk_scale_s) ?? 1) * ELK_FAIL_SCALE, 'phys');
+    const st = T(ab, 'data.attack@fail_duration') ?? 0;
+    if (ch.t.alive && st > 0) b.applyStatus(ch.t, 'stun', { duration: st, source: e });
+  } });
+  if (k) k.onCut = (b, e) => { if (P.ch) stop(b, e); };   // (a cut the tick did not see: freeze, sleep …)
+  return k;
 }
 
 // ---------------------------------------------------------------------------------------------------------------

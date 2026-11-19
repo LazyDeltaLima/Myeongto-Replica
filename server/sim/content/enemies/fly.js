@@ -38,8 +38,8 @@ export const BOMBD_POST_DELAY = 0.667;
 const SHELL_FLIGHT = 3, SHELL_RADIUS = 1.2, SHELL_REACH = SHELL_RADIUS + ALLY_COLLIDER_RADIUS;
 
 /** 假想敌：黑云 抓取: the blackboard radius counts ×2.5 (PRTS "2.5倍可变半径": range_radius 1.5 → 3.75), at most 3 prey,
- *  "短暂延迟后" the 延迟吞噬 lands (delay [ASSUMED] 0.5 s); its SP (= 全弹发射 hits) caps at the data's spData.maxSp. */
-const GRAB_RADIUS_SCALE = 2.5, GRAB_MAX_PREY = 3, GRAB_DELAY = 0.5;
+ *  "短暂延迟后" the 延迟吞噬 lands (at the ability's spell: kitBlackCloud); its SP (= 全弹发射 hits) caps at the data's spData.maxSp. */
+const GRAB_RADIUS_SCALE = 2.5, GRAB_MAX_PREY = 3;
 
 /** 枯朽之种 summoned per BornBugs cast ("数个") [ASSUMED]. */
 const BUGS_PER_CAST = 3;
@@ -68,24 +68,28 @@ function kitBlackCloud(ab, e) {
   const isPrey = (b, e2, o) => o !== e2 && o.alive && !o.hidden && o.isFlying && o.def.rank === 'NORMAL' && !o.isBoss && !o.findBuff('ab:devoured');
   const prey = (b, e2) => b.enemiesInRadius(e2.x, e2.y, grabR).filter((o) => isPrey(b, e2, o));
   return [
-    skill(k, (b, e2) => {
+    // the prey are taken as the cast starts (`_selectTargetSource` 1); 延迟吞噬 lands at the ability's spell — Skill_1_Begin's
+    // attack event, 0.633 s in (content/enemies.js castStrikeAt; until 2026-11-20 0.5 s [ASSUMED]), on those still alive,
+    // not at all when the cast is cut before it
+    skill(k, (b, e2, a) => {
       const list = prey(b, e2).sort((p, q) => hypot(p.x - e2.x, p.y - e2.y) - hypot(q.x - e2.x, q.y - e2.y)).slice(0, GRAB_MAX_PREY);
+      a.prey = list;
       if (!list.length) return;
       b.addBuff(e2, { key: 'ab:grabbing', duration: dur, flags: { bind: true, noMove: true } });   // 技能持续4秒，期间持有束缚
       b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: list[0].id, kind: 'devour' });
-      b.after(GRAB_DELAY, () => {
-        if (!e2.alive) return;
-        for (const o of list) {
-          if (!o.alive) continue;
-          b.addBuff(o, { key: 'ab:devoured', duration: dur, visible: true, flags: { bind: true, noMove: true, disarm: true } });
-          b.after(dur, () => {
-            if (!o.alive || !e2.alive) return;
-            e2.mem.ab.ammo = Math.min(maxAmmo, (e2.mem.ab.ammo ?? 0) + num(k.bb.sp, 1));
-            b.kill(o, null);
-          }, { owner: e2 });
-        }
-      }, { owner: e2 });
-    }, { sil: true, cond: (b, e2) => prey(b, e2).length > 0 }),
+    }, { sil: true, cond: (b, e2) => prey(b, e2).length > 0, atStrike: (b, e2, a) => {
+      const list = a.prey || [];
+      a.prey = null;
+      for (const o of list) {
+        if (!o.alive) continue;
+        b.addBuff(o, { key: 'ab:devoured', duration: dur, visible: true, flags: { bind: true, noMove: true, disarm: true } });
+        b.after(dur, () => {
+          if (!o.alive || !e2.alive) return;
+          e2.mem.ab.ammo = Math.min(maxAmmo, (e2.mem.ab.ammo ?? 0) + num(k.bb.sp, 1));
+          b.kill(o, null);
+        }, { owner: e2 });
+      }
+    } }),
     skill(f, (b, e2) => {
       const hits = Math.floor(e2.mem.ab.ammo ?? 0);
       if (!(hits > 0)) return;

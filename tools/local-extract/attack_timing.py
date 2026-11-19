@@ -443,6 +443,12 @@ def cast_fields(d, by_pid, depth=0, by_go=None):
     ch = chan_fields(by_go.get((d.get('m_GameObject') or {}).get('m_PathID'), [])) if by_go is not None else None
     if ch:
         rec['chan'] = ch
+        # a channel plays no clip of the ability's own: whether its spell waits for an OnAttack event of the channel's clips
+        # (`_waitForAttackEvent`) or comes after `_preDelay` (EasyToStartAbility.<OnWaitForPreDelay>)
+        if 'anim' not in rec and '_waitForAttackEvent' in d:
+            rec['wait'] = num(d.get('_waitForAttackEvent') or 0)
+            if not rec['wait'] and num(d.get('_preDelay') or 0) > 0:
+                rec['pre'] = num(d['_preDelay'])
     return rec
 
 

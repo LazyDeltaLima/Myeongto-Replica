@@ -2861,14 +2861,21 @@ function enemySkillCast(ctx, manifest, spineId, key) {
       // its ThreePartChannelingAnimation clips ({ begin, loop, end, down?, up?, wait? } — the view plays them as the engine's
       // cast tells it: render/units.js onEnemySkill, server/sim/content/enemies.js castSkill)
       ...(s.chan && typeof s.chan === 'object' ? { chan: s.chan } : {}),
-      // the channel's end clip and its first OnAttack frame, which the channel's ability waits for (content/enemies.js castStrikeAt)
-      ...(s.chan && typeof s.chan === 'object' ? chanEndOf(s.chan.end) : {}),
+      // the channel's clips — their lengths and first OnAttack frames, the first of which the channel's ability waits for
+      // (`_waitForAttackEvent`), or `_preDelay` when it does not (`wait` 0): content/enemies.js castStrikeAt
+      ...(s.chan && typeof s.chan === 'object' ? {
+        ...chanClip('chanBegin', s.chan.begin), ...chanClip('chanLoop', s.chan.loop, true), ...chanClip('chanEnd', s.chan.end),
+        ...(!(dur > 0) && s.wait === 0 ? { wait: 0, ...(s.pre > 0 ? { pre: s.pre } : {}) } : {}),
+      } : {}),
     };
   };
-  const chanEndOf = (clip) => {
+  /** `{ [field]: { dur, hit? } }` for a channel clip the model has (`hitOnly`: only when it has an OnAttack frame). */
+  const chanClip = (field, clip, hitOnly = false) => {
     const dur = typeof clip === 'string' ? anims[clip] : null;
-    const h = dur > 0 ? sp?.hits?.[clip] : null;
-    return Array.isArray(h) && Number.isFinite(h[0]) ? { chanEnd: { dur, hit: Math.min(dur, Math.max(0, h[0])) } } : {};
+    if (!(dur > 0)) return {};
+    const h = sp?.hits?.[clip];
+    const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
+    return hit == null && hitOnly ? {} : { [field]: { dur, ...(hit != null ? { hit } : {}) } };
   };
   const out = {};
   for (const [name, s] of Object.entries(e.skills)) {
