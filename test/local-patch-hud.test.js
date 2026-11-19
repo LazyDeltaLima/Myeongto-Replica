@@ -3,6 +3,7 @@
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { installFakePixi, fakeViewCtx } from './render/fakepixi.js';
 import { presetCamera } from '../public/js/render/projection.js';
 import { ammoList } from '../server/sim/local-hud.js';
@@ -220,14 +221,27 @@ describe('prep: official chip and equip bar (shop_hud)', () => {
 });
 
 describe('enemy bars (enemy_hp_slider / enemy_boss_hp_slider / the giant boss panel)', () => {
-  const enemy = (info) => view({ side: 'enemy', kind: 'enemy', ...info });
-  test('kinds: a normal enemy, a boss, a 卫戍协议 giant boss (by Spine id: the _2 variants share the prefab)', () => {
+  // the views look their records up as the app does (ctx.lookupDef → data.enemy): the enemies of both seasons
+  const E = { ...JSON.parse(readFileSync(new URL('../data/enemies.json', import.meta.url), 'utf8')),
+    ...JSON.parse(readFileSync(new URL('../data/seasons/act3autochess/enemies.json', import.meta.url), 'utf8')) };
+  const enemy = (info) => {
+    const ctx = fakeViewCtx(fake.P, { assets: null, cam, viewport: () => VP });
+    ctx.lookupDef = (i) => E[i.defId] ?? null;
+    return new UnitView(ctx, { id: 1, side: 'enemy', kind: 'enemy', tier: 3, x: 5, y: 12, maxHp: 1000, ...info }, {});
+  };
+  test('kinds: a normal enemy, a boss, a 卫戍协议 giant boss (its record\'s `giantBoss`: the EnemyGiantBoss prefabs of both seasons)', () => {
     assert.equal(enemy({ defId: 'enemy_1001_bigbo' }).lpBars.kind, 'normal');
     assert.equal(enemy({ defId: 'enemy_2016_csphtm', boss: true }).lpBars.kind, 'boss');
     const g = enemy({ defId: 'enemy_9013_acstmk_2', spine: 'enemy_9013_acstmk', boss: true }).lpBars;
     assert.equal(g.kind, 'giant'); assert.equal(g.giant.sx, 0.35);
-    assert.deepEqual(HB.giantBossOf({ defId: 'enemy_9033_acdeer' }).off, [0, 1.4]);
-    assert.equal(HB.giantBossOf({ defId: 'enemy_1001_bigbo' }), null);
+    // 规程's 假想敌：械 / 茧 (left out of the old hand table: drawn as a normal boss bar)
+    for (const k of ['enemy_9029_acfnc', 'enemy_9029_acfnc_2', 'enemy_9035_acspider', 'enemy_9035_acspider_2']) {
+      assert.equal(enemy({ defId: k, boss: true }).lpBars.kind, 'giant', `${k}: the giant boss panel`);
+    }
+    assert.deepEqual(HB.giantBossOf(E.enemy_9033_acdeer).off, [0, 1.4]);
+    assert.deepEqual(HB.giantBossOf(E.enemy_1521_dslily), { sx: 0.765, off: [0, 1.02] });
+    assert.equal(HB.giantBossOf(E.enemy_1001_bigbo), null);
+    assert.equal(HB.giantBossOf(null), null);
   });
 
   test('sizes, colours and places; a normal enemy only once hurt', () => {
@@ -281,7 +295,7 @@ describe('plates (sprite_bg 9-sliced: the core under the bars, the feather outsi
     assert.equal(boss.spRow.fill.tint, 0xebc9ff);
     assert.ok(Math.abs(boss.spRow.fill.width - 130 * 0.4) < 1e-9);
     assert.ok(Math.abs(boss.spRow.fill.position.y - boss.hp.position.y - 7.5) < 1e-9);
-    const giant = new HB.EnemyBars(P(), new fake.P.Container(), 'giant', HB.GIANT_BOSS.enemy_9021_acduml);
+    const giant = new HB.EnemyBars(P(), new fake.P.Container(), 'giant', { sx: 0.35, off: [0, 0] });
     giant.update(1000, 500, 1, 100, 0, { hp: 1, ghost: 1, sp: 0.2 }, assets);
     assert.equal(giant.spRow.fill.tint, 0xcab2d4);
     assert.ok(Math.abs(giant.spRow.fill.position.y - giant.hp.position.y - 16.3) < 1e-9);

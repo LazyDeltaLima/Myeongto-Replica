@@ -2538,38 +2538,34 @@ function enemyAttrPower(ctx, key, level) {
 }
 
 /**
- * Huge units' hit areas (巨型单位：受击判定区域) by prefab (enemy_database `prefabKey`: a season `_2` copy with the same
- * prefab shares it) → enemies.json `hitArea`: a rectangle `w` tiles along the columns (长) × `h` along the rows (宽),
- * centred on the unit's position moved `dx` columns right and `dy` rows up (row 0 = the bottom). The collider lives in
- * the prefab, not in the game tables — values from PRTS (user playtest #5 item 10):
- *   假想敌：胄 / 假想敌：管 / 盐风主教昆图斯 "巨型单位：受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0";
- *   假想敌：管 隐秘核心 (enemy_9021_acduml_2, its own prefab) "…向上偏移1.0，向右偏移1.0";
- *   卫戍协议：盟约 下半/PRTS盟约记录 "卫戍协议中的阿利斯泰尔，帝国余晖和“萨米的意志”为特殊版本，拥有与普通版本不同的受击判定
- *   区域（为长4.95宽2.95的长方形，向上偏移1）".
- * [ASSUMED] 胄's hidden-core copy (enemy_9013_acstmk_2, prefab enemy_9013_acstmk) keeps the upward offset although its
- * PRTS section lists none — one prefab, one collider. 假想敌：铳 and 卢西恩 are regular units (no such talent).
- * 规程's 假想敌：械 and 假想敌：茧 (enemy_9029_acfnc / enemy_9035_acspider and their own `_2` prefabs): the root
- * BoxCollider2D of each official CN prefab is size 4.95 × 2.95, offset (0, 1) — the same box as 胄's and 管's prefabs
- * (checked in the official CN client's prefabs, 2026-11-13). Both stand still and are unblockable through their own abilities (content/bosses.js).
+ * Giant bosses (巨型单位) → enemies.json `giantBoss` { sx, off } and `hitArea` { w, h, dx, dy }: an enemy whose prefab root
+ * is the client's EnemyGiantBoss — its `isGiantBoss` is true, which keeps a 强制位移 to a tile (ForceSetToTilePosition:
+ * 余 S2, 黍 S3's mark) from moving it — read by tools/local-extract/enemy_bindings.py (tools/assets/local-enemy-bindings.json
+ * `giantBoss`; a season `_2` copy with the same prefab shares it). `sx` / `off` are its HP panel's `_bossHudScale.x` and
+ * `_bossHudOffset` [x, y] in tiles (render/hud-bars.js giantBossOf); `hitArea` its root BoxCollider2D (body.js): `w` tiles
+ * along the columns (长) × `h` along the rows (宽), centred on the unit's position moved `dx` columns right and `dy` rows up
+ * (row 0 = the bottom) — PRTS "巨型单位：受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0" (假想敌：管 隐秘核心 "…向右偏移1.0";
+ * user playtest #5 item 10) is that box. Stops on a giant boss whose root has no box. null without the bindings table.
+ * docs/rules/sim.md 「거대 보스」.
  */
-const HIT_AREAS = Object.freeze({
-  enemy_9013_acstmk: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
-  enemy_9021_acduml: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
-  enemy_9021_acduml_2: { w: 4.95, h: 2.95, dx: 1, dy: 1 },
-  enemy_1521_dslily: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
-  enemy_9032_aclionk: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
-  enemy_9033_acdeer: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
-  enemy_9029_acfnc: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
-  enemy_9029_acfnc_2: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
-  enemy_9035_acspider: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
-  enemy_9035_acspider_2: { w: 4.95, h: 2.95, dx: 0, dy: 1 },
-});
+function enemyGiantBoss(ctx, prefab, key) {
+  const binds = ctx.enemyBindings;
+  if (!binds) return null;
+  const g = (binds[key] ?? binds[prefab])?.giantBoss;
+  if (!g) return null;
+  const b = g.box;
+  if (!b || !(b.w > 0) || !(b.h > 0) || !Number.isFinite(b.dx) || !Number.isFinite(b.dy) || !(g.sx > 0) || !Array.isArray(g.off)) {
+    throw new Error(`${key}: a giant boss (EnemyGiantBoss root) without a root BoxCollider2D or HP panel values in `
+      + 'tools/assets/local-enemy-bindings.json — tools/local-extract/enemy_bindings.py (docs/rules/sim.md 「거대 보스」)');
+  }
+  return { panel: { sx: g.sx, off: [g.off[0], g.off[1]] }, hitArea: { w: b.w, h: b.h, dx: b.dx, dy: b.dy } };
+}
 
 /**
  * 静态刚体 (static rigidbody) enemies → enemies.json `staticBody: true`: pushes and pulls never move them (player report
  * after 0.1.0, "飞机可以被薄绿的技能拉走"). PRTS 特殊机制 静态刚体: "该单位的Unity刚体的刚体类型为部分静态（Kinematic）或静态
  * （Static）。使用该类刚体的单位可以进入失衡状态并启用物理，但物理层面上无法产生任何速度或移动 … ※与失衡免疫不同 … ※是否为静态
- * 刚体与单位的行动方式无关" (example: 妖怪). Like HIT_AREAS the rigidbody lives in the prefab, not in the game tables: the
+ * 刚体与单位的行动方式无关" (example: 妖怪). The rigidbody lives in the prefab, not in the game tables: the
  * keys whose PRTS page lists "{{特殊机制|静态刚体}}" in its 天赋 (the page of every enemy of data/enemies.json, read 2026-10-03) —
  * every air unit of the mode except “炎佑” (its page lists none; weight 10, so no push or pull moves it anyway), plus
  * the ground boss 盐风主教昆图斯.
@@ -3382,7 +3378,7 @@ function buildEnemies(ctx) {
     const abilities = (hb?.abilityList || []).map((a) => ({ text: stripRich(a.text), textRaw: richRaw(a.text), format: a.textFormat || 'NORMAL' }));
     const name = mv(data.name) || hb?.name || key;
     const descRaw = mv(data.description);
-    const hitArea = HIT_AREAS[mv(data.prefabKey) || key] || null;
+    const giant = enemyGiantBoss(ctx, mv(data.prefabKey) || key, key);
     const modelScale = MODEL_SCALE_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
     const modelScaleY = MODEL_STRETCH_Y_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
     // (the clip its attack ability names, renamed by its first mode's `_replaceAnimPairs`, when the model has it)
@@ -3418,7 +3414,7 @@ function buildEnemies(ctx) {
       inactiveIn: inactiveIn.get(key) || [],
       seasonOverride: override ? Object.keys(definedFields(override)) : null,
       iconId: key, spine: mv(data.prefabKey) || key,
-      ...(hitArea ? { hitArea: { ...hitArea } } : {}),
+      ...(giant ? { giantBoss: giant.panel, hitArea: giant.hitArea } : {}),
       ...(STATIC_BODIES.has(key) ? { staticBody: true } : {}),
       ...(ENEMY_SKILL_DEVICES[key] ? { devices: ENEMY_SKILL_DEVICES[key].map((d) => skillDevice(ctx, d, `enemy ${key}`)) } : {}),
       ...(modelScale != null && modelScale !== 1 ? { modelScale } : {}),

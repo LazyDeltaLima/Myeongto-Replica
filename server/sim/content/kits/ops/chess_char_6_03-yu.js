@@ -15,10 +15,12 @@ import { holdProtect, byEnemyAttack } from '../shared/tier1.js';
  * 持有自缚的单位不视为可达目标" (束缚 alone does not exempt it, so not `noMove`). Being a leader is no exemption: PRTS gives
  * 卢西恩 and 假想敌：铳 (both sections) 传送抗性 无 — they are teleported like any ground enemy and walk on from his tile (a
  * patrol keeps looping: content/bosses.js patrolLoop). 静态刚体 forbids physical movement, not a teleport (the 备注 names
- * only 消失 / 自缚 / 免疫传送); every 静态刚体 of the mode flies or is 自缚 anyway.
+ * only 消失 / 自缚 / 免疫传送); every 静态刚体 of the mode flies or is 自缚 anyway. A giant boss (`def.giantBoss`) is never
+ * moved, 自缚 or not: the move is the client's ForceSetToTilePosition, which refuses an `isGiantBoss` unit — 规程's
+ * 假想敌：械 is held by 束缚 only (docs/rules/sim.md 「거대 보스」).
  */
 function teleportEnemy(battle, unit, e) {
-  if (!e || !e.alive || e.isFlying || e.s.flags.selfBound) return false;
+  if (!e || !e.alive || e.isFlying || e.s.flags.selfBound || e.def?.giantBoss) return false;
   const r = unit.tileR, c = unit.tileC;
   if (!battle.grid.groundPassable(r, c)) return false;
   const er = Math.round(e.y), ec = Math.round(e.x);

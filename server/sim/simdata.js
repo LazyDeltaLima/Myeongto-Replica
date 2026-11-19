@@ -483,6 +483,9 @@ export function normalizeEnemy(key, e) {
     hpRecoveryPerSec: num(st.hpRecoveryPerSec ?? extra.hpRecoveryPerSec ?? e.hpRecoveryPerSec, 0),
     notCountInTotal: !!(e.notCountInTotal),
     hitArea: normHitArea(e.hitArea),   // huge units only (body.js); null = a point
+    // a giant boss (data `giantBoss`: the prefab root is the client's EnemyGiantBoss, `isGiantBoss`): a 强制位移 to a tile
+    // never moves it (余 S2, 黍 S3's mark, 克莱门莎 S2's cabin — docs/rules/sim.md 「거대 보스」)
+    giantBoss: !!e.giantBoss,
     staticBody: !!e.staticBody,        // 静态刚体: pushes / pulls never move it (Battle._displaceable)
     attackAnim: normAttackAnim(e.attackAnim),   // its attack clip { dur, hit } (ai.js attackStand); null = none known
     attackMoves: !!e.attackMoves,      // 「不停止移动」: never stops to attack (ai.js attackStand)

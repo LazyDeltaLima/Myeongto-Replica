@@ -224,7 +224,7 @@
   프리팹 자리·크기로 그린다(예전 폭 0.95칸, 보스 1.6칸 — 근거 없던 값). 크기는 그대로 `enemies.json modelScale`(같은 `Graphic` 배율에서 나온 값;
   표의 `scale`은 안 씀 — 木制瑞印의 음수 x는 `mirrorX`). 화면에서 걷는 적은 약 0.15칸, 장식 적(−0.45)은 약 0.37칸 내려선다.
 - 따라가는 것: 앞 절과 같다 — HUD는 유닛 점(`hudAnchor` 0: 공식 적 프리팹도 `_uiMountPoint`가 비어 유닛 transform, ui.md 「뜨는 높이」), 발 이펙트
-  (`fxgame.js followed` 발 갈래), 점 표 없는 몸·머리 높이(`modelDrop`). 거대 보스 패널(`GIANT_BOSS` 칸 오프셋, 프리팹 `_bossHudOffset`)과
+  (`fxgame.js followed` 발 갈래), 점 표 없는 몸·머리 높이(`modelDrop`). 거대 보스 패널(enemies.json `giantBoss`의 칸 오프셋, 프리팹 `_bossHudOffset`)과
   `MODEL_SHIFT`(유닛 전체)는 유닛 점 기준이라 그대로.
 - 확인: `test/render/model-place.test.js`(표준값·표 항목·그림자 없음, 적 몸·그림자 자리, HUD 점, `modelScale` 유지), `local-extract.test.js`
   (`shadow_of`), `local-patch-hud.test.js`(적 바가 점 아래 55.3단위). Windows Chrome 디버그 아레나 전·후(텍사스 옆 샌드백): 源石虫 몸 0.145칸·그림자

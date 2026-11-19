@@ -10,7 +10,7 @@
 // rounded half to even (detmath roundHalfEven; PRTS 作战机制 "受击方坐标经round函数取整(四舍六入五成双)得到其所属格
 // 坐标"), bodyKeys / bodyInKeys / bodyOnTile —; a radius takes the
 // position (DESIGN §3). Huge units (巨型单位 — enemy data `hitArea`, tools/build-data.mjs
-// HIT_AREAS, from PRTS "巨型单位：受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0") are hit anywhere on a rectangle
+// enemyGiantBoss: the root BoxCollider2D of an EnemyGiantBoss prefab; PRTS "巨型单位：受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0") are hit anywhere on a rectangle
 // `w` tiles along the columns × `h` along the rows, centred on their position moved `dx` columns right and `dy` rows
 // up:
 //   * grid ranges / tile rules: the unit occupies every tile its rectangle overlaps (the rectangle is its collider —

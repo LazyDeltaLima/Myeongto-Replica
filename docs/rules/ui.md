@@ -744,7 +744,7 @@ CN 플레이 제보, 관리자 결정 2026-11-14(2026-11-12의 「칸 둘마다 
   흰 α.7 잔상, 검정 α.39 딱딱한 받침(800×12 — 캡처 14의 SP 바 둘레 검은 테가 이것)과 흰 α.39 테(`sprite_enemy_boss_hp_bg` 9-slice 816×28: 회색 가운데 위아래에
   어두운 선; 테두리도 가로 배율로 눌림), SP(`default_sp_slider` 798×8 `#cab2d4` α.8, 받침 800×12, 테 816×24)는 HP 중심 16.3 아래 [캡처 8], 문양 `sprite_enemy_boss_hud_large` 폭 ≈39단위([캡처 8·10]),
   맞을 때 빛(`hit_effect` = `sprite_bar_glow` 9-slice 818×31 `#ff0000` α.78 — 관리자 결정, 0.35초 사라짐 [추정·화면]). 중심 = 보스 발 [추정·미조사: 배치 규칙을 아직 안 읽음,
-  캡처에서 발 근처], `_bossHudOffset`만큼 타일 단위로 옮김 [추정 단위](萨米的意志 위 1.4, 昆图斯 위 1.02, 管 II 오른쪽 1.4). 표는 `GIANT_BOSS`(적 프리팹 전수 조사).
+  캡처에서 발 근처], `_bossHudOffset`만큼 타일 단위로 옮김 [추정·화면: 단위 — 공식 녹화와 대조 전](萨米的意志 위 1.4, 昆图斯 위 1.02, 管 II 오른쪽 1.4). 값은 enemies.json `giantBoss`(프리팹 뿌리가 `EnemyGiantBoss`인 적 전부를 `enemy_bindings.py`가 읽음, 2026-11-20 — 그전 손 표 `GIANT_BOSS`에는 규정의 기계·고치가 빠져 있었다; sim.md 「거대 보스」).
 - 圣堂剑士 탄약: HP 바 바로 아래 같은 폭에 아군과 같은 탄환 칸([추정] `enemy_bullet_bar` 105×7).
 - **보스 SP 바와 관·현의 공식 SP** (관리자 결정 2026-10-07 「공식과 같은 a안」): 공식은 쿨다운이 아니라 SP다(`enemy_database` spData: 管 INCREASE_WITH_TIME
   0/50 +1/s, 裂管之奏 spCost 50·cooldown 50·initCooldown 40; PRTS 「技力 0/50 自动回复 1.0 SP/s」; 阿利斯泰尔 maxSp 25; 胄·萨米的意志·昆图斯·铳·卢西恩은 spData 없음

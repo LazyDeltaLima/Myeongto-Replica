@@ -600,7 +600,7 @@ burning or snowy ground, tile selectors, "所在格"; a trap or mark the client 
 (`roundHalfEven(y)`, `roundHalfEven(x)` — PRTS 作战机制 "四舍六入五成双"; `Math.round` would take 2.5 to 3); a radius takes
 its position, except the radii PRTS marks 碰撞判定 (`foesInColliderRadius`: 蕾缪安's shells, 克莱门莎 S2's splash) (DESIGN §3). A huge enemy (巨型单位:
 `enemy.hitArea` from data/enemies.json `hitArea` — 假想敌：胄 / 管 / 盐风主教昆图斯 / 阿利斯泰尔 / “萨米的意志”; 规程 adds 假想敌：械 / 茧 — PRTS
-"受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0") is hit anywhere on a rectangle `w` × `h` tiles centred on its position
+"受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0": the root BoxCollider2D of its EnemyGiantBoss prefab) is hit anywhere on a rectangle `w` × `h` tiles centred on its position
 moved `dx` columns right / `dy` rows up: it occupies every tile the rectangle overlaps (`bodyKeys` — 5 × 3 tiles; PRTS
 作战机制 "巨型BOSS单位的每一个占据的格子都可以让其本身通过格子判定"), and radius rules measure to the rectangle (`bodyDist`, 0
 inside) [ASSUMED: PRTS 作战机制 calls collider tests the most common one] — except **splash around a struck / marked
@@ -1631,8 +1631,8 @@ bat, blockCnt, cost, respawnTime, spRecovery, tauntLevel, massLevel, hpRecoveryP
 skillType, durationType, duration, spType, spCost, initSp, maxCharges, rangeGrid, trigger {rule, grid}, bb, description}`,
 `talents [{name, description, bb, bbStr, rangeGrid, tokenKey}]`, `raw`. Enemy: `maxHp, atk, def, res, aspd, bat,
 rangeRadius, moveSpeed, massLevel, lpr, motion, applyWay, dmgType, immune, tauntLevel, blockCnt, epResistance,
-epDamageResistance, hpRecoveryPerSec, notCountInTotal, hitArea (huge units only, §2; else null), staticBody (静态刚体:
-never displaced, §6), tags, abilities, skills, talent, raw`. Tokens use `variants[ownerChessId]` (owner-level stats).
+epDamageResistance, hpRecoveryPerSec, notCountInTotal, hitArea (huge units only, §2; else null), giantBoss (an
+EnemyGiantBoss prefab: 余 S2 / 黍 S3 / 克莱门莎 S2 never move it), staticBody (静态刚体: never displaced, §6), tags, abilities, skills, talent, raw`. Tokens use `variants[ownerChessId]` (owner-level stats).
 `skcom_withdraw` token skills are ignored.
 Operator loadouts (DESIGN §16, DATA.md §2.2 / §14): `getChess(id, { skillIndex, moduleId })` = the def with the selected
 skill (`def.skill`, its bb / SP / trigger) and, for elites, the module's stats / trait / talents; `def.loadout` = the

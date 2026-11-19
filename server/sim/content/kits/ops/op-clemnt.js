@@ -32,7 +32,9 @@ const skillBb = (raw, id) => skillRec(raw, id)?.bb ?? {};
 const tile = (u) => [Math.round(u.y), Math.round(u.x)];
 const immunity = (e) => e.def?.raw?.stats?.otherImmunities ?? [];
 // No current mode enemy has the three named teleport immunities. Also honour explicit normalized flags for custom data.
-const cannotCarry = (e) => e.s.flags.selfBound || e.def?.immune?.has('exile') || e.def?.immune?.has('teleport')
+// A giant boss (`def.giantBoss`) is never carried, as 余 S2 / 黍 S3 never move one [ASSUMED, CN-only: the cabin's own mover exists in the
+// CN client only, so its giant boss test is not read; every giant boss but 假想敌：管 (自缚) weighs 9+ anyway] — docs/rules/sim.md 「거대 보스」.
+const cannotCarry = (e) => e.s.flags.selfBound || e.def?.giantBoss || e.def?.immune?.has('exile') || e.def?.immune?.has('teleport')
   || immunity(e).some((s) => /teleport|transmit|exile/i.test(String(s)));
 
 /** Cabin's 1.1 × 1.1 collision square; huge bodies use the engine hit rectangle. */

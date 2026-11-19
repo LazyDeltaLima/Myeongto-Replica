@@ -146,9 +146,11 @@ export default {
     /** The 【播种标记】 buff key on an enemy (one per 黍). */
     const markKey = (unit) => `skill:shu:mark:${unit.id}`;
     /** shu_s_3[enemy][mark] on enemy `e` (marked with tile `m`): a 消失 enemy loses it; each new root tile ≥ far
-     * (Manhattan) from `m` puts it back on that tile's centre (unblocked, its route re-planned). */
+     * (Manhattan) from `m` puts it back on that tile's centre (unblocked, its route re-planned) — never a giant boss
+     * (`def.giantBoss`: ForceSetToTilePosition refuses an `isGiantBoss` unit, docs/rules/sim.md 「거대 보스」). */
     const putBack = (battle, unit, e, m) => {
       if (e.hidden) { battle.removeBuff(e, markKey(unit)); unit.mem.shuMarks?.delete(e.id); return; }
+      if (e.def?.giantBoss) return;
       const k = tileKey(e);
       if (k === m.last) return;
       m.last = k;

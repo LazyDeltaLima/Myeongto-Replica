@@ -164,19 +164,15 @@ export const GIANT_BAR = Object.freeze({
 /** Seconds a giant boss's hit flash fades over [추정]. */
 export const HIT_FLASH = 0.35;
 /**
- * The giant boss panel's prefab values (enemy prefab `_bossHudScale.x`, `_bossHudOffset` in tiles), by Spine id / enemy
- * key — every data/enemies.json prefab with the field (EN client battle/enm_pfb_*.ab, 2026-10-07).
+ * The giant boss panel of an enemy record (data/enemies.json `giantBoss` { sx, off }: its prefab root is the client's
+ * EnemyGiantBoss — `_bossHudScale.x` and `_bossHudOffset` in tiles, read by tools/local-extract/enemy_bindings.py), or null.
  */
-export const GIANT_BOSS = Object.freeze({
-  enemy_9013_acstmk: Object.freeze({ sx: 0.35, off: Object.freeze([0, 0]) }),     // 假想敌：胄 (and _2: same prefab)
-  enemy_9021_acduml: Object.freeze({ sx: 0.35, off: Object.freeze([0, 0]) }),     // 假想敌：管
-  enemy_9021_acduml_2: Object.freeze({ sx: 0.35, off: Object.freeze([1.4, 0]) }), // 假想敌：管 (隐秘核心)
-  enemy_9032_aclionk: Object.freeze({ sx: 0.35, off: Object.freeze([0, 0]) }),    // 阿利斯泰尔，帝国余晖
-  enemy_9033_acdeer: Object.freeze({ sx: 0.35, off: Object.freeze([0, 1.4]) }),   // “萨米的意志”
-  enemy_1521_dslily: Object.freeze({ sx: 0.765, off: Object.freeze([0, 1.02]) }), // 盐风主教昆图斯
-});
-/** The giant boss entry of a unit info (`spine` first: the _2 variants share a prefab), or null. */
-export const giantBossOf = (info) => (info && (GIANT_BOSS[info.spine] || GIANT_BOSS[info.defId])) || null;
+export function giantBossOf(rec) {
+  const g = rec && rec.giantBoss;
+  if (!g || !(Number(g.sx) > 0)) return null;
+  const off = Array.isArray(g.off) ? g.off : [0, 0];
+  return { sx: Number(g.sx), off: [Number(off[0]) || 0, Number(off[1]) || 0] };
+}
 
 /** The client's overload ratio of a 过载 skill (BasicSkill.get_overloadRatio): the share of its run left when it overloads. */
 export const OVERLOAD_RATIO = 0.5;
@@ -342,7 +338,7 @@ function drawBullets(o, ammo, x0, y, w, h, u, over = false) {
 }
 
 /**
- * The HP bar of an enemy (see header): `kind` 'normal' | 'boss' | 'giant' (`giant` = its GIANT_BOSS entry). `hit()`
+ * The HP bar of an enemy (see header): `kind` 'normal' | 'boss' | 'giant' (`giant` = its giantBossOf panel). `hit()`
  * flashes a giant's bar; textures of the emblem / frame / glow come from `assets` once loaded (none: plain bars).
  */
 export class EnemyBars {

@@ -1412,7 +1412,7 @@ export class UnitView {
     // nothing shows until the first HUD update decides (a culled or prep view never draws bars)
     for (const b of [this.hpBg, this.hpGhost, this.hpFill, this.shieldBar, this.spBg, this.spFill, this.spGlow]) b.visible = false;
     // local patch: official bars (hud-bars.js) — allies, enemies, bosses and the 卫戍协议 giant bosses
-    const giant = this.isEnemy ? giantBossOf(this.info) : null;
+    const giant = this.isEnemy && this.ctx.lookupDef ? giantBossOf(this.ctx.lookupDef(this.info)) : null;
     this.lpBars = !this.isEnemy ? new AllyBars(P, h) : new EnemyBars(P, h, giant ? 'giant' : this.isBoss ? 'boss' : 'normal', giant);
     this.lpMark = !this.isEnemy ? new SkillMark(P, h) : null; // the official stored-charge mark (b.snap `charge`)
     this.lpBars.anchor = this.hudAnchor;

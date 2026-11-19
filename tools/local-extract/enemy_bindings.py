@@ -386,6 +386,46 @@ def read_points(game, pattern='battle/enm_pfb*.ab', keys=None):
     return out
 
 
+def read_root_boxes(game, pattern='battle/enm_pfb*.ab'):
+    """{prefab root: {w, h, dx, dy}}: the BoxCollider2D on the root GameObject of each enemy prefab that has one (size and
+    offset in tiles; the later bundle wins, as read_enemies). A giant boss's (giant_boss) is its hit area."""
+    import aklz4  # noqa: F401
+    import UnityPy
+    out = {}
+    for _rel, f in bundle_files(game, pattern).items():
+        env = UnityPy.load(str(f))
+        boxes = [o for o in env.objects if o.type.name == 'BoxCollider2D']
+        if not boxes:
+            continue
+        name, father = {}, {}
+        for o in env.objects:
+            if o.type.name == 'GameObject':
+                name[o.path_id] = o.read_typetree().get('m_Name')
+            elif o.type.name == 'Transform':
+                d = o.read_typetree()
+                father[d['m_GameObject']['m_PathID']] = d['m_Father']['m_PathID']
+        for o in boxes:
+            d = o.read_typetree()
+            g = d['m_GameObject']['m_PathID']
+            if father.get(g) != 0 or not d.get('m_Enabled', 1):
+                continue
+            size, off = d['m_Size'], d['m_Offset']
+            out[name[g]] = {'w': round(size['x'], 3), 'h': round(size['y'], 3), 'dx': round(off['x'], 3), 'dy': round(off['y'], 3)}
+    return out
+
+
+def giant_boss(tree, box):
+    """A prefab whose root is an EnemyGiantBoss (the class with `_bossHudScale`; the client's `isGiantBoss` is true only
+    there) → {sx, off, box}: its HP panel's scale `_bossHudScale.x` and offset `_bossHudOffset` [x, y] (tiles), and its
+    root BoxCollider2D (read_root_boxes; None when it has none — tools/build-data.mjs stops on it). None for any other."""
+    rootmb = next((d for gp, d, _ in tree if isinstance(d.get('_modes'), list)), None)
+    s = (rootmb or {}).get('_bossHudScale')
+    if not isinstance(s, dict):
+        return None
+    o = rootmb.get('_bossHudOffset') or {}
+    return {'sx': round(s['x'], 3), 'off': [round(o.get('x', 0), 3), round(o.get('y', 0), 3)], 'box': box}
+
+
 def enum(lst, v):
     return lst[v] if isinstance(v, int) and 0 <= v < len(lst) else v
 
@@ -1296,19 +1336,22 @@ def main():
         TOK = cached(cache, 'tokens.pkl', lambda: read_tokens(game, set(DEV)))
         SKP = cached(cache, 'skill_prefabs.pkl', lambda: read_skill_prefabs(game, {k for v in DEV.values() for k in v}))
         PTS = dict(PTS, **cached(cache, 'token_points.pkl', lambda: read_points(game, 'pkgrps/btl_pfb_tokens_*.ab', set(DEV))))
-        return P, PR, PTS, FX, BT, TOK, SKP
-    P, PR, PTS, FX, BT, TOK, SKP = reads(game, cache)
+        BOX = cached(cache, 'root_boxes.pkl', lambda: read_root_boxes(game))
+        return P, PR, PTS, FX, BT, TOK, SKP, BOX
+    P, PR, PTS, FX, BT, TOK, SKP, BOX = reads(game, cache)
     from_other = set()   # prefab roots read from --other-game
     if a.other_game:
         ocache = cache / 'other' if cache else None
         if ocache:
             ocache.mkdir(parents=True, exist_ok=True)
-        oP, oPR, oPTS, oFX, oBT, oTOK, oSKP = reads(a.other_game, ocache)
+        oP, oPR, oPTS, oFX, oBT, oTOK, oSKP, oBOX = reads(a.other_game, ocache)
         for mine, theirs in ((P, oP), (TOK, oTOK)):   # whole prefabs: only roots --game lacks
             for r, tree in theirs['trees'].items():
                 if r not in mine['trees']:
                     mine['trees'][r], mine['src'][r] = tree, theirs['src'][r]
                     from_other.add(r)
+                    if r in oBOX:
+                        BOX[r] = oBOX[r]
         for mine, theirs in ((PR, oPR), (PTS, oPTS), (BT, oBT), (SKP, oSKP)):
             for k, v in theirs.items():
                 mine.setdefault(k, v)
@@ -1334,6 +1377,9 @@ def main():
             continue
         sk = {k: SKP[k] for k in DEV.get(eid, []) if k in SKP} if src is TOK else None
         r.update(enemy_record(root, tree, FX, proj_keys, sk))
+        gb = giant_boss(tree, BOX.get(root)) if src is P else None
+        if gb:
+            r['giantBoss'] = gb
         if PTS.get(root):
             r['points'] = PTS[root]
         pk = []
@@ -1362,7 +1408,8 @@ def main():
                        'Per enemy id of data/enemies.json and the seasons\' enemies.json: prefab root + bundle, modes (UnitMode: _overrideStart/DeadEffect), '
                        'abilities (GameObject path; emitters castEffects/hitEffects/attachEffects/inputTargetEffects/castTargetEffects '
                        'with start/end AbilityStandard.Event, oneshot, dir / slots; buffs with overrideEffectKey (fx) and their template '
-                       'effects; projectiles with _mountPointType), points (Graphic mount transforms). Written by '
+                       'effects; projectiles with _mountPointType), points (Graphic mount transforms), giantBoss (an EnemyGiantBoss root: '
+                       'HP panel _bossHudScale.x / _bossHudOffset, root BoxCollider2D). Written by '
                        'tools/local-extract/enemy_bindings.py; the render table goes to public/assets/local/fx/enemy-modes.json.',
            '$projectiles': dict(sorted(projs.items()))}
     doc.update(res)
