@@ -1005,7 +1005,7 @@ function kitRagingBoar(ab) {
  * slot, cooldown / initial cooldown from the table; PRTS 「仅未被阻挡、且移动方向同一行/列的前方存在非飞行我方单位时可触发：标记并开始
  * 追踪目标所在地块中心」): CrossTileRangeWithDist (`_checkDirection`, no distance) + AdvancedSelector (ground units, HATRED_DES)
  * pick one operator on its own row (walking left / right) or column (up / down) ahead of it. It plays Skill_Begin (its clip,
- * 1 s); as the cast ends (ActionToOwner) it switches to the mode Run and walks (enemy_mnctur_direction:
+ * 1 s); as the cast ends, played out or cut short (ActionToOwner on ON_CAST_END) it switches to the mode Run and walks (enemy_mnctur_direction:
  * EnemyForceTracePosition — the engine's trace, at its own speed [추정·화면: no speed in the prefab or on PRTS]) to the
  * centre of the target's tile as it was marked (on a high tile: the last walkable tile of the line before it). In Run (no attack) its CollideChar aura (radius MNCTUR_COLLIDE_RADIUS + the
  * operator's collider, ground units) hits the first unit it meets — 碰撞 ATK × `CollideChar.atk_scale_collide` (2) physical,
@@ -1019,7 +1019,7 @@ function kitParadulis(ab) {
   const s = ab.sk.rush, scale = T(ab, 'CollideChar.atk_scale_collide') ?? 1;
   const endDur = (ab.sk.rushEndNormal && ab.sk.rushEndNormal.cast && ab.sk.rushEndNormal.cast.dur) || 0;
   const reach = MNCTUR_COLLIDE_RADIUS + ALLY_COLLIDER_RADIUS;
-  const P = { state: 'idle', dir: null, px: 0, py: 0 };
+  const P = { state: 'idle', dir: null, px: 0, py: 0, to: null };
   // the operators ahead on its line of walk: its row going left / right, its column going up / down
   const ahead = (b, e) => {
     const d = P.dir;
@@ -1048,18 +1048,24 @@ function kitParadulis(ab) {
     const d = P.dir, g = b.grid;
     let r = Math.round(e.y), c = Math.round(e.x);
     while ((r !== t.tileR || c !== t.tileC) && g.walkable(r + d[1], c + d[0])) { r += d[1]; c += d[0]; }
-    const to = { r, c };
+    P.to = { r, c };
     // its ActionToOwner's SwitchMode runs on ON_CAST_END (`_runActionOnEvent` 3), not at the spell (`wait` 0: at once) —
-    // the cast's end, Skill_Begin played out (a cast cut short never gets here: onCut below)
-    atCastEvent(b, e, s, () => {
-      P.state = 'run';
-      mode(b, e, 'Run');
-      setForm(b, e, 'Run');
-      e.trace = to;
-    }, castLength(e, s.cast, s.bb));
+    // the cast's end, Skill_Begin played out (a cast cut short: onCut below)
+    atCastEvent(b, e, s, () => run(b, e), castLength(e, s.cast, s.bb));
   }, { cond: (b, e) => P.state === 'idle' && !e.blockedBy && ahead(b, e).length > 0 });
-  // a cast cut short (stun, freeze …) never runs
-  if (rush) rush.onCut = () => { if (P.state === 'begin') P.state = 'idle'; };
+  // the switch to Run: CheckUnitAlive, CheckContainsBuff (enemy_mnctur_check_target — enemy_mnctur_direction, the ability's
+  // `_activeBuffs`, gave it at the spell), SwitchMode 1; the trace (enemy_mnctur_direction's EnemyForceTracePosition)
+  // [추정·엔진: the trace starts at the spell in the client; here at the switch — it cannot walk while it casts either way]
+  function run(b, e) {
+    P.state = 'run';
+    mode(b, e, 'Run');
+    setForm(b, e, 'Run');
+    e.trace = P.to;
+  }
+  // a cast cut short (stun, freeze …) runs ON_CAST_END too (AbilityStandard.OnCastEnd, for any finish reason), and the
+  // buff is already there (the spell was at the cast's start): it switches to Run at the cut and walks once it can
+  // [추정·엔진: whether a stun stops the trace (CheckEnemyIsTracingTarget) was not read — here the trace waits it out]
+  if (rush) rush.onCut = (b, e) => { if (P.state === 'begin') { if (e.alive) run(b, e); else P.state = 'idle'; } };
   return [{
     spawn(b, e) { P.px = e.x; P.py = e.y; },
     tick(b, e) {

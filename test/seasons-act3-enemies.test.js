@@ -2184,17 +2184,32 @@ test('神勇的帕拉杜利斯: unblocked with an operator ahead on its row, 冲
   assert.ok(c2.includes('rushEndNormal'), 'reaching the spot ends the charge');
   assert.ok(Math.abs(e2.x - 3) < 1e-6 && f.hits.length === 0, 'reached, nobody met');
 
-  // stunned during Skill_Begin: no charge; the next cast (cooldown 10 s after the cut) charges again
+  // stunned during Skill_Begin: the cut cast still ends with ON_CAST_END (AbilityStandard.OnCastEnd, any reason) and the
+  // check buff came at the spell (the cast's start) — Run at the cut; it stands out the stun, then charges
   const g = waveField([MNCTUR2], walls([[10, 3]]));
-  const e3 = g.h.spawn(MNCTUR2, { pos: [10, 9], routeIndex: 0, mods: { speedMul: 0.2 }, tag: null });   // slow: no block before the next cast
+  const e3 = put(g.h, MNCTUR2, [10, 9], { move: true, tag: null });
   const c3 = [];
   onSkill(g.h, e3, (a) => c3.push(a));
   g.h.runUntil(() => c3.length >= 1, 10);
-  g.h.b.applyStatus(e3, 'stun', { duration: 0.5, source: null });
-  runFor(g.h, 1.5);
-  assert.ok(e3.mode !== 'Run' && !e3.trace, 'cut: no Run');
-  g.h.runUntil(() => e3.mode === 'Run', 15);
-  assert.equal(e3.mode, 'Run', 'the next cast runs');
+  runFor(g.h, 0.3);
+  g.h.b.applyStatus(e3, 'stun', { duration: 1.5, source: null });
+  g.h.step();
+  assert.ok(e3.mode === 'Run' && e3.trace && e3.trace.c === 3, 'cut: Run at once, to the marked tile');
+  const x3 = e3.x;
+  runFor(g.h, 1.3);
+  assert.ok(Math.abs(e3.x - x3) < 1e-6 && g.hits.length === 0, 'stunned: it stands');
+  g.h.runUntil(() => g.hits.length > 0, 20);
+  assert.ok(g.hits[0].t === g.h.unit(1) && Math.abs(g.hits[0].n - E3[MNCTUR2].stats.atk * 2) < 1e-6, 'then the charge hits');
+  assert.ok(c3.includes('rushEndNormal'));
+  // killed during Skill_Begin: CheckUnitAlive — no Run
+  const k = waveField([MNCTUR2], walls([[10, 3]]));
+  const e4 = put(k.h, MNCTUR2, [10, 9], { move: true, tag: null });
+  const c4 = [];
+  onSkill(k.h, e4, (a) => c4.push(a));
+  k.h.runUntil(() => c4.length >= 1, 10);
+  k.h.b.kill(e4, null);
+  k.h.step();
+  assert.ok(e4.mode !== 'Run' && !e4.trace, 'dead: no Run');
 });
 
 // ---------------------------------------------------------------------------------------------------------------
