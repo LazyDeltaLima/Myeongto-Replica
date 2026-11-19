@@ -588,19 +588,11 @@
 /* the picker covers the tab: the roster's own list on the left and its detail on the right (screens/loadoutSections.js
    draws the sections; below 1000 px the detail slides over the list like the roster's) */
 .diy-pick { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; gap: .08rem; padding: .12rem var(--lo-pad-x) .14rem; background: var(--bg-1, #0d1110); }
-/* the picker's header: one row of controls — the tier, the hint (it shrinks and ellipsises), the search box
-   (the roster's own `.lo-search`) and the close button — with the class filter on a second row. Every width draws it this
-   way: the hint used to take a row of its own, which cost the list a whole row on a phone. */
+/* the picker's header: one row of controls — the title with its tier, the hint, 已选干员 n/6 and the search box (the
+   roster's own `.lo-search`) — with the class filter on a second row. Every width draws it this way: the hint used to
+   take a row of its own, which cost the list a whole row on a phone. No close button: the footer's 取消 and Esc close it
+   (maintainer decision 2026-11-19). */
 .diy-pick__head { flex: none; display: flex; flex-direction: column; gap: .08rem; font-size: max(.16rem, 11px); }
-/* the picker's own 干员列表 back button: on a phone it takes the header row once the detail covers the list, so the pane
-   loses no row of its own above it (the roster keeps its own `.lo-detail-back` inside `.lo-detail-wrap`) */
-.diy-pick__back { align-self: center; margin-bottom: 0; }
-.diy-pick:not(.is-detail) .diy-pick__back { display: none; }
-/* the picker's own top row on a phone: the 干员列表 back button beside the close button, shown once the detail covers the
-   list (the list's filter row goes with `.diy-pick__col`), so the pane starts at this row instead of losing one above it */
-.diy-pick__backrow { display: flex; align-items: center; gap: .06rem; }
-/* the picker's one close button: it rides the filter row, just right of the search box (the detail pane carries none) */
-.diy-pick__x { display: grid; place-items: center; width: max(.4rem, 28px); height: max(.4rem, 28px); color: var(--text-md); background: none; border: 1px solid var(--line-2); cursor: pointer; }
 /* The picker's two columns mirror the roster's `.lo-body` through the same shared variables: the list takes whatever is
    left, the detail is `--lo-detail-w`. A `1.2fr / 1fr` split made the detail a SHARE of the window instead — wider than
    干员调配's on a large screen, narrower on a small one — so the shared `.lo-dhead` wrapped differently here. */
@@ -609,11 +601,11 @@
 /* the element also carries .lo-list (screens/diy.js): --q / --qg / --art / --cols and the scrolling come from there */
 .diy-pick__list { display: grid; grid-template-columns: 1fr; align-content: start; gap: .06rem; }
 .diy-pick__glyph { display: grid; place-items: center; width: 100%; height: 100%; font-size: max(.3rem, 18px); color: var(--text-lo); }
-/* the head (the official pool_view/panel_title at the HUD unit): 「自选编队 [tier]」 label_title #ff9d04 22 over text_tips
-   (#e4e4e4 60 %, 18), then part_lab 「已选择」 (#e68e06 17) and text_info 「n/6」 (#ae761f 27; Novecentowide-Bold → Lexend
-   Exa 700, docs/rules/ui.md 「HUD 숫자 글꼴」), which flashes when a seventh is refused */
+/* the head (the official pool_view/panel_title at the HUD unit): 「自选编队 [tier]」 label_title #ff9d04 22 and text_tips
+   (#e4e4e4 60 %, 18) — side by side, not the official's two lines: the row has the room (maintainer decision 2026-11-19)
+   —, then part_lab 「已选择」 (#e68e06 17) and text_info 「n/6」 (#ae761f 27; Novecentowide-Bold → Lexend Exa 700,
+   docs/rules/ui.md 「HUD 숫자 글꼴」), which flashes when a seventh is refused */
 .diy-pick__heading { display: flex; align-items: center; gap: calc(12 * var(--ui-u)); flex: none; margin-right: auto; }
-.diy-pick__stack { display: flex; flex-direction: column; gap: calc(2 * var(--ui-u)); }
 .diy-pick__title { display: inline-flex; align-items: center; gap: calc(6 * var(--ui-u)); color: #ff9d04; font-weight: 700; font-size: calc(22 * var(--ui-u)); line-height: calc(30 * var(--ui-u)); white-space: nowrap; }
 .diy-pick__tips { color: rgba(228, 228, 228, .6); font-size: calc(18 * var(--ui-u)); line-height: calc(24 * var(--ui-u)); white-space: nowrap; }
 .diy-pick__lab { display: inline-block; line-height: normal; padding: 0 calc(8 * var(--ui-u)); border: 1px solid #e68e06; color: #e68e06; font-size: calc(17 * var(--ui-u)); white-space: nowrap; }
@@ -649,6 +641,8 @@
 .diy-pick__detail { flex: 1 1 auto; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   padding: .12rem .18rem .2rem; scrollbar-width: thin; scrollbar-color: var(--line-3) transparent; }
 .diy-pick__foot { flex: none; display: flex; justify-content: flex-end; gap: .08rem; }
+/* the footer's buttons keep a readable size and a tappable height on a phone, like the overlay's own (below) */
+.lo .diy-pick__foot .btn { height: max(.5rem, 30px); padding: 0 max(.26rem, 12px); font-size: max(.18rem, 12px); }
 .diy-pick__clear.btn { margin-right: auto; }
 /* 0.2.0 自选编队: the slots the player filled (the entry button's chip) */
 .lo-entry__diy { color: var(--text-on-mint); background: var(--mint-500); }

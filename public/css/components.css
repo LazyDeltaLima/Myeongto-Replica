@@ -70,7 +70,10 @@
 .btn:focus-visible { outline: none; }
 
 .btn__icon { width: 1.15em; height: 1.15em; }
-.btn__label { position: relative; }
+/* the label is a flex item (a block) whose line box is the button's `line-height: 1`, but the glyphs' content area is
+   about 1.4em (the CJK fonts), so its own box cut 0.2em off the top and bottom (3 px at 15 px; tools/ui-check.mjs
+   measure). The padding gives the box the glyphs' height and the equal negative margin keeps the button's layout. */
+.btn__label { position: relative; padding-block: .25em; margin-block: -.25em; }
 /* a request in flight (Button `loading`): a thin bar sweeps along the bottom edge, shown only after 250 ms (quick
    replies show nothing). Deliberately no spinning ring / wait cursor: next to text those read as "the text is still
    loading from the server" (user playtest #3 item 9). */

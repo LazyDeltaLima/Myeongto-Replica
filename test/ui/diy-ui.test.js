@@ -335,6 +335,18 @@ describe('自选编队 tab (screens/diy.js)', () => {
     assert.deepEqual([p.st.focus, p.st.detail, p.st.order], [WANG, 1, []]);
   });
 
+  test('narrow screens: the detail has its own footer — 取消 / 确认 go back to the list, never confirm the lineup', () => {
+    const calls = [];
+    const p = pickerOf(5, {}, { narrowDetail: true, onNarrowDetail: (v) => calls.push(['back', v]), onDetailCancel: () => calls.push(['cancel']) });
+    const ids = p.nodes().map((v) => v.props?.['data-testid']).filter(Boolean);
+    assert.ok(!ids.includes('diy-confirm') && !ids.includes('diy-pick-clear'), 'the lineup\'s 清空选择 / 确认 are not in the detail\'s footer');
+    assert.ok(!p.nodes().some((v) => hasClass(v, 'diy-pick__back') || hasClass(v, 'diy-pick__x')), 'no 干员列表 / close buttons');
+    p.click('data-testid', 'diy-detail-cancel');
+    p.click('data-testid', 'diy-detail-ok');
+    assert.deepEqual(calls, [['cancel'], ['back', null]]);
+    assert.deepEqual(p.st.done, []);
+  });
+
   test('twelve slots by tier: an empty one is the official empty slot, a filled one the 干员调配 card; a tap opens the slot\'s tier', () => {
     const opened = [];
     const tree = expand(DiyPanelView({ m: data.get('assets'), picks: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK }, legal: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK }, kitted: KIT,

@@ -215,32 +215,58 @@ export function pickerStart(tier, picks, D) {
 export function DiyPicker(props) {
   const [start] = useState(() => pickerStart(props.tier, props.picks, diyData()));
   const [previewLevel, setPreviewLevel] = useState('elite');
-  const [narrowDetail, setNarrowDetail] = useState(false); // phones: the detail slides over the list
+  // phones: the detail over the list — { charId, entry }, the operator and its entry when the detail opened (the detail's
+  // 取消 puts that entry back, its 确认 keeps the changes; both return to the list)
+  const [detailOf, setDetailOf] = useState(null);
   const [prof, setProf] = useState(null);
   const [query, setQuery] = useState('');
   const [order, setOrder] = useState(start.order);
   const [edits, setEdits] = useState(start.edits);
+  const onNarrowDetail = (charId) => setDetailOf(charId ? { charId, entry: edits[charId] } : null);
+  const onDetailCancel = () => {
+    const was = detailOf;
+    setDetailOf(null);
+    if (!was) return;
+    setEdits((prev) => {
+      const next = { ...prev };
+      if (was.entry) next[was.charId] = was.entry; else delete next[was.charId];
+      return next;
+    });
+  };
+  // the detail covers the list below 1000 px only (css/screens/loadout.css): a window widened past that shows both
+  // columns again, so the list's footer comes back
+  useEffect(() => {
+    if (!detailOf || typeof matchMedia !== 'function') return undefined;
+    const mq = matchMedia('(max-width: 1000px)');
+    const wide = () => { if (!mq.matches) setDetailOf(null); };
+    wide();
+    mq.addEventListener?.('change', wide);
+    return () => mq.removeEventListener?.('change', wide);
+  }, [detailOf]);
   const [focus, setFocus] = useState(start.order[0] ?? null);
   const [bump, setBump] = useState(0); // the 「n/6」 flash of a refused seventh
   // Esc cancels only the picker, like its 取消 (GitHub #284, idea from PR #286); the 干员调配 overlay's own Esc skips
   // while a picker is open, and a dialog over the picker (导入) still takes Esc first. A layout effect: the listener is
   // attached in the same commit as the picker (a plain effect waits for the next frame, and an Esc pressed in between
-  // was swallowed — the overlay skipped it, the picker did not hear it yet; the 0.2.2 full browser pass)
+  // was swallowed — the overlay skipped it, the picker did not hear it yet; the 0.2.2 full browser pass). On a phone's
+  // detail Esc is the detail's 取消 (back to the list); `escRef` holds the current action so the listener stays put.
+  const escRef = useRef(null);
+  escRef.current = detailOf ? onDetailCancel : props.onClose;
   useLayoutEffect(() => {
     const onKey = (e) => {
       if (e.key !== 'Escape' || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.modal')) return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      props.onClose();
+      escRef.current?.();
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [props.onClose]);
+  }, []);
   const refuse = (cap) => {
     toast(t('{tier}阶自选编队最多{n}名。再次点击已选择的干员可将其移出', { tier: ROMAN_FULL[props.tier] || props.tier, n: cap }), 'warn');
     setBump((n) => n + 1);
   };
-  return DiyPickerView({ ...props, previewLevel, onPreviewLevel: setPreviewLevel, narrowDetail, onNarrowDetail: setNarrowDetail,
+  return DiyPickerView({ ...props, previewLevel, onPreviewLevel: setPreviewLevel, narrowDetail: !!detailOf, onNarrowDetail, onDetailCancel,
     prof, query, order, edits, focus, top: start.order, bump, onProf: setProf, onQuery: setQuery, onOrder: setOrder, onEdits: setEdits,
     onFocus: setFocus, onRefuse: refuse });
 }
@@ -250,11 +276,13 @@ export function DiyPicker(props) {
  * `query`, `order` the chosen operators in choice order, `edits` the picks being made (charId → pick; an operator without
  * one shows its default — ui/diyModel.js defaultPick), `focus` the operator whose detail shows, `top` the operators
  * listed first (the tier's at opening), `bump` the refusal count, and their setters (`onEdits` takes an updater of the
- * entries); `narrowDetail` the phone layout (the detail over the list).
+ * entries); `narrowDetail` the phone layout (the detail over the list: `onNarrowDetail(charId)` opens it, `(null)` — its
+ * 确认 — returns to the list keeping the changes, `onDetailCancel` — its 取消 — returns dropping them; the detail has
+ * its own footer, so 确认 there never confirms the lineup).
  */
 export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = null, query = '', order = [], edits = {}, focus = null, top = [], bump = 0,
   onProf = () => {}, onQuery: setQuery = () => {}, onOrder = () => {}, onEdits = () => {}, onFocus = () => {}, onRefuse = () => {},
-  ops = {}, onOps = null, previewLevel = 'elite', onPreviewLevel = () => {}, narrowDetail = false, onNarrowDetail = () => {} }) {
+  ops = {}, onOps = null, previewLevel = 'elite', onPreviewLevel = () => {}, narrowDetail = false, onNarrowDetail = () => {}, onDetailCancel = () => {} }) {
   const skinCtx = skinArt();
   const D = diyData();
   const slots = tierSlots(tier, D);
@@ -282,7 +310,7 @@ export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = 
     onFocus(charId);
     onEdits((prev) => ({ ...prev, [charId]: { ...(prev[charId] || defaultPick(charId, slotId, D)), ...patch } }));
   };
-  const detail = (charId) => { onFocus(charId); onNarrowDetail(true); };
+  const detail = (charId) => { onFocus(charId); onNarrowDetail(charId); };
   const draft = focus && slotId ? choiceOf(focus) : null;
   const ch = draft ? rowChoices(draft.charId, slotId, D) : null;
   const chosen = ch ? rowChoice(ch, draft.charId, draft) : null;
@@ -309,16 +337,13 @@ export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = 
         <header class="lo-filters diy-pick__head">
           <div class="lo-frow">
             <span class="diy-pick__heading">
-              <span class="diy-pick__stack">
-                <b class="diy-pick__title">${t('自选编队')}<${TierChip} tier=${tier} size="sm" class="diy-pick__tier" /></b>
-                <span class="diy-pick__tips">${t('可选择{n}名干员加入作战编队', { n: cap })}</span>
-              </span>
+              <b class="diy-pick__title">${t('自选编队')}<${TierChip} tier=${tier} size="sm" class="diy-pick__tier" /></b>
+              <span class="diy-pick__tips">${t('可选择{n}名干员加入作战编队', { n: cap })}</span>
               <span class="diy-pick__lab">${t('已选干员')}</span>
               <b key=${bump} class=${cx('diy-pick__num', full && 'is-full', bump > 0 && 'is-bump')} data-testid="diy-pick-count">${order.length}/${cap}</b>
             </span>
             <${TextField} size="sm" icon="search" value=${query} placeholder=${t('搜索干员 / 职业 / 盟约')} class="lo-search"
               onInput=${(v) => setQuery(String(v).slice(0, 24))} />
-            <button type="button" class="diy-pick__x" aria-label=${t('关闭')} onClick=${onClose}><${Icon} name="close" /></button>
           </div>
           <div class="lo-frow diy-pick__profrow"><${ProfFilter} m=${m} prof=${prof} onProf=${onProf} /></div>
         </header>
@@ -334,9 +359,6 @@ export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = 
         </div>
       </section>
       <div class="lo-detail-wrap">
-        <div class="diy-pick__backrow">
-          <button type="button" class="lo-detail-back diy-pick__back" onClick=${() => onNarrowDetail(false)}><${Icon} name="chevronLeft" />${t('干员列表')}</button>
-        </div>
         <div class="lo-detail">
           ${ch && unit && base ? html`
             <div class="lo-dhead">
@@ -368,11 +390,14 @@ export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = 
         </div>
       </div>
     </div>
-    <footer class="diy-pick__foot">
+    ${narrowDetail ? html`<footer class="diy-pick__foot">
+      <${Button} variant="ghost" data-testid="diy-detail-cancel" onClick=${onDetailCancel}>${t('取消')}<//>
+      <${Button} variant="primary" icon="check" data-testid="diy-detail-ok" onClick=${() => onNarrowDetail(null)}>${t('确认')}<//>
+    </footer>` : html`<footer class="diy-pick__foot">
       <${Button} variant="ghost" class="diy-pick__clear" data-testid="diy-pick-clear" disabled=${!order.length} onClick=${() => onOrder([])}>${t('清空选择')}<//>
       <${Button} variant="ghost" onClick=${onClose}>${t('取消')}<//>
       <${Button} variant="primary" icon="check" data-testid="diy-confirm" disabled=${kitted == null} onClick=${() => onDone(order.map(choiceOf))}>${t('确认')}<//>
-    </footer>
+    </footer>`}
   </section>`;
 }
 
