@@ -1,0 +1,145 @@
+// When an enemy skill cast at its attack slot takes effect (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 효과가 나는 때;
+// content/enemies.js castStrikeAt): the client's ability waits for a frame before its spell (`EasyToStartAbility.OnCastStart`
+// → `<OnWaitForPreDelay>`) — its clip's OnAttack event (scaled as the cast plays), the cast's end when the clip has none or
+// there is no clip, `_preDelay` when it does not wait for the event, the end clip's OnAttack of a three-part channel, one fixed
+// update for an ActiveBuffAbility. Until 2026-11-20 every kit of the sweep below fired as the cast began (a cut cast still
+// hit); a kit says `atStrike` (enemies/archetypes.js skill) and the engine runs its fire at that frame, not at all when the
+// cast is cut first.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { makeBattle, chessRec } from '../helpers/battleHarness.js';
+import * as enemiesMod from '../../server/sim/content/enemies.js';
+import * as bossesMod from '../../server/sim/content/bosses.js';
+import { enemyHasAttack } from '../../server/sim/ai.js';
+import { TICK } from '../../server/sim/constants.js';
+
+const SEASONS = [[null, 'data/enemies.json'], ['act3autochess', 'data/seasons/act3autochess/enemies.json']];
+const read = (f) => JSON.parse(fs.readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8'));
+
+const ACE = 'times its effect itself (enemies/helpers.js atCastEvent): it has a part at the cast start';
+const BOSS = '[미조사] boss pattern not moved yet — bundles line 「보스 스킬 효과 프레임」 (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 효과가 나는 때)';
+const OWN = '[미조사] a channel, projectile wait or kit timer of its own, not moved yet — bundles line 「채널·투사체 적 스킬 효과 프레임」 (same section)';
+/** enemy key → skill name → why its kit does not say `atStrike` (a cast whose frame is 0 needs no entry). */
+const EXCEPT = {
+  enemy_10001_trslim: { StartRun: ACE },
+  enemy_10077_mpbarr: { Spawn: ACE }, enemy_10123_uareap: { SkyProjectile: ACE },
+  enemy_1104_lfkght: { AtkDesWeaken: ACE }, enemy_1104_lfkght_3: { AtkDesWeaken: ACE },
+  enemy_1133_harchn: { SummonToken: ACE }, enemy_1133_harchn_2: { SummonToken: ACE },
+  enemy_1362_dfat: { StunAttack: ACE }, enemy_1362_dfat_2: { StunAttack: ACE },
+  enemy_1373_ltnhor: { attackTwoTarget: ACE }, enemy_1373_ltnhor_2: { attackTwoTarget: ACE },
+  enemy_1376_ltndru: { aoeAttack: ACE }, enemy_1376_ltndru_2: { aoeAttack: ACE },
+  enemy_1403_gunsho: { CrossAttack: ACE }, enemy_1403_gunsho_2: { CrossAttack: ACE },
+  enemy_1405_boomer_2: { Bomb: ACE }, enemy_1406_chghmr: { PowerHit: ACE }, enemy_1409_bdguad_2: { CrossBomb: ACE },
+  enemy_1431_lrmzrd: { summonFireball: ACE }, enemy_1431_lrmzrd_2: { summonFireball: ACE },
+  enemy_10144_xdelk_2: { skill: OWN }, enemy_1273_stmgun_2: { Cannon: OWN }, enemy_1275_dwlock_2: { DeathEye: OWN },
+  enemy_1404_msnip: { CrossAttack: OWN }, enemy_1429_lrwzrd: { Laser: OWN }, enemy_1429_lrwzrd_2: { Laser: OWN },
+  enemy_1504_cqbw: { C4: OWN }, enemy_1513_dekght: { ChargeAttack: OWN }, enemy_1517_xi: { ShieldBurst: OWN, ShieldBurstReborn: OWN },
+  enemy_2050_smsha: { ChainBuff: OWN },
+  enemy_1521_dslily: Object.fromEntries(['Doom', 'Rockfall', 'RockfallG1', 'RockfallG2', 'SummonTentac', 'SummonTentacG1', 'SummonTentacG2',
+    'Tidewater', 'TidewaterG1', 'TidewaterG2'].map((n) => [n, BOSS])),
+  enemy_2016_csphtm: { aoe: BOSS, blink: BOSS }, enemy_2017_csphts: { aoe: BOSS },
+  enemy_9009_acfort: { FireWeapon: BOSS, KillOthers: BOSS },
+  enemy_9013_acstmk: { 1: BOSS, 2: BOSS }, enemy_9013_acstmk_2: { 1: BOSS, 2: BOSS }, enemy_9014_acstma: { 1: BOSS }, enemy_9015_acstmb: { 1: BOSS },
+  enemy_9017_achunt: { 1: BOSS }, enemy_9017_achunt_2: { 1: BOSS, 2: BOSS }, enemy_9021_acduml: { 1: BOSS }, enemy_9021_acduml_2: { 1: BOSS },
+  enemy_9022_acdumm: { 1: BOSS }, enemy_9029_acfnc: { SommonSquad: BOSS }, enemy_9029_acfnc_2: { SommonSquad: BOSS, LaunchArmor: BOSS, SkSummonArmor: BOSS },
+  enemy_9032_aclionk: { equip: BOSS, equipA: BOSS, Suicide: BOSS }, enemy_9033_acdeer: { Doom: BOSS, Lasso: BOSS },
+  enemy_9035_acspider: { Net: BOSS }, enemy_9035_acspider_2: { Net: BOSS, AcidRain: BOSS }, enemy_9037_aceel: { Discharge: BOSS }, enemy_9037_aceel_2: { Discharge: BOSS },
+};
+
+test('every attack-slot enemy skill with a frame to wait for takes effect there (`atStrike`), or says why not', () => {
+  const seen = new Set(), missing = [], stale = [];
+  let strike = 0;
+  for (const [season, file] of SEASONS) {
+    for (const [key, rec] of Object.entries(read(file))) {
+      if (!rec.skillCast) continue;
+      const h = makeBattle({ season, seed: 3, autoFinish: false, timeLimit: 60, enemies: [{ key, time: 0 }], units: [] });
+      h.step(2);
+      const e = h.b.enemies.find((x) => x.defId === key);
+      const ab = e && e.mem.ab;
+      if (!ab) continue;
+      // an attack slot (content/enemies.js slotSkill): it attacks, through the engine or its kit's own loop, or its mode has an attack ability
+      const slot = enemyHasAttack(e) || !!ab.ownAttack || !!(e.def.raw.attackAbility && !(e.profile && e.profile.noAttack));
+      if (!slot) continue;
+      for (const a of ab.list) {
+        const s = a.fire && a.cd != null && a.name != null ? ab.sk[a.name] : null;
+        if (!s || !s.cast) continue;
+        const at = enemiesMod.castStrikeAt(e, s.cast, s.bb);
+        const why = EXCEPT[key] && EXCEPT[key][a.name];
+        seen.add(`${key}:${a.name}`);
+        if (a.atStrike) { strike++; if (why) stale.push(`${key} ${a.name} (says atStrike)`); continue; }
+        if ((at ?? 0) > 1e-9 && !why) missing.push(`${key} ${a.name} @${Math.round(at * 1000) / 1000} s`);
+      }
+    }
+  }
+  for (const [key, m] of Object.entries(EXCEPT)) for (const n of Object.keys(m)) if (!seen.has(`${key}:${n}`)) stale.push(`${key} ${n} (not an attack-slot skill)`);
+  assert.deepEqual(missing, [], 'these kits fire as the cast starts, but the client\'s ability waits for a frame (content/enemies.js castStrikeAt): '
+    + 'give the skill `atStrike` (enemies/archetypes.js skill), time a part with enemies/helpers.js atCastEvent, or list it here with the reason '
+    + '— docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 효과가 나는 때');
+  assert.deepEqual(stale, [], 'exception entries with nothing to excuse');
+  assert.ok(seen.has('enemy_1535_wlfmster:FearCage') && strike >= 20, `the sweep ran (${strike} skills at their frame)`);
+});
+
+test('castStrikeAt by class: a clip\'s OnAttack, the end without one, `_preDelay`, a channel\'s end clip, a fixed update', () => {
+  const E = read('data/enemies.json');
+  const e = { s: { interval: 3 } };
+  const at = (k, n, bb = {}) => enemiesMod.castStrikeAt(e, E[k].skillCast[n], bb);
+  const near = (a, b) => Math.abs(a - b) <= 1e-6;
+  assert.ok(near(at('enemy_1509_mousek', 'driftsand'), 1.967), '鼠王 【唱沙】 Skill_1\'s attack event (`_timeMode` 1: the clip as it is)');
+  assert.ok(near(at('enemy_1539_reid', 'rush'), 0.567), '“复仇者” 【冲锋】 Skill_Begin has no event: the whole clip');
+  assert.ok(near(at('enemy_1321_wdarft', 'bornbugs'), 0), '枯朽萃聚使徒 BornBugs does not wait for the event (`_waitForAttackEvent` 0, `_preDelay` 0)');
+  assert.ok(near(at('enemy_1504_cqbw', 'c4'), 0.6), 'W C4: `_preDelay` 0.6');
+  assert.ok(near(at('enemy_1535_wlfmster', 'fearcage', { duration_s: 5 }), 4.367), '扎罗 【溶血骇惧】: 5 s − A_Skill_End 1 s + its 0.367 s frame');
+  assert.ok(near(at('enemy_1502_crowns', 'blink'), TICK), 'an ActiveBuffAbility: one fixed update');
+  // `_timeMode` 0 played faster than its clip: the frame scales with it (锏 CircleAttack: A_Skill2 2.067 s at a 1.5 s interval)
+  assert.ok(near(enemiesMod.castStrikeAt({ s: { interval: 1.5 } }, E.enemy_1525_blkswb.skillCast.circleattack, {}), 0.633 * 1.5 / 2.067), 'scaled');
+});
+
+const WALL = (id) => chessRec({ id, profession: 'TANK', stats: { atk: 0, maxHp: 1e9, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
+const NOATK = () => ({ trait: { noAttack: true } });
+function arena(units) {
+  const chess = Object.fromEntries(units.map((u) => [u.chessId, WALL(u.chessId)]));
+  return makeBattle({
+    content: 'generic', extraContent: [enemiesMod, bossesMod], seed: 7, autoFinish: false, timeLimit: 600,
+    defs: { chess }, kits: Object.fromEntries(units.map((u) => [u.chessId, NOATK])), enemies: [], units,
+  });
+}
+/** Steps `h` until enemy `e` starts casting `name` (fx 'enemySkill'); the time it began. */
+function untilCast(h, e, name, max = 90) {
+  let at = null;
+  const fx = h.b.fx.bind(h.b);
+  h.b.fx = (k, o) => { if (k === 'enemySkill' && o.id === e.id && o.ability === name && at == null) at = h.b.time; return fx(k, o); };
+  for (let t = 0; t < max && at == null; t += TICK) h.step();
+  assert.ok(at != null, `${name} cast`);
+  return at;
+}
+
+test('扎罗 【溶血骇惧】 cages its operators at A_Skill_End\'s attack event, 4.367 s into the cast, not as it begins', () => {
+  const h = arena([{ chessId: 't_a', row: 10, col: 3 }, { chessId: 't_b', row: 11, col: 3 }, { chessId: 't_c', row: 12, col: 3 }]);
+  h.step();
+  const e = h.spawn('enemy_1535_wlfmster', { pos: [10, 8], routeIndex: 0, mods: { speedMul: 0 } });
+  const t0 = untilCast(h, e, 'FearCage');
+  const caged = () => h.allies().filter((u) => u.findBuff('ab:fearCage')).length;
+  h.run(t0 + 4.3 - h.b.time);
+  assert.equal(caged(), 0, 'nobody caged yet at 4.3 s');
+  h.run(0.1 + TICK);   // (the step on or after 4.367 s)
+  assert.equal(caged(), 3, 'caged at the end clip\'s frame');
+});
+
+test('a cast cut before its frame gives nothing: 迷路的巨像 stunned before its boulder leaves', () => {
+  const go = (stunAt) => {
+    const h = arena([{ chessId: 't_a', row: 10, col: 6 }]);
+    h.step();
+    const e = h.spawn('enemy_2003_rockman', { pos: [10, 8], routeIndex: 0, mods: { speedMul: 0 } });
+    const w = h.unit('t_a');
+    const t0 = untilCast(h, e, 'StunAttack');
+    if (stunAt != null) {
+      h.run(t0 + stunAt - h.b.time);
+      assert.ok(h.b.applyStatus(e, 'stun', { duration: 3 }), 'stunned');
+    }
+    h.run(t0 + 2.5 - h.b.time);   // (the boulder leaves at Skill's 1.067 s event and flies 2 tiles at 10 / s)
+    return w.s.flags.stun ? 1 : 0;
+  };
+  assert.equal(go(null), 1, 'uncut: its target is stunned');
+  assert.equal(go(0.5), 0, 'stunned 0.5 s in: no boulder');
+});

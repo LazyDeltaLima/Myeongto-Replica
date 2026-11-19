@@ -1547,8 +1547,23 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     시전한 능력이 `isCasting`이면 그대로 두며, 이상 상태 변경 이벤트(`ON_ABNORMALFLAG_DIRTY`)에 시전을 끊는 쪽은 없다. 그런데 같은 이유로 **일반 휘두름도 끊지 않는다**
     (오퍼레이터의 `Character.States.AttackState.OnTick`만 `canUseAtkOrCbt`를 봄) — 우리는 PRTS 异常效果 「正在进行的普通攻击将被中断」대로 적의 휘두름을 끊는다
     [추정·미조사: PRTS 문구는 오퍼레이터 쪽일 수 있음 — 묶음 sim-D 줄 「적의 缴械가 일반 휘두름을 끊는지」].
-  - 효과가 나는 때는 키트대로 시전 시작이다(클립이 있는 스킬도 같음): 공식은 능력이 기다리는 프레임(채널 클립의 `OnAttack`, 없으면 공격 시간 끝)이다 — 자로, '늑대 군주'
-    `FearCage`는 끝 클립 `A_Skill_End`의 `OnAttack`(시전 4.37초째) [ASSUMED·미조사: 적 스킬 효과의 프레임은 키트마다 따로 옮겨야 함].
+  - **효과가 나는 때** (2026-11-20, 공식 클라에서 확인 — 이전: 아래 키트들은 시전 시작에 효과를 냈고 끊긴 시전도 맞혔다 [가정이었음]): 능력은 주문(효과) 전에
+    한 프레임을 기다린다(`EasyToStartAbility.OnCastStart` → `<OnWaitForPreDelay>` → 주문; 공격 능력·`AnimatedActionTo*`·`GloballUniqueBuffAbility` 모두).
+    `content/enemies.js castStrikeAt`이 그 때를 센다: 클립이 있고 공격 이벤트를 기다리면(`_waitForAttackEvent` 1) 클립의 첫 `OnAttack` × 시전 배율(시전 길이 ÷ 클립),
+    이벤트가 없는 클립·클립 없는 능력은 시전 끝(`WaitForNextEvent`가 `m_cachedDuration`까지), 기다리지 않으면(`wait` 0) `_preDelay` × 배율, 세 부분 채널은 끝 클립의
+    `OnAttack`(능력 시간에 시작·루프·끝을 맞추므로 시전 길이 − 끝 클립 + 그 프레임: 자로, '늑대 군주' `FearCage` 5 − 1 + 0.367 = 4.367초째), `ActiveBuffAbility`는
+    고정 업데이트 한 번 뒤, 선택 묶음은 그 자식의 것, 순차 묶음은 앞 자식들 뒤 마지막 자식의 것. 키트가 `atStrike`(`enemies/archetypes.js skill`)라고 하면 엔진이 공격 차례
+    시전의 `fire`를 그 프레임에 부르고, 그 전에 시전이 끊기거나(기절 등, `ab.casting`이 바뀜) 적이 사라지면 부르지 않는다; 시작에 할 일이 따로 있는 키트는 `fire`에서 그것을
+    하고 효과를 `enemies/helpers.js atCastEvent`로 미룬다(간이 사육 원석충 `StartRun`: 형태 표시는 시작, `Run` 모드·달리기는 `Skill_Begin` 끝 1초). 옮긴 것:
+    칭밍·탕황 `InvisibleShield`(0.7초), 크라운슬레이어 순간이동(1틱), 래트킹 【唱沙】(1.967초)·【沙狱】(0.667초), 머드락(적) 방벽 갱신(0.733초), 쇠퇴한 기사 폭발 화살(1초째 발사),
+    '어벤져' 【돌진】(`Skill_Begin` 끝 0.567초), 길을 잃은 거대 석상 바위(1.067초째 발사), 제트맨 이륙(1틱), '툼스톤' 방벽(0.3초), '즈자이' 십자 공격(0.5초), 데겐블레허 순간이동(1틱)·
+    【肆虐风雪】(0.633·0.667초, 공격 간격에 맞춰 줄면 함께), 자로 【溶血骇惧】(4.367초), '산크타의 긍지' 祈祷邀约(1초), 문드러진 응집 사도 `BornBugs`(기다리지 않음 — 시작 그대로).
+    데이터: `build-data.mjs enemySkillCast`가 `wait` 0·`pre`(`_preDelay`)와 채널 끝 클립의 `chanEnd`(`dur`·`hit`)를 싣는다. 재발 방지:
+    `test/content/enemy-skill-strike.test.js`(두 시즌 공격 차례 스킬 전부 — 프레임이 0보다 늦은데 `atStrike`가 아니면 예외 목록의 이유가 있어야 함).
+    아직 시작에 효과를 내는 것 [추정·미조사: 키트마다 옮겨야 함 — 묶음 sim-D 줄 「보스 스킬 효과 프레임」·「채널·투사체 적 스킬 효과 프레임」]: 보스 패턴(살비엔토 주교 퀸투스,
+    루시안, 가상적: 흑운·투구·검·총·관·현·기계·고치·지느러미, 알리스테어, '사미의 의지'), 채널·투사체 기다림·키트 자체 타이머('즈자이' `ShieldBurst`, 검은 뿔의 루울, W `C4`(`_preDelay`
+    0.6초), 부패한 기사 `ChargeAttack`, 강화 석궁 기습자, 고정밀 런디니움 방위군 자주포, 살카즈 왕정군 정예 캐스터, 함락의 제사장, 응집된 영혼의 잔해 `Laser`). `atCastEvent`는 아직 클립 그대로의 `hit`(없으면 클립 길이)을 써
+    `castStrikeAt`과 어긋나는 곳이 있다(배율·`wait` 0 — 묶음 sim-D 줄 「atCastEvent를 castStrikeAt으로」).
   적에게는 시간 늦추기
   (`SLOW_DOWN` 속성)가 이 모드에 없어(버프 템플릿·스킬 프리팹 어디에도 없음) `animSlowDown` 갈래는 해당 없음.
   데이터: `tools/local-extract/attack_timing.py`가 적 프리팹 `EnemySkill`(`_familyMask` 있는 MonoBehaviour)과 같은 GameObject의 애니메이션 능력(`_animKey`·`_maxAnimScale`·`_timeMode`

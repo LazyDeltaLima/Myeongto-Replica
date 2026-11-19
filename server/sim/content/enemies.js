@@ -311,6 +311,18 @@ function castSkill(b, e, a, k = null) {
   const ch = chanCast(s && s.cast);
   const p = a.name ? b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: a.name, n: a.casts, ...(ch ? chanView(e, ch, s.bb) : null) }) : null;
   if (ch && k) { k.chan = true; k.hold = !!ch.chan.wait; }
+  // `atStrike`: its effect waits for the frame its ability waits for (castStrikeAt) — nothing when the cast is cut, the enemy
+  // gone or another cast begun before it
+  const at = a.atStrike && k && s ? castStrikeAt(e, s.cast, s.bb) : 0;
+  if (at > 1e-9) {
+    b.after(at - 1e-9, () => {
+      if (!e.alive || e.mem.ab.casting !== k || !(e.castLeft > 0) || e.castSwing) return;
+      const prev2 = b._castAbility;
+      b._castAbility = { id: e.id, ability: a.name };
+      try { safe(b, e, () => a.fire(b, e, a)); } finally { b._castAbility = prev2; }
+    }, { owner: e });
+    return;
+  }
   const prev = b._castAbility;
   b._castAbility = a.name ? { id: e.id, ability: a.name } : null;
   let t;
@@ -415,6 +427,47 @@ export function castLength(e, cast, bb) {
   const hi = cast.max > 0 ? cast.max : cast.max < 0 ? Infinity : 1;
   const k = Math.min(hi, Math.max(0.1, at / dur));
   return dur * k;
+}
+
+/**
+ * When the effect of a skill's cast comes, s from the cast's start (docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 효과가 나는 때):
+ * the frame its ability waits for before its spell (공식 클라에서 확인 — `EasyToStartAbility.OnCastStart` → `<OnWaitForPreDelay>`
+ * → spell; the same for the attack abilities, `AnimatedActionTo*` and `GloballUniqueBuffAbility`):
+ * - an animated ability with a clip that waits for its attack event (`_waitForAttackEvent` 1): the clip's first OnAttack frame
+ *   (`hit`) × the scale the cast plays at (castLength ÷ clip, `UpdatePlaybackSpeed`); a clip without one: the whole cast
+ *   (`WaitForNextEvent` waits up to `m_cachedDuration`); one that does not wait (`wait` 0): its `_preDelay` × that scale;
+ * - one without a clip: its attack time, the whole cast (as castLength);
+ * - a three-part channel (ThreePartChannelingAnimation, `chan`) with an OnAttack frame on its end clip (`chanEnd`): that
+ *   frame, the end clip playing as the cast's last part (`UpdatePlaybackSpeed` fits begin, loop and end into the ability's time: 扎罗 【溶血骇惧】
+ *   5 s − `A_Skill_End` 1 s + its 0.367 s frame = 4.367 s); without one: the whole cast;
+ * - an ActiveBuffAbility (`buff`): its spell after one fixed update (`<OnWaitForPreDelay>` yields `sharedWaitForFixedUpdate`);
+ * - a selectable group (`sel`): its child's; a sequence (`seq`): the last child's, after the others; a parallel group: null
+ *   (its children's own frames — no kit casts one at the attack slot through this path).
+ * A kit whose skill fires at that frame says `atStrike` (archetypes.js skill); one with a part at the cast's start keeps
+ * `fire` and times its effect itself (enemies/helpers.js atCastEvent).
+ */
+export function castStrikeAt(e, cast, bb) {
+  if (!cast) return 0;
+  if (cast.kind === 'buff') return TICK;
+  const subs = cast.subs || [];
+  if (cast.kind === 'sel') return subs.length ? castStrikeAt(e, subs[0], bb) : 0;
+  if (cast.kind === 'seq') {
+    if (!subs.length) return 0;
+    let t = 0;
+    for (let i = 0; i < subs.length - 1; i++) t += castLength(e, subs[i], bb);
+    const last = castStrikeAt(e, subs[subs.length - 1], bb);
+    return last == null ? null : t + last;
+  }
+  if (cast.kind === 'par') return null;
+  const len = castLength(e, cast, bb);
+  if (cast.chan) {
+    const end = cast.chanEnd;
+    return end && end.dur > 0 && len >= end.dur ? len - end.dur + end.hit : len;
+  }
+  if (!(cast.dur > 0)) return len;
+  const scale = len / cast.dur;
+  if (cast.wait === 0) return Math.min(len, (cast.pre > 0 ? cast.pre : 0) * scale);
+  return Number.isFinite(cast.hit) ? Math.min(len, cast.hit * scale) : len;
 }
 
 /**

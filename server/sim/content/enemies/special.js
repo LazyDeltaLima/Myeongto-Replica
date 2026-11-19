@@ -6,7 +6,7 @@ import { canTargetAlly, areaSelectable } from '../../targeting.js';
 import { periodicDamage } from '../../damage.js';
 import {
   nthOf, stOf, T, elem, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, byPriority,
-  stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, mode, setForm,
+  stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, mode, setForm, atCastEvent,
 } from './helpers.js';
 import {
   unblockable, runWhenHit, blockWeight, taunt, maxTargets, ep, nthAttackPower, lowHpBuff, deathBoom, setFloat, float,
@@ -554,9 +554,13 @@ export const SPECIAL_KITS = Object.freeze({
   }],
   enemy_10001_trslim: (ab) => [skill(ab.sk.StartRun, (b, e) => {    // 简饲源石虫 · below half: runs (faster, unblockable 3 s)
     const s = ab.sk.StartRun.bb;
-    mode(b, e, 'Run');   // the skill's mode Run for good: its attack Attack_B
-    setForm(b, e, 'Run');   // the skill's Skill_Begin, then its B_* clips (render/units.js FORMS)
-    b.addBuff(e, { key: 'ab:run', duration: s.block_free_time ?? 0, mods: { moveMul: 1 + (s.move_speed ?? 0) }, flags: { unblockable: true }, visible: true });
+    setForm(b, e, 'Run');   // the view: the skill's Skill_Begin, then its B_* clips (render/units.js FORMS)
+    // the ability's spell as its Skill_Begin has played (no attack event on it: the cast's end — content/enemies.js
+    // castStrikeAt): the skill's mode Run for good (its attack Attack_B) and the run
+    atCastEvent(b, e, ab.sk.StartRun, () => {
+      mode(b, e, 'Run');
+      b.addBuff(e, { key: 'ab:run', duration: s.block_free_time ?? 0, mods: { moveMul: 1 + (s.move_speed ?? 0) }, flags: { unblockable: true }, visible: true });
+    });
   }, { sil: true, cond: (b, e) => e.hpRatio < 0.5 })],
   enemy_10027_vtsk: (ab) => {                                        // “帝国的甲胄” · entrance barrage on the highest-HP unit; ranged ×0.8; 3-hit charge attack
     const ap = ab.sk.Appear, mc = ab.sk.MultiCombat;

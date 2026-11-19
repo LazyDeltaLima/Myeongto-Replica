@@ -69,7 +69,7 @@
         "enemy_1121_lifbos_2": [9,1,6,13194,43060]
       },
       "hooks": [1,94,5100,717,717,1352,1351,4276,44,86,41,40,0,16016,51,48,50,28,1,47,5,0,1],
-      "events": {"atk":882,"bounty":2,"deploy":44,"die":58,"dmg":1351,"engage":11,"face":18,"fx":86,"heal":26,"layer":5,"leak":28,"skill":81,"spawn":62,"status":174,"swing":749},
+      "events": {"atk":882,"bounty":2,"deploy":44,"die":58,"dmg":1351,"engage":11,"face":18,"fx":86,"heal":26,"layer":5,"leak":28,"skill":81,"spawn":62,"status":173,"swing":749},
       "fx": {"blink":14,"dodge":1,"dp":5,"enemySkill":2,"explode":8,"garrison":5,"liberate":13,"phase":13,"slash":24,"telegraph":1},
       "snaps": "786d5054 df9d8e2d c4e5d27a 1843f365 f14e4aaa acdf61ee 3c55182f 29f23841 5c424131 840f0499 e6a9d270 cbd7a201 32516ce6 6aadc326 642a6ec6 b1bf1166 8ac2d981"
     },

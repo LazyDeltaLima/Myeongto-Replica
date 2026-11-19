@@ -133,7 +133,7 @@ function kitRoar(ab) {
   return [selfFear(ab), skill(s, (b, e) => {
     b.fx('telegraph', { x: e.x, y: e.y, r: 99, kind: 'roar', id: e.id });
     for (const u of fieldAllies(b, e)) if (!u.isFlying) b.addBuff(u, { key: 'ab:roar', duration: s.bb.duration ?? 0, refresh: 'extend', mods: { aspd: s.bb.attack_speed ?? 0 }, visible: true });
-  }, { sil: true })];
+  }, { sil: true, atStrike: true })];
 }
 
 /**
@@ -279,7 +279,7 @@ export const FLY_KITS = Object.freeze({
   enemy_9009_acfort: kitBlackCloud,                                  // 假想敌：黑云 · devours ≤ 3 normal flyers for ammo, fires it all at random allies
   enemy_1112_emppnt: kitShell,                                       // 帝国炮火先兆者 · attacks are shells landing 3 s later (r 1.2)
   enemy_1112_emppnt_2: kitShell,                                     // 帝国炮火中枢先兆者 · same
-  enemy_1321_wdarft: (ab) => [skill(ab.sk.BornBugs, (b, e) => spawnChildren(b, e, 'enemy_1269_nhfly', BUGS_PER_CAST))], // 枯朽萃聚使徒 · spawns 枯朽之种
+  enemy_1321_wdarft: (ab) => [skill(ab.sk.BornBugs, (b, e) => spawnChildren(b, e, 'enemy_1269_nhfly', BUGS_PER_CAST), { atStrike: true })], // 枯朽萃聚使徒 · spawns 枯朽之种
   // 枯朽之种 · its 自毁 is its normal attack (PRTS 枯朽之种 天赋 「普通攻击结束时，若自身未持有晕眩/冻结/浮空/沉睡，强制击杀自身」·
   // 「攻击弹道飞行速度10」; data: attack radius 2, attackAnim 0.367 s, proj projectile_enemy_nhfly TRACE 10): the engine's ranged
   // attack (wind-up, enemy target order, the official projectile, physical damage on impact even with the seed gone), and

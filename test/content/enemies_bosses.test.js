@@ -56,6 +56,8 @@ const firstCast = (key, p) => {
   const spAt = d && d.type === 'INCREASE_WITH_TIME' && s.spCost > 0 ? (s.spCost - (d.initSp || 0)) / (d.increment || 1) : 0;
   return Math.max(s.initCooldown, spAt);
 };
+/** When enemy `e`'s skill `name` takes effect, s from its cast's start (content/enemies.js castStrikeAt: the frame its ability waits for). */
+const strikeOf = (e, name) => { const k = e.mem.ab.sk[name]; return enemiesMod.castStrikeAt(e, k.cast, k.bb); };
 const approx = (a, b, eps = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), `${msg} ${a} ≈ ${b}`);
 const nm = (k) => `${k} ${E[k] ? E[k].name : ''}`;
 const statuses = (h, id, key) => h.hooksOf('statusApplied').filter((c) => c.target.id === id && c.status === key);
@@ -530,11 +532,13 @@ for (const key of ['enemy_1209_sfden', 'enemy_1209_sfden_2']) {
   test(`${nm(key)}: InvisibleShield veils nearby enemies (stealth) for the talent's ${tb(key, 'InvisibleShield.duration')} s`, () => {
     const h = arena();
     h.step();
-    put(h, key, [10, 7]);
+    const e = put(h, key, [10, 7]);
     const o = put(h, 'enemy_1007_slime', [10, 6]);
     const s = skb(key, 'InvisibleShield');
     assert.equal(tb(key, 'InvisibleShield.duration'), 3);
     h.run(s.initCooldown + 0.1);
+    assert.ok(!o.s.flags.stealth, 'not before the cast reaches its Skill clip\'s attack event');
+    h.run(strikeOf(e, 'InvisibleShield'));
     assert.ok(o.s.flags.stealth);
     h.run(3 - 0.3);
     assert.ok(o.s.flags.stealth, 'still veiled at 2.8 s');
@@ -1344,9 +1348,9 @@ test(`${nm('enemy_10084_hlegle')}: steals one bullet from an ammo skill instead 
 test(`${nm('enemy_10085_hllevi_2')}: 祈祷邀约 lowers every operator's ASPD by ${-skb('enemy_10085_hllevi_2', 'Roar').bb.attack_speed}`, () => {
   const h = arena({ units: [{ chessId: 't_gun', row: 12, col: 3 }] });
   h.step();
-  put(h, 'enemy_10085_hllevi_2', [10, 7], { route: 2 });
+  const e = put(h, 'enemy_10085_hllevi_2', [10, 7], { route: 2 });
   const s = skb('enemy_10085_hllevi_2', 'Roar');
-  h.run(s.initCooldown + 0.1);
+  h.run(s.initCooldown + strikeOf(e, 'Roar') + 0.1);   // (the Skill clip's attack event)
   assert.equal(h.unit('t_gun').s.aspd, 100 + s.bb.attack_speed);
 });
 
@@ -1984,6 +1988,8 @@ test(`${nm('enemy_10001_trslim')}: below half HP it runs (move ×${1 + skb('enem
   const v = e.s.moveSpeed;
   h.b.dealDamage(null, e, { amount: e.s.maxHp * 0.6, type: 'true' });
   h.step();
+  assert.ok(!e.s.flags.unblockable, 'not before its Skill_Begin clip has played (no attack event: the end of the cast)');
+  h.run(strikeOf(e, 'StartRun'));
   assert.ok(e.s.flags.unblockable);
   approx(e.s.moveSpeed, v * (1 + skb('enemy_10001_trslim', 'StartRun').bb.move_speed));
 });
@@ -2275,7 +2281,7 @@ test(`${nm('enemy_1502_crowns')}: blinks past its blocker`, () => {
   const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
   h.step();
   const e = put(h, 'enemy_1502_crowns', [9, 7], { move: true });
-  h.run(skb('enemy_1502_crowns', 'blink').initCooldown + 1);
+  h.run(skb('enemy_1502_crowns', 'blink').initCooldown + 1 + strikeOf(e, 'blink'));   // (its ActiveBuffAbility's spell, a fixed update in)
   assert.ok(e.x < 5 - 0.5, `x ${e.x}`);
 });
 
@@ -2451,6 +2457,7 @@ test(`${nm('enemy_1539_reid')}: ATK up below half; first KO ⇒ ${tb('enemy_1539
     if (status) for (const u of hh.allies()) hh.b.applyStatus(u, status, { duration: 99, source: u });
     const r = put(hh, 'enemy_1539_reid', [9, 8], { move: true });   // route 0 walks row 9 towards (9, 2)
     hh.step(2);
+    hh.run(strikeOf(r, 'Rush'));   // (its Skill_Begin clip has no attack event: the rush comes as the cast ends)
     return r;
   };
   const r = charge([{ chessId: 't_wall', row: 9, col: 5 }]);      // on its path, 3 tiles ahead
@@ -2466,7 +2473,8 @@ test(`${nm('enemy_2003_rockman')}: boulder stuns a non-stunned unit for ${skb('e
   const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 6 }], hooks: ['statusApplied'] });
   h.step();
   put(h, 'enemy_2003_rockman', [10, 8]);
-  h.run(skb('enemy_2003_rockman', 'StunAttack').initCooldown + 1);
+  const e = h.enemies()[0];
+  h.run(skb('enemy_2003_rockman', 'StunAttack').initCooldown + strikeOf(e, 'StunAttack') + 1);   // (the boulder leaves on the clip's attack event)
   const s = statuses(h, h.unit('t_wall').id, 'stun');
   assert.equal(s.length, 1);
   approx(s[0].duration, skb('enemy_2003_rockman', 'StunAttack').bb.stun);
@@ -2590,7 +2598,7 @@ test(`${nm('enemy_1511_mdrock')}: the barrier absorbs arts only (after RES); 刷
   h.b.dealDamage(null, e, { amount: 1e5, type: 'arts' });
   approx(e.s.maxHp, E.enemy_1511_mdrock.stats.maxHp, 1e-6, 'barrier broken ⇒ HP / ASPD bonus gone');
   assert.equal(e.s.aspd, 100);
-  h.run(s.initCooldown);
+  h.run(s.initCooldown + strikeOf(e, 'RefreshShield'));
   assert.equal(e.s.aspd, 100 + s.bb.attack_speed, 'refreshed');
 });
 

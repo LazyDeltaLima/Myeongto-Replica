@@ -139,6 +139,7 @@ test("an enemy skill's cast: fx 'enemySkill' { id, ability, n } and `ability` / 
   const e = put(h, 'enemy_1525_blkswb', [9, 4]);
   const ca = E.enemy_1525_blkswb.skills.find((s) => s.prefabKey === 'CircleAttack');
   assert.ok(h.runUntil(() => h.eventsOf('fx').some((x) => x[1] === 'enemySkill' && x[4].id === e.id), ca.initCooldown + 5), 'cast');
+  h.run(1);   // (its effect comes at the frame its ability waits for: content/enemies.js castStrikeAt)
   const fx = h.eventsOf('fx');
   const i = fx.findIndex((x) => x[1] === 'enemySkill' && x[4].id === e.id);
   const m = fx[i][4];

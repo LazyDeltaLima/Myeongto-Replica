@@ -120,7 +120,7 @@ function kitLeaderMisc(key, ab, e) {
     }
     case 'enemy_1502_crowns': {
       const s = ab.sk.blink;
-      return [skill(s, (b, e2) => blinkForward(b, e2, s.bb.dist ?? 1.5), { sil: true, cond: (b, e2) => !!e2.blockedBy })];
+      return [skill(s, (b, e2) => blinkForward(b, e2, s.bb.dist ?? 1.5), { sil: true, atStrike: true, cond: (b, e2) => !!e2.blockedBy })];
     }
     case 'enemy_1504_cqbw': {
       // 2026-11-14 (공식 클라에서 확인): `Skills/C4` is a RangedAttack with `_waitForProjectileInvalid` whose projectile
@@ -179,7 +179,7 @@ function kitLeaderMisc(key, ab, e) {
           b.fx('telegraph', { x: t.tileC, y: t.tileR, r: DRIFT_REACH, kind: 'driftSand', tiles: 'plus', id: e2.id });
           // the cross ("伤害无视迷彩", no 无视无法选择): an area selection
           for (const u of areaAlliesInTiles(b, e2, t.tileR, t.tileC, 'plus', DRIFT_REACH)) hurt(b, e2, u, ds.bb.damage ?? 0, 'phys');
-        }, { cond: (b, e2) => allTargets(b, e2).length > 0 }),
+        }, { atStrike: true, cond: (b, e2) => allTargets(b, e2).length > 0 }),
         // 【沙狱】 the lowest-max-HP unit and those around it: ATK −`atk` and `damage` arts per second for `duration` s
         skill(ss, (b, e2) => {
           const t = allTargets(b, e2).sort((p, q) => p.s.maxHp - q.s.maxHp || aggroCmp(p, q))[0];
@@ -192,7 +192,7 @@ function kitLeaderMisc(key, ab, e) {
             b.addBuff(u, { key: 'ab:sandStorm', duration: dur, refresh: 'replace', interval: 1, visible: true, mods: { atkPct: ss.bb.atk ?? 0 },
               onTick: ({ battle, unit }) => battle.dealDamage(e2, unit, { amount: ss.bb.damage ?? 0, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'sandStorm'] }) });
           }
-        }, { cond: (b, e2) => allTargets(b, e2).length > 0 }),
+        }, { atStrike: true, cond: (b, e2) => allTargets(b, e2).length > 0 }),
       ];
     }
     case 'enemy_1511_mdrock': {
@@ -217,7 +217,7 @@ function kitLeaderMisc(key, ab, e) {
           if (tier && mode(b, e2, tier, false) && (tier === 'Tier 4' || tier === 'Tier 5')) setForm(b, e2, tier);
           b.addBuff(e2, { key: 'ab:rockCharge', refresh: 'stack', stacks: 1, maxStacks: 6, persist: true, mods: { atkPct: T(ab, 'charge.attack@enemy_mdrock_s_1[charge].atk') ?? 0 } });
         },
-      }, skill(s, (b, e2) => bar.refresh(b, e2, bar))];
+      }, skill(s, (b, e2) => bar.refresh(b, e2, bar), { atStrike: true })];
     }
     case 'enemy_1513_dekght': {
       // 攻击时使目标与周围四格的单位受到物理伤害; 【蓄力攻击】 charge `duration` s, then ATK×atk_scale on the target's cross
@@ -269,7 +269,7 @@ function kitLeaderMisc(key, ab, e) {
             }, { owner: e2 });
           });
         }
-      }, { cond: (b, e2) => cands(b, e2).length > 0 })];
+      }, { atStrike: true, cond: (b, e2) => cands(b, e2).length > 0 })];
     }
     case 'enemy_1539_reid': {
       // 生命值降至一半以下时攻击力大幅度提升; 首次被击倒后重生 (Reborn.duration s), 恢复一半生命值;
@@ -294,7 +294,7 @@ function kitLeaderMisc(key, ab, e) {
           b.addBuff(e2, { key: 'ab:rush', duration: rush.bb.duration ?? 0, refresh: 'replace', visible: true, mods: { moveMul: 1 + (rush.bb.move_speed ?? 0) },
             onExpire: ({ battle }) => { if (e2.alive && (e2.mode === 'Reborn_Rush' || e2.mode === 'Default_Rush')) mode(battle, e2, e2.mode === 'Reborn_Rush' ? 'Reborn' : null); } });
           b.fx('charge', { x: e2.x, y: e2.y, id: e2.id, kind: 'avengerRush' });
-        }, { cond: (b, e2) => !e2.blockedBy && prey(b, e2).length > 0 })];
+        }, { atStrike: true, cond: (b, e2) => !e2.blockedBy && prey(b, e2).length > 0 })];
     }
     case 'enemy_2003_rockman': {
       const s = ab.sk.StunAttack;
@@ -309,7 +309,7 @@ function kitLeaderMisc(key, ab, e) {
           hurt(b, e2, c.target, e2.s.atk * (s.bb.atk_scale ?? 1), 'phys');
           if (c.target.alive) b.applyStatus(c.target, 'stun', { duration: s.bb.stun ?? 0, source: e2 });
         } });
-      }, { cond: (b, e2) => cands(b, e2).length > 0 })];
+      }, { atStrike: true, cond: (b, e2) => cands(b, e2).length > 0 })];
     }
     case 'enemy_2004_balloon': {
       // 喷气人 · 升空 when blocked → 飞行模式 for `duration` s: PRTS 喷气人 "近地悬浮，不可阻挡，失衡免疫，移动速度+50%，不进行
@@ -327,7 +327,7 @@ function kitLeaderMisc(key, ab, e) {
         });
         b.addBuff(e2, { key: 'ab:takeoffBrake', duration: BRAKE_UP, mods: BRAKE });
         b.fx('telegraph', { x: e2.x, y: e2.y, r: 0.5, kind: 'takeoff', id: e2.id });
-      }, { cond: (b, e2) => !!e2.blockedBy })];
+      }, { atStrike: true, cond: (b, e2) => !!e2.blockedBy })];
     }
     case 'enemy_2005_axetro':
       return [{
@@ -357,7 +357,7 @@ function kitLeaderMisc(key, ab, e) {
         },
       }, {
         tick(b, e2, a, dt) { for (const p of b.players) b.addDp(p.playerId, -0.5 * b.flags.dpPerSec * dt); },
-      }, skill(s, (b, e2) => b.addBuff(e2, { key: 'ab:tombShield', shield: e2.s.maxHp * (s.bb.hp_ratio ?? 0), persist: true }))];
+      }, skill(s, (b, e2) => b.addBuff(e2, { key: 'ab:tombShield', shield: e2.s.maxHp * (s.bb.hp_ratio ?? 0), persist: true }), { atStrike: true })];
     }
     case 'enemy_2048_smgrd':
       // 持续在自身周围8格生成【国度】 (the 3×3 around its tile), 大幅降低其中我方单位的攻击速度; 对【国度】中的我方单位造成高额物理伤害.
@@ -619,7 +619,7 @@ function kitXi(ab) {
       if (!l.length) return;
       crossAt(b, e, l[0]);
       if (P.form2 && l.length > 1) crossAt(b, e, l[l.length - 1]);   // 额外对最远目标释放
-    }, { cond: (b, e) => allTargets(b, e).length > 0 })];
+    }, { atStrike: true, cond: (b, e) => allTargets(b, e).length > 0 })];
 }
 
 /** 锏 · 抵抗; DEF penetration against its blocker; 【速杀】 passes through its blocker hitting those on the way; 【肆虐风雪】
@@ -663,10 +663,10 @@ function kitMace(ab) {
       }
     },
   }, doubleHit(() => P.form2, (c, b, e) => ({ defIgnorePct: penOn(c, e) })),
-  skill(ab.sk.Blink, blink(ab.sk.Blink || { bb: {} }), { id: 'blink', cond: (b, e) => !P.form2 && !!e.blockedBy }),
-  skill(ab.sk.Blink2, blink(ab.sk.Blink2 || { bb: {} }), { id: 'blink2', cond: (b, e) => P.form2 && !!e.blockedBy }),
-  skill(ab.sk.CircleAttack, circle(ab.sk.CircleAttack || { bb: {} }), { id: 'circle', cond: (b, e) => !P.form2 && inR(b, e, ab.sk.CircleAttack) }),
-  skill(ab.sk.CircleAttack2, circle(ab.sk.CircleAttack2 || { bb: {} }), { id: 'circle2', cond: (b, e) => P.form2 && inR(b, e, ab.sk.CircleAttack2) }),
+  skill(ab.sk.Blink, blink(ab.sk.Blink || { bb: {} }), { id: 'blink', atStrike: true, cond: (b, e) => !P.form2 && !!e.blockedBy }),
+  skill(ab.sk.Blink2, blink(ab.sk.Blink2 || { bb: {} }), { id: 'blink2', atStrike: true, cond: (b, e) => P.form2 && !!e.blockedBy }),
+  skill(ab.sk.CircleAttack, circle(ab.sk.CircleAttack || { bb: {} }), { id: 'circle', atStrike: true, cond: (b, e) => !P.form2 && inR(b, e, ab.sk.CircleAttack) }),
+  skill(ab.sk.CircleAttack2, circle(ab.sk.CircleAttack2 || { bb: {} }), { id: 'circle2', atStrike: true, cond: (b, e) => P.form2 && inR(b, e, ab.sk.CircleAttack2) }),
   reborn({
     dur: T(ab, 'Reborn.duration') ?? 0, invincible: T(ab, 'Reborn.invincible') ?? 0, mode: 'Reborn',
     invincibleUntargetable: true,                                // 无敌 = 无法被不同阵营选中, as “自在” (kitXi)
@@ -742,7 +742,7 @@ function kitWolfLord(ab) {
           battle.loseHp(unit, unit.s.maxHp * peak * k, { silent: true, source: e });
         } });
     }
-  }, { cd: fc ? fc.sp || fc.cd : null, icd: fc ? fc.sp || fc.icd : null, cond: (b, e) => !P.form2 && !caught(b) && b.time >= P.waitUntil && allTargets(b, e).some((u) => u.kind === 'op') }),
+  }, { cd: fc ? fc.sp || fc.cd : null, icd: fc ? fc.sp || fc.icd : null, atStrike: true, cond: (b, e) => !P.form2 && !caught(b) && b.time >= P.waitUntil && allTargets(b, e).some((u) => u.kind === 'op') }),
   doubleHit(() => P.form2),                                     // 攻击变为远程二连击
   reborn({
     dur: T(ab, 'Reborn.duration') ?? 0, invincible: T(ab, 'Passive2.invincible_time') ?? 0, mode: 'M2',

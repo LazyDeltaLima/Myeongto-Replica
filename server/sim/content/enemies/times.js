@@ -58,7 +58,7 @@ function kitInvisShield(ab, e) {
     b.fx('telegraph', { x: e2.x, y: e2.y, r, kind: 'invisShield', id: e2.id });
     // "获得隐匿（解除阻挡0秒后恢复）" (PRTS 清明 / 堂皇 天赋): the veil's 隐匿 is back as soon as a block ends
     for (const o of b.enemiesInRadius(e2.x, e2.y, r)) if (o !== e2 && dur > 0) b.addBuff(o, { key: 'ab:veiled', duration: dur, flags: { stealth: true }, visible: true, data: { stealthRestore: 0 } });
-  })];
+  }, { atStrike: true })];
 }
 
 /** 假想敌：再生 (PRTS 假想敌：再生 天赋) · knock-out ⇒ 1 s 重生 ⇒ 再生状态: a 傀儡 of prop_max_hp (15) hits that is 不可阻挡 for

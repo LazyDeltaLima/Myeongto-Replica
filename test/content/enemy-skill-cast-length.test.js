@@ -53,6 +53,7 @@ test('skillCast records the class of each skill\'s ability (attack_timing.py cas
     family: 1, time: 2, cd: 2.5,
     chan: { begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End',
       down: { begin: 'Skill_Begin_Down', loop: 'Skill_Loop_Down', end: 'Skill_End_Down' }, up: { begin: 'Skill_Begin_Up', loop: 'Skill_Loop_Up', end: 'Skill_End_Up' } },
+    chanEnd: { dur: 1.1, hit: 0.067 },   // its end clip and that clip's OnAttack frame (content/enemies.js castStrikeAt)
   });
 });
 

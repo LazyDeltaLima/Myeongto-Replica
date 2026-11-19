@@ -2852,13 +2852,23 @@ function enemySkillCast(ctx, manifest, spineId, key) {
       ...(s.kind === 'par' && s.one ? { one: 1, ...(Number.isInteger(s.main) ? { main: s.main } : {}) } : {}),
       ...(s.kind === 'sel' && s.seqSel ? { seqSel: 1 } : {}),
       ...(dur > 0 ? { clip, dur, ...(hit != null ? { hit } : {}), ...(Number.isFinite(s.max) ? { max: s.max } : {}) } : clip ? { miss: 1 } : {}),
+      // an ability that does not wait for its clip's attack event (`_waitForAttackEvent` 0): its spell comes after `_preDelay`
+      // (content/enemies.js castStrikeAt)
+      ...(dur > 0 && s.wait === 0 ? { wait: 0, ...(s.pre > 0 ? { pre: s.pre } : {}) } : {}),
       ...(Number.isFinite(s.time) ? { time: s.time } : {}),
       ...(s.time === 2 ? { cd: s.cd || 0 } : s.time === 3 ? { cdKey: s.cdKey || 'duration' } : {}),
       ...(s.proj ? { proj: 1 } : {}),
       // its ThreePartChannelingAnimation clips ({ begin, loop, end, down?, up?, wait? } — the view plays them as the engine's
       // cast tells it: render/units.js onEnemySkill, server/sim/content/enemies.js castSkill)
       ...(s.chan && typeof s.chan === 'object' ? { chan: s.chan } : {}),
+      // the channel's end clip and its first OnAttack frame, which the channel's ability waits for (content/enemies.js castStrikeAt)
+      ...(s.chan && typeof s.chan === 'object' ? chanEndOf(s.chan.end) : {}),
     };
+  };
+  const chanEndOf = (clip) => {
+    const dur = typeof clip === 'string' ? anims[clip] : null;
+    const h = dur > 0 ? sp?.hits?.[clip] : null;
+    return Array.isArray(h) && Number.isFinite(h[0]) ? { chanEnd: { dur, hit: Math.min(dur, Math.max(0, h[0])) } } : {};
   };
   const out = {};
   for (const [name, s] of Object.entries(e.skills)) {
