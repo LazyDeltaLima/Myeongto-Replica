@@ -9,6 +9,18 @@ the 1280×720 canvas unit, Image sprites, legacy Text font size / alignment. Two
       the Image sprite (+ preserveAspect, type), Text font size / best fit / alignment / line spacing, layout fields;
       a Text whose font is empty (font=?) takes it by name at run time — `dynFont=` prints that name (DynFontLoader).
       --all prints every GameObject of that name (default: the first, usually the prefab root).
+  layout  <bundle> <GameObject name> [--canvas WxH --match M] [--screen WxH] [--css-px-per-unit K] [--out FILE]
+      the same tree solved into absolute rects (ui_layout.py: anchors, pivots, scales, the stock layout groups,
+      layout elements and content size fitters in Unity's order) as JSON, with each node's Image (sprite, type,
+      9-slice border, preserveAspect, colour) and Text (font, size, colour, alignment, line spacing). What the tool
+      cannot know is the string 「모름」, never a default: a Text's preferred size, a GridLayoutGroup, a rotation, a
+      game script (listed per node under `unknown`). The canvas is the root's CanvasScaler, else --canvas / --match
+      (the battle UI page: 1280x720, match 0 — docs/rules/ui.md 「크기 단위」); --screen gives screen px per unit
+      (CanvasScaler ScaleWithScreenSize × --ui-scale, the PC setting, default 1) or --px-per-unit measured on a
+      screenshot, --offset where the screen's top left sits in the image; --parent-rect lays a row prefab into a
+      slot of another layout. The output format: "Output (layout)" below.
+  draw    <layout.json> <image> <out.png> [--only REGEX] [--max-depth N] [--labels]
+      the layout's `screen` rects as boxes over a screenshot (a node whose rect is 「모름」 is left out).
   sprites <bundle> [substring ...]
       every Sprite (name containing one of the substrings, case-insensitive; none = all): its rect, the packed
       texture rect and offset. A tight-packed sprite has a texture smaller than its rect — the web PNGs are that
@@ -21,16 +33,44 @@ the 1280×720 canvas unit, Image sprites, legacy Text font size / alignment. Two
 
 Text alignment (legacy UnityEngine.UI.Text m_Alignment): 0 UpperLeft 1 UpperCenter 2 UpperRight 3 MiddleLeft
 4 MiddleCenter 5 MiddleRight 6 LowerLeft 7 LowerCenter 8 LowerRight. Run inside src/.venv-extract (UnityPy).
+
+Output (layout), schema 1 — kept stable for the tools that read it (a change bumps `schema`):
+  {schema, tool, bundle, root, canvas: {reference, match, screenMatchMode, uiScale, refPixelsPerUnit, source, units,
+   screen, pxPerUnit, offset, cssPxPerUnit, parentRect}, unknownClasses: {class: count}, unresolved: count,
+   nodes: [{path, name, depth, active, activeInHierarchy,
+            rect: {x, y, w, h}            canvas units, origin at the canvas's top left, y down (the axis-aligned box
+                                          after scales); a value the tool cannot solve is "모름"
+            worldScale: [x, y]            the product of the scales above (only when not [1, 1]; a Text's size is
+                                          scaled by it, cssSize includes it)
+            screen: {x, y, w, h}          screenshot px (with --screen), css: {x, y, w, h} (with --css-px-per-unit)
+            local: {anchorMin, anchorMax, anchoredPosition, sizeDelta, pivot, scale}   as serialized
+            driven: {anchors, anchoredPosition, sizeDelta}   what a layout group / size fitter set (null = that axis
+                                          untouched)
+            image: {sprite, type, preserveAspect, color: [#rrggbb, alpha], spriteRect, border: [left, bottom, right,
+                    top], texture, fill, fillCenter, pixelsPerUnitMultiplier, class}
+            text: {font, dynFont, size, cssSize, style, align, lineSpacing, color, hOverflow, vOverflow, richText,
+                   alignByGeometry, bestFit: [min, max], text}
+            rawImage, tmp, mask, effects, canvasGroup: {alpha}, animated,
+            layout: {group: {kind, padding: [l, r, t, b], spacing, childAlignment, controlSize: [w, h],
+                             forceExpand, useScale, reverse}, element: {ignoreLayout, min, preferred, flexible,
+                             priority}, fitter: [horizontal, vertical]},
+            unknown: [class]              game scripts on the node (their effect on the rect is not known)
+            unsure: [text]                those whose name says they may move rects
+            unresolved: [text]}]}         why a value is "모름"
+  Paths are unique: a repeated sibling name is suffixed #2, #3, … in prefab order.
 """
 import argparse
+import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import aklz4  # noqa: F401,E402  (registers the client's LZ4 variant with UnityPy)
 import UnityPy  # noqa: E402
 
-from client_path import client_data  # noqa: E402
+from client_path import ROOT, client_data  # noqa: E402
+import ui_layout  # noqa: E402
 DEFAULT_CLIENT = client_data('PersistentData', 'Bundles')  # SP_CLIENT / .env / .client (client_path.py); --client overrides
 ALIGN = ['UpperLeft', 'UpperCenter', 'UpperRight', 'MiddleLeft', 'MiddleCenter', 'MiddleRight', 'LowerLeft', 'LowerCenter', 'LowerRight']
 IMAGE_TYPE = ['Simple', 'Sliced', 'Tiled', 'Filled']
@@ -147,6 +187,243 @@ def cmd_prefab(a):
         print()
 
 
+DATA_ROOTS = ('StreamingAssets', 'PersistentData')
+CAB_INDEXES = [ROOT / '.cache/fx-cab-index-cn.json', ROOT / '.cache/fx-cab-index.json']
+
+
+def data_root_of(path):
+    """The client's Arknights_Data folder above a bundle path (the CAB index paths are relative to it)."""
+    parts = os.path.abspath(path).split(os.sep)
+    for i in range(len(parts) - 1, 0, -1):
+        if parts[i] in DATA_ROOTS:
+            return os.sep.join(parts[:i])
+    return None
+
+
+class Refs:
+    """PPtrs of the prefab's file: its own objects, and those of the files it names (MonoScripts, sprites of a common
+    bundle), found through a CAB index of the same client."""
+
+    def __init__(self, bundle, path, cab_index, scripts):
+        self.b = bundle
+        self.root = data_root_of(path)
+        self.cab = {}
+        for p in ([cab_index] if cab_index else CAB_INDEXES):
+            try:
+                idx = json.loads(open(p, encoding='utf-8').read())
+            except OSError:
+                continue
+            if self.root and all(os.path.exists(os.path.join(self.root, rel)) for rel in list(idx.values())[:3]):
+                self.cab = idx
+                break
+        self.files = {}
+        self.scripts = scripts
+        self.script_names = {}
+
+    def externals(self, fid):
+        o = next(iter(self.b.objs.values()))
+        ex = o.assets_file.externals
+        if not 0 < fid <= len(ex):
+            return None
+        m = re.search(r'(CAB-[0-9a-f]+)', ex[fid - 1].path)
+        return m.group(1) if m else None
+
+    def ext_objects(self, cab):
+        if cab not in self.files:
+            rel = self.cab.get(cab)
+            self.files[cab] = {o.path_id: o for o in UnityPy.load(os.path.join(self.root, rel)).objects} if rel else None
+        return self.files[cab]
+
+    def obj(self, ref):
+        """The object a PPtr names; False for a null reference, None when its file cannot be found."""
+        if not isinstance(ref, dict) or not ref.get('m_PathID'):
+            return False
+        fid = ref.get('m_FileID', 0)
+        if fid == 0:
+            return self.b.objs.get(ref['m_PathID'])
+        cab = self.externals(fid)
+        objs = self.ext_objects(cab) if cab else None
+        return objs.get(ref['m_PathID']) if objs else None
+
+    def script(self, ref):
+        key = (ref.get('m_FileID'), ref.get('m_PathID'))
+        if key in self.script_names:
+            return self.script_names[key]
+        o = self.obj(ref)
+        if not o and self.scripts:
+            o = self.scripts.get(ref.get('m_PathID'))
+        if not o:
+            cab = self.externals(ref.get('m_FileID', 0)) or '?'
+            sys.exit(f'the class of a component is in {cab}, which no CAB index of this client lists: give --scripts '
+                     f'<that bundle> or --cab-index (fx_extract.py --build-cab-index); without the class names the '
+                     f'layout cannot be solved')
+        d = o.read_typetree()
+        name = f"{d['m_Namespace']}.{d['m_ClassName']}" if d.get('m_Namespace') else d['m_ClassName']
+        self.script_names[key] = name
+        return name
+
+    def name(self, ref):
+        o = self.obj(ref)
+        if o is False:
+            return None
+        if o is None:
+            return ui_layout.MOREUM
+        try:
+            return o.read_typetree().get('m_Name')
+        except Exception:
+            return ui_layout.MOREUM
+
+    def sprite(self, ref):
+        o = self.obj(ref)
+        if o is False or o is None:
+            return o
+        d = o.read_typetree()
+        r, b, rd = d['m_Rect'], d.get('m_Border'), d.get('m_RD', {})
+        out = {'name': d['m_Name'], 'rect': [r['x'], r['y'], r['width'], r['height']], 'pixelsPerUnit': d.get('m_PixelsToUnits', 100)}
+        if b is not None:
+            out['border'] = [b['x'], b['y'], b['z'], b['w']]
+        t = rd.get('textureRect')
+        if t:
+            out['texture'] = [t['width'], t['height']]
+        return out
+
+
+def read_tree(b, refs, go):
+    """A GameObject and its children as ui_layout's plain dicts."""
+    rt, comps = None, []
+    for c in b.components(go):
+        t = c.type.name
+        if t in ('RectTransform', 'Transform'):
+            d = c.read_typetree()
+            if t == 'RectTransform':
+                q = d.get('m_LocalRotation', {'x': 0, 'y': 0, 'z': 0, 'w': 1})
+                rt = {'amin': [d['m_AnchorMin']['x'], d['m_AnchorMin']['y']], 'amax': [d['m_AnchorMax']['x'], d['m_AnchorMax']['y']],
+                      'pos': [d['m_AnchoredPosition']['x'], d['m_AnchoredPosition']['y']],
+                      'size': [d['m_SizeDelta']['x'], d['m_SizeDelta']['y']], 'pivot': [d['m_Pivot']['x'], d['m_Pivot']['y']],
+                      'scale': [d['m_LocalScale']['x'], d['m_LocalScale']['y']],
+                      'rotated': abs(q['x']) + abs(q['y']) + abs(q['z']) > 1e-6}
+            else:
+                rt = {'amin': [0.5, 0.5], 'amax': [0.5, 0.5], 'pos': [0, 0], 'size': [0, 0], 'pivot': [0.5, 0.5], 'norect': True}
+            kids = d['m_Children']
+        elif t == 'MonoBehaviour':
+            try:
+                d = c.read_typetree()
+            except Exception:
+                comps.append({'cls': ui_layout.MOREUM, 'enabled': True, 'f': {}})
+                continue
+            comps.append({'cls': refs.script(d['m_Script']), 'enabled': bool(d.get('m_Enabled', 1)), 'f': d})
+        else:
+            try:
+                d = c.read_typetree()
+            except Exception:
+                d = {}
+            comps.append({'cls': t, 'enabled': bool(d.get('m_Enabled', 1)), 'f': d})
+    children = []
+    for ch in kids if rt else []:
+        t = b.tree(ch['m_PathID'])
+        g = b.tree(t['m_GameObject']['m_PathID']) if t else None
+        if g:
+            children.append(read_tree(b, refs, g))
+    return {'name': go['m_Name'], 'active': bool(go.get('m_IsActive', 1)), 'rt': rt or {'amin': [0.5, 0.5], 'amax': [0.5, 0.5], 'pos': [0, 0], 'size': [0, 0], 'pivot': [0.5, 0.5], 'norect': True},
+            'comps': comps, 'children': children}
+
+
+def pair(s, kind=float, n=2):
+    v = [kind(x) for x in re.split('[x,]', s)]
+    if len(v) != n:
+        raise argparse.ArgumentTypeError(f'{s!r}: {n} numbers')
+    return v
+
+
+def cmd_layout(a):
+    path = bundle_path(a.bundle, a.client)
+    b = Bundle(path)
+    scripts = None
+    if a.scripts:
+        scripts = {o.path_id: o for o in UnityPy.load(bundle_path(a.scripts, a.client)).objects if o.type.name == 'MonoScript'}
+    refs = Refs(b, path, a.cab_index, scripts)
+    roots = [o.read_typetree() for o in b.env.objects if o.type.name == 'GameObject' and o.read_typetree().get('m_Name') == a.name]
+    if not roots:
+        sys.exit(f'no GameObject named {a.name!r}')
+    if a.index >= len(roots):
+        sys.exit(f'{a.name!r}: {len(roots)} GameObjects of that name, --index {a.index} is past them')
+    tree = read_tree(b, refs, roots[a.index])
+    scaler = next((c for c in tree['comps'] if c['cls'] == 'UnityEngine.UI.CanvasScaler' and c['enabled']), None)
+    if a.canvas:
+        reference, source = a.canvas, 'arguments'
+        mode = a.match_mode
+        match = a.match
+    elif scaler:
+        f = scaler['f']
+        if f.get('m_UiScaleMode') != 1:
+            sys.exit(f"the root's CanvasScaler is not ScaleWithScreenSize (m_UiScaleMode {f.get('m_UiScaleMode')}): give --canvas")
+        reference, source = [f['m_ReferenceResolution']['x'], f['m_ReferenceResolution']['y']], 'CanvasScaler on the root'
+        mode, match = f.get('m_ScreenMatchMode'), f.get('m_MatchWidthOrHeight')
+    else:
+        sys.exit(f'no CanvasScaler on {a.name!r}: give --canvas WxH and --match M (the battle UI page: --canvas 1280x720 '
+                 f'--match 0, docs/rules/ui.md 「크기 단위」)')
+    ref_ppu = a.ref_ppu or (scaler['f'].get('m_ReferencePixelsPerUnit') if scaler else None) or 100
+    ref_ppu_source = 'argument' if a.ref_ppu else ('CanvasScaler' if scaler and scaler['f'].get('m_ReferencePixelsPerUnit') else 'Unity default')
+    ppu = None
+    if a.screen:
+        if a.px_per_unit:
+            ppu = a.px_per_unit
+        else:
+            if match is None and mode == 0 and abs(a.screen[0] / a.screen[1] - reference[0] / reference[1]) > 1e-3:
+                sys.exit('the screen is not the canvas\'s shape: give --match (0 width … 1 height)')
+            ppu = ui_layout.canvas_scale(reference, a.screen, match or 0, mode, a.ui_scale)
+        units = [a.screen[0] / ppu, a.screen[1] / ppu]
+    else:
+        units = list(reference)
+    nodes = ui_layout.solve(tree, units, ref_ppu=ref_ppu, sprite=refs.sprite, name=refs.name, parent_rect=a.parent_rect,
+                            px_per_unit=ppu, offset=a.offset, css_px_per_unit=a.css_px_per_unit)
+    unknown = {}
+    for n in nodes:
+        for c in n.get('unknown', []):
+            unknown[c] = unknown.get(c, 0) + 1
+    out = {
+        'schema': ui_layout.SCHEMA, 'tool': 'ui_inspect.py layout', 'bundle': a.bundle, 'root': a.name,
+        'canvas': {'reference': list(reference), 'match': match, 'screenMatchMode': mode, 'uiScale': a.ui_scale,
+                   'refPixelsPerUnit': ref_ppu, 'refPixelsPerUnitSource': ref_ppu_source, 'source': source,
+                   'units': [ui_layout.rnd(v, 3) for v in units], 'screen': a.screen, 'pxPerUnit': ppu and round(ppu, 6),
+                   'offset': list(a.offset), 'cssPxPerUnit': a.css_px_per_unit, 'parentRect': a.parent_rect},
+        'unknownClasses': dict(sorted(unknown.items())),
+        'unresolved': sum(1 for n in nodes if n.get('unresolved')),
+        'nodes': nodes,
+    }
+    text = json.dumps(out, ensure_ascii=False, indent=1)
+    if a.out:
+        with open(a.out, 'w', encoding='utf-8') as fh:
+            fh.write(text + '\n')
+    else:
+        print(text)
+
+
+def cmd_draw(a):
+    from PIL import Image, ImageDraw
+    lay = json.loads(open(a.layout, encoding='utf-8').read())
+    img = Image.open(a.image).convert('RGB')
+    dr = ImageDraw.Draw(img)
+    pal = [(255, 64, 64), (64, 255, 64), (64, 160, 255), (255, 220, 0), (255, 64, 255), (0, 255, 255)]
+    only = re.compile(a.only) if a.only else None
+    n = 0
+    for node in lay['nodes']:
+        r = node.get('screen')
+        if not r or not all(isinstance(r[k], (int, float)) for k in 'xywh'):
+            continue
+        if (only and not only.search(node['path'])) or (a.max_depth is not None and node['depth'] > a.max_depth):
+            continue
+        if not node['activeInHierarchy'] and not a.inactive:
+            continue
+        c = pal[node['depth'] % len(pal)]
+        dr.rectangle([r['x'], r['y'], r['x'] + r['w'], r['y'] + r['h']], outline=c, width=1)
+        if a.labels:
+            dr.text((r['x'] + 2, r['y'] + 1), node['name'], fill=c)
+        n += 1
+    img.save(a.out)
+    print(f'{n} boxes → {a.out}')
+
+
 def cmd_sprites(a):
     b = Bundle(bundle_path(a.bundle, a.client))
     subs = [s.lower() for s in a.substr]
@@ -174,6 +451,33 @@ def main():
     q.add_argument('name')
     q.add_argument('--all', action='store_true')
     q.set_defaults(fn=cmd_prefab)
+    q = sub.add_parser('layout')
+    q.add_argument('bundle')
+    q.add_argument('name')
+    q.add_argument('--index', type=int, default=0, help='which GameObject of that name (default the first, usually the prefab root)')
+    q.add_argument('--canvas', type=pair, metavar='WxH', help='the reference resolution, when the root has no CanvasScaler')
+    q.add_argument('--match', type=float, help='CanvasScaler match (0 width … 1 height), with --canvas')
+    q.add_argument('--match-mode', type=int, default=0, help='CanvasScaler screenMatchMode with --canvas (0 match width or height)')
+    q.add_argument('--screen', type=pair, metavar='WxH', help='the screen the prefab is laid into, in px')
+    q.add_argument('--ui-scale', type=float, default=1.0, help='the PC UI scale setting (0.9–1.0, default 1)')
+    q.add_argument('--px-per-unit', type=float, help='screen px per canvas unit measured on a screenshot (replaces the CanvasScaler sum)')
+    q.add_argument('--offset', type=pair, default=(0, 0), metavar='X,Y', help="where the screen's top left sits in the image (a crop: negative)")
+    q.add_argument('--parent-rect', type=lambda s: pair(s, n=4), metavar='X,Y,W,H', help='the rect (canvas units, top left) the root is laid into, default the canvas')
+    q.add_argument('--css-px-per-unit', type=float, help='our CSS px per canvas unit, for the css rects')
+    q.add_argument('--ref-ppu', type=float, help='the canvas reference pixels per unit (default the CanvasScaler\'s, else 100)')
+    q.add_argument('--scripts', help='the bundle holding the MonoScripts, when no CAB index lists it')
+    q.add_argument('--cab-index', help='the CAB index of this client (default .cache/fx-cab-index-cn.json or fx-cab-index.json, whichever fits)')
+    q.add_argument('--out', help='write the JSON here (default stdout)')
+    q.set_defaults(fn=cmd_layout)
+    q = sub.add_parser('draw')
+    q.add_argument('layout')
+    q.add_argument('image')
+    q.add_argument('out')
+    q.add_argument('--only', help='a regex over node paths')
+    q.add_argument('--max-depth', type=int)
+    q.add_argument('--labels', action='store_true')
+    q.add_argument('--inactive', action='store_true', help='draw inactive nodes too')
+    q.set_defaults(fn=cmd_draw)
     q = sub.add_parser('sprites')
     q.add_argument('bundle')
     q.add_argument('substr', nargs='*')
