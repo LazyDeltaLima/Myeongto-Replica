@@ -1,12 +1,15 @@
 /* ---- 队员信息 (js/ui/playerDetail.js): the official 规程 autochess_player_detail_dialog beside the left player list ----
    Opened by an avatar of the list; the side layer goes above the HUD panels while it is open (.gm__side.has-pdetail —
    the 机变 screen's own z 21 stays), the transparent veil under the list closes it on a tap (the official bg_btn).
-   The rows are the list rows' places measured (left / top / height in px, --k = the list row's height / 92), each row
-   the list row's height plus the gap between rows so the rows touch (maintainer decision 2026-11-15); the list's own
-   avatar shows through the row's first column (its .team__btn above the dialog). Sizes follow the official row
-   (autochess_player_detail_row: the name card 257 × 78, the scroll lists 82.6 tall on detail_list_back #2f2f2f 60 %,
-   operator items 64, the strategy column 88 × 80) in the --k unit; the art comes as --pd-* variables from the local
-   extract (season/act3autochess/playerdetail), else the plain fills here. */
+   The rows are the list rows' places measured (left / top / height in px), each row the list row's height plus the gap
+   between rows so the rows touch (maintainer decision 2026-11-15); the list's own avatar shows through the row's first
+   column (its .team__btn above the dialog). The name card and the two lists are as tall as that avatar and level with
+   it (--at its top in the row, --ah its height; maintainer report 2026-11-19 — the official card 78 and lists 82.6 beside
+   a 72 avatar); --k = --ah / 78 (the official name card's height). Sizes follow the official row
+   (autochess_player_detail_row: the name card 257 × 78, the scroll lists on detail_list_back #2f2f2f 60 %, operator
+   items 64, the strategy column 88 × 80) in the --k unit; the art comes as --pd-* variables from the local extract
+   (season/act3autochess/playerdetail), else the plain fills here. A white sprite the client tints (detail_list_back,
+   char_avatar_frame, btn_ob_other) is a mask over its colour, never a background — drawn as is it shows white. */
 .gm__side.has-pdetail { z-index: 19; }
 .pdetail-veil { position: absolute; inset: 0; pointer-events: auto; }
 .team.has-pdetail .team__btn { z-index: 6; }
@@ -16,22 +19,29 @@
   content: ''; position: absolute; inset: -6px 0; z-index: -1; pointer-events: none;
   background: linear-gradient(90deg, rgba(0, 0, 0, .72), rgba(0, 0, 0, .6) 60%, rgba(0, 0, 0, .66)); box-shadow: 0 0 40px 20px rgba(0, 0, 0, .45);
 }
-.pdetail__row { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: calc(6px * var(--k)); background: rgba(34, 34, 34, .92); }
+.pdetail__row {
+  position: absolute; left: 0; right: 0; display: flex; align-items: flex-start; gap: calc(6px * var(--k)); padding-top: var(--at, 0px); box-sizing: border-box;
+  background: rgba(34, 34, 34, .92);
+}
 /* an eliminated player's row: the official row_dead_cover [추정·화면: no capture of it] */
 .pdetail__row.is-dead::after { content: ''; position: absolute; inset: 0; background: rgba(40, 40, 40, .86); pointer-events: none; }
-.pdetail__hole { flex: none; align-self: stretch; }
+.pdetail__hole { flex: none; height: var(--ah); }
 
 /* the name card (part_namecard): the name (15, MiddleLeft), 完美连胜 n (#f36a1b on combo_win_back), the shop level
    (img_shop_rank: the default theme's playerdetailshoplevel/shop_level_n); the card picture itself is not drawn (our
    name cards are another bundle's work) — name_card_cover over a dark plate */
 .pdetail__card {
-  position: relative; flex: none; width: calc(257px * var(--k)); height: calc(78px * var(--k)); overflow: hidden;
+  position: relative; flex: none; width: calc(257px * var(--k)); height: var(--ah); overflow: hidden;
   background: var(--pd-card, none) center / 100% 100% no-repeat, linear-gradient(100deg, #3a4644, #1d2524 70%);
 }
+/* the name and its number (official 「川 #9512」: the number grey after the name; ours from the player's id —
+   playerDetail.js nameTags); a long name gives way, the number stays */
 .pdetail__name {
-  position: absolute; left: calc(12px * var(--k)); top: calc(8px * var(--k)); right: calc(64px * var(--k)); overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap; color: #fff; font-size: calc(16px * var(--k)); font-weight: 600; line-height: 1.2; text-shadow: 0 1px 2px #000;
+  position: absolute; left: calc(12px * var(--k)); top: calc(8px * var(--k)); right: calc(64px * var(--k)); display: flex; align-items: baseline;
+  gap: calc(5px * var(--k)); white-space: nowrap; color: #fff; font-size: calc(16px * var(--k)); font-weight: 600; line-height: 1.3; text-shadow: 0 1px 2px #000;
 }
+.pdetail__nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pdetail__tag { flex: none; color: #a3a3a3; font-size: calc(15px * var(--k)); font-weight: 500; letter-spacing: .02em; }
 .pdetail__combo {
   position: absolute; left: calc(12px * var(--k)); top: calc(36px * var(--k)); height: calc(20px * var(--k)); padding: 0 calc(7px * var(--k));
   white-space: nowrap; color: #f36a1b; font-size: calc(13px * var(--k)); font-weight: 700; line-height: calc(20px * var(--k));
@@ -45,17 +55,19 @@
 .pdetail__shop.has-sprite { background: var(--pd-shop) center / contain no-repeat; }
 
 /* the bond and operator lists (part_bond / part_operator: Scroll View, the arrow_right list_arrow when it runs over) */
-.pdetail__part {
-  position: relative; flex: 1 1 0; min-width: 0; height: calc(82px * var(--k)); display: flex; align-items: center;
-  background: var(--pd-list, none) center / 100% 100% no-repeat, rgba(47, 47, 47, .6);
+.pdetail__part { position: relative; flex: 1 1 0; min-width: 0; height: var(--ah); display: flex; align-items: center; }
+.pdetail__part::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; background: rgba(47, 47, 47, .6);
+  -webkit-mask: var(--pd-list, linear-gradient(#000, #000)) center / 100% 100% no-repeat; mask: var(--pd-list, linear-gradient(#000, #000)) center / 100% 100% no-repeat;
 }
 .pdetail__part.is-bonds { flex-grow: .62; }
-.pdetail__list { display: flex; align-items: center; height: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.pdetail__list { position: relative; flex: 1 1 auto; display: flex; align-items: center; height: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .pdetail__list::-webkit-scrollbar { display: none; }
-.pdetail__more { display: none; position: absolute; right: calc(4px * var(--k)); top: 50%; width: calc(16px * var(--k)); height: calc(22px * var(--k));
-  margin-top: calc(-11px * var(--k)); pointer-events: none; opacity: .7; background: var(--pd-arrow, none) center / contain no-repeat; }
+/* arrow_right: list_arrow 24 × 32, its centre 12 in from the list's right edge, over the list */
+.pdetail__more { display: none; position: absolute; z-index: 1; right: 0; top: 50%; width: calc(24px * var(--k)); height: calc(32px * var(--k));
+  margin-top: calc(-16px * var(--k)); pointer-events: none; background: var(--pd-arrow, none) center / contain no-repeat; }
 .pdetail__part.is-more .pdetail__more { display: block; }
-.pdetail__part.is-more .pdetail__list { padding-right: calc(20px * var(--k)); }
+.pdetail__part.is-more .pdetail__list { padding-right: calc(24px * var(--k)); }
 .pdetail__noinfo {
   position: absolute; left: 50%; top: 50%; width: calc(136px * var(--k)); height: calc(20px * var(--k)); transform: translate(-50%, -50%);
   display: grid; place-items: center; opacity: .55; color: #bbb; font-style: normal; font-family: var(--font-num); font-size: calc(13px * var(--k)); letter-spacing: .2em;
@@ -64,6 +76,7 @@
 /* the bonds: the HUD strip's own slot (.bslot, css/hud-art.css), its --u set smaller by the row (playerDetail.js Bonds) */
 .pdetail__bonds { gap: calc(2px * var(--k)); padding-left: calc(12px * var(--k)); }
 .pdetail__bonds .bslot { flex: none; pointer-events: none; }
+.gm.has-hud-art .pdetail__bonds .bslot .bond__name { line-height: 1.15; } /* the HUD's line-height 1 cuts the Korean descenders' box */
 
 /* the operators (autochess_player_detail_chess_item, 64): the portrait 56, char_avatar_frame grey — the elite's in
    #e9871c with gold_gradient —, the tier at the bottom-left, the equipment bar over the top (16 × 5 a slot, a filled
@@ -74,9 +87,11 @@
 .pdetail__av img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pdetail__glyph { display: grid; place-items: center; width: 100%; height: 100%; color: #ccc; font-style: normal; font-size: calc(22px * var(--k)); }
 .pdetail__fr { position: absolute; inset: 0; pointer-events: none; border: calc(2px * var(--k)) solid #8a8a8a; }
-.pdetail[style*='--pd-frame'] .pdetail__fr { border: 0; background: var(--pd-frame) center / 100% 100% no-repeat; filter: grayscale(1) brightness(.75); }
+.pdetail[style*='--pd-frame'] .pdetail__fr {
+  border: 0; background: #8a8a8a; -webkit-mask: var(--pd-frame) center / 100% 100% no-repeat; mask: var(--pd-frame) center / 100% 100% no-repeat;
+}
 .pdetail__op.is-golden .pdetail__fr { border-color: #e9871c; }
-.pdetail[style*='--pd-frame'] .pdetail__op.is-golden .pdetail__fr { filter: none; }
+.pdetail[style*='--pd-frame'] .pdetail__op.is-golden .pdetail__fr { background: #e9871c; }
 .pdetail__gg { position: absolute; left: 50%; bottom: calc(3px * var(--k)); width: calc(56px * var(--k)); height: calc(22px * var(--k)); transform: translateX(-50%); pointer-events: none;
   background: var(--pd-gold, linear-gradient(0deg, rgba(233, 135, 28, .55), rgba(233, 135, 28, 0))) center / 100% 100% no-repeat; }
 .pdetail__rk {
@@ -84,13 +99,22 @@
   background: rgba(0, 0, 0, .85); color: #fff; font-size: calc(12px * var(--k)); font-weight: 700; line-height: calc(17px * var(--k)); text-align: center;
 }
 .pdetail__op.is-golden .pdetail__rk { color: #ffb43c; }
-.pdetail__eq { position: absolute; left: 50%; top: calc(-2px * var(--k)); transform: translateX(-50%); display: flex; gap: 1px; padding: 2px 3px;
-  background: var(--pd-eqback, rgba(0, 0, 0, .7)) center / 100% 100% no-repeat; }
-.pdetail__eq i { width: calc(14px * var(--k)); height: calc(4px * var(--k)); background: rgba(255, 255, 255, .35); }
-.pdetail__eq i.is-on { background: #f9dc27; }
+/* the field's own equipment bar (render/hud-bars.js EquipBar, shop_hud's equip_bg 74 × 30 with equip_0 / equip_1 at
+   −12.8 / +13: equip_normal_icon 23 × 6 per item, a golden item's equip_gold_icon 31 × 14 — maintainer report
+   2026-11-19: the dialog reuses it, not the dialog prefab's own slot bar), at .6 of its size over the portrait's top
+   (the official equipments_status sits there); the CSS shapes without the local art */
+.pdetail__eq {
+  --e: calc(.6px * var(--k)); position: absolute; left: 50%; top: calc(4px * var(--k)); z-index: 2; width: calc(74 * var(--e)); height: calc(30 * var(--e));
+  transform: translate(-50%, -50%); pointer-events: none; background: var(--pd-eqbg, rgba(20, 20, 20, .75)) center / 100% 100% no-repeat;
+}
+.pdetail__eq i { position: absolute; left: 50%; top: 50%; width: calc(23 * var(--e)); height: calc(6 * var(--e)); transform: translate(-50%, -50%);
+  background: var(--pd-eqn, #f2f2f2) center / 100% 100% no-repeat; }
+.pdetail__eq i.is-l { margin-left: calc(-12.8 * var(--e)); }
+.pdetail__eq i.is-r { margin-left: calc(13 * var(--e)); }
+.pdetail__eq i.is-gold { width: calc(31 * var(--e)); height: calc(14 * var(--e)); background: var(--pd-eqg, #ffc52e) center / 100% 100% no-repeat; }
 
 /* the strategy (part_team_info: team_avatar 80 in team_check_frame 76, the 🔍 team_check_icon 40 at its bottom-right) */
-.pdetail__band { position: relative; flex: none; width: calc(88px * var(--k)); height: calc(80px * var(--k)); }
+.pdetail__band { position: relative; flex: none; width: calc(88px * var(--k)); height: var(--ah); }
 .pdetail__bandimg { position: absolute; left: 50%; top: 50%; width: calc(66px * var(--k)); height: calc(66px * var(--k)); transform: translate(-50%, -50%); overflow: hidden; background: #111; opacity: .92; }
 .pdetail__bandimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pdetail__bandfr { position: absolute; left: 50%; top: 50%; width: calc(76px * var(--k)); height: calc(76px * var(--k)); transform: translate(-50%, -50%); pointer-events: none;
@@ -99,13 +123,33 @@
 .pdetail__check { position: absolute; right: calc(2px * var(--k)); bottom: calc(2px * var(--k)); width: calc(30px * var(--k)); height: calc(30px * var(--k)); pointer-events: none;
   background: var(--pd-tcheck, none) center / contain no-repeat; }
 
-/* 前往查看 on a teammate's avatar while the dialog is open (the official 「前往观战」 tag, chosen mockup): a small mint
-   tag at the portrait's top-left — over the list's own 98 × 98 btn_ob_other look (css/hud-art.css) */
+/* 前往查看 over a teammate's avatar while the dialog is open (the official 规程 player_status_item normal_ob_part,
+   maintainer report 2026-11-19): btn_ob_other — a white frame with its glow and a top band, tinted — over the whole
+   avatar, which is the button; the caption (black, with ob_arrow) across the avatar's whole width in the band. The box
+   and --a (one official unit) come from playerDetail.js goFrameStyle. Tint #03d0fd [추정·화면: read off the CN capture's
+   frame — the prefab leaves the image white]. The other avatars get a lit border (the list's own bg_team_border, or a
+   ring without the art). */
 .team .team__ob.pdetail__go, .gm.has-hud-art.has-hud-card .team__ob.pdetail__go {
-  position: absolute; z-index: 7; left: 2px; top: 2px; width: auto; height: auto; min-width: 0; margin: 0; padding: 0 .5em 0 .3em;
-  display: flex; align-items: center; border: 0; border-radius: 0; background: #10a6c9; color: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
-  font-size: clamp(9px, calc(var(--u, .015rem) * 14), 12px); font-weight: 700; line-height: 1.7; white-space: nowrap; animation: none; cursor: pointer; pointer-events: auto;
+  position: absolute; z-index: 7; margin: 0; padding: 0; min-width: 0; display: block; border: 0; border-radius: 0; background: none; box-shadow: none;
+  color: #000; animation: none; cursor: pointer; pointer-events: auto; overflow: visible;
 }
-.team .team__ob.pdetail__go::before { content: '◂'; margin-right: .3em; }
-.team .team__ob.pdetail__go .btn__label { letter-spacing: .04em; }
+.team .team__ob.pdetail__go::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; background: #03d0fd;
+  -webkit-mask: var(--pd-ob) center / 100% 100% no-repeat; mask: var(--pd-ob) center / 100% 100% no-repeat;
+}
+.team .team__ob.pdetail__go:not([style*='--pd-ob'])::before {
+  -webkit-mask: none; mask: none; inset: calc(10.3 * var(--a)) calc(10.5 * var(--a)) calc(2.3 * var(--a));
+  background: linear-gradient(#03d0fd, #03d0fd) top / 100% calc(23.13 * var(--a)) no-repeat; outline: calc(2 * var(--a)) solid #03d0fd;
+  box-shadow: 0 0 calc(6 * var(--a)) rgba(3, 208, 253, .8);
+}
 .team .team__ob.pdetail__go:hover { filter: brightness(1.12); }
+.pdetail__gobar {
+  position: absolute; left: calc(10.5 * var(--a)); top: calc(10.3 * var(--a)); width: calc(72 * var(--a)); height: calc(23.13 * var(--a));
+  display: flex; align-items: center; justify-content: center; gap: calc(2 * var(--a)); white-space: nowrap;
+}
+.pdetail__goarrow { flex: none; width: calc(4 * var(--a)); height: calc(12 * var(--a)); background: var(--pd-obarrow, none) center / 100% 100% no-repeat; }
+.team__ob:not([style*='--pd-obarrow']) .pdetail__goarrow { width: 0; height: 0; border: calc(5 * var(--a)) solid transparent; border-right-color: #000; border-left: 0; }
+.team .team__ob.pdetail__go .btn__label { font-size: calc(14 * var(--a)); font-weight: 700; line-height: 1.35; letter-spacing: 0; }
+.gm.has-hud-art.has-hud-team .team.has-pdetail .team__row:not(.has-go) .team__btn::after { background: #59ffd2; filter: drop-shadow(0 0 .06rem rgba(89, 255, 210, .8)); }
+.team.has-pdetail .team__row:not(.has-go) .team__btn .pavatar { box-shadow: 0 0 0 2px #59ffd2, 0 0 8px rgba(89, 255, 210, .6); }
+.gm.has-hud-art.has-hud-team .team.has-pdetail .team__row .team__btn .pavatar { box-shadow: none !important; }

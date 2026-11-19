@@ -1,11 +1,13 @@
 // The 队员信息 dialog (the official 规程 autochess_player_detail_dialog; docs/rules/ui.md 「팀원 정보 창」): tapping an
 // avatar of the left player list opens one row per player beside the list, in the list's order — the list's own
 // avatar first (ui/teamPanel.js keeps it above the dialog and puts the 前往查看 tag on it: watching moved there from the
-// avatar tap), then the name card (name, 完美连胜 n, the shop level), the player's lit bonds (the HUD strip's .bslot drawn
-// smaller, without the phase mark and n/m — maintainer decision 2026-11-15), the operators on their board (tier, elite
-// frame, equipment bar: m.public players[].lineup, server/match/match/views.js _lineupView) and their strategy's
-// portrait. Every season (maintainer decision 2026-11-15: a convenience where the official current season has none).
-// Rows touch (no gap between them, maintainer decision 2026-11-15): each row is the list row's height plus the list's gap.
+// avatar tap), then the name card (name #tag, 完美连胜 n, the shop level), the player's lit bonds (the HUD strip's .bslot
+// drawn smaller, without the phase mark and n/m — maintainer decision 2026-11-15), the operators on their board (tier,
+// elite frame and the field's own equipment bar: m.public players[].lineup, server/match/match/views.js _lineupView) and
+// their strategy's portrait. Every season (maintainer decision 2026-11-15: a convenience where the official current
+// season has none). Rows touch (no gap between them, maintainer decision 2026-11-15): each row is the list row's height
+// plus the list's gap; the name card and the two lists are as tall as the list's avatar and level with it (maintainer
+// report 2026-11-19).
 // The official art (CN battle bundle, season/act3autochess/playerdetail; the default theme's playerdetailshoplevel) is
 // drawn when the local extract has it, else plain CSS shapes (css/player-detail.css).
 // [ASSUMED·화면: only the lit bonds, the board's operators without the 整备区, their order, no click on the strategy
@@ -24,6 +26,8 @@ import { t } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+/** The official name card's height (part_namecard 257.04 × 78.12): the row's unit is the list avatar's height / this. */
+export const CARD_H = 78;
 const ROMAN = ['', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'];
 const ART = 'season/act3autochess/playerdetail';
 
@@ -59,10 +63,32 @@ export function detailBonds(bonds) {
 /**
  * The dialog's operators of a player (m.public players[].lineup), malformed entries dropped.
  * @param {any[]} lineup
- * @returns {Array<{ char: string, avatar?: string, tier: number, golden?: boolean, items?: [number, number] }>}
+ * @returns {Array<{ char: string, avatar?: string, tier: number, golden?: boolean, equip?: number[], slots?: number }>}
  */
 export function detailLineup(lineup) {
   return (Array.isArray(lineup) ? lineup : []).filter((u) => u && typeof u.char === 'string' && u.char);
+}
+
+/**
+ * The number after each name (the official card's 「川 #9512」: there the account's; this game has no accounts, so each
+ * player's own id gives it — the same on every screen and for the whole match, maintainer report 2026-11-19), four digits,
+ * a clash in the room moved on to the next free number in the list's order.
+ * @param {Array<{ playerId: string }>} players
+ * @returns {Map<string, string>}
+ */
+export function nameTags(players) {
+  const out = new Map();
+  const used = new Set();
+  for (const p of Array.isArray(players) ? players : []) {
+    const id = String(p?.playerId ?? '');
+    let h = 2166136261;
+    for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619) >>> 0;
+    let n = h % 10000;
+    while (used.has(n)) n = (n + 1) % 10000;
+    used.add(n);
+    out.set(id, String(n).padStart(4, '0'));
+  }
+  return out;
 }
 
 function NoInfo() {
@@ -96,14 +122,15 @@ function Operators({ lineup, own, skins }) {
       const name = charName(u.char);
       const src = skinPic(rec, 'avatar', sk, { own, of: skins }) || chessAvatarUrl(m, rec);
       const tier = Math.max(1, Math.min(6, u.tier | 0));
-      const eq = Array.isArray(u.items) ? u.items : null;
+      // the field's equipment bar (render/hud-bars.js EquipBar): equip_bg with a white pill per item, a golden item's
+      // gold pill; none without items or past two slots (the field shows none there either)
+      const eq = Array.isArray(u.equip) && u.equip.length && !(u.slots > 2) ? u.equip.slice(0, 2) : null;
       return html`<span key=${i} class=${cx('pdetail__op', u.golden && 'is-golden')} title=${name || undefined}>
         <span class="pdetail__av"><${Img} src=${src} fallback=${html`<i class="pdetail__glyph">${[...(name || '?')][0]}</i>`} /></span>
         <i class="pdetail__fr" aria-hidden="true"></i>
         ${u.golden ? html`<i class="pdetail__gg" aria-hidden="true"></i>` : null}
         <b class="pdetail__rk num">${ROMAN[tier]}</b>
-        ${eq ? html`<span class="pdetail__eq" aria-label=${`${eq[0]}/${eq[1]}`}>${Array.from({ length: Math.max(0, Math.min(6, eq[1] | 0)) },
-          (_, k) => html`<i key=${k} class=${k < eq[0] ? 'is-on' : null}></i>`)}</span>` : null}
+        ${eq ? html`<span class="pdetail__eq" aria-label=${`${eq.length}/2`}>${eq.map((g, k) => html`<i key=${k} class=${cx(k ? 'is-r' : 'is-l', g && 'is-gold')}></i>`)}</span>` : null}
       </span>`;
     })}
   </div>`;
@@ -112,14 +139,17 @@ function Operators({ lineup, own, skins }) {
 /**
  * The dialog: one row per player, at the list rows' places (`geo`, measured by ui/teamPanel.js against the list).
  * @param {{ players: any[], myId: string, geo: { left: number, top: number, width: number, height: number, k: number,
- *   rows: Array<{ top: number, height: number, hole: number }> } }} props
+ *   rows: Array<{ top: number, height: number, hole: number, at: number, ah: number }> } }} props
  */
 export function PlayerDetail({ players, myId, geo }) {
   const others = settingsStore.get().otherSkins !== false;
   const m = data.get('assets');
+  const eqArt = (name, sprite) => { const u = localAsset('ui/battlecommon', sprite); return u ? `--pd-${name}:url("${u}");` : ''; };
   const vars = artVar('card', 'name_card_cover') + artVar('combo', 'combo_win_back') + artVar('list', 'detail_list_back')
     + artVar('arrow', 'list_arrow') + artVar('frame', 'char_avatar_frame') + artVar('gold', 'char_avatar_gold_gradient')
-    + artVar('eqback', 'char_avatar_equipment_back') + artVar('tframe', 'team_check_frame') + artVar('tcheck', 'team_check_icon');
+    + artVar('tframe', 'team_check_frame') + artVar('tcheck', 'team_check_icon')
+    + eqArt('eqbg', 'equip_bg') + eqArt('eqn', 'equip_normal_icon') + eqArt('eqg', 'equip_gold_icon');
+  const tags = nameTags(players);
   return html`<div class="pdetail" role="dialog" aria-label=${t('同盟成员信息')}
       style=${`left:${geo.left}px;top:${geo.top}px;width:${geo.width}px;height:${geo.height}px;--k:${geo.k};${vars}`}>
     ${players.map((p, i) => {
@@ -133,15 +163,15 @@ export function PlayerDetail({ players, myId, geo }) {
       const band = p.bandId ? data.lookup('bands', p.bandId) : null;
       const bandArt = p.bandId ? bandIconUrl(m, p.bandId) : null;
       return html`<div key=${p.playerId} class=${cx('pdetail__row', own && 'is-self', p.alive === false && 'is-dead')}
-          style=${`top:${g.top - geo.top}px;height:${g.height}px`}>
+          style=${`top:${g.top - geo.top}px;height:${g.height}px;--at:${g.at}px;--ah:${g.ah}px`}>
         <i class="pdetail__hole" style=${`width:${g.hole}px`}></i>
         <div class="pdetail__card">
-          <span class="pdetail__name">${playerName(p.name) || t('博士')}</span>
+          <span class="pdetail__name"><span class="pdetail__nm">${playerName(p.name) || t('博士')}</span><small class="pdetail__tag num">#${tags.get(p.playerId)}</small></span>
           ${p.winStreak > 0 ? html`<span class="pdetail__combo">${t('完美连胜 {n}', { n: p.winStreak })}</span>` : null}
           <i class=${cx('pdetail__shop', lvlArt && 'has-sprite')} style=${lvlArt ? `--pd-shop:url("${lvlArt}")` : undefined}
             title=${t('调度中心等级 {n}', { n: lvl })}>${lvlArt ? null : html`<small>LV</small>${lvl}`}</i>
         </div>
-        <div class="pdetail__part is-bonds"><${Bonds} bonds=${bonds} unit=${(g.height * 0.8 / 84).toFixed(3)} /><i class="pdetail__more" aria-hidden="true"></i></div>
+        <div class="pdetail__part is-bonds"><${Bonds} bonds=${bonds} unit=${(g.ah * 0.82 / 84).toFixed(3)} /><i class="pdetail__more" aria-hidden="true"></i></div>
         <div class="pdetail__part is-ops"><${Operators} lineup=${lineup} own=${own} skins=${own ? null : playerSkins(players, p.playerId, others)} /><i class="pdetail__more" aria-hidden="true"></i></div>
         <div class="pdetail__band" title=${band?.name || undefined}>
           <span class="pdetail__bandimg"><${Img} src=${bandArt} /></span>
@@ -154,9 +184,28 @@ export function PlayerDetail({ players, myId, geo }) {
 }
 
 /**
+ * The 前往查看 frame over a teammate's avatar while the dialog is open (the official 规程 player_status_item normal_ob_part:
+ * btn_ob_other 93 × 84.6 over the 72 avatar, 4 above its centre — a white frame-and-tag picture the client tints; its
+ * ob_text_layout 23.13 tall centred 24.43 above the avatar's centre), as the inline style of ui/teamPanel.js's button:
+ * its box in the list row and `--a` = one official unit (the avatar's width / 72).
+ * @param {{ x: number, y: number, w: number, h: number }} av the avatar's box in its row (measureDetail rows[].av)
+ */
+export function goFrameStyle(av) {
+  const a = av.w / 72;
+  const w = 93 * a, h = 84.6 * (av.h / 72);
+  const r1 = (v) => Math.round(v * 10) / 10;
+  const art = localAsset(ART, 'btn_ob_other');
+  const arrow = localAsset(ART, 'ob_arrow');
+  return `left:${r1(av.x + av.w / 2 - w / 2)}px;top:${r1(av.y + av.h / 2 - 4 * a - h / 2)}px;width:${r1(w)}px;height:${r1(h)}px;--a:${r1(a * 1000) / 1000}px;`
+    + (art ? `--pd-ob:url("${art}");` : '') + (arrow ? `--pd-obarrow:url("${arrow}");` : '');
+}
+
+/**
  * Where the dialog goes: measured against the list (`aside`, the team panel), relative to it — the dialog box from 8 px
  * left of the rows to the side layer's right edge less `margin`, each row the list row's height plus the gap between
- * rows (half above, half below: the rows touch), its first `hole` px left open for the list's avatar.
+ * rows (half above, half below: the rows touch), its first `hole` px left open for the list's avatar, `at` / `ah` the
+ * avatar's top within the row and its height (the cards are that tall, level with it), `av` the avatar's box in its list
+ * row (ui/teamPanel.js puts the 前往查看 frame over it); `k` = the avatar's height / CARD_H.
  * @param {HTMLElement} aside @param {number} margin
  */
 export function measureDetail(aside, margin) {
@@ -166,8 +215,9 @@ export function measureDetail(aside, margin) {
   const side = aside.closest('.gm__side')?.getBoundingClientRect();
   const R = rows.map((r) => r.getBoundingClientRect());
   const B = rows.map((r) => (r.querySelector('.team__btn') || r).getBoundingClientRect());
+  const A = rows.map((r, i) => r.querySelector('.team__btn .pavatar')?.getBoundingClientRect() || B[i]);
   const gap = R.length > 1 ? Math.max(0, R[1].top - R[0].bottom) : 0;
-  const k = R[0].height / 92;
+  const k = A[0].height / CARD_H;
   const left = Math.min(...R.map((r) => r.left)) - 8;
   const right = (side ? side.right : window.innerWidth) - margin;
   const top = R[0].top - gap / 2;
@@ -175,6 +225,8 @@ export function measureDetail(aside, margin) {
   const r1 = (v) => Math.round(v * 10) / 10;
   return {
     left: r1(left - a.left), top: r1(top - a.top), width: r1(right - left), height: r1(bottom - top), k: Math.round(k * 1000) / 1000,
-    rows: R.map((r, i) => ({ top: r1(r.top - gap / 2 - a.top), height: r1(r.height + gap), hole: r1(B[i].right - left + 6 * k) })),
+    rows: R.map((r, i) => ({ top: r1(r.top - gap / 2 - a.top), height: r1(r.height + gap), hole: r1(Math.max(B[i].right, A[i].right) - left + 6 * k),
+      at: r1(A[i].top - (r.top - gap / 2)), ah: r1(A[i].height),
+      av: { x: r1(A[i].left - r.left), y: r1(A[i].top - r.top), w: r1(A[i].width), h: r1(A[i].height) } })),
   };
 }

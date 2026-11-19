@@ -279,6 +279,14 @@ function buildState() {
   if (VARIANTS.has('dead')) { players[0].alive = false; players[0].status = 'dead'; players[0].lp = 0; priv.lp = 0; }
   // 规程's 完美连胜 badges (server views.js _badgeView winStreak; shown when the season's config has the thresholds)
   [5, 4, 2, 0].forEach((n, i) => { if (n) players[i].winStreak = n; });
+  // the 队员信息 dialog (server views.js _lineupView, players[].bonds): each player's board operators — the field's
+  // equipment bar on a few, a golden item's gold pill on one — and lit bonds
+  players.forEach((p, i) => {
+    p.lineup = shuffle(pool).slice(0, [8, 9, 6, 7][i]).map((c, k) => ({ char: c.charId, tier: c.tier, ...(k === 1 ? { golden: true } : {}),
+      ...(k === 0 ? { equip: [0, 1] } : k === 2 ? { equip: [0] } : k === 3 ? { equip: [0, 0] } : {}) })).sort((a, b) => b.tier - a.tier);
+    p.bonds = shuffle(bonds.filter((b) => b.weight > 0)).slice(0, [2, 3, 4, 1][i])
+      .map((b, k) => ({ bondId: b.bondId, active: true, layers: [14, 33, 5, 48][(i + k) % 4], count: b.thresholds?.[0] ?? 2, tier: 1 }));
+  });
 
   const pub = {
     phase: PHASE.PREP, round: 6, lastRound: 14, bossRound: 14, hiddenRound: 15, deadline: Date.now() + 74000, serverNow: Date.now(), modeId: 'mode_multi_hard', difficulty: 'HARD',

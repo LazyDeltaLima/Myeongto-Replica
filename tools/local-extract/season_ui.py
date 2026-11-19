@@ -118,9 +118,12 @@ SEASONS = {
                                                                   'prefab_auto_chess_stage_info_chess_banned_group', 'prefab_auto_chess_stage_info_chess_banned_item',
                                                                   'prefab_auto_chess_stage_info_enemy_leader', 'prefab_auto_chess_stage_info_enemy_type',
                                                                   'prefab_auto_chess_stage_info_map_preview']),
-            # the 队员信息 dialog (public/js/ui/playerDetail.js): its shadow, the row, the bond and operator items
+            # the 队员信息 dialog (public/js/ui/playerDetail.js): its shadow, the row, the bond and operator items, and the
+            # list's avatar item it shows in its first column (player_status_item: 前往观战's normal_ob_part — btn_ob_other
+            # is a new frame-and-tag picture in this client, the EN one a 98 × 98 square — and its ob_arrow)
             ('ui/autochess/[uc]autochessbattle.ab', 'playerdetail', ['autochess_player_detail_dialog', 'autochess_player_detail_row',
-                                                                 'autochess_player_detail_bond_item', 'autochess_player_detail_chess_item']),
+                                                                 'autochess_player_detail_bond_item', 'autochess_player_detail_chess_item',
+                                                                 'player_status_item']),
         ],
         # activity_table autoChessData.skinConsts.defaultAutoChessSkinId
         'skin': 'ui/autochess/autochessvariantskin/[uc]ac_n_initial.ab',

@@ -113,12 +113,13 @@ export class MatchViews {
 
   /**
    * The 队员信息 dialog's operator row of a player (public/js/ui/playerDetail.js, the official
-   * autochess_player_detail_chess_item): the operators on the player's board as { char, avatar?, tier, golden?, items? } —
+   * autochess_player_detail_chess_item): the operators on the player's board as { char, avatar?, tier, golden?, equip?, slots? } —
    * the body drawn (a 补位 stand-in's, a 自选 slot's operator: PlayerState.fieldRecord, like the prep scout's units), its
-   * tier and elite state, and `items` [equipped, slots] when it carries something (the portrait's equipment bar). Display
+   * tier and elite state, and when it carries something the field's equipment bar: `equip` one entry per item (1 = golden),
+   * `slots` its equipment slots when they are not two (the bar is then left out, as on the field). Display
    * only, no rule reads it. Sorted by tier, elites first, then the board's order; [] once eliminated.
    * [ASSUMED·화면: the official row's pieces — the board only, not the 整备区 — and their order]
-   * @returns {Array<{ char: string, avatar?: string, tier: number, golden?: true, items?: [number, number] }>}
+   * @returns {Array<{ char: string, avatar?: string, tier: number, golden?: true, equip?: number[], slots?: number }>}
    */
   _lineupView(ps) {
     if (!ps.alive) return [];
@@ -134,8 +135,13 @@ export class MatchViews {
       const v = { char, tier: rec && Number.isInteger(rec.tier) ? rec.tier : 1 };
       if (avatar && avatar !== char) v.avatar = avatar;
       if (rec && rec.isGolden) v.golden = true;
-      const n = Array.isArray(piece.items) ? piece.items.length : 0;
-      if (n > 0) v.items = [n, gd.equipSlotsOf(piece.id)];
+      // the field's equipment bar (render/hud-bars.js EquipBar): one pill per item, 1 = a golden item's gold pill; the
+      // slots only past the usual two (an operator with more shows no bar, as on the field)
+      if (Array.isArray(piece.items) && piece.items.length) {
+        v.equip = piece.items.map((it) => (gd.isGolden(it && it.id) ? 1 : 0));
+        const slots = gd.equipSlotsOf(piece.id);
+        if (slots !== 2) v.slots = slots;
+      }
       out.push({ v, i: i++ });
     }
     out.sort((a, b) => b.v.tier - a.v.tier || (b.v.golden ? 1 : 0) - (a.v.golden ? 1 : 0) || a.i - b.i);

@@ -1,11 +1,11 @@
 // The 队员信息 dialog's server half (docs/rules/ui.md 「팀원 정보 창」): m.public players[].lineup — the operators on each
-// player's board (the body drawn, tier, elite, the equipment bar), board only, tier first, [] once eliminated — on the
+// player's board (the body drawn, tier, elite, the field's equipment bar), board only, tier first, [] once eliminated — on the
 // real match path (harness → Match.publicView).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeMatch, give, chessOfTier, legalTileFor, DATA } from './harness.js';
 
-test('m.public players[].lineup: the board operators by tier, elites first, the equipment bar, not the hand', () => {
+test('m.public players[].lineup: the board operators by tier, elites first, the field equipment bar, not the hand', () => {
   const h = makeMatch({ mode: 'coop', humans: 2, seed: 7 }).start();
   h.toPrep(1);
   const m = h.m;
@@ -22,8 +22,10 @@ test('m.public players[].lineup: the board operators by tier, elites first, the 
   const b = put(gold.chessId);
   const c = put(t2[0]);
   give(m, ps, t1[1], 'hand', 0);
-  const item = Object.values(DATA.items)[0];
-  a.items = [{ uid: 9001, id: item.id }];
+  const item = Object.values(DATA.items).find((it) => !it.isGolden);
+  const goldItem = Object.values(DATA.items).find((it) => it.isGolden);
+  assert.ok(item && goldItem, 'a plain and a golden item in the data');
+  a.items = [{ uid: 9001, id: item.id }, { uid: 9002, id: goldItem.id }];
   ps.recompute();
   const row = m.publicView().players.find((p) => p.playerId === 'p_1');
   assert.ok(Array.isArray(row.lineup), 'lineup sent');
@@ -33,8 +35,10 @@ test('m.public players[].lineup: the board operators by tier, elites first, the 
   assert.equal(row.lineup[0].char, m.gd.chess(c.id).charId);
   const plain = row.lineup[2];
   assert.equal(plain.char, m.gd.chess(a.id).charId);
-  assert.deepEqual(plain.items, [1, m.gd.equipSlotsOf(a.id)], 'equipped / slots');
-  assert.ok(!('items' in row.lineup[0]), 'no bar without an item');
+  assert.deepEqual(plain.equip, [0, 1], 'the field bar: one pill per item, the golden one gold');
+  assert.equal(m.gd.equipSlotsOf(a.id), 2);
+  assert.ok(!('slots' in plain), 'the usual two slots are not sent');
+  assert.ok(!('equip' in row.lineup[0]), 'no bar without an item');
   assert.ok(!('golden' in plain));
   void b;
   // an eliminated player: nothing

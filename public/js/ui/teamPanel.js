@@ -3,8 +3,9 @@
 // field being watched (eye badge), and emote bubbles. In a boss round the viewer's pair is framed in green from the
 // round's start (gameLogic teamFrameIds; community report of 2026-10-06, item 51).
 // Tapping any avatar opens the 队员信息 dialog beside the list (ui/playerDetail.js, the official 规程 dialog — every
-// season, maintainer decision 2026-11-15); a tap outside it or on an avatar again closes it. Watching moved into it: each
-// teammate's avatar wears a 前往查看 tag while the dialog is open (client-side combat, `observe` prop: when that teammate
+// season, maintainer decision 2026-11-15); a tap outside it or on an avatar again closes it. Watching moved into it: while
+// the dialog is open each teammate's avatar wears the official 前往观战 frame — the tag across the avatar's top, the whole
+// avatar the button (maintainer report 2026-11-19) — and the other avatars a lit border (client-side combat, `observe` prop: when that teammate
 // can be observed now — observeTarget; without `observe`, server-run combat: any teammate still in, the reason of a
 // refusal toasted through onWatch). While observing (or, without `observe`, watching another field) the own row shows a
 // "返回战场" button.
@@ -33,7 +34,7 @@ import { EmoteBubble } from './emotes.js';
 import { STATUS_META, sortedPlayers, teamFrameIds } from './gameLogic.js';
 import { MissTag, uniteRemaining } from './hud.js';
 import { AvatarBadges } from './avatarBadges.js';
-import { PlayerDetail, measureDetail } from './playerDetail.js';
+import { PlayerDetail, measureDetail, goFrameStyle } from './playerDetail.js';
 import { localAsset } from '../data.js';
 import { t } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
@@ -136,11 +137,18 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
     if (!open || !aside) { if (geo) setGeo(null); return; }
     const g = measureDetail(aside, compact || window.innerWidth < 1000 ? 8 : 20); // the right margin: 8 px on a phone (the chosen mockup)
     if (JSON.stringify(g) !== JSON.stringify(geo)) setGeo(g);
-    // the more-arrow of a bond / operator list that scrolls
-    for (const el of aside.querySelectorAll('.pdetail__part')) {
-      const list = el.querySelector('.pdetail__list');
-      el.classList.toggle('is-more', !!list && list.scrollWidth > list.clientWidth + 1);
-    }
+    // the more-arrow of a bond / operator list that scrolls — again on the next frame and once the fonts are in (a
+    // check before the web fonts load left the arrow on lists that fit)
+    const more = () => {
+      for (const el of aside.querySelectorAll('.pdetail__part')) {
+        const list = el.querySelector('.pdetail__list');
+        el.classList.toggle('is-more', !!list && list.scrollWidth > list.clientWidth + 1);
+      }
+    };
+    more();
+    const raf = requestAnimationFrame(more);
+    document.fonts?.ready?.then(() => { if (aside.isConnected) more(); });
+    return () => cancelAnimationFrame(raf);
   });
   useEffect(() => {
     if (!open) return undefined;
@@ -163,20 +171,21 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
   const watchedAny = !!watching && players.some((p) => watching === p.fieldId || watching === `n:${p.playerId}`);
   return [open ? html`<div key="veil" class="pdetail-veil" aria-hidden="true" onPointerDown=${(e) => { e.preventDefault(); setDetail(false); }}></div>` : null,
     html`<aside key="team" ref=${asideRef} class=${cx('team', compact && 'team--compact', watchedAny && 'has-watched', players.length === 1 && 'is-solo' /* local patch: css/hud-art.css */, players.length > 4 && 'is-8' /* the 8-player mode: smaller rows */, open && 'has-pdetail')} aria-label=${t('同盟成员')}>
-    ${players.map((p) => {
+    ${players.map((p, i) => {
       const self = p.playerId === myId;
       const status = p.alive === false ? 'dead' : p.status;
       const meta = STATUS_META[status] || STATUS_META.acting;
       const watched = watching && (watching === p.fieldId || watching === `n:${p.playerId}`);
       const bubble = bubbles?.get(p.playerId);
       const offline = p.connected === false && !p.isBot && status !== 'left';
-      const goTag = open && !self && !watched && canGo(p);
+      const av = open && geo ? geo.rows[i]?.av : null;
+      const goTag = !!av && !self && !watched && canGo(p);
       const back = self && (observe ? observe.observing : !!watching && watchedAny && !watched);
       const title = playerName(p.name) || t('博士');
       const lp = rowLp(p, pub, self ? selfLive : null, { uniteLocal, cap });
       const inTeam = team.has(p.playerId);
       const card = cardState(p);
-      return html`<div key=${p.playerId} class=${cx('team__row', self && 'is-self', inTeam && 'is-team', watched && 'is-watched', p.alive === false && 'is-dead')}>
+      return html`<div key=${p.playerId} class=${cx('team__row', self && 'is-self', inTeam && 'is-team', watched && 'is-watched', p.alive === false && 'is-dead', goTag && 'has-go')}>
         <button type="button" class="team__btn" onClick=${() => setDetail((d) => !d)} title=${inTeam && !self ? `${title} · ${t('与你在同一战场')}` : title} aria-expanded=${players.length > 1 ? String(open) : undefined}>
           <${PlayerAvatar} player=${p} self=${self} />
           ${inTeam ? html`<span class=${cx('team__frame', !frameArt && 'team__frame--plain')} style=${frameArt ? `--frame:url("${frameArt}")` : undefined} aria-hidden="true"></span>` : null}
@@ -206,8 +215,8 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
           ${back ? html`<button type="button" class="btn btn--secondary btn--sm team__back"
             onClick=${() => { setDetail(false); if (observe) observe.onBack(); else onWatch(p); }}><span class="btn__label">${t('返回战场')}</span></button>` : null}
         </div>
-        ${goTag ? html`<button type="button" class="team__ob pdetail__go" title=${t('查看 {name} 的战场', { name: title })}
-          onClick=${() => go(p)}><span class="btn__label">${t('前往查看')}</span></button>` : null}
+        ${goTag ? html`<button type="button" class="team__ob pdetail__go" style=${goFrameStyle(av)} title=${t('查看 {name} 的战场', { name: title })}
+          onClick=${() => go(p)}><span class="pdetail__gobar"><i class="pdetail__goarrow" aria-hidden="true"></i><span class="btn__label">${t('前往查看')}</span></span></button>` : null}
         ${bubble ? html`<${EmoteBubble} key=${bubble.seq} id=${bubble.id} set=${bubble.set} class="team__bubble" />` : null}
       </div>`;
     })}
