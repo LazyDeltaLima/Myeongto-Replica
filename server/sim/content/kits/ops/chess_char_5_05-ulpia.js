@@ -40,14 +40,15 @@ function move(battle, unit, sr, sc, stop, tokenId) {
   };
   if (stop === 0) { inPlace(); return; }
   // landing tile > the tile one step back from it, toward him (PRTS 备注 "船锚落点后一格处") > his own tile (a
-  // deployable, free, unreserved melee tile).
+  // deployable, free, unreserved melee tile — never another card's board home, even with that piece away from it:
+  // Battle.isReservedTile, the client's _CheckBuildableInBattle; his own home, he being away from it, may be taken).
   // "可部署" is a tile his player may deploy on: his own board (Battle.onOwnBoard) — never the other half of a 联防 or
   // boss field nor a boss field's hand / 临时整备区 rows; a teammate's half stays closed to him even where the 突袭
   // landing may take it (Battle.onFieldBoard, docs/rules/sim.md sim-4). Community report of 2026-10-06 (item 27)
   // 「乌尔比安使用3技能会在联防阶段跳到红门后」: on the one-helper 联防 map (escaped_single, enemies from the middle gate at
   // col 10) an anchor that met no enemy flew on to the right half, where no enemy ever walks, and he moved there for
   // the whole skill
-  const ok = ([r, c]) => (r !== unit.tileR || c !== unit.tileC) && battle.grid.inRect(r, c) && battle.onOwnBoard(unit.player, r, c) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile(r, c);
+  const ok = ([r, c]) => (r !== unit.tileR || c !== unit.tileC) && battle.grid.inRect(r, c) && battle.onOwnBoard(unit.player, r, c) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile(r, c, null, unit);
   const dest = [[sr, sc], frontOf(unit.tileR, unit.tileC, unit.dir, stop - 1)].find(ok);
   if (dest == null) { inPlace(); return; }
   const home = [unit.tileR, unit.tileC];

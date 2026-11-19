@@ -126,7 +126,7 @@ function mineTiles(battle, unit) {
   const out = [];
   for (const k of unit.rangeKeys ?? []) {
     const r = Math.floor(k / COLS), c = k % COLS;
-    if (!battle.grid.inRect(r, c) || !battle.grid.canStand(r, c, { ranged: true }) || battle.isReservedTile(r, c)) continue;
+    if (!battle.grid.inRect(r, c) || !battle.grid.canStand(r, c, { ranged: true }) || battle.isReservedTile(r, c, null, unit)) continue;
     out.push([r, c]);
   }
   return out;

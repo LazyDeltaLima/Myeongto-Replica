@@ -25,7 +25,7 @@ export default {
     const sid = selectedId(chess, def);
     const tokenId = talentRec(chess, 1)?.tokenKey ?? (chess?.tokens || [])[0] ?? 'token_10015_dusk_drgn';
     const tokenDur = num(t1['attack@tokenduration'], 25);
-    const freeGround = (battle, r, c) => battle.grid.inRect(r, c) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile(r, c);
+    const freeGround = (battle, r, c, src) => battle.grid.inRect(r, c) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile(r, c, null, src);
     // 小自在 expiry follows tk.mem.duskUntil (a refresh pushes it back)
     const expire = (battle, tk) => {
       if (!tk.alive) return;
@@ -39,13 +39,13 @@ export default {
       if (mine) {
         if (mine.tileR !== r || mine.tileC !== c) {
           const fromX = mine.x, fromY = mine.y;
-          if (!freeGround(battle, r, c) || !battle.relocate(mine, r, c)) return null;
+          if (!freeGround(battle, r, c, unit) || !battle.relocate(mine, r, c)) return null;
           battle.fx('teleport', { x: mine.x, y: mine.y, id: mine.id, fromX, fromY });
         }
         mine.mem.duskUntil = battle.time + tokenDur;
         return mine;
       }
-      if (!freeGround(battle, r, c)) return null;
+      if (!freeGround(battle, r, c, unit)) return null;
       const tk = battle.spawnToken(unit, tokenId, r, c);
       if (!tk) return null;
       tk.mem.duskUntil = battle.time + tokenDur;

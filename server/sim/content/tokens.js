@@ -402,10 +402,10 @@ function inRectTile(battle, r, c) { return Number.isInteger(r) && Number.isInteg
 /**
  * A tile a summon may take: inside the field, nobody on it, and not the home tile of a board unit that has not
  * deployed yet / waits to redeploy (the initial deployment runs one unit after another, a summon must not steal a later
- * unit's tile).
+ * unit's tile), nor of another card's board operator (Battle.isReservedTile; `src` the summoner, whose own home may be taken).
  */
-export function tileFree(battle, r, c) {
-  return inRectTile(battle, r, c) && !battle.isReservedTile(r, c);
+export function tileFree(battle, r, c, src = null) {
+  return inRectTile(battle, r, c) && !battle.isReservedTile(r, c, null, src);
 }
 
 function mostAdvancedEnemy(battle) {
@@ -453,7 +453,7 @@ export function findSummonTile(battle, owner, placement = 'melee', opts = {}) {
   let best = null, bestS = null;
   for (const k of keys) {
     const r = (k / COLS) | 0, c = k % COLS;
-    if (!tileFree(battle, r, c)) continue;
+    if (!tileFree(battle, r, c, owner)) continue;
     if (!battle.grid.canStand(r, c, { ranged: !melee })) continue;
     const gp = battle.grid.groundPassable(r, c, true) ? 1 : 0;
     if (placement === 'path' && !gp) continue;
@@ -1867,7 +1867,7 @@ function ensureReinforcement(battle, owner, tokenId) {
   const inRange = new Set(owner.baseRangeKeys || owner.rangeKeys || []);
   const prev = mine.slice().sort((a, b) => (b.uid != null) - (a.uid != null) || b.deploySeq - a.deploySeq)
     .map((t) => [t.homeR, t.homeC]).find(([r, c]) => Number.isInteger(r) && Number.isInteger(c) && inRange.has(r * COLS + c)
-      && tileFree(battle, r, c) && battle.grid.canStand(r, c, { ranged: true }));
+      && tileFree(battle, r, c, owner) && battle.grid.canStand(r, c, { ranged: true }));
   const best = prev ?? tacticalPoint(battle, owner);
   if (!best) return null;
   const t = battle.spawnToken(owner, tokenId, best[0], best[1]);

@@ -223,7 +223,7 @@ function freeTiles(battle, unit, grid, { ranged = false, ground = true } = {}) {
   for (const k of absoluteRangeKeys(grid, unit.tileR, unit.tileC, unit.dir, 0)) {
     if (k === own) continue;
     const r = (k / COLS) | 0, c = k % COLS;
-    if (!battle.grid.inRect(r, c) || battle.isReservedTile(r, c)) continue;
+    if (!battle.grid.inRect(r, c) || battle.isReservedTile(r, c, null, unit)) continue;
     if (!battle.grid.canStand(r, c, { ranged })) continue;
     if (ground && !battle.grid.groundPassable(r, c, true)) continue;
     out.push([r, c]);

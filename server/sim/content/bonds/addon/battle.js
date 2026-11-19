@@ -407,8 +407,8 @@ function raidBattlefield(battle, r, c) {
  * it as seen from the member, so the enemy ends up on the member's own or front tile — and the first that passes
  * BuildCondition.CheckBuildable + Tile.CheckBuildable for the card (the battlefield, grid.canStand: its position's
  * buildable tiles, never the 深水区; free of another piece: Battle.isReservedTile — no living ally, no knocked-out
- * operator's body). No range check: a ranged member lands next to the enemy too. Enemies stand anywhere (a melee
- * member may land on the enemy's tile and block it).
+ * operator's body, no other card's board home: _CheckBuildableInBattle). No range check: a ranged member lands next
+ * to the enemy too. Enemies stand anywhere (a melee member may land on the enemy's tile and block it).
  */
 function raidTile(battle, u, e) {
   const back = OPPOSITE_DIR[normDir(u.dir)];
@@ -418,7 +418,7 @@ function raidTile(battle, u, e) {
     for (const [gr, gc] of RANGE_1_1) {
       const [dr, dc] = rotateOffset(gr, gc, back);
       const r = br + dr, c = bc + dc;
-      if (!battle.grid.inRect(r, c) || !raidBattlefield(battle, r, c) || !battle.grid.canStand(r, c, { ranged }) || battle.isReservedTile(r, c)) continue;
+      if (!battle.grid.inRect(r, c) || !raidBattlefield(battle, r, c) || !battle.grid.canStand(r, c, { ranged }) || battle.isReservedTile(r, c, null, u)) continue;
       return [r, c];
     }
   }

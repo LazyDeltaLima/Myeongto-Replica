@@ -203,7 +203,7 @@ function mlyss(bb, chess, def) {
                 if (there.mem.mlyssClone) cloneTime(battle, there, dur);
                 // its refill effect; `src` the casting 流形 (its own tile is one of the five: its cast effect too)
                 battle.fx('refresh', { x: there.x, y: there.y, id: there.id, src: t.id, by: unit.id });
-              } else if (battle.grid.inRect(r, c) && !battle.isReservedTile(r, c) && battle.grid.canStand(r, c, { ranged: true })) splitCopy(battle, unit, tokId, t, r, c, dur);
+              } else if (battle.grid.inRect(r, c) && !battle.isReservedTile(r, c, null, unit) && battle.grid.canStand(r, c, { ranged: true })) splitCopy(battle, unit, tokId, t, r, c, dur);
             }
           }
         }
@@ -323,7 +323,7 @@ function mlyss(bb, chess, def) {
             const every = Math.max(1, Math.floor(bv(tal, 'max_stack_cnt', 10)));
             if (++m.attacks % every !== 0) return;
             const tiles = N4.slice(1).map(([dr, dc]) => [t.tileR + dr, t.tileC + dc])
-              .filter(([r, c]) => battle.grid.inRect(r, c) && !battle.isReservedTile(r, c) && battle.grid.canStand(r, c, { ranged: true }));
+              .filter(([r, c]) => battle.grid.inRect(r, c) && !battle.isReservedTile(r, c, null, unit) && battle.grid.canStand(r, c, { ranged: true }));
             const tile = bestTile(battle, tiles);
             if (!tile) return;
             splitCopy(battle, unit, tokId, t, tile[0], tile[1], num(tal.interval, 25));

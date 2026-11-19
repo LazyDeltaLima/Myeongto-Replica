@@ -123,7 +123,10 @@ test('F5 突袭: a member never lands on a knocked-out member\'s body; the falle
   assert.ok(h.b.isDown(A), 'A knocked out');
   assert.deepEqual(downEntry(h.b, A).slice(4), L, 'A lies where it fell: b.snap down carries that tile');
   assert.equal(h.b.isReservedTile(L[0], L[1]), true, 'its tile is reserved for it');
-  assert.equal(h.b.isReservedTile(12, 3), false, 'its home is not (only the body\'s tile blocks)');
+  // its home stays refused to the other cards (official _CheckBuildableInBattle: another card's board position, wherever
+  // that piece is now — docs/rules/sim.md 「울피아누스 S3의 【이동】은 반드시 일어난다」 다른 말의 처음 칸), not to its own
+  assert.equal(h.b.isReservedTile(12, 3), true, 'its home is held from the other cards');
+  assert.equal(h.b.isReservedTile(12, 3, null, A), false, '... but not from its own');
   assert.ok(h.runUntil(() => B.tileR !== 10 || B.tileC !== 3, 20), 'B jumped');
   assert.notDeepEqual(tileOf(B), L, 'B did not land on A\'s body');
   assert.ok(inRange(B, h.enemy('enemy_f5_dummy')), 'B still lands next to the enemy, with it in range');
@@ -184,7 +187,8 @@ test('F5 "若干员被击倒的位置为其他干员或召唤物的初始位置�
     assert.deepEqual(fellAt, [12, 3], 'the death handlers (被击倒时 effects) still see where it fell');
     assert.deepEqual(downEntry(b, B).slice(4), [10, 3], 'B lies on its own home, not on A\'s (b.snap down)');
     assert.deepEqual(b.restTile(B), [10, 3]);
-    assert.equal(b.isReservedTile(12, 3), false, 'A\'s home stays free');
+    assert.equal(b.isReservedTile(12, 3, null, A), false, 'A\'s home stays free for A');
+    assert.equal(b.isReservedTile(12, 3), true, '... and held from the other cards (docs/rules/sim.md 다른 말의 처음 칸)');
     assert.equal(b.isReservedTile(10, 3), true);
     // A knocked out too: it lies where it is and comes back there
     kill(b, A);

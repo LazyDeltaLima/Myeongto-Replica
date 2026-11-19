@@ -198,7 +198,7 @@ export default {
       if (r === unit.tileR && c === unit.tileC) return true;
       const occ = battle.unitAt(r, c);
       if (occ) return occ === st.bond;
-      return !battle.isReservedTile(r, c);
+      return !battle.isReservedTile(r, c, null, unit);
     };
     /** The first ground enemy of the x-2 around his located tile standing on a tile he may take. */
     const pickTarget = (battle, unit, st) => {

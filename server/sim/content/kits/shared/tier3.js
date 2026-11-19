@@ -111,8 +111,8 @@ function textNum(text, re, fallback) {
  * operator lying there, not the home tile of an ally that has not deployed yet / waits to redeploy — the initial
  * deployment runs one unit after another: a summon placed while it runs must not steal a later board unit's tile).
  */
-function freeTile(battle, r, c) {
-  return Number.isInteger(r) && Number.isInteger(c) && battle.grid.inRect(r, c) && !battle.isReservedTile(r, c);
+function freeTile(battle, r, c, src = null) {
+  return Number.isInteger(r) && Number.isInteger(c) && battle.grid.inRect(r, c) && !battle.isReservedTile(r, c, null, src);
 }
 /** Walkable ground tile a melee summon can stand on. */
 const groundTile = (battle, r, c) => battle.grid.groundPassable(r, c) && battle.grid.canStand(r, c);
@@ -124,7 +124,7 @@ const groundTile = (battle, r, c) => battle.grid.groundPassable(r, c) && battle.
  */
 function tacticalPoint(battle, unit, prefer = null) {
   const inRange = (r, c) => (unit.baseRangeKeys || unit.rangeKeys || []).includes(r * COLS + c);
-  if (prefer && freeTile(battle, prefer[0], prefer[1]) && groundTile(battle, prefer[0], prefer[1]) && inRange(prefer[0], prefer[1])) return prefer;
+  if (prefer && freeTile(battle, prefer[0], prefer[1], unit) && groundTile(battle, prefer[0], prefer[1]) && inRange(prefer[0], prefer[1])) return prefer;
   return sharedTacticalPoint(battle, unit);
 }
 

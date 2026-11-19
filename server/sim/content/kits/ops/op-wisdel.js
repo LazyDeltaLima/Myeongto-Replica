@@ -197,7 +197,7 @@ function wisdel(bb, chess, def) {
   const placeWard = (battle, unit, sp = 0) => {
     if (ownWards(battle, unit).length >= WIS_WARD_MAX) return null;
     const tiles = [...(unit.rangeKeys || [])].map((k) => [Math.floor(k / COLS), k % COLS])
-      .filter(([r, c]) => battle.grid.inRect(r, c) && battle.onFieldBoard(r, c) && battle.grid.canStand(r, c, { ranged: true }) && !battle.isReservedTile?.(r, c))
+      .filter(([r, c]) => battle.grid.inRect(r, c) && battle.onFieldBoard(r, c) && battle.grid.canStand(r, c, { ranged: true }) && !battle.isReservedTile?.(r, c, null, unit))
       .sort((a, b) => hypot(a[0] - unit.tileR, a[1] - unit.tileC) - hypot(b[0] - unit.tileR, b[1] - unit.tileC) || a[1] - b[1]);
     for (const [r, c] of tiles) {
       // the shade's kit is given here (content/index.js resolves no token kit for it)

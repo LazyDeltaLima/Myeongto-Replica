@@ -133,7 +133,7 @@ function chargeEnd(battle, t) {
   const stop = path[path.length - 1];
   for (let i = path.length - 1; i > 0; i--) {
     const [r, c] = path[i];
-    if (!battle.isReservedTile(r, c) && battle.grid.canStand(r, c, { ranged: false })) return { stop, land: [r, c] };
+    if (!battle.isReservedTile(r, c, null, t) && battle.grid.canStand(r, c, { ranged: false })) return { stop, land: [r, c] };
   }
   return { stop, land: path[0] };
 }

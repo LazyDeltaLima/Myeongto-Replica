@@ -3029,7 +3029,7 @@
       "hooks": [1,187,6390,899,895,1074,1241,140,126,182,22,22,100,15715,593,79,142,52,1,127,0,0,0],
       "events": {"atk":918,"bounty":3,"castHit":6,"deploy":42,"die":130,"dmg":1118,"engage":12,"face":90,"fx":113,"heal":38,"leak":52,"skill":43,"spawn":162,"status":271,"swing":1022,"tplfx":3},
       "fx": {"airstrike":25,"anchor":2,"appear":1,"blink":1,"charges":18,"copy":1,"disappear":1,"ember":2,"emergency":1,"enemySkill":3,"explode":4,"garrisonGrant":2,"heal":5,"link":4,"manifoldDown":7,"manifoldUp":8,"palsy":1,"parry":9,"revive":4,"stacks":2,"strike":3,"summon":2,"summonStun":2,"sunBurst":2,"sword":1,"telegraph":1,"zone":1},
-      "snaps": "01d95dbd 8bfd2746 58938e20 60bb4156 552a38a2 9fff0f93 28460afd 308f21c9 96b9a00e a5e22fd4 e4183755 cfa32373 04102a59 4c70cbc9 d6ed745f b271fa3e 683bcb53 fa4e48c2 73fd9266 73330792 0bf3171c 60879e70"
+      "snaps": "01d95dbd 8bfd2746 58938e20 60bb4156 552a38a2 9fff0f93 28460afd 308f21c9 96b9a00e a5e22fd4 e4183755 cfa32373 04102a59 4c70cbc9 d6ed745f b271fa3e 683bcb53 fa4e48c2 cda5abf4 f2c42386 5f169751 48b8f84e"
     },
     "roster-048": {
       "about": "pass 2 band 7: chess_char_5_08_b chess_char_6_19_b chess_char_5_13_b chess_char_6_20_b chess_char_5_12_b chess_char_5_20_b chess_char_6_05_b chess_char_6_11_b token_10030_mlyss_wtrman",

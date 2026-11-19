@@ -80,14 +80,24 @@ export class BattleTiles {
    * unit stands on it, a unit on the field holds it (holdTile), or it is the rest tile (restTile) of an ally piece that has not deployed yet or waits to
    * redeploy — the tile a knocked-out operator lies on ("倒地干员所在地块…所有我方单位在此处的部署行为将被阻止", PRTS
    * 卫戍协议/帮助 §作战阶段 单位部署), else its home tile (a token parked there would keep that unit off the field).
+   * And the home tile of another card's board operator, wherever that operator is now (moved by a 突袭 or a 【移动】, lying
+   * elsewhere): checked against the official client — every buildable check of a battle in this mode
+   * (`BuildCondition._CheckBuildable` → `AutoChessGameMode.CheckBuildable` → `_CheckBuildableInBattle`) refuses a field
+   * tile that is the board position (`ChessInst.pos`) of a `battleChessInsts` CHAR piece of another card than the one
+   * placing (`sourceData`: a summon counts as its host's card) — not of a summon piece (TOKEN). `src`: the unit placing,
+   * or the host whose summon is placed; its own card's home is not refused by this rule. Without it every board
+   * operator's home is (a stage device belongs to no card). A piece gone for good (`removed`: switched out by a bond or a 特质)
+   * holds its home no more [추정·미조사: whether the switch takes the piece out of battleChessInsts].
    * `except(a)` (local patch): a waiting piece it returns true for reserves nothing (望's own used stones, kits/ops/op-wang.js).
    */
-  isReservedTile(r, c, except = null) {
+  isReservedTile(r, c, except = null, src = null) {
     if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;
     const u = this._occ[r * COLS + c];
     if (u && u.alive) return true;
     if (this._heldTiles.size) for (const [o, k] of this._heldTiles) if (k === r * COLS + c && o.alive && o.deployed) return true;
+    const card = src && src.kind === 'token' && src.ownerUnit ? src.ownerUnit : src;
     for (const a of this.allyUnits) {
+      if (a.kind === 'op' && a.uid != null && !a.removed && a !== card && a.homeR === r && a.homeC === c && !(except && except(a))) return true;
       if (a.alive || a.removed || (a.kind !== 'op' && a.kind !== 'token') || (except && except(a))) continue; // local patch: except
       const [tr, tc] = this.restTile(a);
       if (tr === r && tc === c) return true;
@@ -146,7 +156,7 @@ export class BattleTiles {
     u.body = [r, c];
     if (r === hr && c === hc) return;
     if (!u.downAtHome && !this.allyUnits.some((a) => a !== u && a.uid != null && (a.kind === 'op' || a.kind === 'token') && a.homeR === r && a.homeC === c)) return;
-    if (!this.grid.inRect(hr, hc) || this.isReservedTile(hr, hc)) return;
+    if (!this.grid.inRect(hr, hc) || this.isReservedTile(hr, hc, null, u)) return;
     u.body = [hr, hc];
   }
 
@@ -164,7 +174,7 @@ export class BattleTiles {
     for (const k of unit.baseRangeKeys || unit.rangeKeys || []) {
       const r = (k / COLS) | 0, c = k % COLS;
       if (!this.grid.groundPassable(r, c) || !this.grid.canStand(r, c)) continue;
-      if (this.isReservedTile(r, c)) continue;
+      if (this.isReservedTile(r, c, null, unit)) continue;
       const o = localOrder(r - unit.tileR, c - unit.tileC, unit.dir);
       const d = Math.max(Math.abs(r - unit.tileR), Math.abs(c - unit.tileC)) + 0.01 * Math.abs(o[0]);
       if (!(d > 0)) continue;

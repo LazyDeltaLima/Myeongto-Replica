@@ -231,8 +231,8 @@ export function makeZone(battle, caster, { x, y, radius, duration, interval = 1,
  * operator lying there, not the home tile of a board unit that has not deployed yet / waits to redeploy — a summon
  * there would stop that operator from redeploying until it leaves).
  */
-export function summonTileFree(battle, r, c) {
-  return Number.isInteger(r) && Number.isInteger(c) && battle.grid.inRect(r, c) && !battle.isReservedTile(r, c);
+export function summonTileFree(battle, r, c, src = null) {
+  return Number.isInteger(r) && Number.isInteger(c) && battle.grid.inRect(r, c) && !battle.isReservedTile(r, c, null, src);
 }
 
 /** First free tile around `unit` (Chebyshev ring 1, front first — offsets rotated by its direction) where `ok(r, c)` holds. */
@@ -240,7 +240,7 @@ export function freeTileAround(battle, unit, ok) {
   const order = [[0, 1], [1, 1], [-1, 1], [1, 0], [-1, 0], [0, -1], [1, -1], [-1, -1]];
   for (const [dr, dc] of order) {
     const [r, c] = offsetTile(unit.tileR, unit.tileC, dr, dc, unit.dir);
-    if (!summonTileFree(battle, r, c)) continue;
+    if (!summonTileFree(battle, r, c, unit)) continue;
     if (ok(r, c)) return [r, c];
   }
   return null;

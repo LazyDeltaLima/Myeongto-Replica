@@ -76,7 +76,7 @@ function sbell2(bb, chess, def) {
     const r = (k / COLS) | 0, c = k % COLS;
     if (battle.grid.tile(r, c).special !== 'end') return false;
     if (battle.allyUnits.some((t) => isTok(t, iceId, unit) && t.alive)) return false;
-    if (battle.isReservedTile(r, c)) return false;
+    if (battle.isReservedTile(r, c, null, unit)) return false;
     const ice = battle.spawnToken(unit, iceId, r, c);
     if (!ice) return false;
     unit.mem.snow.delete(k);

@@ -181,7 +181,7 @@ function chen3(bb, chess, def) {
       // the 【移动】 to a standing target's tile (deployable for her, free)
       if (!gone(target) && !target.isFlying) {
         const r = Math.round(target.y), c = Math.round(target.x);
-        if ((r !== unit.tileR || c !== unit.tileC) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile?.(r, c)) {
+        if ((r !== unit.tileR || c !== unit.tileC) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile?.(r, c, null, unit)) {
           const fromX = unit.x, fromY = unit.y;
           if (battle.moveRedeploy(unit, r, c)) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
         }

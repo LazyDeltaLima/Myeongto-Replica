@@ -877,7 +877,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   - 후보: 진영 ENEMY·WALK_ONLY, 고급 옵션 꺼짐(`TargetOptions._VerifyAdvanced`가 바로 true) → 은신·잠듦·선택 불가·기절 지상 적 모두 후보, 비행만 빠짐. 순서 `FilterUtil` HATRED_DES, 128명까지:
     `Enemy.get_hatred` = 도발 단계 × 큰 상수 − 남은 경로 → 도발 높은 적, 그다음 가장 앞선 적. 같은 위협도의 순서(우리: 출현 순)는 **[ASSUMED]**. 자기 필드 우선 없음(이전 [ASSUMED] 삭제).
   - 착지 칸: 후보마다 그 적의 칸(거대 적은 몸 칸)에서 `LitePhysicsUtil.FindTilesInBox("1-1", 칸, 멤버 방향의 반대)` — range_table 순서라 **적의 칸 먼저, 그다음 멤버가 볼 때 적 뒤 칸**(멤버가 서면 적이 자기 칸이나 앞 칸). 사거리 검사 없음(GitHub #51 이후의 「사거리로 덮는 칸·저지 칸 우선·가장 가까운 칸·RAID_SEARCH 2·8명」 [ASSUMED] 규칙 삭제). 두 칸 다 못 서면 다음 적, 아무도 없으면 그대로.
-    설 수 있는 칸: 전장 칸 + 그 말의 배치 가능 칸(`grid.canStand`, 深水区 아님) + 다른 말·쓰러진 오퍼레이터 없음(`isReservedTile`). 적이 서 있어도 됨(근접은 적 칸에 내려 바로 저지). 자기 칸은 고르지 않음(공식은 제자리 재배치 가능 — 차이 미미).
+    설 수 있는 칸: 전장 칸 + 그 말의 배치 가능 칸(`grid.canStand`, 深水区 아님) + 다른 말·쓰러진 오퍼레이터 없음 + 다른 카드 오퍼레이터의 처음 놓인 칸 아님(그가 지금 거기 없어도 — 아래 「울피아누스 S3의 【이동】은 반드시 일어난다」 다른 말의 처음 칸; `isReservedTile`). 적이 서 있어도 됨(근접은 적 칸에 내려 바로 저지). 자기 칸은 고르지 않음(공식은 제자리 재배치 가능 — 차이 미미).
   - 전장 칸: `AutoChessBattleUtil.IsBattleField` = TileIndexer의 BATTLE_FIELD(`tile_achand` 아닌 모든 칸)를 `AutoChessMapAreaManager.ResetTileIndexer`가 상태별로 좁힘 — BATTLE: 왼쪽(자기) 일반 구역, HELP_BATTLE: 여러 명이 도우면(isMultiPlayerHelp) 일반 두 절반·아니면 한쪽, BOSS_BATTLE: 보스 맵 전체.
     그래서 **혼자인 연합방어의 빈 절반은 막힘(확인)**, **솔로 보스 필드의 다른 절반은 열림(바뀜)**, 손패/임시 정비 줄(tile_achand)은 막힘(확인). 우르피안 S3 【移动】은 그대로 `onOwnBoard`.
   - 공격력·최대 HP +(0.25+0.01·층)(`[skill]`, MULTIPLIER = 우리 가산 %)은 **스킬이 켜져 있는 동안 모든 멤버**(점프와 무관, 이전: 점프 뒤 필드를 떠날 때까지). 패시브는 켜진 것으로 봄 **[ASSUMED]**(클라는 `Ability.isAffecting`).
@@ -2911,6 +2911,17 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   닻이 멈출 때 그 배치가 그대로이고 스킬이 켜져 있어야 한다(`CheckCharSkillAffecting`). 던진 뒤 기절해도 옮긴다 [추정·엔진: 위 「지속 스킬의 효과가 나는 시점」의 끊김 — 날아가는 닻은 클립의 것이 아님].
   남은 차이: 【반환】도 같은 노드 `RespawnCharacter`(같은 배치 길)라 등장 상태로 시작한다(모드 4 `S3_Restore`의 `Born` → `Skill_3_Back` 0.833초) — 엔진은 아직 【반환】에 등장 상태를 두지 않는다.
   다른 【이동】 키트(Mon3tr·켈시 에스페란타·벨로네·첸 더 던스트릭·안젤리나 더 멜로우 위시)의 다시 태어남은 [추정·미조사: 그 노드가 같은 배치 길인지 안 읽음 — 엔진은 등장 상태 없이 옮김].
+- **다른 말의 처음 칸**(2026-11-19 고침): 닻 칸과 두 번째 칸은 **다른 카드 오퍼레이터의 처음 놓인 칸**이면 — 그 오퍼레이터가 지금 거기 없어도(기습 착지·【이동】으로 떠남, 다른 칸에 쓰러짐) — 고르지 않는다.
+  자기 처음 칸은 (그가 떠나 있으면) 고를 수 있다. 공식 클라에서 확인(2026-11-19): 이 모드의 전투 중 배치 검사는 모두(`BuildCondition._CheckBuildable` → `AutoChessGameMode.CheckBuildable`,
+  전투 상태면 `_CheckBuildableInBattle`) 전장 칸이 `battleChessInsts`의 CHAR 말(`ChessInst.chessType` 0 — 소환물 말 TOKEN 3은 아님)의 판 위치(`ChessInst.pos`)이고 그 말의 카드
+  (`runtimeChess2CardDict`)가 배치하는 쪽의 카드(`sourceData` — 소환물이면 주인의 카드)와 다르면 거절한 뒤에야 `CanBuildOrOverlap`(칸의 점유)을 본다. 그래서 엔진도 한 곳에서 한다:
+  `Battle.isReservedTile`의 넷째 인자 `src`(배치하는 유닛, 소환이면 주인)로 — 울피아누스 S3 닻 칸, 기습 착지 칸, 【이동】 칸(첸 더 던스트릭·벨로네, 메커니스트의 토큰 돌진), 소환·장치 칸
+  (`tokens.js tileFree`, `tier1 summonTileFree`, `tier3` 전술점, `tier6 freeTiles`, 시·뮤엘시스·에벤홀츠·W·프라마닉스 더 프레리타·위셔델), 전술점(`findTacticalPoint`), 쓰러진 오퍼레이터의 처음 칸 돌아가기(`_layBody`, 자기 카드).
+  `src`가 없으면(스테이지 장치, 플레이어 몫의 맵 캐릭터) 모든 판 오퍼레이터의 처음 칸을 거절한다. 전에는 그 오퍼레이터가 살아서 다른 칸에 있으면(또는 다른 칸에 쓰러졌으면) 그 칸을 내줬다.
+  아주 떠난 말(`removed`: 카시미어·에기르 맹약, 교대 특질의 교대로 나감)의 처음 칸은 잡지 않는다 [추정·미조사: 교대가 그 말을 `battleChessInsts`에서 빼는지 안 읽음 — 묶음 sim-Z]. 비즈왁스의 소환 칸은 전부터
+  모든 아군의 처음 칸을 따로 거절한다(자기 카드도 — 그대로 둠). golden: `roster` 047, `bonds` bond-raidShip-high, `matches` coop2-NORMAL-3·coop2-HARD-4·coop3-ABYSS-5·coop4-ABYSS-7·coop8-HARD-3·coop2-NORMAL-19-coverage-diy,
+  `standins` 01·05·06, `act3-roster` 009·011·014·023·033·035·038·054, `act3-matches` coop2-HARD-4 — 들여다본 것(roster 047·bond-raidShip-high·standin 01·05·act3 009·033·054·coop2-NORMAL-3·coop8-HARD-3)은
+  모두 기습 착지 칸이나 비나 빅토리아·시의 소환 칸이 다른 말의 처음 칸을 비켜 간 것. 테스트 `test/content/kits_t5.test.js` 「乌尔比安 S3: never lands on another card's board home…」(옛 코드에서 실패 확인).
 - 테스트 `test/sim/feedback3-ulpia-move.test.js` 「while he blocks: the 【移动】 still happens, where he stands…」·「no legal tile where the anchor fell nor one back from it…」, `test/content/kits_t5.test.js`
   「乌尔比安 S3 while he blocks…」·「lands one tile back from an occupied anchor tile, toward him…」(옛 코드에서 실패 확인). 이동 때: `test/sim/feedback3-ulpia-move.test.js` 「the unit the 【移动】 makes is born…」·
   「stunned after the throw, he still moves…」, `test/sim/skill-strike.test.js` 「乌尔比安 S3: the throw on the clip's OnAttack … the 【移动】 as it stops」(옛 코드에서 실패 확인).

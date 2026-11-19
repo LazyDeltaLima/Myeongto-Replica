@@ -1288,6 +1288,27 @@ test('乌尔比安 S3: lands one tile back from an occupied anchor tile, toward 
   clean(h); clean(g);
 });
 
+test('乌尔比安 S3: never lands on another card\'s board home, its operator away from it', () => {
+  // official client AutoChessGameMode._CheckBuildableInBattle: a field tile that is the board position of another card's
+  // CHAR piece is refused, wherever that piece stands now; its own card passes (docs/rules/sim.md 「울피아누스 S3의
+  // 【이동】은 반드시 일어난다」 다른 말의 처음 칸)
+  const h = makeBattle({
+    defs: { enemies: { enemy_dummy: dummy() }, chess: { t_away: ally('t_away') } },
+    units: [{ chessId: 'chess_char_5_05_a', row: 9, col: 3 }, { chessId: 't_away', row: 9, col: 6 }],
+    enemies: [{ key: 'enemy_dummy', pos: [9, 6] }], autoFinish: false, timeLimit: 60,
+  });
+  const u = h.unit('chess_char_5_05_a'), t = h.unit('t_away');
+  h.step();
+  assert.ok(h.b.relocate(t, 10, 6), 'the other piece stands off its home');
+  assert.ok(h.b.isReservedTile(9, 6), 'its home stays refused');
+  assert.ok(!h.b.isReservedTile(9, 6, null, t), '... but not to its own card');
+  u.skill.gainSp(1000);
+  assert.ok(h.runUntil(() => u.skill.active, 2));
+  h.castDone(u);
+  assert.deepEqual([u.tileR, u.tileC], [9, 5], 'anchor on the other card\'s home → the tile back from it');
+  clean(h);
+});
+
 test('引星棘刺 S2: with no enemy in range the unit is thrown at the farthest tile straight ahead (PRTS)', () => {
   const h = makeBattle({ units: [{ chessId: 'chess_char_5_15_a', row: 10, col: 3 }], autoFinish: false, timeLimit: 30 });
   const u = h.unit('chess_char_5_15_a');

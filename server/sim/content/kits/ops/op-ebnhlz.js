@@ -103,11 +103,11 @@ function held(battle, unit) {
 }
 
 /** A tile 荒芜回响 may place a 旧日残影 on: inside the field, deployable (全部位) and free (Battle.isReservedTile). */
-const remnantTileOk = (battle, r, c) => battle.grid.inRect(r, c) && battle.grid.canStand(r, c, { ranged: true }) && !battle.isReservedTile(r, c);
+const remnantTileOk = (battle, r, c, src) => battle.grid.inRect(r, c) && battle.grid.canStand(r, c, { ranged: true }) && !battle.isReservedTile(r, c, null, src);
 
 /** Whether `unit`'s attack range holds one tile 荒芜回响 may use (its cast condition; no rng, unlike remnantTiles). */
 function hasRemnantTile(battle, unit) {
-  for (const k of unit.rangeKeys || []) if (remnantTileOk(battle, Math.floor(k / COLS), k % COLS)) return true;
+  for (const k of unit.rangeKeys || []) if (remnantTileOk(battle, Math.floor(k / COLS), k % COLS, unit)) return true;
   return false;
 }
 
@@ -116,7 +116,7 @@ function remnantTiles(battle, unit, need) {
   const tiles = [];
   for (const k of unit.rangeKeys || []) {
     const r = Math.floor(k / COLS), c = k % COLS;
-    if (remnantTileOk(battle, r, c)) tiles.push([r, c]);
+    if (remnantTileOk(battle, r, c, unit)) tiles.push([r, c]);
   }
   return betterEnemyTiles(battle, unit, tiles, need, GROUND);
 }
