@@ -433,8 +433,9 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
   const isMe = seat.playerId === myId;
   const isHostSeat = seat.playerId === room.hostId;
   const offline = seat.connected === false && !seat.isBot;
-  // The host never needs to toggle ready: starting the match readies them (server rule).
-  const state = offline ? 'offline' : seat.ready || seat.isBot ? 'ready' : isHostSeat ? 'host' : 'waiting';
+  // The host never needs to toggle ready: starting the match readies them (server rule). The host's card shows 创建者
+  // even with a ready flag set (a guest who readied, then took over the host role).
+  const state = offline ? 'offline' : isHostSeat ? 'host' : seat.ready || seat.isBot ? 'ready' : 'waiting';
   const lit = state === 'ready' || state === 'host';
   const pic = seat.isBot ? null : seatPicture(pics, badArt);
   const art = pic ? pic.src : null;

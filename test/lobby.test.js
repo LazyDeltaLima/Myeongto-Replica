@@ -981,10 +981,17 @@ describe('websocket lobby', () => {
     const changed = await a.waitFor('room.state', (s) => s.difficulty === 'ABYSS');
     assert.equal(seatOf(changed, a.id).ready, false, 'difficulty change resets ready');
 
+    // a ready guest who takes over the host role sheds the ready (the host never readies; the room screen showed
+    // the seat as 已就绪 instead of 创建者 and the room looked hostless), the other guest keeps theirs
+    await expectOk(a, { t: 'room.ready', ready: true });
+    await expectOk(b, { t: 'room.ready', ready: true });
+    await host.waitFor('room.state', (s) => seatOf(s, a.id)?.ready && seatOf(s, b.id)?.ready);
     await expectOk(host, { t: 'room.leave' });
     const migrated = await a.waitFor('room.state', (s) => s.hostId !== host.id);
     assert.equal(migrated.hostId, a.id, 'lowest remaining seat becomes host');
     assert.equal(migrated.seats[0], null);
+    assert.equal(seatOf(migrated, a.id).ready, false, 'the new host does not keep the ready of a guest (server/lobby.js migrateHost)');
+    assert.equal(seatOf(migrated, b.id).ready, true, 'the other guests stay ready');
     await b.waitFor('room.state', (s) => s.hostId === a.id);
 
     // new joiner takes the lowest free seat (0); host stays with A

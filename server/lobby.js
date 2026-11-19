@@ -44,7 +44,8 @@
 //     (it stays the player's identity: net.js sessions belong to players, not seats). ▸ No ban: the player may join
 //     again with the code.
 //   * Host migration: when the host leaves (or is removed), the lowest-seat remaining human (connected
-//     ones first) becomes host. A room without humans is disposed (bots never keep a room alive).
+//     ones first) becomes host; in LOBBY a guest's ready does not pass into the host role (migrateHost). A room
+//     without humans is disposed (bots never keep a room alive).
 //   * Disconnect in LOBBY: the seat shows connected=false and is freed after `lobbyGraceMs` (60 s); a
 //     session that comes back after that gets `room.closed {reason:'timeout'}`.
 //     Disconnect in a match: the seat is kept and match.onDisconnect(playerId) is called.
@@ -1600,13 +1601,20 @@ export class Lobby {
     return true;
   }
 
-  /** Lowest-seat connected human becomes host (else lowest-seat human, else null). */
+  /**
+   * Lowest-seat connected human becomes host (else lowest-seat human, else null). In LOBBY the new host's ready is
+   * cleared: the host never readies (start counts as the host's ready), and a guest's ready kept into the host role
+   * showed the seat as 已就绪 instead of 创建者 — the room looked hostless — with no ready button left to undo it.
+   */
   migrateHost(room) {
     const humans = room.activeHumans();
     const pick = humans.find((s) => s.connected) || humans[0] || null;
     const prev = room.hostId;
     room.hostId = pick ? pick.playerId : null;
-    if (pick && prev !== pick.playerId) this.log.info(`[lobby] ${room.code} host → ${pick.name}`);
+    if (pick && prev !== pick.playerId) {
+      if (!room.match) pick.ready = false;
+      this.log.info(`[lobby] ${room.code} host → ${pick.name}`);
+    }
   }
 
   startGrace(room, seat, ms = this.opts.lobbyGraceMs) {
