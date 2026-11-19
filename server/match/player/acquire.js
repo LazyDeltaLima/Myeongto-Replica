@@ -85,9 +85,15 @@ export class PlayerAcquire {
     for (const l of locs) { if (consumed.length >= need) break; consumed.push(l); }
     if (consumed.length < need) return null;
     let copies = 0;
+    let raised = 0;
     const items = [];
     for (const l of consumed) {
       copies += l.piece.poolCopies || 0;
+      // a sell price a 特质 raised (规程's 海沫 garrison_27, piece.sellPrice) carries over: the copies' raises add up on
+      // the elite's own price — a CN player's report (2026-11-19): it is not reset on 精锐化
+      // [ASSUMED·화면: the summing is the report's guess; the raises (not the whole prices) are added, capped as the
+      // elite's own 特质 caps it (_raisedSellPrice) — maintainer decision 2026-11-19]
+      if (Number.isFinite(l.piece.sellPrice)) raised += Math.max(0, l.piece.sellPrice - this.gd.sellPrice(l.piece.id));
       if (l.area !== 'new') this._detach(l);
       this.removeTokensOf(l.piece.uid);
       for (const it of l.piece.items || []) items.push(it);
@@ -99,6 +105,7 @@ export class PlayerAcquire {
     // two; a copy granted while the stock was short)
     copies += this.poolOf(baseId).take(baseId, Math.max(0, this.gd.goldenCopies - copies), { overdraw: true });
     const elite = this.newPiece('chess', goldenId, { poolCopies: copies });
+    if (raised > 0) elite.sellPrice = this._raisedSellPrice(goldenId, raised);
     const deployed = consumed.filter((l) => l.key && !this.board.has(l.key)).map((l) => ({ key: l.key, dir: pieceDir(l.piece) }));
     const toTile = (t) => { elite.dir = parseDir(t.dir) || 'RIGHT'; this.board.set(t.key, elite); return 'board'; };
     const tile = mergeTile(deployed, (r, c) => this._legal(elite, r, c));
@@ -119,6 +126,23 @@ export class PlayerAcquire {
     this.m.dispatch(this, 'onMerge', { kind: 'chess', piece: elite, baseId, consumed: consumed.map((l) => l.piece.uid), area: where });
     onMerge(this.m, this, { kind: 'chess' }); // AI bot says "害怕" on its 3rd chess merge of a round (enabled by default; SP_BOT_EMOTES=0 silences it)
     return elite;
+  }
+
+  /**
+   * The elite's sell price with the copies' summed raises: its chess's price + `raised`, at most the price + `max` of a
+   * SERVER_SELF_SELL_PRICE_DELTA 特质 it has (规程's 海沫 精锐 「至多为8」: 1 + 7) — the same cap the 特质 raises to.
+   * @param {string} goldenId
+   * @param {number} raised
+   */
+  _raisedSellPrice(goldenId, raised) {
+    const base = this.gd.sellPrice(goldenId);
+    const rec = this.gd.chess(goldenId);
+    let cap = Infinity;
+    for (const gid of (rec && Array.isArray(rec.garrisonIds) ? rec.garrisonIds : [])) {
+      const g = this.gd.garrison(gid);
+      if (g && g.effectKey === 'SERVER_SELF_SELL_PRICE_DELTA' && Number.isFinite(g.bb?.max)) cap = Math.min(cap, base + g.bb.max);
+    }
+    return Math.min(cap, base + raised);
   }
 
   /** Promote a normal chess piece to its elite in place (升华, 博士投影). Takes the elite's extra pool copies, past the stock. */

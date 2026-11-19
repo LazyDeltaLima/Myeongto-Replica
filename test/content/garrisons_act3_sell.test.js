@@ -49,6 +49,42 @@ test('海沫 garrison_27: each 休整期结束 raises its own sell price by 1 (�
   }
 });
 
+test('海沫 garrison_27: 精锐化 keeps the copies\' raised sell prices, added up on the elite (CN player report)', () => {
+  const { m, ps } = setup();
+  const a = place(m, ps, 'chess_char_3_04_a');
+  const b = place(m, ps, 'chess_char_3_04_a');
+  for (let i = 0; i < 3; i++) m.dispatch(ps, 'onPrepEnd', { round: m.round });
+  assert.deepEqual([ps.sellPriceOf(a), ps.sellPriceOf(b)], [4, 4]);
+  const elite = ps.acquireChess('chess_char_3_04_a', { source: 'buy' });
+  assert.ok(elite && elite.id === 'chess_char_3_04_b', 'merged');
+  assert.equal(ps.sellPriceOf(elite), 1 + 3 + 3 + 0, 'the elite\'s 1 plus each copy\'s raise (the bought copy has none)');
+  assert.equal(viewOf(ps, elite.uid).sellPrice, 7, 'the view carries it');
+  m.dispatch(ps, 'onPrepEnd', { round: m.round });
+  assert.equal(ps.sellPriceOf(elite), 8, 'its own 特质 keeps raising up to 8');
+  m.dispatch(ps, 'onPrepEnd', { round: m.round });
+  assert.equal(ps.sellPriceOf(elite), 8);
+  // copies never raised: the elite at its record's price
+  const { m: m2, ps: ps2 } = setup();
+  for (let i = 0; i < 3; i++) ps2.acquireChess('chess_char_3_04_a', { source: 'buy' });
+  const e2 = ps2.hand.find((x) => x && x.id === 'chess_char_3_04_b');
+  assert.ok(e2, 'merged');
+  assert.equal(ps2.sellPriceOf(e2), 1);
+  assert.equal(e2.sellPrice, undefined);
+  // three copies at 4: 1 + 3 + 3 + 3 = 10, capped at the elite's 8 (「至多为8」, maintainer decision 2026-11-19)
+  const { m: m3, ps: ps3 } = setup();
+  const three = [0, 1, 2].map(() => place(m3, ps3, 'chess_char_3_04_a'));
+  for (let i = 0; i < 3; i++) m3.dispatch(ps3, 'onPrepEnd', { round: m3.round });
+  assert.deepEqual(three.map((p) => ps3.sellPriceOf(p)), [4, 4, 4]);
+  const e3 = ps3._mergeChess('chess_char_3_04_a', null);
+  ps3.recompute(); // as its caller does (acquireChess)
+  assert.ok(e3 && e3.id === 'chess_char_3_04_b', 'merged');
+  assert.equal(ps3.sellPriceOf(e3), 8);
+  const f0 = ps.funds;
+  assert.equal(ps.sell(elite.uid).ok, true);
+  assert.equal(ps.funds - f0, 8, 'selling pays it');
+  noViolations(m); noViolations(m2); noViolations(m3);
+});
+
 test('温蒂 garrison_30: sells for 3, its elite for 6 — a merged elite too', () => {
   const { m, ps } = setup();
   assert.equal(m.gd.sellPrice('chess_char_4_05_a'), GB('garrison_30_a').price);

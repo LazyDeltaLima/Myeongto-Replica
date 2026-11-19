@@ -90,7 +90,7 @@ H.SERVER_SELL_CHESS_GAIN_SPECIAL_GOODS = {
 // 规程's 海沫 garrison_27 「<休整期结束时>自身售出价格+1（自身售出价格至多为4）」 (精锐 +2, 至多 8): the piece's own price
 // (PlayerState.sellPriceOf) grows by `count` up to its chess's price + `max` — every chess of 规程 sells for 1: 1 + 3 = 4,
 // 1 + 7 = 8. On the board only (conditionkey character_target_inboard: the dispatcher skips the hand). An elite merged
-// from two copies is a new piece at its chess's price [ASSUMED·화면: whether the copies' raised price carries over].
+// from the copies keeps their raises, added up on its own price (PlayerState._mergeChess; a CN player's report).
 H.SERVER_SELF_SELL_PRICE_DELTA = {
   run(ctx) {
     const { bb, piece } = ctx.source;
