@@ -222,6 +222,22 @@ print(json.dumps([
     assert.deepEqual(out[4], { x: -118.4, y: 56, w: 2048, h: 2048 }, 'half a pair: the RectTransform');
   });
 
+  // the anchored position (and the stored ILLUST_OFFSET that overwrites it) places the RectTransform's PIVOT, not its
+  // centre: 玛恩纳's E2 art (illust_char_4064_mlynar_2) has its pivot at (0.389, 0.271), and reading the position as the
+  // centre put him at the card's left edge with his 剑魂's arm filling the card
+  test('illust_frame / illust_rect: the frame is the picture\'s centre, the position placed about the pivot', () => {
+    const pivot = { x: 0.38905462622642517, y: 0.27054712176322937 };
+    const rt = { m_AnchoredPosition: { x: -169.74, y: -291 }, m_SizeDelta: { x: 1475.9, y: 1475.9 }, m_Pivot: pivot };
+    const store = { _values: [{ key: 'ILLUST_OFFSET', value: '-100,-200,0' }, { key: 'ILLUST_SIZE', value: '1000,1000,0' }] };
+    const r = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Math.round(v * 100) / 100]));
+    const [plain, stored, rect] = cardPy(`print(json.dumps([c.illust_frame(${JSON.stringify([rt])}), c.illust_frame(${JSON.stringify([rt, store])}),
+  c.illust_rect(${JSON.stringify([store, rt])})]))`);
+    const why = 'chararts_extract.py must place the art about the RectTransform pivot (docs/rules/ui.md 「정비 화면 HUD」 배치 근거)';
+    assert.deepEqual(r(plain), { x: -6, y: 47.65, w: 1475.9, h: 1475.9 }, why);
+    assert.deepEqual(r(stored), { x: 10.95, y: 29.45, w: 1000, h: 1000 }, `${why}: the stored pair keeps the prefab's pivot`);
+    assert.deepEqual(r(rect), r(plain), `${why}: the seat card's frame too`);
+  });
+
   // the waiting room's seat card draws the 立绘 by the prefab's RectTransform, not by the stored pair (measured on the
   // official settlement cards: two skin arts land at one scale and one centre by their RectTransforms only), and the
   // art written is card_crop's crop: its rect must place the same pixels the crop's frame does

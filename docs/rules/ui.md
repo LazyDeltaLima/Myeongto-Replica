@@ -252,7 +252,11 @@ UI를 만들거나 고치는 사람이 모두 같은 기준으로 만들게 하�
     그 틀로 그린다(`--fx/--fy/--fw/--fh`). 대부분의 2정예화 그림과 스킨 그림에 저장된 쌍이 있고 RectTransform과 다르다(스노우헌터 2정예화: 저장 1770.9 @
     (−112.3, 59.3), RectTransform 2048 @ (−118.4, 56)). 2026-11-17 첫 구현(97107d52b)은 RectTransform만 읽고 카드 단위를 스노우헌터 한 장에 맞춰서
     스노우헌터만 맞고 다른 오퍼레이터·스킨은 틀렸다(같은 날 고침 — 수르트 스킨이 공식보다 10% 작게, 해럴드 스킨이 7% 크게 나옴).
-    재발 방지: `test/local-extract.test.js` 「illust_frame」, `test/local-extract-skins.test.js` 「illust_picture」.
+    위치 값(`m_AnchoredPosition`이든 그것을 덮어쓰는 `ILLUST_OFFSET`이든)은 그림 중심이 아니라 RectTransform 기준점(`m_Pivot`)의 자리다 — 틀의 중심 =
+    위치 + (0.5 − 기준점) × 크기. 기본 그림 206장 중 무에나(`char_4064_mlynar`) 2정예화 하나만 기준점이 (0.389, 0.271)이고(스킨 그림 533장은 모두 가운데,
+    2026-11-20 전수), 기준점을 무시하던 동안 그 그림이 왼쪽으로 약 165·아래로 약 340단위 밀려 카드에 무에나 대신 뒤의 갑옷 팔과 검만 보였다(관리자 제보
+    2026-11-20).
+    재발 방지: `test/local-extract.test.js` 「illust_frame」·「the frame is the picture's centre」, `test/local-extract-skins.test.js` 「illust_picture」.
   - 2정예화 그림을 클라 2정예화 틀 그대로(2026-11-17, 관리자 결정 — 시안 (가)): 카드 그림은 2정예화 그림 `<charId>_2`를 그 그림의 틀 `illust_<charId>_2`
     그대로 그린다. 2정예화 그림·틀이 없을 때만(2정예화가 없는 오퍼레이터·토큰) `<charId>_1`과 `illust_<charId>_1`. 근거는 관리자가 준 공식 카드
     스크린샷 둘(스노우헌터 `char_4211_snhunt` 2정예화, 1920×1080, 전투 중·정비): 클라 텍스처를 배율별로 맞추면 얼굴 일치 0.96(1정예화 그림은 0.37), 텍스처

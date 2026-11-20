@@ -131,36 +131,54 @@ def _vec(text):
     return v if len(v) >= 2 else None
 
 
-def illust_frame(components):
-    """The frame the battle's unit card draws an `illust_*` prefab by (UICharacterInfoPanel._LoadIllust), from the read
-    typetrees of its root's components: the StoreValueComponent's ILLUST_OFFSET (the centre's offset, y up) and
-    ILLUST_SIZE (the drawn size) when it has both, else the RectTransform (`m_AnchoredPosition`, `m_SizeDelta`); None
-    without either. Most E2 arts and skin arts have the stored pair, which differs from the RectTransform (雪猎's E2:
-    stored 1770.9 @ (−112.3, 59.3), RectTransform 2048 @ (−118.4, 56))."""
-    rect = stored = None
+def _centred(pos, size, pivot):
+    """The frame of a RectTransform's picture — its CENTRE's offset from the anchor, y up, and its size — from the
+    position the RectTransform places (`m_AnchoredPosition`, or the stored ILLUST_OFFSET that overwrites it: where the
+    PIVOT sits), its size and its pivot (`m_Pivot`, 0..1 from the bottom left). Most illust prefabs have the pivot in the
+    middle, so the two agree; 玛恩纳's E2 art has it at (0.389, 0.271), and reading the position as the centre put the art
+    ~165 units left and ~340 down — the card showed his 剑魂's arm, not him."""
+    px, py = (pivot['x'], pivot['y']) if pivot else (.5, .5)
+    return {'x': pos[0] + (.5 - px) * size[0], 'y': pos[1] + (.5 - py) * size[1], 'w': size[0], 'h': size[1]}
+
+
+def _rect_parts(components):
+    """(position, size, pivot) of the RectTransform among a prefab root's read components, or None."""
     for t in components:
         if 'm_AnchoredPosition' in t and 'm_SizeDelta' in t:
             p, s = t['m_AnchoredPosition'], t['m_SizeDelta']
-            rect = {'x': p['x'], 'y': p['y'], 'w': s['x'], 'h': s['y']}
-        elif isinstance(t.get('_values'), list):
+            return (p['x'], p['y']), (s['x'], s['y']), t.get('m_Pivot')
+    return None
+
+
+def illust_frame(components):
+    """The frame the battle's unit card draws an `illust_*` prefab by (UICharacterInfoPanel._LoadIllust), from the read
+    typetrees of its root's components: the StoreValueComponent's ILLUST_OFFSET (the anchored position, y up) and
+    ILLUST_SIZE (the drawn size) when it has both, else the RectTransform (`m_AnchoredPosition`, `m_SizeDelta`); either
+    placed about the RectTransform's pivot, which the card keeps (_centred); None without either. Most E2 arts and skin
+    arts have the stored pair, which differs from the RectTransform (雪猎's E2: stored 1770.9 @ (−112.3, 59.3),
+    RectTransform 2048 @ (−118.4, 56))."""
+    rect = _rect_parts(components)
+    stored = None
+    for t in components:
+        if isinstance(t.get('_values'), list):
             vals = {v.get('key'): _vec(v.get('value')) for v in t['_values'] if isinstance(v, dict)}
             off, size = vals.get(ILLUST_OFFSET), vals.get(ILLUST_SIZE)
             if off and size:
-                stored = {'x': off[0], 'y': off[1], 'w': size[0], 'h': size[1]}
-    return stored or rect
+                stored = (off[0], off[1]), (size[0], size[1])
+    pivot = rect[2] if rect else None
+    if stored:
+        return _centred(*stored, pivot)
+    return _centred(*rect) if rect else None
 
 
 def illust_rect(components):
-    """The `illust_*` prefab's own RectTransform (`m_AnchoredPosition`, `m_SizeDelta`: the centre's offset, y up, and
-    the size), the frame a player card draws the art by — not the battle's unit card, which prefers the stored pair
-    (illust_frame). Measured on the maintainer's 1920×1080 screenshot of the official settlement cards (two skin arts
-    whose stored pairs and RectTransforms differ): the RectTransform puts both at one scale and one centre, the stored
-    pair does not (docs/rules/ui.md 「명함 오퍼레이터」). None without one."""
-    for t in components:
-        if 'm_AnchoredPosition' in t and 'm_SizeDelta' in t:
-            p, s = t['m_AnchoredPosition'], t['m_SizeDelta']
-            return {'x': p['x'], 'y': p['y'], 'w': s['x'], 'h': s['y']}
-    return None
+    """The `illust_*` prefab's own RectTransform (`m_AnchoredPosition`, `m_SizeDelta` about its `m_Pivot`: the centre's
+    offset, y up, and the size, _centred), the frame a player card draws the art by — not the battle's unit card, which
+    prefers the stored pair (illust_frame). Measured on the maintainer's 1920×1080 screenshot of the official settlement
+    cards (two skin arts whose stored pairs and RectTransforms differ): the RectTransform puts both at one scale and one
+    centre, the stored pair does not (docs/rules/ui.md 「명함 오퍼레이터」). None without one."""
+    rect = _rect_parts(components)
+    return _centred(*rect) if rect else None
 
 
 def part_in(part, frame, other):
