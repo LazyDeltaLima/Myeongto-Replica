@@ -61,7 +61,7 @@ import { ConsoleToggle } from '../ui/consoleToggle.js'; // local patch: 콘솔 �
 import { net } from '../net.js';
 import { useDocClass, useMediaQuery, SHORT_SCREEN_QUERY, FullscreenButton } from '../ui/device.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating, reservedRank, savePref, serverNow } from '../store.js';
-import { difficultyInfo, gradeInfo, gradeName, ProtocolSelect, ProtoRules, CustomBrief } from './lobby.js';
+import { difficultyInfo, gradeInfo, gradeName, ProtocolSelect, ProtoRules, CustomBrief, PublicSwitch } from './lobby.js';
 import { RoomChat } from '../ui/chat.js';
 import { ExitTile } from '../ui/matchChrome.js';
 import { audio } from '../audio.js';
@@ -619,26 +619,16 @@ function ModeBar({ room, rules, sizeOpt, info, editable, busy, onOpen }) {
 }
 
 /**
- * The 公开 switch (header, publicOption): the official matching range switch's pill (auto_chess_mode_choice_pop_view
- * btn_range_switch, track range_bg 237×50) as the project's `.rtrack` — the picked side a white pill with its icon and
- * name, the other side its grey icon alone. The host switches it (room.setPublic); anybody else sees it read-only.
+ * The 公开 switch (header, publicOption): screens/lobby.js PublicSwitch folded — the official matching range switch's pill
+ * (auto_chess_mode_choice_pop_view btn_range_switch, track range_bg 237×50) as the project's `.rtrack`, the picked side a
+ * white pill with its icon and name, the other side its grey icon alone. The host switches it (room.setPublic); anybody
+ * else sees it read-only.
  */
 function PublicToggle({ option, busy, onPick }) {
   if (!option) return null;
-  const side = (on, icon, label) => {
-    const active = option.on === on;
-    return html`<button type="button" role="radio" aria-checked=${active ? 'true' : 'false'} disabled=${!option.editable || !!busy}
-        class=${`dpick__opt rs-pub__opt${active ? ' is-active' : ''}`} title=${label} aria-label=${label}
-        onClick=${() => { if (option.editable && !active) onPick(on); }}>
-      <${Icon} name=${icon} />${active ? html`<span>${label}</span>` : null}
-    </button>`;
-  };
   const tip = option.on ? t('公开联合：显示在同盟匹配的列表中，条件相符的博士会通过匹配加入') : t('不公开：只有知道同盟密钥的博士可以加入');
-  return html`<${Tooltip} text=${option.editable ? tip : `${tip}\n${t('由创建者设置')}`}>
-    <span class=${`dpick rtrack rs-pub${option.editable ? '' : ' is-ro'}`} role="radiogroup" aria-label=${t('公开')} data-testid="room-public">
-      ${side(false, 'lock', t('不公开'))}${side(true, 'signal', t('公开'))}
-    </span>
-  <//>`;
+  return html`<${PublicSwitch} value=${option.on} onPick=${onPick} editable=${option.editable} busy=${busy} fold=${true}
+    tip=${option.editable ? tip : `${tip}\n${t('由创建者设置')}`} class=${`rtrack rs-pub${option.editable ? '' : ' is-ro'}`} data-testid="room-public" />`;
 }
 
 /**

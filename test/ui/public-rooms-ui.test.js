@@ -68,6 +68,7 @@ test('publicOption: a co-op room\'s state, the host switches it; the switch send
   const src = read('public/js/screens/room.js');
   assert.match(src, /net\.request\('room\.setPublic', \{ on \}\)/);
   assert.match(src, /data-testid="room-public"/);
+  assert.match(src, /<\$\{PublicSwitch\} [^>]*fold=\$\{true\}/, 'the waiting room\'s switch is the new room\'s PublicSwitch, folded (one part)');
   assert.doesNotMatch(src, /net\.request\('room\.queueRoom'|room\.matching|rs-fill/);
   const lobby = read('public/js/screens/lobby.js');
   assert.match(lobby, /const publicField = roomMode === 'coop' && pub \? \{ public: true \} : \{\};/);

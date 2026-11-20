@@ -714,16 +714,24 @@ export function SizeSwitch({ value, onPick, counts = null, disabled = false, cla
 }
 
 /**
- * 不公开 | 公开 of a new room (ProtoRules' 公开 row; the waiting room's own switch is screens/room.js PublicToggle): a public
- * room is on 同盟匹配's list and matchmaking fills its seats (server/lobby.js 「공개방」).
+ * 不公开 | 公开: a public room is on 同盟匹配's list and matchmaking fills its seats (server/lobby.js 「공개방」). One part for
+ * a new room (ProtoRules' 公开 row, both names shown) and the waiting room's footer (screens/room.js PublicToggle, `fold`:
+ * the official matching range switch's pill — the other side folds its name away and shows its icon alone; the name
+ * stays in the DOM, so the track keeps its width and the picked pill grows across it as the other `.rtrack` switches do,
+ * css/screens/room.css). `editable` false or `busy`: the buttons disabled (a guest's read-only view).
  */
-export function PublicSwitch({ value, onPick, class: cls = '' }) {
-  const side = (on, icon, label) => html`<button type="button" role="radio" aria-checked=${value === on ? 'true' : 'false'} data-public=${on ? '1' : '0'}
-      class=${`dpick__opt rpick__opt${value === on ? ' is-active' : ''}`} onClick=${(e) => { e.stopPropagation(); if (value !== on) onPick(on); }}>
-    <${Icon} name=${icon} />${label}
-  </button>`;
-  return html`<${Tooltip} text=${t('公开的同盟显示在同盟匹配的列表中，条件相符的博士会通过匹配加入')}>
-    <div class=${`dpick rpick proto-pub ${cls}`.trim()} role="radiogroup" aria-label=${t('公开')}>
+export function PublicSwitch({ value, onPick, editable = true, busy = false, fold = false, tip = null, class: cls = '', 'data-testid': testid = null }) {
+  const side = (on, icon, label) => {
+    const active = value === on;
+    return html`<button type="button" role="radio" aria-checked=${active ? 'true' : 'false'} data-public=${on ? '1' : '0'}
+        class=${`dpick__opt rpick__opt pubsw__opt${active ? ' is-active' : ''}`} disabled=${!editable || !!busy}
+        title=${fold ? label : null} aria-label=${fold ? label : null}
+        onClick=${(e) => { e.stopPropagation(); if (editable && !active) onPick(on); }}>
+      <${Icon} name=${icon} /><span class="pubsw__name">${label}</span>
+    </button>`;
+  };
+  return html`<${Tooltip} text=${tip ?? t('公开的同盟显示在同盟匹配的列表中，条件相符的博士会通过匹配加入')}>
+    <div class=${`dpick rpick pubsw${fold ? ' is-fold' : ''} ${cls}`.trim()} role="radiogroup" aria-label=${t('公开')} data-testid=${testid}>
       ${side(false, 'lock', t('不公开'))}${side(true, 'signal', t('公开'))}
     </div>
   <//>`;

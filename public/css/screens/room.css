@@ -432,19 +432,28 @@
 .rs-mode:hover:not(:disabled) .rs-mode__seg { color: #e6e6e6; }
 .rs-mode:hover:not(:disabled) .rs-mode__diff { color: var(--rm-c); filter: brightness(1.12); }
 
-/* the 公开 switch (screens/room.js PublicToggle): the official matching range switch (auto_chess_mode_choice_pop_view
-   btn_range_switch: track range_bg 237×50, the picked side's pill ~178×40 with its icon 26 and name 19 in #242424, the other
-   side its icon 23 in #aaa, hotspot 274×71) in the mode bar's unit `--o` (1280×720 canvas) — 50 beside the bar's 57,
-   centred on it (maintainer decision 2026-11-20). On touch each side's hit area grows upwards only (the screen's edge is
-   under it; devices.css) */
+/* the 公开 switch (screens/room.js PublicToggle = screens/lobby.js PublicSwitch folded): the official matching range switch
+   (auto_chess_mode_choice_pop_view btn_range_switch: track range_bg 237×50, the picked side's pill ~178×40 with its icon
+   26 and name 19 in #242424, the other side its icon 23 in #aaa, hotspot 274×71) in the mode bar's unit `--o` (1280×720
+   canvas) — 50 beside the bar's 57, centred on it (maintainer decision 2026-11-20). One width for both states: 178, the
+   private state's (the official track's 237 squeezes the mode bar's 难度 name at 1600×900); the picked side grows over
+   two thirds of it (the .rtrack flex-grow and its transition) and the other side's name folds to nothing (max-width /
+   opacity: it stays in the DOM, so neither the track nor the pill jumps). On touch each side's hit area grows upwards
+   only (the screen's edge is under it; devices.css) */
 .rs-foot__right { display: flex; align-items: center; justify-content: flex-end; gap: .14rem; }
 .rs-foot__right > .tt-anchor { display: flex; }
-.dpick.rtrack.rs-pub { --o: .012rem; --tap-w: 100%; --tap-top: 100%; --tap-ty: -100%; flex: none; box-sizing: border-box; height: calc(var(--o) * 50);
-  padding: calc(var(--o) * 5); font-size: calc(var(--o) * 19); }
-.rtrack.rs-pub .dpick__opt { flex: 0 0 auto; height: 100%; min-width: 0; gap: calc(var(--o) * 6); padding: 0 calc(var(--o) * 24); font-size: inherit; }
-.rtrack.rs-pub .dpick__opt:not(.is-active) { padding: 0 calc(var(--o) * 16); color: #aaa; }
-.rtrack.rs-pub .dpick__opt .icon { width: calc(var(--o) * 26); height: calc(var(--o) * 26); color: currentColor; opacity: 1; filter: none; }
+.dpick.rtrack.rs-pub { --o: .012rem; --tap-w: 100%; --tap-top: 100%; --tap-ty: -100%; flex: none; box-sizing: border-box;
+  width: calc(var(--o) * 178); height: calc(var(--o) * 50); padding: calc(var(--o) * 5); font-size: calc(var(--o) * 19); }
+.rtrack.rs-pub .dpick__opt { height: 100%; min-width: 0; gap: 0; padding: 0; font-size: inherit; }
+.rtrack.rs-pub .dpick__opt:not(.is-active) { color: #aaa; }
+/* both PublicSwitch tracks (this one and 选择模拟协议's 公开 row): the icons take their side's text colour, as the official
+   pill's (#242424 picked, #aaa not), not the pickers' amber */
+.rtrack.pubsw .dpick__opt .icon { color: currentColor; opacity: 1; filter: none; }
+.rtrack.rs-pub .dpick__opt .icon { width: calc(var(--o) * 26); height: calc(var(--o) * 26); }
 .rtrack.rs-pub .dpick__opt:not(.is-active) .icon { width: calc(var(--o) * 23); height: calc(var(--o) * 23); }
+.rtrack.rs-pub .pubsw__name { overflow: hidden; max-width: calc(var(--o) * 130); margin-left: calc(var(--o) * 6);
+  transition: max-width var(--t-med), margin-left var(--t-med), opacity var(--t-fast); }
+.rtrack.rs-pub .dpick__opt:not(.is-active) .pubsw__name { max-width: 0; margin-left: 0; opacity: 0; }
 .rs-pub.is-ro .dpick__opt { cursor: help; }
 .room-bar__pub .icon { color: var(--mint-400); }
 /* a public room's auto start count (自动开始): the seconds in tabular figures, so the line does not shift as they count */
