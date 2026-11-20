@@ -1613,6 +1613,19 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     내려찍기(`duration` − 1.033초, 시작 때 저지자 칸의 십자; 이전 `duration`), 검은 뿔의 루울 `skill` 충돌(`duration` − 0.9초; 이전 `duration`), 응집된 영혼의 잔해 `Laser`(0.2초 —
     키트가 같은 값을 따로 들고 있던 것), 가상적: 흑운 `KillOthers` 지연 포식(0.633초; 이전 0.5초 [가정이었음] — 스스로의 속박은 시작), '사미의 의지' `Lasso` 올가미(1초).
     총(숨은 핵심) [종말의 포교]는 기다리지 않아 그대로(시작).
+    **시작에 고르는 대상**(2026-11-20, 공식 클라에서 확인 — 프리팹의 능력 `_selectTargetTiming`·`_selectTargetSource`; 이전: 아래 키트는 효과 프레임에 대상을
+    다시 골랐다 [가정이었음]): `_selectTargetTiming` 0(AT_BEGINING)인 능력은 시전할 때(`AbilityStandard.CastToTarget` → `UpdateTargets`) 대상을 정하고, 주문은 그 가운데
+    아직 살아서 필드에 있는 것에만 간다(`DoCastOnTargets`: `ValidAndAlive`) — 그 사이 쓰러지거나 물러난 대상을 다른 유닛으로 바꾸지 않고, 사이에 범위로 들어온 유닛은 안 맞는다.
+    1·3(BEFORE_SPELL_START 등)만 주문 때 다시 고른다(이 모드 적 스킬에서는 데겐블레허 `CircleAttack`·`CircleAttack2`, 자로 `FearCage`, '즈자이' `ShieldBurst`, 가상적: 흑운
+    `FireWeapon`의 `Fire`, 가상적: 투구 `1`, '사미의 의지' `Doom`, 가상적: 고치 `Net`, 알리스테어 `Suicide` 등 — 그대로 주문 때). 키트는 `atStrike`를 함수로 주고 `fire`(시작)에서
+    고른다: W `C4`(모드 Default 하나·T1 셋), 함락의 제사장 `ChainBuff`(첫 적 — 다음 도약은 전처럼 닿을 때), 쇠퇴한 기사 폭발 화살(셋), 길을 잃은 거대 석상 `StunAttack`(입력 대상,
+    `_selectTargetSource` 2), 래트킹 【唱沙】·【沙狱】(입력 점 `_selectTargetSource` 3 — 대상이 사라졌으면 시작 때 그 자리, `_emitToInputPosWhenTargetIsInvalid`),
+    '즈자이' 십자 공격(가장 가까운 하나, 두 번째 형태는 가장 먼 하나도 — 사라졌으면 시작 때 그 칸), '산크타의 긍지' 祈祷邀约(전장 전체), 루시안·불길한 환영 광역, 가상적: 지느러미
+    `Discharge`, '사미의 의지' `Lasso`, 가상적: 기계 `SommonSquad`(`atSpell`). 이미 시작에 잡던 것: 가상적: 흑운 `KillOthers`, 강화 석궁 기습자, 고정밀 런디니움 방위군 자주포,
+    응집된 영혼의 잔해, 부패한 기사·검은 뿔의 루울(저지자). 대상이 없는 것(순간이동·자기 버프·방벽·소환): 그대로. [추정·미조사: 보스 다섯 — 살비엔토 주교 퀸투스
+    `Tidewater`·`Rockfall` 등, 알리스테어 [왕권 호령](`equip` 입력 대상·`equipA`), 가상적: 검·망치 던지기, 가상적: 고치 【비참한 비】, 가상적: 관·현(`atSpell`) — 은 아직 주문 때
+    고른다: 능력 타이밍은 0이지만 대상이 능력 자신의 선택인지 그 투사체·버프의 것인지 안 읽음]
+    재발 방지: `test/content/enemy-skill-strike.test.js` 「targets taken as the cast begins」·「the first enemy of the chain」.
     데이터: `build-data.mjs enemySkillCast`가 `wait` 0·`pre`(`_preDelay`, 채널도)와 채널 클립의 `chanBegin`·`chanLoop`·`chanEnd`(`dur`·`hit`)를 싣는다(`attack_timing.py cast_fields`가
     채널 능력의 `_waitForAttackEvent`·`_preDelay`를 읽음). 재발 방지:
     `test/content/enemy-skill-strike.test.js`(두 시즌 공격 차례 스킬 전부 — 프레임이 0보다 늦은데 `atStrike`가 아니면 예외 목록의 이유가 있어야 함).

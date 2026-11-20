@@ -2367,7 +2367,7 @@ test(`${nm('enemy_1504_cqbw')}: C4 blasts (ATK×${skb('enemy_1504_cqbw', 'C4').b
   const e = put(h, 'enemy_1504_cqbw', [10, 7]);
   e.profile.noAttack = true;
   const s = skb('enemy_1504_cqbw', 'C4');
-  h.run(s.initCooldown + s.proj.life - 0.3);
+  h.run(s.initCooldown + strikeOf(e, 'C4') + s.proj.life - 0.3);   // (the charge goes on at the ability's spell, `_preDelay` in)
   assert.equal(h.unit('t_wall').stats.taken, 0, 'not before the charge ends');
   h.run(0.6);
   approx(h.unit('t_wall').stats.taken, e.s.atk * s.bb.atk_scale);
@@ -2471,12 +2471,12 @@ test(`${nm('enemy_1509_mousek')}: 【唱沙】 ${skb('enemy_1509_mousek', 'Drift
   const e = put(h, 'enemy_1509_mousek', [9, 9]);
   e.profile.noAttack = true;
   const ds = skb('enemy_1509_mousek', 'DriftSand'), ss = skb('enemy_1509_mousek', 'SandStorm');
-  h.run(ds.initCooldown + 0.1);
+  h.run(ds.initCooldown + strikeOf(e, 'DriftSand') + 0.1);   // (at the ability's spell: the clip's attack event)
   approx(h.unit('t_wall').stats.taken, ds.bb.damage, 1e-6, 'target');
   approx(h.unit('t_wall2').stats.taken, ds.bb.damage, 1e-6, 'cross neighbour');
   approx(h.unit('t_wall4').stats.taken, ds.bb.damage, 1e-6, 'cross neighbour');
   assert.equal(h.unit('t_wall3').stats.taken, 0);
-  h.run(ss.initCooldown - h.b.time + 1.05);
+  h.run(ss.initCooldown - h.b.time + strikeOf(e, 'SandStorm') + 1.05);
   const w3 = h.unit('t_wall3');
   approx(w3.s.atk, 100 * (1 + ss.bb.atk));
   approx(w3.stats.taken, ss.bb.damage, 1e-6);
@@ -2703,7 +2703,7 @@ test(`${nm('enemy_1513_dekght_2')}: 爆炸箭 — 3 targets, ${skb('enemy_1513_d
   const e = put(h, 'enemy_1513_dekght_2', [10, 8]);
   e.profile.noAttack = true;
   const s = skb('enemy_1513_dekght_2', 'TripleAttack');
-  h.run(s.initCooldown + 0.1);
+  h.run(s.initCooldown + strikeOf(e, 'TripleAttack') + 0.1);   // (the arrows leave at the ability's spell)
   // the arrows fly the official projectile (projectile_enemy_dekght_s, 10 tiles/s): the blast marks come as they land
   assert.equal(h.eventsOf('fx').filter((f) => f[1] === 'enemyShot' && f[4].key === s.proj.key).length, 3, 'three arrows');
   h.run(0.2);
@@ -2925,14 +2925,14 @@ test(`${nm('enemy_1517_xi')}: 纬地经天 cross on the nearest unit; 破桎而�
   const e = put(h, 'enemy_1517_xi', [10, 8]);
   e.profile.noAttack = true;
   const cr = skb('enemy_1517_xi', 'CrossAttack'), sb = skb('enemy_1517_xi', 'ShieldBurst');
-  h.run(cr.initCooldown + 0.1);
+  h.run(cr.initCooldown + strikeOf(e, 'CrossAttack') + 0.1);   // (the bolt leaves at the ability's spell)
   approx(h.unit('t_wall').stats.taken, e.s.atk * cr.bb.atk_scale, 1e-6, 'nearest');
   approx(h.unit('t_wall2').stats.taken, e.s.atk * cr.bb.atk_scale, 1e-6, 'same column, 2 rows away: inside the cross');
   assert.equal(h.unit('t_wall3').stats.taken, 0, 'outside the cross');
   h.run(sb.initCooldown - h.b.time + 0.1);
   approx(e.s.shield, 3 * sb.bb.dynamic, 1e-6, 'three layers of the whole dynamic (client Buff.Reset copies; PRTS 7500)');
   const w0 = h.unit('t_wall').stats.taken;
-  h.run(sb.bb.duration);
+  h.run(sb.bb.duration + strikeOf(e, 'CrossAttack'));
   assert.ok(h.eventsOf('fx').some((f) => f[1] === 'explode' && f[4].kind === 'breakFree'));
   approx(h.unit('t_wall').stats.taken - w0, e.s.atk * (sb.bb.atk_scale + cr.bb.atk_scale), 1e-6, 'barrier held ⇒ blast (+ the next cross)');
   // a broken barrier never blasts

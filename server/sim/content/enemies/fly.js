@@ -134,10 +134,14 @@ function kitSteal(ab) {
  *  flying one (the 炎佑 dragon; until 0.2.1 it was slowed too). */
 function kitRoar(ab) {
   const s = ab.sk.Roar;
-  return [selfFear(ab), skill(s, (b, e) => {
+  // its units are taken as the cast begins (the ability's `_selectTargetTiming` 0 — UpdateTargets in CastToTarget) and get
+  // the buff at the spell if still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20 taken at the spell
+  return [selfFear(ab), skill(s, (b, e, a) => { a.picks = fieldAllies(b, e).filter((u) => !u.isFlying); }, { sil: true, atStrike: (b, e, a) => {
+    const picks = a.picks || [];
+    a.picks = null;
     b.fx('telegraph', { x: e.x, y: e.y, r: 99, kind: 'roar', id: e.id });
-    for (const u of fieldAllies(b, e)) if (!u.isFlying) b.addBuff(u, { key: 'ab:roar', duration: s.bb.duration ?? 0, refresh: 'extend', mods: { aspd: s.bb.attack_speed ?? 0 }, visible: true });
-  }, { sil: true, atStrike: true })];
+    for (const u of picks) if (u.alive && u.deployed) b.addBuff(u, { key: 'ab:roar', duration: s.bb.duration ?? 0, refresh: 'extend', mods: { aspd: s.bb.attack_speed ?? 0 }, visible: true });
+  } })];
 }
 
 /**

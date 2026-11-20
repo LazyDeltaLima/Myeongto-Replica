@@ -202,3 +202,59 @@ test('萨卡兹王庭军精锐术师 死亡之眼: the line leaves after LineAtt
   const c = go(0.3);
   assert.ok(c.first === 0 && c.burst === 0, 'stunned in its pre-delay: no line, no burst');
 });
+
+// docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 효과가 나는 때 — 시작에 고르는 대상: an ability whose `_selectTargetTiming` is 0
+// (AT_BEGINING) takes its targets as it is cast (AbilityStandard.CastToTarget → UpdateTargets) and its spell goes to those still
+// alive on the field (DoCastOnTargets: ValidAndAlive) — a unit that falls before the frame is not swapped for another. Until
+// 2026-11-20 迷路的巨像, W, 陷落雪祀 and the others took their targets again at the frame.
+test('targets taken as the cast begins (`_selectTargetTiming` 0): one that falls before the spell is not replaced — 迷路的巨像, W', () => {
+  const go = (key, name, wallsAt, killFirst) => {
+    const h = arena(wallsAt.map(([row, col], i) => ({ chessId: `t_${i}`, row, col })));
+    h.step();
+    const e = h.spawn(key, { pos: [10, 8], routeIndex: 0, mods: { speedMul: 0 } });
+    const t0 = untilCast(h, e, name);
+    return { h, e, t0, kill: (u) => { if (killFirst) h.b.kill(u, null); } };
+  };
+  // 迷路的巨像 StunAttack (its input target): the nearer wall is its target; it falls 0.5 s in, before the 1.067 s boulder
+  for (const killFirst of [false, true]) {
+    const { h, t0, kill } = go('enemy_2003_rockman', 'StunAttack', [[10, 7], [10, 6]], killFirst);
+    const [a, b2] = [h.unit('t_0'), h.unit('t_1')];
+    h.run(t0 + 0.5 - h.b.time);
+    kill(a);
+    h.run(t0 + 2.5 - h.b.time);
+    if (!killFirst) assert.ok(a.s.flags.stun && !b2.s.flags.stun, '迷路的巨像: its target is stunned, the other not');
+    else assert.ok(!b2.s.flags.stun, '迷路的巨像: its target fell first — no boulder for the other wall');
+  }
+  // W C4 (mode Default: the nearest ground unit), `_preDelay` 0.6 s: its target falls 0.3 s in — no charge at all
+  for (const killFirst of [false, true]) {
+    const { h, e, t0, kill } = go('enemy_1504_cqbw', 'C4', [[10, 7], [10, 6]], killFirst);
+    const [a, b2] = [h.unit('t_0'), h.unit('t_1')];
+    let charges = 0;
+    const fx = h.b.fx.bind(h.b);
+    h.b.fx = (k, o) => { if (k === 'telegraph' && o.kind === 'c4') charges++; return fx(k, o); };
+    h.run(t0 + 0.3 - h.b.time);
+    kill(a);
+    h.run(t0 + 1 - h.b.time);
+    assert.equal(charges, killFirst ? 0 : 1, `W: ${killFirst ? 'its target fell first — no charge on the other' : 'one charge'}`);
+    assert.ok(b2.alive && e.alive);
+  }
+});
+
+test('陷落雪祀 【反自然馈赠】: the first enemy of the chain is taken as the cast begins — none when it is gone before the spell', () => {
+  const go = (killFirst) => {
+    const h = arena([{ chessId: 't_0', row: 2, col: 2 }]);
+    h.step();
+    const e = h.spawn('enemy_2050_smsha', { pos: [10, 8], routeIndex: 0, mods: { speedMul: 0 } });
+    const a = h.spawn('enemy_1001_bigbo', { pos: [10, 7], routeIndex: 0, mods: { speedMul: 0 } });
+    const o = h.spawn('enemy_1001_bigbo', { pos: [10, 6], routeIndex: 0, mods: { speedMul: 0 } });
+    const t0 = untilCast(h, e, 'ChainBuff');
+    h.run(t0 + 0.2 - h.b.time);
+    if (killFirst) h.b.kill(a, null);
+    h.run(t0 + 1.5 - h.b.time);
+    return { first: !!a.findBuff('ab:chainBuff'), other: !!o.findBuff('ab:chainBuff') };
+  };
+  const r = go(false);
+  assert.ok(r.first && r.other, 'uncut: the nearer enemy, then the chain jumps on');
+  const c = go(true);
+  assert.ok(!c.other, 'its first enemy gone before the spell: no chain');
+});

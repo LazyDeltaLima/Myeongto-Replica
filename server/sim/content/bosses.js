@@ -1638,11 +1638,20 @@ function lucienCore(ab, e) {
       // cast with a target in the radius (PRTS 技能 "需要目标"; 不祥幻影 "仅在半径2范围内存在我方单位时触发"): the trigger
       // selection (targetsNear — PRTS 选择器 "所有触发选择器通常不无视迷彩"): an airborne (起飞) operator evades a ground
       // leader (对地规避 — counting her spent the skill on nobody, §21.22), nor does an unblocking 隐匿 or 迷彩 one count
-      name: s.name, cd: s.cd, icd: s.icd, atStrike: true, cond: (b) => targetsNear(b, e, LUCIEN_AOE_RADIUS).length > 0,
-      fire(b, e2) {
-        // "该技能伤害无视迷彩": an area selection (areaAllies) — a 迷彩 operator is hit, an unblocking 隐匿 one not
+      name: s.name, cd: s.cd, icd: s.icd, cond: (b) => targetsNear(b, e, LUCIEN_AOE_RADIUS).length > 0,
+      // "该技能伤害无视迷彩": an area selection (areaAllies) — a 迷彩 operator is hit, an unblocking 隐匿 one not. Its units are
+      // taken as the cast begins (the MeleeAttack's `_selectTargetTiming` 0 — UpdateTargets in CastToTarget) and hit at the
+      // spell if still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20 taken again at the spell
+      fire(b, e2, a) { a.picks = areaAllies(b, e2, e2.x, e2.y, LUCIEN_AOE_RADIUS); },
+      atStrike(b, e2, a) {
+        const picks = a.picks || [];
+        a.picks = null;
         b.fx('explode', { x: e2.x, y: e2.y, r: LUCIEN_AOE_RADIUS, kind: 'crimsonAoe' });
-        for (const u of areaAllies(b, e2, e2.x, e2.y, LUCIEN_AOE_RADIUS)) { hurt(b, e2, u, e2.s.atk * (s.bb.atk_scale ?? 0), 'phys'); elem(b, e2, u, 'neural', e2.s.atk * (s.bb.ep_damage_ratio ?? 0)); }
+        for (const u of picks) {
+          if (!u.alive || !u.deployed) continue;
+          hurt(b, e2, u, e2.s.atk * (s.bb.atk_scale ?? 0), 'phys');
+          elem(b, e2, u, 'neural', e2.s.atk * (s.bb.ep_damage_ratio ?? 0));
+        }
       },
     },
   ];
@@ -1983,15 +1992,20 @@ function kitDeer(ab, e) {
       // no other skill meanwhile, and the 60 s cooldown restarts as the last lasso ends. Until 2026-11-14 the cast lasted 0
       // (the 冰凌 went on, the cooldown ran from its start) and the stun held its 10 s whatever happened. The lassos leave at
       // the ability's spell, Skill_01_Begin's attack event 1 s in (`atStrike`, content/enemies.js castStrikeAt; until
-      // 2026-11-20 as the cast began), none when the cast is cut before it.
-      name: lasso.name, cd: lasso.cd, icd: lasso.icd, atStrike: true, cond: (b) => allTargets(b, e).length > 0,
+      // 2026-11-20 as the cast began), none when the cast is cut before it. Their targets are taken as the cast begins (the
+      // RangedAttack's `_selectTargetTiming` 0 — UpdateTargets in CastToTarget) and the spell goes to those still alive on
+      // the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20 taken again at the spell.
+      name: lasso.name, cd: lasso.cd, icd: lasso.icd, cond: (b) => allTargets(b, e).length > 0,
       projAlive: () => P.lassos.size > 0,
       onCut: () => { for (const l of [...P.lassos]) l.end(); },
-      fire(b, e2) {
-        const n = P.low ? skN : (lasso.bb.max_target ?? 1);
+      fire(b, e2, a) { a.picks = fairOrder(b, e2, allTargets(b, e2), P).slice(0, P.low ? skN : (lasso.bb.max_target ?? 1)); },
+      atStrike(b, e2, a) {
+        const picks = a.picks || [];
+        a.picks = null;
         const dur = lasso.bb.projectile_life_time ?? 0;
         if (!(dur > 0)) return;
-        for (const t of fairOrder(b, e2, allTargets(b, e2), P).slice(0, n)) {
+        for (const t of picks) {
+          if (!t.alive || !t.deployed) continue;
           b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'naturalSurge', dur });
           b.applyStatus(t, 'stun', { duration: dur, source: e2 });
           const stun = t.buffs.find((u) => u.key === 'stun' && u.source === e2) ?? null;
@@ -2206,14 +2220,17 @@ function kitMachine(ab, e, b, tpl) {
       cond: (b2) => (!gSquad || gSquad.ready()) && ground(b2).some((u) => u.kind === 'op'),
       fire(b2, e2) { // 【洪流攻势】
         if (gSquad) gSquad.spend(e2);
+        // its operators are taken as the cast begins (SommonSquad's `_selectTargetTiming` 0 — UpdateTargets in CastToTarget) and
+        // the squads come at the spell round those still alive on the field (BuffToCastTargets on the cast's targets); until
+        // 2026-11-20 taken again at the spell
+        const ops = byPriority(e2, ground(b2).filter((u) => u.kind === 'op')).sort((p, q) => (q.s.blockCnt || 0) - (p.s.blockCnt || 0));
+        const first = ops[0];
+        const picks = first ? [first] : [];
+        const second = first && ops.find((u) => u.ownerId !== first.ownerId);
+        if (second) picks.push(second);
         atSpell(b2, e2, squad, () => {
-          const ops = byPriority(e2, ground(b2).filter((u) => u.kind === 'op')).sort((p, q) => (q.s.blockCnt || 0) - (p.s.blockCnt || 0));
-          const first = ops[0];
-          if (!first) return;
-          const picks = [first];
-          const second = ops.find((u) => u.ownerId !== first.ownerId);
-          if (second) picks.push(second);
           for (const t of picks.slice(0, squad.bb.batch_max_target ?? 2)) {
+            if (!t.alive || !t.deployed) continue;
             let n = 0;
             for (const [dr, dc] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
               if (n >= (squad.bb.cnt ?? 4)) break;
@@ -2640,13 +2657,19 @@ function kitEel(ab, e) {
     },
     dis && {
       // the handbook's SILENCE line; the prefab's Discharge skill, alone of the three, has no `_ignoreSilence`
-      name: dis.name, cd: dis.cd, icd: dis.icd, sil: true, atStrike: true,
+      name: dis.name, cd: dis.cd, icd: dis.icd, sil: true,
       cond: (b2, e2) => areaAllies(b2, e2, e2.x, e2.y, (dis.bb.range_radius ?? 0) + ALLY_COLLIDER_RADIUS).some((u) => !u.isFlying),
-      fire(b2, e2) { // 【离子环波】
+      // 【离子环波】 its units are taken as the cast begins (the MeleeAttack's `_selectTargetTiming` 0 — UpdateTargets in
+      // CastToTarget) and hit at the spell if still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20
+      // taken again at the spell
+      fire(b2, e2, a) { a.picks = areaAllies(b2, e2, e2.x, e2.y, (dis.bb.range_radius ?? 0) + ALLY_COLLIDER_RADIUS).filter((u) => !u.isFlying); },
+      atStrike(b2, e2, a) {
+        const picks = a.picks || [];
+        a.picks = null;
         const r = dis.bb.range_radius ?? 0;
         b2.fx('explode', { x: e2.x, y: e2.y, r, kind: 'aceelDischarge', id: e2.id });
-        for (const u of areaAllies(b2, e2, e2.x, e2.y, r + ALLY_COLLIDER_RADIUS)) {
-          if (u.isFlying) continue;
+        for (const u of picks) {
+          if (!u.alive || !u.deployed) continue;
           hurt(b2, e2, u, e2.s.atk * (dis.bb.atk_scale ?? 1), 'arts', { canDodge: true, tags: ['aceelDischarge'] });
           if (u.alive) elem(b2, e2, u, 'neural', e2.s.atk * (dis.bb.ep_damage_ratio ?? 0));
         }

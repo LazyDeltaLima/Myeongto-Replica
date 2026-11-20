@@ -1878,8 +1878,8 @@
         "enemy_9006_actoxi": [1,0,1,0,0]
       },
       "hooks": [1,92,5100,471,471,668,675,186,36,87,27,27,0,5519,11,33,62,50,1,38,0,0,23],
-      "events": {"atk":500,"deploy":30,"die":37,"dmg":655,"engage":11,"face":5,"fx":92,"leak":50,"skill":54,"spawn":75,"status":262,"swing":511},
-      "fx": {"camouflage":1,"crit":5,"dodge":23,"dp":4,"enemySkill":2,"parry":2,"phase":3,"pulse":15,"revive":2,"sentry":10,"shadowWeave":5,"shield":4,"shieldBreak":2,"summon":2,"telegraph":1,"volley":6,"wolfCount":1,"wolfShadowLost":3,"zone":1},
+      "events": {"atk":500,"deploy":30,"die":37,"dmg":655,"engage":11,"face":5,"fx":93,"leak":50,"skill":54,"spawn":75,"status":262,"swing":511},
+      "fx": {"camouflage":1,"crit":5,"dodge":23,"dp":4,"enemySkill":2,"parry":2,"phase":3,"pulse":15,"revive":2,"sentry":10,"shadowWeave":5,"shield":4,"shieldBreak":2,"summon":2,"telegraph":2,"volley":6,"wolfCount":1,"wolfShadowLost":3,"zone":1},
       "snaps": "435369b1 f0b1afb7 a02b4acb 39a694ff e93333fc 081f7729 b5424b48 2e4b3e7a 224dd339 311f920d c2ce5232 947e1c2b 29cb5623 fdeafcb0 66903c13 da9c390a d5350326"
     },
     "roster-029": {

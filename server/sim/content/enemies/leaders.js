@@ -143,7 +143,9 @@ function kitLeaderMisc(key, ab, e) {
       // T1's starts from its initial cooldown (content/enemies.js `pause`, 「모드가 꺼진 스킬의 쿨」; until 2026-11-20 one
       // cooldown ran on through the switch).
       // The charges go on at the ability's spell, `_preDelay` 0.6 s in (`_waitForAttackEvent` 0 — `atStrike`, content/enemies.js
-      // castStrikeAt; until 2026-11-20 as the cast began), none when the cast is cut before it.
+      // castStrikeAt; until 2026-11-20 as the cast began), none when the cast is cut before it. Their targets are taken as the
+      // cast begins (the RangedAttack's `_selectTargetTiming` 0: AbilityStandard.CastToTarget → UpdateTargets) and the spell
+      // goes to those still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20 taken again at the spell.
       const s = ab.sk.C4;
       const fuse = s?.proj?.life > 0 ? s.proj.life : 0;
       const r = s?.bb.range_radius ?? e.base.rangeRadius;
@@ -151,8 +153,11 @@ function kitLeaderMisc(key, ab, e) {
       const picks = (b, e2) => T1(e2) ? byPriority(e2, targetsNear(b, e2, r)).slice(0, C4_LOW_TARGETS)
         : byPriority(e2, targetsNear(b, e2, r).filter((u) => !u.isFlying)).slice(0, 1);
       const live = new Set();
-      const mk = (t1) => skill(s, (b, e2) => {
-        for (const t of picks(b, e2)) {
+      const mk = (t1) => skill(s, (b, e2, a) => { a.picks = picks(b, e2); }, { cond: (b, e2) => T1(e2) === t1 && picks(b, e2).length > 0, atStrike: (b, e2, a) => {
+        const l = a.picks || [];
+        a.picks = null;
+        for (const t of l) {
+          if (!t.alive || !t.deployed) continue;
           const ch = {};
           ch.blow = () => {
             if (!live.delete(ch)) return;
@@ -165,7 +170,7 @@ function kitLeaderMisc(key, ab, e) {
           ch.h = b.after(fuse, ch.blow);
           live.add(ch);
         }
-      }, { atStrike: true, cond: (b, e2) => T1(e2) === t1 && picks(b, e2).length > 0 });
+      } });
       const c4s = [mk(false), mk(true)].filter(Boolean);
       for (const [i, c4] of c4s.entries()) {
         c4.pause = (b, e2) => T1(e2) !== (i === 1);
@@ -184,19 +189,32 @@ function kitLeaderMisc(key, ab, e) {
         layers: ['mousek_shield[a]', 'mousek_shield[b]', 'mousek_shield[c]'], brokeForm: 'noShield', brokeMode: 'NoShield', blockFx: true });
       const ds = ab.sk.DriftSand, ss = ab.sk.SandStorm;
       return [bar, lowHpBuff(T(ab, 'enrage.hp_ratio') ?? 0.5, { dmgDealtMul: T(ab, 'enrage.damage_scale') ?? 1 }, 'ab:lowhp', 'buff:mousek_t'),
+        // Both RangedAttacks take their unit as the cast begins (`_selectTargetSource` 3 — round the input point, the unit their
+        // trigger took — at `_selectTargetTiming` 0) and shoot at the spell: at that unit while it is alive on the field, else at
+        // the point (`_emitToInputPosWhenTargetIsInvalid`). Until 2026-11-20 the unit was taken again at the spell.
         // 【唱沙】 the highest-max-HP unit on the field and everything in its cross: physical `damage`
-        skill(ds, (b, e2) => {
+        skill(ds, (b, e2, a) => {
           const t = allTargets(b, e2).sort((p, q) => q.s.maxHp - p.s.maxHp || aggroCmp(p, q))[0];
-          if (!t) return;
-          b.fx('telegraph', { x: t.tileC, y: t.tileR, r: DRIFT_REACH, kind: 'driftSand', tiles: 'plus', id: e2.id });
+          a.at = t ? { t, r: t.tileR, c: t.tileC } : null;
+        }, { cond: (b, e2) => allTargets(b, e2).length > 0, atStrike: (b, e2, a) => {
+          const at0 = a.at;
+          a.at = null;
+          if (!at0) return;
+          const at = at0.t.alive && at0.t.deployed ? { r: at0.t.tileR, c: at0.t.tileC } : at0;
+          b.fx('telegraph', { x: at.c, y: at.r, r: DRIFT_REACH, kind: 'driftSand', tiles: 'plus', id: e2.id });
           // the cross ("伤害无视迷彩", no 无视无法选择): an area selection
-          for (const u of areaAlliesInTiles(b, e2, t.tileR, t.tileC, 'plus', DRIFT_REACH)) hurt(b, e2, u, ds.bb.damage ?? 0, 'phys');
-        }, { atStrike: true, cond: (b, e2) => allTargets(b, e2).length > 0 }),
+          for (const u of areaAlliesInTiles(b, e2, at.r, at.c, 'plus', DRIFT_REACH)) hurt(b, e2, u, ds.bb.damage ?? 0, 'phys');
+        } }),
         // 【沙狱】 the lowest-max-HP unit and those around it: ATK −`atk` and `damage` arts per second for `duration` s
-        skill(ss, (b, e2) => {
+        skill(ss, (b, e2, a) => {
           const t = allTargets(b, e2).sort((p, q) => p.s.maxHp - q.s.maxHp || aggroCmp(p, q))[0];
-          if (!t) return;
-          const dur = ss.bb.duration ?? 0, x = t.x, y = t.y;
+          a.at = t ? { t, x: t.x, y: t.y } : null;
+        }, { cond: (b, e2) => allTargets(b, e2).length > 0, atStrike: (b, e2, a) => {
+          const at0 = a.at;
+          a.at = null;
+          if (!at0) return;
+          const at = at0.t.alive && at0.t.deployed ? at0.t : at0;
+          const dur = ss.bb.duration ?? 0, x = at.x, y = at.y;
           b.fx('zone', { x, y, r: SANDSTORM_RADIUS, dur, kind: 'sandStorm', id: e2.id });
           // the 沙狱弹道 "击中…范围内的所有我方单位（弹道可对空）" selects: an airborne 起飞 ally and an unblocking 隐匿 one
           // are skipped (no 无视无法选择 — areaAllies)
@@ -204,7 +222,7 @@ function kitLeaderMisc(key, ab, e) {
             b.addBuff(u, { key: 'ab:sandStorm', duration: dur, refresh: 'replace', interval: 1, visible: true, mods: { atkPct: ss.bb.atk ?? 0 },
               onTick: ({ battle, unit }) => battle.dealDamage(e2, unit, { amount: ss.bb.damage ?? 0, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'sandStorm'] }) });
           }
-        }, { atStrike: true, cond: (b, e2) => allTargets(b, e2).length > 0 }),
+        } }),
       ];
     }
     case 'enemy_1511_mdrock': {
@@ -267,13 +285,19 @@ function kitLeaderMisc(key, ab, e) {
       // 同时攻击两名目标; 爆炸箭: three targets, after `interval` s ATK×atk_scale arts on each target's cross
       const s = ab.sk.TripleAttack;
       const cands = (b, e2) => byPriority(e2, targetsNear(b, e2, e2.base.rangeRadius || 2.5));
-      return [kitDekght(ab), maxTargets(2), skill(s, (b, e2) => {
+      // the three are taken as the cast begins (the RangedAttack's `_selectTargetTiming` 0 — UpdateTargets in CastToTarget) and
+      // the arrows leave at the spell for those still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20
+      // taken again at the spell
+      return [kitDekght(ab), maxTargets(2), skill(s, (b, e2, a) => { a.picks = cands(b, e2).slice(0, 3); }, { cond: (b, e2) => cands(b, e2).length > 0, atStrike: (b, e2, a) => {
+        const l = a.picks || [];
+        a.picks = null;
         const delay = s.bb['dekght_2[aoe].interval'] ?? 0, scale = s.bb['dekght_2[aoe].atk_scale'] ?? 1;
         // each arrow is the skill's official projectile (skills TripleAttack.proj — projectile_enemy_dekght_s, TRACE 10
         // tiles/s; enemies/helpers.js shoot): it sticks where its target stands when it lands, the blast `interval` s later
         // (until 2026-10-10 the delay ran from the cast, on the target's tile then) [추정: the blast's delay counted from the
         // arrow's arrival — the interval buff `dekght_2[aoe]` goes on the hit target]
-        for (const t of cands(b, e2).slice(0, 3)) {
+        for (const t of l) {
+          if (!t.alive || !t.deployed) continue;
           shoot(b, e2, t, s.proj, (tt) => {
             if (!e2.alive || !tt) return;
             const r = tt.tileR, cc = tt.tileC;
@@ -286,7 +310,7 @@ function kitLeaderMisc(key, ab, e) {
             }, { owner: e2 });
           });
         }
-      }, { atStrike: true, cond: (b, e2) => cands(b, e2).length > 0 })];
+      } })];
     }
     case 'enemy_1539_reid': {
       // 生命值降至一半以下时攻击力大幅度提升; 首次被击倒后重生 (Reborn.duration s), 恢复一半生命值;
@@ -316,9 +340,13 @@ function kitLeaderMisc(key, ab, e) {
     case 'enemy_2003_rockman': {
       const s = ab.sk.StunAttack;
       const cands = (b, e2) => targetsNear(b, e2, (e2.def.raw.stats && e2.def.raw.stats.rawRangeRadius) || 2.5).filter((u) => !u.s.flags.stun);
-      return [skill(s, (b, e2) => {
-        const t = byPriority(e2, cands(b, e2))[0];
-        if (!t) return;
+      // its target comes with the cast's start (the RangedAttack's `_selectTargetSource` 2, the input target, `_selectTargetTiming`
+      // 0) and the stone leaves at the spell if it is still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20
+      // taken again at the spell
+      return [skill(s, (b, e2, a) => { a.aim = byPriority(e2, cands(b, e2))[0] || null; }, { cond: (b, e2) => cands(b, e2).length > 0, atStrike: (b, e2, a) => {
+        const t = a.aim;
+        a.aim = null;
+        if (!t || !t.alive || !t.deployed) return;
         // its official projectile (data/enemies.json skills StunAttack.proj — projectile_enemy_rockman, TRACE_TARGET_WITH_SPEED
         // at 10 tiles/s; until 2026-10-10 8)
         b.addProjectile({ from: e2, target: t, speed: s.proj?.speed || 10, visual: 'lob', source: e2, onHit: (c) => {
@@ -326,7 +354,7 @@ function kitLeaderMisc(key, ab, e) {
           hurt(b, e2, c.target, e2.s.atk * (s.bb.atk_scale ?? 1), 'phys');
           if (c.target.alive) b.applyStatus(c.target, 'stun', { duration: s.bb.stun ?? 0, source: e2 });
         } });
-      }, { atStrike: true, cond: (b, e2) => cands(b, e2).length > 0 })];
+      } })];
     }
     case 'enemy_2004_balloon': {
       // 喷气人 · 升空 when blocked → 飞行模式 for `duration` s: PRTS 喷气人 "近地悬浮，不可阻挡，失衡免疫，移动速度+50%，不进行
@@ -404,10 +432,14 @@ function kitLeaderMisc(key, ab, e) {
       // 【反自然馈赠】 (SILENCE): "attacks" another enemy in range and jumps between up to chain.max_target enemies
       // (projectile_range per jump), raising their move speed and ASPD for `duration` s
       const ch = { end: -Infinity, cut: false };
-      const chainBuff = skill(cb, (b, e2) => {
+      const near = (b, e2, x, y, r, seen) => b.enemiesInRadius(x, y, r).filter((o) => o !== e2 && !seen.has(o))
+        .sort((p, q) => hypot(p.x - x, p.y - y) - hypot(q.x - x, q.y - y) || p.spawnSeq - q.spawnSeq)[0];
+      // the first enemy is taken as the cast begins (the RangedAttack's `_selectTargetTiming` 0 — UpdateTargets in CastToTarget;
+      // until 2026-11-20 at the spell); the chain leaves for it at the spell if it is still alive (DoCastOnTargets: ValidAndAlive)
+      const chainBuff = skill(cb, (b, e2, a) => { a.first = near(b, e2, e2.x, e2.y, e2.base.rangeRadius || 3.5, new Set()) || null; }, { sil: true, atStrike: (b, e2, a) => {
+        const first = a.first;
+        a.first = null;
         const bb = cb.bb, jump = bb.projectile_range ?? jr, max = bb['chain.max_target'] ?? 3;
-        const near = (x, y, r, seen) => b.enemiesInRadius(x, y, r).filter((o) => o !== e2 && !seen.has(o))
-          .sort((p, q) => hypot(p.x - x, p.y - y) - hypot(q.x - x, q.y - y) || p.spawnSeq - q.spawnSeq)[0];
         // the chain flies as the skill's official projectile (skills ChainBuff.proj — projectile_enemy_smsha_s, TRACE 15
         // tiles/s; enemies/helpers.js shoot): each enemy gets the buff as it arrives and the next jump leaves from there,
         // chosen then (until 2026-10-10 the whole chain at the cast) [추정: the jumps fly the same projectile at its speed]
@@ -420,12 +452,12 @@ function kitLeaderMisc(key, ab, e) {
           const flight = shoot(b, prev, cur, cb.proj, (o) => {
             if (ch.cut || !o || !o.alive) return;
             b.addBuff(o, { key: 'ab:chainBuff', duration: bb.duration ?? 0, refresh: 'replace', visible: true, mods: { moveMul: 1 + (bb.move_speed ?? 0), aspd: bb.attack_speed ?? 0 } });
-            hop(o, near(o.x, o.y, jump, seen));
+            hop(o, near(b, e2, o.x, o.y, jump, seen));
           }, { source: e2 });
           ch.end = Math.max(ch.end, b.time + flight);
         };
-        hop(e2, near(e2.x, e2.y, e2.base.rangeRadius || 3.5, seen));
-      }, { sil: true, atStrike: true, cond: (b, e2) => b.enemiesInRadius(e2.x, e2.y, e2.base.rangeRadius || 3.5).some((o) => o !== e2) });
+        if (first && first.alive && !first.removed) hop(e2, first);
+      }, cond: (b, e2) => b.enemiesInRadius(e2.x, e2.y, e2.base.rangeRadius || 3.5).some((o) => o !== e2) });
       if (chainBuff) {
         // 2026-11-14 (공식 클라에서 확인): the ability is a RangedAttack with `_waitForProjectileInvalid` — the cast lasts while the
         // chain projectile (ChainLightningHitBehaviour) still jumps, at least its clip `Skill` (content/enemies.js
@@ -585,8 +617,9 @@ function kitXi(ab) {
   const cross = ab.sk.CrossAttack, sb = ab.sk.ShieldBurst, sb2 = ab.sk.ShieldBurstReborn;
   const P = { form2: false };
   const byDist = (b, e) => allTargets(b, e).sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || aggroCmp(p, q));
-  const crossAt = (b, e, t) => {
-    const r0 = t.tileR, c0 = t.tileC;
+  const crossAt = (b, e, { t, r, c }) => {
+    const on = t.alive && t.deployed;
+    const r0 = on ? t.tileR : r, c0 = on ? t.tileC : c;
     b.fx('telegraph', { x: c0, y: r0, r: XI_CROSS_REACH, kind: 'xiCross', tiles: 'plus', id: e.id });
     // "伤害无视迷彩", no 无视无法选择: the cross is an area selection
     for (const u of areaAlliesInTiles(b, e, r0, c0, 'plus', XI_CROSS_REACH)) if (u.tileR === r0 || u.tileC === c0) hurt(b, e, u, e.s.atk * ((cross && cross.bb.atk_scale) ?? 1), 'arts');
@@ -638,12 +671,18 @@ function kitXi(ab) {
   if (s1) s1.onCut = dropBarrier;
   if (s2) s2.onCut = dropBarrier;
   return [re, s1, s2, doubleHit(() => P.form2),                   // 普通攻击进行两次
-    skill(cross, (b, e) => {
+    // the targets are taken as the cast begins (the RangedAttack's `_selectTargetTiming` 0 — UpdateTargets in CastToTarget) and
+    // the bolts leave at the spell: at each while it is alive on the field, else at its spot then
+    // (`_emitToInputPosWhenTargetIsInvalid`); until 2026-11-20 taken again at the spell
+    skill(cross, (b, e, a) => {
       const l = byDist(b, e);
-      if (!l.length) return;
-      crossAt(b, e, l[0]);
-      if (P.form2 && l.length > 1) crossAt(b, e, l[l.length - 1]);   // 额外对最远目标释放
-    }, { atStrike: true, cond: (b, e) => allTargets(b, e).length > 0 })];
+      const at = (t) => ({ t, r: t.tileR, c: t.tileC });
+      a.picks = !l.length ? [] : P.form2 && l.length > 1 ? [at(l[0]), at(l[l.length - 1])] : [at(l[0])];   // 额外对最远目标释放
+    }, { cond: (b, e) => allTargets(b, e).length > 0, atStrike: (b, e, a) => {
+      const l = a.picks || [];
+      a.picks = null;
+      for (const p of l) crossAt(b, e, p);
+    } })];
 }
 
 /** 锏 · 抵抗; DEF penetration against its blocker; 【速杀】 passes through its blocker hitting those on the way; 【肆虐风雪】
