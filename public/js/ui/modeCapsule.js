@@ -2,7 +2,8 @@
 // light_mode / icon_<difficulty>): 赛季 | 规则 | 难度 | 人数 in one dark capsule with thin white lines. The waiting room's
 // mode bar (screens/room.js ModeBar) is the capsule as a button with the round switch; the public room list
 // (ui/publicRooms.js) and matchmaking's offer of a public room (ui/matchQueue.js) draw it small and read-only
-// (ModeCapsule), with the room's seats as squares (RoomSeats: a Doctor's 名片干员 avatar, an AI teammate, an empty seat).
+// (ModeCapsule), with the room's seats as squares (RoomSeats: a Doctor's 名片干员 avatar in the skin it wears, an AI
+// teammate, an empty seat).
 // css/screens/room.css `.rs-mode`, css/screens/lobby.css `.pubroom__seat`.
 
 import { DIFFICULTY_NAMES } from '../../../shared/constants.js';
@@ -13,6 +14,9 @@ import { t } from '../../../shared/i18n.js';
 import { presetName } from './ruleset.js';
 import { SeasonSeg } from './season.js';
 import { useCardOperators } from './seatCards.js';
+import { skinArt, skinPic } from './skins.js';
+import { settingsStore } from './settings.js';
+import { useStore } from '../store.js';
 
 /**
  * The event room's group_mode per difficulty (auto_chess_room_state root_easy / _normal / _hard / _abyss, in the order of
@@ -69,20 +73,24 @@ export function ModeCapsule({ season = null, ruleset, difficulty, size = null, c
 }
 
 /**
- * A room's seats as squares (lobby.rooms / room.matchFound `room` seats: { kind: 'human' | 'bot' | 'empty', host?, card? }):
- * a Doctor's 名片干员 avatar (`card`; the user glyph without one — the list carries no player id, so no default card),
- * the host's with the crown, an AI teammate (a Doctor who comes in takes its seat), an empty seat.
+ * A room's seats as squares (lobby.rooms / room.matchFound `room` seats: { kind: 'human' | 'bot' | 'empty', host?, card?,
+ * skin? }): a Doctor's 名片干员 avatar (`card`; the user glyph without one — the list carries no player id, so no default
+ * card) in the skin that Doctor chose for it (`skin`, as the waiting room's seat card wears it: another Doctor's, so only
+ * with 其他玩家的皮肤 on; docs/rules/ui.md 「스킨 고르기」), the host's with the crown, an AI teammate (a Doctor who comes in
+ * takes its seat), an empty seat.
  */
 export function RoomSeats({ seats, size }) {
   const { cards } = useCardOperators();
+  const others = useStore((x) => x.otherSkins !== false, Object.is, settingsStore);
   const m = data.get('assets');
+  const sk = skinArt();
   const list = Array.isArray(seats) ? seats : [];
   return html`<span class=${`pubroom__seats${size > 4 ? ' is-8' : ''}`}>
     ${list.map((s, i) => {
       if (s?.kind === 'bot') return html`<i key=${i} class="pubroom__seat is-bot" title=${t('AI 队友')}><${Icon} name="robot" /></i>`;
       if (s?.kind !== 'human') return html`<i key=${i} class="pubroom__seat is-empty"><${Icon} name="plus" /></i>`;
       const rec = s.card && cards.byChar ? cards.byChar.get(s.card) : null;
-      const src = rec ? chessAvatarUrl(m, rec) : null;
+      const src = rec ? skinPic(rec, 'avatar', sk, { skin: others ? s.skin : null }) || chessAvatarUrl(m, rec) : null;
       return html`<i key=${i} class=${`pubroom__seat is-human${s.host ? ' is-host' : ''}`}>
         ${src ? html`<img src=${src} alt="" draggable=${false} />` : html`<${Icon} name="user" />`}
         ${s.host ? html`<b class="pubroom__crown" title=${t('创建者')}><${Icon} name="crown" /></b>` : null}

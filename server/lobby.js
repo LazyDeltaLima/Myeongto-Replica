@@ -188,7 +188,7 @@
 //     ended, the later). lobby.watchRooms { on } subscribes the session (the 연합 매칭 screen, while it is open) to
 //     lobby.rooms { rooms: [roomRow] } — every public room of every season, in LOBBY or in a match, never a private
 //     one and never a playerId (Lobby.roomRow: code, season?, host { name, no = the 「#번호」 of shared/doctorNo.js },
-//     difficulty, ruleset { preset }, custom? (a custom room's settings), size, seats [{ kind, host?, card? }], state, round?,
+//     difficulty, ruleset { preset }, custom? (a custom room's settings), size, seats [{ kind, host?, card?, skin? }], state, round?,
 //     spectators, spectatorSeats, since) — sent on subscribing and then whole, at most once per `countsMinGapMs` and
 //     only when it changed; a room that kicked the watcher within `kickBlockMs` is left out of that watcher's list.
 //     room.join of a public room is the list's 「참가」 (no confirmation); matchmaking offers its seats too
@@ -1149,7 +1149,8 @@ export class Lobby {
 
   /**
    * A public room as matchmaking's offer shows it (room.matchFound `room`, header): no playerId — the host's 「#번호」
-   * only (shared/doctorNo.js). @param {Room} room
+   * only (shared/doctorNo.js); a Doctor's seat carries its 名片干员 (`card`) and the skin that operator wears (`skin`,
+   * its seats[].skins entry — what the waiting room's seat card wears). @param {Room} room
    */
   roomCard(room) {
     const host = room.hostId ? room.seatOf(room.hostId) : null;
@@ -1161,7 +1162,8 @@ export class Lobby {
       ...(rs.custom ? { custom: rs.custom } : {}),
       size: room.size,
       seats: room.seats.map((s) => (!s ? { kind: 'empty' } : s.isBot ? { kind: 'bot' }
-        : { kind: 'human', ...(s.playerId === room.hostId ? { host: true } : {}), ...(s.card ? { card: s.card } : {}) })),
+        : { kind: 'human', ...(s.playerId === room.hostId ? { host: true } : {}), ...(s.card ? { card: s.card } : {}),
+          ...(s.card && s.skins?.[s.card] ? { skin: s.skins[s.card] } : {}) })),
     };
   }
 

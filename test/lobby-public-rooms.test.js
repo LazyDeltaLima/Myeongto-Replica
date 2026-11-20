@@ -12,11 +12,16 @@ import { StubMatch } from '../server/match/StubMatch.js';
 import { Match } from '../server/match/Match.js';
 import { TestClient } from './helpers/wsClient.js';
 import { ERR } from '../shared/constants.js';
-import { validateC2S } from '../shared/protocol.js';
+import { validateC2S, operatorCharIds } from '../shared/protocol.js';
+import { getData } from '../server/data.js';
 import { doctorNo } from '../shared/doctorNo.js';
 import { doctorNo as clientDoctorNo } from '../public/js/ui/components.js';
 
 const W = 4000;
+// a 名片干员 of 맹약 (act2autochess) that is an operator of that season, so a seat's skins keep it, and another operator
+const OPS = operatorCharIds(getData());
+const CARD = getData().cards?.operators?.find((o) => o.seasons.includes('act2autochess') && OPS.has(o.charId))?.charId;
+const OTHER = [...OPS].find((id) => id !== CARD);
 const quietLog = () => {
   const errors = [];
   return { errors, log: { info() {}, warn() {}, debug() {}, error: (...a) => errors.push(a.map(String).join(' ')) } };
@@ -118,6 +123,9 @@ describe('공개방 (server/lobby.js, server/matchmaking.js)', () => {
     const a = await pool.player('Ash');
     const b = await pool.player('Bea');
     const c = await pool.player('Cid');
+    assert.ok(CARD && OTHER, 'the data has a 名片干员 of 맹약');
+    await ok(a, { t: 'room.card', charId: CARD });
+    await ok(a, { t: 'room.skins', skins: { [CARD]: `${CARD}@test#1`, [OTHER]: `${OTHER}@test#1` } });
     const ra = await room(a, { bots: 1 });
     const rb = await room(b, { season: 'act3autochess', ruleset: 'custom', custom: { enemies: { hp: 150 } } });
     await room(c, { pub: false });
@@ -128,6 +136,9 @@ describe('공개방 (server/lobby.js, server/matchmaking.js)', () => {
     assert.deepEqual(rowA.seats.map((s) => s.kind), ['human', 'bot', 'empty', 'empty']);
     assert.equal(rowA.seats[0].host, true, 'the host\'s seat carries the crown (no playerId)');
     assert.ok(!rowA.seats.slice(1).some((s) => 'host' in s));
+    assert.deepEqual([rowA.seats[0].card, rowA.seats[0].skin], [CARD, `${CARD}@test#1`],
+      'a Doctor\'s seat: the 名片干员 and the skin that operator wears (the waiting room\'s seat card), no other skin');
+    assert.ok(!('skin' in rowB.seats[0]) && !('card' in rowB.seats[0]), 'no card: no skin');
     assert.deepEqual([rowA.difficulty, rowA.ruleset, rowA.size, rowA.state, rowA.spectators, rowA.spectatorSeats], ['NORMAL', { preset: 'classic' }, 4, 'lobby', 0, 2]);
     assert.ok(!('season' in rowA) && !('custom' in rowA) && !('round' in rowA));
     assert.equal(typeof rowA.since, 'number');
@@ -136,6 +147,10 @@ describe('공개방 (server/lobby.js, server/matchmaking.js)', () => {
     assert.equal(rowB.custom.enemies.hp, 150, 'a custom room carries its settings');
     const raw = JSON.stringify(list);
     for (const id of [a.id, b.id, c.id, watcher.id]) assert.ok(!raw.includes(id), 'no playerId on the list');
+    // the card's skin taken off: the row follows
+    await ok(a, { t: 'room.skins', skins: {} });
+    const bare = await watcher.waitFor('lobby.rooms', (m) => m.rooms.some((r) => r.code === ra.code && !('skin' in r.seats[0])), W);
+    assert.equal(bare.rooms.find((r) => r.code === ra.code).seats[0].card, CARD);
     // the hub's 「공개방 N」 rides on lobby.queueCounts
     const counts = await watcher.waitFor('lobby.queueCounts', (m) => m.rooms?.act2autochess === 1 && m.rooms?.act3autochess === 1, W);
     assert.ok(counts.rooms);

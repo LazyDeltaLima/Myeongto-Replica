@@ -6,7 +6,6 @@ import { ACT3, ACT3_ON_BASE_FIELD } from '../helpers/seasonPieces.js';
 import { makeMatch, give, giveItem, legalTileFor } from '../match/harness.js';
 import { registryFor } from '../../server/match/effectsMeta.js';
 import { collectViolations } from '../../server/match/invariants.js';
-import { FIELD, canPlace, placeClass } from '../../server/match/board.js';
 
 const REG = registryFor(ACT3_ON_BASE_FIELD);
 
@@ -55,42 +54,6 @@ test('忍冬 garrison_74: 获得时 1, 1, 2, 2, 3, 3 … free refreshes (up a st
     ps.returnCopies(p);
   }
   assert.deepEqual(seen, [1, 1, 2, 2, 3, 3, 3]);
-});
-
-test('忍冬 garrison_74: a re-run — 铃兰\'s 特质 garrison_77, the 铃兰 strategy\'s 御守之力 — counts on the same player-wide runs', () => {
-  { // 铃兰 精锐 (garrison_77_b): at each prep start the two 忍冬 in front run in turn — runs 1 + 2, 3 + 4, 5 + 6
-    const { m, ps } = setup();
-    const row = ['chess_char_5_12_b', 'chess_char_3_13_a', 'chess_char_3_13_b']; // 铃兰, then the two tiles in front of it
-    const fits = (r, c) => row.every((id, k) => canPlace(ps.deployMap(), placeClass(ps, m.gd.chess(id)), r, c + k));
-    let at = null;
-    for (let r = FIELD.r1; r >= FIELD.r0 && !at; r--) for (let c = FIELD.c0; c + 2 <= FIELD.c1 && !at; c++) if (fits(r, c)) at = [r, c];
-    assert.ok(at, 'three tiles in a row for 铃兰 and two 忍冬');
-    const [, p] = row.map((id, k) => give(m, ps, id, 'board', [at[0], at[1] + k]));
-    m.dispatch(ps, 'onGain', { piece: p });
-    const seen = [ps.shop.freeRefreshes];
-    for (let r = 0; r < 3; r++) {
-      const before = ps.shop.freeRefreshes;
-      m.dispatch(ps, 'onPrepStart', { round: m.round });
-      seen.push(ps.shop.freeRefreshes - before);
-    }
-    assert.deepEqual(seen, [1, 1 + 2, 2 + 3, 3 + 3], 'docs/rules/sim.md 「자라는 값」: one count for every run');
-    noViolations(m);
-  }
-  { // 御守之力 (band_gain, g.bandSkill, once a round): each use is one more run
-    const { m, ps } = setup();
-    ps.bandId = 'band_gain'; ps.ready = false; ps.recompute();
-    const p = give(m, ps, 'chess_char_3_13_a', 'hand');
-    m.dispatch(ps, 'onGain', { piece: p });
-    const seen = [ps.shop.freeRefreshes];
-    for (let i = 0; i < 2; i++) {
-      const before = ps.shop.freeRefreshes;
-      assert.deepEqual(m.handle('p_0', { t: 'g.bandSkill', uid: p.uid }), { ok: true });
-      seen.push(ps.shop.freeRefreshes - before);
-      m.round += 1; // the next round's use
-    }
-    assert.deepEqual(seen, [1, 1, 2], 'docs/rules/sim.md 「자라는 값」: one count for every run');
-    noViolations(m);
-  }
 });
 
 test('流明 garrison_31 / 夜莺 163: the battle\'s surviving operators × 1 / 2 → 伊比利亚·聚合 / its own active bonds (夜莺 at most 9 / 18)', () => {

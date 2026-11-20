@@ -386,7 +386,6 @@ describe('operator pictures in the chosen skin (shop card, icons)', () => {
     'public/js/screens/bandDraft.js': 'pickAvatar, the default its callers fall back to after skinPic',
     'public/js/screens/diy.js': 'avatarOf (the default its callers fall back to) and SkinSection\'s 默认 tile',
     'public/js/screens/loadout.js': 'SkinSection\'s 默认 tile: the default appearance by definition',
-    'public/js/ui/modeCapsule.js': 'RoomSeats (the public room list, matchmaking\'s offer): lobby.rooms / room.matchFound seats carry the 名片干员 only, no skins (the list is the first frame that leaves the room)',
   };
   test('every operator picture goes through the skin, or says why it keeps the default', () => {
     const files = [];
