@@ -63,6 +63,8 @@ const nm = (k) => `${k} ${E[k] ? E[k].name : ''}`;
 const statuses = (h, id, key) => h.hooksOf('statusApplied').filter((c) => c.target.id === id && c.status === key);
 const killed = (h, e, by = null) => h.b.kill(e, by);
 const alive = (h, key) => h.enemies().filter((e) => e.defId === key);
+/** enemy_dead_spawn's `_randomDelayRange` (0.7 s) and a tick to spare: every DeadSpawn child has come by then. */
+const DEAD_SPAWN_WAIT = 0.8;
 
 // ---------------------------------------------------------------------------------------------------------------
 // coverage
@@ -416,7 +418,7 @@ test('频次 器物: hits = data × hpMul / supplyHpMul (补给线\'s share out,
   const parent = put(h, 'enemy_1199_sfjin', [10, 9], { mods });
   approx(parent.s.maxHp, E.enemy_1199_sfjin.stats.maxHp * 2.239488, 1e-9, '身观 itself takes 补给线');
   h.b.kill(parent, null);
-  h.step();
+  h.run(DEAD_SPAWN_WAIT);
   const child = h.enemies().find((e) => e.defId === 'enemy_1200_msfjin' && e !== jin);
   assert.ok(child, '身观 leaves its 青铜镜');
   assert.equal(child.s.maxHp, 63);
@@ -478,6 +480,7 @@ for (const [key, n] of Object.entries(DEATH_SPAWN)) {
     h.run(1);
     killed(h, e, null);
     const child = E[key].talents.bbStr['DeadSpawn.enemy_key'];
+    h.run(DEAD_SPAWN_WAIT);
     const kids = alive(h, child);
     assert.equal(kids.length, n);
     assert.equal(kids[0].s.maxHp, E[child].stats.maxHp);
@@ -485,6 +488,45 @@ for (const [key, n] of Object.entries(DEATH_SPAWN)) {
     assert.ok(kids[0].x < 7, 'the children walk on');
   });
 }
+
+// enemy_dead_spawn (공식 클라에서 확인 2026-11-20, docs/rules/sim.md 「사망 소환물의 자리」): SummonEnemiesFollowMyRoute with
+// `_useMapPosition` on, `_randomOffsetBound` 0.5 and `_useRandomDelay` / `_randomDelayRange` 0.7 — each child waits
+// Range(0, 0.7) s, then stands where its host fell ± 0.5 on each axis when a ground unit walks there. Until 2026-11-20 they
+// came at once, 0.2 apart in a row.
+test('DeadSpawn children (磨砻 … 沉沙): each up to 0.7 s after the knock-out, within 0.5 of where it fell, on a walkable tile; the battle waits for them', () => {
+  const h = arena();
+  h.step();
+  const waits = [], offs = [];
+  for (const [key, pos] of [['enemy_1197_sfshu', [10, 7]], ['enemy_1197_sfshu_2', [10, 9]], ['enemy_1207_sfji', [11, 8]], ['enemy_1195_sfyin', [9, 8]]]) {
+    const e = put(h, key, pos);
+    const child = E[key].talents.bbStr['DeadSpawn.enemy_key'];
+    const x0 = e.x, y0 = e.y, t0 = h.b.time;
+    const before = new Set(alive(h, child));
+    killed(h, e, null);
+    assert.equal(alive(h, child).filter((c) => !before.has(c)).length, 0, `${key}: none at the knock-out itself — each child waits Range(0, 0.7) s (enemy_dead_spawn _useRandomDelay; archetypes.js deadSpawnSpot; docs/rules/sim.md 「사망 소환물의 자리」)`);
+    const seen = new Map();
+    while (h.b.time < t0 + DEAD_SPAWN_WAIT) {
+      h.step();
+      for (const c of alive(h, child)) if (!before.has(c) && !seen.has(c)) seen.set(c, h.b.time - t0);
+    }
+    assert.ok(seen.size >= 1, `${key}: its children came`);
+    for (const [c, t] of seen) {
+      assert.ok(t <= 0.7 + 2 * h.TICK, `${key}: came ${t} s after (Range(0, 0.7))`);
+      assert.ok(Math.abs(c.x - x0) <= 0.5 + 1e-9 && Math.abs(c.y - y0) <= 0.5 + 1e-9, `${key}: (${c.x}, ${c.y}) within 0.5 of (${x0}, ${y0})`);
+      assert.ok(h.b.grid.groundPassable(Math.round(c.y), Math.round(c.x), true), `${key}: on a walkable tile`);
+      waits.push(t);
+      offs.push(Math.hypot(c.x - x0, c.y - y0));
+    }
+  }
+  assert.ok(new Set(waits.map((t) => t.toFixed(3))).size > 3, `random waits, not all at once: ${waits}`);
+  assert.ok(offs.some((d) => d > 0.25), `scattered, not 0.2 apart in a row: ${offs}`);
+  // the battle does not end on the host's death while its children are still to come
+  const h2 = arena();
+  h2.step();
+  const e = put(h2, 'enemy_1195_sfyin', [10, 7]);
+  killed(h2, e, null);
+  assert.ok(h2.b._hasPendingEnemySchedules(), 'the pending spawns hold the battle');
+});
 
 for (const key of ['enemy_1207_sfji', 'enemy_1207_sfji_2']) {
   // PRTS 天赋 "攻击力+X%，持有4个【断刃】 / 每次成功攻击后消耗1个【断刃】，攻击结束时若已耗尽【断刃】，则立刻切换为无断刃模式并失去攻击力
@@ -510,6 +552,7 @@ for (const key of ['enemy_1207_sfji', 'enemy_1207_sfji_2']) {
     assert.ok(h.b.time - tLast < e.s.interval - 0.5);
     const child = E[key].talents.bbStr['DeadSpawn.enemy_key'];
     killed(h, e, null);
+    h.run(DEAD_SPAWN_WAIT);
     assert.equal(alive(h, child).length, 1, 'no blade left: still one 矛头');
     // killed after two attacks: the two unspent blades; untouched: all four
     const h2 = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
@@ -517,11 +560,13 @@ for (const key of ['enemy_1207_sfji', 'enemy_1207_sfji_2']) {
     const e2 = put(h2, key, [9, 5]);
     h2.runUntil(() => e2.stats.attacks >= 2, 20);
     killed(h2, e2, null);
+    h2.run(DEAD_SPAWN_WAIT);
     assert.equal(alive(h2, child).length, cnt + tb(key, 'DeadSpawn.cnt_add') * 2);
     const h3 = arena();
     h3.step();
     const e3 = put(h3, key, [10, 7]);
     killed(h3, e3, null);
+    h3.run(DEAD_SPAWN_WAIT);
     assert.equal(alive(h3, child).length, cnt);
   });
 }
@@ -568,7 +613,7 @@ for (const key of ['enemy_1203_sfhu', 'enemy_1203_sfhu_2']) {
     const atk = e.s.atk;
     const taken0 = new Map(h.allies().map((u) => [u, u.stats.taken]));
     killed(h, e, null);
-    assert.equal(alive(h, E[key].talents.bbStr['DeadSpawn.enemy_key']).length, tb(key, 'DeadSpawn.cnt'));
+    assert.equal(alive(h, E[key].talents.bbStr['DeadSpawn.enemy_key']).length, 0, 'the 茶器 come up to 0.7 s later');
     const g = h.unit('t_gun'), w = h.unit('t_wall'), w2 = h.unit('t_wall2');
     approx(g.stats.taken - taken0.get(g), atk, 1e-6, '1.0 away: blasted');
     assert.equal(w2.stats.taken - taken0.get(w2), 0, '2.0 away: outside 1.25');
@@ -576,6 +621,7 @@ for (const key of ['enemy_1203_sfhu', 'enemy_1203_sfhu_2']) {
     approx(g.s.aspd, 100 + tb(key, 'DeadBoom.attack_speed'));
     assert.equal(w.s.aspd, 100);
     h.run(tb(key, 'DeadBoom.duration') - 0.5);
+    assert.equal(alive(h, E[key].talents.bbStr['DeadSpawn.enemy_key']).length, tb(key, 'DeadSpawn.cnt'));
     approx(g.s.aspd, 100 + tb(key, 'DeadBoom.attack_speed'), 1e-6, 'one layer for 15 s');
     h.run(1);
     assert.equal(g.s.aspd, 100);

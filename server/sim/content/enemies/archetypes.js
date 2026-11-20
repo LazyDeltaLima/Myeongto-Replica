@@ -15,6 +15,9 @@ import { expectedFinal } from './helpers.js'; // local patch: blocked numbers
 import { mitigate, periodicDamage } from '../../damage.js'; // local patch: blocked numbers
 import { damageNumberFlag, blockedEvent } from '../../local-hud.js'; // local patch: blocked numbers
 
+/** enemy_dead_spawn's SummonEnemiesFollowMyRoute `_randomOffsetBound` and `_randomDelayRange` (deadSpawnSpot). */
+const DEAD_SPAWN_BOUND = 0.5, DEAD_SPAWN_DELAY = 0.7;
+
 // ---------------------------------------------------------------------------------------------------------------
 // archetypes
 
@@ -804,7 +807,17 @@ const kitRefraction = (ab) => [refraction(T(ab, 'refracting.magic_resistance', '
 
 const kitPrisoner = (freeAll = false) => (ab) => [prisoner(ab, { freeAll })];
 
-const kitDeathSpawn = (extra = []) => (ab) => [deathSpawn(ab.tS['DeadSpawn.enemy_key'], T(ab, 'DeadSpawn.cnt') ?? 0), ...extra];
+/**
+ * Where and when the `DeadSpawn` talents' children come (공식 클라에서 확인 2026-11-20): their buff template enemy_dead_spawn
+ * (磨砻 … 清明; 沉沙 / 新硎's enemy_dead_spawn[sfji] the same node) is SummonEnemiesFollowMyRoute with `_useMapPosition` on,
+ * `_randomOffsetBound` 0.5 (the blackboard `offset_bound` over it — none of them has one) and `_useRandomDelay` with
+ * `_randomDelayRange` 0.7: each child waits Range(0, 0.7) s, then stands where its host fell ± 0.5 on each axis when a
+ * ground unit walks there, else on that spot (spawnChildren `spot`; docs/rules/sim.md 「사망 소환물의 자리」). Until
+ * 2026-11-20 they came at once, 0.2 apart side by side.
+ */
+const deadSpawnSpot = (ab) => ({ map: true, bound: T(ab, 'DeadSpawn.offset_bound') ?? DEAD_SPAWN_BOUND, delay: DEAD_SPAWN_DELAY });
+
+const kitDeathSpawn = (extra = []) => (ab) => [deathSpawn(ab.tS['DeadSpawn.enemy_key'], T(ab, 'DeadSpawn.cnt') ?? 0, { spot: deadSpawnSpot(ab) }), ...extra];
 
 const kitStun3 = (ab) => [nthAttackStatus(nthOf(ab.sk.stuncombat), 'stun', (ab.sk.stuncombat && ab.sk.stuncombat.bb.stun) || 0, true)];
 
@@ -841,5 +854,5 @@ export {
   noAirTargets, resist, immuneTo, nthAttackStatus, nthAttackPower, enemyAura, allyAura, lowHpBuff, lowHpMode, deathSpawn,
   deathBoom, refraction, setFloat, float, selfFear, freeAllPrisoners, reborn, frontGuard, faceMove, faceCrowd,
   unbalanced, unbalancedBleed, artsBarrier, husk, statue, bleed, pollution, dmgZone, skill, kitEp, kitStealth, kitTimes, kitRefraction,
-  kitPrisoner, kitDeathSpawn, kitStun3, kitSelfFear, kitEmber, kitPolluted,
+  kitPrisoner, kitDeathSpawn, deadSpawnSpot, kitStun3, kitSelfFear, kitEmber, kitPolluted,
 };

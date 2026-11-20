@@ -83,6 +83,7 @@ test('磨砻 on death spawns children that do not inherit the bounty; the body s
   const parent = h.enemy('enemy_1195_sfyin');
   assert.ok(parent, '磨砻 spawned');
   h.b.kill(parent, null);
+  h.run(0.8);   // enemy_dead_spawn: each child up to 0.7 s after the knock-out
   const kids = h.b.enemies.filter((e) => e !== parent && e.defId !== 'enemy_1195_sfyin');
   assert.ok(kids.length >= 1, `death children spawned (${kids.length})`);
   for (const c of kids) {

@@ -2,7 +2,7 @@
 // of KITS (split from content/enemies.js).
 
 import { TEA_SPLASH_RADIUS, abOf, T, hurt, areaAllies, spawnChildren, mode } from './helpers.js';
-import { splashAttack, husk, skill, kitTimes, kitDeathSpawn, kitEmber } from './archetypes.js';
+import { splashAttack, husk, skill, kitTimes, kitDeathSpawn, deadSpawnSpot, kitEmber } from './archetypes.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -25,8 +25,8 @@ const TEA_BOOM_RADIUS = 1.25;
  * an attack spends the last one; that attack's cooldown is then cleared (this tick's 'tick', after the strike: ai.js
  * restarted it as the swing started) — the next swing starts once that swing has played out (its `castLeft`: the client's
  * attack ability is ready only after its cast ends). Unspent blades (cnt + cnt_add × spent, ≥ 1)
- * become 矛头 when it is killed (a leak is no death; the mode has no 坠落), at once and side by side (spawnChildren — the
- * 0.7 s random delay and the 1.0 square of the text are not modelled). Until 0.2.0 each attack stacked one more layer
+ * become 矛头 when it is killed (a leak is no death; the mode has no 坠落), each up to 0.7 s later within 0.5 of where it fell
+ * (deadSpawnSpot: its enemy_dead_spawn[sfji] node is the other DeadSpawn talents'). Until 0.2.0 each attack stacked one more layer
  * and none was ever removed (GitHub #107: 新硎 1350 → 3510 ATK after two hits).
  */
 function kitBlades(ab) {
@@ -46,7 +46,7 @@ function kitBlades(ab) {
       b.removeBuff(e, 'ab:blade');
       mode(b, e, 'Default', false);
     },
-    death(c, b, e, a) { if (c.reason === 'killed' && key) spawnChildren(b, e, key, Math.max(1, cnt + add * a.used)); },
+    death(c, b, e, a) { if (c.reason === 'killed' && key) spawnChildren(b, e, key, Math.max(1, cnt + add * a.used), { spot: deadSpawnSpot(ab) }); },
   }];
 }
 

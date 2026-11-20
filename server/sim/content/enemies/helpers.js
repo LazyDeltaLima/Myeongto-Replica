@@ -338,40 +338,56 @@ function groundSpot(b, pos, parent) {
 
 /**
  * Spawn `n` enemies at the parent's position that continue its route. Returns the spawned units.
- * `opts.spot` { bound, walk }: the official summon nodes' spot (SummonEnemiesFollowMyRoute / …WithBuff with `_useMapPosition`
- * off, Scheduler.SpawnSummonedEnemyTrackedInGameMode): the centre of summonTile(the source spot), then — `_ignoreOffset`
- * off — each one at that centre + (Range(−bound, bound), Range(−bound, bound)) (x drawn first; `bound` = the blackboard
- * `offset_bound` over the node's `_randomOffsetBound`), kept only where its route can reach (Route.CheckReachable: a tile
- * a ground unit walks), else the centre. Without it: the source spot, several 0.2 apart — a ground parent's children each
- * where a ground unit walks (groundSpot).
+ * `opts.spot` { bound, walk, map, delay }: the official summon nodes' spot (SummonEnemiesFollowMyRoute / …WithBuff,
+ * Scheduler.SpawnSummonedEnemyTrackedInGameMode): with `_useMapPosition` off the centre of summonTile(the source spot),
+ * with it on (`map`) the source spot itself; then — `_ignoreOffset` off — each one at that point + (Range(−bound, bound),
+ * Range(−bound, bound)) (x drawn first; `bound` = the blackboard `offset_bound` over the node's `_randomOffsetBound`), kept
+ * only where its route can reach (Route.CheckReachable: a tile a ground unit walks), else that point — for `map` and a
+ * ground parent through groundSpot (a parent that died grazing a wall). `delay` (`_useRandomDelay` with its
+ * `_randomDelayRange`): the node draws each one's wait, Range(0, delay), as it runs, and each spawns that much later — its
+ * jitter drawn then — on the route and from the point taken at the call; the battle waits for them (`holdsBattle`), and
+ * nothing is returned. Without `spot`: the source spot, several 0.2 apart — a ground parent's children each where a
+ * ground unit walks (groundSpot).
  */
 export function spawnChildren(b, parent, key, n, opts = {}) {
   const out = [];
   const route = opts.route ?? remainingRoute(parent);
   const cnt = Math.max(0, Math.min(20, Math.floor(n)));
   const mods = modsWithoutBounty(opts.mods ?? parent.mods ?? null);
-  const sp = opts.spot ? (opts.pos ?? [parent.y, parent.x]) : null;
-  const tile = sp ? summonTile(b, sp[1], sp[0], opts.spot.walk !== false) : null;
-  const bound = opts.spot ? Math.max(0, Number(opts.spot.bound) || 0) : 0;
-  for (let i = 0; i < cnt; i++) {
-    const off = cnt > 1 ? (i - (cnt - 1) / 2) * 0.2 : 0;
-    let pos = opts.pos ?? [parent.y, parent.x + off];
-    if (!sp && !opts.pos && parent.motion !== 'FLY') pos = groundSpot(b, pos, parent);
-    if (sp) {
-      pos = tile ? [tile[0], tile[1]] : sp;
-      if (bound > 0) {
-        const dx = b.rng.range(-bound, bound), dy = b.rng.range(-bound, bound);
-        const y = pos[0] + dy, x = pos[1] + dx;
-        if (b.grid.groundPassable(Math.round(y), Math.round(x))) pos = [y, x];
-      }
+  const spot = opts.spot ?? null;
+  const sp = spot ? (opts.pos ?? [parent.y, parent.x]) : null;
+  const tile = sp && !spot.map ? summonTile(b, sp[1], sp[0], spot.walk !== false) : null;
+  const bound = spot ? Math.max(0, Number(spot.bound) || 0) : 0;
+  const ground = parent.motion !== 'FLY';
+  const at = { x: parent.x, y: parent.y, id: parent.id };
+  const owners = { ownerPlayerId: parent.ownerId ?? null, sourcePlayerId: parent.sourcePlayerId ?? null };
+  const place = (i) => {
+    if (!sp) {
+      const off = cnt > 1 ? (i - (cnt - 1) / 2) * 0.2 : 0;
+      const pos = opts.pos ?? [parent.y, parent.x + off];
+      return !opts.pos && ground ? groundSpot(b, pos, parent) : pos;
     }
-    const c = b.spawnEnemy(key, {
-      pos, route, mods, tag: opts.tag ?? null, countInTotal: opts.countInTotal,
-      ownerPlayerId: parent.ownerId ?? null, sourcePlayerId: parent.sourcePlayerId ?? null,
-    });
+    let pos = tile ? [tile[0], tile[1]] : sp;
+    if (bound > 0) {
+      const dx = b.rng.range(-bound, bound), dy = b.rng.range(-bound, bound);
+      const y = pos[0] + dy, x = pos[1] + dx;
+      if (b.grid.groundPassable(Math.round(y), Math.round(x))) pos = [y, x];
+    }
+    return spot.map && ground ? groundSpot(b, pos, parent) : pos;
+  };
+  const make = (i) => b.spawnEnemy(key, { pos: place(i), route, mods, tag: opts.tag ?? null, countInTotal: opts.countInTotal, ...owners });
+  const wait = spot ? Math.max(0, Number(spot.delay) || 0) : 0;
+  if (wait > 0) {
+    for (let i = 0; i < cnt; i++) {
+      b.after(b.rng.range(0, wait), () => { if (make(i)) b.fx('summon', { ...at, key, n: 1 }); }, { holdsBattle: true });
+    }
+    return out;
+  }
+  for (let i = 0; i < cnt; i++) {
+    const c = make(i);
     if (c) out.push(c);
   }
-  if (out.length) b.fx('summon', { x: parent.x, y: parent.y, id: parent.id, key, n: out.length });
+  if (out.length) b.fx('summon', { ...at, key, n: out.length });
   return out;
 }
 

@@ -70,9 +70,9 @@
           "title": {"id":"comment_1","name":"百花齐放","picId":"comment_icon_1_0","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 0,
           "reward": 0,
-          "stats": {"activatedLayers":179,"bossDamage":630745,"dmgDealt":2582887,"gold":130,"itemsEquipped":29,"kills":286,"leaks":1,"lpLost":1,"merges":5,"perfectRounds":12,"refreshes":21},
+          "stats": {"activatedLayers":175,"bossDamage":628522,"dmgDealt":2573307,"gold":130,"itemsEquipped":29,"kills":286,"leaks":1,"lpLost":1,"merges":5,"perfectRounds":12,"refreshes":21},
           "lineup": ["6_12_a@11,6","6_02_a@11,7[3_04_e_b+2_04_e_b]","3_02_b@11,8","3_25_b@10,6[1_06_e_a+2_01_e_a]","5_23_a@10,7[4_14_e_a+2_04_e_b]","4_24_b@10,8[3_10_e_a+4_12_e_a]","6_15_a@9,6[4_03_e_b+3_04_e_a]","2_03_a@9,8[1_02_e_b+3_04_e_b]"],
-          "bonds": ["docShip 0/12","indomShip 0/2","kjeragShip 0/15","maniShip 1/0","miraShip 0/15","preciShip 0/2","sargonShip 2/104","steadShip 1/52","suntShip 1/0","swiftShip 1/23","yanShip 0/8"]
+          "bonds": ["docShip 0/12","indomShip 0/2","kjeragShip 0/15","maniShip 1/0","miraShip 0/15","preciShip 0/2","sargonShip 2/102","steadShip 1/50","suntShip 1/0","swiftShip 1/23","yanShip 0/8"]
         }
       }
     },

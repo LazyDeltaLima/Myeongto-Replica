@@ -25,6 +25,7 @@ const gd = new GameData(getData({ log: QUIET }), 'mode_multi_normal');
 
 const MOLANG = 'enemy_1195_sfyin';          // 磨砻 — 被击倒后生成2个<木制瑞印> (data talents DeadSpawn)
 const MOLANG_CHILD = 'enemy_1196_msfyin';   // 木制瑞印
+const DEAD_SPAWN_WAIT = 0.8;                // enemy_dead_spawn: each child up to 0.7 s after the knock-out
 const APOSTLE = 'enemy_1321_wdarft';        // 枯朽萃聚使徒 — 召唤数个<枯朽之种> while it lives
 const SEED = 'enemy_1269_nhfly';            // 枯朽之种
 const done = (h) => {
@@ -63,6 +64,7 @@ test('官方例子: 开局 0/3 → 漏一个 1/3 → 打死一个 2/3 → 打死
   assert.equal(h.b.leakedInTotal, 1);
   assert.equal(h.b.resolved, 3, '3/3');
   assert.equal(h.b.total, 3, '分裂出来的子体没有抬高分母');
+  h.run(DEAD_SPAWN_WAIT);
   const kids = h.b.enemies.filter((e) => e.alive && e.defId === MOLANG_CHILD);
   assert.equal(kids.length, 2, '磨砻 split into 2 木制瑞印');
   for (const k of kids) assert.ok(!k.inTotal && k.counted, 'a split child counts for LP, not for the capsule');
@@ -80,6 +82,7 @@ test('磨砻 4 个全被击倒 → 胶囊 4/4；它们 8 个子体全漏 → lea
   assert.equal(h.b.killedInTotal, 4);
   assert.equal(h.b.resolved, 4, '胶囊 4/4 — 击倒的是本关自己的敌人');
   assert.equal(h.b.total, 4, '子体不进分母');
+  h.run(DEAD_SPAWN_WAIT);
   const kids = h.b.enemies.filter((e) => e.alive && e.defId === MOLANG_CHILD);
   assert.equal(kids.length, 8, '四个磨砻各分裂出 2 个木制瑞印');
   assert.equal(h.b.leakedInTotal, 0);
@@ -105,6 +108,7 @@ test('分裂子体被击倒: 胶囊数字不动，`killed` 仍按 counted 口径
   h.step();
   const molang = h.b.enemies.find((e) => e.defId === MOLANG);
   h.b.kill(molang, null);
+  h.run(DEAD_SPAWN_WAIT);
   const kids = h.b.enemies.filter((e) => e.alive && e.defId === MOLANG_CHILD);
   assert.equal(kids.length, 2);
   const before = capsule(h.b);
@@ -250,7 +254,7 @@ function splitMolang(kind) {
   assert.ok(parent, '磨砻 is on the field');
   assert.ok(parent.counted && parent.inTotal, 'the enemy the wave sent in is billable');
   h.b.kill(parent, null);
-  h.step(3);
+  h.run(DEAD_SPAWN_WAIT);
   const kids = h.b.enemies.filter((e) => e.alive && e.defId === MOLANG_CHILD);
   assert.equal(kids.length, 2, '磨砻 split into 2 木制瑞印');
   return { h, kids };
