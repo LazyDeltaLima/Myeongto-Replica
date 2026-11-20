@@ -73,7 +73,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { availableParallelism } from 'node:os';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
-import { getData } from '../server/data.js';
+import { getData, getMode } from '../server/data.js';
 import { DataSource } from '../server/sim/simdata.js';
 import { buildBattleSpec, createBattleFromSpec } from '../server/sim/spec.js';
 import { createRng, deriveSeed } from '../server/sim/rng.js';
@@ -89,9 +89,9 @@ import { diyRecordOf, DIY_TIERS } from '../shared/diy.js';
 import { unitForm } from '../shared/standIn.js';
 import { POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from '../shared/potential.js';
 import { OPERATOR_KITS, KITTED_CHARS } from '../server/sim/content/kits/index.js';
-import { GEO, LARGE_SEATS } from '../shared/constants.js';
+import { GEO, LARGE_SEATS, modeIdFor } from '../shared/constants.js';
 import { wideOffsets, wideRect } from '../server/sim/wideStage.js';
-import { DEFAULT_SEASON } from '../shared/seasons.js';
+import { DEFAULT_SEASON, seasonFeature } from '../shared/seasons.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** The default player's 潜能 / 练度 of every owned operator (shared/potential.js; the owner's decision of 2026-10-08). */
@@ -864,6 +864,11 @@ const bondsStr = (bonds) => Object.entries(bonds || {}).filter(([, b]) => b && (
 const MATCH_ROW_COLS = Object.freeze(['alive', 'lp', 'prepFunds', 'funds', 'pending', 'level', 'deployed', 'board', 'layers', 'bonds', 'killed', 'total', 'leaks', 'gold']);
 
 export function runMatch(cfg) {
+  // the mode id the lobby gives such a room (server/lobby.js modeIdFor): a graded solo room (a season with soloGrades)
+  // plays its 规程等级's `mode_single_<grade>`; a mode its season's config lacks stops the run (it would play without
+  // the mode's round enemy effects, bond lists and prices)
+  const modeId = modeIdFor(cfg.mode, cfg.difficulty, cfg.grade ?? null);
+  if (!getMode(modeId, worldOf(cfg.season).data)) throw new Error(`golden match ${cfg.id}: ${cfg.season ?? DEFAULT_SEASON} has no mode ${modeId} (a graded solo season needs the scenario's grade)`);
   const sched = new VirtualScheduler();
   const seats = [];
   // a human seat (cfg.human): offline (its battles run on the server) and on AI 托管 from the start; its not-owned chess
@@ -880,7 +885,7 @@ export function runMatch(cfg) {
   const logged = [];
   const log = { info() {}, debug() {}, warn() {}, error: (...a) => logged.push(a.map(String).join(' ').slice(0, 120)) };
   const m = new Match({
-    roomCode: 'GOLD', mode: cfg.mode, difficulty: cfg.difficulty, seats, seed: cfg.seed, data: worldOf(cfg.season).data, log, scheduler: sched,
+    roomCode: 'GOLD', mode: cfg.mode, difficulty: cfg.difficulty, modeId, seats, seed: cfg.seed, data: worldOf(cfg.season).data, log, scheduler: sched,
     ...(cfg.season ? { season: cfg.season } : null),
     ...(cfg.size ? { size: cfg.size } : null),
     send: () => true, broadcast: () => {}, onEnd: (s) => { summary = s; },
@@ -975,7 +980,7 @@ export function runMatch(cfg) {
     };
   }
   const digest = {
-    mode: cfg.mode, difficulty: cfg.difficulty, seats: cfg.bots, seed: cfg.seed, combat: cfg.clientCombat === false ? 'server' : 'client', boost: cfg.boost ?? null,
+    mode: cfg.mode, difficulty: cfg.difficulty, ...(cfg.grade != null ? { grade: cfg.grade } : null), seats: cfg.bots, seed: cfg.seed, combat: cfg.clientCombat === false ? 'server' : 'client', boost: cfg.boost ?? null,
     setup,
     end: {
       victory: s.victory ?? null, roundsPassed: s.roundsPassed ?? null, hiddenReached: s.hiddenReached ?? null, hiddenCleared: s.hiddenCleared ?? null,
@@ -1241,16 +1246,20 @@ export function fxPathScenarios() {
 /** The season family → its season. 规程 (act3autochess) is hidden: its families guard its content code while it is built. */
 export const SEASON_FAMILIES = Object.freeze({ 'act3-roster': 'act3autochess', 'act3-bonds': 'act3autochess', 'act3-matches': 'act3autochess' });
 
+/** The 规程等级 a graded season's solo scenario plays (gradeDifficulty: 6 险境, 13 绝境 — the official run measured, 17 终极). */
+const SOLO_SCENARIO_GRADE = Object.freeze({ NORMAL: 6, HARD: 13, ABYSS: 17 });
+
 /** Bot-only matches of a season to the end in virtual time (its own config's modes and numbers). */
 function seasonMatchScenarios(season, family) {
+  const graded = seasonFeature(season, 'soloGrades');
   const out = [
     { id: 'solo-NORMAL-1', mode: 'solo', difficulty: 'NORMAL', bots: 1, seed: 1 },
     { id: 'solo-ABYSS-2', mode: 'solo', difficulty: 'ABYSS', bots: 1, seed: 2 },
     { id: 'coop2-HARD-4', mode: 'coop', difficulty: 'HARD', bots: 2, seed: 4 },
     // LP and every bond's layers raised at the first prep: its Final Assault and Hidden Core
     { id: 'solo-HARD-9-boosted', mode: 'solo', difficulty: 'HARD', bots: 1, seed: 9, boost: { lp: 400, layers: 300 } },
-  ];
-  return out.map((m) => ({ ...m, season, family, kind: 'match', about: `${season}: ${m.mode} ${m.difficulty}, ${m.bots} bot seat(s), seed ${m.seed}${m.boost ? `, LP ${m.boost.lp} and ${m.boost.layers} layers per bond from the first prep` : ''}` }));
+  ].map((m) => (graded && m.mode === 'solo' ? { ...m, grade: SOLO_SCENARIO_GRADE[m.difficulty] } : m));
+  return out.map((m) => ({ ...m, season, family, kind: 'match', about: `${season}: ${m.mode} ${m.grade != null ? `grade ${m.grade} (${m.difficulty})` : m.difficulty}, ${m.bots} bot seat(s), seed ${m.seed}${m.boost ? `, LP ${m.boost.lp} and ${m.boost.layers} layers per bond from the first prep` : ''}` }));
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -1274,7 +1283,7 @@ const ABOUT = {
   diy: '自选 pieces: every kitted owned 6★ × form (tiers 5 / 6, normal / elite × module) × skill, every kitted prototype at its locked selection',
   'act3-roster': '规程 (act3autochess, hidden season): the roster family on its own data — every visible chess record × skill / module, its stages, enemy kinds, items, bands, 机变 cards',
   'act3-bonds': '规程 (act3autochess, hidden season): every bond at its activation threshold (layers 1) and at its top tier (layers 999)',
-  'act3-matches': '规程 (act3autochess, hidden season): bot-only matches to the end in virtual time (solo 险境 / 终极, co-op 2 绝境, a solo 绝境 run boosted to the Hidden Core)',
+  'act3-matches': '规程 (act3autochess, hidden season): bot-only matches to the end in virtual time (solo 规程等级 6 险境 / 17 终极, co-op 2 绝境, a solo 规程等级 13 绝境 run boosted to the Hidden Core)',
 };
 /**
  * The default test subset (GOLDEN_FULL=1 runs everything): the pass-0 roster battles (every chess record with its

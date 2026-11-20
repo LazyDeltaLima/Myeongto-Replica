@@ -28,7 +28,7 @@ through.
 | `diy` | battles of 自选 pieces, and `diy-summon-<code>`: every pick with a hand-placed summon, placed by its rules (the battles below hold 12 pieces and no summons, 2026-11-04). The others are 8 battles of 自选 pieces (a DIY slot with its `diy` pick, `shared/diy.js`): every owned 6★ with an operator kit (`kits/index.js OPERATOR_KITS`: our five, `shared/local-diy.js`) in each form of tiers 5 and 6 (normal; elite with no module and with each module) under each skill — then every prototype pick with a kit at its locked selection, none on this server —, 12 per battle against the round's real wave; a new operator kit adds its scenarios (the battle count grows with the kits) |
 | `act3-roster` | the `roster` family on the data of 卫戍协议：规程 (`act3autochess`, a hidden season of `shared/seasons.js`: `data/seasons/act3autochess/` over `data/`) — 62 battles over its chess, stages, enemy kinds, items, bands and 机变 cards, in the modes its config has |
 | `act3-bonds` | the `bonds` family on that season's data: its 26 bonds at the activation threshold and at the top tier (52 battles) |
-| `act3-matches` | 4 bot-only matches of that season to the end in virtual time: solo 险境 and 终极, co-op 2 绝境, and a solo 绝境 run boosted to the Hidden Core |
+| `act3-matches` | 4 bot-only matches of that season to the end in virtual time: solo 规程等级 6 (险境) and 17 (终极), co-op 2 绝境, and a solo 规程等级 13 (绝境) run boosted to the Hidden Core — a solo room of that season plays its grade's `mode_single_<grade>` |
 
 The season families guard a season's content code while it is built (a refactor of the bond, item or 特质 handlers
 moves no digest of either season). The season's content is not finished, so its digests move with every intended
