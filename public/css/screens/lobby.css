@@ -316,22 +316,12 @@
 .hub-plate--ach .hub-plate__glyph svg { fill: currentColor; }
 
 /* ---- entries (独立模拟 / 同盟模拟), bottom right ----------------------------------------------------------- */
-/* (the card, the line above it, the tips' head and the 成就统计 card's label grow or wrap rather than cut their text at
+/* (the card, the tips' head and the 成就统计 card's label grow or wrap rather than cut their text at
    大 / 特大 in a small window — upstream §35.18 review; the trophy count under the medal stops at .15rem, 大's size [ASSUMED·자료 없음]) */
 /* (the two cards share a height: the taller one's, their text at the bottom) */
 .hub-entries { grid-area: entries; position: relative; z-index: 1; display: flex; align-items: stretch; justify-content: flex-end; gap: var(--hub-gap); min-width: 0; }
-.hub-entry-wrap { display: flex; flex-direction: column; gap: .05rem; min-width: 0; animation: card-in var(--t-slow) var(--ease-out) backwards; }
+.hub-entry-wrap { display: flex; flex-direction: column; min-width: 0; animation: card-in var(--t-slow) var(--ease-out) backwards; }
 .hub-entry-wrap:nth-child(2) { animation-delay: 60ms; }
-.hub-entry__group { display: flex; align-items: center; gap: .06rem; min-height: .22rem; padding-left: .04rem; font-size: calc(.13 * var(--t)); color: rgba(223, 230, 226, .7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hub-entry__group .icon { flex: none; width: .16rem; height: .16rem; color: var(--mint-400); }
-.hub-entry__long { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.hub-entry__short { display: none; }
-/* Narrow desktop windows keep the full descriptions (phones have their own short labels below).
-   [ASSUMED·자료 없음] A shared two-line minimum keeps both cards level when only one description wraps. */
-@media (max-width: 900px) and (min-height: 521px) {
-  .hub-entry__group { min-height: 3em; white-space: normal; overflow: visible; text-overflow: clip; }
-  .hub-entry__long { white-space: normal; overflow: visible; text-overflow: clip; }
-}
 .hub-entry {
   position: relative;
   display: flex;
@@ -357,6 +347,9 @@
 .hub-entry:active { transform: translateY(1px); }
 .hub-entry__icon { position: absolute; right: .14rem; top: .12rem; color: var(--mint-a35); }
 .hub-entry__icon .icon { width: calc(.42 * var(--t)); height: calc(.42 * var(--t)); }
+/* 同盟匹配's badges (maintainer decision 2026-11-20): top left, across from the icon and stopping before it; a 0 keeps its
+   place, dimmed (as the difficulty card's 房间 n without .is-on) */
+.hub-entry__stats { position: absolute; left: .16rem; top: .12rem; right: calc(.14rem + .42 * var(--t) + .08rem); display: flex; flex-wrap: wrap; gap: .06rem; }
 /* the card, its icon and its text follow 文字大小 together (2.3 × 1.34 --t, the icon .42 --t), as at 小; the text stays
    below the icon — the card's top padding is the icon's .12rem offset, its height and a gap — so a long name or the
    decorative line grows the card rather than running under it (upstream §35.18 review: 「ALLIANCE SIMULATION」 ran under the
@@ -1054,11 +1047,9 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
      [ASSUMED·자료 없음] the caps */
   .lobby-hub .hub-plate { font-size: min(calc(.3 * var(--t)), calc(18px + var(--t-step))); }
   .hub-plate__tag { display: none; }
-  .hub-entry__group { height: auto; font-size: calc(.22 * var(--t)); }
-  /* 同盟模拟's line keeps only 「1–4 名博士」 here (upstream §35.51: the whole line, nowrap, ran 81–320 px past its entry at 特大 —
-     two to four lines if it wrapped; the AI teammates are the room's to show) */
-  .hub-entry__long { display: none; }
-  .hub-entry__short { display: inline; }
+  /* the badges at the size the line above the entries had here (5 px at .13 · --t was unreadable) */
+  .hub-entry__stats { left: .14rem; top: .1rem; right: calc(.14rem + .42rem + 4px); gap: 3px; }
+  .hub-entry__wait { padding: 0 4px; font-size: calc(.22 * var(--t)); }
   .hub-entry { width: calc(var(--hub-entry-w) + 7 * max(0px, var(--t-step))); }
   .hub-entry__en { padding-right: .44rem; font-size: min(calc(.16 * var(--t)), calc(10px + var(--t-step))); letter-spacing: .12em; }
   .hub-entry__name { font-size: min(calc(.42 * var(--t)), calc(18px + var(--t-step))); }
@@ -1257,7 +1248,8 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .hub-join .join-foot > .t-lo { display: inline-flex; align-items: center; }
 .hub-join .code-chip { display: inline-grid; place-items: center; padding-top: 0; padding-bottom: 0; }
 /* 同盟匹配's line above its entry: the season's waiting Doctors */
-.hub-entry__wait { margin-left: .08rem; padding: 0 .06rem; font-size: calc(.13 * var(--t)); font-weight: 700; color: #04140f; background: var(--mint-500); }
+.hub-entry__wait { padding: .01rem .07rem; font-size: calc(.13 * var(--t)); font-weight: 700; line-height: 1.5; white-space: nowrap; color: #04140f; background: var(--mint-500); }
+.hub-entry__wait.is-zero { color: rgba(223, 230, 226, .55); background: transparent; box-shadow: inset 0 0 0 1px rgba(223, 230, 226, .28); }
 /* the rule rows at the top of 选择模拟协议's right column (快速匹配 / 规则 / 人数); in 同盟匹配 a grid whose labels are spread
    to the widest one's width (one span a letter) and whose boxes share one width */
 /* the rows' box is the cards' column: the list's .5rem / .06rem side pads (maintainer decision 2026-11-08), its tracks

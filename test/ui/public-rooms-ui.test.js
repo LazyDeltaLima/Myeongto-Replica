@@ -74,6 +74,42 @@ test('publicOption: a co-op room\'s state, the host switches it; the switch send
   assert.match(lobby, /useState\(false\);\n {2}const publicRooms/, 'a new room is private by default');
 });
 
+test('autoStartOption: the host of a public co-op room alone; the count\'s seconds; the status line and the switch', async () => {
+  const { autoStartOption, autoStartLeft } = await load('public/js/screens/room.js');
+  const room = { mode: 'coop', hostId: 'h', public: true, autoStart: true, seats: [] };
+  assert.deepEqual(autoStartOption(room, 'h'), { on: true });
+  assert.deepEqual(autoStartOption({ ...room, autoStart: undefined }, 'h'), { on: false });
+  assert.equal(autoStartOption(room, 'g'), null, 'hidden from the other Doctors (maintainer decision 2026-11-20)');
+  assert.equal(autoStartOption({ ...room, public: false }, 'h'), null, 'a private room has none');
+  assert.equal(autoStartOption({ ...room, mode: 'solo' }, 'h'), null);
+  assert.equal(autoStartOption({ ...room, inMatch: true }, 'h'), null);
+  assert.equal(autoStartLeft({ autoStartAt: 10_000 }, 3_001), 7, 'whole seconds, rounded up');
+  assert.equal(autoStartLeft({ autoStartAt: 10_000 }, 12_000), 0);
+  assert.equal(autoStartLeft({}, 0), null, 'no count');
+  const src = read('public/js/screens/room.js');
+  assert.match(src, /net\.request\('room\.setAutoStart', \{ on \}\)/);
+  assert.match(src, /data-testid="room-autostart"/);
+  assert.match(src, /room\.autoStart === true\n\s+\? html`<span class="t-lo room-bar__pub"><\$\{Icon\} name="signal" \/>\$\{t\('自动开始'\)\}/, 'waiting: just 「自动开始」');
+});
+
+test('the hub: 同盟匹配\'s badges inside its card, the public rooms of every season; no line above the entries', async () => {
+  const { store } = await load('public/js/store.js');
+  const { installMatchQueue } = await load('public/js/ui/matchQueue.js');
+  const handlers = {};
+  installMatchQueue({ net: { on: (t, fn) => { handlers[t] = fn; } } });
+  handlers['lobby.queueCounts']({ counts: {}, rooms: { act2autochess: 1, act3autochess: 2 } });
+  assert.deepEqual(store.get().ui.queueRooms, { act2autochess: 1, act3autochess: 2 });
+  const { countAll } = await load('public/js/screens/lobby.js');
+  assert.equal(countAll(store.get().ui.queueRooms), 3, 'every season summed (maintainer decision 2026-11-20)');
+  const lobby = read('public/js/screens/lobby.js');
+  assert.match(lobby, /const totalRooms = countAll\(queueRooms\);/);
+  assert.match(lobby, /data-testid=\$\{testid\}/);
+  assert.match(lobby, /badge\(rooms, t\('公开房间 \{n\}'/);
+  assert.doesNotMatch(lobby, /hub-entry__group|points:/, 'the line above the entries is gone');
+  const css = read('public/css/screens/lobby.css');
+  assert.match(css, /\.hub-entry__wait\.is-zero \{/, 'a 0 is dimmed in place');
+});
+
 test('matchQueue: lobby.rooms fills ui.publicRooms; an offer keeps its room; any room.state ends the queue', async () => {
   const { store } = await load('public/js/store.js');
   const { installMatchQueue, leftText } = await load('public/js/ui/matchQueue.js');
@@ -94,7 +130,8 @@ test('matchQueue: lobby.rooms fills ui.publicRooms; an offer keeps its room; any
 test('every new text has its English and Korean', () => {
   const files = ['public/js/ui/publicRooms.js', 'public/js/ui/modeCapsule.js', 'public/js/ui/matchQueue.js', 'public/js/screens/room.js', 'public/js/screens/lobby.js'];
   const keys = ['公开联合', '仅匹配对象', '进行中（观战）', '所有赛季', '房间 {n}', '匹配对象', '设置 {n} 项不同', '查看全部设置', '参加', '公开', '不公开',
-    '等待 {n} 分钟', '进行中 · 第{n}回合', '确定将「{name}」移出同盟吗？对方 10 分钟内无法再次加入。', '接受后加入该联合，由创建者开始模拟'];
+    '等待 {n} 分钟', '进行中 · 第{n}回合', '确定将「{name}」移出同盟吗？对方 10 分钟内无法再次加入。', '接受后加入该联合，由创建者开始模拟',
+    '公开房间 {n}', '自动开始', '满员且所有博士准备就绪后，倒计时结束即自动开始模拟', '{n} 秒后自动开始'];
   const src = files.map(read).join('\n');
   for (const k of keys) {
     assert.ok(src.includes(`t('${k}'`), `used: ${k}`);

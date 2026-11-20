@@ -447,6 +447,8 @@
 .rtrack.rs-pub .dpick__opt:not(.is-active) .icon { width: calc(var(--o) * 23); height: calc(var(--o) * 23); }
 .rs-pub.is-ro .dpick__opt { cursor: help; }
 .room-bar__pub .icon { color: var(--mint-400); }
+/* a public room's auto start count (自动开始): the seconds in tabular figures, so the line does not shift as they count */
+.room-bar__auto b { font-weight: inherit; font-variant-numeric: tabular-nums; }
 .rs-go.proto-start { flex: none; width: min(4.6rem, 40vw); }
 .rs-go .proto-start__label { flex: 1 1 auto; padding-right: 8%; font-size: min(calc(.4 * var(--t)), .46rem); white-space: normal; line-height: 1.1; }
 .rs-go .proto-start__rook { font-size: min(calc(.36 * var(--t)), .4rem); }

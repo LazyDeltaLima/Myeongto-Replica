@@ -136,17 +136,14 @@ const MODE_CARDS = [
   {
     id: 'solo', name: N_('独立模拟'), en: 'SOLO SIMULATION', icon: 'user',
     desc: N_('独自调配资金与干员，以自己的节奏完成整场模拟。'),
-    points: [N_('1 名博士'), N_('不限时')],
   },
   {
     id: 'coop', name: N_('同盟模拟'), en: 'ALLIANCE SIMULATION', icon: 'users',
     desc: N_('与至多 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。'), params: { n: MAX_SEATS - 1 },
-    points: [N_('1–{n} 名博士 · 可由 AI 队友补位')], pointParams: { n: MAX_SEATS },
   },
   {
     id: 'match', name: N_('同盟匹配'), en: 'ALLIANCE MATCHMAKING', icon: 'signal',
     desc: N_('独自进入公共匹配池，与其他博士组成同盟后开始模拟。'),
-    points: [N_('自动匹配')],
   },
 ];
 
@@ -520,15 +517,19 @@ export function quickWaiting(counts4, counts8, quick, difficulty) {
 }
 
 /**
- * One of the three entries at the bottom right of the hub (独立模拟 / 同盟模拟 / 同盟匹配), with its line above it (and the
- * season's waiting Doctors on 同盟匹配's): opens its dialog.
+ * One of the three entries at the bottom right of the hub (独立模拟 / 同盟模拟 / 同盟匹配): opens its dialog. 同盟匹配's
+ * carries two badges in its top left, across from its icon (maintainer decision 2026-11-20; the line that stood above
+ * the three entries is gone): the season's waiting Doctors and the public rooms of every season — a 0 dimmed, in place.
  */
-export function HubEntry({ card, onOpen, waiting = null }) {
+export function HubEntry({ card, onOpen, waiting = null, rooms = null }) {
+  const badge = (n, text, testid) => html`<b class=${`hub-entry__wait num${n > 0 ? '' : ' is-zero'}`} data-testid=${testid}>${text}</b>`;
   return html`<div class="hub-entry-wrap">
-    <span class="hub-entry__group"><${Icon} name=${card.icon} />${card.points.map((p) => t(p, card.pointParams)).join(' · ')}
-      ${waiting != null ? html`<b class="hub-entry__wait num" data-testid="hub-queue-total">${t('等待 {n}', { n: waiting })}</b>` : null}</span>
     <button type="button" class=${`mode-card hub-entry hub-entry--${card.id}`} data-mode=${card.id} onClick=${() => onOpen(card.id)}
         title=${t(card.desc, card.params)}>
+      ${waiting != null || rooms != null ? html`<span class="hub-entry__stats">
+        ${waiting != null ? badge(waiting, t('等待 {n}', { n: waiting }), 'hub-queue-total') : null}
+        ${rooms != null ? badge(rooms, t('公开房间 {n}', { n: rooms }), 'hub-room-total') : null}
+      </span>` : null}
       <span class="hub-entry__icon" aria-hidden="true"><${Icon} name=${card.icon} /></span>
       <span class="hub-entry__en">${card.en}</span>
       <span class="hub-entry__name">${t(card.name)}</span>
@@ -989,6 +990,7 @@ export function LobbyScreen() {
   const queueCounts4 = useStore((s) => seasonQueueCounts(s, pickedSeason(s), false));
   const queueCounts8 = useStore((s) => seasonQueueCounts(s, pickedSeason(s), true));
   const queueQuick = useStore((s) => seasonQuickCounts(s, pickedSeason(s)));
+  const queueRooms = useStore((s) => s.ui.queueRooms);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(null);
   const [recent] = useState(recentRooms);
@@ -1070,6 +1072,8 @@ export function LobbyScreen() {
   // the queue's waiting Doctors per difficulty card: its ruleset × size queue, or with 快速匹配 the whole difficulty
   const waiting = matching ? (d) => (quick ? quickWaiting(queueCounts4, queueCounts8, queueQuick, d) : queueCountOf(big ? queueCounts8 : queueCounts4, queueRuleset, d)) : null;
   const totalWaiting = countAll(queueCounts4) + countAll(queueCounts8) + countAll(queueQuick);
+  // the hub's 「公开房间 N」: the public rooms waiting in every offered season (maintainer decision 2026-11-20)
+  const totalRooms = countAll(queueRooms);
 
   return html`<div class="screen lobby-screen lobby-hub">
     <${HubBackdrop} />
@@ -1104,7 +1108,8 @@ export function LobbyScreen() {
         <${SidePlate} class="hub-plate--join" glyph=${html`<${Icon} name="key" />`} label=${t('加入同盟 · 观战')} onClick=${() => setOpen('join')} />
       </aside>
       <section class="hub-entries" aria-label=${t('模拟方式')}>
-        ${MODE_CARDS.map((c) => html`<${HubEntry} key=${c.id} card=${c} onOpen=${setOpen} waiting=${c.id === 'match' ? totalWaiting : null} />`)}
+        ${MODE_CARDS.map((c) => html`<${HubEntry} key=${c.id} card=${c} onOpen=${setOpen} waiting=${c.id === 'match' ? totalWaiting : null}
+          rooms=${c.id === 'match' ? totalRooms : null} />`)}
       </section>
     </main>
 

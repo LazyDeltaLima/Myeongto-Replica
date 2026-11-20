@@ -6,7 +6,8 @@
 // Any room.state closes it (the player took a seat: the group's room, the offered room, a room of the public list —
 // ui/publicRooms.js); a welcome that starts a new server session forgets it (the server's queue is gone). A room no
 // longer queues (room.queueRoom is gone, maintainer decision 2026-11-20: a public room does its work). lobby.rooms (the
-// public room list) → store ui.publicRooms.
+// public room list) → store ui.publicRooms; lobby.queueCounts `rooms` ({ [season]: n }, the public rooms waiting) → store
+// ui.queueRooms (the hub's 「公开房间 N」, every season summed).
 //
 // The queues are per difficulty AND 规则 모드 (shared/ruleset.js; maintainer decision 2026-10-15): room.queue carries the
 // lobby's ruleset, the dialogs name it, and every Doctor in the lobby gets the waiting counts of every queue
@@ -149,7 +150,8 @@ export function installMatchQueue({ net: n = net } = {}) {
   // the waiting Doctors of every queue (the lobby's 同盟匹配 card): { [ruleset]: { [difficulty]: n } }, of the 8-player queues too
   const countsOf = (c) => (c && typeof c === 'object' ? c : null);
   // (the other offered 卫戍协议 seasons' in `seasons`: ui/season.js seasonQueueCounts)
-  n.on('lobby.queueCounts', (msg) => store.patch('ui', { queueCounts: countsOf(msg.counts), queueCounts8: countsOf(msg.counts8), queueQuick: countsOf(msg.quick), queueCountsBy: countsOf(msg.seasons) }));
+  n.on('lobby.queueCounts', (msg) => store.patch('ui', { queueCounts: countsOf(msg.counts), queueCounts8: countsOf(msg.counts8), queueQuick: countsOf(msg.quick), queueCountsBy: countsOf(msg.seasons),
+    queueRooms: countsOf(msg.rooms) }));
   n.on('welcome', (msg) => { if (!msg.resumed && store.get().ui.queue) setQueue(null); });
   // while queued the page's audio stays up in a hidden tab; the title blink ends with its group
   store.subscribe((s, prev) => {

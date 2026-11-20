@@ -86,6 +86,7 @@ export const initialState = Object.freeze({
   clock: { offset: 0, rtt: null, synced: false },
   ui: { pendingJoin: null, inviteSpectate: null /* { code, reason, room }: ui/inviteSpectate.js */, restoring: false, seatElsewhere: false /* another window holds this page's seat: ui/resumeMatch.js */, buildStale: false, restartAt: null /* ui/restartNotice.js */, genMove: null /* ui/generation.js */, updated: null /* { from, room }: the page reloaded onto a new version, ui/updateNotice.js */, queue: null /* ui/matchQueue.js */, queueCounts: null /* lobby.queueCounts, ui/matchQueue.js */, queueCounts8: null /* its counts8: the 8-player queues */, queueQuick: null /* its quick: the 快速匹配 queue */,
     queueCountsBy: null /* its `seasons`: { [season]: { counts, counts8 } } of the other offered seasons */,
+    queueRooms: null /* its `rooms`: { [season]: n } public rooms in their lobby (the hub's 公开房间 N) */,
     seasons: null /* the offered 卫戍协议 seasons (first pong; null = not known yet), ui/season.js */, season: null /* the picked one */,
     pendingSeason: null /* the invitation link's season (&season=) */,
     serverLost: null /* { text }: the official server-lost dialog over a match the server ended (main.js) */ },

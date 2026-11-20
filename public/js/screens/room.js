@@ -33,8 +33,10 @@
 // 不公开 | 公开 switch beside the start button — the official matching range switch's pill at its own height (50 units of the
 // event's 1280×720 canvas, the mode bar 57 beside it, centred on it; room.setPublic, the host's, read-only to the others).
 // A public room is on 同盟匹配's list (ui/publicRooms.js) and matchmaking offers its free and AI seats; the host still
-// starts the match. 「AI 队友最后选择」 shows only while an AI teammate is seated (aiLastOption), as tall as the 观战席
-// count beside it.
+// starts the match — or the room does: the host's 自动开始 switch beside 「AI 队友最后选择」 (room.setAutoStart, the same part,
+// the host alone; its tooltip says what it does), the status line 「自动开始」 while it waits and 「n 秒后自动开始」 for everybody
+// while the server counts (autoStartAt; maintainer decisions 2026-11-20). 「AI 队友最后选择」 shows only while an AI teammate
+// is seated (aiLastOption), as tall as the 观战席 count beside it.
 // 규칙 모드 (shared/ruleset.js, maintainer decisions 2026-10-15, 2026-10-18): 经典 / 休闲 / 自定义, host only. 自定义 takes the
 // host's settings (ui/customRulesStore.js).
 // The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): a room of `size` 8 shows its 8 seats in two rows, has no
@@ -48,7 +50,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from '../../vendor/
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, LARGE_MIN_PLAYERS, MAX_SEATS, MIN_SPECTATORS, SPECTATOR_SEATS, seatsOf, modeIdFor, gradeDifficulty, isGrade } from '../../../shared/constants.js';
 import { SeatMark } from '../ui/faction.js'; // local patch
 import {
-  html, Button, Icon, MicroLabel, AvatarFrame, Tooltip, Spinner, Modal, TextField, confirmDialog, doctorNo,
+  html, Button, Icon, MicroLabel, AvatarFrame, Tooltip, Spinner, Modal, TextField, confirmDialog, doctorNo, useTicker,
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { copyText } from '../ui/clipboard.js';
@@ -58,7 +60,7 @@ import { LoadoutButton } from './loadout.js';
 import { ConsoleToggle } from '../ui/consoleToggle.js'; // local patch: 콘솔 모드
 import { net } from '../net.js';
 import { useDocClass, useMediaQuery, SHORT_SCREEN_QUERY, FullscreenButton } from '../ui/device.js';
-import { store, useStore, shallowEqual, emptyMatch, isSpectating, reservedRank, savePref } from '../store.js';
+import { store, useStore, shallowEqual, emptyMatch, isSpectating, reservedRank, savePref, serverNow } from '../store.js';
 import { difficultyInfo, gradeInfo, gradeName, ProtocolSelect, ProtoRules, CustomBrief } from './lobby.js';
 import { RoomChat } from '../ui/chat.js';
 import { ExitTile } from '../ui/matchChrome.js';
@@ -216,6 +218,22 @@ export function rulesetOption(room, myId) {
 export function publicOption(room, myId) {
   if (!room || room.mode === 'solo') return null;
   return { on: room.public === true, editable: room.hostId != null && room.hostId === myId };
+}
+
+/**
+ * The 自动开始 switch (room.setAutoStart, room.state.autoStart; server/lobby.js 「공개방」): a public co-op room's, shown to
+ * its host alone (maintainer decision 2026-11-20: the others see only the count) while the room waits. null otherwise.
+ * @param {any} room room.state payload @param {any} myId
+ * @returns {{ on: boolean } | null}
+ */
+export function autoStartOption(room, myId) {
+  if (!room || room.mode !== 'coop' || room.public !== true || room.inMatch || room.hostId == null || room.hostId !== myId) return null;
+  return { on: room.autoStart === true };
+}
+
+/** The whole seconds left of a running auto start count (room.state.autoStartAt, server time), else null. */
+export function autoStartLeft(room, now) {
+  return room && Number.isFinite(room.autoStartAt) ? Math.max(0, Math.ceil((room.autoStartAt - now) / 1000)) : null;
 }
 
 /**
@@ -536,7 +554,20 @@ function AiLastToggle({ option, busy, onToggle, short = false }) {
       <button type="button" role="switch" aria-checked=${option.on ? 'true' : 'false'}
           class=${`dpick__opt ailast__opt${option.on ? ' is-active' : ''}`} disabled=${!option.editable || !!busy}
           onClick=${() => option.editable && onToggle(!option.on)}>
-        <${Icon} name="check" class=${option.on ? 'is-on' : ''} />${short ? t('AI 队友最后') : t('AI 队友最后选择')}
+        <${Icon} name="check" class=${option.on ? 'is-on' : ''} /><span>${short ? t('AI 队友最后') : t('AI 队友最后选择')}</span>
+      </button>
+    <//>
+  </div>`;
+}
+
+/** The host's 自动开始 switch beside 「AI 队友最后选择」: the same part, its tooltip says what it does (maintainer decision 2026-11-20). */
+function AutoStartToggle({ option, busy, onToggle }) {
+  if (!option) return null;
+  return html`<div class="ailast">
+    <${Tooltip} text=${t('满员且所有博士准备就绪后，倒计时结束即自动开始模拟')}>
+      <button type="button" role="switch" aria-checked=${option.on ? 'true' : 'false'} data-testid="room-autostart"
+          class=${`dpick__opt ailast__opt${option.on ? ' is-active' : ''}`} disabled=${!!busy} onClick=${() => onToggle(!option.on)}>
+        <${Icon} name="check" class=${option.on ? 'is-on' : ''} /><span>${t('自动开始')}</span>
       </button>
     <//>
   </div>`;
@@ -664,6 +695,8 @@ export function RoomScreen() {
   const [picking, setPicking] = useState(false);
   // 选择模拟协议 over the room (open, and the host's picks before 确认)
   const [proto, setProto] = useState(/** @type {null | { difficulty: string, ruleset: string, size: number, grade: number | null }} */ (null));
+  // a running auto start count (room.state.autoStartAt), redrawn every second for everybody in the room
+  useTicker(Number.isFinite(room?.autoStartAt) ? 1000 : 0);
 
   if (!room) return null;
   const online = conn.status === 'online';
@@ -741,6 +774,9 @@ export function RoomScreen() {
   // 공개방 (header): the host puts the room on 同盟匹配's list or takes it off
   const pubOpt = publicOption(room, me.playerId);
   const setPublic = (on) => run('public', () => net.request('room.setPublic', { on }));
+  const autoOpt = autoStartOption(room, me.playerId);
+  const setAutoStart = (on) => run('autostart', () => net.request('room.setAutoStart', { on }));
+  const autoLeft = autoStartLeft(room, serverNow());
   const leave = async () => {
     if (inFlight.current) return;
     const othersHere = facts.humans.some((s) => s.playerId !== me.playerId);
@@ -804,8 +840,13 @@ export function RoomScreen() {
       ? html`<span class="t-lo"><${Icon} name="eye" />${myReserved ? t('已预约座位（第 {n} 位）· 有空位时自动入座', { n: myReserved }) : t('观战中 · 不占博士席位，模拟开始后可切换观看各位博士')}</span>`
     : !coop
       ? html`<span class="t-mint">${t('*模拟协议已就绪，准许进入模拟')}</span>`
+    : autoLeft != null
+      ? html`<span class="t-mint room-bar__auto"><${Icon} name="hourglass" /><b class="num">${t('{n} 秒后自动开始', { n: autoLeft })}</b></span>`
     : facts.isHost
-      ? facts.canStart
+      // the auto start on and not counting yet: just 「自动开始」, whether or not the host could start now (maintainer decision 2026-11-20)
+      ? room.public === true && room.autoStart === true
+        ? html`<span class="t-lo room-bar__pub"><${Icon} name="signal" />${t('自动开始')}</span>`
+        : facts.canStart
         ? html`<span class="t-mint">${t('*同盟人数达标，准许进入模拟')}</span>`
         : facts.seatsOpen
         ? html`<span class="t-lo">${t('八人同盟需至少 5 名博士才能开始')}</span>`
@@ -909,6 +950,7 @@ export function RoomScreen() {
         <span class="room-bar__status">${statusLine}</span>
         <${SpectatorBar} facts=${facts} coop=${coop} myId=${me.playerId} busy=${busy} onRemove=${removeSpectator} onSeats=${setSpectatorSeats} />
         <${AiLastToggle} option=${aiLast} busy=${busy} onToggle=${setAiLast} short=${short} />
+        <${AutoStartToggle} option=${autoOpt} busy=${busy} onToggle=${setAutoStart} />
       </div>
       ${short ? null : html`<div class=${consoleBtn ? 'rs-foot__lo has-console' : 'rs-foot__lo'}>${loadout}${consoleBtn}</div>`}
       <${ModeBar} room=${room} rules=${roomRules} sizeOpt=${sizeOpt} info=${info} editable=${protoEditable} busy=${busy} onOpen=${openProto} />
