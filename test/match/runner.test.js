@@ -268,6 +268,59 @@ test('boss field: the local pool follows b.pool (server hp − unacknowledged lo
   r.runner.dispose();
 });
 
+test('watching the other pair\'s boss field (maintainer decision 2026-11-20): the server lets a fighting player watch it, the own boss battle steps off screen to its end and reports the server-identical result; back home shows it', async () => {
+  const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 1, bots: 3, seed: 7310, captureFrames: false, clientCombat: true, clients: false });
+  h.autoHumans();
+  h.m.start();
+  h.run(() => h.ended != null || h.m.phase === PHASE.FINAL_ASSAULT, { maxSteps: 5e6 });
+  assert.equal(h.m.phase, PHASE.FINAL_ASSAULT, 'the seed reaches the Final Assault');
+  const start = h.lastTo('p_0', 'b.start');
+  assert.deepEqual([start.kind, start.authoritative, start.watch], ['boss', true, false], 'p_0 simulates its own pair field');
+  const other = h.m.fields.find((f) => !f.players.includes('p_0'));
+  assert.ok(other && other.kind === 'boss', 'the other pair\'s field');
+  // the real g.watch path (Match._watchClient): no 'other group hidden' any more
+  assert.deepEqual(h.m.handle('p_0', { t: 'g.watch', fieldId: other.fieldId }), { ok: true });
+  assert.equal(h.m.watchers.get('p_0'), other.fieldId);
+  const watched = h.lastTo('p_0', 'b.start');
+  assert.deepEqual([watched.fieldId, watched.authoritative, watched.watch], [other.fieldId, false, true], 'a display replica of the other pair\'s field');
+  assert.equal(h.m.fields.find((f) => f.fieldId === start.fieldId).authority, 'p_0', 'the own field keeps its authority');
+  h.m.dispose();
+  const r = rig();
+  r.net.emit('b.start', start);
+  await r.settle();
+  const own = r.runner._entries.get(start.battleId);
+  r.advance(1500);
+  r.net.emit('b.start', watched);
+  await r.settle();
+  assert.equal(r.store.get().match.field.fieldId, other.fieldId, 'the other pair\'s field on screen');
+  const snaps = r.feed.snaps.length;
+  const ticks = own.battle.tickCount;
+  r.advance(2000);
+  assert.ok(own.battle.tickCount - ticks >= 110, `the own boss battle keeps its clock off screen (${own.battle.tickCount - ticks} ticks in 2 s)`);
+  assert.ok(r.feed.snaps.slice(snaps).every((x) => x.fieldId === other.fieldId), 'only the field on screen is rendered');
+  assert.ok(r.net.sent.some((x) => x.t === 'b.progress' && x.battleId === start.battleId), 'the own boss field keeps reporting');
+  assert.ok(!r.net.sent.some((x) => x.t === 'b.progress' && x.battleId === watched.battleId), 'the replica never reports');
+  for (let i = 0; i < 1200 && !own.done; i++) r.advance(1000, 50);
+  assert.ok(own.done, 'the own boss battle finished off screen');
+  await r.settle();
+  const st = r.store.get().match.battle;
+  assert.deepEqual([st.fieldId, st.watch, st.mine.fieldId, st.mine.done], [other.fieldId, true, start.fieldId, true], 'state().mine: the own battle ended while the other pair is shown');
+  const res = r.net.sent.filter((x) => x.t === 'b.result');
+  assert.deepEqual(res.map((x) => x.battleId), [start.battleId], 'only the own battle reports');
+  // the server's simulation of the same spec (no b.pool came in either run: the local pool alone)
+  const server = runHeadless(specMod.createBattleFromSpec(start.spec, DS, { recordEvents: false }), { players: start.spec.players.map((p) => p.playerId) }).result;
+  const a = validateClientResult(start.spec, res[0].result, {});
+  const b = validateClientResult(start.spec, specMod.compactResult(server), {});
+  assert.ok(a.ok && b.ok);
+  assert.equal(specMod.resultDigest(a.result).hash, specMod.resultDigest(b.result).hash, 'stepped off screen, the result equals the server simulation');
+  // 返回战场: the server sends the own field again — the same battle is shown, finished
+  r.net.emit('b.start', { ...start, authoritative: false, done: true });
+  await r.settle();
+  assert.equal(r.store.get().match.field.fieldId, start.fieldId);
+  assert.equal(r.runner._entries.get(start.battleId), own, 'no rebuild');
+  r.runner.dispose();
+});
+
 /** A fake net whose b.result requests follow a script: 'ok' | 'lost' (DISCONNECTED) | 'offline' | 'timeout' | 'refused'. */
 function scriptResults(r, script) {
   r.net.request = (t, fields) => {

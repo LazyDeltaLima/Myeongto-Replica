@@ -211,8 +211,9 @@ fields' `startAt` / `lastProgressAt` and the boss start by the paused time and r
 Client-side combat (the default, DESIGN §14 Spectating; `Match._watchClient`): `g.watch` answers with the field's
 `b.start` (a display replica fast-forwarded to the field clock); an alive player may watch a teammate's normal field
 while its own normal battle runs — the browser keeps the own battle stepping off screen and reports it (maintainer
-decision 2026-10-25; the official current season refused it) — but never the other pair's boss field (`BAD_TARGET 'other
-group hidden'`); eliminated players watch anything. Whatever is watched, the viewer's bond strip shows the bonds of the
+decision 2026-10-25; the official current season refused it), and in 最终攻势 / 隐秘核心 the other pair's boss field while
+its own runs (the official game hides it; a convenience for every season, maintainer decision 2026-11-20); eliminated
+players watch anything. Whatever is watched, the viewer's bond strip shows the bonds of the
 player on screen from that player's `m.public players[].bonds` (§5) plus the replica's live layers (DESIGN §20.15) — no
 extra message. On a shared field (联防 / a pair's boss field) the client remembers the teammate picked with 前往查看
 (the `g.watch` request still names the field) and frames that player's half; a viewer who does not fight on the field
@@ -222,7 +223,8 @@ screen (the runner's `ownerOps`, its field meta predating their deploy). A clien
 player) sends no `g.watch` (it would be refused with `BAD_TARGET 'no such field'`). A reload / reconnect while watching a
 teammate's battle after the own one gets the watched field again (`_resendBattle`, `b.start watch: true`); the fresh
 screen adopts it as the watched field once per battle (`battle/observe.js resumedWatch`: a living player's teammate
-normal battle in COMBAT, first seen while watching nothing), so the observing pill, 返回战场 and the own row work again.
+normal battle in COMBAT, or the other pair's boss field in 最终攻势 / 隐秘核心, first seen while watching nothing), so the
+observing pill, 返回战场 and the own row work again.
 Spectator seats (a remake feature, community report #26; server/lobby.js): `opts.spectators` / `addSpectator(id)` register
 a spectator — no PlayerState, a stand-in with `alive: false` — that every watch path treats like an eliminated human
 (`_viewers()`: the first field of each battle, the 联防 spec, the first boss field, `g.watch` anything; `addSpectator`
@@ -234,8 +236,9 @@ The rest of this section is the legacy server-run mode
 `g.watch { fieldId }`: any live field during COMBAT / 联防; while no battle field is up (PREP, drafts, SETTLE)
 `'n:<pid>'` keeps the viewer scouting that board and pushes `prepFieldMeta` again when it changes (GitHub #87) — during a battle phase an `'n:<pid>'` id must name a live field
 (`BAD_TARGET 'no such field'` otherwise, and the viewer keeps its stream). In the
-最终攻势 / 隐秘核心 a player fighting in a boss field may only watch its own field ("两名参与者会处于同一个战场，但无法查看
-另一组队友的战场情况" → `BAD_TARGET 'other group hidden'`); eliminated / departed players spectate any field.
+最终攻势 / 隐秘核心 a player fighting in a boss field may watch the other pair's field too (the official game hides it,
+"两名参与者会处于同一个战场，但无法查看另一组队友的战场情况"; maintainer decision 2026-11-20); eliminated / departed players
+spectate any field.
 
 ### 1.5 AI player (bot.js)
 **Strategy** (`botPickBand`): weighted by starting LP among the offered bands (alone, 老鲤's withheld first-round funds

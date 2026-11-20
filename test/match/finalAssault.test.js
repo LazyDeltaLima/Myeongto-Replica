@@ -226,7 +226,7 @@ test('Hidden Core is skipped at Σ layers ≤ threshold, on FUNNY, or with team 
   m.dispose();
 });
 
-test('Final Assault: a fighting player may only watch its own boss field; eliminated players spectate any field', () => {
+test('Final Assault: a fighting player may watch the other pair\'s boss field too (maintainer decision 2026-11-20); eliminated players spectate any field', () => {
   const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 4, seed: 54, fake: true, instant: false, script: (b) => (b.kind === 'boss' ? { bossDps: 1 } : {}) }).start();
   const m = h.m;
   m.rngPairs = { shuffle: (a) => a }; // the boss waves pair by seat here (the drawn pairs: finalAssault.test.js)
@@ -234,13 +234,21 @@ test('Final Assault: a fighting player may only watch its own boss field; elimin
   h.ps('p_3').eliminate(13);
   h.drive(() => m.phase === PHASE.FINAL_ASSAULT);
   assert.deepEqual(m.fields.map((f) => [f.fieldId, f.players]), [['b1', ['p_0', 'p_1']], ['b2', ['p_2']]]);
-  assert.equal(m.handle('p_0', { t: 'g.watch', fieldId: 'b2' }).error, 'BAD_TARGET', 'the other group is hidden');
-  assert.equal(m.handle('p_2', { t: 'g.watch', fieldId: 'b1' }).error, 'BAD_TARGET');
+  // the official game hides the other pair's field (「无法查看另一组队友的战场情况」); here it is a field like any other
+  const b2Snaps = () => h.allTo('p_0', 'b.snap').filter((x) => x.fieldId === 'b2').length;
+  const before = b2Snaps();
+  assert.deepEqual(m.handle('p_0', { t: 'g.watch', fieldId: 'b2' }), { ok: true }, 'the other pair\'s boss field');
+  assert.equal(m.watchers.get('p_0'), 'b2');
+  assert.equal(h.lastTo('p_0', 'm.field').fieldId, 'b2', 'its field meta');
+  h.sched.advance(500);
+  assert.ok(b2Snaps() > before, 'b.snap of b2 reaches the viewer');
+  assert.deepEqual(m.handle('p_2', { t: 'g.watch', fieldId: 'b1' }), { ok: true });
   assert.deepEqual(m.handle('p_1', { t: 'g.watch', fieldId: 'b1' }), { ok: true });
   assert.deepEqual(m.handle('p_3', { t: 'g.watch', fieldId: 'b2' }), { ok: true }, 'an eliminated player spectates freely');
   assert.deepEqual(m.handle('p_3', { t: 'g.watch', fieldId: 'b1' }), { ok: true });
-  assert.equal(m.watchers.get('p_0'), 'b1', 'the refused watch keeps the default (own) field');
-  // the prep-scouting id of a player of the other group is no way around the rule, and never detaches the viewer
+  assert.deepEqual(m.handle('p_0', { t: 'g.watch', fieldId: 'b1' }), { ok: true }, 'back to the own field');
+  assert.equal(m.watchers.get('p_0'), 'b1');
+  // a prep-scouting id names no live field during the battle: refused, and it never detaches the viewer
   const scouted = h.allTo('p_0', 'm.field').length;
   assert.deepEqual(m.handle('p_0', { t: 'g.watch', fieldId: 'n:p_2' }), { error: 'BAD_TARGET', detail: 'no such field' });
   assert.deepEqual(m.handle('p_0', { t: 'g.watch', fieldId: 'n:p_1' }), { error: 'BAD_TARGET', detail: 'no such field' });

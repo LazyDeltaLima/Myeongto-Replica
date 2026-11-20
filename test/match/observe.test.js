@@ -1,7 +1,7 @@
 // Observing rules of the client (public/js/battle/observe.js, research 09 §3.1 / §6.3) — the mirror of the server's
 // Match._watchClient: prep boards, a teammate's field while the own normal battle runs (maintainer decision 2026-10-25)
 // or once it is over, the own progress row under the observing pill,
-// the other pair's boss field hidden, eliminated players free; the 联防 / 最终攻势 camera halves and their captions;
+// the other pair's boss field too (maintainer decision 2026-11-20), eliminated players free; the 联防 / 最终攻势 camera halves and their captions;
 // a reloaded screen that watched a teammate's battle takes the watch back (resumedWatch).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -40,7 +40,11 @@ test('observeTarget: prep, own battle running / over, boss pairs, eliminated pla
     { fieldId: 'b1', kind: 'boss', players: ['a', 'b'], live: true },
     { fieldId: 'b2', kind: 'boss', players: ['d'], live: true },
   ], [...players, P('d', 3)]);
-  assert.match(observeTarget(P('d', 3), fa, 'a').reason, /另一组/);
+  // the other pair's boss field while the own one runs (the official game hides it; maintainer decision 2026-11-20)
+  assert.deepEqual(observeTarget(P('d', 3), fa, 'a'), { fieldId: 'b2' });
+  const hc = pubOf('HIDDEN_CORE', fa.fields.map((f) => ({ ...f, kind: 'hidden' })), fa.players);
+  assert.deepEqual(observeTarget(P('d', 3), hc, 'a'), { fieldId: 'b2' }, 'the Hidden Core too');
+  assert.deepEqual(observeTarget(players[0], fa, 'a', { observing: true }), { back: true }, 'the own row goes back');
   assert.match(observeTarget(players[1], fa, 'a').reason, /同一战场/);
   const dead = pubOf('FINAL_ASSAULT', fa.fields, [{ ...players[0], alive: false }, players[1], P('d', 3)]);
   assert.deepEqual(observeTarget(P('d', 3), dead, 'a'), { fieldId: 'b2' }, 'eliminated: anything');
@@ -104,4 +108,16 @@ test('resumedWatch: a reload while watching a teammate\'s battle adopts the rese
   assert.deepEqual(resumedWatch(watched, { ...o, pub: { ...pub, phase: 'UNITE' } }), { seen: 'r3-n:b', fieldId: null });
   assert.deepEqual(resumedWatch(watched, { ...o, pub: { ...pub, combatMode: 'server' } }), { seen: 'r3-n:b', fieldId: null });
   assert.deepEqual(resumedWatch({ ...watched, fieldId: 'n:x' }, o), { seen: 'r3-n:b', fieldId: null }, 'a field not listed');
+  // 最终攻势 / 隐秘核心: the other pair's boss field watched while the own one ran (maintainer decision 2026-11-20)
+  const bossPub = (phase, kind) => pubOf(phase, [
+    { fieldId: 'b1', kind, players: ['a', 'b'], live: true },
+    { fieldId: 'b2', kind, players: ['c'], live: true },
+  ], players);
+  const other = { battleId: 'r14-b2', fieldId: 'b2', kind: 'boss', watch: true, done: false };
+  assert.deepEqual(resumedWatch(other, { ...o, pub: bossPub('FINAL_ASSAULT', 'boss') }), { seen: 'r14-b2', fieldId: 'b2' });
+  assert.deepEqual(resumedWatch({ ...other, kind: 'hidden' }, { ...o, pub: bossPub('HIDDEN_CORE', 'hidden') }), { seen: 'r14-b2', fieldId: 'b2' }, 'the Hidden Core too');
+  assert.deepEqual(resumedWatch({ ...other, fieldId: 'b1' }, { ...o, pub: bossPub('FINAL_ASSAULT', 'boss') }), { seen: 'r14-b2', fieldId: null }, 'the own pair field');
+  assert.deepEqual(resumedWatch(other, { ...o, alive: false, pub: bossPub('FINAL_ASSAULT', 'boss') }), { seen: 'r14-b2', fieldId: null }, 'an eliminated player keeps its auto-observe');
+  assert.deepEqual(resumedWatch(other, { ...o, pub: bossPub('COMBAT', 'boss') }), { seen: 'r14-b2', fieldId: null }, 'a boss kind outside the boss phases');
+  assert.deepEqual(resumedWatch(watched, { ...o, pub: { ...pub, phase: 'FINAL_ASSAULT' } }), { seen: 'r3-n:b', fieldId: null }, 'a normal battle in a boss phase');
 });

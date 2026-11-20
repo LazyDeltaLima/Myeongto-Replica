@@ -947,15 +947,23 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     await page.close();
   });
 
-  test('watch: the other pair of the Final Assault is refused and the eye stays put', async () => {
+  test('watch: the other pair of the Final Assault may be watched (maintainer decision 2026-11-20) and 返回战场 brings the own field back', async () => {
     const { page, problems } = await open('phase=FINAL_ASSAULT');
+    assert.equal(await page.$eval('.vswitch__label', (el) => el.textContent), '全景');
     const rows = await page.$$('.team__row');
-    await (await rows[2].$('.team__btn')).click(); // P3: the other pair (field b2)
+    await (await rows[2].$('.team__btn')).click(); // the team dialog; P3 is the other pair (field b2)
+    await sleep(250);
+    const go = await rows[2].$('.team__ob');
+    assert.ok(go, '前往查看 on the other pair\'s row');
+    await go.click();
     await sleep(500);
     const watched = await page.$$eval('.team__row.is-watched .team__name', (els) => els.map((e) => e.textContent));
-    assert.ok(!watched.includes('Doctor·B') && !watched.includes('灰烬'), `other pair not marked watched (${watched})`);
-    assert.match(await page.$eval('.toast', (el) => el.textContent), /另一组/);
-    assert.equal(await page.$eval('.vswitch__label', (el) => el.textContent), '全景');
+    assert.ok(watched.includes('Doctor·B') && watched.includes('灰烬'), `the other pair marked watched (${watched})`);
+    assert.equal(await page.$('.toast'), null, 'no refusal toast');
+    assert.notEqual(await page.$eval('.vswitch__label', (el) => el.textContent), '全景', 'the other pair\'s field on screen');
+    await page.click('.team__back');
+    await sleep(500);
+    assert.equal(await page.$eval('.vswitch__label', (el) => el.textContent), '全景', 'back on the own pair field');
     assert.deepEqual(problems, []);
     await page.close();
   });

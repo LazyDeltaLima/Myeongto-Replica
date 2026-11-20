@@ -5,8 +5,9 @@
 //     on off screen and reports; the official current season refused it, 「当前无法查看」 — the next season's mode allows
 //     it, taken for every season as a convenience: maintainer decision 2026-10-25); 返回战场 goes back; once the own
 //     battle is over: "⌛ 作战结束，等待队友完成作战" + the teammates' progress;
-//   * 联防 / 最终攻势: the ‹ › pill switches the camera LEFT half / 全景 / RIGHT half of the own field; the other pair's
-//     boss field is never shown to a fighting player;
+//   * 联防 / 最终攻势: the ‹ › pill switches the camera LEFT half / 全景 / RIGHT half of the own field; tap a player of
+//     the other pair → 前往查看 → its boss field while the own one runs off screen (the official game hides it,
+//     「无法查看另一组队友的战场情况」 — a convenience for every season, maintainer decision 2026-11-20);
 //   * eliminated: anything — each phase reset starts on the player it follows (the server's prep scout / b.start,
 //     followedScout).
 
@@ -55,7 +56,6 @@ export function observeTarget(p, pub, myId, { observing = false } = {}) {
   const own = fieldOf(pub, myId);
   if (!meAlive || !own) return { fieldId: target.fieldId };
   if (own.fieldId === target.fieldId) return { reason: t('队友与你在同一战场，使用 ‹ › 切换视角') };
-  if (target.kind === 'boss' || target.kind === 'hidden') return { reason: t('无法查看另一组队友的战场') };
   return { fieldId: target.fieldId };
 }
 
@@ -64,7 +64,8 @@ export function observeTarget(p, pub, myId, { observing = false } = {}) {
  * resends the watched field (Match._resendBattle, b.start `watch: true`), but a fresh screen starts at home — so the
  * observing pill, 返回战场 and the own row would be missing. Decided once per battle, at the first sight of its
  * battleId (`seen` = the battleId already decided): adopt `fieldId` as the watched field when it is a teammate's normal
- * battle in 各自行动 shown to a living player who watches nothing. Never for a battle first seen while watching (a
+ * battle in 各自行动, or the other pair's boss field in 最终攻势 / 隐秘核心 (maintainer decision 2026-11-20), shown to a
+ * living player who watches nothing. Never for a battle first seen while watching (a
  * 前往查看 under way — and its 返回战场 must not bring it back while the own b.start is on its way), the own field, a
  * 联防 leaker's field or an eliminated player's auto-observed one (those keep their own rules). A loading battle (its
  * state carries no `watch` yet) is decided once it runs, unless the screen already watches (then it is marked seen).
@@ -77,10 +78,11 @@ export function resumedWatch(b, { pub = null, myId = '', alive = true, watching 
   if (!isObj(pub) || !isObj(b) || typeof b.battleId !== 'string' || !b.battleId || b.battleId === seen) return keep;
   if (b.loading && !watching) return keep;
   const done = { seen: b.battleId, fieldId: null };
-  if (b.loading || watching || !alive || !isClientCombat(pub) || pub.phase !== PHASE.COMBAT) return done;
-  if (!b.watch || b.kind !== 'normal' || typeof b.fieldId !== 'string' || !b.fieldId) return done;
+  if (b.loading || watching || !alive || !isClientCombat(pub)) return done;
+  const kinds = pub.phase === PHASE.COMBAT ? ['normal'] : pub.phase === PHASE.FINAL_ASSAULT || pub.phase === PHASE.HIDDEN_CORE ? ['boss', 'hidden'] : [];
+  if (!b.watch || !kinds.includes(b.kind) || typeof b.fieldId !== 'string' || !b.fieldId) return done;
   const f = fields(pub).find((x) => x.fieldId === b.fieldId);
-  if (!f || f.kind !== 'normal' || !Array.isArray(f.players) || f.players.includes(myId)) return done;
+  if (!f || f.kind !== b.kind || !Array.isArray(f.players) || f.players.includes(myId)) return done;
   return { seen: b.battleId, fieldId: b.fieldId };
 }
 

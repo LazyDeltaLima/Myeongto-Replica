@@ -1,6 +1,6 @@
 // server/match/match/watch.js — Match methods: watching (research 09 §3.1 / §6.3) — spectator seats (community report
-// #26: stand-ins shown fields like an eliminated player), g.watch in both combat modes (the boss-group rule, prep
-// scouting of a teammate's board), who is shown which field (the default watch, the boss fields, the resend on a
+// #26: stand-ins shown fields like an eliminated player), g.watch in both combat modes (any live field — the other
+// boss pair's too, maintainer decision 2026-11-20 —, prep scouting of a teammate's board), who is shown which field (the default watch, the boss fields, the resend on a
 // reconnect, the spectator's spec without the funds), a field's m.field + b.snap (server-run mode) and the prep-scout
 // pushes (GitHub #87). Eliminated humans and spectator seats follow a player through every phase reset (community
 // report of 2026-10-06, item 56; the official DeadAutoObDn { obIndex, state, preparation }, research 09 §3.1; the idea
@@ -54,10 +54,8 @@ export class MatchWatch {
     if (this.clientCombat && this.fields.length && this.fields.some((x) => x.cc)) return this._watchClient(ps, fieldId, playerId);
     const f = this.fields.find((x) => x.fieldId === fieldId);
     if (f) {
-      // 最终攻势 / 隐秘核心: "两名参与者会处于同一个战场，但无法查看另一组队友的战场情况" — a fighting player sees its own
-      // boss field only (eliminated / departed players spectate freely)
-      const own = this.fieldOf(ps);
-      if ((f.kind === 'boss' || f.kind === 'hidden') && own && own !== f.fieldId) return fail(ERR.BAD_TARGET, 'other group hidden');
+      // 最终攻势 / 隐秘核心: the official game hides the other pair's boss field ("两名参与者会处于同一个战场，但无法查看另一组
+      // 队友的战场情况"); here a fighting player may watch it too, as any field (a convenience, maintainer decision 2026-11-20)
       this.watchers.set(ps.playerId, fieldId);
       this._watchPrefSet(ps, f, playerId);
       this._sendField(ps.playerId, fieldId);
@@ -65,8 +63,7 @@ export class MatchWatch {
     }
     if (fieldId.startsWith('n:')) {
       // prep scouting, only while no battle field is up: during 各自行动 / 联防 / 最终攻势 / 隐秘核心 an 'n:<pid>' id
-      // must name a live field (else the boss-group rule above could be bypassed, and the viewer would stop receiving
-      // its own field's snapshots). The scout stays in `watchers` so a later board change pushes prepFieldMeta again
+      // must name a live field (else the viewer would stop receiving its field's snapshots for a board nobody shows). The scout stays in `watchers` so a later board change pushes prepFieldMeta again
       // (GitHub #87); combat start clears the map and reassigns live fields, spectators included.
       if (this.fields.length) return fail(ERR.BAD_TARGET, 'no such field');
       const target = this.players.get(fieldId.slice(2));
@@ -132,14 +129,13 @@ export class MatchWatch {
    * g.watch under client-side combat: the watcher gets the field's spec (b.start, display only) and runs a local
    * replica fast-forwarded to the field's clock. A teammate's normal battle may be watched while the own one still runs
    * (the browser keeps simulating it off screen and reports it — a convenience of the next season's mode, taken for every
-   * season: maintainer decision 2026-10-25; the official current season refused it, 「当前无法查看」); the other pair's
-   * boss field is never shown to a fighting player; eliminated players may watch anything.
+   * season: maintainer decision 2026-10-25; the official current season refused it, 「当前无法查看」); so may the other
+   * pair's boss field in 最终攻势 / 隐秘核心 while the own one runs (the official game hides it, 「无法查看另一组队友的战场
+   * 情况」: a convenience for every season, maintainer decision 2026-11-20); eliminated players may watch anything.
    */
   _watchClient(ps, fieldId, playerId = null) {
     const f = this.fields.find((x) => x.fieldId === fieldId) || null;
     if (!f) return fail(ERR.BAD_TARGET, 'no such field');
-    const own = this.fields.find((x) => x.players.includes(ps.playerId)) || null;
-    if (ps.alive && (f.kind === 'boss' || f.kind === 'hidden') && own && own !== f) return fail(ERR.BAD_TARGET, 'other group hidden');
     this.watchers.set(ps.playerId, f.fieldId);
     this._watchPrefSet(ps, f, playerId);
     this._sendStart(ps.playerId, f, { watch: !f.players.includes(ps.playerId) });
