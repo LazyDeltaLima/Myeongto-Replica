@@ -306,6 +306,24 @@ describe('0.2.0 自选编队 — a slotted operator in the own shop and battle (
       await c.waitFor((s) => s.phase === 'BAND_DRAFT', 'band draft', 30000);
       await c.click('.dband', null, { nth: 1 });
       await c.click('.draft-detail__btns .btn--primary', '确认选择');
+      // 2b) a g.diyChoose that never lands (dropped before the wire, as a lost connection or a timeout ends it): the card
+      // the tap chose goes back to unchosen once the request has failed, so the screen never shows a choice the match
+      // will not field (a player report of 2026-11-20; screens/diyChoose.js, gameLogic settleDiyChoice)
+      const chooseCard = `[data-testid="diy-choose-card"][data-slot="${SLOT}"]`;
+      await c.page.waitForSelector(`${chooseCard}[aria-pressed="false"]`, { visible: true, timeout: 60000 });
+      await c.page.evaluate(() => {
+        const net = globalThis.__SP__.net;
+        const real = net.request;
+        net.request = function (t, fields, ...rest) {
+          if (t !== 'g.diyChoose') return real.call(this, t, fields, ...rest);
+          net.request = real;
+          return new Promise((_, reject) => setTimeout(() => reject(Object.assign(new Error('TIMEOUT'), { code: 'TIMEOUT' })), 300));
+        };
+      });
+      await c.page.click(chooseCard);
+      await c.page.waitForSelector(`${chooseCard}[aria-pressed="true"]`, { timeout: 2000 }); // the tap shows at once
+      await c.page.waitForSelector(`${chooseCard}[aria-pressed="false"]`, { timeout: 5000 }); // the failed request: the server's choice
+      assert.deepEqual(await c.page.evaluate(() => globalThis.__SP__.store.get().match.private?.diyChoose?.chosen), [], 'the server holds no choice');
       await c.passDiyChoose();
       await c.waitFor((s) => s.phase === 'PREP' && !s.ready && s.funds >= 4 && s.level >= 5, 'prep at 调度中心 level 5', 60000);
       const fielded = await c.page.evaluate(() => globalThis.__SP__.store.get().match.private?.diy ?? null);

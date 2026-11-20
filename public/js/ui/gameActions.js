@@ -90,7 +90,8 @@ export const actions = {
   // the strategy draft's 编队确认 (after the last pick): done
   draftReady: () => act('g.draftReady'),
   // 规程's 确定自选编队 (server diyChoose.js): the slots brought into the match, then 准备就绪 / 取消准备
-  diyChoose: (slots) => act('g.diyChoose', { slots }, { sfx: false, quiet: true }),
+  // a failure toasts (the screen then shows the server's choice again: screens/diyChoose.js settleDiyChoice)
+  diyChoose: (slots) => act('g.diyChoose', { slots }, { sfx: false }),
   diyReady: (cancel = false) => act('g.diyReady', cancel ? { cancel: true } : {}, { sfx: false }),
   buy: (slot, opts) => act('g.buy', { slot }, opts), // local patch: `opts` (screens/game.js — an operator's purchase sounds as its drop-in)
   // a refresh while the previous g.refresh is still on the wire is dropped (upstream #501, onRefreshBusy above)

@@ -174,3 +174,22 @@ export function toggleDiyChoice(order, slotId, perTier) {
   const drop = new Set(same.slice(0, Math.max(0, same.length - limit + 1)));
   return [...cur.filter((id) => !drop.has(id)), slotId];
 }
+
+/**
+ * The choice the 确定自选编队 screen shows once none of its g.diyChoose requests is on the wire: the server's (`srv`,
+ * m.private diyChoose.chosen — what the match fields), kept in the screen's tap order where the two agree so a full tier
+ * still drops its earliest choice; the server's slots the taps lack follow in lineup order. A request that failed
+ * (offline, timed out, refused) thus never leaves a card shown as chosen that the server does not hold (a player report
+ * of 2026-11-20: chosen on the screen, no 自选 operator in the match). Returns `order` itself when it already holds the
+ * same slots (no re-render).
+ * @param {string[]} order the screen's choice, earliest first
+ * @param {string[]} srv the server's chosen slots (lineup order)
+ * @returns {string[]}
+ */
+export function settleDiyChoice(order, srv) {
+  const cur = Array.isArray(order) ? order : [];
+  const held = (Array.isArray(srv) ? srv : []).filter((id) => typeof id === 'string');
+  if (cur.length === held.length && cur.every((id) => held.includes(id))) return cur;
+  const kept = cur.filter((id) => held.includes(id));
+  return [...kept, ...held.filter((id) => !kept.includes(id))];
+}

@@ -33,7 +33,7 @@ import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfoDialog, matchInfoModel } from '../ui/matchInfo.js';
 import { MatchIntelDialog } from '../ui/matchIntel.js';
 import { actions } from '../ui/gameActions.js';
-import { sortedPlayers, diyPickOff, diyChooseRows, toggleDiyChoice, startStepCount } from '../ui/gameLogic.js';
+import { sortedPlayers, diyPickOff, diyChooseRows, toggleDiyChoice, settleDiyChoice, startStepCount } from '../ui/gameLogic.js';
 import { useStore } from '../store.js';
 import { data, localAsset } from '../data.js';
 import { audio } from '../audio.js';
@@ -46,7 +46,6 @@ import { seasonFeature } from '../../../shared/seasons.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const ROMAN = { 1: 'Ⅰ', 2: 'Ⅱ', 3: 'Ⅲ', 4: 'Ⅳ', 5: 'Ⅴ', 6: 'Ⅵ' };
-const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 
 /** The sprites the CSS draws (custom properties on the screen): the season's extract, else none (the CSS fills). */
 function artVars(m) {
@@ -143,18 +142,22 @@ export function DiyChooseScreen() {
   const [infoOpen, setInfoOpen] = useState(false);
   const [intelOpen, setIntelOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  // the choice in the order it was made (the server keeps it in lineup order): a tap on a full tier drops the earliest
+  // the choice in the order it was made (the server keeps it in lineup order): a tap on a full tier drops the earliest.
+  // The taps show at once while their g.diyChoose is on the wire; once every one has settled (answered, failed or timed
+  // out) the screen takes the server's choice again (gameLogic settleDiyChoice), so a request that never landed cannot
+  // leave a card chosen on the screen that the match will not field. The ready view draws the server's choice only.
   const srv = Array.isArray(view?.chosen) ? view.chosen : [];
   const [order, setOrder] = useState(srv);
+  const [settled, setSettled] = useState(0);
   const inFlight = useRef(0);
   const srvKey = srv.join(',');
-  useEffect(() => { if (!inFlight.current && !sameSet(srv, order)) setOrder(srv); }, [srvKey]);
+  useEffect(() => { if (!inFlight.current) setOrder((o) => settleDiyChoice(o, srv)); }, [srvKey, settled]);
 
   const off = new Set(Array.isArray(pub?.disabledBonds) ? pub.disabledBonds : []);
   const D = { chess: data.get('chess'), backups: data.get('backups') };
   const getChess = (id) => data.lookup('chess', id);
   const rule = { coreBan: seasonFeature(roomSeason, 'coreBondBan'), isCore: (b) => !!data.lookup('bonds', b)?.isCore };
-  const rows = diyChooseRows(view, order, (slotId, pick) => diyPickOff(slotId, pick, off, getChess, D, rule));
+  const rows = diyChooseRows(view, ready ? srv : order, (slotId, pick) => diyPickOff(slotId, pick, off, getChess, D, rule));
   const tap = (slotId) => {
     if (!view || ready || busy) return;
     const slot = rows.flatMap((r) => r.slots).find((s) => s.slotId === slotId);
@@ -163,7 +166,10 @@ export function DiyChooseScreen() {
     setOrder(next);
     audio.sfx('tab', { volume: 0.5 });
     inFlight.current++;
-    void actions.diyChoose(next).finally(() => { inFlight.current--; });
+    void actions.diyChoose(next).finally(() => {
+      inFlight.current--;
+      if (!inFlight.current) setSettled((n) => n + 1);
+    });
   };
   const readyUp = async (cancel) => {
     if (!view || busy) return;

@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  diySlotTier, startStepCount, diyChooseRows, toggleDiyChoice,
+  diySlotTier, startStepCount, diyChooseRows, toggleDiyChoice, settleDiyChoice,
   phaseMode, phaseBanner, isCombatPhase, isBossPhase, bondLayersPaused, countdownState, phaseTotalSeconds, sortBonds, bondTier, nextThreshold, bondRequireCount,
   holdsBattleEnd, settleBattleEnd, ownRoundLoss, roundResultBox, RESULT_BOX_MS,
   bondMembers, memberHeadCount, memberLit, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
@@ -1040,6 +1040,16 @@ describe('规程\'s 确定自选编队 (screens/diyChoose.js)', () => {
     assert.deepEqual(toggleDiyChoice([S5(1)], S5(2), { 5: 1 }), [S5(2)]);
     assert.deepEqual(toggleDiyChoice([S5(1)], S6(1), { 5: 2 }), [S5(1)], 'a tier without a limit takes nothing');
     assert.deepEqual(toggleDiyChoice(undefined, S5(1), perTier), [S5(1)]);
+  });
+
+  test('settled requests: the screen shows the server\'s choice, in tap order where they agree (a failed g.diyChoose shows nothing the match will not field)', () => {
+    const taps = [S5(3), S6(2), S5(1)];
+    assert.equal(settleDiyChoice(taps, [S5(1), S5(3), S6(2)]), taps, 'the same slots: the tap order stays (no re-render)');
+    assert.deepEqual(settleDiyChoice(taps, []), [], 'every request lost (offline, timed out): nothing is shown as chosen');
+    assert.deepEqual(settleDiyChoice(taps, [S5(1), S5(3)]), [S5(3), S5(1)], 'the last request lost: the server\'s two, earliest tap first');
+    assert.deepEqual(settleDiyChoice([S6(2)], [S5(1), S6(2)]), [S6(2), S5(1)], 'a slot only the server holds joins after the taps');
+    assert.deepEqual(settleDiyChoice(undefined, [S5(1)]), [S5(1)]);
+    assert.deepEqual(settleDiyChoice(taps, null), []);
   });
 
   test('the rows: one per tier in tier order, lineup order inside, the chosen count and the cards out this match', () => {
