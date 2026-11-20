@@ -1456,8 +1456,8 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
    two badges ran under the ring at 1600×900), show 「n · 房间 n」 as one badge */
 .pcard__wait.pcard__rooms { margin-left: .06rem; }
 .pcard__both { display: none; }
-.pcard.is-on .pcard__head:has(.pcard__both) > .pcard__wait:not(.pcard__both) { display: none; }
-.pcard.is-on .pcard__head:has(.pcard__both) > .pcard__both { display: inline; }
+.pcard.is-on .pcard__head.has-both > .pcard__wait:not(.pcard__both) { display: none; }
+.pcard.is-on .pcard__head.has-both > .pcard__both { display: inline; }
 @media (max-height: 520px) {
   .pubrooms { --u: .0165rem; --po: .013rem; inset: 2px 0 4px 0; }
   .pubrooms__head { gap: 8px; padding-bottom: 4px; }

@@ -419,7 +419,7 @@ function DifficultyCard({ roomMode, difficulty, selected, onSelect, disabled = f
   return html`<button type="button" class=${`pcard diff-card${selected ? ' is-on is-selected' : ''}`} style=${`--d-color:${DIFFICULTY_COLORS[difficulty]}`}
       disabled=${disabled} onClick=${() => onSelect(difficulty)} aria-pressed=${selected ? 'true' : 'false'}>
     <span class="pcard__glow" aria-hidden="true"></span>
-    <span class="pcard__head">
+    <span class=${`pcard__head${rooms != null ? ' has-both' : ''}`}>
       <${DifficultyIcon} difficulty=${difficulty} class="pcard__glyph" />
       <span class="pcard__name">${t(DIFFICULTY_NAMES[difficulty])}</span>
       ${waiting != null ? html`<span class=${`pcard__wait${waiting > 0 ? ' is-on' : ''}`} data-testid=${`queue-count-${difficulty}`}>${t('等待 {n}', { n: waiting })}</span>` : null}
