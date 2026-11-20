@@ -20,9 +20,10 @@
 //
 // measure: the layout checks of our screen alone (the spec's `measure` part, tools/ui-check/measure.mjs header) —
 // clipped text, sibling cells against a reference cell, centred cells, symmetric padding, broken images and failed
-// requests, the data cells a mockup showed really filled. Every view (desktop, a phone with touch …) opens the screen
-// afresh. Writes into --out (default: measure-out/ beside the spec): <view>.png and measure.json (every row, the raw
-// geometry, the source revision). Exit 0 = every check passed, 1 = one failed, 2 = the run failed.
+// requests, the data cells a mockup showed really filled, and in a touch view the touch areas of what a finger
+// presses (at least --tap-min, 44 CSS px; docs/rules/ui.md 「디자인 원칙」). Every view (desktop, a phone with touch …)
+// opens the screen afresh. Writes into --out (default: measure-out/ beside the spec): <view>.png and measure.json (every
+// row, the raw geometry, the source revision). Exit 0 = every check passed, 1 = one failed, 2 = the run failed.
 //
 // Under WSL: CHROME_PATH=test/helpers/wsl-windows-chrome.sh (the Windows Chrome), and a server you started yourself.
 
@@ -153,7 +154,7 @@ async function measure(specFile, opt) {
       try {
         const raw = await s.page.evaluate(collect, pagePlan(ms));
         fs.writeFileSync(path.join(outDir, `${v.name}.png`), await s.page.screenshot({ type: 'png' }));
-        const res = judge(ms, raw, s.problems);
+        const res = judge(ms, raw, s.problems, { touch: !!v.ours.touch });
         failed += res.failed.length;
         report.views.push({ name: v.name, viewport: v.ours.viewport, touch: !!v.ours.touch, scale: s.scale, rows: res.rows, problems: s.problems, raw });
         for (const l of formatMeasure(v.name, res)) console.log(l);

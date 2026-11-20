@@ -42,7 +42,9 @@ UI를 만들거나 고치는 사람이 모두 같은 기준으로 만들게 하�
   - 터치 화면에서 누르는 칸은 44×44 CSS px 이상이다(`css/devices.css` `--tap-min`). 근거는 Apple HIG 44pt와 WCAG 2.5.5의 44px이다.
   - 보이는 크기는 공식대로 두고, 보이지 않는 터치 영역(`devices.css` 「touch targets」 목록이나 `.tapx`)으로 넓힌다.
   - 터치 영역이 이웃 단추 위로 넘어가지 않게 넓힐 방향(`--tap-w`·`--tap-h`·`--tap-top`…)을 정한다(아래 「휴대폰 화면 조정」).
-- **숫자로 확인한다.** `tools/ui-check.mjs measure`(잘린 글자, 이웃 칸 높이, 가운데 맞춤, 패딩 대칭, 깨진 그림)를 돌리고, 공식 화면이나 시안이 있으면 `compare`도 돌린다.
+- **숫자로 확인한다.** `tools/ui-check.mjs measure`(잘린 글자, 이웃 칸 높이, 가운데 맞춤, 패딩 대칭, 깨진 그림, 터치 칸)를 돌리고, 공식 화면이나 시안이 있으면 `compare`도 돌린다.
+  - 터치 칸 검사는 spec의 `touch: true` 보기마다 저절로 돈다. `roots` 아래 누르는 요소(button·a·input·select·`[role=button|switch|tab|…]`·`.tapx`)의 터치 영역이 가로나 세로로 `--tap-min`보다 작으면 실패다. 터치 영역은 자기 상자와 절대 배치 `::before`·`::after`를 합치고, 그것을 자르는 조상의 `overflow`로 자른 것이다(화면 가장자리는 자르지 않음). 스크롤 목록에 반쯤 가려 작은 것은 `scroll`로 따로 낸다.
+  - 알고 두는 것은 spec `tap.except`에 `{ sel, why }`로 적는다. 이웃 단추와 겹치는지는 이 검사가 아니라 `test/ui/devices.e2e.test.js`가 본다.
 
 ## 전투 포기 (관리자 결정 2026-11-18, PR #21)
 

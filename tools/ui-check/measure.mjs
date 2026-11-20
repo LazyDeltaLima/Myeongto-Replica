@@ -32,12 +32,26 @@
 //            them loading as in the image sweep)
 //   network  { except: [{ match, why }] } — failed requests (4xx, failed loads) and page errors fail unless a regular
 //            expression `match` finds them; `why` is required
+//   tap      { roots, except: [{ sel, why }], min } — touch areas (docs/rules/ui.md 「디자인 원칙」), only in a view the
+//            page sees as touch (`touch: true`; the page reports maxTouchPoints or a coarse pointer). Every visible
+//            element under `roots` (default: the roots above) that a finger presses (TAP_TARGETS) has a touch area of at
+//            least --tap-min (css/devices.css, 44 CSS px when the page has no such token) on both axes. The area is the
+//            element's box joined with its absolutely placed ::before / ::after (devices.css draws the invisible hit
+//            area there; a pseudo with pointer-events none does not count), each cut by the ancestors that clip it —
+//            except where a clip edge is the screen's edge, which a finger reaches past. An area short only because a
+//            list that scrolls cuts it is reported apart as `scroll`, like clipped text. It runs by default in every
+//            touch view of a spec with roots; except (closest, `why` required) passes a known one, min (default 1) is
+//            the fewest elements it must measure. Overlap with a neighbour is test/ui/devices.e2e.test.js's question.
 // Every entry with `min` (default 1) fails when it measured fewer elements than that, so a selector that matches
 // nothing never passes as empty.
 
 import path from 'node:path';
 
-export const CHECKS = ['tol', 'views', 'roots', 'text', 'heights', 'centres', 'padding', 'filled', 'network'];
+export const CHECKS = ['tol', 'views', 'roots', 'text', 'heights', 'centres', 'padding', 'filled', 'network', 'tap'];
+/** What a finger presses: the tap sweep's elements (the `tap` check above). */
+export const TAP_TARGETS = 'button, a, input:not([type="hidden"]), select, summary, [role="button"], [role="switch"], [role="tab"], [role="checkbox"], [role="radio"], [role="option"], [role="menuitem"], .tapx';
+/** Fractional layout (a 43.99 px box) is not a short area: the slack before a touch area fails. */
+const TAP_SLACK = 0.5;
 const EDGE_LETTERS = /^[htbwlr]+$/;
 const AXES = new Set(['x', 'y', 'xy']);
 
@@ -104,8 +118,25 @@ export function resolveMeasure(spec, dir, layouts = {}) {
   if (textExcept.some((e) => !e.sel)) fail('text.except entries need sel');
   const netExcept = needWhy(list(m.network?.except, 'measure.network.except'), 'network.except');
   for (const e of netExcept) { try { new RegExp(e.match); } catch { fail(`network.except match "${e.match}" is not a regular expression`); } }
-  if (!roots.length && !heights.length && !centres.length && !padding.length && !filled.length) fail('measure checks nothing');
-  return { dir: dir ? path.resolve(dir) : null, tol, views: resolvedViews, roots, textExcept, heights, centres, padding, filled, netExcept };
+  const tap = resolveTap(m.tap, roots, resolvedViews);
+  if (!roots.length && !tap.roots.length && !heights.length && !centres.length && !padding.length && !filled.length) fail('measure checks nothing');
+  return { dir: dir ? path.resolve(dir) : null, tol, views: resolvedViews, roots, textExcept, heights, centres, padding, filled, netExcept, tap };
+}
+
+function resolveTap(t, roots, views) {
+  if (t == null) return { roots, except: [], min: 1 };
+  if (typeof t !== 'object' || Array.isArray(t)) fail('tap must be an object');
+  for (const k of Object.keys(t)) if (!['roots', 'except', 'min'].includes(k) && !k.startsWith('//')) fail(`tap: unknown key "${k}" (known: roots, except, min)`);
+  const own = list(t.roots, 'measure.tap.roots');
+  if (own.some((r) => typeof r !== 'string' || !r)) fail('tap.roots are selectors');
+  const except = needWhy(list(t.except, 'measure.tap.except'), 'tap.except');
+  if (except.some((e) => !e.sel)) fail('tap.except entries need sel');
+  const min = t.min ?? 1;
+  if (!(Number.isInteger(min) && min >= 0)) fail(`tap.min ${t.min} is not a count`);
+  const r = own.length ? own : roots;
+  if (!r.length) fail('tap has no roots (give tap.roots or measure.roots)');
+  if (!views.some((v) => v.ours.touch)) fail('tap is measured in touch views only, and no view has touch: true');
+  return { roots: r, except, min };
 }
 
 /** What `collect` needs from the resolved checks (selectors only — it runs in the page). */
@@ -116,10 +147,11 @@ export function pagePlan(ms) {
     centres: ms.centres.map((e) => ({ sel: e.sel, parent: e.parent || null })),
     padding: ms.padding.map((e) => ({ sel: e.sel, child: e.child || null })),
     filled: ms.filled.map((e) => ({ sel: e.sel, each: e.each || null, art: !!e.art })),
+    tap: { roots: ms.tap.roots, except: ms.tap.except.map((e) => e.sel), targets: TAP_TARGETS },
   };
 }
 
-/* global document, getComputedStyle, Image, Node, location -- collect() runs in the browser */
+/* global document, getComputedStyle, Image, Node, location, matchMedia -- collect() runs in the browser */
 /**
  * Run in the page (page.evaluate(collect, pagePlan(ms))): the raw geometry of every checked element. Self-contained —
  * nothing outside this function is visible to it.
@@ -251,6 +283,111 @@ export async function collect(plan) {
     })));
   });
 
+  // touch areas (touch pages only): the element's box joined with its absolutely placed ::before / ::after, each cut by
+  // the ancestors that clip it (a clip edge on the screen's edge does not cut: a finger reaches past it)
+  res.touch = navigator.maxTouchPoints > 0 || matchMedia('(any-pointer: coarse)').matches;
+  res.tap = null;
+  if (res.touch && plan.tap?.roots?.length) {
+    const root = document.documentElement;
+    const vw = root.clientWidth, vh = root.clientHeight;
+    const css = getComputedStyle(root);
+    const size = parseFloat(css.getPropertyValue('--tap-min')) || 44;
+    const makesBlock = (s) => s.position !== 'static' || s.transform !== 'none' || s.filter !== 'none' || s.perspective !== 'none'
+      || /paint|layout|strict|content/.test(s.contain || '') || /transform|perspective|filter/.test(s.willChange || '');
+    // the containing block of an absolutely placed child of `el` (el itself when it is positioned)
+    const blockOf = (el, fixed) => {
+      for (let p = el; p && p !== root; p = p.parentElement) {
+        const s = getComputedStyle(p);
+        if (fixed ? (s.transform !== 'none' || s.filter !== 'none' || s.perspective !== 'none') : makesBlock(s)) return p;
+      }
+      return null; // the initial containing block / the viewport
+    };
+    const clipsFrom = (start) => {
+      const out = [];
+      for (let p = start; p && p !== root; p = p.parentElement) {
+        const s = getComputedStyle(p);
+        if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
+        const q = p.getBoundingClientRect();
+        const l = q.left + p.clientLeft, t = q.top + p.clientTop;
+        const scrolls = (o) => o === 'auto' || o === 'scroll';
+        out.push({ l, t, r: l + (p.clientWidth || q.width), b: t + (p.clientHeight || q.height), sx: scrolls(s.overflowX), sy: scrolls(s.overflowY) });
+      }
+      return out;
+    };
+    // `scrolled`: also cut along the axes a list scrolls (false: what the area is once the list is scrolled to it)
+    const cut = (b, clips, scrolled = true) => {
+      if (!b) return null;
+      let { l, t, r, b: bt } = b;
+      for (const c of clips) {
+        const x = scrolled || !c.sx, y = scrolled || !c.sy;
+        if (x && c.l > 0.5) l = Math.max(l, c.l);
+        if (y && c.t > 0.5) t = Math.max(t, c.t);
+        if (x && c.r < vw - 0.5) r = Math.min(r, c.r);
+        if (y && c.b < vh - 0.5) bt = Math.min(bt, c.b);
+      }
+      return r > l && bt > t ? { l, t, r, b: bt } : null;
+    };
+    // a pseudo's box in viewport px: its resolved left / top / size in its containing block's (unscaled) padding box,
+    // its own transform about its transform-origin, then the block's scale on the screen (an ancestor's `scale`)
+    const pseudoBox = (el, which) => {
+      const s = getComputedStyle(el, which);
+      if (s.content === 'none' || s.content === 'normal' || s.display === 'none' || s.pointerEvents === 'none' || s.visibility === 'hidden') return null;
+      if (s.position !== 'absolute' && s.position !== 'fixed') return null; // in flow: inside the element's own box
+      const L = parseFloat(s.left), T = parseFloat(s.top), W = parseFloat(s.width), H = parseFloat(s.height);
+      if (![L, T, W, H].every(Number.isFinite)) return { unplaced: which };
+      const cb = blockOf(el, s.position === 'fixed');
+      let ox = 0, oy = 0, sx = 1, sy = 1;
+      if (cb) {
+        const q = cb.getBoundingClientRect();
+        sx = cb.offsetWidth ? q.width / cb.offsetWidth : 1;
+        sy = cb.offsetHeight ? q.height / cb.offsetHeight : 1;
+        ox = q.left + (cb.clientLeft - cb.scrollLeft) * sx;
+        oy = q.top + (cb.clientTop - cb.scrollTop) * sy;
+      }
+      const m = /matrix\(([^)]+)\)/.exec(s.transform);
+      const [a, b, c, d, e, f] = m ? m[1].split(',').map(Number) : [1, 0, 0, 1, 0, 0];
+      const [tox, toy] = s.transformOrigin.split(' ').map(parseFloat);
+      const pts = [[0, 0], [W, 0], [0, H], [W, H]].map(([px, py]) => {
+        const dx = px - (tox || 0), dy = py - (toy || 0);
+        return [L + (tox || 0) + a * dx + c * dy + e, T + (toy || 0) + b * dx + d * dy + f];
+      });
+      const xs = pts.map((p) => ox + p[0] * sx), ys = pts.map((p) => oy + p[1] * sy);
+      return { which, box: { l: Math.min(...xs), t: Math.min(...ys), r: Math.max(...xs), b: Math.max(...ys) }, clips: clipsFrom(cb || null) };
+    };
+    const targets = [];
+    const seen = new Set();
+    let offscreen = 0;
+    for (const r0 of [...new Set(plan.tap.roots.flatMap((s) => all(s)))]) {
+      for (const el of [r0, ...r0.querySelectorAll(plan.tap.targets)]) {
+        if (seen.has(el) || !el.matches(plan.tap.targets)) continue;
+        seen.add(el);
+        if (!visible(el) || getComputedStyle(el).pointerEvents === 'none') continue;
+        const q = el.getBoundingClientRect();
+        const ownBox = { l: q.left, t: q.top, r: q.right, b: q.bottom }, ownClips = clipsFrom(el.parentElement);
+        const own = cut(ownBox, ownClips);
+        // not on the screen to press (scrolled out of its list, off the viewport): nothing to measure
+        if (!own || own.r <= 0 || own.b <= 0 || own.l >= vw || own.t >= vh) { offscreen++; continue; }
+        const parts = [[own, cut(ownBox, ownClips, false)]];
+        const pseudos = [], unplaced = [];
+        for (const which of ['::before', '::after']) {
+          const p = pseudoBox(el, which);
+          if (!p) continue;
+          if (p.unplaced) { unplaced.push(which); continue; }
+          const pair = [cut(p.box, p.clips), cut(p.box, p.clips, false)];
+          if (pair[1]) { parts.push(pair); pseudos.push(which); }
+        }
+        const join = (bs) => {
+          const ok = bs.filter(Boolean);
+          const l = Math.min(...ok.map((p) => p.l)), t = Math.min(...ok.map((p) => p.t));
+          return { x: r1(l), y: r1(t), w: r1(Math.max(...ok.map((p) => p.r)) - l), h: r1(Math.max(...ok.map((p) => p.b)) - t) };
+        };
+        const area = join(parts.map((p) => p[0])), scrolledTo = join(parts.map((p) => p[1]));
+        targets.push({ label: label(el), except: plan.tap.except.findIndex((s) => el.closest(s)), rect: box(q), area, scrolledTo, pseudos, unplaced });
+      }
+    }
+    res.tap = { size, targets, offscreen };
+  }
+
   // load every image url once (from the cache: the page already asked for them)
   const here = location.href.split('#')[0];
   await Promise.all([...images.values()].map(async (e) => {
@@ -287,9 +424,10 @@ const SCROLLS = new Set(['auto', 'scroll']);
 
 /**
  * Judge the raw `collect` result against the checks. Returns { rows, failed, scroll, excepted } — a row is
- * { check, name, status: ok | fail | scroll | except, what, detail }.
+ * { check, name, status: ok | fail | scroll | except, what, detail }. `view.touch`: the view emulates touch (the tap
+ * check then fails when the page did not see it), unknown when not given.
  */
-export function judge(ms, raw, problems = { requests: [], errors: [] }) {
+export function judge(ms, raw, problems = { requests: [], errors: [] }, view = {}) {
   const rows = [];
   const add = (check, name, status, what, detail = null) => rows.push({ check, name, status, what, detail });
   const { tol } = ms;
@@ -375,6 +513,26 @@ export function judge(ms, raw, problems = { requests: [], errors: [] }) {
     if (n < c.min) add('padding', c.name, 'fail', `measured ${n} elements of ${c.sel}, the spec wants at least ${c.min}`);
     else if (!bad) add('padding', c.name, 'ok', `${n} elements`);
   });
+
+  if (view.touch && raw.touch === false && ms.tap.roots.length) add('tap', 'touch area', 'fail', 'the view emulates touch, but the page saw no touch (maxTouchPoints 0, no coarse pointer) — nothing measured');
+  if (raw.tap) {
+    const { size, targets } = raw.tap;
+    const short = (v) => v < size - TAP_SLACK;
+    let bad = 0;
+    for (const t of targets) {
+      const { w, h } = t.area;
+      const unplaced = t.unplaced?.length ? ` (${t.unplaced.join(' / ')} not placed in px — not counted)` : '';
+      if (!short(w) && !short(h)) continue;
+      const what = `${t.label}: touch area ${round1(w)}×${round1(h)} (box ${round1(t.rect.w)}×${round1(t.rect.h)}${t.pseudos.length ? ` + ${t.pseudos.join(' ')}` : ''}), under ${size}×${size}${unplaced}`;
+      const s2 = t.scrolledTo;
+      if (t.except >= 0) add('tap', 'touch area', 'except', what, ms.tap.except[t.except].why);
+      else if (s2 && !short(s2.w) && !short(s2.h)) add('tap', 'touch area', 'scroll', `${what} — ${round1(s2.w)}×${round1(s2.h)} once its list is scrolled to it`);
+      else { add('tap', 'touch area', 'fail', what, { area: t.area, rect: t.rect }); bad++; }
+    }
+    const off = raw.tap.offscreen ? `, ${raw.tap.offscreen} off the screen not measured` : '';
+    if (targets.length < ms.tap.min) add('tap', 'touch area', 'fail', `measured ${targets.length} pressable elements under ${ms.tap.roots.join(', ')}, the spec wants at least ${ms.tap.min}${off}`);
+    else if (!bad) add('tap', 'touch area', 'ok', `${targets.length} pressable elements ≥ ${size}×${size}${off}`);
+  }
 
   const imageOk = new Map(raw.images.map((im) => [im.url, im]));
   ms.filled.forEach((f, i) => {

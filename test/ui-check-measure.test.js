@@ -132,3 +132,49 @@ test('ui-check measure: broken images under the roots and failed requests / page
   assert.match(text, /^\[desk\] failed: 3 {2}scroll: 0 {2}excepted: 1 {2}ok: 1/);
   assert.match(text, /FAIL network · page error: TypeError/);
 });
+
+test('ui-check measure: touch areas — box + ::before / ::after under --tap-min fail in a touch view, exceptions need a why', () => {
+  const ms = resolveMeasure(spec({ roots: ['.d'], views: [{ name: 'desk' }, { name: 'phone', viewport: [844, 390], touch: true }],
+    tap: { except: [{ sel: '.chip', why: 'not pressed: a label' }] } }), '/s');
+  assert.deepEqual(ms.tap.roots, ['.d'], 'the tap sweep defaults to the roots');
+  assert.deepEqual(pagePlan(ms).tap.except, ['.chip']);
+  const T = (label, rect, area, o = {}) => ({ label, except: -1, rect, area, pseudos: ['::before'], unplaced: [], ...o });
+  const tap = {
+    size: 44, offscreen: 2,
+    targets: [
+      T('button.btn "닫기"', R(0, 0, 30, 20), R(0, 0, 44, 44)),             // the invisible ::before grows it to 44
+      T('button.close', R(0, 0, 30, 20), R(0, 0, 30, 20), { pseudos: [] }), // no hit area
+      T('a.link', R(0, 0, 60, 30), R(0, -7, 60, 43.6)),                     // fractional layout: within the slack
+      T('button.wide', R(0, 0, 200, 30), R(0, 0, 200, 43.4)),               // 0.6 short on y: fails
+      T('span.chip', R(0, 0, 20, 20), R(0, 0, 20, 20), { except: 0 }),
+      T('button.bond', R(578, 33, 48, 50), R(578, 8, 24, 76), { scrolledTo: R(578, 8, 48, 76) }), // half out of a list that scrolls x
+    ],
+  };
+  const res = judge(ms, raw({ text: [textEl()], touch: true, tap }), undefined, { touch: true });
+  assert.deepEqual(res.failed.filter((r) => r.check === 'tap').map((r) => r.what), [
+    'button.close: touch area 30×20 (box 30×20), under 44×44',
+    'button.wide: touch area 200×43.4 (box 200×30 + ::before), under 44×44',
+  ]);
+  assert.equal(res.excepted.find((r) => r.check === 'tap').detail, 'not pressed: a label');
+  assert.deepEqual(res.scroll.map((r) => r.what), ['button.bond: touch area 24×76 (box 48×50 + ::before), under 44×44 — 48×76 once its list is scrolled to it']);
+  const ok = judge(ms, raw({ text: [textEl()], touch: true, tap: { size: 44, offscreen: 0, targets: tap.targets.slice(0, 1) } }));
+  assert.deepEqual(statuses(ok, 'tap'), ['ok']);
+  assert.match(ok.rows.find((r) => r.check === 'tap').what, /1 pressable elements ≥ 44×44/);
+  // a desktop view: the page collects nothing, nothing is judged
+  assert.deepEqual(statuses(judge(ms, raw({ text: [textEl()], touch: false, tap: null }), undefined, { touch: false }), 'tap'), []);
+  // a touch view whose page saw no touch, and one that measured nothing, fail rather than pass empty
+  assert.deepEqual(statuses(judge(ms, raw({ text: [textEl()], touch: false, tap: null }), undefined, { touch: true }), 'tap'), ['fail']);
+  assert.ok(judge(ms, raw({ text: [textEl()], touch: true, tap: { size: 44, offscreen: 3, targets: [] } })).failed
+    .some((r) => /measured 0 pressable elements under \.d, the spec wants at least 1, 3 off the screen/.test(r.what)));
+  // the page's --tap-min is the size
+  assert.equal(judge(ms, raw({ text: [textEl()], touch: true, tap: { size: 48, targets: tap.targets.slice(0, 1) } })).failed[0]?.what,
+    'button.btn "닫기": touch area 44×44 (box 30×20 + ::before), under 48×48');
+  // the spec part
+  assert.deepEqual(resolveMeasure(spec({ heights: [{ ref: '.a', cells: ['.b'] }], views: [{ name: 'p', touch: true }], tap: { roots: ['.bar'], min: 0 } }), '/s').tap,
+    { roots: ['.bar'], except: [], min: 0 });
+  assert.throws(() => resolveMeasure(spec({ roots: ['.d'], tap: {} }), '/s'), /touch views only/);
+  assert.throws(() => resolveMeasure(spec({ heights: [{ ref: '.a', cells: ['.b'] }], views: [{ name: 'p', touch: true }], tap: {} }), '/s'), /tap has no roots/);
+  assert.throws(() => resolveMeasure(spec({ roots: ['.d'], views: [{ name: 'p', touch: true }], tap: { except: [{ sel: '.a' }] } }), '/s'), /needs a why/);
+  assert.throws(() => resolveMeasure(spec({ roots: ['.d'], views: [{ name: 'p', touch: true }], tap: { size: 40 } }), '/s'), /unknown key "size"/);
+  assert.throws(() => resolveMeasure(spec({ roots: ['.d'], views: [{ name: 'p', touch: true }], tap: { min: -1 } }), '/s'), /not a count/);
+});
