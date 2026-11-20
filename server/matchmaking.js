@@ -30,7 +30,7 @@
 //     `queueGraceMs` (10 s; a phone switching apps keeps its place); a resume within that time resends the queue state
 //     (or the pending room.matchFound). The reconnect window expiring removes the entry at once. A player who takes a
 //     seat in a room some other way (the public room list, an invitation link, a key, a room of their own) leaves the
-//     queue then (reason 'room'; Lobby.join / Lobby.create → onSeated; an answer pending for a group is a decline).
+//     queue then (reason 'room'; Lobby.join / Lobby.create / Lobby.spectate → onSeated; an answer pending for a group is a decline).
 //   * Limits: at most `maxQueuedPerAddr` waiting single players from one client network (internet clients only, net.js
 //     clientAddress; twice that to join an 8-player queue, so a whole 8-seat group can come from one network — the
 //     count is over every queue; room.queue → ERR.RATE); no queue entry, no public room offer and no match start
@@ -330,7 +330,7 @@ export class Matchmaker {
   }
 
   /**
-   * The session took a seat in a room (Lobby.join, before the room's state goes out; header): its entry leaves the
+   * The session took a seat in a room (Lobby.join / create / spectate, before the room's state goes out; header): its entry leaves the
    * queue — silently when it is a public room offer being accepted, else with reason 'room' (a group it was answering:
    * a decline). @param {import('./net.js').Session} session
    */

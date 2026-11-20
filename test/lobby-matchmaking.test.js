@@ -181,6 +181,24 @@ describe('랜덤 매칭 (server/matchmaking.js)', () => {
     await err(ps[1], { t: 'room.queueAccept', accept: true }, ERR.WRONG_PHASE);
   });
 
+  test('a queued player who takes a spectator seat leaves the queue (reason room, as room.join); one confirming a group declines it', async () => {
+    const ps = await players(pool, 6);
+    const host = ps[5];
+    await ok(host, { t: 'room.create', mode: 'coop', difficulty: 'HARD' }); // a private room: no walk of any pool
+    const code = (await host.waitFor('room.state')).code;
+    await queued(ps[4], 'HARD');
+    await ok(ps[4], { t: 'room.spectate', code });
+    assert.equal((await ps[4].waitFor('room.queueState', (s) => !s.queued)).reason, 'room');
+    for (const c of ps.slice(0, 4)) await queued(c);
+    for (const c of ps.slice(0, 4)) await found(c);
+    await ok(ps[1], { t: 'room.spectate', code });
+    assert.equal((await ps[1].waitFor('room.queueState', (s) => !s.queued)).reason, 'room');
+    // the others go back long before the 10 s confirmation runs out
+    for (const c of [ps[0], ps[2], ps[3]]) await c.waitFor('room.queueState', (s) => s.queued && s.count === 3, 2000);
+    assert.deepEqual([srv.lobby.queue.stats().waiting, srv.lobby.queue.stats().confirming], [3, 0]);
+    assert.equal(srv.lobby.rooms.get(code).spectators.length, 2);
+  });
+
   test('never fewer than four: three waiting players get no group, however long they wait', async () => {
     const ps = await players(pool, 3);
     for (const c of ps) await queued(c);
