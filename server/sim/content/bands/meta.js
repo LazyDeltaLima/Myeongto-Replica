@@ -770,7 +770,7 @@ const hasTrait = (ctx, v, event) => ctx.garrisonsOf(v.uid)
 // funds, its equipment back to the 整备区, its copies back to the pool (ctx.destroyPiece) — and a random <bond> operator of
 // tier ≤ its tier is gained (copy-weighted, an elite counting its own tier).
 // 引星棘刺 出航时刻 「选择一名调度中心内的干员，使其替换为不高于该干员等阶的【伊比利亚】干员」 (in_shop 1): the card becomes one of a
-// random <bond> operator of tier ≤ the card's (its freeze kept: setShopSlot).
+// random <bond> operator of tier ≤ the card's, no longer frozen (maintainer decision 2026-11-20, as 纸片替身 below).
 K.skill_remove_gain_bond_char = (ps) => ({
   onBandSkill(ctx, ev) {
     const p = ps[0];
@@ -779,7 +779,7 @@ K.skill_remove_gain_bond_char = (ps) => ({
       if (!c) return nothing(ev, 'no operator card');
       const id = ctx.rollChess({ bond: p.bond, maxTier: c.tier });
       if (!id) return nothing(ev, 'no operator of the bond left');
-      ctx.setShopSlot(c.i, { kind: 'chess', id });
+      ctx.setShopSlot(c.i, { kind: 'chess', id, frozen: false });
       ev.handled = true;
       return;
     }
@@ -794,7 +794,8 @@ K.skill_remove_gain_bond_char = (ps) => ({
 });
 
 // 风丸 纸片替身 「选择一名调度中心内的干员，使其变为相同等阶的随机干员」: the card becomes a random other operator of the same tier
-// (copy-weighted; refused when the tier has no other one left)
+// (copy-weighted; refused when the tier has no other one left). A frozen card's freeze ends with it (the official game, a
+// maintainer report 2026-11-20; setShopSlot alone would keep it).
 K.skill_transform_char_same_tier = () => ({
   onBandSkill(ctx, ev) {
     const c = targetCard(ctx, ev);
@@ -802,7 +803,7 @@ K.skill_transform_char_same_tier = () => ({
     const base = ctx.gd.baseIdOf(c.id);
     const id = ctx.rollChess({ tier: c.tier, filter: (x) => x !== base });
     if (!id) return nothing(ev, 'no other operator of the tier');
-    ctx.setShopSlot(c.i, { kind: 'chess', id });
+    ctx.setShopSlot(c.i, { kind: 'chess', id, frozen: false });
     ev.handled = true;
   },
 });

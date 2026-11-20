@@ -78,9 +78,10 @@ export function rowCondition(ctx, me) {
 /**
  * 规程's growing 获得时 特质 (极光 SERVER_ADD_BOND_UPGRADE_LAYER, 忍冬 SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT): the k-th run
  * (k = 0, 1, …) gives count + delta × ⌊k ÷ n⌋, at most count + max_count — 「每次触发后升级，至多叠加12层」 (count 1,
- * delta 1, max_count 11), 「触发2次后升级，至多获得3次」 (n 2, max_count 2). The runs are counted per player and 特质 (the
- * normal and elite record share one count: the same text and numbers) — [ASSUMED·화면: the card's {showtag_value_1}
- * is read as that player-wide count; whether a copy sold and bought again starts over is not settled].
+ * delta 1, max_count 11), 「触发2次后升级，至多获得3次」 (n 2, max_count 2). The runs are counted per player and 特质: every
+ * copy, the normal and elite record, and a copy sold and bought again all go on with one count. For 忍冬 that is the
+ * official game (asked of a CN server player, maintainer 2026-11-20); 极光 uses the same count [ASSUMED·화면: the same
+ * handler as 忍冬, not checked on its own].
  */
 export function growingValue(ctx) {
   const { bb, garrisonId } = ctx.source;

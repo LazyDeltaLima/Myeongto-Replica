@@ -54,7 +54,7 @@ test('黑白相易 (望): the operator is removed — no sale, its copy back —
   assert.equal(ps.stats.sells, 0, 'no sale');
 });
 
-test('出航时刻 (引星棘刺): an operator card becomes a 伊比利亚 one of tier ≤ the card\'s, its freeze kept; 纸片替身 (风丸): the same tier, another operator', () => {
+test('出航时刻 (引星棘刺): an operator card becomes a 伊比利亚 one of tier ≤ the card\'s, no longer frozen; 纸片替身 (风丸): the same tier, another operator, no longer frozen', () => {
   const a = setup({ band: 'band_iberia' });
   a.ps.counters['band:stage'] = 1; // 【伊比利亚】 4 counted: the active stage
   assert.equal(a.view().type, 'ACTIVE');
@@ -65,7 +65,8 @@ test('出航时刻 (引星棘刺): an operator card becomes a 伊比利亚 one o
   const s = a.ps.shop.slots[i];
   assert.ok(bondsOf(s.id).includes('iberiaShip'));
   assert.ok(tierOf(s.id) <= 3);
-  assert.equal(s.frozen, true, 'the freeze stays');
+  assert.equal(s.frozen, false, 'the replaced card is no longer frozen (docs/rules/sim.md 규정 지시 「出航时刻」)');
+  assert.equal(a.ps.privateView().shop.slots[i].frozen, false, 'the shop view shows it unfrozen');
   assert.equal(a.ps.funds, 29);
   assert.equal(ownedIds(a.ps).length, 0, 'nothing gained: the card stays in the shop');
 
@@ -73,11 +74,14 @@ test('出航时刻 (引星棘刺): an operator card becomes a 伊比利亚 one o
   const j = chessSlot(b.ps);
   const tid = firstOf((c) => c.tier === 4);
   for (let k = 0; k < 2; k++) {
-    b.ps.shop.slots[j] = card(b.m, tid);
+    b.ps.shop.slots[j] = { ...card(b.m, tid), frozen: true };
+    if (k === 1) { b.ps.shop.frozen = true; for (const x of b.ps.shop.slots) if (x) x.frozen = true; } // the whole shop frozen
     assert.deepEqual(b.use({ slot: j }), OK);
     assert.equal(tierOf(b.ps.shop.slots[j].id), 4, 'the same tier');
     assert.notEqual(b.m.gd.baseIdOf(b.ps.shop.slots[j].id), tid, 'another operator');
+    assert.equal(b.ps.shop.slots[j].frozen, false, 'the replaced card is no longer frozen (docs/rules/sim.md 규정 지시 「纸片替身」)');
   }
+  assert.ok(b.ps.shop.slots.some((x, at) => at !== j && x && x.frozen), 'the other frozen cards stay frozen');
   assert.deepEqual(b.use({ slot: j }), { error: 'ALREADY', detail: 'no uses left' });
 });
 
