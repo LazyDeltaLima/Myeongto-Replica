@@ -14,9 +14,10 @@
 //   each helper's avatar (前往查看) → the camera goes to that helper's half, the ‹ › pill and the strip name the same
 //   helper, 返回战场 sits in the pill and leaves no error; the host (helper, desktop) keeps its own bonds on 全景.
 // Final Assault spectator (2 humans + 2 AI at the boss round, the guest eliminated at the jump): the guest auto-observes
-//   the pair field → its first player's bonds (never its own), taps the second player's operator and its card's bond
-//   chip → the SECOND player's popup (the strip stays on the first), taps each pair player → their half + bonds, taps
-//   the lone field's player → that field and its player's bonds.
+//   the first field (the host's: the pair or the lone one, drawn) → its first player's bonds (never its own); on the pair
+//   field's 全景 taps the second player's operator and its card's bond chip → the SECOND player's popup (the strip stays
+//   on the first), steps the ‹ › pill to each pair player's half → their bonds, taps the lone field's player (前往查看
+//   on its row) → that field and its player's bonds.
 // After the own battle (2 humans + 1 idle AI from round 3, 1× combat): the host's battle ends first, the host watches a
 //   teammate still fighting → the strip shows that teammate's bonds with the observing pill "👁 name" + 返回战场; a
 //   reload keeps all three (the resent field is adopted — battle/observe.js resumedWatch); 返回战场 → the own bonds.
@@ -211,19 +212,34 @@ async function coopSetup(host, guest, { bots }) {
   return { host, guest };
 }
 
-/** A teammate's row → 前往查看 (team panel). */
+/**
+ * A teammate's row → 前往查看 (team panel). An avatar tap opens the 队员信息 dialog, which tags EVERY observable
+ * teammate's avatar with 前往查看 (teamPanel.js goTag): press the tag on `name`'s own row — the first tag on the page
+ * is whoever sits highest. The row is matched by the whole name ("阿米娅" is also inside "AI·阿米娅"). A teammate on
+ * the field being watched gets no tag (`!watched`): its half is picked with the ‹ › pill instead.
+ */
 async function watchMate(c, name) {
-  const pt = await c.page.evaluate((name) => {
+  const rowPoint = (sel) => c.page.evaluate((name, sel) => {
     for (const row of document.querySelectorAll('.team__row')) {
-      if (!(row.querySelector('.team__name')?.textContent || '').includes(name)) continue;
-      const b = row.querySelector('.team__btn').getBoundingClientRect();
-      return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+      if ((row.querySelector('.team__name')?.textContent || '').trim() !== name) continue;
+      const el = row.querySelector(sel);
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      if (b.width < 2 || b.height < 2) return null;
+      const x = b.left + b.width / 2;
+      const y = b.top + b.height / 2;
+      const top = document.elementFromPoint(x, y);
+      return top && (el.contains(top) || top.contains(el)) ? { x, y } : null;
     }
     return null;
-  }, name);
+  }, name, sel);
+  const pt = await rowPoint('.team__btn');
   assert.ok(pt, `${c.label}: ${name}'s row`);
   await c.page.mouse.click(pt.x, pt.y);
-  assert.ok(await c.click('.team__ob', '前往查看', { timeout: 4000, optional: true }), `${c.label}: 前往查看 on ${name}`);
+  let go = null;
+  for (let t0 = Date.now(); !go && Date.now() - t0 < 4000; await sleep(150)) go = await rowPoint('.team__ob');
+  assert.ok(go, `${c.label}: 前往查看 on ${name}`);
+  await c.page.mouse.click(go.x, go.y);
 }
 
 /** Every player's name and bond ids (count, layers or active), the field listing, the 联防 helpers. */
@@ -579,51 +595,96 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
       ({ host, guest } = await coopMatch(P, srv.base, { bots: 2, prefix: 'watch-bonds-fa' }));
       await host.waitFor((s) => s.phase === 'PREP' && !s.ready, 'boss-round prep', 60000);
       assert.equal((await guest.st()).alive, false, 'the guest is eliminated');
+      // the guest's match screen is open since 3/3 确定自选编队, so its seat goes out in front of it: the elimination
+      // dialog (self_dead_dialog, screens/game.js outDialog) covers the field until 继续观战 — a player watches on from it
+      await guest.click('.bsd__btn.is-cont', '继续观战', { timeout: 10000 });
+      await guest.page.waitForFunction(() => !document.querySelector('.bsd'), { timeout: 4000 });
       await sleep(1500);
       await host.click('.readybtn');
       for (const c of [host, guest]) await c.waitFor((s) => s.phase === 'FINAL_ASSAULT', 'Final Assault', 90000);
-      await guest.page.waitForSelector('.chud__layers, .obinfo__arrow', { timeout: 20000 });
+      // the pairs are drawn (finalAssault.js pairPlayers) and listed by their lowest seat, so the host's field — the
+      // pair or the lone one — comes first, and the spectator auto-observes that first field
+      await guest.page.waitForFunction(() => {
+        const m = globalThis.__SP__.store.get().match;
+        return !!m?.field && m.field.fieldId === m.public?.fields?.[0]?.fieldId;
+      }, { timeout: 20000 });
       await sleep(1000);
-      const mv = await matchView(guest);
+      let mv = await matchView(guest);
       const pair = mv.fields.find((f) => f.players.length === 2);
       const lone = mv.fields.find((f) => f.players.length === 1);
-      assert.ok(pair && lone && mv.field?.fieldId === mv.fields[0].fieldId, `a pair field and a lone one, the first auto-observed (${JSON.stringify(mv)})`);
-      assert.equal(pair.fieldId, mv.fields[0].fieldId, 'the pair field is listed first');
+      assert.ok(pair && lone, `a pair field and a lone one (${JSON.stringify(mv)})`);
       const first = mv.names[pair.players[0]];
-      await ownerIs(guest, first);
-      let st = await stripOf(guest);
-      assert.deepEqual([st.owner, st.bonds, st.pill], [first, mv.bonds[first], '全景'], 'auto-observed pair, 全景: the first player (never the spectator\'s own)');
-      await guest.shot('auto');
+      const second = mv.names[pair.players[1]];
+      const loneName = mv.names[lone.players[0]];
+      const pill = (sel, name, timeout = 6000) => guest.page.waitForFunction((sel, name) => (document.querySelector(sel)?.textContent || '').includes(name), { timeout }, sel, name);
+      const PAIR_PILL = '.chud__layers .vswitch__label, .obinfo__bar:has(.obinfo__arrow) .obinfo__text';
+      const OBSERVE_PILL = '.chud__observe .vswitch__label, .obinfo__bar:not(:has(.obinfo__arrow)) .obinfo__text';
+      const arrow = (side) => `:is(.chud__layers .vswitch__arrow, .obinfo__arrow)[aria-label="${side === 'L' ? '左侧战场' : '右侧战场'}"]`;
+      /** the lone field: its player's bonds; picked with 前往查看 (even when it is the auto-observed field) the observing
+       *  pill names them and the own row carries 返回战场 (back to the auto-observed view — game.js backHome) */
+      const loneCheck = async (picked) => {
+        await ownerIs(guest, loneName);
+        if (picked) await pill(OBSERVE_PILL, loneName, 8000);
+        const s = await stripOf(guest);
+        assert.deepEqual([s.owner, s.bonds, s.observe, s.pillBack], [loneName, mv.bonds[loneName], picked ? loneName : null, picked],
+          `the lone field (${picked ? 'picked' : 'auto-observed'}): its player${picked ? ', the observing pill names them' : ''}`);
+      };
+      let st;
+      const pairAuto = pair.fieldId === mv.fields[0].fieldId;
+      if (pairAuto) {
+        await ownerIs(guest, first);
+        st = await stripOf(guest);
+        assert.deepEqual([st.owner, st.bonds, st.pill], [first, mv.bonds[first], '全景'], 'auto-observed pair, 全景: the first player (never the spectator\'s own)');
+        await guest.shot('auto');
+      } else {
+        await loneCheck(false);
+        await guest.shot('auto');
+        // to the pair: 前往查看 on its first player → their half, then the ‹ › pill back to 全景
+        await watchMate(guest, first);
+        await ownerIs(guest, first);
+        await pill(PAIR_PILL, first);
+        mv = await matchView(guest);
+        assert.equal(mv.field?.fieldId, pair.fieldId, `前往查看 ${first}: the pair field (${JSON.stringify(mv.field)})`);
+        await guest.click(arrow(mv.field.sides?.[pair.players[0]] === 'L' ? 'R' : 'L'));
+        await pill(PAIR_PILL, '全景');
+        await ownerIs(guest, first);
+      }
       // a card's bond chip (review): the strip follows the first player, the SECOND player's operator's chip opens the
       // second player's bond (labelled, their count — the number the chip shows), the strip stays on the first
-      const second = mv.names[pair.players[1]];
       const chip = await chipPopup(guest, pair.players[1]);
       assert.ok(chip, `spectator: a card of ${second}'s operator and its bond chip`);
       const secondNow = await bondsOf(guest, second);
       assert.equal(chip.owner, second, `全景: ${second}'s unit chip opens ${second}'s popup (${JSON.stringify(chip)})`);
-      assert.equal(chip.count, secondNow.counts[chip.bondId] ?? '0', `${second}'s member count (${JSON.stringify({ chip, secondNow })})`);
-      if (!chip.off) assert.equal(chip.chipCount, chip.count, 'the chip and its popup agree');
-      if (Number(chip.count) > 0) assert.ok(chip.on >= 1, `${second}'s operators in play are listed as members (${JSON.stringify(chip)})`);
+      // a bond the mode switches off (本局禁用) has no 在场 count in its popup (bondStrip.js BondPopup `off`): nothing to compare
+      if (!chip.off) {
+        assert.equal(chip.count, secondNow.counts[chip.bondId] ?? '0', `${second}'s member count (${JSON.stringify({ chip, secondNow })})`);
+        assert.equal(chip.chipCount, chip.count, 'the chip and its popup agree');
+        if (Number(chip.count) > 0) assert.ok(chip.on >= 1, `${second}'s operators in play are listed as members (${JSON.stringify(chip)})`);
+      }
       assert.equal((await stripOf(guest)).owner, first, 'the strip stays on the first player');
       await guest.shot('chip-second');
       await closeCard(guest);
+      // each pair player's half: the ‹ › pill (both sit on the watched field, so the 队员信息 dialog gives them no
+      // 前往查看 tag — teamPanel.js goTag), 全景 → their side → back to 全景
       for (const pid of [pair.players[1], pair.players[0]]) {
         const name = mv.names[pid];
-        await watchMate(guest, name);
+        const side = mv.field.sides?.[pid];
+        assert.ok(side === 'L' || side === 'R', `${name}'s half on the pair field (${JSON.stringify(mv.field)})`);
+        await guest.click(arrow(side));
         await ownerIs(guest, name);
-        await guest.page.waitForFunction((name) => (document.querySelector('.chud__layers .vswitch__label, .obinfo__bar:has(.obinfo__arrow) .obinfo__text')?.textContent || '').includes(name), { timeout: 6000 }, name);
+        await pill(PAIR_PILL, name);
         st = await stripOf(guest);
-        assert.deepEqual([st.owner, st.bonds, st.pillBack], [name, mv.bonds[name], false], `picked ${name}: their half and bonds (no 返回战场 when eliminated)`);
+        // 返回战场 only while the pair is not the auto-observed field (reached with 前往查看)
+        assert.deepEqual([st.owner, st.bonds, st.pillBack], [name, mv.bonds[name], !pairAuto], `picked ${name}: their half and bonds`);
+        if (pid === pair.players[0]) break; // stay on the last half for the shot
+        await guest.click(arrow(side === 'L' ? 'R' : 'L'));
+        await pill(PAIR_PILL, '全景');
       }
       await sleep(900); // the camera flies to the half (750 ms)
       await guest.shot('picked');
-      const loneName = mv.names[lone.players[0]];
       await watchMate(guest, loneName);
-      await ownerIs(guest, loneName);
-      await guest.page.waitForFunction((name) => (document.querySelector('.chud__observe .vswitch__label, .obinfo__bar:not(:has(.obinfo__arrow)) .obinfo__text')?.textContent || '').includes(name), { timeout: 8000 }, loneName);
-      st = await stripOf(guest);
-      assert.deepEqual([st.owner, st.bonds, st.observe], [loneName, mv.bonds[loneName], loneName], 'the lone field: its player, the observing pill names them');
-      // the host on its pair field, 全景: own
+      await loneCheck(true);
+      // the host on its own field (the pair's 全景 or the lone one): own
       st = await stripOf(host);
       assert.equal(st.owner, null, 'the host on 全景: own bonds');
       assert.deepEqual(problemsOf([host, guest]), []);
