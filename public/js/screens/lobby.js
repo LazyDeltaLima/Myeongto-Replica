@@ -20,6 +20,10 @@
 //     waiting Doctors (the quick queue + every ruleset × size queue); room.queue { quick: true }. 공개방 (maintainer
 //     decisions 2026-11-20): the left half's picture and brief are blurred under the public room list (ui/publicRooms.js),
 //     and each card adds its season's waiting public rooms (「房间 n」; one badge 「n · 房间 n」 on a short screen).
+//     The list's season drop-down picks the matchmaking's season too (maintainer decisions 2026-11-20; publicRooms.js
+//     queueTarget): a season = its queue and public rooms, 所有赛季 = the lobby chip's queue with every season's public
+//     rooms (room.queue `anySeason`); the cards' and the 规则 / 人数 counts follow it (所有赛季: the rooms of every season,
+//     the chip season's Doctors). It opens on the chip's season each time the dialog does.
 //   The two entries split by who plays (maintainer decisions 2026-11-20): 同盟模拟 makes a private room (a key, AI
 //   teammates; no 公开 row), 同盟匹配 has everything public — the list, matchmaking, and 创建公开联合 at the list's head (or
 //   in an empty list), which opens the same 选择模拟协议 as 'pa' (PUBLIC ALLIANCE: 自定义 ⚙ too, the matching screen's
@@ -66,8 +70,8 @@ import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { MatchQueueDialog, joinQueue, joinQuickQueue } from '../ui/matchQueue.js';
-import { PublicRooms, roomsWaiting } from '../ui/publicRooms.js';
-import { SeasonChip, pickedSeason, seasonFields, seasonQueueCounts, seasonQuickCounts, seasonName } from '../ui/season.js';
+import { PublicRooms, roomsWaiting, queueTarget } from '../ui/publicRooms.js';
+import { SeasonChip, pickedSeason, offeredSeasonsOf, seasonFields, seasonQueueCounts, seasonQuickCounts, seasonName } from '../ui/season.js';
 import { seasonInfo, seasonFeature, DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { RulesetSwitch, lobbyRuleset, lobbyQueueRuleset, saveLobbyRuleset, queueCountOf } from '../ui/ruleset.js';
 import { QUEUE_PRESETS, PRESET_LABELS, isQueuePreset, customDiffs, officialBans } from '../../../shared/ruleset.js';
@@ -1009,11 +1013,20 @@ export function LobbyScreen() {
   const notes = usePatchNotes();
   // the 更新记录 dialog (HubNotes' 查看全部): null when closed, else whether the newest release is marked NEW
   const [notesFresh, setNotesFresh] = useState(/** @type {boolean | null} */ (null));
-  // the picked 卫戍协议 season (ui/season.js): rooms are created and queued in it, its queues' Doctors are shown
+  // the picked 卫戍协议 season (ui/season.js): rooms are created in it, the hub shows its queues' Doctors
   const season = useStore(pickedSeason);
-  const queueCounts4 = useStore((s) => seasonQueueCounts(s, pickedSeason(s), false));
-  const queueCounts8 = useStore((s) => seasonQueueCounts(s, pickedSeason(s), true));
-  const queueQuick = useStore((s) => seasonQuickCounts(s, pickedSeason(s)));
+  const offered = useStore((s) => offeredSeasonsOf(s).join('|')).split('|');
+  // 同盟匹配's season drop-down (ui/publicRooms.js queueTarget): 'all' or a season, the chip's whenever no dialog is open
+  const [pick, setPick] = useState(season);
+  useEffect(() => { if (!open) setPick(season); }, [open, season]);
+  const target = pick === 'all' || offered.includes(pick) ? pick : season;
+  const { season: queueSeason, anySeason } = queueTarget(target, season);
+  const queueCounts4 = useStore((s) => seasonQueueCounts(s, queueSeason, false));
+  const queueCounts8 = useStore((s) => seasonQueueCounts(s, queueSeason, true));
+  const queueQuick = useStore((s) => seasonQuickCounts(s, queueSeason));
+  // the hub's 「等待 N」: the chip season's queues, whatever the drop-down says
+  const hubWaiting = useStore((s) => countAll(seasonQueueCounts(s, pickedSeason(s), false)) + countAll(seasonQueueCounts(s, pickedSeason(s), true))
+    + countAll(seasonQuickCounts(s, pickedSeason(s))));
   const queueRooms = useStore((s) => s.ui.queueRooms);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(null);
@@ -1066,9 +1079,10 @@ export function LobbyScreen() {
   // the waiting dialog's 以公开联合等待 (ui/matchQueue.js): out of the queue, then a public room of its conditions — a
   // 快速匹配 queue's ruleset and size are the lobby's remembered ones
   const queuePublic = (q) => openPublicRoom({ mode: 'coop', difficulty: q.difficulty, ruleset: q.quick ? queueRuleset : q.ruleset ?? queueRuleset,
-    ...sizeFields('coop', q.quick ? size : seatsOf(q.size)), ...seasonFields(season) }, { queued: true });
-  const queue = () => run('create', () => (quick ? joinQuickQueue(difficulty, season)
-    : joinQueue(difficulty, queueRuleset, big ? LARGE_SEATS : MAX_SEATS, season)));
+    ...sizeFields('coop', q.quick ? size : seatsOf(q.size)), ...seasonFields(q.season ?? season) }, { queued: true });
+  // 开始匹配: the drop-down's season (queueTarget)
+  const queue = () => run('create', () => (quick ? joinQuickQueue(difficulty, queueSeason, anySeason)
+    : joinQueue(difficulty, queueRuleset, big ? LARGE_SEATS : MAX_SEATS, queueSeason, anySeason)));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
     // `undefined` — codeArg keeps an event target out of the key and falls back to the input field
@@ -1102,7 +1116,6 @@ export function LobbyScreen() {
   const onCode = (v) => setCode(normalizeCode(v));
   // the queue's waiting Doctors per difficulty card: its ruleset × size queue, or with 快速匹配 the whole difficulty
   const waiting = matching ? (d) => (quick ? quickWaiting(queueCounts4, queueCounts8, queueQuick, d) : queueCountOf(big ? queueCounts8 : queueCounts4, queueRuleset, d)) : null;
-  const totalWaiting = countAll(queueCounts4) + countAll(queueCounts8) + countAll(queueQuick);
   // the hub's 「公开房间 N」: the public rooms waiting in every offered season (maintainer decision 2026-11-20)
   const totalRooms = countAll(queueRooms);
 
@@ -1139,7 +1152,7 @@ export function LobbyScreen() {
         <${SidePlate} class="hub-plate--join" glyph=${html`<${Icon} name="key" />`} label=${t('加入同盟 · 观战')} onClick=${() => setOpen('join')} />
       </aside>
       <section class="hub-entries" aria-label=${t('模拟方式')}>
-        ${MODE_CARDS.map((c) => html`<${HubEntry} key=${c.id} card=${c} onOpen=${setOpen} waiting=${c.id === 'match' ? totalWaiting : null}
+        ${MODE_CARDS.map((c) => html`<${HubEntry} key=${c.id} card=${c} onOpen=${setOpen} waiting=${c.id === 'match' ? hubWaiting : null}
           rooms=${c.id === 'match' ? totalRooms : null} />`)}
       </section>
     </main>
@@ -1150,8 +1163,8 @@ export function LobbyScreen() {
     ${open === 'solo' || open === 'match' || open === 'coop' || publicNew ? html`<${ProtocolSelect} key=${open} roomMode=${roomMode} difficulty=${difficulty} onDifficulty=${pickDifficulty}
       grade=${graded ? grade : null} onGrade=${pickGrade}
       onClose=${() => setOpen(publicNew ? 'match' : null)} onStart=${matching ? queue : create} busy=${busy} online=${online} waiting=${waiting}
-      rooms=${matching ? (d) => roomsWaiting(publicRooms, season, d) : null}
-      stage=${matching ? html`<${PublicRooms} season=${season} difficulty=${difficulty} ruleset=${queueRuleset} size=${big ? LARGE_SEATS : MAX_SEATS} quick=${quick} online=${online}
+      rooms=${matching ? (d) => roomsWaiting(publicRooms, target, d) : null}
+      stage=${matching ? html`<${PublicRooms} season=${season} pick=${target} onPick=${setPick} difficulty=${difficulty} ruleset=${queueRuleset} size=${big ? LARGE_SEATS : MAX_SEATS} quick=${quick} online=${online}
         onCreate=${openPublicNew} />` : null}
       head=${publicNew ? PUBLIC_HEAD : null}
       action=${matching && quick ? t('开始快速匹配') : publicNew ? t('创建公开联合') : null}

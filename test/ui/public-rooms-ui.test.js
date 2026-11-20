@@ -60,6 +60,38 @@ test('listRooms: the picked season first (matchmaking\'s, waiting, running), the
   assert.equal(roomsWaiting(rows, 'act2autochess', 'NORMAL'), 2, 'the card\'s 房间 n: the waiting rooms of its season and difficulty');
 });
 
+test('the season drop-down picks the matchmaking\'s season: a season = its queue and rooms, 所有赛季 = the chip\'s queue and every season\'s rooms', async () => {
+  const { queueTarget, roomFit, roomsWaiting, listRooms } = await load('public/js/ui/publicRooms.js');
+  assert.deepEqual(queueTarget('all', 'act2autochess'), { season: 'act2autochess', anySeason: true }, 'the Doctors in the chip season\'s queue');
+  assert.deepEqual(queueTarget('act3autochess', 'act2autochess'), { season: 'act3autochess', anySeason: false });
+  const all = { ...PICK, season: 'all' };
+  assert.equal(roomFit(row({ season: 'act3autochess' }), all), 'fit', 'every season\'s rooms');
+  assert.equal(roomFit(row(), all), 'fit');
+  assert.equal(roomFit(row({ difficulty: 'HARD' }), all), null);
+  const rows = [row({ code: 'A2' }), row({ code: 'N1', season: 'act3autochess', ruleset: { preset: 'casual' } }),
+    row({ code: 'N2', season: 'act3autochess' }), row({ code: 'NL', season: 'act3autochess', state: 'match' })];
+  assert.equal(roomsWaiting(rows, 'all', 'NORMAL'), 3, '所有赛季: every season\'s waiting rooms summed');
+  assert.equal(roomsWaiting(rows, 'act3autochess', 'NORMAL'), 2);
+  // another season's group keeps the matchmaking's rooms first, as the picked season's does
+  const v = listRooms(rows, { season: 'act2autochess', offered: ['act2autochess', 'act3autochess'], pick: 'act3autochess', fit: (r) => roomFit(r, { ...PICK, season: 'act3autochess' }) });
+  assert.deepEqual(v.others[0].rows.map((x) => x.row.code), ['N2', 'N1', 'NL']);
+  assert.equal(listRooms(rows, { season: 'act2autochess', pick: 'act3autochess', fitOnly: true, fit: (r) => roomFit(r, { ...PICK, season: 'act3autochess' }) }).others[0].rows.length, 1,
+    '仅匹配对象 works for another season too');
+  const src = read('public/js/screens/lobby.js');
+  assert.match(src, /const \[pick, setPick\] = useState\(season\);\s*useEffect\(\(\) => \{ if \(!open\) setPick\(season\); \}, \[open, season\]\);/, 'it opens on the chip\'s season');
+  assert.match(src, /const \{ season: queueSeason, anySeason \} = queueTarget\(target, season\);/);
+  assert.match(src, /joinQuickQueue\(difficulty, queueSeason, anySeason\)/);
+  assert.match(src, /seasonQueueCounts\(s, queueSeason, false\)/, 'the cards\' 等待 n follow the drop-down\'s queue');
+  assert.match(src, /roomsWaiting\(publicRooms, target, d\)/, 'the cards\' 房间 n follow the drop-down');
+  assert.match(src, /<\$\{PublicRooms\} season=\$\{season\} pick=\$\{target\} onPick=\$\{setPick\}/);
+  assert.match(src, /waiting=\$\{c\.id === 'match' \? hubWaiting : null\}/, 'the hub keeps the chip season\'s');
+  assert.match(src, /seasonFields\(q\.season \?\? season\) \}, \{ queued: true \}\)/, '以公开联合等待 opens the room in the queue\'s season');
+  const mq = read('public/js/ui/matchQueue.js');
+  assert.match(mq, /\.\.\.\(anySeason \? \{ anySeason: true \} : \{\}\)/);
+  assert.match(mq, /season: seasonOf\(msg\.season\)/);
+  assert.doesNotMatch(read('public/js/ui/publicRooms.js'), /useState\('all'\)|otherPick/, 'the drop-down is the lobby\'s, 仅匹配对象 never disabled');
+});
+
 test('publicOption: a co-op room\'s state, the host switches it; the switch sends room.setPublic; 匹配补位 is gone', async () => {
   const { publicOption } = await load('public/js/screens/room.js');
   const room = { mode: 'coop', hostId: 'h', public: true, seats: [] };
@@ -174,7 +206,8 @@ test('every new text has its English and Korean', () => {
     '等待 {n} 分钟', '进行中 · 第{n}回合', '确定将「{name}」移出同盟吗？对方 10 分钟内无法再次加入。', '接受后加入该联合，由创建者开始模拟',
     '公开房间 {n}', '自动开始', '满员且所有博士准备就绪后，倒计时结束即自动开始模拟', '{n} 秒后自动开始',
     '非公开同盟 · 创建后用邀请码邀请好友或添加 AI 队友', '创建公开联合', '公开联合 · 显示在同盟匹配列表中，匹配中的博士会加入', '目前没有公开联合',
-    '点击「开始匹配」等待，或创建公开联合，匹配中的博士会进入空位', '以公开联合等待', '超过 1 分钟仍未凑齐 · 以公开联合等待，同条件匹配的博士会加入，空位也可由 AI 队友补上'];
+    '点击「开始匹配」等待，或创建公开联合，匹配中的博士会进入空位', '以公开联合等待', '超过 1 分钟仍未凑齐 · 以公开联合等待，同条件匹配的博士会加入，空位也可由 AI 队友补上',
+    '「开始匹配」寻找这里选的赛季 · 所有赛季时博士之间按当前赛季（{season}）匹配 · 加入其他赛季的联合会切换到该赛季'];
   const src = files.map(read).join('\n');
   for (const k of keys) {
     assert.ok(src.includes(`t('${k}'`), `used: ${k}`);

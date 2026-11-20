@@ -580,7 +580,9 @@ export const C2S = {
   // player may be offered a custom public room). `season`: the 卫戍协议 season's queue (absent =
   // the default; maintainer decision 2026-11-01: every season has queues of its own)
   // quick: 快速匹配, any ruleset and size of the difficulty (server/matchmaking.js header; ruleset / size are then ignored)
-  'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isQueuePreset, size: isRoomSize, quick: isBool, season: isSeasonId, $optional: ['ruleset', 'size', 'quick', 'season'] },
+  // anySeason: the public rooms of every season are candidates, the queue stays `season`'s (matchmaking.js 「공개방」)
+  'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isQueuePreset, size: isRoomSize, quick: isBool, season: isSeasonId, anySeason: isBool,
+    $optional: ['ruleset', 'size', 'quick', 'season', 'anySeason'] },
   'room.unqueue': {},
   'room.queueAccept': { accept: isBool },
   'room.queueVote': {},

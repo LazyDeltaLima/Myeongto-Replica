@@ -154,7 +154,7 @@ test('the lobby and the room: room.create / room.setRuleset carry the settings; 
   // grade in gradeFields)
   assert.match(lobby, /roomRuleset === 'custom'\s*\? \{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, custom: customDraft\(\), \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\) \}/);
   assert.doesNotMatch(lobby, /limited && ruleset === 'custom'/, '规程 keeps a remembered 自定义');
-  assert.match(lobby, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS, season\)/);
+  assert.match(lobby, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS, queueSeason, anySeason\)/);
   assert.match(lobby, /<\$\{CustomRulesDialog\} \/>/);
   const room = read('public/js/screens/room.js');
   // the host edits a custom room's settings (sent at once); 确认 of 选择模拟协议 sends the lobby's for a new 自定义

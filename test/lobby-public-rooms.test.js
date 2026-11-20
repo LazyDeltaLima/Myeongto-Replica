@@ -199,6 +199,48 @@ describe('공개방 (server/lobby.js, server/matchmaking.js)', () => {
     assert.equal(q.custom.enemies.hp, 200, 'the custom room\'s settings to accept');
   });
 
+  test('anySeason: every season\'s public rooms are candidates (the queue stays the season\'s); a season\'s own queue sees its rooms only', async () => {
+    assert.equal(validateC2S({ t: 'room.queue', difficulty: 'NORMAL', anySeason: true }), null);
+    assert.notEqual(validateC2S({ t: 'room.queue', difficulty: 'NORMAL', anySeason: 1 }), null);
+    // a player of the default season's queue who takes every season's rooms, queued before any room exists: a room of
+    // another season made public later is offered (the room's walk reaches the other season's pool)
+    const early = await pool.player('Early');
+    await queue(early, { anySeason: true });
+    const h1 = await pool.player('H1');
+    const r1 = await room(h1, { season: 'act3autochess' });
+    const o1 = await offerOf(early);
+    assert.equal(o1.room.code, r1.code);
+    assert.equal(o1.season, 'act3autochess', 'the offer names the room\'s season');
+    await ok(early, { t: 'room.queueAccept', accept: true });
+    assert.equal((await seated(early, r1.code)).season, 'act3autochess', 'seated in the room\'s season');
+    assert.equal(srv.lobby.queue.entries.get(early.id), undefined, 'out of the queue');
+    await ok(h1, { t: 'room.setPublic', on: false });
+    // without anySeason the default season's player is not offered it; queued again into the same queue with it, the
+    // entry keeps its place and is offered the room
+    const h2 = await pool.player('H2');
+    const r2 = await room(h2, { season: 'act3autochess' });
+    const p = await pool.player('P');
+    await queue(p);
+    await p.expectNone('room.matchFound', () => true, 300);
+    const since = srv.lobby.queue.entries.get(p.id).joinedAt;
+    await queue(p, { anySeason: true });
+    assert.equal((await offerOf(p)).room.code, r2.code);
+    assert.equal(srv.lobby.queue.entries.get(p.id).joinedAt, since, 'the same queue: its place kept');
+    assert.equal(srv.lobby.queue.entries.get(p.id).season, 'act2autochess', 'the queue stays the default season\'s');
+    await ok(p, { t: 'room.queueAccept', accept: true });
+    await seated(p, r2.code);
+    await ok(h2, { t: 'room.setPublic', on: false });
+    // a season's own queue: its rooms only — the default season's room made public first is passed over
+    const h3 = await pool.player('H3');
+    await room(h3);
+    await wait(5);
+    const h4 = await pool.player('H4');
+    const r4 = await room(h4, { season: 'act3autochess' });
+    const s3 = await pool.player('S3');
+    await queue(s3, { season: 'act3autochess' });
+    assert.equal((await offerOf(s3)).room.code, r4.code);
+  });
+
   test('order: the room with the most humans, then the one made public first; a held seat counts as taken', async () => {
     const h = await players(4, 'R');
     const lonely = await room(h[0]);

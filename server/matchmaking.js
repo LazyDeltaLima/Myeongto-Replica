@@ -91,6 +91,11 @@
 //     room.queueState queued:true again. The room's host starts the match as usual (the room's auto start aside).
 //     lobby.queueCounts adds `rooms: { [season]: n }`, the public rooms in LOBBY of every offered season (the hub's
 //     「공개방 N」).
+//     Every season's public rooms (maintainer decisions 2026-11-20, the list's season drop-down): room.queue
+//     { anySeason: true } makes the public rooms of the difficulty in every offered season the player's candidates;
+//     the player still waits in (and groups with) the queue of its `season`. Queued again into the same queue, the
+//     entry keeps its place and takes the new `anySeason`. A room of another season seats the player in that season
+//     (the client switches its season as an invitation does).
 
 import { ERR, LARGE_MIN_PLAYERS, LARGE_SEATS, MAX_SEATS, DIFFICULTIES, seatsOf } from '../shared/constants.js';
 import { QUEUE_PRESETS, resolveRuleset, rulesetKey } from '../shared/ruleset.js';
@@ -114,11 +119,13 @@ const fail = (code, detail) => (detail ? { error: code, detail } : { error: code
 /**
  * @typedef {{ key: string, playerId: string, difficulty: string,
  *   ruleset: string | null, cap: number, season: string, quick: boolean, pool: string, qk: string, joinedAt: number,
- *   limitKey: string | null, group: Group | null, offer: Offer | null, accepting?: boolean, offline: NodeJS.Timeout | null }} Entry
+ *   limitKey: string | null, group: Group | null, offer: Offer | null, accepting?: boolean, offline: NodeJS.Timeout | null,
+ *   anySeason: boolean }} Entry
  *   a single player; key = the playerId; qk = its queue;
  *   cap = the room size it waits for (4, or 8 for the 8-player mode; 0 for a quick player); season = its 卫戍协议 season;
  *   quick = a 快速匹配 player (ruleset null); pool = its difficulty and season (header); offer = a public room offered
- *   to it (header 「공개방」), `accepting` while Lobby.join seats it there
+ *   to it (header 「공개방」), `accepting` while Lobby.join seats it there; anySeason = the public rooms of every season
+ *   are its candidates (header 「공개방」)
  * @typedef {{ room: import('./lobby.js').Room, deadline: number, timer: NodeJS.Timeout | null }} Offer
  * @typedef {{ id: number, difficulty: string, ruleset: string, cap: number, season: string, pool: string, qk: string, members: Entry[], ids: string[],
  *   accepted: Set<string>, deadline: number, timer: NodeJS.Timeout | null,
@@ -190,8 +197,11 @@ export class Matchmaker {
   // Messages
   // ---------------------------------------------------------------------------------------------------
 
-  /** room.queue { difficulty, ruleset?, size?, quick?, season? } — a single player (quick: any ruleset and size, header). */
-  queue(session, { difficulty, ruleset: preset, size, quick = false, season = DEFAULT_SEASON }) {
+  /**
+   * room.queue { difficulty, ruleset?, size?, quick?, season?, anySeason? } — a single player (quick: any ruleset and
+   * size; anySeason: every season's public rooms, header).
+   */
+  queue(session, { difficulty, ruleset: preset, size, quick = false, season = DEFAULT_SEASON, anySeason = false }) {
     const lobby = this.lobby;
     if (!lobby.seasons.has(season)) return fail(ERR.BAD_MSG, 'season not offered');
     const ruleset = quick ? null : rulesetKey(preset);
@@ -202,7 +212,12 @@ export class Matchmaker {
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
     const had = this.entries.get(session.playerId);
     if (had?.group || had?.offer) return fail(ERR.ALREADY, 'a match was found: answer it first');
-    if (had && had.qk === qk) { this.sendState(had); return OK; }
+    if (had && had.qk === qk) {
+      // the same queue: its place kept, the public rooms' season range taken (header 「공개방」)
+      this.sendState(had);
+      if (had.anySeason !== !!anySeason) { had.anySeason = !!anySeason; this.tryPool(had.pool); }
+      return OK;
+    }
     const late = lobby.restartNotice?.startRefusal();
     if (late) return late;
     const key = session.limitKey || null;
@@ -221,7 +236,7 @@ export class Matchmaker {
     session.pendingResult = null;
     if (had) this.drop(had, null); // moved to another queue: no queued:false in between
     /** @type {Entry} */
-    const entry = { key: session.playerId, playerId: session.playerId, difficulty, ruleset, cap, season, quick: !!quick, pool, qk, joinedAt: lobby.now(), limitKey: key, group: null, offer: null, offline: null };
+    const entry = { key: session.playerId, playerId: session.playerId, difficulty, ruleset, cap, season, quick: !!quick, pool, qk, joinedAt: lobby.now(), limitKey: key, group: null, offer: null, offline: null, anySeason: !!anySeason };
     this.enlist(entry);
     if (had) this.broadcastQueue(had.qk);
     this.broadcastQueue(qk);
@@ -334,12 +349,16 @@ export class Matchmaker {
   onRoom(room) {
     const pools = new Set();
     for (const e of [...(this.offers.get(room) ?? [])]) {
-      if (this.offerable(room) && poolKey(room.difficulty, room.season) === e.pool && this.fits(room, e)) continue;
+      if (this.offerable(room) && this.candidate(room, e) && this.fits(room, e)) continue;
       this.clearOffer(e);
       this.sendState(e);
       pools.add(e.pool);
     }
-    if (this.offerable(room)) pools.add(poolKey(room.difficulty, room.season));
+    if (this.offerable(room)) {
+      pools.add(poolKey(room.difficulty, room.season));
+      // the players of another season's pool who take every season's public rooms (header 「공개방」)
+      for (const e of this.entries.values()) if (e.anySeason && !e.group && e.difficulty === room.difficulty) pools.add(e.pool);
+    }
     for (const p of pools) this.tryPool(p);
   }
 
@@ -408,13 +427,14 @@ export class Matchmaker {
     const lobby = this.lobby;
     const waiting = [...(this.pools.get(pool) ?? [])].flatMap((qk) => this.queueOf(qk)).filter((e) => this.available(e));
     if (!waiting.length || lobby.restartNotice?.startRefusal()) return;
-    const rooms = [...lobby.rooms.values()].filter((r) => this.offerable(r) && poolKey(r.difficulty, r.season) === pool);
+    // the pool's difficulty, in every season: an anySeason player takes the other seasons' rooms too (candidate)
+    const rooms = [...lobby.rooms.values()].filter((r) => this.offerable(r) && r.difficulty === waiting[0].difficulty);
     if (!rooms.length) return;
     waiting.sort((a, b) => a.joinedAt - b.joinedAt);
     const now = lobby.now();
     for (const e of waiting) {
       const best = rooms
-        .filter((r) => this.fits(r, e) && this.openSeats(r) > 0 && !this.skipped(e.playerId, r.code, now) && !lobby.kickedFrom(r, e.playerId))
+        .filter((r) => this.candidate(r, e) && this.fits(r, e) && this.openSeats(r) > 0 && !this.skipped(e.playerId, r.code, now) && !lobby.kickedFrom(r, e.playerId))
         .sort((a, b) => b.activeHumans().length - a.activeHumans().length || a.publicSince - b.publicSince)[0];
       if (best) this.offer(e, best);
     }
@@ -428,8 +448,16 @@ export class Matchmaker {
   }
 
   /**
+   * Whether the room is in the entry's range (header 「공개방」): its difficulty, and its season unless the entry takes
+   * every season's rooms (anySeason). @param {import('./lobby.js').Room} room @param {Entry} entry
+   */
+  candidate(room, entry) {
+    return room.difficulty === entry.difficulty && (entry.anySeason || room.season === entry.season);
+  }
+
+  /**
    * Whether the room's rules suit the entry (header): a regular player the room's preset and size, a quick player any
-   * (its pool is the room's difficulty and season already). @param {import('./lobby.js').Room} room @param {Entry} entry
+   * (candidate has checked the room's difficulty and season). @param {import('./lobby.js').Room} room @param {Entry} entry
    */
   fits(room, entry) {
     if (entry.quick) return true;

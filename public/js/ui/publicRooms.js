@@ -10,9 +10,12 @@
 //     custom room's 「自定义 · 设置 n 项不同 ▾」, which opens its differing settings — ui/customSummary.js — and 查看全部设置,
 //     the read-only settings dialog) · seats · state (等待 n 分钟 / 进行中 · 第 n 回合) · 参加 (room.join, no confirmation)
 //     and 观战 (room.spectate). A row the player's matchmaking would take (roomFit) is outlined in mint.
-//   - Filter F2: a season drop-down (所有赛季 / each season with its rooms; it filters the list only, the picked season
-//     stays) and two switches, 仅匹配对象 (off for another season) and 进行中（观战）. On a short screen the switches fold
-//     into one 筛选 button.
+//   - Filter F2: a season drop-down (所有赛季 / each season with its rooms) and two switches, 仅匹配对象 and 进行中（观战）.
+//     On a short screen the switches fold into one 筛选 button. The drop-down also picks what 开始匹配 looks for
+//     (maintainer decisions 2026-11-20; queueTarget): a season = its public rooms and its queue; 所有赛季 = the public
+//     rooms of every season, the Doctors grouped in the picked season's queue. It opens on the picked season (the lobby
+//     holds it: `pick` / `onPick`) and never changes the page's season — a room of another season does, when it seats
+//     the player (ui/season.js installSeasons).
 //   - 创建公开联合 (maintainer decisions 2026-11-20: 同盟匹配 has everything public): a pill at the head before the
 //     filter, the filter switches' pill in the list's action colour (参加's amber), always in view; an empty list (no
 //     public room at all) says so in its middle with a larger one. Both open the lobby's 创建公开联合 (`onCreate`).
@@ -39,16 +42,24 @@ export const openSeats = (row) => (Array.isArray(row?.seats) ? row.seats.filter(
 export const humansOf = (row) => (Array.isArray(row?.seats) ? row.seats.filter((s) => s?.kind === 'human').length : 0);
 
 /**
+ * What 开始匹配 looks for, from the list's drop-down (header): 'all' → the picked season's queue with every season's
+ * public rooms (room.queue `anySeason`), a season → that season's queue and rooms.
+ * @param {string} pick 'all' or a season @param {string} season the picked (lobby chip) season
+ * @returns {{ season: string, anySeason: boolean }}
+ */
+export const queueTarget = (pick, season) => (pick === 'all' ? { season: seasonOf(season), anySeason: true } : { season: seasonOf(pick), anySeason: false });
+
+/**
  * Whether the player's matchmaking would offer this room (server/matchmaking.js 「공개방」): 'fit' with the picks as
- * they are — the picked season and difficulty, a room in LOBBY with a seat a Doctor may take, and for 精准匹配 the
- * ruleset and size too —, 'quick' when only 快速匹配 would (the difficulty alone; a custom room is the quick players'),
- * else null.
+ * they are — the drop-down's season (any for 'all') and the difficulty, a room in LOBBY with a seat a Doctor may take,
+ * and for 精准匹配 the ruleset and size too —, 'quick' when only 快速匹配 would (the difficulty alone; a custom room is
+ * the quick players'), else null.
  * @param {any} row a lobby.rooms row
- * @param {{ season: string, difficulty: string, ruleset: string, size: number, quick: boolean }} pick
+ * @param {{ season: string, difficulty: string, ruleset: string, size: number, quick: boolean }} pick `season`: 'all' or one
  * @returns {'fit' | 'quick' | null}
  */
 export function roomFit(row, { season, difficulty, ruleset, size, quick }) {
-  if (!row || seasonOf(row.season) !== seasonOf(season) || row.state !== 'lobby' || row.difficulty !== difficulty || !openSeats(row)) return null;
+  if (!row || (season !== 'all' && seasonOf(row.season) !== seasonOf(season)) || row.state !== 'lobby' || row.difficulty !== difficulty || !openSeats(row)) return null;
   if (quick) return 'fit';
   return row.ruleset?.preset === ruleset && seatsOf(row.size) === seatsOf(size) ? 'fit' : 'quick';
 }
@@ -56,8 +67,8 @@ export function roomFit(row, { season, difficulty, ruleset, size, quick }) {
 /**
  * The list as drawn: `current` — the picked season's rooms, the matchmaking's first ('fit', then 'quick'), the waiting
  * before the running, else in the server's order (made public first) —, `others` — the other seasons' rooms, a group per
- * season in `offered` order —, `fits` (the matchmaking's rooms of the whole list). `pick`: 'all' or one season;
- * `fitOnly`: the matchmaking's rooms only (the picked season's); `live`: rooms in a match too.
+ * season in `offered` order, each in the same order —, `fits` (the matchmaking's rooms of the whole list). `pick`: 'all'
+ * or one season; `fitOnly`: the matchmaking's rooms only (`fit`, which follows the drop-down); `live`: rooms in a match too.
  * @param {any[] | null} rows lobby.rooms @param {{ season: string, offered?: string[], pick?: string, fitOnly?: boolean,
  *   live?: boolean, fit: (row: any) => 'fit' | 'quick' | null }} o
  */
@@ -69,13 +80,17 @@ export function listRooms(rows, { season, offered = [], pick = 'all', fitOnly = 
   const rank = (x) => (x.fit === 'fit' ? 0 : x.fit === 'quick' ? 1 : 2) * 2 + (x.row.state === 'match' ? 1 : 0);
   const current = shown.filter((x) => x.season === seasonOf(season)).sort((a, b) => rank(a) - rank(b) || a.i - b.i);
   const order = [...offered, ...shown.map((x) => x.season)].filter((id, i, a) => id !== seasonOf(season) && a.indexOf(id) === i);
-  const others = order.map((id) => ({ season: id, rows: shown.filter((x) => x.season === id) })).filter((g) => g.rows.length);
+  const others = order.map((id) => ({ season: id, rows: shown.filter((x) => x.season === id).sort((a, b) => rank(a) - rank(b) || a.i - b.i) }))
+    .filter((g) => g.rows.length);
   return { current, others, fits, total: all.length };
 }
 
-/** The waiting public rooms of a season and difficulty (the 同盟匹配 cards' 「房间 n」). @param {any[] | null} rows */
+/**
+ * The waiting public rooms of a difficulty (the 同盟匹配 cards' 「房间 n」) in the drop-down's season: one, or 'all' (every
+ * season summed). @param {any[] | null} rows @param {string} season
+ */
 export function roomsWaiting(rows, season, difficulty) {
-  return (Array.isArray(rows) ? rows : []).filter((r) => r.state === 'lobby' && r.difficulty === difficulty && seasonOf(r.season) === seasonOf(season)).length;
+  return (Array.isArray(rows) ? rows : []).filter((r) => r.state === 'lobby' && r.difficulty === difficulty && (season === 'all' || seasonOf(r.season) === seasonOf(season))).length;
 }
 
 /** lobby.watchRooms while mounted and online (a reconnect subscribes again); the list is forgotten when it closes. */
@@ -117,7 +132,7 @@ function Toggle({ on, label, n = null, disabled = false, onPick }) {
   </button>`;
 }
 
-/** The season drop-down (the lobby chip's look, ui/season.js SeasonChip): filters the list, never the page's season. */
+/** The season drop-down (the lobby chip's look, ui/season.js SeasonChip): the list's season and 开始匹配's (header), never the page's. */
 function SeasonFilter({ value, current, offered, counts, onPick }) {
   const [open, setOpen] = useState(false);
   const ref = useOutside(open, setOpen);
@@ -135,7 +150,7 @@ function SeasonFilter({ value, current, offered, counts, onPick }) {
         <span class="pubrooms__sn num">${t('房间 {n}', { n: counts[id] ?? 0 })}</span>
         <span class="season-menu__check" aria-hidden="true">${id === value ? '✓' : ''}</span>
       </button>`)}
-      <div class="season-menu__foot">${t('「匹配对象」与「开始匹配」只限当前赛季（{season}）· 加入其他赛季的联合会切换到该赛季', { season: seasonName(current) })}</div>
+      <div class="season-menu__foot">${t('「开始匹配」寻找这里选的赛季 · 所有赛季时博士之间按当前赛季（{season}）匹配 · 加入其他赛季的联合会切换到该赛季', { season: seasonName(current) })}</div>
     </div>` : null}
   </span>`;
 }
@@ -205,16 +220,16 @@ function RoomRow({ row, fit, other, busy, onJoin, onSpectate, customOpen, onCust
 }
 
 /**
- * The list (header). `season`, `difficulty`, `ruleset`, `size`, `quick`: the picks of 选择模拟协议 — what the player's
- * matchmaking would take (roomFit). `online`: the connection is up. `onCreate`: 创建公开联合.
+ * The list (header). `season` (the picked one), `difficulty`, `ruleset`, `size`, `quick`: the picks of 选择模拟协议, and
+ * `pick` the drop-down's ('all' or a season; `onPick` changes it) — what the player's matchmaking would take (roomFit).
+ * `online`: the connection is up. `onCreate`: 创建公开联合.
  */
-export function PublicRooms({ season, difficulty, ruleset, size, quick, online, onCreate }) {
+export function PublicRooms({ season, pick, onPick, difficulty, ruleset, size, quick, online, onCreate }) {
   useWatchRooms(online);
   useTicker(15000);
   const rows = useStore((s) => s.ui.publicRooms ?? null);
   const offered = useStore((s) => offeredSeasonsOf(s).join('|')).split('|');
   const short = useMediaQuery(SHORT_SCREEN_QUERY);
-  const [pick, setPick] = useState('all');
   const [fitOnly, setFitOnly] = useState(false);
   const [live, setLive] = useState(true);
   const [fold, setFold] = useState(false);
@@ -223,9 +238,8 @@ export function PublicRooms({ season, difficulty, ruleset, size, quick, online, 
   const customRef = useOutside(!!custom, () => setCustom(null));
   const frame = useRef(null);
   const [busy, setBusy] = useState(/** @type {string | null} */ (null));
-  const otherPick = pick !== 'all' && pick !== seasonOf(season);
-  const fit = (row) => roomFit(row, { season, difficulty, ruleset, size, quick });
-  const view = listRooms(rows, { season, offered, pick, fitOnly: fitOnly && !otherPick, live, fit });
+  const fit = (row) => roomFit(row, { season: pick, difficulty, ruleset, size, quick });
+  const view = listRooms(rows, { season, offered, pick, fitOnly, live, fit });
   const counts = { all: rows?.length ?? 0 };
   for (const r of rows || []) counts[seasonOf(r.season)] = (counts[seasonOf(r.season)] ?? 0) + 1;
   // the custom panel's place: the chip's and the frame's rects (it is drawn in the frame, outside the scrolling list)
@@ -239,10 +253,10 @@ export function PublicRooms({ season, difficulty, ruleset, size, quick, online, 
   const join = (row) => run(`j${row.code}`, () => net.request('room.join', { code: row.code }));
   const spectate = (row) => run(`s${row.code}`, () => net.request('room.spectate', { code: row.code }));
   const toggles = [
-    html`<${Toggle} key="fit" on=${fitOnly && !otherPick} disabled=${otherPick} label=${t('仅匹配对象')} n=${view.fits} onPick=${setFitOnly} />`,
+    html`<${Toggle} key="fit" on=${fitOnly} label=${t('仅匹配对象')} n=${view.fits} onPick=${setFitOnly} />`,
     html`<${Toggle} key="live" on=${live} label=${t('进行中（观战）')} onPick=${setLive} />`,
   ];
-  const onCount = (fitOnly && !otherPick ? 1 : 0) + (live ? 1 : 0);
+  const onCount = (fitOnly ? 1 : 0) + (live ? 1 : 0);
   const row = (x, other) => html`<${RoomRow} key=${x.row.code} row=${x.row} fit=${x.fit} other=${other} busy=${busy} onJoin=${join} onSpectate=${spectate}
     customOpen=${custom?.code === x.row.code} onCustom=${setCustom} anchor=${custom?.code === x.row.code ? anchor : null} />`;
   const empty = !view.current.length && !view.others.length;
@@ -254,7 +268,7 @@ export function PublicRooms({ season, difficulty, ruleset, size, quick, online, 
       <span class="pubrooms__count">${t('{n} 个 · 匹配对象 {m}', { n: view.total, m: view.fits })}</span>
       <${NewRoom} onCreate=${onCreate} testid="pubrooms-new" />
       <span class="pubrooms__filter">
-        <${SeasonFilter} value=${pick} current=${seasonOf(season)} offered=${offered} counts=${counts} onPick=${(id) => { setPick(id); setCustom(null); }} />
+        <${SeasonFilter} value=${pick} current=${seasonOf(season)} offered=${offered} counts=${counts} onPick=${(id) => { onPick(id); setCustom(null); }} />
         ${short ? html`<span class="pubrooms__fold" ref=${foldRef}>
             <button type="button" class=${`pubrooms__fbtn tapx${fold ? ' is-open' : ''}`} aria-expanded=${fold ? 'true' : 'false'} onClick=${() => setFold(!fold)}>
               ${t('筛选')}<em class="num">${onCount}</em></button>

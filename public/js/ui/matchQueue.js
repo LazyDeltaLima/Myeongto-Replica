@@ -26,7 +26,8 @@
 // lobby.queueCounts `quick` = { [difficulty]: n } of the quick queue alone (store ui.queueQuick; the other seasons' in
 // `seasons[id].quick`).
 //
-// store ui.queue: null, or { difficulty, ruleset, size, quick, count, since, custom, found } — since in this page's clock;
+// store ui.queue: null, or { difficulty, ruleset, size, quick, season, count, since, custom, found } — since in this page's clock
+// (season: the queue's, absent in room.queueState = the default);
 // found: null or { players, accepted, mine, deadline, total, room, vote } (deadline in server time for components.js
 // Countdown, total = the window's seconds for its gauge; room: a public room's offer, null for a group; vote: null, or
 // { need, declined, no, by } of a 「바로 시작」 vote).
@@ -54,6 +55,7 @@ import { customSummary } from './customSummary.js';
 import { customDiffs, officialBans } from '../../../shared/ruleset.js';
 import { data, getBond, getBoss, getConfig, getMode } from '../data.js';
 import { seasonFields } from './season.js';
+import { seasonOf } from '../../../shared/seasons.js';
 import { ModeCapsule, RoomSeats } from './modeCapsule.js';
 
 /** Why the server took the player out of the queue (room.queueState queued:false reason); 'left' / 'declined' say nothing. */
@@ -131,7 +133,8 @@ export function installMatchQueue({ net: n = net } = {}) {
     if (msg.vote === 'started') toast(t('赞成的 {n} 名博士已先行开始，继续匹配', { n: msg.started ?? 0 }), 'info');
     else if (msg.vote === 'failed') toast(t('赞成未满 {n} 名，继续匹配', { n: LARGE_MIN_PLAYERS }), 'info');
     else if (prev?.found && !prev.found.room) toast(t('有博士未接受，继续匹配'), 'info');
-    setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), quick: msg.quick === true, count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), found: null });
+    setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), quick: msg.quick === true, season: seasonOf(msg.season),
+      count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), found: null });
   });
   n.on('room.matchFound', (msg) => {
     const prev = store.get().ui.queue;
@@ -170,15 +173,17 @@ export function installMatchQueue({ net: n = net } = {}) {
 
 /**
  * room.queue for the difficulty, ruleset, alliance size and season (the lobby's 开始匹配 button; `size` only for an
- * 8-player queue, `season` only for another than the default: ui/season.js seasonFields).
+ * 8-player queue, `season` only for another than the default: ui/season.js seasonFields; `anySeason`: every season's
+ * public rooms are candidates — the list's drop-down on 所有赛季, ui/publicRooms.js queueTarget).
  * @returns {Promise<any>}
  */
-export const joinQueue = (difficulty, ruleset, size = MAX_SEATS, season = null) =>
-  net.request('room.queue', { difficulty, ...(ruleset ? { ruleset } : {}), ...(size !== MAX_SEATS ? { size } : {}), ...(season ? seasonFields(season) : {}) });
+export const joinQueue = (difficulty, ruleset, size = MAX_SEATS, season = null, anySeason = false) =>
+  net.request('room.queue', { difficulty, ...(ruleset ? { ruleset } : {}), ...(size !== MAX_SEATS ? { size } : {}), ...(season ? seasonFields(season) : {}),
+    ...(anySeason ? { anySeason: true } : {}) });
 
-/** room.queue for 快速匹配: the difficulty (and season) alone. @returns {Promise<any>} */
-export const joinQuickQueue = (difficulty, season = null) =>
-  net.request('room.queue', { difficulty, quick: true, ...(season ? seasonFields(season) : {}) });
+/** room.queue for 快速匹配: the difficulty (and season, anySeason as joinQueue) alone. @returns {Promise<any>} */
+export const joinQuickQueue = (difficulty, season = null, anySeason = false) =>
+  net.request('room.queue', { difficulty, quick: true, ...(season ? seasonFields(season) : {}), ...(anySeason ? { anySeason: true } : {}) });
 
 /** room.queueVote: propose 「바로 시작」 in the 8-player queue the player waits in (header). @returns {Promise<any>} */
 export const proposeStart = () => net.request('room.queueVote', {});

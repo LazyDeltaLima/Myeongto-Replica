@@ -1642,7 +1642,7 @@
   "当前赛季": "Current season",
   "房间 {n}": "Rooms {n}",
   "{n} · 房间 {m}": "{n} · Rooms {m}",
-  "「匹配对象」与「开始匹配」只限当前赛季（{season}）· 加入其他赛季的联合会切换到该赛季": "\"Match\" and Start Matching are for the current season ({season}) only · joining another season's alliance switches to that season",
+  "「开始匹配」寻找这里选的赛季 · 所有赛季时博士之间按当前赛季（{season}）匹配 · 加入其他赛季的联合会切换到该赛季": "Start Matching looks in the season picked here · with All seasons, Doctors are grouped in the current season ({season}) · joining another season's alliance switches to that season",
   "设置 {n} 项不同": "{n} settings differ",
   "查看全部设置": "View all settings",
   "匹配对象": "Match",
