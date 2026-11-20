@@ -67,7 +67,8 @@
 //                            ×(1−0.6), 2 targets; Doom at 600 s (LP −30). Targets via fairOrder (two players alternate).
 // The huge leaders (SELF_BOUND: 胄 ×2, 管 ×2, 昆图斯, 阿利斯泰尔, 萨米的意志 — the 巨型单位 of the default season's data) are
 // 自缚 + 无法被阻挡 (PRTS 天赋): a persistent noMove + unblockable buff from spawn, so they never walk their route.
-// Every leader (tag boss) ignores 侵蚀 gauge damage ("最终攻势中，敌方领袖不会受到侵蚀损伤").
+// Every leader (tag boss) takes 侵蚀 gauge damage like any enemy (no official table, prefab or level grants an immunity:
+// docs/rules/sim.md 「리더 적의 침식」).
 // An airborne (起飞) operator is no selection of a ground leader or part (对地规避: canTargetAlly, the damage pipeline,
 // the area selectors); still reach it (`ignoreSelect`): the 刺胄之弹 zone / 剑 / 锤 blasts (flying units, 无来源 hits; 掷剑 /
 // 掷锤 pick their operator "（无视无法选择）"), the 盲信之誓 chains ("无视无法选择"), the 法术护盾 counter on its attacker
@@ -95,7 +96,6 @@ import { hypot, powi } from '../detmath.js';
 import { hitRect, bodyInRadius } from '../body.js';
 import { effectRecord } from './support/index.js';
 import { isNormalDamage } from '../damage.js';
-import { seasonFeature } from '../../../shared/seasons.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants
@@ -410,12 +410,6 @@ function supplyExcluded(b, key) {
 export function install(battle) {
   ensureInstalled(battle);
   battle.on('enemySpawn', ({ enemy }) => onSpawn(battle, enemy), { priority: 90 });
-  // "最终攻势中，敌方领袖不会受到侵蚀损伤" (PRTS 卫戍协议：盟约/PRTS盟约记录 规则; research 06 §10.1): leaders ignore erosion gauge damage
-  // — the 盟约 rule only: 规程's official leaders take it (shared/seasons.js leaderTakesErosion, a CN player's report).
-  // The season is the battle's (Battle `season`, from the match / spec): the browser's sim data has no config file.
-  if (!seasonFeature(battle.season, 'leaderTakesErosion')) {
-    battle.on('elementHit', (c) => { if (c.target && c.target.isBoss && c.dmg.element === 'erosion') c.dmg.cancel = true; }, { priority: 100 });
-  }
 }
 export function registerMeta() {}
 

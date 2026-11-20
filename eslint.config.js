@@ -105,7 +105,7 @@ export default [
         // from it is on on the server and off in client combat. The season is the battle's.
         ...["MemberExpression[property.name='config']", "CallExpression > Literal[value='config']"].map((selector) => ({
           selector,
-          message: "the sim's data has no config in the browser: read a season's rule switch as seasonFeature(battle.season, …) (Battle `season`, from the match / spec; docs/rules/sim.md 「규정 리더 적의 침식」)",
+          message: "the sim's data has no config in the browser: read a season's rule switch as seasonFeature(battle.season, …) (Battle `season`, from the match / spec; docs/rules/sim.md 「리더 적의 침식」)",
         })),
       ],
     },

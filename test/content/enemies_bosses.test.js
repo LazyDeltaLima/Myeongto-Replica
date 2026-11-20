@@ -3136,14 +3136,14 @@ test(`${nm('enemy_10144_xdelk_2')}: 角力对决 — blocked ⇒ ${skb('enemy_10
 // ---------------------------------------------------------------------------------------------------------------
 // leaders: shared rules
 
-test('最终攻势: leaders take no 侵蚀 (erosion) damage; other enemies do', () => {
+test('最终攻势: leaders take 侵蚀 (erosion) damage like other enemies (no immunity)', () => {
   const h = bossArena();
   h.step();
   const e = put(h, 'enemy_9021_acduml', [3, 10], { tag: 'boss' });
   const o = put(h, 'enemy_1007_slime', [3, 8]);
-  assert.equal(h.b.dealDamage(null, e, { type: 'element', element: 'erosion', amount: 5000 }), 0);
-  assert.equal(e.elem.erosion, 0);
-  assert.ok(h.b.dealDamage(null, e, { type: 'element', element: 'burn', amount: 100 }) > 0);
+  assert.ok(h.b.dealDamage(null, e, { type: 'element', element: 'erosion', amount: 100 }) > 0,
+    'a leader takes 侵蚀: no official source grants an immunity (docs/rules/sim.md 「리더 적의 침식」)');
+  assert.ok(e.elem.erosion > 0 && e.elem.erosion < e.gaugeMax);
   assert.ok(h.b.dealDamage(null, o, { type: 'element', element: 'erosion', amount: 100 }) > 0);
 });
 

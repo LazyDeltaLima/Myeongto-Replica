@@ -1,11 +1,12 @@
-// Two 规程 (act3autochess) rules that differ from the 盟约, each a season switch of shared/seasons.js:
+// A 规程 (act3autochess) rule that differs from the 盟约 (a season switch of shared/seasons.js), and the leaders' 侵蚀:
 // - uniteKeepsRedeploy: a 联防 helper's operator knocked out at the end of its own combat keeps the rest of its redeploy
 //   timer (PRTS 卫戍协议/帮助 §联防阶段 "自卫戍协议：规程·序列Ⅰ起，作战结束时为退场状态的干员在联防阶段将继承剩余再部署时间";
 //   docs/rules/sim.md 「규정 연합 방어 — 남은 재배치 시간」). The 盟约 one starts its full timer again (test/match/unitedown.test.js).
-// - leaderTakesErosion: an enemy leader takes 侵蚀 (erosion) damage (a CN player's report: 克莱门莎's erosion lands on the
-//   规程 leader); the 盟约 leader does not ("最终攻势中，敌方领袖不会受到侵蚀损伤"; docs/rules/sim.md 「규정 리더 적의 침식」).
-//   The switch is read from the battle's season (Battle `season`, carried by the field spec), never from the data: the
-//   browser's sim data has no config file, and reading it there let the 盟约 rule cancel the erosion in client combat.
+// - an enemy leader takes 侵蚀 (erosion) damage in both seasons (a CN player's report: 克莱门莎's erosion lands on the
+//   规程 leader; no official table, prefab or level of the 盟约 grants leaders an immunity; docs/rules/sim.md 「리더 적의 침식」).
+//   The season switches are read from the battle's season (Battle `season`, carried by the field spec), never from the
+//   data: the browser's sim data has no config file, and reading it there once let a 盟约 rule cancel the erosion in
+//   client combat.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -114,7 +115,7 @@ for (const clientCombat of [true, false]) {
   });
 }
 
-test('规程: an enemy leader takes 侵蚀 (erosion); the 盟约 leader does not', REAL, () => {
+test('an enemy leader takes 侵蚀 (erosion) in both seasons', REAL, () => {
   for (const season of ['act3autochess', null]) {
     const h = arena(season);
     h.step();
@@ -122,8 +123,8 @@ test('规程: an enemy leader takes 侵蚀 (erosion); the 盟约 leader does not
     const e = h.spawn('enemy_dummy', { pos: [9, 6], routeIndex: 0, mods: { speedMul: 0 }, tag: 'boss' });
     assert.ok(e.isBoss);
     h.b.dealDamage(u, e, { type: 'element', element: 'erosion', amount: 300 });
-    if (season) assert.ok(e.elem.erosion > 0, `规程: the leader's erosion gauge fills (${e.elem.erosion}) — shared/seasons.js leaderTakesErosion, docs/rules/sim.md 「규정 리더 적의 침식」`);
-    else assert.equal(e.elem.erosion, 0, '盟约: "最终攻势中，敌方领袖不会受到侵蚀损伤"');
+    assert.ok(e.elem.erosion > 0, `${season ?? '盟约'}: the leader's erosion gauge fills (${e.elem.erosion}) — no leader immunity `
+      + '(server/sim/content/bosses.js; docs/rules/sim.md 「리더 적의 침식」)');
   }
 });
 
@@ -151,7 +152,7 @@ test('规程 client combat: the field spec carries the season, and on the browse
     assert.ok(e && e.isBoss);
     b.dealDamage(null, e, { type: 'element', element: 'erosion', amount: 300 });
     assert.ok(e.elem.erosion > 0, `the leader's erosion gauge fills in client combat (${e.elem.erosion}) — Battle \`season\` from the spec, `
-      + 'not the data (server/sim/content/bosses.js install; docs/rules/sim.md 「규정 리더 적의 침식」)');
+      + 'not the data (docs/rules/sim.md 「리더 적의 침식」)');
     // the same battle reports a knocked-out operator's rest of its redeploy timer (battle/lifecycle.js _buildResult)
     const u = b.allyUnits.find((x) => x.alive && x.ownerId === 'p_0' && x.defId === piece);
     assert.ok(u, 'the field fields an operator');

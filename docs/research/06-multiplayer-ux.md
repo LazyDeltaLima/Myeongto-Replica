@@ -454,7 +454,7 @@ A scrolling banner. The highest priority wins. It starts `broadcastBeginDelay`=1
 
   - "部分敌方领袖会同时出现在战场的左右两侧，两侧的敌方领袖共享生命值（敌方领袖的总生命值不变）". Both fields and both sides drain the same pool.
   - The community reports fewer surviving players mean a smaller boss bar. [ASSUMED] `bossHP = bloodPoint × aliveAtRound14 / 4`, floored at 1/4.
-- **Boss immunity:** the boss takes no 侵蚀 (erosion) damage ("最终攻势中，敌方领袖不会受到侵蚀损伤").
+- **Boss immunity:** ~~the boss takes no 侵蚀 (erosion) damage ("最终攻势中，敌方领袖不会受到侵蚀损伤")~~ — no source holds this (2026-11-20: not on PRTS, not in the 盟约 tables, levels or leader prefabs); leaders take 侵蚀 like any enemy (docs/rules/sim.md 「리더 적의 침식」).
 - **No stacking:** <战斗中> stacking is disabled in the boss fight. [COMM]
 - **Overtime:** after `bossTurnHpReduceTime` = 150 s, the team LP drains 1/s.
   - [ASSUMED] Minions that reach a goal also cost team LP (per-enemy LP cost; 2 for bosses per `lifePointReduce`), with no 10 cap.

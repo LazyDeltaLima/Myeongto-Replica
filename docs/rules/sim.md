@@ -3582,16 +3582,22 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 - **적 종류 표(`enemyInfoDict`)**(2026-11-12 확인): 종류마다 소속 적 키의 목록일 뿐 규칙이 없다 — 규정에서 새 종류 정예(CRITIC 33)·재생(REBORN 32)이 생기고, 은신(INVISIBLE)·굴절(REFLECTION)은 새 항목 셋(가상적: 영역 `9034_acblk`, 경안 `9039_acrefm`·경파 `9031_acrefd`)이 더해졌을 뿐 종류 설명(`enemyTypeDatas`)은 그대로다. 새 두 종류의 설명(「此类敌人在特定条件下造成高额伤害」·「此类敌人首次被击倒后会重生」)은 소속 적의 키트가 하는 일을 적은 것이고, 종류에 거는 전역 버프는 규정 레벨(`globalBuffs` 없음)·표 어디에도 없다. 그래서 종류는 특수 적 뽑기(`factions.json types[*].pool`·`entries`)와 도감 표시에만 쓰이고, 재생 등 동작은 적마다 자기 프리팹대로(`enemies/critic.js`·`reborn.js`).
 - 시험: 같은 파일 「规程 假想敌：铳 is blockable…」(지난 시즌 판도 같이: 늘 저지 불가·사거리 안 방어력 최고)·「量变之械…」·「规程 enemies with a kit: … SILENCE lines」.
 
-### 규정 리더 적의 침식 (2026-11-15)
-- **규칙**: 규정의 리더 적은 다른 적처럼 침식(侵蚀) 손상을 받는다 — 클레멘티아(`char_4231_clemnt`)의 침식이 보스에게도 쌓이고 폭발한다. 맹약은
-  그대로 「最终攻势中，敌方领袖不会受到侵蚀损伤」(최종 공세에서 리더 적은 침식 손상을 받지 않음, 연구 06 §10.1): 리더 적에게 가는 침식은 취소한다.
-- **근거**: 중국 서버(규정) 플레이 제보(2026-11-15) — 클레멘티아 S3로 보스에게 침식이 걸림. 우리 판(맹약 규칙을 두 시즌에 똑같이 씀)에서는 안 걸렸다.
-  맹약 문구는 지금 PRTS 「卫戍协议：盟约」·「卫戍协议/帮助」에서 다시 찾지 못했고(2026-11-15), 표·프리팹에도 이 면역은 없다 — 맹약 쪽은 옛 인용대로 둔다.
-- **코드**: 시즌 스위치 `shared/seasons.js leaderTakesErosion`(규정 켬) → `server/sim/content/bosses.js install`이 꺼진 시즌에서만 리더의 `elementHit` 침식을 취소.
-  시즌은 전투의 것(`Battle` `season`)을 읽는다: 매치가 `newBattle`·전투 spec(`server/sim/spec.js` `season`, 기본 시즌이 아닐 때만)으로 넘긴다.
-- **함정(2026-11-18 고침)**: 처음에는 시즌을 전투 자료의 `config`에서 읽었는데, 브라우저 sim 자료에는 `config`가 없다(`public/js/battle/runner.js
+### 리더 적의 침식 (2026-11-15, 2026-11-20 맹약도)
+- **규칙**: 리더 적은 두 시즌 모두 다른 적처럼 침식(侵蚀) 손상을 받는다 — 클레멘티아(`char_4231_clemnt`)의 침식이 보스에게도 쌓이고 폭발한다
+  (리더의 원소 게이지 2000, PRTS 「元素」). 전에는 맹약에서 「最终攻势中，敌方领袖不会受到侵蚀损伤」(연구 06 §10.1)를 따라 리더에게 가는 침식을
+  취소했으나 2026-11-20에 걷었다.
+- **근거**: 중국 서버(규정) 플레이 제보(2026-11-15) — 클레멘티아 S3로 보스에게 침식이 걸림. 맹약 문구는 출처가 없다 — PRTS 「卫戍协议：盟约」·
+  「卫戍协议/帮助」에 없고(2026-11-15), PRTS 전문 검색 「侵蚀损伤 领袖」에도 이 규칙은 안 나오며(2026-11-20; 「元素」는 리더의 게이지만 2000), 맹약
+  공식 자료 어디에도 면역이 없다(2026-11-20 확인): ① 맹약 표 `activity_table` `act2autochess`(보스 정보·상수·효과 블랙보드에 원소 키 없음,
+  `autoChessData.gameTipsList`의 최종 공세 팁 둘은 「两名参与者会处于同一个战场」·「所有人将一起对敌方领袖造成伤害」뿐) ② 맹약 레벨
+  `level_act2autochess_m01`~`m04`·`level_autochess_enemy_data`(`globalBuffs` 비었고 `runes` 없음, 리더 `enemyDbRefs` 덮어쓰기 없음) ③ 리더의
+  적 표(`enemy_database`: `epDamageResistance`·`epResistance` 0, 원소 면역 칸 없음) ④ 리더 프리팹(EN·CN 같음: 이상 플래그에 원소 면제 `ELEMENT_FREE_ALL` 없음) ⑤ EN 버프 템플릿
+  `autochess_boss_buff`(받은 피해 `ON_TAKE_DAMAGE`의 30만 거름 — 원소 손상은 그 이벤트가 아님) — 공식 클라에서 확인.
+- **코드**: 리더에 대한 예외 없음(`server/sim/content/bosses.js`에 침식 취소 없음). 시즌 스위치 `leaderTakesErosion`은 지웠다.
+- **함정(2026-11-18 고침)**: 시즌 스위치를 처음에는 전투 자료의 `config`에서 읽었는데, 브라우저 sim 자료에는 `config`가 없다(`public/js/battle/runner.js
   SIM_DATA_FILES`, `/data.js` 대역도 같은 자료). 그래서 사람이 접속한 전투(클라 전투 — 최종 공세 포함)에서는 규정에서도 맹약 규칙이 켜져, 클레멘티아의
   침식이 리더에게 전혀 쌓이지 않았고(게이지도 안 보임) 서버가 돌린 전투에서만 쌓였다. 아래 「남은 재배치 시간」도 같은 이유로 클라 전투 결과에서 빠졌다.
+  시즌 스위치는 전투의 것(`Battle` `season`)을 읽는다: 매치가 `newBattle`·전투 spec(`server/sim/spec.js` `season`, 기본 시즌이 아닐 때만)으로 넘긴다.
   `eslint.config.js`가 `server/sim/` 안에서 `config` 읽기를 막는다.
 - 재발 방지: `test/match/act3-unite-redeploy-erosion.test.js`(클라 전투 spec + 브라우저 자료 모양) · `eslint.config.js`(sim의 `config` 읽기 금지)
 
@@ -3601,7 +3607,7 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
   docs/META.md §4).
 - **근거**: PRTS 卫戍协议/帮助 §联防阶段 「自卫戍协议：规程·序列Ⅰ起，作战结束时为退场状态的干员在联防阶段将继承剩余再部署时间」(2026-11-15 확인) +
   중국 서버 플레이 제보(2026-11-15: 지난 시즌처럼 5초 남기고 넘어가면 다시 처음부터 기다리지 않음).
-- **코드**: 시즌 스위치 `shared/seasons.js uniteKeepsRedeploy`(규정 켬, 전투의 `season`으로 읽음 — 위 「규정 리더 적의 침식」 함정). 전투 결과 `unitsEnd`가 쓰러진 오퍼레이터의 `respawnLeft`(남은 초, 켜진 시즌만 —
+- **코드**: 시즌 스위치 `shared/seasons.js uniteKeepsRedeploy`(규정 켬, 전투의 `season`으로 읽음 — 위 「리더 적의 침식」 함정). 전투 결과 `unitsEnd`가 쓰러진 오퍼레이터의 `respawnLeft`(남은 초, 켜진 시즌만 —
   맹약 결과·digest는 그대로)를 내고(`server/sim/battle/lifecycle.js _buildResult`; 클라 보고는 `shared/protocol.js isUnitEnd`·`server/match/fields.js`가
   0–10000초로 검사), `server/match/unite.js`가 `carryState { down: true, respawnLeft }`로 넘기며, `Battle._beginWave`가 그 값을 타이머로 쓴다.
   [추정·자료 없음: 연합 방어 전장의 재배치 시간 효과(机变 征召 −50 % 등)가 이어받은 나머지를 다시 줄이는지 — 지금은 줄이지 않음] 재배치 고리는 이어받은
