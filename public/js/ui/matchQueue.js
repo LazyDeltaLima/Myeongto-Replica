@@ -1,10 +1,12 @@
 // 랜덤 매칭 on the client (server/matchmaking.js has the rules): the lobby's 同盟匹配 card queues the player alone for the
-// selected difficulty (co-op), and a co-op room's host queues the room's humans for its empty seats (the room screen's
-// 匹配补位 button, room.queueRoom). While queued alone, a dialog shows the waiting time, how many Doctors wait for that
-// difficulty and the cancel button; a queued room shows the same in the room screen's bar instead (room.state
-// `matching`, screens/room.js). When a group of four forms, every member gets the confirmation dialog
-// (room.matchFound, its own countdown). The match's room.state closes it (the room / game screen follows); a welcome
-// that starts a new server session forgets it (the server's queue is gone).
+// selected difficulty (co-op). While queued, a dialog shows the waiting time, how many Doctors wait for that difficulty
+// and the cancel button. When a group of four forms, every member gets the confirmation dialog (room.matchFound, its own
+// countdown); a public room the queue found (room.matchFound `room`, server/matchmaking.js 「공개방」) is offered to the
+// player alone, the confirmation naming the room — host, mode capsule, seats, a custom room's settings (ui/modeCapsule.js).
+// Any room.state closes it (the player took a seat: the group's room, the offered room, a room of the public list —
+// ui/publicRooms.js); a welcome that starts a new server session forgets it (the server's queue is gone). A room no
+// longer queues (room.queueRoom is gone, maintainer decision 2026-11-20: a public room does its work). lobby.rooms (the
+// public room list) → store ui.publicRooms.
 //
 // The queues are per difficulty AND 规则 모드 (shared/ruleset.js; maintainer decision 2026-10-15): room.queue carries the
 // lobby's ruleset, the dialogs name it, and every Doctor in the lobby gets the waiting counts of every queue
@@ -23,9 +25,10 @@
 // lobby.queueCounts `quick` = { [difficulty]: n } of the quick queue alone (store ui.queueQuick; the other seasons' in
 // `seasons[id].quick`).
 //
-// store ui.queue: null, or { difficulty, ruleset, size, quick, count, since, party, found } — since in this page's clock; party = queued with
-// the room; found: null or { players, accepted, mine, deadline, total, vote } (deadline in server time for components.js
-// Countdown, total = the window's seconds for its gauge; vote: null, or { need, declined, no, by } of a 「바로 시작」 vote).
+// store ui.queue: null, or { difficulty, ruleset, size, quick, count, since, custom, found } — since in this page's clock;
+// found: null or { players, accepted, mine, deadline, total, room, vote } (deadline in server time for components.js
+// Countdown, total = the window's seconds for its gauge; room: a public room's offer, null for a group; vote: null, or
+// { need, declined, no, by } of a 「바로 시작」 vote).
 //
 // Sounds (maintainer decision 2026-10-14, docs/rules/audio.md 「랜덤 매칭·방 알림음」): the official matching sounds
 // (queueCue), and while ui.queue is set the page keeps its audio running in a hidden tab (audio.keepAwake) and a group
@@ -44,29 +47,21 @@ import { customSummary } from './customSummary.js';
 import { customDiffs, officialBans } from '../../../shared/ruleset.js';
 import { data, getBond, getBoss, getConfig, getMode } from '../data.js';
 import { seasonFields } from './season.js';
+import { ModeCapsule, RoomSeats } from './modeCapsule.js';
 
-/**
- * Why the server took the player out of the queue (room.queueState queued:false reason); 'left' / 'declined' say
- * nothing. A queued room's members hear who acted (`by`, maintainer decision 2026-10-13); [generic, named] texts.
- */
+/** Why the server took the player out of the queue (room.queueState queued:false reason); 'left' / 'declined' say nothing. */
 const LEFT_REASON = {
-  timeout: [N_('未在时限内确认，已退出匹配')],
-  offline: [N_('连接中断，已退出匹配')],
-  restarting: [N_('服务器即将重启，匹配已取消')],
-  full: [N_('服务器同盟数量已满，匹配已取消')],
-  room: [N_('你已加入同盟，匹配已取消')],
-  party: [N_('同盟中有博士取消了匹配'), N_('{name} 取消了匹配')],
-  partyDeclined: [N_('同盟中有博士拒绝了匹配，匹配已取消'), N_('{name} 拒绝了匹配，匹配已取消')],
-  partyTimeout: [N_('同盟中有博士未在时限内确认，匹配已取消')],
-  changed: [N_('同盟成员有变动，匹配已取消'), N_('{name} 离开了同盟，匹配已取消')],
+  timeout: N_('未在时限内确认，已退出匹配'),
+  offline: N_('连接中断，已退出匹配'),
+  restarting: N_('服务器即将重启，匹配已取消'),
+  full: N_('服务器同盟数量已满，匹配已取消'),
+  room: N_('你已加入同盟，匹配已取消'),
 };
 
 /** The toast text for a queued:false message, or null. */
 export function leftText(msg) {
-  const texts = LEFT_REASON[msg?.reason];
-  if (!texts) return null;
-  const named = texts[1] && typeof msg.by === 'string' && msg.by;
-  return named ? t(texts[1], { name: msg.by }) : t(texts[0]);
+  const text = LEFT_REASON[msg?.reason];
+  return text ? t(text) : null;
 }
 
 const setQueue = (queue) => store.patch('ui', { queue });
@@ -124,33 +119,33 @@ export function installMatchQueue({ net: n = net } = {}) {
       if (text) toast(text, 'warn');
       return;
     }
-    // back in the queue from a group: someone did not accept; from a 「바로 시작」 vote: how it ended
+    // back in the queue from a group: someone did not accept; from a 「바로 시작」 vote: how it ended (a public room's
+    // offer declined, run out or withdrawn: the waiting goes on without a word)
     if (msg.vote === 'started') toast(t('赞成的 {n} 名博士已先行开始，继续匹配', { n: msg.started ?? 0 }), 'info');
     else if (msg.vote === 'failed') toast(t('赞成未满 {n} 名，继续匹配', { n: LARGE_MIN_PLAYERS }), 'info');
-    else if (prev?.found) toast(t('有博士未接受，继续匹配'), 'info');
-    setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), quick: msg.quick === true, count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), party: !!msg.party, found: null });
+    else if (prev?.found && !prev.found.room) toast(t('有博士未接受，继续匹配'), 'info');
+    setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), quick: msg.quick === true, count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), found: null });
   });
   n.on('room.matchFound', (msg) => {
     const prev = store.get().ui.queue;
     cue(queueCue('room.matchFound', prev, msg));
     if (!prev?.found) flashTitle(msg.vote ? t('提前开始投票') : t('匹配成功'));
     setQueue({
-      ...(prev || { difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), count: msg.players, since: Date.now(), party: false }),
+      ...(prev || { difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), count: msg.players, since: Date.now() }),
       // a 快速匹配 Doctor's group has the ruleset and size of the queue it filled: the confirmation names them
       ...(msg.quick === true ? { quick: true, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size) } : {}),
-      // a custom room's empty seats (server/matchmaking.js): its settings, so the 快速匹配 Doctor sees what they accept
-      ...(msg.custom && typeof msg.custom === 'object' ? { custom: msg.custom } : {}),
+      // a custom public room's seats (server/matchmaking.js): its settings, so the 快速匹配 Doctor sees what they accept
+      ...(msg.custom && typeof msg.custom === 'object' ? { custom: msg.custom } : { custom: null }),
       found: { players: msg.players, accepted: msg.accepted, mine: !!msg.mine, deadline: serverNow() + msg.inMs,
+        room: msg.room && typeof msg.room === 'object' ? msg.room : null,
         total: prev?.found?.total ?? Math.max(1, Math.ceil(msg.inMs / 1000)),
         vote: msg.vote ? { need: msg.need ?? LARGE_MIN_PLAYERS, declined: msg.declined ?? 0, no: !!msg.no, by: typeof msg.by === 'string' ? msg.by : null } : null },
     });
   });
-  // a queued room keeps receiving room.state while it waits: only its match (or the end of `matching`) closes the queue
-  n.on('room.state', (msg) => {
-    const q = store.get().ui.queue;
-    if (q && (!q.party || msg.inMatch || !msg.matching)) setQueue(null);
-  });
-  n.on('room.closed', () => { if (store.get().ui.queue?.party) setQueue(null); });
+  // a seat taken (the group's room, an offered public room, the list's 参加): the queue is over
+  n.on('room.state', () => { if (store.get().ui.queue) setQueue(null); });
+  // the public room list (ui/publicRooms.js), while 同盟匹配's screen watches it
+  n.on('lobby.rooms', (msg) => store.patch('ui', { publicRooms: Array.isArray(msg.rooms) ? msg.rooms : [] }));
   // the waiting Doctors of every queue (the lobby's 同盟匹配 card): { [ruleset]: { [difficulty]: n } }, of the 8-player queues too
   const countsOf = (c) => (c && typeof c === 'object' ? c : null);
   // (the other offered 卫戍协议 seasons' in `seasons`: ui/season.js seasonQueueCounts)
@@ -198,7 +193,7 @@ export const mmss = (ms) => {
  * of the difficulty and room size, and the summary lines (ui/customSummary.js), as the room's invitation lists them.
  * @param {unknown} custom the room's custom settings (room.matchFound `custom`)
  * @param {string} difficulty @param {number} size
- * @returns {{ n: number, lines: string[] }}
+ * @returns {{ n: number, lines: string[], items: ReturnType<typeof customSummary> }}
  */
 export function customFound(custom, difficulty, size) {
   const mode = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor('coop', difficulty)) : null;
@@ -206,14 +201,14 @@ export function customFound(custom, difficulty, size) {
   const bans = officialBans(getConfig(), difficulty, size);
   const lookup = { bond: getBond, boss: getBoss, stage: (id) => data.lendable('stages', id), type: (id) => data.lendable('types', id) };
   const lines = customSummary(custom, { bans, rounds, name: (kind, id) => lookup[kind](id)?.name || id, hidden: (id) => !!getBoss(id)?.hidden });
-  return { n: customDiffs(custom, { bans, rounds }).length, lines: lines.map((l) => l.text) };
+  return { n: customDiffs(custom, { bans, rounds }).length, lines: lines.map((l) => l.text), items: lines };
 }
 
 export function MatchQueueDialog() {
   const queue = useStore((s) => s.ui.queue);
   const [busy, setBusy] = useState(null);
-  useTicker(queue && !queue.found && !queue.party ? 500 : 0);
-  if (!queue || (queue.party && !queue.found)) return null;
+  useTicker(queue && !queue.found ? 500 : 0);
+  if (!queue) return null;
   const run = async (kind, msg) => {
     if (busy) return;
     setBusy(kind);
@@ -258,8 +253,9 @@ export function MatchQueueDialog() {
         <${Countdown} deadline=${f.deadline} total=${f.total} warnAt=${5} label="CONFIRM" onWarn=${f.mine ? null : timerCue} />
         <div class="queue-dialog__lines">
           <span class="queue-dialog__mode">${t('同盟模拟')} · ${name}</span>
-          <span>${t('{players} 名博士', { players: f.players })}</span>
-          <span class="t-lo">${t('已接受 {accepted}/{players}', { accepted: f.accepted, players: f.players })}</span>
+          ${f.room ? html`<${FoundRoom} room=${f.room} difficulty=${queue.difficulty} />`
+            : html`<span>${t('{players} 名博士', { players: f.players })}</span>
+              <span class="t-lo">${t('已接受 {accepted}/{players}', { accepted: f.accepted, players: f.players })}</span>`}
           ${queue.custom ? html`<${FoundCustom} custom=${queue.custom} difficulty=${queue.difficulty} size=${cap} />` : null}
         </div>
       </div>
@@ -281,6 +277,20 @@ export function MatchQueueDialog() {
       </div>
     </div>
   <//>`;
+}
+
+/**
+ * A public room the queue found (room.matchFound `room`, server/matchmaking.js 「공개방」): its host (name #번호), mode
+ * capsule and seats, as the public room list draws them (ui/modeCapsule.js); the host starts the match.
+ */
+function FoundRoom({ room, difficulty }) {
+  const size = seatsOf(room.size);
+  return html`<div class="queue-dialog__room" data-testid="found-room">
+    <span class="queue-dialog__host"><b>${room.host?.name || t('博士')}</b><small class="num">#${room.host?.no ?? ''}</small><span class="t-lo">${t('的公开联合')}</span></span>
+    <${ModeCapsule} ruleset=${room.ruleset?.preset} difficulty=${difficulty} size=${size} />
+    <${RoomSeats} seats=${room.seats} size=${size} />
+    <span class="t-lo">${t('接受后加入该联合，由创建者开始模拟')}</span>
+  </div>`;
 }
 
 /** The confirmation's custom block: 「自定义 · 与官方不同的设置 n 项」 and the lines (customFound). */

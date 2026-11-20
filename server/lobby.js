@@ -188,7 +188,7 @@
 //     ended, the later). lobby.watchRooms { on } subscribes the session (the 연합 매칭 screen, while it is open) to
 //     lobby.rooms { rooms: [roomRow] } — every public room of every season, in LOBBY or in a match, never a private
 //     one and never a playerId (Lobby.roomRow: code, season?, host { name, no = the 「#번호」 of shared/doctorNo.js },
-//     difficulty, ruleset { preset }, custom? (a custom room's settings), size, seats [{ kind, card? }], state, round?,
+//     difficulty, ruleset { preset }, custom? (a custom room's settings), size, seats [{ kind, host?, card? }], state, round?,
 //     spectators, spectatorSeats, since) — sent on subscribing and then whole, at most once per `countsMinGapMs` and
 //     only when it changed; a room that kicked the watcher within `kickBlockMs` is left out of that watcher's list.
 //     room.join of a public room is the list's 「참가」 (no confirmation); matchmaking offers its seats too
@@ -1160,7 +1160,8 @@ export class Lobby {
       ruleset: { preset: rs.preset },
       ...(rs.custom ? { custom: rs.custom } : {}),
       size: room.size,
-      seats: room.seats.map((s) => (!s ? { kind: 'empty' } : s.isBot ? { kind: 'bot' } : { kind: 'human', ...(s.card ? { card: s.card } : {}) })),
+      seats: room.seats.map((s) => (!s ? { kind: 'empty' } : s.isBot ? { kind: 'bot' }
+        : { kind: 'human', ...(s.playerId === room.hostId ? { host: true } : {}), ...(s.card ? { card: s.card } : {}) })),
     };
   }
 

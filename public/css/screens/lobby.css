@@ -1360,3 +1360,140 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   .tips__lines li { padding-left: 9px; font-size: 10.5px; line-height: 1.5; }
   .tips__lines li::before { left: 1px; width: 3px; height: 3px; }
 }
+
+/* ---- 同盟匹配's public room list (ui/publicRooms.js; maintainer decisions 2026-11-20, mockup A 목록형 + filter F2) -------
+   Over 选择模拟协议's left half, its picture and brief blurred under it. A row: the room's mode capsule (the waiting room's
+   .rs-mode, room.css, in `--po` units of the event's 1280×720 canvas), host and tags, seats as squares as tall as the
+   capsule, state, 参加 / 观战. One grid, the rows subgrids, so the capsule column is the widest capsule's. The custom
+   room's panel is placed against the frame (.pubrooms), outside the scrolling list (which would cut it): nothing between
+   them is positioned. */
+.proto-stage.has-rooms > .proto__pic, .proto-stage.has-rooms > .proto-brief { filter: blur(10px) brightness(.38) saturate(.7); pointer-events: none; }
+.proto-stage.has-rooms > .proto-brief { opacity: .5; }
+.pubrooms { --u: .0115rem; --po: .0085rem; position: absolute; inset: calc(var(--u) * 8) 0 calc(var(--u) * 10) 0; z-index: 3; display: flex; flex-direction: column;
+  min-height: 0; color: #d8dbda; font-size: calc(var(--u) * 17); }
+.pubrooms__head { flex: none; display: flex; align-items: center; gap: calc(var(--u) * 18); padding: 0 calc(var(--u) * 6) calc(var(--u) * 10);
+  border-bottom: 1px solid rgba(255, 255, 255, .12); }
+.pubrooms__title { display: inline-flex; align-items: baseline; gap: calc(var(--u) * 8); white-space: nowrap; }
+.pubrooms__title .icon { align-self: center; width: 1.2em; height: 1.2em; color: var(--d-color); }
+.pubrooms__title b { font-size: calc(var(--u) * 26); font-weight: 900; color: #fff; letter-spacing: .02em; }
+.pubrooms__title i { font-style: normal; font-family: var(--font-display); font-size: calc(var(--u) * 12); letter-spacing: .2em; color: var(--d-color); }
+.pubrooms__count { white-space: nowrap; color: #9ea3a2; }
+.pubrooms__filter { margin-left: auto; display: inline-flex; align-items: center; gap: calc(var(--u) * 10); }
+.pubrooms__season .season-chip { height: auto; min-height: calc(var(--u) * 34); padding: 0 calc(var(--u) * 12); font-size: calc(var(--u) * 15); border-radius: 999px; }
+.pubrooms__smenu { left: auto; right: 0; min-width: calc(var(--u) * 340); font-size: calc(var(--u) * 15); }
+.pubrooms__smenu .season-menu__row { font-size: inherit; }
+.pubrooms__smenu .season-menu__foot { font-size: calc(var(--u) * 12.5); line-height: 1.4; white-space: normal; }
+.pubrooms__cur { margin-left: .5em; padding: 0 .4em; border-radius: 3px; font-size: .78em; font-weight: 600; color: var(--gold); background: rgba(255, 200, 80, .12); }
+.pubrooms__sn { color: #9ea3a2; font-size: .9em; white-space: nowrap; }
+.dpick__opt.pubrooms__tog { --d-color: var(--mint-400); height: auto; min-height: calc(var(--u) * 34); padding: 0 calc(var(--u) * 12) 0 calc(var(--u) * 8); border: 1px solid var(--line-2);
+  border-radius: 999px; background: rgba(0, 0, 0, .45); font-size: calc(var(--u) * 15); letter-spacing: .02em; white-space: nowrap; }
+.dpick__opt.pubrooms__tog:last-child { border-right: 1px solid var(--line-2); }
+.dpick__opt.pubrooms__tog .icon { opacity: .25; }
+.dpick__opt.pubrooms__tog .icon.is-on { opacity: 1; }
+.dpick__opt.pubrooms__tog.is-active { color: #e6e9e8; border-color: rgba(89, 244, 202, .45); }
+.dpick__opt.pubrooms__tog:disabled { opacity: .45; }
+.pubrooms__tog em { font-style: normal; font-size: .85em; color: #9ea3a2; }
+.pubrooms__tog.is-active em { color: var(--mint-400); }
+.pubrooms__fold { position: relative; display: inline-flex; }
+.pubrooms__fbtn { display: inline-flex; align-items: center; gap: .35em; min-height: 28px; padding: 0 10px; font: inherit; font-size: 13px; color: #e6e9e8;
+  background: rgba(0, 0, 0, .5); border: 0; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2); }
+.pubrooms__fbtn.is-open { box-shadow: inset 0 0 0 1px var(--mint-400); }
+.pubrooms__fbtn em { font-style: normal; font-size: 11px; padding: 0 5px; border-radius: 3px; background: var(--mint-400); color: #0b1512; font-weight: 700; }
+.pubrooms__fpanel { position: absolute; z-index: 60; right: 0; top: calc(100% + 6px); display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px;
+  background: rgba(10, 14, 13, .97); border: 1px solid var(--line-2); box-shadow: 0 6px 20px rgba(0, 0, 0, .6); }
+.pubrooms__fpanel .pubrooms__tog { min-height: 36px; font-size: 14px; }
+.pubrooms__list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; margin: 0; padding: calc(var(--u) * 8) 0 0; list-style: none;
+  display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content max-content max-content; align-content: start; column-gap: calc(var(--u) * 14);
+  row-gap: calc(var(--u) * 5); scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .25) transparent; }
+.pubroom { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; min-height: calc(var(--u) * 62);
+  padding: calc(var(--u) * 6) calc(var(--u) * 14) calc(var(--u) * 6) calc(var(--u) * 10); border-left: calc(var(--u) * 4) solid var(--dc);
+  background: linear-gradient(90deg, rgba(16, 18, 18, .92), rgba(22, 24, 24, .86)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.pubroom.is-fit { background: linear-gradient(90deg, rgba(14, 34, 29, .94), rgba(18, 24, 23, .88)); box-shadow: inset 0 0 0 1px rgba(89, 244, 202, .38); }
+.pubroom.is-live { opacity: .82; }
+.pubroom__mode { justify-self: start; display: flex; }
+.pubroom .rs-mode { --o: var(--po); margin-right: 0; max-width: none; cursor: default; }
+.pubroom__who { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: calc(var(--u) * 3); white-space: nowrap; }
+.pubroom__host { display: flex; align-items: baseline; gap: calc(var(--u) * 6); min-width: 0; }
+.pubroom__host b { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: #fff; font-size: calc(var(--u) * 18); }
+.pubroom__host small { flex: none; color: #7c8180; font-size: calc(var(--u) * 13); }
+.pubroom__tags { display: flex; align-items: center; gap: calc(var(--u) * 6); min-width: 0; }
+.pubroom__tags:empty { display: none; }
+.pubroom__fit { display: inline-flex; align-items: center; gap: .25em; padding: 0 .45em; border-radius: 3px; font-size: calc(var(--u) * 13); line-height: 1.6; font-weight: 700;
+  color: #0b1512; background: var(--mint-400); white-space: nowrap; }
+.pubroom__fit .icon { width: 1em; height: 1em; }
+.pubroom__fit.is-quick { color: var(--mint-400); background: rgba(89, 244, 202, .12); box-shadow: inset 0 0 0 1px rgba(89, 244, 202, .4); }
+.pubroom__cwrap { display: inline-flex; }
+.pubroom__custom { display: inline-flex; align-items: center; gap: .35em; padding: 0 .5em 0 0; font: inherit; font-size: calc(var(--u) * 13); line-height: 1.6; color: #e5d8ff;
+  background: rgba(190, 120, 255, .12); border: 0; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(190, 120, 255, .4); white-space: nowrap; cursor: pointer; }
+.pubroom__custom .rtag { padding: 0 .45em; border: 0; border-right: 1px solid rgba(190, 120, 255, .4); font-size: 1em; line-height: 1.6; letter-spacing: 0; }
+.pubroom__custom.is-open { box-shadow: inset 0 0 0 1px #b98cff; }
+.pubroom__caret { color: #b98cff; font-size: .8em; }
+.pubroom__panel { position: absolute; z-index: 60; width: min(calc(var(--u) * 400), 92%); display: flex; flex-direction: column; gap: 6px; padding: 6px; white-space: normal;
+  background: rgba(12, 10, 16, .97); border: 1px solid rgba(180, 140, 255, .35); box-shadow: 0 8px 24px rgba(0, 0, 0, .65); }
+.pubroom__panel .crs__list { max-height: calc(var(--u) * 220); overflow-y: auto; }
+.pubroom__all { align-self: flex-end; display: inline-flex; align-items: center; gap: .35em; padding: 3px 10px; font: inherit; font-size: calc(var(--u) * 13);
+  color: #d8c4ff; background: none; border: 1px solid rgba(180, 140, 255, .35); cursor: pointer; }
+.pubroom__seats { display: inline-flex; align-items: center; gap: calc(var(--u) * 4); height: calc(var(--po) * 57); }
+.pubroom__seat { --s: calc(var(--po) * 46); position: relative; flex: none; display: grid; place-items: center; width: var(--s); height: var(--s);
+  background: #1c1f1f; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22); color: #9aa19e; }
+.pubroom__seats.is-8 .pubroom__seat { --s: calc(var(--po) * 36); }
+.pubroom__seat img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pubroom__seat > .icon { width: 55%; height: 55%; }
+.pubroom__seat.is-host { box-shadow: inset 0 0 0 1px var(--gold); }
+.pubroom__crown { position: absolute; top: -.5em; right: -.4em; display: grid; place-items: center; width: 1.1em; height: 1.1em; border-radius: 50%; background: #171a19;
+  color: var(--gold); font-size: calc(var(--u) * 13); }
+.pubroom__crown .icon { width: .8em; height: .8em; }
+.pubroom__seat.is-bot { color: #8fa3a8; background: #232a2c; }
+.pubroom__seat.is-empty { color: rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .03); box-shadow: inset 0 0 0 1px rgba(89, 244, 202, .3); }
+.pubroom__seat.is-empty > .icon { width: 45%; height: 45%; }
+.pubroom__state { display: inline-flex; align-items: center; gap: .4em; white-space: nowrap; color: #b9bdbc; font-size: calc(var(--u) * 15); }
+.pubroom__state i { width: .5em; height: .5em; border-radius: 50%; background: var(--mint-400); box-shadow: 0 0 6px var(--mint-400); }
+.pubroom__state.is-live { color: var(--amber); }
+.pubroom__state.is-live i { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+.pubroom__act { display: inline-flex; align-items: center; justify-content: flex-end; gap: calc(var(--u) * 6); }
+.pubroom__act .btn { min-height: calc(var(--u) * 36); padding: 0 calc(var(--u) * 14); font-size: calc(var(--u) * 15); }
+.pubroom__act .pubroom__spec.is-square { padding: 0 calc(var(--u) * 10); }
+.pubrooms__div { grid-column: 1 / -1; display: flex; align-items: baseline; gap: calc(var(--u) * 10); margin-top: calc(var(--u) * 10); padding: calc(var(--u) * 4) calc(var(--u) * 6);
+  border-top: 1px solid rgba(255, 255, 255, .14); color: #8f9493; font-size: calc(var(--u) * 14); white-space: nowrap; }
+.pubrooms__div b { font-size: calc(var(--u) * 16); color: var(--mint-400); }
+.pubrooms__div b.is-new { color: var(--gold); }
+.pubrooms__empty { grid-column: 1 / -1; padding: calc(var(--u) * 30) calc(var(--u) * 10); text-align: center; color: #8f9493; }
+.pubrooms__foot { flex: none; margin: calc(var(--u) * 8) 0 0; display: flex; align-items: center; gap: .4em; color: #8f9493; font-size: calc(var(--u) * 14); }
+.pubrooms__foot .icon { flex: none; }
+/* a difficulty card's waiting public rooms; a short screen shows 「n · 房间 n」 as one badge */
+.pcard__wait.pcard__rooms { margin-left: .06rem; }
+.pcard__both { display: none; }
+@media (max-height: 520px) {
+  .pubrooms { --u: .0165rem; --po: .013rem; inset: 2px 0 4px 0; }
+  .pubrooms__head { gap: 8px; padding-bottom: 4px; }
+  .pubrooms__title i, .pubrooms__count, .pubrooms__foot { display: none; }
+  .pubrooms__season .season-chip { min-height: 28px; padding: 0 9px; font-size: 12px; }
+  .pubrooms__smenu { min-width: 260px; }
+  .pubrooms__list { display: flex; flex-direction: column; gap: 4px; padding-top: 4px; }
+  .pubrooms__list > li { flex: none; } /* a flex column shrinks its rows (a row's second line ran out of it) */
+  /* two lines: capsule · host | seats · state · tags (the tags beside the host cut a long name), the buttons over both */
+  .pubroom { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 2px 8px; min-height: 0; padding: 3px 6px; }
+  .pubroom__who { display: contents; }
+  .pubroom__mode { grid-column: 1; grid-row: 1; }
+  .pubroom__host { grid-column: 2 / 4; grid-row: 1; align-self: center; }
+  .pubroom__seats { grid-column: 1; grid-row: 2; }
+  .pubroom__state { grid-column: 2; grid-row: 2; }
+  .pubroom__tags { grid-column: 3; grid-row: 2; }
+  .pubroom__act { grid-column: 4; grid-row: 1 / 3; }
+  .pubroom__host b { font-size: 13px; }
+  .pubroom__fit, .pubroom__custom { font-size: 11px; }
+  .pubroom__act .btn { min-height: 30px; padding: 0 9px; font-size: 12px; }
+  .pubrooms__div { margin-top: 4px; padding: 2px 4px; font-size: 11px; }
+  .pubrooms__div b { font-size: 13px; }
+  .pubroom__panel { width: min(300px, 96%); }
+  .pubroom__all { min-height: 32px; font-size: 12px; }
+  .pcard__wait:not(.pcard__both) { display: none; }
+  .pcard__both { display: inline; }
+}
+/* matchmaking's offer of a public room (ui/matchQueue.js FoundRoom) */
+.queue-dialog__room { --po: .0085rem; display: flex; flex-direction: column; align-items: flex-start; gap: .06rem; }
+.queue-dialog__room .rs-mode { --o: var(--po); margin-right: 0; cursor: default; }
+.queue-dialog__host { display: flex; align-items: baseline; gap: .06rem; }
+.queue-dialog__host b { color: #fff; }
+.queue-dialog__host small { color: #7c8180; }
+@media (max-height: 520px) { .queue-dialog__room { --po: .013rem; } }

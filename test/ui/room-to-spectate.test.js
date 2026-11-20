@@ -28,7 +28,6 @@ test('toSpectateOption: a seated Doctor of a co-op lobby with another Doctor; di
   assert.equal(opt(room({ seats: [human(0, 'h'), { seat: 1, playerId: 'b', isBot: true }, null, null] }), 'h'), null, 'the last Doctor: an AI keeps no room');
   assert.equal(opt(room({ mode: 'solo', seats: [human(0, 'h')] }), 'h'), null);
   assert.equal(opt(room({ inMatch: true }), 'g'), null);
-  assert.equal(opt(room({ matching: true }), 'g'), null);
   assert.equal(opt(room({ spectators: [{ playerId: 's' }] }), 's'), null, 'a spectator');
   assert.equal(opt(null, 'g'), null);
 });

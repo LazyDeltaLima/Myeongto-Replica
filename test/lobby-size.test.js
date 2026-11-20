@@ -39,13 +39,12 @@ test('protocol: room.setSize takes a room size (4 | 8), nothing else', () => {
   }
 });
 
-test('sizeOption: the host switches while not matchmaking; 4 locked above four seats; the AI seats 8 would free', () => {
+test('sizeOption: the host switches; 4 locked above four seats; the AI seats 8 would free', () => {
   const seat = (i, isBot = false) => ({ seat: i, playerId: `p${i}`, name: `P${i}`, isBot, ready: true, connected: true });
   const four = { mode: 'coop', size: 4, hostId: 'p0', seats: [seat(0), seat(1, true), null, seat(3, true)] };
   assert.equal(sizeOption({ ...four, mode: 'solo', seats: [seat(0)] }, 'p0'), null);
   assert.deepEqual(sizeOption(four, 'p0'), { size: 4, editable: true, shrinkable: true, bots: 2 });
   assert.equal(sizeOption(four, 'p1').editable, false);
-  assert.equal(sizeOption({ ...four, matching: true }, 'p0').editable, false);
   const eight = { mode: 'coop', size: 8, hostId: 'p0', seats: [seat(0), seat(1), seat(2), seat(3), null, null, null, null] };
   assert.equal(sizeOption(eight, 'p0').shrinkable, true);
   eight.seats[6] = seat(6);

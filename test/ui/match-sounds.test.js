@@ -19,7 +19,7 @@ const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 const config = JSON.parse(read('data/config.json'));
 
 describe('랜덤 매칭 cues (queueCue)', () => {
-  const waiting = { difficulty: 'NORMAL', count: 3, since: 0, party: false, found: null };
+  const waiting = { difficulty: 'NORMAL', count: 3, since: 0, found: null };
   const found = { ...waiting, found: { players: 4, accepted: 0, mine: false, deadline: 1, total: 15 } };
 
   test('a group forming plays matchSucceed once; accept-count updates stay silent', () => {
@@ -30,7 +30,7 @@ describe('랜덤 매칭 cues (queueCue)', () => {
 
   test('a failed search plays matchFail, the player\'s own cancel or decline matchCancel', () => {
     assert.equal(queueCue('room.queueState', found, { queued: true, count: 2 }), 'matchFail', 'back in the queue from a group');
-    for (const reason of ['timeout', 'offline', 'restarting', 'full', 'room', 'party', 'partyDeclined', 'partyTimeout', 'changed']) {
+    for (const reason of ['timeout', 'offline', 'restarting', 'full', 'room']) {
       assert.equal(queueCue('room.queueState', found, { queued: false, reason }), 'matchFail', reason);
       assert.equal(queueCue('room.queueState', waiting, { queued: false, reason }), 'matchFail', `${reason} while waiting`);
     }

@@ -61,7 +61,7 @@ test('同盟模拟 opens 选择模拟协议 (规则, 人数, cards, 创建同盟
   assert.match(src, /\$\{open === 'solo' \|\| open === 'match' \|\| open === 'coop' \? html`<\$\{ProtocolSelect\} roomMode=\$\{roomMode\}/);
   assert.match(src, /onSize=\$\{roomMode === 'solo' \? null : pickSize\}[^>]* \/>/);
   // room.create carries what the dialog picked
-  assert.match(src, /\{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\) \}/);
+  assert.match(src, /\{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\), \.\.\.publicField \}/);
   // no 赛季 row (maintainer decision 2026-11-13): the lobby's chip is the one place a season is picked
   const rules = src.slice(src.indexOf('export function ProtoRules('), src.lastIndexOf('/**', src.indexOf('export function CustomBrief(')));
   assert.doesNotMatch(rules, /proto-season|SeasonPick|t\('赛季'\)/);
@@ -99,7 +99,7 @@ test('选择模拟协议: 快速匹配 is the official range switch over the sta
   const src = read('public/js/screens/lobby.js');
   const rules = src.slice(src.indexOf('export function ProtoRules('), src.lastIndexOf('/**', src.indexOf('export function CustomBrief(')));
   assert.doesNotMatch(rules, /快速匹配|qswitch|proto-rules__sum|CustomSummary/, 'the rule rows hold 规则 and 人数 only');
-  assert.equal((rules.match(/class="proto-rules__seg rtrack"/g) || []).length, 3, '规则, 同盟匹配\'s 人数 and a room\'s 人数 (no 赛季 row since 2026-11-13)');
+  assert.equal((rules.match(/class="proto-rules__seg rtrack"/g) || []).length, 4, '规则, 同盟匹配\'s 人数, a room\'s 人数 and a new room\'s 公开 (no 赛季 row since 2026-11-13)');
   const select = src.slice(src.indexOf('export function ProtocolSelect('), src.indexOf('export function AllianceSelect('));
   // the official order under the cards: the tips line, the range switch, the button
   assert.match(select, /<p class="proto-hint">[\s\S]*?<\/p>\s*\$\{range\}\s*<button type="button" class=\$\{`proto-start/);
@@ -110,7 +110,7 @@ test('选择模拟协议: 快速匹配 is the official range switch over the sta
   assert.match(quick, /side\('wide', 'wide_icon', t\('快速匹配'\), quick\)/);
   assert.match(quick, /side\('exact', 'accurate_icon', t\('精准匹配'\), !quick\)/);
   assert.match(quick, /\$\{on \|\| !src \? html`<span class="qrange__name">/, 'the other side shows its name only without its icon');
-  for (const k of ['精准匹配', '与选择同一难度、规则和人数的博士组成同盟']) {
+  for (const k of ['精准匹配', '寻找同一难度、规则和人数的公开联合与博士']) {
     assert.ok(EN[k] && KO[k], `${k} translated`);
   }
   assert.match(read('public/js/screens/room.js'), /brief=\$\{html`<\$\{CustomBrief\} roomMode=\$\{protoMode\} ruleset=\$\{proto\.ruleset\}/);

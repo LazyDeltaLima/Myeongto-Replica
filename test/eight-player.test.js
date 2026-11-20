@@ -427,7 +427,7 @@ describe('8-player rooms × 규칙 모드: the custom settings compare with the 
 
   test('the room screen hides 「AI 队友最后选择」 in an 8-seat room (no AI seat)', async () => {
     const { aiLastOption } = await import('../public/js/screens/room.js');
-    const room = { mode: 'coop', hostId: 'h', aiPicksLast: false };
+    const room = { mode: 'coop', hostId: 'h', aiPicksLast: false, seats: [{ seat: 0, playerId: 'h', isBot: false }, { seat: 1, playerId: 'b', isBot: true }] };
     assert.equal(aiLastOption({ ...room, size: 8 }, 'h'), null);
     assert.deepEqual(aiLastOption({ ...room, size: 4 }, 'h'), { on: false, editable: true });
   });

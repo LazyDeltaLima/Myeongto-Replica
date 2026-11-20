@@ -14,7 +14,8 @@ const mod = () => import(pathToFileURL(path.join(ROOT, 'public/js/screens/room.j
 
 const room = (o = {}) => ({
   code: 'ABCD', hostId: 'h', mode: 'coop', difficulty: 'NORMAL', aiPicksLast: false,
-  seats: [{ seat: 0, playerId: 'h', name: 'Host', isBot: false, ready: false, connected: true }, { seat: 1, playerId: 'g', name: 'G', isBot: false, ready: false, connected: true }, null, null],
+  seats: [{ seat: 0, playerId: 'h', name: 'Host', isBot: false, ready: false, connected: true }, { seat: 1, playerId: 'g', name: 'G', isBot: false, ready: false, connected: true },
+    { seat: 2, playerId: 'b2', name: 'AI', isBot: true, ready: true, connected: true }, null],
   ...o,
 });
 
@@ -26,6 +27,19 @@ test('aiLastOption: hidden in solo, editable by the host only, the state from ro
   assert.deepEqual(aiLastOption(room({ aiPicksLast: true }), 'g'), { on: true, editable: false });
   assert.deepEqual(aiLastOption(room({ aiPicksLast: undefined }), 'g'), { on: false, editable: false }, 'an older server');
   assert.equal(aiLastOption(null, 'h'), null);
+  // only while an AI teammate is seated (maintainer decision 2026-11-20): the first AI added shows it, the last removed
+  // hides it; the setting stays the server's
+  const noBot = room({ aiPicksLast: true });
+  noBot.seats = noBot.seats.map((s) => (s?.isBot ? null : s));
+  assert.equal(aiLastOption(noBot, 'h'), null, 'no AI seated');
+  assert.equal(aiLastOption({ ...noBot, size: 8 }, 'h'), null);
+});
+
+test('the switch is as tall as the 观战席 count beside it (room.css: the same height rule)', () => {
+  const css = readFileSync(path.join(ROOT, 'public/css/screens/room.css'), 'utf8');
+  const height = (sel) => new RegExp(`${sel.replace(/\./g, '\\.')} \\{[^}]*height: (max\\(\\.3rem, 20px\\))`).exec(css)?.[1];
+  assert.equal(height('.ailast__opt'), height('.specseats__btn'));
+  assert.ok(height('.specseats__btn'));
 });
 
 test('room.js sends room.setAiPicksLast { on } and shows the switch through t(); en.json has the English', () => {

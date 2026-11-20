@@ -152,7 +152,7 @@ test('the lobby and the room: room.create / room.setRuleset carry the settings; 
   const lobby = read('public/js/screens/lobby.js');
   // (规程: the remembered 8 seats stand aside — `big`; its 自定义 is open (maintainer request 2026-11-15); a solo room's
   // grade in gradeFields)
-  assert.match(lobby, /roomRuleset === 'custom'\s*\? \{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, custom: customDraft\(\), \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\) \}/);
+  assert.match(lobby, /roomRuleset === 'custom'\s*\? \{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, custom: customDraft\(\), \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\), \.\.\.publicField \}/);
   assert.doesNotMatch(lobby, /limited && ruleset === 'custom'/, '规程 keeps a remembered 自定义');
   assert.match(lobby, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS, season\)/);
   assert.match(lobby, /<\$\{CustomRulesDialog\} \/>/);
@@ -161,14 +161,15 @@ test('the lobby and the room: room.create / room.setRuleset carry the settings; 
   assert.match(room, /net\.request\('room\.setRuleset', \{ preset: 'custom', custom \}\)/);
   assert.match(room, /net\.request\('room\.setRuleset', ruleset === 'custom' \? \{ preset: ruleset, custom: customDraft\(\) \} : \{ preset: ruleset \}\)/);
   assert.match(room, /readonly: true/);
-  // 匹配补位 is offered to a custom room too (fillOption); its button is enabled by the ready rule alone
-  assert.match(room, /disabled=\$\{!fillOpt\.enabled \|\| !online \|\| busy === 'fill'\}/);
+  // 匹配补位 is gone (a public room does its work: room.queueRoom answers BAD_MSG)
+  assert.doesNotMatch(room, /net\.request\('room\.queueRoom'|fillOption|room-fill/);
   // the mode bar (the event's group_mode): one button — 赛季 · 规则 · 难度 · 人数 — opening 选择模拟协议, no ⚙ menu; 人数 is a
   // row of that dialog; 「AI 队友最后选择」 ends the status line
   const bar = room.slice(room.indexOf('function ModeBar('), room.indexOf('/**', room.indexOf('function ModeBar(')));
   assert.match(bar, /<button type="button" class=\$\{`rs-mode/);
   assert.equal((bar.match(/<button /g) || []).length, 1, 'the bar is one button');
-  for (const id of ['room-difficulty', 'room-ruleset', 'room-size']) assert.match(bar, new RegExp(`data-testid="${id}"`));
+  assert.match(bar, /data-testid="room-difficulty"/);
+  assert.match(bar, /<\$\{ModeSegs\} [^>]*ids=\$\{true\}/, 'the 规则 / 人数 parts keep room-ruleset / room-size (ui/modeCapsule.js)');
   assert.doesNotMatch(room, /room-gear|RoomOptions|rs-pill/);
   assert.match(room, /onSize=\$\{sizeOpt \? \(n\) => setProto\(\{ \.\.\.proto, size: n \}\) : null\}/);
   const hint = room.slice(room.indexOf('<div class="rs-hint">'), room.indexOf('</div>', room.indexOf('<div class="rs-hint">')));

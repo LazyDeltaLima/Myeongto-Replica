@@ -126,6 +126,8 @@ describe('공개방 (server/lobby.js, server/matchmaking.js)', () => {
     const rowB = list.rooms.find((r) => r.code === rb.code);
     assert.deepEqual(rowA.host, { name: 'Ash', no: doctorNo(a.id) });
     assert.deepEqual(rowA.seats.map((s) => s.kind), ['human', 'bot', 'empty', 'empty']);
+    assert.equal(rowA.seats[0].host, true, 'the host\'s seat carries the crown (no playerId)');
+    assert.ok(!rowA.seats.slice(1).some((s) => 'host' in s));
     assert.deepEqual([rowA.difficulty, rowA.ruleset, rowA.size, rowA.state, rowA.spectators, rowA.spectatorSeats], ['NORMAL', { preset: 'classic' }, 4, 'lobby', 0, 2]);
     assert.ok(!('season' in rowA) && !('custom' in rowA) && !('round' in rowA));
     assert.equal(typeof rowA.since, 'number');

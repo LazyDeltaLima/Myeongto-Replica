@@ -99,27 +99,7 @@ test("规程's briefing shows the battlefield in every mode (its official stage-
   assert.match(brief, /const season = useStore\(\(s\) => s\.room\?\.season \?\? null\);/);
 });
 
-test("the room's 匹配补位 button shows its own queue's waiting count (difficulty × ruleset × size; a custom room: 快速匹配)", async () => {
-  const { fillOption, roomFacts } = await import('../public/js/screens/room.js');
-  const seats = (n) => Array.from({ length: n }, (_, i) => ({ seat: i, playerId: `p${i}`, name: `P${i}`, isBot: false, ready: true, connected: true }));
-  const room = (extra) => ({ mode: 'coop', size: 4, difficulty: 'NORMAL', hostId: 'p0', seats: seats(2), ruleset: { preset: 'casual' }, ...extra });
-  const queues = { counts4: { casual: { NORMAL: 2 }, classic: { NORMAL: 1 } }, counts8: { casual: { NORMAL: 5 } }, quick: { NORMAL: 3 } };
-  const opt = (r) => fillOption(r, roomFacts(r, 'p0'), queues);
-  assert.deepEqual(opt(room({})), { enabled: true, custom: false, waiting: 2 });
-  assert.equal(opt(room({ ruleset: { preset: 'classic' } })).waiting, 1);
-  // the room's size picks the queues (an 8-seat room: the 8-player ones)
-  assert.equal(opt(room({ size: 8 })).waiting, 5);
-  // a custom room matchmakes alone and only 快速匹配 Doctors fill it (maintainer decision 2026-11-07)
-  assert.deepEqual(opt(room({ ruleset: { preset: 'custom', custom: {} } })), { enabled: true, custom: true, waiting: 3 });
-  // not shown: a guest, a full room, a room already matchmaking, a solo room
-  const r = room({});
-  assert.equal(fillOption(r, roomFacts(r, 'p1'), queues), null);
-  assert.equal(opt(room({ seats: seats(4) })), null);
-  assert.equal(opt(room({ matching: true })), null);
-  assert.equal(opt(room({ mode: 'solo', seats: seats(1) })), null);
-  // a Doctor not ready: shown, disabled
-  const notReady = room({ seats: [...seats(1), { seat: 1, playerId: 'p1', name: 'P1', isBot: false, ready: false, connected: true }] });
-  assert.equal(opt(notReady).enabled, false);
+test('queueCountOf: a queue-count table\'s count of one ruleset and difficulty (0 when absent)', async () => {
   const { queueCountOf } = await import('../public/js/ui/ruleset.js');
   const counts = { casual: { NORMAL: 2 }, classic: { NORMAL: 1 } };
   assert.equal(queueCountOf(counts, 'casual', 'NORMAL'), 2);

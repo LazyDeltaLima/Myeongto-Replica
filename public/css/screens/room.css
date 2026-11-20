@@ -352,7 +352,7 @@
 .rs .chat--room { top: 1.24rem; bottom: 1.38rem; /* under the exit tile's ping (ExitTile) */ left: .22rem; width: var(--chat-w); }
 .rs .chat-fold { bottom: 1.38rem; left: .22rem; }
 
-/* ---- bottom: the status line over the row of 干员调配, the mode bar, 匹配补位 and the big button --------------------- */
+/* ---- bottom: the status line over the row of 干员调配, the mode bar, the 公开 switch and the big button ------------- */
 .rs-foot {
   flex: none;
   display: grid;
@@ -432,30 +432,21 @@
 .rs-mode:hover:not(:disabled) .rs-mode__seg { color: #e6e6e6; }
 .rs-mode:hover:not(:disabled) .rs-mode__diff { color: var(--rm-c); filter: brightness(1.12); }
 
-/* 匹配补位 (a dark box) as tall as the big button beside it, its badge the Doctors of the queue it draws from */
-.rs-foot__right { display: flex; align-items: stretch; justify-content: flex-end; gap: .14rem; }
+/* the 公开 switch (screens/room.js PublicToggle): the official matching range switch (auto_chess_mode_choice_pop_view
+   btn_range_switch: track range_bg 237×50, the picked side's pill ~178×40 with its icon 26 and name 19 in #242424, the other
+   side its icon 23 in #aaa, hotspot 274×71) in the mode bar's unit `--o` (1280×720 canvas) — 50 beside the bar's 57,
+   centred on it (maintainer decision 2026-11-20). On touch each side's hit area grows upwards only (the screen's edge is
+   under it; devices.css) */
+.rs-foot__right { display: flex; align-items: center; justify-content: flex-end; gap: .14rem; }
 .rs-foot__right > .tt-anchor { display: flex; }
-.rs-fill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: .08rem;
-  min-width: 2.3rem;
-  min-height: max(.86rem, 40px);
-  padding: 0 .2rem;
-  font: inherit;
-  font-size: calc(.22 * var(--t));
-  font-weight: 700;
-  white-space: nowrap;
-  color: #e8e8e8;
-  background: rgba(16, 22, 20, .92);
-  border: 1px solid rgba(255, 255, 255, .22);
-}
-.rs-fill .icon { width: 1.2em; height: 1.2em; color: var(--ice); }
-.rs-fill:hover:not(:disabled), .rs-fill:focus-visible { border-color: var(--mint-600); }
-.rs-fill:disabled { opacity: .55; cursor: default; }
-.room-fill__n { margin-left: .04rem; }
-.room-fill__n.is-on { background: rgba(78, 216, 175, .2); color: var(--mint-400); }
+.dpick.rtrack.rs-pub { --o: .012rem; --tap-w: 100%; --tap-top: 100%; --tap-ty: -100%; flex: none; box-sizing: border-box; height: calc(var(--o) * 50);
+  padding: calc(var(--o) * 5); font-size: calc(var(--o) * 19); }
+.rtrack.rs-pub .dpick__opt { flex: 0 0 auto; height: 100%; min-width: 0; gap: calc(var(--o) * 6); padding: 0 calc(var(--o) * 24); font-size: inherit; }
+.rtrack.rs-pub .dpick__opt:not(.is-active) { padding: 0 calc(var(--o) * 16); color: #aaa; }
+.rtrack.rs-pub .dpick__opt .icon { width: calc(var(--o) * 26); height: calc(var(--o) * 26); color: currentColor; opacity: 1; filter: none; }
+.rtrack.rs-pub .dpick__opt:not(.is-active) .icon { width: calc(var(--o) * 23); height: calc(var(--o) * 23); }
+.rs-pub.is-ro .dpick__opt { cursor: help; }
+.room-bar__pub .icon { color: var(--mint-400); }
 .rs-go.proto-start { flex: none; width: min(4.6rem, 40vw); }
 .rs-go .proto-start__label { flex: 1 1 auto; padding-right: 8%; font-size: min(calc(.4 * var(--t)), .46rem); white-space: normal; line-height: 1.1; }
 .rs-go .proto-start__rook { font-size: min(calc(.36 * var(--t)), .4rem); }
@@ -578,7 +569,8 @@
 .dpick--ro { border: 0; background: none; gap: .18rem; align-items: center; font-size: .14rem; }
 .ailast { display: flex; align-items: center; gap: .12rem; font-size: .14rem; }
 .rs-foot .ailast__opt { white-space: nowrap; }
-.ailast__opt { --d-color: var(--mint-400); height: auto; min-height: .36rem; padding: .02rem .14rem; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); font-size: .15rem; letter-spacing: .04em; }
+.ailast__opt { --d-color: var(--mint-400); height: max(.3rem, 20px); padding: 0 .14rem; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); font-size: .15rem; letter-spacing: .04em; }
+/* as tall as the 观战席 count beside it (.specseats__btn; maintainer decision 2026-11-20) */
 .ailast__opt:last-child { border-right: 1px solid var(--line-2); }
 .ailast__opt .icon { opacity: .25; }
 .ailast__opt .icon.is-on { opacity: 1; }
@@ -627,6 +619,7 @@
   .rs.has-chat .rs-foot { padding-left: calc(var(--chat-w) + 16px); }
   .rs-foot .rs-hint { grid-column: 1 / -1; }
   .rs-foot .rs-mode { --o: .013rem; grid-column: 1; justify-self: center; }
+  .dpick.rtrack.rs-pub { --o: .013rem; }
   .rs-foot > .rs-foot__right { grid-column: 2; }
   .rs .rs-top { padding-top: 6px; }
   .rs-seats { gap: 12px; padding: 0 10px; }
@@ -649,21 +642,18 @@
   .rs-brief ul { font-size: min(calc(.16 * var(--t)), calc(13px + var(--t-step))); line-height: 1.35; }
   .rs-key__code { font-size: calc(.36 * var(--t)); }
   .rs-key__copy { font-size: min(calc(.26 * var(--t)), calc(18px + var(--t-step))); }
-  .rs-fill { min-width: 0; min-height: 46px; padding: 0 9px; font-size: min(calc(.26 * var(--t)), calc(15px + var(--t-step))); }
   .rs-go.proto-start { height: auto; min-height: 46px; }
   .rs-go .proto-start__mark { display: none; }
   .rs-go .proto-start__label { font-size: min(calc(.46 * var(--t)), calc(20px + var(--t-step))); }
   .rs-tools { margin-left: 0; }
   .rs-tools > :not(.modal), .rs-key__k { display: none; }
-  .ailast__opt { min-height: 24px; font-size: min(calc(.24 * var(--t)), calc(13px + var(--t-step))); }
+  .ailast__opt { font-size: min(calc(.24 * var(--t)), calc(13px + var(--t-step))); }
 }
-/* narrow phones (640 × 360): a narrower chat, a smaller big button, 匹配补位 without its icon on two lines */
+/* narrow phones (640 × 360): a narrower chat, a smaller big button */
 @media (max-height: 520px) and (max-width: 720px) {
   .rs { --chat-w: 160px; }
   .rs-go.proto-start { width: 140px; }
-  .rs-fill { white-space: normal; line-height: 1.1; text-align: center; }
-  .rs-fill > .icon { display: none; }
-  .rs-foot .rs-mode { --o: .012rem; }
+  .rs-foot .rs-mode, .dpick.rtrack.rs-pub { --o: .012rem; }
   .rs-mode__code { display: none; }
   /* eight cards of ~50 px: a ready card keeps its check / crown without the words, 添加 AI 队友 without its icon */
   .seats--8 .rseat__said, .seats--8 .rseat__add .icon { display: none; }

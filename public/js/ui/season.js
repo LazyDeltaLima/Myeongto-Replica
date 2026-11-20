@@ -235,8 +235,17 @@ export function SeasonChip({ onPick = pickSeason }) {
 export function RoomSeasonSeg() {
   const st = useStore((s) => ({ season: seasonOf(s.room?.season), shown: hasSeasonPicker(s) || seasonOf(s.room?.season) !== DEFAULT_SEASON }), shallowEqual);
   if (!st.shown) return null;
-  return html`<span class=${`rs-mode__seg rs-mode__season${st.season !== DEFAULT_SEASON ? ' is-new' : ''}`} data-testid="room-season"
-    title=${t('赛季')}>${seasonName(st.season)}</span>`;
+  return html`<${SeasonSeg} season=${st.season} testid="room-season" />`;
+}
+
+/**
+ * A season as the first part of a mode capsule (the room's mode bar, a public room of another season in the 同盟匹配
+ * list: ui/modeCapsule.js): its name, 规程 in gold. @param {{ season: unknown, testid?: string | null }} p
+ */
+export function SeasonSeg({ season, testid = null }) {
+  const id = seasonOf(season);
+  return html`<span class=${`rs-mode__seg rs-mode__season${id !== DEFAULT_SEASON ? ' is-new' : ''}`} data-testid=${testid}
+    title=${t('赛季')}>${seasonName(id)}</span>`;
 }
 
 /** shallowEqual that compares one level of arrays inside (the `offered` list). */

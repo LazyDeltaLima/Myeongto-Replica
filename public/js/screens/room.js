@@ -5,13 +5,13 @@
 // the top bar (leave — the briefing's red square —, mode and ping, 统计 / 设置 / 全屏, the 同盟密钥 with 复制 / the
 // link), the room chat at the left with 干员调配 under it (on a short screen the chat is the same column and 干员调配 stays
 // in the top bar), and the bottom: the ready count, the status line, the 观战席 and 「AI 队友最后选择」, then the mode bar,
-// 匹配补位 and the big 开始模拟 / 准备就绪 button.
+// the 公开 switch and the big 开始模拟 / 准备就绪 button.
 // The mode bar is the event room's group_mode (auto_chess_room_state, the official sprites bg_mode / light_mode /
 // icon_<difficulty> / btn_switch_mode): one dark capsule of 赛季 | 规则 | 难度 | 人数 with thin white lines and the round
 // switch at its end, no labels. The whole bar is one button, like the event's (its touch area spans the bar): it opens
 // 选择模拟协议 (screens/lobby.js ProtocolSelect with ProtoRules' 规则 and 人数 rows) over the room — the host's 确认
 // sends room.setRuleset, room.setSize and room.setDifficulty, the dialog closes once the server took them; everybody
-// else (and the host while the room matchmakes) opens it read-only and sees no switch. 自定义 rules are edited (host) or
+// else opens it read-only and sees no switch. 自定义 rules are edited (host) or
 // viewed there, by the ⚙ of the 规则 row (ui/customRules.js).
 // 名片干员 (ui/seatArt.js): a Doctor's card shows an operator's 立绘 — the one the player picked (更换立绘 on one's own
 // seat opens the picker; kept as a pref and sent as room.card by ui/cardSync.js, so the room sees it as seats[].card),
@@ -29,15 +29,14 @@
 // view swaps the ready button for 入座 (room.join of the room) while a player seat is free, else 预约座位 / 取消预约
 // (room.reserveSeat). The way back (maintainer decision 2026-11-15): 前往观战席 in one's own seat card's ⋯ menu sends
 // room.spectate of the room (toSpectateOption; the host confirms first: the host role passes on).
-// 랜덤 매칭 for the empty seats (server/matchmaking.js, maintainer decision 2026-10-13): a co-op host with fewer Doctors
-// than seats gets 匹配补位 (room.queueRoom, under the start rule: every other Doctor ready; the AI seats are freed). While
-// the room waits (room.state `matching`) the status line shows the waiting time and the queue, every Doctor's main button
-// is 取消匹配 (room.unqueue: the whole room leaves the queue), and the difficulty, rules, size, AI seats and start are
-// locked; the confirmation of a formed group is ui/matchQueue.js's dialog. An 8-seat room waiting in a queue of five or
-// more gets 提议提前开始 (room.queueVote, maintainer decision 2026-11-02). A 自定义 room matchmakes alone and only 快速匹配
-// Doctors fill it (maintainer decision 2026-11-07, fillOption): its button's badge counts the difficulty's 快速匹配 queue.
-// 규칙 모드 (shared/ruleset.js, maintainer decisions 2026-10-15, 2026-10-18): 经典 / 休闲 / 自定义, host only, locked while
-// matchmaking like the difficulty. 自定义 takes the host's settings (ui/customRulesStore.js).
+// 공개방 (server/lobby.js 「공개방」, maintainer decisions 2026-11-20; it replaced 匹配补位, room.queueRoom): a co-op room's
+// 不公开 | 公开 switch beside the start button — the official matching range switch's pill at its own height (50 units of the
+// event's 1280×720 canvas, the mode bar 57 beside it, centred on it; room.setPublic, the host's, read-only to the others).
+// A public room is on 同盟匹配's list (ui/publicRooms.js) and matchmaking offers its free and AI seats; the host still
+// starts the match. 「AI 队友最后选择」 shows only while an AI teammate is seated (aiLastOption), as tall as the 观战席
+// count beside it.
+// 규칙 모드 (shared/ruleset.js, maintainer decisions 2026-10-15, 2026-10-18): 经典 / 休闲 / 自定义, host only. 自定义 takes the
+// host's settings (ui/customRulesStore.js).
 // The 8-player mode (maintainer decisions 2026-10-16, 2026-10-19): a room of `size` 8 shows its 8 seats in two rows, has no
 // AI teammates (no add button, no 「AI 队友最后选择」), starts with LARGE_MIN_PLAYERS Doctors or more (SEATS_OPEN: 开始模拟
 // stays locked below that and says so; maintainer decision 2026-11-01) and fills its empty seats from the 8-player queues.
@@ -49,7 +48,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from '../../vendor/
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, LARGE_MIN_PLAYERS, MAX_SEATS, MIN_SPECTATORS, SPECTATOR_SEATS, seatsOf, modeIdFor, gradeDifficulty, isGrade } from '../../../shared/constants.js';
 import { SeatMark } from '../ui/faction.js'; // local patch
 import {
-  html, Button, Icon, MicroLabel, AvatarFrame, DifficultyIcon, Tooltip, Spinner, Modal, TextField, confirmDialog, doctorNo, useTicker,
+  html, Button, Icon, MicroLabel, AvatarFrame, Tooltip, Spinner, Modal, TextField, confirmDialog, doctorNo,
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { copyText } from '../ui/clipboard.js';
@@ -63,12 +62,11 @@ import { store, useStore, shallowEqual, emptyMatch, isSpectating, reservedRank, 
 import { difficultyInfo, gradeInfo, gradeName, ProtocolSelect, ProtoRules, CustomBrief } from './lobby.js';
 import { RoomChat } from '../ui/chat.js';
 import { ExitTile } from '../ui/matchChrome.js';
-import { MatchQueueDialog, mmss, canProposeStart, proposeStart } from '../ui/matchQueue.js';
 import { audio } from '../audio.js';
 import { t, tc } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 import { resolveRuleset, officialBans } from '../../../shared/ruleset.js';
-import { presetName, queueCountOf } from '../ui/ruleset.js';
+import { presetName } from '../ui/ruleset.js';
 import { CustomRulesDialog, openCustomRules } from '../ui/customRules.js';
 import { customDraft, customRulesStore } from '../ui/customRulesStore.js';
 import { customSummary } from '../ui/customSummary.js';
@@ -81,7 +79,8 @@ import { skinsStore, SKINS_KEY, loadSkinCatalog, skinArt, skinPic, cardSkinArt }
 import { resStore, resourceCached, skinPackState } from '../resources.js';
 import { illustStore } from '../illust-res.js';
 import { DEFAULT_SEASON, seasonOf } from '../../../shared/seasons.js';
-import { RoomSeasonSeg, seasonName, seasonQueueCounts, seasonQuickCounts } from '../ui/season.js';
+import { RoomSeasonSeg, seasonName } from '../ui/season.js';
+import { modeArt, ModeSegs } from '../ui/modeCapsule.js';
 
 /**
  * Seats padded to the room's capacity (co-op 4 or its `size` 8, solo 1), each null or a seat record.
@@ -129,8 +128,6 @@ export function roomFacts(room, myId) {
     canAddBot: room?.mode !== 'solo' && (!large || largeBots) && isHost && (maxBots == null || botCount < maxBots),
     emptySeats: seats.filter((s) => !s).length,
     canStart: isHost && othersReady && !!mine && !seatsOpen,
-    // 匹配补位: the ready rule alone (the seats it fills are the open ones)
-    canQueue: isHost && othersReady && !!mine,
     othersReady,
     // spectator seats (never players: not in `humans`, never counted for ready / start)
     spectators: Array.isArray(room?.spectators) ? room.spectators.filter((s) => s && typeof s === 'object') : [],
@@ -154,33 +151,34 @@ export function joinedDoctors(prev, room, myId) {
 
 /**
  * The co-op room option 「AI 队友最后选择」 (GitHub #338; room.setAiPicksLast, room.state.aiPicksLast): in the strategy and
- * 机变 drafts every human picks before the AI teammates. null in a solo room and an 8-seat room (no AI teammates); otherwise its state (off
- * when the server sends none) and whether this player may switch it — the host only, the others see it read-only.
+ * 机变 drafts every human picks before the AI teammates. null in a solo room, an 8-seat room (no AI teammates) and while
+ * no AI teammate is seated (maintainer decision 2026-11-20: it appears with the first AI added and goes with the last;
+ * the server keeps the setting); otherwise its state (off when the server sends none) and whether this player may switch
+ * it — the host only, the others see it read-only.
  * @param {any} room room.state payload
  * @param {any} myId
  * @returns {{ on: boolean, editable: boolean } | null}
  */
 export function aiLastOption(room, myId) {
-  if (!room || room.mode === 'solo' || room.size > 4) return null;
+  if (!room || room.mode === 'solo' || room.size > 4 || !normalizeSeats(room).some((s) => s?.isBot)) return null;
   return { on: room.aiPicksLast === true, editable: room.hostId != null && room.hostId === myId };
 }
 
 /**
  * 前往观战席 (maintainer decision 2026-11-15; server/lobby.js header): a Doctor seated in a co-op room's lobby may move to a
- * spectator seat. null where the server refuses it outright — a solo room, a running match, a matchmaking room, a
- * spectator, the room's last Doctor (a spectator keeps no room alive); `enabled` false while every spectator seat is taken.
+ * spectator seat. null where the server refuses it outright — a solo room, a running match, a spectator, the room's last Doctor (a spectator keeps no room alive); `enabled` false while every spectator seat is taken.
  * @param {any} room room.state payload
  * @param {ReturnType<typeof roomFacts>} facts
  * @returns {{ enabled: boolean } | null}
  */
 export function toSpectateOption(room, facts) {
-  if (!room || room.mode === 'solo' || room.inMatch || room.matching || !facts.mine || facts.mine.isBot || facts.humans.length < 2) return null;
+  if (!room || room.mode === 'solo' || room.inMatch || !facts.mine || facts.mine.isBot || facts.humans.length < 2) return null;
   return { enabled: facts.spectators.length < facts.spectatorSeats };
 }
 
 /**
- * The 人数 switch of a co-op room (room.setSize; header): its size, whether this player may switch it — the host, while
- * the room is not matchmaking —, whether 4 seats can hold everybody seated (spectators do not count) and how many AI
+ * The 人数 switch of a co-op room (room.setSize; header): its size, whether this player may switch it — the host —,
+ * whether 4 seats can hold everybody seated (spectators do not count) and how many AI
  * seats switching to 8 would free (none in local debug mode, room.state largeBots). null in a solo room.
  * @param {any} room room.state payload
  * @param {any} myId
@@ -191,7 +189,7 @@ export function sizeOption(room, myId) {
   const taken = normalizeSeats(room).filter(Boolean);
   return {
     size: seatsOf(room.size),
-    editable: room.hostId != null && room.hostId === myId && !room.matching,
+    editable: room.hostId != null && room.hostId === myId,
     shrinkable: taken.length <= MAX_SEATS,
     bots: room.largeBots === true ? 0 : taken.filter((s) => s.isBot).length,
   };
@@ -199,33 +197,25 @@ export function sizeOption(room, myId) {
 
 /**
  * 규칙 모드 of a room (room.state.ruleset; the default preset when the server sends none) and whether this player may
- * change it — the host, while the room is not matchmaking.
+ * change it — the host.
  * @param {any} room room.state payload
  * @param {any} myId
  * @returns {{ preset: string, editable: boolean } | null}
  */
 export function rulesetOption(room, myId) {
   if (!room) return null;
-  return { preset: resolveRuleset(room.ruleset).preset, editable: room.hostId != null && room.hostId === myId && !room.matching };
+  return { preset: resolveRuleset(room.ruleset).preset, editable: room.hostId != null && room.hostId === myId };
 }
 
 /**
- * The 匹配补位 button of a co-op room (header): shown to the host while seats are open and the room is not matchmaking;
- * `waiting` = the Doctors its queue would draw from — the room's difficulty, ruleset and size, or for a 自定义 room the
- * difficulty's 快速匹配 queue (only 快速匹配 Doctors fill it, maintainer decision 2026-11-07). null when not shown.
- * @param {any} room room.state payload
- * @param {ReturnType<typeof roomFacts>} facts
- * @param {{ counts4?: any, counts8?: any, quick?: any }} [queues] lobby.queueCounts of the room's season
- * @returns {{ enabled: boolean, custom: boolean, waiting: number } | null}
+ * The 公开 switch of a co-op room (header; room.setPublic, room.state.public): its state and whether this player may
+ * switch it — the host; everybody else sees it read-only. null in a solo room.
+ * @param {any} room room.state payload @param {any} myId
+ * @returns {{ on: boolean, editable: boolean } | null}
  */
-export function fillOption(room, facts, { counts4 = null, counts8 = null, quick = null } = {}) {
-  if (!room || room.mode === 'solo' || !facts.isHost || room.matching || facts.humans.length >= facts.seats.length) return null;
-  const preset = resolveRuleset(room.ruleset).preset;
-  const custom = preset === 'custom';
-  const waiting = custom
-    ? (Number.isFinite(quick?.[room.difficulty]) ? quick[room.difficulty] : 0)
-    : queueCountOf(facts.large ? counts8 : counts4, preset, room.difficulty);
-  return { enabled: facts.canQueue, custom, waiting };
+export function publicOption(room, myId) {
+  if (!room || room.mode === 'solo') return null;
+  return { on: room.public === true, editable: room.hostId != null && room.hostId === myId };
 }
 
 /**
@@ -402,18 +392,18 @@ function useSeatBox() {
  * decision 2026-11-08). A Doctor not ready shows no state (the event's card shows none either; maintainer decision
  * 2026-11-08); a dropped one the event's 连接中断 band. The host gets 移出 / 移除 AI 队友 at the top right corner. An
  * empty seat: + 邀请 (copies the key; the first empty seat says so) and, for the host of a co-op room, 添加 AI 队友 in the
- * empty name card's place — nothing else (maintainer decision 2026-11-08); a spectator or a matching room sees the
- * event's waiting figure. A portrait that fails to load gives way to the avatar frame.
+ * empty name card's place — nothing else (maintainer decision 2026-11-08); a spectator sees the event's waiting
+ * figure. A portrait that fails to load gives way to the avatar frame.
  */
 function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, pics = [], operator = null, onPickCard = null, toSpectate = null, firstEmpty = false }) {
   const [badArt, setBadArt] = useState(/** @type {string[]} */ ([]));
   const menu = useUpMenu();
   const coop = room.mode !== 'solo';
   if (!seat) {
-    const canAdd = coop && facts.isHost && facts.canAddBot !== false && !room.matching;
+    const canAdd = coop && facts.isHost && facts.canAddBot !== false;
     // the host sees why the add button is gone (SP_MAX_BOTS, local patch)
-    const capped = coop && facts.isHost && !canAdd && !room.matching && !facts.large;
-    const invitable = coop && !facts.spectating && !room.matching;
+    const capped = coop && facts.isHost && !canAdd && !facts.large;
+    const invitable = coop && !facts.spectating;
     return html`<article class=${`seat seat--empty rseat rseat--empty${firstEmpty ? ' is-first' : ''}`} style=${`--i:${index}`}>
       <span class="rseat__clip" aria-hidden="true"></span>
       <span class="rseat__bg" aria-hidden="true"></span>
@@ -423,7 +413,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
         ? html`<button type="button" class="rseat__invite" onClick=${onInvite} title=${t('复制同盟密钥以邀请队友')}>
             <span class="rseat__plus" aria-hidden="true"></span><b>${t('邀请')}</b>
             ${firstEmpty ? html`<small class="rseat__tip">${t('复制同盟密钥以邀请队友')}</small>` : null}</button>`
-        : html`<span class="rseat__wait"><span class="rseat__guest" aria-hidden="true"></span><b>${room.matching ? t('随机匹配中') : t('等待博士加入')}</b></span>`}
+        : html`<span class="rseat__wait"><span class="rseat__guest" aria-hidden="true"></span><b>${t('等待博士加入')}</b></span>`}
       <div class="rseat__slot">
         ${canAdd ? html`<${Button} variant="ghost" size="sm" icon="robot" class="rseat__add" loading=${busy === 'add'} onClick=${onAddBot}>${t('添加 AI 队友')}<//>`
           : capped ? html`<span class="rseat__cap t-dim">${facts.maxBots === 0 ? t('本服务器未开放 AI 队友') : t('AI 队友已达上限（{maxBots}）', { maxBots: facts.maxBots })}</span>` : null}
@@ -580,45 +570,44 @@ function SpectatorSeatsSelect({ facts, busy, onPick }) {
 }
 
 /**
- * The event room's group_mode per difficulty (auto_chess_room_state root_easy / _normal / _hard / _abyss, in the order of
- * DIFFICULTIES): its icon, and the colour of its name and light (light_mode, white, tinted). icon_easy is white and
- * tinted too; the other three icons carry their colour.
- */
-const MODE_ROOTS = Object.freeze({
-  FUNNY: { icon: 'icon_easy', color: '#ffa015', tint: true },
-  NORMAL: { icon: 'icon_normal', color: '#f25203' },
-  HARD: { icon: 'icon_hard', color: '#e32525' },
-  ABYSS: { icon: 'icon_abyss', color: '#ff0024' },
-});
-
-/**
  * The mode bar (header): the event room's group_mode drawn with its sprites — 赛季 | 规则 | 难度 | 人数 in one capsule
  * (bg_mode, sliced), the difficulty's icon and light, the round switch (btn_switch_mode) at the end — and one button: a
  * press anywhere on it opens 选择模拟协议 (the event's switch has a touch area as wide as the bar). The switch is the
  * host's: anybody else opens the dialog read-only and sees none [ASSUMED·화면: the event's room was not recorded from a
  * guest's seat]. Without the sprites (an install without the art) the bar is a dark capsule with the project's icons.
  */
-function ModeBar({ room, rules, sizeOpt, info, editable, busy, matching, onOpen }) {
-  const m = data.get('assets');
-  const root = MODE_ROOTS[room.difficulty] || MODE_ROOTS.FUNNY;
-  const art = (k) => uiUrl(m, `room/${k}`);
-  const bg = art('bg_mode'), light = art('light_mode'), icon = art(root.icon), knob = art('btn_switch_mode');
-  const url = (u) => (u ? `url("${u}")` : 'none');
-  const style = `--rm-bg:${url(bg)}; --rm-light:${url(light)}; --rm-ico:${url(icon)}; --rm-knob:${url(knob)}; --rm-c:${root.color}`;
-  const name = isGrade(room.grade) ? gradeName(room.grade) : DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : '';
-  const title = editable ? t('选择模拟协议') : matching ? t('匹配中无法更改') : t('由创建者设置');
-  return html`<button type="button" class=${`rs-mode${editable ? ' is-edit' : ' is-ro'}${bg ? '' : ' no-art'}`} style=${style}
-      disabled=${editable && !!busy} onClick=${onOpen} data-testid="room-difficulty" title=${title}>
+function ModeBar({ room, rules, sizeOpt, info, editable, busy, onOpen }) {
+  const art = modeArt(room.difficulty);
+  const name = isGrade(room.grade) ? gradeName(room.grade) : null;
+  return html`<button type="button" class=${`rs-mode${editable ? ' is-edit' : ' is-ro'}${art.bg ? '' : ' no-art'}`} style=${art.style}
+      disabled=${editable && !!busy} onClick=${onOpen} data-testid="room-difficulty" title=${editable ? t('选择模拟协议') : t('由创建者设置')}>
     <${RoomSeasonSeg} />
-    <span class=${`rs-mode__seg rs-mode__rules rtag--${rules.preset}`} data-testid="room-ruleset">${presetName(rules)}</span>
-    <span class="rs-mode__seg rs-mode__diff">
-      ${light ? html`<i class="rs-mode__light" aria-hidden="true"></i>` : null}
-      ${icon ? html`<i class=${`rs-mode__ico${root.tint ? ' is-tint' : ''}`} aria-hidden="true"></i>` : html`<${DifficultyIcon} difficulty=${room.difficulty} />`}
-      <span class="rs-mode__name">${name}</span><span class="num rs-mode__code">${info.code}</span>
-    </span>
-    ${sizeOpt ? html`<span class="rs-mode__seg rs-mode__size" data-testid="room-size">${t('{n}人', { n: sizeOpt.size })}</span>` : null}
-    ${editable ? html`<span class="rs-mode__knob" aria-hidden="true">${knob ? null : html`<${Icon} name="refresh" />`}</span>` : null}
+    <${ModeSegs} art=${art} ruleset=${rules} difficulty=${room.difficulty} name=${name} code=${info.code} size=${sizeOpt ? sizeOpt.size : null} ids=${true} />
+    ${editable ? html`<span class="rs-mode__knob" aria-hidden="true">${art.knob ? null : html`<${Icon} name="refresh" />`}</span>` : null}
   </button>`;
+}
+
+/**
+ * The 公开 switch (header, publicOption): the official matching range switch's pill (auto_chess_mode_choice_pop_view
+ * btn_range_switch, track range_bg 237×50) as the project's `.rtrack` — the picked side a white pill with its icon and
+ * name, the other side its grey icon alone. The host switches it (room.setPublic); anybody else sees it read-only.
+ */
+function PublicToggle({ option, busy, onPick }) {
+  if (!option) return null;
+  const side = (on, icon, label) => {
+    const active = option.on === on;
+    return html`<button type="button" role="radio" aria-checked=${active ? 'true' : 'false'} disabled=${!option.editable || !!busy}
+        class=${`dpick__opt rs-pub__opt${active ? ' is-active' : ''}`} title=${label} aria-label=${label}
+        onClick=${() => { if (option.editable && !active) onPick(on); }}>
+      <${Icon} name=${icon} />${active ? html`<span>${label}</span>` : null}
+    </button>`;
+  };
+  const tip = option.on ? t('公开联合：显示在同盟匹配的列表中，条件相符的博士会通过匹配加入') : t('不公开：只有知道同盟密钥的博士可以加入');
+  return html`<${Tooltip} text=${option.editable ? tip : `${tip}\n${t('由创建者设置')}`}>
+    <span class=${`dpick rtrack rs-pub${option.editable ? '' : ' is-ro'}`} role="radiogroup" aria-label=${t('公开')} data-testid="room-public">
+      ${side(false, 'lock', t('不公开'))}${side(true, 'signal', t('公开'))}
+    </span>
+  <//>`;
 }
 
 /**
@@ -644,11 +633,6 @@ export function RoomScreen() {
   const room = useStore((s) => s.room);
   const me = useStore((s) => s.me, shallowEqual);
   const conn = useStore((s) => s.connection, shallowEqual);
-  const queue = useStore((s) => s.ui.queue);
-  // the waiting Doctors of the room's season's queues (ui/season.js)
-  const queueCounts = useStore((s) => seasonQueueCounts(s, seasonOf(s.room?.season), false));
-  const queueCounts8 = useStore((s) => seasonQueueCounts(s, seasonOf(s.room?.season), true));
-  const queueQuick = useStore((s) => seasonQuickCounts(s, seasonOf(s.room?.season)));
   const customRules = useStore((s) => s, Object.is, customRulesStore);
   const short = useMediaQuery(SHORT_SCREEN_QUERY);
   const [busy, setBusy] = useState(null);
@@ -656,7 +640,6 @@ export function RoomScreen() {
   const alive = useRef(true);
   const inFlight = useRef(false); // synchronous guard against double clicks (state updates are async)
   useEffect(() => () => { alive.current = false; }, []);
-  useTicker(room?.matching ? 500 : 0); // the waiting clock
   // a Doctor taking a seat: the official join cue (joinedDoctors)
   const lastRoom = useRef(room);
   useEffect(() => {
@@ -707,11 +690,12 @@ export function RoomScreen() {
   const start = () => run('start', () => net.request('room.start', {}));
   const addBot = () => run('add', () => net.request('room.addBot', {}));
   const removeBot = (seat) => run(`rm${seat}`, () => net.request('room.removeBot', { seat }));
-  // the host removes a human before the match (community report #17): asked first; the player may join again. The
+  // the host removes a human before the match (community report #17): asked first; the player may join again after 10
+  // minutes (server/lobby.js room.kick, ERR.KICKED). The
   // confirmed player's id goes along: if they left and someone else took the seat meanwhile, the server refuses it.
   const kick = async (seat, name, playerId) => {
     if (inFlight.current) return;
-    const ok = await confirmDialog({ title: t('移出同盟'), text: t('确定将「{name}」移出同盟吗？对方可以凭同盟密钥重新加入。', { name: name || t('博士') }), okText: t('移出'), danger: true });
+    const ok = await confirmDialog({ title: t('移出同盟'), text: t('确定将「{name}」移出同盟吗？对方 10 分钟内无法再次加入。', { name: name || t('博士') }), okText: t('移出'), danger: true });
     if (ok) run(`kick${seat}`, () => net.request('room.kick', { seat, playerId }));
   };
   const setAiLast = (on) => run('ailast', () => net.request('room.setAiPicksLast', { on }));
@@ -754,14 +738,9 @@ export function RoomScreen() {
   // the next free seat (server/lobby.js header 「Seat reservation」): the toggle while none is free or one is reserved
   const myReserved = reservedRank(room, me.playerId);
   const reserve = () => run('reserve', () => net.request('room.reserveSeat', { on: !myReserved }));
-  // 랜덤 매칭 for the empty seats (header): the host queues the room, any Doctor of it cancels
-  const matching = coop && !!room.matching;
-  const fillOpt = fillOption(room, facts, { counts4: queueCounts, counts8: queueCounts8, quick: queueQuick });
-  const fillTip = fillOpt && (!fillOpt.enabled ? t('仍有博士未准备就绪')
-    : fillOpt.custom ? t('自定义规则的同盟只由快速匹配的博士补位')
-    : facts.large ? t('用随机匹配的博士补满空位') : t('用随机匹配的博士补满空位（AI 队友会被移出）'));
-  const fill = () => run('fill', () => net.request('room.queueRoom', {}));
-  const unfill = () => run('unfill', () => net.request('room.unqueue', {}));
+  // 공개방 (header): the host puts the room on 同盟匹配's list or takes it off
+  const pubOpt = publicOption(room, me.playerId);
+  const setPublic = (on) => run('public', () => net.request('room.setPublic', { on }));
   const leave = async () => {
     if (inFlight.current) return;
     const othersHere = facts.humans.some((s) => s.playerId !== me.playerId);
@@ -792,7 +771,7 @@ export function RoomScreen() {
   // (nothing for what did not change; 自定义 takes the lobby's settings, ui/customRulesStore.js); it closes once the server
   // took them, and an accepted difficulty becomes the remembered one (`lobby.difficulty`). Everybody else opens it
   // read-only.
-  const protoEditable = facts.isHost && !matching;
+  const protoEditable = facts.isHost;
   const openProto = () => setProto({ difficulty: room.difficulty, ruleset: roomRules.preset, size: seatsOf(room.size), grade: graded ? room.grade : null });
   const closeProto = () => setProto(null);
   const confirmProto = async () => {
@@ -819,14 +798,8 @@ export function RoomScreen() {
   const editCustom = () => (keepsCustom ? customGear?.()
     : openCustomRules({ rules: customDraft(), roomMode: room.mode, difficulty: proto?.difficulty || room.difficulty, grade: proto ? proto.grade : graded ? room.grade : null, size: room.size }));
 
-  const waiting = matching && queue?.party ? queue : null;
   const statusLine = !online
     ? html`<span class="t-orange"><${Icon} name="wifiOff" />${t('连接中断，正在重连…')}</span>`
-    : matching
-      ? html`<span class="t-amber room-bar__match"><${Icon} name="signal" />${t('正在匹配空位')}${waiting
-        ? html` · <b class="num">${mmss(Date.now() - waiting.since)}</b> · ${t('排队中的博士：{count}/{n}', { count: Math.min(facts.seats.length, waiting.count), n: facts.seats.length })}` : null}${waiting && !facts.spectating && canProposeStart(waiting)
-        // the 8-player queue's 「바로 시작」 (ui/matchQueue.js): any queued Doctor of the room may propose it
-        ? html` <${Button} variant="primary" size="sm" icon="play" loading=${busy === 'vote'} disabled=${!online} onClick=${() => run('vote', proposeStart)}>${t('提议提前开始')}<//>` : null}</span>`
     : facts.spectating
       ? html`<span class="t-lo"><${Icon} name="eye" />${myReserved ? t('已预约座位（第 {n} 位）· 有空位时自动入座', { n: myReserved }) : t('观战中 · 不占博士席位，模拟开始后可切换观看各位博士')}</span>`
     : !coop
@@ -836,6 +809,8 @@ export function RoomScreen() {
         ? html`<span class="t-mint">${t('*同盟人数达标，准许进入模拟')}</span>`
         : facts.seatsOpen
         ? html`<span class="t-lo">${t('八人同盟需至少 5 名博士才能开始')}</span>`
+        : room.public === true
+        ? html`<span class="t-lo room-bar__pub"><${Icon} name="signal" />${t('公开联合 · 显示在同盟匹配的列表中，条件相符的博士会通过匹配加入')}</span>`
         : html`<span class="t-lo">${t('等待所有博士准备就绪')}</span>`
       : myReady
         ? html`<span class="t-mint">${t('已就绪 · 等待创建者开始模拟')}</span>`
@@ -847,21 +822,17 @@ export function RoomScreen() {
   const protoMode = coop ? 'coop' : 'solo';
 
   // the main button (bottom right)
-  const goButton = matching && !facts.spectating
-    ? html`<${GoButton} label=${t('取消匹配')} icon="close" loading=${busy === 'unfill'} disabled=${!online} onClick=${unfill} />`
-    : facts.isHost
+  const goButton = facts.isHost
     ? html`<${Tooltip} text=${facts.canStart ? null : facts.seatsOpen && facts.othersReady ? t('八人同盟需至少 5 名博士才能开始') : t('仍有博士未准备就绪')}>
         <${GoButton} label=${t('开始模拟')} loading=${busy === 'start'} disabled=${!facts.canStart || !online || busy === 'start'} onClick=${start} testid="room-start" />
       <//>`
     : facts.spectating
-      ? (facts.emptySeats > 0 && !matching
+      ? (facts.emptySeats > 0
         ? html`<${GoButton} label=${t('入座')} icon="user" testid="seat-sit" loading=${busy === 'sit'} disabled=${!online} onClick=${sit} />`
-        : myReserved || !matching
-        ? html`<${Tooltip} text=${t('模拟结束或重新开始时，有空位就自动入座')}>
+        : html`<${Tooltip} text=${t('模拟结束或重新开始时，有空位就自动入座')}>
             <${GoButton} label=${myReserved ? t('取消预约') : t('预约座位')} ready=${!!myReserved} testid="seat-reserve"
               loading=${busy === 'reserve'} disabled=${!online} onClick=${reserve} />
-          <//>`
-        : html`<${GoButton} label=${t('观战中')} icon="eye" disabled=${true} />`)
+          <//>`)
     : html`<${GoButton} label=${myReady ? t('已就绪') : t('准备就绪')} ready=${myReady} loading=${busy === 'ready'}
         disabled=${!online || !facts.mine || busy === 'ready'} onClick=${toggleReady} />`;
 
@@ -940,14 +911,9 @@ export function RoomScreen() {
         <${AiLastToggle} option=${aiLast} busy=${busy} onToggle=${setAiLast} short=${short} />
       </div>
       ${short ? null : html`<div class=${consoleBtn ? 'rs-foot__lo has-console' : 'rs-foot__lo'}>${loadout}${consoleBtn}</div>`}
-      <${ModeBar} room=${room} rules=${roomRules} sizeOpt=${sizeOpt} info=${info} editable=${protoEditable} busy=${busy} matching=${matching} onOpen=${openProto} />
+      <${ModeBar} room=${room} rules=${roomRules} sizeOpt=${sizeOpt} info=${info} editable=${protoEditable} busy=${busy} onOpen=${openProto} />
       <div class="room-bar__right rs-foot__right">
-        ${fillOpt ? html`<${Tooltip} text=${fillTip}>
-          <button type="button" class="rs-fill room-fill" disabled=${!fillOpt.enabled || !online || busy === 'fill'} onClick=${fill} data-testid="room-fill">
-            ${busy === 'fill' ? html`<${Spinner} size="sm" />` : html`<${Icon} name="signal" />`}<span>${t('匹配补位')}</span>
-            <span class=${`rpick__n room-fill__n num${fillOpt.waiting > 0 ? ' is-on' : ''}`} data-testid="fill-waiting">${fillOpt.waiting}</span>
-          </button>
-        <//>` : null}
+        <${PublicToggle} option=${pubOpt} busy=${busy} onPick=${setPublic} />
         ${goButton}
       </div>
     </footer>
@@ -961,13 +927,12 @@ export function RoomScreen() {
             onGear=${editCustom} size=${proto.size}
             onSize=${sizeOpt ? (n) => setProto({ ...proto, size: n }) : null} sizeLocked=${!!sizeOpt && proto.size > MAX_SEATS && !sizeOpt.shrinkable} />`} />`
       : html`<${ProtocolSelect} roomMode=${protoMode} difficulty=${room.difficulty} onDifficulty=${() => {}} onClose=${closeProto} grade=${graded ? room.grade : null}
-          online=${online} readOnly=${true} hint=${matching ? t('匹配中无法更改') : null}
+          online=${online} readOnly=${true}
           brief=${html`<${CustomBrief} roomMode=${protoMode} ruleset=${roomRules.preset} difficulty=${room.difficulty} grade=${graded ? room.grade : null}
             customRules=${isCustom ? { ...customRules, draft: roomRules.custom } : customRules} />`}
           rules=${html`<${ProtoRules} roomMode=${protoMode} ruleset=${roomRules.preset} onRuleset=${() => {}} onGear=${customGear} readOnly=${true}
             size=${seatsOf(room.size)}
             onSize=${sizeOpt ? () => {} : null} />`} />` : null}
-    <${MatchQueueDialog} />
     <${CustomRulesDialog} />
   </div>`;
 }

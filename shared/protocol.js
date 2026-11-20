@@ -683,7 +683,7 @@ export const S2C = [
   // { [difficulty]: n } }, counts8: the same for the 8-player queues, seasons?: { [season]: { counts, counts8 } } of the
   // other offered seasons, rooms: { [season]: n } the public rooms in LOBBY } (the waiting Doctors of every queue,
   // server/matchmaking.js) · lobby.rooms { rooms: [{ code, season?, host: { name, no }, difficulty, ruleset: { preset },
-  // custom?, size, seats: [{ kind: 'human'|'bot'|'empty', card? }], state: 'lobby'|'match', round?, spectators,
+  // custom?, size, seats: [{ kind: 'human'|'bot'|'empty', host?: true, card? }], state: 'lobby'|'match', round?, spectators,
   // spectatorSeats, since }] } (the public room list, to the sessions of lobby.watchRooms — server/lobby.js 「공개방」)
   'room.queueState', 'room.matchFound', 'lobby.queueCounts', 'lobby.rooms',
   // m.public: a broadcast after the match's first is a delta (`delta: true`, mergePublic); a one-to-one m.public (a
