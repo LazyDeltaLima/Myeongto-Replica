@@ -164,7 +164,10 @@ export default {
         set.add(base);
         const keys = base.rangeKeySet ?? new Set(base.rangeKeys ?? []);
         for (const a of battle.allyUnits) {
-          if (!up(a) || a.hidden || (a.kind !== 'op' && a.kind !== 'token')) continue;
+          // a walking ally made of an enemy record (莱塔尼亚's summons, content/bonds/walker.js) is no character: the aura's
+          // profession mask (767) refuses it, as the official client's target check refuses every non-character ally under a
+          // profession mask — no mark, so neither its range nor the enemies it blocks join her S2 / S3 (#23)
+          if (!up(a) || a.hidden || a.walks || (a.kind !== 'op' && a.kind !== 'token')) continue;
           if (!battle.allySelectable(a, unit) || !keys.has(tileKey(a.tileR, a.tileC))) continue;
           set.add(a);
         }

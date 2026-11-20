@@ -1157,6 +1157,7 @@
   - S2 굽이쳐 흐르는 별들: 모드 `MultiRangedAttack` `_additionalTimes` 8·`_triggerDelta` 0.05 — 9발이 타격부터 0.05초 간격으로 나가고, 각 발이 나갈 때 무작위로 대상을 고른다(`_selectNum` 1, `_selectTargetTiming` 1). 기절하면 남은 발은 없다.
   - S3 박식한 자의 광언: `DEFAULT` + 스킬 범위 상자 3-10(자기 행 없음). 공격은 공격 클립의 타격에 회오리 셋을 낸다(upstream은 타이머로 직접 냄). 회오리는 속도 1·수명 4초라 **4칸**을 난다: PRTS 「5格远处中心点」은 자기 칸을 세는 값이다. 배율 곡선 `_scaleCurve`가 수명의 0.4428에서 1이 되어 PRTS의 1.77초와 맞는다. 함께 닿은 적은 `_postFilter` 4 HATRED_DES 차례, 공중 포함.
 - **클로저**: S1의 `trigger: 'SP_FULL'`은 그대로 둔다(아군·자신에게만 듣는 AUTO 스킬은 SP가 차면 켠다, kits README 체크리스트 5). S2·S3은 표의 전술가 행(`ALWAYS`). S1 보호막 버프 키를 클라 키 `closur_s_1[block]`으로 지어 상태 경로가 `closur_skill_01_shied_01`을 튼다.
+- **클로저 원군 — 걷는 소환물은 원군이 아님** (#23, 2026-11-21): 지휘 센터 오라 `closur_ourbase_aura`는 직업 마스크 767(오퍼레이터 직군 + 소환물)로 대상을 고르고, 공식 클라에서 확인한 대상 검사는 직업 마스크가 있으면 오퍼레이터가 아닌 아군을 받지 않는다(`TargetOptions`의 고급 검사). 라이타니엔 소환물 「한 마디」·「한 악부」(`enemy_9025_aclts`·`enemy_9026_acltm`)는 적 자료로 만든 걷는 아군(`bonds/walker.js`, `walks`)이라 원군 표식을 받지 않는다 → 그 소환물이 막은 적에게 특성 ×1.5가 붙지 않고, S2·S3 범위에 그 소환물의 범위·막은 적의 칸이 더해지지 않는다. 전에는 지휘 센터 범위의 우리 편 토큰을 다 원군으로 쳐서 S3 레이저가 소환물이 막은 적에게 몰렸다(제보: 소환물을 먼저 친다). 재발 방지: `test/content/op_closur.test.js` 「a walking ally made of an enemy record …」.
 - 소환물 이펙트 규칙(`fx.md` 「소환물이 서 있는 동안의 버프」): 소환물 재능의 기간제 버프 `token_*_born[withdraw]`가 서 있는 동안의 이펙트로 이어진다. 이 규칙으로 에벤홀츠 소환물 `token_ebnhlz_buff`와 비즈왁스 소환물 `token_beewax_skill_02_buff`도 켜졌다. 끝 이펙트는 이미 있던 `dead`(`_deadEffect`) 경로로 난다.
 - 키트 주석에 남은 추정:
   - W [추정·자료 없음: 지뢰 수 상한].

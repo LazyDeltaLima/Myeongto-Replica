@@ -13,6 +13,7 @@ import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
 import { BASE, SHIELD_KEY, S2_KEY, RHODES_KEY, SLOWDOWN } from '../../server/sim/content/kits/ops/op-closur.js';
 import { COLS } from '../../server/sim/constants.js';
+import { spawnWalker } from '../../server/sim/content/bonds/walker.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -151,6 +152,41 @@ test('Trait: her damage on an enemy blocked by her 援军 — the 指挥中心 o
     }
     done(h);
   }
+});
+
+test('a walking ally made of an enemy record (莱塔尼亚\'s summons) in the 指挥中心\'s range is no 援军: ×1 on the enemy it blocks, and under S3 neither its range nor that enemy\'s tile joins hers (#23)', () => {
+  const WALK = enemyRec({ key: 'enemy_walk', hp: 1e9, speed: 0, blockCnt: 1 });
+  const fieldW = (o) => {
+    const r = field(o);
+    r.h.b.data.raw.enemies.enemy_walk = WALK;
+    return r;
+  };
+  // a walker holds no tile, which the harness's occupancy invariant does not know (checkInvariants): the engine's errors only
+  const ok = (h) => assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0]));
+  const why = 'the aura\'s profession mask refuses a non-character ally — docs/rules/diy.md 「클로저」 원군 줄';
+  {
+    // S1 carried: (11,6) is in the 指挥中心's x-5 (the trait test's 角峰 tile); the enemy it blocks stands on (11,7), in her 3-3
+    const { h, u } = fieldW({ tier: 6, elite: true, mod: TX, skill: 0 });
+    const w = spawnWalker(h.b, h.b.players[0].playerId, 'enemy_walk', 11, 6);
+    assert.ok(w && w.walks, 'the walker');
+    const e = h.spawn('enemy_dummy', { pos: [11, 7] });
+    e.x = 6.6;
+    assert.ok(h.runUntil(() => e.blockedBy === w && hitsOn(h, u, e).length > 0, 5), 'blocked by the walker and hit');
+    approx(hitsOn(h, u, e)[0].amount, u.s.atk, `×1, not ×1.5: ${why}`);
+    ok(h);
+  }
+  // S3: a walker on (10,8) (the x-6) blocks an enemy on (10,9), outside her 3-3 and the x-6
+  const { h, u } = fieldW({ tier: 6, elite: true, mod: TX, skill: 2 });
+  const w = spawnWalker(h.b, h.b.players[0].playerId, 'enemy_walk', 10, 8);
+  const e = h.spawn('enemy_dummy', { pos: [10, 9] });
+  e.x = 8.6;
+  assert.ok(h.runUntil(() => e.blockedBy === w, 3), 'blocked by the walker');
+  u.skill.gainSp(999);
+  assert.ok(h.runUntil(() => u.skill.active, 1));
+  h.run(3);
+  assert.ok(!(u.extraRangeKeys ?? []).includes(tk(10, 9)), `the walker's enemy is not in her S3 range: ${why}`);
+  assert.equal(hitsOn(h, u, e).length, 0, `S3 never shoots the walker's enemy: ${why}`);
+  ok(h);
 });
 
 test('S1 递归策略 (AUTO, at full SP): every 援军 — the 指挥中心 and the allies of its x-5, not one outside, not a 孤立 one — gets one 护盾 layer (不叠加); 3 DP, then 4, 5 … up to 6 (normal) / 7 (elite), one at a time every 8 / n s from half that; the count restarts with a redeploy', () => {
