@@ -300,6 +300,26 @@ describe('공개방 (server/lobby.js, server/matchmaking.js)', () => {
     assert.equal(srv.lobby.queue.stats().waiting, 1);
   });
 
+  test('the skip timer ends its own skip: offered again when the timer fires before the wall clock reaches the skip end', async () => {
+    const host = await pool.player('Host');
+    const r = await room(host);
+    const p = await pool.player('P');
+    await queue(p);
+    await offerOf(p);
+    // a Node timer counts from the event loop's cached time, which lags the wall clock under load: put the lobby's
+    // clock ahead while the decline sets the skip end, so the 900 ms timer fires well before lobby.now() reaches it
+    const realNow = srv.lobby.now;
+    srv.lobby.now = () => realNow.call(srv.lobby) + 2000;
+    try {
+      await ok(p, { t: 'room.queueAccept', accept: false });
+      await p.waitFor('room.queueState', (s) => s.queued, W);
+    } finally { srv.lobby.now = realNow; }
+    const again = await offerOf(p).catch((e) => {
+      throw new Error(`no offer after the skip timer: the timer must end the skip it set (Matchmaker.refuseOffer; docs/rules/ui.md 「랜덤 매칭」 공개방 「제안」) — ${e.message}`);
+    });
+    assert.equal(again.room.code, r.code);
+  });
+
   test('a Doctor holding an offer gets no queue state while it runs (it would close the confirmation): another Doctor queues, the offer stands', async () => {
     const h = await players(3, 'H');
     const r = await room(h[0]);

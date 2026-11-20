@@ -522,9 +522,17 @@ export class Matchmaker {
     if (code) {
       let m = this.skips.get(entry.playerId);
       if (!m) { m = new Map(); this.skips.set(entry.playerId, m); }
-      m.set(code, this.lobby.now() + this.opts.publicSkipMs);
-      // the room may be offered again when the skip runs out: walk the pool then
-      const t = setTimeout(() => { this.skipTimers.delete(t); if (this.entries.get(entry.key) === entry) this.tryPool(entry.pool); }, this.opts.publicSkipMs);
+      const until = this.lobby.now() + this.opts.publicSkipMs;
+      m.set(code, until);
+      // the room may be offered again when the skip runs out: walk the pool then. The timer ends the skip it set
+      // itself: a Node timer counts from the event loop's cached time, so under load it fires before the wall clock
+      // reaches `until` and skipped() would still say skipped, with no later walk to offer the room again.
+      const t = setTimeout(() => {
+        this.skipTimers.delete(t);
+        const cur = this.skips.get(entry.playerId);
+        if (cur && cur.get(code) === until) { cur.delete(code); if (!cur.size) this.skips.delete(entry.playerId); }
+        if (this.entries.get(entry.key) === entry) this.tryPool(entry.pool);
+      }, this.opts.publicSkipMs);
       t.unref?.();
       this.skipTimers.add(t);
     }
