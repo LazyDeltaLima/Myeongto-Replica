@@ -851,3 +851,21 @@ describe('generated manifest data/assets.json', () => {
     assert.ok(manifest.fonts.css && existsSync(join(PUBLIC, manifest.fonts.css)));
   });
 });
+
+// A seat card operator no season fields (shared/cardOperators.js CARD_EXTRA_OPERATORS, maintainer decision 2026-11-20):
+// the plan downloads its avatar and portrait only — no battle model, skill icons or voice lines nobody plays.
+test('buildPlan cardOperators: a card-only operator gets its avatar and portrait, no model or voice', async () => {
+  const { buildPlan } = await import('../tools/assets/plan.mjs');
+  const { indexAudio, indexVoice } = await import('../tools/assets/audio.mjs');
+  const { CARD_EXTRA_OPERATORS } = await import('../shared/cardOperators.js');
+  const id = CARD_EXTRA_OPERATORS[0];
+  const file = join(ROOT, '.cache/gamedata/excel/charword_table.json');
+  const charword = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : { charWords: {
+    w1: { charId: id, wordKey: id, placeType: 'BATTLE_START', voiceId: 'CN_019', voiceIndex: 0, voiceAsset: `${id}/CN_019` } } };
+  assert.ok(indexVoice(charword).has(id), `${id} has voice lines to leave out (else this test is moot)`);
+  const t = buildPlan({ assets07: {}, ops03: {}, enemies05: {}, maps05: {}, audio: indexAudio({}), modelsData: {}, charword, cardOperators: [id] }).template;
+  assert.deepEqual(Object.keys(t.chars[id]).sort(), ['avatar', 'portrait'], 'the seat card\'s pictures only (tools/assets/plan.mjs cardOperators)');
+  assert.equal(t.chars[id].avatar.alts[0].rel, `char/avatar/${id}.png`);
+  assert.equal(t.chars[id].portrait.alts[0].rel, `char/portrait/${id}_1.png`);
+  assert.ok(!JSON.stringify(t.audio).includes(id), 'no voice of a card-only operator (tools/assets/plan.mjs voice loop)');
+});

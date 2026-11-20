@@ -9,6 +9,7 @@ import { startServer } from '../server/index.js';
 import { TestClient } from './helpers/wsClient.js';
 import { ERR } from '../shared/constants.js';
 import { getData } from '../server/data.js';
+import { CARD_EXTRA_OPERATORS } from '../shared/cardOperators.js';
 
 const W = 6000;
 const chess = JSON.parse(readFileSync(new URL('../data/chess.json', import.meta.url), 'utf8'));
@@ -83,6 +84,16 @@ describe('room.card (名片干员)', () => {
     await ok(a, { t: 'room.leave' });
     await ok(a, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL', ruleset: 'classic' });
     await a.waitFor('room.state', (s) => s.mode === 'solo' && seatOf(s, a.id)?.card === ONLY3, W);
+  });
+
+  test('an operator of CARD_EXTRA_OPERATORS (no season fields it) is a card the room sees (maintainer decision 2026-11-20)', async () => {
+    const extra = CARD_EXTRA_OPERATORS[0];
+    assert.ok(extra && !records.some((c) => c?.charId === extra), `${extra}: no 盟约 chess record`);
+    const a = await player('A');
+    await ok(a, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL', ruleset: 'classic' });
+    await a.waitFor('room.state', (s) => s.hostId === a.id, W);
+    await ok(a, { t: 'room.card', charId: extra });
+    await a.waitFor('room.state', (s) => seatOf(s, a.id)?.card === extra, W);
   });
 
   test('the card follows the player into the next room, and a pick outside a room is kept', async () => {

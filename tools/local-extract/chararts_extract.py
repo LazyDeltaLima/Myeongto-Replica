@@ -9,7 +9,7 @@ illustration frame: a size and its centre's offset from the frame's centre, y up
 the faces up. The battle's unit card (UICharacterInfoPanel._LoadIllust) takes them from the prefab's StoreValueComponent
 `ILLUST_SIZE` / `ILLUST_OFFSET` when it has them, else from its RectTransform (`m_SizeDelta`, `m_AnchoredPosition`):
 illust_frame. This writes, for every charId the mode uses
-(data/chess.json, the 선발 picks of data/backups.json; tokens only when they have an art bundle):
+(data/chess.json, the 선발 picks of data/backups.json, the seat cards of data/cards.json; tokens only when they have an art bundle):
   chararts/<charId>.webp        the default art, the full canvas, long side ≤ 1024, lossy q85 with alpha
   chararts/full/<charId>.webp   the same at the client texture's own size, when that is larger (save_illust)
 and merges a `chararts` group into data/local-assets.json (re-read right before writing; other groups kept):
@@ -90,7 +90,8 @@ def save_illust(img, out_root, rel, max_side, quality):
 def wanted_ids(root):
     """The bodies of data/chess.json and of every season's data/seasons/<id>/chess.json (a record's character template
     `tmplId`, else its charId — shared/standIn.js chessBody) and the 선발 picks of data/backups.json
-    (`diy.ownedPool`), then token ids of data/tokens.json and data/backups.json `tokens` (art only if bundled)."""
+    (`diy.ownedPool`), the seat card operators of data/cards.json no season fields (shared/cardOperators.js
+    CARD_EXTRA_OPERATORS), then token ids of data/tokens.json and data/backups.json `tokens` (art only if bundled)."""
     ids = []
     for f in [root / 'data' / 'chess.json', *sorted((root / 'data' / 'seasons').glob('*/chess.json'))]:
         doc = json.loads(f.read_text(encoding='utf-8'))
@@ -102,6 +103,11 @@ def wanted_ids(root):
     p = root / 'data' / 'backups.json'
     backups = json.loads(p.read_text(encoding='utf-8')) if p.exists() else {}
     for cid in (backups.get('diy') or {}).get('ownedPool') or []:
+        if isinstance(cid, str) and cid.startswith('char_') and cid not in ids:
+            ids.append(cid)
+    p = root / 'data' / 'cards.json'
+    for rec in (json.loads(p.read_text(encoding='utf-8')).get('operators') or []) if p.exists() else []:
+        cid = rec.get('charId') if isinstance(rec, dict) else None
         if isinstance(cid, str) and cid.startswith('char_') and cid not in ids:
             ids.append(cid)
     token_maps = [backups.get('tokens') or {}]

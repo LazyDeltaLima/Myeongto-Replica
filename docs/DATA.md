@@ -791,7 +791,10 @@ default's; a season with no folder yet is left out), so building either season w
 only (one file for every season). `Card` = `{ charId, name, appellation, rarity, assets: { avatar, portrait }, seasons,
 pool }`, sorted by charId: an operator is listed for a season with a visible, non-自选 chess record of it (the golden
 form's art) or a 自选 pick this server offers (`backups.diy.ownedPool` ∩ `shared/local-diy.js`, art `<charId>_2`);
-`pool` = the seasons where it is a 5★ / 6★ chess record (the default seat card's pool). `name` is the Chinese (the
+`pool` = the seasons where it is a 5★ / 6★ chess record (the default seat card's pool). The operators of
+`CARD_EXTRA_OPERATORS` (maintainer decision 2026-11-20: no season fields them) are listed for every season with an empty
+`pool` and their E0 art (`assets` = the charId); their `name` / `appellation` / `rarity` come from this run's
+character_table (`cardExtra`, which stops the build on an id the table lacks). `name` is the Chinese (the
 browser localizes it with the overlays' `names` map, `data.localeName`). Read by the server's `room.card` check
 (`server/lobby.js cardAllowed`: a season the server offers) and the browser's picker (`public/js/ui/seatArt.js`
 `cardOperators`); `test/ui/room-cards.test.js` checks it against the current chess / backups.

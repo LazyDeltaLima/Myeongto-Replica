@@ -15,6 +15,7 @@ import { installFakePixi, fakeViewCtx } from './fakepixi.js';
 import { presetCamera } from '../../public/js/render/projection.js';
 import { spineEntry, hasBackSpine } from '../../public/js/assets.js';
 import { ANIM } from '../../shared/constants.js';
+import { CARD_EXTRA_OPERATORS } from '../../shared/cardOperators.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const M = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
@@ -69,7 +70,12 @@ describe('the manifest (data/assets.json)', () => {
     const withFall = backs.filter(([, c]) => dieClipDur(c.spine.back) > 0).map(([id]) => id).sort();
     assert.ok(backs.length >= 130, `${backs.length} Back skeletons`);
     assert.deepEqual(withFall, ['char_322_lmlee', 'char_388_mint', 'char_4064_mlynar', 'char_4182_oblvns', 'char_440_pinecn', 'char_602_cdfend'], '丰川祥子 and 老鲤 (自选 picks) too');
-    for (const [id, c] of Object.entries(M.chars)) assert.ok(dieClipDur(c.spine.front) > 0, `${id} Front has a Die clip`);
+    // a seat card operator no season fields (CARD_EXTRA_OPERATORS) has its pictures only, no model (tools/assets/plan.mjs cardOperators)
+    for (const [id, c] of Object.entries(M.chars)) {
+      if (CARD_EXTRA_OPERATORS.includes(id)) { assert.equal(c.spine, undefined, `${id}: a card-only operator has no model`); continue; }
+      assert.ok(dieClipDur(c.spine.front) > 0, `${id} Front has a Die clip`);
+    }
+    assert.ok(CARD_EXTRA_OPERATORS.some((id) => M.chars[id]), 'a card-only operator is in the manifest (the exception ran)');
     assert.equal(dieClipDur(back(CAPER)), 0);
     assert.equal(dieClipDur(front(CAPER)), front(CAPER).animations.Die);
     assert.equal(dieClipDur(null), 0);

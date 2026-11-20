@@ -41,10 +41,39 @@ test('buildCards: every season\'s visible non-自选 chess (golden form first) a
   assert.ok(operators.some((o) => o.seasons.length === 1 && o.seasons[0] === A3), '规程 has operators 盟约 lacks');
 });
 
+// the CARD_EXTRA_OPERATORS records as data/cards.json holds them (build-data reads them from character_table, which a
+// checkout may lack): their season-made fields are rebuilt by buildCards and checked by the next tests
+const fileExtras = async () => {
+  const { CARD_EXTRA_OPERATORS } = await load('shared/cardOperators.js');
+  return json('data/cards.json').operators.filter((o) => CARD_EXTRA_OPERATORS.includes(o.charId))
+    .map(({ seasons, pool, ...rec }) => rec);
+};
+
 test('data/cards.json is what build-data writes from the current data (rebuild: node tools/build-data.mjs --offline)', async () => {
   const { buildCards } = await load('shared/cardOperators.js');
-  assert.deepEqual(json('data/cards.json'), buildCards([[A2, seasonData('data/')], [A3, seasonData('data/seasons/act3autochess/')]]),
+  assert.deepEqual(json('data/cards.json'), buildCards([[A2, seasonData('data/')], [A3, seasonData('data/seasons/act3autochess/')]], await fileExtras()),
     'data/cards.json is stale: tools/build-data.mjs writeCards (docs/DATA.md §19) rebuilds it');
+});
+
+test('CARD_EXTRA_OPERATORS: listed for every season, never in the default pool, drawn with the E0 art; a season that fields one keeps its own record', async () => {
+  const { buildCards, cardExtra, CARD_EXTRA_OPERATORS } = await load('shared/cardOperators.js');
+  const ops = json('data/cards.json').operators;
+  assert.ok(CARD_EXTRA_OPERATORS.length, 'the list is not empty (else this test is moot)');
+  for (const id of CARD_EXTRA_OPERATORS) {
+    const o = ops.find((c) => c.charId === id);
+    assert.ok(o, `${id}: in data/cards.json (shared/cardOperators.js CARD_EXTRA_OPERATORS; rebuild: node tools/build-data.mjs --offline)`);
+    assert.deepEqual(o.seasons, [A2, A3]);
+    assert.deepEqual(o.pool, [], `${id}: only a player's pick shows it`);
+    assert.equal(o.assets.portrait, id);
+    assert.ok(o.name && o.rarity >= 1);
+  }
+  const extra = cardExtra('char_x', { name: '某人', appellation: 'Someone', rarity: 'TIER_1' });
+  assert.deepEqual(extra, { charId: 'char_x', name: '某人', appellation: 'Someone', rarity: 1, assets: { avatar: 'char_x', portrait: 'char_x' } });
+  assert.throws(() => cardExtra('char_y', undefined), /not in character_table/);
+  const fielded = { chess: { c1: { charId: 'char_x', name: '某人', rarity: 6, isGolden: true, assets: { avatar: 'char_x_2', portrait: 'char_x_2' } } }, backups: {} };
+  const both = buildCards([[A2, { chess: {}, backups: {} }], [A3, fielded]], [extra]).operators;
+  assert.deepEqual(both, [{ ...fielded.chess.c1, appellation: null, seasons: [A3], pool: [A3] }].map(({ isGolden, ...r }) => r),
+    'the fielding season\'s record, not the extra');
 });
 
 test('cardOperators + cardContext: the offered seasons\' operators to pick, localized; the default drawn from the room\'s season alone', async () => {

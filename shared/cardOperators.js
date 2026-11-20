@@ -10,15 +10,38 @@
 // and rated by `backups.diy.operators`). `pool` = the seasons whose default card may draw it (a 5★ / 6★ chess record:
 // ui/seatArt.js cardContext). One record per charId: the first season's in `seasons` order (the seasons agree on the
 // fields kept, checked 2026-11-18). `name` is the Chinese; the browser localizes it by the overlays' `names` map.
+//
+// CARD_EXTRA_OPERATORS (maintainer decision 2026-11-20): operators no season fields that a seat card may show anyway,
+// on a player's request. build-data takes each one's name, appellation and rarity from character_table (cardExtra) and
+// buildCards lists it for every season with an empty `pool` (only a player's pick shows it, never the default draw) and
+// its default (E0) art; a season that fields it gives its own record instead.
 
 import { isLocalDiyPick } from './local-diy.js';
 
+/** Seat card operators outside every season (header): 로도스 아일랜드 그림자 부대 (罗德岛隐秘队). */
+export const CARD_EXTRA_OPERATORS = Object.freeze(['char_4215_buddy']);
+
+/**
+ * The card of a CARD_EXTRA_OPERATORS entry from its character_table row; throws when the table lacks it (a typo in the
+ * list or a table that predates the operator: rebuild the tables, never a guessed record).
+ * @param {string} charId @param {any} char character_table[charId]
+ */
+export function cardExtra(charId, char) {
+  if (!char || typeof char.name !== 'string') throw new Error(`cardExtra: ${charId} is not in character_table (shared/cardOperators.js CARD_EXTRA_OPERATORS)`);
+  const rarity = Number(String(char.rarity).replace('TIER_', ''));
+  if (!Number.isFinite(rarity) || rarity < 1) throw new Error(`cardExtra: ${charId} has no rarity (${char.rarity})`);
+  return { charId, name: char.name, appellation: typeof char.appellation === 'string' ? char.appellation : null, rarity,
+    assets: { avatar: charId, portrait: charId } };
+}
+
 /**
  * @param {[string, { chess: any, backups: any }][]} seasons each season's id and its data, the default season first
+ * @param {{ charId: string, name: string, appellation: string | null, rarity: number,
+ *   assets: { avatar: string, portrait: string } }[]} [extras] cardExtra() of CARD_EXTRA_OPERATORS
  * @returns {{ operators: { charId: string, name: string, appellation: string | null, rarity: number,
  *   assets: { avatar: string, portrait: string }, seasons: string[], pool: string[] }[] }}
  */
-export function buildCards(seasons) {
+export function buildCards(seasons, extras = []) {
   /** @type {Map<string, any>} */
   const by = new Map();
   /** @param {string} season @param {any} rec @param {boolean} inPool */
@@ -49,6 +72,10 @@ export function buildCards(seasons) {
       add(season, { charId: id, name: rec && typeof rec.name === 'string' ? rec.name : id, appellation: null,
         rarity: rec && Number.isFinite(rec.rarity) ? rec.rarity : 0, assets: { avatar: `${id}_2`, portrait: `${id}_2` } }, false);
     }
+  }
+  for (const rec of extras) {
+    if (by.has(rec.charId)) continue;
+    for (const [season] of seasons) add(season, rec, false);
   }
   return { operators: [...by.values()].sort((a, b) => (a.charId < b.charId ? -1 : a.charId > b.charId ? 1 : 0)) };
 }

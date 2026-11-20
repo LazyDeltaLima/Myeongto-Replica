@@ -83,6 +83,7 @@ import { statsTemplateJobs } from './assets/stats-template.mjs';
 import { loadPins, PINS_FILE } from './assets/pins.mjs';
 import { isLocalDiyPick } from '../shared/local-diy.js'; // local patch: only the offered 自选 picks get art
 import { chessBody } from '../shared/standIn.js';
+import { CARD_EXTRA_OPERATORS } from '../shared/cardOperators.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = join(ROOT, 'public', 'assets');
@@ -475,6 +476,7 @@ async function main() {
     localTokenSpines,
     localItemSpines,
     extraOperators: extras.extraOperators,
+    cardOperators: [...CARD_EXTRA_OPERATORS], // the seat card's avatar and portrait only (plan.mjs)
     moduleTypes: extras.moduleTypes,
     statsTemplate,
   });

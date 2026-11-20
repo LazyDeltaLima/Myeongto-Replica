@@ -49,7 +49,7 @@ import { LOCAL_DIY_PICKS } from '../shared/local-diy.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 import { isOwnSubMode, skillModeIndex, SKILL_SUB_MODES } from '../shared/skill-modes.js';
 import { DEFAULT_SEASON, SEASONS, isSeasonId, seasonDataDir } from '../shared/seasons.js';
-import { buildCards } from '../shared/cardOperators.js';
+import { buildCards, cardExtra, CARD_EXTRA_OPERATORS } from '../shared/cardOperators.js';
 import { gamedataBase, SEASON_GAMEDATA } from './gamedata-url.mjs';
 import { normalizeFlat } from './gamedata-flat.mjs';
 import { composeStageLevel, isFrameLevel, levelDrift, placeWaveLevel, subLevelPath, waveOrigin } from './level-fields.mjs';
@@ -5530,10 +5530,11 @@ function attachHandlerKeys(items, garrisons) {
 /**
  * data/cards.json (docs/DATA.md §19, shared/cardOperators.js): the seat card operators of every season — this run's own
  * chess / backups, the other seasons' as written in data/ (a season's file, else the default's; a season with no folder
- * yet is left out). Written beside data/ (or into --out when it is not the season's own folder).
- * @param {any} chess @param {any} backups
+ * yet is left out) — plus CARD_EXTRA_OPERATORS, from this run's character_table (cardExtra). Written beside data/ (or
+ * into --out when it is not the season's own folder).
+ * @param {any} chess @param {any} backups @param {any} charTable
  */
-async function writeCards(chess, backups) {
+async function writeCards(chess, backups, charTable) {
   const readSeason = (id, name) => {
     const own = join(ROOT, 'data', seasonDataDir(id), `${name}.json`);
     return JSON.parse(readFileSync(existsSync(own) ? own : join(ROOT, 'data', `${name}.json`), 'utf8'));
@@ -5547,7 +5548,7 @@ async function writeCards(chess, backups) {
   const own = resolve(OPTS.out) === resolve(join(ROOT, 'data', seasonDataDir(SEASON)));
   const dest = join(own ? join(ROOT, 'data') : OPTS.out, 'cards.json');
   const tmp = `${dest}.tmp-${process.pid}`;
-  await writeFile(tmp, JSON.stringify(buildCards(seasons)));
+  await writeFile(tmp, JSON.stringify(buildCards(seasons, CARD_EXTRA_OPERATORS.map((id) => cardExtra(id, charTable[id])))));
   await rename(tmp, dest);
 }
 
@@ -5610,7 +5611,7 @@ async function main() {
       await writeFile(tmp, text);
       await rename(tmp, dest);
     }
-    await writeCards(chess, backups);
+    await writeCards(chess, backups, ctx.charTable);
   }
   const report = {
     counts: {

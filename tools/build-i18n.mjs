@@ -21,6 +21,8 @@
 //   Ties between several English sources prefer the one whose path shares the record's ids, then the most frequent.
 //   Rich-text tags and placeholders of the official EN texts are the same as in zh_CN, so the client's rich-text
 //   formatting (ui/richText.js) works unchanged; `desc` / `text` (plain) are the stripped `descRaw` / `textRaw`.
+// The seat card operators no season fields (shared/cardOperators.js CARD_EXTRA_OPERATORS, data/cards.json) join the
+// `names` map the same way (their character_table pair, else the fallbacks): no data record carries their names either.
 // The operators' skin names, which no data record carries, go to a `skins` map keyed by the skin id, straight from the
 // two skin tables (same skin id; a skin the target lacks: the fallbacks above — skinNameRows). Not to `names`: that map
 // is keyed by the Chinese, and a skin named like a data record (升华, an effect too) would show the record's name.
@@ -58,6 +60,7 @@ import { basename, dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRecordOverlay, applyFileOverlay, OVERLAY_VERSION } from '../shared/i18nData.js';
 import { gamedataBase } from './gamedata-url.mjs';
+import { CARD_EXTRA_OPERATORS } from '../shared/cardOperators.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE = 'usage: node tools/build-i18n.mjs [--lang en|ja|ko|zh-TW | --lang <code> --dict <file.json>] [--dict <file.json>] [--fix <file.json>] [--refresh | --offline] [--source assets|yostar] [--cache <dir>] [--cache-en <dir>] [--data <dir>] [--out <file>] [--report <file>] [--check] [--quiet]';
@@ -767,7 +770,7 @@ const dictMap = (d, untranslated = (zh, t) => hasCjk(t)) => new Map(Object.entri
  *   `meta.seasons[season]`, so the coverage and totals stay the default season's: a season the official client of
  *   the language lacks (规程 is CN-only) would otherwise pull them down.
  */
-export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang = 'en', owner = null, skins = [] }) {
+export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang = 'en', owner = null, skins = [], cardNames = [] }) {
   const untranslated = untranslatedTest(lang, LANG_SOURCES[lang]?.untranslated === 'native' ? nativeCharset(zh, en) : null);
   const index = new PairIndex(untranslated);
   for (let i = 0; i < zh.length; i++) index.walk(zh[i], en[i], []);
@@ -830,6 +833,22 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
     const distinct = [...new Set(votes.map((v) => v.en))];
     if (distinct.length > 1) nameConflicts.push(`${zhName} → ${distinct.join(' | ')}`);
   }
+  // the seat card operators no season fields (data/cards.json, shared/cardOperators.js CARD_EXTRA_OPERATORS): no data
+  // record names them, so their names join `names` here — the target's character_table pair first, else the fallbacks
+  const cardReport = { texts: 0, missing: [] };
+  for (const c of cardNames) {
+    if (Object.hasOwn(names, c.zh)) continue;
+    cardReport.texts++;
+    const ids = new Set([c.id]);
+    const name = tr.translate(c.zh, { near: ids, record: ids, bb: null, bbStr: null })?.en ?? null;
+    if (!name || untranslated(c.zh, name)) { cardReport.missing.push(`${c.id}: ${c.zh}`); continue; }
+    names[c.zh] = name;
+  }
+  if (cardReport.texts) {
+    const sorted = Object.entries(names).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    for (const k of Object.keys(names)) delete names[k];
+    Object.assign(names, Object.fromEntries(sorted));
+  }
   const { coverage, totals } = coverageOf(stats);
   const seasons = Object.fromEntries(Object.keys(ownStats).sort().map((season) => [season, coverageOf(ownStats[season])]));
   const overlay = {
@@ -851,7 +870,7 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
   };
   const missing = [...stats.missing, ...Object.values(ownStats).flatMap((st) => [...st.missing])].sort((a, b) => (a[1].kind < b[1].kind ? -1 : a[1].kind > b[1].kind ? 1 : a[0] < b[0] ? -1 : 1))
     .map(([text, m]) => ({ kind: m.kind, n: m.n, text }));
-  return { overlay, report: { coverage, totals: overlay.meta.totals, seasons, pairs: index.pairs, nameConflicts, skins: skinReport, untranslated: samples, missing } };
+  return { overlay, report: { coverage, totals: overlay.meta.totals, seasons, pairs: index.pairs, nameConflicts, skins: skinReport, cards: cardReport, untranslated: samples, missing } };
 }
 
 async function main() {
@@ -925,7 +944,10 @@ async function main() {
     await loadTable(opts.cache, gamedataBase(SKIN_TABLE), SKIN_TABLE, { refresh: false, offline: opts.offline, log }),
     client ? await loadTable(opts.cacheEn, src.url, SKIN_TABLE, { refresh: opts.refresh, offline: opts.offline, log }) : null,
     chars);
-  const { overlay, report } = buildOverlay({ zh, en, data, fallback, lang: opts.lang, owner, skins, source: client ? { id: opts.source, label: src.label, home: src.home, season: seasonEn } : { id: 'dict', label: src.label } });
+  const cardsAbs = join(opts.data, 'cards.json');
+  const cardNames = (existsSync(cardsAbs) ? JSON.parse(await readFile(cardsAbs, 'utf8')).operators || [] : [])
+    .filter((o) => CARD_EXTRA_OPERATORS.includes(o?.charId) && hasCjk(o.name)).map((o) => ({ id: o.charId, zh: o.name }));
+  const { overlay, report } = buildOverlay({ zh, en, data, fallback, lang: opts.lang, owner, skins, cardNames, source: client ? { id: opts.source, label: src.label, home: src.home, season: seasonEn } : { id: 'dict', label: src.label } });
   /** season id → its overlay's `files` (written beside the overlay: data/i18n/<lang>.<season>.json, seasonOverlayPath) */
   const seasonFiles = {};
   for (const [season, sdata] of Object.entries(seasonData)) {

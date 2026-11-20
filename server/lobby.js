@@ -128,7 +128,8 @@
 //     seat or the match.
 //   * 名片干员 (after upstream 0.3.3, the seat cards of the waiting room): room.card { charId } — the operator whose
 //     portrait fills the player's seat card, '' for none — is kept only when data/cards.json (shared/cardOperators.js:
-//     the visible, non-自选 chess and this server's 自选 picks of every season) lists it for a season the server offers,
+//     the visible, non-自选 chess and this server's 自选 picks of every season, and the few operators of
+//     CARD_EXTRA_OPERATORS no season fields, listed for every season) lists it for a season the server offers,
 //     whatever the room's season (cardAllowed; maintainer request 2026-11-18, as room.skins; another id: BAD_MSG, the
 //     stored one stays). Stored on the session (it
 //     follows the player into the next room) and the seat; the room's members see it as room.state seats[].card (human

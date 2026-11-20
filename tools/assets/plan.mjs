@@ -396,13 +396,15 @@ export function collectEnemyIds({ assets07, enemies05, maps05, ops03 }) {
  * @param {Record<string, any>} [p.extraOperators] charId → { subProfessionId, nationId, skills: [{ index, skillId, iconId }] }
  *   of characters research 07 does not list (the 自选 owned-6★ picks, data/backups.json `units`): planned like the pool
  *   operators from patternOperator
+ * @param {string[]} [p.cardOperators] charIds that only a waiting-room seat card shows (shared/cardOperators.js
+ *   CARD_EXTRA_OPERATORS): `chars[id]` = its avatar and portrait from patternOperator, no model, skills or sounds
  * @param {string[]} [p.moduleTypes] module type icon ids (`typeIcon`, e.g. 'sol-x') → manifest `modules[typeIcon]`, the
  *   official type icon (arts/ui/uniequiptype) the 干员调配 / 自选 module tiles draw when the local-client art lacks it
  * @returns {{ template: any, models: Map<string, any>, notes: string[] }}
  */
 export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsData, charword = null, voiceLang = 'cn',
   voiceSlots = VOICE_BATTLE_SLOTS,
-  extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {}, localTokenSpines = {}, localItemSpines = {}, extraOperators = {},
+  extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {}, localTokenSpines = {}, localItemSpines = {}, extraOperators = {}, cardOperators = [],
   moduleTypes = [], statsTemplate = [], charModes = loadCharModes(), charAudio = loadCharAudio(), tokenSkills = loadTokenSkills(), skillCast = loadSkillCast(), skillBegin = loadSkillBegin() }) { // local patch: charModes, charAudio (2026-10-10)
   const notes = [];
   /** @type {Map<string, any>} */
@@ -534,6 +536,13 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     const dub = dubbedSfx(audio, id, (o.skills || []).filter((k) => idx.includes(k.index)), [voiceLang, ...Object.values(VOICE_TWINS)], dubLeaf);
     if (dub) u.dub = dub;
     if (Object.keys(u).length) unitsSfx[id] = u;
+  }
+  const cardOnly = new Set();
+  for (const id of cardOperators) {
+    if (chars[id] || !/^char_\d+_[a-z0-9]+$/i.test(id)) continue;
+    cardOnly.add(id);
+    const o = patternOperator(id);
+    chars[id] = { avatar: leaf(alt(`char/avatar/${id}.png`, o.avatar.e0e1.url)), portrait: leaf(alt(`char/portrait/${id}_1.png`, o.portrait.e0e1.url)) };
   }
 
   // --- tokens --------------------------------------------------------------
@@ -834,7 +843,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   // the complete official set (`voiceSlots: null`, reviewer note on the voice PR).
   const voice = {};
   for (const [charId, slots] of indexVoice(charword, VOICE_ID_LANG, voiceSlots)) {
-    if (!chars[charId]) continue;            // only the operators this game can field (`chars`: the 138 pool charIds and the 自选 picks)
+    if (!chars[charId] || cardOnly.has(charId)) continue; // only the operators this game can field (`chars`: the 138 pool charIds and the 自选 picks; not a seat card's)
     const v = {};
     for (const [slot, assets] of Object.entries(slots)) {
       // one leaf per line (部署1 / 部署2 …): an array stays an array so the client can draw one — chaining them as
