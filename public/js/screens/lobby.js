@@ -1052,6 +1052,9 @@ export function LobbyScreen() {
   // the dialog's mode: 'solo' (选择模拟协议 of 独立模拟), 'match' (of 同盟匹配), 'coop' (同盟模拟's screen and 创建公开联合's)
   const roomMode = open === 'solo' ? 'solo' : open === 'match' ? 'match' : 'coop';
   const publicNew = open === 'pa';
+  // 同盟匹配 ↔ its 创建公开联合 swap inside one 选择模拟协议: a new key would mount a new Modal, whose veil fades in from
+  // transparent (components.css modal-fade) and lets the hub show through for a moment both ways
+  const protoKey = publicNew ? 'match' : open;
   const matching = roomMode === 'match';
   // 规程 (header of GRADES): a solo room picks a 规程等级
   const graded = gradedRoom(roomMode, season);
@@ -1176,7 +1179,7 @@ export function LobbyScreen() {
     ${open === 'join' ? html`<${AllianceSelect} onClose=${() => setOpen(null)}
       code=${code} onCode=${onCode} codeOk=${codeOk} online=${online} busy=${busy}
       onJoin=${join} onSpectate=${spectate} recent=${recent} focusKey=${!coarse} short=${shortScreen} />` : null}
-    ${open === 'solo' || open === 'match' || open === 'coop' || publicNew ? html`<${ProtocolSelect} key=${open} roomMode=${roomMode} difficulty=${difficulty} onDifficulty=${pickDifficulty}
+    ${open === 'solo' || open === 'match' || open === 'coop' || publicNew ? html`<${ProtocolSelect} key=${protoKey} roomMode=${roomMode} difficulty=${difficulty} onDifficulty=${pickDifficulty}
       grade=${graded ? grade : null} onGrade=${pickGrade}
       onClose=${() => setOpen(publicNew ? 'match' : null)} onStart=${matching ? queue : create} busy=${busy} online=${online} waiting=${waiting}
       sub=${matching ? targetLine : null} wait=${waitHere ? html`<${QueueWait} onPublic=${queuePublic} />` : null} locked=${waitHere}

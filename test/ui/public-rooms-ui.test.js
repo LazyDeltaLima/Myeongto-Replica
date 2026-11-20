@@ -117,6 +117,9 @@ test('two entries by who plays: 同盟模拟 private (no 公开 row), 同盟匹�
   // 创建公开联合 (pa): the matching screen's ruleset carried over, back = the list, a public room
   assert.match(lobby, /const openPublicNew = \(\) => \{ setRuleset\(queueRuleset\); setOpen\('pa'\); \};/);
   assert.match(lobby, /onClose=\$\{\(\) => setOpen\(publicNew \? 'match' : null\)\}/);
+  // the list ↔ 创建公开联合 is one dialog (one key): a remount fades a new veil in from transparent and the hub flashes
+  assert.match(lobby, /const protoKey = publicNew \? 'match' : open;/, 'the matching screen and 创建公开联合 share ProtocolSelect\'s key (docs/rules/ui.md 「공개방」)');
+  assert.match(lobby, /<\$\{ProtocolSelect\} key=\$\{protoKey\} /);
   assert.match(lobby, /publicNew \? openPublicRoom\(createFields\(\)\) : net\.request\('room\.create', createFields\(\)\)/);
   assert.match(lobby, /onCreate=\$\{openPublicNew\}/);
   assert.match(lobby, /<\$\{MatchQueueDialog\} onPublic=\$\{queuePublic\} inline=\$\{waitHere\} \/>/);
