@@ -180,8 +180,8 @@
 //     room.queueVote go to the Matchmaker (server/matchmaking.js, its header has the rules): a per-difficulty co-op
 //     queue of single players; a confirmed group of four gets a room of its own (queue order = seat order, the first is
 //     host) and a match started at once, and a waiting player may be offered a seat in a public room (below). Its
-//     session events come from onHello / onDisconnect / onExpire / shutdown here, a seat taken through room.join from
-//     join (onSeated), a room's changes from broadcastState / disposeRoom (onRoom). room.queueRoom (a room's 빈자리
+//     session events come from onHello / onDisconnect / onExpire / shutdown here, a seat taken through room.join or
+//     room.create from join / create (onSeated), a room's changes from broadcastState / disposeRoom (onRoom). room.queueRoom (a room's 빈자리
 //     매칭, room.state `matching`, ERR.MATCHING) is gone (maintainer decision 2026-11-20): a public room does its work.
 //   * 공개방 (maintainer decisions 2026-11-20, a remake feature — the official client has no room list): a co-op room is
 //     private by default; room.create { public: true } or room.setPublic { on } (host, any phase; solo rooms: BAD_MSG /
@@ -731,6 +731,7 @@ export class Lobby {
     session.pendingResult = null;
     this.log.info(`[lobby] ${code} created (${mode}${room.size > MAX_SEATS ? room.size : ''}/${difficulty}${roomGrade !== null ? `#${roomGrade}` : ''}/${room.ruleset.preset}${room.public ? ', public' : ''}) by ${session.name}`);
     localPatch.roomEntry(this, room, session, 'created');
+    this.queue.onSeated(session); // like join: out of the 랜덤 매칭 queue before the new room's state walks it
     this.broadcastState(room);
     return OK;
   }

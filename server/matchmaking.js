@@ -29,8 +29,8 @@
 //   * A waiting single player whose socket closes is skipped by group formation and leaves the queue after
 //     `queueGraceMs` (10 s; a phone switching apps keeps its place); a resume within that time resends the queue state
 //     (or the pending room.matchFound). The reconnect window expiring removes the entry at once. A player who takes a
-//     seat in a room some other way (the public room list, an invitation link, a key) leaves the queue then (reason
-//     'room'; Lobby.join → onSeated; an answer pending for a group is a decline).
+//     seat in a room some other way (the public room list, an invitation link, a key, a room of their own) leaves the
+//     queue then (reason 'room'; Lobby.join / Lobby.create → onSeated; an answer pending for a group is a decline).
 //   * Limits: at most `maxQueuedPerAddr` waiting single players from one client network (internet clients only, net.js
 //     clientAddress; twice that to join an 8-player queue, so a whole 8-seat group can come from one network — the
 //     count is over every queue; room.queue → ERR.RATE); no queue entry, no public room offer and no match start
