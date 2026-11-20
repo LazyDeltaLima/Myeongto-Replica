@@ -31,6 +31,12 @@
 // Countdown, total = the window's seconds for its gauge; room: a public room's offer, null for a group; vote: null, or
 // { need, declined, no, by } of a 「바로 시작」 vote).
 //
+// 以公开联合等待 (maintainer decisions 2026-11-20): a queue needs exactly four (eight) Doctors, so with few online two
+// may wait on and on. After PUBLIC_OFFER_MS of waiting the dialog offers to open a public room instead (a line and the
+// button, `onPublic` — the lobby's openPublicRoom: out of the queue, room.create { public: true } of the queue's
+// difficulty, ruleset and size — a 快速匹配 queue's the lobby's remembered ones —, 满员自动开始 on): the next Doctor who
+// matches comes in, and AI teammates may fill the rest. Only where the lobby passes `onPublic`.
+//
 // Sounds (maintainer decision 2026-10-14, docs/rules/audio.md 「랜덤 매칭·방 알림음」): the official matching sounds
 // (queueCue), and while ui.queue is set the page keeps its audio running in a hidden tab (audio.keepAwake) and a group
 // that forms while the tab is hidden blinks the tab title until the player comes back (flashTitle).
@@ -180,6 +186,9 @@ export const proposeStart = () => net.request('room.queueVote', {});
 /** Whether a queue offers 「바로 시작」: an 8-player queue with LARGE_MIN_PLAYERS or more waiting, no group pending. */
 export const canProposeStart = (queue) => !!queue && !queue.found && seatsOf(queue.size) > MAX_SEATS && (queue.count ?? 0) >= LARGE_MIN_PLAYERS;
 
+/** How long a queue waits before the dialog offers 以公开联合等待 (header; maintainer decision 2026-11-20: a minute). */
+export const PUBLIC_OFFER_MS = 60_000;
+
 /** m:ss of a waiting time. */
 export const mmss = (ms) => {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -206,16 +215,17 @@ export function customFound(custom, difficulty, size) {
   return { n: customDiffs(custom, { bans, rounds }).length, lines: lines.map((l) => l.text), items: lines };
 }
 
-export function MatchQueueDialog() {
+export function MatchQueueDialog({ onPublic = null }) {
   const queue = useStore((s) => s.ui.queue);
   const [busy, setBusy] = useState(null);
   useTicker(queue && !queue.found ? 500 : 0);
   if (!queue) return null;
-  const run = async (kind, msg) => {
+  const go = async (kind, fn) => {
     if (busy) return;
     setBusy(kind);
-    try { await net.request(msg.t, msg); } catch (err) { toastError(err); } finally { setBusy(null); }
+    try { await fn(); } catch (err) { toastError(err); } finally { setBusy(null); }
   };
+  const run = (kind, msg) => go(kind, () => net.request(msg.t, msg));
   const cancel = () => run('cancel', { t: 'room.unqueue' });
   const cap = seatsOf(queue.size);
   // waiting for 快速匹配: no ruleset or size yet; once a group forms its ruleset and size (「经典 · 4人」)
@@ -264,9 +274,13 @@ export function MatchQueueDialog() {
     <//>`;
   }
 
+  // 以公开联合等待 (header) after a minute of waiting
+  const late = !!onPublic && Date.now() - queue.since >= PUBLIC_OFFER_MS;
   return html`<${Modal} open=${true} micro="MATCHMAKING" title=${t('正在匹配同盟…')} closeOnBackdrop=${false} onClose=${cancel} class="queue-dialog"
     actions=${html`<${Button} variant="secondary" icon="close" loading=${busy === 'cancel'} onClick=${cancel}>${t('取消匹配')}<//>
-      ${canProposeStart(queue) ? html`<${Button} variant="primary" icon="play" loading=${busy === 'vote'} onClick=${() => run('vote', { t: 'room.queueVote' })}>${t('提议提前开始')}<//>` : null}`}>
+      ${canProposeStart(queue) ? html`<${Button} variant="primary" icon="play" loading=${busy === 'vote'} onClick=${() => run('vote', { t: 'room.queueVote' })}>${t('提议提前开始')}<//>` : null}
+      ${late ? html`<${Button} variant="primary" icon="signal" loading=${busy === 'public'} data-testid="queue-public"
+        onClick=${() => go('public', () => onPublic(queue))}>${t('以公开联合等待')}<//>` : null}`}>
     <div class="queue-dialog__body">
       <div class="queue-dialog__clock num">${mmss(Date.now() - queue.since)}</div>
       <div class="queue-dialog__lines">
@@ -276,6 +290,7 @@ export function MatchQueueDialog() {
         : html`<span>${t('排队中的博士：{count}/{n}', { count: Math.min(cap, queue.count), n: cap })}</span>
           <span class="t-lo">${t('凑齐 {n} 名博士后开始', { n: cap })}</span>`}
         ${cap > MAX_SEATS ? html`<span class="t-lo">${t('满 {n} 名可投票提前开始', { n: LARGE_MIN_PLAYERS })}</span>` : null}
+        ${late ? html`<span class="queue-dialog__offer" data-testid="queue-public-line">${t('超过 1 分钟仍未凑齐 · 以公开联合等待，同条件匹配的博士会加入，空位也可由 AI 队友补上')}</span>` : null}
       </div>
     </div>
   <//>`;

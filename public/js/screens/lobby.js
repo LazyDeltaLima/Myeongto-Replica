@@ -20,7 +20,12 @@
 //     waiting Doctors (the quick queue + every ruleset × size queue); room.queue { quick: true }. 공개방 (maintainer
 //     decisions 2026-11-20): the left half's picture and brief are blurred under the public room list (ui/publicRooms.js),
 //     and each card adds its season's waiting public rooms (「房间 n」; one badge 「n · 房间 n」 on a short screen).
-//   同盟模拟's 选择模拟协议 has a 公开 row under 规则 / 人数 (room.create `public`, private by default — the same decisions).
+//   The two entries split by who plays (maintainer decisions 2026-11-20): 同盟模拟 makes a private room (a key, AI
+//   teammates; no 公开 row), 同盟匹配 has everything public — the list, matchmaking, and 创建公开联合 at the list's head (or
+//   in an empty list), which opens the same 选择模拟协议 as 'pa' (PUBLIC ALLIANCE: 自定义 ⚙ too, the matching screen's
+//   difficulty, ruleset and size carried over, back = the list): room.create { public: true } and room.setAutoStart, a
+//   public room made there starting by itself once full and ready. The queue's waiting dialog offers the same after a
+//   minute (ui/matchQueue.js 以公开联合等待, `onPublic` here: room.unqueue, then the queue's conditions).
 // On a short screen (≤ 520 px tall, a landscape phone) the left column narrows to three cards — the 成就统计 strip, 加入同盟,
 // and 作战提示 | 更新 as tabs (maintainer decision 2026-11-08) —; on a phone too narrow for it, it gives way, as upstream's:
 // 成就统计 and 加入同盟 · 观战 become plates under 干员调配 (the latter opens AllianceSelect: the key alone).
@@ -45,7 +50,7 @@
 // config.json mode texts come localized from data.js.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, LARGE_SEATS, LARGE_MIN_PLAYERS, ROOM_SIZES, MAX_SPECTATORS, modeIdFor, ERR, FAST_GRADE, MAX_GRADE, gradeDifficulty, isGrade } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, LARGE_SEATS, LARGE_MIN_PLAYERS, ROOM_SIZES, MAX_SPECTATORS, modeIdFor, seatsOf, ERR, FAST_GRADE, MAX_GRADE, gradeDifficulty, isGrade } from '../../../shared/constants.js';
 import { html, Button, Icon, MicroLabel, Modal, TextField, PingPill, OnlinePill, Tooltip, Spinner, DifficultyIcon, doctorNo, gradeName } from '../ui/components.js';
 import { Sprite, Img } from '../ui/gameComponents.js';
 import { uiUrl } from '../ui/assetUrls.js';
@@ -139,13 +144,29 @@ const MODE_CARDS = [
   },
   {
     id: 'coop', name: N_('同盟模拟'), en: 'ALLIANCE SIMULATION', icon: 'users',
-    desc: N_('与至多 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。'), params: { n: MAX_SEATS - 1 },
+    // the two entries split by who plays (maintainer decision 2026-11-20): 同盟模拟 private, 同盟匹配 everything public
+    desc: N_('用邀请码召集好友，或与 AI 队友一起进行的非公开同盟。'),
   },
   {
     id: 'match', name: N_('同盟匹配'), en: 'ALLIANCE MATCHMAKING', icon: 'signal',
-    desc: N_('独自进入公共匹配池，与其他博士组成同盟后开始模拟。'),
+    desc: N_('寻找公开联合加入、自动匹配，或创建公开联合等待其他博士。'),
   },
 ];
+
+/** 创建公开联合's head under 选择模拟协议 (ProtocolSelect `head`). */
+const PUBLIC_HEAD = { icon: 'signal', name: N_('创建公开联合'), en: 'PUBLIC ALLIANCE' };
+
+/**
+ * A public room made from 同盟匹配 (创建公开联合, or the waiting dialog's 以公开联合等待 with `queued`): room.create
+ * { public: true } with 满员自动开始 on (room.setAutoStart; maintainer decisions 2026-11-20 — both start by themselves once
+ * full and ready). A queued player leaves the queue first (room.create keeps a queue entry).
+ * @param {Record<string, unknown>} fields room.create's other fields @param {{ queued?: boolean }} [o]
+ */
+export async function openPublicRoom(fields, { queued = false } = {}) {
+  if (queued || store.get().ui.queue) await net.request('room.unqueue', {});
+  await net.request('room.create', { ...fields, public: true });
+  await net.request('room.setAutoStart', { on: true });
+}
 
 /** The lobby's remembered alliance size (4 the first time). */
 export function lobbySize() {
@@ -714,9 +735,9 @@ export function SizeSwitch({ value, onPick, counts = null, disabled = false, cla
 }
 
 /**
- * 不公开 | 公开: a public room is on 同盟匹配's list and matchmaking fills its seats (server/lobby.js 「공개방」). One part for
- * a new room (ProtoRules' 公开 row, both names shown) and the waiting room's footer (screens/room.js PublicToggle, `fold`:
- * the official matching range switch's pill — the other side folds its name away and shows its icon alone; the name
+ * 不公开 | 公开: a public room is on 同盟匹配's list and matchmaking fills its seats (server/lobby.js 「공개방」). The waiting
+ * room's footer draws it (screens/room.js PublicToggle, `fold`; a new room has no 公开 row since maintainer decision
+ * 2026-11-20 — 同盟模拟 is private, 同盟匹配's 创建公开联合 public): the official matching range switch's pill — the other side folds its name away and shows its icon alone; the name
  * stays in the DOM, so the track keeps its width and the picked pill grows across it as the other `.rtrack` switches do,
  * css/screens/room.css). `editable` false or `busy`: the buttons disabled (a guest's read-only view).
  */
@@ -751,9 +772,10 @@ function RowKey({ text }) {
  * decision 2026-11-08: the room's mode bar opens this dialog for every setting); `sizeLocked` keeps it at 8 while more
  * than four seats are taken. No 赛季 row (maintainer decision 2026-11-13): a new room plays the season picked on the
  * lobby's chip, the one place a season is picked. A picked 自定义's summary is CustomBrief, in the brief at the left.
- * `onPub` (同盟模拟's new room): the 公开 row under them, 不公开 | 公开 (`pub`; maintainer decisions 2026-11-20, private by default).
+ * No 公开 row (maintainer decision 2026-11-20): 同盟模拟 makes a private room; a public one is made from 同盟匹配's list
+ * (创建公开联合, the lobby's 'pa' dialog).
  */
-export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize, quick = false, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false, pub = null, onPub = null }) {
+export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize, quick = false, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false }) {
   const matching = roomMode === 'match';
   const roomSize = roomMode === 'coop' && !!onSize;
   const big = matching && size === LARGE_SEATS;
@@ -778,12 +800,6 @@ export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize,
       <span class="proto-rules__cell">
         <${SizeSwitch} value=${size} onPick=${onSize} disabled=${readOnly || sizeLocked} class="proto-rules__seg rtrack" />
         ${sizeLocked && !readOnly ? html`<span class="proto-rules__note">${t('已有 5 名以上成员入座，无法改为 4 人同盟')}</span>` : null}
-      </span>
-    </span>` : null}
-    ${roomMode === 'coop' && onPub ? html`<span class="proto-rules__row" data-testid="proto-public">
-      <${RowKey} text=${t('公开')} />
-      <span class="proto-rules__cell">
-        <${PublicSwitch} value=${!!pub} onPick=${onPub} class="proto-rules__seg rtrack" />
       </span>
     </span>` : null}
   </div>`;
@@ -833,18 +849,19 @@ export function QuickRange({ quick, onQuick }) {
  * the class `ally-create__go` the browser suites press. The project's Modal (focus trap, Esc, focus
  * restored) styled to fill the screen. `roomMode`: 'solo' (开始独立模拟), 'match' (开始匹配; `waiting(d)` the Doctors of each
  * card's queue, `rooms(d)` its public rooms, `stage` the public room list over the blurred picture and brief) or 'coop' (a room's host, bundle ui-B: `action` / `hint` replace the button's label and the hint), or
- * `readOnly` — the cards shown, not chosen, and no button.
+ * `readOnly` — the cards shown, not chosen, and no button. `head`: { icon, name, en } in place of the mode's under the title
+ * (创建公开联合's PUBLIC ALLIANCE).
  */
 export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, onStart, busy, online, rules = null, waiting = null,
-  action = null, hint = null, readOnly = false, range = null, brief = null, grade = null, onGrade = null, stage = null, rooms = null }) {
-  const card = MODE_CARDS.find((c) => c.id === roomMode) || MODE_CARDS[0];
+  action = null, hint = null, readOnly = false, range = null, brief = null, grade = null, onGrade = null, stage = null, rooms = null, head = null }) {
+  const card = head || MODE_CARDS.find((c) => c.id === roomMode) || MODE_CARDS[0];
   // a 规程 solo room (`grade` set): the 规程等级 rows instead of the difficulty cards, the brief and picture the grade's
   const graded = isGrade(grade);
   const ginfo = graded ? gradeInfo(/** @type {number} */ (grade)) : null;
   if (ginfo) difficulty = ginfo.difficulty;
   const info = ginfo || difficultyInfo(roomMode === 'solo' ? 'solo' : 'coop', difficulty);
   const label = action || (roomMode === 'solo' ? t('开始独立模拟') : roomMode === 'match' ? t('开始匹配') : t('创建同盟'));
-  const defaultHint = roomMode === 'solo' ? t('创建后即可开始模拟') : roomMode === 'match' ? t('寻找同一难度、规则和人数的公开联合与博士') : t('创建后可邀请好友或添加 AI 队友');
+  const defaultHint = roomMode === 'solo' ? t('创建后即可开始模拟') : roomMode === 'match' ? t('寻找同一难度、规则和人数的公开联合与博士') : t('非公开同盟 · 创建后用邀请码邀请好友或添加 AI 队友');
   return html`<${Modal} open=${true} onClose=${onClose} class="proto" veilClass="proto-veil">
     <div class="proto__body" style=${`--d-color:${ginfo ? ginfo.color : DIFFICULTY_COLORS[difficulty]}`} data-difficulty=${difficulty} data-mode=${roomMode}>
       <div class="proto__bg" aria-hidden="true"></div>
@@ -981,10 +998,9 @@ export function LobbyScreen() {
   const [size, setSize] = useState(lobbySize);
   const [quick, setQuick] = useState(() => loadPref('lobby.quick', false) === true);
   const [grade, setGrade] = useState(lobbyGrade);
-  // 公开 of a new room (同盟模拟): private by default, each time (maintainer decision 2026-11-20)
-  const [pub, setPub] = useState(false);
   const publicRooms = useStore((s) => s.ui.publicRooms ?? null);
-  // the open dialog: 'solo' | 'match' (选择模拟协议) | 'coop' (选择模拟协议 → 创建同盟) | 'join' (加入同盟 · 观战, AllianceSelect)
+  // the open dialog: 'solo' | 'match' (选择模拟协议) | 'coop' (选择模拟协议 → 创建同盟, private) | 'pa' (同盟匹配's
+  // 创建公开联合: the same screen, a public room) | 'join' (加入同盟 · 观战, AllianceSelect)
   const [open, setOpen] = useState(null);
   const [sweepOpen, setSweepOpen] = useState(false);
   const [achOpen, setAchOpen] = useState(false);
@@ -1010,8 +1026,9 @@ export function LobbyScreen() {
 
   const online = conn.status === 'online';
   const codeOk = CODE_RE.test(code);
-  // the dialog's mode: 'solo' (选择模拟协议 of 独立模拟), 'match' (of 同盟匹配), 'coop' (同盟模拟's screen)
+  // the dialog's mode: 'solo' (选择模拟协议 of 独立模拟), 'match' (of 同盟匹配), 'coop' (同盟模拟's screen and 创建公开联合's)
   const roomMode = open === 'solo' ? 'solo' : open === 'match' ? 'match' : 'coop';
+  const publicNew = open === 'pa';
   const matching = roomMode === 'match';
   // 规程 (header of GRADES): a solo room picks a 规程等级
   const graded = gradedRoom(roomMode, season);
@@ -1040,10 +1057,16 @@ export function LobbyScreen() {
   };
   // 独立模拟 at the difficulty and ruleset picked on 选择模拟协议; 创建同盟 at the remembered ones, changed in the room
   const gradeFields = graded ? { difficulty: gradeDifficulty(grade), grade } : { difficulty };
-  const publicField = roomMode === 'coop' && pub ? { public: true } : {};
-  const create = () => run('create', () => net.request('room.create', roomRuleset === 'custom'
-    ? { mode: roomMode, ...gradeFields, ruleset: roomRuleset, custom: customDraft(), ...sizeFields(roomMode, big ? LARGE_SEATS : MAX_SEATS), ...seasonFields(season), ...publicField }
-    : { mode: roomMode, ...gradeFields, ruleset: roomRuleset, ...sizeFields(roomMode, big ? LARGE_SEATS : MAX_SEATS), ...seasonFields(season), ...publicField }));
+  const createFields = () => (roomRuleset === 'custom'
+    ? { mode: roomMode, ...gradeFields, ruleset: roomRuleset, custom: customDraft(), ...sizeFields(roomMode, big ? LARGE_SEATS : MAX_SEATS), ...seasonFields(season) }
+    : { mode: roomMode, ...gradeFields, ruleset: roomRuleset, ...sizeFields(roomMode, big ? LARGE_SEATS : MAX_SEATS), ...seasonFields(season) });
+  const create = () => run('create', () => (publicNew ? openPublicRoom(createFields()) : net.request('room.create', createFields())));
+  // 同盟匹配's 创建公开联合: the matching screen's difficulty, ruleset (经典 / 休闲) and size carried over, back = the list
+  const openPublicNew = () => { setRuleset(queueRuleset); setOpen('pa'); };
+  // the waiting dialog's 以公开联合等待 (ui/matchQueue.js): out of the queue, then a public room of its conditions — a
+  // 快速匹配 queue's ruleset and size are the lobby's remembered ones
+  const queuePublic = (q) => openPublicRoom({ mode: 'coop', difficulty: q.difficulty, ruleset: q.quick ? queueRuleset : q.ruleset ?? queueRuleset,
+    ...sizeFields('coop', q.quick ? size : seatsOf(q.size)), ...seasonFields(season) }, { queued: true });
   const queue = () => run('create', () => (quick ? joinQuickQueue(difficulty, season)
     : joinQueue(difficulty, queueRuleset, big ? LARGE_SEATS : MAX_SEATS, season)));
   const join = (c = code) => {
@@ -1124,22 +1147,23 @@ export function LobbyScreen() {
     ${open === 'join' ? html`<${AllianceSelect} onClose=${() => setOpen(null)}
       code=${code} onCode=${onCode} codeOk=${codeOk} online=${online} busy=${busy}
       onJoin=${join} onSpectate=${spectate} recent=${recent} focusKey=${!coarse} short=${shortScreen} />` : null}
-    ${open === 'solo' || open === 'match' || open === 'coop' ? html`<${ProtocolSelect} roomMode=${roomMode} difficulty=${difficulty} onDifficulty=${pickDifficulty}
+    ${open === 'solo' || open === 'match' || open === 'coop' || publicNew ? html`<${ProtocolSelect} key=${open} roomMode=${roomMode} difficulty=${difficulty} onDifficulty=${pickDifficulty}
       grade=${graded ? grade : null} onGrade=${pickGrade}
-      onClose=${() => setOpen(null)} onStart=${matching ? queue : create} busy=${busy} online=${online} waiting=${waiting}
+      onClose=${() => setOpen(publicNew ? 'match' : null)} onStart=${matching ? queue : create} busy=${busy} online=${online} waiting=${waiting}
       rooms=${matching ? (d) => roomsWaiting(publicRooms, season, d) : null}
-      stage=${matching ? html`<${PublicRooms} season=${season} difficulty=${difficulty} ruleset=${queueRuleset} size=${big ? LARGE_SEATS : MAX_SEATS} quick=${quick} online=${online} />` : null}
-      action=${matching && quick ? t('开始快速匹配') : null}
-      hint=${matching && quick ? t('规则与人数随匹配到的队列而定') : null}
+      stage=${matching ? html`<${PublicRooms} season=${season} difficulty=${difficulty} ruleset=${queueRuleset} size=${big ? LARGE_SEATS : MAX_SEATS} quick=${quick} online=${online}
+        onCreate=${openPublicNew} />` : null}
+      head=${publicNew ? PUBLIC_HEAD : null}
+      action=${matching && quick ? t('开始快速匹配') : publicNew ? t('创建公开联合') : null}
+      hint=${matching && quick ? t('规则与人数随匹配到的队列而定') : publicNew ? t('公开联合 · 显示在同盟匹配列表中，匹配中的博士会加入') : null}
       range=${matching ? html`<${QuickRange} quick=${quick} onQuick=${pickQuick} />` : null}
       brief=${html`<${CustomBrief} roomMode=${roomMode} ruleset=${shownRuleset} customRules=${customRules} difficulty=${difficulty} grade=${graded ? grade : null} />`}
       rules=${html`<${ProtoRules} roomMode=${roomMode} ruleset=${shownRuleset} onRuleset=${pickRuleset} onGear=${editCustom}
-        size=${big ? LARGE_SEATS : MAX_SEATS} onSize=${roomMode === 'solo' ? null : pickSize} quick=${matching && quick} counts4=${queueCounts4} counts8=${queueCounts8}
-        pub=${pub} onPub=${roomMode === 'coop' ? setPub : null} />`} />` : null}
+        size=${big ? LARGE_SEATS : MAX_SEATS} onSize=${roomMode === 'solo' ? null : pickSize} quick=${matching && quick} counts4=${queueCounts4} counts8=${queueCounts8} />`} />` : null}
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${achOpen ? html`<${AchievementDialog} onClose=${closeAch} />` : null}
     <${PatchNotesModal} open=${notesFresh !== null} onClose=${() => setNotesFresh(null)} entries=${notes} fresh=${!!notesFresh} />
-    <${MatchQueueDialog} />
+    <${MatchQueueDialog} onPublic=${queuePublic} />
     <${CustomRulesDialog} />
   </div>`;
 }

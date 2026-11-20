@@ -1196,6 +1196,8 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .queue-dialog__clock { font-family: var(--font-num); letter-spacing: -.06em; font-size: .56rem; color: var(--text-hi); min-width: 1.6rem; }
 .queue-dialog__lines { display: flex; flex-direction: column; gap: .06rem; font-size: .18rem; }
 .queue-dialog__mode { color: var(--text-hi); font-weight: 700; }
+/* 以公开联合等待's line after a minute (ui/matchQueue.js): amber, the action it offers */
+.queue-dialog__offer { color: var(--amber); }
 /* a custom room's settings in the confirmation (ui/matchQueue.js FoundCustom) */
 .queue-dialog__custom { margin-top: .06rem; padding: .08rem .12rem; border: 1px solid rgba(160, 130, 255, .4); background: rgba(160, 130, 255, .08); font-size: .15rem; }
 .queue-dialog__custom b { color: #c9b8ff; }
@@ -1386,6 +1388,14 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .dpick__opt.pubrooms__tog:disabled { opacity: .45; }
 .pubrooms__tog em { font-style: normal; font-size: .85em; color: #9ea3a2; }
 .pubrooms__tog.is-active em { color: var(--mint-400); }
+/* 创建公开联合 (ui/publicRooms.js NewRoom): the switches' pill in the list's action colour (参加's amber), before the
+   filter — it takes the filter's push to the right */
+.dpick__opt.pubrooms__new { --d-color: var(--amber); gap: .3em; margin-left: auto; padding: 0 calc(var(--u) * 14) 0 calc(var(--u) * 10); color: #ffd58c;
+  border-color: rgba(246, 163, 41, .55); background: var(--amber-a20); }
+.dpick__opt.pubrooms__new:last-child { border-right-color: rgba(246, 163, 41, .55); }
+.dpick__opt.pubrooms__new .icon { width: 1.05em; height: 1.05em; opacity: 1; }
+.dpick__opt.pubrooms__new:hover:not(:disabled) { color: #ffe2a8; background: rgba(246, 163, 41, .3); }
+.pubrooms__new + .pubrooms__filter { margin-left: 0; }
 .pubrooms__fold { position: relative; display: inline-flex; }
 .pubrooms__fbtn { display: inline-flex; align-items: center; gap: .35em; min-height: 28px; padding: 0 10px; font: inherit; font-size: 13px; color: #e6e9e8;
   background: rgba(0, 0, 0, .5); border: 0; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2); }
@@ -1450,6 +1460,10 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .pubrooms__div b { font-size: calc(var(--u) * 16); color: var(--mint-400); }
 .pubrooms__div b.is-new { color: var(--gold); }
 .pubrooms__empty { grid-column: 1 / -1; padding: calc(var(--u) * 30) calc(var(--u) * 10); text-align: center; color: #8f9493; }
+/* no public room at all: the line, what to do, and a larger 创建公开联合, in the list's middle */
+.pubrooms__empty.is-none { display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 14); padding: calc(var(--u) * 60) calc(var(--u) * 10); }
+.pubrooms__empty.is-none b { color: #e6e9e8; font-size: calc(var(--u) * 20); }
+.dpick__opt.pubrooms__new.is-big { margin-left: 0; min-height: calc(var(--u) * 44); padding: 0 calc(var(--u) * 20) 0 calc(var(--u) * 14); font-size: calc(var(--u) * 17); }
 .pubrooms__foot { flex: none; margin: calc(var(--u) * 8) 0 0; display: flex; align-items: center; gap: .4em; color: #8f9493; font-size: calc(var(--u) * 14); }
 .pubrooms__foot .icon { flex: none; }
 /* a difficulty card's waiting public rooms; a short screen, and the chosen card (its head ends at the 已选定 stamp: the
@@ -1463,6 +1477,10 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   .pubrooms__head { gap: 8px; padding-bottom: 4px; }
   .pubrooms__title i, .pubrooms__count, .pubrooms__foot { display: none; }
   .pubrooms__season .season-chip { min-height: 28px; padding: 0 9px; font-size: 12px; }
+  .dpick__opt.pubrooms__new { min-height: 28px; padding: 0 10px 0 8px; font-size: 12px; letter-spacing: 0; }
+  .pubrooms__empty.is-none { gap: 8px; padding: 18px 8px; font-size: 12px; }
+  .pubrooms__empty.is-none b { font-size: 14px; }
+  .dpick__opt.pubrooms__new.is-big { min-height: 36px; padding: 0 14px 0 10px; font-size: 14px; }
   .pubrooms__smenu { min-width: 260px; }
   .pubrooms__list { display: flex; flex-direction: column; gap: 4px; padding-top: 4px; }
   .pubrooms__list > li { flex: none; } /* a flex column shrinks its rows (a row's second line ran out of it) */

@@ -13,6 +13,9 @@
 //   - Filter F2: a season drop-down (所有赛季 / each season with its rooms; it filters the list only, the picked season
 //     stays) and two switches, 仅匹配对象 (off for another season) and 进行中（观战）. On a short screen the switches fold
 //     into one 筛选 button.
+//   - 创建公开联合 (maintainer decisions 2026-11-20: 同盟匹配 has everything public): a pill at the head before the
+//     filter, the filter switches' pill in the list's action colour (参加's amber), always in view; an empty list (no
+//     public room at all) says so in its middle with a larger one. Both open the lobby's 创建公开联合 (`onCreate`).
 // Joining from the list while queued alone leaves the queue (the server does it; ui/matchQueue.js closes the dialog).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
@@ -97,6 +100,13 @@ function useOutside(open, setOpen) {
     return () => { document.removeEventListener('pointerdown', close, true); document.removeEventListener('keydown', esc, true); };
   }, [open]);
   return ref;
+}
+
+/** 创建公开联合 (header): the filter switches' pill (`.dpick__opt.pubrooms__tog`) in amber. */
+function NewRoom({ onCreate, big = false, testid }) {
+  return html`<button type="button" class=${`dpick__opt pubrooms__tog pubrooms__new tapx${big ? ' is-big' : ''}`} data-testid=${testid} onClick=${() => onCreate?.()}>
+    <${Icon} name="plus" />${t('创建公开联合')}
+  </button>`;
 }
 
 /** An on / off filter (`.dpick__opt` with the check, as 「AI 队友最后选择」). */
@@ -196,9 +206,9 @@ function RoomRow({ row, fit, other, busy, onJoin, onSpectate, customOpen, onCust
 
 /**
  * The list (header). `season`, `difficulty`, `ruleset`, `size`, `quick`: the picks of 选择模拟协议 — what the player's
- * matchmaking would take (roomFit). `online`: the connection is up.
+ * matchmaking would take (roomFit). `online`: the connection is up. `onCreate`: 创建公开联合.
  */
-export function PublicRooms({ season, difficulty, ruleset, size, quick, online }) {
+export function PublicRooms({ season, difficulty, ruleset, size, quick, online, onCreate }) {
   useWatchRooms(online);
   useTicker(15000);
   const rows = useStore((s) => s.ui.publicRooms ?? null);
@@ -242,6 +252,7 @@ export function PublicRooms({ season, difficulty, ruleset, size, quick, online }
     <header class="pubrooms__head">
       <span class="pubrooms__title"><${Icon} name="signal" /><b>${t('公开联合')}</b><i>PUBLIC ALLIANCES</i></span>
       <span class="pubrooms__count">${t('{n} 个 · 匹配对象 {m}', { n: view.total, m: view.fits })}</span>
+      <${NewRoom} onCreate=${onCreate} testid="pubrooms-new" />
       <span class="pubrooms__filter">
         <${SeasonFilter} value=${pick} current=${seasonOf(season)} offered=${offered} counts=${counts} onPick=${(id) => { setPick(id); setCustom(null); }} />
         ${short ? html`<span class="pubrooms__fold" ref=${foldRef}>
@@ -259,7 +270,9 @@ export function PublicRooms({ season, difficulty, ruleset, size, quick, online }
           <span>${t('其他赛季 · 加入后将切换到「{season}」赛季', { season: seasonName(g.season) })}</span></li>`,
         ...g.rows.map((x) => row(x, true)),
       ])}
-      ${rows && empty ? html`<li class="pubrooms__empty">${rows.length ? t('没有符合筛选条件的公开联合') : t('目前没有公开联合 · 创建同盟时选择「公开」即会显示在这里')}</li>` : null}
+      ${rows && empty ? html`<li class=${`pubrooms__empty${rows.length ? '' : ' is-none'}`} data-testid="pubrooms-empty">${rows.length ? t('没有符合筛选条件的公开联合')
+        : html`<b>${t('目前没有公开联合')}</b><span>${t('点击「开始匹配」等待，或创建公开联合，匹配中的博士会进入空位')}</span>
+          <${NewRoom} onCreate=${onCreate} big=${true} testid="pubrooms-new-empty" />`}</li>` : null}
     </ol>
     <p class="pubrooms__foot"><${Icon} name="info" />${t('「开始匹配」会同时寻找匹配对象联合的空位与等待中的博士 · 列表中的联合可以直接加入')}</p>
   </div>`;

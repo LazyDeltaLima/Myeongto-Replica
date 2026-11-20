@@ -152,7 +152,7 @@ test('the lobby and the room: room.create / room.setRuleset carry the settings; 
   const lobby = read('public/js/screens/lobby.js');
   // (规程: the remembered 8 seats stand aside — `big`; its 自定义 is open (maintainer request 2026-11-15); a solo room's
   // grade in gradeFields)
-  assert.match(lobby, /roomRuleset === 'custom'\s*\? \{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, custom: customDraft\(\), \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\), \.\.\.publicField \}/);
+  assert.match(lobby, /roomRuleset === 'custom'\s*\? \{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, custom: customDraft\(\), \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\) \}/);
   assert.doesNotMatch(lobby, /limited && ruleset === 'custom'/, '规程 keeps a remembered 自定义');
   assert.match(lobby, /joinQueue\(difficulty, queueRuleset, big \? LARGE_SEATS : MAX_SEATS, season\)/);
   assert.match(lobby, /<\$\{CustomRulesDialog\} \/>/);

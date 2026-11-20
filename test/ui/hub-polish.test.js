@@ -58,10 +58,10 @@ test('同盟模拟 opens 选择模拟协议 (规则, 人数, cards, 创建同盟
   const ally = src.slice(src.indexOf('export function AllianceSelect('), src.indexOf('function JoinBox('));
   assert.match(ally, /ally-card--join/);
   assert.doesNotMatch(ally, /ally-create__go|SizeSwitch|SeasonPick|onCreate/);
-  assert.match(src, /\$\{open === 'solo' \|\| open === 'match' \|\| open === 'coop' \? html`<\$\{ProtocolSelect\} roomMode=\$\{roomMode\}/);
+  assert.match(src, /\$\{open === 'solo' \|\| open === 'match' \|\| open === 'coop' \|\| publicNew \? html`<\$\{ProtocolSelect\} key=\$\{open\} roomMode=\$\{roomMode\}/);
   assert.match(src, /onSize=\$\{roomMode === 'solo' \? null : pickSize\}[^>]* \/>/);
   // room.create carries what the dialog picked
-  assert.match(src, /\{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\), \.\.\.publicField \}/);
+  assert.match(src, /\{ mode: roomMode, \.\.\.gradeFields, ruleset: roomRuleset, \.\.\.sizeFields\(roomMode, big \? LARGE_SEATS : MAX_SEATS\), \.\.\.seasonFields\(season\) \}/);
   // no 赛季 row (maintainer decision 2026-11-13): the lobby's chip is the one place a season is picked
   const rules = src.slice(src.indexOf('export function ProtoRules('), src.lastIndexOf('/**', src.indexOf('export function CustomBrief(')));
   assert.doesNotMatch(rules, /proto-season|SeasonPick|t\('赛季'\)/);
@@ -99,7 +99,7 @@ test('选择模拟协议: 快速匹配 is the official range switch over the sta
   const src = read('public/js/screens/lobby.js');
   const rules = src.slice(src.indexOf('export function ProtoRules('), src.lastIndexOf('/**', src.indexOf('export function CustomBrief(')));
   assert.doesNotMatch(rules, /快速匹配|qswitch|proto-rules__sum|CustomSummary/, 'the rule rows hold 规则 and 人数 only');
-  assert.equal((rules.match(/class="proto-rules__seg rtrack"/g) || []).length, 4, '规则, 同盟匹配\'s 人数, a room\'s 人数 and a new room\'s 公开 (no 赛季 row since 2026-11-13)');
+  assert.equal((rules.match(/class="proto-rules__seg rtrack"/g) || []).length, 3, '规则, 同盟匹配\'s 人数 and a room\'s 人数 (no 赛季 row since 2026-11-13, no 公开 row since 2026-11-20)');
   const select = src.slice(src.indexOf('export function ProtocolSelect('), src.indexOf('export function AllianceSelect('));
   // the official order under the cards: the tips line, the range switch, the button
   assert.match(select, /<p class="proto-hint">[\s\S]*?<\/p>\s*\$\{range\}\s*<button type="button" class=\$\{`proto-start/);
