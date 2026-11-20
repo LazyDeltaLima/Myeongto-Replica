@@ -152,7 +152,7 @@ file per operator, the same rules as every kit above.
   parts at that stage).
 - `tokens[tokenId]` = its summons, per owner form (`variants['<charId>@<statusKey>']`, with `bySkill` / `byModule`).
 - Verify the numbers against the official tables (`.cache/gamedata/excel`) and PRTS like any kit. If the data itself is
-  wrong or lacks something — a summon's abnormal effect, say — fix `tools/build-data.mjs` (`TOKEN_ABNORMAL`), rebuild with
+  wrong or lacks something — a summon's abnormal effect, say (read from its prefab: `tools/local-extract/token_abnormal.py`) — fix `tools/build-data.mjs`, rebuild with
   `node tools/build-data.mjs --offline` and check with a JSON compare that only the intended data changed.
 
 **File and registration.**

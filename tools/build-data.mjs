@@ -465,6 +465,7 @@ async function loadContext() {
     enemyProjectiles: await loadLocalJson('tools/assets/local-enemy-projectiles.json', 'enemy projectiles (tools/local-extract/enemy_projectiles.py): no `proj` …'),
     skillCast: await loadLocalJson('tools/assets/local-skill-cast.json', 'skill classes (tools/local-extract/skill_cast.py): no skill `cast` …'),
     skillHud: await loadLocalJson('tools/assets/local-skill-hud.json', 'skill HUD rows (tools/local-extract/skill_hud.py): no skill `bulletMode` / `overload` …'),
+    tokenAbnormal: await loadLocalJson('tools/assets/local-token-abnormal.json', 'summon abnormal flags (tools/local-extract/token_abnormal.py): no summon `abnormal` …'),
     charPoints: await loadLocalJson('tools/assets/local-char-points.json', 'operator model points (tools/local-extract/char_points.py): no `hitAt` …'),
     enemyBindings: await loadLocalJson('tools/assets/local-enemy-bindings.json', 'enemy model points (tools/local-extract/enemy_bindings.py): no enemy `hitAt` …'),
     mountPoses: await loadLocalJson(MOUNT_POSES_FILE, 'shot mount poses (tools/assets/mount-poses.mjs): no shot `from` …'),
@@ -1648,27 +1649,62 @@ function enemyAsTokenStats(e) {
 }
 
 /**
- * Abnormal effects (异常效果) summons hold from the start that no official table carries — the PRTS summon pages
- * (召唤物 备注 "持有…"; user playtest #6 item 18). tokens.json `abnormal`; the sim gives the unit the matching flags
- * (Battle._setupUnit):
- *   healFree — 禁疗 (HEAL_FREE, PRTS 异常效果 "无法成为治疗类能力的目标，且受到的治疗量变为0"): “小自在”, “耀阳”, 斯卡蒂的海嗣,
- *              沙之碑, 流形, 狼群, 迷迭香的战术装备, 黄金盟誓, 保护目标（冻结状态） (圣聆初雪 S2's frozen target);
- *   isolated — 孤立 (ALLY_TARGET_FREE, "无法被同阵营选中": no heal and no ally selection reaches it): “炎佑” (PRTS “炎佑”
- *              天赋 "特殊机制|我方单位，孤立，可同时攻击3个目标"), 从不混淆的方向 (备注 "持有无敌、孤立…").
+ * Abnormal effects (异常效果) a summon holds from deployment: the flags of the buffs its own prefab gives it
+ * (tools/assets/local-token-abnormal.json `held`, tools/local-extract/token_abnormal.py; no table carries them) →
+ * tokens.json / backups.json `tokens[…].abnormal`; the sim gives the unit the matching flags (Battle._setupUnit):
+ *   healFree — 禁疗 (`AbnormalFlag.HEAL_FREE` 7, PRTS 异常效果 "无法成为治疗类能力的目标，且受到的治疗量变为0");
+ *   isolated — 孤立 (`ALLY_TARGET_FREE` 15, "无法被同阵营选中": no heal and no ally selection reaches it).
+ * The flags the other entries of ABNORMAL_FLAGS name are read and left out with the reason given there; a flag neither
+ * names stops the build. When a held buff counts (docs/rules/sim.md 「치료 금지와 孤立」): one of CommonAbilities / Trait always;
+ * a mode's only when every mode of the prefab holds that flag (a mode switch detaches the others); a talent's only when
+ * every variant of the summon has that talent unlocked (the token row's talent whose candidates carry the prefabKey) — a
+ * talent some variants lack stops the build (`abnormal` is one list per summon); a buff with a limited life only when its
+ * template ends the unit with it (`…suicide…`: 「小自在」, the 机动盾牌). Throws on a summon the table has no row for.
+ * `variants` / `char`: the summon's variants and its character_table row (null for a bond summon built from an enemy).
  */
-const TOKEN_ABNORMAL = Object.freeze({
-  token_10015_dusk_drgn: ['healFree'],        // “小自在”
-  token_10019_nearl2_sword: ['healFree'],     // “耀阳”
-  token_10017_skadi2_dedant: ['healFree'],    // 斯卡蒂的海嗣 (also 无敌)
-  token_10011_beewax_oblisk: ['healFree'],    // 沙之碑
-  token_10030_mlyss_wtrman: ['healFree'],     // 流形
-  token_10028_vigil_wolf: ['healFree'],       // 狼群
-  token_10012_rosmon_shield: ['healFree'],    // 迷迭香的战术装备
-  token_10040_siege2_vlion: ['healFree'],     // 黄金盟誓
-  token_10058_sbell2_icetgt: ['healFree'],    // 保护目标（冻结状态） (圣聆初雪 S2; also 无法撤退)
-  token_10039_ulpia_block: ['isolated'],      // 从不混淆的方向 (also 无敌)
-  enemy_9012_acloon: ['isolated'],            // “炎佑”
+const ABNORMAL_FLAGS = Object.freeze({
+  7: 'healFree', 15: 'isolated',
+  // the flags below are not `abnormal` effects: each is given, where this mode has it, by the summon's kit or rule
+  3: null,  // BLOCK_FREE — a summon's block count is its stats' (blockCnt 0)
+  5: null,  // INVINCIBLE — the kits (content/tokens.js COUNTDOWN_SUMMONS, the robrta / skadi2 / ulpia kits …; docs/SIM.md §3)
+  6: null,  // UNDEADABLE — the kits (the 援军 states, 不死)
+  8: null,  // UNBALANCE_IMMUNE — the sim has no 失衡
+  18: null, // FORCE_DISARMED — the kits (the 援军 states)
+  21: null, // ELEMENT_FREE_ALL — elemental damage to a summon is the kits' (铁钳号·原型机)
+  27: null, // NOT_WITHDRAWABLE — a summon is never withdrawn by hand in this mode
 });
+
+function tokenAbnormal(ctx, tokenId, char = null, variants = {}) {
+  const table = ctx.tokenAbnormal?.tokens;
+  if (!table) return [];
+  const row = table[tokenId];
+  const fix = `tools/local-extract/token_abnormal.py --id ${tokenId} (docs/rules/sim.md 「치료 금지와 孤立」)`;
+  if (!row) throw new Error(`tokenAbnormal: ${tokenId} has no row in tools/assets/local-token-abnormal.json — ${fix}`);
+  const talentIndex = (k) => (char?.talents || []).findIndex((t) => (t?.candidates || []).some((c) => String(c?.prefabKey) === k));
+  const vs = Object.values(variants || {});
+  const counts = (b) => {
+    if (b.life && !/suicide/.test(b.template || '')) {
+      throw new Error(`tokenAbnormal: ${tokenId}: ${b.buff} holds ${b.flags} for a limited life (${b.template}) — the sim has no lifetime for \`abnormal\` (docs/rules/sim.md 「치료 금지와 孤立」)`);
+    }
+    if (b.talent == null) return true;
+    const i = talentIndex(b.talent);
+    const has = vs.filter((v) => (v.talents || []).some((t) => t.index === i)).length;
+    if (i < 0 || (has && has < vs.length)) {
+      throw new Error(`tokenAbnormal: ${tokenId}: ${b.buff} sits on talent ${b.talent}, which ${i < 0 ? 'the token row lacks' : 'only some variants have'} — \`abnormal\` is one list per summon (docs/rules/sim.md 「치료 금지와 孤立」)`);
+    }
+    return has > 0;
+  };
+  // a mode's flag counts when every mode holds it; the talent / life checks only for what would count
+  const everyMode = (f) => row.modes.every((m) => row.held.some((b) => b.mode === m && b.flags.includes(f)));
+  const flags = new Set();
+  for (const b of row.held) for (const f of b.flags) if ((!b.mode || everyMode(f)) && counts(b)) flags.add(f);
+  const out = [];
+  for (const f of [...flags].sort((x, y) => x - y)) {
+    if (!(f in ABNORMAL_FLAGS)) throw new Error(`tokenAbnormal: ${tokenId}: abnormal flag ${f} is not in ABNORMAL_FLAGS — say there what the sim does with it (docs/rules/sim.md 「치료 금지와 孤立」)`);
+    if (ABNORMAL_FLAGS[f]) out.push(ABNORMAL_FLAGS[f]);
+  }
+  return out;
+}
 
 /**
  * Summon deployment positions the client's token row gets wrong, from the PRTS summon pages: 望's 棋子 — PRTS 棋子
@@ -1708,7 +1744,7 @@ const TOKEN_POSITION_CORRECTIONS = Object.freeze({
  * on a ranged (高台) tile, the mode's "所有行动内远程干员可部署在近战位" being an operators' rule: 凯尔希·思衡托's 战术锚点
  * "仅可以部署在凯尔希·思衡托攻击范围外的远程位" (PRTS 战术锚点 特性; 0.2.0 WE2, O24). `ownerBeside` (present when true): an owner's
  * talent reads "…只能放置于…四周" — the piece may only stand on one of the four tiles next to its owner: 涤火杰西卡's 机动盾牌.
- * `abnormal` = TOKEN_ABNORMAL (PRTS); `position` = TOKEN_POSITION_CORRECTIONS (PRTS) or the token row's.
+ * `abnormal` = tokenAbnormal (its prefab); `position` = TOKEN_POSITION_CORRECTIONS (PRTS) or the token row's.
  */
 function summonRecord(ctx, tokenId, char, variants, produced, ownerTexts = []) {
   const displayType = ctx.ac.shopStateTokenDict?.[tokenId]?.tokenDisplayType || null;
@@ -1735,7 +1771,7 @@ function summonRecord(ctx, tokenId, char, variants, produced, ownerTexts = []) {
     skill: first.skill ? { skillId: first.skill.skillId, bb: first.skill.bb } : null,
     deployLimit: first.stats?.deployLimit ?? 1,
     count: first.count,
-    abnormal: TOKEN_ABNORMAL[tokenId] ? [...TOKEN_ABNORMAL[tokenId]] : [],
+    abnormal: tokenAbnormal(ctx, tokenId, char, variants),
     // its prefab's attack clip and ability timing (tokenAttackAnim; server/sim/ai.js attackTiming)
     ...withAttackAnim(tokenAttackAnim(ctx, tokenId)),
     // where the enemies' shots at it end (its prefab's hit point, as an operator's)
@@ -1824,7 +1860,7 @@ function buildDiyTokens(ctx, units, owned) {
 
 /**
  * Build data/tokens.json: summons of chess (per-owner variants), bond summons (炎佑) and band map
- * characters (band_amedic 预备干员-医疗 / Touch). `abnormal` = TOKEN_ABNORMAL (PRTS).
+ * characters (band_amedic 预备干员-医疗 / Touch). `abnormal` = tokenAbnormal (its prefab).
  */
 function buildTokens(ctx, chess, tokenOwners, enemies) {
   const { charTable } = ctx;
@@ -1878,7 +1914,7 @@ function buildTokens(ctx, chess, tokenOwners, enemies) {
       // its enemy prefab's attack clip and ability timing (enemies.json `attackAnim`): the strike waits for its OnAttack frame
       attackAnim: loon.attackAnim ?? null,
       ...withHitAt(loon.hitAt),
-      abnormal: [...TOKEN_ABNORMAL.enemy_9012_acloon], variants: {},
+      abnormal: tokenAbnormal(ctx, 'enemy_9012_acloon'), variants: {},
       assets: { avatar: loon.iconId, spine: loon.spine, isEnemyModel: true },
     };
   } else warn('炎佑 enemy_9012_acloon missing from enemies');
@@ -5445,11 +5481,6 @@ function validateAll(f) {
     for (const id of [...(p.items || []), ...(p.weighted || []).map((x) => x[0])]) if (!id || !(items[id] || chess[id])) err(`pool ${pid}: unresolved entry ${id}`);
   }
   if (SEASON === DEFAULT_SEASON) for (const id of Object.keys(SHOP_EXCLUDED_ITEMS)) if (!items[id] || items[id].itemType !== 'EQUIP' || items[id].isGolden) err(`SHOP_EXCLUDED_ITEMS: ${id} is not a normal EQUIP item`);
-  for (const [id, fl] of Object.entries(TOKEN_ABNORMAL)) {
-    // the list is the default season's tokens; another season need not field them all
-    if (!tokens[id]) { if (SEASON === DEFAULT_SEASON) err(`TOKEN_ABNORMAL: ${id} is not a token`); continue; }
-    for (const f of fl) if (f !== 'healFree' && f !== 'isolated') err(`TOKEN_ABNORMAL: ${id}: unknown effect ${f}`);
-  }
   for (const [id, pos] of Object.entries(TOKEN_POSITION_CORRECTIONS)) {
     const t = tokens[id] ?? backups?.tokens?.[id];
     if (!t || t.kind !== 'summon') err(`TOKEN_POSITION_CORRECTIONS: ${id} is not a summon`);

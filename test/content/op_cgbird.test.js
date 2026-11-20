@@ -296,12 +296,16 @@ test('幻影: each 夜莺 deployment adds 2 (RIN-Y stage 3: 3) to her stock, at 
   }
 });
 
-test('幻影 without DP waits for it; 夜莺 heals her 幻影 (an injured 友方单位 in range) and her S2 barrier reaches it', () => {
+test('幻影 without DP waits for it; 夜莺 never heals her 幻影 (禁疗 from its prefab), so her S2 barrier never reaches it', () => {
   const { h, u, bird } = field({ tier: 6, elite: true, mod: RINY, skill: 1, phantom: [12, 4], dp: 0 });
-  // the drain makes it an injured ally of her range
+  // the drain makes it an injured ally of her range; its prefab's Modes/Default/Passive bird_c_healfree holds HEAL_FREE
+  // (tokens.json `abnormal`, docs/rules/sim.md 「치료 금지와 孤立」): no heal picks it and the barrier rides on her heal
+  assert.deepEqual(bird.def.abnormal, ['healFree'], 'the 幻影 holds 禁疗 (tools/local-extract/token_abnormal.py)');
   u.skill.gainSp(999);
-  assert.ok(h.runUntil(() => bird.findBuff('cgbird:barrier'), 6), 'barrier on the 幻影 with the next heal');
-  assert.ok(h.hooksOf('heal').some((c) => c.source === u && c.target === bird), 'healed');
+  h.run(6);
+  assert.ok(bird.hp < bird.s.maxHp, 'injured by its drain');
+  assert.ok(!h.hooksOf('heal').some((c) => c.source === u && c.target === bird), 'not healed');
+  assert.ok(!bird.findBuff('cgbird:barrier'), 'no barrier on the 幻影');
   h.b.kill(bird, null);
   h.run(25);
   assert.ok(!bird.alive, 'no DP: still down');

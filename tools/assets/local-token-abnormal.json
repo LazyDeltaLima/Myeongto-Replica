@@ -1,0 +1,648 @@
+{
+ "$comment": "tools/local-extract/token_abnormal.py — the abnormal flags each summon's prefab gives it (docs/rules/sim.md 「치료 금지와 孤立」)",
+ "tokens": {
+  "enemy_9012_acloon": {
+   "modes": [
+    "Default",
+    "1",
+    "2"
+   ],
+   "held": [
+    {
+     "at": "CommonAbilities/Ability0",
+     "buff": "acloon_enable",
+     "flags": [
+      15
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10000_silent_healrb": {
+   "modes": [
+    "Default"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10003_cgbird_bird": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Modes/Default/Passive",
+     "buff": "bird_c_healfree",
+     "flags": [
+      7
+     ],
+     "mode": "Default"
+    }
+   ],
+   "other": []
+  },
+  "token_10006_vodfox_doll": {
+   "modes": [
+    "Default"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10008_cqbw_box": {
+   "modes": [
+    "Default"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10009_weedy_cannon": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Others/CommonAbilities/Passive",
+     "buff": "cannon_passive",
+     "flags": [
+      7
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10011_beewax_oblisk": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Others/CommonAbilities/Passive",
+     "buff": "beewax_healfree",
+     "flags": [
+      7
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10012_rosmon_shield": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Others/CommonAbilities/Passive",
+     "buff": "token_rosmon_healfree",
+     "flags": [
+      7
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10015_dusk_drgn": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Talent/1",
+     "buff": "token_dusk[withdraw]",
+     "flags": [
+      7
+     ],
+     "talent": "1",
+     "life": "limited",
+     "template": "suicide_after_buff[switch_to_dead]"
+    }
+   ],
+   "other": []
+  },
+  "token_10017_skadi2_dedant": {
+   "modes": [
+    "Default",
+    "S1",
+    "S2",
+    "S3"
+   ],
+   "held": [
+    {
+     "at": "CommonAbilities/Passive",
+     "buff": "skadi2_dedant[passive]",
+     "flags": [
+      5,
+      7
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10018_robrta_mach": {
+   "modes": [
+    "Default",
+    "Running"
+   ],
+   "held": [
+    {
+     "at": "CommonAbilities/Passive",
+     "buff": "robrta_mach_invincible",
+     "flags": [
+      5,
+      7
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10019_nearl2_sword": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "CommonAbilities/HealFree",
+     "buff": "nearl2_sword[heal_free]",
+     "flags": [
+      7
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10022_kazema_shadow": {
+   "modes": [
+    "Default"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10024_ebnhlz_rcube": {
+   "modes": [
+    "Default"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10026_bgsnow_subbow": {
+   "modes": [
+    "Default",
+    "Default[D]",
+    "S3",
+    "S3[D]"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10027_ironmn_pile1": {
+   "modes": [
+    "Default",
+    "S1"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/Talents/1",
+     "buff": "ironmn_pile_t_1",
+     "flags": [
+      5,
+      7
+     ],
+     "talent": "1"
+    }
+   ],
+   "other": []
+  },
+  "token_10027_ironmn_pile2": {
+   "modes": [
+    "Default",
+    "S2"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/Talents/1",
+     "buff": "ironmn_pile_t_1",
+     "flags": [
+      5,
+      7
+     ],
+     "talent": "1"
+    }
+   ],
+   "other": []
+  },
+  "token_10027_ironmn_pile3": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Trait",
+     "buff": "ironmn_pile3_trait",
+     "flags": [
+      3,
+      7,
+      8,
+      15,
+      21
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10028_vigil_wolf": {
+   "modes": [
+    "Recharge",
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/CommonAbilities/HealFree",
+     "buff": "vigil_wolf_healfree",
+     "flags": [
+      7
+     ]
+    },
+    {
+     "at": "Others/Direction/CommonAbilities/Passive",
+     "buff": "vigil_wolf_state_1",
+     "flags": [
+      5,
+      6,
+      18
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10029_slent2_protrb": {
+   "modes": [
+    "Default"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10030_mlyss_wtrman": {
+   "modes": [
+    "Recharge",
+    "Default",
+    "Melee",
+    "Range",
+    "Range_S2",
+    "Melee_S3"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/CommonAbilities/Passive",
+     "buff": "mlyss_wtrman_state_1",
+     "flags": [
+      5,
+      6,
+      18
+     ]
+    },
+    {
+     "at": "Modes/Recharge/Body/Talents/1",
+     "buff": "mlyss_wtrman_t_1[trigger]",
+     "flags": [
+      1,
+      24
+     ],
+     "mode": "Recharge",
+     "talent": "1"
+    },
+    {
+     "at": "Others/Direction/CommonAbilities/HealFree",
+     "buff": "mlyss_wtrman_healfree",
+     "flags": [
+      7
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10031_swire2_gdtrap": {
+   "modes": [
+    "Default",
+    "M2"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10032_jesca2_jckshd": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/Talents/1",
+     "buff": "jckshd_t",
+     "flags": [
+      7
+     ],
+     "talent": "1",
+     "life": "limited",
+     "template": "jesca2_jckshd_t[suicide]"
+    }
+   ],
+   "other": []
+  },
+  "token_10035_wisdel_wward": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/CommonAbilities/Ability0",
+     "buff": "token_wisdel_passive[to_host]",
+     "flags": [
+      7
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10037_mitm_trshrb": {
+   "modes": [
+    "Reborn",
+    "Default",
+    "Trash",
+    "Skill"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/CommonAbilities/HealFree",
+     "buff": "trshrb_healfree",
+     "flags": [
+      7
+     ]
+    },
+    {
+     "at": "Others/Direction/CommonAbilities/Passive",
+     "buff": "trshrb_state_1",
+     "flags": [
+      5,
+      6,
+      18
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10039_ulpia_block": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/CommonAbilities/Passive",
+     "buff": "ulpia_block_passive",
+     "flags": [
+      5,
+      15
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10040_siege2_vlion": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/CommonAbilities/HealFree",
+     "buff": "siege2_vlion_healFree",
+     "flags": [
+      7
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10041_cathy_catsld": {
+   "modes": [
+    "Default"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10050_monstr_prosts": {
+   "modes": [
+    "Route",
+    "Default",
+    "S3"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/CommonAbilities/Ability0",
+     "buff": "monstr[block_free]",
+     "flags": [
+      3,
+      7
+     ]
+    }
+   ],
+   "other": [
+    {
+     "at": "Modes/S3/Body/Talents/-1",
+     "buff": "prosts_t_1[s3]",
+     "flags": [
+      5,
+      7,
+      15
+     ],
+     "cls": "PassiveBuffAbility"
+    }
+   ]
+  },
+  "token_10054_phatm2_encdool": {
+   "modes": [
+    "Default",
+    "S1"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10055_phatm2_mndclv": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/CommonAbilities/Passive",
+     "buff": "token_phatm2_mndclv[passive]",
+     "flags": [
+      7,
+      15
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10056_angel2_target": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/CommonAbilities/Ability0",
+     "buff": "token_angel2_inv",
+     "flags": [
+      3,
+      5
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10057_svash2_eagle1": {
+   "modes": [
+    "Default"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10057_svash2_eagle2": {
+   "modes": [
+    "Default"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10057_svash2_eagle3": {
+   "modes": [
+    "Default"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10058_sbell2_icetgt": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Modes/Default/Body/GeneralAbilities/Passive",
+     "buff": "icetgt_a[passive]",
+     "flags": [
+      7,
+      27
+     ],
+     "mode": "Default"
+    }
+   ],
+   "other": []
+  },
+  "token_10064_wang_stone1": {
+   "modes": [
+    "Default"
+   ],
+   "held": [],
+   "other": []
+  },
+  "token_10065_demetr_dmtpos": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/CommonAbilities/Passive",
+     "buff": "dmtpos_a[passive]",
+     "flags": [
+      5,
+      15
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10066_closur_ourbase": {
+   "modes": [
+    "Default",
+    "Recharge",
+    "S1",
+    "S2",
+    "S3"
+   ],
+   "held": [
+    {
+     "at": "Modes/Recharge/Body/GeneralAbilities/Ability0",
+     "buff": "closur_ourbase_reborn",
+     "flags": [
+      5,
+      6,
+      18
+     ],
+     "mode": "Recharge"
+    },
+    {
+     "at": "Others/Direction/CommonAbilities/Ability0",
+     "buff": "closur_passive",
+     "flags": [
+      7
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10068_kalts2_mtship": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/Talents/1",
+     "buff": "token_mtship_t_1",
+     "flags": [
+      5
+     ],
+     "talent": "1"
+    }
+   ],
+   "other": []
+  },
+  "token_10069_mcnist_mcgraf": {
+   "modes": [
+    "Default",
+    "Rush_Begin",
+    "Rusn_End"
+   ],
+   "held": [
+    {
+     "at": "Modes/Rush_Begin/Body/GeneralAbilities/Ability0",
+     "buff": "mcgraf_rush_begin_passive",
+     "flags": [
+      3,
+      5,
+      15
+     ],
+     "mode": "Rush_Begin"
+    },
+    {
+     "at": "Others/Direction/CommonAbilities/Passive",
+     "buff": "mcgraf_s_3_passive",
+     "flags": [
+      7
+     ]
+    }
+   ],
+   "other": []
+  },
+  "token_10071_aglna2_agairp": {
+   "modes": [
+    "Default"
+   ],
+   "held": [
+    {
+     "at": "Others/Direction/CommonAbilities/Passive",
+     "buff": "token_aglna2_passive",
+     "flags": [
+      3,
+      5,
+      15
+     ]
+    }
+   ],
+   "other": []
+  }
+ }
+}

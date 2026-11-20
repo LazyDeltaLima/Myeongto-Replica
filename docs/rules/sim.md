@@ -3379,6 +3379,11 @@ upstream 개발 브랜치의 매치·서버 버그 수정 둘(이식 묶음 D). 
 - `damage.js heal`·`ai.js chainHealNext`: `ignoreHealFree`면 `noHeal` 깃발도 넘는다. Mon3tr(선발) 연쇄 튕김(`JUMP_OPTS`)이 치료 금지 아군을 고르고 치료한다. 프로필의 `noHeal`(수확자·불굴자·무사 특성)은 무엇도 못 넘는다.
 - 팔라스(선발) 재능 2: `pallas_t_2`의 `CreateBuffInRange`는 `purposeMask` HEAL에 `ignoreHealFree` 꺼짐이라 앞칸의 치료 금지 아군을 고르지 않는다. PRTS 비고 「무시하는 것은 자신이 받은 치료 금지」와 같다(전에는 앞칸 아군도 치료했다). 자신은 치료한다 [추정·화면: 같은 선택기가 자신도 거를 코드인데 PRTS 비고는 자신이 치료된다고 한다. 비고대로 둠].
 - 시험: `test/sim/combat.test.js` 孤立, `test/content/op_monstr.test.js` 튕김, `test/content/op_pallas.test.js`.
+- **소환물이 처음부터 가진 치료 금지·孤立은 소환물 프리팹에서 읽는다**(2026-11-20, 관리자 제보 「나이팅게일의 환영이 메딕 치료를 받음」): 공식 클라는 소환물 프리팹(`pkgrps/btl_pfb_tokens_*.ab`, 炎佑는 적 프리팹)의 버프 `abnormalFlags`로 준다 — 환영(`token_10003_cgbird_bird`)은 `Modes/Default/Passive`의 `bird_c_healfree` [7]. 전에는 PRTS 소환물 페이지에서 옮긴 손 표(`TOKEN_ABNORMAL`, 11개)였고 환영·공학용 저수포·전자동 스타일러·스테인리스™ 멀티 플랫폼·글룸핀서호 - 프로토타입·기동 방패·광란의 감옥·지휘 센터·재구성체·체리 3호·구조적 원리(CN)·魂灵之影(`token_10035_wisdel_wward`)·牵绊(`token_10065_demetr_dmtpos`)·“一会儿见！”(`token_10071_aglna2_agairp`, CN — 셋 다 공식 한국어 이름 없음)이 빠져 있었다.
+  - 추출 `tools/local-extract/token_abnormal.py`(EN, 없는 것은 CN) → `tools/assets/local-token-abnormal.json` → `tools/build-data.mjs tokenAbnormal` → `tokens.json`·`backups.json` `abnormal`. 손 표는 지웠다.
+  - 「처음부터」인 버프: 붙을 때 주인에게 거는 능력 — 선택기 없는 `PassiveBuffAbility`, `ON_ATTACHED`(0)에 조건 없이 도는 `BuffToOwner`(울피아누스의 从不混淆的方向). 붙는 때는 자리로 가른다: `CommonAbilities/…`·`Trait`는 늘, `Modes/<모드>/…`는 그 모드만이라 프리팹의 모든 모드에 같은 플래그가 있을 때만, `Talents/<k>`는 소환물 표의 재능(그 prefabKey) 이 모든 변형에서 열렸을 때만(일부만 열리면 생성이 멈춤), 수명이 정해진 버프는 그 템플릿이 유닛을 함께 끝낼 때(`…suicide…`: 「小自在」·기동 방패)만. 스킬·트리거·토글 등 다른 능력의 플래그는 `other`로 적고 읽지 않는다(재구성체 S3 모드, 뮤엘시스 유동체 Recharge 모드 등).
+  - 플래그 7 `HEAL_FREE` → `healFree`, 15 `ALLY_TARGET_FREE` → `isolated`. 프리팹에 함께 있는 3 저지 불가·5 무적·6 불사·8·18·21·27은 `ABNORMAL_FLAGS`에 이유와 함께 이름만 있고 키트가 맡는다. 거기 없는 플래그나 표에 줄이 없는 소환물은 생성이 멈춘다.
+  - 재발 방지: 원인 제거 — 소환물의 이상 상태를 추출기가 프리팹에서 읽고, 생성기가 모르는 플래그·줄 없는 소환물에서 멈춘다.
 
 ## 규정 전장을 19×21 틀로 (2026-11-08)
 

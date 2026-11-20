@@ -537,7 +537,7 @@ export function normalizeToken(id, t0, ownerChessId = null, variantOverride = nu
     canHitFly: t.canHitFly ?? null,
     targetPriority: t.targetPriority ?? null,
     untargetable: t.untargetable ?? /不会受到攻击|不会成为/.test(desc),
-    // abnormal effects held from the start (tokens.json `abnormal`, PRTS summon pages): 'healFree' 禁疗, 'isolated' 孤立
+    // abnormal effects held from deployment (tokens.json `abnormal`, the summon's prefab): 'healFree' 禁疗, 'isolated' 孤立
     abnormal: Array.isArray(t0.abnormal) ? t0.abnormal.filter((x) => typeof x === 'string') : [],
     immune: immuneSet(t.immunities),
     trait: desc,

@@ -261,7 +261,7 @@ export class BattlePlayers {
     u.kit = kit || {};
     u.profile = resolveProfile(u.def, u.kit.trait || null);
     if (u.def.untargetable) this.addBuff(u, { key: 'trait:untargetable', flags: { untargetable: true }, persist: true, allowDead: true });
-    // abnormal effects a summon holds (tokens.json `abnormal`, PRTS; user playtest #6 item 18): 禁疗 — no heal reaches it;
+    // abnormal effects a summon holds (tokens.json `abnormal`, its prefab's buffs): 禁疗 — no heal reaches it;
     // 孤立 ("无法被同阵营选中") — no ally heal or ally selection (auras over a range) reaches it
     const ab = u.def.abnormal;
     if (Array.isArray(ab) && ab.length) {
