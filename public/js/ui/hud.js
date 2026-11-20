@@ -392,7 +392,7 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  *     `left` (a leaker in 联防): its enemies still standing — the capsule's ×N tag
  */
 export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
-  config = null, frozenAt = null, pause = null, live = null, spectator = false, onTimerWarn, effects = null, myId = null }) {
+  config = null, frozenAt = null, pause = null, live = null, spectator = false, onTimerWarn, effects = null, myId = null, watchingOther = false }) {
   const phase = pub?.phase;
   const boss = isBossPhase(phase);
   const warnAt = countdownWarnAt(pub, config);
@@ -468,7 +468,7 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
       </div>
       <${OvertimeWarning} ot=${ot} />
       ${showReady ? html`<${ReadyToggle} priv=${priv} onToggle=${onReady} busy=${readyBusy} readyCount=${readyCount} total=${playerCount} />` : null}
-      ${!spectator ? html`<${SurrenderButton} pub=${pub} myId=${myId} />` : null}
+      ${!spectator && !watchingOther ? html`<${SurrenderButton} pub=${pub} myId=${myId} />` : null}
     </div>
   </header>`;
 }

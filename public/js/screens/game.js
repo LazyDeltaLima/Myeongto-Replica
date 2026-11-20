@@ -1885,7 +1885,7 @@ function MatchScreen() {
         readyBusy=${readyBusy} readyCount=${readyCount} playerCount=${solo ? 1 : aliveCount}
         pen=${pen} penAvail=${penAvail} onPen=${togglePen} config=${gd.config} frozenAt=${frozenAt} onTimerWarn=${timerCue}
         pause=${canPause || paused ? { show: canPause, paused, busy: pauseBusy, onToggle: () => togglePause(!paused) } : null}
-        live=${liveLpNow} spectator=${spectator} effects=${watchingOther && field ? (field.effects ?? null) : priv?.effects} />
+        live=${liveLpNow} spectator=${spectator} watchingOther=${watchingOther} effects=${watchingOther && field ? (field.effects ?? null) : priv?.effects} />
       ${/* the in-match 重新开始 vote, under the bond strip (ui/restartVote.js) */ ''}
       <${RestartVoteBanner} pub=${pub} myId=${myId} />
       <${SurrenderVoteBanner} pub=${pub} myId=${myId} />

@@ -2209,6 +2209,9 @@ upstream v0.2.4 → 0.3.1 사이 버그 수정 커밋 중 우리에게도 있던
   `test/match/runner.test.js` 「watching the other pair's boss field」(실제 g.watch 경로, 화면 밖 자기 보스 전투가 끝까지 돌고 결과가 서버 계산과 같음,
   돌아오기), `test/match/finalAssault.test.js`(서버 계산 판), `test/match/observe.test.js`, `test/ui/uiFixes.test.js`, `test/ui/mock.e2e.test.js`
   「the other pair of the Final Assault may be watched」.
+- 「放弃战斗」(전투 포기, `ui/surrender.js`)은 늘 자기 필드를 끝내므로 다른 필드를 보는 동안에는 숨긴다(관리자 결정 2026-11-20): 다른 조 보스 필드,
+  각자 행동의 팀원 전투 모두(`screens/game.js` `watchingOther` → `ui/hud.js TopBar`). 자기 짝 필드의 반쪽을 ‹ ›로 보는 것은 자기 필드라 그대로 보이고,
+  짝이 낸 포기 투표 띠도 그대로 뜬다. 재발 방지: `test/ui/mock.e2e.test.js` 「the other pair of the Final Assault may be watched」.
 - 계산은 브라우저만 한다(관리자 결정 2026-10-24: 보는 전투를 서버가 계산해 보내는 안은 버림). 자기 전투는 화면 밖에서 그리지 않고 계속 돌아
   보고하고(`battle/runner.js`: 권한 전투는 `cur`가 아니어도 매 프레임 진행 — 숨은 탭과 같은 길), 보는 전투는 받은 b.start로 따라잡아 그린다.
   비용은 시뮬 하나 더(틱당 0.01–0.058 ms 측정, 2026-10-15)와 보기 시작할 때의 따라잡기(프레임당 ≤ 240틱), 그리는 양은 그대로.

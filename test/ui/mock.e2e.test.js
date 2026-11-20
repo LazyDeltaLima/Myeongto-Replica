@@ -950,6 +950,8 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
   test('watch: the other pair of the Final Assault may be watched (maintainer decision 2026-11-20) and 返回战场 brings the own field back', async () => {
     const { page, problems } = await open('phase=FINAL_ASSAULT');
     assert.equal(await page.$eval('.vswitch__label', (el) => el.textContent), '全景');
+    const SURRENDER = '[data-testid="surrender-button"]';
+    assert.ok(await page.$(SURRENDER), '放弃战斗 on the own pair field');
     const rows = await page.$$('.team__row');
     await (await rows[2].$('.team__btn')).click(); // the team dialog; P3 is the other pair (field b2)
     await sleep(250);
@@ -961,9 +963,13 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     assert.ok(watched.includes('Doctor·B') && watched.includes('灰烬'), `the other pair marked watched (${watched})`);
     assert.equal(await page.$('.toast'), null, 'no refusal toast');
     assert.notEqual(await page.$eval('.vswitch__label', (el) => el.textContent), '全景', 'the other pair\'s field on screen');
+    // 放弃战斗 ends the viewer's own field, so it is hidden while another field is on screen (maintainer decision
+    // 2026-11-20; docs/rules/ui.md 「전투 중 팀원 전장 보기」)
+    assert.equal(await page.$(SURRENDER), null, '放弃战斗 hidden while the other pair is watched');
     await page.click('.team__back');
     await sleep(500);
     assert.equal(await page.$eval('.vswitch__label', (el) => el.textContent), '全景', 'back on the own pair field');
+    assert.ok(await page.$(SURRENDER), '放弃战斗 back with the own field');
     assert.deepEqual(problems, []);
     await page.close();
   });
