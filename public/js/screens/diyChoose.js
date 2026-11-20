@@ -17,10 +17,15 @@
 // ready seats as the stage-info player figures (img_player_bg → img_player_confirmed) and the button.
 // 自选预设 (DiyPresetBox, our feature — maintainer decision 2026-11-13: the strategy draft's row moved here, where the cards
 // are): a band over the tier rows with the roster dropdown of the draft (bandDraft.js PresetPicker, without 保持当前编队),
-// its tags and 记住此策略的预设. On entry it shows what my strategy applied when my pick landed (bandPresetChoice: its link,
-// else its nation bond's preset, else 不使用预设); a change applies that roster (ui/factionPick.js applyPresetChoice, the chat
-// faction follows) and sends it at once — the server takes the lineup until I ready, keeping a chosen card only where the
-// same operator stays (match/diyChoose.js setDiyLineup). Locked while ready.
+// its tags and 记住此策略的预设. It shows the roster in use (diyPresetStore `active`: the live picks, which the sync sends
+// and so the cards' lineup) — what my strategy applied when my pick landed, or a chat faction picked since; not the
+// strategy's link (bandPresetChoice), which a reload in the strategy draft could leave unapplied while the cards showed
+// another lineup. A change applies that roster (ui/factionPick.js applyPresetChoice, the chat faction follows) and sends
+// it at once — the server takes the lineup until I ready, keeping a chosen card only where the same operator stays
+// (match/diyChoose.js setDiyLineup). Locked while ready. While it applies (co-op: the room.chatFaction round trip, then
+// room.diy) the cards and 准备就绪 wait too, and 准备就绪 sends any pending 自选编队 first, so the ready never overtakes the
+// lineup (it then went to the next match only); a lineup the match refused anyway goes again after 取消准备
+// (loadoutSync.js resendDiySync).
 // The art is 规程's extract (`diyChooseArt/…`, tools/local-extract/season_ui.py 'prefabs'; 盟约's client has no such
 // screen, so its matches borrow it: ui/assetUrls.js withDiyChooseArt); without it the CSS draws plain fills. Styles: css/screens/diychoose.css on the strategy draft's frame (css/screens/draft.css).
 
@@ -38,9 +43,9 @@ import { useStore } from '../store.js';
 import { data, localAsset } from '../data.js';
 import { audio } from '../audio.js';
 import { OrderRow, useOrderArt, draftArt, PresetPicker, presetChoiceTags, DraftInfoButtons } from './bandDraft.js';
-import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand } from '../ui/diyPresets.js';
+import { diyPresetStore, bandRecommendation, linkBand, BASE_LINK } from '../ui/diyPresets.js';
 import { applyPresetChoice } from '../ui/factionPick.js';
-import { flushDiySync, loadoutStore } from '../ui/loadoutSync.js';
+import { flushDiySync, resendDiySync, loadoutStore } from '../ui/loadoutSync.js';
 import { t } from '../../../shared/i18n.js';
 import { seasonFeature } from '../../../shared/seasons.js';
 
@@ -92,16 +97,19 @@ function DoneMark({ m }) {
 }
 
 /**
- * 自选预设 on 确定自选编队 (see the header): `bandId` = my strategy; `locked` while ready (or a request runs).
- * @param {{ bandId: string, band: any, off: string[]|null, locked: boolean }} props
+ * 自选预设 on 确定自选编队 (see the header): `bandId` = my strategy; `locked` while ready (or a request runs);
+ * `onBusy(true|false)` around applying a choice (the screen holds its cards and 准备就绪 meanwhile).
+ * @param {{ bandId: string, band: any, off: string[]|null, locked: boolean, onBusy?: (busy: boolean) => void }} props
  */
-export function DiyPresetBox({ bandId, band, off, locked }) {
+export function DiyPresetBox({ bandId, band, off, locked, onBusy }) {
   const links = useStore((s) => s.links, Object.is, diyPresetStore);
   const presets = useStore((s) => s.presets, Object.is, diyPresetStore);
+  const active = useStore((s) => s.active, Object.is, diyPresetStore);
   const [picked, setPicked] = useState(null);
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
-  const choice = picked ?? bandPresetChoice(bandId, band, links, presets);
+  // the roster in use (see the header); the one just picked while it applies
+  const choice = busy && picked != null ? picked : (active ?? BASE_LINK);
   const link = links?.[bandId] ?? null;
   const tags = presetChoiceTags(choice, { link, rec: bandRecommendation(band), off });
   const TAG = { linked: ['link', t('已关联')], rec: ['rec', t('推荐')], off: ['off', t('本局禁用')] };
@@ -109,9 +117,14 @@ export function DiyPresetBox({ bandId, band, off, locked }) {
     setPicked(v);
     if (remember) linkBand(bandId, v);
     setBusy(true);
-    await applyPresetChoice(v);
-    await flushDiySync();
-    setBusy(false);
+    onBusy?.(true);
+    try {
+      await applyPresetChoice(v);
+      await flushDiySync();
+    } finally {
+      setBusy(false);
+      onBusy?.(false);
+    }
   };
   const keep = (v) => {
     setRemember(v);
@@ -142,6 +155,7 @@ export function DiyChooseScreen() {
   const [infoOpen, setInfoOpen] = useState(false);
   const [intelOpen, setIntelOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [presetBusy, setPresetBusy] = useState(false); // the 自选预设 box applies a roster (DiyPresetBox onBusy)
   // the choice in the order it was made (the server keeps it in lineup order): a tap on a full tier drops the earliest.
   // The taps show at once while their g.diyChoose is on the wire; once every one has settled (answered, failed or timed
   // out) the screen takes the server's choice again (gameLogic settleDiyChoice), so a request that never landed cannot
@@ -159,7 +173,7 @@ export function DiyChooseScreen() {
   const rule = { coreBan: seasonFeature(roomSeason, 'coreBondBan'), isCore: (b) => !!data.lookup('bonds', b)?.isCore };
   const rows = diyChooseRows(view, ready ? srv : order, (slotId, pick) => diyPickOff(slotId, pick, off, getChess, D, rule));
   const tap = (slotId) => {
-    if (!view || ready || busy) return;
+    if (!view || ready || busy || presetBusy) return;
     const slot = rows.flatMap((r) => r.slots).find((s) => s.slotId === slotId);
     if (!slot || slot.off) return;
     const next = toggleDiyChoice(order, slotId, view.perTier);
@@ -172,11 +186,19 @@ export function DiyChooseScreen() {
     });
   };
   const readyUp = async (cancel) => {
-    if (!view || busy) return;
+    if (!view || busy || presetBusy) return;
     setBusy(true);
+    // a pending 自选编队 edit (a chat faction's preset, debounced) reaches the match before the ready locks it
+    if (!cancel) await flushDiySync();
     await actions.diyReady(cancel);
     setBusy(false);
   };
+  // 取消准备: the match takes a lineup again — one it refused meanwhile goes once more (see the header)
+  const wasReady = useRef(ready);
+  useEffect(() => {
+    if (wasReady.current && !ready) resendDiySync();
+    wasReady.current = ready;
+  }, [ready]);
 
   const mode = gd.config?.modes?.[pub?.modeId];
   const solo = roomSolo || mode?.type === 'SINGLE' || String(pub?.modeId || '').includes('single');
@@ -212,7 +234,7 @@ export function DiyChooseScreen() {
       <div class=${cx('dchoose__body', ready && 'is-ready', presetBand && 'has-preset')}>
         ${ready ? html`<${DoneMark} m=${m} />` : null}
         <div class="dchoose__levels">
-          ${presetBand ? html`<${DiyPresetBox} key=${presetBand} bandId=${presetBand} band=${gd.band(presetBand)} off=${pub?.disabledBonds ?? null} locked=${ready || busy} />` : null}
+          ${presetBand ? html`<${DiyPresetBox} key=${presetBand} bandId=${presetBand} band=${gd.band(presetBand)} off=${pub?.disabledBonds ?? null} locked=${ready || busy} onBusy=${setPresetBusy} />` : null}
           ${view ? rows.map((row) => html`<${TierRow} key=${row.tier} m=${m} row=${row} ready=${ready} onTap=${tap} ops=${ops} />`)
             : html`<p class="dchoose__spec t-dim">${t('观战中')}</p>`}
         </div>
@@ -222,7 +244,7 @@ export function DiyChooseScreen() {
             <span class="dchoose__ppl" aria-hidden="true">${players.map((p) => html`<i key=${p.playerId} class=${cx(p.ready && 'is-on', !pon && 'is-plain')}></i>`)}</span>
             <small>${t('已就绪')}</small>
           </div>
-          ${view ? html`<button type="button" class=${cx('dchoose__btn', ready && 'is-cancel')} data-testid="diy-choose-ready" disabled=${busy}
+          ${view ? html`<button type="button" class=${cx('dchoose__btn', ready && 'is-cancel')} data-testid="diy-choose-ready" disabled=${busy || presetBusy}
             onClick=${() => readyUp(ready)}>${ready ? t('取消准备') : t('准备就绪')}</button>` : null}
         </div>
       </div>

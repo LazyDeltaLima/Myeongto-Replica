@@ -24,7 +24,7 @@ globalThis.fetch = async (url) => {
 };
 
 const M = await import('../../public/js/ui/diyModel.js');
-const { installDiySync, SYNC_DEBOUNCE_MS } = await import('../../public/js/ui/loadoutSync.js');
+const { installDiySync, SYNC_DEBOUNCE_MS, flushDiySync, resendDiySync } = await import('../../public/js/ui/loadoutSync.js');
 const { createStore } = await import('../../public/js/store.js');
 const G = await import('../../public/js/ui/gameLogic.js');
 const { ChessCard } = await import('../../public/js/ui/shopBar.js');
@@ -214,10 +214,56 @@ test('diy sync: welcome brings the kit list and sends room.diy; edits are deboun
   target.set({ diy: {} });
   await T.advance(SYNC_DEBOUNCE_MS + 10);
   assert.equal(target.get().diySync, 'locked');
-  assert.deepEqual(told, ['选择策略已结束，本局的自选编队已锁定，修改将在下一局生效']);
+  assert.deepEqual(told, ['本局的自选编队已锁定，修改将在下一局生效']);
   net.emit('room.state', { inMatch: false });
   await T.advance(SYNC_DEBOUNCE_MS + 10);
   assert.deepEqual(net.sent.at(-1), { t: 'room.diy', picks: {} });
+  s.dispose();
+});
+
+// docs/rules/ui.md 「규정 선발 편성 확정 화면」 「프리셋 상자와 준비」: 准备就绪 waits for the lineup in flight, and a lineup
+// the match refused (the ready overtook it) goes again after 取消准备 — before, it only reached the next match.
+test('diy sync: flushDiySync waits for the same lineup in flight; resendDiySync sends a refused one again', async () => {
+  const net = fakeNet();
+  const T = fakeTimers();
+  const held = [];
+  const real = net.request;
+  net.request = (t, fields) => (net.hold ? new Promise((res) => { net.sent.push({ t, ...fields }); held.push(res); }) : real(t, fields));
+  const target = createStore({ diy: {}, diyKitted: null, open: false, diySync: 'idle' });
+  const s = installDiySync({ net, timers: T, target, notify: () => {} });
+  net.emit('welcome', {});
+  await T.advance(100);
+  assert.equal(target.get().diySync, 'synced');
+  // a request on the wire: a flush of the same content resolves only with its reply
+  net.hold = true;
+  target.set({ diy: { [T5A]: MAIN_PICK } });
+  void flushDiySync();
+  await T.advance(0);
+  assert.equal(net.sent.length, 2);
+  let done = false;
+  void flushDiySync().then(() => { done = true; });
+  await T.advance(0);
+  assert.equal(done, false, 'still waiting for the reply of the request in flight');
+  assert.equal(net.sent.length, 2, 'the same lineup is not sent twice');
+  held.shift()();
+  await T.advance(0);
+  assert.equal(done, true);
+  net.hold = false;
+  await T.advance(SYNC_DEBOUNCE_MS + 10); // the edit's own debounce: already sent
+  assert.equal(net.sent.length, 2);
+  // refused (the seat readied first): 'locked'; resendDiySync sends the same lineup again, once
+  net.replies.push({ error: 'ROOM_STARTED' });
+  target.set({ diy: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK } });
+  await T.advance(SYNC_DEBOUNCE_MS + 10);
+  assert.equal(target.get().diySync, 'locked');
+  const n = net.sent.length;
+  resendDiySync();
+  await T.advance(100);
+  assert.deepEqual(net.sent.slice(n), [{ t: 'room.diy', picks: { [T5A]: MAIN_PICK, [T6A]: WANG_PICK } }], 'the refused lineup goes again');
+  assert.equal(target.get().diySync, 'synced');
+  resendDiySync(); // not locked: nothing
+  await T.advance(100);
+  assert.equal(net.sent.length, n + 1);
   s.dispose();
 });
 

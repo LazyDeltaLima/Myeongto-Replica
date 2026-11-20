@@ -1079,7 +1079,7 @@
   "在此粘贴导出的自选编队内容…": "Paste the exported Custom Squad here…",
   "导出自选编队": "Export Custom Squad",
   "导入自选编队": "Import Custom Squad",
-  "选择策略已结束，本局的自选编队已锁定，修改将在下一局生效": "Strategy selection is over: the Custom Squad is locked for this match; changes apply from the next match",
+  "本局的自选编队已锁定，修改将在下一局生效": "The Custom Squad is locked for this match; changes apply from the next match",
   "下一局生效": "Applies next match",
   "这份数据来自更新的版本（v{v}），请先更新游戏": "This data comes from a newer version (v{v}). Update the game first.",
   "这不是自选编队的数据": "This is not Custom Squad data",

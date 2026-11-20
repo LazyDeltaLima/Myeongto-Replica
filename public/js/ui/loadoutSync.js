@@ -12,8 +12,9 @@
 // the whole loadout; `ops` = the per-operator 潜能 / 练度 of 0.2.2, sanitizeOps against chess.json + backups.json), `room.ownership { notOwned }` (sent as stored: the server keeps the droppable chess and drops
 // the rest, so no data is needed) and `room.diy { picks }` (sent as stored, structurally clean: the server keeps the
 // legal picks). Replies: RATE → retried later; WRONG_PHASE / ROOM_STARTED → the running match keeps what it took (the
-// loadout and the 自选 picks lock when the strategy draft ends, the ownership never changes during a match) — stored for the
-// next match, not an error for the player; anything else is logged. `sync` / `ownSync` / `diySync` ∈ 'idle' |
+// loadout locks when the strategy draft ends, the 自选 picks when the seat readies in 确定自选编队 — resendDiySync sends
+// them again after its 取消准备 —, the ownership never changes during a match) — stored for the next match, not an error
+// for the player; anything else is logged. `sync` / `ownSync` / `diySync` ∈ 'idle' |
 // 'pending' | 'sending' | 'synced' | 'locked' | 'error' are mirrored into the store for the screen's status line.
 //
 // The three settings are kept per 卫戍协议 season (maintainer decision 2026-11-01; shared/seasons.js): the default season's
@@ -203,6 +204,7 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
   let seq = 0;            // requests sent (the reply of an older one never overrides a newer one's state)
   let revision = 0;       // edits and welcomes invalidate a preparation still awaiting game data (upstream PR #540)
   let pendingJson = null; // JSON of the newest request still awaiting its reply
+  let pendingDone = null; // settles with that request (a flush of the same content waits for it: flushDiySync)
   let lastSent = null;    // JSON of the last payload the server accepted (on this session)
   let edited = false;     // an edit is waiting to be sent (a lock refusal is then worth telling the player)
   let editedAt = 0;       // when the newest edit was made (the refusal's console line says how late it went)
@@ -237,7 +239,7 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
       // per season (`seasonless`: the skins) names none
       const body = { ...(field ? { [field]: payload } : payload), ...(!seasonless && prefSeason !== DEFAULT_SEASON ? { season: prefSeason } : {}) };
       const json = JSON.stringify(body);
-      if (json === pendingJson) return; // the same content is already on its way
+      if (json === pendingJson) return pendingDone; // the same content is already on its way: wait for its reply
       if (json === lastSent && pendingJson == null) { edited = false; setState('synced'); return; }
       const my = ++seq;
       const wasEdit = edited;
@@ -245,8 +247,10 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
       edited = false;
       pendingJson = json;
       setState('sending');
+      const req = net.request(msgType, body);
+      pendingDone = req.then(() => {}, () => {});
       try {
-        await net.request(msgType, body);
+        await req;
         if (my !== seq) return;
         pendingJson = null;
         lastSent = json;
@@ -289,6 +293,12 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
 
   return {
     flush,
+    /** A refused ('locked') payload goes again: the match takes it once more (确定自选编队 after 取消准备). */
+    resend() {
+      if (disposed || target.get()[stateKey] !== 'locked') return;
+      lastSent = null;
+      schedule(50);
+    },
     dispose() {
       disposed = true;
       T.clearTimeout(timer);
@@ -376,15 +386,28 @@ export function installDiySync({ net, timers, target = loadoutStore, notify } = 
   });
   const sync = installPrefSync({
     net, timers, target, notify, key: 'diy', stateKey: 'diySync', msgType: 'room.diy', field: 'picks', tag: 'diy',
-    lockedText: N_('选择策略已结束，本局的自选编队已锁定，修改将在下一局生效'),
+    // the lock comes with 确定自选编队 (both seasons since maintainer decision 2026-11-19), not with the strategy draft
+    lockedText: N_('本局的自选编队已锁定，修改将在下一局生效'),
     prepare: async () => cleanPicks(target.get().diy),
   });
   diyFlush = sync.flush;
-  return { flush: sync.flush, dispose() { offKit?.(); sync.dispose(); if (diyFlush === sync.flush) diyFlush = null; } };
+  diyResend = sync.resend;
+  return { flush: sync.flush, dispose() { offKit?.(); sync.dispose(); if (diyFlush === sync.flush) { diyFlush = null; diyResend = null; } } };
 }
 
 /** @type {null | (() => Promise<void>)} the installed 自选编队 sync's flush */
 let diyFlush = null;
+/** @type {null | (() => void)} the installed 自选编队 sync's resend */
+let diyResend = null;
+
+/**
+ * Send the 自选编队 again after the running match refused it ('locked'): 确定自选编队 takes a lineup again once the seat
+ * cancels its ready (screens/diyChoose.js), so an edit the ready overtook reaches the match instead of only the next one.
+ * Nothing happens unless the sync is 'locked'.
+ */
+export function resendDiySync() {
+  diyResend?.();
+}
 
 /**
  * Wire the operator skins sync once (docs/rules/ui.md 「스킨 고르기」): `room.skins { skins }` after every welcome and
