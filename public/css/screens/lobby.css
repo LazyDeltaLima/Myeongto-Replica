@@ -1452,9 +1452,12 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .pubrooms__empty { grid-column: 1 / -1; padding: calc(var(--u) * 30) calc(var(--u) * 10); text-align: center; color: #8f9493; }
 .pubrooms__foot { flex: none; margin: calc(var(--u) * 8) 0 0; display: flex; align-items: center; gap: .4em; color: #8f9493; font-size: calc(var(--u) * 14); }
 .pubrooms__foot .icon { flex: none; }
-/* a difficulty card's waiting public rooms; a short screen shows 「n · 房间 n」 as one badge */
+/* a difficulty card's waiting public rooms; a short screen, and the chosen card (its head ends at the 已选定 stamp: the
+   two badges ran under the ring at 1600×900), show 「n · 房间 n」 as one badge */
 .pcard__wait.pcard__rooms { margin-left: .06rem; }
 .pcard__both { display: none; }
+.pcard.is-on .pcard__head:has(.pcard__both) > .pcard__wait:not(.pcard__both) { display: none; }
+.pcard.is-on .pcard__head:has(.pcard__both) > .pcard__both { display: inline; }
 @media (max-height: 520px) {
   .pubrooms { --u: .0165rem; --po: .013rem; inset: 2px 0 4px 0; }
   .pubrooms__head { gap: 8px; padding-bottom: 4px; }
