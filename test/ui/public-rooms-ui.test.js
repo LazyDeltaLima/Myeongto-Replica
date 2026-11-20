@@ -119,7 +119,7 @@ test('two entries by who plays: 同盟模拟 private (no 公开 row), 同盟匹�
   assert.match(lobby, /onClose=\$\{\(\) => setOpen\(publicNew \? 'match' : null\)\}/);
   assert.match(lobby, /publicNew \? openPublicRoom\(createFields\(\)\) : net\.request\('room\.create', createFields\(\)\)/);
   assert.match(lobby, /onCreate=\$\{openPublicNew\}/);
-  assert.match(lobby, /<\$\{MatchQueueDialog\} onPublic=\$\{queuePublic\} \/>/);
+  assert.match(lobby, /<\$\{MatchQueueDialog\} onPublic=\$\{queuePublic\} inline=\$\{waitHere\} \/>/);
   // openPublicRoom: out of the queue first, a public room, 满员自动开始 on (both ways in, maintainer decisions 2026-11-20)
   const { openPublicRoom } = await load('public/js/screens/lobby.js');
   const { net } = await load('public/js/net.js');
@@ -200,6 +200,52 @@ test('matchQueue: lobby.rooms fills ui.publicRooms; an offer keeps its room; any
   assert.ok(leftText({ reason: 'room' }));
 });
 
+test('the target and the waiting in 同盟匹配\'s screen (mockup round six): 开始匹配\'s second line, the right column waits, the picks locked; the offer names its season', async () => {
+  const lobby = read('public/js/screens/lobby.js');
+  // S1: the start button's second line, from the drop-down's target and the chip season
+  assert.match(lobby, /target === 'all' \? tParts\('\{target\} 公开联合 · 新联合 \{season\}', \{ target: bold\(t\('所有赛季'\)\), season: bold\(seasonName\(season\)\) \}\)/);
+  assert.match(lobby, /target === season \? tParts\('\{season\} 赛季', \{ season: bold\(seasonName\(target\)\) \}\)\s*: tParts\('\{season\} 赛季 · 匹配成功后将切换赛季'/);
+  assert.match(lobby, /sub=\$\{matching \? targetLine : null\} wait=\$\{waitHere \? html`<\$\{QueueWait\} onPublic=\$\{queuePublic\} \/>` : null\} locked=\$\{waitHere\}/);
+  assert.match(lobby, /const waitHere = matching && queued;/);
+  // W1: the wait takes the hint, range switch and start button's place; the rule rows and the cards are locked
+  const select = lobby.slice(lobby.indexOf('export function ProtocolSelect('), lobby.indexOf('export function AllianceSelect('));
+  assert.match(select, /: wait \? html`<div class="proto-foot create-box proto-foot--range proto-foot--wait">\$\{wait\}<\/div>` : html`<div/);
+  assert.match(select, /onSelect=\$\{onDifficulty\} disabled=\$\{readOnly \|\| locked\}/);
+  assert.match(lobby, /counts8=\$\{queueCounts8\}\s*readOnly=\$\{waitHere\} \/>/);
+  assert.match(lobby, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{quick \|\| readOnly\}/, 'the queue\'s 人数 locked too');
+  const mq = read('public/js/ui/matchQueue.js');
+  assert.match(mq, /if \(!queue \|\| \(inline && !queue\.found\)\) return null;/, 'the dialog keeps the confirmation and the vote, the waiting is inline');
+  const wait = mq.slice(mq.indexOf('export function QueueWait('), mq.indexOf('function FoundRoom('));
+  assert.match(wait, /<\$\{ModeCapsule\} season=\$\{queue\.anySeason \? 'all' : queue\.season\} quick=\$\{queue\.quick\}/);
+  assert.match(wait, /const late = !!onPublic && Date\.now\(\) - queue\.since >= PUBLIC_OFFER_MS;/);
+  assert.match(wait, /data-testid="queue-public"\s*onClick=\$\{\(\) => go\('public', \(\) => onPublic\(queue\)\)\}>\$\{t\('以公开联合等待'\)\}/);
+  assert.match(wait, /aria-label=\$\{t\('取消匹配'\)\} onClick=\$\{cancel\}>\$\{primary \? null : t\('取消匹配'\)\}/, '取消匹配 as its icon beside an action');
+  // 所有赛季 as the capsule's season part
+  assert.match(read('public/js/ui/modeCapsule.js'), /season === 'all' \? html`<span class="rs-mode__seg rs-mode__season is-all">\$\{t\('所有赛季'\)\}<\/span>`/);
+  // the confirmation: the season part always, the switch line for another season than the page's, the target on the mode line
+  assert.match(mq, /<\$\{ModeCapsule\} season=\$\{season\} ruleset=\$\{room\.ruleset\?\.preset\}/);
+  assert.match(mq, /seasonOf\(season\) !== seasonOf\(page\) \? html`<span class="queue-dialog__offer" data-testid="found-switch">/);
+  assert.match(mq, /\$\{queue\.anySeason \? ` · \$\{t\('所有赛季'\)\}` : ''\}/);
+  // the store: room.queueState's anySeason, the offer's season
+  const { store } = await load('public/js/store.js');
+  const { installMatchQueue } = await load('public/js/ui/matchQueue.js');
+  const handlers = {};
+  installMatchQueue({ net: { on: (t, fn) => { handlers[t] = fn; } } });
+  handlers['room.queueState']({ queued: true, difficulty: 'NORMAL', ruleset: 'classic', anySeason: true, count: 1, waitedMs: 0 });
+  assert.equal(store.get().ui.queue.anySeason, true);
+  handlers['room.matchFound']({ difficulty: 'NORMAL', ruleset: 'classic', season: 'act3autochess', players: 1, accepted: 0, mine: false, inMs: 15000,
+    room: { code: 'AAAA', host: { name: 'H', no: '1' }, ruleset: { preset: 'classic' }, size: 4, seats: [H, B, E, E] } });
+  assert.equal(store.get().ui.queue.found.season, 'act3autochess', 'the offer\'s season (absent = the default)');
+  assert.equal(store.get().ui.queue.anySeason, true, 'the target stays through the offer');
+  handlers['room.queueState']({ queued: true, difficulty: 'NORMAL', ruleset: 'classic', count: 1, waitedMs: 0 });
+  assert.equal(store.get().ui.queue.anySeason, false);
+  handlers['room.queueState']({ queued: false, difficulty: 'NORMAL', reason: 'left' });
+  // the capsule may not shrink with its season part (the name was cut), as the list's
+  const css = read('public/css/screens/lobby.css');
+  assert.match(css, /\.queue-dialog__room \.rs-mode \{ --o: var\(--po\); margin-right: 0; max-width: none;/);
+  assert.match(css, /\.proto-side\.is-locked \.proto-rules, \.proto-side\.is-locked \.proto-list \{ opacity: \.42;/);
+});
+
 test('every new text has its English and Korean', () => {
   const files = ['public/js/ui/publicRooms.js', 'public/js/ui/modeCapsule.js', 'public/js/ui/matchQueue.js', 'public/js/screens/room.js', 'public/js/screens/lobby.js'];
   const keys = ['公开联合', '仅匹配对象', '进行中（观战）', '所有赛季', '房间 {n}', '匹配对象', '设置 {n} 项不同', '查看全部设置', '参加', '公开', '不公开',
@@ -207,7 +253,16 @@ test('every new text has its English and Korean', () => {
     '公开房间 {n}', '自动开始', '满员且所有博士准备就绪后，倒计时结束即自动开始模拟', '{n} 秒后自动开始',
     '非公开同盟 · 创建后用邀请码邀请好友或添加 AI 队友', '创建公开联合', '公开联合 · 显示在同盟匹配列表中，匹配中的博士会加入', '目前没有公开联合',
     '点击「开始匹配」等待，或创建公开联合，匹配中的博士会进入空位', '以公开联合等待', '超过 1 分钟仍未凑齐 · 以公开联合等待，同条件匹配的博士会加入，空位也可由 AI 队友补上',
-    '「开始匹配」寻找这里选的赛季 · 所有赛季时博士之间按当前赛季（{season}）匹配 · 加入其他赛季的联合会切换到该赛季'];
+    '「开始匹配」寻找这里选的赛季 · 所有赛季时博士之间按当前赛季（{season}）匹配 · 加入其他赛季的联合会切换到该赛季',
+    '正在寻找博士', '{count}/{n} · 凑齐 {n} 名后开始', '{count}/{n} · 满 {m} 名可投票提前开始', '同难度 {count} 名 · 规则、人数不限',
+    '匹配中也可使用列表 · 从列表加入将退出匹配', '超过 1 分钟仍未凑齐 · 以公开联合等待，同条件匹配的博士会加入', '接受后将切换到「{season}」赛季'];
+  // the start button's target line goes through tParts (its names in bold)
+  for (const k of ['{target} 公开联合 · 新联合 {season}', '{season} 赛季', '{season} 赛季 · 匹配成功后将切换赛季']) {
+    assert.ok(read('public/js/screens/lobby.js').includes(`tParts('${k}'`), `used: ${k}`);
+    assert.ok(EN[k] && KO[k], `en / ko: ${k}`);
+  }
+  // 「방」 as the official KR client (房间 = 방; 联合 is the mode's name alone — maintainer decision 2026-11-20)
+  for (const k of ['公开联合', '的公开联合', '没有符合筛选条件的公开联合']) assert.doesNotMatch(KO[k], /연합/, `ko: ${k}`);
   const src = files.map(read).join('\n');
   for (const k of keys) {
     assert.ok(src.includes(`t('${k}'`), `used: ${k}`);

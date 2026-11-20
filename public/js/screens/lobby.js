@@ -23,7 +23,11 @@
 //     The list's season drop-down picks the matchmaking's season too (maintainer decisions 2026-11-20; publicRooms.js
 //     queueTarget): a season = its queue and public rooms, 所有赛季 = the lobby chip's queue with every season's public
 //     rooms (room.queue `anySeason`); the cards' and the 规则 / 人数 counts follow it (所有赛季: the rooms of every season,
-//     the chip season's Doctors). It opens on the chip's season each time the dialog does.
+//     the chip season's Doctors). It opens on the chip's season each time the dialog does. The start button's second
+//     line names that target (maintainer decision 2026-11-20, the public room mockup's S1): 所有赛季 = 「所有赛季 public
+//     rooms · new room <chip season>」, a season = 「<season> 赛季」 (and that a match switches the season when it is not the
+//     chip's). Queued alone, the right column waits instead of a dialog over the list (mockup W1, ui/matchQueue.js
+//     QueueWait in the hint, range switch and start button's place; the 规则 / 人数 rows and the cards locked).
 //   The two entries split by who plays (maintainer decisions 2026-11-20): 同盟模拟 makes a private room (a key, AI
 //   teammates; no 公开 row), 同盟匹配 has everything public — the list, matchmaking, and 创建公开联合 at the list's head (or
 //   in an empty list), which opens the same 选择模拟协议 as 'pa' (PUBLIC ALLIANCE: 自定义 ⚙ too, the matching screen's
@@ -69,7 +73,7 @@ import { Emblem } from './title.js';
 import { SettingsButton } from '../ui/settings.js';
 import { LoadoutButton } from './loadout.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
-import { MatchQueueDialog, joinQueue, joinQuickQueue } from '../ui/matchQueue.js';
+import { MatchQueueDialog, QueueWait, joinQueue, joinQuickQueue } from '../ui/matchQueue.js';
 import { PublicRooms, roomsWaiting, queueTarget } from '../ui/publicRooms.js';
 import { SeasonChip, pickedSeason, offeredSeasonsOf, seasonFields, seasonQueueCounts, seasonQuickCounts, seasonName } from '../ui/season.js';
 import { seasonInfo, seasonFeature, DEFAULT_SEASON } from '../../../shared/seasons.js';
@@ -89,7 +93,7 @@ import { net, identity } from '../net.js';
 import { useDocClass, detectFeatures, useMediaQuery, SHORT_SCREEN_QUERY, FullscreenButton } from '../ui/device.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { data, getConfig, getMode, getStage, useData } from '../data.js';
-import { t, tc, N_ } from '../../../shared/i18n.js';
+import { t, tc, tParts, N_ } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
 
 /** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
@@ -772,7 +776,7 @@ function RowKey({ text }) {
  * 自定义 ⚙; 自定义 locked in 同盟匹配) and 人数 (同盟匹配 only), as wide as the cards under them, drawn as the official
  * range track (`rtrack`, css/screens/room.css). With 快速匹配 (`quick`, its switch is QuickRange over the start button) on,
  * 规则 and 人数 stay, disabled. `readOnly`: the room's settings shown to a Doctor who is not its host (screens/room.js), the
- * buttons disabled. A room's (roomMode 'coop' with `onSize`) has the 人数 row too, without queue counts (maintainer
+ * buttons disabled (also 同盟匹配's while the player is queued: the picks are locked). A room's (roomMode 'coop' with `onSize`) has the 人数 row too, without queue counts (maintainer
  * decision 2026-11-08: the room's mode bar opens this dialog for every setting); `sizeLocked` keeps it at 8 while more
  * than four seats are taken. No 赛季 row (maintainer decision 2026-11-13): a new room plays the season picked on the
  * lobby's chip, the one place a season is picked. A picked 自定义's summary is CustomBrief, in the brief at the left.
@@ -796,7 +800,7 @@ export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize,
     ${matching ? html`<span class="proto-rules__row">
       <${RowKey} text=${t('人数')} />
       <span class="proto-rules__cell">
-        <${SizeSwitch} value=${size} onPick=${onSize} disabled=${quick} class="proto-rules__seg rtrack"
+        <${SizeSwitch} value=${size} onPick=${onSize} disabled=${quick || readOnly} class="proto-rules__seg rtrack"
           counts=${{ [MAX_SEATS]: queueCountOf(counts4, ruleset), [LARGE_SEATS]: queueCountOf(counts8, ruleset) }} />
       </span>
     </span>` : roomSize ? html`<span class="proto-rules__row" data-testid="proto-size">
@@ -854,10 +858,13 @@ export function QuickRange({ quick, onQuick }) {
  * restored) styled to fill the screen. `roomMode`: 'solo' (开始独立模拟), 'match' (开始匹配; `waiting(d)` the Doctors of each
  * card's queue, `rooms(d)` its public rooms, `stage` the public room list over the blurred picture and brief) or 'coop' (a room's host, bundle ui-B: `action` / `hint` replace the button's label and the hint), or
  * `readOnly` — the cards shown, not chosen, and no button. `head`: { icon, name, en } in place of the mode's under the title
- * (创建公开联合's PUBLIC ALLIANCE).
+ * (创建公开联合's PUBLIC ALLIANCE). `sub`: the start button's second line (同盟匹配's target, a node). `wait`: nodes in place
+ * of the hint, `range` and the start button (同盟匹配 while queued alone: ui/matchQueue.js QueueWait), with the rule rows
+ * (the caller's `rules`) and the cards `locked`: disabled and dimmed.
  */
 export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, onStart, busy, online, rules = null, waiting = null,
-  action = null, hint = null, readOnly = false, range = null, brief = null, grade = null, onGrade = null, stage = null, rooms = null, head = null }) {
+  action = null, hint = null, readOnly = false, range = null, brief = null, grade = null, onGrade = null, stage = null, rooms = null, head = null,
+  sub = null, wait = null, locked = false }) {
   const card = head || MODE_CARDS.find((c) => c.id === roomMode) || MODE_CARDS[0];
   // a 规程 solo room (`grade` set): the 规程等级 rows instead of the difficulty cards, the brief and picture the grade's
   const graded = isGrade(grade);
@@ -892,23 +899,24 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
           </div>
           ${stage}
         </section>
-        <section class="proto-side">
+        <section class=${`proto-side${locked ? ' is-locked' : ''}`}>
           ${rules}
           ${graded ? html`<${GradeList} grade=${grade} onGrade=${onGrade || (() => {})} disabled=${readOnly} />`
             : html`<div class="proto-list" role="group" aria-label=${t('模拟难度')}>
             ${DIFFICULTIES.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode === 'solo' ? 'solo' : 'coop'} difficulty=${d} selected=${difficulty === d}
-              onSelect=${onDifficulty} disabled=${readOnly} waiting=${waiting ? waiting(d) : null} rooms=${rooms ? rooms(d) : null} />`)}
+              onSelect=${onDifficulty} disabled=${readOnly || locked} waiting=${waiting ? waiting(d) : null} rooms=${rooms ? rooms(d) : null} />`)}
           </div>`}
           ${readOnly ? html`<div class="proto-foot proto-foot--ro">
             <p class="proto-hint proto-hint--ro"><${Icon} name="info" />${hint || t('由创建者选择')}</p>
-          </div>` : html`<div class=${`proto-foot create-box${range ? ' proto-foot--range' : ''}`}>
+          </div>` : wait ? html`<div class="proto-foot create-box proto-foot--range proto-foot--wait">${wait}</div>` : html`<div class=${`proto-foot create-box${range ? ' proto-foot--range' : ''}`}>
             <p class="proto-hint">
               ${online ? hint ?? defaultHint : html`<${Spinner} size="sm" label="CONNECTING" /> ${t('正在连接服务器…')}`}
             </p>
             ${range}
             <button type="button" class=${`proto-start${roomMode === 'coop' && !action ? ' ally-create__go' : ''}`} data-testid="proto-start" disabled=${!online || busy === 'create'} aria-busy=${busy === 'create' ? 'true' : 'false'} onClick=${onStart}>
               <span class="proto-start__mark" aria-hidden="true"><span class="proto-start__rook"><i>[</i><${Icon} name="rook" /><i>]</i></span><small>STRONGHOLD<br />PROTOCOL</small></span>
-              <span class="proto-start__label">${busy === 'create' ? html`<${Spinner} size="sm" />` : null}${label}</span>
+              <span class=${`proto-start__label${sub ? ' has-sub' : ''}`}>${busy === 'create' ? html`<${Spinner} size="sm" />` : null}${sub
+                ? html`<span class="proto-start__lines"><span>${label}</span><small class="proto-start__sub" data-testid="proto-start-sub">${sub}</small></span>` : label}</span>
               <span class="proto-start__deco" aria-hidden="true"></span>
             </button>
           </div>`}
@@ -1028,6 +1036,8 @@ export function LobbyScreen() {
   const hubWaiting = useStore((s) => countAll(seasonQueueCounts(s, pickedSeason(s), false)) + countAll(seasonQueueCounts(s, pickedSeason(s), true))
     + countAll(seasonQuickCounts(s, pickedSeason(s))));
   const queueRooms = useStore((s) => s.ui.queueRooms);
+  // queued alone: 同盟匹配's screen waits in its right column (ui/matchQueue.js QueueWait), the picks locked
+  const queued = useStore((s) => !!s.ui.queue);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(null);
   const [recent] = useState(recentRooms);
@@ -1118,6 +1128,12 @@ export function LobbyScreen() {
   const waiting = matching ? (d) => (quick ? quickWaiting(queueCounts4, queueCounts8, queueQuick, d) : queueCountOf(big ? queueCounts8 : queueCounts4, queueRuleset, d)) : null;
   // the hub's 「公开房间 N」: the public rooms waiting in every offered season (maintainer decision 2026-11-20)
   const totalRooms = countAll(queueRooms);
+  const waitHere = matching && queued;
+  // 开始匹配's second line: what it looks for (header; the drop-down's `target`, the chip's `season`)
+  const bold = (text) => html`<b>${text}</b>`;
+  const targetLine = target === 'all' ? tParts('{target} 公开联合 · 新联合 {season}', { target: bold(t('所有赛季')), season: bold(seasonName(season)) })
+    : target === season ? tParts('{season} 赛季', { season: bold(seasonName(target)) })
+      : tParts('{season} 赛季 · 匹配成功后将切换赛季', { season: bold(seasonName(target)) });
 
   return html`<div class="screen lobby-screen lobby-hub">
     <${HubBackdrop} />
@@ -1163,6 +1179,7 @@ export function LobbyScreen() {
     ${open === 'solo' || open === 'match' || open === 'coop' || publicNew ? html`<${ProtocolSelect} key=${open} roomMode=${roomMode} difficulty=${difficulty} onDifficulty=${pickDifficulty}
       grade=${graded ? grade : null} onGrade=${pickGrade}
       onClose=${() => setOpen(publicNew ? 'match' : null)} onStart=${matching ? queue : create} busy=${busy} online=${online} waiting=${waiting}
+      sub=${matching ? targetLine : null} wait=${waitHere ? html`<${QueueWait} onPublic=${queuePublic} />` : null} locked=${waitHere}
       rooms=${matching ? (d) => roomsWaiting(publicRooms, target, d) : null}
       stage=${matching ? html`<${PublicRooms} season=${season} pick=${target} onPick=${setPick} difficulty=${difficulty} ruleset=${queueRuleset} size=${big ? LARGE_SEATS : MAX_SEATS} quick=${quick} online=${online}
         onCreate=${openPublicNew} />` : null}
@@ -1172,11 +1189,12 @@ export function LobbyScreen() {
       range=${matching ? html`<${QuickRange} quick=${quick} onQuick=${pickQuick} />` : null}
       brief=${html`<${CustomBrief} roomMode=${roomMode} ruleset=${shownRuleset} customRules=${customRules} difficulty=${difficulty} grade=${graded ? grade : null} />`}
       rules=${html`<${ProtoRules} roomMode=${roomMode} ruleset=${shownRuleset} onRuleset=${pickRuleset} onGear=${editCustom}
-        size=${big ? LARGE_SEATS : MAX_SEATS} onSize=${roomMode === 'solo' ? null : pickSize} quick=${matching && quick} counts4=${queueCounts4} counts8=${queueCounts8} />`} />` : null}
+        size=${big ? LARGE_SEATS : MAX_SEATS} onSize=${roomMode === 'solo' ? null : pickSize} quick=${matching && quick} counts4=${queueCounts4} counts8=${queueCounts8}
+        readOnly=${waitHere} />`} />` : null}
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${achOpen ? html`<${AchievementDialog} onClose=${closeAch} />` : null}
     <${PatchNotesModal} open=${notesFresh !== null} onClose=${() => setNotesFresh(null)} entries=${notes} fresh=${!!notesFresh} />
-    <${MatchQueueDialog} onPublic=${queuePublic} />
+    <${MatchQueueDialog} onPublic=${queuePublic} inline=${waitHere} />
     <${CustomRulesDialog} />
   </div>`;
 }

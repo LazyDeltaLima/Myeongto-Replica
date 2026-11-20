@@ -95,7 +95,8 @@
 //     { anySeason: true } makes the public rooms of the difficulty in every offered season the player's candidates;
 //     the player still waits in (and groups with) the queue of its `season`. Queued again into the same queue, the
 //     entry keeps its place and takes the new `anySeason`. A room of another season seats the player in that season
-//     (the client switches its season as an invitation does).
+//     (the client switches its season as an invitation does). The entry's room.queueState says `anySeason: true`, so
+//     the client's waiting and confirmation name the target.
 
 import { ERR, LARGE_MIN_PLAYERS, LARGE_SEATS, MAX_SEATS, DIFFICULTIES, seatsOf } from '../shared/constants.js';
 import { QUEUE_PRESETS, resolveRuleset, rulesetKey } from '../shared/ruleset.js';
@@ -822,7 +823,8 @@ export class Matchmaker {
     let count = 0;
     // a quick player's count is every human waiting in the pool (header)
     for (const k of entry.quick ? this.pools.get(entry.pool) ?? [] : [entry.qk]) for (const e of this.queueOf(k)) count += this.size(e);
-    const msg = { t: 'room.queueState', queued: true, difficulty: entry.difficulty, ...tagOf(entry), count, waitedMs: waited, ...extra };
+    // anySeason: the target the player queued for, so the waiting and the confirmation can name it (ui/matchQueue.js)
+    const msg = { t: 'room.queueState', queued: true, difficulty: entry.difficulty, ...tagOf(entry), ...(entry.anySeason ? { anySeason: true } : {}), count, waitedMs: waited, ...extra };
     for (const id of only ? [only] : this.ids(entry)) sendSession(this.lobby.registry.byId(id), msg);
   }
 

@@ -3,6 +3,12 @@
 // and the cancel button. When a group of four forms, every member gets the confirmation dialog (room.matchFound, its own
 // countdown); a public room the queue found (room.matchFound `room`, server/matchmaking.js 「공개방」) is offered to the
 // player alone, the confirmation naming the room — host, mode capsule, seats, a custom room's settings (ui/modeCapsule.js).
+// The waiting itself is no dialog where the lobby's 同盟匹配 screen is open (maintainer decision 2026-11-20, the public
+// room mockup's sixth round: the dialog covered the public list, which a queued player may use): QueueWait stands in
+// the screen's start button's place — the clock, the Doctors found, 取消匹配, after a minute 以公开联合等待 — with the
+// target capsule (所有赛季 or the season, 规则, 难度, 人数) over it, the picks locked; MatchQueueDialog `inline` then
+// draws only the confirmation and the vote. Elsewhere (the screen closed while queued, a resumed session on the hub)
+// the waiting dialog stays. The confirmation of a public room always names its season (FoundRoom).
 // Any room.state closes it (the player took a seat: the group's room, the offered room, a room of the public list —
 // ui/publicRooms.js); a welcome that starts a new server session forgets it (the server's queue is gone). A room no
 // longer queues (room.queueRoom is gone, maintainer decision 2026-11-20: a public room does its work). lobby.rooms (the
@@ -26,11 +32,12 @@
 // lobby.queueCounts `quick` = { [difficulty]: n } of the quick queue alone (store ui.queueQuick; the other seasons' in
 // `seasons[id].quick`).
 //
-// store ui.queue: null, or { difficulty, ruleset, size, quick, season, count, since, custom, found } — since in this page's clock
-// (season: the queue's, absent in room.queueState = the default);
-// found: null or { players, accepted, mine, deadline, total, room, vote } (deadline in server time for components.js
-// Countdown, total = the window's seconds for its gauge; room: a public room's offer, null for a group; vote: null, or
-// { need, declined, no, by } of a 「바로 시작」 vote).
+// store ui.queue: null, or { difficulty, ruleset, size, quick, season, anySeason, count, since, custom, found } — since in
+// this page's clock (season: the queue's, absent in room.queueState = the default; anySeason: room.queueState
+// `anySeason`, the queue takes every season's public rooms — the list's drop-down on 所有赛季 when it joined);
+// found: null or { players, accepted, mine, deadline, total, room, season, vote } (deadline in server time for components.js
+// Countdown, total = the window's seconds for its gauge; room: a public room's offer, null for a group; season: the
+// offer's (room.matchFound `season`, absent = the default); vote: null, or { need, declined, no, by } of a 「바로 시작」 vote).
 //
 // 以公开联合等待 (maintainer decisions 2026-11-20): a queue needs exactly four (eight) Doctors, so with few online two
 // may wait on and on. After PUBLIC_OFFER_MS of waiting the dialog offers to open a public room instead (a line and the
@@ -54,7 +61,7 @@ import { presetName } from './ruleset.js';
 import { customSummary } from './customSummary.js';
 import { customDiffs, officialBans } from '../../../shared/ruleset.js';
 import { data, getBond, getBoss, getConfig, getMode } from '../data.js';
-import { seasonFields } from './season.js';
+import { pickedSeason, seasonFields, seasonName } from './season.js';
 import { seasonOf } from '../../../shared/seasons.js';
 import { ModeCapsule, RoomSeats } from './modeCapsule.js';
 
@@ -134,7 +141,7 @@ export function installMatchQueue({ net: n = net } = {}) {
     else if (msg.vote === 'failed') toast(t('赞成未满 {n} 名，继续匹配', { n: LARGE_MIN_PLAYERS }), 'info');
     else if (prev?.found && !prev.found.room) toast(t('有博士未接受，继续匹配'), 'info');
     setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), quick: msg.quick === true, season: seasonOf(msg.season),
-      count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), found: null });
+      anySeason: msg.anySeason === true, count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), found: null });
   });
   n.on('room.matchFound', (msg) => {
     const prev = store.get().ui.queue;
@@ -147,7 +154,7 @@ export function installMatchQueue({ net: n = net } = {}) {
       // a custom public room's seats (server/matchmaking.js): its settings, so the 快速匹配 Doctor sees what they accept
       ...(msg.custom && typeof msg.custom === 'object' ? { custom: msg.custom } : { custom: null }),
       found: { players: msg.players, accepted: msg.accepted, mine: !!msg.mine, deadline: serverNow() + msg.inMs,
-        room: msg.room && typeof msg.room === 'object' ? msg.room : null,
+        room: msg.room && typeof msg.room === 'object' ? msg.room : null, season: seasonOf(msg.season),
         total: prev?.found?.total ?? Math.max(1, Math.ceil(msg.inMs / 1000)),
         vote: msg.vote ? { need: msg.need ?? LARGE_MIN_PLAYERS, declined: msg.declined ?? 0, no: !!msg.no, by: typeof msg.by === 'string' ? msg.by : null } : null },
     });
@@ -220,11 +227,12 @@ export function customFound(custom, difficulty, size) {
   return { n: customDiffs(custom, { bans, rounds }).length, lines: lines.map((l) => l.text), items: lines };
 }
 
-export function MatchQueueDialog({ onPublic = null }) {
+export function MatchQueueDialog({ onPublic = null, inline = false }) {
   const queue = useStore((s) => s.ui.queue);
   const [busy, setBusy] = useState(null);
-  useTicker(queue && !queue.found ? 500 : 0);
-  if (!queue) return null;
+  useTicker(queue && !queue.found && !inline ? 500 : 0);
+  // `inline`: the lobby's 同盟匹配 screen shows the waiting (QueueWait, header); the confirmation and the vote stay here
+  if (!queue || (inline && !queue.found)) return null;
   const go = async (kind, fn) => {
     if (busy) return;
     setBusy(kind);
@@ -269,8 +277,8 @@ export function MatchQueueDialog({ onPublic = null }) {
       <div class="queue-dialog__body">
         <${Countdown} deadline=${f.deadline} total=${f.total} warnAt=${5} label="CONFIRM" onWarn=${f.mine ? null : timerCue} />
         <div class="queue-dialog__lines">
-          <span class="queue-dialog__mode">${t('同盟模拟')} · ${name}</span>
-          ${f.room ? html`<${FoundRoom} room=${f.room} difficulty=${queue.difficulty} />`
+          <span class="queue-dialog__mode">${t('同盟模拟')} · ${name}${queue.anySeason ? ` · ${t('所有赛季')}` : ''}</span>
+          ${f.room ? html`<${FoundRoom} room=${f.room} season=${f.season} difficulty=${queue.difficulty} />`
             : html`<span>${t('{players} 名博士', { players: f.players })}</span>
               <span class="t-lo">${t('已接受 {accepted}/{players}', { accepted: f.accepted, players: f.players })}</span>`}
           ${queue.custom ? html`<${FoundCustom} custom=${queue.custom} difficulty=${queue.difficulty} size=${cap} />` : null}
@@ -302,16 +310,65 @@ export function MatchQueueDialog({ onPublic = null }) {
 }
 
 /**
- * A public room the queue found (room.matchFound `room`, server/matchmaking.js 「공개방」): its host (name #번호), mode
- * capsule and seats, as the public room list draws them (ui/modeCapsule.js); the host starts the match.
+ * The waiting of a player queued alone in 同盟匹配's screen (screens/lobby.js ProtocolSelect `wait`, header; the public
+ * room mockup's W1, maintainer decision 2026-11-20): the hint line — the list stays usable and joining from it leaves
+ * the queue; after PUBLIC_OFFER_MS the amber offer —, in the range switch's place the target (匹配对象 + the capsule:
+ * 所有赛季 or the queue's season, its ruleset or 快速匹配, the difficulty, the size), and in the start button's box the
+ * clock, 正在寻找博士 with the count, and 取消匹配. After the minute the box holds 以公开联合等待 (`onPublic`) with 取消匹配
+ * as its icon alone; an 8-player queue's 提议提前开始 (canProposeStart) takes that place first.
  */
-function FoundRoom({ room, difficulty }) {
+export function QueueWait({ onPublic = null }) {
+  const queue = useStore((s) => s.ui.queue);
+  const [busy, setBusy] = useState(null);
+  useTicker(queue && !queue.found ? 500 : 0);
+  if (!queue) return null;
+  const go = async (kind, fn) => {
+    if (busy) return;
+    setBusy(kind);
+    try { await fn(); } catch (err) { toastError(err); } finally { setBusy(null); }
+  };
+  const cancel = () => go('cancel', () => net.request('room.unqueue', {}));
+  const cap = seatsOf(queue.size);
+  const late = !!onPublic && Date.now() - queue.since >= PUBLIC_OFFER_MS;
+  const primary = canProposeStart(queue)
+    ? html`<${Button} variant="primary" icon="play" loading=${busy === 'vote'} data-testid="queue-vote" onClick=${() => go('vote', () => net.request('room.queueVote', {}))}>${t('提议提前开始')}<//>`
+    : late ? html`<${Button} variant="primary" icon="signal" loading=${busy === 'public'} data-testid="queue-public"
+      onClick=${() => go('public', () => onPublic(queue))}>${t('以公开联合等待')}<//>` : null;
+  const count = queue.quick ? t('同难度 {count} 名 · 规则、人数不限', { count: queue.count })
+    : cap > MAX_SEATS ? t('{count}/{n} · 满 {m} 名可投票提前开始', { count: Math.min(cap, queue.count), n: cap, m: LARGE_MIN_PLAYERS })
+      : t('{count}/{n} · 凑齐 {n} 名后开始', { count: Math.min(cap, queue.count), n: cap });
+  return [
+    html`<p key="h" class="proto-hint">${late
+      ? html`<span class="proto-wait__offer" data-testid="queue-public-line">${t('超过 1 分钟仍未凑齐 · 以公开联合等待，同条件匹配的博士会加入')}</span>`
+      : html`<span data-testid="queue-wait-hint">${t('匹配中也可使用列表 · 从列表加入将退出匹配')}</span>`}</p>`,
+    html`<div key="t" class="proto-target" data-testid="queue-target"><span class="proto-target__k">${t('匹配对象')}</span>
+      <${ModeCapsule} season=${queue.anySeason ? 'all' : queue.season} quick=${queue.quick} ruleset=${queue.ruleset} difficulty=${queue.difficulty}
+        size=${queue.quick ? null : cap} testid="queue-target-capsule" /></div>`,
+    html`<div key="w" class=${`proto-wait${primary ? ' has-action' : ''}`} data-testid="queue-wait">
+      <span class="proto-wait__deco" aria-hidden="true"></span>
+      <span class="proto-wait__clock num" data-testid="queue-clock">${mmss(Date.now() - queue.since)}</span>
+      ${primary ? null : html`<span class="proto-wait__lines"><b data-testid="queue-search"><${Spinner} size="sm" />${t('正在寻找博士')}</b><span>${count}</span></span>`}
+      ${primary}
+      <${Button} variant="secondary" icon="close" loading=${busy === 'cancel'} data-testid="queue-cancel" aria-label=${t('取消匹配')} onClick=${cancel}>${primary ? null : t('取消匹配')}<//>
+    </div>`,
+  ];
+}
+
+/**
+ * A public room the queue found (room.matchFound `room`, server/matchmaking.js 「공개방」): its host (name #번호), mode
+ * capsule and seats, as the public room list draws them (ui/modeCapsule.js); the host starts the match. The capsule
+ * always has the room's season part (maintainer decision 2026-11-20: with 所有赛季 the season always matters), and a
+ * room of another season than the page's says that accepting switches to it (ui/season.js installSeasons does).
+ */
+function FoundRoom({ room, season, difficulty }) {
   const size = seatsOf(room.size);
+  const page = useStore(pickedSeason);
   return html`<div class="queue-dialog__room" data-testid="found-room">
     <span class="queue-dialog__host"><b>${room.host?.name || t('博士')}</b><small class="num">#${room.host?.no ?? ''}</small><span class="t-lo">${t('的公开联合')}</span></span>
-    <${ModeCapsule} ruleset=${room.ruleset?.preset} difficulty=${difficulty} size=${size} />
+    <${ModeCapsule} season=${season} ruleset=${room.ruleset?.preset} difficulty=${difficulty} size=${size} testid="found-capsule" />
     <${RoomSeats} seats=${room.seats} size=${size} />
     <span class="t-lo">${t('接受后加入该联合，由创建者开始模拟')}</span>
+    ${seasonOf(season) !== seasonOf(page) ? html`<span class="queue-dialog__offer" data-testid="found-switch">${t('接受后将切换到「{season}」赛季', { season: seasonName(season) })}</span>` : null}
   </div>`;
 }
 

@@ -36,7 +36,7 @@ test('lobby: room.create / room.queue carry size 8 only for an 8-seat alliance (
   const rules = src.slice(src.indexOf('export function ProtoRules('), src.indexOf('export function ProtocolSelect('));
   // (同盟匹配 of every season, 规程's too; its 自定义 stays locked by `matching`)
   assert.match(rules, /\$\{matching \? html`<span class="proto-rules__row">\s*<\$\{RowKey\} text=\$\{t\('人数'\)\} \/>/);
-  assert.match(rules, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{quick\}/);
+  assert.match(rules, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{quick \|\| readOnly\}/); // readOnly: locked while queued
   // 创建同盟 is 选择模拟协议 (roomMode 'coop'): its 人数 is the rules' room row, fed by the lobby's pick
   assert.match(rules, /<\$\{SizeSwitch\} value=\$\{size\} onPick=\$\{onSize\} disabled=\$\{readOnly \|\| sizeLocked\}/);
   assert.match(src, /onSize=\$\{roomMode === 'solo' \? null : pickSize\}/);

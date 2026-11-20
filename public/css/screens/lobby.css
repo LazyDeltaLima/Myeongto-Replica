@@ -1290,6 +1290,32 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .qrange:hover .qrange__o:not(.is-sel) { color: #e9eceb; }
 .qrange__icon { flex: none; width: .24rem; height: .24rem; background: currentColor; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
 .proto-foot--range .proto-hint { justify-content: center; text-align: center; }
+/* 同盟匹配's target (the public room mockup's S1, maintainer decision 2026-11-20): 开始匹配's second line, small and dark on
+   the mint button, the target's names in bold */
+.proto-foot .proto-start__label.has-sub { gap: 0; }
+.proto-start__lines { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.proto-start__sub { display: block; font-size: max(calc(.15 * var(--t)), 11px); font-weight: 700; letter-spacing: .02em; line-height: 1.25; color: #10392f; opacity: .9; white-space: nowrap; }
+.proto-start__sub b { font-weight: 900; color: #0b231d; }
+/* queued alone (mockup W1, ui/matchQueue.js QueueWait): the picks locked and dimmed; the target row in the range switch's
+   place — the list row's read-only capsule (ModeCapsule, 所有赛季 in the plain text colour) —; the start button's box,
+   dark, with the clock, the search and 取消匹配 (after a minute 以公开联合等待, 取消匹配 as its icon) */
+.proto-side.is-locked .proto-rules, .proto-side.is-locked .proto-list { opacity: .42; filter: saturate(.6); pointer-events: none; }
+.proto-target { display: flex; align-items: center; justify-content: center; gap: .1rem; min-height: max(.5rem, 26px); }
+.proto-target__k { color: #8f9493; white-space: nowrap; }
+.proto-target .rs-mode { --o: .0085rem; margin-right: 0; max-width: none; cursor: default; }
+.rs-mode__season.is-all { color: var(--text-hi); }
+.proto-wait { position: relative; display: flex; align-items: center; gap: .2rem; width: 100%; min-height: max(1.04rem, 32px, calc(54px * var(--sp-ui, 1)));
+  padding: .06rem .12rem .06rem .22rem; overflow: hidden; color: #d8dbda; background: linear-gradient(180deg, rgba(20, 44, 38, .96), rgba(13, 28, 24, .96));
+  border: 3px solid #121313; box-shadow: 0 0 0 1px rgba(79, 224, 191, .5), 0 .06rem .2rem rgba(0, 0, 0, .55); }
+.proto-wait__deco { position: absolute; right: 0; top: 0; bottom: 0; width: 26%; clip-path: polygon(18% 0, 100% 0, 100% 100%, 0 100%); pointer-events: none;
+  background: repeating-linear-gradient(135deg, rgba(79, 224, 191, .09) 0 5px, transparent 5px 11px); }
+.proto-wait__clock { flex: none; font-family: var(--font-num); letter-spacing: -.06em; font-size: max(.5rem, 22px); color: #fff; line-height: 1.3; }
+.proto-wait__lines { position: relative; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .02rem; font-size: max(calc(.17 * var(--t)), 12px); }
+.proto-wait__lines b { color: var(--mint-400); white-space: nowrap; display: inline-flex; align-items: center; gap: .3em; }
+.proto-wait__lines span { color: #9ea3a2; white-space: nowrap; font-size: .88em; }
+.proto-wait .btn { position: relative; flex: none; }
+.proto-wait.has-action .btn--primary { flex: 1 1 auto; min-width: 0; }
+.proto-wait__offer { color: var(--amber); }
 /* a difficulty card's queue (同盟匹配) */
 .pcard__wait { margin-left: auto; align-self: center; padding: .02rem .08rem; border-radius: 3px; font-size: calc(.12 * var(--t)); font-weight: 700; white-space: nowrap;
   color: var(--mint-400); background: rgba(94, 236, 204, .16); }
@@ -1311,6 +1337,10 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   .qrange__o--exact { right: 3px; }
   .qrange__icon { width: 15px; height: 15px; }
   .pcard__wait { padding: 1px 5px; font-size: 10px; }
+  .proto-target { min-height: 30px; }
+  .proto-target .rs-mode { --o: .013rem; }
+  .proto-wait { gap: 8px; padding: 2px 6px 2px 10px; }
+  .proto-wait__lines { font-size: 11px; }
 }
 
 /* ---- the left column on a landscape phone (maintainer decision 2026-11-08): three cards — the 成就统计 strip, 加入同盟 and
@@ -1505,8 +1535,8 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 }
 /* matchmaking's offer of a public room (ui/matchQueue.js FoundRoom) */
 .queue-dialog__room { --po: .0085rem; display: flex; flex-direction: column; align-items: flex-start; gap: .06rem; }
-.queue-dialog__room .rs-mode { --o: var(--po); margin-right: 0; cursor: default; }
+.queue-dialog__room .rs-mode { --o: var(--po); margin-right: 0; max-width: none; cursor: default; } /* with its season part (FoundRoom) it is wider than room.css's max-width: it may not shrink, as the list's */
 .queue-dialog__host { display: flex; align-items: baseline; gap: .06rem; }
 .queue-dialog__host b { color: #fff; }
 .queue-dialog__host small { color: #7c8180; }
-@media (max-height: 520px) { .queue-dialog__room { --po: .013rem; } }
+@media (max-height: 520px) { .queue-dialog__room { --po: .0095rem; } }

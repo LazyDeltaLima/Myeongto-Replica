@@ -45,12 +45,14 @@ export function modeArt(difficulty, m = data.get('assets')) {
 
 /**
  * The capsule's 规则 | 难度 | 人数 parts. `name`: the difficulty's (or 规程等级's) name, the difficulty's own by default;
- * `code`: its AC-MP code, none when absent; `size`: none when null; `ids`: the waiting room's test ids.
+ * `code`: its AC-MP code, none when absent; `size`: none when null; `ids`: the waiting room's test ids; `quick`: a
+ * 快速匹配 queue's target — 快速匹配 in the 规则 part (it takes any ruleset).
  */
-export function ModeSegs({ art, ruleset, difficulty, name = null, code = null, size = null, ids = false }) {
+export function ModeSegs({ art, ruleset, difficulty, name = null, code = null, size = null, ids = false, quick = false }) {
   const label = name ?? (DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : '');
   return [
-    html`<span key="r" class=${`rs-mode__seg rs-mode__rules rtag--${typeof ruleset === 'string' ? ruleset : ruleset?.preset}`} data-testid=${ids ? 'room-ruleset' : null}>${presetName(ruleset)}</span>`,
+    quick ? html`<span key="r" class="rs-mode__seg rs-mode__rules rtag--quick">${t('快速匹配')}</span>`
+      : html`<span key="r" class=${`rs-mode__seg rs-mode__rules rtag--${typeof ruleset === 'string' ? ruleset : ruleset?.preset}`} data-testid=${ids ? 'room-ruleset' : null}>${presetName(ruleset)}</span>`,
     html`<span key="d" class="rs-mode__seg rs-mode__diff">
       ${art.light ? html`<i class="rs-mode__light" aria-hidden="true"></i>` : null}
       ${art.icon ? html`<i class=${`rs-mode__ico${art.root.tint ? ' is-tint' : ''}`} aria-hidden="true"></i>` : html`<${DifficultyIcon} difficulty=${difficulty} />`}
@@ -61,14 +63,16 @@ export function ModeSegs({ art, ruleset, difficulty, name = null, code = null, s
 }
 
 /**
- * The capsule, read-only and drawn only (a public room's row, matchmaking's offer): `season` adds the season part in
- * front (a room of another season than the picked one; ui/season.js SeasonSeg).
+ * The capsule, read-only and drawn only (a public room's row, matchmaking's offer and target): `season` adds the season
+ * part in front (a room of another season than the picked one, the offered room's; ui/season.js SeasonSeg) — 'all' is
+ * 所有赛季, the matchmaking's target when the list's drop-down looks in every season (ui/matchQueue.js QueueWait);
+ * `quick`: 快速匹配 in the 规则 part (ModeSegs).
  */
-export function ModeCapsule({ season = null, ruleset, difficulty, size = null, class: cls = '' }) {
+export function ModeCapsule({ season = null, ruleset, difficulty, size = null, quick = false, class: cls = '', testid = null }) {
   const art = modeArt(difficulty);
-  return html`<span class=${`rs-mode is-ro rs-mode--tag${art.bg ? '' : ' no-art'} ${cls}`.trim()} style=${art.style}>
-    ${season ? html`<${SeasonSeg} season=${season} />` : null}
-    <${ModeSegs} art=${art} ruleset=${ruleset} difficulty=${difficulty} size=${size} />
+  return html`<span class=${`rs-mode is-ro rs-mode--tag${art.bg ? '' : ' no-art'} ${cls}`.trim()} style=${art.style} data-testid=${testid}>
+    ${season === 'all' ? html`<span class="rs-mode__seg rs-mode__season is-all">${t('所有赛季')}</span>` : season ? html`<${SeasonSeg} season=${season} />` : null}
+    <${ModeSegs} art=${art} ruleset=${ruleset} difficulty=${difficulty} size=${size} quick=${quick} />
   </span>`;
 }
 

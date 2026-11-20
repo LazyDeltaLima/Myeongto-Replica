@@ -679,7 +679,7 @@ export const S2C = [
   // several (Lobby.connectInfo: before any hello, for the title's season picker)
   'welcome', 'ok', 'error', 'pong',
   'room.state', 'room.closed',
-  // 랜덤 매칭: room.queueState { queued, difficulty, ruleset, size, season, count?, waitedMs?, reason? } · room.matchFound
+  // 랜덤 매칭: room.queueState { queued, difficulty, ruleset, size, season, anySeason?, count?, waitedMs?, reason? } · room.matchFound
   // { difficulty, ruleset, size, season, players, accepted, mine, inMs, room? } (`room`: a public room's offer,
   // { code, host: { name, no }, ruleset: { preset }, custom?, size, seats }) · lobby.queueCounts { counts: { [ruleset]:
   // { [difficulty]: n } }, counts8: the same for the 8-player queues, seasons?: { [season]: { counts, counts8 } } of the

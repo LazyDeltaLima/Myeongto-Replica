@@ -206,6 +206,8 @@ describe('공개방 (server/lobby.js, server/matchmaking.js)', () => {
     // another season made public later is offered (the room's walk reaches the other season's pool)
     const early = await pool.player('Early');
     await queue(early, { anySeason: true });
+    // its waiting state names the target, for the client's waiting and confirmation (ui/matchQueue.js QueueWait / FoundRoom)
+    assert.equal((await early.waitFor('room.queueState', (m) => m.queued, W)).anySeason, true, 'room.queueState carries anySeason');
     const h1 = await pool.player('H1');
     const r1 = await room(h1, { season: 'act3autochess' });
     const o1 = await offerOf(early);
@@ -221,6 +223,7 @@ describe('공개방 (server/lobby.js, server/matchmaking.js)', () => {
     const r2 = await room(h2, { season: 'act3autochess' });
     const p = await pool.player('P');
     await queue(p);
+    assert.equal((await p.waitFor('room.queueState', (m) => m.queued, W)).anySeason, undefined, 'a season\'s own queue: no anySeason');
     await p.expectNone('room.matchFound', () => true, 300);
     const since = srv.lobby.queue.entries.get(p.id).joinedAt;
     await queue(p, { anySeason: true });
