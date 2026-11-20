@@ -10,9 +10,11 @@
 //     whichever player the strip follows (the guest's operator on 全景 → "阿米娅 的盟约", the host's own on the partner's
 //     half → the host's own), with the count the chip shows.
 // 联防 observer (2 humans + 1 AI from round 3, fastServer hooks: per-human kits auto-placed, the guest without a board):
-//   the guest leaks, the host and the AI help → the guest (phone) on 全景 sees helper 1's bonds (never its own), taps
-//   each helper's avatar (前往查看) → the camera goes to that helper's half, the ‹ › pill and the strip name the same
-//   helper, 返回战场 sits in the pill and leaves no error; the host (helper, desktop) keeps its own bonds on 全景.
+//   the guest leaks, the host and the AI help → the guest (phone) on 全景 sees helper 1's bonds (never its own), steps
+//   the ‹ › pill to each helper's half (both sit on the field the leaker auto-observes, so the 队员信息 dialog gives them
+//   no 前往查看 tag) → the camera goes to that half, the pill and the strip name the same helper, the own row carries no
+//   返回战场 (nothing picked away from the auto-observed field) and nothing raises an error; back on 全景 → helper 1;
+//   the host (helper, desktop) keeps its own bonds on 全景.
 // Final Assault spectator (2 humans + 2 AI at the boss round, the guest eliminated at the jump): the guest auto-observes
 //   the first field (the host's: the pair or the lone one, drawn) → its first player's bonds (never its own); on the pair
 //   field's 全景 taps the second player's operator and its card's bond chip → the SECOND player's popup (the strip stays
@@ -255,6 +257,9 @@ const matchView = (c) => c.page.evaluate(() => {
     field: s.match.field ? { fieldId: s.match.field.fieldId, sides: s.match.field.sides || null } : null,
   };
 });
+/** The ‹ › pill's arrow towards a half (desktop chud__layers, phone obinfo). */
+const halfArrow = (side) => `:is(.chud__layers .vswitch__arrow, .obinfo__arrow)[aria-label="${side === 'L' ? '左侧战场' : '右侧战场'}"]`;
+const PAIR_PILL = '.chud__layers .vswitch__label, .obinfo__bar:has(.obinfo__arrow) .obinfo__text';
 const ownerIs = (c, name) => c.page.waitForFunction((name) => (document.querySelector('.gm__bonds .bstrip')?.getAttribute('data-owner') ?? null) === name, { timeout: 6000 }, name);
 
 describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds (real server)', { skip: !ENABLED && 'set SP_E2E=1 (Chrome + public/assets)' }, () => {
@@ -426,7 +431,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
     }
   });
 
-  test('联防 observer: helper 1 on 全景, the picked helper\'s half + bonds, 返回战场 in the pill (phone leaker, desktop helper)', { timeout: 15 * 60 * 1000 }, async () => {
+  test('联防 observer: helper 1 on 全景, each helper\'s ‹ › half + bonds, no 返回战场 (phone leaker, desktop helper)', { timeout: 15 * 60 * 1000 }, async () => {
     // the host fights with a 萨尔贡 kit, the AI with a 拉特兰 kit, the guest has no board (every enemy leaks)
     const srv = await startRealServer({ fast: { timerScale: 1, combatSpeed: 2, startRound: 3, idleBots: true, autoPlace: true,
       kits: [UNITE_HOST_KIT, []], botChess: BOT_KIT } });
@@ -456,7 +461,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
       const mv = await matchView(guest);
       const u = mv.fields.find((f) => f.fieldId === 'u');
       assert.ok(u && u.players.length === 2 && !u.players.includes(mv.me), `a 2-helper 联防 without the guest (${JSON.stringify(mv.fields)})`);
-      const [h1, h2] = u.players.map((pid) => mv.names[pid]);
+      const h1 = mv.names[u.players[0]];
       // 全景: helper 1's bonds, tagged — not the leaker's own
       await ownerIs(guest, h1);
       let st = await stripOf(guest);
@@ -466,25 +471,30 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
       // the host (helper 1 or 2) on 全景: its own bonds
       const hs = await stripOf(host);
       assert.equal(hs.owner, null, 'the helper on 全景: own bonds');
-      // the guest picks each helper: the camera goes to their half, pill and strip agree, 返回战场 in the pill
-      for (const name of [h2, h1]) {
+      // the guest steps the ‹ › pill to each helper's half (both are on the field it auto-observes, so the 队员信息 dialog
+      // tags neither with 前往查看 — teamPanel.js goTag `!watched`): the camera goes to their half, pill and strip agree;
+      // 全景 → half → 全景, the own row without 返回战场 (no field picked away from the auto-observed one)
+      for (const pid of [u.players[1], u.players[0]]) {
+        const name = mv.names[pid];
+        const side = mv.field?.sides?.[pid];
+        assert.ok(side === 'L' || side === 'R', `${name}'s half on the 联防 field (${JSON.stringify(mv.field)})`);
         assert.equal((await guest.st()).phase, 'UNITE', '联防 still running');
-        await watchMate(guest, name);
+        await guest.click(halfArrow(side));
         await ownerIs(guest, name);
-        await guest.page.waitForFunction((name) => (document.querySelector('.chud__layers .vswitch__label, .obinfo__bar:has(.obinfo__arrow) .obinfo__text')?.textContent || '').includes(name), { timeout: 6000 }, name);
+        await guest.page.waitForFunction((sel, name) => (document.querySelector(sel)?.textContent || '').includes(name), { timeout: 6000 }, PAIR_PILL, name);
         st = await stripOf(guest);
-        assert.deepEqual([st.owner, st.bonds, st.observe], [name, mv.bonds[name], null], `picked ${name}: their bonds, no separate observing pill`);
-        assert.ok(st.pill.includes(name) && st.pillBack, `the ‹ › pill names ${name}, the own team row carries 返回战场 (${st.pill})`);
+        assert.deepEqual([st.owner, st.bonds, st.observe, st.pillBack], [name, mv.bonds[name], null, false], `picked ${name}: their bonds, no separate observing pill, no 返回战场`);
+        assert.ok(st.pill.includes(name), `the ‹ › pill names ${name} (${st.pill})`);
         assert.ok(st.tagRect && st.tagRect.left >= 0 && st.tagRect.right <= st.vw && st.tagFont >= 9, `phone: the tag on screen, legible (${JSON.stringify(st.tagRect)} ${st.tagFont}px)`);
         await sleep(900); // the camera flies to the half (750 ms)
-        await guest.shot(`picked-${name === mv.names[u.players[0]] ? 'helper1' : 'helper2'}`);
+        await guest.shot(`picked-${pid === u.players[0] ? 'helper1' : 'helper2'}`);
+        await guest.click(halfArrow(side === 'L' ? 'R' : 'L'));
+        await guest.page.waitForFunction((sel) => (document.querySelector(sel)?.textContent || '').includes('全景'), { timeout: 6000 }, PAIR_PILL);
       }
-      // 返回战场: no refused g.watch (no own field in 联防), the 联防 view stays with a helper's bonds
-      await guest.click('.team__back', '返回战场');
-      await sleep(1200);
+      // back on 全景: helper 1's bonds again, still no 返回战场
+      await ownerIs(guest, h1);
       st = await stripOf(guest);
-      assert.ok(st.owner === h1 || st.owner === h2, `back: still a helper's bonds (${st.owner})`);
-      assert.equal(st.pillBack, false, 'back: the pill without 返回战场');
+      assert.deepEqual([st.owner, st.pill, st.pillBack], [h1, '全景', false], '全景 again: helper 1, no 返回战场');
       assert.deepEqual(await guest.page.evaluate(() => globalThis.__toastErrors), [], 'no error toast');
       assert.deepEqual(problemsOf([host, guest]), []);
     } finally {
@@ -617,9 +627,8 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
       const second = mv.names[pair.players[1]];
       const loneName = mv.names[lone.players[0]];
       const pill = (sel, name, timeout = 6000) => guest.page.waitForFunction((sel, name) => (document.querySelector(sel)?.textContent || '').includes(name), { timeout }, sel, name);
-      const PAIR_PILL = '.chud__layers .vswitch__label, .obinfo__bar:has(.obinfo__arrow) .obinfo__text';
       const OBSERVE_PILL = '.chud__observe .vswitch__label, .obinfo__bar:not(:has(.obinfo__arrow)) .obinfo__text';
-      const arrow = (side) => `:is(.chud__layers .vswitch__arrow, .obinfo__arrow)[aria-label="${side === 'L' ? '左侧战场' : '右侧战场'}"]`;
+      const arrow = halfArrow;
       /** the lone field: its player's bonds; picked with 前往查看 (even when it is the auto-observed field) the observing
        *  pill names them and the own row carries 返回战场 (back to the auto-observed view — game.js backHome) */
       const loneCheck = async (picked) => {
