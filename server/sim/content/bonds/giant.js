@@ -115,7 +115,8 @@ export function spawnGiant(battle, pid, r, c) {
     const i = list.findIndex((e) => e.s.flags.freeze && !e.isFlying && dist2(e, u) <= r2);
     return i > 0 ? [list[i], ...list.slice(0, i), ...list.slice(i + 1)] : list;
   };
-  u = spawnWalker(battle, pid, GIANT, r, c, { rank });
+  // 覆雪苏醒's attack and trace selectors take ALL (its prefab, `_targetMotion` 3); 覆雪坐定's own profile below is ground only
+  u = spawnWalker(battle, pid, GIANT, r, c, { air: true, rank });
   if (!u) return null;
   u.mode = GIANT_MODE;
   u.form = GIANT_MODE;

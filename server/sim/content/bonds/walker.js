@@ -10,12 +10,15 @@
 //     while it blocks, swings or cannot act;
 //   * blocks the record's `blockCnt` enemies by contact from where it stands (battle/blocking.js `walks`);
 //   * attacks as a summon does (ai.js updateAlly) with the record's numbers, an enemy's round range: the tiles under its
-//     `rangeRadius` circle, then the exact distance (radius 0: only the enemies it blocks — an enemy's melee);
+//     `rangeRadius` circle, then the exact distance (radius 0: only the enemies it blocks — an enemy's melee); flying
+//     enemies only with `air` (the caller's: its prefab's attack selector `_targetMotion` ALL — “不眠雪山”'s Giant mode;
+//     “一个小节” / “一个乐部” have WALK_ONLY, 2026-11-20, 공식 클라에서 확인 — CN prefabs; the trace takes a flier only
+//     with `air` too: their GroupTraceSelector has the same motion as the attack, 1 or 3);
 //   * holds 禁疗 (CommonAbilities `heal_free`, abnormal flag HEAL_FREE) and, with the talent `Bleeding`, loses
 //     `Bleeding.hp_ratio` of its max HP a second, sourceless (aclt[bleeding]: DamageViaMaxHpRatio PURE, every
 //     `Bleeding.interval` s from 1 s after it came).
 // [추정·CN: the trace ability's class is CN-only (its `_dontMarkReachedByInAttackRange`): the target is the nearest
-// targetable enemy (ground only for a melee walker, which can block nothing else), taken again every second and when it
+// targetable enemy (ground only without `air`), taken again every second and when it
 // is gone; with none it stands where it is. Its walk stops only to block or swing — the in-range enemies do not stop it
 // (`_dontMarkReachedByInAttackRange`). How the CN client puts an enemy on the player's side was not read]
 
@@ -43,8 +46,8 @@ export function nearestGroundTile(battle, x, y) {
   return best;
 }
 
-/** The token def of enemy record `key` as a walking ally (normalizeToken input), or null. */
-function walkerDef(battle, key) {
+/** The token def of enemy record `key` as a walking ally (normalizeToken input), or null. `air`: it hits flying enemies. */
+function walkerDef(battle, key, air) {
   const rec = battle.data.rawEnemy?.(key);
   if (!rec || !rec.stats) return null;
   const st = rec.stats;
@@ -59,7 +62,7 @@ function walkerDef(battle, key) {
         hpRecoveryPerSec: st.hpRecoveryPerSec ?? 0,
       },
       rangeGrid: [], dmgType: st.dmgType ?? 'phys', attackKind: ranged ? 'ranged' : 'melee',
-      projectile: ranged ? 'bolt' : null, canHitFly: ranged,
+      projectile: ranged ? 'bolt' : null, canHitFly: ranged && air,
       talents: rec.talents ?? null, attackAnim: rec.attackAnim ?? null, abnormal: ['healFree'], immunities: st.immunities ?? null,
       assets: { avatar: rec.iconId ?? key, spine: rec.spine ?? key, isEnemyModel: true },
     },
@@ -67,12 +70,13 @@ function walkerDef(battle, key) {
 }
 
 /**
- * Spawn the walking ally `key` (an enemy record) for player `pid` on tile (r, c). `opts.onDeath(unit)` runs once as it
- * leaves the field; `opts.rank(unit, enemies)` may reorder the enemies its range picks (the first is attacked). Returns
- * the unit or null.
+ * Spawn the walking ally `key` (an enemy record) for player `pid` on tile (r, c). `opts.air`: it attacks and traces flying
+ * enemies too (a ranged walker whose prefab selectors take ALL; default ground only); `opts.onDeath(unit)` runs once as
+ * it leaves the field; `opts.rank(unit, enemies)` may reorder the enemies its range picks (the first is attacked).
+ * Returns the unit or null.
  */
-export function spawnWalker(battle, pid, key, r, c, { onDeath = null, rank = null } = {}) {
-  const w = walkerDef(battle, key);
+export function spawnWalker(battle, pid, key, r, c, { air = false, onDeath = null, rank = null } = {}) {
+  const w = walkerDef(battle, key, air);
   if (!w) return null;
   const { rec, def } = w;
   const radius = Math.max(0, num(rec.stats.rangeRadius, 0));
@@ -80,11 +84,12 @@ export function spawnWalker(battle, pid, key, r, c, { onDeath = null, rank = nul
   const tal = rec.talents && !Array.isArray(rec.talents) ? rec.talents.bb ?? {} : {};
   const bleedRatio = num(tal['Bleeding.hp_ratio'], 0), bleedEvery = num(tal['Bleeding.interval'], 1);
   const melee = !(radius > 0);
+  const hitFly = !melee && air;
   const r2 = radius * radius + 1e-9;
   let self = null;
   const kit = {
     trait: {
-      attack: melee ? 'melee' : 'ranged', dmgType: def.dmgType, projectile: melee ? 'none' : 'bolt', canHitFly: !melee,
+      attack: melee ? 'melee' : 'ranged', dmgType: def.dmgType, projectile: melee ? 'none' : 'bolt', canHitFly: hitFly,
       maxTargets: 1, heal: null, noAttack: false,
       // the round range: the tiles of the circle gave the candidates, the distance decides (the blocked ones always)
       pickEnemies: (cands) => {
@@ -105,7 +110,7 @@ export function spawnWalker(battle, pid, key, r, c, { onDeath = null, rank = nul
   if (!u) return null;
   u.walks = true;
   refreshKeys(u, radius);
-  const prof = { canHitFly: !melee };
+  const prof = { canHitFly: hitFly };
   battle.on('tick', ({ dt }) => {
     if (!u.alive || !u.deployed) return;
     const st = u.mem.walk;
@@ -119,7 +124,7 @@ export function spawnWalker(battle, pid, key, r, c, { onDeath = null, rank = nul
     const pick = () => {
       let best = null, bd = Infinity;
       for (const e of battle.enemies) {
-        if (!e.alive || e.hidden || (melee && e.isFlying) || !canTargetEnemy(u, e, prof)) continue;
+        if (!e.alive || e.hidden || (!hitFly && e.isFlying) || !canTargetEnemy(u, e, prof)) continue;
         const d = (e.x - u.x) * (e.x - u.x) + (e.y - u.y) * (e.y - u.y);
         if (d < bd - 1e-9) { bd = d; best = e; }
       }

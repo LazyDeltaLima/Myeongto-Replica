@@ -929,6 +929,29 @@ test('规程 莱塔尼亚 6: “一个乐部” at 0.3 + 0.001L (its aura: membe
   assert.deepEqual(h.b.errors, []);
 });
 
+test('规程 莱塔尼亚 6: “一个乐部” neither shoots nor walks to a flying enemy (its prefab\'s attack and trace selectors are WALK_ONLY — docs/rules/sim.md 「적 비행 유닛 공격 전수 조사」 우리 편 소환물)', () => {
+  const fly = enemyRec({ key: 'e_fly_still', hp: 1e9, speed: 0, def: 0, res: 0, motion: 'FLY' });
+  const ground = enemyRec({ key: 'e_ground_still', hp: 1e9, speed: 0, def: 0, res: 0 });
+  const h = fight(ids('l', 6).map((id) => [id, ['lethaniaShip']]), { lethaniaShip: bondOn(6, 200) }, { enemies: [], seed: 7, defs: { enemies: { e_fly_still: fly, e_ground_still: ground } } });
+  const walkers = () => h.b.allyUnits.filter((u) => u.walks && u.alive);
+  let m = null;
+  for (let i = 0; i < 60 && !m; i++) { const x = h.spawn('e_dummy', { pos: [9, 9] }); h.b.kill(x, null); m = walkers().find((u) => u.defId === 'enemy_9026_acltm') ?? null; for (const u of walkers()) if (u !== m) h.b.kill(u, null); }
+  assert.ok(m, 'a 乐部');
+  const f = h.spawn('e_fly_still', { pos: [9, 10] });
+  assert.ok(f.isFlying, 'the flier flies');
+  const x0 = m.x, y0 = m.y;
+  h.run(4);
+  const on = (t) => h.hooksOf('damaged').filter((c) => c.source === m && c.target === t && !(c.dmg?.tags || []).includes('hpLoss')).length;
+  assert.equal(on(f), 0, 'no shot at the flier within its 2.4 range');
+  assert.equal(m.mem.walk.target, null, 'the trace takes no flier');
+  assert.ok(Math.abs(m.x - x0) + Math.abs(m.y - y0) < 1e-9, 'it stands');
+  const g = h.spawn('e_ground_still', { pos: [9, 11] });
+  h.run(4);
+  assert.ok(on(g) >= 1, 'a ground enemy is shot');
+  assert.equal(on(f), 0);
+  assert.deepEqual(h.b.errors, []);
+});
+
 test('规程 莱塔尼亚 (real match): the round\'s knocked-down enemies bring the bond\'s walking summons onto the player\'s field', () => {
   const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
   // the default season's field (ACT3_ON_BASE_FIELD) with the two summons' records of 规程's enemy table

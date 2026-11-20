@@ -181,7 +181,21 @@
     - 테스트: `test/content/enemy-flyer-skills.test.js` — 두 시즌 적 전부를 지상 벽 + 비행 아군 옆에서 40초(일반 공격은 지상으로 묶음) 돌려
       비행 아군에게 닿는 것은 공식 이유와 함께 목록에 있어야 하는 sweep(목록에 있는데 안 닿으면 실패), 탐침이 못 켜는 넷은 한 건씩.
       재발 방지: `test/content/enemy-flyer-skills.test.js`.
-  - 남은 대조(우리 편 소환물이 적 비행을 치는 쪽)는 관리자 노트의 할 일로 남김.
+  - **우리 편 소환물(적 프리팹)이 비행 적을 치는 쪽** (2026-11-20 이어서, 공식 클라에서 확인 — CN·EN 프리팹, 버프 템플릿 `acloon_s_2`,
+    `AbilityStandard.UpdateTargets`): 이 소환물들의 선택자는 `_targetSide` 2(상대 편 = 적)다.
+    - 고친 것: 라이타니엔의 “한 파트”(`enemy_9026_acltm`)는 일반 공격(`Combat`·`Attack` 선택자)과 추적(`GroupTraceSelector`)이 모두 1인데,
+      원거리라 비행 적을 쏘고 그쪽으로 걸어갔다 → 지상만. `bonds/walker.js spawnWalker`의 `air`(기본 꺼짐)를 켠 소환물만 비행 적을 쏘고 쫓는다 —
+      켜는 것은 “잠들지 않는 설산” 覆雪苏醒(`Giant` 모드 공격·추적 3)뿐. “한 마디”(`enemy_9025_aclts`)는 근접(공격·추적 1)이라 그대로다.
+      Sk1 두 번째 타격은 같은 대상에게라 따라서 지상만.
+    - 그대로(공식과 같음): “잠들지 않는 설산” 覆雪坐定 공격·PowerAttack(1 — 키트가 이미 지상만), Switch2Snowy(1 — 저지할 수 있는 지상 적만),
+      覆雪苏醒 탄의 범위(`projectile_enemy_acsgnt` `HitBehaviour` 1 — 이미 지상만), 【神迹之声】(`TargetValidator` 3 — 비행도 끌림).
+      '염의 가호' 일반 공격·추적(3)은 비행도 친다. 【祛恶之焰】(`Skills/Skill_2`)의 자기 선택자는 지상만(1, `_postFilter` 15 HP_DES)이지만
+      `_selectTargetSource` FROM_OWNER에 `_alwaysIncludeTarget`이라, 입력 대상(일반 공격 트리거가 고른 대상, 비행 포함)이 살아 있으면 그 하나가
+      목록 끝을 대신한다(`UpdateTargets`: 입력 대상은 `Entity.get_alive`만 봄, `_maxNum` 1) — 고정 대상은 늘 일반 공격의 대상이고(PRTS
+      「触发索敌和普通攻击相同」), 비행 적일 수 있다. 그 둘레 1초 피해(`acloon_s_2` `AOEDamage` `targetMotion` ALL)도 비행을 친다 — 키트 그대로.
+    - 테스트: `test/content/bonds_act3.test.js` 「规程 莱塔尼亚 6: “一个乐部” neither shoots nor walks to a flying enemy…」(수정 전 코드에서 실패 확인),
+      「规程 谢拉格 6: 覆雪苏醒 shoots ground and air…」. 재발 방지: `test/content/bonds_act3.test.js` — 손으로 주는 `air`라 새 걷는 소환물은
+      프리팹 선택자를 보고 정한다(적 일반 공격의 `_targetMotion`을 추출이 읽게 되면 이것도 자료에서).
   - 테스트: `test/local-patch.test.js` 「规程 sweep」(규정 시즌, 패치 없이 공중 허용 / 패치로 지상만)·「寻路者传令兵 (规程)」 두 개,
     `test/content/enemies_bosses.test.js` 변형의 베이스 α 시험의 특전술사 비행 줄. 재발 방지: 손 목록이라 새 시즌의 적이 또 빠질 수 있다 — 일반 공격의
     `_targetMotion`을 추출이 읽게 하는 일은 관리자 노트의 할 일(그때 `NO_AIR_KEYS`·`NO_AIR_FORMS`를 지운다).
