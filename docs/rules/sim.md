@@ -184,8 +184,8 @@
   - **우리 편 소환물(적 프리팹)이 비행 적을 치는 쪽** (2026-11-20 이어서, 공식 클라에서 확인 — CN·EN 프리팹, 버프 템플릿 `acloon_s_2`,
     `AbilityStandard.UpdateTargets`): 이 소환물들의 선택자는 `_targetSide` 2(상대 편 = 적)다.
     - 고친 것: 라이타니엔의 “한 파트”(`enemy_9026_acltm`)는 일반 공격(`Combat`·`Attack` 선택자)과 추적(`GroupTraceSelector`)이 모두 1인데,
-      원거리라 비행 적을 쏘고 그쪽으로 걸어갔다 → 지상만. `bonds/walker.js spawnWalker`의 `air`(기본 꺼짐)를 켠 소환물만 비행 적을 쏘고 쫓는다 —
-      켜는 것은 “잠들지 않는 설산” 覆雪苏醒(`Giant` 모드 공격·추적 3)뿐. “한 마디”(`enemy_9025_aclts`)는 근접(공격·추적 1)이라 그대로다.
+      원거리라 비행 적을 쏘고 그쪽으로 걸어갔다 → 지상만. `bonds/walker.js spawnWalker`는 기록의 일반 공격이 비행을 고르는 소환물만 비행 적을 쏘고
+      쫓게 한다 — “잠들지 않는 설산” 覆雪苏醒(`Giant` 모드 공격·추적 3)뿐(처음엔 손 플래그 `air`, 같은 날 자료로). “한 마디”(`enemy_9025_aclts`)는 근접(공격·추적 1)이라 그대로다.
       Sk1 두 번째 타격은 같은 대상에게라 따라서 지상만.
     - 그대로(공식과 같음): “잠들지 않는 설산” 覆雪坐定 공격·PowerAttack(1 — 키트가 이미 지상만), Switch2Snowy(1 — 저지할 수 있는 지상 적만),
       覆雪苏醒 탄의 범위(`projectile_enemy_acsgnt` `HitBehaviour` 1 — 이미 지상만), 【神迹之声】(`TargetValidator` 3 — 비행도 끌림).
@@ -194,11 +194,31 @@
       목록 끝을 대신한다(`UpdateTargets`: 입력 대상은 `Entity.get_alive`만 봄, `_maxNum` 1) — 고정 대상은 늘 일반 공격의 대상이고(PRTS
       「触发索敌和普通攻击相同」), 비행 적일 수 있다. 그 둘레 1초 피해(`acloon_s_2` `AOEDamage` `targetMotion` ALL)도 비행을 친다 — 키트 그대로.
     - 테스트: `test/content/bonds_act3.test.js` 「规程 莱塔尼亚 6: “一个乐部” neither shoots nor walks to a flying enemy…」(수정 전 코드에서 실패 확인),
-      「规程 谢拉格 6: 覆雪苏醒 shoots ground and air…」. 재발 방지: `test/content/bonds_act3.test.js` — 손으로 주는 `air`라 새 걷는 소환물은
-      프리팹 선택자를 보고 정한다(적 일반 공격의 `_targetMotion`을 추출이 읽게 되면 이것도 자료에서).
+      「规程 谢拉格 6: 覆雪苏醒 shoots ground and air…」. 재발 방지: 원인 제거 — 2026-11-20부터 소환물 기록의 `attackMotion`
+      (아래 「손 목록 대신 자료」)을 `walker.js walkerHitsFly`가 읽는다.
   - 테스트: `test/local-patch.test.js` 「规程 sweep」(규정 시즌, 패치 없이 공중 허용 / 패치로 지상만)·「寻路者传令兵 (规程)」 두 개,
-    `test/content/enemies_bosses.test.js` 변형의 베이스 α 시험의 특전술사 비행 줄. 재발 방지: 손 목록이라 새 시즌의 적이 또 빠질 수 있다 — 일반 공격의
-    `_targetMotion`을 추출이 읽게 하는 일은 관리자 노트의 할 일(그때 `NO_AIR_KEYS`·`NO_AIR_FORMS`를 지운다).
+    `test/content/enemies_bosses.test.js` 변형의 베이스 α 시험의 특전술사 비행 줄.
+  - **손 목록 대신 자료** (2026-11-20 이어서, 공식 클라에서 확인 — EN 프리팹, EN에 없는 규정 적은 CN): 위 두 조사의 손 목록
+    (`NO_AIR_KEYS` 50여 종·자로의 `NO_AIR_FORMS`)과 걷는 소환물의 손 플래그 `air`를 지우고, 추출이 모드마다 일반 공격의 선택자를 읽는다.
+    `tools/local-extract/enemy_projectiles.py` `attack_motion`: 모드(`_modes`)의 `UnitMode._attack` 능력이 고르는 대상은 그 능력의 `_selector`
+    (`AbilityStandard.UpdateTargets`: 주인 둘레 또는 입력 대상 둘레)이고, `_alwaysIncludeTarget`이면 `_attackTrigger`가 찾은 입력 대상이 마지막 자리를
+    차지한다 — 그래서 모드의 값 = 선택자의 `_targetMotion` ∪ (입력 대상을 넣으면) 트리거 선택자의 것. 트리거의 선택자는 그 GameObject의 첫 선택자
+    컴포넌트(범위 상자·검사기는 건너뜀), 선택자 묶음(`_selectorGroup`·`_rangeSelectorsList`)은 합(`_passOnlyIfSatisfyAll`이면 곱), 트리거 묶음
+    (`_triggers`)은 그 트리거들의 합(`_isOverrideSelector`면 그 선택자), `BlockedSelector`는 저지하는 유닛뿐이라 지상(1), NeverTrigger는 0, 상대
+    편을 안 고르는 선택자(`_targetSide` 1)도 0. 모르는 꼴이면 추출이 멈춘다. `tools/build-data.mjs attackMotion`이 `data/enemies.json`에
+    `attackMotion`(들어오는 모드 = 값이 있는 첫 모드의 값)과, 모드마다 다를 때만 `attackMotionModes`({모드: 값})를 쓴다 — 두 시즌 118종,
+    다른 것은 주인공 진영 캐릭터(`Default` 1·`Shooting` 3, 사격 모드는 시뮬에 없음)와 “잠들지 않는 설산”(`Giant` 3·`SnowyMountain` 1) 둘.
+    - 시뮬: `content/local-patch.js`가 스폰 때 값에 1이 아닌 비트가 빠진 적의 `profile.canTarget`을 키트 자신의 규칙과 겹쳐 감싸고(`targeting.js
+      attackMotionOf` — 폼 이름을 대소문자 없이 모드와 맞추고, 없으면 들어오는 모드), 우선도 49 `beforeAttack` 재필터도 그 값으로 한다. 자로는 M1
+      `_attack`이 NeverTrigger(저지한 유닛만 침)라 값이 M2의 1뿐 — 두 형태 모두 지상만(M1은 원래 비행을 못 쳐 동작 같음). 걷는 소환물은 자기 기록의
+      값(`bonds/walker.js walkerHitsFly`)으로 비행 적을 쏘고 쫓고, 설산 覆雪坐定 프로필도 `SnowyMountain` 값에서.
+    - 손 목록과 대조: 목록의 적은 모두 1로 나왔고, 목록 밖의 1인 적(무덤지기 석상 `Fly`, 살카즈 부패의 전차, 스컬슈레더·'툼스톤' `Ignite`, '거대하고
+      못생긴 것', 부유의 표류체, 가상적: 골극, 갑주 칼날 둘, 변형의 베이스 α `ModeD`, '산크타의 눈', 군단 중형 화포, 서리를 품은 파울비스트 등과 근접 적)은 키트가 이미
+      지상만이거나 저지한 유닛만 친다. 탐침(두 시즌 590개, 지상 벽 + 비행 아군 40초, 전후 비교)에서 달라진 것은 “한 파트”를 적으로 소환했을 때뿐
+      (원래 우리 편 소환물 — 비행을 안 침, 공식 선택자 1).
+    - 테스트: `test/local-patch.test.js` 「sweep」·「client-only」·「规程 sweep」(목록이 자료 값 1을 확인, 주인공 진영 캐릭터의 형태별 줄),
+      `test/content/bonds_act3.test.js` 라이타니엔·설산. 재발 방지: 원인 제거 — 추출(`enemy_projectiles.py attack_motion`)이 읽고 새 시즌 적은
+      `--season-new`로 같이 읽힌다.
 
 ## 전투 버그 수정 (2026-10-06 플레이 제보)
 테스트: `test/local-patch-battle.test.js`(실제 대전 경로: Match 보드 → `m._normalOpts` → `buildBattleSpec` → `createBattleFromSpec`).

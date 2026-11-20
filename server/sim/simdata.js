@@ -495,6 +495,10 @@ export function normalizeEnemy(key, e) {
     // { key, move, speed, delay } — null = the attack has no projectile (it hits at the strike), undefined = unknown
     proj: e.proj === null ? null : normShot(e.proj) ?? undefined,
     projModes: normShots(e.projModes),
+    // the MotionMask of the allies its normal attack takes (data `attackMotion` / `attackMotionModes`, targeting.js
+    // attackMotionOf; content/local-patch.js keeps a flyer out of a ground-only one); 0 / null = not read
+    attackMotion: Number(e.attackMotion) | 0,
+    attackMotionModes: e.attackMotionModes && typeof e.attackMotionModes === 'object' ? e.attackMotionModes : null,
     // the model's hit point { F, B, modes? } in tiles, where the shots aimed at it end (tools/build-data.mjs enemyHitAt), or null
     hitAt: normHitAt(e.hitAt),
     tags: e.tags ?? [],

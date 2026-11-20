@@ -103,7 +103,7 @@
 | iframe 차단 헤더 | `server/http/common.js setSecurityHeaders` | — |
 | 나가기 창에서 「暂离（AI 托管）」 숨김 — 나가면 자리를 포기한다 | `public/js/ui/matchChrome.js` (`AWAY_OPTION = false`) | — |
 | 맹약 스택 세 자리 줄바꿈 수정 | `public/i18n/ko/ko.css` | — |
-| 제국의 갑주 등장 폭격·3연타 PRTS 수치, 성당 검사(圣堂剑士) 탄약 소모 스킬·탄약 표시, 더블린 그림자 캐스터(·리더) 외 27종은 비행 아군을 공격하지 않음(자로는 2형태만) | `server/sim/content/local-patch.js` (`NO_AIR_KEYS`, `NO_AIR_FORMS`, `beforeAttack` 재필터) | `sim.md` |
+| 제국의 갑주 등장 폭격·3연타 PRTS 수치, 성당 검사(圣堂剑士) 탄약 소모 스킬·탄약 표시, 일반 공격 선택자가 지상만인 적은 비행 아군을 공격하지 않음(프리팹을 추출이 읽은 `attackMotion`) | `server/sim/content/local-patch.js` (`attackMotion` 규칙, `beforeAttack` 재필터) | `sim.md` |
 | 频次(특수 HP, "N회 피해로 격파") 적에게 隐德来希 효과가 한 번에 여러 칸을 깎던 것: 萃血 최대 HP 흡수는 频次 적에게 안 걸림(PRTS 萃血 비고 「无法对…拥有特殊生命值机制的敌人…生效」), 心烛가 받은 피해를 원래 적에게 넘길 때 频次 적이면 출처 없는 진실 피해 1회(=1)(PRTS 비고 「无来源真实伤害…如特殊生命值机制」) | `server/sim/content/kits/ops/chess_char_5_06-etlchi.js` | — |
 
 `server/sim/content/local-patch.js`는 시뮬레이션 모듈이라 서버와 브라우저(클라이언트가 돌리는 보스·히든 전투) 양쪽에서 실행된다.

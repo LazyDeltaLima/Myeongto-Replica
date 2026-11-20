@@ -492,6 +492,60 @@ print(json.dumps([m.child(t, 'Graphic/Spine')['pos'], m.child(t, 'Graphic/FaceSw
   });
 });
 
+describe('enemy_projectiles.py attack_motion: whom each mode\'s normal attack takes by motion (no UnityPy needed)', { skip: !PY && 'no python3' }, () => {
+  /** attack_motion of a fake prefab tree [(path, typetree, pid)]; pointers are {m_PathID}, 0 = null. */
+  const motion = (tree) => {
+    const src = `import sys, json\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport enemy_projectiles as p\n`
+      + `tree = json.loads(${JSON.stringify(JSON.stringify(tree))})\ntry:\n  print(json.dumps(p.attack_motion('e', [tuple(x) for x in tree])))\nexcept SystemExit as x:\n  print(json.dumps(str(x)))`;
+    const r = spawnSync(PY, ['-c', src], { encoding: 'utf8', env: ENV });
+    assert.equal(r.status, 0, r.stderr);
+    return JSON.parse(r.stdout);
+  };
+  const P = (i) => ({ m_FileID: 0, m_PathID: i }), G = (i) => ({ m_PathID: i });
+  const SEL = (side, mot, go, comp) => ({ _targetSide: side, _targetMotion: mot, m_GameObject: G(go), $comp: comp });
+  const TRIG = (go, comp) => ({ _keepTarget: 0, _minTargetNum: 1, _overrideSearchTargetTick: -1, m_GameObject: G(go), $comp: comp });
+  test('the trigger\'s selector when the input target is included, joined with the ability\'s own; a NeverTrigger and the own side take nobody', () => {
+    const tree = [
+      ['e', { _modes: [P(10), P(20), P(30), P(40)] }, 1],
+      // A: no ability selector, `_alwaysIncludeTarget` — the trigger's first selector after the range box: 1 (隐形弩手)
+      ['e/Modes/A', { _attack: P(11), _attackTrigger: P(12) }, 10],
+      ['e/Modes/A/Body/Attack', { _selector: P(0), _alwaysIncludeTarget: 1 }, 11],
+      ['e/Modes/A/Body/Attack/Trigger', TRIG(100, 0), 12],
+      ['e/Modes/A/Body/Attack/Trigger', { _extendable: 0, _scaleble: 0, m_GameObject: G(100), $comp: 1 }, 13],
+      ['e/Modes/A/Body/Attack/Trigger', SEL(2, 1, 100, 2), 14],
+      // B: its own selector 1, a global trigger 3 not included (斩胄之剑's outer / inner selectors) → 1
+      ['e/Modes/B', { _attack: P(21), _attackTrigger: P(22) }, 20],
+      ['e/Modes/B/Body/Attack', { _selector: P(23), _alwaysIncludeTarget: 0 }, 21],
+      ['e/Modes/B/Body/Attack/Selector/Selector', TRIG(200, 0), 22],
+      ['e/Modes/B/Body/Attack/Selector/Selector', SEL(2, 3, 200, 1), 24],
+      ['e/Modes/B/Body/Attack/Selector', SEL(2, 1, 201, 1), 23],
+      // C: a NeverTrigger (扎罗 M1) — left out
+      ['e/Modes/C', { _attack: P(31), _attackTrigger: P(32) }, 30],
+      ['e/Modes/C/Body/Attack', { _selector: P(0), _alwaysIncludeTarget: 1 }, 31],
+      ['e/Modes/C/Body/Attack', { m_GameObject: G(300) }, 32],
+      // D: a group of an own-side selector and a BlockedSelector → 1; with the trigger's ALL included → 3
+      ['e/Modes/D', { _attack: P(41), _attackTrigger: P(42) }, 40],
+      ['e/Modes/D/Body/Attack', { _selector: P(43), _alwaysIncludeTarget: 1 }, 41],
+      ['e/Modes/D/Body/Attack/Selector', { _selectorGroup: [P(44), P(45)], _passOnlyIfSatisfyAll: 0 }, 43],
+      ['e/Modes/D/Body/Attack/Selector', SEL(1, 3, 401, 1), 44],
+      ['e/Modes/D/Body/Attack/Selector', { _maxTargetNum: 1 }, 45],
+      ['e/Modes/D/Body/Attack/Trigger', TRIG(400, 0), 42],
+      ['e/Modes/D/Body/Attack/Trigger', { m_GameObject: G(400), $comp: 1 }, 46],   // a field-less GlobalRange
+      ['e/Modes/D/Body/Attack/Trigger', SEL(2, 3, 400, 2), 47],
+    ];
+    assert.deepEqual(motion(tree), { A: 1, B: 1, D: 3 });
+  });
+  test('a selector of a shape it does not know stops the run (no default)', () => {
+    const tree = [
+      ['e', { _modes: [P(10)] }, 1],
+      ['e/Modes/A', { _attack: P(11), _attackTrigger: P(0) }, 10],
+      ['e/Modes/A/Body/Attack', { _selector: P(12), _alwaysIncludeTarget: 0 }, 11],
+      ['e/Modes/A/Body/Attack/Selector', { _someNewField: 1 }, 12],
+    ];
+    assert.match(motion(tree), /e A attack: an attack selector of a shape this reader does not know/);
+  });
+});
+
 describe('client_path.py: EN first, CN for what it lacks, earlier rows kept (no UnityPy needed)', { skip: !PY && 'no python3' }, () => {
   /** Run python code with `client_path` imported as `c` (no .env, no .client-cn link); returns the parsed JSON it prints. */
   const cp = (code, env = {}) => {

@@ -1108,9 +1108,16 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
     for (const key of SWEPT) assert.deepEqual(ruleOf([enemiesMod, bossesMod], key), { air: true, ground: true }, key);
   });
 
+  // the ground-only normal attack is data: the prefab's attack selector, read by tools/local-extract/enemy_projectiles.py
+  // (attack_motion) into data/enemies.json `attackMotion` (docs/rules/sim.md 「적 비행 유닛 공격 전수 조사」)
+  const motionOf = (key, season) => {
+    const rec = JSON.parse(readFileSync(new URL(season ? `../data/seasons/${season}/enemies.json` : '../data/enemies.json', import.meta.url), 'utf8'))[key];
+    return rec ? [rec.attackMotion, rec.attackMotionModes ?? null] : null;
+  };
+
   test('sweep: patched, every swept enemy keeps ground targets and skips flyers', () => {
     for (const key of SWEPT) {
-      assert.ok(simPatch.NO_AIR_KEYS.includes(key), `${key} in NO_AIR_KEYS`);
+      assert.deepEqual(motionOf(key), [1, null], `${key}: its data attackMotion is WALK_ONLY (rerun tools/local-extract/enemy_projectiles.py, then tools/build-data.mjs)`);
       assert.deepEqual(ruleOf([enemiesMod, bossesMod, simPatch], key), { air: false, ground: true }, key);
     }
   });
@@ -1118,18 +1125,20 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
   // maintainer decision 「공식 클라이언트를 따라 막아」: client normal attack 1 though PRTS is silent / forms or selectors mixed
   const CLIENT_ONLY = ['enemy_2010_csdcr', 'enemy_1252_lysytb_2', 'enemy_1427_lrnazg', 'enemy_1509_mousek', 'enemy_1504_cqbw', 'enemy_1516_jakill',
     'enemy_10098_crhro', 'enemy_10099_crvln'];
-  // upstream 0.2.2 grounds these itself (c250ff66 假想敌：骨刺, 977215e1 斩胄之剑 / 破胄之锤 — ported 2026-10-09): out of NO_AIR_KEYS
+  // upstream 0.2.2 grounds these itself (c250ff66 假想敌：骨刺, 977215e1 斩胄之剑 / 破胄之锤 — ported 2026-10-09): the data rule then changes nothing for them
   const NOW_UPSTREAM = ['enemy_9008_acbunn', 'enemy_9014_acstma', 'enemy_9015_acstmb'];
 
-  test('now upstream\'s own rule: 假想敌：骨刺 and the 胄 blades skip flyers without the patch, and are out of NO_AIR_KEYS', () => {
+  test('now upstream\'s own rule: 假想敌：骨刺 and the 胄 blades skip flyers without the patch (their data says so too)', () => {
     for (const key of NOW_UPSTREAM) {
-      assert.ok(!simPatch.NO_AIR_KEYS.includes(key), `${key} left NO_AIR_KEYS`);
+      assert.equal(motionOf(key)?.[0], 1, `${key}: data attackMotion WALK_ONLY`);
       assert.deepEqual(ruleOf([enemiesMod, bossesMod], key), { air: false, ground: true }, key);
+      assert.deepEqual(ruleOf([enemiesMod, bossesMod, simPatch], key), { air: false, ground: true }, `${key} patched`);
     }
   });
 
-  test('client-only: upstream lets them shoot a flyer; patched, ground only (扎罗 only in its second form)', () => {
+  test('client-only: upstream lets them shoot a flyer; patched, ground only (主角阵营角色 in its Default mode, 扎罗 in both)', () => {
     for (const key of CLIENT_ONLY) {
+      assert.equal(motionOf(key)?.[0], 1, `${key}: data attackMotion WALK_ONLY in the mode it comes in`);
       assert.deepEqual(ruleOf([enemiesMod, bossesMod], key), { air: true, ground: true }, `upstream ${key}`);
       assert.deepEqual(ruleOf([enemiesMod, bossesMod, simPatch], key), { air: false, ground: true }, key);
     }
@@ -1144,7 +1153,21 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
       return [form1, air()];
     };
     assert.deepEqual(wolf([enemiesMod, bossesMod]), [true, true], 'upstream 扎罗');
-    assert.deepEqual(wolf([enemiesMod, bossesMod, simPatch]), [true, false], '扎罗: M1 has no attack filter, M2 Attack/Trigger 1');
+    // its M1 `_attack` has a NeverTrigger (it only fights its blocker): the data holds M2's Attack/Trigger 1 alone
+    assert.deepEqual(motionOf('enemy_1535_wlfmster'), [1, null]);
+    assert.deepEqual(wolf([enemiesMod, bossesMod, simPatch]), [false, false], '扎罗: ground only (M2 Attack/Trigger 1; M1 never attacks unblocked)');
+    // a mode of its own: 主角阵营角色's Shooting mode takes ALL (the sim has no such form)
+    assert.deepEqual(motionOf('enemy_10098_crhro'), [1, { Default: 1, Shooting: 3 }]);
+    const hero = (() => {
+      const h = makeBattle({ content: 'generic', extraContent: [enemiesMod, bossesMod, simPatch], seed: 7, autoFinish: false, timeLimit: 60, units: [] });
+      h.step();
+      const e = h.spawn('enemy_10098_crhro', { pos: [6, 8], routeIndex: 0, mods: { speedMul: 0 } });
+      h.run(0.2);
+      const first = e.profile.canTarget(FLYER);
+      e.form = 'shooting';
+      return [first, e.profile.canTarget(FLYER), e.profile.canTarget(GROUNDED)];
+    })();
+    assert.deepEqual(hero, [false, true, true], '主角阵营角色: Default 1, Shooting 3 (attackMotionModes, matched to the form without case)');
   });
 
   // 规程's enemies, swept 2026-11-20 in both clients' prefabs: every mode's normal-attack selector _targetMotion 1
@@ -1163,7 +1186,7 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
 
   test('规程 sweep: without the patch they shoot a flyer; patched, ground only (docs/rules/sim.md 「적 비행 유닛 공격 전수 조사」)', () => {
     for (const key of REGULATION) {
-      assert.ok(simPatch.NO_AIR_KEYS.includes(key), `${key} in NO_AIR_KEYS`);
+      assert.equal(motionOf(key, 'act3autochess')?.[0], 1, `${key}: data attackMotion WALK_ONLY (rerun tools/local-extract/enemy_projectiles.py --season-new, then tools/build-data.mjs --season act3autochess)`);
       assert.deepEqual(ruleIn('act3autochess', [enemiesMod, bossesMod], key), { air: true, ground: true }, `unpatched ${key}`);
       assert.deepEqual(ruleIn('act3autochess', [enemiesMod, bossesMod, simPatch], key), { air: false, ground: true }, key);
     }

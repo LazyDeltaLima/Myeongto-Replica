@@ -34,7 +34,7 @@
 
 import * as S from '../support/index.js';
 import { num, reached, onUnitHit } from './shared.js';
-import { spawnWalker, nearestGroundTile } from './walker.js';
+import { spawnWalker, nearestGroundTile, walkerHitsFly } from './walker.js';
 import { powi } from '../../detmath.js';
 
 export const GIANT = 'enemy_9024_acsgnt';
@@ -115,8 +115,9 @@ export function spawnGiant(battle, pid, r, c) {
     const i = list.findIndex((e) => e.s.flags.freeze && !e.isFlying && dist2(e, u) <= r2);
     return i > 0 ? [list[i], ...list.slice(0, i), ...list.slice(i + 1)] : list;
   };
-  // 覆雪苏醒's attack and trace selectors take ALL (its prefab, `_targetMotion` 3); 覆雪坐定's own profile below is ground only
-  u = spawnWalker(battle, pid, GIANT, r, c, { air: true, rank });
+  // 覆雪苏醒's attack and trace selectors take ALL (its prefab, `_targetMotion` 3: data attackMotionModes.Giant — walker.js
+  // walkerHitsFly); 覆雪坐定's own profile below takes what its mode's attack takes (SnowyMountain 1: ground only)
+  u = spawnWalker(battle, pid, GIANT, r, c, { rank });
   if (!u) return null;
   u.mode = GIANT_MODE;
   u.form = GIANT_MODE;
@@ -124,7 +125,8 @@ export function spawnGiant(battle, pid, r, c) {
   giantProf.splashRadius = GIANT_SHOT_RADIUS;
   giantProf.splashScale = 1;
   giantProf.splashGroundOnly = true;
-  const snowyProf = { ...giantProf, projectile: 'none', canHitFly: false, groundOnly: true, splashRadius: splash, splashScale: 1, splashGroundOnly: false };
+  const snowyAir = walkerHitsFly(rec, SNOWY_MODE);
+  const snowyProf = { ...giantProf, projectile: 'none', canHitFly: snowyAir, groundOnly: !snowyAir, splashRadius: splash, splashScale: 1, splashGroundOnly: false };
 
   // talent BondBuff: the player's 谢拉格 layers, in steps
   const bondBuff = () => {

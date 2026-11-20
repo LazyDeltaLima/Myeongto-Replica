@@ -2850,7 +2850,23 @@ function enemyProjectiles(ctx, spineId, key) {
   const skills = lower(e.skills);
   const talentProj = {};
   for (const [k, v] of Object.entries(e.talents || {})) { const r = rec(v[0]); if (r) talentProj[k] = r; }
-  return { proj, projModes, skills, talentProj, rec };
+  return { proj, projModes, skills, talentProj, rec, ...attackMotion(e.motion, spineId) };
+}
+
+/**
+ * The allies an enemy's normal attack takes, by motion (the extract's `motion` {mode: MotionMask}, enemy_projectiles.py
+ * attack_motion: the client's MotionMask WALK_ONLY 1, FLY_ONLY 2, ALL 3 of its UnitMode `_attack` selector, with the
+ * `_attackTrigger`'s when the input target is included) → enemies.json `attackMotion` (the mask of its first mode that
+ * attacks — the one it comes in) and `attackMotionModes` ({mode: mask}, only when its modes differ). The sim keeps a flying
+ * ally out of the attack of a mode without the FLY bit (server/sim/content/local-patch.js; docs/rules/sim.md 「적 비행 유닛
+ * 공격 전수 조사」). Absent: the prefab's attack takes nobody of our side, or the prefab was not read.
+ */
+function attackMotion(motion, where) {
+  const ent = Object.entries(motion || {});
+  for (const [m, v] of ent) if (![1, 2, 3].includes(v)) throw new Error(`enemy ${where}: attack motion ${v} of mode ${m} is no MotionMask (rerun tools/local-extract/enemy_projectiles.py)`);
+  if (!ent.length) return {};
+  const same = ent.every(([, v]) => v === ent[0][1]);
+  return { attackMotion: ent[0][1], ...(same ? {} : { attackMotionModes: Object.fromEntries(ent) }) };
 }
 
 /** enemies.json `skills` with each skill's official projectile (enemyProjectiles). */
@@ -3517,6 +3533,8 @@ function buildEnemies(ctx) {
       // `proj: null` only for an enemy with a range (rawRangeRadius > 0) whose attack has no projectile: its ranged hit lands at the strike
       ...(shots?.proj ? { proj: shots.proj } : shots && rawRangeRadius > 0 ? { proj: null } : {}),
       ...(shots && Object.keys(shots.projModes).length ? { projModes: shots.projModes } : {}),
+      ...(shots?.attackMotion ? { attackMotion: shots.attackMotion } : {}),
+      ...(shots?.attackMotionModes ? { attackMotionModes: shots.attackMotionModes } : {}),
       ...(shots && Object.keys(shots.talentProj).length ? { talentProj: shots.talentProj } : {}),
       ...(attacksOnTheMove(abilities) ? { attackMoves: true } : {}),
     };

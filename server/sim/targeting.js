@@ -118,6 +118,26 @@ export function canTargetAlly(e, a, ranged) {
 }
 
 /**
+ * The MotionMask (the client's WALK_ONLY 1, FLY_ONLY 2, ALL 3) of the units of the other side the normal attack of enemy
+ * record or def `d` takes in mode `form` (data/enemies.json `attackMotion` / `attackMotionModes`: its prefab's UnitMode
+ * `_attack` selector — tools/build-data.mjs attackMotion): the mode named like `form` (case aside) when its modes differ,
+ * else the one it comes in. 0 = not read (no rule).
+ */
+export function attackMotionOf(d, form) {
+  const modes = d && d.attackMotionModes;
+  if (modes && form != null) {
+    const f = String(form).toLowerCase();
+    for (const k in modes) if (k.toLowerCase() === f) return modes[k];
+  }
+  return (d && d.attackMotion) | 0;
+}
+
+/** Does MotionMask `mask` take unit `u` (a flying unit needs the FLY bit 2, a ground one WALK 1)? */
+export function motionTakes(mask, u) {
+  return (mask & (u.isFlying ? 2 : 1)) !== 0;
+}
+
+/**
  * May an AREA effect of enemy-side `src` select ally `a` — a splash, a blast, an area skill or status, a pulse, a zone it
  * leaves, a chain / bounce jump, a 周围四格 addition (content/enemies/helpers.js areaAllies / areaAlliesInTiles / fieldAllies)?
  * PRTS 作战机制 §AOE伤害判定 "AOE的判定是对攻击范围内的每个可以被选中的敌人进行判定"; §隐匿 "隐匿效果使得获得该效果的单位无法被

@@ -42,7 +42,9 @@ folds into data/enemies.json (`proj`, `skills[i].proj`, `talentProj`):
                                         "skills": { "Boomb": [ {…} ] }, "talents": { "1": [ {…} ] } } } }
 
 `attack` / `combat` = the projectile of the first mode's unblocked / blocked normal attack (absent: none — the attack
-hits at its strike, its hit effect on the target); `modes` only when a later mode shoots another one. Keys are the
+hits at its strike, its hit effect on the target); `modes` only when a later mode shoots another one. `motion` {mode
+name: MotionMask} = whom each mode's normal attack can take by motion (attack_motion; tools/build-data.mjs folds it into
+`attackMotion` / `attackMotionModes`; absent: no mode's attack takes a unit of our side). Keys are the
 prefab roots (data/enemies.json `spine`); every prefab read has an entry ({} = it shoots nothing).
 
 Usage (from the repo root; --client = the EN client's Arknights_Data folder):
@@ -256,6 +258,106 @@ def first_shot(sub, base, names):
     return None
 
 
+MOTIONS = {1, 2, 3}   # the client's MotionMask: WALK_ONLY 1, FLY_ONLY 2, ALL 3
+
+
+def deref(ref, by_pid):
+    """(GameObject path, typetree) a PPtr names in the prefab, or None (a null PPtr: m_PathID 0)."""
+    pid = ref.get('m_PathID') if isinstance(ref, dict) else None
+    return by_pid.get(pid) if pid else None
+
+
+def selector_motion(d, by_pid, where):
+    """The MotionMask of the units of the other side (the allies, for an enemy) selector `d` takes, 0 for a selector that
+    takes only its own side's. A group of selectors (`_rangeSelectorsList`, `_selectorGroup`) takes what any of them takes —
+    with `_passOnlyIfSatisfyAll` what all of them take. Stops on a shape this reader does not know."""
+    group = d.get('_rangeSelectorsList', d.get('_selectorGroup'))
+    if isinstance(group, list):
+        ms = []
+        for ref in group:
+            got = deref(ref, by_pid)
+            if got is None:
+                raise SystemExit(f'{where}: a selector group names a selector outside the prefab')
+            ms.append(selector_motion(got[1], by_pid, where))
+        if not ms:
+            return 0
+        m = ms[0]
+        for x in ms[1:]:
+            m = (m & x) if d.get('_passOnlyIfSatisfyAll') else (m | x)
+        return m
+    if '_targetSide' in d and '_targetMotion' in d:
+        side, motion = d['_targetSide'], d['_targetMotion']
+        if side not in (1, 2, 3) or motion not in MOTIONS | {0}:
+            raise SystemExit(f'{where}: a selector with _targetSide {side} / _targetMotion {motion}')
+        return motion if side & 2 else 0
+    if {k for k in d if k.startswith('_')} == {'_maxTargetNum'}:
+        return 1   # a BlockedSelector: the units that block the owner — a flying ally blocks nobody
+    raise SystemExit(f'{where}: an attack selector of a shape this reader does not know: {sorted(k for k in d if k.startswith("_"))}')
+
+
+def trigger_motion(trig_pid, by_pid, where):
+    """The MotionMask a mode's `_attackTrigger` finds its input target with: a SelectorTrigger takes the first selector
+    component of its GameObject (`Awake`: GetComponent<TargetSelector>, `$comp` order — the range box and validators are
+    no selectors); a NeverTrigger (no field of its own) finds nobody, 0."""
+    got = by_pid.get(trig_pid) if trig_pid else None
+    if got is None:
+        return 0
+    gp, trig = got
+    own = {k for k in trig if k.startswith('_') and k != '_metadata' and k != '$comp'}
+    if not own:
+        return 0   # NeverTrigger
+    if isinstance(trig.get('_triggers'), list):
+        # a trigger of triggers (`_checkType` all / any): its `_overrideSelector` when `_isOverrideSelector`, else what
+        # its triggers find
+        ov = deref(trig.get('_overrideSelector'), by_pid)
+        if trig.get('_isOverrideSelector') and ov:
+            return selector_motion(ov[1], by_pid, where)
+        m = 0
+        for ref in trig['_triggers']:
+            m |= trigger_motion((ref or {}).get('m_PathID'), by_pid, where)
+        return m
+    if '_minTargetNum' not in trig:
+        raise SystemExit(f'{where}: an attack trigger of a shape this reader does not know: {sorted(own)}')
+    go = trig['m_GameObject']['m_PathID']
+    sibs = sorted((d for p, (g, d) in by_pid.items() if p != trig_pid and (d.get('m_GameObject') or {}).get('m_PathID') == go),
+                  key=lambda d: d.get('$comp', 1 << 30))
+    for d in sibs:
+        if '_extendable' in d or '_targetOptions' in d or not ({k for k in d if k.startswith('_')} - {'_useBlackboardRangeId'}):
+            continue   # the range box (a GlobalRange: no field, the CN client's `_useBlackboardRangeId`), a validator; a
+            #            field-less SelfSelector takes the owner (0)
+        return selector_motion(d, by_pid, where)
+    raise SystemExit(f'{where}: a SelectorTrigger without a selector beside it')
+
+
+def attack_motion(root, sub):
+    """{mode name: MotionMask} of the allies each mode's normal attack (its UnitMode `_attack`) can take, the modes whose
+    attack takes some. The client's AbilityStandard.UpdateTargets: the ability's own `_selector` finds the targets (around
+    the owner — FROM_OWNER — or the input target), and with `_alwaysIncludeTarget` the input target the mode's
+    `_attackTrigger` found takes the last place; without a selector only that input target is cast at. So the mask is the
+    selector's, joined with the trigger's when the input target is included."""
+    by_pid = {pid: (gp, d) for gp, d, pid in sub}
+    root_d = next((d for gp, d, _ in sub if gp == root and isinstance(d.get('_modes'), list)), None)
+    out = {}
+    for ref in (root_d or {}).get('_modes') or []:
+        got = deref(ref, by_pid)
+        if got is None:
+            continue
+        gp, mode = got
+        name = gp.split('/')[-1]
+        att = deref(mode.get('_attack'), by_pid)
+        if att is None:
+            continue
+        a = att[1]
+        where = f'{root} {name} attack'
+        sel = deref(a.get('_selector'), by_pid)
+        m = selector_motion(sel[1], by_pid, where) if sel else 0
+        if a.get('_alwaysIncludeTarget'):
+            m |= trigger_motion((mode.get('_attackTrigger') or {}).get('m_PathID'), by_pid, where)
+        if m:
+            out.setdefault(name, m)
+    return out
+
+
 def enemy_entry(root, sub, proj_keys):
     modes = mode_paths(sub) or []
     if not modes or not modes[0]:
@@ -292,6 +394,9 @@ def enemy_entry(root, sub, proj_keys):
                     s = shot(d) if d.get('_projectileKey') == v else {'key': v}
                     if s not in lst:
                         lst.append(s)
+    motion = attack_motion(root, sub)
+    if motion:
+        out['motion'] = motion
     if skills:
         out['skills'] = dict(sorted(skills.items()))
     if talents:
@@ -303,7 +408,7 @@ def read_enemies(C, wanted, proj):
     """{prefab root: entry} of the `wanted` enemies in one client's enemy prefab bundles."""
     enemies = {}
     for f in bundles(C, 'battle/enm_pfb*.ab').values():
-        tree, _ = load_tree(f)
+        tree, _ = load_tree(f, comp_index=True)   # `$comp`: the component order a SelectorTrigger finds its selector in
         for root in sorted({gp.split('/')[0] for gp, _, _ in tree} & wanted):
             sub = [(gp, d, pid) for gp, d, pid in tree if gp == root or gp.startswith(root + '/')]
             enemies[root] = enemy_entry(root, sub, proj)   # {} = read, shoots nothing

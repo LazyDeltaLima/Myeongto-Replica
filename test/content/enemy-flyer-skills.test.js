@@ -2,7 +2,7 @@
 // 스킬·재능 대조): the official prefab's selector or projectile collider `_targetMotion` 1 (ground only) keeps a flyer out.
 // The cause stays hand-written — each kit picks its own units (areaAllies / alliesInRadius …) and has to leave the flyer out
 // where the client does — so a sweep runs every enemy of both seasons next to a ground wall and a flyer with its normal
-// attack held to the ground (the normal attack is the NO_AIR_KEYS sweep's, test/local-patch.test.js): what still reaches the
+// attack held to the ground (the normal attack is the data `attackMotion` rule's, test/local-patch.test.js): what still reaches the
 // flyer must be listed below with the official reason. The skills the probe does not set off have a case each.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';

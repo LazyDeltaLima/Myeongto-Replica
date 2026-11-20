@@ -419,7 +419,7 @@ function kitPfHerald(ab, e) {
     pick(b, e2, targets) {
       if (!targets[0].s.flags.disarm) return null;
       const r = e2.base.rangeRadius + ALLY_COLLIDER_RADIUS;
-      // (its selector's _targetMotion 1: no flyer — local-patch.js NO_AIR_KEYS sets the canTarget)
+      // (its selector's _targetMotion 1: no flyer — local-patch.js sets the canTarget from data attackMotion)
       const ok = typeof e2.profile.canTarget === 'function' ? e2.profile.canTarget : () => true;
       const l = byPriority(e2, targetsNear(b, e2, r)).filter((u) => !u.s.flags.disarm && ok(u));
       return l[0] || null;

@@ -34,6 +34,7 @@
 // [ASSUMED] a trigger while stunned / frozen / asleep fails (no bullet, no count) — an enemy skill cannot start then.
 
 import { abOf, attach, hurt, allTargets, areaAlliesInTiles, canCast, T } from './enemies.js';
+import { attackMotionOf, motionTakes } from '../targeting.js';
 
 export const VTSK = 'enemy_10027_vtsk';
 /** 回忆里的誓死 (PRTS): first hit after 1.33 s, one every 0.53 s, the 3×3 弹道 lasts 5.85 s. */
@@ -42,18 +43,26 @@ export const BARRAGE_DELAY = 1.33, BARRAGE_STEP = 0.53, BARRAGE_LIFE = 5.85;
 export function install(battle) {
   battle.on('enemySpawn', ({ enemy }) => { if (enemy && enemy.defId === VTSK) patchVtsk(battle, enemy); }, { priority: 101 });
   battle.on('enemySpawn', ({ enemy }) => { if (enemy && enemy.defId === HLCHGR) patchHlchgr(battle, enemy); }, { priority: 99 });
-  // 深池暗影术师 / 队长 "不会攻击飞行单位" (PRTS 天赋; EN client prefab Attack/Trigger _targetMotion 1 = ground only, where
-  // 控潮术师 / 萨卡兹王庭军精锐术师 have 3): the engine's candidate filter, as content/enemies.js noAirTargets (upstream
-  // gives these two only kitRefraction). A 起飞 ally is already out of a ground enemy's reach (targeting.js evadesGround).
-  battle.on('enemySpawn', ({ enemy }) => { if (enemy && NO_AIR_KEYS.includes(enemy.defId)) enemy.profile.canTarget = (u) => !u.isFlying; }, { priority: 99 });
-  // per form (扎罗: M1 has no attack filter, M2 Attack/Trigger 1): ground only once the kit's setForm names that form
-  battle.on('enemySpawn', ({ enemy: e }) => { const f = enemy0(e) && NO_AIR_FORMS[e.defId]; if (f) e.profile.canTarget = (u) => !(u.isFlying && e.form === f); }, { priority: 99 });
+  // the normal attack's motion filter (docs/rules/sim.md 「적 비행 유닛 공격 전수 조사」): the prefab's UnitMode `_attack`
+  // selector `_targetMotion` (data/enemies.json `attackMotion` / `attackMotionModes`, read by tools/local-extract/
+  // enemy_projectiles.py — 深池暗影术师 「不会攻击飞行单位」 and the rest of the 2026-10-06 / 2026-11-20 sweeps; 扎罗's M2 only, as its
+  // M1 attack never triggers) keeps a flyer out of a ground-only mode's candidates, on top of the kit's own rule (upstream
+  // shoots a flyer with every ranged enemy that has none). A 起飞 ally is already out of a ground enemy's reach
+  // (targeting.js evadesGround).
+  battle.on('enemySpawn', ({ enemy: e }) => {
+    if (!enemy0(e) || !motionFiltered(e.def)) return;
+    const own = e.profile.canTarget;
+    e.profile.canTarget = typeof own === 'function'
+      ? (u) => motionTakes(attackMotionOf(e.def, e.form), u) && own(u)
+      : (u) => motionTakes(attackMotionOf(e.def, e.form), u);
+  }, { priority: 99 });
   // a kit that picks its own attack targets in 'before' (“灵幛” everyone in reach, the 胄 blades, …) bypasses the engine's
-  // candidate filter: after content (priority 50) the swept enemies' targets are filtered again (an empty list = no attack)
+  // candidate filter: after content (priority 50) their targets keep to the mode's motion again (an empty list = no attack)
   battle.on('beforeAttack', (c) => {
     const e = c.attacker;
-    if (!enemy0(e) || !(NO_AIR_KEYS.includes(e.defId) || NO_AIR_FORMS[e.defId]) || typeof e.profile.canTarget !== 'function') return;
-    c.targets = (c.targets || []).filter((t) => t && e.profile.canTarget(t));
+    if (!enemy0(e) || !motionFiltered(e.def)) return;   // (no own field on the enemy: one object shape, feedback1-transform.test.js)
+    const mask = attackMotionOf(e.def, e.form);
+    c.targets = (c.targets || []).filter((t) => t && motionTakes(mask, t));
   }, { priority: 49 });
   // skills whose client Trigger / Selector is _targetMotion 1: their target picks (enemies.js allTargets / targetsNear) skip a
   // flyer; an area their projectile then covers keeps its own client filter (鼠王 唱沙 / 沙狱, “自在” 纬地经天: collision 3)
@@ -61,27 +70,8 @@ export function install(battle) {
 }
 
 export const HLCHGR = 'enemy_10087_hlchgr';
-// + the 2026-10-06 sweep of every enemy prefab: normal-attack target filter _targetMotion 1 and PRTS 天赋 「不会攻击飞行单位」
-// (烹泉 / 沏虹 「不可对空」) while upstream sets no rule — 隐形弩手(组长), 隐形术师, “庞贝”, 潜水员, 术师快艇, 无胄盟清扫小队, 烹泉,
-// 沏虹, 家族(暗影)灭迹人, 萨卡兹百夫长, “自在”, “遗弃者”, “帝国的甲胄” (docs/LOCAL-PATCH.md for the cases left out). 假想敌：骨刺 and
-// 斩胄之剑 / 破胄之锤 left the list 2026-10-09: upstream 0.2.2 grounds them itself (c250ff66, 977215e1 — their own target picks too)
-export const NO_AIR_KEYS = Object.freeze(['enemy_1168_dumage', 'enemy_1168_dumage_2',
-  'enemy_1019_jshoot', 'enemy_1019_jshoot_2', 'enemy_1023_jmage', 'enemy_1050_lslime', 'enemy_1158_divman', 'enemy_1162_magmot',
-  'enemy_1183_mlasrt', 'enemy_1203_sfhu', 'enemy_1203_sfhu_2', 'enemy_1283_sgkill', 'enemy_1283_sgkill_2', 'enemy_1501_demonk', 'enemy_1517_xi',
-  'enemy_2005_axetro', 'enemy_10027_vtsk',
-  // maintainer decision 「공식 클라이언트를 따라 막아」: client normal attack 1, PRTS silent (绯红歌伶, Dor-β号复制体, “灵幛”, 鼠王, W) or
-  // mixed — 杰斯顿 (狱警 form Attack/Trigger 1; its 杀手 form is melee, so only a blocker), 主角/反派阵营角色 (Default 1; the
-  // Shooting mode is not modelled)
-  'enemy_2010_csdcr', 'enemy_1252_lysytb_2', 'enemy_1427_lrnazg', 'enemy_1509_mousek', 'enemy_1504_cqbw', 'enemy_1516_jakill',
-  'enemy_10098_crhro', 'enemy_10099_crvln',
-  // the same rule for 规程's enemies (the 2026-11-20 sweep of both clients' prefabs: every mode's normal-attack selector 1):
-  // 破城者, 锋盔骑士团学徒 / “左手”泰特斯·白杨, 变异巨岩蛛(α), 寻路者狙击手, 寻路者破阵者 / 传令兵 (HeadShot; their first mode fights
-  // only its blocker), 萨卡兹子裔(改装)补给车, 聚焦 / 棱镜魂灵残迹, 诡核 / 异光体集养者, 聆风猎手, 假想敌：械 / 影役 / 茧
-  'enemy_10123_uareap', 'enemy_1104_lfkght', 'enemy_1104_lfkght_3', 'enemy_1133_harchn', 'enemy_1133_harchn_2', 'enemy_1213_mtrsnp',
-  'enemy_1216_cansld', 'enemy_1219_mtrbty', 'enemy_1224_dsuply', 'enemy_1224_dsuply_2', 'enemy_1429_lrwzrd', 'enemy_1429_lrwzrd_2',
-  'enemy_1436_dsdivi', 'enemy_1436_dsdivi_2', 'enemy_2135_shkrbt', 'enemy_9029_acfnc', 'enemy_9029_acfnc_2', 'enemy_9034_acblk',
-  'enemy_9035_acspider', 'enemy_9035_acspider_2']);
-export const NO_AIR_FORMS = Object.freeze({ enemy_1535_wlfmster: 'form2' });
+/** Has the enemy def a normal attack whose motion leaves some unit out in a mode (data `attackMotion`)? */
+const motionFiltered = (d) => !!d && d.attackMotion > 0 && (d.attackMotion !== 3 || Object.values(d.attackMotionModes || {}).some((v) => v !== 3));
 // skill target picks, client _targetMotion 1: 鼠王 DriftSand / SandStorm / Mark Trigger, 杰斯顿 IronSandStorm Trigger (its
 // stuns — PRTS 「禁锢装置/飞行单位以外」), “自在” CrossAttack / Mark Selector. Their area parts: enemies.js (“自在” 破桎而出 and
 // “巨大的丑东西”'s 重生 bomb skip flyers there; 唱沙 / 沙狱 / 纬地经天 projectiles keep collision 3 — PRTS 「弹道可对空」)
