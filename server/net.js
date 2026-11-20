@@ -84,10 +84,11 @@ export const PROBE_MIN_MS = 1500;
  * edits), room.ownership
  * (a ≤ 160-id list, the same way), room.diy (≤ 8 自选 picks checked against the data, the same way), room.card (a seat card's operator: a
  * room.state broadcast on every change), room.skins (a ≤ 256-entry operator → outfit map, sent on every edit of the
- * outfits; a changed map re-broadcasts room.state to a waiting room and m.public to a running match) and room.spectate
- * (taking a spectator seat in a running match resends its state like a watcher's g.watch — server/lobby.js spectate).
+ * outfits; a changed map re-broadcasts room.state to a waiting room and m.public to a running match), room.spectate
+ * (taking a spectator seat in a running match resends its state like a watcher's g.watch — server/lobby.js spectate) and
+ * lobby.watchRooms (subscribing answers with the whole public room list — server/lobby.js 「공개방」).
  */
-export const HEAVY_TYPES = new Set(['g.watch', 'room.loadout', 'room.ownership', 'room.diy', 'room.card', 'room.skins', 'room.spectate']);
+export const HEAVY_TYPES = new Set(['g.watch', 'room.loadout', 'room.ownership', 'room.diy', 'room.card', 'room.skins', 'room.spectate', 'lobby.watchRooms']);
 
 /** Close codes (see header). */
 export const CLOSE = Object.freeze({ REPLACED: 4001, HELLO_TIMEOUT: 4002, POLICY: 1008, SHUTDOWN: 1001 });

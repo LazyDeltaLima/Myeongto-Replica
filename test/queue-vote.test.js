@@ -124,29 +124,4 @@ describe('8-player queue: 「바로 시작」 vote', () => {
     assert.equal(st.seats.filter(Boolean).length, 5);
     assert.equal(srv.lobby.queue.stats().waiting, 0);
   });
-
-  test('a queued 8-seat room counts as yes only when every Doctor of it votes yes', async () => {
-    const host = await player('R1');
-    await ok(host, { t: 'room.create', mode: 'coop', difficulty: 'FUNNY', size: 8 });
-    const room = await host.waitFor('room.state', (s) => s.hostId === host.id);
-    const mates = [await player('R2'), await player('R3')];
-    for (const c of mates) {
-      await ok(c, { t: 'room.join', code: room.code });
-      await ok(c, { t: 'room.ready', ready: true });
-    }
-    await host.waitFor('room.state', (s) => s.seats.filter(Boolean).length === 3 && s.seats.filter(Boolean).every((x) => x.ready || x.playerId === host.id));
-    await ok(host, { t: 'room.queueRoom' });
-    await host.waitFor('room.queueState', (m) => m.queued && m.party);
-    const singles = await queued(3, 'S', 'FUNNY', 3);
-    await host.waitFor('room.queueState', (m) => m.queued && m.count === 6);
-    // a room member proposes; one of the room's Doctors waits: the room stays, three singles are not five
-    await ok(mates[0], { t: 'room.queueVote' });
-    await Promise.all([host, ...mates, ...singles].map(vote));
-    await ok(host, { t: 'room.queueAccept', accept: true });
-    await ok(mates[1], { t: 'room.queueAccept', accept: false });
-    for (const c of singles) await ok(c, { t: 'room.queueAccept', accept: true });
-    const back = await host.waitFor('room.queueState', (m) => m.queued && m.vote === 'failed');
-    assert.deepEqual([back.party, back.count], [true, 6]);
-    assert.equal(srv.lobby.rooms.get(room.code).matching, true, 'the room still waits in the queue');
-  });
 });

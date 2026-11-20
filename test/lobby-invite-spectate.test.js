@@ -1,5 +1,5 @@
 // An invitation's room with no player seat (server/lobby.js header 「Spectator seats」, maintainer decision 2026-11-14): a
-// refused room.join of a co-op room (ROOM_FULL / ROOM_STARTED / MATCHING) carries the room's summary in its error frame,
+// refused room.join of a co-op room (ROOM_FULL / ROOM_STARTED) carries the room's summary in its error frame,
 // and the page (public/js/ui/inviteSpectate.js) offers a spectator seat — with 자리 예약 — instead of the error toast.
 // The browser path: test/ui/spectator.e2e.test.js 「invitation link to a full room」.
 import { describe, test, before, after, afterEach } from 'node:test';
@@ -75,17 +75,8 @@ describe('a refused room.join says how full the room is', () => {
     assert.equal(st.spectators.find((x) => x.playerId === late.id).reserved, 1);
   });
 
-  test('MATCHING carries it too; a solo room and an unknown key do not', async () => {
-    const { code } = await fullRoom();
-    const r = srv.lobby.getRoom(code);
-    r.seats[3] = null; // a free seat, so only the queue refuses
-    r.matching = true; // (the state only: the queue itself is test/matchmaking*.test.js)
+  test('a solo room and an unknown key do not carry it', async () => {
     const late = await player('Late');
-    const matching = await late.request({ t: 'room.join', code }, W);
-    assert.equal(matching.code, ERR.MATCHING);
-    assert.equal(matching.room.players, 3);
-    r.matching = false;
-
     const soloHost = await player('Solo');
     await ok(soloHost, { t: 'room.create', mode: 'solo', difficulty: 'FUNNY' });
     const { code: solo } = await soloHost.waitFor('room.state', (s) => s.hostId === soloHost.id, W);
@@ -100,8 +91,8 @@ describe('a refused room.join says how full the room is', () => {
 
 describe('the invited page: what a refusal turns into (ui/inviteSpectate.js)', () => {
   const room = { players: 4, seats: 4, round: 0, spectators: 1, spectatorSeats: 2 };
-  test('an offer for the three refusals with a summary, a toast when the spectator seats are full, nothing else', () => {
-    for (const code of [ERR.ROOM_FULL, ERR.ROOM_STARTED, ERR.MATCHING]) {
+  test('an offer for the two refusals with a summary, a toast when the spectator seats are full, nothing else', () => {
+    for (const code of [ERR.ROOM_FULL, ERR.ROOM_STARTED]) {
       assert.deepEqual(inviteRefusal({ code, room }, 'K7QX'), { kind: 'offer', offer: { code: 'K7QX', reason: code, room } });
     }
     assert.deepEqual(inviteRefusal({ code: ERR.ROOM_FULL, room: { ...room, spectators: 2 } }, 'K7QX'), { kind: 'noSeat' });

@@ -309,23 +309,6 @@ describe('8-player room and queue (server/lobby.js, server/matchmaking.js)', () 
     const other = await pool.player('Other', '198.51.100.9');
     await ok(other, { t: 'room.queue', difficulty: 'NORMAL', size: 8 });
   });
-
-  test('room.queueRoom of an 8-seat room waits for eight; seven never start', async () => {
-    const ps = await players(pool, 7, 'S');
-    await ok(ps[0], { t: 'room.create', mode: 'coop', difficulty: 'NORMAL', size: 8 });
-    const room = await ps[0].waitFor('room.state', (s) => s.hostId === ps[0].id);
-    for (const c of ps.slice(1, 3)) {
-      await ok(c, { t: 'room.join', code: room.code });
-      await ok(c, { t: 'room.ready', ready: true });
-    }
-    await ps[0].waitFor('room.state', (s) => s.seats.filter(Boolean).length === 3 && s.seats.filter(Boolean).every((x) => x.ready || x.playerId === ps[0].id));
-    await ok(ps[0], { t: 'room.queueRoom' });
-    const qs = await ps[0].waitFor('room.queueState', (m) => m.queued);
-    assert.deepEqual([qs.size, qs.count, qs.party], [8, 3, true]);
-    for (const c of ps.slice(3)) await ok(c, { t: 'room.queue', difficulty: 'NORMAL', size: 8 });
-    await ps[0].waitFor('room.queueState', (m) => m.queued && m.count === 7);
-    assert.equal(srv.lobby.queue.stats().confirming, 0, 'seven humans form no group');
-  });
 });
 
 // ---- the wide 联防 fields (server/sim/wideStage.js) -------------------------------------------------------------

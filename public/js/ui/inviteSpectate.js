@@ -1,8 +1,8 @@
 // An invitation link's room with no player seat for this page (maintainer decision 2026-11-14, a remake feature like the
-// spectator seats themselves): the auto-join of main.js (room.join) is refused with ROOM_FULL / ROOM_STARTED / MATCHING
+// spectator seats themselves): the auto-join of main.js (room.join) is refused with ROOM_FULL / ROOM_STARTED
 // and the error frame's `room` summary (server/lobby.js joinRefusalInfo). Instead of the bare error toast the page asks
 // whether to watch from a spectator seat (room.spectate), with 「빈자리가 나면 자동으로 앉기」 (room.reserveSeat) on by
-// default — not for a matchmaking room, which refuses reservations. A room whose spectator seats are full too gets a toast.
+// default. A room whose spectator seats are full too gets a toast.
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Button, Modal } from './components.js';
 import { net } from '../net.js';
@@ -11,7 +11,7 @@ import { t, N_ } from '../../../shared/i18n.js';
 import { ERR } from '../../../shared/constants.js';
 import { toast, toastError } from './toasts.js';
 
-const REASONS = new Set([ERR.ROOM_FULL, ERR.ROOM_STARTED, ERR.MATCHING]);
+const REASONS = new Set([ERR.ROOM_FULL, ERR.ROOM_STARTED]);
 const RATE_RETRY_MS = 700;
 
 /**
@@ -43,11 +43,10 @@ export function inviteRoomLine(room) {
     t('观战席 {n}/{max}', { n: room.spectators, max: room.spectatorSeats })].join(' · ');
 }
 
-const TITLE = { [ERR.ROOM_FULL]: N_('房间已满'), [ERR.ROOM_STARTED]: N_('模拟已开始'), [ERR.MATCHING]: N_('同盟正在匹配中') };
+const TITLE = { [ERR.ROOM_FULL]: N_('房间已满'), [ERR.ROOM_STARTED]: N_('模拟已开始') };
 const TEXT = {
   [ERR.ROOM_FULL]: N_('受邀同盟的博士席位已满。可以进入观战席观看。'),
   [ERR.ROOM_STARTED]: N_('受邀同盟的模拟已经开始，无法以博士身份加入。可以进入观战席观看作战。'),
-  [ERR.MATCHING]: N_('受邀同盟正在匹配中，无法以博士身份加入。可以进入观战席观看。'),
 };
 
 export function InviteSpectateHost() {
@@ -59,7 +58,6 @@ export function InviteSpectateHost() {
   useEffect(() => { if (inRoom && offer && !busy) store.patch('ui', { inviteSpectate: null }); }, [inRoom, offer, busy]);
   if (!offer || inRoom) return null;
   const { code, reason, room } = offer;
-  const canReserve = reason !== ERR.MATCHING;
   const close = () => { if (!busy) { store.patch('ui', { inviteSpectate: null }); setReserve(true); } };
   const watch = async () => {
     setBusy(true);
@@ -69,7 +67,7 @@ export function InviteSpectateHost() {
       await net.request('room.spectate', { code }).catch((err) => (err?.code === ERR.RATE
         ? new Promise((r) => setTimeout(r, RATE_RETRY_MS)).then(() => net.request('room.spectate', { code }))
         : Promise.reject(err)));
-      if (canReserve && reserve) await net.request('room.reserveSeat', { on: true }).catch(toastError);
+      if (reserve) await net.request('room.reserveSeat', { on: true }).catch(toastError);
       store.patch('ui', { inviteSpectate: null });
       setReserve(true);
     } catch (err) {
@@ -84,10 +82,10 @@ export function InviteSpectateHost() {
       <${Button} variant="primary" icon="eye" data-testid="invite-spectate" disabled=${busy} onClick=${watch}>${t('以观战身份进入')}<//>`}>
     <p>${t(TEXT[reason])}</p>
     <div class="invite-spec__room"><b class="num">${code}</b><span>${inviteRoomLine(room)}</span></div>
-    ${canReserve ? html`<label class="invite-spec__keep">
+    <label class="invite-spec__keep">
       <input type="checkbox" checked=${reserve} disabled=${busy} onChange=${(e) => setReserve(e.currentTarget.checked)} />
       <span>${reason === ERR.ROOM_STARTED ? t('模拟结束后有空位时自动入座') : t('有空位时自动入座')}</span>
       ${reason === ERR.ROOM_STARTED ? null : html`<small>${t('（预约座位）')}</small>`}
-    </label>` : null}
+    </label>
   <//>`;
 }

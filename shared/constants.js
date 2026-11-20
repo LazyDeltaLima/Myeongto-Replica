@@ -255,7 +255,7 @@ export const ERR = Object.freeze({
   RESTARTING: 'RESTARTING',       // no new match this close to a deploy restart (server/local-restart.js, last 5 min)
   NEW_VERSION: 'NEW_VERSION',     // a draining server (server/local-generation.js): the new version takes new rooms
   BOT_LIMIT: 'BOT_LIMIT',         // the server's AI-teammate budget (SP_MAX_BOTS_TOTAL / _PER_ADDR, server/local-patch.js) is used
-  MATCHING: 'MATCHING',           // the room waits in the 랜덤 매칭 queue (server/matchmaking.js): no join / seat change / start
+  KICKED: 'KICKED',               // room.join of a room whose host kicked the player in the last 10 minutes (server/lobby.js room.kick)
   SEATS_OPEN: 'SEATS_OPEN',       // an 8-player room starts only with LARGE_MIN_PLAYERS Doctors or more (server/lobby.js)
   INTERNAL: 'INTERNAL',
 });
@@ -269,7 +269,7 @@ export const ERR_TEXT = {
   NOT_YOUR_TURN: N_('尚未轮到你'), ALREADY: N_('已完成该操作'), TEMP_NOT_EMPTY: N_('临时整备区不为空'), ELIMINATED: N_('你已被淘汰'),
   SPECTATOR: N_('观战中无法进行该操作'), RESTARTING: N_('服务器即将重启，暂时无法开始新的模拟'),
   NEW_VERSION: N_('新版本已上线，请刷新页面'),
-  BOT_LIMIT: N_('服务器的 AI 队友名额已满，请稍后再试'), MATCHING: N_('同盟正在匹配中，请先取消匹配'),
+  BOT_LIMIT: N_('服务器的 AI 队友名额已满，请稍后再试'), KICKED: N_('你已被移出该同盟，10 分钟内无法再次加入'),
   SEATS_OPEN: N_('八人同盟需至少 5 名博士才能开始'), INTERNAL: N_('服务器内部错误'),
 };
 

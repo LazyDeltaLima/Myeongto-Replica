@@ -1,14 +1,13 @@
 // test/lobby-matchmaking-ruleset.test.js — 랜덤 매칭 per 규칙 모드 (server/matchmaking.js, shared/ruleset.js; maintainer
-// decision 2026-10-15): one queue per difficulty AND ruleset, the room a group starts in carries the queue's ruleset, a
-// queued room waits in its own ruleset's queue, and lobby.queueCounts tells every Doctor outside a match how many wait
-// in each queue.
+// decision 2026-10-15): one queue per difficulty AND ruleset, the room a group starts in carries the queue's ruleset,
+// and lobby.queueCounts tells every Doctor outside a match how many wait in each queue.
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { startServer } from '../server/index.js';
 import { StubMatch } from '../server/match/StubMatch.js';
 import { TestClient } from './helpers/wsClient.js';
-import { ERR, DIFFICULTIES } from '../shared/constants.js';
+import { DIFFICULTIES } from '../shared/constants.js';
 import { validateC2S } from '../shared/protocol.js';
 
 function clientPool(getUrl) {
@@ -33,7 +32,6 @@ const quietLog = () => {
   return { errors, log: { info() {}, warn() {}, debug() {}, error: (...a) => errors.push(a.map(String).join(' ')) } };
 };
 const ok = async (c, msg) => { const r = await c.request(msg); assert.equal(r.t, 'ok', `${msg.t}: ${JSON.stringify(r)}`); return r; };
-const err = async (c, msg, code) => { const r = await c.request(msg); assert.equal(r.t, 'error', JSON.stringify(r)); assert.equal(r.code, code, JSON.stringify(r)); return r; };
 
 async function queued(c, ruleset, difficulty = 'NORMAL') {
   await ok(c, ruleset ? { t: 'room.queue', difficulty, ruleset } : { t: 'room.queue', difficulty });
@@ -94,28 +92,6 @@ describe('랜덤 매칭 per ruleset', () => {
     const states = await Promise.all(ps.map(started));
     assert.equal(states[0].ruleset.preset, 'casual');
     assert.equal(states[0].difficulty, 'HARD');
-  });
-
-  test('a queued room waits in its ruleset\'s queue: casual singles fill it, a classic one does not; the ruleset is locked meanwhile', async () => {
-    const [host, guest, a, b, c] = await players(pool, 5);
-    await ok(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL', ruleset: 'casual' });
-    const room = await host.waitFor('room.state', (s) => s.hostId === host.id);
-    await ok(guest, { t: 'room.join', code: room.code });
-    await ok(guest, { t: 'room.ready', ready: true });
-    await host.waitFor('room.state', (s) => s.seats[1]?.ready);
-    await ok(host, { t: 'room.queueRoom' });
-    assert.equal((await host.waitFor('room.queueState', (s) => s.queued && s.party)).ruleset, 'casual');
-    await err(host, { t: 'room.setRuleset', preset: 'classic' }, ERR.MATCHING);
-    await queued(c, 'classic');
-    await queued(a, 'casual');
-    await c.expectNone('room.matchFound');
-    await queued(b, 'casual');
-    for (const x of [host, guest, a, b]) await found(x);
-    for (const x of [host, guest, a, b]) await ok(x, { t: 'room.queueAccept', accept: true });
-    const st = await started(a);
-    assert.equal(st.code, room.code);
-    assert.equal(st.ruleset.preset, 'casual');
-    await c.expectNone('room.matchFound');
   });
 
   test('lobby.queueCounts: every preset × difficulty, on hello and whenever a queue changes; never to a Doctor in a match', async () => {

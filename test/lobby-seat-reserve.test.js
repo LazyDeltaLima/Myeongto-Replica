@@ -98,14 +98,6 @@ describe('seat reservation', () => {
     assert.ok(!('reserved' in watching(off, s2.id)), 'taken back');
   });
 
-  test('refused while the room is matchmaking', async () => {
-    const { code, ss: [s] } = await room({ humans: 2, spectators: 1 });
-    roomOf(code).matching = true; // (the state only: the queue itself is test/matchmaking*.test.js)
-    await refused(s, { t: 'room.reserveSeat', on: true }, ERR.MATCHING);
-    await ok(s, { t: 'room.reserveSeat', on: false });
-    roomOf(code).matching = false;
-  });
-
   test('restart vote: the seat of the player who left goes to the spectator, who plays the new match', async () => {
     const ctx = await room({ humans: 3, spectators: 1 });
     const { host, ps: [, stay, gone], ss: [s] } = ctx;

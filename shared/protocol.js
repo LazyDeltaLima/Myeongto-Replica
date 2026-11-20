@@ -518,9 +518,11 @@ export const C2S = {
   // the custom preset (sanitizeCustom; ignored by the other presets); `size`: a co-op room's seat count (ROOM_SIZES; absent
   // = 4, 8 = the 8-player mode — server/lobby.js); `season`: the 卫戍协议 season (shared/seasons.js; absent = the default;
   // the server refuses one it does not offer); `grade`: a solo room's 规程等级 in a season with them (shared/constants.js
-  // MAX_GRADE; absent = the first grade of `difficulty`; refused in any other room)
+  // MAX_GRADE; absent = the first grade of `difficulty`; refused in any other room); `public`: a co-op room on the
+  // public room list (server/lobby.js 「공개방」; absent = private, true in a solo room is refused)
   'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isRulePreset,
-    custom: isCustomWire, size: isRoomSize, season: isSeasonId, grade: isGrade, $optional: ['ruleset', 'custom', 'size', 'season', 'grade'] },
+    custom: isCustomWire, size: isRoomSize, season: isSeasonId, grade: isGrade, public: isBool,
+    $optional: ['ruleset', 'custom', 'size', 'season', 'grade', 'public'] },
   'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.leave': {},
   'room.ready': { ready: isBool },
@@ -564,15 +566,21 @@ export const C2S = {
   'room.setSpectatorSeats': { seats: (v) => SPECTATOR_SEATS.includes(v) },
   // a spectator asks for the next free player seat, or takes that back (server/lobby.js header 「Seat reservation」)
   'room.reserveSeat': { on: isBool },
-  // 랜덤 매칭 (server/matchmaking.js): the per-difficulty co-op queue of four (`size` 8: of eight); queue = alone, queueRoom = the host queues
-  // the co-op room's humans for its empty seats, unqueue leaves (a room: the whole room), queueAccept answers room.matchFound,
-  // queueVote proposes 「바로 시작」 in an 8-player queue of five or more (its vote is answered with queueAccept).
-  // The custom 규칙 모드 never queues (maintainer decision 2026-10-18): room.queue takes the queue presets only, and the
-  // server refuses room.queueRoom of a custom room (server/matchmaking.js). `season`: the 卫戍协议 season's queue (absent =
+  // 공개방 (server/lobby.js header 「공개방」): the host puts a co-op room on the public room list or takes it off (any
+  // phase), and turns its auto start on (a public room only) or off; the 연합 매칭 screen subscribes to lobby.rooms while
+  // it is open
+  'room.setPublic': { on: isBool },
+  'room.setAutoStart': { on: isBool },
+  'lobby.watchRooms': { on: isBool },
+  // 랜덤 매칭 (server/matchmaking.js): the per-difficulty co-op queue of four (`size` 8: of eight); queue = alone,
+  // unqueue leaves, queueAccept answers room.matchFound (a group, or a public room's offer), queueVote proposes
+  // 「바로 시작」 in an 8-player queue of five or more (its vote is answered with queueAccept). A room no longer queues
+  // (room.queueRoom is gone, maintainer decision 2026-11-20: a public room takes its place).
+  // The custom 규칙 모드 never queues (maintainer decision 2026-10-18): room.queue takes the queue presets only (a quick
+  // player may be offered a custom public room). `season`: the 卫戍协议 season's queue (absent =
   // the default; maintainer decision 2026-11-01: every season has queues of its own)
   // quick: 快速匹配, any ruleset and size of the difficulty (server/matchmaking.js header; ruleset / size are then ignored)
   'room.queue': { difficulty: (v) => DIFFICULTIES.includes(v), ruleset: isQueuePreset, size: isRoomSize, quick: isBool, season: isSeasonId, $optional: ['ruleset', 'size', 'quick', 'season'] },
-  'room.queueRoom': {},
   'room.unqueue': {},
   'room.queueAccept': { accept: isBool },
   'room.queueVote': {},
@@ -669,11 +677,15 @@ export const S2C = [
   // several (Lobby.connectInfo: before any hello, for the title's season picker)
   'welcome', 'ok', 'error', 'pong',
   'room.state', 'room.closed',
-  // 랜덤 매칭: room.queueState { queued, difficulty, ruleset, size, season, count?, waitedMs?, party?, reason?, by? } · room.matchFound
-  // { difficulty, ruleset, size, season, players, accepted, mine, inMs } · lobby.queueCounts { counts: { [ruleset]: { [difficulty]: n } },
-  // counts8: the same for the 8-player queues, seasons?: { [season]: { counts, counts8 } } of the other offered seasons }
-  // (the waiting Doctors of every queue, server/matchmaking.js)
-  'room.queueState', 'room.matchFound', 'lobby.queueCounts',
+  // 랜덤 매칭: room.queueState { queued, difficulty, ruleset, size, season, count?, waitedMs?, reason? } · room.matchFound
+  // { difficulty, ruleset, size, season, players, accepted, mine, inMs, room? } (`room`: a public room's offer,
+  // { code, host: { name, no }, ruleset: { preset }, custom?, size, seats }) · lobby.queueCounts { counts: { [ruleset]:
+  // { [difficulty]: n } }, counts8: the same for the 8-player queues, seasons?: { [season]: { counts, counts8 } } of the
+  // other offered seasons, rooms: { [season]: n } the public rooms in LOBBY } (the waiting Doctors of every queue,
+  // server/matchmaking.js) · lobby.rooms { rooms: [{ code, season?, host: { name, no }, difficulty, ruleset: { preset },
+  // custom?, size, seats: [{ kind: 'human'|'bot'|'empty', card? }], state: 'lobby'|'match', round?, spectators,
+  // spectatorSeats, since }] } (the public room list, to the sessions of lobby.watchRooms — server/lobby.js 「공개방」)
+  'room.queueState', 'room.matchFound', 'lobby.queueCounts', 'lobby.rooms',
   // m.public: a broadcast after the match's first is a delta (`delta: true`, mergePublic); a one-to-one m.public (a
   // reconnect / resync, a spectator taking a seat) and the match's final broadcast are whole
   'm.public', 'm.private', 'm.field', 'm.toast', 'm.ticker', 'm.emote', 'm.result',

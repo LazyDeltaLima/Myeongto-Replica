@@ -171,15 +171,11 @@ describe('room ruleset (lobby)', () => {
     assert.equal(started[n].ruleset.custom.enemies.hp, 200, 'opts.ruleset carries the settings');
   });
 
-  test('custom: room.queueRoom queues the room (its settings locked meanwhile), room.queue never takes it', async () => {
+  test('custom: room.queue never takes it (a room no longer queues: room.queueRoom is BAD_MSG)', async () => {
     const host = await pool.player('Host');
-    const st = await createRoom(host, { ruleset: 'custom', custom: { enemies: { hp: 200 } } });
-    await ok(host, { t: 'room.queueRoom' });
-    assert.equal(srv.lobby.rooms.get(st.code).matching, true);
-    await err(host, { t: 'room.setRuleset', preset: 'custom', custom: { enemies: { hp: 150 } } }, ERR.MATCHING);
+    await createRoom(host, { ruleset: 'custom', custom: { enemies: { hp: 200 } } });
+    await err(host, { t: 'room.queueRoom' }, ERR.BAD_MSG);
     await err(host, { t: 'room.queue', difficulty: 'NORMAL', ruleset: 'custom' }, ERR.BAD_MSG);
-    await ok(host, { t: 'room.unqueue' });
-    assert.equal(srv.lobby.rooms.get(st.code).matching, false);
   });
 
   test('custom: the drain hand-over keeps the settings (roomSnapshot → adoptRoom); an older snapshot with a preset name still reads', async () => {

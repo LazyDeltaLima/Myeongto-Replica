@@ -16,6 +16,7 @@ import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } fro
 import htm from '../../vendor/htm.module.js';
 import { DIFFICULTY_NAMES, DIFFICULTY_COLORS, FAST_GRADE, gradeDifficulty } from '../../../shared/constants.js';
 import { modeGrade } from '../../../shared/seasons.js';
+import { doctorNo } from '../../../shared/doctorNo.js';
 import { t } from '../../../shared/i18n.js';
 import { serverNow } from '../store.js';
 import { data, useData, localAsset } from '../data.js';
@@ -882,19 +883,8 @@ export function ResultDialog({ title, sub, micro, tone = 'mint', duration = 2800
 
 // ---- domain helpers ----------------------------------------------------------------------------
 
-/**
- * Stable 4-digit "博士 #1234" tag for a player id (FNV-1a hash; ids themselves are opaque strings).
- * @param {any} id
- * @returns {string}
- */
-export function doctorNo(id) {
-  let h = 2166136261;
-  for (const ch of String(id ?? '')) {
-    h ^= ch.codePointAt(0);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return String(h % 10000).padStart(4, '0');
-}
+/** Stable 4-digit "博士 #1234" tag for a player id (shared/doctorNo.js: the server's public room list names hosts by it). */
+export { doctorNo };
 
 /**
  * Latency pill ("58ms"), coloured by research 06 §3.4 tiers (<60 mint, <200 amber, else red).

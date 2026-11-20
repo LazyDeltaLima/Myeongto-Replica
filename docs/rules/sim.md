@@ -2781,20 +2781,19 @@ hidden-boss_10-pair·unite-2·unite-3-wide, matches coop2-NORMAL-3·coop8-HARD-3
   규정만의 규칙(전투 중 정비 구역·보스전 층수 획득·연합 방어의 남은 재배치 시간 등)은 4인 판과 같이 자리마다 돈다. 실제 매치 경로 규정 8인 한 판:
   `test/eight-player.test.js`.
 - **방·매칭** (`server/lobby.js`, `server/matchmaking.js`): 별도 방 크기 — `room.create { mode: 'coop', size: 8 }`, `room.state.size`. 대기실에서 방장이
-  `room.setSize { size }`로 4인 ↔ 8인을 바꿀 수 있다(관리자 결정 2026-11-02; 판 시작 전만, 매칭 중이면 `ERR.MATCHING`): 8인으로 바꾸면 AI 좌석은 비우고
+  `room.setSize { size }`로 4인 ↔ 8인을 바꿀 수 있다(관리자 결정 2026-11-02; 판 시작 전만): 8인으로 바꾸면 AI 좌석은 비우고
   사람은 자리 그대로, 4인으로는 앉은 사람(로컬 디버그의 AI 좌석 포함, 관전석 제외)이 5명 이상이면 거부(`ERR.ROOM_FULL`)하고 4명 이하면 자리 순서대로
   앞 네 자리로 옮긴다. 바꾸면 다른 박사의 준비가 풀린다(난이도·규칙 변경과 같음). 사람만 앉고(AI 좌석
   거부, 넘겨받은 AI 좌석은 버림) 박사 5명 이상이면 시작(`shared/constants.js LARGE_MIN_PLAYERS`, 모자라면 `ERR.SEATS_OPEN`, 코드 방 포함 —
   관리자 결정 2026-11-01; 그 전엔 8자리가 다 차야 시작, 2026-10-19). 재시작 투표·브리핑 「다시 뽑기」로 여는 새 판도 같은 조건 —
   판 중에 나가 5명 아래면 대기실로(관리자 결정 2026-11-02, `ui.md` 「게임 중 재시작 투표」). 예외는 시험용 로컬
   디버그 모드(`SP_DEBUG_PAGE=1`이나 `SP_DEBUG_FUNDS`, `server/local-patch.js largeBots`): 8석 방에도 AI 좌석을 받고 사람·AI 합쳐 5자리 이상이면 시작
-  (`room.state.largeBots`, 방 화면의 「添加 AI 队友」). 배포 서버는 둘 다 꺼져 있어 위 규칙 그대로. 8인 전용 대기열(`room.queue { size: 8 }`,
-  8석 방의 `room.queueRoom`)은 8명이 모이면 묶이고, 5명 이상 기다릴 때는 **바로 시작 투표**로 먼저 시작할 수 있다(관리자 결정 2026-11-02;
+  (`room.state.largeBots`, 방 화면의 「添加 AI 队友」). 배포 서버는 둘 다 꺼져 있어 위 규칙 그대로. 8인 전용 대기열(`room.queue { size: 8 }`;
+  8석 방의 `room.queueRoom`은 2026-11-20에 없어짐 — 공개방, `ui.md` 「공개방」)은 8명이 모이면 묶이고, 5명 이상 기다릴 때는 **바로 시작 투표**로 먼저 시작할 수 있다(관리자 결정 2026-11-02;
   `server/matchmaking.js` 머리말): 대기자 누구든 제안(`room.queueVote`, 4인 대기열은 `BAD_TARGET`) → 그 대기열의 대기자 전원이 15초 투표
-  (`room.matchFound { vote, need, declined, no, by }`, 답은 `room.queueAccept`, 제안자는 찬성으로 셈) → 모두 답하거나 시간이 끝나면 찬성한 항목(방 항목은
-  방 사람 모두 찬성일 때만)의 사람이 5명 이상이면 그 사람끼리 8석 방에서 시작(그룹 8명과 같은 `launch`), 나머지는 원래 순서로 대기열 앞에 남아 계속 8명을
+  (`room.matchFound { vote, need, declined, no, by }`, 답은 `room.queueAccept`, 제안자는 찬성으로 셈) → 모두 답하거나 시간이 끝나면 찬성한 사람이 5명 이상이면 그 사람끼리 8석 방에서 시작(그룹 8명과 같은 `launch`), 나머지는 원래 순서로 대기열 앞에 남아 계속 8명을
   기다림(`room.queueState { vote: 'started', started }`). 찬성이 5명 미만이면 모두 남고(`vote: 'failed'`) 그 대기열은 30초 동안 새 제안을 안 받음
-  (`ERR.RATE`). 반대·무응답은 대기열에서 빠지지 않고, 투표 중 나가는 사람(취소·방 인원 변동·재접속 창 만료)만 빠지며 투표는 그 사람 없이 계속.
+  (`ERR.RATE`). 반대·무응답은 대기열에서 빠지지 않고, 투표 중 나가는 사람(취소·방에 앉음·재접속 창 만료)만 빠지며 투표는 그 사람 없이 계속.
   투표 중 새로 들어온 사람은 투표 밖에서 기다림. 화면은 `ui.md` 「8인 협동 모드 화면」. 시작 인원에 맞춘 수치는 아래 「수치」 그대로. 대기열 메시지에 `size: 8`, `lobby.queueCounts`에 `counts8`. 끊긴 사람은 4인처럼 AI 托管 없이
   전투만 서버가 이어 돌림(관리자 확인 2026-10-19, `server/match/match/platform.js onDisconnect`).
 - **수치** (`data/config.json eightPlayer` ← `tools/build-data.mjs`, `server/match/gamedata.js` `large`): 상점 풀 솔로 ×4(4인 ×2), 장비 재고 ×2,

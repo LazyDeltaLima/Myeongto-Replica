@@ -1,7 +1,7 @@
 // test/lobby-matchmaking.test.js — 랜덤 매칭 (server/matchmaking.js, maintainer decisions 2026-10-13): a per-difficulty
-// co-op queue of single players and co-op rooms with empty seats; four humans (never fewer) form a group that every
-// human confirms, then the lobby seats them — in the group's oldest queued room, or in queue order in a room of their
-// own — and starts its match at once.
+// co-op queue of single players; four humans (never fewer) form a group that every human confirms, then the lobby
+// seats them in queue order in a room of their own and starts its match at once. (A room no longer queues — room.queueRoom
+// is gone, maintainer decision 2026-11-20; public rooms: test/lobby-public-rooms.test.js.)
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -45,18 +45,6 @@ async function players(pool, n, prefix = 'P') {
   for (let i = 0; i < n; i++) out.push(await pool.player(`${prefix}${i + 1}`));
   return out;
 }
-/** A co-op LOBBY room of the host with the guests seated (and ready unless told otherwise). */
-async function coopRoom(host, guests, { ready = true, difficulty = 'NORMAL' } = {}) {
-  await ok(host, { t: 'room.create', mode: 'coop', difficulty });
-  const room = await host.waitFor('room.state', (s) => s.hostId === host.id && s.mode === 'coop');
-  for (const [i, g] of guests.entries()) {
-    await ok(g, { t: 'room.join', code: room.code });
-    await host.waitFor('room.state', (s) => s.seats[i + 1]?.playerId === g.id);
-    if (ready) await ok(g, { t: 'room.ready', ready: true });
-  }
-  if (ready && guests.length) await host.waitFor('room.state', (s) => s.seats.filter((x) => x && !x.isBot).every((x) => x.ready || x.playerId === host.id));
-  return room;
-}
 const found = (c, pred = () => true) => c.waitFor('room.matchFound', pred);
 const started = (c) => c.waitFor('room.state', (s) => s.inMatch === true);
 /** Until the server has seen the client's socket close (terminate() resolves on the client side first). */
@@ -84,11 +72,11 @@ describe('랜덤 매칭 (server/matchmaking.js)', () => {
     assert.deepEqual(cap.errors, [], 'no server errors logged');
   });
 
-  test('protocol: room.queue / room.queueRoom / room.unqueue / room.queueAccept (no fallback message)', () => {
+  test('protocol: room.queue / room.unqueue / room.queueAccept (no fallback message, no room.queueRoom)', () => {
     assert.equal(validateC2S({ t: 'room.queue', difficulty: 'HARD' }), null);
     assert.notEqual(validateC2S({ t: 'room.queue', difficulty: 'EASY' }), null);
     assert.notEqual(validateC2S({ t: 'room.queue' }), null);
-    assert.equal(validateC2S({ t: 'room.queueRoom' }), null);
+    assert.notEqual(validateC2S({ t: 'room.queueRoom' }), null, 'room.queueRoom is gone: BAD_MSG');
     assert.equal(validateC2S({ t: 'room.unqueue' }), null);
     assert.notEqual(validateC2S({ t: 'room.queueFallback', fallback: 'bots' }), null);
     assert.equal(validateC2S({ t: 'room.queueAccept', accept: true }), null);
@@ -183,133 +171,9 @@ describe('랜덤 매칭 (server/matchmaking.js)', () => {
     for (const c of ps) await queued(c);
     const st = await ps[0].waitFor('room.queueState', (s) => s.queued && s.count === 3);
     assert.equal(st.fallbackInMs, undefined, 'no fallback timer any more');
-    assert.equal(st.party, false);
+    assert.equal(st.party, undefined, 'no room in the queue any more');
     await wait(300);
     for (const c of ps) await c.expectNone('room.matchFound');
-  });
-
-  test('a room queues its empty seats: the host only, every other human ready; its AI seats are freed', async () => {
-    const [host, guest] = await players(pool, 2);
-    const room = await coopRoom(host, [guest], { ready: false });
-    await ok(host, { t: 'room.addBot' });
-    await host.waitFor('room.state', (s) => s.seats[2]?.isBot);
-    await err(guest, { t: 'room.queueRoom' }, ERR.NOT_HOST);
-    await err(host, { t: 'room.queueRoom' }, ERR.NOT_READY);
-    await ok(guest, { t: 'room.ready', ready: true });
-    await ok(host, { t: 'room.queueRoom' });
-    const st = await host.waitFor('room.state', (s) => s.matching === true);
-    assert.equal(st.seats[2], null, 'the AI seat is freed');
-    for (const c of [host, guest]) {
-      const q = await c.waitFor('room.queueState', (s) => s.queued);
-      assert.deepEqual([q.party, q.count, q.difficulty], [true, 2, 'NORMAL']);
-    }
-    // while queued: no join, no AI seat, no difficulty change, no start
-    const [other] = await players(pool, 1, 'X');
-    await err(other, { t: 'room.join', code: room.code }, ERR.MATCHING);
-    await err(host, { t: 'room.addBot' }, ERR.MATCHING);
-    await err(host, { t: 'room.setDifficulty', difficulty: 'HARD' }, ERR.MATCHING);
-    await err(host, { t: 'room.start' }, ERR.MATCHING);
-    // a solo room cannot queue
-    const [solo] = await players(pool, 1, 'S');
-    await ok(solo, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL' });
-    await solo.waitFor('room.state', (s) => s.hostId === solo.id);
-    await err(solo, { t: 'room.queueRoom' }, ERR.BAD_TARGET);
-  });
-
-  test('a room of two + two single players: the match starts in that room, the newcomers in its free seats', async () => {
-    const [host, guest, a, b] = await players(pool, 4);
-    const room = await coopRoom(host, [guest]);
-    await ok(host, { t: 'room.queueRoom' });
-    await host.waitFor('room.queueState', (s) => s.queued && s.party);
-    await queued(a);
-    await queued(b);
-    for (const c of [host, guest, a, b]) assert.equal((await found(c)).players, 4);
-    for (const c of [a, guest, b, host]) await ok(c, { t: 'room.queueAccept', accept: true });
-    const states = await Promise.all([host, guest, a, b].map(started));
-    for (const st of states) assert.equal(st.code, room.code);
-    assert.equal(states[0].hostId, host.id, 'the room keeps its host');
-    assert.deepEqual(states[0].seats.map((s) => s && s.playerId), [host.id, guest.id, a.id, b.id]);
-    assert.equal(states[0].matching, false);
-  });
-
-  test('entries are fitted to four in queue order: a room of three skips a room of two for a single player', async () => {
-    const [h3, g3a, g3b, h2, g2, s1] = await players(pool, 6);
-    const r3 = await coopRoom(h3, [g3a, g3b]);
-    const r2 = await coopRoom(h2, [g2]);
-    await ok(h3, { t: 'room.queueRoom' });
-    await h3.waitFor('room.queueState', (s) => s.queued && s.count === 3);
-    await ok(h2, { t: 'room.queueRoom' });
-    await h2.waitFor('room.queueState', (s) => s.queued && s.count === 5);
-    for (const c of [h3, h2]) await c.expectNone('room.matchFound');
-    await queued(s1);
-    for (const c of [h3, g3a, g3b, s1]) await found(c);
-    await h2.expectNone('room.matchFound');
-    for (const c of [h3, g3a, g3b, s1]) await ok(c, { t: 'room.queueAccept', accept: true });
-    const st = await started(s1);
-    assert.equal(st.code, r3.code);
-    assert.deepEqual(st.seats.map((s) => s && s.playerId), [h3.id, g3a.id, g3b.id, s1.id]);
-    // the room of two still waits
-    assert.equal((await g2.waitFor('room.queueState', (s) => s.queued && s.count === 2)).party, true);
-    assert.equal(srv.lobby.getRoom(r2.code)?.matching, true);
-  });
-
-  test('two rooms of two: the older room hosts the match, the other room closes empty', async () => {
-    const [h1, g1, h2, g2] = await players(pool, 4);
-    const r1 = await coopRoom(h1, [g1]);
-    const r2 = await coopRoom(h2, [g2]);
-    await ok(h1, { t: 'room.queueRoom' });
-    await h1.waitFor('room.queueState', (s) => s.queued);
-    await ok(h2, { t: 'room.queueRoom' });
-    for (const c of [h1, g1, h2, g2]) await found(c);
-    for (const c of [h1, g1, h2, g2]) await ok(c, { t: 'room.queueAccept', accept: true });
-    const st = await started(g2);
-    assert.equal(st.code, r1.code);
-    assert.equal(st.hostId, h1.id);
-    assert.deepEqual(st.seats.map((s) => s && s.playerId), [h1.id, g1.id, h2.id, g2.id]);
-    assert.equal(srv.lobby.getRoom(r2.code), null, 'the second room is gone');
-    await h2.expectNone('room.closed');
-  });
-
-  test('a queued room: any member cancels it whole (left / party, by name); a member leaving cancels it (changed, by name)', async () => {
-    const [host, guest, third] = await players(pool, 3);
-    await coopRoom(host, [guest, third]);
-    await ok(host, { t: 'room.queueRoom' });
-    await guest.waitFor('room.queueState', (s) => s.queued);
-    await ok(guest, { t: 'room.unqueue' });
-    const mine = await guest.waitFor('room.queueState', (s) => !s.queued);
-    assert.deepEqual([mine.reason, mine.by], ['left', undefined], 'the one who cancelled gets no name');
-    for (const c of [host, third]) {
-      const m = await c.waitFor('room.queueState', (s) => !s.queued);
-      assert.deepEqual([m.reason, m.by], ['party', 'P2']);
-    }
-    for (const c of [host, guest, third]) await c.waitFor('room.state', (s) => s.matching === false);
-    // queue again (still ready); the third player leaves the room
-    for (const c of [host, guest, third]) c.clearInbox();
-    await ok(host, { t: 'room.queueRoom' });
-    await host.waitFor('room.queueState', (s) => s.queued);
-    await ok(third, { t: 'room.leave' });
-    assert.equal((await third.waitFor('room.queueState', (s) => !s.queued)).reason, 'left');
-    const changed = await host.waitFor('room.queueState', (s) => !s.queued);
-    assert.deepEqual([changed.reason, changed.by], ['changed', 'P3']);
-    assert.equal((await guest.waitFor('room.queueState', (s) => !s.queued && s.reason === 'changed')).by, 'P3');
-    assert.equal(srv.lobby.queue.stats().waiting, 0);
-  });
-
-  test('a room member declines: the room leaves the queue (declined / partyDeclined, by name), the single players go back', async () => {
-    const [host, guest, a, b] = await players(pool, 4);
-    await coopRoom(host, [guest]);
-    await ok(host, { t: 'room.queueRoom' });
-    await host.waitFor('room.queueState', (s) => s.queued);
-    await queued(a);
-    await queued(b);
-    for (const c of [host, guest, a, b]) await found(c);
-    await ok(a, { t: 'room.queueAccept', accept: true });
-    await ok(guest, { t: 'room.queueAccept', accept: false });
-    assert.equal((await guest.waitFor('room.queueState', (s) => !s.queued)).reason, 'declined');
-    const m = await host.waitFor('room.queueState', (s) => !s.queued);
-    assert.deepEqual([m.reason, m.by], ['partyDeclined', 'P2']);
-    assert.equal((await a.waitFor('room.queueState', (s) => s.queued && s.count === 2)).party, false);
-    await host.waitFor('room.state', (s) => s.matching === false && !s.inMatch);
   });
 });
 
@@ -341,21 +205,6 @@ describe('랜덤 매칭: confirmation timeout and disconnects', () => {
     const back = await ps[1].waitFor('room.queueState', (s) => s.queued, 5000);
     assert.equal(back.count, 2);
     await ps[3].waitFor('room.queueState', (s) => s.queued);
-  });
-
-  test('a room member silent past the time: the room leaves (timeout / partyTimeout to who accepted), the others go back', async () => {
-    const [host, guest, a, b] = await players(pool, 4);
-    await coopRoom(host, [guest]);
-    await ok(host, { t: 'room.queueRoom' });
-    await host.waitFor('room.queueState', (s) => s.queued);
-    await queued(a);
-    await queued(b);
-    for (const c of [host, guest, a, b]) { await found(c); c.clearInbox(); }
-    for (const c of [host, a, b]) await ok(c, { t: 'room.queueAccept', accept: true });
-    assert.equal((await guest.waitFor('room.queueState', (s) => !s.queued, 5000)).reason, 'timeout');
-    const m = await host.waitFor('room.queueState', (s) => !s.queued, 5000);
-    assert.deepEqual([m.reason, m.by], ['partyTimeout', undefined]);
-    assert.equal((await a.waitFor('room.queueState', (s) => s.queued, 5000)).count, 2);
   });
 
   test('a waiting player who drops is skipped, then leaves after the grace; a resume within it keeps the place', async () => {

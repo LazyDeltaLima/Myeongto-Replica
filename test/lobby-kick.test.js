@@ -1,6 +1,7 @@
 // test/lobby-kick.test.js — room.kick (community report #17, owner approved): before the match the host removes another
 // human like an AI seat (server/lobby.js kick). The player gets room.closed {kicked} (now, or on the next resume when
-// offline), the reconnect token no longer leads back to the seat, and the player may join again (no ban) [ASSUMED].
+// offline), the reconnect token no longer leads back to the seat, and the player's room.join of that room is refused
+// for `kickBlockMs` (ERR.KICKED, maintainer decision 2026-11-20; 10 minutes, short here), then works again.
 // The message names the confirmed player too: a seat that changed hands while the host's dialog was open is refused.
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -49,7 +50,7 @@ describe('room.kick (lobby)', () => {
   let pool;
   const cap = quietLog();
   before(async () => {
-    srv = await startServer({ port: 0, host: '127.0.0.1', log: cap.log, MatchClass: StubMatch, lobbyGraceMs: 60_000 });
+    srv = await startServer({ port: 0, host: '127.0.0.1', log: cap.log, MatchClass: StubMatch, lobbyGraceMs: 60_000, kickBlockMs: 400 });
     pool = clientPool(() => `ws://127.0.0.1:${srv.port}/ws`);
   });
   afterEach(async () => { await pool.closeAll(); });
@@ -66,7 +67,7 @@ describe('room.kick (lobby)', () => {
     assert.notEqual(validateC2S({ t: 'room.kick' }), null);
   });
 
-  test('the host kicks a connected human: room.closed {kicked}, the seat is freed, the player may join again', async () => {
+  test('the host kicks a connected human: room.closed {kicked}, the seat is freed, the player may join again after the block', async () => {
     const host = await pool.player('Host');
     const st = await createRoom(host);
     const guest = await pool.player('Guest');
@@ -81,7 +82,10 @@ describe('room.kick (lobby)', () => {
     assert.equal(after.hostId, host.id);
     await guest.expectNone('room.state');
     await err(guest, { t: 'room.ready', ready: true }, ERR.NOT_IN_ROOM);
-    // no ban: the same player joins again (lowest free seat)
+    // blocked for kickBlockMs (KICKED, no seat summary), then the same player joins again (lowest free seat)
+    const refused = await err(guest, { t: 'room.join', code: st.code }, ERR.KICKED);
+    assert.equal(refused.room, undefined);
+    await new Promise((r) => setTimeout(r, 450));
     const back = await joinRoom(guest, st.code);
     assert.equal(seatOf(back, guest.id).seat, 1);
     assert.equal(seatOf(back, guest.id).ready, false);

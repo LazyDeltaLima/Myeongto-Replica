@@ -110,20 +110,10 @@ describe('room.setSize (lobby)', () => {
     await err(ps[0], { t: 'room.setSize', size: 8 }, ERR.ROOM_STARTED);
   });
 
-  test('a solo room has no size to change; a matchmaking room keeps its size', async () => {
+  test('a solo room has no size to change', async () => {
     const solo = await pool.player('Solo');
     await ok(solo, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL' });
     await solo.waitFor('room.state', (s) => s.hostId === solo.id);
     await err(solo, { t: 'room.setSize', size: 8 }, ERR.BAD_TARGET);
-    const host = await pool.player('Queued');
-    await ok(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL' });
-    await host.waitFor('room.state', (s) => s.hostId === host.id);
-    await ok(host, { t: 'room.queueRoom' });
-    await host.waitFor('room.state', (s) => s.matching);
-    await err(host, { t: 'room.setSize', size: 8 }, ERR.MATCHING);
-    await ok(host, { t: 'room.unqueue' });
-    await host.waitFor('room.state', (s) => !s.matching);
-    await ok(host, { t: 'room.setSize', size: 8 });
-    await host.waitFor('room.state', (s) => s.size === 8);
   });
 });

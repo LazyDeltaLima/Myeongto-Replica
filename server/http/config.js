@@ -19,7 +19,8 @@ export const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 const NET_OPTION_KEYS = ['reconnectWindowMs', 'heartbeatMs', 'helloTimeoutMs', 'ratePerSec', 'rateBurst', 'maxConnections', 'abuseDropsPerSec',
   'maxConnectionsPerAddr', 'heavyPerSec', 'heavyBurst', 'trustProxy'];
 const LOBBY_OPTION_KEYS = ['lobbyGraceMs', 'maxRooms', 'maxRoomsPerAddr', 'maxMatchesPerAddr', 'resyncMinGapMs', 'soloReconnectWindowMs',
-  'queueConfirmMs', 'queueFallbackMs', 'queueGraceMs', 'maxQueuedPerAddr', 'queueVoteMs', 'queueVoteCooldownMs', 'seasons'];
+  'joinRateMax', 'joinRateWindowMs', 'kickBlockMs', 'autoStartMs',
+  'queueConfirmMs', 'queueFallbackMs', 'queueGraceMs', 'maxQueuedPerAddr', 'queueVoteMs', 'queueVoteCooldownMs', 'publicSkipMs', 'seasons'];
 
 /**
  * Where to listen: the `port` / `host` options, else PORT / HOST, else port 3000 on 0.0.0.0.
