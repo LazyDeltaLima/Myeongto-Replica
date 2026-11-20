@@ -133,14 +133,19 @@ print(json.dumps({
   });
 
   // without its entry the unit card (ui/detailArt.js cardArt) falls back to the 180×360 half-body portrait, cut square
-  // at the card's edge: 冻河 and 塔露拉 joined the 선발 picks without one (chararts_extract.py was not run for them)
-  test('chararts on this machine: every operator of chess.json and every 선발 pick has its art, the file present', { skip: !manifest?.groups?.chararts && 'no extracted chararts' }, () => {
+  // at the card's edge: 冻河 and 塔露拉 joined the 선발 picks without one (chararts_extract.py was not run for them). The seat
+  // card operators no season fields (shared/cardOperators.js CARD_EXTRA_OPERATORS) too: the seat card draws the same 立绘
+  // (ui/seatArt.js seatIllust), and a CN-only one is not on the extractor's default (EN) path
+  test('chararts on this machine: every operator of chess.json, every 선발 pick and every CARD_EXTRA_OPERATORS card has its art, the file present', { skip: !manifest?.groups?.chararts && 'no extracted chararts' }, async () => {
+    const { CARD_EXTRA_OPERATORS } = await import('../shared/cardOperators.js');
     const arts = manifest.groups.chararts;
     const chess = JSON.parse(readFileSync(path.join(ROOT, 'data/chess.json'), 'utf8'));
     const backups = JSON.parse(readFileSync(path.join(ROOT, 'data/backups.json'), 'utf8'));
     const ids = new Set(Object.values(chess.chess || chess).map((r) => r?.charId).filter((id) => typeof id === 'string' && id.startsWith('char_')));
     for (const id of backups.diy?.ownedPool || []) ids.add(id);
     assert.ok(ids.size > 100);
+    assert.ok(CARD_EXTRA_OPERATORS.length && CARD_EXTRA_OPERATORS.every((id) => !ids.has(id)), 'the card-only operators are outside the season lists (else this part is moot)');
+    for (const id of CARD_EXTRA_OPERATORS) ids.add(id);
     const missing = [...ids].filter((id) => !arts[id]);
     assert.deepEqual(missing, [], 'run tools/local-extract/chararts_extract.py --id <charId> (the CN client for a CN-only operator)');
     for (const id of ids) assert.ok(existsSync(path.join(ROOT, 'public', arts[id].path)), arts[id].path);

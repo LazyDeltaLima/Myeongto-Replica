@@ -18,8 +18,8 @@
 
 import { isLocalDiyPick } from './local-diy.js';
 
-/** Seat card operators outside every season (header): 로도스 아일랜드 그림자 부대 (罗德岛隐秘队). */
-export const CARD_EXTRA_OPERATORS = Object.freeze(['char_4215_buddy']);
+/** Seat card operators outside every season (header): 로도스 아일랜드 그림자 부대 (罗德岛隐秘队), 허드벨스 (行铃). */
+export const CARD_EXTRA_OPERATORS = Object.freeze(['char_4215_buddy', 'char_4170_hdbell']);
 
 /**
  * The card of a CARD_EXTRA_OPERATORS entry from its character_table row; throws when the table lacks it (a typo in the
