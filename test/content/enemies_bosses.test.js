@@ -3029,6 +3029,9 @@ test(`${nm('enemy_10081_mpplai')}: original form cancels every damage instance; 
   approx(e.s.res, E.enemy_10081_mpplai.stats.res + tb('enemy_10081_mpplai', 'Mode_Shushi_Passive.magic_resistance'));
   h.run(3);
   assert.ok(e.stats.attacks > 0 && h.unit('t_gun').stats.taken + h.unit('t_mage').stats.taken > 0, '特战术师 attacks in range');
+  // its ModeD Attack / Combat selectors are _targetMotion 1 (docs/rules/sim.md 「적 비행 유닛 공격 전수 조사」)
+  assert.equal(e.profile.canTarget({ isFlying: true }), false, '特战术师 never targets a flyer');
+  assert.equal(e.profile.canTarget({ isFlying: false }), true);
   const h3 = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }] });
   h3.step();
   const g = put(h3, 'enemy_10081_mpplai', [9, 5]);

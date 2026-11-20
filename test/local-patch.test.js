@@ -1068,9 +1068,9 @@ describe('圣堂剑士 spends ammo for 赐我力量！ (server/sim/content/local
 describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/content/local-patch.js)', () => {
   const WALL = (id) => chessRec({ id, profession: 'TANK', stats: { atk: 0, maxHp: 2e7, def: 0, res: 0, blockCnt: 0 }, rangeGrid: [[0, 0]], skill: null });
   // a flying ally (the 炎佑 dragon is one) deployed after the ground wall: the engine's order (latest deployed) picks it first
-  const field = (extra, key, secs = 10) => {
+  const field = (extra, key, secs = 10, season = undefined, minAttacks = 3) => {
     const h = makeBattle({
-      content: 'generic', extraContent: extra, seed: 7, autoFinish: false, timeLimit: 600,
+      season, content: 'generic', extraContent: extra, seed: 7, autoFinish: false, timeLimit: 600,
       defs: { chess: { t_wall: WALL('t_wall'), t_wall2: WALL('t_wall2') } }, kits: { t_wall: () => ({ trait: { noAttack: true } }), t_wall2: () => ({ trait: { noAttack: true } }) },
       units: [{ chessId: 't_wall', row: 10, col: 6 }, { chessId: 't_wall2', row: 10, col: 8 }],
     });
@@ -1080,7 +1080,7 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
     assert.ok(fly.isFlying && fly.deploySeq > w.deploySeq);
     const e = h.spawn(key, { pos: [10, 7], routeIndex: 0, mods: { speedMul: 0 } });
     h.run(secs);
-    assert.ok(e.stats.attacks >= 3, 'it attacked');
+    assert.ok(e.stats.attacks >= minAttacks, 'it attacked');
     return { w, fly };
   };
 
@@ -1145,6 +1145,53 @@ describe('深池暗影术师 / 队长: 不会攻击飞行单位 (server/sim/cont
     };
     assert.deepEqual(wolf([enemiesMod, bossesMod]), [true, true], 'upstream 扎罗');
     assert.deepEqual(wolf([enemiesMod, bossesMod, simPatch]), [true, false], '扎罗: M1 has no attack filter, M2 Attack/Trigger 1');
+  });
+
+  // 规程's enemies, swept 2026-11-20 in both clients' prefabs: every mode's normal-attack selector _targetMotion 1
+  const REGULATION = ['enemy_10123_uareap', 'enemy_1104_lfkght', 'enemy_1104_lfkght_3', 'enemy_1133_harchn', 'enemy_1133_harchn_2',
+    'enemy_1213_mtrsnp', 'enemy_1216_cansld', 'enemy_1219_mtrbty', 'enemy_1224_dsuply', 'enemy_1224_dsuply_2', 'enemy_1429_lrwzrd',
+    'enemy_1429_lrwzrd_2', 'enemy_1436_dsdivi', 'enemy_1436_dsdivi_2', 'enemy_2135_shkrbt', 'enemy_9029_acfnc', 'enemy_9029_acfnc_2',
+    'enemy_9034_acblk', 'enemy_9035_acspider', 'enemy_9035_acspider_2'];
+  const ruleIn = (season, extra, key) => {
+    const h = makeBattle({ season, content: 'generic', extraContent: extra, seed: 7, autoFinish: false, timeLimit: 60, units: [] });
+    h.step();
+    const e = h.spawn(key, { pos: [6, 8], routeIndex: 0, mods: { speedMul: 0 } });
+    h.run(0.2);
+    const ct = e.profile.canTarget;
+    return { air: typeof ct !== 'function' || !!ct(FLYER), ground: typeof ct !== 'function' || !!ct(GROUNDED) };
+  };
+
+  test('规程 sweep: without the patch they shoot a flyer; patched, ground only (docs/rules/sim.md 「적 비행 유닛 공격 전수 조사」)', () => {
+    for (const key of REGULATION) {
+      assert.ok(simPatch.NO_AIR_KEYS.includes(key), `${key} in NO_AIR_KEYS`);
+      assert.deepEqual(ruleIn('act3autochess', [enemiesMod, bossesMod], key), { air: true, ground: true }, `unpatched ${key}`);
+      assert.deepEqual(ruleIn('act3autochess', [enemiesMod, bossesMod, simPatch], key), { air: false, ground: true }, key);
+    }
+  });
+
+  test('寻路者传令兵 (规程): its HeadShot picks and the 3 × 3 shell of 寻路者破阵者 never take the flyer beside the ground wall', () => {
+    for (const key of ['enemy_1219_mtrbty', 'enemy_1216_cansld']) {
+      const { w, fly } = field([enemiesMod, bossesMod, simPatch], key, 40, 'act3autochess', 2); // (1 / 2 rounds of ammo: HeadShot once or twice)
+      assert.equal(fly.stats.taken ?? 0, 0, `${key}: the flyer is never hit`);
+      assert.ok(w.stats.taken > 0, `${key}: the ground wall is`);
+    }
+  });
+
+  test('寻路者传令兵 (规程): its second HeadShot, the first target disarmed, goes to the other ground ally, not the flyer', () => {
+    const h = makeBattle({
+      season: 'act3autochess', content: 'generic', extraContent: [enemiesMod, bossesMod, simPatch], seed: 7, autoFinish: false, timeLimit: 600,
+      defs: { chess: { t_wall: WALL('t_wall'), t_wall2: WALL('t_wall2'), t_wall3: WALL('t_wall3') } },
+      kits: { t_wall: () => ({ trait: { noAttack: true } }), t_wall2: () => ({ trait: { noAttack: true } }), t_wall3: () => ({ trait: { noAttack: true } }) },
+      units: [{ chessId: 't_wall3', row: 11, col: 7 }, { chessId: 't_wall', row: 10, col: 6 }, { chessId: 't_wall2', row: 10, col: 8 }],
+    });
+    h.step();
+    const a = h.unit('t_wall'), c = h.unit('t_wall3'), fly = h.unit('t_wall2');
+    fly.motion = 'FLY';
+    const e = h.spawn('enemy_1219_mtrbty', { pos: [10, 7], routeIndex: 0, mods: { speedMul: 0 } });
+    e.mem.ab.list.find((x) => 'sp' in x).sp = 2;   // two HeadShots
+    h.run(30);
+    assert.equal(fly.stats.taken ?? 0, 0, 'the flyer is never hit');
+    assert.ok(a.stats.taken > 0 && c.stats.taken > 0, `both ground allies are shot (${a.stats.taken}, ${c.stats.taken})`);
   });
 
   test('a kit that picks its own attack targets (“灵幛”: everyone in reach) still skips the flyer', () => {

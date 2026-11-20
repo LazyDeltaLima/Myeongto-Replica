@@ -73,7 +73,14 @@ export const NO_AIR_KEYS = Object.freeze(['enemy_1168_dumage', 'enemy_1168_dumag
   // mixed — 杰斯顿 (狱警 form Attack/Trigger 1; its 杀手 form is melee, so only a blocker), 主角/反派阵营角色 (Default 1; the
   // Shooting mode is not modelled)
   'enemy_2010_csdcr', 'enemy_1252_lysytb_2', 'enemy_1427_lrnazg', 'enemy_1509_mousek', 'enemy_1504_cqbw', 'enemy_1516_jakill',
-  'enemy_10098_crhro', 'enemy_10099_crvln']);
+  'enemy_10098_crhro', 'enemy_10099_crvln',
+  // the same rule for 规程's enemies (the 2026-11-20 sweep of both clients' prefabs: every mode's normal-attack selector 1):
+  // 破城者, 锋盔骑士团学徒 / “左手”泰特斯·白杨, 变异巨岩蛛(α), 寻路者狙击手, 寻路者破阵者 / 传令兵 (HeadShot; their first mode fights
+  // only its blocker), 萨卡兹子裔(改装)补给车, 聚焦 / 棱镜魂灵残迹, 诡核 / 异光体集养者, 聆风猎手, 假想敌：械 / 影役 / 茧
+  'enemy_10123_uareap', 'enemy_1104_lfkght', 'enemy_1104_lfkght_3', 'enemy_1133_harchn', 'enemy_1133_harchn_2', 'enemy_1213_mtrsnp',
+  'enemy_1216_cansld', 'enemy_1219_mtrbty', 'enemy_1224_dsuply', 'enemy_1224_dsuply_2', 'enemy_1429_lrwzrd', 'enemy_1429_lrwzrd_2',
+  'enemy_1436_dsdivi', 'enemy_1436_dsdivi_2', 'enemy_2135_shkrbt', 'enemy_9029_acfnc', 'enemy_9029_acfnc_2', 'enemy_9034_acblk',
+  'enemy_9035_acspider', 'enemy_9035_acspider_2']);
 export const NO_AIR_FORMS = Object.freeze({ enemy_1535_wlfmster: 'form2' });
 // skill target picks, client _targetMotion 1: 鼠王 DriftSand / SandStorm / Mark Trigger, 杰斯顿 IronSandStorm Trigger (its
 // stuns — PRTS 「禁锢装置/飞行单位以外」), “自在” CrossAttack / Mark Selector. Their area parts: enemies.js (“自在” 破桎而出 and

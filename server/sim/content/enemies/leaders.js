@@ -805,9 +805,9 @@ function kitWolfLord(ab) {
  * still cancelled]; then the form's flat stat changes apply (move speed relative to the data's 1.0, attack interval
  * +N s, 重量等级 +N):
  *   寻仇者 (form B): melee only, physical; ATK +100 % while HP < 50 % (Mode_Fuchou_Anger.atk);
- *   特战术师 (form D): ranged only (the data's 2.4 radius), arts, 2 targets at once — flyers included [ASSUMED: the
- *     translator's text "仅进行远程攻击，同时攻击2个目标，造成法术伤害" names no exception; the standalone PRTS 特战术师's talent
- *     "不会攻击飞行单位" may carry over — then `canTarget: (u) => !u.isFlying` in finish()];
+ *   特战术师 (form D): ranged only (the data's 2.4 radius), arts, 2 targets at once, never a flyer (the prefab's ModeD
+ *     Attack / Combat selectors `_targetMotion` 1, as the standalone PRTS 特战术师's talent "不会攻击飞行单位" — the translator's
+ *     own text "仅进行远程攻击，同时攻击2个目标，造成法术伤害" names no exception);
  *   幽灵 (form C): no stat change, unblockable, no attack (PRTS 转译基底·α "幽灵形态 无属性变化；无法被阻挡" — no attack line,
  *     unlike the armed forms — and the linked PRTS 幽灵 天赋 "不进行普通攻击，无法被阻挡", 攻击方式 不攻击).
  * The armed forms attack through the engine's enemy attack (ai.js enemyAttack, `profile.dmgType`), so attack clips,
@@ -842,6 +842,7 @@ function kitTranslator(ab, e) {
     if (P.form !== 'youling') {
       const melee = P.form === 'fuchou';
       Object.assign(e2.profile, { noAttack: false, melee, dmgType: melee ? 'phys' : 'arts', maxTargets: melee ? 1 : 2 });
+      if (!melee) e2.profile.canTarget = (u) => !u.isFlying;
       e2.atkCd = 0;
     }
     // the prefab's mode of the form (its ChangeTo* skill): ModeB's melee Combat, ModeD's ranged Attack, MoveC none
