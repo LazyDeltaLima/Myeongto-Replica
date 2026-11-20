@@ -300,6 +300,26 @@ describe('공개방 (server/lobby.js, server/matchmaking.js)', () => {
     assert.equal(srv.lobby.queue.stats().waiting, 1);
   });
 
+  test('a Doctor holding an offer gets no queue state while it runs (it would close the confirmation): another Doctor queues, the offer stands', async () => {
+    const h = await players(3, 'H');
+    const r = await room(h[0]);
+    for (const c of h.slice(1)) { await ok(c, { t: 'room.join', code: r.code }); await seated(c, r.code); }
+    const [a, b] = await players(2, 'O');
+    await queue(a);
+    await offerOf(a);
+    a.clearInbox();
+    // the same queue: broadcastQueue walks it — before the fix A got room.queueState { queued: true } here and its
+    // page closed the confirmation (found: null), while the server kept the offer until it ran out as a decline
+    await queue(b);
+    await b.waitFor('room.queueState', (s) => s.queued, W);
+    await a.expectNone('room.queueState', () => true, 400).catch((e) => {
+      throw new Error(`a queueState reached the Doctor holding an offer: its page closes the confirmation while the offer runs (broadcastQueue must skip entry.offer; docs/rules/ui.md 「랜덤 매칭」 공개방 「제안」) — ${e.message}`);
+    });
+    assert.equal(srv.lobby.queue.stats().confirming, 1, 'the offer still runs');
+    await ok(a, { t: 'room.queueAccept', accept: true });
+    await seated(a, r.code);
+  });
+
   test('accepted: the player takes a seat, leaves the queue without a notice; the room full meanwhile: ROOM_FULL and it waits on', async () => {
     const host = await pool.player('Host');
     const r = await room(host, { bots: 2 });

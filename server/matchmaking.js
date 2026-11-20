@@ -828,11 +828,16 @@ export class Matchmaker {
     for (const id of only ? [only] : this.ids(entry)) sendSession(this.lobby.registry.byId(id), msg);
   }
 
-  /** Resend the state of a queue's waiting entries, and of the quick players of its pool (their count is the pool's). @param {string} qk */
+  /**
+   * Resend the state of a queue's waiting entries, and of the quick players of its pool (their count is the pool's).
+   * An entry holding a public room's offer is skipped: a queueState closes the client's confirmation while the offer
+   * still runs (ui/matchQueue.js) — it gets its state when the offer ends (refuseOffer / answerOffer / withdrawn).
+   * @param {string} qk
+   */
   broadcastQueue(qk) {
-    for (const e of this.queueOf(qk)) this.sendState(e);
+    for (const e of this.queueOf(qk)) if (!e.offer) this.sendState(e);
     const pool = this.qkPool.get(qk);
-    if (pool != null && quickOf(pool) !== qk) for (const e of this.queueOf(quickOf(pool))) this.sendState(e);
+    if (pool != null && quickOf(pool) !== qk) for (const e of this.queueOf(quickOf(pool))) if (!e.offer) this.sendState(e);
     this.noteCounts();
   }
 
