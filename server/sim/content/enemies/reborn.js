@@ -193,7 +193,8 @@ function kitThrower(ab) {
  * at an attack slot in place of the normal attack (content/enemies.js onSkillSlot, its `skillCast`: the `Skill` clip, the
  * ATTACK and COMBAT families) and, at the clip's attack event, its blocker and every unit within DFAT_STUN_REACH its
  * selection takes (EnemyBlockerOrAdvancedSelector: the blocker first, then the range; no `_limitTargetNum`, so all — taken
- * as the cast starts) take physical ATK × 1 and `stun` s of 晕眩. The cast reports its clip: fx 'enemySkill' (ability
+ * as the cast starts; `_targetMotion` 1, so never a flying ally — until 2026-11-20 the 炎佑 dragon was taken too) take
+ * physical ATK × 1 and `stun` s of 晕眩. The cast reports its clip: fx 'enemySkill' (ability
  * StunAttack) and `skillAnimUntil` to the cast's end; its readiness as fx 'enemySkillReady': on 1 as the SP fills, on 0 as
  * the cast finishes or is cut (ReadyEnemySkillEffect clears its effect in OnCastFinish — `_stopBeforeCast` 0 — and
  * OnDetach, as the official client does).
@@ -205,7 +206,7 @@ function kitPunisher(ab) {
   const P = { sp: 0, lit: 0 };
   const pick = (b, e) => {
     const out = e.blockedBy && e.blockedBy.alive ? [e.blockedBy] : [];
-    for (const u of areaAllies(b, e, e.x, e.y, DFAT_STUN_REACH)) if (!out.includes(u)) out.push(u);
+    for (const u of areaAllies(b, e, e.x, e.y, DFAT_STUN_REACH)) if (!u.isFlying && !out.includes(u)) out.push(u);
     return out;
   };
   // the prefab's ReadyEnemySkillEffect (enemy_dfat_skill_hint): fx 'enemySkillReady' on 1 as the SP fills, on 0 as the cast ends

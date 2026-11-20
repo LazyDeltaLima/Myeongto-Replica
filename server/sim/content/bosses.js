@@ -1696,7 +1696,10 @@ function kitLion(ab, e, b) {
     const r0 = t.tileR, c0 = t.tileC;
     const tiles = [[r0, c0], [r0 + 1, c0], [r0 - 1, c0], [r0, c0 + 1], [r0, c0 - 1]];
     b2.fx('telegraph', { x: c0, y: r0, r: 1, kind: 'royalDecree', tiles: 'plus', id: e2.id });
-    for (const u of areaAlliesInTiles(b2, e2, r0, c0, 'plus', 1)) hurt(b2, e2, u, e2.s.atk * ((sk && sk.bb.atk_scale) || 0), 'phys');
+    // projectile_enemy_vtlionk_s1's HitBehaviour strikes the plus's ground units only (`targetMotion` 1); the unit it was
+    // aimed at (the skill's selector: any motion) is struck in any case (`_alwaysHitTraceTargetInTheEnd`) — so a flying
+    // ally is hit only as the target (until 2026-11-20 one in the plus was hit too)
+    for (const u of areaAlliesInTiles(b2, e2, r0, c0, 'plus', 1)) if (!u.isFlying || u === t) hurt(b2, e2, u, e2.s.atk * ((sk && sk.bb.atk_scale) || 0), 'phys');
     // the drop tile (projectile_enemy_vtlionk_s1 selector, ACT37SIDE_EQUIP): any tile of the plus but one where a piece
     // lies (`act37side_equip`) or whose operator holds one (`enemy_vtmstr_equip_char[mark]`) — an operator's tile too,
     // and it picks the piece up (kitEquip). The selector checks no height and no buildable type, only the tile's advanced

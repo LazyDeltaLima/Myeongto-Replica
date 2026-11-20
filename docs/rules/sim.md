@@ -162,7 +162,26 @@
   - 그대로(공식과 같음): 무덤지기 석상 비행 모드(키트가 이미 지상만), 자로 M2(`NO_AIR_FORMS`), 잔당 악단 드러머 aoeAttack(선택자 1은 바라볼
     대상, 피해는 버프 `enemy_ltndru[AOE]`의 AOEDamage가 모든 행동 방식), 패스파인더 진지 파괴자 포탄 3×3(`projectile_enemy_cansld` 충돌 3 —
     지상 대상 주변의 비행도 맞음).
-  - 남은 대조(스킬·재능 선택자 1인 것과 충돌 선택자 1인 투사체, 우리 편 소환물이 적 비행을 치는 쪽)는 관리자 노트의 할 일로 남김.
+  - **스킬·재능 대조** (2026-11-20 이어서, 공식 클라에서 확인 — 두 클라 프리팹): 아군 쪽 선택자 `_targetMotion` 1인 스킬·재능 전부와 충돌
+    선택자 1인 적 투사체 전부를 키트와 맞췄다. 고친 것 넷:
+    - 살카즈 후예 처벌자 / 징벌자 `StunAttack`(`EnemyBlockerOrAdvancedSelector` 1): 둘레의 비행 아군도 기절시켰다 → 지상만(`reborn.js kitPunisher`).
+    - 죄악의 키메라 / 모독의 키메라 `OrigAura`(`TargetValidator` 1): 비행 아군에게도 오라(SP 회복·피해)를 줬다 → 지상만(`special.js kitChimera`).
+    - 액젓 추천자(`enemy_10044_wintun`) 통 장판(`projectile_enemy_wintun_range` `AuraHitBehaviour` 자기 편 1): 비행 적도 공격 속도·회피를
+      받았다 → 지상 적만(`special.js`).
+    - 알리스테어, 제국의 여광 [왕권 호령]: 스킬 선택자는 3이라 비행 아군도 대상이 되지만 십자를 치는 `projectile_enemy_vtlionk_s1`
+      `HitBehaviour`는 1이고 대상은 `_alwaysHitTraceTargetInTheEnd`로 어쨌든 맞는다 → 십자 안의 비행 아군은 대상일 때만 맞음(`bosses.js kitLion`).
+    - 그대로(공식과 같음): 가상적: 관 `KillOther`(현 `enemy_9022_acdumm`만 고름), 가상적: 기계 【홍류 공세】·튕김(이미 지상만), 가상적: 지느러미
+      【이온 고리파】·뇌우(이미 지상만), 가상적: 군생 `Critical`(저지한 유닛만 — 클립만 바꿈), '갑주를 꿰뚫는 탄환' `Boom`(키트가 쏘는 대상은
+      오퍼레이터뿐, 도착 장판 `projectile_enemy_acstmr_s1`은 3), '어벤져' `Rush`(`u.ground` — 비행 아군은 땅이 없음), 용맹한 팔라둘리스
+      `rush`·`CollideChar`(이미 지상만), 결사의 부양자 `Warning`(감시탑이 없어 안 켜짐), '산크타의 긍지' `Roar`(이미 지상만), 미장착 칼날 등
+      `Talents/2`(줍기는 오퍼레이터만), 제셀톤 `ArmorPiercing`(R 형태는 근접). 투사체 `ftzlc`·`snslime`·`bslime`·`lrboom`(`deathBoom` `noAir`)·
+      `nsbomb`·`winbom`·`uareap_skill`·`krgrg`는 이미 지상만. 문드러진 응집 사도는 공격하지 않고(`NeverTrigger`), 비행을 치는 것은 그 소환물
+      메마른 씨앗(`enemy_1269_nhfly`, Trigger 3·충돌체 없는 투사체가 대상을 침). 쥐서우 【상동】은 템플릿 `enemy_dyjsfg_t[aura]`의 `CreateBuffInRange`가
+      `targetMotion` ALL.
+    - 테스트: `test/content/enemy-flyer-skills.test.js` — 두 시즌 적 전부를 지상 벽 + 비행 아군 옆에서 40초(일반 공격은 지상으로 묶음) 돌려
+      비행 아군에게 닿는 것은 공식 이유와 함께 목록에 있어야 하는 sweep(목록에 있는데 안 닿으면 실패), 탐침이 못 켜는 넷은 한 건씩.
+      재발 방지: `test/content/enemy-flyer-skills.test.js`.
+  - 남은 대조(우리 편 소환물이 적 비행을 치는 쪽)는 관리자 노트의 할 일로 남김.
   - 테스트: `test/local-patch.test.js` 「规程 sweep」(규정 시즌, 패치 없이 공중 허용 / 패치로 지상만)·「寻路者传令兵 (规程)」 두 개,
     `test/content/enemies_bosses.test.js` 변형의 베이스 α 시험의 특전술사 비행 줄. 재발 방지: 손 목록이라 새 시즌의 적이 또 빠질 수 있다 — 일반 공격의
     `_targetMotion`을 추출이 읽게 하는 일은 관리자 노트의 할 일(그때 `NO_AIR_KEYS`·`NO_AIR_FORMS`를 지운다).

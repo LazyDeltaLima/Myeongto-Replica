@@ -107,7 +107,9 @@ function kitChimera(ab) {
       a.acc = (a.acc ?? 0) + 0.25;
       const pulse = a.acc >= CHIMERA_AURA_EVERY - 1e-9;
       if (pulse) a.acc -= CHIMERA_AURA_EVERY;
+      // its OrigAura's TargetValidator: ground units only (`targetMotion` 1) — never the 炎佑 dragon (until 2026-11-20 it was)
       for (const u of b.alliesInRadius(e.x, e.y, CHIMERA_AURA_RADIUS)) {
+        if (u.isFlying) continue;
         auraBuff(b, u, 'ab:originium', 0.25, { spRecoveryMul: Math.max(0, 1 + spr) }, null, true);
         // PRTS "持续视为受到源石污染区影响…每0.5秒受到50真实持续伤害": a damage instance (受击回复, the 重装 trigger), not a
         // 流失 — 无来源 like the 源石污染区 terrain it stands for [ASSUMED], the chimera keeps the credit; "同类效果取最高": one
@@ -669,7 +671,9 @@ export const SPECIAL_KITS = Object.freeze({
         b.fx('zone', { x, y, r: BARREL_RADIUS, dur: life, kind: 'barrel' });
         let left = life;
         const h = b.every(0.5, () => {
-          for (const o of b.enemiesInRadius(x, y, BARREL_RADIUS)) auraBuff(b, o, 'ab:barrelZone', 0.5, { aspd: s.attack_speed ?? 0, dodgePhys: s.prob ?? 0 });
+          // projectile_enemy_wintun_range's AuraHitBehaviour: its own side's ground units (`targetMotion` 1) — no flying
+          // enemy (until 2026-11-20 they were buffed too)
+          for (const o of b.enemiesInRadius(x, y, BARREL_RADIUS)) if (!o.isFlying) auraBuff(b, o, 'ab:barrelZone', 0.5, { aspd: s.attack_speed ?? 0, dodgePhys: s.prob ?? 0 });
           left -= 0.5;
           if (left <= 0) h.cancel();
         });
