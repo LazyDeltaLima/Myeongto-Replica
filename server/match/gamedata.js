@@ -27,7 +27,7 @@
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
-import { customRoundPlan, customPrepSeconds, keepUnbanned, customPoolCount, customBanLimits, officialStep, stepScale } from '../../shared/ruleset.js';
+import { customRoundPlan, customPrepSeconds, keepUnbanned, customPoolCount, customBanLimits, officialStep, stepScale, lpSharedBandOff } from '../../shared/ruleset.js';
 import { BOND_LAYER_CAP, LARGE_SEATS, MAX_SEATS } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
@@ -803,6 +803,7 @@ export class GameData {
     if (!b) return false;
     // 规程: the modes a strategy is not offered in (bands.json inactiveModeIds)
     if (Array.isArray(b.inactiveModeIds) && b.inactiveModeIds.includes(this.modeId)) return false;
+    if (lpSharedBandOff(b, this.lpShared)) return false;
     const list = Array.isArray(b.modeTypeList) ? b.modeTypeList : null;
     if (!list) return true;
     return list.includes(this.isSolo ? 'SINGLE' : 'MULTI');

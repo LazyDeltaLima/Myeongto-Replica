@@ -717,7 +717,8 @@ K.skill_change_shop_equip = () => ({
 // 信仰搅拌机 献身护卫 「自身目标生命值降至与场上最低的玩家相同并获得等同损失生命值的资金（至多10资金），在<休整期结束时>为该玩家回复
 // 等额目标生命值」: the player's LP drops to the lowest other alive player's, it gains that many funds (at most max_count),
 // and at this prep's end that player gains back the LP the player lost. Refused when no other player is lower, and while
-// the alliance shares one LP (a share is no LP of its own). [ASSUMED·CN: 「等额」 = the LP lost, not the capped funds; a
+// the alliance shares one LP (a share is no LP of its own; the custom 「共享」 for every round leaves the strategy out of the
+// draft instead: shared/ruleset.js OWN_LP_BAND_SKILLS). [ASSUMED·CN: 「等额」 = the LP lost, not the capped funds; a
 // tie for the lowest goes to the first seat]
 const DEVOTE_SEAT = 'band:skill:devoteSeat';
 const DEVOTE_LP = 'band:skill:devoteLp';

@@ -63,6 +63,7 @@ import { actions, act } from '../ui/gameActions.js';
 import { normalizeDraft, sortedPlayers, diyPickOff, startStepCount, hasDiyChooseStep } from '../ui/gameLogic.js';
 import { store, useStore } from '../store.js';
 import { seasonFeature } from '../../../shared/seasons.js';
+import { lpSharedBandOff } from '../../../shared/ruleset.js';
 import { FactionIcon } from '../ui/faction.js';
 import { diyPresetStore, bandPresetChoice, bandRecommendation, linkBand, selectPreset, clearRosterSlot, choiceRoster, KEEP_LINK, BASE_LINK, presetSeasonOf } from '../ui/diyPresets.js';
 import { loadoutStore, flushDiySync, flushLoadoutSync, openLoadout } from '../ui/loadoutSync.js';
@@ -197,16 +198,19 @@ export function BandOffNote({ names = [] }) {
 
 /**
  * Bands selectable in a mode (modeTypeList contains the mode's type, and — 规程 — the mode is not one of its
- * inactiveModeIds, as the server's GameData.bandAllowed), sorted by sortId.
+ * inactiveModeIds; no own-LP strategy while a custom match shares one 目标生命值: lpSharedBandOff — as the server's
+ * GameData.bandAllowed), sorted by sortId.
  * @param {any[]} bands
  * @param {string|null} modeType 'SINGLE'|'MULTI'
  * @param {string|null} [modeId] the match's mode
+ * @param {boolean} [lpShared] the custom 「所有回合共享目标生命值」 is on in this (non-solo) match
  */
-export function allowedBands(bands, modeType, modeId = null) {
+export function allowedBands(bands, modeType, modeId = null, lpShared = false) {
   const sid = (b) => (Number.isFinite(b.sortId) ? b.sortId : 99);
   return (Array.isArray(bands) ? bands : [])
     .filter((b) => b && (!modeType || !Array.isArray(b.modeTypeList) || b.modeTypeList.includes(modeType)))
     .filter((b) => !modeId || !Array.isArray(b.inactiveModeIds) || !b.inactiveModeIds.includes(modeId))
+    .filter((b) => !lpSharedBandOff(b, lpShared))
     .sort((a, b) => sid(a) - sid(b) || (a.bandId < b.bandId ? -1 : a.bandId > b.bandId ? 1 : 0));
 }
 
@@ -639,7 +643,8 @@ export function BandDraftScreen() {
   const mode = gd.config?.modes?.[pub?.modeId];
   const offBonds = modeOffBonds(mode); // the bonds this mode never activates (标准: 10 of 23)
   const solo = roomSolo || mode?.type === 'SINGLE' || String(pub?.modeId || '').includes('single');
-  const bands = useMemo(() => allowedBands(gd.list('bands'), mode?.type || (solo ? 'SINGLE' : 'MULTI'), pub?.modeId || null), [gd.ready, mode?.type, solo, pub?.modeId, data.locale()]);
+  const lpShared = !solo && pub?.ruleset?.custom?.flow?.lpShared === true; // as the server's GameData.lpShared
+  const bands = useMemo(() => allowedBands(gd.list('bands'), mode?.type || (solo ? 'SINGLE' : 'MULTI'), pub?.modeId || null, lpShared), [gd.ready, mode?.type, solo, pub?.modeId, lpShared, data.locale()]);
   const artOf = useOrderArt(gd, myId);
   const players = sortedPlayers(pub);
   const draft = normalizeDraft(pub?.draft, players);

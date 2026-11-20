@@ -250,6 +250,25 @@ export function keepUnbanned(list, idOf, ban) {
 }
 
 /**
+ * The 规程 band-skill effects that act on the player's own 目标生命值 against the other players' (server/sim/content/bands/
+ * meta.js: 信仰搅拌机 献身护卫 `skill_drop_hp_to_low_gain_coin` — refused while the alliance shares one 目标生命值).
+ */
+export const OWN_LP_BAND_SKILLS = Object.freeze(['skill_drop_hp_to_low_gain_coin']);
+
+/**
+ * Whether the custom 「所有回合共享目标生命值」 (flow.lpShared, never solo) leaves a strategy out of the draft: one whose
+ * band skill (bands.json `skills[].buffs[].key`) is an OWN_LP_BAND_SKILLS effect would do nothing the whole match — the
+ * pool is merged right after the draft (maintainer decision 2026-11-21). The server's GameData.bandAllowed and the
+ * client's allowedBands both ask this.
+ * @param {any} band a bands.json record
+ * @param {boolean} lpShared the match shares one 目标生命值 in every round
+ */
+export function lpSharedBandOff(band, lpShared) {
+  if (!lpShared || !band || !Array.isArray(band.skills)) return false;
+  return band.skills.some((s) => Array.isArray(s?.buffs) && s.buffs.some((b) => OWN_LP_BAND_SKILLS.includes(b?.key)));
+}
+
+/**
  * The 特训敌人 types a custom match draws from the season's `random` ones (factions.json types with involveRandom, sorted)
  * and the `borrowed` ones (other seasons' types its settings pick 'allow' / 'force': shared/seasonBorrow.js, sorted):
  * every 'force' type, then the rest of the count from the types left to the draw, shuffled with `shuffle` (the match's
