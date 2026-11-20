@@ -262,7 +262,13 @@ test('every new text has its English and Korean', () => {
     assert.ok(EN[k] && KO[k], `en / ko: ${k}`);
   }
   // 「방」 as the official KR client (房间 = 방; 联合 is the mode's name alone — maintainer decision 2026-11-20)
-  for (const k of ['公开联合', '的公开联合', '没有符合筛选条件的公开联合']) assert.doesNotMatch(KO[k], /연합/, `ko: ${k}`);
+  for (const k of ['的公开联合', '没有符合筛选条件的公开联合']) assert.doesNotMatch(KO[k], /연합/, `ko: ${k}`);
+  // the list's head names the list, not a room: 「공개 연합」 / Public alliances under PUBLIC ALLIANCES (maintainer decision 2026-11-20)
+  assert.equal(KO['公开联合'], '공개 연합');
+  assert.equal(EN['公开联合'], 'Public alliances');
+  assert.match(read('public/js/ui/publicRooms.js'), /<b>\$\{t\('公开联合'\)\}<\/b><i>PUBLIC ALLIANCES<\/i>/);
+  // 创建公开联合 makes one room: its decorative head is PUBLIC ROOM
+  assert.match(read('public/js/screens/lobby.js'), /const PUBLIC_HEAD = \{ icon: 'signal', name: N_\('创建公开联合'\), en: 'PUBLIC ROOM' \};/);
   const src = files.map(read).join('\n');
   for (const k of keys) {
     assert.ok(src.includes(`t('${k}'`), `used: ${k}`);

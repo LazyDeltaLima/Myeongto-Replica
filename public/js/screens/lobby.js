@@ -30,7 +30,7 @@
 //     QueueWait in the hint, range switch and start button's place; the 规则 / 人数 rows and the cards locked).
 //   The two entries split by who plays (maintainer decisions 2026-11-20): 同盟模拟 makes a private room (a key, AI
 //   teammates; no 公开 row), 同盟匹配 has everything public — the list, matchmaking, and 创建公开联合 at the list's head (or
-//   in an empty list), which opens the same 选择模拟协议 as 'pa' (PUBLIC ALLIANCE: 自定义 ⚙ too, the matching screen's
+//   in an empty list), which opens the same 选择模拟协议 as 'pa' (PUBLIC ROOM: 自定义 ⚙ too, the matching screen's
 //   difficulty, ruleset and size carried over, back = the list): room.create { public: true } and room.setAutoStart, a
 //   public room made there starting by itself once full and ready. The queue's waiting dialog offers the same after a
 //   minute (ui/matchQueue.js 以公开联合等待, `onPublic` here: room.unqueue, then the queue's conditions).
@@ -162,7 +162,7 @@ const MODE_CARDS = [
 ];
 
 /** 创建公开联合's head under 选择模拟协议 (ProtocolSelect `head`). */
-const PUBLIC_HEAD = { icon: 'signal', name: N_('创建公开联合'), en: 'PUBLIC ALLIANCE' };
+const PUBLIC_HEAD = { icon: 'signal', name: N_('创建公开联合'), en: 'PUBLIC ROOM' };
 
 /**
  * A public room made from 同盟匹配 (创建公开联合, or the waiting dialog's 以公开联合等待 with `queued`): room.create
@@ -858,7 +858,7 @@ export function QuickRange({ quick, onQuick }) {
  * restored) styled to fill the screen. `roomMode`: 'solo' (开始独立模拟), 'match' (开始匹配; `waiting(d)` the Doctors of each
  * card's queue, `rooms(d)` its public rooms, `stage` the public room list over the blurred picture and brief) or 'coop' (a room's host, bundle ui-B: `action` / `hint` replace the button's label and the hint), or
  * `readOnly` — the cards shown, not chosen, and no button. `head`: { icon, name, en } in place of the mode's under the title
- * (创建公开联合's PUBLIC ALLIANCE). `sub`: the start button's second line (同盟匹配's target, a node). `wait`: nodes in place
+ * (创建公开联合's PUBLIC ROOM). `sub`: the start button's second line (同盟匹配's target, a node). `wait`: nodes in place
  * of the hint, `range` and the start button (同盟匹配 while queued alone: ui/matchQueue.js QueueWait), with the rule rows
  * (the caller's `rules`) and the cards `locked`: disabled and dimmed.
  */

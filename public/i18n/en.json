@@ -1654,7 +1654,7 @@
   "观战 {n}/{max}": "Spectate {n}/{max}",
   "仅匹配对象": "Matches only",
   "进行中（观战）": "In progress (spectate)",
-  "公开联合": "Public rooms",
+  "公开联合": "Public alliances",
   "{n} 个 · 匹配对象 {m}": "{n} · matches {m}",
   "其他赛季 · 加入后将切换到「{season}」赛季": "Another season · joining switches to {season}",
   "没有符合筛选条件的公开联合": "No public room matches the filter",
