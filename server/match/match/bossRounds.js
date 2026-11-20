@@ -405,9 +405,20 @@ export class MatchBoss {
     // replica (a reconnecting / watching human) subtracts only its local damage beyond that from the server hp
     const acked = {};
     for (const f of this.fields) if (f.cc) acked[f.fieldId] = f.mode === 'server' && f.credit ? Math.max(f.bossAcked, f.credit.cum) : f.bossAcked;
+    // `gt`: how far each client-run field's authority has simulated (its b.progress game time; a finished field: its
+    // result's). A display replica of the field (the pair partner, a watcher) steps no further than that plus a short
+    // lead (public/js/battle/runner.js REPLICA_LEAD_S): on the server clock alone it ran ahead of an authority that lags
+    // it (a slow phone, a throttled tab) and showed a fight that had not happened (docs/rules/ui.md 「라운드 대미지 패널」).
+    // A server-run field has none: its replicas follow the server clock.
+    const gt = {};
+    for (const f of this.fields) {
+      if (!f.cc || f.mode !== 'client') continue;
+      const v = f.done && f.result && Number.isFinite(f.result.time) ? f.result.time : f.progress && f.progress.gt;
+      if (Number.isFinite(v)) gt[f.fieldId] = Math.round(v * 1000) / 1000;
+    }
     const msg = {
       t: 'b.pool', hp: Math.max(0, this.bossPool.hp), max: this.bossPool.maxHp,
-      teamLp: this.teamLp == null ? null : Math.max(0, Math.round(this.teamLp)), acked,
+      teamLp: this.teamLp == null ? null : Math.max(0, Math.round(this.teamLp)), acked, gt,
     };
     const key = JSON.stringify(msg);
     if (!force && key === this._lastPoolKey) return;

@@ -6,7 +6,7 @@
 // teammate's is shown (state().mine).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createBattleRunner, ticksPerFrameCap } from '../../public/js/battle/runner.js';
+import { createBattleRunner, ticksPerFrameCap, REPLICA_LEAD_S, REPLICA_LEAD_MAX_S } from '../../public/js/battle/runner.js';
 import { createStore, initialState } from '../../public/js/store.js';
 import * as specMod from '../../server/sim/spec.js';
 import { DataSource } from '../../server/sim/simdata.js';
@@ -266,6 +266,59 @@ test('boss field: the local pool follows b.pool (server hp − unacknowledged lo
   r.net.emit('b.pool', { hp: pool.maxHp * 0.5, max: pool.maxHp, teamLp: 20, acked: { [start.fieldId]: pool.cum } });
   assert.ok(Math.abs(pool.hp - pool.maxHp * 0.5) < 1e-6, 'server hp when everything is acknowledged');
   r.runner.dispose();
+});
+
+test('a boss pair partner\'s display replica runs no more than REPLICA_LEAD_MAX_S ahead of its authority (b.pool gt); an authority on time never holds it; a server-run field lifts the cap', async () => {
+  // the 8-player report of the round damage panel's #1 flipping (docs/rules/ui.md 「라운드 대미지 패널」): on the server
+  // clock alone the partner's replica ran seconds ahead of a lagging authority and showed a fight that had not happened
+  const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 1, bots: 3, seed: 7310, captureFrames: false, clientCombat: true, clients: false });
+  h.autoHumans();
+  h.m.start();
+  h.run(() => h.ended != null || h.m.phase === PHASE.FINAL_ASSAULT, { maxSteps: 5e6 });
+  assert.equal(h.m.phase, PHASE.FINAL_ASSAULT, 'the seed reaches the Final Assault');
+  const own = h.lastTo('p_0', 'b.start');
+  h.m.dispose();
+  assert.equal(own.kind, 'boss');
+  const replica = { ...own, authoritative: false, elapsed: 0 };
+  const pool = (gt) => ({ hp: own.spec.boss.poolHp, max: own.spec.boss.poolMax, teamLp: 20, acked: { [own.fieldId]: 0 }, gt });
+  const r = rig();
+  r.net.emit('b.pool', pool({ [own.fieldId]: 1 }));
+  r.net.emit('b.start', replica);
+  await r.settle();
+  const e = r.runner._entries.get(own.battleId);
+  assert.ok(e && e.battle, 'the replica is built');
+  // the authority reported 1 game s and then nothing: 4 s of wall clock (8 game s at 2×) later the replica stands at
+  // 1 + REPLICA_LEAD_MAX_S, not at the server clock
+  r.advance(4000);
+  assert.ok(Math.abs(e.battle.time - (1 + REPLICA_LEAD_MAX_S)) < 0.1, `held at the authority's time + the lead (${e.battle.time})`);
+  // an authority on time: its reports follow the field clock (gt ≈ the clock, a report about every 0.5 game s, older by
+  // the round trip) — the replica keeps the clock and is never held
+  const t0 = r.t - (e.battle.time / e.speed) * 1000;
+  e.t0 = t0;
+  for (let i = 0; i < 16; i++) {
+    const clockGs = ((r.t - t0) / 1000) * e.speed;
+    r.net.emit('b.pool', pool({ [own.fieldId]: Math.max(0, clockGs - 0.6) }));
+    const before = e.battle.time;
+    r.advance(250);
+    assert.ok(e.battle.time - before > 0.45, `not held while the authority keeps up (${before} → ${e.battle.time})`);
+  }
+  assert.ok(REPLICA_LEAD_S > 0.6 + 0.5, 'the lead covers a report\'s age and interval');
+  // the field went to the server (no gt for it): the replica follows the server clock again
+  r.net.emit('b.pool', pool({}));
+  const at = e.battle.time;
+  r.advance(2000);
+  assert.ok(e.battle.time - at > 3.8, `cap lifted for a server-run field (${at} → ${e.battle.time})`);
+  r.runner.dispose();
+
+  // the authority itself ignores gt
+  const r2 = rig();
+  r2.net.emit('b.pool', pool({ [own.fieldId]: 0 }));
+  r2.net.emit('b.start', own);
+  await r2.settle();
+  const a = r2.runner._entries.get(own.battleId);
+  r2.advance(3000);
+  assert.ok(a.battle.time > 5.5, `an authority keeps its own clock (${a.battle.time})`);
+  r2.runner.dispose();
 });
 
 test('watching the other pair\'s boss field (maintainer decision 2026-11-20): the server lets a fighting player watch it, the own boss battle steps off screen to its end and reports the server-identical result; back home shows it', async () => {

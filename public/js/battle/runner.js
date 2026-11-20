@@ -22,7 +22,9 @@
 // frame or step covers seconds of play, so it drains the events every EV_SLICE ticks and each batch keeps its own game
 // time (`gt`): the render engine then knows how late a form fx is and skips a change clip that has already ended.
 // Display replicas (a teammate's field after the own battle, 联防 observers, the partner of a boss pair) run the same
-// spec fast-forwarded to the server's clock (`elapsed`) and never report.
+// spec fast-forwarded to the server's clock (`elapsed`) and never report; a replica of a client-run boss field goes no
+// further than its authority has simulated (b.pool `gt` + a short lead) — on the server clock alone it ran ahead of
+// a lagging authority, and the pair partner's field and round damage panel showed a fight that had not happened.
 // A b.start is registered as pending the moment it arrives — before the sim module has loaded, while the Battle is built
 // and caught up silently — so what comes for that battle meanwhile is applied to it in order (PR #266): a b.end takeover
 // stops its reports; a forced / timeout b.end (the first end counts) ends it as soon as the Battle exists, without
@@ -90,6 +92,18 @@ export const CATCHUP_TICKS = 240;
 /** Silent catch-up slice (ticks) while a new battle is prepared before it is shown. */
 const PREPARE_SLICE = 600;
 const MAX_ENTRIES = 4;
+/**
+ * How far (game s) a display replica of a client-run boss field may run past the time its authority last reported
+ * (b.pool `gt`, about every 0.5 game s at 2×): REPLICA_LEAD_S, plus the field's speed × the time since that report
+ * arrived up to REPLICA_LEAD_MAX_S in all (an authority that stalls stops its replicas that far on). On the server clock
+ * alone a replica ran ahead of an authority that lags it (a slow phone, a throttled tab) and showed seconds of a fight
+ * that had not happened (docs/rules/ui.md 「라운드 대미지 패널」). The cap is a guard, not a pacer: while the authority
+ * keeps up it never bites, because a replica held back and released every report — or kept behind its authority —
+ * meets the other fields' damage (b.pool hp) at other moments of its own fight than the authority did, and its fight
+ * went another way (measured: the partner's numbers off by up to half where the server clock alone matched exactly).
+ */
+export const REPLICA_LEAD_S = 2;
+export const REPLICA_LEAD_MAX_S = 3;
 const STATE_EV = new Set(['spawn', 'die', 'deploy', 'status', 'skill', 'leak', 'hide']);
 /**
  * The b.ev tuples a catch-up frame or the hidden-tab backlog keeps: the state-bearing kinds, and every fx that sets an
@@ -395,8 +409,25 @@ export function createBattleRunner(deps) {
   /** Publish the state when a leak count (or a battle's bond layers) changed since the last publish. */
   function flushLeaks() { if (leaksDirty) publishState(); }
 
-  /** Target tick of an entry on its clock. */
-  const targetTick = (e, t) => Math.max(0, Math.floor((((t - e.t0) / 1000) * e.speed) / TICK + 1e-9));
+  /**
+   * Target tick of an entry on its clock. A display replica of a client-run boss field goes no further than its
+   * authority has simulated (b.pool `gt`) plus a lead: REPLICA_LEAD_S, growing at the field's speed since that report
+   * arrived, at most REPLICA_LEAD_MAX_S.
+   */
+  const targetTick = (e, t) => {
+    const k = Math.max(0, Math.floor((((t - e.t0) / 1000) * e.speed) / TICK + 1e-9));
+    if (e.authoritative || e.authGt == null) return k;
+    const lead = Math.min(REPLICA_LEAD_MAX_S, REPLICA_LEAD_S + Math.max(0, ((t - e.authGtAt) / 1000) * e.speed));
+    return Math.min(k, Math.max(0, Math.floor((e.authGt + lead) / TICK + 1e-9)));
+  };
+
+  /** A b.pool's `gt` for the entry's field: a newer authority time moves the cap; a field without one (server-run) lifts it. */
+  function noteAuthGt(e, msg) {
+    if (!msg || !msg.gt || typeof msg.gt !== 'object') return;
+    const v = Number(msg.gt[e.fieldId]);
+    if (!Number.isFinite(v)) { e.authGt = null; return; }
+    if (e.authGt == null || v > e.authGt) { e.authGt = v; e.authGtAt = clock(); }
+  }
 
   /**
    * Step `n` ticks. `sliced` (a catch-up frame, a hidden-tab step): every EV_SLICE ticks the events drained so far go to
@@ -595,7 +626,7 @@ export function createBattleRunner(deps) {
       const d = Math.max(0, now() - pausedAt);
       pausedAt = null;
       // a pending battle not built yet takes its clock when it is built
-      for (const e of [...entries.values(), ...pending.values()]) if (e.t0 != null) { e.t0 += d; e.lastProgressAt += d; }
+      for (const e of [...entries.values(), ...pending.values()]) if (e.t0 != null) { e.t0 += d; e.lastProgressAt += d; e.authGtAt += d; }
     }
     publishState();
     schedule();
@@ -730,6 +761,8 @@ export function createBattleRunner(deps) {
       bench: Array.isArray(msg.bench) ? msg.bench : null,
       members: (msg.spec.players || []).map((p) => p && p.playerId).filter(Boolean),
       t0: null, lastProgressAt: -Infinity, topSent: null, done: false, resultSent: false,
+      // a boss replica's cap: the authority's simulated game time (b.pool `gt`) and the clock it arrived at (targetTick)
+      authGt: null, authGtAt: 0,
       result: null, delivery: null,
       // counted leaks so far (normal fields; noteLeaks) and the Battle state they were counted at; 联防 fields: each
       // leaker's enemies still standing (noteUniteLeft)
@@ -742,6 +775,7 @@ export function createBattleRunner(deps) {
       // view from the field meta); the event batches of the current sliced step (stepEntry)
       held: [], stale: false, slices: [],
     };
+    noteAuthGt(e, lastPool);
     pending.set(e.battleId, e);
     if (e.own) rememberBattle(e); // kept for the settlement screen's feedback (diag.js)
     loading = e;
@@ -819,6 +853,7 @@ export function createBattleRunner(deps) {
     for (const e of [...entries.values(), ...pending.values()]) {
       const pool = e.battle ? e.battle.sharedBoss : null;
       if (pool && typeof pool.sync === 'function') pool.sync(msg.hp, msg.acked ? msg.acked[e.fieldId] : undefined);
+      noteAuthGt(e, msg);
     }
     emit('pool', msg);
   }

@@ -701,7 +701,8 @@ export const S2C = [
   // m.unitStats { seq, round, units: [unitStatsEntry] } — the answer to g.unitStats (the requester only)
   'm.unitStats',
   // client-side combat (DESIGN §14): b.start { battleId, fieldId, kind, spec, authoritative, startAt, serverNow, elapsed,
-  // speed, watch? } · b.pool { hp, max, teamLp, acked: { [fieldId]: cumulative boss damage counted } } ·
+  // speed, watch? } · b.pool { hp, max, teamLp, acked: { [fieldId]: cumulative boss damage counted },
+  // gt: { [fieldId]: game s its authority has simulated (client-run fields only) } } ·
   // b.end { battleId, fieldId, reason }
   'b.start', 'b.pool', 'b.end',
   // server-run combat streaming (legacy / SP_COMBAT=server only)

@@ -310,6 +310,12 @@ test('Final Assault: two client-run pair fields share the server pool (b.progres
   assert.ok(pools.length > 3);
   for (let i = 1; i < poolAt.length; i++) assert.ok(poolAt[i] - poolAt[i - 1] >= 250, `b.pool ≤ 4 Hz (${poolAt[i] - poolAt[i - 1]} ms apart)`);
   assert.deepEqual(Object.keys(pools[pools.length - 1].acked).sort(), ['b1', 'b2']);
+  // `gt`: how far each field's authority has simulated (its b.progress game time) — the pair partner's display replica
+  // runs no further ahead of it than runner.js REPLICA_LEAD_MAX_S (docs/rules/ui.md 「라운드 대미지 패널」)
+  const gt = pools[pools.length - 1].gt;
+  assert.deepEqual(Object.keys(gt).sort(), ['b1', 'b2'], 'b.pool carries each client field\'s authority time');
+  // (the last broadcast: the reports since may wait for the ≤ 4 Hz slot)
+  assert.ok([b1, b2].every((f) => gt[f.fieldId] > 0 && gt[f.fieldId] <= f.progress.gt + 1e-9), `gt = the authority's reported game time (${JSON.stringify(gt)} ≤ ${b1.progress.gt}, ${b2.progress.gt})`);
   const end = h.runToEnd();
   assert.equal(end.victory, true);
   const dmg = [...m.players.values()].map((p) => p.stats.bossDamage);
