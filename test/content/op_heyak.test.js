@@ -309,6 +309,28 @@ test('T1 传承终焉: hits on air units × 1.23 and silence 3 s (CCR-X stage 3:
   }
 });
 
+test('T1 传承终焉 on a 折射 enemy (深池重甲卫士队长 enemy_1170_dushld_2, real record): the S1 hit that lifts and silences it still meets RES +70; the next hit, inside the 3 s silence, meets RES 0', () => {
+  const why = 'the official client attaches a hit\'s buffs (S1 浮空, then 传承终焉\'s 沉默), then deals its damage, and the silenceable 折射 buff goes at its own next tick — docs/rules/sim.md 「굴절과 침묵의 차례」';
+  const { h, u } = field({ tier: 6, elite: true, skill: 0 });
+  const [ts] = t0Of(6, true, null);
+  const sk = skillOf(6, true, S1);
+  u.skill.charges = 0;
+  u.skill.sp = 0;
+  const e = h.spawn('enemy_1170_dushld_2', { pos: [10, 6] });
+  h.step();
+  const res = e.base.res + 70;
+  assert.equal(e.s.res, res, '折射 on before any hit');
+  const seen = [];
+  h.b.on('damaged', (c) => { if (c.source === u && c.target === e && c.dmg.isSkill) seen.push({ amount: c.amount, res: e.s.res, silenced: !!e.s.flags.silence }); }, { owner: u });
+  u.skill.gainSp(999);
+  assert.ok(h.runUntil(() => seen.length >= 2, 6), 'two S1 hits');
+  approx(seen[0].amount, arts(u.s.atk * sk.bb.atk_scale * ts, res), `first S1 hit: lifted (× ${ts}), RES ${res} — ${why}`);
+  assert.ok(seen[0].silenced, `the first hit silences it — ${why}`);
+  assert.equal(seen[1].res, e.base.res, `second hit inside the silence: 折射 off — ${why}`);
+  approx(seen[1].amount, arts(u.s.atk * sk.bb.atk_scale * ts, e.base.res), `second S1 hit at RES ${e.base.res} — ${why}`);
+  done(h);
+});
+
 test('T2 曾有羽翼: 失重 (weight −1) on every enemy of her range above 80 % HP, gone below it or out of range, never on top of another 失重; CCR-Y stage 3: above 50 %, and 20 % 【法术脆弱】 below 50 %', () => {
   for (const f of FORMS_ALL) {
     const [tier, elite, mod] = f;
