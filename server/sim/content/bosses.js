@@ -1327,6 +1327,10 @@ function kitPipe(ab, e, b, tpl) {
       name: s.name, cd: s.cd, icd: s.icd, cond: (b2) => echoesOf(b2, 'dark').length > 0 && (!g || g.ready()), // local patch: + SP
       fire(b2, e2) { // 【裂管之奏】 three strikes on every dark echo (the SP spent as it is cast, the shots at Skill's frame)
         if (g) g.spend(e2); // local patch
+        // its echoes are taken as the cast begins (the MultiRangedAttack's own selector, `_selectTargetTiming` 0 —
+        // UpdateTargets in CastToTarget) and each shot goes to those still alive (DoCastOnTargets: ValidAndAlive): one
+        // summoned in between is not shot (공식 클라에서 확인 — prefab enemy_9021_acduml `Skills/1`; until 2026-11-21 taken at the spell)
+        const echoes = echoesOf(b2, 'dark');
         atSpell(b2, e2, s, () => {
           const r = s.bb.range_radius ?? 0, ep = s.bb.ep_damage_ratio ?? 0;
           // each strike is the skill's official projectile (skills `1`.proj — projectile_enemy_acduml, TRACE 10 tiles/s;
@@ -1346,7 +1350,7 @@ function kitPipe(ab, e, b, tpl) {
               }
             });
           };
-          for (const echo of echoesOf(b2, 'dark')) for (let k = 0; k < 3; k++) {
+          for (const echo of echoes) for (let k = 0; k < 3; k++) {
             if (k === 0) strike(echo); else b2.after(k * PIPE_STRIKE_GAP, () => strike(echo), { owner: e2 });
           }
         });
@@ -1366,13 +1370,18 @@ function kitString(ab, e, b, tpl) {
       name: s.name, cd: s.cd, icd: s.icd, cond: (b2) => echoesOf(b2, 'gold').length > 0 && (!g || g.ready()), // local patch: + SP
       fire(b2, e2) { // 【断弦之奏】 AoE on every gold echo, which then turns dark
         if (g) g.spend(e2); // local patch
+        // its echoes are taken as the cast begins (the RangedAttack's own selector, `_selectTargetTiming` 0 — UpdateTargets
+        // in CastToTarget), the shot going to those still alive at the spell (DoCastOnTargets: ValidAndAlive) — 공식 클라에서
+        // 확인, prefab enemy_9022_acdumm `Skills/1`; until 2026-11-21 taken at the spell
+        const echoes = echoesOf(b2, 'gold');
         atSpell(b2, e2, s, () => {
           const ep = s.bb.ep_damage_ratio ?? 0;
           // the skill's official projectile (skills `1`.proj — projectile_enemy_acdumm, TRACE 10 tiles/s; enemies/helpers.js
           // shoot) to every gold echo, a pipeBurst as it arrives (until 2026-10-10 at the cast; until 2026-10-15 the echo took
           // no hit). The skill's `_activeBuffs` acdumm_s_1 on every unit hit: 凋亡 `ep_damage_ratio`, and the echo turns dark
           // (CheckEnemyId → SwitchMode 1); as 管's, the echo takes the 凋亡 too (until 2026-10-15 it did not).
-          for (const echo of echoesOf(b2, 'gold')) {
+          for (const echo of echoes) {
+            if (!echo.alive) continue;
             shoot(b2, e2, echo, s.proj, (o) => {
               if (!o || !o.alive) return;   // a shot in flight lands even if its shooter fell meanwhile
               for (const u of pipeBurst(b2, e2, o, PIPE_SHOT_RADIUS.acdumm, 'stringStrike')) {
@@ -1409,7 +1418,16 @@ function kitQuintus(ab, e, b, tpl) {
     if (!s) return null;
     const kind = name.replace(/G\d$/, '');
     const phases = kind === 'SummonTentac' ? tentLeft(s) : Infinity;
-    const a = { name: s.name, cd: s.cd, icd: s.icd, stage, atStrike: true, cond: () => P.stage === stage && P.tent < phases, fire: (b2, e2) => QUINTUS[kind](b2, e2, s, P, tpl) };
+    const pick = QUINTUS_PICK[kind];
+    const a = { name: s.name, cd: s.cd, icd: s.icd, stage, cond: () => P.stage === stage && P.tent < phases };
+    if (pick) { // its units taken as the cast begins, struck at the spell if still alive on the field (QUINTUS_PICK)
+      a.fire = (b2, e2, a2) => { a2.picks = pick(b2, e2, P); };
+      a.atStrike = (b2, e2, a2) => {
+        const picks = (a2.picks || []).filter((u) => u.alive && u.deployed);
+        a2.picks = null;
+        QUINTUS[kind](b2, e2, s, picks);
+      };
+    } else Object.assign(a, { atStrike: true, fire: (b2, e2) => QUINTUS[kind](b2, e2, s, P, tpl) });
     skills.push(a);
     return a;
   };
@@ -1440,14 +1458,26 @@ function kitQuintus(ab, e, b, tpl) {
   return list;
 }
 
-const QUINTUS = {
-  Tidewater(b, e, s) { // 【大潮】 "对场上所有我方单位…": every operator it can select (fieldAllies): arts + neural
-    b.fx('tide', { x: e.x, y: e.y, id: e.id });
-    for (const u of fieldAllies(b, e)) { hurt(b, e, u, e.s.atk * (s.bb.atk_scale ?? 0), 'arts'); elem(b, e, u, 'neural', e.s.atk * (s.bb.ep_damage_ratio ?? 0)); }
-  },
-  Rockfall(b, e, s, P) { // 【崩坍】 delayed strikes on the N highest-DEF units
+/**
+ * The units 【大潮】 / 【崩坍】 (and their G1 / G2 forms) strike, taken as the cast begins: their MeleeAttack's own selector
+ * (`_selectTargetSource` 1, `_selectTargetTiming` 0 — UpdateTargets in CastToTarget), the spell going to those still alive
+ * on the field (DoCastOnTargets: ValidAndAlive) — one that falls or withdraws in between is not replaced and a unit placed
+ * in between is not struck (공식 클라에서 확인 — prefab enemy_1521_dslily `Skills/Tidewater*`·`Rockfall*`; until 2026-11-21
+ * taken again at the spell).
+ */
+const QUINTUS_PICK = {
+  Tidewater: (b, e) => fieldAllies(b, e),   // "对场上所有我方单位…": every operator it can select
+  Rockfall: (b, e, P) => {                  // the N highest-DEF units
     const n = ROCKFALL_TARGETS[Math.min(P.stage, ROCKFALL_TARGETS.length - 1)];
-    const ts = allTargets(b, e).sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q)).slice(0, n);
+    return allTargets(b, e).sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q)).slice(0, n);
+  },
+};
+const QUINTUS = {
+  Tidewater(b, e, s, picks) { // 【大潮】 arts + neural on its units (QUINTUS_PICK)
+    b.fx('tide', { x: e.x, y: e.y, id: e.id });
+    for (const u of picks) { hurt(b, e, u, e.s.atk * (s.bb.atk_scale ?? 0), 'arts'); elem(b, e, u, 'neural', e.s.atk * (s.bb.ep_damage_ratio ?? 0)); }
+  },
+  Rockfall(b, e, s, ts) { // 【崩坍】 delayed strikes on its units (QUINTUS_PICK)
     for (const t of ts) {
       b.fx('rockfall', { x: t.x, y: t.y, id: t.id, dur: ROCKFALL_DELAY });
       b.after(ROCKFALL_DELAY, () => { if (e.alive && t.alive) hurt(b, e, t, e.s.atk * (s.bb.atk_scale ?? 0), 'phys'); }, { owner: e });
@@ -1689,9 +1719,8 @@ function kitLion(ab, e, b) {
   const spData = raw.sp || null, spMax = Math.max(Number.isFinite(cost) ? cost : 0, Number(spData && spData.maxSp) || 0);
   /** Equipment lying on this field, oldest first. */
   const equipment = (b2) => b2.enemies.filter((q) => q.alive && EQUIP_KEYS.includes(q.defId)).sort((p, q) => p.spawnSeq - q.spawnSeq);
-  const decree = (b2, e2) => { // 【王权号令】 plus-shaped strike + random equipment
+  const decree = (b2, e2, t) => { // 【王权号令】 plus-shaped strike + random equipment, aimed at `t`
     const sk = P.adv && eqA ? eqA : eq;
-    const t = b2.rng.pick(targetsNear(b2, e2, range()));
     if (!t) return false;
     const r0 = t.tileR, c0 = t.tileC;
     const tiles = [[r0, c0], [r0 + 1, c0], [r0 - 1, c0], [r0, c0 + 1], [r0, c0 - 1]];
@@ -1793,8 +1822,17 @@ function kitLion(ab, e, b) {
     ...[[eq, false], [eqA, true]].map(([sk, adv]) => sk && {
       name: sk.name, cd: 0, icd: 0,
       cond: (b2, e2) => (P.adv && !!eqA) === adv && P.sp >= cost && targetsNear(b2, e2, range()).length > 0,
-      // the SP restarts as it is cast, the strike and the drop come at Skill_1's attack event (castStrikeAt)
-      fire(b2, e2) { P.sp = 0; atSpell(b2, e2, sk, () => decree(b2, e2)); },
+      // the SP restarts as it is cast, the strike and the drop come at Skill_1's attack event (castStrikeAt). Its target is
+      // taken as the cast begins (the RangedAttack's `_selectTargetTiming` 0, one target with `_alwaysIncludeTarget` — the
+      // skill's input target); at the spell the shot goes only to it if still alive on the field (DoCastOnTargets:
+      // ValidAndAlive), and without `_allowNoTarget` its `_emitToInputRootTileWhenTargetIsInvalid` is never used — no shot,
+      // no strike, no drop (RangedAttack.DoCastOnTargets; 공식 클라에서 확인 — prefab `Skills/equip`·`equipA`; until
+      // 2026-11-21 a target taken at the spell)
+      fire(b2, e2) {
+        P.sp = 0;
+        const t = b2.rng.pick(targetsNear(b2, e2, range()));
+        atSpell(b2, e2, sk, () => { if (t && t.alive && t.deployed) decree(b2, e2, t); });
+      },
     }),
     su && {
       name: su.name, cd: su.cd, icd: su.icd, atStrike: true,
@@ -2501,11 +2539,21 @@ function kitSpider(ab, e) {
       },
     },
     rain && {
-      name: rain.name, cd: rain.cd, icd: rain.icd, atStrike: true,
-      fire(b2, e2) { // 【悲惨之雨】: Left, then Right, in turn
+      name: rain.name, cd: rain.cd, icd: rain.icd,
+      // 【悲惨之雨】: Left, then Right, in turn — the group takes its next branch as it is cast (AbilitySelectableGroup
+      // `_selectAbilitySequentially`), and the branch's tiles are taken then too (a CastOnTileAbility: UpdateTargets in
+      // CastToTarget, `_selectTargetTiming` 0); the rain falls at Skill_2's frame on them whatever became of the unit
+      // that was found (공식 클라에서 확인 — prefab `Skills/AcidRain/Left`·`Right`; until 2026-11-21 the turn and the field's
+      // ground unit were taken at the spell, a cut cast keeping the turn)
+      fire(b2, e2, a) {
         const fields = spiderFields(b2, e2);
         const pid = P.rainTurn++ % 2 === 0 ? fields[0] : fields[1];
-        if (pid != null && ground(b2, e2).some((u) => u.ownerId === pid)) rainOn(b2, e2, pid);
+        a.rainAt = pid != null && ground(b2, e2).some((u) => u.ownerId === pid) ? pid : null;
+      },
+      atStrike(b2, e2, a) {
+        const pid = a.rainAt;
+        a.rainAt = null;
+        if (pid != null) rainOn(b2, e2, pid);
       },
     },
   ];

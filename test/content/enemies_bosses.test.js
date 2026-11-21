@@ -5137,3 +5137,68 @@ test(`${nm('enemy_10097_crshd')}: front by grid column — an attacker in its ow
   d.x = 6.4;                                                                // column 6: the gun one column ahead
   approx(hit(), (1000 - d.s.def) * cut, 1e-6, 'one column ahead: reduced');
 });
+
+// docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 시작에 고르는 대상: these abilities' `_selectTargetTiming` is 0 (AT_BEGINING) —
+// their targets are taken as the cast begins and the spell goes to those still alive on the field
+test('boss skills take their targets as the cast begins — 盐风主教昆图斯 【大潮】, 阿利斯泰尔 【王权号令】, 假想敌：管 【裂管之奏】', () => {
+  /** Run until `e` begins casting `name`; `onStart` runs then, before the kit takes its targets (castSkill's fx comes first). */
+  const untilCast = (h, e, name, onStart, max = 90) => {
+    let at = null;
+    const fx = h.b.fx.bind(h.b);
+    h.b.fx = (k, o) => { if (k === 'enemySkill' && o.id === e.id && o.ability === name && at == null) { at = h.b.time; onStart(); } return fx(k, o); };
+    for (let t = 0; t < max && at == null; t += h.TICK) h.step();
+    assert.ok(at != null, `${name} cast`);
+    return at;
+  };
+  const hide = (h, u, dur) => h.b.addBuff(u, { key: 't:hide', duration: dur, flags: { untargetable: true } });
+  // 【大潮】 every operator it can select as it begins: one untargetable then (0.1 s) and back before the spell (0.333 s) is spared
+  {
+    const tpl = W.act1autochess_h07_04;
+    const ov = JSON.parse(JSON.stringify(tpl.overrides));
+    for (const s of ov.enemy_1521_dslily.skills) s.initCooldown = s.prefabKey === 'Tidewater' ? 1 : 999;
+    const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }, { chessId: 't_wall2', row: 12, col: 4 }], setup(b) { b.enemyOverrides = ov; } });
+    h.step();
+    const e = put(h, 'enemy_1521_dslily', [3, 10], { tag: 'boss' });
+    const [a, c] = [h.unit('t_wall'), h.unit('t_wall2')];
+    const hits = hitsBy(h, e);
+    const t0 = untilCast(h, e, 'Tidewater', () => hide(h, c, 0.1));
+    h.run(strikeOf(e, 'Tidewater') + 0.1);
+    const tide = hits.filter((x) => x.t >= t0 && x.type === 'arts');
+    assert.ok(tide.some((x) => x.to === a), '大潮 strikes the operator it took');
+    assert.ok(!tide.some((x) => x.to === c), '大潮: the one untargetable as it began is spared, though targetable again at the spell');
+  }
+  // 【王权号令】 its target as it begins: gone before Skill_1's frame (0.9 s) — no strike and no drop on the other operator
+  for (const killFirst of [false, true]) {
+    const tpl = W.act1autochess_h07_06;
+    const ov = JSON.parse(JSON.stringify(tpl.overrides));
+    const h = bossArena({ units: [{ chessId: 't_wall', row: 10, col: 9 }, { chessId: 't_wall2', row: 11, col: 9 }], setup(b) { b.enemyOverrides = ov; } });
+    h.step();
+    const e = put(h, 'enemy_9032_aclionk', [3, 11], { tag: 'boss' });
+    const [a, c] = [h.unit('t_wall'), h.unit('t_wall2')];
+    // (in the attack's slot: the strike and the drop wait for Skill_1's frame — bosses.js atSpell)
+    const t0 = untilCast(h, e, 'equip', () => hide(h, c, 0.1));
+    h.run(0.3);
+    if (killFirst) h.b.kill(a, null);
+    h.run(strikeOf(e, 'equip') - (h.b.time - t0) + 0.2);
+    const decrees = h.eventsOf('fx').filter((f) => f[1] === 'telegraph' && f[4].kind === 'royalDecree' && f[4].id === e.id);
+    const drops = h.eventsOf('fx').filter((f) => f[1] === 'equip' && !f[4].kind).length;   // a piece dropped (bosses.js decree)
+    if (!killFirst) assert.ok(decrees.length === 1 && decrees[0][2] === a.tileC && decrees[0][3] === a.tileR && drops === 1, '王权号令 on its target');
+    else assert.ok(decrees.length === 0 && drops === 0, '王权号令: its target fell first — no shot, no strike, no drop');
+  }
+  // 【裂管之奏】 the dark 余音 there as it begins: one placed after the start takes none of its shots
+  {
+    const h = pipeArena('act1autochess_h07_03', 9);
+    const e = put(h, 'enemy_9021_acduml', [3, 12], { tag: 'boss' });
+    const hits = hitsBy(h, e);
+    h.run(41);
+    for (const o of alive(h, ECHO)) h.b.kill(o, null);
+    const echo = put(h, ECHO, [3, 6], { tag: 'part', mods: { hpMul: 3 } });
+    const t0 = untilCast(h, e, '1', () => {});
+    h.run(0.5);
+    const late = put(h, ECHO, [5, 6], { tag: 'part', mods: { hpMul: 3 } });
+    h.run(strikeOf(e, '1') + 1.5 - (h.b.time - t0));
+    const shots = (u) => hits.filter((x) => x.t >= t0 && x.to === u && x.tags.includes('echoStrike')).length;
+    assert.equal(shots(echo), 3, 'the 余音 there as it began takes the three shots');
+    assert.equal(shots(late), 0, 'one placed after the start takes none');
+  }
+});

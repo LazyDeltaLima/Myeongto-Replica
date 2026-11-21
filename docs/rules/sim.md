@@ -1676,10 +1676,19 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     `_selectTargetSource` 2), 래트킹 【唱沙】·【沙狱】(입력 점 `_selectTargetSource` 3 — 대상이 사라졌으면 시작 때 그 자리, `_emitToInputPosWhenTargetIsInvalid`),
     '즈자이' 십자 공격(가장 가까운 하나, 두 번째 형태는 가장 먼 하나도 — 사라졌으면 시작 때 그 칸), '산크타의 긍지' 祈祷邀约(전장 전체), 루시안·불길한 환영 광역, 가상적: 지느러미
     `Discharge`, '사미의 의지' `Lasso`, 가상적: 기계 `SommonSquad`(`atSpell`). 이미 시작에 잡던 것: 가상적: 흑운 `KillOthers`, 강화 석궁 기습자, 고정밀 런디니움 방위군 자주포,
-    응집된 영혼의 잔해, 부패한 기사·검은 뿔의 루울(저지자). 대상이 없는 것(순간이동·자기 버프·방벽·소환): 그대로. [추정·미조사: 보스 다섯 — 살비엔토 주교 퀸투스
-    `Tidewater`·`Rockfall` 등, 알리스테어 [왕권 호령](`equip` 입력 대상·`equipA`), 가상적: 검·망치 던지기, 가상적: 고치 【비참한 비】, 가상적: 관·현(`atSpell`) — 은 아직 주문 때
-    고른다: 능력 타이밍은 0이지만 대상이 능력 자신의 선택인지 그 투사체·버프의 것인지 안 읽음]
-    재발 방지: `test/content/enemy-skill-strike.test.js` 「targets taken as the cast begins」·「the first enemy of the chain」.
+    응집된 영혼의 잔해, 부패한 기사·검은 뿔의 루울(저지자). 대상이 없는 것(순간이동·자기 버프·방벽·소환): 그대로.
+    보스(2026-11-21, 공식 클라에서 확인 — 적 프리팹의 능력·버프 템플릿; 이전: 모두 주문 때 골랐다 [가정이었음]):
+    살비엔토 주교 퀸투스 [파도]·[붕괴](`Tidewater`·`Rockfall`, G1·G2도 — `MeleeAttack` 자신의 선택자, 출처 1)는 시작에 고르고 주문(0.333초·0.933초)은 그 가운데
+    살아서 필드에 있는 것에만([붕괴]의 1초 뒤 피해는 그 버프 `dslily_rockfall[damage]`). 알리스테어 [왕권 호령](`equip` 출처 2 입력 대상·`equipA` 출처 1, 둘 다 대상 하나에
+    `_alwaysIncludeTarget`)은 시작에 고른 대상에게 `Skill_1` 0.9초에 쏜다 — 그 사이 대상이 사라지면 `_allowNoTarget`이 없어 `_emitToInputRootTileWhenTargetIsInvalid`도 안
+    쓰이므로(`RangedAttack.DoCastOnTargets`) 투사체가 없다: 십자 타격도 장비 떨굼도 없음. 가상적: 관 [열관의 연주](`MultiRangedAttack`)·가상적: 현 [단현의 연주](`RangedAttack`, 출처 2)는
+    시작 때 그 형태의 '여음'들에게, 그 사이 소환된 여음은 안 맞는다(SP는 전처럼 시작에 씀). 가상적: 고치 [비참한 비](`AbilitySelectableGroup` `_selectAbilitySequentially`의
+    `Left`·`Right` = `AttachListenerToTileAbility` : `CastOnTileAbility`)는 차례(왼쪽·오른쪽)와 칸을 시작에 정하고(칸은 `UpdateTargets`, `DoCastOnTargets`는 정한 칸마다
+    검사 없이) `Skill_2` 프레임에 그 칸에 비를 내린다 — 끊긴 시전도 차례를 쓴다(이전: 주문 때 차례를 넘기고 그 필드의 지상 유닛을 봄). 가상적: 검·망치 던지기(`Skills/1`)는
+    대상이 능력의 것이 아니다: 능력 선택자는 `SelfSelector`이고, 돌진할 칸은 시전 끝(`BuffToOwner` `_runActionOnEvent` 3 ON_CAST_END)에 붙는 버프 `acstma_s_1`·`acstmb_s_1`의
+    `ON_BUFF_START`가 공용 능력 `FindCharacter`의 선택자로 그때 고른다 — 키트가 고르는 때(`Launch_Begin` 끝 1.367초 = 시전 끝)와 같아 그대로.
+    재발 방지: `test/content/enemy-skill-strike.test.js` 「targets taken as the cast begins」·「the first enemy of the chain」, `test/content/enemies_bosses.test.js`
+    「boss skills take their targets as the cast begins」.
     데이터: `build-data.mjs enemySkillCast`가 `wait` 0·`pre`(`_preDelay`, 채널도)와 채널 클립의 `chanBegin`·`chanLoop`·`chanEnd`(`dur`·`hit`)를 싣는다(`attack_timing.py cast_fields`가
     채널 능력의 `_waitForAttackEvent`·`_preDelay`를 읽음). 재발 방지:
     `test/content/enemy-skill-strike.test.js`(두 시즌 공격 차례 스킬 전부 — 프레임이 0보다 늦은데 `atStrike`가 아니면 예외 목록의 이유가 있어야 함).
