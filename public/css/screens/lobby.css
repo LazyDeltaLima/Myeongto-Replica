@@ -1442,6 +1442,7 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   background: linear-gradient(90deg, rgba(16, 18, 18, .92), rgba(22, 24, 24, .86)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
 .pubroom.is-fit { background: linear-gradient(90deg, rgba(14, 34, 29, .94), rgba(18, 24, 23, .88)); box-shadow: inset 0 0 0 1px rgba(89, 244, 202, .38); }
 .pubroom.is-live { opacity: .82; }
+.pubroom__main { display: contents; } /* a box of its own only on a short screen (the two lines beside the buttons) */
 .pubroom__mode { justify-self: start; display: flex; }
 .pubroom .rs-mode { --o: var(--po); margin-right: 0; max-width: none; cursor: default; }
 .pubroom__who { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: calc(var(--u) * 3); white-space: nowrap; }
@@ -1514,15 +1515,20 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   .pubrooms__smenu { min-width: 260px; }
   .pubrooms__list { display: flex; flex-direction: column; gap: 4px; padding-top: 4px; }
   .pubrooms__list > li { flex: none; } /* a flex column shrinks its rows (a row's second line ran out of it) */
-  /* two lines: capsule · host | seats · state · tags (the tags beside the host cut a long name), the buttons over both */
-  .pubroom { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 2px 8px; min-height: 0; padding: 3px 6px; }
+  /* the main box's two lines share no columns: capsule · host | seats · state · tags (the tags beside the host cut a long
+     name); the buttons beside it, centred over both. One grid of four columns shared them: the seats sat in the capsule's
+     column (a blank as wide as the capsule after them), and the tags got the 1fr remainder, narrower than the custom
+     chip, which ran under the buttons. */
+  .pubroom { display: flex; align-items: center; gap: 8px; min-height: 0; padding: 3px 6px; }
+  .pubroom__main { flex: 1 1 0; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; }
+  .pubroom__main::after { content: ''; order: 3; flex: 0 0 100%; height: 2px; } /* the line break (and the gap between the lines) */
   .pubroom__who { display: contents; }
-  .pubroom__mode { grid-column: 1; grid-row: 1; }
-  .pubroom__host { grid-column: 2 / 4; grid-row: 1; align-self: center; }
-  .pubroom__seats { grid-column: 1; grid-row: 2; }
-  .pubroom__state { grid-column: 2; grid-row: 2; }
-  .pubroom__tags { grid-column: 3; grid-row: 2; }
-  .pubroom__act { grid-column: 4; grid-row: 1 / 3; }
+  .pubroom__mode { order: 1; flex: none; }
+  .pubroom__host { order: 2; flex: 1 1 0; }
+  .pubroom__seats { order: 4; flex: none; }
+  .pubroom__state { order: 5; flex: none; }
+  .pubroom__tags { order: 6; flex: 0 1 auto; }
+  .pubroom__act { flex: none; }
   .pubroom__host b { font-size: 13px; }
   .pubroom__fit, .pubroom__custom { font-size: 11px; }
   .pubroom__act .btn { min-height: 30px; padding: 0 9px; font-size: 12px; }

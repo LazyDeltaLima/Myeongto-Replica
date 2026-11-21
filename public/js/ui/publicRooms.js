@@ -197,6 +197,7 @@ function RoomRow({ row, fit, other, busy, onJoin, onSpectate, customOpen, onCust
   const free = openSeats(row) > 0;
   const specFull = (row.spectators ?? 0) >= (row.spectatorSeats ?? 0);
   return html`<li class=${`pubroom${fit === 'fit' ? ' is-fit' : ''}${live ? ' is-live' : ''}`} data-code=${row.code} style=${`--dc:${DIFFICULTY_COLORS[row.difficulty] || 'var(--amber)'}`}>
+    <span class="pubroom__main">
     <span class="pubroom__mode"><${ModeCapsule} season=${other ? row.season ?? DEFAULT_SEASON : null} ruleset=${row.ruleset?.preset} difficulty=${row.difficulty} size=${size} /></span>
     <span class="pubroom__who">
       <span class="pubroom__host"><b>${row.host?.name || t('博士')}</b><small class="num">#${row.host?.no ?? ''}</small></span>
@@ -209,6 +210,7 @@ function RoomRow({ row, fit, other, busy, onJoin, onSpectate, customOpen, onCust
     <${RoomSeats} seats=${row.seats} size=${size} />
     <span class=${`pubroom__state${live ? ' is-live' : ''}`}><i aria-hidden="true"></i>${live
       ? t('进行中 · 第{n}回合', { n: row.round ?? 0 }) : t('等待 {n} 分钟', { n: minutes })}</span>
+    </span>
     <span class="pubroom__act">
       ${live ? null : html`<${Button} variant="amber" size="sm" class="pubroom__join" loading=${busy === `j${row.code}`} disabled=${!free || !!busy}
         title=${free ? null : t('同盟已满员')} onClick=${() => onJoin(row)}>${t('参加')} <span class="num">${humansOf(row)}/${size}</span><//>`}
