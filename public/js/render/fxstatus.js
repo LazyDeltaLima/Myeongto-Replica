@@ -127,7 +127,13 @@ export const SOURCE_FX = Object.freeze({
   // (2026-10-24, 묶음 S6) 浮空 from 予愿安洁莉娜 S2: aglna2_s_2[enemy] gives a ground enemy (!CheckMotionMode FLY — the sim levitates
   // only those) aglna2_s_2[enemy][levitate], whose overrideEffectKey aglna2_levitate_01_emit stands for the common one. Another
   // applier keeps STATUS_FX's (STATUS_FALLBACK).
-  levitate: Object.freeze({ aglna2: keyedAll('aglna2_s_2[enemy][levitate]', 'aglna2', 0) }),
+  // (2026-11-21) 浮空 from 오올헤약: her 浮空 buffs heyak_s_1[levitate] (S1) and heyak_s[levitate] (S2 / S3 hits) carry the
+  // overrideEffectKey heyak_cyclone_01_emit — the buff's effect for as long as the 浮空 lasts (an emitting wrapper: its kid
+  // heyak_cyclone_01 ends 0.2 s after it), in place of the common one; both keys hold the same prefab
+  levitate: Object.freeze({
+    aglna2: keyedAll('aglna2_s_2[enemy][levitate]', 'aglna2', 0),
+    heyak: Object.freeze(cite(['heyak_s_1[levitate]', 'heyak_s[levitate]'], ['heyak', Object.freeze({ tpl: 'heyak_s[levitate]', when: ALL }), OWN])),
+  }),
   // 诱导 from 圣聆初雪 S3: sbell2_s3[attract_core] creates sbell2_s3[attract_effect] (sbell2_skill_03_hint) on the enemy once its
   // pull to her (AddAttractToTargetNearestTileUseAbilitySelector) is set — the sim's 'attract' status, given only then
   attract: Object.freeze({ sbell2: keyedAll('sbell2_s3[attract_effect]', 'sbell2', 0) }),

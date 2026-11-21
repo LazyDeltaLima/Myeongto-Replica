@@ -32,6 +32,8 @@ const constOf = (name) => {
   return SRC.slice(at, SRC.indexOf(';\n', at) + 1);
 };
 const HELD = `${constOf('emitsOnly')}\n${constOf('ended')}`;
+/** stepOnEmit's FinishMe (`finishMe`) with a clock of its own (`clockS`, set by the caller through the returned setter). */
+const FINISH = `let clockS = 0;\nconst setClock = (t) => { clockS = t; };\n${body(SRC, 'function finishMe(l)')}`;
 
 test('fx_extract.py reads OnPlayEmitter / OnFinishEmitter by their field names into `onPlay` / `onFinish`, and lists their prefabs in `emitted`', () => {
   assert.match(EXTRACT, /ON_PLAY_EMITTER_SCRIPT = -5498265793651067281/);
@@ -57,9 +59,9 @@ test('the extracted emitters: 苏尔特 S3 buff → its three parts, cleared wit
 });
 
 test('stepOnEmit: the play list once its time comes (not while waiting / ended), the finish list once when it ends, clear stops the kids', async () => {
-  const make = new Function('onEmitPlay', 'onEmitNow', 'onEmitIf', `${HELD}\n${body(SRC, 'function stepOnEmit(l)')}\nreturn stepOnEmit;`);
+  const make = new Function('onEmitPlay', 'onEmitNow', 'onEmitIf', `${HELD}\n${FINISH}\n${body(SRC, 'function stepOnEmit(l)')}\nreturn stepOnEmit;`);
   const calls = [];
-  const kid = { inst: { stopping: false, stop() { this.stopping = true; } } };
+  const kid = { inst: { stopping: false, stop(now) { this.stopping = true; this.now = now; } } };
   const step = make((l, rec, here) => { calls.push([rec.effects[0], here]); return [kid]; }, (l, em) => l.inst.time >= em.play.pre, () => true);
   const em = { o: { userData: {} }, play: { effects: ['a'], pre: 0.2, clear: true, srcPos: false }, finish: { effects: ['z'], effPos: true } };
   const l = { inst: { stopping: false, done: false, wait: 0.1, time: 0, onEmit: [em] } };
@@ -73,6 +75,7 @@ test('stepOnEmit: the play list once its time comes (not while waiting / ended),
   await Promise.resolve(); await Promise.resolve();
   assert.deepEqual(calls, [['a', false], ['z', true]], 'the finish list once, at the effect\'s place');
   assert.equal(kid.inst.stopping, true, '`_clearWhenFinish`');
+  assert.equal(kid.inst.now, true, 'FinishMe: a kid without `_delayToFinish` goes at once, its particles with it (docs/rules/fx.md 「감싸개 상태 이펙트」)');
   const late = { o: { userData: {} }, play: { effects: ['b'], pre: 0 }, finish: null };
   step({ inst: { stopping: true, done: false, wait: 0, time: 1, onEmit: [late] } });
   assert.equal(calls.length, 2, 'an effect that ended before its time plays nothing');
@@ -123,9 +126,9 @@ test('a status effect that only emits (buff_frozen_to_enemy) plays its child on 
   assert.equal(fns.emitsOnly(inst), true, 'buff_frozen_to_enemy is an emitting wrapper');
   assert.match(body(SRC, 'async function playStatus('), /held: emitsOnly\(inst\)/, 'playStatus holds a wrapper (docs/rules/fx.md 「감싸개 상태 이펙트」)');
   for (const re of [/if \(ended\(l\) && l\.status && l\.again/, /if \(ended\(l\) && !\(l\.keep && !l\.inst\.stopping\)/]) assert.match(SRC, re, 'the live loop asks ended(l), not inst.done');
-  const make = new Function('onEmitPlay', 'onEmitNow', 'onEmitIf', `${HELD}\n${body(SRC, 'function stepOnEmit(l)')}\nreturn { stepOnEmit, ended };`);
+  const make = new Function('onEmitPlay', 'onEmitNow', 'onEmitIf', `${HELD}\n${FINISH}\n${body(SRC, 'function stepOnEmit(l)')}\nreturn { stepOnEmit, ended };`);
   const calls = [];
-  const kid = { inst: { stopping: false, stop() { this.stopping = true; } } };
+  const kid = { inst: { stopping: false, stop(now) { this.stopping = true; this.now = now; } } };
   const { stepOnEmit, ended } = make((l, rec) => { calls.push(rec.effects[0]); return [kid]; }, () => true, (l, c) => (c ? c.motion === 0 : true));
   const l = { inst, held: fns.emitsOnly(inst) };
   inst.update(1 / 60);
@@ -139,6 +142,33 @@ test('a status effect that only emits (buff_frozen_to_enemy) plays its child on 
   await Promise.resolve(); await Promise.resolve();
   assert.equal(ended(l), true, 'stopped: it ends');
   assert.equal(kid.inst.stopping, true, 'and its `_clearWhenFinish` child with it');
+  assert.equal(kid.inst.now, true, 'at once (FinishMe, no `_delayToFinish`): a soft stop left the ice on the enemy ~5 s after the 冻结 ended');
+});
+
+// (2026-11-21, maintainer report: the ice stayed on an enemy whose 冻结 had ended, so it looked as if a frozen enemy walked) the
+// client's OnPlayEmitter.OnFinish → Effect.FinishEffects: FinishMe(false) on each kept kid — recycled its `_delayToFinish`
+// later, at once without one. A soft stop() let buff_frozen_to_walk's smoke (up to 5.5 s) run out with the ice meshes drawn.
+const WALK_FILE = path.join(FX, 'buff/buff_frozen_to_walk.json');
+const CYCLONE_FILE = path.join(FX, 'heyak/heyak_cyclone_01.json');
+test('a wrapper\'s `_clearWhenFinish` kids end by FinishMe: at once without `_delayToFinish` (冻结 ice), else that much later (오올헤약 회오리)', { skip: !(existsSync(WALK_FILE) && existsSync(CYCLONE_FILE)) && 'no extracted effects' }, async () => {
+  const make = new Function('onEmitPlay', 'onEmitNow', 'onEmitIf', `${HELD}\n${FINISH}\n${body(SRC, 'function stepOnEmit(l)')}\nreturn { stepOnEmit, setClock };`);
+  const kidOf = (file) => ({ inst: { def: JSON.parse(readFileSync(file, 'utf8')), stopping: false,
+    stop(now) { this.stopping = true; this.now = now; }, finish() { this.stopping = true; this.finished = true; } } });
+  const ice = kidOf(WALK_FILE), wind = kidOf(CYCLONE_FILE);
+  assert.ok(!(Number(ice.inst.def.finish) > 0), 'buff_frozen_to_walk has no `_delayToFinish`');
+  assert.equal(wind.inst.def.finish, 0.2, 'heyak_cyclone_01 `_delayToFinish`');
+  for (const [kid, at] of [[ice, 3], [wind, 7]]) {
+    const { stepOnEmit, setClock } = make(() => [kid], () => true, () => true);
+    setClock(at);
+    const em = { o: { userData: {} }, play: { effects: [kid.inst.def.name], pre: 0, clear: true, srcPos: false }, finish: null };
+    const l = { inst: { stopping: false, done: false, wait: 0, time: 0, onEmit: [em] } };
+    stepOnEmit(l);
+    l.inst.stopping = true;
+    stepOnEmit(l);
+    await Promise.resolve(); await Promise.resolve();
+    if (kid === ice) assert.equal(ice.inst.now, true, `${kid.inst.def.name}: stop(true) — a soft stop() keeps it ~5 s (docs/rules/fx.md 「감싸개 상태 이펙트」)`);
+    else { assert.equal(wind.inst.finished, true, 'heyak_cyclone_01: FxInstance.finish'); assert.equal(wind.finishAt, at + 0.2, 'gone `_delayToFinish` later'); }
+  }
 });
 
 test('the kids come from the emitting effect\'s bundle on its owner; the name rules and 予愿安洁莉娜\'s landing leave them to their emitter', () => {

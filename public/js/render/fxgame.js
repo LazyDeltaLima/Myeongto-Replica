@@ -1501,6 +1501,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     && !inst.sms.length && !inst.trails.length && !inst.lines.length && !inst.holdMeshes;
   /** Whether live effect `l` has ended: its instance done, unless it is a held wrapper not yet stopped. */
   const ended = (l) => l.inst.done && !(l.held && !l.inst.stopping);
+  /**
+   * The client's `Effect.FinishMe(false)` on live effect `l`: its behaviours finish and its first system stops
+   * (FxInstance.finish), and the pool takes it back its prefab's `_delayToFinish` later (def.finish → the live loop's
+   * `finishAt`); none / 0: at once, its particles with it.
+   */
+  function finishMe(l) {
+    const fin = Number(l.inst.def?.finish);
+    if (fin > 0) { l.inst.finish(); if (!(l.finishAt <= clockS + fin)) l.finishAt = clockS + fin; } else l.inst.stop(true);
+  }
   /** Play a live effect's OnPlayEmitter prefabs when their time comes and its OnFinishEmitter prefabs when it finishes. */
   function stepOnEmit(l) {
     const inst = l.inst, ending = inst.stopping || ended(l);
@@ -1517,7 +1526,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
       if (ending && !em.ended) {
         em.ended = true;
-        if (em.play?.clear && em.kids) for (const k of em.kids) Promise.resolve(k).then((c) => { if (c && !c.inst.stopping) c.inst.stop(); });
+        // (2026-11-21, official client) `OnPlayEmitter.OnFinish` → `Effect.FinishEffects`: FinishMe(false) on each kid it kept.
+        // A soft stop() left the kid's live particles to run out: an enemy's 冻结 ice (buff_frozen_to_walk, no
+        // `_delayToFinish`) stood ~5 s on an enemy already walking again (maintainer report)
+        if (em.play?.clear && em.kids) for (const k of em.kids) Promise.resolve(k).then((c) => { if (c && !c.inst.stopping) finishMe(c); });
         if (em.finish) onEmitPlay(l, em.finish, em.finish.effPos);
       }
     }
@@ -2091,8 +2103,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       x.cur = v;
       for (const l of live) {
         if (l.bbSw !== x || l.inst.stopping) continue;
-        const fin = Number(l.inst.def?.finish);
-        if (fin > 0) { l.inst.finish(); l.finishAt = clockS + fin; } else l.inst.stop(true);
+        finishMe(l);
       }
       const n = v >= 1 && v <= x.sw.fx.length ? x.sw.fx[v - 1] : null;
       if (n && fxIn(x.bundle, n)) playStatus(x.view, x.bundle, n, x.key, x.frac, null, false, false, true, x.view, x);

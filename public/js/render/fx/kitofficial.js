@@ -747,13 +747,13 @@ export const KIT_OFFICIAL = {
           : o.k === 'cqbw:mineArm' ? { play: [once('cqbw_skill_02_start', 'id')] }
             : o.k === 'cqbw:mineHit' ? { play: [once('cqbw_skill_02_hit_01', 'point')] } : null)),
     // (2026-11-06) 오올헤약: S3's whirlwinds projectile_chr_heyak_s3 (`_speed` 1, from the lane's start `sx` / `sy` to the event's point;
-    // gone at a hit, `_effectsWhenHit` on the unit hit, or `_effectsWhenReached` at the end of the flight); the 浮空 of her skills
-    // (heyak_s_1[levitate], heyak_s[levitate]: their ON_BUFF_START heyak_cyclone_01_emit)
-    heyak: cite(['projectile_chr_heyak_s3', 'heyak_s_1[levitate]', 'heyak_s[levitate]'], (o) => (o.k === 'heyak:wind'
+    // gone at a hit, `_effectsWhenHit` on the unit hit, or `_effectsWhenReached` at the end of the flight). The 浮空 of her skills
+    // is the 'levitate' status's effect (fxstatus.js SOURCE_FX.levitate.heyak: the buff's heyak_cyclone_01_emit while it lasts);
+    // 'heyak:lift' plays nothing here (2026-11-21: played once, the wrapper ended before its kid ever played)
+    heyak: cite('projectile_chr_heyak_s3', (o) => (o.k === 'heyak:wind'
       ? { play: [{ n: 'heyak_skill_03_trail_01', fly: 1, start: [o.sx, o.sy], tag: `heyakWind${o.n % 12}` }] }
       : o.k === 'heyak:windHit' ? { stop: [`heyakWind${o.n % 12}`], play: [once('heyak_skill_03_hit_01', 'id')] }
-        : o.k === 'heyak:windEnd' ? { stop: [`heyakWind${o.n % 12}`], play: [once('heyak_skill_03_trail_01_end', 'point')] }
-          : o.k === 'heyak:lift' ? { play: [once('heyak_cyclone_01_emit', 'id')] } : null)),
+        : o.k === 'heyak:windEnd' ? { stop: [`heyakWind${o.n % 12}`], play: [once('heyak_skill_03_trail_01_end', 'point')] } : null)),
     gnosis: cite('char_206_gnosis/Others/Direction/Talents/2', () => ({ play: [{ n: 'gnosis_beidong_buff', on: 'op', life: 'deployed' }] })),
     // (2026-11-03) 遥 T1 浮光泡影: a bubble breaking (haruka_t_1_delay ON_BUFF_TRIGGER) creates haruka_talent_02_hit on its holder
     // with the T2 heal only (FilterByBlackboardValue heal_scale > 0 — the sim's `heal`); its S1's next bubble is the 'shield'
