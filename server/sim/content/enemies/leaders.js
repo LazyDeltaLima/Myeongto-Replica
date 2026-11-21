@@ -5,7 +5,7 @@ import { TICK, COLS, ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import { aggroCmp, areaSelectable } from '../../targeting.js';
 import {
   nthOf, T, hurt, alliesInTiles, targetsNear, allTargets, areaAllies, areaAlliesInTiles, auraAllies, targetAndArea,
-  byPriority, setForm, auraBuff, watchDeaths, unbalancedNow, shoot, mode,
+  byPriority, setForm, auraBuff, watchDeaths, unbalancedNow, shoot, mode, atCastEvent, castStrikeAt,
 } from './helpers.js';
 import {
   unblockable, maxTargets, onHitStatus, splashAttack, pathKeysAhead, noAirTargets, resist, nthAttackStatus, lowHpBuff, lowHpMode,
@@ -209,8 +209,32 @@ function kitLeaderMisc(key, ab, e) {
       // block effect common_buff_parry_01 on a hit it cancels (`blockFx`, render/fxgame.js parryFx; 2026-10-31, none before)
       const bar = artsBarrier(T(ab, 'shield.dynamic') ?? 0, { key: 'ab:sandDef', whileUp: { defFlat: T(ab, 'defup.def') ?? 0 },
         layers: ['mousek_shield[a]', 'mousek_shield[b]', 'mousek_shield[c]'], brokeForm: 'noShield', brokeMode: 'NoShield', blockFx: true });
-      const ds = ab.sk.DriftSand, ss = ab.sk.SandStorm;
-      return [bar, lowHpBuff(T(ab, 'enrage.hp_ratio') ?? 0.5, { dmgDealtMul: T(ab, 'enrage.damage_scale') ?? 1 }, 'ab:lowhp', 'buff:mousek_t'),
+      const ds = ab.sk.DriftSand, ss = ab.sk.SandStorm, mk = ab.sk.Mark;
+      // the skills' selectors (and the marks'): the whole field (GlobalRange), `_postFilter` 19 the highest max HP first,
+      // 20 the lowest first
+      const byMaxHp = (dir) => (b, e2) => allTargets(b, e2).sort((p, q) => dir * (p.s.maxHp - q.s.maxHp) || aggroCmp(p, q))[0] ?? null;
+      const highest = byMaxHp(-1), lowest = byMaxHp(1);
+      // `Skills/Mark` (공식 클라에서 확인 2026-11-21, prefab enemy_1509_mousek): an AbilityParallelGroup of two
+      // GloballUniqueBuffAbility — `MaxHpAsc` mousek_mark[a] (effect mousek_skill_02_buff) on the lowest-max-HP unit, the one
+      // 【沙狱】 takes, and `MaxHpDes` mousek_mark[b] (mousek_skill_01_buff) on the highest, the one 【唱沙】 takes; no stat
+      // (template `empty`). Priority 1 (above the two skills' 0), initial cooldown 1, `_maxTriggerTime` 1: the first attack
+      // slot from 1 s with a unit on the field casts it once in place of the attack (the trigger is MaxHpAsc's selector). Both
+      // play Skill_1 (`_timeMode` 1: the clip, 2.333 s, standing) and start at its attack event (`_waitForAttackEvent`: the
+      // `_preDelay` of MaxHpDes is not read); a cast cut before then marks no one and is not cast again (`CastToTarget`
+      // counts the trigger as the cast starts). No `_resetMainAbilityCdWhenCastEnd`: the main attack's interval runs from
+      // the cast's start. Until 2026-11-21 neither was cast.
+      const mA = uniqueBuff('ab:mousekMark[a]', 'buff:mousek_mark[a]', lowest), mB = uniqueBuff('ab:mousekMark[b]', 'buff:mousek_mark[b]', highest);
+      const M = { marked: false };
+      const mark = skill(mk, (b, e2) => {
+        M.marked = true;
+        const subs = (mk.cast && mk.cast.subs) || [];
+        [mA, mB].forEach((m, i) => atCastEvent(b, e2, mk, () => m.start(), subs[i] ? castStrikeAt(e2, subs[i], mk.bb) : null));
+      }, { cond: (b, e2) => !M.marked && allTargets(b, e2).length > 0 });
+      const track = {
+        tick(b, e2) { mA.tick(b, e2); mB.tick(b, e2); },
+        death(c, b) { mA.stop(b); mB.stop(b); },
+      };
+      return [bar, mark, track, lowHpBuff(T(ab, 'enrage.hp_ratio') ?? 0.5, { dmgDealtMul: T(ab, 'enrage.damage_scale') ?? 1 }, 'ab:lowhp', 'buff:mousek_t'),
         // Both RangedAttacks take their unit as the cast begins (`_selectTargetSource` 3 — round the input point, the unit their
         // trigger took — at `_selectTargetTiming` 0) and shoot at the spell: at that unit while it is alive on the field, else at
         // the point (`_emitToInputPosWhenTargetIsInvalid`). Until 2026-11-20 the unit was taken again at the spell. Both
@@ -220,7 +244,7 @@ function kitLeaderMisc(key, ab, e) {
         // mouse_s_1, instant_damage_physical[splash]) — projectile_mousek_s1's HitBehaviour as it arrives
         // (`_onlyCheckHitWhenReachTarget`, `_ignoreCamouflage`, no 无视无法选择: an area selection) over its two boxes
         skill(ds, (b, e2, a) => {
-          const t = allTargets(b, e2).sort((p, q) => q.s.maxHp - p.s.maxHp || aggroCmp(p, q))[0];
+          const t = highest(b, e2);
           a.at = t ? { t, x: t.x, y: t.y, r: t.tileR, c: t.tileC } : null;
         }, { cond: (b, e2) => allTargets(b, e2).length > 0, atStrike: (b, e2, a) => {
           const at0 = a.at;
@@ -239,7 +263,7 @@ function kitLeaderMisc(key, ab, e) {
         // (`_stopWhenSourceInvalid` off). Until 2026-11-21 the units in a radius 1 at the spell took a `duration` s debuff with
         // `damage` each second, and no one else.
         skill(ss, (b, e2, a) => {
-          const t = allTargets(b, e2).sort((p, q) => p.s.maxHp - q.s.maxHp || aggroCmp(p, q))[0];
+          const t = lowest(b, e2);
           a.at = t ? { t, x: t.x, y: t.y } : null;
         }, { cond: (b, e2) => allTargets(b, e2).length > 0, atStrike: (b, e2, a) => {
           const at0 = a.at;

@@ -11,7 +11,7 @@ import { makeBattle, chessRec, checkInvariants } from '../helpers/battleHarness.
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
 import { spawnYanyou } from '../../server/sim/content/tokens.js';
-import { attackWindup, attackStand } from '../../server/sim/ai.js';
+import { attackWindup, attackStand, interruptEnemyCast } from '../../server/sim/ai.js';
 import { canTargetEnemy } from '../../server/sim/targeting.js';
 import { MOVE_SCALE } from '../../server/sim/constants.js';
 
@@ -2519,6 +2519,96 @@ test(`${nm('enemy_1509_mousek')}: 【唱沙】 ${skb('enemy_1509_mousek', 'Drift
   approx(w3.stats.taken, 15 * ss.bb.damage, 1e-6, 'once a second over its 15 s life');
   assert.ok(!w3.findBuff('ab:sandStorm'), 'the ATK debuff of its first hit ran out (UNIQUE: the later hits did not renew it)');
   checkInvariants(h.b);
+});
+
+test(`${nm('enemy_1509_mousek')}: its first attack slot from ${skb('enemy_1509_mousek', 'Mark').initCooldown} s casts Skills/Mark once (Skill_1, standing): at the clip's attack event mousek_mark[a] goes on the lowest-max-HP unit and [b] on the highest, and follows them`, () => {
+  // docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 래트킹의 표식 — AbilityParallelGroup of two GloballUniqueBuffAbility,
+  // priority 1, initial cooldown 1, `_maxTriggerTime` 1, no `_resetMainAbilityCdWhenCastEnd`
+  const mk = skb('enemy_1509_mousek', 'Mark'), cast = E.enemy_1509_mousek.skillCast.mark;
+  assert.deepEqual([mk.priority, mk.cooldown, cast.kind, cast.subs.map((c) => c.clip)], [1, 9999, 'par', ['Skill_1', 'Skill_1']], 'the data the kit reads');
+  const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 8 }, { chessId: 't_wall2', row: 12, col: 6 }, { chessId: 't_wall3', row: 12, col: 3 }, { chessId: 't_wall4', row: 11, col: 2 }],
+    chess: { t_wall: WALL('t_wall', { stats: { maxHp: 2e7 } }), t_wall3: WALL('t_wall3', { stats: { maxHp: 5e6 } }), t_wall4: WALL('t_wall4', { stats: { maxHp: 6e6 } }) }, captureNoisy: true });
+  h.step();
+  const e = put(h, 'enemy_1509_mousek', [9, 9]);
+  const casts = (name) => h.eventsOf('fx').filter((f) => f[1] === 'enemySkill' && f[4].id === e.id && f[4].ability === name);
+  assert.ok(h.runUntil(() => casts('Mark').length > 0, 5), 'the mark is cast at an attack slot');
+  const t0 = h.b.time;
+  assert.ok(t0 >= mk.initCooldown - 1e-9, `not before its initial cooldown (${t0})`);
+  // (its main attack was ready at once and swung at the unit in range at the start; the next slot is the mark's)
+  const a0 = e.stats.attacks;
+  assert.ok(!e.swing, 'in place of the attack');
+  const len = enemiesMod.castLength(e, cast, {}), hit = enemiesMod.castStrikeAt(e, cast.subs[0], {});
+  approx(len, cast.subs[0].dur, 1e-9, 'it stands the clip');
+  assert.ok(e.castLeft > 0, 'standing');
+  const [w1, w2, w3, w4] = ['t_wall', 't_wall2', 't_wall3', 't_wall4'].map((id) => h.unit(id));
+  const marked = (k) => h.allies().filter((u) => u.findBuff(k));
+  h.run(hit - (h.b.time - t0) - 0.05);
+  assert.equal(marked('ab:mousekMark[a]').length + marked('ab:mousekMark[b]').length, 0, 'nothing before the clip\'s attack event');
+  h.run(0.1);
+  const a = w3.findBuff('ab:mousekMark[a]'), bb = w1.findBuff('ab:mousekMark[b]');
+  assert.ok(a && a.fxTag === 'buff:mousek_mark[a]' && a.visible && a.mods == null, 'mousek_mark[a] on the lowest max HP, no stat');
+  assert.ok(bb && bb.fxTag === 'buff:mousek_mark[b]', 'mousek_mark[b] on the highest max HP');
+  assert.deepEqual([marked('ab:mousekMark[a]').length, marked('ab:mousekMark[b]').length], [1, 1], 'one unit each');
+  // the main attack's interval runs from the cast's start (Cast → ResetCooldown; no reset as it ends)
+  h.run(e.s.interval - (h.b.time - t0) - 0.1);
+  assert.ok(!e.swing && e.stats.attacks === a0, 'no attack within the interval');
+  assert.ok(h.runUntil(() => !!e.swing, 0.3), 'then the attack swings, one interval after the mark began (not after its end)');
+  // the marks follow the selectors' picks
+  h.b.kill(w3, null);
+  h.step(); h.step();
+  assert.ok(w4.findBuff('ab:mousekMark[a]') && !w2.findBuff('ab:mousekMark[a]'), '[a] moved to the next lowest');
+  h.run(60);
+  assert.equal(casts('Mark').length, 1, '`_maxTriggerTime` 1');
+  h.b.kill(e, null);
+  h.step();
+  assert.ok(!h.allies().some((u) => u.findBuff('ab:mousekMark[a]') || u.findBuff('ab:mousekMark[b]')), 'its marks go with it');
+  checkInvariants(h.b); assert.deepEqual(h.b.errors, []);
+  // a cast cut before the attack event marks no one, and the skill is spent (CastToTarget counts it as the cast starts)
+  const h2 = arena({ units: [{ chessId: 't_wall', row: 10, col: 8 }], captureNoisy: true });
+  h2.step();
+  const e2 = put(h2, 'enemy_1509_mousek', [9, 9]);
+  const casts2 = () => h2.eventsOf('fx').filter((f) => f[1] === 'enemySkill' && f[4].id === e2.id && f[4].ability === 'Mark');
+  assert.ok(h2.runUntil(() => casts2().length > 0, 5));
+  h2.run(0.5);
+  interruptEnemyCast(h2.b, e2);
+  h2.run(30);
+  assert.ok(!h2.unit('t_wall').findBuff('ab:mousekMark[b]') && !h2.unit('t_wall').findBuff('ab:mousekMark[a]'), 'no mark after a cut');
+  assert.equal(casts2().length, 1, 'not cast again');
+  assert.deepEqual(h2.b.errors, []);
+});
+
+test('real match path: 鼠王 casts Skills/Mark at its first attack slot and marks the one operator with both mousek_mark[a] and [b] at the clip\'s attack event', async () => {
+  // docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 래트킹의 표식
+  const { makeMatch, give } = await import('../match/harness.js');
+  const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
+  const mh = makeMatch({ mode: 'solo', difficulty: 'NORMAL', humans: 1, seed: 11 }).start();
+  mh.toPrep(3);
+  const m = mh.m, ps = mh.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  give(m, ps, 'chess_char_1_03_a', 'board', [10, 5]);
+  const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'mousek-mark', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent, timeLimit: 60,
+    spawns: [{ time: 0, enemyKey: 'enemy_1509_mousek', routeIndex: 0, count: 1, interval: 0, pos: [10, 7], mods: { speedMul: 0 } }] });
+  const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+  const casts = [];
+  const fx = b.fx.bind(b);
+  b.fx = (kind, p) => { if (kind === 'enemySkill' && p && p.ability === 'Mark') casts.push(b.time); return fx(kind, p); };
+  b.start();
+  const u = b.allyUnits.find((x) => x.kind === 'op');
+  b.addBuff(u, { key: 'test:tough', duration: Infinity, flags: { invulnerable: true } });
+  while (b.time < 20 && !casts.length) b.step();
+  assert.equal(casts.length, 1, 'the mark is cast');
+  const e = b.enemies.find((x) => x.defId === 'enemy_1509_mousek');
+  const hit = enemiesMod.castStrikeAt(e, E.enemy_1509_mousek.skillCast.mark.subs[0], {});
+  while (b.time < casts[0] + hit - 0.05) b.step();
+  assert.ok(!u.findBuff('ab:mousekMark[a]') && !u.findBuff('ab:mousekMark[b]'), 'not before the attack event');
+  while (b.time < casts[0] + hit + 0.05) b.step();
+  assert.equal(u.findBuff('ab:mousekMark[a]')?.fxTag, 'buff:mousek_mark[a]', '[a]: the lowest max HP');
+  assert.equal(u.findBuff('ab:mousekMark[b]')?.fxTag, 'buff:mousek_mark[b]', '[b]: the highest max HP');
+  while (b.time < casts[0] + 40) b.step();
+  assert.equal(casts.length, 1, 'once');
+  assert.deepEqual(b.errors.map((x) => x.error?.message), []);
+  m.dispose?.();
 });
 
 test(`${nm('enemy_1511_mdrock')}: stacking ATK on attacks; barrier raises max HP and ASPD while it holds`, () => {

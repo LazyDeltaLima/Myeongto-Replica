@@ -1726,6 +1726,16 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     동작은 능력의 `SwitchDynamicBuffTileMode`(갈대 칸의 晦明(밝음·어둠) 속성 뒤집기)이고 이 모드에는 그런 칸이 없다. 코드 `enemies/leaders.js` `uniqueBuff`·`kitXi`(표식 키 `ab:xiMark`,
     `ab:xiMark2[a]`·`[b]`, `fxTag` `buff:enemy_xi_mark[a]`·`[b]`). 재발 방지: `test/content/enemies_bosses.test.js` 「casts its 纬地经天 mark」,
     `test/content/xi-post-reborn.test.js` 「real match path: 自在 marks the operator」.
+    **래트킹의 표식**(2026-11-21, 공식 클라에서 확인 — 적 프리팹 `enemy_1509_mousek`·`enemy_database`; 이전: 키트가 `Skills/Mark`를 안 써 표식도 그 시전도 없었다): `Skills/Mark`는
+    `AbilityParallelGroup`(`_timeMode` 1, `_finishAllAbilitiesIfOneFinish` 없음)에 '즈자이'와 같은 `GloballUniqueBuffAbility` 둘이다 — `MaxHpAsc`(선택자 `_postFilter` 20 = 최대 HP가
+    가장 낮은 유닛, 필드 전체)가 `mousek_mark[a]`(이펙트 `mousek_skill_02_buff`)를, `MaxHpDes`(`_postFilter` 19 = 가장 높은 유닛)가 `mousek_mark[b]`(`mousek_skill_01_buff`)를 건다.
+    [모래 지옥]·[모래의 노래]의 선택자와 같은 거름이라 다음에 그 둘이 갈 유닛을 보여 준다. 템플릿 `empty`라 수치가 없고 소리(`audioSignal`)도 없다. 스킬은 우선순위 1(두 스킬은 0)·
+    처음 쿨 1초·쿨 9999초·`_maxTriggerTime` 1이고 트리거는 `MaxHpAsc`의 선택자라, 1초부터 필드에 유닛이 있는 첫 공격 차례에 일반 공격 대신 한 번 시전된다. 둘 다 `Skill_1`을
+    틀고(`_timeMode` 1, 클립 2.333초 — 그동안 서 있음) 클립의 공격 이벤트(1.967초)에 주문해 표식을 시작한다(`_waitForAttackEvent` 1 — `MaxHpDes`의 `_preDelay` 0.667은 읽히지
+    않음: `EasyToStartAbility.<OnWaitForPreDelay>`). 그 전에 끊기면 아무도 표식받지 않고, 시전 시작에 횟수가 세어져(`EnemySkill.CastToTarget`) 다시 시전하지 않는다.
+    '즈자이'와 달리 `_resetMainAbilityCdWhenCastEnd`가 없어 일반 공격 간격은 시전 시작부터 돈다. 표식은 모드 밖(`Skills`)에 있어 방벽이 깨진 모드 전환에도 남고 퇴장 때 지워진다.
+    코드 `enemies/leaders.js` `kitLeaderMisc` `enemy_1509_mousek`(`uniqueBuff`, 표식 키 `ab:mousekMark[a]`·`[b]`, `fxTag` `buff:mousek_mark[a]`·`[b]`). 재발 방지:
+    `test/content/enemies_bosses.test.js` 「casts Skills/Mark once」·「real match path: 鼠王 casts Skills/Mark」.
     데이터: `build-data.mjs enemySkillCast`가 `wait` 0·`pre`(`_preDelay`, 채널도)와 채널 클립의 `chanBegin`·`chanLoop`·`chanEnd`(`dur`·`hit`)를 싣는다(`attack_timing.py cast_fields`가
     채널 능력의 `_waitForAttackEvent`·`_preDelay`를 읽음). 재발 방지:
     `test/content/enemy-skill-strike.test.js`(두 시즌 공격 차례 스킬 전부 — 프레임이 0보다 늦은데 `atStrike`가 아니면 예외 목록의 이유가 있어야 함).
