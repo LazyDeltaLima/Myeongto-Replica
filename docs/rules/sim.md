@@ -180,7 +180,11 @@
       테스트: `test/content/enemies_bosses.test.js` 「【国度】 skips 炎佑」(고치기 전 코드에서 실패 확인).
     - 그대로(공식과 같음): 가상적: 관 `KillOther`(현 `enemy_9022_acdumm`만 고름), 가상적: 기계 【홍류 공세】·튕김(이미 지상만), 가상적: 지느러미
       【이온 고리파】·뇌우(이미 지상만), 가상적: 군생 `Critical`(저지한 유닛만 — 클립만 바꿈), '갑주를 꿰뚫는 탄환' `Boom`(키트가 쏘는 대상은
-      오퍼레이터뿐, 도착 장판 `projectile_enemy_acstmr_s1`은 3), '어벤져' `Rush`(`u.ground` — 비행 아군은 땅이 없음), 용맹한 팔라둘리스
+      오퍼레이터뿐, 도착 장판 `projectile_enemy_acstmr_s1`은 3; 날아가는 동안은 터지지 않는다 — 2026-11-21, 공식 클라에서 확인: 지상 캐릭터를
+      고르는 `PhysicsRange` 선택자(반경 0.1)는 `Boom` 모드의 스킬 `Boom`에만 있고, 재능 버프 `enemy_acstmr[check]`는 0.01초마다
+      `IfEnemyIsMovingBySelf`(`Enemy.isMovingBySelf`: 상태 기계가 이동 상태이고 멈춰 걸린 상태가 아님 — 투사체가 끄는 동안 참)이면
+      `Default` 모드, 아니면 `Boom` 모드 + `TriggerEnemySkill Boom`이라 그 스킬은 도착 때만 붙는다. `Default` 모드의 전투 능력(대상에게 치고
+      스스로 즉사, `killed` 장판 없음)은 막혔을 때만인데 이 적은 비행이라 막히지 않는다), '어벤져' `Rush`(`u.ground` — 비행 아군은 땅이 없음), 용맹한 팔라둘리스
       `rush`·`CollideChar`(이미 지상만), 결사의 부양자 `Warning`(감시탑이 없어 안 켜짐), '산크타의 긍지' `Roar`(이미 지상만), 미장착 칼날 등
       `Talents/2`(줍기는 오퍼레이터만), 제셀톤 `ArmorPiercing`(R 형태는 근접). 투사체 `ftzlc`·`snslime`·`bslime`·`lrboom`(`deathBoom` `noAir`)·
       `nsbomb`·`winbom`·`uareap_skill`·`krgrg`는 이미 지상만. 문드러진 응집 사도는 공격하지 않고(`NeverTrigger`), 비행을 치는 것은 그 소환물
