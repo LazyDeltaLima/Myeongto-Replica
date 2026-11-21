@@ -163,13 +163,21 @@
     대상, 피해는 버프 `enemy_ltndru[AOE]`의 AOEDamage가 모든 행동 방식), 패스파인더 진지 파괴자 포탄 3×3(`projectile_enemy_cansld` 충돌 3 —
     지상 대상 주변의 비행도 맞음).
   - **스킬·재능 대조** (2026-11-20 이어서, 공식 클라에서 확인 — 두 클라 프리팹): 아군 쪽 선택자 `_targetMotion` 1인 스킬·재능 전부와 충돌
-    선택자 1인 적 투사체 전부를 키트와 맞췄다. 고친 것 넷:
+    선택자 1인 적 투사체 전부를 키트와 맞췄다. 고친 것 넷(2026-11-21에 하나 더):
     - 살카즈 후예 처벌자 / 징벌자 `StunAttack`(`EnemyBlockerOrAdvancedSelector` 1): 둘레의 비행 아군도 기절시켰다 → 지상만(`reborn.js kitPunisher`).
     - 죄악의 키메라 / 모독의 키메라 `OrigAura`(`TargetValidator` 1): 비행 아군에게도 오라(SP 회복·피해)를 줬다 → 지상만(`special.js kitChimera`).
     - 액젓 추천자(`enemy_10044_wintun`) 통 장판(`projectile_enemy_wintun_range` `AuraHitBehaviour` 자기 편 1): 비행 적도 공격 속도·회피를
       받았다 → 지상 적만(`special.js`).
     - 알리스테어, 제국의 여광 [왕권 호령]: 스킬 선택자는 3이라 비행 아군도 대상이 되지만 십자를 치는 `projectile_enemy_vtlionk_s1`
       `HitBehaviour`는 1이고 대상은 `_alwaysHitTraceTargetInTheEnd`로 어쨌든 맞는다 → 십자 안의 비행 아군은 대상일 때만 맞음(`bosses.js kitLion`).
+    - '데몬의 칼날'(`enemy_2048_smgrd`) 【국도】 (2026-11-21, 공식 클라에서 확인 — 재능 프리팹·버프 템플릿·전역 버프 프리팹): 재능 `BlackFog`의
+      버프 `enemy_smgrd_t_blackfog`가 칸을 옮길 때마다 `CreateTileBindingGlobalBuff`로 전역 버프 `rogue_3_blackfog[random_tile]`
+      (`SharedRandomTileGlobalBuff`, 대상 양쪽·모든 행동 방식)에 칸을 더한다. 선택자 `TileSelector`의 `_targetMotion` 1은 칸만 고르고 누구도
+      거르지 않는다. 버프 `[g]rogue_3_blackfog`를 받는 것은 새로 덮인 칸에 선 캐릭터(`Tile.GetCharacter`; 뒤에 배치된 캐릭터는 뿌리 칸으로)와,
+      0.3초마다 적 편 유닛(`UnitManager.enemies` — 편 2만 든다)뿐이다. 우리 편의 적 기록 유닛('염의 가호', “잠들지 않는 설산” 등: 편 1의
+      `Enemy`)은 어느 쪽에도 들지 않아 공격 속도 감소도, 그 버프를 보는 `DamageUp`의 ×2.5(`CheckContainsBuff`)도 받지 않는다 → 키트가
+      둘 다 뺀다(`leaders.js`, 전에는 비행하는 '염의 가호'가 둘 다 받았다). 비행 캐릭터는 받는다(탐침의 비행 아군, 위 sweep 목록).
+      테스트: `test/content/enemies_bosses.test.js` 「【国度】 skips 炎佑」(고치기 전 코드에서 실패 확인).
     - 그대로(공식과 같음): 가상적: 관 `KillOther`(현 `enemy_9022_acdumm`만 고름), 가상적: 기계 【홍류 공세】·튕김(이미 지상만), 가상적: 지느러미
       【이온 고리파】·뇌우(이미 지상만), 가상적: 군생 `Critical`(저지한 유닛만 — 클립만 바꿈), '갑주를 꿰뚫는 탄환' `Boom`(키트가 쏘는 대상은
       오퍼레이터뿐, 도착 장판 `projectile_enemy_acstmr_s1`은 3), '어벤져' `Rush`(`u.ground` — 비행 아군은 땅이 없음), 용맹한 팔라둘리스

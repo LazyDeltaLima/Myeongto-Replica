@@ -13,6 +13,7 @@ import {
 } from './archetypes.js';
 import { hypot, powi } from '../../detmath.js';
 import { interruptEnemyCast } from '../../ai.js';
+import { ENEMY_RECORD } from '../items/shared.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -440,9 +441,17 @@ function kitLeaderMisc(key, ab, e) {
         tick(b, e2, a, dt) { for (const p of b.players) b.addDp(p.playerId, -0.5 * b.flags.dpPerSec * dt); },
       }, skill(s, (b, e2) => b.addBuff(e2, { key: 'ab:tombShield', shield: e2.s.maxHp * (s.bb.hp_ratio ?? 0), persist: true }), { atStrike: true })];
     }
-    case 'enemy_2048_smgrd':
+    case 'enemy_2048_smgrd': {
       // 持续在自身周围8格生成【国度】 (the 3×3 around its tile), 大幅降低其中我方单位的攻击速度; 对【国度】中的我方单位造成高额物理伤害.
       // 【国度】 is a tile effect ("将该地块及其周围8格范围内的可部署位生成【国度】"): every ally on it, 隐匿 ones too [ASSUMED]
+      // Who gets it (checked in the official client): the talent's buff makes the tile-binding global buff
+      // rogue_3_blackfog[random_tile] (SharedRandomTileGlobalBuff, options both sides · every motion), which gives
+      // [g]rogue_3_blackfog to the character standing on a new tile (Tile.GetCharacter; a later one by its root tile) and,
+      // every 0.3 s, to the enemy-side units (UnitManager.enemies — side 2 only). An enemy-record unit on our side (炎佑,
+      // 不眠雪山 …: an Enemy, side 1) is in neither list, so it never gets the ASPD cut, nor DamageUp's ×2.5 (CheckContainsBuff
+      // [g]rogue_3_blackfog). The selector's _targetMotion 1 picks tiles and filters no one. Until 2026-11-21 the flying
+      // 炎佑 got both.
+      const inFog = (u) => !ENEMY_RECORD.test(u.defId ?? '');
       return [{
         iv: 0.5,
         tick(b, e2, a) {
@@ -450,16 +459,17 @@ function kitLeaderMisc(key, ab, e) {
           // enemy_smgrd_t_blackfog (ON_OWNER_ROOT_TILE_CHANGED): the 国度 moves with it, PlayAudio smgrd_t_blackfog (audio)
           if (a.tile != null && a.tile !== `${r},${cc}`) b.fx('kitHit', { x: e2.x, y: e2.y, id: e2.id, k: 'smgrd:fog' });
           a.tile = `${r},${cc}`;
-          for (const u of alliesInTiles(b, r, cc, 'box', 1)) auraBuff(b, u, 'ab:blackFog', 0.5, { aspd: T(ab, 'BlackFog.attack_speed') ?? 0 }, null, true);
+          for (const u of alliesInTiles(b, r, cc, 'box', 1)) if (inFog(u)) auraBuff(b, u, 'ab:blackFog', 0.5, { aspd: T(ab, 'BlackFog.attack_speed') ?? 0 }, null, true);
         },
         hitOut(c, b, e2) {
           const t = c.target;
-          const fog = t.side === 'ally' && Math.max(Math.abs(t.tileR - Math.round(e2.y)), Math.abs(t.tileC - Math.round(e2.x))) <= 1;
+          const fog = t.side === 'ally' && inFog(t) && Math.max(Math.abs(t.tileR - Math.round(e2.y)), Math.abs(t.tileC - Math.round(e2.x))) <= 1;
           if (c.dmg.isAttack && fog) c.dmg.amount *= T(ab, 'DamageUp.atk_scale') ?? 1;
           // enemy_smgrd_damage_up (ON_CALCULATE_DAMAGE): PlayAudio on the target — smgrd_damage_up inside the 国度, else smgrd_damage
           if (c.dmg.isAttack) b.fx('kitHit', { x: t.x, y: t.y, id: e2.id, k: fog ? 'smgrd:up' : 'smgrd:hit' });
         },
       }];
+    }
     case 'enemy_2050_smsha': {
       const cold = T(ab, 'Attack.attack@freeze') ?? 0, n = T(ab, 'Attack.attack@chain.max_target') ?? 1, fall = T(ab, 'Attack.attack@chain.atk_scale') ?? 1;
       const jr = T(ab, 'Attack.attack@projectile_range') ?? 1.6;

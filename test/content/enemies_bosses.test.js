@@ -2774,6 +2774,29 @@ test(`${nm('enemy_2048_smgrd')}: 【国度】 covers the 8 tiles around it (diag
   assert.equal(h.unit('t_wall2').s.aspd, 100, 'two tiles away');
 });
 
+test(`${nm('enemy_2048_smgrd')}: 【国度】 skips 炎佑 (an enemy-record unit on our side) — no ASPD cut, no ×${tb('enemy_2048_smgrd', 'DamageUp.atk_scale')}`, () => {
+  // the official tile-binding global buff reaches the character on a fogged tile and the enemy side's units, not an Enemy on ours
+  const h = arena({ units: [{ chessId: 't_wall', row: 11, col: 6 }], captureNoisy: true, hooks: ['damaged'] });
+  h.step();
+  const [y] = spawnYanyou(h.b, 'p1', { atk: 1, hp: 1e7 });
+  const e = put(h, 'enemy_2048_smgrd', [10, 7]);
+  e.profile.noAttack = true;
+  // hovering over the tile next to it (this arena runs no token AI: it is put there)
+  Object.assign(y, { x: 7, y: 9, tileR: 9, tileC: 7 });
+  h.run(0.6);
+  assert.equal(h.unit('t_wall').s.aspd, 100 + tb('enemy_2048_smgrd', 'BlackFog.attack_speed'), 'the operator on a fog tile');
+  assert.equal(y.s.aspd, 100, '炎佑');
+  assert.ok(!y.findBuff('ab:blackFog'));
+  // its attacks on 炎佑 inside the 国度 keep the plain ATK; the operator's are ×DamageUp
+  const hitOut = (t) => {
+    const c = { target: t, source: e, dmg: { isAttack: true, amount: 100 } };
+    for (const a of e.mem.ab.list) a.hitOut?.call(a, c, h.b, e, a, e.mem.ab);
+    return c.dmg.amount;
+  };
+  assert.equal(hitOut(y), 100);
+  approx(hitOut(h.unit('t_wall')), 100 * tb('enemy_2048_smgrd', 'DamageUp.atk_scale'));
+});
+
 test(`${nm('enemy_2050_smsha')}: 【反自然馈赠】 chains over ${skb('enemy_2050_smsha', 'ChainBuff').bb['chain.max_target']} enemies (move ×${1 + skb('enemy_2050_smsha', 'ChainBuff').bb.move_speed}, ASPD +${skb('enemy_2050_smsha', 'ChainBuff').bb.attack_speed}); silence stops it`, () => {
   const run = (silenced) => {
     const h = arena();

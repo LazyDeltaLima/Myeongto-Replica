@@ -70,7 +70,7 @@ const REACHES = {
   enemy_1042_frostd: SEL3('寒霜 Talents/atkSpeedDown TargetValidator'),
   enemy_1104_lfkght_3: SEL3('“左手”泰特斯·白杨 Skills/AtkDesWeaken selector'),
   enemy_2008_flking: '“墓碑”\'s halving is a map effect on every ally (PRTS “墓碑” ※), no selector',
-  enemy_2048_smgrd: '“邪魔的利刃” 国度 is a tile effect (Talents/BlackFog TileSelector picks the tiles; every ally on them, kit [ASSUMED])',
+  enemy_2048_smgrd: '“邪魔的利刃” 国度: the global buff rogue_3_blackfog[random_tile] (every motion) goes to the character on each fogged tile — the probe\'s flyer is one; 炎佑, an Enemy on our side, never gets it (enemies_bosses.test.js)',
   enemy_9029_acfnc_2: '冲击之械 laser (its 威光冲击 area): projectile_enemy_acfnca LaserHitBehaviour targetMotion 3',
   enemy_9034_acblk: SEL3('假想敌：影役 Talents/Aura TargetValidator'),
   enemy_9035_acspider_2: '假想敌：茧 悲惨之雨: selector 1 picks only the field, the rain takes every unit there (any motion, ignoreTargetFree)',
