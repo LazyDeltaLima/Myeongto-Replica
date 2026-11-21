@@ -646,12 +646,47 @@ function kitWarden(ab) {
 /** “自在” 破桎而出: its client barrier's three layer buffs (enemy_xi_s2[shield][a/b/c]). */
 const XI_LAYERS = ['a', 'b', 'c'];
 
+/**
+ * A client `GloballUniqueBuffAbility` (공식 클라에서 확인 2026-11-21): its spell only starts it (`OnSpellStart` → `m_startCheck`);
+ * from then on every tick (`OnTick` → `_DoUpdateTarget`) its selector's first pick carries the ability's one buff — moved
+ * off the unit it was on when another is picked or that unit is gone, left where it is when the selector finds no one
+ * (`_removeBuffsIfNoValidTarget` off), taken off as the ability is detached (`OnDetached`: its mode left, the enemy gone).
+ * `pick(b, e)` = the selector's first unit or null. `start()` at the spell, `tick(b, e)` every tick, `stop(b)` at the detach.
+ */
+function uniqueBuff(key, fxTag, pick) {
+  const M = { on: false, t: null };
+  const drop = (b) => { if (M.t && M.t.alive) b.removeBuff(M.t, key); M.t = null; };
+  return {
+    start() { M.on = true; },
+    stop(b) { drop(b); M.on = false; },
+    tick(b, e) {
+      if (!M.on) return;
+      const t = pick(b, e);
+      if (!t) return;
+      if (M.t && M.t.alive && M.t.deployed && M.t === t) return;
+      drop(b);
+      b.addBuff(t, { key, duration: Infinity, persist: true, visible: true, source: e, fxTag });
+      M.t = t;
+    },
+  };
+}
+
 /** “自在” · 【纬地经天】 arts cross on the nearest unit (form 2: + the farthest); 【破桎而出】 barrier — unbroken after its
  *  duration ⇒ ATK×atk_scale arts around; KO ⇒ second form (ATK up, double hits, stronger 破桎而出). 晦明 attributes n/a. */
 function kitXi(ab) {
   const cross = ab.sk.CrossAttack, sb = ab.sk.ShieldBurst, sb2 = ab.sk.ShieldBurstReborn;
-  const P = { form2: false };
+  const mk = ab.sk.CrossAttackMark, mk2 = ab.sk.CrossAttackMarkReborn;
+  const P = { form2: false, marked: false, marked2: false };
   const byDist = (b, e) => allTargets(b, e).sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || aggroCmp(p, q));
+  // 【纬地经天】's marks — no stat (template `empty`), only the client effect enemy_xi_skill_01_buff_02 and the sound
+  // enemy_xi_mark_audio on the unit the next cross will take: Modes/Default `CrossAttackMark` enemy_xi_mark[a] on the nearest
+  // (AdvancedSelector `_postFilter` 11, as the cross's), Modes/Reborn `CrossAttackMarkReborn` (an AbilityParallelGroup)
+  // enemy_xi_mark[a] on the farthest (`MaxDist`, 10) and enemy_xi_mark[b] on the nearest (`MinDist`, 11)
+  const nearest = (b, e) => byDist(b, e)[0] ?? null;
+  const farthest = (b, e) => { const l = byDist(b, e); return l[l.length - 1] ?? null; };
+  const m1 = uniqueBuff('ab:xiMark', 'buff:enemy_xi_mark[a]', nearest);
+  const m2a = uniqueBuff('ab:xiMark2[a]', 'buff:enemy_xi_mark[a]', farthest), m2b = uniqueBuff('ab:xiMark2[b]', 'buff:enemy_xi_mark[b]', nearest);
+  const marks = [m1, m2a, m2b];
   // the bolt (projectile_enemy_xi_s, AttachToTarget `_immediatelyReach`: it hits as it leaves) strikes its HitBehaviour's range —
   // the TileSelector's two boxes about it ("伤害无视迷彩" `_ignoreCamouflage`, no 无视无法选择: an area selection)
   const crossAt = (b, e, p) => {
@@ -694,6 +729,7 @@ function kitXi(ab) {
     onKo(b, e) { for (const l of XI_LAYERS) b.removeBuff(e, `ab:xiShield[${l}]`); },
     onReborn(b, e) {
       P.form2 = true;
+      m1.stop(b);                        // (Unit.DoReborn's SwitchMode: the Default mode's mark is detached)
       // 攻击力提升 — the client's RebornTalent reborn_up (skulsr_buff_01_start)
       b.addBuff(e, { key: 'ab:xiReborn', persist: true, visible: true, mods: { atkPct: T(ab, 'reborn.atk') ?? 0 }, fxTag: 'buff:reborn_up' });
       if (s2) s2.left = s2.icd;
@@ -706,7 +742,19 @@ function kitXi(ab) {
   const dropBarrier = (b, e) => { for (const l of XI_LAYERS) b.removeBuff(e, `ab:xiShield[${l}]`); };
   if (s1) s1.onCut = dropBarrier;
   if (s2) s2.onCut = dropBarrier;
-  return [re, s1, s2, doubleHit(() => P.form2),                   // 普通攻击进行两次
+  // the marks' skills: priority 1 (above the cross's and the barrier's 0), initial cooldown 0 and `_maxTriggerTime` 1, so
+  // each form's first attack slot with a unit on the field casts it once in place of the attack — no clip, `_timeMode` 2
+  // with `_cooldown` 0: nothing to stand through, but the main attack's cooldown restarts as it ends
+  // (`_resetMainAbilityCdWhenCastEnd`, `_resetCdWaitFirstPeriod`). Until 2026-11-21 neither was cast: the first attack came
+  // one interval earlier and no unit was marked.
+  const anyone = (b, e) => allTargets(b, e).length > 0;
+  const k1 = skill(mk, () => { P.marked = true; m1.start(); }, { cond: (b, e) => !P.form2 && !P.marked && anyone(b, e) });
+  const k2 = skill(mk2, () => { P.marked2 = true; m2a.start(); m2b.start(); }, { cond: (b, e) => P.form2 && !P.marked2 && anyone(b, e) });
+  const track = {
+    tick(b, e) { for (const m of marks) m.tick(b, e); },
+    death(c, b) { for (const m of marks) m.stop(b); },
+  };
+  return [re, s1, s2, k1, k2, track, doubleHit(() => P.form2),                   // 普通攻击进行两次
     // the targets are taken as the cast begins (the RangedAttack's `_selectTargetTiming` 0 — UpdateTargets in CastToTarget) and
     // the bolts leave at the spell: at each while it is alive on the field, else at its spot then
     // (`_emitToInputPosWhenTargetIsInvalid`); until 2026-11-20 taken again at the spell

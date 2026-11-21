@@ -1,5 +1,6 @@
 // test/content/xi-post-reborn.test.js — “自在” (enemy_1517_xi): the 10 s 无敌 after its rebirth is untargetable too
-// (upstream #510; PRTS 无敌 「无法被不同阵营选中」). The first test is upstream's (221e6b8d); the last one runs the real match path.
+// (upstream #510; PRTS 无敌 「无法被不同阵营选中」). The first test is upstream's (221e6b8d); the last two run the real match path
+// (the last one: its 纬地经天 mark, CrossAttackMark).
 // The other 悬赏 leaders with a 无敌 after their 重生 — 锏 and 扎罗，“狼之主” — follow it (maintainer decision 2026-10-15).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -88,6 +89,40 @@ test('upstream #510 through the real match path: an operator stops attacking 自
   while (b.time < t0 + 17) b.step();
   assert.ok(!e.s.flags.untargetable && canTargetEnemy(u, e, u.profile), 'targetable once the 无敌 ends');
   assert.ok(u.stats.attacks > attacks, 'the operator attacks it again');
+  assert.deepEqual(b.errors.map((x) => x.error?.message), []);
+  m.dispose?.();
+});
+
+test('real match path: 自在 marks the operator its 纬地经天 will take (CrossAttackMark, its first attack slot) and attacks one interval later', async () => {
+  // docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 '즈자이'의 표식
+  const { makeMatch, give } = await import('../match/harness.js');
+  const { buildBattleSpec, createBattleFromSpec } = await import('../../server/sim/spec.js');
+  const mh = makeMatch({ mode: 'solo', difficulty: 'NORMAL', humans: 1, seed: 11 }).start();
+  mh.toPrep(3);
+  const m = mh.m, ps = mh.ps('p_0');
+  for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
+  ps.board.clear(); ps.hand.fill(null); ps.recompute();
+  give(m, ps, 'chess_char_1_03_a', 'board', [10, 5]);   // 惊蛰 (caster)
+  const spec = buildBattleSpec({ ...m._normalOpts(ps), battleId: 'xi-mark', fieldId: 'n:p_0', kind: 'normal', content: m.battleContent, timeLimit: 60,
+    spawns: [{ time: 0, enemyKey: 'enemy_1517_xi', routeIndex: 0, count: 1, interval: 0, pos: [10, 7], mods: { speedMul: 0 } }] });
+  const b = createBattleFromSpec(JSON.parse(JSON.stringify(spec)), m.ds);
+  const casts = [];
+  const fx = b.fx.bind(b);
+  b.fx = (kind, p) => { if (kind === 'enemySkill' && p && p.ability === 'CrossAttackMark') casts.push(b.time); return fx(kind, p); };
+  b.start();
+  const u = b.allyUnits.find((x) => x.kind === 'op');
+  b.addBuff(u, { key: 'test:tough', duration: Infinity, flags: { invulnerable: true } });
+  let e = null;
+  while (b.time < 20 && !casts.length) { b.step(); e = e ?? b.enemies.find((x) => x.defId === 'enemy_1517_xi'); }
+  assert.equal(casts.length, 1, 'the mark is cast');
+  assert.equal(e.stats.attacks, 0, 'in place of its first attack');
+  b.step();
+  assert.equal(u.findBuff('ab:xiMark')?.fxTag, 'buff:enemy_xi_mark[a]', 'on the operator');
+  while (b.time < casts[0] + e.s.interval - 0.1) b.step();
+  assert.equal(e.stats.attacks, 0, 'the main attack waits a whole interval');
+  while (b.time < casts[0] + 40) b.step();
+  assert.ok(e.stats.attacks > 0, 'then attacks');
+  assert.equal(casts.length, 1, 'once');
   assert.deepEqual(b.errors.map((x) => x.error?.message), []);
   m.dispose?.();
 });

@@ -1702,6 +1702,18 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     `enemies/leaders.js` `alliesInBoxes`(충돌체가 상자에 닿는 아군). 렌더 쪽 그림은 그대로다(`enemySkill`·`dmg`가 투사체의 맞는 이펙트를 냄).
     재발 방지: `test/content/enemies_bosses.test.js` 「enemy_1509_mousek」(자료의 ATTACH·`land` 0을 단언하므로 투사체가 날아가게 바뀌면 여기서 멈춤 — 그때 `shoot`으로),
     `test/sim/feedback1f-liftoff.test.js` 「F3 review 2」.
+    **'즈자이'의 표식**(2026-11-21, 공식 클라에서 확인 — 적 프리팹 `enemy_1517_xi`·`enemy_database`; 이전: 키트가 이 스킬을 안 써 표식도 그 시전도 없었다): 모드마다
+    표식 스킬이 하나 있다 — Default `CrossAttackMark`(`GloballUniqueBuffAbility`, 버프 `enemy_xi_mark[a]`를 가장 가까운 유닛에, 선택자 `_postFilter` 11·필드 전체), Reborn
+    `CrossAttackMarkReborn`(`AbilityParallelGroup`: `MaxDist` `enemy_xi_mark[a]` 가장 먼 유닛·`MinDist` `enemy_xi_mark[b]` 가장 가까운 유닛). 버프 템플릿이 `empty`라 수치는
+    없고, 이펙트 `enemy_xi_skill_01_buff_02`와 소리 `enemy_xi_mark_audio`로 다음 [경천위지]가 갈 유닛(십자 공격의 선택자와 같은 거름)을 보여 준다. 스킬은 우선순위 1(십자·방벽은 0)·
+    처음 쿨 0·`_maxTriggerTime` 1이라, 형태마다 필드에 유닛이 있는 첫 공격 차례에 일반 공격 대신 한 번 시전된다 — 클립이 없고 `_timeMode` 2·`_cooldown` 0이라 서 있는 시간은
+    없지만 시전 끝에 일반 공격 쿨이 처음부터 다시 돈다(`_resetMainAbilityCdWhenCastEnd`·`_resetCdWaitFirstPeriod`): 첫 일반 공격이 공격 간격 하나 늦다. 능력은 주문에서
+    시작만 하고(`OnSpellStart` → `m_startCheck`) 그 뒤 매 틱(`OnTick` → `_DoUpdateTarget`) 선택자의 첫 유닛으로 버프를 옮긴다 — 다른 유닛이 골라지거나 지니던 유닛이 사라지면
+    옮기고, 아무도 없으면 그대로 둔다(`_removeBuffsIfNoValidTarget` 꺼짐). 떼어질 때(`OnDetached`: 부활 때의 모드 전환, 퇴장) 버프도 지운다. 투사체 `projectile_enemy_xi_s`의
+    `TileSelectorHitBehaviour`(TileSelector `_maxNum` 2·`_alwaysRandomInTheEnd`)는 표식과 상관없다: 고른 칸마다 투사체 동작(`Projectile.RunActions` 사건 2)만 돌리는데, 그
+    동작은 능력의 `SwitchDynamicBuffTileMode`(갈대 칸의 晦明(밝음·어둠) 속성 뒤집기)이고 이 모드에는 그런 칸이 없다. 코드 `enemies/leaders.js` `uniqueBuff`·`kitXi`(표식 키 `ab:xiMark`,
+    `ab:xiMark2[a]`·`[b]`, `fxTag` `buff:enemy_xi_mark[a]`·`[b]`). 재발 방지: `test/content/enemies_bosses.test.js` 「casts its 纬地经天 mark」,
+    `test/content/xi-post-reborn.test.js` 「real match path: 自在 marks the operator」.
     데이터: `build-data.mjs enemySkillCast`가 `wait` 0·`pre`(`_preDelay`, 채널도)와 채널 클립의 `chanBegin`·`chanLoop`·`chanEnd`(`dur`·`hit`)를 싣는다(`attack_timing.py cast_fields`가
     채널 능력의 `_waitForAttackEvent`·`_preDelay`를 읽음). 재발 방지:
     `test/content/enemy-skill-strike.test.js`(두 시즌 공격 차례 스킬 전부 — 프레임이 0보다 늦은데 `atStrike`가 아니면 예외 목록의 이유가 있어야 함).

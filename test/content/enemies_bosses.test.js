@@ -2997,6 +2997,50 @@ test(`${nm('enemy_1517_xi')}: 纬地经天 cross on the nearest unit; 破桎而�
   assert.ok(!e.s.flags.invulnerable);
 });
 
+test(`${nm('enemy_1517_xi')}: each form's first attack slot casts its 纬地经天 mark (CrossAttackMark / CrossAttackMarkReborn) once in place of the attack; the mark follows the nearest unit (form 2: [a] the farthest, [b] the nearest)`, () => {
+  // docs/rules/sim.md 「적 스킬 = 일반 공격 차례」 '즈자이'의 표식 — GloballUniqueBuffAbility, priority 1, `_maxTriggerTime` 1
+  const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 6 }, { chessId: 't_wall2', row: 12, col: 6 }, { chessId: 't_wall3', row: 9, col: 3 }], captureNoisy: true });
+  h.step();
+  const e = put(h, 'enemy_1517_xi', [10, 8]);
+  const casts = (name) => h.eventsOf('fx').filter((f) => f[1] === 'enemySkill' && f[4].id === e.id && f[4].ability === name);
+  assert.ok(h.runUntil(() => casts('CrossAttackMark').length > 0, 10), 'the mark is cast at the first attack slot');
+  const t0 = h.b.time;
+  assert.equal(e.stats.attacks, 0, 'in place of the attack');
+  h.step();
+  const [w1, w2, w3] = ['t_wall', 't_wall2', 't_wall3'].map((id) => h.unit(id));
+  const mk = w1.findBuff('ab:xiMark');
+  assert.ok(mk && mk.fxTag === 'buff:enemy_xi_mark[a]' && mk.visible, 'enemy_xi_mark[a] on the nearest unit');
+  assert.ok(!w2.findBuff('ab:xiMark') && !w3.findBuff('ab:xiMark'), 'on one unit only');
+  assert.deepEqual(mk.mods, null, 'no stat (template empty)');
+  // the main attack's cooldown restarts as the cast ends (`_resetMainAbilityCdWhenCastEnd`): the attack one interval later
+  h.run(e.s.interval - (h.b.time - t0) - 0.1);
+  assert.equal(e.stats.attacks, 0, 'no attack within the interval after the mark');
+  assert.ok(h.runUntil(() => e.stats.attacks > 0, 2), 'then the attack');
+  // the mark moves to the selector's new pick the tick after
+  h.b.kill(w1, null);
+  h.step(); h.step();
+  assert.ok(w2.findBuff('ab:xiMark') && !w3.findBuff('ab:xiMark'), 'moved to the next nearest');
+  h.run(60);   // (the arena brings t_wall back meanwhile: the mark goes back to it)
+  const w1b = h.unit('t_wall');
+  assert.ok(w1b.alive && w1b.findBuff('ab:xiMark') && !w2.findBuff('ab:xiMark'), 'back on the nearest');
+  assert.equal(casts('CrossAttackMark').length, 1, '`_maxTriggerTime` 1');
+  // form 2: the Default mode's mark is detached; CrossAttackMarkReborn marks the farthest [a] and the nearest [b]
+  killed(h, e, null);
+  assert.ok(h.runUntil(() => e.form === 'form2', 10), 'reborn');
+  assert.ok(h.runUntil(() => casts('CrossAttackMarkReborn').length > 0, 10), 'the second form casts its mark');
+  h.step();
+  assert.ok(!h.allies().some((u) => u.findBuff('ab:xiMark')), 'the first form\'s mark is gone');
+  assert.equal(w3.findBuff('ab:xiMark2[a]')?.fxTag, 'buff:enemy_xi_mark[a]', '[a] on the farthest');
+  assert.equal(w1b.findBuff('ab:xiMark2[b]')?.fxTag, 'buff:enemy_xi_mark[b]', '[b] on the nearest');
+  assert.ok(!w2.findBuff('ab:xiMark2[a]') && !w2.findBuff('ab:xiMark2[b]'), 'not on the one between');
+  h.run(60);
+  assert.equal(casts('CrossAttackMarkReborn').length, 1, 'once');
+  h.b.kill(e, null);
+  h.step();
+  assert.ok(!w1b.findBuff('ab:xiMark2[b]') && !w3.findBuff('ab:xiMark2[a]'), 'its marks go with it');
+  checkInvariants(h.b); assert.deepEqual(h.b.errors, []);
+});
+
 test(`${nm('enemy_1525_blkswb')}: 抵抗; ignores ${tb('enemy_1525_blkswb', 'DefPenetrate.enemy_blkswb_t_2.def_penetrate') * 100} % of its blocker's DEF; 速杀 passes through the blocker (ATK×${skb('enemy_1525_blkswb', 'Blink').bb.atk_scale}); KO ⇒ stealth, double hits, SP cleared + disarm at every 25 % HP lost`, () => {
   const h = arena({ units: [{ chessId: 't_wall', row: 9, col: 5 }, { chessId: 't_blade', row: 9, col: 3 }], chess: { t_wall: WALL('t_wall', { def: 500 }) }, kits: { t_blade: NOATK }, captureNoisy: true, hooks: ['damaged', 'statusApplied'] });
   h.step();
