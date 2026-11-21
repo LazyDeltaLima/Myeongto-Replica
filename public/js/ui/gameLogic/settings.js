@@ -13,6 +13,7 @@ export const CHAT_COOLDOWN = Object.freeze({ def: 2, min: 1, max: 5 });
 /**
  * keys: the in-match shortcuts' key map (ui/gameLogic/shortcuts.js; settings → 快捷键). chatSound / chatVolume /
  * chatCooldown / chatFactionAlerts: the notification of the others' chat lines (audio.js chatNotification, ui/chat.js).
+ * chatShowTime: show message times in room and match chat, including pinned lines.
  * chatPinRecent: the match chat keeps the latest 3 lines shown while it is closed (ui/chat.js pinnedLines).
  * eliteBadge: the 精二 badge beside an elite piece's prep tier chip (render/elite-mark.js). matchNotices: the match's
  * notification toasts (showMatchToast below). numberUnits: how large numbers are shortened (fmtNum, ui/gameLogic/format.js
@@ -26,7 +27,7 @@ export const CHAT_COOLDOWN = Object.freeze({ def: 2, min: 1, max: 5 });
  * 「其他玩家的皮肤」, usable once the skin data is chosen — resources.js SkinPackSetting; upstream's 显示其他玩家的皮肤).
  */
 export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, muted: false, damageNumbers: true, quality: 'high', keys: DEFAULT_HOTKEYS,
-  chatSound: true, chatVolume: 0.5, chatCooldown: CHAT_COOLDOWN.def, chatFactionAlerts: false, chatPinRecent: false,
+  chatSound: true, chatVolume: 0.5, chatCooldown: CHAT_COOLDOWN.def, chatFactionAlerts: false, chatShowTime: true, chatPinRecent: false,
   eliteBadge: false, matchNotices: true, numberUnits: null, roundDamage: true, roundDamageStyle: 'auto', frameLimit: 0, deployFold: true,
   sideCamera: 'auto', screenWakeLock: 'combat', otherSkins: true });
 /** 画面质量: 'auto' steps between high and medium by the load (render/auto-quality.js); a touch-only device starts there (ui/settings.js). */
@@ -45,7 +46,7 @@ export const SCREEN_WAKE_MODES = Object.freeze(['off', 'combat', 'always']);
  * @param {any} raw
  * @returns {{ bgm: number, sfx: number, voice: number, muted: boolean, damageNumbers: boolean, quality: 'auto'|'high'|'medium'|'low',
  *   keys: Record<'refresh'|'freeze'|'levelUp'|'shop'|'ready'|'sell'|'viewEnemy'|'retreat'|'pause', string>, chatSound: boolean, chatVolume: number,
- *   chatCooldown: number, chatFactionAlerts: boolean, chatPinRecent: boolean, eliteBadge: boolean, matchNotices: boolean,
+ *   chatCooldown: number, chatFactionAlerts: boolean, chatShowTime: boolean, chatPinRecent: boolean, eliteBadge: boolean, matchNotices: boolean,
  *   numberUnits: 'myriad'|'thousand'|'full'|null, roundDamage: boolean, roundDamageStyle: 'auto'|'full'|'compact', frameLimit: number, deployFold: boolean,
  *   sideCamera: 'auto'|'on'|'off', screenWakeLock: 'off'|'combat'|'always', otherSkins: boolean }}
  */
@@ -64,6 +65,7 @@ export function sanitizeSettings(raw) {
     chatVolume: vol(r.chatVolume, DEFAULT_SETTINGS.chatVolume),
     chatCooldown: Number.isFinite(r.chatCooldown) ? clamp(Math.round(r.chatCooldown), CHAT_COOLDOWN.min, CHAT_COOLDOWN.max) : DEFAULT_SETTINGS.chatCooldown,
     chatFactionAlerts: typeof r.chatFactionAlerts === 'boolean' ? r.chatFactionAlerts : DEFAULT_SETTINGS.chatFactionAlerts,
+    chatShowTime: typeof r.chatShowTime === 'boolean' ? r.chatShowTime : DEFAULT_SETTINGS.chatShowTime,
     chatPinRecent: typeof r.chatPinRecent === 'boolean' ? r.chatPinRecent : DEFAULT_SETTINGS.chatPinRecent,
     eliteBadge: typeof r.eliteBadge === 'boolean' ? r.eliteBadge : DEFAULT_SETTINGS.eliteBadge,
     matchNotices: typeof r.matchNotices === 'boolean' ? r.matchNotices : DEFAULT_SETTINGS.matchNotices,

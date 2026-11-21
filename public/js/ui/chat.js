@@ -257,6 +257,7 @@ async function sendLine(text) {
 
 /** The scrolling log; keeps the newest line in view unless the reader scrolled up. */
 function ChatLog({ lines, myId, blocked = [], noticeAfter = 0 }) {
+  const showTime = useStore((s) => s.chatShowTime, Object.is, settingsStore);
   const ref = useRef(null);
   const stick = useRef(true);
   const [menu, setMenu] = useState(null); // the seq whose block button is open
@@ -286,7 +287,7 @@ function ChatLog({ lines, myId, blocked = [], noticeAfter = 0 }) {
   return html`<ol class="chat__log" ref=${ref} onScroll=${onScroll} aria-live="polite">
     ${entries.map((e) => (e.kind === 'notice' ? html`<li key="notice" class="chat__notice">${t('聊天内容会在服务器保存 15 天。')}</li>`
       : e.kind === 'blocked' ? html`<${BlockedLine} key=${`b${e.seq}`} e=${e} />`
-      : html`<${Line} key=${e.seq} l=${e} myId=${myId} menu=${menu === e.seq} onMenu=${setMenu} showTime=${true} />`))}
+      : html`<${Line} key=${e.seq} l=${e} myId=${myId} menu=${menu === e.seq} onMenu=${setMenu} showTime=${showTime} />`))}
     ${lines.length ? null : html`<li class="chat__empty">${t('暂无消息')}</li>`}
   </ol>`;
 }
@@ -426,6 +427,7 @@ export function RoomChat() {
 export function GameChat({ open, onToggle, disabled = false }) {
   const { lines, shown, blocked, noticeAfter, seen, myId, online } = useChat();
   const pin = useStore((s) => s.chatPinRecent, Object.is, settingsStore);
+  const showTime = useStore((s) => s.chatShowTime, Object.is, settingsStore);
   const [now, setNow] = useState(Date.now);
   const live = useRef({});
   live.current = { open, onToggle };
@@ -482,7 +484,7 @@ export function GameChat({ open, onToggle, disabled = false }) {
       ${feed.map((l) => html`<${Line} key=${l.seq} l=${l} myId=${myId} cls="gchat__pop" style=${`--pop-age:${Math.max(0, now - l.rx)}ms`} />`)}
     </ol>` : null}
     ${pinned.length ? html`<ol class="gchat__feed" aria-hidden="true">
-      ${pinned.map((l) => html`<${Line} key=${l.seq} l=${l} myId=${myId} cls="gchat__pop is-pinned" showTime=${true} />`)}
+      ${pinned.map((l) => html`<${Line} key=${l.seq} l=${l} myId=${myId} cls="gchat__pop is-pinned" showTime=${showTime} />`)}
     </ol>` : null}
   </div>`;
 }

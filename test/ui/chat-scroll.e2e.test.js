@@ -12,7 +12,7 @@ import { CHAT_COOLDOWN_MS } from '../../shared/local.js';
 
 const ENABLED = process.env.SP_E2E === '1' && hasChrome();
 
-test('message times update in place, open on hover and focus, and appear in the pinned feed', {
+test('message times respect the saved switch, update in place, and open on hover and focus', {
   skip: !ENABLED && 'set SP_E2E=1 (Chrome)', timeout: 60_000,
 }, async () => {
   const srv = await startRealServer({});
@@ -68,6 +68,21 @@ test('message times update in place, open on hover and focus, and appear in the 
 
     const secondAt = await page.$$eval(time, (times) => times[1].getAttribute('datetime'));
     assert.notEqual(secondAt, first.at);
+    await host.click('.room-screen [data-testid="settings-btn"]');
+    await host.click('.set-tabs [role="tab"]', '채팅 알림');
+    const timeSwitch = '.set-row [role="switch"][aria-label="채팅 시간 표시"]';
+    await page.waitForSelector(`${timeSwitch}[aria-checked="true"]`);
+    await page.click(timeSwitch);
+    await page.waitForSelector(`${timeSwitch}[aria-checked="false"]`);
+    await page.waitForSelector(time, { hidden: true });
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.settings')).chatShowTime), false);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.modal', { hidden: true });
+    assert.deepEqual(await page.$$eval('.chat__log .chat__line .chat__text', (lines) => lines.map((line) => line.textContent)), ['first message', 'second message']);
+    const showTimes = (enabled) => page.evaluate(async (value) => {
+      const { updateSettings } = await globalThis.__SP__.import('./ui/settings.js');
+      updateSettings({ chatShowTime: value });
+    }, enabled);
     assert.equal((await other.request({ t: 'room.ready', ready: true })).t, 'ok');
     await page.evaluate(async () => {
       const { net } = globalThis.__SP__;
@@ -76,6 +91,9 @@ test('message times update in place, open on hover and focus, and appear in the 
     });
     await host.click('.gchat__btn');
     const matchLineTimes = '.chat--game .chat__log .chat__time';
+    await page.waitForSelector('.chat--game .chat__log .chat__text');
+    assert.equal(await page.$(matchLineTimes), null);
+    await showTimes(true);
     await page.waitForSelector(matchLineTimes);
     assert.deepEqual(await page.$$eval(matchLineTimes, (times) => times.map((el) => el.getAttribute('datetime'))), [first.at, secondAt]);
     await page.hover(matchLineTimes);
@@ -95,7 +113,12 @@ test('message times update in place, open on hover and focus, and appear in the 
     const setAge = (at, age) => page.evaluate((iso, ms) => { Date.now = () => Date.parse(iso) + ms; }, at, age);
     await setAge(first.at, 30 * 60_000 - 1);
     await page.waitForFunction((s) => document.querySelector(s)?.textContent === '29분 전', {}, pinnedTimes);
+    await showTimes(false);
+    await page.waitForSelector(pinnedTimes, { hidden: true });
+    assert.equal((await page.$$('.gchat__pop.is-pinned')).length, 2);
     await setAge(first.at, 30 * 60_000);
+    await page.waitForFunction(() => document.querySelectorAll('.gchat__pop.is-pinned').length === 1);
+    await showTimes(true);
     await page.waitForFunction((s, at) => {
       const times = [...document.querySelectorAll(s)];
       return times.length === 1 && times[0].getAttribute('datetime') === at;

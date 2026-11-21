@@ -24,7 +24,7 @@ test('the settings rows sit in tabs by function, in this order, the panel of the
     panel('general'), at(/t\('语言'\)/), at(/<\$\{WakeLockSetting\} s=\$\{s\} \/>/),
     panel('resources'), at(/<\$\{ResourceSetting\} \/>/), at(/<\$\{SkinPackSetting\} others=\$\{s\.otherSkins\} /),
     panel('sound'), at(/t\('背景音乐'\)/), at(/t\('干员语音'\)/), at(/t\('音效'\)/), at(/<\$\{VoiceSetting\} \/>/), at(/t\('静音'\)/),
-    panel('chat'), at(/<\$\{ChatSoundSection\} s=\$\{s\} \/>/), at(/t\('常驻最近 3 条消息'\)/),
+    panel('chat'), at(/<\$\{ChatSoundSection\} s=\$\{s\} \/>/), at(/t\('显示聊天时间'\)/), at(/t\('常驻最近 3 条消息'\)/),
     panel('display'), at(/t\('显示伤害数字'\)/), at(/<\$\{NumberStyleSetting\} \/>/), at(/t\('画面质量'\)/), at(/t\('对局通知'\)/), at(/<\$\{UiScaleSetting\} \/>/),
     panel('keys'), at(/<\$\{HotkeySection\} /), panel('diag'), at(/<\$\{DiagSection\} \/>/),
   ];
