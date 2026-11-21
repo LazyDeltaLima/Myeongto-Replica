@@ -402,7 +402,7 @@ export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = 
               </div>
             </div>
             <div class="diy-pick__detail">
-              <${SkinSection} charId=${draft.charId} art=${chessPortraitUrl(m, golden || base) || avatarOf(m, unit, true)} face=${avatarOf(m, unit, true)} />
+              <${SkinSection} charId=${draft.charId} tmplId=${base?.tmplId} art=${chessPortraitUrl(m, golden || base) || avatarOf(m, unit, true)} face=${avatarOf(m, unit, true)} />
               ${onOps ? html`<${CultivationSection} charId=${draft.charId} ops=${ops} onSet=${onOps} />` : null}
               <${SkillSection} m=${m} chess=${base} golden=${golden} skillOptions=${skillOptions} skill=${skillOn} level=${previewLevel}
                 onLevel=${onPreviewLevel} onPick=${pickSkill} />

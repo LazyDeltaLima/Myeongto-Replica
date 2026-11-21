@@ -147,17 +147,28 @@ async function fetchJson(url) {
   return r.json();
 }
 
-/** One operator's skins (the catalogue's rows), [] for none or before the catalogue. */
-export const skinRows = (catalog, charId) => (isObj(catalog) && catalog.byOwner instanceof Map ? catalog.byOwner.get(charId) || [] : []);
+/**
+ * One operator's skins (the catalogue's rows), [] for none or before the catalogue. A skin's owner is the form its record
+ * names (skins.json: tmplId, else charId — skin_extract.py skin_owner), so a chess whose body is another form of the
+ * operator (`tmplId` ≠ `charId`: 阿米娅 (医疗) is char_002_amiya drawn as char_1037_amiya3) also lists that form's skins.
+ * The choice stays keyed by charId (the server reads it so, PlayerState.skinFor).
+ * @param {any} catalog @param {string} charId @param {string|null} [tmplId] the chess record's body form
+ */
+export function skinRows(catalog, charId, tmplId = null) {
+  if (!isObj(catalog) || !(catalog.byOwner instanceof Map)) return [];
+  const own = catalog.byOwner.get(charId) || [];
+  const form = str(tmplId) && tmplId !== charId ? catalog.byOwner.get(tmplId) || [] : [];
+  return form.length ? [...own, ...form] : own;
+}
 
 /**
  * The skin an operator wears by this browser's choice: the stored skinId when the catalogue lists it for that operator
  * (a skin a newer list dropped counts as the default), null for the default.
- * @param {string} charId @param {Record<string, string>} [map] @param {any} [catalog]
+ * @param {string} charId @param {Record<string, string>} [map] @param {any} [catalog] @param {string|null} [tmplId] as skinRows
  */
-export function chosenSkin(charId, map = skinsStore.get()[SKINS_KEY], catalog = skinsStore.get().catalog) {
+export function chosenSkin(charId, map = skinsStore.get()[SKINS_KEY], catalog = skinsStore.get().catalog, tmplId = null) {
   const id = str(charId) && isObj(map) ? str(map[charId]) : null;
-  return id && skinRows(catalog, charId).some((r) => r.id === id) ? id : null;
+  return id && skinRows(catalog, charId, tmplId).some((r) => r.id === id) ? id : null;
 }
 
 /**

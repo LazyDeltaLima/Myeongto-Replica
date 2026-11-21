@@ -2837,7 +2837,12 @@ upstream v0.4.0 대조에서 받은 화면 수정(`docs/rules/upstream.md` 「�
   보기 창·폰 얼굴 그림 전환·시험을 옮기고, 목록의 출처와 잠금·받기 상태만 우리 것이다. 고른 스킨은 표시 전용이고 시즌을 나누지 않는다(관리자 결정 2026-11-07,
   서버 쪽은 `docs/rules/upstream.md` 「오퍼레이터 스킨 — 선택·공개·전달」).
 - 자리: 오퍼레이터 설정(`screens/loadout.js` 상세)과 선발 편성(`screens/diy.js` 상세)의 맨 위, 「잠재능력과 육성도」 앞(`ui/skinPicker.js SkinSection`). 열쇠는
-  기물 ID가 아니라 오퍼레이터 charId — 일반·정예·선발 기물이 한 오퍼레이터다.
+  기물 ID가 아니라 오퍼레이터 charId — 일반·정예·선발 기물이 한 오퍼레이터다. 스킨 목록의 주인은 스킨이 붙는 형태(`tmplId`, 없으면 charId — `docs/rules/render.md`
+  「스킨 모델 소재」)라, 다른 형태로 그려지는 기물(`tmplId` ≠ `charId`: 2026-11-21 데이터 전체에서 규정 시즌의 아미야(의료) `char_002_amiya` →
+  `char_1037_amiya3` 하나)은 칸이 기물의 `tmplId`도 받아 그 형태의 스킨을 함께 보인다(`ui/skins.js skinRows(catalog, charId, tmplId)`). 선택은 그대로 charId 열쇠
+  아래 저장된다(서버 `skinFor`가 charId로 읽음). 2026-11-21 관리자 제보 「아미야 스킨을 추가했는데 스킨 버튼이 안 나옴」: 주인을 형태로 바꾼 뒤에도 칸은 charId로만
+  찾아 「기본」 타일만 나왔다. 재발 방지: `test/ui/skin-picker.test.js` 「a chess drawn as another form」(두 화면의 `SkinSection`이 `tmplId`를 넘기는지 포함)·「every
+  chess of every season lists the skins of the form it is drawn as」(되돌려 봄).
 - 목록(`ui/skins.js buildSkinCatalog`): 스킨 데이터의 두 목록 — `local/spine/skin/skins.json`(스킨마다 주인·일러스트 `illust`)과 `art.json`(아바타·초상화,
   `docs/rules/render.md` 「스킨 모델 소재」 「그림을 받는 곳」). 둘 다 리소스 목록에 있는 작은 파일이라 스킨 데이터를 안 골랐어도 칸을 처음 열 때 받는다(어떤
   스킨이 있는지는 잠긴 채로도 보여야 함). 주인이 소환물인 스킨은 고르지 않는다 — 주인 오퍼레이터의 스킨을 따라간다. 목록이 없는 서버면 칸이 없다.

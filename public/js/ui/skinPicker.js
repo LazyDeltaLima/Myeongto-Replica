@@ -46,13 +46,14 @@ export function skinSectionState(r, catalog) {
  * operator's own art (the mockup: greyed, a lock over it); an open one its own portrait / avatar, else the operator's
  * (`fallbackArt`). The name is looked up by the skin id (data.localeSkinName: a skin may share its Chinese name with a
  * data record); a skin the list names no name for is numbered.
- * @param {{ catalog: any, charId: string, map?: Record<string, string>, state: 'locked'|'loading'|'ready', art?: string|null, face?: string|null }} o
+ * @param {{ catalog: any, charId: string, tmplId?: string|null, map?: Record<string, string>, state: 'locked'|'loading'|'ready', art?: string|null, face?: string|null }} o
+ *   tmplId: the chess record's body form, whose skins are listed too (ui/skins.js skinRows)
  */
-export function skinTiles({ catalog, charId, map = {}, state, art = null, face = null }) {
+export function skinTiles({ catalog, charId, tmplId = null, map = {}, state, art = null, face = null }) {
   const locked = state === 'locked';
-  const chosen = locked ? null : chosenSkin(charId, map, catalog);
+  const chosen = locked ? null : chosenSkin(charId, map, catalog, tmplId);
   const own = { id: '', own: true, name: t('默认'), art, face, illust: null, fallbackArt: false, locked: false, on: !chosen };
-  const rows = skinRows(catalog, charId).map((row, i) => ({
+  const rows = skinRows(catalog, charId, tmplId).map((row, i) => ({
     id: row.id, own: false, name: row.name ? data.localeSkinName(row.id, row.name) : t('皮肤 {n}', { n: i + 1 }), locked,
     art: (!locked && row.portrait) || art, face: (!locked && row.avatar) || face, illust: row.illust || row.portrait || null,
     fallbackArt: !locked && !row.portrait, on: chosen === row.id,
@@ -116,10 +117,10 @@ export function SkinPackBox({ state, g = { total: 0, left: 0 } }) {
 
 /**
  * 皮肤 for one operator of the detail panel.
- * @param {{ charId: string, art?: string|null, face?: string|null }} props art / face: the operator's own portrait and
- *   avatar (the 默认 tile, and every tile's art while locked)
+ * @param {{ charId: string, tmplId?: string|null, art?: string|null, face?: string|null }} props art / face: the operator's own
+ *   portrait and avatar (the 默认 tile, and every tile's art while locked); tmplId the chess record's body form (skinRows)
  */
-export function SkinSection({ charId, art = null, face = null }) {
+export function SkinSection({ charId, tmplId = null, art = null, face = null }) {
   const s = useStore((v) => v, Object.is, skinsStore);
   const r = useStore((v) => v, Object.is, resStore);
   const [preview, setPreview] = useState(/** @type {string|null} */ (null));
@@ -127,7 +128,7 @@ export function SkinSection({ charId, art = null, face = null }) {
   useEffect(() => { setPreview(null); }, [charId]);
   const state = skinSectionState(r, s.catalog);
   if (!charId || !state) return null;
-  const tiles = skinTiles({ catalog: s.catalog, charId, map: s[SKINS_KEY], state, art, face });
+  const tiles = skinTiles({ catalog: s.catalog, charId, tmplId, map: s[SKINS_KEY], state, art, face });
   const shown = preview ? tiles.find((x) => !x.own && x.id === preview) || null : null;
   return html`<section class="lo-sec lo-sec--skin" data-testid="skin-section" data-state=${state}>
     <header class="lo-sec__head">

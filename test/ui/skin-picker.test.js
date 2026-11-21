@@ -65,6 +65,23 @@ describe('skins: the catalogue and the choice', () => {
     assert.equal(chosenSkin(OP, { [OP]: SKIN }, null), null, 'before the catalogue');
   });
 
+  test('a chess drawn as another form of its operator lists that form\'s skins, keyed by charId', () => {
+    // 阿米娅 (医疗): charId char_002_amiya, tmplId char_1037_amiya3; skins.json names the form as the owner (skin_extract.py skin_owner)
+    const AM = 'char_002_amiya', FORM = 'char_1037_amiya3', S = `${FORM}@sale#13`, OWN = `${AM}@winter#1`;
+    const cat = buildSkinCatalog({ skins: { [S]: { owner: FORM, name: '寰宇独奏' }, [OWN]: { owner: AM } } }, null);
+    assert.deepEqual(skinRows(cat, AM, FORM).map((r) => r.id), [OWN, S],
+      'the form\'s skin is missing: SkinSection must hand skinRows the chess tmplId (docs/rules/ui.md 「스킨 고르기」)');
+    assert.deepEqual(skinRows(cat, AM).map((r) => r.id), [OWN], 'without tmplId: the operator\'s own skins');
+    assert.deepEqual(skinRows(cat, AM, AM).map((r) => r.id), [OWN], 'tmplId = charId: listed once');
+    assert.equal(chosenSkin(AM, { [AM]: S }, cat, FORM), S, 'the choice of the form\'s skin is kept under the charId');
+    assert.equal(chosenSkin(AM, { [AM]: S }, cat), null);
+    assert.deepEqual(skinTiles({ catalog: cat, charId: AM, tmplId: FORM, map: { [AM]: S }, state: 'ready' }).filter((x) => x.on).map((x) => x.id), [S]);
+    const uses = ['public/js/screens/loadout.js', 'public/js/screens/diy.js'].flatMap((f) => read(f).match(/<\$\{SkinSection\}[^>]*\/>/g) || []);
+    assert.ok(uses.length >= 2, `SkinSection uses: ${uses.length}`);
+    assert.deepEqual(uses.filter((u) => !/\btmplId=/.test(u)), [],
+      'a SkinSection without the chess tmplId leaves out the skins of the form it is drawn as (docs/rules/ui.md 「스킨 고르기」)');
+  });
+
   test('parseStoredSkins keeps the wire\'s shape: charId → skinId pairs, at most SKIN_LIMITS.entries', () => {
     assert.deepEqual(parseStoredSkins({ [OP]: SKIN, chess_char_1: 'x@y#1', char_2_b: '', char_3_c: 7, char_4_d: 'bad skin' }), { [OP]: SKIN });
     assert.deepEqual(parseStoredSkins(null), {});
@@ -411,6 +428,25 @@ describe('operator pictures in the chosen skin (shop card, icons)', () => {
       + 'or list the file with its reason (docs/rules/ui.md 「스킨 고르기」)');
     for (const f of Object.keys(DEFAULT_ONLY)) assert.ok(files.includes(f), `${f} is gone: drop it from the list`);
   });
+});
+
+test('the real skin lists: every chess of every season lists the skins of the form it is drawn as', { skip: !existsSync(path.join(ROOT, 'public/assets/local/spine/skin/skins.json')) && 'no skin lists in this checkout' }, () => {
+  const cat = buildSkinCatalog(JSON.parse(read('public/assets/local/spine/skin/skins.json')), null);
+  const files = ['data/chess.json', ...readdirSync(path.join(ROOT, 'data/seasons')).map((s) => `data/seasons/${s}/chess.json`)]
+    .filter((f) => existsSync(path.join(ROOT, f)));
+  const lost = [];
+  let forms = 0;
+  for (const f of files) {
+    const j = JSON.parse(read(f));
+    for (const [id, c] of Object.entries(j.chess || j)) {
+      if (!c || typeof c.charId !== 'string' || typeof c.tmplId !== 'string' || c.tmplId === c.charId) continue;
+      forms++;
+      const shown = new Set(skinRows(cat, c.charId, c.tmplId).map((r) => r.id));
+      for (const r of cat.byOwner.get(c.tmplId) || []) if (!shown.has(r.id)) lost.push(`${f} ${id}: ${r.id}`);
+    }
+  }
+  assert.ok(forms > 0, 'no chess drawn as another form (阿米娅 (医疗) char_002_amiya → char_1037_amiya3): the sweep ran on nothing');
+  assert.deepEqual(lost, [], 'a form\'s skins the picker leaves out: skinRows(catalog, charId, tmplId) (docs/rules/ui.md 「스킨 고르기」)');
 });
 
 test('the real skin lists: every picture the picker draws is a file of the resource list', { skip: !existsSync(path.join(ROOT, 'public/assets/local/spine/skin/skins.json')) && 'no skin lists in this checkout' }, () => {
