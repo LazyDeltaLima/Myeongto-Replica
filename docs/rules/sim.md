@@ -117,7 +117,7 @@
   - `enemy_1535_wlfmster` 자로: 형태별(`NO_AIR_FORMS`) — 1형태(M1)는 일반 공격 필터가 없어 그대로, 재생 후 2형태(M2 공격 1, `e.form === 'form2'`)만 비행 제외.
   - `enemy_1516_jakill` 제셀톤: 우리 시뮬은 두 형태를 다 쓴다. 1형태(狱警, 원거리, 공격 1 + PRTS 「普通攻击和技能不会攻击飞行单位」)는 비행 제외,
     2형태(杀手)는 근접이라 저지한 유닛만 쳐서 규칙이 있어도 차이 없음(프리팹에 일반 공격 필터 없음).
-  - `enemy_10098_crhro` / `enemy_10099_crvln`: 기본 형태 1 → 제외. 사격 형태(3·3 / 3·1)는 이 시뮬에 없음(촬영 구역 미구현).
+  - `enemy_10098_crhro` / `enemy_10099_crvln`: 기본 형태 1 → 제외. 사격 형태 `Shooting`(3·3 / 3·1)은 공식에서도 이 모드에서 켜지지 않아 시뮬에 없다(2026-11-21 다시 확인, 공식 클라에서 확인 — 버프 템플릿·두 시즌의 레벨 파일·`activity_table`): 재능 `enemy_crhro[inside]`·`enemy_crvln[inside]`는 촬영 구역 버프 `env_act43side[shooting]`이 있을 때만 `Shooting`으로 바꾸는데, 그 버프는 촬영 구역 이벤트(`act43side`)의 환경 버프 `env_act43side[common]`이 구역에 들어설 때만 주고, 위수 협의의 레벨(`globalBuffs` 없음)·`activity_table`의 두 시즌 항목에는 그것이 없다(아래 「일반 공격 타이밍」 「적의 모드 전환」의 잇지 않은 적).
   - `enemy_9014_acstma` / `enemy_9015_acstmb`: 바깥 공격 선택자 1(안쪽 3) → 제외. 2026-10-09: upstream `977215e1`(PRTS 「不可对空」)이 `canTarget`과
     키트의 `before` 대상까지 막아 `NO_AIR_KEYS`에서 뺌(골극도 같음, `c250ff66`) — 테스트 「now upstream's own rule」.
   - `enemy_1404_msnip` 강화 석궁 기습자: 일반 공격 필터 없음, 십자 사격 3 → 그대로.
