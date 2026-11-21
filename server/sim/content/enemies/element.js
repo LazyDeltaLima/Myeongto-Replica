@@ -6,10 +6,10 @@ import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import { hypot } from '../../detmath.js';
 import {
   stOf, T, elem, hurt, targetsNear, areaAllies, areaAlliesInTiles, targetAndArea, byPriority, setForm, onTerrain, canCast, mode,
-  castStrikeAt,
+  castStrikeAt, remainingRoute, spawnChildren,
 } from './helpers.js';
 import { shotSpeed } from '../../ai.js';
-import { taunt, ep, deathSpawn, deathBoom, setFloat, float, skill, kitEp, kitStun3 } from './archetypes.js';
+import { taunt, ep, deathBoom, setFloat, float, skill, kitEp, kitStun3 } from './archetypes.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -17,6 +17,9 @@ import { taunt, ep, deathSpawn, deathBoom, setFloat, float, skill, kitEp, kitStu
 /** 赘生甲壳 (content/enemies/reborn.js SHELL: 微核沉积者 leaves it, 复核洋流使者 eats it). */
 const SHELL_KEY = 'trap_156_dsshell';
 
+/** 术师快艇: how long after its knock-out its 控潮术师 appears — the blackboard `delay` of its talent DeathRattle's buff
+ *  (magmot_deathrattle, template enemy_magmot_summon) in the prefab; enemy_database's talent blackboard lacks it. */
+const MAGMOT_SUMMON_DELAY = 0.8;
 /** 潜水员: how often its talent Swim (enemy_divman_swim, `triggerInterval` 0.2) looks for deep water — the prefab's value. */
 const DIVER_SWIM_CHECK = 0.2;
 /** 假想敌：淤困: element damage its host's burst spreads to the allies of the 4 tiles around (PRTS 假想敌：淤困 "附着对象元素爆发时
@@ -360,6 +363,28 @@ function kitNucleus(ab) {
   }];
 }
 
+/**
+ * 术师快艇's talent DeathRattle (공식 클라에서 확인 2026-11-21): template enemy_magmot_summon — ON_OWNER_KILLED, not a
+ * FALLDOWN, no 沉默 check — runs SummonEnemiesFollowMyRoute with `_onlySummonOneInTheSamePlace`, whose path spawns one
+ * `enemy_key` at the boat's own spot as it falls (its mapPosition) with `ignoreOffset` set: no jitter, and neither the
+ * nearest walkable tile's centre (`_useMapPosition` off) nor `_randomOffsetBound` 0.1 is used there. It comes the blackboard
+ * `delay` later (MAGMOT_SUMMON_DELAY; Scheduler.SpawnSummonedEnemyTrackedInGameMode waits it out) on the route the boat had
+ * as it fell, and the battle waits for it (`_managedByScheduler`, not `_dontBlockWave`). A boat that fell grazing a wall:
+ * its spot pulled out as every dead spawn's (spawnChildren `spot.map` → groundSpot). Until 2026-11-21 at once
+ * (docs/rules/sim.md 「사망 소환물의 자리」).
+ */
+function magmotSummon(ab) {
+  const key = ab.tS['DeathRattle.enemy_key'], delay = T(ab, 'DeathRattle.delay') ?? MAGMOT_SUMMON_DELAY;
+  return {
+    death(c, b, e) {
+      if (c.reason !== 'killed' || !key) return;
+      const route = remainingRoute(e), pos = [e.y, e.x];
+      const go = () => spawnChildren(b, e, key, 1, { route, pos, spot: { map: true, bound: 0 } });
+      if (delay > 0) b.after(delay, go, { holdsBattle: true }); else go();
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
@@ -372,7 +397,7 @@ export const ELEMENT_KITS = Object.freeze({
   enemy_1160_hvyslr_2: (ab) => [...kitStun3(ab), ...kitDeepsea(ab, { drown: true })], // 码头水手长 · same
   enemy_1161_tidmag: kitTidmag,                                      // 控潮术师 · attack hits target + 4 neighbours, erosion
   enemy_1161_tidmag_2: kitTidmag,                                    // 领潮员 · same
-  enemy_1162_magmot: (ab) => [...kitTidmag(ab), deathSpawn(ab.tS['DeathRattle.enemy_key'], 1)], // 术师快艇 · same + 控潮术师 on death
+  enemy_1162_magmot: (ab) => [...kitTidmag(ab), magmotSummon(ab)],  // 术师快艇 · same + 控潮术师 0.8 s after its knock-out
   enemy_1305_mhslim: kitEp('burn', 'EpDamage.attack@ep_damage_ratio'),        // 灼热源石虫 · burn on hit
   enemy_1305_mhslim_2: kitEp('burn', 'EpDamage.attack@ep_damage_ratio'),      // 炽焰源石虫 · burn on hit
   enemy_2021_syfish: kitEp('erosion', 'EpDamage.attack@ep_damage_ratio'),     // 骨海漂流体 · erosion on hit

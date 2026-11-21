@@ -767,9 +767,33 @@ for (const key of ['enemy_1161_tidmag', 'enemy_1161_tidmag_2', 'enemy_1162_magmo
     const ratio = tb(key, 'EpDamage.attack@ep_damage_ratio');
     approx(h.unit('t_wall2').elem[EROSION], e.s.atk * ratio);
     assert.equal(h.unit('t_wall3').stats.taken, 0, 'two tiles away: not hit');
-    if (key === 'enemy_1162_magmot') { killed(h, e, null); assert.equal(alive(h, 'enemy_1161_tidmag').length, 1); }
   });
 }
+
+test(`${nm('enemy_1162_magmot')}: its 控潮术师 comes 0.8 s after the knock-out, exactly where the boat fell; the battle waits for it`, () => {
+  const h = arena();
+  h.step();
+  const e = put(h, 'enemy_1162_magmot', [9.3, 5.2]);
+  const x0 = e.x, y0 = e.y, t0 = h.b.time;
+  killed(h, e, null);
+  const why = '(enemy_magmot_summon: SummonEnemiesFollowMyRoute `_onlySummonOneInTheSamePlace` = the host mapPosition with ignoreOffset, the prefab blackboard `delay` 0.8; element.js magmotSummon; docs/rules/sim.md 「사망 소환물의 자리」)';
+  assert.equal(alive(h, 'enemy_1161_tidmag').length, 0, `none at the knock-out itself ${why}`);
+  assert.ok(h.b._hasPendingEnemySchedules(), 'the pending spawn holds the battle');
+  let at = null;
+  while (h.b.time < t0 + 1.2 && at == null) { h.step(); if (alive(h, 'enemy_1161_tidmag').length) at = h.b.time - t0; }
+  assert.ok(at != null && Math.abs(at - 0.8) <= 2 * h.TICK, `came ${at} s after ${why}`);
+  const [c] = alive(h, 'enemy_1161_tidmag');
+  assert.equal(alive(h, 'enemy_1161_tidmag').length, 1, 'one');
+  approx(c.x, x0, 1e-9, `x: the boat's own spot, not a tile centre or jittered ${why}`);
+  approx(c.y, y0, 1e-9, `y ${why}`);
+  // a leak is no knock-out: nothing comes
+  const h2 = arena();
+  h2.step();
+  const e2 = put(h2, 'enemy_1162_magmot', [9, 5]);
+  h2.b.leak(e2);
+  h2.run(1.5);
+  assert.equal(alive(h2, 'enemy_1161_tidmag').length, 0, 'no summon on a leak');
+});
 
 test(`${nm('enemy_2025_syufo')}: 近地悬浮 — unblockable, immune to melee attacks; erosion on hit`, () => {
   const h = arena({ units: [{ chessId: 't_blade', row: 10, col: 6 }, { chessId: 't_gun', row: 12, col: 3 }] });
