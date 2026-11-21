@@ -19,7 +19,7 @@
 //   RoomChat       the room screen's panel: log + input, folds to a button (unread count while folded)
 //   GameChat       the match: a 聊天 button beside 交流 (unread badge) + panel above it; while it is closed, new lines
 //                  of the others float above the corner for a few seconds, or, with settings 常驻最近 3 条消息
-//                  (chatPinRecent), the latest 3 chat lines stay there (pinnedLines). Enter opens it, Esc closes it.
+//                  (chatPinRecent), up to 3 lines stay there until 30 minutes old. Enter opens it, Esc closes it.
 //   Blocking     (maintainer decision 2026-11-18) a press on another player's line (not a text selection) opens its
 //                「屏蔽 {name}」 button under the line; a blocked player's lines leave the log, the floating feed, the
 //                pinned lines, the unread count and the notification, and one 「已屏蔽 {name}（{n} 条）· 解除屏蔽」 line stands
@@ -43,6 +43,7 @@ import { playerName } from '../../../shared/botNames.js';
 import { FactionIcon, factionIconUrl } from './faction.js';
 import { chooseFaction, PresetNotice } from './factionPick.js';
 import { clearPresetNotice } from './diyPresets.js';
+import { ChatTime, hasMessageTime, isOldChatMessage, subscribeChatClock } from './chatTime.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const KEEP = 60;            // lines kept on the client
@@ -128,11 +129,10 @@ export function feedLines(lines, { myId, seenSeq, now }) {
 }
 
 /**
- * Lines kept above the corner with 常驻最近 3 条消息 on: the latest FEED_MAX chat lines, the player's own and history
- * lines included, faction picks left out.
- * @param {any[]} lines
+ * Lines kept above the corner with 常驻最近 3 条消息 on: up to FEED_MAX recent user messages.
+ * @param {any[]} lines @param {number} now
  */
-export const pinnedLines = (lines) => lines.filter((l) => l.kind !== 'faction').slice(-FEED_MAX);
+export const pinnedLines = (lines, now) => lines.filter((l) => hasMessageTime(l) && !isOldChatMessage(l.at, now)).slice(-FEED_MAX);
 
 /**
  * Read mark after a history batch (join / resync): the lines the player had not received yet count as read, so a
@@ -218,9 +218,11 @@ const selecting = (el) => {
  * One chat line: `name(faction): text`, or the announcement of a faction pick. With `onMenu` (the log, not the floating
  * feed) another player's line opens its block button on a press (header 「Blocking」); `menu` = it is open.
  */
-function Line({ l, myId, cls = '', style = '', menu = false, onMenu = null }) {
+function Line({ l, myId, cls = '', style = '', menu = false, onMenu = null, showTime = false }) {
   const other = !!onMenu && l.playerId !== myId;
-  const press = other ? (e) => { if (!selecting(e.currentTarget)) onMenu(menu ? null : l.seq); } : undefined;
+  const press = other ? (e) => {
+    if (!e.target.closest('.chat__time') && !selecting(e.currentTarget)) onMenu(menu ? null : l.seq);
+  } : undefined;
   const block = menu ? html`<div class="chat__menu"><button type="button" class="chat__block"
     onClick=${(e) => { e.stopPropagation(); setBlocked(l.playerId, true); onMenu(null); }}>${t('屏蔽 {name}', { name: playerName(l.name) })}</button></div>` : null;
   if (l.kind === 'faction') {
@@ -229,8 +231,9 @@ function Line({ l, myId, cls = '', style = '', menu = false, onMenu = null }) {
       <b class="chat__name">${playerName(l.name)}</b><span class="chat__text">${t('选择了阵营')} <b style=${f ? `color:${f.color}` : ''}>${f ? t(f.name) : '?'}</b></span>${block}
     </li>`;
   }
+  const body = html`<b class="chat__name">${playerName(l.name)}${l.spectator ? html`<span class="chat__spec">(${t('观战')})</span>` : null}<${FactionTag} id=${l.faction} /></b><span class="chat__text">${l.text}</span>`;
   return html`<li class=${cx('chat__line', l.playerId === myId && 'is-me', other && 'is-pressable', menu && 'is-menu', cls)} style=${style} data-i18n-skip="" onClick=${press}>
-    <b class="chat__name">${playerName(l.name)}${l.spectator ? html`<span class="chat__spec">(${t('观战')})</span>` : null}<${FactionTag} id=${l.faction} /></b><span class="chat__text">${l.text}</span>${block}
+    ${showTime && hasMessageTime(l) ? html`<div class="chat__message"><span class="chat__body">${body}</span><${ChatTime} at=${l.at} interactive=${!!onMenu} /></div>` : body}${block}
   </li>`;
 }
 
@@ -283,7 +286,7 @@ function ChatLog({ lines, myId, blocked = [], noticeAfter = 0 }) {
   return html`<ol class="chat__log" ref=${ref} onScroll=${onScroll} aria-live="polite">
     ${entries.map((e) => (e.kind === 'notice' ? html`<li key="notice" class="chat__notice">${t('聊天内容会在服务器保存 15 天。')}</li>`
       : e.kind === 'blocked' ? html`<${BlockedLine} key=${`b${e.seq}`} e=${e} />`
-      : html`<${Line} key=${e.seq} l=${e} myId=${myId} menu=${menu === e.seq} onMenu=${setMenu} />`))}
+      : html`<${Line} key=${e.seq} l=${e} myId=${myId} menu=${menu === e.seq} onMenu=${setMenu} showTime=${true} />`))}
     ${lines.length ? null : html`<li class="chat__empty">${t('暂无消息')}</li>`}
   </ol>`;
 }
@@ -448,7 +451,14 @@ export function GameChat({ open, onToggle, disabled = false }) {
   }, [open]);
 
   const feed = open || pin ? [] : feedLines(shown, { myId, seenSeq: seen, now });
-  const pinned = !open && pin ? pinnedLines(shown) : [];
+  const pinned = !open && pin ? pinnedLines(shown, Date.now()) : [];
+  const oldestPinnedAt = pinned.length ? Math.min(...pinned.map((line) => line.at)) : null;
+  useEffect(() => {
+    if (oldestPinnedAt === null) return undefined;
+    return subscribeChatClock((clockNow) => {
+      if (isOldChatMessage(oldestPinnedAt, clockNow)) setNow(clockNow);
+    });
+  }, [oldestPinnedAt]);
   // re-render when the oldest floating line expires
   useEffect(() => {
     if (!feed.length) return undefined;
@@ -472,7 +482,7 @@ export function GameChat({ open, onToggle, disabled = false }) {
       ${feed.map((l) => html`<${Line} key=${l.seq} l=${l} myId=${myId} cls="gchat__pop" style=${`--pop-age:${Math.max(0, now - l.rx)}ms`} />`)}
     </ol>` : null}
     ${pinned.length ? html`<ol class="gchat__feed" aria-hidden="true">
-      ${pinned.map((l) => html`<${Line} key=${l.seq} l=${l} myId=${myId} cls="gchat__pop is-pinned" />`)}
+      ${pinned.map((l) => html`<${Line} key=${l.seq} l=${l} myId=${myId} cls="gchat__pop is-pinned" showTime=${true} />`)}
     </ol>` : null}
   </div>`;
 }
