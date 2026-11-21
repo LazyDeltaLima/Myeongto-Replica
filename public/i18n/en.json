@@ -1257,6 +1257,7 @@
   "无法发送空消息": "Cannot send an empty message",
   "发送失败": "Failed to send",
   "暂无消息": "No messages yet",
+  "刚刚": "Just now",
   "屏蔽 {name}": "Block {name}",
   "已屏蔽 {name}（{n} 条）": "Blocked {name} ({n} lines)",
   "解除屏蔽": "Unblock",
