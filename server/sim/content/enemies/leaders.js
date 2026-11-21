@@ -4,8 +4,8 @@
 import { TICK, COLS, ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import { aggroCmp, areaSelectable } from '../../targeting.js';
 import {
-  nthOf, T, hurt, alliesInTiles, targetsNear, allTargets, areaAllies, areaAlliesInTiles, auraAllies, targetAndArea,
-  byPriority, setForm, auraBuff, watchDeaths, unbalancedNow, shoot, mode, atCastEvent, castStrikeAt,
+  nthOf, T, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, auraAllies, targetAndArea,
+  byPriority, setForm, auraBuff, watchDeaths, unbalancedNow, shoot, mode, atCastEvent, castStrikeAt, stOf,
 } from './helpers.js';
 import {
   unblockable, maxTargets, onHitStatus, splashAttack, pathKeysAhead, noAirTargets, resist, nthAttackStatus, lowHpBuff, lowHpMode,
@@ -475,19 +475,52 @@ function kitLeaderMisc(key, ab, e) {
       // 不眠雪山 …: an Enemy, side 1) is in neither list, so it never gets the ASPD cut, nor DamageUp's ×2.5 (CheckContainsBuff
       // [g]rogue_3_blackfog). The selector's _targetMotion 1 picks tiles and filters no one. Until 2026-11-21 the flying
       // 炎佑 got both.
+      // The 国度 stays where it passed (checked in the official client): TryAddBindingTiles only adds tiles to the battle's one
+      // static list (s_targetTiles, shared by every 邪魔的利刃 — one global buff per key), and nothing in this mode removes
+      // the global buff (OnRemoved runs only on RemoveGlobalBuff, called by other modes' systems) or a character's buff
+      // ([g]rogue_3_blackfog: INFINITY) — only an enemy-side unit leaving the tiles loses it on the 0.3 s tick. So an ally
+      // keeps the ASPD cut until it falls, a redeploy onto a fogged tile gets it again, also after the boss is gone, and
+      // DamageUp's ×2.5 (CheckContainsBuff on the target) hits a holder wherever the boss is. Until 2026-11-21 the kit
+      // covered only the 3×3 it stood on.
       const inFog = (u) => !ENEMY_RECORD.test(u.defId ?? '');
+      const giveFog = (b, u, aspd) => { if (!u.hidden && u.kind !== 'device' && inFog(u)) b.addBuff(u, { key: 'ab:blackFog', refresh: 'keep', mods: { aspd }, visible: true }); };
+      const fogOf = (b) => {
+        const st = stOf(b);
+        if (st.blackFog) return st.blackFog;
+        // the global buff is made once, with the first boss's ability values
+        const fog = st.blackFog = { tiles: new Set(), aspd: T(ab, 'BlackFog.attack_speed') ?? 0 };
+        // a character deployed later gets it by its root tile (AbstractBindingTileGlobalBuff.VerifyUnitTile); a move is no new unit
+        b.on('deploy', ({ unit, move }) => {
+          if (!move && unit.side === 'ally' && unit.alive && fog.tiles.has(unit.tileR * COLS + unit.tileC)) giveFog(b, unit, fog.aspd);
+        }, { priority: 50 });
+        return fog;
+      };
       return [{
         iv: 0.5,
         tick(b, e2, a) {
           const r = Math.round(e2.y), cc = Math.round(e2.x);
-          // enemy_smgrd_t_blackfog (ON_OWNER_ROOT_TILE_CHANGED): the 国度 moves with it, PlayAudio smgrd_t_blackfog (audio)
-          if (a.tile != null && a.tile !== `${r},${cc}`) b.fx('kitHit', { x: e2.x, y: e2.y, id: e2.id, k: 'smgrd:fog' });
-          a.tile = `${r},${cc}`;
-          for (const u of alliesInTiles(b, r, cc, 'box', 1)) if (inFog(u)) auraBuff(b, u, 'ab:blackFog', 0.5, { aspd: T(ab, 'BlackFog.attack_speed') ?? 0 }, null, true);
+          if (a.r === r && a.c === cc) return;
+          // enemy_smgrd_t_blackfog (ON_OWNER_ROOT_TILE_CHANGED): the 国度 grows by the 3×3 around the new tile, PlayAudio smgrd_t_blackfog (audio)
+          if (a.r != null) b.fx('kitHit', { x: e2.x, y: e2.y, id: e2.id, k: 'smgrd:fog' });
+          a.r = r; a.c = cc;
+          const fog = fogOf(b);
+          // FilterTile: a buildable tile (_buildableType 3) not in the list yet; the buff goes to the character on each new tile
+          let added = null;
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              const tr = r + dr, tc = cc + dc;
+              if (!b.grid.inBounds(tr, tc) || b.grid.tile(tr, tc).build === 'NONE') continue;
+              const k = tr * COLS + tc;
+              if (fog.tiles.has(k)) continue;
+              fog.tiles.add(k);
+              (added ??= new Set()).add(k);
+            }
+          }
+          if (added) for (const u of b.allies()) if (added.has(u.tileR * COLS + u.tileC)) giveFog(b, u, fog.aspd);
         },
         hitOut(c, b, e2) {
           const t = c.target;
-          const fog = t.side === 'ally' && inFog(t) && Math.max(Math.abs(t.tileR - Math.round(e2.y)), Math.abs(t.tileC - Math.round(e2.x))) <= 1;
+          const fog = t.side === 'ally' && !!t.findBuff('ab:blackFog');
           if (c.dmg.isAttack && fog) c.dmg.amount *= T(ab, 'DamageUp.atk_scale') ?? 1;
           // enemy_smgrd_damage_up (ON_CALCULATE_DAMAGE): PlayAudio on the target — smgrd_damage_up inside the 国度, else smgrd_damage
           if (c.dmg.isAttack) b.fx('kitHit', { x: t.x, y: t.y, id: e2.id, k: fog ? 'smgrd:up' : 'smgrd:hit' });

@@ -22,7 +22,7 @@ export const TILE_SELECTORS = Object.freeze({
   'trap_196_cnnon Modes/Default/Body/Talents/EnemyCannon11D': { sim: 'none', why: 'ENEMY_WITH_BUFF: the main story boss\'s mark, as EnemyCannon01' },
   'trap_196_cnnon Modes/Default/Body/Talents/SelectBossTarget': { sim: 'none', why: 'ENEMY_WITH_BUFF: the main story boss\'s mark, as EnemyCannon01' },
   // “邪魔的利刃”'s 国度: the 3×3 of tiles round its own tile, whoever stands there
-  'enemy_2048_smgrd Talents/BlackFog': { sim: 'tile', where: 'server/sim/content/enemies/leaders.js', key: 'alliesInTiles', test: ['test/content/enemies_bosses.test.js', 'covers the 8 tiles around it'] },
+  'enemy_2048_smgrd Talents/BlackFog': { sim: 'tile', where: 'server/sim/content/enemies/leaders.js', key: 'fog.tiles.add', test: ['test/content/enemies_bosses.test.js', 'covers the 8 tiles around it'] },
   // “萨米的意志”'s 冰凌: SmdeerTileSelector — the top tile of its target's column, then down the column
   'enemy_9033_acdeer Modes/Default/Body/Attack': { sim: 'tile', where: 'server/sim/content/bosses.js', key: 'SmdeerTileSelector', test: ['test/content/enemies_bosses.test.js', 'runs down the column from the top row'] },
   // 假想敌：械's 【洪流攻势】: the sim takes the operator with the highest block count, its four sides' tiles

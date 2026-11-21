@@ -2887,6 +2887,39 @@ test(`${nm('enemy_2048_smgrd')}: 【国度】 skips 炎佑 (an enemy-record unit
   approx(hitOut(h.unit('t_wall')), 100 * tb('enemy_2048_smgrd', 'DamageUp.atk_scale'));
 });
 
+test(`${nm('enemy_2048_smgrd')}: 【国度】 stays on every tile it passed — the ASPD cut and ×${tb('enemy_2048_smgrd', 'DamageUp.atk_scale')} stay with the ally after the boss walks on, a redeploy there gets them again, also after the boss is gone`, () => {
+  // official: TryAddBindingTiles only adds to the battle's tile list and nothing in this mode removes the global buff or a
+  // character's [g]rogue_3_blackfog (docs/rules/sim.md 「적 비행 유닛 공격 전수 조사」, '데몬의 칼날')
+  const cut = 100 + tb('enemy_2048_smgrd', 'BlackFog.attack_speed');
+  const h = arena({ units: [{ chessId: 't_wall', row: 11, col: 8 }, { chessId: 't_wall2', row: 12, col: 4 }] });
+  h.step();
+  const e = put(h, 'enemy_2048_smgrd', [10, 8], { move: true });
+  e.profile.noAttack = true;
+  h.run(0.6);
+  assert.equal(h.unit('t_wall').s.aspd, cut, 'on the first 3×3');
+  const r0 = Math.round(e.y), c0 = Math.round(e.x);
+  h.runUntil(() => Math.max(Math.abs(Math.round(e.y) - 11), Math.abs(Math.round(e.x) - 8)) >= 3, 30);
+  assert.ok(Math.max(Math.abs(Math.round(e.y) - 11), Math.abs(Math.round(e.x) - 8)) >= 3 && (Math.round(e.y) !== r0 || Math.round(e.x) !== c0), 'the boss walked on, 3+ tiles from the ally');
+  h.run(0.6);
+  const w = h.unit('t_wall');
+  assert.equal(w.s.aspd, cut, 'the 国度 stays where it passed');
+  const hitOut = (t) => {
+    const c = { target: t, source: e, dmg: { isAttack: true, amount: 100 } };
+    for (const a of e.mem.ab.list) a.hitOut?.call(a, c, h.b, e, a, e.mem.ab);
+    return c.dmg.amount;
+  };
+  approx(hitOut(w), 100 * tb('enemy_2048_smgrd', 'DamageUp.atk_scale')); // ×DamageUp wherever the boss is
+  assert.equal(hitOut(h.unit('t_wall2')), 100, 'an ally the 国度 never covered');
+  assert.equal(h.unit('t_wall2').s.aspd, 100);
+  // the boss gone, a fallen ally redeploys onto its fogged tile and takes the buff again
+  h.b.kill(e, null);
+  h.b.kill(w, null);
+  assert.ok(!w.findBuff('ab:blackFog'), 'a fallen ally loses it');
+  h.runUntil(() => h.unit('t_wall')?.alive, 60);
+  h.run(0.1);
+  assert.equal(h.unit('t_wall').s.aspd, cut, 'redeployed on a fogged tile');
+});
+
 test(`${nm('enemy_2050_smsha')}: 【反自然馈赠】 chains over ${skb('enemy_2050_smsha', 'ChainBuff').bb['chain.max_target']} enemies (move ×${1 + skb('enemy_2050_smsha', 'ChainBuff').bb.move_speed}, ASPD +${skb('enemy_2050_smsha', 'ChainBuff').bb.attack_speed}); silence stops it`, () => {
   const run = (silenced) => {
     const h = arena();
