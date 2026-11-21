@@ -869,3 +869,33 @@ test('buildPlan cardOperators: a card-only operator gets its avatar and portrait
   assert.equal(t.chars[id].portrait.alts[0].rel, `char/portrait/${id}_1.png`);
   assert.ok(!JSON.stringify(t.audio).includes(id), 'no voice of a card-only operator (tools/assets/plan.mjs voice loop)');
 });
+
+// 阿米娅's other forms keep charId char_002_amiya in charword_table and name the form only as the word key
+// (char_1037_amiya3: 卫戍协议 规定's 阿米娅 (医疗)); the client asks the voice by the body it draws (chess `assets.spine`),
+// so the lines are keyed by their word key (docs/rules/audio.md 「오퍼레이터 음성」 「형태의 음성」).
+test('indexVoice keys a line by its word key: an operator form that keeps another charId speaks its own lines', async () => {
+  const { indexVoice } = await import('../tools/assets/audio.mjs');
+  const w = (charId, wordKey, voiceId) => ({ charId, wordKey, placeType: 'BATTLE_START', voiceId, voiceIndex: 0, voiceAsset: `${wordKey}/${voiceId}` });
+  const idx = indexVoice({ charWords: { a: w('char_002_amiya', 'char_002_amiya', 'CN_019'), b: w('char_002_amiya', 'char_1037_amiya3', 'CN_019') } });
+  assert.deepEqual(idx.get('char_1037_amiya3'), { start: ['char_1037_amiya3/CN_019'] },
+    'the form\'s lines are lost: indexVoice must key by wordKey (docs/rules/audio.md 「오퍼레이터 음성」)');
+  assert.deepEqual(idx.get('char_002_amiya'), { start: ['char_002_amiya/CN_019'] }, 'the operator\'s own lines stay its own');
+});
+
+test('every operator body a season fields with official battle lines has a voice entry', { skip: !existsSync(join(ROOT, '.cache/gamedata/excel/charword_table.json')) && 'no charword_table in .cache/gamedata' }, () => {
+  const charword = JSON.parse(readFileSync(join(ROOT, '.cache/gamedata/excel/charword_table.json'), 'utf8'));
+  const manifest = JSON.parse(readFileSync(join(ROOT, 'data/assets.json'), 'utf8'));
+  const spoken = new Set(Object.values(charword.charWords || {}).map((e) => e && e.wordKey));
+  const ids = new Set(Object.keys(JSON.parse(readFileSync(join(ROOT, 'data/backups.json'), 'utf8')).units || {}));
+  const seasons = join(ROOT, 'data/seasons');
+  for (const f of ['data/chess.json', ...readdirSync(seasons).map((s) => `data/seasons/${s}/chess.json`)]) {
+    if (!existsSync(join(ROOT, f))) continue;
+    const j = JSON.parse(readFileSync(join(ROOT, f), 'utf8'));
+    for (const c of Object.values(j.chess || j)) if (c && typeof c.assets?.spine === 'string') ids.add(c.assets.spine);
+  }
+  const fielded = [...ids].filter((id) => spoken.has(id));
+  assert.ok(fielded.includes('char_1037_amiya3'), '阿米娅 (医疗) char_1037_amiya3 is not swept: the sweep ran on the wrong ids');
+  const silent = fielded.filter((id) => !manifest.audio.voice?.[id] && !manifest.audio.voiceJp?.[id]);
+  assert.deepEqual(silent, [], 'fielded operators without a voice entry: indexVoice keys by wordKey, then run tools/fetch-assets.mjs '
+    + '(docs/rules/audio.md 「오퍼레이터 음성」)');
+});

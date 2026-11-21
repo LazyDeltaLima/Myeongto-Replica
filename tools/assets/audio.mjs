@@ -447,13 +447,16 @@ export const VOICE_PREP_SLOTS = Object.freeze(['gacha', 'squad', 'squadFirst']);
 
 /**
  * Index charword_table.json into per-character voice slots, in voiceIndex order (one slot may have several lines).
- * Only the base word key (`wordKey === charId`) is used: the voice assets have no folder for a skin variant's word key
- * (`char_x_ita`, `char_x_epoque#28`, …) — those files simply do not exist upstream.
+ * The lines are keyed by their word key, the body that speaks them (the voiceAsset folder): an operator's own lines carry
+ * `wordKey === charId`, and 阿米娅's other forms keep charId char_002_amiya with the form as the word key
+ * (`char_1037_amiya3`, `char_1001_amiya2`) — the id the client asks the voice by (a chess record's `assets.spine`). A skin
+ * variant's or a dialect's word key (`char_x_epoque#28`, `char_x_CN_TOPOLECT`, …) has no folder in the voice assets and is
+ * no body this game fields: the plan keeps only the keys of `chars` (tools/assets/plan.mjs voice loop).
  * @param {any} charword parsed excel/charword_table.json
  * @param {string} [lang] voiceId prefix — the zh_CN table carries the `CN_*` lines; the other dubs share the numbering
  * @param {Iterable<string>|null} [only] slot names to keep; null/omitted keeps every slot (VOICE_BATTLE_SLOTS is what
  *   the plan uses by default, so a battle's own lines are planned and the prep-only ones are not)
- * @returns {Map<string, Record<string, string[]>>} charId → slot → voiceAsset ('char_263_skadi/CN_023')
+ * @returns {Map<string, Record<string, string[]>>} word key → slot → voiceAsset ('char_263_skadi/CN_023')
  */
 export function indexVoice(charword, lang = 'CN', only = null) {
   const keep = only ? new Set(only) : null;
@@ -464,9 +467,8 @@ export function indexVoice(charword, lang = 'CN', only = null) {
   const seen = new Map();
   for (const e of Object.values(words)) {
     if (!e || typeof e !== 'object') continue;
-    const charId = e.charId, slot = VOICE_SLOTS[e.placeType], vid = e.voiceId;
+    const charId = typeof e.wordKey === 'string' && e.wordKey ? e.wordKey : e.charId, slot = VOICE_SLOTS[e.placeType], vid = e.voiceId;
     if (!charId || !slot || (keep && !keep.has(slot)) || typeof vid !== 'string' || !vid.startsWith(`${lang}_`)) continue;
-    if (e.wordKey !== charId) continue;
     if (typeof e.voiceAsset !== 'string' || !e.voiceAsset) continue;
     if (!seen.has(charId)) seen.set(charId, new Map());
     const slots = seen.get(charId);

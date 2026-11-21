@@ -16,6 +16,13 @@
   모두 일본어로 낸다(관리자 결정 2026-11-13). 오퍼레이터 단위로만 바꾸고 한 오퍼레이터 안에서 두 언어를 섞지 않는다(`voice.js voiceTableOf`).
   미리 받기도 그 오퍼레이터의 일본어 파일을 함께 받는다(`voice.js wantedFiles` — 목록에서 한국어 폴더가 없는 오퍼레이터). 2026-11-13 기준 9명
   (토가와 사키코·메커니스트·안젤리나 더 멜로우 위시·유키 마코토·클레멘티아·홈바운드·탈룰라·토스카·Miss.Christine).
+  **형태의 음성**(2026-11-21 관리자 제보 「아미야 음성이 기본·스킨 모두 안 나옴」): 공식 대사 표 `charword_table`은 아미야의 세 형태를 모두
+  `charId: char_002_amiya` 아래 두고 형태는 `wordKey`(`char_1037_amiya3`·`char_1001_amiya2`)와 음성 폴더로만 가른다. `tools/assets/audio.mjs indexVoice`가
+  `wordKey === charId`인 줄만 charId로 묶어서 규정 시즌의 아미야(의료)는 음성 항목이 없었고(캐스터 줄은 `char_002_amiya`로 묶였으나 이 모드에 안 나와 빠짐),
+  화면은 그리는 몸(`assets.spine`, `char_1037_amiya3`)으로 찾으니 조용했다. 이제 줄을 `wordKey`로 묶는다. 스킨·사투리의 word key(`#`·`_CN_TOPOLECT`)는 음성
+  폴더도 없고 이 모드의 몸도 아니라 계획(`plan.mjs`의 `chars` 조건)에서 지금처럼 빠진다 — 2026-11-21 데이터에서 새로 들어온 것은 `char_1037_amiya3`
+  하나(한국어·일본어 각 14줄). 스킨 「寰宇独奏」은 전용 대사가 없어 의료 형태의 기본 대사를 낸다. 재발 방지: `test/assets.test.js` 「indexVoice keys a
+  line by its word key」·「every operator body a season fields with official battle lines has a voice entry」(되돌려 봄).
 - 로컬 2 — 정비 단계 대사(원본은 휴식기 무음): 말을 **탭(선택)하면** 선택(`select`) — 이미 선택된 말을 다시 탭해도 난다(관리자 제보 2026-10-08,
   실제 게임). **배치하려고 드래그할 때는 대사 없음**, **상점 구매·정예화 보상·특수 제안으로 얻을 때도 배치 대사 없음**
   (배치 효과음만 — 관리자가 2026-10-08 卫戍协议 영상으로 확인; `voiceForBuy` 삭제). 전투 중 유닛 탭도 매번
