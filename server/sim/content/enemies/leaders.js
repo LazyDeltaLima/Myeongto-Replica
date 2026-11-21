@@ -1,7 +1,7 @@
 // server/sim/content/enemies/leaders.js — bounty (悬赏) leader kits — the single-form ones (kitLeaderMisc) and the
 // multi-form ones (reborn second forms, 转译基底·α, 乌顶巨角卢鲁) — and their part of KITS (split from content/enemies.js).
 
-import { TICK, COLS } from '../../constants.js';
+import { TICK, COLS, ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import { aggroCmp, areaSelectable } from '../../targeting.js';
 import {
   nthOf, T, hurt, alliesInTiles, targetsNear, allTargets, areaAllies, areaAlliesInTiles, auraAllies, targetAndArea,
@@ -46,14 +46,35 @@ const RUSH_RADIUS = 3;
 /** W's C4 targets below half HP: its mode T1's skill selector `_maxNum` (공식 클라에서 확인 2026-11-14). */
 const C4_LOW_TARGETS = 3;
 
-/** 鼠王 【唱沙】 cross reach and 【沙狱】 "及其周围" radius [ASSUMED]. */
-const DRIFT_REACH = 1, SANDSTORM_RADIUS = 1;
+/**
+ * 鼠王 【唱沙】 / 【沙狱】 and “自在” 【纬地经天】 hit areas — their projectiles' BoxCollider2D (공식 클라에서 확인 2026-11-21,
+ * battle/prefabs/[uc]projectiles: projectile_mousek_s1 `Range` 1 × 7 and 7 × 1, projectile_mousek_s2 3 × 3, projectile_enemy_xi_s
+ * `TileSelector` 1 × 5 and 5 × 1), as half sizes [hw, hh] about the projectile. Until 2026-11-21 the 【唱沙】 cross reached 1
+ * tile and the 【沙狱】 area was a radius 1 [ASSUMED]; the 【纬地经天】 reach 2 was assumed too and is the prefab's.
+ */
+const DRIFT_REACH = 3, XI_CROSS_REACH = 2;
+const crossBoxes = (n) => Object.freeze([[0.5, n + 0.5], [n + 0.5, 0.5]]);
+const DRIFT_BOXES = crossBoxes(DRIFT_REACH), XI_CROSS_BOXES = crossBoxes(XI_CROSS_REACH), SANDSTORM_BOXES = Object.freeze([[1.5, 1.5]]);
+
+/** 【沙狱】's projectile hits every `_interval` s from its arrival (SelectorHitBehaviour, `_waitFirstPeriod` off) until its life ends. */
+const SANDSTORM_EVERY = 1;
+
+/**
+ * The allies an area hit of `src` takes whose collider (ALLY_COLLIDER_RADIUS) meets one of `boxes` about (x, y): a projectile's
+ * PhysicsRange of BoxCollider2D, ground and air (`targetMotion` 3), 迷彩 ones too (areaSelectable).
+ */
+function alliesInBoxes(b, src, x, y, boxes) {
+  const r2 = ALLY_COLLIDER_RADIUS * ALLY_COLLIDER_RADIUS + 1e-9;
+  const meets = (u) => boxes.some(([hw, hh]) => {
+    const dx = Math.max(0, Math.abs(u.x - x) - hw), dy = Math.max(0, Math.abs(u.y - y) - hh);
+    return dx * dx + dy * dy <= r2;
+  });
+  const reach = Math.max(...boxes.map(([hw, hh]) => hypot(hw, hh))) + ALLY_COLLIDER_RADIUS;
+  return areaAllies(b, src, x, y, reach).filter(meets);
+}
 
 /** “巨大的丑东西” self-destruct radius (PRTS 天赋 "对半径3.0范围内所有我方单位…"; 2.5 [ASSUMED] until 0.1.3). */
 const MCM_BOMB_RADIUS = 3;
-
-/** 自在 【纬地经天】: tiles covered along the row and the column of the centre ("十字型") [ASSUMED]. */
-const XI_CROSS_REACH = 2;
 
 /** 扎罗 (PRTS 扎罗，“狼之主” 天赋; no numbers in the data): form-2 attack radius ("进行远程攻击，普通攻击为2连击，攻击范围半径1.25"),
  *  【远古威慑】 aura radius / ASPD ("自身1.5半径范围内的我方单位攻击速度-50(指定状况下生效)" — during the 重生 and in the second form).
@@ -191,21 +212,31 @@ function kitLeaderMisc(key, ab, e) {
       return [bar, lowHpBuff(T(ab, 'enrage.hp_ratio') ?? 0.5, { dmgDealtMul: T(ab, 'enrage.damage_scale') ?? 1 }, 'ab:lowhp', 'buff:mousek_t'),
         // Both RangedAttacks take their unit as the cast begins (`_selectTargetSource` 3 — round the input point, the unit their
         // trigger took — at `_selectTargetTiming` 0) and shoot at the spell: at that unit while it is alive on the field, else at
-        // the point (`_emitToInputPosWhenTargetIsInvalid`). Until 2026-11-20 the unit was taken again at the spell.
-        // 【唱沙】 the highest-max-HP unit on the field and everything in its cross: physical `damage`
+        // the point (`_emitToInputPosWhenTargetIsInvalid`). Until 2026-11-20 the unit was taken again at the spell. Both
+        // projectiles are an AttachToTarget put on that unit (or point) as they leave and reached the next tick (data
+        // skills[].proj ATTACH, `land` 0): the spell frame is when they hit — no flight to wait for.
+        // 【唱沙】 the highest-max-HP unit on the field and everything in its cross: physical `damage` (the ability's active buff
+        // mouse_s_1, instant_damage_physical[splash]) — projectile_mousek_s1's HitBehaviour as it arrives
+        // (`_onlyCheckHitWhenReachTarget`, `_ignoreCamouflage`, no 无视无法选择: an area selection) over its two boxes
         skill(ds, (b, e2, a) => {
           const t = allTargets(b, e2).sort((p, q) => q.s.maxHp - p.s.maxHp || aggroCmp(p, q))[0];
-          a.at = t ? { t, r: t.tileR, c: t.tileC } : null;
+          a.at = t ? { t, x: t.x, y: t.y, r: t.tileR, c: t.tileC } : null;
         }, { cond: (b, e2) => allTargets(b, e2).length > 0, atStrike: (b, e2, a) => {
           const at0 = a.at;
           a.at = null;
           if (!at0) return;
-          const at = at0.t.alive && at0.t.deployed ? { r: at0.t.tileR, c: at0.t.tileC } : at0;
+          const on = at0.t.alive && at0.t.deployed;
+          const at = on ? { x: at0.t.x, y: at0.t.y, r: at0.t.tileR, c: at0.t.tileC } : at0;
           b.fx('telegraph', { x: at.c, y: at.r, r: DRIFT_REACH, kind: 'driftSand', tiles: 'plus', id: e2.id });
-          // the cross ("伤害无视迷彩", no 无视无法选择): an area selection
-          for (const u of areaAlliesInTiles(b, e2, at.r, at.c, 'plus', DRIFT_REACH)) hurt(b, e2, u, ds.bb.damage ?? 0, 'phys');
+          for (const u of alliesInBoxes(b, e2, at.x, at.y, DRIFT_BOXES)) hurt(b, e2, u, ds.bb.damage ?? 0, 'phys');
         } }),
-        // 【沙狱】 the lowest-max-HP unit and those around it: ATK −`atk` and `damage` arts per second for `duration` s
+        // 【沙狱】 the lowest-max-HP unit and those around it: projectile_mousek_s2 stays where it was put (no `_followTarget`)
+        // for its `_lifeTime` (data proj.life, 15 s) and, from its arrival, every SANDSTORM_EVERY s hits every ally in its
+        // 3 × 3 box (SelectorHitBehaviour; its AdvancedSelector `_limitTargetNum` off — no cap; `_keepAlreadyHitTime` 1 =
+        // the period) with the ability's active buffs: `damage` arts at once (mousek_s_2[damage], instant_damage_magic[buff])
+        // and ATK `atk` for `duration` s (mousek_s_2[debuff], UNIQUE: not renewed while it holds). It goes on after 鼠王 falls
+        // (`_stopWhenSourceInvalid` off). Until 2026-11-21 the units in a radius 1 at the spell took a `duration` s debuff with
+        // `damage` each second, and no one else.
         skill(ss, (b, e2, a) => {
           const t = allTargets(b, e2).sort((p, q) => p.s.maxHp - q.s.maxHp || aggroCmp(p, q))[0];
           a.at = t ? { t, x: t.x, y: t.y } : null;
@@ -214,14 +245,18 @@ function kitLeaderMisc(key, ab, e) {
           a.at = null;
           if (!at0) return;
           const at = at0.t.alive && at0.t.deployed ? at0.t : at0;
-          const dur = ss.bb.duration ?? 0, x = at.x, y = at.y;
-          b.fx('zone', { x, y, r: SANDSTORM_RADIUS, dur, kind: 'sandStorm', id: e2.id });
+          const dur = ss.bb.duration ?? 0, life = ss.proj?.life ?? dur, x = at.x, y = at.y;
+          b.fx('zone', { x, y, r: SANDSTORM_BOXES[0][0], dur: life, kind: 'sandStorm', id: e2.id });
           // the 沙狱弹道 "击中…范围内的所有我方单位（弹道可对空）" selects: an airborne 起飞 ally and an unblocking 隐匿 one
           // are skipped (no 无视无法选择 — areaAllies)
-          for (const u of areaAllies(b, e2, x, y, SANDSTORM_RADIUS)) {
-            b.addBuff(u, { key: 'ab:sandStorm', duration: dur, refresh: 'replace', interval: 1, visible: true, mods: { atkPct: ss.bb.atk ?? 0 },
-              onTick: ({ battle, unit }) => battle.dealDamage(e2, unit, { amount: ss.bb.damage ?? 0, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'sandStorm'] }) });
-          }
+          const hit = () => {
+            for (const u of alliesInBoxes(b, e2, x, y, SANDSTORM_BOXES)) {
+              b.dealDamage(e2, u, { amount: ss.bb.damage ?? 0, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'sandStorm'] });
+              if (u.alive && !u.findBuff('ab:sandStorm')) b.addBuff(u, { key: 'ab:sandStorm', duration: dur, visible: true, mods: { atkPct: ss.bb.atk ?? 0 } });
+            }
+          };
+          hit();
+          for (let i = 1; i * SANDSTORM_EVERY < life - 1e-9; i++) b.after(i * SANDSTORM_EVERY, hit);
         } }),
       ];
     }
@@ -617,12 +652,13 @@ function kitXi(ab) {
   const cross = ab.sk.CrossAttack, sb = ab.sk.ShieldBurst, sb2 = ab.sk.ShieldBurstReborn;
   const P = { form2: false };
   const byDist = (b, e) => allTargets(b, e).sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || aggroCmp(p, q));
-  const crossAt = (b, e, { t, r, c }) => {
-    const on = t.alive && t.deployed;
-    const r0 = on ? t.tileR : r, c0 = on ? t.tileC : c;
-    b.fx('telegraph', { x: c0, y: r0, r: XI_CROSS_REACH, kind: 'xiCross', tiles: 'plus', id: e.id });
-    // "伤害无视迷彩", no 无视无法选择: the cross is an area selection
-    for (const u of areaAlliesInTiles(b, e, r0, c0, 'plus', XI_CROSS_REACH)) if (u.tileR === r0 || u.tileC === c0) hurt(b, e, u, e.s.atk * ((cross && cross.bb.atk_scale) ?? 1), 'arts');
+  // the bolt (projectile_enemy_xi_s, AttachToTarget `_immediatelyReach`: it hits as it leaves) strikes its HitBehaviour's range —
+  // the TileSelector's two boxes about it ("伤害无视迷彩" `_ignoreCamouflage`, no 无视无法选择: an area selection)
+  const crossAt = (b, e, p) => {
+    const on = p.t.alive && p.t.deployed;
+    const at = on ? { x: p.t.x, y: p.t.y, r: p.t.tileR, c: p.t.tileC } : p;
+    b.fx('telegraph', { x: at.c, y: at.r, r: XI_CROSS_REACH, kind: 'xiCross', tiles: 'plus', id: e.id });
+    for (const u of alliesInBoxes(b, e, at.x, at.y, XI_CROSS_BOXES)) hurt(b, e, u, e.s.atk * ((cross && cross.bb.atk_scale) ?? 1), 'arts');
   };
   const burst = (s) => (b, e) => {
     const dur = s.bb.duration ?? 0, r = s.bb.range_radius ?? 0;
@@ -676,7 +712,7 @@ function kitXi(ab) {
     // (`_emitToInputPosWhenTargetIsInvalid`); until 2026-11-20 taken again at the spell
     skill(cross, (b, e, a) => {
       const l = byDist(b, e);
-      const at = (t) => ({ t, r: t.tileR, c: t.tileC });
+      const at = (t) => ({ t, x: t.x, y: t.y, r: t.tileR, c: t.tileC });
       a.picks = !l.length ? [] : P.form2 && l.length > 1 ? [at(l[0]), at(l[l.length - 1])] : [at(l[0])];   // 额外对最远目标释放
     }, { cond: (b, e) => allTargets(b, e).length > 0, atStrike: (b, e, a) => {
       const l = a.picks || [];

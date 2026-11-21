@@ -356,7 +356,8 @@ area selections skip it too (below); not selections, so they still reach it (`ig
 burst spread), direct picks (碎铳之簧's 法术护盾 counter and 重装侦察兵's 暴露 on their attacker — PRTS 异常效果
 "'直接选中'的能力…不受这些仅在选择时生效的异常效果制约"), the blasts of flying units credited to the ground 胄 (刺胄之弹,
 斩胄之剑 / 破胄之锤 — whose 掷剑 / 掷锤 pick "（无视无法选择）") and the ticks of a debuff a ground enemy put on it before it
-took off (出血, 沙狱, burning DoTs, 淤困, 【自然涌动】 — a tick selects nobody); the buff auras of ground enemies and the
+took off (出血, burning DoTs, 淤困, 【自然涌动】 — a tick selects nobody; 鼠王's 沙狱 damage is its zone's hit every second, a
+selection, so it skips it); the buff auras of ground enemies and the
 sourceless 毒雾 of 假想敌：蚀裂 still reach it [ASSUMED]; a ground enemy's area skill whose cast depends on allies nearby counts only the targets of its trigger
 selection — 卢西恩's 【aoe】 ("需要目标"), 锏's CircleAttack (`targetsNear`, PRTS 选择器 "所有触发选择器通常不无视迷彩");
 a stealthed ally (隐匿, 排气格栅) only for the enemy it blocks — our operators keep 隐匿 while blocking (PRTS 作战机制

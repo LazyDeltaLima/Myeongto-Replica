@@ -2487,23 +2487,37 @@ test(`${nm('enemy_1509_mousek')}: opening arts-only barrier (${tb('enemy_1509_mo
 });
 
 test(`${nm('enemy_1509_mousek')}: 【唱沙】 ${skb('enemy_1509_mousek', 'DriftSand').bb.damage} physical on the highest-max-HP unit's cross; 【沙狱】 ATK ${skb('enemy_1509_mousek', 'SandStorm').bb.atk * 100} % and ${skb('enemy_1509_mousek', 'SandStorm').bb.damage} arts/s on the lowest-max-HP unit and those around it`, () => {
+  // their projectiles (공식 클라에서 확인 — [uc]projectiles): 【唱沙】 a 1 × 7 + 7 × 1 cross on its unit, hit as it lands (an
+  // AttachToTarget: at the spell); 【沙狱】 a 3 × 3 box that stays its 15 s life and hits whoever is in it every second from
+  // the spell — `damage` arts each time, ATK `atk` for `duration` s not renewed while it holds (docs/rules/sim.md 「래트킹·'즈자이'의 투사체」)
   const big = WALL('t_wall', { stats: { maxHp: 2e7 } });
   const small = WALL('t_wall3', { stats: { maxHp: 5e6 }, atk: 100 });
-  const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 4 }, { chessId: 't_wall2', row: 10, col: 5 }, { chessId: 't_wall3', row: 12, col: 8 }, { chessId: 't_wall4', row: 11, col: 4 }],
-    chess: { t_wall: big, t_wall3: small } });
+  const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 4 }, { chessId: 't_wall2', row: 10, col: 5 }, { chessId: 't_wall3', row: 12, col: 8 }, { chessId: 't_wall4', row: 11, col: 4 },
+    { chessId: 't_gun', row: 10, col: 7 }, { chessId: 't_mage', row: 10, col: 8 }],
+    chess: { t_wall: big, t_wall3: small, t_gun: WALL('t_gun'), t_mage: WALL('t_mage') }, kits: { t_gun: NOATK, t_mage: NOATK } });
   h.step();
   const e = put(h, 'enemy_1509_mousek', [9, 9]);
   e.profile.noAttack = true;
   const ds = skb('enemy_1509_mousek', 'DriftSand'), ss = skb('enemy_1509_mousek', 'SandStorm');
+  assert.deepEqual([ds.proj.move, ds.proj.land, ss.proj.move, ss.proj.land, ss.proj.life], ['ATTACH', 0, 'ATTACH', 0, 15], 'both projectiles land at once (the kit hits at the spell)');
   h.run(ds.initCooldown + strikeOf(e, 'DriftSand') + 0.1);   // (at the ability's spell: the clip's attack event)
   approx(h.unit('t_wall').stats.taken, ds.bb.damage, 1e-6, 'target');
   approx(h.unit('t_wall2').stats.taken, ds.bb.damage, 1e-6, 'cross neighbour');
   approx(h.unit('t_wall4').stats.taken, ds.bb.damage, 1e-6, 'cross neighbour');
+  approx(h.unit('t_gun').stats.taken, ds.bb.damage, 1e-6, 'three tiles along the cross');
+  assert.equal(h.unit('t_mage').stats.taken, 0, 'four tiles along: outside the cross');
   assert.equal(h.unit('t_wall3').stats.taken, 0);
-  h.run(ss.initCooldown - h.b.time + strikeOf(e, 'SandStorm') + 1.05);
   const w3 = h.unit('t_wall3');
+  h.run(ss.initCooldown - h.b.time + strikeOf(e, 'SandStorm') + 0.05);
+  const t0 = h.b.time;
   approx(w3.s.atk, 100 * (1 + ss.bb.atk));
-  approx(w3.stats.taken, ss.bb.damage, 1e-6);
+  approx(w3.stats.taken, ss.bb.damage, 1e-6, 'the first hit as it lands');
+  assert.equal(h.unit('t_mage').stats.taken, 0, 'two rows above: outside the box');
+  h.run(1);
+  approx(w3.stats.taken, 2 * ss.bb.damage, 1e-6, 'a second later');
+  h.run(16 - (h.b.time - t0));
+  approx(w3.stats.taken, 15 * ss.bb.damage, 1e-6, 'once a second over its 15 s life');
+  assert.ok(!w3.findBuff('ab:sandStorm'), 'the ATK debuff of its first hit ran out (UNIQUE: the later hits did not renew it)');
   checkInvariants(h.b);
 });
 

@@ -404,9 +404,11 @@ test('F3 review 2: 萨卡兹悖谬暴虐兵长\'s 暴击 splash ("无视无法�
 });
 
 test('F3 review 2: a debuff a ground enemy put on 蒂比 before she took off keeps ticking (no selection); its new attacks still skip her', REAL, () => {
-  // 鼠王 【沙狱】 (centred near 角峰 and her), 逐腐兽's 出血, “庞贝”'s burning DoT: attached on the ground, then S1
+  // 鼠王 【沙狱】 (centred near 角峰 and her), 逐腐兽's 出血, “庞贝”'s burning DoT: attached on the ground, then S1. 【沙狱】's
+  // damage is no tick of its debuff but its projectile's hit every second — a selection, so it skips her once airborne while
+  // the ATK debuff of an earlier hit stays (`selects`; docs/rules/sim.md 「래트킹·'즈자이'의 투사체」)
   const cases = [
-    { key: MOUSEK, pos: [9, 8], buff: 'ab:sandStorm', bait: true, fire: (h, m) => { m.mem.ab.list.find((a) => a && a.cd === m.mem.ab.sk.SandStorm.cd && a.fire).left = 0.05; } },
+    { key: MOUSEK, pos: [9, 8], buff: 'ab:sandStorm', bait: true, selects: true, fire: (h, m) => { m.mem.ab.list.find((a) => a && a.cd === m.mem.ab.sk.SandStorm.cd && a.fire).left = 0.05; } },
     { key: NHSTLK, pos: [9, 5.3], buff: 'ab:bleed' },
     { key: LSLIME, pos: [9, 7], buff: 'ab:burnDot' },
   ];
@@ -429,7 +431,8 @@ test('F3 review 2: a debuff a ground enemy put on 蒂比 before she took off kee
     h.run(4);
     assert.ok(u.s.flags.liftoff && u.findBuff(k.buff), `${k.key}: still airborne with the debuff`);
     const air = h.hooksOf('damaged').filter((c) => c.target === u && c.source === e && tAt(c) > up + 1e-6);
-    assert.ok(air.filter((c) => !c.dmg.isAttack).length >= 3, `${k.key}: its ticks land while airborne: ${air.length}`);
+    if (k.selects) assert.equal(air.filter((c) => !c.dmg.isAttack).length, 0, `${k.key}: its hits skip her while airborne`);
+    else assert.ok(air.filter((c) => !c.dmg.isAttack).length >= 3, `${k.key}: its ticks land while airborne: ${air.length}`);
     assert.deepEqual(air.filter((c) => c.dmg.isAttack).map((c) => Math.round(c.amount)), [], `${k.key}: no new attack on her`);
     done(h);
   }

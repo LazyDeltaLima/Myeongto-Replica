@@ -134,7 +134,7 @@
 | id | 능력 | 클라이언트 선택자 | 투사체 충돌 | PRTS | 원본 | 로컬 |
 |---|---|---|---|---|---|---|
 | `enemy_1509_mousek` 래트킹 | 唱沙(DriftSand) 십자 | Trigger 1 (최대 HP) | `projectile_mousek_s1` 3 | 적 문서 없음 | 중심이 비행 아군일 수 있음 | 중심은 지상 아군만, 십자는 비행도 맞음 |
-| 〃 | 沙狱(SandStorm) | Trigger 1 (최소 HP) | `projectile_mousek_s2` 3 | (원본 인용) 「弹道可对空」 | 〃 | 중심은 지상만, 원 안 비행은 맞음 |
+| 〃 | 沙狱(SandStorm) | Trigger 1 (최소 HP) | `projectile_mousek_s2` 3 | (원본 인용) 「弹道可对空」 | 〃 | 중심은 지상만, 3×3 칸 안 비행은 맞음(아래 「래트킹·'즈자이'의 투사체」) |
 | `enemy_1516_jakill` 제셀톤 1형태 | 铁砂暴 기절(최대 2명) | Trigger 1, 버프 `stun` | 대상 직격(충돌 선택자 없음) | 「对禁锢装置/飞行单位以外的我方单位…晕眩」 | 범위 안 비행도 기절 | 지상만 기절 |
 | `enemy_1517_xi` 즈자이 | 纬地经天 십자 | Selector 1 (가장 가까운) | `projectile_enemy_xi_s` 3 | 「※弹道可击中飞行单位」 | 가장 가까운 비행이 중심 | 중심은 지상만, 십자 줄의 비행은 맞음 |
 | 〃 | 破桎而出 폭발(양 형태) | Selector 1 | 없음 | 「对自身半径3.0范围内的所有非飞行我方单位」 | 비행도 맞음 | 비행 제외 |
@@ -1689,6 +1689,19 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     `ON_BUFF_START`가 공용 능력 `FindCharacter`의 선택자로 그때 고른다 — 키트가 고르는 때(`Launch_Begin` 끝 1.367초 = 시전 끝)와 같아 그대로.
     재발 방지: `test/content/enemy-skill-strike.test.js` 「targets taken as the cast begins」·「the first enemy of the chain」, `test/content/enemies_bosses.test.js`
     「boss skills take their targets as the cast begins」.
+    **래트킹·'즈자이'의 투사체**(2026-11-21, 공식 클라에서 확인 — `[uc]projectiles`의 투사체 프리팹·`BoxCollider2D`, 적 프리팹의 능력 `_activeBuffs`, 버프 템플릿;
+    이전: [모래의 노래] 십자 1칸, [모래 지옥] 주문 때 반지름 1 안 유닛에게만 15초 디버프·초당 피해 [가정이었음]): 래트킹 [모래의 노래]【唱沙】·[모래 지옥]【沙狱】(`projectile_mousek_s1`·`_s2`)과 '즈자이'
+    [경천위지](`projectile_enemy_xi_s`)은 모두 `AttachToTarget`이라 쏠 때 대상(없으면 입력 점) 위에 놓이고 다음 틱에 닿는다(자료 `proj` ATTACH·`land` 0, '즈자이'는
+    `_immediatelyReach`) — 날아가는 시간이 없어 주문 프레임이 곧 타격이다. 맞는 범위는 투사체의 충돌체다(지상·공중 `targetMotion` 3, `_ignoreCamouflage`, 무시할 수 없는 선택 아님 —
+    범위 선택): [모래의 노래] `Range` 1×7·7×1 십자(가운데에서 3칸, 물리 `damage` — `mouse_s_1` `instant_damage_physical[splash]`), [경천위지] `TileSelector` 1×5·5×1(2칸 —
+    이전 값 그대로). [모래 지옥] 투사체는 놓인 자리에 머물러(`_followTarget` 없음) 수명 `_lifeTime` 15초 동안, 닿은 때부터 1초마다(`SelectorHitBehaviour` `_interval` 1,
+    `_waitFirstPeriod` 꺼짐 — 15번) 3×3 상자 안 아군 전부(선택자 `_limitTargetNum` 꺼짐 — `_maxNum` 1은 안 쓰임; `_keepAlreadyHitTime` 1은 주기와 같아 막지 않음:
+    `Projectile.CheckTargetAlreadyHit`는 기록한 시각이 지금보다 뒤일 때만 참)에게 능력의 활성 버프 둘을 건다 — `mousek_s_2[damage]`(`instant_damage_magic[buff]`, 아츠
+    `damage` 한 번)와 `mousek_s_2[debuff]`(공격력 `atk`, `duration` 15초, `overrideType` 2 UNIQUE라 지니는 동안은 새로 걸리지도 갱신되지도 않음). 그래서 뒤에 들어온 유닛도
+    맞고, 나간 유닛은 더 맞지 않으며, 맞는 것이 선택이라 그동안 이륙한 아군은 건너뛴다. 래트킹이 쓰러져도 계속된다(`_stopWhenSourceInvalid` 꺼짐). 코드
+    `enemies/leaders.js` `alliesInBoxes`(충돌체가 상자에 닿는 아군). 렌더 쪽 그림은 그대로다(`enemySkill`·`dmg`가 투사체의 맞는 이펙트를 냄).
+    재발 방지: `test/content/enemies_bosses.test.js` 「enemy_1509_mousek」(자료의 ATTACH·`land` 0을 단언하므로 투사체가 날아가게 바뀌면 여기서 멈춤 — 그때 `shoot`으로),
+    `test/sim/feedback1f-liftoff.test.js` 「F3 review 2」.
     데이터: `build-data.mjs enemySkillCast`가 `wait` 0·`pre`(`_preDelay`, 채널도)와 채널 클립의 `chanBegin`·`chanLoop`·`chanEnd`(`dur`·`hit`)를 싣는다(`attack_timing.py cast_fields`가
     채널 능력의 `_waitForAttackEvent`·`_preDelay`를 읽음). 재발 방지:
     `test/content/enemy-skill-strike.test.js`(두 시즌 공격 차례 스킬 전부 — 프레임이 0보다 늦은데 `atStrike`가 아니면 예외 목록의 이유가 있어야 함).

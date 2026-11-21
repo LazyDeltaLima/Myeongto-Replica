@@ -56,6 +56,7 @@ const REACHES = {
   enemy_1373_ltnhor: SEL3('残党乐团圆号手 Skills/attackTwoTarget/Selector'), enemy_1373_ltnhor_2: SEL3('Skills/attackTwoTarget/Selector (as enemy_1373_ltnhor)'),
   enemy_1376_ltndru: '残党乐团鼓手 aoeAttack: selector 1 is only whom it faces, the damage is the buff enemy_ltndru[AOE]\'s AOEDamage on every motion',
   enemy_1376_ltndru_2: 'aoeAttack: as enemy_1376_ltndru',
+  enemy_1509_mousek: '鼠王 唱沙 / 沙狱: their Triggers are 1 (NO_AIR_PICKS: the centre is ground), projectile_mousek_s1 / _s2 collide on 3 — a flyer in the 7-tile cross / the 3 × 3 box is hit',
   enemy_1513_dekght_2: SEL3('凋零骑士 Skill/TripleAttack/Trigger'),
   enemy_1517_xi: '“自在” 纬地经天: its Selector is 1 (NO_AIR_PICKS: the centre is ground), projectile_enemy_xi_s collides on 3 — a flyer on the cross line is hit',
   enemy_1525_blkswb: SEL3('锏 Skills/CircleAttack/Trigger'),
