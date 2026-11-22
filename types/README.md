@@ -15,6 +15,11 @@ What is checked now:
   data loader (`simdata.js` imports `nodeData.js` under Node only and reads `process`; `content/support/index.js`
   imports `server/data.js`, which the page gets as a generated stand-in, `server/http/static.js`), and those are its only
   errors without the Node types — the rest of the sim checks the same in both.
+- `public/js/render/` and `public/js/battle/` in the browser config, with `types/page-members.d.ts` (the effect
+  system's split class and the fields other files set on page classes, below) and `types/page-globals.d.ts`. tsc
+  checks every file they import as well, so the page modules they reach (`audio.js`, `assets.js`, `data.js`,
+  `diag.js`, `resources.js`, `store.js`, `voice*.js`, `net.js`, `gpu.js`, `ui/components.js` …) are clean too; the
+  rest of `public/js/` (`ui/`, `screens/`, `main.js` …) is not yet included.
 - `types/` — JSDoc for `Unit`, `DamageInfo`, the snapshot tuples, and the protocol message envelope (`types/**/*.js`)
 
 `strict` is off. `tsc` does not read `jsconfig.json` on its own; the script passes `-p`.
@@ -23,7 +28,7 @@ What is checked now:
 
 Add one file or one folder to `jsconfig.json` `include`, then run `npm run typecheck`. Fix JSDoc that disagrees with the code in that folder. Leave `strict` off until the folder reports nothing. Do not add `@ts-nocheck`.
 
-Next: `public/js/` in the browser config. The sim does not import `types/`; the typedefs in `types/core.js` are a reference, not a runtime dependency.
+Next: the rest of `public/js/` (`ui/`, `screens/`, `main.js` …) in the browser config. The sim does not import `types/`; the typedefs in `types/core.js` are a reference, not a runtime dependency.
 
 What most errors of a new folder were in `server/sim/`, and the JSDoc that fixed them:
 
@@ -47,6 +52,17 @@ And in `server/match/` and the rest of `server/`:
 - an `Object.freeze`d defaults object (`LOBBY_DEFAULTS`, `NET_DEFAULTS`) has literal types (`60000`), so an options
   parameter typed `Partial<typeof …>` refuses another number: a typedef of the options, or `Record<keyof typeof …, number>`.
 - a `new Set([PHASE.A, PHASE.B])` is a set of those literals; `.has(m.phase)` (a string) is an error: `Set<string>`.
+
+And in `public/js/render/` and `battle/`:
+
+- a JSDoc block that drifted away from its function (lines inserted between) types nothing and may not even parse
+  (`quality: => string` is not a type: `() => string`); move it back onto the function.
+- a table of tuples (`const DIRS = [['S', 0, -1], …]`) is an array of `(string | number)[]`: `@type {[string, number,
+  number][]}` on it, or a cast on an inline literal.
+- a field set outside the class body (`v._tween = …` in app.js, `this.kids ||= []`, `({ g: this.g } = …)`): on an
+  exported class, declare it in `types/page-members.d.ts`; on a module-private one, a typedef of the class with the field
+  (`@typedef {RowBatch & { g: any, ib: any }} RowBatchMesh`) and `@this {RowBatchMesh}` on the methods that use it.
+- a `setTimeout` handle is a number with the DOM types: `/** @type {any} */ (t)?.unref?.()` for the Node-only call.
 
 `types/core.js` follows docs/DESIGN.md §5.2, §5.4, §8 and docs/SIM.md §4, §9. Where those two disagree on `DamageInfo.type`, the typedef uses the union `makeDamageInfo` actually builds (`'elemental'` as well as `'element'`).
 
@@ -82,6 +98,21 @@ copied onto the prototype. tsc does not see the copy, so:
 
 `types/class-members.d.ts` imports every match part, so a config that includes it checks all of `server/match/`.
 `types/sim-members.d.ts` imports only `server/sim/`.
+
+The page's one split class, `FxSystem` (`public/js/render/fx/system.js`, its parts `FX_PARTS` beside it), works the
+same way: `types/page-members.d.ts` merges the parts into the class (keep its list the same as `FX_PARTS`), and every
+part member carries `@this {FxSystem}` (`/** @import { FxSystem } from './system.js' */` at the top of the part).
+
+## Vendored modules and globals
+
+The page imports its libraries from `public/vendor/` (git-ignored copies `tools/vendor.mjs` makes on `npm install`),
+and tsc would check those builds too (three.js alone gave over a thousand errors). tsc takes a sibling `.d.ts` over a
+`.js`, so `tools/vendor.mjs` also copies `types/vendor/<name>.d.ts` next to each module it vendors: Preact, its hooks
+and htm re-export the npm packages' own types (Preact 11); three.js has none, so `three.module.d.ts` is a loose stand-in
+that lists the names `public/js` uses (each class takes any arguments and has any member; a new name goes there).
+PixiJS and pixi-spine come from script tags (`globalThis.PIXI`, any); `types/page-globals.d.ts` declares the `PIXI.*`
+names JSDoc uses as types. If the browser config reports errors inside `public/vendor/`, the copies are older than
+their declarations: run `npm run vendor`.
 
 ## Measuring
 

@@ -121,7 +121,7 @@ export class OfficialVoiceGate {
 /**
  * The battle-level rules (audio.js handleBattleEvents hooks, voice.js voiceForRoutePreview).
  * @param {{ skillOf?: (u: any) => any, slotsOf?: (charId: string) => string[], own?: (u: any) => boolean,
- *   random?: => number, cardList?: boolean }} deps
+ *   random?: () => number, cardList?: boolean }} deps
  *   skillOf: the unit's equipped skill record ({ skillType, spCost }); slotsOf: the 作战中 slots an operator has;
  *   own: whether a tracked battle unit is the player's own piece (default: every allied one);
  *   cardList: UIController.HasFunction(CARD_LIST) (default CARD_LIST_ON — off in 卫戍协议: no 行动出发 / 行动开始).

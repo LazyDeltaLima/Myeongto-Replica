@@ -281,6 +281,13 @@ export function unitSfxUrl(m, id, kind, skillIndex) {
  * invisible operator models).
  */
 export class RefLru {
+  /**
+   * @param {{ load?: (key: any, arg?: any, o?: { fresh?: boolean }) => any, unload?: (key: any, value: any, rec?: any) => any,
+   *   max?: number, timeout?: number, concurrency?: number, failTtl?: number, now?: () => number,
+   *   weigh?: ((key: any, value: any, arg?: any) => number) | null, maxIdleWeight?: number, quietWeight?: number,
+   *   idleGrace?: number, quietDelay?: number, evictDelay?: number, timers?: { set: Function, clear: Function } }} [opts]
+   *   `load` is required (a TypeError without it)
+   */
   constructor({ load, unload = () => {}, max = 60, timeout = 20000, concurrency = 6, failTtl = 60000, now = () => Date.now(),
     weigh = null, maxIdleWeight = Infinity, quietWeight, idleGrace = 0, quietDelay = 0, evictDelay = 0, timers } = {}) {
     if (typeof load !== 'function') throw new TypeError('RefLru: load required');
@@ -299,11 +306,11 @@ export class RefLru {
     this.quietDelay = budget(quietDelay, 0);
     this.evictDelay = budget(evictDelay, 0);
     this._timers = timers && typeof timers.set === 'function' ? timers : {
-      set: (fn, ms) => { const t = setTimeout(fn, ms); t?.unref?.(); return t; },
+      set: (fn, ms) => { const t = setTimeout(fn, ms); /** @type {any} */ (t)?.unref?.(); return t; },
       clear: (t) => clearTimeout(t),
     };
     this._sweep = null; // { timer, at } pending eviction pass (weight sweep / deferred eviction)
-    /** @type {Map<string, { key, promise, value, state: 'loading'|'ready'|'failed', refs: number, used: number, weight: number, idleSince: number|null, error?, failedAt? }>} */
+    /** @type {Map<string, { key, promise, value, state: 'loading'|'ready'|'failed', refs: number, used: number, weight: number, idleSince: number|null, error?, failedAt?, attempt?: number, abort?: any, settle?: { resolve: Function, reject: Function } | null }>} */
     this.map = new Map();
     this._refs = 0;             // Σ refs of every entry
     this._holds = 0;            // scenes holding the cache (hold()): never quiet meanwhile
@@ -798,7 +805,7 @@ const transientFetch = (err) => {
  *           spineMax?: number, spineTimeout?: number, spineWeigh?: (key, spineData) => number, spineIdleBytes?: number,
  *           spineQuietBytes?: number, spineIdleGrace?: number, spineEvictDelay?: number, spineQuietDelay?: number,
  *           spineTimers?: { set, clear }, spineNow?: () => number, retryDelays?: number[], backoff?: number[],
- *           wait?: (ms: number) => Promise<void>, timers?: { set, clear } }} [opts]
+ *           wait?: (ms: number) => Promise<void>, timers?: { set, clear }, localUrl?: string, spineConcurrency?: number }} [options]
  */
 export function createAssets(options) {
   const opts = options && typeof options === 'object' ? options : {};
@@ -816,7 +823,7 @@ export function createAssets(options) {
   const backoff = Array.isArray(opts.backoff) ? opts.backoff : MANIFEST_BACKOFF_MS;
   const wait = opts.wait || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   const timers = opts.timers && typeof opts.timers.set === 'function' ? opts.timers : {
-    set: (fn, ms) => { const t = setTimeout(fn, ms); t?.unref?.(); return t; },
+    set: (fn, ms) => { const t = setTimeout(fn, ms); /** @type {any} */ (t)?.unref?.(); return t; },
     clear: (t) => clearTimeout(t),
   };
   const listeners = new Set();

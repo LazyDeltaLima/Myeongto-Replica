@@ -1190,6 +1190,7 @@ function besideRandom(make) {
 
 // the same values on every vertex of every strip batch: iUV (0, 0, 1, 1), iC1 / iC2 / iPos 0 — one set of attributes
 // shared by all batches (stripConsts), never deleted with a batch (StripBatch.dispose)
+/** @type {[string, number][]} */
 const STRIP_CONSTS = [['iUV', 4], ['iC1', 4], ['iC2', 4], ['iPos', 3]];
 let stripConst = null;
 
@@ -1482,7 +1483,10 @@ function remap(A, o, e, lin = false) {
   A[o + 2] = e[2] * x + e[6] * y + e[10] * z + e[14] * t;
 }
 
-/** A TrailRenderer: a ribbon behind its node's motion (sampled in the effect root's space). */
+/**
+ * A TrailRenderer: a ribbon behind its node's motion (sampled in the effect root's space).
+ * @typedef {TrailRenderer & { off?: boolean }} TrailRendererOff `off`: switched off by a clip (FxInstance m_IsActive)
+ */
 class TrailRenderer {
   constructor(tr, node, root, def) {
     this.tr = tr; this.node = node; this.root = root;
@@ -1496,6 +1500,7 @@ class TrailRenderer {
     this.time = 0;
   }
 
+  /** @this {TrailRendererOff} */
   update(dt, sinceStart) {
     this.time += dt;
     setTime(this.batch.material, sinceStart);
@@ -1714,6 +1719,7 @@ function perlinOct(x, y, z, f, oct, mul, scale, pn = perlinD) {
 // one particle's instance data = 28 floats in one buffer (one upload per system and frame, was eight):
 // iPos 3, iSize 3, iRot 3, iColor 4, iC1 4, iC2 4, iUV 4, iVel 3
 const IV = 28, IV_POS = 0, IV_SIZE = 3, IV_ROT = 6, IV_COL = 9, IV_C1 = 13, IV_C2 = 17, IV_UV = 21, IV_VEL = 25;
+/** @type {[string, number, number][]} */
 const INSTANCE_ATTRS = [['iPos', 3, IV_POS], ['iSize', 3, IV_SIZE], ['iRot', 3, IV_ROT], ['iColor', 4, IV_COL], ['iC1', 4, IV_C1],
   ['iC2', 4, IV_C2], ['iUV', 4, IV_UV], ['iVel', 3, IV_VEL]];
 
@@ -1802,6 +1808,10 @@ const D2R = Math.PI / 180;
 // (2026-10-22) a particle's size multipliers (sizeOf), the emitter velocity's frame change (emitterVelocity)
 const sizeK = [1, 1, 1], SIZE_ONE = Object.freeze([1, 1, 1]), tmpM3 = new THREE.Matrix3();
 
+/**
+ * @typedef {ParticleSystem & { subOf?: ParticleSystem, trailPath?: any }} ParticleSystemLinks `subOf`: the system it is a sub
+ *   emitter of (FxInstance sets it); `trailPath`: its particles' trail path in the effect (FxInstance)
+ */
 class ParticleSystem {
   constructor(ps, node, root, def, opts) {
     this.ps = ps;
@@ -1960,6 +1970,7 @@ class ParticleSystem {
     systems.add(this);
   }
 
+  /** @this {ParticleSystemLinks} */
   get alive() {
     if (this.ghosts?.length) return true;
     if (this.subOf) return this.n > 0 || this.subOf.alive;   // a sub emitter lives on its parent's particles
@@ -2374,6 +2385,7 @@ class ParticleSystem {
     f.updateWorldMatrix(false, false);
   }
 
+  /** @this {ParticleSystemLinks} */
   update(dt, sinceStart) {
     const ps = this.ps;
     if (this.top) this.syncFrame();
@@ -2405,6 +2417,7 @@ class ParticleSystem {
   /**
    * One step `dt` (system seconds) of emission and motion. `moved` (emission by distance): the emitter's move this frame
    * in the root frame (emitterVelocity), null in prewarm.
+   * @this {ParticleSystemLinks}
    */
   advance(dt, moved) {
     const ps = this.ps, m = ps.mods;
@@ -2908,6 +2921,7 @@ class ParticleSystem {
    * only once the point after the oldest has expired, and that oldest slides to where the lifetime ends (trailTail); ratio is a choice
    * made once per particle; a point is recorded when the particle has moved more than minVertexDistance. Records come once per drawn
    * frame here rather than once per simulation step.
+   * @this {ParticleSystemLinks}
    */
   updateTrails(sinceStart) {
     const tm = this.tm, K = this.histK, H = this.hist, n = this.n, b = this.trailBatch, D = this.ib.array;
@@ -4170,8 +4184,12 @@ function showMerged(mesh, on, material, order, x, y, z) {
   mesh.position.set(x, y, z);
 }
 
-/** Particle rows of several systems in one instanced draw, positions baked to the scene. */
+/**
+ * Particle rows of several systems in one instanced draw, positions baked to the scene.
+ * @typedef {RowBatch & { g: any, ib: any }} RowBatchMesh with its geometry `g` and instance buffer `ib` (set by destructuring)
+ */
 class RowBatch {
+  /** @this {RowBatchMesh} */
   constructor(scene) {
     this.room = PS_ROOM0;
     ({ g: this.g, ib: this.ib } = instanced(QUAD, this.room));
@@ -4184,6 +4202,7 @@ class RowBatch {
 
   begin() { this.n = 0; }
 
+  /** @this {RowBatchMesh} */
   add(s, ox, oy, oz) {
     const count = s.geometry.instanceCount, n = this.n;
     if (n + count > this.room) {
@@ -4208,12 +4227,14 @@ class RowBatch {
     return true;
   }
 
+  /** @this {RowBatchMesh} */
   end(material, order, x, y, z) {
     if (this.n) { this.ib.clearUpdateRanges(); this.ib.addUpdateRange(0, this.n * IV); this.ib.needsUpdate = true; }
     this.g.instanceCount = this.n;
     showMerged(this.mesh, this.n > 0, material, order, x, y, z);
   }
 
+  /** @this {RowBatchMesh} */
   dispose() { this.mesh.removeFromParent(); disposeOwn(this.g, QUAD); }
 }
 

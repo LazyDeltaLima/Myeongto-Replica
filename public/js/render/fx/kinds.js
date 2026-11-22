@@ -152,7 +152,7 @@ export const FX_KINDS = Object.freeze({
   garrison: { a: 'buff', c: 0x4ed8af }, layer: { a: 'buff', c: 0xffe066 }, sp: { a: 'sp', c: 0x6fd3ff },
 });
 
-/** Keyword guesses for kinds added later (checked in order), before the generic sparkle. */
+/** Keyword guesses for kinds added later (checked in order), before the generic sparkle. @type {[RegExp, string][]} */
 const FX_GUESS = [
   [/heal|cure|mend|regen/i, 'heal'], [/shield|ward|barrier|guard/i, 'shield'], [/summon|spawn|call|deploy/i, 'summon'],
   [/blast|bomb|explo|burst|boom|nova|strike/i, 'blast'], [/zone|field|area|wall|mist|fog|pool/i, 'zone'],
@@ -210,11 +210,13 @@ export function tilesAround(x, y, r, tiles) {
  * Tiles of a straight wall through tile (round(y), round(x)): `axis` 'col' = that column, 'row' = that row (余 S3
  * fire wall: perpendicular to his facing, sim/content/kits/ops/chess_char_6_03-yu.js). Clipped to the field `rect` (inclusive
  * { r0, r1, c0, c1 }); without one ±4 tiles.
+ * @returns {Array<[number, number]>} [[row, col]] in order
  */
 export function wallTiles(x, y, axis, rect) {
   const R = Math.round(Number(y)), C = Math.round(Number(x));
   if (!Number.isFinite(R) || !Number.isFinite(C)) return [];
   const ok = rect && [rect.r0, rect.r1, rect.c0, rect.c1].every(Number.isFinite);
+  /** @type {Array<[number, number]>} */
   const out = [];
   if (axis === 'row') {
     const [a, b] = ok ? [rect.c0, rect.c1] : [C - 4, C + 4];

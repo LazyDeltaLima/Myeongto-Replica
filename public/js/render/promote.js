@@ -7,10 +7,11 @@
 // on the elite (fx.promote: gold pillar + rings, streaks from the vanished copies) instead of the plain deploy flash.
 
 /**
- * @param {Array<{ uid: number, area: string, piece: any }>} prev entries of the previous setPrep (render/app.js prepPieces)
- * @param {Array<{ uid: number, area: string, piece: any }>} next entries of this setPrep
+ * @template {{ uid: number, area: string, piece: any }} E
+ * @param {Array<E>} prev entries of the previous setPrep (render/app.js prepPieces)
+ * @param {Array<E>} next entries of this setPrep
  * @param {(id: string) => any} chessOf chess record lookup (`baseId`, `isGolden`)
- * @returns {Map<number, Array<{ uid: number, area: string, piece: any }>>} new elite uid → the vanished copies (prev entries)
+ * @returns {Map<number, Array<E>>} new elite uid → the vanished copies (prev entries)
  */
 export function promotionsOf(prev, next, chessOf) {
   const out = new Map();

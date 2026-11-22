@@ -350,7 +350,7 @@ export function statusSoundKey(key, sourceDef = null) {
  * local patch: the `sfx.kit` key of a kit's skill hit (tools/assets/kit-sfx.mjs) for a battle.fx event, or null.
  * @param {string} fx the fx kind (b.ev ['fx', kind, x, y, extra])
  * @param {any} ex its extra
- * @param {(id: any) => ({ def?: string, skillIndex?: number|null }|undefined)} unitOf the tracked unit of an id
+ * @param {(id: any) => ({ def?: string, skillIndex?: number|null, over?: boolean }|undefined)} unitOf the tracked unit of an id
  */
 export function kitHitKey(fx, ex, unitOf) {
   if (!ex || typeof ex !== 'object') return null;
@@ -939,7 +939,7 @@ export function combatTrackFor(round) {
  * 'enemy' | 'char' (operators: b_char_dead “干员被击倒” / b_char_set) | 'token' (summons: b_char_tokendead /
  * b_char_tokenset) | 'device' (stage devices: the act crate trap_1105 dies with b_char_tokendead, no born sound).
  * Band map characters (预备干员-医疗 / Touch, `char_*` ids) are characters although the sim runs them as tokens.
- * @param {{ side?: string, kind?: string, defId?: string, def?: string }|null} info tracked unit (UnitInfo subset)
+ * @param {{ side?: string, kind?: string, defId?: string, def?: string, walks?: boolean }|null} info tracked unit (UnitInfo subset)
  */
 export function unitSoundClass(info) {
   if (!info) return 'char';
@@ -1264,7 +1264,7 @@ function isAudioResponse(res) {
 }
 export class AudioManager {
   /**
-   * @param {{ getManifest?: => any, win?: any }} [opts]
+   * @param {{ getManifest?: () => any, win?: any, random?: () => number }} [opts]
    */
   constructor(opts = {}) {
     this.getManifest = typeof opts.getManifest === 'function' ? opts.getManifest : () => null;
@@ -1290,7 +1290,8 @@ export class AudioManager {
     this.bufBytes = new Map(); // url → decoded PCM bytes (the byte budget of the LRU, see _buffer)
     this.warned = new Set();
     this.limiter = new SfxLimiter();
-    this.voiceGate = new VoiceGate();
+    // (any: voice.js puts the official gate in — voicePolicy.js OfficialVoiceGate, which takes the line type as well)
+    this.voiceGate = /** @type {any} */ (new VoiceGate());
     this.voiceNode = null;    // { src, gain, url, token } of the line on air
     this.voiceToken = 0;
     this.startVoiceDone = false; // 行动出发 of this field (the first operator deployed says it)
@@ -2052,9 +2053,10 @@ export class AudioManager {
    * Only in battle: every caller is a running battle's own event stream or its settlement (user request — the 休整期
    * is silent). The line must pass VoiceGate: one at a time, a global gap, a per-unit cooldown, higher priority wins.
    * @param {string} charId e.g. 'char_263_skadi'
-   * @param {'start'|'faceEnemy'|'select'|'place'|'skill1'|'skill2'|'skill3'|'skill4'|'squad'|'squadFirst'
-   *   |'resultFour'|'resultThree'|'resultTwo'|'resultLose'|'gacha'} slot
-   * @param {{ unitKey?: string|number|null, volume?: number }} [o] `unitKey` = the cooldown key (a battle unit id)
+   * @param {string} slot 'start' | 'faceEnemy' | 'select' | 'place' | 'skill1'–'skill4' | 'squad' | 'squadFirst' |
+   *   'resultFour' | 'resultThree' | 'resultTwo' | 'resultLose' | 'gacha' (the voice table's slots, voicePolicy.js picks some)
+   * @param {{ unitKey?: string|number|null, volume?: number, type?: string }} [o] `unitKey` = the cooldown key (a battle
+   *   unit id); `type`: the official line type the gate's cooldown runs by (voicePolicy.js OfficialVoiceGate)
    * @returns {boolean} whether such a line exists and started
    */
   voice(charId, slot, o = {}) {
@@ -2890,7 +2892,7 @@ export const audio = new AudioManager({ getManifest: () => manifestGetter() });
 
 /**
  * Wire the singleton to the app (called once by main.js): manifest source, settings and store-driven BGM.
- * @param {{ getManifest: => any, subscribe: (fn: (s:any, prev:any) => void) => => void, getState: => any,
+ * @param {{ getManifest: () => any, subscribe: (fn: (s:any, prev:any) => void) => () => void, getState: () => any,
  *   selectRoute: (s:any) => string, selectSeason?: (s:any) => string|null,
  *   settings?: { bgm:number, sfx:number, voice:number, muted:boolean } }} deps
  */

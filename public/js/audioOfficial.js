@@ -45,7 +45,7 @@ export const groupGain = (g) => (typeof g === 'string' && Object.hasOwn(GROUP_GA
  * The official gain of a unit's sound: its group's gain × its bank volume (mix.vol, not capped — a bank the official
  * client plays louder than 1 stays louder; audio.js `_play` caps the node gain at 1.5).
  * @param {string} defId the unit's model id (sfx.units key)
- * @param {'attack'|'hit'|'skill'|'die'|'born'} role
+ * @param {'attack'|'hit'|'skill'|'die'|'born'|'on'} role
  * @param {any} entry sfx.units[defId] (its `grp`)
  * @param {{ vol?: number }|null|undefined} mix the role's bank mix
  * @param {{ grp?: any, skillIndex?: number|null, mode?: boolean }} [o] a mode's own groups / the skill index of a
@@ -111,13 +111,13 @@ export const skillEndOf = (entry, skillIndex) => (Number.isInteger(skillIndex) &
  */
 export function bankPlayOf(manifest, url) {
   const v = manifest?.audio?.sfx?.bank?.[url];
-  return Array.isArray(v) && v.length >= 4 && v.every(Number.isFinite) ? v : null;
+  return Array.isArray(v) && v.length >= 4 && v.every(Number.isFinite) ? /** @type {[number, number, number, number]} */ (v) : null;
 }
 
 /**
  * The pitch of one play: uniform in [minPitch, maxPitch] (the client's `RandomUtil.Range(minPitch, maxPitch)` →
  * AudioChannel.pitch; most battle sounds 0.8–1.2). 1 without values.
- * @param {[number, number, number, number]|null|undefined} info bankPlayOf
+ * @param {readonly number[]|null|undefined} info bankPlayOf ([minPitch, maxPitch, maxSoundAllowed, popOldest])
  * @param {() => number} [random]
  */
 export function playPitch(info, random = Math.random) {

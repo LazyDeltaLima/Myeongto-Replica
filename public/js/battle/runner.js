@@ -223,7 +223,7 @@ const SIM_LOGGER = Object.freeze({
 /**
  * @param {{ net: any, store: any, loadSim?: () => Promise<{ spec: any, ds: any }>, now?: () => number,
  *   raf?: (fn: (t: number) => void) => any, caf?: (h: any) => void, setInterval?: Function, clearInterval?: Function,
- *   doc?: { hidden?: boolean, addEventListener?: Function } | null, logger?: object }} deps
+ *   doc?: { hidden?: boolean, addEventListener?: Function } | null, logger?: object, season?: () => string }} deps
  */
 export function createBattleRunner(deps) {
   const net = deps.net;

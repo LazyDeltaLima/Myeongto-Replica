@@ -114,6 +114,7 @@ export async function boardArtState(assets, { retry = false } = {}) {
  * when something failed to load (`retry: true` on the next call loads it again) or `{ status: 'never', why }` when this
  * host has no board art. three.js (~2 MB) is fetched only when the manifest lists the board atlas.
  * @param {any} assets @param {{ retry?: boolean, threeUrl?: string }} [opts]
+ * @returns {Promise<{ status: 'ok' | 'retry' | 'never', why?: string, THREE?: any, pack?: any }>}
  */
 export async function loadBoard3d(assets, { retry = false, threeUrl = THREE_URL } = {}) {
   const art = await boardArtState(assets, { retry });

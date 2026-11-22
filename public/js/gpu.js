@@ -50,7 +50,7 @@ export function probeGpu(doc = globalThis.document) {
   const any = fast || any2 || context(doc, 'webgl');
   const renderer = any ? rendererName(any) : null;
   if (fast && renderer && SOFTWARE_RENDERER_RE.test(renderer)) fast = null;
-  const out = { accel: fast ? 'hardware' : any ? 'software' : 'none', webgl2: !!any2, renderer };
+  const out = { accel: /** @type {'hardware'|'software'|'none'} */ (fast ? 'hardware' : any ? 'software' : 'none'), webgl2: !!any2, renderer };
   for (const gl of new Set([fast, any2, any])) release(gl);
   return out;
 }

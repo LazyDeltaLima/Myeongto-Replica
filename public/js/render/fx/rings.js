@@ -1,6 +1,8 @@
 // public/js/render/fx/rings.js — FxSystem ground rings and skill auras.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
+/** @import { FxSystem } from './system.js' */
+
 import { SKILL_GOLD, easeOut } from './limits.js';
 
 export class FxRings {
@@ -9,6 +11,7 @@ export class FxRings {
   /**
    * Ground ring going from r0 to r1 tiles over `dur` real seconds (easing out, fading). `mode` 'in': a warning closing
    * in — linear, brightening towards its end; 'pulse': throbbing at full size until its end.
+   * @this {FxSystem}
    */
   ring(x, y, z, r0, r1, tint, dur = 0.4, tex = 'ring', mode = null) {
     const P = this.P;
@@ -30,6 +33,7 @@ export class FxRings {
     if (this.rings.length > 80) { const o = this.rings.shift(); o.sp.visible = false; this.ringFree.push(o); }
   }
 
+  /** @this {FxSystem} */
   _updateRings(dt) {
     const cam = this.ctx.cam();
     const p = this._p, q = this._q;
@@ -56,6 +60,7 @@ export class FxRings {
   /**
    * Skill activation (on) / end (off). On: a flash at the body, a gold light pillar with a white-hot core from the
    * feet, a shockwave and a hex ring on the ground, rising motes — then the active aura (_aura) until it ends.
+   * @this {FxSystem}
    */
   skill(view, on, opts = null) {
     if (!view) return;
@@ -77,7 +82,7 @@ export class FxRings {
     this._aura(view, true);
   }
 
-  /** Active-skill aura: a soft gold glow and a slowly turning hex on the ground under the unit (fading in / out). */
+  /** Active-skill aura: a soft gold glow and a slowly turning hex on the ground under the unit (fading in / out). @this {FxSystem} */
   _aura(view, on) {
     const P = this.P;
     let a = this.auras.get(view.id);
@@ -100,6 +105,7 @@ export class FxRings {
     } else if (a) a.off = true;
   }
 
+  /** @this {FxSystem} */
   _updateAuras(dt) {
     if (!this.auras.size) return;
     const cam = this.ctx.cam();

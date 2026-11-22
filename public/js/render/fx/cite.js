@@ -9,7 +9,7 @@
  * Tag `entry` (a table value: an array spec, a plan function, an object) with its client key(s); returns `entry`.
  * Call it before Object.freeze.
  * @template T
- * @param {string | string[]} src
+ * @param {string | readonly string[]} src
  * @param {T} entry
  * @returns {T}
  */

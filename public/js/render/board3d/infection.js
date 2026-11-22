@@ -96,7 +96,10 @@ export class InfectionFx {
     return tex;
   }
 
-  /** The client textures (flow_26, mask_123); until both are set nothing is drawn. */
+  /**
+   * The client textures (flow_26, mask_123); until both are set nothing is drawn.
+   * @param {{ flow?: any, mask?: any }} [images]
+   */
   setImages({ flow, mask } = {}) {
     const U = this.material.uniforms;
     if (flow && (flow.width || flow.naturalWidth)) { U.uMain.value?.dispose?.(); U.uMain.value = this._texture(flow, true); }

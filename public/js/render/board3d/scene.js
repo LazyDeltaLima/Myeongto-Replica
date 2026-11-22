@@ -148,7 +148,11 @@ export class BoardScene {
   /**
    * @param {any} THREE three.js module
    * @param {any} pack load.js loadBoardPack result
-   * @param {{ canvas?: HTMLCanvasElement, quality?: string, antialias?: boolean, renderer?: any }} [opts]
+   * @param {{ canvas?: HTMLCanvasElement, quality?: string, antialias?: boolean, renderer?: any,
+   *   preserveDrawingBuffer?: boolean, shadows?: boolean, environment?: boolean, official?: boolean,
+   *   loadOfficial?: (stageId: string, o: { retry: boolean, partial: boolean }) => any, officialRetryMs?: number[],
+   *   onOfficial?: (scene: any) => void, onOfficialMissing?: (stageId: string, why: string, tries: number) => void }} [opts]
+   *   the header's opts
    */
   constructor(THREE, pack, opts = {}) {
     this.THREE = THREE;
@@ -407,7 +411,7 @@ export class BoardScene {
     this.officialPending.add(id);
     const delays = this.opts.officialRetryMs || OFFICIAL_RETRY_MS;
     const last = tries >= delays.length;
-    Promise.resolve().then(() => this.opts.loadOfficial(id, { retry: tries > 0, partial: last })).then((data) => ({ data }), (err) => ({ err })).then(({ data, err }) => {
+    Promise.resolve().then(() => this.opts.loadOfficial(id, { retry: tries > 0, partial: last })).then((data) => ({ data }), (err) => ({ err })).then(/** @param {{ data?: any, err?: any }} res */ ({ data, err }) => {
       if (this.destroyed) return;
       if (err && !last) {
         this.opts.onOfficialMissing?.(id, String(err?.message || err), tries + 1);
@@ -962,6 +966,7 @@ export class BoardScene {
 /** Axis-aligned box on the ground, centred on the origin: size × size × height. */
 export function boxData(size, height) {
   const a = size / 2, pos = [], nrm = [], uv = [], idx = [];
+  /** @type {[number[], number[][]][]} */
   const faces = [
     [[0, 0, 1], [[-a, -a, height], [a, -a, height], [a, a, height], [-a, a, height]]],
     [[0, -1, 0], [[-a, -a, 0], [a, -a, 0], [a, -a, height], [-a, -a, height]]],

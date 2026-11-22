@@ -103,7 +103,7 @@ const BUNDLE_RE = /^\/assets\/bundles\/[A-Za-z0-9_.-]+\.pack$/;
  * `files` (before validEntry filters it), ascending = the order the members' bytes follow one another. A bundle is kept
  * only when its path is a bundle path, every member is a valid entry of this server (no `u`) and the sizes add up to `s`
  * (the cut needs them all). Members become the entries themselves.
- * @param {unknown} raw @param {unknown[]} files the list's `files` as it came
+ * @param {unknown} raw @param {any[]} files the list's `files` as it came
  * @returns {{ p: string, s: number, m: { p: string, s: number, h: string }[] }[]}
  */
 export function sanitizeBundles(raw, files) {
@@ -125,6 +125,7 @@ export function sanitizeBundles(raw, files) {
 
 /** The packs the list names, `{ <pack>: [path prefix…] }`: a prefix is '/assets/…/' (anything else is ignored). */
 export function sanitizePacks(raw) {
+  /** @type {Record<string, string[]>} */
   const out = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
   for (const [name, prefixes] of Object.entries(raw)) {
@@ -196,6 +197,7 @@ const supported = () => typeof window !== 'undefined' && window.isSecureContext 
 
 let index = null;
 let listed = [];        // every valid entry of the list; index.files = the ones this browser downloads (voice language, packs)
+/** @type {Record<string, string[]>} */
 let packs = {};         // the list's packs (sanitizePacks)
 let bundles = [];       // the list's bundles (sanitizeBundles)
 let bundleCounts = { fetched: 0, stopped: 0, failed: 0, members: 0 }; // for the report: bundles read whole / cut short / failed, files stored from them
@@ -215,6 +217,7 @@ let differChanged = false;
 let want = new Map();  // path → listed hash of the files the cache keeps (resourceKept): anything else is stale
 let pending = [];
 let stale = [];        // cache requests to delete (cleanup)
+/** @type {{ at: number, ms: number|null, keys: number, stale: number, adopted: number, skipped?: boolean, differ?: number } | null} */
 let reconciled = null; // the last reconcile, for the report: { at, ms, keys, stale, adopted, skipped } (running: no ms)
 let scanned = null;    // what CLEAN gets once the cleanup has deleted every stale entry of that scan
 let deleted = 0;
@@ -659,6 +662,7 @@ async function switchOff() {
   try { for (const r of await navigator.serviceWorker.getRegistrations()) if (r.active?.scriptURL?.endsWith('/resource-worker.js')) await r.unregister(); } catch { /* ignore */ }
 }
 
+/** @type {(value?: any) => void} */
 let markKnown = () => {};
 /** Settles once installResources has read the list and the cache record, or found there is none (resourceCached is
  *  then as good as it gets on this visit): render/skin-gate.js waits for it before a field's first scene. */
@@ -786,7 +790,7 @@ const mb = (n) => Math.max(1, Math.round(n / 1048576));
 function IllustChoice() {
   const hi = useStore((s) => s.hi, Object.is, illustStore);
   return html`<div class="set-seg" role="radiogroup" data-testid="illust-res">
-    ${[[false, t('标准')], [true, t('高清')]].map(([v, label]) => html`<button key=${v ? 'hi' : 'lo'} type="button" role="radio"
+    ${/** @type {[boolean, string][]} */ ([[false, t('标准')], [true, t('高清')]]).map(([v, label]) => html`<button key=${v ? 'hi' : 'lo'} type="button" role="radio"
       aria-checked=${hi === v ? 'true' : 'false'} class=${hi === v ? 'is-on' : ''} onClick=${() => setIllustFull(v)}>${label}</button>`)}
   </div>`;
 }

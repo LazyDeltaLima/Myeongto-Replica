@@ -82,7 +82,7 @@ export function pointOn(entry, sk, back, out = { x: 0, y: 0 }) {
  * −90° in Skill_3 facing every way, i.e. +90°: her S3 fan opens behind her, its spike toward the enemy (maintainer 2026-10-08: facing
  * down with the enemy on the right, the fan opens to the left; the first take, the angle as reported, had it the other way).
  * @param {{F?: {bone?: string, rot?: number}, B?: {bone?: string, rot?: number}}|null|undefined} entry
- * @param {{findBone: (name: string) => ({getWorldRotationX: => number}|null)}|null|undefined} sk
+ * @param {{findBone: (name: string) => ({getWorldRotationX: () => number}|null)}|null|undefined} sk
  * @param {boolean} back
  * @returns {number|null}
  */
@@ -104,7 +104,8 @@ export function pointTurn(entry, sk, back) {
  * 1. Its y sign by the skeleton's flip (`followSkeletonFlip`) is the effect's mirror (render/fxplayer.js FxInstance), not
  * here. A FollowMountPoint with `_followScale` copies it onto its effect (render/fxgame.js stepMount). The side as pointOn.
  * @param {{F?: {bone?: string, ls?: number}, B?: {bone?: string, ls?: number}}|null|undefined} entry
- * @param {{findBone: (name: string) => ({scaleX: number, scaleY: number}|null)}|null|undefined} sk
+ * @param {{findBone: (name: string) => ({scaleX: number, scaleY: number, getWorldScaleX?: () => number,
+ *   getWorldScaleY?: () => number}|null)}|null|undefined} sk
  * @param {boolean} back
  * @returns {number[]|null}
  */
@@ -298,7 +299,7 @@ export function liftedPoint(cam, x, y, z, rootY, gx, gy, out, tmp = { x: 0, y: 0
  * liftedPoint keeps the unit's row, so the same drawn point stood h / sin 30° up — four times as high — and a lob's fall
  * from the muzzle to the hit point (render/fx/projectiles.js lobZ: D = start + raise − target) four times as deep. The
  * plane is at the root's depth, so this is exact for render/projection.js Camera (the drawn point does not move).
- * @param {{project: Function, tilt: number}} cam
+ * @param {{project: Function, liftFor: Function, tilt: number, yaw?: number}} cam
  * @param {{x: number, y: number, z: number}} p
  * @param {{x: number, y: number, z: number}} out
  */
@@ -312,7 +313,7 @@ export function onModelPlane(cam, x, y, z, p, out, tmp = { x: 0, y: 0, s: 0, dep
  * The world point of a model point drawn at screen (gx, gy) on a unit whose model stands at world (x, y, z), projecting to
  * screen y `rootY` — on the model's plane (onModelPlane: the official mount point's place), liftedPoint's arguments.
  * 2026-10-31 (maintainer request after the shots: the cast and hit effects at model points too).
- * @param {{project: Function, tilt: number, yaw?: number}} cam
+ * @param {{project: Function, liftFor: Function, tilt: number, yaw?: number}} cam (liftFor: the liftedPoint fallback)
  * @param {{x: number, y: number, z: number}} out
  */
 export function planePoint(cam, x, y, z, rootY, gx, gy, out, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
@@ -343,7 +344,7 @@ export function screenOffset(cam, b, p, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
  * stays on its model. Here the model is drawn straight up on screen from its root, so the world offset taken at the
  * creation (its column and height lifted through the camera there) drifted off the model as the unit walked across the
  * board; the screen offset, scaled with the base's depth, stays on it.
- * @param {{liftFor: Function, project: Function}} cam
+ * @param {{liftFor: Function, project: Function, tilt: number, yaw?: number}} cam
  */
 export function heldAt(cam, b, off, out, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
   const r = cam.project(b.x, b.y, b.z, tmp);

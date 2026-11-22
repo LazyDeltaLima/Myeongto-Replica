@@ -440,6 +440,10 @@ const st = (bundle, name) => Object.freeze([bundle, name, OWN]);
  * 2026-10-23 (묶음 K3): a STACK_FX entry by the client key `key` — the prefabs its buffs hold at the count of `counted`
  * (its FilterByBuffStackCount buff; the rows creating it hold while it has a stack), the count info's `max` / `mid` as the
  * blackboard max_stack_cnt / mid_stack_cnt, a derived buff kept once created (render/fx/conds.js whenPlays) — at `frac`.
+ * @param {string} key
+ * @param {string} counted
+ * @param {string} bundle
+ * @param {number | string} [frac] a share of the height, or OWN
  */
 const stacked = (key, counted, bundle, frac = OWN) => Object.freeze(cite(key, { tpl: key, counted, bundle, frac }));
 export const STACK_FX = Object.freeze({

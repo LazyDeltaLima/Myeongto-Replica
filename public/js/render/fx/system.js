@@ -17,8 +17,10 @@ import { FxZones } from './zones.js';
 export class FxSystem {
   /**
    * @param {{ P, layers: { groundFx, fxAdd, fxNormal, text, screen }, cam: () => any, view: (id) => any,
-   *           heightAt: (r,c)=>number, settings: object, assets: any, timeScale: () => number,
-   *           subProfOf: (defId) => string|null, screenSize: () => {width,height}, fieldTop: () => number }} ctx
+   *           heightAt: (r,c)=>number, settings: any, assets: any, timeScale: () => number,
+   *           subProfOf: (defId, info?) => string|null, screenSize: () => {width,height}, fieldTop: () => number,
+   *           loadLevel?: () => number, redVignette?: any, surfaceLayer?: any, viewport?: any,
+   *           fieldRect?: () => any, lookupDef?: (info) => any }} ctx
    */
   constructor(ctx) {
     const P = ctx.P;

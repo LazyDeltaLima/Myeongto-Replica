@@ -26,7 +26,15 @@ export function mirrorDir(d) {
   return typeof d === 'string' && MIRROR[d.toUpperCase()] ? MIRROR[d.toUpperCase()] : d;
 }
 
-/** The identity transform (normal prep). */
+/**
+ * A prep field transform: the identity (normal prep) or the Final Assault prep's (bossPrepField).
+ * @typedef {Readonly<{ kind: 'board' | 'bossPrep', side: 'L' | 'R', mirror: boolean,
+ *   toDisp: (row: number, col: number) => { row: number, col: number },
+ *   toBoard: (row: number, col: number) => { row: number, col: number } | null,
+ *   dirToDisp: (d: string) => string, dirToBoard: (d: string) => string }>} PrepXf
+ */
+
+/** The identity transform (normal prep). @type {PrepXf} */
 export const IDENTITY = Object.freeze({
   kind: 'board', side: 'L', mirror: false,
   toDisp: (row, col) => ({ row, col }),
@@ -38,6 +46,8 @@ export const IDENTITY = Object.freeze({
 /**
  * Transform of the Final Assault prep on side 'L' | 'R' of the boss field. `toBoard` returns null for display tiles
  * that are not on the player's half of the boss rows (0–5) — nothing of the board is there.
+ * @param {string} side
+ * @returns {PrepXf}
  */
 export function bossPrepField(side) {
   const R = side === 'R';

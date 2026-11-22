@@ -89,9 +89,10 @@ function bodyDist(b, px, py) {
 
 /**
  * The unit standing on the tile under the pointer (several → the nearest to the pointer's point, ties → the front-most).
- * @param {Array<PickUnit|null>} units
+ * @template {PickUnit} T
+ * @param {Array<T|null>} units
  * @param {PickGround|null} ground
- * @returns {PickUnit|null} one of `units`
+ * @returns {T|null} one of `units`
  */
 export function pickOnTile(units, ground) {
   if (!Array.isArray(units) || !isTile(ground)) return null;
@@ -106,11 +107,12 @@ export function pickOnTile(units, ground) {
 
 /**
  * Battle pick (see the header): allies on the tile under the pointer, enemies within ENEMY_REACH of it; the nearer wins.
- * @param {Array<PickUnit|null>} units allies with `tile`, enemies with `tile: null` and their drawn `body`
+ * @template {PickUnit} T
+ * @param {Array<T|null>} units allies with `tile`, enemies with `tile: null` and their drawn `body`
  * @param {PickGround|null} ground
  * @param {number} px pointer on screen (enemies' drawn bodies)
  * @param {number} py
- * @returns {PickUnit|null} one of `units`
+ * @returns {T|null} one of `units`
  */
 export function pickBattle(units, ground, px, py) {
   if (!Array.isArray(units)) return null;

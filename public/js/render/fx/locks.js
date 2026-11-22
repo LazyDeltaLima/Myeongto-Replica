@@ -1,6 +1,8 @@
 // public/js/render/fx/locks.js — FxSystem lock reticles.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
+/** @import { FxSystem } from './system.js' */
+
 import { SHOT_HEIGHT, bodyZ, liftX } from './camera.js';
 import { FX_KINDS } from './kinds.js';
 import { easeOut } from './limits.js';
@@ -22,6 +24,7 @@ export class FxLocks {
    * the shooter's last lock / shell / bombard (_touchLocks). A held lock (`hold`: 蕾缪安 S3, whose skill waits with its
    * bullets and locks while nothing is in range) waits as long as its shooter's skill runs (the view's UF.SKILL), its
    * LOCK_T counted from the skill's end.
+   * @this {FxSystem}
    */
   _lock(view, src, x, y, z, hold = false) {
     let L = this.lockFree.pop();
@@ -46,13 +49,13 @@ export class FxLocks {
     return L;
   }
 
-  /** Shooter `src` is still at it (a new lock, a shell, a bombard): its live locks restart their LOCK_T wait. */
+  /** Shooter `src` is still at it (a new lock, a shell, a bombard): its live locks restart their LOCK_T wait. @this {FxSystem} */
   _touchLocks(src) {
     if (src == null) return;
     for (const L of this.locks) if (L.src === src) L.idle = 0;
   }
 
-  /** The live lock of shooter `src` nearest to (x, y) within `within` tiles (`free`: only one no shell took yet). */
+  /** The live lock of shooter `src` nearest to (x, y) within `within` tiles (`free`: only one no shell took yet). @this {FxSystem} */
   _nearestLock(src, x, y, within, free) {
     let best = null, bd = Infinity;
     for (const L of this.locks) {
@@ -63,15 +66,17 @@ export class FxLocks {
     return best && bd <= within ? best : null;
   }
 
-  /** Fade a lock out (it pops outwards as it goes). */
+  /** Fade a lock out (it pops outwards as it goes). @this {FxSystem} */
   _releaseLock(L) { if (L && L.out < 0) L.out = 0; }
 
+  /** @this {FxSystem} */
   _freeLock(L) {
     L.ring.visible = L.core.visible = false;
     L.view = null;
     this.lockFree.push(L);
   }
 
+  /** @this {FxSystem} */
   _updateLocks(dt) {
     if (!this.locks.length) return;
     const cam = this.ctx.cam();

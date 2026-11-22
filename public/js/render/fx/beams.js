@@ -1,6 +1,8 @@
 // public/js/render/fx/beams.js — FxSystem beams and the 炎佑 fire jet.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
+/** @import { FxSystem } from './system.js' */
+
 import { SHOT_HEIGHT } from './camera.js';
 
 // 炎佑 fire jet: real s a jet burns past its tick's `dur` (the next 1 game s tick re-aims and extends it before it fades:
@@ -10,7 +12,7 @@ const FLAME_TAIL = 0.2, FLAME_FADE = 0.15, MAX_FLAMES = 8;
 const FLAME_TINTS = Object.freeze([0xffd27a, 0xffa94d, 0xff8a3d, 0xff5a2a]);
 
 export class FxBeams {
-  /** A beam from view `a` to view `b`; `chain`: a bounce, `a` is the previous target (it leaves from its chest). */
+  /** A beam from view `a` to view `b`; `chain`: a bounce, `a` is the previous target (it leaves from its chest). @this {FxSystem} */
   _beam(a, b, color, dur = 0.22, jitter = 1, chain = false) {
     this.beamList.push({ a, b, color, t: 0, dur, jitter, chain, seed: Math.random() * 1000 });
     if (this.beamList.length > 40) this.beamList.shift();
@@ -18,6 +20,7 @@ export class FxBeams {
     this.particle('flare', q.x, q.y, { tint: color, life: 0.16, s0: (q.s / 128) * 0.7, s1: (q.s / 128) * 0.25, a0: 1, a1: 0, rot: Math.random() });
   }
 
+  /** @this {FxSystem} */
   _updateBeams(dt) {
     const g = this.beams;
     g.clear();
@@ -55,6 +58,7 @@ export class FxBeams {
    * event per game second of the channel; each keeps the jet of dragon `srcId` burning for `dur` real s + FLAME_TAIL
    * onto its locked target `tgtId` (else the spot (x, y)), so the 1 s ticks join into ONE continuous stream, with a
    * burning disc of radius `r` tiles following the target. One jet per dragon (a new tick re-aims and extends it).
+   * @this {FxSystem}
    */
   _flame(srcId, tgtId, x, y, r, col, dur) {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
@@ -74,8 +78,10 @@ export class FxBeams {
     F.disc.tint = F.edge.tint = col;
   }
 
+  /** @this {FxSystem} */
   _freeFlame(F) { F.disc.destroy(); F.edge.destroy(); }
 
+  /** @this {FxSystem} */
   _updateFlames(dt) {
     if (!this.flames.length) return;
     const cam = this.ctx.cam();

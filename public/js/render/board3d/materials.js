@@ -153,6 +153,9 @@ export function unlitMaterial(THREE, map, color = 0xffffff, opts = {}) {
 /**
  * Gate / objective box material ([opt]start_end_add: additive; [opt]start_end_ab: alpha blend). `uniforms.uPulse`
  * animates the intensity (the clip's _TintColor.a curve).
+ * @param {any} THREE
+ * @param {any} map
+ * @param {{ additive?: boolean, tint?: readonly number[] }} [opts]
  */
 export function gateMaterial(THREE, map, { additive = true, tint = [1, 1, 1] } = {}) {
   const uniforms = { map: { value: map }, uTint: { value: new THREE.Color(tint[0], tint[1], tint[2]) }, uPulse: { value: 1 }, uFlash: { value: new THREE.Color(0, 0, 0) } };

@@ -147,13 +147,24 @@ export const PREP_TOKEN = Object.freeze({ x: (13 - 1.2) * 1.25, y: PREP_CHIP.y +
  */
 export const RESPAWN_HUD = Object.freeze({ y: 105 * 1.25, size: 85 * 0.7 * 1.25, fill: 47 * 0.7 * 1.25 });
 
-/** Enemy bars (see header), in HUD units; y: below hud_unit's centre (normal / boss) or from the feet (giant). */
+/**
+ * The style of an enemy's bars (ENEMY_BAR, BOSS_BAR, GIANT_BAR): the parts only some have are optional.
+ * @typedef {{ w: number, h: number, y: number, hp: number, alpha: number, plateAlpha: number, grow: readonly number[],
+ *   hard?: boolean, emblem?: { name: string, w: number, h: number, dy: number },
+ *   sp?: { h: number, dy: number, color: number, alpha: number, grow: readonly number[], frameGrow?: readonly number[] },
+ *   frame?: { name: string, grow: readonly number[], alpha: number, border: readonly number[] },
+ *   hit?: { name: string, grow: readonly number[], tint: number, alpha: number, border: readonly number[] } }} EnemyBarStyle
+ */
+
+/** Enemy bars (see header), in HUD units; y: below hud_unit's centre (normal / boss) or from the feet (giant). @type {EnemyBarStyle} */
 export const ENEMY_BAR = Object.freeze({ w: 105, h: 7, y: 55.3, hp: 0xea4700, alpha: 0.7, plateAlpha: 0.5, grow: Object.freeze([8, 8.55]) });
+/** @type {EnemyBarStyle} */
 export const BOSS_BAR = Object.freeze({
   w: 130, h: 9, y: 43, hp: 0xea2727, alpha: 0.85, plateAlpha: 0.5, grow: Object.freeze([10, 8]),
   emblem: Object.freeze({ name: 'sprite_enemy_boss_hud_small', w: 57, h: 65, dy: 7 }),
   sp: Object.freeze({ h: 6, dy: 7.5, color: 0xebc9ff, alpha: 0.7, grow: Object.freeze([10, 7]) }),
 });
+/** @type {EnemyBarStyle} */
 export const GIANT_BAR = Object.freeze({
   w: 798, h: 10, y: 0, hp: 0xff2b2b, alpha: 0.8, plateAlpha: 0.39, grow: Object.freeze([2, 2]), hard: true,
   frame: Object.freeze({ name: 'sprite_enemy_boss_hp_bg', grow: Object.freeze([18, 18]), alpha: 0.39, border: Object.freeze([11, 10, 11, 10]) }),
@@ -275,7 +286,7 @@ export class AllyBars {
     this.sp.visible = sp != null && !showAmmo;
     this.spTint.visible = false;
     if (this.sp.visible) {
-      let k = clamp(sp, 0, 1), color = cast ? B.cast : B.sp, alpha = B.alpha;
+      let k = clamp(sp, 0, 1), color = /** @type {number} */ (cast ? B.cast : B.sp), alpha = /** @type {number} */ (B.alpha);
       if (ov) {
         const R = OVERLOAD_RATIO;
         if (k > R) {
@@ -439,7 +450,12 @@ export class EnemyBars {
   }
 }
 
-/** A 9-sliced sprite (PIXI NineSlicePlane; a plain Sprite where there is none), anchored at its top-left. */
+/**
+ * A 9-sliced sprite (PIXI NineSlicePlane; a plain Sprite where there is none), anchored at its top-left.
+ * @param {any} P
+ * @param {any} parent
+ * @param {readonly number[]} border [left, top, right, bottom]
+ */
 function slice(P, parent, [l, t, r, b]) {
   const o = P.NineSlicePlane ? new P.NineSlicePlane(P.Texture.WHITE, l, t, r, b) : new P.Sprite(P.Texture.WHITE);
   parent.addChild(o);

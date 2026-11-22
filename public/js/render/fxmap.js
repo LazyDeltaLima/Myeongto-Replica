@@ -306,7 +306,7 @@ export const CAST_EVENT = Object.freeze({ ATTACHED: 0, DETACHED: 1, CAST_START: 
  * @param {any} bind
  * @param {number|null} n
  * @param {string} name
- * @returns {{ s: number, e: number, o: number, d?: number, once?: number }|null}
+ * @returns {{ s: number, e: number, o: number, d?: number, once?: number, t?: number, p?: number }|null}
  */
 export function castTiming(bind, n, name) {
   const m = Number.isInteger(n) && n >= 0 ? bind?.castOpt?.[n] : null;
@@ -408,6 +408,7 @@ export function combatEffects(bind, prefabs, n, role, combatNow) {
  * @param {number|null} n
  * @param {string|null|undefined} sig
  * @param {boolean|null} ally
+ * @returns {{ replace: boolean, cast?: string[], trail?: string[], hit?: string[] } | null} (all three lists are there)
  */
 export function modePart(bind, prefabs, n, sig, ally) {
   if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || n < 0) return null;

@@ -10,7 +10,8 @@ const pieceDirOf = (piece) => (typeof piece?.dir === 'string' && PIECE_DIRS.has(
 /**
  * A view as a render/pick.js unit, or null when it cannot be picked (gone, faded out, dead): standing on the display
  * tile it is drawn on, or — `walks` (battle enemies) — by its ground position and its drawn body (feet to head, on
- * screen; a flying one by its body alone).
+ * screen; a flying one by its body alone). `entry`: what the caller picks it for (app.js prep pieces).
+ * @returns {(import('../pick.js').PickUnit & { ref: any, entry?: any }) | null}
  */
 function pickUnitOf(v, walks = false, hitArea = null) {
   // a knocked-out operator lying on its tile waiting to redeploy (b.snap `down`, user playtest #4 item 9) is on that tile

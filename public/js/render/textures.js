@@ -241,6 +241,7 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+/** @type {Record<string, (ctx: CanvasRenderingContext2D, x: number, y: number, s: number, r?: any) => void>} */
 const MAT_DRAW = {
   road(ctx, x, y, s, r) { roadBase(ctx, x, y, s, r, 1); brackets(ctx, x, y, s, 11, 15, 'rgba(255,255,255,0.42)', 2.4); },
   road2(ctx, x, y, s, r) { roadBase(ctx, x, y, s, r, 2); brackets(ctx, x, y, s, 11, 15, 'rgba(255,255,255,0.42)', 2.4); },
@@ -519,7 +520,10 @@ function benchSide(ctx, x, y, s, r, led) {
 
 const _atlases = new Map();   // art key → atlas
 
-/** Procedural finishing layers usable in tiles.json (`{ proc: 'rim' }`): a bevelled block edge. */
+/**
+ * Procedural finishing layers usable in tiles.json (`{ proc: 'rim' }`): a bevelled block edge.
+ * @type {Record<string, (ctx: CanvasRenderingContext2D, x: number, y: number, s: number, r?: any) => void>}
+ */
 const PROC_LAYERS = {
   /** 活性源石's crust over the official concrete (DEFAULT_ART_LAYERS.infection); the second variant is mirrored. */
   originium(ctx, x, y, s) { originiumOverlay(ctx, x, y, s, false); },
@@ -708,6 +712,7 @@ let _fx = null;
  * 32², streak / tracer / bolt 128×32 (head at the right), slash 128×64 (arc bulging up), pillar 64×256 (foot at the
  * bottom).
  */
+/** @type {Record<string, [number, number, number, number, (c: CanvasRenderingContext2D, x: number, y: number, w: number, h?: number) => void]>} */
 const FX_DRAW = {
   glow: [0, 0, 128, 128, (c, x, y, w) => { radial(c, x + w / 2, y + w / 2, w / 2, [[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,255,255,0.6)'], [1, 'rgba(255,255,255,0)']]); }],
   soft: [128, 0, 128, 128, (c, x, y, w) => { radial(c, x + w / 2, y + w / 2, w / 2, [[0, 'rgba(255,255,255,0.8)'], [1, 'rgba(255,255,255,0)']]); }],
@@ -1185,7 +1190,7 @@ const DIAMOND_MAX = 160;       // ≈ 16 MB of 160×160 canvases at most (plus t
  * @param {string} key cache key
  * @param {HTMLImageElement|null} img
  * @param {number} color frame colour (0xRRGGBB)
- * @param {{ enemy?: boolean, golden?: boolean }} [o]
+ * @param {{ enemy?: boolean, golden?: boolean, ice?: boolean }} [o]
  */
 export function diamondTexture(key, img, color, o = {}) {
   const k = `${key}|${img ? 1 : 0}|${color}|${o.golden ? 1 : 0}|${o.ice ? 1 : 0}`;

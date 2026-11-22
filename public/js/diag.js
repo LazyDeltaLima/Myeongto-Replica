@@ -78,7 +78,7 @@ export function noteRender(event, detail = null, at = Date.now()) {
 export const renderEvents = () => renderLog.map((e) => ({ ...e }));
 export function clearRenderEvents() { renderLog.length = 0; }
 
-/** @type {{ at: number, t0: number, kind: string|null, total: number|null, steps: { name: string, ms: number, cut: boolean }[], late: { name: string, ms: number }[] }[]} */
+/** @type {{ at: number, t0: number, kind: string|null, total: number|null, steps: { name: string, ms: number, cut: boolean, parts?: { name: string, ms: number }[] }[], late: { name: string, ms: number }[] }[]} */
 const mountLog = [];
 export const MOUNT_MAX = 4;
 const LATE_MAX = 8;
@@ -110,6 +110,7 @@ export function mountTimer(now = () => globalThis.performance.now()) {
   return {
     step(name, cut = false) {
       const t = now();
+      /** @type {{ name: string, ms: number, cut: boolean, parts?: { name: string, ms: number }[] }} */
       const s = { name: String(name), ms: t - last, cut: !!cut };
       if (parts.length) { s.parts = [...parts, { name: 'rest', ms: t - lastPart }]; parts = []; }
       rec.steps.push(s);
@@ -357,6 +358,7 @@ export function redactValues(value, pairs) {
 
 /** [value, placeholder] pairs of what a report must not show: player names, the room code, the reconnect token. */
 export function secretsOf(state) {
+  /** @type {[string, string][]} */
   const pairs = [];
   const names = new Map();
   const addName = (n) => {
@@ -474,7 +476,7 @@ export function installPageRecord() {
   g.addEventListener?.('pagehide', () => { pageEnded = true; savePage(); });
   g.addEventListener?.('pageshow', (ev) => { if (ev.persisted && pageEnded) { pageEnded = false; savePage(); } });
   const beat = setInterval(() => { if (pageVis === 'visible') savePage(); }, PAGE_BEAT_MS);
-  beat?.unref?.(); // Node (tests): the beat never holds the process
+  /** @type {any} */ (beat)?.unref?.(); // Node (tests): the beat never holds the process
   savePage();
 }
 
@@ -578,11 +580,11 @@ export function browserEnv() {
     dpr: g.devicePixelRatio ?? null,
     touch: !!(g.matchMedia && g.matchMedia('(pointer: coarse)').matches),
     cores: g.navigator?.hardwareConcurrency ?? null,
-    memoryGB: g.navigator?.deviceMemory ?? null,
+    memoryGB: /** @type {any} */ (g.navigator)?.deviceMemory ?? null,
     lang: g.navigator?.language ?? null,
     uiLang,
     // an iPhone's home-screen app and its Safari tab keep separate caches (the field's first load differs)
-    standalone: !!(g.navigator?.standalone || (g.matchMedia && g.matchMedia('(display-mode: standalone)').matches)),
+    standalone: !!(/** @type {any} */ (g.navigator)?.standalone || (g.matchMedia && g.matchMedia('(display-mode: standalone)').matches)),
     sw: !!g.navigator?.serviceWorker?.controller,
   };
 }

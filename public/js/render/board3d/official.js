@@ -73,6 +73,8 @@ export function officialSceneListed(assets, stageId) {
  * lightmap drops the baked light), so the promise rejects and the caller keeps the procedural board meanwhile.
  * `retry` loads again only what failed (assets.image retry; loaded images stay cached). `partial` (the caller's last
  * try: a file the manifest lists but the server lacks never comes) settles for the scene without what is missing.
+ * @param {any} assets
+ * @param {string} stageId
  * @param {{ retry?: boolean, partial?: boolean }} [opts]
  * @returns {Promise<object|null>} null when the stage has no extracted scene
  */

@@ -11,7 +11,11 @@
 // support (Safari < 16.4).
 // Every file loses its `//# sourceMappingURL=` comment: the .map files are not vendored, and the browser's developer tools
 // would ask the server for them on every load (a 404 in the console).
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+// Each module the pages import also gets its declaration beside it (types/vendor/<name>.d.ts → public/vendor/<name>.d.ts):
+// tsc takes a sibling .d.ts over the .js, so the browser typecheck reads the package's types (three: a loose stand-in) and
+// never checks the vendored build (types/README.md 「Vendored modules and globals」). A package install has no types/ and
+// skips it.
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -64,6 +68,21 @@ export function vendor({ log = console.log, warn = console.warn } = {}) {
     writeFileSync(join(out, dst), stripSourceMap(VENDOR_REWRITES[dst] ? rewriteBare(src0, VENDOR_REWRITES[dst]) : src0));
     done.push(dst);
     log('vendor:', dst);
+  }
+  vendorTypes();
+  return done;
+}
+
+/** Copy types/vendor/*.d.ts next to the vendored modules they declare (the browser typecheck; see the header). */
+export function vendorTypes() {
+  const dir = join(root, 'types', 'vendor');
+  if (!existsSync(dir)) return [];
+  const done = [];
+  for (const [, dst] of VENDOR_FILES) {
+    const name = dst.replace(/\.js$/, '.d.ts');
+    if (!existsSync(join(dir, name)) || !existsSync(join(out, dst))) continue;
+    copyFileSync(join(dir, name), join(out, name));
+    done.push(name);
   }
   return done;
 }

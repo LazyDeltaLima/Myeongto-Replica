@@ -4,6 +4,8 @@
 // for a critical / forced hit — the 'dmg' 5th field — heals always); 全部显示 in the settings (number-style.js) keeps the
 // drawn ones below.
 
+/** @import { FxSystem } from './system.js' */
+
 import { DMG_STYLE, HIT_TINT, dmgStyleKey } from '../style.js';
 import { camKey } from './camera.js';
 import { clamp, easeOut } from './limits.js';
@@ -52,7 +54,7 @@ const SPLASH_SUBS = new Set(['aoesniper', 'splashcaster', 'bombarder', 'fortress
 export class FxNumbers {
   // ---- hits / numbers -----------------------------------------------------------------------------------------
 
-  /** b.ev 'dmg' visual: glow + sparks in the hit colour; a melee blow (atk 'none' just before) adds its slash. */
+  /** b.ev 'dmg' visual: glow + sparks in the hit colour; a melee blow (atk 'none' just before) adds its slash. @this {FxSystem} */
   damage(view, amount, type, srcView, numFlag = 0) {
     if (!view) return;
     const style = dmgStyleKey(type);
@@ -78,7 +80,7 @@ export class FxNumbers {
     }
   }
 
-  /** local patch (LOCAL-PATCH.md 「전투 화면 UI」 ④): a red number stopped by a shield (sim 'blk'): blue / BLOCK, official style only. */
+  /** local patch (LOCAL-PATCH.md 「전투 화면 UI」 ④): a red number stopped by a shield (sim 'blk'): blue / BLOCK, official style only. @this {FxSystem} */
   blocked(view, amount, shown) {
     if (!view || this.ctx.settings?.damageNumbers === false || numberStyle() !== 'official') return;
     (this._offNums || (this._offNums = new OfficialNumbers(this.ctx))).blocked(view, amount, shown);
@@ -87,6 +89,7 @@ export class FxNumbers {
   /**
    * Melee blow on `view` by `src`: a crescent swept across the victim, bulging along the blow (attacker → victim on
    * screen, a little random tilt / mirroring), in the hit colour with a white-hot inner stroke.
+   * @this {FxSystem}
    */
   _slash(view, src, px, py, s, style, big) {
     const q = this._chest(src, this._q);
@@ -101,6 +104,7 @@ export class FxNumbers {
     b.sx = flip;
   }
 
+  /** @this {FxSystem} */
   heal(view, amount) {
     if (!view) return;
     const p = this._chest(view);
@@ -130,6 +134,7 @@ export class FxNumbers {
    *     far as a margin) with a gap wide enough that two numbers never read as one;
    *   * crowded (> NUM_CROWD numbers near it): it lives shorter; a pair that still ends up overlapping (units walking
    *     into each other) resolves by fading the older one quickly (_updateNums).
+   * @this {FxSystem}
    */
   number(view, amount, style, big) {
     const n = Math.round(amount);
@@ -221,7 +226,7 @@ export class FxNumbers {
     this.nums.push(t);
   }
 
-  /** Whether a merged number's grown text still fits among its neighbours (else a new number is made). */
+  /** Whether a merged number's grown text still fits among its neighbours (else a new number is made). @this {FxSystem} */
   _growFits(t, add, big) {
     const sc = numScale(t._s || 100, t.big || big, t.style);
     const w = numChars(t.value + add, t.style) * NUM_DIGIT_EM * 24 * sc * NUM_POP + NUM_GAP_PX;
@@ -236,6 +241,7 @@ export class FxNumbers {
    * Lowest (largest screen y) bottom for a number of size w×h centred at x, starting at y0, clear of every live number
    * now and later: above one it must sit on its top; below one it must leave that one's rise so far as a margin
    * (the new number rises faster and would catch up).
+   * @this {FxSystem}
    */
   _numSlotPx(x, y0, w, h, risePx) {
     let y = y0;
@@ -256,7 +262,7 @@ export class FxNumbers {
     return y;
   }
 
-  /** Screen boxes of the live numbers (their current anchor, rise and size) → t._x, t._y (bottom), t._w, t._h. */
+  /** Screen boxes of the live numbers (their current anchor, rise and size) → t._x, t._y (bottom), t._w, t._h. @this {FxSystem} */
   _layoutNums(cam) {
     const p = this._p;
     for (const t of this.nums) {
@@ -274,13 +280,13 @@ export class FxNumbers {
     this._laidKey = camKey(cam);
   }
 
-  /** `_layoutNums` unless the boxes are already current: same frame (fx time) and the same camera framing. */
+  /** `_layoutNums` unless the boxes are already current: same frame (fx time) and the same camera framing. @this {FxSystem} */
   _layoutNumsOnce(cam) {
     if (this._laidAt === this.time && this._laidCam === cam && this._laidKey === camKey(cam)) return;
     this._layoutNums(cam);
   }
 
-  /** A number's box size from its value, style, pop and the scale of its last layout (t._s px per tile). */
+  /** A number's box size from its value, style, pop and the scale of its last layout (t._s px per tile). @this {FxSystem} */
   _sizeNum(t) {
     const sc = numScale(t._s || 100, t.big, t.style);
     const pop = 1 + t.pop * (NUM_POP - 1);
@@ -289,6 +295,7 @@ export class FxNumbers {
     t._sc = sc;
   }
 
+  /** @this {FxSystem} */
   _fadeNum(t, within) {
     if (t.fading) return;
     t.fading = true;
@@ -297,6 +304,7 @@ export class FxNumbers {
     t.fadeT0 = t.life;
   }
 
+  /** @this {FxSystem} */
   _takeNum(style) {
     const P = this.P;
     const font = DMG_STYLE[style]?.font || DMG_STYLE.phys.font;
@@ -312,6 +320,7 @@ export class FxNumbers {
     return t;
   }
 
+  /** @this {FxSystem} */
   _releaseNum(t) {
     t.text.visible = false;
     t.unit = null;
@@ -321,6 +330,7 @@ export class FxNumbers {
     if (list.length < 30) list.push(t); else t.text.destroy();
   }
 
+  /** @this {FxSystem} */
   _updateNums(dt) {
     const cam = this.ctx.cam();
     let w = 0;
@@ -358,7 +368,7 @@ export class FxNumbers {
     }
   }
 
-  /** Floating label ('!', '+10') at a screen point, using the damage-number pool. */
+  /** Floating label ('!', '+10') at a screen point, using the damage-number pool. @this {FxSystem} */
   numberAt(x, y, label, tint, life = 0.8) {
     const P = this.P;
     if (this.labels.length >= 24) { const o = this.labels.shift(); o.t.destroy(); }
@@ -370,6 +380,7 @@ export class FxNumbers {
     this.labels.push({ t, y0: y, life: 0, max: life });
   }
 
+  /** @this {FxSystem} */
   _updateLabels(dt) {
     let w = 0;
     for (const l of this.labels) {

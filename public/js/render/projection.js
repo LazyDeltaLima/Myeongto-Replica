@@ -187,7 +187,7 @@ const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
  */
 export class Camera {
   /**
-   * @param {{ tx?: number, ty?: number, tz?: number, tilt?: number, dist?: number, scale?: number, cx?: number, cy?: number, yaw?: number }} [o]
+   * @param {{ tx?: number, ty?: number, tz?: number, tilt?: number, dist?: number, scale?: number, cx?: number, cy?: number, yaw?: number }} [options]
    */
   constructor(options) {
     const o = options && typeof options === 'object' ? options : {};
@@ -419,7 +419,7 @@ export function normRect(rect, rows = 19, cols = BATTLE_COLS) {
  * Camera that frames `rect` inside the viewport.
  * @param {{r0,r1,c0,c1}} rect inclusive tile bounds
  * @param {{ width: number, height: number, padding?: { top?, right?, bottom?, left? } }} viewport CSS px
- * @param {{ tilt?, dist?, margin?: number, headroom?: number, maxTilePx?: number, minTilePx?: number }} [opts]
+ * @param {{ tilt?, dist?, margin?: number, headroom?: number, maxTilePx?: number, minTilePx?: number }} [options]
  *   margin (tiles) around the rect; headroom (tiles) of vertical space kept above the far row for units.
  */
 export function fitCamera(rect, viewport, options) {

@@ -1,6 +1,8 @@
 // public/js/render/fx/projectiles.js — FxSystem shots, boomerangs, mortar shells and impacts.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
+/** @import { FxSystem } from './system.js' */
+
 import { PROJ } from '../style.js';
 import { SHOT_HEIGHT, bodyZ, feetZ, liftX } from './camera.js';
 import { clamp } from './limits.js';
@@ -164,22 +166,24 @@ const liftDX = (cam, v, x, y, z) => liftX(cam, x, y, (v.z || 0) + (v.hover || 0)
 export class FxProjectiles {
   // ---- helpers ------------------------------------------------------------------------------------------
 
-  _proj(x, y, z, out = this._p) { return this.ctx.cam().project(x, y, z, out); }
+  /** @this {FxSystem} */
+  _proj(x, y, z, out = /** @type {FxSystem} */ (/** @type {unknown} */ (this))._p) { return this.ctx.cam().project(x, y, z, out); }
 
-  /** Ground decals: on a raised top they are drawn with that block row (tiles.surfaceLayer), else in groundFx. */
+  /** Ground decals: on a raised top they are drawn with that block row (tiles.surfaceLayer), else in groundFx. @this {FxSystem} */
   _onGround(sp, y, z) {
     let layer = this.ctx.layers.groundFx;
     if (z > 0.12 && this.ctx.surfaceLayer) layer = this.ctx.surfaceLayer(Math.round(y)) || layer;
     if (sp.parent !== layer) layer.addChild(sp);
   }
 
-  _chest(view, out = this._p) {
+  /** @this {FxSystem} */
+  _chest(view, out = /** @type {FxSystem} */ (/** @type {unknown} */ (this))._p) {
     const z = (view.z || 0) + (view.hover || 0) + (view._headTiles ? view._headTiles * 0.45 : 0.5);
     return this._proj(view.x, view.y, z, out);
   }
 
-  /** Screen point `frac` of a unit's drawn model height above its feet (SHOT_HEIGHT: beams, a mortar's muzzle). */
-  _bodyPt(view, frac, out = this._p) {
+  /** Screen point `frac` of a unit's drawn model height above its feet (SHOT_HEIGHT: beams, a mortar's muzzle). @this {FxSystem} */
+  _bodyPt(view, frac, out = /** @type {FxSystem} */ (/** @type {unknown} */ (this))._p) {
     const p = this._proj(view.x, view.y, (view.z || 0) + (view.hover || 0), out);
     p.y -= (view._headTiles || 1.2) * frac * p.s;
     return p;
@@ -190,6 +194,7 @@ export class FxProjectiles {
   /**
    * b.ev 'atk' visual. src/tgt are views (tgt may be null). `opts.inverse` (2026-10-10): a boomerang bowing to
    * the other side — 跃跃 S2's second boomerang (sim fx 'caperBoomerang2', client projectile_chr_caper_s2_1 `_inverseParacurve`).
+   * @this {FxSystem}
    */
   attack(src, tgt, kind, opts = null) {
     if (!src) return;
@@ -246,7 +251,7 @@ export class FxProjectiles {
     if (this.rich) this._muzzle(pr);
   }
 
-  /** A pooled projectile record: trail + halo + core sprites (additive, above units) and a ground shadow. */
+  /** A pooled projectile record: trail + halo + core sprites (additive, above units) and a ground shadow. @this {FxSystem} */
   _takeProj() {
     if (this.projs.length >= MAX_PROJ) this._releaseProj(this.projs.shift());
     let pr = this.projFree.pop();
@@ -275,7 +280,7 @@ export class FxProjectiles {
     return pr;
   }
 
-  /** The official arrow sprite (ARROW_SPEC) once loaded, else null (a manifest not read yet is asked again later). */
+  /** The official arrow sprite (ARROW_SPEC) once loaded, else null (a manifest not read yet is asked again later). @this {FxSystem} */
   _arrowTex() {
     if (!this._arrowT) {
       let url = null;
@@ -287,7 +292,7 @@ export class FxProjectiles {
     return t && t.baseTexture && t.baseTexture.valid ? t : null;
   }
 
-  /** Textures / tints of a projectile's sprites for its look (shown from its first update). */
+  /** Textures / tints of a projectile's sprites for its look (shown from its first update). @this {FxSystem} */
   _dressProj(pr) {
     const spec = pr.spec, look = spec.look;
     const thin = look === 'tracer' || look === 'dart';
@@ -309,6 +314,7 @@ export class FxProjectiles {
     trail.alpha = halo.alpha = core.alpha = shadow.alpha = body.alpha = 0;
   }
 
+  /** @this {FxSystem} */
   _releaseProj(pr) {
     pr.trail.visible = pr.halo.visible = pr.core.visible = pr.shadow.visible = pr.body.visible = false;
     if (pr.held) { boomerangCaught(pr.held); pr.held = null; } // local patch: back in her hand
@@ -319,6 +325,7 @@ export class FxProjectiles {
   /**
    * Sim fx 'shotSlow' (render/fx/shotslow.js): the shot it names flies at `rate` of its speed from now, or is gone without
    * landing (`clear`). The official trails take the same event (render/fxgame.js).
+   * @this {FxSystem}
    */
   shotSlow(o) {
     const pr = shotOf(this.projs, o);
@@ -327,6 +334,7 @@ export class FxProjectiles {
     else pr.rate = Number(o.rate);
   }
 
+  /** @this {FxSystem} */
   _updateProjs(dt) {
     if (!this.projs.length) return;
     const cam = this.ctx.cam();
@@ -343,7 +351,7 @@ export class FxProjectiles {
     this.projs.length = w;
   }
 
-  /** Screen point of a straight / lobbed shot at flight fraction k (a parabola of height `arc` over the line). */
+  /** Screen point of a straight / lobbed shot at flight fraction k (a parabola of height `arc` over the line). @this {FxSystem} */
   _shotPoint(pr, k, cam, out) {
     const x = pr.x0 + (pr.tx - pr.x0) * k, y = pr.y0 + (pr.ty - pr.y0) * k;
     const z = pr.z0 + (pr.tz - pr.z0) * k + (pr.arc ? pr.arc * 4 * k * (1 - k) : 0);
@@ -353,6 +361,7 @@ export class FxProjectiles {
   /**
    * One frame of a tracer / orb / shell / dart: placed by flight time (homing on the target), trail behind the head
    * along the path (never longer than the part flown), an arrival burst, then a SHOT_FADE linger in the target.
+   * @this {FxSystem}
    */
   _stepShot(pr, dt, cam, rich) {
     const spec = pr.spec, look = spec.look;
@@ -429,6 +438,7 @@ export class FxProjectiles {
    * thrower's current position at the return speed (PRTS 跃跃: 15 out, 3.75 back); gone when caught — or at once when
    * the thrower's view is gone (the sim drops a boomerang whose thrower left). Each leg bows sideways (left of its own
    * direction, so out and back form a loop); it spins, leaves afterimages and a shadow.
+   * @this {FxSystem}
    */
   _stepBoomerang(pr, dt, cam, rich) {
     const spec = pr.spec;
@@ -500,6 +510,7 @@ export class FxProjectiles {
    * One frame of a 蕾缪安 bombard shell: a long flight first streaks up out of the shooter (`rise` of it, following
    * her); then it falls onto its spot, faster and faster, its shadow growing there. It ends at the impact — the
    * explosion (and the end of its lock) is the sim's own 'bombard' fx.
+   * @this {FxSystem}
    */
   _stepMortar(pr, dt, cam, rich) {
     const spec = pr.spec;
@@ -556,7 +567,7 @@ export class FxProjectiles {
     return true;
   }
 
-  /** Flash at the shooter as a shot leaves (tracers: an oriented muzzle cone). Cosmetic. */
+  /** Flash at the shooter as a shot leaves (tracers: an oriented muzzle cone). Cosmetic. @this {FxSystem} */
   _muzzle(pr) {
     const spec = pr.spec, look = spec.look;
     if (!spec.muzzle) return;
@@ -573,7 +584,7 @@ export class FxProjectiles {
     }
   }
 
-  /** Arrival burst of a shot (PROJ `hit`): at the target, or the ground under it for shells. */
+  /** Arrival burst of a shot (PROJ `hit`): at the target, or the ground under it for shells. @this {FxSystem} */
   _impact(pr, cam) {
     const spec = pr.spec;
     const p = cam.project(pr.tx + pr.otx, pr.ty, pr.tz, this._g);
@@ -609,7 +620,7 @@ export class FxProjectiles {
     }
   }
 
-  /** The thrower caught its boomerang: a small flash in its hands. */
+  /** The thrower caught its boomerang: a small flash in its hands. @this {FxSystem} */
   _catch(pr, cam) {
     const p = cam.project(pr.bx, pr.by, pr.bz, this._g);
     this.particle('flare', p.x, p.y, { tint: pr.spec.glow, life: 0.12, s0: (p.s / 128) * 0.6, s1: (p.s / 128) * 0.2, a0: 0.9, a1: 0, rot: Math.random() });
@@ -621,6 +632,7 @@ export class FxProjectiles {
    * leaving the shooter; a flight ≥ 0.45 real s climbs out of her first). The spot gets a thin ring closing in and
    * brightening plus the blast radius throbbing until the impact. The shell takes the shooter's lock on that spot: the
    * lock ends with this shell's 'bombard' (_landed).
+   * @this {FxSystem}
    */
   mortar(src, x, y, r, flight) {
     const pr = this._takeProj();
@@ -655,6 +667,7 @@ export class FxProjectiles {
    * fx 'bombard' (the impact) at (x, y) by shooter `src`: the shell falling there has landed (ended now if still in
    * the air) and its lock goes — the lock that shell took, found by the landing point (the sim uses the same spot for
    * both events); a sim without 'bombardShell' releases the shooter's lock nearest to the spot.
+   * @this {FxSystem}
    */
   _landed(src, x, y, r) {
     for (const pr of this.projs) {

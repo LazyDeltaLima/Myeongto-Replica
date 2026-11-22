@@ -148,7 +148,7 @@ export function normalizeSnapshot(snap) {
 export class SnapshotBuffer {
   /**
    * @param {{ delay?: number, rate?: number, maxExtrapolate?: number, keep?: number, teleport?: number,
-   *           snapAfter?: number, minRate?: number, maxRate?: number }} [opts]
+   *           snapAfter?: number, minRate?: number, maxRate?: number }} [options]
    *   delay / maxExtrapolate / snapAfter / keep are REAL seconds.
    */
   constructor(options) {
@@ -165,7 +165,11 @@ export class SnapshotBuffer {
   }
 
   reset() {
-    /** @type {{t:number, units:Map<any, any[]>, raw:any, at:number}[]} ascending by t */
+    /**
+     * @type {{t:number, units:Map<any, any[] & { ammo?: any, bsp?: any, shield?: number, charge?: number, ovl?: number }>,
+     *   raw:any, at?:number, down?: any[], stand?: Map<any, any>, standCut?: Map<any, any>}[]} ascending by t (normalizeSnapshot;
+     *   `at` set as it arrives)
+     */
     this.snaps = [];
     /** @type {{t:number, at:number}[]} arrival log for rate estimation */
     this.arrivals = [];

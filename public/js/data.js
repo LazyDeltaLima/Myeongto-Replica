@@ -222,7 +222,7 @@ export function createDataStore(opts = {}) {
   function seasonAssets() {
     const m = ownSeasonAssets();
     if (!borrowIds || !m) return m;
-    const types = Object.values(viewOf('factions')?.types || {}).filter((ty) => ty && ty.borrowed).map((ty) => [ty.borrowed, ty.icon]);
+    const types = Object.values(viewOf('factions')?.types || {}).filter((ty) => ty && ty.borrowed).map((ty) => /** @type {[string, string]} */ ([ty.borrowed, ty.icon]));
     if (!types.length) return m;
     const local = entries.get('local')?.value ?? null;
     const key = types.map((x) => x.join('@')).join(',');
@@ -277,6 +277,7 @@ export function createDataStore(opts = {}) {
     if (typeof name !== 'string' || !/^[A-Za-z0-9_-]+$/.test(name)) return Promise.resolve(null);
     const cur = entries.get(name);
     if (cur) return cur.promise;
+    /** @type {{ status: 'loading'|'ready'|'missing', promise: Promise<any>, value: any, index: Map<string, any>|null }} */
     const entry = { status: 'loading', promise: null, value: null, index: null };
     const art = ART_MANIFESTS.has(name);
     entry.promise = (async () => {

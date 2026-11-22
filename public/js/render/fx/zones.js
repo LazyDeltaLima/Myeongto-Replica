@@ -1,6 +1,8 @@
 // public/js/render/fx/zones.js — FxSystem blasts, zones, tile flashes and screen washes.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
+/** @import { FxSystem } from './system.js' */
+
 import { NO_OPTS, clamp, easeOut } from './limits.js';
 
 /** A zone lasting longer than this (real s) is a persistent area (炼金单元, fields): drawn dimmer than a skill's short burst. */
@@ -31,6 +33,7 @@ export class FxZones {
    * An explosion on the ground at (x, y, z) of radius r tiles: fireball in `col`, a white flash, a shockwave and a
    * coloured ring on the ground, sparks and smoke. o.heavy (bombard, airstrike …): longer, more sparks, debris flying
    * and a scorch mark; o.small (shell impacts): no coloured ring, fewer sparks; o.tiles: flash those tiles too.
+   * @this {FxSystem}
    */
   explosion(x, y, z, r, col, o = NO_OPTS) {
     const cam = this.ctx.cam();
@@ -62,12 +65,12 @@ export class FxZones {
     if (o.tiles) this.tileFlash(o.tiles, col, 0.45);
   }
 
-  /** Dark (normal-blend) smoke puff. */
+  /** Dark (normal-blend) smoke puff. @this {FxSystem} */
   smoke(x, y, size, tint, alpha = 0.45) {
     this.particle('smoke', x, y, { add: false, tint, life: 0.8, s0: size / 128 * 0.9, s1: size / 128 * 2, a0: alpha, a1: 0 });
   }
 
-  /** Motion streak between two world points at height z (dash / pull / blink trails). */
+  /** Motion streak between two world points at height z (dash / pull / blink trails). @this {FxSystem} */
   streak(x0, y0, x1, y1, z, tint, life = 0.3) {
     const cam = this.ctx.cam();
     const a = cam.project(x0, y0, z, this._p), ax = a.x, ay = a.y;
@@ -78,7 +81,7 @@ export class FxZones {
     this.particle('streak', b.x, b.y, { tint, life, s0: th, s1: th * 0.5, sx: len / 128 / th, a0: 0.8, a1: 0, rot: Math.atan2(b.y - ay, b.x - ax), anchorX: 1 });
   }
 
-  /** Light strike from the sky onto a point (lightning / skill strikes / columns). */
+  /** Light strike from the sky onto a point (lightning / skill strikes / columns). @this {FxSystem} */
   strike(x, y, z, tint, wide = false) {
     const cam = this.ctx.cam();
     const g = cam.project(x, y, z);
@@ -93,6 +96,7 @@ export class FxZones {
    * sim fx's `key`): a zone already up under that key is updated in place — moved, resized, its end `dur` from now —
    * instead of a second one stacked on it (引星棘刺 S2's drifting alchemy unit is re-sent every second: twelve layers of the
    * same zone used to pile up, community report of 2026-10-06 「炼金单元等范围持续性技能特效太亮（尤其是多层叠加以后）」).
+   * @this {FxSystem}
    */
   zone(x, y, z, r, tint, dur, tex = 'soft', warn = false, key = null) {
     if (key != null) {
@@ -113,8 +117,10 @@ export class FxZones {
     if (this.zones.length > 24) this._freeZone(this.zones.shift());
   }
 
+  /** @this {FxSystem} */
   _freeZone(zn) { zn.disc.destroy(); zn.edge.destroy(); }
 
+  /** @this {FxSystem} */
   _updateZones(dt) {
     const cam = this.ctx.cam();
     const p = this._p, q = this._q;
@@ -141,13 +147,14 @@ export class FxZones {
     }
   }
 
-  /** Flash a set of tiles ([[r,c]]) on the ground (telegraphed boxes, blast tiles). */
+  /** Flash a set of tiles ([[r,c]]) on the ground (telegraphed boxes, blast tiles). @this {FxSystem} */
   tileFlash(tiles, tint, dur, warn = false) {
     if (!Array.isArray(tiles) || !tiles.length) return;
     this.tileFlashes.push({ tiles: tiles.slice(0, 60), tint, dur: Math.max(0.2, dur), t: 0, warn });
     if (this.tileFlashes.length > 12) this.tileFlashes.shift();
   }
 
+  /** @this {FxSystem} */
   _updateTileFlashes(dt) {
     const g = this.tileGfx;
     g.clear();
@@ -174,7 +181,7 @@ export class FxZones {
     this.tileFlashes.length = w;
   }
 
-  /** Full-screen colour pulse (field-wide telegraphs, cold wind). */
+  /** Full-screen colour pulse (field-wide telegraphs, cold wind). @this {FxSystem} */
   flashScreen(tint, alpha = 0.4, dur = 0.6) {
     this.tintT = dur; this.tintDur = dur; this.tintA = alpha;
     this.tintSprite.tint = tint;
@@ -187,6 +194,7 @@ export class FxZones {
    * with gust streaks racing along, so it reads as wind driving up the field, not quiet snowfall (flake / streak counts,
    * speeds and lives are a visual choice [ASSUMED]; screen y grows downward, so a negative vy rises). Without `gust` (an
    * operator's own cold: 灵知 S3, 麦哲伦 S1's pulses) a short light flurry drifting down, as before.
+   * @this {FxSystem}
    */
   snowfall(tint, gust = false) {
     const size = this.ctx.screenSize();
@@ -209,7 +217,7 @@ export class FxZones {
     }
   }
 
-  /** Leak: objective flash + red screen vignette pulse. */
+  /** Leak: objective flash + red screen vignette pulse. @this {FxSystem} */
   leak() {
     this.vigT = 0.9;
   }

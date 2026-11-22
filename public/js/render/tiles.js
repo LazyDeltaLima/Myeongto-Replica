@@ -99,15 +99,24 @@ const SIDE_MAT = {
  * Parse a stage record into a per-tile info grid (tolerant of partial/malformed data). `band` = [r0, r1] rows drawn;
  * `field` = [f0, f1] rows of the active field — drawn rows outside it are dim, non-playable scenery (e.g. the enemy
  * preview pen behind the normal field, or the normal field behind the boss field).
+ * @typedef {{ r: number, c: number, glyph: string, mat: string, hClass: any, h: number, playable: boolean,
+ *   inBand: boolean, scenery: boolean, dist: number, alpha: number, drawn: boolean, focus: boolean, top?: string,
+ *   devH?: number }} StageTile `top`: a high-ground plate's frame piece; `devH`: a device's drawn top (TileField)
+ * @param {any} stage
+ * @param {number[]} [band]
+ * @param {number[]} [field]
+ * @returns {StageTile[][]}
  */
 export function parseStage(stage, band = [0, ROWS - 1], field = [0, 13]) {
   const rows = Array.isArray(stage?.rows) ? stage.rows : [];
   const legend = stage && typeof stage.tiles === 'object' && stage.tiles ? stage.tiles : {};
   // 21 columns; a widened stage's rows are longer (the wide 联防 field)
   const cols = Math.max(COLS, ...rows.map((l) => (typeof l === 'string' ? l.length : 0)));
+  /** @type {StageTile[][]} */
   const grid = [];
   for (let r = 0; r < ROWS; r++) {
     const line = typeof rows[r] === 'string' ? rows[r] : '';
+    /** @type {StageTile[]} */
     const row = [];
     for (let c = 0; c < cols; c++) {
       let g = line[c] || '#';
@@ -519,6 +528,10 @@ export class TileField {
    * Set a highlight group. `tiles`: [[r,c]] or [{row,col}] (null/empty clears). `style`: 'legal' | 'illegal' |
    * 'range' | 'rangeStand' | 'hover' | 'target' | 'deploy' | { color, fill, line, group }. `opts.stripes`: light
    * diagonal stripes over the fill (the official striped range tiles; drawn under the units like every highlight).
+   * @param {any} tiles
+   * @param {string | { color?: number, fill?: number, line?: number, group?: string }} [style]
+   * @param {string} [group]
+   * @param {{ stripes?: boolean }} [opts]
    */
   setHighlights(tiles, style = 'range', group, opts) {
     let st = typeof style === 'object' && style ? { ...HL_STYLES.range, ...style } : (HL_STYLES[style] || HL_STYLES.range);
@@ -995,7 +1008,7 @@ export function buildTileQuads(G, uv) {
     add(H > 0 ? 'block' : 'low', topMat, [[x0, y1, H], [x1, y1, H], [x1, y0, H], [x0, y0, H]], dim, t.alpha, 0, 0, t);
     // sides: S (near), E, W. N faces are never visible (the camera is always south of the field).
     const sideMat = SIDE_MAT[t.mat] || SIDE_MAT[t.hClass] || 'lowSide';
-    for (const [dir, dr, dc] of [['S', -1, 0], ['E', 0, 1], ['W', 0, -1]]) {
+    for (const [dir, dr, dc] of /** @type {[string, number, number][]} */ ([['S', -1, 0], ['E', 0, 1], ['W', 0, -1]])) {
       const n = G[r + dr]?.[c + dc];
       const nDrawn = !!(n && n.drawn);
       const nh = nDrawn ? n.h : -CLIFF_DEPTH;

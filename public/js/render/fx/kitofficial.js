@@ -1018,7 +1018,8 @@ export const kitOperator = (o, name) => (o ? (OPERATOR_FIELD[name] ? o[OPERATOR_
  * @param {string} name
  * @param {any} o
  * @param {string | null} bundle
- * @param {{ skill?: number, back?: boolean, foe?: boolean }} [ctx]
+ * @param {{ skill?: number, back?: boolean, foe?: boolean, left?: boolean, plays?: any }} [ctx]
+ * @returns {{ stop: any[], play: any[], pass: boolean, skillFlag?: any } | null}
  */
 export function kitOfficialPlan(name, o, bundle, ctx = {}) {
   if (!o || typeof o !== 'object') return null;

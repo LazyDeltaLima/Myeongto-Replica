@@ -311,16 +311,6 @@ const FORM_MODES = Object.freeze({
 });
 
 /**
- * @param {{ host: HTMLElement, above: HTMLCanvasElement, quality: => string, load?: => number, under?: => boolean, fieldRect?: => any, enemyDef?: (id: string) => any, unitDef?: (info: any) => any }} o
- *   load: the view's adaptive load level 0–3 (render/app.js); under: whatever lies below the units canvas shows through
- *   it (the 3D board is on — the 2D board paints an opaque backdrop on the units canvas itself); fieldRect: the battle
- *   field's tile rect (local patch: 余 S3's wall runs across it, fx.js wallTiles); enemyDef: an enemy's data/enemies.json
- *   record (2026-10-10: its shot's speed, `proj`); unitDef: a unit's data record by its UnitInfo (render/app.js lookupDef;
- *   2026-10-16: an operator shot's speed, data/chess.json `shot`); audio: the sound object (2026-10-10: `enemyMode?.(unitId, defId, mode,
- *   previous mode)` when an enemy's official mode changes — stepEnemies); standIn: render/fx.js simFx(kind, x, y, extra) for a
- *   procedural stand-in this layer times itself (2026-10-10: the 冰凌's pillars tile by tile — ecolumnFx)
- */
-/**
  * Whether a kit 'fx' zone event is a lasting ground area away from its operator's view `v` — 引星棘刺's 炼金单元 (S1 / S3
  * on allies, S2 drifting and re-sent each second under its `key`: upstream f1e462ef), 锡人's charges, 歌蕾蒂娅's 漩涡, 号角's
  * flare, 异客's storm. The client draws it with the skill's `…_token` / `…_range` prefabs at the area, which nothing here
@@ -615,6 +605,18 @@ export function lineTweenEnd(s, e, k, off) {
   return e;
 }
 
+/**
+ * @param {{ host: HTMLElement, above: HTMLCanvasElement, quality: () => string, load?: () => number, under?: () => boolean,
+ *   rate?: () => number, fieldRect?: () => any, grid?: () => any, enemyDef?: (id: string) => any, unitDef?: (info: any) => any,
+ *   audio?: () => any, standIn?: (kind: string, x: number, y: number, extra?: any) => void, trace?: any, dry?: boolean }} o
+ *   load: the view's adaptive load level 0–3 (render/app.js); under: whatever lies below the units canvas shows through
+ *   it (the 3D board is on — the 2D board paints an opaque backdrop on the units canvas itself); fieldRect: the battle
+ *   field's tile rect (local patch: 余 S3's wall runs across it, fx.js wallTiles); enemyDef: an enemy's data/enemies.json
+ *   record (2026-10-10: its shot's speed, `proj`); unitDef: a unit's data record by its UnitInfo (render/app.js lookupDef;
+ *   2026-10-16: an operator shot's speed, data/chess.json `shot`); audio: the sound object (2026-10-10: `enemyMode?.(unitId, defId, mode,
+ *   previous mode)` when an enemy's official mode changes — stepEnemies); standIn: render/fx.js simFx(kind, x, y, extra) for a
+ *   procedural stand-in this layer times itself (2026-10-10: the 冰凌's pillars tile by tile — ecolumnFx)
+ */
 export function createFxLayer({ host, above, quality, load = () => 0, under = () => false, rate = () => 1, fieldRect = () => null, grid = () => null, enemyDef = () => null, unitDef = () => null, audio = () => null, standIn = () => {}, trace = null, dry = false }) {
   let index = null, modes = null, emodes = null, plays = null;
   // 2026-11-15: whether the index fetch has ended (`index` stays null without extracted effects): until then the stand-ins
@@ -2413,6 +2415,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // 2026-11-18: its flight time the sim's — muzzle → hit point on the board (shotFlightOf), not unit to unit (about 0.09 s
     // longer for 号角: her hit came after the drawn shell had landed)
     const fly = e[3] === 'boomerang' ? dist : shotFlightOf({ lookupDef: unitDef }, src, tgt, emodeName(tgt)) ?? dist;
+    /** @type {{ src?: any, back?: number, [k: string]: any }} */
     const rec = { inst: null, tgt, x0: from.x, y0: from.y, z0: from.z, ...aimOf(tgt), k: 0, key: shotKeyOf({ lookupDef: unitDef }, src),
       dur: Math.max(0.04, fly / (v || projSpeed(e[3]))), ...(lob ?? { arc: spec.arc ? spec.arc * Math.min(1.8, Math.max(0.6, 0.45 + dist * 0.18)) : 0 }) };
     // local patch (maintainer report 2026-10-08: one boomerang that comes back): a 回环射手's trail is the projectile itself
@@ -4309,6 +4312,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // crosshair_range, on the target with the lock mark — the beam and the ring stay until that target's shell (official
       // recording, re-checked 2026-10-27: a target's beam and its red glow outlast the other targets' shells, one locked twice
       // keeps them until its second shell); the mark ends earlier, with the lock phase (endLemMark)
+      /** @type {any[] & { done?: boolean }} */
       const mark = [];
       const list = lemMarks.get(o.src) || []; list.push(mark); lemMarks.set(o.src, list);
       // the lock's flash: buff lemuen_proj_s3_effect CreateEffect crosshair_01 on the target — that buff lives with the aim
@@ -5512,6 +5516,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * Effects `names` of enemy `v`: on it (its cast / born effects: under the units, split at 'high'), or `at` a unit / point
    * (its hits: over them). `until` / `buff` / `tag` / `owner` / `on` / `speed` as spawn()'s entry; `aim`: turned along it → `at`.
+   * @param {any} v
+   * @param {any} names
+   * @param {{ at?: any, over?: boolean, buff?: boolean, tag?: any, until?: any, owner?: any, on?: any, speed?: number,
+   *   aim?: any, cast?: any }} [opts]
    */
   function eplay(v, names, { at = null, over = !!at, buff = false, tag = null, until, owner, on, speed = 1, aim = null, cast = null } = {}) {
     for (const n of names || []) {
@@ -7566,6 +7574,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
      * local patch (⑤): loop `bundle`/`name` on `view` as its status `key` (once per key) at `frac` of its height.
      * 2026-10-23: `once` — an IMMEDIATELY buff's effect (fxstatus.js ONCE_OF): the client's buff ends as it starts and
      * finishes the effect (Effect.FinishMe), so it is finished at once and gone its `_delayToFinish` later, never looped.
+     * @param {any} view
+     * @param {string} bundle
+     * @param {string} name
+     * @param {string} key
+     * @param {number | 'own'} [frac] a share of its height, or 'own' (its owner's)
      */
     statusOn(view, bundle, name, key, frac = 0, hold = null, under = false, once = false, kept = false, src = view) {
       const on = view._fxStatusOn || (view._fxStatusOn = new Set());

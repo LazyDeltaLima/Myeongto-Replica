@@ -549,6 +549,11 @@ export class SpineActor {
     return this._idleName();
   }
 
+  /**
+   * @param {string} name
+   * @param {boolean} loop
+   * @param {{ timeScale?: number, mix?: number, track?: number, start?: number }} [o]
+   */
   _play(name, loop, { timeScale = 1, mix, track = 0, start = 0 } = {}) {
     if (!this.has(name)) return false;
     const st = this.spine.state;
@@ -1145,6 +1150,7 @@ export class SpineActor {
    * `_afterEndAnim`): `begin` once, `loop` until the `end` clip — from `endAt` game seconds (after `begin`), else so that it
    * closes the `total` —, and at `total` `after` plays as the skill's begin clip (mode skillBegin: the skill's idle / loop
    * follow). Attacks wait meanwhile (mode 'chant'), a 'skill' on only sets the flag. 予愿安洁莉娜 S2 (render/units.js glide).
+   * @param {{ begin?: string, loop?: string, end?: string, endAt?: number, total?: number, after?: string }} o
    */
   chant({ begin, loop, end, endAt, total, after }) {
     if (this.dead || !(total > 0) || !this.has(loop)) return false;

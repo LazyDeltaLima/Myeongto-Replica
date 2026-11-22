@@ -4,7 +4,8 @@ const MAX_PARTICLES = { high: 1400, medium: 800, low: 360 };
 
 const SKILL_GOLD = 0xffd45a;
 
-const NO_OPTS = Object.freeze({});
+/** The shared empty options object (only read; callers pass any option keys). */
+const NO_OPTS = /** @type {Readonly<Record<string, any>>} */ (Object.freeze({}));
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 

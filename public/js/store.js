@@ -209,7 +209,8 @@ const identity = (s) => s;
  * @template S, T
  * @param {(s: S) => T} [selector]
  * @param {(a: T, b: T) => boolean} [isEqual]
- * @param {ReturnType<typeof createStore>} [target] store to read (defaults to the app store)
+ * @param {{ get: () => any } & ReturnType<typeof createStore>} [target] store to read (defaults to the app store; its state is
+ *   the selector's `S`)
  * @returns {T}
  */
 export function useStore(selector = identity, isEqual = Object.is, target = store) {

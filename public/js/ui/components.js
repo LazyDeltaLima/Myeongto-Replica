@@ -28,6 +28,11 @@ import { uiUrl } from './assetUrls.js';
  * its DOM node and parent chain written into it), so after the screen unmounts the module-level template cache
  * still points at the detached DOM, its listeners and the old component tree — whole stale screens pile up over a
  * session. `this[0] = 3` marks the element dynamic (htm's documented opt-out), so every render gets fresh vnodes.
+ * @this {any} htm's op list of the element
+ * @param {any} type
+ * @param {Record<string, any>} props
+ * @param {...any} children
+ * @returns {any} a vnode (templates stay unchecked: htm's result is any)
  */
 export function hFresh(type, props, ...children) {
   if (this && typeof this === 'object') this[0] = 3;
@@ -173,7 +178,7 @@ export function Panel({ title, micro, tone = 'mint', brackets = true, glow = fal
 /**
  * Hexagon badge (prices, costs, funds). Width grows with content.
  * @param {{ value?: any, tone?: 'gold'|'mint'|'red'|'amber'|'ice'|'dark'|'discount'|'premium', size?: 'sm'|'md'|'lg',
- *   icon?: string, class?: string, title?: string }} props
+ *   icon?: string, class?: string, title?: string, children?: any }} props
  */
 export function HexBadge({ value, tone = 'gold', size = 'md', icon, class: cls, title, children }) {
   return html`<span class=${cx('hex', `hex--${tone}`, `hex--${size}`, cls)} title=${title}>
@@ -477,7 +482,7 @@ const modalStack = []; // open modals, topmost last: only the topmost handles ke
 /**
  * Modal dialog (declarative). Esc / backdrop click call onClose.
  * @param {{ open: boolean, title?: any, hideTitle?: boolean, micro?: string, tone?: string, onClose?: Function, actions?: any,
- *   width?: string, closeOnBackdrop?: boolean, class?: string, children?: any }} props
+ *   width?: string, closeOnBackdrop?: boolean, class?: string, veilClass?: string, children?: any }} props
  */
 export function Modal({ open, title, hideTitle = false, micro, tone = 'mint', onClose, actions, width, closeOnBackdrop = true, class: cls, veilClass, children }) {
   const boxRef = useRef(null);
@@ -487,7 +492,7 @@ export function Modal({ open, title, hideTitle = false, micro, tone = 'mint', on
     if (!open) return undefined;
     const token = {};
     modalStack.push(token);
-    const prevFocus = typeof document !== 'undefined' ? document.activeElement : null;
+    const prevFocus = /** @type {HTMLElement | null} */ (typeof document !== 'undefined' ? document.activeElement : null);
     const box = boxRef.current;
     // The independent guide can open above SettingsModal (its z-index is higher than --z-modal).
     const topmost = () => modalStack[modalStack.length - 1] === token && !document.querySelector('.guide');
@@ -973,7 +978,8 @@ export function placeholderFits(input, text) {
  * Bracketed text input.
  * @param {{ label?: any, micro?: string, value: string, onInput: (v: string) => void, onEnter?: Function,
  *   placeholder?: string, maxLength?: number, transform?: (v: string) => string, autoFocus?: boolean,
- *   disabled?: boolean, size?: 'md'|'lg'|'code', icon?: string, class?: string, inputRef?: any, name?: string }} props
+ *   disabled?: boolean, size?: 'md'|'lg'|'code', icon?: string, class?: string, inputRef?: any, name?: string,
+ *   placeholderShort?: string, hint?: any, invalid?: boolean, ariaLabel?: string, modalFocus?: boolean }} props
  */
 export function TextField({ label, micro, value, onInput, onEnter, placeholder, placeholderShort, maxLength, transform, autoFocus, disabled, size = 'md', icon, class: cls, inputRef, name, hint, invalid, ariaLabel, modalFocus = false }) {
   const localRef = useRef(null);

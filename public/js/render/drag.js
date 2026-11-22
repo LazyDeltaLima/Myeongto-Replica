@@ -125,7 +125,7 @@ export function createDragController(hooks) {
   const clearT = h.clearTimeout || ((id) => clearTimeout(id));
   let editable = false;
   let canPlace = typeof h.canPlace === 'function' ? h.canPlace : null;
-  /** @type {null | { mode: 'pressed'|'dragging'|'held', pointerId, pointerType, piece, from, sx, sy, timer }} */
+  /** @type {null | { mode: 'pressed'|'dragging'|'held', pointerId, pointerType, piece, from, sx, sy, cx?: number, cy?: number, timer, last? }} */
   let st = null;
   let hoverUid = null;
   let hoverTileKey = '';

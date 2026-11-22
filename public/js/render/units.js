@@ -937,8 +937,8 @@ function bar(P, parent, color, alpha = 1) {
 /**
  * Shared context handed to every view by app.js.
  * @typedef {{ P: any, layers: { shadow: any, units: any, bars: any, groundFx: any },
- *   assets: any, cam: => any, heightAt: (r:number,c:number)=>number, fx: any, time: => number,
- *   settings: { damageNumbers: boolean, quality: string, eliteBadge?: boolean } }} ViewCtx
+ *   assets: any, cam: () => any, heightAt: (r:number,c:number)=>number, fx: any, time?: () => number,
+ *   settings: { damageNumbers: boolean, quality: string, eliteBadge?: boolean, [k: string]: any }, [k: string]: any }} ViewCtx
  */
 
 export class UnitView {
@@ -1022,7 +1022,7 @@ export class UnitView {
     this.turnS = null;
     this.hp = Number(info.maxHp) || 1; this.maxHp = Number(info.maxHp) || 1; this.ghostHp = this.hp;
     this.sp = 0; this.spMax = 0;
-    this.flags = 0; this.anim = ANIM.IDLE;
+    this.flags = 0; this.anim = /** @type {number} */ (ANIM.IDLE);
     this.statuses = new Set();
     this.alive = true;
     this.dying = 0;               // seconds left of the death fade (0 = not dying)
@@ -1413,7 +1413,8 @@ export class UnitView {
     for (const b of [this.hpBg, this.hpGhost, this.hpFill, this.shieldBar, this.spBg, this.spFill, this.spGlow]) b.visible = false;
     // local patch: official bars (hud-bars.js) — allies, enemies, bosses and the 卫戍协议 giant bosses
     const giant = this.isEnemy && this.ctx.lookupDef ? giantBossOf(this.ctx.lookupDef(this.info)) : null;
-    this.lpBars = !this.isEnemy ? new AllyBars(P, h) : new EnemyBars(P, h, giant ? 'giant' : this.isBoss ? 'boss' : 'normal', giant);
+    // (any: an ally's and an enemy's bars take different update arguments; isEnemy picks the call)
+    this.lpBars = /** @type {any} */ (!this.isEnemy ? new AllyBars(P, h) : new EnemyBars(P, h, giant ? 'giant' : this.isBoss ? 'boss' : 'normal', giant));
     this.lpMark = !this.isEnemy ? new SkillMark(P, h) : null; // the official stored-charge mark (b.snap `charge`)
     this.lpBars.anchor = this.hudAnchor;
     if (this.lpMark) this.lpMark.anchor = this.hudAnchor;
@@ -1670,6 +1671,9 @@ export class UnitView {
    * as it ends (fx/kinds.js aglGlideBack) on Skill_2_Begin (`_afterEndAnim`, SpineActor.chant). She glides low and rises
    * to her airborne height over `rise` game s once home (aglna2_s_2[chant_end]: ModifyGraphicHolderHeight over
    * `height_duration` 1). [ASSUMED: constant speed (the movement's speed curve ≈0.95–1.13 not modelled).]
+   * @param {number} tx
+   * @param {number} ty
+   * @param {{ travel?: number, chant?: number, rise?: number }} [o]
    */
   glide(tx, ty, { travel, chant, rise = 1 } = {}) {
     if (!Number.isFinite(tx) || !Number.isFinite(ty) || !(chant > 0) || !this.alive || this.down) return;
@@ -2082,7 +2086,7 @@ export class UnitView {
     }
     if (this.zTarget == null) this.z = this.zTarget = groundZ(this.ctx, this.x, this.y); // never synced: its tile top
     this.dying = 0; // no death fade while down
-    const dn = this.down || (this.down = { until: 0, total: 0, state: DOWN_STATE.COUNTING });
+    const dn = this.down || (this.down = { until: 0, total: 0, state: /** @type {number} */ (DOWN_STATE.COUNTING) });
     dn.until = Number(d[1]) || 0;
     dn.total = Math.max(0, Number(d[2]) || 0);
     dn.state = d[3] | 0;

@@ -183,7 +183,7 @@ export const STATUS_ICON = Object.freeze({
   refraction: 'refraction',
 });
 
-/** Keyword fallbacks for namespaced / content status keys ('ab:frost', 'reed2:scorch', 'skill:shotst_shred' …). */
+/** Keyword fallbacks for namespaced / content status keys ('ab:frost', 'reed2:scorch', 'skill:shotst_shred' …). @type {[RegExp, string][]} */
 const STATUS_GUESS = [
   [/frost|chill|cold/i, 'cold'], [/freez/i, 'freeze'], [/scorch|burn|ignit|flame/i, 'burn'], [/stun|daze/i, 'stun'],
   [/sleep|slumber/i, 'sleep'], [/silenc/i, 'silence'], [/slow|slugg|bind|root|snare/i, 'slow'], [/fear|trembl/i, 'fear'],
@@ -201,7 +201,7 @@ const STATUS_GUESS = [
 export function statusIconSuppressed(key, statuses) {
   if (key !== 'ab:refraction' && key !== 'refraction') return false;
   if (!statuses) return false;
-  return typeof statuses.has === 'function' ? statuses.has('silence') : Array.isArray(statuses) && statuses.includes('silence');
+  return typeof (/** @type {Set<string>} */ (statuses)).has === 'function' ? (/** @type {Set<string>} */ (statuses)).has('silence') : Array.isArray(statuses) && statuses.includes('silence');
 }
 
 /** Icon key (textures STATUS_KEYS) for a b.ev status key or flag name; null when it has no icon. */

@@ -193,10 +193,10 @@ const HUD_ZOOM_MIN = 0.45;
  * Create the battlefield view inside `host` (an element sized by CSS; the canvas fills it).
  * @param {HTMLElement} host
  * `deadline` (epoch ms): the caller's own limit (ui/fieldHost.js); the optional waits stop in time for it.
- * @param {{ data?: any, assets?: any, audio?: any, settings?: { damageNumbers?: boolean, quality?: string, eliteBadge?: boolean }, signal?: AbortSignal,
- *           deadline?: number,
- *           padding?: object|((kind:string, size:{width:number,height:number}) => object),
- *           hud?: {top:number,bottom:number}|((kind:'prep'|'bossPrep', size:{width:number,height:number}, o:{shop:boolean}) => {top:number,bottom:number}|null) }} [opts]
+ * @param {{ data?: any, assets?: any, audio?: any, settings?: { damageNumbers?: boolean, quality?: string, eliteBadge?: boolean, otherSkins?: boolean, [k: string]: any },
+ *           signal?: AbortSignal, deadline?: number, timing?: any, skinGate?: any, board?: any, antialias?: boolean,
+ *           padding?: any|((kind:string, size:{width:number,height:number}) => any),
+ *           hud?: {top:number,bottom:number}|((kind:'prep'|'bossPrep', size:{width:number,height:number}, o:{shop:boolean}) => {top:number,bottom:number}|null) }} [options]
  */
 export async function createFieldView(host, options = {}) {
   if (!host || typeof host.appendChild !== 'function') throw new TypeError('createFieldView: host element required');
@@ -486,6 +486,7 @@ export async function createFieldView(host, options = {}) {
   let board3dCanvas = null;
   let board3dError = null;
   // the THREE module + art pack once loaded, when the board last came up, the 2D board chosen, context losses so far
+  /** @type {{ THREE: any, pack: any, since: number, off: boolean, count: number }} */
   const recover = { THREE: null, pack: null, since: 0, off: false, count: 0 };
   const retry3d = createRetry3d({ delays: BOARD3D_RETRY_MS, hidden: () => globalThis.document?.visibilityState === 'hidden' });
   setupCleanup.push(() => { retry3d.cancel(); disable3d(); });
@@ -608,6 +609,7 @@ export async function createFieldView(host, options = {}) {
     if (!recover.THREE || !recover.pack) {
       const pending = load3d;
       load3d = null;
+      /** @type {{ status: string, why?: string, THREE?: any, pack?: any }} */
       const r = pending ? await pending
         : gpu3d() ? await loadBoard3d(assets, { retry }).catch((err) => ({ status: 'retry', why: String(err?.message || err) }))
           : { status: 'retry', why: webgl2Missing() };
@@ -923,6 +925,7 @@ export async function createFieldView(host, options = {}) {
     emit('pieceDeploy', { uid: e.uid, area: e.area, unit: info });
   }
 
+  /** @returns {{ kind: string, defId: any, [k: string]: any }} */
   function pieceInfo(piece, area, byUid = null) {
     const kind = piece.kind;
     // board pieces face their stored dir (the server default RIGHT when absent), drawn through the prep field (mirrored
@@ -994,6 +997,7 @@ export async function createFieldView(host, options = {}) {
     canPlaceFn = typeof o.canPlace === 'function' ? o.canPlace : null;
     drag.setCanPlace(canPlaceFn ? adaptCanPlace(canPlaceFn) : null);
     drag.setEditable(editable);
+    /** @type {{ piece: any, area: string, uid: number, row?: number, col?: number, idx?: number, key?: string }[]} */
     const list = [];
     const addList = (arr, area) => {
       if (!Array.isArray(arr)) return;
@@ -1929,7 +1933,7 @@ export async function createFieldView(host, options = {}) {
     }
   }
   function handle(e, renderT) {
-    try { handleEvent(e, renderT); } catch (err) { if (!handleEvent.warned) { handleEvent.warned = true; console.warn('[render] event failed', e, err); } }
+    try { handleEvent(e, renderT); } catch (err) { if (!(/** @type {any} */ (handleEvent)).warned) { (/** @type {any} */ (handleEvent)).warned = true; console.warn('[render] event failed', e, err); } }
   }
 
   /**
@@ -2441,7 +2445,7 @@ export async function createFieldView(host, options = {}) {
       impostors.flush();
       lap('imp');
     } catch (err) {
-      if (!frame.warned) { frame.warned = true; console.error('[render] frame failed', err); }
+      if (!(/** @type {any} */ (frame)).warned) { (/** @type {any} */ (frame)).warned = true; console.error('[render] frame failed', err); }
     }
     for (const k of PARTS) parts[k] = parts[k] * 0.9 + lapMs[k] * 0.1;
   }

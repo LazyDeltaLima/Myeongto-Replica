@@ -141,10 +141,20 @@ export function uvAt(uv, fx, fy) {
 // ---- stage classification -----------------------------------------------------------------------------------
 
 /**
+ * One tile of classifyStage: the first fields when the grid is built, the surface ones after.
+ * @typedef {{ r: number, c: number, glyph: string, content: boolean, inArea: boolean, drawn: boolean, h: number,
+ *   raised: boolean, tint?: number[], surf?: string, rot?: number, flipX?: boolean, glass?: boolean, side?: string,
+ *   sideTint?: number[], panels?: boolean }} BoardTile
+ */
+
+/**
  * Per-tile description of a stage: `{ r, c, glyph, content, drawn, h (top height), raised, surf (top surface),
  * tint, side (side panel surface) }`. Tolerant of malformed stages (missing rows → forbidden). `area` = the built
  * areas (inclusive tile rects, see AREAS): content outside them is not built, like the client which only builds the
  * areas of the current phase (configBlackBoard leftNormal / rightNormal / leftBoss / rightBoss + the preview pen).
+ * @param {any} stage
+ * @param {readonly { r0: number, r1: number, c0: number, c1: number }[] | null} [area]
+ * @returns {BoardTile[][]}
  */
 export function classifyStage(stage, area = null) {
   const rows = Array.isArray(stage?.rows) ? stage.rows : [];
@@ -152,9 +162,11 @@ export function classifyStage(stage, area = null) {
   const legend = stage && typeof stage.tiles === 'object' && stage.tiles ? stage.tiles : {};
   // 21 columns; a widened stage's rows are longer (the wide 联防 field)
   const cols = Math.max(COLS, ...rows.map((l) => (typeof l === 'string' ? l.length : 0)));
+  /** @type {BoardTile[][]} */
   const grid = [];
   for (let r = 0; r < ROWS; r++) {
     const line = typeof rows[r] === 'string' ? rows[r] : '';
+    /** @type {BoardTile[]} */
     const row = [];
     for (let c = 0; c < cols; c++) {
       let g = line[c] || '#';
@@ -232,6 +244,7 @@ export function heightOf(grid, r, c) {
 
 // ---- builder ----------------------------------------------------------------------------------------------------
 
+/** @type {[string, number, number][]} */
 const DIRS = [['S', 0, -1], ['E', 1, 0], ['N', 0, 1], ['W', -1, 0]];
 const NRM = { S: [0, -1, 0], E: [1, 0, 0], N: [0, 1, 0], W: [-1, 0, 0] };
 
@@ -316,7 +329,8 @@ function sideFace(g, uvTable, surfName, dir, x0, x1, y0, y1, zb, zt, colBottom, 
 /**
  * Build the whole board of a stage.
  * @param {any} stage data/stages.json entry
- * @param {{ uv?: object, devices?: boolean }} [opts] uv = resolveUvTable(tiles.json) (defaults to the built-in table)
+ * @param {{ uv?: object, devices?: boolean, area?: readonly { r0: number, r1: number, c0: number, c1: number }[] | null }} [opts] uv =
+ *   resolveUvTable(tiles.json) (defaults to the built-in table), area = classifyStage's
  */
 export function buildBoard(stage, opts = {}) {
   const uvTable = opts.uv || null;

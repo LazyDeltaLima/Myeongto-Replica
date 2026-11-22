@@ -1,7 +1,8 @@
 {
   // Browser typecheck: what the page loads, checked with the DOM and without the Node types (npm run typecheck runs
   // this after jsconfig.json). shared/ and the sim files run in the page as well, so they are checked here too.
-  // Widen one path at a time: see types/README.md.
+  // The vendored modules are read through the declarations tools/vendor.mjs puts beside them (types/vendor/), the
+  // script-tag globals through types/page-globals.d.ts. Widen one path at a time: see types/README.md.
   "extends": "./jsconfig.json",
   "compilerOptions": {
     "types": [],
@@ -13,6 +14,10 @@
     "server/sim/detmath.js",
     "server/sim/dir.js",
     "server/sim/constants.js",
-    "types/**/*.js"
+    "public/js/render/**/*.js",
+    "public/js/battle/**/*.js",
+    "types/**/*.js",
+    "types/page-members.d.ts",
+    "types/page-globals.d.ts"
   ]
 }
