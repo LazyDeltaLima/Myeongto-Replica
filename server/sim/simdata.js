@@ -243,6 +243,12 @@ function normStats(st) {
   };
 }
 
+/**
+ * An OpDef as SimData hands it out: normalizeChess's def plus the loadout it was built for (getChess / getStandIn /
+ * getDiy) and, for a 自选 slot, its summons' variant key (`tokenOwner`, shared/diy.js diyTokenOwner).
+ * @typedef {ReturnType<typeof normalizeChess> & { loadout?: Record<string, any>, tokenOwner?: string }} ChessDef
+ */
+
 /** Normalise a chess record (research 03 shape or data/chess.json shape) into an OpDef. */
 export function normalizeChess(rec) {
   const id = rec.chessId ?? rec.id;
@@ -814,6 +820,7 @@ export class DataSource {
     const lo = r ? resolveLoadout(r, loadout) : null;
     const key = id + loadoutKey(lo);
     if (this._chess.has(key)) return this._chess.get(key);
+    /** @type {ChessDef|null} */
     let d = null;
     if (r) {
       d = normalizeChess({ chessId: id, ...loadoutRecord(r, lo) });
@@ -835,6 +842,7 @@ export class DataSource {
     if (this._chess.has(key)) return this._chess.get(key);
     const r = this.rawChess(id);
     const rec = r ? standInRecord(r, this.rawBackups()) : null;
+    /** @type {ChessDef|null} */
     let d = null;
     if (rec) {
       d = normalizeChess({ ...rec, chessId: id });
@@ -854,7 +862,7 @@ export class DataSource {
    * or when the data lacks it. An owned pick is composed at `potential` (1–6, default 6; shared/diy.js diyRecordOf —
    * `def.loadout.potential`, its summons' variants follow); a prototype has none. Cached per (id, pick, potential).
    * @param {string} id
-   * @param {{ charId?: string, skillIndex?: number|null, uniEquipId?: string|null }} pick
+   * @param {import('../../shared/diy.js').DiyPick} pick
    * @param {number|null} [potential]
    */
   getDiy(id, pick, potential = null) {
@@ -863,6 +871,7 @@ export class DataSource {
     if (this._chess.has(key)) return this._chess.get(key);
     const r = this.rawChess(id);
     const rec = r && r.isDiy ? diyRecordOf(r, pick, this, { potential: pot }) : null;
+    /** @type {ChessDef|null} */
     let d = null;
     if (rec) {
       d = normalizeChess({ ...rec, chessId: id });

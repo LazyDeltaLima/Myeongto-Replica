@@ -132,6 +132,9 @@ function isActive(battle, st, d) {
  * `duration` s (a number or `() => number`, evaluated per gust — layers can change mid-battle). A cold enemy that
  * gets cold again freezes (engine rule). `playerId` only tags the fx; `ownerOnly` limits the gust to enemies
  * attributed to that player. Returns { cancel() } or null for bad numbers.
+ * @param {object} battle
+ * @param {{ playerId?: string|null, interval?: number, duration?: number | (() => number), first?: number,
+ *   ownerOnly?: boolean, effectKey?: string|null }} [opts]
  */
 export function startColdWind(battle, { playerId = null, interval, duration, first, ownerOnly = false, effectKey = null } = {}) {
   const iv = num(interval, 0);

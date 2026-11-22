@@ -110,6 +110,9 @@ export class BattleDisplacement {
    * the official 拉力起点 in front of an operator. The pulled enemy keeps its facing through the slide (displace fx
    * `face: 'keep'`): the client's `Nodes.DragTowardSource.Execute` passes changeFaceByDirection false, and the
    * hook pull (`Enemy.BeginPull` / `StillPull` / `EndPull`) never turns it. Returns the tiles moved.
+   * @param {object} e
+   * @param {number} force
+   * @param {{ to?: { x: number, y: number }, center?: object|null, stop?: number }} [opts]
    * @this {Battle}
    */
   pull(e, force, { to, center = null, stop = PULL_STOP_RADIUS } = {}) {
@@ -211,6 +214,11 @@ export class BattleDisplacement {
    * ⇒ no movement (_displaceable). The tiles it may cross follow its movement (`motion`): a hovering enemy walks the
    * ground, so it stays on ground-passable tiles. `face` (render only): 'push' — the view faces against its travel,
    * 'keep' — it keeps its facing; none — it faces its travel.
+   * @param {object} e
+   * @param {{ x: number, y: number }} dir
+   * @param {number} distance
+   * @param {{ dur?: number | ((moved: number) => number), face?: string|null }} [opts] `dur` (game s): the 失衡
+   *   the push / pull gives, carried by the displace fx — or a function of the tiles moved that returns it
    * @this {Battle}
    */
   displace(e, dir, distance, { dur: durOpt = 0, face = null } = {}) {

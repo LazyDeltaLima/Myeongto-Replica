@@ -483,6 +483,7 @@ export function applyHpLoss(battle, source, target, amount, dmg) {
  * Are `target`'s element gauges locked (爆发冷却, see header): a burst's `<el>Burst` lock is up (any element — the lock
  * holds every gauge of the unit), or a burst of the unit is resolving right now. The element argument of older callers
  * is ignored.
+ * @type {(target: object, el?: string) => boolean}
  */
 export function burstLocked(target) {
   const p = target.burstPending;

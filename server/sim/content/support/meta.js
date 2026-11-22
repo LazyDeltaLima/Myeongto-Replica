@@ -65,7 +65,11 @@ function withGrants(ctx, piece, bonds) {
   return out;
 }
 
-/** Distinct tiers of board chess matching `pred(pieceView)`. */
+/**
+ * Distinct tiers of board chess matching `pred(pieceView)`.
+ * @param {object} ctx
+ * @param {(piece: object) => boolean} [pred]
+ */
 export function distinctTiers(ctx, pred = () => true) {
   const tiers = new Set();
   for (const p of ctx.board()) if (p && p.kind === 'chess' && pred(p)) tiers.add(p.tier ?? ctx.gd.tierOf(p.id));

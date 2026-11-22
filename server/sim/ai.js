@@ -519,6 +519,8 @@ function attackModeOf(u) {
   return attackRecordOf(u);
 }
 
+/** @typedef {{ strike: number, action: number, sel: number, begun: boolean, scale?: number }} AttackTiming */
+
 /**
  * The timing of a unit's next normal attack (the client's `AbstractAnimatedAbility.UpdatePlaybackSpeed`, docs/rules/
  * sim.md 「일반 공격 타이밍」): the attack clip (simdata.js normAttackAnim — data/chess.json / enemies.json `attackAnim`) is
@@ -536,8 +538,12 @@ function attackModeOf(u) {
  * (`InitAnimation`: scale = attack time ÷ (begin + clip), bounded by its own `_maxAnimScale`), so that swing's strike
  * waits for the clip's OnAttack frame after the begin — (begin + OnAttack) × scale (`begun` true); its swings last the
  * attack interval. A 要塞's `ranged` swing times from `Body/Attack/RangedAttack`'s clip, the record's own from its melee child's.
- * @returns {{ strike: number, action: number, sel: number, begun: boolean, scale: number }} game seconds into `out`; `sel` =
- *   `_selectTargetTiming`; `scale` = the swing's `m_animScale`, which also scales a MultiRangedAttack's `_triggerDelta`
+ * @param {object} u
+ * @param {AttackTiming} [out] the record it writes into and returns (a caller's scratch object)
+ * @param {boolean} [first]
+ * @param {boolean} [ranged]
+ * @returns {AttackTiming} game seconds into `out`; `sel` = `_selectTargetTiming`; `scale` (always written) = the swing's
+ *   `m_animScale`, which also scales a MultiRangedAttack's `_triggerDelta`
  */
 export function attackTiming(u, out = { strike: 0, action: 0, sel: 0, begun: false }, first = false, ranged = false) {
   let a = attackClipOf(u);
@@ -1348,7 +1354,7 @@ function advanceRoute(b, e, dt, R, standing = false) {
 }
 
 /**
- * Boss-field portal pickup (tile_telin / tile_telout; GitHub #336, PR #337 by @2321Robin, both with a recording of the
+ * Boss-field portal pickup (tile_telin / tile_telout; GitHub #336, PR #337 by `@2321Robin`, both with a recording of the
  * official game): a route that ENDS on a portal entrance does not leak there — the enemy is teleported out of the far
  * exit and walks on to the blue door on the entrance's side, where it leaks. The boss / Hidden Core circuits end on
  * an entrance ([1,3] / [1,17]; 137 routes of data/waves.json); their mid-route crossings are the routes' own DISAPPEAR /

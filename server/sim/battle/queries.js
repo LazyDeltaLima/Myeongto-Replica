@@ -114,6 +114,7 @@ export class BattleQueries {
   enemiesInKeys(keys, attacker, profile) {
     const out = [];
     if (!keys) return out;
+    /** @type {Set<object>|null} */
     let seen = null;   // the enemies listed on more than one tile (`_ebMulti`) already looked at in this call
     for (let i = 0; i < keys.length; i++) {
       const b = this._eb[keys[i]];

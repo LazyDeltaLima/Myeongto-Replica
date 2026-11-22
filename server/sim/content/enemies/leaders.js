@@ -614,7 +614,11 @@ function segDist(px, py, ax, ay, bx, by) {
   return hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
-/** A second normal hit on the same target ("二连击"): same damage type, no further on-hit procs. */
+/**
+ * A second normal hit on the same target ("二连击"): same damage type, no further on-hit procs.
+ * @param {(b: object, e: object, a: object) => boolean} [on] whether this hit gets its second one
+ * @param {((c: object, b: object, e: object) => object) | null} [extra] more damage options for the second hit
+ */
 const doubleHit = (on = () => true, extra = null) => ({
   dealt(c, b, e, a) {
     if (!on(b, e, a) || !c.target.alive) return;

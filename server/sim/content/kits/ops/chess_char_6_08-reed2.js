@@ -40,7 +40,7 @@ function reed2(bb, chess, def) {
       onStrike({ battle, unit, skill }) {
         const n = Math.max(1, Math.floor(num(bb.max_target, 1)));
         const cands = battle.alliesInGrid(unit).filter((a) => a.kind === 'op' && live(a));
-        cands.sort((a, b) => (a === unit) - (b === unit) || (b.ground ? 1 : 0) - (a.ground ? 1 : 0) || a.hpRatio - b.hpRatio || a.deploySeq - b.deploySeq);
+        cands.sort((a, b) => /** @type {any} */ (a === unit) - /** @type {any} */ (b === unit) || (b.ground ? 1 : 0) - (a.ground ? 1 : 0) || a.hpRatio - b.hpRatio || a.deploySeq - b.deploySeq);
         unit.mem.reedFire = cands.slice(0, n).map((a) => ({ a, acc: 0 }));
         unit.mem.reedFireUntil = battle.time + skill.timeLeft;
         for (const F of unit.mem.reedFire) {

@@ -78,6 +78,7 @@ export const KEY = Object.freeze({
   solo: 'bond:soloShip', sunt: 'bond:suntShip', arcane: 'bond:arcaneShip',
 });
 /** Bonds whose battle values depend on layers (recomputed on in-battle gains). */
+/** @type {Set<string>} */
 const LAYERED = new Set([ID.preci, ID.swift, ID.skillful, ID.arcane, ID.stead, ID.deput, ID.raid, ID.indom]);
 const STEAD_CD = 'bond:steadShip:cd';
 const AURA_JUDGE = 'bond:skillfulShip:judge'; // u.mem: { near, cross } judged on the receiver's deployment

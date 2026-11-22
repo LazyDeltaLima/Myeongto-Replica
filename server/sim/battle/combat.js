@@ -69,6 +69,9 @@ export class BattleCombat {
    * where that ability turns the unit as it is cast (its `DealWithFaceDirection` flags, ai.js swingFace; null nowhere) when that
    * is not its target — left out, the view turns it to its target at the 'atk' (the `_faceToTarget` abilities). Returns true
    * when an attack was made.
+   * @param {object} u
+   * @param {object[]|null} [targets]
+   * @param {{ noAmmo?: boolean, signal?: string|null, face?: string|null }} [opts]
    * @this {Battle}
    */
   forceAttack(u, targets = null, { noAmmo = false, signal = null, face } = {}) {

@@ -42,7 +42,12 @@ import * as addonBattle from './addon/battle.js';
 import * as addonMeta from './addon/meta.js';
 import * as common from './templates.js';
 
-/** Battle templates by file (the file names are the coverage report's `where`). */
+/** @typedef {readonly [string, { TEMPLATES: Record<string, any> }]} BondFile a bond file and its module */
+
+/**
+ * Battle templates by file (the file names are the coverage report's `where`).
+ * @type {ReadonlyArray<BondFile>}
+ */
 const BATTLE_FILES = Object.freeze([
   ['bonds/nation/yan.js', yan], ['bonds/nation/sargon.js', sargon], ['bonds/nation/victoria.js', victoria],
   ['bonds/nation/kjerag.js', kjerag], ['bonds/nation/laterano.js', laterano], ['bonds/nation/egir.js', egir],
@@ -50,6 +55,7 @@ const BATTLE_FILES = Object.freeze([
   ['bonds/nation/iberia.js', iberia], ['bonds/nation/lethania.js', lethania], ['bonds/nation/doc.js', doc],
   ['bonds/general/arcane.js', arcane],
 ]);
+/** @type {ReadonlyArray<BondFile>} */
 const PREP_FILES = Object.freeze([
   ['bonds/templates.js', common], ['bonds/addon/meta.js', addonMeta], ['bonds/general/visi.js', visi], ['bonds/general/mira.js', mira],
 ]);
@@ -59,7 +65,10 @@ const BATTLE = Object.freeze(Object.fromEntries(BATTLE_FILES.flatMap(([where, mo
 
 const ADDON = Symbol('addon');
 const ADDON_TEMPLATES = new Set(Object.keys(addonBattle.TEMPLATES));
-/** The battle install order (see the header). */
+/**
+ * The battle install order (see the header).
+ * @type {ReadonlyArray<ReadonlyArray<string> | typeof ADDON>}
+ */
 export const ORDER = Object.freeze([
   Object.freeze([
     'act1autochess_bond_eff_yan',

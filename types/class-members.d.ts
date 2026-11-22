@@ -1,11 +1,12 @@
-// What tsc cannot see in our classes. Type-only: nothing imports this file at run time.
+// What tsc cannot see in the match classes (the sim's Battle is in sim-members.d.ts, so that the sim can be checked
+// without server/match/). Type-only: nothing imports this file at run time.
 //
-// The split classes: Match, PlayerState and Battle keep their constructor and fields in one file and get their methods
-// at load time from the part classes under server/match/match/, server/match/player/ and server/sim/battle/ (each file
-// copies its parts' prototype members onto the class, in a fixed order). tsc cannot see that copy, so this file merges
-// the parts into the class type. The other direction (`this` inside a part is the whole class) is the `@this` tag on
-// each part method: a part cannot extend the class here as well, the two bases would reference each other.
-// Keep each list the same as the class file's install loop.
+// The split classes: Match and PlayerState keep their constructor and fields in one file and get their methods at
+// load time from the part classes under server/match/match/ and server/match/player/ (each file copies its parts'
+// prototype members onto the class, in a fixed order). tsc cannot see that copy, so this file merges the parts
+// into the class type. The other direction (`this` inside a part is the whole class) is the `@this` tag on each part
+// method: a part cannot extend the class here as well, the two bases would reference each other. Keep each list the
+// same as the class file's install loop.
 
 import type { MatchPlatform } from '../server/match/match/platform.js';
 import type { MatchInfra } from '../server/match/match/infra.js';
@@ -39,24 +40,6 @@ import type { PlayerRound } from '../server/match/player/round.js';
 import type { PlayerViews } from '../server/match/player/views.js';
 import type { PlayerDiy } from '../server/match/player/diy.js';
 
-import type { BattlePlayers } from '../server/sim/battle/players.js';
-import type { BattleLifecycle } from '../server/sim/battle/lifecycle.js';
-import type { BattleHooks } from '../server/sim/battle/hooks.js';
-import type { BattleSpawns } from '../server/sim/battle/spawns.js';
-import type { BattleDeploy } from '../server/sim/battle/deploy.js';
-import type { BattleBlocking } from '../server/sim/battle/blocking.js';
-import type { BattleStatus } from '../server/sim/battle/status.js';
-import type { BattleCombat } from '../server/sim/battle/combat.js';
-import type { BattleQueries } from '../server/sim/battle/queries.js';
-import type { BattleSummons } from '../server/sim/battle/summons.js';
-import type { BattleTiles } from '../server/sim/battle/tiles.js';
-import type { BattleDisplacement } from '../server/sim/battle/displacement.js';
-import type { BattleEconomy } from '../server/sim/battle/economy.js';
-import type { BattleEvents } from '../server/sim/battle/events.js';
-
-import type { Battle } from '../server/sim/Battle.js';
-import type { Unit } from '../server/sim/units.js';
-
 declare module '../server/match/Match.js' {
   interface Match extends MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause,
     MatchPhases, MatchDiyChoose, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchReports, MatchUnite,
@@ -66,19 +49,4 @@ declare module '../server/match/Match.js' {
 declare module '../server/match/PlayerState.js' {
   interface PlayerState extends PlayerBasics, PlayerPieces, PlayerAcquire, PlayerEconomy, PlayerPlacement, PlayerItems,
     PlayerPrep, PlayerRound, PlayerViews, PlayerDiy {}
-}
-
-declare module '../server/sim/Battle.js' {
-  interface Battle extends BattlePlayers, BattleLifecycle, BattleHooks, BattleSpawns, BattleDeploy, BattleBlocking,
-    BattleStatus, BattleCombat, BattleQueries, BattleSummons, BattleTiles, BattleDisplacement, BattleEconomy,
-    BattleEvents {}
-}
-
-// SkillRuntime sets `battle` and `unit` with Object.defineProperty (non-enumerable); tsc only sees plain `this.x =`
-// assignments.
-declare module '../server/sim/skills.js' {
-  interface SkillRuntime {
-    battle: Battle;
-    unit: Unit;
-  }
 }

@@ -409,6 +409,9 @@ export function battleStore(battle, ns, init = () => ({})) {
  *   cap, capKey    per-battle cap per (capKey, bond) — "每场战斗至多N层"; hook extras (魔王) don't count toward it
  *   temp           临时层数 (卫戍协议：规程): layers for this battle only (Battle.addLayers `temp`)
  * Returns the layers actually added (sum over bonds).
+ * @param {object} battle
+ * @param {{ playerId?: string, bonds?: string|string[], n?: number, requireActive?: boolean, source?: object|null,
+ *   reason?: string, cap?: number, capKey?: string|null, temp?: boolean }} [opts]
  */
 export function gainLayers(battle, { playerId, bonds, n, requireActive = true, source = null, reason = 'content', cap = Infinity, capKey = null, temp = false } = {}) {
   if (!battle || !battle.flags || !battle.flags.layerGainsEnabled || playerId == null) return 0;

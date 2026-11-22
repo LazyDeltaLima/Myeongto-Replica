@@ -135,7 +135,10 @@ function bv(bb, key, d = 0) {
 }
 const tbb = (def, i) => (def && def.talents && def.talents[i] && def.talents[i].bb) || {};
 const tdesc = (def, i) => String((def && def.talents && def.talents[i] && def.talents[i].description) || '');
-/** Module-only (hidden, index −1) talent parts of a chess record, merged (first occurrence wins). */
+/**
+ * Module-only (hidden, index −1) talent parts of a chess record, merged (first occurrence wins).
+ * @returns {Record<string, any>}
+ */
 function moduleBb(chess) {
   const out = {};
   for (const t of (chess && chess.talents) || []) {

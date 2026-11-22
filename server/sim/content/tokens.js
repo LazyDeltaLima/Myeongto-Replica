@@ -276,6 +276,9 @@ function burst(battle, unit, { grid, amount = 0, type = 'phys', stun = 0, hits =
  * Redeploy a placeable token after it was killed (and optionally after it expired), like operators: `delay` s later,
  * on its own tile, paying its DP cost. Tokens are otherwise removed for good by the engine — the piece is kept
  * (`removed = false`) so its hooks survive and `battle.redeploy` accepts it.
+ * @param {object} battle
+ * @param {object} unit
+ * @param {{ delay: number | ((u: object) => number), onExpire?: boolean, unlessManaged?: boolean, requireOwner?: boolean | (() => boolean) }} opts
  */
 function enableRespawn(battle, unit, { delay, onExpire = false, unlessManaged = false, requireOwner = false }) {
   battle.on('death', (ctx) => {
@@ -1548,6 +1551,9 @@ function yanyouSpawnPoint(battle, ps) {
  * 自身攻击力、生命值增加召唤自身的玩家场地上的所有【炎】盟约干员攻击力、生命值的30%（最终加算）". atkMul (9 炎: ×1.5 on the
  * whole ATK — the client buff graph act1autochess_bond_eff_yan `[long]` is an ATK FINAL_SCALER) and dmgTakenMul (9 炎: 0.1)
  * are applied as a persistent buff. Returns the spawned units.
+ * @param {object} battle
+ * @param {string} playerId
+ * @param {{ atk?: number, hp?: number, atkMul?: number, dmgTakenMul?: number, count?: number }} [opts]
  */
 export function spawnYanyou(battle, playerId, { atk, hp, atkMul = 1, dmgTakenMul = 1, count = 1 } = {}) {
   const rec = battle.data.rawToken?.(TOKEN_IDS.yanyou) ?? battle.data.rawEnemy?.(TOKEN_IDS.yanyou) ?? null;
@@ -1782,6 +1788,7 @@ const RAW_KITS = {
 };
 /** tokenId → kit fn; kits built here carry `fromTokens: true` (deploy limits only police those). */
 export const kits = Object.freeze(Object.fromEntries(Object.entries(RAW_KITS).map(([id, f]) => [id, (bb, raw, def) => {
+  /** @type {Record<string, any> | null} */
   const k = f(bb ?? {}, raw ?? {}, def ?? null);
   if (k && typeof k === 'object') k.fromTokens = true;
   return k;
@@ -1865,7 +1872,7 @@ function ensureReinforcement(battle, owner, tokenId) {
   // the tactical point the player chose (the board piece's tile, else the last one's) when still usable, else the
   // shared tactical point
   const inRange = new Set(owner.baseRangeKeys || owner.rangeKeys || []);
-  const prev = mine.slice().sort((a, b) => (b.uid != null) - (a.uid != null) || b.deploySeq - a.deploySeq)
+  const prev = mine.slice().sort((a, b) => /** @type {any} */ (b.uid != null) - /** @type {any} */ (a.uid != null) || b.deploySeq - a.deploySeq)
     .map((t) => [t.homeR, t.homeC]).find(([r, c]) => Number.isInteger(r) && Number.isInteger(c) && inRange.has(r * COLS + c)
       && tileFree(battle, r, c, owner) && battle.grid.canStand(r, c, { ranged: true }));
   const best = prev ?? tacticalPoint(battle, owner);

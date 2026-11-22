@@ -205,6 +205,7 @@ function kitRapidCrossbow(ab) {
  */
 function kitMatteoGuard(ab) {
   const s = ab.sk.CrossBomb, cut = 1 - (T(ab, 'DmgResist.damage_resistance') ?? 0);
+  /** @type {Array<Record<string, any>>} the abilities (plain objects, content/enemies.js header) */
   const out = [{
     tick(b, e, a) {
       const on = !e.blockedBy && cut !== 1;

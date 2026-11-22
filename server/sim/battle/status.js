@@ -332,7 +332,8 @@ export class BattleStatus {
    * display tag (sent as the status's `fx`; a waiting weaker one resumes with its own). Returns true when applied.
    * @param {object} target
    * @param {string} key
-   * @param {{ duration: number, value: number, mods: (v: number) => object, source?: object|null, visible?: boolean, fxTag?: string|number|null }} opts
+   * @param {{ duration?: number, value?: number, mods?: (v: number) => object, source?: object|null, visible?: boolean, fxTag?: string|number|null }} [opts]
+   *   (`duration`, `value` and `mods` are needed; the parameter's `{}` default only keeps a bare call from throwing)
    * @this {Battle}
    */
   applyStrongest(target, key, { duration, value, mods, source = null, visible = false, fxTag = null } = {}) {

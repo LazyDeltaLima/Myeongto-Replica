@@ -17,11 +17,9 @@
   },
   "include": [
     "shared/**/*.js",
-    "server/sim/rng.js",
-    "server/sim/detmath.js",
-    "server/sim/dir.js",
-    "server/sim/constants.js",
-    "types/**/*.js"
+    "server/sim/**/*.js",
+    "types/**/*.js",
+    "types/sim-members.d.ts"
   ],
   "exclude": [
     "shared/protocol.js",

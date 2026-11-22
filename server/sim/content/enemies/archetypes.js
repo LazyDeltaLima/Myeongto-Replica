@@ -440,6 +440,8 @@ function rebirthCleanse(b, e) {
  * fx `form: 'form2'`: models with those clip sets (render/units.js FORMS — 锏, 扎罗, “复仇者”, 杰斯顿) play them.
  * `invincibleUntargetable` makes that 无敌 untargetable too (`自在`, upstream #510); the engine's `invulnerable` flag stays
  * damage protection only for every other enemy.
+ * @param {{ dur?: number, hpRatio?: number, invincible?: number, invincibleUntargetable?: boolean, onKo?: Function|null,
+ *   during?: Function|null, onReborn?: Function|null, key?: string, mode?: string }} [opts]
  */
 function reborn({ dur = 0, hpRatio = 1, invincible = 0, invincibleUntargetable = false, onKo = null, during = null, onReborn = null, key = 'ab:reborn', mode: toMode } = {}) {
   const finish = (b, e, a) => {
@@ -759,7 +761,13 @@ function dmgZone(b, src, x, y, r, life, iv, amount, type = 'arts', kind = 'zone'
  * skill `s` — content/enemies.js onTick puts it on the cast's events). `atStrike`: `fire` is the ability's spell, which an
  * attack-slot cast runs at the frame its ability waits for (content/enemies.js castStrikeAt; docs/rules/sim.md 「적 스킬 =
  * 일반 공격 차례」 효과가 나는 때) — not at all when the cast is cut before it. A function `atStrike(b, e, a)` is that spell and
- * `fire` the cast's start (what it holds while it casts, the target it takes then).
+ * `fire` the cast's start (what it holds while it casts, the target it takes then). Returns the ability (a plain object
+ * the kit may give more hooks — `onCut`, `projAlive`, `pause` …, content/enemies.js header), or null without a skill.
+ * @param {object|null} s
+ * @param {Function|null} fire
+ * @param {{ cond?: Function|null, sil?: boolean, cd?: number|null, icd?: number|null, id?: string|null,
+ *   atStrike?: boolean | ((b: object, e: object, a: object) => void) }} [opts]
+ * @returns {Record<string, any> | null}
  */
 const skill = (s, fire, { cond = null, sil = false, cd = null, icd = null, id = null, atStrike = false } = {}) => (s || cd != null) && fire ? ({
   id: id ?? null, name: s?.name ?? null, sil, cd: cd ?? s.cd, icd: icd ?? s.icd, cond, fire, ...(atStrike ? { atStrike: typeof atStrike === 'function' ? atStrike : true } : {}),

@@ -13,6 +13,8 @@ import { sandView } from '../content/bonds/nation/sargon.js'; // 规程 萨尔�
 export class BattleEvents {
   /**
    * A client fx event; returns its payload (an enemy skill's cast adds its target to it later in the same tick).
+   * @param {string} kind
+   * @param {Record<string, any>} [params]
    * @this {Battle}
    */
   fx(kind, params = {}) {

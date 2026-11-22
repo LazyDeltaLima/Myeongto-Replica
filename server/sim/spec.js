@@ -165,7 +165,7 @@ export { routePreviewPlan } from './routePreview.js';
  * replica, a takeover re-simulation, a verification run).
  * @param {object} spec BattleSpec
  * @param {any} dataSource DataSource (or raw data maps; default: the sim's default source)
- * @param {{ sharedBoss?: object|null, BattleClass?: Function, logger?: object, recordEvents?: boolean, quiet?: boolean,
+ * @param {{ sharedBoss?: object|null, BattleClass?: typeof Battle, logger?: object, recordEvents?: boolean, quiet?: boolean,
  *           content?: string }} [opts]
  */
 export function createBattleFromSpec(spec, dataSource, opts = {}) {
@@ -261,7 +261,7 @@ export class LocalBossPool {
  * LP meter of a battle: cumulative LP the field cost its team so far — enemy leaks weighted by `lpr` (data
  * lifePointReduce; 0 for harmless units, 1 when absent) plus leader "扣除目标生命" effects (the sim's 'lpLoss' hook).
  * Boss / hidden fields report it as b.progress.leaks; the server charges the team LP with the deltas.
- * @returns {{ lp: number, detach: => void }}
+ * @returns {{ lp: number, detach: () => void }}
  */
 export function attachLpMeter(battle) {
   const meter = { lp: 0, detach() {} };
@@ -292,6 +292,7 @@ export function attachLpMeter(battle) {
  */
 export function uniteLeft(battle) {
   if (!battle) return null;
+  /** @type {Record<string, number>} */
   const out = {};
   const add = (pid) => { if (typeof pid === 'string' && pid) out[pid] = (out[pid] || 0) + 1; };
   if (battle.finished && typeof battle.result === 'function') {

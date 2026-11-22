@@ -196,6 +196,7 @@ export default {
             // (svash2_s_2[build_set] defaults first 1.0, next 0.4, interval 0.1) — the slashes 1.1 s and 1.6 s after it
             // stands (until 2026-11-03 all at once); one gone meanwhile (knocked out, withdrawn) slashes no more
             const seq = a.deploySeq;
+            /** @type {{ time: number, first: number, left: number }} */
             const st = { time: 0, first: REDEPLOY_SLASH.first, left: casts };
             const loop = battle.every(REDEPLOY_SLASH.interval, () => {
               if (!a.alive || !a.deployed || a.deploySeq !== seq) { loop.cancel(); return; }

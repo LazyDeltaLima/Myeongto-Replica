@@ -338,6 +338,7 @@ export const BOSS_POOL_MIN_HP = 1;
  * ×74 instead of ×12 and Final Assault leaders fell in seconds (user report after playtest #6). "提升至X%/X倍" effects
  * (炎佑 ×1.5, 攻击海怪敌人时攻击力提升至150%) and the char_attribute_mul 特质 (+20 % / +25 % on the chess itself, a rune on
  * the base attributes) stay multipliers.
+ * @type {'add' | 'multiply'}
  */
 export const DIRECT_BONUS_STACKING = 'add';
 

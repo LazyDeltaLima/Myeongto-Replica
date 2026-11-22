@@ -22,6 +22,10 @@ function cutSwing(unit) { unit.swing = null; unit.castLeft = 0; }
  * `wait` s first (a deployment's born state, the state the take-off mode's attack runs after). With `key` the unit goes
  * airborne by a buff of that key with LIFTOFF_FLAGS, then `onAir` (the ground enemies it held walk on) — at once, or after
  * `wait` while the same deployment is up.
+ * @param {object} battle
+ * @param {object} unit
+ * @param {number} clip
+ * @param {{ key?: string, wait?: number, onAir?: () => void }} [opts]
  */
 export function holdTakeOff(battle, unit, clip, { key, wait = 0, onAir } = {}) {
   if (!(clip > 0) && !key) return;
@@ -39,6 +43,10 @@ export function holdTakeOff(battle, unit, clip, { key, wait = 0, onAir } = {}) {
  * attacks nothing until it has played, then `onLanded` (the flyers it held are let go). `air`: the take-off's buff
  * (holdTakeOff `key`), which goes now. A skill cast again meanwhile keeps it in the air (the landing buff goes, the skill's
  * own flags or its new take-off buff hold it). Any other end lands at once.
+ * @param {object} battle
+ * @param {object} unit
+ * @param {number} clip
+ * @param {{ key: string, air?: string, reason: string, onLanded?: () => void }} opts
  */
 export function landAfter(battle, unit, clip, { key, air, reason, onLanded }) {
   battle.removeBuff(unit, key);

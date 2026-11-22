@@ -13,7 +13,7 @@ export { lateranoAmmo } from './nation/laterano.js';
 export { payHammers } from './templates.js';
 
 /** The templates of the first install stage (the default season's core bonds and the 规程 ones sharing their code). */
-const CORE_TEMPLATES = ORDER[0];
+const CORE_TEMPLATES = /** @type {ReadonlyArray<string>} */ (ORDER[0]);
 
 /**
  * A core bond's numbers: buff `key` of its record, else the first template of the core stage it carries (null when the

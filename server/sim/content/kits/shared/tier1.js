@@ -215,6 +215,10 @@ export function installReveal(battle, unit, interval = 0.2) {
 /**
  * Lingering area (spores, alchemy units): `onPulse(battle)` runs immediately and then every `interval` s,
  * `round(duration / interval)` times in total. Not owned by the caster: it keeps working after the caster falls.
+ * @param {object} battle
+ * @param {object} caster
+ * @param {{ x: number, y: number, radius: number, duration: number, interval?: number, skill?: string,
+ *   onPulse: (battle: object) => void, onEnd?: (battle: object) => void }} opts
  */
 export function makeZone(battle, caster, { x, y, radius, duration, interval = 1, skill, onPulse, onEnd }) {
   const total = Math.max(1, Math.round(duration / interval));

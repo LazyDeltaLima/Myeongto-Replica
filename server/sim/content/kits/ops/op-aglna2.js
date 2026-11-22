@@ -190,6 +190,7 @@ export default {
     const maxWalk3 = Math.max(0, Math.floor(num(b3['attack@max_walk_target'], maxT3)));
     // S3's running range: the original 3-9 with the eight tiles around her; once she has moved, the eight around her and
     // the 3-9 of her deployment tile (extra range keys) — a per-unit object Battle._refreshRange reads
+    /** @type {{ rangeGrid: ReadonlyArray<ReadonlyArray<number>>, maxTargets: number }} */
     const s3Targeting = { rangeGrid: g39x4, maxTargets: maxT3 };
     // S3's per-activation state: her deployment tile / direction, the marker
     let st = null;

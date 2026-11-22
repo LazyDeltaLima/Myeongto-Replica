@@ -75,6 +75,7 @@ function attackGetter(bb) {
 
 const ENDLESS = /持续时间无限|无限持续/;
 const STOP_ATTACK = /(^|[，；。,;])停止(主动)?攻击(敌人)?([，；。,;]|$)/;
+/** @type {Array<[RegExp, string]>} */
 const ELEMENTS = [[/凋亡损伤/, 'apoptosis'], [/灼燃损伤/, 'burn'], [/神经损伤/, 'neural']];
 const STATUS_KEYS = [['stun', 'stun'], ['cold', 'cold'], ['sleep', 'sleep'], ['fear', 'fear'], ['sluggish', 'sluggish'], ['root', 'bind'], ['unmovable', 'bind']];
 

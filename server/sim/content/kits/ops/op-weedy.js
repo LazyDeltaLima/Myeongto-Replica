@@ -133,6 +133,9 @@ export function rupture(battle, src, e, { duration, perTile, interval }) {
  * 'path' = the shortest remaining path (温蒂), 'nearest' = nearest to the shooter (the cannon) — and every enemy within
  * NITRO_SPLASH of it: atk_scale × 温蒂's ATK arts from `src`, the 移动创伤, a push of `force` along the shooter's facing.
  * Returns false when no enemy can be selected there (nothing fires).
+ * @param {object} battle
+ * @param {{ shooter: object, grid?: ReadonlyArray<ReadonlyArray<number>>|null, pick?: 'path' | 'nearest' }} opts
+ *   (`pick` left out: 'path')
  */
 export function nitroTarget(battle, { shooter, grid, pick }) {
   const keys = absoluteRangeKeys(grid ?? GRID_4_1, shooter.tileR, shooter.tileC, shooter.dir, 0);

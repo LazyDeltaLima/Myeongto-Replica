@@ -272,6 +272,7 @@ function applyTactic(ctx, ev) {
   for (const [alias, on] of aliasList) ctx.setDeviceActive(alias, on !== 0);
   if (aliasList.length || hasBattlePart(eff)) {
     const gate = gateOf(eff);
+    /** @type {Record<string, any>} */
     const params = { ...aliases };
     if (gate.kind === 'benchAtLeast' || gate.kind === 'benchAtMost') params.prepOk = benchGate(gate, benchCount(ctx));
     ctx.addEffect({ id: refIdFor(ctx, id), key: `choice:${id}`, name, desc, iconKind, iconId, battle: true, params, data });
@@ -416,6 +417,7 @@ function maxRowOps(battle, pid) {
 }
 
 export function install(battle) {
+  /** @type {Array<{ pid: string, ref: any, plan: ReturnType<typeof battlePlanOf>, rowOk?: boolean }>} */
   const cards = [];
   for (const ps of battle.players || []) {
     for (const ref of ps.playerEffects || []) {

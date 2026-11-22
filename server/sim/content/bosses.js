@@ -839,6 +839,7 @@ function kitGun(ab, e, b) {
     return true;
   };
   const clearTrace = (e2) => { e2.trace = null; P.charge.target = null; if (e2.route) e2.route.pts = null; }; // _CleanTraceTarget
+  /** @type {Array<Record<string, any>>} the abilities (plain objects, content/enemies.js header) */
   const list = [
     {
       spawn(b2, e2) { if (alwaysFree) b2.addBuff(e2, { key: 'boss:unblockable', persist: true, flags: { unblockable: true } }); setAspd(b2); },
@@ -1431,6 +1432,7 @@ function kitQuintus(ab, e, b, tpl) {
     skills.push(a);
     return a;
   };
+  /** @type {Array<Record<string, any>>} the abilities (plain objects, content/enemies.js header) */
   const list = [{
     spawn(b2, e2) { P.t0 = b2.time; P.stageAt = b2.time; e2.profile.maxTargets = 2; },
     before(c, b2, e2) { // 同时攻击防御最高的两个单位

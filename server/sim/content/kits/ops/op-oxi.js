@@ -119,7 +119,7 @@ export default {
       // Skill_2_Cambat attack event]
       let centre = from && from.side === 'enemy' && canTargetEnemy(unit, from, ANY) ? from : null;
       if (!centre) centre = battle.enemiesInKeys(unit.baseRangeKeys || unit.rangeKeys, unit, GROUND)
-        .sort((a, b) => (b.blockedBy === unit) - (a.blockedBy === unit) || a.spawnSeq - b.spawnSeq)[0] ?? null;
+        .sort((a, b) => /** @type {any} */ (b.blockedBy === unit) - /** @type {any} */ (a.blockedBy === unit) || a.spawnSeq - b.spawnSeq)[0] ?? null;
       if (!centre) return;
       const radius = num(b2.ability_range_radius, 1), atk = unit.s.atk * num(b2.retaliate_atk_scale);
       battle.fx('blast', { x: centre.x, y: centre.y, r: radius, id: unit.id, tgt: centre.id });   // tgt: `_inputTargetEffects` oxi_skill_02_hit_01

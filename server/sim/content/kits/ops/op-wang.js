@@ -167,7 +167,8 @@ const stoneSelectable = (e) => e.alive && !e.hidden && !e.s.flags.untargetable &
  * talent's 跟子 only (TALENT), not S3's InstantSpawn (SKILL_3_INSTANT: equal) — the direction from the centre stone
  * (_GetDirectionPriority: row+ 0, col+ 1, row− 2, col− 3 = up > right > down > left). `x` = { cls (followerClass), foe, dir }.
  */
-const followerOrder = (a, b) => ((a.cls === 2) - (b.cls === 2)) || ((b.foe ? 1 : 0) - (a.foe ? 1 : 0)) || ((a.cls !== 0) - (b.cls !== 0)) || ((a.dir ?? 0) - (b.dir ?? 0));
+const followerOrder = (a, b) => (/** @type {any} */ (a.cls === 2) - /** @type {any} */ (b.cls === 2)) || ((b.foe ? 1 : 0) - (a.foe ? 1 : 0))
+  || (/** @type {any} */ (a.cls !== 0) - /** @type {any} */ (b.cls !== 0)) || ((a.dir ?? 0) - (b.dir ?? 0));
 const wangSkill = (owner) => owner?.skill?.id ?? owner?.def?.skill?.id ?? null;
 
 function wang(bb, chess, def) {
