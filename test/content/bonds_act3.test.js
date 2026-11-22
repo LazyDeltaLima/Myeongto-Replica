@@ -154,6 +154,18 @@ test('规程 乌萨斯: ATK / HP +(base + per·L); a member\'s knock-out → 临
   }
 });
 
+test('规程 乌萨斯: a member\'s knock-out of an ally (not a member) gains the 临时层数 too — no side filter (rules/sim.md 「우르수스」)', () => {
+  // maintainer report 2026-11-22 (CN play): “暴躁铁皮” made 乌萨斯 by 变形同构体 + 乌萨斯呼吸器 gains them for the allies its S1 knocks out
+  const bb = bbOf('ursusShip');
+  const list = [...ids('u', 3).map((id) => [id, ['ursusShip']]), ['x0_a', []]];
+  const h = fight(list, { ursusShip: bondOn(3, 10) });
+  const x0 = h.unit('x0_a');
+  h.b.dealDamage(h.unit('u0_a'), x0, { amount: 2e9, type: 'true' });
+  assert.ok(!x0.alive);
+  assert.equal(h.b.tempLayerGainsOf('p1').ursusShip, bb.temp_bond_stack_cnt, 'an ally knocked out by a member counts');
+  assert.deepEqual(h.b.errors, []);
+});
+
 test('规程 乌萨斯 6: the cut part of a hit is lost over 10 s and stops with its source; blocked enemies take ATK × (0.5 + 0.0025L) arts per second', () => {
   const bb = bbOf('ursusShip');
   const L = 100;

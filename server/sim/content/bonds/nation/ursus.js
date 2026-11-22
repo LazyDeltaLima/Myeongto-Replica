@@ -1,7 +1,7 @@
 // server/sim/content/bonds/nation/ursus.js — 乌萨斯 (ursusShip, 卫戍协议：规程).
 //
 //   act3autochess_bond_eff_ursus   (bondeffect_ursus) members ATK / max HP +(base + per·L); a member's knock-out of an
-//                                  enemy or of itself → 临时层数 +2 (6: +4); 6: every 1 s a blocking member deals ATK × (atk_scale_base +
+//                                  enemy, an ally or itself → 临时层数 +2 (6: +4); 6: every 1 s a blocking member deals ATK × (atk_scale_base +
 //                                  per·L) arts (持续) to each enemy it blocks, and the damage it takes from a living source
 //                                  (not 真实, not 持续) is cut by min(1, base + per·L), the cut part lost again over 10 s
 //                                  (one HP loss per second, 真实, credited to that source) unless the source is knocked
@@ -34,9 +34,9 @@ function installUrsus(battle, pid, bb, members) {
   standing(battle, pid, 'ursusShip', members, 'bond:ursus', { atk: [bb.atk_base, bb.atk_per_stack], hp: [bb.hp_base, bb.hp_per_stack] });
   const memberSet = new Set(members);
   const power = reached(battle, pid, 'ursusShip', bb.power_bond_char_cnt);
-  // ON_TARGET_KILLED: a member knocks out a unit ("击倒其他单位") — the member itself too: a self knock-out (Misery's
-  // 消解空间 InstantKill, its own 源石溶剂 drain) gains the layers (CN play, maintainer report 2026-11-22). [ASSUMED·CN: no
-  // side filter — an ally a member knocks out counts as well; the event's target kinds are a CN-only node]
+  // ON_TARGET_KILLED: a member knocks out a unit ("击倒其他单位") of either side, the member itself too (CN play, maintainer
+  // reports 2026-11-22): a self knock-out (Misery's 消解空间 InstantKill, its own 源石溶剂 drain) and an ally knocked out
+  // by a member (“暴躁铁皮” made 乌萨斯 by 变形同构体 + 乌萨斯呼吸器, its S1 hitting allies) gain the layers
   battle.on('death', (c) => {
     if (c.reason !== 'killed' || !c.killer || !memberSet.has(c.killer) || !c.unit) return;
     const extra = ursusExtra(battle, pid);
