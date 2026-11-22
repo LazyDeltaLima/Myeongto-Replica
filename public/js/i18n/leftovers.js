@@ -13,7 +13,9 @@ const HAN = /[一-鿿]/;
 const ATTRS = ['title', 'placeholder', 'aria-label', 'alt'];
 const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'CODE', 'PRE']);
 
-/** A short CSS-like path of an element, for the console. */
+/** @typedef {{ text: string, where: string }} Leftover */
+
+/** A short CSS-like path of an element, for the console. @param {Element | null} el */
 function where(el) {
   const out = [];
   for (let e = el; e && e.nodeType === 1 && out.length < 4; e = e.parentElement) {
@@ -23,9 +25,10 @@ function where(el) {
   return out.join(' > ');
 }
 
+/** @param {any} root a node of the page (an element, a text node) @param {Set<string>} seen @param {Leftover[]} out */
 function scan(root, seen, out) {
   if (!root || (root.nodeType === 1 && SKIP.has(root.tagName))) return;
-  const visit = (n) => {
+  const visit = (/** @type {any} */ n) => {
     if (n.nodeType === 3) {
       const v = n.data.trim();
       if (v && HAN.test(v) && !seen.has(v)) { seen.add(v); out.push({ text: v, where: where(n.parentElement) }); }
@@ -43,6 +46,7 @@ function scan(root, seen, out) {
 
 /** The Chinese on the page now: `[{ text, where }]` (each text once), also printed as a table. */
 export function zhLeftovers(root = document.documentElement) {
+  /** @type {Leftover[]} */
   const out = [];
   scan(root, new Set(), out);
   console.table(out);
@@ -54,6 +58,7 @@ export function watch(root = document.documentElement) {
   const seen = new Set();
   scan(root, seen, []);
   const obs = new MutationObserver((list) => {
+    /** @type {Leftover[]} */
     const out = [];
     for (const m of list) {
       if (m.type === 'characterData') scan(m.target, seen, out);

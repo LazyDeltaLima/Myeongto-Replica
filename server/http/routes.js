@@ -36,7 +36,7 @@ export function healthReport({ startedAt, network, registry, lobby, restart, gen
     // older than this reloads itself, so a deploy reaches clients that never reload
     build: buildTag(),
     sockets: network.connectionCount, sessions: registry.size, ...lobby.stats(),
-    restartInSec: restart ? (restart.inMs() == null ? null : Math.ceil(restart.inMs() / 1000)) : null, // the deploy's restart countdown (local-restart.js)
+    restartInSec: restart ? (restart.inMs() == null ? null : Math.ceil(/** @type {number} */ (restart.inMs()) / 1000)) : null, // the deploy's restart countdown (local-restart.js)
     gen: generation?.id ?? null, genState: generation ? generation.state : null, // the deploy's generation (local-generation.js)
   };
 }
@@ -45,11 +45,12 @@ export function healthReport({ startedAt, network, registry, lobby, restart, gen
  * The request listener for `http.createServer`.
  * @param {{ serveStatic: (req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse,
  *             rawPath: string, query: string) => Promise<void>,
- *           health: Parameters<typeof healthReport>[0], log: object,
+ *           health: Parameters<typeof healthReport>[0], log: { error: (...a: any[]) => void },
  *           changelog?: ReturnType<typeof createChangelogReader> }} deps
  * @returns {(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => void}
  */
 export function createRequestHandler({ serveStatic, health, log, changelog = createChangelogReader() }) {
+  /** @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res */
   async function handleRequest(req, res) {
     const url = req.url || '/';
     if (url.length > MAX_URL_LENGTH) { sendError(req, res, 414, '请求地址过长 · URI too long'); return; }

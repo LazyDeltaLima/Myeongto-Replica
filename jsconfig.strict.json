@@ -1,0 +1,20 @@
+{
+  // The folders checked with strict on (npm run typecheck ends with tools/typecheck-strict.mjs, which reads this
+  // list). Their files are checked in each config that includes them (jsconfig.json, jsconfig.browser.json) with
+  // strict added, and an error located in one of them fails; the rest of the program is checked strict as well but
+  // only counted. Add a folder once `node tools/typecheck-strict.mjs --count` reports nothing for it: see
+  // types/README.md "Strict". Run on its own (tsc -p jsconfig.strict.json) this also reports the files the listed
+  // ones import, and with the server's options only.
+  "extends": "./jsconfig.json",
+  "compilerOptions": {
+    "strict": true
+  },
+  "include": [
+    "types/*",
+    "server/http/**/*.js",
+    "public/js/i18n/**/*.js",
+    "public/js/screens/game/**/*.js",
+    "public/js/render/app/**/*.js"
+  ],
+  "exclude": []
+}

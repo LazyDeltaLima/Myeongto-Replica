@@ -24,12 +24,16 @@ import { ROOT } from './config.js';
 export const BUILD_INPUTS = Object.freeze(['public/index.html', 'public/js', 'public/css', 'public/vendor', 'server/sim', 'shared', 'data']);
 
 /** Names the static server never serves: dot files (`.DS_Store`, `.main.js.swp`) and editor backups (`main.js~`). */
+/** @param {string} name */
 const isIgnoredBuildName = (name) => name.startsWith('.') || name.endsWith('~');
 
 /** @type {{ tag: string|null }|null} */
 let buildCache = null;
 
-/** Every file under `abs` (or `abs` itself), as `[relative path, size, mtimeMs]`, sorted by path. Missing → []. */
+/**
+ * Every file under `abs` (or `abs` itself), as `[relative path, size, mtimeMs]`, sorted by path. Missing → [].
+ * @param {string} abs @param {string} rel @param {[string, number, number][]} out
+ */
 function buildEntries(abs, rel, out) {
   let stat;
   try { stat = fs.statSync(abs); } catch { return; }
@@ -48,6 +52,7 @@ function buildEntries(abs, rel, out) {
 
 /** Short hash of the served browser runtime (size + mtime of every BUILD_INPUTS file); null when nothing is readable. */
 export function computeBuildTag(root = ROOT) {
+  /** @type {[string, number, number][]} */
   const out = [];
   for (const rel of BUILD_INPUTS) buildEntries(path.join(root, rel), rel, out);
   if (!out.length) return null;

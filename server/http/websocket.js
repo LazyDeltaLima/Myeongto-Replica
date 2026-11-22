@@ -19,7 +19,7 @@ export const WS_MAX_PAYLOAD = 64 * 1024;
 /**
  * The session stack of one server.
  * @param {{ MatchClass?: new (opts: object) => any, seedFn?: () => number, [option: string]: any }} opts startServer() options
- * @param {{ dataOf: (o?: { season?: string }) => object, log: object }} deps the game data the lobby's matches use (of
+ * @param {{ dataOf: (o?: { season?: string }) => object, log: { info: Function, warn: Function, error: Function, debug?: Function } }} deps the game data the lobby's matches use (of
  *   the default season, or of `season` — server/data.js seasonData), the logger
  * @returns {{ registry: SessionRegistry, lobby: Lobby, network: Network }}
  */
@@ -35,7 +35,7 @@ export function createSessionStack(opts, { dataOf, log }) {
 /**
  * Serve the WebSocket endpoint /ws on `server` (its 'upgrade' event).
  * @param {import('node:http').Server} server
- * @param {{ network: Network, log: object }} deps
+ * @param {{ network: Network, log: { info: Function, warn: Function, error: Function, debug?: Function } }} deps
  * @returns {WebSocketServer}
  */
 export function attachWebSocket(server, { network, log }) {
@@ -44,7 +44,7 @@ export function attachWebSocket(server, { network, log }) {
   wss.on('error', (e) => log.error('[ws] server error', e));
   // a refusal loop must not flood the log (header)
   const refusals = { at: -Infinity, held: 0 };
-  const refusedLog = (why, req) => {
+  const refusedLog = (/** @type {string} */ why, /** @type {import('node:http').IncomingMessage} */ req) => {
     const now = Date.now();
     if (now - refusals.at < 10_000) { refusals.held++; return; }
     const more = refusals.held ? ` (+${refusals.held} held back)` : '';
@@ -56,7 +56,7 @@ export function attachWebSocket(server, { network, log }) {
   server.on('upgrade', (req, socket, head) => {
     socket.on('error', () => {});
     const parts = splitUrl(req.url || '/');
-    const reject = (status, text) => {
+    const reject = (/** @type {number} */ status, /** @type {string} */ text) => {
       try { socket.end(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`); } catch { socket.destroy(); }
     };
     if (!parts || parts.rawPath !== '/ws') { reject(404, 'Not Found'); return; }

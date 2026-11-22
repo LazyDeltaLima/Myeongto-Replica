@@ -48,7 +48,7 @@ export function serveDirs(opts) {
   };
 }
 
-/** net.js Network options out of the startServer() options; `trustProxy` falls back to TRUST_PROXY. */
+/** net.js Network options out of the startServer() options; `trustProxy` falls back to TRUST_PROXY. @param {Record<string, any>} opts */
 export function netOptionsFrom(opts) {
   /** @type {Record<string, any>} */
   const netOptions = {};
@@ -59,7 +59,7 @@ export function netOptionsFrom(opts) {
   return netOptions;
 }
 
-/** lobby.js Lobby options out of the startServer() options. */
+/** lobby.js Lobby options out of the startServer() options. @param {Record<string, any>} opts */
 export function lobbyOptionsFrom(opts) {
   /** @type {Record<string, any>} */
   const lobbyOptions = {};
@@ -77,7 +77,11 @@ export function parseTrustProxy(v) {
   return 'auto';
 }
 
-/** The console logger (`quiet` → silent; debug lines only with DEBUG set). */
+/**
+ * The console logger (`quiet` → silent; debug lines only with DEBUG set).
+ * @param {boolean} [quiet]
+ * @returns {{ info: (...a: any[]) => void, warn: (...a: any[]) => void, error: (...a: any[]) => void, debug: (...a: any[]) => void }}
+ */
 export function makeLogger(quiet) {
   if (quiet) return noopLog;
   return {

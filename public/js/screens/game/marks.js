@@ -1,5 +1,6 @@
 // public/js/screens/game/marks.js — class-name join and the field highlight styles the match screen passes to the view.
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 export const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 export const HUD_HZ_MS = 200;

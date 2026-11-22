@@ -4,9 +4,14 @@ import { createAssets, assets as defaultAssets } from '../../assets.js';
 import { standInRecord } from '../../../../shared/standIn.js';
 import { diyRecordOf } from '../../../../shared/diy.js';
 
-/** Wait for optional assets, or stop waiting when this view is cancelled. Shared loads keep running. */
+/**
+ * Wait for optional assets, or stop waiting when this view is cancelled. Shared loads keep running.
+ * @param {Promise<any>} p @param {number | null} ms none: wait for `p` or the signal @param {AbortSignal} [signal]
+ */
 function withTimeout(p, ms, signal) {
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
   let timer;
+  /** @type {(() => void) | undefined} */
   let onAbort;
   const stopped = new Promise((resolve, reject) => {
     if (ms != null) timer = setTimeout(resolve, ms);
@@ -18,27 +23,36 @@ function withTimeout(p, ms, signal) {
   });
   return Promise.race([p, stopped]).finally(() => {
     clearTimeout(timer);
-    if (onAbort) signal.removeEventListener('abort', onAbort);
+    if (onAbort) /** @type {AbortSignal} */ (signal).removeEventListener('abort', onAbort);
   });
 }
 
 /** The optional mount waits of createFieldView end this long before the caller's deadline (the view still has to return). */
 const DEADLINE_MARGIN_MS = 500;
 
-/** An optional wait of `ms` cut to end DEADLINE_MARGIN_MS before `deadline` (epoch ms; none: `ms`), never below 0. */
+/**
+ * An optional wait of `ms` cut to end DEADLINE_MARGIN_MS before `deadline` (epoch ms; none: `ms`), never below 0.
+ * @param {number} ms @param {number} deadline @param {number} [now]
+ */
 function capWait(ms, deadline, now = Date.now()) {
   return Number.isFinite(deadline) ? Math.max(0, Math.min(ms, deadline - DEADLINE_MARGIN_MS - now)) : ms;
 }
 
-/** Wrap whatever the caller passed as `assets` into the store API of public/js/assets.js. */
+/** Wrap whatever the caller passed as `assets` into the store API of public/js/assets.js. @param {any} a */
 function resolveAssets(a) {
   if (a && typeof a === 'object' && typeof a.ready === 'function' && typeof a.spineEntry === 'function') return a;
   if (a && typeof a === 'object' && (a.chars || a.enemies || a.version)) return createAssets({ manifest: a });
   return defaultAssets;
 }
 
+/**
+ * @typedef {{ chess: (id: any) => any, token: (id: any) => any, item: (id: any) => any, enemy: (id: any) => any,
+ *   stage: (id: any) => any, bond: (id: any) => any, standIn: (id: any) => any, diy: (id: any, pick: any) => any }} FieldData
+ */
+
+/** The field view's data lookups over what the caller passed as `data` (a lookup function, maps or plain objects). @param {any} src @returns {FieldData} */
 function makeData(src) {
-  const look = (file, id) => {
+  const look = (/** @type {string} */ file, /** @type {any} */ id) => {
     if (id == null || id === '') return null;
     try {
       if (src && typeof src.lookup === 'function') return src.lookup(file, id) || null;
@@ -53,7 +67,7 @@ function makeData(src) {
   const backups = () => {
     try { return (src && typeof src.get === 'function' ? src.get('backups') : src && src.backups) || null; } catch { return null; }
   };
-  const standIn = (id) => {
+  const standIn = (/** @type {any} */ id) => {
     const c = look('chess', id);
     const b = backups();
     if (!c || !b) return null;
@@ -69,7 +83,7 @@ function makeData(src) {
   const chessMap = () => {
     try { return (src && typeof src.get === 'function' ? src.get('chess') : src && src.chess) || null; } catch { return null; }
   };
-  const diy = (id, pick) => {
+  const diy = (/** @type {any} */ id, /** @type {any} */ pick) => {
     const c = look('chess', id);
     const b = backups();
     if (!c || !c.isDiy || !b || !pick || typeof pick.charId !== 'string') return null;
@@ -95,6 +109,7 @@ function makeData(src) {
  * `unitDef` (render/app.js), and the effect event golden's layer (tools/fx-golden.mjs) — one rule for all three.
  * (a chess fighting as its 补位 stand-in — `standInFor` — reads the stand-in's record: its attack interval)
  * (a walking ally built from an enemy record — UnitInfo `walks`, server content/bonds/walker.js — reads that record)
+ * @param {FieldData} data @param {any} info a UnitInfo
  */
 function unitRecordOf(data, info) {
   return info.side === 'enemy' || info.walks ? data.enemy(info.defId)
@@ -111,6 +126,7 @@ const BOARD_RES = { high: 2, medium: 1.25, low: 1 };
  * uploaded. Module-level textures (FX atlas, tier chips, backdrop, diamonds, Spine pages, PIXI.Texture.WHITE…)
  * outlive the view; PIXI 7 leaves their per-context GL entries and 'dispose' listeners pointing at the dead
  * renderer, which kept every unmounted view's renderer, canvas and WebGL context reachable.
+ * @param {any} renderer a PIXI renderer
  */
 export function releaseGl(renderer) {
   const ts = renderer && renderer.texture;

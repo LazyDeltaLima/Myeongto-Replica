@@ -29,7 +29,7 @@ export function lanUrls(port) {
   return out;
 }
 
-/** Is the module whose `import.meta.url` is `metaUrl` the file node was started with? */
+/** Is the module whose `import.meta.url` is `metaUrl` the file node was started with? @param {string} metaUrl */
 export function isProcessEntry(metaUrl) {
   if (!process.argv[1]) return false;
   try {
@@ -83,7 +83,7 @@ export function shutdownHandler(srv, opts = {}) {
   let stopping = false;
   let finished = false;
   /** Exit once: whichever of the close, the timeout or the second signal gets there first. */
-  const finish = (code) => { if (finished) return; finished = true; exit(code); };
+  const finish = (/** @type {number} */ code) => { if (finished) return; finished = true; exit(code); };
   return (signal) => {
     if (stopping) { log('forced exit'); finish(1); return; }
     stopping = true;
@@ -106,6 +106,7 @@ export function shutdownHandler(srv, opts = {}) {
 export async function runMain(start) {
   process.on('unhandledRejection', (e) => console.error('[process] unhandled rejection', e));
   process.on('uncaughtException', (e) => console.error('[process] uncaught exception', e));
+  /** @type {Awaited<ReturnType<typeof start>>} */
   let srv;
   // the deploy's restart countdown (server/local-restart.js) — the minutes come from a file, the signal says "read it".
   // Listened for before the server starts: an unhandled SIGUSR2 would end the process; one that comes while it boots is
@@ -124,7 +125,7 @@ export async function runMain(start) {
   process.on('SIGUSR2', () => { if (srv) readRestart(); else restartSignalled = true; });
   try {
     srv = await start();
-  } catch (e) {
+  } catch (/** @type {any} */ e) {
     if (e && e.code === 'EADDRINUSE') console.error(`端口已被占用 / port in use: ${e.port ?? process.env.PORT ?? 3000}. Try PORT=3001 npm start`);
     else console.error('[boot] failed to start', e);
     process.exit(1);

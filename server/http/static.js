@@ -60,7 +60,7 @@ const EMPTY_LOCAL_ART = Buffer.from(JSON.stringify({ version: 1, source: 'none',
 /**
  * Create the static request handler.
  * @param {{ publicDir: string, dataDir: string, sharedDir: string, simDir?: string, packsDir?: string,
- *   packs?: ReturnType<typeof createPackRegistry>, log?: object }} dirs
+ *   packs?: ReturnType<typeof createPackRegistry> | null, log?: { info: Function, warn: Function, error: Function, debug?: Function } }} dirs
  *   packs: the server's pack registry (default: one over publicDir, dataDir and packsDir — ROOT/packs)
  * @returns {(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse, rawPath: string, query: string) => Promise<void>}
  */
@@ -92,6 +92,7 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
     const built = splitBuildPath(decoded);
     if (built) { decoded = built.rest; versioned = built.tag === buildTag(); }
     if (decoded === '/data.js') {
+      /** @type {Record<string, string | number>} */
       const headers = { 'Content-Type': MIME['.js'], 'Cache-Control': versioned ? IMMUTABLE_CACHE : 'no-cache', ETag: shimTag, 'Content-Length': shimBody.length };
       if (isNotModified(req, shimTag, new Date(0))) { delete headers['Content-Length']; res.writeHead(304, headers); res.end(); return; }
       res.writeHead(200, headers);
@@ -106,7 +107,7 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
       const abs = parts.length >= 2 && !parts.some((s) => s === '' || s === '.' || s === '..') ? registry.servable(parts[0], parts.slice(1).join('/')) : null;
       const st = abs ? await fsp.stat(abs).catch(() => null) : null;
       if (!st || !st.isFile()) { sendError(req, res, 404, '页面不存在 · Not found', decoded.length <= 200 ? decoded : ''); return; }
-      await serveFile(req, res, abs, st, 'packs', parts, query, gzipCache, log);
+      await serveFile(req, res, /** @type {string} */ (abs), st, 'packs', parts, query, gzipCache, log);
       return;
     }
     // Extension-less audio (download-manager avoidance): /media/bgm/act1 → /assets/audio/bgm/act1.mp3
@@ -162,7 +163,7 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
         const real = await fsp.realpath(absPath);
         if (mount.deny.has(path.basename(real).toLowerCase())) throw Object.assign(new Error('private'), { code: 'ENOENT' });
       }
-    } catch (e) {
+    } catch (/** @type {any} */ e) {
       if (e && e.code === 'ENOENT' && mount.name === 'data' && segments.length === 1 && segments[0] === LOCAL_ART_MANIFEST) {
         // Optional local-client art (DESIGN §13): an install without it gets an empty manifest instead of a 404,
         // so browsers don't log an error on every page load. Clients treat empty groups as "no local art".

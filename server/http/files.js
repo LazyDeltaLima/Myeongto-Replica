@@ -13,7 +13,7 @@ import zlib from 'node:zlib';
 import { promisify } from 'node:util';
 import { pipeline } from 'node:stream/promises';
 
-/** Extension → Content-Type. */
+/** Extension → Content-Type. @type {Readonly<Record<string, string>>} */
 export const MIME = Object.freeze({
   '.html': 'text/html; charset=utf-8',
   '.htm': 'text/html; charset=utf-8',
@@ -69,6 +69,7 @@ export const COMPRESSIBLE = new Set([
 export const BUNDLE_DIR = 'bundles';
 export const BUNDLE_EXT = '.pack';
 export const TEXT_BUNDLE = 'text-';
+/** @param {string} ext @param {string} mountName @param {string[]} segments */
 const isBundle = (ext, mountName, segments) => ext === BUNDLE_EXT && mountName === 'public' && segments.length === 3
   && segments[0] === 'assets' && segments[1] === BUNDLE_DIR;
 
@@ -95,7 +96,10 @@ export class GzipCache {
     /** @type {Map<string, Promise<Buffer>>} */ this.inflight = new Map();
   }
 
-  /** @returns {Promise<Buffer>} gzip of the file identified by (path, size, mtime) */
+  /**
+   * @param {string} absPath @param {{ size: number, mtimeMs: number }} stat
+   * @returns {Promise<Buffer>} gzip of the file identified by (path, size, mtime)
+   */
   get(absPath, stat) {
     const key = `${absPath}\0${stat.size}\0${stat.mtimeMs}`;
     const hit = this.map.get(key);
@@ -112,6 +116,7 @@ export class GzipCache {
     return p;
   }
 
+  /** @param {string} key @param {Buffer} buf */
   store(key, buf) {
     if (buf.length > this.maxTotal) return;
     this.map.set(key, buf);
@@ -150,6 +155,7 @@ export function acceptsGzip(header) {
 
 /**
  * Parse a single `bytes=` range against a file size.
+ * @param {unknown} header @param {number} size
  * @returns {{ start: number, end: number } | 'unsatisfiable' | null} null = ignore header (serve 200)
  */
 export function parseRange(header, size) {
@@ -170,9 +176,13 @@ export function parseRange(header, size) {
   return { start, end };
 }
 
+/** @param {string} tag */
 const stripWeak = (tag) => tag.trim().replace(/^W\//, '');
 
-/** Conditional GET check (If-None-Match wins over If-Modified-Since). */
+/**
+ * Conditional GET check (If-None-Match wins over If-Modified-Since).
+ * @param {import('node:http').IncomingMessage} req @param {string} etag @param {Date} mtime
+ */
 export function isNotModified(req, etag, mtime) {
   const inm = req.headers['if-none-match'];
   if (typeof inm === 'string') {
@@ -187,7 +197,10 @@ export function isNotModified(req, etag, mtime) {
   return false;
 }
 
-/** If-Range: serve the range only when the validator still matches. */
+/**
+ * If-Range: serve the range only when the validator still matches.
+ * @param {import('node:http').IncomingMessage} req @param {string} etag @param {string} lastModified
+ */
 function ifRangeMatches(req, etag, lastModified) {
   const v = req.headers['if-range'];
   if (typeof v !== 'string') return true;
@@ -196,10 +209,14 @@ function ifRangeMatches(req, etag, lastModified) {
   return s === lastModified;
 }
 
-/** The browser runtime's files (buildTag.js BUILD_INPUTS) — immutable when requested under the current /b/<tag>/. */
+/**
+ * The browser runtime's files (buildTag.js BUILD_INPUTS) — immutable when requested under the current /b/<tag>/.
+ * @param {string} mountName @param {string[]} segments
+ */
 const isBuildFile = (mountName, segments) => mountName === 'sim' || mountName === 'shared'
   || (mountName === 'public' && segments.length > 1 && (segments[0] === 'js' || segments[0] === 'css' || segments[0] === 'vendor'));
 
+/** @param {string} ext @param {string} mountName @param {string[]} segments @param {string} query @param {boolean} versioned */
 function cacheControlFor(ext, mountName, segments, query, versioned) {
   if (ext === '.html' || ext === '.htm') return 'no-cache';
   if (/(^|&)v=/.test(query)) return IMMUTABLE_CACHE;
@@ -209,7 +226,12 @@ function cacheControlFor(ext, mountName, segments, query, versioned) {
   return 'no-cache';
 }
 
-/** @param {boolean} [versioned] requested under the current build's /b/<tag>/ (static.js) */
+/**
+ * @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res @param {string} absPath
+ * @param {import('node:fs').Stats} stat @param {string} mountName @param {string[]} segments @param {string} query
+ * @param {GzipCache} gzipCache @param {{ debug?: Function }} log
+ * @param {boolean} [versioned] requested under the current build's /b/<tag>/ (static.js)
+ */
 export async function serveFile(req, res, absPath, stat, mountName, segments, query, gzipCache, log, versioned = false) {
   const ext = path.extname(absPath).toLowerCase();
   const type = MIME[ext] || 'application/octet-stream';
@@ -222,6 +244,7 @@ export async function serveFile(req, res, absPath, stat, mountName, segments, qu
   const lastModified = stat.mtime.toUTCString();
   const isHead = req.method === 'HEAD';
 
+  /** @type {Record<string, string | number>} */
   const headers = {
     'Content-Type': type,
     'Cache-Control': cacheControlFor(ext, mountName, segments, query, versioned),
@@ -274,11 +297,15 @@ export async function serveFile(req, res, absPath, stat, mountName, segments, qu
   await streamTo(fs.createReadStream(absPath, { start, end }), res, log);
 }
 
+/**
+ * @param {import('node:stream').Readable} src @param {import('node:http').ServerResponse} res
+ * @param {{ debug?: Function }} log @param {import('node:stream').Transform} [transform]
+ */
 async function streamTo(src, res, log, transform) {
   try {
     if (transform) await pipeline(src, transform, res);
     else await pipeline(src, res);
-  } catch (e) {
+  } catch (/** @type {any} */ e) {
     if (e && e.code !== 'ERR_STREAM_PREMATURE_CLOSE') log.debug?.('[http] stream aborted', e.code || e.message);
     res.destroy();
   }

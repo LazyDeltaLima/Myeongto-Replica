@@ -48,8 +48,11 @@ export function parseInline(text) {
  */
 export function parseChangelog(md, { minMajor = 1 } = {}) {
   const entries = [];
+  /** @type {ReturnType<typeof parseChangelog>[number] | null} */
   let entry = null;
+  /** @type {string[] | null} */
   let para = null;   // lines of the open paragraph
+  /** @type {string[] | null} */
   let list = null;   // raw items of the open list
   const close = () => {
     if (para) entry?.blocks.push({ p: parseInline(para.join(' ')) });
@@ -90,6 +93,7 @@ export function parseChangelog(md, { minMajor = 1 } = {}) {
  * @returns {() => Promise<{ entries: ReturnType<typeof parseChangelog> }>}
  */
 export function createChangelogReader({ file = path.join(ROOT, 'CHANGELOG.md') } = {}) {
+  /** @type {{ entries: ReturnType<typeof parseChangelog> } | null} */
   let cached = null;
   let mtime = -1;
   return async function read() {

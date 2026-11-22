@@ -17,7 +17,10 @@ export function MatchEnded() {
   </div>`;
 }
 
-/** Solo pause (m.public.paused): the field dims under the 暂停中 plate; 继续作战 resumes (g.pause off). */
+/**
+ * Solo pause (m.public.paused): the field dims under the 暂停中 plate; 继续作战 resumes (g.pause off).
+ * @param {{ canResume?: boolean, busy?: boolean, onResume?: () => void, onExit?: () => void }} props
+ */
 export function PausedOverlay({ canResume, busy, onResume, onExit }) {
   const plate = localAsset('ui/battle', 'matte_pause');
   return html`<div class="pauseov" role="dialog" aria-label=${t('暂停中')} data-testid="paused">

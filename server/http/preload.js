@@ -30,11 +30,12 @@ const SCRIPTS = Object.freeze(['/vendor/pixi.min.js', '/vendor/pixi-spine.js']);
  * Modules that import a run-time-built path: every .js file of these directories (relative to the module) is a module
  * they may load (content/index.js: its domain modules; content/kits/index.js: one kit per operator).
  */
+/** @type {Readonly<Record<string, string[]>>} */
 const RUNTIME_DIRS = Object.freeze({ '/sim/content/index.js': ['.'], '/sim/content/kits/index.js': ['ops'] });
 /** Never served (server/http/static.js SIM_PRIVATE): the Node-only data loader. */
 const PRIVATE = /\/nodedata\.js$/i;
 
-/** Plain URL path → file on disk (server/http/static.js mounts); null when it is not a served module. */
+/** Plain URL path → file on disk (server/http/static.js mounts); null when it is not a served module. @param {string} p @param {string} [root] */
 export function fileOfUrl(p, root = ROOT) {
   if (p.startsWith('/sim/')) return PRIVATE.test(p) ? null : path.join(root, 'server', 'sim', p.slice(5));
   if (p.startsWith('/shared/')) return path.join(root, 'shared', p.slice(8));
@@ -42,10 +43,10 @@ export function fileOfUrl(p, root = ROOT) {
   return path.join(root, 'public', p.slice(1));
 }
 
-/** A plain URL path as the page writes it from a module in public/js/ (see the header). */
+/** A plain URL path as the page writes it from a module in public/js/ (see the header). @param {string} p */
 export const specOfUrl = (p) => (p.startsWith('/shared/') ? `../..${p}` : `..${p}`);
 
-/** Relative import specifiers of a module source: static and literal dynamic imports, and './x.js' strings for a loader. */
+/** Relative import specifiers of a module source: static and literal dynamic imports, and './x.js' strings for a loader. @param {string} src */
 function specifiersOf(src) {
   const code = src.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
   const out = new Set();
@@ -54,6 +55,7 @@ function specifiersOf(src) {
   return [...out].filter((s) => s.startsWith('./') || s.startsWith('../'));
 }
 
+/** @param {string} dir */
 async function jsFiles(dir) {
   try { return (await fsp.readdir(dir, { withFileTypes: true })).filter((d) => d.isFile() && d.name.endsWith('.js')).map((d) => d.name); } catch { return []; }
 }
@@ -66,7 +68,7 @@ export async function buildPreloadList(root = ROOT) {
   const seen = new Set();
   const stack = [...ENTRIES];
   while (stack.length) {
-    const url = stack.pop();
+    const url = /** @type {string} */ (stack.pop());
     if (seen.has(url)) continue;
     if (url === '/data.js') { seen.add(url); continue; } // the generated stand-in of server/data.js (static.js)
     if (SCRIPTS.includes(url)) continue; // named by render/app/pixi.js as a URL string: a classic script, no module

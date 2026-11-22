@@ -7,12 +7,19 @@ import { tokenVariantFor } from '../../ui/gameLogic/loadout.js';
 import { normDir, healRange } from '../../ui/facing.js';
 import { loadoutSkillIconUrl } from '../../ui/assetUrls.js';
 
-/** The loadout (chessLoadout result) a chess detail card's unit fights with: its stand-in's, or the chess's. */
+/**
+ * The loadout (chessLoadout result) a chess detail card's unit fights with: its stand-in's, or the chess's.
+ * @param {any} detail @param {any} loadout @param {(id: string) => any} getChess @param {any} backups
+ */
 function cardLoadout(detail, loadout, getChess, backups) {
   return detail.standIn ? standInLoadout(detail.standIn, getChess, backups) : chessLoadout(detail.chess, detail.diy ? null : loadout, getChess);
 }
 
-/** Resolve the inspected field unit without granting placement or sale actions. */
+/**
+ * Resolve the inspected field unit without granting placement or sale actions.
+ * @param {{ target: any, detail: any, pieces?: Map<number, any> | null, showPrep?: boolean, field?: any, snapshot?: any,
+ *   live?: any, loadout?: any, getChess: (id: string) => any, backups: any }} o
+ */
 export function inspectRange({ target, detail, pieces, showPrep = false, field, snapshot, live, loadout, getChess, backups }) {
   if (!detail || (detail.type !== 'chess' && detail.type !== 'token')) return null;
   let row, col, dir;
@@ -43,6 +50,7 @@ export function inspectRange({ target, detail, pieces, showPrep = false, field, 
  * the skill's own range, else null. The client draws the range toggle when Character.GetRangeOfSkill is a range object
  * other than the unit's own (rangeToShow): any skill with a range of its own — even one with the attack range's tiles —
  * unless its prefab hides it or shows the base range (`showRange: false`). Null for a summon or an item.
+ * @param {{ detail: any, loadout?: any, getChess: (id: string) => any, backups: any, m: any }} o
  */
 export function skillButton({ detail, loadout, getChess, backups, m }) {
   if (detail?.type !== 'chess' || !detail.chess) return null;

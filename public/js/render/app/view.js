@@ -10,6 +10,7 @@ const VIEW_KINDS = new Set(['prep', 'normal', 'unite', 'boss', 'bossPrep', 'pen'
  * The field a camera request actually shows — what render/projection.js presetCamera frames: 'hidden' → 'boss';
  * a 'prep' camera asked for the boss rows (Final Assault prep: rect r1 ≤ 6) → 'bossPrep'; unknown kinds → 'normal'.
  * Drives the built 3D area, the drawn 2D rows and the lit rect, so they always match the camera.
+ * @param {string} kind @param {any} [opts] the camera request (its `rect`)
  */
 export function viewKind(kind, opts) {
   let k = kind === 'hidden' ? 'boss' : kind;
@@ -30,6 +31,7 @@ const AREA_NO_PEN = Object.freeze({
  * devices blow into the field: act2 m01's blowers, user playtest #5 item 6; the boss field's row-6 devices are drawn
  * with the boss field only — board3d/layout.js stageDevices); the boss kinds build the boss field. `halves`: the wide
  * 联防 field on screen (render/app.js shownWide), whose rows reach its last column.
+ * @param {string} vk @param {number} [halves]
  */
 export function boardArea(vk, halves = 0) {
   if (vk === 'pen') return AREAS.normal;
@@ -43,6 +45,7 @@ export function boardArea(vk, halves = 0) {
 /**
  * 2D rows drawn for a view kind: the pen rows (14–18) only for the 'pen' camera; the boss field with the separator
  * and the normal rows behind it as scenery.
+ * @param {string} kind
  */
 export function bandFor(kind) {
   if (kind === 'boss' || kind === 'hidden' || kind === 'bossPrep') return [0, 13];
@@ -54,18 +57,19 @@ export function bandFor(kind) {
  * dim scenery without devices): the normal / 联防 / prep fields live between the separator walls (rows 6–13, the
  * devices on the row-13 wall included; the row-6 wall's belong to the boss field — tiles.js _stageDevices); the pen
  * camera adds the pen (6–18); the boss field 0–6.
+ * @param {string} kind
  */
 export function fieldRows(kind) {
   return kind === 'boss' || kind === 'hidden' || kind === 'bossPrep' ? [0, 6] : kind === 'pen' ? [6, 18] : [6, 13];
 }
 
-/** Are the pen's figures shown for a view kind (a camera flight shows them when either end is the pen)? */
+/** Are the pen's figures shown for a view kind (a camera flight shows them when either end is the pen)? @param {string} vk @param {string | null} [prevVk] */
 export const penShown = (vk, prevVk = null) => vk === 'pen' || prevVk === 'pen';
 
-/** Is the prep's leader on the boss field shown for a view kind (a flight shows it when either end is the boss-field prep)? */
+/** Is the prep's leader on the boss field shown for a view kind (a flight shows it when either end is the boss-field prep)? @param {string} vk @param {string | null} [prevVk] */
 export const leaderShown = (vk, prevVk = null) => vk === 'bossPrep' || prevVk === 'bossPrep';
 
-/** '2d' | '3d' | 'auto' board preference: `?board=` in the page URL (dev), else the view option. */
+/** '2d' | '3d' | 'auto' board preference: `?board=` in the page URL (dev), else the view option. @param {string} [opt] */
 export function boardPreference(opt) {
   let q = null;
   try { q = new URLSearchParams(globalThis.location?.search || '').get('board'); } catch { /* no location */ }
@@ -78,13 +82,16 @@ export function boardPreference(opt) {
  * that follows the board layer: the 3D scene's crate mesh while `board()` returns a BoardScene, else the Pixi box of
  * the 2D board. A board switch mid-battle (lost WebGL context → 2D, or back to 3D) swaps the inner box on the next
  * update instead of leaving the crate on a dead scene. `mesh` is the Pixi mesh (null in 3D: nothing to add to Pixi).
+ * @param {{ board: () => any, pixi: () => any }} o the board layer now (a BoardScene or none), the 2D box's maker
  */
 export function switchableBox({ board, pixi }) {
-  let inner = null, owner;
+  /** @type {any} */
+  let inner = null, /** @type {any} */ owner;
   const drop = () => { try { inner?.destroy(); } catch { /* ignore */ } inner = null; owner = undefined; };
   return {
     get mesh() { return inner ? inner.mesh || null : null; },
     get inner() { return inner; },
+    /** @param {any} cam @param {any} b */
     update(cam, b) {
       const scene = board() || null;
       if (!inner || owner !== scene || inner.destroyed) {

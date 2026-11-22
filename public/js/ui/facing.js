@@ -33,7 +33,10 @@ export const DIR_VEC = Object.freeze({
 /** Chinese label (for aria / tooltips). */
 export const DIR_LABEL = Object.freeze({ UP: N_('上'), RIGHT: N_('右'), DOWN: N_('下'), LEFT: N_('左') });
 
-/** Normalise any direction spelling ('up', 'Right', 1/−1 facing) to UP|RIGHT|DOWN|LEFT; unknown → `fallback`. */
+/**
+ * Normalise any direction spelling ('up', 'Right', 1/−1 facing) to UP|RIGHT|DOWN|LEFT; unknown → `fallback`.
+ * @param {unknown} d @param {string | null} [fallback]
+ */
 export function normDir(d, fallback = DEFAULT_DIR) {
   if (typeof d === 'string') {
     const u = d.trim().toUpperCase();

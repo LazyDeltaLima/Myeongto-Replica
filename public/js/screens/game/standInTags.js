@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from '../../../vendor/hooks.module.js';
 import { html } from '../../ui/components.js';
 import { ownStandIn, standInLabel, standInTip } from '../../ui/gameLogic.js';
 
+/** @param {any} view */
 const rawOf = (view) => (view && view.raw) || view || null;
 
 /**
@@ -19,9 +20,10 @@ const rawOf = (view) => (view && view.raw) || view || null;
  * @param {any} priv m.private @param {(id: string) => any} getChess @param {any} backups data/backups.json
  */
 export function standInPieces(priv, getChess, backups) {
+  /** @type {{ uid: number, label: string | null, name: string, area: string, tip: string }[]} */
   const out = [];
   if (!priv || !Array.isArray(priv.standIns) || !priv.standIns.length) return out;
-  const add = (p, area) => {
+  const add = (/** @type {any} */ p, /** @type {string} */ area) => {
     if (!p || p.kind !== 'chess' || !Number.isInteger(p.uid)) return;
     const c = getChess(p.id);
     const si = ownStandIn(c, priv, backups);
@@ -36,7 +38,7 @@ export function standInPieces(priv, getChess, backups) {
 /** @param {{ view: any, priv: any, getChess: (id: string) => any, backups: any }} props */
 export function StandInTags({ view, priv, getChess, backups }) {
   const items = standInPieces(priv, getChess, backups);
-  const [pos, setPos] = useState({});
+  const [pos, setPos] = useState(/** @type {Record<number, { x: number, y: number }>} */ ({}));
   const last = useRef('');
   const key = items.map((it) => it.uid).join(',');
   useEffect(() => {
@@ -47,6 +49,7 @@ export function StandInTags({ view, priv, getChess, backups }) {
     let alive = true;
     const tick = () => {
       if (!alive) return;
+      /** @type {Record<number, { x: number, y: number }>} */
       const next = {};
       let sig = '';
       for (const uid of uids) {

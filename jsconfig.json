@@ -1,5 +1,6 @@
 {
-  // Server typecheck (npm run typecheck runs this and jsconfig.browser.json). strict stays off until a folder is clean.
+  // Server typecheck (npm run typecheck runs this and jsconfig.browser.json). strict is off here: the folders that are
+  // clean with it on are listed in jsconfig.strict.json and checked strict by tools/typecheck-strict.mjs.
   // tsc does not load this file unless invoked with -p jsconfig.json.
   // Widen one path at a time: see types/README.md.
   "compilerOptions": {
@@ -20,7 +21,8 @@
     "server/**/*.js",
     "types/**/*.js",
     "types/sim-members.d.ts",
-    "types/class-members.d.ts"
+    "types/class-members.d.ts",
+    "types/ws.d.ts"
   ],
   "exclude": [
     "shared/bandBonds.js"

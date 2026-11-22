@@ -15,8 +15,10 @@ export function setSecurityHeaders(res) {
   res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
 }
 
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+/** @param {unknown} s */
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => /** @type {Record<string, string>} */ ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+/** @param {number} status @param {string} title @param {string} [detail] */
 function errorPage(status, title, detail = '') {
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${status} · 卫戍协议：盟约</title><style>
@@ -26,6 +28,10 @@ p{margin:8px 0}a{color:#4ed8af}</style></head><body><main><h1>${status}</h1><p>$
 ${detail ? `<p style="opacity:.6">${escapeHtml(detail)}</p>` : ''}<p><a href="/">返回首页 · Back to home</a></p></main></body></html>`;
 }
 
+/**
+ * @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res @param {number} status
+ * @param {string} title @param {string} [detail]
+ */
 export function sendError(req, res, status, title, detail) {
   if (res.headersSent) { res.destroy(); return; }
   const body = Buffer.from(errorPage(status, title, detail));
@@ -33,24 +39,31 @@ export function sendError(req, res, status, title, detail) {
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
+/**
+ * @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res @param {number} status
+ * @param {unknown} obj
+ */
 export function sendJson(req, res, status, obj) {
   const body = Buffer.from(JSON.stringify(obj));
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': body.length, 'Cache-Control': 'no-store' });
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
-/** Split an absolute request URL into raw path + query (also accepts absolute-form URLs). */
+/** Split an absolute request URL into raw path + query (also accepts absolute-form URLs). @param {string | undefined} url */
 export function splitUrl(url) {
   let u = url || '/';
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(u)) {
     try { const parsed = new URL(u); u = parsed.pathname + parsed.search; } catch { return null; }
   }
   const q = u.indexOf('?');
-  const hashless = (s) => { const h = s.indexOf('#'); return h >= 0 ? s.slice(0, h) : s; };
+  const hashless = (/** @type {string} */ s) => { const h = s.indexOf('#'); return h >= 0 ? s.slice(0, h) : s; };
   return q >= 0 ? { rawPath: hashless(u.slice(0, q)), query: hashless(u.slice(q + 1)) } : { rawPath: hashless(u), query: '' };
 }
 
-/** node:http 'clientError' listener: a reset socket is dropped, any other unparseable request gets a bare 400. */
+/**
+ * node:http 'clientError' listener: a reset socket is dropped, any other unparseable request gets a bare 400.
+ * @param {NodeJS.ErrnoException} err @param {import('node:stream').Duplex} socket
+ */
 export function answerClientError(err, socket) {
   if (err && err.code === 'ECONNRESET') { socket.destroy(); return; }
   try {

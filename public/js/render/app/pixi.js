@@ -3,8 +3,10 @@
 // beside this module (the page's /b/<tag>/r/ URLs too, server/http/buildTag.js), where index.html prefetches them
 const VENDOR = { pixi: new URL('../../../vendor/pixi.min.js', import.meta.url).href, spine: new URL('../../../vendor/pixi-spine.js', import.meta.url).href };
 
+/** @type {Promise<any> | null} */
 let pixiPromise = null;
 
+/** @param {string} src @returns {Promise<void>} */
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');

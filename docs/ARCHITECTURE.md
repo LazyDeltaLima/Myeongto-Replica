@@ -189,7 +189,8 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
   `Math.random` in kits.
 - **Lint and types.** `npm run lint` is a correctness-only ESLint (`eslint.config.js`: warnings are allowed, errors
   are not); `npm run typecheck` checks a JSDoc slice (`jsconfig.json` for the server, `jsconfig.browser.json` for the
-  page; `types/README.md` says how to widen it). CI runs both once, and the tests on Ubuntu and Windows with Node 22
+  page, and with `strict` the folders `jsconfig.strict.json` lists, `tools/typecheck-strict.mjs`; `types/README.md` says
+  how to widen it). CI runs both once, and the tests on Ubuntu and Windows with Node 22
   and 24 (`.github/workflows/ci.yml`).
 - **Tests.** `node --test` runs every suite that needs no browser; the browser suites are opt-in ([CONTRIBUTING.md](../CONTRIBUTING.md) §2).
   The battle harness `test/helpers/battleHarness.js` (SIM.md §10) sets up a battle in a few lines.

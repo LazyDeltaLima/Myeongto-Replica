@@ -1,6 +1,6 @@
 # Typecheck
 
-`npm run typecheck` runs `tsc --noEmit --checkJs` twice:
+`npm run typecheck` runs `tsc --noEmit --checkJs` twice, then the strict pass (below):
 
 - `jsconfig.json`, the server: lib ES2022 and the Node types (`@types/node`), no DOM.
 - `jsconfig.browser.json`, what the page loads: lib ES2022 + DOM, no Node types. It extends `jsconfig.json` and lists
@@ -25,13 +25,14 @@ What is checked now:
   hFresh returns any). A component called as a function (`ChoiceView({ ...props })`) is checked.
 - `types/` — JSDoc for `Unit`, `DamageInfo`, the snapshot tuples, and the protocol message envelope (`types/**/*.js`)
 
-`strict` is off. `tsc` does not read `jsconfig.json` on its own; the script passes `-p`.
+`strict` is off in both configs; the folders listed in `jsconfig.strict.json` are checked with it on as well
+("Strict" below). `tsc` does not read `jsconfig.json` on its own; the script passes `-p`.
 
 ## Widen it
 
 Add one file or one folder to `jsconfig.json` `include`, then run `npm run typecheck`. Fix JSDoc that disagrees with the code in that folder. Leave `strict` off until the folder reports nothing. Do not add `@ts-nocheck`.
 
-Next: `strict`, from the folders that report nothing. The sim does not import `types/`; the typedefs in `types/core.js` are a reference, not a runtime dependency.
+The sim does not import `types/`; the typedefs in `types/core.js` are a reference, not a runtime dependency.
 
 What most errors of a new folder were in `server/sim/`, and the JSDoc that fixed them:
 
@@ -91,6 +92,44 @@ And in `public/js/ui/`, `screens/` and the rest of `public/js/`:
 
 `types/core.js` follows docs/DESIGN.md §5.2, §5.4, §8 and docs/SIM.md §4, §9. Where those two disagree on `DamageInfo.type`, the typedef uses the union `makeDamageInfo` actually builds (`'elemental'` as well as `'element'`).
 
+## Strict
+
+`tools/typecheck-strict.mjs` (the last step of `npm run typecheck`) checks each config whole with `strict` added and
+fails on an error located in a file `jsconfig.strict.json` `include`s; the rest of the program is checked strict too,
+but not counted. strict is an option of the whole program, and a folder imports the rest, so a config whose own
+`include` were the strict folders would also report every file they import — the list file is read only for its
+`include` (run on its own, `tsc -p jsconfig.strict.json` checks the listed folders and their imports, with the
+server's options only). A listed file is checked in every config that has it; a listed file neither config has is an
+error.
+
+With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`.
+
+Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
+subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
+`<folder>/**/*.js` to `jsconfig.strict.json`. JSDoc and declarations only, as above: the code stays as it is. What
+most strict errors were, and the JSDoc that fixed them:
+
+- a parameter without `@param` (most of them, TS7006): an `@param`, or `(/** @type {string} */ x) =>` inline on an
+  arrow function's parameter. A callback passed where the parameter's type is known needs none. Some tests read a
+  source line as text (`test/ui/playtest-item-detail.test.js` matches `renderInfo`'s `items:` line): there, type the
+  value the callback is called on (`@param {{ [key: string]: any, items?: unknown }} u`) instead of the line.
+- a variable declared empty (`let timer;`, `let out = null`, `const out = []`) and filled in a closure (TS7034,
+  TS7005): `/** @type {…} */` on the declaration. In `let a = null, b;` the statement's `@type` types only `a`: give
+  `b` its own inline (`let a = null, /** @type {any} */ b;`).
+- a parameter whose default is `null` (`reason = null`): its type is `null` under strict, and every caller passing a
+  string is an error; an `@param {string | null} [reason]`.
+- a `catch (e)` variable is `unknown` (`e.code`: TS2339 on `{}`): `catch (/** @type {any} */ e)`.
+- a value that is not null only because of an earlier check tsc does not follow (`signal` set together with
+  `onAbort`, `stack.pop()` after `while (stack.length)`): a cast at the use, `/** @type {AbortSignal} */ (signal)`.
+- an object or a frozen table indexed by a string (`MIME[ext]`, `headers['Content-Length'] = …`, TS7053):
+  `@type {Readonly<Record<string, string>>}` (or `Record<string, string | number>`) on the declaration.
+- an object built with some keys and given more later (`body.hw = …`): the declaration's `@type` lists the later key
+  as optional.
+- `new Promise((resolve) => … resolve())` (TS2810): `@returns {Promise<void>}` on the function that returns it.
+- `globalThis.PIXI` (TS7017): the script-tag global is declared (`declare var PIXI: any` in
+  `types/page-globals.d.ts`). A library without types (`ws`): a loose stand-in in `types/` (`types/ws.d.ts`, in the
+  server config's `include`).
+
 ## Split classes
 
 `Match` (`server/match/Match.js`), `PlayerState` (`server/match/PlayerState.js`) and `Battle` (`server/sim/Battle.js`)
@@ -135,15 +174,17 @@ and tsc would check those builds too (three.js alone gave over a thousand errors
 `.js`, so `tools/vendor.mjs` also copies `types/vendor/<name>.d.ts` next to each module it vendors: Preact, its hooks
 and htm re-export the npm packages' own types (Preact 11); three.js has none, so `three.module.d.ts` is a loose stand-in
 that lists the names `public/js` uses (each class takes any arguments and has any member; a new name goes there).
-PixiJS and pixi-spine come from script tags (`globalThis.PIXI`, any); `types/page-globals.d.ts` declares the `PIXI.*`
-names JSDoc uses as types. If the browser config reports errors inside `public/vendor/`, the copies are older than
+PixiJS and pixi-spine come from script tags (`globalThis.PIXI`, any); `types/page-globals.d.ts` declares that global
+and the `PIXI.*` names JSDoc uses as types. The server's `ws` has no types either: `types/ws.d.ts` is its loose
+stand-in (the server, with the members `server/http/websocket.js` calls, and a socket whose members are all any). If the browser config reports errors inside `public/vendor/`, the copies are older than
 their declarations: run `npm run vendor`.
 
 ## Measuring
 
 To count the errors of folders not yet included, run tsc with a scratch config outside the repository's lists, for
 instance `{ "extends": "<repo>/jsconfig.json", "include": ["<repo>/server/**/*.js", "<repo>/shared/**/*.js",
-"<repo>/types/**/*"] }` (and the browser one over `public/js/`), then `tsc -p <that file> | grep -c 'error TS'`.
+"<repo>/types/**/*"] }` (and the browser one over `public/js/`), then `tsc -p <that file> | grep -c 'error TS'`. For strict, `node tools/typecheck-strict.mjs --count` counts every
+folder not yet listed (above).
 
 ## Not in the first slice
 

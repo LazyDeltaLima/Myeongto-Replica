@@ -11,6 +11,7 @@ export const FORCED_EXIT = 'forcedExit';
  * Generic death particles for a battle unit's 'die' event: never for stage devices, nor for a summon used up by its
  * own effect (user playtest #2 item 4: 香槟炸弹's blast — sim fx `{ consumed: true, id }` before its 'die' — is its end,
  * not a knock-out), nor for an operator entering the battle knocked out (FORCED_EXIT).
+ * @param {any} info the view's info (renderInfo) @param {boolean} [consumed] @param {string | null} [reason] the 'die' reason
  */
 export const showsDeathFx = (info, consumed = false, reason = null) => !consumed && reason !== FORCED_EXIT && info?.kind !== 'device';
 
@@ -21,6 +22,7 @@ export const showsDeathFx = (info, consumed = false, reason = null) => !consumed
  * professions.js) — makes a view built mid-battle (a teammate's
  * field watched later, 联防 observers, a reconnect, server-run watchers: no fx of the change is replayed) start on that
  * clip set (render/units.js FORMS); it used to be dropped here, so such views drew the first form (player report #5).
+ * @param {{ [key: string]: any, items?: unknown }} u a UnitInfo (`items` typed so its filter callback is)
  */
 export function renderInfo(u) {
   if (!u || typeof u !== 'object' || (typeof u.id !== 'number' && typeof u.id !== 'string')) return null;
@@ -66,6 +68,7 @@ export function renderInfo(u) {
  * 2026-11-12 (docs/rules/fx.md 「규정 액티브 전략의 표식·칸 이펙트」): a device made of an enemy record `rec` (宝藏探机's chest
  * enemy_9038_achest — the client's ally unit) as the view draws it: the walking-ally path (`walks`: that enemy's model, size
  * and bindings, an ally's bars) with the record's model and names. Any other unit (no record) unchanged — a DeviceView box.
+ * @param {any} info the view's info (renderInfo) @param {any} rec
  */
 export function deviceAsEnemy(info, rec) {
   if (!info || info.kind !== 'device' || !rec || typeof rec !== 'object') return info;

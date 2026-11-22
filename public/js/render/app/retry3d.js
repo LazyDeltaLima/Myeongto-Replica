@@ -20,8 +20,10 @@
  * @param {{ delays: number[], hidden?: () => boolean, timers?: { set: (fn: () => void, ms: number) => any, clear: (t: any) => void } }} o
  */
 export function createRetry3d({ delays, hidden = () => false, timers = { set: (fn, ms) => setTimeout(fn, ms), clear: (t) => clearTimeout(t) } }) {
+  /** @type {any} */
   let timer = null;
   let tries = 0;
+  /** @type {(() => void) | null} */
   let fn = null;        // the try to run
   let waiting = false;  // a try came due while hidden
   let spent = false;    // the delays are used up
@@ -33,6 +35,7 @@ export function createRetry3d({ delays, hidden = () => false, timers = { set: (f
     f?.();
   };
   return {
+    /** @param {() => void} next */
     schedule(next) {
       fn = next;
       if (timer != null) timers.clear(timer);

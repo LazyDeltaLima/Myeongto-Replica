@@ -15,6 +15,9 @@ import { serveFile } from './files.js';
  * Requests for the direct `/assets/audio/…` URLs keep working (they are the fallback for plain static hosts).
  * `MEDIA_PREFIX` / `AUDIO_EXTS` live in `shared/media.js`: the browser decides which URLs to rewrite with the
  * same two values, and they must not drift apart.
+ * @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res
+ * @param {string} rest the path after MEDIA_PREFIX @param {string} query @param {string} publicDir
+ * @param {import('./files.js').GzipCache} gzipCache @param {{ debug?: Function }} log
  */
 export async function serveMedia(req, res, rest, query, publicDir, gzipCache, log) {
   const root = path.join(path.resolve(publicDir), 'assets', 'audio');
