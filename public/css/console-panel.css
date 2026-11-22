@@ -49,16 +49,24 @@
 .cxp__seg b.ti { min-width: 0; padding: calc(var(--cpx) * 3) calc(var(--cpx) * 4); display: grid; place-items: center; }
 .cxp__seg b.ti img { width: calc(var(--cpx) * 21); height: calc(var(--cpx) * 21); display: block; }
 .cxp__seg b.ti.on { background: rgba(78,216,175,.28); box-shadow: inset 0 0 0 1px var(--mint-400); }
-/* as tall as one row of chips and centred in it, so 핵심 / 부가 sit level with the first row's chips */
-.cxp__bk { flex: none; width: calc(var(--cpx) * 34); height: calc(var(--cpx) * 27); display: flex; align-items: center; font-size: calc(var(--cpx) * 11); color: var(--text-dim, var(--text-lo)); }
-.cxp__bonds { display: flex; flex-wrap: wrap; gap: calc(var(--cpx) * 3); flex: 1; min-width: 0; }
-.cxp__bchip.ico { width: calc(var(--cpx) * 27); height: calc(var(--cpx) * 27); padding: 0; display: grid; place-items: center; border-radius: 50%; border: 0;
-  background: var(--chip, radial-gradient(circle, #2c3532 0 60%, #1a201e 62%)) center / 100% 100% no-repeat; }
-.cxp__bchip.ico img { width: calc(var(--cpx) * 17); height: calc(var(--cpx) * 17); filter: brightness(0) invert(.82); }
-.cxp__bchip.ico.on img { filter: brightness(0) opacity(.8); }
-/* the lit disc (bondBoardIcon/1_1, 77 px) draws the same 51 px disc as the unlit one (1_0, 65 × 64) inside a wider glow:
-   scaled by the canvases' ratio, the circle keeps its size when chosen */
-.cxp__bchip.ico.on { background-size: calc(100% * 77 / 65) calc(100% * 77 / 64); }
+/* as tall as one row of bond buttons, so 핵심 / 부가 sit level with the first row */
+.cxp__bk { flex: none; width: calc(var(--cpx) * 34); height: calc(var(--cpx) * 46); display: flex; align-items: center; font-size: calc(var(--cpx) * 11); color: var(--text-dim, var(--text-lo)); }
+/* the bond filter buttons (maintainer decision 2026-11-22, mockup C2): squares in the .cxp__seg look with the name inside,
+   eight to a row; each fills its column, so the first starts where the tier / type buttons above do */
+.cxp__bonds { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: calc(var(--cpx) * 4) calc(var(--cpx) * 3); flex: 1; min-width: 0; }
+.cxp__bchip { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--cpx) * 1); min-width: 0;
+  height: calc(var(--cpx) * 46); padding: calc(var(--cpx) * 4) 0 calc(var(--cpx) * 3); box-sizing: border-box; border: 1px solid var(--line-2);
+  background: rgba(0,0,0,.35); color: var(--text-md); font: inherit; cursor: pointer; }
+.cxp__bchip:hover { border-color: var(--line-3); background: rgba(255,255,255,.05); }
+.cxp__bchip.on { border-color: var(--mint-400); background: var(--mint-500); color: var(--text-on-mint, #06110d); }
+/* the official glyph (icon_<bond>) as a mask, so its colour is a token: grey, dark on the chosen mint */
+.cxp__bchip .ic { flex: none; width: calc(var(--cpx) * 22); height: calc(var(--cpx) * 22); background: rgba(210, 214, 212, .9);
+  -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
+.cxp__bchip.on .ic { background: var(--text-on-mint, #06110d); opacity: .85; }
+.cxp__bchip .ic.txt { display: grid; place-items: center; background: none; -webkit-mask: none; mask: none; font-size: calc(var(--cpx) * 14); font-weight: 700; }
+.cxp__bchip .nm { max-width: 100%; padding: 0 calc(var(--cpx) * 1); font-size: calc(var(--cpx) * 10); line-height: 1.2; letter-spacing: -.03em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cxp__bchip .nm.long { font-size: calc(var(--cpx) * 9); letter-spacing: -.07em; }
 .cxp__search { flex: 1; min-width: 0; height: calc(var(--cpx) * 30); padding: 0 calc(var(--cpx) * 10); border: 1px solid var(--line-2); background: rgba(0,0,0,.45);
   color: var(--text-hi); font: inherit; font-size: calc(var(--cpx) * 13); }
 .cxp__select { height: calc(var(--cpx) * 28); background: rgba(0,0,0,.45); color: var(--text-hi); border: 1px solid var(--line-2); font: inherit; font-size: calc(var(--cpx) * 12.5); }
@@ -203,10 +211,14 @@ b.cxp__tier { width: auto; min-width: calc(var(--cpx) * 16); height: calc(var(--
   /* touch: every control at least 34px (the stepper and the bond chips are tapped over and over) */
   .cxp__seg b { min-height: 34px; display: flex; align-items: center; justify-content: center; }
   .cxp__seg b.ti { padding: 0 5px; }
-  .cxp__bonds { gap: 4px; }
-  .cxp__bchip.ico { width: 34px; height: 34px; }
-  .cxp__bchip.ico img { width: 21px; height: 21px; }
-  .cxp__bk { height: 34px; }
+  /* one row per group that scrolls sideways (eight to fifteen buttons in rows would take five rows of a 390 px sheet);
+     the last one peeks out at the edge, so the row reads as one to scroll */
+  .cxp__bonds { display: flex; flex-wrap: nowrap; gap: 4px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding-right: 18px;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); }
+  .cxp__bchip { flex: none; width: 54px; height: 52px; }
+  .cxp__bchip .ic { width: 26px; height: 26px; }
+  .cxp__bchip .nm { font-size: 10px; }
+  .cxp__bk { height: 52px; }
   .cxp__search { height: 36px; }
   .cxp__select { height: 34px; }
   .cxp__step, .cxp__brow .cxp__step { height: 36px; }

@@ -971,6 +971,13 @@ async function mockRequest(t, f = {}) {
 // ---- UI variants (open panels for screenshots) ------------------------------------------------------------------------------
 function applyUiVariants() {
   const clickSel = (sel, delay = 250) => setTimeout(() => document.querySelector(sel)?.click(), delay);
+  // ?variant=console: the console panel (m.private.console as server/local-console.js builds it; candidates, enemies and bosses
+  // left empty) — for screenshots and tools/ui-check measure specs of the panel
+  if (VARIANTS.has('console') && S.priv) {
+    S.priv.console = { console: true, fundsPin: false, pinValue: 99, candidates: [], enemies: [], boss: { round: 14, bossId: null, bosses: [] },
+      rounds: { last: 14, sp: [] }, layers: {}, layersEdited: false, layersBase: null, layerCap: 999, note: null };
+    refreshPrivate();
+  }
   if (VARIANTS.has('intel')) clickSel('[data-testid="match-intel-open"]', 400);
   // the enemy list is the 敌方情报 tab of the 本局信息 dialog (left 🔍); the right 🔍▶▶ pans to the pen
   if (VARIANTS.has('drawer')) { clickSel('.gtop__iconbtn', 400); clickSel('.edrawer .tabs__tab:nth-child(2)', 700); }

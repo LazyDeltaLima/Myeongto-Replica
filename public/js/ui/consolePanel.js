@@ -241,9 +241,14 @@ function OpsTab({ con, priv, prep }) {
   // in this browser's chosen skin (docs/rules/ui.md 「스킨 고르기」)
   const sk = skinArt();
   const avatar = (e) => { const rec = e.kind === 'diy' ? { charId: e.charId } : data.lookup('chess', e.key); return skinPic(rec, 'avatar', sk, { own: true }) || chessAvatarUrl(m, rec); };
-  const chip = (b) => html`<button key=${b.bondId} type="button" class=${cx('cxp__bchip', 'ico', bond === b.bondId && 'on')} title=${tName(b.name)}
-      style=${chipArt(m, bond === b.bondId)} onClick=${() => setBond(bond === b.bondId ? '' : b.bondId)}>
-    ${bondIconUrl(m, b.bondId) ? html`<img src=${bondIconUrl(m, b.bondId)} alt=${tName(b.name)} />` : tName(b.name).slice(0, 1)}</button>`;
+  // the bond filter button (css/console-panel.css .cxp__bchip): the official glyph as a mask over a token colour, the name
+  // inside; five letters and more (라이타니엔) a size smaller
+  const chip = (b) => {
+    const ic = bondIconUrl(m, b.bondId), name = tName(b.name), on = bond === b.bondId;
+    return html`<button key=${b.bondId} type="button" class=${cx('cxp__bchip', on && 'on')} title=${name} aria-pressed=${on} onClick=${() => setBond(on ? '' : b.bondId)}>
+      <span class=${cx('ic', !ic && 'txt')} style=${ic ? `--ic:url("${ic}")` : undefined} aria-hidden="true">${ic ? null : [...name][0]}</span>
+      <span class=${cx('nm', [...name].length > 4 && 'long')}>${name}</span></button>`;
+  };
   const popEntry = pop ? entries.find((e) => e.key === pop.key) : null;
   return html`
     <div class="cxp__row"><span class="cxp__k">${t('阶级')}</span><${TierSeg} value=${tier} onChange=${setTier} /><span class="cxp__sp"></span>
@@ -262,9 +267,6 @@ function OpsTab({ con, priv, prep }) {
     </div>
     ${popEntry ? html`<${DiyPop} key=${popEntry.key} entry=${popEntry} at=${pop.at} priv=${priv} tierF=${tier} prep=${prep} onClose=${() => setPop(null)} />` : null}`;
 }
-
-/** The bond chip's official disc (bondBoardIcon 1_0 off / 1_1 on), or nothing (the CSS circle). */
-const chipArt = (m, on) => { const u = uiUrl(m, `bondBoardIcon/1_${on ? 1 : 0}`); return u ? `--chip:url("${u}")` : undefined; };
 
 /** The 自选 pick's forms in data/backups.json (con.addDiy's server/local-console.js formKey): the page's own, translated. */
 const diyForm = (charId, tier, elite) => data.get('backups')?.units?.[charId]?.forms?.[elite ? `2/60/7/${tier === 6 ? 3 : 1}` : '2/1/4/0'] || null;

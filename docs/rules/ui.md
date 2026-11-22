@@ -113,8 +113,10 @@ UI를 만들거나 고치는 사람이 모두 같은 기준으로 만들게 하�
     보내면 서버가 `console` 항목으로 붙인다 — `fb.send`의 「끝난 판 1시간 안」 문을 진행 중인 콘솔 판의 자리에도 연다(`local-patch.js liveConsoleFeedback`).
     끝난 콘솔 판에서 결산 화면 피드백을 보내도 같은 기록이 붙는다.
 - **패널** (`public/js/ui/consolePanel.js` + `css/console-panel.css`, 목록 함수는 `ui/consoleLists.js`): 데스크톱은 왼쪽(단독은 팀 목록이 비어 자리가 있음),
-  탭 5개 가로 — 오퍼레이터(등급 칩 공식 `chessLevelSprite/chess_level_icon_N`, 일반/정예, 종류 전체·선발 + 핵심/부가 맹약 칩 공식 `bondBoardIcon/1_0`·`1_1`
-  — 켠 칩 `1_1`은 같은 원판에 빛이 더해진 77px 그림이라 캔버스 비율만큼 키워 원 크기를 맞춘다, 검색, 칸은 `equipReplace/avatart_bg`·`avatart_frame` 위 초상;
+  탭 5개 가로 — 오퍼레이터(등급 칩 공식 `chessLevelSprite/chess_level_icon_N`, 일반/정예, 종류 전체·선발 + 핵심/부가 맹약 버튼
+  — 위 단추(`.cxp__seg`) 모양의 네모 안에 공식 문양 `icon_<맹약>`(mask, 고르면 민트 바탕에 어두운 문양) + 이름, 한 줄 8칸 격자라 첫 버튼이 위 등급·종류 단추와 같은
+  선에서 시작, 5자 이름(라이타니엔)은 한 단계 작게, 휴대폰은 묶음마다 한 줄을 옆으로 넘김(끝 칸이 반쯤 보임; 관리자 결정 2026-11-22 시안 C2 — 그 전엔 이름 없는
+  `bondBoardIcon/1_0`·`1_1` 원판 칩), 검색, 칸은 `equipReplace/avatart_bg`·`avatart_frame` 위 초상;
   선발은 작은 창: 단계·일반/정예·스킬·모듈, 누른 칸 바로 아래(아래가 모자라면 위)에 뜨고 이름은 페이지의 번역된 `backups`에서) ·
   장비(희귀도 원판 `itemRarity/rN`, 일반/강화 — 강화는 합성되는 장비만: `upgradeNum` 100인 변형 구조체·호출 모듈 등은 맹약 표에 같은 글의
   강화 레코드가 있어도 없는 것으로, `shared/local.js strengthenedItemId`, 서버 `con.addItem`도 같음) ·
