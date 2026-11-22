@@ -17,6 +17,7 @@ export const RESTART_VOTE_MS = 30000;
 export const RESTART_RETRY_MS = 60000;
 
 /** The phases a restart can be proposed in: from the first round on — never the briefing (重新抽取) or the draft. */
+/** @type {Set<string>} */
 const RESTART_PHASES = new Set([PHASE.BATTLE_CHECK, PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.PREP, PHASE.COMBAT, PHASE.UNITE,
   PHASE.SETTLE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
 

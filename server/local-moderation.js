@@ -351,6 +351,7 @@ export function parseBans(doc) {
   const out = [];
   for (const b of Array.isArray(doc?.bans) ? doc.bans : []) {
     if (!b || typeof b.id !== 'string' || !ID_RE.test(b.id)) continue;
+    /** @type {Record<string, number>} */
     const nets = {};
     if (b.nets && typeof b.nets === 'object') for (const [k, t] of Object.entries(b.nets)) if (Number.isFinite(t)) nets[k] = t;
     out.push({ id: b.id, at: Number.isFinite(b.at) ? b.at : 0, reason: typeof b.reason === 'string' ? b.reason : undefined, until: Number.isFinite(b.until) ? b.until : undefined, nets });

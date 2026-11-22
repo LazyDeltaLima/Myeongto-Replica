@@ -103,7 +103,7 @@ export class StubMatch {
     for (const s of opts.seats) {
       this.players.set(s.playerId, { ...s, left: false, ready: !!s.isBot, lastEmoteAt: -Infinity });
     }
-    this.phase = PHASE.LOBBY;
+    this.phase = /** @type {string} */ (PHASE.LOBBY);
     this.deadline = 0;
     this.timer = null;
     this.ended = false;
@@ -122,7 +122,7 @@ export class StubMatch {
 
   /**
    * @param {string} playerId
-   * @param {{ t: string }} msg validated intent
+   * @param {{ t: string, [field: string]: any }} msg validated intent
    * @returns {{ ok: true } | { error: string }}
    */
   handle(playerId, msg) {

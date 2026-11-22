@@ -73,6 +73,7 @@ export class MatchInfra {
    * presentation steps (BATTLE_CHECK, ROUND_START, SETTLE) run silently (no countdown). The same holds for any match
    * with a single human (loneHuman: a 同盟 room started alone or with AI teammates only — user playtest #4 item 3):
    * the timers only ever made humans wait on each other; AI seats act at once.
+   * @this {Match}
    */
   get soloUntimed() { return this.isSolo || this.loneHuman; }
 
@@ -134,9 +135,10 @@ export class MatchInfra {
   /**
    * A fresh deploy map of a player on `field` (default: the field it deploys on now) under its device / tile overrides.
    * Pure — no PlayerState cache is touched (the read-only checker invariants.js uses it; PlayerState.deployMap caches).
+   * (A default parameter does not see `@this`: hence the cast.)
    * @this {Match}
    */
-  deployMapFor(ps, field = this.deployFieldOf(ps)) {
+  deployMapFor(ps, field = (/** @type {Match} */ (/** @type {unknown} */ (this))).deployFieldOf(ps)) {
     const map = buildDeployMap(this.stage, { deviceOverrides: ps.deviceOverrides, tileOverrides: ps.tileOverrides, field });
     // 宝藏探机's chests (content/bands/meta.js BAND_CHEST): 「使所在格无法部署」 while they stand
     if (typeof ps.bandChestsNow === 'function') for (const x of ps.bandChestsNow()) map.delete(tileKey(x.row, x.col));

@@ -27,6 +27,7 @@ export const stripRefs = (item) => String(item).replace(REFS_RE, '');
  */
 export function parseInline(text) {
   const plain = String(text).replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
+  /** @type {{ s: string, b?: true, c?: true }[]} */
   const out = [];
   const re = /\*\*(.+?)\*\*|`([^`]+)`/g;
   let at = 0;

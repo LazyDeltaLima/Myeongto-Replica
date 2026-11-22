@@ -22,7 +22,8 @@ export function lanUrls(port) {
   const out = [];
   for (const addrs of Object.values(os.networkInterfaces())) {
     for (const a of addrs || []) {
-      if ((a.family === 'IPv4' || a.family === 4) && !a.internal) out.push(`http://${a.address}:${port}`);
+      // `family` is the number 4 on Node 18.0–18.3 (its types say string only)
+      if ((a.family === 'IPv4' || /** @type {string|number} */ (a.family) === 4) && !a.internal) out.push(`http://${a.address}:${port}`);
     }
   }
   return out;

@@ -7,7 +7,8 @@
 // of PR #189): the player they last watched with a manual g.watch (`watchPref`), else the first player still in.
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
-/** @import { Match } from '../Match.js' */
+/** @import { Match, SpectatorSeat } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { snapFrame } from '../fields.js';
 import { OK, fail } from './common.js';
@@ -51,6 +52,7 @@ export class MatchWatch {
    * @this {Match}
    */
   _viewers() {
+    /** @type {Array<PlayerState | SpectatorSeat>} */
     const out = this.order.filter((ps) => !ps.isBot && !ps.left);
     for (const s of this.spectators.values()) out.push(s);
     return out;

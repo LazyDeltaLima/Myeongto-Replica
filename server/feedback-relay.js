@@ -162,7 +162,11 @@ export class FeedbackRelay {
   get inbox() { return path.join(this.dir, 'inbox'); }
   get state() { return path.join(this.dir, 'issues'); }
 
-  /** One GitHub API call → { status, body }. */
+  /**
+   * One GitHub API call → { status, body } (`body`: the parsed answer, null when it was not JSON).
+   * @param {string} method @param {string} url @param {{ auth?: string, body?: any }} [opts]
+   * @returns {Promise<{ status: number, body: any }>}
+   */
   async api(method, url, { auth, body } = {}) {
     const res = await this.fetch(`${API}${url}`, {
       method,

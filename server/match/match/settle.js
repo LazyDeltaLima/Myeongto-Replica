@@ -204,6 +204,7 @@ export class MatchSettle {
     this.deadline = 0;
     for (const f of this.fields) f.live = false;
     this.outcome = { victory: !!victory, hiddenReached: this.hiddenReached, hiddenCleared: !!hiddenCleared, reason };
+    /** @type {Record<string, any>} m.result: buildResult's, or the bare fallback below */
     let result;
     try {
       result = buildResult(this, this.outcome);

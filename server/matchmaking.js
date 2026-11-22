@@ -154,7 +154,8 @@ const tagOf = (entry) => (entry.quick
 export class Matchmaker {
   /**
    * @param {import('./lobby.js').Lobby} lobby
-   * @param {{ Room: typeof import('./lobby.js').Room, options?: Partial<typeof QUEUE_DEFAULTS> }} deps
+   * @param {{ Room: typeof import('./lobby.js').Room, options?: Partial<Record<keyof typeof QUEUE_DEFAULTS, number>> & Record<string, unknown> }} deps
+   *   `options`: the lobby's options (the queue's keys of them are read)
    */
   constructor(lobby, { Room, options = {} }) {
     this.lobby = lobby;

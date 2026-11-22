@@ -195,10 +195,12 @@ export function loadoutOptions(base, golden = null) {
  * rest are stored complete: `{ skill, module }` (module null for a chess without an elite record).
  * @param {any} entries `room.loadout.entries`
  * @param {(id: string) => any} getChess chess record lookup (normal and golden ids)
- * @returns {{ ok: true, loadout: Record<string, { skill: number, module: string|null }> } | { error: 'BAD_MSG'|'BAD_TARGET', detail: string }}
+ * @returns {{ ok: true, loadout: Record<string, { skill: number, module: string|null }>, error?: undefined, detail?: undefined }
+ *   | { ok?: undefined, loadout?: undefined, error: 'BAD_MSG'|'BAD_TARGET', detail: string }}
  */
 export function checkLoadout(entries, getChess) {
   if (!isLoadoutEntries(entries)) return { error: 'BAD_MSG', detail: 'bad loadout entries' };
+  /** @type {Record<string, { skill: number, module: string|null }>} */
   const out = {};
   for (const id of Object.keys(entries)) {
     const e = entries[id];
@@ -271,11 +273,13 @@ export function cultivationCharIds(chess, backups = null) {
  * rest stored complete `{ potential, cultivate }`. `undefined` / `null` = no settings (`{}`).
  * @param {any} ops
  * @param {(charId: string) => boolean} isOperator
- * @returns {{ ok: true, ops: Record<string, { potential: number, cultivate: number }> } | { error: 'BAD_MSG'|'BAD_TARGET', detail: string }}
+ * @returns {{ ok: true, ops: Record<string, { potential: number, cultivate: number }>, error?: undefined, detail?: undefined }
+ *   | { ok?: undefined, ops?: undefined, error: 'BAD_MSG'|'BAD_TARGET', detail: string }}
  */
 export function checkLoadoutOps(ops, isOperator) {
   if (ops == null) return { ok: true, ops: {} };
   if (!isLoadoutOps(ops)) return { error: 'BAD_MSG', detail: 'bad operator settings' };
+  /** @type {Record<string, { potential: number, cultivate: number }>} */
   const out = {};
   for (const id of Object.keys(ops)) {
     if (typeof isOperator !== 'function' || !isOperator(id)) return { error: 'BAD_TARGET', detail: `unknown operator ${id}` };
@@ -343,10 +347,12 @@ export function operatorCharIds(data) {
  * rejects is dropped and the rest kept.
  * @param {any} skins
  * @param {(charId: string) => boolean} [hasOperator]
- * @returns {{ ok: true, skins: Record<string, string>, dropped: number } | { error: 'BAD_MSG', detail: string }}
+ * @returns {{ ok: true, skins: Record<string, string>, dropped: number, error?: undefined, detail?: undefined }
+ *   | { ok?: undefined, skins?: undefined, dropped?: undefined, error: 'BAD_MSG', detail: string }}
  */
 export function checkSkinSelection(skins, hasOperator) {
   if (!isSkinSelection(skins)) return { error: 'BAD_MSG', detail: 'bad skin selection' };
+  /** @type {Record<string, string>} */
   const out = {};
   let dropped = 0;
   for (const id of Object.keys(skins)) {
@@ -375,7 +381,8 @@ export const isNotOwnedList = (v) => isList(v, OWNERSHIP_LIMITS.notOwned, isId);
  * Used by the server (lobby, match) and by the client before it sends or imports a list.
  * @param {any} list `room.ownership.notOwned`
  * @param {(id: string) => any} getChess chess record lookup
- * @returns {{ ok: true, notOwned: string[], dropped: number } | { error: 'BAD_MSG', detail: string }}
+ * @returns {{ ok: true, notOwned: string[], dropped: number, error?: undefined, detail?: undefined }
+ *   | { ok?: undefined, notOwned?: undefined, dropped?: undefined, error: 'BAD_MSG', detail: string }}
  */
 export function checkNotOwned(list, getChess) {
   if (!isNotOwnedList(list)) return { error: 'BAD_MSG', detail: 'bad notOwned list' };
@@ -415,8 +422,9 @@ export const isDiyPicks = (v) => isMap(v, DIY_LIMITS.slots, isId, isDiyPickWire)
  * (`{ charId, skillIndex, uniEquipId }`: a prototype's locked selection, uniEquipId null = no module).
  * @param {any} picks `room.diy.picks`
  * @param {{ data: any, kitted?: Iterable<string>|((id: string) => boolean)|null }} opts
- * @returns {{ ok: true, picks: Record<string, { charId: string, skillIndex: number, uniEquipId: string|null }>, dropped: number }
- *   | { error: 'BAD_MSG', detail: string }}
+ * @returns {{ ok: true, picks: Record<string, { charId: string, skillIndex: number, uniEquipId: string|null }>, dropped: number,
+ *     error?: undefined, detail?: undefined }
+ *   | { ok?: undefined, picks?: undefined, dropped?: undefined, error: 'BAD_MSG', detail: string }}
  */
 export function checkDiyPicks(picks, { data, kitted = null } = { data: null }) {
   if (!isDiyPicks(picks)) return { error: 'BAD_MSG', detail: 'bad 自选 picks' };
@@ -463,19 +471,20 @@ const statView = (x) => ({
  * target-selection grid (the sim's `unit.liveRangeGrid`, Battle._refreshRange; community report E1 after 0.1.0: 烛煌
  * S3's 4-11 never reached the card). `dir`: the unit's facing now (UP / RIGHT / DOWN / LEFT; UnitInfo.dir is the facing
  * at send time and the snapshot tuples carry none) — the detail card's range overlay rotates by it (GitHub PR #281).
- * @param {{ id?: number, uid?: number|null, defId?: string, hp?: number, alive?: boolean, base?: any, liveRangeGrid?: any, dir?: string } | null} u
+ * @param {{ id?: number, uid?: number|null, defId?: string, side?: string, hp?: number, alive?: boolean, base?: any,
+ *   cultMul?: any, liveRangeGrid?: any, dir?: string } | null} u
  * @param {any} [s] aggregated stats (missing ⇒ the base)
  * @returns {{ id: number|null, uid: number|null, defId: string|null, hp: number, alive: boolean, maxHp: number, atk: number,
  *   def: number, res: number, interval: number|null, blockCnt: number, moveSpeed: number,
  *   base: { maxHp: number, atk: number, def: number, res: number, interval: number|null, blockCnt: number, moveSpeed: number },
- *   range?: Array<[number, number]>, dir?: string }}
+ *   range?: Array<[number, number]>, dir?: string, silenced: boolean }}
  */
 export function unitStatsEntry(u, s = null) {
   const own = u && u.base && typeof u.base === 'object' ? u.base : {};
   const base = u && u.cultMul ? cultivatedStats(own, u.cultMul) : own;
   const cur = s && typeof s === 'object' ? s : base;
   const range = u?.side !== 'enemy' && Array.isArray(u?.liveRangeGrid)
-    ? u.liveRangeGrid.filter((p) => Array.isArray(p) && Number.isInteger(p[0]) && Number.isInteger(p[1])).map((p) => [p[0], p[1]])
+    ? u.liveRangeGrid.filter((p) => Array.isArray(p) && Number.isInteger(p[0]) && Number.isInteger(p[1])).map((p) => /** @type {[number, number]} */ ([p[0], p[1]]))
     : null;
   return {
     id: Number.isInteger(u?.id) ? u.id : null,
@@ -505,7 +514,11 @@ const target = (v) => {
   return false;
 };
 
-/** @type {Record<string, Record<string, (v:any)=>boolean> & { $optional?: string[] }>} */
+/**
+ * One message's fields: a checker per field, and the fields that may be absent.
+ * @typedef {{ $optional?: string[], [field: string]: ((v: any) => boolean) | string[] }} C2SSpec
+ */
+/** @type {Record<string, C2SSpec>} */
 export const C2S = {
   // session & lobby
   hello: { name: (v) => isStr(v, NAME_MAX_LEN) && v.trim().length > 0, token: (v) => v == null || isStr(v, 64), version: (v) => v == null || isInt(v, 0, 1e6),
@@ -771,7 +784,7 @@ export function validateC2S(msg) {
     if (k === '$optional') continue;
     const v = msg[k];
     if (v === undefined && optional.includes(k)) continue;
-    if (!check(v)) return `bad field ${k}`;
+    if (!(/** @type {(v: any) => boolean} */ (check))(v)) return `bad field ${k}`;
   }
   return null;
 }

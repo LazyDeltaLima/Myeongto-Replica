@@ -91,7 +91,7 @@ export class FieldRunner {
   /**
    * @param {import('./Match.js').Match} m
    * @param {Array<{ fieldId: string, kind: string, players: string[], battle: any, live?: boolean }>} fields
-   * @param {{ onTick?: (runner: FieldRunner) => void, onDone: (runner: FieldRunner) => void }} hooks
+   * @param {{ onTick?: (runner: FieldRunner) => void, onDone: (runner: FieldRunner) => void, emit?: boolean }} hooks
    */
   constructor(m, fields, { onTick = null, onDone, emit = true }) {
     this.m = m;
@@ -279,6 +279,7 @@ const perfNow = () => (globalThis.performance ? globalThis.performance.now() : D
 export function timelineSample(b) {
   const total = Number(b && b.total) || 0;
   const resolved = Number.isFinite(b && b.resolved) ? Math.max(0, Math.min(total, b.resolved)) : null;
+  /** @type {Array<number|null|Record<string, number>>} */
   const s = [Number(b && b.time) || 0, Number(b && b.killed) || 0, total, resolved];
   if (b && b.kind === 'unite') {
     let left = null;
@@ -381,7 +382,11 @@ export function timelineAt(timeline, gt) {
 export class HeadlessPacer {
   constructor(m) {
     this.m = m;
-    /** @type {Set<{ battle: any, onDone: Function, onTick?: Function, done?: boolean }>} */
+    /**
+     * skipTicks / skipBudget / skipped: a sliced fast-forward in progress (skipTo with a budget)
+     * @type {Set<{ battle: any, onDone: Function, onTick?: Function, done?: boolean, skipTicks?: number|null,
+     *   skipBudget?: number, skipped?: number }>}
+     */
     this.entries = new Set();
     this.interval = null;
     this.acc = 0;
@@ -786,9 +791,10 @@ const sameMods = (a, b) => {
  * the midline of a two-half field is billed to one player's `total` and to the other's leak, so their own numbers
  * clamp it to 0); the players' own (each clamped to their `total`) are the fallback of a result with none; absent when
  * neither is complete.
- * @returns {{ ok: true, result: object } | { ok: false, reason: string }}
+ * @returns {{ ok: true, result: object, reason?: undefined } | { ok: false, reason: string, result?: undefined }}
  */
 export function validateClientResult(spec, raw, { gd = null } = {}) {
+  /** @param {string} reason @returns {{ ok: false, reason: string }} */
   const bad = (reason) => ({ ok: false, reason });
   try {
     if (!spec || !raw || typeof raw !== 'object' || !raw.perPlayer || typeof raw.perPlayer !== 'object') return bad('shape');

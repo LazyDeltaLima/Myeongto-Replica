@@ -43,10 +43,63 @@ import type { PlayerDiy } from '../server/match/player/diy.js';
 declare module '../server/match/Match.js' {
   interface Match extends MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause,
     MatchPhases, MatchDiyChoose, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchReports, MatchUnite,
-    MatchBoss, MatchSettle, MatchRestart, MatchSurrender, MatchBandSkill {}
+    MatchBoss, MatchSettle, MatchRestart, MatchSurrender, MatchBandSkill {
+    // made on first use by a part, absent until then
+    /** playerId → the m.public player row's entries at the last broadcast (match/messaging.js) */
+    _pubRowsSent?: Map<string, any>;
+    // the console mode of a solo room (server/local-patch.js, server/local-console.js)
+    console?: boolean;
+    consoleLog?: Array<Record<string, any>>;
+    _consoleEnding?: boolean;
+    _consoleRevived?: boolean;
+  }
 }
 
 declare module '../server/match/PlayerState.js' {
   interface PlayerState extends PlayerBasics, PlayerPieces, PlayerAcquire, PlayerEconomy, PlayerPlacement, PlayerItems,
-    PlayerPrep, PlayerRound, PlayerViews, PlayerDiy {}
+    PlayerPrep, PlayerRound, PlayerViews, PlayerDiy {
+    // 规程's 确定自选编队 (match/diyChoose.js initDiyLineups, from the Match constructor): the picks this match may field,
+    // the ones chosen, and the seat's 准备就绪
+    diyLineup?: Record<string, any> | null;
+    diyChosen?: string[];
+    diyChooseReady?: boolean;
+    /** a merge held back while an effect hands out several items (effectsMeta.js) */
+    _deferItemMerge?: number;
+    // server/local-patch.js: the last offer's number, the round's gold gains for the round-start view
+    offerSeq?: number;
+    _roundGold?: { round: number, gain: number, on: boolean };
+    /** console mode: the seat quit with the console's 「끝내기」 (server/local-console.js) */
+    _consoleQuit?: boolean;
+    /** never set: a SpectatorSeat's flag, read wherever a viewer may be either (match/platform.js handle) */
+    spectator?: undefined;
+  }
+}
+
+declare module '../server/match/effectsMeta.js' {
+  interface EffectDispatcher {
+    /** a preview's isolated dispatcher (dispatch with `ev.preview`): its own rng, effect data and players */
+    preview?: { rng: any, data: Map<string, any>, players: Map<string, import('../server/match/PlayerState.js').PlayerState> };
+  }
+}
+
+// Fields the lobby's classes get from other files than their own.
+declare module '../server/lobby.js' {
+  interface Lobby {
+    /** the deploy's restart countdown (server/local-restart.js; set by server/index.js) */
+    restartNotice?: import('../server/local-restart.js').RestartNotice;
+    /** the deploy's generation (server/local-generation.js; set by server/index.js) */
+    generation?: import('../server/local-generation.js').Generation;
+  }
+  interface Room {
+    /** the console mode of a solo room (room.setConsole, server/local-patch.js) */
+    console?: boolean;
+  }
+}
+
+declare module '../server/net.js' {
+  interface Session {
+    // lobby-owned (server/lobby.js): the 공개방 list subscription, the 名片干员 of the seat card
+    watchRooms?: boolean;
+    card?: string | null;
+  }
 }

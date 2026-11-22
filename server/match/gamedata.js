@@ -631,6 +631,7 @@ export class GameData {
       hpMul = stepScale(hpMul, k.kHp, k1.kHp, Number.isFinite(pct.stepHp) ? pct.stepHp / 100 : oHp, oHp);
       atkMul = stepScale(atkMul, k.kAtk, k1.kAtk, Number.isFinite(pct.stepAtk) ? pct.stepAtk / 100 : oAtk, oAtk);
     }
+    /** @type {{ hpMul: number, atkMul: number, speedMul: number, supplyHpMul?: number, defMul?: number, resMul?: number }} */
     const out = { ...base, hpMul: hpMul * p(pct.hp), atkMul: atkMul * p(pct.atk), speedMul: base.speedMul * p(pct.speed) };
     if (p(pct.def) !== 1) out.defMul = p(pct.def);
     if (p(pct.res) !== 1) out.resMul = p(pct.res);
@@ -836,7 +837,7 @@ export class GameData {
    * no bond (华法琳, 阿米娅 …) or data without the field. The bot never picks a strategy tied to a bond the mode switches
    * off (bot.js botPickBand).
    * @param {string} bandId
-   * @returns {string[]}
+   * @returns {readonly string[]} frozen (memoised)
    */
   bandBondIds(bandId) {
     if (this._bandBonds.has(bandId)) return this._bandBonds.get(bandId);

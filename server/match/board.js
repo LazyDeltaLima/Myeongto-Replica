@@ -96,6 +96,7 @@ export function buildDeployMap(stage, { deviceOverrides = {}, tileOverrides = {}
     for (let c = FIELD.c0; c <= FIELD.c1; c++) {
       const [sr, sc] = fieldTile(field, r, c);
       const line = rows && typeof rows[sr] === 'string' ? rows[sr] : null;
+      /** @type {'melee'|'ranged'|null} */
       let cls = null;
       if (line) {
         const g = line[sc];

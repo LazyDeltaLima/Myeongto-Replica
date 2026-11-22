@@ -49,5 +49,5 @@ export function roomRow(room, now) {
 export function roomList(lobby) {
   const now = lobby.now();
   return [...lobby.rooms.values()].map((r) => roomRow(r, now))
-    .sort((a, b) => (b.phase !== PHASE.LOBBY) - (a.phase !== PHASE.LOBBY) || b.round - a.round);
+    .sort((a, b) => /** @type {any} */ (b.phase !== PHASE.LOBBY) - /** @type {any} */ (a.phase !== PHASE.LOBBY) || b.round - a.round);
 }

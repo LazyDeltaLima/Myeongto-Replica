@@ -123,6 +123,7 @@ export class MatchBandSkill {
 
   /**
    * The intent's target for the stage, or a fail(...) result.
+   * @returns {{ target: Record<string, any> | null, error?: undefined } | (import('./common.js').Fail & { target?: undefined })}
    * @this {Match}
    */
   _bandSkillTarget(ps, stage, msg) {

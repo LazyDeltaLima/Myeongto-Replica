@@ -18,7 +18,7 @@ export const WS_MAX_PAYLOAD = 64 * 1024;
 
 /**
  * The session stack of one server.
- * @param {{ MatchClass?: Function, seedFn?: () => number, [option: string]: any }} opts startServer() options
+ * @param {{ MatchClass?: new (opts: object) => any, seedFn?: () => number, [option: string]: any }} opts startServer() options
  * @param {{ dataOf: (o?: { season?: string }) => object, log: object }} deps the game data the lobby's matches use (of
  *   the default season, or of `season` — server/data.js seasonData), the logger
  * @returns {{ registry: SessionRegistry, lobby: Lobby, network: Network }}

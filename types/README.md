@@ -8,15 +8,14 @@
 
 What is checked now:
 
-- `shared/` except `shared/protocol.js` and `shared/bandBonds.js` (their JSDoc does not match the code yet; see below),
-  in both configs
-- `server/sim/` whole, with `types/sim-members.d.ts` (the split `Battle`, below), in the server config. The browser
+- `shared/` except `shared/bandBonds.js` (its JSDoc does not match the code yet; see below), in both configs
+- `server/` whole — `server/sim/`, `server/match/` and the lobby, network and HTTP files — with `types/sim-members.d.ts`
+  and `types/class-members.d.ts` (the split classes, below), in the server config. The browser
   config keeps only `server/sim/rng.js`, `detmath.js`, `dir.js` and `constants.js`: the whole sim pulls in its Node-only
   data loader (`simdata.js` imports `nodeData.js` under Node only and reads `process`; `content/support/index.js`
   imports `server/data.js`, which the page gets as a generated stand-in, `server/http/static.js`), and those are its only
   errors without the Node types — the rest of the sim checks the same in both.
-- `types/` — JSDoc for `Unit`, `DamageInfo`, the snapshot tuples, and the protocol message envelope (`types/**/*.js`;
-  `types/class-members.d.ts`, the match classes, joins with `server/match/`, below)
+- `types/` — JSDoc for `Unit`, `DamageInfo`, the snapshot tuples, and the protocol message envelope (`types/**/*.js`)
 
 `strict` is off. `tsc` does not read `jsconfig.json` on its own; the script passes `-p`.
 
@@ -24,8 +23,7 @@ What is checked now:
 
 Add one file or one folder to `jsconfig.json` `include`, then run `npm run typecheck`. Fix JSDoc that disagrees with the code in that folder. Leave `strict` off until the folder reports nothing. Do not add `@ts-nocheck`.
 
-Next: `server/match/` and the rest of `server/` (with `types/class-members.d.ts`), then `public/js/` in the browser
-config. The sim does not import `types/`; the typedefs in `types/core.js` are a reference, not a runtime dependency.
+Next: `public/js/` in the browser config. The sim does not import `types/`; the typedefs in `types/core.js` are a reference, not a runtime dependency.
 
 What most errors of a new folder were in `server/sim/`, and the JSDoc that fixed them:
 
@@ -38,6 +36,17 @@ What most errors of a new folder were in `server/sim/`, and the JSDoc that fixed
 - a sort comparator that subtracts booleans (`(a === u) - (b === u)`): a cast on each side,
   `/** @type {any} */ (a === u)`, so the code stays as it is.
 - an `@` in prose (`by @name`) is read as a tag: quote it in backticks.
+
+And in `server/match/` and the rest of `server/`:
+
+- a result that is one of two shapes (`{ ok: true, loadout }` or `{ error, detail }`, `OK` or `fail(…)`): with
+  `strict` off, tsc does not narrow on `res.ok` / `res.error`, so reading a key one shape lacks is an error. Each shape
+  lists the other's keys as `?: undefined` (`shared/protocol.js` checkLoadout …, the `Ok` / `Fail` typedefs of
+  `server/match/match/common.js` and `player/common.js`); a variable that starts as `OK` and may become a `fail(…)`
+  gets `/** @type {Ok | Fail} */`.
+- an `Object.freeze`d defaults object (`LOBBY_DEFAULTS`, `NET_DEFAULTS`) has literal types (`60000`), so an options
+  parameter typed `Partial<typeof …>` refuses another number: a typedef of the options, or `Record<keyof typeof …, number>`.
+- a `new Set([PHASE.A, PHASE.B])` is a set of those literals; `.has(m.phase)` (a string) is an error: `Set<string>`.
 
 `types/core.js` follows docs/DESIGN.md §5.2, §5.4, §8 and docs/SIM.md §4, §9. Where those two disagree on `DamageInfo.type`, the typedef uses the union `makeDamageInfo` actually builds (`'elemental'` as well as `'element'`).
 
@@ -54,14 +63,25 @@ copied onto the prototype. tsc does not see the copy, so:
   `/** @import { Match } from '../Match.js' */` at the top of the part file. A part cannot extend the class in the
   `.d.ts` instead: the class already extends the parts, and two interfaces may not be each other's base. A new part
   method gets the tag too.
-- a getter cannot take `@this`: the few part getters (`soloUntimed`, `isHumanActive` …) still see only their own part.
+- a part getter (`soloUntimed`, `isHumanActive` …) takes `@this` like a method. A default parameter does not see it
+  (`deployMapFor(ps, field = this.deployFieldOf(ps))`): cast `this` there.
+- a part's own `this.x = …` makes `x` a member of the PART as well, and when the class declares `x` with a JSDoc
+  `@type` on the statement, the parts' member wins in the merged type (tsc 5.9: `Match.phase` became
+  `"SETTLE" | "RESULT"`, from settle.js; a declaration in the `.d.ts` interface body loses the same way). Type such a
+  field with a cast on the value instead
+  (`this.phase = /** @type {string} */ (PHASE.LOBBY)`), which keeps the class's own declaration. `skipLibCheck` hides
+  the resulting `TS2430` in the `.d.ts` (a part's literal `phase` against the class's `string`); it changes nothing the
+  `.js` files see.
 - the same files declare what a class gets outside plain `this.x =` assignments in its own file: `SkillRuntime`'s
   `battle` and `unit` and `Unit`'s heavy references (set with `Object.defineProperty`), the fields a battle part or a kit
   sets on one kind of unit (an enemy's `tag`, `route`, `pauseUntil` …, a board piece's `items`), and the `Battle`
-  fields a part makes on first use (`_allyTargets ??= new Set()`). A new such field goes there too; tsc names it.
+  fields a part makes on first use (`_allyTargets ??= new Set()`); in `class-members.d.ts` the same for `Match` and
+  `PlayerState` (the console mode's fields from `server/local-console.js`, 规程's `diyLineup` …), `EffectDispatcher`'s
+  `preview`, and the lobby's `Lobby` (`restartNotice`, `generation`: `server/index.js`), `Room` and `Session`. A new
+  such field goes there too; tsc names it.
 
-`types/class-members.d.ts` imports every match part, so a config that includes it checks all of `server/match/`: add it
-to `include` together with that folder. `types/sim-members.d.ts` imports only `server/sim/`.
+`types/class-members.d.ts` imports every match part, so a config that includes it checks all of `server/match/`.
+`types/sim-members.d.ts` imports only `server/sim/`.
 
 ## Measuring
 
@@ -71,6 +91,5 @@ instance `{ "extends": "<repo>/jsconfig.json", "include": ["<repo>/server/**/*.j
 
 ## Not in the first slice
 
-`shared/protocol.js` — the catalogue JSDoc is ahead of a few object literals (`$optional` sits on a `Record` of checkers; `unitStatsEntry` does not list `side` or `silenced`, and the code reads `side`). Fix the comments, then remove it from `exclude`.
-
-`shared/bandBonds.js` — the data-shape JSDoc rejects an empty fallback object and a tuple callback. Same treatment.
+`shared/bandBonds.js` — the data-shape JSDoc rejects an empty fallback object and a tuple callback. Fix the comments,
+then remove it from `exclude`.

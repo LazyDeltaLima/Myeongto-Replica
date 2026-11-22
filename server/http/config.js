@@ -50,6 +50,7 @@ export function serveDirs(opts) {
 
 /** net.js Network options out of the startServer() options; `trustProxy` falls back to TRUST_PROXY. */
 export function netOptionsFrom(opts) {
+  /** @type {Record<string, any>} */
   const netOptions = {};
   for (const k of NET_OPTION_KEYS) {
     if (opts[k] != null) netOptions[k] = opts[k];
@@ -60,6 +61,7 @@ export function netOptionsFrom(opts) {
 
 /** lobby.js Lobby options out of the startServer() options. */
 export function lobbyOptionsFrom(opts) {
+  /** @type {Record<string, any>} */
   const lobbyOptions = {};
   for (const k of LOBBY_OPTION_KEYS) {
     if (opts[k] != null) lobbyOptions[k] = opts[k];

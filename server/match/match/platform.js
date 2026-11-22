@@ -5,6 +5,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 /** @import { Match } from '../Match.js' */
+/** @import { Ok, Fail } from './common.js' */
 import { C2S } from '../../../shared/protocol.js';
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { syntheticResult } from '../fields.js';
@@ -77,6 +78,7 @@ export class MatchPlatform {
     if (this.disposed || this.ended || this.infoOutcome || (this.phase !== PHASE.INFO_CHECK && this.phase !== PHASE.BAND_DRAFT)) {
       return fail(ERR.WRONG_PHASE, 'loadout locked for this match');
     }
+    /** @type {Ok | Fail} */
     let res = OK;
     this.guard(() => {
       if (!ps.setLoadout(loadout, ops)) { res = fail(ERR.BAD_TARGET, 'loadout does not match the game data'); return; }
@@ -100,6 +102,7 @@ export class MatchPlatform {
     const ps = this.players.get(playerId);
     if (!ps || ps.isBot || ps.left) return fail(ERR.NOT_IN_ROOM);
     if (this.disposed) return fail(ERR.WRONG_PHASE, 'match over');
+    /** @type {Ok | Fail} */
     let res = OK;
     this.guard(() => {
       if (!ps.setSkins(skins ?? {})) { res = fail(ERR.BAD_MSG, 'bad skin selection'); return; }
@@ -128,6 +131,7 @@ export class MatchPlatform {
       return fail(ERR.WRONG_PHASE, 'DIY picks locked for this match');
     }
     if (ps.diyStock && [...ps.diyStock.entries.values()].some((e) => e.left !== e.cap)) return fail(ERR.WRONG_PHASE, 'DIY stock already drawn');
+    /** @type {Ok | Fail} */
     let res = OK;
     this.guard(() => {
       // 规程: the seat's 自选编队 for the 确定自选编队 step; nothing is fielded yet (match/diyChoose.js)

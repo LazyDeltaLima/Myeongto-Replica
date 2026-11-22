@@ -364,7 +364,7 @@ export function sendSession(session, msg) {
   return send(session.ws, msg);
 }
 
-/** @param {unknown} rid */
+/** @param {any} rid */
 const validRid = (rid) => Number.isInteger(rid) && rid >= 0 && rid <= MAX_RID;
 
 /**
@@ -564,7 +564,8 @@ export class Network {
   /**
    * @param {{
    *   registry: SessionRegistry,
-   *   handler: { onHello?: Function, onMessage: Function, onDisconnect?: Function, onExpire?: Function, welcomeInfo?: Function, connectInfo?: Function, adoptSession?: Function },
+   *   handler: { onHello?: Function, onMessage: Function, onDisconnect?: Function, onExpire?: Function, welcomeInfo?: Function, connectInfo?: Function, adoptSession?: Function,
+   *     routeGame?: Function, identify?: Function },
    *   log?: { info: Function, warn: Function, error: Function, debug?: Function },
    *   now?: () => number,
    *   options?: Partial<typeof NET_DEFAULTS>,

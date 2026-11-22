@@ -5,6 +5,7 @@ import { syntheticResult } from '../fields.js';
 
 export const SURRENDER_VOTE_MS = 30000;
 export const SURRENDER_RETRY_MS = 60000;
+/** @type {Set<string>} */
 const PHASES = new Set([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
 const leakLp = result => Object.values(result.perPlayer).reduce((n, p) => n + p.leaked.reduce((s, l) => s + (l.lpr ?? 1), 0), 0);
 

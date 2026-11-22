@@ -9,6 +9,7 @@ import { ERR, PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { OK, fail } from './common.js';
 
 /** The phases whose layer gains the owner hears (m.layer); a battle's gains sound from its own 'layer' events. */
+/** @type {Set<string>} */
 const LIVE_LAYER_PHASES = new Set([PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.PREP]);
 
 export class PlayerEconomy {
@@ -242,7 +243,7 @@ export class PlayerEconomy {
   effectRefresh(adjust = null, source = 'effect') {
     this.shop.frozen = false;
     this.rollShop({ keepFrozen: false });
-    const pinned = typeof adjust === 'function' ? adjust() : 0;
+    const pinned = /** @type {number | undefined} */ (typeof adjust === 'function' ? adjust() : 0);
     this.stats.refreshes++;
     this.round.refreshes++;
     this.m.dispatch(this, 'onRefresh', { slots: this.shop.slots, free: true, price: 0, source, pinned: Number.isInteger(pinned) && pinned > 0 ? pinned : 0 });

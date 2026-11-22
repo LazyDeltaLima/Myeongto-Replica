@@ -25,6 +25,7 @@ const STRONG = 1.4;       // tools/balance.mjs PROFILES.strong
 const isHealer = (c) => !!c && (c.dmgType === 'heal' || c.attackKind === 'heal');
 const isBlocker = (c) => !!c && basePositionClass(c) === 'melee' && (c.stats?.blockCnt ?? 1) > 0 && c.attackKind !== 'none' && !isHealer(c);
 const hitsFly = (c) => !!c && !!c.canHitFly && !isHealer(c) && c.attackKind !== 'none';
+/** @type {ReadonlyArray<[(c: any) => boolean, number]>} */
 const ROLES = Object.freeze([[isBlocker, 2], [isHealer, 1], [hitsFly, 1]]);
 
 /** The leaders a jump may pick: the mode's boss-round draw (the custom bans applied). */

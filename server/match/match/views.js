@@ -5,6 +5,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 /** @import { Match } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
@@ -161,6 +162,7 @@ export class MatchViews {
 
   /** @this {Match} */
   publicView() {
+    /** @type {Record<string, any>} the fixed keys here, the phase's own ones added below */
     const v = {
       t: 'm.public',
       phase: this.phase,
@@ -482,6 +484,7 @@ export class MatchViews {
   /**
    * A boss round's prep (最终攻势 / 隐秘核心: the pairing planned, no field up yet): the other player of `ps`'s pair as
    * { mate: PlayerState, side: its half 'L' | 'R' }, else null (a lone player, any other phase).
+   * @returns {{ mate: PlayerState, side: 'L'|'R' } | null}
    * @this {Match}
    */
   _bossMateOf(ps) {
@@ -511,6 +514,7 @@ export class MatchViews {
    * @this {Match}
    */
   prepFieldMeta(ps) {
+    /** @type {Array<Record<string, any>>} the board's units, then the bench's (no `dir`) */
     const units = this._prepBoardUnits(ps);
     // the hand (整备区) and the 临时整备区 scout exactly like the own prep bench renders them: pieces as units on
     // their rows (hand row 7, col = hand slot; temp row 8, cols 4..8 = temp slots; no dir — bench pieces face right),

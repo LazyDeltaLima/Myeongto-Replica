@@ -9,7 +9,15 @@
 export const FLOW_TICKER_PRIORITY = 25;
 /** Boss clock period (overtime drain, end checks, silence watchdog) in real ms. */
 export const BOSS_CLOCK_MS = 250;
+/**
+ * An intent's answer: OK, or the refusal `fail` builds (both shapes list every key, so `res.ok` / `res.error` read
+ * without narrowing).
+ * @typedef {{ ok: true, error?: undefined, detail?: undefined }} Ok
+ * @typedef {{ ok?: undefined, error: string, detail?: string }} Fail
+ */
+/** @type {Readonly<Ok>} */
 export const OK = Object.freeze({ ok: true });
+/** @param {string} error @param {string} [detail] @returns {Fail} */
 export const fail = (error, detail) => (detail ? { error, detail } : { error });
 
 /** Fixed presentation delays (real ms, × timerScale). */

@@ -28,6 +28,7 @@ import { PHASE, BOND_LAYER_CAP } from '../../shared/constants.js';
 import { FIELD, canPlace, placeClass, positionClass, parseKey } from './board.js';
 import { computeBonds } from './bondsMeta.js';
 
+/** @type {Set<string>} */
 const PHASES = new Set(Object.values(PHASE));
 
 /**

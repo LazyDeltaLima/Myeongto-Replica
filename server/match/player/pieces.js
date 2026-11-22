@@ -10,14 +10,26 @@
 import { tileKey, boardOrder, freeSlot } from '../board.js';
 import { TEMP_SIZE } from './common.js';
 
+/**
+ * An owned piece (chess, token or item): the fields every piece has, and what the code sets on some (a chess's `dir`,
+ * a raised `sellPrice`, an item's `deferMerge` …).
+ * @typedef {{ uid: number, kind: string, id: string, items?: Piece[], count?: number, ownerUid?: number,
+ *   poolCopies: number, boughtRound: number, meta: Record<string, any>, [field: string]: any }} Piece
+ */
+
 export class PlayerPieces {
-  /** @this {PlayerState} */
+  /**
+   * @param {string} kind @param {string} id @param {Record<string, any>} [extra]
+   * @returns {Piece}
+   * @this {PlayerState}
+   */
   newPiece(kind, id, extra = {}) {
     return { uid: this.m.nextUid(), kind, id, items: kind === 'chess' ? [] : undefined, count: kind === 'token' ? 1 : undefined, ownerUid: undefined, poolCopies: 0, boughtRound: this.m.round, meta: {}, ...extra };
   }
 
   /**
    * Locate a piece by uid. Returns { piece, area: 'board'|'hand'|'temp'|'equipped', idx?, key?, holder? } or null.
+   * @returns {{ piece: Piece, area: 'board'|'hand'|'temp'|'equipped', idx?: number, key?: string, holder?: Piece } | null}
    * @this {PlayerState}
    */
   find(uid) {

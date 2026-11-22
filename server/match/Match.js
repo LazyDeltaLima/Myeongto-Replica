@@ -258,6 +258,11 @@ function dataSourceFor(data) {
   return ds;
 }
 
+/**
+ * A spectator seat's stand-in (watch.js _spectator): what every watch path reads of a viewer, like an eliminated human's.
+ * @typedef {{ playerId: string, isBot: false, left: false, alive: false, connected: true, spectator: true }} SpectatorSeat
+ */
+
 export class Match {
   /** @param {object} opts see MATCH INTERFACE above */
   constructor(opts) {
@@ -359,7 +364,7 @@ export class Match {
     /**
      * Spectator seats (opts.spectators / addSpectator): playerId → a stand-in every watch path treats like an eliminated
      * human (alive false; no PlayerState, never a field's player or authority).
-     * @type {Map<string, { playerId: string, isBot: false, left: false, alive: false, connected: true, spectator: true }>}
+     * @type {Map<string, SpectatorSeat>}
      */
     this.spectators = new Map();
     for (const id of Array.isArray(opts.spectators) ? opts.spectators : []) this._spectator(id);
@@ -398,7 +403,8 @@ export class Match {
     const off = new Set([...bans.drawn, ...bans.staticOff]);
     for (const ps of this.order) ps.initDiyStock(off);
 
-    this.phase = PHASE.LOBBY;
+    // a cast, not a `@type` on the statement: an annotated field here loses to the parts' own `this.phase =` (types/README.md)
+    this.phase = /** @type {string} */ (PHASE.LOBBY);
     /** INFO_CHECK: when it started (sched ms) and how its reroll vote ended the match, if it did (phases.js) */
     this.infoAt = 0;
     /** @type {'reroll' | null} */

@@ -89,6 +89,7 @@ export class PlayerAcquire {
     const goldenId = this.gd.goldenIdOf(baseId);
     if (!(need > 1) || !goldenId) return null;
     const locs = this._chessLocations().filter((l) => !this.gd.isGolden(l.piece.id) && this.gd.baseIdOf(l.piece.id) === baseId);
+    /** @type {Array<{ piece: any, area: string, idx?: number, key?: string, holder?: any }>} the copies; `area: 'new'` = the incoming piece */
     const consumed = [];
     if (incoming) consumed.push({ piece: incoming, area: 'new' });
     for (const l of locs) { if (consumed.length >= need) break; consumed.push(l); }

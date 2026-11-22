@@ -17,12 +17,12 @@
   },
   "include": [
     "shared/**/*.js",
-    "server/sim/**/*.js",
+    "server/**/*.js",
     "types/**/*.js",
-    "types/sim-members.d.ts"
+    "types/sim-members.d.ts",
+    "types/class-members.d.ts"
   ],
   "exclude": [
-    "shared/protocol.js",
     "shared/bandBonds.js"
   ]
 }

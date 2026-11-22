@@ -602,6 +602,7 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     piece: (uid) => {
       const l = ps.find(uid);
       if (!l) return null;
+      /** @type {Record<string, any>} */
       const v = { ...(l.area === 'board' ? ps.pieceView(l.piece, parseKey(l.key)) : view(l.piece)), area: l.area, holderUid: l.holder ? l.holder.uid : null };
       if (l.area === 'hand' || l.area === 'temp') v.idx = l.idx;
       return v;

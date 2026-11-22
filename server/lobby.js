@@ -225,7 +225,13 @@ import { doctorNo } from '../shared/doctorNo.js';
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
-/** Tunables. */
+/**
+ * @typedef {{ lobbyGraceMs: number, maxRooms: number, maxRoomsPerAddr: number, maxMatchesPerAddr: number,
+ *   resyncMinGapMs: number, soloReconnectWindowMs: number|null, joinRateMax: number, joinRateWindowMs: number,
+ *   kickBlockMs: number, autoStartMs: number, seasons?: string[] }} LobbyOptions
+ *   `seasons`: the seasons a room may name (default: the public ones and SP_SEASONS)
+ */
+/** Tunables. @type {Readonly<LobbyOptions>} */
 export const LOBBY_DEFAULTS = Object.freeze({
   lobbyGraceMs: 60_000,   // disconnected humans keep their lobby seat this long
   maxRooms: 1000,
@@ -256,7 +262,11 @@ const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
  *             connected: boolean, left: boolean, awayAt?: number, loadout?: Record<string, { skill: number, module: string|null }> | null,
  *             ops?: Readonly<Record<string, { potential: number, cultivate: number }>> | null,
  *             notOwned?: readonly string[] | null, diy?: Readonly<Record<string, DiyLoadout>> | null,
- *             skins?: Readonly<Record<string, string>> | null }} Seat
+ *             skins?: Readonly<Record<string, string>> | null, card?: string | null, botSeq?: number }} Seat
+ *   `card`: a human seat's 名片干员 (room.card); `botSeq`: an AI seat's number (Room.botSeq)
+ * @typedef {{ playerId: string, name: string, connected: boolean, awayAt?: number, reservedSeq?: number,
+ *             isBot?: undefined, left?: undefined }} Spectator
+ *   a spectator seat (Room.spectators); `isBot` / `left` are never set: the code reads them on seats and spectators alike
  * @typedef {{ charId: string, skillIndex: number, uniEquipId: string|null }} DiyLoadout
  */
 
@@ -372,7 +382,7 @@ export class Room {
     this.hostId = null;
     /** @type {(Seat | null)[]} */
     this.seats = new Array(this.size).fill(null);
-    /** @type {{ playerId: string, name: string, connected: boolean, reservedSeq?: number }[]} spectator seats, ≤ spectatorSeats (header) */
+    /** @type {Spectator[]} spectator seats, ≤ spectatorSeats (header) */
     this.spectators = [];
     /** how many spectator seats the room has (room.setSpectatorSeats, header) */
     this.spectatorSeats = MIN_SPECTATORS;
@@ -404,7 +414,7 @@ export class Room {
     return null;
   }
 
-  /** @param {string} playerId @returns {{ playerId: string, name: string, connected: boolean } | null} */
+  /** @param {string} playerId @returns {Spectator | null} */
   spectatorOf(playerId) { return this.spectators.find((s) => s.playerId === playerId) || null; }
 
   /** The spectators with a seat reservation, first asked first (header). */
@@ -492,7 +502,7 @@ export class Lobby {
    *   getData?: (opts?: { season?: string }) => object,
    *   now?: () => number,
    *   seedFn?: () => number,
-   *   options?: Partial<typeof LOBBY_DEFAULTS>,
+   *   options?: Partial<LobbyOptions>,
    * }} opts
    */
   constructor({ registry, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, options = {} }) {
@@ -738,7 +748,8 @@ export class Lobby {
 
   /**
    * room.join — also the 공개방 list's 「참가」 and an accepted matchmaking offer (`viaQueue`: server/matchmaking.js
-   * answerOffer, outside the per-network join limit). @param {{ viaQueue?: boolean }} [how]
+   * answerOffer, outside the per-network join limit).
+   * @param {any} session @param {{ code: any }} msg @param {{ viaQueue?: boolean }} [how]
    */
   join(session, { code }, { viaQueue = false } = {}) {
     if (!viaQueue && this.joinRefused(session)) return fail(ERR.RATE, 'too many room.join from your network');

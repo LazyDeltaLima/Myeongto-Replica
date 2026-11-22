@@ -212,6 +212,7 @@ export class PlayerDiy {
    */
   diyRollEntries() {
     if (!this.diyStock || !this.diyStock.entries.size) return null;
+    /** @type {Array<[string, { cap: number, left: number, tier: number, shopLevel: number }]>} */
     const out = [];
     for (const [id, e] of this.diyStock.entries) if (e.left > 0 && this.shop.level >= e.shopLevel) out.push([id, e]);
     return out.length ? out : null;

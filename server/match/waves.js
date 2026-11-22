@@ -185,7 +185,7 @@ function scheduleRng(rng) {
 
 /**
  * @param {import('./gamedata.js').GameData} gd
- * @param {Function} rng
+ * @param {ReturnType<typeof import('../sim/rng.js').createRng>} rng
  * @returns {{ stageId: string|null, factions: string[], bossId: string|null, hiddenBossId: string|null, typeSlots: string[], picks: object[] }}
  *   `factions` also carries the schedule as a non-enumerable `schedule` property ({ typeSlots, picks }), so callers
  *   that keep only the factions array (Match: buildNormalWave(gd, rng, this.factions, r)) get the official rounds.
@@ -417,6 +417,7 @@ export function buildNormalWave(gd, rng, factions, round) {
 
 /**
  * Boss / hidden round template for one boss field; escorts follow the pick of the round's own slot.
+ * @param {any} gd @param {any} rng @param {any} factions @param {number} round
  * @param {{ bossId: string, solo: boolean }} opts solo → `_s` template (lone player or solo mode)
  */
 export function buildBossWave(gd, rng, factions, round, { bossId, solo }) {
@@ -618,6 +619,11 @@ export function withBounties(gd, round, wave, bounties, playerId, { side = null 
  * standing there (render/app.js, community report #12; display only).
  */
 export function previewOf(spawns) {
+  /**
+   * `paths`: a walking leader's routes, added by the boss-prep view (match/views.js)
+   * @type {Array<{ enemyKey: string, count: number, gate: string, t: number, fly: boolean, elite: boolean, boss: boolean,
+   *   source: string, tag: string|null, start?: number[], paths?: any[], _seq?: number }>}
+   */
   const out = [];
   let seq = 0;
   for (const s of spawns || []) {

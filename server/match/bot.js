@@ -983,7 +983,12 @@ export function planLayout(m, ps, pieces, params = LAYOUT_PARAMS, opts = {}) {
   return runSteps(planLayoutSteps(m, ps, pieces, params, opts));
 }
 
-/** planLayout as a step generator: yields after each placed piece (Match slices a bot's prep, see botPrepBeginSteps). */
+/**
+ * planLayout as a step generator: yields after each placed piece (Match slices a bot's prep, see botPrepBeginSteps).
+ * @param {import('./Match.js').Match} m @param {import('./PlayerState.js').PlayerState} ps @param {any[]} pieces
+ * @param {Record<keyof typeof LAYOUT_PARAMS, number>} [params] LAYOUT_PARAMS with a REHEARSAL_VARIANTS entry over it
+ * @param {{ occupied?: Set<string>, recOf?: Function | null }} [opts]
+ */
 export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupied = new Set(), recOf = null } = {}) {
   const model = fieldModel(m, ps);
   const map = ps.deployMap();
@@ -999,6 +1004,7 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
   for (const p of order) {
     const r0 = rec(p);
     if (!r0) continue;
+    /** @type {[string, number, number, string] | null} tile key, row, col, direction */
     let best = null;
     let bestV = -Infinity;
     // a "只能部署在召唤者攻击范围内" summon (伺夜's 狼群, 缪尔赛思's 流形): only the tiles of its owner's range
@@ -1010,16 +1016,19 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
     // planned there even with the ground free (owner 2026-10-04: the bot uses the 高台; 2026-10-05: every such chess).
     const cls = p.kind === 'token' ? positionClass(r0) : placeClass(ps, pgd.chess(p.id) || r0);
     const preferHigh = cls === 'all' && basePositionClass(r0) === 'melee';
+    /** @type {[string, number, number, string] | null} tile key, row, col, direction */
     let bestHigh = null;
     let bestHighV = -Infinity;
     // a blocker whose range is its own tile only (range 0-1: 角峰, 古米, 泡泡, 折桠, 菲莱, 蛇屠箱, 塞雷娅, 余) neither blocks nor
     // hits anything off the enemy road — the official range "0-1" (excel range_table) is the one grid (0,0) — so a free road tile
     // comes first (the kill estimate saturates in a full layout and then cannot tell the tiles apart)
     const preferRoad = isBlocker(r0) && r0.rangeGrid?.length === 1 && r0.rangeGrid[0].every((v) => v === 0);
+    /** @type {[string, number, number, string] | null} tile key, row, col, direction */
     let bestRoad = null;
     let bestRoadV = -Infinity;
     // [ASSUMED] A blocking medic prefers off-road tiles, then supported road tiles, with a legal fallback (#577/#315).
     const needsSupport = isHealer(r0) && (r0.stats?.blockCnt ?? 1) > 0;
+    /** @type {[string, number, number, string] | null} tile key, row, col, direction */
     let bestSafe = null;
     let bestSafety = 0;
     let bestSafeV = -Infinity;
@@ -1852,6 +1861,7 @@ function liftTokens(ps) {
  */
 const FRONT_SUPPORT_TOKENS = new Set(['token_10041_cathy_catsld', 'token_10018_robrta_mach']);
 /** Device tile offsets around an operator (behind it — enemies come from the gates on the right —, above, below, in front) and the facing that points back at it. */
+/** @type {ReadonlyArray<[number, number, string]>} row and column offset, direction */
 const SUPPORT_SPOTS = Object.freeze([[0, -1, 'RIGHT'], [1, 0, 'DOWN'], [-1, 0, 'UP'], [0, 1, 'LEFT']]);
 
 /**

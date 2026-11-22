@@ -6,6 +6,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 /** @import { Match } from '../Match.js' */
+/** @import { Battle } from '../../sim/Battle.js' */
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { buildBossWave, bountySpawns, markBounties } from '../waves.js';
@@ -297,7 +298,8 @@ export class MatchBoss {
    */
   _bossServerRun(f) {
     const credit = new CreditPool(this.bossPool, { acked: f.bossAcked, ackedBy: f.bossBy });
-    const battle = this._specBattle(f.spec, { sharedBoss: credit });
+    // (a DeadBattle, when the spec cannot build, answers on() and result() like one)
+    const battle = /** @type {Battle} */ (this._specBattle(f.spec, { sharedBoss: credit }));
     f.battle = battle;
     f.credit = credit;
     f.lpCum = 0;

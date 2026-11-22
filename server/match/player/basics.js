@@ -25,17 +25,24 @@ function opsCharIds(raw) {
 }
 
 export class PlayerBasics {
+  /** @this {PlayerState} */
   get isHumanActive() { return !this.isBot && !this.left; }
-  /** The engine acts for this seat (AI teammate or "AI 托管"; a departed human is eliminated, so nothing is left to do). */
+  /**
+   * The engine acts for this seat (AI teammate or "AI 托管"; a departed human is eliminated, so nothing is left to do).
+   * @this {PlayerState}
+   */
   get botControlled() { return this.isBot || this.left || this.autoplay; }
 
+  /** @this {PlayerState} */
   get deployCap() { return Math.max(1, this.gd.deployCap + this.deployCapBonus, this.deployCapMin); }
+  /** @this {PlayerState} */
   get deployCount() { let n = 0; for (const p of this.board.values()) if (p.kind === 'chess') n++; return n; }
   /**
    * 规程's 装备区 (GameData.equipHandSize): the five visible temp slots are the equipment zone — equipment and 秘术 only,
    * kept like the hand (no deadline) — and the hand holds operators and summon stacks only; what does not fit its own
    * zone waits in the hidden queue behind the five (temp[5…]) until its deadline (official client: separate char / equip
    * hand areas, full and overflow flags per area; where the overflow is shown is the server's [ASSUMED·서버]).
+   * @this {PlayerState}
    */
   get bagMode() { return this.gd.equipHandSize > 0; }
   /**
@@ -62,7 +69,10 @@ export class PlayerBasics {
    * @this {PlayerState}
    */
   zoneFullError(kind) { return this.zoneOf(kind) === 'bag' ? ERR.BAG_FULL : ERR.HAND_FULL; }
-  /** No overflow is waiting: the whole temp row, or in bagMode the hidden queue (the 装备区 is no overflow). */
+  /**
+   * No overflow is waiting: the whole temp row, or in bagMode the hidden queue (the 装备区 is no overflow).
+   * @this {PlayerState}
+   */
   get tempEmpty() { return this.overflowPieces().length === 0; }
   /**
    * The pieces that overflowed (temp; in bagMode only the queue behind the 装备区), in temp order.
