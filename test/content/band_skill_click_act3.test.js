@@ -186,7 +186,7 @@ test('人才锁定 (雅拉, 1 funds, 3 a round): a refresh with an operator one 
     assert.equal(ps.stats.refreshes, refreshes + 1);
     assert.equal(ps.shop.frozen, false);
     const tiers = chessCards(ps).map((i) => ps.gd.tierOf(ps.shop.slots[i].id));
-    assert.ok(tiers.includes(3), `seed ${seed}: ${tiers}`);
+    assert.equal(tiers.at(-1), 3, `seed ${seed}: the rightmost card one tier up — ${tiers}`);
   }
   const { ps, use } = setup({ band: 'band_support' });
   ps.shop.level = 6;

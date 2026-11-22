@@ -637,8 +637,10 @@ K.skill_next_equip_buy_discount = (ps) => ({
 /** Operator card slots of the shop now, as { i, id } (after a refresh). */
 const chessCards = (ctx) => { const s = ctx.shopSlots(); return chessSlots(ctx).map((i) => ({ i, id: s[i].id })); };
 
-// 雅拉 人才锁定 「刷新调度中心，必定包含1名比当前调度中心等级更高一阶（最高不超过6阶）的干员」: a refresh, then, unless a card of
-// that tier came up, a random operator card becomes one of tier min(6, level + lv_up)
+// 雅拉 人才锁定 「刷新调度中心，必定包含1名比当前调度中心等级更高一阶（最高不超过6阶）的干员」: a refresh whose `count`
+// RIGHTMOST operator cards are drawn again at tier min(6, level + lv_up) — the rightmost card, as 奇迹's guaranteed one,
+// which then goes left of it (official CN recordings, maintainer decision 2026-11-22: level 6 with 奇迹 100, the two
+// rightmost tier 6, the others drawn as usual). Returns the cards it fixed (effectRefresh → onRefresh `pinned`).
 K.skill_refresh_shop_high_tier = (ps) => ({
   onBandSkill(ctx, ev) {
     const p = ps[0];
@@ -646,14 +648,14 @@ K.skill_refresh_shop_high_tier = (ps) => ({
     const need = Math.max(1, int(p.count, 1));
     ctx.refreshShop(() => {
       const cards = chessCards(ctx);
-      let have = cards.filter((c) => ctx.gd.tierOf(c.id) === tier).length;
-      for (const c of ctx.rng.shuffle(cards.filter((x) => ctx.gd.tierOf(x.id) !== tier))) {
-        if (have >= need) break;
+      let pinned = 0;
+      for (const c of cards.slice(-need).reverse()) {
         const id = ctx.rollChess({ tier });
         if (!id) break;
         ctx.setShopSlot(c.i, { kind: 'chess', id });
-        have++;
+        pinned++;
       }
+      return pinned;
     });
     ev.handled = true;
   },

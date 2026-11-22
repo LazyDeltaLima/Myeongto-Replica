@@ -95,6 +95,7 @@ export class PlayerEconomy {
    * the item slot(s) come first, then the operators — local patch (LOCAL-PATCH.md 「상점 칸 배치」, maintainer 2026-10-09: in the
    * game the item is always on the left). A frozen card keeps its place among the slots of its kind. The draws run
    * operators first, then items, as before (the shop RNG sequence is unchanged).
+   * @returns {number[]} the positions drawn anew (not kept frozen), left to right
    */
   rollShop({ keepFrozen = false } = {}) {
     const { chess: nChess, item: nItem } = this.gd.shopSlots(this.shop.level);
@@ -104,16 +105,18 @@ export class PlayerEconomy {
     const oldItems = old.filter((_, i) => kinds[i] === 'item');
     const keep = (s, kind) => (keepFrozen && s && s.kind === kind && !s.sold && s.frozen ? { ...s } : null);
     // frozen slots keep their position; sold / empty / unfrozen positions are rerolled
+    const fresh = new Set();
     const chess = [];
-    for (let i = 0; i < nChess; i++) chess.push(keep(oldChess[i], 'chess') ?? this._rollChessSlot());
+    for (let i = 0; i < nChess; i++) { const k = keep(oldChess[i], 'chess'); if (!k) fresh.add(`c${i}`); chess.push(k ?? this._rollChessSlot()); }
     const items = [];
-    for (let i = 0; i < nItem; i++) items.push(keep(oldItems[i], 'item') ?? this._rollItemSlot());
+    for (let i = 0; i < nItem; i++) { const k = keep(oldItems[i], 'item'); if (!k) fresh.add(`i${i}`); items.push(k ?? this._rollItemSlot()); }
     const slots = [...items, ...chess];
     this.shop.slots = slots;
     this.shop.kinds = [...items.map(() => 'item'), ...chess.map(() => 'chess')];
     this.shop.layout = { chess: nChess, item: nItem };
     for (const s of slots) if (s) s.frozen = this.shop.frozen;
     this.dirty();
+    return slots.map((_, i) => i).filter((i) => fresh.has(i < nItem ? `i${i}` : `c${i - nItem}`));
   }
 
   /**
@@ -210,17 +213,18 @@ export class PlayerEconomy {
    * refresh without its price — the freeze is cancelled, every slot rerolled, `adjust()` may then rewrite slots (the
    * 指令's own 「必定包含 / 优先」), and it counts and dispatches as a manual refresh (onRefresh `free`, `source`)
    * [ASSUMED·CN: whether a 指令's refresh counts as a 主动刷新 for the 特质 and strategies that count those — the client's
-   * skill classes exist only in the CN client].
-   * @param {(() => void) | null} [adjust]
+   * skill classes exist only in the CN client]. `adjust()` returns how many of the rightmost operator cards it fixed
+   * (雅拉's 人才锁定), passed on as onRefresh `pinned`: 奇迹's guaranteed card then takes the card left of them.
+   * @param {(() => number | void) | null} [adjust]
    * @param {string} [source]
    */
   effectRefresh(adjust = null, source = 'effect') {
     this.shop.frozen = false;
     this.rollShop({ keepFrozen: false });
-    if (typeof adjust === 'function') adjust();
+    const pinned = typeof adjust === 'function' ? adjust() : 0;
     this.stats.refreshes++;
     this.round.refreshes++;
-    this.m.dispatch(this, 'onRefresh', { slots: this.shop.slots, free: true, price: 0, source });
+    this.m.dispatch(this, 'onRefresh', { slots: this.shop.slots, free: true, price: 0, source, pinned: Number.isInteger(pinned) && pinned > 0 ? pinned : 0 });
     this.dirty();
   }
 

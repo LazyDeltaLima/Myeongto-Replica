@@ -207,6 +207,8 @@ export class PlayerState {
     this.prepsEnded = 0;
     /** @type {Map<number, number>} temp piece uid → index of the prep whose deadline resolves it (see tempDue) */
     this._tempDue = new Map();
+    /** @type {number[]} shop positions drawn anew at the last round start (PlayerRound.startRound → onRoundStart) */
+    this._shopFresh = [];
     /** @type {Map<string, any>} 'r,c' → piece */
     this.board = new Map();
     /** persistent bond layers */

@@ -31,7 +31,8 @@ export class PlayerRound {
     this.ready = false;
     // summon stacks removed from temp at the last prep deadline come back (PRTS 卫戍协议/帮助 §手牌区); full hand ⇒ temp
     for (const p of [...this.board.values()]) if (p.kind === 'chess') this.grantTokensFor(p);
-    this.rollShop({ keepFrozen: true });
+    // the positions drawn anew this round start (frozen cards stay): onRoundStart's `shopFresh` (奇迹, bonds/general/mira.js)
+    this._shopFresh = this.rollShop({ keepFrozen: true });
     this.shop.frozen = false;
     for (const s of this.shop.slots) if (s) s.frozen = false;
     this.recompute();

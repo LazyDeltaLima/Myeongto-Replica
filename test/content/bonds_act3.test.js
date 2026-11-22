@@ -800,25 +800,66 @@ test('规程 远见: the first 80 layers take 1 off the 远见 operators\' price
   m.dispose?.();
 });
 
-test('规程 奇迹: from the first 100 layers a refresh always shows an operator of the 调度中心\'s level (bond_layer_shop_same_tier)', () => {
+test('规程 奇迹: from the first 100 layers every shop roll draws its rightmost operator card at the 调度中心\'s level, the others as usual (bond_layer_shop_same_tier)', () => {
+  const opTiers = (m, ps) => ps.shop.slots.filter((s) => s && s.kind === 'chess' && !s.sold).map((s) => m.gd.tierOf(s.id));
   const run = (layers) => {
     const { m, ps } = prepWithBond('miraShip', 2, 7);
     assert.ok(ps.bonds.miraShip.active);
     ps.shop.level = 5;
     ps.addLayers('miraShip', layers);
-    let missing = 0;
+    let rightmost = 0, elsewhere = 0;
     for (let i = 0; i < 40; i++) {
       ps.funds = 99;
       assert.equal(ps.refresh().ok, true);
-      const chess = ps.shop.slots.filter((s) => s && s.kind === 'chess' && !s.sold);
-      if (!chess.some((s) => m.gd.tierOf(s.id) === 5)) missing++;
+      const t = opTiers(m, ps);
+      if (t[t.length - 1] === 5) rightmost++;
+      if (t.slice(0, -1).includes(5)) elsewhere++;
     }
     assert.equal(m.errorCount, 0);
     m.dispose?.();
-    return missing;
+    return { rightmost, elsewhere };
   };
-  assert.ok(run(99) > 0, 'below 100 layers some refreshes show no tier-5 operator');
-  assert.equal(run(100), 0, 'from 100 layers every one does');
+  assert.ok(run(99).rightmost < 40, 'below 100 layers the rightmost card is any tier');
+  const on = run(100);
+  assert.equal(on.rightmost, 40, 'from 100 layers the rightmost card is always tier 5');
+  assert.ok(on.elsewhere > 0, 'the other cards are drawn as usual: tier 5 shows there too at times');
+
+  // the round start's roll: the rightmost card drawn anew; a frozen shop keeps its cards
+  const { h, m, ps } = prepWithBond('miraShip', 2, 7);
+  ps.shop.level = 5;
+  ps.addLayers('miraShip', 100);
+  m.dispatch(ps, 'onPrepStart', { round: m.round });
+  for (let r = 0; r < 6; r++) {
+    ps.startRound(m.round);
+    m.dispatch(ps, 'onRoundStart', { round: m.round, shopFresh: ps._shopFresh });
+    const t = opTiers(m, ps);
+    assert.equal(t[t.length - 1], 5, `round start ${r}: ${t}`);
+  }
+  ps.shop.frozen = true;
+  for (const s of ps.shop.slots) if (s) s.frozen = true;
+  ps.shop.slots[ps.shop.slots.length - 1] = { ...ps.shop.slots[ps.shop.slots.length - 1], id: Object.values(ACT3.chess).find((c) => c.visible && !c.isGolden && !c.isDiy && c.tier === 1).chessId };
+  ps.startRound(m.round);
+  m.dispatch(ps, 'onRoundStart', { round: m.round, shopFresh: ps._shopFresh });
+  assert.equal(opTiers(m, ps).at(-1), 1, 'a frozen card stays');
+  assert.equal(m.errorCount, 0);
+  void h;
+  m.dispose?.();
+});
+
+test('规程 奇迹 100 + 雅拉 人才锁定: the 指令\'s card one tier up is the rightmost, 奇迹\'s card of the 调度中心\'s level left of it; level 6: both tier 6', () => {
+  for (const [level, want] of [[3, [3, 4]], [5, [5, 6]], [6, [6, 6]]]) {
+    for (let k = 0; k < 8; k++) {
+      const { m, ps } = prepWithBond('miraShip', 2, 7 + k);
+      ps.addLayers('miraShip', 100);
+      ps.shop.level = level;
+      ps.bandId = 'band_support'; ps.funds = 30; ps.ready = false;
+      assert.deepEqual(m.handle('p_0', { t: 'g.bandSkill' }), { ok: true });
+      const t = ps.shop.slots.filter((s) => s && s.kind === 'chess' && !s.sold).map((s) => m.gd.tierOf(s.id));
+      assert.deepEqual(t.slice(-2), want, `level ${level}, seed ${7 + k}: ${t}`);
+      assert.equal(m.errorCount, 0);
+      m.dispose?.();
+    }
+  }
 });
 
 test('规程 萨尔贡 6: a member\'s skill start lays 流沙 on the nearest ground tile of its range — 迟钝 (×2 in a casting member\'s range), 束缚 + arts every 5 s, 1 s arts while casting', () => {
