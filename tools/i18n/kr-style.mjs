@@ -10,16 +10,21 @@
 //   node tools/i18n/kr-style.mjs -n 8 可充能                     more pairs per phrase (default 3)
 //   node tools/i18n/kr-style.mjs --count '대미지를 입힘' '대미지를 줌'
 //
-// Tables: .cache/gamedata/excel (tools/build-data.mjs) and .cache/gamedata-ko/excel (tools/build-i18n.mjs --lang ko;
-// --refresh there for the newest KR tables). Tags (<@ba.vup>, <$ba.stun> …) are stripped from what is matched and shown.
+// Tables: .cache/gamedata-ko/excel (tools/build-i18n.mjs --lang ko; --refresh there for the newest KR tables) against the
+// CN tables the KR client translates — the CN cache at tools/gamedata-url.mjs TRANSLATED_GAMEDATA (build-i18n downloads
+// it), else .cache/gamedata/excel (tools/build-data.mjs): the current CN tables rewrote texts under ids the KR tables
+// keep (规程's equipment skills), and those pairs would show a translation of another sentence. Tags (<@ba.vup>,
+// <$ba.stun> …) are stripped from what is matched and shown.
 
 import { readFile, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { TRANSLATED_CACHE } from '../gamedata-url.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const CN_DIR = join(ROOT, '.cache', 'gamedata', 'excel');
+const CN_TRANSLATED_DIR = join(ROOT, TRANSLATED_CACHE, 'excel');
 const KR_DIR = join(ROOT, '.cache', 'gamedata-ko', 'excel');
 const ZH = /[一-鿿]/;
 const strip = (s) => s.replace(/<[^>]*>/g, '').replace(/\\n|\n/g, ' / ');
@@ -55,8 +60,9 @@ if (count) {
 } else {
   const all = [];
   for (const f of files) {
-    if (!existsSync(join(CN_DIR, f))) continue;
-    const [cn, kr] = await Promise.all([f, f].map((x, i) => readFile(join(i ? KR_DIR : CN_DIR, x), 'utf8').then(JSON.parse)));
+    const cnDir = existsSync(join(CN_TRANSLATED_DIR, f)) ? CN_TRANSLATED_DIR : CN_DIR;
+    if (!existsSync(join(cnDir, f))) continue;
+    const [cn, kr] = await Promise.all([join(cnDir, f), join(KR_DIR, f)].map((x) => readFile(x, 'utf8').then(JSON.parse)));
     pairs(cn, kr, all);
   }
   const seen = new Set();

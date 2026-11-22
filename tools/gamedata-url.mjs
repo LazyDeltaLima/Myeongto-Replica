@@ -22,6 +22,20 @@ export const PINNED_GAMEDATA = Object.freeze({
 });
 
 /**
+ * The commit of the zh_CN tables the other servers' clients translate (tools/build-i18n.mjs): the last data of 盟约 (the
+ * activity pin above). The EN, JP, KR and TW clients ship CN's texts months later, and 规程 rewrote texts under ids it kept
+ * (the equipment skills `sktok_acarm*`: 拟态物质 「同盟约」 → 「同阶」), so a current Chinese text paired by id with their
+ * translation of the older one would get a translation of another sentence. build-i18n pairs a target text with the
+ * Chinese text of this commit, and with the current one only where the two are the same.
+ */
+export const TRANSLATED_GAMEDATA = PINNED_GAMEDATA['excel/activity_table.json'];
+
+/** The folder URL of the zh_CN tables at TRANSLATED_GAMEDATA. */
+export const translatedBase = () => `${REPO}/${TRANSLATED_GAMEDATA}/${ROOT}`;
+/** The cache folder of those tables, relative to the repository (tools/i18n/kr-style.mjs reads it too). */
+export const TRANSLATED_CACHE = `.cache/gamedata-${TRANSLATED_GAMEDATA.slice(0, 8)}`;
+
+/**
  * A season whose tables Kengxxiao does not carry (its 卫戍协议 sections stay empty after 2026-11-01): every file of it comes
  * from fexli/ArknightsResource's FlatBuffers-decoded dump at one commit, read through tools/gamedata-flat.mjs, into a
  * cache folder of its own (.cache/gamedata-<season>/).

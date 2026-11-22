@@ -59,7 +59,7 @@ import { existsSync } from 'node:fs';
 import { basename, dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRecordOverlay, applyFileOverlay, OVERLAY_VERSION } from '../shared/i18nData.js';
-import { gamedataBase } from './gamedata-url.mjs';
+import { gamedataBase, translatedBase, TRANSLATED_CACHE } from './gamedata-url.mjs';
 import { CARD_EXTRA_OPERATORS } from '../shared/cardOperators.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -399,6 +399,8 @@ class PairIndex {
     /** @type {Map<string, Map<string, { zh: string, en: string, n: number, scopes: Set<string> }>>} */
     this.templates = new Map();
     this.pairs = 0;
+    /** pairs skipped because the other zh_CN tree has another text there (walk `other`) */
+    this.stale = 0;
   }
 
   static add(map, zh, en, scope) {
@@ -432,12 +434,22 @@ class PairIndex {
     }
   }
 
-  /** Walk a zh_CN tree and its EN counterpart together. */
-  walk(zh, en, scope = []) {
+  /**
+   * Walk a zh_CN tree and its EN counterpart together. `other`, walked along at the same paths, is a second zh_CN tree
+   * (buildOverlay `base`): with `pass` 'current' a pair is skipped where `other` has another text (the target translates
+   * that older text, not this one); with 'base' (the walk of the older tree, `other` = the current one) a pair is added
+   * only there, so a text both trees share is counted once. Without `other` every pair is added.
+   * @param {any} zh @param {any} en @param {string[]} [scope] @param {any} [other] @param {'current' | 'base'} [pass]
+   */
+  walk(zh, en, scope = [], other = undefined, pass = 'current') {
     if (isKvList(zh)) zh = kvMap(zh);
     if (isKvList(en)) en = kvMap(en);
+    if (isKvList(other)) other = kvMap(other);
     if (typeof zh === 'string') {
-      if (typeof en === 'string' && hasCjk(zh)) this.add(zh, en, scope);
+      if (typeof en !== 'string' || !hasCjk(zh)) return;
+      const differs = typeof other === 'string' && sameText(other) !== sameText(zh);
+      if (pass === 'base' ? (differs || typeof other !== 'string') : !differs) this.add(zh, en, scope);
+      else if (pass === 'current') this.stale++;
       return;
     }
     if (Array.isArray(zh)) {
@@ -445,26 +457,32 @@ class PairIndex {
       const kf = arrayKeyField(zh);
       if (kf && arrayKeyField(en) === kf) {
         const byKey = new Map(en.map((x) => [x[kf], x]));
+        const otherByKey = Array.isArray(other) && arrayKeyField(other) === kf ? new Map(other.map((x) => [x[kf], x])) : null;
         for (const x of zh) {
           const y = byKey.get(x[kf]);
-          if (y !== undefined) this.walk(x, y, isScopeSeg(String(x[kf])) ? [...scope, String(x[kf])] : scope);
+          if (y !== undefined) this.walk(x, y, isScopeSeg(String(x[kf])) ? [...scope, String(x[kf])] : scope, otherByKey?.get(x[kf]), pass);
         }
         return;
       }
       if (zh.length !== en.length) return; // unkeyed arrays of different length cannot be aligned safely
-      for (let i = 0; i < zh.length; i++) this.walk(zh[i], en[i], scope);
+      const aligned = Array.isArray(other) && other.length === zh.length;
+      for (let i = 0; i < zh.length; i++) this.walk(zh[i], en[i], scope, aligned ? other[i] : undefined, pass);
       return;
     }
     if (zh && typeof zh === 'object') {
       if (!en || typeof en !== 'object' || Array.isArray(en)) return;
       const dict = isDict(zh);
+      const o = other && typeof other === 'object' && !Array.isArray(other) ? other : null;
       for (const k of Object.keys(zh)) {
         if (!Object.prototype.hasOwnProperty.call(en, k)) continue;
-        this.walk(zh[k], en[k], dict || isScopeSeg(k) ? [...scope, k] : scope);
+        this.walk(zh[k], en[k], dict || isScopeSeg(k) ? [...scope, k] : scope, o && Object.hasOwn(o, k) ? o[k] : undefined, pass);
       }
     }
   }
 }
+
+/** A Chinese source as the two zh_CN trees are compared (a markup or white-space change is the same sentence). */
+const sameText = (s) => stripRich(s).replace(/\s+/g, '');
 
 /** Shape of a text for template lookup: markup stripped, placeholders and numbers folded into one marker. */
 export function shapeKey(s) {
@@ -762,7 +780,7 @@ const dictMap = (d, untranslated = (zh, t) => hasCjk(t)) => new Map(Object.entri
 
 /**
  * Build the overlay. Exported for tests (they pass in-memory tables).
- * @param {{ zh: object[], en: object[], data: Record<string, any>, fallback?: { remake?: object, pr70?: object, ui?: object, dict?: object, fix?: object }, source?: object, owner?: (file: string, id: string) => string | null, skins?: { id: string, owner: string, zh: string, target: string | null }[] }} input
+ * @param {{ zh: object[], en: object[], base?: (object | null)[] | null, data: Record<string, any>, fallback?: { remake?: object, pr70?: object, ui?: object, dict?: object, fix?: object }, source?: object, owner?: (file: string, id: string) => string | null, skins?: { id: string, owner: string, zh: string, target: string | null }[] }} input
  *   zh / en: the picked sub-trees of TABLES, in order
  *   skins: skinNameRows — each skin's name goes to the overlay's `skins` map under its skin id (the target table's,
  *   else the fallbacks: a CN-only skin's from the dictionary), never to `names`; counted apart, in the report's `skins`
@@ -770,10 +788,16 @@ const dictMap = (d, untranslated = (zh, t) => hasCjk(t)) => new Map(Object.entri
  *   `meta.seasons[season]`, so the coverage and totals stay the default season's: a season the official client of
  *   the language lacks (规程 is CN-only) would otherwise pull them down.
  */
-export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang = 'en', owner = null, skins = [], cardNames = [] }) {
+export function buildOverlay({ zh, en, base = null, data, fallback = {}, source = null, lang = 'en', owner = null, skins = [], cardNames = [] }) {
   const untranslated = untranslatedTest(lang, LANG_SOURCES[lang]?.untranslated === 'native' ? nativeCharset(zh, en) : null);
   const index = new PairIndex(untranslated);
-  for (let i = 0; i < zh.length; i++) index.walk(zh[i], en[i], []);
+  // base[i]: the same zh_CN table at the commit the target client translates (tools/gamedata-url.mjs TRANSLATED_GAMEDATA;
+  // null = the same file). A current text that differs there is not paired; the older one is.
+  for (let i = 0; i < zh.length; i++) {
+    const old = base?.[i] ?? undefined;
+    index.walk(zh[i], en[i], [], old, 'current');
+    if (old !== undefined) index.walk(old, en[i], [], zh[i], 'base');
+  }
   const tr = new Translator(index, [
     ...(fallback.dict ? [{ name: 'dict', map: dictMap(fallback.dict, untranslated) }] : []),
     { name: 'remake', map: dictMap(fallback.remake, untranslated) },
@@ -870,7 +894,7 @@ export function buildOverlay({ zh, en, data, fallback = {}, source = null, lang 
   };
   const missing = [...stats.missing, ...Object.values(ownStats).flatMap((st) => [...st.missing])].sort((a, b) => (a[1].kind < b[1].kind ? -1 : a[1].kind > b[1].kind ? 1 : a[0] < b[0] ? -1 : 1))
     .map(([text, m]) => ({ kind: m.kind, n: m.n, text }));
-  return { overlay, report: { coverage, totals: overlay.meta.totals, seasons, pairs: index.pairs, nameConflicts, skins: skinReport, cards: cardReport, untranslated: samples, missing } };
+  return { overlay, report: { coverage, totals: overlay.meta.totals, seasons, pairs: index.pairs, stalePairs: index.stale, nameConflicts, skins: skinReport, cards: cardReport, untranslated: samples, missing } };
 }
 
 async function main() {
@@ -883,11 +907,16 @@ async function main() {
   log(`build-i18n: ${opts.lang} tables from ${src.label}`);
   const zh = [];
   const en = [];
+  /** the same tables at the commit the clients translate (null: the current file is read at that commit already) */
+  const translated = [];
   for (const t of client ? TABLES : []) {
     const zj = await loadTable(opts.cache, gamedataBase(t.rel), t.rel, { refresh: false, offline: opts.offline, log });
     const ej = await loadTable(opts.cacheEn, src.url, t.rel, { refresh: opts.refresh, offline: opts.offline, log });
+    const bj = gamedataBase(t.rel) === translatedBase() ? null
+      : await loadTable(join(ROOT, TRANSLATED_CACHE), translatedBase(), t.rel, { refresh: false, offline: opts.offline, log });
     zh.push(t.pick ? t.pick(zj) : zj);
     en.push(t.pick ? t.pick(ej) : ej);
+    translated.push(bj && t.pick ? t.pick(bj) : bj);
   }
   const seasonEn = en[0]?.act2 ? 'act2autochess' : en[0]?.act1 ? 'act1autochess' : 'none (no 盟约 season in this EN build)';
   let version = null;
@@ -947,11 +976,11 @@ async function main() {
   const cardsAbs = join(opts.data, 'cards.json');
   const cardNames = (existsSync(cardsAbs) ? JSON.parse(await readFile(cardsAbs, 'utf8')).operators || [] : [])
     .filter((o) => CARD_EXTRA_OPERATORS.includes(o?.charId) && hasCjk(o.name)).map((o) => ({ id: o.charId, zh: o.name }));
-  const { overlay, report } = buildOverlay({ zh, en, data, fallback, lang: opts.lang, owner, skins, cardNames, source: client ? { id: opts.source, label: src.label, home: src.home, season: seasonEn } : { id: 'dict', label: src.label } });
+  const { overlay, report } = buildOverlay({ zh, en, base: translated, data, fallback, lang: opts.lang, owner, skins, cardNames, source: client ? { id: opts.source, label: src.label, home: src.home, season: seasonEn } : { id: 'dict', label: src.label } });
   /** season id → its overlay's `files` (written beside the overlay: data/i18n/<lang>.<season>.json, seasonOverlayPath) */
   const seasonFiles = {};
   for (const [season, sdata] of Object.entries(seasonData)) {
-    const { overlay: so, report: sr } = buildOverlay({ zh, en, data: sdata, fallback, lang: opts.lang });
+    const { overlay: so, report: sr } = buildOverlay({ zh, en, base: translated, data: sdata, fallback, lang: opts.lang });
     if (Object.keys(so.files).length) seasonFiles[season] = so.files;
     ((overlay.meta.seasons ||= {})[season] ||= {}).rewritten = sr.totals;
     // names: the default's form wins; a name only the season's records carry joins (sorted, as buildOverlay writes them)
@@ -980,7 +1009,7 @@ async function main() {
   await mkdir(dirname(opts.report), { recursive: true });
   await writeFile(opts.report, `${JSON.stringify(rep, null, 1)}\n`);
   if (client) log(`  season in the ${opts.lang} build: ${seasonEn}${version ? ` · ${version.replace(/\s+/g, ' ')}` : ''}`);
-  log(`  ${report.pairs} zh→${opts.lang} source pairs; coverage per kind (translated / texts):`);
+  log(`  ${report.pairs} zh→${opts.lang} source pairs (${report.stalePairs} skipped: the current Chinese is not the text the ${opts.lang} client translates); coverage per kind (translated / texts):`);
   for (const [kind, c] of Object.entries(report.coverage)) {
     const fb = [c.remake && `remake ${c.remake}`, c.pr70 && `PR #70 ${c.pr70}`, c.ui && `UI ${c.ui}`, c.dict && `dictionary ${c.dict}`, c.fix && `fixed ${c.fix}`].filter(Boolean).join(' · ');
     log(`    ${kind.padEnd(10)} ${String(c.translated).padStart(5)} / ${String(c.texts).padEnd(5)} ${String(c.pct).padStart(5)} %   official ${c.exact + c.template + c.composite} (exact ${c.exact} · template ${c.template} · composite ${c.composite})${fb ? ` · ${fb}` : ''}${c.notes ? ` · notes skipped ${c.notes}` : ''}`);

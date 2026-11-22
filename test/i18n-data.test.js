@@ -102,6 +102,31 @@ test('build-i18n matching: exact, blackboard templates, plain from raw, composit
   assert.equal(shapeKey('攻击力<@ba.vup>+{atk:0%}</>'), shapeKey('攻击力+80%'));
 });
 
+test('build-i18n pairs a target text with the Chinese text it translates: a text the current CN tables rewrote under the same id is not paired', () => {
+  // 规程 rewrote equipment skills under ids the KR tables keep (sktok_acarm069_1 拟态物质: 同盟约 → 同阶); the KR text translates
+  // the older sentence (tools/gamedata-url.mjs TRANSLATED_GAMEDATA, docs/rules/ui.md 「번역 짝: 다른 서버가 번역한 CN 문장」)
+  const sk = (d) => ({ levels: [{ description: d }] });
+  const zh = [{ sktok_a_1: sk('否则随机获得1名同阶干员'), sktok_b_1: sk('<@ba.vup>攻击力+30%</>'), sktok_c_1: sk('新技能') }];
+  const base = [{ sktok_a_1: sk('否则随机获得1名同盟约初始干员'), sktok_b_1: sk('攻击力+30% ') }];
+  const ko = [{ sktok_a_1: sk('아닐 경우 같은 맹약의 랜덤 기본 오퍼레이터 1명 획득'), sktok_b_1: sk('공격력 +30%'), sktok_c_1: sk('새 스킬') }];
+  const data = { items: {
+    x_new: { name: '新', desc: '否则随机获得1名同阶干员' },
+    x_old: { name: '旧', desc: '否则随机获得1名同盟约初始干员' },
+    x_tag: { name: '标', desc: '攻击力+30%' },
+    x_add: { name: '加', desc: '新技能' },
+  } };
+  const { overlay, report } = buildOverlay({ zh, en: ko, base, data, lang: 'ko', fallback: { dict: { 否则随机获得1名同阶干员: '아닐 경우 같은 티어의 랜덤 오퍼레이터 1명 획득' } } });
+  const desc = (id) => overlay.files.items?.[id]?.desc;
+  assert.equal(desc('x_new'), '아닐 경우 같은 티어의 랜덤 오퍼레이터 1명 획득',
+    'a rewritten text must not take the target\'s translation of the older one (docs/rules/ui.md 「번역 짝: 다른 서버가 번역한 CN 문장」): the dictionary\'s');
+  assert.equal(desc('x_old'), '아닐 경우 같은 맹약의 랜덤 기본 오퍼레이터 1명 획득', 'the older text keeps the target\'s translation (the default season uses it)');
+  assert.equal(desc('x_tag'), '공격력 +30%', 'a markup or white-space change is the same sentence');
+  assert.equal(desc('x_add'), '새 스킬', 'a record the older tables lack is paired as before');
+  assert.equal(report.stalePairs, 1);
+  const without = buildOverlay({ zh, en: ko, data, lang: 'ko' });
+  assert.equal(without.overlay.files.items.x_new.desc, '아닐 경우 같은 맹약의 랜덤 기본 오퍼레이터 1명 획득', 'without the older tables: the wrong pair the test guards against');
+});
+
 test('build-i18n skin names: paired by skin id from the two skin tables, the fallbacks for a skin the target lacks, a map by skin id apart from names', () => {
   const table = (names) => ({ charSkins: Object.fromEntries(Object.entries(names).map(([id, [charId, skinName]]) => [id, { charId, displaySkin: { skinName } }])) });
   const zhT = table({ 'char_1_a#1': ['char_1_a', null], 'char_1_a@x#1': ['char_1_a', '夏卉 FA1'], 'char_1_a@y#2': ['char_1_a', '新皮'],
