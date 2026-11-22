@@ -239,3 +239,30 @@ test('the battle runs the buffs of the stage reached (bandStage); a strategy wit
   ps.counters['band:stage'] = 1;
   assert.equal(ps.battleInput().bandStage, 1);
 });
+
+test('消解空间 (Misery) on a 乌萨斯 operator: its knock-out is its own — each one gains the bond\'s 临时层数 (+2), and a 100 % 不屈 brings it back to fall again', () => {
+  // maintainer report 2026-11-22 (CN play): 不屈 at 250 layers, 源石溶剂 on 折桠 (乌萨斯 / 不屈), the mark on her — every
+  // drain tick knocks her out by her own hand, 乌萨斯's ON_TARGET_KILLED adds 2 临时层数, 不屈 redeploys her at once
+  const { m, ps, use } = setup({ band: 'band_breakaway' });
+  const p = onBoard(m, ps, 'chess_char_1_01_a'); // 折桠: 乌萨斯 / 不屈, MELEE
+  onBoard(m, ps, 'chess_char_2_21_a'); // 真理: 乌萨斯
+  onBoard(m, ps, 'chess_char_3_26_a'); // 奥尔佳: 乌萨斯
+  onBoard(m, ps, 'chess_char_2_16_a'); // 宴: 不屈
+  const hand = give(m, ps, firstOf((c) => c.tier === 1 && !c.bonds.includes('ursusShip')), 'hand');
+  p.items.push(ps.newPiece('item', 'chess_item_1_05_e_a')); // 源石溶剂
+  ps.layers.indomShip = 250; // 0.18 + 0.004 · 250 ≥ 1
+  ps.recompute();
+  assert.ok(ps.bonds.ursusShip?.active && ps.bonds.indomShip?.active, '乌萨斯 and 不屈 active');
+  assert.deepEqual(use({ uid: p.uid }), OK);
+  const b = battleOf(m, ps);
+  let selfKills = 0, own = 0, revives = 0;
+  b.on('death', (c) => { if (c.unit.uid === p.uid && c.reason === 'killed') { selfKills++; if (c.killer === c.unit) own++; } });
+  b.on('deploy', (c) => { if (c.unit.uid === p.uid && selfKills > 0) revives++; });
+  untilStarted(b, 3.5);
+  const u = unitOf(b, p.uid);
+  assert.ok(selfKills >= 3, `knocked out on every drain tick (${selfKills})`);
+  assert.equal(own, selfKills, 'each knock-out credited to the operator itself (rules/sim.md 「Misery」)');
+  assert.ok(!unitOf(b, hand.uid)?.alive, 'back on its tile at once: the 整备区 operator stays out');
+  assert.ok(revives >= selfKills - 1 && u.alive && !u.removed, `back each time (${revives})`);
+  assert.equal(b.tempLayerGainsOf('p_0').ursusShip, 2 * selfKills, '临时层数 +2 per self knock-out');
+});

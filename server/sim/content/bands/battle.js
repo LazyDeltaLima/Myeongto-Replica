@@ -366,7 +366,8 @@ export function install(battle) {
 //   act3autochess_band22_buff 消解空间 「首次受到伤害时使其击倒，并召唤整备区最右侧干员」: ON_TAKE_DAMAGE —
 //                             AutoChessCheckSwitchWithHand (RIGHT, ORIGINAL, no class or bond filter: nothing without a
 //                             hand operator, and the next damage checks again), reborn_mask −1 (no revive), the switch,
-//                             InstantKill: the rightmost 整备区 operator comes in on its tile, facing its way, and the
+//                             InstantKill (credited to the operator itself: a self knock-out — CN play): the
+//                             rightmost 整备区 operator comes in on its tile, facing its way, and the
 //                             operator leaves without a body (as the switch 特质, garrisons/effects/switch.js). The hand
 //                             operators reach the battle in the input's `reserve`.
 //   capAdd                    正直教官: + capAdd on the operator's 特质 caps (garrisons/effects/triggered.js addCapMod).
@@ -457,13 +458,16 @@ const MARK_BY_KEY = {
       if (pending || c.target !== u || !u.alive || c.type === 'element') return;
       if (!handCandidate(battle, ps.playerId)) return;
       pending = true;
-      battle.kill(u, null);
+      // the knock-out is the operator's own (InstantKill from itself — CN play, maintainer report 2026-11-22: an
+      // 乌萨斯 member so knocked out gains the bond's 临时层数 for it, ON_TARGET_KILLED)
+      battle.kill(u, u);
     });
     battle.on('death', (c) => {
       if (c.unit !== u || !pending) return;
       pending = false;
       const next = handCandidate(battle, ps.playerId);
-      if (!next || u.removed) return;
+      // back already (不屈's redeploy — the mark's reborn_mask lock does not stop it): no switch, the tile is its own
+      if (!next || u.removed || u.alive) return;
       const tile = battle.restTile(u);
       u.removed = true;
       if (battle.fieldReserve(next, tile, u.dir)) fxOn(battle, 'garrison', next, key, ps.bandId, { from: u.id });
