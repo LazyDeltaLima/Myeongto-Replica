@@ -3,6 +3,7 @@
 // automatic redeploys, leaks.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import { COLS } from '../constants.js';
 import { unitInfo } from '../snapshot.js';
 import { fin } from './util.js';
@@ -12,6 +13,7 @@ export class BattleDeploy {
    * Deploy `u` on its home tile, or on `tile` ([r, c]: a one-off landing tile — the home stays the board tile; an
    * operator that left the field comes back on its body tile, restTile). `keepSp` = { sp, charges }
    * restored right after the skill reset, before the `deploy` hook fires.
+   * @this {Battle}
    */
   _deploy(u, { initial = false, carry = null, tile = null, keepSp = null } = {}) {
     if ((u.alive && u.deployed) || u._removing) return false;
@@ -93,7 +95,10 @@ export class BattleDeploy {
     return true;
   }
 
-  /** Mark `unit` dead (hp reached 0). Fires `kill` then `death`. */
+  /**
+   * Mark `unit` dead (hp reached 0). Fires `kill` then `death`.
+   * @this {Battle}
+   */
   kill(unit, killer = null) {
     if (!unit || !unit.alive) return;
     unit.hp = 0;
@@ -113,12 +118,14 @@ export class BattleDeploy {
    * comes back there (isDown, GitHub #60) — unless `permanent`, or the 突袭 retreat ('raid') that redeploys it at once.
    * `dying`: a forced exit that plays the operator's death animation — a knock-out put off by its own effect (史尔特尔's
    * 余烬, 骑士戒律 + 竞技旗); the `death` hook carries it (Touch's 超脱 counts such an exit: content/tokens.js).
+   * @this {Battle}
    */
   retreat(unit, { reason = 'retreat', permanent = false, dying = false } = {}) {
     if (!unit || !unit.alive || unit.side !== 'ally') return;
     this._remove(unit, reason, null, permanent, dying);
   }
 
+  /** @this {Battle} */
   _remove(unit, reason, killer = null, permanent = false, dying = false) {
     this._cutAttackStand(unit);
     unit.alive = false;
@@ -194,6 +201,7 @@ export class BattleDeploy {
    * tokens, destroyed devices). Runs at the end of the step, so the unit's own death/leak handlers still fire;
    * one-shot `after` callbacks are kept (they run once and are gone). Without this, per-enemy content hooks pile up
    * and every emit walks the handlers of every enemy that ever spawned.
+   * @this {Battle}
    */
   _releaseRemoved() {
     const set = new Set();
@@ -222,6 +230,7 @@ export class BattleDeploy {
    *               outside the rect, a living unit stands there or another knocked-out operator lies there — no fallback
    *   keepSp      keep the SP / charges the unit had (保留技力): restored before the `deploy` hook fires
    * Returns true when the unit was deployed (full HP, `deploy {initial:false}` fires).
+   * @this {Battle}
    */
   redeploy(unit, { free = true, tile = null, keepSp = false } = {}) {
     if (!unit || unit.side !== 'ally' || unit.alive || unit.removed) return false;
@@ -256,6 +265,7 @@ export class BattleDeploy {
    * Automatic redeploys (DESIGN §5.5): an operator that left the field and whose timer is done comes back on its rest
    * tile — where it lies ("满足再部署条件时，移除场上的该倒地干员并自动部署至该位置", PRTS 卫戍协议/帮助) — when that tile
    * is free and its player has the DP.
+   * @this {Battle}
    */
   _checkRedeploys() {
     for (const u of this.allyUnits) {
@@ -274,7 +284,10 @@ export class BattleDeploy {
     }
   }
 
-  /** Leak: an enemy reached its goal. */
+  /**
+   * Leak: an enemy reached its goal.
+   * @this {Battle}
+   */
   leak(e) {
     if (!e || !e.alive || e.side !== 'enemy') return;
     this._recordLeak(e, false);
@@ -283,6 +296,7 @@ export class BattleDeploy {
     if (this._hooks.enemyLeak) this.emit('enemyLeak', { enemy: e });
   }
 
+  /** @this {Battle} */
   _recordLeak(e, timeout) {
     const owner = timeout ? e.ownerId : this._ownerForTile([Math.round(e.y), Math.round(e.x)]) ?? e.ownerId;
     const pp = this._pp(owner) ?? this._pp(e.ownerId);

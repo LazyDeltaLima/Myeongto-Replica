@@ -1,5 +1,5 @@
 {
-  // First typecheck slice (npm run typecheck). strict stays off until a folder is clean.
+  // Server typecheck (npm run typecheck runs this and jsconfig.browser.json). strict stays off until a folder is clean.
   // tsc does not load this file unless invoked with -p jsconfig.json.
   // Widen one path at a time: see types/README.md.
   "compilerOptions": {
@@ -11,7 +11,7 @@
     "noEmit": true,
     "strict": false,
     "skipLibCheck": true,
-    "types": [],
+    "types": ["node"],
     "lib": ["ES2022"],
     "maxNodeModuleJsDepth": 0
   },

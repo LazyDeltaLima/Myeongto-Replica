@@ -4,6 +4,7 @@
 // = elimination (_quit), dispose.
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { C2S } from '../../../shared/protocol.js';
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { syntheticResult } from '../fields.js';
@@ -14,6 +15,7 @@ import { nameParam } from '../../../shared/botNames.js';
 const GAME_TYPES = new Set(Object.keys(C2S).filter((t) => Object.hasOwn(C2S, t) && (t.startsWith('g.') || t.startsWith('b.'))));
 
 export class MatchPlatform {
+  /** @this {Match} */
   start() {
     if (this.disposed || this.ended || this.phase !== PHASE.LOBBY) return;
     this.guard(() => {
@@ -33,6 +35,7 @@ export class MatchPlatform {
    * @param {string} playerId
    * @param {{ t: string }} msg validated intent
    * @returns {{ ok: true } | { error: string, detail?: string }}
+   * @this {Match}
    */
   handle(playerId, msg) {
     const ps = this.players.get(playerId) || this.spectators.get(playerId);
@@ -66,6 +69,7 @@ export class MatchPlatform {
    * @param {Record<string, { skill: number, module: string|null }> | null} loadout
    * @param {Record<string, { potential: number, cultivate: number }> | null} [ops]
    * @returns {{ ok: true } | { error: string, detail?: string }}
+   * @this {Match}
    */
   setLoadout(playerId, loadout, ops = undefined) {
     const ps = this.players.get(playerId);
@@ -90,6 +94,7 @@ export class MatchPlatform {
    * @param {string} playerId
    * @param {Record<string, string> | null} skins
    * @returns {{ ok: true } | { error: string, detail?: string }}
+   * @this {Match}
    */
   setSkins(playerId, skins) {
     const ps = this.players.get(playerId);
@@ -112,6 +117,7 @@ export class MatchPlatform {
    * @param {string} playerId
    * @param {Record<string, { charId: string, skillIndex?: number, uniEquipId?: string|null }>} picks checked by the lobby
    * @returns {{ ok: true } | { error: string, detail?: string }}
+   * @this {Match}
    */
   setDiy(playerId, picks) {
     const ps = this.players.get(playerId);
@@ -138,6 +144,7 @@ export class MatchPlatform {
     return res;
   }
 
+  /** @this {Match} */
   onDisconnect(playerId) {
     const ps = this.players.get(playerId);
     if (!ps || ps.isBot || this.disposed) return;
@@ -152,6 +159,7 @@ export class MatchPlatform {
     });
   }
 
+  /** @this {Match} */
   onReconnect(playerId) {
     const ps = this.players.get(playerId);
     if (!ps || ps.isBot || ps.left || this.disposed) return;
@@ -167,6 +175,7 @@ export class MatchPlatform {
    * The full state of one human (a reconnect, a resync, a spectator seat): m.public, its m.private (players only), the
    * field it is on / watches — a spectator, like an eliminated player, the field of the player it follows (item 56),
    * else the first; in a prep phase that player's board — or the result once ended.
+   * @this {Match}
    */
   _resync(ps) {
     const playerId = ps.playerId;
@@ -191,6 +200,7 @@ export class MatchPlatform {
     }
   }
 
+  /** @this {Match} */
   onLeave(playerId) {
     const ps = this.players.get(playerId);
     if (!ps || ps.isBot || ps.left || this.disposed) return;
@@ -216,6 +226,7 @@ export class MatchPlatform {
    * to the shared pool at once, and the seat has no place in later rounds, the Final Assault pairing or the boss pool
    * (bloodPoint per player alive at the fight's start, DESIGN §25.13.4). Rounds passed = the rounds the player had
    * survived when leaving.
+   * @this {Match}
    */
   _quit(ps) {
     this.maybeEndInfo();
@@ -278,6 +289,7 @@ export class MatchPlatform {
     else if (phase === PHASE.PREP) this.maybeEndPrep();
   }
 
+  /** @this {Match} */
   dispose() {
     if (this.disposed) return;
     this.disposed = true;

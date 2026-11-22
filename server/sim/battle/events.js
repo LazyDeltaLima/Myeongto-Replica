@@ -2,6 +2,7 @@
 // meta, fx and the sim log.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import { EVENT_BUFFER_CAP } from '../constants.js';
 import { elementView } from '../damage.js';
 import { unitInfo, snapshotUnits } from '../snapshot.js';
@@ -10,7 +11,10 @@ import { stormView } from '../content/devices.js'; // 战场#06's 沙尘暴 for 
 import { sandView } from '../content/bonds/nation/sargon.js'; // 规程 萨尔贡 6's 流沙 tiles for the client (fieldMeta)
 
 export class BattleEvents {
-  /** A client fx event; returns its payload (an enemy skill's cast adds its target to it later in the same tick). */
+  /**
+   * A client fx event; returns its payload (an enemy skill's cast adds its target to it later in the same tick).
+   * @this {Battle}
+   */
   fx(kind, params = {}) {
     const { x = 0, y = 0, ...extra } = params || {};
     // inside an enemy skill's cast (content/enemies.js onTick): the fx it makes carry the official ability name and its
@@ -21,6 +25,7 @@ export class BattleEvents {
     return extra;
   }
 
+  /** @this {Battle} */
   log(msg) {
     const k = 'log:' + msg;
     if (this._errKeys.has(k)) return;
@@ -28,13 +33,17 @@ export class BattleEvents {
     if (this.opts.verbose) this.logger.warn?.(`[sim] ${msg}`);
   }
 
+  /** @this {Battle} */
   _ev(tuple) {
     if (!this.recordEvents) return;
     this._evq.push(tuple);
     if (this._evq.length > EVENT_BUFFER_CAP) this._evq.splice(0, this._evq.length - EVENT_BUFFER_CAP / 2);
   }
 
-  /** Client-facing events since the last drain (DESIGN §8.2 tuples). */
+  /**
+   * Client-facing events since the last drain (DESIGN §8.2 tuples).
+   * @this {Battle}
+   */
   drainEvents() {
     const ev = this._evq;
     this._evq = [];
@@ -44,6 +53,7 @@ export class BattleEvents {
   /**
    * Record that an enemy's attack recovery (atkStandUntil) is cut or ignored now — snapshot `standCut`, display metadata
    * (render/interp.js); never changes the attack's timing or state.
+   * @this {Battle}
    */
   _cutAttackStand(unit) {
     if (unit.side === 'enemy' && Number.isFinite(unit.atkStandUntil) && unit.atkStandUntil > this.time) {
@@ -61,6 +71,7 @@ export class BattleEvents {
    *         feared or stunned) — display metadata (render/interp.js holds the position until then);
    *   standCut: [[id, at]] — the latest time each listed enemy's recovery was cut or ignored (_cutAttackStand), the
    *         dying ones in their death window included.
+   * @this {Battle}
    */
   snapshot() {
     const snap = {
@@ -114,6 +125,7 @@ export class BattleEvents {
    * 沙尘暴 spans (content/devices.js stormView), only on a stage with one; `wide`: the halves (3 | 4) of an 8-player
    * mode's wide 联防 field (the browser draws the stage widened: wideStage.js widenStageData), only there; `sand`: 规程
    * 萨尔贡 6's 流沙 tiles laid so far ([[x, y]], content/bonds/nation/sargon.js sandView), only once one is.
+   * @this {Battle}
    */
   fieldMeta() {
     const storm = stormView(this);

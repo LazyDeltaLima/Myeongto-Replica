@@ -4,17 +4,22 @@
 // re-simulation.
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { ERR } from '../../../shared/constants.js';
 import { HeadlessJob, syntheticResult, validateClientResult, HARD_CAP_SECONDS } from '../fields.js';
 import { resultDigest, compactResult as compactForVerify } from '../../sim/spec.js';
 import { OK, fail } from './common.js';
 
 export class MatchReports {
+  /** @this {Match} */
   _fieldByBattle(battleId) {
     return typeof battleId === 'string' ? this.fields.find((f) => f.cc && f.battleId === battleId) || null : null;
   }
 
-  /** b.progress from a field's authority (anything else — a stale battle, a demoted client — is ignored). */
+  /**
+   * b.progress from a field's authority (anything else — a stale battle, a demoted client — is ignored).
+   * @this {Match}
+   */
   _onProgress(ps, msg) {
     if (!this.clientCombat) return fail(ERR.WRONG_PHASE, 'server-run combat');
     const f = this._fieldByBattle(msg.battleId);
@@ -53,7 +58,10 @@ export class MatchReports {
     return OK;
   }
 
-  /** b.result from a field's authority: validated against the spec; an implausible one is replaced by the server's run. */
+  /**
+   * b.result from a field's authority: validated against the spec; an implausible one is replaced by the server's run.
+   * @this {Match}
+   */
   _onResult(ps, msg) {
     if (!this.clientCombat) return fail(ERR.WRONG_PHASE, 'server-run combat');
     const f = this._fieldByBattle(msg.battleId);
@@ -114,7 +122,10 @@ export class MatchReports {
     return OK;
   }
 
-  /** A boss field's accepted client result: each player's bossDamage is at least what the server credited them. */
+  /**
+   * A boss field's accepted client result: each player's bossDamage is at least what the server credited them.
+   * @this {Match}
+   */
   _bossResultDamage(f, result) {
     for (const pid of f.players) if (result.perPlayer[pid]) result.perPlayer[pid].bossDamage = Math.max(result.perPlayer[pid].bossDamage || 0, f.bossBy[pid] || 0);
   }
@@ -122,6 +133,7 @@ export class MatchReports {
   /**
    * SP_VERIFY: re-simulate in headless slices. 'all' waits before accepting (the server wins on a mismatch);
    * 'sample' accepts immediately and only logs differences for ~1 battle in 8, even after the field's phase ends.
+   * @this {Match}
    */
   _verifyResult(f, result, accept) {
     if (this.verifyMode === 'off') { accept(result); return; }

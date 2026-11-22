@@ -2,6 +2,7 @@
 // skill produces a token, spawnToken, spawnDevice and the stage devices (crates, platforms) placed at the start.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import { COLS, OBSTACLE_DEVICES } from '../constants.js';
 import { normDir } from '../dir.js';
 import { SkillRuntime } from '../skills.js';
@@ -14,6 +15,7 @@ export class BattleSummons {
    * Token def of `tokenId` as `owner` (an ally unit: its chess + selected skill / module; or a chess id) summons it —
    * the def spawnToken uses. For content that reads summon stats / skill blackboards: exact in a multi-player field
    * where two players give the same chess different loadouts (an id-only `data.getToken(id, chessId)` is not).
+   * @this {Battle}
    */
   tokenDef(tokenId, owner = null) {
     return this._tokenDef(tokenId, owner, null);
@@ -24,6 +26,7 @@ export class BattleSummons {
    * when the owner's own tokens.json variant says so (`sources` without 'skill' / 'talent' — e.g. 琳琅诗怀雅 S1/S3 make
    * no 香槟炸弹, 赫默 S1 no 医疗探机); true when the data does not tell (no owner variant, inline defs, tokens of
    * other chess).
+   * @this {Battle}
    */
   producesToken(owner, tokenId, def = null) {
     if (!owner || typeof owner !== 'object' || owner.kind !== 'op') return true;
@@ -43,6 +46,7 @@ export class BattleSummons {
    * under the default skill the kit stays the authority.
    * `opts.preBattleAggro` is only for a prepared stage map character instantiated at battleStart after its variant
    * is chosen; its aggro precedes initial operators despite the later deploy event.
+   * @this {Battle}
    */
   spawnToken(owner, tokenId, row, col, opts = {}) {
     const ownerUnit = owner && typeof owner === 'object' ? owner : null;
@@ -83,6 +87,7 @@ export class BattleSummons {
    * 1000 and, when it is the only way, walk into it, get blocked by it and break it — research 08 §3.1); 'block' makes
    * the tile impassable. `blockRadiusSq`: the device's own squared block radius (its prefab's `_blockRadiusSquare`), else
    * the devices' BLOCK_RADIUS_SQ.device.
+   * @this {Battle}
    */
   spawnDevice(key, row, col, opts = {}) {
     // Devices are ally-side units on a field tile: never outside the rect, never on top of a living unit or of a
@@ -122,6 +127,7 @@ export class BattleSummons {
     return u;
   }
 
+  /** @this {Battle} */
   _spawnStageDevices() {
     if (this.opts.devices === false) return;
     for (const d of this.stage.devices || []) {

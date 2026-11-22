@@ -6,16 +6,19 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
+/** @import { PlayerState } from '../PlayerState.js' */
 import { tileKey, boardOrder, freeSlot } from '../board.js';
 import { TEMP_SIZE } from './common.js';
 
 export class PlayerPieces {
+  /** @this {PlayerState} */
   newPiece(kind, id, extra = {}) {
     return { uid: this.m.nextUid(), kind, id, items: kind === 'chess' ? [] : undefined, count: kind === 'token' ? 1 : undefined, ownerUid: undefined, poolCopies: 0, boughtRound: this.m.round, meta: {}, ...extra };
   }
 
   /**
    * Locate a piece by uid. Returns { piece, area: 'board'|'hand'|'temp'|'equipped', idx?, key?, holder? } or null.
+   * @this {PlayerState}
    */
   find(uid) {
     if (!Number.isInteger(uid)) return null;
@@ -38,7 +41,10 @@ export class PlayerPieces {
     return null;
   }
 
-  /** Every owned chess piece: board (reading order, board.js boardOrder) then hand then temp. */
+  /**
+   * Every owned chess piece: board (reading order, board.js boardOrder) then hand then temp.
+   * @this {PlayerState}
+   */
   allChess() {
     const out = [];
     for (const { piece } of boardOrder(this.board)) if (piece.kind === 'chess') out.push(piece);
@@ -47,7 +53,10 @@ export class PlayerPieces {
     return out;
   }
 
-  /** Locations of owned pieces, in merge-consumption preference order: temp, hand (left→right), board (reading order). */
+  /**
+   * Locations of owned pieces, in merge-consumption preference order: temp, hand (left→right), board (reading order).
+   * @this {PlayerState}
+   */
   _chessLocations() {
     const out = [];
     for (let i = 0; i < this.temp.length; i++) if (this.temp[i] && this.temp[i].kind === 'chess') out.push({ piece: this.temp[i], area: 'temp', idx: i });
@@ -56,7 +65,10 @@ export class PlayerPieces {
     return out;
   }
 
-  /** Remove a located piece from its container (no side effects). */
+  /**
+   * Remove a located piece from its container (no side effects).
+   * @this {PlayerState}
+   */
   _detach(loc) {
     if (!loc) return;
     if (loc.area === 'hand') this.hand[loc.idx] = null;
@@ -72,6 +84,7 @@ export class PlayerPieces {
    * Put a piece into the hand (right→left) or, when `allowTemp`, the expandable temp queue (due at the deadline of the first prep
    * in which the player can act on it, _tempDueNow). Returns 'hand' | 'temp' | null. A piece put into temp while a hand
    * slot is free (`toTemp`) moves into the hand at the next recompute (_fillHandFromTemp).
+   * @this {PlayerState}
    */
   stow(piece, { allowTemp = true, toTemp = false, preferIdx = null } = {}) {
     if (this.bagMode) return this._stowZone(piece, { allowTemp, toTemp, preferIdx });
@@ -97,6 +110,7 @@ export class PlayerPieces {
    * the deadline as any overflow, _putTemp) — or, `allowTemp` false, is refused (null). `toTemp` (an operator: wait in
    * the queue although the hand has room — the next recompute pulls it in) means nothing for an item, whose zone is the
    * temp row. Returns 'hand' | 'temp' | null.
+   * @this {PlayerState}
    */
   _stowZone(piece, { allowTemp, toTemp, preferIdx }) {
     const bag = this.zoneOf(piece.kind) === 'bag';
@@ -117,7 +131,10 @@ export class PlayerPieces {
     return 'temp';
   }
 
-  /** Overflow refill order: the visible row right-to-left, then the hidden queue (bagMode: the queue only). */
+  /**
+   * Overflow refill order: the visible row right-to-left, then the hidden queue (bagMode: the queue only).
+   * @this {PlayerState}
+   */
   tempPieces() {
     if (this.bagMode) return this.temp.slice(TEMP_SIZE).filter(Boolean);
     return this.temp.slice(0, TEMP_SIZE).reverse().concat(this.temp.slice(TEMP_SIZE)).filter(Boolean);
@@ -128,6 +145,7 @@ export class PlayerPieces {
    * piece's own zone — an operator / summon stack into the hand, an item into the 装备区 (no deadline there) — the rest
    * stays queued, compacted. A piece in the wrong zone (none is put there; a state set up by hand) is moved to its own
    * zone or the queue first. Returns the number moved into the hand.
+   * @this {PlayerState}
    */
   _fillZones() {
     let moved = 0;
@@ -162,6 +180,7 @@ export class PlayerPieces {
    * merges, item use and summon removal. Moving into the hand clears the piece's temp deadline;
    * moving within the visible window keeps it. Returns the number moved into the regular hand.
    * @returns {number}
+   * @this {PlayerState}
    */
   _fillHandFromTemp() {
     if (this.bagMode) return this._fillZones();
@@ -193,13 +212,17 @@ export class PlayerPieces {
    * an elite merged this round — _mergeChess carries none over: GitHub #169, the owner's decision of 2026-10-06)
    * starts at 0 — 拉普兰德's "本回合首次主动刷新" is the first manual refresh she witnesses (player feedback after 0.1.0,
    * garrisons/meta.js).
+   * @this {PlayerState}
    */
   pieceRoundCount(piece, key) {
     const rc = piece && piece.meta && piece.meta.round;
     return rc && rc.r === this.m.round && Number.isFinite(rc.n[key]) ? rc.n[key] : 0;
   }
 
-  /** Add `n` to a piece's counter of the current round (pieceRoundCount); returns the new count. */
+  /**
+   * Add `n` to a piece's counter of the current round (pieceRoundCount); returns the new count.
+   * @this {PlayerState}
+   */
   bumpPieceRoundCount(piece, key, n = 1) {
     if (!piece || typeof key !== 'string' || !Number.isFinite(n)) return 0;
     if (!piece.meta || typeof piece.meta !== 'object') piece.meta = {};
@@ -209,7 +232,10 @@ export class PlayerPieces {
     return v;
   }
 
-  /** Return a piece's pool copies — to the shared pool, or a 自选 piece's to this player's stock (poolOf). */
+  /**
+   * Return a piece's pool copies — to the shared pool, or a 自选 piece's to this player's stock (poolOf).
+   * @this {PlayerState}
+   */
   returnCopies(piece) {
     if (piece && piece.kind === 'chess' && piece.poolCopies > 0) {
       const base = this.gd.baseIdOf(piece.id);
@@ -218,7 +244,10 @@ export class PlayerPieces {
     }
   }
 
-  /** Remove every token owned by a chess piece (board, hand, temp). */
+  /**
+   * Remove every token owned by a chess piece (board, hand, temp).
+   * @this {PlayerState}
+   */
   removeTokensOf(ownerUid) {
     for (const [k, p] of [...this.board]) if (p.kind === 'token' && p.ownerUid === ownerUid) this.board.delete(k);
     for (let i = 0; i < this.hand.length; i++) if (this.hand[i] && this.hand[i].kind === 'token' && this.hand[i].ownerUid === ownerUid) this.hand[i] = null;
@@ -231,6 +260,7 @@ export class PlayerPieces {
    * the expandable temp queue (`allowTemp`). A stack that a prep deadline then removes still comes back at the next
    * round start. `keep`: a summon the player just placed (the one dragged onto its owner, which swapped the owner
    * away) stays where it was put.
+   * @this {PlayerState}
    */
   _liftTokensOf(ownerUid, keep = null) {
     for (const [k, p] of [...this.board]) {
@@ -241,7 +271,10 @@ export class PlayerPieces {
     }
   }
 
-  /** Copies of one summon type an owner has (placed pieces + stacks in the hand / temp). */
+  /**
+   * Copies of one summon type an owner has (placed pieces + stacks in the hand / temp).
+   * @this {PlayerState}
+   */
   _tokenCountOf(ownerUid, tokenId) {
     const mine = (p) => !!p && p.kind === 'token' && p.ownerUid === ownerUid && p.id === tokenId;
     let n = 0;
@@ -257,6 +290,7 @@ export class PlayerPieces {
    * (DESIGN §16: 赫默 S2 医疗无人机 a drone, 赫默 S1 none). Called when the owner is placed and at every round start, which
    * returns a stack removed from temp at the last prep deadline (PRTS 卫戍协议/帮助 §手牌区 "干员所属召唤物会于下一回合
    * 返还"); copies the owner still has (placed or stacked) are not granted again.
+   * @this {PlayerState}
    */
   grantTokensFor(owner) {
     const rec = owner && owner.kind === 'chess' ? this.gd.chess(owner.id) : null;

@@ -4,6 +4,7 @@
 // coming enemies; in a boss round's prep on the player's half of the boss field).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
@@ -35,6 +36,7 @@ const finiteOrNull = (v, cap = Infinity) => {
 };
 
 export class MatchViews {
+  /** @this {Match} */
   statusOf(ps) {
     if (ps.left) return 'left';
     if (!ps.alive) return 'dead';
@@ -65,6 +67,7 @@ export class MatchViews {
    * percent, floored, so the 20 / 50 / 80 % glow steps light when the share reaches them (the leader ranking's operator
    * rows are _leaderTopView).
    * @returns {{ winStreak?: number, bossPct?: number }}
+   * @this {Match}
    */
   _badgeView(ps) {
     const c = this.gd.config.constants || {};
@@ -87,6 +90,7 @@ export class MatchViews {
    * page's report splits the damage, it does not add any. Ties: the lower seat, then the player's own order.
    * Alive players only; null outside a boss round or in a season without the badges (config.constants).
    * @returns {Array<{ pid: string, chess: string, pct: number }>|null}
+   * @this {Match}
    */
   _leaderTopView() {
     const c = this.gd.config.constants || {};
@@ -120,6 +124,7 @@ export class MatchViews {
    * only, no rule reads it. Sorted by tier, elites first, then the board's order; [] once eliminated.
    * [ASSUMED·화면: the official row's pieces — the board only, not the 整备区 — and their order]
    * @returns {Array<{ char: string, avatar?: string, tier: number, golden?: true, equip?: number[], slots?: number }>}
+   * @this {Match}
    */
   _lineupView(ps) {
     if (!ps.alive) return [];
@@ -148,11 +153,13 @@ export class MatchViews {
     return out.map((x) => x.v);
   }
 
+  /** @this {Match} */
   fieldOf(ps) {
     const f = this.fields.find((x) => x.players.includes(ps.playerId));
     return f ? f.fieldId : null;
   }
 
+  /** @this {Match} */
   publicView() {
     const v = {
       t: 'm.public',
@@ -306,6 +313,7 @@ export class MatchViews {
    * b.progress `resolved`); it is `null` (never 0) while unknown, so the client's `resolved ?? killed` fallback holds.
    * `total` is the capsule's denominator: only the enemies the round scheduled (runtime splits / summons — boss summons
    * included — are in neither part).
+   * @this {Match}
    */
   _fieldProgress(f) {
     if (!f) return null;
@@ -350,6 +358,7 @@ export class MatchViews {
    * else's own battle count (0: they were perfect). Omitted when 0 and in every other phase (boss rounds charge the
    * merged team LP live).
    * @returns {{ pendingLp?: number, uniteLeft?: number }}
+   * @this {Match}
    */
   _pendingLpView(ps) {
     if (!ps || !ps.alive || (this.phase !== PHASE.COMBAT && this.phase !== PHASE.UNITE)) return {};
@@ -371,7 +380,10 @@ export class MatchViews {
     return loss > 0 ? { pendingLp: loss } : {};
   }
 
-  /** nextEnemies preview for m.private. */
+  /**
+   * nextEnemies preview for m.private.
+   * @this {Match}
+   */
   nextEnemiesFor(ps) {
     if (!ps.alive) return [];
     if (this.bossWaves) {
@@ -391,13 +403,19 @@ export class MatchViews {
     return previewOf([...this.wave.spawns, ...bounty]);
   }
 
-  /** The outfit of a scouted piece (like the sim's UnitInfo.skin): its player's for the operator, a summon its owner's. */
+  /**
+   * The outfit of a scouted piece (like the sim's UnitInfo.skin): its player's for the operator, a summon its owner's.
+   * @this {Match}
+   */
   _skinInfo(ps, piece) {
     if (typeof ps.pieceSkin !== 'function') return undefined;
     return ps.pieceSkin(piece) || undefined;
   }
 
-  /** A 自选 piece's pick (like the sim's UnitInfo.diy): a scout's card composes the operator from it (shared/diy.js). */
+  /**
+   * A 自选 piece's pick (like the sim's UnitInfo.diy): a scout's card composes the operator from it (shared/diy.js).
+   * @this {Match}
+   */
   _diyInfo(ps, piece) {
     const p = piece.kind === 'chess' && typeof ps.diyPickOf === 'function' ? ps.diyPickOf(piece.id) : null;
     return p ? { charId: p.charId, skillIndex: p.skillIndex, uniEquipId: p.uniEquipId } : undefined;
@@ -405,7 +423,9 @@ export class MatchViews {
 
   /** The 外勤医疗 reserve medic already standing on each player's field in preparation. Touch replaces it only at
    * battleStart, so the prep view always uses the reserve medic, regardless of the current elite count. The stage's
-   * normal-board slot is transformed to the correct half of a boss field by _onBossHalf / the client prep camera. */
+   * normal-board slot is transformed to the correct half of a boss field by _onBossHalf / the client prep camera.
+   * @this {Match}
+   */
   prepMapChars(ps) {
     if (!ps?.alive || this.phase !== PHASE.PREP || !this.order.some((p) => p.alive && (p.bandId === 'band_amedic' || p.bandCommand === 'band_amedic'))) return [];
     const id = 'char_605_cmedic';
@@ -423,7 +443,9 @@ export class MatchViews {
   }
 
   /** UnitInfo of a player's board pieces on their (board) tiles — a prep scout's board, the boss partner's (bossMateView).
-   *  `area: 'board'` (a bench unit says 'hand' / 'temp': prepFieldMeta). */
+   *  `area: 'board'` (a bench unit says 'hand' / 'temp': prepFieldMeta).
+   * @this {Match}
+   */
   _prepBoardUnits(ps) {
     const units = this.prepMapChars(ps);
     // the player's own view of the data (0.2.0 自选编队: its slotted DIY slots are its operators — player/diy.js)
@@ -460,6 +482,7 @@ export class MatchViews {
   /**
    * A boss round's prep (最终攻势 / 隐秘核心: the pairing planned, no field up yet): the other player of `ps`'s pair as
    * { mate: PlayerState, side: its half 'L' | 'R' }, else null (a lone player, any other phase).
+   * @this {Match}
    */
   _bossMateOf(ps) {
     if (!ps || !this.bossWaves || this.fields.length) return null;
@@ -475,6 +498,7 @@ export class MatchViews {
    * own prep view draws it beside the own half, read-only, as the official prep shows both players of a pair together
    * (the official client knows every board: ChangePositionDn { boardStatus }, research 09). Null otherwise.
    * @returns {{ playerId: string, side: 'L'|'R', units: object[] } | null}
+   * @this {Match}
    */
   bossMateView(ps) {
     const m = ps && ps.alive ? this._bossMateOf(ps) : null;
@@ -483,7 +507,9 @@ export class MatchViews {
   }
 
   /** UnitInfo list of a player's board and hand (prep scouting): board pieces on their tiles, held pieces on the
-   *   hand row (row 7) — the scout renders like the own prep bench. */
+   *   hand row (row 7) — the scout renders like the own prep bench.
+   * @this {Match}
+   */
   prepFieldMeta(ps) {
     const units = this._prepBoardUnits(ps);
     // the hand (整备区) and the 临时整备区 scout exactly like the own prep bench renders them: pieces as units on
@@ -524,7 +550,10 @@ export class MatchViews {
     return { ...meta, kind: 'boss', rect: { ...GEO.BOSS_RECT }, side: g.side, units: mate ? [...own, ...mate.units] : own, ...(mate ? { mate: { playerId: mate.playerId, side: mate.side } } : {}) };
   }
 
-  /** UnitInfo of a held piece (a hand or temp slot): the prep scout's bench (prepFieldMeta) and a battle's (battleBench). */
+  /**
+   * UnitInfo of a held piece (a hand or temp slot): the prep scout's bench (prepFieldMeta) and a battle's (battleBench).
+   * @this {Match}
+   */
   _benchUnit(ps, piece, i, y, area) {
     const gd = ps.gd || this.gd;
     const rec = piece.kind === 'item' ? gd.item(piece.id) : piece.kind === 'token' ? gd.token(piece.id) : gd.chess(piece.id);
@@ -558,6 +587,7 @@ export class MatchViews {
    * list is taken once per field. Empty in a season without the switch, on a 联防 field and for items (the 装备区 is
    * the temp row). [ASSUMED·화면: the boss / 隐秘核心 field's bench and summon packs — the screenshots show a normal
    * field's operators only]
+   * @this {Match}
    */
   battleBench(f) {
     if (!f || !seasonFeature(this.season, 'benchInBattle') || f.kind === 'unite') return [];
@@ -577,7 +607,10 @@ export class MatchViews {
     return out;
   }
 
-  /** A prep UnitInfo (board, bench or temp row) placed on side 'L' | 'R' of the boss field (bossFieldPlacement). */
+  /**
+   * A prep UnitInfo (board, bench or temp row) placed on side 'L' | 'R' of the boss field (bossFieldPlacement).
+   * @this {Match}
+   */
   _onBossHalf(u, side) {
     const p = bossFieldPlacement(side, u.y, u.x, u.dir || 'RIGHT');
     const v = { ...u, x: p.col, y: p.row };

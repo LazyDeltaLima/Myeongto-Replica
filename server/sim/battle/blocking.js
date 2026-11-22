@@ -2,6 +2,7 @@
 // 起飞), the blocked targets of a blocker, block release and the 隐匿 switch-off after a block ends.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import { ROWS, COLS, BLOCK_RADIUS_SQ, BLOCK_MIN_DIST, BLOCK_MOVE_TIME, BLOCK_SEARCH_TICKS, BLOCK_WEIGHT_GAP, STEALTH_RESTORE } from '../constants.js';
 import { canTargetEnemy, stealthOffKey } from '../targeting.js';
 import { hypot } from '../detmath.js';
@@ -86,6 +87,7 @@ export class BattleBlocking {
    * once it wakes it is blocked again only by a blocker with room.
    * Out of turn: searchBlockeeImmediate. The 迷狂牢笼 (PropLikeStaticBlockToken) does not search this way: its kit
    * (op-phatm2.js cageBlock) — every other device searches like an operator (Trap → Token → Character).
+   * @this {Battle}
    */
   _searchBlockees(u, all = false) {
     if (!u.alive || !u.deployed || u.hidden || u.s.flags.noBlock || u.s.flags.sleep || u.s.flags.noNewBlock) return;
@@ -138,6 +140,7 @@ export class BattleBlocking {
    * is due): true every BLOCK_SEARCH_TICKS ticks, the first on its first tick as a new unit — BObject.OnAllocate →
    * Character.OnReset → `Reset(false)` for every deployment, a redeployment and a 【移动】 too (deploy.js, tiles.js
    * moveRedeploy: the client's mover is born again, ulpia_s3_switch_mode[born] ON_OWNER_BORN).
+   * @this {Battle}
    */
   _blockSearchDue(u) {
     if (u.blockSearchTick > 0) u.blockSearchTick--;
@@ -152,6 +155,7 @@ export class BattleBlocking {
    * target (HarpoonProjectile / NetCatcherProjectile / PullHitTargetBehaviour .OnProjectileStop — the pulls of 崖心 S2,
    * 歌蕾蒂娅, 百炼嘉维尔 S2, 乌尔比安 S1, 锏 S3 in this mode: their kits call this after the pull) and from the
    * CharSearchBlockeeImmediate node (玛恩纳's mlynar_s_cast at his skill's start: professions.js installLibrator).
+   * @this {Battle}
    */
   searchBlockeeImmediate(u) {
     if (!u || !u.alive) return;
@@ -164,6 +168,7 @@ export class BattleBlocking {
    * blocker's centre plus its offset at contact, lengthened to 0.5 and turned off the blocker's other enemies (blockOffset,
    * _moveToBlockPosition; BlockBalancer.CalculateBlockOffset → Enemy.RegisterBlocker) — an enemy blocked by contact
    * while walking in is already ≈ 0.71 away and stays put; one an operator lands or is deployed on is pushed out.
+   * @this {Battle}
    */
   _addBlockee(u, e) {
     const ur = u.walks ? u.y : u.tileR, uc = u.walks ? u.x : u.tileC;   // a walker blocks from where it stands
@@ -181,6 +186,7 @@ export class BattleBlocking {
    * `m_blockTween` where it stands: a push / pull, a blink, a relocation, 浮空, 不可阻挡, leaving the field); a release by
    * the blocker's side does not (Character.RemoveBlockee → Enemy.UnregisterBlocker only clears the blocker), so the slide
    * runs on after its blocker died, left or let go.
+   * @this {Battle}
    */
   _moveToBlockPosition(e, x, y) {
     if (x === e.x && y === e.y) { e.blockMove = null; return; }
@@ -193,6 +199,7 @@ export class BattleBlocking {
    * from where the slide put it and the slide wins again on the next tick, until it ends at its target (then it walks
    * on from there that same tick). An enemy holding 不可阻挡 / 浮空 / 恐惧 / 沉睡 (Enemy.OnTick: isBlockFree →
    * ReleaseFromBlocker) or off the field stops where it stands.
+   * @this {Battle}
    */
   _tickBlockMove(e, dt) {
     const m = e.blockMove;
@@ -215,6 +222,7 @@ export class BattleBlocking {
    * it came from, BlockBalancer.CalculateBlockOffset — not at its blocker's front) (DESIGN §20; it replaces the playtest #5 QA's melee-only restriction). Only for attacks that hit enemies: a heal
    * attack never asks — it keeps selecting injured allies while its unit blocks (PRTS 卫戍协议/帮助 "对于医疗干员
    * （咒愈师分支除外），攻击目标为需要治疗的单位"; PRTS 选择器 adds only the blocked units its side can pick).
+   * @this {Battle}
    */
   blockedTargets(u, profile) {
     const out = [];
@@ -232,6 +240,7 @@ export class BattleBlocking {
    * 地面阻挡]. Nothing walks onto such a tile, so it matters for an enemy pushed or pulled against the fence
    * (Battle.displace stops it at the tile edge, 0.5 from the fenced unit — inside the ground block radius). An airborne
    * unit (起飞, flag `liftoff`: "不阻挡地面敌人…可以阻挡飞行敌人") blocks flyers only.
+   * @this {Battle}
    */
   _blockerFor(u, e, w) {
     // flag `noNewBlock`: a unit that takes no new enemy by contact — it blocks only those content hands it (酒神's 迷狂牢笼,
@@ -252,6 +261,7 @@ export class BattleBlocking {
    * Enemy.ReleaseFromBlocker — enemy `e` is let go for its own reason (a push / pull, a blink or relocation, 不可阻挡 /
    * 浮空 / 恐惧 / 沉睡, leaving the field, death): its blocker drops it and its block slide stops where it stands, blocked
    * or not.
+   * @this {Battle}
    */
   _unblock(e) {
     e.blockMove = null;
@@ -261,6 +271,7 @@ export class BattleBlocking {
   /**
    * Enemy.UnregisterBlocker — enemy `e`'s blocker drops it (the blocker died, left, was stunned or lost the capacity):
    * the block slide runs on (_moveToBlockPosition).
+   * @this {Battle}
    */
   _unregisterBlocker(e) {
     const bl = e.blockedBy;
@@ -271,7 +282,10 @@ export class BattleBlocking {
     this._stealthSwitch(e);
   }
 
-  /** Release every enemy blocked by ally `u` (death, retreat, block count drop, substitution…). */
+  /**
+   * Release every enemy blocked by ally `u` (death, retreat, block count drop, substitution…).
+   * @this {Battle}
+   */
   releaseBlocked(u) {
     if (!u || !u.blocking || !u.blocking.length) return;
     const was = u.blocking;
@@ -287,6 +301,7 @@ export class BattleBlocking {
    * `stealthOff` buff per source; meanwhile it is targetable, operator splash reaches it and it is drawn solid
    * (targeting.js enemyStealthed). A new block inside the window lifts it again and its end restarts the window. Our
    * operators' 隐匿 / 迷彩 are never lifted by blocking (only enemies get here).
+   * @this {Battle}
    */
   _stealthSwitch(e) {
     if (!e || e.side !== 'enemy' || !e.alive || !e.s.flags.stealth) return;

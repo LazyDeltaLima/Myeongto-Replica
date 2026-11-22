@@ -36,7 +36,7 @@
     "doctor": "node tools/doctor.mjs",
     "launch": "node scripts/launch.mjs",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit --checkJs -p jsconfig.json",
+    "typecheck": "tsc --noEmit --checkJs -p jsconfig.json && tsc --noEmit --checkJs -p jsconfig.browser.json",
     "check:imports": "node tools/check-imports.mjs",
     "package": "node tools/package.mjs",
     "package:lite": "node tools/package.mjs --lite"
@@ -54,6 +54,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.5",
     "eslint": "^10.12.0",
     "globals": "^17.13.0",
     "puppeteer-core": "^25.12.0",

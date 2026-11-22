@@ -3,6 +3,7 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
+/** @import { PlayerState } from '../PlayerState.js' */
 import { PHASE } from '../../../shared/constants.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
@@ -27,6 +28,7 @@ export class PlayerViews {
    * owner's skinId, which the client turns into the summon's own outfit through the skin's `tokenSkinMap`; an item none.
    * @param {any} p a board / hand / temp piece
    * @returns {string|null}
+   * @this {PlayerState}
    */
   pieceSkin(p) {
     if (!p || !this.skins || !Object.keys(this.skins).length) return null;
@@ -39,6 +41,7 @@ export class PlayerViews {
     return owner && owner.kind === 'chess' ? this.pieceSkin(owner) : null;
   }
 
+  /** @this {PlayerState} */
   pieceView(p, rc = null) {
     const rec = p.kind === 'item' ? this.gd.item(p.id) : p.kind === 'token' ? this.gd.token(p.id) : this.gd.chess(p.id);
     const v = {
@@ -66,6 +69,7 @@ export class PlayerViews {
     return v;
   }
 
+  /** @this {PlayerState} */
   effectsView() {
     const out = [];
     const band = this.bandId ? this.gd.band(this.bandId) : null;
@@ -107,6 +111,7 @@ export class PlayerViews {
   /**
    * m.private `showTags`: { [garrisonId]: number } — the player's number of every 特质 whose text carries
    * 「{showtag_value_1}」 (this round's spent funds / refreshes / operators gained, a growing 特质's next value).
+   * @this {PlayerState}
    */
   showTagsView() {
     const st = { round: this.round, counter: (k) => (Number.isFinite(this.counters?.[k]) ? this.counters[k] : 0) };
@@ -118,6 +123,7 @@ export class PlayerViews {
     return out;
   }
 
+  /** @this {PlayerState} */
   privateView() {
     const slots = this.shop.slots.map((s) => (s ? { kind: s.kind, id: s.id, price: this.priceOf(s), basePrice: s.basePrice, sold: !!s.sold, frozen: !!s.frozen } : null));
     const offer = this.offers[0] || null;

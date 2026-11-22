@@ -3,6 +3,7 @@
 // rebuild of an ally (current, base and extra range keys).
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import { ROWS, COLS, ENEMY_COLLIDER_RADIUS } from '../constants.js';
 import { toLocal } from '../dir.js';
 import { absoluteRangeKeys, canTargetEnemy, extendedGrid, enemyStealthed } from '../targeting.js';
@@ -38,13 +39,17 @@ export class BattleQueries {
    * rectangle's tiles. Each enemy is filed on its own (_indexEnemy: its tiles kept in `_ixT` / `_ixB`, refiled only when
    * they changed), so the index can follow an enemy as soon as it moved; a bucket lists its enemies in `deploySeq`
    * order. This files every enemy of the field.
+   * @this {Battle}
    */
   _buildEnemyIndex() {
     const list = this.enemies;
     for (let i = 0, n = list.length; i < n; i++) this._indexEnemy(list[i]);
   }
 
-  /** File enemy `e` in the tile buckets where it stands now (none when it is down or hidden). */
+  /**
+   * File enemy `e` in the tile buckets where it stands now (none when it is down or hidden).
+   * @this {Battle}
+   */
   _indexEnemy(e) {
     const on = e.alive && !e.hidden;
     if (e._ixT !== null && on === (e._ixT.length > 0 || e._ixB.length > 0) && e.x === e._ixX && e.y === e._ixY && !e.hitArea) return;
@@ -87,7 +92,10 @@ export class BattleQueries {
     e._ebMulti = bk.length > 1;
   }
 
-  /** Take enemy `e` out of the tile buckets. */
+  /**
+   * Take enemy `e` out of the tile buckets.
+   * @this {Battle}
+   */
   _unindexEnemy(e) {
     const ot = e._ixT, ob = e._ixB;
     if (ot === null) return;
@@ -101,6 +109,7 @@ export class BattleQueries {
    * range or the area it selects in): those whose collider overlaps one of them (body.js colliderKeys; the client's
    * target search is a 2D physics overlap of the range's tile boxes with the enemy's 0.1 circle), each listed once. The
    * auto-trigger check of a skill's range tiles and the tile rules use enemiesOnTiles.
+   * @this {Battle}
    */
   enemiesInKeys(keys, attacker, profile) {
     const out = [];
@@ -129,6 +138,7 @@ export class BattleQueries {
    * selector of our side — a skill's area, a splash, a summon's attack — takes it (maintainer decision 2026-11-11). An
    * enemy's selection never does (allyTargetsInKeys: no attacker of the enemy side; flag `enemyCamp` keeps the enemies'
    * own selections off it — targeting.js canTargetAlly / auraSelectable).
+   * @this {Battle}
    */
   _pushAllyTargets(out, list, attacker, profile) {
     if (!list.length || (attacker && attacker.side !== 'ally')) return;
@@ -141,6 +151,7 @@ export class BattleQueries {
    * `LitePhysicsUtil._CheckContainsPosition`, the position's tile only) and the tile rules the client runs on the
    * enemy's current tile — terrain, tile listeners, tile selectors, "所在格" effects —, which the 0.1 collider does not
    * widen (constants.js ENEMY_COLLIDER_RADIUS). Until the collider rule enemiesInKeys did this for every caller.
+   * @this {Battle}
    */
   enemiesOnTiles(keys, attacker, profile) {
     const out = [];
@@ -161,6 +172,7 @@ export class BattleQueries {
    * `attacker` itself, and an ally target selects none. ai.js acquireTargets appends them after the enemies (their 嘲讽等级 −2
    * puts them last); enemiesInKeys / enemiesOnTiles / unitsInGrid / foesInRadius add them for an ally attacker. [] at once
    * while none is registered, so every other battle runs exactly as before.
+   * @this {Battle}
    */
   allyTargetsInKeys(keys, attacker) {
     const set = this._allyTargets;
@@ -174,6 +186,7 @@ export class BattleQueries {
   /**
    * The registered ally targets within `r` of (x, y) (centre distance) — the radius form of allyTargetsInKeys, for a kit
    * whose area selection takes them too (upstream's 自选 艾丽妮 S3). [] while none is registered.
+   * @this {Battle}
    */
   allyTargetsInRadius(x, y, r, attacker) {
     const set = this._allyTargets;
@@ -184,7 +197,10 @@ export class BattleQueries {
     return out;
   }
 
-  /** Register (`on`) or drop an ally target (allyTargetsInKeys); one off the field is skipped while registered. */
+  /**
+   * Register (`on`) or drop an ally target (allyTargetsInKeys); one off the field is skipped while registered.
+   * @this {Battle}
+   */
   setAllyTarget(unit, on = true) {
     if (!unit || unit.side !== 'ally') return false;
     if (on) (this._allyTargets ??= new Set()).add(unit);
@@ -192,7 +208,10 @@ export class BattleQueries {
     return true;
   }
 
-  /** Is `unit` a registered ally target (setAllyTarget)? */
+  /**
+   * Is `unit` a registered ally target (setAllyTarget)?
+   * @this {Battle}
+   */
   isAllyTarget(unit) {
     return !!(unit && this._allyTargets && this._allyTargets.has(unit));
   }
@@ -201,6 +220,7 @@ export class BattleQueries {
    * A living enemy standing ON one of `keys` (the point, as enemiesOnTiles — a skill's auto-trigger range tiles) —
    * targetable or not (stealthed, untargetable, asleep, flying): the 技能范围 trigger "技能范围内存在敌人（无视其不可选中）"
    * (skills.js SKILL_RANGE).
+   * @this {Battle}
    */
   anyEnemyOnTiles(keys) {
     if (!keys) return false;
@@ -215,6 +235,7 @@ export class BattleQueries {
    * Allies (not devices) within tiles `keys`, sorted by HP ratio (lowest first) that need healing. A `noHeal` (禁疗) ally
    * is left out unless the healer's profile heals it through its 禁疗 (`healThrough(healer, ally)`: 凯尔希's Mon3tr —
    * damage.js heal).
+   * @this {Battle}
    */
   injuredAlliesInKeys(keys, healer, includeElement = false) {
     const out = [];
@@ -233,6 +254,7 @@ export class BattleQueries {
     return out;
   }
 
+  /** @this {Battle} */
   lowestHpAllyInRange(unit) {
     const l = this.injuredAlliesInKeys(unit.rangeKeys, unit);
     return l[0] ?? null;
@@ -241,6 +263,7 @@ export class BattleQueries {
   /**
    * Units of the opposite side (or `side`) inside `grid` offsets relative to `unit` — a range: an enemy whose collider
    * overlaps one of its tiles (body.js bodyInRange), an ally on one of them.
+   * @this {Battle}
    */
   unitsInGrid(unit, grid, { side = null, extend = 0 } = {}) {
     const keys = absoluteRangeKeys(grid || unit.rangeGrid || [[0, 0]], Math.round(unit.y), Math.round(unit.x), unit.dir, extend);
@@ -257,7 +280,10 @@ export class BattleQueries {
     return out;
   }
 
-  /** Allies inside `unit`'s current range (for auras) — not the 孤立 ones ("无法被同阵营选中": 炎佑), `unit` aside. */
+  /**
+   * Allies inside `unit`'s current range (for auras) — not the 孤立 ones ("无法被同阵营选中": 炎佑), `unit` aside.
+   * @this {Battle}
+   */
   alliesInGrid(unit) {
     const set = unit.rangeKeySet || new Set(unit.rangeKeys || []);
     return this.allyUnits.filter((a) => a.alive && a.deployed && !a.hidden && a.kind !== 'device' && set.has(a.tileR * COLS + a.tileC) && this.allySelectable(a, unit));
@@ -268,12 +294,16 @@ export class BattleQueries {
    * itself — PRTS 选择器: selectors decide "天赋是否能给予某个干员Buff" and every heal / buff / aura target, and their 可选判定
    * rejects a 孤立 target of a friendly selector ("若掩码中孤立为1，且选择器的阵营与目标为友好关系，则不可选中"; user playtest #6
    * item 18). Enemies still target it (a hostile selector). 禁疗 only keeps heals off (heal pipeline, injuredAlliesInKeys).
+   * @this {Battle}
    */
   allySelectable(a, by = null) {
     return !!a && (a === by || !a.s.flags.isolated);
   }
 
-  /** Deployed allies (no devices) an ability of ally `by` may select: allies(ownerId) without the 孤立 ones. */
+  /**
+   * Deployed allies (no devices) an ability of ally `by` may select: allies(ownerId) without the 孤立 ones.
+   * @this {Battle}
+   */
   alliesFor(by, ownerId = null) {
     return this.allies(ownerId).filter((a) => this.allySelectable(a, by));
   }
@@ -282,6 +312,7 @@ export class BattleQueries {
    * Living enemies whose body (body.js: a huge enemy's hit rectangle, else its position) is within `r` of (x, y).
    * `centre` = a 中点判定 radius — splash around a struck / marked target (PRTS 作战机制: "中点判定…案例：阻挡，酒神1天赋的1.3
    * 溅射半径"): every enemy counts by its position (判定中心), a huge one too.
+   * @this {Battle}
    */
   enemiesInRadius(x, y, r, centre = false) {
     const out = [];
@@ -303,6 +334,7 @@ export class BattleQueries {
    * the caller's choice. Enemy-side effects on other enemies (auras, heals) and physical collisions keep enemiesInRadius.
    * Player report #8 after 0.1.0 (the 逐火 余烬): until 0.1.1 profession splash and skill circles still reached an
    * unblocked 隐匿 enemy.
+   * @this {Battle}
    */
   foesInRadius(x, y, r, centre = false) {
     const out = this.enemiesInRadius(x, y, r, centre);
@@ -328,6 +360,7 @@ export class BattleQueries {
    * colliderRadius: 0.1, 魂灵涡流 0.25) overlaps the circle — centre distance ≤ r + its radius —, a huge one whose rectangle
    * does (its rectangle is its collider); a registered ally target by the 0.1. Other radius effects keep foesInRadius (the
    * centre of a regular enemy) [ASSUMED where PRTS names neither].
+   * @this {Battle}
    */
   foesInColliderRadius(x, y, r) {
     let wide = ENEMY_COLLIDER_RADIUS;
@@ -344,6 +377,7 @@ export class BattleQueries {
   /**
    * Every deployed ally within `r` of (x, y) — no selection rule: an enemy's area effect selects among them with
    * targeting.js areaSelectable (content/enemies/helpers.js areaAllies: no 隐匿 ally, the blocker included, GitHub #97; DESIGN §22.12).
+   * @this {Battle}
    */
   alliesInRadius(x, y, r, ownerId = null, { includeDevices = false } = {}) {
     const out = [];
@@ -358,21 +392,30 @@ export class BattleQueries {
     return out;
   }
 
-  /** Alive deployed allies (ops + tokens), optionally of one player. */
+  /**
+   * Alive deployed allies (ops + tokens), optionally of one player.
+   * @this {Battle}
+   */
   allies(ownerId = null) {
     return this.allyUnits.filter((a) => a.alive && a.deployed && a.kind !== 'device' && (ownerId == null || a.ownerId === ownerId));
   }
 
+  /** @this {Battle} */
   aliveEnemies() { return this.enemies.filter((e) => e.alive); }
 
+  /** @this {Battle} */
   unitAt(r, c) { const u = this._occ[r * COLS + c]; return u && u.alive ? u : null; }
 
+  /** @this {Battle} */
   unitById(id) { return this.units.find((u) => u.id === id) ?? null; }
 
+  /** @this {Battle} */
   tileInfo(r, c) { return this.grid.tile(r, c); }
 
+  /** @this {Battle} */
   getPlayer(playerId) { return this.players.find((p) => p.playerId === playerId) ?? null; }
 
+  /** @this {Battle} */
   _pp(playerId) { return playerId == null ? null : this._perPlayer[playerId] ?? null; }
 
   // =============================================================================================================
@@ -390,6 +433,7 @@ export class BattleQueries {
    * `rangeKeys` without the extra keys (targeting.js extendedGrid; the grid itself when nothing extends it), or the
    * unit's own range while a skill's grid only selects targets (`targeting.showOwnRange`: 荒芜拉普兰德 S1, no official
    * range change). Rebuilt on deploy / relocate / skill range switches and whenever either extend changes (rangeChanged).
+   * @this {Battle}
    */
   _refreshRange(u) {
     const tg = u.skill && u.skill.active ? u.skill.spec.targeting : null;
@@ -422,12 +466,18 @@ export class BattleQueries {
     if (u.skill) u.skill._trigKeys = null; // CUSTOM_RANGE trigger grid is relative to the tile
   }
 
-  /** True when a buff changed the unit's rangeExtend (total or permanent part) since its range was last built. */
+  /**
+   * True when a buff changed the unit's rangeExtend (total or permanent part) since its range was last built.
+   * @this {Battle}
+   */
   rangeChanged(u) {
     return u._rangeExtend !== undefined && (u._rangeExtend !== u.s.rangeExtend || u._baseExtend !== u.s.baseRangeExtend);
   }
 
-  /** Public: rebuild a unit's range after content changed `unit.rangeGrid` (流形 copies) or its tile keys. */
+  /**
+   * Public: rebuild a unit's range after content changed `unit.rangeGrid` (流形 copies) or its tile keys.
+   * @this {Battle}
+   */
   refreshRange(unit) {
     if (!unit || unit.side !== 'ally' || !unit.alive || !unit.deployed) return false;
     this._refreshRange(unit);
@@ -439,6 +489,7 @@ export class BattleQueries {
    * (row × COLS + col), kept across every later range rebuild until content sets them again (null / [] clears).
    * Not part of `baseRangeKeys` (the DEFAULT trigger range) — see SkillRuntime.addTriggerRange for that. `show`: they are
    * its 攻击范围 and join the detail card's grid too (`liveRangeGrid`); otherwise they only add targets.
+   * @this {Battle}
    */
   setExtraRange(unit, keys, { show = false } = {}) {
     if (!unit || unit.side !== 'ally') return false;

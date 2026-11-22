@@ -2,6 +2,7 @@
 // (every clock and deadline shifted by the pause), the drop at the battle phase's end, and the field clocks' "now".
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { BOSS_CLOCK_MS, OK, fail } from './common.js';
 
@@ -13,6 +14,7 @@ export class MatchPause {
    * (FieldRunner / HeadlessPacer skip their intervals) — and the browser's runner stops its local clock while
    * `m.public.paused` is true. Solo matches only (co-op battles never pause: WRONG_PHASE) and only while a battle runs;
    * `{ on: false }` is always accepted. A disconnect / leave, or the battle phase ending, resumes.
+   * @this {Match}
    */
   setPause(ps, on) {
     void ps;
@@ -35,7 +37,10 @@ export class MatchPause {
     return OK;
   }
 
-  /** End a solo pause: every clock and deadline moves on by the paused time (no-op when not paused). */
+  /**
+   * End a solo pause: every clock and deadline moves on by the paused time (no-op when not paused).
+   * @this {Match}
+   */
   _resume() {
     if (!this.paused) return;
     const d = Math.max(0, this.sched.now() - this._pausedAt);
@@ -60,7 +65,10 @@ export class MatchPause {
     this.markPublic();
   }
 
-  /** The battle phase is over: drop the pause without shifting anything (its timers are gone). */
+  /**
+   * The battle phase is over: drop the pause without shifting anything (its timers are gone).
+   * @this {Match}
+   */
   _clearPause() {
     if (!this.paused) return;
     this.pausedMs += Math.max(0, this.sched.now() - this._pausedAt);
@@ -69,6 +77,9 @@ export class MatchPause {
     this.markPublic();
   }
 
-  /** The field clocks' "now": frozen at the pause instant while paused. */
+  /**
+   * The field clocks' "now": frozen at the pause instant while paused.
+   * @this {Match}
+   */
   _clockNow() { return this.paused ? this._pausedAt : this.sched.now(); }
 }

@@ -99,8 +99,8 @@ const SKILL_ANIM_WINDOW = 0.5;
 
 export class SkillRuntime {
   /**
-   * @param {object} battle
-   * @param {object} unit
+   * @param {import('./Battle.js').Battle} battle
+   * @param {import('./units.js').Unit} unit
    * @param {object|null} def normalised skill def (data)
    * @param {object|null} spec SkillSpec from the kit
    * @param {object} bb blackboard

@@ -3,6 +3,7 @@
 // counts (_uniteLeft, user playtest #6 item 7; _uniteTick in the server-run mode).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { wideHalves, wideRect } from '../../sim/wideStage.js';
@@ -15,6 +16,7 @@ import { onStartUnite } from '../botEmotes.js';
 import { simRuleFlags } from '../../../shared/ruleset.js';
 
 export class MatchUnite {
+  /** @this {Match} */
   startUnite(plan) {
     if (this.clientCombat) { this._startUniteClient(plan); return; }
     this.phase = PHASE.UNITE;
@@ -48,6 +50,7 @@ export class MatchUnite {
    * terrain, crates, water, devices and runes included (unite.js header; the owner's decision of 2026-10-07 — 0.2.0's
    * escaped-level map is withdrawn). The field meta and the client-run spec carry the match stageId, so every viewer
    * draws the battlefield the boards stand on.
+   * @this {Match}
    */
   _uniteOpts(plan, limit) {
     const { wave, players } = uniteBattleOpts(this, plan, limit);
@@ -77,6 +80,7 @@ export class MatchUnite {
   /**
    * The 联防 time limit: the round's combat limit (60 s without a wave); on a wide field of 3–4 helpers (8-player mode,
    * unite.js header) × gd.unite.wideTimePerHalf (0.5) per half — the path's length (× 1.5, × 2).
+   * @this {Match}
    */
   _uniteLimit(plan) {
     const base = this.wave ? this.wave.timeLimit : 60;
@@ -85,6 +89,7 @@ export class MatchUnite {
     return halves ? base * halves * this.gd.unite.wideTimePerHalf : base;
   }
 
+  /** @this {Match} */
   _startUniteClient(plan) {
     this.phase = PHASE.UNITE;
     this.unitePlan = plan;
@@ -103,6 +108,7 @@ export class MatchUnite {
     onStartUnite(this, plan); // the same reaction when the browsers simulate the 联防 (SP_COMBAT=client, the default)
   }
 
+  /** @this {Match} */
   _finishUniteClient() {
     if (this.phase !== PHASE.UNITE) return;
     const f = this.fields[0];
@@ -128,6 +134,7 @@ export class MatchUnite {
    * uniteSurvivors; a synthetic result charges the own leaks, as settle()). null for anyone but a leaker of the running
    * 联防.
    * @returns {number|null}
+   * @this {Match}
    */
   _uniteLeft(ps) {
     const plan = this.unitePlan;
@@ -159,7 +166,10 @@ export class MatchUnite {
     return standing + (plan.notReentered.get(pid) || 0);
   }
 
-  /** Server-run 联防 (streaming mode): refresh m.public about once a game second when a leaker's count moved. */
+  /**
+   * Server-run 联防 (streaming mode): refresh m.public about once a game second when a leaker's count moved.
+   * @this {Match}
+   */
   _uniteTick(runner) {
     const f = runner && runner.fields ? runner.fields[0] : null;
     if (!f || !f.battle || runner.ticks % 30 !== 0) return;

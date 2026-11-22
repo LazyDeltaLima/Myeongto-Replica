@@ -2,14 +2,17 @@
 // pipeline), projectiles and forced attacks (ai.js performAttack).
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import { dealDamage as pipeDamage, heal as pipeHeal, applyHpLoss, makeDamageInfo, reduceElement, leaderHitLimit, hitFx } from '../damage.js';
 import { effectiveProfile, performAttack, acquireTargets } from '../ai.js';
 
 export class BattleCombat {
+  /** @this {Battle} */
   dealDamage(source, target, dmg) {
     try { return pipeDamage(this, source, target, dmg); } catch (e) { this._internalError('dealDamage', e); return 0; }
   }
 
+  /** @this {Battle} */
   heal(source, target, amount, opts = {}) {
     try { return pipeHeal(this, source, target, amount, opts); } catch (e) { this._internalError('heal', e); return 0; }
   }
@@ -25,6 +28,7 @@ export class BattleCombat {
    * it lands as BOSS_HIT_LIMIT)
    * — except with `noHitLimit: true`: a share of the leader's pool that is no hit (胄's 死亡集群 drone link, content/bosses.js).
    * `moment`: a kit's official effect moment for the loss (the 'dmg' event's 9th field, damage.js fxField).
+   * @this {Battle}
    */
   loseHp(target, amount, { source = null, silent = false, tags = null, from = null, sourceless = false, noHitLimit = false, moment = null } = {}) {
     if (!target || !target.alive || !(amount > 0)) return 0;
@@ -38,16 +42,23 @@ export class BattleCombat {
     return applyHpLoss(this, source, target, amount, { type: 'true', tags: t, noSp: true, silent, origin: from ?? null, sourceless: !!sourceless || !!(from && from.sourceless), moment });
   }
 
-  /** The effect moment `key` of `owner` on the 'dmg' event `target` took this tick (damage.js hitFx). */
+  /**
+   * The effect moment `key` of `owner` on the 'dmg' event `target` took this tick (damage.js hitFx).
+   * @this {Battle}
+   */
   hitFx(target, key, owner, life) { hitFx(this, target, key, owner, life); }
 
+  /** @this {Battle} */
   reduceElement(target, amount, element = null) { return reduceElement(target, amount, element); }
 
+  /** @this {Battle} */
   makeDamage(d) { return makeDamageInfo(d); }
 
+  /** @this {Battle} */
   addProjectile(p) { return this.projectiles.add(p); }
 
   // exposed for ai/content convenience
+  /** @this {Battle} */
   effectiveProfile(u) { return effectiveProfile(u); }
 
   /**
@@ -58,6 +69,7 @@ export class BattleCombat {
    * where that ability turns the unit as it is cast (its `DealWithFaceDirection` flags, ai.js swingFace; null nowhere) when that
    * is not its target — left out, the view turns it to its target at the 'atk' (the `_faceToTarget` abilities). Returns true
    * when an attack was made.
+   * @this {Battle}
    */
   forceAttack(u, targets = null, { noAmmo = false, signal = null, face } = {}) {
     if (!u || !u.alive || !u.profile) return false;

@@ -3,6 +3,7 @@
 // view carries) and RESULT (finish: m.result to every human still here, onEnd).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { uniteSurvivors } from '../unite.js';
 import { buildResult } from '../results.js';
@@ -14,6 +15,7 @@ import { nameParam } from '../../../shared/botNames.js';
 import { onSettle, resetRoundCounters } from '../botEmotes.js';
 
 export class MatchSettle {
+  /** @this {Match} */
   settle(plan, uniteResult) {
     this.phase = PHASE.SETTLE;
     this.runner = null;
@@ -129,6 +131,7 @@ export class MatchSettle {
    * 临时层数 are offered to the converting 特质 during the dispatch and lapse after it. The normal round's settle, and
    * a boss / hidden field where the season stacks layers there (shared/seasons.js bossLayerGains: 规程 — bossRounds.js
    * _finishFinal), as after a normal battle.
+   * @this {Match}
    */
   _battleResultLayers(ps, r, ev) {
     // IN_BATTLE layer gains, at most the room left under the cap (GameData.layerCap: 999, as the battle's live copy:
@@ -149,6 +152,7 @@ export class MatchSettle {
     ps.recompute();
   }
 
+  /** @this {Match} */
   _charDamageTickers(ps, r) {
     const steps = (Array.isArray(this.gd.config.broadcasts) ? this.gd.config.broadcasts : []).filter((b) => b.type === 'CHAR_DAMAGE' && Array.isArray(b.params)).map((b) => Number(b.params[0])).filter((n) => n > 0).sort((a, b) => b - a);
     if (!steps.length) return;
@@ -171,6 +175,7 @@ export class MatchSettle {
    * m.roundDmg { round, units: [[uid, dmg], …] } (the round damage panel, shared/roundDamage.js): what each board
    * operator dealt in the player's own battle of this round, summons in their summoner — never the 联防 battle. Kept on
    * the player (`roundDmg`) and sent again on a resync (platform.js), so a reload in the next prep still shows it.
+   * @this {Match}
    */
   _sendRoundDamage(ps, r) {
     if (!ps || ps.isBot || !r) return;
@@ -178,12 +183,14 @@ export class MatchSettle {
     this.sendTo(ps.playerId, ps.roundDmg);
   }
 
+  /** @this {Match} */
   afterSettle() {
     if (!this.alivePlayers().length) { this.finish({ victory: false, reason: 'eliminated' }); return; }
     resetRoundCounters(this); // AI bot merge-counter resets each round (server/match/botEmotes.js)
     this.startRound(this.round + 1);
   }
 
+  /** @this {Match} */
   finish({ victory, hiddenCleared = false, reason = 'defeat' }) {
     if (this.ended || this.disposed) return;
     this.ended = true;

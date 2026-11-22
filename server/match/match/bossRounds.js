@@ -5,6 +5,7 @@
 // RESULT.
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { buildBossWave, bountySpawns, markBounties } from '../waves.js';
@@ -41,6 +42,7 @@ const BOSS_LP_BURST = 10;
 const BOSS_LP_PER_GS = 1;
 
 export class MatchBoss {
+  /** @this {Match} */
   startFinalAssault(hidden) {
     const alive = this.alivePlayers();
     if (!alive.length) { this.finish({ victory: false, reason: 'eliminated' }); return; }
@@ -148,6 +150,7 @@ export class MatchBoss {
     this.runner.start();
   }
 
+  /** @this {Match} */
   _startFinalClient(hidden) {
     const pool = this.bossPool;
     const recs = this.fields.map((x) => this._ccField({ fieldId: x.fieldId, kind: x.kind, players: x.players, opts: x.opts, boss: { poolHp: pool.hp, poolMax: pool.maxHp } }));
@@ -185,12 +188,18 @@ export class MatchBoss {
     this._bossClock = this.later(BOSS_CLOCK_MS, () => this._bossClockTick());
   }
 
-  /** The most shared-pool damage a boss field's client reports may have credited by now (server field clock). */
+  /**
+   * The most shared-pool damage a boss field's client reports may have credited by now (server field clock).
+   * @this {Match}
+   */
   _bossDmgBudget(f) {
     return this.bossPool ? (this.bossPool.maxHp * this._fieldElapsed(f)) / BOSS_MIN_CLEAR_GS : 0;
   }
 
-  /** The most team LP a boss field's client reports may have cost by now (server field clock). */
+  /**
+   * The most team LP a boss field's client reports may have cost by now (server field clock).
+   * @this {Match}
+   */
   _bossLpBudget(f) {
     return BOSS_LP_BURST + BOSS_LP_PER_GS * this._fieldElapsed(f);
   }
@@ -198,6 +207,7 @@ export class MatchBoss {
   /**
    * A boss field's shared-pool damage, as reported cumulatively by its client (`by`: per player) — credited up to the
    * plausibility budget of the field clock; the rest is credited by later reports / the boss clock (`bossReported`).
+   * @this {Match}
    */
   _creditBoss(f, cum, by) {
     const pool = this.bossPool;
@@ -227,7 +237,10 @@ export class MatchBoss {
     }
   }
 
-  /** A boss field's LP cost (leaks × lpr + leader LP effects): `cumulative` totals from its client, deltas from the server run. */
+  /**
+   * A boss field's LP cost (leaks × lpr + leader LP effects): `cumulative` totals from its client, deltas from the server run.
+   * @this {Match}
+   */
   _creditLp(f, amount, cumulative = false) {
     let n = Number(amount);
     if (!Number.isFinite(n) || n <= 0) return;
@@ -251,6 +264,7 @@ export class MatchBoss {
    * The authority's per-player split of the LP its field's enemy leaks cost (b.progress `leaksBy`: cumulative, per player,
    * the leader's own LP effects not in it) — the highest value seen per player. The field's perfect-payout bounties are
    * paid only where the final result agrees with it (`_bossLeaksAgree`).
+   * @this {Match}
    */
   _noteLeaksBy(f, by) {
     if (!by || typeof by !== 'object') return;
@@ -268,6 +282,7 @@ export class MatchBoss {
    * (b.progress `leaksBy`; reports without the split explain nothing), and the player's leaked list must show at least the
    * leak LP reported for it (a leak is never moved to the other seat or dropped). A modified authority can still lie in
    * both; what the server cannot see it cannot check (the boss path never re-simulates).
+   * @this {Match}
    */
   _bossLeaksAgree(f, res, pid) {
     if (!f.cc || f.resultSource !== 'client') return true;
@@ -276,7 +291,10 @@ export class MatchBoss {
     return shown + 1e-6 >= ((f.leaksBy && f.leaksBy[pid]) || 0);
   }
 
-  /** The server runs a boss field in real time (no client left): credits only what exceeds the client's reports. */
+  /**
+   * The server runs a boss field in real time (no client left): credits only what exceeds the client's reports.
+   * @this {Match}
+   */
   _bossServerRun(f) {
     const credit = new CreditPool(this.bossPool, { acked: f.bossAcked, ackedBy: f.bossBy });
     const battle = this._specBattle(f.spec, { sharedBoss: credit });
@@ -309,6 +327,7 @@ export class MatchBoss {
   /**
    * A boss field's authority left, went silent or sent an implausible result (`demote`: never its authority again):
    * its partner (a replica already running) takes over, else the server.
+   * @this {Match}
    */
   _bossHandover(f, why, { demote = false } = {}) {
     if (f.done || f.mode !== 'client' || f.heldResult) return; // a held 'cleared' result is in: nothing left to run
@@ -325,6 +344,7 @@ export class MatchBoss {
     this._runOnServer(f, why);
   }
 
+  /** @this {Match} */
   _bossClockTick() {
     this._bossClock = null;
     if (this.phase !== PHASE.FINAL_ASSAULT && this.phase !== PHASE.HIDDEN_CORE) return;
@@ -348,7 +368,10 @@ export class MatchBoss {
     else this._bossClockOn = false;
   }
 
-  /** Pool depleted → victory; team LP 0 or the overtime window over → defeat: every boss field is ended. */
+  /**
+   * Pool depleted → victory; team LP 0 or the overtime window over → defeat: every boss field is ended.
+   * @this {Match}
+   */
   _checkFinalEnd() {
     if (this._finalEnding || !this.bossPool || !this.fields.some((f) => f.cc)) return;
     if (this.phase !== PHASE.FINAL_ASSAULT && this.phase !== PHASE.HIDDEN_CORE) return;
@@ -356,6 +379,7 @@ export class MatchBoss {
     else if ((this.teamLp != null && this.teamLp <= 0) || this.overtimeOver) this._endFinal('forced');
   }
 
+  /** @this {Match} */
   _endFinal(reason) {
     if (this._finalEnding) return;
     this._finalEnding = reason;
@@ -389,7 +413,10 @@ export class MatchBoss {
     for (const f of this.fields) if (f.cc && !f.done && (f.mode === 'server' || f.heldResult)) this._fieldDone(f);
   }
 
-  /** b.pool { hp, max, teamLp, acked } to everyone (≤ 4 Hz; `force` skips the dedupe, never the rate). */
+  /**
+   * b.pool { hp, max, teamLp, acked } to everyone (≤ 4 Hz; `force` skips the dedupe, never the rate).
+   * @this {Match}
+   */
   _broadcastPool(force) {
     if (!this.bossPool || this.disposed) return;
     const now = this.sched.now();
@@ -433,6 +460,7 @@ export class MatchBoss {
    * pending funds (spent in the Hidden Core's prep), and every bounty used one of its battles, exactly like SETTLE does
    * for normal rounds.
    * @param {boolean} perfect the player's own field was perfect and the team won (`_finishFinal`)
+   * @this {Match}
    */
   _settleBossBounties(ps, pp, perfect) {
     let coins = Math.max(0, Math.trunc(Number(pp.coins) || 0));
@@ -444,6 +472,7 @@ export class MatchBoss {
     ps.dirty();
   }
 
+  /** @this {Match} */
   _bossLeak(enemy) {
     if (!enemy || this.teamLp == null) return;
     // lifePointReduce from data: 0 for harmless enemies (e.g. 装置 / unharmful escorts), 1 when absent
@@ -451,6 +480,7 @@ export class MatchBoss {
     this._teamLpLoss(lpr);
   }
 
+  /** @this {Match} */
   _teamLpLoss(amount) {
     const n = Number(amount);
     if (this.teamLp == null || !Number.isFinite(n) || !(n > 0)) return;
@@ -460,12 +490,18 @@ export class MatchBoss {
     this.markPublic();
   }
 
-  /** Boss rounds under client-side combat: m.public / the per-player LP shares refresh at ~1 Hz (b.pool is live). */
+  /**
+   * Boss rounds under client-side combat: m.public / the per-player LP shares refresh at ~1 Hz (b.pool is live).
+   * @this {Match}
+   */
   _bossLazyPublic() {
     return this.clientCombat && (this.phase === PHASE.FINAL_ASSAULT || this.phase === PHASE.HIDDEN_CORE) && this.fields.some((f) => f.cc);
   }
 
-  /** Throttled (BOSS_PUBLIC_MS) refresh of m.public and the players' LP shares during a boss round. */
+  /**
+   * Throttled (BOSS_PUBLIC_MS) refresh of m.public and the players' LP shares during a boss round.
+   * @this {Match}
+   */
   _bossPublic() {
     if (this._bossPubTimer || this.disposed || this.ended) return;
     const wait = Math.max(0, BOSS_PUBLIC_MS - (this.sched.now() - this._bossPubAt));
@@ -481,6 +517,7 @@ export class MatchBoss {
    * Merge the alive players' LP into one team LP (research 01 §9): at the Final Assault — and, in a custom 「共享」 match
    * (gamedata.js lpShared), once every strategy is picked (phases.js enterBattleCheck), where the Final Assault merges
    * the shares again (Σ shares = the pool). `lpAtFinal` = what each brought in (the shares' weights, _syncTeamLp).
+   * @this {Match}
    */
   _mergeTeamLp() {
     const alive = this.alivePlayers();
@@ -492,6 +529,7 @@ export class MatchBoss {
    * The merged team LP (Final Assault / Hidden Core, research 01 §9) written back to the alive players as shares of
    * what each brought in (`lpAtFinal`, largest remainder, ties → seat), so m.public / m.private / m.result never show
    * the pre-merge LP of a team that lost LP in the boss fight (Σ alive lp = round(teamLp)).
+   * @this {Match}
    */
   _syncTeamLp() {
     if (this.teamLp == null) return;
@@ -520,6 +558,7 @@ export class MatchBoss {
    * code AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo: the countdown ends that long before the server's
    * forced end of the state; what the official server scores then is server logic — here the leader stands, a defeat,
    * maintainer decision 2026-10-10: no strategy's team LP can exceed 150, so a real game's LP runs out first).
+   * @this {Match}
    */
   _applyOvertime(gt) {
     const start = this.overtimeStartReal ?? this.gd.bossOvertimeStartReal(this.round);
@@ -533,6 +572,7 @@ export class MatchBoss {
     if ((Number(gt) || 0) / this.gd.combatTimeScale >= start + windowReal) this.overtimeOver = true;
   }
 
+  /** @this {Match} */
   _bossTick(runner) {
     this._applyOvertime(runner.time);
     if ((this.teamLp <= 0 || this.overtimeOver) && this.bossPool.hp > 0) runner.forceAll('forced');
@@ -543,9 +583,13 @@ export class MatchBoss {
     if (runner.ticks % 30 === 0) this.flush();
   }
 
+  /** @this {Match} */
   _finalDone(runner, hidden) { this._finishFinal(hidden, (f) => runner.resultOf(f)); }
 
-  /** Every boss field is over: stats, bounties, then the Hidden Core or RESULT. */
+  /**
+   * Every boss field is over: stats, bounties, then the Hidden Core or RESULT.
+   * @this {Match}
+   */
   _finishFinal(hidden, resultOf) {
     if (this.phase !== (hidden ? PHASE.HIDDEN_CORE : PHASE.FINAL_ASSAULT)) return;
     this._stopClientCombat();

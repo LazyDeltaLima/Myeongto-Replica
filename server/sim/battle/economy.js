@@ -2,9 +2,11 @@
 // coins.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import { layerGainRoom, layerCapOf } from '../../../shared/constants.js';
 
 export class BattleEconomy {
+  /** @this {Battle} */
   addDp(playerId, n) {
     const ps = this.getPlayer(playerId);
     if (!ps || !Number.isFinite(n)) return 0;
@@ -23,6 +25,7 @@ export class BattleEconomy {
    * layer for the rest of the battle, the result keeps it apart (`tempLayerGains`) and the match's settle drops it unless
    * a 特质 converts it to fixed layers (SERVER_CONVERT_TEMP_BOND*). The `layerGain` hook sees `ctx.temp`; [ASSUMED·CN:
    * the CN-only node is not readable here] the hook's modifiers and the 999 cap apply to it as to a fixed gain.
+   * @this {Battle}
    */
   addLayers(playerId, bondId, n, reason = '', opts = {}) {
     if (!this.flags.layerGainsEnabled || !(n > 0) || !Number.isFinite(n) || playerId == null) return 0;
@@ -48,6 +51,7 @@ export class BattleEconomy {
   /**
    * The 临时层数 a player gained so far in this battle ({ [bondId]: n }, a copy; {} without any): the part of the live
    * layers that is temporary. Read only — the bond strip draws it apart (battle/runner.js noteLayers).
+   * @this {Battle}
    */
   tempLayerGainsOf(playerId) {
     const pp = playerId == null ? null : this._pp(playerId);
@@ -57,6 +61,7 @@ export class BattleEconomy {
   /**
    * Tile of a gain's source unit ([r, c]): where it stands, or where it stood when it left the field during this very
    * instant (a "被击倒时" gain fires from its `death`). null otherwise (no source, long gone, not a unit).
+   * @this {Battle}
    */
   _sourceTile(u) {
     if (!u || typeof u !== 'object' || !Number.isFinite(u.x)) return null;
@@ -76,6 +81,7 @@ export class BattleEconomy {
    * leaker, who has no entry in a 联防 battle, and addCoins dropped the coins (community report of 2026-10-06
    * 「被源石地板烫死的悬赏没给赏金」: in 0.1.x the 联防 field was the round's map, as it is again since 0.2.1, 战场#04's
    * 活性源石 included).
+   * @this {Battle}
    */
   _bountyPayee(unit, killer = null) {
     if (killer && killer.side === 'ally' && killer.ownerId != null && this._pp(killer.ownerId)) return killer.ownerId;
@@ -84,6 +90,7 @@ export class BattleEconomy {
     return this._ownerForTile([Math.round(unit.y), Math.round(unit.x)]);
   }
 
+  /** @this {Battle} */
   addCoins(playerId, n) {
     const pp = this._pp(playerId);
     if (!pp || !(n > 0) || !Number.isFinite(n)) return 0;

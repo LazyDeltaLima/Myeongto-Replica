@@ -4,6 +4,7 @@
 // and dropped).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { unitStatsEntry } from '../../../shared/protocol.js';
 import { PHASE, ERR, EMOTES, EMOTE_COOLDOWN_MS, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
@@ -14,6 +15,7 @@ import { simRuleFlags } from '../../../shared/ruleset.js';
 import { seasonFeature } from '../../../shared/seasons.js';
 
 export class MatchIntents {
+  /** @this {Match} */
   _handle(ps, msg) {
     switch (msg.t) {
       case 'g.infoReady':
@@ -67,6 +69,7 @@ export class MatchIntents {
     }
   }
 
+  /** @this {Match} */
   emote(ps, id, set) {
     if (!EMOTES.includes(id)) return fail(ERR.BAD_MSG, 'unknown emote');
     const now = this.sched.now();
@@ -79,6 +82,7 @@ export class MatchIntents {
     return OK;
   }
 
+  /** @this {Match} */
   setAutoplay(ps, on) {
     if (ps.autoplay === on) return OK;
     ps.autoplay = on;
@@ -89,7 +93,10 @@ export class MatchIntents {
     return OK;
   }
 
-  /** Let the bot act for a (newly) bot-controlled seat in the current phase. */
+  /**
+   * Let the bot act for a (newly) bot-controlled seat in the current phase.
+   * @this {Match}
+   */
   kickBot(ps) {
     if (!ps.botControlled || this.ended) return;
     if (this.phase === PHASE.INFO_CHECK && !ps.infoReady) { ps.infoReady = true; this.markPublic(); this.maybeEndInfo(); }
@@ -110,6 +117,7 @@ export class MatchIntents {
    * (units: shared/protocol.js unitStatsEntry, board operators and summons by uid); cached per input (a build costs
    * ≈ 0.3–0.7 ms). Prep phases only (ROUND_START, 机变, PREP); a battle's live stats come from the browser's own sim.
    * @param {PlayerState} ps @param {number|null} seq echoed (the client keeps the newest answer)
+   * @this {Match}
    */
   unitStats(ps, seq = null) {
     if (!ps.alive) return fail(ERR.ELIMINATED);
@@ -119,7 +127,10 @@ export class MatchIntents {
     return OK;
   }
 
-  /** The start-of-battle stats of a player's board units (see unitStats); [] when the preview battle cannot be built. */
+  /**
+   * The start-of-battle stats of a player's board units (see unitStats); [] when the preview battle cannot be built.
+   * @this {Match}
+   */
   _unitStatsOf(ps) {
     const input = ps.battleInput({ side: 'L', colOffset: 0 });
     const ev = { input, kind: 'normal', round: this.round, preview: true };

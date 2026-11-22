@@ -7,6 +7,7 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
+/** @import { PlayerState } from '../PlayerState.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { msg, dn } from '../../../shared/i18n.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, resolveLoadout, checkSkinSelection, operatorCharIds } from '../../../shared/protocol.js';
@@ -37,26 +38,42 @@ export class PlayerBasics {
    * hand areas, full and overflow flags per area; where the overflow is shown is the server's [ASSUMED·서버]).
    */
   get bagMode() { return this.gd.equipHandSize > 0; }
-  /** temp index `i` is a slot of the 装备区 (bagMode's five visible slots), not overflow. */
+  /**
+   * temp index `i` is a slot of the 装备区 (bagMode's five visible slots), not overflow.
+   * @this {PlayerState}
+   */
   isBagSlot(i) { return this.bagMode && Number.isInteger(i) && i >= 0 && i < TEMP_SIZE; }
-  /** The zone a piece of `kind` waits in: 'bag' (规程's 装备区, items) or 'hand'. */
+  /**
+   * The zone a piece of `kind` waits in: 'bag' (规程's 装备区, items) or 'hand'.
+   * @this {PlayerState}
+   */
   zoneOf(kind) { return this.bagMode && kind === 'item' ? 'bag' : 'hand'; }
-  /** A free slot of the zone of `kind` (hand, or 规程's 装备区 for items): its index, else -1. */
+  /**
+   * A free slot of the zone of `kind` (hand, or 规程's 装备区 for items): its index, else -1.
+   * @this {PlayerState}
+   */
   freeZoneSlot(kind) {
     if (this.zoneOf(kind) === 'hand') return freeSlot(this.hand);
     for (let i = TEMP_SIZE - 1; i >= 0; i--) if (this.temp[i] == null) return i;
     return -1;
   }
-  /** The refusal of a buy / pick into a full zone: HAND_FULL, or BAG_FULL for an item in 规程's 装备区. */
+  /**
+   * The refusal of a buy / pick into a full zone: HAND_FULL, or BAG_FULL for an item in 规程's 装备区.
+   * @this {PlayerState}
+   */
   zoneFullError(kind) { return this.zoneOf(kind) === 'bag' ? ERR.BAG_FULL : ERR.HAND_FULL; }
   /** No overflow is waiting: the whole temp row, or in bagMode the hidden queue (the 装备区 is no overflow). */
   get tempEmpty() { return this.overflowPieces().length === 0; }
-  /** The pieces that overflowed (temp; in bagMode only the queue behind the 装备区), in temp order. */
+  /**
+   * The pieces that overflowed (temp; in bagMode only the queue behind the 装备区), in temp order.
+   * @this {PlayerState}
+   */
   overflowPieces() { return (this.bagMode ? this.temp.slice(TEMP_SIZE) : this.temp).filter(Boolean); }
 
   /**
    * Index of the prep whose deadline resolves a temp piece (compare with `prepsEnded`): recorded when the piece entered
    * temp (_putTemp); a piece put there by other means counts as due at the current (or next) prep.
+   * @this {PlayerState}
    */
   tempDue(piece) {
     const due = piece ? this._tempDue.get(piece.uid) : undefined;
@@ -67,12 +84,16 @@ export class PlayerBasics {
    * Due prep of a piece entering temp now: the current prep while the player can still act on it (PREP, not ready);
    * after Ready or at the prep end (onPrepEnd grants) the next one; outside PREP (COMBAT, SETTLE, ROUND_START, 机变)
    * the next prep to end — `prepsEnded` then already names it.
+   * @this {PlayerState}
    */
   _tempDueNow() {
     return this.prepsEnded + (this.m.phase === PHASE.PREP && this.ready ? 1 : 0);
   }
 
-  /** Every write of a piece into a temp slot goes through here (records its due prep). */
+  /**
+   * Every write of a piece into a temp slot goes through here (records its due prep).
+   * @this {PlayerState}
+   */
   _putTemp(i, piece) {
     this.temp[i] = piece;
     // a slot of 规程's 装备区 is no overflow: nothing there is due
@@ -88,6 +109,7 @@ export class PlayerBasics {
    * @param {any} loadout
    * @param {any} [ops]
    * @returns {boolean}
+   * @this {PlayerState}
    */
   setLoadout(loadout, ops = undefined) {
     if (this.isBot) return false;
@@ -142,6 +164,7 @@ export class PlayerBasics {
    * itself, an owned 自选 pick (its charId) — or null for a 补位 stand-in and a prototype 自选 pick.
    * @param {object|null} chessRecord
    * @returns {{ potential: number, cultivate: number } | null}
+   * @this {PlayerState}
    */
   cultivationFor(chessRecord) {
     if (!chessRecord || this.fieldsStandIn(chessRecord)) return null;
@@ -154,6 +177,7 @@ export class PlayerBasics {
    * player fields as its stand-in (0.2.0 补位) the stand-in's backup selection, whatever the loadout says; for a slotted
    * 自选 slot (0.2.0, player/diy.js) its pick's skill and module (the composed record's defaults — the loadout never names
    * a DIY slot: shared/protocol.js checkLoadout).
+   * @this {PlayerState}
    */
   loadoutFor(chessRecord) {
     if (this.fieldsStandIn(chessRecord)) {
@@ -170,6 +194,7 @@ export class PlayerBasics {
    * match): keeps the droppable chess (checkNotOwned) whose stand-in this match's data has. Bots own every operator.
    * @param {any} list base chess ids
    * @returns {boolean} false when the list is malformed (nothing changes) or the player is a bot
+   * @this {PlayerState}
    */
   setNotOwned(list) {
     if (this.isBot) return false;
@@ -188,6 +213,7 @@ export class PlayerBasics {
    * Whether this player's piece of chess record (or id) `rec` fights as its stand-in (0.2.0 补位): its base chess is
    * in `standIns` and the data has the stand-in. Normal and elite alike (the elite uses the same backup).
    * @param {object|string|null} rec
+   * @this {PlayerState}
    */
   fieldsStandIn(rec) {
     if (!this._standInSet || this._standInSet.size === 0 || !rec) return false;
@@ -204,6 +230,7 @@ export class PlayerBasics {
    * does what shows the piece (the scouting art, the elite / gift tickers' names — the owner's recall of 2026-10-06: the official
    * mode shows the stand-in everywhere); rules about the chess (price, bonds, 特质, merges, pools) keep reading gd.chess.
    * @param {object|null} rec
+   * @this {PlayerState}
    */
   fieldRecord(rec) {
     if (rec && this.fieldsStandIn(rec)) return this.gd.standIn(rec.chessId) || rec;
@@ -218,6 +245,7 @@ export class PlayerBasics {
    * constructor calls it too — Match.setSkins marks the views.
    * @param {any} skins
    * @returns {boolean} false when refused (nothing changes)
+   * @this {PlayerState}
    */
   setSkins(skins) {
     if (this.isBot) return false;
@@ -236,6 +264,7 @@ export class PlayerBasics {
    * outfit chosen for its body's operator, as upstream]
    * @param {object|string|null} rec a chess record or id @param {string|null} [charId]
    * @returns {string|null}
+   * @this {PlayerState}
    */
   skinFor(rec, charId = null) {
     const skins = this.skins;
@@ -252,6 +281,7 @@ export class PlayerBasics {
    * Deploy classes of the board tiles (server/match/board.js buildDeployMap) on the field the player deploys on now
    * (Match.deployFieldOf: the own board, or its half of the boss field in a boss round — user playtest #5 item 7).
    * A change of that field (the boss round begins, a re-pairing) re-checks the board's legality like a terrain change.
+   * @this {PlayerState}
    */
   deployMap() {
     const field = typeof this.m.deployFieldOf === 'function' ? this.m.deployFieldOf(this) : 'normal';
@@ -271,6 +301,7 @@ export class PlayerBasics {
    * The board's terrain changed (terrain 机变 cards, content device / tile overrides): legality is re-checked at the
    * next recompute() / battleInput() — after the whole change, so an intermediate state of a card that toggles several
    * devices never moves a piece.
+   * @this {PlayerState}
    */
   invalidateDeployMap() { this._deployMap = null; this._legalityStale = true; }
 
@@ -281,6 +312,7 @@ export class PlayerBasics {
    * summon returns to its owner's stack. Nothing is lost: with the hand and the visible temp row both full the piece
    * joins the expandable overflow queue (PRTS 卫戍协议/帮助 §手牌区).
    * @returns {number} pieces moved
+   * @this {PlayerState}
    */
   _evictIllegal() {
     this._legalityStale = false;
@@ -305,5 +337,6 @@ export class PlayerBasics {
     return moved;
   }
 
+  /** @this {PlayerState} */
   dirty() { this.m.markPrivate(this); }
 }

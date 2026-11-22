@@ -5,6 +5,7 @@
 // server/lobby.js onMatchEnd).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { msg } from '../../../shared/i18n.js';
 import { nameParam } from '../../../shared/botNames.js';
@@ -23,6 +24,7 @@ export class MatchRestart {
   /**
    * The seats a restart needs (maintainer decisions 2026-10-31): every human still in the match and not under AI 托管 —
    * the eliminated ones too, since the whole room starts again. Spectators hold no seat; AI seats have no say.
+   * @this {Match}
    */
   restartVoters() {
     return this.order.filter((p) => !p.isBot && !p.left && !p.botControlled);
@@ -35,6 +37,7 @@ export class MatchRestart {
    * proposer's back. One 'no' ends the vote at once; so do the proposer leaving and the time running out. Every voter
    * agreeing ends the match (_endRestart) — at once when the proposer is the only voter (solo, or AI teammates only).
    * Any 规则 mode (maintainer decision 2026-10-31: a convenience, unlike the 休闲-only 重新抽取).
+   * @this {Match}
    */
   voteRestart(ps, op, target = 'restart') {
     if (this.ended || this.restartOutcome) return fail(ERR.WRONG_PHASE);
@@ -70,6 +73,7 @@ export class MatchRestart {
   /**
    * Recount an open vote (a vote, a seat leaving or going under AI 托管): the proposer gone ends it; every voter agreeing
    * passes it.
+   * @this {Match}
    */
   maybeEndRestart() {
     const v = this.restartVote;
@@ -84,7 +88,10 @@ export class MatchRestart {
     this.later(0, () => this._endRestart());
   }
 
-  /** The vote failed: the proposer waits RESTART_RETRY_MS, every human hears why (m.toast). */
+  /**
+   * The vote failed: the proposer waits RESTART_RETRY_MS, every human hears why (m.toast).
+   * @this {Match}
+   */
   _closeRestart(why, ps = null) {
     const v = this.restartVote;
     if (!v) return;
@@ -109,6 +116,7 @@ export class MatchRestart {
    * 'room', otherwise starts the new match at once (server/lobby.js
    * onMatchEnd). The page records the match as 中途退出 (public/js/main.js, ui/stats.js recordQuit; maintainer decision
    * 2026-10-31). The teardown is finish()'s (settle.js).
+   * @this {Match}
    */
   _endRestart() {
     if (this.ended || this.disposed) return;

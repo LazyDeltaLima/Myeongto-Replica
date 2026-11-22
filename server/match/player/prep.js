@@ -4,11 +4,13 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
+/** @import { PlayerState } from '../PlayerState.js' */
 import { ERR, PHASE } from '../../../shared/constants.js';
 import { OK, fail } from './common.js';
 import { itemIdOfKey } from '../../sim/content/support/index.js';
 
 export class PlayerPrep {
+  /** @this {PlayerState} */
   _gate({ allowWhenReady = false } = {}) {
     if (!this.alive) return fail(ERR.ELIMINATED);
     if (this.m.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE);
@@ -20,6 +22,7 @@ export class PlayerPrep {
    * g.reward {idx}: the pick of the first queued offer (promotion reward, a strategy's special refresh, an item offer).
    * A pick is a 招募 like a purchase: a full regular hand refuses it, also when it would complete a merge (PRTS
    * 卫戍协议/帮助 §手牌区, see buy; GitHub #82).
+   * @this {PlayerState}
    */
   pickReward(idx) {
     const g = this._gate(); if (g) return g;
@@ -63,6 +66,7 @@ export class PlayerPrep {
     return OK;
   }
 
+  /** @this {PlayerState} */
   setReady(on) {
     if (!this.alive) return fail(ERR.ELIMINATED);
     if (this.m.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE);
@@ -85,6 +89,7 @@ export class PlayerPrep {
    * is removed and comes back at the next round start (startRound → grantTokensFor; PRTS "干员所属召唤物会于下一回合
    * 返还"). Pieces that overflowed after the player could no longer act on them (after Ready, at the prep end) are kept
    * for the next prep.
+   * @this {PlayerState}
    */
   resolveTemp() {
     let changed = false;

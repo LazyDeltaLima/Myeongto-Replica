@@ -1,3 +1,4 @@
+/** @import { Match } from '../Match.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { OK, fail } from './common.js';
 import { syntheticResult } from '../fields.js';
@@ -8,13 +9,16 @@ const PHASES = new Set([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HI
 const leakLp = result => Object.values(result.perPlayer).reduce((n, p) => n + p.leaked.reduce((s, l) => s + (l.lpr ?? 1), 0), 0);
 
 export class MatchSurrender {
+  /** @this {Match} */
   surrenderToken(f) { return f.battleId || `${this.battlePrefix}.${this.round}.${this.phase}.${f.fieldId}`; }
 
+  /** @this {Match} */
   surrenderVoters(f) {
     return f.players.map(id => this.players.get(id)).filter(p => p && !p.isBot && !p.left && !p.botControlled);
   }
 
   // Membership is fixed for an open vote. Disconnects/AI takeover cancel it, never manufacture consent.
+  /** @this {Match} */
   reconcileSurrenderVotes() {
     for (const f of this.fields) {
       const v = f.surrenderVote;
@@ -25,6 +29,7 @@ export class MatchSurrender {
     }
   }
 
+  /** @this {Match} */
   _closeSurrenderVote(f) {
     if (!f.surrenderVote) return;
     this.cancel(f.surrenderVote.timer);
@@ -32,6 +37,7 @@ export class MatchSurrender {
     this.markPublic();
   }
 
+  /** @this {Match} */
   voteSurrender(ps, { fieldId, battleId, op }) {
     if (!PHASES.has(this.phase) || this.ended || this.disposed || this.restartOutcome || this._finalEnding) return fail(ERR.WRONG_PHASE);
     const f = this.fields.find(x => x.fieldId === fieldId && this.surrenderToken(x) === battleId);
@@ -67,6 +73,7 @@ export class MatchSurrender {
     return OK;
   }
 
+  /** @this {Match} */
   _surrenderField(f) {
     this._resume();
     this._closeSurrenderVote(f);

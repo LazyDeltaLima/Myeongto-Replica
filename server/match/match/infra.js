@@ -4,16 +4,21 @@
 // field and deploy map, and the guarded meta dispatch (dispatch, dispatchItem → effectsMeta.js EffectDispatcher).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { buildDeployMap, tileKey } from '../board.js';
 
 export class MatchInfra {
-  /** Run a callback with error isolation, then flush the views. */
+  /**
+   * Run a callback with error isolation, then flush the views.
+   * @this {Match}
+   */
   guard(fn) {
     if (this.disposed) return;
     try { fn(); } catch (e) { this.reportError('guard', e); }
     try { this.flush(); } catch (e) { this.reportError('flush', e); }
   }
 
+  /** @this {Match} */
   reportError(label, e) {
     this.errorCount++;
     const msg = `${label}: ${e && e.message ? e.message : e}`;
@@ -21,7 +26,10 @@ export class MatchInfra {
     this.log.error?.(`[match ${this.roomCode}] ${msg}`, e && e.stack ? String(e.stack).split('\n').slice(1, 4).join(' | ') : '');
   }
 
-  /** Schedule a guarded callback (tracked for dispose). */
+  /**
+   * Schedule a guarded callback (tracked for dispose).
+   * @this {Match}
+   */
   later(ms, fn) {
     if (this.disposed) return null;
     let h = null;
@@ -34,17 +42,20 @@ export class MatchInfra {
     return h;
   }
 
+  /** @this {Match} */
   cancel(h) {
     if (!h) return;
     this.sched.clearTimeout(h);
     this._timers.delete(h);
   }
 
+  /** @this {Match} */
   scaled(ms) { return Math.max(0, Math.round(ms * this.timerScale)); }
 
   /**
    * Set the phase deadline (seconds; null/0 ⇒ untimed) and its timeout callback. `silent`: the timer runs but no
    * deadline is published (m.public.deadline 0 ⇒ no countdown) — the fixed presentation steps of a solo match.
+   * @this {Match}
    */
   setDeadline(seconds, fn, { silent = false } = {}) {
     this.cancel(this._phaseTimer);
@@ -65,11 +76,16 @@ export class MatchInfra {
    */
   get soloUntimed() { return this.isSolo || this.loneHuman; }
 
+  /** @this {Match} */
   nextUid() { return ++this.uidSeq; }
 
+  /** @this {Match} */
   alivePlayers() { return this.order.filter((p) => p.alive); }
 
-  /** Whether any chess of a bond is in this match's pool (a 驰援 card of a fully banned bond is never offered). */
+  /**
+   * Whether any chess of a bond is in this match's pool (a 驰援 card of a fully banned bond is never offered).
+   * @this {Match}
+   */
   bondInPool(bondId) {
     for (const id of this.pool.entries.keys()) {
       const c = this.gd.chess(id);
@@ -82,10 +98,12 @@ export class MatchInfra {
    * Whether a bond can matter in this match: not in the mode's static inactive list (标准: 拉特兰 / 阿戈尔 / 卡西米尔 /
    * 奥术 … never activate, research 02 §2.1) and still with chess in the pool. 机变 tactic cards whose every target bond
    * is dead are not offered (choices.js).
+   * @this {Match}
    */
   bondLive(bondId) {
     return !this.gd.modeInactiveBonds.has(bondId) && this.bondInPool(bondId);
   }
+  /** @this {Match} */
   humans() { return this.order.filter((p) => !p.isBot && !p.left); }
 
   /**
@@ -93,6 +111,7 @@ export class MatchInfra {
    * before the players' round start) and its side — 'L', or 'R' for the second player of a pair (the mirrored right
    * half) — or null outside a boss round / for a player without a field.
    * @returns {{ wave: object, players: string[], side: 'L'|'R' } | null}
+   * @this {Match}
    */
   bossGroupOf(ps) {
     if (!ps || !Array.isArray(this.bossWaves)) return null;
@@ -105,6 +124,7 @@ export class MatchInfra {
    * ROUND_START on — the pairing exists before PlayerState.startRound's recompute) the player's half of the boss field,
    * 'bossL' or 'bossR' (bossGroupOf); otherwise its own normal board. User playtest #5 item 7.
    * @returns {'normal'|'bossL'|'bossR'}
+   * @this {Match}
    */
   deployFieldOf(ps) {
     const g = this.bossGroupOf(ps);
@@ -114,6 +134,7 @@ export class MatchInfra {
   /**
    * A fresh deploy map of a player on `field` (default: the field it deploys on now) under its device / tile overrides.
    * Pure — no PlayerState cache is touched (the read-only checker invariants.js uses it; PlayerState.deployMap caches).
+   * @this {Match}
    */
   deployMapFor(ps, field = this.deployFieldOf(ps)) {
     const map = buildDeployMap(this.stage, { deviceOverrides: ps.deviceOverrides, tileOverrides: ps.tileOverrides, field });
@@ -122,10 +143,12 @@ export class MatchInfra {
     return map;
   }
 
+  /** @this {Match} */
   dispatch(ps, hook, ev = {}, opts = {}) {
     try { return this.dispatcher.dispatch(ps, hook, ev, opts); } catch (e) { this.reportError(`dispatch ${hook}`, e); return ev; }
   }
 
+  /** @this {Match} */
   dispatchItem(ps, item, holder, hook, ev) {
     try { return this.dispatcher.dispatchItem(ps, item, holder, hook, ev); } catch (e) { this.reportError(`dispatchItem ${hook}`, e); return ev; }
   }

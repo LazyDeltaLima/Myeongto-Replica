@@ -5,6 +5,7 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
+/** @import { PlayerState } from '../PlayerState.js' */
 import { ERR } from '../../../shared/constants.js';
 import { tileKey, inField, parseDir } from '../board.js';
 import { offsetTile } from '../../sim/dir.js';
@@ -18,6 +19,7 @@ export class PlayerItems {
    * oldest); the replaced item is destroyed. A `replaceUid` that is not one of the target's equipped items is refused.
    * A consume-on-equip item replaces the same way before it resolves (GitHub #263): the carrier keeps a free slot, and a
    * target its effect refuses (博士投影 on an elite) gets the picked item back — nothing is destroyed.
+   * @this {PlayerState}
    */
   equip(itemUid, targetUid, replaceUid = null) {
     const g = this._gate(); if (g) return g;
@@ -79,6 +81,7 @@ export class PlayerItems {
   /**
    * Attach an item. With both slots used the item `replaceUid` names (the player's pick) is replaced, else the oldest;
    * the replaced item is destroyed.
+   * @this {PlayerState}
    */
   _attach(target, item, replaceUid = null) {
     target.items = target.items || [];
@@ -94,6 +97,7 @@ export class PlayerItems {
   /**
    * A consume-on-equip item on a full carrier: take the item `replaceUid` names (else the oldest) off `target` — not yet
    * destroyed — and return { piece, idx } (null while a slot is free).
+   * @this {PlayerState}
    */
   _takeReplaced(target, replaceUid = null) {
     target.items = target.items || [];
@@ -104,7 +108,10 @@ export class PlayerItems {
     return { piece, idx };
   }
 
-  /** g.art {itemUid, row, col, dir?}: the Art's range grid is rotated by `dir` (absent ⇒ RIGHT). */
+  /**
+   * g.art {itemUid, row, col, dir?}: the Art's range grid is rotated by `dir` (absent ⇒ RIGHT).
+   * @this {PlayerState}
+   */
   useArt(itemUid, row, col, dir) {
     const g = this._gate(); if (g) return g;
     const d = parseDir(dir);
@@ -139,6 +146,7 @@ export class PlayerItems {
   /**
    * g.destroy {uid}: an item in the hand / temp (Arts included). Equipped items are locked (research 04 §2 / addendum:
    * they leave the operator only on promotion, merge or sale); replacing one is g.equip's `replaceUid`.
+   * @this {PlayerState}
    */
   destroy(uid) {
     const g = this._gate(); if (g) return g;

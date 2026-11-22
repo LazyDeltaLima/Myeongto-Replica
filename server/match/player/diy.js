@@ -33,6 +33,7 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
+/** @import { PlayerState } from '../PlayerState.js' */
 import { KITTED_CHARS } from '../../sim/content/kits/index.js';
 import { checkDiyPicks } from '../../../shared/protocol.js';
 import { diyRecord, diySlot, diyTokenOwner } from '../../../shared/diy.js';
@@ -141,6 +142,7 @@ export class PlayerDiy {
    * @param {{ kitted?: Iterable<string> }} [opts] the operators with a kit (default: the registry's KITTED_CHARS; tests may
    *   widen it to slot an operator whose kit is still being written)
    * @returns {boolean} false when the picks are malformed (nothing changes) or the player is a bot
+   * @this {PlayerState}
    */
   setDiy(picks, { kitted = KITTED_CHARS } = {}) {
     if (this.isBot) return false;
@@ -176,6 +178,7 @@ export class PlayerDiy {
    * The stock of each slotted DIY piece (see the header), once the match has drawn its bans: `off` = the bonds switched
    * off this match (drawn + the mode's static list). A piece all of whose bonds are off gets none (`diyBanned`).
    * @param {Set<string>} off
+   * @this {PlayerState}
    */
   initDiyStock(off = new Set()) {
     this.diyStock = new DiyStock();
@@ -193,7 +196,10 @@ export class PlayerDiy {
     this.diyBanned = Object.freeze(banned);
   }
 
-  /** The copy accounting of base chess `baseId` for this player: its own stock for a slotted DIY slot, else the shared pool. */
+  /**
+   * The copy accounting of base chess `baseId` for this player: its own stock for a slotted DIY slot, else the shared pool.
+   * @this {PlayerState}
+   */
   poolOf(baseId) {
     return this.diyStock && this.diyStock.has(baseId) ? this.diyStock : this.m.pool;
   }
@@ -202,6 +208,7 @@ export class PlayerDiy {
    * The stock entries this player's shop draws from now ([baseId, entry] with copies left and the 调度中心 at the slot's
    * shopLevel), or null (none — the shared pool's roll alone, exactly as without picks).
    * @returns {Array<[string, { cap: number, left: number, tier: number, shopLevel: number }]> | null}
+   * @this {PlayerState}
    */
   diyRollEntries() {
     if (!this.diyStock || !this.diyStock.entries.size) return null;
@@ -214,6 +221,7 @@ export class PlayerDiy {
    * The stock entries a random grant of this player draws besides the shared pool (see the header): every slotted piece
    * with copies left, whatever the 调度中心 level (the roll's own tier rules apply), or null (none).
    * @returns {Array<[string, { cap: number, left: number, tier: number, shopLevel: number }]> | null}
+   * @this {PlayerState}
    */
   diyStockEntries() {
     if (!this.diyStock || !this.diyStock.entries.size) return null;
@@ -225,6 +233,7 @@ export class PlayerDiy {
    * The 自选 pick a chess id (normal or elite) of this player fields — its slot's — or null (not a slotted slot).
    * @param {string} id
    * @returns {{ charId: string, skillIndex: number, uniEquipId: string|null } | null}
+   * @this {PlayerState}
    */
   diyPickOf(id) {
     const rec = this._diyRecords && typeof id === 'string' ? this._diyRecords.get(id) : null;

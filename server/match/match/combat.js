@@ -3,6 +3,7 @@
 // (server-run streaming, client-side combat), the per-field results and the sim-error log, then 联防 or SETTLE.
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { withBounties, markBounties } from '../waves.js';
@@ -13,7 +14,10 @@ import { previewPlayer } from '../preview.js';
 import { simRuleFlags } from '../../../shared/ruleset.js';
 
 export class MatchCombat {
-  /** Construct a battle; a constructor failure yields a finished stand-in (clean result) and is logged. */
+  /**
+   * Construct a battle; a constructor failure yields a finished stand-in (clean result) and is logged.
+   * @this {Match}
+   */
   newBattle(opts, { preview = false } = {}) {
     // `season`: the battle plays the match's season's rule switches (Battle `season`, shared/seasons.js)
     const full = { data: this.ds, content: this.battleContent, logger: this.log, season: this.season, ...opts,
@@ -29,6 +33,7 @@ export class MatchCombat {
   /**
    * Spawn list of a field after the onBattleStart handlers (which may edit `ev.spawns`): malformed entries are dropped
    * and a kill bounty is copied into `mods.bountyCoins`, so a leaked bounty enemy keeps paying its killer in 联防.
+   * @this {Match}
    */
   _sanitizeSpawns(list, ownerPlayerId = null) {
     const out = [];
@@ -43,9 +48,13 @@ export class MatchCombat {
     return out;
   }
 
+  /** @this {Match} */
   _normalBattle(ps) { return this.newBattle(this._normalOpts(ps)); }
 
-  /** Battle options of a player's normal field (after the onBattleStart handlers). */
+  /**
+   * Battle options of a player's normal field (after the onBattleStart handlers).
+   * @this {Match}
+   */
   _normalOpts(ps, { preview = false, board = ps.board } = {}) {
     const wave = preview ? structuredClone(this.wave) : this.wave;
     if (preview) ps = previewPlayer(ps, board);
@@ -76,6 +85,7 @@ export class MatchCombat {
     };
   }
 
+  /** @this {Match} */
   startCombat() {
     if (this.clientCombat) { this._startCombatClient(); return; }
     this.phase = PHASE.COMBAT;
@@ -90,6 +100,7 @@ export class MatchCombat {
     this.runner.start();
   }
 
+  /** @this {Match} */
   _startCombatClient() {
     this.phase = PHASE.COMBAT;
     const alive = this.alivePlayers();
@@ -120,7 +131,10 @@ export class MatchCombat {
     this.markPublic();
   }
 
-  /** Aggregate a finished field's content/engine errors (battle.errors: unique records) for diagnostics. */
+  /**
+   * Aggregate a finished field's content/engine errors (battle.errors: unique records) for diagnostics.
+   * @this {Match}
+   */
   _collectSimErrors(f, res) {
     this.simErrors += Number(res && res.errors) || 0;
     const list = f && f.battle && Array.isArray(f.battle.errors) ? f.battle.errors : [];
@@ -138,9 +152,13 @@ export class MatchCombat {
     }
   }
 
+  /** @this {Match} */
   combatDone(runner) { this._finishCombat((f) => runner.resultOf(f)); }
 
-  /** Every normal field has its result: record them, then 联防 or SETTLE. */
+  /**
+   * Every normal field has its result: record them, then 联防 or SETTLE.
+   * @this {Match}
+   */
   _finishCombat(resultOf) {
     if (this.phase !== PHASE.COMBAT) return;
     this._stopClientCombat();
@@ -166,6 +184,7 @@ export class MatchCombat {
    * After the COMBAT_END pause: 联防 or SETTLE. The plan is made now, from the players still in — a player who quit
    * during the last field or the pause (中途退出 = eliminated, board cleared) is neither a helper nor a leaker whose
    * enemies re-enter.
+   * @this {Match}
    */
   _afterCombat() {
     if (this.phase !== PHASE.COMBAT) return;

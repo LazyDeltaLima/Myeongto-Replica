@@ -6,6 +6,7 @@
 // round start).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { buildNormalWave, buildBossWave } from '../waves.js';
 import { pairPlayers } from '../finalAssault.js';
@@ -18,6 +19,7 @@ import { seasonFeature } from '../../../shared/seasons.js';
 export const INFO_REROLL_MIN_MS = 1000;
 
 export class MatchPhases {
+  /** @this {Match} */
   enterInfoCheck() {
     this.phase = PHASE.INFO_CHECK;
     this.infoAt = this.sched.now();
@@ -43,6 +45,7 @@ export class MatchPhases {
    * and the banned bonds are all drawn again); otherwise the strategy draft starts once every seat is ready, or when the
    * co-op INFO_CHECK_SECONDS run out (`timeout`). A single human decides alone (solo, or a 同盟 room with AI teammates
    * only). Spectators hold no seat.
+   * @this {Match}
    */
   maybeEndInfo(timeout = false) {
     if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome) return;
@@ -65,6 +68,7 @@ export class MatchPhases {
    * so one held button cannot spin up matches back to back. infoRerollers keeps the voters in order: the first one still
    * voting is the proposer the briefing names (m.public.rerollBy). A 休闲 convenience (shared/ruleset.js infoReroll,
    * maintainer decision 2026-10-15): the classic ruleset refuses the vote (BAD_TARGET; its briefing shows no button).
+   * @this {Match}
    */
   voteReroll(ps, cancel = false) {
     if (!this.ruleset.options.infoReroll) return fail(ERR.BAD_TARGET, 'the ruleset has no reroll vote');
@@ -94,6 +98,7 @@ export class MatchPhases {
    * it (nothing has drawn from the pool before the strategy draft; the 自选 stock likewise: in 规程 it is empty until
    * 确定自选编队). Picked again as often as the player likes while the seat is not ready (准备就绪 is final); an AI seat
    * and a seat under AI 托管 are ready at once and keep the group shown. docs/rules/sim.md 「1인 규정 핵심 맹약 두 묶음」.
+   * @this {Match}
    */
   pickBondGroup(ps, idx) {
     const g = this.bondGroups;
@@ -116,7 +121,10 @@ export class MatchPhases {
     return OK;
   }
 
-  /** The first seat still voting 重新抽取 (m.public.rerollBy), or null. */
+  /**
+   * The first seat still voting 重新抽取 (m.public.rerollBy), or null.
+   * @this {Match}
+   */
   rerollProposer() {
     for (const id of this.infoRerollers || []) {
       const p = this.players.get(id);
@@ -129,6 +137,7 @@ export class MatchPhases {
    * The vote ended the match before its first round (this.infoOutcome 'reroll'): no m.result — the last
    * m.public carries `infoOutcome`, then onEnd({ reason }) hands the room back to the lobby, which starts the new
    * match for a reroll (server/lobby.js onMatchEnd). Nothing was played: no [stats] line, no replay.
+   * @this {Match}
    */
   _endInfo() {
     if (this.ended || this.disposed || this.phase !== PHASE.INFO_CHECK) return;
@@ -150,6 +159,7 @@ export class MatchPhases {
    * turn that runs out takes the strategy the player has highlighted (g.bandFocus) while it is free, else the default
    * (timeoutBand). The draft ends with the last pick: the 编队确认 window after it (enterDraftConfirm) is switched off
    * (maintainer decision 2026-10-13, startDraftTurn). Solo, and any single-human match (soloUntimed): untimed. Solo also keeps seat order and has no skip.
+   * @this {Match}
    */
   enterBandDraft() {
     if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome) return;
@@ -178,6 +188,7 @@ export class MatchPhases {
    * (MatchSpDraft.enterSpDraft).
    * @param {string[]} order playerIds in drawn order
    * @returns {string[]}
+   * @this {Match}
    */
   humansFirst(order) {
     if (!this.aiPicksLast) return order;
@@ -185,15 +196,20 @@ export class MatchPhases {
     return [...order.filter((pid) => !bot(pid)), ...order.filter(bot)];
   }
 
+  /** @this {Match} */
   draftTurn() {
     const d = this.draft;
     if (!d) return null;
     return d.order[d.idx] ?? null;
   }
 
-  /** Real ms of one strategy-draft turn (BAND_TURN_SECONDS × timerScale). */
+  /**
+   * Real ms of one strategy-draft turn (BAND_TURN_SECONDS × timerScale).
+   * @this {Match}
+   */
   bandTurnMs() { return this.scaled(BAND_TURN_SECONDS * 1000); }
 
+  /** @this {Match} */
   startDraftTurn() {
     const d = this.draft;
     this.cancel(this._turnTimer);
@@ -229,7 +245,10 @@ export class MatchPhases {
     this.markPublic();
   }
 
-  /** An AI seat's (or an AI 托管 seat's) turn: it picks at once (user playtest #4 item 4 — nobody waits on the AI). */
+  /**
+   * An AI seat's (or an AI 托管 seat's) turn: it picks at once (user playtest #4 item 4 — nobody waits on the AI).
+   * @this {Match}
+   */
   scheduleBandBot() {
     const token = this._turnToken;
     this.later(0, () => {
@@ -248,6 +267,7 @@ export class MatchPhases {
    * Whether `bandId` was already picked by another player of this draft. Research 09 §5 / DESIGN §14 corrections:
    * the strategy draft marks a teammate's pick as 队友已选 and it cannot be chosen again (co-op). The automatic
    * assignments — a turn that runs out and a departing seat — obey the same rule: see timeoutBand / defaultBand.
+   * @this {Match}
    */
   bandTaken(bandId, playerId) {
     const picks = this.draft?.picks || {};
@@ -262,6 +282,7 @@ export class MatchPhases {
    * client shows the same choice: public/js/screens/bandDraft.js timeoutBand). Solo drafts have no teammates, so it is
    * always the default.
    * @param {string} playerId
+   * @this {Match}
    */
   defaultBand(playerId) {
     const def = this.gd.bandDraft.timeoutBandId;
@@ -274,6 +295,7 @@ export class MatchPhases {
    * screen (g.bandFocus — the detail pane's band, the one 确认选择 would take) while it is allowed and no teammate holds
    * it, else defaultBand.
    * @param {string} playerId
+   * @this {Match}
    */
   timeoutBand(playerId) {
     const f = this.draft && this.draft.focus instanceof Map ? this.draft.focus.get(playerId) : null;
@@ -284,6 +306,7 @@ export class MatchPhases {
   /**
    * g.bandFocus { bandId? }: the strategy the player highlights in the draft screen (any time before its pick; also
    * while waiting for its turn). A missing / null bandId clears it. Only a timed-out turn reads it (timeoutBand).
+   * @this {Match}
    */
   bandFocus(ps, bandId) {
     if (this.phase !== PHASE.BAND_DRAFT || !this.draft) return fail(ERR.WRONG_PHASE);
@@ -296,6 +319,7 @@ export class MatchPhases {
     return OK;
   }
 
+  /** @this {Match} */
   pickBand(ps, bandId) {
     if (this.phase !== PHASE.BAND_DRAFT || !this.draft) return fail(ERR.WRONG_PHASE);
     if (this.draft.picks[ps.playerId]) return fail(ERR.ALREADY);
@@ -306,6 +330,7 @@ export class MatchPhases {
     return OK;
   }
 
+  /** @this {Match} */
   _applyBand(ps, bandId, { dedupe = false } = {}) {
     const d = this.draft;
     if (!d || !ps || d.picks[ps.playerId]) return;
@@ -321,6 +346,7 @@ export class MatchPhases {
     this.startDraftTurn();
   }
 
+  /** @this {Match} */
   skipBand(ps) {
     if (this.phase !== PHASE.BAND_DRAFT || !this.draft) return fail(ERR.WRONG_PHASE);
     const d = this.draft;
@@ -351,6 +377,7 @@ export class MatchPhases {
    * BAND_DRAFT; the client applies the strategy's linked 맹약 preset when the pick lands). It ends at its deadline, or as
    * soon as every awaited seat — a connected human not under AI control — has sent g.draftReady (maybeEndDraftConfirm).
    * m.public.deadline is its end; m.public.draft.confirm { deadline, ready, seconds }.
+   * @this {Match}
    */
   enterDraftConfirm() {
     const d = this.draft;
@@ -367,12 +394,18 @@ export class MatchPhases {
     this.maybeEndDraftConfirm();
   }
 
-  /** The seats 编队确认 waits for: connected humans still in, not under AI control (AI 托管 / an AI seat). */
+  /**
+   * The seats 编队确认 waits for: connected humans still in, not under AI control (AI 托管 / an AI seat).
+   * @this {Match}
+   */
   draftConfirmAwaited() {
     return this.order.filter((p) => !p.botControlled && p.connected);
   }
 
-  /** g.draftReady: the seat is done with 编队确认. */
+  /**
+   * g.draftReady: the seat is done with 编队确认.
+   * @this {Match}
+   */
   draftReady(ps) {
     const d = this.draft;
     if (this.phase !== PHASE.BAND_DRAFT || !d || !d.confirm) return fail(ERR.WRONG_PHASE);
@@ -383,7 +416,10 @@ export class MatchPhases {
     return OK;
   }
 
-  /** Ends 编队确认 once every awaited seat is ready (also re-checked when a seat leaves, drops or goes AI 托管). */
+  /**
+   * Ends 编队确认 once every awaited seat is ready (also re-checked when a seat leaves, drops or goes AI 托管).
+   * @this {Match}
+   */
   maybeEndDraftConfirm() {
     const d = this.draft;
     if (this.phase !== PHASE.BAND_DRAFT || !d || !d.confirm || this.ended) return;
@@ -392,6 +428,7 @@ export class MatchPhases {
     this.later(0, () => { if (token === this._turnToken) this.finishBandDraft(false); });
   }
 
+  /** @this {Match} */
   finishBandDraft(timeout) {
     if (this.phase !== PHASE.BAND_DRAFT) return;
     ++this._turnToken;
@@ -413,6 +450,7 @@ export class MatchPhases {
     else this.enterBattleCheck();
   }
 
+  /** @this {Match} */
   enterBattleCheck() {
     this.phase = PHASE.BATTLE_CHECK;
     // a custom 「共享」 match: one team LP from round 1 (the starting LPs added up), as the Final Assault's
@@ -424,6 +462,7 @@ export class MatchPhases {
     this.markPublic();
   }
 
+  /** @this {Match} */
   startRound(r) {
     this.phase = PHASE.ROUND_START;
     this.round = r;
@@ -461,7 +500,10 @@ export class MatchPhases {
     for (const ps of this._viewers()) this._followScout(ps);
   }
 
-  /** The boss round's fields (the alive players' pairs, drawn for this wave) and their templates, generated for the prep preview. */
+  /**
+   * The boss round's fields (the alive players' pairs, drawn for this wave) and their templates, generated for the prep preview.
+   * @this {Match}
+   */
   _planBossWaves() {
     const r = this.round;
     const bossId = r === this.gd.hiddenRound && r !== this.gd.bossRound ? this.hiddenBossId : this.bossId;
@@ -471,6 +513,7 @@ export class MatchPhases {
     }));
   }
 
+  /** @this {Match} */
   afterRoundStart() {
     if (this.gd.spRounds().includes(this.round)) this.enterSpDraft();
     else this.enterPrep();

@@ -2,6 +2,7 @@
 // directional), pull, the raw mover displace and who can be moved at all.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import {
   COLS, PUSH_TILES, PUSH_TILES_EFFECT, PULL_WEAK_SHARE, PULL_CRAWL, PULL_ORIGIN, PULL_STOP_RADIUS, PUSH_DIRECTIONAL_MIN_DIST,
   PUSH_UNBALANCE, PULL_UNBALANCE, PULL_UNBALANCE_WEAK, UNBALANCE_MIN,
@@ -45,6 +46,7 @@ export class BattleDisplacement {
   /**
    * 受力等级 of enemy `e` under a push / pull of 力度 `force` (微小力 −1, 小力 0, 中力 1, 较大力 2, 大力 3, 大力+1 4, 特大力 5):
    * force − its current 重量等级 (massLevel incl. 失重) — PRTS 游戏数据基础 §重量公式, 推与拉 (user playtest #6 item 14).
+   * @this {Battle}
    */
   forceLevel(e, force) {
     return Math.round(fin(force, 0)) - (e && e.s ? e.s.massLevel : 0);
@@ -67,6 +69,7 @@ export class BattleDisplacement {
    * the push nodes pass true (`Nodes.Knockback`, `KnockBackWithDirection`; `KnockBackWithCharacterDirection`
    * passes `!_dontChangeFaceByDirection`, false by default). [ASSUMED] 薄绿's inward push uses the same node (PRTS calls it
    * a push), so it faces away from her. Returns the tiles moved.
+   * @this {Battle}
    */
   push(e, force, { from = null, dir = null, fixed = false, fixedAngle = false, inward = false, effect = false } = {}) {
     if (!this._displaceable(e)) { this._staticForce(e, force, false); return 0; }
@@ -107,6 +110,7 @@ export class BattleDisplacement {
    * the official 拉力起点 in front of an operator. The pulled enemy keeps its facing through the slide (displace fx
    * `face: 'keep'`): the client's `Nodes.DragTowardSource.Execute` passes changeFaceByDirection false, and the
    * hook pull (`Enemy.BeginPull` / `StillPull` / `EndPull`) never turns it. Returns the tiles moved.
+   * @this {Battle}
    */
   pull(e, force, { to, center = null, stop = PULL_STOP_RADIUS } = {}) {
     if (!to) return 0;
@@ -136,12 +140,18 @@ export class BattleDisplacement {
     return moved;
   }
 
-  /** Official distance (tiles) a push of 力度 `force` would move `e` on open ground (0 when it cannot be displaced). */
+  /**
+   * Official distance (tiles) a push of 力度 `force` would move `e` on open ground (0 when it cannot be displaced).
+   * @this {Battle}
+   */
   pushDistance(e, force, { effect = false } = {}) {
     return this._displaceable(e) ? pushTiles(this.forceLevel(e, force), effect) : 0;
   }
 
-  /** Pull `e` "至面前" of ally `unit` (拉力起点 PULL_ORIGIN tiles ahead along its direction, 急停 around its centre). */
+  /**
+   * Pull `e` "至面前" of ally `unit` (拉力起点 PULL_ORIGIN tiles ahead along its direction, 急停 around its centre).
+   * @this {Battle}
+   */
   pullToFront(e, unit, force) {
     if (!unit) return 0;
     const f = Array.isArray(unit.fwd) ? unit.fwd : [0, 1];
@@ -155,6 +165,7 @@ export class BattleDisplacement {
    * STATIC_BODIES; player report after 0.1.0, "飞机可以被薄绿的技能拉走"). A skill that reaches it still hits it (its targeting
    * is the skill's own: 锏 S3, 薄绿, the 钩索师 …); only the movement is 0, so distance-based effects (drag damage, 见行者 S2's
    * wall stun) come to nothing — but a force > 0 still puts it in the 失衡 state for its 0.1 s floor (_staticForce).
+   * @this {Battle}
    */
   _displaceable(e) {
     return !!(e && e.alive && e.side === 'enemy' && !e.isBoss && !e.s.flags.noDisplace && !(e.def && e.def.staticBody));
@@ -166,6 +177,7 @@ export class BattleDisplacement {
    * 「0.1 秒保底持续时间」): no movement, the state as long as the force acts — a push's is instant (推与拉 「作用时间：瞬间」) so
    * the UNBALANCE_MIN floor, a pull's is its window (pullUnbalance: 1 s, 0.5 s below −1); a force > 0 (受力等级 ≥ −2) only.
    * Leaders (the boss pool) stay out.
+   * @this {Battle}
    */
   _staticForce(e, force, pull = false) {
     if (!(e && e.alive && e.side === 'enemy' && !e.isBoss && !e.s.flags.noDisplace && e.def && e.def.staticBody)) return;
@@ -182,6 +194,7 @@ export class BattleDisplacement {
    * ends with its time, or at once with 浮空 (术语释义 浮空 「触发浮空时清除受到的推/拉力…无法陷入失衡」, ai.js), a 重生 or a route
    * APPEAR (forced state switches). No skill meanwhile either (失衡免疫 「…使用技能」): content skills, blinks and scripted moves
    * check `enemies/helpers.js unbalancedNow` (docs/SIM.md lists what deliberately keeps running).
+   * @this {Battle}
    */
   _unbalance(e, dur) {
     if (!(dur > 0) || !e || !e.alive) return;
@@ -198,6 +211,7 @@ export class BattleDisplacement {
    * ⇒ no movement (_displaceable). The tiles it may cross follow its movement (`motion`): a hovering enemy walks the
    * ground, so it stays on ground-passable tiles. `face` (render only): 'push' — the view faces against its travel,
    * 'keep' — it keeps its facing; none — it faces its travel.
+   * @this {Battle}
    */
   displace(e, dir, distance, { dur: durOpt = 0, face = null } = {}) {
     if (!this._displaceable(e) || !dir) return 0;

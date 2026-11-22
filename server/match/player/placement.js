@@ -4,6 +4,7 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
+/** @import { PlayerState } from '../PlayerState.js' */
 import { ERR } from '../../../shared/constants.js';
 import { msg, dn } from '../../../shared/i18n.js';
 import { tileKey, parseKey, inField, canPlace, placeClass, freeSlot, pieceDir, parseDir, ownerRangeKeys, ownerBesideKeys } from '../board.js';
@@ -16,6 +17,7 @@ export class PlayerPlacement {
    * the 装备区, `to.area` 'temp' idx 0…4 — bagMode). `dir`
    * (UP|RIGHT|DOWN|LEFT, absent ⇒ RIGHT; `to.dir` is read when the top-level one is absent) is the facing of a piece
    * moved onto the board — onto its own tile it re-orients the piece in place.
+   * @this {PlayerState}
    */
   move(uid, to, dir) {
     const g = this._gate(); if (g) return g;
@@ -49,6 +51,7 @@ export class PlayerPlacement {
     return fail(ERR.BAD_TARGET);
   }
 
+  /** @this {PlayerState} */
   _placementOf(piece) {
     const rec = piece.kind === 'token' ? this.gd.token(piece.id) : this.gd.chess(piece.id);
     // a melee chess whose trait reads 「可以放置于远程位」 may use a 高台, whatever its module (shared/highGround.js); a
@@ -62,6 +65,7 @@ export class PlayerPlacement {
    * its owner's attack range (summonRange); for one marked `ownerRangeOutside` (凯尔希·思衡托's 战术锚点), a tile outside it
    * (summonExcluded). `owner` = the owner's position after the move being checked ({ key, piece, dir }: a summon swapped
    * with its own owner).
+   * @this {PlayerState}
    */
   _legal(piece, r, c, owner = null) {
     if (!canPlace(this.deployMap(), this._placementOf(piece), r, c)) return false;
@@ -82,6 +86,7 @@ export class PlayerPlacement {
    * @param {any} piece
    * @param {{ key: string, piece: any, dir: string } | null} [owner] the owner's position to use instead of its current one
    * @returns {Set<string> | null}
+   * @this {PlayerState}
    */
   summonRange(piece, owner = null) {
     if (!piece || piece.kind !== 'token') return null;
@@ -103,20 +108,27 @@ export class PlayerPlacement {
    * @param {any} piece
    * @param {{ key: string, piece: any, dir: string } | null} [owner]
    * @returns {Set<string> | null}
+   * @this {PlayerState}
    */
   summonExcluded(piece, owner = null) {
     if (!piece || piece.kind !== 'token' || this.gd.token(piece.id)?.ownerRangeOutside !== true) return null;
     return this._ownerRangeOf(piece, owner);
   }
 
-  /** Where a summon piece's owner stands: `owner` if given, else its board tile; null when it is off the board. */
+  /**
+   * Where a summon piece's owner stands: `owner` if given, else its board tile; null when it is off the board.
+   * @this {PlayerState}
+   */
   _summonOwnerAt(piece, owner = null) {
     if (owner) return owner;
     for (const [key, p] of this.board) if (p.uid === piece.ownerUid && p.kind === 'chess') return { key, piece: p, dir: pieceDir(p) };
     return null;
   }
 
-  /** The owner's attack-range keys of a summon piece (summonRange / summonExcluded), or null when its owner is off the board. */
+  /**
+   * The owner's attack-range keys of a summon piece (summonRange / summonExcluded), or null when its owner is off the board.
+   * @this {PlayerState}
+   */
   _ownerRangeOf(piece, owner = null) {
     const at = this._summonOwnerAt(piece, owner);
     const chess = at && this.gd.chess(at.piece.id);
@@ -137,6 +149,7 @@ export class PlayerPlacement {
    * summon would need a free null slot (`_roomForOutOfRange`). A summon stack that does sit in temp when its prep
    * deadline arrives is still removed and comes back at the next round start (startRound → grantTokensFor,
    * "干员所属召唤物会于下一回合返还"). Returns the number taken off the board; a toast names them.
+   * @this {PlayerState}
    */
   _liftOutOfRange() {
     const back = [], gone = [], backOut = [], goneOut = [];
@@ -162,6 +175,7 @@ export class PlayerPlacement {
    * Whether every range-bound summon of `owner` that the range from (ownerKey, dir) leaves out can go back onto its
    * stack or into a free hand / temp slot (_reorient refuses otherwise: the player's own re-orientation never costs a
    * summon, like withdrawing one into a full hand gives HAND_FULL).
+   * @this {PlayerState}
    */
   _roomForOutOfRange(owner, ownerKey, dir) {
     const at = { key: ownerKey, piece: owner, dir };
@@ -176,6 +190,7 @@ export class PlayerPlacement {
     return needSlot.size <= [...this.hand, ...this.temp].filter((p) => p == null).length;
   }
 
+  /** @this {PlayerState} */
   _moveChessToBoard(loc, r, c, dir = 'RIGHT') {
     const piece = loc.piece;
     if (!inField(r, c) || !this._legal(piece, r, c)) return fail(ERR.BAD_TILE);
@@ -226,6 +241,7 @@ export class PlayerPlacement {
    * In-place re-orientation (g.move onto the piece's own tile with a new direction). An owner's range-bound summons the
    * new range leaves out go back onto their stack (recompute → _liftOutOfRange); HAND_FULL (nothing changes) when one
    * of them would have nowhere to go.
+   * @this {PlayerState}
    */
   _reorient(piece, dir) {
     if (pieceDir(piece) === dir) return OK;
@@ -238,7 +254,10 @@ export class PlayerPlacement {
     return OK;
   }
 
-  /** Put a piece into the container slot described by `loc` (hand/temp idx), or anywhere free. */
+  /**
+   * Put a piece into the container slot described by `loc` (hand/temp idx), or anywhere free.
+   * @this {PlayerState}
+   */
   _putBack(loc, piece) {
     if (loc.area === 'hand' && this.hand[loc.idx] == null) { this.hand[loc.idx] = piece; return true; }
     if (loc.area === 'temp' && this.temp[loc.idx] == null) { this._putTemp(loc.idx, piece); return true; }
@@ -249,6 +268,7 @@ export class PlayerPlacement {
    * A board token goes back to the hand: merge into its owner's stack, else occupy a free slot. `allowTemp: false`
    * (the player's own withdrawal): a summon stack is a card, so with a full hand and no stack to join it is refused
    * like any other card (research 01 A1) instead of overflowing into temp.
+   * @this {PlayerState}
    */
   _returnToken(tok, preferLoc = null, { allowTemp = true } = {}) {
     const stack = [...this.hand, ...this.temp].find((p) => p && p.kind === 'token' && p.ownerUid === tok.ownerUid && p.id === tok.id);
@@ -258,6 +278,7 @@ export class PlayerPlacement {
     return !!this.stow(tok, { allowTemp });
   }
 
+  /** @this {PlayerState} */
   _moveTokenToBoard(loc, r, c, dir = 'RIGHT') {
     const piece = loc.piece;
     if (!inField(r, c)) return fail(ERR.BAD_TILE);
@@ -302,6 +323,7 @@ export class PlayerPlacement {
     return OK;
   }
 
+  /** @this {PlayerState} */
   _moveToHand(loc, idx) {
     const piece = loc.piece;
     const occ = this.hand[idx];
@@ -350,7 +372,10 @@ export class PlayerPlacement {
     return this._swapContainers(loc, idx);
   }
 
-  /** hand/temp → hand slot: move into an empty slot or swap with the occupant. */
+  /**
+   * hand/temp → hand slot: move into an empty slot or swap with the occupant.
+   * @this {PlayerState}
+   */
   _swapContainers(loc, idx) {
     const piece = loc.piece;
     const occ = this.hand[idx];

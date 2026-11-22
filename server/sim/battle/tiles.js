@@ -3,14 +3,21 @@
 // enemies' ground paths.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import { ROWS, COLS, DOWN_STATE } from '../constants.js';
 import { localOrder, localBefore } from '../dir.js';
 
 export class BattleTiles {
-  /** Toggle a ground obstacle (enemies re-read their flow field). `kind` 'block' (default, impassable) | 'crate'. */
+  /**
+   * Toggle a ground obstacle (enemies re-read their flow field). `kind` 'block' (default, impassable) | 'crate'.
+   * @this {Battle}
+   */
   setObstacle(r, c, on, kind = 'block') { this.grid.setObstacle(r, c, on, kind); }
 
-  /** Move an ally to another tile (keeps state); never onto a living unit or a knocked-out operator (downOn). */
+  /**
+   * Move an ally to another tile (keeps state); never onto a living unit or a knocked-out operator (downOn).
+   * @this {Battle}
+   */
   relocate(unit, r, c) {
     // only a living, deployed ally moves, and only onto an integer tile of this field (a dead unit left in _occ
     // would later "block" from a tile it no longer stands on once it redeploys at home)
@@ -53,6 +60,7 @@ export class BattleTiles {
    * clip played at the speed of its own length), seconds = the Born clip of a prefab with `_useRealBornTimeFromAnim` (the
    * clip the mode it lands in plays for Born). None while `flags.bornTime` is 0 (the harness's default). Without it the
    * move leaves the born state as it is.
+   * @this {Battle}
    */
   moveRedeploy(unit, r, c, { clearSp = false, inPlace = false, clip = null, born = null } = {}) {
     if (!this.relocate(unit, r, c)) return false;
@@ -94,6 +102,7 @@ export class BattleTiles {
    * 整备区 switch is CN-only; the EN in-battle switch node `AutoChessSwitchCharacter` rewrites each piece's board
    * position (`ChessInst.pos`) to its new tile].
    * `except(a)` (local patch): a waiting piece it returns true for reserves nothing (望's own used stones, kits/ops/op-wang.js).
+   * @this {Battle}
    */
   isReservedTile(r, c, except = null, src = null) {
     if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;
@@ -114,10 +123,14 @@ export class BattleTiles {
    * Hold (r, c) for `owner` while it stands elsewhere: isReservedTile refuses the tile to every automatic placement as
    * long as `owner` is alive and on the field — the marker a unit leaves on the tile it returns to (Mon3tr S3's 路标形态
    * 重构体, kits/ops/op-monstr.js). One tile per owner; `releaseTile(owner)` frees it.
+   * @this {Battle}
    */
   holdTile(owner, r, c) { this._heldTiles.set(owner, r * COLS + c); }
 
-  /** Free the tile `owner` holds (holdTile). */
+  /**
+   * Free the tile `owner` holds (holdTile).
+   * @this {Battle}
+   */
   releaseTile(owner) { this._heldTiles.delete(owner); }
 
   /**
@@ -125,6 +138,7 @@ export class BattleTiles {
    * 单位部署): "干员退场后…原地留下一个“倒地干员”…满足再部署条件时，移除场上的该倒地干员并自动部署至该位置" and "倒地干员所在
    * 地块视为可部署，但所有我方单位在此处的部署行为将被阻止" — its tile (`body`, _layBody) takes no other ally: `_deploy`
    * (initial deploys, redeploys, the 突袭 landing, summons), `spawnDevice` and `relocate` refuse it.
+   * @this {Battle}
    */
   downOn(r, c, except = null) {
     for (const a of this.allyUnits) {
@@ -138,6 +152,7 @@ export class BattleTiles {
   /**
    * The tile a withdrawn ally comes back on (redeploy, _checkRedeploys): a down operator's body tile (isDown) — where it
    * fell, or its home (_layBody) — else its home tile.
+   * @this {Battle}
    */
   restTile(u) {
     return this.isDown(u) ? (u.body ? [u.body[0], u.body[1]] : [u.tileR, u.tileC]) : [u.homeR, u.homeC];
@@ -155,6 +170,7 @@ export class BattleTiles {
    * `downAtHome` — 乌尔比安 moved by his S3 (kits/ops/chess_char_5_05-ulpia.js) — goes back to its home tile, its
    * deployment tile, wherever it fell (that home taken: where it fell, as above). Sets `u.body` (b.snap `down` carries
    * it); x / y / tileR / tileC keep where it fell, so the `kill` / `death` handlers (被击倒时 effects) still act there.
+   * @this {Battle}
    */
   _layBody(u) {
     const r = u.tileR, c = u.tileC, hr = u.homeR, hc = u.homeC;
@@ -171,6 +187,7 @@ export class BattleTiles {
    * blocker), then nearest to the unit (Chebyshev; the smaller sideways offset — in the unit's facing-RIGHT frame, so
    * its forward line — breaks ties), then the lowest local (row, col) offset (sim/dir.js localOrder: for a RIGHT-facing
    * unit exactly the lowest tile key). The choice turns with the unit's direction. null when none.
+   * @this {Battle}
    */
   findTacticalPoint(unit) {
     if (!unit) return null;
@@ -195,6 +212,7 @@ export class BattleTiles {
    * battles), leg by leg (start → MOVE/APPEAR checkpoints → end, clamped to the rect). R1–R3 spawn at the lower gate
    * only (research 08 §4.1), so the unused upper lane does not attract tactical points. Set of tile keys, cached per
    * grid version.
+   * @this {Battle}
    */
   groundPathTiles() {
     const ver = this.grid.version ?? 0;
@@ -236,6 +254,7 @@ export class BattleTiles {
    * knock-down count — but 不屈 rolls on it, and Touch's 超脱 counts a `dying` one: 史尔特尔's 余烬, 骑士戒律 + 竞技旗). The
    * client keeps its model on that tile knocked down with a redeploy countdown (b.snap `down`, render/units.js); summons,
    * devices and enemies simply leave.
+   * @this {Battle}
    */
   isDown(u) {
     return !!u && u.side === 'ally' && u.kind === 'op' && !u.alive && !u.removed && u.removeReason !== 'raid'
@@ -246,6 +265,7 @@ export class BattleTiles {
    * constants.js DOWN_STATE of a down operator: its timer runs, or it waits for its tile / the DP — the same checks as
    * _checkRedeploys (a living unit or another body on its rest tile). No ally may take the tile it lies on (downOn), so
    * WAIT_TILE is a safeguard only.
+   * @this {Battle}
    */
   _downState(u) {
     if (this.time + 1e-9 < u.respawnAt) return DOWN_STATE.COUNTING;

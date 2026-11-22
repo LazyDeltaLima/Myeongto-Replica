@@ -4,6 +4,7 @@
 // timeout).
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import { TICK, MAX_INTERNAL_ERRORS, MAX_HOOK_DEPTH } from '../constants.js';
 
 let hookSeq = 0;
@@ -14,6 +15,7 @@ export class BattleHooks {
   // =============================================================================================================
   // hook bus
 
+  /** @this {Battle} */
   on(name, fn, opts = {}) {
     if (typeof fn !== 'function') return null;
     const h = { name, fn, priority: Number(opts.priority) || 0, owner: opts.owner ?? null, seq: ++hookSeq, removed: false, once: !!opts.once };
@@ -24,6 +26,7 @@ export class BattleHooks {
     return h;
   }
 
+  /** @this {Battle} */
   off(nameOrHandle, fn) {
     if (nameOrHandle && typeof nameOrHandle === 'object') {
       const h = nameOrHandle;
@@ -42,7 +45,10 @@ export class BattleHooks {
     if (!list.length) delete this._hooks[nameOrHandle];
   }
 
-  /** Remove every hook and scheduled callback registered with `owner`. */
+  /**
+   * Remove every hook and scheduled callback registered with `owner`.
+   * @this {Battle}
+   */
   offOwner(owner) {
     for (const name of Object.keys(this._hooks)) {
       const list = this._hooks[name];
@@ -52,8 +58,10 @@ export class BattleHooks {
     for (const s of this._sched) if (s.owner === owner) s.cancelled = true;
   }
 
+  /** @this {Battle} */
   hasHook(name) { return !!this._hooks[name]; }
 
+  /** @this {Battle} */
   emit(name, ctx) {
     const list = this._hooks[name];
     if (!list) return ctx;
@@ -84,6 +92,7 @@ export class BattleHooks {
   /**
    * The open hook/callback frames (outermost first) — names the loop when the nesting guard trips, e.g.
    * "chain: hit(enemy_1430_lrrook) > damaged(chess_char_3_18_a) > hit(enemy_1430_lrrook) > … > damaged".
+   * @this {Battle}
    */
   _chain(last) {
     const id = (u) => (u && typeof u === 'object' ? (u.defId ?? u.name ?? '?') : u == null ? '' : String(u));
@@ -109,6 +118,7 @@ export class BattleHooks {
   // =============================================================================================================
   // scheduling
 
+  /** @this {Battle} */
   after(seconds, fn, opts = {}) {
     const s = { due: this.time + Math.max(0, Number(seconds) || 0), fn, owner: opts.owner ?? null, interval: 0, seq: ++schedSeq, cancelled: false, holdsBattle: !!opts.holdsBattle };
     s.cancel = () => { s.cancelled = true; };
@@ -116,6 +126,7 @@ export class BattleHooks {
     return s;
   }
 
+  /** @this {Battle} */
   every(seconds, fn, opts = {}) {
     const iv = Math.max(TICK, Number(seconds) || TICK);
     const s = { due: this.time + (opts.immediate ? 0 : iv), fn, owner: opts.owner ?? null, interval: iv, seq: ++schedSeq, cancelled: false, count: 0, holdsBattle: false };
@@ -124,6 +135,7 @@ export class BattleHooks {
     return s;
   }
 
+  /** @this {Battle} */
   _runScheduled() {
     if (!this._sched.length) return;
     const now = this.time + 1e-9;
@@ -151,7 +163,10 @@ export class BattleHooks {
   // =============================================================================================================
   // callback isolation and errors
 
-  /** Run a content callback (skill/buff/projectile/timer/install) isolated from errors; shares the hook depth guard. */
+  /**
+   * Run a content callback (skill/buff/projectile/timer/install) isolated from errors; shares the hook depth guard.
+   * @this {Battle}
+   */
   _safe(fn, label, owner = null) {
     if (this._emitDepth >= MAX_HOOK_DEPTH) {
       this._handlerError(`hookDepth:${label}`, owner, new Error(`callback nesting deeper than ${MAX_HOOK_DEPTH}; skipped — ${this._chain(label)}`));
@@ -164,6 +179,7 @@ export class BattleHooks {
     try { return fn(); } catch (e) { this._handlerError(label, owner, e); return undefined; } finally { this._emitDepth--; }
   }
 
+  /** @this {Battle} */
   _handlerError(label, owner, e, internal = false) {
     this.errorCount++;
     const who = owner && owner.defId ? owner.defId : (owner && owner.name) || '';
@@ -184,5 +200,6 @@ export class BattleHooks {
     }
   }
 
+  /** @this {Battle} */
   _internalError(label, e) { this._handlerError('internal:' + label, null, e, true); }
 }

@@ -6,6 +6,7 @@
 // `args` so the client can fill the localized config.broadcasts template.
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { DELAYS } from './common.js';
 import { wireMessage } from '../../../shared/i18n.js';
 import { PUBLIC_LIST_KEYS } from '../../../shared/protocol.js';
@@ -68,6 +69,7 @@ function fieldDelta(k, v, e, b) {
 }
 
 export class MatchMessaging {
+  /** @this {Match} */
   sendTo(playerId, msg) {
     if (this.disposed) return false;
     const ps = this.players.get(playerId) || this.spectators.get(playerId);
@@ -75,12 +77,16 @@ export class MatchMessaging {
     try { return !!this.sendFn(playerId, msg); } catch (e) { this.reportError('send', e); return false; }
   }
 
+  /** @this {Match} */
   broadcast(msg) {
     if (this.disposed) return;
     try { this.broadcastFn(msg); } catch (e) { this.reportError('broadcast', e); }
   }
 
-  /** @param {string|{ msgid: string, params?: object }} text a string or msg() (shared/i18n.js) */
+  /**
+   * @param {string|{ msgid: string, params?: object }} text a string or msg() (shared/i18n.js)
+   * @this {Match}
+   */
   toast(ps, kind, text) {
     if (!ps || ps.isBot || ps.left || !ps.connected) return;
     this.sendTo(ps.playerId, { t: 'm.toast', kind, ...wireMessage(text) });
@@ -90,6 +96,7 @@ export class MatchMessaging {
    * Broadcast ticker from config.broadcasts by type; `param` picks the variant (SHOP_LEVEL level, BOSS_HIT share…).
    * `own` (a msg()): the remake's own text in place of the broadcast's, keeping its type and priority (no `id`, so the
    * client translates the msgid — the 8-player BOSS_HIT lines name their scaled share).
+   * @this {Match}
    */
   tickerFor(type, args = [], { playerId = null, to = null, param = null, own = null } = {}) {
     const list = Array.isArray(this.gd.config.broadcasts) ? this.gd.config.broadcasts.filter((b) => b && b.type === type) : [];
@@ -109,6 +116,7 @@ export class MatchMessaging {
   /**
    * A ticker line of the remake's own (type CUSTOM). `priority`: the match-flow notices (隐秘核心已解锁, 联防阶段, a player out
    * or gone) take FLOW_TICKER_PRIORITY so the strip does not hold them behind shop-level lines; other lines 0.
+   * @this {Match}
    */
   tickerText(text, priority = 0) {
     if (!text) return;
@@ -116,10 +124,12 @@ export class MatchMessaging {
     this.broadcast({ t: 'm.ticker', ...w, text: w.text.slice(0, 200), id: null, type: 'CUSTOM', priority: Number(priority) || 0, playerId: null });
   }
 
+  /** @this {Match} */
   markPublic() { this._pubDirty = true; }
   /**
    * A player's state changed: its m.private and (throttled, deduplicated) m.public (level, board, bonds…) — in a boss
    * round's prep also its pair partner's m.private, which shows this board on its other half (bossMate, item 51).
+   * @this {Match}
    */
   markPrivate(ps) {
     if (!ps) return;
@@ -129,7 +139,10 @@ export class MatchMessaging {
     if (m) this._privDirty.add(m.mate);
   }
 
-  /** Send pending m.private (per player, only when changed) and m.public (throttled ≤ 10/s). */
+  /**
+   * Send pending m.private (per player, only when changed) and m.public (throttled ≤ 10/s).
+   * @this {Match}
+   */
   flush(forcePublic = false) {
     if (this.disposed) return;
     this.reconcileSurrenderVotes();
@@ -144,6 +157,7 @@ export class MatchMessaging {
     if (this._pubDirty || forcePublic) this._maybeSendPublic(forcePublic);
   }
 
+  /** @this {Match} */
   _sendPrivate(ps, force) {
     let view;
     try { view = ps.privateView(); } catch (e) { this.reportError('privateView', e); return; }
@@ -153,6 +167,7 @@ export class MatchMessaging {
     this.sendTo(ps.playerId, view);
   }
 
+  /** @this {Match} */
   _maybeSendPublic(force) {
     const now = this.sched.now();
     if (!force && now - this._lastPubAt < DELAYS.PUBLIC_THROTTLE) {
@@ -190,6 +205,7 @@ export class MatchMessaging {
    * whole m.public on its way back (platform.js _resync, after which the next broadcast is whole too; only b.snap frames
    * are ever skipped under backpressure, server/net.js); the match's final broadcast is whole as well — the lobby keeps
    * it for the result replay.
+   * @this {Match}
    */
   _publicDelta(view) {
     const top = entriesOf(view, 2, ALWAYS);
@@ -208,7 +224,10 @@ export class MatchMessaging {
     return { t: view.t, serverNow: view.serverNow, delta: true, ...changedOf(view, top, beforeTop), players };
   }
 
-  /** The next broadcast is whole (a viewer just got a whole m.public: a delta would be against an older state). */
+  /**
+   * The next broadcast is whole (a viewer just got a whole m.public: a delta would be against an older state).
+   * @this {Match}
+   */
   _publicWholeNext() {
     this._pubTopSent = null;
     this._pubRowsSent?.clear();

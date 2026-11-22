@@ -3,6 +3,7 @@
 // / forced / cleared finishes and the BattleResult.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import { BLOCK_SKILL_TICK, FORCED_EXIT, MAX_BATTLE_TIME } from '../constants.js';
 import { updateAlly, updateEnemy } from '../ai.js';
 import { seasonFeature } from '../../../shared/seasons.js';
@@ -10,6 +11,7 @@ import { seasonFeature } from '../../../shared/seasons.js';
 const byDeploySeq = (a, b) => a.deploySeq - b.deploySeq;
 
 export class BattleLifecycle {
+  /** @this {Battle} */
   start() {
     if (this.started) return;
     this.started = true;
@@ -48,6 +50,7 @@ export class BattleLifecycle {
   /**
    * The battle-start deployment's next groups whose time has come (start: _prebuilt `t0` + k × prebuiltInterval), then —
    * one interval after the last — the wave clock (_beginWave). Runs from start() and every tick until the wave began.
+   * @this {Battle}
    */
   _prebuiltStep() {
     const P = this._prebuilt;
@@ -69,6 +72,7 @@ export class BattleLifecycle {
   /**
    * The wave clock starts (client ON_BATTLE_STARTED, then `Scheduler.Init` / `DoSchedule`): the stage's spawn times count
    * from now (`waveT0`; the time limit from the battle start), the start-of-battle summons rank in aggro, 联防 forced exits, `battleStart`.
+   * @this {Battle}
    */
   _beginWave(seq0) {
     this.waveT0 = this.time;
@@ -100,6 +104,7 @@ export class BattleLifecycle {
     }
   }
 
+  /** @this {Battle} */
   step() {
     if (this.finished || this._stepping) return; // re-entrant step() from a hook is a no-op
     // forceEnd() requested while stepping (content hook, repeated engine errors) is deferred to the end of the
@@ -156,6 +161,7 @@ export class BattleLifecycle {
    * tick and as another unit moves it (battle/displacement.js displace, a teleport), so a unit sees every enemy where it
    * is now — the client's `LitePhysicsUtil.FindTargetsInBox` goes over the side's units (`UnitManager
    * .GetUnitsBySingleSide`) and reads each one's position (`_CheckContainsPosition`); it keeps no index.
+   * @this {Battle}
    */
   _tickUnits(dt) {
     const enemies = this.enemies;
@@ -203,7 +209,10 @@ export class BattleLifecycle {
     pl.compact();
   }
 
-  /** Enemy `e`'s own tick in the line (_tickUnits): its attack / move, then its buffs. */
+  /**
+   * Enemy `e`'s own tick in the line (_tickUnits): its attack / move, then its buffs.
+   * @this {Battle}
+   */
   _tickEnemy(e, dt) {
     if (!e.alive) return;
     try { updateEnemy(this, e, dt); } catch (err) { this._internalError('updateEnemy', err); }
@@ -216,6 +225,7 @@ export class BattleLifecycle {
    * Ally `u`'s own tick in the line (_tickUnits): its attack, its buffs, its skill's duration, its block search when due,
    * its skill. `seq`: its
    * deploySeq as the pass started (a unit redeployed since is a new one: it waits for the next step).
+   * @this {Battle}
    */
   _tickAlly(u, seq, dt) {
     if (!u.alive || !u.deployed || u.deploySeq !== seq) return;
@@ -242,6 +252,7 @@ export class BattleLifecycle {
    * the whole battle. The client runs one trigger per battle over `UnitManager.characters`, whoever's side (a shared
    * field: every player's units in one pass); that list is `_chars` (Battle._deploy appends, _remove moves the last
    * into the hole).
+   * @this {Battle}
    */
   _autoTriggerPass() {
     const list = this._chars;
@@ -256,7 +267,10 @@ export class BattleLifecycle {
     }
   }
 
-  /** Last-resort finish when building the normal result threw (never throws itself). */
+  /**
+   * Last-resort finish when building the normal result threw (never throws itself).
+   * @this {Battle}
+   */
   _hardFinish(reason) {
     if (this.finished) return;
     this.finished = true;
@@ -266,18 +280,23 @@ export class BattleLifecycle {
     this.projectiles.clear();
   }
 
-  /** Run until finished or `maxSeconds` of game time elapsed. Returns the result when finished. */
+  /**
+   * Run until finished or `maxSeconds` of game time elapsed. Returns the result when finished.
+   * @this {Battle}
+   */
   runToEnd(maxSeconds = MAX_BATTLE_TIME) {
     const limit = this.time + maxSeconds;
     while (!this.finished && this.time < limit) this.step();
     return this.finished ? this.result() : null;
   }
 
+  /** @this {Battle} */
   _phase(name, fn) {
     if (this.finished || this._endReq) return;
     try { fn(); } catch (e) { this._internalError(name, e); }
   }
 
+  /** @this {Battle} */
   _checkEnd() {
     if (this.finished) return;
     if (this.sharedBoss && this.sharedBoss.hp <= 0) { this._finish('cleared'); return; }
@@ -296,11 +315,13 @@ export class BattleLifecycle {
     if (this.time >= MAX_BATTLE_TIME) { this._timeout(); return; }
   }
 
+  /** @this {Battle} */
   _hasPendingEnemySchedules() {
     for (const s of this._sched) if (!s.cancelled && s.holdsBattle) return true;
     return false;
   }
 
+  /** @this {Battle} */
   _timeout() {
     // Remaining non-boss enemies on the field count as leaked (DESIGN §5.5). Spawns that never happened before the
     // limit are dropped: they are removed from `total` and reported in `result().unspawned` (not leaks). A content-made
@@ -323,6 +344,7 @@ export class BattleLifecycle {
     this._finish('timeout');
   }
 
+  /** @this {Battle} */
   forceEnd(reason = 'forced') {
     if (this.finished) return;
     if (this._stepping) { if (!this._endReq) this._endReq = reason; return; } // finalised when step() unwinds
@@ -334,7 +356,10 @@ export class BattleLifecycle {
     else this._finish('forced');
   }
 
-  /** Voluntary defeat: charge every unresolved enemy, including the queued wave, without granting kills. */
+  /**
+   * Voluntary defeat: charge every unresolved enemy, including the queued wave, without granting kills.
+   * @this {Battle}
+   */
   surrender() {
     if (this.finished) return;
     if (this._stepping) { this._endReq = 'surrender'; return; }
@@ -360,6 +385,7 @@ export class BattleLifecycle {
     this._finish('forced');
   }
 
+  /** @this {Battle} */
   _finish(reason) {
     if (this.finished) return;
     this.finished = true;
@@ -376,6 +402,7 @@ export class BattleLifecycle {
     this.projectiles.clear();
   }
 
+  /** @this {Battle} */
   _buildResult() {
     const perPlayer = {};
     // the battle's season (Battle `season`, from the match / spec): the browser's sim data has no config file
@@ -429,7 +456,10 @@ export class BattleLifecycle {
     return res;
   }
 
-  /** BattleResult (valid once finished; a provisional result before). */
+  /**
+   * BattleResult (valid once finished; a provisional result before).
+   * @this {Battle}
+   */
   result() {
     if (this._result) return this._result;
     return this._buildResult();

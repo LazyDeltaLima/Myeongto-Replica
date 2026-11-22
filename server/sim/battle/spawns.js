@@ -4,6 +4,7 @@
 // and the list compaction.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import { MAX_ALIVE_ENEMIES, FIELD_EDGE_INSET, ENEMY_COLLIDER_RADIUS } from '../constants.js';
 import { Unit } from '../units.js';
 import { compileRoute } from '../ai.js';
@@ -20,6 +21,7 @@ const FALLBACK_ENEMY = Object.freeze({
 });
 
 export class BattleSpawns {
+  /** @this {Battle} */
   _queueSpawn(s, precount) {
     if (Number(s.time) === Infinity) return; // "never" — not scheduled, not counted
     // capped: a bogus count (Infinity, 1e9) would otherwise hang the constructor / exhaust memory
@@ -49,6 +51,7 @@ export class BattleSpawns {
     }
   }
 
+  /** @this {Battle} */
   _processSpawns() {
     if (this.waveT0 == null) return; // the battle-start deployment runs: the wave clock has not started (lifecycle.js)
     const now = this.time + 1e-9;
@@ -58,11 +61,13 @@ export class BattleSpawns {
     }
   }
 
+  /** @this {Battle} */
   _routeFor(idx, explicit = null) {
     if (explicit) return normalizeRoute(explicit);
     return this.routes[idx] ?? this.routes[0] ?? this._defaultRoute();
   }
 
+  /** @this {Battle} */
   _defaultRoute() {
     if (this._defRoute !== undefined) return this._defRoute;
     const starts = this.grid.specialTiles('start');
@@ -71,6 +76,7 @@ export class BattleSpawns {
     return this._defRoute;
   }
 
+  /** @this {Battle} */
   _ownerForTile(tile) {
     if (!this.players.length) return null;
     if (this.players.length === 1 || !tile) return this.players[0].playerId;
@@ -84,6 +90,7 @@ export class BattleSpawns {
   /**
    * Spawn an enemy now. opts: { routeIndex, route, pos:[r,c], mods:{hpMul,atkMul,defMul,resMul,speedMul}, tag,
    * sourcePlayerId, ownerPlayerId, bounty:{coins,ownerPlayerId}, countInTotal, inTotal }
+   * @this {Battle}
    */
   spawnEnemy(enemyKey, opts = {}) {
     if (this.enemies.length >= MAX_ALIVE_ENEMIES && this.aliveEnemies().length >= MAX_ALIVE_ENEMIES) {
@@ -198,6 +205,7 @@ export class BattleSpawns {
    * `fx: false` = no 'disappear' / 'appear' effect (a 驮兽 passenger boarding / getting off: the client plays none). Either
    * way ['hide', id, 1|0] tells the view (2026-11-20): its snapshot leaves a hidden enemy out as it leaves a leaked one, and
    * the client's `Enemy.isDisappeared` pauses some effects (render/fxgame.js `disappeared`).
+   * @this {Battle}
    */
   _setHidden(e, on, { fx = true } = {}) {
     if (e.hidden === on) return;
@@ -208,6 +216,7 @@ export class BattleSpawns {
     if (fx) this.fx(on ? 'disappear' : 'appear', { x: e.x, y: e.y, id: e.id });
   }
 
+  /** @this {Battle} */
   _syncBossHp(e) {
     const pool = e.bossPool;
     if (!pool) return;
@@ -217,6 +226,7 @@ export class BattleSpawns {
     e.hp = e.s.maxHp * Math.min(1, ratio);
   }
 
+  /** @this {Battle} */
   _bossSync() {
     if (!this.sharedBoss) return;
     for (const e of this.enemies) if (e.alive && e.bossPool) {
@@ -225,6 +235,7 @@ export class BattleSpawns {
     }
   }
 
+  /** @this {Battle} */
   _clampPos(e) {
     const R = this.rect, m = 0.5 - FIELD_EDGE_INSET; // inside the edge: on the edge tile, never halfway (body.js)
     if (e.x < R.c0 - m) e.x = R.c0 - m;
@@ -233,6 +244,7 @@ export class BattleSpawns {
     if (e.y > R.r1 + m) e.y = R.r1 + m;
   }
 
+  /** @this {Battle} */
   _compactEnemies() {
     if (!this._enemiesDirty) return;
     for (const e of this.enemies) if (!e.alive) this._unindexEnemy(e);

@@ -3,11 +3,13 @@
 // (onPrepEnd, PlayerState.endPrep, then COMBAT or the Final Assault / Hidden Core).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { PHASE } from '../../../shared/constants.js';
 import { botPrepBeginSteps, botPrepEndSteps } from '../bot.js';
 import { DELAYS } from './common.js';
 
 export class MatchPrep {
+  /** @this {Match} */
   enterPrep() {
     this.phase = PHASE.PREP;
     this.sp = null;
@@ -39,6 +41,7 @@ export class MatchPrep {
    * layout, temp, Ready). The step generators run the same actions in the same order as the one-shot routine (same
    * rng draws, same decisions); in virtual time (botSliceMs unbounded) each stage runs at once. The prep ending first
    * (deadline) or a newer schedule for the seat drops the job (a step never leaves a transient board behind).
+   * @this {Match}
    */
   scheduleBotPrep(ps, i = 0) {
     const round = this.round;
@@ -91,12 +94,14 @@ export class MatchPrep {
     });
   }
 
+  /** @this {Match} */
   onReadyChanged(ps) {
     this.markPublic();
     void ps;
     this.maybeEndPrep();
   }
 
+  /** @this {Match} */
   maybeEndPrep() {
     if (this.phase !== PHASE.PREP || this._prepEndQueued) return;
     const allReady = () => { const alive = this.alivePlayers(); return alive.length > 0 && alive.every((p) => p.ready); };
@@ -110,6 +115,7 @@ export class MatchPrep {
     });
   }
 
+  /** @this {Match} */
   prepDeadline() {
     if (this.phase !== PHASE.PREP) return;
     for (const ps of this.alivePlayers()) {
@@ -122,6 +128,7 @@ export class MatchPrep {
     this.endPrep();
   }
 
+  /** @this {Match} */
   endPrep() {
     if (this.phase !== PHASE.PREP) return;
     this.setDeadline(0);

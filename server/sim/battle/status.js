@@ -3,6 +3,7 @@
 // "同名效果取最高".
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import { COLD_FREEZE_DURATION, LEVITATE_HALF_WEIGHT, RESIST_DEFAULT } from '../constants.js';
 import { makeBuff, STATUS, RESIST_STATUSES } from '../buffs.js';
 import { palsyBuff } from '../damage.js';
@@ -21,6 +22,7 @@ function statusOnEvent(unit, key, buff) {
 }
 
 export class BattleStatus {
+  /** @this {Battle} */
   addBuff(unit, b) {
     if (!unit || (!unit.alive && !b.allowDead)) return null;
     const buff = makeBuff(b);
@@ -72,6 +74,7 @@ export class BattleStatus {
     return buff;
   }
 
+  /** @this {Battle} */
   removeBuff(unit, keyOrBuff) {
     if (!unit) return 0;
     // snapshot reverse-order matches; buffs added by callbacks wait (the client's RemoveBuffs marks the same set; SIM.md §3).
@@ -85,6 +88,7 @@ export class BattleStatus {
     return n;
   }
 
+  /** @this {Battle} */
   _removeBuffAt(unit, i, callRemove = true) {
     const b = unit.buffs[i];
     if (!b) return;
@@ -101,6 +105,7 @@ export class BattleStatus {
    * Unit `u`'s buffs for one tick (BuffContainer.Tick in the unit's own tick, after its state machine: battle/lifecycle.js
    * _tickUnits), then its natural HP regeneration (Entity._UpdateHpRecovery). A buff added by an onTick handler starts
    * ticking next tick.
+   * @this {Battle}
    */
   _tickUnitBuffs(u, dt) {
     if (u.removed) return;
@@ -133,7 +138,10 @@ export class BattleStatus {
     }
   }
 
-  /** _tickUnitBuffs: one tick of the buffs `arr` (a copy of `u.buffs`), skipping those removed meanwhile. */
+  /**
+   * _tickUnitBuffs: one tick of the buffs `arr` (a copy of `u.buffs`), skipping those removed meanwhile.
+   * @this {Battle}
+   */
   _tickBuffList(u, arr, dt) {
     for (const b of arr) {
       if (!u.alive) break;
@@ -185,6 +193,7 @@ export class BattleStatus {
    * the other side, `force` included — PRTS 无敌 "无法被不同阵营选中": so a status carried by the very hit that knocked an
    * enemy out does not land after its 重生's cleanse (DESIGN §21.4). A ground enemy's status never lands on an airborne
    * 起飞 ally (对地规避: targeting.js evadesGround) unless `opts.ignoreSelect`.
+   * @this {Battle}
    */
   applyStatus(target, key, opts = {}) {
     if (!target || !target.alive) return false;
@@ -271,7 +280,10 @@ export class BattleStatus {
     return true;
   }
 
-  /** 抵抗 of a unit: share of a resisted status's duration removed (0 = none; the `resist` status value, ≤ 0.95). */
+  /**
+   * 抵抗 of a unit: share of a resisted status's duration removed (0 = none; the `resist` status value, ≤ 0.95).
+   * @this {Battle}
+   */
   resistOf(unit) {
     if (!unit || !unit.buffs.length) return 0;
     let r = 0;
@@ -283,7 +295,10 @@ export class BattleStatus {
     return Math.min(0.95, r);
   }
 
-  /** Σ `data.statusTimeAdd` of the unit's buffs (applyStatus: added to its 1 − 抵抗; 0 without any). */
+  /**
+   * Σ `data.statusTimeAdd` of the unit's buffs (applyStatus: added to its 1 − 抵抗; 0 without any).
+   * @this {Battle}
+   */
   statusTimeAdd(unit) {
     if (!unit || !unit.buffs.length) return 0;
     let a = 0;
@@ -291,7 +306,10 @@ export class BattleStatus {
     return a;
   }
 
-  /** 诱导 target point of an `attract` status buff (enemy walks there; see ai.js moveAttracted). */
+  /**
+   * 诱导 target point of an `attract` status buff (enemy walks there; see ai.js moveAttracted).
+   * @this {Battle}
+   */
   _setAttractPoint(target, buff, point, source) {
     let r = null, c = null;
     if (Array.isArray(point) && Number.isFinite(point[0]) && Number.isFinite(point[1])) { r = point[0]; c = point[1]; }
@@ -315,6 +333,7 @@ export class BattleStatus {
    * @param {object} target
    * @param {string} key
    * @param {{ duration: number, value: number, mods: (v: number) => object, source?: object|null, visible?: boolean, fxTag?: string|number|null }} opts
+   * @this {Battle}
    */
   applyStrongest(target, key, { duration, value, mods, source = null, visible = false, fxTag = null } = {}) {
     if (!target || !target.alive || !(Number(duration) > 0) || !Number.isFinite(value) || typeof mods !== 'function') return false;
@@ -328,6 +347,7 @@ export class BattleStatus {
    * `plain` template (applyStrongest) is an ordinary invisible buff, not a status. `stackAs` (finite): the strength this
    * application competes with instead of its value (applyStatus opts.stackAs); kept in `data.stackAs` / the tail.
    * `fxTag` (applyStatus opts.fxTag): the buff's display tag, kept per waiting effect (`fx`) so a resumed one shows its own.
+   * @this {Battle}
    */
   _applyValuedStatus(target, key, tpl, duration, value, source, stackAs = null, fxTag = null) {
     const as = Number.isFinite(stackAs) ? stackAs : null;
@@ -381,5 +401,6 @@ export class BattleStatus {
     }
   }
 
+  /** @this {Battle} */
   removeStatus(target, key) { return this.removeBuff(target, key); }
 }

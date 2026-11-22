@@ -6,6 +6,7 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
+/** @import { PlayerState } from '../PlayerState.js' */
 import { boardOrder, pieceDir } from '../board.js';
 import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains, pieceBonds } from '../bondsMeta.js';
 import { handRules, swapBondRecord } from '../../sim/content/bonds/dispatch.js';
@@ -14,6 +15,7 @@ import { BAND_MARK, BAND_CHEST, STAGE_COUNTER, COMMAND_STAGE_COUNTER } from '../
 import { markInputNeeds } from '../../sim/content/bands/battle.js';
 
 export class PlayerRound {
+  /** @this {PlayerState} */
   startRound(r) {
     this.round = { refreshes: 0, buys: 0, sells: 0, spent: 0, gainedChess: 0, arts: 0 };
     this.pendingLayerGains = null; // settled (or lapsed) at the last SETTLE
@@ -41,6 +43,7 @@ export class PlayerRound {
   /**
    * Prep deadline (Match.endPrep, after the <休整期结束时> onPrepEnd effects): the temp pieces due at this prep are
    * resolved; what overflowed after Ready or during onPrepEnd stays for the next prep, which `prepsEnded` now names.
+   * @this {PlayerState}
    */
   endPrep() {
     this.resolveTemp();
@@ -56,6 +59,7 @@ export class PlayerRound {
 
   // `effects` are kept: a 信标 gift still pending is delivered to the teammate at the next round start (builtin_gift is
   // flagged afterElimination — GitHub #86); nothing else of an eliminated player is dispatched.
+  /** @this {PlayerState} */
   eliminate(round) {
     this.alive = false;
     this.ready = false;
@@ -79,6 +83,7 @@ export class PlayerRound {
     this.recompute();
   }
 
+  /** @this {PlayerState} */
   recompute() {
     this.deployMap(); // a change of the deploy field (a boss round's prep) marks the legality stale
     if (this._legalityStale) this._evictIllegal();
@@ -101,6 +106,7 @@ export class PlayerRound {
    * reports the difference to the previous computed state, so a handler's own recompute (a hammer's onGain) reports
    * only what changed after it, and nothing twice. Never for an eliminated player (eliminate clears the board), a
    * detached copy (preview.js previewPlayer: the AI's rehearsals never touch the live state).
+   * @this {PlayerState}
    */
   _reportActiveBonds(before, after) {
     if (!this.alive || typeof this.m.dispatch !== 'function') return;
@@ -116,18 +122,21 @@ export class PlayerRound {
     if (activated.length || deactivated.length) this.m.dispatch(this, 'onActiveBonds', { activated, deactivated });
   }
 
+  /** @this {PlayerState} */
   activatedLayers() { return activatedLayers(this.bonds); }
 
   /**
    * The bond states the views show (m.private bonds, m.public players[].bonds): the computed states plus the pending
    * in-battle gains of this round's finished normal battle (bondsMeta.bondsWithGains). The 联防 field fights with them too
    * (battleInput `reached`); no other rule reads them.
+   * @this {PlayerState}
    */
   bondsView() { return bondsWithGains(this.bonds, this.pendingLayerGains, this.gd.layerCap); }
 
   /**
    * The PlayerBattleInput entry of a chess piece (board: `pos` = { row, col, dir }; 整备区: { slot }) — its loadout, 补位
    * mark or 自选 pick, potential and 练度, items.
+   * @this {PlayerState}
    */
   chessBattleEntry(piece, pos) {
     const u = { uid: piece.uid, kind: 'chess', chessId: piece.id, ...pos, items: (piece.items || []).map((i) => i.id) };
@@ -161,6 +170,7 @@ export class PlayerRound {
    * The 规程 marks the player's drag 指令 left for this round's battle (content/bands/meta.js addMark):
    * [{ effectId, uid?, itemId?, capAdd?, row?, col? }] — an operator mark only while the operator is still the player's;
    * a tile mark (溃心领域) in board coordinates.
+   * @this {PlayerState}
    */
   bandMarksNow() {
     const out = [];
@@ -179,6 +189,7 @@ export class PlayerRound {
   /**
    * 宝藏探机's chests standing on the player's board (content/bands/meta.js BAND_CHEST): [{ id, row, col, enemyId, coin }]
    * in board coordinates, oldest first. They stay until a battle reports them touched.
+   * @this {PlayerState}
    */
   bandChestsNow() {
     const out = [];
@@ -195,6 +206,7 @@ export class PlayerRound {
    * state includes those layers, as the strip shows them). The gains stay pending: settle() adds them once.
    * `marks`: the round's 规程 marks (bandMarksNow) — a battle of the round's own (normal, boss); the 联防 field passes
    * false.
+   * @this {PlayerState}
    */
   battleInput({ side = 'L', colOffset = 0, carry = null, reached = false, marks = true } = {}) {
     // a terrain change not yet followed by a recompute (a content hook at the prep end) never fields an illegal board

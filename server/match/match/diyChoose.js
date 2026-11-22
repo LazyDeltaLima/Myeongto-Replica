@@ -17,6 +17,7 @@
 // teammates only) has the step too, untimed like the other start steps (infra.js soloUntimed).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { diySlot } from '../../../shared/diy.js';
 import { OK, fail } from './common.js';
@@ -28,6 +29,7 @@ export class MatchDiyChoose {
    * The constructor's part: in a season with the step, each seat's checked picks become its 自选编队 (`diyLineup`) and
    * it fields none of them yet (PlayerState.setDiy({}) — the match's own data, no stock). A season without the step
    * leaves every seat as it is.
+   * @this {Match}
    */
   initDiyLineups() {
     if (!this.gd.diyChoose) return;
@@ -45,6 +47,7 @@ export class MatchDiyChoose {
    * — this step: the preset box of the screen, maintainer decision 2026-11-13): re-checked like the seat's picks
    * (PlayerState.setDiy), kept as the lineup; a chosen slot stays chosen only while it holds the same operator.
    * @returns {boolean} false when the picks do not match the game data
+   * @this {Match}
    */
   setDiyLineup(ps, picks) {
     const was = ps.diyLineup || EMPTY;
@@ -56,6 +59,7 @@ export class MatchDiyChoose {
     return true;
   }
 
+  /** @this {Match} */
   enterDiyChoose() {
     if (this.phase !== PHASE.BAND_DRAFT || this.ended) return;
     this.phase = PHASE.DIY_CHOOSE;
@@ -68,12 +72,18 @@ export class MatchDiyChoose {
     this.maybeEndDiyChoose();
   }
 
-  /** The seats the step waits for: connected humans not under AI control (AI 托管 / an AI seat). */
+  /**
+   * The seats the step waits for: connected humans not under AI control (AI 托管 / an AI seat).
+   * @this {Match}
+   */
   diyChooseAwaited() {
     return this.order.filter((p) => !p.botControlled && p.connected && !p.left);
   }
 
-  /** Whether a seat is done with the step (ready, or nobody waits on it). */
+  /**
+   * Whether a seat is done with the step (ready, or nobody waits on it).
+   * @this {Match}
+   */
   diyChooseDone(ps) {
     return !!ps.diyChooseReady || !this.diyChooseAwaited().includes(ps);
   }
@@ -81,6 +91,7 @@ export class MatchDiyChoose {
   /**
    * g.diyChoose { slots }: the slots of the seat's lineup it brings into this match — the whole choice, replacing the
    * last one. Refused while the seat is ready, for a slot outside its lineup or twice, and above the tier's limit.
+   * @this {Match}
    */
   diyChoose(ps, slots) {
     if (this.phase !== PHASE.DIY_CHOOSE || this.ended) return fail(ERR.WRONG_PHASE);
@@ -103,7 +114,10 @@ export class MatchDiyChoose {
     return OK;
   }
 
-  /** g.diyReady { cancel? }: the seat's 准备就绪, or 取消准备 while the step runs. */
+  /**
+   * g.diyReady { cancel? }: the seat's 准备就绪, or 取消准备 while the step runs.
+   * @this {Match}
+   */
   diyReady(ps, cancel = false) {
     if (this.phase !== PHASE.DIY_CHOOSE || this.ended) return fail(ERR.WRONG_PHASE);
     if (ps.diyChooseReady === !cancel) return OK;
@@ -114,7 +128,10 @@ export class MatchDiyChoose {
     return OK;
   }
 
-  /** Ends the step once every awaited seat is ready (also re-checked when a seat leaves, drops or goes AI 托管). */
+  /**
+   * Ends the step once every awaited seat is ready (also re-checked when a seat leaves, drops or goes AI 托管).
+   * @this {Match}
+   */
   maybeEndDiyChoose() {
     if (this.phase !== PHASE.DIY_CHOOSE || this.ended) return;
     if (!this.diyChooseAwaited().every((p) => p.diyChooseReady)) return;
@@ -122,7 +139,10 @@ export class MatchDiyChoose {
     this.later(0, () => { if (token === this._diyChooseToken) this.finishDiyChoose(); });
   }
 
-  /** Each seat fields the slots it chose (PlayerState.setDiy + initDiyStock), then 协议启动. */
+  /**
+   * Each seat fields the slots it chose (PlayerState.setDiy + initDiyStock), then 协议启动.
+   * @this {Match}
+   */
   finishDiyChoose() {
     if (this.phase !== PHASE.DIY_CHOOSE || this.ended) return;
     this._diyChooseToken = (this._diyChooseToken || 0) + 1;
@@ -143,6 +163,7 @@ export class MatchDiyChoose {
   /**
    * m.private `diyChoose` of a seat in a season with the step: its 自选编队 (`lineup`, the picks by slot), the slots
    * chosen, whether it is ready, and the limit per tier. Null in a season without the step.
+   * @this {Match}
    */
   diyChooseView(ps) {
     const dc = this.gd.diyChoose;

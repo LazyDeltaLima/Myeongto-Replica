@@ -4,6 +4,7 @@
 // ask for — bounties (addBounty), item ids (rollItemId) and choices.json pools (rollPool).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
+/** @import { Match } from '../Match.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { generateDraft, applyCard, bountyBattles, isMultiRoundBounty, bountyCard } from '../choices.js';
 import { onPickCard } from '../botEmotes.js';
@@ -15,6 +16,7 @@ import { OK, fail, DELAYS } from './common.js';
 const PERSONAL_OFFER_SIZE = 3;
 
 export class MatchSpDraft {
+  /** @this {Match} */
   enterSpDraft() {
     const draft = generateDraft(this.gd, this.rngDraft, this.round, { stageId: this.stageId, bondAvailable: (bondId) => this.bondLive(bondId), itemAvailable: id => this.itemPool.canGain(id) });
     const alive = this.alivePlayers();
@@ -32,14 +34,17 @@ export class MatchSpDraft {
     this.markPublic();
   }
 
+  /** @this {Match} */
   spTurn() {
     const s = this.sp;
     if (!s) return null;
     return s.order[s.idx] ?? null;
   }
 
+  /** @this {Match} */
   spCardAvailable(card) { return !!card && this.sp?.taken[card.idx] == null && (card.kind !== 'item' || this.itemPool.canGain(card.id)); }
 
+  /** @this {Match} */
   startSpTurn() {
     const s = this.sp;
     this.cancel(this._turnTimer);
@@ -72,6 +77,7 @@ export class MatchSpDraft {
     this.markPublic();
   }
 
+  /** @this {Match} */
   scheduleSpBot() {
     const token = this._turnToken;
     this.later(this.scaled(DELAYS.BOT_ACTION), () => {
@@ -84,6 +90,7 @@ export class MatchSpDraft {
     });
   }
 
+  /** @this {Match} */
   pickCard(ps, idx) {
     if (this.phase !== PHASE.SP_DRAFT || !this.sp) return fail(ERR.WRONG_PHASE);
     if (!ps.alive) return fail(ERR.ELIMINATED);
@@ -95,6 +102,7 @@ export class MatchSpDraft {
     return OK;
   }
 
+  /** @this {Match} */
   _applyCard(ps, idx) {
     const s = this.sp;
     if (!s || s.picks[ps.playerId] != null || !this.spCardAvailable(s.cards[idx])) return;
@@ -109,6 +117,7 @@ export class MatchSpDraft {
     this.startSpTurn();
   }
 
+  /** @this {Match} */
   finishSpDraft() {
     if (this.phase !== PHASE.SP_DRAFT) return;
     this.cancel(this._turnTimer);
@@ -125,6 +134,7 @@ export class MatchSpDraft {
    * is not the player's PREP, a choice is already open or no card is left to offer.
    * @param {import('../PlayerState.js').PlayerState} ps @param {any[]} candidates cards.bounty entries
    * @param {string} sourceItemId the Art
+   * @this {Match}
    */
   offerBountyChoice(ps, candidates, sourceItemId) {
     if (this.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE);
@@ -138,7 +148,10 @@ export class MatchSpDraft {
     return OK;
   }
 
-  /** g.choice { idx, choiceId }: the owner's pick of its open personal choice — the card becomes a bounty on its next battles. */
+  /**
+   * g.choice { idx, choiceId }: the owner's pick of its open personal choice — the card becomes a bounty on its next battles.
+   * @this {Match}
+   */
   pickPersonalChoice(ps, idx, choiceId) {
     if (this.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE);
     if (!ps.alive) return fail(ERR.ELIMINATED);
@@ -159,6 +172,7 @@ export class MatchSpDraft {
    * 机变 draft (bot.js botPickCard: the expected pay minus the expected LP lost against the own board, the bots' seeded rng
    * only breaks ties); 'random': the prep's deadline and a seat the engine finishes by other means — one of the cards at
    * random from the meta rng, like a 机变 turn that runs out. Nothing pending: nothing happens, no rng draw.
+   * @this {Match}
    */
   autoPickPersonalChoice(ps, mode) {
     const pending = ps.personalChoice;
@@ -171,6 +185,7 @@ export class MatchSpDraft {
     return this.pickPersonalChoice(ps, idx, pending.id);
   }
 
+  /** @this {Match} */
   addBounty(ps, card) {
     if (!ps || !card || !this.gd.enemy(card.enemyKey)) return null;
     // a multi-round card lasts MULTI_ROUND_BOUNTY_BATTLES battles (choices.js; the user's call after playtest #6)
@@ -190,6 +205,7 @@ export class MatchSpDraft {
    * draws shop-eligible items (an explicit `items` list, `tiers`, or every tier up to `maxTier`) plus the effect-only
    * ids it names in `plus` — items the shop never sells but the pool still carries (突变细胞 in 凯瑟琳's 定向投放).
    * `exclude` drops ids before the draw (凯瑟琳's spent cell allowance, the choices already drawn for the same offer).
+   * @this {Match}
    */
   rollItemId({ pool = null, tier = null, maxTier = 6, shopLevel = 6, exclude = [] } = {}) {
     const pools = this.gd.choices.pools && typeof this.gd.choices.pools === 'object' ? this.gd.choices.pools : {};
@@ -226,6 +242,7 @@ export class MatchSpDraft {
    * `extra` (the drawing player's 自选 stock, player/diy.js diyStockEntries) joins that shared-pool draw, `chessOf` reads the
    * bonds (the player's data view: a slotted slot's operator) — 0.2.0 WE2.
    * @returns {{ kind: 'item'|'chess', id: string, golden?: boolean } | null}
+   * @this {Match}
    */
   rollPool(poolId, { shopLevel = 6, extra = null, chessOf = null, exclude = [] } = {}) {
     const pools = this.gd.choices.pools && typeof this.gd.choices.pools === 'object' ? this.gd.choices.pools : {};

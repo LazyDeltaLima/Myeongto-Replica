@@ -2,6 +2,7 @@
 // from the PlayerBattleInput, token defs for an owner's loadout, and the kit / profile / skill setup of a unit.
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
+/** @import { Battle } from '../Battle.js' */
 import { COLS, STAGE_COLS, BOSS_ROW_OFFSET } from '../constants.js';
 import { GEO } from '../../../shared/constants.js';
 import { Unit } from '../units.js';
@@ -14,6 +15,7 @@ import { setupUnitKit } from '../content/index.js';
 import { clone } from './util.js';
 
 export class BattlePlayers {
+  /** @this {Battle} */
   _addPlayer(p) {
     const bossLike = this.kind === 'boss' || this.kind === 'hidden';
     const side = p.side === 'R' ? 'R' : 'L';
@@ -74,7 +76,10 @@ export class BattlePlayers {
     }
   }
 
-  /** Board → field tile for a player (see header). */
+  /**
+   * Board → field tile for a player (see header).
+   * @this {Battle}
+   */
   mapTile(ps, row, col, abs = false) {
     if (abs || ps.coords === 'field') return [row, col];
     return this._boardTile(ps, row, col);
@@ -87,6 +92,7 @@ export class BattlePlayers {
    * 整备区 rows of a boss field (rows 0–1, inside BOSS_RECT) nor the other half of a 联防 or boss field. Moves that must
    * stay where the player could deploy read it (乌尔比安's S3 【移动】, kits/ops/chess_char_5_05-ulpia.js); the 突袭
    * landing reads onFieldBoard (any player of this field).
+   * @this {Battle}
    */
   onOwnBoard(ps, r, c) {
     if (!ps) return false;
@@ -106,12 +112,14 @@ export class BattlePlayers {
    * Both halves on the two-helper 联防 field and on a Final Assault / Hidden Core pair field; the own half only for a
    * lone 联防 helper and on a solo boss field; never a boss field's hand / 临时整备区 rows. The 突袭 landing reads it
    * (bonds/addon/battle.js raidTile — the owner's decision of 2026-10-07, docs/rules/sim.md sim-4).
+   * @this {Battle}
    */
   onFieldBoard(r, c) {
     for (const ps of this.players) if (this.onOwnBoard(ps, r, c)) return true;
     return false;
   }
 
+  /** @this {Battle} */
   _boardTile(ps, row, col) {
     const bossLike = this.kind === 'boss' || this.kind === 'hidden';
     let r = row;
@@ -124,12 +132,14 @@ export class BattlePlayers {
   /**
    * Board direction → field direction for a player (DESIGN §3): as given (default RIGHT) except on the mirrored Final
    * Assault right side, where RIGHT ↔ LEFT (UP / DOWN unchanged). `abs` / field coordinates are taken as they are.
+   * @this {Battle}
    */
   mapDir(ps, dir, abs = false) {
     const d = normDir(dir);
     return ps && ps.mirror && !abs && ps.coords !== 'field' ? mirrorDir(d) : d;
   }
 
+  /** @this {Battle} */
   _createAllyFromInput(ps, inp) {
     // coerce (a string row would otherwise concatenate: "10" + -7 → "10-7"); non-integers never deploy
     const row = Number(inp.row), col = Number(inp.col);
@@ -163,7 +173,10 @@ export class BattlePlayers {
     return u;
   }
 
-  /** The operator def of a PlayerBattleInput chess entry for its loadout (_createAllyFromInput), or null (logged). */
+  /**
+   * The operator def of a PlayerBattleInput chess entry for its loadout (_createAllyFromInput), or null (logged).
+   * @this {Battle}
+   */
   _allyDefFromInput(inp) {
     const lo = { skillIndex: inp.skillIndex ?? null, moduleId: inp.moduleId ?? null };
     if (inp.standIn === true) lo.standIn = true;
@@ -182,6 +195,7 @@ export class BattlePlayers {
    * like a board operator) but off the field: not in the battle-start deployment (`deferDeploy`), on no tile
    * (`removed` until fielded: no reserved tile, no redeploy), left out of the result until fielded. Content fields it
    * with fieldReserve. The same slot twice returns the same unit. Returns the unit or null.
+   * @this {Battle}
    */
   createReserveAlly(ps, inp) {
     if (!ps || !inp || inp.kind !== 'chess') return null;
@@ -205,6 +219,7 @@ export class BattlePlayers {
    * Field a reserve operator (createReserveAlly) on field tile `tile` ([r, c], its home from now on) facing `dir`: a
    * deployment like a redeploy (full HP, `deploy` {initial:false}). False when it was fielded already or the tile takes
    * no ally (_deploy).
+   * @this {Battle}
    */
   fieldReserve(u, tile, dir = null) {
     if (!u || !u.reserve || u.deploySeq > 0 || u.alive || !Array.isArray(tile)) return false;
@@ -222,6 +237,7 @@ export class BattlePlayers {
    * Token def: an inline def (PlayerBattleInput `def`, spawnToken `opts.def`) as given, else the data record's variant
    * for the owner — `owner` = the owning ally unit (its chess and its selected skill / module: getToken(id,
    * owner.defId, owner.def.loadout), DESIGN §16), a chess id, or null.
+   * @this {Battle}
    */
   _tokenDef(tokenId, owner, inline) {
     if (inline) return normalizeToken(tokenId, inline);
@@ -230,6 +246,7 @@ export class BattlePlayers {
     return this.data.getToken(tokenId, owner ?? null);
   }
 
+  /** @this {Battle} */
   _makeAlly(ps, def, kind, r, c, extra = {}) {
     const st = def.stats;
     const u = new Unit({
@@ -253,7 +270,10 @@ export class BattlePlayers {
     return u;
   }
 
-  /** Resolve kit/profile/skill for a unit (called by content/index.js; safe to call again). */
+  /**
+   * Resolve kit/profile/skill for a unit (called by content/index.js; safe to call again).
+   * @this {Battle}
+   */
   _setupUnit(u, kit = null) {
     if (!kit) {
       try { kit = setupUnitKit(this, u, this.contentMode); } catch (e) { this._internalError('setupUnitKit', e); kit = null; }
