@@ -207,7 +207,9 @@ export function FacingWheel({ view, row, col, grid, heal = false, name = '', onP
   // preview: model / wedge direction and the rotated range under the units
   const tiles = useRangeHighlight(view, grid, row, col, bdir, heal);
   useEffect(() => { try { onPreview?.(bdir); } catch { /* ignore */ } }, [bdir]);
-  useEffect(() => () => { showRange(view, null, row, col, null); }, []);
+  // a layout effect: the wheel's range clears as it closes (Preact 11 runs a useEffect cleanup after the next paint, after
+  // a new wheel's useRangeHighlight has drawn the same 'facing' group)
+  useLayoutEffect(() => () => { showRange(view, null, row, col, null); }, []);
 
   const choose = (clientX, clientY) => {
     const L = live.current;
@@ -349,8 +351,9 @@ function Stripes({ tiles, view, row, col }) {
   const own3d = !!rawOf(view)?.debug?.board3d?.overlay;
   const mount = own3d ? null : stripeMount(view);
   const key = tiles.map((t) => t.join(',')).join(';');
-  // under the units (3D board): an imperatively managed <svg> between the two canvases
-  useEffect(() => {
+  // under the units (3D board): an imperatively managed <svg> between the two canvases — a layout effect, so the svg
+  // goes with the wheel instead of one frame later (Preact 11 defers a useEffect cleanup past the paint)
+  useLayoutEffect(() => {
     if (!mount || !tiles.length) return undefined;
     const id = `fwheel-stripe-u${++stripeSeq}`;
     const svg = document.createElementNS(SVG_NS, 'svg');

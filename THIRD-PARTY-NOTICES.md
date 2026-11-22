@@ -14,7 +14,7 @@ them (with `node_modules/`, which keeps each package's own licence file).
 |---|---|---|---|---|---|
 | [PixiJS](https://github.com/pixijs/pixijs) | 7.4.2 | MIT | browser renderer — `public/vendor/pixi.min.js` | no (npm) | yes |
 | [pixi-spine](https://github.com/pixijs/spine) | 4.0.6 | MIT banner; contains the **Spine Runtimes**, under the **Spine Runtimes License Agreement** (package licence "SEE SPINE-LICENSE") | Spine model playback — `public/vendor/pixi-spine.js` | no (npm) | yes |
-| [Preact](https://github.com/preactjs/preact) | 10.29.8 | MIT | UI — `public/vendor/preact.module.js`, `hooks.module.js` | no (npm) | yes |
+| [Preact](https://github.com/preactjs/preact) | 11.2.0 | MIT | UI — `public/vendor/preact.module.js`, `hooks.module.js` | no (npm) | yes |
 | [htm](https://github.com/developit/htm) | 3.1.1 | Apache-2.0 | UI templates — `public/vendor/htm.module.js` | no (npm) | yes |
 | [three.js](https://github.com/mrdoob/three.js) | 0.186.1 | MIT | official 3D board — `public/vendor/three.core.js`, `three.module.js` | no (npm) | yes |
 | [ws](https://github.com/websockets/ws) | 8.22.0 | MIT | WebSocket server (`server/`) | no (npm) | yes (`node_modules/`) |

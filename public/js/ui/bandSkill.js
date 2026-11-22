@@ -21,7 +21,7 @@
 // is 'value_target' shows value/target in the pill (a locked one after its lock) and in its text's 「{@tag}」 /
 // 「{@unlock}」; a passive's stage shows only in its text (maintainer decisions 2026-11-12).
 
-import { useState, useEffect, useRef } from '../../vendor/hooks.module.js';
+import { useState, useEffect, useLayoutEffect, useRef } from '../../vendor/hooks.module.js';
 import { html } from './components.js';
 import { Img, RichText } from './gameComponents.js';
 import { bandIconUrl } from './assetUrls.js';
@@ -192,7 +192,8 @@ export function BandSkill({ view, priv, phase, combat, place = null }) {
   const stop = () => { press.current = null; setDrag(null); mark(null); if (area.current) showArea(null); };
   // a phase change, the 指令 going unusable or the view going away ends a drag
   useEffect(() => { if (!canUse && press.current) stop(); }, [canUse]);
-  useEffect(() => () => { mark(null); if (area.current) showArea(null); }, [view]);
+  // a layout effect: the 'legal' tint is the placement drag's too, and Preact 11 would clear it after the next paint
+  useLayoutEffect(() => () => { mark(null); if (area.current) showArea(null); }, [view]);
   useEffect(() => {
     if (!drag) return undefined;
     const onKey = (e) => { if (e.key === 'Escape') stop(); };

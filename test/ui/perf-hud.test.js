@@ -149,6 +149,25 @@ test('UI render roots: a component diffed at depth 0 is a root, its subtree coun
   assert.equal(acc.by.size, 2);
 });
 
+test('UI render roots: the installed Preact still calls options.__b before each diff and options.diffed after it', async () => {
+  // Preact documents no before-diff hook (its option hooks guide: vnode, unmount, diffed, …); the HUD relies on the
+  // build's mangled `_diff` = `__b` (perfHud.js timeUiRenders). An upgrade that renames it stops here, not in a HUD
+  // that silently shows no component times. A component tree that renders no DOM needs no document.
+  const { h, render, options } = await import('preact');
+  const seen = [];
+  const prevDiff = options.__b, prevDiffed = options.diffed;
+  const name = (v) => (typeof v.type === 'function' ? v.type.name : v.type);
+  options.__b = (v) => { seen.push(`b:${name(v)}`); prevDiff?.(v); };
+  options.diffed = (v) => { seen.push(`d:${name(v)}`); prevDiffed?.(v); };
+  try {
+    function Leaf() { return null; }
+    function Root() { return h(Leaf, null); }
+    render(h(Root, null), { namespaceURI: 'http://www.w3.org/1999/xhtml', firstChild: null, childNodes: [] });
+  } finally { options.__b = prevDiff; options.diffed = prevDiffed; }
+  assert.deepEqual(seen.filter((s) => /Root|Leaf/.test(s)), ['b:Root', 'b:Leaf', 'd:Leaf', 'd:Root'],
+    'Preact renamed or dropped its _diff hook (`options.__b`): perfHud.js timeUiRenders needs the new name');
+});
+
 test('lost: the mean interval minus the refresh period; the report names it with the rate, top units / effects / UI roots', () => {
   assert.ok(Math.abs(lostMs({ fps: 40, period: 1000 / 60 }) - (25 - 1000 / 60)) < 1e-9);
   assert.ok(Number.isNaN(lostMs({ fps: 40, period: null })));

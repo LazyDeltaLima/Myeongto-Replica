@@ -3002,3 +3002,11 @@ upstream v0.4.0 대조에서 받은 화면 수정(`docs/rules/upstream.md` 「�
   Windows Chrome 1600×900·휴대폰 터치 844×390(2026-11-19, 개발 모의 화면 PREP 규정) — 잘린 글자 0(가로로 밀리는 오퍼레이터 목록 밖 칸 제외), 세 카드 높이·위아래 =
   아바타 ±0px, 가운데 맞춤 ±0px, 실패한 요청 0. 실제 판은 관리자가 확인.
   재발 방지: `test/ui/player-detail.test.js` 「white sprites the client tints are masks」
+
+## 함정
+
+화면 컴포넌트(`public/js/ui/`·`screens/`)를 고치기 전에 읽는 목록. 쓰는 법은 `fx.md` 「함정」과 같다.
+
+- **Preact 11의 `style` 객체 숫자**(2026-11-22, Preact 10 → 11): 11은 `style=${{ width: 12 }}` 같은 객체 값에 `px`를 붙이지 않아, 길이 속성에 숫자를 주면 브라우저가 그 값을 버린다(`opacity`·`zIndex` 같은 단위 없는 속성은 그대로). 길이는 문자열(`'12px'`)이나 문자열 `style`로 쓴다. 올릴 때 우리 코드에서 객체 `style`은 3곳이었고 값은 모두 문자열이었다.
+- **Preact 11의 `useEffect` 정리 시점**: 컴포넌트를 내릴 때 `useEffect` 정리는 다음 그림 뒤에 돈다(새 컴포넌트의 `useLayoutEffect`보다 늦게). 화면 밖 공유 상태를 되돌리는 정리, 곧 보드 강조 묶음(`highlightTiles`의 `facing`·`legal`)이나 Preact 밖에서 붙인 DOM은 `useLayoutEffect`에 두어야 다음 컴포넌트가 막 그린 것을 지우지 않고 한 프레임 더 남지도 않는다(`facingWheel.js`의 범위 지우기와 줄무늬 `<svg>`, `bandSkill.js`의 `legal` 지우기). 리스너·타이머를 푸는 정리는 `useEffect`에 그대로 둔다.
+- **성능 HUD의 Preact 내부 훅**: 컴포넌트별 시간은 문서에 없는 `options.__b`(diff 앞 훅)를 쓴다. Preact에 그 자리의 공개 훅이 없기 때문이다. 재발 방지: `test/ui/perf-hud.test.js` 「the installed Preact still calls options.__b」.

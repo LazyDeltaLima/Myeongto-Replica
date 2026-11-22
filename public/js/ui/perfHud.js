@@ -309,8 +309,9 @@ export function timeUiRenders(opts, acc, now = () => globalThis.performance.now(
   const prev = opts.debounceRendering;
   const defer = typeof Promise === 'function' ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout;
   acc.by ||= new Map();
-  // Preact's diff hooks (the vendored build's mangled options._diff = `__b`; `diffed` is public), chained to the ones
-  // already set (preact/hooks): a component diffed at depth 0 is a root of its batch, its time includes its subtree
+  // Preact's diff hooks (the vendored build's mangled options._diff = `__b`, still so in Preact 11, which documents no
+  // before-diff hook — test/ui/perf-hud.test.js stops on a rename; `diffed` is public), chained to the ones already set
+  // (preact/hooks): a component diffed at depth 0 is a root of its batch, its time includes its subtree
   let depth = 0, root = null, rootT = 0;
   const prevDiff = opts.__b, prevDiffed = opts.diffed;
   opts.__b = (vnode) => {

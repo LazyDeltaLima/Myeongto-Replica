@@ -4,6 +4,8 @@
 // './three.core.js', so both are copied side by side and the renderer imports '/vendor/three.module.js' directly
 // (no import map, no CDN — LAN play works offline). Optional packages that are not installed are skipped with a
 // warning instead of failing the install.
+// Preact 11 ships only `.mjs` builds (dist/preact.mjs, hooks/dist/hooks.mjs); they are copied under the names the pages
+// already import (preact.module.js, hooks.module.js), so the imports, the import map and the service worker's list stay.
 // Preact's hooks build imports the bare specifier "preact"; it is rewritten to the sibling './preact.module.js' (the
 // same URL the import map resolves "preact" to, so one Preact instance) — module graphs then load without import-map
 // support (Safari < 16.4).
@@ -45,8 +47,8 @@ export function stripSourceMap(src) {
 export const VENDOR_FILES = Object.freeze([
   ['node_modules/pixi.js/dist/pixi.min.js', 'pixi.min.js'],
   ['node_modules/pixi-spine/dist/pixi-spine.js', 'pixi-spine.js'],
-  ['node_modules/preact/dist/preact.module.js', 'preact.module.js'],
-  ['node_modules/preact/hooks/dist/hooks.module.js', 'hooks.module.js'],
+  ['node_modules/preact/dist/preact.mjs', 'preact.module.js'],
+  ['node_modules/preact/hooks/dist/hooks.mjs', 'hooks.module.js'],
   ['node_modules/htm/dist/htm.module.js', 'htm.module.js'],
   ['node_modules/three/build/three.core.js', 'three.core.js', true],
   ['node_modules/three/build/three.module.js', 'three.module.js', true],

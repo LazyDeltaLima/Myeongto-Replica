@@ -23,7 +23,7 @@ Out of scope v1: matchmaking queue (this fork added one: network.md "Random matc
 
 - **Node.js ≥ 22** (CI: 22 and 24), ESM (`"type": "module"`), single dependency `ws@8`. No bundler, no TypeScript. JSDoc types where helpful.
 - **Server-authoritative simulation.** Clients send *intents*; the server validates, mutates state and pushes state/snapshots.
-- **Client:** static files, native ES modules. Vendored libs in `public/vendor/`: `pixi.min.js` (PixiJS **7.4.2** UMD, global `PIXI`), `pixi-spine.js` (**4.0.6** UMD, `PIXI.spine`), `preact.module.js` + `hooks.module.js` + `htm.module.js` (Preact 10 + htm, no build step). No CDN at runtime (LAN play must work offline).
+- **Client:** static files, native ES modules. Vendored libs in `public/vendor/`: `pixi.min.js` (PixiJS **7.4.2** UMD, global `PIXI`), `pixi-spine.js` (**4.0.6** UMD, `PIXI.spine`), `preact.module.js` + `hooks.module.js` + `htm.module.js` (Preact 11 + htm, no build step; Preact ships `.mjs` builds that `tools/vendor.mjs` copies under these names). No CDN at runtime (LAN play must work offline).
 - **Shared code** in `shared/` is imported by both server and browser (pure ESM, no Node APIs).
 - Tests: `node --test` (`test/**/*.test.js`). Browser E2E: `puppeteer-core` driving the system Chrome (dev dependency, optional; puppeteer-core 25 is ESM-only and needs Node ≥ 22.12, so the suites load it with `await import`).
 
