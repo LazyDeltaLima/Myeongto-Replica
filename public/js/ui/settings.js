@@ -83,10 +83,10 @@ function Slider({ label, micro, value, onInput, icon }) {
   </label>`;
 }
 
-function Toggle({ label, micro, value, onChange }) {
+function Toggle({ label, micro = '', value, onChange }) {
   return html`<div class="set-row">
-    <span class="set-row__label">${label}<${MicroLabel}>${micro}<//></span>
-    <button type="button" class=${`set-toggle${value ? ' is-on' : ''}`} role="switch" aria-checked=${value ? 'true' : 'false'}
+    <span class="set-row__label">${label}${micro ? html`<${MicroLabel}>${micro}<//>` : null}</span>
+    <button type="button" class=${`set-toggle${value ? ' is-on' : ''}`} role="switch" aria-label=${label} aria-checked=${value ? 'true' : 'false'}
       onClick=${() => onChange(!value)}><i></i><span>${value ? tc('toggle', '开启') : tc('toggle', '关闭')}</span></button>
   </div>`;
 }
@@ -366,6 +366,7 @@ export function SettingsModal({ open, onClose }) {
       <//>` : null}
       ${tab === 'chat' ? html`<${SetPanel} id="chat">
         <${ChatSoundSection} s=${s} />
+        <${Toggle} label=${t('显示聊天时间')} value=${s.chatShowTime} onChange=${(v) => updateSettings({ chatShowTime: v })} />
         <${Toggle} label=${t('常驻最近 3 条消息')} micro="PIN RECENT" value=${s.chatPinRecent} onChange=${(v) => updateSettings({ chatPinRecent: v })} />
         <p class="set-hint">${t('开启后对局中聊天收起时，最近 3 条聊天消息一直显示在聊天按钮上方，不再几秒后消失。')}</p>
       <//>` : null}
