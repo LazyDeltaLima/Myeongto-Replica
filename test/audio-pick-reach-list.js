@@ -182,7 +182,6 @@ export const OUT_OF_REACH = {
   },
   char_400_weedy: {
     'ON_ABILITY_ON.skchr_weedy_3': CAST_IN_MODE('S3\'s skill ability ON (modes[2])'),
-    'ON_ABILITY_HIT.skchr_weedy_3': CAST_IN_MODE('S3\'s skill ability HIT on the blast, which lands after the skill ended (so kd[2] does not take it either)'),
   },
   char_113_cqbw: {
     // the key of the enemy W's grenade (projectile_enemy_cqbw_s1 has the same file), as projectile_cqbw in UNREACHED

@@ -249,7 +249,7 @@ test('“打字机”: her placed piece runs its kit (not the generic one) — t
   done(h);
 });
 
-test('“打字机”\'s skill is the copy of hers, free once per deployment: S1 ATK +35 % / +50 % for good with the 30 % proc, S2 three hits of ×180 % / ×200 % (普通 + 2 × 持续), S3 4-1 + interval −0.6 s + ×185 % / ×215 % for 16 / 17 s', () => {
+test('“打字机”\'s skill is the copy of hers, free (S1 / S3 once per deployment, S2 again after each block): S1 ATK +35 % / +50 % for good with the 30 % proc, S2 three hits of ×180 % / ×200 % (普通 + 2 × 持续), S3 4-1 + interval −0.6 s + ×185 % / ×215 % for 16 / 17 s', () => {
   for (const [tier, elite] of [[5, false], [6, true]]) {
     for (const skill of [0, 1, 2]) {
       const v = tokOf(tier, elite, skill, null);
@@ -278,7 +278,10 @@ test('“打字机”\'s skill is the copy of hers, free once per deployment: S1
         for (const c of from(h, t).filter((x) => x.dmg.isSkill)) approx(c.amount, t.base.atk * tb['attack@atk_scale'], `T${tier}: S3 copy ×${tb['attack@atk_scale']}`);
       }
       h.run(24);
-      assert.equal(t.skill.activations, 1, `T${tier} S${skill + 1}: once per deployment`);
+      // S1 / S3 copies: INFINITY buff → infinite ability cooldown, once per deployment; the S2 copy (an attack ability,
+      // 0 SP) is cast again after each 2 s block while the typewriter attacks (the official client, docs/rules/diy.md 파죰카)
+      if (skill === 1) assert.ok(t.skill.activations >= 5, `T${tier} S2: cast again while it attacks (${t.skill.activations})`);
+      else assert.equal(t.skill.activations, 1, `T${tier} S${skill + 1}: once per deployment`);
       done(h);
     }
   }

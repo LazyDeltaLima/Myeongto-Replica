@@ -28,9 +28,13 @@
 //   enemy selector takes — no 无敌 flag, only 禁疗), blocks nothing, 3-2 range, ranged physical, the nearest ground enemy to
 //   itself first (its attack selector: `_targetMotion` WALK_ONLY, `_postFilter` DIST_TO_SOURCE_ASC — no air units); each
 //   attack pushes its target 小力 + 蓄水炮强化's base_force_level along its facing — a ground enemy on the three tiles ahead
-//   only. Its skill (the copy of S3 the data gives, sktok_weedy_token, MANUAL, 0 SP) is force-opened by the
-//   卫戍 strategy: free, once per deployment, by the data's DEFAULT (cast on its attack) — and it fires with every S3 of hers
-//   while it stands on one of the 4 tiles around her. It fires with her numbers (her ATK, her S3 level; the damage counts
+//   only. Its skill (the copy of S3 the data gives, sktok_weedy_token, MANUAL, 0 SP) is cast by the automatic
+//   operations like any MANUAL skill, by the data's DEFAULT on its 4-1 (no mode row for it): its 0 SP keeps it ready
+//   (`BasicSkill.get_spEnough`: SP ≥ spCost) and its prefab's `_isRemoteControlled` is read nowhere on that path
+//   (`AutoChessBattleTrigger._TryTriggerAvailableSkills` → `_DoDefaultCheck` → `CastSkill.IsAvailable` / `UseSkill`), so
+//   it fires again every BLOCK_SKILL_TICK pass while an enemy stands there — the official client's behaviour, kept
+//   (maintainer decision 2026-11-22) — and it also fires with every S3 of hers while it stands on one of the 4 tiles
+//   around her. It fires with her numbers (her ATK, her S3 level; the damage counts
 //   as hers [ASSUMED·engine: the official cannon skill deals its own damage, its ATK scaled to 温蒂's
 //   (SetAtkScaleAsHostBased: atk_scale × her ATK at its cast) — whose damage it counts as for her bonds and talents is not
 //   settled]) but its own force (+1 by 蓄水炮强化).
@@ -191,8 +195,11 @@ function cannonKit(t, owner) {
   return {
     skill: sk ? {
       kind: 'instant',
-      onStart({ battle, unit }) {
+      onStart({ battle, unit, skill }) {
         liquidNitrogen(battle, { shooter: unit, src: owner, atk: owner.s.atk, sbb, grid: sk.rangeGrid ?? GRID_4_1, force: num(sbb.force) + forceUp, pick: 'nearest' });
+        // 0 SP: ready again at once (`BasicSkill.get_spEnough` SP ≥ spCost) — the automatic operations recast it every
+        // pass its block allows while an enemy stands on its 4-1 (nothing on that path reads `_isRemoteControlled`)
+        skill.addCharge(1);
       },
     } : null,
     trait: {

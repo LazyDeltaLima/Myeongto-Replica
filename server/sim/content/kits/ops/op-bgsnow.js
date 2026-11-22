@@ -24,7 +24,10 @@
 //   card, and a token card whose host is recycled is hidden until she is spawned again — TokenCard m_hostIsAlive; confirmed
 //   in the official client). Its skill
 //   is the copy of hers the data gives (bySkill: sktok_bgsnow_1 / 2 / 3 — the 卫戍 strategy force-opens a summon's manual
-//   skill, PRTS 卫戍协议/帮助): free (spCost 0), once per deployment, by the data's DEFAULT. It is untargetable ("不会受到
+//   skill, PRTS 卫戍协议/帮助): free (spCost 0), by the data's DEFAULT — the S1 / S3 copies once per deployment (their
+//   ActiveBuffAbility's INFINITY buff makes the ability's cooldown infinite), the S2 copy again after every BLOCK_SKILL_TICK
+//   block while it attacks (an attack ability, cooldown = its attack time; 0 SP is always enough — the official client,
+//   maintainer decision 2026-11-22). It is untargetable ("不会受到
 //   攻击"), blocks nothing, hits air units. content/tokens.js has no kit for it: her install gives her pieces this one.
 // - T2 弱点速记 "“打字机”的攻击会使命中目标的防御力下降18%，持续4秒；若“打字机”放在鸿雪周围四格则效果提升至23%" (full potential:
 //   20% for 5 s, 25%): every damage the typewriter's attacks land cuts the target's DEF by bgsnow_token[def_down]_1 (_2
@@ -134,7 +137,10 @@ function typewriterKit(t, owner, chess) {
       kind: 'instant',
       attack: { atkScale: scale, onHit({ battle, unit, target }) { precisFollowUps(battle, unit, target, scale); } },
       // her 点题's "立即": sktok_bgsnow_2 is a `CastSkill` (`_switchToState` 1) with its own attack, so the cast cuts what is left of the swing
-      onStart({ unit }) { unit.atkCd = 0; unit.castLeft = 0; unit.swing = null; },
+      // 0 SP and its own attack ability (cooldown = the attack time): ready again at once (`BasicSkill.get_spEnough`), so
+      // the automatic operations cast it again every pass its block allows while it attacks — the S1 / S3 copies are
+      // `ActiveBuffAbility`s whose INFINITY buff makes their cooldown infinite (`SetLifeTime`): once per deployment
+      onStart({ unit, skill: sk2 }) { unit.atkCd = 0; unit.castLeft = 0; unit.swing = null; sk2.addCharge(1); },
     };
   } else if (sk?.id === TS3) {
     skill = {

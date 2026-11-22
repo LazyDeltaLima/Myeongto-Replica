@@ -640,8 +640,10 @@ describe('선발 涤火杰西卡 / 鸿雪: S3 shell, the turn to a 机动盾牌,
     const s1 = run(0);
     assert.ok(s1.played.includes('p_imp_pencrossbow_d'), `its Default impact (${s1.played})`);
     const s2 = run(1);
-    assert.ok(tw(s2).skill.activations >= 1, 'its S2 copy cast');
-    assert.equal(count(s2.played, 'p_imp_pencrossbow_h'), 1, `the S2 copy's shot (${s2.played})`);
+    // (0 SP: the automatic operations cast the S2 copy again after each 2 s block — docs/rules/diy.md 「소환물의 SP 0 수동 스킬」)
+    const casts = tw(s2).skill.activations, shots = count(s2.played, 'p_imp_pencrossbow_h');
+    assert.ok(casts >= 2, `its S2 copy cast again (${casts})`);
+    assert.ok(shots >= 1 && shots <= casts, `the S2 copy's shots: ${shots} of ${casts} casts (${s2.played})`);
     const s3 = run(2);
     assert.ok(tw(s3).skill.activations >= 1, 'its S3 copy cast');
     assert.ok(s3.played.includes('p_imp_pencrossbow_s'), `the S3 mode's impact (${s3.played})`);

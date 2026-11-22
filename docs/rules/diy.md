@@ -1134,6 +1134,23 @@
   (upstream 테스트에 없어 더함); 선발 수를 세는 테스트 31 → 34명(폼 136 → 145), 소환사 12 → 13, 손패 소환물 검사 142 → 166, 토큰 모델 19 → 20. golden `diy-054`~`diy-059`(새 시나리오; `diy-053`은 덜 찬 마지막 판에 쏜즈가 들어와 바뀜 — 동작 변화 아님), 다른 가족 변화 없음.
 
 
+## 소환물의 SP 0 수동 스킬은 자동 조작이 다시 시전한다 (2026-11-22, 관리자 결정 「공식 클라와 같게」)
+
+- **무엇**: 위디의 공학용 저수포(`token_10009_weedy_cannon`, 스킬 `sktok_weedy_token`)와 파죰카의 '타자기'(S2 사본 `sktok_bgsnow_2`)는
+  스킬이 수동(MANUAL)·SP 0이다. 이 모드의 자동 조작은 0.2초 회차마다 그런 스킬을 시전하고, 시전한 유닛을 10회차(2초) 막은 뒤 다시 시전한다.
+  저수포는 4-1 상자에 적이 있는 동안(스킬 `rangeId`, `DEFAULT`), 타자기 S2 사본은 공격하는 동안(`rangeId` 없음) 계속 쏜다. 예전 키트는 엔진의
+  「SP 0 스킬은 배치마다 한 번」(`server/sim/skills.js`)대로 한 번만 쐈다(고침). 위디 S3 때 저수포가 같이 쏘는 것은 그대로다.
+- 공식 클라에서 확인: `AutoChessBattleTrigger._TryTriggerAvailableSkills`는 소환물을 포함한 모든 캐릭터를 돈다. `_DoDefaultCheck` →
+  `CastSkill.IsAvailable` → `BasicSkill.get_spEnough`(SP ≥ spCost라 0이면 늘 참) → `CastSkill.UseSkill` 가운데 어디에도 저수포 프리팹의
+  `_isRemoteControlled`를 보는 곳이 없다. 자동 조작 표(`skillTriggerDataList`, 두 시즌)에 두 소환물의 행은 없다. 저수포 능력은 `_timeMode` 1(쿨다운 =
+  Skill 클립)이고 타자기 S2 사본은 공격 능력(쿨다운 = 공격 시간)이라 금방 다시 준비된다. 타자기 S1·S3 사본은 `ActiveBuffAbility`이고, 버프 수명이
+  INFINITY라 능력 쿨다운도 무한이다(`ActiveBuffAbility.SetLifeTime`) — 배치마다 한 번, 키트와 같다. 켜진 Lua 핫픽스에 이 메서드들은 없다.
+- 플레이어들은 이것을 공식의 버그로 본다(저수포가 일반 공격 대신 액체 질소 대포를 계속 쏨). 그래도 관리자 결정에 따라 공식 클라와 같게 둔다.
+- 다른 SP 0 스킬: 표의 SP 0 수동 스킬은 이 둘뿐이다. SP 0 자동(AUTO) 소환물 스킬(`sktok_wang_*`·`sktok_mtship_*`·`sktok_monstr_prosts*`·
+  `sktok_cqbw_token`·`sktok_ebnhlz_token`·`sktok_rosmon`)은 자동 조작을 타지 않는다(`_DoDefaultCheck`는 MANUAL만). 이 스킬들은 엔진 규칙 그대로이고,
+  공식 `BasicSkill.OnTick`의 자동 시전과는 아직 대조하지 않았다.
+- 재발 방지: `test/content/op_weedy.test.js`(저수포가 2초 막힘 뒤 다시 쏨)·`test/content/op_bgsnow.test.js`(S2 사본만 다시, S1·S3는 한 번).
+
 ## 선발 추가 W·오올헤약·클로저 (2026-11-06, 관리자 결정)
 - 관리자 결정 2026-11-02·2026-11-03·2026-11-06(새 시즌 카시미어·핵심 맹약 없음 명단의 upstream 선발 키트 셋을 묶음으로): 선발에 W(`char_113_cqbw`, 6성 스나이퍼 포격수)·오올헤약(霍尔海雅 `char_4027_heyak`, 6성 캐스터 코어)·클로저(可露希尔 `char_4228_closur`, 6성 뱅가드 전술가)를 넣는다(`LOCAL_DIY_PICKS` 끝). 이름·문구는 KR 공식 표 그대로(`tools/i18n/build-ko-diy.mjs`). 소환물은 W 「적 방향」(`token_10008_cqbw_box`)·클로저 「지휘 센터」(`token_10066_closur_ourbase`, 손패 소환물).
 - 맹약: 지금 시즌은 셋 다 협방(`emptyShip`). 오올헤약의 ISW-A(통합 전략 전용)는 편성에서 거부된다.

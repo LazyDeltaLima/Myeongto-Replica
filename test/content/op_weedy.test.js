@@ -214,7 +214,7 @@ test('移动创伤: a walker takes 1200 per tile it walks; a second application 
   done(h);
 });
 
-test('T1 工程蓄水炮: the placed cannon deploys with the board — untargetable, 禁疗, blocks nothing, 3-2, physical arrows at the nearest ground enemy (no air: its selector is WALK_ONLY), its stats from the variant; its forced skill fires once per deployment with 温蒂\'s ATK and its own force +1', () => {
+test('T1 工程蓄水炮: the placed cannon deploys with the board — untargetable, 禁疗, blocks nothing, 3-2, physical arrows at the nearest ground enemy (no air: its selector is WALK_ONLY), its stats from the variant; its 0-SP skill fires with 温蒂\'s ATK and its own force +1, again after every 2 s block', () => {
   for (const f of FORMS_ALL) {
     const [tier, elite, mod] = f;
     const { h, u, c } = field({ tier, elite, mod, skill: 0, cannon: [11, 5], dp: 100 });
@@ -236,8 +236,16 @@ test('T1 工程蓄水炮: the placed cannon deploys with the board — untargeta
     assert.ok(shot.length >= 1 && shot.every((x) => Math.abs(x.amount - u.s.atk * sbb.atk_scale) < 1e-6), `${label(f)}: ${sbb.atk_scale * 100} % of 温蒂's ATK`);
     assert.ok(shot.some((x) => x.target === near), `${label(f)}: the nearest enemy`);
     assert.ok(pushes.some((p) => p.id === near.id && p.force === sbb.force + 1), `${label(f)}: its force +1 (${JSON.stringify(pushes)})`);
-    h.run(30);
-    assert.equal(c.skill.activations, 1, `${label(f)}: once per deployment`);
+    // 0 SP keeps it ready: the automatic operations cast it again after each BLOCK_SKILL_TICK block (10 passes = 2 s)
+    // while an enemy stands on its 4-1 — not once per deployment (the official client, docs/rules/diy.md 위디)
+    // (the shots pushed both out of the 4-1: no enemy there, no cast)
+    assert.equal(c.skill.activations, 1, `${label(f)}: none while its 4-1 is empty`);
+    const at1 = c.skill.lastStart;
+    for (const e of [...h.b.enemies]) if (e.alive) h.b.kill(e, null);
+    for (let i = 0; i < 4; i++) h.spawn('enemy_dummy', { pos: [11, 8] });   // (four: a shot pushes one, the next still stands there)
+    assert.ok(h.runUntil(() => c.skill.activations === 2, 4), `${label(f)}: cast again (${c.skill.activations})`);
+    const gap = c.skill.lastStart - at1;
+    assert.ok(gap >= 2 - 1e-6, `${label(f)}: not before its 2 s block (${gap} s)`);
     void farther;
     done(h);
   }
