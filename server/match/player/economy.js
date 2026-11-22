@@ -272,19 +272,32 @@ export class PlayerEconomy {
     return this.gd.sellPrice(piece.id);
   }
 
+  /**
+   * What selling this owned chess piece pays now: its own price (sellPriceOf) as the strategies change it (onSellPrice —
+   * 巫恋's swap pending: 0, 温蒂's fixed price kept). The one price both the sale and the piece view (player/views.js) use,
+   * so the price shown is the price paid. The 特质 that read a sell price (旅骨, 棘刺, 海沫's raise) read sellPriceOf.
+   */
+  sellGainOf(piece) {
+    if (!piece || piece.kind !== 'chess') return 0;
+    const ev = this.m.dispatch(this, 'onSellPrice', { piece, price: this.sellPriceOf(piece) });
+    return Number.isFinite(ev?.price) ? Math.max(0, Math.trunc(ev.price)) : this.sellPriceOf(piece);
+  }
+
   sell(uid) {
     const g = this._gate(); if (g) return g;
     const loc = this.find(uid);
     if (!loc) return fail(ERR.BAD_TARGET);
     if (loc.piece.kind !== 'chess') return fail(ERR.BAD_TARGET, loc.piece.kind === 'item' ? 'items cannot be sold' : 'tokens cannot be sold');
     const piece = loc.piece;
+    // the price shown on the piece (taken while it is still owned, as the view takes it)
+    const price = this.sellGainOf(piece);
     // Returned equipment can always wait in the overflow queue, even when all fifteen visible slots are occupied.
     this._detach(loc);
     this.removeTokensOf(piece.uid);
     for (const it of piece.items || []) this.stow(it, { allowTemp: true });
     piece.items = [];
     this.returnCopies(piece);
-    const ev = { piece, gain: this.sellPriceOf(piece) };
+    const ev = { piece, gain: price };
     this.m.dispatch(this, 'onSold', ev);
     const gain = Number.isFinite(ev.gain) ? Math.max(0, Math.trunc(ev.gain)) : 1;
     this.addFunds(gain, { reason: 'sell' });

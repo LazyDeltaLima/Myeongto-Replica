@@ -26,7 +26,7 @@
 //                                                                pair field): 0–2 ground enemies (the count shared by
 //                                                                every player of the round) → one enemylist enemy each
 //   round_start_activate_char_chess_effect_in_board    铃兰     round start: 获得时 traits of the right-most (then bottom-most) board op with one
-//   first_sell_char_chess_exchange_char_chess_in_shop  巫恋     first sale of a normal op per round: swapped with a random shop chess (no funds)
+//   first_sell_char_chess_exchange_char_chess_in_shop  巫恋     first sale of a normal op per round: swapped with a random shop chess (sells at 0; 温蒂 keeps 3)
 //   round_start_gain_char_chess_in_shop_every_n_round  松桐     prep start, round % n = 0: a random shop chess for free (its slot empties)
 //   round_start_gain_coin_by_bond_char_chess_buy       玛恩纳   each <bond> chess bought → +count funds next round (≤ max_count / round)
 //   refresh_shop_count_gain_coin_bond_char_chess       贾维     every refresh_count manual refreshes (match total) → <bond> chess ≤ shop level (≤ max_count / round)
@@ -57,6 +57,8 @@ function roundCounter(ctx, key) {
   return ctx.counter(key);
 }
 const bumpRound = (ctx, key, n = 1) => { roundCounter(ctx, key); return ctx.incCounter(key, n); };
+/** The same counter read without writing (price queries must be pure): 0 when it was last written in another round. */
+const roundCount = (ctx, key) => (ctx.counter(`${key}:r`) === ctx.round ? ctx.counter(key) : 0);
 
 /** Grant a chess or an item by id. */
 function grant(ctx, id, opts = {}) {
@@ -334,19 +336,28 @@ K.round_start_activate_char_chess_effect_in_board = (ps) => ({
   },
 });
 
+// 巫恋 「每回合首次出售初始干员时，改为与调度中心中随机1名干员交换」: while the swap is pending (this round's count not
+// reached, a normal operator, an unsold operator card in the shop) a normal operator's sell price is 0 — shown so on
+// the piece and paid so (onSellPrice: PlayerState.sellGainOf) —, its 出售时 特质 still run (波登可, 吉星, 伊桑), a price
+// 海沫 raised shows and pays 0, but 温蒂's fixed 「售出价格为3」 stays (shown 3, paid 3 with the swap): a CN player's report
+// of the official game. With no operator card in the shop there is no swap and the operator sells as usual
+// [추정·화면: the shown price of that case]. The 特质 that read a sell price (旅骨, 棘刺) read the operator's own price
+// [추정·화면: 0 not seen on an official screen].
+const vodfoxPending = (ctx, ps, piece) => !!(piece && piece.kind === 'chess' && isNormalChess(ctx, piece.id)
+  && roundCount(ctx, 'band:vodfox') < Math.max(1, int(ps[0].count, 1)) && chessSlots(ctx).length);
 K.first_sell_char_chess_exchange_char_chess_in_shop = (ps) => ({
+  onSellPrice(ctx, ev) {
+    if (vodfoxPending(ctx, ps, ev.piece)) ev.price = ctx.gd.fixedSellPrice(ev.piece.id) ?? 0;
+  },
   onSold(ctx, ev) {
     const piece = ev.piece;
-    if (!piece || piece.kind !== 'chess' || !isNormalChess(ctx, piece.id)) return;
-    if (roundCounter(ctx, 'band:vodfox') >= Math.max(1, int(ps[0].count, 1))) return;
+    if (!vodfoxPending(ctx, ps, piece)) return;
     const slots = ctx.shopSlots();
-    const idx = chessSlots(ctx);
-    if (!idx.length) return;
-    const i = ctx.rng.pick(idx);
+    const i = ctx.rng.pick(chessSlots(ctx));
     const got = ctx.grantChess(slots[i].id, { source: 'band' });
-    if (!got) return;
+    // no swap after all: the operator's own price (sellGainOf took the swap's)
+    if (!got) { ev.gain = Number.isFinite(piece.sellPrice) && piece.sellPrice >= 0 ? piece.sellPrice : ctx.gd.sellPrice(piece.id); return; }
     ctx.setShopSlot(i, { kind: 'chess', id: piece.id });
-    ev.gain = 0;
     bumpRound(ctx, 'band:vodfox');
   },
 });

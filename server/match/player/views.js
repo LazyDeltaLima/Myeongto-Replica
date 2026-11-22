@@ -54,8 +54,9 @@ export class PlayerViews {
     // operator skins: the prep board / hand / temp pieces show their outfit before they fight (pieceSkin)
     const skin = this.pieceSkin(p);
     if (skin) v.skin = skin;
-    // the sell price when it is not the record's (规程's 海沫 / 温蒂: economy.js sellPriceOf) — the detail panel shows it
-    if (p.kind === 'chess') { const sp = this.sellPriceOf(p); if (sp !== (rec?.sellPrice ?? 1)) v.sellPrice = sp; }
+    // the sell price when it is not the record's (规程's 海沫 / 温蒂, 巫恋's pending swap: economy.js sellGainOf, the price
+    // the sale pays) — the detail panel shows it
+    if (p.kind === 'chess') { const sp = this.sellGainOf(p); if (sp !== (rec?.sellPrice ?? 1)) v.sellPrice = sp; }
     if (rc) { v.row = rc[0]; v.col = rc[1]; v.dir = pieceDir(p); }
     // 定期存折's funds now — its card's 「{showtag_value_1}」 (shared/showTag.js; items/meta.js pays the same number)
     if (p.kind === 'item' && hasShowTag(rec?.desc)) {

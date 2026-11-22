@@ -367,7 +367,8 @@ Every handler method is `(ctx, ev)`; `ev` is shared by all handlers of one dispa
 | `onPrepStart` | PREP opens (after 机变): 「进入休整期时」 | `{ round }` |
 | `onPrepEnd` | prep end, before funds are cleared | `{ round }` |
 | `onGain` | a chess / item was acquired (buy, reward, grant, merge result) | `{ piece, kind:'chess'|'item', source }` |
-| `onSold` | a chess was sold (after refund of copies) | `{ piece, gain }` — **write `ev.gain`** to change the funds paid |
+| `onSold` | a chess was sold (after refund of copies) | `{ piece, gain }` — **write `ev.gain`** to change the funds paid (`gain` starts at the `onSellPrice` price) |
+| `onSellPrice` | every sell-price query of an owned chess (`PlayerState.sellGainOf`: the piece view + the sale) — must be **pure**; no 特质 runs on it | `{ piece, price }` — write `ev.price` (巫恋's pending swap: 0, 温蒂's fixed price kept); `price` starts at the piece's own price (`sellPriceOf`, which the 特质 reading a sell price use) |
 | `onRefresh` | manual refresh | `{ slots, free, price }` (slots mutable, or use `ctx.setShopSlot`) |
 | `onPrice` | every price query of a shop slot (views + buy) — must be **pure** | `{ slot, kind, id, price }` — write `ev.price` / `ctx.setPrice` / `ctx.modifyPrice` |
 | `onBuy` | after a shop purchase (`g.buy` only) | `{ piece, slot, price, kind }` (`piece` = owned result, elite after a merge). The "购买" counters — 休露丝 首名<谢拉格> 1 资金, 玛恩纳 每购买一名<卡西米尔>, 升华 / 整备 "接下来购买的…" — hook it, so a free pick (promotion reward, 寻呼模块 / 信标 / 凯瑟琳 offers: `g.reward`) or a grant (紧急调度券, 简易通讯机, 拟态物质, strategies) never counts as a purchase (player report F2 after 0.1.0; PRTS 帮助 describes the promotion reward as a 0-cost temporary shop — whether the official 雪域礼赠 counts that pick is unknown, [ASSUMED] no) |

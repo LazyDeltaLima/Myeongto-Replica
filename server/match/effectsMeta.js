@@ -12,9 +12,10 @@
 //   global:<name>          runs for every player on every hook
 //
 // Hooks (handler methods; all optional, signature (ctx, ev)):
-//   onRoundStart onIncome onPrepStart onPrepEnd onGain onSold onRefresh onPrice onBuy onSpend onMerge onLevelUp
+//   onRoundStart onIncome onPrepStart onPrepEnd onGain onSold onSellPrice onRefresh onPrice onBuy onSpend onMerge onLevelUp
 //   onBattleStart onBattleResult onChoicePick onEquip onArt onDestroy onLayers onActiveBonds
 // (onActiveBonds: the set of active bonds changed — PlayerState.recompute, player/round.js _reportActiveBonds.)
+// (onSellPrice: a price query of an owned chess — PlayerState.sellGainOf, views + sell —, pure; no 特质 runs on it.)
 // Garrisons fire only on the hook of their eventType (SERVER_GAIN→onGain of the gained piece, SERVER_PREP_START→
 // onPrepStart — 「进入休整期时」, PREP opening after the round's 机变 draft (content/bands/meta.js header) —, SERVER_PREP_FIN→onPrepEnd, SERVER_CHESS_SOLD→onSold of the sold piece, SERVER_PRICE→onPrice of the
 // slot's chess, SERVER_REFRESH_SHOP→onRefresh, SERVER_BATTLE_FIN→onBattleResult of a normal battle — 规程's 「<进入休整期时>」
@@ -83,7 +84,7 @@ export function traitState(m) {
 }
 
 export const HOOKS = Object.freeze([
-  'onRoundStart', 'onIncome', 'onPrepStart', 'onPrepEnd', 'onGain', 'onSold', 'onRefresh', 'onPrice', 'onBuy',
+  'onRoundStart', 'onIncome', 'onPrepStart', 'onPrepEnd', 'onGain', 'onSold', 'onSellPrice', 'onRefresh', 'onPrice', 'onBuy',
   'onSpend', 'onMerge', 'onLevelUp', 'onBattleStart', 'onBattleResult', 'onChoicePick', 'onEquip', 'onArt',
   'onDestroy', 'onLayers', 'onActiveBonds', 'onBandSkill', 'onBandSkillUsed',
 ]);

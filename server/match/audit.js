@@ -198,7 +198,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     });
     wrap(ps, 'sell', function (orig, uid) {
       const loc = ps.find(uid);
-      const gain = loc && loc.piece.kind === 'chess' ? ps.sellPriceOf(loc.piece) : null;
+      const gain = loc && loc.piece.kind === 'chess' ? ps.sellGainOf(loc.piece) : null;
       const f0 = ps.funds;
       const fx = hasSpendEffects(m, ps);
       const res = orig(uid);

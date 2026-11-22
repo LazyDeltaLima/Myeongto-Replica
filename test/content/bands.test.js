@@ -412,6 +412,8 @@ test('巫恋 替身娃娃: the first sale of a normal operator each round swaps 
   const [a, b, x, y] = plain((c) => c.tier === 1);
   ps.shop.slots = [slotOf(x), slotOf(y)];
   const pa = give(m, ps, a, 'hand');
+  const shown = (p) => ps.privateView().hand.find((v) => v && v.uid === p.uid).sellPrice ?? DATA.chess[p.id].sellPrice ?? 1;
+  assert.equal(shown(pa), 0, 'the swap pending: shown at 0 (CN player report)');
   const f0 = ps.funds;
   assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: pa.uid }), OK);
   assert.equal(ps.funds, f0, 'no funds');
@@ -420,6 +422,7 @@ test('巫恋 替身娃娃: the first sale of a normal operator each round swaps 
   assert.ok([x, y].includes(got[0]));
   assert.ok(ps.shop.slots.some((sl) => sl && sl.id === a && !sl.sold), 'the sold operator is now in the shop');
   const pb = give(m, ps, b, 'hand');
+  assert.equal(shown(pb), 1, 'swapped this round: its own price again');
   assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: pb.uid }), OK);
   assert.equal(ps.funds, f0 + 1, 'second sale this round: normal');
   const elite = give(m, ps, DATA.chess[b].goldenId, 'hand');

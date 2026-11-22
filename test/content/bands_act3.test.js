@@ -330,3 +330,52 @@ test('哈洛德 规程: the grant never passes the shop level — nothing when n
   assert.equal(got.length, 3, 'R4, R6, R8');
   for (const id of got) assert.equal(ACT3.chess[id].tier, 2, `${id}: ≤ shop level`);
 });
+
+test('巫恋 替身娃娃 规程: the swap pending, a normal operator shows and sells at 0 — 温蒂 keeps 3, 海沫\'s raise shows 0; 出售时 特质 still run (CN player report)', () => {
+  const WEEDY = 'chess_char_4_05_a', HIGHMORE = 'chess_char_3_04_a', PODENCO = 'chess_char_2_13_a';
+  const plainIds = Object.values(ACT3.chess).filter((c) => c.visible && !c.isGolden && !c.isDiy && c.tier === 1
+    && (c.garrisonIds || []).every((g) => ACT3.garrisons[g]?.eventType === 'IN_BATTLE')).map((c) => c.chessId).sort();
+  const [x, y] = plainIds;
+  const run = (id, { shop = [x, y], raise = null, bond = null } = {}) => {
+    const { m, ps } = setup({ band: 'band_substitute', seed: 7 });
+    if (bond) { ps.bondCountBonus[bond] = 2; ps.recompute(); }
+    ps.shop.slots = shop.map((s) => slotOf(s));
+    const p = give(m, ps, id, 'hand');
+    if (raise != null) p.sellPrice = raise; // as 海沫's 休整期结束 raises it
+    ps.dirty?.();
+    const v = ps.privateView().hand.find((q) => q && q.uid === p.uid);
+    const shown = v.sellPrice ?? m.gd.chess(id).sellPrice ?? 1;
+    const f0 = ps.funds, pf0 = ps.pendingFunds, hand0 = ps.hand.filter(Boolean).length;
+    assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: p.uid }), OK);
+    const swapped = ps.shop.slots.some((sl) => sl && sl.id === id && !sl.sold);
+    return { m, ps, shown, paid: ps.funds - f0, pending: ps.pendingFunds - pf0, swapped, handGain: ps.hand.filter(Boolean).length - hand0 };
+  };
+  const plain = run(plainIds[2]);
+  assert.deepEqual([plain.shown, plain.paid, plain.swapped], [0, 0, true], 'a normal operator: 0, swapped');
+  const weedy = run(WEEDY);
+  assert.deepEqual([weedy.shown, weedy.paid, weedy.swapped], [3, 3, true], '温蒂: 3 shown and paid, with the swap');
+  const high = run(HIGHMORE, { raise: 4 });
+  assert.deepEqual([high.shown, high.paid, high.swapped], [0, 0, true], '海沫 raised to 4: 0');
+  const pod = run(PODENCO);
+  assert.deepEqual([pod.shown, pod.paid, pod.pending, pod.swapped], [0, 0, 1, true], '波登可\'s 出售时 下回合+1 still runs');
+  const kichi = run('chess_char_3_17_a');
+  assert.deepEqual([kichi.shown, kichi.paid, kichi.swapped], [0, 0, true]);
+  assert.ok(kichi.ps.offers.length > 0, '吉星\'s 出售时 free special recruit still runs');
+  const ethan = run('chess_char_3_18_a', { bond: ACT3.chess[x].bonds[0] }); // 伊桑 gives one of the bond with the most
+  assert.deepEqual([ethan.shown, ethan.paid, ethan.swapped], [0, 0, true]);
+  assert.equal(ethan.handGain, 1, '伊桑\'s 出售时 operator still comes (with the swapped one: sold 1, gained 2)');
+  // no operator card in the shop: no swap, the own price
+  const empty = run(WEEDY, { shop: [] });
+  assert.deepEqual([empty.shown, empty.paid, empty.swapped], [3, 3, false]);
+  const empty2 = run(HIGHMORE, { shop: [], raise: 4 });
+  assert.deepEqual([empty2.shown, empty2.paid], [4, 4]);
+  // after this round's swap: the own prices again; the 特质 that read a sell price read the own one throughout
+  const { m, ps } = weedy;
+  const w2 = give(m, ps, WEEDY, 'hand');
+  assert.equal(ps.privateView().hand.find((q) => q && q.uid === w2.uid).sellPrice, 3);
+  m.round += 1;
+  const w3 = give(m, ps, HIGHMORE, 'hand');
+  w3.sellPrice = 4;
+  assert.equal(ps.privateView().hand.find((q) => q && q.uid === w3.uid).sellPrice, 0, 'a new round: the swap pending again');
+  assert.equal(ps.sellPriceOf(w3), 4, 'its own price (旅骨 / 棘刺 / 海沫 read it) is kept');
+});
