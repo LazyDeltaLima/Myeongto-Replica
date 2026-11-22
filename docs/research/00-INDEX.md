@@ -63,7 +63,7 @@ Boss rounds: the battle continues past the timer. Merged team LP drains **1/s af
 
 **Shared pool (co-op), copies per operator:** T1 **12**, T2 **14**, T3 **18**, T4 **16**, T5 **8**, T6 **5** (缪尔赛思 4). [2026-10-11: superseded — 路标月报#2 (bilibili BV1eLXXBqEgF) gives this as the 独立模拟 (solo) table with Ⅰ/Ⅱ exceptions (普罗旺斯/德克萨斯/跃跃/古米/格雷伊 10, 风丸 8, 赫默/休谟斯/砾/蒂比/调香师 12) and 同盟模拟 (co-op) = ×2; no 缪尔赛思 exception this season (META.md «Pool»).] An elite counts as 3. Every owned copy counts; shop displays don't. Eliminated or quitting players return their copies. [COMM, two independent sources]
 
-**Shop odds [ASSUMED; the official odds are unpublished].** Each slot draws 1 copy uniformly from all remaining pool copies of unbanned, non-hidden chess with tier ≤ shop level. Duplicates in one roll are allowed; a screenshot shows 2× 蛇屠箱 in one roll. Resulting tier shares with full pools and no bans:
+**Shop odds [ASSUMED·서버·화면; the official odds are unpublished — 2026-11-23: counted official tier-6 shop refreshes fit this model and not a draw that gives every chess with a copy left the same chance, if the seasons share the rule; docs/rules/sim.md 「상점 굴림 = 장수 가중」].** Each slot draws 1 copy uniformly from all remaining pool copies of unbanned, non-hidden chess with tier ≤ shop level. Duplicates in one roll are allowed; a screenshot shows 2× 蛇屠箱 in one roll. Resulting tier shares with full pools and no bans:
 
 | Shop Lv | T1 | T2 | T3 | T4 | T5 | T6 |
 |---|---|---|---|---|---|---|

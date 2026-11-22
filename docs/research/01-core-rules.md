@@ -622,7 +622,7 @@ Proposed server state per player:
 
 ## 15. Open questions
 1. **Exact income after R3, and the cap.** The formula is inferred: `3+r` is solid for R1–R3 only; the cap of 10 is a guess (could be 12). FUNNY's "更加丰富" bonus is unknown.
-2. **Official shop tier odds.** Unpublished. The copy-weighted model is consistent with community remarks but unverified.
+2. **Official shop tier odds.** Unpublished. The copy-weighted model is consistent with community remarks but unverified. [2026-11-23: counted official tier-6 shop refreshes (맹약 상반기 64, 맹약 하반기 13) fit the copy-weighted tier shares and rule out a draw that gives every chess with a copy left the same chance — if the seasons share the rule; a separate tier table with a uniform draw inside the tier is not ruled out, docs/rules/sim.md 「상점 굴림 = 장수 가중」.]
 3. **Number of bonds banned per match** and exactly which operators disappear ("只有部分会出现").
 4. **Band offer count and skip semantics** at BAND_CHECK (3 offered + 1 reroll assumed).
 5. **Which choice-event ids occur at which SP round** (server-side pools). The same applies to the `pool_*` contents.
