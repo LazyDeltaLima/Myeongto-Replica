@@ -1976,6 +1976,24 @@ function effectDescParams(ctx, effectId) {
   checkDescParamKeys(effectParams(effectBuffs(ctx, effectId)), out.flatMap((x) => [x.base, x.perStack]), `effectDescParamDataDict ${effectId}`);
   return out;
 }
+/**
+ * 规程's bond phase (the HUD's 阶段 Ⅰ·Ⅱ on a bond disc and in its dialog): effectDescParamDataDict[effectId] counts it by
+ * members (PEOPLE_COUNT) or by stacks (STACK_COUNT) against bondPhaseCountList — the phase is how many of those counts
+ * the value reached (official CN screens: 远见 12 stacks none, 999 Ⅱ; 奇迹 267 Ⅱ; 投资人 382 Ⅱ). NONE = no phase.
+ * Returns undefined when the season's table has no entry (盟约), null for NONE; stops on a type it does not know.
+ * @returns {{ by: 'members'|'layers', at: number[] }|null|undefined}
+ */
+function effectPhase(ctx, effectId) {
+  const e = ctx.act.effectDescParamDataDict?.[effectId];
+  if (!e) return undefined;
+  const by = { PEOPLE_COUNT: 'members', STACK_COUNT: 'layers', NONE: null }[e.phaseType];
+  if (by === undefined) throw new Error(`effectDescParamDataDict ${effectId}: phaseType ${JSON.stringify(e.phaseType)} unknown`);
+  const at = e.bondPhaseCountList;
+  if (!Array.isArray(at) || at.some((n) => !Number.isInteger(n) || n < 0)) throw new Error(`effectDescParamDataDict ${effectId}: bondPhaseCountList ${JSON.stringify(at)} is not a list of counts`);
+  if (by === null) return null;
+  if (!at.length) throw new Error(`effectDescParamDataDict ${effectId}: ${e.phaseType} with no bondPhaseCountList`);
+  return { by, at: [...at].sort((x, y) => x - y) };
+}
 /** Stop the build on a text placeholder key that `params` (an effect's flattened blackboards) lacks or holds as a non-number. */
 function checkDescParamKeys(params, keys, where) {
   for (const k of keys) {
@@ -2012,6 +2030,9 @@ function buildEffects(ctx) {
     const dpi = effectDescParams(ctx, effectId);
     // 规程: the {i:fmt} keys of the text (a direction switch shows another effect's text: ui/bondStrip.js swappedBond)
     if (dpi.length) out[effectId].descParams = dpi.map((x) => (x.max > 0 ? x : { base: x.base, perStack: x.perStack }));
+    // 规程: the phase of a direction switch's effect (ui/bondStrip.js swappedBond), as the bond's own (buildBonds)
+    const phase = effectPhase(ctx, effectId);
+    if (phase !== undefined) out[effectId].phase = phase;
   }
   for (const id of Object.keys(ctx.act.effectBuffInfoDataDict)) {
     if (!out[id]) warn(`effectBuffInfoDataDict has ${id} without effectInfoDataDict entry`);
@@ -2099,6 +2120,7 @@ function buildBonds(ctx, chess, effects) {
       activeType: b.activeType, isActiveInDeck: !!b.isActiveInDeck,
       noStack: !!b.noStack, weight: b.weight, maxInactiveBondCount: b.maxInactiveBondCount,
       layerMilestones,
+      ...(effectPhase(ctx, b.effectId) !== undefined ? { phase: effectPhase(ctx, b.effectId) } : {}),
       desc: dp.desc, descRaw: dp.descRaw,
       effectId: b.effectId, effectName: eff?.name || null, effectDesc: eff?.desc || null, effectDescRaw: eff?.descRaw || null,
       // Positional {i:fmt} placeholders of effectDesc = bb[baseParams[i]] + bb[perStackParams[i]] * layers (at most `max`).

@@ -158,13 +158,32 @@ test('the operators against the leader: summons count for their board piece, top
   assert.equal(progress({ p_0: { s: 1, r: [['chess_a', -1]] } }), 'bad field top');
 });
 
-test('the page\'s steps: streak 3 / 5, boss glow 20 / 50 / 80 %, list rows 30 / 60 / 100; bond phase only with two thresholds', () => {
+test('the page\'s steps: streak 3 / 5, boss glow 20 / 50 / 80 %, list rows 30 / 60 / 100', () => {
   assert.deepEqual([2, 3, 4, 5, 9].map((n) => streakStep(n, [3, 5])), [0, 1, 1, 2, 2]);
   assert.deepEqual([19, 20, 49, 50, 80].map((p) => bossStep(p, [0.2, 0.5, 0.8])), [0, 1, 1, 2, 3]);
   assert.deepEqual([29, 30, 60, 100].map((p) => stepOf(p, [30, 60, 100])), [0, 1, 2, 3]);
   assert.equal(streakStep(5, undefined), 0);
-  assert.equal(bondPhaseOf({ active: true, tier: 2 }, [3, 6]), 2);
-  assert.equal(bondPhaseOf({ active: true, tier: 1 }, [2, 3]), 1);
-  assert.equal(bondPhaseOf({ active: true, tier: 1 }, [2]), 0, '独行: one threshold, no mark (official CN screen)');
-  assert.equal(bondPhaseOf({ active: false, tier: 0 }, [3, 6]), 0);
+});
+
+test('规程 bond phase: the table\'s phaseType + bondPhaseCountList, by members or by stacks (official CN screens)', { skip: !ACT3 }, () => {
+  const rule = (id) => ACT3.bonds[id].phase;
+  const on = (o) => ({ active: true, count: 0, layers: 0, ...o });
+  // stack-counted: 远见 [80, 150], 奇迹 / 投资人 [0, 100], 灵巧 [0, 40]
+  assert.equal(bondPhaseOf(on({ count: 2, layers: 12 }), rule('visiShip')), 0, '远见 12 stacks: no mark');
+  assert.equal(bondPhaseOf(on({ count: 2, layers: 999 }), rule('visiShip')), 2, '远见 999: Ⅱ');
+  assert.equal(bondPhaseOf(on({ count: 2, layers: 267 }), rule('miraShip')), 2, '奇迹 267: Ⅱ');
+  assert.equal(bondPhaseOf(on({ count: 3, layers: 382 }), rule('investShip')), 2, '投资人 382: Ⅱ');
+  assert.equal(bondPhaseOf(on({ count: 2, layers: 0 }), rule('skillfulShip')), 1, '灵巧 from 0 stacks: Ⅰ');
+  assert.equal(bondPhaseOf(on({ count: 2, layers: 40 }), rule('skillfulShip')), 2);
+  // member-counted: 乌萨斯 [3, 6] 6 and 8 members Ⅱ, 绝技 [2, 5], 奥术 [2, 3] Ⅰ; 独行 none
+  assert.equal(bondPhaseOf(on({ count: 8, layers: 500 }), rule('ursusShip')), 2);
+  assert.equal(bondPhaseOf(on({ count: 2, layers: 500 }), rule('suntShip')), 1);
+  assert.equal(bondPhaseOf(on({ count: 2 }), rule('arcaneShip')), 1);
+  assert.equal(bondPhaseOf(on({ count: 1, layers: 99 }), rule('soloShip')), 0, '独行: no phase (official CN screen)');
+  assert.equal(bondPhaseOf({ active: false, count: 2, layers: 999 }, rule('visiShip')), 0, 'an inactive bond: no mark');
+  // the six stack-counted bonds of the table, and no other
+  const byLayers = Object.keys(ACT3.bonds).filter((id) => ACT3.bonds[id].phase?.by === 'layers').sort();
+  assert.deepEqual(byLayers, ['investShip', 'miraShip', 'raidShip', 'skillfulShip', 'swiftShip', 'visiShip']);
+  // a direction switch's effect has its own (炎 's other direction counts 3 / 6 / 9 members)
+  assert.deepEqual(ACT3.effects.bondeffect_yan.phase, { by: 'members', at: [3, 6, 9] });
 });

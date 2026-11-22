@@ -107,14 +107,22 @@ export const H_SCROLL = Object.freeze({
 const ROMAN = ['', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'];
 
 /**
- * A bond's phase on the strip (规程, seasonFeature 'bondPhase'): the thresholds its count reached (`tier`), shown on an
- * active bond with two thresholds or more — a bond with one shows none (an official CN screen, 独行: maintainer
- * 2026-11-12); 0 = no mark.
- * @param {{ active?: boolean, tier?: number }} b @param {number[]} th
+ * A bond's phase on the strip and in its dialog (规程, seasonFeature 'bondPhase'): the official table's rule
+ * (bonds.json / effects.json `phase`, effectDescParamDataDict phaseType + bondPhaseCountList) — how many of its counts
+ * the active bond's members (`by: 'members'`) or stacks (`by: 'layers'`) reached; no rule (独行, 调和, 协防干员) = no
+ * mark. Official CN screens: 远见 [80, 150] 12 stacks none, 999 Ⅱ; 奇迹 [0, 100] 267 Ⅱ; 投资人 [0, 100] 382 Ⅱ; 灵巧 and
+ * 奇迹 marked from 0 stacks; 乌萨斯 [3, 6] 6 members Ⅱ. 0 = no mark; at most Ⅲ (the theme's bond_level_1~3).
+ * @param {{ active?: boolean, count?: number, layers?: number }} b @param {{ by: string, at: number[] }|null|undefined} phase
  */
-export function bondPhaseOf(b, th) {
-  const n = Math.trunc(Number(b?.tier) || 0);
-  return b?.active && Array.isArray(th) && th.length >= 2 && n >= 1 ? Math.min(n, th.length, 3) : 0;
+export function bondPhaseOf(b, phase) {
+  if (!b?.active || !phase || !Array.isArray(phase.at)) return 0;
+  const v = Math.trunc(Number(phase.by === 'layers' ? b.layers : b.count) || 0);
+  return Math.min(phase.at.filter((x) => v >= x).length, 3);
+}
+
+/** The phase rule of a bond record, or of the direction a strategy switched it to when that effect carries one. */
+function phaseRule(rec, eff) {
+  return eff && eff.phase !== undefined ? eff.phase : rec?.phase ?? null;
 }
 
 /** The "👁 name" tag of a teammate's strip (DESIGN §20.15). */
@@ -126,9 +134,10 @@ function OwnerTag({ owner }) {
 
 /**
  * @param {{ bonds: any[], layersDisabled?: boolean, onOpen:(bondId:string)=>void, openId?: string|null, max?: number,
- *   owner?: string|null }} props — owner: the watched teammate's name (null = your own bonds)
+ *   owner?: string|null, swaps?: Record<string, string>|null }} props — owner: the watched teammate's name (null = your
+ *   own bonds); swaps: your strategy's direction switches (m.private.bandSkill.bondSwaps — a teammate's are not sent)
  */
-export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null, max = 14, owner = null }) {
+export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null, max = 14, owner = null, swaps = null }) {
   // (a plain read, not a hook: the room's season never changes in a match, and tests call these views as functions)
   const phase = seasonFeature(store.get().room?.season, 'bondPhase');
   const sorted = sortBonds(bonds, (id) => data.lookup('bonds', id));
@@ -164,7 +173,7 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       // 临时层数 in the shown count (the battle's live layers: ui/watchBonds.js withLiveLayers `tempLayers`): the official
       // HUD draws the whole count in yellow (CN capture 2026-11-11; docs/rules/ui.md 「임시 중첩 표시」)
       const temp = b.tempLayers > 0 && !rec?.noStack ? b.tempLayers : 0;
-      const phaseN = phase ? bondPhaseOf(b, th) : 0;
+      const phaseN = phase ? bondPhaseOf(b, phaseRule(rec, swaps?.[b.bondId] ? data.lookup('effects', swaps[b.bondId]) : null)) : 0;
       const phaseArt = phaseN ? uiUrl(m, `bondPhaseIcon/bond_level_${phaseN}`) : null;
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null} style=${board.style} data-full=${board.full ? '1' : null}
           data-temp=${temp || null} data-phase=${phaseN || null} class=${cx('bslot', b.active && 'is-active', temp && 'has-temp', openId === b.bondId && 'is-open')}>
@@ -240,7 +249,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   const tier = off ? 0 : entry?.tier ?? bondTier(count, th, b.maxCount);
   const active = !off && (entry ? !!entry.active : tier > 0);
   // 规程: 阶段 Ⅱ beside the count pill (autochess_hud_bond_detail_dialog bond_phase/phase_text), as on the strip
-  const phaseN = seasonFeature(store.get().room?.season, 'bondPhase') ? bondPhaseOf({ active, tier }, th) : 0;
+  const phaseN = seasonFeature(store.get().room?.season, 'bondPhase') ? bondPhaseOf({ active, count, layers }, phaseRule(base, swapEff)) : 0;
   // (自选 pieces are their operators: the own ones by m.private.diy, a watched teammate's by the pick its unit carries;
   // their rows wear no 「自选」 badge — maintainer decision 2026-10-08, docs/LOCAL-PATCH.md 「0.2.0 병합」)
   const dd = { chess: data.get('chess'), backups: data.get('backups') };

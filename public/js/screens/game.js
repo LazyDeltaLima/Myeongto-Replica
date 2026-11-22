@@ -1903,7 +1903,7 @@ function MatchScreen() {
           }}><${Icon} name=${bondsCollapsed ? 'chevronRight' : 'chevronLeft'} /><span>${bondsCollapsed ? t('盟约') : t('收起')}</span></button>
         <div id="match-bond-strip" class="gm__bond-list" hidden=${bondsCollapsed}>
           <${BondStrip} bonds=${stripBonds} layersDisabled=${layersDisabled} openId=${bondPop && bondPop.ownerId === strip.ownerId ? bondPop.bondId : null}
-            owner=${strip.name} onOpen=${(id) => openBond(id, strip.ownerId, 'strip')} />
+            owner=${strip.name} swaps=${strip.ownerId === myId ? priv?.bandSkill?.bondSwaps || null : null} onOpen=${(id) => openBond(id, strip.ownerId, 'strip')} />
           ${layersDisabled && hudLook.cls ? html`<span class="bpause" role="status">${t('暂停叠层')}</span>` : null}
         </div>
       </div>

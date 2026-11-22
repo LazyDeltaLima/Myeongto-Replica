@@ -318,6 +318,7 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `countsHand`, `countsGoldenOnly` | `false`, `false` | convenience flags |
 | `activeType`, `isActiveInDeck`, `noStack`, `weight`, `maxInactiveBondCount` | `"BATTLE"`, `false`, `false`, `10`, `-1` | `weight` 0 ⇒ never drawn for per-match bans |
 | `layerMilestones[]` | `[{"layer":25,"mode":"every","effect":"bond_layer_added_reward_equip"}]` | layer-based powers: `reach` (while L ≥ layer), `every` (each multiple), `first` (latched once) |
+| `phase` | 规程 only: `{"by":"members","at":[2,3]}` (远见 `{"by":"layers","at":[80,150]}`, 独行 `null`) | the HUD's 阶段 Ⅰ·Ⅱ: `effectDescParamDataDict[effectId]` phaseType (`PEOPLE_COUNT` → `members`, `STACK_COUNT` → `layers`, `NONE` → `null`) and bondPhaseCountList; the phase is how many of `at` the active bond's count or stacks reached (`ui/bondStrip.js bondPhaseOf`). The 33 effects.json records with an entry carry the same `phase` for a direction switch; 盟约 has no such table, and no field |
 | `desc`, `descRaw` | | bond panel text |
 | `effectId`, `effectName`, `effectDesc`, `effectDescRaw` | `"bondeffect_deput"`, …, `"所有干员防御力+{0:0%}（受层数影响）…"` | in-battle text with **positional** placeholders |
 | `effectDescParams[]` | `[{"index":0,"format":"0%","base":"base_def","perStack":"def_per_stack"}]` | `{i:fmt}` = `bb[base] + bb[perStack] × layers` — layers never exceed 999 (the official `MAX_GARRISON_STACK`, not in any table: shared/constants.js `BOND_LAYER_CAP`, research 11) |
