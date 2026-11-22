@@ -49,7 +49,7 @@
 // (queueCue), and while ui.queue is set the page keeps its audio running in a hidden tab (audio.keepAwake) and a group
 // that forms while the tab is hidden blinks the tab title until the player comes back (flashTitle).
 
-import { useState } from '../../vendor/hooks.module.js';
+import { useEffect, useReducer, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, LARGE_MIN_PLAYERS, MAX_SEATS, modeIdFor, seatsOf } from '../../../shared/constants.js';
 import { html, Button, Countdown, Modal, Spinner, useTicker } from './components.js';
 import { toast, toastError } from './toasts.js';
@@ -60,7 +60,7 @@ import { t, N_ } from '../../../shared/i18n.js';
 import { presetName } from './ruleset.js';
 import { customSummary } from './customSummary.js';
 import { customDiffs, officialBans } from '../../../shared/ruleset.js';
-import { data, getBond, getBoss, getConfig, getMode } from '../data.js';
+import { data, getMode } from '../data.js';
 import { pickedSeason, seasonFields, seasonName } from './season.js';
 import { seasonOf } from '../../../shared/seasons.js';
 import { ModeCapsule, RoomSeats } from './modeCapsule.js';
@@ -214,17 +214,50 @@ export const mmss = (ms) => {
 /**
  * A custom room's settings in the confirmation (maintainer decision 2026-11-07): how many differ from the official rules
  * of the difficulty and room size, and the summary lines (ui/customSummary.js), as the room's invitation lists them.
+ * The names, leader groups and official counts come from the room's season (`season`; absent = the page's): a room of
+ * another season in the public list reads that season's store (data.seasonStore), whose leaders and bonds the page's
+ * files lack. Until the files have loaded a name is its id: the caller holds useCustomNames(season).
  * @param {unknown} custom the room's custom settings (room.matchFound `custom`)
- * @param {string} difficulty @param {number} size
+ * @param {string} difficulty @param {number} size @param {unknown} [season] the room's season (row.season)
  * @returns {{ n: number, lines: string[], items: ReturnType<typeof customSummary> }}
  */
-export function customFound(custom, difficulty, size) {
-  const mode = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor('coop', difficulty)) : null;
+export function customFound(custom, difficulty, size, season) {
+  const st = customStore(season);
+  const cfg = st.get('config');
+  const mode = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor('coop', difficulty), cfg) : null;
   const rounds = Number.isInteger(mode?.lastRound) ? mode.lastRound : null;
-  const bans = officialBans(getConfig(), difficulty, size);
-  const lookup = { bond: getBond, boss: getBoss, stage: (id) => data.lendable('stages', id), type: (id) => data.lendable('types', id) };
-  const lines = customSummary(custom, { bans, rounds, name: (kind, id) => lookup[kind](id)?.name || id, hidden: (id) => !!getBoss(id)?.hidden });
+  const bans = officialBans(cfg, difficulty, size);
+  // stages and 特训敌人 types: the room's season first, then whichever public season lends it (data.lendable)
+  const own = { stage: (id) => st.lookup('stages', id), type: (id) => st.get('factions')?.types?.[id] };
+  const lookup = { bond: (id) => st.lookup('bonds', id), boss: (id) => st.lookup('bosses', id),
+    stage: (id) => own.stage(id) ?? data.lendable('stages', id), type: (id) => own.type(id) ?? data.lendable('types', id) };
+  const lines = customSummary(custom, { bans, rounds, name: (kind, id) => lookup[kind](id)?.name || id, hidden: (id) => !!lookup.boss(id)?.hidden });
   return { n: customDiffs(custom, { bans, rounds }).length, lines: lines.map((l) => l.text), items: lines };
+}
+
+/** The files customFound reads. */
+export const CUSTOM_NAME_FILES = Object.freeze(['config', 'bonds', 'bosses', 'stages', 'factions']);
+
+/** The data store of a room's season: the page's own (`data`) for its season or none given, else that season's peer. */
+export function customStore(season) {
+  if (season == null || seasonOf(season) === data.season()) return data;
+  return data.seasonStore(seasonOf(season)) ?? data;
+}
+
+/**
+ * Preact hook for a custom room's summary (customFound): start loading CUSTOM_NAME_FILES in the room's season's store
+ * and re-render as they arrive — the lobby alone never loads the bonds, leaders or stages (main.js warmGameData).
+ * @param {unknown} [season]
+ */
+export function useCustomNames(season) {
+  const st = customStore(season);
+  const [, force] = useReducer((c) => c + 1, 0);
+  useEffect(() => {
+    let alive = true;
+    const unsub = st.subscribe((n) => { if (alive && CUSTOM_NAME_FILES.includes(n)) force(); });
+    for (const n of CUSTOM_NAME_FILES) st.load(n);
+    return () => { alive = false; unsub(); };
+  }, [st]);
 }
 
 export function MatchQueueDialog({ onPublic = null, inline = false }) {
@@ -281,7 +314,7 @@ export function MatchQueueDialog({ onPublic = null, inline = false }) {
           ${f.room ? html`<${FoundRoom} room=${f.room} season=${f.season} difficulty=${queue.difficulty} />`
             : html`<span>${t('{players} 名博士', { players: f.players })}</span>
               <span class="t-lo">${t('已接受 {accepted}/{players}', { accepted: f.accepted, players: f.players })}</span>`}
-          ${queue.custom ? html`<${FoundCustom} custom=${queue.custom} difficulty=${queue.difficulty} size=${cap} />` : null}
+          ${queue.custom ? html`<${FoundCustom} custom=${queue.custom} difficulty=${queue.difficulty} size=${cap} season=${f.season} />` : null}
         </div>
       </div>
     <//>`;
@@ -373,8 +406,9 @@ function FoundRoom({ room, season, difficulty }) {
 }
 
 /** The confirmation's custom block: 「自定义 · 与官方不同的设置 n 项」 and the lines (customFound). */
-function FoundCustom({ custom, difficulty, size }) {
-  const { n, lines } = customFound(custom, difficulty, size);
+function FoundCustom({ custom, difficulty, size, season }) {
+  useCustomNames(season);
+  const { n, lines } = customFound(custom, difficulty, size, season);
   return html`<div class="queue-dialog__custom" data-testid="found-custom">
     <b>${presetName('custom')} · ${t('与官方不同的设置 {n} 项', { n })}</b>
     ${lines.length ? html`<ul>${lines.map((l, i) => html`<li key=${i}>${l}</li>`)}</ul>` : null}

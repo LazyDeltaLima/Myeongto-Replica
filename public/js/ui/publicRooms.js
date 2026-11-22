@@ -34,7 +34,7 @@ import { useMediaQuery, SHORT_SCREEN_QUERY } from './device.js';
 import { ModeCapsule, RoomSeats } from './modeCapsule.js';
 import { CustomRulesInfo } from './customSummary.js';
 import { openCustomRules } from './customRules.js';
-import { customFound } from './matchQueue.js';
+import { customFound, useCustomNames } from './matchQueue.js';
 
 /** Seats a Doctor may take in a row: empty ones and AI ones (a public room's AI seat gives way). @param {any} row */
 export const openSeats = (row) => (Array.isArray(row?.seats) ? row.seats.filter((s) => s?.kind !== 'human').length : 0);
@@ -162,7 +162,9 @@ function SeasonFilter({ value, current, offered, counts, onPick }) {
  */
 function CustomChip({ row, open, onOpen, anchor }) {
   const size = seatsOf(row.size);
-  const found = customFound(row.custom, row.difficulty, size);
+  const season = seasonOf(row.season);
+  useCustomNames(season); // the lobby has not loaded the bonds / leaders / stages; a room of another season reads its own
+  const found = customFound(row.custom, row.difficulty, size, season);
   const btn = useRef(null);
   return html`<span class="pubroom__cwrap">
     <button type="button" ref=${btn} class=${`pubroom__custom${open ? ' is-open' : ''}`} aria-expanded=${open ? 'true' : 'false'}

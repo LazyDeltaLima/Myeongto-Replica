@@ -742,9 +742,9 @@ export function nextArtUrl(urls, failed) {
 /**
  * Mode record from config.json (`modes[modeId]`), or null.
  * @param {string} modeId e.g. 'mode_multi_hard'
+ * @param {any} [cfg] the config.json to read (default: this store's; another season's: data.seasonStore(id).get('config'))
  */
-export function getMode(modeId) {
-  const cfg = getConfig();
+export function getMode(modeId, cfg = getConfig()) {
   const modes = cfg && typeof cfg === 'object' ? (cfg.modes || cfg.modeDataDict) : null;
   if (!modes || typeof modes !== 'object') return null;
   if (Array.isArray(modes)) return modes.find((m) => m && (m.modeId === modeId || m.id === modeId)) || null;

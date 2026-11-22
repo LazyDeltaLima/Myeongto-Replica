@@ -999,7 +999,7 @@ function JoinBox({ code, onCode, codeOk, online, busy, onJoin, onSpectate, recen
 export function LobbyScreen() {
   useDocClass('sp-topbar'); // toasts sit under the top bar instead of over its title (components.css)
   const conn = useStore((s) => s.connection, shallowEqual);
-  useData('config', 'assets', 'factions'); // factions: the 特训敌人 names of a custom room's summary (matchQueue.js customFound)
+  useData('config', 'assets'); // a custom room's summary loads its own files (matchQueue.js useCustomNames)
   const [difficulty, setDifficulty] = useState(() => {
     const d = loadPref('lobby.difficulty', 'FUNNY');
     return DIFFICULTIES.includes(d) ? d : 'FUNNY';
