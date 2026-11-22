@@ -6,10 +6,13 @@ import { isObj } from './shared.js';
 
 // ---- the key map ------------------------------------------------------------------------------------------------
 
+/** @typedef {'refresh'|'freeze'|'levelUp'|'shop'|'ready'|'sell'|'viewEnemy'|'retreat'|'pause'} HotkeyAction */
+
 /**
  * The rebindable shortcuts in the settings' order — the official one (display_meta_table pcKeyData: the autoChess group,
  * then retreatChar and pauseBattle of the normalBattle group). shop folds / unfolds the shop bar (调度中心), viewEnemy is
  * the right 🔍 (the enemy preview pen and back), pause pauses / resumes a solo battle. Esc is fixed.
+ * @type {ReadonlyArray<HotkeyAction>}
  */
 export const HOTKEY_ACTIONS = Object.freeze(['refresh', 'freeze', 'levelUp', 'shop', 'ready', 'sell', 'viewEnemy', 'retreat', 'pause']);
 
@@ -33,13 +36,13 @@ const isOldDefaults = (r) => Object.entries(OLD_DEFAULTS).every(([a, c]) => r[a]
 // punctuation keys, and six named keys whose `key` equals their `code`. Everything else stays with the interface: Esc
 // (closes; cancels a rebind), Tab / Enter / the arrows (focus, buttons, the facing wheel, lists), F1–F12 (the browser's),
 // the modifiers.
-const KEY_OF = new Map([
+const KEY_OF = new Map(/** @type {[string, string][]} */ ([
   ...[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((c) => [`Key${c}`, c.toLowerCase()]),
   ...[...'0123456789'].map((c) => [`Digit${c}`, c]),
   ['Space', ' '], ['Backquote', '`'], ['Minus', '-'], ['Equal', '='], ['BracketLeft', '['], ['BracketRight', ']'],
   ['Backslash', '\\'], ['Semicolon', ';'], ['Quote', "'"], ['Comma', ','], ['Period', '.'], ['Slash', '/'],
   ...['Delete', 'Insert', 'Home', 'End', 'PageUp', 'PageDown'].map((k) => [k, k]),
-]);
+]));
 const CODE_OF = new Map([...KEY_OF].map(([code, key]) => [key, code]));
 
 /** A key press's `key`, lower case when it is one character ('' when absent). */
@@ -77,7 +80,7 @@ export function hotkeyLabel(code) {
 export function sanitizeHotkeys(raw) {
   const r = isObj(raw) && !Array.isArray(raw) ? raw : {};
   if (isOldDefaults(r)) return { ...DEFAULT_HOTKEYS };
-  const out = {};
+  const out = /** @type {Record<HotkeyAction, string>} */ ({});
   for (const a of HOTKEY_ACTIONS) out[a] = Object.hasOwn(r, a) && isBindableCode(r[a]) ? r[a] : DEFAULT_HOTKEYS[a];
   for (const a of LATER_ACTIONS) {
     if (Object.hasOwn(r, a)) continue;
@@ -97,7 +100,7 @@ export function sanitizeHotkeys(raw) {
  */
 export function rebindHotkey(keys, action, code) {
   const cur = sanitizeHotkeys(keys);
-  if (!HOTKEY_ACTIONS.includes(action) || !isBindableCode(code) || cur[action] === code) return { keys: cur, changed: false, swapped: null };
+  if (!/** @type {readonly string[]} */ (HOTKEY_ACTIONS).includes(action) || !isBindableCode(code) || cur[action] === code) return { keys: cur, changed: false, swapped: null };
   const swapped = HOTKEY_ACTIONS.find((a) => cur[a] === code) ?? null;
   const next = { ...cur, [action]: code };
   if (swapped) next[swapped] = cur[action];
@@ -145,7 +148,8 @@ const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'AltGraph', 'Meta', 'O
  * moves on), a lone modifier or an auto-repeat is ignored, a key held with Ctrl / ⌘ / Alt or one the interface keeps is
  * refused (the wait goes on), any other key is the new key.
  * @param {{ key?: string, code?: string, ctrlKey?: boolean, metaKey?: boolean, altKey?: boolean, repeat?: boolean }} e
- * @returns {{ kind: 'cancel'|'leave'|'ignore' } | { kind: 'refuse', reason: 'modifier'|'reserved', name: string } | { kind: 'key', code: string }}
+ * @returns {{ kind: 'cancel' } | { kind: 'leave' } | { kind: 'ignore' } | { kind: 'refuse', reason: 'modifier'|'reserved', name: string }
+ *   | { kind: 'key', code: string }}
  */
 export function captureHotkey(e) {
   const key = typeof e?.key === 'string' ? e.key : '';

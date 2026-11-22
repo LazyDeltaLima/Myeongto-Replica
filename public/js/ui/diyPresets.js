@@ -53,7 +53,7 @@ const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 let presetSeason = DEFAULT_SEASON;
 /** The season diyPresetStore holds. */
 export const presetSeasonOf = () => presetSeason;
-/** A chat faction of the presets' season, or null. @param {unknown} id */
+/** A chat faction of the presets' season, or null. @param {unknown} id @param {unknown} [season] */
 const inSeason = (id, season = presetSeason) => seasonChatFaction(id, season);
 
 const isEmpty = (p) => !p || Object.keys(p).length === 0;
@@ -77,14 +77,18 @@ export function parseStoredPresets(raw, current = {}, season = presetSeason) {
   return { presets: out, base, active, links: cleanLinks(isObj(raw) ? raw.links : null, season) };
 }
 
-/** A link target: a chat faction of the season or BASE_LINK. */
+/** A link target: a chat faction of the season or BASE_LINK. @param {unknown} v @param {unknown} [season] */
 const isLinkTarget = (v, season = presetSeason) => v === BASE_LINK || !!inSeason(v, season);
-/** A stored link: a target, or KEEP_LINK (a turned-off recommendation). */
+/** A stored link: a target, or KEEP_LINK (a turned-off recommendation). @param {unknown} v @param {unknown} [season] */
 const isStoredLink = (v, season = presetSeason) => v === KEEP_LINK || isLinkTarget(v, season);
 const isBandId = (v) => typeof v === 'string' && /^band_[A-Za-z0-9_-]{1,48}$/.test(v);
 
-/** The valid strategy links of a stored object (unknown targets and junk keys dropped). */
+/**
+ * The valid strategy links of a stored object (unknown targets and junk keys dropped).
+ * @param {any} raw @param {unknown} [season] @returns {Record<string, string>}
+ */
 export function cleanLinks(raw, season = presetSeason) {
+  /** @type {Record<string, string>} */
   const out = {};
   if (!isObj(raw)) return out;
   for (const [b, f] of Object.entries(raw)) if (isBandId(b) && isStoredLink(f, season)) out[b] = f;
@@ -124,20 +128,21 @@ const samePicks = (a, b) => JSON.stringify(cleanPicks(a)) === JSON.stringify(cle
 
 /** The stored presets of the season held (`current`: that season's picks, a v1 envelope's base). */
 function readStored(current = loadoutStore.get().diy) {
-  try { return parseStoredPresets(loadPref(seasonPref(DIY_PRESETS_PREF, presetSeason), null), current); } catch { return { presets: {}, base: {}, active: null, links: {} }; }
+  try { return parseStoredPresets(loadPref(seasonPref(DIY_PRESETS_PREF, presetSeason), null), current); } catch { return { presets: {}, base: {}, active: null, links: /** @type {Record<string, string>} */ ({}) }; }
 }
 
-export const diyPresetStore = createStore({ links: {}, ...readStored(), notice: null });
+export const diyPresetStore = createStore({ links: /** @type {Record<string, string>} */ ({}), ...readStored(), notice: null });
 
 /**
  * Hold another season's presets (main.js, on every change of the season on screen — before loadoutSync.js
  * setLoadoutSeason swaps the picks, so the picks follower never saves one season's picks into the other's roster).
- * The same season: nothing happens. @param {unknown} season @param {ReturnType<typeof createStore>} [target]
+ * The same season: nothing happens. @param {unknown} season @param {{ set: (patch: any) => void }} [target]
  */
 export function setPresetSeason(season, target = diyPresetStore) {
   const next = seasonOf(season);
   if (next === presetSeason) return;
   presetSeason = next;
+  /** @type {Record<string, any>} */
   let picks = {};
   try { picks = parseStoredDiy(loadPref(seasonPref(DIY_PREF, next), null)); } catch { /* none stored */ }
   target.set({ links: {}, ...readStored(picks), notice: null });

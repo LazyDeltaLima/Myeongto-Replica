@@ -2891,10 +2891,11 @@ let manifestGetter = () => null;
 export const audio = new AudioManager({ getManifest: () => manifestGetter() });
 
 /**
- * Wire the singleton to the app (called once by main.js): manifest source, settings and store-driven BGM.
- * @param {{ getManifest: () => any, subscribe: (fn: (s:any, prev:any) => void) => () => void, getState: () => any,
- *   selectRoute: (s:any) => string, selectSeason?: (s:any) => string|null,
- *   settings?: { bgm:number, sfx:number, voice:number, muted:boolean } }} deps
+ * Wire the singleton to the app (called once by main.js): manifest source, settings and store-driven BGM. Without
+ * `subscribe` / `getState` (the debug page's arena) no BGM follows a store and `selectRoute` is not read.
+ * @param {{ getManifest: () => any, subscribe?: (fn: (s:any, prev:any) => void) => () => void, getState?: () => any,
+ *   selectRoute?: (s:any) => string, selectSeason?: (s:any) => string|null,
+ *   settings?: { bgm?: number, sfx?: number, voice?: number, muted?: boolean } }} deps
  */
 export function installAudio(deps) {
   try {

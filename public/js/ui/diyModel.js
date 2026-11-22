@@ -41,11 +41,13 @@ const isId = (v) => typeof v === 'string' && ID_RE.test(v) && !UNSAFE_IDS.has(v)
  * @returns {Record<string, { charId: string, skillIndex?: number, uniEquipId?: string|null }>}
  */
 export function cleanPicks(raw) {
+  /** @type {Record<string, { charId: string, skillIndex?: number, uniEquipId?: string|null }>} */
   const out = {};
   if (!isObj(raw)) return out;
   for (const [slotId, p] of Object.entries(raw)) {
     if (Object.keys(out).length >= DIY_LIMITS.slots) break;
     if (!isId(slotId) || !isObj(p) || !isId(p.charId)) continue;
+    /** @type {{ charId: string, skillIndex?: number, uniEquipId?: string|null }} */
     const pick = { charId: p.charId };
     if (Number.isInteger(p.skillIndex) && p.skillIndex >= 0 && p.skillIndex <= 9) pick.skillIndex = p.skillIndex;
     if (isId(p.uniEquipId)) pick.uniEquipId = p.uniEquipId;
@@ -153,7 +155,7 @@ export function pickOptions(slotId, picks, data, kitted) {
 
 /**
  * The record a slot shows for a pick (shared/diy.js diyRecord: the operator at the slot's normal form, or the elite).
- * @param {string} slotId @param {any} pick @param {any} data @param {{ elite?: boolean }} [opts]
+ * @param {string} slotId @param {any} pick @param {any} data @param {{ elite?: boolean, potential?: number|null }} [opts]
  */
 export function slotRecord(slotId, pick, data, { elite = false, potential = null } = {}) {
   if (!isObj(pick)) return null;
@@ -190,7 +192,8 @@ export const serializeDiy = (picks, opts) => JSON.stringify(exportDiy(picks, opt
  * caller sanitises against the loaded data (sanitizeDiyPicks). An envelope may hold no picks (= every slot empty).
  * Errors are msgids (shown through t()).
  * @param {any} input payload or text
- * @returns {{ ok: true, picks: Record<string, any> } | { ok: false, error: string, params?: Record<string, any> }}
+ * @returns {{ ok: true, picks: Record<string, any>, error?: undefined, params?: undefined }
+ *   | { ok: false, error: string, params?: Record<string, any>, picks?: undefined }}
  */
 export function parseDiyImport(input) {
   let raw = input;

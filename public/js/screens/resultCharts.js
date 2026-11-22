@@ -59,8 +59,8 @@ function Stack({ segs, max, tall = false }) {
 export function DamageTab({ r, myId, colors, Thumb }) {
   const gd = useGameData();
   const fought = !!(r.bossPools.final || r.bossPools.hidden);
-  const [sort, setSort] = useState(fought ? 'leader' : 'total');
-  const [round, setRound] = useState('sum');
+  const [sort, setSort] = useState(/** @type {'total'|'leader'} */ (fought ? 'leader' : 'total'));
+  const [round, setRound] = useState(/** @type {'sum'|'final'|'hidden'} */ ('sum'));
   const [focus, setFocus] = useState(null);
   const [all, setAll] = useState(false);
   const players = r.players;
@@ -87,7 +87,7 @@ export function DamageTab({ r, myId, colors, Thumb }) {
   ].filter(Boolean).join('\n');
   return html`<div class="rch">
     ${r.bossPools.hidden ? html`<div class="rch-sub"><span class="rch-cap">${t('领袖伤害')}</span>
-      <div class="rch-seg-ctl" role="group">${['sum', 'final', 'hidden'].map((k) => html`<button key=${k} type="button" aria-pressed=${round === k ? 'true' : 'false'} onClick=${() => setRound(k)}>${t(ROUND_NAMES[k])}</button>`)}</div></div>` : null}
+      <div class="rch-seg-ctl" role="group">${/** @type {('sum'|'final'|'hidden')[]} */ (['sum', 'final', 'hidden']).map((k) => html`<button key=${k} type="button" aria-pressed=${round === k ? 'true' : 'false'} onClick=${() => setRound(k)}>${t(ROUND_NAMES[k])}</button>`)}</div></div>` : null}
     <div class="rch-pool">
       <div class="rch-pool__h">${byLeader
         ? html`<span>${t('领袖生命值')}${r.bossPools.hidden ? ` · ${roundName}` : ''}</span><span>${pool ? html`<b class="num">${fmtNum(pool.dealt)}</b> / ${fmtNum(pool.maxHp)} · ${pool.dealt >= pool.maxHp ? t('已击败') : t('剩余生命值 {n}', { n: fmtNum(pool.maxHp - pool.dealt) })}` : '—'}</span>`

@@ -153,7 +153,7 @@ export function offerHeader(offer) {
 /**
  * Why a shop action is unavailable (null when available).
  * @param {'buy'|'reward'|'refresh'|'freeze'|'levelUp'|'ready'} kind
- * @param {{ priv:any, editable:boolean, slot?:any }} ctx
+ * @param {{ priv?:any, editable?:boolean, slot?:any }} [ctx]
  * @returns {string|null} Chinese reason
  */
 export function shopBlockReason(kind, { priv, editable, slot } = {}) {

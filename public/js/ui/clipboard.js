@@ -9,7 +9,7 @@ export async function copyText(text) {
   } catch { /* use the selected-text fallback */ }
   let ta, prev;
   try {
-    prev = document.activeElement;
+    prev = /** @type {HTMLElement} */ (document.activeElement);
     ta = document.createElement('textarea');
     ta.value = text;
     ta.setAttribute('readonly', '');

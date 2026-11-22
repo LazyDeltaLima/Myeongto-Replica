@@ -433,6 +433,7 @@ function MatchScreen() {
   };
 
   // latest values for event handlers bound once
+  /** @type {{ current: Record<string, any> }} */
   const live = useRef({});
   // the field the own pieces are deployed on: the own board, or the player's half of the boss field in a boss round's
   // prep (user playtest #5 item 7: legality and the legal-tile highlights read THOSE tiles, like the server)
@@ -1031,10 +1032,10 @@ function MatchScreen() {
   const toggleReady = useCallback(async (r) => {
     const L = live.current;
     const me = Array.isArray(L.pub?.players) ? L.pub.players.find((p) => p && p.playerId === L.myId) : null;
-    const asks = r ? [
+    const asks = r ? /** @type {[string, ReturnType<typeof readyOverflowPrompt>][]} */ ([
       ['overflow', readyOverflowPrompt(L.priv, { autoplay: !!me?.autoplay })],
       ['gold', goldTipOff.current ? null : readyFundsPrompt(L.priv, { keptBands: data.get('config')?.economy?.leftoverFundsKeptByBands, autoplay: !!me?.autoplay })],
-    ].filter(([, a]) => a) : [];
+    ]).filter(([, a]) => a) : [];
     if (asks.length) {
       if (askingReady.current) return;
       askingReady.current = true;

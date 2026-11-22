@@ -62,7 +62,7 @@ export function makeLookups(ready = true) {
 
 /**
  * <img> that swaps to a fallback node when the URL is missing or fails.
- * @param {{ src?: string|null, class?: string, alt?: string, fallback?: any, style?: string }} props
+ * @param {{ src?: string|null, class?: string, alt?: string, fallback?: any, style?: string, onLoad?: (e: Event) => void }} props
  */
 export function Img({ src, class: cls, alt = '', fallback = null, style, onLoad }) {
   const [bad, setBad] = useState(null);
@@ -111,7 +111,8 @@ export const isGoldenPiece = (piece, chess) => !!(piece?.golden || chess?.isGold
 /**
  * Square unit thumbnail for a piece / chess / item / token / enemy: art + tier chip + elite frame.
  * @param {{ kind?: 'chess'|'item'|'token'|'enemy', id: string, golden?: boolean, size?: 'xs'|'sm'|'md'|'lg', tier?: number,
- *   showTier?: boolean, class?: string, dim?: boolean, badge?: any, title?: string, rec?: any }} props
+ *   showTier?: boolean, class?: string, dim?: boolean, badge?: any, title?: string, rec?: any, skin?: string|null,
+ *   ownSkin?: boolean, skinsOf?: any }} props
  *   `rec`: the chess record to draw instead of the data's (a 自选 piece's composed record — 0.2.0, gameLogic/diy.js; a
  *   补位 stand-in's — gameLogic/standIn.js: drawn with a small 「替补」 mark in the corner)
  *   `skin` / `ownSkin`: an operator drawn in a skin's avatar (ui/skins.js skinPic) — `skin` the one it wears, `ownSkin`

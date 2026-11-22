@@ -450,7 +450,7 @@ export function MatchInfo({ model, onChess = null }) {
  * The read-only match-info dialog (the strategy draft's 盟约信息, 确定自选编队's 本局信息): MatchInfo in a Modal that 关闭, a
  * tap outside or Esc closes. `title` follows the caller's button (default 本局信息). `status` (the caller's line, e.g. the
  * draft's turn and countdown) sits left of 关闭.
- * @param {{ open: boolean, onClose: Function, model: MatchInfoModel|null, title?: string, status?: any }} props
+ * @param {{ open: boolean, onClose: Function, model: MatchInfoModel|null, title?: string, hideTitle?: boolean, status?: any }} props
  */
 export function MatchInfoDialog({ open, onClose, model, title = null, hideTitle = false, status = null }) {
   return html`<${Modal} open=${open && !!model} onClose=${onClose} title=${title ?? t('本局信息')} hideTitle=${hideTitle} micro="MATCH INFO // BONDS & BANNED OPERATORS" class="minfo-dlg"

@@ -47,6 +47,7 @@ let indexOk = false;
 let langRequest = 0;
 const INDEX_URL = `${PACKS_URL}${PACK_INDEX_FILE}`;
 
+/** @type {typeof fetch} */
 const defaultFetch = (...a) => globalThis.fetch(...a);
 
 /**

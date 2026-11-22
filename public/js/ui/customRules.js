@@ -142,6 +142,7 @@ async function fitToSeason(rules, from) {
   const lenders = borrowSeasons(season).map((sid) => [sid, data.seasonStore(sid)]).filter(([, st]) => st);
   await Promise.all(lenders.flatMap(([, st]) => ['stages', 'factions'].map((n) => st.load(n))));
   const own = Object.fromEntries(['bonds', 'bosses', 'stages', 'factions', 'config'].map((n) => [n, data.getRaw(n)]));
+  /** @type {[string, { stages?: any, factions?: any }][]} */
   const foreign = lenders.map(([sid, st]) => [sid, { stages: st.getRaw('stages'), factions: st.getRaw('factions') }]);
   return fitCustomToSeason(rules, own, foreign, { season, from });
 }
@@ -178,11 +179,13 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, grade, si
     try { onApply?.(work); } finally { close(); }
   };
   const save = () => {
+    // @ts-expect-error 'ok' is not a toast kind (ui/toasts.js TOAST_KINDS): the toast shows as 'info'
     if (active) { savePreset(active.id, work); toast(t('已保存预设「{name}」', { name: active.name }), 'ok'); return; }
     newPreset();
   };
   const newPreset = (name = nextPresetName(t('预设'))) => {
     const id = addPreset(name, work);
+    // @ts-expect-error 'ok' is not a toast kind (ui/toasts.js TOAST_KINDS): the toast shows as 'info'
     if (id) toast(t('已保存预设「{name}」', { name: presetOf(id)?.name ?? name }), 'ok');
     else toast(t('预设已满，请先删除不用的预设'), 'warn');
   };
@@ -197,6 +200,7 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, grade, si
   };
   const copyCode = async () => {
     const code = await encodeCustomCode(work, data.season());
+    // @ts-expect-error 'ok' is not a toast kind (ui/toasts.js TOAST_KINDS): the toast shows as 'info'
     if (await copyText(code)) toast(t('已复制规则代码'), 'ok');
     else setPaste({ text: code, copy: true });
   };
@@ -209,6 +213,7 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, grade, si
     setPaste(null);
     if (r.newer) toast(t('已读取规则代码（来自更新的版本，本版本没有的设置保持官方值）'), 'warn');
     else if (dropped) toast(t('已读取规则代码（本赛季用不到的 {n} 项设置已去除）', { n: dropped }), 'warn');
+    // @ts-expect-error 'ok' is not a toast kind (ui/toasts.js TOAST_KINDS): the toast shows as 'info'
     else toast(t('已读取规则代码'), 'ok');
   };
   const saveMine = () => newPreset(nextPresetName(t('房间规则')));

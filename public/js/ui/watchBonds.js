@@ -45,7 +45,7 @@ export function screenFieldId({ combat = false, settle = false, watchingOther = 
 
 /**
  * The player whose bonds the strip shows (see the header).
- * @param {{ pub: any, myId: string, fieldId?: string|null, field?: any, layer?: string, halves?: boolean,
+ * @param {{ pub?: any, myId?: string, fieldId?: string|null, field?: any, layer?: string, halves?: boolean,
  *   watched?: string|null }} o — field: the field meta on screen (store.match.field: `sides` / `players`), consulted when
  *   it is `fieldId`; halves: the ‹ › pill is offered (battle/observe.js cameraLayers non-empty); watched: the player
  *   picked with 前往查看 (watchedPlayer), consulted on a shared field the viewer does not fight on

@@ -615,6 +615,7 @@ function LoadoutScreen({ st }) {
   const tierSink = useRef(null);                           // the bottom bar's tier (DeckBarLive), set without a redraw here
   const setActiveTier = (tier) => tierSink.current?.(tier);
   const deckRef = useRef(null);
+  /** @type {{ current: Record<string, any> }} */
   const ui = useRef({});
   ui.current = { drawer, menu, quick, setDrawer, setMenu, setQuick };
   const diySlots = ready ? diySlotList(diyData()) : [];

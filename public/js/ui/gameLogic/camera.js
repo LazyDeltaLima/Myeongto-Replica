@@ -17,6 +17,7 @@ import { int, isObj } from './shared.js';
  * @returns {{ kind: 'prep'|'bossPrep', opts: { rect?: { r0: number, r1: number, c0: number, c1: number }, side: 'L'|'R' } }}
  */
 export function prepCamera(pub, myId) {
+  /** @type {{ kind: 'prep'|'bossPrep', opts: { rect?: { r0: number, r1: number, c0: number, c1: number }, side: 'L'|'R' } }} */
   const normal = { kind: 'prep', opts: { rect: { ...GEO.NORMAL_RECT }, side: 'L' } };
   const r = pub?.round;
   if (!Number.isInteger(r) || r <= 0 || !(r === pub.bossRound || r === pub.hiddenRound)) return normal;
@@ -74,7 +75,8 @@ export function teamFrameIds(pub, myId) {
  * (configBlackBoard left_prepare_camera_param / *_boss_prepare_*, render/projection.js presetCamera `shop: false`) and
  * the folded shop's HUD band (ui/fieldHost.js hudBands), an open one the shop camera. `folded` = the shop bar is shown
  * and folded (an eliminated player's board, which shows no bar, keeps the shop camera).
- * @returns {{ kind: 'prep'|'bossPrep', opts: { rect?: object, side: 'L'|'R', shop: boolean } }}
+ * @returns {{ kind: 'prep'|'bossPrep', opts: { rect?: object, side: 'L'|'R', shop: boolean, sideBy?: boolean,
+ *   at?: { row: number, col: number } } }} (`sideBy` / `at`: foldCamera adds them)
  */
 export function prepCameraFor(pub, myId, folded = false) {
   const c = prepCamera(pub, myId);
@@ -90,7 +92,8 @@ export function prepCameraFor(pub, myId, folded = false) {
  * (a held or a selected piece, docs/rules/ui.md 「기물을 고르고 집을 때의 측면 카메라」), `at`: the selected piece's board tile.
  * @param {{ pub: any, myId: string|null, ownPrep: boolean, folded: boolean, pen?: boolean, busy?: boolean,
  *   sideBy?: boolean, at?: { row: number, col: number }|null,
- *   current?: { kind: string, opts?: { shop?: boolean, sideBy?: boolean, at?: { row: number, col: number }|null } }|null }} s
+ *   current?: { kind: string, opts?: { rect?: object, side?: string, shop?: boolean, sideBy?: boolean,
+ *     at?: { row: number, col: number }|null } }|null }} s
  * @returns {{ kind: 'prep'|'bossPrep', opts: object }|null}
  */
 export function foldCamera(s) {

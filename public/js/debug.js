@@ -22,6 +22,7 @@ import { localDiyPool } from '../../shared/local-diy.js';
 import { createArena } from './debug/arena.js';
 import { TERRAINS, SCENES, SANDBAG_DEFAULT, DEFAULT_OP, SANDBAG_HP, HURT, KEEP_OP, inArena, defaultBags, ownTokens, autoTokens, rangeOf, besideOp } from './debug/sandbag.js';
 
+/** The debug page's controls by id (inputs and selects: `value`, `checked`). @param {string} id @returns {any} */
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -122,7 +123,7 @@ function sceneTile(row, col) {
 function loadout() {
   const base = st.op?.chess;
   const golden = st.op?.diy ? diyRec(st.op.charId, { elite: true }) : base?.goldenId ? chessOf(base.goldenId) : null;
-  const opt = base ? loadoutOptions(base, golden) : { skills: [], modules: [] };
+  const opt = base ? loadoutOptions(base, golden) : /** @type {ReturnType<typeof loadoutOptions>} */ ({ skills: [], modules: [] });
   return { base, golden, opt };
 }
 /** The record a battle config fields (a 自选 pick composed from its slot) and its hand-placed pieces. */
@@ -202,7 +203,7 @@ function log(kind, cls, text, gt = lastGt) {
   while (logEl.childElementCount > LOG_MAX) logEl.firstElementChild.remove();
   if ($('logfollow').checked) logEl.scrollTop = logEl.scrollHeight;
 }
-for (const cb of document.querySelectorAll('#logbar input[data-k]')) {
+for (const cb of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('#logbar input[data-k]'))) {
   const apply = () => logEl.classList.toggle(`hide-${cb.dataset.k}`, !cb.checked);
   cb.onchange = apply;
   apply();
@@ -370,7 +371,7 @@ async function playFx(key) {
   const target = hit ? arena.bags()[0] : arena.op();
   const ok = target ? await arena.playFx(key, target.id) : false;
   $('now').textContent = ok ? `✦ ${key} (${hit ? '샌드백' : '오퍼레이터'})` : `이펙트를 못 띄움: ${key}${$('quality').value === 'low' ? ' (품질 low = 공식 이펙트 끔)' : target ? '' : ' (대상 없음)'}`;
-  for (const b of document.querySelectorAll('button.it[data-fx]')) b.classList.toggle('on', b.dataset.fx === key);
+  for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('button.it[data-fx]'))) b.classList.toggle('on', b.dataset.fx === key);
 }
 
 // ---- operator list ------------------------------------------------------------------------------------------------
@@ -599,18 +600,18 @@ function setPaused(v) { arena?.setPaused(v); $('pause').textContent = v ? '▶' 
 $('pause').onclick = () => setPaused(!arena?.paused);
 $('step').onclick = () => { setPaused(true); arena?.stepOnce(0.1); };
 $('restart').onclick = restart;
-$('speed').onchange = (ev) => arena?.setSpeed(ev.target.value);
-$('quality').onchange = (ev) => arena?.setQuality(ev.target.value);
+$('speed').onchange = (/** @type {any} */ ev) => arena?.setSpeed(ev.target.value);
+$('quality').onchange = (/** @type {any} */ ev) => arena?.setQuality(ev.target.value);
 $('voice').value = voiceStore.get().lang;
-$('voice').onchange = (ev) => { setVoiceLang(ev.target.value); renderDetail(); };
+$('voice').onchange = (/** @type {any} */ ev) => { setVoiceLang(ev.target.value); renderDetail(); };
 const vols = () => audio.setVolumes({ bgm: 0, sfx: Number($('vsfx').value), voice: Number($('vvoice').value), muted: false });
 $('vsfx').oninput = vols;
 $('vvoice').oninput = vols;
 vols();
-$('range').onchange = (ev) => arena?.showRange(ev.target.checked);
+$('range').onchange = (/** @type {any} */ ev) => arena?.showRange(ev.target.checked);
 $('lock').onclick = () => $('lock').classList.remove('on');
 window.addEventListener('keydown', (ev) => {
-  if (ev.target && /INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)) return;
+  if (ev.target && /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (ev.target).tagName)) return;
   if (ev.key === ' ') { ev.preventDefault(); setPaused(!arena?.paused); } else if (ev.key === 'r' || ev.key === 'R') restart();
 });
 

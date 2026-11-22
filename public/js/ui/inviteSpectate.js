@@ -11,6 +11,7 @@ import { t, N_ } from '../../../shared/i18n.js';
 import { ERR } from '../../../shared/constants.js';
 import { toast, toastError } from './toasts.js';
 
+/** @type {Set<string>} */
 const REASONS = new Set([ERR.ROOM_FULL, ERR.ROOM_STARTED]);
 const RATE_RETRY_MS = 700;
 

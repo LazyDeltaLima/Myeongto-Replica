@@ -632,7 +632,7 @@ export function mountAllianceIntro(host) {
   E.cap1.setAttribute('preserveAspectRatio', 'none');
   E.cap1.querySelector('g').setAttribute('fill', '#1a2328');
   const NSV = 'http://www.w3.org/2000/svg';
-  const ribbons = [['#141c21', 0.93], ['rgba(196,220,228,.36)', 1], ['#18242a', 0.9], ['rgba(196,220,228,.3)', 1], ['#141c21', 0.93]].map(([c, o]) => {
+  const ribbons = /** @type {[string, any][]} */ ([['#141c21', 0.93], ['rgba(196,220,228,.36)', 1], ['#18242a', 0.9], ['rgba(196,220,228,.3)', 1], ['#141c21', 0.93]]).map(([c, o]) => {
     const p = document.createElementNS(NSV, 'path'); p.setAttribute('fill', c); p.setAttribute('opacity', o); E.rail.appendChild(p); return p;
   });
   const tcLetters = [...E.tCtxt.children], absTabs = [...E.abs.children];

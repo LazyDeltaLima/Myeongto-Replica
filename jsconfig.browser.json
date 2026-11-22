@@ -6,7 +6,12 @@
   "extends": "./jsconfig.json",
   "compilerOptions": {
     "types": [],
-    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    // the debug arena imports the sim by URL (types/sim-url.d.ts)
+    "paths": {
+      "/sim/dir.js": ["./server/sim/dir.js"],
+      "/sim/*": ["./types/sim-url.d.ts"]
+    }
   },
   "include": [
     "shared/**/*.js",
@@ -14,8 +19,7 @@
     "server/sim/detmath.js",
     "server/sim/dir.js",
     "server/sim/constants.js",
-    "public/js/render/**/*.js",
-    "public/js/battle/**/*.js",
+    "public/js/**/*.js",
     "types/**/*.js",
     "types/page-members.d.ts",
     "types/page-globals.d.ts"

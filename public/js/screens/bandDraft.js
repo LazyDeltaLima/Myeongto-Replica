@@ -342,6 +342,7 @@ export function presetPreviewPicks(choice, st, live) {
  * @returns {Array<'linked'|'rec'|'off'>}
  */
 export function presetChoiceTags(choice, { link = null, rec = null, off = null } = {}) {
+  /** @type {Array<'linked'|'rec'|'off'>} */
   const out = [];
   if (link && link === choice && link !== KEEP_LINK) out.push('linked');
   else if (!link && rec && rec === choice) out.push('rec');
@@ -758,7 +759,7 @@ export function BandDraftScreen() {
     if (await actions.bandSkip()) setSkipped(true);
     setBusy(null);
   };
-  const turnName = playerName(players.find((p) => p.playerId === draft.turnPid)?.name);
+  const turnName = /** @type {string} */ (playerName(players.find((p) => p.playerId === draft.turnPid)?.name));
   useTicker(clock ? 250 : 0);
   // the turn's seconds (the two dialogs' status line repeats the step header's number)
   const turnSecs = clock ? secondsLeft(clock.deadline) : null;

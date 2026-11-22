@@ -52,9 +52,15 @@ import { fillShowTag } from '../../../shared/showTag.js';
 const TAG_CLOSE = '</>';
 
 /**
+ * A segment of parsed rich text: styled text, or a line break.
+ * @typedef {{ text: string, cls: string[], term: boolean, br?: undefined }
+ *   | { br: true, text?: undefined, cls?: undefined, term?: undefined }} RichSeg
+ */
+
+/**
  * Parse official rich text into flat styled segments.
  * @param {any} src
- * @returns {Array<{ text: string, cls: string[], term: boolean } | { br: true }>}
+ * @returns {RichSeg[]}
  */
 export function parseRichText(src) {
   if (src == null) return [];
@@ -63,6 +69,7 @@ export function parseRichText(src) {
   const s = fillShowTag(String(src), null).replace(/\\n/g, '\n').replace(/\r\n?/g, '\n');
   /** @type {Array<{ cls: string, term: boolean }>} */
   const stack = [];
+  /** @type {RichSeg[]} */
   const out = [];
   let buf = '';
   const flush = () => {

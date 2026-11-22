@@ -52,7 +52,10 @@ import { t, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
-/** Tab → the ChessDetail blocks (CHESS_SECTIONS keys) it shows, in the client's tab order. */
+/**
+ * Tab → the ChessDetail blocks (CHESS_SECTIONS keys) it shows, in the client's tab order.
+ * @type {ReadonlyArray<[string, string, string[]]>}
+ */
 export const ART_TABS = Object.freeze([
   ['garrison', N_('特质'), ['garrison', 'equip']],
   ['skill', N_('技能'), ['skill', 'module']],

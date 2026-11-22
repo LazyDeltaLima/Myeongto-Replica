@@ -266,6 +266,7 @@ export async function mountFieldView(host, { signal, late = false } = {}) {
     if (signal?.aborted) onAbort();
     let engineView = null;
     /** `late`: the engine view still on its way after the race was lost */
+    /** @type {Promise<any>|null} */
     let upgrade = null;
     const dispose = (view) => { try { view?.destroy?.(); } catch { /* ignore */ } };
     const timing = mountTimer(); // the report's `mount:` line (diag.js): which stage a slow field load spent its time in

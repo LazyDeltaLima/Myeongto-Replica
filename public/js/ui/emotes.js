@@ -85,6 +85,7 @@ export function emoteSetArtUrls(id, set) {
  * Wheel pages of a set: { key, name, themeId?, emotes }. Official: the themes with at least one picture here (all of
  * them while the manifests load or when none has one, so the tab is never empty).
  * @param {string} set
+ * @returns {ReadonlyArray<{ key: string, name: string, n?: number, themeId?: string, emotes: ReadonlyArray<any> }>}
  */
 export function emotePages(set) {
   if (emoteSet(set) === 'user') return USER_EMOTE_PAGES;
@@ -225,7 +226,7 @@ export function EmoteArt({ id, set, class: cls }) {
 /**
  * Pop bubble (picture only) beside the sender's avatar. Unknown ids show the neutral glyph. Key it by the emote's seq
  * (a newer emote replaces the bubble and pops again).
- * @param {{ id: string, class?: string, ttl?: number, at?: number }} props ttl = display time in ms (fade-out at the
+ * @param {{ id: string, set?: string, class?: string, ttl?: number, at?: number }} props ttl = display time in ms (fade-out at the
  *   end); at = when the emote arrived (Date.now() clock): a bubble mounted after that resumes its pop / fade timeline
  *   instead of restarting it.
  */
@@ -260,6 +261,7 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
   const drag = useRef(null);                  // { id, x0, moved }
   const swallowClick = useRef(false);
   const wheelAcc = useRef({ x: 0, t: -Infinity, spent: false });
+  /** @type {{ current: Record<string, any> }} */
   const live = useRef({});
   live.current = { page, onToggle, pages };
   const clampTo = (i) => Math.max(0, Math.min(live.current.pages.length - 1, Math.trunc(Number(i)) || 0));

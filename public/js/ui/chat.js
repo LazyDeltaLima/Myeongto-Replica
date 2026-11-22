@@ -429,6 +429,7 @@ export function GameChat({ open, onToggle, disabled = false }) {
   const pin = useStore((s) => s.chatPinRecent, Object.is, settingsStore);
   const showTime = useStore((s) => s.chatShowTime, Object.is, settingsStore);
   const [now, setNow] = useState(Date.now);
+  /** @type {{ current: Record<string, any> }} */
   const live = useRef({});
   live.current = { open, onToggle };
   const last = lines.length ? lines[lines.length - 1].seq : 0;

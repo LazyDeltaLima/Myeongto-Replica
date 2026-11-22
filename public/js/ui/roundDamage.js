@@ -101,7 +101,7 @@ export function RoundDamage({ pub, priv, myId, place, spectator = false }) {
   const full = (styleSet === 'auto' ? (phone ? 'compact' : 'full') : styleSet) === 'full';
   const heal = tab === 'heal';
   const pick = (v) => { setTab(v); savePref('roundDamageTab', v); };
-  const { rows, rest, total } = roundDamageRows(src.pairs, priv.board, phone ? ROUND_DAMAGE_ROWS.phone : ROUND_DAMAGE_ROWS.desktop, tab);
+  const { rows, rest, total } = roundDamageRows(src.pairs, priv.board, phone ? ROUND_DAMAGE_ROWS.phone : ROUND_DAMAGE_ROWS.desktop, /** @type {'dmg'|'heal'} */ (tab));
   const m = data.get('assets');
   const recOf = (piece) => {
     const chess = gd.chess(piece.id);

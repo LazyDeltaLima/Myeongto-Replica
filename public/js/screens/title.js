@@ -219,7 +219,10 @@ const STATUS_TEXT = {
   online: N_('已连接服务器'), reconnecting: N_('连接中断，正在重连'), closed: N_('连接已关闭'),
 };
 
-/** The CSS heights of `.title-logo` (css/screens/title.css, a phone's in css/devices.css), for its srcset's `sizes`. */
+/**
+ * The CSS heights of `.title-logo` (css/screens/title.css, a phone's in css/devices.css), for its srcset's `sizes`.
+ * @type {[string, string][]}
+ */
 const TITLE_LOGO_HEIGHTS = [['(max-height: 600px) and (any-pointer: coarse)', '30vh'], ['', 'min(44vh, 28vw)']];
 
 /** Title screen component. */

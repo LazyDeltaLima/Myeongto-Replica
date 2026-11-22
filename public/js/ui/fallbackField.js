@@ -66,7 +66,7 @@ export function fallbackTileClass(stage, row, col) {
 /**
  * Create the DOM fallback view.
  * @param {HTMLElement} host
- * @param {{ data: any, assets?: any, settings?: any }} opts
+ * @param {{ data?: any, assets?: any, settings?: any }} [opts]
  */
 export function createFallbackView(host, opts = {}) {
   const dataStore = opts.data;
@@ -185,7 +185,7 @@ export function createFallbackView(host, opts = {}) {
     const els = document.elementsFromPoint(clientX, clientY);
     for (const el of els) {
       if (!root.contains(el)) continue;
-      const t = el.closest?.('[data-drop]');
+      const t = /** @type {HTMLElement} */ (el.closest?.('[data-drop]'));
       if (!t) continue;
       if (t.dataset.drop === 'board') return { area: 'board', row: Number(t.dataset.row), col: Number(t.dataset.col) };
       if (t.dataset.drop === 'hand') return { area: 'hand', idx: Number(t.dataset.idx) };

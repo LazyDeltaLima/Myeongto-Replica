@@ -682,7 +682,7 @@ function HubRadar() {
   </div>`;
 }
 
-/** The CSS heights of `.hub-center__season` (css/screens/lobby.css), for its srcset's `sizes`. */
+/** The CSS heights of `.hub-center__season` (css/screens/lobby.css), for its srcset's `sizes`. @type {[string, string][]} */
 const HUB_LOGO_HEIGHTS = [['(max-height: 520px)', '34vh'], ['', 'min(42vh, 26vw)']];
 
 /**

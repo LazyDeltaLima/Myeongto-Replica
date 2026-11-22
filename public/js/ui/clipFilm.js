@@ -356,6 +356,7 @@ export function mountClipFilm(host, loaded) {
  * The clip's hub nodes → the title screen's parts (`data-reveal` in screens/title.js) and the resting anchoredPosition.y
  * a moving one ends at (its offset from there moves the part).
  */
+/** @type {Readonly<Record<string, { p: string, restY?: number }>>} */
 export const REVEAL = Object.freeze({
   back: { p: 'canvas_back' },
   logo: { p: 'title_effect/root_title', restY: 155 },
@@ -379,7 +380,7 @@ export function titleReveal(film, root = document) {
       for (const [key, spec] of Object.entries(REVEAL)) {
         const o = a.get(spec.p);
         if (!o) continue;
-        for (const el of root.querySelectorAll(`[data-reveal="${key}"]`)) {
+        for (const el of /** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll(`[data-reveal="${key}"]`))) {
           touched.add(el);
           if (o.m_Alpha !== undefined) el.style.opacity = String(Math.max(0, Math.min(1, o.m_Alpha)));
           const dy = spec.restY !== undefined && o['m_AnchoredPosition.y'] !== undefined ? -(o['m_AnchoredPosition.y'] - spec.restY) * s : 0;

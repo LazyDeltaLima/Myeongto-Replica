@@ -67,7 +67,7 @@ export function LiveCapsule({ pub, hud, miss = null }) {
 
 /**
  * Phase capsule: prep label, kills n/m (combat/unite), kills + boss HP bar (boss rounds).
- * @param {{ pub:any, hud:any }} props
+ * @param {{ pub:any, hud:any, miss?:number|null }} props
  */
 export function PhaseCapsule({ pub, hud, miss = null }) {
   const phase = pub?.phase;
@@ -132,6 +132,7 @@ export function MissTag({ n, name = null }) {
 // ---- live LP of the own battle (user playtest #3 item 2) --------------------------------------------------------
 
 /** Phases whose leaks are still to be charged at settlement (normal rounds: the own battle, then 联防). */
+/** @type {Set<string>} */
 const LEAK_PHASES = new Set([PHASE.COMBAT, PHASE.UNITE]);
 
 /**
@@ -233,7 +234,8 @@ export function bossLp(base, { phase, round, teamLp }) {
 
 /**
  * Tooltip of an LP tower with a pending loss (null without one).
- * @param {number} lp settled LP @param {number} pending @param {{ unite?: boolean, cap?: number }} [opts]
+ * @param {number} lp settled LP @param {number} pending
+ * @param {{ unite?: boolean, cap?: number, left?: number|null, boss?: boolean }} [opts]
  */
 export function pendingTip(lp, pending, { unite = false, cap = 10, left = null, boss = false } = {}) {
   if (!(pending > 0)) return null;
@@ -385,7 +387,8 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  *   onReady:(r:boolean)=>void, readyBusy?:boolean, readyCount?:number, playerCount?:number,
  *   pen?:boolean, penAvail?:boolean, onPen?:(on:boolean)=>void, config?: any, frozenAt?: number|null, onTimerWarn?: Function,
  *   pause?: { show: boolean, paused: boolean, busy?: boolean, onToggle: () => void } | null,
- *   live?: { pending: number, unite: boolean, left?: number|null } | null, myId?: string|null }} props
+ *   live?: { pending: number, unite: boolean, left?: number|null } | null, myId?: string|null, spectator?: boolean,
+ *   effects?: any[]|null, watchingOther?: boolean }} props
  *   frozenAt: the server time every clock shows while the solo match is paused (null = live)
  *   onTimerWarn: the countdown turned orange at the phase's warning time (countdownWarnAt) — the countdown cue
  *   live: the own battle's pending LP loss (liveLp): the tower shows lp with a −N tick, 联防中 during 联防;

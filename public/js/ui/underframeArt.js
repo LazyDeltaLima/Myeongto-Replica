@@ -112,7 +112,10 @@ export function menuBasis(g) {
   return { m: [a, bb, c, d, e, f], pt: (x, y) => [a * x + c * y + e, bb * x + d * y + f] };
 }
 
-/** Client-px bounding box of a local rect (centre, size) through a basis. */
+/**
+ * Client-px bounding box of a local rect (centre, size) through a basis.
+ * @param {any} basis @param {number[]} centre [x, y] @param {number} w @param {number} h
+ */
 function boxOf(basis, [cx, cy], w, h) {
   const xs = [], ys = [];
   for (const [dx, dy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {

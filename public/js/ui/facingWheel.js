@@ -43,7 +43,8 @@ export const FACING_HEAL_STYLE = Object.freeze({ ...FACING_STYLE, color: 0x33c8f
 
 /**
  * Screen geometry of a tile's top face, in client px: centre, px per tile at that depth, the 4 corners.
- * @returns {{ x: number, y: number, s: number, poly: Array<[number, number]> } | null}
+ * `mirror`: the tile is on the mirrored right half of the Final Assault prep (render/app.js tileScreen).
+ * @returns {{ x: number, y: number, s: number, poly: Array<[number, number]>, mirror?: boolean } | null}
  */
 export function tileScreen(view, row, col) {
   const raw = rawOf(view);
@@ -60,7 +61,7 @@ export function tileScreen(view, row, col) {
       const z = dbg.tiles && typeof dbg.tiles.heightAt === 'function' ? dbg.tiles.heightAt(row, col) : 0;
       const cr = canvas.getBoundingClientRect();
       const c = cam.project(col, row, z);
-      const corner = (dx, dy) => { const p = cam.project(col + dx, row + dy, z); return [cr.left + p.x, cr.top + p.y]; };
+      const corner = (dx, dy) => { const p = cam.project(col + dx, row + dy, z); return /** @type {[number, number]} */ ([cr.left + p.x, cr.top + p.y]); };
       return { x: cr.left + c.x, y: cr.top + c.y, s: c.s, poly: [corner(-0.5, 0.5), corner(0.5, 0.5), corner(0.5, -0.5), corner(-0.5, -0.5)] };
     }
   } catch { /* no geometry: the caller hides its visuals */ }
@@ -139,7 +140,12 @@ export function syncPieceDirs(view, priv, skip = null) {
   for (const list of [priv.hand, priv.temp]) for (const p of Array.isArray(list) ? list : []) if (p && p.uid !== skip && p.kind !== 'item') setPieceDir(view, p.uid, 'RIGHT');
 }
 
-/** Light the rotated range of a piece on (row, col) facing `dir` (no grid / dir clears the style's group). */
+/**
+ * Light the rotated range of a piece on (row, col) facing `dir` (no grid / dir clears the style's group).
+ * @param {any} view @param {Array<[number, number]>|null} grid @param {number} row @param {number} col
+ * @param {string|null} dir
+ * @param {Readonly<{ group: string, color: number, fill: number, line: number, heal?: boolean, skill?: boolean }>} [style]
+ */
 export function showRange(view, grid, row, col, dir, style = FACING_STYLE) {
   if (!view || typeof view.highlightTiles !== 'function') return [];
   const tiles = grid && dir ? rangeTiles(grid, row, col, dir) : [];
@@ -183,13 +189,14 @@ function Chevron({ dir, on }) {
 
 /**
  * The direction wheel overlay.
- * @param {{ view: any, row: number, col: number, grid: Array<[number, number]>|null, name?: string,
+ * @param {{ view: any, row: number, col: number, grid: Array<[number, number]>|null, heal?: boolean, name?: string,
  *   onPreview?: (dir: string|null) => void, onCommit: (dir: string) => void, onCancel: () => void }} props
  */
 export function FacingWheel({ view, row, col, grid, heal = false, name = '', onPreview, onCommit, onCancel }) {
   const g = useTileScreen(view, row, col);
   const [dir, setDir] = useState(null);
   const [drag, setDrag] = useState(null); // { id } while a pointer is down
+  /** @type {{ current: Record<string, any> }} */
   const live = useRef({});
   const s = g && g.s > 0 ? g.s : 64;
   // local patch (LOCAL-PATCH.md 「배치 UI」): the client's selector when its sprites are installed (ui/placeArt.js)
@@ -362,7 +369,7 @@ function Stripes({ tiles, view, row, col }) {
     Object.assign(svg.style, { position: 'absolute', left: '0', top: '0', width: '100%', height: '100%', zIndex: '0', pointerEvents: 'none', overflow: 'visible' });
     svg.innerHTML = `<defs><pattern id="${id}" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">`
       + '<rect width="3.5" height="10" fill="rgba(255,178,70,.5)" /></pattern></defs><g></g>';
-    const g = svg.lastChild;
+    const g = /** @type {SVGGElement} */ (svg.lastChild);
     mount.host.insertBefore(svg, mount.before);
     let raf = 0;
     let last = '';

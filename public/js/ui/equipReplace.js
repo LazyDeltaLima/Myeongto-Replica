@@ -52,7 +52,7 @@ export function replaceRequest(ctx, intent, getChess = () => null, getItem = () 
 
 /**
  * The g.equip intent that replaces `replaceUid` (one of the target's equipped items, or the intent is unchanged).
- * @param {{ t: string, fields: { itemUid: number, targetUid: number } }} intent
+ * @param {{ t: string, fields?: { itemUid?: number, targetUid?: number } }} intent
  * @param {number} replaceUid
  */
 export function replaceIntent(intent, replaceUid) {

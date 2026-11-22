@@ -120,6 +120,7 @@ function ChatSoundSection({ s }) {
       <p class="set-hint">${t('房间和对局中其他玩家发来新消息时播放表情提示音。提示音播放中或提示间隔内收到的消息不再提示。')}</p>` : null}`;
 }
 
+/** @type {['auto'|'high'|'medium'|'low', string][]} */
 const QUALITY = [['auto', N_('自动')], ['high', N_('高')], ['medium', N_('中')], ['low', N_('低')]];
 const QUALITY_LABEL = Object.fromEntries(QUALITY);
 
@@ -129,7 +130,7 @@ function AutoQualityHint() {
   useEffect(() => onAutoQuality(setQ), []);
   return html`<p class="set-hint" data-testid="auto-quality"><strong>${t('当前：{q}', { q: t(QUALITY_LABEL[q]) })}</strong>${' · '}${t('自动：画面持续卡顿时降为「中」，恢复流畅后回到「高」。')}</p>`;
 }
-/** settings → 画面 「伤害统计样式」 (ui/roundDamage.js; ROUND_DAMAGE_STYLES) */
+/** settings → 画面 「伤害统计样式」 (ui/roundDamage.js; ROUND_DAMAGE_STYLES) @type {['auto'|'full'|'compact', string][]} */
 const ROUND_DAMAGE_LOOKS = [['auto', N_('自动')], ['full', N_('详细')], ['compact', N_('简洁')]];
 
 /**
@@ -140,7 +141,7 @@ const ROUND_DAMAGE_LOOKS = [['auto', N_('自动')], ['full', N_('详细')], ['co
 function NumberUnitsSetting() {
   const units = langInfo()?.numberUnits;
   const cur = numberUnitMode();
-  const opts = [units ? ['myriad', `20${units[0]}`] : null, ['thousand', '200K'], ['full', '200,000']].filter(Boolean);
+  const opts = /** @type {['myriad'|'thousand'|'full', string][]} */ ([units ? ['myriad', `20${units[0]}`] : null, ['thousand', '200K'], ['full', '200,000']]).filter(Boolean);
   return html`<div class="set-row" data-number-units=${cur}>
     <span class="set-row__label">${t('数字单位')}<${MicroLabel}>NUMBER UNITS<//></span>
     <div class="set-seg" role="radiogroup">
@@ -428,7 +429,7 @@ export function SettingsModal({ open, onClose }) {
  * The 设置 button of the lobby and the room (GitHub #238 — before it the settings were reachable only from the title
  * screen and a running match): the twin of the 玩法说明 button (ui/guide.js GuideButton), with the settings modal behind it
  * (mounted only while open). The same modal as the title screen's and the match's: nothing in it is match-only.
- * @param {{ class?: string, size?: 'sm'|'md'|'lg'|'xl', variant?: string, label?: string }} props
+ * @param {{ class?: string, size?: 'sm'|'md'|'lg'|'xl', variant?: string, label?: string, square?: boolean }} props
  */
 export function SettingsButton({ class: cls, size = 'sm', variant = 'ghost', label = t('设置'), square = false }) {
   const [open, setOpen] = useState(false);

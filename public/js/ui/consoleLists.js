@@ -125,7 +125,7 @@ export function filterItemEntries(entries, { tier = 0, golden = false, query = '
  * those its 变形同构体 pairing grants.
  * @param {{ board?: any[], hand?: any[], temp?: any[] }} priv m.private
  * @param {(piece: any) => any} recOf the piece's chess record (the 自选 record for a 自选 slot), or null
- * @param {(piece: any) => string[]} bondsOf the record's bonds plus the granted ones (gameLogic pieceBondIds)
+ * @param {(rec: any, piece: any) => string[]} bondsOf the record's bonds plus the granted ones (gameLogic pieceBondIds)
  * @returns {{ field: Set<string>, held: Set<string> }}
  */
 export function ownedBondSets(priv, recOf, bondsOf) {

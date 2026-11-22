@@ -114,7 +114,7 @@ export function rowLpTip(lp, cap = 10) {
 }
 
 /**
- * @param {{ pub:any, myId:string, watching:string|null, bubbles: Map<string,{id:string,seq:number}>, onWatch:(p:any)=>void,
+ * @param {{ pub:any, myId:string, watching:string|null, bubbles: Map<string,{id:string,seq:number,set?:string}>, onWatch:(p:any)=>void,
  *   compact?: boolean, teamLp?: number|null, self?: { lp?: number|null, pending: number, unite: boolean, left?: number|null } | null,
  *   cap?: number, uniteLocal?: Record<string, number> | null, after?: any,
  *   observe?: null | { canObserve: (p:any) => { fieldId?: string, reason?: string|null, back?: boolean }, observing: boolean, onBack: () => void } }} props

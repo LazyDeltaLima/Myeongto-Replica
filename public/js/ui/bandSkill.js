@@ -60,6 +60,7 @@ export function bandSkillTip(target) {
 /**
  * The counter under the portrait: { icon: 'lock'|'clock'|null, text } or null.
  * @param {any} bs m.private.bandSkill
+ * @returns {{ icon: 'lock'|'clock'|null, text: string, value?: number, target?: number } | null}
  */
 export function bandSkillCounter(bs) {
   if (!bs) return null;

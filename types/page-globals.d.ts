@@ -8,3 +8,22 @@ declare namespace PIXI {
   type Texture = any;
   type Mesh = any;
 }
+
+// Prefixed, non-standard and removed DOM members the page feature-tests before use (ui/device.js fullscreen, the
+// orientation lock, ui/perfHud.js Chrome's heap figures), and the debug page's console handle (debug.js).
+interface Document {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => void;
+}
+interface HTMLElement {
+  webkitRequestFullscreen?: () => void;
+}
+interface ScreenOrientation {
+  lock?: (orientation: string) => Promise<void>;
+}
+interface Performance {
+  memory?: { usedJSHeapSize: number, totalJSHeapSize: number, jsHeapSizeLimit: number };
+}
+interface Window {
+  __debug?: any;
+}

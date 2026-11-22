@@ -15,11 +15,14 @@ What is checked now:
   data loader (`simdata.js` imports `nodeData.js` under Node only and reads `process`; `content/support/index.js`
   imports `server/data.js`, which the page gets as a generated stand-in, `server/http/static.js`), and those are its only
   errors without the Node types — the rest of the sim checks the same in both.
-- `public/js/render/` and `public/js/battle/` in the browser config, with `types/page-members.d.ts` (the effect
-  system's split class and the fields other files set on page classes, below) and `types/page-globals.d.ts`. tsc
-  checks every file they import as well, so the page modules they reach (`audio.js`, `assets.js`, `data.js`,
-  `diag.js`, `resources.js`, `store.js`, `voice*.js`, `net.js`, `gpu.js`, `ui/components.js` …) are clean too; the
-  rest of `public/js/` (`ui/`, `screens/`, `main.js` …) is not yet included.
+- `public/js/` whole in the browser config, with `types/page-members.d.ts` (the effect system's split class and the
+  fields other files set on page classes, below) and `types/page-globals.d.ts`. The debug page's arena imports the sim
+  by its served URL (`/sim/Battle.js` …): the config's `paths` maps `/sim/dir.js` to the file and every other `/sim/`
+  module to `types/sim-url.d.ts`, a loose stand-in (the browser config does not check the whole sim, above).
+- What tsc does not see: the props of a component written inside an `html` template (`<${Thumb} id=${x} />`). htm
+  builds the vnode at run time from the template's strings, so tsc checks the template's `${…}` values one by one,
+  never against the component's `@param` — a misspelt or missing prop there is not an error (`ui/components.js`
+  hFresh returns any). A component called as a function (`ChoiceView({ ...props })`) is checked.
 - `types/` — JSDoc for `Unit`, `DamageInfo`, the snapshot tuples, and the protocol message envelope (`types/**/*.js`)
 
 `strict` is off. `tsc` does not read `jsconfig.json` on its own; the script passes `-p`.
@@ -28,7 +31,7 @@ What is checked now:
 
 Add one file or one folder to `jsconfig.json` `include`, then run `npm run typecheck`. Fix JSDoc that disagrees with the code in that folder. Leave `strict` off until the folder reports nothing. Do not add `@ts-nocheck`.
 
-Next: the rest of `public/js/` (`ui/`, `screens/`, `main.js` …) in the browser config. The sim does not import `types/`; the typedefs in `types/core.js` are a reference, not a runtime dependency.
+Next: `strict`, from the folders that report nothing. The sim does not import `types/`; the typedefs in `types/core.js` are a reference, not a runtime dependency.
 
 What most errors of a new folder were in `server/sim/`, and the JSDoc that fixed them:
 
@@ -63,6 +66,28 @@ And in `public/js/render/` and `battle/`:
   exported class, declare it in `types/page-members.d.ts`; on a module-private one, a typedef of the class with the field
   (`@typedef {RowBatch & { g: any, ib: any }} RowBatchMesh`) and `@this {RowBatchMesh}` on the methods that use it.
 - a `setTimeout` handle is a number with the DOM types: `/** @type {any} */ (t)?.unref?.()` for the Node-only call.
+
+And in `public/js/ui/`, `screens/` and the rest of `public/js/`:
+
+- a ref or object filled later (`const live = useRef({})`, then `live.current = { pub, … }`): `/** @type {{ current:
+  Record<string, any> }} */` on the declaration — `useRef({})` is a ref of `{}`, whose members are all errors.
+- a component's props `@param` lists every prop the function destructures; a callback prop with a `() => {}` default
+  is typed by its default (no arguments) unless the `@param` gives it.
+- a literal fallback passed to a generic (`loadPref(KEY, true)`): the result is the literal (`true`), so a comparison
+  with `false` is an error. `loadPref` widens it in its `@returns`.
+- a union that differs in one literal field narrows only when each value is its own member: `{ kind: 'cancel' } | {
+  kind: 'leave' } | …`, not `{ kind: 'cancel'|'leave' }`.
+- `querySelector` / `closest` / `activeElement` give `Element`: cast to `HTMLElement` (or `NodeListOf<HTMLElement>`)
+  where the code reads `style`, `dataset`, `value`.
+- a store's state outside its initial object (`store.js` `AppState`: ui/chat.js's `chat.blocked`, `chatFactions`): an
+  intersection in the store's typedef, so the initial state the code resets to stays as it is; a parameter that takes
+  "a store" is `{ get: () => any } & ReturnType<typeof createStore>` (or the `{ set }` it uses: `typeof
+  customRulesStore` there is circular, TS2502).
+- a prefixed or non-standard DOM member the page feature-tests (`webkitRequestFullscreen`, `ScreenOrientation.lock`,
+  `performance.memory`): declared in `types/page-globals.d.ts`.
+- a real mistake the types show is not fixed here: it gets a `// @ts-expect-error <why>` on its line (the error is
+  then expected, and tsc reports the comment as unused once the code is fixed) and a work line in the maintainer's
+  notes. Now: `ui/customRules.js` passes `'ok'`, not a toast kind, so those toasts show as `'info'`.
 
 `types/core.js` follows docs/DESIGN.md §5.2, §5.4, §8 and docs/SIM.md §4, §9. Where those two disagree on `DamageInfo.type`, the typedef uses the union `makeDamageInfo` actually builds (`'elemental'` as well as `'element'`).
 

@@ -13,7 +13,9 @@ import { seasonFeature } from '../../../../shared/seasons.js';
 
 // ---- phases ----------------------------------------------------------------------------------------
 
+/** @type {Set<string>} */
 const COMBAT_PHASES = new Set([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
+/** @type {Set<string>} */
 const PREP_PHASES = new Set([PHASE.PREP, PHASE.SP_DRAFT, PHASE.ROUND_START]);
 
 /**

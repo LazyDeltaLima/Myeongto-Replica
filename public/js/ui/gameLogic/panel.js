@@ -77,6 +77,7 @@ export function bondPopupPlace(uf, vp, rem, card = null) {
     return { left, right: left + R * BPOP.width, top, bottom };
   };
   // last resort: over the card it was opened from (closing the popup shows the card again)
+  /** @type {('left'|'beside'|'besideR'|'right')[]} */
   const order = card === 'left' ? ['beside', 'right', 'left'] : card === 'right' ? ['besideR', 'left', 'right'] : ['left', 'right'];
   if (!isObj(uf)) return order[0];
   const hit = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;

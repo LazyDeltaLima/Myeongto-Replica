@@ -73,7 +73,9 @@ const hasKeys = (o) => isObj(o) && Object.keys(o).length > 0;
  * @returns {{ deviceOverrides: Record<string, boolean>, tileOverrides: Record<string, string> }}
  */
 export function stageOverrides(priv, getEffect = () => null) {
+  /** @type {Record<string, boolean>} */
   const deviceOverrides = {};
+  /** @type {Record<string, string>} */
   const tileOverrides = {};
   if (isObj(priv?.deviceOverrides) || isObj(priv?.tileOverrides)) {
     for (const [k, v] of Object.entries(isObj(priv.deviceOverrides) ? priv.deviceOverrides : {})) deviceOverrides[k] = !!v;
@@ -214,7 +216,7 @@ export function placementRecords(d, priv) {
  * (`field` = `deployFieldOf(pub, myId)`: the own board, or the player's half of the boss field in a boss round).
  * `getChess` and `backups` must give the unlocalized rule records (placementRecords): the 高台 check reads the trait text.
  * @param {{ priv:any, stage:any, editable:boolean, field?:'normal'|'bossL'|'bossR', getChess?:(id:string)=>any,
- *   getToken?:(id:string)=>any, getItem?:(id:string)=>any, getEffect?:(id:string)=>any }} o
+ *   getToken?:(id:string)=>any, getItem?:(id:string)=>any, getEffect?:(id:string)=>any, backups?:any }} o
  */
 export function placementContext({ priv, stage, editable, field = 'normal', getChess = () => null, getToken = () => null, getItem = () => null, getEffect = () => null, backups = null }) {
   const pieces = indexPieces(priv);
@@ -248,6 +250,7 @@ export function placementContext({ priv, stage, editable, field = 'normal', getC
  * @returns {[number, number][]}
  */
 export function bandSkillTiles(ctx, filter, chests = []) {
+  /** @type {[number, number][]} */
   const out = [];
   const stage = ctx?.stage;
   if (!stage || !Array.isArray(stage.rows)) return out;
@@ -386,7 +389,7 @@ function unitAllowed(ctx, piece, row, col, owner = null) {
  *   board ← EQUIP item: equip the chess on that tile. board ← MAGIC (Arts): used on that tile.
  * @param {ReturnType<typeof placementContext>} ctx
  * @param {number} uid
- * @param {{area:'board',row:number,col:number}|{area:'hand',idx:number}|{area:'outside'}} target
+ * @param {{area:'board',row:number,col:number}|{area:'hand',idx:number}|{area:'temp',idx:number}|{area:'outside'}} target
  * @returns {{ ok: boolean, action?: 'move'|'swap'|'orient'|'equip'|'art', reason?: string, code?: string }}
  */
 export function canPlace(ctx, uid, target) {
@@ -480,6 +483,7 @@ export function canPlace(ctx, uid, target) {
   return no('BAD_TILE', t('无法放置在该位置'));
 }
 
+/** @returns {{ ok: boolean, action?: 'equip', reason?: string, code?: string }} */
 function equipCheck(ctx, itemPiece, targetPiece) {
   const item = ctx.getItem(itemPiece.id);
   if (item?.itemType === 'MAGIC') return { ok: false, code: 'BAD_TARGET', reason: t('该道具需要放置在战场上使用') };
@@ -590,6 +594,7 @@ export function dropIntent(ctx, uid, target) {
  */
 export function dropFailureReason(ctx, uid, tile) {
   if (!ctx?.editable || !ctx.pieces?.get(uid) || !isObj(tile)) return null;
+  /** @type {Parameters<typeof canPlace>[2]} */
   let target = null;
   if (tile.area === 'board') target = { area: 'board', row: tile.row, col: tile.col };
   else if (tile.area === 'hand') target = { area: 'hand', idx: Number.isInteger(tile.idx) ? tile.idx : tile.col };

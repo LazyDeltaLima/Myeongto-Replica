@@ -52,6 +52,7 @@ const frameOf = (v, key = 'frame') => {
  * @param {unknown} raw @returns {Record<string, string>}
  */
 export function parseStoredSkins(raw) {
+  /** @type {Record<string, string>} */
   const out = {};
   if (!isObj(raw)) return out;
   let kept = 0;

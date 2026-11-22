@@ -12,6 +12,7 @@ import { t } from '../../../shared/i18n.js';
 import { recordError } from '../diag.js';
 
 // no shared static vnodes (see components.js hFresh: htm's static cache would retain unmounted DOM)
+/** @this {any} @param {any} type @param {Record<string, any>} props @param {...any} children @returns {any} */
 function hFresh(type, props, ...children) {
   if (this && typeof this === 'object') this[0] = 3;
   return h(type, props, ...children);

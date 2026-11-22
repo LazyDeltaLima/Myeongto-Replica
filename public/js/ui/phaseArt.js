@@ -117,7 +117,7 @@ const DOTS = [[-40, 4, 0], [-30, -20, 0.15], [36, 14, 0.3], [44, -8, 0.1], [-6, 
  * `remain`: rounds left before the boss round, shown in the last few (the prefab's round_countdown — the client's
  * AutoChessBattleUIViewModel.CheckIfNeedRoundRemainTip: boss round − this round, when ≤ constants.bossTrailerStartRound
  * (3) and above 0): 剩余 N 回合 (20 #a6a6a6, the number #ff682d; KR 「남은 라운드 N」, ours) on round_countdown_bg 91.6 above.
- * @param {{ round: number, gold?: number|null, watching?: boolean, remain?: number|null, duration?: number, onDone?: => void }} props
+ * @param {{ round: number, gold?: number|null, watching?: boolean, remain?: number|null, duration?: number, onDone?: () => void }} props
  */
 export function RoundStartBanner({ round, gold = null, watching = false, remain = null, duration = 1800, onDone }) {
   const [leaving, setLeaving] = useState(false);
@@ -204,7 +204,7 @@ export function roundsToBoss(round, bossRound, trailer = 3) {
  * AutoChessBattleUIRoundResultDialog.OnRender: panel_perfect = isAllPrefect, panel_miss = !isAllPrefect,
  * the LP text set only when lostHp > 0; the anim / sound by isAllPrefect → _allPrefectAnim + BATTLEOVER_NOREDUCE,
  * lostHp ≤ 0 → _perfectAnim + _NORMAL, else _missAnim + _REDUCE (audioOfficial.js battleOverOf).
- * @param {{ perfect: boolean, lost?: number, duration?: number, onDone?: => void }} props
+ * @param {{ perfect: boolean, lost?: number, duration?: number, onDone?: () => void }} props
  */
 export function BattleEndBanner({ perfect, lost = 0, duration = 1800, onDone }) {
   const [leaving, setLeaving] = useState(false);

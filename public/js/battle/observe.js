@@ -31,9 +31,9 @@ export function fieldOf(pub, playerId) {
   return fields(pub).find((f) => Array.isArray(f.players) && f.players.includes(playerId)) || null;
 }
 
-/** Display name of a player id ('队友' when unknown). */
+/** Display name of a player id ('队友' when unknown). @param {any} pub @param {string} playerId @returns {string} */
 export function nameOf(pub, playerId) {
-  return playerName(players(pub).find((p) => p.playerId === playerId)?.name) || t('队友');
+  return /** @type {string} */ (playerName(players(pub).find((p) => p.playerId === playerId)?.name)) || t('队友');
 }
 
 /**

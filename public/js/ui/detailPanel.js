@@ -729,8 +729,8 @@ export function TokenDetail({ token, piece, ownerId = null, snapHp = null, live 
  * attack range, the trap's skill — their prefabs leave `_disableClickCharacterInfo` off): the stat grid and range mini-map
  * (the turret's), the device's own skill text from the level data (`device.skill`), then the mechanism lines with the
  * numbers the sim runs (upstream's 装置机制, ours) and what the tile allows.
- * @param {{ key?:string, name:string, tag:string, lines:string[], facts?:string[], stats?:{k:string,v:any}[], skill?:{name:string,text:string}, range?:number[][] }} device
- * @param {{ hp:number, max:number }|null} snapHp
+ * @param {{ device: { key?:string, name:string, tag:string, lines:string[], facts?:string[], stats?:{k:string,v:any}[],
+ *   skill?:{name:string,text:string}, range?:number[][] }, snapHp?: { hp:number, max:number }|null, live?: any }} props
  */
 function DeviceDetail({ device, snapHp = null, live = null }) {
   const hp = hpOf(live, snapHp);
@@ -762,7 +762,9 @@ function DeviceDetail({ device, snapHp = null, live = null }) {
 
 /**
  * Resolve what a detail target shows.
- * @param {{ kind:'piece'|'chess'|'item'|'enemy'|'unit'|'token'|'device', id?:string, uid?:number, unit?:any, count?:number }} target
+ * @param {{ kind:'piece'|'chess'|'item'|'enemy'|'unit'|'token'|'device', id?:string, uid?:number, unit?:any, count?:number,
+ *   foreign?:boolean, owner?:string|null }} target `foreign` / `owner`: a chess card of another player's (no 特质 numbers
+ *   of the viewer's)
  * @param {Map<number, any>} pieces indexPieces(priv)
  * @param {{ priv?: any, backups?: any }} [opts] 0.2.0 补位: the player's own pieces and cards of a chess in
  *   m.private.standIns — a unit carrying `standInFor`, and a teammate's bond popup row that says it (`target.standInFor`)
@@ -785,6 +787,7 @@ export function resolveDetail(target, pieces, opts = {}) {
   return d;
 }
 
+/** @returns {Record<string, any>|null} */
 function resolveDetailOf(target, pieces, { priv = null, backups = data.get('backups') } = {}) {
   if (!target) return null;
   // a stage device (#228): the screen resolved the device's stage entry (gameLogic.deviceInfo / deviceTipAt); in a battle
@@ -870,7 +873,8 @@ function resolveDetailOf(target, pieces, { priv = null, backups = data.get('back
 /**
  * The panel.
  * @param {{ detail:any, editable:boolean, snapHp?:{hp:number,max:number}|null, onSell:(piece:any)=>void, onDestroy:(piece:any)=>void,
- *   bonds?: any[], offBonds?: Set<string>|null, loadout?: any, onBond?: (bondId:string)=>void, side?: 'left'|'right', shopOpen?: boolean }} props
+ *   bonds?: any[], offBonds?: Set<string>|null, loadout?: any, ops?: any, onBond?: (bondId:string)=>void, side?: 'left'|'right',
+ *   shopOpen?: boolean, live?: any, voice?: boolean }} props
  *   bonds: the owner's m.private.bonds (counts / tiers of the bond chips); offBonds: the bonds this mode never activates
  *   (gameLogic modeOffBonds — their chips and the 变形同构体 pairing lines read 本局禁用); loadout: m.private.loadout (DESIGN §16) for
  *   the player's own operators and shop cards; a teammate's unit gets its owner's choice (gameLogic unitLoadout); null

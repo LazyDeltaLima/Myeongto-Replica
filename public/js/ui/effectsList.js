@@ -31,7 +31,7 @@ const SOURCES = ['effects', 'bands', 'items', 'garrisons'];
  * strategy's, an item's, a 特质's — sentText; a reworded one, such as a multi-round 悬赏's, stays as sent). `effectId` is
  * the record the server copied it from (server/match/player/views.js effectsView: a 机变 card's entry, whose own id and
  * icon are no record's).
- * @param {{ id?: string, effectId?: string, iconId?: string, desc?: string }} e
+ * @param {{ id?: string, effectId?: string, iconId?: string, iconKind?: string, desc?: string }} e
  */
 export function effectDesc(e) {
   const desc = e.desc || '';

@@ -26,6 +26,7 @@ function box([x0, y0, z0], [x1, y1, z1], key) {
   </g>`;
 }
 
+/** @type {[[number, number, number], [number, number, number]][]} */
 const HULL = [
   [[0, 0, 0], [32, 9, 2.4]],          // keel
   [[2.5, 1, 2.4], [29, 8, 4.2]],      // main deck

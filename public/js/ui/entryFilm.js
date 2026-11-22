@@ -172,7 +172,7 @@ function run(allowed, film) {
   el.innerHTML = '<span class="spa-entry__skip"></span>';
   el.firstChild.textContent = t('点击跳过');
   const locked = !(audio.ctx && audio.ctx.state === 'running');
-  const skipLabel = el.querySelector('.spa-entry__skip');
+  const skipLabel = /** @type {HTMLElement} */ (el.querySelector('.spa-entry__skip'));
   let gate = Promise.resolve(), gateKey = null;
   if (locked) {
     skipLabel.style.opacity = '0';

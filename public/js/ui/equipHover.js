@@ -54,6 +54,7 @@ export function equipHoverArt() {
  */
 export function equipHoverState(ctx, itemUid, tile) {
   if (!ctx?.pieces || !tile || (tile.area !== 'board' && tile.area !== 'hand')) return null;
+  /** @type {{ area: 'board', row: number, col: number } | { area: 'hand', idx: number }} */
   const target = tile.area === 'board' ? { area: 'board', row: tile.row, col: tile.col } : { area: 'hand', idx: tile.idx ?? tile.col };
   const res = canPlace(ctx, itemUid, target);
   if (!res.ok || res.action !== 'equip') return null;

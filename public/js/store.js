@@ -92,8 +92,15 @@ export const initialState = Object.freeze({
     serverLost: null /* { text }: the official server-lost dialog over a match the server ended (main.js) */ },
 });
 
+/**
+ * The app state: initialState and what the page sets on it later (ui/chat.js: the chat's block list and notice mark,
+ * the room's chat factions — room.factions).
+ * @typedef {typeof initialState & { chat: { blocked?: string[], noticeAfter?: number },
+ *   chatFactions?: Record<string, string> }} AppState
+ */
+
 /** The app-wide store singleton. */
-export const store = createStore(initialState);
+export const store = createStore(/** @type {AppState} */ (initialState));
 
 /**
  * Which screen the router shows for a given app state:
@@ -177,18 +184,19 @@ export function shallowEqual(a, b) {
 // ---- tiny persisted preferences (localStorage, failure-tolerant) --------------------------------
 
 /**
- * Read a JSON preference from localStorage.
+ * Read a JSON preference from localStorage. The stored value is whatever was saved, so a literal fallback (`true`,
+ * `'list'`) types the result as its whole primitive type.
  * @template T
  * @param {string} key
  * @param {T} fallback
- * @returns {T}
+ * @returns {T extends boolean ? boolean : T extends string ? string : T extends number ? number : T}
  */
 export function loadPref(key, fallback) {
   try {
     const raw = globalThis.localStorage?.getItem(`sp.pref.${key}`);
-    return raw == null ? fallback : JSON.parse(raw);
+    return raw == null ? /** @type {any} */ (fallback) : JSON.parse(raw);
   } catch {
-    return fallback;
+    return /** @type {any} */ (fallback);
   }
 }
 

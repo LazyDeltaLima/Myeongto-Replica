@@ -36,9 +36,9 @@ const QUALITIES = ['auto', 'high', 'medium', 'low'];
 export const ROUND_DAMAGE_STYLES = Object.freeze(['auto', 'full', 'compact']);
 /** Settings → 画面 「帧率上限」: none, then fps. */
 export const FRAME_LIMITS = Object.freeze([0, 30, 60, 120]);
-/** Settings → 画面 「拿起棋子时侧面镜头」: as the season, on, off. */
+/** Settings → 画面 「拿起棋子时侧面镜头」: as the season, on, off. @type {ReadonlyArray<'auto'|'on'|'off'>} */
 export const SIDE_CAMERA_MODES = Object.freeze(['auto', 'on', 'off']);
-/** Settings → 通用 「保持屏幕常亮」: never, during a match's combat, whenever the page is shown. */
+/** Settings → 通用 「保持屏幕常亮」: never, during a match's combat, whenever the page is shown. @type {ReadonlyArray<'off'|'combat'|'always'>} */
 export const SCREEN_WAKE_MODES = Object.freeze(['off', 'combat', 'always']);
 
 /**

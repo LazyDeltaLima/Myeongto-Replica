@@ -47,7 +47,7 @@ export function cycleField(fields, current, dir = 1) {
  * @param {any} p m.public player row
  * @param {any} pub
  * @param {string} myId
- * @returns {{ fieldId: string } | { reason: string }}
+ * @returns {{ fieldId: string, reason?: undefined } | { reason: string, fieldId?: undefined }}
  */
 export function watchTarget(p, pub, myId) {
   void myId;
@@ -97,8 +97,8 @@ export function fieldLabel(field, pub, myId) {
 }
 
 /**
- * Active emote bubbles: playerId → { id, seq, at } for emotes younger than ttl.
- * @param {Array<{seq:number, playerId:string, id:string, at:number}>} emotes
+ * Active emote bubbles: playerId → { id, seq, at, set } for emotes younger than ttl.
+ * @param {Array<{seq:number, playerId:string, id:string, at:number, set?:string}>} emotes
  * @param {number} now
  * @param {number} [ttl]
  */

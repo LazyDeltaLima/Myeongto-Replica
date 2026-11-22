@@ -80,7 +80,7 @@ export const loadoutStore = createStore({
 /**
  * Hold the settings of another season (header): the stored loadout, 潜能 / 练度, not-owned list and 自选 picks of `season`
  * replace the current ones (the syncs send them). The same season: nothing happens.
- * @param {unknown} season @param {ReturnType<typeof createStore>} [target]
+ * @param {unknown} season @param {{ set: (patch: any) => void }} [target]
  */
 export function setLoadoutSeason(season, target = loadoutStore) {
   const next = seasonOf(season);
@@ -311,11 +311,12 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
 
 /**
  * Wire the loadout sync once. Dependencies are injectable for tests.
- * @param {{ net: any, getChessReady?: () => Promise<any>, lookupChess?: (id: string) => any,
- *   timers?: { setTimeout: Function, clearTimeout: Function }, target?: ReturnType<typeof createStore> }} deps
+ * @param {{ net: any, getChessReady?: () => Promise<any>, getBackupsReady?: () => Promise<any>, lookupChess?: (id: string) => any,
+ *   operatorIds?: () => Set<string>, timers?: { setTimeout: Function, clearTimeout: Function },
+ *   target?: { get: () => any } & ReturnType<typeof createStore>, notify?: (text: string) => void }} deps
  * @returns {{ flush: () => Promise<void>, dispose: () => void }}
  */
-export function installLoadoutSync({ net, getChessReady, getBackupsReady, lookupChess, operatorIds, timers, target = loadoutStore, notify } = {}) {
+export function installLoadoutSync({ net, getChessReady, getBackupsReady, lookupChess, operatorIds, timers, target = loadoutStore, notify } = /** @type {any} */ ({})) {
   const ready = getChessReady || (() => data.load('chess'));
   const readyBackups = getBackupsReady || (() => data.load('backups'));
   const lookup = lookupChess || ((id) => data.lookup('chess', id));
@@ -359,10 +360,10 @@ export function flushLoadoutSync() {
  * Wire the 干员持有 sync once (0.2.0 补位): `room.ownership { notOwned }` after every welcome and edit. The list goes as
  * stored (structurally clean); the server keeps its droppable chess. During a match the server stores it for the next
  * one (ROOM_STARTED → 'locked'): the setting is out of match.
- * @param {{ net: any, timers?: { setTimeout: Function, clearTimeout: Function }, target?: ReturnType<typeof createStore>,
+ * @param {{ net: any, timers?: { setTimeout: Function, clearTimeout: Function }, target?: { get: () => any } & ReturnType<typeof createStore>,
  *   notify?: (text: string) => void }} deps
  */
-export function installOwnershipSync({ net, timers, target = loadoutStore, notify } = {}) {
+export function installOwnershipSync({ net, timers, target = loadoutStore, notify } = /** @type {any} */ ({})) {
   return installPrefSync({
     net, timers, target, notify, key: 'notOwned', stateKey: 'ownSync', msgType: 'room.ownership', field: 'notOwned', tag: 'ownership',
     lockedText: N_('干员持有是局外设置，修改将在下一局生效'),
@@ -376,10 +377,10 @@ export function installOwnershipSync({ net, timers, target = loadoutStore, notif
  * draft (match.setDiy); afterwards the server stores them for the next one (ROOM_STARTED → 'locked'). Every `welcome`
  * also brings the operators a DIY slot may field
  * (`diyKitted`, the picker's list).
- * @param {{ net: any, timers?: { setTimeout: Function, clearTimeout: Function }, target?: ReturnType<typeof createStore>,
+ * @param {{ net: any, timers?: { setTimeout: Function, clearTimeout: Function }, target?: { get: () => any } & ReturnType<typeof createStore>,
  *   notify?: (text: string) => void }} deps
  */
-export function installDiySync({ net, timers, target = loadoutStore, notify } = {}) {
+export function installDiySync({ net, timers, target = loadoutStore, notify } = /** @type {any} */ ({})) {
   const offKit = net.on('welcome', (msg) => {
     const list = msg && Array.isArray(msg.diyKitted) ? msg.diyKitted.filter((x) => typeof x === 'string') : null;
     target.set({ diyKitted: list });
@@ -418,8 +419,8 @@ export function resendDiySync() {
  * can still say 'locked' is a server without that.
  * Without the skin data (`pack`: resStore, the choice of the pack 'skin') the map goes empty: the page shows the skins
  * locked and 「지금은 기본 스킨만」, so no other page draws them either; the pref keeps the choice for when it is taken.
- * @param {{ net: any, timers?: { setTimeout: Function, clearTimeout: Function }, target?: ReturnType<typeof createStore>,
- *   notify?: (text: string) => void, pack?: ReturnType<typeof createStore> | null }} deps pack: absent = the skins go out
+ * @param {{ net: any, timers?: { setTimeout: Function, clearTimeout: Function }, target?: { get: () => any } & ReturnType<typeof createStore>,
+ *   notify?: (text: string) => void, pack?: ({ get: () => any } & ReturnType<typeof createStore>) | null }} deps pack: absent = the skins go out
  */
 export function installSkinsSync({ net, timers, target = skinsStore, notify, pack = null } = /** @type {any} */ ({})) {
   const on = () => !pack || pack.get()?.chosen?.skin === true;

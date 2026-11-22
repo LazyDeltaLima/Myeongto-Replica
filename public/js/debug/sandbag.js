@@ -139,10 +139,12 @@ function bagRoute(row, col, motion) {
 
 /**
  * The sandbag battle.
- * @param {{ Battle: Function, DataSource: Function, withUnitLoadouts: Function }} sim the /sim/ modules (Battle.js, simdata.js)
+ * @param {{ Battle: new (...args: any[]) => any, DataSource: new (...args: any[]) => any, withUnitLoadouts: Function }} sim
+ *   the /sim/ modules (Battle.js, simdata.js)
  * @param {any} baseDs the sim's DataSource (all data files)
  * @param {{ fieldId?: string, stage: any, chessId: string, skillIndex?: number|null, moduleId?: string|null, dir?: string,
  *   op?: { row: number, col: number }, bags?: { row: number, col: number }[], enemyKey?: string, bag?: object,
+ *   diy?: object, items?: string[], tokens?: { tokenId: string, row: number, col: number }[],
  *   blockers?: { chessId: string, row: number, col: number, dir?: string }[],
  *   spAuto?: () => boolean, seed?: number, logger?: object }} cfg `spAuto()` false = the operator gains no SP by itself
  *   (only fillSp / castNow charge it)
@@ -259,7 +261,7 @@ export function castNow(u) {
  * The unit's live attack range (its grid as the sim keeps it — skills / modules included — authored facing RIGHT, turned
  * to its direction with /sim/dir.js `rotateOffset`) as absolute tiles of the island.
  * @param {any} u ally unit
- * @param {(dr: number, dc: number, dir: string) => [number, number]} rotateOffset
+ * @param {(dr: number, dc: number, dir: string) => number[]} rotateOffset [dRow, dCol]
  */
 export function rangeTiles(u, rotateOffset) {
   const grid = (u && (Array.isArray(u.liveRangeGrid) ? u.liveRangeGrid : u.rangeGrid)) || [];
@@ -277,7 +279,7 @@ export function rangeTiles(u, rotateOffset) {
 /**
  * The pieces an operator places by hand (tokens.json / backups.json tokens with `placeable`, owned by this chess id —
  * a 自选 pick's by its `charId@status` owner key, shared/diy.js diyTokenOwner):
- * [{ tokenId, name, limit (deployLimit), ownerRange (only on its owner's attack range) }].
+ * [{ tokenId, name, limit (deployLimit), ownerRange (only on its owner's attack range), ownerBeside (only next to it) }].
  * @param {string} chessId the battle's chess id (normal or elite)
  * @param {any[]} tokens token records
  */
@@ -303,7 +305,7 @@ export const besideOp = (op, t) => Math.abs(t.row - op.row) + Math.abs(t.col - o
  * @param {{ row: number, col: number }} op
  * @param {string} dir
  * @param {any[]} grid the operator's range grid
- * @param {{ tokenId: string, limit: number, ownerRange: boolean }[]} own ownTokens
+ * @param {{ tokenId: string, limit: number, ownerRange: boolean, ownerBeside?: boolean }[]} own ownTokens
  * @param {{ row: number, col: number }[]} [taken] tiles already used (the sandbags)
  */
 export function autoTokens(op, dir, grid, own, taken = []) {

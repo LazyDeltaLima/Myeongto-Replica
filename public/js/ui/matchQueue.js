@@ -124,7 +124,7 @@ const cue = (key) => { if (key) audio.sfx(key); };
 /** The confirmation's countdown cue at its last 5 s, for a player who has not answered yet (Countdown onWarn). */
 const timerCue = () => audio.sfx('timer');
 
-/** Wire the queue messages into the store (main.js, once). @param {{ net: { on: Function } }} deps */
+/** Wire the queue messages into the store (main.js, once). @param {{ net?: { on: Function } }} [deps] */
 export function installMatchQueue({ net: n = net } = {}) {
   n.on('room.queueState', (msg) => {
     const prev = store.get().ui.queue;

@@ -54,6 +54,7 @@ export function dirBasis(g, halfTiles = DIR_HALF_TILES) {
   const det = a * d - b * c;
   if (!Number.isFinite(det) || Math.abs(det) < 1e-9) return null;
   const m = [a, b, c, d, g.x, g.y];
+  /** @type {(x: number, y: number) => [number, number]} */
   const toLocal = (x, y) => { const X = x - g.x, Y = y - g.y; return [(d * X - c * Y) / det, (-b * X + a * Y) / det]; };
   return { m, toLocal };
 }

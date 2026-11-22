@@ -62,7 +62,7 @@ export const customRulesStore = createStore(readStored(rulesSeason));
 /**
  * Hold another season's settings (main.js, on every change of the season on screen: a room's season, else the picked
  * one — so the lobby creates and the room changes its ruleset with the settings of its own season). The same season:
- * nothing happens. @param {unknown} season @param {ReturnType<typeof createStore>} [target]
+ * nothing happens. @param {unknown} season @param {{ set: (patch: any) => void }} [target]
  */
 export function setCustomRulesSeason(season, target = customRulesStore) {
   const next = seasonOf(season);

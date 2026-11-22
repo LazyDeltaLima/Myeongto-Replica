@@ -84,6 +84,7 @@ export function preloadBootArt() {
  */
 export function bootLayout(n) {
   if (n <= 1) return [{ x: 703, y: 645, side: 'c' }];
+  /** @type {[number, number][]} */
   const NODES = [[939, 497], [1008, 513], [905, 548], [968, 575], [930, 610], [1000, 630], [915, 660], [985, 680]];
   const count = Math.min(n, 8);
   const rows = Math.ceil(count / 2);

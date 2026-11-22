@@ -258,7 +258,8 @@ function CardScroll({ children }) {
 /**
  * The overlay's view (pure: no hooks — test/ui renders it as a function).
  * @param {{ pub:any, sp:any, myId:string, solo:boolean, personal?:boolean, busyIdx?:number|null, total?:number|null, armed?:number|null,
- *   onTap?:(idx:number)=>void, onConfirm?:()=>void, onDisarm?:()=>void }} props
+ *   onTap?:(idx:number)=>void, onConfirm?:()=>void, onDisarm?:()=>void, turnFlash?:boolean,
+ *   onCollapse?:(() => void)|null }} props
  */
 export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = null, total = null, armed = null, onTap = () => {}, onConfirm = () => {}, onDisarm = () => {}, turnFlash = false, onCollapse = null }) {
   if (!sp) return null;

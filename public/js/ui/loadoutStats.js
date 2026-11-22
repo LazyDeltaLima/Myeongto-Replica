@@ -36,7 +36,8 @@ export function statsPreview(base, golden, entries, level, getChess, ops = null)
  * card's stats block (ui/detailPanel.js chessStatsBlock) without live numbers, so what a player reads here is what the
  * shop / board card shows before a battle (not the equipment, bond or skill-cast changes of a running match). The
  * toggle picks the 普通 or the 精锐 record; 精锐 is the default because the module only exists there.
- * @param {{ base: any, golden: any, entries: Record<string, any>, level: 'normal'|'elite', onLevel: (l: 'normal'|'elite') => void, getChess?: (id: string) => any }} props
+ * @param {{ base: any, golden: any, entries: Record<string, any>, level: 'normal'|'elite', onLevel: (l: 'normal'|'elite') => void, getChess?: (id: string) => any,
+ *   ops?: Record<string, { potential?: number, cultivate?: number }>|null }} props
  */
 export function LoadoutStats({ base, golden, entries, level, onLevel, getChess = getChessRec, ops = null }) {
   const pv = statsPreview(base, golden, entries, level, getChess, ops);

@@ -15,7 +15,7 @@ let pending = null;
 
 /**
  * The entries of /changelog.json, fetched once per page ([] when unreachable; a failed fetch is tried again next time).
- * @param {Function} [fetchFn]
+ * @param {typeof fetch} [fetchFn]
  * @returns {Promise<{ version: string, date: string, blocks: object[] }[]>}
  */
 export function loadPatchNotes(fetchFn = (...a) => globalThis.fetch(...a)) {
@@ -71,6 +71,7 @@ export function summaryOf(entry) {
  * @returns {({ summary: string } | { group: string, segs: object[] })[]}
  */
 export function slidesOf(entry) {
+  /** @type {({ summary: string } | { group: string, segs: object[] })[]} */
   const out = [{ summary: summaryOf(entry) }];
   let group = '';
   for (const b of entry?.blocks || []) {

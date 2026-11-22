@@ -80,7 +80,7 @@ function ArmedTag({ reason, free }) {
 /**
  * Operator card (shop and merge reward). `armed`: first tap done (second tap = `onBuy(idx)`).
  * @param {{ slot:any, idx:number, priv:any, frozen?:boolean, reason?:string|null, free?:boolean, armed?:boolean,
- *   onTap?:(idx:number)=>void, onBuy:Function, onDetail:Function }} props
+ *   onTap?:(idx:number)=>void, onBuy:Function, onDetail:Function, offBonds?:Set<string>|null }} props
  */
 export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free = false, armed = false, onTap = null, onBuy, onDetail, offBonds = null }) {
   const c0 = data.lookup('chess', slot.id);
@@ -156,8 +156,8 @@ function SkillBadge({ chess, lo, standIn = false }) {
 
 /**
  * Item card (the bar's item slot): the same two taps as an operator card.
- * @param {{ slot:any, idx:number, frozen?:boolean, reason?:string|null, armed?:boolean, onTap?:(idx:number)=>void,
- *   onBuy:Function, onDetail:Function }} props
+ * @param {{ slot:any, idx:number, frozen?:boolean, reason?:string|null, free?:boolean, armed?:boolean,
+ *   onTap?:(idx:number)=>void, onBuy:Function, onDetail:Function }} props
  */
 export function ItemCard({ slot, idx, frozen = false, reason = null, free = false, armed = false, onTap = null, onBuy, onDetail }) {
   const it = data.lookup('items', slot.id);
@@ -298,8 +298,9 @@ const SPECIAL_ROLL_MS = 1400; // card_whole_refresh_special's particle_ctrl stay
  * `canExpand` false: the folded tab has no 展开商店 button (a piece is selected or held, the official game shows none).
  * @param {{ priv:any, editable:boolean, collapsed:boolean, canExpand?:boolean, onCollapse:(c:boolean)=>void,
  *   onBuy:(i:number)=>void, onLevel:Function, onRefresh:Function, onFreeze:Function, onDetail:(id:string, kind?:string, hint?:string|null)=>void,
- *   onDetailClose?: => void, onRefuse?: (reason: string) => void, barRef:any,
- *   reward?: any, onReward?: (idx:number)=>void, onRewardLater?: Function, offBonds?: Set<string>|null }} props — offBonds:
+ *   onDetailClose?: () => void, onRefuse?: (reason: string) => void, barRef:any,
+ *   reward?: any, onReward?: (idx:number)=>void, onRewardLater?: Function, onArm?: ((slot: { kind: string, id: string }|null)=>void)|null,
+ *   offBonds?: Set<string>|null }} props — offBonds:
  *   the bonds this mode never activates (gameLogic modeOffBonds), struck through on the operator cards
  */
 export function ShopBar({ priv, editable, collapsed, canExpand = true, onCollapse, onBuy, onLevel, onRefresh, onFreeze, onDetail, onDetailClose, onRefuse, barRef,

@@ -48,6 +48,7 @@ const UNSAFE_IDS = new Set(['__proto__', 'constructor', 'prototype']);
  */
 export function parseStored(raw) {
   const src = isObj(raw) && isObj(raw.entries) ? raw.entries : isObj(raw) && raw.v == null ? raw : null;
+  /** @type {Record<string, { skill?: number, module?: string }>} */
   const out = {};
   if (!src) return out;
   for (const [id, e] of Object.entries(src)) {
@@ -69,6 +70,7 @@ export function parseStored(raw) {
  */
 export function parseStoredOps(raw) {
   const src = isObj(raw) && isObj(raw.ops) ? raw.ops : null;
+  /** @type {Record<string, { potential?: number, cultivate?: number }>} */
   const out = {};
   if (!src) return out;
   for (const [id, e] of Object.entries(src)) {
@@ -143,6 +145,7 @@ export function resetOps(ops, charId) {
  * @returns {Record<string, { potential?: number, cultivate?: number }>}
  */
 export function sanitizeOps(ops, isOperator) {
+  /** @type {Record<string, { potential?: number, cultivate?: number }>} */
   const out = {};
   for (const [id, e] of Object.entries(ops || {})) {
     if (Object.keys(out).length >= LOADOUT_LIMITS.ops) break;
@@ -178,6 +181,7 @@ export const LOADOUT_IMPORT_MAX_BYTES = 256 * 1024;
  * @param {any} raw @returns {Record<string, string>}
  */
 function cleanSkins(raw) {
+  /** @type {Record<string, string>} */
   const out = {};
   if (!isObj(raw)) return out;
   for (const [charId, skinId] of Object.entries(raw)) {
@@ -306,7 +310,8 @@ export async function expandLoadoutCode(text) {
  * brings the skin choice the same way (`skins` in the result, absent for an export made before skins were carried).
  * A one-line code goes through expandLoadoutCode first.
  * @param {any} input payload object or serialised text
- * @returns {{ ok: true, entries: Record<string, any>, ops?: Record<string, any>, skins?: Record<string, string> } | { ok: false, error: string }}
+ * @returns {{ ok: true, entries: Record<string, any>, ops?: Record<string, any>, skins?: Record<string, string>, error?: undefined }
+ *   | { ok: false, error: string, entries?: undefined, ops?: undefined, skins?: undefined }}
  */
 export function parseImport(input) {
   let raw = input;
@@ -436,6 +441,7 @@ export function resetChoice(entries, baseId) {
  * @returns {Record<string, { skill?: number, module?: string }>}
  */
 export function sanitizeEntries(entries, getChess) {
+  /** @type {Record<string, { skill?: number, module?: string }>} */
   const out = {};
   for (const [id, e] of Object.entries(entries || {})) {
     if (Object.keys(out).length >= LOADOUT_LIMITS.entries) break;

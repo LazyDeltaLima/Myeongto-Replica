@@ -34,7 +34,11 @@ export function groupEnemies(list, getEnemy = () => null) {
 
 // ---- enemy preview pen (research 09 §2, research 08 §4.2) ---------------------------------------------------
 
-/** Pen rect and zones: rows 14–18 × cols 7–13, row 16 unused; lower-gate zone rows 14–15, upper-gate zone rows 17–18. */
+/**
+ * Pen rect and zones: rows 14–18 × cols 7–13, row 16 unused; lower-gate zone rows 14–15, upper-gate zone rows 17–18.
+ * @type {Readonly<{ r0: number, r1: number, c0: number, c1: number, emptyRow: number, cap: number,
+ *   anchors: Readonly<{ lower: number[], upper: number[] }> }>}
+ */
 export const PEN = Object.freeze({ r0: 14, r1: 18, c0: 7, c1: 13, emptyRow: 16, cap: 50, anchors: Object.freeze({ lower: [15, 7], upper: [18, 7] }) });
 
 /** Zone tiles in row-major order (low row first, col 7→13), without the zone's anchor (tile_start) — 13 per zone. */

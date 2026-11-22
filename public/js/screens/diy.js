@@ -303,6 +303,13 @@ export function undoDetail(was, now, { setEdits, onOps, setSkin: wear, clearSkin
  * entries); `narrowDetail` the phone layout (the detail over the list: `onNarrowDetail(charId)` opens it, `(null)` — its
  * 确认 — returns to the list keeping the changes, `onDetailCancel` — its 取消 — returns dropping them; the detail has
  * its own footer, so 确认 there never confirms the lineup).
+ * @param {{ m: any, tier: number, picks: any, kitted: any, onDone: Function, onClose: Function, prof?: string|null,
+ *   query?: string, order?: string[], edits?: Record<string, any>, focus?: string|null, top?: string[], bump?: number,
+ *   onProf?: (prof: string|null) => void, onQuery?: (query: string) => void, onOrder?: (order: string[]) => void,
+ *   onEdits?: (update: (prev: Record<string, any>) => Record<string, any>) => void, onFocus?: (charId: string) => void,
+ *   onRefuse?: (cap: number) => void, ops?: any, onOps?: Function|null, previewLevel?: string,
+ *   onPreviewLevel?: (level: string) => void, narrowDetail?: boolean, onNarrowDetail?: (charId: string|null) => void,
+ *   onDetailCancel?: () => void }} props
  */
 export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = null, query = '', order = [], edits = {}, focus = null, top = [], bump = 0,
   onProf = () => {}, onQuery: setQuery = () => {}, onOrder = () => {}, onEdits = () => {}, onFocus = () => {}, onRefuse = () => {},
@@ -316,7 +323,7 @@ export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = 
   // the tier's own operators at opening first, in slot order; the rest as the pool lists them
   const options = slotId ? pickOptions(slotId, picks, D, kitted) : [];
   const rank = (c) => { const i = top.indexOf(c); return i < 0 ? top.length : i; };
-  const sorted = options.map((o, i) => [o, i]).sort((a, b) => rank(a[0].charId) - rank(b[0].charId) || a[1] - b[1]).map(([o]) => o);
+  const sorted = options.map((o, i) => /** @type {[any, number]} */ ([o, i])).sort((a, b) => rank(a[0].charId) - rank(b[0].charId) || a[1] - b[1]).map(([o]) => o);
   const q = query.trim().toLowerCase();
   const list = sorted.filter((o) => (!prof || o.unit?.profession === prof)
     && (!q || [o.unit?.name, o.unit?.appellation, o.unit?.subProfessionName, t(PROF_NAME[o.unit?.profession] || ''), ...o.bonds.map(bondName)].some((x) => typeof x === 'string' && x.toLowerCase().includes(q))));
@@ -504,7 +511,8 @@ export function DiyPanel(props) {
 /**
  * The 阵营预设 bar (ui/diyPresets.js): 不使用预设, then a chip per chat faction — filled when it holds a preset, the
  * shown one marked — and 删除 for the shown faction's preset.
- * @param {{ presets: Record<string, any>, active: string|null, onSelect: (id: string|null) => void, onDelete: (id: string) => void }} props
+ * @param {{ presets: Record<string, any>, active: string|null, onSelect: (id: string|null) => void, onDelete: (id: string) => void,
+ *   links?: Record<string, string>|null, bands?: any[]|null, onToggle?: ((band: any, target: string) => void)|null }} props
  */
 export function DiyPresetBar({ presets, active, onSelect, onDelete, links = null, bands = null, onToggle = null }) {
   const on = chatFaction(active);
@@ -676,7 +684,14 @@ function DiyFold({ open, onToggle, active, links, bands }) {
   </div>`;
 }
 
-/** The tab's view (no hooks: the tests draw it): `picking` = the tier being filled, or null; `fold` the phone fold open. */
+/**
+ * The tab's view (no hooks: the tests draw it): `picking` = the tier being filled, or null; `fold` the phone fold open.
+ * @param {{ m: any, picks: any, legal: any, kitted: any, onSet: Function, onSetMany?: Function|null, mainRef?: any,
+ *   picking: any, onPicking: (tier: any) => void, fold?: boolean, onFold?: (open: boolean) => void, ops?: any,
+ *   onOps?: Function|null, presets?: Record<string, any>|null, activePreset?: string|null,
+ *   onPreset?: ((id: string|null) => void)|null, onPresetDelete?: ((id: string) => void)|null,
+ *   links?: Record<string, string>|null, bands?: any[]|null, onToggle?: ((band: any, target: string) => void)|null }} props
+ */
 export function DiyPanelView({ m, picks, legal, kitted, onSet, onSetMany = null, mainRef = null, picking, onPicking: setPicking, fold = false, onFold = () => {}, ops = {}, onOps = null,
   presets = null, activePreset = null, onPreset = null, onPresetDelete = null, links = null, bands = null, onToggle = null }) {
   const D = diyData();

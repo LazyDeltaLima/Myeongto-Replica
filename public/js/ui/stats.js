@@ -95,6 +95,7 @@ const pos = (v) => (Number.isFinite(v) && v > 0 ? Math.round(v) : 0);
  * @returns {Record<string, number>}
  */
 function normalizeStatBlock(raw) {
+  /** @type {Record<string, number>} */
   const out = {};
   if (!isObj(raw)) return out;
   let n = 0;
@@ -673,7 +674,7 @@ function storeRecord(rec) {
  * Record a finished match end-to-end (load → append → save). Returns the built record, or null when
  * nothing was stored (no players / not my match / replay).
  * @param {any} res raw m.result payload
- * @param {{ myId?: string|null, roomMode?: string|null, ruleset?: any, now?: number }} [ctx]
+ * @param {{ myId?: string|null, roomMode?: string|null, ruleset?: any, season?: string|null, now?: number }} [ctx]
  * @returns {any|null}
  */
 export function recordResult(res, ctx = {}) {
@@ -719,18 +720,18 @@ export function mergeStats(a, b) {
  */
 export function importStats(raw, current) {
   if (isObj(raw) && raw.kind != null && raw.kind !== 'local-stats') {
-    const err = new Error('not a stats export'); // the page shows its own text
+    const err = /** @type {Error & { code?: string }} */ (new Error('not a stats export')); // the page shows its own text
     err.code = 'stats-bad-file';
     throw err;
   }
   if (!isObj(raw) || !Array.isArray(raw.records)) {
-    const err = new Error('not a stats export');
+    const err = /** @type {Error & { code?: string }} */ (new Error('not a stats export'));
     err.code = 'stats-bad-file';
     throw err;
   }
   const { stats: incoming, newer, dropped } = migrateStats(raw);
   if (newer) {
-    const err = new Error('exported by a newer client'); // the page shows its own text
+    const err = /** @type {Error & { code?: string }} */ (new Error('exported by a newer client')); // the page shows its own text
     err.code = 'stats-newer-version';
     throw err;
   }

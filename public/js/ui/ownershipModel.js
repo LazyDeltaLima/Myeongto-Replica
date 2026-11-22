@@ -149,7 +149,7 @@ export const serializeOwnership = (notOwned, opts) => JSON.stringify(exportOwner
  * them. STRUCTURAL only — the caller sanitises against the loaded data (sanitizeNotOwned). An envelope may hold an empty
  * list (= every operator owned).
  * @param {any} input payload or text
- * @returns {{ ok: true, notOwned: string[] } | { ok: false, error: string }}
+ * @returns {{ ok: true, notOwned: string[], error?: undefined } | { ok: false, error: string, notOwned?: undefined }}
  */
 export function parseOwnershipImport(input) {
   let raw = input;
