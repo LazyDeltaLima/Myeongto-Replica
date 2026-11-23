@@ -145,6 +145,16 @@ test('T1 飘浮大地之上: every damage she outputs adds ATK × 45 % arts on a
       const n0 = extras(h, u).length, d0 = h.hooksOf('dodge').length;
       assert.ok(h.runUntil(() => h.hooksOf('dodge').length > d0, 3), 'dodged');
       assert.equal(extras(h, u).length, n0 + 1, `${label(f)}: an output, dodged or not`);
+      // aglna2_t_1[self]: its own damage is attack type ADDITION ('addition'), and no ADDITION damage of hers (a bond's
+      // 'addition', an item's 'item' proc) triggers it — docs/rules/diy.md 「부가 대미지 되먹임」
+      assert.ok(extras(h, u).every((c) => c.dmg.tags.includes('addition')), `${label(f)}: T1 deals 附加伤害`);
+      h.b.removeBuff(heavy, 'test:dodge');
+      const n1 = extras(h, u).length;
+      h.b.dealDamage(u, heavy, { amount: 1, type: 'true', canDodge: false, tags: ['bond:test', 'addition'] });
+      h.b.dealDamage(u, heavy, { amount: 1, type: 'arts', canDodge: false, tags: ['item', 'item:test'] });
+      assert.equal(extras(h, u).length, n1, `${label(f)}: no T1 on a bond's / an item's 附加伤害`);
+      h.b.dealDamage(u, heavy, { amount: 1, type: 'true', canDodge: false, tags: ['skill'] });
+      assert.equal(extras(h, u).length, n1 + 1, `${label(f)}: T1 on any other damage of hers`);
       done(h);
     }
     // airborne (S1): 失重 in range — the weight-4 enemy counts as 3 ⇒ 45 %

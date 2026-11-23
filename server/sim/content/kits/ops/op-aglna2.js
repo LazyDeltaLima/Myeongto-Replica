@@ -386,11 +386,16 @@ export default {
         { install(battle, unit) { // 飘浮大地之上: the arts addition on every output of hers; 失重 in her range while airborne
           battle.removeBuff(unit, 'trait:skywalker');   // (the profession's permanent blockFly)
           const hi = num(t0.atk_scale_hi), lo = num(t0.atk_scale_lo), mass = num(t0.mass_level, 3);
+          // aglna2_t_1[self] (official client): FilterDamageModifer drops attack type ADDITION (附加伤害: a bond's, an item's,
+          // this talent's own — 'addition' / 'item') and IS_CONTINUOUS ('dot'), and its own damage is AdvancedApplyDamage
+          // attackType ADDITION, so no other ON_OUTPUT rider (奥术, 卡西米尔, 叙拉古, 伊比利亚骨刺刀 …) answers it. Both
+          // halves keep a rider and this talent from re-triggering each other (docs/rules/diy.md 「안젤리나 더 멜로우 위시」)
           const extra = (target, dmg) => {
             if (!up(unit) || !target || target.side !== 'enemy' || !target.alive || !hasHp(target) || !dmg) return;
-            if (dmg.type === 'element' || dmg.type === 'elemental' || (dmg.tags && (dmg.tags.includes(TAG_EXTRA) || dmg.tags.includes('dot')))) return;
+            if (dmg.type === 'element' || dmg.type === 'elemental') return;
+            if (dmg.tags && (dmg.tags.includes('addition') || dmg.tags.includes('item') || dmg.tags.includes('dot'))) return;
             const s = target.weight <= mass ? hi : lo;
-            if (s > 0) battle.dealDamage(unit, target, { amount: unit.s.atk * s, type: 'arts', tags: ['talent', TAG_EXTRA] });
+            if (s > 0) battle.dealDamage(unit, target, { amount: unit.s.atk * s, type: 'arts', tags: ['talent', TAG_EXTRA, 'addition'] });
           };
           battle.on('damaged', (ctx) => { if (ctx.source === unit && ctx.type !== 'element') extra(ctx.target, ctx.dmg); }, { owner: unit });
           battle.on('dodge', (ctx) => { if (ctx.source === unit) extra(ctx.target, ctx.dmg); }, { owner: unit });
