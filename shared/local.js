@@ -7,7 +7,7 @@
 //   chat faction   room.chatFaction { faction } → room.factions { factions: { [playerId]: factionId } } (all members,
 //                  whenever it changes, and to whoever joins); cleared when the match ends
 //   emote sets     g.emote { id, set? } — 'user' pictures (shared/emote-art.js), missing = official
-//   console        room.setConsole { on } (a solo room, before its match → room.state `console`) · con.funds { on } ·
+//   console        room.setConsole { on } (a solo room, before its match → room.state `console`) · con.funds { on } · con.bandUnlimited { on } ·
 //                  con.addChess { chessId, golden? } · con.addDiy { charId, tier, golden?, skill?, module? } · con.addItem { itemId, golden? } ·
 //                  con.addEnemy { enemyKey, count? } · con.clearEnemies { enemyKey? } · con.jumpRound { round } · con.presetBoard { bondId?, layers } ·
 //                  con.setBoss { final?, hidden? } · con.setLayers { bondId, layers } · con.resetLayers {} · con.end { to, victory? } —
@@ -122,6 +122,7 @@ export function extendProtocol(C2S, S2C) {
   // 콘솔 모드 (server/local-console.js consoleIntent checks who may send them: a console match's player, or local debug mode)
   C2S['room.setConsole'] = { on: (v) => typeof v === 'boolean' };
   C2S['con.funds'] = { on: (v) => typeof v === 'boolean' };
+  C2S['con.bandUnlimited'] = { on: (v) => typeof v === 'boolean' };
   C2S['con.end'] = { to: (v) => v === 'lobby' || v === 'result', victory: (v) => typeof v === 'boolean', $optional: ['victory'] };
   C2S['con.addDiy'] = {
     charId: (v) => typeof v === 'string' && /^char_[A-Za-z0-9_]{1,40}$/.test(v),

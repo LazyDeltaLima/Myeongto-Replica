@@ -2117,6 +2117,8 @@
   "最终攻势（第{round}回合）": "Final Assault (round {round})",
   "隐秘核心（第{round}回合）": "Hidden Core (round {round})",
   "资金固定为 {pinValue}": "Funds fixed at {pinValue}",
+  "主动策略不限使用次数": "Unlimited active strategy uses",
+  "费用照常": "cost as usual",
   "结束控制台": "End console",
   "结束本局…": "End match…",
   "回到同盟 / 前往结算画面": "to the room / to the settlement screen",

@@ -974,7 +974,8 @@ function applyUiVariants() {
   // ?variant=console: the console panel (m.private.console as server/local-console.js builds it; candidates, enemies and bosses
   // left empty) — for screenshots and tools/ui-check measure specs of the panel
   if (VARIANTS.has('console') && S.priv) {
-    S.priv.console = { console: true, fundsPin: false, pinValue: 99, candidates: [], enemies: [], boss: { round: 14, bossId: null, bosses: [] },
+    S.priv.console = { console: true, fundsPin: false, pinValue: 99, bandUnlimited: SEASON ? false : null, candidates: [], enemies: [],
+      bountyBosses: ['enemy_1500_skulsr', 'enemy_1501_demonk', 'enemy_2052_smgia'], boss: { round: 14, bossId: null, bosses: [] },
       rounds: { last: 14, sp: [] }, layers: {}, layersEdited: false, layersBase: null, layerCap: 999, note: null };
     refreshPrivate();
   }

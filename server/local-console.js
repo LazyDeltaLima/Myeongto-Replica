@@ -11,10 +11,15 @@
 //   Anything else is refused as BAD_MSG: the server never trusts the page's panel.
 //
 // m.private.console (privateView wrapper, installed at import) for those seats only — the page renders the panel when it
-// is present: { console, fundsPin, pinValue, candidates, enemies, boss, rounds, layers, layersEdited, layerCap, note }
+// is present: { console, fundsPin, pinValue, bandUnlimited, candidates, enemies, bountyBosses, boss, rounds, layers,
+// layersEdited, layerCap, note }
 //   console      true in a console match (false: local debug mode in another room)
 //   candidates   the 自选 picks the panel offers (debugCandidates)
+//   bandUnlimited  con.bandUnlimited is on for the player — null when no strategy of the season has an active 指令
+//                (the default season: the panel shows no option)
 //   enemies      the extra enemies queued for the next battle (con.addEnemy)
+//   bountyBosses the BOSS-rank enemy keys of the season's 悬赏 cards (choices.json cards.bounty — drafted or not): the
+//                panel's enemy list keeps these and leaves the other BOSS-rank records (the leaders) out
 //   boss         { round, hiddenRound, at, bossId, hiddenBossId, bosses, hiddenBosses } — the leader rounds and leaders
 //   rounds       { last, sp: [rounds of a 机变 draft] } — the rounds con.jumpRound may go to are 1..last
 //   layers       the player's bond layers; layersEdited / layersBase: the console changed them, and what they were before
@@ -25,12 +30,15 @@
 //
 // Commands (shared/local.js C2S, validated there; prep-only ones say so):
 //   con.funds { on }        the sender's funds pinned to pinValue (SP_DEBUG_FUNDS, else 99) or back to real funds
+//   con.bandUnlimited { on }   the sender's 规程 active 指令 without its use limits (ROUND_RESET / ALL_LIMIT counts and
+//                           COOLDOWN rounds; the cost and every other gate stay) or back to them — off by default
 //   con.addChess { chessId, golden? }                     any normal chess (hidden ones too) into the hand, prep only
 //   con.addDiy { charId, tier, golden?, skill?, module? } a 自选 pick of tier V / VI into the hand (debugSetPick), prep only
 //   con.addItem { itemId, golden? }  an item (equipment, the 规程 装备区 for its kind) through PlayerState.acquireItem,
 //                           outside the shared equipment stock (noPool, like the trait-fixed equipment), prep only
 //   con.addEnemy { enemyKey, count? } / con.clearEnemies { enemyKey? }   extra enemies in the sender's next battle (the
-//                           clear drops all of them, or those of one enemy), prep only
+//                           clear drops all of them, or those of one enemy), prep only. The panel offers the normal and
+//                           elite enemies and the BOSS-rank ones a 悬赏 card of the season names (bountyBosses)
 //   con.jumpRound { round } the match goes to that round's start now (Match.startRound, forward or back; 1..rounds.last),
 //                           prep only. What the player holds stays; the boss state of a leader round is reset.
 //   con.presetBoard { bondId?, layers }   every alive seat's board rebuilt now around a bond (local-debug-board.js), prep only
@@ -59,6 +67,7 @@ import { checkDiyPicks } from '../shared/protocol.js';
 import { strengthenedItemId } from '../shared/local.js';
 import { diyGameData } from './match/player/diy.js';
 import { KITTED_CHARS } from './sim/content/kits/index.js';
+import { bandStages } from './sim/content/bands/meta.js';
 import { DEBUG_LAYER_LEVELS, applyDebugBoard, assignDebugBonds, bondMembers, debugBosses } from './local-debug-board.js';
 
 const OK = Object.freeze({ ok: true });
@@ -67,7 +76,7 @@ const fail = (code, detail) => (detail ? { error: code, detail } : { error: code
 export const DEBUG_PIN_DEFAULT = 99;
 export const DEBUG_ENEMY_NAME = 'DEBUG'; // the queued bounty's name in the effects list (the same in every language)
 export const CONSOLE_LOG_MAX = 300;
-export const CONSOLE_MSGS = Object.freeze(['con.funds', 'con.addChess', 'con.addDiy', 'con.addItem', 'con.addEnemy', 'con.clearEnemies',
+export const CONSOLE_MSGS = Object.freeze(['con.funds', 'con.bandUnlimited', 'con.addChess', 'con.addDiy', 'con.addItem', 'con.addEnemy', 'con.clearEnemies',
   'con.jumpRound', 'con.presetBoard', 'con.setBoss', 'con.setLayers', 'con.resetLayers', 'con.end']);
 const CONSOLE_SET = new Set(CONSOLE_MSGS);
 /** Match.finish reasons a console match turns into a prep of the same round */
@@ -200,6 +209,18 @@ export function lastConsoleRound(m) {
   return gd.hiddenRound && m.hiddenBossId ? Math.max(gd.hiddenRound, gd.bossRound) : gd.bossRound;
 }
 
+/** The BOSS-rank enemies the season's 悬赏 cards name (consoleView bountyBosses), sorted. */
+export function bountyBossKeys(gd) {
+  const cards = Array.isArray(gd.choices?.cards?.bounty) ? gd.choices.cards.bounty : [];
+  const keys = new Set(cards.map((c) => c?.enemyKey).filter((k) => typeof k === 'string' && gd.enemy(k)?.rank === 'BOSS'));
+  return [...keys].sort();
+}
+
+/** Whether a strategy of the season has an active 指令 (a stage of type ACTIVE: 规程). */
+export function hasActiveBands(gd) {
+  return Object.keys(gd.raw?.bands || {}).some((id) => bandStages(gd.band(id)).some((s) => s && s.type === 'ACTIVE'));
+}
+
 const hiddenBosses = (gd) => gd.bossWeights(true).map(([id]) => id);
 const layerCapOf = (gd) => Math.min(BOND_LAYER_CAP, gd.layerCap ?? BOND_LAYER_CAP);
 
@@ -209,6 +230,8 @@ export function consoleView(ps, env = process.env) {
   if (!consoleAllowed(m, ps, env)) return null;
   if (!m.debugCandidates) m.debugCandidates = debugCandidates(m.gd);
   const gd = m.gd;
+  if (!m.debugBountyBosses) m.debugBountyBosses = bountyBossKeys(gd);
+  if (m.debugActiveBands == null) m.debugActiveBands = hasActiveBands(gd);
   const enemies = ps.bounties.filter((b) => b.debugEnemies).map((b) => ({ enemyKey: b.card.enemyKey, count: b.card.count }));
   const boss = {
     round: gd.bossRound, hiddenRound: m.hiddenBossId ? gd.hiddenRound ?? null : null, at: m.round,
@@ -216,7 +239,8 @@ export function consoleView(ps, env = process.env) {
   };
   return {
     console: m.console === true, fundsPin: fundsPinOf(ps) != null, pinValue: FIXED_FUNDS ?? DEBUG_PIN_DEFAULT,
-    candidates: m.debugCandidates, enemies, boss, rounds: { last: lastConsoleRound(m), sp: gd.spRounds() },
+    bandUnlimited: m.debugActiveBands ? ps.consoleBandUnlimited === true : null,
+    candidates: m.debugCandidates, enemies, bountyBosses: m.debugBountyBosses, boss, rounds: { last: lastConsoleRound(m), sp: gd.spRounds() },
     layers: { ...(ps.layers || {}) }, layersEdited: !!ps.consoleLayersBase, layersBase: ps.consoleLayersBase ? { ...ps.consoleLayersBase } : null,
     layerCap: layerCapOf(gd),
     note: m.consoleNote ?? null,
@@ -287,6 +311,9 @@ function run(m, ps, msg) {
       else { ps._funds = ps.funds; ps.debugFundsPin = null; }
       return OK;
     }
+    case 'con.bandUnlimited':
+      ps.consoleBandUnlimited = msg.on === true;
+      return OK;
     case 'con.end': {
       const to = msg.to === 'lobby' ? 'lobby' : 'result';
       if (!m.console && to === 'result') {
@@ -522,6 +549,15 @@ Match.prototype.tickerText = function tickerText(text, priority) {
 };
 
 const upstreamPublicView = Match.prototype.publicView;
+// con.bandUnlimited: the 指令's state without its use limits — no count (usesLeft null: the HUD shows no number) and no
+// cooldown; the uses are still counted (bandSkill.js useBandSkill), so turning it off brings the real limits back.
+const upstreamBandSkillState = Match.prototype._bandSkillState;
+Match.prototype._bandSkillState = function _bandSkillState(ps, write = false) {
+  const st = upstreamBandSkillState.call(this, ps, write);
+  if (st && ps?.consoleBandUnlimited === true && consoleAllowed(this, ps)) { st.usesLeft = null; st.cooldown = 0; }
+  return st;
+};
+
 Match.prototype.publicView = function publicView() {
   const v = upstreamPublicView.call(this);
   if (v && this.console === true) v.console = true;

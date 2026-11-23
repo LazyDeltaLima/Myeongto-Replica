@@ -66,18 +66,21 @@ export function ourSideEnemyKeys(effects) {
 
 /**
  * The enemies con.addEnemy may queue: [{ key, name, rank, hp, twin, hay }], token-only summons, leaders (picked in the
- * round tab) and our side's own units (`ourSide`, ourSideEnemyKeys) left out, normal → elite, then by key. `twin`: another
+ * round tab) and our side's own units (`ourSide`, ourSideEnemyKeys) left out, normal → elite → boss, then by key. Of the
+ * BOSS-rank records only the ones a 悬赏 card names (`bountyBosses`, m.private.console bountyBosses — the mid-bosses a
+ * bounty brings) stay; the others are the leaders. `twin`: another
  * entry has the same name (鸭爵 and its 神秘顾客 form enemy_2001_duckmi_2, say: the official table's own two records) —
  * the panel tells them apart by `hp`.
  * @param {any[]} enemyList data.list('enemies') @param {(key: string) => any} rawEnemy the Chinese record
- * @param {Set<string>} [ourSide]
+ * @param {Set<string>} [ourSide] @param {Iterable<string>} [bountyBosses]
  */
-export function debugEnemyEntries(enemyList, rawEnemy = () => null, ourSide = new Set()) {
+export function debugEnemyEntries(enemyList, rawEnemy = () => null, ourSide = new Set(), bountyBosses = []) {
+  const bosses = new Set(bountyBosses);
   const out = [];
   for (const e of Array.isArray(enemyList) ? enemyList : []) {
     if (!e || typeof e.key !== 'string' || e.tokenOnly || ourSide.has(e.key)) continue;
     const rank = Object.hasOwn(RANK_ORDER, e.rank) ? e.rank : 'NORMAL';
-    if (rank === 'BOSS') continue;
+    if (rank === 'BOSS' && !bosses.has(e.key)) continue;
     out.push({ key: e.key, name: e.name || e.key, rank, hp: Number(e.stats?.maxHp) || 0, twin: false,
       hay: [e.name, rawEnemy(e.key)?.name, e.key].filter(Boolean).join(' ').toLowerCase() });
   }

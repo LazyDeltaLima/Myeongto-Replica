@@ -71,12 +71,15 @@ UI를 만들거나 고치는 사람이 모두 같은 기준으로 만들게 하�
 - **누가 쓰나** (`server/local-console.js consoleAllowed`·`consoleIntent`, 문 하나): 콘솔 판의 사람 자리, 또는 로컬 디버그 모드의 모든 사람 자리.
   그 밖의 `con.*`는 `BAD_MSG`(서버는 패널을 믿지 않음). **로컬 디버그 모드** = `SP_DEBUG_PAGE=1` 또는 올바른 `SP_DEBUG_FUNDS`(0..999), 그리고
   `NODE_ENV`가 `production`이 아닐 때(`debugMode`; Docker 이미지는 `NODE_ENV=production`이라 배포 서버는 절대 아님). `SP_DEBUG_FUNDS` 재화 고정도 이 조건.
-- **화면에 보내는 것**: 그 자리에만 `m.private.console = { console, fundsPin, pinValue, candidates, enemies, boss, rounds, layers, layersEdited,
-  layersBase, layerCap, note }`, 콘솔 판이면 `m.public.console = true`(기록 제외에 씀; HUD 난이도 아래 「CONSOLE」 표시는 없앰 — 패널이 표시, 관리자 결정 2026-11-15).
+- **화면에 보내는 것**: 그 자리에만 `m.private.console = { console, fundsPin, pinValue, bandUnlimited, candidates, enemies, bountyBosses, boss, rounds,
+  layers, layersEdited, layersBase, layerCap, note }`(`bandUnlimited`은 액티브 지령이 있는 전략이 없는 시즌 — 맹약 — 에선 `null`, `bountyBosses`는 아래 `con.addEnemy`), 콘솔 판이면 `m.public.console = true`(기록 제외에 씀; HUD 난이도 아래 「CONSOLE」 표시는 없앰 — 패널이 표시, 관리자 결정 2026-11-15).
 - **명령** (`shared/local.js` C2S, 처리는 `consoleIntent` 한 곳; 정비 단계만인 것은 준비 완료 뒤에도 됨):
   - `con.funds { on }` 재화를 `SP_DEBUG_FUNDS`(없으면 99)로 고정 / 실제 재화로(그 값에서 이어감). 플레이어별 `ps.debugFundsPin`, 봇은 항상 실제 재화.
     기본은 꺼짐(관리자 결정 2026-11-15): `SP_DEBUG_FUNDS`를 주고 서버를 띄울 때만 시작부터 고정된다.
     `funds` 접근자는 처음 고정할 때(또는 시작 때 `SP_DEBUG_FUNDS`가 있으면) 설치된다 — 그 전 서버 경로는 원본 그대로.
+  - `con.bandUnlimited { on }` 규정 액티브 전략(지령)의 사용 제한을 끔 / 켬(관리자 요청 2026-11-23, 기본 꺼짐): 라운드당·판당 횟수(`ROUND_RESET`·`ALL_LIMIT`)와
+    쿨다운(`COOLDOWN`)을 보지 않는다 — `_bandSkillState` 감싸기가 `usesLeft`를 `null`(HUD 초상 아래 숫자 없음)·`cooldown`을 0으로. 비용·정비 단계·준비 완료·
+    특수 상품 등 다른 문과 효과는 그대로. 사용 수는 계속 세므로 끄면 그때까지 쓴 만큼으로 원래 제한이 돌아온다. 플레이어별 `ps.consoleBandUnlimited`, 봇은 늘 원래대로.
   - `con.addChess { chessId, golden? }` `data/chess.json`의 일반 기물(숨김 포함; 선발 칸·정예 id는 거부)을 `acquireChess(…, { source: 'grant', fromPool: false })`로
     정비 구역에. 정비 구역이 차면 합성이 되는 경우가 아니면 `HAND_FULL`. 풀 복사본을 쓰지 않지만 3장 합성이면 `_mergeChess`가 정예 몫을 풀에서 채운다(모든 합성과 같음).
   - `con.addDiy { charId, tier, golden?, skill?, module? }` 선발 후보(`debugCandidates`, 맹약 필터용 `bonds` 포함) V·VI. 그 티어에서 같은 오퍼레이터의 칸 →
@@ -88,6 +91,9 @@ UI를 만들거나 고치는 사람이 모두 같은 기준으로 만들게 하�
   - `con.addEnemy { enemyKey, count? }`(1–20) 보낸 사람의 **다음 전투**에 그 적을 더 넣는다: 0코인·1전투 현상 수배(`Match.addBounty`, `debugEnemies`)라
     공식 추가 적(悬赏)과 같은 길 — 템플릿 첫 보행/비행 행동에 끼움(`waves.js bountyPlan`), 라운드 배율, 敌情 미리보기·효과 목록(「DEBUG」), 그 전투 정산이 지움.
     토큰 전용 적은 거부. `con.clearEnemies { enemyKey? }` 대기 중인 것 전부 / 그 적만 지움.
+    패널 목록은 일반·정예에 더해, 그 시즌 현상 수배 카드(`choices.json cards.bounty`, 뽑기에 안 나오는 `draft: false` 카드 포함)가 부르는 `BOSS` 등급 적 —
+    현상 수배로 나오는 중간 보스(스컬슈레더 `enemy_1500_skulsr` 등 두 시즌 다 23종, 관리자 요청 2026-11-23) — 만 넣는다(`bountyBosses`, `local-console.js bountyBossKeys`). 그 밖의 `BOSS` 등급은 리더라
+    빠지고 리더는 라운드 탭에서 고른다.
   - `con.jumpRound { round }` 1..마지막 라운드(히든 코어가 있는 판은 히든 코어 라운드, 없으면 최종 공세) 어느 라운드든 앞뒤로 바로 그 라운드 시작으로
     (`Match.startRound`). 가진 것은 그대로, 리더 라운드 상태(팀 생명·리더 풀·종료 표시·초과 시간)는 지우고, 히든 코어 라운드로 가면 `hiddenReached`.
     그 사이 라운드의 수입·결정·전투는 건너뛴다. 결정 라운드로 가면 그 결정이 열린다. 뒤로 가도 상점 레벨·업그레이드 가격·쌓인 카운터는 그대로
@@ -120,8 +126,8 @@ UI를 만들거나 고치는 사람이 모두 같은 기준으로 만들게 하�
   선발은 작은 창: 단계·일반/정예·스킬·모듈, 누른 칸 바로 아래(아래가 모자라면 위)에 뜨고 이름은 페이지의 번역된 `backups`에서) ·
   장비(희귀도 원판 `itemRarity/rN`, 일반/강화 — 강화는 합성되는 장비만: `upgradeNum` 100인 변형 구조체·호출 모듈 등은 맹약 표에 같은 글의
   강화 레코드가 있어도 없는 것으로, `shared/local.js strengthenedItemId`, 서버 `con.addItem`도 같음) ·
-  적(일반/정예, 수량, 다음 전투 대기열; 우리 편 유닛 — 모든 적 효과의 `enemy_exclude`가 함께 적는 키: 염의 가호, 규정은 맹약 소환물과 “모의 보물” — 은 빠지고,
-  이름이 같은 공식 레코드 둘(덕로드·고프닉·눈물 흘리는 사내·동글이와 전략 '신비한 고객'이 바꿔 넣는 `_2` 형태)은 HP로 구분) · 라운드(1–마지막 네모 칸, 「N라운드 정비로 이동」, 완성 보드 블록, 리더 초상, 「기타」는 누를 수 있는 자금 고정·콘솔 끝내기만 —
+  적(일반/정예/보스 — 보스는 현상 수배 중간 보스, 칸에 빨간 「보스」 꼬리표, 수량, 다음 전투 대기열; 우리 편 유닛 — 모든 적 효과의 `enemy_exclude`가 함께 적는 키: 염의 가호, 규정은 맹약 소환물과 “모의 보물” — 은 빠지고,
+  이름이 같은 공식 레코드 둘(덕로드·고프닉·눈물 흘리는 사내·동글이와 전략 '신비한 고객'이 바꿔 넣는 `_2` 형태)은 HP로 구분) · 라운드(1–마지막 네모 칸, 「N라운드 정비로 이동」, 완성 보드 블록, 리더 초상, 「기타」는 누를 수 있는 자금 고정·규정의 「액티브 전략 사용 횟수 무제한」(맹약에선 숨김)·콘솔 끝내기만 —
   콘솔 판의 고정 규칙(리더 라운드 승리·생명 0도 결산 없이 같은 라운드 정비)은 탭 아래 안내 한 줄, 관리자 결정 2026-11-15) ·
   맹약(HUD 맹약 칸 `.bslot`·`bondBoardOf`를 작게, 핵심/부가 나눔, −10/−/값/+/+10/최대, 「↺ 초기화」; 걸러 보기 전체 · 배치 중 N(보드의 오퍼레이터) ·
   보유 중 N(보드·대기석·임시 구역) — 수는 두 칸에만, 선발은 고른 오퍼레이터의 맹약, 변형 구조체가 주는 맹약 포함, `consoleLists.js ownedBondSets`).

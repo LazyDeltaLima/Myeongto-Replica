@@ -5,8 +5,8 @@
 //
 // Left of the board (the solo seat's team list is empty there), five tabs: 오퍼레이터 (normal chess and the 自选 picks:
 // tier, core / add-on bond and name filters; a tap adds to the hand, a 自选 pick opens its small window: tier, normal /
-// elite, skill, module), 장비 (con.addItem), 적 (con.addEnemy, the next battle's queue), 라운드 (con.jumpRound to any
-// round, the 완성 보드 block con.presetBoard, the leaders con.setBoss, the funds pin, 콘솔 끝내기 → con.end), 맹약
+// elite, skill, module), 장비 (con.addItem), 적 (con.addEnemy: normal, elite and the season's 悬赏 bosses; the next battle's queue), 라운드 (con.jumpRound to any
+// round, the 완성 보드 block con.presetBoard, the leaders con.setBoss, the funds pin, 规程's unlimited active 指令 con.bandUnlimited, 콘솔 끝내기 → con.end), 맹약
 // (con.setLayers per bond, core and add-on apart, 「↺ 초기화」 con.resetLayers: every bond to 0). The head holds 「✎ 제보」 (the settlement
 // screen's feedback window, during the match; the server attaches the console log) in a console match. ` (Backquote)
 // folds / unfolds it, a press outside folds it (remembered per browser); folded, a 「CONSOLE」 tab stays at the top left. When the match goes back
@@ -373,8 +373,10 @@ function EnemiesTab({ con, prep }) {
   const [query, setQuery] = useState('');
   const [n, setN] = useState(1);
   const [busy, setBusy] = useState(false);
-  const entries = useMemo(() => debugEnemyEntries(data.list('enemies'), (k) => data.lookupRaw('enemies', k), ourSideEnemyKeys(data.list('effects'))),
-    [data.status('enemies'), data.status('effects'), data.locale()]);
+  // the BOSS-rank enemies stay when a 悬赏 card of the season names them (the server's con.bountyBosses), the leaders do not
+  const bossKeys = Array.isArray(con.bountyBosses) ? con.bountyBosses : [];
+  const entries = useMemo(() => debugEnemyEntries(data.list('enemies'), (k) => data.lookupRaw('enemies', k), ourSideEnemyKeys(data.list('effects')), bossKeys),
+    [data.status('enemies'), data.status('effects'), data.locale(), bossKeys.join()]);
   const q = query.trim().toLowerCase();
   const shown = entries.filter((e) => (!rank || e.rank === rank) && (!q || e.hay.includes(q)));
   const m = data.get('assets');
@@ -384,7 +386,7 @@ function EnemiesTab({ con, prep }) {
   const name = (k) => data.lookup('enemies', k)?.name || k;
   return html`
     <div class="cxp__row"><span class="cxp__k">${t('阶级')}</span>
-      <${Seg} value=${rank} options=${[['', t('全部')], ['NORMAL', t('普通')], ['ELITE', t('精英')]]} onChange=${setRank} />
+      <${Seg} value=${rank} options=${[['', t('全部')], ['NORMAL', t('普通')], ['ELITE', t('精英')], ...(bossKeys.length ? [['BOSS', t('首领')]] : [])]} onChange=${setRank} />
       <span class="cxp__sp"></span><span class="cxp__hint">${t('首领在「回合」页选择')}</span></div>
     <div class="cxp__row"><input type="search" class="cxp__search" value=${query} placeholder=${t('搜索敌人')} aria-label=${t('搜索敌人')}
       onInput=${(e) => setQuery(String(e.currentTarget.value).slice(0, 24))} />
@@ -392,7 +394,8 @@ function EnemiesTab({ con, prep }) {
     <div class="cxp__grid g7">
       ${shown.map((e) => html`<button key=${e.key} type="button" class="cxp__cell" disabled=${!prep} onClick=${() => add(e)}
           title=${e.twin ? `${e.name} · HP ${e.hp}` : e.name}>
-        <${Pic} kind="enemy" src=${enemyIconUrl(m, e.key)}>${e.rank === 'ELITE' ? html`<span class="cxp__flag elite">${t('精英')}</span>` : null}
+        <${Pic} kind="enemy" src=${enemyIconUrl(m, e.key)}>${e.rank === 'ELITE' ? html`<span class="cxp__flag elite">${t('精英')}</span>`
+          : e.rank === 'BOSS' ? html`<span class="cxp__flag boss">${t('首领')}</span>` : null}
           ${e.twin ? html`<span class="cxp__flag hp num">HP ${e.hp}</span>` : null}<//>
         <span class="nm">${e.name}</span></button>`)}
     </div>
@@ -422,6 +425,7 @@ function RoundTab({ con, pub, prep, onEnd }) {
   const preset = async () => { setBusy(true); await send('con.presetBoard', bondId ? { bondId, layers: level } : { layers: level }); setBusy(false); };
   const setBoss = async (f) => { setBusy(true); await send('con.setBoss', f); setBusy(false); };
   const funds = async () => { setBusy(true); await act('con.funds', { on: !con.fundsPin }, { sfx: false }); setBusy(false); };
+  const unlimited = async () => { setBusy(true); await act('con.bandUnlimited', { on: !con.bandUnlimited }, { sfx: false }); setBusy(false); };
   const coreBonds = useMemo(() => data.list('bonds').filter((b) => b && b.isCore).sort((a, b) => (a.identifier ?? 99) - (b.identifier ?? 99)), [data.status('bonds'), data.locale()]);
   const rounds = Array.from({ length: last }, (_, i) => i + 1);
   const label = (r) => (r === at ? t('当前') : r === boss.round ? t('最终攻势') : r === boss.hiddenRound ? t('隐秘核心') : (con.rounds?.sp || []).includes(r) ? t('机变') : '');
@@ -448,6 +452,8 @@ function RoundTab({ con, pub, prep, onEnd }) {
       <div class="cxp__bosses">${boss.hiddenBosses.map((id) => bossCell(id, id === boss.hiddenBossId, { hidden: id }))}</div>` : null}
     <div class="cxp__sec">${t('其他')}</div>
     <button type="button" class=${cx('cxp__chk', con.fundsPin && 'on')} disabled=${busy} onClick=${funds}><i>${con.fundsPin ? '✓' : ''}</i><span>${t('资金固定为 {pinValue}', { pinValue: con.pinValue })}</span></button>
+    ${con.bandUnlimited != null ? html`<button type="button" class=${cx('cxp__chk', con.bandUnlimited && 'on')} disabled=${busy} onClick=${unlimited}><i>${con.bandUnlimited ? '✓' : ''}</i>
+      <span>${t('主动策略不限使用次数')} <em>${t('费用照常')}</em></span></button>` : null}
     <div class="cxp__row"><button type="button" class="cxp__btn warn" onClick=${onEnd}>${live ? t('结束控制台') : t('结束本局…')}</button>
       <span class="cxp__hint">${live ? t('回到同盟 / 前往结算画面') : t('以胜利 / 失败结算')}</span></div>`;
 }

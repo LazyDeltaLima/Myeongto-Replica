@@ -39,6 +39,8 @@ describe('who may use the console', () => {
     assert.equal(validateC2S({ t: 'room.setConsole', on: true }), null);
     assert.ok(validateC2S({ t: 'room.setConsole', on: 1 }));
     assert.equal(validateC2S({ t: 'con.funds', on: true }), null);
+    assert.equal(validateC2S({ t: 'con.bandUnlimited', on: false }), null);
+    assert.ok(validateC2S({ t: 'con.bandUnlimited', on: 1 }));
     assert.equal(validateC2S({ t: 'con.addDiy', charId: 'char_2027_wang', tier: 6, golden: true }), null);
     assert.match(validateC2S({ t: 'con.addDiy', charId: 'char_2027_wang', tier: 4 }), /tier/);
     assert.equal(validateC2S({ t: 'con.addItem', itemId: 'chess_item_1_01_e_a', golden: true }), null);
@@ -339,6 +341,76 @@ describe('the commands (local debug mode in a co-op match, as the old debug pane
     assert.deepEqual(duck.map((e) => [e.key, e.twin, e.hp]), [['enemy_2001_duckmi', true, 18000], ['enemy_2001_duckmi_2', true, 6000]],
       '鸭爵 and its 神秘顾客 form: two official records of one name, told apart by HP');
     assert.ok(listed.find((e) => e.key === 'enemy_1388_wingnt' && !e.twin), 'a name of its own is no twin');
+  });
+
+  test('the enemies tab offers the BOSS-rank enemies of the season\'s 悬赏 cards (mid-bosses), never the leaders', async () => {
+    const { consoleView, bountyBossKeys, hasActiveBands } = await import('../server/local-console.js');
+    const { debugEnemyEntries } = await import('../public/js/ui/consoleLists.js');
+    const { ACT3 } = await import('./helpers/seasonPieces.js');
+    for (const season of [undefined, 'act3autochess']) {
+      const act3 = { modeId: 'mode_single_1', difficulty: 'NORMAL', data: ACT3, season };
+      const h = makeMatch({ mode: 'solo', seed: 4, ...(season ? act3 : null) }); h.m.console = true; h.start();
+      if (season) h.toPrep(1, { band: 'band_amiya' }); else h.toPrep(1);
+      assert.equal(hasActiveBands(h.m.gd), !!season, 'the season\'s own data (规程: strategies with an active 指令)');
+      const m = h.m, ps = h.ps('p_0'), gd = m.gd;
+      const keys = consoleView(ps, OFF).bountyBosses;
+      assert.deepEqual(keys, bountyBossKeys(gd));
+      assert.ok(keys.includes('enemy_1500_skulsr') && keys.includes('enemy_2052_smgia'), `${season || '盟约'}: 碎骨 and 纠缠藤蔓 (悬赏 cards)`);
+      const leaders = new Set(gd.raw.bosses ? Object.values(gd.raw.bosses).map((b) => b?.enemyKey).filter(Boolean) : []);
+      assert.ok(leaders.size > 0 && keys.every((k) => !leaders.has(k)), 'no leader among them');
+      const enemies = Object.values(gd.raw.enemies);
+      const listed = debugEnemyEntries(enemies, () => null, new Set(), keys);
+      const bosses = listed.filter((e) => e.rank === 'BOSS').map((e) => e.key).sort();
+      assert.deepEqual(bosses, keys, 'the BOSS rows are exactly the bounty ones');
+      assert.ok(!debugEnemyEntries(enemies).some((e) => e.rank === 'BOSS'), 'without the list no BOSS row');
+      assert.equal(listed.at(-1).rank, 'BOSS', 'after normal and elite');
+      // queued like any extra enemy: it walks in the sender's next battle
+      assert.deepEqual(consoleIntent(m, 'p_0', { t: 'con.addEnemy', enemyKey: 'enemy_1500_skulsr' }, OFF), { ok: true });
+      const spawns = m._normalOpts(ps).spawns.filter((x) => x.tag === 'bounty' && x.enemyKey === 'enemy_1500_skulsr');
+      assert.equal(spawns.reduce((n, x) => n + x.count, 0), 1, `${season || '盟约'}: 碎骨 in the battle spec`);
+    }
+  });
+
+  test('con.bandUnlimited: the 规程 active 指令 without its use limits (counts and cooldown), off by default, back on when turned off', async () => {
+    const { ACT3_ON_BASE_FIELD } = await import('./helpers/seasonPieces.js');
+    const { createRegistry } = await import('../server/match/effectsMeta.js');
+    const quiet = { error() {}, warn() {}, info() {}, log() {} };
+    const run = (band) => {
+      const reg = createRegistry({ data: ACT3_ON_BASE_FIELD, log: quiet });
+      reg.band(band, { onBandSkill(_ctx, ev) { ev.handled = true; ev.cooldown = 2; } });
+      const h = makeMatch({ mode: 'solo', humans: 1, seed: 7, registry: reg, fake: true, data: ACT3_ON_BASE_FIELD, season: 'act3autochess' });
+      h.m.console = true; h.start(); h.toPrep(1, { band: 'band_amiya' });
+      const ps = h.ps('p_0');
+      ps.bandId = band; ps.counters = {}; ps.funds = 50; ps.offers.length = 0; ps.ready = false;
+      return { h, m: h.m, ps, use: () => h.m.handle('p_0', { t: 'g.bandSkill' }), view: () => ps.privateView().bandSkill,
+        set: (on) => consoleIntent(h.m, 'p_0', { t: 'con.bandUnlimited', on }, OFF) };
+    };
+    const plain0 = consoleMatch();
+    assert.equal(consoleView(plain0.ps('p_0'), OFF).bandUnlimited, null, '盟约: no active 指令, no option');
+    // 内部货源: ROUND_RESET 1
+    const a = run('band_price');
+    assert.equal(consoleView(a.ps, OFF).bandUnlimited, false, 'off by default');
+    assert.deepEqual(a.use(), { ok: true });
+    assert.deepEqual(a.use(), { error: 'ALREADY', detail: 'no uses left' }, 'the official limit while off');
+    assert.deepEqual(a.set(true), { ok: true });
+    assert.equal(consoleView(a.ps, OFF).bandUnlimited, true);
+    assert.deepEqual([a.view().usesLeft, a.view().usable], [null, true], 'no count on the HUD, usable');
+    for (let i = 0; i < 4; i++) assert.deepEqual(a.use(), { ok: true }, `use ${i + 2} in one round`);
+    assert.deepEqual(a.set(false), { ok: true });
+    assert.deepEqual(a.use(), { error: 'ALREADY', detail: 'no uses left' }, 'off again: the uses made still count');
+    assert.ok(a.m.consoleLog.some((x) => x.t === 'bandUnlimited'), 'logged');
+    // 私募基金: COOLDOWN
+    const b = run('band_fund');
+    assert.deepEqual(b.use(), { ok: true });
+    assert.equal(b.view().cooldown, 2, 'two rounds of cooldown while off');
+    assert.deepEqual(b.use(), { error: 'ALREADY', detail: 'cooldown' });
+    b.set(true);
+    assert.deepEqual([b.view().cooldown, b.view().usable], [0, true], 'no cooldown');
+    assert.deepEqual(b.use(), { ok: true });
+    assert.deepEqual(b.use(), { ok: true });
+    // only the console's player: a bot seat's state is never touched, and outside a console match the intent is refused
+    const plain = makeMatch({ mode: 'solo', seed: 4 }); plain.start(); plain.toPrep(1);
+    assert.equal(consoleIntent(plain.m, 'p_0', { t: 'con.bandUnlimited', on: true }, OFF).error, ERR.BAD_MSG);
   });
 
   test('con.addItem puts an item (or its strengthened form) into the hand outside the equipment stock; refuses a golden id and a full zone', () => {

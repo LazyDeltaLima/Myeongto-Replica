@@ -91,6 +91,7 @@ b.cxp__tier { width: auto; min-width: calc(var(--cpx) * 16); height: calc(var(--
 .cxp__flag.diy { color: #1a0f00; background: var(--amber, #f6a329); }
 .cxp__flag.magic { color: #fff; background: #8a5cf6; }
 .cxp__flag.elite { color: #1a0f00; background: var(--gold, #f2c14e); }
+.cxp__flag.boss { color: #fff; background: var(--red); }
 .cxp__flag.hp { right: auto; bottom: auto; left: 0; top: 0; color: var(--text-hi); font-weight: 600; }
 .cxp__foot { flex: none; display: flex; align-items: center; gap: calc(var(--cpx) * 8); padding: calc(var(--cpx) * 7) calc(var(--cpx) * 12); border-top: 1px solid var(--line);
   font-size: calc(var(--cpx) * 12); color: var(--text-lo); background: rgba(0,0,0,.25); }
