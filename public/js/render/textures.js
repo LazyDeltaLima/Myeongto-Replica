@@ -13,6 +13,7 @@
 // globalThis.PIXI and a DOM canvas at call time (never at import time).
 
 import { statusIconKey, ORIGINIUM, linearToSrgb255 } from './style.js';
+import { watchCanvas } from '../diag.js';
 
 const PIXI = () => globalThis.PIXI;
 
@@ -20,6 +21,7 @@ export function makeCanvas(w, h) {
   const c = document.createElement('canvas');
   c.width = Math.max(1, Math.ceil(w));
   c.height = Math.max(1, Math.ceil(h));
+  watchCanvas(c, 'hud canvas'); // a lost 2D context comes back blank (diag.js)
   return c;
 }
 

@@ -21,7 +21,11 @@
 //   battleCount()                      how many there are (cheap: no copy)
 //   noteRender(event, detail?)         what the field view's board did (3D on / failed / lost / waits / retry, the
 //                                      simplified view): the last RENDER_MAX events, for the report's render lines
+//                                      (an event repeating the one before it counts on it: `x3, last …`)
 //   renderEvents() / clearRenderEvents()
+//   watchCanvas(canvas, name)          a canvas a texture is drawn from notes a lost / restored 2D context ('canvas lost'):
+//                                      Chrome may drop a canvas's 2D context and give it back blank (reports #27·#28)
+//   pageHides()                        how often this page was hidden (the report's `time:` line, the record)
 //   setPerfSource(fn)                  the performance HUD (ui/perfHud.js, `?perf=1`) registers its per-round summary for
 //                                      the report's `perf:` lines
 //   mountTimer()                       times one field mount (fieldHost + createFieldView stages, late art / 3D / scene)
@@ -41,6 +45,7 @@
 import { APP_VERSION } from '../../shared/constants.js';
 import { gpuStatus } from './gpu.js';
 import { qualityInEffect } from './render/auto-quality.js';
+import { uploadCheckText } from './render/app/gl-check.js';
 
 export const LOG_MAX = 40;
 export const STACK_LINES = 6;
@@ -62,7 +67,7 @@ let total = 0;
 let dropped = 0;
 const pageStart = Date.now();
 
-/** @type {{ at: number, event: string, detail: string|null }[]} */
+/** @type {{ at: number, event: string, detail: string|null, count?: number, lastAt?: number }[]} */
 const renderLog = [];
 export const RENDER_MAX = 12;
 /**
@@ -71,12 +76,32 @@ export const RENDER_MAX = 12;
  * @param {string} event @param {string|null} [detail] @param {number} [at] epoch ms
  */
 export function noteRender(event, detail = null, at = Date.now()) {
-  renderLog.push({ at, event: String(event), detail: detail == null ? null : stripHosts(String(detail)).slice(0, MESSAGE_MAX) });
+  const e = { at, event: String(event), detail: detail == null ? null : stripHosts(String(detail)).slice(0, MESSAGE_MAX) };
+  const last = renderLog[renderLog.length - 1];
+  // the same event again (every canvas of a font losing its context, a page hidden and shown in a row): one entry
+  if (last && last.event === e.event && last.detail === e.detail) { last.count = (last.count || 1) + 1; last.lastAt = at; }
+  else renderLog.push(e);
   if (renderLog.length > RENDER_MAX) renderLog.splice(0, renderLog.length - RENDER_MAX);
   notePage();
 }
 export const renderEvents = () => renderLog.map((e) => ({ ...e }));
 export function clearRenderEvents() { renderLog.length = 0; }
+
+const watched = new WeakSet();
+/**
+ * Report a lost / restored 2D context of a canvas textures are uploaded from (render/app/pixi.js: the canvases PIXI
+ * creates; render/textures.js makeCanvas). A restored canvas is blank: what is uploaded from it later is transparent.
+ * Once per canvas; a canvas without the events (other browsers) is left alone.
+ * @param {any} canvas @param {string} name
+ */
+export function watchCanvas(canvas, name) {
+  if (!canvas || typeof canvas.addEventListener !== 'function' || watched.has(canvas)) return;
+  watched.add(canvas);
+  try {
+    canvas.addEventListener('contextlost', () => noteRender('canvas lost', name));
+    canvas.addEventListener('contextrestored', () => noteRender('canvas restored', name));
+  } catch { /* ignore */ }
+}
 
 /** @type {{ at: number, t0: number, kind: string|null, total: number|null, steps: { name: string, ms: number, cut: boolean, parts?: { name: string, ms: number }[] }[], late: { name: string, ms: number }[] }[]} */
 const mountLog = [];
@@ -385,7 +410,8 @@ const join = (...parts) => parts.filter((p) => p != null && p !== '' && p !== fa
 
 /** The `render events:` line, or null. */
 function renderEventsLine(rev) {
-  return rev.length ? `render events: ${rev.map((e) => `${clockOf(e.at)} ${e.event}${e.detail ? ` (${e.detail})` : ''}`).join('; ')}` : null;
+  return rev.length ? `render events: ${rev.map((e) => `${clockOf(e.at)} ${e.event}${e.detail ? ` (${e.detail})` : ''}`
+    + (e.count > 1 ? ` x${e.count}, last ${clockOf(e.lastAt)}` : '')).join('; ')}` : null;
 }
 /** One `mount:` line per mount; a stage with parts lists those of 0.05 s or more. */
 function mountLines(mounts, resources) {
@@ -429,6 +455,13 @@ const PAGE_ERRORS = 10;
 let pageOn = false;
 let prevPage = null;
 let pageVis = 'visible', hiddenAt = null, pageEnded = false;
+/** This page hidden (another app, the screen off): how often, and the last time from / to (to null: still hidden). */
+const hides = { count: 0, from: null, to: null };
+export const pageHides = () => ({ ...hides });
+/** `hidden 14x, last 02:10:03–02:11:20` (or `…, hidden now`), or null. */
+function hidesPart(h) {
+  return h && h.count ? `hidden ${h.count}x, last ${clockOf(h.from)}${h.to ? `–${clockOf(h.to)}` : ', hidden now'}` : null;
+}
 let saveTimer = 0;
 const storage = () => { try { return globalThis.localStorage || null; } catch { return null; } };
 
@@ -438,7 +471,7 @@ export function pageRecord(now = Date.now()) {
   try { resources = globalThis.performance?.getEntriesByType?.('resource') ?? null; } catch { resources = null; }
   const errs = errorLog().slice(-PAGE_ERRORS);
   return {
-    v: 1, start: pageStart, at: now, version: APP_VERSION, vis: pageVis, hiddenAt, ended: pageEnded,
+    v: 1, start: pageStart, at: now, version: APP_VERSION, vis: pageVis, hiddenAt, ended: pageEnded, hides: pageHides(),
     lines: [renderEventsLine(renderEvents()), resourcesLine(resStatus()), ...mountLines(mountRecords(), resources), ...perfLines().map((l) => `perf: ${l}`),
       ...errorLines(errs, total, dropped + log.length - errs.length)].filter(Boolean),
   };
@@ -469,6 +502,8 @@ export function installPageRecord() {
   pageVis = g.document?.visibilityState === 'hidden' ? 'hidden' : 'visible';
   g.document?.addEventListener?.('visibilitychange', () => {
     const hidden = g.document.visibilityState === 'hidden';
+    if (hidden && pageVis !== 'hidden') { hides.count++; hides.from = Date.now(); hides.to = null; }
+    else if (!hidden && pageVis === 'hidden' && hides.count) hides.to = Date.now();
     pageVis = hidden ? 'hidden' : 'visible';
     hiddenAt = hidden ? Date.now() : null;
     savePage();
@@ -486,7 +521,7 @@ function previousLines(p) {
   const end = p.ended ? 'closed (a reload, a link or the app closed)'
     : p.vis === 'hidden' ? `not closed: ended in the background, hidden since ${clockOf(p.hiddenAt ?? p.at)} (the system, or the app swiped away)`
       : 'not closed: on screen at its last record (a crash, or the system ended it while shown)';
-  return ['', `previous page: ${join(`${clockOf(p.start)}–${clockOf(p.at)} (open ${spanOf(p.at - p.start)})`, `version ${p.version}`, end)}`,
+  return ['', `previous page: ${join(`${clockOf(p.start)}–${clockOf(p.at)} (open ${spanOf(p.at - p.start)})`, `version ${p.version}`, hidesPart(p.hides), end)}`,
     ...p.lines.map((l) => `prev ${l}`)];
 }
 
@@ -494,7 +529,8 @@ function previousLines(p) {
  * The report text: a ```text block (version, time, browser, screen, connection, where the player is, settings, the
  * error log newest first) and, with `battle`, a ```json block of its spec. Secrets of `state` are whole tokens in the
  * prose and exact string values in the JSON.
- * `render` is the field view on screen (`{ kind: 'engine' | 'fallback', board3d }`, render/app.js stats().board3d) and
+ * `render` is the field view on screen (`{ kind: 'engine' | 'fallback', board3d, pixi }`, render/app.js stats().board3d and
+ * uploadCheck()) and
  * `renderEvents` what its board did (noteRender), `mounts` the field mounts (mountTimer) and `resources` the page's
  * Resource Timing entries (each mount line sums the downloads of its window), `perf` the performance HUD's lines
  * (setPerfSource; empty unless `?perf=1`), `resourceStatus` the resource cache's state (setResourceSource; null: no
@@ -502,7 +538,7 @@ function previousLines(p) {
  * that do not install it).
  * @param {{ state: any, env?: any, settings?: any, battle?: any, entries?: any[], dropped?: number, total?: number,
  *   now?: number, pageStart?: number, version?: string, render?: any, renderEvents?: any[], mounts?: any[], resources?: any[],
- *   perf?: string[], resourceStatus?: any, previous?: any }} input
+ *   perf?: string[], resourceStatus?: any, previous?: any, hides?: { count: number, from: number|null, to: number|null } }} input
  */
 export function buildDiagnostics(input) {
   const { state = {}, env = {}, settings = null, battle = null } = input;
@@ -511,7 +547,7 @@ export function buildDiagnostics(input) {
   const lines = [];
   lines.push('Stronghold-Protocol diagnostics');
   lines.push(`version: ${input.version ?? APP_VERSION}`);
-  lines.push(`time: ${new Date(now).toISOString()} | page open ${spanOf(now - (input.pageStart ?? pageStart))}`);
+  lines.push(`time: ${join(`${new Date(now).toISOString()}`, `page open ${spanOf(now - (input.pageStart ?? pageStart))}`, hidesPart(input.hides ?? pageHides()))}`);
   if (env.ua) lines.push(`browser: ${env.ua}`);
   // gpu.js: a software renderer means hardware acceleration is off (or the GPU / driver is blocklisted)
   if (env.gpu) lines.push(`gpu: ${join(env.gpu, env.gpuAccel === 'software' ? 'software rendering' : null)}`);
@@ -542,7 +578,8 @@ export function buildDiagnostics(input) {
       !b3 ? null : b3.on ? `3d on${Number.isFinite(b3.textures) ? ` (${b3.textures} textures)` : ''}`
         : `3d off${b3.pref && b3.pref !== 'auto' ? ` (${b3.pref} chosen)` : ''}${b3.error ? `: ${b3.error}` : ''}`,
       b3 && !b3.on && b3.recovering ? 'retry pending' : null, b3 && !b3.on && b3.waiting ? 'waiting for the page to be shown' : null,
-      b3?.losses ? `context lost ${b3.losses}x` : null)}`);
+      b3?.losses ? `context lost ${b3.losses}x` : null,
+      rv.pixi?.losses ? `pixi context lost ${rv.pixi.losses}x` : null, uploadCheckText(rv.pixi))}`);
   }
   const rev = renderEventsLine(input.renderEvents ?? renderEvents());
   if (rev) lines.push(rev);
@@ -604,7 +641,7 @@ export function diagnosticsText({ state, settings = null, attachBattle = false }
 export function renderStatus(g = globalThis) {
   const v = g.__SP_VIEW__;
   if (!v) return null;
-  let board3d = null;
-  try { board3d = v.raw?.stats?.()?.board3d ?? null; } catch { board3d = null; }
-  return { kind: typeof v.kind === 'string' ? v.kind : null, board3d };
+  /** @param {() => any} f */
+  const safe = (f) => { try { return f() ?? null; } catch { return null; } };
+  return { kind: typeof v.kind === 'string' ? v.kind : null, board3d: safe(() => v.raw?.stats?.()?.board3d), pixi: safe(() => v.raw?.uploadCheck?.()) };
 }

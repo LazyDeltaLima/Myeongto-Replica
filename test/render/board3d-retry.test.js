@@ -166,8 +166,9 @@ describe('diag.js: the board in the bug report', () => {
     clearRenderEvents();
     assert.equal(renderStatus({}), null);
     const g = { __SP_VIEW__: { kind: 'engine', raw: { stats: () => ({ board3d: { on: true } }) } } };
-    assert.deepEqual(renderStatus(g), { kind: 'engine', board3d: { on: true } });
-    assert.deepEqual(renderStatus({ __SP_VIEW__: { kind: 'fallback', raw: {} } }), { kind: 'fallback', board3d: null });
+    // pixi: the view's upload check (reports #27·#28), null when the view has none
+    assert.deepEqual(renderStatus(g), { kind: 'engine', board3d: { on: true }, pixi: null });
+    assert.deepEqual(renderStatus({ __SP_VIEW__: { kind: 'fallback', raw: {} } }), { kind: 'fallback', board3d: null, pixi: null });
   });
 });
 

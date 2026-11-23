@@ -47,3 +47,21 @@ test('an error is written within a second; the record carries its version and it
   assert.equal(rec.at, 0);
   assert.ok(diag.PAGE_KEEP_MS >= 3600_000);
 });
+
+test('the page\'s hides are counted for the report and its record', () => {
+  // the first test left the page hidden: shown again closes that hide
+  globalThis.document.visibilityState = 'visible';
+  docListeners.visibilitychange();
+  const h1 = diag.pageHides();
+  assert.ok(h1.count >= 1 && Number.isFinite(h1.from) && Number.isFinite(h1.to), 'a hide closed by the page shown again');
+  globalThis.document.visibilityState = 'hidden';
+  docListeners.visibilitychange();
+  docListeners.visibilitychange(); // a second hidden event while hidden is not another hide
+  const h2 = diag.pageHides();
+  assert.equal(h2.count, h1.count + 1);
+  assert.equal(h2.to, null);
+  assert.deepEqual(JSON.parse(store.get(KEY)).hides, h2, 'the record carries them');
+  assert.match(diag.buildDiagnostics({ state: {}, mounts: [], perf: [], previous: null }), new RegExp(`\\ntime: [^\\n]* \\| hidden ${h2.count}x, last \\d\\d:\\d\\d:\\d\\d, hidden now\\n`));
+  globalThis.document.visibilityState = 'visible';
+  docListeners.visibilitychange();
+});

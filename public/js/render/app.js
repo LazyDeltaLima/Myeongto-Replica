@@ -156,6 +156,7 @@ import { promotionsOf, newElitesOf } from './promote.js';
 import { createFxLayer, stageTileFx, stageCannons } from './fxgame.js'; // local patch: official battle effects
 import { syncStatusFx, statusSource } from './fxstatus.js'; // local patch: official status effects
 import { ensurePixi } from './app/pixi.js';
+import { uploadCheck } from './app/gl-check.js';
 import { pieceDirOf, pickUnitOf } from './app/pick.js';
 import { dirVector } from './face-turn.js'; // an operator's front (render.md 「공격 방향」)
 import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS } from './app/tune.js';
@@ -265,9 +266,18 @@ export async function createFieldView(host, options = {}) {
     resolution: dpr(), autoDensity: true, powerPreference: 'high-performance',
   });
   const canvas = app.view;
+  // the field's own WebGL context lost / given back (PIXI restores it and uploads every texture again): the report
+  // (reports #27·#28 — textures drawn from a canvas came up transparent)
+  const pixiCtx = { losses: 0 };
+  const onPixiLost = () => { pixiCtx.losses++; noteRender('pixi lost'); };
+  const onPixiRestored = () => noteRender('pixi restored');
+  canvas.addEventListener('webglcontextlost', onPixiLost);
+  canvas.addEventListener('webglcontextrestored', onPixiRestored);
   // the parts of the synchronous setup for the report's `mount:` line (`setup 9.5 (app …, fonts …, rest …)`)
   timing?.part?.('app');
   setupCleanup.push(() => {
+    canvas.removeEventListener('webglcontextlost', onPixiLost);
+    canvas.removeEventListener('webglcontextrestored', onPixiRestored);
     releaseGl(app.renderer);
     try { app.destroy(true, { children: true, texture: false, baseTexture: false }); }
     finally { canvas.remove(); }
@@ -2895,10 +2905,14 @@ export async function createFieldView(host, options = {}) {
       try { board3d?.destroy(); } catch { /* ignore */ }
       board3d = null;
       try { board3dCanvas?.remove(); } catch { /* ignore */ }
+      canvas.removeEventListener('webglcontextlost', onPixiLost);
+      canvas.removeEventListener('webglcontextrestored', onPixiRestored);
       releaseGl(app.renderer);
       try { app.destroy(true, { children: true, texture: false, baseTexture: false }); } catch { /* ignore */ }
       canvas.remove();
     },
+    /** The bug report's upload check of this view's renderer (render/app/gl-check.js; reads pixels back: not per frame). */
+    uploadCheck() { return destroyed ? null : { ...uploadCheck(P, app.renderer), losses: pixiCtx.losses }; },
     stats() {
       return {
         fps: Math.round(fps * 10) / 10, frameMs: Math.round(frameMs * 100) / 100, cpuMs: Math.round(cpuMs * 100) / 100, renderMs: Math.round(renderMs * 100) / 100, mode, units: views.size, impostor: impInterval, impostorAtlas: { ...impostors.stats }, itemModels: { ...itemModels.stats }, boardArt: !!tiles.atlas.art,

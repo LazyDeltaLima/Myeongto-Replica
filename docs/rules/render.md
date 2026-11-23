@@ -1808,6 +1808,27 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   생성 단계가 페이지·골격·스킨 키 표에서 읽고 스킨 키 표가 없거나 페이지 종류가 섞이면 멈춤(`test/resource-packs.test.js` 「sideFields」); 스킨 공격의
   타격은 `test/sim/attack-clip-view.test.js` 「every operator skin's attack」(스킨 모델 목록이 없으면 건너뜀).
 
+## 캔버스 텍스처가 투명하게 올라감 (제보 #27·#28, 2026-11-23)
+
+- 증상(2.0.9, 안드로이드 Chrome·Adreno 830, 3D 켬·화면 품질 높음, 규정 솔로): 아군·적의 HP·SP 막대가 없고(판만 보여 적이 「HP 0」처럼 보임), 대미지
+  숫자가 안 보이고, 유닛이 많아진 뒤 오퍼레이터 모델이 여러 오퍼레이터 그림의 콜라주로 깨진다. 이미지에서 올린 모델·보드·바 판(`sprite_bg`)은 멀쩡했다.
+- 세 증상을 묶는 원인은 캔버스를 원본으로 만든 텍스처만 투명하게 올라가는 것으로 본다 [추정·화면: 같은 GPU가 없어 재현 못 함, 제보 영상과 진단 보고만 봄].
+  바의 채움은 `Texture.WHITE`에 색을 입힌 스프라이트(`hud-bars.js`)이고, 임포스터 아틀라스(`impostor.js`)는 칸을 `Texture.WHITE` 지우개(ERASE)로
+  지우며(지우개가 투명하면 비운 칸에 앞 그림이 남는다 — 임포스터는 스파인 수가 많을 때만 켜져 「일정 시간 뒤」), 대미지 숫자는 캔버스에 그린
+  `BitmapFont`(`num-official.js`)다. PIXI 7의 `Texture.WHITE`는 16×16 캔버스다. Chrome은 2D 캔버스의 컨텍스트를 잃었다가 빈 캔버스로 돌려줄 수
+  있고, 전장을 새로 띄울 때마다 새 렌더러가 그 캔버스에서 다시 올린다.
+- ① `Texture.WHITE`를 버퍼로(`render/app/pixi.js installBufferWhite`, `ensurePixi`가 전장보다 먼저 건다): 같은 16×16 불투명 흰색, `alphaMode` PMA(버퍼
+  기본값 NPM이면 바와 이미지 판이 번갈아 블렌드 상태를 바꿔 HUD 배치가 끊긴다), `_WHITE` 자리를 바꿔 `Graphics` 채움 같은 PIXI 기본값도 같은 것을 읽는다.
+  `destroy`를 막는 것은 PIXI 자기 흰색과 같다. 그림은 그대로: `overload` 장면(아군 바 20개) 캔버스 흰색과 픽셀 차 0, 그리기 호출 1회 그대로.
+- ② 진단 보고: `render:` 줄에 전장 PIXI 컨텍스트 소실 횟수(`pixi context lost Nx`)와 업로드 자가 진단(보고를 복사할 때 한 번, `render/app/gl-check.js`) —
+  `upload white <버퍼 흰색 알파> canvas <지금 만든 흰 캔버스의 알파>`(255/255 = 둘 다 올라감, `canvas 0` = 새 캔버스도 투명 = GPU 쪽),
+  `font pages N (M blank)`(대미지 숫자 글꼴 페이지 중 지금 CPU 쪽이 빈 것 = 2D 컨텍스트를 잃고 빈 채로 돌아온 것). `render events:`에 `pixi lost`·
+  `pixi restored`, PIXI가 만든 캔버스(`pixi canvas`)·`textures.js makeCanvas`(`hud canvas`)의 `canvas lost`·`canvas restored`(같은 사건이 이어지면 한 칸에
+  `xN, last …`), `time:` 줄과 앞 페이지 줄에 페이지가 숨은 횟수(`hidden Nx, last …`).
+- 대미지 숫자 글꼴(캔버스에 그리는 `BitmapFont`)을 어떻게 할지는 ②가 담긴 다음 보고를 보고 정한다.
+- 재발 방지: `test/render/buffer-white.test.js`(실제 PIXI 번들로 `ensurePixi` 뒤 `Texture.WHITE`가 버퍼·PMA·16×16·불투명, `Graphics` 기본값),
+  `test/render/initialization.browser.test.js`(실제 렌더러의 업로드 자가 진단 255/255), 보고 줄은 `test/diag.test.js`·`test/diag-page.test.js`.
+
 ## 함정 (2026-11-14, 관리자 결정 「회귀 방지」)
 
 유닛·HUD·보드를 그리는 코드(`public/js/render/`)를 고치기 전에 읽는 목록. 쓰는 법은 `fx.md` 「함정」과 같다.

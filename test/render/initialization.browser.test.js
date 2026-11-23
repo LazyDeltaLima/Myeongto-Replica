@@ -36,7 +36,8 @@ function trackBrowserResources() {
     disconnect() { this.targets.clear(); return super.disconnect(); }
   };
   const add = EventTarget.prototype.addEventListener, remove = EventTarget.prototype.removeEventListener;
-  const tracked = (target, type) => target instanceof HTMLCanvasElement ||
+  // (a canvas's lost-2D-context watch, diag.js watchCanvas, lives as long as that canvas: not a view's listener)
+  const tracked = (target, type) => (target instanceof HTMLCanvasElement && type !== 'contextlost' && type !== 'contextrestored') ||
     (target === document && type === 'visibilitychange') || (target === window && type === 'resize');
   const capture = (opts) => typeof opts === 'boolean' ? opts : !!opts?.capture;
   EventTarget.prototype.addEventListener = function (type, fn, opts) {
@@ -167,6 +168,16 @@ describe('field initialization in headless Chrome', { skip }, () => {
     assert.equal(mounted.observers, 1);
     assert.ok(mounted.listeners.includes('pointerdown'));
     assert.ok(mounted.listeners.includes('visibilitychange'));
+    assert.ok(mounted.listeners.includes('webglcontextlost'), 'the field\'s own context loss goes to the bug report');
+    // reports #27·#28: the bars' white is a buffer, and the report's upload check reads both kinds back opaque
+    const upload = await page.evaluate(() => ({
+      buffer: PIXI.Texture.WHITE.baseTexture.resource instanceof PIXI.BufferResource,
+      check: window.__initialization.view.raw.uploadCheck(),
+    }));
+    assert.ok(upload.buffer, 'Texture.WHITE is the buffer white (docs/rules/render.md 「캔버스 텍스처가 투명하게 올라감」)');
+    assert.equal(upload.check.white, 255);
+    assert.equal(upload.check.canvas, 255);
+    assert.equal(upload.check.losses, 0);
     const destroyed = await page.evaluate(() => {
       const s = window.__initialization;
       s.view.destroy(); s.view.destroy();

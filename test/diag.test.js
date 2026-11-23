@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {
   recordError, errorLog, errorCount, clearErrorLog, messageOf, stackOf, stripHosts, redact, redactValues, secretsOf, buildDiagnostics,
   setBattleSource, currentBattle, LOG_MAX, STACK_LINES, mountTimer, mountRecords, clearMountRecords, mountNet, MOUNT_MAX,
-  setPerfSource, setResourceSource, fieldLoading, FIELD_LOADING_MAX_MS,
+  setPerfSource, setResourceSource, fieldLoading, FIELD_LOADING_MAX_MS, noteRender, renderEvents, clearRenderEvents, watchCanvas, renderStatus,
 } from '../public/js/diag.js';
 import { APP_VERSION } from '../shared/constants.js';
 
@@ -360,5 +360,43 @@ describe('the resource cache (resources: line, a mount\'s res part, fieldLoading
     const b = mountTimer(() => t);
     b.done('cancelled');
     assert.equal(fieldLoading(t), false);
+  });
+});
+
+describe('the field\'s textures (reports #27·#28: canvas-sourced textures came up transparent)', () => {
+  beforeEach(() => clearRenderEvents());
+
+  test('a lost / restored 2D context of a watched canvas is a render event, once per canvas, repeats counted on one entry', () => {
+    const mk = () => { const l = {}; return { l, addEventListener: (t, fn) => { l[t] = fn; } }; };
+    const a = mk(), b = mk();
+    watchCanvas(a, 'pixi canvas');
+    watchCanvas(a, 'pixi canvas');
+    watchCanvas(b, 'pixi canvas');
+    assert.deepEqual(Object.keys(a.l).sort(), ['contextlost', 'contextrestored']);
+    a.l.contextlost(); b.l.contextlost();
+    a.l.contextrestored();
+    const ev = renderEvents();
+    assert.equal(ev.length, 2);
+    assert.equal(ev[0].event, 'canvas lost');
+    assert.equal(ev[0].count, 2);
+    assert.equal(ev[1].event, 'canvas restored');
+  });
+
+  test('the render line carries the field\'s own context losses and the upload check; repeats read xN', () => {
+    noteRender('pixi lost', null, Date.UTC(2026, 10, 22, 5, 18, 0));
+    noteRender('pixi lost', null, Date.UTC(2026, 10, 22, 5, 20, 1));
+    const render = { kind: 'engine', board3d: { on: true, textures: 12 }, pixi: { losses: 2, white: 255, canvas: 0, pages: 4, blank: 4, lostPages: 0 } };
+    const lines = buildDiagnostics({ state: {}, render, mounts: [], perf: [] }).split('\n');
+    assert.ok(lines.includes('render: view engine | 3d on (12 textures) | pixi context lost 2x | upload white 255 canvas 0, font pages 4 (4 blank)'), lines.join('\n'));
+    assert.ok(lines.includes('render events: 05:18:00 pixi lost x2, last 05:20:01'));
+    const lost = buildDiagnostics({ state: {}, render: { kind: 'engine', pixi: { lost: true, pages: 0, blank: 0, lostPages: 0 } }, mounts: [], perf: [] });
+    assert.match(lost, /\nrender: view engine \| upload not checked: context lost\n/);
+  });
+
+  test('renderStatus asks the view on screen for its upload check', () => {
+    const raw = { stats: () => ({ board3d: null }), uploadCheck: () => ({ white: 255, canvas: 255, pages: 0, blank: 0, lostPages: 0, losses: 0 }) };
+    assert.deepEqual(renderStatus({ __SP_VIEW__: { kind: 'engine', raw } }).pixi, raw.uploadCheck());
+    const broken = { stats: () => ({}), uploadCheck: () => { throw new Error('x'); } };
+    assert.equal(renderStatus({ __SP_VIEW__: { kind: 'engine', raw: broken } }).pixi, null);
   });
 });
