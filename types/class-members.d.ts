@@ -50,6 +50,9 @@ declare module '../server/match/Match.js' {
     // the AI teammates' reactions (server/match/botEmotes.js): the round whose settle they reacted to, merges per seat
     _botEmotesSettledRound?: number;
     _botEmotesMerges?: Map<string, number>;
+    // the AI seats' planner (server/match/bot.js): the round's field model, the 特质 census per chess id
+    _botPath?: import('../server/match/bot.js').FieldModel;
+    _botTraits?: Map<string, { recurring: number, gain: number, econ: number }>;
     // the console mode of a solo room (server/local-patch.js, server/local-console.js)
     console?: boolean;
     consoleLog?: Array<Record<string, any>>;
@@ -94,6 +97,12 @@ declare module '../server/match/PlayerState.js' {
     _prepScoutSig?: string;
     /** the last m.roundDmg sent, again on a resync (match/settle.js _sendRoundDamage, platform.js) */
     roundDmg?: { t: 'm.roundDmg', round: number, units: ReturnType<typeof import('../shared/roundDamage.js').foldRoundDamage> };
+    // an AI seat's memory (server/match/bot.js): the round's bond plan, its focus across rounds, the range records per
+    // loadout, the chess owned when its last prep ended
+    _botFocus?: import('../server/match/bot.js').BondPlan;
+    _botFocusId?: string;
+    _botRangeRecs?: Map<string, Record<string, any>>;
+    _botSeenUids?: Set<number>;
   }
 }
 

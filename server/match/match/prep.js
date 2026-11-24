@@ -5,6 +5,7 @@
 
 /** @import { Match } from '../Match.js' */
 /** @import { PlayerState } from '../PlayerState.js' */
+/** @import { Rehearsal } from '../bot.js' */
 import { PHASE } from '../../../shared/constants.js';
 import { botPrepBeginSteps, botPrepEndSteps } from '../bot.js';
 import { DELAYS } from './common.js';
@@ -51,9 +52,12 @@ export class MatchPrep {
     const valid = () => this.phase === PHASE.PREP && this.round === round && ps.alive && !ps.ready && ps.botControlled && ps._botPrepToken === token;
     const bounded = Number.isFinite(this.botSliceMs);
     const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    /** Step a generator until done or the slice budget is used; `then(value)` once it is done (null on an error). */
-    // `then` gets the generator's return: bot.js's layout rehearsal job (untyped there) or null
-    const drive = (/** @type {Generator<unknown, unknown>} */ gen, /** @type {string} */ label, /** @type {(value: any) => void} */ then) => {
+    /**
+     * Step a generator until done or the slice budget is used; `then(value)` once it is done (null on an error).
+     * @template T
+     * @param {Generator<unknown, T>} gen @param {string} label @param {(value: T | null) => void} then
+     */
+    const drive = (gen, label, then) => {
       const t0 = now();
       let r = null;
       try {
@@ -73,7 +77,7 @@ export class MatchPrep {
         ps.setReady(true);
       }
     };
-    const end = (/** @type {any} */ job) => {
+    const end = (/** @type {Rehearsal | null} */ job) => {
       let gen = null;
       try { gen = botPrepEndSteps(this, ps, job); } catch (e) { this.reportError(`bot ${ps.playerId}`, e); }
       if (!gen) { ready(); return; }

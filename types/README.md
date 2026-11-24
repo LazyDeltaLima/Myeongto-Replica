@@ -104,7 +104,7 @@ error.
 
 With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`, the files directly under `server/`
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, and the files directly under
-`server/match/` but `bot.js` (listed one by one).
+`server/match/` (`server/match/*.js`).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -215,6 +215,19 @@ most strict errors were, and the JSDoc that fixed them:
   `/** @type {Partial<GameData>} */ (gd).spDraftCards`.
 - a compound assignment to a field the type leaves optional takes the cast on its target,
   `/** @type {number} */ (e.skipped) += …`.
+- a step generator (`server/match/bot.js`: `planLayoutSteps`, `arrangeSteps`, `botPrepBeginSteps` …) says what it
+  returns, `@returns {Generator<undefined, LayoutPlan>}`, and what drives it is generic over that return
+  (`runSteps`, `scheduleBotPrep`'s `drive`: `@template T`, `Generator<unknown, T>`, the callback taking `T | null`), so
+  the rehearsal job reaches `botPrepEndSteps` typed (`Rehearsal`), not as `any`.
+- a value cached on a class field that the `.d.ts` declares (`m._botPath`, the field model) gets an explicit typedef
+  (`FieldModel`): `ReturnType<typeof fieldModel>` would name itself through the declaration. The AI seat's other memory
+  (`_botFocus`, `_botSeenUids` …) is declared in `class-members.d.ts` the same way. The bot's typedefs: `Rec` (a record
+  read field by field), `BondPlan`, `BotRoute`, `FieldModel`, `BotCtx`, `LayoutUnit`, `LayoutParams`, `Rehearsal`.
+- a function returning its record argument or a copy of it (`rangeRec`) is `@template {Rec | null} R`, so a caller's
+  null check still holds on the result; a class extending `Map` takes `@extends {Map<number, string>}`
+  (`LayoutPlan`).
+- a lookup whose JSDoc is narrower than what it takes (`gd.bandBondIds(null)` answers `[]` for a seat before the band
+  draft): widen the `@param` there rather than cast every caller.
 
 ## Split classes
 

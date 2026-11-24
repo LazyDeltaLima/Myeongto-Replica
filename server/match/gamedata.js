@@ -941,7 +941,7 @@ export class GameData {
    * the field the strategy draft's 本局禁用 mark reads too. Known bond ids in data order; [] for an unknown band, one tied to
    * no bond (华法琳, 阿米娅 …) or data without the field. The bot never picks a strategy tied to a bond the mode switches
    * off (bot.js botPickBand).
-   * @param {string} bandId
+   * @param {string | null} bandId (null: a seat before the band draft — none)
    * @returns {readonly string[]} frozen (memoised)
    */
   bandBondIds(bandId) {
