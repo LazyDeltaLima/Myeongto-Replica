@@ -110,7 +110,7 @@ const STATE_EV = new Set(['spawn', 'die', 'deploy', 'status', 'skill', 'leak', '
  * enemy's model form (shared/protocol.js fxForm — dropped, the view kept the old model: player report #5 after 0.1.0)
  * and 望's stone activation (stateFx).
  */
-export const keepsState = (x) => Array.isArray(x) && (STATE_EV.has(x[0]) || stateFx(x));
+export const keepsState = (/** @type {any} */ x) => Array.isArray(x) && (STATE_EV.has(x[0]) || stateFx(x));
 /**
  * Hidden-tab backlog cap (tuples) of the battle on screen. Past it the backlog is compacted (compactHeld: only the last
  * 'status' per unit and status, the last 'skill' per unit — what the view ends up showing); only a backlog still past it
@@ -128,13 +128,13 @@ export const EV_SLICE = 15;
  * 'skill' tuples only the last per unit, every other tuple (spawn / die / deploy / leak / form fx — bounded by the units)
  * kept; order preserved. A long hidden boss fight toggles statuses thousands of times, the rest stays small.
  */
-export function compactHeld(list) {
+export function compactHeld(/** @type {any} */ list) {
   const last = new Map();
-  list.forEach((x, i) => {
+  list.forEach((/** @type {any} */ x, /** @type {any} */ i) => {
     if (x[0] === 'status') last.set(`s:${x[1]}:${x[2]}`, i);
     else if (x[0] === 'skill') last.set(`k:${x[1]}`, i);
   });
-  return list.filter((x, i) => (x[0] === 'status' ? last.get(`s:${x[1]}:${x[2]}`) === i : x[0] === 'skill' ? last.get(`k:${x[1]}`) === i : true));
+  return list.filter((/** @type {any} */ x, /** @type {any} */ i) => (x[0] === 'status' ? last.get(`s:${x[1]}:${x[2]}`) === i : x[0] === 'skill' ? last.get(`k:${x[1]}`) === i : true));
 }
 /** Data files the simulation reads (DataSource + content/support gameData()). */
 export const SIM_DATA_FILES = Object.freeze(['chess', 'enemies', 'tokens', 'stages', 'waves', 'bonds', 'items', 'garrisons', 'bands', 'effects', 'backups']);
@@ -143,7 +143,7 @@ export const SIM_DATA_FILES = Object.freeze(['chess', 'enemies', 'tokens', 'stag
 export const LOST_RESULT_CODES = Object.freeze(['DISCONNECTED', 'OFFLINE', 'TIMEOUT']);
 
 /** Ticks per frame at a speed (same cap as the server pacing: server/match/fields.js maxTicksPerInterval). */
-export const ticksPerFrameCap = (speed) => Math.max(8, Math.ceil((Number(speed) || 2) * 4));
+export const ticksPerFrameCap = (/** @type {any} */ speed) => Math.max(8, Math.ceil((Number(speed) || 2) * 4));
 
 /**
  * What the runner compares between two looks at a 联防 battle (noteUniteLeft) before it reads the leakers' enemies still
@@ -153,7 +153,7 @@ export const ticksPerFrameCap = (speed) => Math.max(8, Math.ceil((Number(speed) 
  */
 export const uniteLeftMark = (b) => `${Number(b.killed) || 0}:${Number(b.leakedCount) || 0}:${Number(b.total) || 0}:${Array.isArray(b.enemies) ? b.enemies.length : 0}:${b.finished ? 1 : 0}`;
 
-function deepFreeze(root) {
+function deepFreeze(/** @type {any} */ root) {
   const stack = [root];
   while (stack.length) {
     const o = stack.pop();
@@ -180,7 +180,7 @@ export async function loadBrowserSim({ base = new URL('../../sim/', import.meta.
   const [spec, simdata, support] = await Promise.all([
     import(`${base}spec.js`), import(`${base}simdata.js`), import(`${base}content/support/index.js`),
   ]);
-  const fileOf = async (n) => {
+  const fileOf = async (/** @type {any} */ n) => {
     try {
       return await (dataStore.status(n) === 'missing' ? dataStore.invalidate(n) : dataStore.load(n));
     } catch { return null; }
@@ -202,6 +202,7 @@ export async function loadBrowserSim({ base = new URL('../../sim/', import.meta.
   // one — the loader fails (the next b.start retries it; meanwhile the server's deadline takes the field over)
   const missing = SIM_DATA_FILES.filter((n, i) => !files[i] || typeof files[i] !== 'object');
   if (missing.length) throw new Error(`simulation data unavailable: ${missing.join(', ')}`);
+  /** @type {Record<string, any>} */
   const raw = {};
   SIM_DATA_FILES.forEach((n, i) => { raw[n] = deepFreeze(structuredClone(files[i])); });
   simdata.setSimData(raw);
@@ -214,8 +215,8 @@ export async function loadBrowserSim({ base = new URL('../../sim/', import.meta.
  * them for the diagnostics a player copies (diag.js).
  */
 const SIM_LOGGER = Object.freeze({
-  error: (...a) => { console.warn('[sim]', ...a); recordError('sim', a.length === 1 ? a[0] : a.map(String).join(' ')); },
-  warn: (...a) => console.warn('[sim]', ...a),
+  error: (/** @type {any[]} */ ...a) => { console.warn('[sim]', ...a); recordError('sim', a.length === 1 ? a[0] : a.map(String).join(' ')); },
+  warn: (/** @type {any[]} */ ...a) => console.warn('[sim]', ...a),
   info() {},
   debug() {},
 });
@@ -231,8 +232,8 @@ export function createBattleRunner(deps) {
   const now = deps.now || (() => (globalThis.performance ? performance.now() : Date.now()));
   const raf = deps.raf || ((fn) => globalThis.requestAnimationFrame(fn));
   const caf = deps.caf || ((h) => globalThis.cancelAnimationFrame(h));
-  const setIv = deps.setInterval || ((fn, ms) => globalThis.setInterval(fn, ms));
-  const clearIv = deps.clearInterval || ((h) => globalThis.clearInterval(h));
+  const setIv = deps.setInterval || ((/** @type {any} */ fn, /** @type {any} */ ms) => globalThis.setInterval(fn, ms));
+  const clearIv = deps.clearInterval || ((/** @type {any} */ h) => globalThis.clearInterval(h));
   const doc = deps.doc !== undefined ? deps.doc : (typeof document !== 'undefined' ? document : null);
   const loadSim = deps.loadSim || (() => loadBrowserSim());
   /**
@@ -241,11 +242,11 @@ export function createBattleRunner(deps) {
    */
   const seasonNow = deps.season || (() => `${appData.season()}|${appData.borrowKey?.() ?? ''}`);
   /** The season the loaded sim (simP) was built from. */
-  let simSeason = null;
+  /** @type {any} */ let simSeason = null;
   const logger = deps.logger || SIM_LOGGER;
 
   const listeners = new Map();
-  const emit = (type, payload) => {
+  const emit = (/** @type {any} */ type, /** @type {any} */ payload) => {
     const set = listeners.get(type);
     if (!set) return;
     for (const fn of [...set]) {
@@ -257,15 +258,15 @@ export function createBattleRunner(deps) {
   const entries = new Map();
   /** @type {Map<string, any>} battleId → entry of a b.start still being prepared (prepare(); `battle` null until built) */
   const pending = new Map();
-  let cur = null;              // entry on screen
-  let simP = null;
+  /** @type {any} */ let cur = null;              // entry on screen
+  /** @type {any} */ let simP = null;
   let startSeq = 0;            // counts the b.starts: the latest one is the view asked for
-  let loading = null;          // the pending entry of the latest b.start (shown when prepared)
-  let rafH = null;
-  let ivH = null;
-  let lastPool = null;
+  /** @type {any} */ let loading = null;          // the pending entry of the latest b.start (shown when prepared)
+  /** @type {any} */ let rafH = null;
+  /** @type {any} */ let ivH = null;
+  /** @type {any} */ let lastPool = null;
   /** solo pause: the runner clock's instant when m.public.paused turned true (null while running) */
-  let pausedAt = null;
+  /** @type {any} */ let pausedAt = null;
   /** a normal field's leak count (or a battle's bond layers) changed since the last publishState() */
   let leaksDirty = false;
   const stats = { ticks: 0, stepMs: 0, maxFrameMs: 0, catchups: 0, errors: 0, battles: 0, frames: 0 };
@@ -275,7 +276,7 @@ export function createBattleRunner(deps) {
   const hidden = () => !!(doc && doc.hidden);
   /** The battle clock: frozen at the pause instant while the solo battle is paused. */
   const clock = () => (pausedAt != null ? pausedAt : now());
-  const bossLike = (e) => e.kind === 'boss' || e.kind === 'hidden';
+  const bossLike = (/** @type {any} */ e) => e.kind === 'boss' || e.kind === 'hidden';
 
   function ensureSim() {
     // a room of another season (data.js setSeason) or borrowing other records (setBorrow) loads the sim again
@@ -290,6 +291,7 @@ export function createBattleRunner(deps) {
 
   /** Counted leaks so far of every normal field simulated here: { [fieldId]: n } (user playtest #3 item 2). */
   function leakMap() {
+    /** @type {Record<string, any>} */
     const out = {};
     for (const e of entries.values()) if (e.kind === 'normal' && e.fieldId) out[e.fieldId] = e.leaks;
     return out;
@@ -300,6 +302,7 @@ export function createBattleRunner(deps) {
    * whose layers grew in this round's battle, as absolute counts (the battle's live copy, ≤ BOND_LAYER_CAP).
    */
   function layerMap(key = 'live') {
+    /** @type {Record<string, any>} */
     const out = {};
     for (const e of entries.values()) {
       if (!e[key]) continue;
@@ -347,7 +350,7 @@ export function createBattleRunner(deps) {
    * 联防: each leaker's enemies still standing (/sim/spec.js uniteLeft) whenever a kill, a leak, a spawn or the end
    * changed them.
    */
-  function noteLeaks(e) {
+  function noteLeaks(/** @type {any} */ e) {
     noteLayers(e);
     if (e.kind === 'unite') { noteUniteLeft(e); return; }
     if (e.kind !== 'normal') return;
@@ -360,7 +363,7 @@ export function createBattleRunner(deps) {
     if (n !== e.leaks) { e.leaks = n; leaksDirty = true; }
   }
 
-  function noteUniteLeft(e) {
+  function noteUniteLeft(/** @type {any} */ e) {
     const b = e.battle;
     const mark = uniteLeftMark(b);
     if (mark === e.leakMark) return;
@@ -376,11 +379,13 @@ export function createBattleRunner(deps) {
    * count, and the 临时层数 part of each such count (`e.temp`, same shape: Battle.tempLayerGainsOf). Nothing to do when
    * the battle disables gains (联防; boss rounds outside 规程: shared/seasons.js bossLayerGains).
    */
-  function noteLayers(e) {
+  function noteLayers(/** @type {any} */ e) {
     const b = e.battle;
     if (!b || (b.flags && b.flags.layerGainsEnabled === false) || typeof b.getPlayer !== 'function') return;
     let sum = 0;
+    /** @type {Record<string, any> | null} */
     let live = null;
+    /** @type {Record<string, any> | null} */
     let temp = null;
     for (const sp of Array.isArray(e.spec.players) ? e.spec.players : []) {
       const ps = sp && sp.playerId != null ? b.getPlayer(sp.playerId) : null;
@@ -414,7 +419,7 @@ export function createBattleRunner(deps) {
    * authority has simulated (b.pool `gt`) plus a lead: REPLICA_LEAD_S, growing at the field's speed since that report
    * arrived, at most REPLICA_LEAD_MAX_S.
    */
-  const targetTick = (e, t) => {
+  const targetTick = (/** @type {any} */ e, /** @type {any} */ t) => {
     const k = Math.max(0, Math.floor((((t - e.t0) / 1000) * e.speed) / TICK + 1e-9));
     if (e.authoritative || e.authGt == null) return k;
     const lead = Math.min(REPLICA_LEAD_MAX_S, REPLICA_LEAD_S + Math.max(0, ((t - e.authGtAt) / 1000) * e.speed));
@@ -422,7 +427,7 @@ export function createBattleRunner(deps) {
   };
 
   /** A b.pool's `gt` for the entry's field: a newer authority time moves the cap; a field without one (server-run) lifts it. */
-  function noteAuthGt(e, msg) {
+  function noteAuthGt(/** @type {any} */ e, /** @type {any} */ msg) {
     if (!msg || !msg.gt || typeof msg.gt !== 'object') return;
     const v = Number(msg.gt[e.fieldId]);
     if (!Number.isFinite(v)) { e.authGt = null; return; }
@@ -433,7 +438,7 @@ export function createBattleRunner(deps) {
    * Step `n` ticks. `sliced` (a catch-up frame, a hidden-tab step): every EV_SLICE ticks the events drained so far go to
    * `e.slices` as { gt, ev } with that game time, for emitFrame / hold.
    */
-  function stepEntry(e, n, sliced = false) {
+  function stepEntry(/** @type {any} */ e, /** @type {any} */ n, sliced = false) {
     const b = e.battle;
     const t = now();
     let k = 0;
@@ -457,14 +462,14 @@ export function createBattleRunner(deps) {
     return dt;
   }
 
-  function frameOf(e) {
+  function frameOf(/** @type {any} */ e) {
     const snap = e.battle.snapshot();
     const { t: gt, ...rest } = snap || {};
     return { ...rest, t: 'b.snap', fieldId: e.fieldId, gt: Number.isFinite(gt) ? gt : 0 };
   }
 
   /** The steps' events, each batch with its own game time: the sliced ones (stepEntry), then the rest at `gt`. */
-  function drainSlices(e, gt) {
+  function drainSlices(/** @type {any} */ e, /** @type {any} */ gt) {
     let ev = [];
     try { ev = e.battle.drainEvents() || []; } catch { ev = []; }
     const out = e.slices;
@@ -473,13 +478,14 @@ export function createBattleRunner(deps) {
     return out;
   }
 
-  function emitFrame(e, catchingUp) {
+  function emitFrame(/** @type {any} */ e, /** @type {any} */ catchingUp) {
     // the hidden-tab backlog overflowed: the view starts again from the field meta (UnitInfo carries every unit's form)
     if (e.stale) { show(e); return; }
     const gt = Number(e.battle.time) || 0;
     // the hidden-tab backlog first, batched by the game time each tuple was drained at (a tuple put there by hand: now)
     const held = e.held;
     if (held.length) e.held = [];
+    /** @type {any} */
     let run = null;
     for (const x of held) {
       const at = heldAt.get(x) ?? gt;
@@ -499,7 +505,7 @@ export function createBattleRunner(deps) {
    * rendered frame (keepsState, ≤ HELD_MAX — beyond that it is re-entered from the field meta); any other battle starts
    * from its field meta when shown (show()), so its events go.
    */
-  function hold(e) {
+  function hold(/** @type {any} */ e) {
     const batches = drainSlices(e, Number(e.battle.time) || 0);
     if (e !== cur || e.stale) return;
     for (const s of batches) for (const x of s.ev) if (keepsState(x)) { e.held.push(x); heldAt.set(x, s.gt); }
@@ -518,13 +524,14 @@ export function createBattleRunner(deps) {
     if (e && e.battle.finished && (e.held.length || e.stale)) emitFrame(e, false);
   }
 
-  function progress(e, force = false) {
+  function progress(/** @type {any} */ e, force = false) {
     if (!e.authoritative || e.resultSent || !net) return;
     const t = now();
     const every = bossLike(e) ? 250 : 1000;
     if (!force && t - e.lastProgressAt < every) return;
     e.lastProgressAt = t;
     const p = e.sim.spec.battleProgress(e.battle);
+    /** @type {any} */
     const msg = { battleId: e.battleId, gt: Math.min(1e5, p.gt), killed: Math.min(p.killed, p.total), total: Math.min(1e5, p.total), done: !!p.done };
     // the HUD capsule's numerator of this field (shared/protocol.js b.progress `resolved`): the field's own scheduled
     // enemies knocked out or leaked. Sent only when the battle reports one (Battle.resolved) — an absent field leaves
@@ -538,6 +545,7 @@ export function createBattleRunner(deps) {
       if (p.leaksBy) msg.leaksBy = p.leaksBy;
       msg.bossDmg = pool && Number.isFinite(pool.cum) ? pool.cum : 0;
       if (pool && pool.byPlayer) {
+        /** @type {Record<string, any>} */
         const by = {};
         for (const pid of Object.keys(pool.byPlayer).slice(0, RESULT_LIMITS.players)) by[pid] = pool.byPlayer[pid];
         msg.by = by;
@@ -557,7 +565,7 @@ export function createBattleRunner(deps) {
     try { net.send('b.progress', msg); } catch { /* offline */ }
   }
 
-  function finished(e) {
+  function finished(/** @type {any} */ e) {
     if (e.done) return;
     e.done = true;
     noteLeaks(e);
@@ -588,11 +596,13 @@ export function createBattleRunner(deps) {
    * once the server answered (ok, or a refusal — final), 'undelivered' when it never got there (LOST_RESULT_CODES): kept
    * for redeliver() (session back online) and for an authoritative b.start of the finished battle.
    */
-  function deliver(e) {
+  function deliver(/** @type {any} */ e) {
     if (!net || !e.result || e.delivery === 'pending') return;
     e.delivery = 'pending';
+    /** @type {any} */
     const msg = { battleId: e.battleId, result: e.result };
-    const send = (tries) => {
+    /** @type {(tries: any) => Promise<any>} */
+    const send = (/** @type {any} */ tries) => {
       let req;
       try { req = net.request('b.result', msg, { timeout: 15000 }); } catch (err) { req = Promise.reject(err); }
       return Promise.resolve(req).then(() => { e.delivery = 'delivered'; }, (err) => {
@@ -618,7 +628,7 @@ export function createBattleRunner(deps) {
   }
 
   /** Solo pause (m.public.paused): freeze / resume every local battle clock. */
-  function setPaused(on) {
+  function setPaused(/** @type {any} */ on) {
     if (on === (pausedAt != null)) return;
     if (on) {
       pausedAt = now();
@@ -633,7 +643,7 @@ export function createBattleRunner(deps) {
   }
 
   /** Advance one entry to its clock (bounded); render it when it is on screen. */
-  function advance(e, t, render) {
+  function advance(/** @type {any} */ e, /** @type {any} */ t, /** @type {any} */ render) {
     if (e.battle.finished) { if (!e.done) finished(e); return; }
     const behind = targetTick(e, t) - (e.battle.tickCount || 0);
     if (behind <= 0) return;
@@ -650,7 +660,7 @@ export function createBattleRunner(deps) {
     if (e.battle.finished) finished(e);
   }
 
-  function running(e) { return !e.battle.finished && (e === cur || (e.authoritative && !e.resultSent)); }
+  function running(/** @type {any} */ e) { return !e.battle.finished && (e === cur || (e.authoritative && !e.resultSent)); }
 
   function frame() {
     rafH = null;
@@ -678,7 +688,7 @@ export function createBattleRunner(deps) {
   }
 
   /** Put an entry on screen: field meta into the store (the game screen enters it), then its current frame. */
-  function show(e) {
+  function show(/** @type {any} */ e) {
     cur = e;
     e.held = [];
     e.slices = [];
@@ -692,7 +702,7 @@ export function createBattleRunner(deps) {
       effects: spectateEffects(e.spec, e.members),
       // which half each player holds (联防: the first helper takes the right half; boss pairs: L / R)
       // (the 8-player mode's wide 联防 field: H0…H3 from the left — battle/observe.js halfSide)
-      sides: Object.fromEntries((e.spec.players || []).filter((p) => p && p.playerId).map((p) => [p.playerId, halfSide(p, e.spec.kind === 'unite' ? e.spec.wide : 0)])),
+      sides: Object.fromEntries((e.spec.players || []).filter((/** @type {any} */ p) => p && p.playerId).map((/** @type {any} */ p) => [p.playerId, halfSide(p, e.spec.kind === 'unite' ? e.spec.wide : 0)])),
       // the route preview cursors [{ t, motion, pts }] (render/fxroute.js createBattleCursors)
       routeCursors: Array.isArray(e.cursors) ? e.cursors : [],
       ...(e.bench && e.bench.length ? { bench: e.bench } : null),
@@ -714,9 +724,9 @@ export function createBattleRunner(deps) {
     }
   }
 
-  function yieldFrame() { return new Promise((resolve) => { if (hidden()) setTimeout(resolve, 0); else raf(() => resolve()); }); }
+  function yieldFrame() { return new Promise(/** @param {(v?: any) => void} resolve */ (resolve) => { if (hidden()) setTimeout(resolve, 0); else raf(() => resolve()); }); }
 
-  async function onStart(msg) {
+  async function onStart(/** @type {any} */ msg) {
     if (!msg || typeof msg !== 'object' || !msg.spec || typeof msg.battleId !== 'string') return;
     const speed = Number(msg.speed) > 0 ? Number(msg.speed) : 2;
     const seq = ++startSeq;
@@ -751,6 +761,7 @@ export function createBattleRunner(deps) {
       else { publishState(); schedule(); }
       return;
     }
+    /** @type {any} */
     const e = {
       battleId: msg.battleId, fieldId: msg.fieldId || msg.spec.fieldId, kind: msg.kind || msg.spec.kind, spec: msg.spec,
       // built by prepare(); `seq` = its latest b.start, `elapsed` = the field clock to start from, `endReason` = the first
@@ -759,7 +770,7 @@ export function createBattleRunner(deps) {
       authoritative: !!msg.authoritative, watch: !!msg.watch, own: !msg.watch, speed,
       // the players' 整备区 standing still on the bench row (规程: b.start `bench`, server views.js battleBench)
       bench: Array.isArray(msg.bench) ? msg.bench : null,
-      members: (msg.spec.players || []).map((p) => p && p.playerId).filter(Boolean),
+      members: (msg.spec.players || []).map((/** @type {any} */ p) => p && p.playerId).filter(Boolean),
       t0: null, lastProgressAt: -Infinity, topSent: null, done: false, resultSent: false,
       // a boss replica's cap: the authority's simulated game time (b.pool `gt`) and the clock it arrived at (targetTick)
       authGt: null, authGtAt: 0,
@@ -790,7 +801,7 @@ export function createBattleRunner(deps) {
    * (or a new b.start replaced it after a clear) and when a b.start of another field superseded it — unless it is an
    * authority (it must finish and report) or the server already ended it (switching back shows the end).
    */
-  async function prepare(e) {
+  async function prepare(/** @type {any} */ e) {
     const wanted = () => pending.get(e.battleId) === e && (e.seq === startSeq || e.authoritative || !!e.endReason);
     try {
       let sim;
@@ -846,7 +857,7 @@ export function createBattleRunner(deps) {
     }
   }
 
-  function onPool(msg) {
+  function onPool(/** @type {any} */ msg) {
     if (!msg || typeof msg !== 'object') return;
     lastPool = msg;
     // a pending battle not built yet takes lastPool when it is built
@@ -858,7 +869,7 @@ export function createBattleRunner(deps) {
     emit('pool', msg);
   }
 
-  function onEnd(msg) {
+  function onEnd(/** @type {any} */ msg) {
     const e = msg && (entries.get(msg.battleId) || pending.get(msg.battleId));
     if (!e) return;
     if (msg.reason === 'takeover') {
@@ -874,7 +885,7 @@ export function createBattleRunner(deps) {
   }
 
   /** End an entry's battle with its b.end reason; an authority reports it at once. */
-  function endBattle(e) {
+  function endBattle(/** @type {any} */ e) {
     if (!e.battle.finished) {
       try { e.battle.forceEnd(e.endReason); } catch { /* ignore */ }
     }
@@ -902,18 +913,19 @@ export function createBattleRunner(deps) {
     publishState();
   }
 
+  /** @type {any[]} */
   const offs = [];
   if (net && typeof net.on === 'function') {
-    offs.push(net.on('b.start', (m) => { onStart(m).catch((err) => console.warn('[runner] b.start failed', err)); }));
+    offs.push(net.on('b.start', (/** @type {any} */ m) => { onStart(m).catch((err) => console.warn('[runner] b.start failed', err)); }));
     offs.push(net.on('b.pool', onPool));
     offs.push(net.on('b.end', onEnd));
     // the session is back (reconnect / resume): results lost with the old socket go out again
-    offs.push(net.on('status', (st) => { if (st && st.status === 'online') redeliver(); }));
+    offs.push(net.on('status', (/** @type {any} */ st) => { if (st && st.status === 'online') redeliver(); }));
   }
   // phase changes: combat fields live until the next prep; leaving the match drops everything
-  let lastPhase = null;
+  /** @type {any} */ let lastPhase = null;
   if (store && typeof store.subscribe === 'function') {
-    offs.push(store.subscribe((s) => {
+    offs.push(store.subscribe((/** @type {any} */ s) => {
       const pub = s && s.match && s.match.public ? s.match.public : null;
       // solo pause (DESIGN §14): the local battle clocks follow m.public.paused
       setPaused(!!(pub && pub.paused));
@@ -932,7 +944,7 @@ export function createBattleRunner(deps) {
   }
 
   return {
-    on(type, fn) {
+    on(/** @type {any} */ type, /** @type {any} */ fn) {
       if (typeof fn !== 'function') return () => {};
       if (!listeners.has(type)) listeners.set(type, new Set());
       listeners.get(type).add(fn);
@@ -975,7 +987,7 @@ export function createBattleRunner(deps) {
       const e = cur;
       if (!e || !Number.isInteger(uid) || (fieldId != null && e.fieldId !== fieldId)) return null;
       const list = Array.isArray(e.battle.allyUnits) ? e.battle.allyUnits : [];
-      const u = list.find((x) => x && x.uid === uid && x.ownerId === ownerId);
+      const u = list.find((/** @type {any} */ x) => x && x.uid === uid && x.ownerId === ownerId);
       return u && Number.isInteger(u.id) ? u.id : null;
     },
     /**
@@ -989,8 +1001,8 @@ export function createBattleRunner(deps) {
       const e = cur;
       if (!e || typeof ownerId !== 'string' || !ownerId || (fieldId != null && e.fieldId !== fieldId)) return [];
       const list = Array.isArray(e.battle.allyUnits) ? e.battle.allyUnits : [];
-      return list.filter((u) => u && u.kind === 'op' && u.ownerId === ownerId && typeof u.defId === 'string')
-        .map((u) => {
+      return list.filter((/** @type {any} */ u) => u && u.kind === 'op' && u.ownerId === ownerId && typeof u.defId === 'string')
+        .map((/** @type {any} */ u) => {
           const o = Array.isArray(u.items) && u.items.length ? { kind: 'op', ownerId, defId: u.defId, items: [...u.items] } : { kind: 'op', ownerId, defId: u.defId };
           const si = u.def && typeof u.def.standInFor === 'string' ? u.def.standInFor : null;
           const diy = u.def?.diyFor ? u.def.loadout?.diy : null;
@@ -1007,7 +1019,7 @@ export function createBattleRunner(deps) {
     ownDamage(ownerId) {
       let m = null;
       for (const e of entries.values()) if (e.own && e.kind !== 'unite' && e.battle && (!m || e.seq > m.seq)) m = e;
-      const ps = m && Array.isArray(m.battle.players) ? m.battle.players.find((p) => p && p.playerId === ownerId) : null;
+      const ps = m && Array.isArray(m.battle.players) ? m.battle.players.find((/** @type {any} */ p) => p && p.playerId === ownerId) : null;
       if (!ps) return null;
       return { battleId: m.battleId, kind: m.kind, done: !!m.done, units: liveUnitDamage(ps.units) };
     },
@@ -1026,5 +1038,5 @@ export function createBattleRunner(deps) {
 export const battleRunner = typeof window !== 'undefined' && typeof document !== 'undefined'
   ? createBattleRunner({ net: appNet, store: appStore })
   : null;
-if (battleRunner) globalThis.__SP_RUNNER__ = battleRunner; // dev / E2E introspection
-if (battleRunner) setBattleSource(() => battleRunner.currentBattle());
+if (battleRunner) /** @type {any} */ (globalThis).__SP_RUNNER__ = battleRunner; // dev / E2E introspection
+if (battleRunner) setBattleSource(() => /** @type {any} */ (battleRunner.currentBattle()));

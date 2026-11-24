@@ -14,7 +14,9 @@
     "server/http/**/*.js",
     "public/js/i18n/**/*.js",
     "public/js/screens/game/**/*.js",
-    "public/js/render/app/**/*.js"
+    "public/js/render/app/**/*.js",
+    "public/js/battle/**/*.js",
+    "public/js/debug/**/*.js"
   ],
   "exclude": []
 }

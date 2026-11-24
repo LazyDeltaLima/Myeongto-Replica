@@ -17,16 +17,19 @@ import { t } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 import { wideHalves } from '../../../shared/wideField.js';
 
+/** @param {any} v @returns {boolean} */
 const isObj = (v) => !!v && typeof v === 'object';
 const COMBAT = new Set([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
 
-/** The server runs client-side combat (m.public.combatMode). */
+/** The server runs client-side combat (m.public.combatMode). @param {any} pub */
 export const isClientCombat = (pub) => !!pub && pub.combatMode === 'client';
 
+/** @param {any} pub @returns {any[]} */
 const players = (pub) => (Array.isArray(pub?.players) ? pub.players.filter(isObj) : []);
+/** @param {any} pub @returns {any[]} */
 const fields = (pub) => (Array.isArray(pub?.fields) ? pub.fields.filter(isObj) : []);
 
-/** The field listing a player, or null. */
+/** The field listing a player, or null. @param {any} pub @param {any} playerId */
 export function fieldOf(pub, playerId) {
   return fields(pub).find((f) => Array.isArray(f.players) && f.players.includes(playerId)) || null;
 }
@@ -103,7 +106,7 @@ export function followedScout({ field = null, watching = null, alive = true, spe
   return fid;
 }
 
-/** A normal field's progress row: { playerId, name, killed, resolved, total, done, isBot }. */
+/** A normal field's progress row: { playerId, name, killed, resolved, total, done, isBot }. @param {any} pub @param {any} f @param {string|null} [name] */
 function progressRow(pub, f, name = null) {
   const pid = f.players[0];
   const p = players(pub).find((x) => x.playerId === pid);
@@ -117,8 +120,9 @@ function progressRow(pub, f, name = null) {
   };
 }
 
-/** Teammates' progress for the waiting pill: [{ playerId, name, killed, resolved, total, done, isBot }]. */
+/** Teammates' progress for the waiting pill: [{ playerId, name, killed, resolved, total, done, isBot }]. @param {any} pub @param {any} myId */
 export function teammateProgress(pub, myId) {
+  /** @type {ReturnType<typeof progressRow>[]} */
   const out = [];
   for (const f of fields(pub)) {
     if (f.kind !== 'normal' || !Array.isArray(f.players)) continue;
@@ -154,12 +158,13 @@ export function halfSide(p, wide = 0) {
   return p?.side === 'R' || Number(p?.colOffset) >= 8 ? 'R' : 'L';
 }
 
-/** Whether `layer` is a half of a field (`L`, `R`, a wide field's `H0`…), not 全景. */
+/** Whether `layer` is a half of a field (`L`, `R`, a wide field's `H0`…), not 全景. @param {any} layer */
 export const isHalfLayer = (layer) => layer === 'L' || layer === 'R' || /^H\d$/.test(String(layer));
 
-/** Side of each player of a local field meta (`sides` from the runner, else seat order). */
+/** Side of each player of a local field meta (`sides` from the runner, else seat order). @param {any} field @returns {Record<string, string>} */
 export function sidesOf(field) {
   if (isObj(field?.sides)) return field.sides;
+  /** @type {string[]} */
   const ps = Array.isArray(field?.players) ? field.players : [];
   return Object.fromEntries(ps.map((pid, i) => [pid, i === 1 ? 'R' : 'L']));
 }
@@ -168,16 +173,21 @@ export function sidesOf(field) {
  * The ‹ › camera layers of a 联防 / boss field: LEFT half, 全景, RIGHT half with captions "你自己" / "👁 name" /
  * "全景" / "无人在家"; the 8-player mode's wide 联防 field has one per half from the left with 全景 in the middle
  * (H0 H1 全景 H2 H3 / H0 全景 H1 H2). Empty for normal fields and single-player boss fields.
+ * @param {any} field @param {any} pub @param {any} myId
+ * @returns {{ key: string, label: string, self: boolean, watch: boolean, kind: string, pid: string|null }[]}
  */
 export function cameraLayers(field, pub, myId) {
   if (!isObj(field) || (field.kind !== 'unite' && field.kind !== 'boss' && field.kind !== 'hidden')) return [];
   const sides = sidesOf(field);
+  /** @param {string} side */
   const at = (side) => Object.keys(sides).find((pid) => sides[pid] === side) || null;
+  /** @param {string|null} pid */
   const label = (pid) => (!pid ? t('无人在家') : pid === myId ? t('你自己') : nameOf(pub, pid));
   const left = at('L');
   const right = at('R');
   if ((field.kind === 'boss' || field.kind === 'hidden') && (!left || !right)) return [];
   // `kind` / `pid`: the official panel_ob_info part (ui/battleArt.js ObInfo) — ob_self / ob_other / ob_empty / ob_overview
+  /** @param {string|null} pid */
   const kind = (pid) => (!pid ? 'empty' : pid === myId ? 'self' : 'other');
   const n = field.kind === 'unite' ? wideHalves(field.wide) : 0;
   if (n) {
@@ -195,7 +205,7 @@ export function cameraLayers(field, pub, myId) {
   ];
 }
 
-/** Camera options of a layer for view.setCamera(kind, …). */
+/** Camera options of a layer for view.setCamera(kind, …). @param {any} field @param {any} layer @param {string} [mySide] @returns {any} */
 export function layerCamera(field, layer, mySide = 'L') {
   const rect = field?.rect;
   if (layer === 'L' || layer === 'R') return { rect, side: layer, half: true };
@@ -216,11 +226,13 @@ export function layerCamera(field, layer, mySide = 'L') {
  * everything else through effects.json; `effectIconUrl`'s per-kind fallbacks cover the missing icon ids. Undefined
  * where whose column would be ambiguous (联防 / boss pairs) or there are no effects data (a server-run field's meta
  * comes from the server without effects — the column stays empty rather than showing one's own).
+ * @param {any} spec @param {any} members @returns {any[]|undefined}
  */
 export function spectateEffects(spec, members) {
   if (!Array.isArray(members) || members.length !== 1 || !isObj(spec)) return undefined;
-  const p = Array.isArray(spec.players) ? spec.players.find((x) => isObj(x) && x.playerId === members[0]) : null;
+  const p = Array.isArray(spec.players) ? spec.players.find((/** @type {any} */ x) => isObj(x) && x.playerId === members[0]) : null;
   if (!p || !Array.isArray(p.playerEffects)) return undefined;
+  /** @type {any[]} */
   const out = [];
   for (const pe of p.playerEffects) {
     if (!isObj(pe) || typeof pe.id !== 'string' || !pe.id) continue;

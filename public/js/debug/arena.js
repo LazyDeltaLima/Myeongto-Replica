@@ -34,6 +34,7 @@ async function loadSim() {
     import('/sim/Battle.js'), import('/sim/simdata.js'), import('/sim/content/support/index.js'), import('/sim/dir.js')]);
   // the season the page reads (debug.js ?season=): /data/s/<season>/<file> is its own file, else the default's
   const dir = data.season() === DEFAULT_SEASON ? '/data/' : `/data/s/${data.season()}/`;
+  /** @param {string} n */
   const get = (n) => fetch(`${dir}${n}.json`, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   const files = await Promise.all(SIM_DATA_FILES.map(get));
   const missing = SIM_DATA_FILES.filter((n, i) => !files[i]);
@@ -45,11 +46,17 @@ async function loadSim() {
 }
 
 /** Sim content errors: kept for the status line, never thrown. */
+/** @param {string[]} errors */
 function makeLogger(errors) {
+  /** @param {...any} a */
   const keep = (...a) => { errors.push(a.map(String).join(' ')); if (errors.length > 50) errors.shift(); console.warn('[sim]', ...a); };
   return Object.freeze({ error: keep, warn: keep, info() {}, debug() {} });
 }
 
+/**
+ * @param {any} host
+ * @param {{ onEvents?: Function, onRestart?: Function, onKeepOp?: Function }} [hooks]
+ */
 export async function createArena(host, hooks = {}) {
   await data.loadAll(VIEW_FILES);
   assets.seed?.(data.get('assets'));
@@ -62,9 +69,13 @@ export async function createArena(host, hooks = {}) {
 
   // heard: the audio manager knows this battle's units — it drops every event (spawns too) until the first gesture
   // unlocks it, so the units on the field are handed over then (audio.setFieldUnits)
-  let battle = null, cfg = null, stageId = null, runs = 0, nextHurt = 0, heard = false;
+  /** @type {any} */ let battle = null;
+  /** @type {any} */ let cfg = null;
+  /** @type {any} */ let stageId = null;
+  let runs = 0, nextHurt = 0, heard = false;
   let kept = false;   // keepOp healed the operator in the steps since the last emit
   let paused = false, speed = 1, acc = 0, last = 0, raf = 0, destroyed = false, range = false, rangeKey = '';
+  /** @type {string[]} */
   const errors = [];
   const logger = makeLogger(errors);
   const perf = { frameMs: 0, ticks: 0 };
@@ -87,6 +98,7 @@ export async function createArena(host, hooks = {}) {
     if (range) syncRange();
   }
 
+  /** @param {number} n */
   function steps(n) {
     const t0 = performance.now();
     for (let i = 0; i < n; i++) {
@@ -99,6 +111,7 @@ export async function createArena(host, hooks = {}) {
     perf.frameMs = perf.frameMs * 0.9 + (performance.now() - t0) * 0.1;
   }
 
+  /** @param {number} now */
   function frame(now) {
     raf = 0;
     if (destroyed) return;
@@ -121,6 +134,7 @@ export async function createArena(host, hooks = {}) {
     view.highlightTiles(tiles.length ? tiles : [], 'range');
   }
 
+  /** @param {any} next */
   function start(next) {
     cfg = { ...next };
     const stage = arenaStage(cfg.terrain, data.get('stages'), cfg.crates);
@@ -155,19 +169,24 @@ export async function createArena(host, hooks = {}) {
     bags: () => arenaBags(battle),
     errors,
     get paused() { return paused; },
+    /** @param {any} v */
     setPaused(v) {
       paused = !!v; acc = 0;
       // the sounds stop with the battle (a skill's loop would play on)
       try { if (audio.ctx) { if (paused) audio.ctx.suspend(); else audio.ctx.resume(); } } catch { /* ignore */ }
     },
     get speed() { return speed; },
+    /** @param {any} x */
     setSpeed(x) { speed = Number(x) > 0 ? Number(x) : 1; view.setLocalFeed({ on: true, speed }); },
     /** Run `seconds` of game time now (paused stepping). */
     stepOnce(seconds = 0.1) { if (!battle) return; steps(Math.max(1, Math.round(seconds / TICK))); emit(); },
     fillSp() { const ok = fillSp(arenaOp(battle)); if (ok) emit(); return ok; },
     castNow() { const ok = castNow(arenaOp(battle)); if (ok) emit(); return ok; },
+    /** @param {any} key @param {any} unitId */
     playFx(key, unitId) { return view.debugFx ? view.debugFx(key, unitId) : Promise.resolve(false); },
+    /** @param {any} on */
     showRange(on) { range = !!on; rangeKey = ''; if (range && battle) syncRange(); else view.highlightTiles(null); },
+    /** @param {any} q */
     setQuality(q) { view.setSettings({ quality: q }); },
     stats: () => ({ ...perf, view: view.stats ? view.stats() : null }),
     destroy() { destroyed = true; if (raf) cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); view.destroy(); },

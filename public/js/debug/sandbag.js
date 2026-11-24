@@ -18,6 +18,7 @@
 
 /** The 7×7 island (inclusive tile rect; row 0 is the bottom row). Its centre (10, 5) is the old debug patch's origin. */
 export const ARENA = Object.freeze({ r0: 7, r1: 13, c0: 2, c1: 8 });
+/** @param {number} r @param {number} c */
 export const inArena = (r, c) => r >= ARENA.r0 && r <= ARENA.r1 && c >= ARENA.c0 && c <= ARENA.c1;
 /** Terrain presets of the island: every tile a road, or two raised rows (gold-framed 高台, ranged-only) across it. */
 export const TERRAINS = Object.freeze({ flat: '평지', high: '고지대 섞기' });
@@ -86,11 +87,12 @@ export function arenaStage(terrain = 'flat', stages = null, crates = []) {
     for (let c = 0; c < COLS; c++) line += !inArena(r, c) ? '#' : terrain === 'high' && HIGH_ROWS.has(r) ? 'h' : 'r';
     rows.push(line);
   }
+  /** @type {Record<string, any>} */
   const tiles = {};
   let crate = null;
   for (const st of Object.values(stages && typeof stages === 'object' ? stages : {})) {
     for (const g of ['#', 'r', 'h']) if (!tiles[g] && st && st.tiles && st.tiles[g]) tiles[g] = st.tiles[g];
-    crate ||= (st && Array.isArray(st.devices) && st.devices.find((d) => d && d.key === CRATE_KEY)) || null;
+    crate ||= (st && Array.isArray(st.devices) && st.devices.find((/** @type {any} */ d) => d && d.key === CRATE_KEY)) || null;
   }
   const at = (Array.isArray(crates) ? crates : []).filter((p) => Array.isArray(p) && inArena(p[0], p[1]));
   const devices = crate ? at.map(([r, c], i) => ({ ...crate, alias: `${CRATE_KEY}#d${i + 1}`, pos: [r, c], rangeTiles: [[r, c]], hidden: false, active: true })) : [];
@@ -111,6 +113,7 @@ export function arenaStage(terrain = 'flat', stages = null, crates = []) {
  */
 export function sandbagRecord(raw, bag = {}) {
   const st = (raw && raw.stats) || {};
+  /** @param {any} v @param {number} d */
   const n = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v != null ? Math.max(0, Number(v)) : d);
   const attack = !!bag.attack;
   const atk = n(bag.atk, 0) || (attack ? n(st.atk, 0) || 1 : 0);
@@ -132,6 +135,7 @@ export function sandbagRecord(raw, bag = {}) {
 }
 
 /** A sandbag's route: from its tile toward an island corner it never reaches (move speed 0; start ≠ end, no leak). */
+/** @param {number} row @param {number} col @param {string} motion */
 function bagRoute(row, col, motion) {
   const end = row === ARENA.r0 && col === ARENA.c0 ? [ARENA.r1, ARENA.c1] : [ARENA.r0, ARENA.c0];
   return { motion: motion === 'FLY' ? 'FLY' : 'WALK', start: [row, col], end, checkpoints: [] };
@@ -154,6 +158,7 @@ export function createSandbagBattle(sim, baseDs, cfg) {
   if (!raw) throw new Error(`unknown enemy ${cfg.enemyKey}`);
   const ds = new sim.DataSource({ enemies: { [raw.key]: sandbagRecord(raw, cfg.bag) } }, baseDs);
   const op = cfg.op || DEFAULT_OP;
+  /** @type {any} */
   const unit = { uid: 1, kind: 'chess', chessId: cfg.chessId, row: op.row, col: op.col, dir: cfg.dir || 'RIGHT' };
   if (Number.isInteger(cfg.skillIndex)) unit.skillIndex = cfg.skillIndex;
   if (typeof cfg.moduleId === 'string' && cfg.moduleId) unit.moduleId = cfg.moduleId;
@@ -162,6 +167,7 @@ export function createSandbagBattle(sim, baseDs, cfg) {
   // a scene's blockers (SCENES): more operators of the same player, after the operator (arenaOp stays the first)
   const blockers = (cfg.blockers || []).filter((x) => x && typeof x.chessId === 'string' && inArena(x.row, x.col) && !(x.row === op.row && x.col === op.col));
   // the operator's hand-placed pieces (tokens.json `placeable`): board token pieces owned by it (PlayerState battleInput)
+  /** @param {number} r @param {number} c */
   const busy = (r, c) => (r === op.row && c === op.col) || blockers.some((x) => x.row === r && x.col === c);
   const tokens = (cfg.tokens || []).filter((t) => t && typeof t.tokenId === 'string' && inArena(t.row, t.col) && !busy(t.row, t.col))
     .map((t, i) => ({ uid: 2 + i, kind: 'token', tokenId: t.tokenId, row: t.row, col: t.col, dir: cfg.dir || 'RIGHT', ownerUid: 1 }));
@@ -179,8 +185,8 @@ export function createSandbagBattle(sim, baseDs, cfg) {
     // no battle-start operation cooldown (a fresh skill may go at once), no bond layers
     flags: { bornTime: 0, layerGainsEnabled: false },
     data: sim.withUnitLoadouts(ds, players), content: 'full', autoFinish: false, quiet: true, logger: cfg.logger,
-    setup: (b) => {
-      b.on('spGain', (ctx) => { if (ctx.unit && ctx.unit.side === 'ally' && !spAuto()) ctx.amount = 0; });
+    setup: (/** @type {any} */ b) => {
+      b.on('spGain', (/** @type {any} */ ctx) => { if (ctx.unit && ctx.unit.side === 'ally' && !spAuto()) ctx.amount = 0; });
     },
   });
 }
@@ -189,11 +195,13 @@ export function createSandbagBattle(sim, baseDs, cfg) {
  * Where the sandbag goes for an operator on `op` facing `dir` with this range grid (authored facing RIGHT): the tile in
  * front when the range reaches it, else the nearest range tile on the island; a block-only range ([[0,0]]: 重装 / 护卫
  * protectors) puts it on the operator's own tile, BLOCK_OFFSET in front — it is blocked there, as a walking enemy would be.
+ * @param {{ row: number, col: number }} op @param {string} [dir] @param {any} [grid]
  */
 export function defaultBags(op, dir = 'RIGHT', grid = null) {
-  const [fr, fc] = FRONT[dir] || FRONT.RIGHT;
+  const [fr, fc] = FRONT[/** @type {keyof typeof FRONT} */ (dir)] || FRONT.RIGHT;
+  /** @type {any[]} */
   const g = (Array.isArray(grid) ? grid : []).filter((x) => Array.isArray(x) && (x[0] || x[1]));
-  const turn = ([dr, dc]) => (dir === 'UP' ? [dc, -dr] : dir === 'LEFT' ? [-dr, -dc] : dir === 'DOWN' ? [-dc, dr] : [dr, dc]);
+  const turn = (/** @type {number[]} */ [dr, dc]) => (dir === 'UP' ? [dc, -dr] : dir === 'LEFT' ? [-dr, -dc] : dir === 'DOWN' ? [-dc, dr] : [dr, dc]);
   const reach = !Array.isArray(grid) || g.some((x) => x[0] === 0 && x[1] === 1);
   if (reach && inArena(op.row + fr, op.col + fc)) return [{ row: op.row + fr, col: op.col + fc }];
   const near = g.map(turn).map(([dr, dc]) => ({ row: op.row + dr, col: op.col + dc })).filter((t) => inArena(t.row, t.col))
@@ -201,14 +209,14 @@ export function defaultBags(op, dir = 'RIGHT', grid = null) {
   return [near || { row: op.row + fr * BLOCK_OFFSET, col: op.col + fc * BLOCK_OFFSET }];
 }
 
-/** The "injured ally" option, one blow: true damage to the operator (it never drops below HURT.floor). */
+/** The "injured ally" option, one blow: true damage to the operator (it never drops below HURT.floor). @param {any} battle */
 export function hurtOp(battle) {
   const u = arenaOp(battle);
   if (!u || !u.alive || !u.deployed || u.hp <= u.s.maxHp * HURT.floor) return 0;
   return battle.dealDamage(null, u, { amount: u.s.maxHp * HURT.frac, type: 'true', canDodge: false, sourceless: true, tags: ['debug'] });
 }
 
-/** The "operator stands" option, after a step: an operator below KEEP_OP of its max HP is healed to full (true). */
+/** The "operator stands" option, after a step: an operator below KEEP_OP of its max HP is healed to full (true). @param {any} battle */
 export function keepOp(battle) {
   const u = arenaOp(battle);
   if (!u || !u.alive || u.hp >= u.s.maxHp * KEEP_OP) return false;
@@ -216,12 +224,12 @@ export function keepOp(battle) {
   return true;
 }
 
-/** The operator of the arena (its first deployed ally op), or null. */
-export const arenaOp = (battle) => (battle ? battle.allyUnits.find((u) => u.kind === 'op') || null : null);
-/** The living sandbags. */
-export const arenaBags = (battle) => (battle ? battle.enemies.filter((e) => e.alive && e.tag === SANDBAG_TAG) : []);
+/** The operator of the arena (its first deployed ally op), or null. @param {any} battle */
+export const arenaOp = (battle) => (battle ? battle.allyUnits.find((/** @type {any} */ u) => u.kind === 'op') || null : null);
+/** The living sandbags. @param {any} battle @returns {any[]} */
+export const arenaBags = (battle) => (battle ? battle.enemies.filter((/** @type {any} */ e) => e.alive && e.tag === SANDBAG_TAG) : []);
 
-/** After a step: a sandbag below half HP is healed to full (a %-max-HP hit never brings it near 0). */
+/** After a step: a sandbag below half HP is healed to full (a %-max-HP hit never brings it near 0). @param {any} battle */
 export function keepSandbags(battle) {
   for (const e of arenaBags(battle)) if (e.hp < e.s.maxHp * 0.5) e.hp = e.s.maxHp;
 }
@@ -229,12 +237,13 @@ export function keepSandbags(battle) {
 /**
  * After a drain: every sandbag of a 'die' tuple (an execute, an instant kill) stands up again on its tile at once (its
  * 'spawn' tuple goes out with the next drain). Returns how many were revived.
+ * @param {any} battle @param {any} ev
  */
 export function reviveSandbags(battle, ev) {
   let n = 0;
   for (const x of Array.isArray(ev) ? ev : []) {
     if (!Array.isArray(x) || x[0] !== 'die') continue;
-    const e = battle.units.find((u) => u.id === x[1]);
+    const e = battle.units.find((/** @type {any} */ u) => u.id === x[1]);
     if (!e || e.side !== 'enemy' || e.tag !== SANDBAG_TAG) continue;
     const pos = [e.spawnY, e.spawnX];   // exact: a blocked sandbag stands off its tile's centre
     if (battle.spawnEnemy(e.defId, { pos, route: bagRoute(Math.round(pos[0]), Math.round(pos[1]), e.motion), tag: SANDBAG_TAG, countInTotal: false })) n++;
@@ -242,7 +251,7 @@ export function reviveSandbags(battle, ev) {
   return n;
 }
 
-/** Charge the unit's skill fully (every charge); false for a unit without an active skill or while a timed one runs. */
+/** Charge the unit's skill fully (every charge); false for a unit without an active skill or while a timed one runs. @param {any} u */
 export function fillSp(u) {
   const s = u && u.skill;
   if (!s || s.noSkill || s.kind === 'passive' || !u.alive) return false;
@@ -251,7 +260,7 @@ export function fillSp(u) {
   return true;
 }
 
-/** Charge and cast the unit's skill now (its trigger rule and the operation cooldown are skipped). */
+/** Charge and cast the unit's skill now (its trigger rule and the operation cooldown are skipped). @param {any} u */
 export function castNow(u) {
   if (!fillSp(u)) return false;
   return u.skill.activate('manual');
@@ -288,14 +297,15 @@ export function ownTokens(chessId, tokens) {
     .map((t) => ({ tokenId: t.tokenId, name: t.name, limit: Math.max(1, Number(t.deployLimit) || 1), ownerRange: !!t.ownerRange, ownerBeside: !!t.ownerBeside }));
 }
 
-/** The island tiles of an operator's attack range (its grid, authored facing RIGHT, turned to `dir`). */
+/** The island tiles of an operator's attack range (its grid, authored facing RIGHT, turned to `dir`). @param {{ row: number, col: number }} op @param {string} dir @param {any} grid */
 export function rangeOf(op, dir, grid) {
-  const turn = ([dr, dc]) => (dir === 'UP' ? [dc, -dr] : dir === 'LEFT' ? [-dr, -dc] : dir === 'DOWN' ? [-dc, dr] : [dr, dc]);
+  const turn = (/** @type {number[]} */ [dr, dc]) => (dir === 'UP' ? [dc, -dr] : dir === 'LEFT' ? [-dr, -dc] : dir === 'DOWN' ? [-dc, dr] : [dr, dc]);
   return (Array.isArray(grid) ? grid : []).filter(Array.isArray).map(turn).map(([dr, dc]) => ({ row: op.row + dr, col: op.col + dc }))
     .filter((t) => inArena(t.row, t.col));
 }
 
 /** Whether tile `t` is one of the four tiles next to the operator (an `ownerBeside` piece's tiles). */
+/** @param {{ row: number, col: number }} op @param {{ row: number, col: number }} t */
 export const besideOp = (op, t) => Math.abs(t.row - op.row) + Math.abs(t.col - op.col) === 1;
 
 /**
@@ -309,10 +319,12 @@ export const besideOp = (op, t) => Math.abs(t.row - op.row) + Math.abs(t.col - o
  * @param {{ row: number, col: number }[]} [taken] tiles already used (the sandbags)
  */
 export function autoTokens(op, dir, grid, own, taken = []) {
-  const [fr, fc] = FRONT[dir] || FRONT.RIGHT;
+  const [fr, fc] = FRONT[/** @type {keyof typeof FRONT} */ (dir)] || FRONT.RIGHT;
   const used = new Set([`${op.row},${op.col}`, ...taken.map((t) => `${Math.round(t.row)},${Math.round(t.col)}`)]);
+  /** @type {{ row: number, col: number }[]} */
   const all = [];
   for (let r = ARENA.r0; r <= ARENA.r1; r++) for (let c = ARENA.c0; c <= ARENA.c1; c++) all.push({ row: r, col: c });
+  /** @param {{ row: number, col: number }} t */
   const score = (t) => { const dr = t.row - op.row, dc = t.col - op.col; return Math.abs(dr) + Math.abs(dc) - 0.5 * Math.sign(dr * fr + dc * fc); };
   const inRange = new Set(rangeOf(op, dir, grid).map((t) => `${t.row},${t.col}`));
   const out = [];
