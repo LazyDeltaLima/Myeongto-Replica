@@ -99,6 +99,7 @@ export class BattleDeploy {
   /**
    * Mark `unit` dead (hp reached 0). Fires `kill` then `death`.
    * @this {Battle}
+   * @param {Unit} unit @param {Unit | null} [killer]
    */
   kill(unit, killer = null) {
     if (!unit || !unit.alive) return;

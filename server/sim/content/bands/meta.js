@@ -46,32 +46,46 @@ import { buffsOf, num, bandRecord, gameData, itemIdOfKey } from '../support/inde
 import { metaBonds } from '../support/meta.js';
 import * as garrisons from '../garrisons.js';
 
-const int = (v, d = 0) => Math.trunc(num(v, d));
-const list = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
-const hasBond = (ctx, id, bond) => { const c = ctx.gd.chess(id); return !!(c && Array.isArray(c.bonds) && c.bonds.includes(bond)); };
-const isNormalChess = (ctx, id) => { const c = ctx.gd.chess(id); return !!(c && !c.isGolden); };
+/** @import { MetaCtx, MetaHandlers, MetaHook, MetaRegistry } from '../../../match/effectsMeta.js' */
+/** @import { SpawnSpec } from '../../../match/waves.js' */
+/** @import { ShopSlot } from '../../../match/player/economy.js' */
+/** @import { StageCtx } from './progress.js' */
+/**
+ * The hooks of one buff key of a strategy stage (K): the params of every buff of that key in the stage (`ps`), the
+ * strategy id and the stage record.
+ * @typedef {(ps: Record<string, any>[], bandId: string, stage: Record<string, any>) => MetaHandlers} BandKeyFn
+ */
 
-/** Per-round counter: reset lazily when the round changes. */
+const int = (/** @type {unknown} */ v, d = 0) => Math.trunc(num(v, d));
+const list = (/** @type {unknown} */ s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+const hasBond = (/** @type {MetaCtx} */ ctx, /** @type {string} */ id, /** @type {unknown} */ bond) => { const c = ctx.gd.chess(id); return !!(c && Array.isArray(c.bonds) && c.bonds.includes(bond)); };
+const isNormalChess = (/** @type {MetaCtx} */ ctx, /** @type {string} */ id) => { const c = ctx.gd.chess(id); return !!(c && !c.isGolden); };
+
+/** Per-round counter: reset lazily when the round changes. @param {MetaCtx} ctx @param {string} key */
 function roundCounter(ctx, key) {
   if (ctx.counter(`${key}:r`) !== ctx.round) { ctx.setCounter(`${key}:r`, ctx.round); ctx.setCounter(key, 0); }
   return ctx.counter(key);
 }
-const bumpRound = (ctx, key, n = 1) => { roundCounter(ctx, key); return ctx.incCounter(key, n); };
+const bumpRound = (/** @type {MetaCtx} */ ctx, /** @type {string} */ key, n = 1) => { roundCounter(ctx, key); return ctx.incCounter(key, n); };
 /** The same counter read without writing (price queries must be pure): 0 when it was last written in another round. */
-const roundCount = (ctx, key) => (ctx.counter(`${key}:r`) === ctx.round ? ctx.counter(key) : 0);
+const roundCount = (/** @type {MetaCtx} */ ctx, /** @type {string} */ key) => (ctx.counter(`${key}:r`) === ctx.round ? ctx.counter(key) : 0);
 
-/** Grant a chess or an item by id. */
+/** Grant a chess or an item by id. @param {MetaCtx} ctx @param {string} id @param {Record<string, any>} [opts] */
 function grant(ctx, id, opts = {}) {
   if (ctx.gd.item(id)) return ctx.grantItem(id, opts);
   if (ctx.gd.chess(id)) return ctx.grantChess(id, opts);
   return null;
 }
 
-/** Indices of unsold chess slots of the shop. */
-const chessSlots = (ctx) => ctx.shopSlots().map((s, i) => (s && s.kind === 'chess' && !s.sold ? i : -1)).filter((i) => i >= 0);
+/** Indices of unsold chess slots of the shop (their slots are filled: a read of one is cast to ShopSlot). */
+const chessSlots = (/** @type {MetaCtx} */ ctx) => ctx.shopSlots().map((s, i) => (s && s.kind === 'chess' && !s.sold ? i : -1)).filter((i) => i >= 0);
 
-/** Up to `n` distinct item ids of an equip pool, none of `exclude`. */
+/**
+ * Up to `n` distinct item ids of an equip pool, none of `exclude`.
+ * @param {MetaCtx} ctx @param {string} poolId @param {number} n @param {string[]} [exclude]
+ */
 function rollItems(ctx, poolId, n, exclude = []) {
+  /** @type {string[]} */
   const out = [];
   if (exclude.length) {
     // [ASSUMED] (upstream f8bca717 / 83ccfcd7): with ids excluded, draw without replacement — the excluded and the
@@ -91,7 +105,7 @@ function rollItems(ctx, poolId, n, exclude = []) {
   return out;
 }
 
-/** Random chess of `bond`, tier ≤ shop level; null when the pool has none that low. */
+/** Random chess of `bond`, tier ≤ shop level; null when the pool has none that low. @param {MetaCtx} ctx @param {string} bond */
 function rollBond(ctx, bond) {
   return ctx.rollChess({ bond, maxTier: Math.max(1, ctx.shopLevel()) });
 }
@@ -99,6 +113,7 @@ function rollBond(ctx, bond) {
 // ---------------------------------------------------------------------------------------------------------------
 // buff key → (params[], bandId) → hooks
 
+/** @type {Record<string, BandKeyFn>} */
 const K = {};
 
 // 规程's 华法琳 says 「所属的已激活盟约层数」: only the active bonds gain (the default season's text has no 已激活 —
@@ -129,8 +144,8 @@ K.band_first_self_refresh_present_char = (ps) => ({
     const need = Math.max(1, int(p.count, 1));
     const idx = chessSlots(ctx);
     const slots = ctx.shopSlots();
-    let have = idx.filter((i) => hasBond(ctx, slots[i].id, p.bond)).length;
-    const others = ctx.rng.shuffle(idx.filter((i) => !hasBond(ctx, slots[i].id, p.bond)));
+    let have = idx.filter((i) => hasBond(ctx, /** @type {ShopSlot} */ (slots[i]).id, p.bond)).length;
+    const others = ctx.rng.shuffle(idx.filter((i) => !hasBond(ctx, /** @type {ShopSlot} */ (slots[i]).id, p.bond)));
     for (const i of others) {
       if (have >= need) break;
       const id = rollBond(ctx, p.bond);
@@ -147,10 +162,10 @@ K.band_shop_refresh_copy_max_lv_char = () => ({
     const idx = chessSlots(ctx);
     if (idx.length < 2) return;
     let best = -1;
-    for (const i of idx) best = Math.max(best, ctx.gd.tierOf(slots[i].id));
-    const src = ctx.rng.pick(idx.filter((i) => ctx.gd.tierOf(slots[i].id) === best));
+    for (const i of idx) best = Math.max(best, ctx.gd.tierOf(/** @type {ShopSlot} */ (slots[i]).id));
+    const src = ctx.rng.pick(idx.filter((i) => ctx.gd.tierOf(/** @type {ShopSlot} */ (slots[i]).id) === best));
     const dst = ctx.rng.pick(idx.filter((i) => i !== src));
-    ctx.setShopSlot(dst, { kind: 'chess', id: slots[src].id, frozen: true });
+    ctx.setShopSlot(dst, { kind: 'chess', id: /** @type {ShopSlot} */ (slots[src]).id, frozen: true });
   },
 });
 
@@ -229,7 +244,7 @@ K.up_shop_next_refresh_must_present_bond_char = (ps) => ({
     const bond = ps[0].bond;
     const slots = ctx.shopSlots();
     for (const i of chessSlots(ctx)) {
-      if (hasBond(ctx, slots[i].id, bond)) continue;
+      if (hasBond(ctx, /** @type {ShopSlot} */ (slots[i]).id, bond)) continue;
       const id = rollBond(ctx, bond);
       if (!id) break;
       ctx.setShopSlot(i, { kind: 'chess', id });
@@ -328,7 +343,7 @@ K.round_start_activate_char_chess_effect_in_board = (ps) => ({
     const event = p.event_type || 'SERVER_GAIN';
     const cands = ctx.board().filter((v) => v && v.kind === 'chess' && ctx.garrisonsOf(v.uid).some((g) => g.eventType === event));
     if (!cands.length) return;
-    cands.sort((a, b) => (b.col - a.col) || (a.row - b.row));
+    /** @type {Array<{ row: number, col: number }>} */ (cands).sort((a, b) => (b.col - a.col) || (a.row - b.row)); // board pieces
     for (const v of cands.slice(0, Math.max(1, int(p.count, 1)))) {
       if (event === 'SERVER_GAIN' && typeof garrisons.triggerGainEffects === 'function') garrisons.triggerGainEffects(ctx, v);
       else ctx.triggerGarrisons(v.uid, event);
@@ -343,7 +358,7 @@ K.round_start_activate_char_chess_effect_in_board = (ps) => ({
 // of the official game. With no operator card in the shop there is no swap and the operator sells as usual
 // [추정·화면: the shown price of that case]. The 特质 that read a sell price (旅骨, 棘刺) read the operator's own price
 // [추정·화면: 0 not seen on an official screen].
-const vodfoxPending = (ctx, ps, piece) => !!(piece && piece.kind === 'chess' && isNormalChess(ctx, piece.id)
+const vodfoxPending = (/** @type {MetaCtx} */ ctx, /** @type {Record<string, any>[]} */ ps, /** @type {Record<string, any> | null | undefined} */ piece) => !!(piece && piece.kind === 'chess' && isNormalChess(ctx, piece.id)
   && roundCount(ctx, 'band:vodfox') < Math.max(1, int(ps[0].count, 1)) && chessSlots(ctx).length);
 K.first_sell_char_chess_exchange_char_chess_in_shop = (ps) => ({
   onSellPrice(ctx, ev) {
@@ -354,7 +369,7 @@ K.first_sell_char_chess_exchange_char_chess_in_shop = (ps) => ({
     if (!vodfoxPending(ctx, ps, piece)) return;
     const slots = ctx.shopSlots();
     const i = ctx.rng.pick(chessSlots(ctx));
-    const got = ctx.grantChess(slots[i].id, { source: 'band' });
+    const got = ctx.grantChess(/** @type {ShopSlot} */ (slots[i]).id, { source: 'band' });
     // no swap after all: the operator's own price (sellGainOf took the swap's)
     if (!got) { ev.gain = Number.isFinite(piece.sellPrice) && piece.sellPrice >= 0 ? piece.sellPrice : ctx.gd.sellPrice(piece.id); return; }
     ctx.setShopSlot(i, { kind: 'chess', id: piece.id });
@@ -374,7 +389,7 @@ K.round_start_gain_char_chess_in_shop_every_n_round = (ps) => ({
       const idx = chessSlots(ctx);
       if (!idx.length) return;
       const i = ctx.rng.pick(idx);
-      if (ctx.grantChess(ctx.shopSlots()[i].id, { source: 'band' })) ctx.setShopSlot(i, null);
+      if (ctx.grantChess(/** @type {ShopSlot} */ (ctx.shopSlots()[i]).id, { source: 'band' })) ctx.setShopSlot(i, null);
     }
   },
 });
@@ -474,6 +489,7 @@ K.promote_equip_extra_award = (ps) => ({
 // no discount yet, its level-up price drops by `value` (not below 0) and `count` are used up. Counted ones past that wait
 // for the next level (checked again after a level-up) [ASSUMED·화면: 이미 할인된 등급에서 센 수가 다음 등급으로 넘어가는지 —
 // 「{@tag}」 진행 표시를 공식 화면으로 확인 전]
+/** @param {MetaCtx} ctx @param {Record<string, any>} p */
 function sandDiscount(ctx, p) {
   const need = Math.max(1, int(p.count, 3));
   if (ctx.counter('band:narant:gained') < need) return;
@@ -555,9 +571,9 @@ K.skill_gain_gold_cd_by_gold = (ps) => ({
 // dispatches as one), the 指令's 「必定包含 / 优先」 written over the new cards before anyone sees them.
 
 /** ev.error for a 指令 that has nothing to act on (bandSkill.js returns it as it is; nothing is paid). */
-const nothing = (ev, detail) => { ev.error = { error: ERR.BAD_TARGET, detail }; };
+const nothing = (/** @type {Record<string, any>} */ ev, /** @type {string} */ detail) => { ev.error = { error: ERR.BAD_TARGET, detail }; };
 
-/** Take shop slot `i`'s operator card for free (its slot empties); false when it is no unsold operator card. */
+/** Take shop slot `i`'s operator card for free (its slot empties); false when it is no unsold operator card. @param {MetaCtx} ctx @param {number} i */
 function takeShopChess(ctx, i) {
   const s = ctx.shopSlots()[i];
   if (!s || s.kind !== 'chess' || s.sold) return false;
@@ -605,7 +621,7 @@ K.skill_gain_bond_char = (ps) => ({
 // The cost keys: COST_DELTA (server/match/match/bandSkill.js adds it to the stage's skillCost; the cost never falls below 0,
 // so a cut stops at the stage's cost).
 export const SKILL_COST_COUNTER = 'band:skill:cost';
-const cutCost = (ctx, stage, n) => {
+const cutCost = (/** @type {MetaCtx} */ ctx, /** @type {Record<string, any> | null | undefined} */ stage, /** @type {number} */ n) => {
   const base = Math.max(0, int(stage?.cost, 0));
   ctx.setCounter(SKILL_COST_COUNTER, Math.max(-base, ctx.counter(SKILL_COST_COUNTER) - Math.max(0, n)));
 };
@@ -646,7 +662,7 @@ K.skill_next_equip_buy_discount = (ps) => ({
 });
 
 /** Operator card slots of the shop now, as { i, id } (after a refresh). */
-const chessCards = (ctx) => { const s = ctx.shopSlots(); return chessSlots(ctx).map((i) => ({ i, id: s[i].id })); };
+const chessCards = (/** @type {MetaCtx} */ ctx) => { const s = ctx.shopSlots(); return chessSlots(ctx).map((i) => ({ i, id: /** @type {ShopSlot} */ (s[i]).id })); };
 
 // 雅拉 人才锁定 「刷新调度中心，必定包含1名比当前调度中心等级更高一阶（最高不超过6阶）的干员」: a refresh whose `count`
 // RIGHTMOST operator cards are drawn again at tier min(6, level + lv_up) — the rightmost card, as 奇迹's guaranteed one,
@@ -744,7 +760,7 @@ K.skill_drop_hp_to_low_gain_coin = (ps) => ({
     if (!(lost > 0)) return nothing(ev, 'no lower player');
     ctx.addLp(-lost);
     ctx.addFunds(Math.min(lost, Math.max(0, int(ps[0].max_count, 10))), 'band');
-    ctx.setCounter(DEVOTE_SEAT, low.seat + 1);
+    ctx.setCounter(DEVOTE_SEAT, /** @type {MetaCtx} */ (low).seat + 1); // lost > 0: a lower player
     ctx.incCounter(DEVOTE_LP, lost);
     ev.handled = true;
   },
@@ -766,19 +782,19 @@ K.skill_drop_hp_to_low_gain_coin = (ps) => ({
 // client; the table texts say what, not these edges].
 
 /** The target operator of a COMMON_CHESS 指令 (its view), or null. */
-const targetChess = (ctx, ev) => {
+const targetChess = (/** @type {MetaCtx} */ ctx, /** @type {Record<string, any>} */ ev) => {
   const v = ev.target && ev.target.kind === 'chess' ? ctx.piece(ev.target.uid) : null;
   return v && v.kind === 'chess' ? v : null;
 };
 /** The target card of a SHOP_SLOT 指令 ({ i, id, tier }), or null. */
-const targetCard = (ctx, ev) => {
+const targetCard = (/** @type {MetaCtx} */ ctx, /** @type {Record<string, any>} */ ev) => {
   if (!ev.target || ev.target.kind !== 'shop') return null;
   const s = ctx.shopSlots()[ev.target.slot];
   return s && s.kind === 'chess' && !s.sold ? { i: ev.target.slot, id: s.id, tier: ctx.gd.tierOf(s.id) } : null;
 };
 /** Does the operator have a 特质 of `event` that runs where it stands (a hand piece skips the board-only ones)? */
-const hasTrait = (ctx, v, event) => ctx.garrisonsOf(v.uid)
-  .some((g) => g.eventType === event && !(v.area !== 'board' && g.bbStr.conditionkey === 'character_target_inboard'));
+const hasTrait = (/** @type {MetaCtx} */ ctx, /** @type {Record<string, any>} */ v, /** @type {string} */ event) => ctx.garrisonsOf(v.uid)
+  .some((/** @type {Record<string, any>} */ g) => g.eventType === event && !(v.area !== 'board' && g.bbStr.conditionkey === 'character_target_inboard'));
 
 // 望 黑白相易 「选择一名我方干员移除，获得1名不高于该干员等阶的【炎】干员」 (in_shop 0): the operator is destroyed — no sale, no
 // funds, its equipment back to the 整备区, its copies back to the pool (ctx.destroyPiece) — and a random <bond> operator of
@@ -954,6 +970,7 @@ K.skill_transform_char_up_tier = () => ({
 // 整备区) gets nothing [ASSUMED·CN].
 export const BAND_MARK = 'effect:band_mark';
 const MARK_SEQ = 'band:mark:n';
+/** @param {MetaCtx} ctx @param {Record<string, any>} ev @param {Record<string, any>} data */
 function addMark(ctx, ev, data) {
   const n = ctx.incCounter(MARK_SEQ, 1);
   ctx.addEffect({
@@ -962,7 +979,7 @@ function addMark(ctx, ev, data) {
   });
   ev.handled = true;
 }
-/** The persistent effect of a mark: dropped at the first round start after its round. */
+/** The persistent effect of a mark: dropped at the first round start after its round. @type {MetaHandlers} */
 export const BAND_MARK_EFFECT = {
   onRoundStart(ctx) {
     const ref = ctx.source && ctx.source.ref;
@@ -1020,7 +1037,7 @@ K.skill_mark_shop_equip_tag = (ps) => ({
 
 // The two MAP_TILE 指令 (target { kind: 'tile', row, col }: board coordinates — the battle maps them onto its field as it
 // maps the pieces; the tile check is match/bandSkill.js _bandSkillTile).
-const targetTile = (ev) => (ev.target && ev.target.kind === 'tile' && Number.isInteger(ev.target.row) && Number.isInteger(ev.target.col) ? ev.target : null);
+const targetTile = (/** @type {Record<string, any>} */ ev) => (ev.target && ev.target.kind === 'tile' && Number.isInteger(ev.target.row) && Number.isInteger(ev.target.col) ? ev.target : null);
 
 // 妮芙 溃心领域 「选择一个可用地块，战斗开始后首次经过该地块的敌人获得恐惧，持续3秒」: skill_mark_pos_grow_use_cnt { tag: eff_band19 } —
 // a mark on the tile for the round's battle (addMark, row / col); its uses per round grow by the stage (第4、8、12回合时升级,
@@ -1063,7 +1080,7 @@ K.skill_add_pos_effect_enemy = (ps) => ({
     ev.handled = true;
   },
 });
-/** The persistent effect of a chest: gone after a battle result that reports it touched. */
+/** The persistent effect of a chest: gone after a battle result that reports it touched. @type {MetaHandlers} */
 export const BAND_CHEST_EFFECT = {
   onBattleResult(ctx, ev) {
     const ref = ctx.source && ctx.source.ref;
@@ -1111,12 +1128,16 @@ const DUCK_KINDS = new Set(['normal', 'boss', 'hidden']);
 /** Boss-field column between the left ('L') and the right ('R') player's half (the goals are at cols 2–3 / 17). */
 const BOSS_MID_COL = (GEO.BOSS_RECT.c0 + GEO.BOSS_RECT.c1) / 2;
 
+/** @param {MetaCtx} ctx */
 function duckParams(ctx) {
   for (const b of buffsOf(bandRecord(DUCK_BAND, ctx))) if (b.key === 'round_start_all_player_change_enemy_2') return b.p;
   return null;
 }
 
-/** The round's swap count, min..max (exported for tests); `rng` is the round's shared stream (duckGlobal). */
+/**
+ * The round's swap count, min..max (exported for tests); `rng` is the round's shared stream (duckGlobal).
+ * @param {MetaCtx['rng']} rng @param {Record<string, any>} p
+ */
 export function duckCount(rng, p) {
   const lo = Math.max(0, int(p.min, 0)), hi = Math.max(lo, int(p.max, lo));
   return lo + rng.int(hi - lo + 1);
@@ -1126,6 +1147,8 @@ export function duckCount(rng, p) {
  * Rewrite `spawns` in place (exported for tests). Returns the replaced spawn specs. `want`: the round's shared count
  * (default: rolled from ctx.rng). `side` ('L' | 'R', a pair boss field) limits the swap to the spawns whose route
  * (`routes[routeIndex]`) ends on that half of the field.
+ * @param {MetaCtx} ctx @param {Array<SpawnSpec | null>} spawns @param {Record<string, any>} p @param {string} ownerPlayerId
+ * @param {{ routes?: Array<Record<string, any> | null> | null, side?: string | null, want?: number | null, leader?: boolean }} [opts]
  */
 export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side = null, want = null, leader = false } = {}) {
   const gd = ctx.gd;
@@ -1134,7 +1157,7 @@ export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side
   if (want == null) want = duckCount(ctx.rng, p);
   if (want <= 0) return [];
   const half = side === 'L' || side === 'R';
-  const onHalf = (s) => {
+  const onHalf = (/** @type {SpawnSpec} */ s) => {
     if (!half) return true;
     const r = Array.isArray(routes) ? routes[s.routeIndex] : null;
     const c = r && Array.isArray(r.end) ? Number(r.end[1]) : NaN;
@@ -1152,7 +1175,7 @@ export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side
   const w0 = num(p.minweight, 0), w1 = num(p.maxweight, 1);
   const n = flat.length;
   const ok = flat.filter((f, j) => {
-    const s = spawns[f.i];
+    const s = /** @type {SpawnSpec} */ (spawns[f.i]); // flat holds the spawns kept
     const e = gd.enemy(s.enemyKey);
     const frac = n > 1 ? j / (n - 1) : 0;
     // the lower lane only: a route starting at the lower gate (gateOf; no route known → every lane, as before)
@@ -1168,7 +1191,7 @@ export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side
   const out = [];
   const add = [];
   for (const [i, ks] of byIdx) {
-    const s = spawns[i];
+    const s = /** @type {SpawnSpec} */ (spawns[i]); // picked from flat
     const cnt = Math.max(1, int(s.count, 1));
     const keep = cnt - ks.size;
     for (const k of ks) {
@@ -1195,13 +1218,14 @@ export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side
   return out;
 }
 
+/** @type {MetaHandlers} */
 const duckGlobal = {
   onBattleStart(ctx, ev) {
     if (!ev || !DUCK_KINDS.has(ev.kind) || !Array.isArray(ev.spawns)) return;
     const p = duckParams(ctx);
     if (!p || ctx.round < int(p.round, 1)) return;
     // the strategy, or its 指令 taken by a teammate or the player (更换指令: commandBandId) — one team swap either way
-    const holds = (c) => c.bandId() === DUCK_BAND || c.commandBandId?.() === DUCK_BAND;
+    const holds = (/** @type {MetaCtx} */ c) => c.bandId() === DUCK_BAND || c.commandBandId?.() === DUCK_BAND;
     const held = holds(ctx) || ctx.teammates().some(holds);
     if (!held) return;
     const want = duckCount(ctx.sharedRng(`duck:${ctx.round}`), p);
@@ -1211,8 +1235,9 @@ const duckGlobal = {
 
 // ---------------------------------------------------------------------------------------------------------------
 
-/** Merge hook objects (same hook → called in order). */
+/** Merge hook objects (same hook → called in order). @param {MetaHandlers[]} parts @returns {MetaHandlers} */
 function merge(parts) {
+  /** @type {Record<string, MetaHook>} */
   const out = {};
   for (const h of parts) {
     for (const [name, fn] of Object.entries(h)) {
@@ -1247,15 +1272,15 @@ export const COMMAND_STAGE_COUNTER = 'band:cmd:stage';
  * strategy all of it (its passive is its 指令) —, and for a strategy with an ACTIVE stage `band:<id>#passive` — the rest
  * (Mechanist's 精巧设计 passive), run for the strategy's owner while its 指令 is another's.
  */
-export const bandCommandKey = (bandId) => `band:${bandId}#command`;
-export const bandPassiveKey = (bandId) => `band:${bandId}#passive`;
+export const bandCommandKey = (/** @type {string} */ bandId) => `band:${bandId}#command`;
+export const bandPassiveKey = (/** @type {string} */ bandId) => `band:${bandId}#passive`;
 /** Does the strategy record have an ACTIVE stage (an active 指令)? */
-export const hasActiveStage = (rec) => bandStages(rec).some((s) => s && s.type === 'ACTIVE');
+export const hasActiveStage = (/** @type {Record<string, any> | null | undefined} */ rec) => bandStages(rec).some((s) => s && s.type === 'ACTIVE');
 /**
  * Is the strategy a 规程 one with a 指令 (bands.json `skills`: active or passive stages) — one 更换指令 may offer? The
  * default season's strategies have no `skills` and no 指令.
  */
-export const hasCommandStages = (rec) => !!rec && Array.isArray(rec.skills) && rec.skills.length > 0;
+export const hasCommandStages = (/** @type {Record<string, any> | null | undefined} */ rec) => !!rec && Array.isArray(rec.skills) && rec.skills.length > 0;
 /** The buff key of “追随者们” 好多委托 (the 指令 that opens 更换指令 itself: never in its pool). */
 export const COMMAND_CHOICE_KEY = 'gain_band_skill_from_pool_in_prep';
 /** A strategy's bond-direction swap (变约): its owner's only, never part of a 指令 taken from it (bonds/dispatch.js). */
@@ -1275,6 +1300,7 @@ const FIXED_ROUND_KEYS = new Set([
  * passive one when one of its buffs — the bond-direction swap left out — is not a fixed-round gift, or is one of a
  * later round (the offer opens in prep, after this round's income, round start and prep start ran). An empty passive
  * (歌利亚 坚不可摧: its effect is the match's starting target HP) does nothing. [ASSUMED·서버: the pool has no table]
+ * @param {Record<string, any> | null | undefined} stage @param {number} round
  */
 export function commandStageActs(stage, round) {
   if (!stage) return false;
@@ -1283,11 +1309,14 @@ export function commandStageActs(stage, round) {
   return buffs.some((b) => !FIXED_ROUND_KEYS.has(b.key) || int(b.p.round, -1) > round);
 }
 const COMMAND_HOOKS = ['onBandSkill', 'onBandSkillUsed'];
-const isCommandPart = (h) => !!h && COMMAND_HOOKS.some((n) => typeof h[n] === 'function');
+const isCommandPart = (/** @type {MetaHandlers | null | undefined} */ h) => !!h && COMMAND_HOOKS.some((n) => typeof h[n] === 'function');
 /** The hooks a staged strategy listens on to move its stage (besides those its stages use). */
 const STAGE_HOOKS = ['onRoundStart', 'onPrepStart', 'onLevelUp', 'onSpend', 'onGain', 'onBuy', 'onSold', 'onMerge', 'onActiveBonds', 'onPrepEnd'];
 
-/** The strategy's stages: bands.json `skills` (规程), else its own buffs as its one stage. */
+/**
+ * The strategy's stages: bands.json `skills` (规程), else its own buffs as its one stage.
+ * @param {Record<string, any> | null | undefined} rec @returns {Record<string, any>[]}
+ */
 export function bandStages(rec) {
   if (!rec) return [];
   if (Array.isArray(rec.skills) && rec.skills.length) return rec.skills;
@@ -1300,7 +1329,7 @@ export function bandStages(rec) {
  */
 export const UNLOCK_TYPES = Object.freeze(['band_skill_load_by_round', 'band_skill_load_by_shop_lv', 'band_skill_load_by_coin_cost', 'band_skill_load_by_bond_act_count']);
 
-/** Does a stage's `next` condition hold for the player now? */
+/** Does a stage's `next` condition hold for the player now? @param {StageCtx} ctx @param {Record<string, any> | null | undefined} next */
 export function stageUnlocked(ctx, next) {
   const a = Array.isArray(next?.unlockParams) ? next.unlockParams : [];
   switch (next?.unlockType) {
@@ -1315,6 +1344,7 @@ export function stageUnlocked(ctx, next) {
 /**
  * The player's current stage index of `stages`, moved on as far as the conditions hold (writes the counter `key`:
  * STAGE_COUNTER, or COMMAND_STAGE_COUNTER for a 指令 taken from another strategy).
+ * @param {StageCtx} ctx @param {Record<string, any>[]} stages @param {string} [key]
  */
 export function bandStageIndex(ctx, stages, key = STAGE_COUNTER) {
   let i = Math.max(0, Math.min(stages.length - 1, int(ctx.counter(key), 0)));
@@ -1326,13 +1356,15 @@ export function bandStageIndex(ctx, stages, key = STAGE_COUNTER) {
 /**
  * Hooks of one stage's buffs (null when none has a prep effect). `part`: 'all', or only the buffs that are the 指令
  * ('command': a handler with onBandSkill / onBandSkillUsed) or only the others ('passive').
+ * @param {Record<string, any>} stage @param {string} bandId @param {string} [part]
  */
 function stageHooks(stage, bandId, part = 'all') {
+  /** @type {Map<string, Record<string, any>[]>} */
   const groups = new Map();
   for (const b of buffsOf(stage)) {
     if (!b.key || !K[b.key]) continue;
     if (!groups.has(b.key)) groups.set(b.key, []);
-    groups.get(b.key).push(b.p);
+    /** @type {Record<string, any>[]} */ (groups.get(b.key)).push(b.p);
   }
   if (!groups.size) return null;
   const parts = [...groups].map(([k, ps]) => K[k](ps, bandId, stage))
@@ -1343,6 +1375,8 @@ function stageHooks(stage, bandId, part = 'all') {
 /**
  * Hooks of one band (null when it has no prep effect), from its record in `data` (default: the default season's).
  * `part` / `counter`: the 指令 or the passive part only (stageHooks), staged on that counter (bandCommandKey).
+ * @param {string} bandId @param {Record<string, any> | null} [data] @param {{ part?: string, counter?: string }} [opts]
+ * @returns {MetaHandlers | null}
  */
 export function bandMetaHandler(bandId, data = null, { part = 'all', counter = STAGE_COUNTER } = {}) {
   const stages = bandStages(bandRecord(bandId, data));
@@ -1352,10 +1386,11 @@ export function bandMetaHandler(bandId, data = null, { part = 'all', counter = S
   if (part !== 'all' && hooks.every((h) => !h)) return null;
   const names = new Set(STAGE_HOOKS);
   for (const h of hooks) for (const n of Object.keys(h || {})) names.add(n);
+  /** @type {Record<string, MetaHook>} */
   const out = {};
   for (const name of names) {
     out[name] = function staged(ctx, ev) {
-      const f = hooks[bandStageIndex(ctx, stages, counter)]?.[name];
+      const f = /** @type {MetaHook | undefined} */ (hooks[bandStageIndex(ctx, stages, counter)]?.[name]);
       if (f) f(ctx, ev);
     };
   }
@@ -1365,7 +1400,7 @@ export function bandMetaHandler(bandId, data = null, { part = 'all', counter = S
 /** The prep buff keys this file handles (the coverage report, content/coverage.js). */
 export const PREP_BAND_KEYS = Object.freeze(Object.keys(K));
 
-/** @param {object} registry @param {object} [data] the season's data the handlers are for (shared/seasons.js) */
+/** @param {MetaRegistry} registry @param {Record<string, any> | null} [data] the season's data the handlers are for (shared/seasons.js) */
 export function registerMeta(registry, data = gameData()) {
   for (const id of Object.keys((data && data.bands) || {})) {
     const h = bandMetaHandler(id, data);

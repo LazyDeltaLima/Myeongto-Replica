@@ -5,7 +5,10 @@
 // equip_destory_first_bond_char), its 拟态物质 falls back to an operator of the same tier (use_equip_reward_same_tier);
 // they have handlers of their own (items/meta.js).
 
-/** Renamed key → the default season's key, each checked against both seasons' records (item, text, blackboard). */
+/**
+ * Renamed key → the default season's key, each checked against both seasons' records (item, text, blackboard).
+ * @type {Readonly<Record<string, string>>}
+ */
 export const BUFF_KEY_ALIASES = Object.freeze({
   use_equip_take_shop: 'use_equip_reward_random_char_chess_in_shop', // 紧急调度券 {count}
   use_equip_bond_layer: 'use_equip_reward_char_chess_bond_layer', // 随身身份牌 {layer}
@@ -14,5 +17,5 @@ export const BUFF_KEY_ALIASES = Object.freeze({
   equip_tier_recr_gift: 'use_equip_recruit_new_char_and_give_char_to_player_most_bond', // 信标 {refresh_cnt, choice_cnt}
 });
 
-/** The default season's name of an item buff key (itself when no season renamed it). @param {unknown} key */
+/** The default season's name of an item buff key (itself when no season renamed it). @template T @param {T} key @returns {T | string} */
 export const canonicalBuffKey = (key) => (typeof key === 'string' && Object.hasOwn(BUFF_KEY_ALIASES, key) ? BUFF_KEY_ALIASES[key] : key);

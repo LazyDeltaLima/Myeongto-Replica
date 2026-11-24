@@ -212,7 +212,7 @@ export class MatchBandSkill {
     const tr = this._bandSkillTarget(ps, st.stage, msg);
     if (tr.error) return /** @type {import('./common.js').Fail} */ (tr);
     const src = ps.bandCommand || ps.bandId;
-    const key = ps.bandCommand ? bandCommandKey(src) : `band:${src}`;
+    const key = ps.bandCommand ? bandCommandKey(/** @type {string} */ (src)) : `band:${src}`; // src is the bandCommand
     const source = { kind: 'band', bandId: src, band: st.rec };
     /**
      * the stage handler's answer (the header): `error` a fail(...), `cooldown` a COOLDOWN stage's rounds

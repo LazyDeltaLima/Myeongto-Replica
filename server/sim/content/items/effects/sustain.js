@@ -6,6 +6,8 @@ import { num, onField, frontTile, fxOn, tplFx, directMods, battleStore } from '.
 import { hasHp } from '../../../damage.js';
 import { early, late, isProc, chance, PRIO_RESPAWN, reviveNow, addShieldLayer } from '../shared.js';
 
+/** @import { BuffRec } from '../../bonds/shared.js' */
+
 const SHIELD_KEY = 'item:shield_drone';
 
 /** chess_item_3_06_e, chess_item_4_06_e, chess_item_4_11_e, chess_item_4_12_e; 规程: 虹彩活血饮料, 聚合急救箱, 不退者力场,
@@ -96,7 +98,7 @@ export const BUFFS = {
     const ex = num(p.ex_max_hp);
     if (!ex) return;
     const key = S.key('front');
-    const check = (initial) => {
+    const check = (/** @type {boolean} */ initial) => {
       const [fr, fc] = frontTile(u);
       let occupied = false;
       for (const a of battle.allyUnits) {
@@ -131,7 +133,7 @@ export const BUFFS = {
     const pr = num(p.prob), cap = Math.max(1, Math.floor(num(p.max_stack_cnt, 1)));
     S.on('heal', (c) => {
       if (c.source !== u || !c.target || (c.opts && (c.opts.regen || c.opts.self)) || !(c.amount > 0)) return;
-      const cur = c.target.findBuff(SHIELD_KEY);
+      const cur = /** @type {BuffRec | null} */ (c.target.findBuff(SHIELD_KEY));
       if (cur && cur.shieldHits >= cap) return;
       if (!chance(battle, pr)) return;
       if (addShieldLayer(battle, c.target, SHIELD_KEY, cap)) fxOn(battle, 'shield', c.target, 'item:chess_item_4_11_e', rec.id);

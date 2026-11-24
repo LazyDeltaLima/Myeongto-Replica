@@ -177,6 +177,7 @@ export const BUFFS = {
     const partner = partnerOf(p, battle);
     const key = S.key('stealth');
     const per = num(p.atk_per_sec), max = num(p.max_atk, 1);
+    /** @type {{ bonus: number, seq: number, since: number | null, ticks: number }} */
     const st = { bonus: 0, seq: -1, since: null, ticks: 0 };
     S.every(0, () => {
       if (u.deploySeq !== st.seq) { st.seq = u.deploySeq; st.bonus = 0; st.since = null; }

@@ -47,6 +47,13 @@ import { bodyInKeys, bodyDist, bodyInRadius, bodyOnTile, bodyTileReach, bodyInRa
  *   credit?: Unit | null }} DamagedEv
  * @typedef {{ playerId: string, bondId: string, n: number, reason: string, source: Unit | null, temp: boolean,
  *   tile: readonly number[] | null }} LayerGainEv
+ * `attack` (an attack's targets, `targetDeployments` an enemy's), `fatal` (the HP loss that would knock `unit` out:
+ * a saver sets `prevented`), `heal` (`amount` a modifier may change), `beforeStatus` (a handler may set `cancel`):
+ * @typedef {{ attacker: Unit, targets: Unit[], isSkill: boolean, targetDeployments?: Map<Unit, number> }} AttackEv
+ * @typedef {{ unit: Unit, source: Unit | null, credit: Unit | null, dmg: Record<string, any> | null, amount: number,
+ *   prevented: boolean }} FatalEv
+ * @typedef {{ source: Unit | null, target: Unit, amount: number, opts: Record<string, any> }} HealEv
+ * @typedef {{ source: Unit | null, target: Unit, status: string, duration: number, value?: number, cancel: boolean }} BeforeStatusEv
  */
 
 

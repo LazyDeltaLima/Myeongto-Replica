@@ -6,6 +6,8 @@ import { num, battleStore, directMods, onField, tplFx } from '../../support/inde
 import { isHpLoss } from '../../../damage.js';
 import { late, chance, isAddition, procTags } from '../shared.js';
 
+/** @import { Scheduled } from '../../../battle/hooks.js' */
+
 /** 有限加速器's cooldown step: its global buff's triggerInterval (act1vautochess_equip_acarm037_global_buff). */
 const ACCEL_STEP = 0.2;
 
@@ -19,7 +21,8 @@ export const BUFFS = {
     const step = num(p.attack_speed), cap = Math.max(1, Math.floor(num(p.atk_speed_layer_max, 10)));
     if (!step) return;
     const key = S.key('aspd');
-    let seq = null, n = 0, live = false, tick = null;
+    /** @type {number | null} */
+    let seq = null, n = 0, live = false, /** @type {Scheduled | null} */ tick = null;
     const stop = () => {
       live = false;
       if (tick) { tick.cancel(); tick = null; }
@@ -52,7 +55,8 @@ export const BUFFS = {
     const key = S.key('layers');
     const layers = battleStore(battle, 'item:ursusRespirator', () => new Map());
     const id = `${u.id}|${rec.id}`;
-    const set = (n) => S.buff(u, { key, mods: { blockCnt: bc * n, ...directMods({ atk: ac * n }) }, refresh: 'replace' });
+    const set = (/** @type {number} */ n) => S.buff(u, { key, mods: { blockCnt: bc * n, ...directMods({ atk: ac * n }) }, refresh: 'replace' });
+    /** @type {number | null} */
     let seq = null;
     const grow = () => {
       if (seq === u.deploySeq) return;
@@ -78,6 +82,7 @@ export const BUFFS = {
     const splash = num(p.have_splash_damage) > 0;
     const pr = num(p.prob), sc = num(p.atk_scale, 1), r = num(p.range_radius, 1), cd = num(p.splash_cd, 0.5);
     const key = S.key('aspd');
+    /** @type {number | null} */
     let seq = null, n = 0, readyAt = -Infinity;
     const fresh = () => {
       if (seq === u.deploySeq) return;
@@ -115,7 +120,7 @@ export const BUFFS = {
   act1vautochess_equip_acarm024_global_buff: late(function chess_item_3_04_e(battle, u, p, S) {
     const key = S.key('stacks');
     const cap = Math.max(1, Math.floor(num(p.atk_buff_cnt, 10)));
-    let n = 0, seq = null;
+    let n = 0, /** @type {number | null} */ seq = null;
     // a new deployment (its 'deploy' event, or a skill it starts before that event: a carried 部署时 skill) starts over
     const fresh = () => {
       if (seq === u.deploySeq) return;
@@ -147,7 +152,7 @@ export const BUFFS = {
     if (!num(p.attack_speed)) return;
     const key = S.key('stacks');
     const cap = Math.max(1, Math.floor(num(p.max_buff_cnt, 60)));
-    let n = 0, step = -1, seq = null;
+    let n = 0, step = -1, /** @type {number | null} */ seq = null;
     const fresh = () => {
       if (seq === u.deploySeq) return;
       seq = u.deploySeq;

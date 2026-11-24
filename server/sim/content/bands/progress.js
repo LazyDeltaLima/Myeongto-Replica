@@ -17,12 +17,20 @@
 
 import { buffsOf, num } from '../support/index.js';
 
-const int = (v, d = 0) => Math.trunc(num(v, d));
-/** A per-round counter of meta.js roundCounter: 0 when it was last written in another round. */
-const roundCount = (ctx, key) => (ctx.counter(`${key}:r`) === ctx.round ? ctx.counter(key) : 0);
-const vt = (value, target) => ({ value: Math.max(0, Math.min(target, value)), target });
+/**
+ * The reads a stage's progress takes (the header's ctx: a meta handler's MetaCtx, or the 指令 view's of
+ * server/match/match/bandSkill.js); `setCounter` moves the stage counter (bands/meta.js bandStageIndex).
+ * @typedef {{ readonly round: number, counter: (key: string) => number, setCounter: (key: string, v: number) => unknown,
+ *   roundStats: () => Record<string, any>, shopLevel: () => number, stats: () => Record<string, any>, bondCount: (id: string) => number }} StageCtx
+ * @typedef {(ctx: StageCtx, p: Record<string, any>) => { value: number, target: number }} TagFn
+ */
 
-/** buff key → (ctx, params) → { value, target } */
+const int = (/** @type {unknown} */ v, d = 0) => Math.trunc(num(v, d));
+/** A per-round counter of meta.js roundCounter: 0 when it was last written in another round. */
+const roundCount = (/** @type {StageCtx} */ ctx, /** @type {string} */ key) => (ctx.counter(`${key}:r`) === ctx.round ? ctx.counter(key) : 0);
+const vt = (/** @type {number} */ value, /** @type {number} */ target) => ({ value: Math.max(0, Math.min(target, value)), target });
+
+/** buff key → (ctx, params) → { value, target } @type {Readonly<Record<string, TagFn>>} */
 const TAG = {
   gain_bond_cnt_shop_up_discount: (ctx, p) => vt(ctx.counter('band:narant:gained'), Math.max(1, int(p.count, 3))),
   buy_bond_char_cnt_gain_equip: (ctx, p) => { const t = Math.max(1, int(p.count, 3)); return vt(ctx.counter('band:lolo:bought') % t, t); },
@@ -34,14 +42,20 @@ const TAG = {
   round_buy_bond_char_price: (ctx, p) => vt(roundCount(ctx, 'band:sciurus'), Math.max(1, int(p.n, 1))),
 };
 
-/** The stage's effect progress (null: the stage shows none, or its key keeps no count). */
+/**
+ * The stage's effect progress (null: the stage shows none, or its key keeps no count).
+ * @param {StageCtx} ctx @param {Record<string, any> | null | undefined} stage
+ */
 export function stageTag(ctx, stage) {
   if (!stage || stage.showTag !== 'value_target') return null;
   for (const b of buffsOf(stage)) if (b.key && TAG[b.key]) return TAG[b.key](ctx, b.p);
   return null;
 }
 
-/** The progress toward the stage's `next` (null: the last stage, or an unlock type without a count). */
+/**
+ * The progress toward the stage's `next` (null: the last stage, or an unlock type without a count).
+ * @param {StageCtx} ctx @param {Record<string, any> | null | undefined} stage
+ */
 export function stageUnlock(ctx, stage) {
   const next = stage?.next;
   const a = Array.isArray(next?.unlockParams) ? next.unlockParams : [];

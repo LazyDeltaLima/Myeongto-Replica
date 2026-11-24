@@ -39,11 +39,17 @@ import { canonicalBuffKey } from './aliases.js';
 import { msg, dn } from '../../../../shared/i18n.js';
 import { bankbookShowValue } from '../../../../shared/showTag.js';
 
-const int = (v, d = 0) => (Number.isFinite(v) ? Math.trunc(v) : d);
+/** @import { MetaCtx, MetaHandlers, MetaRegistry } from '../../../match/effectsMeta.js' */
+/** @import { PieceView } from '../support/meta.js' */
+/** @import { ShopSlot } from '../../../match/player/economy.js' */
+/** A bounty card of the season's choices (choices.json cards.bounty), read field by field. @typedef {Record<string, any>} BountyCard */
+
+const int = (/** @type {number} */ v, d = 0) => (Number.isFinite(v) ? Math.trunc(v) : d);
 
 /**
  * Params `{ ...bb, ...bbStr }` of the concrete record's buff with official key `key` — or a key a season renamed it to
  * (items/aliases.js) — null when absent.
+ * @param {MetaCtx} ctx @param {string | null | undefined} itemId @param {string} key @returns {Record<string, any> | null}
  */
 function buffP(ctx, itemId, key) {
   const rec = itemId ? ctx.gd.item(itemId) : null;
@@ -51,7 +57,10 @@ function buffP(ctx, itemId, key) {
   return null;
 }
 
-/** 【X】盟约干员 on the prep side: own bonds + 变形同构体 grants, or 调和 (maniShip) members while both bonds are active. */
+/**
+ * 【X】盟约干员 on the prep side: own bonds + 变形同构体 grants, or 调和 (maniShip) members while both bonds are active.
+ * @param {MetaCtx} ctx @param {PieceView} piece @param {string} bondId
+ */
 function pieceIsMember(ctx, piece, bondId) {
   const bonds = metaBonds(ctx, piece);
   if (bonds.includes(bondId)) return true;
@@ -60,22 +69,25 @@ function pieceIsMember(ctx, piece, bondId) {
 
 /** Cards drawn before “神秘顾客” takes one at random. */
 const OFFER_SIZE = 3;
-/** cards.bounty entries matching `test` whose enemy can appear in this mode. */
+/**
+ * cards.bounty entries matching `test` whose enemy can appear in this mode.
+ * @param {MetaCtx} ctx @param {(c: BountyCard) => boolean} test @returns {BountyCard[]}
+ */
 function bountyCards(ctx, test) {
   const all = ctx.data && ctx.data.choices && ctx.data.choices.cards && Array.isArray(ctx.data.choices.cards.bounty) ? ctx.data.choices.cards.bounty : [];
   const inactive = ctx.gd.inactiveEnemies instanceof Set ? ctx.gd.inactiveEnemies : new Set();
-  return all.filter((c) => c && test(c) && ctx.gd.enemy(c.enemyKey) && !inactive.has(c.enemyKey));
+  return all.filter((/** @type {BountyCard | null} */ c) => c && test(c) && ctx.gd.enemy(c.enemyKey) && !inactive.has(c.enemyKey));
 }
 /** The 战术特训 cards (perfect payout: the chooser's own phase perfect) — what 教鞭 offers. */
-const isTraining = (c) => c.payout === 'perfect';
+const isTraining = (/** @type {BountyCard} */ c) => c.payout === 'perfect';
 /** The band bounty family `enemyeffect_b_*` — what “神秘顾客” offers [ASSUMED]. */
-const isBandBounty = (c) => /^enemyeffect_b_\d+$/.test(String(c.effectId));
+const isBandBounty = (/** @type {BountyCard} */ c) => /^enemyeffect_b_\d+$/.test(String(c.effectId));
 
 /**
  * The prep behaviours, by official buff key: [buff key, when (the item's buff keys → runs?) or null, hooks(base) → the
  * handler's hooks over `base` (what the item key had: a built-in, an earlier entry)]. Registered in this order on every
  * item key of the season whose records carry the key.
- * @type {[string, ((keys: Set<string>) => boolean) | null, (base: object) => object][]}
+ * @type {[string, ((keys: Set<string>) => boolean) | null, (base: MetaHandlers) => MetaHandlers][]}
  */
 const PREP = [
   // 紧急调度券 — use_equip_reward_random_char_chess_in_shop {count}
@@ -83,13 +95,14 @@ const PREP = [
     onEquip(ctx, ev) {
       const p = buffP(ctx, ev.item && ev.item.id, 'use_equip_reward_random_char_chess_in_shop') || {};
       const n = Math.max(1, int(p.count, 1));
+      /** @type {Set<number>} */
       const tried = new Set();
       for (let k = 0; k < n; k++) {
         const slots = ctx.shopSlots();
         const idx = slots.map((s, i) => (s && s.kind === 'chess' && !s.sold && !tried.has(i) ? i : -1)).filter((i) => i >= 0);
         if (!idx.length) break;
         const i = ctx.rng.pick(idx);
-        const got = ctx.grantChess(slots[i].id);
+        const got = ctx.grantChess(/** @type {ShopSlot} */ (slots[i]).id); // idx holds filled slots only
         if (got) ctx.setShopSlot(i, null);
         else { tried.add(i); k--; }
       }
@@ -103,7 +116,8 @@ const PREP = [
       const n = Math.max(1, int(p.refresh_cnt, 3));
       const bonds = new Set(ctx.pieceBonds(ev.target.uid));
       const maxTier = ctx.shopLevel();
-      const shares = (id) => { const c = ctx.gd.chess(id); return !!(c && Array.isArray(c.bonds) && c.bonds.some((b) => bonds.has(b))); };
+      const shares = (/** @type {string} */ id) => { const c = ctx.gd.chess(id); return !!(c && Array.isArray(c.bonds) && c.bonds.some((b) => bonds.has(b))); };
+      /** @type {string[]} */
       const ids = [];
       for (let k = 0; k < n; k++) {
         // never the same operator twice (user playtest #6 item 19): fewer cards when the pool has no other one
@@ -146,12 +160,12 @@ const PREP = [
   // returned original.
   ['trap_copy_front_char', null, () => ({
     onArt(ctx, ev) {
-      const target = (ev.targets || []).find((p) => p && p.kind === 'chess');
+      const target = (ev.targets || []).find((/** @type {PieceView | null} */ p) => p && p.kind === 'chess');
       if (!target) { ev.error = 'BAD_TARGET'; ev.detail = 'no operator in range'; return; }
       // snapshot before the gain: a gain that completes a merge consumes the target and empties `target.items`, and an
       // item merge detaches the original's copy from `target.items` while we iterate (the built-in's live loop then
       // skipped the next item)
-      const itemIds = (target.items || []).map((it) => it.id);
+      const itemIds = (target.items || []).map((/** @type {PieceView} */ it) => it.id);
       const copy = ctx.grantChess(target.id, { requirePool: false, source: 'item:chess_item_6_02_m' });
       if (!copy) { ev.error = 'HAND_FULL'; return; }
       for (const itemId of itemIds) ctx.grantItem(itemId, { source: 'item:chess_item_6_02_m' });
@@ -169,7 +183,7 @@ const PREP = [
       const mates = ctx.teammates();
       if (!mates.length || !item) return;
       const seat = Number.isInteger(ctx.seat) ? ctx.seat : 0;
-      const dist = (t) => { const s = Number.isInteger(t.seat) ? t.seat : 0; return ((s - seat) % 64 + 64) % 64 || 64; };
+      const dist = (/** @type {MetaCtx} */ t) => { const s = Number.isInteger(t.seat) ? t.seat : 0; return ((s - seat) % 64 + 64) % 64 || 64; };
       const next = mates.slice().sort((a, b) => dist(a) - dist(b))[0];
       if (next) next.grantItem(item.id, { source: 'item' });
     },
@@ -187,7 +201,7 @@ const PREP = [
       const bond = typeof p.bond === 'string' && p.bond ? p.bond : 'yanShip';
       const others = String(p.other_equip || '').split(',').map((s) => itemKeyOf(s.trim(), ctx)).filter(Boolean);
       const fresh = ctx.piece(holder.uid) || holder;
-      const carries = (fresh.items || []).some((it) => it && it.uid !== piece.uid && others.includes(itemKeyOf(it.id, ctx)));
+      const carries = (fresh.items || []).some((/** @type {PieceView | null} */ it) => it && it.uid !== piece.uid && others.includes(itemKeyOf(it.id, ctx)));
       if (!carries || !pieceIsMember(ctx, fresh, bond)) return;
       const k = `cauldron:${piece.uid}:${ctx.round}`;
       if (ctx.counter(k) >= Math.max(0, int(p.max, 3))) return;
@@ -200,12 +214,12 @@ const PREP = [
 // ---- 规程 (act3autochess): new keys whose items changed meaning (items/aliases.js keeps the renamed same ones)
 
 /** The operator's 第一盟约: the first bond of its chess record (a 自选 piece: the operator it stands for), or null. */
-const firstBond = (ctx, piece) => {
+const firstBond = (/** @type {MetaCtx} */ ctx, /** @type {PieceView | null | undefined} */ piece) => {
   const b = piece && ctx.chessRecord(piece.id)?.bonds;
   return Array.isArray(b) && typeof b[0] === 'string' ? b[0] : null;
 };
-const hasBondOf = (ctx, id, bond) => !!(bond && ctx.gd.chess(id)?.bonds?.includes(bond));
-const nothingToast = (ctx, ev) => ctx.toast(msg('{who}：没有可获得的同盟约干员', { who: dn(ctx.gd.item(ev.item?.id)?.name || '') }), 'warn');
+const hasBondOf = (/** @type {MetaCtx} */ ctx, /** @type {string} */ id, /** @type {string | null} */ bond) => !!(bond && ctx.gd.chess(id)?.bonds?.includes(bond));
+const nothingToast = (/** @type {MetaCtx} */ ctx, /** @type {Record<string, any>} */ ev) => ctx.toast(msg('{who}：没有可获得的同盟约干员', { who: dn(ctx.gd.item(ev.item?.id)?.name || '') }), 'warn');
 
 PREP.push(
   // 简易通讯机 — equip_destory_first_bond_char {count}: "装备时销毁，随机获得1名拥有该干员第一盟约的干员" — 盟约's same-bond
@@ -248,6 +262,7 @@ PREP.push(
     onEquip(ctx, ev) {
       const p = buffP(ctx, ev.item && ev.item.id, 'use_equip_spe_goods_first_bond') || {};
       const bond = firstBond(ctx, ev.target);
+      /** @type {string[]} */
       const ids = [];
       for (let k = 0; k < Math.max(1, int(p.option_count, 3)) && bond; k++) {
         const id = ctx.rollChess({ maxTier: Math.max(1, ctx.shopLevel()), filter: (x) => hasBondOf(ctx, x, bond) && !ids.includes(x) });
@@ -292,6 +307,7 @@ PREP.push(
   ['use_equip_spe_goods_equip', null, () => ({
     onEquip(ctx, ev) {
       const p = buffP(ctx, ev.item && ev.item.id, 'use_equip_spe_goods_equip') || {};
+      /** @type {string[]} */
       const ids = [];
       for (let k = 0; k < Math.max(1, int(p.option_count, 3)); k++) {
         const id = ctx.rollItem({ maxTier: Math.max(1, ctx.shopLevel()), exclude: ids });
@@ -313,6 +329,7 @@ PREP.push(
       const bond = firstBond(ctx, ev.target);
       const maxTier = Math.max(1, ctx.shopLevel());
       const kinds = ctx.shopKinds();
+      /** @type {string[]} */
       const used = [];
       for (let i = 0; i < kinds.length; i++) {
         if (kinds[i] === 'item') {
@@ -320,7 +337,7 @@ PREP.push(
           if (id) ctx.setShopSlot(i, { kind: 'item', id });
           continue;
         }
-        const fresh = (x) => !used.includes(x);
+        const fresh = (/** @type {string} */ x) => !used.includes(x);
         const id = (bond && ctx.rollChess({ maxTier, filter: (x) => fresh(x) && hasBondOf(ctx, x, bond) }))
           || ctx.rollChess({ maxTier, filter: fresh }) || ctx.rollChess({ maxTier });
         if (!id) continue;
@@ -348,10 +365,11 @@ export const PREP_BUFF_KEYS = Object.freeze([...new Set(PREP.map(([k]) => k))]);
 /**
  * Register the prep behaviours on the item keys of the season's data (`data`: shared/seasons.js; absent: the default
  * season's) whose records — the normal, golden and Art record of the key — carry their buff keys.
+ * @param {MetaRegistry} registry @param {Record<string, any> | null} [data]
  */
 export function registerMeta(registry, data = gameData()) {
   const items = (data && data.items) || {};
-  /** item key → the canonical buff keys of its records, in record order */
+  /** item key → the canonical buff keys of its records, in record order @type {Map<string, Set<string>>} */
   const byKey = new Map();
   for (const [id, rec] of Object.entries(items)) {
     if (!rec || !Array.isArray(rec.buffs)) continue;

@@ -55,6 +55,25 @@ import { weaknessRetype, addShieldLayer, PRIO_RESPAWN, reviveNow } from '../item
 import { addCapMod } from '../garrisons/effects/triggered.js';
 import { spawnMapChar } from '../tokens.js';
 
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { DataScope, DeployEv, DeathEv, SkillEv, HitEv, DamagedEv, AttackEv } from '../support/index.js' */
+/** @import { BuffRec } from '../bonds/shared.js' */
+/**
+ * A player of the battle (battle/players.js _addPlayer), the fields the bands read: its strategy and its battle input
+ * (PlayerBattleInput: `bandStage`, `bandCommand`, `bandMarks`, `bandChests`, `reserve` …).
+ * @typedef {{ playerId: string, bandId: string | null, input: Record<string, any> }} BandPlayer
+ * A band buff behaviour (BY_KEY), a mark's on its operator (MARK_BY_KEY) and a tile mark's (TILE_MARK_BY_KEY); `p` the
+ * buff's params `{ ...bb, ...bbStr }`.
+ * @typedef {(battle: Battle, ps: BandPlayer, p: Record<string, any>, bandId: string) => void} BandFn
+ * @typedef {(battle: Battle, ps: BandPlayer, u: Unit, p: Record<string, any>, key: string) => void} MarkFn
+ * @typedef {(battle: Battle, ps: BandPlayer, tile: number[], p: Record<string, any>) => void} TileMarkFn
+ * A mark of the battle input (`bandMarks`: `{ effectId, uid | itemId, capAdd? }`, a tile mark `{ effectId, row, col }`).
+ * @typedef {Record<string, any>} BandMark
+ * A map-character variant of band_amedic (amedicVariants).
+ * @typedef {{ cond: string, cnt: number, chars: string[] }} AmedicVariant
+ */
+
 export const AMEDIC_BAND = 'band_amedic';
 /** The common_condition values of band_amedic's auto_chess_change_map (amedicCharsFor); any other places nobody. */
 export const AMEDIC_CONDS = Object.freeze(['condition_golden_chess_ge', 'condition_golden_chess_le']);
@@ -67,12 +86,13 @@ export const BAND13_ADD_TYPES = Object.freeze(['by_charlevel', 'by_count']);
  */
 export const PRIO_BAND_REVIVE = PRIO_RESPAWN - 1;
 
-const keyOf = (bandId, part = '') => `band:${bandId}${part ? `:${part}` : ''}`;
-const deployedOps = (battle, pid) => playerOps(battle, pid, { fieldOnly: true });
+const keyOf = (/** @type {string} */ bandId, part = '') => `band:${bandId}${part ? `:${part}` : ''}`;
+const deployedOps = (/** @type {Battle} */ battle, /** @type {string} */ pid) => playerOps(battle, pid, { fieldOnly: true });
 
 // ---------------------------------------------------------------------------------------------------------------
 // band buff behaviours: (battle, ps, params, bandId)
 
+/** @type {Record<string, BandFn>} */
 const BY_KEY = {
   // 阿米娅 众志合一
   act1autochess_band2_buff(battle, ps, p, bandId) {
@@ -91,7 +111,7 @@ const BY_KEY = {
     const max = Math.floor(num(p.max_respawn_cnt, 3));
     if (!(max > 0)) return;
     let used = 0;
-    battle.on('death', (c) => {
+    battle.on('death', (/** @type {DeathEv} */ c) => {
       const u = c.unit;
       if (used >= max || !isOp(u) || u.ownerId !== ps.playerId || !reviveNow(battle, c, 'band')) return;
       used++;
@@ -107,7 +127,7 @@ const BY_KEY = {
     const t = p.bond_add_type;
     const byLevel = t == null || t === '' || t === 'by_charlevel';
     if (!byLevel && !BAND13_ADD_TYPES.includes(t)) return; // a type this does not read gains nothing (content/coverage.js)
-    battle.on('death', (c) => {
+    battle.on('death', (/** @type {DeathEv} */ c) => {
       const u = c.unit;
       if (c.reason !== 'killed' || !isOp(u) || u.ownerId !== ps.playerId || !isMember(battle, u, bond)) return;
       const n = byLevel ? tierOf(u) : Math.max(1, Math.floor(num(p.value, 1)));
@@ -122,7 +142,7 @@ const BY_KEY = {
     const mul = Math.max(0, 1 + num(p.respawn_time, 0));
     if (mul === 1) return;
     const key = keyOf(bandId);
-    battle.on('deploy', (c) => {
+    battle.on('deploy', (/** @type {DeployEv} */ c) => {
       const u = c.unit;
       if (!isOp(u) || u.ownerId !== ps.playerId) return;
       battle.addBuff(u, { key, mods: { redeployMul: mul }, refresh: 'stack', stacks: 1, maxStacks: Infinity, persist: true, allowDead: true });
@@ -134,12 +154,13 @@ const BY_KEY = {
     const pr = num(p.prob);
     if (!(pr > 0)) return;
     const key = keyOf(bandId, 'shield');
+    /** @type {Set<Unit>} */
     const chosen = new Set();
     // "最右边的所有我方单位": the highest raw field column (a board position, whatever the units' directions), on the
     // mirrored Final Assault right side too — the client compares grid columns (AssignGridPositionToBlackboard;
     // maintainer decision 2026-10-11, second answer: follow the client). Until then the mirrored side counted from the
     // field's left (`ps.mirror ? -u.tileC : u.tileC`), docs/rules/sim.md 「桑葚」
-    const boardCol = (u) => u.tileC;
+    const boardCol = (/** @type {Unit} */ u) => u.tileC;
     let begun = false;
     battle.on('battleStart', () => {
       begun = true;
@@ -152,7 +173,7 @@ const BY_KEY = {
     // act1autochess_band17_buff: ON_BUFF_START gives the unit [core] and [self], which 0.1 s later puts [check] on every
     // unit of the same player side — whichever of the two stands further left loses its [core]): it keeps [core] only
     // if no unit of the player stands further right, and takes it from every unit left of it
-    battle.on('deploy', (c) => {
+    battle.on('deploy', (/** @type {DeployEv} */ c) => {
       const u = c.unit;
       if (!begun || !u || u.ownerId !== ps.playerId || u.side === 'enemy' || u.kind === 'device') return;
       chosen.add(u);
@@ -168,7 +189,7 @@ const BY_KEY = {
         }
       }, { owner: u });
     });
-    battle.on('attack', (c) => {
+    battle.on('attack', (/** @type {AttackEv} */ c) => {
       const u = c.attacker;
       if (!chosen.has(u) || !u.alive) return;
       if (!(pr >= 1 || battle.rng() < pr)) return;
@@ -180,13 +201,13 @@ const BY_KEY = {
   act1autochess_band18_buff(battle, ps, p, bandId) {
     const sp = num(p.sp);
     if (!(sp > 0)) return;
-    battle.on('skillEnd', (c) => {
+    battle.on('skillEnd', (/** @type {SkillEv} */ c) => {
       const u = c.unit;
       if (!isOp(u) || u.ownerId !== ps.playerId || c.reason === 'death' || !onField(u) || !isGroundOp(u)) return;
       const cands = alliesAround(battle, u, N4).filter((a) => a.kind === 'op' && a.skill && !a.skill.noSkill && a.skill.kind !== 'passive');
       const t = cands.length ? battle.rng.pick(cands) : null;
       if (!t) return;
-      t.skill.gainSp(sp, 'band');
+      /** @type {NonNullable<Unit['skill']>} */ (t.skill).gainSp(sp, 'band'); // cands have a skill
       fxOn(battle, 'spGain', t, keyOf(bandId), bandId, { n: sp, from: u.id });
     });
   },
@@ -197,12 +218,12 @@ const BY_KEY = {
     const cap = Math.max(1, Math.floor(num(p.max_stack_cnt, 10)));
     if (!(step > 0)) return;
     const key = keyOf(bandId);
-    battle.on('death', (c) => {
+    battle.on('death', (/** @type {DeathEv} */ c) => {
       const d = c.unit;
       if (c.reason !== 'killed' || !isOp(d) || d.ownerId !== ps.playerId) return;
       for (const a of battle.allies(ps.playerId)) {
         if (a === d) continue;
-        const cur = a.findBuff(key);
+        const cur = /** @type {BuffRec | null} */ (a.findBuff(key));
         const n = Math.min(cap, (cur && cur.data ? cur.data.n : 0) + 1);
         battle.addBuff(a, { key, mods: directMods({ atk: step * n }), refresh: 'replace', data: { n }, visible: true });
       }
@@ -211,7 +232,7 @@ const BY_KEY = {
 
   // 陈 以己之长
   act1autochess_band19_buff(battle, ps) {
-    battle.on('hit', (c) => {
+    battle.on('hit', (/** @type {HitEv} */ c) => {
       const s = c.source;
       if (!isOp(s) || s.ownerId !== ps.playerId || !c.target || c.target.side !== 'enemy') return;
       weaknessRetype(c.dmg, s, c.target);
@@ -223,11 +244,12 @@ const BY_KEY = {
     const atk = num(p.atk);
     if (!atk) return;
     battle.on('battleStart', () => {
+      /** @type {Map<string, Unit[]>} */
       const groups = new Map();
       for (const u of deployedOps(battle, ps.playerId)) {
         const b = baseChessId(u);
         if (!groups.has(b)) groups.set(b, []);
-        groups.get(b).push(u);
+        /** @type {Unit[]} */ (groups.get(b)).push(u);
       }
       for (const list of groups.values()) {
         if (list.length < 2) continue;
@@ -263,11 +285,16 @@ const BY_KEY = {
 // ---------------------------------------------------------------------------------------------------------------
 // Touch 外勤医疗 (auto_chess_change_map, every player's field)
 
-/** Map-character variants of band_amedic: [{ cond, cnt, chars: [tokenId…] }] (the scope's data, support dataFile). */
+/**
+ * Map-character variants of band_amedic: [{ cond, cnt, chars: [tokenId…] }] (the scope's data, support dataFile).
+ * @param {DataScope} [scope]
+ */
 export function amedicVariants(scope = null) {
+  /** @type {AmedicVariant[]} */
   const out = [];
   for (const b of buffsOf(bandRecord(AMEDIC_BAND, scope))) {
     if (b.key !== 'auto_chess_change_map') continue;
+    /** @type {Set<string>} */
     const chars = new Set();
     for (const [k, v] of Object.entries(b.p)) if (k.includes('#') && num(v) > 0) chars.add(k.split('#')[0]);
     out.push({ cond: String(b.p.common_condition || ''), cnt: num(b.p.cnt, 0), chars: [...chars] });
@@ -275,7 +302,7 @@ export function amedicVariants(scope = null) {
   return out;
 }
 
-/** Map characters for a player with `elites` elite operators on the field. */
+/** Map characters for a player with `elites` elite operators on the field. @param {number} elites @param {AmedicVariant[]} [variants] */
 export function amedicCharsFor(elites, variants = amedicVariants()) {
   for (const v of variants) {
     const ok = v.cond === 'condition_golden_chess_ge' ? elites >= v.cnt : v.cond === 'condition_golden_chess_le' ? elites <= v.cnt : false;
@@ -284,6 +311,7 @@ export function amedicCharsFor(elites, variants = amedicVariants()) {
   return [];
 }
 
+/** @param {Battle} battle */
 function installMapChars(battle) {
   const variants = amedicVariants(battle);
   if (!variants.length) return;
@@ -308,7 +336,7 @@ function installMapChars(battle) {
 /** Band buff keys with a battle part (tests / tooling). */
 export const BATTLE_BUFF_KEYS = Object.freeze([...Object.keys(BY_KEY), 'auto_chess_change_map']);
 
-/** Does this band have a battle part? (the scope's data, support dataFile) */
+/** Does this band have a battle part? (the scope's data, support dataFile) @param {unknown} bandId @param {DataScope} [scope] */
 export function hasBattlePart(bandId, scope = null) {
   return buffsOf(bandRecord(bandId, scope)).some((b) => (b.bbKey && BY_KEY[b.bbKey]) || b.key === 'auto_chess_change_map');
 }
@@ -316,6 +344,7 @@ export function hasBattlePart(bandId, scope = null) {
 /**
  * The strategy's buffs in this battle: those of the stage the player reached (PlayerBattleInput `bandStage`, 规程's
  * 指令 stages — bands/meta.js bandStageIndex), else the record's own (one stage).
+ * @param {Record<string, any> | null | undefined} band @param {unknown} stage
  */
 export function bandBattleBuffs(band, stage) {
   if (!band) return [];
@@ -325,6 +354,7 @@ export function bandBattleBuffs(band, stage) {
   return buffsOf(stages[i]);
 }
 
+/** @param {Battle} battle */
 export function install(battle) {
   for (const ps of battle.players) {
     // the own strategy, then a 指令 taken from another one (更换指令: PlayerBattleInput `bandCommand` / `bandCommandStage`,
@@ -382,7 +412,10 @@ const MARK_SWAP = 'act3autochess_band22_buff';
 const PRIO_MARK_LOCK = 1000;
 const PRIO_MARK_LAST = -2000;
 
-/** What a mark's effect record asks of the battle input: { upgrade, giveItem, hand } (server/match/player/round.js). */
+/**
+ * What a mark's effect record asks of the battle input: { upgrade, giveItem, hand } (server/match/player/round.js).
+ * @param {Record<string, any> | null | undefined} eff
+ */
 export function markInputNeeds(eff) {
   const out = { upgrade: false, giveItem: false, hand: false };
   for (const b of buffsOf(eff)) {
@@ -393,27 +426,31 @@ export function markInputNeeds(eff) {
   return out;
 }
 
-const marksOf = (ps) => (Array.isArray(ps.input?.bandMarks) ? ps.input.bandMarks.filter((m) => m && typeof m === 'object') : []);
-const markedUnit = (battle, ps, uid) => battle.allyUnits.find((u) => isOp(u) && u.ownerId === ps.playerId && !u.reserve && u.uid === uid) ?? null;
+const marksOf = (/** @type {BandPlayer} */ ps) => (Array.isArray(ps.input?.bandMarks) ? ps.input.bandMarks.filter((/** @type {unknown} */ m) => m && typeof m === 'object') : []);
+const markedUnit = (/** @type {Battle} */ battle, /** @type {BandPlayer} */ ps, /** @type {unknown} */ uid) => battle.allyUnits.find((u) => isOp(u) && u.ownerId === ps.playerId && !u.reserve && u.uid === uid) ?? null;
 
-/** No revive takes `u`'s knock-out while `lock()` holds (the client's reborn_mask ≠ 0). */
+/**
+ * No revive takes `u`'s knock-out while `lock()` holds (the client's reborn_mask ≠ 0).
+ * @param {Battle} battle @param {Unit} u @param {() => boolean} lock
+ */
 function lockRevive(battle, u, lock) {
-  battle.on('death', (c) => { if (c.unit === u && lock()) c.revivedBy = c.revivedBy || 'band:mark'; }, { priority: PRIO_MARK_LOCK });
+  battle.on('death', (/** @type {DeathEv} */ c) => { if (c.unit === u && lock()) c.revivedBy = c.revivedBy || 'band:mark'; }, { priority: PRIO_MARK_LOCK });
 }
 
+/** @type {Record<string, MarkFn>} */
 const MARK_BY_KEY = {
   act3autochess_band12_buff(battle, ps, u, p, key) {
     const max = Math.max(0, Math.floor(num(p.max_respawn_cnt, 0)));
     let starting = false;
     let used = 0;
     lockRevive(battle, u, () => starting);
-    battle.on('death', (c) => {
+    battle.on('death', (/** @type {DeathEv} */ c) => {
       if (c.unit !== u || starting || used >= max || !reviveNow(battle, c, 'band')) return;
       used++;
       fxOn(battle, 'revive', u, key, ps.bandId, { left: max - used });
       tplFx(battle, u, 'map_act1autochess_reinforce_02', u);
     }, { priority: PRIO_BAND_REVIVE });
-    battle.on('death', (c) => {
+    battle.on('death', (/** @type {DeathEv} */ c) => {
       if (c.unit !== u || !starting) return;
       starting = false;
       if (!u.alive && !u.removed && battle.redeploy(u, { free: true })) fxOn(battle, 'revive', u, key, ps.bandId, { start: true });
@@ -438,13 +475,13 @@ const MARK_BY_KEY = {
     };
     let begun = false;
     battle.on('battleStart', () => { begun = true; battle.after(0.1, judge, { owner: u }); });
-    battle.on('deploy', (c) => {
+    battle.on('deploy', (/** @type {DeployEv} */ c) => {
       if (!begun || c.unit !== u) return;
       core = false;
       const seq = u.deploySeq;
       battle.after(0.1, () => { if (u.deploySeq === seq) judge(); }, { owner: u });
     });
-    battle.on('attack', (c) => {
+    battle.on('attack', (/** @type {AttackEv} */ c) => {
       if (c.attacker !== u || !core || !u.alive) return;
       if (!(pr >= 1 || battle.rng() < pr)) return;
       if (addShieldLayer(battle, u, `${key}:shield`, 1)) fxOn(battle, 'shield', u, key, ps.bandId);
@@ -454,7 +491,7 @@ const MARK_BY_KEY = {
   act3autochess_band22_buff(battle, ps, u, _p, key) {
     let pending = false;
     lockRevive(battle, u, () => pending);
-    battle.on('damaged', (c) => {
+    battle.on('damaged', (/** @type {DamagedEv} */ c) => {
       if (pending || c.target !== u || !u.alive || c.type === 'element') return;
       if (!handCandidate(battle, ps.playerId)) return;
       pending = true;
@@ -462,7 +499,7 @@ const MARK_BY_KEY = {
       // 乌萨斯 member so knocked out gains the bond's 临时层数 for it, ON_TARGET_KILLED)
       battle.kill(u, u);
     });
-    battle.on('death', (c) => {
+    battle.on('death', (/** @type {DeathEv} */ c) => {
       if (c.unit !== u || !pending) return;
       pending = false;
       const next = handCandidate(battle, ps.playerId);
@@ -476,8 +513,8 @@ const MARK_BY_KEY = {
   },
 };
 
-const benchKey = (pid) => `band:mark:bench:${pid}`;
-/** The rightmost hand operator of the player's reserve not fielded yet, or null. */
+const benchKey = (/** @type {string} */ pid) => `band:mark:bench:${pid}`;
+/** The rightmost hand operator of the player's reserve not fielded yet, or null. @param {Battle} battle @param {string} pid @returns {Unit | null} */
 function handCandidate(battle, pid) {
   for (const u of battleStore(battle, benchKey(pid), () => [])) if (!(u.deploySeq > 0) && !u.alive) return u;
   return null;
@@ -486,6 +523,7 @@ function handCandidate(battle, pid) {
 /**
  * Before any content installs (content/index.js `reserve`): the hand operators a 消解空间 mark may call — every chess of
  * the input's `reserve`, rightmost slot first (shared per slot with the other switch rules: createReserveAlly).
+ * @param {Battle} battle
  */
 export function reserve(battle) {
   for (const ps of battle.players || []) {
@@ -524,12 +562,15 @@ export function reserve(battle) {
 /** 0.5 — the chest's aura radius (enemy_9038_achest, AuraAbility CircleCollider2D), squared. */
 const CHEST_TOUCH_SQ = 0.25;
 
+/** @type {Record<string, TileMarkFn>} */
 const TILE_MARK_BY_KEY = {
   act3autochess_band19_buff(battle, ps, [r, c], p) {
     const fear = num(p.fear, 0);
     if (!(fear > 0)) return;
     const k = r * COLS + c;
+    /** @type {WeakMap<Unit, number>} */
     const last = new WeakMap();
+    /** @type {WeakSet<Unit>} */
     const done = new WeakSet();
     battle.on('tick', () => {
       for (const e of battle.enemies) {
@@ -545,6 +586,7 @@ const TILE_MARK_BY_KEY = {
   },
 };
 
+/** @param {Battle} battle @param {BandPlayer} ps @param {BandMark} m */
 function installTileMark(battle, ps, m) {
   const tile = battle.mapTile(ps, m.row, m.col);
   if (!battle.grid.inRect(tile[0], tile[1])) return;
@@ -554,9 +596,11 @@ function installTileMark(battle, ps, m) {
   }
 }
 
+/** @param {Battle} battle */
 function installChests(battle) {
   for (const ps of battle.players) {
     const list = Array.isArray(ps.input?.bandChests) ? ps.input.bandChests : [];
+    /** @type {Array<{ u: Unit, id: string, coin: number }>} */
     const chests = [];
     for (const x of list) {
       if (!x || typeof x.id !== 'string' || !Number.isInteger(x.row) || !Number.isInteger(x.col) || typeof x.enemyId !== 'string') continue;
@@ -581,7 +625,8 @@ function installChests(battle) {
         }
       }
     });
-    battle.on('battleEnd', ({ result }) => {
+    battle.on('battleEnd', (/** @type {{ result: Record<string, any> | null }} */ { result }) => {
+      /** @type {string[]} */
       const gone = [];
       for (const ch of chests) {
         if (ch.u.alive) { if (ch.coin > 0) battle.addCoins(ps.playerId, ch.coin); } else gone.push(ch.id);
@@ -592,6 +637,7 @@ function installChests(battle) {
   }
 }
 
+/** @param {Battle} battle */
 function installMarks(battle) {
   installChests(battle);
   for (const ps of battle.players) {

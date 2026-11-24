@@ -9,16 +9,20 @@ import { RESIST_STATUSES } from '../../../buffs.js';
 import { hypot } from '../../../detmath.js';
 import { early, late, ENEMY_RECORD, mitigated, isAddition, isContinuous, procTags, chance } from '../shared.js';
 
+/** @import { Unit } from '../../../units.js' */
+/** @import { HitEv } from '../../support/index.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+
 /**
  * The carrier's own damage to an enemy at the `hit` hook (no 元素损伤) — its item procs too: these graphs scale or roll on
  * every damage it outputs (ON_OUTPUT_DAMAGE / ON_CALCULATE_DAMAGE), and a multiplier is no proc of its own.
  */
-const ownHit = (c, u) => c.source === u && !!c.target && c.target.side === 'enemy' && c.dmg.type !== 'element';
+const ownHit = (/** @type {HitEv} */ c, /** @type {Unit} */ u) => c.source === u && !!c.target && c.target.side === 'enemy' && c.dmg.type !== 'element';
 /**
  * Does the target hold a buff the client marks status-resistable (CheckContainsStatusResistableBuff — the buffs 抵抗
  * shortens: 晕眩, 冻结, 寒冷, 恐惧, 诱导 here, buffs.js RESIST_STATUSES)?
  */
-const holdsResistable = (t) => t.buffs.some((b) => b.status && RESIST_STATUSES.has(b.status));
+const holdsResistable = (/** @type {Unit} */ t) => /** @type {BuffRec[]} */ (t.buffs).some((b) => b.status && RESIST_STATUSES.has(b.status));
 
 /** chess_item_3_02_e, chess_item_4_05_e, chess_item_4_07_e, periodic_damage (early), halfidle_block_fixed_damage (early);
  * 规程: 伊比利亚骨刺刀, 驱逐者警棍, 动能单手弩, 天马之耀, 瓶装烈性反应 */
@@ -118,7 +122,7 @@ export const BUFFS = {
   periodic_damage: early(function periodic_damage(battle, u, p, S) {
     const d = num(p.damage);
     if (!(d > 0)) return;
-    S.stat('drain', null, { interval: 1, onTick: ({ unit }) => {
+    S.stat('drain', null, { interval: 1, onTick: (/** @type {{ unit: Unit }} */ { unit }) => {
       if (!unit.deployed) return;
       battle.dealDamage(unit, unit, periodicDamage(d));
       for (const a of battle.allies()) {

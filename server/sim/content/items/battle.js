@@ -65,6 +65,32 @@ import { BUFFS as SUSTAIN } from './effects/sustain.js';
 import { BUFFS as RESOURCE } from './effects/resource.js';
 import { BUFFS as BOND } from './effects/bond.js';
 
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { Scheduled } from '../../battle/hooks.js' */
+/** @import { DataScope, FatalEv } from '../support/index.js' */
+/** @import { ItemParams, ItemRec, ItemEntry, ItemHooks } from './shared.js' */
+/**
+ * One item record installed on one unit (installItem): `scope` holds what it registered; a lent grant also carries
+ * when it ends and who lent it (lendItemEffects).
+ * @typedef {{ gid: string, id: string, key: string, lent: boolean, scope: Scope, timer: Scheduled | null,
+ *   dispose: () => void, until?: number, lender?: Unit }} Grant
+ * The per-unit hammer runtime (hammerState): own copies and params per hammer type, 蒸汽之心's and 终极维式重锤's share.
+ * @typedef {{ own: Record<string, number>, params: Record<string, ItemParams | null>, steam: number,
+ *   steamP: ItemParams | null, ult: Set<string> | null, ultP: ItemParams | null, refs: number, scope: Scope | null,
+ *   aspdCur: number, lockAt: string | null }} HammerState
+ * A queued buff of an override group (joinOverrideGroup).
+ * @typedef {{ b: { bbKey: string | null, p: ItemParams }, S: Scope, rec: ItemRec }} OverrideEntry
+ * The battle's item runtime (items/shared.js runtime): grants per unit, hammer states, the 蒸汽之心 field cache per
+ * player, the 坚固 hook, the override groups and the copy counter.
+ * @typedef {{ grants: Map<Unit, Map<string, Grant>>, hammers: Map<Unit, HammerState>,
+ *   field: Map<string | null, { t: number, set: Set<string> }>, lends: Map<unknown, unknown>, undyingHook?: unknown,
+ *   override?: Map<Unit, Map<string | null, OverrideEntry[]>>, copySeq?: number }} ItemRuntime
+ * An item-keyed behaviour (BY_ITEM).
+ * @typedef {(battle: Battle, u: Unit, rec: ItemRec, S: Scope, grant: Grant) => void} ItemKeyed
+ * @typedef {Scope} ItemScope
+ */
+
 export {
   PRIO_REVIVE, PRIO_UNDYING_HELD, PRIO_RESPAWN, memberOf, carries, reviveNow, weaknessRetype, addShieldLayer,
 } from './shared.js';
@@ -80,11 +106,13 @@ const STEAM_BUFF = 'act1autochess_equip_acarm079_global_buff';
  * carrier with this buff's blackboard (the five specials at the hammers' numbers); then hammer_cnt = 1 + every hammer_N
  * any of the player's chess carries, the carrier included, and ATK MULTIPLIER atk_per_hammer × hammer_cnt (直接乘算).
  * No bond gate and no doubling (蒸汽之心's ×2 is the default season's). Judged when the buff starts.
+ * @type {import('./shared.js').ItemFn}
  */
 function ultimateHammer(battle, u, p, S) {
   if (p.atk_per_hammer == null) return; // the default season's 蒸汽之心 (BY_ITEM)
   const rt = runtime(battle);
-  const others = new Set(), all = new Set();
+  /** @type {Set<string>} */
+  const others = new Set(), /** @type {Set<string>} */ all = new Set();
   for (const a of playerOps(battle, u.ownerId)) {
     for (const id of itemsOf(a)) {
       const h = hammerInfo(itemKeyOf(id, battle), battle);
@@ -108,6 +136,7 @@ const HAMMER = { [STEAM_BUFF]: late(ultimateHammer) };
 
 /** The buff-key behaviours of every family (a key in two families throws). */
 const BY_BUFF = (() => {
+  /** @type {Record<string, ItemEntry>} */
   const out = {};
   for (const [fam, t] of Object.entries({ DAMAGE, STATUS, STACKS, SUSTAIN, RESOURCE, BOND, HAMMER })) {
     for (const [k, v] of Object.entries(t)) {
@@ -121,20 +150,25 @@ const BY_BUFF = (() => {
 // =====================================================================================================================
 // data helpers
 
-/** Buff params `{ ...bb, ...bbStr }` of the record's buff whose bbStr.key is `bbKey` (null when absent). */
+/**
+ * Buff params `{ ...bb, ...bbStr }` of the record's buff whose bbStr.key is `bbKey` (null when absent).
+ * @param {ItemRec | null | undefined} rec @param {string | null} bbKey @returns {ItemParams | null}
+ */
 function bp(rec, bbKey) {
   for (const b of buffsOf(rec)) if (b.bbKey === bbKey) return b.p;
   return null;
 }
-/** Stat keys of a stat buff → mods (直接乘算, see header). */
+/** Stat keys of a stat buff → mods (直接乘算, see header). Asked with a buff's bbKey, null when it has none. @type {Set<string | null>} */
 const STAT_BUFFS = new Set([
   'attr_common_global_buff', 'act1autochess_equip_acarm056_global_buff', 'act1autochess_equip_acarm050_global_buff',
   'magic_penetrate_global_buff', 'act1autochess_equip_acarm054_global_buff',
 ]);
+/** @param {ItemParams} p */
 function statMods(p) {
+  /** @type {Record<string, number>} */
   const m = {};
   let any = false;
-  const set = (k, v) => { m[k] = v; any = true; };
+  const set = (/** @type {string} */ k, /** @type {number} */ v) => { m[k] = v; any = true; };
   // ATK / DEF / max HP "+X%" are 直接乘算 (support directMods: additive with every other percentage)
   for (const [k, v] of Object.entries(directMods({ atk: num(p.atk), def: num(p.def), hp: num(p.max_hp) ? Math.max(-0.99, num(p.max_hp)) : 0 }))) set(k, v);
   if (num(p.attack_speed)) set('aspd', num(p.attack_speed));
@@ -147,6 +181,7 @@ function statMods(p) {
 }
 
 // ---- hammers (蒸汽之心) — derived from data: hammer records carry bbStr.big_hammer on their special buff
+/** @param {ItemParams | null | undefined} p */
 function hammerTypeOf(p) {
   if (!p) return null;
   // 电流维式重锤 (规程): its special buff act3autochess_equip_acarm140_global_buff reads palsy_prob / def_penetrate
@@ -161,6 +196,7 @@ function hammerTypeOf(p) {
  * The params of the season's hammer list: the first normal record whose STEAM_BUFF names `hammer_N` items — 蒸汽之心
  * (chess_item_6_05_e) in the default season, 终极维式重锤 (its own key) in 规程, which has no 蒸汽之心. The list names item
  * ids of that season without the quality suffix (itemKeyOf turns them into the handler keys).
+ * @param {Record<string, ItemRec | null>} items
  */
 function hammerListOf(items) {
   for (const r of Object.values(items)) {
@@ -170,9 +206,12 @@ function hammerListOf(items) {
   }
   return null;
 }
-/** @type {WeakMap<object, Map<string, { type: string, bbKey: string } | null>>} items file → hammer item key → { type, bbKey } */
+/** @type {WeakMap<object, Map<string, { type: string, bbKey: string | null } | null>>} items file → hammer item key → { type, bbKey } */
 const HAMMERS = new WeakMap();
-/** The hammer of an item key in the scope's data (support dataFile; default: the default season's), or null. */
+/**
+ * The hammer of an item key in the scope's data (support dataFile; default: the default season's), or null.
+ * @param {string} key @param {DataScope} [scope]
+ */
 function hammerInfo(key, scope = null) {
   const items = dataFile(scope, 'items') || {};
   let map = HAMMERS.get(items);
@@ -184,7 +223,7 @@ function hammerInfo(key, scope = null) {
       const rec = itemRecord(itemIdOfKey(k, scope) ?? '', scope);
       const b = rec ? buffsOf(rec).find((x) => x.p.big_hammer != null) : null;
       const type = b ? hammerTypeOf(b.p) : null;
-      if (type) map.set(k, { type, bbKey: b.bbKey });
+      if (type) map.set(k, { type, bbKey: /** @type {{ bbKey: string | null }} */ (b).bbKey }); // a type only with a buff
     }
     HAMMERS.set(items, map);
   }
@@ -195,38 +234,58 @@ function hammerInfo(key, scope = null) {
 // Scope: everything an item behaviour registers, removable at once
 
 class Scope {
+  /** @param {Battle} battle @param {Unit} unit @param {string} tag */
   constructor(battle, unit, tag) {
     this.b = battle;
     this.u = unit;
     this.tag = tag;
+    /** @type {object[]} */
     this.hooks = [];
+    /** @type {Scheduled[]} */
     this.scheds = [];
+    /** @type {Array<[Unit, string]>} */
     this.buffs = [];
+    /** @type {Array<() => void>} */
     this.fns = [];
     this.disposed = false;
   }
+  /** @param {string} part */
   key(part) { return `${this.tag}:${part}`; }
+  /**
+   * @template {keyof ItemHooks} K
+   * @param {K} name @param {(c: ItemHooks[K]) => void} fn @param {number} [priority]
+   */
   on(name, fn, priority = 0) {
     const h = this.b.on(name, fn, { owner: this.u, priority });
     if (h) this.hooks.push(h);
     return h;
   }
+  /** @param {number} sec @param {() => void} fn @param {{ immediate?: boolean }} [opts] */
   every(sec, fn, opts = {}) { const s = this.b.every(sec, fn, { owner: this.u, ...opts }); this.scheds.push(s); return s; }
+  /** @param {number} sec @param {() => void} fn */
   after(sec, fn) { const s = this.b.after(sec, fn, { owner: this.u }); this.scheds.push(s); return s; }
-  /** Match-long stat buff on the carrier (persist, survives death/redeploy). */
+  /**
+   * Match-long stat buff on the carrier (persist, survives death/redeploy).
+   * @param {string} part @param {Record<string, any> | null} mods @param {Record<string, any>} [extra]
+   */
   stat(part, mods, extra = {}) {
     const k = this.key(part);
     const r = passiveBuff(this.b, this.u, k, mods, extra);
     if (r) this.track(this.u, k);
     return r;
   }
-  /** Any buff on any unit, removed at dispose. */
+  /**
+   * Any buff on any unit, removed at dispose.
+   * @param {Unit} target @param {{ key: string, [field: string]: any }} b
+   */
   buff(target, b) {
     const r = this.b.addBuff(target, b);
     if (r) this.track(target, b.key);
     return r;
   }
+  /** @param {Unit} target @param {string} key */
   track(target, key) { if (!this.buffs.some(([t, k]) => t === target && k === key)) this.buffs.push([target, key]); }
+  /** @param {() => void} fn */
   onDispose(fn) { this.fns.push(fn); }
   dispose() {
     if (this.disposed) return;
@@ -242,6 +301,7 @@ class Scope {
 // =====================================================================================================================
 // hammer runtime (shared per unit: own hammers + 蒸汽之心)
 
+/** @param {Battle} battle @param {ItemRuntime} rt @param {string | null} pid */
 function fieldHammers(battle, rt, pid) {
   let c = rt.field.get(pid);
   if (!c) { c = { t: -Infinity, set: new Set() }; rt.field.set(pid, c); }
@@ -256,6 +316,7 @@ function fieldHammers(battle, rt, pid) {
   return c.set;
 }
 
+/** @param {Battle} battle @param {ItemRuntime} rt @param {Unit} u */
 function hammerState(battle, rt, u) {
   let hs = rt.hammers.get(u);
   if (!hs) {
@@ -278,6 +339,7 @@ function hammerState(battle, rt, u) {
  * 之外的原因退场时下次部署的再部署时间和费用归零", a 0-time / 0-cost redeploy; in place until 0.2.0, when an extra counter
  * opened the new deployment). Also read by 阿戈尔's devour (bonds/nation/egir.js): a unit whose deployment changed during the
  * pass was knocked out.
+ * @param {Unit} u
  */
 export function deploymentOf(u) { return `${u.deploySeq}`; }
 
@@ -289,13 +351,17 @@ export function deploymentOf(u) { return `${u.deploySeq}`; }
  * A content 不死 window counts too: a buff with the flag `undying` (upstream's 自选 淬羽赫默 S3 无畏者协议 set one —
  * its own battle-level hook held it; no kit here does), so the savers that do not spend themselves while a 不死 holds ("_dontConsumeWhenUndeadable":
  * 左乐, 莱恩哈特, 信仰搅拌机) step aside for it as well.
+ * @param {Battle} battle @param {Unit | null | undefined} u
  */
 export function holdsUndying(battle, u) {
   if (!u) return false;
   if (u.mem.undyingAt != null && battle.time < u.mem.undyingUntil && u.mem.undyingAt === deploymentOf(u)) return true;
   return !!(u.s && u.s.flags.undying);
 }
-/** Effective multiplier of a hammer type on `u` and its params (null when the type does not apply). */
+/**
+ * Effective multiplier of a hammer type on `u` and its params (null when the type does not apply).
+ * @param {Battle} battle @param {ItemRuntime} rt @param {Unit} u @param {HammerState} hs @param {string} type
+ */
 function hammerMul(battle, rt, u, hs, type) {
   const own = hs.own[type];
   const steam = hs.steam > 0 && memberOf(battle, u, 'victoriaShip') && fieldHammers(battle, rt, u.ownerId).has(type) ? 1 : 0;
@@ -304,8 +370,9 @@ function hammerMul(battle, rt, u, hs, type) {
   if (own + steam === 0 && hs.ult && hs.ult.has(type)) return 1;
   return own + steam;
 }
-const hammerParams = (hs, type) => hs.params[type] ?? hs.steamP ?? hs.ultP ?? null;
+const hammerParams = (/** @type {HammerState} */ hs, /** @type {string} */ type) => hs.params[type] ?? hs.steamP ?? hs.ultP ?? null;
 
+/** @param {Battle} battle @param {ItemRuntime} rt @param {Unit} u @param {HammerState} hs */
 function hammerRefresh(battle, rt, u, hs) {
   if (!hs.scope) return;
   const p = hammerParams(hs, 'aspd');
@@ -317,6 +384,7 @@ function hammerRefresh(battle, rt, u, hs) {
   else battle.removeBuff(u, k);
 }
 
+/** @param {Battle} battle @param {ItemRuntime} rt @param {Unit} u */
 function hammerAcquire(battle, rt, u) {
   const hs = hammerState(battle, rt, u);
   hs.refs++;
@@ -324,7 +392,7 @@ function hammerAcquire(battle, rt, u) {
   // every running 坚固 window of the battle (holdsUndying): one hook that no grant owns, ahead of every lock hook and of a
   // 傀儡师's switch to its 替身 (PRIO_UNDYING_HELD: a 本体 holding 不死 does not switch)
   if (!rt.undyingHook) {
-    rt.undyingHook = battle.on('fatal', (c) => { if (!c.prevented && holdsUndying(battle, c.unit)) c.prevented = true; }, { priority: PRIO_UNDYING_HELD });
+    rt.undyingHook = battle.on('fatal', (/** @type {FatalEv} */ c) => { if (!c.prevented && holdsUndying(battle, c.unit)) c.prevented = true; }, { priority: PRIO_UNDYING_HELD });
   }
   const S = new Scope(battle, u, `item:hammer#${u.id}`);
   hs.scope = S;
@@ -389,6 +457,7 @@ function hammerAcquire(battle, rt, u) {
   }, PRIO_REVIVE);
   return hs;
 }
+/** @param {Battle} battle @param {ItemRuntime} rt @param {Unit} u @param {HammerState} hs */
 function hammerRelease(battle, rt, u, hs) {
   hs.refs = Math.max(0, hs.refs - 1);
   if (hs.refs > 0 || !hs.scope) { hammerRefresh(battle, rt, u, hs); return; }
@@ -401,7 +470,7 @@ function hammerRelease(battle, rt, u, hs) {
 // item-keyed behaviours: key → (battle, u, rec, S, grant) — register through S (disposed with the grant). The buff-key
 // behaviours are the tables of items/effects/*.js.
 
-/** The three behaviours keyed by item (header). */
+/** The three behaviours keyed by item (header). @type {Record<string, ItemKeyed>} */
 const BY_ITEM = {
   // 双模机械臂: physical/arts damage becomes 弱点伤害 (whichever type the target resists less). Its global buff gives the
   // carrier act1autochess_acarm067_buff (INFINITY, overrideEffectKey map_act1autochess_chaosbuff_01): 'item:dualArm', a buff
@@ -469,7 +538,10 @@ const BY_ITEM = {
     }, { immediate: true });
   },
 };
-/** The buffs each item-keyed behaviour reads from its record (content/coverage.js: `wrong` when the record has none). */
+/**
+ * The buffs each item-keyed behaviour reads from its record (content/coverage.js: `wrong` when the record has none).
+ * @type {Readonly<Record<string, readonly string[]>>}
+ */
 const BY_ITEM_ASKS = Object.freeze({
   chess_item_5_03_e: Object.freeze([]),
   chess_item_6_05_e: Object.freeze([STEAM_BUFF]),
@@ -482,6 +554,7 @@ for (const k of new Set([...Object.keys(BY_ITEM), ...Object.keys(BY_ITEM_ASKS)])
 /**
  * Does this record have a battle part? (stat buffs, buff-key behaviours, hammer specials, item-keyed behaviours; the
  * hammers of the scope's data)
+ * @param {ItemRec | null | undefined} rec @param {DataScope} [scope]
  */
 export function hasBattleEffect(rec, scope = null) {
   if (!rec || rec.itemType !== 'EQUIP') return false;
@@ -493,14 +566,17 @@ export function hasBattleEffect(rec, scope = null) {
 // =====================================================================================================================
 // grants
 
-/** One global buff `b` of item record `rec` on carrier `u`, registered on the item's scope `S`: a stat buff or an early behaviour. */
+/**
+ * One global buff `b` of item record `rec` on carrier `u`, registered on the item's scope `S`: a stat buff or an early behaviour.
+ * @param {Battle} battle @param {Unit} u @param {OverrideEntry['b']} b @param {Scope} S @param {ItemRec} rec
+ */
 function applyItemBuff(battle, u, b, S, rec) {
   if (STAT_BUFFS.has(b.bbKey)) {
     const mods = statMods(b.p);
     if (mods) S.stat(`stat:${b.bbKey}`, mods);
     return;
   }
-  const e = BY_BUFF[b.bbKey];
+  const e = BY_BUFF[/** @type {string} */ (b.bbKey)]; // a null key finds no entry
   if (e && !e.late) e.run(battle, u, b.p, S, rec);
 }
 
@@ -513,7 +589,10 @@ function applyItemBuff(battle, u, b, S, rec) {
  */
 const OVERRIDE_GROUPED = new Set(['act1autochess_equip_acarm050_global_buff', 'halfidle_block_fixed_damage']);
 
-/** Queue item buff `b` (scope `S`) in carrier `u`'s override group of its key: applied now if first, else when the ones before it go. */
+/**
+ * Queue item buff `b` (scope `S`) in carrier `u`'s override group of its key: applied now if first, else when the ones before it go.
+ * @param {Battle} battle @param {ItemRuntime} rt @param {Unit} u @param {OverrideEntry['b']} b @param {Scope} S @param {ItemRec} rec
+ */
 function joinOverrideGroup(battle, rt, u, b, S, rec) {
   const groups = rt.override || (rt.override = new Map());
   let byKey = groups.get(u);
@@ -534,9 +613,11 @@ function joinOverrideGroup(battle, rt, u, b, S, rec) {
 /**
  * Install the battle effects of item `itemId` on `u`. `lent` grants use their own buff keys (`@lend`).
  * Returns the grant `{ id, key, lent, dispose() }` or null when the item has no battle part.
+ * @param {Battle} battle @param {Unit} u @param {string} itemId @param {{ lent?: boolean }} [opts] @returns {Grant | null}
  */
 export function installItem(battle, u, itemId, { lent = false } = {}) {
-  const rec = itemRecord(itemId, battle);
+  // hasBattleEffect is false for a missing record
+  const rec = /** @type {ItemRec} */ (itemRecord(itemId, battle));
   if (!isOp(u) || !hasBattleEffect(rec, battle)) return null;
   const rt = runtime(battle);
   const gm = grantsOf(rt, u);
@@ -550,7 +631,7 @@ export function installItem(battle, u, itemId, { lent = false } = {}) {
   const tag = lent ? '@lend' : copies ? `#${(rt.copySeq = (rt.copySeq || 0) + 1)}` : '';
   const S = new Scope(battle, u, `item:${itemId}${tag}`);
   const key = itemKeyOf(itemId, battle);
-  const grant = { gid, id: itemId, key, lent, scope: S, timer: null, dispose: null };
+  const grant = /** @type {Grant} */ ({ gid, id: itemId, key, lent, scope: S, timer: null, dispose: /** @type {() => void} */ (/** @type {unknown} */ (null)) });
   grant.dispose = () => {
     if (S.disposed) return;
     S.dispose();
@@ -580,7 +661,7 @@ export function installItem(battle, u, itemId, { lent = false } = {}) {
   return grant;
 }
 
-/** Battle install: every operator's equipped items. Nearly free when nobody carries equipment. */
+/** Battle install: every operator's equipped items. Nearly free when nobody carries equipment. @param {Battle} battle */
 export function install(battle) {
   let any = false;
   for (const u of battle.allyUnits) if (u.kind === 'op' && itemsOf(u).length) { any = true; break; }
@@ -595,6 +676,7 @@ export function install(battle) {
  * 萨尔贡 × 娜仁图亚 (P1): temporarily grant `toUnit` the battle effects of every item `fromUnit` carries with
  * tier ≤ maxTier (meta-only / consume items skipped) for `duration` s. Lending the same item id to the same unit again
  * refreshes its timer (no stacking, whoever lends it). Returns the number of item effects lent (new + refreshed).
+ * @param {Battle} battle @param {Unit} fromUnit @param {Unit} toUnit @param {{ maxTier?: number, duration?: number }} [opts]
  */
 export function lendItemEffects(battle, fromUnit, toUnit, { maxTier = 5, duration = 60 } = {}) {
   if (!battle || !isOp(fromUnit) || !isOp(toUnit) || fromUnit === toUnit) return 0;
@@ -607,6 +689,7 @@ export function lendItemEffects(battle, fromUnit, toUnit, { maxTier = 5, duratio
   for (const id of itemsOf(fromUnit)) {
     const rec = itemRecord(id, battle);
     if (!rec || num(rec.tier, 99) > maxTier || !hasBattleEffect(rec, battle)) continue;
+    /** @type {Grant | null | undefined} */
     let g = gm.get(`lend:${id}`);
     if (!g) g = installItem(battle, toUnit, id, { lent: true });
     if (!g) continue;
@@ -624,6 +707,7 @@ export function lendItemEffects(battle, fromUnit, toUnit, { maxTier = 5, duratio
  * End now the item effects `fromUnit` lent `toUnit` (lendItemEffects) — 规程's 维多利亚 6 when the lending buff ends
  * before its time (its ON_BUFF_DISABLE AutoChessRemoveEquipEffectByAlias). An effect another unit lent again since is
  * that unit's and stays. Returns the number ended.
+ * @param {Battle | null | undefined} battle @param {Unit} fromUnit @param {Unit} toUnit
  */
 export function endLentItems(battle, fromUnit, toUnit) {
   const gm = battle ? runtime(battle).grants.get(toUnit) : null;
@@ -633,7 +717,7 @@ export function endLentItems(battle, fromUnit, toUnit) {
   return n;
 }
 
-/** Active grants of a unit (tests / UI): [{ id, key, lent, until? }]. */
+/** Active grants of a unit (tests / UI): [{ id, key, lent, until? }]. @param {Battle} battle @param {Unit} u */
 export function itemGrants(battle, u) {
   const g = runtime(battle).grants.get(u);
   return g ? [...g.values()].map((x) => ({ id: x.id, key: x.key, lent: x.lent, until: x.until })) : [];

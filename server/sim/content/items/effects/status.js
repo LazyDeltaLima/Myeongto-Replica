@@ -6,14 +6,18 @@ import { num, onField, fxOn, tplFx, inRange } from '../../support/index.js';
 import { isHpLoss } from '../../../damage.js';
 import { early, late, chance, ENEMY_RECORD, onAttackEnemies, onDamageEnemies } from '../shared.js';
 
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+
 /**
  * 驱逐者防暴装备's 传递 (act3autochess_equip_acarm145_buff[enemy]): the main buffs whose abnormal flag it passes on — STUNNED,
  * FEARED, ATTRACTED, COLD, FROZEN (passed on as COLD: the template copies COLD for it), PALSY, GROUND_BOUND.
  */
+/** @type {Readonly<Record<string, string>>} */
 const PASSED = Object.freeze({ stun: 'stun', fear: 'fear', attract: 'attract', cold: 'cold', freeze: 'cold', palsy: 'palsy', groundbind: 'groundbind' });
 
 /** Enemies in `u`'s range now (the dynamic abilities of 规程's items select over the carrier's attack range: "攻击范围内"). */
-const enemiesInRangeOf = (battle, u) => (onField(u) ? battle.enemiesInKeys(u.rangeKeys, u, { canHitFly: true }) : []);
+const enemiesInRangeOf = (/** @type {Battle} */ battle, /** @type {Unit} */ u) => (onField(u) ? battle.enemiesInKeys(u.rangeKeys, u, { canHitFly: true }) : []);
 
 /** 浓缩嗅盐 "免疫晕眩、冻结等特殊状态" — the client buff graph act1autochess_equip_acarm059: abnormalImmunes FROZEN,
  * SILENCED, STUNNED, LEVITATE + abnormalComboImmunes SLEEPING (no 麻痹). 寒冷 is a debuff, not a control state: it still

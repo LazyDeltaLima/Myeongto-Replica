@@ -105,7 +105,7 @@ error.
 With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`, the files directly under `server/`
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, the files directly under
 `server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), `garrisons/`,
-`support/` and `bonds/`.
+`support/`, `bonds/`, `items/` and `bands/`.
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -209,6 +209,19 @@ most strict errors were, and the JSDoc that fixed them:
   left?]`), `RunnerField`, `PacerEntry` (`server/match/fields.js`), `ChoiceCard` (`server/match/choices.js`, a card
   entry read field by field). An object given more keys after its literal (`spec.tag = …`, `e.respawnLeft = …`) takes the
   typedef, or an `@type` listing those keys as optional, on its declaration.
+- a registration helper whose callbacks take a known payload per hook name (items/battle.js `Scope.on`): generic over a
+  map of the hook names to their payloads (`@template {keyof ItemHooks} K`, `fn: (c: ItemHooks[K]) => void`, the map in
+  items/shared.js built from the payload typedefs of `support/index.js` — `AttackEv`, `FatalEv`, `HealEv`,
+  `BeforeStatusEv` joined `DeployEv` … there), so no callback needs an `@param`; a plain `battle.on(name, fn)` callback
+  still takes its payload inline (`(/** @type {DeathEv} */ c) =>`).
+- a table of behaviours (items/effects `BUFFS` through `early(fn)` / `late(fn)`, bands `BY_KEY`, `MARK_BY_KEY`, the prep
+  table `K` filled by assignment `K.key = (ps) => ({ … })`): one function typedef (`ItemFn`, `BandFn`, `BandKeyFn`) on the
+  wrapper's parameter or the table's `@type {Record<string, …>}` types every entry's parameters, and a prep entry that
+  returns `MetaHandlers` types its hooks' `(ctx, ev)` too.
+- a ctx two callers build differently (bands/progress.js: a meta handler's `MetaCtx`, the 指令 view's small object of
+  match/bandSkill.js): a structural typedef of the reads it takes (`StageCtx`), not either caller's type.
+- a lookup that returns its argument when it has no mapping (`canonicalBuffKey`): `@template T @param {T} key @returns
+  {T | string}`, so a string stays a string.
 - `Array.isArray(x)` on a `Record<string, any>` parameter narrows the other branch to `any[] | Record<…>`, and an
   array's own property is then an error (setupMatchWaves' factions array carries `schedule`): cast at the use,
   `/** @type {WaveFactions} */ (src).schedule`.
