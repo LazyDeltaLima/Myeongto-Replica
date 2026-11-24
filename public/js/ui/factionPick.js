@@ -23,6 +23,7 @@ import { chatFaction } from '../../../shared/local.js';
 import { PHASE } from '../../../shared/constants.js';
 import { t } from '../../../shared/i18n.js';
 
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** The match phases in which a faction pick still sets the running match's 自选 (server platform.js setDiy). */
@@ -32,6 +33,7 @@ export const PRESET_LIVE_PHASES = Object.freeze([PHASE.INFO_CHECK, PHASE.BAND_DR
  * Whether a faction pick applies its 自选 preset now: out of a match, while the briefing / strategy draft runs, or in
  * 确定自选编队 (规程, and 盟约 since maintainer decision 2026-11-19) before the seat readies (m.private.diyChoose; server
  * platform.js setDiy takes the lineup then too).
+ * @param {ReturnType<typeof store.get>} s the store state
  */
 export function presetPickLive(s) {
   if (!s?.room?.inMatch) return true;
@@ -43,6 +45,7 @@ export function presetPickLive(s) {
 /**
  * Pick a faction (see the header). Resolves false when the server refused the chat tag (cooldown, offline).
  * @param {string} id chat faction id
+ * @param {{ orEmpty?: boolean }} [opts]
  */
 export async function chooseFaction(id, { orEmpty = false } = {}) {
   if (!chatFaction(id)) return false;
@@ -71,9 +74,10 @@ export async function applyPresetChoice(choice) {
   }
   // a faction is its own roster here even while empty (no picks then — maintainer decision 2026-10-29)
   if (!chatFaction(choice)) return false;
-  if (await chooseFaction(choice, { orEmpty: true })) return true;
+  // from here `choice` is a chat faction's id (chatFaction found it)
+  if (await chooseFaction(/** @type {string} */ (choice), { orEmpty: true })) return true;
   const now = store.get();
-  if (presetPickLive(now)) applyFactionPreset(choice, { inMatch: !!now.room?.inMatch, orEmpty: true });
+  if (presetPickLive(now)) applyFactionPreset(/** @type {string} */ (choice), { inMatch: !!now.room?.inMatch, orEmpty: true });
   return false;
 }
 

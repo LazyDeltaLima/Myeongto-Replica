@@ -18,7 +18,7 @@
 
 // 한글 패치: 태그로 나누기 전에 문장 전체를 번역한다 (Node 테스트에서는 원문 그대로).
 
-/** Official style id → our CSS modifier (css/screens/game-panels.css `.rt-*`). */
+/** Official style id → our CSS modifier (css/screens/game-panels.css `.rt-*`). @type {Readonly<Record<string, string>>} */
 const STYLE_CLASS = {
   'ba.vup': 'rt-vup',
   'ba.vdown': 'rt-vdown',

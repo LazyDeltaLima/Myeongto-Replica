@@ -27,6 +27,8 @@
 import { store } from '../store.js';
 import { APP_VERSION } from '../../../shared/constants.js';
 
+/** @import { Bag } from './gameLogic/shared.js' */
+
 export const MOVE_DELAY_MS = 3000;
 export const TAB_ASK_MS = 300;
 export const TAB_RETRY_MS = 10_000;
@@ -51,13 +53,13 @@ export function takeMoved(storage = globalThis.sessionStorage ?? null, now = Dat
   return { from: m.from.slice(0, 20), room: m.room === true };
 }
 
-/** The page's generation (the last installGeneration's), for genUrl's default. */
+/** The page's generation (the last installGeneration's), for genUrl's default. @type {string | null} */
 let current = null;
 
 /** This page's server generation (welcome `gen.id`), null on an unnamed server. */
 export const pageGen = () => current;
 
-/** `url` with this page's `?gen=` (or `&gen=`) when the server is named. @param {string} url */
+/** `url` with this page's `?gen=` (or `&gen=`) when the server is named. @param {string} url @param {string | null} [gen] */
 export function genUrl(url, gen = current) {
   if (!gen) return url;
   return `${url}${url.includes('?') ? '&' : '?'}gen=${encodeURIComponent(gen)}`;
@@ -74,33 +76,41 @@ export function installGeneration({ net, inMatch, wsUrl, reload, dropCookie, mak
   const keep = remember || ((m) => globalThis.sessionStorage?.setItem(MOVED_KEY, JSON.stringify(m)));
   const hasRoom = inRoom || (() => !!store.get().room);
   const forget = dropCookie || (() => { globalThis.document.cookie = `${GEN_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`; });
-  const later = setT || ((fn, ms) => globalThis.setTimeout(fn, ms));
-  const cancel = clearT || ((h) => globalThis.clearTimeout(h));
+  const later = setT || ((/** @type {() => void} */ fn, /** @type {number} */ ms) => globalThis.setTimeout(fn, ms));
+  const cancel = clearT || ((/** @type {any} */ h) => globalThis.clearTimeout(h));
   let channel = null;
   try {
     channel = (makeChannel || ((name) => (typeof BroadcastChannel === 'function' ? new BroadcastChannel(name) : null)))(CHANNEL);
   } catch { channel = null; }
+  /** @type {string | null} */
   let gen = null;       // this install's generation (welcome `gen.id`)
   let moving = false;   // a move is under way (the delay, a match, another tab)
   let gone = false;     // reloading
+  /** @type {unknown} */
   let timer = null;
   let busySeen = false;
   let roomMoved = false; // the old server handed this page's waiting room over (header)
   let roomLost = false;  // … or closed it without handing it over
 
+  /** @param {string} genMove */
   const setMove = (genMove) => { if (store.get().ui.genMove !== genMove) store.patch('ui', { genMove }); };
   const soon = () => setMove(roomMoved ? 'room' : roomLost ? 'lost' : 'soon');
+  /**
+   * @param {number} ms
+   * @param {() => void} fn
+   */
   const wait = (ms, fn) => { cancel(timer); timer = later(fn, ms); };
 
   // another tab asks whether a match runs here on its server
   if (channel) {
-    channel.onmessage = (ev) => {
+    channel.onmessage = (/** @type {MessageEvent} */ ev) => {
       const m = ev?.data;
       if (!m || typeof m !== 'object') return;
       if (m.t === 'ask' && gen && m.gen === gen && inMatch()) channel.postMessage({ t: 'busy', gen, id: m.id });
       else if (m.t === 'busy' && m.id === askId) busySeen = true;
     };
   }
+  /** @type {string | null} */
   let askId = null;
   const otherTabBusy = () => new Promise((resolve) => {
     if (!channel || !gen) { resolve(false); return; }
@@ -132,22 +142,22 @@ export function installGeneration({ net, inMatch, wsUrl, reload, dropCookie, mak
     wait(MOVE_DELAY_MS, step);
   };
 
-  net.on('welcome', (msg) => {
+  net.on('welcome', (/** @type {Bag} */ msg) => {
     const id = typeof msg?.gen?.id === 'string' && /^[a-z0-9]{1,8}$/.test(msg.gen.id) ? msg.gen.id : null;
     gen = id;
     current = id;
     net.url = id ? genUrl(wsUrl(), id) : null;
     if (id && msg.gen.state === 'drain') move();
   });
-  net.on('server.gen', (msg) => { if (msg?.state === 'drain') move(); });
-  net.on('room.closed', (msg) => {
+  net.on('server.gen', (/** @type {Bag} */ msg) => { if (msg?.state === 'drain') move(); });
+  net.on('room.closed', (/** @type {Bag} */ msg) => {
     if (msg?.reason !== 'newVersion') return;
     if (msg.moved === true) roomMoved = true;
     else roomLost = true;
     if (moving && !inMatch() && store.get().ui.genMove === 'soon') soon();
     move();
   });
-  net.on('error', (msg) => { if (msg?.code === 'NEW_VERSION') move(); });
+  net.on('error', (/** @type {Bag} */ msg) => { if (msg?.code === 'NEW_VERSION') move(); });
 
   return {
     /** tests: what the page is doing */

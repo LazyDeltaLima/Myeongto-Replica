@@ -16,6 +16,8 @@ import { useData } from '../data.js';
 import { reducedMotion } from './device.js';
 import { seasonBackdrop, seasonRaysArt } from './seasonArt.js';
 
+/** @import { Bag } from './gameLogic/shared.js' */
+
 /** The shortest frame step, in ms: the official client's 60 fps (a 120 Hz screen draws every other frame). */
 export const RAYS_FRAME_MS = 1000 / 60 - 2;
 
@@ -29,7 +31,12 @@ export function dissolveOffset(d, axis, t) {
   return d.wrap[axis] === 0 ? v - Math.floor(v) : v;
 }
 
+/** @param {unknown} v */
 const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+/**
+ * @param {unknown} a
+ * @param {number} [n]
+ */
 const nums = (a, n) => Array.isArray(a) && (n === undefined || a.length === n) && a.every(finite);
 
 /**
@@ -43,12 +50,12 @@ export function validRays(doc) {
   for (const m of Object.values(doc.meshes)) {
     const n = Array.isArray(m?.pos) ? m.pos.length / 2 : 0;
     if (!n || !Number.isInteger(n) || !nums(m.pos) || !nums(m.uv, n * 2) || !Array.isArray(m.tri) || m.tri.length % 3
-      || !m.tri.every((i) => Number.isInteger(i) && i >= 0 && i < n)) return false;
+      || !m.tri.every((/** @type {unknown} */ i) => Number.isInteger(i) && /** @type {number} */ (i) >= 0 && /** @type {number} */ (i) < n)) return false;
   }
   if (!Array.isArray(doc.draws) || !doc.draws.length) return false;
-  return doc.draws.every((d) => d && doc.meshes[d.mesh] && Array.isArray(d.matrix) && d.matrix.length === 2 && d.matrix.every((r) => nums(r, 3))
+  return doc.draws.every((/** @type {Bag | null} */ d) => d && doc.meshes[d.mesh] && Array.isArray(d.matrix) && d.matrix.length === 2 && d.matrix.every((/** @type {unknown} */ r) => nums(r, 3))
     && nums(d.rgb, 3) && finite(d.alpha) && Array.isArray(d.dissolve) && d.dissolve.length <= 2
-    && d.dissolve.every((x) => x && typeof x.tex === 'string' && nums(x.wrap, 2) && x.wrap.every((w) => w === 0 || w === 1)
+    && d.dissolve.every((/** @type {Bag | null} */ x) => x && typeof x.tex === 'string' && nums(x.wrap, 2) && x.wrap.every((/** @type {unknown} */ w) => w === 0 || w === 1)
       && nums(x.scale, 2) && nums(x.offset, 2) && nums(x.speed, 2) && finite(x.threshold) && finite(x.smoothness) && x.smoothness > 0
       && typeof x.invert === 'boolean'));
 }
@@ -131,6 +138,10 @@ void main() {
   gl_FragColor = vec4(uColor.rgb, clamp(a * uColor.a, 0.0, 1.0));
 }`;
 
+/**
+ * @param {any} gl
+ * @param {string} frag
+ */
 function program(gl, frag) {
   const p = gl.createProgram();
   for (const [type, src] of [[gl.VERTEX_SHADER, VERT], [gl.FRAGMENT_SHADER, frag]]) {
@@ -147,6 +158,7 @@ function program(gl, frag) {
   return p;
 }
 
+/** @param {number} n */
 const pow2 = (n) => n > 0 && (n & (n - 1)) === 0;
 
 /**
@@ -186,6 +198,10 @@ export function raysRenderer(gl, doc, { base, front, textures }) {
   if (!webgl2 && names.some((n, i) => wraps.get(n).includes(0) && !(pow2(texImages[i].width) && pow2(texImages[i].height)))) return null;
 
   const pImage = program(gl, FRAG_IMAGE), pRays = program(gl, FRAG_RAYS);
+  /**
+   * @param {unknown} p
+   * @param {string} n
+   */
   const loc = (p, n) => gl.getUniformLocation(p, n);
   const uImg = { size: loc(pImage, 'uSize'), tex: loc(pImage, 'uTex') };
   const uRay = {
@@ -212,6 +228,10 @@ export function raysRenderer(gl, doc, { base, front, textures }) {
   gl.viewport(0, 0, W, H);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
+  /**
+   * @param {unknown} t
+   * @param {boolean} blend
+   */
   const image = (t, blend) => {
     if (blend) gl.enable(gl.BLEND); else gl.disable(gl.BLEND);
     gl.useProgram(pImage);
@@ -220,6 +240,7 @@ export function raysRenderer(gl, doc, { base, front, textures }) {
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };
+  /** @param {number} time */
   const draw = (time) => {
     image(tBase, false);
     gl.enable(gl.BLEND);
@@ -247,6 +268,10 @@ export function raysRenderer(gl, doc, { base, front, textures }) {
   return { draw };
 }
 
+/**
+ * @param {string} url
+ * @returns {Promise<HTMLImageElement>}
+ */
 const loadImage = (url) => new Promise((resolve, reject) => {
   const im = new Image();
   im.onload = () => resolve(im);
@@ -276,10 +301,10 @@ export function startRays(canvas, art) {
   (async () => {
     const doc = await fetch(art.rays).then((r) => (r.ok ? r.json() : null));
     if (gone || !validRays(doc)) return;
-    const names = [...new Set(doc.draws.flatMap((d) => d.dissolve.map((x) => x.tex)))];
+    const names = [...new Set(doc.draws.flatMap((/** @type {Bag} */ d) => d.dissolve.map((/** @type {Bag} */ x) => x.tex)))];
     const urls = names.map((n) => art.url(n));
     if (urls.some((u) => !u)) return;
-    const [base, front, ...texImages] = await Promise.all([art.base, art.front, ...urls].map(loadImage));
+    const [base, front, ...texImages] = await Promise.all([art.base, art.front, .../** @type {string[]} */ (urls)].map(loadImage));
     if (gone) return;
     const [W, H] = doc.size;
     canvas.width = W; canvas.height = H;
@@ -294,6 +319,7 @@ export function startRays(canvas, art) {
     let last = -Infinity;
     draw(doc.time);
     canvas.style.visibility = '';
+    /** @param {number} now */
     const step = (now) => {
       raf = requestAnimationFrame(step);
       if (now - last < RAYS_FRAME_MS) return;
@@ -307,9 +333,12 @@ export function startRays(canvas, art) {
 
 const HIDDEN = Object.freeze({ visibility: 'hidden' });
 
-/** The canvas over the JPEG: hidden until its first frame is drawn (startRays). */
+/**
+ * The canvas over the JPEG: hidden until its first frame is drawn (startRays).
+ * @param {{ art: Parameters<typeof startRays>[1], cls: string, reveal?: string }} p
+ */
 function RaysCanvas({ art, cls, reveal }) {
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLCanvasElement | null} */ (null));
   useEffect(() => {
     const layer = ref.current ? startRays(ref.current, art) : null;
     return () => layer?.destroy();

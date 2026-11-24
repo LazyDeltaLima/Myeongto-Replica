@@ -16,7 +16,9 @@ export function isOldChatMessage(at, now) {
 }
 
 /** One clock for all mounted message timestamps. */
+/** @type {Set<(now: number) => void>} */
 const clockListeners = new Set();
+/** @type {ReturnType<typeof setInterval> | undefined} */
 let clockTimer;
 
 function tickClock() {
@@ -24,6 +26,7 @@ function tickClock() {
   for (const listener of clockListeners) listener(now);
 }
 
+/** @param {(now: number) => void} listener called with Date.now() every second and when the page is shown again */
 export function subscribeChatClock(listener) {
   clockListeners.add(listener);
   if (clockListeners.size === 1) {
@@ -60,6 +63,7 @@ export function ChatTime({ at, interactive = true }) {
 
   const [label, setLabel] = useState(() => formatChatTime(at, Date.now(), relative, sent));
   useEffect(() => {
+    /** @param {number} now */
     const update = (now) => setLabel(formatChatTime(at, now, relative, sent));
     update(Date.now());
     return subscribeChatClock(update);

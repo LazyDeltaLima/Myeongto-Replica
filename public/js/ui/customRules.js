@@ -34,6 +34,21 @@ import { seasonInfo } from '../../../shared/seasons.js';
 import { modeIdFor, DIFFICULTIES, LARGE_SEATS, isGrade, gradeDifficulty } from '../../../shared/constants.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
+/** @import { CustomSettings } from '../../../shared/ruleset.js' */
+/** @import { Bag } from './gameLogic/shared.js' */
+/** @typedef {Readonly<CustomSettings>} Rules */
+/** @typedef {Exclude<keyof CustomSettings, 'v'>} RuleSection */
+/**
+ * What every tab gets (CustomRulesBody's `ctx`): the settings on screen, their setters, the mode record and the
+ * official values the settings compare with.
+ * @typedef {{ work: Rules, set: (sec: RuleSection, k: string, v: unknown) => void,
+ *   setWork: (next: Rules | ((w: Rules) => Rules)) => void, readonly: boolean, solo: boolean, mode: any, bans: any,
+ *   banLimits: ReturnType<typeof customBanLimits>, base: { bans: any, rounds: number | null }, difficulty: string,
+ *   size: number, config: any }} PaneProps
+ */
+/** @typedef {Event & { target: HTMLInputElement }} InputEv */
+
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** The tabs: id, name, the settings paths it counts (customDiffs prefixes). */
@@ -46,7 +61,11 @@ const TABS = [
   { id: 'flow', name: N_('进程'), micro: 'FLOW', keys: ['flow.', 'pool.'] },
 ];
 
-export const customDialogStore = createStore({ open: false, seq: 0, rules: null, readonly: false, live: null, roomMode: 'coop', difficulty: 'FUNNY', grade: null, onApply: null });
+/**
+ * @typedef {{ open: boolean, seq: number, rules: Rules | null, readonly: boolean, live: (() => unknown) | null,
+ *   roomMode: string, difficulty: string, grade: number | null, size?: number, onApply: ((rules: Rules) => void) | null }} DialogState
+ */
+export const customDialogStore = createStore(/** @type {DialogState} */ ({ open: false, seq: 0, rules: null, readonly: false, live: null, roomMode: 'coop', difficulty: 'FUNNY', grade: null, onApply: null }));
 
 /**
  * Open the settings. `onApply(rules)` runs after 应用 (the lobby picks custom, a room's host sends room.setRuleset).
@@ -59,7 +78,7 @@ export const customDialogStore = createStore({ open: false, seq: 0, rules: null,
 export function openCustomRules({ rules, readonly = false, live = null, roomMode = 'coop', difficulty = 'FUNNY', grade = null, size = 4, onApply = null }) {
   const graded = roomMode === 'solo' && isGrade(grade);
   customDialogStore.set((s) => ({ open: true, seq: s.seq + 1, rules: sanitizeCustom(rules), readonly, live: readonly ? live : null, roomMode,
-    difficulty: graded ? gradeDifficulty(grade) : DIFFICULTIES.includes(difficulty) ? difficulty : 'FUNNY', grade: graded ? grade : null, size, onApply }));
+    difficulty: graded ? gradeDifficulty(/** @type {number} */ (grade)) : DIFFICULTIES.includes(difficulty) ? difficulty : 'FUNNY', grade: graded ? grade : null, size, onApply }));
 }
 
 export const closeCustomRules = () => customDialogStore.set({ open: false, onApply: null, live: null });
@@ -73,6 +92,7 @@ export function CustomRulesDialog() {
     difficulty=${st.difficulty} grade=${st.grade} size=${st.size} onApply=${st.onApply} />`;
 }
 
+/** @param {number} n */
 const fmt = (n) => Number(n).toLocaleString('en-US');
 
 // ---- controls ----------------------------------------------------------------------------------------------------
@@ -80,13 +100,17 @@ const fmt = (n) => Number(n).toLocaleString('en-US');
 /**
  * − value + with a typed value; `suffix` after the number (%), `prefix` before it (×); `scale`: the value is shown and
  * typed divided by it, with two decimals (the step multipliers: 120 → ×1.20).
+ * @param {{ value: number, min: number, max: number, step?: number, onChange: (v: number) => void, disabled?: boolean,
+ *   suffix?: string, prefix?: string, scale?: number, wide?: boolean, testid?: string }} p
  */
 function Stepper({ value, min, max, step = 1, onChange, disabled, suffix = '', prefix = '', scale = 1, wide = false, testid }) {
-  const [text, setText] = useState(null);
+  const [text, setText] = useState(/** @type {string | null} */ (null));
+  /** @param {number} v */
   const clamp = (v) => Math.min(max, Math.max(min, Math.round(v)));
   // the value the last click asked for, until the new props arrive: two clicks before a render both count
   const last = useRef({ prop: value, cur: value });
   if (last.current.prop !== value) last.current = { prop: value, cur: value };
+  /** @param {number} d */
   const bump = (d) => { const v = clamp(last.current.cur + d); last.current.cur = v; onChange(v); };
   const commit = () => {
     if (text == null) return;
@@ -98,13 +122,14 @@ function Stepper({ value, min, max, step = 1, onChange, disabled, suffix = '', p
     <button type="button" aria-label="−" disabled=${disabled || value <= min} onClick=${() => bump(-step)}><${Icon} name="minus" /></button>
     <input class="num" type="text" inputmode=${scale === 1 ? 'numeric' : 'decimal'} disabled=${disabled}
       value=${text ?? `${prefix}${scale === 1 ? fmt(value) : (value / scale).toFixed(2)}${suffix}`}
-      onFocus=${(e) => { setText(scale === 1 ? String(value) : (value / scale).toFixed(2)); requestAnimationFrame(() => e.target.select?.()); }}
-      onInput=${(e) => setText(e.target.value)} onBlur=${commit}
-      onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }} />
+      onFocus=${(/** @type {InputEv} */ e) => { setText(scale === 1 ? String(value) : (value / scale).toFixed(2)); requestAnimationFrame(() => e.target.select?.()); }}
+      onInput=${(/** @type {InputEv} */ e) => setText(e.target.value)} onBlur=${commit}
+      onKeyDown=${(/** @type {KeyboardEvent & InputEv} */ e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }} />
     <button type="button" aria-label="+" disabled=${disabled || value >= max} onClick=${() => bump(step)}><${Icon} name="plus" /></button>
   </span>`;
 }
 
+/** @param {{ on: boolean, onChange: (v: boolean) => void, disabled?: boolean, testid?: string }} p */
 function Switch({ on, onChange, disabled, testid }) {
   return html`<button type="button" role="switch" aria-checked=${on ? 'true' : 'false'} class=${cx('crx-sw', on && 'is-on')}
     disabled=${disabled} data-testid=${testid} onClick=${() => onChange(!on)}></button>`;
@@ -117,6 +142,7 @@ function Seg({ options, value, onChange, disabled }) {
     onClick=${() => o.v !== value && onChange(o.v)}>${o.label}</button>`)}</span>`;
 }
 
+/** @param {{ label: string, note?: string | null, official?: string | null, children?: any, locked?: boolean }} p */
 function Row({ label, note, official, children, locked }) {
   return html`<div class=${cx('crx-row', locked && 'is-locked')}>
     <div class="crx-row__l"><span>${label}</span>${note ? html`<em>${note}</em>` : null}</div>
@@ -125,6 +151,7 @@ function Row({ label, note, official, children, locked }) {
   </div>`;
 }
 
+/** @param {{ title: string, sub?: string | null, children?: any }} p */
 const Sec = ({ title, sub, children }) => html`<section class="crx-sec">
   <h3 class="crx-sec__h">${title}${sub ? html`<small>${sub}</small>` : null}</h3>
   ${children}
@@ -147,6 +174,10 @@ async function fitToSeason(rules, from) {
   return fitCustomToSeason(rules, own, foreign, { season, from });
 }
 
+/**
+ * @param {{ init: Rules, readonly: boolean, live: (() => unknown) | null, roomMode: string, difficulty: string,
+ *   grade: number | null, size: number, onApply: ((rules: Rules) => void) | null }} p
+ */
 function CustomRulesBody({ init, readonly, live, roomMode, difficulty, grade, size, onApply }) {
   useData('config', 'bonds', 'bosses', 'stages', 'factions', 'assets', 'local');
   const [own, setWork] = useState(init);
@@ -154,9 +185,10 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, grade, si
   const liveRules = useStore(() => (live ? live() : null));
   const work = readonly && liveRules ? sanitizeCustom(liveRules) : own;
   const [tab, setTabState] = useState(() => { const v = loadPref('customRules.tab', 'bonds'); return TABS.some((x) => x.id === v) ? v : 'bonds'; });
-  const [renaming, setRenaming] = useState(null);
-  const [paste, setPaste] = useState(null);
-  const store = useStore((s) => s, Object.is, customRulesStore);
+  const [renaming, setRenaming] = useState(/** @type {string | null} */ (null));
+  const [paste, setPaste] = useState(/** @type {{ text: string, copy?: boolean } | null} */ (null));
+  const store = useStore((/** @type {ReturnType<typeof customRulesStore.get>} */ s) => s, Object.is, customRulesStore);
+  /** @param {string} v */
   const setTab = (v) => { setTabState(v); savePref('customRules.tab', v); };
 
   const solo = roomMode === 'solo';
@@ -166,11 +198,17 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, grade, si
   const banLimits = customBanLimits(config);
   const base = { bans, rounds: Number.isInteger(mode?.lastRound) ? mode.lastRound : null };
   const diffs = customDiffs(work, base);
+  /** @param {{ keys: string[] }} tb */
   const tabCount = (tb) => diffs.filter((d) => tb.keys.some((k) => d.startsWith(k))).length;
   const active = presetOf(store.active);
   const dirty = !!active && JSON.stringify(active.rules) !== JSON.stringify(work);
 
-  /** set(section, key, value) — every edit goes through sanitizeCustom */
+  /**
+   * set(section, key, value) — every edit goes through sanitizeCustom
+   * @param {RuleSection} sec
+   * @param {string} k
+   * @param {unknown} v
+   */
   const set = (sec, k, v) => setWork((w) => sanitizeCustom({ ...w, [sec]: { ...w[sec], [k]: v } }));
 
   const close = closeCustomRules;
@@ -194,6 +232,7 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, grade, si
     const ok = await confirmDialog({ title: t('删除预设'), text: t('确定删除预设「{name}」吗？', { name: active.name }), okText: t('删除'), danger: true });
     if (ok) deletePreset(active.id);
   };
+  /** @param {string} id */
   const pick = (id) => {
     const rules = selectPreset(id || null);
     if (rules) setWork(rules);
@@ -229,10 +268,10 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, grade, si
         <span class="crx-presets__k">${t('预设')}</span>
         ${renaming != null
           ? html`<input class="crx-name" type="text" maxLength=${CUSTOM_NAME_MAX} value=${renaming} data-autofocus
-              onInput=${(e) => setRenaming(e.target.value)}
-              onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') { e.stopPropagation(); setRenaming(null); } }}
+              onInput=${(/** @type {InputEv} */ e) => setRenaming(e.target.value)}
+              onKeyDown=${(/** @type {KeyboardEvent & InputEv} */ e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') { e.stopPropagation(); setRenaming(null); } }}
               onBlur=${() => { if (active && renaming != null) renamePreset(active.id, renaming); setRenaming(null); }} />`
-          : html`<select class="crx-select" value=${active ? active.id : ''} onChange=${(e) => pick(e.target.value)} data-testid="custom-preset-select">
+          : html`<select class="crx-select" value=${active ? active.id : ''} onChange=${(/** @type {Event & { target: HTMLSelectElement }} */ e) => pick(e.target.value)} data-testid="custom-preset-select">
               <option value="">${t('（未选择预设）')}</option>
               ${store.presets.map((p) => html`<option key=${p.id} value=${p.id}>${p.name}</option>`)}
             </select>`}
@@ -248,7 +287,7 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, grade, si
 
   const pasteRow = paste ? html`<div class="crx-paste">
       <textarea rows="2" class="num" readonly=${!!paste.copy} value=${paste.text} placeholder=${t('在此粘贴规则代码')} data-autofocus
-        onInput=${(e) => setPaste({ text: e.target.value })} onFocus=${(e) => paste.copy && e.target.select()}></textarea>
+        onInput=${(/** @type {Event & { target: HTMLTextAreaElement }} */ e) => setPaste({ text: e.target.value })} onFocus=${(/** @type {Event & { target: HTMLTextAreaElement }} */ e) => paste.copy && e.target.select()}></textarea>
       ${paste.copy ? html`<span class="crx-note">${t('无法自动复制，请手动复制上面的代码')}</span>`
         : html`<${Button} variant="primary" size="sm" icon="check" disabled=${!paste.text.trim()} onClick=${readCode}>${t('读取')}<//>`}
       <${Button} variant="secondary" size="sm" icon="close" onClick=${() => setPaste(null)}>${t('关闭窗口')}<//>
@@ -282,8 +321,10 @@ function CustomRulesBody({ init, readonly, live, roomMode, difficulty, grade, si
 
 // ---- tabs --------------------------------------------------------------------------------------------------------
 
+/** @type {Readonly<Record<string, string>>} */
 const PICK_LABELS = { random: N_('随机'), ban: N_('禁用'), allow: N_('允许') };
 
+/** @param {PaneProps} p */
 function BondsPane({ work, set, readonly, mode, bans, banLimits }) {
   const m = data.get('assets');
   const inactive = new Set(Array.isArray(mode?.inactiveBondIds) ? mode.inactiveBondIds : []);
@@ -292,11 +333,19 @@ function BondsPane({ work, set, readonly, mode, bans, banLimits }) {
   const addon = all.filter((b) => !b.isCore && b.weight > 0);
   const fixed = all.filter((b) => !(b.weight > 0));
   const pick = work.bonds.pick;
+  /**
+   * @param {string} id
+   * @param {string} v
+   */
   const setPick = (id, v) => {
     const next = { ...pick };
     if (v === 'random') delete next[id]; else next[id] = v;
     set('bonds', 'pick', next);
   };
+  /**
+   * @param {Bag} b
+   * @param {boolean} [lock]
+   */
   const card = (b, lock) => {
     const v = lock ? null : pick[b.bondId] || 'random';
     const off = inactive.has(b.bondId);
@@ -318,14 +367,14 @@ function BondsPane({ work, set, readonly, mode, bans, banLimits }) {
     <${Sec} title=${t('盟约禁用抽取')} sub=${t('每局随机禁用的盟约数 — 只从设为「随机」的盟约中抽取')}>
       <${Row} label=${t('国家盟约（核心）随机禁用')} official=${t('难度默认 {n}', { n: bans?.core ?? 0 })}>
         <${Stepper} value=${coreN} min=${banLimits.core[0]} max=${banLimits.core[1]} disabled=${readonly} testid="custom-ban-core"
-          onChange=${(v) => set('bonds', 'banCore', v === (bans?.core ?? null) ? null : v)} />
+          onChange=${(/** @type {number} */ v) => set('bonds', 'banCore', v === (bans?.core ?? null) ? null : v)} />
       <//>
       <${Row} label=${t('职业·特性盟约（附加）随机禁用')} official=${t('难度默认 {n}', { n: bans?.addon ?? 0 })}>
         <${Stepper} value=${addonN} min=${banLimits.addon[0]} max=${banLimits.addon[1]} disabled=${readonly}
-          onChange=${(v) => set('bonds', 'banAddon', v === (bans?.addon ?? null) ? null : v)} />
+          onChange=${(/** @type {number} */ v) => set('bonds', 'banAddon', v === (bans?.addon ?? null) ? null : v)} />
       <//>
       <${Row} label=${t('解除盟约层数上限')} note=${t('官方规则下每个盟约最多 999 层 — 解除后没有上限')} official=${t('官方：{n}', { n: 999 })}>
-        <${Switch} on=${work.bonds.noLayerCap} disabled=${readonly} onChange=${(v) => set('bonds', 'noLayerCap', v)} />
+        <${Switch} on=${work.bonds.noLayerCap} disabled=${readonly} onChange=${(/** @type {boolean} */ v) => set('bonds', 'noLayerCap', v)} />
       <//>
     <//>
     <${Sec} title=${t('逐个盟约设置')}>
@@ -341,18 +390,31 @@ function BondsPane({ work, set, readonly, mode, bans, banLimits }) {
     <//>`;
 }
 
+/** @param {PaneProps} p */
 function EnemiesPane({ work, set, readonly, mode }) {
+  /**
+   * @param {'enemies' | 'leaders'} sec
+   * @param {string} k
+   * @param {string} label
+   * @param {string} [note]
+   */
   const pct = (sec, k, label, note) => html`<${Row} label=${label} note=${note} official=${t('官方 100%')}>
-    <${Stepper} value=${work[sec][k]} min=${CUSTOM_LIMITS.pct[0]} max=${CUSTOM_LIMITS.pct[1]} step=${10} suffix="%" disabled=${readonly}
-      testid=${`custom-${sec}-${k}`} onChange=${(v) => set(sec, k, v)} />
+    <${Stepper} value=${/** @type {Record<string, number>} */ (work[sec])[k]} min=${CUSTOM_LIMITS.pct[0]} max=${CUSTOM_LIMITS.pct[1]} step=${10} suffix="%" disabled=${readonly}
+      testid=${`custom-${sec}-${k}`} onChange=${(/** @type {number} */ v) => set(sec, k, v)} />
   <//>`;
   // the multiplier per official step (maintainer decision 2026-11-15), the step rounds kept — null = the mode's own
   // (officialStep); the quick setups below only fill both (stepPreset)
+  /**
+   * @param {'stepHp' | 'stepAtk'} k
+   * @param {'hp' | 'atk'} stat
+   * @param {string} label
+   * @param {string} note
+   */
   const stepRow = (k, stat, label, note) => {
     const off = Math.round(officialStep(mode, stat) * 100);
     return html`<${Row} label=${label} note=${note} official=${t('官方 ×{n}', { n: (off / 100).toFixed(2) })}>
       <${Stepper} value=${work.enemies[k] ?? off} min=${CUSTOM_LIMITS.step[0]} max=${CUSTOM_LIMITS.step[1]} step=${1} prefix="×" scale=${100}
-        disabled=${readonly} testid=${`custom-enemies-${k}`} onChange=${(v) => set('enemies', k, v === off ? null : v)} />
+        disabled=${readonly} testid=${`custom-enemies-${k}`} onChange=${(/** @type {number} */ v) => set('enemies', k, v === off ? null : v)} />
     <//>`;
   };
   return html`
@@ -373,23 +435,29 @@ function EnemiesPane({ work, set, readonly, mode }) {
       ${stepRow('stepHp', 'hp', t('生命值成长倍率'), t('官方表格每升一级时乘上的值 · ×{lo} – ×{hi} · ×1.00 则保持第 1 回合',
         { lo: (CUSTOM_LIMITS.step[0] / 100).toFixed(2), hi: (CUSTOM_LIMITS.step[1] / 100).toFixed(2) }))}
       ${stepRow('stepAtk', 'atk', t('攻击力成长倍率'), t('同一级时乘在攻击力上的值'))}
-      <${StepPresets} work=${work} mode=${mode} readonly=${readonly} onPick=${(p) => { set('enemies', 'stepHp', p.stepHp); set('enemies', 'stepAtk', p.stepAtk); }} />
+      <${StepPresets} work=${work} mode=${mode} readonly=${readonly} onPick=${(/** @type {StepPair} */ p) => { set('enemies', 'stepHp', p.stepHp); set('enemies', 'stepAtk', p.stepAtk); }} />
       <${CurveChart} work=${work} mode=${mode} />
     <//>`;
 }
 
+/** @typedef {{ stepHp: number | null, stepAtk: number | null }} StepPair */
+/** @type {Readonly<Record<string, string>>} */
 const STEP_PRESET_LABELS = { official: N_('官方'), gentle: N_('平缓'), steep: N_('陡峭'), flat: N_('持平') };
 
 /**
  * The 快速设置 row under the step multipliers: each button fills both with its values for this difficulty (stepPreset)
  * and is lit while both are those; values set by hand light none. Its note lists what each fills in.
+ * @param {{ work: Rules, mode: any, readonly: boolean, onPick: (p: StepPair) => void }} p
  */
 function StepPresets({ work, mode, readonly, onPick }) {
+  /** @param {'hp' | 'atk'} stat */
   const off = (stat) => Math.round(officialStep(mode, stat) * 100);
+  /** @param {StepPair} p */
   const eff = (p) => [p.stepHp ?? off('hp'), p.stepAtk ?? off('atk')];
   const now = eff(work.enemies);
   const opts = ['official', ...Object.keys(CUSTOM_STEP_PRESETS)].map((v) => ({ v, label: t(STEP_PRESET_LABELS[v]), p: stepPreset(mode, v) }));
   const on = opts.find((o) => { const [h, a] = eff(o.p); return h === now[0] && a === now[1]; })?.v ?? '';
+  /** @param {number} n */
   const x = (n) => `×${(n / 100).toFixed(2)}`;
   const note = opts.map((o) => { const [h, a] = eff(o.p); return `${o.label} ${x(h)} · ${x(a)}`; }).join(' · ');
   return html`<${Row} label=${t('快速配置')} note=${note}>
@@ -403,6 +471,7 @@ function StepPresets({ work, mode, readonly, onPick }) {
  * The hp multiplier per round as the match spawns it (config.json enemyScale hp): the official line (dashed) and the
  * custom one (the steps × hp%, over the custom rounds) — left out while it is the official line itself (the official steps,
  * hp 100 %, the official round count: maintainer request 2026-10-18).
+ * @param {{ work: Rules, mode: any }} p
  */
 export function CurveChart({ work, mode }) {
   if (!mode) return null;
@@ -416,8 +485,11 @@ export function CurveChart({ work, mode }) {
   const W = 1000, H = 220, P = 40;
   const nX = Math.max(off.length, cus.length);
   const maxY = Math.max(1.5, ...off, ...cus) * 1.08;
+  /** @param {number} i */
   const x = (i) => P + (nX > 1 ? (i * (W - 2 * P)) / (nX - 1) : 0);
+  /** @param {number} v */
   const y = (v) => H - P + 6 - (v / maxY) * (H - 2 * P);
+  /** @param {number[]} arr */
   const pts = (arr) => arr.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   const gridStep = maxY > 12 ? Math.ceil(maxY / 6) : maxY > 6 ? 2 : 1;
   const grid = [];
@@ -432,22 +504,35 @@ export function CurveChart({ work, mode }) {
   </svg>`;
 }
 
+/** @type {Readonly<Record<string, string>>} */
 const TYPE_PICK_LABELS = { random: N_('随机'), ban: N_('禁用'), force: N_('固定'), out: N_('不加入'), allow: N_('随机') };
-/** a type's order on screen: the season's own (sortId), then its id */
+/**
+ * a type's order on screen: the season's own (sortId), then its id
+ * @param {Bag} a
+ * @param {Bag} b
+ */
 const typeOrder = (a, b) => (a.sortId ?? 9) - (b.sortId ?? 9) || String(a.type).localeCompare(String(b.type));
-/** a type's name without the 「特训敌人·」 every one starts with (as the briefing shows them) */
+/**
+ * a type's name without the 「特训敌人·」 every one starts with (as the briefing shows them)
+ * @param {Bag | null | undefined} ty
+ */
 const typeName = (ty) => (ty?.name || '').replace(t('特训敌人·'), '');
 
 /**
  * 敌人类型 (maintainer decision 2026-11-15): how many 特训敌人 types a match draws (types.count, 0–5, official 3) and for
  * each type of the season's draw (factions.json types with involveRandom) 随机 / 禁用 / 固定 (types.pick) — the match
  * draws them with shared/ruleset.js customEnemyTypes.
+ * @param {PaneProps} p
  */
 function TypesPane({ work, set, readonly }) {
   const m = data.get('assets');
   // the season's own draw (a type the room borrows is in the data too: `borrowed`, listed below with its season)
   const types = Object.values(data.get('factions')?.types || {}).filter((ty) => ty && ty.involveRandom && !ty.borrowed).sort(typeOrder);
   const pick = work.types.pick;
+  /**
+   * @param {string} id
+   * @param {string} v
+   */
   const setPick = (id, v) => {
     const next = { ...pick };
     if (v === 'random' || v === 'out') delete next[id]; else next[id] = v;
@@ -467,6 +552,10 @@ function TypesPane({ work, set, readonly }) {
   const nLentAllow = Object.entries(pick).filter(([k, v]) => v === 'allow' && lentIds.has(k)).length;
   const count = work.types.count ?? OFFICIAL_TYPE_COUNT;
   const drawn = Math.min(CUSTOM_LIMITS.types[1], Math.max(count, nForce + nLentForce));
+  /**
+   * @param {Bag} ty
+   * @param {string} sid
+   */
   const lentCard = (ty, sid) => {
     const v = pick[ty.type] === 'force' || pick[ty.type] === 'allow' ? pick[ty.type] : 'out';
     return html`<div key=${ty.type} class=${cx('crx-bond', v === 'out' && 'is-out', v === 'force' && 'is-allow')} data-type=${ty.type} title=${ty.desc || ''}>
@@ -482,7 +571,7 @@ function TypesPane({ work, set, readonly }) {
       <${Row} label=${t('每局抽取的类型数')} official=${t('官方 {n}', { n: OFFICIAL_TYPE_COUNT })}
           note=${t('{lo} – {hi} · 每种类型占 15 个回合中的 3 个，其余回合为「特异」', { lo: CUSTOM_LIMITS.types[0], hi: CUSTOM_LIMITS.types[1] })}>
         <${Stepper} value=${count} min=${CUSTOM_LIMITS.types[0]} max=${CUSTOM_LIMITS.types[1]} disabled=${readonly} testid="custom-type-count"
-          onChange=${(v) => set('types', 'count', v === OFFICIAL_TYPE_COUNT ? null : v)} />
+          onChange=${(/** @type {number} */ v) => set('types', 'count', v === OFFICIAL_TYPE_COUNT ? null : v)} />
       <//>
       <div class="crx-legend"><span><i class="lg-r"></i>${t('随机：交给抽取')}</span><span><i class="lg-b"></i>${t('禁用：不会出现')}</span><span><i class="lg-a"></i>${t('固定：每局出现')}</span></div>
       <div class="crx-note">${t('参与抽取的类型 · {n}', { n: types.length })}</div>
@@ -506,12 +595,16 @@ function TypesPane({ work, set, readonly }) {
     <//>`)}`;
 }
 
+/** @param {PaneProps} p */
 function BossesPane({ work, set, setWork, readonly, mode }) {
   const m = data.get('assets');
   const all = data.list('bosses') || [];
   const ban = new Set(work.bosses.ban);
+  /** @param {boolean} hidden */
   const weights = (hidden) => (hidden ? mode?.hiddenBossWeights : mode?.bossWeights) || {};
+  /** @param {Bag} b */
   const inMode = (b) => (weights(b.hidden)[b.bossId] ?? 0) > 0;
+  /** @param {Bag} b */
   const toggle = (b) => {
     const group = all.filter((x) => !!x.hidden === !!b.hidden && inMode(x));
     if (!ban.has(b.bossId) && inMode(b) && group.filter((x) => !ban.has(x.bossId)).length <= 1) {
@@ -522,6 +615,7 @@ function BossesPane({ work, set, setWork, readonly, mode }) {
     if (next.has(b.bossId)) next.delete(b.bossId); else next.add(b.bossId);
     set('bosses', 'ban', [...next]);
   };
+  /** @param {Bag} b */
   const card = (b) => {
     const isBan = ban.has(b.bossId);
     const off = !inMode(b);
@@ -545,12 +639,12 @@ function BossesPane({ work, set, setWork, readonly, mode }) {
     <//>
     <${Sec} title=${t('领袖限伤')} sub=${t('对敌方领袖单次造成的伤害')}>
       <${Row} label=${t('超过上限的一击')} note=${t('官方：达到上限的一击整个无效 · 按上限计算：只计上限的伤害（与休闲规则相同）')}>
-        <${Seg} options=${modes} value=${work.bosses.hitMode} disabled=${readonly} onChange=${(v) => setWork((w) => sanitizeCustom({ ...w, bosses: { ...w.bosses, hitMode: v } }))} />
+        <${Seg} options=${modes} value=${work.bosses.hitMode} disabled=${readonly} onChange=${(/** @type {string} */ v) => setWork((w) => sanitizeCustom({ ...w, bosses: { ...w.bosses, hitMode: v } }))} />
       <//>
       <${Row} label=${t('上限值')} official=${t('官方 {n}', { n: fmt(CUSTOM_OFFICIAL.bosses.hitLimit) })}
           note=${t('{lo} – {hi} · 更高请选「不限制」', { lo: fmt(CUSTOM_LIMITS.hitLimit[0]), hi: fmt(CUSTOM_LIMITS.hitLimit[1]) })} locked=${work.bosses.hitMode === 'none'}>
         <${Stepper} value=${work.bosses.hitLimit} min=${CUSTOM_LIMITS.hitLimit[0]} max=${CUSTOM_LIMITS.hitLimit[1]} step=${100000} wide=${true}
-          disabled=${readonly || work.bosses.hitMode === 'none'} onChange=${(v) => set('bosses', 'hitLimit', v)} />
+          disabled=${readonly || work.bosses.hitMode === 'none'} onChange=${(/** @type {number} */ v) => set('bosses', 'hitLimit', v)} />
       <//>
     <//>`;
 }
@@ -558,17 +652,22 @@ function BossesPane({ work, set, setWork, readonly, mode }) {
 /**
  * The stages of this season, and the 上半 ones the sim has when 「收录上半战场」 is on (CUSTOM_FIRST_HALF_STAGES: 战场#06;
  * #05 and #07 wait for their mechanics, maintainer decision 2026-10-18).
+ * @param {Bag} s
+ * @param {boolean} firstHalf
  */
 const stageShown = (s, firstHalf) => !s.kind && !s.borrowed && (s.active !== false || Number(s.weight) > 0 || (firstHalf && CUSTOM_FIRST_HALF_STAGES.includes(s.id)));
 
+/** @param {PaneProps} p */
 function StagesPane({ work, set, setWork, readonly, mode }) {
   const all = (data.list('stages') || []).filter((s) => stageShown(s, work.stages.firstHalf));
   // the season's own stages (a borrowed record is another season's): the pool takes them only through the mode and the
   // 上半 switch (customStagePool), as the server's draw does
   const ownRaw = Object.values(data.getRaw('stages') || {}).filter((s) => s && !s.kind && !s.borrowed);
+  /** @param {string} id */
   const ownStage = (id) => { const s = data.getRaw('stages')?.[id]; return !!s && !s.borrowed; };
   const pool = new Set(customStagePool(mode?.stages, work, ownStage));
   // switching the 上半 stages off drops their bans with them (a ban of a stage the pool lacks means nothing)
+  /** @param {boolean} v */
   const setFirstHalf = (v) => setWork((w) => sanitizeCustom({ ...w, stages: { ...w.stages, firstHalf: v, ban: v ? w.stages.ban : w.stages.ban.filter((id) => !CUSTOM_FIRST_HALF_STAGES.includes(id)) } }));
   const firstNames = CUSTOM_FIRST_HALF_STAGES.map((id) => data.get('stages')?.[id]?.name ?? id).join(t('、'));
   // 收录上半战场 adds the 盟约 上半 stages: a season whose data has none of them (规程) shows neither the switch nor the tags
@@ -577,12 +676,14 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
   const infoAlways = !!seasonOfficialOptions(data.season()).battlefieldInfo;
   const ban = new Set(work.stages.ban);
   const used = [...pool].filter((id) => !ban.has(id)).length;
+  /** @param {Bag} s */
   const toggle = (s) => {
     if (!ban.has(s.id) && pool.has(s.id) && used <= 1) { toast(t('至少要保留一张战场'), 'warn'); return; }
     const next = new Set(ban);
     if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
     set('stages', 'ban', [...next]);
   };
+  /** @param {Bag} s */
   const half = (s) => (/^act1/.test(s.id) ? t('上半') : t('下半'));
   // other seasons' stages (maintainer decision 2026-11-15, shared/seasonBorrow.js): a click adds one to the pool; one that
   // plays as an own field (sameField: 规程 m01–m04 / m06 = 盟约 战场#01–#04 / #06(下半)) is left out (the raw records:
@@ -592,10 +693,11 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
     const st = data.seasonStore(sid);
     st?.load('stages');
     const raw = st?.getRaw('stages') || {};
-    return { sid, list: (st?.list('stages') || []).filter((s) => lendableStage(s, CUSTOM_FIRST_HALF_STAGES) && !ownIds.has(s.id)
+    return { sid, list: (st?.list('stages') || []).filter((/** @type {Bag} */ s) => lendableStage(s, CUSTOM_FIRST_HALF_STAGES) && !ownIds.has(s.id)
       && !ownRaw.some((o) => sameField(o, raw[s.id]))) };
   }).filter((x) => x.list.length);
   const extra = new Set(work.stages.extra);
+  /** @param {Bag} s */
   const toggleExtra = (s) => {
     if (extra.has(s.id) && !ban.has(s.id) && used <= 1) { toast(t('至少要保留一张战场'), 'warn'); return; }
     const next = new Set(extra);
@@ -603,15 +705,19 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
     setWork((w) => sanitizeCustom({ ...w, stages: { ...w.stages, extra: [...next], ban: w.stages.ban.filter((id) => id !== s.id) } }));
   };
   // 盟约's stages keep their 上半 / 下半 tag wherever they are listed
+  /**
+   * @param {string} _sid
+   * @param {Bag} s
+   */
   const lentHalf = (_sid, s) => (/^act[12]autochess_/.test(s.id) ? half(s) : null);
   return html`
     <${Sec} title=${t('简报')}>
       <${Row} label=${t('战场信息预览')} note=${infoAlways ? t('本赛季的官方简报始终显示战场') : t('简报中显示本局战场的名称和预览图（关闭时为「未知战场」）')}
           official=${infoAlways ? t('官方：开启') : t('官方：关闭')} locked=${infoAlways}>
-        <${Switch} on=${infoAlways || work.stages.info} disabled=${readonly || infoAlways} testid="custom-stage-info" onChange=${(v) => set('stages', 'info', v)} />
+        <${Switch} on=${infoAlways || work.stages.info} disabled=${readonly || infoAlways} testid="custom-stage-info" onChange=${(/** @type {boolean} */ v) => set('stages', 'info', v)} />
       <//>
       <${Row} label=${t('简报「重新抽取」')} note=${t('全员同意时重新抽取战场、领袖和缺席盟约')} official=${t('官方：没有')}>
-        <${Switch} on=${work.stages.reroll} disabled=${readonly} onChange=${(v) => set('stages', 'reroll', v)} />
+        <${Switch} on=${work.stages.reroll} disabled=${readonly} onChange=${(/** @type {boolean} */ v) => set('stages', 'reroll', v)} />
       <//>
     <//>
     ${hasFirstHalf ? html`<${Sec} title=${t('上半战场')}>
@@ -633,7 +739,7 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
     <//>
     ${lenders.map(({ sid, list }) => html`<${Sec} key=${sid} title=${t('其他赛季的战场 · {season}', { season: t(seasonInfo(sid).name) })}
         sub=${t('点击加入本局的战场池 — 与本赛季的战场同权重抽取 · 官方：没有')}>
-      <div class="crx-stages" data-testid=${`custom-lent-stages-${sid}`}>${list.map((s) => {
+      <div class="crx-stages" data-testid=${`custom-lent-stages-${sid}`}>${list.map((/** @type {Bag} */ s) => {
         const on = extra.has(s.id);
         return html`<button key=${s.id} type="button" class=${cx('crx-stage', !on && 'is-off')} disabled=${readonly}
             data-stage=${s.id} aria-pressed=${on ? 'true' : 'false'} onClick=${() => toggleExtra(s)}>
@@ -646,13 +752,16 @@ function StagesPane({ work, set, setWork, readonly, mode }) {
 }
 
 
+/** @param {PaneProps} p */
 function FlowPane({ work, set, readonly, solo, mode, base, size, config }) {
   const official = base.rounds ?? 14;
   const n = work.flow.rounds ?? official;
   const plan = mode ? customRoundPlan(mode, work.flow.rounds) : { rounds: [], hidden: null };
+  /** @param {number} src */
   const prepOf = (src) => mode?.rounds?.[src]?.prepTime ?? null;
   // the prep table: the first round of each official prep length, then the final assault
   const cols = [];
+  /** @type {number | null} */
   let last = null;
   plan.rounds.forEach((r, i) => {
     const p = prepOf(r.src);
@@ -662,6 +771,7 @@ function FlowPane({ work, set, readonly, solo, mode, base, size, config }) {
   });
   const boss = plan.rounds.find((r) => r.kind === 'boss');
   if (boss && prepOf(boss.src) != null) cols.push({ label: t('最终攻势'), p: prepOf(boss.src) });
+  /** @param {number | null} p */
   const custom = (p) => customPrepSeconds(work.flow, p);
   const preps = [{ v: 'official', label: t('官方') }, { v: 'x1.5', label: '×1.5' }, { v: 'x2', label: '×2' }, { v: 'fixed', label: t('固定秒数') }];
   return html`
@@ -669,7 +779,7 @@ function FlowPane({ work, set, readonly, solo, mode, base, size, config }) {
       <${Row} label=${t('回合数')} note=${t('{lo} – {hi} · 追加回合的敌人能力按成长曲线继续提升 [推定]', { lo: CUSTOM_LIMITS.rounds[0], hi: CUSTOM_LIMITS.rounds[1] })}
           official=${t('官方 {n}', { n: official })}>
         <${Stepper} value=${n} min=${CUSTOM_LIMITS.rounds[0]} max=${CUSTOM_LIMITS.rounds[1]} disabled=${readonly} testid="custom-rounds"
-          onChange=${(v) => set('flow', 'rounds', v === official ? null : v)} />
+          onChange=${(/** @type {number} */ v) => set('flow', 'rounds', v === official ? null : v)} />
       <//>
       <div class="crx-rounds" data-testid="custom-round-strip">
         ${plan.rounds.map((r, i) => html`<span key=${i} class=${`k-${r.kind}`}>${r.kind === 'boss' ? html`${i + 1} ${t('最终攻势')}` : i + 1}${r.src !== i + 1 && r.kind !== 'boss' ? html`<small>←${r.src}</small>` : null}</span>`)}
@@ -680,11 +790,11 @@ function FlowPane({ work, set, readonly, solo, mode, base, size, config }) {
     <//>
     <${Sec} title=${t('休整期')} sub=${solo ? t('仅同盟 — 独立模拟按官方规则不限时') : t('仅同盟')}>
       <${Row} label=${t('休整期时长')} locked=${solo}>
-        <${Seg} options=${preps} value=${work.flow.prep} disabled=${readonly || solo} onChange=${(v) => set('flow', 'prep', v)} />
+        <${Seg} options=${preps} value=${work.flow.prep} disabled=${readonly || solo} onChange=${(/** @type {string} */ v) => set('flow', 'prep', v)} />
       <//>
       ${work.flow.prep === 'fixed' ? html`<${Row} label=${t('每回合秒数')} locked=${solo}>
         <${Stepper} value=${work.flow.prepSec} min=${CUSTOM_LIMITS.prepSec[0]} max=${CUSTOM_LIMITS.prepSec[1]} step=${5} suffix=${t('秒')}
-          disabled=${readonly || solo} onChange=${(v) => set('flow', 'prepSec', v)} />
+          disabled=${readonly || solo} onChange=${(/** @type {number} */ v) => set('flow', 'prepSec', v)} />
       <//>` : null}
       ${!solo && cols.length ? html`<div class="crx-ptable" style=${`--cols:${cols.length}`}>
         <span class="k">${t('回合')}</span>${cols.map((c, i) => html`<span key=${`r${i}`}>${c.label}</span>`)}
@@ -694,17 +804,17 @@ function FlowPane({ work, set, readonly, solo, mode, base, size, config }) {
     <//>
     <${Sec} title=${t('目标生命值')} sub=${t('仅同盟')}>
       <${Row} label=${t('解除每回合目标生命值减少上限')} note=${t('官方：一回合最多减少 10 — 解除后漏怪多少就减少多少')} official=${t('官方：{n}', { n: 10 })} locked=${solo}>
-        <${Switch} on=${work.flow.lpCapOff} disabled=${readonly || solo} onChange=${(v) => set('flow', 'lpCapOff', v)} />
+        <${Switch} on=${work.flow.lpCapOff} disabled=${readonly || solo} onChange=${(/** @type {boolean} */ v) => set('flow', 'lpCapOff', v)} />
       <//>
       <${Row} label=${t('所有回合共享目标生命值')} note=${t('像最终攻势一样，整个同盟共用一个目标生命值（初始值之和）— 不会单独淘汰，归零时全员失败')}
           official=${t('官方：仅最终攻势')} locked=${solo}>
-        <${Switch} on=${work.flow.lpShared} disabled=${readonly || solo} onChange=${(v) => set('flow', 'lpShared', v)} />
+        <${Switch} on=${work.flow.lpShared} disabled=${readonly || solo} onChange=${(/** @type {boolean} */ v) => set('flow', 'lpShared', v)} />
       <//>
     <//>
     <${PoolSec} work=${work} set=${set} readonly=${readonly} solo=${solo} size=${size} config=${config} />
     <${Sec} title=${t('其他便利功能')} sub=${t('休闲规则的项目')}>
       <${Row} label=${t('移动型领袖路线预览')} note=${t('最终攻势休整期中敌方领袖将要走的路线')} official=${t('官方：没有')}>
-        <${Switch} on=${work.flow.routePreview} disabled=${readonly} onChange=${(v) => set('flow', 'routePreview', v)} />
+        <${Switch} on=${work.flow.routePreview} disabled=${readonly} onChange=${(/** @type {boolean} */ v) => set('flow', 'routePreview', v)} />
       <//>
     <//>`;
 }
@@ -712,6 +822,7 @@ function FlowPane({ work, set, readonly, solo, mode, base, size, config }) {
 /**
  * The shop pool sizes (pool.chess / pool.items): two percents and the per-tier counts they give in a room of this size —
  * the official count already holds the room's multiplier (server/match/gamedata.js poolCopies / itemPoolCopies).
+ * @param {Pick<PaneProps, 'work' | 'set' | 'readonly' | 'solo' | 'size' | 'config'>} p
  */
 function PoolSec({ work, set, readonly, solo, size, config }) {
   const eco = config?.economy || {};
@@ -722,10 +833,19 @@ function PoolSec({ work, set, readonly, solo, size, config }) {
   const chess = tiers.map((k) => (eco.poolCopies?.[k] ?? 0) * chessMul);
   const items = tiers.map((k) => (eco.itemPoolCopies?.[k] ?? 0) * itemMul);
   const who = solo ? t('独立模拟') : t('{n} 人同盟', { n: size === LARGE_SEATS ? LARGE_SEATS : 4 });
+  /**
+   * @param {'chess' | 'items'} k
+   * @param {string} label
+   * @param {string} note
+   */
   const pct = (k, label, note) => html`<${Row} label=${label} note=${note} official=${t('官方 100%')}>
     <${Stepper} value=${work.pool[k]} min=${CUSTOM_LIMITS.pct[0]} max=${CUSTOM_LIMITS.pct[1]} step=${10} suffix="%" disabled=${readonly}
-      testid=${`custom-pool-${k}`} onChange=${(v) => set('pool', k, v)} />
+      testid=${`custom-pool-${k}`} onChange=${(/** @type {number} */ v) => set('pool', k, v)} />
   <//>`;
+  /**
+   * @param {string} label
+   * @param {unknown[]} list
+   */
   const row = (label, list, cls = '') => html`<span class="k">${label}</span>${list.map((n, i) => html`<span key=${i} class=${cls}>${n}</span>`)}`;
   return html`<${Sec} title=${t('商店卡池')} sub=${t('当前人数的官方数量乘以百分比 — 干员：同盟为独立模拟的 ×2、8 人同盟 ×4；装备：8 人同盟 ×2')}>
     ${pct('chess', t('干员卡池'), t('每名干员在共享卡池中的张数（自选干员的个人库存也一样）'))}
@@ -741,6 +861,7 @@ function PoolSec({ work, set, readonly, solo, size, config }) {
   <//>`;
 }
 
+/** @type {Readonly<Record<string, (p: PaneProps) => any>>} */
 const PANES = { bonds: BondsPane, enemies: EnemiesPane, types: TypesPane, bosses: BossesPane, stages: StagesPane, flow: FlowPane };
 
 /** The tabs' names, for tests. */

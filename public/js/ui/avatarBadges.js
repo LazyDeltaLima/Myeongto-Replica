@@ -29,6 +29,8 @@ import { data } from '../data.js';
 import { t, tc } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 
+/** @import { Bag } from './gameLogic/shared.js' */
+
 /** The season's avatar badge constants (config.constants), or null when its table has none. */
 export function badgeConstants(config = data.get('config')) {
   const c = config?.constants;
@@ -54,12 +56,16 @@ export function stepOf(value, steps) {
  */
 export const bossStep = (pct, fractions) => stepOf(pct, Array.isArray(fractions) ? fractions.map((f) => Math.round(f * 100)) : null);
 
-/** The win-streak badge step: 0, 1 (triangle) or 2 (star, the last threshold and up). */
+/**
+ * The win-streak badge step: 0, 1 (triangle) or 2 (star, the last threshold and up).
+ * @param {number|null|undefined} n @param {number[]|null|undefined} thresholds
+ */
 export const streakStep = (n, thresholds) => Math.min(2, stepOf(n, thresholds));
 
+/** @param {unknown} phase */
 const isBoss = (phase) => phase === PHASE.FINAL_ASSAULT || phase === PHASE.HIDDEN_CORE;
 
-/** ✗ n% (icon_damage, the percent, icon_percent). */
+/** ✗ n% (icon_damage, the percent, icon_percent). @param {{ pct: number, cls?: string }} p */
 function Pct({ pct, cls = '' }) {
   return html`<span class=${`bdmg__pct ${cls}`}><i class="bdmg__x" aria-hidden="true"></i><b class="num">${pct}</b><small>%</small></span>`;
 }
@@ -82,6 +88,7 @@ export function AvatarBadges({ player, self = false, phase = null }) {
   if (isBoss(phase) && Number.isFinite(player.bossPct)) {
     const b = bossStep(player.bossPct, c.bossDamageThresholds);
     if (b > 0) {
+      /** @param {string} n */
       const art = (n) => uiUrl(m, `seasonSkin/${n}`);
       const ml = art('damage_fx_middle_light'), cr = art('damage_fx_frame_cross'), dec = art('damage_fx_dec');
       const vars = [ml && `--aglow-mid:url("${ml}")`, cr && `--aglow-cross:url("${cr}");--aglow-cross-line:none`, dec && `--aglow-dec:url("${dec}")`].filter(Boolean).join(';');
@@ -107,7 +114,7 @@ export function BossDamagePanel({ pub, myId = null }) {
   const phase = pub?.phase;
   const live = !!c && Array.isArray(c.bossDamageThresholds) && isBoss(phase);
   const key = `${phase}:${pub?.round}`;
-  const [shown, setShown] = useState(null);
+  const [shown, setShown] = useState(/** @type {string | null} */ (null));
   const [hidden, setHidden] = useState(false);
   useEffect(() => {
     if (!live) return undefined;
@@ -116,16 +123,16 @@ export function BossDamagePanel({ pub, myId = null }) {
     return () => clearTimeout(id);
   }, [live, key]);
   if (!live || shown !== key) return null;
-  const names = new Map((pub.players || []).map((p) => [p?.playerId, p?.name]));
+  const names = new Map((pub.players || []).map((/** @type {Bag | null} */ p) => [p?.playerId, p?.name]));
   const others = settingsStore.get().otherSkins !== false;
-  const rows = (Array.isArray(pub.leaderTop) ? pub.leaderTop : []).filter((r) => r && typeof r.chess === 'string' && Number.isFinite(r.pct)).slice(0, 3);
+  const rows = (Array.isArray(pub.leaderTop) ? pub.leaderTop : []).filter((/** @type {Bag | null} */ r) => r && typeof r.chess === 'string' && Number.isFinite(r.pct)).slice(0, 3);
   if (!rows.length) return null;
   return html`<aside class=${hidden ? 'bdmg is-hidden' : 'bdmg'} aria-label=${t('领袖伤害')}>
     <button type="button" class="bdmg__toggle" aria-expanded=${!hidden} onClick=${() => setHidden((h) => !h)}
-      onKeyDown=${(e) => { if (e.key === ' ') e.stopPropagation(); }}>
+      onKeyDown=${(/** @type {KeyboardEvent} */ e) => { if (e.key === ' ') e.stopPropagation(); }}>
       <i class="bdmg__arrow" aria-hidden="true"></i><span>${hidden ? tc('toggle', '显示') : tc('toggle', '隐藏')}</span>
     </button>
-    ${hidden ? null : html`<ol class="bdmg__list">${rows.map((r, i) => {
+    ${hidden ? null : html`<ol class="bdmg__list">${rows.map((/** @type {Bag} */ r, /** @type {number} */ i) => {
       const rank = stepOf(r.pct, c.bossDamageRowThresholds);
       const kind = !data.lookup('chess', r.chess) && data.lookup('tokens', r.chess) ? 'token' : 'chess';
       // a 自选 slot's row draws its pick, a 补位 row its stand-in (the row's diy / standInFor, views.js _leaderTopView)

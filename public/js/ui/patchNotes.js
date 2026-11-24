@@ -11,27 +11,32 @@ import { t } from '../../../shared/i18n.js';
 export const PATCH_NOTES_URL = '/changelog.json';
 export const SEEN_PREF = 'patchNotesSeen';
 
+/** @typedef {{ s: string, b?: boolean, c?: boolean }} Seg a run of text: plain, bold or code */
+/** @typedef {{ h?: string, p?: Seg[], ul?: Seg[][] }} Block a group heading, a paragraph or a list (its items' runs) */
+/** @typedef {{ version: string, date: string, blocks: Block[] }} PatchEntry one release of /changelog.json */
+
+/** @type {Promise<PatchEntry[]> | null} */
 let pending = null;
 
 /**
  * The entries of /changelog.json, fetched once per page ([] when unreachable; a failed fetch is tried again next time).
  * @param {typeof fetch} [fetchFn]
- * @returns {Promise<{ version: string, date: string, blocks: object[] }[]>}
+ * @returns {Promise<PatchEntry[]>}
  */
 export function loadPatchNotes(fetchFn = (...a) => globalThis.fetch(...a)) {
   if (!pending) {
     pending = Promise.resolve()
       .then(() => fetchFn(PATCH_NOTES_URL, { cache: 'no-cache' }))
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => (Array.isArray(j?.entries) ? j.entries.filter((e) => typeof e?.version === 'string' && Array.isArray(e.blocks)) : []))
+      .then((j) => (Array.isArray(j?.entries) ? j.entries.filter((/** @type {{ version?: unknown, blocks?: unknown } | null} */ e) => typeof e?.version === 'string' && Array.isArray(e.blocks)) : []))
       .catch(() => { pending = null; return []; });
   }
   return pending;
 }
 
-/** @returns {object[]|null} the entries, null until they arrive */
+/** @returns {PatchEntry[]|null} the entries, null until they arrive */
 export function usePatchNotes() {
-  const [entries, setEntries] = useState(null);
+  const [entries, setEntries] = useState(/** @type {PatchEntry[] | null} */ (null));
   useEffect(() => {
     let live = true;
     loadPatchNotes().then((e) => { if (live) setEntries(e); });
@@ -45,12 +50,12 @@ export const isUnseen = (version) => !!version && loadPref(SEEN_PREF, null) !== 
 /** @param {string} version */
 export const markSeen = (version) => savePref(SEEN_PREF, version);
 
-/** @param {{ s: string }[]} segs */
+/** @param {Seg[] | undefined} segs */
 const plainText = (segs) => (Array.isArray(segs) ? segs.map((x) => x?.s || '').join('') : '');
 
 /**
  * The one-line summary of a release: the first sentence of its first paragraph, else its first list item.
- * @param {{ blocks: object[] }} entry
+ * @param {{ blocks: Block[] }} entry
  * @returns {string}
  */
 export function summaryOf(entry) {
@@ -62,16 +67,16 @@ export function summaryOf(entry) {
     return m ? m[1] : text;
   }
   const ul = blocks.find((b) => b.ul);
-  return ul ? plainText(ul.ul[0]) : '';
+  return ul ? plainText(/** @type {Seg[][]} */ (ul.ul)[0]) : '';
 }
 
 /**
  * The lines the 更新 tab steps through: the release's summary first, then every list item with the group it is under.
- * @param {{ blocks: object[] }} entry
- * @returns {({ summary: string } | { group: string, segs: object[] })[]}
+ * @param {{ blocks: Block[] }} entry
+ * @returns {({ summary: string } | { group: string, segs: Seg[] })[]}
  */
 export function slidesOf(entry) {
-  /** @type {({ summary: string } | { group: string, segs: object[] })[]} */
+  /** @type {({ summary: string } | { group: string, segs: Seg[] })[]} */
   const out = [{ summary: summaryOf(entry) }];
   let group = '';
   for (const b of entry?.blocks || []) {
@@ -86,7 +91,7 @@ export function Inline({ segs }) {
   return (segs || []).map((x, i) => (x.b ? html`<b key=${i}>${x.s}</b>` : x.c ? html`<code key=${i}>${x.s}</code>` : x.s));
 }
 
-/** @param {{ entry: object, open: boolean, fresh: boolean }} props */
+/** @param {{ entry: PatchEntry, open: boolean, fresh: boolean }} props */
 function Release({ entry, open, fresh }) {
   return html`<details class="pnotes__ver" open=${open}>
     <summary class="pnotes__head">
@@ -103,7 +108,7 @@ function Release({ entry, open, fresh }) {
 
 /**
  * The 更新记录 window: the newest release open, the older ones folded.
- * @param {{ open: boolean, onClose: Function, entries: object[]|null, fresh?: boolean }} props
+ * @param {{ open: boolean, onClose: Function, entries: PatchEntry[]|null, fresh?: boolean }} props
  */
 export function PatchNotesModal({ open, onClose, entries, fresh = false }) {
   const list = entries || [];

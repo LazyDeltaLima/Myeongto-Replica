@@ -9,8 +9,10 @@ import { html, MicroLabel } from './components.js';
 import { sanitizeCustom, CUSTOM_OFFICIAL, CUSTOM_FIRST_HALF_STAGES, OFFICIAL_TYPE_COUNT } from '../../../shared/ruleset.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
+/** @type {Readonly<Record<string, string>>} */
 const STAT_LABELS = { hp: N_('生命值'), atk: N_('攻击力'), def: N_('防御力'), res: N_('法术抗性'), speed: N_('移动速度') };
 
+/** @param {number} n */
 const fmt = (n) => Number(n).toLocaleString('en-US');
 
 /**
@@ -29,9 +31,22 @@ export function customSummary(raw, { solo = false, bans = null, rounds = null, n
   const O = CUSTOM_OFFICIAL;
   /** @type {Array<{ key: string, tab: string, text: string }>} */
   const out = [];
+  /**
+   * @param {string} key
+   * @param {string} text
+   */
   const add = (key, text) => out.push({ key, tab: key.split('.')[0], text });
+  /** @typedef {'bond'|'boss'|'stage'|'type'} NameKind */
+  /**
+   * @param {NameKind} kind
+   * @param {readonly string[]} ids
+   */
   const names = (kind, ids) => ids.map((id) => name(kind, id)).join(t('、'));
   // the leaders' names hold a colon of their own (假想敌：胄): each in 「」, no colon after the label
+  /**
+   * @param {NameKind} kind
+   * @param {string[]} ids
+   */
   const quoted = (kind, ids) => ids.map((id) => `「${name(kind, id)}」`).join(' ');
 
   if (c.bonds.banCore !== null && c.bonds.banCore !== bans?.core) {
@@ -47,18 +62,20 @@ export function customSummary(raw, { solo = false, bans = null, rounds = null, n
   if (banned.length) add('bonds.pick.ban', t('始终禁用盟约：{names}', { names: names('bond', banned) }));
   if (allowed.length) add('bonds.pick.allow', t('始终允许盟约：{names}', { names: names('bond', allowed) }));
 
-  for (const [sec, label] of [['enemies', N_('普通敌人')], ['leaders', N_('敌方领袖')]]) {
-    const stats = Object.keys(STAT_LABELS).filter((k) => k in c[sec] && c[sec][k] !== O[sec][k]);
+  for (const [sec, label] of /** @type {['enemies' | 'leaders', string][]} */ ([['enemies', N_('普通敌人')], ['leaders', N_('敌方领袖')]])) {
+    // the percents of a section by stat name (STAT_LABELS' keys; a section without one has no line for it)
+    const stats = Object.keys(STAT_LABELS).filter((k) => k in c[sec] && /** @type {Record<string, number>} */ (c[sec])[k] !== /** @type {Record<string, number>} */ (O[sec])[k]);
     if (stats.length) {
-      add(`${sec}.stats`, t('{who}：{list}', { who: t(label), list: stats.map((k) => `${t(STAT_LABELS[k])} ${c[sec][k]}%`).join(' · ') }));
+      add(`${sec}.stats`, t('{who}：{list}', { who: t(label), list: stats.map((k) => `${t(STAT_LABELS[k])} ${/** @type {Record<string, number>} */ (c[sec])[k]}%`).join(' · ') }));
     }
   }
   // the multipliers per step set (the official one of a stat left out; both official = no line)
-  const steps = [['stepHp', STAT_LABELS.hp], ['stepAtk', STAT_LABELS.atk]].filter(([k]) => c.enemies[k] != null)
-    .map(([k, label]) => `${t(label)} ×${(c.enemies[k] / 100).toFixed(2)}`);
+  const steps = /** @type {['stepHp' | 'stepAtk', string][]} */ ([['stepHp', STAT_LABELS.hp], ['stepAtk', STAT_LABELS.atk]]).filter(([k]) => c.enemies[k] != null)
+    .map(([k, label]) => `${t(label)} ×${(/** @type {number} */ (c.enemies[k]) / 100).toFixed(2)}`);
   if (steps.length) add('enemies.steps', t('敌人能力每级成长倍率：{list}', { list: steps.join(' · ') }));
 
   if (c.types.count !== null && c.types.count !== OFFICIAL_TYPE_COUNT) add('types.count', t('特训敌人类型 {n} 种', { n: c.types.count }));
+  /** @param {string[]} ids */
   const typeNames = (ids) => ids.map((id) => String(name('type', id) ?? id).replace(t('特训敌人·'), '')).join(t('、'));
   const typePicks = Object.entries(c.types.pick);
   const forced = typePicks.filter(([, v]) => v === 'force').map(([id]) => id);

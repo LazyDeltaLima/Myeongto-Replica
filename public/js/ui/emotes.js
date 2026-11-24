@@ -32,12 +32,14 @@ import { loadPref, savePref } from '../store.js';
 import { EMOTE_SETS, USER_EMOTE_PAGES, userEmoteArt, emoteSet } from '../../../shared/emote-art.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 export const EMOTE_CSS_HREF = '/css/emotes.css';
 const PREF_THEME = 'emoteTheme';
 const PREF_SET = 'emoteSet';
 const PREF_USER_PAGE = 'emoteUserPage';
+/** @type {Readonly<Record<string, string>>} */
 const SET_LABEL = { official: N_('官方表情'), user: N_('用户表情') };
 const SWIPE_PX = 40;      // horizontal drag distance that turns the page
 const DRAG_SLOP_PX = 8;   // below this a press is a tap, not a drag
@@ -67,7 +69,7 @@ export function ensureEmoteCss(doc = globalThis.document) {
  */
 export function emoteArtUrls(id) {
   const e = emoteInfo(id);
-  return e ? artUrls(emoteArtGroup(id), e.picId) : [];
+  return e ? artUrls(/** @type {string} */ (emoteArtGroup(id)), e.picId) : [];
 }
 
 /**
@@ -95,7 +97,11 @@ export function emotePages(set) {
   return shown.length ? shown : all;
 }
 
-/** Page to open a set's tab on: the last used one (theme of the last official emote sent / last user page). */
+/**
+ * Page to open a set's tab on: the last used one (theme of the last official emote sent / last user page).
+ * @param {string} set
+ * @param {ReturnType<typeof emotePages>} pages
+ */
 function lastPageOf(set, pages) {
   if (emoteSet(set) === 'user') return Math.max(0, Math.min(pages.length - 1, Math.trunc(Number(loadPref(PREF_USER_PAGE, 0))) || 0));
   const themeId = loadPref(PREF_THEME, null);
@@ -115,9 +121,10 @@ export function emoteArtUrl(id) {
 const artManifestsPending = () => ['local', 'assets'].some((n) => { const st = data.status(n); return st === 'loading' || st === 'idle'; });
 
 /** Official emote UI sprite (ui/battle: emoji_bubble_bkg, emoji_bkg, emoji_cell_bkg, emoji_btn, emoji_btn_disable). */
+/** @param {string} name */
 export const emoteUiSprite = (name) => localAsset('ui/battle', name);
 
-/** Index of a theme in the wheel (0 when unknown). */
+/** Index of a theme in the wheel (0 when unknown). @param {unknown} themeId */
 export function themeIndex(themeId) {
   const i = EMOTE_THEMES.findIndex((t) => t.themeId === themeId);
   return i < 0 ? 0 : i;
@@ -129,12 +136,12 @@ export function lastThemeIndex() {
   return typeof v === 'string' ? themeIndex(v) : 0;
 }
 
-/** Remember the theme of a sent emote. */
+/** Remember the theme of a sent emote. @param {string} themeId */
 export function rememberTheme(themeId) {
   if (EMOTE_THEMES.some((t) => t.themeId === themeId)) savePref(PREF_THEME, themeId);
 }
 
-/** Clamp a page index into the wheel. */
+/** Clamp a page index into the wheel. @param {unknown} i */
 export const clampPage = (i) => Math.max(0, Math.min(EMOTE_THEMES.length - 1, Math.trunc(Number(i)) || 0));
 
 /**
@@ -196,11 +203,11 @@ export function cooldownLeft(sentAt, now, cooldownMs = EMOTE_COOLDOWN_MS) {
  * @param {number} ttl
  */
 export function bubbleAge(at, now, ttl = EMOTE_BUBBLE_MS) {
-  const age = Number.isFinite(at) && Number.isFinite(now) ? now - at : 0;
+  const age = Number.isFinite(at) && Number.isFinite(now) ? now - /** @type {number} */ (at) : 0;
   return age > 0 ? Math.min(age, Math.max(0, ttl)) : 0;
 }
 
-/** Neutral stand-in for a missing emote picture (a glyph, never text). */
+/** Neutral stand-in for a missing emote picture (a glyph, never text). @param {{ class?: string }} p */
 function EmoteGlyph({ class: cls }) {
   return html`<span class=${cx('eart', 'eart--glyph', cls)} aria-hidden="true"><${GIcon} name="emote" /></span>`;
 }
@@ -258,14 +265,16 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
   const [dir, setDir] = useState(0);          // direction of the last page change (slide-in animation)
   const [dx, setDx] = useState(0);            // live drag offset (px)
   const [cooling, setCooling] = useState(() => cooldownLeft(lastSentAt, Date.now(), cooldownMs) > 0);
-  const drag = useRef(null);                  // { id, x0, moved }
+  const drag = useRef(/** @type {{ id: number, x0: number, moved: boolean } | null} */ (null));
   const swallowClick = useRef(false);
   const wheelAcc = useRef({ x: 0, t: -Infinity, spent: false });
   /** @type {{ current: Record<string, any> }} */
   const live = useRef({});
   live.current = { page, onToggle, pages };
+  /** @param {number} i */
   const clampTo = (i) => Math.max(0, Math.min(live.current.pages.length - 1, Math.trunc(Number(i)) || 0));
 
+  /** @param {number} to */
   const go = (to) => {
     const next = clampTo(to);
     if (next === live.current.page) return;
@@ -276,6 +285,7 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
 
   // reopen on the last used page of the tab
   useEffect(() => { if (open) { setPage(lastPageOf(set, pages)); setDir(0); setDx(0); } }, [open]);
+  /** @param {string} next */
   const pickSet = (next) => {
     if (next === set) return;
     savePref(PREF_SET, next);
@@ -297,7 +307,9 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
   // outside press closes; ← / → change the page
   useEffect(() => {
     if (!open) return undefined;
+    /** @param {PointerEvent} e */
     const onDown = (e) => { if (!(e.target instanceof Element) || !e.target.closest('.ewheel')) live.current.onToggle(false); };
+    /** @param {KeyboardEvent} e */
     const onKey = (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target;
@@ -312,6 +324,7 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
     return () => { window.removeEventListener('pointerdown', onDown, true); window.removeEventListener('keydown', onKey); };
   }, [open]);
 
+  /** @param {string} id */
   const send = (id) => {
     if (swallowClick.current) { swallowClick.current = false; return; }
     const e = emoteInfo(id);
@@ -326,11 +339,13 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
   };
 
   // swipe / drag (touch, pen and mouse)
+  /** @param {PointerEvent} e */
   const onPointerDown = (e) => {
     if (e.button != null && e.button !== 0) return;
     drag.current = { id: e.pointerId, x0: e.clientX, moved: false };
     swallowClick.current = false;
   };
+  /** @param {PointerEvent & { currentTarget: Element }} e */
   const onPointerMove = (e) => {
     const d = drag.current;
     if (!d || d.id !== e.pointerId) return;
@@ -341,6 +356,10 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
     const edge = (off > 0 && live.current.page === 0) || (off < 0 && live.current.page === live.current.pages.length - 1);
     setDx(edge ? off / 3 : off); // rubber band at the first / last page
   };
+  /**
+   * @param {PointerEvent} e
+   * @param {boolean} cancelled
+   */
   const endDrag = (e, cancelled) => {
     const d = drag.current;
     if (!d || d.id !== e.pointerId) return;
@@ -351,6 +370,7 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
     setDx(0);
     if (!cancelled) { const step = swipeStep(e.clientX - d.x0); if (step) go(live.current.page + step); }
   };
+  /** @param {WheelEvent & { currentTarget: Element }} e */
   const onWheel = (e) => {
     const d = wheelDelta(e, e.currentTarget?.clientWidth || 300);
     if (!d) return;
@@ -376,7 +396,7 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
           aria-selected=${k === set ? 'true' : 'false'} onClick=${() => pickSet(k)}>${t(SET_LABEL[k])}</button>`)}
       </div>
       <div class="ewheel__viewport" onPointerDown=${onPointerDown} onPointerMove=${onPointerMove}
-        onPointerUp=${(e) => endDrag(e, false)} onPointerCancel=${(e) => endDrag(e, true)} onWheel=${onWheel}>
+        onPointerUp=${(/** @type {PointerEvent} */ e) => endDrag(e, false)} onPointerCancel=${(/** @type {PointerEvent} */ e) => endDrag(e, true)} onWheel=${onWheel}>
         <div key=${set + ':' + theme.key} class=${cx('ewheel__page', dir > 0 && 'is-from-right', dir < 0 && 'is-from-left', dx !== 0 && 'is-dragging')}
           style=${dx ? `transform:translateX(${dx}px)` : ''} role="group" aria-label=${t(theme.name, { n: theme.n })} data-theme=${theme.themeId || theme.key}>
           ${theme.emotes.map((e) => html`<button key=${e.id} type="button" class="ewheel__item" data-emote=${e.id} aria-label=${t(e.label)}

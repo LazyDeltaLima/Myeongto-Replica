@@ -23,6 +23,7 @@ export function restartClock(restartAt, now = Date.now()) {
   return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
 }
 
+/** @param {number} inMs the server's (anything but a number ≥ 0 gives null) */
 const restartAtOf = (inMs) => (Number.isFinite(inMs) && inMs >= 0 ? Date.now() + inMs : null);
 
 /**
@@ -30,8 +31,9 @@ const restartAtOf = (inMs) => (Number.isFinite(inMs) && inMs >= 0 ? Date.now() +
  *   their own); onRestarted: the restart this page knew of is over (a welcome without `restart` after one with it)
  */
 export function installRestartNotice({ net, notify = toast, onRestarted }) {
+  /** @param {number} minutes */
   const warn = (minutes) => notify(t('服务器将在 {minutes} 分钟后重启，进行中的对局将会结束', { minutes }), 'warn', { ttl: TOAST_MS });
-  net.on('welcome', (msg) => {
+  net.on('welcome', (/** @type {Record<string, any>} */ msg) => {
     const restartAt = restartAtOf(msg?.restart?.inMs);
     const had = store.get().ui.restartAt != null;
     store.patch('ui', { restartAt });
@@ -39,7 +41,7 @@ export function installRestartNotice({ net, notify = toast, onRestarted }) {
     if (restartAt != null && !had && !restartBannerDue(restartAt)) warn(Math.ceil(msg.restart.inMs / 60_000));
     if (restartAt == null && had) { try { onRestarted?.(); } catch { /* ignore */ } }
   });
-  net.on('server.restart', (msg) => {
+  net.on('server.restart', (/** @type {Record<string, any>} */ msg) => {
     const restartAt = restartAtOf(msg.inMs);
     const had = store.get().ui.restartAt != null;
     store.patch('ui', { restartAt });

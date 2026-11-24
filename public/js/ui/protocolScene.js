@@ -12,12 +12,20 @@ import { useState } from '../../vendor/hooks.module.js';
 
 const S = 15;            // one unit in px of the 1000 × 640 view box
 const OX = 230, OY = 400; // where the origin lands
-/** X runs up-right, Y down-right, Z up. */
+/** @typedef {[number, number, number]} P3 */
+/** X runs up-right, Y down-right, Z up. @param {number} x @param {number} y @param {number} [z] */
 const iso = (x, y, z = 0) => [OX + (x + y) * 0.866 * S, OY + (y - x) * 0.5 * S - z * S];
+/** @param {number[]} p */
 const pt = (p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`;
+/** @param {P3[]} pts */
 const poly = (pts) => pts.map((p) => pt(iso(...p))).join(' ');
 
-/** The three faces of a box seen from this angle: top, front (y = y1), side (x = x0). */
+/**
+ * The three faces of a box seen from this angle: top, front (y = y1), side (x = x0).
+ * @param {P3} from
+ * @param {P3} to
+ * @param {number} key
+ */
 function box([x0, y0, z0], [x1, y1, z1], key) {
   return html`<g key=${key} class="ps-box">
     <polygon class="ps-face ps-face--side" points=${poly([[x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1]])} />
@@ -37,7 +45,7 @@ const HULL = [
   [[3, 6.2, 4.2], [4.6, 7.8, 10.5]],  // stack
   [[27, 2, 4.2], [30.5, 7, 4.9]],     // bow plate
 ];
-/** Deck lines (panel seams) for texture. */
+/** Deck lines (panel seams) for texture. @type {[P3, P3][]} */
 const SEAMS = [
   [[3, 2.5, 4.2], [28.5, 2.5, 4.2]], [[3, 5.5, 4.2], [14.5, 5.5, 4.2]], [[8, 1, 4.2], [8, 2, 4.2]],
   [[15.5, 4.5, 6.2], [25.5, 4.5, 6.2]], [[1, 9, 1.2], [31, 9, 1.2]],
@@ -50,10 +58,16 @@ const PADS = [
 /** With the official picture the front square sits clear of the ship, below its bow [ASSUMED·화면: placement eyeballed]. */
 const PADS_ART = [PADS[0], { from: [8, 20], to: [20, 29] }];
 /** Defenders drawn per difficulty [ASSUMED·자료 없음: decoration only — no game number; nothing on the screen shows it]. */
+/** @type {Readonly<Record<string, number>>} */
 const COUNT = { FUNNY: 10, NORMAL: 18, HARD: 26, ABYSS: 34 };
+/** @type {Readonly<Record<string, number>>} */
 const SPIKES = { FUNNY: 1, NORMAL: 3, HARD: 5, ABYSS: 7 };
 
-/** Defender positions: rows on the two squares, filled alternately up to `n`. */
+/**
+ * Defender positions: rows on the two squares, filled alternately up to `n`.
+ * @param {number} n
+ * @param {{ from: number[], to: number[] }[]} [pads]
+ */
 function defenders(n, pads = PADS) {
   const spots = [];
   for (const [i, pad] of pads.entries()) {
@@ -66,6 +80,7 @@ function defenders(n, pads = PADS) {
   return order.sort((a, b) => iso(a.x, a.y)[1] - iso(b.x, b.y)[1]);
 }
 
+/** @param {{ x: number, y: number, i: number }} p */
 function Figure({ x, y, i }) {
   const [px, py] = iso(x, y, 0);
   return html`<g class="ps-fig" style=${`--i:${i}`}>
@@ -75,7 +90,10 @@ function Figure({ x, y, i }) {
   </g>`;
 }
 
-/** An enemy spike: a thin wedge from outside the squares towards the hull. */
+/**
+ * An enemy spike: a thin wedge from outside the squares towards the hull.
+ * @param {{ from: [number, number], to: [number, number], i: number }} p
+ */
 function Spike({ from, to, i }) {
   const a = iso(...from), b = iso(...to);
   const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
@@ -85,6 +103,7 @@ function Spike({ from, to, i }) {
     <path d=${`M${a[0] - 8} ${a[1] - 8}l16 16M${a[0] + 8} ${a[1] - 8}l-16 16`} class="ps-spike__x" />
   </g>`;
 }
+/** @type {[[number, number], [number, number]][]} */
 const SPIKE_PATHS = [
   [[-6, 4.5], [0, 4.5]], [[36, 3], [32, 4]], [[10, 25], [12, 11]], [[22, -16], [19, -1]],
   [[-4, 16], [4, 10]], [[34, 15], [29, 10]], [[0, -10], [3, -1]],
@@ -98,7 +117,7 @@ const ART_BOX = { x: 170, y: 40, w: 650, h: 505 };
  *   picture's URL (null without the art pack)
  */
 export function ProtocolScene({ difficulty, art = null }) {
-  const [bad, setBad] = useState(null);
+  const [bad, setBad] = useState(/** @type {string | null} */ (null));
   const pic = art && bad !== art ? art : null;
   const pads = pic ? PADS_ART : PADS;
   const n = COUNT[difficulty] ?? COUNT.FUNNY;

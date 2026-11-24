@@ -15,6 +15,7 @@ import { uiUrl } from './assetUrls.js';
 import { data } from '../data.js';
 import { t } from '../../../shared/i18n.js';
 
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** How long the screen takes to fade once BATTLE_CHECK is over (screens/game.js keeps it mounted meanwhile). */
@@ -24,18 +25,19 @@ export const BOOT_LEAVE_MS = 350;
 const ART = ['battleReady/rhodes', 'battleReady/bg_terrain', 'battleReady/bg_mountain1', 'battleReady/bg_mountain2', 'battleReady/bg_ring',
   'settle/common_logo'];
 
-/** Whether every sprite has loaded (preloadBootArt): null = not fetched yet, false = missing or still loading. */
+/** Whether every sprite has loaded (preloadBootArt): null = not fetched yet, false = missing or still loading. @type {boolean | null} */
 let bootArt = null;
 
 /** True once the sprites are all in: screens/game.js shows the loading screen alone until then. */
 export const bootArtReady = () => bootArt === true;
 
-/** Callers waiting for the sprites (whenBootArt). */
+/** Callers waiting for the sprites (whenBootArt). @type {Set<() => void>} */
 const waiting = new Set();
 
 /**
  * Call `fn` once the sprites are all in — at once when they already are; returns the unsubscribe. screens/game.js waits
  * this way inside BATTLE_CHECK, so a page opened inside it shows 协议启动！ as soon as its sprites arrive.
+ * @param {() => void} fn
  */
 export function whenBootArt(fn) {
   if (bootArt === true) { fn(); return () => {}; }
@@ -70,7 +72,7 @@ export function preloadBootArt() {
       for (const fn of fns) fn();
     };
     img.onerror = () => { left = -1; };
-    img.src = src;
+    img.src = /** @type {string} */ (src);
   }
 }
 
@@ -100,7 +102,10 @@ export function bootLayout(n) {
   });
 }
 
-/** An official sprite as a positioned image (no lazy loading: the screen lasts about 2.3 s). */
+/**
+ * An official sprite as a positioned image (no lazy loading: the screen lasts about 2.3 s).
+ * @param {{ k: string, class: string, mask?: boolean }} p
+ */
 function Art({ k, class: cls, mask = false }) {
   const src = uiUrl(data.get('assets'), k);
   if (!src) return null;
@@ -130,7 +135,7 @@ export function ProtocolBoot({ players, myId, leaving = false }) {
       </div>
       <div class="pboot__ship" aria-hidden="true"><${Art} k="battleReady/rhodes" class="pboot__shipimg" /><${Art} k="battleReady/rhodes" class="pboot__shipimg pboot__shipimg--hot" /></div>
       <svg class="pboot__lines" viewBox="0 0 1920 1080" aria-hidden="true">
-        ${spots.filter((s) => s.from).map((s, i) => html`<g key=${i} style=${`--i:${i}`}>
+        ${/** @type {Required<ReturnType<typeof bootLayout>[number]>[]} */ (spots.filter((s) => s.from)).map((s, i) => html`<g key=${i} style=${`--i:${i}`}>
           <line x1=${s.from[0]} y1=${s.from[1]} x2=${s.to[0]} y2=${s.to[1]} pathLength="1" />
           <rect x=${s.to[0] - 9} y=${s.to[1] - 9} width="18" height="18" class="pboot__node" />
           <rect x=${s.from[0] - 11} y=${s.from[1] - 11} width="22" height="22" class="pboot__anchor" />

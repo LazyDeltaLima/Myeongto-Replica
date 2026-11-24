@@ -5,6 +5,7 @@
 // [ASSUMED·자료 없음: the official game keeps the total on the account; this project has no accounts, so a browser
 // counts what it recorded (cleared browser data starts again at LV 0)]
 
+/** @param {unknown} v */
 const int = (v) => Math.max(0, Math.round(Number(v) || 0));
 
 /**
@@ -26,7 +27,7 @@ export function levelOf(total, milestones) {
   return { lv, into: 0, need: 0, max: true };
 }
 
-/** The 每日防卫目标 day of a time: local, turning over at `resetHour` (04:00, config.rewards.daily). */
+/** The 每日防卫目标 day of a time: local, turning over at `resetHour` (04:00, config.rewards.daily). @param {number} ts */
 export function dayKey(ts, resetHour = 4) {
   const d = new Date(ts - resetHour * 3600000);
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;

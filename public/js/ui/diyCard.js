@@ -18,6 +18,7 @@ import { useFitLine } from './fitLine.js';
 import { data, localAsset } from '../data.js';
 import { t } from '../../../shared/i18n.js';
 
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /**
@@ -26,6 +27,7 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
  * @param {any} m the manifest with the 3/3 art (ui/assetUrls.js withDiyChooseArt)
  */
 export function diyCardArt(m) {
+  /** @param {string} n */
   const art = (n) => uiUrl(m, `diyChooseArt/${n}`);
   return [
     ['--dc-slab', art('img_char_chess_normal_bg')], ['--dc-cardbg', art('img_char_card_bg')], ['--dc-frame', art('img_cahr_card_frame')],
@@ -35,21 +37,28 @@ export function diyCardArt(m) {
   ].filter(([, v]) => v);
 }
 
-/** `--name:url("…")` declarations of [name, url] pairs. */
+/** `--name:url("…")` declarations of [name, url] pairs. @param {(string | null | undefined)[][]} pairs */
 export const cssUrlVars = (pairs) => pairs.filter(([, v]) => v).map(([k, v]) => `${k}:url("${v}")`).join(';');
 
 /** txt_char_name bestFit (1–18): down to 6 px, never wrapped (ui/fitLine.js). */
 export const CARD_NAME_FIT = Object.freeze({ min: 6, wrap: false, step: 0.5 });
 
+/** @param {{ phase?: unknown } | null | undefined} status */
 const phaseOf = (status) => Math.max(0, Math.min(2, Number(status?.phase ?? 2) | 0));
 
 /**
  * The left level column (obj_left_info_part): the normal form's level on its promotion phase (char_elite_base_<phase>,
  * #acacac 16), the elite form's (char_elite_gold_<phase>, #fff3b6 17), the operator's 潜能 (potential_<p−1>_small on
  * potential_bg). The two forms are the slot's (shared/diy.js: E2 Lv1 and E2 Lv60).
+ * @param {{ m: any, rec: ReturnType<typeof slotRecord>, elite: ReturnType<typeof slotRecord>, potential: number }} p
  */
 function LevelColumn({ m, rec, elite, potential }) {
+  /** @param {string} n */
   const lineup = (n) => uiUrl(m, `diyLineupArt/${n}`);
+  /**
+   * @param {{ phase?: unknown } | null | undefined} s
+   * @param {boolean} gold
+   */
   const ph = (s, gold) => lineup(`char_elite_${gold ? 'gold' : 'base'}_${phaseOf(s)}`);
   const n = ph(rec?.status, false);
   const g = ph(elite?.status, true);
@@ -80,7 +89,8 @@ export function DiyCard({ m, slotId, pick, tier, chosen = false, off = false, lo
   useFitLine(nameRef, name, CARD_NAME_FIT);
   const sk = rec?.skill ? skillRecordIconUrl(m, rec.skill, { empty: false }) : null;
   const mod = elite?.module?.active ? elite.module : null;
-  const modIcon = mod ? moduleTypeIconUrl(data.get('local'), mod.type) : null;
+  // a module without a type name gives null here: moduleTypeIconUrl reads a missing name as no icon
+  const modIcon = mod ? moduleTypeIconUrl(data.get('local'), /** @type {string} */ (mod.type)) : null;
   const prof = profGlyphUrl(m, rec?.profession); // the square glyph: prof.icon is the wide 「CASTER 术师」 banner
   const none = uiUrl(m, 'diyChooseArt/img_module_no');
   const lv = uiUrl(m, `chessLevelSprite/chess_level_icon_${tier}`);
@@ -101,7 +111,7 @@ export function DiyCard({ m, slotId, pick, tier, chosen = false, off = false, lo
     <span class="dccard__lv" aria-hidden="true">${lv ? html`<img src=${lv} alt="" draggable=${false} />` : html`<${TierChip} tier=${tier} size="sm" />`}</span>
     <span class="dccard__stars" aria-hidden="true">${'★'.repeat(Math.max(1, Math.min(6, Number(rec?.rarity) || 6)))}</span>
     <span class="dccard__name" ref=${nameRef}>${name}</span>
-    <span class="dccard__bonds" aria-hidden="true">${(rec?.bonds || []).slice(0, 3).map((b) => {
+    <span class="dccard__bonds" aria-hidden="true">${(rec?.bonds || []).slice(0, 3).map((/** @type {string} */ b) => {
       const u = bondIconUrl(m, b);
       return html`<i key=${b} class="dccard__bond" style=${u ? `--b:url("${u}")` : null}></i>`;
     })}</span>

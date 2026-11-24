@@ -23,28 +23,37 @@ const RATE_RETRY_MS = 700;
  */
 export function inviteRefusal(err, code) {
   const room = err?.room;
-  if (!err || !REASONS.has(err.code) || !room || typeof room !== 'object') return null;
+  if (!err || !REASONS.has(/** @type {string} */ (err.code)) || !room || typeof room !== 'object') return null;
   if (!(room.spectators < room.spectatorSeats)) return { kind: 'noSeat' };
-  return { kind: 'offer', offer: { code, reason: err.code, room } };
+  return { kind: 'offer', offer: { code, reason: /** @type {string} */ (err.code), room } };
 }
 
-/** main.js schedulePendingJoin: true when the refusal was taken over here (offer or toast), false to toast it as before. */
+/**
+ * main.js schedulePendingJoin: true when the refusal was taken over here (offer or toast), false to toast it as before.
+ * @param {unknown} err what room.join threw: an error frame (`code`, `room`) or anything else @param {string} code
+ */
 export function offerSpectate(err, code) {
-  const r = inviteRefusal(err, code);
+  const r = inviteRefusal(/** @type {Parameters<typeof inviteRefusal>[0]} */ (err), code);
   if (!r) return false;
   if (r.kind === 'noSeat') toast(t('受邀同盟的博士席位和观战席都已满'), 'warn');
   else store.patch('ui', { inviteSpectate: r.offer });
   return true;
 }
 
-/** The room line: 博士 4/4 · 等待室 | 第 3 回合 · 观战席 1/4 */
+/**
+ * The room line: 博士 4/4 · 等待室 | 第 3 回合 · 观战席 1/4
+ * @param {{ round: number, players: number, seats: number, spectators: number, spectatorSeats: number }} room the refusal's
+ *   summary (server/lobby.js joinRefusalInfo)
+ */
 export function inviteRoomLine(room) {
   const where = room.round > 0 ? t('第 {r} 回合', { r: room.round }) : t('等待室');
   return [t('博士 {n}/{max}', { n: room.players, max: room.seats }), where,
     t('观战席 {n}/{max}', { n: room.spectators, max: room.spectatorSeats })].join(' · ');
 }
 
+/** @type {Readonly<Record<string, string>>} */
 const TITLE = { [ERR.ROOM_FULL]: N_('房间已满'), [ERR.ROOM_STARTED]: N_('模拟已开始') };
+/** @type {Readonly<Record<string, string>>} */
 const TEXT = {
   [ERR.ROOM_FULL]: N_('受邀同盟的博士席位已满。可以进入观战席观看。'),
   [ERR.ROOM_STARTED]: N_('受邀同盟的模拟已经开始，无法以博士身份加入。可以进入观战席观看作战。'),
@@ -84,7 +93,7 @@ export function InviteSpectateHost() {
     <p>${t(TEXT[reason])}</p>
     <div class="invite-spec__room"><b class="num">${code}</b><span>${inviteRoomLine(room)}</span></div>
     <label class="invite-spec__keep">
-      <input type="checkbox" checked=${reserve} disabled=${busy} onChange=${(e) => setReserve(e.currentTarget.checked)} />
+      <input type="checkbox" checked=${reserve} disabled=${busy} onChange=${(/** @type {Event & { currentTarget: HTMLInputElement }} */ e) => setReserve(e.currentTarget.checked)} />
       <span>${reason === ERR.ROOM_STARTED ? t('模拟结束后有空位时自动入座') : t('有空位时自动入座')}</span>
       ${reason === ERR.ROOM_STARTED ? null : html`<small>${t('（预约座位）')}</small>`}
     </label>

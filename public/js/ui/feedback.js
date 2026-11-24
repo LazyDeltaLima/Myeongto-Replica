@@ -21,17 +21,18 @@ import { t, tc, N_ } from '../../../shared/i18n.js';
 import { net } from '../net.js';
 import { FEEDBACK_KINDS, FEEDBACK_TEXT_MAX, FEEDBACK_DIAG_MAX, FEEDBACK_BATTLES_MAX } from '../../../shared/local.js';
 
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** Whether this server keeps feedback (the last welcome's `feedback`) and the issue list reports are posted to, if any. */
-export const feedbackStore = createStore({ enabled: false, issues: null });
+export const feedbackStore = createStore(/** @type {{ enabled: boolean, issues: string | null }} */ ({ enabled: false, issues: null }));
 
 /** An https://github.com/<owner>/<name>/issues address, or null. @param {unknown} v */
 export const issuesUrlOf = (v) => (typeof v === 'string' && /^https:\/\/github\.com\/[A-Za-z0-9-]+\/[A-Za-z0-9._-]+\/issues$/.test(v) ? v : null);
 
 /** @param {{ net: { on: Function } }} deps */
 export function installFeedback({ net }) {
-  net.on('welcome', (msg) => feedbackStore.set({ enabled: !!msg?.feedback, issues: msg?.feedback ? issuesUrlOf(msg.feedbackIssues) : null }));
+  net.on('welcome', (/** @type {{ feedback?: unknown, feedbackIssues?: unknown } | null} */ msg) => feedbackStore.set({ enabled: !!msg?.feedback, issues: msg?.feedback ? issuesUrlOf(msg.feedbackIssues) : null }));
 }
 
 /** The issue search of a receipt id (the relay writes the id into the issue). @param {string} issues @param {string} id */
@@ -40,7 +41,7 @@ export const issueSearchUrl = (issues, id) => `${issues}?q=${encodeURIComponent(
 /** A kind's label (context `feedback`: 错误 alone is too common a msgid). @param {string} k */
 const kindLabel = (k) => (k === 'bug' ? tc('feedback', '错误') : k === 'idea' ? tc('feedback', '建议') : tc('feedback', '其他'));
 
-/** A receipt id: 8 lower-case letters / digits (shared/local.js fb.send). */
+/** A receipt id: 8 lower-case letters / digits (shared/local.js fb.send). @param {(n: number) => Uint8Array} [rand] */
 export function feedbackId(rand = (n) => crypto.getRandomValues(new Uint8Array(n))) {
   const abc = 'abcdefghijklmnopqrstuvwxyz0123456789';
   return [...rand(8)].map((b) => abc[b % abc.length]).join('');
@@ -68,7 +69,7 @@ export async function packBattles(list, max = FEEDBACK_BATTLES_MAX, pack = gzipB
     const data = await pack(JSON.stringify(rest));
     if (data == null) return { data: null, kept: 0 };
     if (data.length <= max) return { data, kept: rest.length };
-    const quiet = rest.findIndex((b) => !b.errors);
+    const quiet = rest.findIndex((b) => !/** @type {{ errors?: unknown }} */ (b).errors);
     rest.splice(quiet >= 0 ? quiet : 0, 1);
   }
   return { data: null, kept: 0 };
@@ -85,6 +86,7 @@ export function FeedbackButton() {
 }
 
 /** The send outcome's line (msgids, so a language switch reaches it). */
+/** @type {Readonly<Record<string, string>>} */
 const SEND_ERRORS = {
   RATE: N_('发送太频繁，请稍后再试'),
   WRONG_PHASE: N_('只能在对局结束后一小时内发送'),
@@ -97,10 +99,10 @@ export function FeedbackModal({ onClose, console: fromConsole = false }) {
   const [kind, setKind] = useState('bug');
   const [text, setText] = useState('');
   const [withDiag, setWithDiag] = useState(true);
-  const [withBattles, setWithBattles] = useState(null); // null: follow the kind (on for a bug)
+  const [withBattles, setWithBattles] = useState(/** @type {boolean | null} */ (null)); // null: follow the kind (on for a bug)
   const [sending, setSending] = useState(false);
-  const [done, setDone] = useState(null);   // the receipt id once stored
-  const [error, setError] = useState(null); // msgid of the failure line
+  const [done, setDone] = useState(/** @type {string | null} */ (null));   // the receipt id once stored
+  const [error, setError] = useState(/** @type {string | null} */ (null)); // msgid of the failure line
   const [copied, setCopied] = useState(false);
   const battlesOn = withBattles ?? kind === 'bug';
   const battleCount = countBattles();
@@ -118,6 +120,7 @@ export function FeedbackModal({ onClose, console: fromConsole = false }) {
     setError(null);
     try {
       const id = feedbackId();
+      /** @type {{ id: string, kind: string, text: string, public?: boolean, diag?: string, battles?: string, match?: string }} */
       const fields = { id, kind, text: text.trim() };
       if (issues) fields.public = true;
       const diag = report();
@@ -129,7 +132,7 @@ export function FeedbackModal({ onClose, console: fromConsole = false }) {
       }
       await net.request('fb.send', fields, { timeout: 15000 });
       setDone(id);
-    } catch (err) {
+    } catch (/** @type {any} */ err) {
       setError(SEND_ERRORS[err?.code] || N_('发送失败，可以复制内容后通过其他方式反馈'));
     } finally {
       setSending(false);
@@ -165,11 +168,11 @@ export function FeedbackModal({ onClose, console: fromConsole = false }) {
       </div>
       <textarea class="fb__text" data-testid="feedback-text" data-autofocus rows="6" value=${text}
         placeholder=${kind === 'bug' ? t('发生了什么？本来应该怎样？在第几回合、哪个干员或敌人身上？') : t('想要什么功能或改进？')}
-        aria-label=${t('反馈内容')} onInput=${(e) => setText(e.currentTarget.value)}></textarea>
+        aria-label=${t('反馈内容')} onInput=${(/** @type {Event & { currentTarget: HTMLTextAreaElement }} */ e) => setText(e.currentTarget.value)}></textarea>
       <p class=${cx('fb__count num', tooLong && 'is-warn')}>${length} / ${FEEDBACK_TEXT_MAX}</p>
-      <label class="fb__check"><input type="checkbox" checked=${withDiag} onChange=${(e) => setWithDiag(e.currentTarget.checked)} />
+      <label class="fb__check"><input type="checkbox" checked=${withDiag} onChange=${(/** @type {Event & { currentTarget: HTMLInputElement }} */ e) => setWithDiag(e.currentTarget.checked)} />
         <span>${t('附上诊断信息')}<${MicroLabel}>DIAGNOSTICS<//></span></label>
-      ${battleCount ? html`<label class="fb__check"><input type="checkbox" checked=${battlesOn} onChange=${(e) => setWithBattles(e.currentTarget.checked)} />
+      ${battleCount ? html`<label class="fb__check"><input type="checkbox" checked=${battlesOn} onChange=${(/** @type {Event & { currentTarget: HTMLInputElement }} */ e) => setWithBattles(e.currentTarget.checked)} />
         <span>${t('附上本局战斗数据（{n} 场）', { n: battleCount })}<${MicroLabel}>BATTLES<//></span></label>` : null}
       <p class=${cx('set-hint', issues && 'fb__public')} data-testid="feedback-notice">${issues
         ? t('反馈内容和诊断信息会自动登记为公开 GitHub 仓库的 issue，任何人都能看到，请不要写个人信息。玩家名和房间号会被替换；战斗数据只保存在本服务器上（不公开），90 天后删除。IP 地址不会保存，只保存一个无法还原的区分码。')

@@ -22,7 +22,15 @@ import { useDocClass } from './device.js';
 import { t } from '../../../shared/i18n.js';
 import { restartBannerDue, restartClock } from './restartNotice.js';
 
-/** Whether the banner shows for this connection state (mirrors the early returns below). */
+/**
+ * Whether the banner shows for this connection state (mirrors the early returns below).
+ * @param {{ status?: string, everOnline?: boolean } | null | undefined} conn
+ * @param {boolean} entered
+ * @param {unknown} restoring
+ * @param {boolean} [buildStale]
+ * @param {boolean} [restartDue]
+ * @param {string | null} [genMove]
+ */
 export function bannerVisible(conn, entered, restoring, buildStale = false, restartDue = false, genMove = null) {
   if (!entered || !conn) return false;
   if (conn.status === 'online') return !!restoring || !!buildStale || !!restartDue || genMove === 'tab';

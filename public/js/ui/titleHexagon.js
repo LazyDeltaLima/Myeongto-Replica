@@ -6,7 +6,7 @@ export const TITLE_HEX_SECTORS = [
   ['comment_1', 0], ['comment_2', 60], ['comment_3', 120],
 ];
 
-/** Clipped fill in each wedge's local coordinates; zero has no active area. */
+/** Clipped fill in each wedge's local coordinates; zero has no active area. @param {number} count */
 export function titleSectorClip(count) {
   const scale = Math.min(1, Math.max(0, count) / 20);
   if (!(scale > 0)) return null;

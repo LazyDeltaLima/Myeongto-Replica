@@ -8,17 +8,21 @@ import { toast } from './toasts.js';
 import { gpuStatus } from '../gpu.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
+/** @type {Readonly<Record<string, string>>} */
 const NOTICE = {
   software: N_('浏览器的硬件加速似乎已关闭（或显卡被浏览器停用），画面可能无法显示或很卡。请在浏览器设置中开启「使用图形加速」后重启浏览器。'),
   none: N_('此浏览器无法使用 WebGL，战场只能以简化画面显示。请在浏览器设置中开启硬件加速（图形加速），或换用最新版 Chrome / Edge / Firefox。'),
 };
 const NOTICE_MS = 15000;
 
-/** The notice's msgid for a gpu.js status, or null when the GPU draws. */
+/** @typedef {{ session?: { entered?: boolean } } | null | undefined} EnteredState the part of the store state read here */
+
+/** The notice's msgid for a gpu.js status, or null when the GPU draws. @param {{ accel?: string } | null | undefined} status */
 export function gpuNoticeText(status) {
-  return NOTICE[status?.accel] || null;
+  return NOTICE[/** @type {string} */ (status?.accel)] || null;
 }
 
+/** @param {() => any} status */
 function noticeOf(status) {
   try { return gpuNoticeText(status()); } catch { return null; }
 }
@@ -29,7 +33,9 @@ function noticeOf(status) {
  */
 export function installGpuNotice({ store, status = gpuStatus, show = (text) => toast(text, 'warn', { ttl: NOTICE_MS }) }) {
   let done = false;
+  /** @type {(() => void) | null} */
   let off = null;
+  /** @param {EnteredState} s */
   const check = (s) => {
     if (done || !s?.session?.entered) return;
     done = true;
@@ -37,7 +43,7 @@ export function installGpuNotice({ store, status = gpuStatus, show = (text) => t
     const msg = noticeOf(status);
     if (msg) show(t(msg));
   };
-  off = store.subscribe((s) => check(s));
+  off = store.subscribe((/** @type {EnteredState} */ s) => check(s));
   check(store.get());
 }
 

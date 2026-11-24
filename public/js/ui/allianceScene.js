@@ -16,11 +16,15 @@ import { uiUrl } from './assetUrls.js';
 import { reducedMotion } from './device.js';
 import { t } from '../../../shared/i18n.js';
 
+/** @type {Readonly<Record<string, string>>} */
 const SPRITES = {
   fog: 'entry/entry_bkg_01', ship: 'entry/entry_bkg_02', logo: 'entry/season_logo', night: 'entry/bkg_01',
   dusk: 'entry/bkg_02', ridge: 'entry/bg_mountains_tiled', scan: 'prepareBkg/img_screen_line_repeat', cross: 'prepareBkg/img_bkg_cross',
 };
-/** URL of one of the scenes' sprites (data/assets.json `ui`), null without the art pack. */
+/**
+ * URL of one of the scenes' sprites (data/assets.json `ui`), null without the art pack.
+ * @param {string} name
+ */
 export function spriteUrl(name) {
   return uiUrl(data.get('assets'), SPRITES[name]) || null;
 }
@@ -45,7 +49,10 @@ export function clearSpriteLoads() {
   spriteImages.clear();
   spriteListeners.clear();
 }
-/** Calls `fn` after a sprite settles (onload or onerror). Returns the unsubscribe. */
+/**
+ * Calls `fn` after a sprite settles (onload or onerror). Returns the unsubscribe.
+ * @param {() => void} fn
+ */
 export function onSpriteChange(fn) {
   spriteListeners.add(fn);
   return () => spriteListeners.delete(fn);
@@ -59,6 +66,10 @@ export function hasSprites(names = Object.keys(SPRITES)) {
 }
 export const LOBBY_SPRITES = ['night', 'dusk', 'ridge', 'scan'];
 
+/**
+ * @param {string} name
+ * @returns {Promise<boolean>}
+ */
 function loadSprite(name) {
   if (loadedSprites.has(name)) return Promise.resolve(true);
   if (failedSprites.has(name)) return Promise.resolve(false);
@@ -69,11 +80,14 @@ function loadSprite(name) {
     if (!url && data.get('assets')) failedSprites.add(name);
     return Promise.resolve(false);
   }
+  /** @type {(ok: boolean) => void} */
   let resolve;
+  /** @type {Promise<boolean>} */
   const task = new Promise((r) => { resolve = r; });
   const im = new Image();
   spriteImages.add(im);
   im.decoding = 'async';
+  /** @param {boolean} ok */
   const settle = (ok) => {
     spriteImages.delete(im);
     if (spriteLoads.get(name) !== task) { resolve(false); return; }
@@ -101,6 +115,7 @@ function loadSprite(name) {
  * @returns {Promise<boolean>}
  */
 export function preloadSprites(names = Object.keys(SPRITES), ms = 2500) {
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
   let timer;
   const all = Promise.all(names.map((n) => loadSprite(n))).then((ok) => {
     clearTimeout(timer);
@@ -126,12 +141,23 @@ export function useLobbyArt() {
   return on;
 }
 
+/** @param {number} x */
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+/**
+ * @param {number} t
+ * @param {number} a
+ * @param {number} b
+ */
 const seg = (t, a, b) => clamp((t - a) / (b - a));
+/** @param {number} x */
 const smooth = (x) => x * x * (3 - 2 * x);
-/** monotone cubic interpolation (Fritsch-Carlson) through measured keys: no overshoot between keys */
+/**
+ * monotone cubic interpolation (Fritsch-Carlson) through measured keys: no overshoot between keys
+ * @param {number[][]} keys
+ * @returns {(t: number) => number}
+ */
 export function curve(keys) {
-  const n = keys.length, x = keys.map((k) => k[0]), y = keys.map((k) => k[1]), d = [], m = [];
+  const n = keys.length, x = keys.map((k) => k[0]), y = keys.map((k) => k[1]), d = [], m = /** @type {number[]} */ ([]);
   if (n === 1) return () => y[0];
   for (let i = 0; i < n - 1; i++) d.push((y[i + 1] - y[i]) / (x[i + 1] - x[i]));
   m[0] = d[0]; m[n - 1] = d[n - 2];
@@ -149,8 +175,13 @@ export function curve(keys) {
     return (2 * u3 - 3 * u2 + 1) * y[i] + (u3 - 2 * u2 + u) * h * m[i] + (-2 * u3 + 3 * u2) * y[i + 1] + (u3 - u2) * h * m[i + 1];
   };
 }
-/** multi-channel track: K([[t,a,b,c],...]) -> t => [a,b,c] */
+/**
+ * multi-channel track: K([[t,a,b,c],...]) -> t => [a,b,c]
+ * @param {number[][]} rows
+ * @returns {(t: number) => number[]}
+ */
 function K(rows) {
+  /** @type {((t: number) => number)[]} */
   const cs = [];
   for (let c = 1; c < rows[0].length; c++) cs.push(curve(rows.map((r) => [r[0], r[c]])));
   return (t) => cs.map((f) => f(t));
@@ -267,16 +298,32 @@ function ensureShared() {
   document.body.append(defs);
 }
 
-/** Every element with data-k, by name (repeated names collect into an array). */
+/**
+ * Every element with data-k, by name (repeated names collect into an array).
+ * @param {ParentNode} root
+ * @returns {Record<string, any>}
+ */
 function refs(root) {
+  /** @type {Record<string, any>} */
   const E = {};
-  root.querySelectorAll('[data-k]').forEach((el) => {
-    const k = el.dataset.k;
-    if (E[k]) E[k] = [].concat(E[k], el); else E[k] = el;
+  /** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll('[data-k]')).forEach((el) => {
+    const k = /** @type {string} */ (el.dataset.k);
+    if (E[k]) E[k] = /** @type {HTMLElement[]} */ ([]).concat(E[k], el); else E[k] = el;
   });
   return E;
 }
+/**
+ * @param {ElementCSSInlineStyle} el
+ * @param {boolean} on
+ */
 const show = (el, on) => { el.style.display = on ? '' : 'none'; };
+/**
+ * @param {ElementCSSInlineStyle} el
+ * @param {number} x
+ * @param {number} y
+ * @param {number} w
+ * @param {number} h
+ */
 const place = (el, x, y, w, h) => { el.style.transform = `translate(${x}px,${y}px)`; el.style.width = w + 'px'; el.style.height = h + 'px'; };
 
 // ======================= the lobby: a 20 s night / dusk cycle =======================
@@ -286,6 +333,7 @@ const place = (el, x, y, w, h) => { el.style.transform = `translate(${x}px,${y}p
    Placements: the night map is bkg_01 x1.54 at (-146,-121); the dusk gets the video's horizon
    height and dune size (x2.0); the ridges are bg_mountains_tiled x1.52 with their peaks where the video has them. */
 export const CYC = 20, N2D = 1.93, DUSK = 12.42, XF = 0.63;
+/** @param {number} lt */
 export function lobbyState(lt) {
   const c = ((lt - N2D) % CYC + CYC) % CYC; // 0 = the night -> dusk switch begins
   if (c < 0.3) return { c, night: 1 - smooth(clamp(c / 0.1)), dusk: c >= 0.031 ? 1 : 0, front: 8390 * (c - 0.031),
@@ -294,12 +342,16 @@ export function lobbyState(lt) {
   if (c < DUSK + XF) { const k = (c - DUSK) / XF; return { c, night: 1, dusk: 1 - k, front: 1e4, grid: 0, dark: 1 - k }; }
   return { c, night: 1, dusk: 0, front: 1e4, grid: 0, dark: 0 };
 }
-/** Seconds until the cycle next changes anything on screen (0 while it moves). */
+/**
+ * Seconds until the cycle next changes anything on screen (0 while it moves).
+ * @param {number} lt
+ */
 function lobbyIdle(lt) {
   const c = ((lt - N2D) % CYC + CYC) % CYC;
   if (c < 0.31 || c >= CYC - 0.7 || (c >= DUSK && c < DUSK + XF + 0.02)) return 0;
   return c < DUSK ? DUSK - c : CYC - 0.7 - c;
 }
+/** @param {Element} svg */
 function topoSVG(svg) { // terrain contours inside the lock-on box (no sprite exists for them): two nests of wobbly rings
   let p = '';
   for (const [cx, cy, n, ph] of [[40, 74, 5, 0], [96, 36, 4, 2]]) {
@@ -333,7 +385,11 @@ function lobbyHTML() {
     <div class="spa-L spa-lobbyScan" style='background-image:url("${scan}")'></div>
     <div class="spa-L spa-vig"></div>`;
 }
-/** Draw the lobby at lobby clock `lt` (seconds); returns its state. */
+/**
+ * Draw the lobby at lobby clock `lt` (seconds); returns its state.
+ * @param {Record<string, any>} E
+ * @param {number} lt
+ */
 function lobbyFrame(E, lt) {
   const S = lobbyState(lt);
   E.nightS.style.opacity = S.night.toFixed(3);
@@ -362,9 +418,13 @@ function lobbyFrame(E, lt) {
 
 // one clock for every copy of the cycle on the page: the intro's last second and the backdrop under it show the same
 // moment, and the cycle runs on when the lobby is left and entered again
+/** @type {number | null} */
 let cycleOrigin = null;
 const wakers = new Set();
-/** Lobby clock 0 is at `ms` (performance.now() time); a mounted backdrop follows at once. */
+/**
+ * Lobby clock 0 is at `ms` (performance.now() time); a mounted backdrop follows at once.
+ * @param {number} ms
+ */
 export function setCycleOrigin(ms) { cycleOrigin = ms; wakers.forEach((fn) => fn()); }
 function cycleNow(now = performance.now()) {
   if (cycleOrigin == null) cycleOrigin = now - 480; // a plain visit lands on the night, 1.5 s before its switch to dusk
@@ -374,6 +434,8 @@ function cycleNow(now = performance.now()) {
 /**
  * Mount the lobby backdrop into `host` (its stage covers the host). Returns { destroy, setMotion }.
  * Motion off: the night, still. The loop sleeps through the still parts of the cycle and while the page is hidden.
+ * @param {HTMLElement} host
+ * @param {{ motion?: boolean }} [options]
  */
 export function mountAllianceBackdrop(host, { motion = true } = {}) {
   ensureShared();
@@ -408,6 +470,7 @@ export function mountAllianceBackdrop(host, { motion = true } = {}) {
   lobbyFrame(E, moving ? cycleNow() : 0.48);
   wake();
   return {
+    /** @param {boolean} on */
     setMotion(on) { moving = !!on; wake(); },
     destroy() {
       dead = true; cancelAnimationFrame(raf); clearTimeout(timer);
@@ -443,6 +506,7 @@ const BIGBOX = K([[1.48, 848, 944, 301, 375], [1.50, 836, 956, 291, 385], [1.533
 const WSM = curve([[1.605, 0], [1.62, 30], [1.633, 40], [1.667, 50], [1.70, 55], [1.733, 62], [1.767, 68], [1.80, 74], [1.833, 76], [1.90, 76], [1.967, 78], [2.033, 82], [2.4, 85]]);
 const WTI = curve([[1.75, 0], [1.767, 36], [1.80, 44], [2.0, 46]]);
 // --- the rail: one strip whipped left at ~850 px per frame; X = its shift from where it sits at 1.767 s ---
+/** @param {number} t */
 const XR = (t) => 25500 * (1.767 - t);
 const C1Y = curve([[1.633, 437], [1.667, 430], [1.70, 420], [1.733, 403], [1.767, 393]]), C1W = curve([[1.633, 30], [1.667, 28], [1.70, 40], [1.733, 33], [1.767, 13]]);
 const C2Y = curve([[1.633, 474], [1.667, 470], [1.70, 466], [1.733, 448], [1.767, 442]]);
@@ -502,6 +566,12 @@ export const INTRO_AUDIO = { sfxAt: 1.6856, bgmAt: 2.1444 };
 export const INTRO_SPAN = { from: 1.2, fadeAt: 3.45, to: 4.0 };
 
 // blocky "alien" glyph line (no sprite / font exists for it): 19 cells of 11x14, advance 13.5
+/**
+ * @param {{ setAttribute(name: string, value: string | number): void, innerHTML: string }} svg — setAttribute takes
+ *   the sizes as numbers (the DOM turns them into strings)
+ * @param {number} n
+ * @param {number} seed
+ */
 function glyphSVG(svg, n, seed) {
   let s = seed;
   const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
@@ -524,12 +594,28 @@ function glyphSVG(svg, n, seed) {
   return n * 13.5 - 2.5;
 }
 // rail cables: filled ribbons (top edge + bottom edge share the same S-bend), so they can taper
+/**
+ * @param {Element} p
+ * @param {number} X
+ * @param {number} yl
+ * @param {number} wl
+ * @param {number} yr
+ * @param {number} wr
+ * @param {number} a
+ * @param {number} b
+ * @param {number} xEnd
+ */
 function ribbon(p, X, yl, wl, yr, wr, a, b, xEnd) { // left band (yl,wl) -> S-bend over rail x a..b -> right band (yr,wr) up to rail x xEnd
   const A = a + X, B = b + X, E = xEnd + X, k = (B - A) * 0.45;
   const t1 = yl - wl / 2, b1 = yl + wl / 2, t2 = yr - wr / 2, b2 = yr + wr / 2;
   p.setAttribute('d', `M -3000 ${t1} L ${A} ${t1} C ${A + k} ${t1} ${B - k} ${t2} ${B} ${t2} L ${E} ${t2} L ${E} ${b2} L ${B} ${b2} C ${B - k} ${b2} ${A + k} ${b1} ${A} ${b1} L -3000 ${b1} Z`);
 }
 // HUD square colours: dark teal over the bright fog, light teal once the fog goes dark
+/**
+ * @param {ElementCSSInlineStyle} el
+ * @param {number} L
+ * @param {number[]} light
+ */
 function sqStyle(el, L, light) {
   el.style.background = L > 0.55 ? 'linear-gradient(200deg,rgba(76,116,130,.92),rgba(28,56,68,.92))'
     : `linear-gradient(200deg,rgba(${light[0]},${light[1]},${light[2]},.9),rgba(${light[0] - 20},${light[1] - 25},${light[2] - 25},.85))`;
@@ -596,6 +682,7 @@ function introHTML() {
  * Mount the entry animation into `host` (a full-screen box; the 1280×720 stage is fitted into it, letting up to 20 %
  * spill past the edges rather than leaving wide black bars). Returns { stage, render(T), grain(), measure(), destroy() }:
  * render draws video second T (1.2 … 4.0), the caller drives the clock.
+ * @param {HTMLElement} host
  */
 export function mountAllianceIntro(host) {
   ensureShared();
@@ -605,7 +692,7 @@ export function mountAllianceIntro(host) {
   host.append(stage);
   const E = refs(stage);
   topoSVG(E.lockTopo);
-  const cross = [].concat(E.cross);
+  const cross = /** @type {HTMLElement[]} */ ([].concat(E.cross));
   let scale = 1;
   const fit = () => {
     const w = host.clientWidth || innerWidth, h = host.clientHeight || innerHeight;
@@ -643,6 +730,7 @@ export function mountAllianceIntro(host) {
 
   /* natural sizes of the scalable text blocks. A hidden block measures 0, so the logo layer and each block are shown for
      the moment of measuring; the logo re-measures any block that has no size yet (fonts arriving late). */
+  /** @type {Record<string, { w: number, h: number }>} */
   const NAT = {}, NAT_IDS = ['tB', 'tC', 'tE', 'tEref', 'blk', 'abs'];
   const measure = () => {
     const lg = E.logo, ld = lg.style.display;
@@ -657,6 +745,7 @@ export function mountAllianceIntro(host) {
     lg.style.display = ld;
   };
 
+  /** @param {number} t */
   function intro(t) {
     const L = LIGHT(t);
     // ---- background ----
@@ -736,6 +825,7 @@ export function mountAllianceIntro(host) {
     E.grain.style.opacity = ((t < 1.5 ? 0.24 : 0.16) * ov).toFixed(3); E.introScan.style.opacity = (0.8 * ov).toFixed(3);
   }
 
+  /** @param {number} t */
   function logo(t) {
     const on = t >= 1.833; show(E.logo, on);
     if (!on) return;
@@ -819,6 +909,7 @@ export function mountAllianceIntro(host) {
     }
   }
 
+  /** @param {number} T */
   function render(T) {
     const introOn = T < 3.16; show(E.intro, introOn);
     if (introOn) intro(T);
@@ -842,10 +933,11 @@ export function mountAllianceIntro(host) {
  * enough, and the caller keeps its own fallback when a file fails).
  */
 export function AllianceBackdrop({ class: cls = '' }) {
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLElement | null} */ (null));
   useEffect(() => {
+    /** @type {ReturnType<typeof mountAllianceBackdrop> | null} */
     let ctl = null;
-    try { ctl = mountAllianceBackdrop(ref.current, { motion: !reducedMotion() }); } catch (err) { console.warn('[alliance] backdrop failed', err); }
+    try { ctl = mountAllianceBackdrop(/** @type {HTMLElement} */ (ref.current), { motion: !reducedMotion() }); } catch (err) { console.warn('[alliance] backdrop failed', err); }
     return () => ctl?.destroy();
   }, []);
   return html`<div ref=${ref} class=${`spa-backdrop ${cls}`} aria-hidden="true" style="position:absolute;inset:0;overflow:hidden"></div>`;

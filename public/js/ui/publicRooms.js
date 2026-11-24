@@ -36,10 +36,14 @@ import { CustomRulesInfo } from './customSummary.js';
 import { openCustomRules } from './customRules.js';
 import { customFound, useCustomNames } from './matchQueue.js';
 
+/** @import { Bag } from './gameLogic/shared.js' */
+/** @typedef {{ code: string, el: HTMLElement | null, hover?: boolean }} CustomOpen a custom chip whose panel is open */
+/** @typedef {{ frame: DOMRect, chip: DOMRect }} Anchor the list's frame and the chip, where the panel goes */
+
 /** Seats a Doctor may take in a row: empty ones and AI ones (a public room's AI seat gives way). @param {any} row */
-export const openSeats = (row) => (Array.isArray(row?.seats) ? row.seats.filter((s) => s?.kind !== 'human').length : 0);
+export const openSeats = (row) => (Array.isArray(row?.seats) ? row.seats.filter((/** @type {Bag | null} */ s) => s?.kind !== 'human').length : 0);
 /** The Doctors seated in a row. @param {any} row */
-export const humansOf = (row) => (Array.isArray(row?.seats) ? row.seats.filter((s) => s?.kind === 'human').length : 0);
+export const humansOf = (row) => (Array.isArray(row?.seats) ? row.seats.filter((/** @type {Bag | null} */ s) => s?.kind === 'human').length : 0);
 
 /**
  * What 开始匹配 looks for, from the list's drop-down (header): 'all' → the picked season's queue with every season's
@@ -77,6 +81,7 @@ export function listRooms(rows, { season, offered = [], pick = 'all', fitOnly = 
   const tagged = all.map((row, i) => ({ row, i, season: seasonOf(row.season), fit: fit(row) }));
   const fits = tagged.filter((x) => x.fit === 'fit').length;
   const shown = tagged.filter((x) => (pick === 'all' || x.season === pick) && (live || x.row.state !== 'match') && (!fitOnly || x.fit === 'fit'));
+  /** @param {typeof tagged[number]} x */
   const rank = (x) => (x.fit === 'fit' ? 0 : x.fit === 'quick' ? 1 : 2) * 2 + (x.row.state === 'match' ? 1 : 0);
   const current = shown.filter((x) => x.season === seasonOf(season)).sort((a, b) => rank(a) - rank(b) || a.i - b.i);
   const order = [...offered, ...shown.map((x) => x.season)].filter((id, i, a) => id !== seasonOf(season) && a.indexOf(id) === i);
@@ -87,13 +92,16 @@ export function listRooms(rows, { season, offered = [], pick = 'all', fitOnly = 
 
 /**
  * The waiting public rooms of a difficulty (the 同盟匹配 cards' 「房间 n」) in the drop-down's season: one, or 'all' (every
- * season summed). @param {any[] | null} rows @param {string} season
+ * season summed). @param {any[] | null} rows @param {string} season @param {string} difficulty
  */
 export function roomsWaiting(rows, season, difficulty) {
   return (Array.isArray(rows) ? rows : []).filter((r) => r.state === 'lobby' && r.difficulty === difficulty && (season === 'all' || seasonOf(r.season) === seasonOf(season))).length;
 }
 
-/** lobby.watchRooms while mounted and online (a reconnect subscribes again); the list is forgotten when it closes. */
+/**
+ * lobby.watchRooms while mounted and online (a reconnect subscribes again); the list is forgotten when it closes.
+ * @param {boolean} online
+ */
 function useWatchRooms(online) {
   useEffect(() => {
     if (!online) return undefined;
@@ -103,12 +111,18 @@ function useWatchRooms(online) {
   useEffect(() => () => store.patch('ui', { publicRooms: null }), []);
 }
 
-/** A press outside `ref` or Escape closes (the drop-down, the folded filter, a custom room's settings). */
+/**
+ * A press outside `ref` or Escape closes (the drop-down, the folded filter, a custom room's settings).
+ * @param {boolean} open
+ * @param {(open: boolean) => void} setOpen
+ */
 function useOutside(open, setOpen) {
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLElement | null} */ (null));
   useEffect(() => {
     if (!open) return undefined;
-    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    /** @param {Event} e */
+    const close = (e) => { if (!ref.current?.contains(/** @type {Node | null} */ (e.target))) setOpen(false); };
+    /** @param {KeyboardEvent} e */
     const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('pointerdown', close, true);
     document.addEventListener('keydown', esc, true);
@@ -117,14 +131,20 @@ function useOutside(open, setOpen) {
   return ref;
 }
 
-/** 创建公开联合 (header): the filter switches' pill (`.dpick__opt.pubrooms__tog`) in amber. */
+/**
+ * 创建公开联合 (header): the filter switches' pill (`.dpick__opt.pubrooms__tog`) in amber.
+ * @param {{ onCreate?: (() => void) | null, big?: boolean, testid?: string }} p
+ */
 function NewRoom({ onCreate, big = false, testid }) {
   return html`<button type="button" class=${`dpick__opt pubrooms__tog pubrooms__new tapx${big ? ' is-big' : ''}`} data-testid=${testid} onClick=${() => onCreate?.()}>
     <${Icon} name="plus" />${t('创建公开联合')}
   </button>`;
 }
 
-/** An on / off filter (`.dpick__opt` with the check, as 「AI 队友最后选择」). */
+/**
+ * An on / off filter (`.dpick__opt` with the check, as 「AI 队友最后选择」).
+ * @param {{ on: boolean, label: string, n?: number | null, disabled?: boolean, onPick: (on: boolean) => void }} p
+ */
 function Toggle({ on, label, n = null, disabled = false, onPick }) {
   return html`<button type="button" role="switch" aria-checked=${on ? 'true' : 'false'} disabled=${disabled}
       class=${`dpick__opt pubrooms__tog${on ? ' is-active' : ''}`} onClick=${() => onPick(!on)}>
@@ -132,11 +152,15 @@ function Toggle({ on, label, n = null, disabled = false, onPick }) {
   </button>`;
 }
 
-/** The season drop-down (the lobby chip's look, ui/season.js SeasonChip): the list's season and 开始匹配's (header), never the page's. */
+/**
+ * The season drop-down (the lobby chip's look, ui/season.js SeasonChip): the list's season and 开始匹配's (header), never the page's.
+ * @param {{ value: string, current: string, offered: string[], counts: Record<string, number>, onPick: (id: string) => void }} p
+ */
 function SeasonFilter({ value, current, offered, counts, onPick }) {
   const [open, setOpen] = useState(false);
   const ref = useOutside(open, setOpen);
   const rows = ['all', ...offered];
+  /** @param {string} id */
   const name = (id) => (id === 'all' ? t('所有赛季') : seasonName(id));
   return html`<span class="season-chip-wrap pubrooms__season" ref=${ref}>
     <button type="button" class=${`season-chip tapx${open ? ' is-open' : ''}`} aria-haspopup="true" aria-expanded=${open ? 'true' : 'false'}
@@ -159,24 +183,28 @@ function SeasonFilter({ value, current, offered, counts, onPick }) {
  * A custom room's chip: how many settings differ from the official ones; pressed (or hovered with a mouse) it shows them
  * — CustomRulesInfo, as the briefing — and 查看全部设置 (the read-only settings dialog). The panel is drawn in the list's
  * frame, not inside the scrolling list (which would cut it), under the chip or over it when there is no room below.
+ * @param {{ row: Bag, open: boolean, onOpen: (o: CustomOpen | null) => void, anchor: Anchor | null }} p
  */
 function CustomChip({ row, open, onOpen, anchor }) {
   const size = seatsOf(row.size);
   const season = seasonOf(row.season);
   useCustomNames(season); // the lobby has not loaded the bonds / leaders / stages; a room of another season reads its own
   const found = customFound(row.custom, row.difficulty, size, season);
-  const btn = useRef(null);
+  const btn = useRef(/** @type {HTMLButtonElement | null} */ (null));
   return html`<span class="pubroom__cwrap">
     <button type="button" ref=${btn} class=${`pubroom__custom${open ? ' is-open' : ''}`} aria-expanded=${open ? 'true' : 'false'}
         onClick=${() => onOpen(open ? null : { code: row.code, el: btn.current })}
-        onPointerEnter=${(e) => { if (e.pointerType === 'mouse' && !open) onOpen({ code: row.code, el: btn.current, hover: true }); }}>
+        onPointerEnter=${(/** @type {PointerEvent} */ e) => { if (e.pointerType === 'mouse' && !open) onOpen({ code: row.code, el: btn.current, hover: true }); }}>
       <span class="rtag rtag--custom">${t('自定义')}</span>${t('设置 {n} 项不同', { n: found.n })}<span class="pubroom__caret" aria-hidden="true">▾</span>
     </button>
     ${open && anchor ? html`<${CustomPanel} row=${row} found=${found} anchor=${anchor} />` : null}
   </span>`;
 }
 
-/** The custom chip's panel (CustomChip), placed against the list's frame (`anchor`: { frame, chip } rects). */
+/**
+ * The custom chip's panel (CustomChip), placed against the list's frame (`anchor`: { frame, chip } rects).
+ * @param {{ row: Bag, found: ReturnType<typeof customFound>, anchor: Anchor }} p
+ */
 function CustomPanel({ row, found, anchor }) {
   const { frame, chip } = anchor;
   const below = frame.bottom - chip.bottom;
@@ -190,7 +218,11 @@ function CustomPanel({ row, found, anchor }) {
   </div>`;
 }
 
-/** One room (header). */
+/**
+ * One room (header).
+ * @param {{ row: Bag, fit: 'fit' | 'quick' | null, other: boolean, busy: string | null, onJoin: (row: Bag) => void,
+ *   onSpectate: (row: Bag) => void, customOpen: boolean, onCustom: (o: CustomOpen | null) => void, anchor: Anchor | null }} p
+ */
 function RoomRow({ row, fit, other, busy, onJoin, onSpectate, customOpen, onCustom, anchor }) {
   const live = row.state === 'match';
   const size = seatsOf(row.size);
@@ -198,7 +230,7 @@ function RoomRow({ row, fit, other, busy, onJoin, onSpectate, customOpen, onCust
   const custom = row.ruleset?.preset === 'custom' && row.custom;
   const free = openSeats(row) > 0;
   const specFull = (row.spectators ?? 0) >= (row.spectatorSeats ?? 0);
-  return html`<li class=${`pubroom${fit === 'fit' ? ' is-fit' : ''}${live ? ' is-live' : ''}`} data-code=${row.code} style=${`--dc:${DIFFICULTY_COLORS[row.difficulty] || 'var(--amber)'}`}>
+  return html`<li class=${`pubroom${fit === 'fit' ? ' is-fit' : ''}${live ? ' is-live' : ''}`} data-code=${row.code} style=${`--dc:${/** @type {Record<string, string>} */ (DIFFICULTY_COLORS)[row.difficulty] || 'var(--amber)'}`}>
     <span class="pubroom__main">
     <span class="pubroom__mode"><${ModeCapsule} season=${other ? row.season ?? DEFAULT_SEASON : null} ruleset=${row.ruleset?.preset} difficulty=${row.difficulty} size=${size} /></span>
     <span class="pubroom__who">
@@ -227,6 +259,8 @@ function RoomRow({ row, fit, other, busy, onJoin, onSpectate, customOpen, onCust
  * The list (header). `season` (the picked one), `difficulty`, `ruleset`, `size`, `quick`: the picks of 选择模拟协议, and
  * `pick` the drop-down's ('all' or a season; `onPick` changes it) — what the player's matchmaking would take (roomFit).
  * `online`: the connection is up. `onCreate`: 创建公开联合.
+ * @param {{ season: string, pick: string, onPick: (id: string) => void, difficulty: string, ruleset: string, size: number,
+ *   quick: boolean, online: boolean, onCreate: () => void }} p
  */
 export function PublicRooms({ season, pick, onPick, difficulty, ruleset, size, quick, online, onCreate }) {
   useWatchRooms(online);
@@ -238,41 +272,53 @@ export function PublicRooms({ season, pick, onPick, difficulty, ruleset, size, q
   const [live, setLive] = useState(true);
   const [fold, setFold] = useState(false);
   const foldRef = useOutside(fold, setFold);
-  const [custom, setCustom] = useState(/** @type {null | { code: string, el: any, hover?: boolean }} */ (null));
+  const [custom, setCustom] = useState(/** @type {CustomOpen | null} */ (null));
   const customRef = useOutside(!!custom, () => setCustom(null));
-  const frame = useRef(null);
+  const frame = useRef(/** @type {HTMLElement | null} */ (null));
   const [busy, setBusy] = useState(/** @type {string | null} */ (null));
+  /** @param {Bag} row */
   const fit = (row) => roomFit(row, { season: pick, difficulty, ruleset, size, quick });
   const view = listRooms(rows, { season, offered, pick, fitOnly, live, fit });
+  /** @type {Record<string, number>} */
   const counts = { all: rows?.length ?? 0 };
   for (const r of rows || []) counts[seasonOf(r.season)] = (counts[seasonOf(r.season)] ?? 0) + 1;
   // the custom panel's place: the chip's and the frame's rects (it is drawn in the frame, outside the scrolling list)
   const anchor = custom?.el && frame.current ? { frame: frame.current.getBoundingClientRect(), chip: custom.el.getBoundingClientRect() } : null;
 
+  /**
+   * @param {string} key
+   * @param {() => Promise<unknown>} fn
+   */
   const run = async (key, fn) => {
     if (busy) return;
     setBusy(key);
     try { await fn(); } catch (err) { toastError(err); } finally { setBusy(null); }
   };
+  /** @param {Bag} row */
   const join = (row) => run(`j${row.code}`, () => net.request('room.join', { code: row.code }));
+  /** @param {Bag} row */
   const spectate = (row) => run(`s${row.code}`, () => net.request('room.spectate', { code: row.code }));
   const toggles = [
     html`<${Toggle} key="fit" on=${fitOnly} label=${t('仅匹配对象')} n=${view.fits} onPick=${setFitOnly} />`,
     html`<${Toggle} key="live" on=${live} label=${t('进行中（观战）')} onPick=${setLive} />`,
   ];
   const onCount = (fitOnly ? 1 : 0) + (live ? 1 : 0);
+  /**
+   * @param {typeof view.current[number]} x
+   * @param {boolean} other
+   */
   const row = (x, other) => html`<${RoomRow} key=${x.row.code} row=${x.row} fit=${x.fit} other=${other} busy=${busy} onJoin=${join} onSpectate=${spectate}
     customOpen=${custom?.code === x.row.code} onCustom=${setCustom} anchor=${custom?.code === x.row.code ? anchor : null} />`;
   const empty = !view.current.length && !view.others.length;
 
   return html`<div class=${`pubrooms${rows ? '' : ' is-loading'}`} ref=${frame} data-testid="public-rooms"
-      onPointerLeave=${(e) => { if (e.pointerType === 'mouse' && custom?.hover) setCustom(null); }}>
+      onPointerLeave=${(/** @type {PointerEvent} */ e) => { if (e.pointerType === 'mouse' && custom?.hover) setCustom(null); }}>
     <header class="pubrooms__head">
       <span class="pubrooms__title"><${Icon} name="signal" /><b>${t('公开联合')}</b><i>PUBLIC ALLIANCES</i></span>
       <span class="pubrooms__count">${t('{n} 个 · 匹配对象 {m}', { n: view.total, m: view.fits })}</span>
       <${NewRoom} onCreate=${onCreate} testid="pubrooms-new" />
       <span class="pubrooms__filter">
-        <${SeasonFilter} value=${pick} current=${seasonOf(season)} offered=${offered} counts=${counts} onPick=${(id) => { onPick(id); setCustom(null); }} />
+        <${SeasonFilter} value=${pick} current=${seasonOf(season)} offered=${offered} counts=${counts} onPick=${(/** @type {string} */ id) => { onPick(id); setCustom(null); }} />
         ${short ? html`<span class="pubrooms__fold" ref=${foldRef}>
             <button type="button" class=${`pubrooms__fbtn tapx${fold ? ' is-open' : ''}`} aria-expanded=${fold ? 'true' : 'false'} onClick=${() => setFold(!fold)}>
               ${t('筛选')}<em class="num">${onCount}</em></button>

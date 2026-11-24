@@ -31,7 +31,9 @@ export const CUSTOM_NAME_MAX = 24;
 /** The longest share code read (a full settings object deflates to a few hundred characters). */
 export const CUSTOM_CODE_MAX = 8192;
 
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+/** @param {unknown} v */
 const cleanName = (v) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, CUSTOM_NAME_MAX) : '');
 
 /** The stored envelope as the store holds it (junk dropped, every rules object sanitized). @param {any} raw */
@@ -75,6 +77,7 @@ const persist = () => {
   const { presets, active, draft } = customRulesStore.get();
   savePref(seasonPref(CUSTOM_RULES_PREF, rulesSeason), { v: CUSTOM_VERSION, presets, active, draft });
 };
+/** @param {Partial<ReturnType<typeof customRulesStore.get>>} patch */
 const update = (patch) => { customRulesStore.set(patch); persist(); };
 
 /** The settings in use (the lobby's). */
@@ -139,17 +142,23 @@ export function deletePreset(id) {
 
 const CODE_RE = /^SPC(\d+)(j?)\.([A-Za-z0-9_-]+)$/;
 
+/** @param {Uint8Array} bytes */
 const toB64url = (bytes) => {
   let bin = '';
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
+/** @param {string} s */
 const fromB64url = (s) => {
   const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 };
+/**
+ * @param {Uint8Array<ArrayBuffer>} bytes
+ * @param {CompressionStream | DecompressionStream} stream
+ */
 const pipe = async (bytes, stream) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
 
 /** The settings that differ from the official ones, by section (what a share code carries). @param {unknown} rules */
@@ -160,7 +169,7 @@ export function customDelta(rules) {
   for (const [sec, vals] of Object.entries(c)) {
     if (!isObj(vals)) continue;
     for (const [k, v] of Object.entries(vals)) {
-      if (JSON.stringify(v) !== JSON.stringify(CUSTOM_OFFICIAL[sec]?.[k])) (out[sec] ||= {})[k] = v;
+      if (JSON.stringify(v) !== JSON.stringify(/** @type {Record<string, any>} */ (CUSTOM_OFFICIAL)[sec]?.[k])) (out[sec] ||= {})[k] = v;
     }
   }
   return out;

@@ -60,6 +60,7 @@ function usePlate(open) {
   return url ? made[url] ?? null : null;
 }
 
+/** @param {unknown} roster */
 const seatsOf = (roster) => (Array.isArray(roster) ? roster : []).filter((s) => s && typeof s.playerId === 'string');
 
 /** How many spectator seats the room has (room.state.spectators, well-formed rows only): a number, so the top bar that
@@ -76,11 +77,13 @@ export function Spectators() {
   const roster = useStore((s) => s.room?.spectators);
   const list = useMemo(() => seatsOf(roster), [roster]);
   const [open, setOpen] = useState(false);
-  const root = useRef(null);
-  const button = useRef(null);
+  const root = useRef(/** @type {HTMLElement | null} */ (null));
+  const button = useRef(/** @type {HTMLButtonElement | null} */ (null));
   useEffect(() => {
     if (!open) return undefined;
-    const away = (e) => { if (root.current && !root.current.contains(e.target)) setOpen(false); };
+    /** @param {PointerEvent} e */
+    const away = (e) => { if (root.current && !root.current.contains(/** @type {Node | null} */ (e.target))) setOpen(false); };
+    /** @param {KeyboardEvent} e */
     const esc = (e) => {
       if (e.key !== 'Escape') return;
       e.preventDefault();
@@ -100,7 +103,7 @@ export function Spectators() {
       style=${plate ? `--buff-sprite:url("${plate}")` : undefined}
       aria-haspopup="dialog" aria-expanded=${open} aria-controls=${open ? 'match-spectators' : undefined}
       aria-label=${t('观战者 {n} 人，查看名单', { n: list.length })}
-      onKeyDown=${(e) => { if (e.key === ' ') e.stopPropagation(); }} onClick=${() => setOpen((v) => !v)}>
+      onKeyDown=${(/** @type {KeyboardEvent} */ e) => { if (e.key === ' ') e.stopPropagation(); }} onClick=${() => setOpen((v) => !v)}>
       <${GIcon} name="eye" class="buffs__ic" /><b class="buffs__n num" data-testid="spectators-count" aria-live="polite" aria-atomic="true">${list.length}</b>
     </button>
     ${open ? html`<section id="match-spectators" class="buffs__dlg brackets spectators__dialog" role="dialog" aria-label=${t('观战席名单')}

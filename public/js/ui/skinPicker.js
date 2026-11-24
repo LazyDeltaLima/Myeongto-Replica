@@ -26,7 +26,9 @@ import { skinsStore, SKINS_KEY, loadSkinCatalog, skinRows, chosenSkin, setSkin, 
 import { t } from '../../../shared/i18n.js';
 import { data } from '../data.js';
 
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+/** @param {number} n */
 const mb = (n) => Math.max(1, Math.round(n / 1048576));
 
 /**
@@ -53,7 +55,7 @@ export function skinTiles({ catalog, charId, tmplId = null, map = {}, state, art
   const locked = state === 'locked';
   const chosen = locked ? null : chosenSkin(charId, map, catalog, tmplId);
   const own = { id: '', own: true, name: t('默认'), art, face, illust: null, fallbackArt: false, locked: false, on: !chosen };
-  const rows = skinRows(catalog, charId, tmplId).map((row, i) => ({
+  const rows = skinRows(catalog, charId, tmplId).map((/** @type {Record<string, any>} */ row, /** @type {number} */ i) => ({
     id: row.id, own: false, name: row.name ? data.localeSkinName(row.id, row.name) : t('皮肤 {n}', { n: i + 1 }), locked,
     art: (!locked && row.portrait) || art, face: (!locked && row.avatar) || face, illust: row.illust || row.portrait || null,
     fallbackArt: !locked && !row.portrait, on: chosen === row.id,

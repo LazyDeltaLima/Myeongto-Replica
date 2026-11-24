@@ -538,6 +538,20 @@ most strict errors were, and the JSDoc that fixed them:
   is no `number | undefined`, and `undefined` in its place would change the code). A store slot a test pins as text
   (`battleHud`'s `hud`: hud-redraw.test.js matches `Math.floor(s.hud.dp)`) stays `any`; a callback a test pins
   (season-fade.test.js `const choose = (id) => …`) takes the `@param` on the line above.
+- the lobby, room and title files directly under `public/js/ui/`: a `useState(null)` / `useRef(null)` that holds a
+  value later casts its initial value (`useState(/** @type {string | null} */ (null))`, `useRef(/** @type {HTMLElement
+  | null} */ (null))`), and a store made from a literal with `null` fields casts the literal to its typedef
+  (customRules.js `DialogState`, feedbackStore). An `html` handler takes its event inline (`(/** @type {Event & {
+  target: HTMLInputElement }} */ e) =>`, a file's own `InputEv` when it repeats); a document listener takes `@param
+  {PointerEvent} e` above its `const`, and `e.target` is cast to `Node | null` for `contains`. Components that take
+  one context share its typedef (the settings tabs' `PaneProps`, the `PANES` table `Record<string, (p: PaneProps) =>
+  any>`). A list of literal tuples looped over and indexed (customSummary.js `[['enemies', …], ['leaders', …]]`) is
+  cast to its tuple type, and a section read by a string key goes through `Record<string, number>`. A feature test of a
+  global the DOM types declare (`globalThis.requestAnimationFrame ? … : setTimeout`, TS2774) casts it to `typeof
+  requestAnimationFrame | undefined`. The polyfills (compat.js) are `@this {any}` (`at` sits on the array, string and
+  typed-array prototypes) or `@this {ArrayLike<unknown>}`; bytes piped through a `CompressionStream` are
+  `Uint8Array<ArrayBuffer>` (one over any buffer is neither a `BlobPart` nor the stream's chunk). The `data-k` refs of
+  the alliance scene are `Record<string, any>` (an element, or a list of them).
 
 
 ## Split classes

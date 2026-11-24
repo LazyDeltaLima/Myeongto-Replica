@@ -9,11 +9,13 @@ import { store, useStore } from '../store.js';
 import { t } from '../../../shared/i18n.js';
 import { toast } from './toasts.js';
 
+/** @typedef {ReturnType<typeof identity.recoverable>[number]} RecoverableMatch a seat of this browser that can be resumed */
+
 export function ResumeMatchButton() {
   const [items, setItems] = useState(() => identity.recoverable());
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState(null); // the item held by another window, waiting for 在此页面继续
+  const [confirm, setConfirm] = useState(/** @type {RecoverableMatch | null} */ (null)); // the item held by another window, waiting for 在此页面继续
   const elsewhere = useStore((s) => !!s.ui.seatElsewhere);
   useEffect(() => {
     const refresh = () => setItems(identity.recoverable());
@@ -32,6 +34,7 @@ export function ResumeMatchButton() {
     setOpen(true);
   }, [elsewhere]);
   if (!items.length) return null;
+  /** @param {RecoverableMatch} item */
   const reconnectAs = (item) => {
     identity.setEntered(true);
     store.patch('session', { entered: true });
@@ -43,6 +46,7 @@ export function ResumeMatchButton() {
     setOpen(false);
     setConfirm(null);
   };
+  /** @param {RecoverableMatch} item */
   const resume = async (item) => {
     if (busy) return;
     setBusy(true);
@@ -52,6 +56,7 @@ export function ResumeMatchButton() {
     else if (identity.recoverable().some((m) => m.id === item.id)) setConfirm(item);
     else toast(t('此对局仍在其他窗口中，或当前浏览器无法安全恢复。请关闭原窗口后重试。'), 'warn');
   };
+  /** @param {RecoverableMatch} item */
   const takeOver = (item) => {
     if (busy) return;
     if (identity.takeOver(item.id)) reconnectAs(item);

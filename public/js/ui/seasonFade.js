@@ -18,8 +18,10 @@ let token = 0;
 /** @type {HTMLElement | null} */
 let veil = null;
 
+/** @param {number} ms */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const frame = () => new Promise((resolve) => (globalThis.requestAnimationFrame ? requestAnimationFrame(() => resolve()) : setTimeout(resolve, 16)));
+/** @returns {Promise<void>} the next frame (16 ms without requestAnimationFrame: Node, tests) */
+const frame = () => new Promise((resolve) => (/** @type {typeof requestAnimationFrame | undefined} */ (globalThis.requestAnimationFrame) ? requestAnimationFrame(() => resolve()) : setTimeout(resolve, 16)));
 
 function ensureVeil() {
   if (veil?.isConnected) return veil;

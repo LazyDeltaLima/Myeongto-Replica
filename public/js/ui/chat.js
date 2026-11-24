@@ -45,6 +45,9 @@ import { chooseFaction, PresetNotice } from './factionPick.js';
 import { clearPresetNotice } from './diyPresets.js';
 import { ChatTime, hasMessageTime, isOldChatMessage, subscribeChatClock } from './chatTime.js';
 
+/** @import { Bag } from './gameLogic/shared.js' */
+
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const KEEP = 60;            // lines kept on the client
 export const FEED_MS = 6000; // a new line floats this long over the match while the panel is closed
@@ -52,13 +55,23 @@ const FEED_MAX = 3;
 const PREF_ROOM_OPEN = 'chatRoomOpen';
 const K_BLOCKED = 'sp.chatBlocked'; // sessionStorage: { code, ids } — the players this tab blocked in that room
 
-/** The players this tab blocked in room `code` (sessionStorage). */
+/**
+ * The players this tab blocked in room `code` (sessionStorage).
+ * @param {string} code
+ * @param {Storage | undefined} [storage]
+ * @returns {string[]}
+ */
 export function loadBlocked(code, storage = globalThis.sessionStorage) {
   try {
     const v = JSON.parse(storage?.getItem(K_BLOCKED) || 'null');
-    return v && v.code === code && Array.isArray(v.ids) ? v.ids.filter((x) => typeof x === 'string') : [];
+    return v && v.code === code && Array.isArray(v.ids) ? v.ids.filter((/** @type {unknown} */ x) => typeof x === 'string') : [];
   } catch { return []; }
 }
+/**
+ * @param {string} code
+ * @param {string[]} ids
+ * @param {Storage | undefined} [storage]
+ */
 function saveBlocked(code, ids, storage = globalThis.sessionStorage) {
   try { storage?.setItem(K_BLOCKED, JSON.stringify({ code, ids })); } catch { /* privacy mode */ }
 }
@@ -102,6 +115,7 @@ export function logEntries(lines, blocked = [], noticeAfter = 0) {
 // chat bubble / paper plane (24×24, original)
 const CHAT_D = 'M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm3 5v2h10V8zm0 4v2h7v-2z';
 const SEND_D = 'M2 21 23 12 2 3v7l15 2-15 2z';
+/** @param {{ d: string }} p */
 const Glyph = ({ d }) => html`<svg class="icon" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><path d=${d} fill-rule="evenodd" /></svg>`;
 
 /**
@@ -160,12 +174,16 @@ export function notifiesChat(line, { myId, known, factionAlerts }) {
   return !known.some((l) => l.seq === line.seq);
 }
 
-/** Others' lines newer than `seenSeq`. */
+/** Others' lines newer than `seenSeq`. @param {any[]} lines @param {unknown} myId @param {number} seenSeq */
 export const unreadCount = (lines, myId, seenSeq) => lines.filter((l) => l.seq > seenSeq && l.playerId !== myId).length;
 
 /** Wire the chat into the app store (main.js, once). */
 export function installChat() {
   const roomCode = () => store.get().room?.code ?? null;
+  /**
+   * @param {any[]} incoming
+   * @param {boolean} rx
+   */
   const put = (incoming, rx) => {
     const code = roomCode();
     if (!code) return;
@@ -196,19 +214,19 @@ export function installChat() {
   });
 }
 
-/** Mark the room's lines up to `seq` as read. */
+/** Mark the room's lines up to `seq` as read. @param {number} seq */
 function markRead(seq) {
   const cur = store.get().chat;
   if (cur && seq > (cur.seen || 0)) store.set({ chat: { ...cur, seen: seq } });
 }
 
-/** A line's faction tag `(炎国)` in its color, or nothing. */
+/** A line's faction tag `(炎国)` in its color, or nothing. @param {{ id: unknown }} p */
 function FactionTag({ id }) {
   const f = chatFaction(id);
   return f ? html`<span class="chat__faction" style=${`color:${f.color}`}>(${t(f.name)})</span>` : null;
 }
 
-/** A press that only ends a text selection inside `el` (no menu then). */
+/** A press that only ends a text selection inside `el` (no menu then). @param {Element | null} el */
 const selecting = (el) => {
   const sel = globalThis.getSelection?.();
   return !!sel && !sel.isCollapsed && !!el && el.contains(sel.anchorNode);
@@ -217,14 +235,16 @@ const selecting = (el) => {
 /**
  * One chat line: `name(faction): text`, or the announcement of a faction pick. With `onMenu` (the log, not the floating
  * feed) another player's line opens its block button on a press (header 「Blocking」); `menu` = it is open.
+ * @param {{ l: Bag, myId: unknown, cls?: string, style?: string, menu?: boolean, onMenu?: ((seq: number | null) => void) | null,
+ *   showTime?: boolean }} p
  */
 function Line({ l, myId, cls = '', style = '', menu = false, onMenu = null, showTime = false }) {
   const other = !!onMenu && l.playerId !== myId;
-  const press = other ? (e) => {
-    if (!e.target.closest('.chat__time') && !selecting(e.currentTarget)) onMenu(menu ? null : l.seq);
+  const press = other ? (/** @type {MouseEvent & { target: Element, currentTarget: Element }} */ e) => {
+    if (!e.target.closest('.chat__time') && !selecting(e.currentTarget)) /** @type {(seq: number | null) => void} */ (onMenu)(menu ? null : l.seq);
   } : undefined;
   const block = menu ? html`<div class="chat__menu"><button type="button" class="chat__block"
-    onClick=${(e) => { e.stopPropagation(); setBlocked(l.playerId, true); onMenu(null); }}>${t('屏蔽 {name}', { name: playerName(l.name) })}</button></div>` : null;
+    onClick=${(/** @type {MouseEvent} */ e) => { e.stopPropagation(); setBlocked(l.playerId, true); /** @type {(seq: number | null) => void} */ (onMenu)(null); }}>${t('屏蔽 {name}', { name: playerName(l.name) })}</button></div>` : null;
   if (l.kind === 'faction') {
     const f = chatFaction(l.faction);
     return html`<li class=${cx('chat__line chat__line--sys', other && 'is-pressable', menu && 'is-menu', cls)} style=${style} data-i18n-skip="" onClick=${press}>
@@ -237,7 +257,7 @@ function Line({ l, myId, cls = '', style = '', menu = false, onMenu = null, show
   </li>`;
 }
 
-/** Where a blocked player's lines were: the count and 解除屏蔽. */
+/** Where a blocked player's lines were: the count and 解除屏蔽. @param {{ e: Bag }} p */
 function BlockedLine({ e }) {
   return html`<li class="chat__line chat__line--sys chat__blocked" data-i18n-skip="">
     <span class="chat__text">${t('已屏蔽 {name}（{n} 条）', { name: playerName(e.name), n: e.count })}</span>
@@ -245,25 +265,29 @@ function BlockedLine({ e }) {
   </li>`;
 }
 
-/** Send one line; resolves to an error text for the input (null when sent). */
+/** Send one line; resolves to an error text for the input (null when sent). @param {string} text @returns {Promise<string | null>} */
 async function sendLine(text) {
   try {
     await net.request('room.chat', { text });
     return null;
-  } catch (err) {
+  } catch (/** @type {any} */ err) {
     return err?.code === 'RATE' ? t('发送过快，请稍候') : err?.code === 'BAD_MSG' ? t('无法发送空消息') : t('发送失败');
   }
 }
 
-/** The scrolling log; keeps the newest line in view unless the reader scrolled up. */
+/**
+ * The scrolling log; keeps the newest line in view unless the reader scrolled up.
+ * @param {{ lines: any[], myId: unknown, blocked?: string[], noticeAfter?: number }} p
+ */
 function ChatLog({ lines, myId, blocked = [], noticeAfter = 0 }) {
   const showTime = useStore((s) => s.chatShowTime, Object.is, settingsStore);
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLOListElement | null} */ (null));
   const stick = useRef(true);
-  const [menu, setMenu] = useState(null); // the seq whose block button is open
+  const [menu, setMenu] = useState(/** @type {number | null} */ (null)); // the seq whose block button is open
   // a press outside that line closes it
   useEffect(() => {
     if (menu == null) return undefined;
+    /** @param {PointerEvent} e */
     const onDown = (e) => { if (!(e.target instanceof Element) || !e.target.closest('.chat__line.is-menu')) setMenu(null); };
     window.addEventListener('pointerdown', onDown, true);
     return () => window.removeEventListener('pointerdown', onDown, true);
@@ -294,9 +318,10 @@ function ChatLog({ lines, myId, blocked = [], noticeAfter = 0 }) {
 
 /** The player's chat faction (room.state seat) and the picker: a chip left of the input (the faction's icon once
  *  picked, so the input keeps its width), the room season's factions (shared/local.js chatFactionsOf) with icon and
- *  name above it. */
+ *  name above it.
+ * @param {{ disabled?: boolean }} p */
 function FactionPicker({ disabled }) {
-  const seated = useStore((s) => (s.room?.seats || []).some((x) => x && x.playerId === s.me.playerId));
+  const seated = useStore((s) => (s.room?.seats || []).some((/** @type {Bag | null} */ x) => x && x.playerId === s.me.playerId));
   const mine = useStore((s) => s.chatFactions?.[s.me.playerId] ?? null);
   const season = useStore((s) => s.room?.season ?? null);
   const [open, setOpen] = useState(false);
@@ -304,6 +329,7 @@ function FactionPicker({ disabled }) {
   // the bonds off this match (m.public.disabledBonds): their factions are dimmed and say so
   const off = useStore((s) => s.match?.public?.disabledBonds ?? null);
   const f = chatFaction(mine);
+  /** @param {string} id */
   const pick = async (id) => {
     setOpen(false);
     if (id === mine || busy) return;
@@ -312,6 +338,7 @@ function FactionPicker({ disabled }) {
     setBusy(false);
   };
   if (!seated) return null; // spectators have no faction
+  /** @param {{ bond?: string }} x */
   const isOff = (x) => Array.isArray(off) && off.includes(x.bond);
   return html`<div class="chat__fac">
     <button type="button" class=${cx('chat__facbtn', f && 'is-set')} style=${f ? `--fac:${f.color}` : ''} disabled=${disabled || busy}
@@ -324,13 +351,16 @@ function FactionPicker({ disabled }) {
   </div>`;
 }
 
-/** Input + send. `autoFocus` focuses it on mount; Esc calls onEscape. */
+/**
+ * Input + send. `autoFocus` focuses it on mount; Esc calls onEscape.
+ * @param {{ disabled?: boolean, inputRef?: { current: HTMLInputElement | null }, autoFocus?: boolean, onEscape?: () => void }} p
+ */
 function ChatInput({ disabled, inputRef, autoFocus = false, onEscape }) {
   const [text, setText] = useState('');
-  const [err, setErr] = useState(null);
+  const [err, setErr] = useState(/** @type {string | null} */ (null));
   const [busy, setBusy] = useState(false);
   const sentAt = useRef(-Infinity);
-  const own = useRef(null);
+  const own = useRef(/** @type {HTMLInputElement | null} */ (null));
   const ref = inputRef || own;
   useEffect(() => { if (autoFocus) ref.current?.focus(); }, []);
   useEffect(() => {
@@ -338,6 +368,7 @@ function ChatInput({ disabled, inputRef, autoFocus = false, onEscape }) {
     const t = setTimeout(() => setErr(null), 2500);
     return () => clearTimeout(t);
   }, [err]);
+  /** @param {Event} e */
   const submit = async (e) => {
     e.preventDefault();
     const line = text.trim();
@@ -351,6 +382,7 @@ function ChatInput({ disabled, inputRef, autoFocus = false, onEscape }) {
     else setText('');
     ref.current?.focus();
   };
+  /** @param {KeyboardEvent} e */
   const onKey = (e) => {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ref.current?.blur(); onEscape?.(); }
   };
@@ -359,7 +391,7 @@ function ChatInput({ disabled, inputRef, autoFocus = false, onEscape }) {
     <${FactionPicker} disabled=${disabled} />
     <input ref=${ref} class="chat__input" type="text" value=${text} maxlength=${CHAT_MAX_LEN} enterkeyhint="send" autocomplete="off"
       placeholder=${disabled ? t('连接中断') : touchUi() ? t('输入消息') : t('输入消息，Enter 发送')} aria-label=${t('聊天消息')} disabled=${disabled}
-      onInput=${(e) => { setText(e.currentTarget.value); clearPresetNotice(); }} onKeyDown=${onKey} data-i18n-skip="" />
+      onInput=${(/** @type {Event & { currentTarget: HTMLInputElement }} */ e) => { setText(e.currentTarget.value); clearPresetNotice(); }} onKeyDown=${onKey} data-i18n-skip="" />
     <button type="submit" class="chat__send" disabled=${disabled || busy || !text.trim()} aria-label=${t('发送')} title=${t('发送')}><${Glyph} d=${SEND_D} /></button>
     ${err ? html`<span class="chat__err" role="status">${err}</span>` : null}
   </form>`;
@@ -368,7 +400,12 @@ function ChatInput({ disabled, inputRef, autoFocus = false, onEscape }) {
 /** Touch-first device (ui/device.js puts sp-coarse on <html>): no Enter hint in the placeholder. */
 const touchUi = () => !!globalThis.document?.documentElement?.classList.contains('sp-coarse');
 
-/** Whether a key press should open / focus the chat: a plain Enter outside fields and dialogs. */
+/**
+ * Whether a key press should open / focus the chat: a plain Enter outside fields and dialogs.
+ * @param {{ key: string, ctrlKey?: boolean, metaKey?: boolean, altKey?: boolean, shiftKey?: boolean, isComposing?: boolean,
+ *   target?: any } | null | undefined} e a keydown (its target: an element, or anything without a tag name)
+ * @param {Document | undefined} [doc]
+ */
 export function isChatHotkey(e, doc = globalThis.document) {
   if (!e || e.key !== 'Enter' || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.isComposing) return false;
   const t = e.target;
@@ -394,11 +431,13 @@ const useChat = () => {
 export function RoomChat() {
   const { lines, shown, blocked, noticeAfter, seen, myId, online } = useChat();
   const [open, setOpen] = useState(() => loadPref(PREF_ROOM_OPEN, true) !== false);
-  const inputRef = useRef(null);
+  const inputRef = useRef(/** @type {HTMLInputElement | null} */ (null));
   const last = lines.length ? lines[lines.length - 1].seq : 0;
   useEffect(() => { if (open) markRead(last); }, [open, last]);
+  /** @param {boolean} v */
   const toggle = (v) => { setOpen(v); savePref(PREF_ROOM_OPEN, v); };
   useEffect(() => {
+    /** @param {KeyboardEvent} e */
     const onKey = (e) => {
       if (!isChatHotkey(e)) return;
       e.preventDefault();
@@ -423,7 +462,10 @@ export function RoomChat() {
   </section>`;
 }
 
-/** Match chat: button (beside 交流) + panel + floating feed. */
+/**
+ * Match chat: button (beside 交流) + panel + floating feed.
+ * @param {{ open: boolean, onToggle: (open: boolean) => void, disabled?: boolean }} p
+ */
 export function GameChat({ open, onToggle, disabled = false }) {
   const { lines, shown, blocked, noticeAfter, seen, myId, online } = useChat();
   const pin = useStore((s) => s.chatPinRecent, Object.is, settingsStore);
@@ -437,6 +479,7 @@ export function GameChat({ open, onToggle, disabled = false }) {
 
   // Enter opens (and focuses) the panel
   useEffect(() => {
+    /** @param {KeyboardEvent} e */
     const onKey = (e) => {
       if (!isChatHotkey(e) || live.current.open) return;
       e.preventDefault();
@@ -448,6 +491,7 @@ export function GameChat({ open, onToggle, disabled = false }) {
   // a press outside closes the panel
   useEffect(() => {
     if (!open) return undefined;
+    /** @param {PointerEvent} e */
     const onDown = (e) => { if (!(e.target instanceof Element) || !e.target.closest('.gchat')) live.current.onToggle(false); };
     window.addEventListener('pointerdown', onDown, true);
     return () => window.removeEventListener('pointerdown', onDown, true);

@@ -16,7 +16,13 @@
  * @returns {string[]}
  */
 export function installCompat(g = globalThis) {
+  /** @type {string[]} */
   const added = [];
+  /**
+   * @param {any} obj the global or a prototype
+   * @param {string} name
+   * @param {Function} fn
+   */
   const def = (obj, name, fn) => {
     if (!obj || typeof obj[name] === 'function') return;
     try {
@@ -25,10 +31,14 @@ export function installCompat(g = globalThis) {
     } catch { /* frozen: leave it */ }
   };
   const O = g.Object || Object;
-  def(O, 'hasOwn', function hasOwn(obj, key) {
+  def(O, 'hasOwn', /** @param {unknown} obj @param {PropertyKey} key */ function hasOwn(obj, key) {
     if (obj == null) throw new TypeError('Cannot convert undefined or null to object');
     return Object.prototype.hasOwnProperty.call(Object(obj), key);
   });
+  /**
+   * @this {any} the array, string or typed array whose prototype it is on
+   * @param {unknown} i
+   */
   function at(i) {
     const len = this.length >>> 0;
     let k = Math.trunc(Number(i)) || 0;
@@ -40,20 +50,27 @@ export function installCompat(g = globalThis) {
   def((g.String || String).prototype, 'at', at);
   const TA = g.Int8Array ? Object.getPrototypeOf(g.Int8Array.prototype) : null;
   if (TA) def(TA, 'at', at);
-  def((g.Array || Array).prototype, 'findLast', function findLast(fn, thisArg) {
+  def((g.Array || Array).prototype, 'findLast', /** @this {ArrayLike<unknown>} @param {ArrayPredicate} fn @param {unknown} [thisArg] */ function findLast(fn, thisArg) {
     for (let i = (this.length >>> 0) - 1; i >= 0; i--) if (fn.call(thisArg, this[i], i, this)) return this[i];
     return undefined;
   });
-  def((g.Array || Array).prototype, 'findLastIndex', function findLastIndex(fn, thisArg) {
+  def((g.Array || Array).prototype, 'findLastIndex', /** @this {ArrayLike<unknown>} @param {ArrayPredicate} fn @param {unknown} [thisArg] */ function findLastIndex(fn, thisArg) {
     for (let i = (this.length >>> 0) - 1; i >= 0; i--) if (fn.call(thisArg, this[i], i, this)) return i;
     return -1;
   });
-  def(g, 'structuredClone', function structuredClone(value) { return cloneValue(value, new Map()); });
-  def(g, 'queueMicrotask', function queueMicrotask(fn) { Promise.resolve().then(fn).catch((err) => setTimeout(() => { throw err; })); });
+  def(g, 'structuredClone', /** @param {unknown} value */ function structuredClone(value) { return cloneValue(value, new Map()); });
+  def(g, 'queueMicrotask', /** @param {() => void} fn */ function queueMicrotask(fn) { Promise.resolve().then(fn).catch((err) => setTimeout(() => { throw err; })); });
   return added;
 }
 
-/** Deep clone of plain data (objects, arrays, Map, Set, Date, RegExp, typed arrays), cycles preserved. */
+/** @typedef {(v: unknown, i: number, a: ArrayLike<unknown>) => unknown} ArrayPredicate */
+
+/**
+ * Deep clone of plain data (objects, arrays, Map, Set, Date, RegExp, typed arrays), cycles preserved.
+ * @param {any} v any value structuredClone is given
+ * @param {Map<unknown, unknown>} seen
+ * @returns {any}
+ */
 function cloneValue(v, seen) {
   if (v === null || typeof v !== 'object') {
     if (typeof v === 'function' || typeof v === 'symbol') throw new TypeError('structuredClone: value could not be cloned');
@@ -81,7 +98,7 @@ function cloneValue(v, seen) {
     for (let i = 0; i < v.length; i++) out[i] = cloneValue(v[i], seen);
     return out;
   } else {
-    out = {};
+    out = /** @type {Record<string, unknown>} */ ({});
     seen.set(v, out);
     for (const k of Object.keys(v)) out[k] = cloneValue(v[k], seen);
     return out;

@@ -19,7 +19,7 @@ export const CARD_PREF = 'room.card';
 export const CARD_KEY = 'card';
 export const CARD_SYNC_KEY = 'cardSync';
 
-/** A stored pick as the store holds it: a charId string, '' for none (默认). */
+/** A stored pick as the store holds it: a charId string, '' for none (默认). @param {unknown} v */
 export function parseStoredCard(v) {
   return typeof v === 'string' ? v : '';
 }
@@ -37,7 +37,7 @@ export function setCard(charId) {
   cardStore.set({ [CARD_KEY]: next });
 }
 
-/** FNV-1a of a string (the default portrait: the same operator for a player on every client). */
+/** FNV-1a of a string (the default portrait: the same operator for a player on every client). @param {unknown} s */
 export function hash32(s) {
   let h = 0x811c9dc5;
   for (const ch of String(s)) { h ^= /** @type {number} */ (ch.codePointAt(0)); h = Math.imul(h, 0x01000193) >>> 0; }
@@ -57,7 +57,7 @@ export function cardOperators(file, { seasons = [], localeName = (zh) => zh } = 
   const ops = file && Array.isArray(file.operators) ? file.operators : [];
   const out = [];
   for (const o of ops) {
-    if (!o || typeof o.charId !== 'string' || !Array.isArray(o.seasons) || !o.seasons.some((s) => seasons.includes(s))) continue;
+    if (!o || typeof o.charId !== 'string' || !Array.isArray(o.seasons) || !o.seasons.some((/** @type {string} */ s) => seasons.includes(s))) continue;
     out.push({ ...o, name: localeName(o.name) });
   }
   return out.sort((a, b) => ((b.rarity ?? 0) - (a.rarity ?? 0)) || String(a.name).localeCompare(String(b.name), 'ko'));
@@ -124,6 +124,7 @@ export function seatPicture(pics, failed = []) {
   return null;
 }
 
+/** @param {any} f a frame record (data/local-assets.json `rect`) or anything @returns {{ x: number, y: number, w: number, h: number } | null} */
 const rectOf = (f) => (f && typeof f === 'object' && [f.x, f.y, f.w, f.h].every(Number.isFinite) && f.w > 0 && f.h > 0
   ? { x: f.x, y: f.y, w: f.w, h: f.h } : null);
 
@@ -140,7 +141,8 @@ export function seatIllust(local, chess, hi) {
   const e = typeof id === 'string' && id ? local?.groups?.chararts?.[id] : null;
   const frame = rectOf(e?.rect);
   const src = frame ? illustEntry(e, hi)?.path : null;
-  return typeof src === 'string' && src ? { src, frame } : null;
+  // `src` is read only when the frame is there
+  return typeof src === 'string' && src ? /** @type {{ src: string, frame: { x: number, y: number, w: number, h: number } }} */ ({ src, frame }) : null;
 }
 
 /**
