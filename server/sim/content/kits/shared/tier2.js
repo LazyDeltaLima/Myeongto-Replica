@@ -14,9 +14,12 @@
 // the default skill only (target locks, counters, hit triggers) check onDefaultSkill(chess). Module choices need no
 // code here: `chess` is the loadout-resolved record (trait.bb / talents of the selected module, or none).
 
+/** @import { KitChess } from './tier1.js' */
+
 /**
  * Whether the SELECTED skill of a loadout-resolved chess record is its default skill (DESIGN §16: `chess.skill` is the
  * selected SkillRecord, `chess.skills[]` flags the default one). Records without skill choices count as default.
+ * @param {KitChess} chess
  */
 function onDefaultSkill(chess) {
   const d = (chess?.skills ?? []).find((s) => s && s.isDefault);

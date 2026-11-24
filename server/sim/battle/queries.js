@@ -266,6 +266,8 @@ export class BattleQueries {
    * Units of the opposite side (or `side`) inside `grid` offsets relative to `unit` — a range: an enemy whose collider
    * overlaps one of its tiles (body.js bodyInRange), an ally on one of them.
    * @this {Battle}
+   * @param {Unit} unit @param {ReadonlyArray<ReadonlyArray<number>> | null | undefined} grid
+   * @param {{ side?: string | null, extend?: number }} [opts]
    */
   unitsInGrid(unit, grid, { side = null, extend = 0 } = {}) {
     const keys = absoluteRangeKeys(grid || unit.rangeGrid || [[0, 0]], Math.round(unit.y), Math.round(unit.x), unit.dir, extend);

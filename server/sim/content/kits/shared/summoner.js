@@ -32,6 +32,12 @@
 
 import { num, up } from './tier1.js';
 import { atPotential } from '../../../../../shared/potential.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { Bb } from './tier1.js' */
+/** @import { DeathEv, DeployEv } from '../../support/index.js' */
+/** @import { Scheduled } from '../../../battle/hooks.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 /** Seconds between two tries of a piece waiting to come back (its owner off the field, timer, holding, DP, tile). */
 export const DECK_RETRY = 0.25;
@@ -39,9 +45,10 @@ export const DECK_RETRY = 0.25;
 /**
  * Keep buff `key` with `mods` on `u` while `want` (replaced when the mods change, removed when not wanted) — the owner's
  * timed skills acting on its summons, held every tick so a summon deployed during the skill takes them too.
+ * @param {Battle} battle @param {Unit} u @param {string} key @param {unknown} want @param {Bb} mods @param {Bb | null} [extra]
  */
 export function holdBuff(battle, u, key, want, mods, extra = null) {
-  const has = u.findBuff(key);
+  const has = /** @type {BuffRec | null} */ (u.findBuff(key));
   if (!want) { if (has) battle.removeBuff(u, key); return; }
   const cur = has?.mods ?? {};
   if (has && Object.keys(mods).length === Object.keys(cur).length && Object.keys(mods).every((k) => cur[k] === mods[k])) return;
@@ -52,8 +59,8 @@ export function holdBuff(battle, u, key, want, mods, extra = null) {
  * A field of a summon's token record at its owner's form, module and potential (data/backups.json `tokens[id].variants[<charId>@
  * <status>]`, `byModule[uniEquipId]`; shared/potential.js atPotential): the stats the normalised def drops (`deployLimit`,
  * `deckStack`).
- * @param {object} battle
- * @param {object} owner the summoner unit
+ * @param {Battle} battle
+ * @param {Unit} owner the summoner unit
  * @param {string} tokenId
  * @param {string} key a `stats` field
  */
@@ -67,11 +74,11 @@ export function tokenStat(battle, owner, tokenId, key) {
 
 /**
  * Install the summon deck of `owner` (see the header) and hand its placed pieces their kit.
- * @param {object} battle
- * @param {object} owner the summoner unit
+ * @param {Battle} battle
+ * @param {Unit} owner the summoner unit
  * @param {{ tokenIds: Iterable<string>, charge: number, start?: number, trait?: number, cap: number, maxDeployed?: number,
- *   kit?: ((piece: object) => object) | null, onLeave?: ((piece: object, kind: string, ctx: object) => void) | null }} opts
- * @returns {object} the deck: { held, cap, charge, maxDeployed, pieces(), standing(), gain(n), recall(t), withdraw(t, kind) }
+ *   kit?: ((piece: Unit) => object) | null, onLeave?: ((piece: Unit, kind: string, ctx: DeathEv) => void) | null }} opts
+ * The deck: { held, cap, charge, maxDeployed, pieces(), standing(), gain(n), recall(t), withdraw(t, kind) }
  */
 export function summonDeck(battle, owner, { tokenIds, charge, start = 0, trait = 0, cap, maxDeployed = Infinity, kit = null, onLeave = null }) {
   const ids = new Set(tokenIds);
@@ -82,12 +89,14 @@ export function summonDeck(battle, owner, { tokenIds, charge, start = 0, trait =
     charge: Math.max(0, Math.floor(num(charge, 0))),
     maxDeployed: num(maxDeployed, Infinity) > 0 ? num(maxDeployed, Infinity) : Infinity,
     /** Every placed piece of the owner (on the field or waiting). */
-    pieces: () => battle.allyUnits.filter((t) => t.kind === 'token' && t.ownerUnit === owner && ids.has(t.defId)),
+    /** @returns {Unit[]} */
+    pieces: () => battle.allyUnits.filter((/** @type {Unit} */ t) => t.kind === 'token' && t.ownerUnit === owner && ids.has(t.defId)),
     /** The pieces on the field. */
     standing: () => deck.pieces().filter(up),
     /** "获得N个召唤物": +n held, at most the cap. */
     gain(n = 1) { deck.held = Math.min(deck.cap, deck.held + Math.max(0, Math.floor(num(n, 0)))); },
     /** Take a standing piece off the field for `kind` (it comes back like any piece that left). */
+    /** @param {Unit} t @param {string} kind */
     withdraw(t, kind) {
       if (!up(t)) return false;
       t.mem.deckLeave = kind;
@@ -95,6 +104,7 @@ export function summonDeck(battle, owner, { tokenIds, charge, start = 0, trait =
       return true;
     },
     /** 回收: the piece goes back to the holding (+1) and leaves the field (its redeploy timer runs: `_switchToDeadState`). */
+    /** @param {Unit} t */
     recall(t) {
       if (!up(t)) return false;
       deck.gain(1);
@@ -105,9 +115,9 @@ export function summonDeck(battle, owner, { tokenIds, charge, start = 0, trait =
   owner.mem.summonDeck = deck;
 
   /** The piece comes back on its tile once the conditions are met (see the header); one waiting loop per leave. */
-  const waitAndReturn = (t) => {
+  const waitAndReturn = (/** @type {Unit} */ t) => {
     const seq = (t.mem.deckSeq = (t.mem.deckSeq ?? 0) + 1);
-    battle.every(DECK_RETRY, (b, sched) => {
+    battle.every(DECK_RETRY, (/** @type {Battle} */ b, /** @type {Scheduled} */ sched) => {
       if (t.mem.deckSeq !== seq || t.alive || t.removed || b.finished) { sched.cancel(); return; }
       if (!up(owner) || b.time + 1e-9 < t.mem.deckReadyAt || deck.held < 1) return;
       if (deck.standing().length >= deck.maxDeployed) return;
@@ -125,7 +135,7 @@ export function summonDeck(battle, owner, { tokenIds, charge, start = 0, trait =
       battle._setupUnit(t, kit(t));
     }
     // a piece that left stays its tile's piece (`removed` false: Battle.redeploy accepts it, its hooks are kept)
-    battle.on('death', (ctx) => {
+    battle.on('death', (/** @type {DeathEv} */ ctx) => {
       if (ctx.unit !== t || battle.finished) return;
       const kind = t.mem.deckLeave ?? (ctx.reason === 'killed' ? 'killed' : ctx.reason);
       t.mem.deckLeave = null;
@@ -139,9 +149,9 @@ export function summonDeck(battle, owner, { tokenIds, charge, start = 0, trait =
   // charge_token[born]: +charge at every deployment of the owner (the battle start's included); then the trait ability's
   // trigger_charge_token (SUM-Y) +trait
   const traitCnt = Math.max(0, Math.floor(num(trait, 0)));
-  battle.on('deploy', (ctx) => { if (ctx.unit === owner) { deck.gain(deck.charge); if (traitCnt) deck.gain(traitCnt); } }, { owner, priority: 100 });
+  battle.on('deploy', (/** @type {DeployEv} */ ctx) => { if (ctx.unit === owner) { deck.gain(deck.charge); if (traitCnt) deck.gain(traitCnt); } }, { owner, priority: 100 });
   // die_to_kill_token: "干员离场后，附属的召唤物随之消失"
-  battle.on('death', (ctx) => {
+  battle.on('death', (/** @type {DeathEv} */ ctx) => {
     if (ctx.unit !== owner) return;
     for (const t of deck.standing()) deck.withdraw(t, 'owner');
   }, { owner, priority: 50 });

@@ -171,6 +171,7 @@ export class BattleHooks {
   /**
    * Run a content callback (skill/buff/projectile/timer/install) isolated from errors; shares the hook depth guard.
    * @this {Battle}
+   * @param {unknown} [owner]
    */
   _safe(fn, label, owner = null) {
     if (this._emitDepth >= MAX_HOOK_DEPTH) {

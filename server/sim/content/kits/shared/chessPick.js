@@ -8,7 +8,9 @@
 // flagged and files the kit's `skill` under `skills[defaultSkillId]`; the other entries are kept as they are (lazy getters
 // included). Every number still comes from the 自选 record.
 
-/** The record with `skillId` flagged as the default skill, when it flags none. @param {any} rec @param {string} skillId */
+/** @import { KitChess } from './tier1.js' */
+
+/** The record with `skillId` flagged as the default skill, when it flags none. @param {KitChess} rec @param {string} skillId */
 function flagDefault(rec, skillId) {
   if (!rec || !Array.isArray(rec.skills) || rec.skills.some((s) => s && s.isDefault)) return rec;
   return { ...rec, skills: rec.skills.map((s) => (s ? { ...s, isDefault: s.skillId === skillId } : s)) };
@@ -16,8 +18,10 @@ function flagDefault(rec, skillId) {
 
 /**
  * The 自选 kit builder of a chess kit builder `build` whose chess's default skill is `defaultSkillId`.
- * @param {(bb: any, rec: any, def: any) => any} build
+ * @typedef {(bb: any, rec: any, def: any) => any} KitBuilder a chess kit builder (bb, record, def) => Kit
+ * @param {KitBuilder} build
  * @param {string} defaultSkillId
+ * @returns {KitBuilder}
  */
 export function chessKitAsPick(build, defaultSkillId) {
   return (bb, rec, def) => {

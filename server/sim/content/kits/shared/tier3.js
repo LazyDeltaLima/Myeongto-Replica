@@ -34,39 +34,60 @@ import { COLS } from '../../../constants.js';
 import { bodyInRange } from '../../../body.js';
 import { normalizeChess, normalizeSkill } from '../../../simdata.js';
 import { tacticalPoint as sharedTacticalPoint } from '../../tokens.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { KitChess, KitDef, Bb, Grid, Tile } from './tier1.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/**
+ * A skill's normalised record (skillData).
+ * @typedef {ReturnType<typeof skillData>} SkillData
+ * A funnel's ramp per target id (funnelMap), kept on the unit's profession state `unit.trait`.
+ * @typedef {{ s: number, t: number }} FunnelRamp
+ * @typedef {{ funnelMap?: Map<number, FunnelRamp> }} FunnelTrait
+ */
 
 // ---------------------------------------------------------------------------------------------------------------
 // helpers
 
+/** @param {unknown} v @param {number} [d] */
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+/** @param {KitChess} chess @param {KitDef} def */
 const defOf = (chess, def) => def ?? normalizeChess(chess);
+/** @param {KitDef} d @param {number} i */
 const talentBb = (d, i) => d?.talents?.[i]?.bb ?? {};
+/** @param {KitDef} d */
 const traitBb = (d) => d?.traitBb ?? {};
-/** Module-only talent (data: `hidden && fromModule`, e.g. 空弦 精锐 "范围内存在地面敌人时攻击速度+8"). */
+/** Module-only talent (data: `hidden && fromModule`, e.g. 空弦 精锐 "范围内存在地面敌人时攻击速度+8"). @param {KitChess} chess */
 const moduleTalentBb = (chess) => (chess?.talents ?? []).find((t) => t && t.hidden && t.fromModule)?.bb ?? null;
-/** Id of the SELECTED skill the kit is built for (DESIGN §16: `bb`, `chess.skill` and `def.skill` belong to it). */
+/** Id of the SELECTED skill the kit is built for (DESIGN §16: `bb`, `chess.skill` and `def.skill` belong to it). @param {KitChess} chess @param {KitDef} d */
 const selectedId = (chess, d) => d?.skill?.id ?? chess?.skill?.skillId ?? null;
 /**
  * Normalised record (simdata normalizeSkill shape: bb, rangeGrid, maxCharges, duration, description, trigger) of the
  * selectable skill `id` at this chess's level: the selected one is `def.skill` with the kit's `bb`, any other comes
  * from `chess.skills[]` (DATA §2.2) — every spec of `skills` is built from its own numbers whichever skill is selected.
+ * @param {KitChess} chess @param {KitDef} d @param {Bb | null | undefined} bb @param {string} id
  */
 function skillData(chess, d, bb, id) {
   if (id != null && selectedId(chess, d) === id && d?.skill) return { ...d.skill, bb: bb ?? d.skill.bb ?? {} };
   const rec = (chess?.skills ?? []).find((s) => s && s.skillId === id);
   return (rec && normalizeSkill({ skill: rec })) || { id, bb: {}, rangeGrid: null, maxCharges: 1, duration: 0, description: '' };
 }
-/** `{ [skillId]: SkillSpec }` of the non-default selectable skills: `builders[id](skillData(id))` each. */
+/**
+ * `{ [skillId]: SkillSpec }` of the non-default selectable skills: `builders[id](skillData(id))` each.
+ * @param {KitChess} chess @param {KitDef} d @param {Bb | null | undefined} bb @param {Record<string, (s: SkillData) => object>} builders
+ */
 function altSkills(chess, d, bb, builders) {
+  /** @type {Record<string, object>} */
   const out = {};
   for (const [id, build] of Object.entries(builders)) out[id] = build(skillData(chess, d, bb, id));
   return out;
 }
-/** instant, or charges when the skill stores several (可充能N次). */
+/** instant, or charges when the skill stores several (可充能N次). @param {{ maxCharges?: number } | null | undefined} s */
 const instantKindOf = (s) => ((s?.maxCharges ?? 1) > 1 ? 'charges' : 'instant');
 /** Timed stat skill (迅捷打击 / 攻击力强化 / 防御力强化 …): bb atk / def / max_hp / attack_speed on the operator. */
-const statSkill = (s) => {
+const statSkill = (/** @type {{ bb?: Bb | null }} */ s) => {
   const b = s.bb || {};
+  /** @type {Record<string, number>} */
   const mods = {};
   if (num(b.atk)) mods.atkPct = num(b.atk);
   if (num(b.def)) mods.defPct = num(b.def);
@@ -77,12 +98,13 @@ const statSkill = (s) => {
 /**
  * "范围内存在地面敌人时攻击速度+N" (能天使 MAR-Y trait, 空弦 MAR-Y talent): ASPD buff `key` while at least `cnt` ground
  * enemies stand in the current range.
+ * @param {string} key @param {number} aspd @param {number} [cnt]
  */
 function groundAspd(key, aspd, cnt = 1) {
-  return (battle, unit) => {
+  return (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
     let on = false;
     battle.every(0.1, () => {
-      const n = alive(unit) ? battle.enemiesInKeys(unit.rangeKeys, unit, { canHitFly: true }).filter((e) => !e.isFlying).length : 0;
+      const n = alive(unit) ? battle.enemiesInKeys(unit.rangeKeys, unit, { canHitFly: true }).filter((/** @type {Unit} */ e) => !e.isFlying).length : 0;
       const want = n >= Math.max(1, cnt);
       if (want === on && (!want || unit.findBuff(key))) return;
       on = want;
@@ -91,16 +113,22 @@ function groundAspd(key, aspd, cnt = 1) {
     }, { owner: unit });
   };
 }
+/** @param {Unit | null | undefined} u */
 const alive = (u) => !!(u && u.alive && u.deployed);
+/** @param {Unit} u */
 const tileKeyOf = (u) => (u.side === 'ally' ? u.tileR * COLS + u.tileC : Math.round(u.y) * COLS + Math.round(u.x));
-/** On a tile of `set`: an ally by its tile, an enemy by its body (every tile a huge enemy occupies — sim/body.js). */
+/** On a tile of `set`: an ally by its tile, an enemy by its body (every tile a huge enemy occupies — sim/body.js). @param {Unit} x @param {Set<number>} set */
 const onTiles = (x, set) => (x.side === 'ally' ? set.has(tileKeyOf(x)) : bodyInRange(x, set));
+/** @param {Grid | null | undefined} grid @param {Unit} u @param {number} [ext] */
 const gridKeys = (grid, u, ext = 0) => absoluteRangeKeys(grid || [[0, 0]], u.tileR, u.tileC, u.dir, ext);
+/** @param {Battle} battle @param {string} kind @param {Unit} u @param {object} [extra] */
 const fx = (battle, kind, u, extra = {}) => battle.fx(kind, { x: u.x, y: u.y, id: u.id, ...extra });
+/** @param {unknown} g @returns {Tile[] | null} */
 const copyGrid = (g) => (Array.isArray(g) && g.length ? g.map((p) => [p[0], p[1]]) : null);
 const NINE = [[1, -1], [1, 0], [1, 1], [0, -1], [0, 0], [0, 1], [-1, -1], [-1, 0], [-1, 1]];
+/** @type {Record<string, number>} */
 const CN_NUM = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
-/** Number captured by `re` (arabic or a single chinese numeral) in `text`, else `fallback`. */
+/** Number captured by `re` (arabic or a single chinese numeral) in `text`, else `fallback`. @param {unknown} text @param {RegExp} re @param {number} fallback */
 function textNum(text, re, fallback) {
   const m = String(text ?? '').match(re);
   if (!m) return fallback;
@@ -110,25 +138,31 @@ function textNum(text, re, fallback) {
  * A tile a summon may take: inside the field and not reserved (Battle.isReservedTile: nobody on it, no knocked-out
  * operator lying there, not the home tile of an ally that has not deployed yet / waits to redeploy — the initial
  * deployment runs one unit after another: a summon placed while it runs must not steal a later board unit's tile).
+ * @param {Battle} battle @param {number} r @param {number} c @param {Unit | null} [src]
  */
 function freeTile(battle, r, c, src = null) {
   return Number.isInteger(r) && Number.isInteger(c) && battle.grid.inRect(r, c) && !battle.isReservedTile(r, c, null, src);
 }
-/** Walkable ground tile a melee summon can stand on. */
+/** Walkable ground tile a melee summon can stand on. @param {Battle} battle @param {number} r @param {number} c */
 const groundTile = (battle, r, c) => battle.grid.groundPassable(r, c) && battle.grid.canStand(r, c);
 /**
  * Tactical point (战术点) of a tactician: `prefer` (the board piece's tile, i.e. the player's choice) when usable —
  * free, standable ground (never 深水区: grid.canStand) inside her initial range ("只能部署在召唤者攻击范围内"; the prep
  * already keeps the piece there, PlayerState._legal) —, else the shared tactical point (tokens.js tacticalPoint =
  * Battle.findTacticalPoint: a free walkable tile of its initial range on an enemy ground path first, then the nearest).
+ * @param {Battle} battle @param {Unit} unit @param {Tile | null} [prefer]
  */
 function tacticalPoint(battle, unit, prefer = null) {
-  const inRange = (r, c) => (unit.baseRangeKeys || unit.rangeKeys || []).includes(r * COLS + c);
+  const inRange = (/** @type {number} */ r, /** @type {number} */ c) => (unit.baseRangeKeys || unit.rangeKeys || []).includes(r * COLS + c);
   if (prefer && freeTile(battle, prefer[0], prefer[1], unit) && groundTile(battle, prefer[0], prefer[1]) && inRange(prefer[0], prefer[1])) return prefer;
   return sharedTacticalPoint(battle, unit);
 }
 
-/** Targetable enemies on `keys`, sorted by the unit's priority (at most `n` when n > 0). */
+/**
+ * Targetable enemies on `keys`, sorted by the unit's priority (at most `n` when n > 0).
+ * @param {Battle} battle @param {Unit} unit @param {Iterable<number>} keys @param {number} [n] @param {object | null} [profile]
+ * @returns {Unit[]}
+ */
 function enemiesOn(battle, unit, keys, n = 0, profile = null) {
   const list = battle.enemiesInKeys(keys, unit, profile ?? { canHitFly: true });
   sortEnemyTargets(battle, unit, list, (profile ?? unit.profile)?.priority ?? null);
@@ -139,19 +173,24 @@ function enemiesOn(battle, unit, keys, n = 0, profile = null) {
  * Tile aura: every `interval` s (0 ⇒ call the returned update() yourself, e.g. from a skill onTick) buffs the
  * units of `side` standing on `tiles()` (filter/mods per unit, mods null ⇒ skipped) and drops the buff from units
  * that left. update.clear() removes everything this aura applied. Same-key auras of several sources do not stack.
+ * @param {Battle} battle @param {Unit} unit
+ * @param {{ key: string, side: string, tiles: () => Iterable<number> | Set<number> | null | undefined, interval?: number,
+ *   active?: () => unknown, filter?: (x: Unit) => unknown, mods: Bb | null | ((x: Unit) => Bb | null) }} o
  */
 function aura(battle, unit, o) {
+  /** @type {Set<Unit>} */
   let cur = new Set();
   const iv = o.interval ?? 0.2;
   const dur = Math.max(iv * 2, 0.1) + 0.05;
-  const drop = (x) => { const b = x.findBuff(o.key); if (b && b.source === unit) battle.removeBuff(x, b); };
+  const drop = (/** @type {Unit} */ x) => { const b = /** @type {BuffRec | null} */ (x.findBuff(o.key)); if (b && b.source === unit) battle.removeBuff(x, b); };
   const update = () => {
+    /** @type {Set<Unit>} */
     const next = new Set();
     if (alive(unit) && (!o.active || o.active())) {
       const keys = o.tiles();
       const set = keys instanceof Set ? keys : new Set(keys || []);
       const list = o.side === 'ally' ? battle.allyUnits : battle.enemies;
-      for (const x of list) {
+      for (const x of /** @type {Unit[]} */ (list)) {
         if (!x.alive || !x.deployed || x.hidden || x.kind === 'device') continue;
         if (o.side === 'ally' && !battle.allySelectable(x, unit)) continue; // never a 孤立 unit (炎佑)
         if (!onTiles(x, set) || (o.filter && !o.filter(x))) continue;
@@ -170,7 +209,7 @@ function aura(battle, unit, o) {
   return update;
 }
 
-/** Buff present exactly while `cond()` holds (checked every tick). */
+/** Buff present exactly while `cond()` holds (checked every tick). @param {Battle} battle @param {Unit} unit @param {string} key @param {() => unknown} cond @param {Bb | (() => Bb)} mods */
 function whileTrue(battle, unit, key, cond, mods) {
   battle.on('tick', () => {
     const on = alive(unit) && cond();
@@ -180,14 +219,15 @@ function whileTrue(battle, unit, key, cond, mods) {
   }, { owner: unit });
 }
 
-/** Team-wide talents never stack: only the lowest-id living carrier of `tag` of this player applies them. */
+/** Team-wide talents never stack: only the lowest-id living carrier of `tag` of this player applies them. @param {Battle} battle @param {Unit} unit @param {string} tag */
 function isLeader(battle, unit, tag) {
+  /** @type {Unit | null} */
   let best = null;
   for (const a of battle.allyUnits) if (alive(a) && a.ownerId === unit.ownerId && a.mem[tag] && (!best || a.id < best.id)) best = a;
   return best === unit;
 }
 
-/** SP gain that respects "no SP while a timed skill runs". */
+/** SP gain that respects "no SP while a timed skill runs". @param {Unit | null | undefined} u @param {number} n @param {string} [reason] */
 function giveSp(u, n, reason = 'talent') {
   const sk = u?.skill;
   if (!sk || sk.noSkill || !(n > 0) || (sk.active && sk.isTimed)) return 0;
@@ -197,22 +237,23 @@ function giveSp(u, n, reason = 'talent') {
 /**
  * Funnel ramp tracked per target (耶拉's 2 drones each ramp on their own lock; 1 drone = profession behaviour). Two
  * drones locked on the same enemy land in the same tick: they ramp in parallel (one step per volley, same scale).
+ * @param {Battle} battle @param {Unit} unit @param {Unit} target
  */
 function funnelMap(battle, unit, target) {
   const f = unit.profile.funnel || { init: 0.2, delta: 0.15, max: 1.1 };
-  const m = unit.trait.funnelMap || (unit.trait.funnelMap = new Map());
+  const m = /** @type {FunnelTrait} */ (unit.trait).funnelMap || (/** @type {FunnelTrait} */ (unit.trait).funnelMap = new Map());
   const prev = m.get(target.id);
   if (prev && prev.t === battle.time) return prev.s;
   const s = prev == null ? f.init : Math.min(f.max, prev.s + f.delta);
   m.set(target.id, { s, t: battle.time });
   return s;
 }
-/** Drones return when their lock is dropped: forget ramps of enemies no longer attacked. */
+/** Drones return when their lock is dropped: forget ramps of enemies no longer attacked. @param {Battle} battle @param {Unit} unit */
 function installFunnelPrune(battle, unit) {
-  battle.on('beforeAttack', (ctx) => {
-    if (ctx.attacker !== unit || !unit.trait.funnelMap) return;
+  battle.on('beforeAttack', (/** @type {{ attacker: Unit, targets: Unit[] }} */ ctx) => {
+    if (ctx.attacker !== unit || !/** @type {FunnelTrait} */ (unit.trait).funnelMap) return;
     const ids = new Set(ctx.targets.map((t) => t.id));
-    for (const k of [...unit.trait.funnelMap.keys()]) if (!ids.has(k)) unit.trait.funnelMap.delete(k);
+    for (const k of [.../** @type {Map<number, FunnelRamp>} */ (/** @type {FunnelTrait} */ (unit.trait).funnelMap).keys()]) if (!ids.has(k)) /** @type {Map<number, FunnelRamp>} */ (/** @type {FunnelTrait} */ (unit.trait).funnelMap).delete(k);
   }, { owner: unit, priority: -100 });
 }
 

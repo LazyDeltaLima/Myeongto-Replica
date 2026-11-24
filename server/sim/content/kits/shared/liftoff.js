@@ -10,10 +10,13 @@
 export const LIFTOFF_FLAGS = Object.freeze({ blockFly: true, liftoff: true });
 /** The ends of a skill that leave through its landing mode; the others (a knock-out, a withdrawal …) land at once. */
 export const LANDS = new Set(['duration', 'ammo', 'stop', 'stopped']);
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 /**
  * The mode switch into a take-off or landing mode cuts the swing in progress: the attack abilities of those operators'
  * modes detach with `_interruptAbilityOnDetach` (`det` 1 in tools/assets/local-attack-timing.json).
+ * @param {Unit} unit
  */
 function cutSwing(unit) { unit.swing = null; unit.castLeft = 0; }
 
@@ -22,8 +25,8 @@ function cutSwing(unit) { unit.swing = null; unit.castLeft = 0; }
  * `wait` s first (a deployment's born state, the state the take-off mode's attack runs after). With `key` the unit goes
  * airborne by a buff of that key with LIFTOFF_FLAGS, then `onAir` (the ground enemies it held walk on) — at once, or after
  * `wait` while the same deployment is up.
- * @param {object} battle
- * @param {object} unit
+ * @param {Battle} battle
+ * @param {Unit} unit
  * @param {number} clip
  * @param {{ key?: string, wait?: number, onAir?: () => void }} [opts]
  */
@@ -43,8 +46,8 @@ export function holdTakeOff(battle, unit, clip, { key, wait = 0, onAir } = {}) {
  * attacks nothing until it has played, then `onLanded` (the flyers it held are let go). `air`: the take-off's buff
  * (holdTakeOff `key`), which goes now. A skill cast again meanwhile keeps it in the air (the landing buff goes, the skill's
  * own flags or its new take-off buff hold it). Any other end lands at once.
- * @param {object} battle
- * @param {object} unit
+ * @param {Battle} battle
+ * @param {Unit} unit
  * @param {number} clip
  * @param {{ key: string, air?: string, reason: string, onLanded?: () => void }} opts
  */

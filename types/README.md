@@ -104,8 +104,8 @@ error.
 
 With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`, the files directly under `server/`
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, the files directly under
-`server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), `garrisons/`,
-`support/`, `bonds/`, `items/` and `bands/`.
+`server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), the kit helpers
+(`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`.
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -282,8 +282,21 @@ most strict errors were, and the JSDoc that fixed them:
   (`for (const b of /** @type {BuffRec[]} */ (e.buffs.slice()))`). `Unit.s` is never null once read (its getter's
   `@returns`), `Unit.mem` is `Record<string, any>` (content's scratch space).
 - an engine method whose parameter defaults to `null` (`loseHp`'s `tags`, `redeploy`'s `tile`, `isReservedTile`'s `src`,
-  `allies(ownerId)`, `allySelectable(a, by)`, `holdProtect`'s `source`) takes the `@param` there; `after` / `every` return a
-  `Scheduled` (`battle/hooks.js`), whose `cancel` is set after the literal (a cast on it).
+  `allies(ownerId)`, `allySelectable(a, by)`, `holdProtect`'s `source`, `_setupUnit`'s `kit`, `_safe`'s `owner`,
+  `unitsInGrid`'s `side`) takes the `@param` there; `after` / `every` return a
+  `Scheduled` (`battle/hooks.js`), whose `cancel` is set after the literal (a cast on it). JSDoc matches a destructured
+  parameter (`{ side = null } = {}`) by position, so the parameters before it need their `@param` too.
+- the kit helpers (`server/sim/content/kits/shared/`, imported by every kit of `kits/ops/`) share the typedefs of
+  `kits/shared/tier1.js`: `KitChess` (the raw loadout-resolved record, maybe absent), `KitDef` (the normalised def),
+  `Bb` (a blackboard, `TalentRecord['bb']`), `DmgRec` (`HitEv['dmg']`), `Tile`, `Grid` (`ReadonlyArray<ReadonlyArray<number>>`:
+  a kit passes its own frozen offset lists as well as data grids); a builder is `KitBuilder` (`kits/shared/chessPick.js`).
+  A helper's types reach the kits' plain pass at once, so a parameter a kit fills with a partial object is typed by
+  what the helper reads (`instantKind(def)`: `{ skill?: { maxCharges?: number } | null }`; `pullToward`'s puller
+  `{ x, y, side? }`), a tile list a kit passes as `number[][]` takes `@template {ReadonlyArray<number>} T` (`betterEnemyTiles`,
+  `bestTile`), and a `ChessDef` field built from the untyped record (`def.talents`) is `any`: its callbacks take an
+  inline type. A generic over several builders' return types (`altSkills`) failed with TS2719: they return `object`.
+  A `@type` on a declaration in the middle of a line (`=> { /** @type {…} */ const o = {}; …`) is not read: cast the
+  value instead (`const o = /** @type {Record<string, number>} */ ({})`).
 
 
 ## Split classes

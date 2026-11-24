@@ -273,6 +273,7 @@ export class BattlePlayers {
   /**
    * Resolve kit/profile/skill for a unit (called by content/index.js; safe to call again).
    * @this {Battle}
+   * @param {object | null} [kit]
    */
   _setupUnit(u, kit = null) {
     if (!kit) {

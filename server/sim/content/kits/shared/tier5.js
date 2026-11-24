@@ -39,6 +39,11 @@ import { bodyInRange } from '../../../body.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
 import { hypot } from '../../../detmath.js';
 import { hasPower } from './powers.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { KitChess, KitDef, Bb, Grid } from './tier1.js' */
+/** @import { HitEv, HealEv } from '../../support/index.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 // ---- text-only constants (the official blackboards carry no key for these) --------------------------------------
 /** 华法琳 S1 "只当目标生命值不满一半时才会触发"; 塞雷娅 S1 "血量小于等于一半"; 山 module "生命值高于50%时". */
@@ -52,93 +57,108 @@ const AURA_DUR = 0.5;
 const RING1 = 1.5;
 
 // ---- helpers ------------------------------------------------------------------------------------------------------
+/** @param {unknown} v @param {number} [d] */
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+/** @param {Unit | null | undefined} u */
 const on = (u) => !!u && u.alive && u.deployed && !u.removed;
-/** In the unit's current range: an ally by its tile, an enemy by its body (a huge one's every tile — sim/body.js). */
+/** In the unit's current range: an ally by its tile, an enemy by its body (a huge one's every tile — sim/body.js). @param {Unit} unit @param {Unit} x */
 const inRange = (unit, x) => !!unit.rangeKeySet && bodyInRange(x, unit.rangeKeySet);
+/** @param {KitChess} chess @param {number} i */
 const talent = (chess, i) => (chess?.talents || []).find((t) => t && t.index === i)?.bb ?? {};
+/** @param {KitChess} chess @param {number} i */
 const talentRec = (chess, i) => (chess?.talents || []).find((t) => t && t.index === i) ?? null;
+/** @param {KitChess} chess */
 const traitBb = (chess) => chess?.trait?.bb ?? {};
+/** @param {KitChess} chess @param {KitDef} def */
 const skillGrid = (chess, def) => def?.skill?.rangeGrid ?? chess?.skill?.rangeGrid ?? null;
+/** @param {KitChess} chess @param {KitDef} def */
 const maxCharges = (chess, def) => num(def?.skill?.maxCharges, num(chess?.skill?.maxChargeTime, 1));
-/** Blackboard `base_attack_time` (seconds) → batPct of this chess's base attack time. */
+/** Blackboard `base_attack_time` (seconds) → batPct of this chess's base attack time. @param {unknown} sec @param {KitChess} chess */
 const batPct = (sec, chess) => { const b = num(chess?.stats?.bat, 1) || 1; const v = num(sec) / b; return v ? Math.max(-0.9, v) : 0; };
-/** Drop zero / non-finite entries (a zero mod is noise in the buff list). */
-const mods = (m) => { const o = {}; for (const k of Object.keys(m)) { const v = m[k]; if (typeof v === 'number' && Number.isFinite(v) && v !== 0) o[k] = v; } return o; };
+/** Drop zero / non-finite entries (a zero mod is noise in the buff list). @param {Record<string, unknown>} m */
+const mods = (m) => { const o = /** @type {Record<string, number>} */ ({}); for (const k of Object.keys(m)) { const v = m[k]; if (typeof v === 'number' && Number.isFinite(v) && v !== 0) o[k] = v; } return o; };
+/** @param {{ x: number, y: number }} a @param {{ x: number, y: number }} b */
 const dist = (a, b) => hypot(a.x - b.x, a.y - b.y);
 /** Abyssal Hunters: the group tag `abyssal` (shared/powers.js). 浊心斯卡蒂 (char_1012_skadi2) has groupId null in the official data: not one for these talents. */
+/** @param {Unit} u */
 const isAbyssal = (u) => hasPower(u, 'abyssal');
+/** @param {Unit | null | undefined} u */
 const isOp = (u) => u && u.kind === 'op';
 
 // ---- operator loadouts (DESIGN §16) -------------------------------------------------------------------------------
 // A kit function is resolved per SELECTED skill: `bb` / `chess.skill` / `def.skill` are the selected skill's. The default
 // skill keeps its `skill` spec; every other selectable skill is a `skills[skillId]` entry. Kit `install` / talents run
 // under every skill, so default-skill machinery in them is guarded by the selected skill id (`sid`).
-/** Id of the selected skill of a chess record / def. */
+/** Id of the selected skill of a chess record / def. @param {KitChess} chess @param {KitDef} def */
 const selectedId = (chess, def) => chess?.skill?.skillId ?? def?.skill?.id ?? null;
-/** `skills` map whose entries are built only when read (each spec is a function of the SELECTED skill's bb). */
+/** `skills` map whose entries are built only when read (each spec is a function of the SELECTED skill's bb). @param {Record<string, () => object>} builders */
 function lazySkills(builders) {
+  /** @type {Record<string, object>} */
   const o = {};
   for (const [id, build] of Object.entries(builders)) Object.defineProperty(o, id, { enumerable: true, get: build });
   return o;
 }
-/** Spec kind of an instant skill (charges when the selected skill can charge). */
+/** Spec kind of an instant skill (charges when the selected skill can charge). @param {KitChess} chess @param {KitDef} def */
 const instantKind = (chess, def) => (maxCharges(chess, def) > 1 ? 'charges' : 'instant');
-/** Skill-range targeting override of the selected skill (undefined without a skill range). */
+/** Skill-range targeting override of the selected skill (undefined without a skill range). @param {KitChess} chess @param {KitDef} def @param {object | null} [extra] */
 const skillRange = (chess, def, extra = null) => {
   const g = skillGrid(chess, def);
   return g || extra ? { ...(g ? { rangeGrid: g } : {}), ...(extra || {}) } : undefined;
 };
-/** "攻击范围内存在N名及以上敌人时攻击速度+X" (modules REA-Y). */
+/** "攻击范围内存在N名及以上敌人时攻击速度+X" (modules REA-Y). @param {Battle} battle @param {Unit} unit @param {string} key @param {number} aspd @param {number} cnt */
 function crowdAspd(battle, unit, key, aspd, cnt) {
   if (!aspd || !(cnt > 0)) return;
   whileOn(battle, unit, 0.2, () => {
     if (battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile).length >= cnt) battle.addBuff(unit, { key, duration: 0.3, mods: { aspd } });
   });
 }
-/** "攻击范围内存在元素损伤爆发的敌人时，技力自然恢复速度+X/秒" (modules PRI-Y). */
+/** "攻击范围内存在元素损伤爆发的敌人时，技力自然恢复速度+X/秒" (modules PRI-Y). @param {Battle} battle @param {Unit} unit @param {string} key @param {number} sp */
 function burstSpUp(battle, unit, key, sp) {
   if (!(sp > 0)) return;
   whileOn(battle, unit, AURA_IV, () => {
-    if (battle.enemiesInKeys(unit.rangeKeys, unit, { canHitFly: true }).some((e) => e.s.flags.burstLock)) battle.addBuff(unit, { key, duration: AURA_DUR, mods: { spRecoveryFlat: sp } });
+    if (battle.enemiesInKeys(unit.rangeKeys, unit, { canHitFly: true }).some((/** @type {Unit} */ e) => e.s.flags.burstLock)) battle.addBuff(unit, { key, duration: AURA_DUR, mods: { spRecoveryFlat: sp } });
   });
 }
 
-/** First living deployed ally with the same operator (charId) — used to keep same-name talents from stacking. */
+/** First living deployed ally with the same operator (charId) — used to keep same-name talents from stacking. @param {Battle} battle @param {Unit} unit @returns {Unit | null} */
 function leaderOf(battle, unit) {
   const cid = unit.def?.charId;
   for (const a of battle.allyUnits) if (on(a) && a.def?.charId === cid) return a;
   return null;
 }
 
-/** Elemental HP damage (元素伤害): engine type 'elemental' (× elementalTakenMul in the pipeline, never trueTakenMul). */
+/**
+ * Elemental HP damage (元素伤害): engine type 'elemental' (× elementalTakenMul in the pipeline, never trueTakenMul).
+ * @param {Battle} battle @param {Unit} src @param {Unit | null | undefined} tgt @param {number} amount @param {string} tag
+ * @param {string | null} [element]
+ */
 function elementHit(battle, src, tgt, amount, tag, element = null) {
   if (!tgt || !tgt.alive || !(amount > 0)) return 0;
   return battle.dealDamage(src, tgt, { amount, type: 'elemental', element, canDodge: false, tags: ['element', tag] });
 }
 
-/** Periodic check while the unit is on the field. */
+/** Periodic check while the unit is on the field. @param {Battle} battle @param {Unit} unit @param {number} sec @param {() => void} fn */
 function whileOn(battle, unit, sec, fn) {
   battle.every(sec, () => { if (on(unit)) fn(); }, { owner: unit });
 }
 
-/** "同类效果取最高" SP-recovery aura: refresh `aura:spRecovery` on matching allies unless a higher one is present. */
+/** "同类效果取最高" SP-recovery aura: refresh `aura:spRecovery` on matching allies unless a higher one is present. @param {Battle} battle @param {Unit} unit @param {number} value @param {(a: Unit) => unknown} filter */
 function spAura(battle, unit, value, filter) {
   if (!(value > 0)) return;
   whileOn(battle, unit, AURA_IV, () => {
-    for (const a of battle.alliesFor(unit)) {
+    for (const a of /** @type {Unit[]} */ (battle.alliesFor(unit))) {
       if (!filter(a)) continue;
-      const cur = a.findBuff('aura:spRecovery');
+      const cur = /** @type {BuffRec | null} */ (a.findBuff('aura:spRecovery'));
       if (cur && num(cur.mods?.spRecoveryFlat) > value + 1e-9) continue;
       battle.addBuff(a, { key: 'aura:spRecovery', duration: AURA_DUR, mods: { spRecoveryFlat: value } });
     }
   });
 }
 
-/** Module PRI-X (本源术师): damage vs enemies in an element burst ×damage_scale. */
+/** Module PRI-X (本源术师): damage vs enemies in an element burst ×damage_scale. @param {Battle} battle @param {Unit} unit @param {number} mul */
 function burstDamageUp(battle, unit, mul) {
   if (!(mul > 1)) return;
-  battle.on('hit', (c) => {
+  battle.on('hit', (/** @type {HitEv} */ c) => {
     if (c.source !== unit || !c.target || c.target.side !== 'enemy' || c.dmg.type === 'element') return;
     if (c.target.s.flags.burstLock) c.dmg.mul *= mul;
   }, { owner: unit });
@@ -148,12 +168,13 @@ function burstDamageUp(battle, unit, mul) {
  * Modules PHY-X / GUA-X "治疗生命值低于50%的友方单位时治疗量提升15%": heals on allies below hp_ratio ×heal_scale. The client's
  * module buff picks its comparison: `atOrBelow` for heal_scale_up[hpratio][LE] (华法琳's PHY-X), strictly below for 塞雷娅's
  * GUA-X (set_heal_scale_by_hpratio: LT) and 录武官's PHY-X (reckpr_e_002_tr: LT).
+ * @param {Battle} battle @param {Unit} unit @param {Bb} tb @param {{ atOrBelow?: boolean }} [opts]
  */
 function lowHpHealUp(battle, unit, tb, { atOrBelow = false } = {}) {
   const mul = num(tb.heal_scale), thr = num(tb.hp_ratio);
   if (!(mul > 1) || !(thr > 0)) return;
-  const low = atOrBelow ? (t) => t.hpRatio <= thr + 1e-9 : (t) => t.hpRatio < thr;
-  battle.on('heal', (c) => {
+  const low = atOrBelow ? (/** @type {Unit} */ t) => t.hpRatio <= thr + 1e-9 : (/** @type {Unit} */ t) => t.hpRatio < thr;
+  battle.on('heal', (/** @type {HealEv} */ c) => {
     if (c.source !== unit || c.opts?.regen || !c.target || c.target.side !== 'ally') return;
     if (low(c.target)) c.amount *= mul;
   }, { owner: unit });
@@ -165,6 +186,7 @@ function lowHpHealUp(battle, unit, tb, { atOrBelow = false } = {}) {
  * 莫斯提马 / 莱恩哈特 / 白面鸮 (integration review: a flat forward +1 added a whole column, 3 tiles, and widened the skill
  * ranges too). It replaces the unit's own range, so the DEFAULT trigger's initial range follows; skills with their own
  * range keep it. Without such a grid in the data: one extra forward tile [ASSUMED].
+ * @param {Battle} battle @param {Unit} unit @param {KitChess} chess
  */
 function moduleRangeUp(battle, unit, chess) {
   if (!chess?.isGolden || !/攻击范围扩大/.test(String(chess?.trait?.moduleDesc ?? ''))) return;
@@ -181,19 +203,25 @@ function moduleRangeUp(battle, unit, chess) {
   battle.addBuff(unit, { key: 't5:moduleRange', mods: { rangeExtend: 1 }, persist: true, allowDead: true });
 }
 
-/** Permanent (talent) stat buff that survives death/redeploy. */
+/** Permanent (talent) stat buff that survives death/redeploy. @param {Battle} battle @param {Unit} unit @param {string} key @param {Record<string, unknown>} m */
 function permBuff(battle, unit, key, m) {
   const mm = mods(m);
   if (Object.keys(mm).length) battle.addBuff(unit, { key, mods: mm, persist: true, allowDead: true });
 }
 
-/** Enemies inside an absolute-key grid of `grid` offsets around `unit` (best targets first). */
+/**
+ * Enemies inside an absolute-key grid of `grid` offsets around `unit` (best targets first).
+ * @param {Battle} battle @param {Unit} unit @param {Grid | null | undefined} grid @param {number} [n]
+ * @param {{ ignoreStealth?: boolean }} [opts]
+ * @returns {Unit[]}
+ */
 function enemiesInGrid(battle, unit, grid, n = 0, { ignoreStealth = false } = {}) {
   const keys = absoluteRangeKeys(grid || unit.rangeGrid || [[0, 0]], unit.tileR, unit.tileC, unit.dir, 0);
+  /** @type {Unit[]} */
   let list;
   if (ignoreStealth) {
     const set = new Set(keys);
-    list = battle.enemies.filter((e) => e.alive && !e.hidden && e.deployed && !e.s.flags.untargetable && bodyInRange(e, set));
+    list = battle.enemies.filter((/** @type {Unit} */ e) => e.alive && !e.hidden && e.deployed && !e.s.flags.untargetable && bodyInRange(e, set));
   } else list = battle.enemiesInKeys(keys, unit, { canHitFly: true });
   sortEnemyTargets(battle, unit, list, null);
   return n > 0 && list.length > n ? list.slice(0, n) : list;

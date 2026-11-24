@@ -30,40 +30,61 @@ import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
 import { offsetTile } from '../../../dir.js';
 import { bodyTileReach, bodyInRange } from '../../../body.js';
 import { isHpLoss } from '../../../damage.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { ChessRecord, TalentRecord } from '../../../../../shared/loadoutRecord.js' */
+/** @import { ChessDef } from '../../../simdata.js' */
+/** @import { HitEv, DamagedEv, DeployEv } from '../../support/index.js' */
+/** @import { Scheduled } from '../../../battle/hooks.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/**
+ * The kit helpers' shared types: the raw (loadout-resolved) chess record a kit takes, maybe absent; a blackboard read by
+ * key; a damage record as the `hit` / `damaged` hooks carry it; a tile [r, c]; the normalised def a kit takes (absent:
+ * rebuilt from the record).
+ * @typedef {ChessRecord | null | undefined} KitChess
+ * @typedef {ChessDef | null | undefined} KitDef
+ * @typedef {NonNullable<TalentRecord['bb']>} Bb
+ * @typedef {HitEv['dmg']} DmgRec
+ * @typedef {[number, number]} Tile
+ * @typedef {ReadonlyArray<ReadonlyArray<number>>} Grid range offsets [dRow, dCol] (a data RangeGrid or a kit's own list)
+ */
 
 // =================================================================================================================
 // shared helpers (named exports; content/index.js only merges the default export)
 
-/** Finite number or `d` (blackboard values may be strings). */
+/** Finite number or `d` (blackboard values may be strings). @param {unknown} v @param {number} [d] */
 export const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d));
 
-/** Named talent `i` (data index ≥ 0, in order) of a raw chess record. */
+/** Named talent `i` (data index ≥ 0, in order) of a raw chess record. @param {KitChess} chess @param {number} i */
 function talentAt(chess, i) {
   const list = (chess?.talents ?? []).filter((t) => t && t.index !== -1);
   return list[i] ?? null;
 }
-/** Blackboard of named talent `i` ({} when absent). */
+/** Blackboard of named talent `i` ({} when absent). @param {KitChess} chess @param {number} [i] */
 export const talentBb = (chess, i = 0) => talentAt(chess, i)?.bb ?? {};
-/** Range grid of named talent `i` (or null). */
+/** Range grid of named talent `i` (or null). @param {KitChess} chess @param {number} [i] */
 export const talentGrid = (chess, i = 0) => talentAt(chess, i)?.rangeGrid ?? null;
-/** Merged blackboard of the hidden module talents (data index −1, elite only). */
+/** Merged blackboard of the hidden module talents (data index −1, elite only). @param {KitChess} chess */
 export function moduleBb(chess) {
+  /** @type {Bb} */
   const o = {};
   for (const t of chess?.talents ?? []) if (t && t.index === -1 && t.bb) Object.assign(o, t.bb);
   return o;
 }
-/** Trait blackboard (elites include their module's trait upgrade). */
+/** Trait blackboard (elites include their module's trait upgrade). @param {KitChess} chess */
 export const traitBb = (chess) => chess?.trait?.bb ?? {};
-/** Elite module active (golden chess). */
+/** Elite module active (golden chess). @param {KitChess} chess */
 export const moduleOn = (chess) => !!(chess?.module && chess.module.active);
 
+/** @param {Unit | null | undefined} u */
 export const up = (u) => !!u && u.alive && u.deployed;
+/** @param {Unit} u */
 export const posKey = (u) => Math.round(u.y) * COLS + Math.round(u.x);
-/** Chebyshev tile distance between two units (a huge enemy: from the nearest tile it occupies — sim/body.js). */
+/** Chebyshev tile distance between two units (a huge enemy: from the nearest tile it occupies — sim/body.js). @param {Unit} a @param {Unit} b */
 export const cheb = (a, b) => (b.hitArea ? bodyTileReach(b, Math.round(a.y), Math.round(a.x))
   : a.hitArea ? bodyTileReach(a, Math.round(b.y), Math.round(b.x))
     : Math.max(Math.abs(Math.round(a.y) - Math.round(b.y)), Math.abs(Math.round(a.x) - Math.round(b.x))));
-/** Normal attack hit on its primary target (no splash, no chain jump). */
+/** Normal attack hit on its primary target (no splash, no chain jump). @param {DmgRec | null | undefined} dmg */
 export const isMainHit = (dmg) => !!dmg && dmg.isAttack && !dmg.isSplash && !(dmg.tags && dmg.tags.includes('chain'));
 /**
  * `damaged` ctx that sets off a "受到攻击时" counter: a damage instance from an enemy, of any kind — its normal attack, a
@@ -74,6 +95,7 @@ export const isMainHit = (dmg) => !!dmg && dmg.isAttack && !dmg.isSplash && !(dm
  * Never a 流失 (PRTS 作战机制 "生命流失…不会触发反伤、受击回复等受到攻击触发的时点"), an element 损伤 (its own event), 无来源 damage
  * (no source to strike back) or another counter / reflection (tags 'counter' / 'reflect': no ping-pong). Community report
  * of 2026-10-06 (item 30): it took enemy attacks only, so 深溟巢涌者's pulse never set a counter off.
+ * @param {DamagedEv} ctx
  */
 export const byEnemyAttack = (ctx) => {
   const s = ctx.source, d = ctx.dmg;
@@ -83,33 +105,38 @@ export const byEnemyAttack = (ctx) => {
 /**
  * `damaged` ctx of a damage that removed HP and can give 受击回复 SP — the engine's rule (damage.js applyHpLoss: not a 流失
  * (`noSp`, Battle.loseHp), not an element 损伤), whatever its source: an attack, a zone, the 无来源 源石溶剂 tick.
+ * @param {DamagedEv} ctx
  */
 export const hurtSpDamage = (ctx) => !!ctx.dmg && !ctx.dmg.noSp && ctx.type !== 'element' && ctx.amount > 0;
 /**
  * Tell the view a unit's deploy direction changed in mid-battle: its model and facing ring follow (shared/protocol.js fxDir).
  * b.snap carries no direction, so a kit setting `unit.dir` without this turns only the range
  * (test/content/kit-facing.test.js).
+ * @param {Battle} battle @param {Unit} u
  */
 export const tellDir = (battle, u) => battle.fx('turnDir', { x: u.x, y: u.y, id: u.id, dir: u.dir });
-/** A timed skill is running (no SP may be gained). */
+/** A timed skill is running (no SP may be gained). @param {Unit} u */
 export const skillBusy = (u) => !!(u.skill && u.skill.active && u.skill.isTimed);
-/** Give SP unless a timed skill is running (AK: no SP gain during a skill). */
+/** Give SP unless a timed skill is running (AK: no SP gain during a skill). @param {Unit | null | undefined} u @param {number} n @param {string} [reason] */
 export function giveSp(u, n, reason = 'talent') {
   if (!u || !u.skill || u.skill.noSkill || skillBusy(u) || !(n > 0)) return 0;
   return u.skill.gainSp(n, reason);
 }
 
-/** 'hit' handler for damage dealt BY `unit` (pre-mitigation; mutate ctx.dmg). */
+/**
+ * 'hit' handler for damage dealt BY `unit` (pre-mitigation; mutate ctx.dmg).
+ * @param {Battle} battle @param {Unit} unit @param {(ctx: HitEv) => void} fn @param {number} [priority]
+ */
 export function onHitBy(battle, unit, fn, priority = 0) {
-  return battle.on('hit', (ctx) => { if (ctx.source === unit && ctx.target && ctx.target.side === 'enemy') fn(ctx); }, { owner: unit, priority });
+  return battle.on('hit', (/** @type {HitEv} */ ctx) => { if (ctx.source === unit && ctx.target && ctx.target.side === 'enemy') fn(ctx); }, { owner: unit, priority });
 }
-/** 'hit' handler for damage dealt TO `unit`. */
+/** 'hit' handler for damage dealt TO `unit`. @param {Battle} battle @param {Unit} unit @param {(ctx: HitEv) => void} fn @param {number} [priority] */
 export function onHitOn(battle, unit, fn, priority = 0) {
-  return battle.on('hit', (ctx) => { if (ctx.target === unit) fn(ctx); }, { owner: unit, priority });
+  return battle.on('hit', (/** @type {HitEv} */ ctx) => { if (ctx.target === unit) fn(ctx); }, { owner: unit, priority });
 }
-/** 'damaged' handler for damage dealt TO `unit`. */
+/** 'damaged' handler for damage dealt TO `unit`. @param {Battle} battle @param {Unit} unit @param {(ctx: DamagedEv) => void} fn @param {number} [priority] */
 export function onDamagedOn(battle, unit, fn, priority = 0) {
-  return battle.on('damaged', (ctx) => { if (ctx.target === unit) fn(ctx); }, { owner: unit, priority });
+  return battle.on('damaged', (/** @type {DamagedEv} */ ctx) => { if (ctx.target === unit) fn(ctx); }, { owner: unit, priority });
 }
 
 /**
@@ -118,7 +145,7 @@ export function onDamagedOn(battle, unit, fn, priority = 0) {
  * outlasts it. (遥's bubbles are a separate key, the client's damage_resistance[bonus] — they multiply with it.)
  */
 export const PROTECT = 'protect';
-/** The mods of a 庇护 value: physical and arts damage taken ×(1 − v). */
+/** The mods of a 庇护 value: physical and arts damage taken ×(1 − v). @param {number} v */
 export const protectMods = (v) => ({ physTakenMul: 1 - v, artsTakenMul: 1 - v });
 /** A hold that outlives one tick and lapses in the next: refreshed every tick while its condition lasts. */
 export const PROTECT_TICK_HOLD = 1.5 * TICK;
@@ -131,7 +158,12 @@ export function holdProtect(battle, target, value, duration, source = null) {
   if (value > 0) battle.applyStrongest(target, PROTECT, { duration, value, mods: protectMods, source });
 }
 
-/** Targetable enemies inside `grid` (relative to the unit; null ⇒ current range), best targets first. */
+/**
+ * Targetable enemies inside `grid` (relative to the unit; null ⇒ current range), best targets first.
+ * @param {Battle} battle @param {Unit} unit @param {Grid | null | undefined} grid
+ * @param {{ n?: number, priority?: string | null, canHitFly?: boolean, groundOnly?: boolean }} [opts]
+ * @returns {Unit[]}
+ */
 export function enemiesInGrid(battle, unit, grid, { n = 0, priority = null, canHitFly = true, groundOnly = false } = {}) {
   const keys = grid ? absoluteRangeKeys(grid, unit.tileR, unit.tileC, unit.dir, 0) : unit.rangeKeys;
   const list = battle.enemiesInKeys(keys, unit, { canHitFly, groundOnly });
@@ -141,16 +173,20 @@ export function enemiesInGrid(battle, unit, grid, { n = 0, priority = null, canH
 /**
  * Deployed allies (no devices) whose tile is inside `grid` relative to `unit` (null ⇒ current range) — never a 孤立 unit
  * (炎佑: Battle.allySelectable), as Battle.alliesInGrid.
+ * @param {Battle} battle @param {Unit} unit @param {Grid | null} [grid]
+ * @returns {Unit[]}
  */
 export function alliesInGridOf(battle, unit, grid = null) {
   const set = grid ? new Set(absoluteRangeKeys(grid, unit.tileR, unit.tileC, unit.dir, 0)) : (unit.rangeKeySet || new Set(unit.rangeKeys || []));
-  return battle.allyUnits.filter((a) => a.alive && a.deployed && !a.hidden && a.kind !== 'device' && set.has(a.tileR * COLS + a.tileC) && battle.allySelectable(a, unit));
+  return battle.allyUnits.filter((/** @type {Unit} */ a) => a.alive && a.deployed && !a.hidden && a.kind !== 'device' && set.has(a.tileR * COLS + a.tileC) && battle.allySelectable(a, unit));
 }
-/** Any targetable enemy in the unit's current range. */
+/** Any targetable enemy in the unit's current range. @param {Battle} battle @param {Unit} unit */
 export const enemyInRange = (battle, unit) => battle.enemiesInKeys(unit.rangeKeys, unit, { canHitFly: true }).length > 0;
 
 /** Run `fn` once per battle for `key` (battle-wide handlers shared by several units). */
+/** @type {WeakMap<Battle, Set<string>>} */
 const ONCE = new WeakMap();
+/** @param {Battle} battle @param {string} key @param {() => void} fn */
 export function once(battle, key, fn) {
   let s = ONCE.get(battle);
   if (!s) ONCE.set(battle, (s = new Set()));
@@ -159,14 +195,19 @@ export function once(battle, key, fn) {
   fn();
 }
 
-/** Permanent talent stat buff (survives death / redeploy). */
+/** Permanent talent stat buff (survives death / redeploy). @param {Battle} battle @param {Unit} unit @param {string} key @param {Record<string, number>} mods */
 export function statBuff(battle, unit, key, mods) {
+  /** @type {Record<string, number>} */
   const m = {};
   for (const [k, v] of Object.entries(mods)) if (Number.isFinite(v) && v !== 0 && !(k.endsWith('Mul') && v === 1)) m[k] = v;
   if (Object.keys(m).length) battle.addBuff(unit, { key, mods: m, persist: true, allowDead: true, tags: ['talent'] });
 }
 
-/** Keep buff `key` on `unit` exactly while cond() holds (checked every tick). `mods` may be a function. */
+/**
+ * Keep buff `key` on `unit` exactly while cond() holds (checked every tick). `mods` may be a function.
+ * @param {Battle} battle @param {Unit} unit @param {string} key @param {() => unknown} cond
+ * @param {Bb | (() => Bb)} mods @param {Bb} [extra]
+ */
 export function toggleBuff(battle, unit, key, cond, mods, extra = {}) {
   const check = () => {
     const want = up(unit) && !!cond();
@@ -176,35 +217,38 @@ export function toggleBuff(battle, unit, key, cond, mods, extra = {}) {
   };
   battle.on('tick', check, { owner: unit });
   battle.on('battleStart', check, { owner: unit });
-  battle.on('deploy', (ctx) => { if (ctx.unit === unit && battle.started) check(); }, { owner: unit });
+  battle.on('deploy', (/** @type {DeployEv} */ ctx) => { if (ctx.unit === unit && battle.started) check(); }, { owner: unit });
 }
 
 /**
  * Aura while `unit` is on the field: every `interval` s, allies passing `select(a)` get buff `key` for slightly longer
  * than the interval. Several sources of the same aura never stack: the strongest `value` wins. `visible`: the buff is
  * announced to the view (its official buff carries an effect).
+ * @param {Battle} battle @param {Unit} unit
+ * @param {{ key: string, select: (a: Unit) => unknown, mods: Bb | ((a: Unit) => Bb), value?: number, interval?: number,
+ *   visible?: boolean }} opts
  */
 export function installAura(battle, unit, { key, select, mods, value = 0, interval = 0.5, visible = false }) {
   battle.every(interval, () => {
     if (!up(unit)) return;
-    for (const a of battle.alliesFor(unit)) {
+    for (const a of /** @type {Unit[]} */ (battle.alliesFor(unit))) {
       if (!select(a)) continue;
-      const cur = a.findBuff(key);
+      const cur = /** @type {BuffRec | null} */ (a.findBuff(key));
       if (cur && cur.source !== unit && (cur.data?.v ?? 0) > value && cur.timeLeft > 0.05) continue;
       battle.addBuff(a, { key, duration: interval + 0.1, mods: typeof mods === 'function' ? mods(a) : mods, source: unit, data: { v: value }, tags: ['aura'], ...(visible ? { visible } : null) });
     }
   }, { owner: unit, immediate: true });
 }
 
-/** Extra natural SP recovery (+perSec) while cond() holds (hooks the per-tick 'time' SP gain). */
+/** Extra natural SP recovery (+perSec) while cond() holds (hooks the per-tick 'time' SP gain). @param {Battle} battle @param {Unit} unit @param {number} perSec @param {() => unknown} cond */
 export function spTimeBonus(battle, unit, perSec, cond) {
   if (!(perSec > 0)) return;
-  battle.on('spGain', (ctx) => {
+  battle.on('spGain', (/** @type {{ unit: Unit, reason: string, amount: number }} */ ctx) => {
     if (ctx.unit === unit && ctx.reason === 'time' && cond()) ctx.amount += perSec * battle.dt;
   }, { owner: unit });
 }
 
-/** Module "攻击范围内敌人的隐匿效果失效": stealthed enemies inside the current range are revealed. */
+/** Module "攻击范围内敌人的隐匿效果失效": stealthed enemies inside the current range are revealed. @param {Battle} battle @param {Unit} unit @param {number} [interval] */
 export function installReveal(battle, unit, interval = 0.2) {
   battle.every(interval, () => {
     if (!up(unit) || !unit.rangeKeySet) return;
@@ -219,16 +263,16 @@ export function installReveal(battle, unit, interval = 0.2) {
 /**
  * Lingering area (spores, alchemy units): `onPulse(battle)` runs immediately and then every `interval` s,
  * `round(duration / interval)` times in total. Not owned by the caster: it keeps working after the caster falls.
- * @param {object} battle
- * @param {object} caster
+ * @param {Battle} battle
+ * @param {Unit} caster
  * @param {{ x: number, y: number, radius: number, duration: number, interval?: number, skill?: string,
- *   onPulse: (battle: object) => void, onEnd?: (battle: object) => void }} opts
+ *   onPulse: (battle: Battle) => void, onEnd?: (battle: Battle) => void }} opts
  */
 export function makeZone(battle, caster, { x, y, radius, duration, interval = 1, skill, onPulse, onEnd }) {
   const total = Math.max(1, Math.round(duration / interval));
   let n = 0;
   battle.fx('zone', { x, y, radius, dur: duration, id: caster.id, skill });
-  return battle.every(interval, (b, sc) => {
+  return battle.every(interval, (/** @type {Battle} */ b, /** @type {Scheduled} */ sc) => {
     onPulse(b);
     if (++n >= total) { sc.cancel(); if (onEnd) onEnd(b); }
   }, { immediate: true });
@@ -238,12 +282,17 @@ export function makeZone(battle, caster, { x, y, radius, duration, interval = 1,
  * A tile a summon may take: inside the field and not reserved (Battle.isReservedTile: nobody on it, no knocked-out
  * operator lying there, not the home tile of a board unit that has not deployed yet / waits to redeploy — a summon
  * there would stop that operator from redeploying until it leaves).
+ * @param {Battle} battle @param {number} r @param {number} c @param {Unit | null} [src]
  */
 export function summonTileFree(battle, r, c, src = null) {
   return Number.isInteger(r) && Number.isInteger(c) && battle.grid.inRect(r, c) && !battle.isReservedTile(r, c, null, src);
 }
 
-/** First free tile around `unit` (Chebyshev ring 1, front first — offsets rotated by its direction) where `ok(r, c)` holds. */
+/**
+ * First free tile around `unit` (Chebyshev ring 1, front first — offsets rotated by its direction) where `ok(r, c)` holds.
+ * @param {Battle} battle @param {Unit} unit @param {(r: number, c: number) => unknown} ok
+ * @returns {Tile | null}
+ */
 export function freeTileAround(battle, unit, ok) {
   const order = [[0, 1], [1, 1], [-1, 1], [1, 0], [-1, 0], [0, -1], [1, -1], [-1, -1]];
   for (const [dr, dc] of order) {
@@ -262,16 +311,20 @@ export function freeTileAround(battle, unit, ok) {
  * enemy of `unit`'s range in the hatred order (the selector's own targets: OnPostFilter HATRED_DES), the tile of `tiles`
  * nearest it — none when that one is already taken (`_GetNearestTile` looks at all of them, the first of equal distances);
  * ③ then the rest at random (battle.rng). The list is reordered by swaps, as the client's.
+ * @template {ReadonlyArray<number>} T
+ * @param {Battle} battle @param {Unit} unit @param {T[]} tiles @param {number} need @param {object} profile
+ * @returns {T[]}
  */
 export function betterEnemyTiles(battle, unit, tiles, need, profile) {
   const list = tiles.slice();
   const n = Math.min(need, list.length);
   if (!(n > 0)) return [];
-  const swap = (a, b) => { const t = list[a]; list[a] = list[b]; list[b] = t; };
-  const foes = sortEnemyTargets(battle, unit, battle.enemiesInKeys(unit.rangeKeys, unit, profile), null);
+  const swap = (/** @type {number} */ a, /** @type {number} */ b) => { const t = list[a]; list[a] = list[b]; list[b] = t; };
+  const foes = /** @type {Unit[]} */ (sortEnemyTargets(battle, unit, battle.enemiesInKeys(unit.rangeKeys, unit, profile), null));
+  /** @type {Map<number, number>} */
   const rank = new Map();
   foes.forEach((e, i) => { const k = posKey(e); if (!rank.has(k)) rank.set(k, i); });
-  const rankOf = ([r, c]) => rank.get(r * COLS + c) ?? Infinity;
+  const rankOf = (/** @type {T} */ [r, c]) => rank.get(r * COLS + c) ?? Infinity;
   let picked = 0;
   for (let i = 0; i < list.length; i++) if (rankOf(list[i]) !== Infinity) swap(picked++, i);   // ①
   const head = list.slice(0, picked).sort((a, b) => rankOf(a) - rankOf(b));
@@ -293,19 +346,20 @@ export function betterEnemyTiles(battle, unit, tiles, need, profile) {
   return list.slice(0, n);
 }
 
-/** Skill spec kind for an instant skill with (possible) charges. */
+/** Skill spec kind for an instant skill with (possible) charges. @param {{ skill?: { maxCharges?: number } | null } | null | undefined} def */
 export const instantKind = (def) => ((def?.skill?.maxCharges ?? 1) > 1 ? 'charges' : 'instant');
 
 /**
  * SkillRecord `skillId` of a raw chess record (DESIGN §16 operator loadouts): the selected skill (`chess.skill`) or one of
  * `chess.skills[]` (every skill of the chess at its level — bb, duration, rangeGrid, trigger). Null when absent.
  * A kit's `skills` map builds every entry from its own record, so each spec is right whichever skill is selected.
+ * @param {KitChess} chess @param {string} skillId
  */
 export function skillRec(chess, skillId) {
   if (chess?.skill && (chess.skill.skillId ?? chess.skill.id) === skillId) return chess.skill;
   return (chess?.skills ?? []).find((s) => s && s.skillId === skillId) ?? null;
 }
-/** Blackboard of skill `skillId` of a raw chess record ({} when absent). */
+/** Blackboard of skill `skillId` of a raw chess record ({} when absent). @param {KitChess} chess @param {string} skillId */
 export const skillBbOf = (chess, skillId) => skillRec(chess, skillId)?.bb ?? {};
 
 /**
@@ -314,6 +368,7 @@ export const skillBbOf = (chess, skillId) => skillRec(chess, skillId)?.bb ?? {};
  * "略微增大(+0.5)" — the same convention as the tier-4 / tier-5 kits), except a positive value described as a shortening, which is
  * the new interval ratio (深靛 0.7 "攻击间隔略微缩短" ⇒ ×0.7). The convention is per skill in AK: skills PRTS lists as
  * a ratio (雷蛇 反击电弧 "+70%", 古米 食粮烹制 "+130%", 深靛 灯塔守卫者 "-80%") use batPct = value directly, not this.
+ * @param {unknown} v @param {KitChess} [chess] @param {string} [desc]
  */
 export function batMod(v, chess = null, desc = '') {
   const x = num(v, 0);

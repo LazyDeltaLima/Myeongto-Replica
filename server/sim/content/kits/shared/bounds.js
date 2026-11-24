@@ -40,7 +40,7 @@ export function burstLimit(officialIterations) {
   return Number.isFinite(m) && m >= 0 ? Math.max(10 * m, COUNT_CAP) : COUNT_CAP;
 }
 
-/** The cap of a count read from blackboard `key` (COUNT_CAP; the key is kept for upstream's signature). */
+/** The cap of a count read from blackboard `key` (COUNT_CAP; the key is kept for upstream's signature). @param {string} _key */
 export function bbCap(_key) {
   return COUNT_CAP;
 }
@@ -57,6 +57,7 @@ export function boundedCount(value, max, fallback) {
   return Math.min(max, Math.max(0, n));
 }
 
+/** @type {Readonly<Record<string, number>>} */
 const CN_DIGIT = Object.freeze({ 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 });
 
 /**

@@ -114,13 +114,19 @@ import { COLS, ROWS, PULL_STOP_RADIUS } from '../../../constants.js';
 import { hasHp } from '../../../damage.js';
 import { hypot } from '../../../detmath.js';
 import { hasPower } from './powers.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { KitChess, KitDef, Bb, Grid, Tile } from './tier1.js' */
+/** @import { HitEv } from '../../support/index.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // helpers
 
+/** @param {unknown} v @param {number} [d] */
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
-/** Blackboard value by exact key, else the first key ending with `.key` / `]key` (prefixed official keys). */
+/** Blackboard value by exact key, else the first key ending with `.key` / `]key` (prefixed official keys). @param {Bb | null | undefined} bb @param {string} key @param {number} [d] */
 function bv(bb, key, d = 0) {
   if (!bb) return d;
   const v = bb[key];
@@ -133,13 +139,17 @@ function bv(bb, key, d = 0) {
   }
   return d;
 }
+/** @param {KitDef} def @param {number} i */
 const tbb = (def, i) => (def && def.talents && def.talents[i] && def.talents[i].bb) || {};
+/** @param {KitDef} def @param {number} i */
 const tdesc = (def, i) => String((def && def.talents && def.talents[i] && def.talents[i].description) || '');
 /**
  * Module-only (hidden, index −1) talent parts of a chess record, merged (first occurrence wins).
+ * @param {KitChess} chess
  * @returns {Record<string, any>}
  */
 function moduleBb(chess) {
+  /** @type {Bb} */
   const out = {};
   for (const t of (chess && chess.talents) || []) {
     if (!t || t.index !== -1 || !t.bb) continue;
@@ -147,31 +157,43 @@ function moduleBb(chess) {
   }
   return out;
 }
+/** @param {unknown} text @param {RegExp} re @param {number} d */
 const parseN = (text, re, d) => { const m = String(text ?? '').match(re); return m ? +m[1] : d; };
+/** @param {Unit | null | undefined} u */
 const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
+/**
+ * @param {Unit | null | undefined} e
+ * @returns {any} a boolean, but a kit sorts by the difference of two answers (op-phatm2.js), which a boolean type refuses
+ */
 const isElite = (e) => !!e && (e.isBoss || e.def?.rank === 'ELITE' || e.def?.rank === 'BOSS');
+/** @param {Unit} u */
 const keyOf = (u) => Math.round(u.y) * COLS + Math.round(u.x);
-const opsOf = (battle, ownerId) => battle.allies(ownerId).filter((a) => a.kind === 'op');
+/** @param {Battle} battle @param {string | null} ownerId @returns {Unit[]} */
+const opsOf = (battle, ownerId) => battle.allies(ownerId).filter((/** @type {Unit} */ a) => a.kind === 'op');
 const ANY = Object.freeze({ canHitFly: true });
+/** @param {Battle} battle @param {Unit} unit @param {Iterable<number> | null} [keys] @returns {Unit[]} */
 const enemiesIn = (battle, unit, keys) => battle.enemiesInKeys(keys || unit.rangeKeys || [], unit, ANY);
+/** @param {Unit | null | undefined} t @param {string} id @param {Unit} owner */
 const isTok = (t, id, owner) => !!t && t.kind === 'token' && t.defId === id && t.ownerUnit === owner;
 
 /**
  * Whether the SELECTED skill of a loadout-resolved chess record is its default skill (DESIGN §16: `chess.skill` is the
  * selected SkillRecord, `chess.skills[]` flags the default one). Records without skill choices count as default.
  * Talent / install hooks written for the default skill check it (they run under every selected skill).
+ * @param {KitChess} chess
  */
 function onDefaultSkill(chess) {
   const d = (chess?.skills ?? []).find((s) => s && s.isDefault);
   return !d || !chess?.skill || d.skillId === chess.skill.skillId;
 }
-/** Id of the selected skill (loadout-resolved record, else the def). */
+/** Id of the selected skill (loadout-resolved record, else the def). @param {KitChess} chess @param {KitDef} def */
 const selectedSkill = (chess, def) => chess?.skill?.skillId ?? def?.skill?.id ?? null;
 /**
  * Skill blackboard `base_attack_time` → engine batPct, the rule of the AK damage calculator (akdata attributes.js,
  * checked against the game): a shortening (v < 0) is a FLAT change of the base attack time in seconds (送葬人 −0.5 on
  * 2.3 s ⇒ 1.8 s, the shared/tier1.js `batMod` convention), a lengthening (v > 0) scales it (迷迭香 S2 +0.5 ⇒ ×1.5, 佩佩 S3 +0.2 ⇒
  * ×1.2). `mul` = a skill the calculator lists as "攻击间隔缩短，但是是乘算负数" (异客 S2 −0.3 ⇒ ×0.7, 迷迭香 S3 −0.5 ⇒ ×0.5).
+ * @param {unknown} v @param {KitDef} def @param {boolean} [mul]
  */
 function batOf(v, def, mul = false) {
   const x = num(v);
@@ -180,9 +202,9 @@ function batOf(v, def, mul = false) {
   const bat = num(def?.stats?.bat, 1) || 1;
   return Math.max(-0.9, x / bat);
 }
-/** Spec kind of an instant skill (charges when the data gives it several). */
+/** Spec kind of an instant skill (charges when the data gives it several). @param {{ skill?: { maxCharges?: number } | null } | null | undefined} def */
 const instantKind = (def) => ((def?.skill?.maxCharges ?? 1) > 1 ? 'charges' : 'instant');
-/** The selected skill's own range grid (null: the unit's range). */
+/** The selected skill's own range grid (null: the unit's range). @param {KitDef} def */
 const skillGridOf = (def) => (def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null);
 /**
  * 异常状态 (ba.debuff "包括晕眩、寒冷、冻结等") — the control statuses cleansed by 流明 (抵抗 itself is the engine `resist`
@@ -190,11 +212,12 @@ const skillGridOf = (def) => (def?.skill?.rangeGrid?.length ? def.skill.rangeGri
  */
 const ABNORMAL = new Set(['stun', 'freeze', 'cold', 'sleep', 'silence', 'fear', 'attract', 'tremble', 'bind', 'levitate',
   'disarm', 'palsy', 'sluggish', 'slow']);
-const hasAbnormal = (u) => u.buffs.some((b) => b.status && ABNORMAL.has(b.status));
-/** Remove every 异常状态 of `u`; returns how many were removed. */
+/** @param {Unit} u */
+const hasAbnormal = (u) => /** @type {BuffRec[]} */ (u.buffs).some((b) => b.status && ABNORMAL.has(b.status));
+/** Remove every 异常状态 of `u`; returns how many were removed. @param {Battle} battle @param {Unit} u */
 function cleanseAbnormal(battle, u) {
   let n = 0;
-  for (const b of u.buffs.slice()) if (b.status && ABNORMAL.has(b.status)) { battle.removeStatus(u, b.status); n++; }
+  for (const b of /** @type {BuffRec[]} */ (u.buffs.slice())) if (b.status && ABNORMAL.has(b.status)) { battle.removeStatus(u, b.status); n++; }
   if (n) battle.fx('cleanse', { x: u.x, y: u.y, id: u.id });
   return n;
 }
@@ -202,13 +225,15 @@ const AROUND8 = Object.freeze([[1, -1], [1, 0], [1, 1], [0, -1], [0, 1], [-1, -1
 const N4 = Object.freeze([[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]);
 /** Every offset of the 19×21 field: "攻击范围扩大至整个战场". */
 const WHOLE_FIELD = (() => {
+  /** @type {Tile[]} */
   const g = [];
   for (let dr = -(ROWS - 1); dr <= ROWS - 1; dr++) for (let dc = -(COLS - 1); dc <= COLS - 1; dc++) g.push([dr, dc]);
   return Object.freeze(g);
 })();
 
+/** @type {WeakMap<Battle, Record<string, any>>} */
 const STATE = new WeakMap();
-/** Per-battle shared state for kits (trackers registered once per battle). */
+/** Per-battle shared state for kits (trackers registered once per battle). @param {Battle} battle */
 function bstate(battle) {
   let s = STATE.get(battle);
   if (!s) { s = {}; STATE.set(battle, s); }
@@ -219,8 +244,10 @@ function bstate(battle) {
  * Free deployable tiles of `grid` around `unit` (melee ground tiles unless `ranged`). Skips `battle.isReservedTile`
  * (a living unit, or the home tile of a piece that has not deployed yet / waits to redeploy: a summon parked there
  * would keep that operator off the field).
+ * @param {Battle} battle @param {Unit} unit @param {Grid} grid @param {{ ranged?: boolean, ground?: boolean }} [opts]
  */
 function freeTiles(battle, unit, grid, { ranged = false, ground = true } = {}) {
+  /** @type {Tile[]} */
   const out = [];
   const own = unit.tileR * COLS + unit.tileC;
   for (const k of absoluteRangeKeys(grid, unit.tileR, unit.tileC, unit.dir, 0)) {
@@ -234,10 +261,15 @@ function freeTiles(battle, unit, grid, { ranged = false, ground = true } = {}) {
   return out;
 }
 
-/** Tile closest to any living enemy (first tile when there is no enemy). */
+/**
+ * Tile closest to any living enemy (first tile when there is no enemy).
+ * @template {ReadonlyArray<number>} T
+ * @param {Battle} battle @param {T[]} tiles
+ * @returns {T | null}
+ */
 function bestTile(battle, tiles) {
   if (!tiles.length) return null;
-  const en = battle.enemies.filter((e) => e.alive && !e.hidden);
+  const en = /** @type {Unit[]} */ (battle.enemies.filter((/** @type {Unit} */ e) => e.alive && !e.hidden));
   if (!en.length) return tiles[0];
   let best = tiles[0], bd = Infinity;
   for (const t of tiles) {
@@ -251,9 +283,10 @@ function bestTile(battle, tiles) {
 /**
  * Element (损伤) amplification: element gauge fills skip the `hit` hook but fire `elementHit` { source, target, dmg }
  * before the fill — multiply `dmg.mul` there (one instance, exact burst threshold). `fn(ctx)` returns the factor.
+ * @param {Battle} battle @param {Unit} unit @param {(ctx: HitEv) => number} fn
  */
 function onElementHit(battle, unit, fn) {
-  battle.on('elementHit', (ctx) => {
+  battle.on('elementHit', (/** @type {HitEv} */ ctx) => {
     if (!ctx.dmg || ctx.dmg.type !== 'element' || !ctx.target) return;
     const f = fn(ctx);
     if (Number.isFinite(f) && f > 0 && f !== 1) ctx.dmg.mul *= f;
@@ -263,6 +296,8 @@ function onElementHit(battle, unit, fn) {
 /**
  * Deal `amount` of element `el` (元素损伤) — nothing on a target at 0 HP (a lethal hit's `damaged` hook, see hasHp).
  * `moment`: the official effect moment of this hit (the 'dmg' event's field, render/fx/kitofficial.js 'hit').
+ * @param {Battle} battle @param {Unit} src @param {Unit} tgt @param {string} el @param {number} amount @param {string[]} [tags]
+ * @param {string | null} [moment]
  */
 const elementDmg = (battle, src, tgt, el, amount, tags = ['skill'], moment = null) =>
   (amount > 0 && hasHp(tgt) ? battle.dealDamage(src, tgt, { type: 'element', element: el, amount, tags, moment }) : 0);
@@ -272,13 +307,15 @@ const elementDmg = (battle, src, tgt, el, amount, tags = ['skill'], moment = nul
  * from it — Battle.pull: the official 力度 − 重量 pull (PRTS 推与拉; user playtest #6 item 14). The default stop is the
  * 急停 radius 0.6708 around a pulling unit. A pulling ally is also the pull's `center`, so an enemy it blocks itself
  * stays where it is held (as in Battle.pullToFront) — e.g. the 流形 S3 pulse then still stuns it.
+ * @param {Battle} battle @param {{ x: number, y: number, side?: string } | null | undefined} unit the puller, or a point
+ * @param {Unit | null | undefined} e @param {unknown} force @param {number} [stop]
  */
 function pullToward(battle, unit, e, force, stop = PULL_STOP_RADIUS) {
   if (!e || !e.alive || !unit) return 0;
   return battle.pull(e, num(force), { to: { x: unit.x, y: unit.y }, center: unit.side === 'ally' ? unit : null, stop });
 }
 
-/** Stat-aura pulse: short buffs refreshed every `period` s on `targets()`. */
+/** Stat-aura pulse: short buffs refreshed every `period` s on `targets()`. @param {Battle} battle @param {Unit} unit @param {number} period @param {() => void} fn */
 function aura(battle, unit, period, fn) {
   battle.every(period, () => { if (live(unit)) fn(); }, { owner: unit });
 }
