@@ -2,8 +2,13 @@
 
 import { metaBonds, frontPiece, behindPiece, distinctTiers } from '../../support/meta.js';
 import { ids, num, requireActiveOf, topActiveBondMeta, selfView, onBoard, chessOnBoard, addAll, sameRowCount, growingValue } from './shared.js';
+/** @import { MetaCtx } from '../../../../match/effectsMeta.js' */
+/** @import { PieceView } from '../../support/meta.js' */
+/** @import { GarrisonCtx } from './shared.js' */
 
-/** effectKey → handler. */
+/** @import { GarrisonHandlers } from './shared.js' */
+
+/** effectKey → handler. @type {Record<string, GarrisonHandlers>} */
 export const H = {};
 
 H.SERVER_ADD_BOND = {
@@ -31,7 +36,7 @@ H.SERVER_ADD_BOND_CHESS_ALL = {
 
 // 「（每回合至多叠加N层）」 (规程 bb.max: 타락사쿰 garrison_36 16 / 32, 클로저 125, 시 128, 아스트젠 더 라이트체이서 121 18 / 36):
 // the most one run gives each bond — these run once a round (休整期结束时), as 쏜즈's garrison_32 below
-const roundCap = (bb, n) => (num(bb.max, 0) > 0 ? Math.min(n, num(bb.max)) : n);
+const roundCap = (/** @type {Record<string, any>} */ bb, /** @type {number} */ n) => (num(bb.max, 0) > 0 ? Math.min(n, num(bb.max)) : n);
 
 /** The bbStr.add_method values SERVER_ADD_BOND_METHOD reads; any other gains nothing (content/coverage.js reports it). */
 export const ADD_METHODS = Object.freeze(['shoplv', 'round_gain_char', 'hand_count', 'same_row', 'same_bond_diff_lv']);
@@ -41,6 +46,7 @@ export const ADD_METHODS = Object.freeze(['shoplv', 'round_gain_char', 'hand_cou
  * holder (absent: in front). Any other value runs nothing — never a fallback to the front (content/coverage.js).
  */
 export const POSITION_DIRS = Object.freeze(['front', 'behind']);
+/** @param {MetaCtx} ctx @param {PieceView} me @param {unknown} dir */
 function positionOther(ctx, me, dir) {
   if (dir === 'behind') return behindPiece(ctx, me);
   return dir == null || dir === '' || dir === 'front' ? frontPiece(ctx, me) : undefined;
@@ -195,6 +201,7 @@ H.SERVER_GAIN_BOND_LAYER_BY_REFRESH_CNT = {
 // (「场上每有一名【乌萨斯】干员」: board chess whose bonds hold it, the trait's owner included); 折桠 (garrison_184) N.
 // [ASSUMED·CN: the server-side conversion is not in the client] 「场上」 = the prep board when the battle has ended (the
 // operators the battle knocked out are on it again), and the conversion needs no active bond (none is named).
+/** @param {GarrisonCtx} ctx @param {boolean} perChar */
 function convertTemp(ctx, perChar) {
   const { bb, bbStr } = ctx.source;
   const bond = String(bbStr.bond ?? '').trim();
@@ -222,7 +229,8 @@ H.SERVER_ADD_ACTIVATED_BOND_BY_ALIVE_CHAR = {
   onBattleResult(ctx, ev) {
     const { bb, bbStr, garrison, piece } = ctx.source;
     const units = ev && ev.result && Array.isArray(ev.result.unitsEnd) ? ev.result.unitsEnd : [];
-    const alive = units.filter((u) => u && u.alive && ctx.chessRecord(u.defId)).length;
+    const alive = units.filter((/** @type {{ alive?: boolean, defId: string } | null} */ u) => u && u.alive && ctx.chessRecord(u.defId)).length;
+
     let n = alive * num(bb.count, 1);
     if (num(bb.max_count, 0) > 0) n = Math.min(n, num(bb.max_count));
     const bonds = String(bbStr.bond ?? '').trim() === 'SELF' ? metaBonds(ctx, piece) : ids(bbStr.bond);

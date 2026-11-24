@@ -141,10 +141,11 @@ export const OPERATOR_KIT_FILES = Object.freeze([
 export const GENERIC_KIT_CHARS = Object.freeze(['char_600_cpione', 'char_601_cguard', 'char_602_cdfend', 'char_603_csnipe',
   'char_604_ccast', 'char_605_cmedic', 'char_606_csuppo', 'char_607_cspec']);
 
+/** @param {string} file */
 async function loadKitFile(file) {
   try {
     return await import(`./ops/${file}`);
-  } catch (e) {
+  } catch (/** @type {any} */ e) {
     console.error(`[content] failed to load kits/ops/${file}: ${e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e}`);
     return {};
   }
@@ -154,7 +155,7 @@ const MODULES = await Promise.all(KIT_FILES.map((group) => Promise.all(group.map
 const STANDIN_MODULES = await Promise.all(STANDIN_KIT_FILES.map(loadKitFile));
 const OPERATOR_MODULES = await Promise.all(OPERATOR_KIT_FILES.map(loadKitFile));
 const SEASON_MODULES = await Promise.all(SEASON_KIT_FILES.map(loadKitFile));
-const registryOf = (m) => (m && m.default && typeof m.default === 'object' ? m.default : {});
+const registryOf = (/** @type {Record<string, any>} */ m) => (m && m.default && typeof m.default === 'object' ? m.default : {});
 
 /** The registry of each tier group (index 0 = tier 1): baseChessId → kit builder, in KIT_FILES order. */
 export const TIER_KITS = Object.freeze(MODULES.map((group) => Object.assign({}, ...group.map(registryOf))));
@@ -187,15 +188,18 @@ export const HIDDEN_CHESS_KITS = Object.freeze(['chess_char_1_05_a', 'chess_char
 /**
  * Character codename (a chess kit file `<chessId>-<codename>.js`) → the registry keys its file registers (`…_a`), with
  * their tiers and whether the chess is hidden.
+ * @typedef {{ key: string, tier: number, hidden: boolean }} ChessKitRef
  */
 const CHESS_KITS_OF_CODE = (() => {
+  /** @type {Map<string, ChessKitRef[]>} */
   const out = new Map();
   KIT_FILES.forEach((group, t) => group.forEach((f, i) => {
     const code = f.replace(/\.js$/, '').split('-')[1];
     for (const key of Object.keys(registryOf(MODULES[t][i]))) {
       const tier = Number(/^chess_char_(\d+)_/.exec(key)?.[1]);
       if (!out.has(code)) out.set(code, []);
-      out.get(code).push({ key, tier, hidden: HIDDEN_CHESS_KITS.includes(key) });
+      /** @type {ChessKitRef[]} */ (out.get(code)).push({ key, tier, hidden: HIDDEN_CHESS_KITS.includes(key) }); // set above
+
     }
   }));
   return out;

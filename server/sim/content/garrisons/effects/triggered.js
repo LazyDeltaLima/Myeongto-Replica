@@ -30,11 +30,22 @@ import * as S from '../../support/index.js';
 import { ids, inRangeOf } from '../shared.js';
 // (a function only: switch.js imports events.js, which imports this file — hoisted across the cycle)
 import { triggerSwitch } from './switch.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { GarrisonInst } from '../shared.js' */
+/**
+ * The effect of an effect garrison: (battle, the event 特质's instance, the effect garrison's record `pg`).
+ * @typedef {(battle: Battle, it: GarrisonInst, pg: Record<string, any>) => void} TriggeredEffect
+ */
 
-const opsOf = (battle, pid) => battle.allyUnits.filter((a) => S.isOp(a) && a.ownerId === pid);
+const opsOf = (/** @type {Battle} */ battle, /** @type {string | null} */ pid) => battle.allyUnits.filter((a) => S.isOp(a) && a.ownerId === pid);
 
-/** The allies (operators of the holder's player on the field) of an effect garrison's range, by its template's order. */
+/**
+ * The allies (operators of the holder's player on the field) of an effect garrison's range, by its template's order.
+ * @param {Battle} battle @param {Unit} holder @param {Record<string, any>} bb @param {Record<string, any>} bs
+ */
 function rangeAllies(battle, holder, bb, bs) {
+  /** @type {Unit[]} */
   const out = [];
   const mode = S.num(bb.use_global_range, 0) > 0 ? 'global' : S.num(bb.use_attack_range, 0) > 0 ? 'attack' : bs.range_id || null;
   if (!mode) return out;
@@ -45,7 +56,10 @@ function rangeAllies(battle, holder, bb, bs) {
   return out;
 }
 
-/** floor(Σ layers of the listed ACTIVE bonds / denominator) (header). */
+/**
+ * floor(Σ layers of the listed ACTIVE bonds / denominator) (header).
+ * @param {Battle} battle @param {string | null} pid @param {readonly string[]} bondIds @param {unknown} denominator
+ */
 export function bondSteps(battle, pid, bondIds, denominator) {
   let sum = 0;
   for (const b of bondIds) if (S.bondActive(battle, pid, b)) sum += S.bondLayers(battle, pid, b);
@@ -53,7 +67,7 @@ export function bondSteps(battle, pid, bondIds, denominator) {
 }
 
 const CAP_MODS = 'garrisons:capMods';
-/** The per-battle cap of a 特质 instance after the 叠层上限 effects on its operator. */
+/** The per-battle cap of a 特质 instance after the 叠层上限 effects on its operator. @param {Battle} battle @param {GarrisonInst} it */
 export function capOf(battle, it) {
   if (!Number.isFinite(it.cap)) return it.cap;
   const m = S.battleStore(battle, CAP_MODS, () => new Map()).get(it.unit);
@@ -61,7 +75,10 @@ export function capOf(battle, it) {
   return Math.max(0, Math.floor(it.cap * (1 + m.factor) + 1e-9) + m.add);
 }
 
-/** Raise the 特质 caps of `unit` for this battle by `add` and the factor `factor` (bondstackmax, 坚雷's 正直教官). */
+/**
+ * Raise the 特质 caps of `unit` for this battle by `add` and the factor `factor` (bondstackmax, 坚雷's 正直教官).
+ * @param {Battle} battle @param {Unit | null | undefined} unit @param {number} [add] @param {number} [factor]
+ */
 export function addCapMod(battle, unit, add = 0, factor = 0) {
   if (!unit || (!add && !factor)) return;
   const store = S.battleStore(battle, CAP_MODS, () => new Map());
@@ -71,6 +88,7 @@ export function addCapMod(battle, unit, add = 0, factor = 0) {
   m.factor += factor;
 }
 
+/** @type {Record<string, TriggeredEffect>} */
 export const TRIGGERED = {
   act3autochess_gar_effect_addsp_inrange(battle, it, pg) {
     const bb = pg.bb || {};
@@ -138,7 +156,8 @@ TRIGGERED['act3autochess_gar_effect_switchcharinhand[trigger]'] = triggerSwitch;
 /** The trigger_buff keys this file runs (coverage). */
 export const TRIGGERED_KEYS = Object.freeze(Object.keys(TRIGGERED));
 
-/** Run the effect garrison of a garrison_trigger_buff instance (header); false when the key has no effect here. */
+/** Run the effect garrison of a garrison_trigger_buff instance (header); false when the key has no effect here. @param {Battle} battle @param {GarrisonInst} it */
+
 export function runTriggered(battle, it) {
   const fn = TRIGGERED[it.bbStr.garrison_trigger_buff_key];
   const pg = it.payload !== undefined ? it.payload : (it.payload = S.garrisonRecord(it.bbStr.garrison_trigger_buff_garrison_key, battle) ?? null);

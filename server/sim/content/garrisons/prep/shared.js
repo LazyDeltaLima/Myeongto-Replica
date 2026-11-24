@@ -1,21 +1,37 @@
 // server/sim/content/garrisons/prep/shared.js — what the prep-side 特质 families of garrisons/prep/*.js share.
 
 import { growingCounterKey, growingShowValue } from '../../../../../shared/showTag.js';
+/** @import { MetaCtx, MetaSource } from '../../../../match/effectsMeta.js' */
+/** @import { Piece } from '../../../../match/player/pieces.js' */
+/** @import { PieceView } from '../../support/meta.js' */
+/**
+ * A prep 特质 handler's ctx: the meta ctx whose source is the 特质's (the dispatcher's garrison source, effectsMeta.js:
+ * `piece`, `garrisonId`, the record `garrison`, its `bb` / `bbStr` ({} when absent), `where` — 'board', 'hand', … —
+ * and `copiedFrom` when a copier runs it). A handler table is `@type {Record<string, GarrisonHandlers>}`, so its
+ * methods' `(ctx, ev)` need no `@param`.
+ * @typedef {MetaSource & { piece: Piece, garrisonId: string, garrison: Record<string, any>, bb: Record<string, any>,
+ *   bbStr: Record<string, any>, where: string }} GarrisonSource
+ * @typedef {Omit<MetaCtx, 'source'> & { source: GarrisonSource }} GarrisonCtx
+ * @typedef {{ [hook: string]: (ctx: GarrisonCtx, ev: Record<string, any>) => unknown }} GarrisonHandlers
+ */
 
-export const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+export const ids = (/** @type {unknown} */ s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+/** @param {unknown} v @param {number} [d] */
 export const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d);
 
-/** "（无需激活盟约）" → false; "使已激活的…" / "当前激活且…" / "自身已激活的盟约" → true. */
+/** "（无需激活盟约）" → false; "使已激活的…" / "当前激活且…" / "自身已激活的盟约" → true. @param {Record<string, any> | null | undefined} g */
 export function requireActiveOf(g) {
   const d = (g && g.desc) || '';
   if (d.includes('无需激活')) return false;
   return /已激活|激活且/.test(d);
 }
 
+/** @param {MetaCtx} ctx @returns {string[]} */
 export const bondOrder = (ctx) => (Array.isArray(ctx.gd && ctx.gd.bondIds) ? ctx.gd.bondIds : Object.keys(ctx.data.bonds || {}));
 
-/** Active bond with the most layers (ties → bond data order), or null. */
+/** Active bond with the most layers (ties → bond data order), or null. @param {MetaCtx} ctx */
 export function topActiveBondMeta(ctx) {
+  /** @type {string | null} */
   let best = null, bl = -1;
   for (const id of bondOrder(ctx)) {
     if (!ctx.bondActive(id)) continue;
@@ -25,16 +41,23 @@ export function topActiveBondMeta(ctx) {
   return best;
 }
 
-/** Fresh view of the source piece (with row/col on the board). */
+/** Fresh view of the source piece (with row/col on the board). @param {MetaCtx} ctx @returns {PieceView | null} */
 export function selfView(ctx) {
   const p = ctx.source && ctx.source.piece;
   if (!p) return null;
   const v = Number.isInteger(p.uid) && p.uid > 0 ? ctx.piece(p.uid) : null;
   return v || p;
 }
+/**
+ * A view of a piece on the board (a guard: its callers return when it is not).
+ * @param {PieceView | null | undefined} v @returns {v is PieceView}
+ */
 export const onBoard = (v) => !!v && v.area === 'board' && Number.isInteger(v.row);
-export const chessOnBoard = (ctx) => ctx.board().filter((p) => p && p.kind === 'chess');
+/** @param {MetaCtx} ctx @returns {PieceView[]} */
+export const chessOnBoard = (ctx) =>
+ ctx.board().filter((p) => p && p.kind === 'chess');
 
+/** @param {MetaCtx} ctx @param {readonly string[]} bonds @param {number} n @param {boolean} requireActive */
 export function addAll(ctx, bonds, n, requireActive) {
   let total = 0;
   if (!(n > 0)) return 0;
@@ -42,6 +65,7 @@ export function addAll(ctx, bonds, n, requireActive) {
   return total;
 }
 
+/** @param {MetaCtx} ctx @param {PieceView | null | undefined} me */
 export function sameRowCount(ctx, me) {
   if (!onBoard(me)) return 0;
   return chessOnBoard(ctx).filter((p) => p.row === me.row).length;
@@ -51,16 +75,22 @@ export function sameRowCount(ctx, me) {
  * not run it from the hand, effectsMeta.js), character_same_row where rowCondition reads it. A garrison with another
  * value runs nothing (prepConditionKnown; content/coverage.js reports it).
  */
+/** @type {Readonly<Record<string, readonly string[]>>} */
 export const PREP_CONDITIONS = Object.freeze({
   '*': Object.freeze(['character_target_inboard']),
   SERVER_POOL_CHAR: Object.freeze(['character_target_inboard', 'character_same_row']),
   SERVER_MOST_BOND: Object.freeze(['character_target_inboard', 'character_same_row']),
 });
-/** Whether a prep 特质 record's conditionkey (none, or one of PREP_CONDITIONS for its effect key) is one the code reads. */
+/**
+ * Whether a prep 特质 record's conditionkey (none, or one of PREP_CONDITIONS for its effect key) is one the code reads.
+ * @param {Record<string, any>} g
+
+ */
 export function prepConditionKnown(g) {
   const ck = g?.bbStr?.conditionkey;
   return ck == null || ck === '' || (PREP_CONDITIONS[g.effectKey] ?? PREP_CONDITIONS['*']).includes(ck);
 }
+/** @param {GarrisonCtx} ctx @param {PieceView | null | undefined} me */
 export function rowCondition(ctx, me) {
   const { bb, bbStr } = ctx.source;
   // 白面鸮 copying 歌蕾蒂娅's / 余's prep-start gift skips the three-in-a-row gate (GitHub #473, the reporter's official
@@ -82,8 +112,10 @@ export function rowCondition(ctx, me) {
  * copy, the normal and elite record, and a copy sold and bought again all go on with one count. For 忍冬 that is the
  * official game (asked of a CN server player, maintainer 2026-11-20); 极光 uses the same count [ASSUMED·화면: the same
  * handler as 忍冬, not checked on its own].
+ * @param {GarrisonCtx} ctx
  */
 export function growingValue(ctx) {
+
   const { bb, garrisonId } = ctx.source;
   const key = growingCounterKey(garrisonId);
   const k = ctx.counter(key);

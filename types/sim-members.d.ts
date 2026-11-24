@@ -58,6 +58,8 @@ declare module '../server/sim/units.js' {
     rangeGrid?: ReadonlyArray<ReadonlyArray<number>>;
     rangeKeys?: number[];
     baseRangeKeys?: number[];
+    // the same keys as a set (battle/queries.js, the summons and walkers that set their own range), read by range tests
+    rangeKeySet?: Set<number>;
     // a board piece (battle/players.js)
     items?: any[];
     reserve?: boolean;

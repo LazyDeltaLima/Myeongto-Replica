@@ -1,8 +1,11 @@
 // server/sim/content/garrisons/prep/equip.js — prep-side 特质: equipment (garrisons/meta.js header).
 
 import { ids, num } from './shared.js';
+/** @import { MetaCtx } from '../../../../match/effectsMeta.js' */
 
-/** effectKey → handler. */
+/** @import { GarrisonHandlers } from './shared.js' */
+
+/** effectKey → handler. @type {Record<string, GarrisonHandlers>} */
 export const H = {};
 
 H.SERVER_GAIN_EQUIP = {
@@ -29,11 +32,15 @@ H.SERVER_GAIN_RANDOM_EQUIP_CHESS_IN_POOL = {
   },
 };
 
-/** Weighted item roll of an equip pool; elite garrisons use the pool's `goldenWeights` when present. */
+/**
+ * Weighted item roll of an equip pool; elite garrisons use the pool's `goldenWeights` when present.
+ * @param {MetaCtx} ctx @param {string} poolId @param {boolean} golden
+ */
 function rollEquip(ctx, poolId, golden) {
   const pool = ctx.data.choices && ctx.data.choices.pools ? ctx.data.choices.pools[poolId] : null;
   if (golden && pool && Array.isArray(pool.weighted) && Array.isArray(pool.goldenWeights) && pool.goldenWeights.length === pool.weighted.length) {
-    const pairs = pool.weighted.map((x, i) => [x[0], Math.max(0, num(pool.goldenWeights[i]))]).filter(([id, w]) => w > 0 && ctx.gd.item(id));
+    const pairs = pool.weighted.map((/** @type {[string, number]} */ x, /** @type {number} */ i) => [x[0], Math.max(0, num(pool.goldenWeights[i]))]).filter((/** @type {[string, number]} */ [id, w]) => w > 0 && ctx.gd.item(id));
+
     let total = 0;
     for (const [, w] of pairs) total += w;
     if (total > 0) {

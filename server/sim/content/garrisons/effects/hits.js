@@ -7,6 +7,11 @@ import * as S from '../../support/index.js';
 import { mitigate } from '../../../damage.js';
 import { EMPTY, inRangeOf } from '../shared.js';
 import { bondSteps } from './triggered.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { GarrisonInst, Installer } from '../shared.js' */
+/** @import { HitEv, DamagedEv } from '../../support/index.js' */
+/** A firstdamgecold instance once its installer ran: the enemies it has hit. @typedef {GarrisonInst & { seen: Set<Unit> }} ColdInst */
 
 /** The effect keys installHitMods reads. */
 export const HIT_KEYS = Object.freeze(['act1autochess_gar_eff_attack_enemy', 'act2autochess_gar_eff_ab_damageScaleByBond', 'act1autochess_gar_eff_chaos']);
@@ -17,6 +22,7 @@ export const HIT_KEYS = Object.freeze(['act1autochess_gar_eff_attack_enemy', 'ac
  * stats, and nothing else; a tie keeps the original type. The official client's WeakDamage compares penetration + the
  * base formula only, and PRTS 术语释义 counts ATK, its multipliers and additions, penetration and the target's
  * DEF / RES, "不计入…任何伤判效果": the dealt / taken multipliers (physDealtMul, artsTakenMul …) never choose the type.
+ * @param {Unit | null | undefined} source @param {Unit} target @param {Record<string, any>} dmg the hit's damage record
  */
 export function weaknessType(source, target, dmg) {
   const ss = source && source.s ? source.s : null;
@@ -32,21 +38,24 @@ export function weaknessType(source, target, dmg) {
   if (ph > ar + 1e-9) return 'phys';
   return dmg.type;
 }
-const bound = (t) => !!(t.s && t.s.flags && t.s.flags.bind) || !!t.findBuff('bind');
+const bound = (/** @type {Unit} */ t) => !!(t.s && t.s.flags && t.s.flags.bind) || !!t.findBuff('bind');
 
 /**
  * The target checks of act2autochess_gar_eff_ab_damageScaleByBond's check_ab_flag: the client's `AbnormalFlag` (13
  * UNMOVABLE = 束缚 here). A value missing here matches no target — never "any value is 束缚" (content/coverage.js
  * reports it, test/content/coverage.test.js checks every season's values are listed).
  */
+/** @type {Readonly<Record<number, (t: Unit) => boolean>>} */
 export const AB_FLAG_CHECK = Object.freeze({ 13: bound });
 
 /** Priority of the 弱点伤害 conversion: after every default-priority hit modifier, so the final amount decides. */
 export const WEAKNESS_PRIORITY = -10;
 
+/** @param {Battle} battle @param {Map<string, GarrisonInst[]>} by the instances by effect key */
 export function installHitMods(battle, by) {
+  /** @type {Map<Unit, Array<{ it: GarrisonInst, kind: string }>>} */
   const m = new Map();
-  const push = (it, kind) => {
+  const push = (/** @type {GarrisonInst} */ it, /** @type {string} */ kind) => {
     let a = m.get(it.unit);
     if (!a) { a = []; m.set(it.unit, a); }
     a.push({ it, kind });
@@ -54,7 +63,7 @@ export function installHitMods(battle, by) {
   for (const it of by.get('act1autochess_gar_eff_attack_enemy') ?? EMPTY) push(it, 'tag');
   for (const it of by.get('act2autochess_gar_eff_ab_damageScaleByBond') ?? EMPTY) push(it, 'ab');
   if (m.size) {
-    battle.on('hit', ({ source, target, dmg }) => {
+    battle.on('hit', (/** @type {HitEv} */ { source, target, dmg }) => {
       const arr = source ? m.get(source) : null;
       if (!arr || !target || target.side !== 'enemy' || !dmg || dmg.type === 'element') return;
       for (let i = 0; i < arr.length; i++) {
@@ -74,7 +83,7 @@ export function installHitMods(battle, by) {
   }
   const chaos = new Set((by.get('act1autochess_gar_eff_chaos') ?? EMPTY).map((it) => it.unit));
   if (chaos.size) {
-    battle.on('hit', ({ source, target, dmg }) => {
+    battle.on('hit', (/** @type {HitEv} */ { source, target, dmg }) => {
       if (!source || !chaos.has(source) || !target || target.side !== 'enemy' || !dmg) return;
       if (dmg.type === 'phys' || dmg.type === 'arts') dmg.type = weaknessType(source, target, dmg);
     }, { priority: WEAKNESS_PRIORITY });
@@ -93,11 +102,12 @@ export function installHitMods(battle, by) {
  *                                             (one instance per holder, refreshed [ASSUMED·CN: the dynamic ability prefab
  *                                             that hands the buff to the range is CN-only]).
  */
+/** @type {Record<string, Installer>} */
 export const DAMAGE_INSTALLERS = {
   act3autochess_gar_effect_firstdamgecold(battle, list) {
-    const m = new Map(list.map((it) => [it.unit, it]));
+    const m = /** @type {Map<Unit, ColdInst>} */ (new Map(list.map((it) => [it.unit, it]))); // seen set below
     for (const it of list) it.seen = new Set();
-    battle.on('damaged', ({ source, target, type, amount }) => {
+    battle.on('damaged', (/** @type {DamagedEv} */ { source, target, type, amount }) => {
       const it = source ? m.get(source) : null;
       if (!it || !target || target.side !== 'enemy' || type === 'element' || !(amount > 0) || it.seen.has(target)) return;
       it.seen.add(target);
@@ -106,7 +116,8 @@ export const DAMAGE_INSTALLERS = {
   },
 
   act3autochess_gar_effect_attackslow_inrange(battle, list) {
-    battle.on('damaged', ({ source, target, type, amount }) => {
+    battle.on('damaged', (/** @type {DamagedEv} */ { source, target, type, amount }) => {
+
       if (!source || !S.isOp(source) || !target || target.side !== 'enemy' || !target.alive || type === 'element' || !(amount > 0)) return;
       for (const it of list) {
         const h = it.unit;

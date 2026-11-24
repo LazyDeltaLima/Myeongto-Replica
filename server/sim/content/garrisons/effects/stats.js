@@ -5,17 +5,24 @@ import * as S from '../../support/index.js';
 import { ids, EMPTY, byUnit } from '../shared.js';
 import { raiseUrsusExtra } from '../../bonds/nation/ursus.js';
 import { bondSteps } from './triggered.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { GarrisonInst, Installer } from '../shared.js' */
+/** @import { DeployEv, TickEv } from '../../support/index.js' */
+/** A block_eprecoverspeed instance once its installer ran: the watched burst and the bonus per blocked enemy. @typedef {GarrisonInst & { el: string | null, rate: Map<Unit, number> }} BlockInst */
 
 /**
  * The burst of each ep_type of act3autochess_gar_effect_block_eprecoverspeed_inrange (WATER = 侵蚀 …: damage.js
  * `<el>Burst`). A type missing here watches no burst — never a fallback to 侵蚀 (content/coverage.js reports it).
  */
+/** @type {Readonly<Record<string, string>>} */
 export const EP_BURST = Object.freeze({ WATER: 'erosion', FIRE: 'burn', NEURAL: 'neural', DARK: 'apoptosis' });
 
-/** Installers of the fixed stat 特质 by effect key: (battle, instances of the key). */
+/** Installers of the fixed stat 特质 by effect key: (battle, instances of the key). @type {Record<string, Installer>} */
 export const STAT_INSTALLERS = {
   GAIN_BUFF(battle, list) {
     for (const it of list) {
+      /** @type {Record<string, number>} */
       const mods = {};
       if (S.num(it.bb.atk, 0) > 0) mods.atkMul = S.num(it.bb.atk);
       if (S.num(it.bb.max_hp, 0) > 0) mods.hpMul = S.num(it.bb.max_hp);
@@ -39,7 +46,7 @@ export const STAT_INSTALLERS = {
   // `<el>Burst`) then runs that much faster: its time left drops by dt × the bonus each tick.
   act3autochess_gar_effect_block_eprecoverspeed_inrange(battle, list) {
     for (const it of list) { it.el = EP_BURST[it.bbStr.ep_type || 'WATER'] ?? null; it.rate = new Map(); }
-    const check = (it, e) => {
+    const check = (/** @type {BlockInst} */ it, /** @type {Unit} */ e) => {
       const h = it.unit;
       if (!it.el) return; // an ep_type EP_BURST does not know: no burst is watched (content/coverage.js reports it)
       const on = S.onField(h) && e.alive && e.blockedBy === h && !!e.findBuff(`${it.el}Burst`);
@@ -48,11 +55,11 @@ export const STAT_INSTALLERS = {
       const k = bondSteps(battle, h.ownerId, [it.bbStr.bond_id].filter(Boolean), it.bb.denominator);
       if (k > 0) it.rate.set(e, S.num(it.bb.ep_break_recover_speed_base, 0) * k);
     };
-    battle.on('tick', ({ dt }) => {
-      for (const it of list) {
+    battle.on('tick', (/** @type {TickEv} */ { dt }) => {
+      for (const it of /** @type {BlockInst[]} */ (list)) { // el and rate set above
         for (const e of battle.enemies) check(it, e);
         for (const [e, r] of it.rate) {
-          const b = e.findBuff(`${it.el}Burst`);
+          const b = /** @type {{ timeLeft: number } | null} */ (e.findBuff(`${it.el}Burst`)); // a buff (Unit.buffs: object[])
           if (b && Number.isFinite(b.timeLeft) && r > 0) b.timeLeft = Math.max(0, b.timeLeft - dt * r);
         }
       }
@@ -61,6 +68,7 @@ export const STAT_INSTALLERS = {
 
   attr_common_global_buff(battle, list) {
     for (const it of list) {
+      /** @type {Record<string, number>} */
       const mods = {};
       if (S.num(it.bb.sp_recovery_per_sec, 0)) mods.spRecoveryFlat = S.num(it.bb.sp_recovery_per_sec);
       Object.assign(mods, S.directMods({ atk: S.num(it.bb.atk, 0), hp: S.num(it.bb.max_hp, 0) }));
@@ -75,7 +83,7 @@ export const READERS = new Set([
   'act2autochess_gar_eff_attrByBond_add_onstart', 'act2autochess_gar_eff_ab_damageScaleByBond',
 ]);
 
-/** floor(Σ layers of the listed active bonds / divide_num). */
+/** floor(Σ layers of the listed active bonds / divide_num). @param {Battle} battle @param {GarrisonInst} it */
 export function stepsOf(battle, it) {
   const div = Math.max(1, S.num(it.bb.divide_num, 1));
   let sum = 0;
@@ -83,6 +91,7 @@ export function stepsOf(battle, it) {
   return Math.floor(sum / div);
 }
 
+/** @param {Record<string, any>} bb @param {number} k */
 function attrMods(bb, k) {
   // "每叠加N层，本干员攻击力+X%": a 直接乘算 bonus like every other "+X%" of the 卫戍 systems (support directMods)
   const m = S.directMods({ atk: S.num(bb.atk, 0) * k, hp: S.num(bb.max_hp, 0) * k, def: S.num(bb.def, 0) * k });
@@ -92,6 +101,7 @@ function attrMods(bb, k) {
   return m;
 }
 
+/** @param {Battle} battle @param {GarrisonInst} it */
 function applyReader(battle, it) {
   const k = stepsOf(battle, it);
   if (k === it.k) return;
@@ -113,14 +123,16 @@ function applyReader(battle, it) {
       else battle.removeBuff(u, key);
       break;
     case 'act2autochess_gar_eff_attrByBond_add_onstart': {
-      const b = u.findBuff(key);
+      const b = /** @type {{ timeLeft: number } | null} */ (u.findBuff(key)); // a buff (Unit.buffs: object[])
       if (b && b.timeLeft > 0) onstartBuff(battle, it, b.timeLeft);
+
       break;
     }
     default: break; // damageScale reads it.k in the hit hook
   }
 }
 
+/** @param {Battle} battle @param {GarrisonInst} it @param {number} duration */
 function onstartBuff(battle, it, duration) {
   const k = Math.max(0, it.k);
   const key = it.buffKey;
@@ -128,7 +140,9 @@ function onstartBuff(battle, it, duration) {
   battle.addBuff(it.unit, { key, duration, refresh: 'replace', mods: { atkFlat: S.num(it.bb.atk, 0) * k, hpFlat: S.num(it.bb.max_hp, 0) * k } });
 }
 
+/** @param {Battle} battle @param {Map<string, GarrisonInst[]>} by the instances by effect key */
 export function installReaders(battle, by) {
+  /** @type {GarrisonInst[]} */
   const list = [];
   for (const key of READERS) for (const it of by.get(key) ?? EMPTY) list.push(it);
   if (!list.length) return;
@@ -144,7 +158,7 @@ export function installReaders(battle, by) {
   const live = list.filter((it) => it.key !== ATTR && it.key !== ONSTART);
   const atDeploy = byUnit(list.filter((it) => it.key === ATTR));
   if (atDeploy.size) {
-    battle.on('deploy', ({ unit, move }) => {
+    battle.on('deploy', (/** @type {DeployEv} */ { unit, move }) => {
       const arr = move ? null : atDeploy.get(unit);
       if (arr) for (const it of arr) applyReader(battle, it);
     });
@@ -160,9 +174,10 @@ export function installReaders(battle, by) {
   const onstart = by.get('act2autochess_gar_eff_attrByBond_add_onstart');
   if (onstart) {
     const m = byUnit(onstart);
-    battle.on('deploy', ({ unit }) => {
+    battle.on('deploy', (/** @type {DeployEv} */ { unit }) => {
       const arr = m.get(unit);
       if (!arr) return;
+
       for (const it of arr) { it.k = stepsOf(battle, it); onstartBuff(battle, it, S.num(it.bb.duration, 0)); }
     });
   }

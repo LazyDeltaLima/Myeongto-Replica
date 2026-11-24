@@ -7,14 +7,20 @@ import { frontOf } from '../../../dir.js';
 import { ids, EMPTY, byUnit, inRangeOf } from '../shared.js';
 import { runTriggered, capOf } from './triggered.js';
 import { traitEventFx } from '../../../../../shared/traitFx.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { GarrisonInst, Installer } from '../shared.js' */
+/** @import { DeployEv, KillEv, DeathEv, UnitEv, StatusEv, BurstEv, LayerGainEv } from '../../support/index.js' */
+/** A _consume_ammo instance after its reset (the installer below): the per-consumer locks, the count's threshold, the tick. @typedef {GarrisonInst & { locks: Map<Unit, number>, target: number, seq: number, next: number }} AmmoInst */
 
 /**
  * Status keys for the check_ab_flag values the data uses: the client's `AbnormalFlag` (16 FROZEN = 冻结, 33 FEARED = 恐惧 —
  * 规程 妮芙 garrison_99). A value missing here watches nothing (never a fallback to 冻结: 33 read as 冻结 once left 妮芙's
  * 特质 dead); the data test checks every value the tables use is listed.
  */
+/** @type {Readonly<Record<number, string>>} */
 export const AB_FLAG_STATUS = Object.freeze({ 16: 'freeze', 33: 'fear' });
-const abFlagStatus = (it) => AB_FLAG_STATUS[S.num(it.bb.check_ab_flag, 16)] ?? null;
+const abFlagStatus = (/** @type {GarrisonInst} */ it) => AB_FLAG_STATUS[S.num(it.bb.check_ab_flag, 16)] ?? null;
 
 /**
  * The option values of a garrison's bbStr this file reads (content/coverage.js marks any other value 'partial'). A value
@@ -42,6 +48,7 @@ export const GARRISON_OPTIONS = Object.freeze({
   }),
 });
 
+/** @param {Battle} battle @param {GarrisonInst} it */
 function targetBonds(battle, it) {
   const u = it.unit;
   switch (it.bbStr.bond_type) {
@@ -50,6 +57,7 @@ function targetBonds(battle, it) {
     case 'bond_allinrange': {
       // 规程 garrison_237 "使身后一格干员已激活的盟约层数+N": the active bonds of the operators on the tiles of bond_range_id
       // (b-4: the tile behind), once per operator (a shared bond twice, as the prep side's POSITION gains)
+      /** @type {string[]} */
       const out = [];
       for (const a of battle.allyUnits) {
         if (a === u || !S.isOp(a) || a.ownerId !== u.ownerId || !S.onField(a)) continue;
@@ -63,6 +71,7 @@ function targetBonds(battle, it) {
   }
 }
 
+/** @param {Battle} battle @param {GarrisonInst} it */
 function amountOf(battle, it) {
   const bb = it.bb;
   switch (it.bbStr.bond_add_type) {
@@ -73,6 +82,7 @@ function amountOf(battle, it) {
   }
 }
 
+/** @param {Battle} battle @param {GarrisonInst} it */
 function conditionMet(battle, it) {
   const ck = it.bbStr.conditionkey;
   const need = S.num(it.bb.check_count, 0);
@@ -91,6 +101,7 @@ function conditionMet(battle, it) {
  * garrison run (莎草 「每次开启技能时…」: crossed swords over her at each skill, official recording). The fixed
  * stat 特质 (attrByBond 「每叠加N层…」, effects/stats.js) have no event and play nothing. [추정·화면: a gain stopped by its
  * per-battle cap plays nothing; an effect garrison plays even when its effect finds nobody.]
+ * @param {Battle} battle @param {GarrisonInst} it
  */
 function traitFx(battle, it) {
   const name = traitEventFx(it.g);
@@ -100,6 +111,7 @@ function traitFx(battle, it) {
 /**
  * Fire a 特质 instance on its event: a garrison_trigger_buff one runs its effect garrison (effects/triggered.js), any
  * other gains layers (fireGain).
+ * @param {Battle} battle @param {GarrisonInst} it
  */
 export function fire(battle, it) {
   const type = it.bbStr.garrison_type;
@@ -107,7 +119,7 @@ export function fire(battle, it) {
   return type == null || type === '' || type === 'garrison_add_bond' ? fireGain(battle, it) : 0;
 }
 
-/** Fire a layer-gain garrison instance. Returns the layers added. */
+/** Fire a layer-gain garrison instance. Returns the layers added. @param {Battle} battle @param {GarrisonInst} it */
 export function fireGain(battle, it) {
   if (!conditionMet(battle, it)) return 0;
   const bonds = targetBonds(battle, it);
@@ -132,6 +144,7 @@ export function fireGain(battle, it) {
   return added;
 }
 
+/** @param {Unit} holder @param {Unit | null | undefined} u */
 function isFrontOf(holder, u) {
   if (!u || u === holder || u.ownerId !== holder.ownerId || !S.onField(u)) return false;
   const [fr, fc] = frontOf(holder.tileR, holder.tileC, holder.dir);
@@ -140,12 +153,14 @@ function isFrontOf(holder, u) {
 /**
  * 魔王: the gain's source (an operator of the holder's player) stands in front of it. `tile` = the engine's layerGain
  * ctx.tile: where the source stands, or where it was knocked out this very instant (幽灵鲨 "被击倒时" gains fire on death).
+ * @param {Unit} holder @param {Unit | null | undefined} u @param {readonly number[] | null} tile
  */
 function sourceInFront(holder, u, tile) {
   if (!u || u === holder || u.ownerId !== holder.ownerId || !S.isOp(u) || !Array.isArray(tile)) return false;
   const [fr, fc] = frontOf(holder.tileR, holder.tileC, holder.dir);
   return tile[0] === fr && tile[1] === fc;
 }
+/** @param {GarrisonInst} it @param {Unit} u */
 function ammoScope(it, u) {
   const h = it.unit;
   switch (it.bbStr.range_id) {
@@ -162,13 +177,13 @@ function ammoScope(it, u) {
  * read, so 风丸's swaps added no 不屈 layers). The sweep in test/content/garrisons_battle.test.js holds it to every
  * 傀儡师 owner of every season.
  */
-export const countsSwaps = (g) => /替身|傀儡/.test((g && g.desc) || '');
+export const countsSwaps = (/** @type {Record<string, any> | null | undefined} */ g) => /替身|傀儡/.test((g && g.desc) || '');
 
-/** Installers by effect key: (battle, instances of the key). */
+/** Installers by effect key: (battle, instances of the key). @type {Record<string, Installer>} */
 export const EVENTS = {
   act1autochess_gar_event_useskill(battle, list) {
     const m = byUnit(list);
-    battle.on('skillStart', ({ unit }) => {
+    battle.on('skillStart', (/** @type {UnitEv} */ { unit }) => {
       const arr = m.get(unit);
       if (arr) for (const it of arr) fire(battle, it);
     });
@@ -179,11 +194,11 @@ export const EVENTS = {
     for (const it of list) it.allies = /我方干员/.test(it.g.desc || '');
     // the kill count (current_cnt) starts again at 0 on every deployment: the client's buff graph zeroes it on
     // ON_BUFF_START; a relocation (`deploy` with move) keeps it
-    battle.on('deploy', ({ unit, move }) => {
+    battle.on('deploy', (/** @type {DeployEv} */ { unit, move }) => {
       const arr = !move && m.get(unit);
       if (arr) for (const it of arr) it.cnt = 0;
     });
-    battle.on('kill', ({ killer, victim }) => {
+    battle.on('kill', (/** @type {KillEv} */ { killer, victim }) => {
       const arr = killer ? m.get(killer) : null;
       if (!arr || !victim) return;
       for (const it of arr) {
@@ -196,7 +211,7 @@ export const EVENTS = {
 
   act1autochess_gar_event_selfdead(battle, list) {
     const m = byUnit(list);
-    battle.on('death', ({ unit, reason }) => {
+    battle.on('death', (/** @type {DeathEv} */ { unit, reason }) => {
       if (reason !== 'killed') return;
       const arr = m.get(unit);
       if (arr) for (const it of arr) fire(battle, it);
@@ -206,7 +221,7 @@ export const EVENTS = {
     // one more switch, so that knock-out gained twice
     const swaps = byUnit(list.filter((it) => countsSwaps(it.g)));
     if (!swaps.size) return;
-    battle.on('dollSwap', ({ unit }) => {
+    battle.on('dollSwap', (/** @type {UnitEv} */ { unit }) => {
       const arr = swaps.get(unit);
       if (arr) for (const it of arr) fire(battle, it);
     });
@@ -222,17 +237,17 @@ export const EVENTS = {
   // relocation (`deploy` with move) keeps them, as for the kill count above.
   act1autochess_gar_event_consume_ammo(battle, list) {
     const LOCK = 0.1, TICK = 0.3;
-    const reset = (it) => { it.locks = new Map(); it.cnt = 0; it.target = Math.max(1, S.num(it.bb.consume_count, 1)); };
+    const reset = (/** @type {GarrisonInst} */ it) => { it.locks = new Map(); it.cnt = 0; it.target = Math.max(1, S.num(it.bb.consume_count, 1)); };
     for (const it of list) { reset(it); it.seq = -1; it.next = 0; }
     const m = byUnit(list);
-    battle.on('deploy', ({ unit, move }) => {
+    battle.on('deploy', (/** @type {DeployEv} */ { unit, move }) => {
       const arr = !move && m.get(unit);
       if (arr) for (const it of arr) reset(it);
     });
-    battle.on('ammoUsed', ({ unit }) => {
+    battle.on('ammoUsed', (/** @type {UnitEv} */ { unit }) => {
       if (!unit || !S.isOp(unit)) return;
       for (let i = 0; i < list.length; i++) {
-        const it = list[i];
+        const it = /** @type {AmmoInst} */ (list[i]); // reset above
         if (!ammoScope(it, unit)) continue;
         if (battle.time + 1e-9 < (it.locks.get(unit) ?? -Infinity)) continue;
         it.locks.set(unit, battle.time + LOCK);
@@ -241,7 +256,7 @@ export const EVENTS = {
     });
     battle.on('tick', () => {
       for (let i = 0; i < list.length; i++) {
-        const it = list[i];
+        const it = /** @type {AmmoInst} */ (list[i]); // reset above
         const h = it.unit;
         if (!S.onField(h)) continue;
         if (it.seq !== h.deploySeq) { it.seq = h.deploySeq; it.next = h.deployedAt + TICK; }
@@ -257,7 +272,7 @@ export const EVENTS = {
   act1autochess_gar_event_enemy_abflag_inrange(battle, list) {
     const watched = new Set(list.map(abFlagStatus));
     // "进入冻结时" / "陷入恐惧": only a new entry (engine ctx.entered — a refresh of a running status is not one)
-    battle.on('statusApplied', ({ target, status, entered }) => {
+    battle.on('statusApplied', (/** @type {StatusEv} */ { target, status, entered }) => {
       if (!target || !watched.has(status) || !entered || target.side !== 'enemy') return;
       for (const it of list) {
         if (status !== abFlagStatus(it)) continue;
@@ -269,7 +284,7 @@ export const EVENTS = {
 
   act2autochess_gar_event_onstart(battle, list) {
     const m = byUnit(list);
-    battle.on('deploy', ({ unit }) => {
+    battle.on('deploy', (/** @type {DeployEv} */ { unit }) => {
       const arr = m.get(unit);
       if (arr) for (const it of arr) fire(battle, it);
     });
@@ -277,14 +292,14 @@ export const EVENTS = {
     // Restrict this extra trigger to that trait; use its existing amounts, active-bond checks and battle cap.
     // (by the default season's 特质 id: another season's own id of the same 特质, S.garrisonKeyOf)
     const farTooth = byUnit(list.filter((it) => ['garrison_108_a', 'garrison_108_b'].includes(S.garrisonKeyOf(it.gid, battle))));
-    if (farTooth.size) battle.on('dollSwap', ({ unit }) => {
+    if (farTooth.size) battle.on('dollSwap', (/** @type {UnitEv} */ { unit }) => {
       const arr = farTooth.get(unit);
       if (arr) for (const it of arr) fire(battle, it);
     });
   },
 
   act2autochess_gar_event_allyenemy_sleepstun_inrange(battle, list) {
-    battle.on('statusApplied', ({ target, status, entered }) => { // "进入沉睡/晕眩时": new entries only (ctx.entered)
+    battle.on('statusApplied', (/** @type {StatusEv} */ { target, status, entered }) => { // "进入沉睡/晕眩时": new entries only (ctx.entered)
       if (!target || (status !== 'sleep' && status !== 'stun') || !entered) return;
       if (!(target.side === 'enemy' || (target.side === 'ally' && target.kind === 'op'))) return;
       // range: the attack range, or range_id (规程 x-4 "周围八格": the 3 × 3 square around the holder)
@@ -298,14 +313,14 @@ export const EVENTS = {
   // share (S.gainLayers), so the extra is past the cap, as 魔王's. [ASSUMED·CN: the effect prefab is CN-only] a strategy's,
   // a bond's own gain (乌萨斯's knock-out 临时层数) and prep-side gains are not raised; each granted copy adds its own extra.
   act3autochess_gar_effect_ex_bond_cnt(battle, list) {
-    battle.on('layerGain', (ctx) => {
+    battle.on('layerGain', (/** @type {LayerGainEv} */ ctx) => {
       if ((ctx.reason !== 'garrison' && ctx.reason !== 'item') || !ctx.source) return;
       for (const it of list) if (it.unit === ctx.source && it.unit.ownerId === ctx.playerId) ctx.n += S.num(it.bb.extra_cnt, 0);
     });
   },
 
   act1autochess_gar_event_addition_cnt(battle, list) {
-    battle.on('layerGain', (ctx) => {
+    battle.on('layerGain', (/** @type {LayerGainEv} */ ctx) => {
       if (ctx.reason !== 'garrison' || !ctx.source) return;
       for (const it of list) {
         const h = it.unit;
@@ -322,7 +337,7 @@ export const EVENTS = {
   // range buff follows the holder's live range; use_attack_range / bond_use_char_range / at_root all read as its attack range.]
   act1autochess_gar_event_enemykilled_inrange(battle, list) {
     for (const it of list) it.cnt = 0;
-    battle.on('death', ({ unit, reason }) => {
+    battle.on('death', (/** @type {DeathEv} */ { unit, reason }) => {
       if (!unit || unit.side !== 'enemy' || reason !== 'killed') return;
       for (const it of list) {
         if (!S.onField(it.unit) || !inRangeOf(it.unit, unit, it.bbStr.range_id || 'attack', S.inRange)) continue;
@@ -344,7 +359,7 @@ export const EVENTS = {
   // 规程 "…每有一名敌人触发元素损伤爆发…" (ON_BEFORE_EP_BREAK_START on the enemies of the range: range_id x-4 or the
   // attack range): any element's burst, before it resolves (the elementBurst hook)
   act3autochess_gar_event_enemy_epbreak_inrange(battle, list) {
-    battle.on('elementBurst', ({ target }) => {
+    battle.on('elementBurst', (/** @type {BurstEv} */ { target }) => {
       if (!target || target.side !== 'enemy') return;
       for (const it of list) if (S.onField(it.unit) && inRangeOf(it.unit, target, it.bbStr.range_id || 'attack', S.inRange)) fire(battle, it);
     });
@@ -356,8 +371,9 @@ export const EVENTS = {
   // a 突袭 landing; a 【移动】 is no deployment. [ASSUMED·CN: the dynamic ability prefab is CN-only — the holder itself does
   // not count.]
   act3autochess_gar_event_onstart_inrange(battle, list) {
-    battle.on('deploy', ({ unit, move }) => {
+    battle.on('deploy', (/** @type {DeployEv} */ { unit, move }) => {
       if (move || !unit || !S.isOp(unit)) return;
+
       for (const it of list) {
         const h = it.unit;
         if (unit !== h && unit.ownerId === h.ownerId && S.onField(h) && S.inRange(h, unit)) fire(battle, it);

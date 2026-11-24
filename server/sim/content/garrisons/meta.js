@@ -38,9 +38,12 @@ import { H as TRIGGERS } from './prep/triggers.js';
 
 export { requireActiveOf, topActiveBondMeta } from './prep/shared.js';
 export { runGarrisonsOf, triggerGainEffects } from './prep/triggers.js';
+/** @import { MetaHandlers, MetaRegistry } from '../../../match/effectsMeta.js' */
+/** @import { GarrisonHandlers } from './prep/shared.js' */
 
 /** effectKey → handler (the registered objects; an effect key in two families throws). */
 export const HANDLERS = (() => {
+  /** @type {Record<string, GarrisonHandlers>} */
   const out = {};
   for (const t of [LAYERS, SHOP, EQUIP, TRIGGERS]) {
     for (const [k, v] of Object.entries(t)) {
@@ -51,8 +54,12 @@ export const HANDLERS = (() => {
   return Object.freeze(out);
 })();
 
+/** @param {MetaRegistry} registry */
 export function registerMeta(registry) {
-  for (const [key, h] of Object.entries(HANDLERS)) registry.garrison(key, h);
+
+  // registered under garrison:<effectKey>: the dispatcher runs them with a 特质's source only (GarrisonCtx)
+  for (const [key, h] of Object.entries(HANDLERS)) registry.garrison(key, /** @type {MetaHandlers} */ (h));
+
   // 灵知's special refresh waits for the player's next manual refresh, whether or not 灵知 is still owned (prep/shop.js)
   registry.global('garrison_special_refresh', SPECIAL_REFRESH);
 }

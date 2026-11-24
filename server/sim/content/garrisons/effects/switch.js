@@ -33,6 +33,10 @@
 import * as S from '../../support/index.js';
 import { ids } from '../shared.js';
 import { fireGain } from './events.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { GarrisonInst, Installer } from '../shared.js' */
+/** @import { DeathEv } from '../../support/index.js' */
 
 export const SWITCH_NEAR = 'act3autochess_gar_effect_switchhand_triggergar';
 export const SWITCH_TRIGGER = 'act3autochess_gar_effect_switchcharinhand[trigger]';
@@ -46,8 +50,11 @@ const SWITCH_PRIORITY = -999;
  * The hand operators a board chess may call (PlayerBattleInput `reserve`): `{ bonds, position }` per switch 特质 of its
  * record — a hand chess of that deploy class carrying one of the bonds (or 调和). `garrisonOf(id)` reads a garrison
  * record. A superset: reserve() below picks the exact candidates.
+ * @param {Record<string, any> | null | undefined} chessRec
+ * @param {(id: string) => Record<string, any> | null | undefined} garrisonOf
  */
 export function handRules(chessRec, garrisonOf) {
+  /** @type {Array<{ bonds: string[], position: string }>} */
   const out = [];
   if (!chessRec || !Array.isArray(chessRec.garrisonIds)) return out;
   for (const gid of chessRec.garrisonIds) {
@@ -59,9 +66,11 @@ export function handRules(chessRec, garrisonOf) {
   return out;
 }
 
-const benchKey = (pid) => `gar:switch:bench:${pid}`;
+const benchKey = (/** @type {string | null} */ pid) => `gar:switch:bench:${pid}`;
 
+/** @param {Battle} battle @param {Unit} u */
 function switchBonds(battle, u) {
+  /** @type {Set<string>} */
   const out = new Set();
   for (const gid of u?.def?.raw?.garrisonIds ?? []) {
     const g = S.garrisonRecord(gid, battle);
@@ -70,7 +79,7 @@ function switchBonds(battle, u) {
   return [...out];
 }
 
-/** Before any content installs: the candidates of every board holder of a switch 特质, rightmost slot first. */
+/** Before any content installs: the candidates of every board holder of a switch 特质, rightmost slot first. @param {Battle} battle */
 export function reserve(battle) {
   for (const p of battle.players || []) {
     const pid = p.playerId;
@@ -95,7 +104,11 @@ export function reserve(battle) {
   }
 }
 
-/** The rightmost hand operator not fielded yet that `holder` may call with `bonds`, or null. */
+/**
+ * The rightmost hand operator not fielded yet that `holder` may call with `bonds`, or null.
+ * @param {Battle} battle @param {Unit} holder @param {readonly string[]} bonds
+ * @returns {Unit | null}
+ */
 function candidate(battle, holder, bonds) {
   const bench = S.battleStore(battle, benchKey(holder.ownerId), () => []);
   for (const u of bench) {
@@ -105,7 +118,10 @@ function candidate(battle, holder, bonds) {
   return null;
 }
 
-/** Field `next` on the tile `holder` lies on; the holder leaves (no body, no redeploy). False when it did not come in. */
+/**
+ * Field `next` on the tile `holder` lies on; the holder leaves (no body, no redeploy). False when it did not come in.
+ * @param {Battle} battle @param {Unit} holder @param {Unit | null} next
+ */
 function switchIn(battle, holder, next) {
   if (!next || holder.removed) return false;
   const tile = battle.restTile(holder);
@@ -121,11 +137,12 @@ function switchIn(battle, holder, next) {
 /** The switches the [trigger] effect asked for during this `death` (holder → bonds), run at SWITCH_PRIORITY. */
 const PENDING = 'gar:switch:pending';
 
+/** @param {Battle} battle @returns {{ on: boolean, list: Map<Unit, string[]> }} */
 function installPending(battle) {
   const st = S.battleStore(battle, PENDING, () => ({ on: false, list: new Map() }));
   if (st.on) return st;
   st.on = true;
-  battle.on('death', ({ unit }) => {
+  battle.on('death', (/** @type {DeathEv} */ { unit }) => {
     const bonds = st.list.get(unit);
     if (!bonds) return;
     st.list.delete(unit);
@@ -134,7 +151,10 @@ function installPending(battle) {
   return st;
 }
 
-/** effects/triggered.js: 历阵锐枪芬's garrison_224, run by its 被击倒时 event (garrison_223). */
+/**
+ * effects/triggered.js: 历阵锐枪芬's garrison_224, run by its 被击倒时 event (garrison_223).
+ * @param {Battle} battle @param {GarrisonInst} it @param {Record<string, any>} pg
+ */
 export function triggerSwitch(battle, it, pg) {
   const holder = it.unit;
   const bonds = ids(pg.bbStr?.switch_bond_id);
@@ -147,11 +167,13 @@ export function triggerSwitch(battle, it, pg) {
  * garrisons/battle.js INSTALLERS: 耀骑士临光's garrison_58, and the switch handler of 历阵锐枪芬's garrison_224 (installed
  * with the battle, before its event garrison_223 can ask for it).
  */
+/** @type {Record<string, Installer>} */
 export const SWITCH_INSTALLERS = {
   [SWITCH_TRIGGER](battle) { installPending(battle); },
   [SWITCH_NEAR](battle, list) {
     const by = new Map(list.map((it) => [it.unit, it]));
-    battle.on('death', ({ unit, reason }) => {
+    battle.on('death', (/** @type {DeathEv} */ { unit, reason }) => {
+
       const it = by.get(unit);
       if (!it || unit.alive || reason === 'raid') return;
       const next = candidate(battle, unit, ids(it.bbStr.switch_bond_id));

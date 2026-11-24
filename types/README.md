@@ -103,8 +103,9 @@ server's options only). A listed file is checked in every config that has it; a 
 error.
 
 With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`, the files directly under `server/`
-(`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, and the files directly under
-`server/match/` (`server/match/*.js`).
+(`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, the files directly under
+`server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), `garrisons/` and
+`support/`.
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -228,6 +229,30 @@ most strict errors were, and the JSDoc that fixed them:
   (`LayoutPlan`).
 - a lookup whose JSDoc is narrower than what it takes (`gd.bandBondIds(null)` answers `[]` for a seat before the band
   draft): widen the `@param` there rather than cast every caller.
+- the content helpers (`server/sim/content/support/index.js`) take `Battle` and `Unit`
+  (`/** @import { Battle } from '../../Battle.js' */`); a data lookup's scope is `DataScope` (a battle, a prep ctx or a
+  data object, read field by field), and a check that is also asked about a stand-in object (a reserve probe
+  `{ kind, side, ownerId, def, items }`: `isOp`, `unitBonds`, `isMember`) takes `UnitLike` — `isOp` is a guard generic
+  over it, so a `Unit` stays a `Unit`. A JS object literal is no `Record<string, number>` (it has no index signature):
+  a buff's `mods` is `Record<string, any>`.
+- a battle hook's callback (`battle.on(name, fn)`: `fn` has no type, so its parameter needs one) takes the payload
+  typedef of `support/index.js` on its destructuring, `(/** @type {DeployEv} */ { unit, move }) =>` — `DeployEv`,
+  `KillEv`, `DeathEv`, `UnitEv`, `StatusEv`, `TickEv`, `BurstEv`, `HitEv`, `DamagedEv`, `LayerGainEv`, as the engine
+  emits them.
+- a table of installers or handlers typed once on its declaration types every method in it: the IN_BATTLE 特质's
+  `@type {Record<string, Installer>}` (`garrisons/shared.js`: `Installer` = (battle, `GarrisonInst[]`)), the prep 特质's
+  `@type {Record<string, GarrisonHandlers>}` (`garrisons/prep/shared.js`: a `GarrisonCtx` is a `MetaCtx` whose source is
+  the 特质's — `bb`, `bbStr`, `piece` … present — registered with a cast to `MetaHandlers`, since only the garrison
+  dispatch runs them), a global handler `@type {MetaHandlers}`.
+- state one family of instances keeps (`GarrisonInst`'s optional `locks`, `rate`, `seen` …, set by that family's
+  installer before its hooks run) is read through a cast to the family's typedef at the loop or the lookup that knows it
+  is set (`/** @type {AmmoInst} */ (list[i])`, `for (const it of /** @type {BlockInst[]} */ (list))`), not one cast per
+  field.
+- `Unit.buffs` is `object[]`, so a buff's fields read through a cast of `findBuff`'s result,
+  `/** @type {{ timeLeft: number } | null} */ (u.findBuff(key))`.
+- a shared empty fallback list (`EMPTY`) is `readonly never[]` (a cast on `Object.freeze([])`: the plain pass reads it
+  as `readonly any[]`), so `list ?? EMPTY` keeps the list's element type.
+
 
 ## Split classes
 

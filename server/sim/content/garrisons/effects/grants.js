@@ -10,22 +10,31 @@
 
 import * as S from '../../support/index.js';
 import { frontOf } from '../../../dir.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { GarrisonInst } from '../shared.js' */
 
+/** @param {Battle} battle @param {string | null} pid */
 function opsOf(battle, pid) {
+  /** @type {Unit[]} */
   const out = [];
   for (const u of battle.allyUnits) if (S.isOp(u) && u.ownerId === pid && !u.removed) out.push(u);
   return out;
 }
+/** @param {Battle} battle @param {string | null} pid @param {number} r @param {number} c */
 function opAtHome(battle, pid, r, c) {
   for (const u of battle.allyUnits) if (S.isOp(u) && u.ownerId === pid && !u.removed && u.homeR === r && u.homeC === c) return u;
   return null;
 }
 
+/** @param {Battle} battle @param {GarrisonInst} it @returns {Unit[]} */
 export function grantTargets(battle, it) {
   const u = it.unit;
   const need = it.bbStr.check_bond_id || null;
+  /** @param {Unit | null} t a candidate (a guard: false leaves it out) @returns {t is Unit} */
   const ok = (t) => !!t && (!need || S.isMember(battle, t, need));
-  const tile = (k) => { const [r, c] = frontOf(u.homeR, u.homeC, u.dir, k); return opAtHome(battle, u.ownerId, r, c); };
+
+  const tile = (/** @type {number} */ k) => { const [r, c] = frontOf(u.homeR, u.homeC, u.dir, k); return opAtHome(battle, u.ownerId, r, c); };
   switch (it.g.battleRuneKey) {
     case 'give_garrison_to_all': return opsOf(battle, u.ownerId).filter(ok);
     case 'give_garrison_to_most_right': {
@@ -33,7 +42,8 @@ export function grantTargets(battle, it) {
       for (const t of opsOf(battle, u.ownerId)) {
         if (t.homeR !== u.homeR) continue;
         // a board position ("最右边" of the player's own board: the mirrored Final Assault right side counts from the left)
-        const col = (x) => (x.player && x.player.mirror ? -x.homeC : x.homeC);
+        const col = (/** @type {Unit} */ x) =>
+ (x.player && x.player.mirror ? -x.homeC : x.homeC);
         if (!best || col(t) > col(best)) best = t;
       }
       return ok(best) ? [best] : [];

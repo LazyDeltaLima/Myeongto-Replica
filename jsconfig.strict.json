@@ -22,7 +22,10 @@
     "server/*.js",
     "server/match/match/**/*.js",
     "server/match/player/**/*.js",
-    "server/match/*.js"
+    "server/match/*.js",
+    "server/sim/content/kits/*.js",
+    "server/sim/content/garrisons/**/*.js",
+    "server/sim/content/support/**/*.js"
   ],
   "exclude": []
 }

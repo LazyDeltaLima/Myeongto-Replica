@@ -65,7 +65,11 @@ export { TRIGGERED_KEYS } from './effects/triggered.js';
 export { stepsOf } from './effects/stats.js';
 export { weaknessType, WEAKNESS_PRIORITY } from './effects/hits.js';
 export { reserve, handRules as switchHandRules } from './effects/switch.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { GarrisonInst, Installer } from './shared.js' */
 
+/** @param {Unit} u @returns {readonly string[]} */
 function garrisonIdsOf(u) {
   const list = u?.def?.raw?.garrisonIds ?? u?.def?.garrisonIds;
   return Array.isArray(list) ? list : EMPTY;
@@ -73,6 +77,7 @@ function garrisonIdsOf(u) {
 
 /** Installers by effect key, in this order (an effect key in two families throws). */
 const INSTALLERS = (() => {
+  /** @type {Record<string, Installer>} */
   const out = {};
   // a garrison_trigger_buff effect garrison does nothing on its own: its event 特质 runs it (effects/triggered.js) — but
   // for the switch's handler, installed with the battle (effects/switch.js)
@@ -93,10 +98,13 @@ const INSTALLERS = (() => {
 // ---------------------------------------------------------------------------------------------------------------------
 // install
 
+/** @param {Battle} battle */
 export function install(battle) {
+  /** @type {GarrisonInst[]} */
   const all = [];
+  /** @type {Map<Unit, Map<string, number>>} */
   const owned = new Map(); // unit → Map(garrisonId → copies)
-  const add = (unit, g, grantedBy = null) => {
+  const add = (/** @type {Unit} */ unit, /** @type {Record<string, any>} */ g, /** @type {GarrisonInst | null} */ grantedBy = null) => {
     let held = owned.get(unit);
     if (!held) { held = new Map(); owned.set(unit, held); }
     const n = (held.get(g.garrisonId) ?? 0) + 1;
@@ -121,6 +129,7 @@ export function install(battle) {
   }
   if (!all.length) return;
 
+  /** @type {GarrisonInst[]} */
   const grants = [];
   for (const it of all.slice()) {
     if (it.key !== 'ADD_BOND') continue;
@@ -132,6 +141,7 @@ export function install(battle) {
     }
   }
 
+  /** @type {Map<string, GarrisonInst[]>} */
   const by = new Map();
   for (const it of all) {
     let arr = by.get(it.key);
@@ -147,7 +157,9 @@ export function install(battle) {
 
   if (grants.length) {
     battle.on('battleStart', () => {
-      for (const it of grants) S.fxOn(battle, 'garrisonGrant', it.unit, `gar:${it.grantedBy.gid}`, it.gid, { from: it.grantedBy.unit.id });
+      // a grant always has its granter (add's third argument above)
+      for (const it of grants) S.fxOn(battle, 'garrisonGrant', it.unit, `gar:${/** @type {GarrisonInst} */ (it.grantedBy).gid}`, it.gid, { from: /** @type {GarrisonInst} */ (it.grantedBy).unit.id });
+
     });
   }
 }
