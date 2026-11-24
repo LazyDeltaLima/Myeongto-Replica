@@ -10,6 +10,11 @@ import { canTargetAlly } from '../../targeting.js';
 import { interruptEnemyCast } from '../../ai.js';
 import { T, hurt, areaAllies, byPriority, remainingRoute, spawnChildren, auraBuff, atCastEvent, castStrikeAt, canCast, mode, setForm } from './helpers.js';
 import { blockWeight, skill } from './archetypes.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { BuffTick } from './helpers.js' */
+/** @import { BuffRec } from '../bonds/shared.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -35,7 +40,7 @@ const TRWLPL_EAT_IMMUNE = Object.freeze([...TRWLPL_BITE_IMMUNE, 'fear']);
 // kits
 
 /** 晕眩 / 束缚 (the client's STUNNED / UNMOVABLE flags) — not 冻结, 沉睡 or 浮空, which hold flags.stun here too (as kitRush). */
-const held = (e) => e.buffs.some((x) => x.status === 'stun' || x.status === 'bind');
+const held = (/** @type {Unit} */ e) => /** @type {BuffRec[]} */ (e.buffs).some((x) => x.status === 'stun' || x.status === 'bind');
 
 /**
  * 开天汽水瓶 (enemy_10146_nscola, 悬赏·飞行; EN prefab battle/enm_pfb_29: Talents/Passive, two buffs):
@@ -45,6 +50,7 @@ const held = (e) => e.buffs.some((x) => x.status === 'stun' || x.status === 'bin
  *   else +1 up to `max_time` (25) — then, not blocked, its move speed × (1 + `move_speed` (0.3) × count) (MULTIPLIER, one
  *   modifier rewritten each time). A flyer is never blocked: only a stun or a bind starts it over.
  * Its only attack ability is a Combat one (a blocked melee hit): a flyer never makes it.
+ * @type {AbKit}
  */
 function kitNscola(ab) {
   const loss = (T(ab, 'Passive.fixed_value_damage') ?? 0) * NSCOLA_LOSS_EVERY;
@@ -76,6 +82,7 @@ function kitNscola(ab) {
  * nothing asks `canUseAtkOrCbt`; AbilityStandard.CastDirectly and its `_DoCast` test no stun, and Entity.OnTick ticks the
  * buff and the ability whatever the abnormal state — an enemy skill's stun check (EnemySkill.CheckAvailable) is not on this
  * path. Until 2026-11-12: none while stunned.
+ * @type {AbKit}
  */
 function kitNsbomb(ab) {
   const every = T(ab, 'Passive.interval') ?? 2.5, r = T(ab, 'Passive.range_radius') ?? 1, scale = T(ab, 'Passive.atk_scale') ?? 0;
@@ -98,6 +105,7 @@ function kitNsbomb(ab) {
  * `AuraAttributeUp.range_radius` (2.5) over the ground enemies of its side): those there gain `attack_speed` (+50) attack
  * speed and `magic_resistance` (+25) RES (ADDITION; its `def` 0), one buff per cook (`disableOverride`). It is among
  * them itself: the aura's `_selfOption` is DEFAULT (see 搏命享受者, special.js kitUbba).
+ * @type {AbKit}
  */
 function kitAgactr(ab) {
   const r = T(ab, 'AuraAttributeUp.range_radius') ?? 2.5;
@@ -118,6 +126,7 @@ function kitAgactr(ab) {
  * enemy_10073_mpcar) at its own spot on the rest of its route (SummonEnemiesFollowMyRoute, `_stopSummonIfHostDead`). Its
  * Attack is an EmptyActiveAbility that never triggers: unblocked it only walks and summons; blocked it hits its blocker.
  * The helper's enemy_mpbarr_summon (IgnoreAllButMoveCp) has nothing to skip on a 规程 route.
+ * @type {AbKit}
  */
 function kitMpbarr(ab) {
   const s = ab.sk.Spawn, key = s && s.bs.enemy_key;
@@ -141,11 +150,12 @@ function kitMpbarr(ab) {
  *   RangedAttack.DoCastOnTargets would emit to the input position only with `_emitToInputPosWhenTargetIsInvalid` or
  *   `_emitToInputRootTileWhenTargetIsInvalid`, both off here).
  * Its 指挥官 order (enemy_uacomd_extra_power: 6 missiles, F_Attack_B) never comes: no 规程 enemy gives it.
+ * @type {AbKit}
  */
 function kitUareap(ab) {
   const s = ab.sk.SkyProjectile, scale = (s && s.bb.atk_scale) ?? 0;
-  const inRange = (b, e) => b.alliesInRadius(e.x, e.y, (e.base.rangeRadius || 0) + ALLY_COLLIDER_RADIUS, null).filter((u) => !u.isFlying && canTargetAlly(e, u, true));
-  const land = (b, e, t, atk) => {
+  const inRange = (/** @type {Battle} */ b, /** @type {Unit} */ e) => b.alliesInRadius(e.x, e.y, (e.base.rangeRadius || 0) + ALLY_COLLIDER_RADIUS, null).filter((u) => !u.isFlying && canTargetAlly(e, u, true));
+  const land = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {Unit} */ t, /** @type {number} */ atk) => {
     let x = t.x, y = t.y;
     b.after(UAREAP_MISSILE_DELAY, () => {
       if (t.alive && t.deployed) { x = t.x; y = t.y; }
@@ -175,10 +185,11 @@ function kitUareap(ab) {
 
 /** The tile 聆风猎手 blinks to next to `u`: `u`'s own tile when the hunter can stand there, else the nearest such tile (by
  *  distance, the first in row order on a tie) — not an exit (AssignNearestReachableTileToBB `_checkOnSameTile`,
- *  `_excludedTileKey` tile_end). */
+ *  `_excludedTileKey` tile_end).
+ * @param {Battle} b @param {Unit} u @returns {number[] | null} */
 function blinkTile(b, u) {
   const g = b.grid, R = g.rect;
-  const ok = (r, c) => g.groundPassable(r, c) && g.tile(r, c).special !== 'end';
+  const ok = (/** @type {number} */ r, /** @type {number} */ c) => g.groundPassable(r, c) && g.tile(r, c).special !== 'end';
   const r0 = Math.round(u.y), c0 = Math.round(u.x);
   let best = null, bd = Infinity;
   for (let r = R.r0; r <= R.r1; r++) {
@@ -202,6 +213,7 @@ function blinkTile(b, u) {
  * while the enemy is stunned.
  * [추정·CN: the reachable-tile search's tie order and whether it asks for a path to the tile — AssignNearestReachableTileToBB
  * is not in the EN client and the CN code cannot be read]
+ * @type {AbKit}
  */
 function kitShkrbt(ab) {
   const s = ab.sk.Blink, cool = (s && (s.bb.cooldown ?? s.cd)) ?? 30;
@@ -240,14 +252,15 @@ function kitShkrbt(ab) {
  * Killed meanwhile it plays Attack_Die and gives back what it ate — its food's tokens (GainToken), which this mode has no
  * use for. Its talent InitEat (a 40 s digest as it appears, with 2 下脚料) starts only from a stage that sets its mode
  * blackboard to 2 (enemy_trwlpl_eat ON_BUFF_FINISH); the buff here has none, so it never does.
+ * @type {EnemyKit}
  */
 function kitTrwlpl(ab, e0) {
   const anim = (e0 && e0.def && e0.def.attackAnim) || {};
   const biteDur = anim.dur > 0 ? anim.dur : 1.5, biteHit = Number.isFinite(anim.hit) ? anim.hit : biteDur;
   const eat = ab.sk.Eat, eatDur = (eat && eat.bb.duration) ?? 20;
   const reach = TRWLPL_BITE_RADIUS + ALLY_COLLIDER_RADIUS;
-  const setImmune = (e, list) => { e.mem.ab.immune = list ? new Set([...(e.mem.ab.baseImmune ?? []), ...list]) : (e.mem.ab.baseImmune ? new Set(e.mem.ab.baseImmune) : null); };
-  const done = (b, e, a) => {
+  const setImmune = (/** @type {Unit} */ e, /** @type {readonly string[] | null} */ list) => { e.mem.ab.immune = list ? new Set([...(e.mem.ab.baseImmune ?? []), ...list]) : (e.mem.ab.baseImmune ? new Set(e.mem.ab.baseImmune) : null); };
+  const done = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {EnemyAbility} */ a) => {
     a.state = null;
     b.removeBuff(e, 'ab:trwlplHold');
     setImmune(e, null);
@@ -266,7 +279,7 @@ function kitTrwlpl(ab, e0) {
       e.atkCd = biteDur;
       e.castLeft = biteDur;
       e.castSwing = true;
-      e.atkStandUntil = Math.max(e.atkStandUntil, b.time + biteDur);
+      e.atkStandUntil = Math.max(/** @type {number} */ (e.atkStandUntil), b.time + biteDur);
       b.addBuff(e, { key: 'ab:trwlplHold', duration: biteDur, flags: { noMove: true, noDisplace: true } });
       setImmune(e, TRWLPL_BITE_IMMUNE);
       b._ev(['swing', e.id, Math.round(biteHit * 1000) / 1000, 'none']);
@@ -292,7 +305,7 @@ function kitTrwlpl(ab, e0) {
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
-export const BOUNTY_KITS = Object.freeze({
+export const BOUNTY_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Object.freeze({
   enemy_10146_nscola: kitNscola,                                     // 开天汽水瓶 (规程 悬赏) · loses 120 HP/s, speeds up ×(1 + 0.3 n), n ≤ 25
   enemy_10147_nsbomb: kitNsbomb,                                     // 遮天面包机 (规程 悬赏) · a bomb under it every 2.5 s (r 1, ATK ×2)
   enemy_10229_agactr_2: kitAgactr,                                   // 炫目刀技厨师 (规程 悬赏) · ground enemies within 2.5: ASPD +50, RES +25
@@ -300,4 +313,4 @@ export const BOUNTY_KITS = Object.freeze({
   enemy_10123_uareap: kitUareap,                                     // 破城者 (规程 悬赏) · block ≥ 3; volley of 3 missiles (r 1.1, ATK ×0.7)
   enemy_2135_shkrbt: kitShkrbt,                                      // 聆风猎手 (规程 悬赏) · hit while free: blinks to its attacker (30 s)
   enemy_10003_trwlpl_2: kitTrwlpl,                                   // 暴走食人花 (规程 悬赏) · devours an ally within 1, digests 20 s
-});
+}));

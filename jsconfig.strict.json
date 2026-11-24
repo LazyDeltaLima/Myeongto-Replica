@@ -32,7 +32,8 @@
     "server/sim/content/kits/shared/**/*.js",
     "server/sim/battle/**/*.js",
     "server/sim/*.js",
-    "server/sim/content/*.js"
+    "server/sim/content/*.js",
+    "server/sim/content/enemies/**/*.js"
   ],
   "exclude": []
 }

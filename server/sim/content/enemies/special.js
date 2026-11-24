@@ -14,6 +14,11 @@ import {
 } from './archetypes.js';
 import { hypot, roundHalfEven } from '../../detmath.js';
 import { enemyShot, shotSpeed } from '../../ai.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { BuffTick } from './helpers.js' */
+/** @import { BuffRec } from '../bonds/shared.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -52,7 +57,8 @@ const BUS_RADIUS = 0.5, BUS_DROP_SCATTER = 0.2;
 // kits
 
 /** 萨卡兹枯朽前锋 / 辟路前锋: arts attacks in the prefab's mode Originium (its Combat `_damageType` MAGICAL, Default's PHYSICAL;
- *  공식 클라에서 확인 2026-11-20 — until then by the tile under it as each hit landed). */
+ *  공식 클라에서 확인 2026-11-20 — until then by the tile under it as each hit landed).
+ * @returns {EnemyAbility} */
 function infectionArts() {
   return { hitOut(c, b, e) { if (c.dmg.isAttack && e.mode === 'Originium') c.dmg.type = 'arts'; }, ...originiumMode() };
 }
@@ -62,6 +68,7 @@ function infectionArts() {
  * buffs `buff_originum[tile]` — a 源石污染区 tile — `enemy_lrcmra[originum][mark]` and `enemy_bigstorm[mark]`, the last not in
  * this mode): an infection tile, or the aura of a 孽罪 / 渎罪奇美拉 in its mode Originium (its `OrigAura`, an AuraAbility of
  * radius CHIMERA_AURA_RADIUS on ground units of both sides, hands out that mark — an operator there holds `ab:originium`).
+ * @param {Battle} b @param {Unit} u
  */
 function onOriginium(b, u) {
   if (onTerrain(b, u, 'infection')) return true;
@@ -76,6 +83,7 @@ function onOriginium(b, u) {
  * mode's talent buff (enemy_lrsldr / enemy_lrnazg[switchMode][toOrig] in Default, [toDefault] in Originium) checks every
  * ORIGINIUM_CHECK s from the moment its mode attached and switches with a state-machine restart (ai.js enemyMode). Until
  * 2026-11-20 every 0.25 s [추정].
+ * @returns {EnemyAbility}
  */
 function originiumMode() {
   return {
@@ -88,9 +96,10 @@ function originiumMode() {
   };
 }
 
+/** @type {AbKit} */
 function kitChimera(ab) {
   const dmg = T(ab, 'OrigAura.damage') ?? 0, spr = T(ab, 'OrigAura.sp_recover_ratio') ?? 0;
-  const activate = (b, e, a) => {
+  const activate = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {EnemyAbility} */ a) => {
     if (a.on || !onTerrain(b, e, 'infection')) return;
     a.on = true;
     e.mem.ab.atkType = 'arts';
@@ -123,6 +132,7 @@ function kitChimera(ab) {
   }];
 }
 
+/** @type {EnemyKit} */
 function kitNazg(ab, e) {
   const r = (e.def.raw && e.def.raw.stats && e.def.raw.stats.rawRangeRadius) || e.base.rangeRadius || 1.3;
   return [{
@@ -144,6 +154,7 @@ const PARROT_CHILL_STUN = 0.05;
  * (初始模式); 冻结 grounds it only when the freeze ends (【失温坠落】: 0.05 s stun). 首次受到伤害后 its speed is ×
  * `M0SpeedUp.move_speed` for `M0SpeedUp.duration` s ("最终提升至300%"; never in 晕眩模式, dropped when its mode
  * changes). 搬运模式 (carrying a 寻险水手) needs a level checkpoint (`ThrowEnemy.checkpoint` 0 = never) — not in this mode.
+ * @type {AbKit}
  */
 function kitParrot(ab) {
   const down = T(ab, 'Stun.duration') ?? 0;
@@ -201,13 +212,14 @@ const RUSH_LISTEN = 0.1;
  * (CheckAbnormalFlags) where 穿刺手 has one listener each, its speed layers ended with the trigger
  * (`_finishDerivedBuffIfParentFinish`, as here for both), and its bonus hit MAGICAL: `Rush.enemy_mmstck_t[trigger].*`,
  * `FirstAttack.atk_scale` 550, arts). Its RopeTriggerAbility answers a stage rope no 规程 stage has.
+ * @param {AbState} ab @param {{ prefix?: string, scaleKey?: string, type?: string }} [opts] @returns {AbList}
  */
 function kitRush(ab, { prefix = 'rush.dlancer_t[trigger]', scaleKey = 'firstattack.atk_scale', type = 'phys' } = {}) {
   const ms = T(ab, `${prefix}.move_speed`) ?? 0, iv = T(ab, `${prefix}.interval`) ?? 0.5;
   const max = T(ab, `${prefix}.trig_cnt`) ?? 0, scale = T(ab, scaleKey) ?? 0;
   // 晕眩 / 束缚 only (the client's STUNNED / UNMOVABLE flags: not 冻结, 沉睡 or 浮空, which hold flags.stun here too)
-  const held = (e) => e.buffs.some((x) => x.status === 'stun' || x.status === 'bind');
-  const stop = (b, e, a) => { a.on = false; a.n = 0; b.removeBuff(e, 'ab:rush'); };
+  const held = (/** @type {Unit} */ e) => /** @type {BuffRec[]} */ (e.buffs).some((x) => x.status === 'stun' || x.status === 'bind');
+  const stop = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {EnemyAbility} */ a) => { a.on = false; a.n = 0; b.removeBuff(e, 'ab:rush'); };
   return [{
     iv: RUSH_LISTEN,
     // the listeners first look at once (waitFirstTriggerInterval 0): a walker spawned unblocked starts at t = 0
@@ -238,6 +250,7 @@ function kitRush(ab, { prefix = 'rush.dlancer_t[trigger]', scaleKey = 'firstatta
  * 萨卡兹悖谬暴虐兵长: blocked only by a blocker with ≥ 3 free block; its first hit also strikes the units around its target
  * (PRTS 技能0 暴击 "对目标和周围4格的我方单位造成攻击力150%的物理普通伤害（无视无法选择，无视迷彩）※此技能仅能触发一次"):
  * the splash ignores 无法选择, so it reaches an airborne 起飞 ally too (`ignoreSelect`).
+ * @type {AbKit}
  */
 function kitFirstAoe(ab) {
   const scale = T(ab, 'AOEAttack.atk_scale') ?? 0;
@@ -253,6 +266,7 @@ function kitFirstAoe(ab) {
   }];
 }
 
+/** @type {AbKit} */
 function kitDefDecay(ab) {
   const max = T(ab, 'def_reduce.max_stack_cnt') ?? 0, def = T(ab, 'def_reduce.def') ?? 0, res = T(ab, 'def_reduce.magic_resistance') ?? 0;
   return [{
@@ -263,6 +277,7 @@ function kitDefDecay(ab) {
   }];
 }
 
+/** @type {AbKit} */
 function kitExposeOnHit(ab) {
   const dur = T(ab, 'Expose.weak[limit]') ?? 0, scale = T(ab, 'Expose.damage_scale') ?? 1;
   return [{ sil: true, taken(c, b) { const s = c.source; if (s && s.side === 'ally' && s.alive && s.kind !== 'device') expose(b, s, dur, scale); } }];
@@ -288,11 +303,12 @@ function kitExposeOnHit(ab) {
  * `Bus.max_cnt` (4, its talent blackboard), no slow and no model form; each passenger gets off on the centre of the
  * carrier's tile (rounded half to even, as body.js) and walks on along its OWN remaining route from where it boarded
  * [ASSUMED, upstream: PRTS names no route replacement for this one]. Its block weight stays (blockWeight 4).
+ * @param {AbState} ab @param {{ camel?: boolean }} [opts] @returns {AbList}
  */
 function kitBus(ab, { camel = true } = {}) {
   const max = (camel ? T(ab, 'bus.max_cnt') : T(ab, 'Bus.max_cnt')) ?? 0;
   const per = camel ? (T(ab, 'bus.move_speed') ?? 0) : 0, half = T(ab, 'bus.half_cnt') ?? Infinity;
-  const slow = (b, e, a) => {
+  const slow = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {EnemyAbility} */ a) => {
     if (!camel) return;
     if (a.stacks <= 0) b.removeBuff(e, 'ab:bus');
     else b.addBuff(e, { key: 'ab:bus', persist: true, mods: { moveMul: Math.min(1, Math.max(0, 1 + a.stacks * per)) } });
@@ -303,15 +319,16 @@ function kitBus(ab, { camel = true } = {}) {
     e.form = form;
     b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'passengers', form });
   };
-  const board = (b, e, o) => {
+  const board = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {Unit} */ o) => {
     if (o === e || !o.alive || o.hidden || o.motion === 'FLY' || o.isBoss || (o.def && o.def.rank === 'BOSS')) return false;
     if ((o.def && Array.isArray(o.def.tags) && o.def.tags.includes('machine')) || o.s.flags.untargetable) return false;
     return true;
   };
+  /** @type {EnemyAbility} */
   const bus = {
     spawn(b, e, a) { a.pax = []; a.stacks = 0; },
     tick(b, e, a) {
-      a.pax = a.pax.filter((p) => p.alive);
+      a.pax = a.pax.filter((/** @type {Unit} */ p) => p.alive);
       if (e.hidden || e.s.flags.stun || a.pax.length >= max) return;
       const near = b.enemiesInRadius(e.x, e.y, BUS_RADIUS).filter((o) => board(b, e, o))
         .map((o) => ({ o, d: hypot(o.x - e.x, o.y - e.y) })).sort((p, q) => p.d - q.d || p.o.spawnSeq - q.o.spawnSeq);
@@ -367,6 +384,7 @@ function kitBus(ab, { camel = true } = {}) {
 const CATAPULT_SPLASH = 1.5;
 const CATAPULT_STONE = 'catapult:stone';
 
+/** @param {Battle} b @param {Unit} e @param {{ target: Unit | null, x: number, y: number }} aim */
 function catapultStone(b, e, aim) {
   const t = aim.target;
   if (t && t.alive) { aim.x = t.x; aim.y = t.y; }
@@ -386,6 +404,7 @@ function catapultStone(b, e, aim) {
  * 8 tiles/s: the horizontal distance to the aim at the throw / speed — ai.js shotSpeed) before it lands. Every stone flies
  * like the first (maintainer decision 2026-10-17; upstream lands them without a flight); the 'atk' event draws one shot
  * (profile.shot 'enemy').
+ * @param {AbState} ab @param {Battle} b @param {Unit} e @param {{ target: Unit | null, x: number, y: number }} aim
  */
 function catapultVolley(ab, b, e, aim) {
   const n = Math.max(1, Math.floor(T(ab, 'Attack.attack@times') ?? 1));
@@ -408,15 +427,16 @@ function catapultVolley(ab, b, e, aim) {
  * A death blast's projectile life (data/enemies.json talentProj[name].life — its prefab's `_lifeTime`; deathBoom `delay`), or
  * `dflt` when the data has none.
  */
-const boomLife = (e, name, dflt) => { const l = e?.def?.raw?.talentProj?.[name]?.life; return Number.isFinite(l) && l > 0 ? l : dflt; };
+const boomLife = (/** @type {Unit} */ e, /** @type {string} */ name, /** @type {number} */ dflt) => { const l = e?.def?.raw?.talentProj?.[name]?.life; return Number.isFinite(l) && l > 0 ? l : dflt; };
 /** The death blasts' projectiles (EN client battle/prefabs/[uc]projectiles): CircleCollider2D radius and `_lifeTime`. */
 const BSLIME_BOOM = { r: 1.25, life: 1 }, SNSLIME_BOOM = { r: 1.65, life: 1 }, LRBOOM_LIFE = 1;
 /** 冰爆源石虫 / ·α: knocked out, `boom.atk_scale` physical within projectile_snslime's radius + `boom.freeze` s cold, as the
  *  projectile's life ends (deathBoom; until 2026-11-14 at once, within its attack range 1.75). */
-const kitIceSlime = (ab, e) => [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, r: SNSLIME_BOOM.r, delay: boomLife(e, 'Boom', SNSLIME_BOOM.life), status: { key: 'cold', dur: T(ab, 'boom.freeze') ?? 0 }, ability: 'boom' })];
+const kitIceSlime = (/** @type {AbState} */ ab, /** @type {Unit} */ e) => [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, r: SNSLIME_BOOM.r, delay: boomLife(e, 'Boom', SNSLIME_BOOM.life), status: { key: 'cold', dur: T(ab, 'boom.freeze') ?? 0 }, ability: 'boom' })];
 
 /** 雪怪小队 / 雪怪小队破冰者: its attack on a 冻结 target × `atkup.atk_scale` (template e2c_frozen_atkscale: ON_CALCULATE_DAMAGE,
  *  CheckAbnormalFlag FROZEN on the target, AtkScaleUp). */
+/** @type {AbKit} */
 const kitFrozenAtk = (ab) => [{ hitOut(c) { if (c.dmg.isAttack && c.target.s.flags.freeze) c.dmg.amount *= T(ab, 'atkup.atk_scale') ?? 1; } }];
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -440,6 +460,7 @@ const UBBA_AURA_EVERY = 0.2;
  * this the aura skipped its giver. Its 警戒 mode (Modes/Warning: faster, chasing the unit that set it off) starts from
  * units holding ubtower_warning_mask[target], which only the main story's watchtower gives: no 规程 stage has one, so it
  * never starts here.
+ * @type {AbKit}
  */
 function kitUbba(ab) {
   const m = 1 - (T(ab, 'Talent1.damage_resistance') ?? 0);
@@ -458,6 +479,7 @@ function kitUbba(ab) {
  * accrit[critical-mark] is × `CriticalHit.damage_scale` and marks it for good, and that unit cannot be healed for
  * `CriticalHit.duration` s (accrit[heal-free], HEAL_FREE). Its Skills/Critical only swaps the clip (Attack_B) for an
  * unmarked target it blocks.
+ * @type {AbKit}
  */
 function kitCritic(ab) {
   const scale = T(ab, 'CriticalHit.damage_scale') ?? 1, dur = T(ab, 'CriticalHit.duration') ?? 0;
@@ -473,7 +495,7 @@ function kitCritic(ab) {
   }];
 }
 
-export const SPECIAL_KITS = Object.freeze({
+export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Object.freeze({
   // --- SPECIAL 特异 / others
   enemy_1045_hammer: kitStun3,                                       // 粉碎攻坚手 · every 3rd attack stuns
   enemy_1045_hammer_2: kitStun3,                                     // 粉碎攻坚组长 · same
@@ -519,7 +541,7 @@ export const SPECIAL_KITS = Object.freeze({
   enemy_1183_mlasrt: (ab) => [ep('erosion', T(ab, 'EpDamage.attack@ep_damage_ratio') ?? 0), nthAttackPower(nthOf(ab.sk.PowerAttack), (ab.sk.PowerAttack && ab.sk.PowerAttack.bb.atk_scale) || 1)], // 无胄盟清扫小队 · erosion; every 4th attack ×1.5
   enemy_1273_stmgun_2: (ab) => {                                     // 高准度伦蒂尼姆城防自行炮 · locks the highest max-HP unit in range, bombards the highest HP% on its 9 tiles
     // the allies in its range (the engine's ranged reach: radius + the ally collider)
-    const inRange = (b, e) => allTargets(b, e).filter((a) => hypot(a.x - e.x, a.y - e.y) <= (e.base.rangeRadius || 0) + ALLY_COLLIDER_RADIUS + 1e-9);
+    const inRange = (/** @type {Battle} */ b, /** @type {Unit} */ e) => allTargets(b, e).filter((a) => hypot(a.x - e.x, a.y - e.y) <= (e.base.rangeRadius || 0) + ALLY_COLLIDER_RADIUS + 1e-9);
     const sk = ab.sk.Cannon;
     // the cast (공식 클라에서 확인 — prefab Skills/Cannon, a RangedAttack playing `Skill` as it is, 10 s): its target, the
     // highest max-HP ally in range (its trigger), is taken as it starts; BuffDuringCastingFixed stmgun_s[immunes] (失衡, 晕眩,
@@ -527,8 +549,8 @@ export const SPECIAL_KITS = Object.freeze({
     // the clip's OnAttack (4.033 s, castStrikeAt) it fires projectile_enemy_stmgun_s onto that target (AttachToTarget,
     // reached at once; the target's tile when it is gone, `_emitToInputPosWhenTargetIsInvalid`) — the bombardment. Until
     // 2026-11-20 the shots began as the cast did and the immunity lasted the 5 s of shots.
-    let cast = null;
-    const release = (b, e) => {
+    let cast = /** @type {{ r: number, c: number, had: Set<string> } | null} */ (null);
+    const release = (/** @type {Battle} */ b, /** @type {Unit} */ e) => {
       if (!cast) return;
       e.mem.ab.immune = cast.had;
       b.removeBuff(e, 'ab:cannon');
@@ -659,6 +681,7 @@ export const SPECIAL_KITS = Object.freeze({
     const s = ab.sk.BlockedBoom ? ab.sk.BlockedBoom.bb : {};
     const bc = ab.sk.BlockedBoom?.cast;
     const boomClip = bc && bc.dur > 0 ? { clip: bc.clip, dur: bc.dur, hit: bc.hit, max: bc.max ?? 1 } : null;
+    /** @type {EnemyAbility} */
     const boom = {
       sil: true,                                                     // silenced: the barrel is kept (and its speed) until an unsilenced attack
       spawn(b, e) { b.addBuff(e, { key: 'ab:barrel', persist: true, mods: { moveMul: T(ab, '1.move_speed') ?? 1 } }); },
@@ -690,9 +713,9 @@ export const SPECIAL_KITS = Object.freeze({
       // slot, timed by its clip — not by the Combat's B_Attack (1.2 s, 0.467 s); ai.js attackClipOf `swingClip`
       tick(b, e) {
         if (e.blockedBy) mode(b, e, 'M2');
-        if (e.mode !== 'M2') { if (e.profile.swingClip) e.profile.swingClip = null; return; }
+        if (e.mode !== 'M2') { if (/** @type {Record<string, any>} */ (e.profile).swingClip) /** @type {Record<string, any>} */ (e.profile).swingClip = null; return; }
         const f = boom.done || e.s.flags.silence ? 'M2' : 'M2boom';
-        e.profile.swingClip = f === 'M2boom' ? boomClip : null;
+        /** @type {Record<string, any>} */ (e.profile).swingClip = f === 'M2boom' ? boomClip : null;
         if (e.form !== f) setForm(b, e, f);
       },
     }];
@@ -716,6 +739,7 @@ export const SPECIAL_KITS = Object.freeze({
     reborn({ dur: T(ab, 'reborn.duration') ?? 0, invincible: T(ab, 'reborn.invincible') ?? 0 })],
   enemy_10099_crvln: kitEp('neural', 'inside.attack@ep_damage_ratio'), // 反派阵营角色 · neural on hit
   enemy_10116_ymgtop: (ab) => {                                     // 水遁忍者 · spinning phase (SILENCE): phys AoE every s; 失衡 stops it
+    /** @type {EnemyAbility} */
     const spin = {
       sil: true, cd: ab.sk.SwitchModeTrigger ? ab.sk.SwitchModeTrigger.cd : 60, icd: ab.sk.SwitchModeTrigger ? ab.sk.SwitchModeTrigger.icd : 10,
       // 2026-11-14 (공식 클라에서 확인 — the prefab's Modes/Default/Body/Skills/SwitchModeTrigger, an EnemySkill of the Default
@@ -742,10 +766,11 @@ export const SPECIAL_KITS = Object.freeze({
     // as 失衡 ends it: its Default attack attaches ready again)
     // the view's clips follow the mode (render/units.js FORMS 'M1'): BeginAnim's Skill_Begin into the hooker's Skill_Loop
     // (Idle / Move / Default), Skill_End (Default's EndAnim) as it comes back
+    /** @type {EnemyAbility} */
     const noAtk = {
       tick(b, e) {
-        e.profile.noAttack = spin.until > b.time;
-        if (mode(b, e, e.profile.noAttack ? 'M1' : null)) setForm(b, e, e.profile.noAttack ? 'M1' : null);
+        /** @type {Record<string, any>} */ (e.profile).noAttack = spin.until > b.time;
+        if (mode(b, e, /** @type {Record<string, any>} */ (e.profile).noAttack ? 'M1' : null)) setForm(b, e, /** @type {Record<string, any>} */ (e.profile).noAttack ? 'M1' : null);
       },
     };
     return [spin, noAtk, unbalanced((b, e) => { if (spin.until > b.time) { spin.until = 0; b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'spinStop' }); } })];
@@ -775,10 +800,10 @@ export const SPECIAL_KITS = Object.freeze({
     // operator on the 排气格栅) is no target, so with nobody else in range it does not attack (the official game, community
     // report of 2026-10-06, item 24); it picks by 仇恨值, not its blocker first. The volley itself is the kit's
     // (profile.deferHit): `times` physical attacks `hit_interval` apart, each splashing, also after the target is lost.
-    spawn(b, e) { e.profile.blockFree = true; e.profile.deferHit = true; e.profile.shot = 'enemy'; },
+    spawn(b, e) { /** @type {Record<string, any>} */ (e.profile).blockFree = true; /** @type {Record<string, any>} */ (e.profile).deferHit = true; /** @type {Record<string, any>} */ (e.profile).shot = 'enemy'; },
     attack(c, b, e) {
       const t = c.targets && c.targets[0];
       catapultVolley(ab, b, e, t ? { target: t, x: t.x, y: t.y } : { target: null, x: e.x, y: e.y });
     },
   }],
-});
+}));

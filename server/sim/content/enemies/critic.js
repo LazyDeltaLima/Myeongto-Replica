@@ -11,6 +11,16 @@ import { T, hurt, areaAllies, lineShot, crossTargets, shoot, atCastEvent, castLe
 import { unbalancedBleed, skill } from './archetypes.js';
 import { hypot, sin, cos } from '../../detmath.js';
 import { hitFx } from '../../damage.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { BuffTick } from './helpers.js' */
+/**
+ * A soul holder's state (soulHolder: `souls`, `setSouls`), plus the kit's own fields.
+ * @typedef {{ [key: string]: any, souls: number, setSouls: (b: Battle, e: Unit, n: number) => void }} SoulState
+ * A fireball orbiting a 魂灵法骸 (kitSoulMage).
+ * @typedef {{ n: number, ang: number }} Orb
+ */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -60,6 +70,7 @@ const BOMB_TOUCH = 0.3;
  * by itself) — 공식 클라에서 확인.
  * [추정·엔진: our `untargetable` enemies (重生 in progress, a hovering leader) are left out as ALLY_TARGET_FREE — the
  * abnormal flags of those client states were not read]
+ * @param {Battle} b @param {Unit} src @param {number} x @param {number} y @param {number} r @returns {Unit[]}
  */
 function bothSidesAt(b, src, x, y, r) {
   const allies = areaAllies(b, src, x, y, r).filter((u) => !u.isFlying);
@@ -71,6 +82,9 @@ function bothSidesAt(b, src, x, y, r) {
  * One FIXED_DIRECTION shot of `e` at `t` (its position when the shot leaves, the aimed spot once it is gone —
  * `_emitToInputPosWhenTargetIsInvalid`), along the nearest map axis (helpers.js lineShot); `onHit(u)` on the first ally it
  * touches.
+ * @param {Battle} b @param {Unit} e @param {Unit | null} t @param {{ x: number, y: number }} aim
+ * @param {Record<string, any> | null} proj @param {(u: Unit, spot: { x: number, y: number }) => unknown} onHit
+ * @param {number} [radius] @param {{ x: number, y: number }} [from]
  */
 function crossShot(b, e, t, aim, proj, onHit, radius = undefined, from = undefined) {
   const at = t && t.alive && t.deployed ? { x: t.x, y: t.y } : aim;
@@ -83,6 +97,7 @@ function crossShot(b, e, t, aim, proj, onHit, radius = undefined, from = undefin
  * aimed spot (UP, RIGHT, DOWN, LEFT; a tie takes the first), the model facing the spot's side — as 重弩突袭者's
  * (content/enemies/invisible.js CROSS_MUZZLE). `m`: { side, DOWN, UP } in map tiles from its position (forward along its
  * facing, up a row).
+ * @param {Unit} e @param {{ x: number, y: number }} aim @param {Record<string, { f: number, up: number }>} m
  */
 function muzzleAt(e, aim, m) {
   const dx = aim.x - e.x, dy = aim.y - e.y;
@@ -96,6 +111,8 @@ function muzzleAt(e, aim, m) {
  * BoomerHitBehaviour.DoSelectTargetToHit: the first time its 0.3 circle finds a unit it calls `Reached` and `Stop` where
  * the bomb is, and HitBehaviour.OnProjectileReached (`_onlyCheckHitWhenReachTarget`) takes the units its own collider
  * (`projectile_range`) meets there — around the bomb, not the unit it touched (공식 클라에서 확인).
+ * @param {Battle} b @param {Unit} e @param {{ x: number, y: number }} at @param {number} r @param {number} scale
+ * @param {number} [atk]
  */
 function bombBlast(b, e, at, r, scale, atk = e.s.atk) {
   const x = at.x, y = at.y;
@@ -113,6 +130,7 @@ function bombBlast(b, e, at, r, scale, atk = e.s.atk) {
  * AdvancedApplyDamage MAGICAL, SPLASH) and `boom.cold` s of 寒冷 (its buff enemy_krgrg_boom: e2c_cold on an operator, c2e_cold
  * on an enemy — the second cold of an enemy freezes it, Battle.applyStatus). Talents/unbalanced_bleed: unbalancedBleed.
  * The battle waits for the blast.
+ * @type {AbKit}
  */
 function kitIceGuard(ab) {
   const scale = T(ab, 'boom.atk_scale') ?? 0, cold = T(ab, 'boom.cold') ?? 0;
@@ -142,13 +160,14 @@ function kitIceGuard(ab) {
  * `skillCast`), its ATK × (1 + `atk`) while it casts (BuffToOwnerDuringAbility, ATK MULTIPLIER), and the mark spent at the
  * clip's event (ActionToOwner on the attack event) — so its first attack each time it is blocked. The talent's
  * `sheltr_atk_scale` is against 掩体 (trap_sheltr), which no 规程 field has.
+ * @type {AbKit}
  */
 function kitLinePusher(ab) {
   const s = ab.sk.PowerHit, up = (s && s.bb.atk) ?? 0;
   const BUFF = 'ab:chghmrPower', MARK = 'ab:chghmrMark';
   const P = { mark: true, was: false };
   // the mark is a buff of its own, enemy_chghmr_damage_up[mark] (its effect enemy_chghmr_buff while it lasts)
-  const setMark = (b, e, on) => {
+  const setMark = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {boolean} */ on) => {
     P.mark = on;
     if (on) b.addBuff(e, { key: MARK, persist: true, visible: true, fxTag: 'buff:enemy_chghmr_damage_up[mark]' });
     else b.removeBuff(e, MARK);
@@ -180,6 +199,7 @@ function kitLinePusher(ab) {
  * `times`), the first at its clip's event (`skillCast.hit`), the others `_triggerDelta` 0.1 s apart; each its official
  * projectile_enemy_gunsho (FIXED_DIRECTION, as 重弩突袭者's: the first ally it touches) for physical ATK × `atk_scale`.
  * They leave from its MUZZLE at the shot's frame (muzzleAt, GUNSHO_MUZZLE; until 2026-11-12 from its centre).
+ * @type {AbKit}
  */
 function kitRapidCrossbow(ab) {
   const s = ab.sk.CrossAttack, n = 3, step = 0.1;
@@ -202,10 +222,11 @@ function kitRapidCrossbow(ab) {
  * `projectile_range` of that spot. Talents/DmgResist: while unblocked (BlockedToggleChecker) physical and arts damage taken
  * × (1 − `DmgResist.damage_resistance`) (damage_resistance[inf]).
  * Bomb n leaves from `_mountPointGroup` n at its frame (muzzleAt, BDGUAD_MUZZLES; until 2026-11-12 from its centre).
+ * @type {AbKit}
  */
 function kitMatteoGuard(ab) {
   const s = ab.sk.CrossBomb, cut = 1 - (T(ab, 'DmgResist.damage_resistance') ?? 0);
-  /** @type {Array<Record<string, any>>} the abilities (plain objects, content/enemies.js header) */
+  /** @type {AbList} the abilities (plain objects, content/enemies.js header) */
   const out = [{
     tick(b, e, a) {
       const on = !e.blockedBy && cut !== 1;
@@ -240,16 +261,18 @@ function kitMatteoGuard(ab) {
  * `_projectileNum` 4 over 270°) —, each bursting on the first ally it touches for physical ATK × `atk_scale` within
  * `projectile_range`; the cast over (enemy_boomer_switch2light), the mode Light: move speed + `Light.move_speed` and weight
  * + `Light.mass_level` (both ADDITION), its own melee attack.
+ * @type {AbKit}
  */
 function kitGrenadier(ab) {
   const s = ab.sk.Bomb;
   const ms = T(ab, 'Light.move_speed') ?? 0, mass = T(ab, 'Light.mass_level') ?? 0;
-  const light = (b, e) => {
+  const light = (/** @type {Battle} */ b, /** @type {Unit} */ e) => {
     if (e.mode === 'Light') return;
     mode(b, e, 'Light', false);
     setForm(b, e, 'Light');   // the view's clips and effects of the mode (fx 'phase')
     b.addBuff(e, { key: 'ab:boomerLight', persist: true, mods: { moveFlat: ms, massFlat: mass } });
   };
+  /** @type {EnemyAbility} */
   const trigger = {
     sil: true,
     taken(c, b, e, a) {
@@ -289,12 +312,13 @@ const CANSLD_BOX = 1.5;
  * Enemy `e` is in its attack state, as the client's CheckUnitInAttackState reads it: a swing or a cast plays, or its
  * cooldown runs with a target still in reach (the attack state waits there for the next attack — ai.js enemyAttack's
  * reach: rangeRadius + an ally's collider; its blocker when it is blocked).
+ * @param {Battle} b @param {Unit} e
  */
 function inAttackState(b, e) {
   if (e.swing || e.castLeft > 0) return true;
   if (!(e.atkCd > 0)) return false;
   if (e.blockedBy) return true;
-  const r = e.profile.melee ? 0 : e.base.rangeRadius;
+  const r = /** @type {Record<string, any>} */ (e.profile).melee ? 0 : e.base.rangeRadius;
   return r > 0 && targetsNear(b, e, r + ALLY_COLLIDER_RADIUS).length > 0;
 }
 
@@ -316,26 +340,30 @@ function inAttackState(b, e) {
  * `_combat` MeleeAttack — its blocker alone (破阵者, 传令兵); 狙击手's first mode shoots plain shots and fights its blocker
  * in melee (`Attack_2`). `hit(b, e, t, x, y)`: HeadShot's effect where the shot lands. The `headshot_trapdamage` fixed arts
  * damage of 破阵者 / 传令兵 is on traps tagged TAG_TRAP_WPNSTS (冰淇淋机) only, which no 规程 field has.
+ * @param {AbState} ab @param {Unit} e
+ * @param {{ meleeDefault?: boolean, idle?: boolean, hit: (b: Battle, e: Unit, u: Unit, x: number, y: number) => unknown,
+ *   pick?: ((b: Battle, e: Unit, targets: Unit[]) => Unit | null) | null }} opts
+ * @returns {AbList}
  */
 function pathfinder(ab, e, { meleeDefault = false, idle = false, hit, pick = null }) {
   const spd = (e.def.raw && e.def.raw.sp) || {};
   const init = Math.max(0, Number.isFinite(spd.initSp) ? spd.initSp : 1);
   const cost = -(T(ab, 'shotbuff.attack@headshot_sp') ?? -1);
   const shot = (e.def.projModes && e.def.projModes[HEAD]) || null;
-  const set = (b, e2, on) => {
+  const set = (/** @type {Battle} */ b, /** @type {Unit} */ e2, /** @type {boolean} */ on) => {
     if ((e2.mode === HEAD) === on) return;
     mode(b, e2, on ? HEAD : null, false);
     setForm(b, e2, on ? HEAD : null);
-    e2.profile.deferHit = on;
-    if (meleeDefault) e2.profile.melee = !on;
+    /** @type {Record<string, any>} */ (e2.profile).deferHit = on;
+    if (meleeDefault) /** @type {Record<string, any>} */ (e2.profile).melee = !on;
   };
   return [{
     iv: idle ? 0.1 : undefined,
     spawn(b, e2, a) {
       a.sp = init;
       a.head = false;
-      if (meleeDefault) e2.profile.melee = true;
-      e2.profile.shot = 'none';
+      if (meleeDefault) /** @type {Record<string, any>} */ (e2.profile).melee = true;
+      /** @type {Record<string, any>} */ (e2.profile).shot = 'none';
     },
     tick(b, e2, a) {
       if (!idle || e2.blockedBy || inAttackState(b, e2)) return;
@@ -345,7 +373,7 @@ function pathfinder(ab, e, { meleeDefault = false, idle = false, hit, pick = nul
     // the attack about to be made is HeadShot's (its mode as it began: the switches below come after its strike)
     before(c, b, e2, a) {
       a.head = e2.mode === HEAD;
-      e2.profile.deferHit = a.head;
+      /** @type {Record<string, any>} */ (e2.profile).deferHit = a.head;
       if (a.head && pick && c.targets.length) {
         const t = pick(b, e2, c.targets);
         if (t) c.targets = [t];
@@ -370,13 +398,13 @@ function pathfinder(ab, e, { meleeDefault = false, idle = false, hit, pick = nul
 }
 
 /** HeadShot's hit on `u`: ATK × `scale` of `type`, the normal attack's (its projectile: 远程途径). */
-const headHit = (b, e, u, scale, type) => {
+const headHit = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {Unit} */ u, /** @type {number} */ scale, /** @type {string} */ type) => {
   if (!u || !u.alive || !u.deployed) return false;
   b.dealDamage(e, u, { amount: e.s.atk * scale, type, isAttack: true, isProjectile: true });
   return true;
 };
 
-/** 寻路者狙击手 (enm_pfb_9): HeadShot shoots projectile_enemy_mtrsnp_headshot for physical ATK × `headshot_atk_scale` (2). */
+/** 寻路者狙击手 (enm_pfb_9): HeadShot shoots projectile_enemy_mtrsnp_headshot for physical ATK × `headshot_atk_scale` (2). @type {EnemyKit} */
 function kitPfSniper(ab, e) {
   const scale = T(ab, 'shotbuff.attack@headshot_atk_scale') ?? 1;
   return pathfinder(ab, e, { hit: (b, e2, u) => headHit(b, e2, u, scale, 'phys') });
@@ -387,6 +415,7 @@ function kitPfSniper(ab, e) {
  * projectile_enemy_cansld (PARACURVE 4 tiles/s, to its target's spot at the attack) whose 3 × 3 box (CANSLD_BOX) strikes
  * every ally there — ground and air — for physical ATK × `headshot_atk_scale` (1) as it arrives, on a dead target too
  * (`_alwaysHitTraceTargetInTheEnd`).
+ * @type {EnemyKit}
  */
 function kitPfBreaker(ab, e) {
   const scale = T(ab, 'shotbuff.attack@headshot_atk_scale') ?? 1;
@@ -411,6 +440,7 @@ function kitPfBreaker(ab, e) {
  * normal attack and no skill, 抵抗 shortening both. Its selector (SecondaryFilterAdvancedSelector `_buffKey` disarmed,
  * `_withoutThisBuff`) prefers the candidates without it: with one target its OnPostFilter keeps only those when any is
  * there, else all.
+ * @type {EnemyKit}
  */
 function kitPfHerald(ab, e) {
   const scale = T(ab, 'shotbuff.attack@headshot_atk_scale') ?? 1;
@@ -421,7 +451,7 @@ function kitPfHerald(ab, e) {
       if (!targets[0].s.flags.disarm) return null;
       const r = e2.base.rangeRadius + ALLY_COLLIDER_RADIUS;
       // (its selector's _targetMotion 1: no flyer — local-patch.js sets the canTarget from data attackMotion)
-      const ok = typeof e2.profile.canTarget === 'function' ? e2.profile.canTarget : () => true;
+      const ok = typeof /** @type {Record<string, any>} */ (e2.profile).canTarget === 'function' ? /** @type {Record<string, any>} */ (e2.profile).canTarget : () => true;
       const l = byPriority(e2, targetsNear(b, e2, r)).filter((u) => !u.s.flags.disarm && ok(u));
       return l[0] || null;
     },
@@ -445,6 +475,7 @@ function kitPfHerald(ab, e) {
  * leaves only its decoration, [enthu_fx_deco_only] (effect common_radical_01) or [depressed_fx_deco_only]
  * (common_gloomyl_01), not derived, for good. No 规程 level (levels/activities/act1autochess, every
  * level_act3autochess_*) and no buff of activity_table's act3autochess has that system.
+ * @param {string} key @returns {EnemyAbility}
  */
 const bandDeco = (key) => ({
   spawn(b, e) { b.addBuff(e, { key: `ab:${key}`, persist: true, visible: true, fxTag: `buff:enemy_act29side[${key}]` }); },
@@ -470,6 +501,8 @@ const LTNCLR_BOOST_IV = 0.5;
  * enemy_ltnhor[charge_sp] (BuffToOwner of its Combat and Attack abilities, ON_SPELL_ON: ModifySp +1; its spType
  * INCREASE_WITH_TIME has no increment), 鼓手's INCREASE_WHEN_ATTACK —, not for its skill's cast. Its skill (EnemySkill
  * `_familyMask` 3: blocked or not) waits for SP = `spCost` and spends it as it casts: 2 attacks, then the skill.
+ * @param {AbSkill | undefined} s
+ * @returns {{ P: { sp: number }, cost: number, counter: EnemyAbility, ready: () => boolean, spend: () => void }}
  */
 function bandSp(s) {
   const cost = s && s.sp > 0 ? s.sp : 0;
@@ -486,11 +519,12 @@ function bandSp(s) {
  * 残党乐团圆号手 / 巫王乐团圆号手: after 2 attacks (bandSp) Skills/attackTwoTarget (SILENCE line; SelectorTrigger: a target
  * in its 1.5 range) — a RangedAttack in its Attack clip on up to LTNHOR_TARGETS allies (its blocker first, then by its
  * targeting order), each its projectile_enemy_ltnhor for physical ATK at the clip's event. bandDeco: enthu.
+ * @type {AbKit}
  */
 function kitBandHorn(ab) {
   const s = ab.sk.attackTwoTarget;
   const sp = bandSp(s);
-  const pick = (b, e) => {
+  const pick = (/** @type {Battle} */ b, /** @type {Unit} */ e) => {
     const l = byPriority(e, targetsNear(b, e, e.base.rangeRadius + ALLY_COLLIDER_RADIUS));
     const k = e.blockedBy;
     const out = k && l.includes(k) ? [k, ...l.filter((u) => u !== k)] : l;
@@ -515,11 +549,12 @@ function kitBandHorn(ab) {
  * enemy_ltnclr[atk_boost_stack], ATK FINAL_ADDITION `atkboostCore.atk`, below `atkboostCore.max_stack_count`; its attack's
  * end (enemy_ltnclr[revert_atk], ON_CAST_END) clears them — the first attack after a walk carries the boost. The
  * `atkboostCore.attack@stun_duration` stun is the 沉郁 mode's attack, off here (bandDeco: depressed).
+ * @type {AbKit}
  */
 function kitBandClarinet(ab) {
   const add = T(ab, 'atkboostCore.atk') ?? 0, max = T(ab, 'atkboostCore.max_stack_count') ?? 0;
   const KEY = 'ab:ltnclrBoost';
-  const clear = (b, e) => { if (e.alive) b.removeBuff(e, KEY); };
+  const clear = (/** @type {Battle} */ b, /** @type {Unit} */ e) => { if (e.alive) b.removeBuff(e, KEY); };
   return [bandDeco('depressed_fx_deco_only'), {
     iv: LTNCLR_BOOST_IV,
     tick(b, e) {
@@ -541,12 +576,13 @@ function kitBandClarinet(ab) {
  * those 0.2 s (knocked out, through the exit), the blast comes at once where it was: the client finishes a leaving
  * enemy's buffs (Enemy.FinishMe → Entity.OnFinish → BuffContainer.Clear → Buff.OnFinish), which runs their
  * ON_BUFF_FINISH whether the owner lives or not (Buff._RunActions checks `alive` only to fill the context's tile).
+ * @type {AbKit}
  */
 function kitBandDrummer(ab) {
   const s = ab.sk.aoeAttack;
   const sp = bandSp(s);
-  const P = { aoe: null };   // the enemy_ltndru[AOE] buff on it, until it finishes
-  const blast = (b, e) => {
+  const P = { aoe: /** @type {object | null} */ (null) };   // the enemy_ltndru[AOE] buff on it, until it finishes
+  const blast = (/** @type {Battle} */ b, /** @type {Unit} */ e) => {
     P.aoe = null;
     b.fx('explode', { x: e.x, y: e.y, r: LTNDRU_AOE_RADIUS, kind: 'ltndruAoe', id: e.id, ability: 'aoeAttack' });
     for (const u of areaAllies(b, e, e.x, e.y, LTNDRU_AOE_RADIUS)) hurt(b, e, u, e.s.atk * (s.bb.atk_scale ?? 1), 'arts', { tags: ['splash'] });
@@ -573,7 +609,8 @@ function kitBandDrummer(ab) {
  */
 const WINGNT_CROSS = [[0.5, 1.5], [1.5, 0.5]];
 
-/** Does an ally's collider (ALLY_COLLIDER_RADIUS) at (ux, uy) meet the box of half sizes `hw` × `hh` about (x, y)? */
+/** Does an ally's collider (ALLY_COLLIDER_RADIUS) at (ux, uy) meet the box of half sizes `hw` × `hh` about (x, y)?
+ * @param {number} ux @param {number} uy @param {number} x @param {number} y @param {number} hw @param {number} hh */
 function inBox(ux, uy, x, y, hw, hh) {
   const dx = Math.max(0, Math.abs(ux - x) - hw), dy = Math.max(0, Math.abs(uy - y) - hh);
   return dx * dx + dy * dy <= ALLY_COLLIDER_RADIUS * ALLY_COLLIDER_RADIUS + 1e-9;
@@ -593,24 +630,25 @@ function inBox(ux, uy, x, y, hw, hh) {
  * `_restartFSM` off) and clears it. ON_CAST_END comes however the cast ends — AbilityStandard.OnCastEnd raises it for any
  * finish reason (공식 클라에서 확인) —, so a throw stunned after its strike still ends the Default mode, one cut before
  * it does not.
+ * @type {EnemyKit}
  */
 function kitSnowballer(ab, e) {
   const scale = T(ab, 'FirstAttack.attack@first_atk_scale') ?? 1;
   const range = (e.def.raw && e.def.raw.stats && e.def.raw.stats.rawRangeRadius) || 0;
   const shot = e.def.proj || null;
-  const melee = (b, e2) => {
+  const melee = (/** @type {Battle} */ b, /** @type {Unit} */ e2) => {
     mode(b, e2, 'Normal', false);
     setForm(b, e2, 'Normal');   // the view's B_* clips (fx 'phase')
-    e2.profile.melee = true;
-    e2.profile.deferHit = false;
+    /** @type {Record<string, any>} */ (e2.profile).melee = true;
+    /** @type {Record<string, any>} */ (e2.profile).deferHit = false;
   };
   return [{
     spawn(b, e2, a) {
       a.thrown = false;
       e2.base.rangeRadius = Math.max(e2.base.rangeRadius || 0, range);
-      e2.profile.melee = false;
-      e2.profile.deferHit = true;
-      e2.profile.shot = 'none';
+      /** @type {Record<string, any>} */ (e2.profile).melee = false;
+      /** @type {Record<string, any>} */ (e2.profile).deferHit = true;
+      /** @type {Record<string, any>} */ (e2.profile).shot = 'none';
     },
     // the cast's end (its clip played out, or cut): enemy_wingnt_t[check_mode]
     tick(b, e2, a) {
@@ -663,6 +701,7 @@ const WINBOM_BLAST_RADIUS = 1.55, WINBOM_BLAST_DELAY = 1;
  * Each hit strikes the target the channel began on, none once it has fallen (the official client: Flame's
  * `_selectTargetTiming` 0 AT_BEGINING, so AbilityStandard._DoCast picks no new target for the later hits, and with
  * `_refreshInputTargetOnCheckSpell` off MultiMeleeAttack.CheckAnotherSpell keeps the input target).
+ * @type {AbKit}
  */
 function kitJetCanister(ab) {
   const times = Math.max(1, T(ab, 'Boom.attack@times') ?? 1), chan = T(ab, 'Boom.attack@cooldown') ?? 0;
@@ -671,8 +710,8 @@ function kitJetCanister(ab) {
   const CD = 'ab:winbomAttackCd';
   return [{
     spawn(b, e) {
-      e.profile.deferHit = true;
-      e.profile.shot = 'none';
+      /** @type {Record<string, any>} */ (e.profile).deferHit = true;
+      /** @type {Record<string, any>} */ (e.profile).shot = 'none';
     },
     // the channel's end, played out or cut: enemy_winbom_attack_cd
     tick(b, e, a) {
@@ -695,7 +734,7 @@ function kitJetCanister(ab) {
       e.atkCd = chan + TICK;
       e.castLeft = chan;
       e.castSwing = true;
-      e.atkStandUntil = Math.max(e.atkStandUntil, b.time + chan);
+      e.atkStandUntil = Math.max(/** @type {number} */ (e.atkStandUntil), b.time + chan);
       const hit = () => {
         if (!e.alive || !(e.castLeft > 0) || !t.alive || !t.deployed) return;
         b.dealDamage(e, t, { amount: e.s.atk, type: 'arts', isAttack: true });
@@ -751,7 +790,7 @@ const LRWZRD_WIDTH = 0.65, LRWZRD_REHIT = 1, LRWZRD_LIFE = 8;
 /** BuffDuringCastingFixed enemy_lrwzrd[atk_boost]: its `triggerInterval` (first trigger one interval after the cast starts). */
 const LRWZRD_BOOST_EVERY = 1;
 
-/** 魂灵涡流: a melee walker carrying the mark the capturers look for (Talents/mark: enemy_lrsoul[mark], no duration). */
+/** 魂灵涡流: a melee walker carrying the mark the capturers look for (Talents/mark: enemy_lrsoul[mark], no duration). @type {AbKit} */
 function kitSoulVortex() {
   return [{ spawn(b, e) { b.addBuff(e, { key: SOUL_MARK, persist: true }); } }];
 }
@@ -765,6 +804,7 @@ function kitSoulVortex() {
  * its own), once until it has left again: enemy_lrxxxx[captureSoul] ON_BUFF_START — the capturer at 3 souls or more takes
  * nothing (FinishBuff, the vortex walks on), else +1 soul (audioSignal enemy_lrxxxx_capture_soul) and the vortex dies
  * (InstantKill `_skipReborn`). fx 'capture' { id (the capturer), from (the vortex), n (souls) }.
+ * @param {SoulState} P @param {string} tpl @returns {EnemyAbility}
  */
 function soulHolder(P, tpl) {
   const KEY = 'ab:soul';
@@ -806,14 +846,16 @@ function soulHolder(P, tpl) {
  * last until they strike (`_lifeTimeType` 2) and vanish with their caster (`_stopWhenSourceInvalid`; OnDetached interrupts
  * them). fx 'orbit' { id, n, key, r, ang (degrees, map frame), speed (degrees / s) } as one starts, 'orbitEnd' { id, n,
  * tgt } as it strikes or vanishes.
+ * @type {AbKit}
  */
 function kitSoulMage(ab) {
   const s = ab.sk.summonFireball;
   const scale = (s && s.bb.atk_scale) ?? 1, cap = (s && s.bb.max_projectile_count) ?? SOUL_MAX;
   const key = (s && s.proj && s.proj.key) || 'projectile_enemy_lrmzrd';
-  const P = { stack: 0, balls: [], n: 0, facing: -1, px: null };
+  const P = /** @type {SoulState & { stack: number, balls: Orb[], n: number, facing: number, px: number | null, lock?: boolean }} */ (
+    /** @type {unknown} */ ({ stack: 0, balls: [], n: 0, facing: -1, px: null }));   // (souls: soulHolder)
   const holder = soulHolder(P, 'enemy_lrmzrd');
-  const end = (b, e, ball, tgt) => {
+  const end = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {Orb} */ ball, /** @type {Unit | null} */ tgt) => {
     P.balls = P.balls.filter((x) => x !== ball);
     b.fx('orbitEnd', { x: e.x, y: e.y, id: e.id, n: ball.n, tgt: tgt ? tgt.id : null });
   };
@@ -830,7 +872,7 @@ function kitSoulMage(ab) {
         for (const u of b.allies()) {
           if (!u.alive || !u.deployed || !areaSelectable(e, u)) continue;
           const d = hypot(u.x - x, u.y - y);
-          if (d <= reach + 1e-9 && (d < hd || (d === hd && u.id < hit.id))) { hit = u; hd = d; }
+          if (d <= reach + 1e-9 && (d < hd || (d === hd && u.id < /** @type {Unit} */ (hit).id))) { hit = u; hd = d; }   // (d === hd: one found)
         }
         if (!hit) continue;
         end(b, e, ball, hit);
@@ -866,24 +908,26 @@ function kitSoulMage(ab) {
  * walls) for arts ATK × the skill's `atk_scale`, a unit again LRWZRD_REHIT s after its last hit, and ends with the cast
  * (OnCastEnd interrupts it, a cut cast too) or after LRWZRD_LIFE s. fx 'laser' { id, x, y, to: [x, y], key, w, tgt } as it
  * leaves, 'laserEnd' { id } as it ends.
+ * @type {AbKit}
  */
 function kitSoulWizard(ab) {
   const s = ab.sk.Laser;
   const scale = (s && s.bb.atk_scale) ?? 0, step = (s && s.bb.atk_step) ?? 0, ladder = (s && s.bb.atk_ladder) ?? 0;
   const key = (s && s.proj && s.proj.key) || 'projectile_enemy_lrwzrd_right';
   const BOOST = 'ab:lrwzrdBoost';
-  const P = {};
+  const P = /** @type {SoulState} */ (/** @type {unknown} */ ({}));   // (souls: soulHolder)
   const holder = soulHolder(P, 'enemy_lrwzrd');
-  const pick = (b, e) => {
+  const pick = (/** @type {Battle} */ b, /** @type {Unit} */ e) => {
     const r = Math.round(e.y), c = Math.round(e.x);
     return byPriority(e, b.allies().filter((u) => canTargetAlly(e, u, true) && (u.tileR === r || u.tileC === c)))[0] ?? null;
   };
-  const stop = (b, e, a) => {
+  const stop = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {EnemyAbility} */ a) => {
     if (a.laser) b.fx('laserEnd', { x: e.x, y: e.y, id: e.id });
     a.laser = null;
     a.boost = null;
     b.removeBuff(e, BOOST);
   };
+  /** @type {EnemyAbility | null} */
   const laser = s ? {
     ...skill(s, (b, e, a) => {
       const t = pick(b, e);
@@ -962,14 +1006,15 @@ const MHBOAR_LISTEN = 0.1;
  * its `Crash.stun` is 0. Whom it reaches: an area selection (areaAllies) on low tiles — the official client's
  * TargetRootTileValidator.Validate: the base TargetValidator (its advanced options on but all at their defaults) and
  * TileSelector.Options.Verify with only `checkHeightType` LOWLAND set.
+ * @type {AbKit}
  */
 function kitRagingBoar(ab) {
   const mul = T(ab, 'Rush.mhboar_t[trigger].move_speed') ?? 0, iv = T(ab, 'Rush.mhboar_t[trigger].interval') ?? 0;
   const cnt = T(ab, 'Rush.mhboar_t[trigger].trig_cnt') ?? 0, wait = T(ab, 'Rush.mhboar_t_predelay.predelay') ?? 0;
   const first = T(ab, 'FirstAttack.atk_scale') ?? 0, crash = T(ab, 'Crash.atk_scale') ?? 0;
   const KEY = 'ab:mhboarRush';
-  const held = (e) => { const f = e.s.flags; return !!(f.stun || f.freeze || f.levitate || f.bind || f.noMove); };
-  const stop = (b, e, a) => { a.rush = null; b.removeBuff(e, KEY); };
+  const held = (/** @type {Unit} */ e) => { const f = e.s.flags; return !!(f.stun || f.freeze || f.levitate || f.bind || f.noMove); };
+  const stop = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {EnemyAbility} */ a) => { a.rush = null; b.removeBuff(e, KEY); };
   return [{
     spawn(b, e, a) { e.blockWeight = MHBOAR_BLOCK_VOLUME; a.rush = null; a.listen = 0; a.inside = new Set(); },
     tick(b, e, a, dt) {
@@ -1017,21 +1062,23 @@ function kitRagingBoar(ab) {
  * Blocked during the walk: it counts as meeting its blocker [추정·엔진: our block contact (0.707) is a hair farther than the
  * aura's 0.70 — in the client the aura is the one that fires]. 入戏 (trap_pirene_func[enemy][real], a stage device's buff —
  * none in this mode) and so rushEndAdvance (撞墙: true damage, 15 s stun, 20 s cooldown) never come.
+ * @type {AbKit}
  */
 function kitParadulis(ab) {
   const s = ab.sk.rush, scale = T(ab, 'CollideChar.atk_scale_collide') ?? 1;
   const endDur = (ab.sk.rushEndNormal && ab.sk.rushEndNormal.cast && ab.sk.rushEndNormal.cast.dur) || 0;
   const reach = MNCTUR_COLLIDE_RADIUS + ALLY_COLLIDER_RADIUS;
+  /** @type {{ state: string, dir: number[] | null, px: number, py: number, to: { r: number, c: number } | null }} */
   const P = { state: 'idle', dir: null, px: 0, py: 0, to: null };
   // the operators ahead on its line of walk: its row going left / right, its column going up / down
-  const ahead = (b, e) => {
+  const ahead = (/** @type {Battle} */ b, /** @type {Unit} */ e) => {
     const d = P.dir;
     if (!d) return [];
     const r = Math.round(e.y), c = Math.round(e.x);
     return b.allies().filter((u) => canTargetAlly(e, u) && !u.isFlying
       && (d[0] ? u.tileR === r && (u.x - e.x) * d[0] > 0 : u.tileC === c && (u.y - e.y) * d[1] > 0));
   };
-  const endRun = (b, e) => { // rushEndNormal: Skill_End, then Default
+  const endRun = (/** @type {Battle} */ b, /** @type {Unit} */ e) => { // rushEndNormal: Skill_End, then Default
     P.state = 'end';
     e.trace = null;
     if (e.route) e.route.pts = null;
@@ -1048,7 +1095,7 @@ function kitParadulis(ab) {
     P.state = 'begin';
     // the marked tile, or — when it cannot be walked (a unit on a high tile) — the last walkable tile of the line before it
     // [추정·엔진: EnemyForceTracePosition's path to a tile it cannot stand on was not read]
-    const d = P.dir, g = b.grid;
+    const d = /** @type {number[]} */ (P.dir), g = b.grid;   // (ahead found a target: a way of walk)
     let r = Math.round(e.y), c = Math.round(e.x);
     while ((r !== t.tileR || c !== t.tileC) && g.walkable(r + d[1], c + d[0])) { r += d[1]; c += d[0]; }
     P.to = { r, c };
@@ -1059,6 +1106,7 @@ function kitParadulis(ab) {
   // the switch to Run: CheckUnitAlive, CheckContainsBuff (enemy_mnctur_check_target — enemy_mnctur_direction, the ability's
   // `_activeBuffs`, gave it at the spell), SwitchMode 1; the trace (enemy_mnctur_direction's EnemyForceTracePosition)
   // [추정·엔진: the trace starts at the spell in the client; here at the switch — it cannot walk while it casts either way]
+  /** @param {Battle} b @param {Unit} e */
   function run(b, e) {
     P.state = 'run';
     mode(b, e, 'Run');
@@ -1069,7 +1117,7 @@ function kitParadulis(ab) {
   // buff is already there (the spell was at the cast's start): it switches to Run at the cut and walks once it can
   // [추정·엔진: whether a stun stops the trace (CheckEnemyIsTracingTarget) was not read — here the trace waits it out]
   if (rush) rush.onCut = (b, e) => { if (P.state === 'begin') { if (e.alive) run(b, e); else P.state = 'idle'; } };
-  return [{
+  return /** @type {AbList} */ ([{
     spawn(b, e) { P.px = e.x; P.py = e.y; },
     tick(b, e) {
       // its way of walk (the last step it took)
@@ -1088,13 +1136,13 @@ function kitParadulis(ab) {
       const t = e.trace;
       if (!t || hypot(e.x - t.c, e.y - t.r) <= 1e-6) endRun(b, e);
     },
-  }, rush].filter(Boolean);
+  }, rush]).filter(Boolean);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
 // this module's part of KITS
 
-export const CRITIC_KITS = {
+export const CRITIC_KITS = /** @type {Record<string, EnemyKit>} */ ({
   enemy_1191_krgrg: kitIceGuard,                           // 冰原卫法者 · knocked out: arts blast + cold on both sides; bleeds in 失衡
   enemy_1191_krgrg_2: kitIceGuard,                         // 冰原御法者 · same
   enemy_1406_chghmr: kitLinePusher,                        // 战线推进者 · first attack after each block: PowerHit, ATK +80 %
@@ -1122,4 +1170,4 @@ export const CRITIC_KITS = {
   enemy_1429_lrwzrd_2: kitSoulWizard,                      // 棱镜魂灵残迹 · same
   enemy_1309_mhboar_2: kitRagingBoar,                      // 狂暴凶豕兽 · weight 2; unblocked: speed +33.3 % every 0.333 s after 3 s; crash / first attack × speed
   enemy_10163_mnctur_2: kitParadulis,                      // 神勇的帕拉杜利斯 · 冲锋 at an operator ahead: ATK × 2 on the first unit met
-};
+});

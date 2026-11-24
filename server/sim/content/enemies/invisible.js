@@ -7,6 +7,10 @@ import { T, elem, hurt, targetsNear, byPriority, auraBuff, auraAllies, lineShot,
 import { stealth, onHitStatus, skill, kitStealth } from './archetypes.js';
 import { hypot } from '../../detmath.js';
 import { interruptEnemyCast } from '../../ai.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { BuffTick } from './helpers.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -27,12 +31,14 @@ const CROSS_BOLT_SPEED = 5;   // projectile_enemy_msnip `_speed` (the data's ski
  *  `Muzzle` bone at the OnAttack event (0.067 s) of the clip its ThreePartChannelingAnimation ends on, by its direction:
  *  Skill_End (212.74, 165.83), Skill_End_Down (151.49, 19.99), Skill_End_Up (153.57, 319.45) in skeleton units (EN client
  *  enemy_1404_msnip.skel); × 0.01 × its Graphic's 0.27, turned with the Graphic (X −30°: a row = cos 30° of the model's
- *  height) and moved by its local (0, −0.2, −0.06). */
+ *  height) and moved by its local (0, −0.2, −0.06).
+ * @type {Record<string, { f: number, up: number }>} */
 const CROSS_MUZZLE = { side: { f: 0.574, up: 0.188 }, DOWN: { f: 0.409, up: -0.153 }, UP: { f: 0.415, up: 0.547 } };
 
 // ---------------------------------------------------------------------------------------------------------------
 // kits
 
+/** @type {AbKit} */
 function kitCrossbow(ab) {
   const s = ab.sk.CrossAttack;
   // its prefab's Skills/CrossAttack/Selector (공식 클라에서 확인, 2026-11-14): a CrossTileRange — every tile of its own row and
@@ -83,6 +89,7 @@ function kitCrossbow(ab) {
  * time it hides again (3 s after a block, Battle._stealthSwitch; or once a 反隐 ends) — and its next attack (a melee
  * one: blocked) spends it at InvisibleCombat.atk_scale. A new block inside the 3 s gives no new mark (until 0.1.2 every
  * block did).
+ * @type {AbKit}
  */
 function kitShadowKiller(ab) {
   const scale = (ab.sk.InvisibleCombat && ab.sk.InvisibleCombat.bb.atk_scale) || 1;
@@ -94,10 +101,11 @@ function kitShadowKiller(ab) {
   }];
 }
 
+/** @type {EnemyKit} */
 function kitJazz(ab, e) {
   const s = ab.sk.fire;
   const r = (e.def.raw && e.def.raw.stats && e.def.raw.stats.rawRangeRadius) || 2.5;
-  const revealed = (u) => !enemyStealthed(u);                  // blocked, 反隐 (its 隐匿 returns 0 s after a block)
+  const revealed = (/** @type {Unit} */ u) => !enemyStealthed(u);                  // blocked, 反隐 (its 隐匿 returns 0 s after a block)
   // the channel's ticks (狂欢式演奏 below): floor(duration / hit_interval), 0 = none
   const jazzTicks = () => {
     const dur = s?.bb['enemy_cnvsax[cd].duration'] ?? 0, iv = s?.bb.hit_interval ?? 0.5;
@@ -107,7 +115,7 @@ function kitJazz(ab, e) {
     // PRTS 天赋 "隐匿期间不进行普通攻击；未受隐匿影响时进入反击模式：仅进行阻挡攻击，造成100%物理伤害": its normal attack only ever
     // hits its blocker (`melee`), so a revealed (反隐) unblocked one neither shoots nor stands for its attack clip (until
     // 0.1.3 it shot everyone within its 2.5 range and stood still while it had a target — ai.js attackStand)
-    spawn(b, e2) { e2.profile.noAttack = true; e2.profile.melee = true; },
+    spawn(b, e2) { /** @type {Record<string, any>} */ (e2.profile).noAttack = true; /** @type {Record<string, any>} */ (e2.profile).melee = true; },
     // 平时不攻击，失去隐匿时反击: its first mode has no attack ability, the counter is the mode Attack's (attached ready as it
     // is revealed, ai.js enemyMode)
     // 2026-11-14 (공식 클라에서 확인): the talent's buff `enemy_act38side[mode]` switches to mode 0 (Default) while 隐匿 holds
@@ -118,8 +126,8 @@ function kitJazz(ab, e) {
     // (EnemySkill._OnCastFinish). Until 2026-11-14 the channel ran on under 隐匿 and the enemy then stood up to a minute
     // (an open cast's stand, content/enemies.js PROJ_WAIT_MAX) where its blocker had been
     tick(b, e2) {
-      e2.profile.noAttack = !revealed(e2);
-      if (mode(b, e2, e2.profile.noAttack ? null : 'Attack', false) && e2.profile.noAttack && e2.castLeft > 0 && !e2.castSwing) interruptEnemyCast(b, e2);
+      /** @type {Record<string, any>} */ (e2.profile).noAttack = !revealed(e2);
+      if (mode(b, e2, /** @type {Record<string, any>} */ (e2.profile).noAttack ? null : 'Attack', false) && /** @type {Record<string, any>} */ (e2.profile).noAttack && e2.castLeft > 0 && !e2.castSwing) interruptEnemyCast(b, e2);
     },
   }, s ? {
     // 狂欢式演奏 (PRTS 节日爵士乐手, 反击模式): "仅攻击范围内存在我方单位时可触发：锁定目标持续施法，最多持续10.6s，每0.5s对目标
@@ -163,6 +171,7 @@ function kitJazz(ab, e) {
   } : null];
 }
 
+/** @type {AbKit} */
 function kitShadowBlade(ab) {
   const bat = ab.t['traitAbility.base_attack_time'] ?? 0;
   return [stealth(), {
@@ -183,12 +192,13 @@ function kitShadowBlade(ab) {
  * (ai.js attackTargets: the same reach — rangeRadius + the ally collider — and the same rules); one otherwise. Until
  * 0.2.2 (PR #365 by @Sukvii, the PRTS lines checked for this port): blocker first, flyers hit, the 3 picked within the bare
  * rangeRadius.
+ * @type {AbKit}
  */
 function kitBoneSpike() {
   return [stealth(), {
     spawn(b, e, a) {
-      e.profile.blockFree = true;
-      e.profile.canTarget = (u) => !u.isFlying;
+      /** @type {Record<string, any>} */ (e.profile).blockFree = true;
+      /** @type {Record<string, any>} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying;
       // its Horror mode is attached as it spawns (sound only, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」)
       a.mode = 0;
       a.next = b.time + ACBUNN_SWITCH_IV;
@@ -205,7 +215,7 @@ function kitBoneSpike() {
     },
     before(c, b, e) {
       if (!enemyStealthed(e)) return;
-      const l = byPriority(e, targetsNear(b, e, e.base.rangeRadius + ALLY_COLLIDER_RADIUS).filter(e.profile.canTarget));
+      const l = byPriority(e, targetsNear(b, e, e.base.rangeRadius + ALLY_COLLIDER_RADIUS).filter(/** @type {Record<string, any>} */ (e.profile).canTarget));
       if (l.length) c.targets = l.slice(0, ACBUNN_TARGETS);
     },
   }];
@@ -220,6 +230,7 @@ function kitBoneSpike() {
  * one block (「不可叠加」); `_removeBuffWhenTargetLeave`, `_removeBuffWhenAbilityDetached`: it goes with the unit leaving
  * or the 影役's end. A blocker over its new count lets its last enemy go (Battle blocking). Whom the aura reaches: the
  * operators a buff aura of an enemy takes (auraAllies — no 隐匿 one). Its ranged arts attack is the engine's.
+ * @type {AbKit}
  */
 function kitShadowServant(ab) {
   const r = (T(ab, 'Aura.range_radius') ?? 0) + ALLY_COLLIDER_RADIUS, n = T(ab, 'Aura.block_cnt') ?? 0;
@@ -236,6 +247,7 @@ const BLOCK_AURA = 'ab:acblkAura';
  * 影役's auras, all at once: every operator inside one living 影役's aura holds the one BLOCK_AURA buff (the value of the
  * first 影役 that reaches it), every other loses it — so a unit inside two auras keeps it until it has left both, and an
  * aura ends with its 影役.
+ * @param {Battle} b
  */
 function syncBlockAura(b) {
   const want = new Map();
@@ -254,7 +266,7 @@ function syncBlockAura(b) {
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
-export const INVISIBLE_KITS = Object.freeze({
+export const INVISIBLE_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Object.freeze({
   // --- INVISIBLE 隐匿
   enemy_1009_lurker: kitStealth,                                     // 潜伏者 · stealth
   enemy_1019_jshoot: kitStealth,                                     // 隐形弩手 · stealth
@@ -275,4 +287,4 @@ export const INVISIBLE_KITS = Object.freeze({
   enemy_1175_dushdo_2: kitShadowBlade,                               // 深池伙友影刃精英 · stealth; BAT −1.3 s next to 卫队精英
   enemy_2034_sythef: (ab) => [stealth(), onHitStatus('stun', T(ab, 'Combat.attack@stun'))],   // 流泪小子 · stealth, attacks stun
   enemy_2034_sythef_2: (ab) => [stealth(), onHitStatus('stun', T(ab, 'Combat.attack@stun'))], // 流泪小子 · same
-});
+}));

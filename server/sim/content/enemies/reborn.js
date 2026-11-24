@@ -13,6 +13,10 @@ import { T, elem, hurt, areaAllies, allTargets, remainingRoute, spawnChildren, a
 import { interruptEnemyCast } from '../../ai.js';
 import { ep, reborn, skill } from './archetypes.js';
 import { hypot, powi } from '../../detmath.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { BuffTick } from './helpers.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -35,7 +39,7 @@ const PARASITE_SKIPS = 'enemy_1220_dzoms';
  *  split (deathrattle_sum[walk_only]) 0.1; 集养者's copy (dsdivi_tr_1, …WithBuff) 1.2; the others 0. */
 const SUMMON_JITTER = 0.1, DSDIVI_JITTER = 1.2;
 
-const isConstruct = (u) => !!u && u.alive && !u.hidden && CONSTRUCTS.has(u.defId);
+const isConstruct = (/** @type {Unit} */ u) => !!u && u.alive && !u.hidden && CONSTRUCTS.has(u.defId);
 
 // ---------------------------------------------------------------------------------------------------------------
 // shared pieces
@@ -47,6 +51,7 @@ const isConstruct = (u) => !!u && u.alive && !u.hidden && CONSTRUCTS.has(u.defId
  * it (`holdsBattle`). The spot: the centre of the tile it fell on ± `offset_bound` (SUMMON_JITTER) on each axis
  * (spawnChildren `spot`). [추정·엔진: the summoned unit's own `_delayToBorn` (1 s, Enemy.States.BornState: it waits that
  * long before it moves) is not modelled, as for every enemy (server/sim/routePreview.js) — an engine rule for all seasons]
+ * @param {string | null | undefined} key @param {number} delay @param {number} [bound] @returns {EnemyAbility}
  */
 const rebornSummon = (key, delay, bound = SUMMON_JITTER) => ({
   death(c, b, e) {
@@ -56,6 +61,7 @@ const rebornSummon = (key, delay, bound = SUMMON_JITTER) => ({
     if (delay > 0) b.after(delay, go, { holdsBattle: true }); else go();
   },
 });
+/** @param {string} prefix @returns {AbKit} */
 const kitReborn = (prefix) => (ab) => [rebornSummon(ab.tS[`${prefix}.enemy_key`], T(ab, `${prefix}.delay`) ?? 0, T(ab, `${prefix}.offset_bound`) ?? SUMMON_JITTER)];
 
 /**
@@ -65,6 +71,7 @@ const kitReborn = (prefix) => (ab) => [rebornSummon(ab.tS[`${prefix}.enemy_key`]
  * 重生造物 it blocks, at most `buff_to_blocker.max_valid_stack_cnt` (「最多+6」). With a 补给车 of a kind on the field (each
  * kind its own buff, enemy_dsuply_t / enemy_dsuply_2_t): ATK × (1 + `atk` × n) for n of them up to `max_valid_stack_cnt`,
  * and each damage it deals adds 凋亡 of its ATK × `ep_damage_ratio` × n (ApplyElementDamage DARK `_multiplyWithBuffValidStackCnt`).
+ * @type {AbKit}
  */
 function kitConstruct(ab) {
   const cut = 1 - (T(ab, 'dmg_res.damage_resistance') ?? 0);
@@ -95,7 +102,8 @@ function kitConstruct(ab) {
   }];
 }
 
-/** The 补给车 on the field by kind: [{ n (capped), atk, ep }] — a silenced one gives nothing (its talent is SilenceableTalent). */
+/** The 补给车 on the field by kind: [{ n (capped), atk, ep }] — a silenced one gives nothing (its talent is SilenceableTalent).
+ * @param {Battle} b */
 function supply(b) {
   const by = new Map();
   for (const o of b.aliveEnemies()) {
@@ -117,12 +125,13 @@ const kitSupply = () => [{ silAware: true }];
  * 萨卡兹子裔工匠 / 组长: its charge_gunctrl (SILENCE line) charges a 伦蒂尼姆城防副炮 — the selector takes only units tagged
  * `gunctrl` over the field and this mode has none, so it never casts (marked silence-aware: its line is that skill's).
  */
-const kitMech = (ab) => [...kitReborn('deathrattle')(ab), { silAware: true }];
+const kitMech = (/** @type {AbState} */ ab) => [...kitReborn('deathrattle')(ab), { silAware: true }];
 
 /**
  * 萨卡兹子裔集恨者 / 集怒者: a GlobalAuraAbility on every 重生造物 (FilterBuffTargetValidator enemy_bloodsucker_mark), each
  * giving it one stack of enemy_dklord_atk — ATK × (1 + `aura.atk` × n), n up to `aura.max_valid_stack_cnt`. Not silenceable
  * (a plain Talent, a NORMAL line).
+ * @type {AbKit}
  */
 function kitLord(ab) {
   const per = T(ab, 'aura.atk') ?? 0, cap = T(ab, 'aura.max_valid_stack_cnt') ?? Infinity;
@@ -144,6 +153,7 @@ function kitLord(ab) {
  * jump — the official client's projectile_enemy_dkmage (ChainLightningHitBehaviour + ChainedSelector: the nearest to the
  * spot hit first, then the nearest not hit yet from the last one, all at once; from the second on the scale goes through
  * Projectile.ApplyAtkScaleToDamageNode with `alsoApplyToElementDamage`, so the 凋亡 falls off with the damage).
+ * @type {AbKit}
  */
 function kitChainMage(ab) {
   const ratio = T(ab, 'epdamage.attack@ep_damage_ratio') ?? 0, n = T(ab, 'epdamage.attack@max_target') ?? 1;
@@ -171,6 +181,7 @@ function kitChainMage(ab) {
  * 萨卡兹子裔轰击者 / 毁击者: its shell (projectile_enemy_dthrow, `_projectileDestination` 1 — to the target's spot) lies
  * there `Attack.attack@projectile_delay_time` s, then blows up: physical ATK × 1 to every unit its area selection takes
  * within `Attack.attack@projectile_radius` — the target included only if still there. The ATK is the one it fired with.
+ * @type {AbKit}
  */
 function kitThrower(ab) {
   const wait = T(ab, 'Attack.attack@projectile_delay_time') ?? 0, r = T(ab, 'Attack.attack@projectile_radius') ?? 0;
@@ -200,18 +211,20 @@ function kitThrower(ab) {
  * OnDetach, as the official client does).
  * SP comes on silenced attacks too (Entity.SpController._RecoverMp stops only for SP_RECOVER_STOPPED, not SILENCED — as the
  * 乐团's counters).
+ * @type {AbKit}
  */
 function kitPunisher(ab) {
   const s = ab.sk.StunAttack, cost = s && s.sp > 0 ? s.sp : 0, dur = (s && s.bb.stun) || 0;
+  /** @type {{ sp: number, lit: number, n?: number }} */
   const P = { sp: 0, lit: 0 };
-  const pick = (b, e) => {
+  const pick = (/** @type {Battle} */ b, /** @type {Unit} */ e) => {
     const out = e.blockedBy && e.blockedBy.alive ? [e.blockedBy] : [];
     for (const u of areaAllies(b, e, e.x, e.y, DFAT_STUN_REACH)) if (!u.isFlying && !out.includes(u)) out.push(u);
     return out;
   };
   // the prefab's ReadyEnemySkillEffect (enemy_dfat_skill_hint): fx 'enemySkillReady' on 1 as the SP fills, on 0 as the cast ends
-  const ready = (b, e, on) => b.fx('enemySkillReady', { x: e.x, y: e.y, id: e.id, ability: 'StunAttack', on });
-  const off = (b, e, n) => { if (n && P.lit === n) { P.lit = 0; ready(b, e, 0); } };   // once per fill
+  const ready = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {number} */ on) => b.fx('enemySkillReady', { x: e.x, y: e.y, id: e.id, ability: 'StunAttack', on });
+  const off = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {number} */ n) => { if (n && P.lit === n) { P.lit = 0; ready(b, e, 0); } };   // once per fill
   return [...kitReborn('Attack')(ab), { attack(_c, b, e) {
     if (!(cost > 0) || P.sp >= cost) return;
     P.sp++;
@@ -235,6 +248,7 @@ function kitPunisher(ab) {
  * (enemy_dfello_damge_up, ON_CALCULATE_DAMAGE); heals itself the damage dealt × `vampire.heal_scale` (enemy_dslime_vampire
  * HealViaDamage DAMAGE_SCALE); knocked out, it leaves `Summon.cnt` <血珀> on its route (enemy_dfello_summon[dseed]). Its
  * ranged `Attack` picks only units holding enemy_bmbcar1_passive (none in this mode): it fights only what blocks it.
+ * @type {AbKit}
  */
 function kitFello(ab) {
   const k = T(ab, 'DamageUp.scale_ratio') ?? 0, add = T(ab, 'DamageUp.add_on') ?? 1, heal = T(ab, 'vampire.heal_scale') ?? 0;
@@ -257,6 +271,7 @@ function kitFello(ab) {
  * UNIQUE — while a unit holds it, a new one adds nothing (no refresh). Knocked out (not a FALLDOWN), `Summon.cnt` <血珀> on
  * its route (enemy_dfello_summon[dseed], 新生血裔's). Its BmbcarBuff aura stops only units holding
  * enemy_bmbcar1_passive (反巫术变位炸弹) — none in this mode.
+ * @type {AbKit}
  */
 function kitBoneGuard(ab) {
   const aspd = T(ab, 'Summon.attack_speed') ?? 0, dur = T(ab, 'Summon.duration') ?? 0;
@@ -277,6 +292,7 @@ function kitBoneGuard(ab) {
  * left out — `_selfOption` EXCLUDE — and 大君之触 `enemy_1220_dzoms` too, its validator) gives acpara[core]: an enemy holding
  * it that is knocked out summons one `Aura.enemy_key` (大君之赐) where it fell, on its route, at once — not when that one is a
  * 大君之赐 itself (the template's FilterId on the blackboard `enemy_key`).
+ * @type {AbKit}
  */
 function kitParasite(ab) {
   const r = T(ab, 'Aura.range_radius') ?? 0, key = ab.tS['Aura.enemy_key'];
@@ -301,6 +317,7 @@ function kitParasite(ab) {
  * split into `deathrattle.cnt` `deathrattle.enemy_key` `deathrattle.delay` s later where they fell, on the rest of the route:
  * each at the centre of that tile ± `deathrattle.offset_bound` (0.2) on each axis (spawnChildren `spot`). The projectile
  * that flies to each spot is the view's.
+ * @param {AbState} ab @returns {EnemyAbility}
  */
 function splitOnDeath(ab) {
   const key = ab.tS['deathrattle.enemy_key'], n = T(ab, 'deathrattle.cnt') ?? 0, delay = T(ab, 'deathrattle.delay') ?? 0;
@@ -316,12 +333,13 @@ function splitOnDeath(ab) {
     },
   };
 }
-const kitSplitBeast = (ab) => [splitOnDeath(ab)];
+const kitSplitBeast = (/** @type {AbState} */ ab) => [splitOnDeath(ab)];
 
 
 /**
  * 变异巨岩蛛 / α: the splits on death, and SummonToken (SILENCE line; AlwaysTrigger, cooldown 5 s from the start) — one
  * `enemy_key` at its own spot on its route at the clip's event (harchn[sum_token]).
+ * @type {AbKit}
  */
 function kitHugeSpider(ab) {
   const s = ab.sk.SummonToken, key = s && s.bs.enemy_key, n = (s && s.bb.cnt) ?? 1;
@@ -334,6 +352,7 @@ function kitHugeSpider(ab) {
  * 畸变恶性瘤: while blocked (BlockedToggleChecker `_blockMinCnt` 1) its blocker's attack speed × (1 + `atkSpeedDown.attack_speed`)
  * (tumor_t_buff_blocker: ATTACK_SPEED MULTIPLIER, one buff however many block it — max stack 1). Its talent is a
  * SilenceableTalent, but it is silence-immune and its line NORMAL: never off.
+ * @type {AbKit}
  */
 function kitTumor(ab) {
   const v = T(ab, 'atkSpeedDown.attack_speed') ?? 0;
@@ -362,6 +381,7 @@ const SHELL_STATS = Object.freeze({ hp: 3000, def: 320, res: 0, blockCnt: 20, na
 /**
  * A tile the shell may take (dsshel_t_1 SpawnTokenOnTargetTileWithCondition: buildable MELEE, LOWLAND, move cost 1 — not an
  * obstacle-like tile — and not tile_start / tile_end / tile_telin / tile_telout); spawnDevice refuses one a unit holds.
+ * @param {Battle} b @param {number} r @param {number} c
  */
 function shellTile(b, r, c) {
   if (!b.grid.inRect(r, c)) return false;
@@ -373,6 +393,7 @@ function shellTile(b, r, c) {
  * 微核沉积者: knocked out, a 赘生甲壳 on its tile (an ally-side TRAP: blocks 20, enemies stop at it and break it). Its skill
  * (a high-ground operator deployed onto it; its redeploy −35 % when the shell breaks) has no use in a battle without
  * deployment.
+ * @type {AbKit}
  */
 const kitShellBearer = () => [{
   death(c, b, e) {
@@ -382,7 +403,8 @@ const kitShellBearer = () => [{
   },
 }];
 
-/** The 赘生甲壳 within `r` of (x, y) — its 0.25 collider met (ALLY_COLLIDER_RADIUS) —, the nearest (null when none). */
+/** The 赘生甲壳 within `r` of (x, y) — its 0.25 collider met (ALLY_COLLIDER_RADIUS) —, the nearest (null when none).
+ * @param {Battle} b @param {number} x @param {number} y @param {number} r */
 function shellNear(b, x, y, r) {
   let best = null, bd = Infinity;
   for (const u of b.allyUnits) {   // (devices: not in b.allies())
@@ -407,6 +429,7 @@ function shellNear(b, x, y, r) {
  * enum's name, matched case aside — `Blackboard._TryGetNumber`): `ATK` finds the skill's `atk` 0.4, `MAX_HP` finds no
  * key (the table writes `maxhp`) and keeps the template's 0.6. A cast cut before its end eats nothing; skill `1` casts
  * once (`_maxTriggerTime` 1). The HP ratio stays as the maximum grows (units.js).
+ * @type {AbKit}
  */
 function kitShellEater(ab) {
   const s0 = ab.sk['0'], s1 = ab.sk['1'];
@@ -440,6 +463,7 @@ function kitShellEater(ab) {
  * dsfull_tr_1[derived][1] / [2] / [3] (their overrideEffectKey enemy_dsfull_buff_01 / _04 / none show which: the buff's
  * `fxTag`); knocked out (that buff's ON_OWNER_KILLED, no death-reason check), that monster where it fell, on its route,
  * whose move speed × (1 + `0.move_speed`) for good (dsfull_tr_1[speed_up], MOVE_SPEED MULTIPLIER).
+ * @type {AbKit}
  */
 function kitBreeder(ab) {
   const p1 = T(ab, '0.prob1') ?? 0, p2 = T(ab, '0.prob2') ?? 0, spd = T(ab, '0.move_speed') ?? 0, n = T(ab, '0.cnt') ?? 1;
@@ -468,6 +492,7 @@ function kitBreeder(ab) {
  * route with its HP ratio (CopyHealth by ratio) and the split mark, so the copy never splits; the listener is gone.
  * The copy's spot: the centre of its tile ± the skill's `offset_bound` (0.3) on each axis (spawnChildren `spot`).
  * [추정·미조사: the clip has no attack event in the data — the copy comes at the clip's end]
+ * @type {AbKit}
  */
 function kitDivider(ab) {
   const ratio = T(ab, '0.hp_ratio') ?? 0.5, s = ab.sk['0'], key = s && s.bs.enemy_key, len = (s && s.cast && s.cast.dur) || 0;
@@ -506,6 +531,7 @@ function kitDivider(ab) {
  * buff wdkght_t[enhance] (`fxTag`: its overrideEffectKey enemy_wdkght_skill_01_buff on it, render/fxstatus.js). The knock-out
  * that brings the stacks to the cap also puts on wdkght_t[effect] for good (enemy_wdkght_t: FilterByBuffStackCount EQUALS
  * `max_stack_cnt`, then CreateBuff — its overrideEffectKey enemy_wdkght_skill_01_start_03: the buff's `fxTag`).
+ * @type {AbKit}
  */
 function kitBloodKnight(ab) {
   const atk = T(ab, 'enhance.atk') ?? 0, as = T(ab, 'enhance.attack_speed') ?? 0, cap = T(ab, 'enhance.max_stack_cnt') ?? Infinity;
@@ -533,10 +559,11 @@ const WEAKEN = 'ab:lfkghtWeaken';
  * 锋盔骑士团学徒 / “左手”泰特斯·白杨: AtkDesWeaken (SILENCE line; GlobalRange, the operator side, every motion, ATK_DES — the
  * highest ATK — one unit without the cut) — at the clip's event its ATK × (1 + `atk`) (FINAL_SCALER) for `duration` s; and
  * 重生 (RebornTalent: `reborn.duration` s, full HP — `hp_ratio` defaults to 1, one respawn).
+ * @type {AbKit}
  */
 function kitLfKnight(ab) {
   const s = ab.sk.AtkDesWeaken, cut = (s && s.bb.atk) ?? 0, dur = (s && s.bb.duration) ?? 0;
-  const pick = (b, e) => allTargets(b, e).filter((u) => !u.findBuff(WEAKEN)).sort((p, q) => q.s.atk - p.s.atk)[0];
+  const pick = (/** @type {Battle} */ b, /** @type {Unit} */ e) => allTargets(b, e).filter((u) => !u.findBuff(WEAKEN)).sort((p, q) => q.s.atk - p.s.atk)[0];
   return [skill(s, (b, e) => {
     const u = pick(b, e);
     if (!u) return;
@@ -550,7 +577,7 @@ function kitLfKnight(ab) {
 // ---------------------------------------------------------------------------------------------------------------
 // this module's part of KITS
 
-export const REBORN_KITS = {
+export const REBORN_KITS = /** @type {Record<string, EnemyKit>} */ ({
   enemy_1220_dzoms: kitConstruct,                          // 大君之触 · 重生造物: damage taken −90 %, its blocker blocks +1
   enemy_1220_dzoms_2: kitConstruct,                        // 仁慈之触 · same
   enemy_1221_dzomg: kitConstruct,                          // 大君之赐 · same
@@ -588,4 +615,4 @@ export const REBORN_KITS = {
   enemy_1103_wdkght_2: kitBloodKnight,                     // 沸血骑士团精锐 · ATK +10 %, ASPD +5 per enemy knocked out (×10)
   enemy_1104_lfkght: kitLfKnight,                          // 锋盔骑士团学徒 · highest-ATK unit ATK −50 % 25 s; 重生
   enemy_1104_lfkght_3: kitLfKnight,                        // “左手”泰特斯·白杨 · same, every 10 s
-};
+});

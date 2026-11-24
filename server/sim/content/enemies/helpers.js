@@ -11,6 +11,19 @@ import { normShot } from '../../simdata.js';
 import { enemyMode } from '../../ai.js';
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
+/** @import { AbState, AbSkill, AbCtx, AbList } from '../enemies.js' */
+/**
+ * The enemy kits' per-battle state (stOf): the match's LP loss, the 解放 flag, the units watching every death, plus the
+ * fields content/enemies.js and the kits keep there (`installed`, 黑雾, the chalices …).
+ * @typedef {{ [key: string]: any, lpLoss: number, freedAll: boolean, deathWatch: Set<Unit> }} EnemyBattleState
+ * A route a summon or a held enemy takes (remainingRoute, stayRoute): spawnEnemy's `route`.
+ * @typedef {{ motion: string, start: number[], end: number[], checkpoints?: unknown[], steps?: Record<string, unknown>[] }} ChildRoute
+ * spawnChildren's options (see there).
+ * @typedef {{ route?: ChildRoute | null, mods?: Record<string, any> | null, spot?: { bound?: number, walk?: boolean,
+ *   map?: boolean, delay?: number } | null, pos?: number[], tag?: string | null, countInTotal?: boolean }} SpawnChildOpts
+ * A buff's `onTick` / `onExpire` argument (battle/status.js).
+ * @typedef {{ battle: Battle, unit: Unit, buff: Record<string, any> }} BuffTick
+ */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -38,7 +51,7 @@ const POLLUTION_INTERVAL = 1;
  * 2026-10-03. Every other stealthy enemy here has a plain "隐匿" (3 s), the 深池逐火 embers included. 清明 / 堂皇's veil
  * ("获得隐匿（解除阻挡0秒后恢复）") is kitInvisShield's.
  */
-const STEALTH_RESTORE_BY_KEY = Object.freeze({
+const STEALTH_RESTORE_BY_KEY = /** @type {Readonly<Record<string, number>>} */ (Object.freeze({
   enemy_10031_cnvsld: 0,     // 业余竞演者
   enemy_10034_cnvsax: 0,     // 节日爵士乐手
   enemy_9008_acbunn: 0,      // 假想敌：骨刺
@@ -47,7 +60,7 @@ const STEALTH_RESTORE_BY_KEY = Object.freeze({
   enemy_1389_winbab_2: 0,    // 访问团强攻冠军
   enemy_1283_sgkill: 1,      // 家族灭迹人
   enemy_1283_sgkill_2: 1,    // 家族暗影灭迹人
-});
+}));
 
 /**
  * 隐匿 of the 鸭爵 strategy's swapped-in enemies (spawn tag 'duck': content/bands/meta.js duckReplace) comes back no sooner
@@ -67,13 +80,16 @@ const TEA_SPLASH_RADIUS = 1, SHELL_SPLASH_RADIUS = 1;
  *  (official 粉碎攻坚手 text for spCost 2: "攻击2次后，下一次攻击" ⇒ 3rd; 码头水手 / 澪 / 清扫小队 spCost 3 ⇒ 4th). */
 const NTH_ATTACK = 3;
 
+/** @param {AbSkill | null | undefined} s */
 export const nthOf = (s) => (s && s.sp > 0 ? s.sp + 1 : NTH_ATTACK);
 
 // ---------------------------------------------------------------------------------------------------------------
 // per-battle state + installation
 
+/** @type {WeakMap<Battle, EnemyBattleState>} */
 const STATE = new WeakMap();
 
+/** @param {Battle} b @returns {EnemyBattleState} */
 function stOf(b) {
   let st = STATE.get(b);
   if (!st) { st = { lpLoss: 0, freedAll: false, deathWatch: new Set() }; STATE.set(b, st); }
@@ -83,7 +99,7 @@ function stOf(b) {
 // ---------------------------------------------------------------------------------------------------------------
 // ability bookkeeping
 
-/** The enemy's ability record (created on demand). */
+/** The enemy's ability record (created on demand). @param {Battle} b @param {Unit} e @returns {AbState} */
 export function abOf(b, e) {
   if (e.mem.ab) return e.mem.ab;
   const key = e.defId;
@@ -91,6 +107,7 @@ export function abOf(b, e) {
   const raw = (e.def && e.def.raw) || {};
   const t = { ...((e.def && e.def.talent) || {}), ...((ov && ov.talents && ov.talents.bb) || {}) };
   const tS = { ...((raw.talents && raw.talents.bbStr) || {}), ...((ov && ov.talents && ov.talents.bbStr) || {}) };
+  /** @type {Record<string, AbSkill>} */
   const sk = {};
   const casts = raw.skillCast || null;
   for (const s of (ov && Array.isArray(ov.skills) ? ov.skills : (e.def && e.def.skills) || [])) {
@@ -102,7 +119,7 @@ export function abOf(b, e) {
     // how the client casts it (data/enemies.json `skillCast`, by its name case aside) — an attack-slot skill
     // (content/enemies.js skillSlot), null when the prefab was not read
     const proj = normShot(s.proj);
-    if (proj && s.proj.life > 0) proj.life = s.proj.life;
+    if (proj && s.proj.life > 0) /** @type {Record<string, any>} */ (proj).life = s.proj.life;
     const cast = (casts && casts[String(s.prefabKey).toLowerCase()]) || null;
     sk[s.prefabKey] = { name: s.prefabKey, cd: num(s.cooldown, 0), icd: num(s.initCooldown, 0), sp: num(s.spCost, 0), pri: num(s.priority, 0), bb: s.bb || {}, bs: s.bbStr || {}, proj, cast };
   }
@@ -110,22 +127,24 @@ export function abOf(b, e) {
   return e.mem.ab;
 }
 
-/** Attach abilities to an enemy (calls their spawn()). @param {import('../enemies.js').AbList} list */
+/** Attach abilities to an enemy (calls their spawn()). @param {Battle} b @param {Unit} e @param {AbList} list */
 export function attach(b, e, list) {
   const ab = abOf(b, e);
   for (const a of list) {
     if (!a) continue;
     if (a.cd != null) a.left = num(a.left, num(a.icd, 0));
     ab.list.push(a);
-    if (a.spawn) safe(b, e, () => a.spawn(b, e, a, ab));
+    if (a.spawn) safe(b, e, () => /** @type {NonNullable<typeof a.spawn>} */ (a.spawn)(b, e, a, ab));
   }
   return ab;
 }
 
+/** @param {Battle} b @param {Unit | null} e @param {() => any} fn what the handler returns (a kit's `fire` its target …) @returns {any} */
 function safe(b, e, fn) {
   try { return fn(); } catch (err) { b._handlerError('content:enemies', e, err); return undefined; }
 }
 
+/** @param {Battle} b @param {Unit | null | undefined} e @param {string} name @param {AbCtx} c @returns {boolean} */
 function dispatch(b, e, name, c) {
   const ab = e && e.mem && e.mem.ab;
   if (!ab) return false;
@@ -139,19 +158,22 @@ function dispatch(b, e, name, c) {
   return any;
 }
 
+/** @param {unknown} v @param {number} d @returns {number} */
 const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
-/** First finite talent value among keys. */
+/** First finite talent value among keys. @param {AbState} ab @param {...string} keys @returns {number | undefined} */
 export function T(ab, ...keys) { for (const k of keys) { const v = ab.t[k]; if (typeof v === 'number' && Number.isFinite(v)) return v; } return undefined; }
 
+/** @param {Unit} e */
 export function silenced(e) { return !!e.s.flags.silence; }
 
 /**
  * Is enemy `e` in its 失衡 (UNBALANCE) state now (battle/displacement.js _unbalance; the 1e-9 keeps a float-summed
  * end — 35/30 s — on its frame)? PRTS 异常效果图鉴/失衡免疫: 「失衡期间无法自主移动、发动攻击、使用技能」 — content skills
  * (canCast), blinks and scripted moves wait for its end.
+ * @param {Battle | null | undefined} b @param {Unit | null | undefined} e
  */
-export function unbalancedNow(b, e) { return !!(b && e && b.time < e.unbalanceUntil - 1e-9); }
+export function unbalancedNow(b, e) { return !!(b && e && b.time < /** @type {number} */ (e.unbalanceUntil) - 1e-9); }
 
 /** Can enemy `e` use a skill now: alive, on the field, not stunned, not silenced (`sil`), not in its 失衡 state (`b` given).
  * @param {Unit} e @param {unknown} sil @param {Battle | null} [b] */
@@ -243,6 +265,7 @@ export function auraAllies(b, src, x, y, r) {
  * A locked target `t` and the allies an area takes around it: the target was picked directly when the ability started
  * (an attack's target, a channel's or a C4's lock), so a 隐匿 it gains meanwhile does not save it — PRTS 异常效果 "'直接选中'
  * 的能力不会进行具体的目标选择，故同样不受这些仅在选择时生效的异常效果制约"; only the others are an area selection (`area`).
+ * @param {Unit | null | undefined} t @param {Unit[]} area
  */
 export function targetAndArea(t, area) {
   return t && t.alive && t.deployed ? [t, ...area.filter((u) => u !== t)] : area;
@@ -271,7 +294,7 @@ export function zone(b, { x, y, r, life, iv = 1, kind = 'zone', tick, pick = nul
   return h;
 }
 
-/** Remaining route of an enemy from its current position (for summons / phantoms that continue its path). */
+/** Remaining route of an enemy from its current position (for summons / phantoms that continue its path). @param {Unit} e @returns {ChildRoute} */
 export function remainingRoute(e) {
   const R = e.route;
   const here = [e.y, e.x];
@@ -287,12 +310,13 @@ export function remainingRoute(e) {
     else if (L.t === 'appear') steps.push({ t: 'appear', p: [L.r, L.c] });
   }
   if (!end) { const last = R.legs[R.legs.length - 1]; end = last && last.r != null ? [last.r, last.c] : [Math.round(e.y), Math.round(e.x)]; }
+  /** @type {ChildRoute} */
   const route = { motion: e.motion === 'FLY' ? 'FLY' : 'WALK', start: here, end, checkpoints: [] };
   if (steps.length) route.steps = steps;
   return route;
 }
 
-/** A route that keeps an enemy in place (content moves it by hand). */
+/** A route that keeps an enemy in place (content moves it by hand). @param {Unit} e @param {number} [secs] @returns {ChildRoute} */
 export function stayRoute(e, secs = 99999) {
   const p = [Math.round(e.y), Math.round(e.x)];
   return { motion: e.motion === 'FLY' ? 'FLY' : 'WALK', start: p, end: p, steps: [{ t: 'wait', s: secs }] };
@@ -302,6 +326,7 @@ export function stayRoute(e, secs = 99999) {
  * Mods copied onto a split or summoned child. The parent's stat multipliers travel; a kill bounty does not
  * (owner 2026-10-04: the main body alone carries it — GitHub #67, #89-2). `bountyId` is the 悬赏 card and
  * `bountyCoins` is the coin copy the match writes for 联防. The parent object is left as it is.
+ * @param {Record<string, any> | null | undefined} mods
  */
 function modsWithoutBounty(mods) {
   if (!mods || typeof mods !== 'object') return mods ?? null;
@@ -317,6 +342,7 @@ function modsWithoutBounty(mods) {
  * (the node's `_passableMask` WALK_ONLY) lets a ground unit through — any tile with NONE —, the first in row order on a
  * tie (a strict less-than); null when there is none. (Its `_trySummonOutsideWhenInObstacle` weight is not modelled: no
  * 规程 summoner stands on an obstacle.)
+ * @param {Battle} b @param {number} x @param {number} y @param {boolean} walk @returns {number[] | null}
  */
 function summonTile(b, x, y, walk) {
   const g = b.grid, R = g.rect;
@@ -339,15 +365,18 @@ function summonTile(b, x, y, walk) {
  * [추정·엔진: the official host never stands in a wall]. A child left inside a wall tile walks straight through it to
  * the goal (歌蕾蒂娅 S3's 捕网 pressing 磨砻 against 战场 #05's wall: its 木制瑞印 crossed to her side;
  * docs/rules/sim.md 「사망 소환물의 자리」).
+ * @param {Battle} b @param {number[]} pos @param {Unit} parent @returns {number[]}
  */
 function groundSpot(b, pos, parent) {
   const g = b.grid;
+  /** @param {number[]} p */
   const ok = (p) => g.groundPassable(Math.round(p[0]), Math.round(p[1]), true);
   if (ok(pos)) return pos;
   const home = [parent.y, parent.x];
   if (ok(home)) return home;
   const t = summonTile(b, parent.x, parent.y, true);
   if (!t) return home;
+  /** @param {number} v @param {number} c */
   const clamp = (v, c) => Math.max(c - 0.45, Math.min(c + 0.45, v));
   return [clamp(parent.y, t[0]), clamp(parent.x, t[1])];
 }
@@ -364,19 +393,23 @@ function groundSpot(b, pos, parent) {
  * jitter drawn then — on the route and from the point taken at the call; the battle waits for them (`holdsBattle`), and
  * nothing is returned. Without `spot`: the source spot, several 0.2 apart — a ground parent's children each where a
  * ground unit walks (groundSpot).
+ * @param {Battle} b @param {Unit} parent @param {string} key @param {number} n @param {SpawnChildOpts} [opts] @returns {Unit[]}
  */
 export function spawnChildren(b, parent, key, n, opts = {}) {
+  /** @type {Unit[]} */
   const out = [];
   const route = opts.route ?? remainingRoute(parent);
   const cnt = Math.max(0, Math.min(20, Math.floor(n)));
   const mods = modsWithoutBounty(opts.mods ?? parent.mods ?? null);
   const spot = opts.spot ?? null;
   const sp = spot ? (opts.pos ?? [parent.y, parent.x]) : null;
-  const tile = sp && !spot.map ? summonTile(b, sp[1], sp[0], spot.walk !== false) : null;
+  // (`sp` is set only with `spot`)
+  const tile = sp && !/** @type {NonNullable<typeof spot>} */ (spot).map ? summonTile(b, sp[1], sp[0], /** @type {NonNullable<typeof spot>} */ (spot).walk !== false) : null;
   const bound = spot ? Math.max(0, Number(spot.bound) || 0) : 0;
   const ground = parent.motion !== 'FLY';
   const at = { x: parent.x, y: parent.y, id: parent.id };
   const owners = { ownerPlayerId: parent.ownerId ?? null, sourcePlayerId: parent.sourcePlayerId ?? null };
+  /** @param {number} i */
   const place = (i) => {
     if (!sp) {
       const off = cnt > 1 ? (i - (cnt - 1) / 2) * 0.2 : 0;
@@ -389,8 +422,9 @@ export function spawnChildren(b, parent, key, n, opts = {}) {
       const y = pos[0] + dy, x = pos[1] + dx;
       if (b.grid.groundPassable(Math.round(y), Math.round(x))) pos = [y, x];
     }
-    return spot.map && ground ? groundSpot(b, pos, parent) : pos;
+    return /** @type {NonNullable<typeof spot>} */ (spot).map && ground ? groundSpot(b, pos, parent) : pos;
   };
+  /** @param {number} i */
   const make = (i) => b.spawnEnemy(key, { pos: place(i), route, mods, tag: opts.tag ?? null, countInTotal: opts.countInTotal, ...owners });
   const wait = spot ? Math.max(0, Number(spot.delay) || 0) : 0;
   if (wait > 0) {
@@ -407,7 +441,7 @@ export function spawnChildren(b, parent, key, n, opts = {}) {
   return out;
 }
 
-/** Move a unit straight toward (tx, ty) by `dist` tiles. Returns true on arrival. */
+/** Move a unit straight toward (tx, ty) by `dist` tiles. Returns true on arrival. @param {{ x: number, y: number }} u @param {number} tx @param {number} ty @param {number} dist */
 export function stepToward(u, tx, ty, dist) {
   const dx = tx - u.x, dy = ty - u.y;
   const d = hypot(dx, dy);
@@ -422,6 +456,7 @@ export function stepToward(u, tx, ty, dist) {
  * `PropLikeEnemy.DoApplyModifier` takes exactly 1 HP per damage instance and the max HP stays a
  * fixed-point fraction (`Attributes._CalculateAttributeValue`, no rounding), so 2 × 1.08 = 2.16 HP falls on the 3rd hit:
  * ceil(n). (The bar shows whole hits here, the client 1/2.16 steps — display only.)
+ * @param {Unit} e @param {number} n
  */
 export function setHits(e, n) {
   const h = Math.max(1, Math.ceil(n - 1e-9));
@@ -433,12 +468,13 @@ export function setHits(e, n) {
 
 const HIT_COUNT_KEY = 'ab:hitCount';
 
-/** 频次 on/off: every damage instance removes exactly 1 HP (engine flag; `artsOnly` = 茶器, physical instances remove 0). */
+/** 频次 on/off: every damage instance removes exactly 1 HP (engine flag; `artsOnly` = 茶器, physical instances remove 0). @param {Battle} b @param {Unit} e @param {unknown} on @param {boolean} [artsOnly] */
 export function hitCount(b, e, on, artsOnly = false) {
   if (!on) { b.removeBuff(e, HIT_COUNT_KEY); return; }
   b.addBuff(e, { key: HIT_COUNT_KEY, persist: true, flags: artsOnly ? { hitCountArts: true } : { hitCount: true } });
 }
 
+/** @param {Unit} e */
 export const isHitCount = (e) => !!e.findBuff(HIT_COUNT_KEY);
 
 /**
@@ -459,6 +495,9 @@ export const isHitCount = (e) => !!e.findBuff(HIT_COUNT_KEY);
  * `opts.zone` marks it `zone: 1` — it lands as an area whose fx 'zone' draws the projectile's reach effects (假想敌：蚀裂's
  * 毒雾). `onHit` also gets the projectile's arrival point ({ x, y }; none when it lands at once). Returns the flight time
  * in seconds.
+ * @param {Battle} b @param {{ x: number, y: number, id?: number }} from @param {Unit} t
+ * @param {Record<string, any> | null | undefined} shot @param {(target: Unit, at?: { x: number, y: number }) => unknown} onHit
+ * @param {{ source?: Unit | null, zone?: boolean, visual?: string, hitDead?: boolean }} [opts] @returns {number}
  */
 export function shoot(b, from, t, shot, onHit, opts = {}) {
   const src = opts.source ?? (from && from.id != null ? from : null);
@@ -470,7 +509,7 @@ export function shoot(b, from, t, shot, onHit, opts = {}) {
       tgt: t.id, key: shot.key, move: shot.move, speed: v, t: Math.round(flight * 1000) / 1000, ...(opts.zone ? { zone: 1 } : {}) });
   }
   if (!(v > 0) || !(d > 1e-9)) { onHit(t); return 0; }
-  b.addProjectile({ from, target: t, speed: v, visual: opts.visual ?? 'enemy', source: src, hitDead: !!opts.hitDead, fixed: shot?.adjust === 0, noWipe: shot?.elim === 0, onHit: (c) => onHit(c.target, c) });
+  b.addProjectile({ from, target: t, speed: v, visual: opts.visual ?? 'enemy', source: src, hitDead: !!opts.hitDead, fixed: shot?.adjust === 0, noWipe: shot?.elim === 0, onHit: (/** @type {{ target: Unit, x: number, y: number }} */ c) => onHit(c.target, c) });
   return flight;
 }
 
@@ -480,9 +519,11 @@ export function shoot(b, from, t, shot, onHit, opts = {}) {
  * `_checkOnTheSameLine` with the prefab's offsets X −0.5…0.5 / Y −0.5…0.1 (the candidate's position minus the target's,
  * within either), every motion; nearest first. 重弩突袭者 (invisible.js kitCrossbow, prefab Skills/CrossAttack/Selector), 速射轻弩手 /
  * 速射劲弩手 and 马特奥的近卫 (critic.js) all have it.
+ * @param {Battle} b @param {Unit} e
  */
 export function crossTargets(b, e) {
   const r = Math.round(e.y), c = Math.round(e.x);
+  /** @param {number} v @param {number} lo @param {number} hi */
   const between = (v, lo, hi) => v > lo - 1e-9 && v < hi + 1e-9;
   return b.allies().filter((u) => canTargetAlly(e, u, true) && (u.tileR === r || u.tileC === c)
     && (between(e.x - u.x, -0.5, 0.5) || between(e.y - u.y, -0.5, 0.1)))
@@ -503,6 +544,10 @@ export function crossTargets(b, e) {
  * `dir` [dx, dy] the axis (stage grid: +x = right, +y = up a row), `range` the tiles it covers (to that hit, else speed ×
  * life). `opts.at` ({ x, y }): where it leaves — its mount point, from which the axis is taken too (the client's start
  * position; default `from`). Returns the projectile.
+ * @param {Battle} b @param {Unit} unit @param {{ x: number, y: number }} aim @param {Record<string, any> | null | undefined} shot
+ * @param {(target: Unit, at: { x: number, y: number }) => unknown} onHit
+ * @param {{ source?: Unit | null, at?: { x: number, y: number }, radius?: number, canHit?: (u: Unit) => boolean,
+ *   visual?: string, onExpire?: () => unknown }} [opts]
  */
 export function lineShot(b, unit, aim, shot, onHit, opts = {}) {
   const src = opts.source ?? (unit && unit.id != null ? unit : null);
@@ -512,7 +557,8 @@ export function lineShot(b, unit, aim, shot, onHit, opts = {}) {
   const speed = shot && shot.speed > 0 ? shot.speed : 5;
   const life = shot && shot.life > 0 ? shot.life : 10;
   const reach = (opts.radius ?? 0.3) + ALLY_COLLIDER_RADIUS;
-  const canHit = opts.canHit ?? ((u) => areaSelectable(src, u));
+  const canHit = opts.canHit ?? ((/** @type {Unit} */ u) => areaSelectable(src, u));
+  /** @param {number} x @param {number} y */
   const touching = (x, y) => {
     let best = null, bd = Infinity;
     for (const u of b.allies()) {
@@ -537,7 +583,7 @@ export function lineShot(b, unit, aim, shot, onHit, opts = {}) {
       t: Math.round((at / speed) * 1000) / 1000, dir, range: Math.round(at * 1000) / 1000 });
   }
   return b.addProjectile({ from: { x: from.x, y: from.y }, dir: { x: dir[0], y: dir[1] }, speed, maxAge: life, visual: opts.visual ?? 'enemy', source: src, fixed: shot?.adjust === 0, noWipe: shot?.elim === 0,
-    sweep: (p) => touching(p.x, p.y), onHit: (c) => onHit(c.target, { x: c.x, y: c.y }), onExpire: () => opts.onExpire?.() });
+    sweep: (/** @type {{ x: number, y: number }} */ p) => touching(p.x, p.y), onHit: (/** @type {Record<string, any>} */ c) => onHit(c.target, { x: c.x, y: c.y }), onExpire: () => opts.onExpire?.() });
 }
 
 /**
@@ -564,15 +610,16 @@ export function lineShot(b, unit, aim, shot, onHit, opts = {}) {
  * A RangedAttack with `_waitForProjectileInvalid` (`proj`) casts until its projectile is gone (onSkillSlot's open cast) and
  * at least this: its `m_cachedDuration` is the same `GetDuration` — with no clip the attack time too (`RangedAttack.
  * OnCastStart` → … → `EasyToStartAbility.OnCastStart` after `AbilityStandard.OnCastStart` updated the playback speed).
+ * @param {Unit} e @param {Record<string, any> | null | undefined} cast @param {Record<string, any> | null | undefined} bb @returns {number}
  */
 export function castLength(e, cast, bb) {
   if (!cast) return 0;
   if (cast.kind === 'buff') return 2 * TICK;
   const subs = cast.subs || [];
-  if (cast.kind === 'seq') return subs.reduce((t, c) => t + castLength(e, c, bb), 0);
+  if (cast.kind === 'seq') return subs.reduce((/** @type {number} */ t, /** @type {Record<string, any>} */ c) => t + castLength(e, c, bb), 0);
   if (cast.kind === 'par') {
     if (!subs.length) return 0;
-    const lens = subs.map((c) => castLength(e, c, bb));
+    const lens = subs.map((/** @type {Record<string, any>} */ c) => castLength(e, c, bb));
     if (!cast.one) return Math.max(...lens);
     return cast.main != null && lens[cast.main] != null ? lens[cast.main] : Math.min(...lens);
   }
@@ -605,6 +652,7 @@ export function castLength(e, cast, bb) {
  *   the attack slot through this path).
  * A kit whose skill fires at that frame says `atStrike` (archetypes.js skill); one with a part at the cast's start keeps
  * `fire` and times its effect itself (atCastEvent, whose default is this frame). Exported by content/enemies.js too.
+ * @param {Unit} e @param {Record<string, any> | null | undefined} cast @param {Record<string, any> | null | undefined} bb @returns {number | null}
  */
 export function castStrikeAt(e, cast, bb) {
   if (!cast) return 0;
@@ -638,6 +686,7 @@ export function castStrikeAt(e, cast, bb) {
  * 1 s + its 0.367 s frame = 4.367 s), else the whole cast. One that does not wait (`wait` 0) casts its spell after
  * `_preDelay` (假想敌：铳 (隐秘核心) 【末日布道】 at once, 魂灵残迹 `Laser` 0.2 s). Data: `skillCast` `chanBegin` / `chanLoop` /
  * `chanEnd` ({ dur, hit? }, tools/build-data.mjs enemySkillCast).
+ * @param {Record<string, any>} cast @param {number} len @returns {number}
  */
 function chanStrikeAt(cast, len) {
   if (cast.wait === 0) return Math.min(len, cast.pre > 0 ? cast.pre : 0);
@@ -658,6 +707,7 @@ function chanStrikeAt(cast, len) {
  * a MultiRangedAttack's later shots (`_waitAttackEventForAllAttacks`, from castStrikeAt on), or the cast's end (castLength)
  * for what an ON_CAST_END action does. (Until 2026-11-20 the default was the clip's own `hit`, else its length: neither
  * the scale of a `_timeMode` 0 cast nor `wait` 0 nor a sequence's earlier children.)
+ * @param {Battle} b @param {Unit} e @param {AbSkill | null | undefined} s @param {() => void} fn @param {number | null} [at]
  */
 export function atCastEvent(b, e, s, fn, at = null) {
   const c = s && s.cast;
@@ -671,19 +721,20 @@ export function atCastEvent(b, e, s, fn, at = null) {
  * its new mode's attack abilities attach ready; the swing running is cut unless `fsm` is false (the node's `_restartFSM`
  * off) and its ability plays on when detached (ai.js enemyMode; docs/rules/sim.md 「일반 공격 타이밍」 「적의 모드 전환」). A kit
  * calls it where the client's buff or ability switches the mode.
+ * @param {Battle} b @param {Unit} e @param {string | null} [name] @param {boolean} [fsm]
  */
 export function mode(b, e, name, fsm = true) {
   return enemyMode(b, e, name, fsm);
 }
 
-/** @param {Record<string, any> | null} [params] */
+/** @param {Record<string, any> | null} [params] @param {Battle} b @param {Unit} e @param {string | null} form @param {string} [fxKind] */
 export function setForm(b, e, form, fxKind = 'phase', params = null) {
   e.form = form;
   b.fx(fxKind, fxKind === 'phase' ? { ...params, x: e.x, y: e.y, id: e.id, kind: form, form } : { ...params, x: e.x, y: e.y, id: e.id, form });
 }
 
 /** Leader "扣除目标生命" effects: recorded for the match (hook 'lpLoss' + result.lpLoss).
- * @param {{ x: number, y: number } | null} [source] */
+ * @param {Battle} b @param {number} amount @param {string} reason @param {{ x: number, y: number } | null} [source] */
 export function lpLoss(b, amount, reason, source = null) {
   if (!(amount > 0)) return;
   const st = stOf(b);
@@ -692,7 +743,7 @@ export function lpLoss(b, amount, reason, source = null) {
   b.emit('lpLoss', { amount, reason, source });
 }
 
-/** 暴露: damage taken ×scale for `dur` s. */
+/** 暴露: damage taken ×scale for `dur` s. @param {Battle} b @param {Unit | null | undefined} u @param {number} dur @param {number} scale */
 export function expose(b, u, dur, scale) {
   if (!u || !u.alive || !(dur > 0)) return;
   b.addBuff(u, { key: 'ab:exposed', duration: dur, refresh: 'extend', mods: { dmgTakenMul: scale }, visible: true });
@@ -702,6 +753,7 @@ export function expose(b, u, dur, scale) {
 /**
  * Final HP damage the pipeline would deal for a phys/arts/true/elemental `dmg` before shields (mitigation is linear in
  * the amount) — the same terms as damage.js dealDamage (元素伤害: 元素抗性 + elementalTakenMul, no dmgTakenMul).
+ * @param {Unit | null | undefined} src @param {Unit} tgt @param {Record<string, any>} dmg @returns {number}
  */
 export function expectedFinal(src, tgt, dmg) {
   const ts = tgt.s, ss = src && src.s && !dmg.sourceless ? src.s : null, ty = dmg.type; // 无来源 (bursts): no source stats
@@ -720,6 +772,7 @@ export function expectedFinal(src, tgt, dmg) {
 /**
  * "吸收法术伤害的屏障": absorb up to `left` of an arts instance in a `hit` handler (after RES, like a shield) by scaling
  * the instance down (cancelled when fully absorbed). Returns the amount absorbed.
+ * @param {AbCtx | null | undefined} c @param {number} left @returns {number}
  */
 export function absorbArts(c, left) {
   if (!c || c.dmg.type !== 'arts' || !(left > 0) || c.dmg.cancel) return 0;
@@ -731,16 +784,18 @@ export function absorbArts(c, left) {
   return take;
 }
 
-/** Timed buff on each unit (same key never stacks: aura semantics). */
+/** Timed buff on each unit (same key never stacks: aura semantics). @param {Battle} b @param {Unit} u @param {string} key @param {number} iv @param {Record<string, any>} mods @param {Record<string, boolean> | null} [flags] @param {boolean} [visible] */
 function auraBuff(b, u, key, iv, mods, flags = null, visible = false) {
   b.addBuff(u, { key, duration: iv + 0.1, refresh: 'replace', mods, flags, visible });
 }
 
-/** Mark an ally/enemy ability as watching every death on the field. */
+/** Mark an ally/enemy ability as watching every death on the field. @param {Battle} b @param {Unit} e */
 function watchDeaths(b, e) { stOf(b).deathWatch.add(e); }
 
+/** @param {{ x: number, y: number }} u @returns {[number, number]} */
 const tileOf = (u) => [Math.round(u.y), Math.round(u.x)];
 
+/** @param {Battle} b @param {{ x: number, y: number }} u @param {string} terrain */
 const onTerrain = (b, u, terrain) => { const [r, c] = tileOf(u); return b.grid.tile(r, c).terrain === terrain; };
 
 // used by the other enemy modules (content/enemies.js and content/enemies/*.js)

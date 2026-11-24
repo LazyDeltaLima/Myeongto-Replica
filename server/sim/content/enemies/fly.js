@@ -9,6 +9,11 @@ import {
 import { enemyAura, allyAura, selfFear, skill, kitSelfFear, ep } from './archetypes.js';
 import { aggroCmp } from '../../targeting.js';
 import { hypot } from '../../detmath.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { BuffTick } from './helpers.js' */
+/** @import { Scheduled } from '../../battle/hooks.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -47,7 +52,7 @@ const BUGS_PER_CAST = 3;
 // ---------------------------------------------------------------------------------------------------------------
 // kits
 
-/** 远眺: knocked out ⇒ 暴露 on every ally within r — PRTS 天赋 "（可被沉默；无视其可选性）": 隐匿 / untargetable ones too. */
+/** 远眺: knocked out ⇒ 暴露 on every ally within r — PRTS 天赋 "（可被沉默；无视其可选性）": 隐匿 / untargetable ones too. @type {AbKit} */
 function kitExposeOnDeath(ab) {
   const dur = T(ab, 'Expose.weak[limit]') ?? 0, scale = T(ab, 'Expose.damage_scale') ?? 1, r = T(ab, 'Expose.range_radius') ?? 1;
   return [{ sil: true, death(c, b, e) { if (c.reason !== 'killed') return; b.fx('explode', { x: e.x, y: e.y, r, kind: 'expose', id: e.id }); for (const u of b.alliesInRadius(e.x, e.y, r)) expose(b, u, dur, scale); } }];
@@ -59,14 +64,15 @@ function kitExposeOnDeath(ab) {
  * 持续4秒，期间持有束缚" (the nearest prey first [ASSUMED]); 全弹发射 (FireWeapon, cd 10 / icd 5, SP cost 1) "仅全场范围内存在
  * 我方单位时可触发：清空自身SP，进行一次多连击，每击选择全场范围内的1名随机我方单位，对其造成攻击力130%的物理伤害 ※多连击的
  * 连击次数等于本技能消耗的SP数量" — SP (技力上限 spData.maxSp 3) only comes from the grabs.
+ * @type {EnemyKit}
  */
 function kitBlackCloud(ab, e) {
   const k = ab.sk.KillOthers, f = ab.sk.FireWeapon;
   const maxAmmo = Math.max(1, num(e.def.raw && e.def.raw.sp && e.def.raw.sp.maxSp, 3));
   const grabR = (k ? num(k.bb.range_radius, 1.5) : 1.5) * GRAB_RADIUS_SCALE;
   const dur = k ? num(k.bb.duration, 4) : 4;
-  const isPrey = (b, e2, o) => o !== e2 && o.alive && !o.hidden && o.isFlying && o.def.rank === 'NORMAL' && !o.isBoss && !o.findBuff('ab:devoured');
-  const prey = (b, e2) => b.enemiesInRadius(e2.x, e2.y, grabR).filter((o) => isPrey(b, e2, o));
+  const isPrey = (/** @type {Battle} */ b, /** @type {Unit} */ e2, /** @type {Unit} */ o) => o !== e2 && o.alive && !o.hidden && o.isFlying && o.def.rank === 'NORMAL' && !o.isBoss && !o.findBuff('ab:devoured');
+  const prey = (/** @type {Battle} */ b, /** @type {Unit} */ e2) => b.enemiesInRadius(e2.x, e2.y, grabR).filter((o) => isPrey(b, e2, o));
   return [
     // the prey are taken as the cast starts (`_selectTargetSource` 1); 延迟吞噬 lands at the ability's spell — Skill_1_Begin's
     // attack event, 0.633 s in (content/enemies.js castStrikeAt; until 2026-11-20 0.5 s [ASSUMED]), on those still alive,
@@ -107,12 +113,13 @@ function kitBlackCloud(ab, e) {
   ];
 }
 
+/** @type {AbKit} */
 function kitSteal(ab) {
   const n = T(ab, 'DamageOrBullet.attack@minus_bullet') ?? 1;
   return [selfFear(ab), {
     // PRTS “萨科塔之眼” 天赋: "不会攻击飞行单位" (the 炎佑 dragon is one) — a candidate filter (ai.js enemyAttack): its next
     // ground target in range instead
-    spawn(b, e) { e.profile.canTarget = (u) => !u.isFlying; },
+    spawn(b, e) { /** @type {Record<string, any>} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying; },
     hitOut(c, b, e) {
       if (!c.dmg.isAttack) return;
       const t = c.target;
@@ -131,7 +138,8 @@ function kitSteal(ab) {
 
 /** “萨科塔昂首” 【祈祷邀约】 (PRTS "令全场我方单位（不可对空，无视迷彩）获得15s【受邀祈祷】攻击速度-30"): a whole-field skill
  *  selection — every ally but an unblocking 隐匿 / untargetable / sleeping one (fieldAllies; no 无视无法选择) and, 不可对空, a
- *  flying one (the 炎佑 dragon; until 0.2.1 it was slowed too). */
+ *  flying one (the 炎佑 dragon; until 0.2.1 it was slowed too).
+ * @type {AbKit} */
 function kitRoar(ab) {
   const s = ab.sk.Roar;
   // its units are taken as the cast begins (the ability's `_selectTargetTiming` 0 — UpdateTargets in CastToTarget) and get
@@ -166,12 +174,13 @@ function kitRoar(ab) {
  * bomb-less look from the release (the bomb leaves the drone on that frame of the Attack clip; at the cast end — 1 tick
  * before the clip ends — the client would draw the bomb back for a frame); an interrupted cast does not use up the one
  * trigger (`_maxTriggerTime` 1 — the bomb is still on the drone); a stun after the release does not stop the cast end.
+ * @type {AbKit}
  */
 function kitBombd(ab) {
   const s = ab.sk.boomb;
   const ms = (s && s.bb.move_speed) || 0;
-  const reach = (e) => e.base.rangeRadius || 2;
-  const land = (b, e, atk, t, x, y) => {
+  const reach = (/** @type {Unit} */ e) => e.base.rangeRadius || 2;
+  const land = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {number} */ atk, /** @type {Unit | null} */ t, /** @type {number} */ x, /** @type {number} */ y) => {
     const r = t ? t.tileR : Math.round(y), c = t ? t.tileC : Math.round(x);
     b.fx('explode', { x, y, r: BOMB_REACH + 0.5, kind: 'bomb', tiles: 'box' });
     if (t) hurt(b, e, t, atk, 'phys');
@@ -179,23 +188,23 @@ function kitBombd(ab) {
     for (const u of areaAlliesInTiles(b, e, r, c, 'box', BOMB_REACH)) if (u !== t) hurt(b, e, u, atk, 'phys', { tags: ['splash'] });
   };
   // the end of the cast (bomb_s): 移速最终提升至200%; it flies on
-  const finish = (b, e) => {
+  const finish = (/** @type {Battle} */ b, /** @type {Unit} */ e) => {
     if (!e.alive) return;
     e.pauseUntil = b.time;
     if (ms > 0) b.addBuff(e, { key: 'ab:bombRun', mods: { moveMul: ms }, persist: true });
   };
   // the cast before its release: { a: the skill ability, rel: the scheduled release }
-  let pending = null;
+  let pending = /** @type {{ a: EnemyAbility, rel: Scheduled | null } | null} */ (null);
   // a stun / freeze / sleep before the release: the bomb stays on; the skill re-arms with its cooldown
-  const interrupt = (b, e) => {
-    const { a, rel } = pending;
+  const interrupt = (/** @type {Battle} */ b, /** @type {Unit} */ e) => {
+    const { a, rel } = /** @type {{ a: EnemyAbility, rel: Scheduled }} */ (pending);   // (only while a cast is pending)
     pending = null;
     rel.cancel();
     e.pauseUntil = b.time;
     a.left = Math.max(TICK, num(s.cd, 1));
   };
   return [
-    { spawn(b, e) { e.profile.noAttack = true; },
+    { spawn(b, e) { /** @type {Record<string, any>} */ (e.profile).noAttack = true; },
       tick(b, e) { if (pending && e.s.flags.stun) interrupt(b, e); } },
     skill(s, (b, e, a) => {
       const t = byPriority(e, targetsNear(b, e, reach(e)))[0];
@@ -203,7 +212,7 @@ function kitBombd(ab) {
       a.cd = Infinity; a.left = Infinity;                               // 仅能触发一次
       e.skillAnimUntil = -1;           // the cast is drawn through its 'atk' event: the client winds the Attack clip up to it
       // hovers through the cast, until `finish` (bounded: the bomb lands within its projectile's maxAge, 10 s)
-      e.pauseUntil = Math.max(e.pauseUntil, b.time + BOMBD_RELEASE + 10 + BOMBD_POST_DELAY);
+      e.pauseUntil = Math.max(/** @type {number} */ (e.pauseUntil), b.time + BOMBD_RELEASE + 10 + BOMBD_POST_DELAY);
       let landed = false, waited = false;
       const done = () => { if (landed && waited) finish(b, e); };
       pending = { a, rel: null };
@@ -216,7 +225,7 @@ function kitBombd(ab) {
         setForm(b, e, 'bombed');                           // UnitInfo.form: a view built later draws it bomb-less
         mode(b, e, 'S1');                                  // (the prefab's bomb-less mode: no attack ability)
         b.addProjectile({ from: e, target: t, speed: PROJECTILE_SPEEDS.droneBomb, visual: 'droneBomb', source: e, hitDead: true,
-          onHit: (c) => { land(b, e, atk, c.target, c.x, c.y); landed = true; done(); } });
+          onHit: (/** @type {{ target: Unit | null, x: number, y: number }} */ c) => { land(b, e, atk, c.target, c.x, c.y); landed = true; done(); } });
         b.after(BOMBD_POST_DELAY, () => { waited = true; done(); }, { owner: e });
       }, { owner: e });
     }, { cond: (b, e) => targetsNear(b, e, reach(e)).length > 0 }),
@@ -230,12 +239,13 @@ function kitBombd(ab) {
  * (it may miss the target that moved away; "碰撞无视迷彩"). The landing is the shell's area selection (areaAllies of the
  * enemy that fired it: no unblocking 隐匿 ally; the damage stays 无来源). The attack itself is the engine's (cooldown,
  * pause, 'atk' event of kind 'mortar'); the damage is the shell's (ai.js `profile.deferHit`).
+ * @type {AbKit}
  */
 function kitShell() {
   return [{
-    spawn(b, e) { e.profile.deferHit = true; e.profile.shot = 'mortar'; },
+    spawn(b, e) { /** @type {Record<string, any>} */ (e.profile).deferHit = true; /** @type {Record<string, any>} */ (e.profile).shot = 'mortar'; },
     attack(c, b, e) {
-      const atk = e.s.atk * (e.profile.atkScale ?? 1);
+      const atk = e.s.atk * (/** @type {Record<string, any>} */ (e.profile).atkScale ?? 1);
       for (const t of c.targets) {
         const x = t.x, y = t.y;
         // (the telegraph and the blast are drawn at the reach: every ally whose centre lies in the circle is hit)
@@ -258,9 +268,10 @@ function kitShell() {
  * (“优先攻击高台单位”) — with neural damage of ATK × `0.attack@ep_damage_ratio` on every hit (the talent's attack blackboard
  * over the ability's `_epDamageRatio` 0.12), and 失衡免疫 (its GeneralAbilities/1 buff dsflys_immune: abnormal flag 8
  * UNBALANCE_IMMUNE).
+ * @type {AbKit}
  */
 function kitDsflys(ab) {
-  const high = (b, u) => b.grid.tile(u.tileR, u.tileC).height === 'HIGH';
+  const high = (/** @type {Battle} */ b, /** @type {Unit} */ u) => b.grid.tile(u.tileR, u.tileC).height === 'HIGH';
   return [
     ep('neural', T(ab, '0.attack@ep_damage_ratio') ?? 0),
     {
@@ -273,7 +284,7 @@ function kitDsflys(ab) {
   ];
 }
 
-export const FLY_KITS = Object.freeze({
+export const FLY_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Object.freeze({
   // --- FLY 飞行 (motion is engine; abilities)
   enemy_1017_defdrn: (ab) => [enemyAura(T(ab, 'defup.range_radius') ?? 2.5, 'ab:defdrn', { defFlat: T(ab, 'defup.def') ?? 0 })],        // 御4 · DEF aura
   enemy_1355_mrfly: (ab, e) => [enemyAura(e.base.rangeRadius || 2.5, 'ab:mrfly', { resFlat: T(ab, 'magdef_add.magic_resistance') ?? 0 })], // 护障 · RES aura
@@ -300,4 +311,4 @@ export const FLY_KITS = Object.freeze({
     },
   }],
   enemy_1435_dsflys: kitDsflys,                                      // 纤核漂游者 (规程) · high tiles first, neural on hit
-});
+}));

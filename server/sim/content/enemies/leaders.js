@@ -14,6 +14,11 @@ import {
 import { hypot, powi } from '../../detmath.js';
 import { interruptEnemyCast } from '../../ai.js';
 import { ENEMY_RECORD } from '../items/shared.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { AbState, AbSkill, AbCtx, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { BuffTick } from './helpers.js' */
+/** @import { BuffRec } from '../bonds/shared.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -54,8 +59,9 @@ const C4_LOW_TARGETS = 3;
  * tile and the 【沙狱】 area was a radius 1 [ASSUMED]; the 【纬地经天】 reach 2 was assumed too and is the prefab's.
  */
 const DRIFT_REACH = 3, XI_CROSS_REACH = 2;
+/** @param {number} n @returns {ReadonlyArray<readonly [number, number]>} */
 const crossBoxes = (n) => Object.freeze([[0.5, n + 0.5], [n + 0.5, 0.5]]);
-const DRIFT_BOXES = crossBoxes(DRIFT_REACH), XI_CROSS_BOXES = crossBoxes(XI_CROSS_REACH), SANDSTORM_BOXES = Object.freeze([[1.5, 1.5]]);
+const DRIFT_BOXES = crossBoxes(DRIFT_REACH), XI_CROSS_BOXES = crossBoxes(XI_CROSS_REACH), SANDSTORM_BOXES = /** @type {ReadonlyArray<readonly [number, number]>} */ (Object.freeze([[1.5, 1.5]]));
 
 /** 【沙狱】's projectile hits every `_interval` s from its arrival (SelectorHitBehaviour, `_waitFirstPeriod` off) until its life ends. */
 const SANDSTORM_EVERY = 1;
@@ -63,10 +69,11 @@ const SANDSTORM_EVERY = 1;
 /**
  * The allies an area hit of `src` takes whose collider (ALLY_COLLIDER_RADIUS) meets one of `boxes` about (x, y): a projectile's
  * PhysicsRange of BoxCollider2D, ground and air (`targetMotion` 3), 迷彩 ones too (areaSelectable).
+ * @param {Battle} b @param {Unit} src @param {number} x @param {number} y @param {ReadonlyArray<readonly [number, number]>} boxes
  */
 function alliesInBoxes(b, src, x, y, boxes) {
   const r2 = ALLY_COLLIDER_RADIUS * ALLY_COLLIDER_RADIUS + 1e-9;
-  const meets = (u) => boxes.some(([hw, hh]) => {
+  const meets = (/** @type {Unit} */ u) => boxes.some(([hw, hh]) => {
     const dx = Math.max(0, Math.abs(u.x - x) - hw), dy = Math.max(0, Math.abs(u.y - y) - hh);
     return dx * dx + dy * dy <= r2;
   });
@@ -90,8 +97,10 @@ const W_T1_HP = 0.5, FLKING_IGNITE_HP = 0.9;
 // ---------------------------------------------------------------------------------------------------------------
 // kits
 
+/** @param {AbState} ab @returns {EnemyAbility} */
 function kitDekght(ab) {
   const rage = { atkPct: T(ab, 'triggerrage.atk') ?? 0, aspd: T(ab, 'triggerrage.attack_speed') ?? 0, moveMul: 1 + (T(ab, 'triggerrage.move_speed') ?? 0) };
+  /** @type {EnemyAbility} */
   const partnerRage = {
     otherDeath(c, b, e, a) {
       const u = c.unit;
@@ -104,6 +113,7 @@ function kitDekght(ab) {
   return partnerRage;
 }
 
+/** @param {string} key @param {AbState} ab @param {Unit} e @returns {AbList} */
 function kitLeaderMisc(key, ab, e) {
   switch (key) {
     case 'enemy_1050_lslime': {
@@ -112,7 +122,7 @@ function kitLeaderMisc(key, ab, e) {
         dealt(c, b, e2) {
           if (!(dot.dur > 0)) return;
           b.addBuff(c.target, { key: 'ab:burnDot', duration: dot.dur, refresh: 'replace', interval: dot.iv, visible: true,
-            onTick: ({ battle, unit }) => battle.dealDamage(e2, unit, { amount: dot.dmg, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility'] }) });
+            onTick: (/** @type {BuffTick} */ { battle, unit }) => battle.dealDamage(e2, unit, { amount: dot.dmg, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility'] }) });
         },
       }, {
         // 被阻挡时会进行自爆 — PRTS “庞贝” 天赋: "被阻挡时，每10秒（受晕眩/无法行动/沉睡/冻结/浮空影响时暂停计时，解除阻挡时重置计时）对
@@ -169,17 +179,19 @@ function kitLeaderMisc(key, ab, e) {
       // cast begins (the RangedAttack's `_selectTargetTiming` 0: AbilityStandard.CastToTarget → UpdateTargets) and the spell
       // goes to those still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20 taken again at the spell.
       const s = ab.sk.C4;
-      const fuse = s?.proj?.life > 0 ? s.proj.life : 0;
+      const fuse = s?.proj?.life > 0 ? /** @type {Record<string, any>} */ (s.proj).life : 0;
       const r = s?.bb.range_radius ?? e.base.rangeRadius;
-      const T1 = (e2) => e2.mode === 'T1';
-      const picks = (b, e2) => T1(e2) ? byPriority(e2, targetsNear(b, e2, r)).slice(0, C4_LOW_TARGETS)
+      const T1 = (/** @type {Unit} */ e2) => e2.mode === 'T1';
+      const picks = (/** @type {Battle} */ b, /** @type {Unit} */ e2) => T1(e2) ? byPriority(e2, targetsNear(b, e2, r)).slice(0, C4_LOW_TARGETS)
         : byPriority(e2, targetsNear(b, e2, r).filter((u) => !u.isFlying)).slice(0, 1);
+      /** @type {Set<Record<string, any>>} */
       const live = new Set();
-      const mk = (t1) => skill(s, (b, e2, a) => { a.picks = picks(b, e2); }, { cond: (b, e2) => T1(e2) === t1 && picks(b, e2).length > 0, atStrike: (b, e2, a) => {
+      const mk = (/** @type {boolean} */ t1) => skill(s, (b, e2, a) => { a.picks = picks(b, e2); }, { cond: (b, e2) => T1(e2) === t1 && picks(b, e2).length > 0, atStrike: (b, e2, a) => {
         const l = a.picks || [];
         a.picks = null;
         for (const t of l) {
           if (!t.alive || !t.deployed) continue;
+          /** @type {Record<string, any>} */
           const ch = {};
           ch.blow = () => {
             if (!live.delete(ch)) return;
@@ -193,7 +205,7 @@ function kitLeaderMisc(key, ab, e) {
           live.add(ch);
         }
       } });
-      const c4s = [mk(false), mk(true)].filter(Boolean);
+      const c4s = /** @type {EnemyAbility[]} */ ([mk(false), mk(true)].filter(Boolean));
       for (const [i, c4] of c4s.entries()) {
         c4.pause = (b, e2) => T1(e2) !== (i === 1);
         c4.projAlive = () => live.size > 0;
@@ -212,7 +224,7 @@ function kitLeaderMisc(key, ab, e) {
       const ds = ab.sk.DriftSand, ss = ab.sk.SandStorm, mk = ab.sk.Mark;
       // the skills' selectors (and the marks'): the whole field (GlobalRange), `_postFilter` 19 the highest max HP first,
       // 20 the lowest first
-      const byMaxHp = (dir) => (b, e2) => allTargets(b, e2).sort((p, q) => dir * (p.s.maxHp - q.s.maxHp) || aggroCmp(p, q))[0] ?? null;
+      const byMaxHp = (/** @type {number} */ dir) => (/** @type {Battle} */ b, /** @type {Unit} */ e2) => allTargets(b, e2).sort((p, q) => dir * (p.s.maxHp - q.s.maxHp) || aggroCmp(p, q))[0] ?? null;
       const highest = byMaxHp(-1), lowest = byMaxHp(1);
       // `Skills/Mark` (공식 클라에서 확인 2026-11-21, prefab enemy_1509_mousek): an AbilityParallelGroup of two
       // GloballUniqueBuffAbility — `MaxHpAsc` mousek_mark[a] (effect mousek_skill_02_buff) on the lowest-max-HP unit, the one
@@ -230,6 +242,7 @@ function kitLeaderMisc(key, ab, e) {
         const subs = (mk.cast && mk.cast.subs) || [];
         [mA, mB].forEach((m, i) => atCastEvent(b, e2, mk, () => m.start(), subs[i] ? castStrikeAt(e2, subs[i], mk.bb) : null));
       }, { cond: (b, e2) => !M.marked && allTargets(b, e2).length > 0 });
+      /** @type {EnemyAbility} */
       const track = {
         tick(b, e2) { mA.tick(b, e2); mB.tick(b, e2); },
         death(c, b) { mA.stop(b); mB.stop(b); },
@@ -302,12 +315,12 @@ function kitLeaderMisc(key, ab, e) {
           // enemy_mdrock_s_1[persistent] ON_BEFORE_ATTACK: with 1 / 2 / 3 / 5 / 6 stacks before this attack's it switches
           // to the mode Tier 1 / 2 / 3 / 4 / 5 (no fsm restart) — the Combat swinging plays on (`det` 0), the new mode's is
           // ready at once; Tier 4 and 5 swing Attack_2
-          const tier = MDROCK_TIERS[e2.findBuff('ab:rockCharge')?.stacks ?? 0];
+          const tier = MDROCK_TIERS[/** @type {BuffRec | null} */ (e2.findBuff('ab:rockCharge'))?.stacks ?? 0];
           // the view's attack clip follows from Tier 4 (render/units.js FORMS: Attack_2; the swing running keeps its clip)
           if (tier && mode(b, e2, tier, false) && (tier === 'Tier 4' || tier === 'Tier 5')) setForm(b, e2, tier);
           b.addBuff(e2, { key: 'ab:rockCharge', refresh: 'stack', stacks: 1, maxStacks: 6, persist: true, mods: { atkPct: T(ab, 'charge.attack@enemy_mdrock_s_1[charge].atk') ?? 0 } });
         },
-      }, skill(s, (b, e2) => bar.refresh(b, e2, bar), { atStrike: true })];
+      }, skill(s, (b, e2) => /** @type {NonNullable<EnemyAbility['refresh']>} */ (bar.refresh)(b, e2, bar), { atStrike: true })];   // (artsBarrier's own)
     }
     case 'enemy_1513_dekght': {
       // 攻击时使目标与周围四格的单位受到物理伤害; 【蓄力攻击】 charge `duration` s, then ATK×atk_scale on the target's cross
@@ -328,7 +341,7 @@ function kitLeaderMisc(key, ab, e) {
         // (`atStrike`, content/enemies.js castStrikeAt; until 2026-11-20 at `duration`), on the cross of the tile its blocker
         // stood on as the cast began; none when the cast is cut first
         skill(s, (b, e2, a) => {
-          const t = e2.blockedBy;
+          const t = /** @type {Unit} */ (e2.blockedBy);   // (its cond: cast only while blocked)
           const dur = s.bb.duration ?? 0, r = t.tileR, cc = t.tileC;
           a.at = { r, cc };
           b.addBuff(e2, { key: 'ab:charging', duration: dur, visible: true, flags: { disarm: true } });
@@ -344,7 +357,7 @@ function kitLeaderMisc(key, ab, e) {
     case 'enemy_1513_dekght_2': {
       // 同时攻击两名目标; 爆炸箭: three targets, after `interval` s ATK×atk_scale arts on each target's cross
       const s = ab.sk.TripleAttack;
-      const cands = (b, e2) => byPriority(e2, targetsNear(b, e2, e2.base.rangeRadius || 2.5));
+      const cands = (/** @type {Battle} */ b, /** @type {Unit} */ e2) => byPriority(e2, targetsNear(b, e2, e2.base.rangeRadius || 2.5));
       // the three are taken as the cast begins (the RangedAttack's `_selectTargetTiming` 0 — UpdateTargets in CastToTarget) and
       // the arrows leave at the spell for those still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20
       // taken again at the spell
@@ -381,7 +394,7 @@ function kitLeaderMisc(key, ab, e) {
       // the re-aim at the target's tile is not a separate move. Until 0.1.3: any unit within the blackboard's 1.5, 隐匿 / 迷彩
       // ones included, off its path too.
       const rush = ab.sk.Rush;
-      const prey = (b, e2) => {
+      const prey = (/** @type {Battle} */ b, /** @type {Unit} */ e2) => {
         const keys = pathKeysAhead(e2);
         return targetsNear(b, e2, RUSH_RADIUS).filter((u) => u.ground && keys.has(u.tileR * COLS + u.tileC));
       };
@@ -393,13 +406,13 @@ function kitLeaderMisc(key, ab, e) {
           const reb = e2.mode === 'Reborn' || e2.mode === 'Reborn_Rush';
           mode(b, e2, reb ? 'Reborn_Rush' : 'Default_Rush');
           b.addBuff(e2, { key: 'ab:rush', duration: rush.bb.duration ?? 0, refresh: 'replace', visible: true, mods: { moveMul: 1 + (rush.bb.move_speed ?? 0) },
-            onExpire: ({ battle }) => { if (e2.alive && (e2.mode === 'Reborn_Rush' || e2.mode === 'Default_Rush')) mode(battle, e2, e2.mode === 'Reborn_Rush' ? 'Reborn' : null); } });
+            onExpire: (/** @type {BuffTick} */ { battle }) => { if (e2.alive && (e2.mode === 'Reborn_Rush' || e2.mode === 'Default_Rush')) mode(battle, e2, e2.mode === 'Reborn_Rush' ? 'Reborn' : null); } });
           b.fx('charge', { x: e2.x, y: e2.y, id: e2.id, kind: 'avengerRush' });
         }, { atStrike: true, cond: (b, e2) => !e2.blockedBy && prey(b, e2).length > 0 })];
     }
     case 'enemy_2003_rockman': {
       const s = ab.sk.StunAttack;
-      const cands = (b, e2) => targetsNear(b, e2, (e2.def.raw.stats && e2.def.raw.stats.rawRangeRadius) || 2.5).filter((u) => !u.s.flags.stun);
+      const cands = (/** @type {Battle} */ b, /** @type {Unit} */ e2) => targetsNear(b, e2, (e2.def.raw.stats && e2.def.raw.stats.rawRangeRadius) || 2.5).filter((u) => !u.s.flags.stun);
       // its target comes with the cast's start (the RangedAttack's `_selectTargetSource` 2, the input target, `_selectTargetTiming`
       // 0) and the stone leaves at the spell if it is still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20
       // taken again at the spell
@@ -409,7 +422,7 @@ function kitLeaderMisc(key, ab, e) {
         if (!t || !t.alive || !t.deployed) return;
         // its official projectile (data/enemies.json skills StunAttack.proj — projectile_enemy_rockman, TRACE_TARGET_WITH_SPEED
         // at 10 tiles/s; until 2026-10-10 8)
-        b.addProjectile({ from: e2, target: t, speed: s.proj?.speed || 10, visual: 'lob', source: e2, onHit: (c) => {
+        b.addProjectile({ from: e2, target: t, speed: s.proj?.speed || 10, visual: 'lob', source: e2, onHit: (/** @type {{ target: Unit | null }} */ c) => {
           if (!c.target || !c.target.alive) return;
           hurt(b, e2, c.target, e2.s.atk * (s.bb.atk_scale ?? 1), 'phys');
           if (c.target.alive) b.applyStatus(c.target, 'stun', { duration: s.bb.stun ?? 0, source: e2 });
@@ -428,7 +441,7 @@ function kitLeaderMisc(key, ab, e) {
         setForm(b, e2, 'Fly');   // its clips Move_02 / Die_02 (render/units.js FORMS)
         b.addBuff(e2, {
           key: 'ab:takeoff', duration: s.bb.duration ?? 0, flags: { unblockable: true, float: true, noDisplace: true }, mods: { moveMul: 1 + (s.bb['balloon_s[fly].move_speed'] ?? 0) }, visible: true,
-          onExpire: ({ battle }) => { if (e2.alive) { mode(battle, e2, null); setForm(battle, e2, null); battle.addBuff(e2, { key: 'ab:landing', duration: LANDING, flags: { unblockable: true }, mods: BRAKE }); } },
+          onExpire: (/** @type {BuffTick} */ { battle }) => { if (e2.alive) { mode(battle, e2, null); setForm(battle, e2, null); battle.addBuff(e2, { key: 'ab:landing', duration: LANDING, flags: { unblockable: true }, mods: BRAKE }); } },
         });
         b.addBuff(e2, { key: 'ab:takeoffBrake', duration: BRAKE_UP, mods: BRAKE });
         b.fx('telegraph', { x: e2.x, y: e2.y, r: 0.5, kind: 'takeoff', id: e2.id });
@@ -482,9 +495,9 @@ function kitLeaderMisc(key, ab, e) {
       // keeps the ASPD cut until it falls, a redeploy onto a fogged tile gets it again, also after the boss is gone, and
       // DamageUp's ×2.5 (CheckContainsBuff on the target) hits a holder wherever the boss is. Until 2026-11-21 the kit
       // covered only the 3×3 it stood on.
-      const inFog = (u) => !ENEMY_RECORD.test(u.defId ?? '');
-      const giveFog = (b, u, aspd) => { if (!u.hidden && u.kind !== 'device' && inFog(u)) b.addBuff(u, { key: 'ab:blackFog', refresh: 'keep', mods: { aspd }, visible: true }); };
-      const fogOf = (b) => {
+      const inFog = (/** @type {Unit} */ u) => !ENEMY_RECORD.test(u.defId ?? '');
+      const giveFog = (/** @type {Battle} */ b, /** @type {Unit} */ u, /** @type {number} */ aspd) => { if (!u.hidden && u.kind !== 'device' && inFog(u)) b.addBuff(u, { key: 'ab:blackFog', refresh: 'keep', mods: { aspd }, visible: true }); };
+      const fogOf = (/** @type {Battle} */ b) => {
         const st = stOf(b);
         if (st.blackFog) return st.blackFog;
         // the global buff is made once, with the first boss's ability values
@@ -534,7 +547,7 @@ function kitLeaderMisc(key, ab, e) {
       // 【反自然馈赠】 (SILENCE): "attacks" another enemy in range and jumps between up to chain.max_target enemies
       // (projectile_range per jump), raising their move speed and ASPD for `duration` s
       const ch = { end: -Infinity, cut: false };
-      const near = (b, e2, x, y, r, seen) => b.enemiesInRadius(x, y, r).filter((o) => o !== e2 && !seen.has(o))
+      const near = (/** @type {Battle} */ b, /** @type {Unit} */ e2, /** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ r, /** @type {Set<Unit>} */ seen) => b.enemiesInRadius(x, y, r).filter((o) => o !== e2 && !seen.has(o))
         .sort((p, q) => hypot(p.x - x, p.y - y) - hypot(q.x - x, q.y - y) || p.spawnSeq - q.spawnSeq)[0];
       // the first enemy is taken as the cast begins (the RangedAttack's `_selectTargetTiming` 0 — UpdateTargets in CastToTarget;
       // until 2026-11-20 at the spell); the chain leaves for it at the spell if it is still alive (DoCastOnTargets: ValidAndAlive)
@@ -547,7 +560,7 @@ function kitLeaderMisc(key, ab, e) {
         // chosen then (until 2026-10-10 the whole chain at the cast) [추정: the jumps fly the same projectile at its speed]
         const seen = new Set();
         ch.cut = false;
-        const hop = (prev, cur) => {
+        const hop = (/** @type {Unit} */ prev, /** @type {Unit | null | undefined} */ cur) => {
           if (!cur || seen.size >= max) return;
           seen.add(cur);
           b.fx('beam', { x: prev.x, y: prev.y, from: prev.id, to: cur.id, kind: 'chainBuff' });
@@ -607,7 +620,7 @@ function kitLeaderMisc(key, ab, e) {
 // ---------------------------------------------------------------------------------------------------------------
 // multi-form leaders (悬赏 bounty targets): the first knock-out switches them to their second form (reborn helper)
 
-/** Distance from point p to segment a–b. */
+/** Distance from point p to segment a–b. @param {number} px @param {number} py @param {number} ax @param {number} ay @param {number} bx @param {number} by */
 function segDist(px, py, ax, ay, bx, by) {
   const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy;
   const t = L > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L)) : 0;
@@ -616,8 +629,9 @@ function segDist(px, py, ax, ay, bx, by) {
 
 /**
  * A second normal hit on the same target ("二连击"): same damage type, no further on-hit procs.
- * @param {(b: object, e: object, a: object) => boolean} [on] whether this hit gets its second one
- * @param {((c: object, b: object, e: object) => object) | null} [extra] more damage options for the second hit
+ * @param {(b: Battle, e: Unit, a: EnemyAbility) => boolean} [on] whether this hit gets its second one
+ * @param {((c: AbCtx, b: Battle, e: Unit) => Record<string, any>) | null} [extra] more damage options for the second hit
+ * @returns {EnemyAbility}
  */
 const doubleHit = (on = () => true, extra = null) => ({
   dealt(c, b, e, a) {
@@ -628,7 +642,8 @@ const doubleHit = (on = () => true, extra = null) => ({
 
 /** 巨大的丑东西 · melee ×rage; KO ⇒ self-destruct (big stun) and the 大祭司 pilot ejects: no attack, unblockable, own DEF/RES,
  *  faster, loses bird_run.damage true HP per second. (巨蕈/木桩 tiles and its ranged splash attack have no counterpart here:
- *  its data radius is 0.) */
+ *  its data radius is 0.)
+ * @type {AbKit} */
 function kitUglyThing(ab) {
   const rage = T(ab, 'combat.attack@mcmstr_rage_attack.atk_scale') ?? 1;
   const bomb = ab.sk['bomb[reborning]'] ? ab.sk['bomb[reborning]'].bb : {};
@@ -637,7 +652,7 @@ function kitUglyThing(ab) {
   return [
     // 远程攻击造成溅射伤害，近战攻击造成更高伤害 — PRTS 天赋: unblocked, a ranged attack on 1 non-flying unit within 2.5 hitting it
     // and its 8 surrounding tiles for 100 % ATK ("可溅射飞行单位"); blocked, a melee hit at mcmstr_rage_attack.atk_scale
-    { spawn(b, e) { e.base.rangeRadius = Math.max(e.base.rangeRadius || 0, MCM_RANGE); e.profile.canTarget = (u) => !u.isFlying; } },
+    { spawn(b, e) { e.base.rangeRadius = Math.max(e.base.rangeRadius || 0, MCM_RANGE); /** @type {Record<string, any>} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying; } },
     splashAttack({ scale: 1, meleeScale: rage, tiles: 1 }),
     reborn({
       dur: T(ab, 'reborn.duration') ?? 0, mode: 'Bird',   // (the 大祭司's mode: no attack ability)
@@ -656,11 +671,11 @@ function kitUglyThing(ab) {
       },
       onReborn(b, e) {                              // 大祭司形态: 不进行攻击，无法被阻挡，每秒受到真实伤害
         P.pilot = true;
-        e.profile.noAttack = true;
+        /** @type {Record<string, any>} */ (e.profile).noAttack = true;
         b.addBuff(e, {
           key: 'ab:pilot', persist: true, visible: true, flags: { unblockable: true }, interval: 1,
           mods: { moveMul: 1 + run.spd, defFlat: run.def != null ? run.def - e.base.def : 0, resFlat: run.res != null ? run.res - e.base.res : 0 },
-          onTick: ({ battle, unit }) => { if (run.dmg > 0) battle.dealDamage(null, unit, { amount: run.dmg, type: 'true', canDodge: false, tags: ['enemyAbility', 'pilotBurn'] }); },
+          onTick: (/** @type {BuffTick} */ { battle, unit }) => { if (run.dmg > 0) battle.dealDamage(null, unit, { amount: run.dmg, type: 'true', canDodge: false, tags: ['enemyAbility', 'pilotBurn'] }); },
         });
       },
     }),
@@ -668,16 +683,17 @@ function kitUglyThing(ab) {
 }
 
 /** 杰斯顿·威廉姆斯 · 狱警: RES +enhance, ranged arts, every (sp+1)th attack stuns max_target units; KO ⇒ (reborn.duration s)
- *  杀手: frees every prisoner, DEF/ATK/ASPD/speed up, melee physical, every (sp+1)th attack hits `times` × ignoring def_penetrate. */
+ *  杀手: frees every prisoner, DEF/ATK/ASPD/speed up, melee physical, every (sp+1)th attack hits `times` × ignoring def_penetrate.
+ * @type {AbKit} */
 function kitWarden(ab) {
-  const en = (k) => T(ab, `enhance.${k}`) ?? 0;
+  const en = (/** @type {string} */ k) => T(ab, `enhance.${k}`) ?? 0;
   const iron = ab.sk.ironsandstorm, pierce = ab.sk.armorpiercing;
   const P = { killer: false, n: 0, power: false };
   const pen = () => (pierce && pierce.bb.def_penetrate) || 0;
   return [{
     spawn(b, e, a, ab2) {
       ab2.atkType = 'arts';                                    // 攻击造成远程法术伤害
-      e.profile.melee = false;
+      /** @type {Record<string, any>} */ (e.profile).melee = false;
       // 法术抗性大幅提升 — the client's Modes/Default/Talents/Enhance jakill_enhance (enemy_jakill_buff_01_start)
       b.addBuff(e, { key: 'ab:warden', persist: true, visible: true, mods: { resFlat: en('magic_resistance') }, fxTag: 'buff:jakill_enhance#0' });
     },
@@ -705,7 +721,7 @@ function kitWarden(ab) {
     onReborn(b, e) {
       P.killer = true; P.n = 0;
       e.mem.ab.atkType = null;                                 // 攻击造成近战物理伤害
-      e.profile.melee = true;
+      /** @type {Record<string, any>} */ (e.profile).melee = true;
       b.removeBuff(e, 'ab:warden');
       // Modes/R/Talents/Enhance: jakill_enhance and its [eff1] / [eff2]
       b.addBuff(e, { key: 'ab:killer', persist: true, visible: true, fxTag: 'buff:jakill_enhance#1|jakill_enhance[eff1]|jakill_enhance[eff2]',
@@ -723,10 +739,12 @@ const XI_LAYERS = ['a', 'b', 'c'];
  * off the unit it was on when another is picked or that unit is gone, left where it is when the selector finds no one
  * (`_removeBuffsIfNoValidTarget` off), taken off as the ability is detached (`OnDetached`: its mode left, the enemy gone).
  * `pick(b, e)` = the selector's first unit or null. `start()` at the spell, `tick(b, e)` every tick, `stop(b)` at the detach.
+ * @param {string} key @param {string} fxTag @param {(b: Battle, e: Unit) => Unit | null} pick
+ * @returns {{ start: () => void, stop: (b: Battle) => void, tick: (b: Battle, e: Unit) => void }}
  */
 function uniqueBuff(key, fxTag, pick) {
-  const M = { on: false, t: null };
-  const drop = (b) => { if (M.t && M.t.alive) b.removeBuff(M.t, key); M.t = null; };
+  const M = { on: false, t: /** @type {Unit | null} */ (null) };
+  const drop = (/** @type {Battle} */ b) => { if (M.t && M.t.alive) b.removeBuff(M.t, key); M.t = null; };
   return {
     start() { M.on = true; },
     stop(b) { drop(b); M.on = false; },
@@ -743,29 +761,31 @@ function uniqueBuff(key, fxTag, pick) {
 }
 
 /** “自在” · 【纬地经天】 arts cross on the nearest unit (form 2: + the farthest); 【破桎而出】 barrier — unbroken after its
- *  duration ⇒ ATK×atk_scale arts around; KO ⇒ second form (ATK up, double hits, stronger 破桎而出). 晦明 attributes n/a. */
+ *  duration ⇒ ATK×atk_scale arts around; KO ⇒ second form (ATK up, double hits, stronger 破桎而出). 晦明 attributes n/a.
+ * @type {AbKit} */
 function kitXi(ab) {
   const cross = ab.sk.CrossAttack, sb = ab.sk.ShieldBurst, sb2 = ab.sk.ShieldBurstReborn;
   const mk = ab.sk.CrossAttackMark, mk2 = ab.sk.CrossAttackMarkReborn;
   const P = { form2: false, marked: false, marked2: false };
-  const byDist = (b, e) => allTargets(b, e).sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || aggroCmp(p, q));
+  const byDist = (/** @type {Battle} */ b, /** @type {Unit} */ e) => allTargets(b, e).sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || aggroCmp(p, q));
   // 【纬地经天】's marks — no stat (template `empty`), only the client effect enemy_xi_skill_01_buff_02 and the sound
   // enemy_xi_mark_audio on the unit the next cross will take: Modes/Default `CrossAttackMark` enemy_xi_mark[a] on the nearest
   // (AdvancedSelector `_postFilter` 11, as the cross's), Modes/Reborn `CrossAttackMarkReborn` (an AbilityParallelGroup)
   // enemy_xi_mark[a] on the farthest (`MaxDist`, 10) and enemy_xi_mark[b] on the nearest (`MinDist`, 11)
-  const nearest = (b, e) => byDist(b, e)[0] ?? null;
-  const farthest = (b, e) => { const l = byDist(b, e); return l[l.length - 1] ?? null; };
+  const nearest = (/** @type {Battle} */ b, /** @type {Unit} */ e) => byDist(b, e)[0] ?? null;
+  const farthest = (/** @type {Battle} */ b, /** @type {Unit} */ e) => { const l = byDist(b, e); return l[l.length - 1] ?? null; };
   const m1 = uniqueBuff('ab:xiMark', 'buff:enemy_xi_mark[a]', nearest);
   const m2a = uniqueBuff('ab:xiMark2[a]', 'buff:enemy_xi_mark[a]', farthest), m2b = uniqueBuff('ab:xiMark2[b]', 'buff:enemy_xi_mark[b]', nearest);
   const marks = [m1, m2a, m2b];
   // the bolt (projectile_enemy_xi_s, AttachToTarget `_immediatelyReach`: it hits as it leaves) strikes its HitBehaviour's range —
   // the TileSelector's two boxes about it ("伤害无视迷彩" `_ignoreCamouflage`, no 无视无法选择: an area selection)
-  const crossAt = (b, e, p) => {
+  const crossAt = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {{ t: Unit, x: number, y: number, r: number, c: number }} */ p) => {
     const on = p.t.alive && p.t.deployed;
     const at = on ? { x: p.t.x, y: p.t.y, r: p.t.tileR, c: p.t.tileC } : p;
     b.fx('telegraph', { x: at.c, y: at.r, r: XI_CROSS_REACH, kind: 'xiCross', tiles: 'plus', id: e.id });
     for (const u of alliesInBoxes(b, e, at.x, at.y, XI_CROSS_BOXES)) hurt(b, e, u, e.s.atk * ((cross && cross.bb.atk_scale) ?? 1), 'arts');
   };
+  /** @param {AbSkill} s @returns {AbFn} */
   const burst = (s) => (b, e) => {
     const dur = s.bb.duration ?? 0, r = s.bb.range_radius ?? 0;
     b.fx('telegraph', { x: e.x, y: e.y, r, dur, kind: 'breakFree', id: e.id });
@@ -781,11 +801,12 @@ function kitXi(ab) {
     for (const l of XI_LAYERS) b.addBuff(e, { key: `ab:xiShield[${l}]`, duration: dur, shield: s.bb.dynamic ?? 0, shieldType: ['phys', 'arts'],
       visible: true, fxTag: `buff:enemy_xi_s2[shield][${l}]`, blockFx: true,
       // (removed before it expires — the last layer broken, or the barrier cleared by its knock-out: the cast ends)
-      onRemove: l !== 'c' ? null : ({ battle }) => interruptEnemyCast(battle, e) });
+      onRemove: l !== 'c' ? null : (/** @type {BuffTick} */ { battle }) => interruptEnemyCast(battle, e) });
   };
   // the burst: the MeleeAttack's spell at Skill_02_End's attack event — the channel's last 0.667 s clip, its frame 0.367 s, so
   // 0.3 s before the barrier's `duration` ends (`atStrike`, content/enemies.js castStrikeAt; until 2026-11-20 as the last
   // layer expired), none when the barrier broke or the cast was cut first
+  /** @param {AbSkill} s @returns {AbFn} */
   const blast = (s) => (b, e) => {
     if (!e.findBuff('ab:xiShield[c]')) return;   // (its break ends the cast; this holds for a cast outside the attack slot too)
     const r = s.bb.range_radius ?? 0;
@@ -810,7 +831,7 @@ function kitXi(ab) {
   const s2 = skill(sb2, sb2 ? burst(sb2) : null, { cond: () => P.form2, atStrike: sb2 ? blast(sb2) : null });
   // a cut cast (a stun, freeze …: content/enemies.js onSkillCut) takes the barrier with it, without the burst — its layers
   // are the skill's BuffDuringCasting, cleared as the cast finishes for any reason (`OnCastFinish` → `_ClearBuffs`)
-  const dropBarrier = (b, e) => { for (const l of XI_LAYERS) b.removeBuff(e, `ab:xiShield[${l}]`); };
+  const dropBarrier = (/** @type {Battle} */ b, /** @type {Unit} */ e) => { for (const l of XI_LAYERS) b.removeBuff(e, `ab:xiShield[${l}]`); };
   if (s1) s1.onCut = dropBarrier;
   if (s2) s2.onCut = dropBarrier;
   // the marks' skills: priority 1 (above the cross's and the barrier's 0), initial cooldown 0 and `_maxTriggerTime` 1, so
@@ -818,9 +839,10 @@ function kitXi(ab) {
   // with `_cooldown` 0: nothing to stand through, but the main attack's cooldown restarts as it ends
   // (`_resetMainAbilityCdWhenCastEnd`, `_resetCdWaitFirstPeriod`). Until 2026-11-21 neither was cast: the first attack came
   // one interval earlier and no unit was marked.
-  const anyone = (b, e) => allTargets(b, e).length > 0;
+  const anyone = (/** @type {Battle} */ b, /** @type {Unit} */ e) => allTargets(b, e).length > 0;
   const k1 = skill(mk, () => { P.marked = true; m1.start(); }, { cond: (b, e) => !P.form2 && !P.marked && anyone(b, e) });
   const k2 = skill(mk2, () => { P.marked2 = true; m2a.start(); m2b.start(); }, { cond: (b, e) => P.form2 && !P.marked2 && anyone(b, e) });
+  /** @type {EnemyAbility} */
   const track = {
     tick(b, e) { for (const m of marks) m.tick(b, e); },
     death(c, b) { for (const m of marks) m.stop(b); },
@@ -831,7 +853,7 @@ function kitXi(ab) {
     // (`_emitToInputPosWhenTargetIsInvalid`); until 2026-11-20 taken again at the spell
     skill(cross, (b, e, a) => {
       const l = byDist(b, e);
-      const at = (t) => ({ t, x: t.x, y: t.y, r: t.tileR, c: t.tileC });
+      const at = (/** @type {Unit} */ t) => ({ t, x: t.x, y: t.y, r: t.tileR, c: t.tileC });
       a.picks = !l.length ? [] : P.form2 && l.length > 1 ? [at(l[0]), at(l[l.length - 1])] : [at(l[0])];   // 额外对最远目标释放
     }, { cond: (b, e) => allTargets(b, e).length > 0, atStrike: (b, e, a) => {
       const l = a.picks || [];
@@ -842,13 +864,15 @@ function kitXi(ab) {
 
 /** 锏 · 抵抗; DEF penetration against its blocker; 【速杀】 passes through its blocker hitting those on the way; 【肆虐风雪】
  *  AoE; KO ⇒ second form: stealth, more penetration, double hits, 【瞬息杀机】 at every 25 % HP lost (SP cleared + no attacks
- *  / heals around it). <降雪> absent. */
+ *  / heals around it). <降雪> absent.
+ * @type {AbKit} */
 function kitMace(ab) {
   const pen1 = T(ab, 'DefPenetrate.enemy_blkswb_t_2.def_penetrate') ?? 0, pen2 = T(ab, 'DefPenetrate.enemy_blkswb_t_2[reborn].def_penetrate') ?? pen1;
   const cs = { ratio: T(ab, 'ClearSp.hp_ratio') ?? 0, dur: T(ab, 'ClearSp.duration') ?? 0, r: T(ab, 'ClearSp.range_radius') ?? 0 };
   const P = { form2: false, next: 1 };
-  const penOn = (c, e) => (c.target === e.blockedBy ? (P.form2 ? pen2 : pen1) : 0);
+  const penOn = (/** @type {AbCtx} */ c, /** @type {Unit} */ e) => (c.target === e.blockedBy ? (P.form2 ? pen2 : pen1) : 0);
   // its blocker is hit (PRTS 技能 "对之前阻挡自身的单位造成…"); the others on the way are an area selection (areaSelectable)
+  /** @param {{ bb: Record<string, any> }} s @returns {AbFn} */
   const blink = (s) => (b, e) => {
     const bl = e.blockedBy;
     const from = blinkForward(b, e, s.bb.dist ?? 1.5);
@@ -858,6 +882,7 @@ function kitMace(ab) {
       hurt(b, e, u, e.s.atk * (s.bb.atk_scale ?? 1), 'phys');
     }
   };
+  /** @param {{ bb: Record<string, any> }} s @returns {AbFn} */
   const circle = (s) => (b, e) => {
     const r = s.bb.range_radius ?? 0;
     b.fx('explode', { x: e.x, y: e.y, r, kind: 'blizzard', id: e.id });
@@ -865,6 +890,7 @@ function kitMace(ab) {
   };
   // cast with a target in the circle — the trigger selection (targetsNear: PRTS 选择器 "所有触发选择器通常不无视迷彩"): no
   // airborne (起飞) operator for a ground enemy (§21.22), no unblocking 隐匿 or 迷彩 one
+  /** @param {Battle} b @param {Unit} e @param {AbSkill | undefined} s */
   const inR = (b, e, s) => targetsNear(b, e, (s && s.bb.range_radius) || 0).length > 0;
   return [resist(), {
     hitOut(c, b, e) { const p = penOn(c, e); if (c.dmg.isAttack && p > 0) c.dmg.defIgnorePct = Math.min(1, (c.dmg.defIgnorePct || 0) + p); },
@@ -901,14 +927,15 @@ function kitMace(ab) {
  *  still while a unit is caught (静默), each ended effect gives back sp, and the last one starts duration_wait s more of 静默
  *  ("每结束1个技能效果狼之主回复5SP，场上技能效果全部结束时狼之主获得7s静默"). Until 0.1.3 the loss peaked at 5 % [ASSUMED], the buff
  *  ended after 40 s, hp_ratio (30 %) was read as the cure and the cast came every spCost s whatever was caught. Not modelled:
- *  血债账款 / 【狂暴怒嗥】. */
+ *  血债账款 / 【狂暴怒嗥】.
+ * @type {AbKit} */
 function kitWolfLord(ab) {
   const fc = ab.sk.FearCage;
-  const P = { form2: false, caught: 0, waitUntil: -Infinity, cast: null };
-  const caught = (b) => b.allies().some((u) => u.findBuff('ab:fearCage'));
-  const cure = (b) => { for (const u of b.allies()) { const d = u.findBuff('ab:fearCage'); if (d) b.removeBuff(u, d); } };
+  const P = { form2: false, caught: 0, waitUntil: -Infinity, cast: /** @type {EnemyAbility | null} */ (null) };
+  const caught = (/** @type {Battle} */ b) => b.allies().some((u) => u.findBuff('ab:fearCage'));
+  const cure = (/** @type {Battle} */ b) => { for (const u of b.allies()) { const d = u.findBuff('ab:fearCage'); if (d) b.removeBuff(u, d); } };
   // 【远古威慑】 (a buff aura, auraAllies): no 隐匿 operator, the blocker included, an airborne 起飞 one still — as 深池伙友卫队's
-  const awe = (b, e) => { for (const u of auraAllies(b, e, e.x, e.y, WOLF_AWE_RADIUS)) auraBuff(b, u, 'ab:ancientAwe', 0.2, { aspd: WOLF_AWE_ASPD }, null, true); };
+  const awe = (/** @type {Battle} */ b, /** @type {Unit} */ e) => { for (const u of auraAllies(b, e, e.x, e.y, WOLF_AWE_RADIUS)) auraBuff(b, u, 'ab:ancientAwe', 0.2, { aspd: WOLF_AWE_ASPD }, null, true); };
   return [{
     spawn(b, e, a, ab2) {
       ab2.immune = new Set([...(ab2.immune || []), 'stun']);   // 第一形态: 不可被晕眩
@@ -924,16 +951,16 @@ function kitWolfLord(ab) {
       const cut = Math.abs(fc.bb.hp_ratio_offset ?? 0.2);
       let n = 0;
       for (const u of b.allies()) {
-        const d = u.findBuff('ab:fearCage');
+        const d = /** @type {BuffRec | null} */ (u.findBuff('ab:fearCage'));
         if (!d || d.data.src !== e) continue;
         if (e.hpRatio <= d.data.hp0 - cut + 1e-9) b.removeBuff(u, d); else n++;
       }
       if (P.cast) {
         if (n < P.caught) {                                      // ended effects (cured, knocked out): +sp each
-          P.cast.left -= (fc.bb.sp ?? 0) * (P.caught - n);
+          /** @type {number} */ (P.cast.left) -= (fc.bb.sp ?? 0) * (P.caught - n);
           if (n === 0) P.waitUntil = b.time + (fc.bb.duration_wait ?? 0);
         }
-        if (n > 0 || b.time < P.waitUntil) P.cast.left += dt;    // 静默: its SP stands still
+        if (n > 0 || b.time < P.waitUntil) /** @type {number} */ (P.cast.left) += dt;    // 静默: its SP stands still
       }
       P.caught = n;
     },
@@ -949,7 +976,7 @@ function kitWolfLord(ab) {
       b.addBuff(u, { key: 'ab:fearCage', refresh: 'replace', visible: true, interval: 1, data: { src: e, hp0: e.hpRatio, t0: b.time },
         source: e, fxTag: 'buff:enemy_wlfmster_fearcage',
         mods: { aspd: fc.bb.attack_speed ?? 0 },
-        onTick: ({ battle, unit, buff }) => {
+        onTick: (/** @type {BuffTick} */ { battle, unit, buff }) => {
           // its 扎罗 gone from the field without a 重生 (leaked, removed): the effect ends, no loss this tick [ASSUMED — no
           // official text; the 重生's onKo cure covers its knock-out]. Until 0.1.3 a leak left it draining for good.
           const src = buff.data.src;
@@ -979,7 +1006,7 @@ function kitWolfLord(ab) {
     },
     onReborn(b, e) {
       P.form2 = true;
-      e.profile.melee = false;
+      /** @type {Record<string, any>} */ (e.profile).melee = false;
       e.base.rangeRadius = Math.max(e.base.rangeRadius || 0, WOLF_RANGE);
       // the form-2 look enemy_wlfmster_m2_eff (enemy_wlfmster_B_buff_01) from the rebirth's end — the client's BuffToOwner
       // adds it 3 s earlier, as the rebirth's closing clip A_revive_3 starts, which the render draws from its rebirth ability
@@ -1013,40 +1040,42 @@ function kitWolfLord(ab) {
  * the only clip set without an attack, is the non-attacking 幽灵 (skills ChangeToB / C / D).
  */
 /** 泥岩: the prefab's mode by the charge stacks before an attack (enemy_mdrock_s_1[persistent]). */
-const MDROCK_TIERS = Object.freeze({ 1: 'Tier 1', 2: 'Tier 2', 3: 'Tier 3', 5: 'Tier 4', 6: 'Tier 5' });
+const MDROCK_TIERS = /** @type {Readonly<Record<number, string>>} */ (Object.freeze({ 1: 'Tier 1', 2: 'Tier 2', 3: 'Tier 3', 5: 'Tier 4', 6: 'Tier 5' }));
 
 /** 转译基底·α: the client prefab's mode of each form (its skills ChangeToB / C / D). */
-const TRANSLATOR_MODES = Object.freeze({ fuchou: 'ModeB', youling: 'MoveC', shushi: 'ModeD' });
+const TRANSLATOR_MODES = /** @type {Readonly<Record<string, string>>} */ (Object.freeze({ fuchou: 'ModeB', youling: 'MoveC', shushi: 'ModeD' }));
 
+/** @type {EnemyKit} */
 function kitTranslator(ab, e) {
-  const t = (k) => T(ab, k) ?? 0;
-  const P = { phys: 0, arts: 0, form: null, done: false, anger: false };
+  const t = (/** @type {string} */ k) => T(ab, k) ?? 0;
+  const P = { phys: 0, arts: 0, form: /** @type {string | null} */ (null), done: false, anger: false };
+  /** @type {Record<string, string>} */
   const PRE = { fuchou: 'Mode_Fuchou_Passive', shushi: 'Mode_Shushi_Passive', youling: 'Mode_Youling_Passive' };
-  const mods = (pre) => ({
+  const mods = (/** @type {string} */ pre) => ({
     hpFlat: t(`${pre}.max_hp`), atkFlat: t(`${pre}.atk`), defFlat: t(`${pre}.def`), resFlat: t(`${pre}.magic_resistance`),
     moveMul: Math.max(0, 1 + t(`${pre}.move_speed`) / (e.def.moveSpeed || 1)), batPct: t(`${pre}.base_attack_time`) / (e.base.bat || 1),
     massFlat: t(`${pre}.mass_level`),
   });
-  const finish = (b, e2) => {
+  const finish = (/** @type {Battle} */ b, /** @type {Unit} */ e2) => {
     if (!e2.alive || P.done) return;
     P.done = true;
     b.removeBuff(e2, 'ab:origin');
     ab.immune = null;
-    b.addBuff(e2, { key: 'ab:form', persist: true, visible: true, mods: mods(PRE[P.form]), flags: P.form === 'youling' ? { unblockable: true } : null });
+    b.addBuff(e2, { key: 'ab:form', persist: true, visible: true, mods: mods(PRE[/** @type {string} */ (P.form)]), flags: P.form === 'youling' ? { unblockable: true } : null });
     if (P.form !== 'youling') {
       const melee = P.form === 'fuchou';
-      Object.assign(e2.profile, { noAttack: false, melee, dmgType: melee ? 'phys' : 'arts', maxTargets: melee ? 1 : 2 });
-      if (!melee) e2.profile.canTarget = (u) => !u.isFlying;
+      Object.assign(/** @type {Record<string, any>} */ (e2.profile), { noAttack: false, melee, dmgType: melee ? 'phys' : 'arts', maxTargets: melee ? 1 : 2 });
+      if (!melee) /** @type {Record<string, any>} */ (e2.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying;
       e2.atkCd = 0;
     }
     // the prefab's mode of the form (its ChangeTo* skill): ModeB's melee Combat, ModeD's ranged Attack, MoveC none
-    mode(b, e2, TRANSLATOR_MODES[P.form]);
+    mode(b, e2, TRANSLATOR_MODES[/** @type {string} */ (P.form)]);   // (finish runs after change set the form)
     if (e2.route) e2.route.pts = null;
   };
-  const change = (b, e2, form) => {
+  const change = (/** @type {Battle} */ b, /** @type {Unit} */ e2, /** @type {string} */ form) => {
     if (P.form || !e2.alive) return;
     P.form = form;
-    b.addBuff(e2, { key: 'ab:change', duration: TRANSLATOR_CHANGE, persist: true, flags: { noMove: true }, onExpire: ({ battle }) => finish(battle, e2) });
+    b.addBuff(e2, { key: 'ab:change', duration: TRANSLATOR_CHANGE, persist: true, flags: { noMove: true }, onExpire: (/** @type {BuffTick} */ { battle }) => finish(battle, e2) });
     setForm(b, e2, `translator_${form}`, 'phase', { dur: TRANSLATOR_CHANGE });
   };
   return [{
@@ -1097,24 +1126,27 @@ function kitTranslator(ab, e) {
  * played out or cut — switches back to Default restarting its state machine (`enemy_xdelk_s[to0]`). The skill belongs to
  * Default: its cooldown, restarted at the cut, stands still meanwhile. (Until 2026-11-20 the clash dealt ×2 and stunned the
  * blocker `fail_duration` s, and a cut charge did nothing.)
+ * @type {AbKit}
  */
 function kitElk(ab) {
   const s = ab.sk.skill;
   const failFor = { Fail: T(ab, 'data.attack@fail_duration') ?? 0, Fail_stun: T(ab, 'data.attack@fail_duration2') ?? 0 };
+  /** @type {{ ch: { t: Unit, on: boolean } | null, fail: { until: number | null, dur: number } | null }} */
   const P = { ch: null, fail: null };
-  const failing = (e) => e.mode === 'Fail' || e.mode === 'Fail_stun';
+  const failing = (/** @type {Unit} */ e) => e.mode === 'Fail' || e.mode === 'Fail_stun';
   // CheckAbnormalFlag STUNNED (a stun, not a freeze or 浮空: their own flags) or CheckAbnormalCombo SLEEPING
-  const stunned = (e) => !!e.s.flags.sleep || e.buffs.some((x) => x.flags && x.flags.stun && !x.flags.freeze && !x.flags.levitate);
-  const back = (b, e) => {
+  const stunned = (/** @type {Unit} */ e) => !!e.s.flags.sleep || /** @type {BuffRec[]} */ (e.buffs).some((x) => x.flags && x.flags.stun && !x.flags.freeze && !x.flags.levitate);
+  const back = (/** @type {Battle} */ b, /** @type {Unit} */ e) => {
     P.fail = null;
     b.removeBuff(e, 'ab:elkFail');
     mode(b, e, null);
   };
   const k = skill(s, (b, e) => {
     const dur = s.bb.duration ?? 0;
-    P.ch = { t: e.blockedBy, on: false };
+    // (its cond: a living blocker)
+    P.ch = { t: /** @type {Unit} */ (e.blockedBy), on: false };
     b.addBuff(e, { key: 'ab:elkCharge', duration: dur + 0.1, visible: true, flags: { disarm: true } });
-    b.fx('telegraph', { x: e.blockedBy.x, y: e.blockedBy.y, r: 0.5, dur, kind: 'elkCharge', id: e.id });
+    b.fx('telegraph', { x: /** @type {Unit} */ (e.blockedBy).x, y: /** @type {Unit} */ (e.blockedBy).y, r: 0.5, dur, kind: 'elkCharge', id: e.id });
   }, { cond: (b, e) => !P.ch && !failing(e) && !!(e.blockedBy && e.blockedBy.alive), atStrike: (b, e) => {
     const ch = P.ch;
     if (!ch || !ch.t.alive) return;
@@ -1158,7 +1190,7 @@ function kitElk(ab) {
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
-export const LEADER_KITS = Object.freeze({
+export const LEADER_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Object.freeze({
   // --- bounty (悬赏) leaders with a single form (kitLeaderMisc)
   enemy_1050_lslime: (ab, e) => kitLeaderMisc('enemy_1050_lslime', ab, e),   // “庞贝” · 4 targets, burning DoT, self-blast when blocked, ASPD up below half
   enemy_1500_skulsr: (ab, e) => kitLeaderMisc('enemy_1500_skulsr', ab, e),   // 碎骨 · unblocked grenades (splash + DEF down); ATK up below half
@@ -1213,9 +1245,9 @@ export const LEADER_KITS = Object.freeze({
   enemy_10141_xdpeng_2: (ab) => [noAirTargets(), unbalanced((b, e, a) => {
     if (a.done) return;
     a.done = true;
-    e.profile.noAttack = true;
+    /** @type {Record<string, any>} */ (e.profile).noAttack = true;
     mode(b, e, 'Speed');   // enemy_xdpeng_t[switch] SwitchMode 1: no attack ability
     setForm(b, e, 'Speed');   // Skills/switch's Die_3 (the egg breaks), then Idle_2 / Move_2 / Die_2 (render/units.js FORMS)
     b.addBuff(e, { key: 'ab:noEgg', persist: true, visible: true, flags: { unblockable: true }, mods: { moveMul: 1 + (T(ab, 'speed.move_speed') ?? 0) } });
   })],
-});
+}));

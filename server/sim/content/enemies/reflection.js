@@ -4,10 +4,15 @@
 import { T, auraAllies, auraBuff, shoot } from './helpers.js';
 import { refraction, statue, kitRefraction } from './archetypes.js';
 import { hypot } from '../../detmath.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { BuffTick } from './helpers.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // kits
 
+/** @type {EnemyKit} */
 function kitPhalanx(ab, e) {
   const def = T(ab, 'auraDefup.def') ?? 0;
   const r = (e.def.raw && e.def.raw.stats && e.def.raw.stats.rawRangeRadius) || 1.5;
@@ -21,6 +26,7 @@ function kitPhalanx(ab, e) {
   }];
 }
 
+/** @type {AbKit} */
 function kitHolyGuard(ab) {
   const r = T(ab, 'traitAbility.range_radius') ?? 1.1, aspd = T(ab, 'traitAbility.attack_speed') ?? 0;
   return [...kitRefraction(ab), {
@@ -41,6 +47,7 @@ function kitHolyGuard(ab) {
  * IsDamage, not SILENCED, FilterDamageModifer MAGICAL with a source — `_sharedFlag` / `_source` are not filtered, their
  * switches are off) puts acrefm[atk-spd-down] on the damage's source: ATTACK_SPEED +`refracting.attack_speed` (−50) for
  * `refracting.duration` (3) s, EXTEND (a new one refills the time). No side check: an enemy's arts damage counts too.
+ * @type {AbKit}
  */
 function kitMirrorEye(ab) {
   const aspd = T(ab, 'refracting.attack_speed') ?? 0, dur = T(ab, 'refracting.duration') ?? 0;
@@ -63,6 +70,7 @@ function kitMirrorEye(ab) {
  * projectile_enemy_acrefd (PARACURVE, 4 tiles/s) at it from where it fell; on the hit the target gains acrefd[magic-resistance]
  * RES +`refracting.acrefd[magic-resistance].magic_resistance` (10), INFINITY, one at a time (maxStackCnt 1: a second
  * 镜波's adds nothing). Nobody in reach, or the target gone before the hit: nothing.
+ * @type {AbKit}
  */
 function kitMirrorWave(ab) {
   const r = T(ab, 'refracting.range_radius') ?? 0, res = T(ab, 'refracting.acrefd[magic-resistance].magic_resistance') ?? 0;
@@ -84,7 +92,7 @@ function kitMirrorWave(ab) {
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
-export const REFLECTION_KITS = Object.freeze({
+export const REFLECTION_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Object.freeze({
   // --- REFLECTION 折射
   enemy_1165_duhond: kitRefraction,                                  // 深池侦察犬 · refraction
   enemy_1165_duhond_2: kitRefraction,                                // 深池侦察犬pro · refraction
@@ -103,4 +111,4 @@ export const REFLECTION_KITS = Object.freeze({
   enemy_9011_acrefr: (ab) => [refraction(T(ab, 'Refracting.magic_resistance') ?? 0, T(ab, 'Refracting.max_hp') ?? 0)], // 假想敌：镜膜 · refraction + max HP until first silence
   enemy_9039_acrefm: kitMirrorEye,                                   // 假想敌：镜眼 · refraction; arts damage taken → its source ASPD −50 3 s
   enemy_9031_acrefd: kitMirrorWave,                                  // 假想敌：镜波 · refraction; knocked out → nearby lowest-RES enemy RES +10
-});
+}));

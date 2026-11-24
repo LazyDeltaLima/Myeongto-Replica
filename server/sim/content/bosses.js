@@ -282,7 +282,8 @@ function atSpell(b, e, s, fn) {
     try { fn(); } finally { b._castAbility = prev; }
   };
   const k = e.mem.ab && e.mem.ab.casting;
-  const at = k && k.a && k.a.name === s.name ? castStrikeAt(e, s.cast, s.bb) : 0;
+  // (castStrikeAt's null — a parallel group, a sequence after a projectile — compares as no frame, like 0)
+  const at = k && k.a && k.a.name === s.name ? /** @type {number} */ (castStrikeAt(e, s.cast, s.bb)) : 0;
   if (!(at > 1e-9)) { run(); return; }
   // (still this cast: a cut clears `ab.casting` (content/enemies.js onSkillCut); a cast a kit's own attack loop plays
   // (ownAttackTurn without `engineCast`) has no `castLeft` — its time is `until`)

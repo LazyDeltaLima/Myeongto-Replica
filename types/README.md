@@ -106,8 +106,8 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, the files directly under
 `server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), the kit helpers
 (`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and
-the files directly under `server/sim/` (`server/sim/*.js`), and the files directly under `server/sim/content/`
-(`server/sim/content/*.js`).
+the files directly under `server/sim/` (`server/sim/*.js`), the files directly under `server/sim/content/`
+(`server/sim/content/*.js`) and the enemy kits `server/sim/content/enemies/`.
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -398,6 +398,19 @@ most strict errors were, and the JSDoc that fixed them:
   where a kit writes it. The helpers in enemies/helpers.js the kits call with a typed battle (`targetsNear`,
   `allTargets`, `areaAllies` …, `attach`) carry their `@param`s, so their results are `Unit[]`; the ones with a `null`
   or `[]` default (`canCast`, `hurt`, `elem`, `setForm`, `lpLoss`, `zone`) say what else they take.
+- the enemy kit families (content/enemies/*.js): a kit function takes `@type {EnemyKit}` on its declaration, or
+  `@type {AbKit}` (`(ab) => AbList`, enemies.js) when it reads only the ability state — another kit calls that one with
+  `ab` alone (`kitDeathSpawn()(ab)`), which an `EnemyKit` would refuse (TS2554). Each family's table is cast to
+  `Readonly<Record<string, EnemyKit>>` (`Record<…>` where it is not frozen), which types its inline arrow kits. An
+  ability building block returns `EnemyAbility` (`@returns` on its arrow or function, which types the methods of the
+  literal it returns); an ability built in a `const` first (`const boom = { … }`) takes `@type {EnemyAbility}` there,
+  and a list ending in `.filter(Boolean)` is cast before the filter (`/** @type {AbList} */ ([{ … }, rush]).filter(…)`).
+  A method a kit adds that other code calls (`refresh`, `liberate`) is declared on `EnemyAbility`, since an index
+  signature types no parameters. A buff's `onTick` / `onExpire` callback takes `BuffTick` (enemies/helpers.js) inline.
+  `castStrikeAt` returns `number | null` (null: a parallel group, a sequence after a projectile), and a caller that
+  compares it with `> 1e-9` casts it to `number` (null compares as no frame). Some tests read kit lines as text
+  (`test/docs-consistency.test.js` matches leaders.js `const inR = (b, e, s) =>`): there the `@param`s go on the line
+  above.
 - the kit resolver and the generic kit (content/index.js, generic.js): `Kit` (index.js) is the kit contract read by
   key, `Def` a normalised def; the generic skill spec is built as a `Record<string, any>`. A blackboard getter returns
   `number | undefined`, so a `> 0` test on one is cast at the comparison. The guarded `import()` of the domain

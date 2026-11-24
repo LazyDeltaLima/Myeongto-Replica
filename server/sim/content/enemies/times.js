@@ -3,6 +3,10 @@
 
 import { TEA_SPLASH_RADIUS, abOf, T, hurt, areaAllies, spawnChildren, mode } from './helpers.js';
 import { splashAttack, husk, skill, kitTimes, kitDeathSpawn, deadSpawnSpot, kitEmber } from './archetypes.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { BuffTick } from './helpers.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -28,6 +32,7 @@ const TEA_BOOM_RADIUS = 1.25;
  * become 矛头 when it is killed (a leak is no death; the mode has no 坠落), each up to 0.7 s later within 0.5 of where it fell
  * (deadSpawnSpot: its enemy_dead_spawn[sfji] node is the other DeadSpawn talents'). Until 0.2.0 each attack stacked one more layer
  * and none was ever removed (GitHub #107: 新硎 1350 → 3510 ATK after two hits).
+ * @type {AbKit}
  */
 function kitBlades(ab) {
   const cnt = T(ab, 'DeadSpawn.cnt') ?? 0, add = T(ab, 'DeadSpawn.cnt_add') ?? 0, atk = T(ab, 'Atkup.atk', 'AtkUp.atk') ?? 0;
@@ -50,6 +55,7 @@ function kitBlades(ab) {
   }];
 }
 
+/** @type {EnemyKit} */
 function kitInvisShield(ab, e) {
   const s = ab.sk.InvisibleShield;
   const r = (e.def.raw && e.def.raw.stats && e.def.raw.stats.rawRangeRadius) || 2;
@@ -66,7 +72,8 @@ function kitInvisShield(ab, e) {
 /** 假想敌：再生 (PRTS 假想敌：再生 天赋) · knock-out ⇒ 1 s 重生 ⇒ 再生状态: a 傀儡 of prop_max_hp (15) hits that is 不可阻挡 for
  *  `interval` (15) s and walks on ("1s内不移动": only the 重生 stands; its model has a 傀儡 walk cycle, B_Move), back with full
  *  HP if still standing; entering it gives the other enemies within 1.8 (targetable or not) max_damage_block_cnt (5)
- *  hit shields. */
+ *  hit shields.
+ * @type {AbKit} */
 function kitRegen(ab) {
   const hits = T(ab, 'Revive[Trigger].prop_max_hp'), delay = T(ab, 'Revive[Trigger].interval'), block = T(ab, 'Aura.max_damage_block_cnt') ?? 0;
   return [husk({
@@ -86,6 +93,7 @@ function kitRegen(ab) {
  * attack_speed / duration; one layer per blast, each its own buff. Until 0.1.3: no attack splash; the blast took the attack
  * radius (2) and left a 15 s steam zone re-applying the ASPD cut to whoever stood in it [ASSUMED]. The attack splash, a 法术普通
  * 伤害, can be dodged like the attack itself; the blast (法术溅射伤害) cannot.
+ * @type {AbKit}
  */
 function kitTeapot(ab) {
   return kitDeathSpawn([splashAttack({ unblocked: false, radius: TEA_SPLASH_RADIUS, noAir: true, dodge: true, fxKind: 'artsSplash' }), {
@@ -108,7 +116,7 @@ function kitTeapot(ab) {
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
-export const TIMES_KITS = Object.freeze({
+export const TIMES_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Object.freeze({
   // --- TIMES 频次 (hit-count units + their creators)
   enemy_1196_msfyin: kitTimes(),                                     // 木制瑞印 · 2 hits, unblockable
   enemy_1196_msfyin_2: kitTimes(),                                   // 红木瑞印 · 3 hits
@@ -139,4 +147,4 @@ export const TIMES_KITS = Object.freeze({
   enemy_1288_duskls_2: kitEmber,                                     // 深池逐火精锐战士 · same
   enemy_1292_duskld: kitEmber,                                       // 深池逐火护卫 · 10-hit 火灰
   enemy_9010_acpupp: kitRegen,                                       // 假想敌：再生 · every KO: 1 s 重生 ⇒ walking unblockable 15-hit puppet (15 s) + 5-hit shields within 1.8
-});
+}));

@@ -159,12 +159,14 @@ export { HOVER_KEYS, blinkForward } from './enemies/archetypes.js';
  *   sk: Record<string, AbSkill>, list: EnemyAbility[], hitShield: number, atkType: string | null,
  *   immune: Set<string> | null, casting?: AbCast | null, ownAttack?: boolean }} AbState
  * An ability (the header's methods; the kit's own fields beside them).
- * @typedef {{ [key: string]: any, name?: string, cd?: number, icd?: number, left?: number, iv?: number, sil?: boolean,
+ * @typedef {{ [key: string]: any, name?: string | null, cd?: number, icd?: number, left?: number, iv?: number, sil?: boolean,
  *   atStrike?: boolean | ((b: Battle, e: Unit, a: EnemyAbility) => unknown),
  *   spawn?(b: Battle, e: Unit, a: EnemyAbility, ab: AbState): unknown,
  *   tick?(b: Battle, e: Unit, a: EnemyAbility, dt: number): unknown,
- *   cond?(b: Battle, e: Unit, a: EnemyAbility): unknown,
+ *   cond?: ((b: Battle, e: Unit, a: EnemyAbility) => unknown) | null,
  *   fire?(b: Battle, e: Unit, a: EnemyAbility): unknown,
+ *   refresh?(b: Battle, e: Unit, a: EnemyAbility): unknown,
+ *   liberate?(b: Battle, e: Unit, a: EnemyAbility, forced?: boolean): unknown,
  *   pause?(b: Battle, e: Unit): unknown,
  *   projAlive?(b: Battle, e: Unit, a: EnemyAbility): unknown,
  *   onCut?(b: Battle, e: Unit, a: EnemyAbility): unknown,
@@ -177,6 +179,8 @@ export { HOVER_KEYS, blinkForward } from './enemies/archetypes.js';
  * @typedef {Array<EnemyAbility | null | undefined | false | 0 | ''>} AbList
  * A kit: enemyKey → (ab, e, battle) => its abilities (bosses.js passes the wave template as well).
  * @typedef {(ab: AbState, e: Unit, b: Battle, tpl?: any) => AbList} EnemyKit
+ * A kit that reads only the ability state: another kit can call it with that alone (`kitDeathSpawn()(ab)`).
+ * @typedef {(ab: AbState) => AbList} AbKit
  * A part of an ability called with the battle, the enemy and the ability (fire, cond, a split `atStrike` …).
  * @typedef {(b: Battle, e: Unit, a: EnemyAbility) => unknown} AbFn
  */
@@ -375,7 +379,8 @@ function castSkill(b, e, a, k = null) {
   // (a skill on its own cooldown, `k` null, casts no attack slot: a plain `atStrike` fires at once, a split one keeps its
   // two parts apart by the same frame, cut only by the enemy's death)
   const part = typeof a.atStrike === 'function' ? a.atStrike : null;
-  const at = a.atStrike && (k || part) && s ? castStrikeAt(e, s.cast, s.bb) : 0;
+  // (castStrikeAt's null — a parallel group, a sequence after a projectile — compares as no frame, like 0)
+  const at = a.atStrike && (k || part) && s ? /** @type {number} */ (castStrikeAt(e, s.cast, s.bb)) : 0;
   const t = at > 1e-9 && !part ? null : run(/** @type {AbFn} */ (a.fire));
   if (ch && p && t && t !== e && t.id != null) p.tgt = t.id;
   if (at > 1e-9) {

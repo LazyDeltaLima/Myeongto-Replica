@@ -10,6 +10,11 @@ import {
 } from './helpers.js';
 import { shotSpeed } from '../../ai.js';
 import { taunt, ep, deathBoom, setFloat, float, skill, kitEp, kitStun3 } from './archetypes.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { BuffTick } from './helpers.js' */
+/** @import { Scheduled } from '../../battle/hooks.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -33,6 +38,7 @@ const PARASITIC_CLIP = 1.2;
 // ---------------------------------------------------------------------------------------------------------------
 // kits
 
+/** @param {AbState} ab @param {{ swim?: boolean, drown?: boolean }} opts @returns {AbList} */
 function kitDeepsea(ab, { swim = false, drown = false }) {
   return [{
     iv: swim ? DIVER_SWIM_CHECK : 0.25,
@@ -55,10 +61,11 @@ function kitDeepsea(ab, { swim = false, drown = false }) {
       a.wet = wet;
     },
     // 免疫水蚀: the deep-water tick (devices.js, tag 'deepsea') and drowning — not 环境伤害 ('terrain', e.g. 活性源石)
-    hitIn(c, b, e, a) { if (swim && a.wet && c.dmg.tags && c.dmg.tags.some((t) => t === 'deepsea' || t === 'drown')) c.dmg.cancel = true; },
+    hitIn(c, b, e, a) { if (swim && a.wet && c.dmg.tags && c.dmg.tags.some((/** @type {string} */ t) => t === 'deepsea' || t === 'drown')) c.dmg.cancel = true; },
   }];
 }
 
+/** @type {AbKit} */
 function kitTidmag(ab) {
   return [ep('erosion', T(ab, 'EpDamage.attack@ep_damage_ratio') ?? 0), {
     // PRTS 控潮术师 "对目标所在地块及周围四格内的所有我方单位造成法术普通伤害": one shot at its target (the client attack's
@@ -84,15 +91,16 @@ const SYUFO_CRAWL_STUN = 0.5;
  * 掠海漂移体 (PRTS): 初始模式 近地悬浮 + 失衡免疫, 不会攻击飞行单位; 受晕眩/无法行动/沉睡/冻结/缚地影响后进入爬行模式 for
  * good and is stunned 0.5 s — a ground unit (blockable, melee operators hit it) that "仅进行阻挡攻击" (only its blocker).
  * The engine has 晕眩 / 冻结 / 沉睡 / 缚地 (予愿安洁莉娜 S2; no operator here applies 无法行动). Erosion on every attack.
+ * @type {AbKit}
  */
 function kitSyufo(ab) {
   return [float(), ep('erosion', T(ab, 'EpDamage.attack@ep_damage_ratio') ?? 0), {
-    spawn(b, e) { e.profile.canTarget = (u) => !u.isFlying; },
+    spawn(b, e) { /** @type {Record<string, any>} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying; },
     status(c, b, e, a) {
       if (a.crawl || !(c.status === 'stun' || c.status === 'freeze' || c.status === 'sleep' || c.status === 'groundbind')) return;
       a.crawl = true;
       setFloat(b, e, false);
-      e.profile.melee = true;
+      /** @type {Record<string, any>} */ (e.profile).melee = true;
       b.applyStatus(e, 'stun', { duration: SYUFO_CRAWL_STUN, source: null });
       setForm(b, e, 'crawl');
       mode(b, e, 'Normal', false);   // enemy_syufo_fly's ON_BUFF_DISABLE SwitchMode (no restart): its blocked attack Attack_02
@@ -100,6 +108,7 @@ function kitSyufo(ab) {
   }];
 }
 
+/** @type {EnemyKit} */
 function kitDeathEye(ab, e) {
   const s = ab.sk.DeathEye;
   const r = e.base.rangeRadius || 2.5;
@@ -116,8 +125,8 @@ function kitDeathEye(ab, e) {
     const v = shotSpeed(s.proj);
     const fly = v > 0 ? hypot(t.x - e2.x, t.y - e2.y) / v : 0;
     b.addBuff(e2, { key: 'ab:channel', duration: pre + fly + dur, flags: { disarm: true } });
-    let n = 0, h = null, linked = false;
-    const stop = (cut) => {
+    let n = 0, /** @type {Scheduled | null} */ h = null, linked = false;
+    const stop = (/** @type {boolean} */ cut) => {
       if (e2.mem.deathEye !== ch) return;
       if (h) h.cancel();
       e2.mem.deathEye = null;
@@ -178,6 +187,7 @@ function kitDeathEye(ab, e) {
 /**
  * 淤困's "受到的元素损伤提高至130%" on its host: an `elementHit` multiplier (SIM.md §7.2 — every "受到的元素损伤±N%"; on an
  * operator at priority 20, before a 损伤屏障), never 元素伤害. One battle-wide handler, installed with the first host.
+ * @param {Battle} b
  */
 function ensureParasiteHook(b) {
   const st = stOf(b);
@@ -202,10 +212,11 @@ function ensureParasiteHook(b) {
  * (`CombatState.OnEnter`); while it runs the state waits (`OnTick` returns while the ability casts), so losing the block does
  * not cut it — it lands on the operator it started on, who must still be on the field; a stun switches the state and
  * `OnExit` interrupts it (so does a freeze, a levitation or the palsy halt).
+ * @type {AbKit}
  */
 function kitParasite(ab) {
   const scale = T(ab, '1.atk_scale') ?? 0, elMul = T(ab, '1.ep_damage_scale') ?? 1;
-  const attach = (b, e, a, host) => {
+  const attach = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {EnemyAbility} */ a, /** @type {Unit} */ host) => {
     a.host = host;
     a.next = b.time + CHECK_BLOCK_INTERVAL;
     ensureParasiteHook(b);
@@ -232,10 +243,10 @@ function kitParasite(ab) {
     b.addBuff(host, {
       // "受到的元素损伤提高至130%": a 元素损伤 multiplier on the element hit (ensureParasiteHook), not 元素伤害
       key: 'ab:parasite', visible: true, interval: 1, data: { src: e, spread: PARASITE_SPREAD, epMul: elMul },
-      onTick: ({ battle, unit }) => { if (e.alive) battle.dealDamage(e, unit, { amount: e.s.atk * scale, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'parasite'] }); },
+      onTick: (/** @type {BuffTick} */ { battle, unit }) => { if (e.alive) battle.dealDamage(e, unit, { amount: e.s.atk * scale, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'parasite'] }); },
     });
   };
-  const detach = (b, e, a) => {
+  const detach = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {EnemyAbility} */ a) => {
     b.removeBuff(a.host, 'ab:parasite');
     b.removeBuff(e, 'ab:parasiteAttached');
     a.host = null;
@@ -256,7 +267,7 @@ function kitParasite(ab) {
       if (a.castOn) {
         const t = a.castOn;
         // (stun covers freeze and levitate — their statuses set it —; the palsy halt is the other state that interrupts)
-        if (!canCast(e, false, b) || b.time < e.palsyUntil - 1e-9 || !t.alive || !t.deployed) { a.castOn = null; setForm(b, e, null); }
+        if (!canCast(e, false, b) || b.time < /** @type {number} */ (e.palsyUntil) - 1e-9 || !t.alive || !t.deployed) { a.castOn = null; setForm(b, e, null); }
         else {
           if (b.time >= a.castEnd - 1e-9) { a.castOn = null; attach(b, e, a, t); }
           return;
@@ -273,6 +284,7 @@ function kitParasite(ab) {
 /** 卷心籽 (ignited): its boom is projectile_enemy_ftzlc — CircleCollider2D 1.25, `_lifeTime` 0.4 s (deathBoom `delay`;
  *  until 2026-11-14 at the knock-out). */
 const FTZLC_BOOM = { r: 1.25, life: 0.4 };
+/** @type {AbKit} */
 function kitIgnitable(ab) {
   return [deathBoom({ scale: T(ab, 'boom.atk_scale') ?? 0, type: 'arts', r: FTZLC_BOOM.r, delay: FTZLC_BOOM.life, cond: (e) => !!e.mem.ab.ignited, sil: true, ability: 'boom' })];
 }
@@ -284,8 +296,9 @@ function kitIgnitable(ab) {
  * (SwitchableEffectByBlackboardValue) shows enemy_ftsjc_buff_01…03 by.
  */
 const FLAME_VINE_STAGES = Object.freeze([0.5, 0.99]);
-const flameVineStage = (ratio) => 1 + FLAME_VINE_STAGES.filter((x) => ratio >= x).length;
+const flameVineStage = (/** @type {number} */ ratio) => 1 + FLAME_VINE_STAGES.filter((x) => ratio >= x).length;
 
+/** @type {AbKit} */
 function kitFlameVine(ab) {
   const add = T(ab, 'pow.add_max_atk') ?? 0, time = T(ab, 'pow.time') ?? 0;
   const first = T(ab, 'pow.attack@ep_damage_ratio') ?? 0, normal = T(ab, 'pow.attack@ep_damage_ratio_normal') ?? 0;
@@ -328,10 +341,11 @@ function kitFlameVine(ab) {
  * `3`'s dslntf_s_1[block] — on each ally-side unit within `3.range_radius` (its collider met), every category and
  * profession; on a 赘生甲壳 (`[core]`) it takes `3.hp_ratio` of its own max HP as 真实 damage (DamageViaMaxHpRatio reads
  * `hp_ratio`, `_multiplyByKey` off), effect enemy_dslntf_buff_02 on itself, and the shell dies at once.
+ * @type {AbKit}
  */
 function kitNucleus(ab) {
   const st = { on: false };   // the 临战 state (one kit per enemy)
-  const wake = (b, e) => {
+  const wake = (/** @type {Battle} */ b, /** @type {Unit} */ e) => {
     if (st.on) return;
     st.on = true;
     // dslntf_tr_1[aura_effect] comes with it (overrideEffectKey enemy_dslntf_buff_03 on it: the buff's `fxTag`)
@@ -372,6 +386,7 @@ function kitNucleus(ab) {
  * as it fell, and the battle waits for it (`_managedByScheduler`, not `_dontBlockWave`). A boat that fell grazing a wall:
  * its spot pulled out as every dead spawn's (spawnChildren `spot.map` → groundSpot). Until 2026-11-21 at once
  * (docs/rules/sim.md 「사망 소환물의 자리」).
+ * @param {AbState} ab @returns {EnemyAbility}
  */
 function magmotSummon(ab) {
   const key = ab.tS['DeathRattle.enemy_key'], delay = T(ab, 'DeathRattle.delay') ?? MAGMOT_SUMMON_DELAY;
@@ -388,7 +403,7 @@ function magmotSummon(ab) {
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
-export const ELEMENT_KITS = Object.freeze({
+export const ELEMENT_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Object.freeze({
   // --- ELEMENT 元素
   enemy_1148_dssbr: kitEp('neural', 'epdamage.attack@ep_damage_ratio'),       // 底海滑动者 · neural on hit
   enemy_1148_dssbr_2: kitEp('neural', 'epdamage.attack@ep_damage_ratio'),     // 富营养的滑动者 · neural on hit
@@ -410,4 +425,4 @@ export const ELEMENT_KITS = Object.freeze({
   enemy_9007_acelem: kitParasite,                                    // 假想敌：淤困 · taunt −1; parasitises its blocker (arts/s, element taken ×, its burst spreads 1000)
   enemy_10065_ftzlc: kitIgnitable,                                   // 卷心籽 · ignited by 灼藤 → arts death blast
   enemy_10067_ftsjc: kitFlameVine,                                   // 灼藤 · ATK ramps until the 1st attack (3×3 arts + burn), burn on hit, ignites 卷心籽
-});
+}));

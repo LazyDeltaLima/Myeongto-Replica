@@ -5,6 +5,10 @@ import { SHELL_SPLASH_RADIUS, num, T, elem, hurt, areaAllies, shoot } from './he
 import { splashAttack, noAirTargets, resist, immuneTo, bleed, pollution, dmgZone, kitPolluted } from './archetypes.js';
 import { hypot } from '../../detmath.js';
 import { normShot } from '../../simdata.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { BuffTick } from './helpers.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -39,12 +43,13 @@ const NEST_PULSE_TAG = 'nestPulse';
  * DISAPPEAR leg (消失). The pulse is an area selection (areaAllies: a 迷彩 ally and a flying one — the 炎佑 dragon — are
  * hit, a 隐匿 one is not) of radius `rangeRadius` around its centre, like 鼎沸's. [ASSUMED] the pulse can be dodged (闪避:
  * PRTS names no attack type, which the site reads as 普通伤害 — the 烹泉 splash rule) and a dodged one adds no 神经.
+ * @type {EnemyKit}
  */
 function kitDsubrl(ab, e) {
   const ratio = T(ab, 'EpDamage.ep_damage_ratio') ?? 0;
   return [resist(['sluggish']), {
     spawn(b, e2) {
-      e2.profile.noAttack = true;
+      /** @type {Record<string, any>} */ (e2.profile).noAttack = true;
       // 每次输出伤害时: every pulse that reaches the unit (not dodged, not cancelled — the old attack's `dealt` rule)
       if (ratio > 0) b.on('damaged', (c) => { if (c.source === e2 && c.dmg && c.dmg.tags.includes(NEST_PULSE_TAG)) elem(b, e2, c.target, 'neural', e2.s.atk * ratio); }, { owner: e2 });
     },
@@ -75,6 +80,7 @@ function kitDsubrl(ab, e) {
  * Its skill is ready (SP full) while it carries the client buff `nhtank_s_effect` (effect enemy_nhtank_attack_buff_01): the
  * passive buff of its Talent/Empty (template enemy_nhtank_s_effect[buff], `triggerInterval` 0.1 s, the first check 0.1 s
  * after it comes) adds it on a trigger with SP = 2 and finishes it on one without — TANK_READY_KEY, synced on that cadence.
+ * @type {EnemyKit}
  */
 function kitTank(ab, e) {
   const melee = T(ab, 'Empty.attack@chuang_atk_scale') ?? 1;
@@ -84,7 +90,7 @@ function kitTank(ab, e) {
   const max = Math.max(1, num(spd && spd.maxSp, 0) || (sk && sk.sp) || (T(ab, 'Empty.sp') ?? 2));
   const init = Math.min(max, Math.max(0, num(spd && spd.initSp, 0)));
   return [{
-    spawn(b, e2, a) { a.sp = init; a.skill = false; e2.profile.canTarget = (u) => !!u.ground && !u.isFlying; },
+    spawn(b, e2, a) { a.sp = init; a.skill = false; /** @type {Record<string, any>} */ (e2.profile).canTarget = (/** @type {Unit} */ u) => !!u.ground && !u.isFlying; },
     iv: TANK_READY_CHECK,
     tick(b, e2, a) {
       const on = !!e2.findBuff(TANK_READY_KEY);
@@ -106,7 +112,7 @@ function kitTank(ab, e) {
       // the attack itself
       const x = t.x, y = t.y;
       const zone = () => pollution(b, e2, x, y, TANK_ZONE_RADIUS, s.projectile_life_time ?? 0, s.polluted_damage_low ?? 0, s.polluted_damage_high ?? 0, sk?.name ?? null);
-      const v = sk?.proj?.speed > 0 ? sk.proj.speed : 0;
+      const v = sk?.proj?.speed > 0 ? /** @type {Record<string, any>} */ (sk.proj).speed : 0;
       const d = hypot(x - e2.x, y - e2.y);
       if (v > 0 && d > 0.75) b.after(d / v, zone); else zone();
     },
@@ -116,7 +122,7 @@ function kitTank(ab, e) {
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
-export const DOT_KITS = Object.freeze({
+export const DOT_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Object.freeze({
   // --- DOT 持续
   enemy_1234_dsubrl: kitDsubrl,                                      // 深溟巢涌者 · no attack: an arts pulse on every ally in range each second + neural; 抵抗, immune 停顿
   enemy_1234_dsubrl_2: kitDsubrl,                                    // 富营养的巢涌者 · same
@@ -135,7 +141,7 @@ export const DOT_KITS = Object.freeze({
       // a sourceless zone (`src` null): its ticks skip a 隐匿 / untargetable / sleeping operator (PRTS 假想敌：蚀裂: no 无视
       // 可选性 note — PRTS 作战机制's "无来源的毒雾" that reaches 隐匿 units is the stage hazard), not an airborne 起飞 one
       // (the zone names talent `1` for the render: its projectile's reach effect enemy_actoxi_idle is the cloud)
-      const cloud = (x, y) => dmgZone(b, null, x, y, T(ab, '1.projectile_range') ?? 0.8, T(ab, '1.projectile_life_time') ?? 0, T(ab, '1.interval') ?? 1, atk * (T(ab, '1.damage_atk_scale') ?? 0), 'arts', 'poison', null, 0, { by: e, ability: '1' });
+      const cloud = (/** @type {number} */ x, /** @type {number} */ y) => dmgZone(b, null, x, y, T(ab, '1.projectile_range') ?? 0.8, T(ab, '1.projectile_life_time') ?? 0, T(ab, '1.interval') ?? 1, atk * (T(ab, '1.damage_atk_scale') ?? 0), 'arts', 'poison', null, 0, { by: e, ability: '1' });
       // the cloud flies as its talent's official projectile (data/enemies.json talentProj['1'] — projectile_enemy_actoxi, a
       // PARACURVE at 5 tiles/s; until 2026-10-10 8); since 2026-10-31 its fx 'enemyShot' draws the official flight
       if (k) shoot(b, e, k, normShot(e.def?.raw?.talentProj?.['1']) ?? { key: null, move: 'PARACURVE', speed: 5 }, (_t, h) => cloud(h ? h.x : k.x, h ? h.y : k.y), { hitDead: true, zone: true });
@@ -165,4 +171,4 @@ export const DOT_KITS = Object.freeze({
       }
     },
   }],
-});
+}));
