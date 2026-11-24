@@ -19,8 +19,12 @@
 import * as S from '../../support/index.js';
 import * as items from '../../items.js';
 import { num, reached, onLayers } from '../shared.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BondInstaller, BondTemplate } from '../shared.js' */
+/** @import { SkillEv, DeathEv } from '../../support/index.js' */
 
-/** Members carrying equipment deal ×(base_damage_scale + damage_scale_per_stack·L) (both directions). */
+/** Members carrying equipment deal ×(base_damage_scale + damage_scale_per_stack·L) (both directions). @type {BondInstaller} */
 function damageScale(battle, pid, bb, members) {
   const apply = () => {
     const mul = num(bb.base_damage_scale, 1) + num(bb.damage_scale_per_stack, 0) * S.bondLayers(battle, pid, 'victoriaShip');
@@ -32,6 +36,7 @@ function damageScale(battle, pid, bb, members) {
   onLayers(battle, pid, 'victoriaShip', apply);
 }
 
+/** @type {BondInstaller} */
 function installVictoria(battle, pid, bb, members) {
   damageScale(battle, pid, bb, members);
   if (!reached(battle, pid, 'victoriaShip', bb.power_bond_char_cnt)) return;
@@ -45,26 +50,27 @@ function installVictoria(battle, pid, bb, members) {
   }
 }
 
+/** @type {BondInstaller} */
 function installVictoriaAct3(battle, pid, bb, members) {
   damageScale(battle, pid, bb, members);
   if (!reached(battle, pid, 'victoriaShip', bb.power_bond_char_cnt)) return;
   const lenders = new Set(members.filter((u) => S.isOp(u) && S.itemsOf(u).length >= 1));
   if (!lenders.size) return;
-  /** lender → { targets, until, timer } while its [share_equip] runs */
+  /** lender → { targets, until, timer } while its [share_equip] runs @type {Map<Unit, { targets: Unit[], timer: { cancel(): void } | null }>} */
   const running = new Map();
-  const end = (u) => {
+  const end = (/** @type {Unit} */ u) => {
     const st = running.get(u);
     if (!st) return;
     running.delete(u);
     if (st.timer) st.timer.cancel();
     for (const t of st.targets) items.endLentItems(battle, u, t);
   };
-  const lend = (u, targets, duration) => {
+  const lend = (/** @type {Unit} */ u, /** @type {Unit[]} */ targets, /** @type {number} */ duration) => {
     let n = 0;
     for (const t of targets) if (items.lendItemEffects(battle, u, t, { maxTier: Infinity, duration }) > 0) n++;
     return n;
   };
-  battle.on('skillStart', ({ unit }) => {
+  battle.on('skillStart', (/** @type {SkillEv} */ { unit }) => {
     if (!lenders.has(unit) || !S.onField(unit)) return;
     const L = S.bondLayers(battle, pid, 'victoriaShip');
     const duration = Math.min(num(bb.share_equip_duration_max, Infinity),
@@ -80,9 +86,10 @@ function installVictoriaAct3(battle, pid, bb, members) {
     const n = lend(unit, st.targets, duration);
     if (n) S.fxOn(battle, 'bondShare', unit, 'bond:victoriaShip', 'share', { n, duration });
   });
-  battle.on('death', ({ unit }) => { if (running.has(unit)) end(unit); });
+  battle.on('death', (/** @type {DeathEv} */ { unit }) => { if (running.has(unit)) end(unit); });
 }
 
+/** @type {Readonly<Record<string, BondTemplate>>} */
 export const TEMPLATES = Object.freeze({
   act1autochess_bond_eff_victoria: { bond: 'victoriaShip', battle: installVictoria },
   act3autochess_bond_eff_victoria: { bond: 'victoriaShip', battle: installVictoriaAct3 },

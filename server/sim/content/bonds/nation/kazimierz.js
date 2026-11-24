@@ -15,7 +15,13 @@
 import * as S from '../../support/index.js';
 import { isNormalDamage, isHpLoss } from '../../../damage.js';
 import { num, reached, onLayers, onOwnLayers, onUnitDamaged, onDealt, isEnemyTarget, isFoe, isAddition, isElement } from '../shared.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BondInstaller, BondTemplate } from '../shared.js' */
+/** @import { DeployEv, SkillEv, DeathEv, DamagedEv } from '../../support/index.js' */
+/** @typedef {{ deploys: number, applies: Array<() => void> }} KazimierzBorn the field's deploy count (kazimierz_born) */
 
+/** @type {BondInstaller} */
 function installKazimierz(battle, pid, bb, members) {
   // the deploy count kazimierz_born: the env buff's ON_BUFF_START adds 1 (AddGlobalBlackboard) on the battle's global
   // blackboard, channel CHARACTER — one blackboard per channel, no player key (BattleGlobalBlackboard) ⇒ one count for
@@ -24,6 +30,7 @@ function installKazimierz(battle, pid, bb, members) {
   // its player filter is the global buff data's playerSideMask (GlobalBuff.OnInit → TargetOptions.Init), the bond
   // owner's side: AutoChessBattleDataModel._AddPackedRuneData writes that side into each bond rune's selector and
   // LGlobalBuffNew.OnPreprocessFinished copies it into the global buff data
+  /** @type {KazimierzBorn} */
   const st = S.battleStore(battle, 'bond:kazimierz:born', () => ({ deploys: 0, applies: [] }));
   const apply = () => {
     const cap = num(bb.base_max_atk_when_born, 0) + num(bb.max_atk_when_born_per_stack, 0) * S.bondLayers(battle, pid, 'kazimierzShip');
@@ -32,7 +39,7 @@ function installKazimierz(battle, pid, bb, members) {
     for (const u of members) S.passiveBuff(battle, u, 'bond:kazimierz', S.directMods({ atk: bonus }));
   };
   st.applies.push(apply);
-  battle.on('deploy', ({ unit }) => {
+  battle.on('deploy', (/** @type {DeployEv} */ { unit }) => {
     if (!S.isOp(unit) || unit.ownerId !== pid) return;
     st.deploys++;
     for (const f of st.applies) f();
@@ -44,6 +51,7 @@ function installKazimierz(battle, pid, bb, members) {
     // client buff graph kazimierz[ex]: ON_OWNER_BLOCKEE_CHANGED creates the [ex][damage] buff when the member starts
     // blocking and finishes it when it blocks nobody; its ticks (bb `interval` = damage_interval, waitFirstTriggerInterval
     // false) pulse at once, then every damage_interval s while the member keeps blocking — a timer per member
+    /** @type {Map<Unit, number>} */
     const next = new Map();
     battle.every(0, () => {
       for (const m of members) {
@@ -67,8 +75,8 @@ function installKazimierz(battle, pid, bb, members) {
   }
   const pure = num(bb.pure_atk_scale, 0);
   if (!(pure > 0)) return;
-  const onDmg = (ctx) => {
-    const u = ctx.source, t = ctx.target, dmg = ctx.dmg;
+  const onDmg = (/** @type {DamagedEv} */ ctx) => {
+    const u = /** @type {Unit} */ (ctx.source), t = ctx.target, dmg = ctx.dmg;
     // kazimierz[ex] ON_OUTPUT_DAMAGE: every 普通伤害 instance (attack type NORMAL — skill hits too, not 溅射 / 持续 / 附加,
     // not a dodged one) while the member blocks nobody
     if (!isEnemyTarget(t) || !isNormalDamage(dmg)) return;
@@ -79,13 +87,14 @@ function installKazimierz(battle, pid, bb, members) {
   for (const u of members) onUnitDamaged(battle, u, onDmg);
 }
 
-const benchKey = (pid) => `bond:kazimierz:bench:${pid}`;
+const benchKey = (/** @type {string} */ pid) => `bond:kazimierz:bench:${pid}`;
 
 /**
  * The 6 switch's candidates (act3autochess_bond_eff_kazimierz_power[switch] AutoChessMarkSwitchWithHand: `_checkBond`
  * kazimierzShip, `_buildableType` MELEE, `_selectType` RIGHT): the player's 整备区 卡西米尔 members of the ground deploy
  * class, rightmost slot first, as reserve operators (battle/players.js createReserveAlly) — created before any content
  * installs, so they carry their bonds, items and kit like a board operator once fielded.
+ * @type {NonNullable<BondTemplate['reserve']>}
  */
 function reserveKazimierz(battle, pid, bb) {
   if (!reached(battle, pid, 'kazimierzShip', bb.power_bond_char_cnt)) return;
@@ -102,8 +111,10 @@ function reserveKazimierz(battle, pid, bb) {
   }
 }
 
+/** @type {BondInstaller} */
 function installKazimierzAct3(battle, pid, bb, members) {
   // kazimierz_born: one count for the field (installKazimierz, the same global blackboard)
+  /** @type {KazimierzBorn} */
   const st = S.battleStore(battle, 'bond:kazimierz:born', () => ({ deploys: 0, applies: [] }));
   const apply = () => {
     const cap = num(bb.base_max_atk_when_born) + num(bb.max_atk_when_born_per_stack) * S.bondLayers(battle, pid, 'kazimierzShip');
@@ -111,7 +122,7 @@ function installKazimierzAct3(battle, pid, bb, members) {
     if (bonus > 0) for (const u of members) S.passiveBuff(battle, u, 'bond:kazimierz', S.directMods({ atk: bonus }));
   };
   st.applies.push(apply);
-  battle.on('deploy', ({ unit }) => {
+  battle.on('deploy', (/** @type {DeployEv} */ { unit }) => {
     if (!S.isOp(unit) || unit.ownerId !== pid) return;
     st.deploys++;
     for (const f of st.applies) f();
@@ -120,12 +131,13 @@ function installKazimierzAct3(battle, pid, bb, members) {
   if (!reached(battle, pid, 'kazimierzShip', bb.power_bond_char_cnt)) return;
   const memberSet = new Set(members);
   const dur = num(bb.ex_damage_duration, 30);
+  /** @type {Map<Unit, number>} */
   const until = new Map();
   // [ex_damage] (EXTEND): from the member's arrival (kazimierz_power ON_BUFF_START) and every skill cast
-  battle.on('deploy', ({ unit }) => { if (memberSet.has(unit)) until.set(unit, battle.time + dur); });
-  battle.on('skillStart', ({ unit }) => { if (memberSet.has(unit)) until.set(unit, battle.time + dur); });
-  const onDmg = (c) => {
-    const u = c.source, t = c.target, dmg = c.dmg;
+  battle.on('deploy', (/** @type {DeployEv} */ { unit }) => { if (memberSet.has(unit)) until.set(unit, battle.time + dur); });
+  battle.on('skillStart', (/** @type {SkillEv} */ { unit }) => { if (memberSet.has(unit)) until.set(unit, battle.time + dur); });
+  const onDmg = (/** @type {DamagedEv} */ c) => {
+    const u = /** @type {Unit} */ (c.source), t = c.target, dmg = c.dmg;
     if (!isFoe(t) || !dmg || isElement(c) || isAddition(dmg) || isHpLoss(dmg) || battle.time > (until.get(u) ?? -Infinity) + 1e-9) return;
     const k = Math.min(num(bb.ex_atk_scale_max, Infinity), num(bb.ex_atk_scale_base) + num(bb.ex_atk_scale_per_stack) * S.bondLayers(battle, pid, 'kazimierzShip'));
     if (k > 0) battle.dealDamage(u, t, { amount: k * num(u.s.atk), type: 'true', canDodge: false, tags: ['bond:kazimierz', 'addition'] });
@@ -138,9 +150,9 @@ function installKazimierzAct3(battle, pid, bb, members) {
   // bond states stay as they are ("不改变当前盟约的激活状态": the battle's bond counts are its input's)
   const bench = S.battleStore(battle, benchKey(pid), () => []);
   if (!bench.length) return;
-  battle.on('death', ({ unit, reason }) => {
+  battle.on('death', (/** @type {DeathEv} */ { unit, reason }) => {
     if (reason !== 'killed' || unit.alive || unit.removed || !memberSet.has(unit) || !S.isGroundOp(unit)) return;
-    const next = bench.find((u) => !(u.deploySeq > 0));
+    const next = bench.find((/** @type {Unit} */ u) => !(u.deploySeq > 0));
     if (!next) return;
     const tile = battle.restTile(unit);
     unit.removed = true;
@@ -149,6 +161,7 @@ function installKazimierzAct3(battle, pid, bb, members) {
   }, { priority: -1000 });
 }
 
+/** @type {Readonly<Record<string, BondTemplate>>} */
 export const TEMPLATES = Object.freeze({
   act2autochess_bond_eff_kazimierz: { bond: 'kazimierzShip', battle: installKazimierz },
   act3autochess_bond_eff_kazimierz: {

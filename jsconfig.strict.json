@@ -25,7 +25,8 @@
     "server/match/*.js",
     "server/sim/content/kits/*.js",
     "server/sim/content/garrisons/**/*.js",
-    "server/sim/content/support/**/*.js"
+    "server/sim/content/support/**/*.js",
+    "server/sim/content/bonds/**/*.js"
   ],
   "exclude": []
 }

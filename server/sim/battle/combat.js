@@ -3,6 +3,7 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
 import { dealDamage as pipeDamage, heal as pipeHeal, applyHpLoss, makeDamageInfo, reduceElement, leaderHitLimit, hitFx } from '../damage.js';
 import { effectiveProfile, performAttack, acquireTargets } from '../ai.js';
 
@@ -28,6 +29,9 @@ export class BattleCombat {
    * it lands as BOSS_HIT_LIMIT)
    * — except with `noHitLimit: true`: a share of the leader's pool that is no hit (胄's 死亡集群 drone link, content/bosses.js).
    * `moment`: a kit's official effect moment for the loss (the 'dmg' event's 9th field, damage.js fxField).
+   * @param {Unit} target @param {number} amount
+   * @param {{ source?: Unit | null, silent?: boolean, tags?: string[] | null, from?: Record<string, any> | null,
+   *   sourceless?: boolean, noHitLimit?: boolean, moment?: string | null }} [opts]
    * @this {Battle}
    */
   loseHp(target, amount, { source = null, silent = false, tags = null, from = null, sourceless = false, noHitLimit = false, moment = null } = {}) {

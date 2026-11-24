@@ -119,6 +119,7 @@ export class Unit {
     if (this.side === 'enemy') this.elem.rampage = 0;   // 狂躁: enemies only so far (constants.js ELEMENT.rampage)
     this.burstPending = null;   // { [element]: true } while that element's burst resolves (damage.js burstLocked)
     this.tags = new Set(init.tags || []);
+    /** @type {Record<string, any>} */
     this.mem = {};              // free scratch space for content (per unit)
     // a countdown summon's life on the field ({ from, until } battle times; content/tokens.js startCountdown, cleared by
     // every deployment): its bar shows the time left (snapshot.js unitTuple), its HP never moves (无敌 + 禁疗)
@@ -157,7 +158,7 @@ export class Unit {
   /** Forward vector [dRow, dCol] (UP = +row). */
   get fwd() { return DIR_VEC[this.dir] ?? DIR_VEC.RIGHT; }
 
-  /** Aggregated stats (lazy). */
+  /** Aggregated stats (lazy: never null once read). @returns {NonNullable<Unit['_s']>} */
   get s() {
     if (this._dirty) this._recalc();
     return this._s;

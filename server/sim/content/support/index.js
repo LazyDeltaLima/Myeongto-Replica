@@ -23,20 +23,22 @@ import { frontOf, offsetTile } from '../../dir.js';
 import { bodyInKeys, bodyDist, bodyInRadius, bodyOnTile, bodyTileReach, bodyInRange } from '../../body.js';
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
+/** @import { SkillRuntime } from '../../skills.js' */
 /**
  * Where a data lookup reads (scopeData): a battle, a prep ctx, a data object, or none (the default season's).
  * @typedef {Record<string, any> | null | undefined} DataScope
  */
 /**
  * The payloads of the battle hooks content listens to (`battle.on(name, fn)`), as the engine emits them: `deploy`
- * (`move` for a relocation), `kill`, `death`, `skillStart` / `dollSwap` / `ammoUsed` (the unit, with more each),
+ * (`move` for a relocation), `skillStart` / `skillEnd` / `ammoUsed` (the unit and its skill), `kill`, `death` (`revivedBy`: a handler that already stood the unit up again, items/shared.js), `skillStart` / `dollSwap` / `ammoUsed` (the unit, with more each),
  * `statusApplied` (`entered`: a new entry, not a refresh), `tick`, `elementBurst`, `hit` (the damage record a modifier
  * edits), `damaged` (`dmg` null for true damage without a record), `layerGain` (`n` a modifier may raise; `tile` where
  * the source stands or fell).
  * @typedef {{ unit: Unit, initial?: boolean, move?: boolean }} DeployEv
  * @typedef {{ killer: Unit | null, victim: Unit }} KillEv
- * @typedef {{ unit: Unit, reason: string, killer: Unit | null, dying: boolean }} DeathEv
+ * @typedef {{ unit: Unit, reason: string, killer: Unit | null, dying: boolean, revivedBy?: string }} DeathEv
  * @typedef {{ unit: Unit }} UnitEv
+ * @typedef {{ unit: Unit, skill: SkillRuntime, reason?: string, left?: number }} SkillEv
  * @typedef {{ source: Unit | null, target: Unit, status: string, duration: number, value?: number, entered: boolean }} StatusEv
  * @typedef {{ dt: number }} TickEv
  * @typedef {{ source: Unit | null, target: Unit, element: string }} BurstEv

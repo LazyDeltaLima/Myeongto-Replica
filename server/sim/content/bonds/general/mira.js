@@ -15,17 +15,21 @@
 // works while 奇迹 is active]
 
 import { settler } from '../templates.js';
+/** @import { MetaCtx, MetaHandlers } from '../../../../match/effectsMeta.js' */
+/** @import { PrepTemplate } from '../templates.js' */
 
 const KEY = 'bond_layer_shop_same_tier';
 const C_ON = 'bondaddon:mira:sameTier';
-const n = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const n = (/** @type {unknown} */ v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
+/** @param {MetaCtx} ctx */
 function layerOf(ctx) {
   const rec = ctx.data?.bonds?.miraShip;
-  const b = (Array.isArray(rec?.buffs) ? rec.buffs : []).find((x) => x && x.key === KEY);
+  const b = (Array.isArray(rec?.buffs) ? rec.buffs : []).find((/** @type {Record<string, any> | null} */ x) => x && x.key === KEY);
   return n(b?.bb?.layer, Infinity);
 }
 
+/** @param {MetaCtx} ctx */
 function latch(ctx) {
   if (!ctx.bondActive('miraShip') || ctx.counter(C_ON) > 0) return;
   if (ctx.layers('miraShip') >= layerOf(ctx)) ctx.setCounter(C_ON, 1);
@@ -33,7 +37,7 @@ function latch(ctx) {
 
 /**
  * Redraw the rightmost operator card at the 调度中心's level, left of the `pinned` rightmost cards a 指令 fixed.
- * @param {any} ctx @param {{ fresh?: number[] | null, pinned?: number }} [o] fresh: the positions drawn anew (null = all)
+ * @param {MetaCtx} ctx @param {{ fresh?: number[] | null, pinned?: number }} [o] fresh: the positions drawn anew (null = all)
  */
 function guarantee(ctx, { fresh = null, pinned = 0 } = {}) {
   latch(ctx);
@@ -47,6 +51,7 @@ function guarantee(ctx, { fresh = null, pinned = 0 } = {}) {
   if (id) ctx.setShopSlot(pool[pool.length - 1], { kind: 'chess', id });
 }
 
+/** @returns {MetaHandlers} */
 const part = () => ({
   ...settler('miraShip', latch),
   onRoundStart(ctx, ev) {
@@ -59,6 +64,7 @@ const part = () => ({
   },
 });
 
+/** @type {Readonly<Record<string, PrepTemplate>>} */
 export const TEMPLATES = Object.freeze({
   [KEY]: { bonds: ['miraShip'], prep: part },
 });

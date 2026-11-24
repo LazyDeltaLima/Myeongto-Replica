@@ -4,6 +4,7 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
 import { ROWS, COLS, DOWN_STATE } from '../constants.js';
 import { localOrder, localBefore } from '../dir.js';
 
@@ -102,6 +103,7 @@ export class BattleTiles {
    * 整备区 switch is CN-only; the EN in-battle switch node `AutoChessSwitchCharacter` rewrites each piece's board
    * position (`ChessInst.pos`) to its new tile].
    * `except(a)` (local patch): a waiting piece it returns true for reserves nothing (望's own used stones, kits/ops/op-wang.js).
+   * @param {number} r @param {number} c @param {((a: Unit) => boolean) | null} [except] @param {Unit | null} [src]
    * @this {Battle}
    */
   isReservedTile(r, c, except = null, src = null) {

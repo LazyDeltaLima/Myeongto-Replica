@@ -41,6 +41,10 @@ import * as mira from './general/mira.js';
 import * as addonBattle from './addon/battle.js';
 import * as addonMeta from './addon/meta.js';
 import * as common from './templates.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { MetaRegistry } from '../../../match/effectsMeta.js' */
+/** @import { BondRec } from './shared.js' */
+/** @import { DataScope } from '../support/index.js' */
 
 /** @typedef {readonly [string, { TEMPLATES: Record<string, any> }]} BondFile a bond file and its module */
 
@@ -109,8 +113,9 @@ export const ORDER = Object.freeze([
 // A target direction whose battle templates are not all written here is not switched (the player keeps the season's
 // direction; the coverage report shows the strategy's row partial).
 
-/** The strategy record's replacements: the bond effect id → the effect id it becomes (first stage that has one). */
+/** The strategy record's replacements: the bond effect id → the effect id it becomes (first stage that has one). @param {BondRec} bandRec */
 export function bondEffectReplacements(bandRec) {
+  /** @type {Map<string, string>} */
   const out = new Map();
   const stages = Array.isArray(bandRec?.skills) && bandRec.skills.length ? bandRec.skills : bandRec ? [bandRec] : [];
   for (const st of stages) {
@@ -123,10 +128,11 @@ export function bondEffectReplacements(bandRec) {
 }
 
 const RUNE_KEYS = new Set(['env_gbuff_new', 'env_gbuff_new_with_verify', 'char_dynamic_ability_new']);
-const isRune = (b) => RUNE_KEYS.has(b?.key);
+const isRune = (/** @type {Record<string, any> | null | undefined} */ b) => RUNE_KEYS.has(b?.key);
 
-/** The battle templates of an effect record that no bond file handles (empty: every one is written). */
+/** The battle templates of an effect record that no bond file handles (empty: every one is written). @param {BondRec} eff */
 export function unwrittenTemplates(eff) {
+  /** @type {string[]} */
   const out = [];
   for (const b of Array.isArray(eff?.buffs) ? eff.buffs : []) {
     if (!isRune(b)) continue;
@@ -140,6 +146,7 @@ export function unwrittenTemplates(eff) {
  * The bond record a holder of `bandRec` plays: `rec` with the other direction's effect (its id, name, texts and battle
  * buffs; the prep buffs stay `rec`'s) when the strategy switches it and that direction is written, else `rec` itself.
  * `effectOf(id)`: the season's effects.json record.
+ * @param {BondRec} rec @param {BondRec} bandRec @param {(id: string) => BondRec} effectOf
  */
 export function swapBondRecord(rec, bandRec, effectOf) {
   if (!rec || !bandRec || typeof effectOf !== 'function') return rec;
@@ -148,27 +155,31 @@ export function swapBondRecord(rec, bandRec, effectOf) {
   if (!eff || unwrittenTemplates(eff).length) return rec;
   return {
     ...rec, effectId: to, effectName: eff.name ?? rec.effectName, effectDesc: eff.desc ?? rec.effectDesc, effectDescRaw: eff.descRaw ?? rec.effectDescRaw,
-    buffs: [...(eff.buffs || []).filter(isRune), ...(rec.buffs || []).filter((b) => !isRune(b))],
+    buffs: [...(eff.buffs || []).filter(isRune), ...(rec.buffs || []).filter((/** @type {Record<string, any>} */ b) => !isRune(b))],
     replacedEffectId: rec.effectId,
   };
 }
 
-/** The bond record player `pid`'s battle runs (swapBondRecord with the player's strategy; scope: the battle). */
+/**
+ * The bond record player `pid`'s battle runs (swapBondRecord with the player's strategy; scope: the battle).
+ * @param {Battle} scope @param {string | null | undefined} pid @param {string} bondId
+ */
 export function playerBondRecord(scope, pid, bondId) {
   const rec = S.bondRecord(bondId, scope);
   const bandId = pid != null ? S.player(scope, pid)?.bandId : null;
   if (!rec || !bandId) return rec;
   const effects = S.dataFile(scope, 'effects') || {};
-  return swapBondRecord(rec, S.bandRecord(bandId, scope), (id) => (Object.hasOwn(effects, id) ? effects[id] : null));
+  return swapBondRecord(rec, S.bandRecord(bandId, scope), (/** @type {string} */ id) => (Object.hasOwn(effects, id) ? effects[id] : null));
 }
 
 /**
  * The installer's numbers for `bondId` under template `key` (null when the record does not carry it); with `pid`, the
  * record that player's battle runs (playerBondRecord).
+ * @param {string} bondId @param {string} key @param {DataScope} [scope] @param {string | null} [pid]
  */
 export function templateNumbers(bondId, key, scope = null, pid = null) {
   const d = BATTLE[key];
-  const rec = pid != null && typeof scope?.getPlayer === 'function' ? playerBondRecord(scope, pid, bondId) : S.bondRecord(bondId, scope);
+  const rec = pid != null && typeof scope?.getPlayer === 'function' ? playerBondRecord(/** @type {Battle} */ (scope), pid, bondId) : S.bondRecord(bondId, scope);
   return d && d.bb === 'record' ? recordBb(rec, key) : templateBb(rec, key);
 }
 
@@ -178,8 +189,10 @@ export function templateNumbers(bondId, key, scope = null, pid = null) {
  * — a hand operator of that deploy class (`position` null: any — 规程's 阿戈尔 6) carrying the bond (or 调和) once the
  * player has `need` members. A superset: the
  * template's `reserve` picks the exact candidates. Only these travel, so the spec shows no more of a player's hand.
+ * @param {(id: string) => BondRec} bondOf
  */
 export function handRules(bondOf) {
+  /** @type {Array<{ bond: string, position: string | null, need: number }>} */
   const out = [];
   for (const [key, d] of Object.entries(BATTLE)) {
     if (typeof d.hand !== 'function') continue;
@@ -193,6 +206,7 @@ export function handRules(bondOf) {
 /**
  * Before any content installs (content/index.js `reserve`): the templates with a `reserve(battle, pid, bb)` create the
  * reserve operators they may field (battle/players.js createReserveAlly — 规程's 卡西米尔 6 switch), in ORDER, per player.
+ * @param {Battle} battle
  */
 export function reserve(battle) {
   if (!battle || !Array.isArray(battle.players)) return;
@@ -211,11 +225,13 @@ export function reserve(battle) {
   }
 }
 
+/** @param {Battle} battle */
 export function install(battle) {
   if (!battle || !Array.isArray(battle.players)) return;
+  /** @type {Error | null} */
   let first = null;
-  const run = (name, fn) => {
-    try { fn(); } catch (e) {
+  const run = (/** @type {string} */ name, /** @type {() => void} */ fn) => {
+    try { fn(); } catch (/** @type {any} */ e) {
       if (!first) { first = e; try { e.message = `${name}: ${e.message}`; } catch { /* frozen */ } }
     }
   };
@@ -238,7 +254,7 @@ export function install(battle) {
   if (first) throw first;
 }
 
-/** Prep side, from the season's bond records (`data`: absent, the default season's). */
+/** Prep side, from the season's bond records (`data`: absent, the default season's). @param {MetaRegistry} registry @param {Record<string, any>} [data] */
 export function registerMeta(registry, data = S.gameData()) {
   common.registerGlobals(registry);
   common.registerPrep(registry, data, PREP_FILES.map(([, mod]) => mod.TEMPLATES));
@@ -249,6 +265,7 @@ export function registerMeta(registry, data = S.gameData()) {
  * report's table (content/coverage.js adds the match engine's prep rules).
  */
 export function handledTemplates() {
+  /** @type {Record<string, { bonds: string[] | null, side: string, where: string, partial?: string[] }>} */
   const out = {};
   for (const [k, d] of Object.entries(BATTLE)) out[k] = { bonds: [d.bond], side: 'battle', where: d.where, ...(d.partial ? { partial: [...d.partial] } : {}) };
   for (const [k, d] of Object.entries(addonBattle.TEMPLATES)) out[k] = { bonds: [d.bond], side: 'battle', where: 'bonds/addon/battle.js' };

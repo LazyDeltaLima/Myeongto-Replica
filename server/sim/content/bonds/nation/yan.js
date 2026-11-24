@@ -15,8 +15,12 @@ import { spawnYanyou } from '../../tokens.js';
 import { isHpLoss } from '../../../damage.js';
 import { TICK } from '../../../constants.js';
 import { num, reached, onLayers, onDealt, standing, fieldMaxLayers, isFoe, isAddition, isElement } from '../shared.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BondInstaller, BondTemplate } from '../shared.js' */
+/** @import { DataScope, DamagedEv } from '../../support/index.js' */
 
-/** "总和的30%" → 0.3 (炎佑 stat share, text only; the scope's data, support dataFile). */
+/** "总和的30%" → 0.3 (炎佑 stat share, text only; the scope's data, support dataFile). @param {DataScope} [scope] */
 export function yanyouShare(scope = null) {
   const rec = S.bondRecord('yanShip', scope);
   const text = String(rec?.effectDesc ?? rec?.desc ?? '');
@@ -25,6 +29,7 @@ export function yanyouShare(scope = null) {
   return v > 0 && v <= 10 ? v : 0.3;
 }
 
+/** @type {BondInstaller} */
 function installYan(battle, pid, bb, members) {
   const L = () => S.bondLayers(battle, pid, 'yanShip');
   const apply = () => {
@@ -59,12 +64,13 @@ function installYan(battle, pid, bb, members) {
 /** The element of RandomSetter element_type 1…5 (ElementType: 1 神经 · 2 侵蚀 · 3 灼燃 · 4 凋亡 · 5 狂躁, CN only). */
 export const YAN_ELEMENTS = Object.freeze(['neural', 'erosion', 'burn', 'apoptosis', 'rampage']);
 
+/** @type {BondInstaller} */
 function installYanAct3(battle, pid, bb, members) {
   standing(battle, pid, 'yanShip', members, 'bond:yan', { atk: [bb.atk_base, bb.atk_per_stack] });
   if (!reached(battle, pid, 'yanShip', bb.power_bond_char_cnt)) return;
   const scale = () => Math.min(num(bb.ex_atk_scale_max, Infinity), num(bb.ex_atk_scale_base) + num(bb.ex_atk_scale_per_stack) * S.bondLayers(battle, pid, 'yanShip'));
-  const onDmg = (c) => {
-    const u = c.source, t = c.target;
+  const onDmg = (/** @type {DamagedEv} */ c) => {
+    const u = /** @type {Unit} */ (c.source), t = c.target;   // (onDealt runs it for its source)
     if (!isFoe(t) || !c.dmg || isElement(c) || isAddition(c.dmg) || isHpLoss(c.dmg) || !(c.amount > 0)) return;
     const el = YAN_ELEMENTS[battle.rng.int(YAN_ELEMENTS.length)];
     const amount = num(u.s.atk) * scale();
@@ -87,6 +93,7 @@ function installYanAct3(battle, pid, bb, members) {
   });
 }
 
+/** @type {Readonly<Record<string, BondTemplate>>} */
 export const TEMPLATES = Object.freeze({
   act1autochess_bond_eff_yan: { bond: 'yanShip', battle: installYan },
   act3autochess_bond_eff_yan: { bond: 'yanShip', battle: installYanAct3, bb: 'record' },

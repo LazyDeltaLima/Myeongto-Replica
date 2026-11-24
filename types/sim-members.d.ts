@@ -84,6 +84,8 @@ declare module '../server/sim/units.js' {
     atkStandCutAt?: number;
     unbalanceUntil?: number;
     uniteRuntime?: boolean;
+    // a summon that walks and holds no tile (content/bonds/walker.js; battle/deploy.js, battle/blocking.js)
+    walks?: boolean;
     // a summoned obstacle (battle/summons.js)
     obstacle?: boolean;
     obstacleKind?: 'block' | 'crate';

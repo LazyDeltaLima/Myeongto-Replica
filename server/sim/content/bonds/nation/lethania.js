@@ -27,28 +27,37 @@
 import * as S from '../../support/index.js';
 import { num, reached, fieldMaxLayers, standing } from '../shared.js';
 import { spawnWalker, nearestGroundTile } from '../walker.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BondInstaller, BondTemplate, BondBb } from '../shared.js' */
+/** @import { DeathEv } from '../../support/index.js' */
 
 const SMALL = 'enemy_9025_aclts', BIG = 'enemy_9026_acltm';
 /** The two OnAttack frames of “一个乐部”'s Skill clip (enemy spine `hits.Skill`): its Sk1 strikes twice, this far apart. */
 const BIG_SECOND_HIT = 0.767 - 0.533;
 
+/**
+ * The field's 莱塔尼亚 state: the player whose enemies' deaths summon, each player's live summons, its 乐部 and members.
+ * @param {Battle} battle
+ * @returns {{ owner: string | null, live: Map<string, number>, big: Map<string, number>, members: Map<string, Unit[]> }}
+ */
 function store(battle) {
   return S.battleStore(battle, 'bond:lethania', () => ({ owner: null, live: new Map(), big: new Map(), members: new Map() }));
 }
 
-/** Does a player of the field have `cnt` 莱塔尼亚 members (…InCurArea)? */
+/** Does a player of the field have `cnt` 莱塔尼亚 members (…InCurArea)? @param {Battle} battle @param {unknown} cnt */
 function fieldReached(battle, cnt) {
-  return battle.players.some((p) => reached(battle, p.playerId, 'lethaniaShip', cnt));
+  return battle.players.some((/** @type {{ playerId: string }} */ p) => reached(battle, p.playerId, 'lethaniaShip', cnt));
 }
 
-/** The [summoned] ATK of a summon, from the field's highest 莱塔尼亚 layers. */
+/** The [summoned] ATK of a summon, from the field's highest 莱塔尼亚 layers. @param {Battle} battle @param {BondBb} bb @param {Unit} u */
 function summonedAtk(battle, bb, u) {
   if (!u.alive) return;
   const L = Math.max(0, fieldMaxLayers(battle, 'lethaniaShip', 0));
   S.passiveBuff(battle, u, 'bond:lethania:summoned', S.directMods({ atk: num(bb.atk_base) + num(bb.atk_per_stack) * L }));
 }
 
-/** 一个乐部's aura on `pid`'s members: ASPD +base_attack_speed for each of the player's 乐部 on the field (header). */
+/** 一个乐部's aura on `pid`'s members: ASPD +base_attack_speed for each of the player's 乐部 on the field (header). @param {Battle} battle @param {string} pid */
 function syncAura(battle, pid) {
   const st = store(battle);
   const members = st.members.get(pid) ?? [];
@@ -62,10 +71,10 @@ function syncAura(battle, pid) {
   }
 }
 
-/** “一个乐部”'s Sk1: after 3 attacks the 4th strikes twice. */
+/** “一个乐部”'s Sk1: after 3 attacks the 4th strikes twice. @param {Battle} battle @param {Unit} u */
 function bigSkill(battle, u) {
   let sp = 0, extra = false;
-  battle.on('attack', (c) => {
+  battle.on('attack', (/** @type {{ attacker: Unit, targets: Unit[] }} */ c) => {
     if (c.attacker !== u || extra) return;
     if (sp < 3) { sp++; return; }
     sp = 0;
@@ -80,7 +89,7 @@ function bigSkill(battle, u) {
   }, { owner: u });
 }
 
-/** [summoner] for player `pid` where `at` fell. */
+/** [summoner] for player `pid` where `at` fell. @param {Battle} battle @param {string} pid @param {BondBb} bb @param {Unit} at */
 function summon(battle, pid, bb, at) {
   const st = store(battle);
   const six = fieldReached(battle, bb.power_bond_char_cnt);
@@ -111,21 +120,23 @@ function summon(battle, pid, bb, at) {
   }
 }
 
+/** @type {BondInstaller} */
 function installLethania(battle, pid, bb, members) {
   standing(battle, pid, 'lethaniaShip', members, 'bond:lethania', { atk: [bb.atk_base, bb.atk_per_stack] });
   const st = store(battle);
   st.members.set(pid, members);
-  const died = (c) => c.reason === 'killed';
+  const died = (/** @type {DeathEv} */ c) => c.reason === 'killed';
   if (st.owner == null) {
     st.owner = pid;
-    battle.on('death', (c) => { if (c.unit.side === 'enemy' && died(c)) summon(battle, pid, bb, c.unit); });
+    battle.on('death', (/** @type {DeathEv} */ c) => { if (c.unit.side === 'enemy' && died(c)) summon(battle, pid, bb, c.unit); });
   }
   if (reached(battle, pid, 'lethaniaShip', bb.power_bond_char_cnt)) {
     const set = new Set(members);
-    battle.on('death', (c) => { if (set.has(c.unit) && died(c)) summon(battle, pid, bb, c.unit); });
+    battle.on('death', (/** @type {DeathEv} */ c) => { if (set.has(c.unit) && died(c)) summon(battle, pid, bb, c.unit); });
   }
 }
 
+/** @type {Readonly<Record<string, BondTemplate>>} */
 export const TEMPLATES = Object.freeze({
   act3autochess_bond_eff_lethania: { bond: 'lethaniaShip', battle: installLethania, bb: 'record' },
 });

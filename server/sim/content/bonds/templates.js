@@ -25,11 +25,16 @@
 import * as S from '../support/index.js';
 import { msg, dn } from '../../../../shared/i18n.js';
 import { templatesOf } from './shared.js';
+/** @import { MetaCtx, MetaHandlers, MetaHook, MetaRegistry } from '../../../match/effectsMeta.js' */
+/**
+ * A prep template: the bonds it may belong to (null: any) and the handler part it gives a bond (`prep(bondId)`).
+ * @typedef {{ bonds: readonly string[] | null, prep: (bondId: string) => MetaHandlers }} PrepTemplate
+ */
 
 const num = S.num;
-const n = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const n = (/** @type {unknown} */ v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
-/** `{ ...bb, ...bbStr }` of a bond buff from the match data (ctx.data), or {}. */
+/** `{ ...bb, ...bbStr }` of a bond buff from the match data (ctx.data), or {}. @param {MetaCtx} ctx @param {string} bondId @param {string} key @returns {Record<string, any>} */
 function buff(ctx, bondId, key) {
   const rec = ctx.data && ctx.data.bonds ? ctx.data.bonds[bondId] : null;
   for (const b of (rec && Array.isArray(rec.buffs) ? rec.buffs : [])) {
@@ -44,12 +49,12 @@ function buff(ctx, bondId, key) {
 const C_PREP_ENDED = 'bondaddon:prepEndedRound';
 
 /** True between this round's onPrepEnd and the end of its PREP phase (leftover funds are about to be wiped). */
-const prepEnded = (ctx) => ctx.phase === 'PREP' && ctx.counter(C_PREP_ENDED) === ctx.round;
+const prepEnded = (/** @type {MetaCtx} */ ctx) => ctx.phase === 'PREP' && ctx.counter(C_PREP_ENDED) === ctx.round;
 
-/** The globals the templates need: `bondaddon_prepend` marks the round whose prep has ended. */
+/** The globals the templates need: `bondaddon_prepend` marks the round whose prep has ended. @param {MetaRegistry} registry */
 export function registerGlobals(registry) {
   registry.global('bondaddon_prepend', {
-    onPrepEnd(ctx) { ctx.setCounter(C_PREP_ENDED, ctx.round); },
+    onPrepEnd(/** @type {MetaCtx} */ ctx) { ctx.setCounter(C_PREP_ENDED, ctx.round); },
   });
 }
 
@@ -57,14 +62,15 @@ export function registerGlobals(registry) {
 // bond_layer_added_reward_equip
 
 const REWARD_KEY = 'bond_layer_added_reward_equip';
-/** The counter of milestones paid, per bond. */
+/** The counter of milestones paid, per bond. @type {Readonly<Record<string, string>>} */
 const REWARD_COUNTERS = Object.freeze({ victoriaShip: 'bond:victoria:hammers', kjeragShip: 'bond:kjerag:reward' });
-const rewardCounter = (bondId) => REWARD_COUNTERS[bondId] ?? `bond:${bondId}:reward`;
+const rewardCounter = (/** @type {string} */ bondId) => REWARD_COUNTERS[bondId] ?? `bond:${bondId}:reward`;
 
 /**
  * Layer reward milestones: every `layer` layers pay `count` item(s) of `pool` once (counter = milestones paid). A bond
  * effect, so it pays only while the bond is active; milestones crossed while it was inactive are paid as soon as it
  * lights up (above).
+ * @param {MetaCtx} ctx @param {string} [bondId]
  */
 export function payHammers(ctx, bondId = 'victoriaShip') {
   if (!ctx.bondActive(bondId)) return 0;
@@ -105,7 +111,9 @@ export function payHammers(ctx, bondId = 'victoriaShip') {
  */
 const HAMMER_HOOKS = Object.freeze(['onLayers', 'onActiveBonds', 'onRoundStart', 'onPrepStart', 'onPrepEnd', 'onBuy', 'onGain', 'onSold', 'onMerge']);
 
+/** @param {string} bondId */
 function rewardPart(bondId) {
+  /** @type {MetaHandlers} */
   const h = {};
   for (const hook of HAMMER_HOOKS) {
     h[hook] = (ctx, ev) => {
@@ -121,9 +129,10 @@ function rewardPart(bondId) {
 
 /** Hooks on which owed milestones are caught up (besides the bond's own onLayers): onActiveBonds when the bond lights up. */
 const SETTLE_HOOKS = Object.freeze(['onActiveBonds', 'onRoundStart', 'onPrepStart', 'onPrepEnd', 'onBuy', 'onGain', 'onSold', 'onMerge']);
+/** @type {Readonly<Record<string, string>>} */
 const COIN_COUNTERS = Object.freeze({ visiShip: 'bondaddon:visi:paid', miraShip: 'bondaddon:mira:paid' });
 
-/** Pay "every `layer` layers +`count` funds" up to the current layers (only while active). */
+/** Pay "every `layer` layers +`count` funds" up to the current layers (only while active). @param {MetaCtx} ctx @param {string} bondId */
 export function settleCoins(ctx, bondId) {
   if (!ctx.bondActive(bondId)) return 0;
   const p = buff(ctx, bondId, 'bond_layer_gain_coin');
@@ -146,8 +155,9 @@ export function settleCoins(ctx, bondId) {
   return gain;
 }
 
-/** A handler part running `fn(ctx)` on every catch-up hook and on the bond's own layer gains. */
+/** A handler part running `fn(ctx)` on every catch-up hook and on the bond's own layer gains. @param {string} bondId @param {(ctx: MetaCtx) => void} fn */
 export function settler(bondId, fn) {
+  /** @type {MetaHandlers} */
   const h = { onLayers(ctx, ev) { if (ev && ev.bondId === bondId) fn(ctx); } };
   for (const hook of SETTLE_HOOKS) h[hook] = (ctx) => fn(ctx);
   return h;
@@ -159,6 +169,7 @@ export function settler(bondId, fn) {
 const DISCOUNT_KEY = 'bond_multi_layer_char_goods_price_bond_discount';
 const C_VISI_DISC = 'bondaddon:visi:disc';
 
+/** @param {MetaCtx} ctx */
 function latchVisiDiscount(ctx) {
   if (!ctx.bondActive('visiShip')) return;
   const p = buff(ctx, 'visiShip', DISCOUNT_KEY);
@@ -171,6 +182,7 @@ function latchVisiDiscount(ctx) {
   }
 }
 
+/** @returns {MetaHandlers} */
 function visiDiscountPart() {
   return {
     ...settler('visiShip', latchVisiDiscount),
@@ -196,6 +208,7 @@ function visiDiscountPart() {
 /**
  * Prep templates: template → { bonds (null: any bond), prep(bondId) → handler part }. The order of the parts of one
  * bond is PREP_ORDER.
+ * @type {Readonly<Record<string, PrepTemplate>>}
  */
 export const TEMPLATES = Object.freeze({
   [REWARD_KEY]: { bonds: null, prep: rewardPart },
@@ -213,15 +226,16 @@ export const PREP_ORDER = Object.freeze([
   'bond_refresh_shop_next_free', 'bond_layer_shop_same_tier',
 ]);
 
-/** One handler running each part's hook in turn (a handler registered before them first). */
+/** One handler running each part's hook in turn (a handler registered before them first). @param {MetaHandlers[]} parts */
 function compose(parts) {
   if (parts.length === 1) return parts[0];
+  /** @type {MetaHandlers} */
   const h = {};
   for (const p of parts) {
     for (const [hook, fn] of Object.entries(p)) {
       if (typeof fn !== 'function' || h[hook]) continue;
-      const fns = parts.map((q) => q[hook]).filter((f) => typeof f === 'function');
-      h[hook] = function composed(ctx, ev) { for (const f of fns) f.call(this, ctx, ev); };
+      const fns = /** @type {MetaHook[]} */ (parts.map((q) => q[hook]).filter((f) => typeof f === 'function'));
+      h[hook] = /** @this {unknown} */ function composed(ctx, ev) { for (const f of fns) f.call(this, ctx, ev); };
     }
   }
   return h;
@@ -230,10 +244,13 @@ function compose(parts) {
 /**
  * Register `bond:<id>` handlers from the season's bond records: each record's templates found in `tables` (template →
  * { bonds, prep }), in PREP_ORDER. A template no table holds runs nothing (tools/season-coverage.mjs reports it).
+ * @param {MetaRegistry} registry @param {Record<string, any> | null | undefined} data
+ * @param {ReadonlyArray<Readonly<Record<string, PrepTemplate>>>} tables
  */
 export function registerPrep(registry, data, tables) {
   for (const [bondId, rec] of Object.entries(data?.bonds ?? {})) {
     const have = templatesOf(rec);
+    /** @type {MetaHandlers[]} */
     const parts = [];
     for (const key of PREP_ORDER) {
       if (!have.includes(key)) continue;

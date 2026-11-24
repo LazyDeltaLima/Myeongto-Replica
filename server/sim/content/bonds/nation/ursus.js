@@ -12,8 +12,16 @@
 import * as S from '../../support/index.js';
 import { isHpLoss } from '../../../damage.js';
 import { num, reached, standing, isFoe, isDot } from '../shared.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BondInstaller, BondTemplate } from '../shared.js' */
+/** @import { DeathEv, HitEv, DamagedEv } from '../../support/index.js' */
+/** @typedef {{ normal: number, power: number }} UrsusExtra a player's extra 临时层数 per knock-out */
 
-/** Extra 临时层数 per knock-out a strategy adds (the AUTOCHESS global `<player>.ursus_extra_bond_stack_cnt[power]`). */
+/**
+ * Extra 临时层数 per knock-out a strategy adds (the AUTOCHESS global `<player>.ursus_extra_bond_stack_cnt[power]`).
+ * @param {Battle} battle @param {string} pid @returns {UrsusExtra}
+ */
 export function ursusExtra(battle, pid) {
   return S.battleStore(battle, 'bond:ursus:extra', () => new Map()).get(pid) ?? { normal: 0, power: 0 };
 }
@@ -22,14 +30,17 @@ export function ursusExtra(battle, pid) {
  * Raise the player's extra per knock-out to at least `normal` / `power` — 规程's 特质 act3autochess_gar_effect_ursusexbondcnt
  * (garrison_23): ON_BUFF_START AddGlobalBlackboard `_overwrite` behind FilterByBlackboardValue GT (a lower value leaves
  * both as they are).
+ * @param {Battle} battle @param {string} pid @param {number} normal @param {number} power
  */
 export function raiseUrsusExtra(battle, pid, normal, power) {
+  /** @type {Map<string, UrsusExtra>} */
   const store = S.battleStore(battle, 'bond:ursus:extra', () => new Map());
   const cur = store.get(pid) ?? { normal: 0, power: 0 };
   if (!(normal > cur.normal)) return;
   store.set(pid, { normal, power: power > cur.power ? power : cur.power });
 }
 
+/** @type {BondInstaller} */
 function installUrsus(battle, pid, bb, members) {
   standing(battle, pid, 'ursusShip', members, 'bond:ursus', { atk: [bb.atk_base, bb.atk_per_stack], hp: [bb.hp_base, bb.hp_per_stack] });
   const memberSet = new Set(members);
@@ -37,7 +48,7 @@ function installUrsus(battle, pid, bb, members) {
   // ON_TARGET_KILLED: a member knocks out a unit ("击倒其他单位") of either side, the member itself too (CN play, maintainer
   // reports 2026-11-22): a self knock-out (Misery's 消解空间 InstantKill, its own 源石溶剂 drain) and an ally knocked out
   // by a member (“暴躁铁皮” made 乌萨斯 by 变形同构体 + 乌萨斯呼吸器, its S1 hitting allies) gain the layers
-  battle.on('death', (c) => {
+  battle.on('death', (/** @type {DeathEv} */ c) => {
     if (c.reason !== 'killed' || !c.killer || !memberSet.has(c.killer) || !c.unit) return;
     const extra = ursusExtra(battle, pid);
     const n = power ? num(bb['temp_bond_stack_cnt[power]']) + num(extra.power) : num(bb.temp_bond_stack_cnt) + num(extra.normal);
@@ -61,7 +72,7 @@ function installUrsus(battle, pid, bb, members) {
   });
   // ON_TAKE_DAMAGE: the cut (DamageScale one-minus) and its 10 s HP loss
   const cutOf = () => Math.min(num(bb.damage_one_minus_max, 1), num(bb.damage_one_minus_base) + num(bb.damage_one_minus_per_stack) * S.bondLayers(battle, pid, 'ursusShip'));
-  battle.on('hit', (c) => {
+  battle.on('hit', (/** @type {HitEv} */ c) => {
     const t = c.target, dmg = c.dmg, src = c.source;
     if (!memberSet.has(t) || !dmg || dmg.cancel || dmg.ursusCut || !src || !src.alive || dmg.sourceless) return;
     if (dmg.type === 'true' || dmg.type === 'element' || isDot(dmg) || isHpLoss(dmg)) return;
@@ -71,7 +82,7 @@ function installUrsus(battle, pid, bb, members) {
     dmg.mul *= Math.max(0, 1 - f);
     dmg.ursusCut = f;
   }, { priority: -30 });
-  battle.on('damaged', (c) => {
+  battle.on('damaged', (/** @type {DamagedEv} */ c) => {
     const t = c.target, dmg = c.dmg, src = c.source;
     if (!memberSet.has(t) || !dmg || !dmg.ursusCut) return;
     const f = dmg.ursusCut;
@@ -82,7 +93,10 @@ function installUrsus(battle, pid, bb, members) {
   });
 }
 
-/** [bleed]: `per` 真实 each second for `ticks` s, credited to `src`, ended when `src` is knocked out (one per hit). */
+/**
+ * [bleed]: `per` 真实 each second for `ticks` s, credited to `src`, ended when `src` is knocked out (one per hit).
+ * @param {Battle} battle @param {Unit} t @param {Unit} src @param {number} per @param {number} ticks
+ */
 function bleed(battle, t, src, per, ticks) {
   let n = 0;
   const s = battle.every(1, () => {
@@ -92,6 +106,7 @@ function bleed(battle, t, src, per, ticks) {
   });
 }
 
+/** @type {Readonly<Record<string, BondTemplate>>} */
 export const TEMPLATES = Object.freeze({
   act3autochess_bond_eff_ursus: { bond: 'ursusShip', battle: installUrsus, bb: 'record' },
 });

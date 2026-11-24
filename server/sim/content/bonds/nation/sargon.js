@@ -23,12 +23,20 @@ import * as S from '../../support/index.js';
 import * as items from '../../items.js';
 import { COLS, ROWS, TICK } from '../../../constants.js';
 import { num, reached } from '../shared.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BondInstaller, BondTemplate, BondBb, BuffRec } from '../shared.js' */
+/** @import { SkillEv } from '../../support/index.js' */
 
 const SARGON_SHARE_KEY = 'act2autochess_bond_eff_sargon[share]';
 
-/** Injection point for tests (lendItemEffects stub); null ⇒ items.js export. */
+/**
+ * Injection point for tests (lendItemEffects stub); null ⇒ items.js export.
+ * @type {{ lendItemEffects: ((battle: Battle, from: Unit, to: Unit, o: { maxTier: number, duration: number }) => unknown) | null }}
+ */
 export const deps = { lendItemEffects: null };
 
+/** @param {Battle} battle @param {string} pid @param {BondBb} bb @param {Unit[]} members @param {{ atk: boolean }} o */
 function installSargon(battle, pid, bb, members, { atk }) {
   const memberSet = new Set(members);
   const ps = S.player(battle, pid);
@@ -40,14 +48,14 @@ function installSargon(battle, pid, bb, members, { atk }) {
   const perAtk = num(bb.base_atk, 0);
   const atkStacks = atk && six && !narant && !(bb.invalid_in_band && bb.invalid_in_band === band);
   const maxStacks = Math.max(1, Math.floor(num(main.max_buff_stack_cnt, 25)));
-  const syncAtk = (u) => {
+  const syncAtk = (/** @type {Unit} */ u) => {
     if (!atkStacks) return;
     let n = 0;
-    for (const b of u.buffs) if (b.key === 'bond:sargon') n++;
+    for (const b of /** @type {BuffRec[]} */ (u.buffs)) if (b.key === 'bond:sargon') n++;
     if (n > 0 && u.alive) battle.addBuff(u, { key: 'bond:sargon:atk', mods: S.directMods({ atk: perAtk * n }) });
     else battle.removeBuff(u, 'bond:sargon:atk');
   };
-  battle.on('skillStart', ({ unit }) => {
+  battle.on('skillStart', (/** @type {SkillEv} */ { unit }) => {
     if (!memberSet.has(unit)) return;
     const L = S.bondLayers(battle, pid, 'sargonShip');
     const dur = num(main.base_time, 0) + num(main.time_per_stack, 0) * L;
@@ -57,7 +65,7 @@ function installSargon(battle, pid, bb, members, { atk }) {
         battle.addBuff(m, {
           key: 'bond:sargon', duration: dur, refresh: 'independent', maxStacks,
           mods: { aspd: num(main.base_attack_speed, 0) },
-          onExpire: ({ unit: u }) => syncAtk(u), onRemove: ({ unit: u }) => syncAtk(u),
+          onExpire: (/** @type {{ unit: Unit }} */ { unit: u }) => syncAtk(u), onRemove: (/** @type {{ unit: Unit }} */ { unit: u }) => syncAtk(u),
         });
         syncAtk(m);
       }
@@ -66,6 +74,7 @@ function installSargon(battle, pid, bb, members, { atk }) {
   });
 }
 
+/** @param {Battle} battle @param {Unit} from @param {BondBb} share @param {number} L */
 function lendAround(battle, from, share, L) {
   if (!S.itemsOf(from).length) return;
   const lend = typeof deps.lendItemEffects === 'function' ? deps.lendItemEffects
@@ -97,10 +106,10 @@ const CHECK_IV = 0.3; // [tile_buff][checker] triggerInterval
 export const SAND_SLOW_FX = `${SAND}[tile_buff][slow_down][internal]`;
 export const SAND_BIND_FX = `${SAND}[tile_buff][unmovable]`;
 /** A [tile_buff] part's number of the record's blackboard (`act3autochess_bond_eff_sargon_power[tile_buff][part].key`). */
-const part = (bb, p, key, d = 0) => num(bb[`${SAND}[tile_buff][${p}].${key}`], d);
+const part = (/** @type {BondBb} */ bb, /** @type {string} */ p, /** @type {string} */ key, d = 0) => num(bb[`${SAND}[tile_buff][${p}].${key}`], d);
 /** 迟钝 v: move speed ×(1 − v), attack interval ×1 / (1 − v) (the slow_down template, as the kits' 迟钝). */
-const slowMods = (v) => ({ moveMul: Math.max(0, 1 - v), batPct: v < 0.99 ? v / (1 - v) : 99 });
-const tileOf = (e) => {
+const slowMods = (/** @type {number} */ v) => ({ moveMul: Math.max(0, 1 - v), batPct: v < 0.99 ? v / (1 - v) : 99 });
+const tileOf = (/** @type {Unit} */ e) => {
   const r = Math.round(e.y), c = Math.round(e.x);
   return r < 0 || r >= ROWS || c < 0 || c >= COLS ? -1 : r * COLS + c;
 };
@@ -110,6 +119,7 @@ const tileOf = (e) => {
  * ties by range order. [ASSUMED·CN: FindNearestTileInRangeToBB is a CN-only node — the range is the member's attack range,
  * a tile already 流沙 is skipped (the node's tile flag ac_bond_eff_sargon_power[sand]) and the distance is from the
  * member's tile]
+ * @param {Battle} battle @param {Unit} unit @param {Set<number>} taken
  */
 function sandTile(battle, unit, taken) {
   let best = -1, bestD = Infinity;
@@ -123,30 +133,34 @@ function sandTile(battle, unit, taken) {
   return best;
 }
 
-/** battle → the 流沙 tiles laid so far, every player's, in order: [x, y] (sandView). */
+/** battle → the 流沙 tiles laid so far, every player's, in order: [x, y] (sandView). @type {WeakMap<Battle, Array<[number, number]>>} */
 const LAID = new WeakMap();
 /**
  * The 流沙 tiles laid in `battle` so far ([[x, y]], one per tile listener's tile: two players' on one tile are two), or
  * null for none: Battle.fieldMeta's `sand`, so a view entering the battle late (a re-entry, a watched field) lays them
  * again — the 'zone' fx is sent once, when the tile is laid.
+ * @param {Battle} battle
  */
 export function sandView(battle) {
   const list = LAID.get(battle);
   return list && list.length ? list.map((t) => [t[0], t[1]]) : null;
 }
 
+/** @type {BondInstaller} */
 function installSand(battle, pid, bb, members) {
   if (!reached(battle, pid, 'sargonShip', bb.power_bond_char_cnt)) return;
   const memberSet = new Set(members);
+  /** @type {Set<number>} */
   const tiles = new Set();
   let laid = LAID.get(battle);
   if (!laid) LAID.set(battle, (laid = []));
+  /** @type {Set<Unit>} */
   const casting = new Set(); // members whose skill runs (the [aura_buff] range ability)
-  /** enemy → { lastOn, nextMag, next2, slow } while its [checker] lasts */
+  /** enemy → { lastOn, nextMag, next2, slow } while its [checker] lasts @type {Map<Unit, { since: number, lastOn: number, nextMag: number, next2: number, slow: number }>} */
   const on = new Map();
   const key = `bond:sargon:sand:${pid}`;
   const L = () => S.bondLayers(battle, pid, 'sargonShip');
-  battle.on('skillStart', ({ unit }) => {
+  battle.on('skillStart', (/** @type {SkillEv} */ { unit }) => {
     if (!memberSet.has(unit) || !S.onField(unit)) return;
     casting.add(unit);
     const k = sandTile(battle, unit, tiles);
@@ -155,12 +169,12 @@ function installSand(battle, pid, bb, members) {
     laid.push([k % COLS, Math.floor(k / COLS)]);
     battle.fx('zone', { x: k % COLS, y: Math.floor(k / COLS), r: 0.5, dur: 1e4, kind: 'sargonSand', tiles: 'box', id: unit.id });
   });
-  battle.on('skillEnd', ({ unit }) => { casting.delete(unit); });
-  const inAura = (k) => {
+  battle.on('skillEnd', (/** @type {SkillEv} */ { unit }) => { casting.delete(unit); });
+  const inAura = (/** @type {number} */ k) => {
     for (const m of casting) if (m.alive && m.deployed && (m.rangeKeySet || new Set(m.rangeKeys || [])).has(k)) return true;
     return false;
   };
-  const end = (e) => { on.delete(e); battle.removeBuff(e, key); };
+  const end = (/** @type {Unit} */ e) => { on.delete(e); battle.removeBuff(e, key); };
   battle.every(0, () => {
     if (!tiles.size && !on.size) return;
     const t = battle.time;
@@ -182,7 +196,7 @@ function installSand(battle, pid, bb, members) {
       const v = aura ? base * 2 : base;
       if (v !== s.slow) {
         s.slow = v;
-        const cur = e.findBuff(key);
+        const cur = /** @type {BuffRec | null} */ (e.findBuff(key));
         if (cur) { cur.mods = slowMods(v); e.markDirty(); } else battle.addBuff(e, { key, mods: slowMods(v), status: 'slow', fxTag: SAND_SLOW_FX });
       }
       if (t >= s.nextMag - 1e-9) {
@@ -202,6 +216,7 @@ function installSand(battle, pid, bb, members) {
   });
 }
 
+/** @type {Readonly<Record<string, BondTemplate>>} */
 export const TEMPLATES = Object.freeze({
   act1autochess_bond_eff_sargon: { bond: 'sargonShip', battle: (b, pid, bb, ms) => installSargon(b, pid, bb, ms, { atk: true }) },
   act2autochess_bond_eff_sargon: { bond: 'sargonShip', readBy: 'act1autochess_bond_eff_sargon' },

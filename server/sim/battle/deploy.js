@@ -4,6 +4,7 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
 import { COLS } from '../constants.js';
 import { unitInfo } from '../snapshot.js';
 import { fin } from './util.js';
@@ -230,6 +231,7 @@ export class BattleDeploy {
    *               outside the rect, a living unit stands there or another knocked-out operator lies there — no fallback
    *   keepSp      keep the SP / charges the unit had (保留技力): restored before the `deploy` hook fires
    * Returns true when the unit was deployed (full HP, `deploy {initial:false}` fires).
+   * @param {Unit} unit @param {{ free?: boolean, tile?: readonly number[] | null, keepSp?: boolean }} [opts]
    * @this {Battle}
    */
   redeploy(unit, { free = true, tile = null, keepSp = false } = {}) {

@@ -11,7 +11,11 @@ import { reduceElement } from '../../../damage.js';
 import { holdProtect } from '../../kits/shared/tier1.js';
 import { TICK } from '../../../constants.js';
 import { num, reached } from '../shared.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BondInstaller, BondTemplate } from '../shared.js' */
 
+/** @type {BondInstaller} */
 function installDoc(battle, pid, bb, members) {
   const st = S.battleStore(battle, 'bond:doc', () => ({ list: [] }));
   st.list.push({ pid, bb, members });
@@ -46,12 +50,13 @@ function installDoc(battle, pid, bb, members) {
   });
 }
 
-/** 「攻击范围内的我方单位」: deployed allies whose tile is in the member's range (Battle.allySelectable). */
+/** 「攻击范围内的我方单位」: deployed allies whose tile is in the member's range (Battle.allySelectable). @param {Battle} battle @param {Unit} m */
 function alliesInRange(battle, m) {
   const set = m.rangeKeySet || new Set(m.rangeKeys || []);
-  return battle.allyUnits.filter((a) => a.alive && a.deployed && !a.hidden && a.kind !== 'device' && set.has(a.tileR * S.COLS + a.tileC) && battle.allySelectable(a, m));
+  return battle.allyUnits.filter((/** @type {Unit} */ a) => a.alive && a.deployed && !a.hidden && a.kind !== 'device' && set.has(a.tileR * S.COLS + a.tileC) && battle.allySelectable(a, m));
 }
 
+/** @type {Readonly<Record<string, BondTemplate>>} */
 export const TEMPLATES = Object.freeze({
   act3autochess_bond_eff_doc: { bond: 'docShip', battle: installDoc, bb: 'record' },
 });

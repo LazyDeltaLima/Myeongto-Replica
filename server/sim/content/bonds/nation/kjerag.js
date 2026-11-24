@@ -11,12 +11,17 @@ import * as S from '../../support/index.js';
 import { kjeragColdWind } from '../../devices.js';
 import { num, reached, onUnitHit, isEnemyTarget } from '../shared.js';
 import { installGiant } from '../giant.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BondInstaller, BondTemplate, BondBb } from '../shared.js' */
+/** @import { HitEv } from '../../support/index.js' */
 
+/** @param {Battle} battle @param {string} pid @param {BondBb} bb @param {Unit[]} members @param {{ wind: boolean }} o */
 function installKjerag(battle, pid, bb, members, { wind }) {
   const base = num(bb.base_damage_scale, 1);
   for (const u of members) S.passiveBuff(battle, u, 'bond:kjerag', { dmgDealtMul: base });
   const ex = num(bb.base_ex_damage_scale, base), per = num(bb.ex_damage_scale_per_stack, 0);
-  const onHit = (c) => {
+  const onHit = (/** @type {HitEv} */ c) => {
     const t = c.target;
     if (!isEnemyTarget(t) || !c.dmg) return;
     const f = t.s.flags;
@@ -34,6 +39,7 @@ function installKjerag(battle, pid, bb, members, { wind }) {
   if (!st.handle && reached(battle, pid, 'kjeragShip', bb.power_bond_char_cnt)) st.handle = kjeragColdWind(battle, pid, bb);
 }
 
+/** @type {Readonly<Record<string, BondTemplate>>} */
 export const TEMPLATES = Object.freeze({
   act1autochess_bond_eff_kjerag: { bond: 'kjeragShip', battle: (b, pid, bb, ms) => installKjerag(b, pid, bb, ms, { wind: true }) },
   act3autochess_bond_eff_kjerag: { bond: 'kjeragShip', battle: (b, pid, bb, ms) => installKjerag(b, pid, bb, ms, { wind: false }) },

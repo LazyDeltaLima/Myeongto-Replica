@@ -4,6 +4,7 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
 import { ROWS, COLS, ENEMY_COLLIDER_RADIUS } from '../constants.js';
 import { toLocal } from '../dir.js';
 import { absoluteRangeKeys, canTargetEnemy, extendedGrid, enemyStealthed } from '../targeting.js';
@@ -295,6 +296,7 @@ export class BattleQueries {
    * itself — PRTS 选择器: selectors decide "天赋是否能给予某个干员Buff" and every heal / buff / aura target, and their 可选判定
    * rejects a 孤立 target of a friendly selector ("若掩码中孤立为1，且选择器的阵营与目标为友好关系，则不可选中"; user playtest #6
    * item 18). Enemies still target it (a hostile selector). 禁疗 only keeps heals off (heal pipeline, injuredAlliesInKeys).
+   * @param {Unit | null | undefined} a @param {Unit | null} [by]
    * @this {Battle}
    */
   allySelectable(a, by = null) {
@@ -395,6 +397,7 @@ export class BattleQueries {
 
   /**
    * Alive deployed allies (ops + tokens), optionally of one player.
+   * @param {string | null} [ownerId]
    * @this {Battle}
    */
   allies(ownerId = null) {

@@ -9,23 +9,26 @@
 // (bonds/templates.js); the price never goes below 0 (ctx.modifyPrice).
 
 import { settler } from '../templates.js';
+/** @import { MetaCtx, MetaHandlers } from '../../../../match/effectsMeta.js' */
+/** @import { PrepTemplate } from '../templates.js' */
 
 const KEY = 'bond_goods_disc_tier2';
 const C_STEPS = 'bondaddon:visi:tier2';
-const n = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const n = (/** @type {unknown} */ v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
-/** `{ ...bb, ...bbStr }` of the bond's buff `KEY` from the match data, or {}. */
+/** `{ ...bb, ...bbStr }` of the bond's buff `KEY` from the match data, or {}. @param {MetaCtx} ctx @param {string} bondId @returns {Record<string, any>} */
 function params(ctx, bondId) {
   const rec = ctx.data?.bonds?.[bondId];
-  const b = (Array.isArray(rec?.buffs) ? rec.buffs : []).find((x) => x && x.key === KEY);
+  const b = (Array.isArray(rec?.buffs) ? rec.buffs : []).find((/** @type {Record<string, any> | null} */ x) => x && x.key === KEY);
   return b ? { ...(b.bb || {}), ...(b.bbStr || {}) } : {};
 }
 
-/** The layer steps of `layer_list` ("80,150" → [80, 150]). */
+/** The layer steps of `layer_list` ("80,150" → [80, 150]). @param {Record<string, any>} p */
 export function discountSteps(p) {
   return String(p.layer_list ?? '').split(',').map((s) => Number(s.trim())).filter((v) => Number.isFinite(v) && v > 0);
 }
 
+/** @param {MetaCtx} ctx */
 function latch(ctx) {
   if (!ctx.bondActive('visiShip')) return;
   const L = ctx.layers('visiShip');
@@ -36,6 +39,7 @@ function latch(ctx) {
   }
 }
 
+/** @returns {MetaHandlers} */
 const part = () => ({
   ...settler('visiShip', latch),
   onPrice(ctx, ev) {
@@ -51,6 +55,7 @@ const part = () => ({
   },
 });
 
+/** @type {Readonly<Record<string, PrepTemplate>>} */
 export const TEMPLATES = Object.freeze({
   [KEY]: { bonds: ['visiShip'], prep: part },
 });

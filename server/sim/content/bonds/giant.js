@@ -36,6 +36,10 @@ import * as S from '../support/index.js';
 import { num, reached, onUnitHit } from './shared.js';
 import { spawnWalker, nearestGroundTile, walkerHitsFly } from './walker.js';
 import { powi } from '../../detmath.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { BondInstaller, BuffRec } from './shared.js' */
+/** @import { TickEv, DeathEv, DamagedEv } from '../support/index.js' */
 
 export const GIANT = 'enemy_9024_acsgnt';
 export const GIANT_MODE = 'Giant';
@@ -48,19 +52,21 @@ const SWITCH_TAG = 'bond:kjerag:giant:switch', SNOWY_TAG = 'bond:kjerag:giant:sn
 /** x-5: the tile and its four neighbours, in the range's order. */
 const X5 = Object.freeze([[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]);
 
-const skillOf = (rec, key) => (rec.skills || []).find((s) => s && s.prefabKey === key) ?? null;
-const castOf = (rec, key, d) => num(rec.skillCast?.[key.toLowerCase()]?.dur, d);
-const dist2 = (a, b) => (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
+const skillOf = (/** @type {Record<string, any>} */ rec, /** @type {string} */ key) => (rec.skills || []).find((/** @type {Record<string, any> | null} */ s) => s && s.prefabKey === key) ?? null;
+const castOf = (/** @type {Record<string, any>} */ rec, /** @type {string} */ key, /** @type {number} */ d) => num(rec.skillCast?.[key.toLowerCase()]?.dur, d);
+const dist2 = (/** @type {{ x: number, y: number }} */ a, /** @type {{ x: number, y: number }} */ b) => (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
 
-/** The player's last 谢拉格 operator on the field (deployed last), or null. */
+/** The player's last 谢拉格 operator on the field (deployed last), or null. @param {readonly Unit[]} members */
 function lastMember(members) {
+  /** @type {Unit | null} */
   let best = null;
   for (const m of members) if (m.alive && m.deployed && (!best || m.deploySeq > best.deploySeq)) best = m;
   return best;
 }
 
-/** FindNearestPassableTileForLastCharacter: the WALK tile of x-5 around `m` nearest to it, else the field's nearest. */
+/** FindNearestPassableTileForLastCharacter: the WALK tile of x-5 around `m` nearest to it, else the field's nearest. @param {Battle} battle @param {Unit} m */
 function summonTile(battle, m) {
+  /** @type {number[] | null} */
   let best = null, bd = Infinity;
   for (const [dr, dc] of X5) {
     const r = m.tileR + dr, c = m.tileC + dc;
@@ -71,12 +77,12 @@ function summonTile(battle, m) {
   return best ?? nearestGroundTile(battle, m.x, m.y);
 }
 
-/** Ends every FROZEN buff of `e` (FinishAllBuffsWithCertainAbnormalFlag). */
+/** Ends every FROZEN buff of `e` (FinishAllBuffsWithCertainAbnormalFlag). @param {Battle} battle @param {Unit} e */
 function unfreeze(battle, e) {
-  for (const b of e.buffs.slice()) if (b.flags && b.flags.freeze) battle.removeBuff(e, b);
+  for (const b of /** @type {BuffRec[]} */ (e.buffs.slice())) if (b.flags && b.flags.freeze) battle.removeBuff(e, b);
 }
 
-/** Can a blocker take `e` (Switch2Snowy's selector: ground, not BLOCK_FREE / LEVITATE / ATTRACTED)? */
+/** Can a blocker take `e` (Switch2Snowy's selector: ground, not BLOCK_FREE / LEVITATE / ATTRACTED)? @param {Unit} e */
 function blockable(e) {
   const f = e.s.flags;
   return e.alive && !e.hidden && !e.isFlying && !f.unblockable && !f.levitate && !f.attract;
@@ -85,6 +91,7 @@ function blockable(e) {
 /**
  * Summon “不眠雪山” for player `pid` (act3autochess_bond_eff_kjerag_power) at the battle start, next to its last 谢拉格
  * operator among `members`. Returns nothing; the giant is `battle` state.
+ * @type {BondInstaller}
  */
 export function installGiant(battle, pid, bb, members) {
   if (!reached(battle, pid, 'kjeragShip', bb.power_bond_char_cnt)) return;
@@ -95,7 +102,7 @@ export function installGiant(battle, pid, bb, members) {
   });
 }
 
-/** Spawn “不眠雪山” for player `pid` on (r, c). Returns the unit or null. */
+/** Spawn “不眠雪山” for player `pid` on (r, c). Returns the unit or null. @param {Battle} battle @param {string} pid @param {number} r @param {number} c */
 export function spawnGiant(battle, pid, r, c) {
   const rec = battle.data.rawEnemy?.(GIANT);
   if (!rec) return null;
@@ -107,9 +114,10 @@ export function spawnGiant(battle, pid, r, c) {
   const interval = num(tal['SwitchMode.interval'], 5), frozenScale = num(tal['FrozenBreak.atk_scale'], 3);
   const blockCnt = num(tal['BlockEnemy.block_cnt'], 0), splash = num(tal['BlockEnemy.attack@ability_range_radius'], 0);
   const range2 = powi(num(rec.stats?.rangeRadius, 0), 2) + 1e-9;
-  let u = null;
+  // (set by spawnWalker below before any of the closures runs; `rank` reads it with `?.`)
+  let u = /** @type {Unit} */ (/** @type {unknown} */ (null));
   // 覆雪坐定 attacks a FROZEN ground enemy within PowerAttack's range first
-  const rank = (_self, list) => {
+  const rank = (/** @type {Unit} */ _self, /** @type {Unit[]} */ list) => {
     if (u?.mode !== SNOWY_MODE || !(powerIn > 0)) return list;
     const r2 = powerIn * powerIn + 1e-9;
     const i = list.findIndex((e) => e.s.flags.freeze && !e.isFlying && dist2(e, u) <= r2);
@@ -117,7 +125,7 @@ export function spawnGiant(battle, pid, r, c) {
   };
   // 覆雪苏醒's attack and trace selectors take ALL (its prefab, `_targetMotion` 3: data attackMotionModes.Giant — walker.js
   // walkerHitsFly); 覆雪坐定's own profile below takes what its mode's attack takes (SnowyMountain 1: ground only)
-  u = spawnWalker(battle, pid, GIANT, r, c, { rank });
+  u = /** @type {Unit} */ (spawnWalker(battle, pid, GIANT, r, c, { rank }));
   if (!u) return null;
   u.mode = GIANT_MODE;
   u.form = GIANT_MODE;
@@ -139,10 +147,11 @@ export function spawnGiant(battle, pid, r, c) {
   bondBuff();
   battle.on('layerGain', () => battle.after(0, bondBuff, { owner: u }), { owner: u, priority: -100 });
 
+  /** @type {{ cast: string | null, castLeft: number, timerAt: number, keep: boolean, keepAt: number, sp: number, pulled: Unit[] }} */
   const st = { cast: null, castLeft: 0, timerAt: Infinity, keep: false, keepAt: 0, sp: num(rec.sp?.initSp, 0), pulled: [] };
   u.mem.giant = st;
 
-  const setMode = (mode) => {
+  const setMode = (/** @type {string} */ mode) => {
     u.mode = mode;
     u.form = mode;   // the model's clip set (snapshot `form`)
     u.profile = mode === SNOWY_MODE ? snowyProf : giantProf;
@@ -158,12 +167,12 @@ export function spawnGiant(battle, pid, r, c) {
   const endAttract = () => {
     battle._ev(['skill', u.id, 0]);
     for (const e of st.pulled) {
-      for (const b of e.buffs.slice()) if (b.key === 'attract' && b.source === u) battle.removeBuff(e, b);
+      for (const b of /** @type {BuffRec[]} */ (e.buffs.slice())) if (b.key === 'attract' && b.source === u) battle.removeBuff(e, b);
     }
     st.pulled = [];
   };
   /** Start a cast: `kind` 'snowy' | 'giant' (a switch, its mode at the clip's end) or 'attract'. */
-  const cast = (kind, dur) => {
+  const cast = (/** @type {string} */ kind, /** @type {number} */ dur) => {
     if (st.cast === 'attract') endAttract();
     st.cast = kind;
     st.castLeft = dur;
@@ -192,26 +201,27 @@ export function spawnGiant(battle, pid, r, c) {
   };
 
   // PowerAttack: a swing of 覆雪坐定 on a FROZEN enemy within its range is that skill (the view plays its cast effects)
-  battle.on('swing', (c) => {
+  battle.on('swing', (/** @type {{ unit: Unit, targets?: Unit[] }} */ c) => {
     if (c.unit !== u || u.mode !== SNOWY_MODE || !(powerIn > 0)) return;
     const t = c.targets?.[0];
     if (t && t.s.flags.freeze && !t.isFlying && dist2(t, u) <= powerIn * powerIn + 1e-9) battle.fx('enemySkill', { x: u.x, y: u.y, id: u.id, ability: 'PowerAttack', n: 1 });
   }, { owner: u });
   // acsgnt[mode-timer]: an attack in 覆雪坐定 restarts the count
-  battle.on('attack', (c) => { if (c.attacker === u && u.mode === SNOWY_MODE) st.timerAt = battle.time + interval; }, { owner: u });
+  battle.on('attack', (/** @type {{ attacker: Unit }} */ c) => { if (c.attacker === u && u.mode === SNOWY_MODE) st.timerAt = battle.time + interval; }, { owner: u });
   // FrozenBreak (覆雪坐定): ×atk_scale on a FROZEN enemy, then its freeze ends
+  /** @type {Unit[]} */
   const broke = [];
   onUnitHit(battle, u, (c) => {
     if (u.mode !== SNOWY_MODE || !c.dmg || c.target?.side !== 'enemy' || !c.target.s.flags.freeze) return;
     c.dmg.mul *= frozenScale;
     broke.push(c.target);
   });
-  battle.on('damaged', (c) => {
+  battle.on('damaged', (/** @type {DamagedEv} */ c) => {
     if (c.source !== u || !broke.length) return;
     for (const e of broke.splice(0)) if (e.alive) unfreeze(battle, e);
   }, { owner: u });
 
-  battle.on('tick', ({ dt }) => {
+  battle.on('tick', (/** @type {TickEv} */ { dt }) => {
     if (!u.alive || !u.deployed) return;
     st.sp = Math.min(attractSp > 0 ? attractSp : Infinity, st.sp + dt);
     if (st.cast) {
@@ -234,7 +244,7 @@ export function spawnGiant(battle, pid, r, c) {
       }
       // 【神迹之声】 with full SP and an enemy in its attack range
       if (attractSp > 0 && st.sp >= attractSp - 1e-9 && u.canAct && !u.swing) {
-        const any = battle.enemies.some((e) => e.alive && !e.hidden && !e.isFlying && dist2(e, u) <= range2);
+        const any = battle.enemies.some((/** @type {Unit} */ e) => e.alive && !e.hidden && !e.isFlying && dist2(e, u) <= range2);
         if (any) { st.sp = 0; cast('attract', attractFor); }
       }
       return;
@@ -242,14 +252,14 @@ export function spawnGiant(battle, pid, r, c) {
     // 覆雪苏醒: Switch2Snowy once a blockable ground enemy is within its range (ignores silence)
     if (snowyIn > 0 && u.canAct && !u.swing) {
       const r2 = snowyIn * snowyIn + 1e-9;
-      if (battle.enemies.some((e) => blockable(e) && dist2(e, u) <= r2)) cast('snowy', switchFor);
+      if (battle.enemies.some((/** @type {Unit} */ e) => blockable(e) && dist2(e, u) <= r2)) cast('snowy', switchFor);
     }
   }, { owner: u });
-  battle.on('death', (c) => { if (c.unit === u && st.cast === 'attract') { st.cast = null; endAttract(); } }, { owner: u });
+  battle.on('death', (/** @type {DeathEv} */ c) => { if (c.unit === u && st.cast === 'attract') { st.cast = null; endAttract(); } }, { owner: u });
   return u;
 }
 
-/** The running swing ends (acsgnt[switch-mode] `_restartFSM`). */
+/** The running swing ends (acsgnt[switch-mode] `_restartFSM`). @param {Unit} u */
 function cutSwing(u) {
   u.swing = null;
   u.castLeft = 0;

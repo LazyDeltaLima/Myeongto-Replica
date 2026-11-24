@@ -5,6 +5,11 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/**
+ * A timer of after / every (the battle's `_sched`); `cancel()` stops it (set on the record right after it is made).
+ * @typedef {{ due: number, fn: (battle: Battle, s: Scheduled) => unknown, owner: unknown, interval: number, seq: number,
+ *   cancelled: boolean, count?: number, holdsBattle: boolean, cancel: () => void }} Scheduled
+ */
 import { TICK, MAX_INTERNAL_ERRORS, MAX_HOOK_DEPTH } from '../constants.js';
 
 let hookSeq = 0;
@@ -120,7 +125,7 @@ export class BattleHooks {
 
   /** @this {Battle} */
   after(seconds, fn, opts = {}) {
-    const s = { due: this.time + Math.max(0, Number(seconds) || 0), fn, owner: opts.owner ?? null, interval: 0, seq: ++schedSeq, cancelled: false, holdsBattle: !!opts.holdsBattle };
+    const s = /** @type {Scheduled} */ ({ due: this.time + Math.max(0, Number(seconds) || 0), fn, owner: opts.owner ?? null, interval: 0, seq: ++schedSeq, cancelled: false, holdsBattle: !!opts.holdsBattle });
     s.cancel = () => { s.cancelled = true; };
     this._sched.push(s);
     return s;
@@ -129,7 +134,7 @@ export class BattleHooks {
   /** @this {Battle} */
   every(seconds, fn, opts = {}) {
     const iv = Math.max(TICK, Number(seconds) || TICK);
-    const s = { due: this.time + (opts.immediate ? 0 : iv), fn, owner: opts.owner ?? null, interval: iv, seq: ++schedSeq, cancelled: false, count: 0, holdsBattle: false };
+    const s = /** @type {Scheduled} */ ({ due: this.time + (opts.immediate ? 0 : iv), fn, owner: opts.owner ?? null, interval: iv, seq: ++schedSeq, cancelled: false, count: 0, holdsBattle: false });
     s.cancel = () => { s.cancelled = true; };
     this._sched.push(s);
     return s;

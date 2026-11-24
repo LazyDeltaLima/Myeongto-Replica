@@ -345,7 +345,7 @@ export class MatchBandSkill {
     for (const id of gd.bondIds) {
       const to = rep.get(gd.bond(id)?.effectId);
       const eff = to ? gd.effect(to) : null;
-      if (eff && !unwrittenTemplates(eff).length) out[id] = to;
+      if (eff && !unwrittenTemplates(eff).length) out[id] = /** @type {string} */ (to);   // (eff is set only when to is)
     }
     return out;
   }

@@ -67,6 +67,19 @@ import {
   fxOn, tplFx, N4, N8, directMods, COLS,
 } from '../../support/index.js';
 import { templatesOf } from '../shared.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
+/** @import { BondBb, BuffRec } from '../shared.js' */
+/** @import { LayerGainEv, DeployEv, UnitEv, SkillEv, DeathEv, HitEv, DamagedEv } from '../../support/index.js' */
+/**
+ * A player's add-on bond state for the battle (makeState): its operators, the tier, numbers and members of each add-on
+ * bond it has active, and what the passives keep between layer changes.
+ * @typedef {{ pid: string, ops: Unit[], tiers: Record<string, number>, bb: Record<string, BondBb>,
+ *   members: Record<string, Set<Unit>>, pending?: boolean, raidMilestone?: boolean, raidMods?: Record<string, any>,
+ *   arcaneMul?: number, arcaneLowMul?: number, auraMods?: { aspd: number }, auraWide?: boolean }} AddonState
+ * @typedef {{ t: number, d: number }} RaidKey a jump candidate's sort key (raidTargets)
+ */
 
 export const ID = Object.freeze({
   preci: 'preciShip', swift: 'swiftShip', skillful: 'skillfulShip', arcane: 'arcaneShip', stead: 'steadShip',
@@ -104,10 +117,11 @@ const PRD_BASE = Object.freeze([
   0.91304, 0.92473, 0.93617, 0.94737, 0.95833, 0.96907, 0.97959, 0.9899, 1,
 ]);
 /** PRD base chance C of a nominal chance `p` (PRD_BASE). */
-export const prdBase = (p) => (p > 0 ? PRD_BASE[Math.min(PRD_BASE.length - 1, Math.round(p * 100))] : 0);
+export const prdBase = (/** @type {number} */ p) => (p > 0 ? PRD_BASE[Math.min(PRD_BASE.length - 1, Math.round(p * 100))] : 0);
 /**
  * One DicePRD roll on `state` ({ n }: the shared count of failures since the last success): hit with (n + 1) × C.
  * A hit resets the count, a miss stores it.
+ * @param {Battle} battle @param {{ n?: number }} state @param {number} p
  */
 export function dicePRD(battle, state, p) {
   const c = prdBase(p);
@@ -119,14 +133,17 @@ export function dicePRD(battle, state, p) {
 }
 
 /** 奥术 vulnerability mods for a multiplier (battle.applyStrongest). */
-const arcaneMods = (v) => ({ artsTakenMul: v });
+const arcaneMods = (/** @type {number} */ v) => ({ artsTakenMul: v });
 
-/** `env_gbuff_new` blackboard of a bond (numbers only) of the scope's data (support dataFile; default: the default season's). */
+/**
+ * `env_gbuff_new` blackboard of a bond (numbers only) of the scope's data (support dataFile; default: the default season's).
+ * @param {string} bondId @param {import('../../support/index.js').DataScope} [scope]
+ */
 export function bondBb(bondId, scope) {
   return buffParams(bondRecord(bondId, scope), 'env_gbuff_new') ?? {};
 }
 /** 迅捷 / 不屈 proc chance p = min(1, base_prob + prob_per_stack·L). */
-export const procChance = (bb, L) => Math.max(0, Math.min(1, num(bb.base_prob) + num(bb.prob_per_stack) * L));
+export const procChance = (/** @type {BondBb} */ bb, /** @type {number} */ L) => Math.max(0, Math.min(1, num(bb.base_prob) + num(bb.prob_per_stack) * L));
 const prob = procChance;
 
 // =====================================================================================================================
@@ -135,6 +152,7 @@ const prob = procChance;
 /**
  * The add-on bonds' battle templates this file runs: template → { bond }. A bond whose record carries none of its own
  * (卫戍协议：规程's 奥术, act3autochess_bond_eff_arcane — bonds/general/arcane.js) does not run here (bonds/dispatch.js).
+ * @type {Readonly<Record<string, { bond: string }>>}
  */
 export const TEMPLATES = Object.freeze({
   act1autochess_bond_eff_preci: { bond: ID.preci },
@@ -149,11 +167,13 @@ export const TEMPLATES = Object.freeze({
   act2autochess_bond_eff_solo: { bond: ID.solo },
   act2autochess_bond_eff_sunt: { bond: ID.sunt },
 });
-const ownTemplate = (battle, id) => templatesOf(bondRecord(id, battle)).some((t) => TEMPLATES[t]?.bond === id);
+const ownTemplate = (/** @type {Battle} */ battle, /** @type {string} */ id) => templatesOf(bondRecord(id, battle)).some((t) => TEMPLATES[t]?.bond === id);
 
+/** @param {Battle} battle @param {{ playerId: string }} p */
 function makeState(battle, p) {
   const pid = p.playerId;
   const ops = playerOps(battle, pid);
+  /** @type {AddonState} */
   const st = { pid, ops, tiers: {}, bb: {}, members: {} };
   for (const id of Object.values(ID)) {
     const t = bondTier(battle, pid, id);
@@ -165,11 +185,12 @@ function makeState(battle, p) {
   }
   return st;
 }
-const L = (battle, st, id) => bondLayers(battle, st.pid, id);
+const L = (/** @type {Battle} */ battle, /** @type {AddonState} */ st, /** @type {string} */ id) => bondLayers(battle, st.pid, id);
 
 // =====================================================================================================================
 // match-long passives (re-applied on layer changes; passiveBuff replaces by key → idempotent)
 
+/** @param {Battle} battle @param {AddonState} st */
 function applyPassives(battle, st) {
   const t = st.tiers;
   if (t[ID.preci]) {
@@ -202,7 +223,7 @@ function applyPassives(battle, st) {
     }
     st.raidMods = raidMods(bb, lv);
     for (const u of st.members[ID.raid]) {
-      const b = u.findBuff(KEY.raid);
+      const b = /** @type {BuffRec | null} */ (u.findBuff(KEY.raid));
       if (b) { b.mods = st.raidMods; u.markDirty(); }
     }
   }
@@ -221,6 +242,7 @@ function applyPassives(battle, st) {
   }
 }
 
+/** @param {BondBb} bb @param {number} lv */
 function raidMods(bb, lv) {
   const mods = directMods({
     atk: num(bb.base_atk) + num(bb.atk_per_stack) * lv,
@@ -231,7 +253,7 @@ function raidMods(bb, lv) {
   return mods;
 }
 
-/** Layer-independent passives (协防 / 独行 / 绝技), applied once. */
+/** Layer-independent passives (协防 / 独行 / 绝技), applied once. @param {Battle} battle @param {AddonState} st */
 function applyStatic(battle, st) {
   const t = st.tiers;
   if (t[ID.empty]) {
@@ -264,6 +286,7 @@ function applyStatic(battle, st) {
  * 绝技 tier 2: the skill's SP cost becomes ceil(cost × sp_ratio) — client node ModifySpData (`_onlyUpdateSpCost`,
  * `_updateSpCostViaMaxRatioKey` sp_ratio): ceil of the float32 product, written into the character's skill data, so it
  * stays for the battle (once per unit here).
+ * @param {Unit} u @param {BondBb} bb
  */
 function suntSpCost(u, bb) {
   const sk = u && u.skill;
@@ -281,14 +304,14 @@ function suntSpCost(u, bb) {
 // ON_BUFF_TRIGGER (live layers): ASPD when L ≥ power_bond_stack_cnt, else only when in_normal_range. The judgment is
 // kept for the receiver's stay on the field: a member that leaves, falls or moves later changes nothing.
 
-/** Board tile of a member's piece: where it stands, else where it waits (its body tile when down, else its home). */
+/** Board tile of a member's piece: where it stands, else where it waits (its body tile when down, else its home). @param {Battle} battle @param {Unit} m */
 function auraPieceTile(battle, m) {
   if (!m || m.removed) return null;
   if (m.alive && m.deployed) return [m.tileR, m.tileC];
   return battle.restTile(m);
 }
 
-/** Judge the receiver `u` on its deployment (u.mem[AURA_JUDGE] = { near, cross }) and apply the buff. */
+/** Judge the receiver `u` on its deployment (u.mem[AURA_JUDGE] = { near, cross }) and apply the buff. @param {Battle} battle @param {AddonState} st @param {Unit} u */
 function judgeAura(battle, st, u) {
   let near = false, cross = false;
   for (const m of st.members[ID.skillful]) {
@@ -303,12 +326,12 @@ function judgeAura(battle, st, u) {
   applyAura(battle, st, u);
 }
 
-/** Add / refresh / remove the 灵巧 buff of `u` from its stored judgment and the live layers (st.auraMods / auraWide). */
+/** Add / refresh / remove the 灵巧 buff of `u` from its stored judgment and the live layers (st.auraMods / auraWide). @param {Battle} battle @param {AddonState} st @param {Unit} u */
 function applyAura(battle, st, u) {
   const j = u.mem[AURA_JUDGE];
   const mods = st.auraMods;
   const on = !!(j && j.near && (st.auraWide || j.cross) && mods && onField(u));
-  const b = u.findBuff(KEY.skillful);
+  const b = /** @type {BuffRec | null} */ (u.findBuff(KEY.skillful));
   if (!on) { if (b) battle.removeBuff(u, KEY.skillful); return; }
   if (!b) battle.addBuff(u, { key: KEY.skillful, mods });
   else if (b.mods !== mods) { b.mods = mods; u.markDirty(); }
@@ -350,12 +373,13 @@ const RAID_TRIG = 0.3;
 const RAID_MAX_TARGETS = 128;
 /** Range "1-1" (range_table: grids (0,0), (0,1), direction RIGHT): the landing box and the "enemy in range" box. */
 const RANGE_1_1 = Object.freeze([[0, 0], [0, 1]]);
+/** @type {Readonly<Record<string, string>>} */
 const OPPOSITE_DIR = Object.freeze({ UP: 'DOWN', DOWN: 'UP', RIGHT: 'LEFT', LEFT: 'RIGHT' });
 
-/** The member's official skill type: 'PASSIVE' | 'AUTO' | 'MANUAL' (def.skillType; our passive kits count as PASSIVE). */
+/** The member's official skill type: 'PASSIVE' | 'AUTO' | 'MANUAL' (def.skillType; our passive kits count as PASSIVE). @param {SkillRuntime | null | undefined} sk */
 function raidSkillType(sk) {
   if (!sk || sk.noSkill) return null;
-  const t = String(sk.def?.skillType ?? '').toUpperCase();
+  const t = String(/** @type {Record<string, any>} */ (sk.def)?.skillType ?? '').toUpperCase();
   if (sk.kind === 'passive' || t === 'PASSIVE') return 'PASSIVE';
   return sk.manual ? 'MANUAL' : 'AUTO';
 }
@@ -365,6 +389,7 @@ function raidSkillType(sk) {
  * `TargetOptions.VerifyTarget` returns from `_VerifyAdvanced` at once when `enableAdvancedOptions` is
  * false, so a 隐匿, asleep, untargetable or stunned ground enemy is one too (the template's STUNNED / SLEEPING flags
  * are never read); only the motion mask leaves flying enemies out. On the map: alive, deployed and shown.
+ * @param {Unit | null | undefined} e
  */
 function raidCandidate(e) {
   return !!(e && e.alive && e.deployed && !e.hidden && !e.isFlying);
@@ -375,12 +400,15 @@ function raidCandidate(e) {
  * = tauntLevel × a large constant − the remaining route — so the highest 嘲讽 level first, then the most
  * advanced (least remaining distance); the spawn order breaks ties [ASSUMED: FilterUtil's order among equal hatred].
  * Every enemy of the battle — a pair field's other half included —, no own-field preference.
+ * @param {Battle} battle
  */
 function raidTargets(battle) {
+  /** @type {Unit[]} */
   const list = [];
   for (const e of battle.enemies) if (raidCandidate(e)) list.push(e);
   const key = new Map(list.map((e) => [e, { t: -(e.s.taunt || 0), d: num(battle.remainingDistance ? battle.remainingDistance(e) : 0) }]));
-  list.sort((a, b) => key.get(a).t - key.get(b).t || key.get(a).d - key.get(b).d || (a.spawnSeq ?? a.id) - (b.spawnSeq ?? b.id));
+  // (every unit of the list has its key)
+  list.sort((a, b) => /** @type {RaidKey} */ (key.get(a)).t - /** @type {RaidKey} */ (key.get(b)).t || /** @type {RaidKey} */ (key.get(a)).d - /** @type {RaidKey} */ (key.get(b)).d || (a.spawnSeq ?? a.id) - (b.spawnSeq ?? b.id));
   if (list.length > RAID_MAX_TARGETS) list.length = RAID_MAX_TARGETS;
   return list;
 }
@@ -395,9 +423,10 @@ function raidTargets(battle) {
  * 规程 (act3autochess) lays its 临时整备区 slots on a tile of their own, tile_acbag, which counts as hand here too
  * (grid.js HAND_TILES) [추정·CN: the indexer of that season's client is not read; the slots are the same row 1 the default
  * season's tile_achand fills].
+ * @param {Battle} battle @param {number} r @param {number} c
  */
 function raidBattlefield(battle, r, c) {
-  if (battle.kind === 'boss' || battle.kind === 'hidden') return battle.grid.inRect(r, c) && !HAND_TILES.has(battle.grid.tile(r, c).key);
+  if (battle.kind === 'boss' || battle.kind === 'hidden') return battle.grid.inRect(r, c) && !HAND_TILES.has(/** @type {{ key: string }} */ (battle.grid.tile(r, c)).key);
   return battle.onFieldBoard(r, c);
 }
 
@@ -410,6 +439,7 @@ function raidBattlefield(battle, r, c) {
  * buildable tiles, never the 深水区; free of another piece: Battle.isReservedTile — no living ally, no knocked-out
  * operator's body, no other card's board home: _CheckBuildableInBattle). No range check: a ranged member lands next
  * to the enemy too. Enemies stand anywhere (a melee member may land on the enemy's tile and block it).
+ * @param {Battle} battle @param {Unit} u @param {Unit} e
  */
 function raidTile(battle, u, e) {
   const back = OPPOSITE_DIR[normDir(u.dir)];
@@ -429,6 +459,7 @@ function raidTile(battle, u, e) {
 /**
  * An enemy on the member's own tile or the one in front of it (range "1-1" in its direction): any enemy on the map, by
  * the tile of its position — client CheckHasEnemyInRange → LitePhysicsUtil.CheckOverlapInBox → _CheckContainsPosition.
+ * @param {Battle} battle @param {Unit} u
  */
 function raidEnemyClose(battle, u) {
   const d = normDir(u.dir);
@@ -444,6 +475,7 @@ function raidEnemyClose(battle, u) {
  * One jump of member `u` (raidTargets → raidTile): the first candidate with a landing tile; none → nothing happens and
  * the next trigger looks again. `fullSp`: the skill ways ([spawn] sp 1.0); else the SP is kept. Returns true when it
  * jumped.
+ * @param {Battle} battle @param {AddonState} st @param {Unit} u @param {boolean} fullSp
  */
 function raidJump(battle, st, u, fullSp) {
   for (const e of raidTargets(battle)) {
@@ -466,6 +498,7 @@ function raidJump(battle, st, u, fullSp) {
  * additive percentages) and ASPD +(base_attack_speed + per·L), removed at the skill's end — every member, jumped or not.
  * A passive skill counts while it is on [ASSUMED: our engine keeps a passive on for the whole deployment; the client
  * reads Ability.isAffecting].
+ * @param {Battle} battle @param {AddonState} st @param {Unit} u
  */
 function raidSkillBuff(battle, st, u) {
   const on = onField(u) && !!(u.skill && !u.skill.noSkill && u.skill.active);
@@ -474,6 +507,7 @@ function raidSkillBuff(battle, st, u) {
   else if (!on && b) battle.removeBuff(u, KEY.raid);
 }
 
+/** @param {Battle} battle @param {AddonState} st */
 function raidPoll(battle, st) {
   const idle = num(st.bb[ID.raid].no_attack_duration, 10);
   for (const u of st.members[ID.raid]) {
@@ -488,7 +522,7 @@ function raidPoll(battle, st) {
   }
 }
 
-/** AUTO skill start → [trig]: a jump RAID_TRIG s later, again every RAID_TRIG s while that skill runs. */
+/** AUTO skill start → [trig]: a jump RAID_TRIG s later, again every RAID_TRIG s while that skill runs. @param {Battle} battle @param {AddonState} st @param {Unit} u */
 function raidAutoTrig(battle, st, u) {
   if (raidSkillType(u.skill) !== 'AUTO' || u.mem[RAID_SPAWN] || (u.blocking && u.blocking.length)) return;
   const token = (u.mem[RAID_TRIG_KEY] = (u.mem[RAID_TRIG_KEY] ?? 0) + 1);
@@ -505,6 +539,7 @@ function raidAutoTrig(battle, st, u) {
  * (raidTile skips taken, reserved and body tiles, so only content refusing it), the unit goes straight back to its home
  * tile (never stranded off the field).
  * Returns 'raid' | 'home' | false.
+ * @param {Battle} battle @param {Unit} u @param {number} r @param {number} c
  */
 function raidRedeploy(battle, u, r, c) {
   battle.retreat(u, { reason: 'raid' });
@@ -516,21 +551,24 @@ function raidRedeploy(battle, u, r, c) {
 // =====================================================================================================================
 // install
 
+/** @param {Battle} battle */
 export function install(battle) {
   if (!battle || !Array.isArray(battle.players) || !battle.players.length) return;
+  /** @type {AddonState[]} */
   const states = [];
   for (const p of battle.players) {
     const st = makeState(battle, p);
     if (Object.keys(st.tiers).length) states.push(st);
   }
   if (!states.length) return;
+  /** @type {Record<string, AddonState>} */
   const byPid = Object.create(null);
   for (const st of states) { byPid[st.pid] = st; applyPassives(battle, st); applyStatic(battle, st); }
-  const has = (id, tier = 1) => states.some((st) => (st.tiers[id] ?? 0) >= tier);
+  const has = (/** @type {string} */ id, tier = 1) => states.some((st) => (st.tiers[id] ?? 0) >= tier);
 
   // live layers
   if (states.some((st) => Object.keys(st.tiers).some((id) => LAYERED.has(id)))) {
-    battle.on('layerGain', (c) => {
+    battle.on('layerGain', (/** @type {LayerGainEv} */ c) => {
       const st = byPid[c.playerId];
       if (!st || !st.tiers[c.bondId] || !LAYERED.has(c.bondId) || st.pending) return;
       st.pending = true;
@@ -545,7 +583,7 @@ export function install(battle) {
   // 灵巧 aura: judged on every deployment of one of the player's operators (the initial ones included); a relocation
   // (`deploy` with move: true) keeps the judgment [추정: the client re-runs ON_BUFF_START only on a real (re)spawn]
   if (has(ID.skillful)) {
-    battle.on('deploy', (c) => {
+    battle.on('deploy', (/** @type {DeployEv} */ c) => {
       const u = c.unit, st = u && byPid[u.ownerId];
       if (!st || !st.tiers[ID.skillful] || u.kind !== 'op' || c.move) return;
       judgeAura(battle, st, u);
@@ -557,21 +595,21 @@ export function install(battle) {
     const raid = states.filter((st) => st.tiers[ID.raid] && st.members[ID.raid].size);
     if (raid.length) {
       battle.every(RAID_POLL, () => { for (const st of raid) raidPoll(battle, st); });
-      const member = (u) => { const st = u && byPid[u.ownerId]; return st && st.tiers[ID.raid] && st.members[ID.raid].has(u) ? st : null; };
-      battle.on('skillStart', ({ unit: u }) => {
+      const member = (/** @type {Unit} */ u) => { const st = u && byPid[u.ownerId]; return st && st.tiers[ID.raid] && st.members[ID.raid].has(u) ? st : null; };
+      battle.on('skillStart', (/** @type {UnitEv} */ { unit: u }) => {
         const st = member(u);
         if (!st) return;
         raidSkillBuff(battle, st, u);
         raidAutoTrig(battle, st, u);
       });
-      battle.on('skillEnd', ({ unit: u }) => {
+      battle.on('skillEnd', (/** @type {UnitEv} */ { unit: u }) => {
         const st = member(u);
         if (!st) return;
         u.mem[RAID_TRIG_KEY] = (u.mem[RAID_TRIG_KEY] ?? 0) + 1; // FinishDerivedBuffById [trig]
         raidSkillBuff(battle, st, u);
       });
       // [spawn] is a durable buff: it survives the jump itself (MoveLikeRespawnSelf), not the member leaving the field
-      battle.on('death', ({ unit: u, reason }) => {
+      battle.on('death', (/** @type {DeathEv} */ { unit: u, reason }) => {
         if (reason === 'raid' || !member(u)) return;
         delete u.mem[RAID_SPAWN];
         u.mem[RAID_TRIG_KEY] = (u.mem[RAID_TRIG_KEY] ?? 0) + 1;
@@ -581,7 +619,7 @@ export function install(battle) {
 
   // 迅捷
   if (has(ID.swift)) {
-    battle.on('skillEnd', (c) => {
+    battle.on('skillEnd', (/** @type {SkillEv} */ c) => {
       const u = c.unit;
       if (!u || u.kind !== 'op' || c.reason === 'death' || !u.alive || !u.skill) return;
       const st = byPid[u.ownerId];
@@ -607,7 +645,7 @@ export function install(battle) {
   // that map (runtimeCard2ChessDict) with operator cards only — token cards go to runtimeToken2CardDict (until
   // 2026-10-31 an elite's summons had the cost cut too)
   if (has(ID.solo)) {
-    battle.on('deploy', (c) => {
+    battle.on('deploy', (/** @type {DeployEv} */ c) => {
       const u = c.unit;
       if (!u || u.kind !== 'op') return;
       const st = byPid[u.ownerId];
@@ -636,15 +674,15 @@ export function install(battle) {
     // the official roll is DicePRD (act1autochess_bond_eff_indom[lowland], key "prd#act1autochess_bond_eff_indom[lowland]"
     // on the battle's global blackboard): one count for the whole battle — every player's ground operators share it
     const prd = { n: 0 };
-    const stOf = (u) => { const st = isGroundOp(u) ? byPid[u.ownerId] : null; return st && st.tiers[ID.indom] ? st : null; };
-    battle.on('death', (c) => {
+    const stOf = (/** @type {Unit} */ u) => { const st = isGroundOp(u) ? byPid[u.ownerId] : null; return st && st.tiers[ID.indom] ? st : null; };
+    battle.on('death', (/** @type {DeathEv} */ c) => {
       const u = c.unit;
       const banked = !!(u && u.mem && u.mem.indomFreeDeploy);
       if (!INDOM_EXITS.has(c.reason) || !(stOf(u) || (banked && u.kind === 'op'))) return;
       const st = stOf(u);
       const bb = st ? st.bb[ID.indom] : null;
       if (st && c.reason === 'killed' && st.tiers[ID.indom] >= 2) {
-        const sp = num(bb.sp);
+        const sp = num(/** @type {BondBb} */ (bb).sp);   // (bb is set with st)
         if (sp > 0) for (const o of st.ops) if (onField(o) && o.skill) o.skill.gainSp(sp, 'bond');
       }
       // every knock-out rolls, a second one in the same tick too: the redeploy is synchronous, so the rest of that
@@ -652,27 +690,27 @@ export function install(battle) {
       // roll and waited out the normal redeploy timer even at 100 % (community report: 砾 at a 100 % 不屈 lay down). Only
       // a knock-out during this redeploy itself (its deploy hooks) is not rolled again — no loop.
       if (u.alive || u.removed || u.mem[ID.indom]) return;
-      if (banked || (st && dicePRD(battle, prd, prob(bb, L(battle, st, ID.indom))))) {
+      if (banked || (st && dicePRD(battle, prd, prob(/** @type {BondBb} */ (bb), L(battle, st, ID.indom))))) {
         u.mem[ID.indom] = true;
         try {
           if (battle.redeploy(u, { free: true })) fxOn(battle, 'revive', u, 'bond:indomShip', 'redeploy');
         } finally { u.mem[ID.indom] = false; }
       }
     }, { priority: 10 });
-    battle.on('dollSwap', ({ unit: u }) => {
+    battle.on('dollSwap', (/** @type {UnitEv} */ { unit: u }) => {
       const st = stOf(u);
       if (!st || !u.alive || u.mem.indomFreeDeploy) return;
       if (dicePRD(battle, prd, prob(st.bb[ID.indom], L(battle, st, ID.indom)))) u.mem.indomFreeDeploy = true;
     });
     // the zeroed deployment is the next one, whatever brings it (this redeploy, the 阿戈尔 revive, the 突袭 jump …)
-    battle.on('deploy', ({ unit: u }) => { if (u && u.mem && u.mem.indomFreeDeploy) u.mem.indomFreeDeploy = false; });
+    battle.on('deploy', (/** @type {DeployEv} */ { unit: u }) => { if (u && u.mem && u.mem.indomFreeDeploy) u.mem.indomFreeDeploy = false; });
   }
 
   // 坚守 (tier 2) redirect + thorns, 奥术 vulnerability
   const stead = has(ID.stead, 2);
   const arcane = has(ID.arcane);
   if (stead) {
-    battle.on('hit', (c) => {
+    battle.on('hit', (/** @type {HitEv} */ c) => {
       const t = c.target, dmg = c.dmg;
       // redirected damage (浊心斯卡蒂 S1 transfer) is not cut and re-shared again (see chess_char_6_04-skadi2.js)
       // (client: the moved part carries SharedFlag 7 SKIP_MODIFIER_EVENT — DamageSplit / AutoChessDamageSplit — so no
@@ -690,7 +728,7 @@ export function install(battle) {
     }, { priority: -20 });
   }
   if (stead || arcane) {
-    battle.on('damaged', (c) => {
+    battle.on('damaged', (/** @type {DamagedEv} */ c) => {
       const t = c.target, dmg = c.dmg;
       if (!t || !dmg) return;
       if (t.side === 'ally') {
@@ -708,7 +746,7 @@ export function install(battle) {
           // (the member's own damage-taken modifiers and shields still apply), never re-scaled by the attacker
           for (const m of on) {
             const d = battle.makeDamage({ amount: share / on.length, type: 'true', canDodge: false, tags: ['bond:stead:share'] });
-            d.steadShare = true;
+            /** @type {{ amount: number, steadShare?: boolean }} */ (d).steadShare = true;
             battle.dealDamage(null, m, d);
             // AutoChessDamageSplit creates its `_hitEffectKey` on each member it moves a share to (official client)
             tplFx(battle, m, 'bond_shield_buff_hit', t);
@@ -732,7 +770,7 @@ export function install(battle) {
         // effect buff_weak[limit] over the head, render/fxstatus.js HINT_FX)
         battle.applyStatus(src, 'fragile', { duration: num(bb['weak[limit]'], 5), value: num(bb.damage_scale, 1) - 1, source: t, fxTag: 'weak[limit]' });
         const d = battle.makeDamage({ amount: num(bb.base_damage_value) + num(bb.damage_value_per_stack) * L(battle, st, ID.stead), type: 'arts', canDodge: false, sourceless: true });
-        d.steadThorn = true;
+        /** @type {{ amount: number, steadThorn?: boolean }} */ (d).steadThorn = true;
         battle.dealDamage(t, src, d);
         return;
       }

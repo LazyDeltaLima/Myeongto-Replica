@@ -11,10 +11,12 @@
 
 import { gameData } from '../../support/index.js';
 import { TEMPLATES as COMMON, registerGlobals, registerPrep } from '../templates.js';
+/** @import { MetaCtx, MetaHandlers, MetaRegistry } from '../../../../match/effectsMeta.js' */
+/** @import { PrepTemplate } from '../templates.js' */
 
-const n = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const n = (/** @type {unknown} */ v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
-/** `{ ...bb, ...bbStr }` of a bond buff from the match data (ctx.data), or {}. */
+/** `{ ...bb, ...bbStr }` of a bond buff from the match data (ctx.data), or {}. @param {MetaCtx} ctx @param {string} bondId @param {string} key @returns {Record<string, any>} */
 function buff(ctx, bondId, key) {
   const rec = ctx.data && ctx.data.bonds ? ctx.data.bonds[bondId] : null;
   for (const b of (rec && Array.isArray(rec.buffs) ? rec.buffs : [])) {
@@ -23,6 +25,7 @@ function buff(ctx, bondId, key) {
   return {};
 }
 
+/** @returns {MetaHandlers} */
 const deputPart = () => ({
   onPrepEnd(ctx) {
     const me = ctx.bond('deputShip');
@@ -35,6 +38,7 @@ const deputPart = () => ({
   },
 });
 
+/** @returns {MetaHandlers} */
 const miraRefreshPart = () => ({
   onRefresh(ctx, ev) {
     if (!ev || ev.trigger || !ctx.bondActive('miraShip')) return;
@@ -48,13 +52,16 @@ const miraRefreshPart = () => ({
   },
 });
 
-/** Prep templates of the add-on bonds: template → { bonds, prep(bondId) → handler part } (bonds/templates.js). */
+/**
+ * Prep templates of the add-on bonds: template → { bonds, prep(bondId) → handler part } (bonds/templates.js).
+ * @type {Readonly<Record<string, PrepTemplate>>}
+ */
 export const TEMPLATES = Object.freeze({
   bond_activated_add_layer: { bonds: ['deputShip'], prep: deputPart },
   bond_refresh_shop_next_free: { bonds: ['miraShip'], prep: miraRefreshPart },
 });
 
-/** The add-on bonds' prep side alone (tests): the globals and the parts of these and the shared templates. */
+/** The add-on bonds' prep side alone (tests): the globals and the parts of these and the shared templates. @param {MetaRegistry} registry @param {Record<string, any>} [data] */
 export function registerMeta(registry, data = gameData()) {
   registerGlobals(registry);
   const common = Object.fromEntries(Object.entries(COMMON).filter(([k]) => k !== 'bond_layer_added_reward_equip'));

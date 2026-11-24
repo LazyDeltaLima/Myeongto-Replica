@@ -104,8 +104,8 @@ error.
 
 With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`, the files directly under `server/`
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, the files directly under
-`server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), `garrisons/` and
-`support/`.
+`server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), `garrisons/`,
+`support/` and `bonds/`.
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -252,6 +252,25 @@ most strict errors were, and the JSDoc that fixed them:
   `/** @type {{ timeLeft: number } | null} */ (u.findBuff(key))`.
 - a shared empty fallback list (`EMPTY`) is `readonly never[]` (a cast on `Object.freeze([])`: the plain pass reads it
   as `readonly any[]`), so `list ?? EMPTY` keeps the list's element type.
+- a bond file's installers and tables (`server/sim/content/bonds/shared.js`): a nation / general template's installer is
+  `@type {BondInstaller}` on its function declaration (`(battle, pid, bb, members)`), the file's `TEMPLATES`
+  `@type {Readonly<Record<string, BondTemplate>>}` (its arrow installers need nothing then), a prep table
+  `Readonly<Record<string, PrepTemplate>>` (`bonds/templates.js`: `prep(bondId)` returns `MetaHandlers`, so a part
+  written as `/** @returns {MetaHandlers} */ const part = () => ({ onPrice(ctx, ev) … })` types its hooks). A record is
+  `BondRec`, a template's numbers `BondBb`; a per-battle state kept in `battleStore` (any) gets its typedef on the
+  declaration (`/** @type {IberiaState} */ const st = S.battleStore(…)`, `AddonState`).
+- a hook that hands its callback a source it found (`onDealt`, `onUnitHit`, `onUnitDamaged` run it for the source unit
+  they keyed it on): `DamagedEv.source` is still `Unit | null`, so the callback casts it once where it reads it,
+  `const u = /** @type {Unit} */ (c.source)`.
+- a `let` set after closures that read it are made (`spawnGiant`'s `u`, filled by `spawnWalker` before any of them runs):
+  `let u = /** @type {Unit} */ (/** @type {unknown} */ (null))`, the assignment cast too — otherwise every closure sees
+  `Unit | null`.
+- a buff of `Unit.buffs` / `findBuff` (`object`): `BuffRec` (`bonds/shared.js`), cast on the list or the lookup
+  (`for (const b of /** @type {BuffRec[]} */ (e.buffs.slice()))`). `Unit.s` is never null once read (its getter's
+  `@returns`), `Unit.mem` is `Record<string, any>` (content's scratch space).
+- an engine method whose parameter defaults to `null` (`loseHp`'s `tags`, `redeploy`'s `tile`, `isReservedTile`'s `src`,
+  `allies(ownerId)`, `allySelectable(a, by)`, `holdProtect`'s `source`) takes the `@param` there; `after` / `every` return a
+  `Scheduled` (`battle/hooks.js`), whose `cancel` is set after the literal (a cast on it).
 
 
 ## Split classes

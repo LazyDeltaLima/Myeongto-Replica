@@ -16,12 +16,17 @@ import * as S from '../../support/index.js';
 import { isNormalDamage, isHpLoss } from '../../../damage.js';
 import { dicePRD } from '../addon/battle.js';
 import { num, reached, onUnitDamaged, onDealt, fieldMaxLayers, isEnemyTarget, isFoe, isAddition, isDot, isElement } from '../shared.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BondInstaller, BondTemplate } from '../shared.js' */
+/** @import { DeployEv, DamagedEv } from '../../support/index.js' */
 
+/** @type {BondInstaller} */
 function installSiracusa(battle, pid, bb, members) {
   const memberSet = new Set(members);
   const six = reached(battle, pid, 'siracusaShip', bb.power_bond_char_cnt);
   const end = num(bb.end_duration, 0);
-  battle.on('deploy', ({ unit }) => {
+  battle.on('deploy', (/** @type {DeployEv} */ { unit }) => {
     if (!memberSet.has(unit)) return;
     const L = S.bondLayers(battle, pid, 'siracusaShip');
     const dur = num(bb.base_duration, 0) + num(bb.duration_per_stack, 0) * L;
@@ -29,7 +34,7 @@ function installSiracusa(battle, pid, bb, members) {
     battle.addBuff(unit, { key: 'bond:siracusa', duration: dur, mods: { aspd: num(bb.base_attack_speed, 0) + num(bb.attack_speed_per_stack, 0) * L } });
     if (!six) return;
     unit.mem.siraStealthEnd = Infinity;
-    const off = ({ unit: u }) => { u.mem.siraStealthEnd = battle.time; };
+    const off = (/** @type {{ unit: Unit }} */ { unit: u }) => { u.mem.siraStealthEnd = battle.time; };
     battle.addBuff(unit, { key: 'bond:siracusa:stealth', duration: dur, flags: { stealth: true }, status: 'stealth', onExpire: off, onRemove: off });
   });
   if (!six) return;
@@ -38,8 +43,8 @@ function installSiracusa(battle, pid, bb, members) {
   // the [ex][buff] DicePRD keeps its count on the battle's global blackboard ("prd#" + the template key): one count for
   // the battle, both players of a pair field included (like 不屈's, bonds/addon/battle.js dicePRD)
   const prd = S.battleStore(battle, 'bond:siracusa:prd', () => ({ n: 0 }));
-  const onDmg = (ctx) => {
-    const u = ctx.source, t = ctx.target, dmg = ctx.dmg;
+  const onDmg = (/** @type {DamagedEv} */ ctx) => {
+    const u = /** @type {Unit} */ (ctx.source), t = ctx.target, dmg = ctx.dmg;
     if (!isEnemyTarget(t) || !isNormalDamage(dmg)) return;
     const hidden = u.s.flags.stealth || battle.time <= num(u.mem.siraStealthEnd, -Infinity) + end + 1e-9;
     if (!hidden || !dicePRD(battle, prd, prob)) return;
@@ -58,21 +63,23 @@ function installSiracusa(battle, pid, bb, members) {
 /** 叙拉古's random status (abnormal_buff[random_creator] AssignRandomKeyToBlackboard order). */
 export const SIRACUSA_STATUSES = Object.freeze(['stun', 'fear', 'attract', 'cold', 'palsy', 'groundbind']);
 
+/** @type {BondInstaller} */
 function installSiracusaAct3(battle, pid, bb, members) {
   const memberSet = new Set(members);
-  battle.on('deploy', ({ unit }) => {
+  battle.on('deploy', (/** @type {DeployEv} */ { unit }) => {
     if (!memberSet.has(unit)) return;
     const L = S.bondLayers(battle, pid, 'siracusaShip');
     const dur = num(bb.base_duration) + num(bb.duration_per_stack) * L;
     if (dur > 0) battle.addBuff(unit, { key: 'bond:siracusa', duration: dur, mods: { aspd: num(bb.base_attack_speed) + num(bb.attack_speed_per_stack) * L } });
   });
   if (!reached(battle, pid, 'siracusaShip', bb.power_bond_char_cnt)) return;
+  /** @type {Map<Unit, number>} */
   const next = new Map();
-  const onDmg = (c) => {
-    const u = c.source, t = c.target, dmg = c.dmg;
+  const onDmg = (/** @type {DamagedEv} */ c) => {
+    const u = /** @type {Unit} */ (c.source), t = c.target, dmg = c.dmg;
     // FilterAbilityFamily ATTACK_OR_COMBAT: the member's attacks and skills, not a bond's / an item's rider; not 持续
     if (!isFoe(t) || !dmg || isElement(c) || isDot(dmg) || isAddition(dmg) || isHpLoss(dmg) || dmg.sourceless) return;
-    if (dmg.tags?.some((x) => typeof x === 'string' && x.startsWith('bond:'))) return;
+    if (dmg.tags?.some((/** @type {unknown} */ x) => typeof x === 'string' && x.startsWith('bond:'))) return;
     if (battle.time < (next.get(u) ?? -Infinity) - 1e-9) return;
     if (!battle.rng.chance(num(bb.prob))) return;
     next.set(u, battle.time + 0.2);
@@ -100,13 +107,14 @@ function installSiracusaAct3(battle, pid, bb, members) {
   });
 }
 
-/** abnormal_buff[count]: 晕眩, 恐惧, 诱导, 寒冷 or 冻结 (one), 麻痹, 缚地. */
+/** abnormal_buff[count]: 晕眩, 恐惧, 诱导, 寒冷 or 冻结 (one), 麻痹, 缚地. @param {Unit} u */
 export function abnormalCount(u) {
   const f = u.s.flags;
   return (f.stun && !f.freeze ? 1 : 0) + (f.fear ? 1 : 0) + (f.attract ? 1 : 0) + (f.cold || f.freeze ? 1 : 0)
     + (u.findBuff('palsy') ? 1 : 0) + (f.groundbind ? 1 : 0);
 }
 
+/** @type {Readonly<Record<string, BondTemplate>>} */
 export const TEMPLATES = Object.freeze({
   act2autochess_bond_eff_siracusa: { bond: 'siracusaShip', battle: installSiracusa },
   act3autochess_bond_eff_siracusa: { bond: 'siracusaShip', battle: installSiracusaAct3, bb: 'record' },

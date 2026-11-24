@@ -27,11 +27,14 @@ import { COLS, ROWS, MOVE_SCALE } from '../../constants.js';
 import { canTargetEnemy, attackMotionOf } from '../../targeting.js';
 import { walkCursor } from '../../walk.js';
 import { num } from './shared.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
+/** @import { TickEv, DeathEv } from '../support/index.js' */
 
 /** The trace ability's search cooldown (`_searchCoolDown`), s. */
 export const WALKER_SEARCH = 1;
 
-/** The nearest tile of the field rect a ground unit can stand on to (x, y), or null (`_summonOnNearestPassableTile`). */
+/** The nearest tile of the field rect a ground unit can stand on to (x, y), or null (`_summonOnNearestPassableTile`). @param {Battle} battle @param {number} x @param {number} y */
 export function nearestGroundTile(battle, x, y) {
   const g = battle.grid, R = g.rect;
   const r0 = Math.round(y), c0 = Math.round(x);
@@ -50,12 +53,13 @@ export function nearestGroundTile(battle, x, y) {
 /**
  * Does enemy record `rec`'s normal attack take flying units in `mode` (default: the mode it comes in) — its data
  * `attackMotion` has the FLY bit (targeting.js attackMotionOf)?
+ * @param {Record<string, any>} rec @param {string | null} [mode]
  */
 export function walkerHitsFly(rec, mode = null) {
   return (attackMotionOf(rec, mode) & 2) !== 0;
 }
 
-/** The token def of enemy record `key` as a walking ally (normalizeToken input), or null. */
+/** The token def of enemy record `key` as a walking ally (normalizeToken input), or null. @param {Battle} battle @param {string} key */
 function walkerDef(battle, key) {
   const rec = battle.data.rawEnemy?.(key);
   if (!rec || !rec.stats) return null;
@@ -84,6 +88,8 @@ function walkerDef(battle, key) {
  * enemies when its record's attack takes them (walkerHitsFly); `opts.onDeath(unit)` runs once as
  * it leaves the field; `opts.rank(unit, enemies)` may reorder the enemies its range picks (the first is attacked).
  * Returns the unit or null.
+ * @param {Battle} battle @param {string} pid @param {string} key @param {number} r @param {number} c
+ * @param {{ onDeath?: ((u: Unit) => void) | null, rank?: ((u: Unit, enemies: Unit[]) => Unit[]) | null }} [opts]
  */
 export function spawnWalker(battle, pid, key, r, c, { onDeath = null, rank = null } = {}) {
   const w = walkerDef(battle, key);
@@ -96,18 +102,19 @@ export function spawnWalker(battle, pid, key, r, c, { onDeath = null, rank = nul
   const melee = !(radius > 0);
   const hitFly = !melee && walkerHitsFly(rec);
   const r2 = radius * radius + 1e-9;
+  /** @type {Unit | null} */
   let self = null;
   const kit = {
     trait: {
       attack: melee ? 'melee' : 'ranged', dmgType: def.dmgType, projectile: melee ? 'none' : 'bolt', canHitFly: hitFly,
       maxTargets: 1, heal: null, noAttack: false,
       // the round range: the tiles of the circle gave the candidates, the distance decides (the blocked ones always)
-      pickEnemies: (cands) => {
+      pickEnemies: (/** @type {Unit[]} */ cands) => {
         const out = cands.filter((e) => self && (self.blocking.includes(e) || (e.x - self.x) * (e.x - self.x) + (e.y - self.y) * (e.y - self.y) <= r2));
         return rank && self ? rank(self, out) : out;
       },
     },
-    install(_battle, unit) {
+    install(/** @type {Battle} */ _battle, /** @type {Unit} */ unit) {
       self = unit;
       unit.walks = true;
       unit.motion = 'WALK';
@@ -121,7 +128,7 @@ export function spawnWalker(battle, pid, key, r, c, { onDeath = null, rank = nul
   u.walks = true;
   refreshKeys(u, radius);
   const prof = { canHitFly: hitFly };
-  battle.on('tick', ({ dt }) => {
+  battle.on('tick', (/** @type {TickEv} */ { dt }) => {
     if (!u.alive || !u.deployed) return;
     const st = u.mem.walk;
     // aclt[bleeding]: the share of its max HP, every interval from 1 s after it came
@@ -157,7 +164,7 @@ export function spawnWalker(battle, pid, key, r, c, { onDeath = null, rank = nul
     u.tileR = Math.round(u.y); u.tileC = Math.round(u.x);
     refreshKeys(u, radius);
   }, { owner: u });
-  if (onDeath) battle.on('death', (c) => { if (c.unit === u) onDeath(u); }, { owner: u });
+  if (onDeath) battle.on('death', (/** @type {DeathEv} */ c) => { if (c.unit === u) onDeath(u); }, { owner: u });
   return u;
 }
 
@@ -165,6 +172,7 @@ export function spawnWalker(battle, pid, key, r, c, { onDeath = null, rank = nul
  * The candidate tiles of the walker's range circle (an enemy is filed on the tile it stands on): the square of every
  * tile within `radius` + 1 of its tile, so wherever on its tile it stands the circle's enemies are in; kept while it
  * stays on that tile (the exact distance is the profile's `pickEnemies`).
+ * @param {Unit} u @param {number} radius
  */
 function refreshKeys(u, radius) {
   const st = u.mem.walk;

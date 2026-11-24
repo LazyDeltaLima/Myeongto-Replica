@@ -122,7 +122,11 @@ export const PROTECT = 'protect';
 export const protectMods = (v) => ({ physTakenMul: 1 - v, artsTakenMul: 1 - v });
 /** A hold that outlives one tick and lapses in the next: refreshed every tick while its condition lasts. */
 export const PROTECT_TICK_HOLD = 1.5 * TICK;
-/** Hold 庇护 `value` on `target` for `duration` s (the shared PROTECT effect). */
+/**
+ * Hold 庇护 `value` on `target` for `duration` s (the shared PROTECT effect).
+ * @param {import('../../../Battle.js').Battle} battle @param {import('../../../units.js').Unit} target @param {number} value
+ * @param {number} duration @param {import('../../../units.js').Unit | null} [source]
+ */
 export function holdProtect(battle, target, value, duration, source = null) {
   if (value > 0) battle.applyStrongest(target, PROTECT, { duration, value, mods: protectMods, source });
 }

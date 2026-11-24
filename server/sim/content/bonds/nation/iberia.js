@@ -12,23 +12,38 @@
 import * as S from '../../support/index.js';
 import { isHpLoss } from '../../../damage.js';
 import { num, reached, isFoe, isAddition, isElement } from '../shared.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BondInstaller, BondTemplate, BondBb, BuffRec } from '../shared.js' */
+/** @import { DamagedEv } from '../../support/index.js' */
+/**
+ * The field's 伊比利亚 state (one for every player's members): each member's owner and numbers, the running [dot] per
+ * (enemy, member), the [speed] stacks per enemy, the [enemy_cd] per (enemy, member).
+ * @typedef {{ pid: string, bb: BondBb }} IberiaOwner
+ * @typedef {{ stacks: number, until: number, done: boolean, atk: number }} IberiaDot
+ * @typedef {{ owners: Map<Unit, IberiaOwner>, dots: Map<string, IberiaDot>, slow: Map<Unit, { stacks: number }>,
+ *   cd: Map<string, number>, hooked: boolean }} IberiaState
+ */
 
+/** @type {BondInstaller} */
 function installIberia(battle, pid, bb, members) {
+  /** @type {IberiaState} */
   const st = S.battleStore(battle, 'bond:iberia', () => ({ owners: new Map(), dots: new Map(), slow: new Map(), cd: new Map(), hooked: false }));
   for (const u of members) st.owners.set(u, { pid, bb });
   if (st.hooked) return;
   st.hooked = true;
-  const L = (o) => S.bondLayers(battle, o.pid, 'iberiaShip');
-  battle.on('damaged', (c) => {
+  const L = (/** @type {IberiaOwner} */ o) => S.bondLayers(battle, o.pid, 'iberiaShip');
+  battle.on('damaged', (/** @type {DamagedEv} */ c) => {
     const u = c.source, t = c.target, dmg = c.dmg;
     const o = u ? st.owners.get(u) : null;
     if (!o || !isFoe(t) || !dmg || isElement(c) || isAddition(dmg) || isHpLoss(dmg) || dmg.tags?.includes('bond:iberia:dot')) return;
     // [enemy_cd]: 0.2 s per enemy and member
-    const cdKey = `${t.id}|${u.id}`;
+    // (a member's damage: o is found only for a source)
+    const cdKey = `${t.id}|${/** @type {Unit} */ (u).id}`;
     if (battle.time < (st.cd.get(cdKey) ?? -Infinity) - 1e-9) return;
     st.cd.set(cdKey, battle.time + 0.2);
     const power = reached(battle, o.pid, 'iberiaShip', o.bb.power_bond_char_cnt);
-    addDot(battle, st, t, u, o);
+    addDot(battle, st, t, /** @type {Unit} */ (u), o);
     if (!power) return;
     slowStack(battle, st, t, o.bb);
     if (dmg.tags?.includes('bond:iberia:bounce') || !t.alive) return;
@@ -37,12 +52,15 @@ function installIberia(battle, pid, bb, members) {
     const near = battle.foesInRadius(t.x, t.y, 1.0).filter((e) => e !== t && e.alive);
     if (!near.length) return;
     const e = battle.rng.pick(near);
-    battle.dealDamage(u, e, { amount: num(o.bb.atk_scale, 3) * num(u.s.atk), type: 'arts', isSplash: true, tags: ['bond:iberia:bounce'] });
+    battle.dealDamage(u, e, { amount: num(o.bb.atk_scale, 3) * num(/** @type {Unit} */ (u).s.atk), type: 'arts', isSplash: true, tags: ['bond:iberia:bounce'] });
     S.tplFx(battle, e, 'map_v079_water_hit_01', u);
   });
 }
 
-/** [enemy][dot]: STACK ≤ 10 per (enemy, member), 10 s from its first stack (refreshed only at 10), a tick per second. */
+/**
+ * [enemy][dot]: STACK ≤ 10 per (enemy, member), 10 s from its first stack (refreshed only at 10), a tick per second.
+ * @param {Battle} battle @param {IberiaState} st @param {Unit} t @param {Unit} u @param {IberiaOwner} o
+ */
 function addDot(battle, st, t, u, o) {
   const key = `${t.id}|${u.id}`;
   const cur = st.dots.get(key);
@@ -67,14 +85,17 @@ function addDot(battle, st, t, u, o) {
   });
 }
 
-/** [enemy][speed]: one STACK per enemy (≤ max_stack_cnt), move speed ×(1 + move_speed × stacks), 10 s, refreshed at max. */
+/**
+ * [enemy][speed]: one STACK per enemy (≤ max_stack_cnt), move speed ×(1 + move_speed × stacks), 10 s, refreshed at max.
+ * @param {Battle} battle @param {IberiaState} st @param {Unit} t @param {BondBb} bb
+ */
 function slowStack(battle, st, t, bb) {
   const pre = 'act3autochess_bond_eff_iberia[enemy][speed].';
   const max = Math.max(1, Math.floor(num(bb[pre + 'max_stack_cnt'], 20)));
   const per = num(bb[pre + 'move_speed'], -0.04);
   const dur = num(bb[pre + 'speed_duration'], 10);
   const cur = st.slow.get(t);
-  const live = cur && t.findBuff('bond:iberia:slow');
+  const live = cur && /** @type {BuffRec | null} */ (t.findBuff('bond:iberia:slow'));
   const stacks = live ? Math.min(max, cur.stacks + 1) : 1;
   const refresh = !live || (cur.stacks >= max);
   st.slow.set(t, { stacks });
@@ -83,6 +104,7 @@ function slowStack(battle, st, t, bb) {
   else { live.mods = mods; t.markDirty(); }
 }
 
+/** @type {Readonly<Record<string, BondTemplate>>} */
 export const TEMPLATES = Object.freeze({
   act3autochess_bond_eff_iberia: { bond: 'iberiaShip', battle: installIberia, bb: 'record' },
 });

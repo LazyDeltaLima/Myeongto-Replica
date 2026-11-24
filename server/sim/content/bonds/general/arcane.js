@@ -15,10 +15,15 @@ import * as S from '../../support/index.js';
 import { isHpLoss } from '../../../damage.js';
 import { AURA, whileDeployed, reveal, enemiesOnRange } from '../../kits/shared/tier4.js';
 import { num, reached, onDealt, fieldMaxLayers, isFoe, isAddition, isElement } from '../shared.js';
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BondInstaller, BondTemplate } from '../shared.js' */
+/** @import { DamagedEv } from '../../support/index.js' */
 
+/** @type {BondInstaller} */
 function installArcane(battle, pid, bb, members) {
-  const onDmg = (c) => {
-    const u = c.source, t = c.target, dmg = c.dmg;
+  const onDmg = (/** @type {DamagedEv} */ c) => {
+    const u = /** @type {Unit} */ (c.source), t = c.target, dmg = c.dmg;   // (onDealt runs it for its source)
     if (!isFoe(t) || !dmg || isElement(c) || isAddition(dmg) || isHpLoss(dmg)) return;
     const k = num(bb.atk_base) + num(bb.atk_per_stack) * S.bondLayers(battle, pid, 'arcaneShip');
     if (k > 0) battle.dealDamage(u, t, { amount: k * num(u.s.atk), type: 'arts', tags: ['bond:arcane', 'addition'] });
@@ -33,7 +38,7 @@ function installArcane(battle, pid, bb, members) {
   const st = S.battleStore(battle, 'bond:arcane3:enemy', () => ({ on: false, cut: new Map() }));
   if (st.on) return;
   st.on = true;
-  battle.on('damaged', (c) => {
+  battle.on('damaged', (/** @type {DamagedEv} */ c) => {
     const t = c.target;
     if (!isFoe(t) || !c.dmg || isElement(c) || isHpLoss(c.dmg)) return;
     const L = fieldMaxLayers(battle, 'arcaneShip', bb.power_bond_char_cnt);
@@ -47,6 +52,7 @@ function installArcane(battle, pid, bb, members) {
   });
 }
 
+/** @type {Readonly<Record<string, BondTemplate>>} */
 export const TEMPLATES = Object.freeze({
   act3autochess_bond_eff_arcane: {
     bond: 'arcaneShip', battle: installArcane, bb: 'record',

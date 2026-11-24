@@ -8,5 +8,8 @@ export { YAN_ELEMENTS } from './nation/yan.js';
 export { SIRACUSA_STATUSES, abnormalCount } from './nation/siracusa.js';
 export { ursusExtra } from './nation/ursus.js';
 
-/** The bond's numbers when its record has template `key` — every buff of the record together —, else null. */
+/**
+ * The bond's numbers when its record has template `key` — every buff of the record together —, else null.
+ * @param {string} bondId @param {unknown} key @param {import('../support/index.js').DataScope} [scope]
+ */
 export const regulationBb = (bondId, key, scope) => recordBb(S.bondRecord(bondId, scope), String(key).replace(/(\[[^\]]*\])+$/, ''));
