@@ -62,6 +62,19 @@ import { gameData, num, buffsOf, passiveBuff, effectRecord, directMods } from '.
 import { isShopItem } from '../simdata.js';
 import { isHpLoss } from '../damage.js';
 
+/** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
+/** @import { DataScope } from './support/index.js' */
+/** @import { MetaCtx, MetaHandlers, MetaRegistry } from '../../match/effectsMeta.js' */
+/**
+ * @typedef {Record<string, any>} Rec a data record (effects.json, choices.json) or an EffectRef
+ * @typedef {{ kind: 'always' | 'benchAtLeast' | 'benchAtMost' | 'sameRow', count: number }} Gate
+ * @typedef {{ effectId: string, key: string, gate: Gate, heal: number, flawless: Record<string, any> | null,
+ *   opMods: Record<string, number> | null, enemy: { rank: string | null, mods: Record<string, number> }[] }} BattlePlan
+ * @typedef {{ key: string, mods: Record<string, any> }} FlawlessMod
+ * @typedef {{ key: string, rank: string | null, mods: Record<string, number> }} EnemyMod
+ */
+
 // =====================================================================================================================
 // data helpers
 
@@ -86,10 +99,15 @@ const PREP_KEYS = new Set([KEY.gainEquip, KEY.addLayer, KEY.gainCoin, KEY.freeRe
 const GATE_KEYS = new Set([KEY.always, KEY.benchAtLeast, KEY.benchAtMost, KEY.sameRow]);
 export const BUILTIN_REFS = Object.freeze({ goldenItem: 'effect:builtin_next_buy_golden_item', eliteChess: 'effect:builtin_next_buy_elite' });
 
+/** @param {unknown} v @param {number} [d] */
 const int = (v, d = 0) => { const n = num(v, NaN); return Number.isFinite(n) ? Math.trunc(n) : d; };
+/** @param {Rec | null | undefined} o @param {unknown} k */
 const own = (o, k) => (o && typeof o === 'object' && typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k) ? o[k] : null);
 
-/** choices.json cards.<family> entry of an effect id (display name, tier, team flag, tactic kind), or null. */
+/**
+ * choices.json cards.<family> entry of an effect id (display name, tier, team flag, tactic kind), or null.
+ * @param {Rec | null | undefined} data @param {string} family @param {string} id
+ */
 function cardRecord(data, family, id) {
   const list = data && data.choices && data.choices.cards && Array.isArray(data.choices.cards[family]) ? data.choices.cards[family] : [];
   return list.find((c) => c && c.effectId === id) ?? null;
@@ -98,8 +116,8 @@ function cardRecord(data, family, id) {
 /**
  * The bounty a 悬赏 effect adds (from its own buff blackboard), in the choices.json card shape used by the match
  * (`m.addBounty`), or null when the effect has no bounty buff.
- * @param {object} effect data/effects.json ENEMY_GAIN record
- * @param {object|null} [card] choices.json cards.bounty entry (tier)
+ * @param {Rec | null | undefined} effect data/effects.json ENEMY_GAIN record
+ * @param {Rec | null} [card] choices.json cards.bounty entry (tier)
  */
 export function bountyOf(effect, card = null) {
   if (!effect || !Array.isArray(effect.buffs)) return null;
@@ -125,8 +143,9 @@ export function bountyOf(effect, card = null) {
   };
 }
 
-/** Device aliases (`trap_…#nnn` → on/off) of every auto_chess_change_map buff of an effect. */
+/** Device aliases (`trap_…#nnn` → on/off) of every auto_chess_change_map buff of an effect. @param {Rec | null | undefined} effect */
 export function mapAliases(effect) {
+  /** @type {Record<string, number>} */
   const out = {};
   for (const b of buffsOf(effect)) {
     if (b.key !== KEY.map) continue;
@@ -135,7 +154,7 @@ export function mapAliases(effect) {
   return out;
 }
 
-/** Gate of a battle card: { kind: 'always'|'benchAtLeast'|'benchAtMost'|'sameRow', count }. */
+/** Gate of a battle card: { kind: 'always'|'benchAtLeast'|'benchAtMost'|'sameRow', count }. @param {Rec | null | undefined} effect @returns {Gate} */
 export function gateOf(effect) {
   for (const b of buffsOf(effect)) {
     if (b.key === KEY.benchAtLeast) return { kind: 'benchAtLeast', count: Math.max(0, int(b.p.count, 0)) };
@@ -145,7 +164,7 @@ export function gateOf(effect) {
   return { kind: 'always', count: 0 };
 }
 
-/** Whether a prep bench gate holds for `n` cards in the 手牌区. */
+/** Whether a prep bench gate holds for `n` cards in the 手牌区. @param {Gate | null | undefined} gate @param {number} n */
 export function benchGate(gate, n) {
   if (!gate) return true;
   if (gate.kind === 'benchAtLeast') return n >= gate.count;
@@ -153,14 +172,16 @@ export function benchGate(gate, n) {
   return true;
 }
 
-/** Does a 战术决策 effect have a battle part (anything besides the prep-side keys)? */
+/** Does a 战术决策 effect have a battle part (anything besides the prep-side keys)? @param {Rec | null | undefined} effect */
 export function hasBattlePart(effect) {
   return buffsOf(effect).some((b) => b.key && !PREP_KEYS.has(b.key) && !GATE_KEYS.has(b.key));
 }
 
-/** Ids of every 机变 card the draft can produce (bounty / tactic effects, supply & shop items) — the coverage target. */
+/** Ids of every 机变 card the draft can produce (bounty / tactic effects, supply & shop items) — the coverage target. @param {Rec} [data] */
 export function choiceCardIds(data = gameData()) {
+  /** @type {string[]} */
   const bounty = [];
+  /** @type {string[]} */
   const tactic = [];
   for (const [id, e] of Object.entries((data && data.effects) || {})) {
     if (!e || typeof e !== 'object') continue;
@@ -170,6 +191,7 @@ export function choiceCardIds(data = gameData()) {
   const cards = (data && data.choices && data.choices.cards) || {};
   for (const c of Array.isArray(cards.bounty) ? cards.bounty : []) if (c && c.effectId && !bounty.includes(c.effectId)) bounty.push(c.effectId);
   for (const c of Array.isArray(cards.tactic) ? cards.tactic : []) if (c && c.effectId && !tactic.includes(c.effectId)) tactic.push(c.effectId);
+  /** @type {string[]} */
   const items = [];
   // the 道具补给 / 机密商店 cards draw shop items only (never the effect-only special 维式重锤 / 突变细胞)
   for (const [id, it] of Object.entries((data && data.items) || {})) if (isShopItem(it)) items.push(id);
@@ -179,7 +201,7 @@ export function choiceCardIds(data = gameData()) {
 // =====================================================================================================================
 // prep side
 
-/** Cards currently in the 手牌区 (regular + temporary slots; operators, items, summon stacks). */
+/** Cards currently in the 手牌区 (regular + temporary slots; operators, items, summon stacks). @param {MetaCtx} ctx */
 function benchCount(ctx) {
   let n = 0;
   for (const p of ctx.hand()) if (p) n++;
@@ -187,9 +209,10 @@ function benchCount(ctx) {
   return n;
 }
 
+/** @param {MetaCtx} ctx @param {string} id */
 const effectOf = (ctx, id) => own(ctx.data && ctx.data.effects, id) ?? effectRecord(id);
 
-/** 悬赏决策: the picker's bounty (personal: never given to teammates). */
+/** 悬赏决策: the picker's bounty (personal: never given to teammates). @type {MetaHandlers} */
 const BOUNTY = {
   onChoicePick(ctx, ev) {
     if (ctx.source.kind !== 'choice' || !ev || !ev.card || ev.forTeammate) return;
@@ -200,7 +223,7 @@ const BOUNTY = {
   },
 };
 
-/** 道具补给 / 机密商店: the item, free. */
+/** 道具补给 / 机密商店: the item, free. @type {MetaHandlers} */
 const ITEM = {
   onChoicePick(ctx, ev) {
     if (ctx.source.kind !== 'choice' || !ev || !ev.card || ev.forTeammate) return;
@@ -209,11 +232,13 @@ const ITEM = {
   },
 };
 
+/** @param {MetaCtx} ctx @param {string} effectId */
 function refIdFor(ctx, effectId) {
   const n = ctx.incCounter('choices:refSeq', 1);
   return `choice:${effectId}#${n}`;
 }
 
+/** @param {MetaCtx} ctx @param {Rec} ev */
 function applyTactic(ctx, ev) {
   const id = ev.card.id;
   const eff = effectOf(ctx, id);
@@ -279,7 +304,7 @@ function applyTactic(ctx, ev) {
   }
 }
 
-/** 战术决策 handler: application on pick; bench conditions re-evaluated at every prep end (the ref's own dispatch). */
+/** 战术决策 handler: application on pick; bench conditions re-evaluated at every prep end (the ref's own dispatch). @type {MetaHandlers} */
 const TACTIC = {
   onChoicePick(ctx, ev) {
     if (ctx.source.kind !== 'choice' || !ev || !ev.card) return;
@@ -296,7 +321,7 @@ const TACTIC = {
   },
 };
 
-/** @param {object} registry @param {object} [data] the season's data the handlers are for (shared/seasons.js) */
+/** @param {MetaRegistry} registry @param {Rec} [data] the season's data the handlers are for (shared/seasons.js) */
 export function registerMeta(registry, data = gameData()) {
   const ids = choiceCardIds(data);
   for (const id of ids.bounty) registry.choice(id, BOUNTY);
@@ -309,11 +334,14 @@ export function registerMeta(registry, data = gameData()) {
 
 const RUNE = Object.freeze({ heal: 'act1autochess_debuff_3', flawless: 'act1autochess_debuff_9' });
 
-/** Operator mods of an env_gbuff blackboard (numbers only; 直接乘算 for attributes — support directMods). */
+/** Operator mods of an env_gbuff blackboard (numbers only; 直接乘算 for attributes — support directMods). @param {Rec | null | undefined} p */
 function opModsOf(p) {
+  /** @type {Record<string, number>} */
   const mods = {};
   const direct = { atk: 0, def: 0, hp: 0 };
+  /** @param {string} k @param {number} v */
   const add = (k, v) => { if (Number.isFinite(v) && v !== 0) mods[k] = (mods[k] ?? 0) + v; };
+  /** @param {string} k @param {number} v */
   const mul = (k, v) => { if (Number.isFinite(v) && v !== 0) mods[k] = (mods[k] ?? 1) * (1 + v); };
   for (const [k, raw] of Object.entries(p || {})) {
     const v = num(raw, NaN);
@@ -334,10 +362,13 @@ function opModsOf(p) {
   return directMods(direct, mods);
 }
 
-/** Enemy mods of an enemy_attribute_mul / _add blackboard. */
+/** Enemy mods of an enemy_attribute_mul / _add blackboard. @param {Rec | null | undefined} p @param {boolean} isMul */
 function enemyModsOf(p, isMul) {
+  /** @type {Record<string, number>} */
   const mods = {};
+  /** @type {Record<string, string>} */
   const MUL = { atk: 'atkMul', def: 'defMul', max_hp: 'hpMul', magic_resistance: 'resMul', move_speed: 'moveMul' };
+  /** @type {Record<string, string>} */
   const ADD = { atk: 'atkFlat', def: 'defFlat', max_hp: 'hpFlat', magic_resistance: 'resFlat', move_speed: 'moveFlat', attack_speed: 'aspd' };
   for (const [k, raw] of Object.entries(p || {})) {
     const v = num(raw, NaN);
@@ -354,8 +385,8 @@ function enemyModsOf(p, isMul) {
 
 /**
  * Battle plan of one card EffectRef: { effectId, key, gate, heal, flawless, opMods, enemy: [{ rank, mods }] } or null.
- * @param {object} ref playerEffects entry
- * @param {object} [scope] the battle (its season's effects, support dataFile; default: the default season's)
+ * @param {Rec} ref playerEffects entry
+ * @param {DataScope} [scope] the battle (its season's effects, support dataFile; default: the default season's)
  */
 export function battlePlanOf(ref, scope = null) {
   const effectId = ref && ref.data && typeof ref.data.effectId === 'string' ? ref.data.effectId
@@ -365,8 +396,9 @@ export function battlePlanOf(ref, scope = null) {
   if (!eff || !Array.isArray(eff.buffs)) return null;
   // buff key: the ref id (`choice:<effectId>#<n>`, unique per pick) — one buff per picked card, so re-picks stack
   const key = typeof ref.id === 'string' && ref.id.startsWith(`choice:${effectId}#`) ? ref.id : `choice:${effectId}#${ref.id ?? ''}`;
+  /** @type {BattlePlan} */
   const plan = { effectId, key, gate: gateOf(eff), heal: 0, flawless: null, opMods: null, enemy: [] };
-  const mergeOp = (mods) => {
+  const mergeOp = (/** @type {Record<string, number>} */ mods) => {
     if (!mods || !Object.keys(mods).length) return;
     plan.opMods = plan.opMods ?? {};
     for (const [k, v] of Object.entries(mods)) plan.opMods[k] = k.endsWith('Mul') ? (plan.opMods[k] ?? 1) * v : (plan.opMods[k] ?? 0) + v;
@@ -391,10 +423,15 @@ export function battlePlanOf(ref, scope = null) {
 
 /** The enemy ranks an enemy_attribute_* buff's enemy_level_type names; any other matches no enemy (content/coverage.js). */
 export const ENEMY_RANKS = Object.freeze(['NORMAL', 'ELITE', 'BOSS']);
+/** @param {Unit} e */
 const rankOf = (e) => String(e?.def?.rank ?? e?.def?.raw?.rank ?? 'NORMAL').toUpperCase();
+/** @param {Unit | null | undefined} u @param {string} pid */
 const isOwnOp = (u, pid) => !!u && u.kind === 'op' && u.side === 'ally' && u.ownerId === pid;
 
-/** Whether a prep-gated card is on in this battle (params.prepOk from the match; contentInfo as a fallback). */
+/**
+ * Whether a prep-gated card is on in this battle (params.prepOk from the match; contentInfo as a fallback).
+ * @param {Battle} battle @param {Rec | null | undefined} ps @param {Rec | null | undefined} ref @param {Gate} gate
+ */
 function prepGateOn(battle, ps, ref, gate) {
   if (gate.kind !== 'benchAtLeast' && gate.kind !== 'benchAtMost') return true;
   const p = ref && ref.params;
@@ -407,6 +444,7 @@ function prepGateOn(battle, ps, ref, gate) {
 /**
  * Largest number of the player's deployed operators sharing one row ([ASSUMED] a knocked-out operator lying on its tile —
  * one forced out at the start of 联防 — is not deployed and does not count).
+ * @param {Battle} battle @param {string} pid
  */
 function maxRowOps(battle, pid) {
   const rows = new Map();
@@ -416,8 +454,9 @@ function maxRowOps(battle, pid) {
   return best;
 }
 
+/** @param {Battle} battle */
 export function install(battle) {
-  /** @type {Array<{ pid: string, ref: any, plan: ReturnType<typeof battlePlanOf>, rowOk?: boolean }>} */
+  /** @type {Array<{ pid: string, ref: any, plan: BattlePlan, rowOk?: boolean }>} */
   const cards = [];
   for (const ps of battle.players || []) {
     for (const ref of ps.playerEffects || []) {
@@ -428,20 +467,24 @@ export function install(battle) {
     }
   }
   if (!cards.length) return;
+  /** @type {Map<string, number>} */
   const heal = new Map();      // pid → HP per damage instance (自愈)
+  /** @type {Map<string, FlawlessMod[]>} */
   const flawless = new Map();  // pid → [{ key, mods }] (无瑕)
+  /** @type {Map<string, EnemyMod[]>} */
   const enemy = new Map();     // pid → [{ key, rank, mods }] (排斥 / 责罚 / 裁决)
+  /** @type {typeof cards} */
   const opCards = [];          // cards with operator mods, applied at battle start
-  const enable = (c) => {
+  const enable = (/** @type {typeof cards[number]} */ c) => {
     const { pid, plan } = c;
     if (plan.heal > 0) heal.set(pid, (heal.get(pid) ?? 0) + plan.heal);
     if (plan.flawless && Object.keys(plan.flawless).length) {
       if (!flawless.has(pid)) flawless.set(pid, []);
-      flawless.get(pid).push({ key: plan.key, mods: plan.flawless });
+      /** @type {FlawlessMod[]} */ (flawless.get(pid)).push({ key: plan.key, mods: plan.flawless });
     }
     if (plan.enemy.length) {
       if (!enemy.has(pid)) enemy.set(pid, []);
-      for (const e of plan.enemy) enemy.get(pid).push({ key: plan.key, rank: e.rank, mods: e.mods });
+      for (const e of plan.enemy) /** @type {EnemyMod[]} */ (enemy.get(pid)).push({ key: plan.key, rank: e.rank, mods: e.mods });
     }
     if (plan.opMods) opCards.push(c);
   };
@@ -461,6 +504,7 @@ export function install(battle) {
   }, { priority: -10 });
 
   // 无瑕: operators at full HP (checked on damage, and every tick for heals / redeploys / max-HP changes)
+  /** @param {Unit} u */
   function syncFlawless(u) {
     if (!u || u.kind !== 'op' || u.side !== 'ally') return;
     const list = flawless.get(u.ownerId);
@@ -478,7 +522,7 @@ export function install(battle) {
       const t = ctx && ctx.target;
       if (!t || t.side !== 'ally' || (t.kind !== 'op' && t.kind !== 'token')) return;
       // 自愈: every damage instance an own unit takes (not HP loss 流失, not element gauge fills, not under 禁疗)
-      const amt = heal.get(t.ownerId);
+      const amt = /** @type {number} */ (heal.get(t.ownerId));   // (undefined: no 自愈 card — `amt > 0` fails)
       if (amt > 0 && ctx.amount > 0 && ctx.type !== 'element' && !isHpLoss(ctx.dmg)
         && t.alive && t.deployed && t.hp > 0 && !t.s.flags.noHeal) {
         battle.heal(null, t, amt, { self: true });

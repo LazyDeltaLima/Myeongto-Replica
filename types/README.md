@@ -106,9 +106,8 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, the files directly under
 `server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), the kit helpers
 (`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and
-the files directly under `server/sim/` (`server/sim/*.js`), and of the files directly under `server/sim/content/` the
-domain loaders `bands.js` / `bonds.js`, `codes.js`, the enemy dispatch `enemies.js`, the leaders `bosses.js`, the
-generic kit `generic.js`, the kit resolver `index.js` and `local-patch.js` (the other four, one by one).
+the files directly under `server/sim/` (`server/sim/*.js`), and the files directly under `server/sim/content/`
+(`server/sim/content/*.js`).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -403,6 +402,15 @@ most strict errors were, and the JSDoc that fixed them:
   key, `Def` a normalised def; the generic skill spec is built as a `Record<string, any>`. A blackboard getter returns
   `number | undefined`, so a `> 0` test on one is cast at the comparison. The guarded `import()` of the domain
   loaders returns `Promise<Record<string, any>>`.
+- the summons, the stage devices, the 机变 cards and the coverage report (content/tokens.js, devices.js, choices.js,
+  coverage.js): a token kit is a `TokenKit` (tokens.js: `Kit` with its skill hooks taking `SkillCtx` and its `trait` a
+  `Profile`), so each kit function's `@returns {TokenKit}` types its `install`, its skill's `onStart` / `onTick` /
+  `onHit` and its trait callbacks, and the kit table is `@type {Record<string, TokenKitFn>}`. The device state is
+  `DeviceState` (devices.js), whose terrain parts buildTerrain fills after the literal: the literal is cast through
+  `unknown` (TS2352 otherwise, a missing field). The card handlers are `@type {MetaHandlers}`, their battle plan
+  `BattlePlan` (choices.js); a coverage row is `CoverageRow` (coverage.js). One declaration of two variables
+  (`let status, missing = [];`) takes an inline type on each (`let /** @type {…} */ status, /** @type {string[]} */
+  missing = [];`) rather than being split, which would change the syntax tree.
 
 
 ## Split classes

@@ -49,9 +49,18 @@ import { TABLE_CODES } from './codes.js';
 export { bondTemplate };
 
 /**
+ * @typedef {Record<string, any>} SeasonData a season's data (gamedata getData / shared/seasons.js)
+ * @typedef {{ bonds: string[] | null, side: string, where: string, partial?: string[], registry?: boolean, src?: string }} BondDecl
+ * @typedef {{ registry: { get(key: string): object | null } | null, builtinItemBuffKeys: readonly string[], garrisonHooks: Record<string, string> }} Prep
+ * @typedef {{ domain: string, missing: string[], wrong: string[], status: 'ok' | 'partial' | 'none', [key: string]: any }} CoverageRow
+ * @typedef {{ ok: number, partial: number, none: number, wrong: number }} Tally
+ */
+
+/**
  * Bond buff templates the code handles: template → { bonds (null: any bond), side, where, partial?, registry?, src? },
  * from the TEMPLATES of the bond files (bonds/dispatch.js handledTemplates) and the match engine's rules. `partial` lists what of the template is
  * not written yet; `registry: false`: a prep rule of the match engine, not a registered handler.
+ * @type {Readonly<Record<string, BondDecl>>}
  */
 export const BOND_TEMPLATES = Object.freeze({
   ...handledTemplates(),
@@ -62,16 +71,19 @@ export const BOND_TEMPLATES = Object.freeze({
 
 const RUNE_KEYS = new Set(['env_gbuff_new', 'env_gbuff_new_with_verify', 'char_dynamic_ability_new']);
 
-/** Strategy buff keys handled outside the band's own handler: key → where. */
+/** Strategy buff keys handled outside the band's own handler: key → where. @type {Readonly<Record<string, string>>} */
 export const BAND_KEYS_ELSEWHERE = Object.freeze({
   round_start_all_player_change_enemy_2: 'bands/meta.js duckGlobal (a global)',
 });
 
+/** @param {string} domain @param {{ status: CoverageRow['status'], [key: string]: any }} fields @returns {CoverageRow} */
 function row(domain, fields) {
   return { domain, missing: [], wrong: [], ...fields };
 }
 
+/** @param {SeasonData} data @param {Prep} prep */
 function bondRows(data, { registry }) {
+  /** @type {CoverageRow[]} */
   const rows = [];
   for (const [bondId, rec] of Object.entries(data?.bonds ?? {})) {
     const seen = new Map();
@@ -88,7 +100,7 @@ function bondRows(data, { registry }) {
           r.status = 'none';
           r.missing.push(`no bond:${bondId} handler in the registry`);
         }
-      } else if (decl) r.missing.push(`the template is handled for ${decl.bonds.join(', ')} only`);
+      } else if (decl) r.missing.push(`the template is handled for ${/** @type {string[]} */ (decl.bonds).join(', ')} only`);
       seen.set(t, r);
       rows.push(r);
     }
@@ -96,7 +108,9 @@ function bondRows(data, { registry }) {
   return rows;
 }
 
+/** @param {SeasonData} data @param {Prep} prep */
 function itemRows(data, { registry, builtinItemBuffKeys }) {
+  /** @type {CoverageRow[]} */
   const rows = [];
   const items = data?.items ?? {};
   const builtin = new Set(builtinItemBuffKeys ?? []);
@@ -136,7 +150,9 @@ function itemRows(data, { registry, builtinItemBuffKeys }) {
   return rows;
 }
 
+/** @param {SeasonData} data @param {Prep} prep */
 function garrisonRows(data, { registry, garrisonHooks }) {
+  /** @type {Map<string, CoverageRow>} */
   const rows = new Map();
   const battleKeys = new Set([...BATTLE_GARRISON_KEYS, 'NONE']);
   const hooks = garrisonHooks ?? {};
@@ -146,7 +162,7 @@ function garrisonRows(data, { registry, garrisonHooks }) {
     const rk = `${g.eventType}|${g.effectKey}`;
     let r = rows.get(rk);
     if (!r) {
-      let status, missing = [];
+      let /** @type {'ok' | 'none' | undefined} */ status, /** @type {string[]} */ missing = [];
       if (inBattle) status = battleKeys.has(g.effectKey) ? 'ok' : 'none';
       else if (!hooks[g.eventType]) { status = 'none'; missing = [`no hook for ${g.eventType}`]; } else status = registry?.get(`garrison:${g.effectKey}`) ? 'ok' : 'none';
       r = row('garrisons', { id: g.effectKey, key: g.eventType, side: inBattle ? 'battle' : 'prep', ids: [], status, missing });
@@ -155,10 +171,11 @@ function garrisonRows(data, { registry, garrisonHooks }) {
     r.ids.push(gid);
     if (!inBattle || r.status === 'none') continue;
     const s = g.bbStr ?? {};
-    for (const opt of ['bond_type', 'bond_add_type', 'conditionkey', 'range_id', 'garrison_type']) {
+    for (const opt of /** @type {const} */ (['bond_type', 'bond_add_type', 'conditionkey', 'range_id', 'garrison_type'])) {
       const v = s[opt];
       if (v == null || v === '') continue;
-      const known = opt === 'range_id' ? GARRISON_OPTIONS.range_id[g.effectKey] ?? [] : GARRISON_OPTIONS[opt];
+      /** @type {readonly string[]} */
+      const known = opt === 'range_id' ? /** @type {Readonly<Record<string, readonly string[]>>} */ (GARRISON_OPTIONS.range_id)[g.effectKey] ?? [] : GARRISON_OPTIONS[opt];
       if (known.includes(v)) continue;
       const m = `${opt}=${v}`;
       const at = r.missing.find((x) => x.startsWith(`${m} `));
@@ -179,12 +196,15 @@ function garrisonRows(data, { registry, garrisonHooks }) {
   return [...rows.values()];
 }
 
+/** @param {SeasonData} data @param {Prep} prep */
 function bandRows(data, { registry }) {
+  /** @type {CoverageRow[]} */
   const rows = [];
   const battle = new Set(BAND_BATTLE);
   const prep = new Set(BAND_PREP);
   const effects = data?.effects ?? {};
-  const effectOf = (id) => (Object.hasOwn(effects, id) ? effects[id] : null);
+  const effectOf = (/** @type {string} */ id) => (Object.hasOwn(effects, id) ? effects[id] : null);
+  /** @param {string} bandId @param {Record<string, any>} rec @param {string} key @param {boolean} rune */
   const newRow = (bandId, rec, key, rune) => {
     if (key === 'auto_chess_effect_replace') {
       // the bond direction switch (bonds/dispatch.js swapBondRecord): partial while a target direction is unwritten
@@ -218,10 +238,14 @@ function bandRows(data, { registry }) {
   return rows;
 }
 
-/** Every (record id, key, value of field) a code declaration of codes.js reads in the season's data. */
+/**
+ * Every (record id, key, value of field) a code declaration of codes.js reads in the season's data.
+ * @param {SeasonData} data @param {typeof TABLE_CODES[number]} decl
+ */
 function codeValues(data, decl) {
+  /** @type {{ id: string, key: string, v: any }[]} */
   const out = [];
-  const val = (v) => (v == null || v === '' ? null : v);
+  const val = (/** @type {any} */ v) => (v == null || v === '' ? null : v);
   if (decl.table === 'garrisons') {
     for (const [gid, g] of Object.entries(data?.garrisons ?? {})) {
       if (!g || !g.effectKey) continue;
@@ -236,22 +260,23 @@ function codeValues(data, decl) {
       if (decl.table === 'bandNext') {
         const v = val(st?.next?.[decl.field]);
         if (v != null) out.push({ id: st.effectId ?? bandId, key: bandId, v });
-      } else for (const b of buffsOf(st)) if (decl.keys.includes(b.key) || decl.keys.includes(b.bbKey)) { const v = val(b.p[decl.field]); if (v != null) out.push({ id: st.effectId ?? bandId, key: b.bbKey ?? b.key, v }); }
+      } else for (const b of buffsOf(st)) if (/** @type {readonly string[]} */ (decl.keys).includes(b.key) || /** @type {readonly string[]} */ (decl.keys).includes(b.bbKey)) { const v = val(b.p[decl.field]); if (v != null) out.push({ id: st.effectId ?? bandId, key: b.bbKey ?? b.key, v }); }
     }
   }
   if (decl.table !== 'buffs') return out;
   for (const name of ['items', 'bonds', 'effects']) {
     for (const [id, rec] of Object.entries(data?.[name] ?? {})) {
-      for (const b of buffsOf(rec)) if (decl.keys.includes(b.key) || decl.keys.includes(b.bbKey)) { const v = val(b.p[decl.field]); if (v != null) out.push({ id, key: b.bbKey ?? b.key, v }); }
+      for (const b of buffsOf(rec)) if (/** @type {readonly string[]} */ (decl.keys).includes(b.key) || /** @type {readonly string[]} */ (decl.keys).includes(b.bbKey)) { const v = val(b.p[decl.field]); if (v != null) out.push({ id, key: b.bbKey ?? b.key, v }); }
     }
   }
   return out;
 }
 
+/** @param {SeasonData} data @param {Prep} prep */
 function codeRows(data, { garrisonHooks }) {
   const events = Object.keys(garrisonHooks ?? {});
   return TABLE_CODES.map((decl) => {
-    const knownOf = (key) => (decl.known === 'garrisonEvents' ? events : typeof decl.known === 'function' ? decl.known(key) : decl.known).map(String);
+    const knownOf = (/** @type {string} */ key) => (decl.known === 'garrisonEvents' ? events : typeof decl.known === 'function' ? decl.known(key) : decl.known).map(String);
     const unknown = new Map();
     const seen = new Set();
     for (const { id, key, v } of codeValues(data, decl)) {
@@ -266,19 +291,23 @@ function codeRows(data, { garrisonHooks }) {
   });
 }
 
-/** Stages a match can be fought on: the pool's (active) and the custom mode's first-half fields. */
+/** Stages a match can be fought on: the pool's (active) and the custom mode's first-half fields. @param {SeasonData} data @returns {Record<string, any>[]} */
 function playedStages(data) {
   return Object.values(data.stages || {}).filter((st) => st && (st.active || CUSTOM_FIRST_HALF_STAGES.includes(st.id)));
 }
 
+/** @param {SeasonData} data */
 function runeRows(data) {
+  /** @type {CoverageRow[]} */
   const rows = [];
   for (const st of playedStages(data)) {
     const tileKeys = new Set(Object.values(st.tiles || {}).map((t) => t?.tileKey).filter(Boolean));
     for (const [kind, list] of [['rune', st.runes], ['globalBuff', st.globalBuffs]]) {
       for (const rune of Array.isArray(list) ? list : []) {
         const bbStr = rune.bbStr || {};
+        /** @type {string[] | null} */
         const chars = typeof bbStr.char === 'string' ? bbStr.char.split('|') : null;
+        /** @type {string[] | null} */
         const tiles = typeof bbStr.tile === 'string' ? bbStr.tile.split('|') : null;
         const target = chars ? bbStr.char : tiles ? bbStr.tile : null;
         const r = row('runes', { id: st.id, side: 'battle', kind, key: rune.key, target, status: 'none', inert: null, where: null });
@@ -298,7 +327,9 @@ function runeRows(data) {
   return rows;
 }
 
+/** @param {CoverageRow[]} rows */
 function tally(rows) {
+  /** @type {Tally} */
   const t = { ok: 0, partial: 0, none: 0, wrong: 0 };
   for (const r of rows) { t[r.status]++; if (r.wrong.length) t.wrong++; }
   return t;
@@ -310,7 +341,7 @@ function tally(rows) {
  * built-in item handlers act on (builtinMeta.js BUILTIN_ITEM_BUFF_KEYS), `garrisonHooks` the 特质 event types with a
  * hook (effectsMeta.js GARRISON_HOOK) — tools/season-coverage.mjs coverageOf passes all three. Without them the prep
  * side reads as not handled.
- * @param {object} data a season's data (gamedata getData / shared/seasons.js)
+ * @param {SeasonData} data a season's data (gamedata getData / shared/seasons.js)
  * @param {{ registry?: { get(key: string): object | null } | null, builtinItemBuffKeys?: readonly string[], garrisonHooks?: Record<string, string> }} [prep]
  */
 export function coverage(data, prep = {}) {

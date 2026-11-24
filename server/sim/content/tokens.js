@@ -102,6 +102,27 @@ import { hypot } from '../detmath.js';
 import { atPotential } from '../../../shared/potential.js';
 import { hasPower } from './kits/shared/powers.js';
 
+/** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
+/** @import { SkillCtx } from '../skills.js' */
+/** @import { Def } from './index.js' */
+/** @import { DeployEv } from './support/index.js' */
+/** @import { MetaRegistry } from '../../match/effectsMeta.js' */
+/** @import { Profile } from '../professions.js' */
+/** @import { SkillRuntime } from '../skills.js' */
+/** @import { Scheduled } from '../battle/hooks.js' */
+/**
+ * A token kit (content/index.js Kit) with its skill hooks typed, and a kit function of `kits` (header).
+ * @typedef {(ctx: SkillCtx) => unknown} SkillHook
+ * @typedef {{ [key: string]: any, onStart?: SkillHook, onTick?: SkillHook, onEnd?: SkillHook, onHit?: SkillHook,
+ *   autoTrigger?: SkillHook }} TokenSkill
+ * @typedef {{ [key: string]: any, skill?: TokenSkill | null, talents?: any[], trait?: Profile,
+ *   install?: (battle: Battle, unit: Unit) => void }} TokenKit
+ * @typedef {(bb: Record<string, any>, raw: Record<string, any>, def: Def | null) => TokenKit} TokenKitFn
+ * @typedef {{ grid?: ReadonlyArray<ReadonlyArray<number>> | null, melee?: boolean, at?: { x: number, y: number } | null }} TileOpts
+ */
+
+/** @param {unknown} v @param {number} [d] */
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d));
 const GRID_3X3 = Object.freeze([[1, -1], [1, 0], [1, 1], [0, -1], [0, 0], [0, 1], [-1, -1], [-1, 0], [-1, 1]]);
 const GRID_PLUS = Object.freeze([[1, 0], [0, -1], [0, 0], [0, 1], [-1, 0]]);
@@ -137,6 +158,7 @@ export const TOKEN_IDS = Object.freeze({
 // battle state & small helpers
 
 const STATE = new WeakMap();
+/** @param {Battle} battle */
 function stateOf(battle) {
   let s = STATE.get(battle);
   if (!s) { s = { lastOp: new Map(), catTargets: new Map() }; STATE.set(battle, s); }
@@ -147,6 +169,7 @@ function stateOf(battle) {
  * A tokens.json owner variant with the owner's selected skill / module applied (DESIGN §16; the merge of simdata
  * getToken): `bySkill[skillIndex]` (token skill, count, sources) and `byModule[moduleId]` (both hold non-default
  * choices only). `lo` = the owner def's `loadout`.
+ * @param {Record<string, any> | null} v @param {Record<string, any> | null | undefined} lo
  */
 function withLoadout(v, lo) {
   if (!v || !lo || typeof lo !== 'object') return v;
@@ -159,6 +182,7 @@ function withLoadout(v, lo) {
 /**
  * The owner's own variant of a token record (chess id, else its normal `_a` sibling; a 自选 piece's: its owner form,
  * `def.tokenOwner`) with its loadout; null if none.
+ * @param {Record<string, any>} raw @param {Unit} owner
  */
 function ownVariant(raw, owner) {
   const vs = raw?.variants;
@@ -172,6 +196,7 @@ function ownVariant(raw, owner) {
 /**
  * Owner-level tokens.json variant of a token unit for its owner's selected skill / module (the def already merges it;
  * this reads fields normaliseToken drops). Without an own variant of the owner: the record's first variant.
+ * @param {Unit} unit
  */
 function variantOf(unit) {
   const vs = unit.def?.raw?.variants;
@@ -179,28 +204,34 @@ function variantOf(unit) {
   return ownVariant(unit.def.raw, unit.ownerUnit) ?? Object.values(vs)[0] ?? null;
 }
 
-/** First talent blackboard of `def` holding `key`. */
+/** First talent blackboard of `def` holding `key`. @param {Def | null} def @param {string} key */
 function talentWith(def, key) {
   for (const t of def?.talents ?? []) if (t && t.bb && t.bb[key] != null) return t;
   return null;
 }
+/** @param {Def | null} def @param {string} key */
 const talentBb = (def, key) => talentWith(def, key)?.bb ?? {};
 
-/** Summoner ATK ("相当于攻击力…%" of a summon skill is the summoner's); the token's own ATK without an owner. */
+/** Summoner ATK ("相当于攻击力…%" of a summon skill is the summoner's); the token's own ATK without an owner. @param {Unit} u */
 const ownerAtk = (u) => (u.ownerUnit && u.ownerUnit.s ? u.ownerUnit.s.atk : u.s.atk);
+/** @param {Unit} u */
 const ownerOf = (u) => (u.ownerUnit && u.ownerUnit.side === 'ally' ? u.ownerUnit : null);
 /**
  * The summoner runs a hand-authored kit (content/kits): owner-coupled effects of its summon (auras driven by the
  * owner, copies, respawns, owner-skill bonuses) are that kit's job — the token kit keeps only its intrinsic rules.
  * Evaluated lazily: board tokens may be set up before their owner's kit is resolved.
+ * @param {Unit} u
  */
 const managed = (u) => !!(u.ownerUnit && u.ownerUnit.kit && u.ownerUnit.kit.generic !== true);
+/** @param {unknown} id */
 const baseKey = (id) => String(id ?? '').replace(/_[ab]$/, '');
 
+/** @param {Battle} battle @param {Unit} unit @param {(ctx: DeployEv) => unknown} fn @param {number} [priority] */
 function onDeploy(battle, unit, fn, priority = 0) {
   battle.on('deploy', (ctx) => { if (ctx.unit === unit) fn(ctx); }, { owner: unit, priority });
 }
 
+/** @param {Battle} battle @param {Unit} unit */
 function untargetable(battle, unit) {
   battle.addBuff(unit, { key: 'trait:untargetable', flags: { untargetable: true }, persist: true, allowDead: true });
 }
@@ -226,6 +257,7 @@ const COUNTDOWN_KEY = 'token:countdown';
  * A countdown summon's life on the field starts (COUNTDOWN_SUMMONS; call it from the `deploy` hook of each deployment,
  * where its kit schedules its withdrawal): `seconds` from now its bar is empty. It holds 无敌 and 禁疗 from then on. A
  * summon that is not a countdown one is left alone (false).
+ * @param {Battle} battle @param {Unit} unit @param {number} seconds
  */
 export function startCountdown(battle, unit, seconds) {
   const s = num(seconds, 0);
@@ -235,7 +267,7 @@ export function startCountdown(battle, unit, seconds) {
   return true;
 }
 
-/** Withdraw the token `seconds` after this deployment (the same deployment only); a countdown summon's bar runs with it. */
+/** Withdraw the token `seconds` after this deployment (the same deployment only); a countdown summon's bar runs with it. @param {Battle} battle @param {Unit} unit @param {number} seconds */
 function scheduleLifetime(battle, unit, seconds) {
   const s = num(seconds, 0);
   if (!(s > 0)) return;
@@ -245,7 +277,7 @@ function scheduleLifetime(battle, unit, seconds) {
   battle.after(s, () => { if (unit.alive && unit.deploySeq === seq) battle.retreat(unit, { reason: 'expired', permanent: true }); }, { owner: unit });
 }
 
-/** Visible enemies whose body is on any of the absolute tile keys (sim/body.js); auras / bursts hit stealthed ones. */
+/** Visible enemies whose body is on any of the absolute tile keys (sim/body.js); auras / bursts hit stealthed ones. @param {Battle} battle @param {Iterable<number>} keys */
 function enemiesOnKeys(battle, keys) {
   const set = keys instanceof Set ? keys : new Set(keys);
   const out = [];
@@ -260,6 +292,9 @@ function enemiesOnKeys(battle, keys) {
  * Appear burst: damage (optional) + status (optional) on the enemies of `grid` around the token. Returns victims. Air
  * units (Unit.isFlying) are hit too **[ASSUMED]**: PRTS has no 对空 note on any of them — 沙之碑 (蜜蜡 S2), 迷迭香的战术装备
  * ("对自身攻击范围内的敌人造成晕眩"), “耀阳”, 纸偶 (风丸 折纸生花) — so a stun here also drops a hovering 掠海漂移体.
+ * @param {Battle} battle @param {Unit} unit
+ * @param {{ grid?: ReadonlyArray<ReadonlyArray<number>> | null, amount?: number, type?: string, stun?: number, hits?: number,
+ *   source?: Unit | null, fx?: string }} opts
  */
 function burst(battle, unit, { grid, amount = 0, type = 'phys', stun = 0, hits = 1, source = unit, fx = 'summonBurst' }) {
   const keys = absoluteRangeKeys(grid || GRID_3X3, unit.tileR, unit.tileC, unit.dir, 0);
@@ -276,9 +311,9 @@ function burst(battle, unit, { grid, amount = 0, type = 'phys', stun = 0, hits =
  * Redeploy a placeable token after it was killed (and optionally after it expired), like operators: `delay` s later,
  * on its own tile, paying its DP cost. Tokens are otherwise removed for good by the engine — the piece is kept
  * (`removed = false`) so its hooks survive and `battle.redeploy` accepts it.
- * @param {object} battle
- * @param {object} unit
- * @param {{ delay: number | ((u: object) => number), onExpire?: boolean, unlessManaged?: boolean, requireOwner?: boolean | (() => boolean) }} opts
+ * @param {Battle} battle
+ * @param {Unit} unit
+ * @param {{ delay: number | ((u: Unit) => number), onExpire?: boolean, unlessManaged?: boolean, requireOwner?: boolean | (() => boolean) }} opts
  */
 function enableRespawn(battle, unit, { delay, onExpire = false, unlessManaged = false, requireOwner = false }) {
   battle.on('death', (ctx) => {
@@ -301,7 +336,7 @@ function enableRespawn(battle, unit, { delay, onExpire = false, unlessManaged = 
   }, { owner: unit, priority: -10 });
 }
 
-/** Lifetime bound to the owner's running timed skill (the token vanishes when that activation ends). */
+/** Lifetime bound to the owner's running timed skill (the token vanishes when that activation ends). @param {Battle} battle @param {Unit} unit */
 function bindToOwnerSkill(battle, unit) {
   onDeploy(battle, unit, () => {
     const o = ownerOf(unit);
@@ -327,6 +362,7 @@ const DOCK_RETRY = 0.5;
  * How the owner's loadout makes a board summon piece of a manually deployable summon (owner-loadout `sources`):
  * 'skill' (only its skill makes it), 'none' (the owner's skill / module makes none — 赫默 on S1 with a drone piece; the
  * match never hands such a card out), else null (a talent summon, or not a placed hand piece).
+ * @param {Battle} battle @param {Unit} u
  */
 function pieceSource(battle, u) {
   if (!u || u.kind !== 'token' || u.uid == null || !u.ownerUnit || u.ownerUnit.kind !== 'op') return null;
@@ -342,6 +378,7 @@ function pieceSource(battle, u) {
  * SKILL_SUMMON_START_DEPLOY), and whenever one leaves (10 s drone, 15 s doll) it stays its tile's piece — not removed,
  * its hooks kept, Battle.isReservedTile — ready again after the token's redeploy time (data respawnTime, 5 s). A piece
  * its owner's loadout does not make never deploys.
+ * @param {Battle} battle
  */
 function dockSkillSummons(battle) {
   for (const u of battle.allyUnits) {
@@ -368,6 +405,7 @@ function dockSkillSummons(battle) {
  * Deploy a docked piece on its tile when its owner holds one and it is ready; retried while it waits. Not while the
  * owner is off the field [ASSUMED: as in the base game, a summon is deployed only while its owner stands] — the stock
  * stays, and the piece deploys as soon as the owner is back (its `deploy` hook, dockSkillSummons).
+ * @param {Battle} battle @param {Unit} u
  */
 function deployDocked(battle, u) {
   const stock = u.ownerUnit?.mem.summonStock;
@@ -389,6 +427,7 @@ function deployDocked(battle, u) {
  * The owner's skill gives it one `tokenId` ("获得一个医疗无人机"; at most `cap` in stock — "最多可库存1个"): its placed
  * piece takes the field on its own tile now, or as soon as it is ready (the previous one still up / just gone).
  * Returns the piece deployed now, else null — also when the player placed none (the summon then never appears).
+ * @param {Battle} battle @param {Unit | null} owner @param {string} tokenId @param {{ cap?: number }} [opts]
  */
 export function releaseSkillSummon(battle, owner, tokenId, { cap = 1 } = {}) {
   if (!owner) return null;
@@ -400,17 +439,20 @@ export function releaseSkillSummon(battle, owner, tokenId, { cap = 1 } = {}) {
   return null;
 }
 
+/** @param {Battle} battle @param {number} r @param {number} c */
 function inRectTile(battle, r, c) { return Number.isInteger(r) && Number.isInteger(c) && battle.grid.inRect(r, c); }
 
 /**
  * A tile a summon may take: inside the field, nobody on it, and not the home tile of a board unit that has not
  * deployed yet / waits to redeploy (the initial deployment runs one unit after another, a summon must not steal a later
  * unit's tile), nor of another card's board operator (Battle.isReservedTile; `src` the summoner, whose own home may be taken).
+ * @param {Battle} battle @param {number} r @param {number} c @param {Unit | null} [src]
  */
 export function tileFree(battle, r, c, src = null) {
   return inRectTile(battle, r, c) && !battle.isReservedTile(r, c, null, src);
 }
 
+/** @param {Battle} battle */
 function mostAdvancedEnemy(battle) {
   let best = null, bd = Infinity;
   for (const e of battle.enemies) {
@@ -421,6 +463,7 @@ function mostAdvancedEnemy(battle) {
   return best;
 }
 
+/** @param {Unit[]} list @param {number} r @param {number} c @param {number} [rad] */
 function countNear(list, r, c, rad = 1) {
   let n = 0;
   for (const u of list) if (Math.abs(Math.round(u.y) - r) <= rad && Math.abs(Math.round(u.x) - c) <= rad) n++;
@@ -438,6 +481,8 @@ function countNear(list, r, c, rad = 1) {
  *   'plus'     — melee-deployable tile among the 4 neighbours (“耀阳”)
  *   'path'     — ground-passable standable tile in range nearest to the leading enemy (香槟炸弹)
  *   'near'     — any standable tile nearest to opts.at ({x,y}) inside the range (小自在)
+ * @param {Battle} battle @param {Unit | null} owner @param {string} [placement] @param {TileOpts} [opts]
+ * @returns {[number, number] | null}
  */
 export function findSummonTile(battle, owner, placement = 'melee', opts = {}) {
   if (!owner || owner.tileR == null) return null;
@@ -453,7 +498,7 @@ export function findSummonTile(battle, owner, placement = 'melee', opts = {}) {
   const injured = placement === 'ally'
     ? battle.alliesFor(owner, owner.ownerId).filter((a) => a.hp < a.s.maxHp - 1e-6 && !(a.s.flags.noHeal || a.profile?.noHeal))
     : null;
-  let best = null, bestS = null;
+  let /** @type {[number, number] | null} */ best = null, /** @type {number[] | null} */ bestS = null;
   for (const k of keys) {
     const r = (k / COLS) | 0, c = k % COLS;
     if (!tileFree(battle, r, c, owner)) continue;
@@ -462,20 +507,24 @@ export function findSummonTile(battle, owner, placement = 'melee', opts = {}) {
     if (placement === 'path' && !gp) continue;
     let cover = 0;
     if (placement === 'enemy' || placement === 'melee') cover = countNear(enemies, r, c, 1);
-    else if (placement === 'ally') cover = countNear(injured, r, c, 1);
+    else if (placement === 'ally') cover = countNear(/** @type {Unit[]} */ (injured), r, c, 1);
     const d = placement === 'ally' ? hypot(c - owner.x, r - owner.y) : hypot(c - focus.x, r - focus.y);
     // last: the tile's offset in the owner's facing-RIGHT frame (for a RIGHT owner = the tile key order), so equal
     // candidates resolve the same way whichever direction the owner faces
     const [lr, lc] = localOrder(r - owner.tileR, c - owner.tileC, owner.dir);
     const s = [-cover, placement === 'ally' || placement === 'enemy' || placement === 'near' ? 0 : -gp, d, lr, lc];
     let less = !bestS;
-    if (!less) for (let i = 0; i < s.length; i++) { if (s[i] < bestS[i] - 1e-9) { less = true; break; } if (s[i] > bestS[i] + 1e-9) break; }
+    if (!less) for (let i = 0; i < s.length; i++) { if (s[i] < /** @type {number[]} */ (bestS)[i] - 1e-9) { less = true; break; } if (s[i] > /** @type {number[]} */ (bestS)[i] + 1e-9) break; }
     if (less) { best = [r, c]; bestS = s; }
   }
   return best;
 }
 
-/** Spawn `tokenId` for `owner` on a tile chosen by findSummonTile. Returns the token or null. */
+/**
+ * Spawn `tokenId` for `owner` on a tile chosen by findSummonTile. Returns the token or null.
+ * @param {Battle} battle @param {Unit} owner @param {string} tokenId @param {string} [placement]
+ * @param {TileOpts & { tile?: [number, number] | null, spawn?: Record<string, any> }} [opts]
+ */
 export function summonToken(battle, owner, tokenId, placement = 'melee', opts = {}) {
   const tile = opts.tile ?? findSummonTile(battle, owner, placement, opts);
   if (!tile) return null;
@@ -485,6 +534,7 @@ export function summonToken(battle, owner, tokenId, placement = 'melee', opts = 
 // ---------------------------------------------------------------------------------------------------------------
 // token kits
 
+/** @param {{ hideFromEnemies?: boolean, block?: number | null }} [opts] @returns {() => TokenKit} */
 const inert = ({ hideFromEnemies = false, block = null } = {}) => () => ({
   skill: null,
   trait: { noAttack: true },
@@ -494,7 +544,7 @@ const inert = ({ hideFromEnemies = false, block = null } = {}) => () => ({
   },
 });
 
-/** 医疗探机 (赫默 S2): heals nearby allies (data heal profile), self-destructs after the withdraw skill time. */
+/** 医疗探机 (赫默 S2): heals nearby allies (data heal profile), self-destructs after the withdraw skill time. @returns {TokenKit} */
 function healDrone() {
   return {
     skill: null,
@@ -508,7 +558,7 @@ function healDrone() {
   };
 }
 
-/** 诅咒娃娃 (巫恋 S2): ATK/DEF debuff aura on the enemies in its range; lasts its skill duration. */
+/** 诅咒娃娃 (巫恋 S2): ATK/DEF debuff aura on the enemies in its range; lasts its skill duration. @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Def | null} def @returns {TokenKit} */
 function curseDoll(bb, raw, def) {
   const mods = {};
   if (num(bb.atk, 0) !== 0) mods.atkPct = num(bb.atk, 0);
@@ -537,7 +587,7 @@ function curseDoll(bb, raw, def) {
   };
 }
 
-/** 沙之碑 (蜜蜡 S2): appear burst (owner ATK × atk_scale arts + stun, skill range), blocks 3, talent duration. */
+/** 沙之碑 (蜜蜡 S2): appear burst (owner ATK × atk_scale arts + stun, skill range), blocks 3, talent duration. @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Def | null} def @returns {TokenKit} */
 function obelisk(bb, raw, def) {
   const grid = def?.skill?.rangeGrid ?? GRID_3X3;
   const life = num(talentBb(def, 'duration').duration, 0);
@@ -553,7 +603,7 @@ function obelisk(bb, raw, def) {
   };
 }
 
-/** 迷迭香的战术装备 (display-only for the pool's S2): appear stun, blocked enemies DEF + talent def, talent duration. */
+/** 迷迭香的战术装备 (display-only for the pool's S2): appear stun, blocked enemies DEF + talent def, talent duration. @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Def | null} def @returns {TokenKit} */
 function rosmonGear(bb, raw, def) {
   const t = talentBb(def, 'duration');
   const life = num(t.duration, 0);
@@ -576,7 +626,7 @@ function rosmonGear(bb, raw, def) {
   };
 }
 
-/** “小自在” (夕 talent 点睛): arts melee blocker with a talent lifetime. */
+/** “小自在” (夕 talent 点睛): arts melee blocker with a talent lifetime. @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Def | null} def @returns {TokenKit} */
 function duskDragon(bb, raw, def) {
   const life = num(talentBb(def, 'duration').duration, 0);
   return {
@@ -591,6 +641,7 @@ function duskDragon(bb, raw, def) {
  * 斯卡蒂的海嗣 (浊心斯卡蒂 talent 远古血亲): range extension of its owner (her trait's 生命回复速度 — professions.js bardRegen,
  * keyed by the owner: one trait effect per ally — / S3 damage + 鼓舞). Only while the owner fights with the generic kit:
  * her own kit (kits/ops/chess_char_6_04-skadi2.js) covers the 海嗣' ranges itself.
+ * @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Def | null} def @returns {TokenKit}
  */
 function seaborn(bb, raw, def) {
   const life = num(talentBb(def, 'duration').duration, 0);
@@ -636,6 +687,7 @@ function seaborn(bb, raw, def) {
 /**
  * “耀阳” (耀骑士临光 S3): appear burst (true, owner ATK × atk_scale, stun — air units too [ASSUMED: no 对空 note on PRTS
  * “耀阳”]), blocks 2, lasts while the owner's skill runs.
+ * @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Def | null} def @returns {TokenKit}
  */
 function radiantSword(bb, raw, def) {
   const grid = def?.skill?.rangeGrid ?? GRID_PLUS;
@@ -655,7 +707,7 @@ function radiantSword(bb, raw, def) {
   };
 }
 
-/** 纸偶 (风丸 S2): appear burst = its own ATK × damage_scale arts on the 8 surrounding tiles. */
+/** 纸偶 (风丸 S2): appear burst = its own ATK × damage_scale arts on the 8 surrounding tiles. @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Def | null} def @returns {TokenKit} */
 function paperDoll(bb, raw, def) {
   const scale = num(talentBb(def, 'damage_scale').damage_scale, 0);
   return {
@@ -666,7 +718,7 @@ function paperDoll(bb, raw, def) {
   };
 }
 
-/** Current “狼影” count of a 狼群 token (0 when not a wolf pack, and in its 战术点形态). */
+/** Current “狼影” count of a 狼群 token (0 when not a wolf pack, and in its 战术点形态). @param {Unit} unit */
 export function wolfShadows(unit) { return unit && unit.defId === TOKEN_IDS.wolfPack ? (unit.mem.shadows ?? 0) : 0; }
 
 // ---- 狼群 战术点形态 — both packs: the board piece (wolfPack below) and the 伺夜 kit's own pack
@@ -690,25 +742,26 @@ const WOLF_TAC_EXITS = new Set(['killed', 'retreat', FORCED_EXIT]);
 /** Seconds between two return tries of a 狼群 whose tile is taken when its 战术点形态 ends (Battle.isReservedTile keeps it). */
 const WOLF_RETURN_RETRY = 0.25;
 
-/** The 狼群领袖 talent of a 狼群 def (its 狼影 stack talent), else its first talent. */
+/** The 狼群领袖 talent of a 狼群 def (its 狼影 stack talent), else its first talent. @param {Def | null} def */
 const wolfLeader = (def) => talentWith(def, 'vigil_wolf_t_1_enhance[trigger].max_stack_cnt') ?? def?.talents?.[0] ?? null;
 
 /**
  * “狼影” recovery time of a 狼群 def: its 狼群领袖 talent interval ("每25秒增加一只"; data — 25 s for both 伺夜 chess). The
  * growth cycle and the length of the 战术点形态. 0 when the data has none.
+ * @param {Def | null} def
  */
 export function wolfShadowInterval(def) {
   const lb = wolfLeader(def)?.bb ?? {};
   return Math.max(0, num(lb['vigil_wolf_t_1_enhance[trigger].interval'] ?? lb.interval, 0));
 }
 
-/** The 战术点形态 of a 狼群 (`{ seq, since, until }`) while it is in it, else null. */
+/** The 战术点形态 of a 狼群 (`{ seq, since, until }`) while it is in it, else null. @param {Unit} unit */
 export function wolfTacticalPoint(unit) {
   const tp = unit?.mem?.wolfTac;
   return tp && !unit.alive && !unit.removed ? tp : null;
 }
 
-/** The pack's owner stands on the field (no owner unit: a test spawn). */
+/** The pack's owner stands on the field (no owner unit: a test spawn). @param {Unit} u */
 const wolfOwnerStands = (u) => !u.ownerUnit || (u.ownerUnit.alive && u.ownerUnit.deployed);
 
 /**
@@ -716,6 +769,7 @@ const wolfOwnerStands = (u) => !u.ownerUnit || (u.ownerUnit.alive && u.ownerUnit
  * 狼群的狼影刷新周期）"): redeployed on its tile, free, at full HP with 1 狼影 and a fresh growth cycle (its `deploy`
  * handler reads `mem.wolfReturn` = { src }); the pending return is cancelled. False when it is not in the form, its owner
  * is off the field or its tile is taken.
+ * @param {Battle} battle @param {Unit} unit @param {Unit | null} [src]
  */
 export function wolfReturnNow(battle, unit, src = null) {
   const tp = wolfTacticalPoint(unit);
@@ -729,7 +783,7 @@ export function wolfReturnNow(battle, unit, src = null) {
   return true;
 }
 
-/** The end of the 战术点形态 `seq` (its timer): the pack comes back — another try shortly when its tile is taken. */
+/** The end of the 战术点形态 `seq` (its timer): the pack comes back — another try shortly when its tile is taken. @param {Battle} battle @param {Unit} unit @param {number} seq */
 function wolfTimerReturn(battle, unit, seq) {
   const tp = wolfTacticalPoint(unit);
   if (!tp || tp.seq !== seq || battle.finished) return;
@@ -740,6 +794,7 @@ function wolfTimerReturn(battle, unit, seq) {
 /**
  * The 战术点形态 of a 狼群 unit (see above). `onEnter(battle, unit)` sets its 狼影 to 0 — each pack keeps its own count,
  * buff and fx.
+ * @param {Battle} battle @param {Unit} unit @param {{ onEnter?: ((battle: Battle, unit: Unit) => void) | null }} [opts]
  */
 export function installWolfTacticalPoint(battle, unit, { onEnter = null } = {}) {
   battle.on('death', (ctx) => {
@@ -749,6 +804,7 @@ export function installWolfTacticalPoint(battle, unit, { onEnter = null } = {}) 
     const t = wolfShadowInterval(unit.def) || Math.max(0, num(unit.base.respawnTime, 0));
     const seq = (unit.mem.wolfTacSeq ?? 0) + 1;
     unit.mem.wolfTacSeq = seq;
+    /** @type {{ seq: number, since: number, until: number, timer: Scheduled | null }} */
     const tp = { seq, since: battle.time, until: battle.time + t, timer: null };
     unit.mem.wolfTac = tp;
     if (onEnter) onEnter(battle, unit);
@@ -766,7 +822,7 @@ export function installWolfTacticalPoint(battle, unit, { onEnter = null } = {}) 
   }, { owner: unit });
 }
 
-/** 狼群 (伺夜 talent 狼群领袖/狼群天性; S3 bb on the token). */
+/** 狼群 (伺夜 talent 狼群领袖/狼群天性; S3 bb on the token). @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Def | null} def @returns {TokenKit} */
 function wolfPack(bb, raw, def) {
   const leader = wolfLeader(def);
   const lb = leader?.bb ?? {};
@@ -778,6 +834,7 @@ function wolfPack(bb, raw, def) {
   const guardMul = num(talentWith(def, 'prob')?.bb?.damage_scale, 1); // module: 援军受到来自自身阻挡单位的伤害降低
   const s3Key = Object.keys(bb || {}).find((k) => /atk_scale$/.test(k));
   const s3Scale = s3Key ? num(bb[s3Key], 0) : 0;
+  /** @param {Battle} battle @param {Unit} unit @param {number} n */
   const setShadows = (battle, unit, n) => {
     unit.mem.shadows = n;
     battle.addBuff(unit, { key: 'wolf:shadows', persist: true, allowDead: true, refresh: 'replace', mods: { blockCnt: n * perBlock } });
@@ -787,7 +844,7 @@ function wolfPack(bb, raw, def) {
     trait: { hitsFn: (b, u) => Math.max(1, u.mem.shadows ?? 1) },
     install(battle, unit) {
       // initial shadows: 伺夜's talent text ("初始两只"), else one below the maximum
-      const ot = (ownerOf(unit)?.def?.talents || []).map((t) => t.description || '').join(' ');
+      const ot = (ownerOf(unit)?.def?.talents || []).map((/** @type {Record<string, any>} */ t) => t.description || '').join(' ');
       const mi = ot.match(/初始(两|二|\d+)只/);
       const initShadows = Math.max(1, Math.min(maxShadows, mi ? (/\d/.test(mi[1]) ? +mi[1] : 2) : maxShadows - 1));
       onDeploy(battle, unit, () => {
@@ -830,6 +887,7 @@ function wolfPack(bb, raw, def) {
       // 狼群天性 ("伺夜和狼群对其的攻击无视其175防御力", 200 at full potential) and the owner's S3 bonus ("狼群与伺夜攻击被狼群阻挡的单位造成伤害
       // 时，额外造成相当于伺夜攻击力N%的法术伤害", one per damage instance = per bite) cover the pack's and 伺夜's own
       // attacks; with a hand-authored 伺夜 kit (managed) that kit applies both. The module guard is intrinsic.
+      /** @param {Unit | null | undefined} s */
       const packOrOwner = (s) => s === unit || (s != null && s === ownerOf(unit));
       if (defPen > 0 || guardMul !== 1) {
         battle.on('hit', (ctx) => {
@@ -872,6 +930,7 @@ function wolfPack(bb, raw, def) {
  * (battle/players.js: column c ↔ STAGE_COLS − 1 − c). < 0: `a` comes first.
  */
 const LR_BOUNDARY_COL = 10;
+/** @param {Unit} a @param {Unit} b @param {boolean} boss */
 function chessInstOrder(a, b, boss) {
   if (a.homeC !== b.homeC) {
     if (boss) {
@@ -883,6 +942,7 @@ function chessInstOrder(a, b, boss) {
   return b.homeR - a.homeR;
 }
 
+/** @param {number} tr @param {number} tc @param {number} r @param {number} c @param {number} rows @param {number} cols */
 function manifoldPriority(tr, tc, r, c, rows, cols) {
   const x = tr - r > 0 ? r + rows : tr - r;
   const y = (tc - c > 0 ? c + cols : tc - c) * rows;
@@ -898,6 +958,7 @@ function manifoldPriority(tr, tc, r, c, rows, cols) {
  * for the whole battle (`mlyssCopiedChessUid2CopiedChessInstId`: a 流形 on that tile again copies the same one). Null
  * with no operator. The token's skill buff (`mlyss_wtrman_s_begin`, ON_ENTITY_WILL_OVERLAP) copies whatever card is
  * built on it, from the card's snapshot, with no filter — 缪尔赛思 too.
+ * @param {Battle} battle @param {Unit} unit
  */
 export function manifoldCopyTarget(battle, unit) {
   const memo = (stateOf(battle).manifoldCopied ??= new Map());
@@ -909,7 +970,7 @@ export function manifoldCopyTarget(battle, unit) {
   for (const a of battle.allyUnits) {
     if (a.kind !== 'op') continue;
     const p = manifoldPriority(unit.tileR, unit.tileC, a.homeR, a.homeC, ROWS, cols);
-    if (p < bp || (p === bp && chessInstOrder(a, best, boss) < 0)) { best = a; bp = p; }
+    if (p < bp || (p === bp && chessInstOrder(a, /** @type {Unit} */ (best), boss) < 0)) { best = a; bp = p; }
   }
   if (best) memo.set(key, best);
   return best;
@@ -932,10 +993,10 @@ const MANIFOLD_PROFILE = Object.freeze(['attack', 'projectile', 'canHitFly', 'dm
 const MANIFOLD_SWITCH = 0.667;
 const MANIFOLD_SWITCH_KEY = 'mlyss:switching';
 const MANIFOLD_SWITCH_IMMUNE = new Set(['stun', 'freeze']);
-/** A buff of the official STUNNED / FROZEN flag: the stun / freeze statuses, or a kit's own buff that sets those flags. */
+/** A buff of the official STUNNED / FROZEN flag: the stun / freeze statuses, or a kit's own buff that sets those flags. @param {Record<string, any>} b */
 const manifoldSwitchAnti = (b) => (b.status ? MANIFOLD_SWITCH_IMMUNE.has(b.status) : !!(b.flags && (b.flags.stun || b.flags.freeze)));
 
-/** Apply a 流形 copy of `target` (scale × base stats, block, attack timing, range, damage type). */
+/** Apply a 流形 copy of `target` (scale × base stats, block, attack timing, range, damage type). @param {Battle} battle @param {Unit} unit @param {Unit} target @param {number} scale */
 function applyManifoldCopy(battle, unit, target, scale) {
   const tb = target.base;
   const b = unit.base;
@@ -975,7 +1036,7 @@ function applyManifoldCopy(battle, unit, target, scale) {
   battle.fx('manifoldCopy', { x: unit.x, y: unit.y, id: unit.id, from: target.id });
 }
 
-/** A split clone takes its origin's current copy (stats, range, attack profile) as it is. */
+/** A split clone takes its origin's current copy (stats, range, attack profile) as it is. @param {Battle} battle @param {Unit} clone @param {Unit} origin */
 function cloneManifold(battle, clone, origin) {
   for (const k of MANIFOLD_STATS) clone.base[k] = origin.base[k];
   if (Array.isArray(origin.rangeGrid) && origin.rangeGrid.length) { clone.rangeGrid = origin.rangeGrid; battle.refreshRange(clone); }
@@ -996,6 +1057,7 @@ function cloneManifold(battle, clone, origin) {
  *     one 流形 at a time (deployLimit 1; split clones aside), each comes back uncopied and copies again;
  *   - ranged copy: every N attacks a clone on a free deployable tile of the 4 neighbours, lasting `interval` s; clones
  *     never copy, split or come back; melee copy: ATK/DEF steal per hit (capped, reset by a new copy).
+ * @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Def | null} def @returns {TokenKit}
  */
 function manifold(bb, raw, def) {
   const tCopy = talentBb(def, 'scale');
@@ -1012,6 +1074,7 @@ function manifold(bb, raw, def) {
   const spCost = num(sk?.spCost, 0);
   const initSp = Math.min(spCost, num(sk?.initSp, 0));
   const firstSp = num(tSp.sp, 0); // golden 净水即生命: "首次部署后立即获得5点技力" (first deployment only)
+  /** @param {Battle} battle @param {Unit} unit */
   const split = (battle, unit) => {
     const tile = findSummonTile(battle, unit, 'plus', { melee: false });
     if (!tile) return;
@@ -1079,6 +1142,7 @@ function manifold(bb, raw, def) {
     install(battle, unit) {
       if (stateOf(battle).spawningClone) { unit.mem.isClone = true; unit.mem.noCopy = true; }
       // the uncopied 流形 (data stats, own-tile range, no attack): every (re)deployment starts from it again
+      /** @type {{ base: Record<string, any>, rangeGrid: any, profile: Record<string, any> }} */
       const defaults = { base: Object.fromEntries(MANIFOLD_STATS.map((k) => [k, unit.base[k]])), rangeGrid: unit.rangeGrid, profile: {} };
       if (unit.profile) for (const k of MANIFOLD_PROFILE) defaults.profile[k] = unit.profile[k];
       onDeploy(battle, unit, () => {
@@ -1132,6 +1196,7 @@ export const CHAMPAGNE_TRIGGER = Object.freeze({ canHitFly: false, groundOnly: t
  * deviation), and entity type 装置 — not chosen by ordinary ally abilities, so the internal `isolated` flag keeps every
  * ally selector (auras, 鼓舞, heals: Battle.allySelectable) off it. Flags only: no status icon, no 无敌 badge (its HP bar is
  * hidden on the client, shared/trap-tokens.js NO_HP_TOKENS). The token kit below and 琳琅诗怀雅's own bomb both install it.
+ * @param {Battle} battle @param {Unit} bomb
  */
 export function champagneHold(battle, bomb) {
   battle.addBuff(bomb, { key: 'token:champagneHold', flags: { noHeal: true, healFree: true, isolated: true }, persist: true, allowDead: true });
@@ -1150,6 +1215,7 @@ export function champagneHold(battle, bomb) {
  * champagneHold is untouched. A bomb placed in the same tick after she has already left misses that `death` (emit
  * snapshots its listeners), so it withdraws on its own deploy. Installed per bomb, so both creation paths (her kit's
  * bomb and the token kit below) carry it; another player's bomb has another owner and stays.
+ * @param {Battle} battle @param {Unit} bomb
  */
 export function champagneLeavesWithOwner(battle, bomb) {
   const owner = bomb.ownerUnit;
@@ -1162,6 +1228,7 @@ export function champagneLeavesWithOwner(battle, bomb) {
 /**
  * 香槟炸弹 (琳琅诗怀雅 S2): untargetable trap consumed by the first ground enemy touching its tile (champagneHold); it leaves
  * with her (champagneLeavesWithOwner).
+ * @param {Record<string, any>} bb @returns {TokenKit}
  */
 function champagne(bb) {
   const scale = num(bb['attack@atk_scale'] ?? bb.atk_scale, 0);
@@ -1196,6 +1263,7 @@ function champagne(bb) {
  * 从不混淆的方向 (乌尔比安 S3): marker of the owner's original tile; the owner returns there when the skill ends — a
  * 【移动】 (Battle.moveRedeploy, SP emptied: PRTS 乌尔比安 S3 备注 "【返回】时将清空技力"). The 乌尔比安 kit brings him back
  * itself (its onEnd retreats the marker first); this is the fallback for a kit that only places the marker.
+ * @returns {TokenKit}
  */
 function ulpiaMarker() {
   return {
@@ -1220,7 +1288,7 @@ function ulpiaMarker() {
   };
 }
 
-/** 黄金盟誓 (维娜·维多利亚 S3): attacks deal true damage (trait); lasts while the owner's skill runs. */
+/** 黄金盟誓 (维娜·维多利亚 S3): attacks deal true damage (trait); lasts while the owner's skill runs. @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Def | null} def @returns {TokenKit} */
 function goldenOath(bb, raw, def) {
   const trueDmg = /真实伤害/.test(String(def?.trait ?? ''));
   return {
@@ -1236,6 +1304,7 @@ function goldenOath(bb, raw, def) {
  * on its range (1-1: its tile + the tile it faces) gets the full shield when the device takes it (deploy, or a new /
  * redeployed operator there), then the refill; untargetable ("不会受到攻击") and invulnerable (enemy AoE sweeping every
  * ally in a radius would otherwise destroy the 100-HP device). The buff key is 凯瑟琳 S1 岁月锻打's test.
+ * @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Def | null} def @returns {TokenKit}
  */
 function catShield(bb, raw, def) {
   const t = talentBb(def, 'max_shield_ratio');
@@ -1250,13 +1319,14 @@ function catShield(bb, raw, def) {
       const st = stateOf(battle);
       battle.addBuff(unit, { key: 'token:catDevice', flags: { invulnerable: true }, persist: true, allowDead: true });
       const ownerHp = () => { const o = ownerOf(unit); return o ? o.s.maxHp : unit.s.maxHp; };
+      /** @param {Unit | null | undefined} a */
       const valid = (a) => a && a.alive && a.deployed && a.kind === 'op';
       const pick = () => {
         let best = null;
         for (const k of unit.rangeKeys || []) {
           const a = battle.unitAt((k / COLS) | 0, k % COLS);
-          if (!valid(a) || a.ownerId !== unit.ownerId) continue;
-          const holder = st.catTargets.get(a.id);
+          if (!valid(a) || /** @type {Unit} */ (a).ownerId !== unit.ownerId) continue;
+          const holder = st.catTargets.get(/** @type {Unit} */ (a).id);
           if (holder && holder !== unit && holder.alive) continue; // 装置效果不叠加
           best = a;
           break;
@@ -1266,10 +1336,11 @@ function catShield(bb, raw, def) {
         if (best) st.catTargets.set(best.id, unit);
         return best;
       };
+      /** @param {Unit} a @param {number} amount */
       const give = (a, amount) => {
         const cap = ownerHp() * maxRatio;
         if (!(cap > 0) || !(amount > 0)) return;
-        const b = a.findBuff(CAT_SHIELD_KEY);
+        const b = /** @type {{ shield?: number } | null} */ (a.findBuff(CAT_SHIELD_KEY));
         if (b) { b.shield = Math.min(cap, (b.shield || 0) + amount); a.markDirty(); } else battle.addBuff(a, { key: CAT_SHIELD_KEY, shield: Math.min(cap, amount), duration: Infinity, visible: true, source: unit });
       };
       const connect = () => {
@@ -1297,7 +1368,7 @@ function catShield(bb, raw, def) {
 // ---------------------------------------------------------------------------------------------------------------
 // 炎佑 (enemy_9012_acloon as an ally)
 
-/** Enemy-shaped 炎佑 record (enemies.json) for data sets without the tokens.json entry; null when tokens.json has it. */
+/** Enemy-shaped 炎佑 record (enemies.json) for data sets without the tokens.json entry; null when tokens.json has it. @param {Battle} battle */
 function yanyouFallbackDef(battle) {
   if (battle.data.getToken?.(TOKEN_IDS.yanyou)) return null;
   return battle.data.rawEnemy?.(TOKEN_IDS.yanyou) ?? null;
@@ -1333,7 +1404,7 @@ const YANYOU_FRAGILE_RADIUS = 1.5;    // PRTS "在场期间自身<!--固定半�
 const YANYOU_AURA_EVERY = 0.2;        // aura refresh period (s); the status lasts two periods
 const YANYOU_PROFILE = Object.freeze({ canHitFly: true });
 
-/** Highest-aggro targetable enemy of the whole field for `u` (operator order, targeting.js sortEnemyTargets). */
+/** Highest-aggro targetable enemy of the whole field for `u` (operator order, targeting.js sortEnemyTargets). @param {Battle} battle @param {Unit} u */
 function topAggroEnemy(battle, u) {
   let best = null, bk = null;
   for (const e of battle.enemies) {
@@ -1344,6 +1415,7 @@ function topAggroEnemy(battle, u) {
   return best;
 }
 
+/** @param {Record<string, any>} bb @param {Record<string, any>} raw @returns {TokenKit} */
 function yanyouKit(bb, raw) {
   // enemy-shaped record: `talents` is one { bb } object, `skills` the enemy skill list
   const tal = raw?.talents && !Array.isArray(raw.talents) ? raw.talents.bb ?? {} : raw?.talent ?? {};
@@ -1365,11 +1437,13 @@ function yanyouKit(bb, raw) {
    * and valid and, an enemy, not OUT_OF_GROUND (`_ValidForLassoProjectile`) — our alive, deployed and not off the field
    * (`hidden`, a DISAPPEAR leg); it does not look at its targetability (a 隐匿, sleep or 无法选中 it gains does not free it;
    * 공식 클라에서 확인 2026-11-14, until then canTargetEnemy).
+   * @param {Unit} u
    */
   const lockOf = (u) => {
     const t = u.mem.flame?.target;
     return t && t.alive && t.deployed && !t.hidden ? t : null;
   };
+  /** @param {Unit} u */
   const refreshKeys = (u) => {
     // cached while it hovers in place — unless the engine rebuilt the range from the (dummy) grid meanwhile
     // (a rangeExtend buff / skill range switch calls _refreshRange around its spawn tile)
@@ -1394,7 +1468,7 @@ function yanyouKit(bb, raw) {
         const list = battle.enemiesInKeys(unit.rangeKeys, unit, YANYOU_PROFILE);
         sortEnemyTargets(battle, unit, list, null);
         unit.mem.flame = { target: list[0] ?? null, acc: 1 };
-        if (!list[0]) unit.skill.end('noTarget');
+        if (!list[0]) /** @type {SkillRuntime} */ (unit.skill).end('noTarget');
       },
       onTick({ battle, unit, dt }) {
         const f = unit.mem.flame;
@@ -1403,10 +1477,10 @@ function yanyouKit(bb, raw) {
         // `isSilencedOrStunned` (SILENCED, STUNNED — our stun flag, a freeze's and a 浮空's included), and the cast ends
         // with it (RangedAttack waits while its projectile lives; 공식 클라에서 확인 2026-11-14 — until then a stun or a
         // freeze kept the lock and only paused the damage)
-        if (unit.s.flags.silence) { unit.skill.end('silence'); return; }
-        if (unit.s.flags.stun) { unit.skill.end('stun'); return; }
+        if (unit.s.flags.silence) { /** @type {SkillRuntime} */ (unit.skill).end('silence'); return; }
+        if (unit.s.flags.stun) { /** @type {SkillRuntime} */ (unit.skill).end('stun'); return; }
         const t = lockOf(unit);
-        if (!t) { unit.skill.end('targetLost'); return; }
+        if (!t) { /** @type {SkillRuntime} */ (unit.skill).end('targetLost'); return; }
         if (!unit.canAct) return;
         f.acc += dt ?? battle.dt;
         if (f.acc < 1 - 1e-9) return;
@@ -1473,6 +1547,7 @@ function yanyouKit(bb, raw) {
 /**
  * Stage positions held for the band map characters (data/stages.json `mapChars`: the levels' predefined 预备干员-医疗 /
  * Touch of 外勤医疗, hidden until a player holds the strategy), as tile keys.
+ * @param {Battle} battle
  */
 function mapCharKeys(battle) {
   const list = battle.stage?.raw?.mapChars ?? battle.stage?.mapChars ?? [];
@@ -1486,6 +1561,7 @@ function mapCharKeys(battle) {
  * map character's position: the 炎佑 spawns at the same battle start as 外勤医疗's medic and took its tile on the maps
  * whose free void tiles nearest the centre include it (战场#08 涨潮控制 always, 战场#07 排气格栅 with 9 炎), so the medic
  * never stood (community report of 2026-10-06 「Touch策略给的医疗干员会跟炎盟约的炎祐冲突，无法同时出场」).
+ * @param {Battle} battle @param {string} playerId @param {Set<number>} taken
  */
 function airTile(battle, playerId, taken) {
   const R = battle.rect;
@@ -1497,7 +1573,7 @@ function airTile(battle, playerId, taken) {
   }
   const cr = (R.r0 + R.r1) / 2, cc = (c0 + c1) / 2;
   const held = mapCharKeys(battle);
-  let best = null, bs = null;
+  let /** @type {[number, number] | null} */ best = null, /** @type {number[] | null} */ bs = null;
   for (let r = R.r0; r <= R.r1; r++) {
     for (let c = c0; c <= c1; c++) {
       if (taken.has(r * COLS + c) || held.has(r * COLS + c) || !tileFree(battle, r, c)) continue;
@@ -1505,7 +1581,7 @@ function airTile(battle, playerId, taken) {
       const cls = t.build === 'NONE' && t.pass !== 'ALL' ? 0 : t.build === 'NONE' ? 1 : 2;
       const s = [cls, hypot(r - cr, c - cc), r * COLS + c];
       let less = !bs;
-      if (!less) for (let i = 0; i < 3; i++) { if (s[i] < bs[i] - 1e-9) { less = true; break; } if (s[i] > bs[i] + 1e-9) break; }
+      if (!less) for (let i = 0; i < 3; i++) { if (s[i] < /** @type {number[]} */ (bs)[i] - 1e-9) { less = true; break; } if (s[i] > /** @type {number[]} */ (bs)[i] + 1e-9) break; }
       if (less) { best = [r, c]; bs = s; }
     }
   }
@@ -1522,6 +1598,7 @@ function airTile(battle, playerId, taken) {
  * mirrored right half of a boss pair takes it mirrored. Returns { r, c, dx, dy } (dx / dy: the random offset drawn from
  * the battle rng, x and y each uniform within ±spawnRandom — the client's `Route.GetSpawnOffset`, `RandomVector2`) or
  * null without a template / branch.
+ * @param {Battle} battle @param {Record<string, any> | null} ps
  */
 function yanyouSpawnPoint(battle, ps) {
   const o = battle.opts || {};
@@ -1551,7 +1628,7 @@ function yanyouSpawnPoint(battle, ps) {
  * 自身攻击力、生命值增加召唤自身的玩家场地上的所有【炎】盟约干员攻击力、生命值的30%（最终加算）". atkMul (9 炎: ×1.5 on the
  * whole ATK — the client buff graph act1autochess_bond_eff_yan `[long]` is an ATK FINAL_SCALER) and dmgTakenMul (9 炎: 0.1)
  * are applied as a persistent buff. Returns the spawned units.
- * @param {object} battle
+ * @param {Battle} battle
  * @param {string} playerId
  * @param {{ atk?: number, hp?: number, atkMul?: number, dmgTakenMul?: number, count?: number }} [opts]
  */
@@ -1563,6 +1640,7 @@ export function spawnYanyou(battle, playerId, { atk, hp, atkMul = 1, dmgTakenMul
   const out = [];
   const taken = new Set();
   const base = rec.stats || {};
+  /** @type {Record<string, number>} */
   const stats = {};
   if (num(atk, -1) >= 0) stats.atk = num(base.atk, 0) + num(atk, 0);
   if (num(hp, 0) > 0) stats.maxHp = num(base.maxHp, 0) + num(hp, 1);
@@ -1607,6 +1685,7 @@ export function spawnYanyou(battle, playerId, { atk, hp, atkMul = 1, dmgTakenMul
  * 一个影哨后离场" — nor the 商人's "不足时自动撤退" ('merchant'), the 突袭 jump ('raid'), the 联防 setup (FORCED_EXIT) or a
  * summon's end ('expired') [ASSUMED: plain 撤退 without a death animation]. A battle runs on its own — the player has no
  * 撤退 command in it — so none of these is a player's own retreat.
+ * @param {Record<string, any>} ctx
  */
 const touchExitCounts = (ctx) => ctx.reason === 'killed' || (ctx.reason === 'retreat' && !!ctx.dying);
 
@@ -1619,8 +1698,10 @@ const touchExitCounts = (ctx) => ctx.reason === 'killed' || (ctx.reason === 'ret
  *         extra heal); not a device or a unit without a skill, not her own HP-regeneration tick (no heal she outputs)
  *   超脱  "攻击范围内的友方干员被击倒时获得5点技力" (Touch) → an allied operator knocked out (or forced out dying:
  *         touchExitCounts) on a tile of its range: +`sp` SP
+ * @param {Def | null} def
  */
 export function mapCharTalents(def) {
+  /** @type {TokenKit[]} */
   const out = [];
   for (const t of def?.talents ?? []) {
     const bb = t?.bb ?? {};
@@ -1659,7 +1740,7 @@ export function mapCharTalents(def) {
   return out;
 }
 
-/** 预备干员-医疗: generic kit (治疗强化·β型 ATK +50 %) + its stat talent. */
+/** 预备干员-医疗: generic kit (治疗强化·β型 ATK +50 %) + its stat talent. @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Def | null} def @returns {TokenKit} */
 function reserveMedicKit(bb, raw, def) {
   const k = def?.skill ? genericKit(bb, raw, def) : { skill: null, talents: [] };
   return { ...k, talents: [...(k.talents ?? []), ...mapCharTalents(def)] };
@@ -1679,6 +1760,8 @@ function reserveMedicKit(bb, raw, def) {
  *     then the battle's ally order]; never a 禁疗 / 孤立 / 无法被友方治疗 unit (no heal can pick it);
  *   - 备注 "额外治疗可触发技能后半段的治疗量提高效果": the extra heal is a heal of its own, so its recipient gets the ×heal_scale
  *     when it is below hp_ratio (and the stand-in's PHY-X ×1.15), and its target gets 攫升's SP.
+ * @param {Record<string, any>} bb @param {Record<string, any>} skill
+ * @returns {{ skill: TokenSkill, install: (battle: Battle, unit: Unit) => void }}
  */
 export function touchGospel(bb, skill) {
   const hpRatio = num(bb.hp_ratio, 0), boost = num(bb.heal_scale, 1), extra = num(bb['attack@addition_heal_scale'], 0);
@@ -1722,6 +1805,7 @@ export function touchGospel(bb, skill) {
  * (`_TryTriggerAvailableSkills` walks `unitManager.characters`), and one with no card takes its type from
  * `_GetAutoChessSkillTriggerType`: act2autochess `skillTriggerDataList` has no entry for her (医疗 / 医师, char_613_acmedc),
  * so DEFAULT. (Until then the kit rule ACTIVE_RANGE — an injured ally in the 5-2, GitHub #260 / PR #278.)
+ * @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Def | null} def @returns {TokenKit}
  */
 function touchKit(bb, raw, def) {
   const sk = def?.skill;
@@ -1735,12 +1819,13 @@ function touchKit(bb, raw, def) {
  * player's half (data/stages.json `mapChars`; `_multi_only` positions only with a partner). `preBattle` preserves the
  * aggro order of a character already visible in preparation; ad-hoc mid-battle spawns keep ordinary summon order.
  * Returns the unit or null.
+ * @param {Battle} battle @param {string} playerId @param {string} tokenId @param {{ alias?: string | null, preBattle?: boolean }} [opts]
  */
 export function spawnMapChar(battle, playerId, tokenId, { alias = null, preBattle = false } = {}) {
   const list = battle.stage?.raw?.mapChars ?? battle.stage?.mapChars ?? [];
   const ps = battle.getPlayer(playerId);
   const multi = battle.players.length > 1;
-  const cands = list.filter((m) => m && m.key === tokenId && Array.isArray(m.pos) && (alias == null || m.alias === alias)
+  const cands = list.filter((/** @type {Record<string, any>} */ m) => m && m.key === tokenId && Array.isArray(m.pos) && (alias == null || m.alias === alias)
     && (multi || !/multi_only/.test(String(m.alias))) && battle.grid.inRect(m.pos[0], m.pos[1]));
   // the player's own board columns on this field (board cols 2–10 mapped: unite R = 10–18, boss R mirrored 18–10)
   let span = null;
@@ -1748,8 +1833,9 @@ export function spawnMapChar(battle, playerId, tokenId, { alias = null, preBattl
     const a = battle.mapTile(ps, 9, 2)[1], b = battle.mapTile(ps, 9, 10)[1];
     span = [Math.min(a, b), Math.max(a, b)];
   }
+  /** @param {Record<string, any>} m */
   const halfOk = (m) => !ps || battle.players.length < 2 || (span ? m.pos[1] >= span[0] && m.pos[1] <= span[1] : (ps.half === 'R' ? m.pos[1] >= 11 : m.pos[1] <= 10));
-  cands.sort((a, b) => (halfOk(b) ? 1 : 0) - (halfOk(a) ? 1 : 0) || (/multi_only/.test(String(a.alias)) ? 1 : 0) - (/multi_only/.test(String(b.alias)) ? 1 : 0));
+  cands.sort((/** @type {Record<string, any>} */ a, /** @type {Record<string, any>} */ b) => (halfOk(b) ? 1 : 0) - (halfOk(a) ? 1 : 0) || (/multi_only/.test(String(a.alias)) ? 1 : 0) - (/multi_only/.test(String(b.alias)) ? 1 : 0));
   for (const m of cands) {
     if (!tileFree(battle, m.pos[0], m.pos[1])) continue;
     // stage positions are field tiles: their direction is taken as it is (default RIGHT)
@@ -1762,6 +1848,7 @@ export function spawnMapChar(battle, playerId, tokenId, { alias = null, preBattl
 // ---------------------------------------------------------------------------------------------------------------
 // registry
 
+/** @type {Record<string, TokenKitFn>} */
 const RAW_KITS = {
   [TOKEN_IDS.healDrone]: healDrone,
   [TOKEN_IDS.curseDoll]: curseDoll,
@@ -1787,7 +1874,7 @@ const RAW_KITS = {
   [TOKEN_IDS.touch]: touchKit,
 };
 /** tokenId → kit fn; kits built here carry `fromTokens: true` (deploy limits only police those). */
-export const kits = Object.freeze(Object.fromEntries(Object.entries(RAW_KITS).map(([id, f]) => [id, (bb, raw, def) => {
+export const kits = Object.freeze(Object.fromEntries(Object.entries(RAW_KITS).map(([id, f]) => [id, (/** @type {Record<string, any> | null} */ bb, /** @type {Record<string, any> | null} */ raw, /** @type {Def | null} */ def) => {
   /** @type {Record<string, any> | null} */
   const k = f(bb ?? {}, raw ?? {}, def ?? null);
   if (k && typeof k === 'object') k.fromTokens = true;
@@ -1806,6 +1893,7 @@ export default kits;
  * module uniequip_003_rosmon — only caps how many stand; SKILL_SUMMON_PER_CAST). 医疗探机 / 诅咒娃娃 are hand pieces
  * (data `placeable`): their entries only mark them as skill summons — releaseSkillSummon deploys the player's piece on
  * its own tile, and their 'ally' / 'enemy' placement would apply only to data without such a piece.
+ * @type {Readonly<Record<string, string>>}
  */
 const SKILL_SUMMONS = Object.freeze({
   [TOKEN_IDS.healDrone]: 'ally',
@@ -1820,6 +1908,7 @@ const SKILL_SUMMONS = Object.freeze({
  * Pieces per cast of the skill summons placed several at a time (skill description; default 1). 黄金盟誓: "立即在天赋
  * 一生效范围内可部署地面召唤" — every free tile of the 8 around 维娜 (EN client "Summons Golden Vows on deployable tiles
  * within Talent 1's range"; player report B3 after 0.1.0).
+ * @type {Readonly<Record<string, number>>}
  */
 const SKILL_SUMMON_PER_CAST = Object.freeze({ [TOKEN_IDS.rosmonGear]: 2, [TOKEN_IDS.goldenOath]: 8 });
 /**
@@ -1827,13 +1916,15 @@ const SKILL_SUMMON_PER_CAST = Object.freeze({ [TOKEN_IDS.rosmonGear]: 2, [TOKEN_
  * of 黄金盟誓 is a hand count, while 维娜 S3 summons one on every free deployable tile of her talent-1 area at once.
  */
 const SKILL_SUMMON_UNCAPPED = new Set([TOKEN_IDS.goldenOath]);
-/** Tactician talent tokens that replace the engine's generic 援军. */
+/** Tactician talent tokens that replace the engine's generic 援军. @type {ReadonlySet<string>} */
 const TACTICIAN_TOKENS = new Set([TOKEN_IDS.wolfPack, TOKEN_IDS.manifold]);
 
-const tokenIdsOf = (u) => (u.def?.tokens || []).map((t) => (typeof t === 'string' ? t : t?.tokenId)).filter(Boolean);
+/** @param {Unit} u @returns {string[]} */
+const tokenIdsOf = (u) => (u.def?.tokens || []).map((/** @type {string | { tokenId?: string } | null} */ t) => (typeof t === 'string' ? t : t?.tokenId)).filter(Boolean);
 /**
  * How `owner` (its chess and selected skill / module, DESIGN §16) produces `tokenId`: the owner-loadout def's
  * `sources` (getToken(id, owner.defId, owner.def.loadout)); [] when the token has no variant of the owner's own.
+ * @param {Battle} battle @param {string} tokenId @param {Unit} owner
  */
 function tokenSources(battle, tokenId, owner) {
   const own = ownVariant(battle.data.rawToken?.(tokenId), owner);
@@ -1842,6 +1933,7 @@ function tokenSources(battle, tokenId, owner) {
   return Array.isArray(d?.sources) ? d.sources : (own.sources ?? []);
 }
 
+/** @param {Unit} u */
 function deployLimitOf(u) {
   const v = variantOf(u);
   return num(v?.stats?.deployLimit ?? v?.deployLimit ?? u.def?.raw?.deployLimit ?? u.def?.raw?.stats?.deployLimit, Infinity);
@@ -1852,12 +1944,13 @@ function deployLimitOf(u) {
  * walkable tile of its initial range, on an enemy ground path first (where a player would put the blocker), then
  * nearest to the tactician. Shared by every tactician kit (伺夜, kits/ops/chess_char_3_19-vigil.js; the tokens' own
  * fallback).
+ * @param {Battle} battle @param {Unit} owner
  */
 export function tacticalPoint(battle, owner) {
   return battle.findTacticalPoint(owner);
 }
 
-/** Make sure a tactician's 援军 is its real talent token (board piece, or a fresh summon on a tactical point). */
+/** Make sure a tactician's 援军 is its real talent token (board piece, or a fresh summon on a tactical point). @param {Battle} battle @param {Unit} owner @param {string} tokenId */
 function ensureReinforcement(battle, owner, tokenId) {
   // (split 流形 clones — this file's `isClone`, the 缪尔赛思 kit's `mlyssClone` — are never the 援军)
   const mine = battle.allyUnits.filter((t) => t.kind === 'token' && t.defId === tokenId && t.ownerUnit === owner && !t.mem.isClone && !t.mem.mlyssClone);
@@ -1882,6 +1975,7 @@ function ensureReinforcement(battle, owner, tokenId) {
   return t;
 }
 
+/** @param {Battle} battle */
 export function install(battle) {
   const st = stateOf(battle);
 
@@ -1954,7 +2048,7 @@ export function install(battle) {
     }
     if (!kitGeneric) continue;
     if (toks.includes(TOKEN_IDS.duskDragon) && base === 'chess_char_5_12') {
-      const life = num(owner.def?.talents?.find((t) => t.tokenKey === TOKEN_IDS.duskDragon)?.bb?.['attack@tokenduration'], 0);
+      const life = num(owner.def?.talents?.find((/** @type {Record<string, any>} */ t) => t.tokenKey === TOKEN_IDS.duskDragon)?.bb?.['attack@tokenduration'], 0);
       battle.on('deploy', (ctx) => { if (ctx.unit === owner) owner.mem.duskPending = true; }, { owner });
       battle.on('attack', (ctx) => {
         if (ctx.attacker !== owner || !owner.mem.duskPending) return;
@@ -1970,4 +2064,5 @@ export function install(battle) {
   }
 }
 
+/** @param {MetaRegistry} registry */
 export function registerMeta(registry) {} // no prep-side effects: token pieces are handled by the match

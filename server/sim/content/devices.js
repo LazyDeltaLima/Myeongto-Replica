@@ -50,12 +50,36 @@ import { sortEnemyTargets, areaSelectable } from '../targeting.js';
 import { DIR_VEC, normDir, oppositeDir } from '../dir.js';
 import { hypot } from '../detmath.js';
 
+/** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
+/** @import { Scheduled } from '../battle/hooks.js' */
+/** @import { MetaRegistry } from '../../match/effectsMeta.js' */
+/**
+ * A stage device (stages.json `devices`: key, role, row, col, dir, alias, active, hidden, stats, the level record `raw`),
+ * the battle's device state (install: STATE) and its parts.
+ * @typedef {Record<string, any>} StageDevice
+ * @typedef {{ fx: number, fy: number, dir: string, bb: Record<string, any> }} Flow
+ * @typedef {{ d: StageDevice, dir: string, damage: number, atkMul: number, moveMul: number, interval: number }} Storm
+ * @typedef {{ alias: string | null, x: number, y: number, lane: Set<number>, far: number, atk: number, every: number,
+ *   sp: number, pax: Unit | null, shot: boolean }} Cannon
+ * @typedef {{ byPlayer: Map<string, Map<string, boolean>>, global: Map<string, boolean>, terrain: Uint8Array,
+ *   hasTerrain: boolean, flow: Map<number, Flow>, turrets: Map<string, Unit>, platformOn: Set<number>,
+ *   platformOff: Set<number>, crateOff: Set<number>, storms: Storm[], mounds: Set<number>, cannons: Cannon[],
+ *   ticking: boolean, started?: boolean,
+ *   mire: { interval: number, aspdPer: number, movePer: number, max: number, heavyWeight: number },
+ *   deepsea: { damage: number, aspd: number, moveMul: number },
+ *   infection: { damage: number, atk: number, aspd: number, duration: number },
+ *   speedup: { aspd: number, moveMul: number } }} DeviceState
+ */
+
+/** @param {unknown} v @param {number} [d] */
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d));
-/** ASPD blackboard values: a fraction (|v| < 1, e.g. −0.6 / −0.05) is ×100 ASPD, otherwise flat (+20). */
+/** ASPD blackboard values: a fraction (|v| < 1, e.g. −0.6 / −0.05) is ×100 ASPD, otherwise flat (+20). @param {number} v */
 const aspdOf = (v) => (Math.abs(v) < 1 ? v * 100 : v);
 
 export const TERRAIN = Object.freeze({ mire: 1, smog: 2, deepsea: 3, infection: 4, speedup: 5, grassland: 6 });
 const TERRAIN_NAME = ['', 'mire', 'smog', 'deepsea', 'infection', 'speedup', 'grassland'];
+/** @type {Record<number, string>} */
 const BUFF = { 1: 'terrain:mire', 2: 'terrain:smog', 3: 'terrain:deepsea', 4: 'terrain:infection', 5: 'terrain:speedup', 6: 'terrain:grassland' };
 const AIRFLOW = 'terrain:airflow';
 const CRATE_KEY = 'trap_1105_accrate';
@@ -68,22 +92,30 @@ const RESEARCH = Object.freeze({
   speedup: { attack_speed: 25, move_speed: 1.5 },
 });
 
+/** @type {WeakMap<Battle, DeviceState>} */
 const STATE = new WeakMap();
+/** @param {Battle} battle */
 const stateOf = (battle) => STATE.get(battle) ?? null;
 
 // ---------------------------------------------------------------------------------------------------------------
 // device overrides
 
+/** @param {unknown} v */
 const truthy = (v) => (typeof v === 'number' ? v !== 0 : typeof v === 'string' ? v !== '0' && v !== '' && v !== 'false' : !!v);
 
+/** @param {Map<string, boolean>} m @param {unknown} obj */
 function addOverrides(m, obj) {
   if (!obj || typeof obj !== 'object') return m;
   for (const [k, v] of Object.entries(obj)) if (k.includes('#')) m.set(k, truthy(v));
   return m;
 }
 
-/** Device overrides of one player (battle input `deviceOverrides` + playerEffects params): Map alias → active. */
+/**
+ * Device overrides of one player (battle input `deviceOverrides` + playerEffects params): Map alias → active.
+ * @param {Record<string, any> | null | undefined} ps
+ */
 export function playerDeviceOverrides(ps) {
+  /** @type {Map<string, boolean>} */
   const m = new Map();
   if (!ps) return m;
   addOverrides(m, ps.input?.deviceOverrides);
@@ -91,15 +123,18 @@ export function playerDeviceOverrides(ps) {
   return m;
 }
 
-/** Union of device overrides for this battle: Map alias → active. */
+/** Union of device overrides for this battle: Map alias → active. @param {Battle} battle */
 export function deviceOverridesOf(battle) {
+  /** @type {Map<string, boolean>} */
   const m = new Map();
   for (const ps of battle.players || []) for (const [k, v] of playerDeviceOverrides(ps)) m.set(k, v);
   addOverrides(m, battle.opts?.deviceOverrides);
   return m;
 }
 
+/** @param {StageDevice | null | undefined} d @returns {string | null} */
 const aliasOf = (d) => d?.raw?.alias ?? d?.alias ?? null;
+/** @param {StageDevice} d */
 function dataActive(d) {
   return d.raw && typeof d.raw.active === 'boolean' ? d.raw.active : !d.hidden && d.active !== false;
 }
@@ -109,6 +144,7 @@ function dataActive(d) {
  * cards (“移除场地上全部阻隔工事”) and band 机械援助 (“所有场地中出现1个”) change the owner's own half only — a
  * partner's card never removes this player's crates, a partner's band never adds a turret scaling with this player's
  * layers. Battle-level overrides (opts.deviceOverrides) apply to every half.
+ * @param {Battle} battle @param {DeviceState} st @param {StageDevice} d @returns {boolean | undefined}
  */
 function overrideOf(battle, st, d) {
   const a = aliasOf(d);
@@ -119,6 +155,7 @@ function overrideOf(battle, st, d) {
   if (st.global.has(a)) return st.global.get(a);
   return undefined;
 }
+/** @param {Battle} battle @param {DeviceState} st @param {StageDevice} d */
 function isActive(battle, st, d) {
   const o = overrideOf(battle, st, d);
   return o === undefined ? dataActive(d) : o;
@@ -132,7 +169,7 @@ function isActive(battle, st, d) {
  * `duration` s (a number or `() => number`, evaluated per gust — layers can change mid-battle). A cold enemy that
  * gets cold again freezes (engine rule). `playerId` only tags the fx; `ownerOnly` limits the gust to enemies
  * attributed to that player. Returns { cancel() } or null for bad numbers.
- * @param {object} battle
+ * @param {Battle} battle
  * @param {{ playerId?: string|null, interval?: number, duration?: number | (() => number), first?: number,
  *   ownerOnly?: boolean, effectKey?: string|null }} [opts]
  */
@@ -140,6 +177,7 @@ export function startColdWind(battle, { playerId = null, interval, duration, fir
   const iv = num(interval, 0);
   if (!(iv > 0)) return null;
   const durOf = () => num(typeof duration === 'function' ? duration() : duration, 0);
+  /** @type {{ cancelled: boolean, gusts: number, timer: Scheduled | null, cancel(): void }} */
   const handle = { cancelled: false, gusts: 0, timer: null, cancel() { this.cancelled = true; this.timer?.cancel(); } };
   const gust = () => {
     if (handle.cancelled || battle.finished) return;
@@ -171,6 +209,7 @@ export function startColdWind(battle, { playerId = null, interval, duration, fir
  * 谢拉格 6-member wind from the bond effect blackboard (effects.json bondeffect_kjerag `env_gbuff_new` bb):
  * interval `bond_eff_kjerag[storm].interval`, duration `base_time + time_per_stack × layers` — the live 谢拉格 layers
  * of the field's player with the most (client `AutoChessAssignBondStackCntToBB` `_assignAllPlayerIndex`); one wind per field (bonds/nation/kjerag.js installKjerag). `playerId` tags the fx.
+ * @param {Battle} battle @param {string | null} playerId @param {Record<string, any>} [bb] @param {{ bondId?: string }} [opts]
  */
 export function kjeragColdWind(battle, playerId, bb = {}, { bondId = 'kjeragShip' } = {}) {
   const interval = num(bb['bond_eff_kjerag[storm].interval'], 0);
@@ -189,7 +228,7 @@ export function kjeragColdWind(battle, playerId, bb = {}, { bondId = 'kjeragShip
 // ---------------------------------------------------------------------------------------------------------------
 // turrets (“双眼皮”)
 
-/** Highest bond layer count of a player (live copy: in-battle gains included). */
+/** Highest bond layer count of a player (live copy: in-battle gains included). @param {Battle} battle @param {string} playerId */
 function topLayers(battle, playerId) {
   const bonds = battle.getPlayer(playerId)?.bonds;
   let L = 0;
@@ -197,6 +236,7 @@ function topLayers(battle, playerId) {
   return L;
 }
 
+/** @param {Battle} battle @param {number} c @returns {string | null} */
 function playerForCol(battle, c) {
   if (!battle.players.length) return null;
   if (battle.players.length === 1) return battle.players[0].playerId;
@@ -209,10 +249,11 @@ function playerForCol(battle, c) {
  * Tile for a turret: its own position when it is inside the field and free, else the nearest free in-rect tile
  * nobody can deploy on — off the enemy paths first (void before a lane / gate: act2 m01's turrets stand on row 8,
  * outside the normal field, and would otherwise land on the red gate).
+ * @param {Battle} battle @param {number} r0 @param {number} c0
  */
 function deviceTile(battle, r0, c0) {
   const R = battle.rect;
-  let best = null, bs = null;
+  let /** @type {[number, number] | null} */ best = null, /** @type {number[] | null} */ bs = null;
   for (let r = R.r0; r <= R.r1; r++) {
     for (let c = R.c0; c <= R.c1; c++) {
       if (battle.isReservedTile(r, c)) continue;
@@ -221,17 +262,19 @@ function deviceTile(battle, r0, c0) {
       const walk = !exact && battle.grid.groundPassable(r, c, true) ? 1 : 0;
       const s = [exact ? 0 : 1, walk, hypot(r - r0, c - c0), r * COLS + c];
       let less = !bs;
-      if (!less) for (let i = 0; i < s.length; i++) { if (s[i] < bs[i] - 1e-9) { less = true; break; } if (s[i] > bs[i] + 1e-9) break; }
+      if (!less) for (let i = 0; i < s.length; i++) { if (s[i] < /** @type {number[]} */ (bs)[i] - 1e-9) { less = true; break; } if (s[i] > /** @type {number[]} */ (bs)[i] + 1e-9) break; }
       if (less) { best = [r, c]; bs = s; }
     }
   }
   return best;
 }
 
+/** @param {Battle} battle @param {DeviceState} st @param {StageDevice} d @returns {Unit | null} */
 function spawnTurret(battle, st, d) {
   const alias = aliasOf(d) ?? `${d.key}@${d.row},${d.col}`;
-  if (st.turrets.has(alias)) return st.turrets.get(alias);
-  const tiles = (d.raw?.rangeTiles ?? []).filter((p) => Array.isArray(p) && battle.grid.inRect(p[0], p[1]));
+  if (st.turrets.has(alias)) return /** @type {Unit} */ (st.turrets.get(alias));
+  /** @type {[number, number][]} */
+  const tiles = (d.raw?.rangeTiles ?? []).filter((/** @type {unknown} */ p) => Array.isArray(p) && battle.grid.inRect(p[0], p[1]));
   if (!tiles.length) return null; // shoots at nothing on this field
   const tile = deviceTile(battle, d.row, d.col);
   if (!tile) return null;
@@ -264,6 +307,7 @@ function spawnTurret(battle, st, d) {
 
 const TURRET_PROFILE = Object.freeze({ attack: 'ranged', dmgType: 'arts', projectile: 'bolt', canHitFly: true, maxTargets: 1, atkScale: 1 });
 
+/** @param {Battle} battle @param {Unit} u @param {number} dt */
 function tickTurret(battle, u, dt) {
   const T = u.mem.turret;
   if (!u.alive || !T) return;
@@ -278,7 +322,7 @@ function tickTurret(battle, u, dt) {
   const frag = Math.min(1 + L * T.fragPer, T.fragMax) - 1;
   const prof = {
     ...TURRET_PROFILE,
-    afterHit: (b, src, target) => {
+    afterHit: (/** @type {Battle} */ b, /** @type {Unit} */ src, /** @type {Unit | null} */ target) => {
       if (frag > 0 && T.fragDur > 0 && target && target.alive) b.applyStatus(target, 'fragile', { duration: T.fragDur, value: frag, source: src });
     },
   };
@@ -286,10 +330,14 @@ function tickTurret(battle, u, dt) {
   T.cd = u.s.interval;
 }
 
-/** Activate “双眼皮” turrets on this field (all known aliases by default; idempotent). Returns the turret units. */
+/**
+ * Activate “双眼皮” turrets on this field (all known aliases by default; idempotent). Returns the turret units.
+ * @param {Battle} battle @param {{ aliases?: readonly (string | null)[] | null }} [opts]
+ */
 export function activateTurrets(battle, { aliases = null } = {}) {
   const st = stateOf(battle);
   if (!st) return [];
+  /** @type {Unit[]} */
   const out = [];
   for (const d of battle.stage?.devices || []) {
     if (d.key !== TURRET_KEY && d.role !== 'turret') continue;
@@ -304,18 +352,19 @@ export function activateTurrets(battle, { aliases = null } = {}) {
 // ---------------------------------------------------------------------------------------------------------------
 // terrain
 
+/** @param {Battle} battle @param {DeviceState} st */
 function buildTerrain(battle, st) {
   const R = battle.rect;
   let any = false;
   for (let r = R.r0; r <= R.r1; r++) {
     for (let c = R.c0; c <= R.c1; c++) {
-      const code = TERRAIN[battle.grid.tile(r, c).terrain] ?? 0;
+      const code = /** @type {Record<string, number>} */ (TERRAIN)[/** @type {string} */ (battle.grid.tile(r, c).terrain)] ?? 0;
       if (code) { st.terrain[r * COLS + c] = code; any = true; }
     }
   }
   st.hasTerrain = any;
   const sp = battle.stage?.special || {};
-  const devSkill = (role) => (battle.stage?.devices || []).find((d) => d.role === role)?.raw?.skill?.bb ?? null;
+  const devSkill = (/** @type {string} */ role) => (battle.stage?.devices || []).find((/** @type {StageDevice} */ d) => d.role === role)?.raw?.skill?.bb ?? null;
   // mire
   const m = sp.mire || {};
   const mdev = devSkill('mireController') || {};
@@ -355,7 +404,7 @@ function buildTerrain(battle, st) {
   for (const d of battle.stage?.devices || []) {
     if (d.role !== 'blower' || !isActive(battle, st, d)) continue;
     const raw = String(d.dir ?? d.raw?.dir ?? 'UP').toUpperCase();
-    const f = DIR_VEC[raw];
+    const f = /** @type {Record<string, readonly number[] | undefined>} */ (DIR_VEC)[raw];
     if (!f) continue;
     const dir = normDir(raw);
     const bb = d.raw?.skill?.bb ?? sp.blower?.bb ?? {};
@@ -369,7 +418,8 @@ function buildTerrain(battle, st) {
 }
 
 /** 活性源石's tick: true damage no unit deals (无来源), tagged 'terrain' = 环境伤害 ("受到来自自然环境的伤害" content reads it). */
-const infectionDamage = (battle, amount) => (ctx) => {
+/** @param {Battle} battle @param {number} amount */
+const infectionDamage = (battle, amount) => (/** @type {{ unit: Unit }} */ ctx) => {
   if (amount > 0 && ctx.unit.alive) battle.dealDamage(null, ctx.unit, { amount, type: 'true', canDodge: false, tags: ['terrain'] });
 };
 
@@ -378,10 +428,12 @@ const infectionDamage = (battle, amount) => (ctx) => {
  * lists 深水区/涨潮水蚀 as BUFF damage): 无来源 true 持续伤害 — tags 'dot' (锡人's 凋敝魂灵 raises it), 'periodic' and
  * 'deepsea' (the 免疫水蚀 swimmers cancel it), no 'terrain' (not 环境伤害), no 受击回复 (noSp).
  */
-const deepWaterDamage = (battle, amount) => (ctx) => {
+/** @param {Battle} battle @param {number} amount */
+const deepWaterDamage = (battle, amount) => (/** @type {{ unit: Unit }} */ ctx) => {
   if (amount > 0 && ctx.unit.alive) battle.dealDamage(null, ctx.unit, { amount, type: 'true', canDodge: false, sourceless: true, noSp: true, tags: ['dot', 'periodic', 'deepsea'] });
 };
 
+/** @param {Battle} battle @param {DeviceState} st @param {Unit} u @param {number} code */
 function enterTerrain(battle, st, u, code) {
   const m = u.mem;
   if (m.terrain === code) return;
@@ -426,10 +478,11 @@ function enterTerrain(battle, st, u, code) {
  * tick (infectionDamage) is true damage no unit deals (无来源), tagged 'terrain' = 环境伤害 (PRTS 自然环境 lists 活性源石),
  * not 'dot' [ASSUMED: PRTS 伤害分类's list of BUFF damage does not name it].
  */
+/** @param {Battle} battle @param {DeviceState} st @param {Unit} u */
 function touchInfection(battle, st, u) {
   const I = st.infection;
   const key = BUFF[TERRAIN.infection];
-  const b = u.findBuff(key);
+  const b = /** @type {{ timeLeft: number } | null} */ (u.findBuff(key));
   if (b) { if (b.timeLeft < I.duration) b.timeLeft = I.duration; return; }
   battle.addBuff(u, { key, duration: I.duration, mods: { atkPct: I.atk, aspd: I.aspd }, interval: 1, onTick: infectionDamage(battle, I.damage) });
 }
@@ -442,6 +495,7 @@ const MIRE_HEAVY_LAYERS = 2;
  * enemy gains 1 layer of ASPD −5 % and move speed −5 % (2 layers at 重量 ≥ heavyWeight, the skill's `value` 3), any other
  * unit 1 layer of ASPD −5 % only; at most 10 layers; "上述减益于单位不再位于沼泽之中时解除" (enterTerrain).
  * [ASSUMED] the first trigger comes on entering, then one every second.
+ * @param {Battle} battle @param {DeviceState} st @param {Unit} u
  */
 function tickMire(battle, st, u) {
   const M = st.mire, m = u.mem;
@@ -459,6 +513,7 @@ function tickMire(battle, st, u) {
 /**
  * Terrain code under a unit (0 = none). Air units (Unit.isFlying: flyers, hovering 近地悬浮 and levitated enemies) and
  * hidden units ignore ground terrain; smog only helps allies.
+ * @param {Battle} battle @param {DeviceState} st @param {Unit} u
  */
 function terrainFor(battle, st, u) {
   if (u.hidden || u.isFlying) return 0;
@@ -475,13 +530,15 @@ function terrainFor(battle, st, u) {
   return code;
 }
 
+/** @param {number} dot */
 function airflowRelation(dot) { return dot > 0.7 ? 'equal' : dot < -0.7 ? 'opposite' : 'vertical'; }
-/** Operator ↔ blower: the same direction ⇒ 'equal', the reverse ⇒ 'opposite', perpendicular ⇒ 'vertical'. */
+/** Operator ↔ blower: the same direction ⇒ 'equal', the reverse ⇒ 'opposite', perpendicular ⇒ 'vertical'. @param {unknown} unitDir @param {unknown} flowDir */
 export function airflowRelationOf(unitDir, flowDir) {
   const u = normDir(unitDir), f = normDir(flowDir);
   return u === f ? 'equal' : u === oppositeDir(f) ? 'opposite' : 'vertical';
 }
 
+/** @param {Battle} battle @param {DeviceState} st @param {Unit} u */
 function tickAirflowAlly(battle, st, u) {
   const f = st.flow.get(u.tileR * COLS + u.tileC);
   let atk = 0;
@@ -494,6 +551,7 @@ function tickAirflowAlly(battle, st, u) {
   if (atk) battle.addBuff(u, { key: AIRFLOW, mods: { atkPct: atk }, visible: true, fxTag: atk > 0 ? 2 : 1 });
 }
 
+/** @param {Battle} battle @param {DeviceState} st @param {Unit} e */
 function tickAirflowEnemy(battle, st, e) {
   const px = e.mem.airPx, py = e.mem.airPy;
   e.mem.airPx = e.x; e.mem.airPy = e.y;
@@ -515,7 +573,7 @@ function tickAirflowEnemy(battle, st, e) {
   else battle.removeBuff(e, AIRFLOW);
 }
 
-/** Apply terrain / airflow state to one unit now (deploy, spawn, every tick). */
+/** Apply terrain / airflow state to one unit now (deploy, spawn, every tick). @param {Battle} battle @param {DeviceState} st @param {Unit} u */
 function refreshUnit(battle, st, u) {
   if (!u.alive || !u.deployed || u.kind === 'device') return;
   if (st.hasTerrain) {
@@ -526,6 +584,7 @@ function refreshUnit(battle, st, u) {
   if (st.flow.size) { if (u.side === 'ally') tickAirflowAlly(battle, st, u); else tickAirflowEnemy(battle, st, u); }
 }
 
+/** @param {Battle} battle @param {DeviceState} st */
 function ensureTick(battle, st) {
   if (st.ticking) return;
   if (!st.hasTerrain && !st.flow.size && !st.turrets.size && !st.storms.length && !st.cannons.length) return;
@@ -554,7 +613,10 @@ function ensureTick(battle, st) {
   }, { priority: 90 });
 }
 
-/** Terrain name under (r, c) for other content ('mire' | 'smog' | 'deepsea' | 'infection' | 'speedup' | 'grassland' | null). */
+/**
+ * Terrain name under (r, c) for other content ('mire' | 'smog' | 'deepsea' | 'infection' | 'speedup' | 'grassland' | null).
+ * @param {Battle} battle @param {number} r @param {number} c
+ */
 export function terrainAt(battle, r, c) {
   const st = stateOf(battle);
   const code = st && r >= 0 && r < ROWS && c >= 0 && c < COLS ? st.terrain[r * COLS + c] : 0;
@@ -569,7 +631,7 @@ const STORM_ENEMY = 'terrain:sandstormSlow';
 /** sktok_storm blackboard (data/stages.json device skill), used only when a storm device carries none. */
 const STORM_BB = Object.freeze({ damage: 100, interval: 2, atk: -0.5, 'sand_storm[enemy].move_speed': -0.4 });
 
-/** Storm devices and the tiles of the field's 土石结构 (every half: shelter is looked for up to the map edge). */
+/** Storm devices and the tiles of the field's 土石结构 (every half: shelter is looked for up to the map edge). @param {Battle} battle @param {DeviceState} st */
 function buildStorm(battle, st) {
   const devices = battle.stage?.devices || [];
   st.storms = [];
@@ -593,6 +655,7 @@ function buildStorm(battle, st) {
  * 模拟战场演变·模式八 `map_m06_1` "场地中的沙尘暴停止": `trap_036_storm#1/#2` 0). The storm device stands off the field (18, 0),
  * on no half, so the card goes by the half the unit stands in — like every other map card, a player's card changes
  * that player's half only [ASSUMED]. The first storm switched on wins (the m06 level switches #2 on nowhere).
+ * @param {Battle} battle @param {DeviceState} st @param {string | null} playerId
  */
 function stormFor(battle, st, playerId) {
   const mine = playerId != null ? st.byPlayer.get(playerId) : null;
@@ -608,6 +671,7 @@ function stormFor(battle, st, playerId) {
  * What the client draws of the 沙尘暴 (render: the camera's sand sheet, the 土石结构's sand marks): the column spans where a
  * storm blows and its direction — [{ c0, c1, dir }], one per half a player's card leaves it on (the whole field for one
  * player), or null on a stage without a storm. Display only (Battle.fieldMeta), nothing in the sim reads it.
+ * @param {Battle} battle
  * @returns {{c0: number, c1: number, dir: string}[]|null}
  */
 export function stormView(battle) {
@@ -631,6 +695,7 @@ export function stormView(battle) {
  * the map edge (client node `HasCertainCharacterInFrontOfMe`: `MapUtil.GetGridPositionsAlongTheDirection`
  * from the unit's tile in `InverseDirection(storm.direction)`, own tile excluded, no distance limit — any character
  * `trap_032_mound` on one of them).
+ * @param {DeviceState} st @param {number} r @param {number} c @param {string} dir
  */
 function stormSheltered(st, r, c, dir) {
   const [dr, dc] = DIR_VEC[oppositeDir(dir)];
@@ -640,7 +705,7 @@ function stormSheltered(st, r, c, dir) {
   return false;
 }
 
-/** 沙尘暴's tick on an operator: pure 环境伤害 no unit deals (`NoSourceDamage` PURE, `_isEnvDamage`, `_ignoreForSp`). */
+/** 沙尘暴's tick on an operator: pure 环境伤害 no unit deals (`NoSourceDamage` PURE, `_isEnvDamage`, `_ignoreForSp`). @param {Battle} battle @param {Unit} u @param {number} amount */
 const stormDamage = (battle, u, amount) => {
   if (amount > 0 && u.alive) battle.dealDamage(null, u, { amount, type: 'true', canDodge: false, sourceless: true, noSp: true, tags: ['terrain', 'sandstorm'] });
 };
@@ -659,6 +724,7 @@ const stormDamage = (battle, u, amount) => {
  * battle (blackboard `duration` 1500 s). Not modelled: sand_storm[ally] ON_OWNER_FINISH's card buff (a redeploy-cost
  * rule; this mode has no redeploy) [ASSUMED]; the storm effects (map_desert_03_*, screen_desert_*) are the renderer's.
  * [ASSUMED] the storm acts from the battle's first tick (the client's trap birth time is not modelled).
+ * @param {Battle} battle @param {DeviceState} st @param {Unit} u
  */
 function tickStorm(battle, st, u) {
   if (!u.alive || !u.deployed || u.kind === 'device' || u.hidden) return;
@@ -714,11 +780,13 @@ const CANNON_ARRIVE = 0.1;
  * branches and the map's extra routes in this mode — research note on 盐坨子炮].
  * [추정·엔진] the device is no unit here: no HP (30000, DEF 3000, taunt −1, on an unbuildable tile off the board) and
  * nobody attacks it — an enemy-side unit that lives through the battle would hold the 「all enemies down」 end.
+ * @param {Battle} battle @param {DeviceState} st
  */
 function buildCannons(battle, st) {
   for (const d of battle.stage?.devices || []) {
     if (d.key !== CANNON_KEY || d.active === false || d.hidden) continue;
     const [dr, dc] = DIR_VEC[normDir(d.dir, 'DOWN')];
+    /** @type {number[]} */
     const lane = [];
     for (let k = 0; k <= CANNON_REACH; k++) {
       const r = d.row + dr * k, c = d.col + dc * k;
@@ -733,7 +801,7 @@ function buildCannons(battle, st) {
       else if (r.key === 'char_skill_cd_mul') every = Math.round(every * num(r.bb?.scale, 1));
     }
     // `far`: the farthest tile of its lane on this battle's grid, where every shell falls (fireCannon)
-    st.cannons.push({ alias: aliasOf(d), x: d.col, y: d.row, lane: new Set(lane), far: lane.at(-1), atk: Math.max(0, atk), every: Math.max(1, every), sp: 0, pax: null, shot: false });
+    st.cannons.push({ alias: aliasOf(d), x: d.col, y: d.row, lane: new Set(lane), far: /** @type {number} */ (lane.at(-1)), atk: Math.max(0, atk), every: Math.max(1, every), sp: 0, pax: null, shot: false });
   }
 }
 
@@ -747,6 +815,7 @@ function buildCannons(battle, st) {
 /**
  * The level runes the sim applies: `<rune key>@<character key>` → { reads: blackboard keys it applies, unread: key →
  * why it does not }. server/sim/content/coverage.js runeRows checks every played stage's runes against it.
+ * @type {Readonly<Record<string, Readonly<{ where: string, reads: readonly string[], unread: Readonly<Record<string, string>> }>>>}
  */
 export const LEVEL_RUNES_READ = Object.freeze({
   [`char_attribute_add@${CANNON_KEY}`]: Object.freeze({ where: 'devices.js buildCannons', reads: ['ATK'],
@@ -754,6 +823,7 @@ export const LEVEL_RUNES_READ = Object.freeze({
   [`char_skill_cd_mul@${CANNON_KEY}`]: Object.freeze({ where: 'devices.js buildCannons', reads: ['scale'], unread: {} }),
 });
 
+/** @param {Battle} battle @param {string} key @returns {Record<string, any>[]} */
 function levelRunes(battle, key) {
   const runes = battle.stage?.runes ?? battle.stage?.raw?.runes ?? [];   // (simdata.js normalizeStage keeps the record as `raw`)
   return (Array.isArray(runes) ? runes : []).filter((r) => {
@@ -762,14 +832,14 @@ function levelRunes(battle, key) {
   });
 }
 
-/** Eat: may the cannon take enemy `e` on board (ground, weight ≤ 3, on the field, not just dropped)? */
+/** Eat: may the cannon take enemy `e` on board (ground, weight ≤ 3, on the field, not just dropped)? @param {Battle} battle @param {Unit} e */
 function cannonCanEat(battle, e) {
   if (!e.alive || e.hidden || e.isFlying || e.isBoss || e.s.flags.untargetable) return false;
   if ((e.mem.cannonArrive ?? -Infinity) > battle.time + 1e-9) return false;   // cnnon_projectile_arrive
   return (e.weight ?? 0) <= CANNON_EAT_MASS;
 }
 
-/** A cannon of this battle, every tick (ensureTick): Eat looks for a passenger, the SP charges, a shot at 6 SP. */
+/** A cannon of this battle, every tick (ensureTick): Eat looks for a passenger, the SP charges, a shot at 6 SP. @param {Battle} battle @param {Cannon} k @param {number} dt */
 function tickCannon(battle, k, dt) {
   if (!battle.started) return;
   if (k.pax && !k.pax.alive) { cannonCarry(battle, k, k.pax, 0); k.pax = null; k.shot = false; }
@@ -797,10 +867,12 @@ function tickCannon(battle, k, dt) {
  * puts its `_passengerEffects` (trap_cnnon_buff) on the cannon while it holds a passenger (`_UpdatePassengerEffect`) and
  * `_buffsWhenCarryPassenger` (cnnon_carry_enemy, its sound cnnon_carry_enemy_audio) on the cannon as it takes one.
  */
+/** @param {Battle} battle @param {Cannon} k @param {Unit} e @param {number} on */
 function cannonCarry(battle, k, e, on) {
   battle.fx('cannon', { x: k.x, y: k.y, carry: on, pax: e.id });
 }
 
+/** @param {Battle} battle @param {Cannon} k */
 function fireCannon(battle, k) {
   // EnemyCannon00D is a ProjectileToTileAbility whose TileSelector (`_filterType` 12 DIST_DES_IN_FRONT_LINE, range 4-1)
   // keeps the tiles of its range in the line it faces and takes the farthest — whoever stands where: no unit is looked
@@ -842,8 +914,10 @@ function fireCannon(battle, k) {
 // ---------------------------------------------------------------------------------------------------------------
 // install
 
+/** @param {Battle} battle */
 export function install(battle) {
-  const st = {
+  // (the terrain parts mire / deepsea / infection / speedup are filled by buildTerrain below)
+  const st = /** @type {DeviceState} */ (/** @type {unknown} */ ({
     byPlayer: new Map((battle.players || []).map((ps) => [ps.playerId, playerDeviceOverrides(ps)])),
     global: addOverrides(new Map(), battle.opts?.deviceOverrides),
     terrain: new Uint8Array(ROWS * COLS),
@@ -857,7 +931,7 @@ export function install(battle) {
     mounds: new Set(),
     cannons: [],
     ticking: false,
-  };
+  }));
   STATE.set(battle, st);
   const devices = battle.stage?.devices || [];
   buildTerrain(battle, st); // grid, stage `special` and overrides are known at construction
@@ -890,7 +964,7 @@ export function install(battle) {
   }, { priority: 100 });
 
   // an enemy stopped by a crate breaks it (the engine lets attackers chop it; this also covers harmless walkers)
-  battle.on('blocked', ({ blocker, enemy }) => {
+  battle.on('blocked', (/** @type {{ blocker: Unit, enemy: Unit }} */ { blocker, enemy }) => {
     if (!blocker || blocker.kind !== 'device' || blocker.defId !== CRATE_KEY) return;
     const delay = Math.max(0.1, Math.min(10, num(enemy.s.interval, 1)));
     battle.after(delay, () => {
@@ -917,4 +991,5 @@ export function install(battle) {
   }, { priority: 50 });
 }
 
+/** @param {MetaRegistry} registry */
 export function registerMeta(registry) {} // map cards / band 机械援助 reach the battle through deviceOverrides
