@@ -18,23 +18,30 @@
 // over the ending bank's `duration` with no delay. Here: `delay` then `dur` s into the snapshot as the hook starts, held while
 // any hook sounds (every hook of the data is AllLowpass_Reverb), the releasing hook's `dur` back to Default when the last ends.
 
-const DB = (mB) => 10 ** (mB / 2000);
-/** The modelled snapshots: the bus's lowpass cutoff (Hz), dry / reverb levels (linear) and the reverb's decay (s). */
+const DB = (/** @type {number} */ mB) => 10 ** (mB / 2000);
+/** @typedef {{ cutoff: number, dry: number, wet: number, decay: number, preDelay: number }} Snap */
+/**
+ * The modelled snapshots: the bus's lowpass cutoff (Hz), dry / reverb levels (linear) and the reverb's decay (s).
+ * @type {Readonly<Record<string, Readonly<Snap>>>}
+ */
 export const SNAPSHOTS = Object.freeze({
   AllLowpass_Reverb: Object.freeze({ cutoff: 556, dry: DB(-6696), wet: DB(-219), decay: 5.7, preDelay: 0.0464 }),
 });
 const OPEN_CUTOFF = 22000;
 const MIN_RAMP_S = 0.01;
 
-const snapOf = (mgr) => mgr?.getManifest?.()?.audio?.sfx?.snap || null;
+const snapOf = (/** @type {any} */ mgr) => mgr?.getManifest?.()?.audio?.sfx?.snap || null;
 
-/** The hook entry ({ snap, dur, delay? }) of `url` when its bank turns a modelled snapshot on, else null. */
+/**
+ * The hook entry ({ snap, dur, delay? }) of `url` when its bank turns a modelled snapshot on, else null.
+ * @param {any} mgr @param {string} url
+ */
 export function snapshotHookOf(mgr, url) {
   const h = snapOf(mgr)?.hook?.[url];
   return h && SNAPSHOTS[h.snap] ? h : null;
 }
 
-/** Whether `url`'s bank plays outside the filtered bus (sfx.snap.outside). */
+/** Whether `url`'s bank plays outside the filtered bus (sfx.snap.outside). @param {any} mgr @param {string} url */
 export function outsideBus(mgr, url) {
   const s = snapOf(mgr);
   if (!s || !Array.isArray(s.outside)) return false;
@@ -42,12 +49,18 @@ export function outsideBus(mgr, url) {
   return mgr._outside.has(url);
 }
 
-/** The node a sound of `url` connects to: outside the bus for `outside` banks, else the sfx channel. */
+/**
+ * The node a sound of `url` connects to: outside the bus for `outside` banks, else the sfx channel.
+ * @param {any} mgr @param {string} url @param {boolean} [ui]
+ */
 export function sfxOut(mgr, url, ui = false) {
   return (ui || outsideBus(mgr, url)) && mgr?.sfxOutside ? mgr.sfxOutside : mgr?.sfxGain;
 }
 
-/** A decaying stereo noise tail: the SFX Reverb's late reverb [추정·엔진: no early reflections, flat in frequency]. */
+/**
+ * A decaying stereo noise tail: the SFX Reverb's late reverb [추정·엔진: no early reflections, flat in frequency].
+ * @param {BaseAudioContext} ctx @param {Snap} s
+ */
 function impulse(ctx, s) {
   const rate = ctx.sampleRate || 48000;
   const pre = Math.round(s.preDelay * rate);
@@ -60,7 +73,10 @@ function impulse(ctx, s) {
   return buf;
 }
 
-/** The chain between the bus and the master (built on the first hook): bus → lowpass → dry → master, lowpass → reverb → wet → master. */
+/**
+ * The chain between the bus and the master (built on the first hook): bus → lowpass → dry → master, lowpass → reverb → wet → master.
+ * @param {any} mgr the AudioManager @param {Snap} s
+ */
 function chainOf(mgr, s) {
   if (mgr._snapChain) return mgr._snapChain;
   const c = mgr.ctx;
@@ -81,6 +97,7 @@ function chainOf(mgr, s) {
   return mgr._snapChain;
 }
 
+/** @param {AudioParam} param @param {number} v @param {number} t @param {number} dur @param {boolean} [exp] */
 function rampTo(param, v, t, dur, exp = false) {
   param.cancelScheduledValues(t);
   param.setValueAtTime(param.value, t);

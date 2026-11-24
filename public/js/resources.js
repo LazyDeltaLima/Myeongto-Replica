@@ -85,14 +85,25 @@ const HOLD_POLL_MS = 1000;
 export const PAST_WORKER = '?sp-res';
 
 /**
+ * @typedef {{ p: string, s: number, h: string, u?: string, r?: string }} ResEntry an entry of the list (validEntry)
+ * @typedef {{ p: string, s: number, m: ResEntry[] }} ResBundle a bundle of the list (sanitizeBundles)
+ * @typedef {{ b: ResBundle, left: Map<string, ResEntry>, prio: number }} BundleJob a bundle to read (bundleJobs)
+ * @typedef {{ total: number, left: number }} GroupSize
+ * @typedef {{ consent: 'yes' | 'later', at: number }} ResConsent the saved answer of the consent card (PREF)
+ * @typedef {{ phase: string, done: number, total: number, bytesDone: number, bytesTotal: number, failed: number,
+ *   error: string | null, pendingBytes: number, sizes: Record<string, GroupSize>, chosen: Record<string, boolean>,
+ *   paused: Record<string, boolean>, runGroups: string[], illust: Record<string, number> | null }} ResState
+ */
+
+/**
  * phase: off | idle | ask | running | done | error. sizes: bytes per group of this browser's list — '' the files in no
  * pack, else a pack's name — `{ total, left }` (left: not cached with the listed hash; sizesOf). chosen: the pack choice
  * (resourcePacks). paused: the packs paused on this page (pauseResourcePack). runGroups: the groups the running download
  * holds files of. illust: what the original-resolution 立绘 cost over the 1024 ones, bytes per group (illustDiff), null when
  * the list has no pair.
  */
-export const resStore = createStore({ phase: 'off', done: 0, total: 0, bytesDone: 0, bytesTotal: 0, failed: 0, error: null, pendingBytes: 0,
-  sizes: {}, chosen: {}, paused: {}, runGroups: [], illust: null });
+export const resStore = createStore(/** @type {ResState} */ ({ phase: 'off', done: 0, total: 0, bytesDone: 0, bytesTotal: 0, failed: 0, error: null, pendingBytes: 0,
+  sizes: {}, chosen: {}, paused: {}, runGroups: [], illust: null }));
 const setPending = () => resStore.set({ pendingBytes: pending.reduce((n, f) => n + f.s, 0), sizes: sizesOf() });
 
 
@@ -123,7 +134,7 @@ export function sanitizeBundles(raw, files) {
   return out;
 }
 
-/** The packs the list names, `{ <pack>: [path prefix…] }`: a prefix is '/assets/…/' (anything else is ignored). */
+/** The packs the list names, `{ <pack>: [path prefix…] }`: a prefix is '/assets/…/' (anything else is ignored). @param {unknown} raw */
 export function sanitizePacks(raw) {
   /** @type {Record<string, string[]>} */
   const out = {};
@@ -135,18 +146,25 @@ export function sanitizePacks(raw) {
   return out;
 }
 
-/** The pack a listed path belongs to, or null (most files: in no pack). */
+/**
+ * The pack a listed path belongs to, or null (most files: in no pack).
+ * @param {string} p @param {Record<string, string[]> | null | undefined} packs
+ */
 export function packOf(p, packs) {
   for (const [name, prefixes] of Object.entries(packs || {})) if (prefixes.some((x) => p.startsWith(x))) return name;
   return null;
 }
 
 /** Whether the background download takes a list entry: a file in no pack always, a pack's file only when the player
- *  chose that pack (`chosen[pack] === true`). Voice files are filtered before this (voice.js wantedFiles). */
+ *  chose that pack (`chosen[pack] === true`). Voice files are filtered before this (voice.js wantedFiles).
+ *  @param {{ p: string }} f @param {Record<string, string[]> | null | undefined} packs
+ *  @param {Record<string, boolean> | null | undefined} chosen */
 export const resourceWanted = (f, packs, chosen) => { const pack = packOf(f.p, packs); return !pack || chosen?.[pack] === true; };
 
 /** Whether the cache keeps a list entry it holds with the listed hash: everything but the files of a pack the player
- *  turned off (`chosen[pack] === false`). */
+ *  turned off (`chosen[pack] === false`).
+ *  @param {{ p: string }} f @param {Record<string, string[]> | null | undefined} packs
+ *  @param {Record<string, boolean> | null | undefined} chosen */
 export const resourceKept = (f, packs, chosen) => { const pack = packOf(f.p, packs); return !pack || chosen?.[pack] !== false; };
 
 /**
@@ -156,6 +174,7 @@ export const resourceKept = (f, packs, chosen) => { const pack = packOf(f.p, pac
  * @param {{ p: string, s: number, r?: string }[]} files @param {Record<string, string[]>} packsOf
  */
 export function illustDiff(files, packsOf) {
+  /** @type {Record<string, number>} */
   const out = {};
   let pairs = false;
   for (const f of files) {
@@ -167,9 +186,10 @@ export function illustDiff(files, packsOf) {
   return pairs ? { '': 0, ...out } : null;
 }
 
+/** @param {unknown} raw @returns {Record<string, boolean>} */
 const sanitizeChoice = (raw) => Object.fromEntries(Object.entries(raw && typeof raw === 'object' ? raw : {}).filter(([, v]) => typeof v === 'boolean'));
 
-/** Download order: what the screens show first (UI, portraits, icons, board) before models, then audio. */
+/** Download order: what the screens show first (UI, portraits, icons, board) before models, then audio. @param {string} p */
 export function priorityOf(p) {
   if (p.startsWith('/img/')) return 0;
   const rel = p.slice('/assets/'.length);
@@ -181,11 +201,13 @@ export function priorityOf(p) {
   return 4;
 }
 
+/** @type {Record<string, string>} */
 const TYPES = { png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml',
   json: 'application/json', atlas: 'text/plain', txt: 'text/plain', mp3: 'audio/mpeg', ogg: 'audio/ogg', oga: 'audio/ogg',
   opus: 'audio/ogg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac' };
-const typeOf = (p) => TYPES[p.slice(p.lastIndexOf('.') + 1).toLowerCase()] || 'application/octet-stream';
+const typeOf = (/** @type {string} */ p) => TYPES[p.slice(p.lastIndexOf('.') + 1).toLowerCase()] || 'application/octet-stream';
 
+/** @param {BufferSource} buf */
 async function sha256(buf) {
   const d = new Uint8Array(await crypto.subtle.digest('SHA-256', buf));
   let s = '';
@@ -195,52 +217,68 @@ async function sha256(buf) {
 
 const supported = () => typeof window !== 'undefined' && window.isSecureContext && 'serviceWorker' in navigator && 'caches' in window && !!crypto?.subtle;
 
+/** @type {{ version?: unknown, files: ResEntry[], bundles?: unknown, packs?: unknown } | null} */
 let index = null;
+/** @type {ResEntry[]} */
 let listed = [];        // every valid entry of the list; index.files = the ones this browser downloads (voice language, packs)
 /** @type {Record<string, string[]>} */
 let packs = {};         // the list's packs (sanitizePacks)
+/** @type {ResBundle[]} */
 let bundles = [];       // the list's bundles (sanitizeBundles)
 let bundleCounts = { fetched: 0, stopped: 0, failed: 0, members: 0 }; // for the report: bundles read whole / cut short / failed, files stored from them
 let chosen = sanitizeChoice(loadPref(PACKS_PREF, null)); // the player's pack choice
 resStore.set({ chosen: { ...chosen } });
+/** @type {Record<string, boolean>} */
 let paused = {};        // packs paused on this page: { <pack>: true }
+/** @type {ResEntry[]} */
 let voiced = [];        // the listed entries of this browser's voice language (choose)
 let again = false;      // a choice changed during a download: resync once it ends
+/** @type {Cache | null} */
 let meta = null;       // META_CACHE: STATE, CLEAN, DIFFER
+/** @type {Cache[]} */
 let shards = [];       // the caches of SHARD_NAMES, by shard
+/** @type {Cache | null} */
 let legacy = null;     // LEGACY_CACHE while it still exists
 /** The cache a path is kept in. */
-const cacheOf = (p) => shards[shardOf(p)];
+const cacheOf = (/** @type {string} */ p) => shards[shardOf(p)];
+/** @type {Record<string, string>} */
 let state = {};        // path → hash of what is in the cache
+/** @type {Record<string, { h: string, at: number }>} */
 let differ = {};       // DIFFER's content
 let differChanged = false;
+/** @type {Map<string, string>} */
 let want = new Map();  // path → listed hash of the files the cache keeps (resourceKept): anything else is stale
+/** @type {ResEntry[]} */
 let pending = [];
+/** @type {Array<[Cache, Request]>} */
 let stale = [];        // cache requests to delete (cleanup)
 /** @type {{ at: number, ms: number|null, keys: number, stale: number, adopted: number, skipped?: boolean, differ?: number } | null} */
 let reconciled = null; // the last reconcile, for the report: { at, ms, keys, stale, adopted, skipped } (running: no ms)
+/** @type {string | null} */
 let scanned = null;    // what CLEAN gets once the cleanup has deleted every stale entry of that scan
 let deleted = 0;
+/** @type {{ at: number, [key: string]: unknown } | null} */
 let worker = null;     // the worker's answer counts the report last read: { at, hit, stale, fetched, bytes, server }
 
 async function saveState() {
-  await meta.put(STATE, new Response(JSON.stringify(state), { headers: { 'Content-Type': 'application/json' } }));
+  await /** @type {Cache} */ (meta).put(STATE, new Response(JSON.stringify(state), { headers: { 'Content-Type': 'application/json' } }));
   if (differChanged) {
     differChanged = false;
-    await meta.put(DIFFER, new Response(JSON.stringify(differ), { headers: { 'Content-Type': 'application/json' } }));
+    await /** @type {Cache} */ (meta).put(DIFFER, new Response(JSON.stringify(differ), { headers: { 'Content-Type': 'application/json' } }));
   }
 }
 
 /** Still to download: not cached with the listed hash, and not an upstream file recorded as drifted (DIFFER). */
-const missing = (f) => state[f.p] !== f.h && differ[f.p]?.h !== f.h;
-const todo = () => index.files.filter(missing).sort((a, b) => priorityOf(a.p) - priorityOf(b.p));
+const missing = (/** @type {ResEntry} */ f) => state[f.p] !== f.h && differ[f.p]?.h !== f.h;
+const todo = () => /** @type {NonNullable<typeof index>} */ (index).files.filter(missing).sort((a, b) => priorityOf(a.p) - priorityOf(b.p));
 
 /** The group of a listed file: its pack's name, '' for a file in no pack. */
-const groupOf = (f) => packOf(f.p, packs) ?? '';
+const groupOf = (/** @type {ResEntry} */ f) => packOf(f.p, packs) ?? '';
 
 /** Bytes per group of this browser's list, chosen or not: `total`, and `left` — what is still missing (a pack never
  *  chosen counts what the game fetched on demand as cached). The settings' 资源 tab shows them apart. */
 function sizesOf() {
+  /** @type {Record<string, GroupSize>} */
   const out = { '': { total: 0, left: 0 } };
   for (const name of Object.keys(packs)) out[name] = { total: 0, left: 0 };
   for (const f of voiced) {
@@ -252,16 +290,16 @@ function sizesOf() {
 }
 
 /** `sizes` once a file of its group is cached. */
-const spend = (sizes, f) => {
+const spend = (/** @type {Record<string, GroupSize>} */ sizes, /** @type {ResEntry} */ f) => {
   const g = groupOf(f), c = sizes?.[g];
   return c ? { ...sizes, [g]: { ...c, left: Math.max(0, c.left - f.s) } } : sizes;
 };
 
 /** A file of a pack paused on this page and still wanted: the download leaves it in the queue. */
-const held = (f) => { const p = packOf(f.p, packs); return !!p && paused[p] === true && resourceWanted(f, packs, chosen); };
+const held = (/** @type {ResEntry} */ f) => { const p = packOf(f.p, packs); return !!p && paused[p] === true && resourceWanted(f, packs, chosen); };
 
 const now = () => globalThis.performance?.now?.() ?? Date.now();
-const keyOf = (req) => {
+const keyOf = (/** @type {Request} */ req) => {
   const p = new URL(req.url).pathname;
   try { return decodeURIComponent(p); } catch { return p; }
 };
@@ -270,16 +308,16 @@ const keyOf = (req) => {
  *  pack choice: index.files is what is downloaded, the returned list what the cache keeps. */
 function choose() {
   voiced = wantedFiles(listed).filter((f) => illustListed(f));
-  index.files = voiced.filter((f) => resourceWanted(f, packs, chosen));
+  /** @type {NonNullable<typeof index>} */ (index).files = voiced.filter((f) => resourceWanted(f, packs, chosen));
   return voiced.filter((f) => resourceKept(f, packs, chosen));
 }
 
 /** The CLEAN signature: the list, the voice language, the 立绘 copy and the packs turned off (only they make more
  *  entries stale). */
 const cleanSig = () => {
-  if (typeof index.version !== 'string' || !index.version) return null;
+  if (typeof /** @type {NonNullable<typeof index>} */ (index).version !== 'string' || !/** @type {NonNullable<typeof index>} */ (index).version) return null;
   const off = Object.keys(packs).filter((n) => chosen[n] === false).sort();
-  return `${index.version}|${voiceStore.get().lang}${illustFull() ? '' : '|lo'}${off.length ? `|off:${off.join(',')}` : ''}`;
+  return `${/** @type {NonNullable<typeof index>} */ (index).version}|${voiceStore.get().lang}${illustFull() ? '' : '|lo'}${off.length ? `|off:${off.join(',')}` : ''}`;
 };
 
 /** List the cache entries that are not (or no longer) the listed file for cleanup(); returns the files still to download. */
@@ -291,7 +329,7 @@ async function reconcile() {
   legacy = (await caches.has(LEGACY_CACHE)) ? await caches.open(LEGACY_CACHE) : null;
   // the records are in META_CACHE; on the first load after the shards came, in the old single cache
   const fromLegacy = !!legacy && !(await meta.match(STATE));
-  const record = async (key) => (fromLegacy ? legacy : meta).match(key);
+  const record = async (/** @type {string} */ key) => /** @type {Cache} */ (fromLegacy ? legacy : meta).match(key);
   try { state = (await (await record(STATE))?.json()) || {}; } catch { state = {}; }
   want = new Map(choose().map((f) => [f.p, f.h]));
   try { differ = (await (await record(DIFFER))?.json()) || {}; } catch { differ = {}; }
@@ -313,6 +351,7 @@ async function reconcile() {
   }
   scanned = sig;
   try { await meta.delete(CLEAN); } catch { /* ignore */ } // until this scan's stale entries are gone
+  /** @type {Array<[Cache, Request]>} */
   const found = [];
   let changed = false, keys = 0, adopted = 0, refused = 0;
   for (const c of shards) {
@@ -356,6 +395,7 @@ let moved = 0, migrateLeft = 0;
 async function migrate() {
   if (!legacy) return;
   try {
+    /** @type {string[]} */
     let paths;
     try { paths = (await legacy.keys()).map(keyOf); } catch { paths = [...new Set([...want.keys(), ...Object.keys(state)])]; }
     const records = new Set([STATE, CLEAN, DIFFER]);
@@ -366,7 +406,7 @@ async function migrate() {
       if (inMatch()) { await sleep(HOLD_POLL_MS); continue; }
       for (const p of paths.splice(0, CLEAN_CHUNK)) {
         const w = want.get(p);
-        if (await moveLegacy(p, w)) { if (state[p] !== w) { state[p] = w; changed = true; } } // a listed file kept by the worker
+        if (await moveLegacy(p, w)) { if (state[p] !== w) { state[p] = /** @type {string} */ (w); changed = true; } } // a listed file kept by the worker
         else if (w && state[p] === w && !(await cacheOf(p).match(p))) { delete state[p]; changed = true; } // gone: download again
         migrateLeft--;
       }
@@ -381,7 +421,7 @@ async function migrate() {
 }
 
 /** Move one path of the old single cache into its shard when it holds the listed hash `w` (true), and drop it there in
- *  any case; false when the old cache has no copy with that hash. */
+ *  any case; false when the old cache has no copy with that hash. @param {string} p @param {string | undefined} w */
 async function moveLegacy(p, w) {
   if (!legacy) return false;
   const hit = await legacy.match(p);
@@ -397,7 +437,7 @@ async function moveLegacy(p, w) {
 }
 
 /** Whether the cache holds the listed file `f` (stored by the worker on demand, or still in the old single cache). */
-const holds = async (f) => (await cacheOf(f.p).match(f.p))?.headers.get('X-SP-Hash') === f.h || moveLegacy(f.p, f.h);
+const holds = async (/** @type {ResEntry} */ f) => (await cacheOf(f.p).match(f.p))?.headers.get('X-SP-Hash') === f.h || moveLegacy(f.p, f.h);
 
 /** Delete the stale entries reconcile() listed, CLEAN_CHUNK at a time, never while a match is on screen. An entry the
  *  download or the worker replaced with the listed file since is kept (and adopted). */
@@ -420,7 +460,7 @@ async function cleanup() {
       await sleep(CLEAN_REST_MS);
     }
     if (adopted) await saveState();
-    if (scanned) await meta.put(CLEAN, new Response(scanned));
+    if (scanned) await /** @type {Cache} */ (meta).put(CLEAN, new Response(scanned));
   } catch (err) {
     console.warn('[resources] cleanup', err); // what is left is listed again on the next visit
   } finally {
@@ -428,6 +468,7 @@ async function cleanup() {
   }
 }
 
+/** @param {ResEntry} f */
 async function fetchOne(f) {
   // the worker may have stored it on demand since the list was made (the game needed it first): adopt, no download
   if (await holds(f)) { state[f.p] = f.h; return true; }
@@ -446,7 +487,7 @@ async function fetchOne(f) {
       await cacheOf(f.p).put(f.p, new Response(buf, { headers: { 'Content-Type': typeOf(f.p), 'Content-Length': String(buf.byteLength), 'X-SP-Hash': f.h } }));
       state[f.p] = f.h;
       return true;
-    } catch (err) {
+    } catch (/** @type {any} */ err) {
       if (err?.name === 'QuotaExceededError') throw err;
       last = err?.name || String(err);
       differs = false;
@@ -470,19 +511,24 @@ const limit = () => (fieldLoading() ? 0 : inMatch() ? 1 : FILE_SLOTS);
 /** Bundles read at once: two outside a match, none while a field loads or a match is on screen (a bundle being read
  *  then is cut short: the game keeps this server's bandwidth, and a match takes files one at a time as before). */
 const bundleLimit = () => (fieldLoading() || inMatch() ? 0 : 2);
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const sleep = (/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms));
 
 /** The bytes of a bundle job's members still to store. */
-const leftBytes = (job) => { let n = 0; for (const f of job.left.values()) n += f.s; return n; };
+const leftBytes = (/** @type {BundleJob} */ job) => { let n = 0; for (const f of job.left.values()) n += f.s; return n; };
 /** A bundle is read only for at least two of its files and half its bytes: else the files one by one cost less. */
-const worth = (job) => job.left.size >= 2 && leftBytes(job) * 2 >= job.b.s;
+const worth = (/** @type {BundleJob} */ job) => job.left.size >= 2 && leftBytes(job) * 2 >= job.b.s;
 
-/** The bundle jobs of a download queue, highest priority first: `left` = the members still in the queue, path → entry. */
+/**
+ * The bundle jobs of a download queue, highest priority first: `left` = the members still in the queue, path → entry.
+ * @param {ResEntry[]} queue
+ */
 function bundleJobs(queue) {
   if (!bundles.length) return [];
   const inQueue = new Map(queue.map((f) => [f.p, f]));
+  /** @type {BundleJob[]} */
   const jobs = [];
   for (const b of bundles) {
+    /** @type {Map<string, ResEntry>} */
     const left = new Map();
     for (const f of b.m) { const q = inQueue.get(f.p); if (q && q.h === f.h) left.set(f.p, q); }
     const job = { b, left, prio: 0 };
@@ -497,12 +543,14 @@ function bundleJobs(queue) {
  * Read one bundle (its members' bytes one after another, tools/assets/resource-bundles.mjs) and hand each member to
  * `store` as soon as its bytes are in, cut by the list's sizes: a cut-short read keeps what it stored. Stops when
  * bundleLimit() drops to 0 (a field loads, a match) or nothing arrives for TIMEOUT_MS.
+ * @param {BundleJob} job @param {(f: ResEntry, bytes: Uint8Array<ArrayBuffer>) => Promise<void>} store
  * @returns {Promise<'fetched' | 'stopped' | 'failed'>}
  */
 async function readBundle(job, store) {
   const { b } = job;
   const ctrl = new AbortController();
-  let idle = null, why = null;
+  /** @type {any} */
+  let idle = null, /** @type {string | null} */ why = null;
   const quiet = () => { clearTimeout(idle); idle = setTimeout(() => { why = 'timeout'; ctrl.abort(); }, TIMEOUT_MS); };
   const watch = setInterval(() => { if (!bundleLimit()) { why = 'stopped'; ctrl.abort(); } }, HOLD_POLL_MS);
   const buf = new Uint8Array(b.s);
@@ -510,7 +558,7 @@ async function readBundle(job, store) {
   const cut = async () => {
     while (i < b.m.length && got >= end) {
       const f = b.m[i];
-      if (job.left.has(f.p)) await store(job.left.get(f.p), buf.subarray(at, end));
+      if (job.left.has(f.p)) await store(/** @type {ResEntry} */ (job.left.get(f.p)), buf.subarray(at, end));
       i++;
       at = end;
       if (i < b.m.length) end += b.m[i].s;
@@ -521,7 +569,7 @@ async function readBundle(job, store) {
     const res = await fetch(b.p, { cache: 'no-store', signal: ctrl.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const reader = res.body?.getReader?.();
-    const take = async (value) => {
+    const take = async (/** @type {Uint8Array} */ value) => {
       quiet();
       if (got + value.byteLength > b.s) throw new Error('longer than listed');
       buf.set(value, got);
@@ -532,7 +580,7 @@ async function readBundle(job, store) {
     else for (let r = await reader.read(); !r.done; r = await reader.read()) await take(r.value);
     if (got !== b.s) throw new Error('shorter than listed');
     return 'fetched';
-  } catch (err) {
+  } catch (/** @type {any} */ err) {
     if (err?.name === 'QuotaExceededError') throw err;
     if (why === 'stopped') return 'stopped';
     console.warn('[resources]', b.p, why || err?.message || err?.name || String(err));
@@ -545,6 +593,7 @@ async function readBundle(job, store) {
 }
 
 let running = false;
+/** @param {ResEntry[]} [files] */
 async function download(files = pending) {
   if (running || !files.length) return;
   running = true;
@@ -553,15 +602,15 @@ async function download(files = pending) {
   resStore.set({ phase: 'running', done: 0, total: queue.length, bytesDone: 0, bytesTotal, failed: 0, error: null,
     runGroups: [...new Set(queue.map(groupOf))] });
   let sinceSave = 0;
-  const settle = async (f, ok) => {
+  const settle = async (/** @type {ResEntry} */ f, /** @type {boolean} */ ok) => {
     resStore.set((s) => ({ done: s.done + 1, bytesDone: s.bytesDone + f.s, failed: s.failed + (ok ? 0 : 1), sizes: ok ? spend(s.sizes, f) : s.sizes }));
     if (ok && ++sinceSave >= SAVE_EVERY) { sinceSave = 0; await saveState(); }
   };
-  const skip = (f) => resStore.set((s) => ({ done: s.done + 1, bytesDone: s.bytesDone + f.s })); // turned off meanwhile
+  const skip = (/** @type {ResEntry} */ f) => resStore.set((s) => ({ done: s.done + 1, bytesDone: s.bytesDone + f.s })); // turned off meanwhile
   // the bundles first (bundleJobs): their members leave the file queue while a bundle job holds them, and come back to it
   // (in priority order) when the job is given up — a failed or not-worth bundle, a member whose bytes did not match
   const jobs = bundleJobs(queue);
-  const release = (given) => {
+  const release = (/** @type {BundleJob[]} */ given) => {
     let back = 0;
     for (const job of given) for (const f of job.left.values()) { queue.push(f); back++; }
     if (back) queue.sort((a, b) => priorityOf(a.p) - priorityOf(b.p));
@@ -573,6 +622,7 @@ async function download(files = pending) {
     queue.length = k;
   }
   let reading = 0;
+  /** @param {BundleJob} job @param {ResEntry} f @param {Uint8Array<ArrayBuffer>} bytes */
   const storeMember = async (job, f, bytes) => {
     if (!resourceWanted(f, packs, chosen)) { job.left.delete(f.p); skip(f); return; }
     if ((await sha256(bytes)) !== f.h) { console.warn('[resources]', f.p, 'hash mismatch in', job.b.p); return; } // fetched as a file
@@ -582,7 +632,7 @@ async function download(files = pending) {
     bundleCounts.members++;
     await settle(f, true);
   };
-  const bundleSlot = async (slot) => {
+  const bundleSlot = async (/** @type {number} */ slot) => {
     while (jobs.length) {
       if (slot >= bundleLimit()) { await sleep(HOLD_POLL_MS); continue; }
       const k = jobs.findIndex((j) => ![...j.left.values()].some(held));
@@ -603,7 +653,7 @@ async function download(files = pending) {
       } finally { reading--; }
     }
   };
-  const worker = async (slot) => {
+  const worker = async (/** @type {number} */ slot) => {
     for (;;) {
       const next = queue.findIndex((f) => !held(f));
       if (next < 0) {
@@ -624,7 +674,7 @@ async function download(files = pending) {
     pending = pending.filter(missing);
     setPending();
     resStore.set({ phase: 'done', runGroups: [] });
-  } catch (err) {
+  } catch (/** @type {any} */ err) {
     console.error('[resources] stopped', err);
     try { await saveState(); } catch { /* ignore */ }
     resStore.set({ phase: 'error', error: err?.name === 'QuotaExceededError' ? 'quota' : 'failed', runGroups: [] });
@@ -635,7 +685,7 @@ async function download(files = pending) {
 }
 
 /** What to download now: everything still to download with the general consent, else the files of the chosen packs. */
-const toDownload = () => (loadPref(PREF, null)?.consent === 'yes' ? pending : pending.filter((f) => packOf(f.p, packs)));
+const toDownload = () => (/** @type {ResConsent | null} */ (loadPref(PREF, null))?.consent === 'yes' ? pending : pending.filter((f) => packOf(f.p, packs)));
 
 /** The player agreed (consent card): remember it, ask the browser to keep the cache, start. */
 export async function acceptResources() {
@@ -689,7 +739,7 @@ async function install() {
     pending = await reconcile();
     setPending();
     if (!pending.length) { resStore.set({ phase: 'done', total: 0 }); return; }
-    const pref = loadPref(PREF, null);
+    const pref = /** @type {ResConsent | null} */ (loadPref(PREF, null));
     if (pref?.consent === 'yes') download();
     else if (toDownload().length) download(toDownload());
     else if (pref?.consent === 'later' && Date.now() - pref.at < ASK_AGAIN_MS) resStore.set({ phase: 'idle' });
@@ -709,7 +759,7 @@ async function resync() {
     pending = await reconcile();
     setPending();
     if (!pending.length) resStore.set({ phase: 'done', total: 0 });
-    else if (loadPref(PREF, null)?.consent === 'yes') download();
+    else if (/** @type {ResConsent | null} */ (loadPref(PREF, null))?.consent === 'yes') download();
     else if (toDownload().length) download(toDownload());
     else if (resStore.get().phase === 'ask') resStore.set({ bytesTotal: pending.reduce((n, f) => n + f.s, 0) }); // card shows the new size
   } catch (err) { console.warn('[resources] resync', err); }
@@ -717,7 +767,10 @@ async function resync() {
 onVoiceLangChange(resync);
 illustStore.subscribe((s, prev) => { if (s.hi !== prev.hi) resync(); });
 
-/** The player's choice of an optional pack (the settings' resource tab): on downloads its files, off deletes them. */
+/**
+ * The player's choice of an optional pack (the settings' resource tab): on downloads its files, off deletes them.
+ * @param {string} name @param {boolean} on
+ */
 export function setResourcePack(name, on) {
   chosen = { ...chosen, [name]: !!on };
   savePref(PACKS_PREF, chosen);
@@ -728,7 +781,7 @@ export function setResourcePack(name, on) {
 
 /** Pause (or resume) a chosen pack's download on this page (the resource tab's 暂停 / 继续下载): the download leaves the
  *  pack's files queued and ends once only they are left; resuming starts them again. Not saved: the next visit
- *  downloads as before. */
+ *  downloads as before. @param {string} name @param {boolean} on */
 export function pauseResourcePack(name, on) {
   paused = { ...paused, [name]: !!on };
   resStore.set({ paused: { ...paused } });
@@ -742,7 +795,7 @@ export const resourcePacks = () => ({ ...chosen });
 
 /** Whether every path is in the cache as the list names it (render/skin-gate.js: a skin model is drawn only once all of
  *  its files are) — false before the list and the cache record are read, and for a file the cache does not keep. */
-export const resourceCached = (paths) => !!index && Array.isArray(paths) && paths.length > 0
+export const resourceCached = (/** @type {unknown} */ paths) => !!index && Array.isArray(paths) && paths.length > 0
   && paths.every((p) => typeof p === 'string' && want.has(p) && state[p] === want.get(p));
 
 /** The worker's answer counts (resource-worker.js `sp-res-stats`), or null without a worker or an answer in time. */
@@ -783,7 +836,7 @@ setResourceSource({
   },
 });
 
-const mb = (n) => Math.max(1, Math.round(n / 1048576));
+const mb = (/** @type {number} */ n) => Math.max(1, Math.round(n / 1048576));
 
 /** 立绘画质 [标准 | 高清] (the consent card, the resource tab): the voice language's two-button control; a choice is saved
  *  at once (setIllustFull), so the card's 以后再说 keeps it. */
@@ -840,8 +893,8 @@ export function ResourceHost() {
   return null;
 }
 
-const mbOf = (n) => Math.round(n / 1048576);
-const pctOf = (g) => (g.total ? Math.floor(((g.total - g.left) / g.total) * 100) : 0);
+const mbOf = (/** @type {number} */ n) => Math.round(n / 1048576);
+const pctOf = (/** @type {GroupSize} */ g) => (g.total ? Math.floor(((g.total - g.left) / g.total) * 100) : 0);
 
 /** Settings → 资源 「预先下载资源」 (ui/settings.js): the files in no pack — their state and size, and a button that starts
  *  or retries the download —, then 立绘画质 (IllustChoice, with illustNote) when the list has 立绘 pairs. A chosen pack's
@@ -901,10 +954,10 @@ export function SkinPackSetting({ others, onOthers }) {
   const on = st !== 'off';
   const toggle = html`<button type="button" class=${`set-toggle${on ? ' is-on' : ''}`} role="switch" aria-checked=${on ? 'true' : 'false'}
     data-testid="skin-pack" onClick=${() => setResourcePack('skin', !on)}><i></i><span>${on ? tc('toggle', '开启') : tc('toggle', '关闭')}</span></button>`;
-  const progress = (label) => html`<span class="res-set__state"><span>${label}</span> <b class="num" data-i18n-skip="">${pctOf(g)}%</b></span>
+  const progress = (/** @type {string} */ label) => html`<span class="res-set__state"><span>${label}</span> <b class="num" data-i18n-skip="">${pctOf(g)}%</b></span>
     <span class="res-set__bar" aria-hidden="true"><i style=${`width:${pctOf(g)}%`}></i></span>
     <span class="res-set__size num" data-i18n-skip="">${mbOf(g.total - g.left)} / ${mb(g.total)} MB</span>`;
-  const pause = (stop) => html`<button type="button" class="res-set__mini" data-testid="skin-pause"
+  const pause = (/** @type {boolean} */ stop) => html`<button type="button" class="res-set__mini" data-testid="skin-pause"
     onClick=${() => pauseResourcePack('skin', stop)}>${stop ? t('暂停') : t('继续下载')}</button>`;
   return html`<div class="res-group">SKIN</div>
   <div class="set-row res-set" data-testid="res-skin">

@@ -32,7 +32,10 @@
 //     A skill whose prefab has `_playCharWordVoice` off (the record's `charWord: false`) says none: _OnSkillCasted
 //     returns before _PlayVoice. 浊心斯卡蒂's S1–S3 — their dubbed start sound carries the line (audio.js unitDub).
 
-/** Official battle voice types (audio_data.json battleVoice.voiceTypeOptions); `cd` in ms. */
+/**
+ * Official battle voice types (audio_data.json battleVoice.voiceTypeOptions); `cd` in ms.
+ * @type {Readonly<Record<string, { pri: number, overlap: boolean, cd: number }>>}
+ */
 export const OFFICIAL_VOICE_TYPES = Object.freeze({
   BATTLE_START: { pri: 100, overlap: true, cd: 0 },
   ENCOUNTER_ENEMY: { pri: 90, overlap: false, cd: 0 },
@@ -51,7 +54,7 @@ export const START_BURST_MS = 2000;           // the opening deployment (all pie
 /** UIController.HasFunction(CARD_LIST) in 卫戍协议: false (AutoChessUIPlugin.OnGameInit disables it) — no 行动出发 / 行动开始. */
 export const CARD_LIST_ON = false;
 
-/** The official type of a manifest slot (a skill slot defaults to SKILL_ACTIVE; the caller passes the real type). */
+/** The official type of a manifest slot (a skill slot defaults to SKILL_ACTIVE; the caller passes the real type). @param {string} slot */
 export function slotVoiceType(slot) {
   if (slot === 'start') return 'BATTLE_START';
   if (slot === 'faceEnemy') return 'ENCOUNTER_ENEMY';
@@ -89,7 +92,7 @@ export class OfficialVoiceGate {
    * @returns {'play'|'preempt'|'drop'}
    */
   request(slot, unitKey, now, type) {
-    const t = OFFICIAL_VOICE_TYPES[type] ? type : slotVoiceType(slot);
+    const t = /** @type {string} */ (OFFICIAL_VOICE_TYPES[/** @type {string} */ (type)] ? type : slotVoiceType(slot));
     const opt = OFFICIAL_VOICE_TYPES[t];
     if (opt.cd > 0 && now < (this.next.get(t) || 0)) return 'drop';
     if (!this.playing) return 'play';
@@ -98,8 +101,9 @@ export class OfficialVoiceGate {
     return 'drop';
   }
 
+  /** @param {string} slot @param {string|number|null} unitKey @param {number} now @param {string} [type] */
   start(slot, unitKey, now, type) {
-    const t = OFFICIAL_VOICE_TYPES[type] ? type : slotVoiceType(slot);
+    const t = /** @type {string} */ (OFFICIAL_VOICE_TYPES[/** @type {string} */ (type)] ? type : slotVoiceType(slot));
     const opt = OFFICIAL_VOICE_TYPES[t];
     // the last line's type: its cooldown again from now (VoicePlayer._PlayVoice, max with what it had)
     if (this.last && this.last.cd > 0) this.next.set(this.last.type, Math.max(this.next.get(this.last.type) || 0, now + this.last.cd));
@@ -108,7 +112,10 @@ export class OfficialVoiceGate {
     this.playing = { slot, type: t, pri: opt.pri };
   }
 
-  /** The line that just started is `ms` long: its type's cooldown runs from its end (now + length + cooldown). */
+  /**
+   * The line that just started is `ms` long: its type's cooldown runs from its end (now + length + cooldown).
+   * @param {number} ms
+   */
   lineLength(ms) {
     const l = this.last;
     if (!l || !(l.cd > 0) || !Number.isFinite(ms) || ms < 0) return;
@@ -130,7 +137,9 @@ export function createVoicePolicy(deps = {}) {
   const random = typeof deps.random === 'function' ? deps.random : Math.random;
   const own = typeof deps.own === 'function' ? deps.own : () => true;
   const cardList = typeof deps.cardList === 'boolean' ? deps.cardList : CARD_LIST_ON;
+  /** @type {<T>(list: T[]) => T} */
   const pick = (list) => list[Math.min(list.length - 1, Math.floor(random() * list.length))];
+  /** @type {{ gameStarted: boolean, encountered: boolean, lastEncounter: string | null, startAt: number }} */
   const st = { gameStarted: false, encountered: false, lastEncounter: null, startAt: -Infinity };
   return {
     /** A new game (a match entered or left — OnGameReset): 行动出发 and the first 行动开始 again. */
@@ -140,6 +149,7 @@ export function createVoicePolicy(deps = {}) {
     /**
      * A skill started: { slot, type } — a random 作战中 line of the operator, typed by the equipped skill; `slot` null
      * when the skill says no line (`charWord: false`).
+     * @param {{ def: string }} u
      */
     skill(u) {
       const rec = deps.skillOf ? deps.skillOf(u) : null;
@@ -169,7 +179,7 @@ export function createVoicePolicy(deps = {}) {
       lines.push({ id: u.id, def: u.def, slot: 'place', type: 'PLACE_CHAR' });
       return lines;
     },
-    /** May a deployment say its 部署 line? (no: the opening deployment right after the battle start) */
+    /** May a deployment say its 部署 line? (no: the opening deployment right after the battle start) @param {number} now */
     place(now) { return now - st.startAt >= START_BURST_MS; },
     /**
      * An enemy route preview cursor appeared (VoicePlayer._OnPreviewCursorSpawn): the operator to say 行动开始, or null —
@@ -185,9 +195,10 @@ export function createVoicePolicy(deps = {}) {
       const others = list.length > 1 && st.lastEncounter != null ? list.filter((c) => c !== st.lastEncounter) : list;
       return pick(others.length ? others : list);
     },
-    /** The 行动开始 attempt is over (`said` = who said it, null = nobody): later cursors wait for 3 s without an enemy. */
+    /** The 行动开始 attempt is over (`said` = who said it, null = nobody): later cursors wait for 3 s without an enemy.
+     *  @param {string | null} [said] */
     encountered(said) { st.encountered = true; st.lastEncounter = said ?? null; },
-    /** A random card (the client's retry without a voice query: _LoadRandomVoiceList). */
+    /** A random card (the client's retry without a voice query: _LoadRandomVoiceList). @param {unknown} cards */
     anyCard(cards) { const list = (Array.isArray(cards) ? cards : []).filter((c) => typeof c === 'string'); return list.length ? pick(list) : null; },
   };
 }

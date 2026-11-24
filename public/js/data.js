@@ -35,7 +35,10 @@ import { BORROW_FILES, borrowSeasons, borrowPlan, borrowFile, borrowKey } from '
 import { CUSTOM_FIRST_HALF_STAGES } from '../../shared/ruleset.js';
 import { withSeasonArt, withLentTypeIcons } from './ui/assetUrls.js';
 
-/** Known data files (name → URL basename). Unknown names are allowed too (`/data/<name>.json`). */
+/**
+ * Known data files (name → URL basename). Unknown names are allowed too (`/data/<name>.json`).
+ * @type {Readonly<Record<string, string>>}
+ */
 export const DATA_FILES = Object.freeze({
   chess: 'chess.json',
   bonds: 'bonds.json',
@@ -61,6 +64,7 @@ const BORROW_SET = new Set(BORROW_FILES);
 const ID_KEYS = ['id', 'chessId', 'bondId', 'itemId', 'bandId', 'enemyKey', 'enemyId', 'stageId', 'bossId', 'tokenId', 'choiceId', 'key'];
 const WRAPPER_KEYS = ['list', 'data', 'records', 'entries'];
 
+/** @param {Record<string, unknown> | null | undefined} rec */
 function idOf(rec) {
   if (!rec || typeof rec !== 'object') return null;
   for (const k of ID_KEYS) {
@@ -117,7 +121,7 @@ const SEASON_ART_INPUTS = new Set(['local', 'bands', 'bonds']);
  * A failed load worth retrying: the request itself failed (network error) or the server answered 5xx / 408 / 429 — not a
  * definite 4xx (the file is not there) nor a delivered file that is not valid JSON (`badJson`).
  */
-const transientFailure = (err) => {
+const transientFailure = (/** @type {any} */ err) => {
   if (!err || err.badJson) return false;
   const s = err.status;
   return !(Number.isInteger(s) && s >= 400 && s < 500 && s !== 408 && s !== 429);
@@ -147,7 +151,10 @@ export function createDataStore(opts = {}) {
   const warned = new Set();
   /** Current locale ('zh' = the files as they are) and the downloaded overlays by language (shared/i18nData.js). */
   let locale = 'zh';
-  /** The languages whose overlays apply, best first (a subset of the chain setLocale got: those that downloaded). */
+  /**
+   * The languages whose overlays apply, best first (a subset of the chain setLocale got: those that downloaded).
+   * @type {string[]}
+   */
   let chain = [];
   /** setLocale calls so far: a slower earlier call never overrides a later one. */
   let switches = 0;
@@ -177,17 +184,20 @@ export function createDataStore(opts = {}) {
   let borrowWork = Promise.resolve();
   /** season → a store of that season's files (seasonStore: the borrowed records, the custom dialog's lists) */
   const peers = new Map();
-  /** The last setLocale's arguments, for a peer created later. */
+  /**
+   * The last setLocale's arguments, for a peer created later.
+   * @type {[string, (string | { code: string, url?: string })[] | undefined] | null}
+   */
   let localeArgs = null;
 
-  const tell = (name) => {
+  const tell = (/** @type {string} */ name) => {
     for (const fn of [...listeners]) {
       try { fn(name); } catch (err) { console.error('[data] listener failed', err); }
     }
   };
   // a later season's art manifest is built from the extract and the season's band / bond records (seasonAssets):
   // their arrival changes it
-  const notify = (name) => {
+  const notify = (/** @type {string} */ name) => {
     tell(name);
     if (SEASON_ART_INPUTS.has(name) && season !== DEFAULT_SEASON) tell('assets');
   };
@@ -206,7 +216,7 @@ export function createDataStore(opts = {}) {
     const bonds = entries.get('bonds')?.value ?? null;
     const c = seasonArtMemo;
     if (c && c.m === m && c.local === local && c.bands === bands && c.bonds === bonds && c.season === season) return c.value;
-    const recs = (name) => {
+    const recs = (/** @type {string} */ name) => {
       const e = entries.get(name);
       if (!e || e.status !== 'ready') return [];
       if (!e.index) e.index = buildIndex(name, e.value);
@@ -235,11 +245,12 @@ export function createDataStore(opts = {}) {
 
   // another season's files: /data/s/<season>/<file> (the server answers the season's own file, else the default's);
   // the art manifests are the same for every season
-  const urlFor = (name) => base + (season !== DEFAULT_SEASON && !ART_MANIFESTS.has(name) ? `s/${season}/` : '') + (DATA_FILES[name] || `${name}.json`);
+  const urlFor = (/** @type {string} */ name) => base + (season !== DEFAULT_SEASON && !ART_MANIFESTS.has(name) ? `s/${season}/` : '') + (DATA_FILES[name] || `${name}.json`);
 
   /**
    * One attempt at a file. Art manifests reject with a transient `{ timeout: true }` when the clock fires; a response
    * that arrives after that is ignored (the retry is a new request). [ASSUMED]
+   * @param {string} name
    */
   function readJson(name) {
     const run = async () => {
@@ -252,6 +263,7 @@ export function createDataStore(opts = {}) {
       }
     };
     if (!ART_MANIFESTS.has(name) || !(timeoutMs > 0)) return run();
+    /** @type {ReturnType<typeof setTimeout> | null} */
     let timer = null;
     let done = false;
     const finish = () => {
@@ -273,12 +285,13 @@ export function createDataStore(opts = {}) {
     return Promise.race([req, timed]);
   }
 
+  /** @param {unknown} name */
   function load(name) {
     if (typeof name !== 'string' || !/^[A-Za-z0-9_-]+$/.test(name)) return Promise.resolve(null);
     const cur = entries.get(name);
     if (cur) return cur.promise;
     /** @type {{ status: 'loading'|'ready'|'missing', promise: Promise<any>, value: any, index: Map<string, any>|null }} */
-    const entry = { status: 'loading', promise: null, value: null, index: null };
+    const entry = { status: 'loading', promise: /** @type {Promise<any>} */ (/** @type {unknown} */ (null)), value: null, index: null };
     const art = ART_MANIFESTS.has(name);
     entry.promise = (async () => {
       let toldMissing = false;
@@ -287,7 +300,7 @@ export function createDataStore(opts = {}) {
           entry.value = await readJson(name);
           entry.status = 'ready';
           break;
-        } catch (err) {
+        } catch (/** @type {any} */ err) {
           const current = entries.get(name) === entry;
           // Decided before notify. Invalidating inside that notify leaves `again` true; the wait then sees
           // the superseded entry and stops, so this attempt does not fetch again.
@@ -329,6 +342,7 @@ export function createDataStore(opts = {}) {
   /**
    * The localized copy of a ready file (null in Chinese or without an overlay for the file): the overlays of the chain
    * applied from the last to the first, each text checked against the Chinese file, so the best overlay wins per text.
+   * @param {string} name
    */
   function localizedEntry(name) {
     if (locale === 'zh' || !chain.length) return null;
@@ -365,7 +379,7 @@ export function createDataStore(opts = {}) {
     st = createDataStore({ ...opts, peer: true });
     st.setSeason(id);
     if (localeArgs) st.setLocale(...localeArgs);
-    st.subscribe((name) => { if (BORROW_SET.has(name)) tell(name); });
+    st.subscribe((/** @type {string} */ name) => { if (BORROW_SET.has(name)) tell(name); });
     peers.set(id, st);
     return st;
   }
@@ -377,7 +391,10 @@ export function createDataStore(opts = {}) {
       : Promise.resolve();
   }
 
-  /** name|raw → { inputs, value } — the borrowed view of a file, built again when an input changes */
+  /**
+   * name|raw → { inputs, value } — the borrowed view of a file, built again when an input changes
+   * @type {Map<string, { inputs: unknown[], value: any }>}
+   */
   const borrowMemo = new Map();
   /** a file value → its record index (the borrowed views) */
   const viewIndex = new WeakMap();
@@ -390,7 +407,7 @@ export function createDataStore(opts = {}) {
     if (!borrowIds || !own || !BORROW_SET.has(name)) return own;
     const seasons = borrowSeasons(season);
     const stores = seasons.map(seasonStore).filter(Boolean);
-    const rawOf = (n) => entries.get(n)?.value ?? null;
+    const rawOf = (/** @type {string} */ n) => entries.get(n)?.value ?? null;
     const inputs = [own, rawOf('stages'), rawOf('factions'), borrowKey(borrowIds), season,
       ...stores.flatMap((st) => [st.getRaw('stages'), st.getRaw('factions'), raw ? st.getRaw(name) : st.get(name)])];
     const key = `${name}|${raw ? 1 : 0}`;
@@ -413,6 +430,7 @@ export function createDataStore(opts = {}) {
     return ix;
   };
 
+  /** @param {string} name */
   function index(name) {
     const e = entries.get(name);
     if (!e || e.status !== 'ready') return null;
@@ -429,6 +447,7 @@ export function createDataStore(opts = {}) {
   /**
    * Download (once per language) a game-text overlay — `url` (a pack folder's file, from the pack index) or the language
    * folder's data/i18n/<lang>.json; resolves to it, or null when unavailable.
+   * @param {string} lang @param {string} [url]
    */
   function loadOverlay(lang, url = `${base}i18n/${lang}.json`) {
     if (overlayLoads.has(lang)) return overlayLoads.get(lang);
@@ -443,7 +462,7 @@ export function createDataStore(opts = {}) {
           return json;
         } catch (err) {
           if (transientFailure(err) && attempt < retryDelays.length) { await wait(retryDelays[attempt]); continue; }
-          console.warn(`[data] ${url} unavailable (${err?.message || err}); its game texts are not applied`);
+          console.warn(`[data] ${url} unavailable (${/** @type {any} */ (err)?.message || err}); its game texts are not applied`);
           overlayLoads.delete(lang); // a later switch may try again
           return null;
         }
@@ -474,7 +493,7 @@ export function createDataStore(opts = {}) {
         } catch (err) {
           if (transientFailure(err) && attempt < retryDelays.length) { await wait(retryDelays[attempt]); continue; }
           // a 404 is the usual case for a language without season texts: keep it, ask again only after a transient failure
-          if (transientFailure(err)) { console.warn(`[data] ${url} unavailable (${err?.message || err})`); seasonOverlayLoads.delete(key); }
+          if (transientFailure(err)) { console.warn(`[data] ${url} unavailable (${/** @type {any} */ (err)?.message || err})`); seasonOverlayLoads.delete(key); }
           seasonOverlays.set(key, null);
           return null;
         }
@@ -486,6 +505,7 @@ export function createDataStore(opts = {}) {
   /** The season overlays of the current chain for the current season (none in the default season). */
   const loadSeasonOverlays = (codes = chain) => (season === DEFAULT_SEASON ? Promise.resolve([]) : Promise.all(codes.map((c) => loadSeasonOverlay(c, season))));
 
+  /** @param {string} name */
   function invalidate(name) {
     if (!entries.has(name)) return Promise.resolve(null);
     entries.delete(name);
@@ -500,14 +520,14 @@ export function createDataStore(opts = {}) {
     /** Fetch (once) and return a file's JSON, or null when missing. */
     load,
     /** Load several files; resolves when all settled. */
-    loadAll: (...names) => Promise.all(names.flat().map(load)),
-    /** JSON of a loaded file in the current locale (null when missing / not loaded yet). */
+    loadAll: (/** @type {Array<string | readonly string[]>} */ ...names) => Promise.all(names.flat().map(load)),
+    /** JSON of a loaded file in the current locale (null when missing / not loaded yet). @param {string} name */
     get: (name) => (name === 'assets' ? seasonAssets() : viewOf(name)),
     /** The file exactly as downloaded (Chinese texts), whatever the locale (with what setBorrow borrows). */
-    getRaw: (name) => rawViewOf(name),
+    getRaw: (/** @type {string} */ name) => rawViewOf(name),
     /** 'idle' | 'loading' | 'ready' | 'missing' */
-    status: (name) => entries.get(name)?.status ?? 'idle',
-    /** Record by id from a loaded file (null when unknown / not loaded). */
+    status: (/** @type {string} */ name) => entries.get(name)?.status ?? 'idle',
+    /** Record by id from a loaded file (null when unknown / not loaded). @param {string} name @param {unknown} id */
     lookup(name, id) {
       if (id == null) return null;
       return index(name)?.get(String(id)) ?? null;
@@ -515,6 +535,7 @@ export function createDataStore(opts = {}) {
     /**
      * Record by id from a loaded file exactly as downloaded (its Chinese texts), whatever the locale — what the server
      * copied into a message, to compare with what it sent (ui/lang.js sentText).
+     * @param {string} name @param {unknown} id
      */
     lookupRaw(name, id) {
       if (id == null) return null;
@@ -525,7 +546,7 @@ export function createDataStore(opts = {}) {
       return e.index.get(String(id)) ?? null;
     },
     /** All records of a loaded file as an array (empty when not loaded). */
-    list: (name) => [...(index(name)?.values() ?? [])],
+    list: (/** @type {string} */ name) => [...(index(name)?.values() ?? [])],
     /** Drop a cached file and refetch it now (subscribers are notified when it settles). */
     invalidate,
     /** The 卫戍协议 season whose files are read (shared/seasons.js). */
@@ -582,7 +603,7 @@ export function createDataStore(opts = {}) {
      * @param {'stages'|'types'} kind @param {string} id
      */
     lendable(kind, id) {
-      const pickOf = (st) => (kind === 'types' ? st.get('factions')?.types?.[id] : st.lookup('stages', id)) ?? null;
+      const pickOf = (/** @type {{ get: (n: string) => any, lookup: (n: string, id: string) => any }} */ st) => (kind === 'types' ? st.get('factions')?.types?.[id] : st.lookup('stages', id)) ?? null;
       const own = kind === 'types' ? viewOf('factions')?.types?.[id] : index('stages')?.get(String(id));
       if (own) return own;
       for (const sid of borrowSeasons(season)) {
@@ -594,7 +615,10 @@ export function createDataStore(opts = {}) {
       }
       return null;
     },
-    /** Called with the file name whenever a file finishes loading (or is invalidated, or the locale changes). */
+    /**
+     * Called with the file name whenever a file finishes loading (or is invalidated, or the locale changes).
+     * @param {(name: string) => void} fn
+     */
     subscribe(fn) {
       listeners.add(fn);
       return () => listeners.delete(fn);
@@ -758,7 +782,7 @@ export function getMode(modeId, cfg = getConfig()) {
  * @returns {boolean} true once every file is settled (ready or missing)
  */
 export function useData(...names) {
-  const [, force] = useReducer((c) => c + 1, 0);
+  const [, force] = useReducer(/** @type {(c: number, a: void) => number} */ ((c) => c + 1), 0);
   const key = names.join('|');
   useEffect(() => {
     let alive = true;

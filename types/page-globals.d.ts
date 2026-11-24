@@ -29,3 +29,9 @@ interface Performance {
 interface Window {
   __debug?: any;
 }
+
+// The field view on screen (ui/fieldHost.js; diag.js and ui/perfHud.js read it), and the page's handle for tests and
+// the console (main.js): the app store, the socket, the data store, and `import` of a module of this page by its path
+// from /js/.
+declare var __SP_VIEW__: { kind?: string, raw?: any } | null | undefined;
+declare var __SP__: { store: unknown, net: unknown, data: unknown, version: number, import: (p: string) => Promise<unknown> } | undefined;

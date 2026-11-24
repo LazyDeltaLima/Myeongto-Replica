@@ -11,6 +11,14 @@
 /** Renderer names of software rasterisers. */
 export const SOFTWARE_RENDERER_RE = /SwiftShader|llvmpipe|softpipe|Basic Render Driver|\bsoftware\b/i;
 
+/** @typedef {WebGLRenderingContext & { texStorage2D?: unknown }} AnyGl a WebGL1 or WebGL2 context */
+
+/**
+ * @param {{ createElement: (tag: string) => any }} doc
+ * @param {string} type
+ * @param {WebGLContextAttributes} [attrs]
+ * @returns {AnyGl | null}
+ */
 function context(doc, type, attrs) {
   try {
     const c = doc.createElement('canvas');
@@ -18,6 +26,7 @@ function context(doc, type, attrs) {
   } catch { return null; }
 }
 
+/** @param {AnyGl | null} gl */
 function release(gl) {
   try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* ignore */ }
 }
@@ -27,6 +36,7 @@ const MASKED_RENDERER_RE = /^(?:WebKit WebGL|Mozilla)$/i;
 
 // The GPU's name: `RENDERER` itself where it is the GPU's (Firefox, which deprecates WEBGL_debug_renderer_info and warns
 // on every request for it), the extension's unmasked one only behind a masked `RENDERER`.
+/** @param {AnyGl} gl */
 function rendererName(gl) {
   try {
     const plain = gl.getParameter(gl.RENDERER);
@@ -55,6 +65,7 @@ export function probeGpu(doc = globalThis.document) {
   return out;
 }
 
+/** @type {ReturnType<typeof probeGpu> | null} */
 let first = null;
 /** The page's first probeGpu() answer (one probe per page). */
 export function gpuStatus() {

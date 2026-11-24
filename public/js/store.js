@@ -35,6 +35,7 @@ export function createStore(initial) {
   let state = { ...initial };
   const listeners = new Set();
 
+  /** @param {S} prev */
   const notify = (prev) => {
     for (const fn of [...listeners]) {
       try { fn(state, prev); } catch (err) { console.error('[store] listener failed', err); }
@@ -70,7 +71,7 @@ export function createStore(initial) {
   };
 }
 
-/** Fresh (empty) match slice. */
+/** Fresh (empty) match slice. @returns {MatchSlice} */
 export const emptyMatch = () => ({ public: null, private: null, field: null, result: null, battle: null });
 
 /** Initial app state (exported for tests and resets). */
@@ -93,10 +94,23 @@ export const initialState = Object.freeze({
 });
 
 /**
- * The app state: initialState and what the page sets on it later (ui/chat.js: the chat's block list and notice mark,
- * the room's chat factions — room.factions).
- * @typedef {typeof initialState & { chat: { blocked?: string[], noticeAfter?: number },
- *   chatFactions?: Record<string, string> }} AppState
+ * The app state: initialState with its empty slots typed by what the page puts there — the server's records (room.state,
+ * the m.* pushes) and the small UI bits are read field by field (`Bag`) — and what the page sets on it later (ui/chat.js:
+ * the chat's block list and notice mark, the room's chat factions — room.factions).
+ * @typedef {{ [key: string]: any }} Bag
+ * @typedef {{ id: number, text: string, at: number, type: string | null, playerId: string | null, round: number | null,
+ *   priority: number }} TickerLine a `m.ticker` line (main.js)
+ * @typedef {{ seq: number, playerId: string, id: string, set: string, at: number }} EmoteEvent a `m.emote` event (main.js)
+ * @typedef {{ public: Bag | null, private: Bag | null, field: Bag | null, result: Bag | null, battle: Bag | null }} MatchSlice
+ * @typedef {{
+ *   connection: { status: string, ping: number | null, online: number | null, attempt: number, retryAt: number,
+ *     lastError: { code: string, text: string } | null, everOnline: boolean },
+ *   me: { playerId: string | null, name: string, token: string | null },
+ *   session: { entered: boolean },
+ *   room: Bag | null, match: MatchSlice, ticker: TickerLine[], emotes: EmoteEvent[],
+ *   chat: { code: string | null, lines: Bag[], seen: number, blocked?: string[], noticeAfter?: number },
+ *   clock: { offset: number, rtt: number | null, synced: boolean },
+ *   ui: Bag, chatFactions?: Record<string, string> }} AppState
  */
 
 /** The app-wide store singleton. */
@@ -125,7 +139,7 @@ export function selectRoute(s) {
  */
 export function reservedRank(room, playerId) {
   if (playerId == null || !Array.isArray(room?.spectators)) return 0;
-  return room.spectators.find((s) => s && s.playerId === playerId)?.reserved || 0;
+  return room.spectators.find((/** @type {{ playerId?: string, reserved?: number } | null} */ s) => s && s.playerId === playerId)?.reserved || 0;
 }
 
 /**
@@ -136,7 +150,7 @@ export function reservedRank(room, playerId) {
  * @returns {boolean}
  */
 export function isSpectating(room, playerId) {
-  return playerId != null && Array.isArray(room?.spectators) && room.spectators.some((s) => s && s.playerId === playerId);
+  return playerId != null && Array.isArray(room?.spectators) && room.spectators.some((/** @type {{ playerId?: string } | null} */ s) => s && s.playerId === playerId);
 }
 
 /**
@@ -209,7 +223,7 @@ export function savePref(key, value) {
   try { globalThis.localStorage?.setItem(`sp.pref.${key}`, JSON.stringify(value)); } catch { /* ignore */ }
 }
 
-const identity = (s) => s;
+const identity = (/** @type {any} */ s) => s;
 
 /**
  * Preact hook: subscribe to a slice of a store. Re-renders only when the selected value changes
@@ -222,7 +236,7 @@ const identity = (s) => s;
  * @returns {T}
  */
 export function useStore(selector = identity, isEqual = Object.is, target = store) {
-  const [, force] = useReducer((c) => c + 1, 0);
+  const [, force] = useReducer(/** @type {(c: number, a: void) => number} */ ((c) => c + 1), 0);
   const selRef = useRef(selector);
   const eqRef = useRef(isEqual);
   selRef.current = selector;
@@ -234,15 +248,15 @@ export function useStore(selector = identity, isEqual = Object.is, target = stor
   valRef.current = value;
 
   useLayoutEffect(() => {
-    const check = (s) => {
+    const check = (/** @type {any} */ s) => {
       let next;
       try { next = selRef.current(s); } catch { return; }
-      if (!eqRef.current(next, valRef.current)) force();
+      if (!eqRef.current(next, /** @type {T} */ (valRef.current))) force();
     };
     const unsub = target.subscribe(check);
     check(target.get()); // catch updates between render and subscription
     return unsub;
   }, [target]);
 
-  return value;
+  return /** @type {T} */ (value);
 }

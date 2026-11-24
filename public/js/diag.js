@@ -51,23 +51,27 @@ export const LOG_MAX = 40;
 export const STACK_LINES = 6;
 const MESSAGE_MAX = 300;
 
+/** @type {(() => string[]) | null} */
 let perfSource = null;
 /** @param {(() => string[]) | null} fn */
 export function setPerfSource(fn) { perfSource = typeof fn === 'function' ? fn : null; }
 const perfLines = () => { try { return perfSource ? perfSource() : []; } catch { return []; } };
 
+/** @type {{ status: () => any, snap?: () => Promise<any> } | null} */
 let resSource = null;
 /** @param {{ status: () => any, snap?: () => Promise<any> } | null} src */
 export function setResourceSource(src) { resSource = src && typeof src.status === 'function' ? src : null; }
 const resStatus = () => { try { return resSource ? resSource.status() : null; } catch { return null; } };
 
-/** @type {{ source: string, message: string, stack: string|null, detail: string|null, battleId: string|null, at: number, lastAt: number, count: number }[]} */
+/** @typedef {{ source: string, message: string, stack: string|null, detail: string|null, battleId: string|null, at: number, lastAt: number, count: number }} LogEntry */
+/** @type {LogEntry[]} */
 const log = [];
 let total = 0;
 let dropped = 0;
 const pageStart = Date.now();
 
-/** @type {{ at: number, event: string, detail: string|null, count?: number, lastAt?: number }[]} */
+/** @typedef {{ at: number, event: string, detail: string|null, count?: number, lastAt?: number }} RenderEvent */
+/** @type {RenderEvent[]} */
 const renderLog = [];
 export const RENDER_MAX = 12;
 /**
@@ -103,7 +107,15 @@ export function watchCanvas(canvas, name) {
   } catch { /* ignore */ }
 }
 
-/** @type {{ at: number, t0: number, kind: string|null, total: number|null, steps: { name: string, ms: number, cut: boolean, parts?: { name: string, ms: number }[] }[], late: { name: string, ms: number }[] }[]} */
+/**
+ * @typedef {{ name: string, ms: number, cut: boolean, parts?: { name: string, ms: number }[] }} MountStep
+ * @typedef {{ hit?: number, stale?: number, fetched?: number, bytes?: number, server?: number }} WorkerCounts
+ * @typedef {{ reconciling?: boolean, queued?: number, cleanup?: number, sw?: WorkerCounts }} ResSnap the resource
+ *   cache's state at a mount's start and when its field was shown (resources.js resourceSnap)
+ * @typedef {{ at: number, t0: number, kind: string|null, total: number|null, steps: MountStep[],
+ *   late: { name: string, ms: number, detail?: string }[], res0: ResSnap | null, res1: ResSnap | null }} MountRecord
+ */
+/** @type {MountRecord[]} */
 const mountLog = [];
 export const MOUNT_MAX = 4;
 const LATE_MAX = 8;
@@ -122,17 +134,20 @@ try { globalThis.performance?.setResourceTimingBufferSize?.(3000); } catch { /* 
 export function mountTimer(now = () => globalThis.performance.now()) {
   const t0 = now();
   let last = t0, lastPart = t0;
+  /** @type {{ name: string, ms: number }[]} */
   let parts = [];
+  /** @type {MountRecord} */
   const rec = { at: Date.now(), t0, kind: null, total: null, steps: [], late: [], res0: null, res1: null };
   mountLog.push(rec);
   if (mountLog.length > MOUNT_MAX) mountLog.splice(0, mountLog.length - MOUNT_MAX);
   notePage();
   // the resource cache's work at the start and when the field is shown (or the engine lost): what shared the load with it
-  const snap = (key) => {
+  const snap = (/** @type {'res0' | 'res1'} */ key) => {
     try { resSource?.snap?.().then((s) => { if (s) { rec[key] = s; notePage(); } }, () => {}); } catch { /* ignore */ }
   };
   snap('res0');
   return {
+    /** @param {string} name @param {boolean} [cut] */
     step(name, cut = false) {
       const t = now();
       /** @type {{ name: string, ms: number, cut: boolean, parts?: { name: string, ms: number }[] }} */
@@ -141,7 +156,9 @@ export function mountTimer(now = () => globalThis.performance.now()) {
       rec.steps.push(s);
       last = lastPart = t;
     },
+    /** @param {string} name */
     part(name) { const t = now(); parts.push({ name: String(name), ms: t - lastPart }); lastPart = t; },
+    /** @param {string} name @param {unknown} [detail] */
     late(name, detail = null) {
       if (rec.late.length < LATE_MAX && !rec.late.some((e) => e.name === name)) {
         rec.late.push({ name: String(name), ms: now() - t0, ...(detail ? { detail: String(detail).slice(0, MESSAGE_MAX) } : {}) });
@@ -149,6 +166,7 @@ export function mountTimer(now = () => globalThis.performance.now()) {
         notePage();
       }
     },
+    /** @param {string} kind */
     done(kind) {
       if (rec.kind == null) {
         rec.kind = String(kind); rec.total = now() - t0;
@@ -169,29 +187,31 @@ export function fieldLoading(t = globalThis.performance?.now?.() ?? 0) {
 export const mountRecords = () => mountLog.map((m) => ({ ...m, steps: m.steps.map((s) => ({ ...s, ...(s.parts ? { parts: s.parts.map((p) => ({ ...p })) } : {}) })), late: m.late.map((e) => ({ ...e })) }));
 export function clearMountRecords() { mountLog.length = 0; }
 
-const sec = (ms) => (ms / 1000).toFixed(1);
-const mbOf = (bytes) => (bytes / 1048576).toFixed(1);
+const sec = (/** @type {number} */ ms) => (ms / 1000).toFixed(1);
+const mbOf = (/** @type {number} */ bytes) => (bytes / 1048576).toFixed(1);
 /** The worker's answers: from the cache, fetched again over a stale copy, fetched (MB), left to the server. */
-const workerCounts = (w) => `${w.hit ?? 0} cached, ${w.stale ?? 0} stale, ${w.fetched ?? 0} fetched (${mbOf(w.bytes ?? 0)} MB), ${w.server ?? 0} to server`;
-/** A mount's `res` part: the resource cache's queue at its start and the worker's answers until the field was shown. */
+const workerCounts = (/** @type {WorkerCounts} */ w) => `${w.hit ?? 0} cached, ${w.stale ?? 0} stale, ${w.fetched ?? 0} fetched (${mbOf(w.bytes ?? 0)} MB), ${w.server ?? 0} to server`;
+/** A mount's `res` part: the resource cache's queue at its start and the worker's answers until the field was shown. @param {MountRecord} m */
 function mountRes(m) {
   const a = m.res0, b = m.res1;
   if (!a) return null;
   const at = `res ${a.reconciling ? 'reconciling, ' : ''}${a.queued ?? 0} queued, ${a.cleanup ?? 0} stale`;
   if (!a.sw || !b?.sw) return at;
+  /** @type {WorkerCounts} */
   const d = {};
-  for (const k of ['hit', 'stale', 'fetched', 'bytes', 'server']) d[k] = Math.max(0, (b.sw[k] ?? 0) - (a.sw[k] ?? 0));
+  for (const k of /** @type {const} */ (['hit', 'stale', 'fetched', 'bytes', 'server'])) d[k] = Math.max(0, (b.sw[k] ?? 0) - (a.sw[k] ?? 0));
   return `${at}; worker ${workerCounts(d)}`;
 }
 /**
  * The download's bundles (resources.js `download.bundles`): read whole of those the list names, cut short by a match or
  * a field load, failed, and the files stored from them; nothing when the list names none.
+ * @param {{ listed?: number, fetched?: number, stopped?: number, failed?: number, members?: number } | null | undefined} b
  */
 function bundlesPart(b) {
   if (!b?.listed) return null;
   return `bundles ${b.fetched ?? 0}/${b.listed} read${b.stopped ? `, ${b.stopped} cut short` : ''}${b.failed ? `, ${b.failed} failed` : ''}, ${b.members ?? 0} files`;
 }
-/** The `resources:` line (resources.js resourceStatus), or null. */
+/** The `resources:` line (resources.js resourceStatus), or null. @param {Record<string, any> | null} s */
 function resourcesLine(s) {
   if (!s) return null;
   const r = s.reconcile, d = s.download, c = s.cleanup, w = s.worker;
@@ -220,7 +240,7 @@ export function mountNet(m, resources) {
   return { files, mb: bytes / 1048576, cached };
 }
 
-/** `name: message (code)` of an Error, a NetError, a {code, msg} push, a string or anything else. */
+/** `name: message (code)` of an Error, a NetError, a {code, msg} push, a string or anything else. @param {any} err */
 export function messageOf(err) {
   let s;
   if (err == null) s = String(err);
@@ -237,8 +257,9 @@ export function messageOf(err) {
   return s.length > MESSAGE_MAX ? `${s.slice(0, MESSAGE_MAX - 1)}…` : s;
 }
 
-/** The first STACK_LINES frames of `err.stack`, each without the page's scheme and host (`/js/ui/x.js:12:5`). */
+/** The first STACK_LINES frames of `err.stack`, each without the page's scheme and host (`/js/ui/x.js:12:5`). @param {any} err */
 export function stackOf(err) {
+  /** @type {string} */
   const raw = err && typeof err === 'object' && typeof err.stack === 'string' ? err.stack : '';
   if (!raw) return null;
   const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -252,7 +273,7 @@ export function stackOf(err) {
  * Cut `scheme://host[:port]` from every URL (a LAN server's address, a domain) and the build prefix `/b/<tag>[/r]` of the
  * versioned code URLs (server/http/buildTag.js): the path is what locates the code.
  */
-export const stripHosts = (s) => String(s).replace(/\b[a-z][a-z0-9+.-]*:\/\/[^/\s)]+/gi, '').replace(/\/b\/[0-9a-f]{12}(?:\/r)?(?=\/)/g, '');
+export const stripHosts = (/** @type {unknown} */ s) => String(s).replace(/\b[a-z][a-z0-9+.-]*:\/\/[^/\s)]+/gi, '').replace(/\/b\/[0-9a-f]{12}(?:\/r)?(?=\/)/g, '');
 
 /**
  * Record an error. An entry identical to the newest one (same source, message and stack) raises its count instead.
@@ -285,8 +306,10 @@ export const errorLog = () => log.map((e) => ({ ...e }));
 export const errorCount = () => total;
 export function clearErrorLog() { log.length = 0; total = 0; dropped = 0; }
 
+/** @typedef {{ battleId: string, fieldId?: string, kind?: string, spec: object, time?: number }} BattleOnScreen */
+/** @type {(() => BattleOnScreen | null) | null} */
 let battleSource = null;
-/** @param {() => ({ battleId: string, fieldId?: string, kind?: string, spec: object, time?: number }|null)} fn */
+/** @param {() => (BattleOnScreen | null)} fn */
 export function setBattleSource(fn) { battleSource = typeof fn === 'function' ? fn : null; }
 /** The battle on screen for a report, or null. */
 export function currentBattle() {
@@ -294,7 +317,7 @@ export function currentBattle() {
 }
 
 /** The match a battleId belongs to: its prefix `<seed36>[-<matchNo36>]` (server/match/Match.js battlePrefix). */
-export const matchKeyOf = (battleId) => (typeof battleId === 'string' ? battleId.split('.')[0] : '');
+export const matchKeyOf = (/** @type {unknown} */ battleId) => (typeof battleId === 'string' ? battleId.split('.')[0] : '');
 
 /** @type {{ battleId: string, fieldId: string|null, kind: string|null, spec: object }[]} */
 const battles = [];
@@ -330,8 +353,9 @@ export function matchBattles(state) {
   return { match: battles.length ? matchKeyOf(battles[0].battleId) : '', list };
 }
 
-/** Secrets worth replacing: non-empty strings, later pair winning when the same value is listed twice. */
+/** Secrets worth replacing: non-empty strings, later pair winning when the same value is listed twice. @param {[string, string][]} pairs */
 function secretMap(pairs) {
+  /** @type {Map<string, string>} */
   const map = new Map();
   for (const [v, ph] of pairs) {
     if (typeof v === 'string' && v.trim()) map.set(v, ph);
@@ -351,7 +375,7 @@ export function redact(text, pairs) {
   const map = secretMap(pairs);
   const list = [...map.keys()].sort((a, b) => b.length - a.length);
   if (!list.length) return String(text);
-  const esc = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const esc = (/** @type {string} */ v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const word = '[\\p{L}\\p{N}_]';
   const re = new RegExp(`(?<pre>^|(?!${word})[\\s\\S])(?<hit>${list.map(esc).join('|')})(?!${word})`, 'gu');
   return String(text).replace(re, (...args) => {
@@ -368,12 +392,14 @@ export function redact(text, pairs) {
  */
 export function redactValues(value, pairs) {
   const map = secretMap(pairs);
+  /** @type {(v: any) => any} */
   const walk = (v) => {
     if (typeof v === 'string') return map.has(v) ? map.get(v) : v;
     if (Array.isArray(v)) return v.map(walk);
     if (v && typeof v === 'object') {
+      /** @type {Record<string, any>} */
       const out = {};
-      for (const [k, val] of Object.entries(v)) out[map.has(k) ? map.get(k) : k] = walk(val);
+      for (const [k, val] of Object.entries(v)) out[map.has(k) ? /** @type {string} */ (map.get(k)) : k] = walk(val);
       return out;
     }
     return v;
@@ -381,12 +407,12 @@ export function redactValues(value, pairs) {
   return walk(value);
 }
 
-/** [value, placeholder] pairs of what a report must not show: player names, the room code, the reconnect token. */
+/** [value, placeholder] pairs of what a report must not show: player names, the room code, the reconnect token. @param {any} state */
 export function secretsOf(state) {
   /** @type {[string, string][]} */
   const pairs = [];
   const names = new Map();
-  const addName = (n) => {
+  const addName = (/** @type {unknown} */ n) => {
     if (typeof n !== 'string' || !n.trim() || names.has(n)) return;
     names.set(n, n === state?.me?.name ? '<me>' : `<player${names.size + 1}>`);
   };
@@ -400,23 +426,23 @@ export function secretsOf(state) {
   return pairs;
 }
 
-const pad2 = (n) => String(n).padStart(2, '0');
-const clockOf = (ms) => { const d = new Date(ms); return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}`; };
-const spanOf = (ms) => {
+const pad2 = (/** @type {number} */ n) => String(n).padStart(2, '0');
+const clockOf = (/** @type {number} */ ms) => { const d = new Date(ms); return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}`; };
+const spanOf = (/** @type {number} */ ms) => {
   const s = Math.max(0, Math.round(ms / 1000));
   return s >= 3600 ? `${Math.floor(s / 3600)}h ${pad2(Math.floor(s / 60) % 60)}m` : `${Math.floor(s / 60)}m ${pad2(s % 60)}s`;
 };
-const join = (...parts) => parts.filter((p) => p != null && p !== '' && p !== false).join(' | ');
+const join = (/** @type {unknown[]} */ ...parts) => parts.filter((p) => p != null && p !== '' && p !== false).join(' | ');
 
-/** The `render events:` line, or null. */
+/** The `render events:` line, or null. @param {RenderEvent[]} rev */
 function renderEventsLine(rev) {
   return rev.length ? `render events: ${rev.map((e) => `${clockOf(e.at)} ${e.event}${e.detail ? ` (${e.detail})` : ''}`
-    + (e.count > 1 ? ` x${e.count}, last ${clockOf(e.lastAt)}` : '')).join('; ')}` : null;
+    + (/** @type {number} */ (e.count) > 1 ? ` x${e.count}, last ${clockOf(/** @type {number} */ (e.lastAt))}` : '')).join('; ')}` : null;
 }
-/** One `mount:` line per mount; a stage with parts lists those of 0.05 s or more. */
+/** One `mount:` line per mount; a stage with parts lists those of 0.05 s or more. @param {MountRecord[]} mounts @param {any[] | null} resources */
 function mountLines(mounts, resources) {
   return mounts.map((m) => {
-    const head = m.kind ? `${m.kind} in ${sec(m.total)} s` : 'loading';
+    const head = m.kind ? `${m.kind} in ${sec(/** @type {number} */ (m.total))} s` : 'loading';
     const steps = m.steps.map((s) => {
       const parts = (s.parts || []).filter((p) => p.ms >= 50);
       return `${s.name} ${sec(s.ms)}${parts.length ? ` (${parts.map((p) => `${p.name} ${sec(p.ms)}`).join(', ')})` : ''}${s.cut ? ' cut' : ''}`;
@@ -427,7 +453,7 @@ function mountLines(mounts, resources) {
       net && net.files ? `net ${net.files} files, ${net.mb.toFixed(1)} MB${net.cached ? `, ${net.cached} cached` : ''}` : null, mountRes(m))}`;
   });
 }
-/** The `errors:` line and the entries, newest first. */
+/** The `errors:` line and the entries, newest first. @param {LogEntry[]} entries @param {number} tot @param {number} drop */
 function errorLines(entries, tot, drop) {
   const lines = [`errors: ${tot ? `${tot} recorded${drop ? `, ${drop} oldest entries dropped` : ''}` : 'none recorded'}`];
   entries.slice().reverse().forEach((e, i) => {
@@ -453,19 +479,26 @@ export const PAGE_BEAT_MS = 10_000;
 export const PAGE_KEEP_MS = 6 * 3600_000;
 const PAGE_ERRORS = 10;
 let pageOn = false;
+/** @type {PageRecord | null} */
 let prevPage = null;
-let pageVis = 'visible', hiddenAt = null, pageEnded = false;
-/** This page hidden (another app, the screen off): how often, and the last time from / to (to null: still hidden). */
+let pageVis = 'visible', /** @type {number | null} */ hiddenAt = null, pageEnded = false;
+/**
+ * This page hidden (another app, the screen off): how often, and the last time from / to (to null: still hidden).
+ * @type {{ count: number, from: number | null, to: number | null }}
+ */
 const hides = { count: 0, from: null, to: null };
 export const pageHides = () => ({ ...hides });
-/** `hidden 14x, last 02:10:03–02:11:20` (or `…, hidden now`), or null. */
+/** `hidden 14x, last 02:10:03–02:11:20` (or `…, hidden now`), or null. @param {{ count: number, from: number | null, to: number | null } | null | undefined} h */
 function hidesPart(h) {
-  return h && h.count ? `hidden ${h.count}x, last ${clockOf(h.from)}${h.to ? `–${clockOf(h.to)}` : ', hidden now'}` : null;
+  return h && h.count ? `hidden ${h.count}x, last ${clockOf(/** @type {number} */ (h.from))}${h.to ? `–${clockOf(h.to)}` : ', hidden now'}` : null;
 }
 let saveTimer = 0;
 const storage = () => { try { return globalThis.localStorage || null; } catch { return null; } };
 
-/** This page's record as the next page would report it. @param {number} [now] */
+/**
+ * This page's record as the next page would report it. @param {number} [now]
+ * @typedef {ReturnType<typeof pageRecord>} PageRecord
+ */
 export function pageRecord(now = Date.now()) {
   let resources;
   try { resources = globalThis.performance?.getEntriesByType?.('resource') ?? null; } catch { resources = null; }
@@ -515,7 +548,7 @@ export function installPageRecord() {
   savePage();
 }
 
-/** The `previous page:` section of a report (empty without a record). */
+/** The `previous page:` section of a report (empty without a record). @param {PageRecord | null} p */
 function previousLines(p) {
   if (!p) return [];
   const end = p.ended ? 'closed (a reload, a link or the app closed)'
@@ -537,7 +570,7 @@ function previousLines(p) {
  * line), `previous` the page before this one (previousPage(); default: the record installPageRecord read, null in tests
  * that do not install it).
  * @param {{ state: any, env?: any, settings?: any, battle?: any, entries?: any[], dropped?: number, total?: number,
- *   now?: number, pageStart?: number, version?: string, render?: any, renderEvents?: any[], mounts?: any[], resources?: any[],
+ *   now?: number, pageStart?: number, version?: string, render?: any, renderEvents?: any[], mounts?: any[], resources?: any[] | null,
  *   perf?: string[], resourceStatus?: any, previous?: any, hides?: { count: number, from: number|null, to: number|null } }} input
  */
 export function buildDiagnostics(input) {

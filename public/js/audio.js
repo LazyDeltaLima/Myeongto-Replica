@@ -56,6 +56,14 @@ import { PHASE, PREBUILT_INTERVAL, UF } from '../../shared/constants.js';
 import { enemyRecordMode } from '../../shared/skill-modes.js'; // 2026-10-23: an ally from an enemy record (炎佑)
 import { mediaUrl } from './media.js';
 import { officialGain, groupGain, battleGain, modeEntry, BATTLE_GROUP, VOICE_GAIN, startSkillLoop, stopSkillLoop, stopSkillLoops, skillLoopOf, loopGain, stopUnitLoops, skillExtrasOf, castCuesOf, skillBeginOf, dollSwitchSfx, bankPlayOf, playPitch, skillEndOf, modeOn, roleGroup, cueSetOf, cueAbility, pickVariant, cuesAt, cueFile } from './audioOfficial.js'; // local patch: official mix + skill-mode sounds + skill loops / extras + bank play values
+/**
+ * @typedef {{ [key: string]: any }} SoundUnit a tracked battle unit (AudioManager._track: def, defId, kind, side, skillIndex …)
+ *   and what the event handlers keep on it, read field by field
+ * @typedef {{ [key: string]: any } | null | undefined} FxExtra a sim fx event's extra (its 5th field)
+ * @typedef {(id: unknown) => (SoundUnit | undefined)} UnitOf the tracked unit of a battle unit id
+ * @typedef {{ volume?: number, rate?: number | null, limited?: boolean, bank?: string | null, unitKey?: string | number | null,
+ *   pop?: { max: number, pop?: boolean } | null, delay?: number | null, channel?: string | null }} PlayOpts AudioManager._play's
+ */
 import { holdSnapshot, sfxOut, snapshotHookOf } from './audioSnapshot.js'; // local patch: mixer snapshots (归溟幽灵鲨's 替身 switch)
 
 /**
@@ -115,6 +123,7 @@ const SPINE_AUDIO_EVENT = /^OnPlayAudio(?:_[1-3])?$/;
  * The `sfx.kit` key of a 卫戍协议 template effect (sim status event 'tplfx') whose buff carries an `audioSignal`, played
  * as it starts (bank battle.ON_BUFF_START.<signal>). The mode's templates have one: 卡西米尔 [ex]'s [ex_damage_effect].
  */
+/** @type {Readonly<Record<string, string>>} */
 export const TPL_FX_SOUNDS = Object.freeze({ common_071_bond_kazimierz_hit_01_new: 'kazimierz:ex' });
 /** 昆图斯's 物种爆发: dslily_doom[effect] lasts 3.2 s from the Doom's ON_SPELL_ON and triggers every 1 s (its BuffData). */
 const DSLILY_DOOM_TICKS = Object.freeze([1, 2, 3]);
@@ -127,6 +136,7 @@ const VTSK_RANGE_AFTER = 0.8;
  * The 'dmg' 9th field's moments whose buff template plays a sound on the target: 克莱门莎 T1's won roll, 酒神 S2's 本能的召唤 ticks, 引星棘刺 S2's
  * ticks (thorn2_s2_projectile_hit); 2026-11-07: 旅骨's ticks (S1 hbound_s_1[dot], S2 only the heavy enemies' hbound_s_2[heavy_damage]).
  */
+/** @type {Readonly<Record<string, string>>} */
 const MOMENT_SOUNDS = Object.freeze({
   'clemnt_t1[dice_damage]': 'clemnt:t1', 'phatm2_s_2[damage]': 'phatm2:s2dmg', thorn2_s2_damage: 'thorn2:s2hit',
   'hbound_s_1[dot]': 'hbound:s1dot', 'hbound_s_2[heavy_damage]': 'hbound:s2dot',
@@ -135,24 +145,32 @@ const MOMENT_SOUNDS = Object.freeze({
   makoto_s2_fear_aura_inst_kill: 'makoto:execute', 'makoto_s3_1_standin[phys]': 'makoto:s3phys', 'makoto_s3_1_standin[arts]': 'makoto:s3arts',
 });
 /** Skill abilities with `_fireAttackFinishEvent`: their ON_ABILITY_ATTACK_FINISH as the end clip starts (docs/rules/audio.md 「스킬 시전 능력 소리」). */
+/** @type {Readonly<Record<string, Readonly<Record<number, string>>>>} */
 const ATTACK_FINISH_SOUNDS = Object.freeze({ char_388_mint: Object.freeze({ 1: 'mint:s2end' }), char_484_robrta: Object.freeze({ 1: 'robrta:s2end' }) });
+/** @type {Readonly<Record<string, string>>} */
 const REBORN_SOUNDS = Object.freeze({ enemy_1512_mcmstr: 'mcmstr:reborn' });
+/** @type {Readonly<Record<string, string>>} */
 const STATUE_SOUNDS = Object.freeze({ enemy_1172_dugago: 'dugago:reborn', enemy_1172_dugago_2: 'dugago:reborn' });
+/** @type {Readonly<Record<string, string>>} */
 const REVIVE_SOUNDS = Object.freeze({
   enemy_1288_duskls: 'duskls:revive', enemy_1288_duskls_2: 'duskls:revive', enemy_1292_duskld: 'duskld:revive', enemy_9010_acpupp: 'acpupp:revive',
 });
 /** An enemy's kit buff whose end sounds: 喷气人's flight (ab:takeoff) ends into balloon_s[land] (its audioSignal). */
+/** @type {Readonly<Record<string, Readonly<Record<string, string>>>>} */
 const ENEMY_STATUS_OFF_SOUNDS = Object.freeze({ enemy_2004_balloon: Object.freeze({ 'ab:takeoff': 'balloon:land' }) });
+/** @param {string} key @param {string} holderDef */
 export function enemyStatusOffSound(key, holderDef) { return ENEMY_STATUS_OFF_SOUNDS[holderDef]?.[key] ?? null; }
 /**
  * 2026-11-12, docs/rules/audio.md 「원소 폭발 소리」: the `sfx.kit` keys of an element burst (sim fx 'burst' { id, element }) as it
  * starts, by the sim's element (burn 灼燃 = FIRE, erosion 侵蚀 = WATER, neural 神经损伤 = SANITY, apoptosis 凋亡 = DARK, rampage
  * 狂躁 = ANGER). Both sides sound, except an operator's 狂躁 (ep_break_anger_char creates no buff with a signal).
  */
+/** @type {Readonly<Record<string, readonly string[]>>} */
 const BURST_SOUNDS = Object.freeze({
   burn: Object.freeze(['ep:fire', 'ep:fireshow']), erosion: Object.freeze(['ep:water']), neural: Object.freeze(['ep:sanity']),
   apoptosis: Object.freeze(['ep:dark']), rampage: Object.freeze(['ep:anger']),
 });
+/** @param {FxExtra} ex @param {UnitOf} unitOf */
 export function elementBurstSounds(ex, unitOf) {
   const keys = ex && BURST_SOUNDS[ex.element];
   if (!keys) return [];
@@ -163,18 +181,21 @@ export function elementBurstSounds(ex, unitOf) {
  * as it falls (enemy_vampires[bloodsucker_summon] — 战士 / 工匠 / 链术师 / 集恨者 —, enemy_dthrow_summon[dzoms] — 轰击者 /
  * 责罚者; EN client prefabs), not when the summon comes `delay` s later.
  */
+/** @type {Readonly<Record<string, string>>} */
 const REBORN_SUMMON_SOUNDS = Object.freeze({
   enemy_1222_dpvt: 'bloodsucker:summon', enemy_1222_dpvt_2: 'bloodsucker:summon', enemy_1223_dmech: 'bloodsucker:summon',
   enemy_1223_dmech_2: 'bloodsucker:summon', enemy_1225_dkmage: 'bloodsucker:summon', enemy_1225_dkmage_2: 'bloodsucker:summon',
   enemy_1226_dklord: 'bloodsucker:summon', enemy_1226_dklord_2: 'bloodsucker:summon',
   enemy_1361_dthrow: 'dzoms:summon', enemy_1361_dthrow_2: 'dzoms:summon', enemy_1362_dfat: 'dzoms:summon', enemy_1362_dfat_2: 'dzoms:summon',
 });
+/** @param {string} def @param {string | null} reason */
 export function knockOutSound(def, reason) { return reason === 'killed' ? REBORN_SUMMON_SOUNDS[def] ?? null : null; }
 const MNCTUR = /^enemy_10163_mnctur/;
 /**
  * 2026-11-12: 神勇的帕拉杜利斯's charge ending (sim fx 'enemySkill' rushEndNormal): its collision's sound when it struck a unit
  * in this batch (its 'dmg', 6th field = the attacker — in Run it has no attack, so its only damage is the collision; the
  * sim plays rushEndNormal right after it), none when it reached the spot with nobody met.
+ * @param {FxExtra} ex @param {UnitOf} unitOf @param {unknown} batch the batch's events
  */
 export function mncturHitSound(ex, unitOf, batch) {
   if (!ex || ex.ability !== 'rushEndNormal' || !MNCTUR.test(unitOf(ex.id)?.def || '') || !Array.isArray(batch)) return null;
@@ -187,10 +208,11 @@ export function mncturHitSound(ex, unitOf, batch) {
  * war song, a hand of 假想敌：胄 shot down, “余音”'s ensembles · pulse · hit switch, 昆图斯's and “萨米的意志”'s dooms; 灼藤's
  * first burst, “萨科塔之眼”'s bullet theft, “帝国的甲胄”'s barrage range.
  * @returns {([string, number|null]|[string, null, number])[]} a third field: once per unit, `n` units
+ * @param {string} fx @param {FxExtra} ex @param {UnitOf} unitOf
  */
 export function enemyBuffSounds(fx, ex, unitOf) {
   if (!ex || typeof ex !== 'object') return [];
-  const def = (id) => unitOf(id)?.def || '';
+  const def = (/** @type {unknown} */ id) => unitOf(id)?.def || '';
   switch (fx) {
     case 'liberate': return ex.forced ? [['liberty:force', null], ['liberty:state', null]] : [['liberty:state', null]];
     case 'equip': return ex.kind === 'pickup' ? [['vtmstr:equip', null]] : [];
@@ -256,10 +278,11 @@ const MCNIST_CROSS_AFTER = 0.8;
  * [추정·CN: no client node found carrying the signal — sounded once, as the cross lands]); 염괴포 taking an enemy aboard (`cannon`
  * carry 1: cnnon_carry_enemy's audioSignal — the 规程 shot EnemyCannon00D and its _small_death shell have no banks).
  * @returns {[string, number|null][]}
+ * @param {string} fx @param {FxExtra} ex @param {UnitOf} unitOf
  */
 export function seasonSounds(fx, ex, unitOf) {
   if (!ex || typeof ex !== 'object') return [];
-  const def = (id) => unitOf(id)?.def || '';
+  const def = (/** @type {unknown} */ id) => unitOf(id)?.def || '';
   switch (fx) {
     case 'telegraph': return ex.kind === 'nsbomb' ? [['nsbomb:drop', null]] : [];
     case 'explode': return ex.kind === 'nsbomb' ? [['nsbomb:reach', null]] : [];
@@ -293,6 +316,7 @@ const MAKOTO_AT = Object.freeze({ gun: 1, range: 1.99, s3gun: 0.5, s3range: 1.49
  * makoto[switch2normal_allout]/AlloutAttack's start and makoto_talent_finish_01's flash and damage), S3 俄耳甫斯's heal
  * landing (`kitHit` makoto:heal: makoto_s3_2_be_healed ON_BUFF_FINISH PlayAudio).
  * @returns {[string, number|null][]}
+ * @param {string} fx @param {FxExtra} ex @param {SoundUnit | undefined} su
  */
 export function makotoSounds(fx, ex, su) {
   if (!ex || typeof ex !== 'object' || su?.def !== MAKOTO) return [];
@@ -312,6 +336,7 @@ const DOLL_FORM_FX = new Set(['substitute', 'persona', 'swap', 'dollEnd']);
  * picks it by the 结构性原理's deploy direction and its left / right facing (CheckFaceLOrR): UP → _up facing left, else
  * _up_right; DOWN → _down / _down_right; sideways → the plain one / _right. _up_right and _down_right have no banks (zh_CN
  * audio_data), so an up / down charge facing right is silent.
+ * @param {Record<string, any>} ex
  */
 export function mcnistChargeSounds(ex) {
   return !((ex.dir === 'UP' || ex.dir === 'DOWN') && !ex.left);
@@ -321,6 +346,7 @@ export function mcnistChargeSounds(ex) {
  * skill (sfx.units[def].sk key). 破城者's SkyProjectile: a sequence whose MultiRangedAttack (child 2, ON SkyProjectile.2)
  * fires each missile; its START (child 1) as it is cast.
  */
+/** @type {Readonly<Record<string, string>>} */
 const ENEMY_SHOT_SKILLS = Object.freeze({ uareapMissile: 'skyprojectile' });
 const ENEMY_SHOT_OF = Object.freeze(Object.fromEntries(Object.entries(ENEMY_SHOT_SKILLS).map(([k, v]) => [v, k])));
 /**
@@ -329,6 +355,7 @@ const ENEMY_SHOT_OF = Object.freeze(Object.fromEntries(Object.entries(ENEMY_SHOT
  * templates): her S1 屏障 tocka_s1[shield], S2 attack speed tocka_s2[auto_skill], S3 ATK tocka_s3[bonus] (on the ally and
  * on her) — the SHOW_EFFECT banks too: Entity.OnBuffStart → AddBuffEffect sounds them at the buff's start.
  */
+/** @type {Readonly<Record<string, string>>} */
 const STATUS_SOUNDS = Object.freeze({
   'tocka:shield': 'tocka:s1shield', 'tocka:auto': 'tocka:s2auto', 'tocka:bonus': 'tocka:s3bonus',
   // 2026-11-12: 假想敌：镜眼's slow on an arts attacker (acrefm[atk-spd-down], EXTEND: a refresh is no new start — nor here, the
@@ -340,10 +367,12 @@ const STATUS_SOUNDS = Object.freeze({
  * it reaches (aglna2_s_2[enemy] CreateBuff audioSignal …[levitate] / …[ground_bound]) [하한: an enemy already 浮空 / 缚地 when
  * it is reached sends no new 'status', and stays silent].
  */
+/** @type {Readonly<Record<string, Readonly<Record<string, string>>>>} */
 const SOURCE_STATUS_SOUNDS = Object.freeze({ char_1015_aglna2: Object.freeze({ levitate: 'aglna2:levitate', groundbind: 'aglna2:groundbind' }) });
+/** @param {string} key @param {string | null} [sourceDef] */
 export function statusSoundKey(key, sourceDef = null) {
   if (typeof key !== 'string') return null;
-  return STATUS_SOUNDS[key] ?? STATUS_SOUNDS[key.replace(/:\d+$/, '')] ?? SOURCE_STATUS_SOUNDS[sourceDef]?.[key] ?? null;
+  return STATUS_SOUNDS[key] ?? STATUS_SOUNDS[key.replace(/:\d+$/, '')] ?? SOURCE_STATUS_SOUNDS[/** @type {string} */ (sourceDef)]?.[key] ?? null;
 }
 
 /**
@@ -354,7 +383,7 @@ export function statusSoundKey(key, sourceDef = null) {
  */
 export function kitHitKey(fx, ex, unitOf) {
   if (!ex || typeof ex !== 'object') return null;
-  const def = (id) => unitOf(id)?.def || '';
+  const def = (/** @type {unknown} */ id) => unitOf(id)?.def || '';
   switch (fx) {
     case 'kitHit': return typeof ex.k === 'string' ? ex.k : null;
     // local patch (maintainer report 2026-10-07): S1's impact is its DoT's (kitHit wang:1, every tick — client
@@ -422,7 +451,7 @@ export function kitHitKey(fx, ex, unitOf) {
       // attached projectile (`lock`), a roaming one's pulse its cruise projectile
       if (u?.def === 'char_4013_kjera') return ex.i === 0 ? 'kjera:s2' : null;
       if (u?.def === 'char_1038_whitw2' && u.skillIndex === 2 && ex.lock) return 'whitw2:s3lock';
-      return u?.def === 'char_1038_whitw2' && Number.isInteger(u.skillIndex) ? `whitw2:s${u.skillIndex + 1}` : null;
+      return u?.def === 'char_1038_whitw2' && Number.isInteger(u.skillIndex) ? `whitw2:s${/** @type {number} */ (u.skillIndex) + 1}` : null;
     }
     // 2026-10-29: 荒芜拉普兰德 S3 — a roaming wolf marks the enemy it found (whitw2_find_target_mark, its show effect)
     case 'droneLock': return def(ex.src) === 'char_1038_whitw2' ? 'whitw2:mark' : null;
@@ -486,12 +515,13 @@ export function kitHitKey(fx, ex, unitOf) {
  * S3 landing — the respawn's RespawnBorn buff (beside the flight's REACH); 本能的召唤's attract ability on each enemy it lures.
  * @param {(id: any) => ({ def?: string }|undefined)} [unitOf] the tracked unit of an id
  * @returns {string|null} sfx.kit key
+ * @param {string} fx @param {FxExtra} ex @param {UnitOf} [unitOf]
  */
 export function kitStartKey(fx, ex, unitOf = () => undefined) {
   if (!ex || typeof ex !== 'object') return null;
   if (fx === 'zone' && ex.token === 'token_10064_wang_stone1' && [1, 2, 3].includes(ex.skill)) return ex.follower && ex.skill === 2 ? 'wang:2fs' : `wang:${ex.skill}s`;
   if (fx === 'summon' && ex.follower) return 'wang:thrown';
-  const def = (id) => unitOf(id)?.def || '';
+  const def = (/** @type {unknown} */ id) => unitOf(id)?.def || '';
   if (fx === 'burst' && def(ex.id) === 'token_10035_wisdel_wward') return 'wisdel:tokenon';
   if (fx === 'teleport' && def(ex.id) === 'char_1052_kalts2') return 'kalts2:respawn';
   if (fx === 'lure' && def(ex.src) === 'token_10054_phatm2_encdool') return 'phatm2:lure';
@@ -505,18 +535,20 @@ export function kitStartKey(fx, ex, unitOf = () => undefined) {
  * and the projectile's ON_PROJECTILE_HIT (e_imp_grenade_n) — the client's HIT signals are per unit hit (each bank keeps 2 at
  * once, popOldest); a shell that hits nobody is silent (the projectile has no REACH bank).
  */
-const emppnt = (u) => typeof (u?.defId ?? u?.def) === 'string' && (u.defId ?? u.def).startsWith('enemy_1112_emppnt');
+const emppnt = (/** @type {SoundUnit | undefined} */ u) => typeof (u?.defId ?? u?.def) === 'string' && (/** @type {SoundUnit} */ (u).defId ?? /** @type {SoundUnit} */ (u).def).startsWith('enemy_1112_emppnt');
 /**
  * 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: the sfx.kit keys of a talent's own attack — sim 'atk' 5th field `signal`
  * (Battle.forceAttack, docs/SIM.md) — of unit model `def`, played instead of its normal attack's cues, or null. 이그제큐터 디 엑스
  * 포에데레's 受选之人 extra shot: ON_ABILITY_START.char_1032_excu2.T.1 (the ability has no ON / HIT bank). 2026-10-30: 크루스 더 킨
  * 글린트's 中的 shot (outside her skills): ON_ABILITY_ON.char_1021_kroos2.T.1 at its strike (its START at the swing:
  * talentSwingKeys; its arrow projectile_chr_kroos2_2 has no HIT bank).
+ * @param {string} def @param {string} signal
  */
 export function talentAttackKeys(def, signal) {
   if (typeof signal !== 'string' || !signal) return null;
   return TALENT_ATTACK_KEYS[def]?.[signal] ?? null;
 }
+/** @type {Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>} */
 const TALENT_ATTACK_KEYS = Object.freeze({
   char_1032_excu2: Object.freeze({ 'T.1': Object.freeze(['excu2:t1']) }),
   char_1021_kroos2: Object.freeze({ 'T.1': Object.freeze(['kroos2:t1']) }),
@@ -527,11 +559,13 @@ const TALENT_ATTACK_KEYS = Object.freeze({
  * 2026-10-30, docs/rules/audio.md 「재능·소환물 능력 소리」: the sfx.kit keys a talent ability sounds as its swing starts — sim
  * 'swing' 9th field `signal` (the client casts it in place of the attack, chosen at the cast start: its START,
  * AbilityStandard.OnCastStart) — or null. 크루스 더 킨 글린트's 中的: ON_ABILITY_START.char_1021_kroos2.T.1.
+ * @param {string} def @param {string} signal
  */
 export function talentSwingKeys(def, signal) {
   if (typeof signal !== 'string' || !signal) return null;
   return TALENT_SWING_KEYS[def]?.[signal] ?? null;
 }
+/** @type {Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>} */
 const TALENT_SWING_KEYS = Object.freeze({ char_1021_kroos2: Object.freeze({ 'T.1': Object.freeze(['kroos2:t1s']) }) });
 /**
  * 2026-10-11, docs/rules/audio.md 「재능·소환물 능력 소리」: the prefab mode a summon attacks in (`sfx.units[def].tm[name]`) — 뮤엘시스's
@@ -552,6 +586,7 @@ export function tokenModeName(su, owner) {
  * mlyss_s_3[range_audio] — mlyss_s_3[buff] gives each of her 流形 mlyss_s_3[token_range_trigger], which creates that audio buff
  * on a ranged copy (mlyss_wtrman_range[mark]) that is no split one (mlyss_wtrman_summon[override]); the bank sounds once
  * at a time (maxSoundAllowed 1, no popOldest). `units` are the tracked units (`tby` her id, `tmode`, `split`, `gone`).
+ * @param {SoundUnit | undefined} su @param {unknown} id @param {Map<unknown, SoundUnit>} units
  */
 export function mlyssS3Range(su, id, units) {
   if (su?.def !== 'char_249_mlyss' || su.skillIndex !== 2) return false;
@@ -564,6 +599,7 @@ export function mlyssS3Range(su, id, units) {
  * strike sounds horn_s_<n>[overload|normal][melee|ranged].attack (buff template horn_s_<n>[signal_melee|signal_ranged], event
  * ON_ABILITY_SPELL_ON); 락락 S2: rockr_s2_common_attack_start / _hit (+ _overload) at the strike / impact. `su.over` = the
  * running skill's 过载 (sim fx 'overload', signalFxKey).
+ * @param {SoundUnit | undefined} su @param {string} at @param {boolean} melee
  */
 export function signalAttackKey(su, at, melee) {
   if (!su || !su.skillOn) return null;
@@ -589,6 +625,7 @@ export function signalAttackKey(su, at, melee) {
  * `su`'s attack that a skill prefab shoots with another projectile — 至简 S2's second shot (skchr_malist_2
  * `_additionalProjectile` projectile_chr_malist_s2_2; the first, …_s1s2, has no bank) — or null. `skill`: the skill the swing
  * was cast under (a charge skill ends on its strike, before the shot lands).
+ * @param {SoundUnit | undefined} su @param {number} h @param {number | null} [skill]
  */
 export function strikeImpactKey(su, h, skill = su?.skillOn ? su.skillIndex : null) {
   if (su?.def === 'char_4054_malist' && skill === 1 && h === 1) return 'malist:s2';
@@ -601,16 +638,20 @@ export function strikeImpactKey(su, h, skill = su?.skillOn ? su.skillIndex : nul
  * 驭械术师 `su` — the Default mode's Funnel projectile HIT (至简's has no bank), or null. During a skill: the mode the skill runs
  * in (2026-11-04, official client): 耶拉 and 洛洛's S1 have no mode of their own, the Default's Funnel; 荒芜拉普兰德's S1 mode has
  * S1Funnel1–3, of which only _s1_1 has a bank; her S2 (_s2_1–6) and 洛洛's S2 (S2Funnel) have no HIT bank.
+ * @param {SoundUnit} su
  */
 export function funnelHitKey(su) {
   if (!su) return null;
   return su.skillOn ? FUNNEL_SKILL_HIT_KEYS[su.def]?.[su.skillIndex] ?? null : FUNNEL_HIT_KEYS[su.def] ?? null;
 }
+/** @type {Readonly<Record<string, string>>} */
 const FUNNEL_HIT_KEYS = Object.freeze({ char_4013_kjera: 'kjera:funnel', char_1038_whitw2: 'whitw2:funnel', char_4040_rockr: 'rockr:funnelN' });
+/** @type {Readonly<Record<string, Readonly<Record<number, string>>>>} */
 const FUNNEL_SKILL_HIT_KEYS = Object.freeze({ char_4013_kjera: Object.freeze({ 0: 'kjera:funnel' }), char_1038_whitw2: Object.freeze({ 0: 'whitw2:funnelS1' }), char_4040_rockr: Object.freeze({ 0: 'rockr:funnelN' }) });
 /**
  * 2026-10-29: 溯光星源 S3's LinkEnemy — each enemy newly linked this skill run (fx 'link' `ids`) takes halo2_s_3_link, whose
  * audioSignal sounds (ON_BUFF_START): how many plays, remembered on her tracked unit (`haloLinked`, cleared as the skill starts).
+ * @param {SoundUnit | undefined} su @param {unknown} ids
  */
 export function haloLinkCount(su, ids) {
   if (su?.def !== 'char_1047_halo2' || su.skillIndex !== 2 || !su.skillOn || !Array.isArray(ids)) return 0;
@@ -623,6 +664,7 @@ export function haloLinkCount(su, ids) {
  * 2026-10-10, docs/rules/audio.md 「버프·커스텀 트리거 소리」: the buff / custom-trigger sound a kit's fx stands for (an sfx.kit
  * key) — the 过载 start of 혼 S2 / S3 (horn_s_<n>[overload_start]) and 락락 S2 (rockr_overload_start), 티티 S3's wake-up burst on
  * an enemy (titi_s_3[awake]; 歌蕾蒂娅's own 'wake' names herself, no enemy), 圣聆初雪's snow tiles (snowRefreshed).
+ * @param {string} fx @param {FxExtra} ex @param {UnitOf} unitOf
  */
 export function signalFxKey(fx, ex, unitOf) {
   if (!ex || typeof ex !== 'object' || ex.id == null) return null;
@@ -708,6 +750,7 @@ export function signalFxKey(fx, ex, unitOf) {
  * [full] is there, 1 charge creates [half] (billro_s_N_reach_half) unless [half] is there, 0 finishes them; while the skill
  * runs it keeps [half] (and with every charge stored [full]) without a sound. `n` is the kit's 'charges' (-1 while it runs,
  * `full` = a charged cast); which buffs she holds is kept on her audio record `u`.
+ * @param {SoundUnit} u @param {number} n @param {boolean} [full]
  */
 export function billroChargeKey(u, n, full = false) {
   const st = (u.bstage ||= { full: false, half: false });
@@ -724,6 +767,7 @@ export function billroChargeKey(u, n, full = false) {
  * lumen_s_2[eff_cond] (every 0.1 s): 1 charge creates [effect1] (audioSignal gnosis_s_2[audio1] / lumen_s_2[audio1]) unless
  * held, 2 charges replace it by [effect2] ([audio2]) unless held; a cast clears both (*_enhance_judge), and 流明's 0 charges
  * too. `n` is the kit's 'charges' (-1 at a cast); the stage she holds is kept on her audio record `u`.
+ * @param {SoundUnit} u @param {number} n
  */
 export function chargeStageKey(u, n) {
   const s = u.def === 'char_206_gnosis' ? 'gnosis' : 'lumen';
@@ -738,6 +782,7 @@ export function chargeStageKey(u, n) {
  * one back in her orbit, CoolDownAfterHitBehaviour's ON_CUSTOM_TRIGGER <projectile>_cooldown_ready) — the projectile of the
  * running skill: projectile_chr_cetsyr_talent_s1 / _s2 / _s3 under S1 / S2 / S3, else projectile_chr_cetsyr_talent (S3's
  * has no cooldown_ready bank: its motes never leave). `u` is her tracked unit.
+ * @param {SoundUnit | undefined} u @param {string} at
  */
 export function cetsyrMoteKey(u, at) {
   if (u?.def !== 'char_4134_cetsyr') return null;
@@ -748,6 +793,7 @@ export function cetsyrMoteKey(u, at) {
 /**
  * 2026-11-03: how many of 魔王's 微尘 came back since her last 'motes' (`n` of `cap`, skill look `sk`), remembered on her
  * tracked unit `u` (a new deployment starts over: 'deploy' clears it); a change of cap or look is no return.
+ * @param {SoundUnit | undefined} u @param {FxExtra} ex
  */
 export function motesBack(u, ex) {
   if (u?.def !== 'char_4134_cetsyr' || !ex) return 0;
@@ -759,6 +805,7 @@ export function motesBack(u, ex) {
  * 2026-11-03: the per-enemy sound of a kit blast (fx 'aoe' with `n` = the enemies it hit) — 菲莱 S2's philae_s_2[ep] on each
  * enemy (audioSignal philae_aoe_hit), a redeployed operator's 凛御银灰 S2 slash: its AOEDamage `_buffs` svash2_s_2[signal]
  * (audioSignal svash2_s_2[hit]) on each enemy, 斥罪 S2's pulse: judge_s_2[audio] on each enemy — or null.
+ * @param {FxExtra} ex @param {UnitOf} unitOf
  */
 export function aoeHitKey(ex, unitOf) {
   if (!ex || !(Number(ex.n) > 0)) return null;
@@ -772,6 +819,7 @@ export function aoeHitKey(ex, unitOf) {
  * 2026-11-03: the sound tracked unit `su`'s strike starts that sounds later — 蕾缪安's attacks outside her S3 (charpack
  * Modes/Default/Body/Attack and Modes/S2/Body/M2Attack/Normal: BuffToOwner on ON_SPELL_END of lemuen_attack_end_audio, 0.76 s,
  * whose bank is its ON_BUFF_FINISH) — { key, after } (s) or null. Her S2 aim is no 'atk' (its own channel).
+ * @param {SoundUnit | undefined} su
  */
 export function strikeAfterKey(su) {
   if (su?.def === 'char_4193_lemuen' && (!su.skillOn || su.skillIndex === 1)) return LEMUEN_ATTACK_END;
@@ -779,12 +827,13 @@ export function strikeAfterKey(su) {
 }
 const LEMUEN_ATTACK_END = Object.freeze({ key: 'lemuen:atkend', after: 0.76 });
 /** 圣聆初雪's tile effect by snow layers (render/fx/kitofficial.js SNOW_GROUND: 1 → _01, 2–4 → _02, 5 → _03; 0 none). */
-const snowBand = (L) => (L >= 5 ? 3 : L >= 2 ? 2 : L >= 1 ? 1 : 0);
+const snowBand = (/** @type {number} */ L) => (L >= 5 ? 3 : L >= 2 ? 2 : L >= 1 ? 1 : 0);
 /**
  * 2026-10-16, docs/rules/fx.md 「키트 이벤트의 공식 이펙트」: whether a 'snow' event's `cells` [[x, y, layers]…] create a tile
  * effect anew — AttachListenerToTileAbility `_HoldCastedEffectOnTile` plays its `_audioSignal` (sbell2_snow_refresh_audio, at
  * her) after each effect it creates, not when the tile keeps its prefab nor when a tile empties. The tiles' effects are
  * kept on her audio record `u` (a new one per deployment, as the client clears them when she leaves).
+ * @param {SoundUnit} u @param {unknown} cells
  */
 export function snowRefreshed(u, cells) {
   if (!u || !Array.isArray(cells)) return false;
@@ -821,6 +870,7 @@ const RELOAD_CHILD = 'Reload';
  * Keyed by model, then skill index; '' = no sound here, the kit's own event sounds it (圣聆初雪 S2: her snow ticks and the
  * talent's entry damage, kitHit 'sbell2:s2dot' / 'sbell2:enter' — buff damage, no ability HIT).
  */
+/** @type {Readonly<Record<string, Readonly<Record<number, string>>>>} */
 const SKILL_DAMAGE_KEYS = Object.freeze({ char_4010_etlchi: Object.freeze({ 1: 'etlchi:s2' }), char_1046_sbell2: Object.freeze({ 1: '' }),
   // 2026-10-29: 克莱门莎 S3's shells — clemnt_s3[rocket_damage]'s buff damage (no ability HIT; their sound is 'clemnt:s3hit')
   char_4231_clemnt: Object.freeze({ 2: '' }),
@@ -835,7 +885,10 @@ const SKILL_DAMAGE_KEYS = Object.freeze({ char_4010_etlchi: Object.freeze({ 1: '
   // 2026-11-17: 水灯心 S2's cuts are brigid_s2[cut]'s buff damage (ON_BUFF_TRIGGER: AdvancedApplyDamage, then PlayAudio
   // brigid_s2_cut_audio — the kit's 'brigid:cut'); no projectile or ability HIT, so no mode impact on top of it
   char_4177_brigid: Object.freeze({ 1: '' }) });
-/** The sfx.kit key of unit model `def`'s skill damage during skill `skillIndex` (SKILL_DAMAGE_KEYS: '' silent), or null. */
+/**
+ * The sfx.kit key of unit model `def`'s skill damage during skill `skillIndex` (SKILL_DAMAGE_KEYS: '' silent), or null.
+ * @param {string} def @param {number} skillIndex
+ */
 export function skillDamageKey(def, skillIndex) {
   return SKILL_DAMAGE_KEYS[def]?.[skillIndex] ?? null;
 }
@@ -843,6 +896,7 @@ export function skillDamageKey(def, skillIndex) {
  * 2026-10-22, docs/rules/audio.md 「지속 피해 틱」: the sfx.kit key of a damage-over-time tick (the 'dmg' 7th field) of unit
  * model `def`, or null — the ticks whose buff plays a sound: 锡人's alchemy unit (tinman_s_2[buff] ON_BUFF_TRIGGER on each
  * enemy inside: PlayAudio tinman_s_2[audio], then the damage). Every other tick stays silent.
+ * @param {string} def
  */
 export function dotTickKey(def) {
   return def === 'char_4151_tinman' ? 'tinman:s2' : null;
@@ -939,7 +993,7 @@ export function combatTrackFor(round) {
  * 'enemy' | 'char' (operators: b_char_dead “干员被击倒” / b_char_set) | 'token' (summons: b_char_tokendead /
  * b_char_tokenset) | 'device' (stage devices: the act crate trap_1105 dies with b_char_tokendead, no born sound).
  * Band map characters (预备干员-医疗 / Touch, `char_*` ids) are characters although the sim runs them as tokens.
- * @param {{ side?: string, kind?: string, defId?: string, def?: string, walks?: boolean }|null} info tracked unit (UnitInfo subset)
+ * @param {{ side?: string, kind?: string|null, defId?: string|null, def?: string, walks?: boolean }|null} info tracked unit (UnitInfo subset)
  */
 export function unitSoundClass(info) {
   if (!info) return 'char';
@@ -960,17 +1014,22 @@ export function unitSoundClass(info) {
  * 2026-11-11: the ability a walking ally's form switch casts, by the form it switches to (sim fx 'phase' `form`) —
  * 谢拉格's giant 不眠雪山 (CN prefab enemy_9024_acsgnt: Switch2Snowy into SnowyMountain, Switch2Giant back).
  */
+/** @type {Readonly<Record<string, Readonly<Record<string, string>>>>} */
 const WALKER_SWITCH = Object.freeze({ enemy_9024_acsgnt: Object.freeze({ SnowyMountain: 'switch2snowy', Giant: 'switch2giant' }) });
 /** 假想敌：鳍 (隐秘核心): its storm talent's sound as it comes (AudioManager 'spawn'). */
 const ACEEL_STORM = 'enemy_9037_aceel_2';
 
+/** @param {any} mgr the AudioManager @param {unknown} id */
 function shellFalls(mgr, id) {
   const m = (mgr._shellFalls ||= new Map());
   if (!m.has(id)) m.set(id, []);
   return m.get(id);
 }
 
-/** URL of the generic token death sound (b_char_tokendead): sfx.battle.tokenDie, else next to charDie. */
+/**
+ * URL of the generic token death sound (b_char_tokendead): sfx.battle.tokenDie, else next to charDie.
+ * @param {any} manifest data/assets.json
+ */
 function tokenDieUrl(manifest) {
   const b = manifest?.audio?.sfx?.battle;
   if (typeof b?.tokenDie === 'string') return b.tokenDie;
@@ -991,7 +1050,7 @@ export function deathSfxUrl(manifest, info, { consumed = false, reason = null } 
   if (!info || consumed) return null;
   const cls = unitSoundClass(info);
   if (cls === 'char' && reason && reason !== 'killed') return null;
-  const own = manifest?.audio?.sfx?.units?.[info.def]?.die;
+  const own = manifest?.audio?.sfx?.units?.[/** @type {string} */ (info.def)]?.die;
   if (typeof own === 'string') return own;
   const b = manifest?.audio?.sfx?.battle ?? {};
   if (cls === 'enemy') return (info.boss ? b.enemyDieHeavy : null) ?? b.enemyDie ?? null;
@@ -1003,10 +1062,11 @@ export function deathSfxUrl(manifest, info, { consumed = false, reason = null } 
  * Deployment sound of an allied unit ('deploy' event): its own ON_UNIT_BORN sound, else operators b_char_set
  * (sfx.battle.deploy), summons b_char_tokenset (tokenDeploy); stage devices have none.
  * @returns {string|null}
+ * @param {any} manifest data/assets.json @param {Parameters<typeof unitSoundClass>[0]} info
  */
 export function deploySfxUrl(manifest, info) {
   if (!info || info.side === 'enemy') return null;
-  const own = manifest?.audio?.sfx?.units?.[info.def]?.born;
+  const own = manifest?.audio?.sfx?.units?.[/** @type {string} */ (info.def)]?.born;
   if (typeof own === 'string') return own;
   const b = manifest?.audio?.sfx?.battle ?? {};
   const cls = unitSoundClass(info);
@@ -1027,8 +1087,8 @@ export function deploySfxUrl(manifest, info) {
 export function unitDub(entry, kind, skillIndex, lang, random = Math.random) {
   if (typeof lang !== 'string' || lang === 'off') return null;
   const d = entry?.dub?.[lang];
-  const e = kind === 'born' ? d?.born : kind === 'skill' && Number.isInteger(skillIndex) ? d?.skills?.[skillIndex] : null;
-  const list = (Array.isArray(e?.url) ? e.url : [e?.url]).filter((u) => typeof u === 'string' && u);
+  const e = kind === 'born' ? d?.born : kind === 'skill' && Number.isInteger(skillIndex) ? d?.skills?.[/** @type {number} */ (skillIndex)] : null;
+  const list = (Array.isArray(e?.url) ? e.url : [e?.url]).filter((/** @type {unknown} */ u) => typeof u === 'string' && u);
   return list.length ? list[Math.min(list.length - 1, Math.floor(random() * list.length))] : null;
 }
 
@@ -1051,16 +1111,17 @@ export function normalAttackSfx(defId, url) {
  */
 export function unitGain(base, mix) {
   const v = mix && Number(mix.vol);
-  return Number.isFinite(v) && v >= 0 ? base * Math.min(1, v) : base;
+  return Number.isFinite(v) && /** @type {number} */ (v) >= 0 ? base * Math.min(1, /** @type {number} */ (v)) : base;
 }
 
 /**
  * Whether a unit's own sound plays this time: its official bank's chance `mix.p` (sounds with a file over all the weights;
  * 猎狗pro's attack bank 20 of 100). `roll` ∈ [0, 1).
+ * @param {{ p?: number } | null | undefined} mix @param {number} roll
  */
 export function unitSoundPlays(mix, roll) {
   const p = mix && Number(mix.p);
-  return !(Number.isFinite(p) && p >= 0 && p < 1) || roll < p;
+  return !(Number.isFinite(p) && /** @type {number} */ (p) >= 0 && /** @type {number} */ (p) < 1) || roll < /** @type {number} */ (p);
 }
 
 /**
@@ -1070,6 +1131,7 @@ export function unitSoundPlays(mix, roll) {
  * above 作战中 (70) but below 接敌 (90), so a battle's last word is never cut off by an ordinary line. The four prep
  * slots (部署 / 编入队伍 / 任命队长 / 干员报到) keep their levels although the 休整期 is silent (see the header).
  */
+/** @type {Readonly<Record<string, number>>} */
 export const VOICE_PRIORITY = Object.freeze({
   start: 100, faceEnemy: 90,
   skill1: 70, skill2: 70, skill3: 70, skill4: 70,
@@ -1078,6 +1140,7 @@ export const VOICE_PRIORITY = Object.freeze({
 });
 
 /** Per-unit per-slot cooldowns (ms): the official 10 s of the 作战中 (passive skill) lines, 3 s between 接敌 lines. */
+/** @type {Readonly<Record<string, number>>} */
 export const VOICE_COOLDOWN_MS = Object.freeze({
   start: 0, faceEnemy: 3000,
   skill1: 10000, skill2: 10000, skill3: 10000, skill4: 10000,
@@ -1092,9 +1155,9 @@ export const VOICE_COOLDOWN_MS = Object.freeze({
  * @returns {'resultFour'|'resultThree'|'resultTwo'|'resultLose'}
  */
 export function resultVoiceSlot(o = {}) {
-  const leaked = Number.isFinite(o.leaked) ? o.leaked : 0;
-  const killed = Number.isFinite(o.killed) ? o.killed : 0;
-  const total = Number.isFinite(o.total) ? o.total : 0;
+  const leaked = Number.isFinite(o.leaked) ? /** @type {number} */ (o.leaked) : 0;
+  const killed = Number.isFinite(o.killed) ? /** @type {number} */ (o.killed) : 0;
+  const total = Number.isFinite(o.total) ? /** @type {number} */ (o.total) : 0;
   if (o.perfect) return o.hard ? 'resultFour' : 'resultThree';
   if (total > 0 && killed <= 0) return 'resultLose';
   if (leaked > 0) return 'resultTwo';
@@ -1169,7 +1232,7 @@ export class SfxLimiter {
     return slot;
   }
 
-  /** A sound started by acquire ended (or was cut). */
+  /** A sound started by acquire ended (or was cut). @param {{ key: string, cut: (() => void) | null, done: boolean } | null} slot */
   release(slot) {
     if (!slot || slot.done) return;
     slot.done = true;
@@ -1180,10 +1243,10 @@ export class SfxLimiter {
     if (list && !list.length) this.byBank.delete(slot.key);
   }
 
-  /** Sounds of bank `key` playing now. */
+  /** Sounds of bank `key` playing now. @param {string} key */
   count(key) { return this.byBank.get(key)?.length || 0; }
 
-  /** Cut every sound of bank `key` (playing or still loading). */
+  /** Cut every sound of bank `key` (playing or still loading). @param {string} key */
   cut(key) {
     for (const slot of [...(this.byBank.get(key) || [])]) { this.release(slot); try { slot.cut?.(); } catch { /* ignore */ } }
   }
@@ -1196,11 +1259,11 @@ export class SfxLimiter {
 export class VoiceGate {
   /** @param {{ gapMs?: number, preemptMargin?: number, maxUnits?: number }} [o] */
   constructor(o = {}) {
-    this.gapMs = Number.isFinite(o.gapMs) ? o.gapMs : VOICE_GAP_MS;
+    this.gapMs = Number.isFinite(o.gapMs) ? /** @type {number} */ (o.gapMs) : VOICE_GAP_MS;
     // a line only takes the channel over when its priority beats the playing one by this margin: an equal-priority
     // line (two 作战中 of different operators) waits for its turn instead of cutting the other off
-    this.preemptMargin = Number.isFinite(o.preemptMargin) ? o.preemptMargin : 10;
-    this.maxUnits = Number.isFinite(o.maxUnits) ? o.maxUnits : 400;
+    this.preemptMargin = Number.isFinite(o.preemptMargin) ? /** @type {number} */ (o.preemptMargin) : 10;
+    this.maxUnits = Number.isFinite(o.maxUnits) ? /** @type {number} */ (o.maxUnits) : 400;
     this.playing = null;      // { slot, pri } of the line on air
     this.lastAt = -Infinity;
     this.unitUntil = new Map();
@@ -1231,7 +1294,10 @@ export class VoiceGate {
     return 'play';
   }
 
-  /** Record a line that started (call right after request() answered play / preempt). */
+  /**
+   * Record a line that started (call right after request() answered play / preempt).
+   * @param {string} slot @param {string|number|null} unitKey @param {number} now
+   */
   start(slot, unitKey, now) {
     this.playing = { slot, pri: VOICE_PRIORITY[slot] ?? 0 };
     this.lastAt = now;
@@ -1438,6 +1504,7 @@ export class AudioManager {
     } catch { /* ignore */ }
   }
 
+  /** @param {string} key @param {any} err */
   _warn(key, err) {
     if (this.warned.has(key)) return;
     this.warned.add(key);
@@ -1450,7 +1517,7 @@ export class AudioManager {
    *   chatCooldown?: number }} v
    */
   setVolumes(v) {
-    const n = (x, d) => (Number.isFinite(x) ? Math.max(0, Math.min(1, x)) : d);
+    const n = (/** @type {number | undefined} */ x, /** @type {number} */ d) => (Number.isFinite(x) ? Math.max(0, Math.min(1, /** @type {number} */ (x))) : d);
     this.volumes = {
       bgm: n(v?.bgm, this.volumes.bgm),
       sfx: n(v?.sfx, this.volumes.sfx),
@@ -1459,7 +1526,7 @@ export class AudioManager {
       muted: typeof v?.muted === 'boolean' ? v.muted : this.volumes.muted,
     };
     if (typeof v?.chatSound === 'boolean') this.chatOn = v.chatSound;
-    if (Number.isFinite(v?.chatCooldown)) this.chatCooldown = Math.max(1, Math.min(5, Math.round(v.chatCooldown)));
+    if (Number.isFinite(v?.chatCooldown)) this.chatCooldown = Math.max(1, Math.min(5, Math.round(/** @type {number} */ (v.chatCooldown))));
     if (!this.chatOn || this.volumes.muted || this.volumes.chat <= 0) this.stopChatNotification();
     if (this.volumes.muted || this.volumes.sfx <= 0) this.stopBondCue();
     this._applyVolumes();
@@ -1481,7 +1548,7 @@ export class AudioManager {
     } catch { /* ignore */ }
   }
 
-  /** Fetch + decode (cached, LRU). Resolves null on failure. */
+  /** Fetch + decode (cached, LRU). Resolves null on failure. @param {string} url @returns {Promise<AudioBuffer | null>} */
   _buffer(url) {
     if (!this.ctx || typeof url !== 'string' || !url) return Promise.resolve(null);
     const hit = this.buffers.get(url);
@@ -1543,7 +1610,7 @@ export class AudioManager {
     }
   }
 
-  /** Preload a list of URLs (e.g. UI SFX) once unlocked. */
+  /** Preload a list of URLs (e.g. UI SFX) once unlocked. @param {unknown} urls */
   preload(urls) {
     if (!this.ctx) return;
     for (const u of Array.isArray(urls) ? urls : []) this._buffer(u);
@@ -1571,6 +1638,7 @@ export class AudioManager {
     } catch (err) { this._warn('bgm', err); }
   }
 
+  /** @param {string | null} key @param {{ intro?: string | null, loop: string }} track @param {number} token */
   async _startBgm(key, track, token) {
     const [intro, loop] = await Promise.all([track.intro ? this._buffer(track.intro) : null, this._buffer(track.loop)]);
     if (token !== this.bgmToken || !this.ctx || !loop) return;
@@ -1634,21 +1702,23 @@ export class AudioManager {
    * `limited` (battle) sound its bank's cap: `bank` names the bank (default: the URL), `pop` = a kit key's { max, pop }
    * when the table has no values for the file. `channel` holds a UI sound to its bank's cap the same way, under that key
    * (the bond layer-up cue, BOND_BANK).
+   * @param {string} url @param {PlayOpts} [o]
    */
   _play(url, { volume = 1, rate = null, limited = false, bank = null, unitKey = null, pop = null, delay: ownDelay = null, channel = null } = {}) {
     if (!this.ctx || !url || this.volumes.muted || this.volumes.sfx <= 0) return;
     const info = bankPlayOf(this.getManifest(), url) ?? (pop && Number.isInteger(pop.max) ? [1, 1, pop.max, pop.pop ? 1 : 0] : DEFAULT_BANK);
-    const pitch = Number.isFinite(rate) && rate > 0 ? rate : playPitch(info, Math.random);
+    const pitch = Number.isFinite(rate) && /** @type {number} */ (rate) > 0 ? /** @type {number} */ (rate) : playPitch(info, Math.random);
     // 2026-10-10, docs/rules/audio.md 「공격 소리 신호」: the sound's own delay — SoundFXBank.Play
     // waits `delay / Time.timeScale` (a battle sound: the game speed; a UI one plays at time scale 1)
-    const d0 = Number.isFinite(ownDelay) ? ownDelay : info.length > 4 ? info[4] : 0; // a cue's own bank delay first (_playCue)
+    const d0 = Number.isFinite(ownDelay) ? /** @type {number} */ (ownDelay) : info.length > 4 ? info[4] : 0; // a cue's own bank delay first (_playCue)
     const delay = d0 > 0 ? d0 / (limited ? this.gameSpeed() : 1) : 0;
     let slot = null;
     const capped = limited || channel != null;
     if (capped) { slot = this.limiter.acquire(String(channel ?? bank ?? unitKey ?? url), info[2], !!info[3]); if (!slot) return; }
     else if (this.uiVoices >= 12) return;
     else this.uiVoices += 1;
-    let done = false, s = null, g = null, unsnap = null, at = null;
+    let done = false, /** @type {AudioBufferSourceNode | null} */ s = null, /** @type {GainNode | null} */ g = null,
+      /** @type {(() => void) | null} */ unsnap = null, /** @type {number | null} */ at = null;
     const end = () => {
       if (done) return;
       done = true;
@@ -1661,15 +1731,15 @@ export class AudioManager {
       if (done) return;   // local patch: cut while it loaded
       if (!buf || !this.ctx) { end(); return; }
       try {
-        s = this.ctx.createBufferSource();
+        s = /** @type {AudioBufferSourceNode} */ (this.ctx.createBufferSource());
         s.buffer = buf;
         s.playbackRate.value = pitch;
-        g = this.ctx.createGain();
+        g = /** @type {GainNode} */ (this.ctx.createGain());
         g.gain.value = Math.max(0, Math.min(1.5, volume));
         s.connect(g); g.connect(sfxOut(this, url, !limited)); // local patch: outside the snapshot bus (audioSnapshot.js)
         s.onended = end;
         setTimeout(end, (buf.duration / pitch + delay) * 1000 + 250); // safety if onended never fires
-        at = this.ctx.currentTime + delay;
+        at = /** @type {number} */ (this.ctx.currentTime + delay);
         if (delay > 0) s.start(at); else s.start();
         const hook = snapshotHookOf(this, url); // local patch: 归溟幽灵鲨's switch sinks the rest of the mix (audioSnapshot.js)
         if (hook) unsnap = holdSnapshot(this, hook);
@@ -1710,6 +1780,7 @@ export class AudioManager {
    * True while a cue of `scope` started less than `ms` ago: one preparation update can both add layers (m.layer) and turn
    * a bond on (screens/game.js) — the second trigger keeps the cue on air instead of cutting it and starting it again.
    * A later gain still replaces the cue at once.
+   * @param {string} scope @param {number} [ms]
    */
   bondCueRecent(scope, ms = BOND_SAME_UPDATE_MS) {
     const c = this.bondCue;
@@ -1717,13 +1788,14 @@ export class AudioManager {
     return (typeof performance !== 'undefined' ? performance.now() : Date.now()) - c.at < ms;
   }
 
-  /** Cut the bond cue (playing or loading) — only one of `scope` when it is given. */
+  /** Cut the bond cue (playing or loading) — only one of `scope` when it is given. @param {string | null} [scope] */
   stopBondCue(scope = null) {
     if (scope && this.bondCue?.scope !== scope) return;
     this.bondCue = null;
     this.limiter.cut(BOND_BANK);
   }
 
+  /** @param {string} url @param {number} volume @param {string | null | undefined} scope */
   _bondCue(url, volume, scope) {
     if (!this.ctx || this.volumes.muted || this.volumes.sfx <= 0) return;
     this.bondCue = { scope: scope === 'battle' ? 'battle' : 'prep', at: typeof performance !== 'undefined' ? performance.now() : Date.now() };
@@ -1783,7 +1855,7 @@ export class AudioManager {
     }
   }
 
-  /** Battle sound by name (sfx.battle keys), limited like unit sounds. */
+  /** Battle sound by name (sfx.battle keys), limited like unit sounds. @param {string} name @param {{ volume?: number }} [o] */
   battle(name, o = {}) {
     try {
       const url = this.getManifest()?.audio?.sfx?.battle?.[name];
@@ -1799,6 +1871,7 @@ export class AudioManager {
    *   START swing (both sound, docs/rules/audio.md 「START·ON·HIT」)
    * @param {number|string} unitId battle unit id
    * @returns {boolean} whether a unit-specific sound exists
+   * @param {number|null} [skillIndex] @param {number|null} [mode] the running skill's mode
    */
   unit(defId, kind, unitId, skillIndex, mode = null) {
     try {
@@ -1808,9 +1881,9 @@ export class AudioManager {
       // local patch: an attack / impact made while skill `mode` (its index) runs sounds that skill's mode (audioOfficial.js)
       const m = kind === 'attack' || kind === 'hit' ? modeEntry(u, mode, kind) : null;
       // local patch (maintainer report): a mode whose ability has no impact bank sounds none (缄默德克萨斯 S2, modes[i].noHit)
-      if (kind === 'hit' && !m && Number.isInteger(mode) && u?.modes?.[mode]?.noHit) return true;
+      if (kind === 'hit' && !m && Number.isInteger(mode) && u?.modes?.[/** @type {number} */ (mode)]?.noHit) return true;
       // DESIGN §16: the equipped skill's own ON_SKILL_START sound (`skills[index]`) when the manifest has it
-      const own = kind === 'skill' && Number.isInteger(skillIndex) && u?.skills ? u.skills[skillIndex] : null;
+      const own = kind === 'skill' && Number.isInteger(skillIndex) && u?.skills ? u.skills[/** @type {number} */ (skillIndex)] : null;
       // docs/rules/audio.md 「더빙 효과음」: the chosen dub's copy of the skill start (浊心斯卡蒂: the tide with her line)
       const dub = kind === 'skill' && !m ? unitDub(u, 'skill', skillIndex, this.voiceLang?.(), this.random) : null;
       // 2026-11-03: a listed skill without a start sound of its own sounds none (not the unit's first skill's)
@@ -1822,7 +1895,7 @@ export class AudioManager {
       const mix = m ? m.mix?.[kind] : kind === 'skill' ? null : u?.mix?.[kind];
       if (!unitSoundPlays(mix, this.random())) return true;
       // local patch: the official mixer group × bank volume (audioOfficial.js) instead of unitGain(0.55 | 0.8, mix)
-      const volume = officialGain(defId, kind, u, kind === 'skill' ? u?.skillMix?.[skillIndex] : mix, m ? { grp: m.grp, mode: true } : { skillIndex });
+      const volume = officialGain(defId, kind, u, kind === 'skill' ? u?.skillMix?.[/** @type {number} */ (skillIndex)] : mix, m ? { grp: m.grp, mode: true } : { skillIndex });
       // 2026-10-10: the bank — every unit of a model shares it (one per role / skill / mode, like the client's
       // battle.<EVENT>.<id>.<ability>), not one per unit
       this._play(url, { volume, limited: true, bank: `${defId}:${kind}${kind === 'skill' ? `:${skillIndex ?? ''}` : m ? `:m${mode}` : ''}` });
@@ -1830,10 +1903,13 @@ export class AudioManager {
     } catch { return false; }
   }
 
-  /** 2026-10-10: a running mode's own ON sound (`modes[i].on`, null = the mode has none). */
+  /**
+   * 2026-10-10: a running mode's own ON sound (`modes[i].on`, null = the mode has none).
+   * @param {string} defId @param {any} u sfx.units[defId] @param {string | null} url @param {number | null} mode
+   */
   _unitOn(defId, u, url, mode) {
     if (typeof url !== 'string') return false;
-    const m = u.modes[mode];
+    const m = u.modes[/** @type {number} */ (mode)];
     this._play(url, { volume: officialGain(defId, 'on', u, m.mix?.on, { grp: m.grp, mode: true }), limited: true, bank: `${defId}:on:m${mode}` });
     return true;
   }
@@ -1845,16 +1921,18 @@ export class AudioManager {
    * the one set (setGameSpeed: the field's speed), else the one measured from swings (`swing` windup → its strike), else 2.
    */
   gameSpeed() {
-    const v = Number.isFinite(this._speed) && this._speed > 0 ? this._speed : Number.isFinite(this._speedEst) && this._speedEst > 0 ? this._speedEst : DEFAULT_GAME_SPEED;
+    const v = Number.isFinite(this._speed) && /** @type {number} */ (this._speed) > 0 ? this._speed : Number.isFinite(this._speedEst) && this._speedEst > 0 ? this._speedEst : DEFAULT_GAME_SPEED;
     return Math.max(0.25, Math.min(16, v));
   }
 
-  /** Set the battle's game speed (null = measure it from the swings). */
-  setGameSpeed(v) { this._speed = Number.isFinite(v) && v > 0 ? v : null; }
+  /** Set the battle's game speed (null = measure it from the swings). @param {number | null} v */
+  setGameSpeed(v) { this._speed = Number.isFinite(v) && /** @type {number} */ (v) > 0 ? v : null; }
 
   /**
    * Play one cue of unit model `def` (audioOfficial.js cueFile: one file of the bank, drawn by weight): its chance, its mixer
    * group × bank volume, its bank's cap (`def:at:url`). Returns whether a cue was there.
+   * @param {string} def @param {any} c a cue (audioOfficial.js cueSetOf) @param {boolean} mode @param {number} [after]
+   * @param {Array<() => void> | null} [held]
    */
   _playCue(def, c, mode, after = 0, held = null) {
     if (!c) return false;
@@ -1878,6 +1956,7 @@ export class AudioManager {
    * 'attack') and the group child it sounds (audioOfficial.js pickVariant) — or null without cues (the role path).
    * `kind` = the swing / strike's projectile kind ('none' = a melee strike); `signal` = the child ability the sim says took
    * the swing ('swing' 9th field: an AbilityFirstSucceedGroup's, pickVariant `first`).
+   * @param {SoundUnit} su @param {string} kind @param {number} now @param {number} [windup] @param {string | null} [signal]
    */
   _swingOf(su, kind, now, windup = 0, signal = null) {
     const ue = this.getManifest()?.audio?.sfx?.units?.[su.def];
@@ -1908,6 +1987,7 @@ export class AudioManager {
    * (a kit's skill damage, an enemy skill's): its running skill's impact sound — the skill prefab's projectile HIT / REACH or
    * its ability's HIT (`kd[skill]`), else its mode's impact; an enemy's from the skill it cast last (3 s). Not for the kits
    * whose damage sounds through sfx.kit, nor more often than SKILL_HIT_GAP_MS.
+   * @param {SoundUnit} au @param {number} now
    */
   _skillImpact(au, now) {
     if (KIT_SOUND_DEF.test(String(au.def)) || now - (au.kdAt ?? -Infinity) < SKILL_HIT_GAP_MS) return false;
@@ -1915,7 +1995,7 @@ export class AudioManager {
     let c = null;
     if (au.side === 'enemy' || au.walks) {
       // 2026-11-07: a cast with a telegraph (검은 뿔의 루울's 8 s charge) lands past those 3 s: its first damage is still that skill's
-      if (au.eskill && (au.eskill.held || now - au.eskill.at <= 3000)) c = (ue?.sk?.[au.eskill.name] || []).find((x) => x.at === 'd') ?? null;
+      if (au.eskill && (au.eskill.held || now - au.eskill.at <= 3000)) c = (ue?.sk?.[au.eskill.name] || []).find((/** @type {{ at?: string }} */ x) => x.at === 'd') ?? null;
       if (au.eskill) au.eskill.held = false;
     } else if ((au.skillOn || (LANDS_AFTER_SKILL.has(au.def) && now - (au.skillOffAt ?? -Infinity) <= SKILL_LANDS_MS)) && Number.isInteger(au.skillIndex)) {
       const sk = skillDamageKey(au.def, au.skillIndex);
@@ -1937,6 +2017,7 @@ export class AudioManager {
    * sounds the skill's (`kd`: its projectile's HIT / REACH or its ability's HIT — 斥罪 S1, 鸿雪 S2, 艾雅法拉 S2, 塑心 S1, 妮芙 S2,
    * whose skill can end before the shot lands, so the swing says which skill). Once per target: a strike's second damage
    * instance is the same HIT. Not for the kits whose damage sounds through sfx.kit.
+   * @param {SoundUnit} au @param {Record<string, any>} sw its swing (_swingOf) @param {unknown} target @param {number} now
    */
   _strikeSkillImpact(au, sw, target, now) {
     if (!sw.set?.mode || !Number.isInteger(sw.mode) || KIT_SOUND_DEF.test(String(au.def)) || skillDamageKey(au.def, sw.mode) != null) return false;
@@ -1950,11 +2031,12 @@ export class AudioManager {
   /**
    * 2026-11-05, docs/rules/audio.md 「공격 소리 신호」: the START of unit `su`'s `Reload` attack child, if it has one (雪猎: its only bank,
    * p_atk_sncrbwrld). That child is an attack group's, so a swing never picks it (test/audio-cond-group-list.js).
+   * @param {SoundUnit} su
    */
   _reloadCue(su) {
     const ue = su ? this.getManifest()?.audio?.sfx?.units?.[su.def] : null;
     const k = ue?.sel?.attack?.sig?.[RELOAD_CHILD];
-    const c = k != null ? ue.cues?.find((x) => x.at === 's' && x.k === k) : null;
+    const c = k != null ? ue.cues?.find((/** @type {{ at?: string, k?: unknown }} */ x) => x.at === 's' && x.k === k) : null;
     return c ? this._playCue(su.def, c, false) : false;
   }
 
@@ -1963,6 +2045,7 @@ export class AudioManager {
    * field, a renderer that does not report them; the client always has its model) gets a strike in their place (the event sits in the attack clip, so it
    * sounds near the strike]: during skill k the unit's `Skill_<k>_<n>` events in turn (마운틴 S2 / S3 punches — their mode
    * signals have no bank), otherwise its `Attack_<n>` / `Attact_<n>` ones (파투스's reload).
+   * @param {SoundUnit} su
    */
   _spineStrike(su) {
     if (su.spineLive) return;
@@ -1977,7 +2060,11 @@ export class AudioManager {
     this._playCue(su.def, { ...sp[names[i]], at: 'a' }, !!su.skillOn);
   }
 
-  /** Play the cues at moment `at` of swing `sw` (spell index `sp`). */
+  /**
+   * Play the cues at moment `at` of swing `sw` (spell index `sp`).
+   * @param {SoundUnit} su @param {Record<string, any>} sw its swing (_swingOf) @param {string} at @param {number | null} [sp]
+   * @param {((c: any) => boolean) | null} [keep]
+   */
   _swingCues(su, sw, at, sp, keep = null) {
     let any = false;
     for (const c of cuesAt(sw.set, at, sw.ab, sw.k, sp)) if (!keep || keep(c)) any = this._playCue(su.def, c, sw.set.mode) || any;
@@ -1991,6 +2078,7 @@ export class AudioManager {
    * (OnPlayAudio, OnPlayAudio_1–3: AnimationConsts) and names the signal by the event's string (Spine Event.String, not its
    * name; → _PlayBattleAudio `{0}.{1}`; an empty string sounds nothing). `event` null = the unit's model is up and reports
    * its events from now on (no strike stand-in, _spineStrike). Returns whether one played.
+   * @param {unknown} unitId @param {string | null} event @param {string | null} [value]
    */
   spineEvent(unitId, event, value = null) {
     try {
@@ -2008,11 +2096,13 @@ export class AudioManager {
    * 炎佑's 祛恶之焰 = its Skill_2) sounds that enemy ability's banks (sfx.units[id].sk): START as it starts, the looping ON
    * (`loop`) held while it runs and cut as it ends — its ON_ABILITY_END bank is only a ctrlStop of that loop (0.2 s fade).
    * 2026-11-11: a walking ally's 'skill' names its ability (`ability`: 谢拉格's giant's Skills/Attract → `attract`).
+   * @param {unknown} id @param {SoundUnit} su @param {any} ue sfx.units[su.def] @param {boolean} on @param {number} now
+   * @param {string | null} [ability]
    */
   _enemyRecordSkill(id, su, ue, on, now, ability = null) {
     const key = `${id}:esk`;
     if (!on) { stopSkillLoop(this, key); su.eskill = null; return; }
-    const name = String(ability ?? su.erec?.skill ?? '').split('/').pop().toLowerCase();
+    const name = /** @type {string} */ (String(ability ?? su.erec?.skill ?? '').split('/').pop()).toLowerCase();
     if (!name) return;
     const cues = ue?.sk?.[name];
     if (!Array.isArray(cues)) return;
@@ -2031,6 +2121,7 @@ export class AudioManager {
    * that mode's signals from now on (`sfx.units[def].em[mode]`, mode 0 = its Default cues). The client's switch
    * (`Unit.SwitchMode` → InactiveMode / ActivateMode) sounds nothing of its own: the change clip's spine events
    * (spineEvent) and the mode's abilities do. Returns whether the unit's attack sounds changed.
+   * @param {unknown} unitId @param {string} defId @param {number} modeIndex @param {number} prevModeIndex
    */
   enemyMode(unitId, defId, modeIndex, prevModeIndex) {
     try {
@@ -2080,7 +2171,7 @@ export class AudioManager {
     } catch (err) { this._warn('voice', err); return false; }
   }
 
-  /** Fetch/decode and start one voice line through the voice channel. */
+  /** Fetch/decode and start one voice line through the voice channel. @param {string} url @param {number} token @param {number} [volume] */
   _playVoice(url, token, volume) {
     // `token` is the line's own `voiceToken`. Every deferred step below — the decode, a failed fetch, `onended` and the
     // safety timer — can land AFTER this line was taken over or stopped: `voiceToken` has moved on and the channel then
@@ -2095,7 +2186,7 @@ export class AudioManager {
         const src = this.ctx.createBufferSource();
         src.buffer = buf;
         const gain = this.ctx.createGain();
-        gain.gain.value = Math.max(0, Math.min(1.5, Number.isFinite(volume) ? volume : 1));
+        gain.gain.value = Math.max(0, Math.min(1.5, Number.isFinite(volume) ? /** @type {number} */ (volume) : 1));
         src.connect(gain); gain.connect(this.voiceGain);
         const node = { src, gain, url, token };
         let done = false;
@@ -2144,6 +2235,7 @@ export class AudioManager {
    * (Re)arm the battle start's line `ms` from now (audio.js deploy: one PREBUILT_INTERVAL after the opening's last deploy +
    * OPENING_SLACK_MS): when no further opening deploy came by then, the opening is over and voicePolicy.battleStart picks
    * one of its own operators to say 部署.
+   * @param {number} ms
    */
   _armBattleStartLine(ms) {
     const op = this._opening;
@@ -2154,7 +2246,7 @@ export class AudioManager {
       if (this._opening !== op) return;
       op.pending = null; op.over = true;
       this.startVoiceDone = true;
-      const ops = op.ids.map((id) => ({ id, u: this.units.get(id) }))
+      const ops = /** @type {unknown[]} */ (op.ids).map((id) => ({ id, u: this.units.get(id) }))
         .filter(({ u: o }) => o && o.side !== 'enemy' && o.kind !== 'token' && o.kind !== 'device' && unitSoundClass(o) === 'char')
         .map(({ id, u: o }) => ({ id, def: o.def, ownerId: o.ownerId }));
       const t = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -2164,7 +2256,7 @@ export class AudioManager {
     (this._openingTimers ||= new Set()).add(timer);
   }
 
-  /** Reset the unit map for a new field (m.field.units = UnitInfo[]). */
+  /** Reset the unit map for a new field (m.field.units = UnitInfo[]). @param {unknown} units */
   setFieldUnits(units) {
     this.stopBondCue(); // upstream #482: no layer-up cue carries into a new field
     this.units.clear();
@@ -2174,11 +2266,13 @@ export class AudioManager {
     this.consumed.clear();
     // a new field is a new battle: the first operator deployed says 行动出发 again and no cooldown carries over
     this.startVoiceDone = false;
+    /** @type {{ at: number, n?: number, ids?: unknown[], over: boolean, pending?: ReturnType<typeof setTimeout> | null } | null} */
     this._opening = null; // a new field's opening deployment (OPENING_SLACK_MS); none of the last one's pending line
     for (const timer of this._openingTimers || []) clearTimeout(timer);
     this._openingTimers?.clear();
     try { this.voiceGate.reset(); this._stopVoice(); this.voicePolicy?.reset(); } catch { /* ignore */ } // local patch: voicePolicy
     stopSkillLoops(this); // local patch: no skill loop carries into a new field
+    /** @type {Map<unknown, unknown[][]> | null} */
     this._skillEarly = null; // local patch: nor a skill event held for its unit's spawn
     this._skillSeen = new Set(); // 2026-11-05: the units whose skill state its events said since this field (syncRunningSkills)
     this._skillsUnsynced = true;
@@ -2193,6 +2287,7 @@ export class AudioManager {
    * replays no 'skill' event, so a skill that runs already would sound its unit's normal attack until it ends. `early`: the events
    * buffered before the entry; the last of each unit's says whether its skill runs. Silent: that start sounded for nobody here, only
    * a looping bank is picked up.
+   * @param {unknown} early
    */
   resumeSkills(early) {
     const on = new Map();
@@ -2211,6 +2306,7 @@ export class AudioManager {
    * 2026-11-05: the same from a field's first snapshot (`units`: its tuples), for the skills cast before the buffer began. UF.SKILL
    * leaves out passives, which sound the same either way (test/audio-late-entry.test.js). Once per field: later, the events say it,
    * and right after an 'off' the flag can still be set.
+   * @param {unknown} units
    */
   syncRunningSkills(units) {
     if (!this._skillsUnsynced || !Array.isArray(units)) return;
@@ -2218,6 +2314,7 @@ export class AudioManager {
     for (const t of units) if (Array.isArray(t) && ((t[7] | 0) & UF.SKILL) && !this._skillSeen?.has(t[0])) this._resumeSkill(t[0]);
   }
 
+  /** @param {unknown} id */
   _resumeSkill(id) {
     const su = this.units.get(id);
     if (!su || su.side === 'enemy' || su.skillOn) return;
@@ -2226,10 +2323,10 @@ export class AudioManager {
     if (loop) startSkillLoop(this, id, loop.url, loopGain(loop));
   }
 
-  /** 2026-10-10: an enemy is on the field. */
+  /** 2026-10-10: an enemy is on the field. @param {unknown} id */
   _enemyIn(id) { (this._enemies ||= new Set()).add(id); }
 
-  /** 2026-10-10: an enemy left the field (killed / leaked) at `now`. */
+  /** 2026-10-10: an enemy left the field (killed / leaked) at `now`. @param {unknown} id @param {number} now */
   _enemyOut(id, now) { if (this._enemies?.delete(id) && !this._enemies.size) this._noEnemySince = now; }
 
   /**
@@ -2240,6 +2337,7 @@ export class AudioManager {
     return this._enemies?.size ? 0 : now - (this._noEnemySince ?? -Infinity);
   }
 
+  /** @param {Record<string, any> | null | undefined} u UnitInfo */
   _track(u) {
     if (!u || typeof u !== 'object' || u.id == null) return;
     // UnitInfo.spine is the model id (charId / tokenId / enemyId) — the key of sfx.units; kind/defId pick the
@@ -2259,7 +2357,10 @@ export class AudioManager {
     if (u.side === 'enemy') this._enemyIn(u.id); // 2026-10-10: the time without an enemy (noEnemyMs)
   }
 
-  /** Play a resolved battle sound for a unit event, limited like unit sounds. */
+  /**
+   * Play a resolved battle sound for a unit event, limited like unit sounds.
+   * @param {string} url @param {string} bank @param {number} [volume]
+   */
   _playUnitUrl(url, bank, volume = 0.8) {
     if (typeof url === 'string') this._play(url, { volume, limited: true, bank }); // `bank` (was a unit key)
   }
@@ -2275,14 +2376,14 @@ export class AudioManager {
   playDeploySfx(u, _key) {
     const m = this.getManifest();
     // docs/rules/audio.md 「더빙 효과음」: the chosen dub's copy of its deploy sound (浊心斯卡蒂: with her 部署 line)
-    const dub = u?.side === 'enemy' ? null : unitDub(m?.audio?.sfx?.units?.[u?.def], 'born', null, this.voiceLang?.(), this.random);
+    const dub = u?.side === 'enemy' ? null : unitDub(m?.audio?.sfx?.units?.[/** @type {string} */ (u?.def)], 'born', null, this.voiceLang?.(), this.random);
     const url = dub ?? deploySfxUrl(m, u);
     if (!url) return false;
-    const own = !!dub || url === m?.audio?.sfx?.units?.[u.def]?.born;
-    const mix = own ? m.audio.sfx.units[u.def].mix?.born : null;
+    const own = !!dub || url === m?.audio?.sfx?.units?.[/** @type {string} */ (u.def)]?.born;
+    const mix = own ? m.audio.sfx.units[/** @type {string} */ (u.def)].mix?.born : null;
     if (!unitSoundPlays(mix, this.random())) return false;
     // local patch: the official mix (audioOfficial.js) instead of unitGain(0.8, mix) / 0.5
-    this._playUnitUrl(url, own ? `${u.def}:born` : `b:born:${unitSoundClass(u)}`, own ? officialGain(u.def, 'born', m.audio.sfx.units[u.def], mix) : battleGain('deploy')); // the bank
+    this._playUnitUrl(url, own ? `${u.def}:born` : `b:born:${unitSoundClass(u)}`, own ? officialGain(/** @type {string} */ (u.def), 'born', m.audio.sfx.units[/** @type {string} */ (u.def)], mix) : battleGain('deploy')); // the bank
     return true;
   }
 
@@ -2317,7 +2418,7 @@ export class AudioManager {
     } catch (err) { this._warn('prep-deploy', err); }
   }
 
-  /** local patch (maintainer report): replay the 'skill' events held for unit `id` until its spawn / deploy. */
+  /** local patch (maintainer report): replay the 'skill' events held for unit `id` until its spawn / deploy. @param {unknown} id */
   _flushSkillEarly(id) {
     const held = this._skillEarly?.get(id);
     this._skillEarly?.delete(id);
@@ -2327,12 +2428,13 @@ export class AudioManager {
   /**
    * Play sfx.kit key `hk` (null = nothing) — its mixer group (sfx.kitGrp), its bank's popOldest (sfx.kitLimit), one bank per key.
    * Returns whether the key has a sound.
+   * @param {string | null} hk @param {number | null} [delay] @param {Array<() => void> | null} [held]
    */
   _kitSound(hk, delay = null, held = null) {
     const sfx = hk ? this.getManifest()?.audio?.sfx : null;
-    const url = sfx?.kit?.[hk];
+    const url = sfx?.kit?.[/** @type {string} */ (hk)];
     if (typeof url !== 'string') return false;
-    const cancel = this._play(url, { volume: groupGain(sfx.kitGrp?.[hk] ?? 'Battle_P_SImp'), limited: true, bank: `kit:${hk}`, pop: sfx.kitLimit?.[hk] ?? null, delay });
+    const cancel = this._play(url, { volume: groupGain(sfx.kitGrp?.[/** @type {string} */ (hk)] ?? 'Battle_P_SImp'), limited: true, bank: `kit:${hk}`, pop: sfx.kitLimit?.[/** @type {string} */ (hk)] ?? null, delay });
     if (held && cancel) held.push(cancel); // `held`: the caller's list of sounds it may cancel before they start
     return true;
   }
@@ -2342,10 +2444,12 @@ export class AudioManager {
    * end sound (`_effectSettings` endAudioSignal acid_rain; bank ON_CUSTOM_TRIGGER.acid_rain, one at a time and no pop) as the
    * rain ends: `dur` after it, at once when the 茧 dies or a new rain on that field takes its place (render/fxgame.js
    * acRainFx ends the floor at the same moments). [추정·엔진: the delay in game seconds, as 克莱门莎's falls]
+   * @param {{ field?: string, id?: unknown, dur?: number }} o
    */
   _acidRain(o) {
     const field = o.field ?? '-';
     this._acidRainCut((r, f) => f === field);
+    /** @type {Array<() => void>} */
     const held = [];
     const dur = Math.max(0, Number(o.dur) || 0);
     if (!this._kitSound('acspider:rainend', dur, held)) return;
@@ -2357,6 +2461,7 @@ export class AudioManager {
    * landing (the 'aoe' mcnist:charge: its projectile's REACH, when the 'charge' before it flew one with banks,
    * mcnistChargeSounds) and 暴走食人花 back from digesting (its 'phase' with no form after its `eat` one: enemy_trwlpl_s
    * ON_BUFF_FINISH → enemy_trwlpl_eat_complete; `su.digesting` also says whether a kill is the vomit — 'die').
+   * @param {string} fx @param {FxExtra} ex @param {UnitOf} unitOf
    */
   _seasonState(fx, ex, unitOf) {
     if (!ex || typeof ex !== 'object') return;
@@ -2373,7 +2478,10 @@ export class AudioManager {
     }
   }
 
-  /** The rains `pick` chooses that have not ended yet end now: their end sound at once instead of when due. */
+  /**
+   * The rains `pick` chooses that have not ended yet end now: their end sound at once instead of when due.
+   * @param {(r: { by: unknown, held: Array<() => void>, until: number }, field: string) => boolean} pick
+   */
   _acidRainCut(pick) {
     if (!this._acidRains) return;
     for (const [f, r] of this._acidRains) {
@@ -2385,16 +2493,22 @@ export class AudioManager {
     }
   }
 
-  /** 2026-11-03: sfx.kit key `hk` `n` times at once, at most its bank's own limit (sfx.kitLimit, else 2). */
+  /**
+   * 2026-11-03: sfx.kit key `hk` `n` times at once, at most its bank's own limit (sfx.kitLimit, else 2).
+   * @param {string | null} hk @param {number} n
+   */
   _kitSounds(hk, n) {
-    const max = this.getManifest()?.audio?.sfx?.kitLimit?.[hk]?.max ?? 2;
+    const max = this.getManifest()?.audio?.sfx?.kitLimit?.[/** @type {string} */ (hk)]?.max ?? 2;
     for (let i = 0; i < Math.min(n, max); i++) if (!this._kitSound(hk)) break;
   }
 
-  /** local patch (maintainer report): play a dollkeeper switch's sounds (audioOfficial.js dollSwitchSfx) as sfx.kit keys. */
+  /**
+   * local patch (maintainer report): play a dollkeeper switch's sounds (audioOfficial.js dollSwitchSfx) as sfx.kit keys.
+   * @param {unknown} id @param {NonNullable<ReturnType<typeof dollSwitchSfx>>} ds
+   */
   _dollSwitch(id, ds) {
     const sfx = this.getManifest()?.audio?.sfx;
-    const gain = (k) => groupGain(sfx?.kitGrp?.[k] ?? 'Battle_Skill_Important');
+    const gain = (/** @type {string} */ k) => groupGain(sfx?.kitGrp?.[k] ?? 'Battle_Skill_Important');
     if (ds.stop) stopSkillLoop(this, `${id}:doll`);
     for (const k of ds.play) if (typeof sfx?.kit?.[k] === 'string') this._play(sfx.kit[k], { volume: gain(k), limited: true, bank: `kit:${k}` });
     if (ds.hold && typeof sfx?.kit?.[ds.hold.key] === 'string') startSkillLoop(this, `${id}:doll`, sfx.kit[ds.hold.key], gain(ds.hold.key), { loop: false, fade: ds.hold.fade });
@@ -2456,6 +2570,7 @@ export class AudioManager {
             for (const cancel of su.beginHeld ?? []) cancel();
             su.beginHeld = null;
             const lead = e[2] ? skillBeginOf(ue, su.skillIndex) : 0;
+            /** @type {Array<() => void> | null} */
             const held = lead > 0 ? (su.beginHeld = []) : null;
             // local patch (maintainer report): its extra one-shots (耀骑士临光 S3, 塑心 S3's melody — held ones cut at its end)
             if (e[2]) {
@@ -2554,7 +2669,7 @@ export class AudioManager {
             // (kitHitKey 'bombard') — no impact of this attack for that damage to take (at a high game speed it fell inside the window)
             if (tgt && tgt.side !== src.side && e[3] !== 'mortar') this.lastAttacker.set(e[2], { def: src.def, at: now, mode, sw, id: e[1] });
             // (2026-10-22: a shell fired at a spot — kind 'mortar' — sounds its own banks: kitHitKey 'emppnt:aim')
-            if (src.side === 'enemy' && e[3] !== 'mortar' && !sw.set.cues.some((c) => c.at === 's' || c.at === 'a')) this.battle('enemyHit', { volume: 0.35 });
+            if (src.side === 'enemy' && e[3] !== 'mortar' && !sw.set.cues.some((/** @type {{ at?: string }} */ c) => c.at === 's' || c.at === 'a')) this.battle('enemyHit', { volume: 0.35 });
             continue;
           }
           if (tgt && tgt.side !== src.side && e[3] !== 'mortar') this.lastAttacker.set(e[2], { def: src.def, at: now, mode, id: e[1] });
@@ -2702,7 +2817,7 @@ export class AudioManager {
           if (unitSoundClass(u) !== 'device') {
             const op = this._opening;
             if (!op) { this._opening = { at: now, ids: [e[1]], over: false }; opening = true; }
-            else if (!op.over && now - op.at <= step) { op.at = now; op.ids.push(e[1]); opening = true; }
+            else if (!op.over && now - op.at <= step) { op.at = now; /** @type {unknown[]} */ (op.ids).push(e[1]); opening = true; }
             if (opening && this.voicePolicy) this._armBattleStartLine(step); // summons come last: they move it on too
           }
           if (this._skillEarly?.has(e[1])) this._flushSkillEarly(e[1]); // local patch: its deploy-time skill (see 'spawn')
@@ -2760,7 +2875,7 @@ export class AudioManager {
           if (ds) this._dollSwitch(e[4].id, ds);
           // local patch: a kit's skill hit — its official hit sound (sfx.kit, tools/assets/kit-sfx.mjs), one at a time per key
           // local patch (maintainer report 2026-10-07): the skill's going-off sound first (kitStartKey), then its impact
-          const unitOf = (id) => this.units.get(id);
+          const unitOf = (/** @type {unknown} */ id) => this.units.get(id);
           // 2026-11-04: 遥's ShieldOnly child (nothing to attack or heal: the attack is the bubble) — its START in the running mode
           if (e[1] === 'shield' && e[4]?.only != null) {
             const hu = unitOf(e[4].only);
@@ -2903,21 +3018,21 @@ export function installAudio(deps) {
     audio.install();
     if (deps?.settings) audio.setVolumes(deps.settings);
     if (typeof deps?.subscribe === 'function' && typeof deps?.getState === 'function') {
-      const seasonOf = (s) => (typeof deps.selectSeason === 'function' ? deps.selectSeason(s) : null);
-      const sync = (s) => {
+      const seasonOf = (/** @type {any} */ s) => (typeof deps.selectSeason === 'function' ? deps.selectSeason(s) : null);
+      const sync = (/** @type {any} */ s) => {
         try {
           const pub = s.match?.public ?? null;
           // 开战 BGM: the round's own track out of bgm.combatAlts (骑士之日 / 无畏者 are fixed per round, not drawn),
           // so every client of a room hears the same one, a mid-fight re-render (or a teammate view) never switches,
           // and the next round moves on by the table. 联防 shares its round ⇒ same key ⇒ the loop keeps playing.
           // 2026-11-11: in the season's own tracks (the room's, else the picked one — resolveBgm)
-          audio.playBgm(bgmKeyFor(deps.selectRoute(s), pub, combatTrackFor(pub?.round)), seasonOf(s));
+          audio.playBgm(bgmKeyFor(/** @type {(s: any) => string} */ (deps.selectRoute)(s), pub, combatTrackFor(pub?.round)), seasonOf(s));
           // a skill's held sounds never outlive its battle: a battle that ends sends no skill off / 'die' for the units
           // still on the field, so 薄绿's field loop played on through the 休整期 (maintainer report 2026-10-10)
           if (!pub?.phase || !BATTLE_PHASES.has(pub.phase)) stopSkillLoops(audio);
           // upstream #482: the layer-up cue stays in the game screen; a battle's cue ends with its battle (a prep gain's
           // m.layer can come before the m.public of the phase it belongs to — only the battle's cue is cut)
-          if (deps.selectRoute(s) !== 'game') audio.stopBondCue();
+          if (/** @type {(s: any) => string} */ (deps.selectRoute)(s) !== 'game') audio.stopBondCue();
           else if (!pub?.phase || !BATTLE_PHASES.has(pub.phase)) audio.stopBondCue('battle');
         } catch { /* ignore */ }
       };

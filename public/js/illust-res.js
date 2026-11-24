@@ -23,7 +23,7 @@ import { createStore, loadPref, savePref } from './store.js';
 
 export const PHONE_SHORT_SIDE = 600;
 
-const mq = (win, q) => { try { return !!win.matchMedia?.(q)?.matches; } catch { return false; } };
+const mq = (/** @type {any} */ win, /** @type {string} */ q) => { try { return !!win.matchMedia?.(q)?.matches; } catch { return false; } };
 
 /**
  * Whether a window's device is a phone (above). No screen or no matchMedia (Node, a test): not a phone.
@@ -63,7 +63,7 @@ export function setIllustFull(hi) {
   if (illustStore.get().hi !== v) illustStore.set({ hi: v });
 }
 
-const isEntry = (e) => !!e && typeof e === 'object' && typeof e.path === 'string' && e.path !== '';
+const isEntry = (/** @type {any} */ e) => !!e && typeof e === 'object' && typeof e.path === 'string' && e.path !== '';
 
 /**
  * The copy of a 立绘 entry the page draws: its `full` copy where the original resolution is chosen and the entry has

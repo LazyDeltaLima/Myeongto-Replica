@@ -44,13 +44,15 @@
 // so it can be unit tested without a browser. Helpers never throw on unknown ids — they return null and the
 // caller falls back (docs/ASSETS.md "Other fallbacks").
 
+/** A manifest record, read field by field. @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
-const str = (v) => (typeof v === 'string' && v ? v : null);
-const get = (o, k) => (isObj(o) && Object.hasOwn(o, k) ? o[k] : undefined);
+const str = (/** @type {unknown} */ v) => (typeof v === 'string' && v ? v : null);
+/** @param {unknown} o @param {string | null} k */
+const get = (o, k) => (isObj(o) && Object.hasOwn(o, /** @type {string} */ (k)) ? o[/** @type {string} */ (k)] : undefined);
 
 // ---- pure URL helpers (manifest first) ---------------------------------------------------------------------
 
-/** Strip a trailing `_1` / `_2` art-phase suffix (data/chess.json asset ids). */
+/** Strip a trailing `_1` / `_2` art-phase suffix (data/chess.json asset ids). @param {unknown} id */
 export function baseCharId(id) {
   const s = str(id);
   if (!s) return null;
@@ -60,6 +62,7 @@ export function baseCharId(id) {
 /**
  * Operator avatar. Accepts a charId (`char_002_amiya`) or an asset id with the E2 suffix (`char_002_amiya_2`).
  * `opts.e2` prefers the E2 art. Falls back to the base avatar, then null.
+ * @param {unknown} m data/assets.json @param {unknown} id @param {{ e2?: boolean }} [opts]
  */
 export function avatarUrl(m, id, opts) {
   const s = str(id);
@@ -75,7 +78,7 @@ export function avatarUrl(m, id, opts) {
   return null;
 }
 
-/** Operator half-body portrait (`_1` base, `_2` E2). */
+/** Operator half-body portrait (`_1` base, `_2` E2). @param {unknown} m @param {unknown} id @param {{ e2?: boolean }} [opts] */
 export function portraitUrl(m, id, opts) {
   const s = str(id);
   if (!s) return null;
@@ -88,28 +91,32 @@ export function portraitUrl(m, id, opts) {
   return str(e2 && rec.portraitE2) || str(rec.portrait) || null;
 }
 
+/** @param {unknown} m @param {unknown} enemyId */
 export function enemyIconUrl(m, enemyId) {
   const rec = get(get(m, 'enemies'), str(enemyId) || '');
   return str(rec && rec.icon);
 }
 
-/** Token avatar, falling back to its owner's avatar (docs/ASSETS.md token fallbacks). */
+/** Token avatar, falling back to its owner's avatar (docs/ASSETS.md token fallbacks). @param {unknown} m @param {unknown} tokenId */
 export function tokenAvatarUrl(m, tokenId) {
   const rec = get(get(m, 'tokens'), str(tokenId) || '');
   if (!rec) return null;
   return str(rec.avatar) || (rec.owner ? avatarUrl(m, rec.owner) : null) || str(get(get(get(m, 'prof'), 'battlecard'), 'token'));
 }
 
-export const bondIconUrl = (m, bondId) => str(get(get(m, 'bonds'), str(bondId) || ''));
-export const bandIconUrl = (m, bandId) => str(get(get(m, 'bands'), str(bandId) || ''));
+export const bondIconUrl = (/** @type {unknown} */ m, /** @type {unknown} */ bondId) => str(get(get(m, 'bonds'), str(bondId) || ''));
+export const bandIconUrl = (/** @type {unknown} */ m, /** @type {unknown} */ bandId) => str(get(get(m, 'bands'), str(bandId) || ''));
 
-/** Item icon by trapId (`trap_1041_acarm041`) or item record (`{ trapId | iconId }`). */
+/** Item icon by trapId (`trap_1041_acarm041`) or item record (`{ trapId | iconId }`). @param {unknown} m @param {unknown} item */
 export function itemIconUrl(m, item) {
   const id = isObj(item) ? (str(item.iconId) || str(item.trapId)) : str(item);
   return id ? str(get(get(m, 'items'), id)) : null;
 }
 
-/** Skill icon by iconId, or by skillId via `skillsById`. Falls back to the empty skill icon. */
+/**
+ * Skill icon by iconId, or by skillId via `skillsById`. Falls back to the empty skill icon.
+ * @param {unknown} m @param {unknown} id @param {{ fallback?: boolean }} [opts]
+ */
 export function skillIconUrl(m, id, opts) {
   const fallback = !(opts && opts.fallback === false);
   const s = str(id);
@@ -123,16 +130,19 @@ export function skillIconUrl(m, id, opts) {
 }
 
 /** UI sprite by `group/key` (e.g. 'battle/sprite_shadow'). */
-export const uiUrl = (m, name) => str(get(get(m, 'ui'), str(name) || ''));
+export const uiUrl = (/** @type {unknown} */ m, /** @type {unknown} */ name) => str(get(get(m, 'ui'), str(name) || ''));
 
-/** Profession icon: kind 'icon' | 'large' | 'battlecard'; profession in any case (SNIPER → sniper). */
+/**
+ * Profession icon: kind 'icon' | 'large' | 'battlecard'; profession in any case (SNIPER → sniper).
+ * @param {unknown} m @param {unknown} profession @param {string} [kind]
+ */
 export function profIconUrl(m, profession, kind = 'icon') {
   const p = str(profession);
   if (!p) return null;
   return str(get(get(get(m, 'prof'), kind), p.toLowerCase()));
 }
 
-/** Sub-profession icon by subProfessionId or `sub_<id>_icon` asset id. */
+/** Sub-profession icon by subProfessionId or `sub_<id>_icon` asset id. @param {unknown} m @param {unknown} sub */
 export function subProfIconUrl(m, sub) {
   const s = str(sub);
   if (!s) return null;
@@ -150,6 +160,7 @@ export function subProfIconUrl(m, sub) {
  * web model, mostly none — its view then keeps the avatar diamond), for a load failure (DESIGN §13: local art is
  * optional, everything works without it). An operator keeps its web model but takes the client's page textures when
  * `opts.local` lists them (localPagesEntry; a missing local page loads the web one).
+ * @param {unknown} m @param {unknown} id @param {{ back?: boolean, local?: unknown }} [opts]
  */
 export function spineEntry(m, id, opts) {
   const s = str(id);
@@ -185,13 +196,14 @@ const localSpines = new WeakMap(); // spineLocal record → { local, web, entry 
  * A manifest `spineLocal` (`{ group, skel, atlas, textures[], pma, anims, … }`, file names in the data/local-assets.json
  * group) as a Spine entry with URLs, when `local` lists every file — skeleton and atlas side by side (pixi-spine finds
  * the atlas by the skeleton's name); else null. `fallback` = `web`.
+ * @param {unknown} sl @param {unknown} local data/local-assets.json @param {unknown} web
  */
 export function localSpineEntry(sl, local, web) {
   if (!isObj(sl) || !isObj(local)) return null;
   const c = localSpines.get(sl);
   if (c && c.local === local && c.web === web) return c.entry;
   const g = str(sl.group);
-  const url = (name) => (g ? localAssetUrl(local, g, name) : null);
+  const url = (/** @type {unknown} */ name) => (g ? localAssetUrl(local, g, name) : null);
   const skel = url(sl.skel), atlas = url(sl.atlas);
   const textures = Array.isArray(sl.textures) ? sl.textures.map(url) : [];
   let entry = null;
@@ -207,30 +219,32 @@ export function localSpineEntry(sl, local, web) {
  * The equipment model of an item (trapId `trap_1041_acarm041` or an item record `{ trapId }`): the local client's Spine
  * model (`itemSpines[trapId]`, tools/local-extract/extract.py) as a Spine entry when `local` (data/local-assets.json)
  * lists every one of its files; else null — the hand item keeps its icon plate (render/units.js ItemView).
+ * @param {unknown} m @param {unknown} item @param {unknown} local
  */
 export function itemSpineEntry(m, item, local) {
   const id = isObj(item) ? str(item.trapId) : str(item);
   return id && local ? localSpineEntry(get(get(m, 'itemSpines'), id), local, null) : null;
 }
 
-/** Whether an operator/token/enemy has a Back model. */
+/** Whether an operator/token/enemy has a Back model. @param {unknown} m @param {unknown} id */
 export function hasBackSpine(m, id) {
   const ch = get(get(m, 'chars'), str(id) || '') || get(get(m, 'chars'), baseCharId(id) || '');
   return !!(ch && isObj(ch.spine) && validSpine(ch.spine.back));
 }
 
+/** @param {unknown} sp @returns {sp is Record<string, any>} */
 export function validSpine(sp) {
   return isObj(sp) && typeof sp.skel === 'string' && /^\/[^\s]*\.skel$/.test(sp.skel) && typeof sp.atlas === 'string' && isObj(sp.anims);
 }
 
-/** Best 2D picture for a unit asset id (operator avatar, token avatar, enemy icon, item icon). */
+/** Best 2D picture for a unit asset id (operator avatar, token avatar, enemy icon, item icon). @param {unknown} m @param {unknown} id */
 export function unitPictureUrl(m, id) {
   return avatarUrl(m, id) || tokenAvatarUrl(m, id) || enemyIconUrl(m, id) || itemIconUrl(m, id) || null;
 }
 
 // ---- audio ---------------------------------------------------------------------------------------------------
 
-/** BGM `{ intro?, loop }` for 'lobby' | 'prep' | 'combat' | 'boss', or a boss id. */
+/** BGM `{ intro?, loop }` for 'lobby' | 'prep' | 'combat' | 'boss', or a boss id. @param {unknown} m @param {unknown} kind */
 export function bgmEntry(m, kind) {
   const a = get(m, 'audio');
   const b = get(get(a, 'bossBgm'), str(kind) || '') || get(get(a, 'bgm'), str(kind) || '');
@@ -238,14 +252,17 @@ export function bgmEntry(m, kind) {
 }
 
 /** SFX URL: group 'ui' | 'battle', key e.g. 'buy'. */
-export const sfxUrl = (m, group, key) => str(get(get(get(get(m, 'audio'), 'sfx'), str(group) || ''), str(key) || ''));
+export const sfxUrl = (/** @type {unknown} */ m, /** @type {unknown} */ group, /** @type {unknown} */ key) => str(get(get(get(get(m, 'audio'), 'sfx'), str(group) || ''), str(key) || ''));
 
-/** Per-unit SFX: kind 'attack' | 'hit' | 'skill' | 'die' | 'born'; `skillIndex` picks `skills[i]` when present. */
+/**
+ * Per-unit SFX: kind 'attack' | 'hit' | 'skill' | 'die' | 'born'; `skillIndex` picks `skills[i]` when present.
+ * @param {unknown} m @param {unknown} id @param {string} kind @param {number|null} [skillIndex]
+ */
 export function unitSfxUrl(m, id, kind, skillIndex) {
   const u = get(get(get(get(m, 'audio'), 'sfx'), 'units'), str(id) || '') || get(get(get(get(m, 'audio'), 'sfx'), 'units'), baseCharId(id) || '');
   if (!isObj(u)) return null;
   if (kind === 'skill' && Number.isInteger(skillIndex) && isObj(u.skills)) {
-    const s = str(u.skills[skillIndex]);
+    const s = str(u.skills[/** @type {number} */ (skillIndex)]);
     if (s) return s;
   }
   return str(u[kind]);
@@ -279,6 +296,9 @@ export function unitSfxUrl(m, id, kind, skillIndex) {
  * settle (user playtest #3 item 1 — PIXI.Assets keeps an unloading skeleton in its loader cache until a microtask
  * later, so loading the same URL meanwhile returned the doomed skeleton, whose textures the unload then destroyed:
  * invisible operator models).
+ * @typedef {{ key: string, promise: Promise<any>, value: any, state: 'loading'|'ready'|'failed', refs: number, used: number,
+ *   weight: number, idleSince: number|null, error?: unknown, failedAt?: number, attempt: number, abort: (() => void) | null,
+ *   settle: { resolve: (v: any) => void, reject: (err: unknown) => void } | null }} LruEntry
  */
 export class RefLru {
   /**
@@ -299,35 +319,39 @@ export class RefLru {
     this.failTtl = failTtl;
     this.now = now;
     this._weigh = typeof weigh === 'function' ? weigh : null;
-    const budget = (v, d) => (typeof v === 'number' && v >= 0 ? v : d);
+    const budget = (/** @type {unknown} */ v, /** @type {number} */ d) => (typeof v === 'number' && v >= 0 ? v : d);
     this.maxIdleWeight = budget(maxIdleWeight, Infinity);
     this.quietWeight = budget(quietWeight, this.maxIdleWeight);
     this.idleGrace = budget(idleGrace, 0);
     this.quietDelay = budget(quietDelay, 0);
     this.evictDelay = budget(evictDelay, 0);
     this._timers = timers && typeof timers.set === 'function' ? timers : {
-      set: (fn, ms) => { const t = setTimeout(fn, ms); /** @type {any} */ (t)?.unref?.(); return t; },
-      clear: (t) => clearTimeout(t),
+      set: (/** @type {() => void} */ fn, /** @type {number} */ ms) => { const t = setTimeout(fn, ms); /** @type {any} */ (t)?.unref?.(); return t; },
+      clear: (/** @type {ReturnType<typeof setTimeout>} */ t) => clearTimeout(t),
     };
+    /** @type {{ timer: unknown, at: number } | null} */
     this._sweep = null; // { timer, at } pending eviction pass (weight sweep / deferred eviction)
-    /** @type {Map<string, { key, promise, value, state: 'loading'|'ready'|'failed', refs: number, used: number, weight: number, idleSince: number|null, error?, failedAt?, attempt?: number, abort?: any, settle?: { resolve: Function, reject: Function } | null }>} */
+    /** @type {Map<string, LruEntry>} */
     this.map = new Map();
     this._refs = 0;             // Σ refs of every entry
     this._holds = 0;            // scenes holding the cache (hold()): never quiet meanwhile
+    /** @type {number | null} */
     this._quietAt = this.now(); // since when nothing has been referenced nor held (null while something is)
     /** @type {Map<string, Promise<void>>} key → unload still in flight (settles, never rejects) */
     this._unloading = new Map();
     this._active = 0;
+    /** @type {Array<() => void>} */
     this._queue = [];
     this._tick = 0;
   }
 
-  /** Synchronous peek: the value if ready (does not change refs). */
+  /** Synchronous peek: the value if ready (does not change refs). @param {string} key */
   peek(key) {
     const e = this.map.get(key);
     return e && e.state === 'ready' ? e.value : null;
   }
 
+  /** @param {string} key */
   has(key) { return this.map.has(key); }
   get size() { return this.map.size; }
 
@@ -335,15 +359,18 @@ export class RefLru {
    * Acquire a reference; resolves to the value (or rejects). Always pair with release(key). `opts.retry`: a remembered
    * failure that nobody references any more is dropped and the value loaded again (a failure still referenced — a
    * caller that has not released it yet — is shared: dropping it would make that release hit the new entry).
+   * @param {string} key @param {any} [arg] @param {{ retry?: boolean }} [opts]
+   * @returns {Promise<any>}
    */
   acquire(key, arg, opts) {
+    /** @type {LruEntry | null | undefined} */
     let e = this.map.get(key);
     let fresh = false;
-    if (e && e.state === 'failed' && (this.now() - e.failedAt > this.failTtl || (opts && opts.retry && e.refs === 0))) { this.map.delete(key); e = null; fresh = true; }
+    if (e && e.state === 'failed' && (this.now() - /** @type {number} */ (e.failedAt) > this.failTtl || (opts && opts.retry && e.refs === 0))) { this.map.delete(key); e = null; fresh = true; }
     if (!e) {
-      e = { key, promise: null, value: null, state: 'loading', refs: 0, used: ++this._tick, weight: 0, idleSince: null, attempt: 0, abort: null, settle: null };
+      e = { key, promise: /** @type {Promise<any>} */ (/** @type {unknown} */ (null)), value: null, state: 'loading', refs: 0, used: ++this._tick, weight: 0, idleSince: null, attempt: 0, abort: null, settle: null };
       this.map.set(key, e);
-      e.promise = new Promise((resolve, reject) => { e.settle = { resolve, reject }; });
+      e.promise = new Promise((resolve, reject) => { /** @type {LruEntry} */ (e).settle = { resolve, reject }; });
       e.promise.catch(() => {});
       this._attempt(e, key, arg, fresh);
     }
@@ -358,6 +385,7 @@ export class RefLru {
   /**
    * Start the load of `key` again while it is still in flight (see the header); false when it is not loading (ready,
    * failed or unknown).
+   * @param {string} key @param {any} [arg]
    */
   restart(key, arg) {
     const e = this.map.get(key);
@@ -366,7 +394,10 @@ export class RefLru {
     return true;
   }
 
-  /** One load attempt of entry `e` (see the header): the first success settles it, only the newest attempt's failure. */
+  /**
+   * One load attempt of entry `e` (see the header): the first success settles it, only the newest attempt's failure.
+   * @param {LruEntry} e @param {string} key @param {any} arg @param {boolean} fresh
+   */
   _attempt(e, key, arg, fresh) {
     const n = ++e.attempt;
     if (e.abort) { const abort = e.abort; e.abort = null; abort(); }
@@ -400,7 +431,7 @@ export class RefLru {
     );
   }
 
-  /** Drop one reference (never below 0). */
+  /** Drop one reference (never below 0). @param {string} key */
   release(key) {
     const e = this.map.get(key);
     if (!e) return;
@@ -429,7 +460,7 @@ export class RefLru {
     };
   }
 
-  /** Is an unload of `key` still in flight (a new load of it waits for it)? */
+  /** Is an unload of `key` still in flight (a new load of it waits for it)? @param {string} key */
   unloading(key) { return this._unloading.has(key); }
 
   /** Evict now, or (evictDelay > 0) in one pass a moment later. */
@@ -480,12 +511,16 @@ export class RefLru {
     if (wait < Infinity) this._sweepIn(wait);
   }
 
+  /** @param {LruEntry} e */
   _drop(e) {
     this.map.delete(e.key);
     if (e.state === 'ready') this._unloadNow(e.key, e.value, e);
   }
 
-  /** Run the unload of a value; while a returned promise is pending, loads of that key wait (see the header). */
+  /**
+   * Run the unload of a value; while a returned promise is pending, loads of that key wait (see the header).
+   * @param {string} key @param {any} value @param {LruEntry} rec
+   */
   _unloadNow(key, value, rec) {
     let p = null;
     try { p = this._unload(key, value, rec); } catch { p = null; }
@@ -494,7 +529,7 @@ export class RefLru {
     this._unloading.set(key, done);
   }
 
-  /** Re-run eviction in `ms` (keeps the earliest pending pass). */
+  /** Re-run eviction in `ms` (keeps the earliest pending pass). @param {number} ms */
   _sweepIn(ms) {
     const at = this.now() + ms;
     if (this._sweep && this._sweep.at <= at) return;
@@ -524,6 +559,7 @@ export class RefLru {
     return { size: this.map.size, ready, loading, failed, refs, holds: this._holds, weight, idleWeight, active: this._active, queued: this._queue.length, unloading: this._unloading.size };
   }
 
+  /** @param {() => unknown} fn @returns {Promise<any>} */
   _schedule(fn) {
     return new Promise((resolve, reject) => {
       const run = () => {
@@ -540,7 +576,10 @@ export class RefLru {
     });
   }
 
-  /** `p` bounded by the timeout; `onAbort(abort)` receives a function that rejects it at once (a restart). */
+  /**
+   * `p` bounded by the timeout; `onAbort(abort)` receives a function that rejects it at once (a restart).
+   * @param {Promise<any>} p @param {string} key @param {(abort: () => void) => void} [onAbort] @returns {Promise<any>}
+   */
   _withTimeout(p, key, onAbort) {
     if (!(this.timeout > 0) && !onAbort) return p;
     return new Promise((resolve, reject) => {
@@ -552,13 +591,16 @@ export class RefLru {
   }
 }
 
-/** URL of a local-client art entry from a data/local-assets.json manifest (`{ groups: { g: { name: { path } } } }`). */
+/**
+ * URL of a local-client art entry from a data/local-assets.json manifest (`{ groups: { g: { name: { path } } } }`).
+ * @param {unknown} m @param {unknown} group @param {unknown} name
+ */
 export function localAssetUrl(m, group, name) {
   const e = get(get(get(m, 'groups'), str(group) || ''), str(name) || '');
   return isObj(e) ? str(e.path) : null;
 }
 
-/** Default browser image loader. */
+/** Default browser image loader. @param {string} url @returns {Promise<HTMLImageElement>} */
 export function loadImageElement(url) {
   return new Promise((resolve, reject) => {
     if (typeof Image === 'undefined') { reject(new Error('no Image in this environment')); return; }
@@ -584,11 +626,12 @@ export function loadImageElement(url) {
  * cannot (a checkout without the extraction), the web page loads instead, as its own kind (`straight`: PIXI's loader).
  */
 export const PMA_PAGE_PARSER = 'spPremultipliedSpinePage';
-/** Adds the parser once; false when this PIXI lacks what it needs (then pages load as before). */
+/** Adds the parser once; false when this PIXI lacks what it needs (then pages load as before). @param {any} PIXI the page's PIXI */
 function installPmaPageParser(PIXI) {
   const parsers = PIXI.Assets.loader && PIXI.Assets.loader.parsers;
   if (!Array.isArray(parsers) || !PIXI.extensions || !PIXI.ImageBitmapResource || !PIXI.createTexture) return false;
-  if (parsers.some((p) => p.name === PMA_PAGE_PARSER)) return true;
+  if (parsers.some((/** @type {{ name?: string }} */ p) => p.name === PMA_PAGE_PARSER)) return true;
+  /** @param {string} src @param {string} url @param {any} loader PIXI's loader */
   const premultiplied = async (src, url, loader) => {
     const resource = new PIXI.ImageBitmapResource(src, { alphaMode: PIXI.ALPHA_MODES.PMA, ownsImageBitmap: true, autoLoad: false });
     await resource.load();
@@ -599,16 +642,18 @@ function installPmaPageParser(PIXI) {
   PIXI.extensions.add({
     extension: { type: PIXI.ExtensionType.LoadParser, priority: PIXI.LoaderParserPriority.High + 1 },
     name: PMA_PAGE_PARSER,
-    test: (url, asset) => !!(asset && asset.data && asset.data[PMA_PAGE_PARSER]),
+    test: (/** @type {string} */ url, /** @type {any} */ asset) => !!(asset && asset.data && asset.data[PMA_PAGE_PARSER]),
+    /** @param {string} url @param {any} asset @param {any} loader */
     async load(url, asset, loader) {
       const o = asset.data[PMA_PAGE_PARSER];
       const local = isObj(o.pages) ? o.pages[String(url).replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]+/i, '')] : null;
       if (local) {
         try { return await premultiplied(local, url, loader); } catch { /* the web page below */ }
       }
-      const plain = o.straight && loader.parsers.find((p) => p.name === 'loadTextures');
+      const plain = o.straight && loader.parsers.find((/** @type {{ name?: string }} */ p) => p.name === 'loadTextures');
       return plain ? plain.load(url, { ...asset, data: {} }, loader) : premultiplied(url, url, loader);
     },
+    /** @param {PIXI.Texture} texture */
     unload(texture) { texture.destroy(true); },
   });
   return true;
@@ -622,6 +667,7 @@ const localPages = new WeakMap(); // web operator Spine entry → { local, entry
  * 텍스처는 로컬 클라이언트 것」): the same entry with `pages` (web page URL → local page URL), `pma: true` (the local pages
  * are premultiplied) and `webPma` (the web pages' kind, for a page that falls back), when the group lists every page;
  * else null. The skeleton and atlas stay the web ones.
+ * @param {unknown} sp @param {unknown} local data/local-assets.json
  */
 export function localPagesEntry(sp, local) {
   if (!isObj(sp) || !isObj(local)) return null;
@@ -630,6 +676,7 @@ export function localPagesEntry(sp, local) {
   const m = /^\/assets\/spine\/op\/([^/]+)\/(front|back)\//.exec(str(sp.skel) || '');
   let entry = null;
   if (m) {
+    /** @type {Record<string, string>} */
     const pages = {};
     for (const u of spinePages(sp)) {
       const l = localAssetUrl(local, `spine/op/${m[1]}/${m[2]}`, u.slice(u.lastIndexOf('/') + 1));
@@ -642,7 +689,10 @@ export function localPagesEntry(sp, local) {
   return entry || null;
 }
 
-/** Default Spine loader: PIXI.Assets.load(skel) → spineData (needs globalThis.PIXI + PIXI.spine). */
+/**
+ * Default Spine loader: PIXI.Assets.load(skel) → spineData (needs globalThis.PIXI + PIXI.spine).
+ * @param {Record<string, any>} entry manifest spine entry @param {{ fresh?: boolean, keep?: Set<string> }} [opts]
+ */
 export async function loadSpineData(entry, opts) {
   const PIXI = globalThis.PIXI;
   if (!PIXI || !PIXI.Assets || !PIXI.spine) throw new Error('PIXI / pixi-spine not loaded');
@@ -662,7 +712,7 @@ export async function loadSpineData(entry, opts) {
  * `PIXI.Assets.load` of the same URL hands out the same pending promise): the .skel's and, unless the atlas finished
  * (then its pages did too), the .atlas's and its pages' entries of the loader's promise cache. Pages in `keep` (another
  * cached skeleton's) stay. Returns how many were dropped; best effort (0 without that cache).
- * @param {object} entry manifest spine entry { skel, atlas?, textures? }
+ * @param {{ skel?: string, atlas?: string, textures?: string[] } | null | undefined} entry manifest spine entry
  * @param {Set<string>} [keep]
  */
 export function forgetPendingSpine(entry, keep) {
@@ -670,7 +720,7 @@ export function forgetPendingSpine(entry, keep) {
   const cache = PIXI && PIXI.Assets && PIXI.Assets.loader && PIXI.Assets.loader.promiseCache;
   const skel = entry && entry.skel;
   if (!skel || !cache || typeof cache !== 'object') return 0;
-  const done = (u) => { try { return !!PIXI.Assets.cache?.has?.(u); } catch { return true; } };
+  const done = (/** @type {string} */ u) => { try { return !!PIXI.Assets.cache?.has?.(u); } catch { return true; } };
   if (done(skel)) return 0;
   const atlas = (typeof entry.atlas === 'string' && entry.atlas) || skel.replace(/\.skel$/, '.atlas');
   const urls = (done(atlas) ? [skel] : [skel, atlas, ...spinePages(entry)]).filter((u) => !(keep && keep.has(u)));
@@ -688,11 +738,12 @@ export function forgetPendingSpine(entry, keep) {
  * Never throws; unknown shapes weigh `SPINE_WEIGHT_MIN`.
  */
 export const SPINE_WEIGHT_MIN = 64 * 1024;
+/** @param {any} data a parsed skeleton */
 export function spineDataWeight(data) {
   if (!data || typeof data !== 'object') return SPINE_WEIGHT_MIN;
   const OBJ = 96, NUM = 8;
-  const list = (a) => (Array.isArray(a) ? a : []);
-  const arr = (a) => (!a || typeof a !== 'object' ? 0 : ArrayBuffer.isView(a) ? a.byteLength + OBJ
+  const list = (/** @type {unknown} */ a) => (Array.isArray(a) ? a : []);
+  const arr = (/** @type {unknown} */ a) => (!a || typeof a !== 'object' ? 0 : ArrayBuffer.isView(a) ? a.byteLength + OBJ
     : Array.isArray(a) ? a.length * NUM + OBJ : 0);
   let w = 0;
   try {
@@ -719,7 +770,10 @@ export function spineDataWeight(data) {
   return Math.max(SPINE_WEIGHT_MIN, w);
 }
 
-/** Atlas page image URLs of a Spine manifest entry (`textures`, else the `<skel name>.png` next to it). */
+/**
+ * Atlas page image URLs of a Spine manifest entry (`textures`, else the `<skel name>.png` next to it).
+ * @param {unknown} entry @returns {string[]}
+ */
 export function spinePages(entry) {
   if (!isObj(entry)) return [];
   const list = Array.isArray(entry.textures) ? entry.textures.filter((u) => str(u)) : [];
@@ -737,7 +791,7 @@ export function spinePages(entry) {
  * The unloads are asynchronous (PIXI frees an asset a microtask after the call, and until then `PIXI.Assets.load` of
  * the same URL hands out that doomed asset): the returned promise settles (never rejects) once every one has run, and
  * the spine LRU makes a new load of the skeleton wait for it (RefLru header).
- * @param {object} entry manifest spine entry { skel, atlas?, textures? }
+ * @param {{ skel?: string, atlas?: string, textures?: string[] } | null | undefined} entry manifest spine entry
  * @param {any} [_value] the unloaded spineData (unused)
  * @param {Set<string>} [keep] page URLs not to unload
  * @returns {Promise<void>|undefined}
@@ -748,8 +802,9 @@ export function unloadSpineData(entry, _value, keep) {
   if (!skel || !PIXI?.Assets?.unload) return undefined;
   const atlas = (typeof entry.atlas === 'string' && entry.atlas) || skel.replace(/\.skel$/, '.atlas');
   const loader = PIXI.Assets.loader;
+  /** @type {Promise<unknown>[]} */
   const pending = [];
-  const unload = (url, direct) => {
+  const unload = (/** @type {string} */ url, /** @type {boolean} */ direct) => {
     try {
       const p = direct && loader && typeof loader.unload === 'function' ? loader.unload(url) : PIXI.Assets.unload(url);
       pending.push(Promise.resolve(p).catch(() => {}));
@@ -782,7 +837,7 @@ export const MANIFEST_RETRY_MS = Object.freeze([600, 2000]);
 export const MANIFEST_BACKOFF_MS = Object.freeze([5000, 15000, 30000, 60000]);
 
 /** A fetch failure worth retrying (data.js): network error, HTTP 5xx / 408 / 429 — not a 404 or a body that is no JSON. */
-const transientFetch = (err) => {
+const transientFetch = (/** @type {any} */ err) => {
   if (!err || err.badJson) return false;
   const s = err.status;
   return !(Number.isInteger(s) && s >= 400 && s < 500 && s !== 408 && s !== 429);
@@ -800,22 +855,28 @@ const transientFetch = (err) => {
  * after MANIFEST_BACKOFF_MS (bounded; a 404 or a body that is no JSON only on the next `ready()`). `onChange(fn)` is told
  * when the manifest (`'manifest'`) or the optional local-client manifest (`'local'`) arrives, so views built without it
  * resolve their models then (render/app.js → UnitView.retryAssets).
- * @param {{ url?: string, fetch?: typeof fetch, manifest?: object, localManifest?: object, loadImage?: (url) => Promise<any>,
- *           loadSpine?: (entry) => Promise<any>, unloadSpine?: (entry, value, keepPages:Set<string>) => (Promise<void>|void),
- *           spineMax?: number, spineTimeout?: number, spineWeigh?: (key, spineData) => number, spineIdleBytes?: number,
+ * @param {{ url?: string, fetch?: typeof fetch, manifest?: object, localManifest?: object, loadImage?: (url: string) => Promise<any>,
+ *           loadSpine?: (entry: any, o?: { fresh?: boolean, keep?: Set<string> }) => Promise<any>,
+ *           unloadSpine?: (entry: any, value: any, keepPages: Set<string>) => (Promise<void>|void),
+ *           spineMax?: number, spineTimeout?: number, spineWeigh?: (key: string, spineData: any) => number, spineIdleBytes?: number,
  *           spineQuietBytes?: number, spineIdleGrace?: number, spineEvictDelay?: number, spineQuietDelay?: number,
- *           spineTimers?: { set, clear }, spineNow?: () => number, retryDelays?: number[], backoff?: number[],
- *           wait?: (ms: number) => Promise<void>, timers?: { set, clear }, localUrl?: string, spineConcurrency?: number }} [options]
+ *           spineTimers?: { set: Function, clear: Function }, spineNow?: () => number, retryDelays?: number[], backoff?: number[],
+ *           wait?: (ms: number) => Promise<void>, timers?: { set: Function, clear: Function }, localUrl?: string,
+ *           spineConcurrency?: number }} [options]
  */
 export function createAssets(options) {
   const opts = options && typeof options === 'object' ? options : {};
   const url = opts.url || '/data/assets.json';
   const localUrl = opts.localUrl || '/data/local-assets.json';
+  /** @type {Promise<Record<string, any> | null> | null} */
   let localPromise = isObj(opts.localManifest) ? Promise.resolve(opts.localManifest) : null;
+  /** @type {Record<string, any> | null} */
   let localManifest = isObj(opts.localManifest) ? opts.localManifest : null;
   let localSettled = !!localManifest;
   const doFetch = opts.fetch || ((...a) => globalThis.fetch(...a));
+  /** @type {Record<string, any> | null} */
   let manifest = isObj(opts.manifest) ? opts.manifest : null;
+  /** @type {Promise<Record<string, any>> | null} */
   let readyPromise = manifest ? Promise.resolve(manifest) : null;
   const loadImage = opts.loadImage || loadImageElement;
   const images = new Map(); // url → { promise, value }
@@ -823,19 +884,21 @@ export function createAssets(options) {
   const backoff = Array.isArray(opts.backoff) ? opts.backoff : MANIFEST_BACKOFF_MS;
   const wait = opts.wait || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   const timers = opts.timers && typeof opts.timers.set === 'function' ? opts.timers : {
-    set: (fn, ms) => { const t = setTimeout(fn, ms); /** @type {any} */ (t)?.unref?.(); return t; },
-    clear: (t) => clearTimeout(t),
+    set: (/** @type {() => void} */ fn, /** @type {number} */ ms) => { const t = setTimeout(fn, ms); /** @type {any} */ (t)?.unref?.(); return t; },
+    clear: (/** @type {ReturnType<typeof setTimeout>} */ t) => clearTimeout(t),
   };
+  /** @type {Set<(what: string) => void>} */
   const listeners = new Set();
   let warned = false;
   let backoffN = 0;          // background tries used since the last success
+  /** @type {unknown} */
   let backoffTimer = null;
 
-  const notify = (what) => {
+  const notify = (/** @type {string} */ what) => {
     for (const fn of [...listeners]) { try { fn(what); } catch (err) { console.warn('[assets] change listener failed', err); } }
   };
 
-  /** Adopt a manifest (fetched or seeded): resolves `ready()`, stops the background tries, tells the listeners. */
+  /** Adopt a manifest (fetched or seeded): resolves `ready()`, stops the background tries, tells the listeners. @param {unknown} m */
   function adopt(m) {
     if (manifest || !isObj(m)) return false;
     manifest = m;
@@ -865,13 +928,14 @@ export function createAssets(options) {
   function ready() {
     if (manifest) return Promise.resolve(manifest);
     if (!readyPromise) {
+      /** @type {Promise<Record<string, any>> | undefined} */
       const p = readyPromise = (async () => {
         for (let attempt = 0; ; attempt++) {
           try {
             const json = await fetchOnce();
             adopt(json);
-            return manifest;
-          } catch (err) {
+            return /** @type {Record<string, any>} */ (/** @type {unknown} */ (manifest));
+          } catch (/** @type {any} */ err) {
             if (manifest) return manifest; // seeded meanwhile
             if (transientFetch(err) && attempt < retryDelays.length) { await wait(retryDelays[attempt]); if (manifest) return manifest; continue; }
             if (!warned) { warned = true; console.warn(`[assets] ${url} unavailable (${err?.message || err}); using fallbacks until it loads`); }
@@ -930,6 +994,7 @@ export function createAssets(options) {
    * Image element (cached; failures resolve to null). A failure stays cached (a missing image is not asked for on every
    * frame) unless `retry`: then a failed image is loaded again (the 3D board's art after a dropped request,
    * render/board3d/load.js).
+   * @param {unknown} u @param {{ retry?: boolean }} [o]
    */
   function image(u, o) {
     const s = str(u);
@@ -950,6 +1015,7 @@ export function createAssets(options) {
   /**
    * Optional local-client art manifest (null when absent: every consumer falls back). Fetched once (or seeded); `retry`
    * fetches again when the last fetch settled without a manifest (a dropped request — the 3D board asks again).
+   * @param {{ retry?: boolean }} [o]
    */
   function local(o) {
     if (localPromise && o?.retry && !localManifest && localSettled) localPromise = null;
@@ -978,8 +1044,8 @@ export function createAssets(options) {
      * Adopt the game data's copy of /data/assets.json (data.js 'assets', already loaded by the match screen) unless a
      * manifest is loaded: no second download, nothing to wait for. Returns whether it was adopted.
      */
-    seed: (mf) => adopt(mf),
-    /** The same for the optional local-client manifest (data.js 'local'; `{ groups }`), unless one is known. */
+    seed: (/** @type {unknown} */ mf) => adopt(mf),
+    /** The same for the optional local-client manifest (data.js 'local'; `{ groups }`), unless one is known. @param {unknown} lm */
     seedLocal(lm) {
       if (localManifest || !isObj(lm) || !isObj(lm.groups)) return false;
       localManifest = lm;
@@ -987,46 +1053,47 @@ export function createAssets(options) {
       notify('local');
       return true;
     },
-    /** `fn('manifest' | 'local')` when a manifest arrives (seeded or fetched, also late); returns the unsubscribe. */
+    /** `fn('manifest' | 'local')` when a manifest arrives (seeded or fetched, also late); returns the unsubscribe. @param {(what: string) => void} fn */
     onChange(fn) {
       if (typeof fn !== 'function') return () => {};
       listeners.add(fn);
       return () => listeners.delete(fn);
     },
-    localUrl: (group, name) => localAssetUrl(localManifest, group, name),
+    localUrl: (/** @type {unknown} */ group, /** @type {unknown} */ name) => localAssetUrl(localManifest, group, name),
     get manifest() { return manifest; },
     get loaded() { return !!manifest; },
-    avatar: (id, o) => avatarUrl(m(), id, o),
-    portrait: (id, o) => portraitUrl(m(), id, o),
-    enemyIcon: (id) => enemyIconUrl(m(), id),
-    tokenAvatar: (id) => tokenAvatarUrl(m(), id),
-    bondIcon: (id) => bondIconUrl(m(), id),
-    bandIcon: (id) => bandIconUrl(m(), id),
-    itemIcon: (item) => itemIconUrl(m(), item),
-    skillIcon: (id, o) => skillIconUrl(m(), id, o),
-    profIcon: (p, kind) => profIconUrl(m(), p, kind),
-    subProfIcon: (s) => subProfIconUrl(m(), s),
-    ui: (name) => uiUrl(m(), name),
-    picture: (id) => unitPictureUrl(m(), id),
-    spineEntry: (id, o) => spineEntry(m(), id, localManifest ? { ...o, local: localManifest } : o),
-    itemSpine: (item) => itemSpineEntry(m(), item, localManifest),
-    hasBack: (id) => hasBackSpine(m(), id),
+    avatar: (/** @type {unknown} */ id, /** @type {{ e2?: boolean }} */ o) => avatarUrl(m(), id, o),
+    portrait: (/** @type {unknown} */ id, /** @type {{ e2?: boolean }} */ o) => portraitUrl(m(), id, o),
+    enemyIcon: (/** @type {unknown} */ id) => enemyIconUrl(m(), id),
+    tokenAvatar: (/** @type {unknown} */ id) => tokenAvatarUrl(m(), id),
+    bondIcon: (/** @type {unknown} */ id) => bondIconUrl(m(), id),
+    bandIcon: (/** @type {unknown} */ id) => bandIconUrl(m(), id),
+    itemIcon: (/** @type {unknown} */ item) => itemIconUrl(m(), item),
+    skillIcon: (/** @type {unknown} */ id, /** @type {{ fallback?: boolean }} */ o) => skillIconUrl(m(), id, o),
+    profIcon: (/** @type {unknown} */ p, /** @type {string} */ kind) => profIconUrl(m(), p, kind),
+    subProfIcon: (/** @type {unknown} */ s) => subProfIconUrl(m(), s),
+    ui: (/** @type {unknown} */ name) => uiUrl(m(), name),
+    picture: (/** @type {unknown} */ id) => unitPictureUrl(m(), id),
+    spineEntry: (/** @type {unknown} */ id, /** @type {{ back?: boolean }} */ o) => spineEntry(m(), id, localManifest ? { ...o, local: localManifest } : o),
+    itemSpine: (/** @type {unknown} */ item) => itemSpineEntry(m(), item, localManifest),
+    hasBack: (/** @type {unknown} */ id) => hasBackSpine(m(), id),
     audio: {
-      bgm: (kind) => bgmEntry(m(), kind),
-      sfx: (group, key) => sfxUrl(m(), group, key),
-      unit: (id, kind, idx) => unitSfxUrl(m(), id, kind, idx),
+      bgm: (/** @type {unknown} */ kind) => bgmEntry(m(), kind),
+      sfx: (/** @type {unknown} */ group, /** @type {unknown} */ key) => sfxUrl(m(), group, key),
+      unit: (/** @type {unknown} */ id, /** @type {string} */ kind, /** @type {number|null} */ idx) => unitSfxUrl(m(), id, kind, idx),
     },
     /** Cached image element promise (null on failure). */
     image,
-    /** Already-loaded image element or null (sync). */
+    /** Already-loaded image element or null (sync). @param {unknown} u */
     imageNow(u) { const e = images.get(str(u) || ''); return e && e.done ? e.value : null; },
     /**
      * Preload URLs; `onProgress(done, total, url)` after each. Resolves to { ok, failed } counts (never rejects).
+     * @param {unknown} urls @param {(done: number, total: number, url: string) => void} [onProgress]
      */
     async preload(urls, onProgress) {
-      const list = [...new Set((Array.isArray(urls) ? urls : []).map(str).filter(Boolean))];
+      const list = /** @type {string[]} */ ([...new Set((Array.isArray(urls) ? urls : []).map(str).filter(Boolean))]);
       let done = 0, ok = 0;
-      await Promise.all(list.map((u) => image(u).then((img) => {
+      await Promise.all(list.map((u) => image(u).then((/** @type {unknown} */ img) => {
         done++;
         if (img) ok++;
         try { onProgress?.(done, list.length, u); } catch { /* ignore */ }
@@ -1039,10 +1106,10 @@ export function createAssets(options) {
      * hold() → release function (a scene that will need its skeletons again: RefLru).
      */
     spine: {
-      acquire: (entry, o) => (validSpine(entry) ? spine.acquire(entry.skel, entry, o) : Promise.reject(new Error('no spine entry'))),
-      restart: (entry) => (validSpine(entry) ? spine.restart(entry.skel, entry) : false),
-      release: (entry) => { if (entry && entry.skel) spine.release(entry.skel); },
-      peek: (entry) => (entry && entry.skel ? spine.peek(entry.skel) : null),
+      acquire: (/** @type {Record<string, any> | null | undefined} */ entry, /** @type {{ retry?: boolean }} */ o) => (validSpine(entry) ? spine.acquire(entry.skel, entry, o) : Promise.reject(new Error('no spine entry'))),
+      restart: (/** @type {Record<string, any> | null | undefined} */ entry) => (validSpine(entry) ? spine.restart(entry.skel, entry) : false),
+      release: (/** @type {Record<string, any> | null | undefined} */ entry) => { if (entry && entry.skel) spine.release(entry.skel); },
+      peek: (/** @type {Record<string, any> | null | undefined} */ entry) => (entry && entry.skel ? spine.peek(entry.skel) : null),
       hold: () => spine.hold(),
       stats: () => spine.stats(),
       clear: () => spine.clear(),

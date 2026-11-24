@@ -17,7 +17,7 @@ export const PRELOAD_URL = '/preload.json';
 
 let started = false;
 
-/** Whether this browser fetches `<link rel="modulepreload">` (Safari 17+, Chrome 66+, Firefox 115+). */
+/** Whether this browser fetches `<link rel="modulepreload">` (Safari 17+, Chrome 66+, Firefox 115+). @param {Document} doc */
 function modulePreloadSupported(doc) {
   try { return !!doc.createElement('link').relList?.supports?.('modulepreload'); } catch { return false; }
 }
@@ -28,9 +28,9 @@ function modulePreloadSupported(doc) {
  * @returns {number} requests started
  */
 export function preloadFiles(list, { doc = globalThis.document, fetchFn = (...a) => globalThis.fetch(...a), base = import.meta.url } = {}) {
-  const specs = (v) => (Array.isArray(v) ? v.filter((s) => typeof s === 'string' && /^\.\.?\//.test(s) && s.endsWith('.js')) : []);
+  const specs = (/** @type {unknown} */ v) => (Array.isArray(v) ? v.filter((s) => typeof s === 'string' && /^\.\.?\//.test(s) && s.endsWith('.js')) : []);
   // the body is read to the end: an abandoned response would not be stored in the HTTP cache
-  const warm = (url) => { try { Promise.resolve(fetchFn(url, { priority: 'low' })).then((r) => r?.arrayBuffer?.(), () => {}).catch(() => {}); } catch { /* ignore */ } };
+  const warm = (/** @type {string} */ url) => { try { Promise.resolve(fetchFn(url, { priority: 'low' })).then((r) => r?.arrayBuffer?.(), () => {}).catch(() => {}); } catch { /* ignore */ } };
   const links = !!doc?.head && modulePreloadSupported(doc);
   let n = 0;
   for (const spec of specs(list?.modules)) {
@@ -56,7 +56,7 @@ export function preloadMatchCode() {
       const res = await globalThis.fetch(PRELOAD_URL, { cache: 'no-cache' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       preloadFiles(await res.json());
-    } catch (err) {
+    } catch (/** @type {any} */ err) {
       started = false; // the next call tries again
       console.warn('[preload] match code list unavailable:', err?.message || err);
     }

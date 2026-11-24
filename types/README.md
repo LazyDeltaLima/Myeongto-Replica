@@ -109,7 +109,7 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 the files directly under `server/sim/` (`server/sim/*.js`), the files directly under `server/sim/content/`
 (`server/sim/content/*.js`), the enemy kits `server/sim/content/enemies/` and the operator kits
 `server/sim/content/kits/ops/`, and in the renderer the 3D board `public/js/render/board3d/` and the effect system's parts
-`public/js/render/fx/`.
+`public/js/render/fx/`, and the files directly under `public/js/` (`public/js/*.js`).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -494,6 +494,18 @@ most strict errors were, and the JSDoc that fixed them:
   …`). The kit-event plans are `@type {Record<string, Record<string, KitPlanFn>>}` (kitofficial.js), which types every
   `cite(key, (o, c) => …)` callback through `cite`'s generic. A unit's view (render/units.js) is taken as `any` (a
   view or a plain point record reaches the same helpers).
+- the files directly under `public/js/`: the app state is `AppState` (public/js/store.js), typed slot by slot rather
+  than `typeof initialState` — under strict a slot that starts `null` or `[]` is `null` / `never[]`, so every read of
+  `room` or `match.public` was an error; the server's records in it are `Bag` (`{ [key: string]: any }`). A store made
+  from a literal with empty slots gets its typedef as a cast (`createStore(/** @type {ResState} */ ({ … }))`,
+  resources.js). A frozen sound / voice table read by a string key is `@type {Readonly<Record<string, …>>}` (audio.js,
+  audioOfficial.js, voicePolicy.js); the sound code's tracked unit and fx extra are `SoundUnit` / `FxExtra` (audio.js:
+  read field by field) and the manifest helpers take `unknown` (assets.js `isObj` is a guard to `Record<string, any>`).
+  `Number.isFinite(x)` does not narrow `x`: cast at the use (`/** @type {number} */ (o.timeout) > 0`). `useReducer((c)
+  => c + 1, 0)` called as `force()` (TS2554): type the reducer `(c: number, a: void) => number`. A `const` read inside
+  the async IIFE that makes it (`const p = x = (async () => { … x === p … })()`, TS2454): a declared type that admits
+  `undefined` turns that check off. A `let` that only a closure fills with a DOM node (`s = ctx.createBufferSource()`
+  where `ctx` is any) stays `| null` there: cast the assigned value.
 
 
 ## Split classes

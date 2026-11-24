@@ -69,7 +69,7 @@ const QUIET_SWAP_MIN_AGE_MS = 5000;
  * @returns {string}
  */
 export function errorText(code, msg) {
-  return ERR_TEXT[code] || CLIENT_ERR_TEXT[code] || (typeof msg === 'string' && msg) || String(code || N_('未知错误'));
+  return /** @type {Record<string, string>} */ (ERR_TEXT)[code] || /** @type {Record<string, string>} */ (CLIENT_ERR_TEXT)[code] || (typeof msg === 'string' && msg) || String(code || N_('未知错误'));
 }
 
 /** Error thrown/rejected by requests. `code` is an ERR code or a CLIENT_ERR_TEXT key. */
@@ -119,6 +119,8 @@ const WS_CONNECTING = 0;
 
 /**
  * Game server connection. Construct with injectable dependencies for tests.
+ * @typedef {{ [key: string]: any }} WireMsg a server message, read field by field
+ * @typedef {{ msg: object, resolve: (reply: any) => void, reject: (err: Error) => void, sent: boolean, timer: unknown }} PendingRequest
  */
 export class Net {
   /**
@@ -139,15 +141,16 @@ export class Net {
     this.now = opts.now || (() => Date.now());
     this.random = opts.random || Math.random;
     this.timers = opts.timers || {
-      setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms),
-      clearTimeout: (id) => globalThis.clearTimeout(id),
-      setInterval: (fn, ms) => globalThis.setInterval(fn, ms),
-      clearInterval: (id) => globalThis.clearInterval(id),
+      setTimeout: (/** @type {() => void} */ fn, /** @type {number} */ ms) => globalThis.setTimeout(fn, ms),
+      clearTimeout: (/** @type {number | undefined} */ id) => globalThis.clearTimeout(id),
+      setInterval: (/** @type {() => void} */ fn, /** @type {number} */ ms) => globalThis.setInterval(fn, ms),
+      clearInterval: (/** @type {number | undefined} */ id) => globalThis.clearInterval(id),
     };
 
     /** @type {'idle'|'connecting'|'connected'|'handshaking'|'online'|'reconnecting'|'closed'} */
     this.status = 'idle';
     this.ws = null;
+    /** @type {string | null} */
     this.name = null;          // desired player name (hello is sent when set)
     this.helloName = null;     // name we sent in the hello that got the last welcome
     this.serverName = null;    // name as normalised by the server
@@ -175,6 +178,7 @@ export class Net {
     this._inUseRetries = 0;    // SESSION_IN_USE hellos resent since the last welcome (IN_USE_RETRY_MS)
     this._lastRx = 0;
     this._unansweredSince = null; // time of the oldest ping sent since the last inbound frame
+    /** @type {Array<{ offset: number, rtt: number }>} */
     this._clockSamples = [];   // [{ offset, rtt }]
     this.rx = { n: 0, ms: 0, bytes: 0 }; // inbound frames handled, the main-thread time they took, their size (the perf HUD)
   }
@@ -201,6 +205,7 @@ export class Net {
     this._listeners.get(type)?.delete(fn);
   }
 
+  /** @param {string} type @param {unknown} payload */
   _emit(type, payload) {
     const set = this._listeners.get(type);
     if (!set || set.size === 0) return;
@@ -218,6 +223,7 @@ export class Net {
     };
   }
 
+  /** @param {Net['status']} status */
   _setStatus(status) {
     this.status = status;
     this._emit('status', this.snapshot());
@@ -278,7 +284,7 @@ export class Net {
     this.connect();
   }
 
-  /** Drop the current socket and reconnect immediately (fresh hello). */
+  /** Drop the current socket and reconnect immediately (fresh hello). @param {string | null} [name] */
   reconnectNow(name = this.name) {
     if (this._manualClose) return;
     this.name = name;
@@ -328,6 +334,7 @@ export class Net {
     }
   }
 
+  /** @param {{ code?: number } | null | undefined} ev */
   _onClose(ev) {
     this._teardownSocket();
     this._failPending('DISCONNECTED', false);
@@ -377,6 +384,7 @@ export class Net {
     this._helloSentName = null;
   }
 
+  /** @param {'_reconnectTimer' | '_pingTimer' | '_helloTimer'} field @param {'clearTimeout' | 'clearInterval'} fn */
   _clearTimer(field, fn) {
     if (this[field] != null) {
       try { this.timers[fn](this[field]); } catch { /* ignore */ }
@@ -389,6 +397,7 @@ export class Net {
   _sendHello() {
     if (!this.name) return;
     const rid = this._nextRid();
+    /** @type {{ t: string, rid: number, name: string, version: number, token?: string, noReplace?: boolean, claimAt?: number, takeover?: boolean, bid?: string }} */
     const msg = { t: 'hello', rid, name: this.name, version: PROTOCOL_VERSION };
     let token = null;
     try { token = this.getToken(); } catch { token = null; }
@@ -396,7 +405,7 @@ export class Net {
       msg.token = token;
       const claim = this.getTokenClaim();
       if (claim?.noReplace) msg.noReplace = true;
-      if (Number.isFinite(claim?.claimAt)) msg.claimAt = claim.claimAt;
+      if (Number.isFinite(claim?.claimAt)) msg.claimAt = /** @type {{ claimAt: number }} */ (claim).claimAt;
       if (claim?.takeover) msg.takeover = true;
     }
     const bid = loadBrowserId();
@@ -419,6 +428,7 @@ export class Net {
     }, HELLO_TIMEOUT_MS);
   }
 
+  /** @param {WireMsg} msg */
   _onWelcome(msg) {
     this._clearTimer('_helloTimer', 'clearTimeout');
     this._helloRid = null;
@@ -435,6 +445,7 @@ export class Net {
     this._sendPing();
   }
 
+  /** @param {WireMsg} msg */
   _onHelloError(msg) {
     this._clearTimer('_helloTimer', 'clearTimeout');
     this._helloRid = null;
@@ -443,7 +454,7 @@ export class Net {
       const ws = this.ws;
       this._helloTimer = this.timers.setTimeout(() => {
         this._helloTimer = null;
-        if (ws === this.ws && ws.readyState === WS_OPEN && this.status === 'handshaking') this._sendHello();
+        if (ws === this.ws && /** @type {WebSocket} */ (ws).readyState === WS_OPEN && this.status === 'handshaking') this._sendHello();
       }, IN_USE_RETRY_MS[this._inUseRetries++]);
       return;
     }
@@ -488,7 +499,7 @@ export class Net {
         reject(new NetError(this._manualClose ? 'CLOSED' : 'OFFLINE'));
         return;
       }
-      const timeout = Number.isFinite(opts.timeout) && opts.timeout > 0 ? opts.timeout : REQUEST_TIMEOUT_MS;
+      const timeout = Number.isFinite(opts.timeout) && /** @type {number} */ (opts.timeout) > 0 ? opts.timeout : REQUEST_TIMEOUT_MS;
       const entry = { msg, resolve, reject, sent: false, timer: null };
       entry.timer = this.timers.setTimeout(() => {
         if (this._pending.get(rid) !== entry) return;
@@ -519,6 +530,7 @@ export class Net {
     return this._sendRaw(msg);
   }
 
+  /** @param {object} obj */
   _sendRaw(obj) {
     const ws = this.ws;
     if (!ws || ws.readyState !== WS_OPEN) return false;
@@ -540,6 +552,7 @@ export class Net {
   /**
    * Reject pending requests. Sent ones always fail (their reply is lost with the socket);
    * unsent (queued) ones fail only when `includeQueued` is true.
+   * @param {string} code @param {boolean} includeQueued
    */
   _failPending(code, includeQueued) {
     for (const [rid, entry] of [...this._pending]) {
@@ -550,6 +563,7 @@ export class Net {
     }
   }
 
+  /** @param {PendingRequest} entry */
   _clearEntryTimer(entry) {
     if (entry.timer != null) {
       try { this.timers.clearTimeout(entry.timer); } catch { /* ignore */ }
@@ -564,6 +578,7 @@ export class Net {
 
   // ---- incoming --------------------------------------------------------------------------------
 
+  /** @param {unknown} data */
   _onMessage(data) {
     this._lastRx = this.now();
     this._unansweredSince = null;
@@ -646,6 +661,7 @@ export class Net {
     this._heartbeat();
   }
 
+  /** @param {WireMsg} msg */
   _onPong(msg) {
     const now = this.now();
     const c = Number(msg.c);
@@ -658,6 +674,7 @@ export class Net {
     this._emit('status', this.snapshot());
   }
 
+  /** @param {number} offset @param {number} rtt */
   _addClockSample(offset, rtt) {
     if (!Number.isFinite(offset)) return;
     this._clockSamples.push({ offset, rtt });
@@ -728,6 +745,7 @@ const CHANNEL_NAME = 'sp.identity';
 /** How long init() waits for other tabs to claim a candidate token (ms). */
 export const CLAIM_QUERY_MS = 150;
 
+/** @param {'localStorage' | 'sessionStorage'} kind @returns {Storage | null} */
 function safeStorage(kind) {
   try {
     const s = globalThis[kind];
@@ -741,11 +759,14 @@ function safeStorage(kind) {
   }
 }
 
+/** @param {Storage | null} s @param {string} k */
 function sget(s, k) { try { return s ? s.getItem(k) : null; } catch { return null; } }
+/** @param {Storage | null} s @param {string} k @param {string} v */
 function sset(s, k, v) { try { if (s) s.setItem(k, v); } catch { /* quota / privacy mode */ } }
+/** @param {Storage | null} s @param {string} k */
 function sdel(s, k) { try { if (s) s.removeItem(k); } catch { /* ignore */ } }
 
-const isToken = (t) => typeof t === 'string' && t.length > 0 && t.length <= TOKEN_MAX_LEN;
+const isToken = (/** @type {unknown} */ t) => typeof t === 'string' && t.length > 0 && t.length <= TOKEN_MAX_LEN;
 
 /** The browser id for `hello.bid`: one per browser profile, every tab the same (server/local-moderation.js). */
 function loadBrowserId() {
@@ -754,7 +775,7 @@ function loadBrowserId() {
 }
 /** @param {unknown} bid from `welcome` */
 function saveBrowserId(bid) {
-  if (isToken(bid) && bid !== loadBrowserId()) sset(safeStorage('localStorage'), K_BID, bid);
+  if (isToken(bid) && bid !== loadBrowserId()) sset(safeStorage('localStorage'), K_BID, /** @type {string} */ (bid));
 }
 
 /**
@@ -782,8 +803,10 @@ function defaultChannel() {
 
 /**
  * Create the identity helper (nickname, "entered" flag and reconnect-token selection; see above).
+ * @typedef {{ postMessage: Function, addEventListener?: Function, onmessage?: any }} IdentityChannel
+ * @typedef {{ owned: boolean, at: number | null, live: boolean }} TokenClaim what a tab says of a token it holds
  * @param {{ local?: Storage|null, session?: Storage|null, tabId?: string,
- *           channel?: { postMessage: Function, addEventListener?: Function, onmessage?: any } | null,
+ *           channel?: IdentityChannel | null,
  *           setTimeout?: (fn: Function, ms: number) => any, queryMs?: number, now?: () => number,
  *           onYield?: () => void }} [deps]
  */
@@ -793,18 +816,24 @@ export function createIdentity(deps = {}) {
   const tabId = deps.tabId || Math.random().toString(36).slice(2) + Date.now().toString(36);
   const setTimer = deps.setTimeout || ((fn, ms) => globalThis.setTimeout(fn, ms));
   const now = deps.now || (() => Date.now());
-  const queryMs = Number.isFinite(deps.queryMs) && deps.queryMs >= 0 ? deps.queryMs : CLAIM_QUERY_MS;
+  const queryMs = Number.isFinite(deps.queryMs) && /** @type {number} */ (deps.queryMs) >= 0 ? /** @type {number} */ (deps.queryMs) : CLAIM_QUERY_MS;
 
+  /** @type {IdentityChannel | null} */
   let channel = null;
+  /** @type {Promise<string | null> | null} */
   let initPromise = null;
   let initialized = false;
   let resumeBusy = false;
+  /** @type {string | null} */
   let takeover = null;   // token this page is taking over (hello.takeover until its welcome)
   const contestedIds = new Set(); // hashes of seats this page lost to another window
+  /** @type {string | null} */
   let current = null;    // token this tab uses (null = let the server create a session)
+  /** @type {{ hashes: Set<string>, taken: Set<string> } | null} */
   let resolving = null;  // { hashes: Set<hash>, taken: Set<hash> } while init() waits for claims
   let owned = sget(session, K_TOKEN);
   if (!isToken(owned)) owned = null;
+  /** @type {number | null} */
   let welcomeAt = null;
   try {
     const saved = JSON.parse(sget(session, K_WELCOME) || 'null');
@@ -820,7 +849,7 @@ export function createIdentity(deps = {}) {
       return [];
     }
   };
-  const writeRecent = (list) => sset(local, K_RECENT, JSON.stringify([...new Set(list)].slice(0, RECENT_MAX)));
+  const writeRecent = (/** @type {string[]} */ list) => sset(local, K_RECENT, JSON.stringify([...new Set(list)].slice(0, RECENT_MAX)));
 
   const readMatches = () => {
     try {
@@ -828,9 +857,9 @@ export function createIdentity(deps = {}) {
       return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
     } catch { return {}; }
   };
-  const rememberMatch = (info) => {
+  const rememberMatch = (/** @type {{ name: string, code: string } | null} */ info) => {
     if (!current) return;
-    const old = readMatches(), next = {};
+    const old = readMatches(), /** @type {Record<string, { name: string, code: string }>} */ next = {};
     for (const token of readRecent()) {
       const hash = tokenHash(token);
       const v = token === current ? info : old[hash];
@@ -841,27 +870,29 @@ export function createIdentity(deps = {}) {
     sset(local, K_MATCHES, JSON.stringify(next));
   };
 
-  const post = (msg) => {
+  const post = (/** @type {Record<string, unknown>} */ msg) => {
     try { channel?.postMessage({ ...msg, from: tabId }); } catch { /* channel closed */ }
   };
 
   // Session ownership is already valid while init is waiting. Shared candidates, including an
   // explicit resume, remain tentative until saveToken receives the server's welcome.
+  /** @param {string} hash @returns {TokenClaim | null} */
   const claimFor = (hash) => {
     if (owned && tokenHash(owned) === hash) return { owned: true, at: welcomeAt, live: welcomed };
     if ((current && tokenHash(current) === hash) || resolving?.hashes.has(hash)) return { owned: false, at: null, live: false };
     return null;
   };
+  /** @param {Partial<TokenClaim> | null | undefined} peer another tab's claim @param {string} from @param {TokenClaim | null} ours */
   const peerWins = (peer, from, ours) => {
     if (!peer || !ours) return true; // an older client answering "mine" is conservatively treated as live
-    const a = Number.isFinite(peer.at) && peer.at >= 0 ? peer.at : Infinity;
-    const b = Number.isFinite(ours.at) && ours.at >= 0 ? ours.at : Infinity;
+    const a = Number.isFinite(peer.at) && /** @type {number} */ (peer.at) >= 0 ? /** @type {number} */ (peer.at) : Infinity;
+    const b = Number.isFinite(ours.at) && /** @type {number} */ (ours.at) >= 0 ? /** @type {number} */ (ours.at) : Infinity;
     if (a !== b) return a < b;
     if (!!peer.owned !== !!ours.owned) return !!peer.owned;
     if (!!peer.live !== !!ours.live) return !!peer.live;
     return from < tabId;
   };
-  const yieldCandidate = (hash) => {
+  const yieldCandidate = (/** @type {string} */ hash) => {
     resolving?.taken.add(hash);
     // The original page can reappear after resume's query but before its hello. Keep our old
     // session in storage and give back the tentative selection immediately in that interval.
@@ -881,12 +912,13 @@ export function createIdentity(deps = {}) {
 
   // Another window took this seat over: keep the token (its 「在此页面继续」 can take it back) but no longer
   // outrank the new holder in claims, here or after a reload.
-  const stepAside = (hash) => {
+  const stepAside = (/** @type {string} */ hash) => {
     if (!owned || tokenHash(owned) !== hash) return;
     welcomeAt = null; welcomed = false;
     sdel(session, K_WELCOME);
   };
 
+  /** @param {MessageEvent | null | undefined} ev */
   function onChannelMessage(ev) {
     const m = ev && ev.data;
     if (!m || typeof m !== 'object' || m.from === tabId || typeof m.from !== 'string') return;
@@ -918,6 +950,7 @@ export function createIdentity(deps = {}) {
     return initialPick(candidates);
   }
 
+  /** @param {string[]} candidates @returns {Promise<string | null>} */
   async function queryCandidates(candidates) {
     resolving = { hashes: new Set(candidates.map(tokenHash)), taken: new Set() };
     post({ type: 'who', hashes: [...resolving.hashes],
@@ -928,6 +961,7 @@ export function createIdentity(deps = {}) {
     return candidates.find((t) => !taken.has(tokenHash(t))) || null;
   }
 
+  /** @param {string[]} candidates */
   async function initialPick(candidates) {
     const pick = await queryCandidates(candidates);
     // the seat this page would have resumed is held by another live window
@@ -970,7 +1004,7 @@ export function createIdentity(deps = {}) {
           ? [{ id: hash, name: v.name.slice(0, 64), code: v.code.slice(0, 32) }] : [];
       });
     },
-    /** Explicit recovery only. Recheck live claims immediately before selecting a saved seat. */
+    /** Explicit recovery only. Recheck live claims immediately before selecting a saved seat. @param {string} id */
     async resume(id) {
       await this.init();
       if (!channel || resumeBusy) return false;

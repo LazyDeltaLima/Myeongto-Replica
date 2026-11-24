@@ -40,6 +40,7 @@ import { ToastHost, toast, toastError, describeError } from './ui/toasts.js';
 import { InviteSpectateHost, offerSpectate } from './ui/inviteSpectate.js';
 import { net, identity, NetError, defaultWsUrl } from './net.js';
 import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating, reservedRank } from './store.js';
+/** @import { AppState, Bag } from './store.js' */
 import { data } from './data.js';
 import { resolveRuleset } from '../../shared/ruleset.js';
 import { customBorrowIds } from '../../shared/seasonBorrow.js';
@@ -91,7 +92,7 @@ const EMOTE_KEEP = 20;
 
 const SCREENS = { title: TitleScreen, lobby: LobbyScreen, room: RoomScreen, game: GameScreen };
 
-/** Copy of a server message without transport fields. */
+/** Copy of a server message without transport fields. @param {Bag} msg @returns {Bag} */
 function payload(msg) {
   const { t, rid, ...rest } = msg; // eslint-disable-line no-unused-vars
   return rest;
@@ -113,7 +114,9 @@ let seq = 0;
 let welcomeAt = 0;
 let roomStateAt = 0;
 let matchAt = 0;
+/** @type {ReturnType<typeof setTimeout> | null} */
 let restoreTimer = null;
+/** @type {ReturnType<typeof setTimeout> | null} */
 let joinTimer = null;
 let joinInFlight = false;
 /** @type {ReturnType<typeof startBuildGuard> | null} ui/buildGuard.js, started once the page is up */
@@ -126,7 +129,7 @@ function clearPendingJoin() {
 
 /** Auto-join the deep-linked room once entered + online (idempotent). */
 function schedulePendingJoin() {
-  clearTimeout(joinTimer);
+  clearTimeout(/** @type {ReturnType<typeof setTimeout>} */ (joinTimer));
   joinTimer = setTimeout(async () => {
     const s = store.get();
     const code = s.ui.pendingJoin;
@@ -156,7 +159,7 @@ function maybeFinishRestore() {
   const roomOk = !s.room || roomStateAt >= welcomeAt;
   const matchOk = !s.match.public || matchAt >= welcomeAt || !s.room?.inMatch;
   if (roomOk && matchOk) {
-    clearTimeout(restoreTimer);
+    clearTimeout(/** @type {ReturnType<typeof setTimeout>} */ (restoreTimer));
     store.patch('ui', { restoring: false });
   }
 }
@@ -168,13 +171,14 @@ function maybeFinishRestore() {
  */
 function backToLobby() {
   identity.rememberMatch(null);
-  clearTimeout(restoreTimer);
+  clearTimeout(/** @type {ReturnType<typeof setTimeout>} */ (restoreTimer));
   const s = store.get();
   if (s.room || s.match.public) closeAllDialogs();
   store.set({ room: null, match: emptyMatch(), ticker: [], emotes: [] });
   store.patch('ui', { restoring: false, serverLost: null });
 }
 
+/** @param {Bag} msg the `welcome` */
 function onWelcome(msg) {
   identity.saveToken(msg.token);
   identity.rememberMatch(null);
@@ -198,9 +202,10 @@ function onWelcome(msg) {
   } else if (prev.room || prev.match.public) {
     // Resumed session: the server re-pushes room/match state; drop whatever it doesn't.
     store.patch('ui', { restoring: true });
-    clearTimeout(restoreTimer);
+    clearTimeout(/** @type {ReturnType<typeof setTimeout>} */ (restoreTimer));
     restoreTimer = setTimeout(() => {
       const s = store.get();
+      /** @type {Partial<AppState>} */
       const patch = {};
       if (s.room && roomStateAt < welcomeAt) patch.room = null;
       if (s.match.public && matchAt < welcomeAt) patch.match = emptyMatch();
@@ -211,10 +216,12 @@ function onWelcome(msg) {
   schedulePendingJoin();
 }
 
+/** @param {Bag} msg the `room.state` */
 function onRoomState(msg) {
   const room = payload(msg);
   roomStateAt = Date.now();
   const myId = store.get().me.playerId;
+  /** @type {Array<Bag | null>} */
   const seats = Array.isArray(room.seats) ? room.seats : [];
   if (myId != null && seats.length && !seats.some((s) => s && s.playerId === myId) && !isSpectating(room, myId)) {
     // We are no longer seated (kicked / left elsewhere) — neither in a player seat nor a spectator seat.
@@ -259,17 +266,20 @@ function onRoomState(msg) {
  * 确认 leads to the lobby (the client's QuitGame) — without the local art: straight to the lobby with a toast, as before.
  */
 const SERVER_LOST_TIP = N_('与服务器的连接已断开');
+/** @param {AppState} s */
 function serverLostDue(s) {
   const pub = s?.match?.public;
   if (!pub || !pub.phase || pub.phase === PHASE.LOBBY || pub.phase === PHASE.RESULT || s.match.result) return false;
   return !!battleArt('confirm').cls;
 }
+/** @param {string} text */
 function serverLost(text) {
   closeAllDialogs(); // what they ask about is gone, and they would lie over this dialog's 确认
   identity.rememberMatch(null);
   store.patch('ui', { serverLost: { text } });
 }
 
+/** @type {Readonly<Record<string, string>>} */
 const CLOSE_REASON = {
   // 'timeout' = this player was removed after staying disconnected past the lobby grace (server/lobby.js)
   host_left: N_('创建者已离开，同盟已解散'), timeout: N_('由于长时间断开连接，你已离开同盟'), empty: N_('同盟已解散'),
@@ -319,7 +329,7 @@ function wireNet() {
   });
   // what the room's custom ruleset borrows from other seasons' battlefields / 特训敌人 types (shared/seasonBorrow.js):
   // the data store — and the battle runner's sim — read those records too, as the server's match does
-  const followBorrow = (st) => {
+  const followBorrow = (/** @type {AppState} */ st) => {
     const rs = st.room ? st.match?.public?.ruleset ?? st.room.ruleset ?? null : null;
     data.setBorrow(rs ? customBorrowIds(resolveRuleset(rs).custom) : null);
   };
@@ -409,6 +419,7 @@ function warmGameData() {
 
 // ---- UI chrome (the connection banner lives in ui/connBanner.js) -----------------------------------
 
+/** @param {{ error: Error, reset: () => void }} props */
 function ScreenCrashed({ error, reset }) {
   return html`<div class="screen crash">
     <div class="crash__box brackets">
@@ -448,6 +459,7 @@ function App() {
 
 // ---- boot -----------------------------------------------------------------------------------------
 
+/** @param {number} ms */
 async function waitForFonts(ms) {
   const fonts = document.fonts;
   if (!fonts || typeof fonts.load !== 'function') return;
@@ -534,7 +546,7 @@ async function boot() {
   const langReady = initLang().catch((err) => console.warn('[app] language setup failed', err));
   await Promise.all([waitForFonts(1200), connectWhenReady, langReady]);
   const root = document.getElementById('app');
-  render(html`<${App} />`, root);
+  render(html`<${App} />`, /** @type {HTMLElement} */ (root));
   installGpuNotice({ store }); // after langReady: the toast's text is translated when it is shown
 
   const splash = document.getElementById('boot');
@@ -551,7 +563,7 @@ async function boot() {
   // `import`: a module of this page by its path from /js/ (`__SP__.import('./ui/lang.js')`, tests and the console). The
   // page loads its modules under the build's /b/<tag>/r/ URLs (server/http/buildTag.js), so an absolute import('/js/…')
   // would load a second copy with its own state, not the page's.
-  globalThis.__SP__ = { store, net, data, version: 1, import: (p) => import(new URL(p, import.meta.url).href) };
+  globalThis.__SP__ = { store, net, data, version: 1, import: (/** @type {string} */ p) => import(new URL(p, import.meta.url).href) };
   // A page keeps the modules it imported at load time for its whole lifetime, so a deploy cannot reach an open tab
   // (ui/buildGuard.js): watch `/healthz.build`. Outside a match the page reloads itself; during a match the guard says
   // so instead (the connection banner offers 刷新页面) and reloads once the match — settlement screen included — is over,
@@ -559,7 +571,7 @@ async function boot() {
   // A restart the page heard of is over (ui/restartNotice.js onRestarted): the guard checks at once, not within two minutes.
   try {
     buildGuard = startBuildGuard({
-      fetchFn: (url, init) => globalThis.fetch(genUrl(url), init), // this tab's server during a deploy (ui/generation.js)
+      fetchFn: (/** @type {string} */ url, /** @type {RequestInit} */ init) => globalThis.fetch(genUrl(url), init), // this tab's server during a deploy (ui/generation.js)
       inMatch: () => selectRoute(store.get()) === 'game',
       onStale: ({ waiting }) => { if (waiting) store.patch('ui', { buildStale: true }); },
     });

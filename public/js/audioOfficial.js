@@ -13,7 +13,7 @@
 
 import { sfxOut } from './audioSnapshot.js'; // local patch: sounds outside the mixer snapshot bus
 
-/** Linear gain of each mixer group (Default snapshot, parents included). */
+/** Linear gain of each mixer group (Default snapshot, parents included). @type {Readonly<Record<string, number>>} */
 export const GROUP_GAIN = Object.freeze({
   Battle_P_NAtk: 0.348, Battle_P_NImp: 0.336, Battle_P_SAtk: 0.428, Battle_P_SImp: 0.348, Battle_P_Field: 0.267,
   Battle_E_NAtk: 0.163, Battle_E_NImp: 0.205, Battle_E_SAtk: 0.273, Battle_E_SImp: 0.317,
@@ -26,7 +26,10 @@ export const VOICE_GAIN = 0.978;
 /** A bank without a group (e.g. ON_MODIFIER_HEAL): the battle SFX bus (SoundFXBank.ParseMixer: a `battle` name is FX_BATTLE; AudioOptions.SelectMixerGroup: battleFxGroup). */
 const NO_GROUP = GROUP_GAIN.SFX_Battle;
 
-/** The group a role uses in the official banks when the manifest has none (by the unit's model id prefix). */
+/**
+ * The group a role uses in the official banks when the manifest has none (by the unit's model id prefix).
+ * @param {unknown} defId @param {string} role @param {boolean} [mode]
+ */
 export function roleGroup(defId, role, mode = false) {
   const enemy = typeof defId === 'string' && defId.startsWith('enemy_');
   switch (role) {
@@ -39,7 +42,7 @@ export function roleGroup(defId, role, mode = false) {
 }
 
 /** Gain of a mixer group name (unknown → the battle SFX bus). */
-export const groupGain = (g) => (typeof g === 'string' && Object.hasOwn(GROUP_GAIN, g) ? GROUP_GAIN[g] : NO_GROUP);
+export const groupGain = (/** @type {unknown} */ g) => (typeof g === 'string' && Object.hasOwn(GROUP_GAIN, g) ? GROUP_GAIN[g] : NO_GROUP);
 
 /**
  * The official gain of a unit's sound: its group's gain × its bank volume (mix.vol, not capped — a bank the official
@@ -53,33 +56,33 @@ export const groupGain = (g) => (typeof g === 'string' && Object.hasOwn(GROUP_GA
  */
 export function officialGain(defId, role, entry, mix, o = {}) {
   const grp = o.grp ?? entry?.grp;
-  let g = role === 'skill' && Number.isInteger(o.skillIndex) ? grp?.skills?.[o.skillIndex] : grp?.[role];
+  let g = role === 'skill' && Number.isInteger(o.skillIndex) ? grp?.skills?.[/** @type {number} */ (o.skillIndex)] : grp?.[role];
   if (typeof g !== 'string') g = roleGroup(defId, role, !!o.mode);
   const vol = Number(mix?.vol);
   return groupGain(g) * (Number.isFinite(vol) && vol > 0 ? vol : 1);
 }
 
-/** Groups of the named battle sounds (audio.js battle(name); BATTLE_SFX banks / their files' banks). */
+/** Groups of the named battle sounds (audio.js battle(name); BATTLE_SFX banks / their files' banks). @type {Readonly<Record<string, string>>} */
 export const BATTLE_GROUP = Object.freeze({
   deploy: 'Battle_UI_Important', tokenDeploy: 'Battle_UI_Important', charDie: 'Battle_UI_Important', leak: 'Battle_UI_Important',
   enemyDie: 'Battle_E_NImp', enemyDieHeavy: 'Battle_BE_NImp', enemyHit: 'Battle_E_NImp', killCoin: 'Battle_E_NImp',
   heal: 'SFX_Battle',
 });
-/** Bank volume of a named battle sound when it differs from 1 (ON_MODIFIER_HEAL p_imp_heal_n 0.8). */
+/** Bank volume of a named battle sound when it differs from 1 (ON_MODIFIER_HEAL p_imp_heal_n 0.8). @type {Readonly<Record<string, number>>} */
 const BATTLE_VOL = Object.freeze({ heal: 0.8 });
 /** The official gain of a named battle sound (unknown names: the battle SFX bus). */
-export const battleGain = (name) => groupGain(BATTLE_GROUP[name]) * (BATTLE_VOL[name] ?? 1);
+export const battleGain = (/** @type {string} */ name) => groupGain(BATTLE_GROUP[name]) * (BATTLE_VOL[name] ?? 1);
 
 /**
  * The skill-mode entry of a unit for its running skill: sfx.units[defId].modes[skillIndex] when it has a sound for the
  * role, else null.
  * @param {any} entry sfx.units[defId]
  * @param {number|null|undefined} skillIndex
- * @param {'attack'|'hit'} [role]
+ * @param {'attack'|'hit'|null} [role]
  */
 export function modeEntry(entry, skillIndex, role = null) {
   if (!Number.isInteger(skillIndex)) return null;
-  const m = entry?.modes?.[skillIndex];
+  const m = entry?.modes?.[/** @type {number} */ (skillIndex)];
   if (!m || typeof m !== 'object') return null;
   return !role || typeof m[role] === 'string' ? m : null;
 }
@@ -91,7 +94,7 @@ export function modeEntry(entry, skillIndex, role = null) {
  * @returns {string|null|undefined}
  */
 export function modeOn(entry, skillIndex) {
-  const m = Number.isInteger(skillIndex) ? entry?.modes?.[skillIndex] : null;
+  const m = Number.isInteger(skillIndex) ? entry?.modes?.[/** @type {number} */ (skillIndex)] : null;
   if (!m || typeof m !== 'object' || typeof m.attack !== 'string') return undefined;
   return typeof m.on === 'string' ? m.on : null;
 }
@@ -99,8 +102,9 @@ export function modeOn(entry, skillIndex) {
 /**
  * 2026-10-10, docs/rules/audio.md 「스킬 종료음」: the bank a unit's skill sounds as it ends
  * (sfx.units[defId].ends[skillIndex] = { url, grp?, vol? }, tools/assets/skill-mode-sfx.mjs skillEnds) or null.
+ * @param {any} entry sfx.units[defId] @param {number|null|undefined} skillIndex
  */
-export const skillEndOf = (entry, skillIndex) => (Number.isInteger(skillIndex) && typeof entry?.ends?.[skillIndex]?.url === 'string' ? entry.ends[skillIndex] : null);
+export const skillEndOf = (entry, skillIndex) => (Number.isInteger(skillIndex) && typeof entry?.ends?.[/** @type {number} */ (skillIndex)]?.url === 'string' ? entry.ends[/** @type {number} */ (skillIndex)] : null);
 
 /**
  * 2026-10-10, docs/rules/audio.md 「효과음 재생: 피치·동시 재생 상한」: the play values of a sound file —
@@ -137,12 +141,14 @@ const LOOP_FADE_S = 0.25;
  * Start unit `key`'s loop of `url` at `gain` (a running one of that unit is replaced). local patch:
  * `o.loop` false = a one-shot held under that key so the skill's end can cut it (塑心 S3's melody: its ctrlStop bank),
  * `o.fade` = the fade (s) stopSkillLoop cuts it with (default LOOP_FADE_S).
+ * @param {any} mgr the AudioManager @param {unknown} key @param {unknown} url @param {number} gain
+ * @param {{ loop?: boolean, fade?: number }} [o]
  */
 export function startSkillLoop(mgr, key, url, gain, o = {}) {
   if (!mgr?.ctx || typeof url !== 'string' || mgr.volumes?.muted) return;
   stopSkillLoop(mgr, key);
   const loops = (mgr._skillLoops ||= new Map());
-  const rec = { url, src: null, gain: null, stopped: false, fade: Number.isFinite(o.fade) && o.fade >= 0 ? o.fade : LOOP_FADE_S };
+  const rec = { url, src: null, gain: null, stopped: false, fade: Number.isFinite(o.fade) && /** @type {number} */ (o.fade) >= 0 ? /** @type {number} */ (o.fade) : LOOP_FADE_S };
   loops.set(key, rec);
   Promise.resolve(mgr._buffer(url)).then((buf) => {
     if (!buf || rec.stopped || !mgr.ctx || loops.get(key) !== rec) return;
@@ -161,7 +167,7 @@ export function startSkillLoop(mgr, key, url, gain, o = {}) {
   }, () => {});
 }
 
-/** Fade out and stop unit `key`'s loop (no-op without one). */
+/** Fade out and stop unit `key`'s loop (no-op without one). @param {any} mgr the AudioManager @param {unknown} key */
 export function stopSkillLoop(mgr, key) {
   const rec = mgr?._skillLoops?.get(key);
   if (!rec) return;
@@ -177,7 +183,10 @@ export function stopSkillLoop(mgr, key) {
   } catch { /* ignore */ }
 }
 
-/** local patch: stop every held sound of unit `id` — its loop (key `id`) and its held one-shots (keys `id:…`). */
+/**
+ * local patch: stop every held sound of unit `id` — its loop (key `id`) and its held one-shots (keys `id:…`).
+ * @param {any} mgr the AudioManager @param {string|number} id
+ */
 export function stopUnitLoops(mgr, id) {
   const pre = `${id}:`;
   for (const key of [...(mgr?._skillLoops?.keys() || [])]) if (key === id || String(key).startsWith(pre)) stopSkillLoop(mgr, key);
@@ -186,9 +195,10 @@ export function stopUnitLoops(mgr, id) {
 /**
  * local patch: the extra one-shots of a unit's skill (sfx.units[defId].extras[skillIndex], tools/assets/
  * skill-mode-sfx.mjs skillExtras) — [{ url, grp?, vol?, stop? }], `stop` = cut with that fade when the skill ends.
+ * @param {any} entry sfx.units[defId] @param {number|null|undefined} skillIndex
  */
 export const skillExtrasOf = (entry, skillIndex) => {
-  const l = Number.isInteger(skillIndex) ? entry?.extras?.[skillIndex] : null;
+  const l = Number.isInteger(skillIndex) ? entry?.extras?.[/** @type {number} */ (skillIndex)] : null;
   return Array.isArray(l) ? l.filter((x) => typeof x?.url === 'string') : [];
 };
 
@@ -196,33 +206,39 @@ export const skillExtrasOf = (entry, skillIndex) => {
  * 2026-10-29, docs/rules/audio.md 「스킬 시전 능력 소리」: a CastSkill's own ability cues (sfx.units[def].castCues[skillIndex],
  * skill-mode-sfx.mjs castCues), each with its wait in game seconds from the 'skill' event's `[strike, end]` (`at` 's' 0,
  * 'a' the strike, 'e' the end; without timing 0). [{ cue, after }]
+ * @param {any} entry sfx.units[def] @param {number|null|undefined} skillIndex @param {unknown} timing [strike, end]
+ * @param {number} [lead]
  */
 export const castCuesOf = (entry, skillIndex, timing, lead = 0) => {
-  const l = Number.isInteger(skillIndex) ? entry?.castCues?.[skillIndex] : null;
+  const l = Number.isInteger(skillIndex) ? entry?.castCues?.[/** @type {number} */ (skillIndex)] : null;
   if (!Array.isArray(l)) return [];
   const t = Array.isArray(timing) ? timing : [];
   // (`lead`: the begin clip before the ability is cast — skillBeginOf; the sim's [strike, end] already count it)
-  const after = (at) => { const v = at === 'a' ? t[0] : at === 'e' ? t[1] : lead; return Number.isFinite(v) && v > 0 ? v : 0; };
+  const after = (/** @type {unknown} */ at) => { const v = at === 'a' ? t[0] : at === 'e' ? t[1] : lead; return Number.isFinite(v) && v > 0 ? v : 0; };
   return l.filter((c) => c && typeof c.u !== 'undefined').map((c) => ({ cue: c, after: after(c.at) }));
 };
 
 /**
  * 2026-11-12, docs/rules/audio.md 「스킬 효과음」: the begin clip (game seconds) a cast of skill `skillIndex` plays before its skill
  * ability is cast (sfx.units[def].begin, skill-mode-sfx.mjs skillBeginLeads; 0 without one) — the ability's START waits it.
+ * @param {any} entry sfx.units[def] @param {number|null|undefined} skillIndex
  */
 export const skillBeginOf = (entry, skillIndex) => {
-  const v = Number.isInteger(skillIndex) ? Number(entry?.begin?.[skillIndex]) : 0;
+  const v = Number.isInteger(skillIndex) ? Number(entry?.begin?.[/** @type {number} */ (skillIndex)]) : 0;
   return Number.isFinite(v) && v > 0 ? v : 0;
 };
 
-/** Stop every skill loop (a new field). */
+/** Stop every skill loop (a new field). @param {any} mgr the AudioManager */
 export function stopSkillLoops(mgr) {
   for (const key of [...(mgr?._skillLoops?.keys() || [])]) stopSkillLoop(mgr, key);
 }
 
-/** The loop entry of a unit's skill (sfx.units[defId].loops[skillIndex]) or null. */
-export const skillLoopOf = (entry, skillIndex) => (Number.isInteger(skillIndex) && entry?.loops?.[skillIndex]?.url ? entry.loops[skillIndex] : null);
-/** Its gain: the bank's mixer group × its volume. */
+/**
+ * The loop entry of a unit's skill (sfx.units[defId].loops[skillIndex]) or null.
+ * @param {any} entry sfx.units[defId] @param {number|null|undefined} skillIndex
+ */
+export const skillLoopOf = (entry, skillIndex) => (Number.isInteger(skillIndex) && entry?.loops?.[/** @type {number} */ (skillIndex)]?.url ? entry.loops[/** @type {number} */ (skillIndex)] : null);
+/** Its gain: the bank's mixer group × its volume. @param {any} loop skillLoopOf's entry */
 export const loopGain = (loop) => groupGain(loop?.grp) * (Number.isFinite(loop?.vol) && loop.vol > 0 ? loop.vol : 1);
 
 /**
@@ -243,6 +259,7 @@ export function dollSwitchSfx(def, fx) {
   if (fx === 'dollEnd') return { play: [], hold: null, stop: true };
   return null;
 }
+/** @type {Readonly<Record<string, { on: string[], hold: { key: string, fade: number }, off: string[] }>>} */
 const DOLL_SFX = Object.freeze({
   char_1023_ghost2: { on: ['ghost2:stand'], hold: { key: 'ghost2:standin', fade: 0.8 }, off: ['ghost2:normal'] },
 });
@@ -277,7 +294,7 @@ export function battleLossOf(pp, cap = 10) {
  * @returns {{ kind: 'perfect'|'miss'|'done', lost: number, sfx: 'battleOverNoReduce'|'battleOverReduce'|'battleOverNormal' }}
  */
 export function battleOverOf(losses, selfId) {
-  const n = (v) => Math.max(0, Math.trunc(Number(v) || 0));
+  const n = (/** @type {unknown} */ v) => Math.max(0, Math.trunc(Number(v) || 0));
   const all = losses && typeof losses === 'object' ? Object.values(losses) : [];
   const lost = selfId != null && losses && typeof losses === 'object' ? n(losses[selfId]) : 0;
   if (lost > 0) return { kind: 'miss', lost, sfx: 'battleOverReduce' };
@@ -292,10 +309,11 @@ export function battleOverOf(losses, selfId) {
 /**
  * The cue set an attack of unit entry `entry` sounds while skill `mode` (its index, null = none) runs: the mode's own
  * (`modes[mode].cues`, [] = it attacks in silence), else the Default's; null when the manifest has no cues (the role path).
+ * @param {any} entry sfx.units[defId] @param {number|null|undefined} mode @param {string|null} [sub] a mode it switched to
  * @returns {{ cues: any[], sel?: any, mode: boolean }|null}
  */
 export function cueSetOf(entry, mode, sub = null) {
-  const m = Number.isInteger(mode) ? entry?.modes?.[mode] : null;
+  const m = Number.isInteger(mode) ? entry?.modes?.[/** @type {number} */ (mode)] : null;
   // 2026-10-29: the mode the running skill switched to on the way (`modes[i].sub[fx]`, shared/skill-modes.js SKILL_SUB_MODES)
   const s = m && typeof sub === 'string' ? m.sub?.[sub] : null;
   if (s && Array.isArray(s.cues)) return { cues: s.cues, sel: s.sel, mode: true };
@@ -303,7 +321,10 @@ export function cueSetOf(entry, mode, sub = null) {
   return Array.isArray(entry?.cues) ? { cues: entry.cues, sel: entry.sel, mode: false } : null;
 }
 
-/** The ability of a strike: 'combat' for a melee one when the set has both, 'attack' for a ranged one; null with one kind. */
+/**
+ * The ability of a strike: 'combat' for a melee one when the set has both, 'attack' for a ranged one; null with one kind.
+ * @param {{ cues: any[] } | null | undefined} set cueSetOf @param {boolean} melee
+ */
 export function cueAbility(set, melee) {
   const kinds = new Set((set?.cues || []).map((c) => c?.ab).filter(Boolean));
   if (kinds.size < 2) return kinds.size ? [...kinds][0] : null;
@@ -343,7 +364,11 @@ export function pickVariant(sel, ab, o) {
   return k;
 }
 
-/** The cues of one moment of an attack: `at` of the chosen ability / child / spell (a cue without one belongs to every). */
+/**
+ * The cues of one moment of an attack: `at` of the chosen ability / child / spell (a cue without one belongs to every).
+ * @param {{ cues: any[] } | null | undefined} set cueSetOf @param {string} at @param {string|null} ab
+ * @param {number|null|undefined} k @param {number|null|undefined} sp a spell index
+ */
 export function cuesAt(set, at, ab, k, sp) {
   const hasK = (set?.cues || []).some((c) => c?.k != null && (c.ab == null || c.ab === ab));
   const kk = k ?? (hasK ? 1 : null);
@@ -354,9 +379,11 @@ export function cuesAt(set, at, ab, k, sp) {
 /**
  * The file one play of a cue sounds, its bank volume and its delay (s): one of `or` drawn by weight
  * (SoundFXBank._GenerateWeightedRandomSound), else `u`. null when the cue has none.
+ * @param {any} c a cue of cueSetOf @param {() => number} [random]
  */
 export function cueFile(c, random = Math.random) {
-  const or = Array.isArray(c?.or) ? c.or.filter((x) => typeof x?.u === 'string') : [];
+  /** @type {any[]} */
+  const or = Array.isArray(c?.or) ? c.or.filter((/** @type {any} */ x) => typeof x?.u === 'string') : [];
   if (or.length) {
     const tot = or.reduce((a, x) => a + (x.w > 0 ? x.w : 0), 0);
     let r = random() * (tot || or.length);

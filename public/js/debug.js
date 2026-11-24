@@ -22,38 +22,52 @@ import { localDiyPool } from '../../shared/local-diy.js';
 import { createArena } from './debug/arena.js';
 import { TERRAINS, SCENES, SANDBAG_DEFAULT, DEFAULT_OP, SANDBAG_HP, HURT, KEEP_OP, inArena, defaultBags, ownTokens, autoTokens, rangeOf, besideOp } from './debug/sandbag.js';
 
+/**
+ * @typedef {import('./ui/gameLogic/shared.js').Bag} Bag
+ * @typedef {{ row: number, col: number }} Tile
+ * @typedef {{ charId: string, name: string, diy: boolean, chess: Bag, tier: number }} DebugOp an operator of the list
+ * @typedef {{ op: DebugOp | null, elite: boolean, skill: number | null, module: string | null, dir: string, opTile: Tile,
+ *   bags: Tile[], autoBags: boolean, enemyKey: string, bag: { def: number, res: number, atk: number, fixed: boolean,
+ *   attack: boolean }, terrain: string, tokens: Array<Tile & { tokenId: string }>, autoTokens: boolean, spAuto: boolean,
+ *   hurt: boolean, keepOp: boolean, place: string, scene: string | null, items: string[] }} DebugState the page's settings
+ * @typedef {Readonly<Record<string, (typeof SCENES)[keyof typeof SCENES]>>} SceneTable SCENES by a key from the URL
+ */
 /** The debug page's controls by id (inputs and selects: `value`, `checked`). @param {string} id @returns {any} */
 const $ = (id) => document.getElementById(id);
+/** @param {string} tag @param {Record<string, any>} [attrs] @param {...any} kids */
 const el = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
-    if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else if (v === true) e.setAttribute(k, ''); else if (v != null && v !== false) e.setAttribute(k, v);
+    if (k === 'class') e.className = v; else if (k.startsWith('on')) /** @type {any} */ (e)[k] = v; else if (v === true) e.setAttribute(k, ''); else if (v != null && v !== false) e.setAttribute(k, v);
   }
   for (const k of kids.flat()) if (k != null) e.append(k.nodeType ? k : document.createTextNode(String(k)));
   return e;
 };
 const params = new URLSearchParams(location.search);
-const fmt = (n) => Math.round(Number(n) || 0).toLocaleString('en-US');
-const file = (url) => String(url || '').split('/').slice(-2).join('/');
+const fmt = (/** @type {unknown} */ n) => Math.round(Number(n) || 0).toLocaleString('en-US');
+const file = (/** @type {unknown} */ url) => String(url || '').split('/').slice(-2).join('/');
 const DIRS = ['RIGHT', 'DOWN', 'LEFT', 'UP'];
+/** @type {Record<string, string>} */
 const DIR_LABEL = { RIGHT: '→', DOWN: '↓', LEFT: '←', UP: '↑' };
+/** @type {Record<string, string>} */
 const VOICE_SLOTS = { start: '행동 출발', faceEnemy: '행동 개시', select: '선택', place: '배치', skill1: '작전 중 1', skill2: '작전 중 2', skill3: '작전 중 3', skill4: '작전 중 4' };
 
 // ---- data ---------------------------------------------------------------------------------------------------------
 // the game page's resource worker answers /assets/ from its cache by path: sync that cache with the current list first, as
 // the game does on load (public/js/resources.js reconcile) — else a rebuilt fx/index.json or fx/modes.json stays its old copy
 try { await Promise.race([installResources(), new Promise((r) => setTimeout(r, 4000))]); } catch { /* the page works without it */ }
-const getJson = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const getJson = (/** @type {string} */ u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 const season = params.get('season');
 await data.setSeason(season);
 const [, fxIndex, koData, koDiy, fxModes] = await Promise.all([data.loadAll('chess', 'enemies', 'tokens', 'assets', 'local', 'stages', 'backups'), getJson('/assets/local/fx/index.json'),
   getJson('/i18n/ko/data.json'), getJson('/i18n/ko/diy.json'), getJson('/assets/local/fx/modes.json')]);
 const manifest = data.get('assets');
-const ko = (s) => (koData && koData[s]) || (koDiy && koDiy[s]) || s;
-const chessOf = (id) => data.lookup('chess', id);
-const unitSfx = (id) => manifest?.audio?.sfx?.units?.[id] || {};
-const prefabsOf = (spine) => fxIndex?.bundles?.[fxBundleOf(spine)] || [];
+const ko = (/** @type {string} */ s) => (koData && koData[s]) || (koDiy && koDiy[s]) || s;
+const chessOf = (/** @type {string} */ id) => data.lookup('chess', id);
+const unitSfx = (/** @type {string} */ id) => manifest?.audio?.sfx?.units?.[id] || {};
+const prefabsOf = (/** @type {string} */ spine) => fxIndex?.bundles?.[fxBundleOf(spine)] || [];
 
+/** @type {Map<string, DebugOp>} */
 const ops = new Map(); // charId → { charId, name, diy, chess, tier }
 for (const c of data.list('chess')) {
   if (!c?.charId || c.isGolden || c.isDiy) continue;
@@ -67,7 +81,10 @@ for (const c of data.list('chess')) {
 const DIY_SLOT = 'chess_char_6_diy1_a';
 const backups = data.get('backups');
 const diyData = { chess: Object.fromEntries(data.list('chess').map((c) => [c.chessId, c])), backups };
-/** The composed record of a 自选 pick (normal / elite) with skill / module — null when the slot or pick is unknown. */
+/**
+ * The composed record of a 自选 pick (normal / elite) with skill / module — null when the slot or pick is unknown.
+ * @param {string} charId @param {{ elite?: boolean, skillIndex?: number, uniEquipId?: string | null }} [o]
+ */
 const diyRec = (charId, { elite = false, skillIndex = 0, uniEquipId = null } = {}) => {
   try { return diyRecord(DIY_SLOT, { charId, skillIndex, uniEquipId }, { elite, data: diyData }); } catch { return null; }
 };
@@ -75,22 +92,24 @@ for (const charId of localDiyPool(backups?.diy?.ownedPool || [])) {
   const rec = diyRec(charId);
   if (rec && !ops.has(charId)) ops.set(charId, { charId, name: rec.name || backups.units?.[charId]?.name || charId, diy: true, chess: rec, tier: 6 });
 }
-const list = [...ops.values()].sort((a, b) => (b.diy - a.diy) || (b.tier - a.tier) || String(a.name).localeCompare(String(b.name), 'zh'));
-const avatar = (id) => manifest?.chars?.[id]?.avatar || '';
+const list = [...ops.values()].sort((a, b) => (/** @type {any} */ (b.diy) - /** @type {any} */ (a.diy)) || (b.tier - a.tier) || String(a.name).localeCompare(String(b.name), 'zh'));
+const avatar = (/** @type {string} */ id) => manifest?.chars?.[id]?.avatar || '';
+/** @type {Record<string, number>} */
 const RANK = { BOSS: 0, ELITE: 1, NORMAL: 2 };
 const enemies = data.list('enemies').filter((e) => e?.key && manifest?.enemies?.[e.key]?.spine)
   .sort((a, b) => ((RANK[a.rank] ?? 3) - (RANK[b.rank] ?? 3)) || String(a.key).localeCompare(String(b.key)));
 
 // ---- settings -----------------------------------------------------------------------------------------------------
-const num = (v) => (v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
+const num = (/** @type {unknown} */ v) => (v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
+/** @type {DebugState} */
 const st = {
-  op: null, elite: params.get('elite') === '1', skill: num(params.get('skill')) != null ? num(params.get('skill')) - 1 : null,
-  module: params.get('module') || null, dir: DIRS.includes(params.get('dir')) ? params.get('dir') : 'RIGHT',
+  op: null, elite: params.get('elite') === '1', skill: num(params.get('skill')) != null ? /** @type {number} */ (num(params.get('skill'))) - 1 : null,
+  module: params.get('module') || null, dir: DIRS.includes(/** @type {string} */ (params.get('dir'))) ? /** @type {string} */ (params.get('dir')) : 'RIGHT',
   // bags: the sandbag tiles; autoBags = still the operator's default placement (defaultBags: follows its range / direction)
   opTile: { ...DEFAULT_OP }, bags: [], autoBags: true,
-  enemyKey: enemies.some((e) => e.key === params.get('enemy')) ? params.get('enemy') : SANDBAG_DEFAULT,
+  enemyKey: enemies.some((e) => e.key === params.get('enemy')) ? /** @type {string} */ (params.get('enemy')) : SANDBAG_DEFAULT,
   // bag.attack: the sandbags attack the allies anywhere on the island (sandbag.js sandbagRecord)
-  bag: { def: 0, res: 0, atk: 0, fixed: true, attack: params.get('attack') === '1' }, terrain: TERRAINS[params.get('terrain')] ? params.get('terrain') : 'flat',
+  bag: { def: 0, res: 0, atk: 0, fixed: true, attack: params.get('attack') === '1' }, terrain: /** @type {Record<string, string>} */ (TERRAINS)[/** @type {string} */ (params.get('terrain'))] ? /** @type {string} */ (params.get('terrain')) : 'flat',
   // tokens: the operator's hand-placed pieces on the island ({ tokenId, row, col }); autoTokens = still the default placement
   tokens: [], autoTokens: true,
   spAuto: true, hurt: false, keepOp: true, place: 'op',
@@ -100,56 +119,57 @@ const st = {
   items: (params.get('items') || '').split(',').map((x) => x.trim()).filter((x) => /^chess_item_\w+$/.test(x)),
 };
 let pendingFx = params.get('fx');
-if (SCENES[params.get('scene')]) applyScene(params.get('scene'));
+if (/** @type {SceneTable} */ (SCENES)[/** @type {string} */ (params.get('scene'))]) applyScene(params.get('scene'));
 
-/** Set the island up as scene `key` (SCENES), or drop the scene (null): its blockers and crates go with it. */
+/** Set the island up as scene `key` (SCENES), or drop the scene (null): its blockers and crates go with it. @param {string | null} key */
 function applyScene(key) {
-  const sc = SCENES[key];
+  const sc = /** @type {SceneTable} */ (SCENES)[/** @type {string} */ (key)];
   st.scene = sc ? key : null;
   if (!sc) return;
   st.opTile = { ...sc.op };
   st.dir = sc.dir;
-  st.bags = sc.bags.map((b) => ({ ...b }));
+  st.bags = sc.bags.map((/** @type {Tile} */ b) => ({ ...b }));
   st.autoBags = false;
   st.tokens = st.tokens.filter((t) => !sceneTile(t.row, t.col));
 }
-/** Whether tile (row, col) holds one of the scene's blockers or crates (no operator, sandbag or piece goes there). */
+/** Whether tile (row, col) holds one of the scene's blockers or crates (no operator, sandbag or piece goes there). @param {number} row @param {number} col */
 function sceneTile(row, col) {
-  const sc = SCENES[st.scene];
-  return !!sc && (sc.blockers.some((x) => x.row === row && x.col === col) || sc.crates.some(([r, c]) => r === row && c === col));
+  const sc = /** @type {SceneTable} */ (SCENES)[/** @type {string} */ (st.scene)];
+  return !!sc && (sc.blockers.some((/** @type {Tile} */ x) => x.row === row && x.col === col) || sc.crates.some((/** @type {readonly number[]} */ [r, c]) => r === row && c === col));
 }
 
 /** The loadout choices of the selected operator: base / elite records and loadoutOptions. */
 function loadout() {
   const base = st.op?.chess;
   const golden = st.op?.diy ? diyRec(st.op.charId, { elite: true }) : base?.goldenId ? chessOf(base.goldenId) : null;
-  const opt = base ? loadoutOptions(base, golden) : /** @type {ReturnType<typeof loadoutOptions>} */ ({ skills: [], modules: [] });
+  const opt = base ? loadoutOptions(base, golden) : /** @type {ReturnType<typeof loadoutOptions>} */ (/** @type {unknown} */ ({ skills: [], modules: [] }));
   return { base, golden, opt };
 }
 /** The record a battle config fields (a 自选 pick composed from its slot) and its hand-placed pieces. */
-const cfgRecord = (cfg) => (cfg.diy ? diyRec(cfg.diy.charId, { elite: cfg.chessId.endsWith('_b'), skillIndex: cfg.diy.skillIndex, uniEquipId: cfg.diy.uniEquipId }) : chessOf(cfg.chessId));
-const cfgTokens = (cfg) => (cfg.diy ? ownTokens(diyTokenOwner(cfg.diy.charId, cfgRecord(cfg)?.status), Object.values(backups?.tokens || {})) : ownTokens(cfg.chessId, data.list('tokens')));
+/** @typedef {ReturnType<typeof battleConfig>} DebugCfg */
+const cfgRecord = (/** @type {DebugCfg} */ cfg) => (cfg.diy ? diyRec(cfg.diy.charId, { elite: cfg.chessId.endsWith('_b'), skillIndex: cfg.diy.skillIndex, uniEquipId: cfg.diy.uniEquipId }) : chessOf(cfg.chessId));
+const cfgTokens = (/** @type {DebugCfg} */ cfg) => (cfg.diy ? ownTokens(diyTokenOwner(cfg.diy.charId, cfgRecord(cfg)?.status), Object.values(backups?.tokens || {})) : ownTokens(cfg.chessId, data.list('tokens')));
 
 /** The battle config of the current settings (js/debug/sandbag.js createSandbagBattle). */
 function battleConfig() {
   const { base, golden, opt } = loadout();
   const elite = st.elite && !!golden;
-  const skill = opt.skills.includes(st.skill) ? st.skill : opt.defaultSkill;
-  const module = elite && opt.modules.includes(st.module) ? st.module : null;
-  const chessId = elite ? golden.chessId : base.chessId;
+  const skill = opt.skills.includes(/** @type {number} */ (st.skill)) ? st.skill : opt.defaultSkill;
+  const module = elite && opt.modules.includes(/** @type {string} */ (st.module)) ? st.module : null;
+  const chessId = elite ? golden.chessId : /** @type {Bag} */ (base).chessId;
   // a 自选 pick: the slot's id + the pick (the sim composes it, simdata getDiy); its summons are owned by charId@status
-  const diy = st.op.diy ? { charId: st.op.charId, skillIndex: Number.isInteger(skill) ? skill : 0, uniEquipId: module } : null;
-  const rec = diy ? diyRec(st.op.charId, { elite, skillIndex: diy.skillIndex, uniEquipId: module }) : chessOf(chessId);
+  const diy = /** @type {DebugOp} */ (st.op).diy ? { charId: /** @type {DebugOp} */ (st.op).charId, skillIndex: Number.isInteger(skill) ? /** @type {number} */ (skill) : 0, uniEquipId: module } : null;
+  const rec = diy ? diyRec(/** @type {DebugOp} */ (st.op).charId, { elite, skillIndex: diy.skillIndex, uniEquipId: module }) : chessOf(chessId);
   const grid = (rec || base).rangeGrid;
   if (st.autoBags) st.bags = defaultBags(st.opTile, st.dir, grid);
-  const own = diy ? ownTokens(diyTokenOwner(st.op.charId, rec?.status), Object.values(backups?.tokens || {})) : ownTokens(chessId, data.list('tokens'));
+  const own = diy ? ownTokens(diyTokenOwner(/** @type {DebugOp} */ (st.op).charId, rec?.status), Object.values(backups?.tokens || {})) : ownTokens(chessId, data.list('tokens'));
   if (st.autoTokens) st.tokens = autoTokens(st.opTile, st.dir, grid, own, st.bags);
   st.tokens = st.tokens.filter((t) => own.some((o) => o.tokenId === t.tokenId));
   return {
     chessId, skillIndex: Number.isInteger(skill) ? skill : null, moduleId: module, diy,
     dir: st.dir, op: st.opTile, bags: st.bags, enemyKey: st.enemyKey, bag: { ...st.bag, hp: SANDBAG_HP }, terrain: st.terrain,
     tokens: st.tokens, spAuto: () => st.spAuto, hurt: () => st.hurt, keepOp: () => st.bag.attack && st.keepOp, items: st.items,
-    blockers: st.scene ? SCENES[st.scene].blockers : [], crates: st.scene ? SCENES[st.scene].crates : [],
+    blockers: st.scene ? /** @type {SceneTable} */ (SCENES)[st.scene].blockers : [], crates: st.scene ? /** @type {SceneTable} */ (SCENES)[st.scene].crates : [],
   };
 }
 function syncUrl() {
@@ -157,7 +177,7 @@ function syncUrl() {
   if (season) q.set('season', season);
   if (st.op) q.set('op', st.op.charId);
   if (st.elite) q.set('elite', '1');
-  if (Number.isInteger(st.skill)) q.set('skill', String(st.skill + 1));
+  if (Number.isInteger(st.skill)) q.set('skill', String(/** @type {number} */ (st.skill) + 1));
   if (st.elite && st.module) q.set('module', st.module);
   if (st.dir !== 'RIGHT') q.set('dir', st.dir);
   if (st.enemyKey !== SANDBAG_DEFAULT) q.set('enemy', st.enemyKey);
@@ -169,14 +189,16 @@ function syncUrl() {
 }
 
 // ---- arena --------------------------------------------------------------------------------------------------------
+/** @type {any} the arena (debug/arena.js createArena): its battle's units and skills are the sim's own records */
 let arena = null;
+/** @type {unknown} */
 let arenaError = null;
 const infos = new Map();   // battle unit id → UnitInfo (spawn tuples)
 const told = new Set();    // missing-data notes already logged in this run
-let dmgTotal = 0, dmgHits = 0, dmgWin = [], t0 = null, lastGt = 0;
+let dmgTotal = 0, dmgHits = 0, /** @type {Array<[number, number]>} */ dmgWin = [], /** @type {number | null} */ t0 = null, lastGt = 0;
 try {
   arena = await createArena($('field'), { onEvents, onRestart, onKeepOp: (gt) => log('dmg', 'skill', `♥ 오퍼레이터 버티기: 체력 ${Math.round(KEEP_OP * 100)}% 아래 → 가득 회복`, gt) });
-} catch (err) {
+} catch (/** @type {any} */ err) {
   arenaError = err;
   console.error('[debug] arena unavailable', err);
   $('field').append(el('p', { class: 'warn', style: 'padding:60px 16px' }, `전투 화면을 만들지 못했습니다: ${err?.message || err}`));
@@ -185,18 +207,20 @@ try {
 function restart() {
   if (!arena || !st.op) return;
   syncUrl();
-  try { arena.start(battleConfig()); } catch (err) { log('other', 'blocked', `전투 생성 실패: ${err?.message || err}`); console.error(err); }
+  try { arena.start(battleConfig()); } catch (/** @type {any} */ err) { log('other', 'blocked', `전투 생성 실패: ${err?.message || err}`); console.error(err); }
 }
+/** @param {import('./debug/sandbag.js').SandbagBattle} battle */
 function onRestart(battle) {
   infos.clear(); told.clear();
   dmgTotal = 0; dmgHits = 0; dmgWin = []; t0 = null;
   const c = arena.config();
-  log('other', 'skill', `── 전투 시작: ${ko(st.op?.name)} ${c.chessId}${c.skillIndex != null ? ` S${c.skillIndex + 1}` : ''}${c.moduleId ? ` · ${c.moduleId}` : ''} · ${DIR_LABEL[c.dir]} · 샌드백 ${c.bags.length}× ${c.enemyKey}${c.bag.attack ? ' (아군 공격)' : ''}${st.scene ? ` · 장면 ${SCENES[st.scene].label}` : ''} (${battle.fieldId})`);
+  log('other', 'skill', `── 전투 시작: ${ko(/** @type {string} */ (st.op?.name))} ${c.chessId}${c.skillIndex != null ? ` S${c.skillIndex + 1}` : ''}${c.moduleId ? ` · ${c.moduleId}` : ''} · ${DIR_LABEL[c.dir]} · 샌드백 ${c.bags.length}× ${c.enemyKey}${c.bag.attack ? ' (아군 공격)' : ''}${st.scene ? ` · 장면 ${/** @type {SceneTable} */ (SCENES)[st.scene].label}` : ''} (${battle.fieldId})`);
 }
 
 // ---- log ----------------------------------------------------------------------------------------------------------
 const logEl = $('log');
 const LOG_MAX = 500;
+/** @param {string} kind @param {string} cls @param {string | Node} text @param {number} [gt] */
 function log(kind, cls, text, gt = lastGt) {
   const li = el('li', { class: `k-${kind} ${cls || ''}` }, el('span', { class: 't' }, `${(Number(gt) || 0).toFixed(2).padStart(6)}s`), text);
   logEl.append(li);
@@ -210,12 +234,15 @@ for (const cb of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySele
 }
 $('logclear').onclick = () => logEl.replaceChildren();
 
-const info = (id) => infos.get(id) || null;
-const nm = (id) => { const u = info(id); return u ? `${ko(u.name)}#${id}` : `#${id}`; };
-const isOpUnit = (u) => !!u && u.side === 'ally' && u.kind === 'op';
-/** A missing-data note, once per run and key. */
+const info = (/** @type {unknown} */ id) => infos.get(id) || null;
+const nm = (/** @type {unknown} */ id) => { const u = info(id); return u ? `${ko(u.name)}#${id}` : `#${id}`; };
+const isOpUnit = (/** @type {{ side?: string, kind?: string } | null | undefined} */ u) => !!u && u.side === 'ally' && u.kind === 'op';
+/** A missing-data note, once per run and key. @param {string} key @param {string} text */
 function note(key, text) { if (told.has(key)) return; told.add(key); log('other', 'miss', `⚠ ${text}`); }
-/** The effects of one event kind for a unit (render/fxmap.js effectsFor — what render/fxgame.js plays). */
+/**
+ * The effects of one event kind for a unit (render/fxmap.js effectsFor — what render/fxgame.js plays).
+ * @param {Bag} u @param {string} kind @param {number} [skillIndex]
+ */
 function fxText(u, kind, skillIndex = 0) {
   const prefabs = prefabsOf(u.spine || u.defId);
   if (!prefabs.length) return null;
@@ -223,6 +250,7 @@ function fxText(u, kind, skillIndex = 0) {
   return names.length ? names.join(', ') : '';
 }
 
+/** @param {any[][]} ev the sim's event tuples @param {number} gt */
 function onEvents(ev, gt) {
   lastGt = gt;
   if (t0 == null) t0 = gt;
@@ -311,13 +339,13 @@ function onEvents(ev, gt) {
 
 // every sound and voice line the audio manager starts — or the limiter / voice gate holds back — goes to the log
 /** A model's name from the units seen this run (a bank names the model — audio.js `_play` `bank`), else the model id. */
-function defName(def) {
+function defName(/** @type {string} */ def) {
   for (const u of infos.values()) if (u.spine === def || u.defId === def) return ko(u.name);
   return def;
 }
 /** The log label of a battle sound by its bank (audio.js: `${def}:attack|on|hit|die|born[:m<mode>]`, `${def}:skill:<n>`,
  *  `${def}:a|s|d:<url>` cues, `${def}:x<n>:<k>` skill extras, `${def}:end:<n>`, `kit:<k>`, `b:<name>`). */
-function soundLabel(bank) {
+function soundLabel(/** @type {unknown} */ bank) {
   const s = String(bank ?? '');
   let m;
   if ((m = /^kit:(.+)$/.exec(s))) return `키트 소리 ${m[1]}`;
@@ -325,7 +353,7 @@ function soundLabel(bank) {
   if (s.startsWith('b:')) return `전투음 ${s.slice(2)}`;
   if (!(m = /^([^:]+):(.+)$/.exec(s))) return s || '소리';
   const who = defName(m[1]), rest = m[2];
-  const mode = (x) => (x ? ` (모드 ${x})` : '');
+  const mode = (/** @type {string | undefined} */ x) => (x ? ` (모드 ${x})` : '');
   let k;
   if ((k = /^(attack|on|hit)(?::m(\d+))?$/.exec(rest))) return `${{ attack: '공격음', on: '공격 ON음', hit: '타격음' }[k[1]]} ${who}${mode(k[2])}`;
   if ((k = /^skill:(\d*)$/.exec(rest))) return `스킬음 ${who}${k[1] ? ` S${+k[1] + 1}` : ''}`;
@@ -346,7 +374,7 @@ audio._play = (url, o = {}) => {
   const r = rawPlay(url, o);
   if (o.limited || o.unitKey != null) {
     const ok = o.limited ? verdict : true;
-    const vol = Number.isFinite(o.volume) ? ` · 볼륨 ${o.volume.toFixed(2)}` : '';
+    const vol = Number.isFinite(o.volume) ? ` · 볼륨 ${/** @type {number} */ (o.volume).toFixed(2)}` : '';
     log('snd', ok ? 'snd' : 'blocked', `♪ ${soundLabel(o.bank ?? o.unitKey)} ${file(url)}${vol}${ok ? '' : ' — 동시 재생 제한으로 생략'}`);
   }
   return r;
@@ -359,12 +387,14 @@ audio.voice = (charId, slot, o = {}) => {
   log('voice', ok ? 'voice' : has ? 'blocked' : 'miss', `🗣 ${VOICE_SLOTS[slot] || slot} (${slot}) ${charId}${why}`);
   return ok;
 };
+/** @param {string | null | undefined} url @param {string} [label] */
 function preview(url, label) {
   if (!url) return;
   if (!audio.unlocked) { $('now').textContent = '먼저 화면을 한 번 클릭해 소리를 켜세요'; return; }
   rawPlay(url, { volume: 0.9 });
   $('now').textContent = `♪ ${label || ''} ${file(url)}`;
 }
+/** @param {string} key */
 async function playFx(key) {
   if (!arena) return;
   const hit = /hit/.test(key.split('/')[1] || '');
@@ -391,6 +421,7 @@ function renderOps() {
 }
 $('q').oninput = renderOps;
 
+/** @param {DebugOp} o @param {boolean} [keep] */
 function select(o, keep = false) {
   if (st.op !== o && !keep) { st.skill = null; st.module = null; }
   st.op = o;
@@ -400,6 +431,7 @@ function select(o, keep = false) {
 }
 
 // ---- detail panel -------------------------------------------------------------------------------------------------
+/** @param {string} label @param {boolean} on @param {() => void} onclick @param {Record<string, any>} [extra] */
 function chip(label, on, onclick, extra = {}) { return el('button', { class: `chip${on ? ' on' : ''}`, onclick, ...extra }, label); }
 function renderDetail() {
   const d = $('detail');
@@ -421,15 +453,15 @@ function renderDetail() {
   d.append(lr);
   const sr = el('div', { class: 'row' });
   for (const i of opt.skills) {
-    const s = (rec.skills || []).find((k) => k.index === i) || (base.skills || []).find((k) => k.index === i);
+    const s = (rec.skills || []).find((/** @type {Bag} */ k) => k.index === i) || (/** @type {Bag} */ (base).skills || []).find((/** @type {Bag} */ k) => k.index === i);
     sr.append(chip(`S${i + 1} ${ko(s?.name || '')}`, cfg.skillIndex === i, () => { st.skill = i; renderDetail(); restart(); }, { class: `chip skill${cfg.skillIndex === i ? ' on' : ''}`, title: '이 스킬로 다시 시작' }));
   }
   if (!opt.skills.length) sr.append(el('span', { class: 'muted' }, '스킬 없음'));
   d.append(sr);
   if (st.elite && golden && opt.modules.length) {
-    const sel = el('select', { onchange: (ev) => { st.module = ev.target.value; restart(); } });
+    const sel = el('select', { onchange: (/** @type {{ target: HTMLSelectElement }} */ ev) => { st.module = ev.target.value; restart(); } });
     for (const m of opt.modules) {
-      const rm = (golden.modules || []).find((x) => x.uniEquipId === m);
+      const rm = (golden.modules || []).find((/** @type {Bag} */ x) => x.uniEquipId === m);
       sel.append(el('option', { value: m, selected: cfg.moduleId === m || (!cfg.moduleId && m === opt.defaultModule) }, m === 'none' ? '모듈 없음' : `${rm?.typeName || ''} ${ko(rm?.name || m)}`));
     }
     d.append(el('div', { class: 'row' }, el('span', { class: 'muted' }, '모듈'), sel));
@@ -457,26 +489,26 @@ function renderDetail() {
 
   // sandbag
   d.append(el('h2', {}, '샌드백'));
-  const es = el('select', { onchange: (ev) => { st.enemyKey = ev.target.value; restart(); } });
-  let grp = null, og = null;
+  const es = el('select', { onchange: (/** @type {{ target: HTMLSelectElement }} */ ev) => { st.enemyKey = ev.target.value; restart(); } });
+  let grp = null, /** @type {HTMLElement | null} */ og = null;
   for (const e of enemies) {
-    const g = { BOSS: '보스', ELITE: '정예', NORMAL: '일반' }[e.rank] || e.rank;
+    const g = /** @type {Record<string, string>} */ ({ BOSS: '보스', ELITE: '정예', NORMAL: '일반' })[e.rank] || e.rank;
     if (g !== grp) { og = el('optgroup', { label: g }); es.append(og); grp = g; }
-    og.append(el('option', { value: e.key, selected: e.key === st.enemyKey }, `${ko(e.name)}${e.stats?.motion === 'FLY' ? ' (비행)' : ''} · ${e.key}`));
+    /** @type {HTMLElement} */ (og).append(el('option', { value: e.key, selected: e.key === st.enemyKey }, `${ko(e.name)}${e.stats?.motion === 'FLY' ? ' (비행)' : ''} · ${e.key}`));
   }
   d.append(el('div', { class: 'row' }, es));
   const raw = data.lookup('enemies', st.enemyKey);
-  const numIn = (k, label, title) => el('label', { class: 'f', title }, label, el('input', { type: 'number', min: '0', step: '50', value: String(st.bag[k]),
-    onchange: (ev) => { st.bag[k] = Math.max(0, Number(ev.target.value) || 0); restart(); } }));
+  const numIn = (/** @type {'def' | 'res' | 'atk'} */ k, /** @type {string} */ label, /** @type {string} */ title) => el('label', { class: 'f', title }, label, el('input', { type: 'number', min: '0', step: '50', value: String(st.bag[k]),
+    onchange: (/** @type {{ target: HTMLInputElement }} */ ev) => { st.bag[k] = Math.max(0, Number(ev.target.value) || 0); restart(); } }));
   d.append(el('div', { class: 'row' },
     numIn('def', '방어', `원래 ${raw?.stats?.def ?? '?'}`), numIn('res', '저항', `원래 ${raw?.stats?.res ?? '?'}`), numIn('atk', '공격', `0 = 공격하지 않음 (아군 공격을 켜면 원래 ${raw?.stats?.atk ?? '?'})`)));
   d.append(el('div', { class: 'row' },
     el('label', { class: 'f', title: '샌드백이 섬 어디에 있는 아군이든 공격합니다 (사거리 = 섬 전체). 끄면 공격력이 있어도 자기를 저지한 아군만 칩니다.' },
-      el('input', { type: 'checkbox', checked: st.bag.attack, onchange: (ev) => { st.bag.attack = ev.target.checked; restart(); } }), '아군 공격'),
+      el('input', { type: 'checkbox', checked: st.bag.attack, onchange: (/** @type {{ target: HTMLInputElement }} */ ev) => { st.bag.attack = ev.target.checked; restart(); } }), '아군 공격'),
     el('label', { class: 'f', title: `체력이 ${Math.round(KEEP_OP * 100)}% 아래로 내려가면 가득 회복 (한 번에 그보다 큰 피해면 쓰러짐)` },
-      el('input', { type: 'checkbox', checked: st.keepOp, onchange: (ev) => { st.keepOp = ev.target.checked; } }), '오퍼레이터 버티기')));
+      el('input', { type: 'checkbox', checked: st.keepOp, onchange: (/** @type {{ target: HTMLInputElement }} */ ev) => { st.keepOp = ev.target.checked; } }), '오퍼레이터 버티기')));
   d.append(el('div', { class: 'row' },
-    el('label', { class: 'f' }, el('input', { type: 'checkbox', checked: st.bag.fixed, onchange: (ev) => { st.bag.fixed = ev.target.checked; restart(); } }), '밀려나지 않음'),
+    el('label', { class: 'f' }, el('input', { type: 'checkbox', checked: st.bag.fixed, onchange: (/** @type {{ target: HTMLInputElement }} */ ev) => { st.bag.fixed = ev.target.checked; restart(); } }), '밀려나지 않음'),
     el('span', { class: 'muted' }, `체력 ${SANDBAG_HP.toExponential(0)} · 절반 아래면 회복 · 쓰러지면 재생성`)));
 
   // hand-placed pieces (tokens.json placeable: 望's 棋子, 赫默's 医疗探机, 凯瑟琳's 防护单元 …)
@@ -497,9 +529,9 @@ function renderDetail() {
   d.append(el('div', { class: 'row' },
     chip('SP 채우기', false, () => arena?.fillSp(), { title: '발동은 원래 조건(자동 시전 규칙)대로' }),
     chip('지금 발동', false, () => arena?.castNow(), { class: 'chip skill', title: 'SP를 채우고 바로 시전 (조건·조작 쿨다운 무시)' }),
-    el('label', { class: 'f', title: '끄면 SP가 스스로 차지 않음 — 버튼으로만 시전' }, el('input', { type: 'checkbox', checked: st.spAuto, onchange: (ev) => { st.spAuto = ev.target.checked; } }), 'SP 자동 회복'),
+    el('label', { class: 'f', title: '끄면 SP가 스스로 차지 않음 — 버튼으로만 시전' }, el('input', { type: 'checkbox', checked: st.spAuto, onchange: (/** @type {{ target: HTMLInputElement }} */ ev) => { st.spAuto = ev.target.checked; } }), 'SP 자동 회복'),
     el('label', { class: 'f', title: `메딕 치유 확인용: ${HURT.every}초마다 최대 체력 ${HURT.frac * 100}% 고정 피해 (${HURT.floor * 100}% 아래로는 안 깎음)` },
-      el('input', { type: 'checkbox', checked: st.hurt, onchange: (ev) => { st.hurt = ev.target.checked; } }), '아군 부상')));
+      el('input', { type: 'checkbox', checked: st.hurt, onchange: (/** @type {{ target: HTMLInputElement }} */ ev) => { st.hurt = ev.target.checked; } }), '아군 부상')));
   d.append(el('div', { id: 'sp' }, '-'));
 
   // sounds
@@ -538,8 +570,8 @@ function renderDetail() {
 }
 
 // ---- field clicks -------------------------------------------------------------------------------------------------
-const tileEq = (a, r, c) => Math.round(a.row) === r && Math.round(a.col) === c;
-/** 기물 모드의 타일: 기물이 있으면 치우고, 없으면 (한도·공격 범위 규칙 안에서) 고른 오퍼레이터의 기물을 놓는다. */
+const tileEq = (/** @type {Tile} */ a, /** @type {number} */ r, /** @type {number} */ c) => Math.round(a.row) === r && Math.round(a.col) === c;
+/** 기물 모드의 타일: 기물이 있으면 치우고, 없으면 (한도·공격 범위 규칙 안에서) 고른 오퍼레이터의 기물을 놓는다. @param {number} row @param {number} col */
 function placeToken(row, col) {
   const cfg = battleConfig();
   const own = cfgTokens(cfg);
@@ -547,7 +579,7 @@ function placeToken(row, col) {
   st.autoTokens = false;
   if (st.tokens.some((t) => tileEq(t, row, col))) { st.tokens = st.tokens.filter((t) => !tileEq(t, row, col)); renderDetail(); restart(); return; }
   if (tileEq(st.opTile, row, col)) return;
-  const grid = (cfgRecord(cfg) || st.op.chess).rangeGrid;
+  const grid = (cfgRecord(cfg) || /** @type {DebugOp} */ (st.op).chess).rangeGrid;
   const inRange = rangeOf(st.opTile, st.dir, grid).some((t) => t.row === row && t.col === col);
   const beside = besideOp(st.opTile, { row, col });
   const t = own.find((o) => st.tokens.filter((x) => x.tokenId === o.tokenId).length < o.limit && (!o.ownerRange || inRange) && (!o.ownerBeside || beside));
@@ -559,7 +591,7 @@ function placeToken(row, col) {
 /** A sandbag on the operator's own tile, blocked (defaultBags with a block-only range). */
 const blockedBag = () => defaultBags(st.opTile, st.dir, [[0, 0]])[0];
 if (arena) {
-  arena.view.on('tileClick', ({ row, col }) => {
+  arena.view.on('tileClick', (/** @type {Tile} */ { row, col }) => {
     if (!inArena(row, col) || sceneTile(row, col)) return;
     if (st.place === 'token') { placeToken(row, col); return; }
     if (st.place === 'op') {
@@ -573,10 +605,10 @@ if (arena) {
     }
     restart();
   });
-  arena.view.on('pieceClick', ({ unitId, unit }) => {
+  arena.view.on('pieceClick', (/** @type {{ unitId: unknown, unit?: { side?: string, kind?: string } }} */ { unitId, unit }) => {
     if (unit?.side === 'ally') {
       if (unit.kind === 'token' && st.place === 'token') { // a placed piece: take it back
-        const e = arena.battle()?.units.find((x) => x.id === unitId);
+        const e = arena.battle()?.units.find((/** @type {{ id: unknown }} */ x) => x.id === unitId);
         if (e) placeToken(Math.round(e.tileR ?? e.y), Math.round(e.tileC ?? e.x));
         return;
       }
@@ -585,7 +617,7 @@ if (arena) {
       renderDetail();
       restart();
     } else if (st.place === 'bag') {
-      const e = arena.battle()?.units.find((x) => x.id === unitId);
+      const e = arena.battle()?.units.find((/** @type {{ id: unknown }} */ x) => x.id === unitId);
       if (!e) return;
       const r = Math.round(e.spawnY), c = Math.round(e.spawnX);
       st.autoBags = false;
@@ -596,7 +628,7 @@ if (arena) {
 }
 
 // ---- bar ----------------------------------------------------------------------------------------------------------
-function setPaused(v) { arena?.setPaused(v); $('pause').textContent = v ? '▶' : '⏸'; }
+function setPaused(/** @type {boolean} */ v) { arena?.setPaused(v); $('pause').textContent = v ? '▶' : '⏸'; }
 $('pause').onclick = () => setPaused(!arena?.paused);
 $('step').onclick = () => { setPaused(true); arena?.stepOnce(0.1); };
 $('restart').onclick = restart;
@@ -648,6 +680,6 @@ let fxSeen = 0;
 setInterval(status, 100);
 
 renderOps();
-const pre = params.get('op') && ops.get(params.get('op'));
+const pre = params.get('op') && ops.get(/** @type {string} */ (params.get('op')));
 select(pre || list[0], true);
-window.__debug = { arena, st, restart, playFx, preview, select: (id) => ops.get(id) && select(ops.get(id)) };
+window.__debug = { arena, st, restart, playFx, preview, select: (/** @type {string} */ id) => ops.get(id) && select(/** @type {DebugOp} */ (ops.get(id))) };

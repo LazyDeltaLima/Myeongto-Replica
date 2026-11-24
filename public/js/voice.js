@@ -40,7 +40,7 @@ const PREF = 'voice';
 /** Voice languages offered with their labels: off, the build's dub (audio.voice) and the Japanese twin (audio.voiceJp). */
 export const VOICE_LANGS = Object.freeze([['off', N_('关闭')], ['kr', N_('韩语')], ['jp', N_('日语')]]);
 /** A voice language's label. 'off' is the switch sense of 关闭 (toggle::关闭: Off / 꺼짐), not the close button's. */
-export const voiceLangLabel = (id, label) => (id === 'off' ? tc('toggle', '关闭') : t(label));
+export const voiceLangLabel = (/** @type {string} */ id, /** @type {string} */ label) => (id === 'off' ? tc('toggle', '关闭') : t(label));
 
 /** @param {any} raw @returns {{ lang: 'off'|'kr'|'jp' }} */
 export function sanitizeVoice(raw) {
@@ -115,7 +115,7 @@ store.subscribe((s, prev) => { if (!!s.match?.public !== !!prev?.match?.public) 
  */
 export function unitSkillOf(rec, def, skillIndex, backups) {
   if (!rec) return null;
-  const byIndex = (list) => (Number.isInteger(skillIndex) && Array.isArray(list) ? list.find((k) => k && k.index === skillIndex) ?? null : null);
+  const byIndex = (/** @type {unknown} */ list) => (Number.isInteger(skillIndex) && Array.isArray(list) ? list.find((k) => k && k.index === skillIndex) ?? null : null);
   if (typeof def === 'string' && def.startsWith('char_') && def !== rec.charId) {
     const form = unitForm(backups, def, rec.status);
     if (form) return byIndex(form.skills);
@@ -156,7 +156,7 @@ export function wantedFiles(listed) {
   return listed.filter((f) => voiceWanted(f, jpOnly));
 }
 
-/** Voice key (charId, the model id like audio.js units) of a chess id; null for an item / token / DIY slot. */
+/** Voice key (charId, the model id like audio.js units) of a chess id; null for an item / token / DIY slot. @param {unknown} chessId */
 export function chessVoiceId(chessId) {
   const rec = typeof chessId === 'string' ? data.lookup('chess', chessId) : null;
   return rec?.assets?.spine || rec?.charId || null;
@@ -228,6 +228,7 @@ export function voiceForRoutePreview(cards) {
   pol.encountered(said);
 }
 
+/** @type {{ charId: string, slot: string } | null} */
 let heldResult = null;
 // a new match (or leaving one) empties m.public / m.result: a line kept from the last run never reaches the next
 store.subscribe((s, prev) => { if (!s.match?.public && !s.match?.result && (prev?.match?.public || prev?.match?.result)) heldResult = null; });
@@ -250,7 +251,10 @@ export function matchEndVoice(held, res, myId) {
   return { charId: held.charId, slot: held.slot === 'resultLose' ? 'resultTwo' : held.slot };
 }
 
-/** screens/result.js: say the kept line once (the settlement screen mounted). */
+/**
+ * screens/result.js: say the kept line once (the settlement screen mounted).
+ * @param {Parameters<typeof matchEndVoice>[1]} res @param {string|null|undefined} myId
+ */
 export function playMatchEndVoice(res, myId) {
   const line = matchEndVoice(heldResult, res, myId);
   heldResult = null;
@@ -270,7 +274,7 @@ export function VoiceSetting() {
 }
 
 /** Choose the voice language (settings row, resources.js consent card): saved, the playing line stops, the download
- *  list is re-filtered. */
+ *  list is re-filtered. @param {string} id */
 export function setVoiceLang(id) {
   if (voiceStore.get().lang === id || !VOICE_LANGS.some(([x]) => x === id)) return;
   voiceStore.set(sanitizeVoice({ ...voiceStore.get(), lang: id }));
@@ -278,6 +282,7 @@ export function setVoiceLang(id) {
   for (const fn of langListeners) { try { fn(); } catch { /* ignore */ } }
 }
 
+/** @type {Array<() => void>} */
 const langListeners = [];
-/** resources.js: re-filter the download list when the language changes. */
+/** resources.js: re-filter the download list when the language changes. @param {() => void} fn */
 export function onVoiceLangChange(fn) { langListeners.push(fn); }
