@@ -38,9 +38,9 @@ export const EMPTY_BODY_UNITS = Object.freeze(new Set(['enemy_9036_acweb']));
 /** Summons placed without the direction step. */
 export const FACINGLESS_TOKENS = Object.freeze(new Set(['token_10064_wang_stone1', 'token_10000_silent_healrb']));
 
-export const noHpBar = (id) => typeof id === 'string' && NO_HP_TOKENS.has(id);
-export const noSpBar = (id) => typeof id === 'string' && NO_SP_TOKENS.has(id);
-export const flashHpBar = (id) => typeof id === 'string' && FLASH_HP_TOKENS.has(id);
-export const facingless = (id) => typeof id === 'string' && FACINGLESS_TOKENS.has(id);
-export const bodyless = (id) => typeof id === 'string' && BODYLESS_TOKENS.has(id);
-export const emptyBody = (id) => typeof id === 'string' && EMPTY_BODY_UNITS.has(id);
+export const noHpBar = (/** @type {unknown} */ id) => typeof id === 'string' && NO_HP_TOKENS.has(id);
+export const noSpBar = (/** @type {unknown} */ id) => typeof id === 'string' && NO_SP_TOKENS.has(id);
+export const flashHpBar = (/** @type {unknown} */ id) => typeof id === 'string' && FLASH_HP_TOKENS.has(id);
+export const facingless = (/** @type {unknown} */ id) => typeof id === 'string' && FACINGLESS_TOKENS.has(id);
+export const bodyless = (/** @type {unknown} */ id) => typeof id === 'string' && BODYLESS_TOKENS.has(id);
+export const emptyBody = (/** @type {unknown} */ id) => typeof id === 'string' && EMPTY_BODY_UNITS.has(id);

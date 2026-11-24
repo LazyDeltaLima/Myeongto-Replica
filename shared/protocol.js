@@ -9,17 +9,30 @@ import { isRulePreset, isQueuePreset, CUSTOM_MAX_JSON } from './ruleset.js';
 import { isSeasonId } from './seasons.js';
 import { cultivatedStats, isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from './potential.js';
 
+/** @import { ChessRecord, SkillRecord } from './loadoutRecord.js' */
+
 // ---- tiny validators -------------------------------------------------------
-const isInt = (v, lo = -Infinity, hi = Infinity) => Number.isInteger(v) && v >= lo && v <= hi;
+// (each takes a wire value: anything JSON can hold)
+/** A field check: whether a wire value is right. @typedef {(v: unknown) => boolean} Check */
+/** @param {unknown} v @param {number} [lo] @param {number} [hi] */
+const isInt = (v, lo = -Infinity, hi = Infinity) => Number.isInteger(v) && /** @type {number} */ (v) >= lo && /** @type {number} */ (v) <= hi;
+/** @param {unknown} v @param {number} [max] */
 const isStr = (v, max = 64) => typeof v === 'string' && v.length <= max;
-const isBool = (v) => typeof v === 'boolean';
-const isId = (v) => typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_\-.:]+$/.test(v);
-const isUid = (v) => isInt(v, 1, 2 ** 31);
+const isBool = (/** @type {unknown} */ v) => typeof v === 'boolean';
+const isId = (/** @type {unknown} */ v) => typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_\-.:]+$/.test(v);
+const isUid = (/** @type {unknown} */ v) => isInt(v, 1, 2 ** 31);
+/** @param {unknown} v @param {number} [lo] @param {number} [hi] */
 const isNum = (v, lo = -Infinity, hi = Infinity) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isPlain = (v) => !!v && typeof v === 'object' && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
+/** @param {Check} check @returns {Check} */
 const optional = (check) => (v) => v === undefined || check(v);
+/** @param {Check} check @returns {Check} */
 const nullable = (check) => (v) => v === null || v === undefined || check(v);
-/** A plain object with at most `max` own keys, every key passing `key` and every value passing `val`. */
+/**
+ * A plain object with at most `max` own keys, every key passing `key` and every value passing `val`.
+ * @param {unknown} v @param {number} max @param {(k: string) => boolean} key @param {Check} val
+ */
 const isMap = (v, max, key, val) => {
   if (!isPlain(v)) return false;
   const keys = Object.keys(v);
@@ -27,14 +40,15 @@ const isMap = (v, max, key, val) => {
   for (const k of keys) if (!key(k) || !val(v[k])) return false;
   return true;
 };
+/** @param {unknown} v @param {number} max @param {Check} item */
 const isList = (v, max, item) => Array.isArray(v) && v.length <= max && v.every(item);
 /** One player's b.progress `top` (spec.js bossTopUnits): { s: whole leader damage, r: ≤ 3 × [chess id, damage] }. */
-const isBossTopRows = (v) => isPlain(v) && Object.keys(v).length === 2 && isNum(v.s, 0, BIG)
+const isBossTopRows = (/** @type {unknown} */ v) => isPlain(v) && Object.keys(v).length === 2 && isNum(v.s, 0, BIG)
   && isList(v.r, 3, (row) => Array.isArray(row) && row.length === 2 && isId(row[0]) && isNum(row[1], 0, BIG));
 /** A co-op room size (shared/constants.js ROOM_SIZES). */
-const isRoomSize = (v) => ROOM_SIZES.includes(v);
+const isRoomSize = (/** @type {unknown} */ v) => /** @type {readonly unknown[]} */ (ROOM_SIZES).includes(v);
 /** 규칙 모드 custom settings on the wire: a plain object of bounded size; shared/ruleset.js sanitizeCustom reads the rest. */
-const isCustomWire = (v) => {
+const isCustomWire = (/** @type {unknown} */ v) => {
   if (!isPlain(v)) return false;
   try { return JSON.stringify(v).length <= CUSTOM_MAX_JSON; } catch { return false; }
 };
@@ -44,21 +58,21 @@ const isCustomWire = (v) => {
 /** Size limits of a b.result payload (the whole frame also obeys the 64 KB inbound limit); `players`: the largest room. */
 export const RESULT_LIMITS = Object.freeze({ players: LARGE_SEATS, leaked: 400, unitsEnd: 64, unitStats: 160, layerGains: 40, mods: 16, unspawned: 400 });
 const BIG = 1e13;
-const isStat = (v) => v === undefined || isNum(v, 0, BIG);
-const isModVal = (v) => v === null || isNum(v, -BIG, BIG) || isStr(v, 64) || isBool(v);
-const isLeak = (l) => isPlain(l) && isId(l.enemyKey)
+const isStat = (/** @type {unknown} */ v) => v === undefined || isNum(v, 0, BIG);
+const isModVal = (/** @type {unknown} */ v) => v === null || isNum(v, -BIG, BIG) || isStr(v, 64) || isBool(v);
+const isLeak = (/** @type {unknown} */ l) => isPlain(l) && isId(l.enemyKey)
   && (l.mods === undefined || l.mods === null || isMap(l.mods, RESULT_LIMITS.mods, (k) => isStr(k, 32), isModVal))
   && optional((v) => isNum(v, 0, 1000))(l.lpr) && nullable(isId)(l.sourcePlayerId) && nullable((v) => isStr(v, 16))(l.tag)
   && optional(isBool)(l.counted) && optional(isBool)(l.boss) && optional(isBool)(l.spawned) && optional(isBool)(l.uniteRuntime);
-const isUnitEnd = (u) => isPlain(u) && nullable(isUid)(u.uid) && isNum(u.hpPct, 0, 1) && isNum(u.sp, 0, 1e5) && isBool(u.alive)
+const isUnitEnd = (/** @type {unknown} */ u) => isPlain(u) && nullable(isUid)(u.uid) && isNum(u.hpPct, 0, 1) && isNum(u.sp, 0, 1e5) && isBool(u.alive)
   && optional(isBool)(u.skillActive) && nullable(isId)(u.defId) && optional((v) => isNum(v, 0, 1e4))(u.respawnLeft);
 // `boss` (damage to the shared leader pool), `assist` (联防 knock-outs by leaker) and `ownerUid` (the summoner's board uid)
 // feed the settlement's per-operator charts (server/match/unitTally.js)
-const isUnitStat = (u) => isPlain(u) && nullable(isUid)(u.uid) && nullable(isId)(u.defId) && optional((v) => isStr(v, 16))(u.kind)
+const isUnitStat = (/** @type {unknown} */ u) => isPlain(u) && nullable(isUid)(u.uid) && nullable(isId)(u.defId) && optional((v) => isStr(v, 16))(u.kind)
   && isStat(u.dmg) && isStat(u.kills) && isStat(u.heal) && isStat(u.taken) && isStat(u.attacks)
   && isStat(u.boss) && (u.byType === undefined || isList(u.byType, 4, isStat)) && (u.assist === undefined || isMap(u.assist, RESULT_LIMITS.players, isId, (v) => isInt(v, 0, 1e5)))
   && nullable(isUid)(u.ownerUid);
-const isPerPlayer = (p) => isPlain(p) && isInt(p.killed, 0, 1e5) && isInt(p.total, 0, 1e5)
+const isPerPlayer = (/** @type {unknown} */ p) => isPlain(p) && isInt(p.killed, 0, 1e5) && isInt(p.total, 0, 1e5)
   // `resolved` = the HUD capsule's numerator of this player's own field (the round's own scheduled enemies knocked out
   // or leaked: server/sim/battle/deploy.js killedInTotal / leakedInTotal, Battle.resolved). `killed` counts every counted
   // knock-out — a runtime split child / summon too — and may therefore exceed `total`, which counts only the round's own
@@ -73,12 +87,13 @@ const isPerPlayer = (p) => isPlain(p) && isInt(p.killed, 0, 1e5) && isInt(p.tota
   // 宝藏探机's chests touched in the battle (卫戍协议：规程, server/sim/content/bands/battle.js): absent when none fell
   && (p.bandChestsGone === undefined || isList(p.bandChestsGone, RESULT_LIMITS.unitsEnd, (x) => isStr(x, 64)))
   && (p.unitStats === undefined || isList(p.unitStats, RESULT_LIMITS.unitStats, isUnitStat));
-const isUnspawned = (u) => isPlain(u) && isId(u.enemyKey) && nullable(isId)(u.sourcePlayerId) && nullable((v) => isStr(v, 16))(u.tag)
+const isUnspawned = (/** @type {unknown} */ u) => isPlain(u) && isId(u.enemyKey) && nullable(isId)(u.sourcePlayerId) && nullable((v) => isStr(v, 16))(u.tag)
   && optional((v) => isNum(v, 0, 1e6))(u.time);
 
 /**
  * Structural check of a client BattleResult (DESIGN §5.1 / §14 `b.result`): types, ranges and size limits only —
  * the semantic checks against the battle's spec are the server's (server/match/fields.js validateClientResult).
+ * @param {unknown} v
  */
 export function isBattleResult(v) {
   return isPlain(v) && ['cleared', 'timeout', 'forced'].includes(v.reason) && isNum(v.time, 0, 1e5)
@@ -103,18 +118,21 @@ export function isBattleResult(v) {
 export const LOADOUT_LIMITS = Object.freeze({ entries: 160, skillIndex: 9, ops: 256 });
 /** The "no module" choice of an elite (模组: 不装备). */
 export const MODULE_NONE = 'none';
-const isLoadoutEntry = (e) => isPlain(e) && Object.keys(e).length > 0 && Object.keys(e).every((k) => k === 'skill' || k === 'module')
+const isLoadoutEntry = (/** @type {unknown} */ e) => isPlain(e) && Object.keys(e).length > 0 && Object.keys(e).every((k) => k === 'skill' || k === 'module')
   && optional((v) => isInt(v, 0, LOADOUT_LIMITS.skillIndex))(e.skill) && optional(isId)(e.module);
 /** Structural check of `room.loadout.entries`. */
-export const isLoadoutEntries = (v) => isMap(v, LOADOUT_LIMITS.entries, isId, isLoadoutEntry);
+export const isLoadoutEntries = (/** @type {unknown} */ v) => isMap(v, LOADOUT_LIMITS.entries, isId, isLoadoutEntry);
 
-/** Skill indexes a chess record offers (data `skills[]`, DESIGN §16; the default skill alone while data lacks it). */
+/**
+ * Skill indexes a chess record offers (data `skills[]`, DESIGN §16; the default skill alone while data lacks it).
+ * @param {ChessRecord|null|undefined} c
+ */
 function skillIndexesOf(c) {
   if (!c || typeof c !== 'object') return [];
   if (Array.isArray(c.skills) && c.skills.length) {
     return [...new Set(c.skills.map((s) => s && s.index).filter((i) => isInt(i, 0, LOADOUT_LIMITS.skillIndex)))].sort((a, b) => a - b);
   }
-  return isInt(c.skill?.index, 0, LOADOUT_LIMITS.skillIndex) ? [c.skill.index] : [];
+  return isInt(c.skill?.index, 0, LOADOUT_LIMITS.skillIndex) ? [/** @type {SkillRecord} */ (c.skill).index] : [];
 }
 
 /**
@@ -124,6 +142,7 @@ function skillIndexesOf(c) {
  * `skill` = skill index, `module` = the elite's module ('none' = no module). Only the player's starting choice: the data
  * record (its `skill` / `module`, the kits' default spec) stays official, the official default a choice.
  */
+/** @type {Readonly<Record<string, { charId: string, skill?: number, module?: string }>>} */
 export const LOADOUT_DEFAULT_DEVIATIONS = Object.freeze({
   // 盟约 (act2autochess)
   chess_char_2_12_a: { charId: 'char_237_gravel', skill: 0, module: MODULE_NONE }, // 砾: S1, no module
@@ -157,8 +176,8 @@ export function loadoutDeviation(base) {
  *   modules: the elite's modules (uniEquipId…) + 'none'; [] when the chess has no elite record
  *   defaultModule: the elite's default module (`defaultUniEquipId`), 'none' for module-less elites, null without elite;
  *     or the LOADOUT_DEFAULT_DEVIATIONS one
- * @param {any} base normal chess record
- * @param {any} [golden] its elite record (null when absent)
+ * @param {ChessRecord|null|undefined} base normal chess record
+ * @param {ChessRecord|null} [golden] its elite record (null when absent)
  * @returns {{ skills: number[], defaultSkill: number|null, modules: string[], defaultModule: string|null }}
  */
 export function loadoutOptions(base, golden = null) {
@@ -166,11 +185,13 @@ export function loadoutOptions(base, golden = null) {
   const g = golden ? skillIndexesOf(golden) : null;
   const skills = g && g.length ? n.filter((i) => g.includes(i)) : n;
   const flagged = Array.isArray(base?.skills) ? base.skills.find((s) => s && s.isDefault && isInt(s.index, 0, LOADOUT_LIMITS.skillIndex)) : null;
-  let defaultSkill = flagged ? flagged.index : isInt(base?.skill?.index, 0, LOADOUT_LIMITS.skillIndex) ? base.skill.index : null;
+  let defaultSkill = flagged ? flagged.index : isInt(base?.skill?.index, 0, LOADOUT_LIMITS.skillIndex) ? /** @type {SkillRecord} */ (/** @type {ChessRecord} */ (base).skill).index : null;
   const dev = loadoutDeviation(base);
   if (dev && dev.skill != null && skills.includes(dev.skill)) defaultSkill = dev.skill;
   if (defaultSkill == null || !skills.includes(defaultSkill)) defaultSkill = skills.length ? skills[0] : defaultSkill;
+  /** @type {string[]} */
   let modules = [];
+  /** @type {string|null} */
   let defaultModule = null;
   if (golden) {
     let def = null;
@@ -179,9 +200,9 @@ export function loadoutOptions(base, golden = null) {
       const d = golden.modules.find((m) => m && m.isDefault && isId(m.uniEquipId));
       def = d ? d.uniEquipId : null;
     } else if (golden.module && golden.module.active && isId(golden.module.id)) {
-      modules = [golden.module.id];
+      modules = [/** @type {string} */ (golden.module.id)];
     }
-    if (def == null && golden.module && golden.module.active && modules.includes(golden.module.id)) def = golden.module.id;
+    if (def == null && golden.module && golden.module.active && /** @type {(string|null)[]} */ (modules).includes(golden.module.id)) def = golden.module.id;
     modules.push(MODULE_NONE);
     if (dev && dev.module != null && modules.includes(dev.module)) def = dev.module;
     defaultModule = def || MODULE_NONE;
@@ -239,15 +260,15 @@ export function resolveLoadout(loadout, chess, getChess) {
   const e = loadout && Object.hasOwn(loadout, baseId) ? loadout[baseId] : null;
   const skillIndex = e && opt.skills.includes(e.skill) ? e.skill : opt.defaultSkill;
   let moduleId = null;
-  if (golden) moduleId = e && opt.modules.includes(e.module) ? e.module : opt.defaultModule;
+  if (golden) moduleId = e && /** @type {(string|null)[]} */ (opt.modules).includes(e.module) ? e.module : opt.defaultModule;
   return { skillIndex, moduleId };
 }
 
 /** One `room.loadout.ops` entry: `{ potential?: 1–6, cultivate?: 0–3 }`, at least one of them. */
-const isOpsEntry = (e) => isPlain(e) && Object.keys(e).length > 0 && Object.keys(e).every((k) => k === 'potential' || k === 'cultivate')
+const isOpsEntry = (/** @type {unknown} */ e) => isPlain(e) && Object.keys(e).length > 0 && Object.keys(e).every((k) => k === 'potential' || k === 'cultivate')
   && optional(isPotential)(e.potential) && optional(isCultivate)(e.cultivate);
 /** Structural check of `room.loadout.ops` (0.2.2): a map of ≤ 256 charIds → `{ potential?, cultivate? }`. */
-export const isLoadoutOps = (v) => isMap(v, LOADOUT_LIMITS.ops, isId, isOpsEntry);
+export const isLoadoutOps = (/** @type {unknown} */ v) => isMap(v, LOADOUT_LIMITS.ops, isId, isOpsEntry);
 
 /**
  * The operators a player sets a potential / 练度 for (0.2.2): the charIds of the 干员调配 roster — the visible normal chess
@@ -312,12 +333,12 @@ export const SKIN_LIMITS = Object.freeze({
   entries: 256, idLen: 64, charIdLen: 64,
 });
 /** A skinId. Not `isId`: a skin key carries `@` and `#` (`char_1012_skadi2@boc#4`). */
-export const isSkinId = (v) => typeof v === 'string' && v.length > 0 && v.length <= SKIN_LIMITS.idLen && /^[A-Za-z0-9_][A-Za-z0-9_@#+.\-]*$/.test(v);
+export const isSkinId = (/** @type {unknown} */ v) => typeof v === 'string' && v.length > 0 && v.length <= SKIN_LIMITS.idLen && /^[A-Za-z0-9_][A-Za-z0-9_@#+.\-]*$/.test(v);
 /** An official operator charId, `char_<digits>_<token>` (a chess id such as `chess_char_1_01_a` is not one). */
 export const CHAR_ID = /^char_[0-9]+_[A-Za-z0-9_]+$/;
-export const isCharId = (v) => typeof v === 'string' && v.length <= SKIN_LIMITS.charIdLen && CHAR_ID.test(v);
+export const isCharId = (/** @type {unknown} */ v) => typeof v === 'string' && v.length <= SKIN_LIMITS.charIdLen && CHAR_ID.test(v);
 /** Structural check of `room.skins.skins`: a plain object of ≤ SKIN_LIMITS.entries charId → skinId pairs. */
-export const isSkinSelection = (v) => isMap(v, SKIN_LIMITS.entries, isCharId, isSkinId);
+export const isSkinSelection = (/** @type {unknown} */ v) => isMap(v, SKIN_LIMITS.entries, isCharId, isSkinId);
 
 const SKIN_OPS = new WeakMap();
 /**
@@ -373,7 +394,7 @@ export function checkSkinSelection(skins, hasOperator) {
  */
 export const OWNERSHIP_LIMITS = Object.freeze({ notOwned: 160 });
 /** Structural check of `room.ownership.notOwned`: an array of ≤ 160 ids. */
-export const isNotOwnedList = (v) => isList(v, OWNERSHIP_LIMITS.notOwned, isId);
+export const isNotOwnedList = (/** @type {unknown} */ v) => isList(v, OWNERSHIP_LIMITS.notOwned, isId);
 
 /**
  * Semantic check + normalisation of a not-owned list against the game data: keeps the ids of droppable chess
@@ -408,10 +429,10 @@ export function checkNotOwned(list, getChess) {
  * never the whole roster; only malformed input is BAD_MSG.
  */
 export const DIY_LIMITS = Object.freeze({ slots: 12 });
-const isDiyPickWire = (p) => p === null || (isPlain(p) && isId(p.charId)
+const isDiyPickWire = (/** @type {unknown} */ p) => p === null || (isPlain(p) && isId(p.charId)
   && nullable((v) => isInt(v, 0, 9))(p.skillIndex) && nullable(isId)(p.uniEquipId));
 /** Structural check of `room.diy.picks`: a map of ≤ 12 slot ids → a pick `{ charId, skillIndex?, uniEquipId? }` or null. */
-export const isDiyPicks = (v) => isMap(v, DIY_LIMITS.slots, isId, isDiyPickWire);
+export const isDiyPicks = (/** @type {unknown} */ v) => isMap(v, DIY_LIMITS.slots, isId, isDiyPickWire);
 
 /**
  * Semantic check + normalisation of a 自选 roster against the game data (`{ chess, backups }` or a sim DataSource) and
@@ -445,17 +466,21 @@ export function checkDiyPicks(picks, { data, kitted = null } = { data: null }) {
 
 // ---- unit stats (user playtest #4 item 7): m.unitStats units and the browser battle's live stats ---------------------
 
+/** @param {unknown} v @param {number} [d] */
 const fin = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
-const round1 = (v) => Math.round(v * 10) / 10;
-const round2 = (v) => Math.round(v * 100) / 100;
-/** Attack interval (s) of a stats object: its own `interval`, else bat × 100 / aspd (null without an attack time). */
+const round1 = (/** @type {number} */ v) => Math.round(v * 10) / 10;
+const round2 = (/** @type {number} */ v) => Math.round(v * 100) / 100;
+/**
+ * Attack interval (s) of a stats object: its own `interval`, else bat × 100 / aspd (null without an attack time).
+ * @param {Record<string, any>} x
+ */
 const intervalOf = (x) => {
   if (Number.isFinite(x.interval) && x.interval > 0) return round2(x.interval);
   const bat = fin(x.bat, 0);
   const aspd = fin(x.aspd, 100) > 0 ? fin(x.aspd, 100) : 100;
   return bat > 0 ? round2((bat * 100) / aspd) : null;
 };
-const statView = (x) => ({
+const statView = (/** @type {Record<string, any>} */ x) => ({
   maxHp: Math.round(fin(x.maxHp)), atk: Math.round(fin(x.atk)), def: Math.round(fin(x.def)), res: round1(fin(x.res)),
   interval: intervalOf(x), blockCnt: Math.max(0, Math.round(fin(x.blockCnt))), moveSpeed: round2(fin(x.moveSpeed)),
 });
@@ -487,15 +512,15 @@ export function unitStatsEntry(u, s = null) {
     ? u.liveRangeGrid.filter((p) => Array.isArray(p) && Number.isInteger(p[0]) && Number.isInteger(p[1])).map((p) => /** @type {[number, number]} */ ([p[0], p[1]]))
     : null;
   return {
-    id: Number.isInteger(u?.id) ? u.id : null,
-    uid: Number.isInteger(u?.uid) ? u.uid : null,
+    id: Number.isInteger(u?.id) ? /** @type {{ id: number }} */ (u).id : null,
+    uid: Number.isInteger(u?.uid) ? /** @type {{ uid: number }} */ (u).uid : null,
     defId: typeof u?.defId === 'string' ? u.defId : null,
     hp: Math.max(0, Math.round(fin(u?.hp))),
     alive: u?.alive !== false,
     ...statView(cur),
     base: statView(base),
     ...(range ? { range } : {}),
-    ...(isDir(u?.dir) ? { dir: u.dir } : {}),
+    ...(isDir(u?.dir) ? { dir: /** @type {{ dir: string }} */ (u).dir } : {}),
     // the enemy card greys a SILENCE-format line (折射) from this; absent flags ⇒ not silenced
     silenced: !!(cur.flags && cur.flags.silence),
   };
@@ -503,8 +528,9 @@ export function unitStatsEntry(u, s = null) {
 
 /** Deploy directions (DESIGN §3, research 09 §1.2; the same list as server/sim/dir.js DIRS). */
 export const DIRS = Object.freeze(['UP', 'RIGHT', 'DOWN', 'LEFT']);
-const isDir = (v) => DIRS.includes(v);
+const isDir = (/** @type {unknown} */ v) => /** @type {readonly unknown[]} */ (DIRS).includes(v);
 
+/** A move's `from` / `to`: a board tile, a hand slot or a 装备区 slot. @param {{ area?: unknown, row?: unknown, col?: unknown, idx?: unknown }|null|undefined} v */
 const target = (v) => {
   if (!v || typeof v !== 'object') return false;
   if (v.area === 'board') return isInt(v.row, 0, GEO.ROWS - 1) && isInt(v.col, 0, GEO.COLS - 1);
@@ -516,7 +542,7 @@ const target = (v) => {
 
 /**
  * One message's fields: a checker per field, and the fields that may be absent.
- * @typedef {{ $optional?: string[], [field: string]: ((v: any) => boolean) | string[] }} C2SSpec
+ * @typedef {{ $optional?: string[], [field: string]: ((v: any) => boolean) | string[] | undefined }} C2SSpec
  */
 /** @type {Record<string, C2SSpec>} */
 export const C2S = {
@@ -727,9 +753,14 @@ export const S2C = [
  * fields, the 机变 cards): `{ $list: [entry | key] }` — an entry that did not change is its key (server/match/match/
  * messaging.js _publicDelta). Keys are unique within a list.
  */
+/** @type {Readonly<Record<string, string>>} */
 export const PUBLIC_LIST_KEYS = Object.freeze({ bonds: 'bondId', fields: 'fieldId', cards: 'idx' });
 
-/** One field of a delta over the value held: whole, `{ $list }` (PUBLIC_LIST_KEYS) or `{ $d: 1, …changed, $rm }`. */
+/**
+ * One field of a delta over the value held: whole, `{ $list }` (PUBLIC_LIST_KEYS) or `{ $d: 1, …changed, $rm }`.
+ * @param {string} k @param {unknown} old @param {unknown} v
+ * @returns {unknown}
+ */
 function patchValue(k, old, v) {
   if (!isPlain(v)) return v;
   if (Array.isArray(v.$list)) {
@@ -741,6 +772,7 @@ function patchValue(k, old, v) {
   return v;
 }
 
+/** @param {unknown} base @param {Record<string, any>} d @returns {Record<string, any>} */
 function patchObject(base, d) {
   const { $rm, $d, delta, ...changed } = d;
   void $d; void delta;
@@ -765,14 +797,16 @@ function patchObject(base, d) {
  */
 export function mergePublic(prev, next) {
   if (!next || next.delta !== true || !Array.isArray(next.players)) return next;
-  const before = new Map((Array.isArray(prev?.players) ? prev.players : []).filter(Boolean).map((p) => [p.playerId, p]));
-  const players = next.players.map((d) => (isPlain(d) ? patchObject(before.get(d.playerId), d) : d));
+  const before = new Map((Array.isArray(prev?.players) ? prev.players : []).filter(Boolean).map((/** @type {Record<string, any>} */ p) => [p.playerId, p]));
+  const players = next.players.map((/** @type {unknown} */ d) => (isPlain(d) ? patchObject(before.get(d.playerId), d) : d));
   return { ...patchObject(prev, { ...next, players: null }), players };
 }
 
 /**
  * Validate a decoded client message. Returns `null` when valid, otherwise a short reason string.
  * Extra unknown fields are ignored (not copied by handlers).
+ * @param {any} msg a decoded frame
+ * @returns {string|null}
  */
 export function validateC2S(msg) {
   if (!msg || typeof msg !== 'object' || Array.isArray(msg)) return 'not an object';
@@ -802,6 +836,7 @@ export const EV = Object.freeze({
  * sim professions.js; a string is that clip set, null the base one), undefined for any other tuple. A form is state, not decoration: a view that misses
  * the fx keeps drawing the old model (player report #5 after 0.1.0), so the client's catch-up frames, its hidden-tab
  * backlog (battle/runner.js) and the events buffered before a field is entered (screens/game.js) keep these tuples.
+ * @param {unknown} ev
  */
 export function fxForm(ev) {
   if (!Array.isArray(ev) || ev[0] !== EV.FX) return undefined;
@@ -814,6 +849,7 @@ export function fxForm(ev) {
  * The deploy direction a `b.ev` 'fx' tuple ['fx', 'turnDir', x, y, { id, dir }] gives its unit in mid-battle (a kit setting
  * `unit.dir`: 涤火杰西卡 turning to her 机动盾牌), undefined for any other tuple. State like a form: b.snap tuples carry no
  * direction, and a view that misses it keeps the old model and the old facing ring (render/units.js setDir).
+ * @param {unknown} ev
  */
 export function fxDir(ev) {
   if (!Array.isArray(ev) || ev[0] !== EV.FX || ev[1] !== 'turnDir') return undefined;
@@ -826,6 +862,7 @@ export function fxDir(ev) {
  * 'wangLink' — a stone's 激活 effect shows for as long as it stands (render/fxgame.js STONE_ON). The four places that keep state keep these:
  * battle/runner.js keepsState, screens/game/early.js keepEarly, render/interp.js isCosmeticEvent (2026-10-22: the first
  * and the last had no 'wangLink', so a hidden tab or a long stall dropped the stone's activation).
+ * @param {unknown} ev
  */
 export function stateFx(ev) {
   return fxForm(ev) !== undefined || fxDir(ev) !== undefined || (Array.isArray(ev) && ev[0] === EV.FX && ev[1] === 'wangLink');

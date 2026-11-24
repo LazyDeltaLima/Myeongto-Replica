@@ -20,7 +20,7 @@ const NEAR_SQ = 0.04;
 const LR_TOLERANCE = 0.2, LR_ADDON = 0.25;
 const VEC = [[0, 1], [1, 0], [0, -1], [-1, 0]];   // UP, RIGHT, DOWN, LEFT (SharedConsts.Direction)
 
-/** `MapUtil.ParseDirection(v, addon)` as an index into VEC (render/face-turn.js parseDir), −1 for a zero vector. */
+/** `MapUtil.ParseDirection(v, addon)` as an index into VEC (render/face-turn.js parseDir), −1 for a zero vector. @param {number} dx @param {number} dy @param {number} addon */
 function parse(dx, dy, addon) {
   const len = Math.sqrt(dx * dx + dy * dy);
   if (!(len > 1e-9)) return -1;

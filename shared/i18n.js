@@ -66,6 +66,7 @@ let warnHook = null;
 /** lang + key already reported (once each) */
 const warned = new Set();
 
+/** @param {string} lang @param {string} key @param {string[]} problems */
 const report = (lang, key, problems) => {
   if (!warnHook) return;
   const id = `${lang}\u0000${key}`;
@@ -106,7 +107,7 @@ export function registerLangs(entries) {
  */
 export function getLangs() {
   const rest = [...registry.values()].filter((m) => m.code !== SOURCE_LANG).sort((a, b) => (a.code < b.code ? -1 : a.code > b.code ? 1 : 0));
-  return [registry.get(SOURCE_LANG), ...rest];
+  return [/** @type {LangMeta} */ (registry.get(SOURCE_LANG)), ...rest];
 }
 
 /**
@@ -273,6 +274,7 @@ export function tName(name, lang = current) {
  */
 export const dn = (name) => ({ dn: name == null ? '' : String(name) });
 
+/** @param {unknown} o @param {PropertyKey} k */
 const own = (o, k) => o != null && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
 
 /**
@@ -329,9 +331,9 @@ export function parsePluralForms(forms) {
     /** @type {Record<string, string>} */
     const out = {};
     for (let i = 0; i < parts.length; i++) {
-      const cat = named[i][1];
+      const cat = /** @type {RegExpExecArray} */ (named[i])[1];
       if (own(out, cat)) return null;
-      out[cat] = parts[i].slice(named[i][0].length);
+      out[cat] = parts[i].slice(/** @type {RegExpExecArray} */ (named[i])[0].length);
     }
     return own(out, 'other') ? out : null;
   }
@@ -365,7 +367,7 @@ export function pluralCategory(lang, n) {
   return n === 1 ? 'one' : 'other';
 }
 
-/** The form of a plural placeholder for a value (null when the forms are malformed). */
+/** The form of a plural placeholder for a value (null when the forms are malformed). @param {string} forms @param {unknown} v @param {string} lang */
 function pluralForm(forms, v, lang) {
   const f = parsePluralForms(forms);
   if (!f) return null;
@@ -410,6 +412,7 @@ export function checkTranslation(msgid, text) {
     if (m[2] === undefined) plain.add(m[1]);
   }
   const kept = new Set();
+  /** @type {string[]} */
   const extras = [];
   const problems = [];
   for (const m of String(text).matchAll(PLACEHOLDER)) {
@@ -421,7 +424,7 @@ export function checkTranslation(msgid, text) {
   return { ok: problems.length === 0, problems, extras };
 }
 
-/** The checkTranslation of a catalog entry (cached per language). */
+/** The checkTranslation of a catalog entry (cached per language). @param {string} lang @param {string} key @param {string} text */
 function checkedEntry(lang, key, text) {
   let m = checked.get(lang);
   if (!m) { m = new Map(); checked.set(lang, m); }
@@ -483,7 +486,7 @@ export function tc(context, msgid, params) {
   return params ? format(text, params, { lang: current, resolveName: nameResolver }) : text;
 }
 
-/** A tParts() param kept as it is: an object that is not a `{ dn }` name (a vnode), or an array holding one. */
+/** A tParts() param kept as it is: an object that is not a `{ dn }` name (a vnode), or an array holding one. @param {unknown} v @returns {boolean} */
 const isMarkup = (v) => !!v && typeof v === 'object' && !own(v, 'dn') && (!Array.isArray(v) || v.some((x) => isMarkup(x)));
 
 /**
@@ -501,7 +504,7 @@ export function tParts(msgid, params) {
   const text = current === DEFAULT_LANG ? id : lookup([id], params) ?? id;
   /** @type {unknown[]} */
   const out = [];
-  const push = (s) => {
+  const push = (/** @type {string} */ s) => {
     if (s === '') return;
     if (typeof out[out.length - 1] === 'string') out[out.length - 1] += s;
     else out.push(s);

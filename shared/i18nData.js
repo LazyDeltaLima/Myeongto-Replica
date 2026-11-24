@@ -38,6 +38,7 @@ export function textHash2(s) {
   return (h % 1296).toString(36).padStart(2, '0');
 }
 
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
 /**
@@ -75,7 +76,7 @@ export function getPath(base, path) {
 }
 
 /** A path as a lookup key (an array record's top-level indexes become object keys, so numbers and strings match). */
-const pathKey = (path) => path.map(String).join('\u0000');
+const pathKey = (/** @type {(string|number)[]} */ path) => path.map(String).join('\u0000');
 
 /**
  * Build a record overlay from its leaves (the build tool): sets each `en` at its path and computes `_h` from the
@@ -103,6 +104,7 @@ export function buildRecordOverlay(leaves) {
     zhAt.set(pathKey(path), zh);
   }
   // sparse arrays → explicit nulls (JSON has no holes)
+  /** @param {any} v @returns {any} */
   const fill = (v) => {
     if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) v[i] = v[i] === undefined ? null : fill(v[i]); return v; }
     if (isObj(v)) { for (const k of Object.keys(v)) v[k] = fill(v[k]); return v; }
@@ -135,6 +137,7 @@ export function applyRecordOverlay(base, ov, onto = base) {
   let applied = 0;
   let stale = 0;
   // b: the Chinese at this path (hash check); t: the target at this path (same shape: overlays replace strings only)
+  /** @param {any} b @param {any} t @param {any} o @param {number} depth @returns {any} */
   const rec = (b, t, o, depth) => {
     if (typeof o === 'string') {
       const want = hashes.slice(i * 2, i * 2 + 2);

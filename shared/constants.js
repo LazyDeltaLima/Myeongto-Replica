@@ -25,7 +25,7 @@ export const LARGE_SEATS = 8;
  */
 export const LARGE_MIN_PLAYERS = 5;
 export const ROOM_SIZES = Object.freeze([MAX_SEATS, LARGE_SEATS]);
-/** The seat count of a room / match size (anything else is the 4-seat co-op room). */
+/** The seat count of a room / match size (anything else is the 4-seat co-op room). @param {unknown} size */
 export const seatsOf = (size) => (size === LARGE_SEATS ? LARGE_SEATS : MAX_SEATS);
 /**
  * Spectator seats of a co-op room (community report #26, owner's decision 2026-10-04) — a remake feature: the official
@@ -55,6 +55,7 @@ export const MAX_GRADE = 20;
 export const FAST_GRADE = 0;
 /** A 规程等级 value of a room (FAST_GRADE or 1–MAX_GRADE). @param {unknown} v */
 export const isGrade = (v) => Number.isInteger(v) && /** @type {number} */ (v) >= FAST_GRADE && /** @type {number} */ (v) <= MAX_GRADE;
+/** @type {Readonly<Record<string, number>>} */
 const GRADE_FIRST = Object.freeze({ FUNNY: 1, NORMAL: 5, HARD: 9, ABYSS: 15 });
 /** The difficulty of a 规程等级 (FAST_GRADE: FUNNY). @param {number} grade */
 export const gradeDifficulty = (grade) => (grade >= GRADE_FIRST.ABYSS ? 'ABYSS' : grade >= GRADE_FIRST.HARD ? 'HARD' : grade >= GRADE_FIRST.NORMAL ? 'NORMAL' : 'FUNNY');
@@ -63,6 +64,7 @@ export const firstGrade = (difficulty) => GRADE_FIRST[difficulty] ?? 1;
 
 // modeId in data/config.json = `mode_${type}_${difficulty.toLowerCase()}` with type single|multi; a solo room with a
 // 规程等级 (above): `mode_single_<grade>`, 极速模拟 `mode_single_funny`
+/** @param {string} roomMode @param {string} difficulty @param {number|null} [grade] */
 export const modeIdFor = (roomMode, difficulty, grade = null) =>
   roomMode === 'solo' && isGrade(grade)
     ? `mode_single_${grade === FAST_GRADE ? 'funny' : grade}`
@@ -166,8 +168,8 @@ const PREVIEW_ROW_OFFSET_LEADER = 13;
 export function gateOf(start, leader) {
   const r = Array.isArray(start) ? start[0] : null;
   if (!Number.isFinite(r)) return 'lower';
-  const lead = typeof leader === 'boolean' ? leader : r <= 8;
-  const target = r + (lead ? PREVIEW_ROW_OFFSET_LEADER : PREVIEW_ROW_OFFSET);
+  const lead = typeof leader === 'boolean' ? leader : /** @type {number} */ (r) <= 8;
+  const target = /** @type {number} */ (r) + (lead ? PREVIEW_ROW_OFFSET_LEADER : PREVIEW_ROW_OFFSET);
   // both anchors share col 7, so with target ≥ 18 the upper one is always the nearer; below it only (15,7) qualifies
   return target >= PEN_UPPER_ROW ? 'upper' : 'lower';
 }
@@ -284,6 +286,7 @@ export const ERR_TEXT = {
 // (tools/assets/plan.mjs UI_EXTRAS → data/assets.json ui['emoticon/<dir>/<picId>'], GitHub issue #42). The UI takes the
 // local picture first, then the mirror copy, and shows a neutral glyph when neither is there. The picId is not
 // derived from the id (autochess_battle_fooldoctor_03…06 → pic_fooldoctor_04/05/06/08_battle).
+/** @param {string} id @param {number} sortId @param {string} picId @param {string} label */
 const emo = (id, sortId, picId, label) => Object.freeze({ id, sortId, picId, label });
 export const EMOTE_THEMES = Object.freeze([
   { themeId: 'emoticon_autochess_basic', dir: 'basic', sortId: 100000, isBasic: true, name: N_('表情套组：卫戍协议'), emotes: [
@@ -340,17 +343,17 @@ export const EMOTE_CATALOG = Object.freeze(EMOTE_THEMES.flatMap((t) => t.emotes.
 /** The 36 official emote ids (protocol whitelist: `EMOTES.includes(id)`). */
 export const EMOTES = Object.freeze(EMOTE_CATALOG.map((e) => e.id));
 const EMOTE_INDEX = new Map(EMOTE_CATALOG.map((e) => [e.id, e]));
-/** Catalog record of an emote id, or null (safe for any input, including '__proto__'). */
+/** Catalog record of an emote id, or null (safe for any input, including '__proto__'). @param {unknown} id */
 export const emoteInfo = (id) => (typeof id === 'string' && EMOTE_INDEX.get(id)) || null;
 // id-keyed maps without a prototype: a wire id like '__proto__' / 'toString' looks up undefined, never an Object method
-const emoteMap = (pick) => Object.freeze(Object.assign(Object.create(null), Object.fromEntries(EMOTE_CATALOG.map((e) => [e.id, pick(e)]))));
+const emoteMap = (/** @type {(e: (typeof EMOTE_CATALOG)[number]) => string} */ pick) => Object.freeze(Object.assign(Object.create(null), Object.fromEntries(EMOTE_CATALOG.map((e) => [e.id, pick(e)]))));
 /** Emote id → theme id. */
 export const EMOTE_THEME = emoteMap((e) => e.themeId);
 /** Emote id → our aria-label (never displayed). */
 export const EMOTE_LABEL = emoteMap((e) => e.label);
-/** data/local-assets.json group of an emote's art (`emoticon/<dir>`), or null. */
+/** data/local-assets.json group of an emote's art (`emoticon/<dir>`), or null. @param {unknown} id */
 export const emoteArtGroup = (id) => { const e = emoteInfo(id); return e ? `emoticon/${e.dir}` : null; };
-/** Canonical URL of an emote's extracted art (`/assets/local/emoticon/<dir>/<picId>.png`), or null for unknown ids. */
+/** Canonical URL of an emote's extracted art (`/assets/local/emoticon/<dir>/<picId>.png`), or null for unknown ids. @param {unknown} id */
 export const emoteArtPath = (id) => { const e = emoteInfo(id); return e ? `/assets/local/emoticon/${e.dir}/${e.picId}.png` : null; };
 export const EMOTE_COOLDOWN_MS = 1000; // activity_table autoChessData.constData.chatCD (s)
 export const EMOTE_BUBBLE_MS = 3000;   // constData.chatTime (s): how long a bubble stays up

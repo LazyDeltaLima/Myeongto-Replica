@@ -102,7 +102,7 @@ but not counted. strict is an option of the whole program, and a folder imports 
 server's options only). A listed file is checked in every config that has it; a listed file neither config has is an
 error.
 
-With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`.
+With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`.
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -135,6 +135,22 @@ most strict errors were, and the JSDoc that fixed them:
 - `globalThis.PIXI` (TS7017): the script-tag global is declared (`declare var PIXI: any` in
   `types/page-globals.d.ts`). A library without types (`ws`): a loose stand-in in `types/` (`types/ws.d.ts`, in the
   server config's `include`).
+- the data records (`shared/`): `ChessRecord`, `SkillRecord`, `ModuleRecord`, `TalentRecord`, `TraitRecord`, `Stats`,
+  `ChessStatus` in `shared/loadoutRecord.js` and `UnitForm`, `BackupUnit`, `Backups` (data/backups.json) in
+  `shared/standIn.js`, each the fields the shared code reads by name plus `[key: string]: any` for the rest of the
+  record; take them with `/** @import { ChessRecord } from '…/shared/loadoutRecord.js' */` rather than `any` or a new
+  `Bag`. A JSDoc `object` is `any` with strict off and `object` with it on (TS2339 on every field): one of these.
+- a check that takes a wire value (`shared/protocol.js` validators, `isPotential`): `@param {unknown} v`, with a cast
+  where only a call proved the type (`Number.isInteger(v) && /** @type {number} */ (v) >= lo`). Keep its result
+  `boolean` rather than `v is number`: the guard would also say the value is no number where the check fails. A frozen
+  literal list asked about such a value (`ROOM_SIZES.includes(v)`, a list of `4 | 8`): `/** @type {readonly unknown[]}
+  */ (ROOM_SIZES).includes(v)`. `isPlain` / `isObj` are guards to `Record<string, any>`, as in `ui/gameLogic/`.
+- a loop over a literal list of keys of a typed object (`for (const k of ['chess', 'items']) … c.pool[k]`):
+  `/** @type {const} */ (['chess', 'items'])`.
+- an object literal frozen through a generic (`deepFreeze`) keeps its literal types under strict (`banCore: null` is
+  `null`, `ban: []` is `never[]`): the declaration gets an explicit typedef (`CustomSettings` in `shared/ruleset.js`).
+- an inline `@type` on a callback parameter narrower than the array's element (`forms.every((/** @type {UnitForm} */
+  f) => …)` over `(UnitForm | null)[]`) is refused (TS2769): cast at the use inside, `/** @type {UnitForm} */ (f).skills`.
 
 ## Split classes
 

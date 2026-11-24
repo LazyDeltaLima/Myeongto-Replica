@@ -18,6 +18,19 @@ import { composeStats, composeTalents } from './loadoutRecord.js';
 import { stripPotential } from './potential.js';
 
 /**
+ * @import { ChessRecord, ChessStatus, ModuleRecord, SkillRecord, Stats, TalentRecord, TraitRecord } from './loadoutRecord.js'
+ */
+/**
+ * data/backups.json (docs/DATA.md §18): the fields read here.
+ * @typedef {{ [key: string]: any, skills?: SkillRecord[], modules?: ModuleRecord[], talents?: TalentRecord[],
+ *   tokens?: string[], displayTokens?: string[], stats?: Stats, trait?: TraitRecord|null }} UnitForm
+ *   `units[charId].forms[statusKey]`: the character at one training status
+ * @typedef {{ [key: string]: any, charId?: string, forms?: Record<string, UnitForm>, powers?: string[],
+ *   moduleNames?: Record<string, { name?: string|null, typeName?: string|null }>, assets?: Record<string, any> }} BackupUnit
+ * @typedef {{ [key: string]: any, units?: Record<string, BackupUnit> }} Backups
+ */
+
+/**
  * The character a chess record is drawn and fought with: its character template when it names one (`tmplId`: 阿米娅's 医疗 form
  * char_1037_amiya3, tools/build-data.mjs buildChess), else its `charId`. The client keys the body's model, effects, skills and
  * buff templates by the template's id; `charId` stays the operator (its name, bonds and ownership).
@@ -29,8 +42,12 @@ export function chessBody(chess) {
   return typeof chess?.charId === 'string' && chess.charId ? chess.charId : null;
 }
 
-/** The key of a unit form: a chess record's `status` as `${phase}/${level}/${skillLevel}/${equipLevel}`. */
+/**
+ * The key of a unit form: a chess record's `status` as `${phase}/${level}/${skillLevel}/${equipLevel}`.
+ * @param {ChessStatus|null|undefined} status
+ */
 export function statusKey(status) {
+  /** @type {ChessStatus} */
   const s = status && typeof status === 'object' ? status : {};
   return `${s.phase ?? 0}/${s.level ?? 1}/${s.skillLevel ?? 1}/${s.equipLevel ?? 0}`;
 }
@@ -44,13 +61,17 @@ export const IDENTITY_FIELDS = Object.freeze([
   'shopSortId', 'bonds', 'garrisonIds', 'price', 'sellPrice', 'upgradeNum', 'upgradeChessId', 'equipSlots', 'status', 'diyRequirement',
 ]);
 
-/** The form of `charId` at a chess `status`, or null. */
+/**
+ * The form of `charId` at a chess `status`, or null.
+ * @param {Backups|null|undefined} backups @param {string} charId @param {ChessStatus|null|undefined} status
+ * @returns {UnitForm|null}
+ */
 export function unitForm(backups, charId, status) {
   const forms = backups?.units?.[charId]?.forms;
   return (forms && Object.prototype.hasOwnProperty.call(forms, statusKey(status)) && forms[statusKey(status)]) || null;
 }
 
-const byNatural = (a, b) => String(a).localeCompare(String(b), 'en', { numeric: true });
+const byNatural = (/** @type {unknown} */ a, /** @type {unknown} */ b) => String(a).localeCompare(String(b), 'en', { numeric: true });
 
 /**
  * A chess record fielded with the character of `unit` at `form`, with the selected skill and module (a new object).
@@ -60,16 +81,17 @@ const byNatural = (a, b) => String(a).localeCompare(String(b), 'en', { numeric: 
  * `statsBase` / `traitBase` / `talentsBase` / `modules[]`; `tokens` are the summons the selection produces. The record is
  * composed at ONE potential: pass the form at the wanted potential (shared/potential.js atPotential — a stand-in has none)
  * and the result carries no potential annotation (`potDown`, chained talents).
- * @param {object} identity the data/chess.json record whose identity the unit takes (IDENTITY_FIELDS)
- * @param {object} unit backups.units[charId]
- * @param {object} form backups.units[charId].forms[statusKey(identity.status)]
+ * @param {ChessRecord|null|undefined} identity the data/chess.json record whose identity the unit takes (IDENTITY_FIELDS)
+ * @param {BackupUnit|null|undefined} unit backups.units[charId]
+ * @param {UnitForm|null|undefined} form backups.units[charId].forms[statusKey(identity.status)]
  * @param {{ skillIndex?: number, moduleId?: string|null, standInFor?: string|null, bonds?: string[]|null }} [sel]
  *   `bonds` replaces the identity's (a DIY slot's are empty: the pick's derived bonds); `standInFor` = the replaced
  *   operator's charId (the official 补位 mark on the avatar)
- * @returns {object|null} null when a part is missing
+ * @returns {ChessRecord|null} null when a part is missing
  */
 export function composeUnitRecord(identity, unit, form, { skillIndex, moduleId = null, standInFor = null, bonds = null } = {}) {
   if (!identity || typeof identity !== 'object' || !unit || !form) return null;
+  /** @type {ChessRecord} */
   const out = {};
   for (const k of IDENTITY_FIELDS) if (Object.prototype.hasOwnProperty.call(identity, k)) out[k] = identity[k];
   if (Array.isArray(bonds)) out.bonds = [...bonds];
@@ -143,8 +165,9 @@ export function isDroppableChess(chess) {
  * the chess's own status, skill `backup.skillIndex`, module `backup.uniEquipId` (none when null), full potential like
  * every unit form (the 原型干员 have no potential ranks) — with the chess's bonds, 特质, tier, price and merge. Null for a
  * PRESET (特许: always the real operator) or DIY chess, or when the data lacks the unit / form.
- * @param {object} chess data/chess.json record
- * @param {object} backups data/backups.json
+ * @param {ChessRecord|null|undefined} chess data/chess.json record
+ * @param {Backups|null|undefined} backups data/backups.json
+ * @returns {ChessRecord|null}
  */
 export function standInRecord(chess, backups) {
   const b = chess?.backup;

@@ -26,6 +26,7 @@ import { sanitizeCustom, customBanLimits, CUSTOM_FIRST_HALF_STAGES } from './rul
 /** The files a borrow changes. */
 export const BORROW_FILES = Object.freeze(['stages', 'enemies', 'factions']);
 
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 /** The public seasons other than `season` a custom match may borrow from, in registry order. @param {unknown} season */
@@ -41,7 +42,7 @@ export function borrowSeasons(season) {
  * @returns {{ stages: string[], types: string[] } | null}
  */
 export function customBorrowIds(custom) {
-  const stages = Array.isArray(custom?.stages?.extra) ? custom.stages.extra.filter((x) => typeof x === 'string') : [];
+  const stages = Array.isArray(custom?.stages?.extra) ? custom.stages.extra.filter((/** @type {unknown} */ x) => typeof x === 'string') : [];
   const pick = isObj(custom?.types?.pick) ? custom.types.pick : {};
   const types = Object.keys(pick).filter((k) => pick[k] === 'allow' || pick[k] === 'force').sort();
   return stages.length || types.length ? { stages: [...stages].sort(), types } : null;
@@ -94,7 +95,7 @@ export function sameField(a, b) {
   }
   const glyphs = new Set(rows.flatMap((i) => [...a.rows[i]]));
   for (const g of glyphs) if (J(a.tiles?.[g]) !== J(b.tiles?.[g])) return false;
-  const devs = (s) => (Array.isArray(s.devices) ? s.devices : []).filter((d) => !sameIgnores(d))
+  const devs = (/** @type {Record<string, any>} */ s) => (Array.isArray(s.devices) ? s.devices : []).filter((d) => !sameIgnores(d))
     .map((d) => J([d.key, d.pos, d.dir, !!d.hidden, d.role ?? null, d.stats ?? null])).sort();
   return J(devs(a)) === J(devs(b));
 }
@@ -145,7 +146,7 @@ export function borrowPlan(own, foreign, ids, extraStages = []) {
  */
 export function borrowFile(name, ownFile, foreignFiles, plan) {
   if (!plan || !isObj(ownFile)) return ownFile;
-  const fileOf = (season) => foreignFiles.find(([s]) => s === season)?.[1];
+  const fileOf = (/** @type {string} */ season) => foreignFiles.find(([s]) => s === season)?.[1];
   if (name === 'stages') {
     if (!plan.stages.length) return ownFile;
     const out = { ...ownFile };
@@ -225,15 +226,16 @@ export function withBorrowed(own, foreign, ids, extraStages = []) {
 export function fitCustomToSeason(raw, own, foreign, { season, from = null } = {}) {
   const c = sanitizeCustom(raw);
   let dropped = 0;
+  /** @template T @param {T[]} list @param {(x: T) => boolean} ok @returns {T[]} */
   const keep = (list, ok) => { const out = list.filter(ok); dropped += list.length - out.length; return out; };
-  const ownOf = (file) => (isObj(file) ? Object.fromEntries(Object.entries(file).filter(([, r]) => isObj(r) && !r.borrowed)) : null);
+  const ownOf = (/** @type {unknown} */ file) => (isObj(file) ? Object.fromEntries(Object.entries(file).filter(([, r]) => isObj(r) && !r.borrowed)) : null);
   const stages = ownOf(own?.stages);
   const types = isObj(own?.factions) ? ownOf(own.factions.types) || {} : null;
   const bonds = c.bonds;
   let { banCore, banAddon } = bonds;
   if (own?.config) {
     const lim = customBanLimits(own.config);
-    const clamp = (v, [lo, hi]) => { if (v == null) return v; const x = Math.min(hi, Math.max(lo, v)); if (x !== v) dropped++; return x; };
+    const clamp = (/** @type {number|null} */ v, /** @type {number[]} */ [lo, hi]) => { if (v == null) return v; const x = Math.min(hi, Math.max(lo, v)); if (x !== v) dropped++; return x; };
     banCore = clamp(banCore, lim.core);
     banAddon = clamp(banAddon, lim.addon);
   }

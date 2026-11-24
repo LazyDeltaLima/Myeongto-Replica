@@ -11,7 +11,7 @@ import { N_ } from './i18n.js';
 /** Emote sets a player can send from: the official pictures, or the maintainer pictures below. */
 export const EMOTE_SETS = Object.freeze(['official', 'user']);
 /** Wire value → set ('official' for anything unknown or missing: older clients send no set). */
-export const emoteSet = (v) => (v === 'user' ? 'user' : 'official');
+export const emoteSet = (/** @type {unknown} */ v) => (v === 'user' ? 'user' : 'official');
 
 const ART = new Map([
   ["autochess_battle_happy", '/img/emotes/c8.webp'],
@@ -51,10 +51,10 @@ const ART = new Map([
   ["autochess_battle_foolwisdel_05", '/img/emotes/g5.webp'],
   ["autochess_battle_foolwisdel_06", '/img/emotes/e3.webp'],
 ]);
-/** URL of an emote id's user picture, or null (safe for any input, including '__proto__'). */
+/** URL of an emote id's user picture, or null (safe for any input, including '__proto__'). @param {unknown} id @returns {string|null} */
 export const userEmoteArt = (id) => (typeof id === 'string' && ART.get(id)) || null;
 
-const sorted = [...EMOTE_CATALOG].sort((a, b) => userEmoteArt(a.id).localeCompare(userEmoteArt(b.id), 'en', { numeric: true }));
+const sorted = [...EMOTE_CATALOG].sort((a, b) => /** @type {string} */ (userEmoteArt(a.id)).localeCompare(/** @type {string} */ (userEmoteArt(b.id)), 'en', { numeric: true }));
 /** Pages of the maintainer tab: { key, name, emotes } × 6. */
 export const USER_EMOTE_PAGES = Object.freeze(Array.from({ length: Math.ceil(sorted.length / 6) }, (_, i) => Object.freeze({
   key: `user${i + 1}`,

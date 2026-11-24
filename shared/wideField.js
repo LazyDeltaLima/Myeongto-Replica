@@ -11,15 +11,15 @@ export const HALF = GEO.PARTNER_COL_OFFSET;
 export const LAST = 18;
 /** The stage rows a wide field widens for the browser (widenStageData): the 联防 field (9–12) and the walls around it. */
 export const WIDE_ROWS = Object.freeze([6, 13]);
-/** Halves of a wide field: 3 or 4 (anything else is no wide field). */
+/** Halves of a wide field: 3 or 4 (anything else is no wide field). @param {unknown} n */
 export const wideHalves = (n) => (n === 3 || n === 4 ? n : 0);
 /** Columns the added halves shift the 2-helper field's right part by. @param {number} halves */
 export const wideShift = (halves) => HALF * (halves - 2);
-/** The first stage column a wide field of `halves` repeats. */
+/** The first stage column a wide field of `halves` repeats. @param {number} halves */
 export const firstRepeated = (halves) => LAST + 1 - wideShift(halves);
-/** The field rect of a wide field (GEO.UNITE_RECT widened by the shift). */
+/** The field rect of a wide field (GEO.UNITE_RECT widened by the shift). @param {number} halves */
 export const wideRect = (halves) => ({ ...GEO.UNITE_RECT, c1: GEO.UNITE_RECT.c1 + wideShift(halves) });
-/** Column offsets of the helpers on a wide field, first helper (the right-most half) first. */
+/** Column offsets of the helpers on a wide field, first helper (the right-most half) first. @param {number} halves */
 export const wideOffsets = (halves) => Array.from({ length: halves }, (_, i) => HALF * (halves - 1 - i));
 
 /** The wide columns a stage column stands on (header). @param {number} c @param {number} halves @returns {number[]} */
@@ -30,7 +30,7 @@ export function wideCols(c, halves) {
   return [c + s];
 }
 
-/** One stage row (a string or an array of glyphs) on a wide field of `halves`. */
+/** One stage row (a string or an array of glyphs) on a wide field of `halves`. @param {unknown} line @param {number} halves */
 export function widenRow(line, halves) {
   const f = firstRepeated(halves);
   if (typeof line === 'string') return line.slice(0, LAST + 1) + line.slice(f, LAST + 1) + line.slice(LAST + 1);
@@ -38,6 +38,7 @@ export function widenRow(line, halves) {
   return line;
 }
 
+/** A position [row, col, …] moved `k` columns right (anything else as it is). @param {unknown} p @param {number} k */
 export const shiftPos = (p, k) => (Array.isArray(p) ? [p[0], p[1] + k, ...p.slice(2)] : p);
 
 /**
@@ -52,8 +53,8 @@ export const shiftPos = (p, k) => (Array.isArray(p) ? [p[0], p[1] + k, ...p.slic
  */
 export function widenStageData(stage, halves) {
   if (!stage || typeof stage !== 'object' || stage._wide || !wideHalves(halves)) return stage;
-  const inRows = (r) => r >= WIDE_ROWS[0] && r <= WIDE_ROWS[1];
-  const copies = (list) => {
+  const inRows = (/** @type {number} */ r) => r >= WIDE_ROWS[0] && r <= WIDE_ROWS[1];
+  const copies = (/** @type {unknown} */ list) => {
     const out = [];
     for (const d of Array.isArray(list) ? list : []) {
       if (!d || !Array.isArray(d.pos) || !Number.isInteger(d.pos[1]) || !inRows(d.pos[0])) { out.push(d); continue; }
@@ -66,7 +67,7 @@ export function widenStageData(stage, halves) {
   };
   const pad = '#'.repeat(wideShift(halves));
   const rows = Array.isArray(stage.rows)
-    ? stage.rows.map((r, i) => (inRows(i) ? widenRow(r, halves) : typeof r === 'string' ? r + pad : r)) : stage.rows;
+    ? stage.rows.map((/** @type {unknown} */ r, /** @type {number} */ i) => (inRows(i) ? widenRow(r, halves) : typeof r === 'string' ? r + pad : r)) : stage.rows;
   const size = Array.isArray(stage.size) ? [stage.size[0], stage.size[1] + wideShift(halves), ...stage.size.slice(2)] : stage.size;
   return { ...stage, _wide: halves, rows, size, devices: copies(stage.devices), ...(Array.isArray(stage.mapChars) ? { mapChars: copies(stage.mapChars) } : {}) };
 }

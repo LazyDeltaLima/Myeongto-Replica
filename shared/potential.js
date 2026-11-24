@@ -38,14 +38,16 @@ export const CULTIVATE_MAX = CULTIVATE_EFFECTS.length - 1;
 /** The default 练度: 精英阶段2-60级 (the owner's 「默认满潜满加成」). */
 export const CULTIVATE_DEFAULT = CULTIVATE_MAX;
 
-/** Is `v` a potential (integer 1–6)? */
-export const isPotential = (v) => Number.isInteger(v) && v >= POTENTIAL_MIN && v <= POTENTIAL_MAX;
-/** Is `v` a 练度 tier (integer 0–3)? */
-export const isCultivate = (v) => Number.isInteger(v) && v >= 0 && v <= CULTIVATE_MAX;
-/** The data rank of a potential (anything else: full potential). */
-export const rankOf = (potential) => (isPotential(potential) ? potential - 1 : FULL_RANK);
+/** Is `v` a potential (integer 1–6)? @param {unknown} v @returns {boolean} */
+export const isPotential = (v) => Number.isInteger(v) && /** @type {number} */ (v) >= POTENTIAL_MIN && /** @type {number} */ (v) <= POTENTIAL_MAX;
+/** Is `v` a 练度 tier (integer 0–3)? @param {unknown} v @returns {boolean} */
+export const isCultivate = (v) => Number.isInteger(v) && /** @type {number} */ (v) >= 0 && /** @type {number} */ (v) <= CULTIVATE_MAX;
+/** The data rank of a potential (anything else: full potential). @param {unknown} potential */
+export const rankOf = (potential) => (isPotential(potential) ? /** @type {number} */ (potential) - 1 : FULL_RANK);
 
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+/** @param {unknown} o @param {PropertyKey} k @returns {o is Record<PropertyKey, any>} */
 const own = (o, k) => isObj(o) && Object.prototype.hasOwnProperty.call(o, k);
 
 /**
@@ -65,12 +67,15 @@ export function talentAtRank(t, rank) {
   return out;
 }
 
-/** A talent list at data rank `rank` (talentAtRank of every entry). */
+/** A talent list at data rank `rank` (talentAtRank of every entry). @param {unknown} list @param {number} rank */
 export function talentsAtRank(list, rank) {
   return Array.isArray(list) ? list.map((t) => talentAtRank(t, rank)) : list;
 }
 
-/** `obj` with the `potDown` leaves of ranks FULL_RANK − 1 … `rank` applied (copy-on-write; `potDown` dropped). */
+/**
+ * `obj` with the `potDown` leaves of ranks FULL_RANK − 1 … `rank` applied (copy-on-write; `potDown` dropped).
+ * @param {Record<string, any>} obj @param {number} rank
+ */
 function applyPotDown(obj, rank) {
   const out = { ...obj };
   delete out.potDown;
@@ -82,6 +87,7 @@ function applyPotDown(obj, rank) {
     if (!isObj(step)) continue;
     for (const [path, value] of Object.entries(step)) {
       const keys = path.split('.');
+      /** @type {any} an object or an array on the path, null past its end */
       let cur = out;
       for (let i = 0; i < keys.length - 1; i++) {
         const k = Array.isArray(cur) ? Number(keys[i]) : keys[i];
@@ -110,14 +116,15 @@ export function atRank(obj, rank) {
   const out = applyPotDown(obj, rank);
   for (const k of ['talents', 'talentsBase']) if (Array.isArray(out[k])) out[k] = talentsAtRank(out[k], rank);
   if (Array.isArray(out.modules)) {
-    out.modules = out.modules.map((m) => (isObj(m) && Array.isArray(m.talentChanges) ? { ...m, talentChanges: talentsAtRank(m.talentChanges, rank) } : m));
+    out.modules = out.modules.map((/** @type {unknown} */ m) => (isObj(m) && Array.isArray(m.talentChanges) ? { ...m, talentChanges: talentsAtRank(m.talentChanges, rank) } : m));
   }
   if (isObj(out.byModule)) {
+    /** @type {Record<string, unknown>} */
     const bm = {};
     for (const [id, m] of Object.entries(out.byModule)) bm[id] = isObj(m) && Array.isArray(m.talents) ? { ...m, talents: talentsAtRank(m.talents, rank) } : m;
     out.byModule = bm;
   }
-  return out;
+  return /** @type {T} */ (out);
 }
 
 /**
@@ -129,14 +136,14 @@ export function atRank(obj, rank) {
  * @returns {T}
  */
 export function atPotential(rec, potential) {
-  return isPotential(potential) && potential < POTENTIAL_MAX ? atRank(rec, potential - 1) : rec;
+  return isPotential(potential) && /** @type {number} */ (potential) < POTENTIAL_MAX ? atRank(rec, /** @type {number} */ (potential) - 1) : rec;
 }
 
-/** Whether a record / form / variant changes below full potential at all (`potDown` or a chained talent list). */
+/** Whether a record / form / variant changes below full potential at all (`potDown` or a chained talent list). @param {unknown} obj */
 export function hasPotentialData(obj) {
   if (!isObj(obj)) return false;
   if (isObj(obj.potDown) && Object.keys(obj.potDown).length) return true;
-  const chained = (list) => Array.isArray(list) && list.some((t) => isObj(t) && isObj(t.potBelow));
+  const chained = (/** @type {unknown} */ list) => Array.isArray(list) && list.some((t) => isObj(t) && isObj(t.potBelow));
   if (chained(obj.talents) || chained(obj.talentsBase)) return true;
   if (Array.isArray(obj.modules) && obj.modules.some((m) => chained(m?.talentChanges))) return true;
   return isObj(obj.byModule) && Object.values(obj.byModule).some((m) => chained(m?.talents));
@@ -145,13 +152,17 @@ export function hasPotentialData(obj) {
 /**
  * A deep copy of `v` without the potential annotations (`potDown`, `potMin`, `potBelow`): what a record built at one
  * rank looks like (the build's self-check; tests).
+ * @template T
+ * @param {T} v
+ * @returns {T}
  */
 export function stripPotential(v) {
-  if (Array.isArray(v)) return v.map(stripPotential);
+  if (Array.isArray(v)) return /** @type {T} */ (v.map(stripPotential));
   if (!isObj(v)) return v;
+  /** @type {Record<string, unknown>} */
   const out = {};
   for (const [k, x] of Object.entries(v)) if (k !== 'potDown' && k !== 'potMin' && k !== 'potBelow') out[k] = stripPotential(x);
-  return out;
+  return /** @type {T} */ (out);
 }
 
 // ---- 练度 (自持有) ---------------------------------------------------------------------------------------------------
@@ -165,12 +176,13 @@ export function stripPotential(v) {
  */
 export function cultivateMul(effects, cultivate) {
   if (!isCultivate(cultivate)) return null;
-  const id = CULTIVATE_EFFECTS[cultivate];
+  const id = CULTIVATE_EFFECTS[/** @type {number} */ (cultivate)];
   const rec = typeof effects === 'function' ? effects(id) : own(effects, id) ? effects[id] : null;
   const buff = isObj(rec) && Array.isArray(rec.buffs) ? rec.buffs.find((b) => isObj(b) && b.key === 'char_attribute_mul') : null;
   if (!buff) return null;
+  /** @type {Record<string, any>} */
   const bb = isObj(buff.bb) ? buff.bb : {};
-  const m = (k) => (typeof bb[k] === 'number' && Number.isFinite(bb[k]) && bb[k] > 0 ? bb[k] : 1);
+  const m = (/** @type {string} */ k) => (typeof bb[k] === 'number' && Number.isFinite(bb[k]) && bb[k] > 0 ? bb[k] : 1);
   return { atk: m('atk'), def: m('def'), hp: m('max_hp') };
 }
 
@@ -201,7 +213,7 @@ export function cultivationOf(rec, ops) {
   if (!isObj(rec) || rec.standInFor || rec.diyProto || typeof rec.charId !== 'string' || !rec.charId) return null;
   const e = own(ops, rec.charId) && isObj(ops[rec.charId]) ? ops[rec.charId] : null;
   return {
-    potential: e && isPotential(e.potential) ? e.potential : POTENTIAL_DEFAULT,
-    cultivate: e && isCultivate(e.cultivate) ? e.cultivate : CULTIVATE_DEFAULT,
+    potential: e && isPotential(e.potential) ? /** @type {number} */ (e.potential) : POTENTIAL_DEFAULT,
+    cultivate: e && isCultivate(e.cultivate) ? /** @type {number} */ (e.cultivate) : CULTIVATE_DEFAULT,
   };
 }

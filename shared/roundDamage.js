@@ -38,7 +38,7 @@ export function liveUnitDamage(units) {
 export function foldRoundDamage(board, units) {
   const byUid = new Map();
   for (const p of board || []) if (p && Number.isInteger(p.uid)) byUid.set(p.uid, p);
-  const chessFor = (uid) => {
+  const chessFor = (/** @type {number|null|undefined} */ uid) => {
     let p = byUid.get(uid);
     for (let i = 0; p && p.kind !== 'chess' && i < 4; i++) p = Number.isInteger(p.ownerUid) ? byUid.get(p.ownerUid) : null;
     return p && p.kind === 'chess' ? p : null;

@@ -17,7 +17,8 @@
     "public/js/render/app/**/*.js",
     "public/js/battle/**/*.js",
     "public/js/debug/**/*.js",
-    "public/js/ui/gameLogic/**/*.js"
+    "public/js/ui/gameLogic/**/*.js",
+    "shared/**/*.js"
   ],
   "exclude": []
 }

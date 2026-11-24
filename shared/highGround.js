@@ -9,12 +9,14 @@
 // such as the 教官's Y module ("可以额外部署在远程位") is a 部署效果, which 卫戍协议 switches off (PRTS 卫戍协议/帮助
 // §战斗部署), and is not read. The battle keeps position MELEE: on a 高台 the unit attacks and blocks nothing.
 
+/** @import { ChessRecord } from './loadoutRecord.js' */
+
 /** The trait line that lets a MELEE chess stand on a ranged (高台) tile. */
 export const PLACE_ON_RANGED = '可以放置于远程位'; // i18n-ignore: matched against the data's trait text
 
 /**
  * The record's trait text without a module ('' when it has none).
- * @param {object|null} rec a chess record
+ * @param {ChessRecord|null} rec a chess record
  * @returns {string}
  */
 export function baseTraitText(rec) {
@@ -24,7 +26,7 @@ export function baseTraitText(rec) {
 
 /**
  * Whether a MELEE chess record may also stand on a 高台: its trait reads 「可以放置于远程位」. Normal or elite, any module.
- * @param {object|null} rec a chess record (normal or golden)
+ * @param {ChessRecord|null} rec a chess record (normal or golden)
  * @returns {boolean}
  */
 export function meleeOnHighGround(rec) {

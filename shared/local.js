@@ -25,6 +25,8 @@ import { APP_VERSION } from './constants.js';
 import { N_ } from './i18n.js';
 import { DEFAULT_SEASON, seasonOf } from './seasons.js';
 
+/** @import { C2SSpec } from './protocol.js' */
+
 // local version (docs/rules/README.md 「버전 표기」): since 1.2.0 it is APP_VERSION (shared/constants.js) itself — the hard
 // fork has no upstream base to show beside it. Kept for /healthz `local` and the feedback records, which the operator's deploy and
 // feedback scripts read (a server before 1.2.0 sends its own number there and the upstream base as `app`).
@@ -90,20 +92,24 @@ export const CHAT_FACTIONS = Object.freeze([
   { id: 'iberia', name: N_('伊比利亚'), color: '#2fb67a', bond: 'iberiaShip' },
   { id: 'lethania', name: N_('莱塔尼亚'), color: '#9a6ae0', bond: 'lethaniaShip' },
 ].map((f) => Object.freeze(f)));
-/** Chat faction record of an id (any season's), or null (safe for any input). */
+/** Chat faction record of an id (any season's), or null (safe for any input). @param {unknown} id */
 export const chatFaction = (id) => (typeof id === 'string' && CHAT_FACTIONS.find((f) => f.id === id)) || null;
 
 /** The chat factions of each season: its nation bonds (bonds.json `bondType` SEASON — test/chat-factions.test.js). */
+/** @typedef {typeof CHAT_FACTIONS[number]} ChatFaction */
+/** @type {Readonly<Record<string, readonly ChatFaction[]>>} (every id below is a CHAT_FACTIONS one) */
 const SEASON_CHAT_FACTIONS = Object.freeze({
-  act2autochess: Object.freeze(['yan', 'sargon', 'victoria', 'kjerag', 'laterano', 'aegir', 'siracusa', 'kazimierz'].map(chatFaction)),
-  act3autochess: Object.freeze(['yan', 'sargon', 'victoria', 'kjerag', 'aegir', 'siracusa', 'kazimierz', 'ursus', 'iberia', 'lethania'].map(chatFaction)),
+  act2autochess: Object.freeze(/** @type {ChatFaction[]} */ (['yan', 'sargon', 'victoria', 'kjerag', 'laterano', 'aegir', 'siracusa', 'kazimierz'].map(chatFaction))),
+  act3autochess: Object.freeze(/** @type {ChatFaction[]} */ (['yan', 'sargon', 'victoria', 'kjerag', 'aegir', 'siracusa', 'kazimierz', 'ursus', 'iberia', 'lethania'].map(chatFaction))),
 });
 /** The chat factions a season offers (the default season's for an unknown one). @param {unknown} season */
 export const chatFactionsOf = (season) => SEASON_CHAT_FACTIONS[seasonOf(season)] || SEASON_CHAT_FACTIONS[DEFAULT_SEASON];
 /** A chat faction of that season, or null. @param {unknown} id @param {unknown} season */
 export const seasonChatFaction = (id, season) => (typeof id === 'string' && chatFactionsOf(season).find((f) => f.id === id)) || null;
 
+/** @param {unknown} v @param {number} max */
 const isStr = (v, max) => typeof v === 'string' && v.length <= max;
+/** @param {(v: unknown) => boolean} check @returns {(v: unknown) => boolean} */
 const optional = (check) => (v) => v === undefined || check(v);
 
 /** Server → client message types this patch adds (protocol.js S2C). */
@@ -112,7 +118,7 @@ export const LOCAL_S2C = Object.freeze(['room.chat', 'room.chatlog', 'room.facti
 /**
  * Add this patch's messages to the protocol tables (called once by shared/protocol.js, after both are defined). An
  * upstream g.emote spec keeps its own fields; only the optional `set` is added.
- * @param {Record<string, any>} C2S
+ * @param {Record<string, C2SSpec>} C2S
  * @param {string[]} S2C
  */
 export function extendProtocol(C2S, S2C) {
@@ -175,6 +181,6 @@ export function extendProtocol(C2S, S2C) {
     public: (v) => v === true,
     $optional: ['diag', 'battles', 'match', 'public'],
   };
-  if (C2S['g.emote']) C2S['g.emote'] = { ...C2S['g.emote'], set: optional((v) => EMOTE_SETS.includes(v)) };
+  if (C2S['g.emote']) C2S['g.emote'] = { ...C2S['g.emote'], set: optional((v) => /** @type {readonly unknown[]} */ (EMOTE_SETS).includes(v)) };
   for (const t of LOCAL_S2C) if (!S2C.includes(t)) S2C.push(t);
 }

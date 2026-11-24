@@ -29,6 +29,11 @@
 import { composeUnitRecord, unitForm, statusKey } from './standIn.js';
 import { atPotential } from './potential.js';
 
+/**
+ * @import { ChessRecord, ChessStatus, ModuleRecord } from './loadoutRecord.js'
+ * @import { UnitForm } from './standIn.js'
+ */
+
 /** The tiers that have 自选 slots. */
 export const DIY_TIERS = Object.freeze([5, 6]);
 
@@ -60,8 +65,10 @@ export function isDiyModule(mod) {
  * @typedef {Iterable<string>|((charId: string) => boolean)|null|undefined} Kitted the charIds with a kit, or a predicate
  */
 
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
+/** @param {unknown} o @param {PropertyKey} k @returns {o is Record<PropertyKey, any>} */
 const own = (o, k) => isObj(o) && Object.prototype.hasOwnProperty.call(o, k);
 
 /** data/backups.json of `data`, or null. @param {DiyData|null|undefined} data */
@@ -85,7 +92,7 @@ function diyOf(data) {
  * activity_table shopLevelDisplayDataDict — the tier-5 slots at level 5, the tier-6 slots at level 6; the tier when the
  * data lacks it) and both records. Null for any other id.
  * @param {string} slotId a slot's normal (`_a`) or elite (`_b`) id
- * @param {DiyData} data
+ * @param {DiyData|null|undefined} data
  */
 export function diySlot(slotId, data) {
   const diy = diyOf(data);
@@ -94,10 +101,10 @@ export function diySlot(slotId, data) {
   const s = baseId ? diy.slots[baseId] : null;
   if (!s) return null;
   const shopLevel = Number.isInteger(s.shopLevel) && s.shopLevel > 0 ? s.shopLevel : s.tier;
-  return { baseId, goldenId: s.goldenId, tier: s.tier, shopLevel, elite: slotId !== baseId, normal: chessOf(data, baseId), golden: chessOf(data, s.goldenId) };
+  return { baseId, goldenId: s.goldenId, tier: s.tier, shopLevel, elite: slotId !== baseId, normal: chessOf(data, /** @type {string} */ (baseId)), golden: chessOf(data, s.goldenId) };
 }
 
-/** The base ids of the 自选 slots (data order: tier 5 then tier 6). @param {DiyData} data @returns {string[]} */
+/** The base ids of the 自选 slots (data order: tier 5 then tier 6). @param {DiyData|null|undefined} data @returns {string[]} */
 export function diySlotIds(data) {
   return Object.keys(diyOf(data)?.slots ?? {});
 }
@@ -105,20 +112,20 @@ export function diySlotIds(data) {
 /**
  * The key of a DIY owner's summon variants in data/backups.json `tokens[id].variants`: the operator and the slot form.
  * @param {string} charId
- * @param {object} status the slot record's `status`
+ * @param {ChessStatus|null|undefined} status the slot record's `status`
  */
 export function diyTokenOwner(charId, status) {
   return `${charId}@${statusKey(status)}`;
 }
 
-/** Whether `charId` is a prototype pick (原型干员) of `tier`. @param {DiyData} data @param {number} tier @param {string} charId */
+/** Whether `charId` is a prototype pick (原型干员) of `tier`. @param {DiyData|null|undefined} data @param {number} tier @param {string} charId */
 export function isPrototypePick(data, tier, charId) {
   return (diyOf(data)?.prototypes?.[tier] ?? []).includes(charId);
 }
 
 /**
  * The skill / module a prototype carries in a slot of `tier` (`diy.locked`), or null for anyone else.
- * @param {DiyData} data @param {number} tier @param {string} charId
+ * @param {DiyData|null|undefined} data @param {number} tier @param {string} charId
  * @returns {{ skillIndex: number, uniEquipId: string|null }|null}
  */
 export function lockedSelection(data, tier, charId) {
@@ -138,7 +145,7 @@ function kittedTest(kitted) {
  * The legal picks of a tier: its prototypes (`diy.prototypes[tier]`), then the owned 6★ (`diy.ownedPool`), in data
  * order. With `kitted`, only the operators that have a kit (a pick without one is not offered).
  * @param {number} tier 5 or 6
- * @param {{ data: DiyData, kitted?: Kitted }} opts
+ * @param {{ data: DiyData|null, kitted?: Kitted }} opts
  * @returns {string[]}
  */
 export function diyPool(tier, { data, kitted = null } = { data: null }) {
@@ -154,7 +161,7 @@ export function diyPool(tier, { data, kitted = null } = { data: null }) {
  * may name a module of its elite form at the slot's stage. Both slot forms must exist in the data.
  * @param {string} slotId a slot's normal or elite id
  * @param {DiyPick|null|undefined} pick
- * @param {DiyData} data
+ * @param {DiyData|null|undefined} data
  * @returns {{ ok: true, pick: DiyLoadout } | { error: string }}
  */
 export function checkDiyPick(slotId, pick, data) {
@@ -164,7 +171,7 @@ export function checkDiyPick(slotId, pick, data) {
   const { charId } = pick;
   const diy = diyOf(data);
   const proto = isPrototypePick(data, slot.tier, charId);
-  if (!proto && !(diy.ownedPool ?? []).includes(charId)) return { error: `${charId} is not a tier-${slot.tier} 自选 pick` }; // i18n-ignore: developer detail
+  if (!proto && !(/** @type {Record<string, any>} */ (diy).ownedPool ?? []).includes(charId)) return { error: `${charId} is not a tier-${slot.tier} 自选 pick` }; // i18n-ignore: developer detail
   const want = pick.skillIndex ?? null;
   const wantMod = pick.uniEquipId === undefined || pick.uniEquipId === 'none' ? null : pick.uniEquipId;
   if (want !== null && !(Number.isInteger(want) && want >= 0 && want <= 9)) return { error: `${charId}: bad skill index ${want}` };
@@ -184,8 +191,8 @@ export function checkDiyPick(slotId, pick, data) {
     skillIndex = want;
     uniEquipId = wantMod;
   }
-  if (!forms.every((f) => (f.skills ?? []).some((s) => s && s.index === skillIndex))) return { error: `${charId}: no skill ${skillIndex}` };
-  const elite = forms[1];
+  if (!forms.every((f) => (/** @type {UnitForm} */ (f).skills ?? []).some((s) => s && s.index === skillIndex))) return { error: `${charId}: no skill ${skillIndex}` };
+  const elite = /** @type {UnitForm} */ (forms[1]);
   const mod = uniEquipId !== null ? (elite.modules ?? []).find((m) => m && m.uniEquipId === uniEquipId) : null;
   if (uniEquipId !== null && !mod) {
     return { error: `${charId}: no module ${uniEquipId} at stage ${slot.golden?.status?.equipLevel ?? '?'}` };
@@ -200,11 +207,11 @@ export function checkDiyPick(slotId, pick, data) {
  * plus `diyFor` (the slot's base id: the record is a 自选 piece), `charId` (the operator) and, for a prototype pick,
  * `diyProto: true` (no potential, no 练度: shared/potential.js cultivationOf). Null when the pick is not legal for the
  * slot (checkDiyPick) or the data lacks a part.
- * @param {object} slot a DIY chess record (data/chess.json, `isDiy`)
+ * @param {ChessRecord|null|undefined} slot a DIY chess record (data/chess.json, `isDiy`)
  * @param {DiyPick} pick
- * @param {DiyData} data
+ * @param {DiyData|null|undefined} data
  * @param {{ potential?: number|null }} [opts]
- * @returns {object|null}
+ * @returns {ChessRecord|null}
  */
 export function diyRecordOf(slot, pick, data, { potential = null } = {}) {
   if (!isObj(slot) || !slot.isDiy || typeof slot.chessId !== 'string') return null;
@@ -213,7 +220,7 @@ export function diyRecordOf(slot, pick, data, { potential = null } = {}) {
   const { charId, skillIndex, uniEquipId } = c.pick;
   const backups = backupsOf(data);
   const unit = backups?.units?.[charId] ?? null;
-  const proto = isPrototypePick(data, slot.tier, charId);
+  const proto = isPrototypePick(data, /** @type {number} */ (slot.tier), charId);
   const form = unitForm(backups, charId, slot.status);
   const rec = composeUnitRecord(slot, unit, proto ? form : atPotential(form, potential),
     { skillIndex, moduleId: uniEquipId, bonds: diyOf(data)?.operators?.[charId]?.bonds ?? null });
@@ -228,8 +235,8 @@ export function diyRecordOf(slot, pick, data, { potential = null } = {}) {
  * tier 5 / 3 at tier 6), else the normal form (E2 Lv1, no module); `potential` as diyRecordOf.
  * @param {string} slotId the slot's base id (an elite id is accepted and taken as the elite)
  * @param {DiyPick} pick
- * @param {{ elite?: boolean, data: DiyData, potential?: number|null }} opts
- * @returns {object|null}
+ * @param {{ elite?: boolean, data: DiyData|null, potential?: number|null }} opts
+ * @returns {ChessRecord|null}
  */
 export function diyRecord(slotId, pick, { elite = false, data, potential = null } = { data: null }) {
   const slot = diySlot(slotId, data);
@@ -239,7 +246,8 @@ export function diyRecord(slotId, pick, { elite = false, data, potential = null 
 
 /**
  * The module record `uniEquipId` of `charId`'s elite form at a slot's stage (data/backups.json form `modules[]`), or null.
- * @param {string} slotId @param {string} charId @param {string} uniEquipId @param {DiyData} data
+ * @param {string} slotId @param {string} charId @param {string} uniEquipId @param {DiyData|null|undefined} data
+ * @returns {ModuleRecord|null}
  */
 export function diyModuleOf(slotId, charId, uniEquipId, data) {
   const slot = diySlot(slotId, data);
@@ -253,7 +261,7 @@ export function diyModuleOf(slotId, charId, uniEquipId, data) {
  * given), the same operator twice in one tier, or an owned operator in two slots rejects the roster; a prototype may fill
  * a tier-5 and a tier-6 slot.
  * @param {any} picks
- * @param {{ data: DiyData, kitted?: Kitted }} opts
+ * @param {{ data: DiyData|null, kitted?: Kitted }} opts
  * @returns {{ ok: true, picks: Record<string, DiyLoadout> } | { error: 'BAD_MSG'|'BAD_TARGET', detail: string }}
  */
 export function validateDiyPicks(picks, { data, kitted = null } = { data: null }) {

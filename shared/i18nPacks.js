@@ -72,11 +72,13 @@ export function languageName(code, inLang = code) {
   return code;
 }
 
+/** @param {unknown} v @param {number} [max] */
 const str = (v, max = 200) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : '');
 
 /** Canonical language codes of a string or a list, the source and repeats left out. @param {unknown} v */
 export function langList(v) {
   const list = Array.isArray(v) ? v : typeof v === 'string' ? [v] : [];
+  /** @type {string[]} */
   const out = [];
   for (const x of list) {
     const c = canonicalLang(x);
@@ -103,7 +105,7 @@ export function langFields(code, m) {
   if (o.base === null) base = null;
   else if (typeof o.base === 'string') base = canonicalLang(o.base);
   if (base === SOURCE_LANG || base === code) base = null;
-  const units = Array.isArray(o.numberUnits) && o.numberUnits.length === 2 && o.numberUnits.every((u) => str(u, 8)) ? o.numberUnits.map((u) => str(u, 8)) : null;
+  const units = Array.isArray(o.numberUnits) && o.numberUnits.length === 2 && o.numberUnits.every((/** @type {unknown} */ u) => str(u, 8)) ? o.numberUnits.map((/** @type {unknown} */ u) => str(u, 8)) : null;
   return {
     lang: code, base, fallback: langList(o.fallback).filter((c) => c !== code), complete: o.complete === true,
     machineTranslated: o.machineTranslated === true, numberUnits: units,
@@ -125,7 +127,7 @@ export function langFields(code, m) {
  */
 export function packMeta(code, json) {
   const m = json && typeof json === 'object' && json._meta && typeof json._meta === 'object' ? json._meta : {};
-  const authors = (Array.isArray(m.authors) ? m.authors : typeof m.authors === 'string' ? [m.authors] : []).map((a) => str(a)).filter(Boolean).slice(0, 32);
+  const authors = (Array.isArray(m.authors) ? m.authors : typeof m.authors === 'string' ? [m.authors] : []).map((/** @type {unknown} */ a) => str(a)).filter(Boolean).slice(0, 32);
   return {
     ...langFields(code, m),
     code,
@@ -152,7 +154,9 @@ export function countStrings(json) {
  * @returns {string[]}
  */
 export function computeChain(code, metaOf, known) {
+  /** @type {string[]} */
   const out = [];
+  /** @param {string|null|undefined} c @param {number} depth */
   const visit = (c, depth) => {
     if (!c || c === SOURCE_LANG || out.includes(c) || depth > 8 || !known(c)) return;
     out.push(c);

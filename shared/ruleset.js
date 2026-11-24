@@ -97,6 +97,7 @@ export const CUSTOM_LIMITS = Object.freeze({
  * feedback the same day]. Since maintainer decision 2026-11-15 they only fill enemies.stepHp / stepAtk; settings saved
  * with the former `curve` field read as these (sanitizeCustom).
  */
+/** @type {Readonly<Record<string, number>>} */
 export const CUSTOM_STEP_PRESETS = Object.freeze({ gentle: 0.75, steep: 1.25, flat: 0 });
 /** What a hit of the limit or more on a leader does: cancelled (official), lands as the limit, no limit. */
 export const CUSTOM_HIT_MODES = Object.freeze(['void', 'clamp', 'none']);
@@ -130,6 +131,7 @@ export const OFFICIAL_TYPE_COUNT = 3;
  *            alliance in every round · routePreview: the walking leader's route
  *   pool     chess / items: percent of the shared chess pool's copies and of the shop equipment stock (customPoolCount)
  */
+/** @type {CustomSettings} */
 export const CUSTOM_OFFICIAL = deepFreeze({
   v: CUSTOM_VERSION,
   bonds: { banCore: null, banAddon: null, noLayerCap: false, pick: {} },
@@ -142,9 +144,23 @@ export const CUSTOM_OFFICIAL = deepFreeze({
   pool: { chess: 100, items: 100 },
 });
 
-/** @typedef {typeof CUSTOM_OFFICIAL} CustomSettings */
+/**
+ * Custom settings, every field present (sanitizeCustom; the fields above).
+ * @typedef {{
+ *   v: number,
+ *   bonds: { banCore: number|null, banAddon: number|null, noLayerCap: boolean, pick: Record<string, string> },
+ *   enemies: { hp: number, atk: number, def: number, res: number, speed: number, stepHp: number|null, stepAtk: number|null },
+ *   leaders: { hp: number, atk: number, def: number, res: number },
+ *   types: { count: number|null, pick: Record<string, string> },
+ *   bosses: { ban: string[], hitMode: string, hitLimit: number },
+ *   stages: { info: boolean, reroll: boolean, firstHalf: boolean, ban: string[], extra: string[] },
+ *   flow: { rounds: number|null, prep: string, prepSec: number, lpCapOff: boolean, lpShared: boolean, routePreview: boolean },
+ *   pool: { chess: number, items: number },
+ * }} CustomSettings
+ */
 
 /** The settings field of each boolean option (the custom ruleset's options are read from them). */
+/** @type {Readonly<Record<string, (c: CustomSettings) => boolean>>} */
 const OPTION_FIELDS = Object.freeze({
   battlefieldInfo: (c) => c.stages.info,
   infoReroll: (c) => c.stages.reroll,
@@ -160,6 +176,7 @@ export const CUSTOM_CASUAL = deepFreeze({
   flow: { ...CUSTOM_OFFICIAL.flow, routePreview: true },
 });
 
+/** @template T @param {T} o @returns {T} */
 function deepFreeze(o) {
   if (o && typeof o === 'object' && !Object.isFrozen(o)) {
     for (const v of Object.values(o)) deepFreeze(v);
@@ -168,15 +185,18 @@ function deepFreeze(o) {
   return o;
 }
 
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
-const isIdStr = (v) => typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_\-.]+$/.test(v);
+const isIdStr = (/** @type {unknown} */ v) => typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_\-.]+$/.test(v);
 /** @param {any} v @param {readonly number[]} range @param {any} dflt */
 const intIn = (v, range, dflt) => (Number.isFinite(v) ? Math.min(range[1], Math.max(range[0], Math.round(v))) : dflt);
 /** @param {any} v @param {readonly number[]} range */
 const intOrNull = (v, range) => (v === null || v === undefined || !Number.isFinite(v) ? null : intIn(v, range, null));
-const oneOf = (v, list, dflt) => (list.includes(v) ? v : dflt);
+/** @template T @param {unknown} v @param {readonly T[]} list @param {T} dflt @returns {T} */
+const oneOf = (v, list, dflt) => (/** @type {readonly unknown[]} */ (list).includes(v) ? /** @type {T} */ (v) : dflt);
+/** @template T @param {unknown} v @param {T} dflt */
 const bool = (v, dflt) => (typeof v === 'boolean' ? v : dflt);
-const idList = (v) => (Array.isArray(v) ? [...new Set(v.filter(isIdStr))].sort().slice(0, CUSTOM_LIMITS.ids) : []);
+const idList = (/** @type {unknown} */ v) => (Array.isArray(v) ? [...new Set(v.filter(isIdStr))].sort().slice(0, CUSTOM_LIMITS.ids) : []);
 
 /**
  * Custom settings as a match may use them: every field present, each number rounded into its range, unknown values at
@@ -187,11 +207,13 @@ const idList = (v) => (Array.isArray(v) ? [...new Set(v.filter(isIdStr))].sort()
  */
 export function sanitizeCustom(raw) {
   const r = isObj(raw) ? /** @type {any} */ (raw) : {};
-  const sec = (k) => (isObj(r[k]) ? r[k] : {});
+  const sec = (/** @type {string} */ k) => (isObj(r[k]) ? r[k] : {});
   const O = CUSTOM_OFFICIAL;
   const b = sec('bonds'), e = sec('enemies'), l = sec('leaders'), ty = sec('types'), bo = sec('bosses'), s = sec('stages'), f = sec('flow'), p = sec('pool');
-  const pct = (v, d) => intIn(v, CUSTOM_LIMITS.pct, d);
+  const pct = (/** @type {unknown} */ v, /** @type {number} */ d) => intIn(v, CUSTOM_LIMITS.pct, d);
+  /** @param {unknown} m @param {readonly string[]} list */
   const picks = (m, list) => {
+    /** @type {Record<string, string>} */
     const out = {};
     if (isObj(m)) for (const k of Object.keys(m).filter(isIdStr).sort().slice(0, CUSTOM_LIMITS.ids)) if (list.includes(m[k])) out[k] = m[k];
     return out;
@@ -265,7 +287,7 @@ export const OWN_LP_BAND_SKILLS = Object.freeze(['skill_drop_hp_to_low_gain_coin
  */
 export function lpSharedBandOff(band, lpShared) {
   if (!lpShared || !band || !Array.isArray(band.skills)) return false;
-  return band.skills.some((s) => Array.isArray(s?.buffs) && s.buffs.some((b) => OWN_LP_BAND_SKILLS.includes(b?.key)));
+  return band.skills.some((/** @type {{ buffs?: Array<{ key?: string } | null> } | null} */ s) => Array.isArray(s?.buffs) && s.buffs.some((b) => OWN_LP_BAND_SKILLS.includes(/** @type {string} */ (b?.key))));
 }
 
 /**
@@ -283,7 +305,7 @@ export function lpSharedBandOff(band, lpShared) {
 export function customEnemyTypes(random, n, custom, shuffle, borrowed = []) {
   const ty = custom?.types;
   const pick = ty && isObj(ty.pick) ? ty.pick : {};
-  const set = (k) => pick[k] === 'ban' || pick[k] === 'force';
+  const set = (/** @type {string} */ k) => pick[k] === 'ban' || pick[k] === 'force';
   if (!ty || (ty.count == null && !random.some(set) && !borrowed.length)) return null;
   const all = [...random, ...borrowed.filter((k) => !random.includes(k))];
   const forced = all.filter((k) => pick[k] === 'force');
@@ -332,6 +354,7 @@ export function customStagePool(stageIds, custom, ownStage) {
  */
 export function customBanLimits(config) {
   const rows = config?.bans && typeof config.bans === 'object' ? Object.values(config.bans).filter((b) => b && typeof b === 'object') : [];
+  /** @param {string} k @param {readonly number[]} lim */
   const most = (k, lim) => {
     const v = Math.max(0, ...rows.map((b) => (Number.isInteger(b[k]) ? b[k] : 0)));
     return /** @type {[number, number]} */ ([lim[0], Math.min(lim[1], v || lim[1])]);
@@ -368,13 +391,13 @@ export function customDiffs(raw, base = {}) {
   const c = sanitizeCustom(raw);
   const O = CUSTOM_OFFICIAL;
   const out = [];
-  const same = (v, dflt) => v === null || (dflt != null && v === dflt);
+  const same = (/** @type {unknown} */ v, /** @type {unknown} */ dflt) => v === null || (dflt != null && v === dflt);
   if (!same(c.bonds.banCore, base.bans?.core)) out.push('bonds.banCore');
   if (!same(c.bonds.banAddon, base.bans?.addon)) out.push('bonds.banAddon');
   if (c.bonds.noLayerCap !== O.bonds.noLayerCap) out.push('bonds.noLayerCap');
   for (const k of Object.keys(c.bonds.pick)) out.push(`bonds.pick.${k}`);
-  for (const sec of ['enemies', 'leaders']) {
-    for (const [k, v] of Object.entries(c[sec])) if (v !== O[sec][k]) out.push(`${sec}.${k}`);
+  for (const sec of /** @type {const} */ (['enemies', 'leaders'])) {
+    for (const [k, v] of Object.entries(c[sec])) if (v !== /** @type {Record<string, unknown>} */ (O[sec])[k]) out.push(`${sec}.${k}`);
   }
   if (!same(c.types.count, OFFICIAL_TYPE_COUNT)) out.push('types.count');
   for (const k of Object.keys(c.types.pick)) out.push(`types.pick.${k}`);
@@ -388,8 +411,8 @@ export function customDiffs(raw, base = {}) {
   for (const id of c.stages.extra) out.push(`stages.extra.${id}`);
   if (!same(c.flow.rounds, base.rounds)) out.push('flow.rounds');
   if (c.flow.prep !== O.flow.prep) out.push('flow.prep');
-  for (const k of ['lpCapOff', 'lpShared', 'routePreview']) if (c.flow[k] !== O.flow[k]) out.push(`flow.${k}`);
-  for (const k of ['chess', 'items']) if (c.pool[k] !== O.pool[k]) out.push(`pool.${k}`);
+  for (const k of /** @type {const} */ (['lpCapOff', 'lpShared', 'routePreview'])) if (c.flow[k] !== O.flow[k]) out.push(`flow.${k}`);
+  for (const k of /** @type {const} */ (['chess', 'items'])) if (c.pool[k] !== O.pool[k]) out.push(`pool.${k}`);
   return out;
 }
 
@@ -401,7 +424,7 @@ export function customDiffs(raw, base = {}) {
  */
 export function customPoolCount(n, pct) {
   if (!Number.isFinite(pct) || pct === 100 || !(n > 0)) return n;
-  return Math.max(1, Math.round((n * pct) / 100));
+  return Math.max(1, Math.round((n * /** @type {number} */ (pct)) / 100));
 }
 
 // ---- the custom round plan and stat steps ------------------------------------------------------------------------
@@ -434,7 +457,7 @@ export function officialStep(mode, stat) {
 export function stepPreset(mode, name) {
   const p = Object.hasOwn(CUSTOM_STEP_PRESETS, name) ? CUSTOM_STEP_PRESETS[name] : null;
   if (p == null) return { stepHp: null, stepAtk: null };
-  const at = (stat) => intIn(100 * officialStep(mode, stat) ** p, CUSTOM_LIMITS.step, null);
+  const at = (/** @type {'hp'|'atk'} */ stat) => intIn(100 * officialStep(mode, stat) ** p, CUSTOM_LIMITS.step, null);
   return { stepHp: at('hp'), stepAtk: at('atk') };
 }
 
@@ -465,15 +488,16 @@ export function stepScale(m, k, k1, step, official) {
 export function customRoundPlan(mode, n = null) {
   const last = Number.isInteger(mode?.lastRound) && mode.lastRound > 0 ? mode.lastRound : 14;
   const sp = new Set((Array.isArray(mode?.spRounds) ? mode.spRounds : []).filter(Number.isInteger));
-  const num = (v, d) => (Number.isFinite(v) ? v : d);
-  const stats = (r) => {
+  const num = (/** @type {unknown} */ v, /** @type {number} */ d) => (Number.isFinite(v) ? /** @type {number} */ (v) : d);
+  const stats = (/** @type {number} */ r) => {
     const e = mode?.enemyScale?.[r];
     return { kHp: num(e?.kHp, 0), kAtk: num(e?.kAtk, 0), hp: num(e?.hp, 1), atk: num(e?.atk, 1) };
   };
   /** steps added on top of a round's own (an added round, or what the added rounds lift the final rounds by) */
   const sHp = officialStep(mode, 'hp'), sAtk = officialStep(mode, 'atk');
+  /** @param {{ kHp: number, kAtk: number, hp: number, atk: number }} st @param {number} dHp @param {number} dAtk */
   const lifted = (st, dHp, dAtk) => ({ kHp: st.kHp + dHp, kAtk: st.kAtk + dAtk, hp: st.hp * sHp ** dHp, atk: st.atk * sAtk ** dAtk });
-  const want = Number.isInteger(n) ? n : last;
+  const want = Number.isInteger(n) ? /** @type {number} */ (n) : last;
   /** @type {(r: number) => 'normal'|'sp'|'boss'} */
   const kindOf = (r) => (r === last ? 'boss' : sp.has(r) ? 'sp' : 'normal');
   /** @type {PlanRound[]} */
@@ -482,7 +506,7 @@ export function customRoundPlan(mode, n = null) {
   if (want <= last) {
     const kept = Array.from({ length: last }, (_, i) => i + 1);
     const mid = (last + 1) / 2;
-    const key = (r) => { const s = stats(r); return `${s.kHp}/${s.kAtk}`; };
+    const key = (/** @type {number} */ r) => { const s = stats(r); return `${s.kHp}/${s.kAtk}`; };
     while (kept.length > Math.max(1, want)) {
       const removable = kept.filter((r) => kindOf(r) === 'normal' && r !== 1);
       if (!removable.length) break;
@@ -511,6 +535,7 @@ export function customRoundPlan(mode, n = null) {
 /** @typedef {{ src: number, kind: 'normal'|'sp'|'ext'|'boss', kHp: number, kAtk: number, hp: number, atk: number }} PlanRound */
 
 /** The multiplier of each prep length setting (`fixed` takes flow.prepSec instead). */
+/** @type {Readonly<Record<string, number>>} */
 export const CUSTOM_PREP_MUL = Object.freeze({ official: 1, 'x1.5': 1.5, x2: 2 });
 
 /**
@@ -520,9 +545,9 @@ export const CUSTOM_PREP_MUL = Object.freeze({ official: 1, 'x1.5': 1.5, x2: 2 }
  * @param {{ prep: string, prepSec: number }} flow @param {number | null} p
  */
 export function customPrepSeconds(flow, p) {
-  if (!(Number.isFinite(p) && p > 0)) return null;
+  if (!(Number.isFinite(p) && /** @type {number} */ (p) > 0)) return null;
   if (flow.prep === 'fixed') return flow.prepSec;
-  return Math.round(p * (CUSTOM_PREP_MUL[flow.prep] ?? 1));
+  return Math.round(/** @type {number} */ (p) * (CUSTOM_PREP_MUL[flow.prep] ?? 1));
 }
 
 // ---- resolution --------------------------------------------------------------------------------------------------
@@ -579,6 +604,7 @@ export function sameRuleset(a, b) {
 }
 
 /** The wire form of a ruleset (room.create / room.setRuleset fields, the drain hand-over): { preset, custom? }. */
+/** @param {unknown} rs */
 export function rulesetWire(rs) {
   const r = resolveRuleset(rs);
   return r.custom ? { preset: r.preset, custom: r.custom } : { preset: r.preset };
@@ -588,7 +614,7 @@ export function rulesetWire(rs) {
  * The key a ruleset is counted under: the matchmaking queues (server/matchmaking.js, classic / casual — a custom
  * room queues alone, filled by quick players) and the stats records (public/js/ui/stats.js: custom matches count apart, maintainer decision 2026-10-18).
  */
-export const rulesetKey = (rs) => resolveRuleset(rs).preset;
+export const rulesetKey = (/** @type {unknown} */ rs) => resolveRuleset(rs).preset;
 
 /**
  * The battle spec flags of a ruleset: its `sim` options and a custom ruleset's battle settings, only those that differ

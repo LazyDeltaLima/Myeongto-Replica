@@ -11,6 +11,7 @@
 //   * 规程: the table's own list, `relateBondIds` (relateBondList of a BONDRELEVANT strategy) — its texts name the bond
 //     in 【…】, which the first rule does not read (歌蕾蒂娅 猎人战法, 耶拉, 裁度, 引星棘刺 name it only there).
 
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => !!v && typeof v === 'object';
 
 /**
@@ -33,7 +34,7 @@ export function bandBondIds(band, { bonds, pools = null } = {}) {
     const id = byName.get(name.trim());
     if (id) found.add(id);
   }
-  const poolOf = (k) => (isObj(pools) && Object.hasOwn(pools, k) && isObj(pools[k]) ? pools[k] : null);
+  const poolOf = (/** @type {string} */ k) => (isObj(pools) && Object.hasOwn(pools, k) && isObj(pools[k]) ? pools[k] : null);
   for (const buff of Array.isArray(band.buffs) ? band.buffs : []) {
     for (const board of [buff && buff.bb, buff && buff.bbStr]) {
       if (!isObj(board)) continue;

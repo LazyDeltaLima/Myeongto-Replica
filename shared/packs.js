@@ -61,7 +61,9 @@ export const PACK_TYPES = Object.freeze({
   data: Object.freeze({ status: 'planned', summary: 'data patches the server applies at start' }),
 });
 
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+/** @param {unknown} v @param {number} [max] */
 const str = (v, max = 200) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : '');
 
 /** A pack id: letters, digits, '.', '_', '-' (not first), at most 64. @param {unknown} v */
@@ -75,24 +77,29 @@ export const isPackId = (v) => typeof v === 'string' && /^[A-Za-z0-9][A-Za-z0-9.
 export const isPackPath = (rel) => typeof rel === 'string' && rel.length <= 200 && /^[A-Za-z0-9._ -]+(?:\/[A-Za-z0-9._ -]+)*$/.test(rel)
   && rel.split('/').every((s) => s.trim() === s && s && !s.startsWith('.'));
 
-const extOf = (rel) => { const m = /\.[A-Za-z0-9]+$/.exec(rel); return m ? m[0].toLowerCase() : ''; };
+const extOf = (/** @type {string} */ rel) => { const m = /\.[A-Za-z0-9]+$/.exec(rel); return m ? m[0].toLowerCase() : ''; };
 
 // ---- app version ranges -------------------------------------------------------------------------------------------
 
-/** [major, minor, patch] of a version ('0.2.0-dev' → [0, 2, 0]: a pre-release counts as its release), or null. */
+/** [major, minor, patch] of a version ('0.2.0-dev' → [0, 2, 0]: a pre-release counts as its release), or null. @param {unknown} v */
 const versionCore = (v) => {
   const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(String(v ?? '').trim());
   return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
 };
+/** @param {number[]} a @param {number[]} b */
 const cmp = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
 
-/** One comparator of a range as [op, version] bounds, or null when it is not one. */
+/**
+ * One comparator of a range as [op, version] bounds, or null when it is not one.
+ * @param {string} c
+ * @returns {[string, number[]][] | null}
+ */
 function bounds(c) {
   if (c === '*' || c === 'x') return [];
   const m = /^(\^|~|>=|<=|>|<|=)?v?(\d+)(?:\.(\d+|[xX*]))?(?:\.(\d+|[xX*]))?$/.exec(c);
   if (!m) return null;
   const [, op = '', a, b, d] = m;
-  const wild = (s) => s === undefined || /^[xX*]$/.test(s);
+  const wild = (/** @type {string|undefined} */ s) => s === undefined || /^[xX*]$/.test(s);
   const M = Number(a);
   const N = wild(b) ? 0 : Number(b);
   const P = wild(d) ? 0 : Number(d);
@@ -124,7 +131,7 @@ export function appVersionMatches(range, version = APP_VERSION) {
   const v = versionCore(version);
   const r = String(range ?? '').trim();
   if (!v || !r || !isVersionRange(r)) return true;
-  return r.split('||').some((alt) => alt.trim().split(/\s+/).every((c) => bounds(c).every(([op, b]) => {
+  return r.split('||').some((alt) => alt.trim().split(/\s+/).every((c) => /** @type {[string, number[]][]} */ (bounds(c)).every(([op, b]) => {
     const d = cmp(v, b);
     return op === '>=' ? d >= 0 : op === '>' ? d > 0 : op === '<=' ? d <= 0 : op === '<' ? d < 0 : d === 0;
   })));
@@ -166,7 +173,7 @@ export function normalizeManifest(raw, ctx) {
   const app = ctx.app ?? APP_VERSION;
   const compatible = appVersionMatches(range, app);
   if (!compatible) warnings.push(`made for app ${range}; this is ${app}`);
-  const authors = (Array.isArray(m.authors) ? m.authors : typeof m.authors === 'string' ? [m.authors] : []).map((a) => str(a)).filter(Boolean).slice(0, 32);
+  const authors = (Array.isArray(m.authors) ? m.authors : typeof m.authors === 'string' ? [m.authors] : []).map((/** @type {unknown} */ a) => str(a)).filter(Boolean).slice(0, 32);
   /** @type {PackManifest} */
   const out = {
     id, type, name: str(m.name, 60), englishName: str(m.englishName, 60), version: str(m.version, 40), app: range, compatible,
@@ -239,12 +246,12 @@ export function packIndexEntry(manifest, extra) {
  * @param {{ app?: string }} [opts]
  */
 export function buildPackIndex(entries, { app = APP_VERSION } = {}) {
-  const key = (e) => `${e.type}\u0000${e.id}`;
+  const key = (/** @type {Record<string, unknown>} */ e) => `${e.type}\u0000${e.id}`;
   return { version: PACK_INDEX_VERSION, app, packs: [...entries].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0)) };
 }
 
 /** A URL a client may fetch from an index: a path on this server ('/…', never '//host' or a scheme). */
-const isLocalUrl = (u) => typeof u === 'string' && /^\/(?!\/)[^\s\\]*$/.test(u) && u.length <= 300;
+const isLocalUrl = (/** @type {unknown} */ u) => typeof u === 'string' && /^\/(?!\/)[^\s\\]*$/.test(u) && u.length <= 300;
 
 /**
  * Read a received index (the client): the entries of supported types whose fields check out; anything else is dropped.
@@ -258,6 +265,7 @@ export function readPackIndex(json, type) {
   const out = [];
   for (const e of list) {
     if (!isObj(e) || !isPackId(e.id) || PACK_TYPES[e.type]?.status !== 'supported' || (type && e.type !== type)) continue;
+    /** @type {Record<string, string>} */
     const files = {};
     for (const [role, url] of Object.entries(isObj(e.files) ? e.files : {})) if (isLocalUrl(url)) files[role] = url;
     if (e.type === 'lang' && (!isLangCode(e.lang) || e.lang === SOURCE_LANG || !files.ui)) continue;

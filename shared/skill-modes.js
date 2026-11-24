@@ -10,6 +10,7 @@
  * content/tokens.js yanyouKit) — its prefab holds Skill_2 under Modes/2, whose Body/Attack is the only attack with sound
  * banks (`attack.2`).
  */
+/** @type {Readonly<Record<string, Readonly<{ mode: number, skill: string }>>>} */
 export const ENEMY_RECORD_MODES = Object.freeze({ enemy_9012_acloon: Object.freeze({ mode: 2, skill: 'Skill_2' }) });
 /** @param {unknown} id @returns {{ mode: number, skill: string }|null} */
 export const enemyRecordMode = (id) => (typeof id === 'string' && Object.hasOwn(ENEMY_RECORD_MODES, id) ? ENEMY_RECORD_MODES[id] : null);
