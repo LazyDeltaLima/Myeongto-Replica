@@ -22,25 +22,32 @@ const CORE_LAYERS = 150;  // docs/BALANCE.md §1.1, R14 core bond
 const ADDON_LAYERS = 90;  // the same row, each other active bond
 const STRONG = 1.4;       // tools/balance.mjs PROFILES.strong
 
-const isHealer = (c) => !!c && (c.dmgType === 'heal' || c.attackKind === 'heal');
-const isBlocker = (c) => !!c && basePositionClass(c) === 'melee' && (c.stats?.blockCnt ?? 1) > 0 && c.attackKind !== 'none' && !isHealer(c);
-const hitsFly = (c) => !!c && !!c.canHitFly && !isHealer(c) && c.attackKind !== 'none';
+/**
+ * @import { GameData } from './match/gamedata.js'
+ * @import { Match } from './match/Match.js'
+ * @import { PlayerState } from './match/PlayerState.js'
+ * @import { ChessRecord } from '../shared/loadoutRecord.js'
+ */
+
+const isHealer = (/** @type {ChessRecord | null | undefined} */ c) => !!c && (c.dmgType === 'heal' || c.attackKind === 'heal');
+const isBlocker = (/** @type {ChessRecord | null | undefined} */ c) => !!c && basePositionClass(c) === 'melee' && (c.stats?.blockCnt ?? 1) > 0 && c.attackKind !== 'none' && !isHealer(c);
+const hitsFly = (/** @type {ChessRecord | null | undefined} */ c) => !!c && !!c.canHitFly && !isHealer(c) && c.attackKind !== 'none';
 /** @type {ReadonlyArray<[(c: any) => boolean, number]>} */
 const ROLES = Object.freeze([[isBlocker, 2], [isHealer, 1], [hitsFly, 1]]);
 
-/** The leaders a jump may pick: the mode's boss-round draw (the custom bans applied). */
+/** The leaders a jump may pick: the mode's boss-round draw (the custom bans applied). @param {GameData} gd */
 export function debugBosses(gd) {
   return gd.bossWeights(false).map(([id]) => id);
 }
 
-/** The shop chess of a bond, highest tier first (then shop order). */
+/** The shop chess of a bond, highest tier first (then shop order). @param {GameData} gd @param {string} bondId */
 export function bondMembers(gd, bondId) {
-  const rec = (id) => gd.chess(id);
+  const rec = (/** @type {string} */ id) => gd.chess(id);
   return gd.visibleChess.filter((id) => (rec(id).bonds || []).includes(bondId))
     .sort((a, b) => rec(b).tier - rec(a).tier || (rec(a).shopSortId ?? 0) - (rec(b).shopSortId ?? 0) || (a < b ? -1 : 1));
 }
 
-/** The core bonds a seat may draw: on in this match (mode and draw), with members for its first threshold. */
+/** The core bonds a seat may draw: on in this match (mode and draw), with members for its first threshold. @param {Match} m */
 export function debugCoreBonds(m) {
   const gd = m.gd;
   const off = new Set([...(m.disabledBonds || []), ...(m.staticInactiveBonds || []), ...gd.modeInactiveBonds]);
@@ -51,18 +58,19 @@ export function debugCoreBonds(m) {
  * The base chess ids of a board around `bondId` of `size` units: the members up to the bond's highest threshold that
  * fits (all of them when fewer), then the unmet roles, then the units sharing the most bonds with the board, highest
  * tier first. No randomness: the same bond gives the same board.
+ * @param {GameData} gd @param {string} bondId @param {number} size
  */
 export function planDebugBoard(gd, bondId, size) {
   const members = bondMembers(gd, bondId);
-  const fits = (gd.bond(bondId)?.thresholds || []).filter((t) => t <= size);
+  const fits = (gd.bond(bondId)?.thresholds || []).filter((/** @type {number} */ t) => t <= size);
   const want = Math.min(members.length, fits.length ? Math.max(...fits) : size);
   const chosen = members.slice(0, want);
-  const rec = (id) => gd.chess(id);
-  const bondsOf = (id) => rec(id).bonds || [];
+  const rec = (/** @type {string} */ id) => gd.chess(id);
+  const bondsOf = (/** @type {string} */ id) => rec(id).bonds || [];
   while (chosen.length < size) {
     const held = new Set(chosen.flatMap(bondsOf));
     const unmet = ROLES.filter(([pred, k]) => chosen.filter((id) => pred(rec(id))).length < k);
-    const score = (id) => 100 * unmet.filter(([pred]) => pred(rec(id))).length + 10 * bondsOf(id).filter((b) => held.has(b)).length + rec(id).tier;
+    const score = (/** @type {string} */ id) => 100 * unmet.filter(([pred]) => pred(rec(id))).length + 10 * bondsOf(id).filter((/** @type {string} */ b) => held.has(b)).length + rec(id).tier;
     let best = null, bestScore = -Infinity;
     for (const id of gd.visibleChess) {
       if (chosen.includes(id)) continue;
@@ -75,10 +83,14 @@ export function planDebugBoard(gd, bondId, size) {
   return chosen;
 }
 
-/** The layers of a level on the bonds `bonds` activates (`core` takes the core value), or null for 'keep'. */
+/**
+ * The layers of a level on the bonds `bonds` activates (`core` takes the core value), or null for 'keep'.
+ * @param {GameData} gd @param {ReturnType<typeof computeBonds>} bonds @param {string} core @param {string} level
+ */
 export function debugLayers(gd, bonds, core, level) {
   if (level === 'keep') return null;
   const cap = Math.min(BOND_LAYER_CAP, gd.layerCap ?? BOND_LAYER_CAP);
+  /** @type {Record<string, number>} */
   const out = {};
   for (const [id, b] of Object.entries(bonds)) {
     if (!b.active) continue;
@@ -90,12 +102,15 @@ export function debugLayers(gd, bonds, core, level) {
   return out;
 }
 
-/** Each alive seat's bond for a preset: the sender's `bondId` (else drawn), the others distinct drawn core bonds. */
+/**
+ * Each alive seat's bond for a preset: the sender's `bondId` (else drawn), the others distinct drawn core bonds.
+ * @param {Match} m @param {string} senderId @param {string | null} [bondId]
+ */
 export function assignDebugBonds(m, senderId, bondId = null) {
   const rng = createRng(deriveSeed(m.seed, `debug:bossJump:${m.round}`));
   const pool = rng.shuffle(debugCoreBonds(m));
   const taken = new Set(bondId ? [bondId] : []);
-  const draw = () => pool.find((b) => !taken.has(b)) ?? pool[0] ?? null;
+  const draw = () => pool.find((/** @type {string} */ b) => !taken.has(b)) ?? pool[0] ?? null;
   const out = new Map();
   const alive = m.alivePlayers();
   for (const ps of [...alive.filter((p) => p.playerId === senderId), ...alive.filter((p) => p.playerId !== senderId)]) {
@@ -109,14 +124,15 @@ export function assignDebugBonds(m, senderId, bondId = null) {
 /**
  * Replace the player's pieces with a preset board around `bondId` and place it (prep of the boss round: the moves need
  * PREP). Returns the board's base ids.
+ * @param {Match} m @param {PlayerState} ps @param {string} bondId @param {string} level
  */
 export function applyDebugBoard(m, ps, bondId, level) {
   const gd = m.gd;
-  const held = [...ps.board.values(), ...ps.hand, ...ps.temp].filter(Boolean);
+  const held = [...ps.board.values(), ...ps.hand, .../** @type {any[]} */ (ps.temp)].filter(Boolean);
   for (const p of held) ps.returnCopies(p);
   ps.board.clear();
   ps.hand.fill(null);
-  ps.temp.fill(null);
+  /** @type {any[]} */ (ps.temp).fill(null);
   ps._tempDue?.clear();
   const units = planDebugBoard(gd, bondId, Math.min(ps.deployCap, ps.hand.length));
   const pieces = units.map((id, i) => (ps.hand[i] = ps.newPiece('chess', gd.goldenIdOf(id) || id)));

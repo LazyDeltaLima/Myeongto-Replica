@@ -70,7 +70,13 @@ import { KITTED_CHARS } from './sim/content/kits/index.js';
 import { bandStages } from './sim/content/bands/meta.js';
 import { DEBUG_LAYER_LEVELS, applyDebugBoard, assignDebugBonds, bondMembers, debugBosses } from './local-debug-board.js';
 
+/**
+ * @import { GameData } from './match/gamedata.js'
+ * @typedef {{ t: string, [key: string]: any }} ConsoleMsg a validated con.* message (shared/local.js)
+ */
+
 const OK = Object.freeze({ ok: true });
+/** @param {string} code @param {string} [detail] */
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });
 
 export const DEBUG_PIN_DEFAULT = 99;
@@ -101,7 +107,10 @@ export function debugMode(env = process.env) {
   return env.SP_DEBUG_PAGE === '1' || debugFunds(env) != null;
 }
 
-/** Whether `ps` may use the console in its match: a human seat of a console match, or any in local debug mode. */
+/**
+ * Whether `ps` may use the console in its match: a human seat of a console match, or any in local debug mode.
+ * @param {Match | null | undefined} m @param {PlayerState | null | undefined} ps
+ */
 export function consoleAllowed(m, ps, env = process.env) {
   if (!m || !ps || ps.isBot || ps.spectator) return false;
   return m.console === true || debugMode(env);
@@ -117,13 +126,15 @@ let fundsPinInstalled = false;
 /** Whether the funds accessor is installed (local-patch.js roundGold reads the gross credit while pinned). */
 export const fundsPinActive = () => fundsPinInstalled;
 /** The value the player's funds are pinned to, or null. */
-export const fundsPinOf = (ps) => (ps.isBot ? null : ps.debugFundsPin === undefined ? FIXED_FUNDS : ps.debugFundsPin);
+export const fundsPinOf = (/** @type {PlayerState} */ ps) => (ps.isBot ? null : ps.debugFundsPin === undefined ? FIXED_FUNDS : ps.debugFundsPin);
 function installFundsPin() {
   if (fundsPinInstalled) return;
   fundsPinInstalled = true;
   Object.defineProperty(PlayerState.prototype, 'funds', {
     configurable: true,
+    /** @this {PlayerState} */
     get() { const pin = fundsPinOf(this); return pin == null ? (this._funds ?? 0) : pin; },
+    /** @this {PlayerState} @param {number} v */
     set(v) { this._funds = v; },
   });
 }
@@ -135,12 +146,13 @@ if (FIXED_FUNDS != null) {
 // ---- 自选 picks (con.addDiy) ----------------------------------------------------------------------------------------
 
 const MODULE_NONE = 'none';
-const formKey = (tier, elite) => (elite ? `2/60/7/${tier === 6 ? 3 : 1}` : '2/1/4/0');
+const formKey = (/** @type {number} */ tier, /** @type {boolean} */ elite) => (elite ? `2/60/7/${tier === 6 ? 3 : 1}` : '2/1/4/0');
 
 /**
  * The 自选 candidates offered by the panel: [{ charId, name, bonds, tiers: { 5|6: { skills: [{ index, name }], modules: [{ id,
  * name, type }] } } }] — skills of the normal form, modules of the tier's elite form (plus 'none', isDiyModule only);
  * `bonds` = the pick's bond ids (diy.operators, the panel's bond filter).
+ * @param {GameData} gd
  */
 export function debugCandidates(gd) {
   const b = gd?.raw?.backups;
@@ -148,13 +160,14 @@ export function debugCandidates(gd) {
   return pool.map((charId) => {
     const u = b.units?.[charId];
     if (!u || !u.forms) return null;
+    /** @type {Record<number, { skills: { index: number, name: string }[], modules: { id: string, name: string, type: string }[] }>} */
     const tiers = {};
     for (const t of [5, 6]) {
       const nf = u.forms[formKey(t, false)], ef = u.forms[formKey(t, true)];
       if (!nf) continue;
       tiers[t] = {
-        skills: (nf.skills || []).map((sk, i) => ({ index: i, name: sk?.name || '' })),
-        modules: [{ id: MODULE_NONE, name: '', type: '' }, ...(ef?.modules || []).filter(isDiyModule).map((m) => ({ id: m.uniEquipId, name: m.name || m.uniEquipId, type: m.typeName || '' }))],
+        skills: (nf.skills || []).map((/** @type {{ name?: string } | null} */ sk, /** @type {number} */ i) => ({ index: i, name: sk?.name || '' })),
+        modules: [{ id: MODULE_NONE, name: '', type: '' }, ...(ef?.modules || []).filter(isDiyModule).map((/** @type {{ uniEquipId: string, name?: string, typeName?: string }} */ m) => ({ id: m.uniEquipId, name: m.name || m.uniEquipId, type: m.typeName || '' }))],
       };
     }
     const bonds = b.diy.operators?.[charId]?.bonds;
@@ -166,12 +179,13 @@ export function debugCandidates(gd) {
  * The slot base id a con.addDiy of `charId` at `tier` uses for player `ps`, or null: the tier's slot already holding that
  * operator, else a free slot of the tier, else one whose operator (the room's 自选编队 pick, say) has no piece in hand /
  * temp / board.
+ * @param {PlayerState} ps @param {string} charId @param {number} tier
  */
 export function debugDiySlot(ps, charId, tier) {
   const data = ps.m.gd.raw;
   const ids = diySlotIds(data).filter((id) => data.backups?.diy?.slots?.[id]?.tier === tier);
-  const cur = ps.diy || {};
-  const unused = (id) => { const s = diySlot(id, data); return !ps._chessLocations().some((l) => l.piece.id === s.baseId || l.piece.id === s.goldenId); };
+  const cur = /** @type {Readonly<Record<string, { charId: string }>>} */ (ps.diy || {});
+  const unused = (/** @type {string} */ id) => { const s = /** @type {NonNullable<ReturnType<typeof diySlot>>} */ (diySlot(id, data)); return !ps._chessLocations().some((/** @type {{ piece: { id: string } }} */ l) => l.piece.id === s.baseId || l.piece.id === s.goldenId); };
   return ids.find((id) => cur[id]?.charId === charId) || ids.find((id) => !cur[id]) || ids.find(unused) || null;
 }
 
@@ -181,11 +195,13 @@ export function debugDiySlot(ps, charId, tier) {
  * data view rebuilt like PlayerState.setDiy does — the other slots keep their picks and records. The roster rule "an
  * owned operator fills one slot" is not applied: the same operator may sit at both tiers (under PlayerState.setDiy that
  * rule dropped the new slot and the gain failed as HAND_FULL). Returns a restore function, or null when refused.
+ * @param {PlayerState} ps @param {string} slotId
+ * @param {{ charId: string, skillIndex: number, uniEquipId: string | null }} pick
  */
 export function debugSetPick(ps, slotId, pick) {
   const data = ps.m.gd.raw;
   const res = checkDiyPicks({ [slotId]: pick }, { data, kitted: KITTED_CHARS });
-  const kept = res && 'ok' in res ? res.picks[slotId] : null;
+  const kept = res && 'ok' in res ? /** @type {NonNullable<typeof res.picks>} */ (res.picks)[slotId] : null;
   const slot = diySlot(slotId, data);
   if (!kept || !slot) return null;
   let normal, golden;
@@ -195,7 +211,7 @@ export function debugSetPick(ps, slotId, pick) {
   const records = new Map(ps._diyRecords || []);
   records.set(slot.baseId, Object.freeze(normal));
   records.set(slot.goldenId, Object.freeze(golden));
-  ps.diy = Object.freeze({ ...(ps.diy || {}), [slot.baseId]: Object.freeze({ charId: kept.charId, skillIndex: kept.skillIndex, uniEquipId: kept.uniEquipId ?? null }) });
+  ps.diy = Object.freeze({ ...(ps.diy || {}), [/** @type {string} */ (slot.baseId)]: Object.freeze({ charId: kept.charId, skillIndex: kept.skillIndex, uniEquipId: kept.uniEquipId ?? null }) });
   ps._diyRecords = records;
   ps.gd = diyGameData(ps.m.gd, records);
   return () => { ps.diy = before.diy; ps._diyRecords = before.records; ps.gd = before.gd; };
@@ -203,28 +219,28 @@ export function debugSetPick(ps, slotId, pick) {
 
 // ---- the view -----------------------------------------------------------------------------------------------------
 
-/** The last round con.jumpRound may go to: the Hidden Core's when the match has one, else the Final Assault's. */
+/** The last round con.jumpRound may go to: the Hidden Core's when the match has one, else the Final Assault's. @param {Match} m */
 export function lastConsoleRound(m) {
   const gd = m.gd;
   return gd.hiddenRound && m.hiddenBossId ? Math.max(gd.hiddenRound, gd.bossRound) : gd.bossRound;
 }
 
-/** The BOSS-rank enemies the season's 悬赏 cards name (consoleView bountyBosses), sorted. */
+/** The BOSS-rank enemies the season's 悬赏 cards name (consoleView bountyBosses), sorted. @param {GameData} gd */
 export function bountyBossKeys(gd) {
   const cards = Array.isArray(gd.choices?.cards?.bounty) ? gd.choices.cards.bounty : [];
-  const keys = new Set(cards.map((c) => c?.enemyKey).filter((k) => typeof k === 'string' && gd.enemy(k)?.rank === 'BOSS'));
+  const keys = new Set(cards.map((/** @type {{ enemyKey?: unknown } | null} */ c) => c?.enemyKey).filter((/** @type {unknown} */ k) => typeof k === 'string' && gd.enemy(k)?.rank === 'BOSS'));
   return [...keys].sort();
 }
 
-/** Whether a strategy of the season has an active 指令 (a stage of type ACTIVE: 规程). */
+/** Whether a strategy of the season has an active 指令 (a stage of type ACTIVE: 规程). @param {GameData} gd */
 export function hasActiveBands(gd) {
-  return Object.keys(gd.raw?.bands || {}).some((id) => bandStages(gd.band(id)).some((s) => s && s.type === 'ACTIVE'));
+  return Object.keys(gd.raw?.bands || {}).some((id) => bandStages(gd.band(id)).some((/** @type {{ type?: string } | null} */ s) => s && s.type === 'ACTIVE'));
 }
 
-const hiddenBosses = (gd) => gd.bossWeights(true).map(([id]) => id);
-const layerCapOf = (gd) => Math.min(BOND_LAYER_CAP, gd.layerCap ?? BOND_LAYER_CAP);
+const hiddenBosses = (/** @type {GameData} */ gd) => gd.bossWeights(true).map(([id]) => id);
+const layerCapOf = (/** @type {GameData} */ gd) => Math.min(BOND_LAYER_CAP, gd.layerCap ?? BOND_LAYER_CAP);
 
-/** m.private.console of a human player who may use the console (see the header), else null. */
+/** m.private.console of a human player who may use the console (see the header), else null. @param {PlayerState} ps */
 export function consoleView(ps, env = process.env) {
   const m = ps?.m;
   if (!consoleAllowed(m, ps, env)) return null;
@@ -232,7 +248,7 @@ export function consoleView(ps, env = process.env) {
   const gd = m.gd;
   if (!m.debugBountyBosses) m.debugBountyBosses = bountyBossKeys(gd);
   if (m.debugActiveBands == null) m.debugActiveBands = hasActiveBands(gd);
-  const enemies = ps.bounties.filter((b) => b.debugEnemies).map((b) => ({ enemyKey: b.card.enemyKey, count: b.card.count }));
+  const enemies = ps.bounties.filter((/** @type {{ debugEnemies?: boolean }} */ b) => b.debugEnemies).map((/** @type {{ card: { enemyKey: string, count: number } }} */ b) => ({ enemyKey: b.card.enemyKey, count: b.card.count }));
   const boss = {
     round: gd.bossRound, hiddenRound: m.hiddenBossId ? gd.hiddenRound ?? null : null, at: m.round,
     bossId: m.bossId ?? null, hiddenBossId: m.hiddenBossId ?? null, bosses: debugBosses(gd), hiddenBosses: m.hiddenBossId ? hiddenBosses(gd) : [],
@@ -255,7 +271,7 @@ function installBotLock() {
   if (botLockInstalled) return;
   botLockInstalled = true;
   const upstreamBotPrep = Match.prototype.scheduleBotPrep;
-  Match.prototype.scheduleBotPrep = function scheduleBotPrep(ps, i = 0) {
+  Match.prototype.scheduleBotPrep = /** @param {PlayerState} ps */ function scheduleBotPrep(ps, i = 0) {
     if (!ps.debugLocked) return upstreamBotPrep.call(this, ps, i);
     const round = this.round;
     this.later(0, () => {
@@ -267,7 +283,7 @@ function installBotLock() {
   };
 }
 
-/** Clear a leader round's state before the match starts a round again (con.jumpRound, a console retry). */
+/** Clear a leader round's state before the match starts a round again (con.jumpRound, a console retry). @param {Match} m @param {number} r */
 function resetBossState(m, r) {
   m.teamLp = m.gd.lpShared ? m.teamLp : null;
   m.bossPool = null;
@@ -278,6 +294,7 @@ function resetBossState(m, r) {
   for (const ps of m.order) ps.lpAtFinal = null;
 }
 
+/** @param {Match} m @param {ConsoleMsg} msg */
 function logCommand(m, msg) {
   if (!Array.isArray(m.consoleLog)) m.consoleLog = [];
   const { t, ...fields } = msg;
@@ -287,6 +304,7 @@ function logCommand(m, msg) {
 
 /**
  * A console command of a match player. `env` decides local debug mode (tests pass their own).
+ * @param {Match} m @param {string} playerId @param {ConsoleMsg} msg
  * @returns {{ ok: true } | { error: string, detail?: string }}
  */
 export function consoleIntent(m, playerId, msg, env = process.env) {
@@ -300,13 +318,14 @@ export function consoleIntent(m, playerId, msg, env = process.env) {
   return res;
 }
 
+/** @param {Match} m @param {PlayerState} ps @param {ConsoleMsg} msg */
 function run(m, ps, msg) {
   const gd = m.gd;
   const gate = () => ps._gate({ allowWhenReady: true });
   switch (msg.t) {
     case 'con.funds': {
       installFundsPin();
-      if (Object.hasOwn(ps, 'funds')) { const v = ps.funds; delete ps.funds; ps._funds = v; } // created before the accessor
+      if (Object.hasOwn(ps, 'funds')) { const v = ps.funds; delete /** @type {{ funds?: number }} */ (ps).funds; ps._funds = v; } // created before the accessor
       if (msg.on) ps.debugFundsPin = FIXED_FUNDS ?? DEBUG_PIN_DEFAULT;
       else { ps._funds = ps.funds; ps.debugFundsPin = null; }
       return OK;
@@ -326,7 +345,7 @@ function run(m, ps, msg) {
     }
     case 'con.addDiy': {
       const tier = msg.tier;
-      const cand = debugCandidates(gd).find((c) => c.charId === msg.charId);
+      const cand = debugCandidates(gd).find((c) => /** @type {NonNullable<typeof c>} */ (c).charId === msg.charId);
       if (!cand || !cand.tiers[tier]) return fail(ERR.BAD_TARGET, 'not a DIY candidate');
       const g = gate(); if (g) return g;
       const slotId = debugDiySlot(ps, msg.charId, tier);
@@ -335,7 +354,7 @@ function run(m, ps, msg) {
           .map(([, p]) => gd.raw.backups.units?.[p.charId]?.name || p.charId);
         return fail(ERR.BAD_TARGET, `both 自选 slots of tier ${tier} hold operators with pieces (${held.join(', ')}): sell them first`); // i18n-ignore: parsed by consoleLists.js diySlotsFullOf, which toasts the translated sentence
       }
-      const prev = ps.diy?.[slotId]?.charId === msg.charId ? ps.diy[slotId] : null;
+      const prev = /** @type {Readonly<Record<string, { charId: string, skillIndex: number, uniEquipId: string | null }>>} */ (ps.diy)?.[slotId]?.charId === msg.charId ? /** @type {Readonly<Record<string, { charId: string, skillIndex: number, uniEquipId: string | null }>>} */ (ps.diy)[slotId] : null;
       const skillIndex = msg.skill ?? prev?.skillIndex ?? 0;
       if (!cand.tiers[tier].skills.some((x) => x.index === skillIndex)) return fail(ERR.BAD_TARGET, `skill ${skillIndex} not available`);
       const mod = msg.module ?? (prev?.uniEquipId ?? MODULE_NONE);
@@ -434,6 +453,7 @@ function run(m, ps, msg) {
       if (gd.bond(msg.bondId).noStack) return fail(ERR.BAD_TARGET, 'bond without layers');
       const n = Math.min(layerCapOf(gd), Math.max(0, Math.trunc(msg.layers)));
       if (!ps.consoleLayersBase) ps.consoleLayersBase = { ...(ps.layers || {}) };
+      /** @type {Record<string, number>} */
       const next = { ...(ps.layers || {}) };
       if (n > 0) next[msg.bondId] = n; else delete next[msg.bondId];
       ps.layers = next;
@@ -452,7 +472,10 @@ function run(m, ps, msg) {
   }
 }
 
-/** Lobby side: a con.* message of `session` (server/local-patch.js onMessage). */
+/**
+ * Lobby side: a con.* message of `session` (server/local-patch.js onMessage).
+ * @param {import('./lobby.js').Lobby} lobby @param {import('./net.js').Session} session @param {ConsoleMsg} msg
+ */
 export function consoleMessage(lobby, session, msg) {
   const room = lobby.roomOf(session);
   if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -462,16 +485,20 @@ export function consoleMessage(lobby, session, msg) {
   return res;
 }
 
-export const isConsoleMessage = (t) => CONSOLE_SET.has(t);
+export const isConsoleMessage = (/** @type {string} */ t) => CONSOLE_SET.has(t);
 
 // ---- the console match's flow (installed at import; each wrapper acts on console matches only) ----------------------
 
+/** @param {Match} m @param {string} kind */
 function note(m, kind) {
   m.consoleNote = { seq: (Number(m.consoleNote?.seq) || 0) + 1, kind, round: m.round };
   for (const ps of m.order) if (!ps.isBot) ps.dirty?.();
 }
 
-/** A console match that would end: back to the same round's prep (LP restored where it ran out). */
+/**
+ * A console match that would end: back to the same round's prep (LP restored where it ran out).
+ * @param {Match} m @param {{ victory?: boolean, hiddenCleared?: boolean, reason?: string }} o
+ */
 function consoleRetry(m, o) {
   const kind = o.reason === 'victory' ? (o.hiddenCleared ? 'hiddenCleared' : 'cleared') : o.reason === 'eliminated' ? 'eliminated' : 'defeat';
   if (o.victory) m.consoleCleared = true;
@@ -485,29 +512,29 @@ function consoleRetry(m, o) {
   note(m, kind);
 }
 
-const someHumanIn = (m) => m.order.some((p) => !p.isBot && !p.left && !p._consoleQuit && p.alive);
+const someHumanIn = (/** @type {Match} */ m) => m.order.some((p) => !p.isBot && !p.left && !p._consoleQuit && p.alive);
 
 const upstreamFinish = Match.prototype.finish;
-Match.prototype.finish = function finish(o = {}) {
+Match.prototype.finish = /** @param {{ victory?: boolean, hiddenCleared?: boolean, reason?: string }} [o] */ function finish(o = {}) {
   if (this.console === true && !this.ended && !this.disposed) {
-    if (!this._consoleEnding && RETRY_REASONS.has(o.reason) && someHumanIn(this)) {
+    if (!this._consoleEnding && RETRY_REASONS.has(/** @type {string} */ (o.reason)) && someHumanIn(this)) {
       try { consoleRetry(this, o); return; } catch (e) { this.reportError('console retry', e); }
     }
     // the summary the lobby keeps (onEnd → room.lastSummary): marked, with the console log, so no [stats] line is written
     // and a feedback report from the settlement screen carries the log
     const onEnd = this.onEndFn;
     if (typeof onEnd === 'function' && !onEnd.consoleWrapped) {
-      const wrapped = (summary) => onEnd({ ...summary, console: { log: Array.isArray(this.consoleLog) ? this.consoleLog : [] } });
+      const wrapped = (/** @type {Record<string, any>} */ summary) => onEnd({ ...summary, console: { log: Array.isArray(this.consoleLog) ? this.consoleLog : [] } });
       wrapped.consoleWrapped = true;
       this.onEndFn = wrapped;
     }
   }
-  return upstreamFinish.call(this, o);
+  return upstreamFinish.call(this, /** @type {Parameters<typeof upstreamFinish>[0]} */ (o));
 };
 
 // a player whose LP ran out stays in a console match: LP back to the start value; the round is played again (afterSettle)
 const upstreamEliminate = PlayerState.prototype.eliminate;
-PlayerState.prototype.eliminate = function eliminate(round) {
+PlayerState.prototype.eliminate = /** @param {number} round */ function eliminate(round) {
   const ps = /** @type {any} */ (this);
   const m = ps.m;
   if (m && m.console === true && !ps.isBot && !ps.left && !ps._consoleQuit && !m._consoleEnding) {
@@ -520,7 +547,7 @@ PlayerState.prototype.eliminate = function eliminate(round) {
 };
 
 const upstreamQuit = Match.prototype._quit;
-Match.prototype._quit = function _quit(ps) {
+Match.prototype._quit = /** @param {PlayerState} ps */ function _quit(ps) {
   if (this.console === true && ps) ps._consoleQuit = true;
   return upstreamQuit.call(this, ps);
 };
@@ -537,14 +564,14 @@ Match.prototype.afterSettle = function afterSettle() {
 };
 
 const upstreamToast = Match.prototype.toast;
-Match.prototype.toast = function toast(ps, kind, text) {
+Match.prototype.toast = /** @param {PlayerState | null} ps @param {string} kind @param {string | { msgid: string, params?: object }} text */ function toast(ps, kind, text) {
   if (this.console === true && typeof text === 'string' && MUTED_TOASTS.has(text)) return;
   return upstreamToast.call(this, ps, kind, text);
 };
 
 const upstreamTickerText = Match.prototype.tickerText;
-Match.prototype.tickerText = function tickerText(text, priority) {
-  if (this.console === true && MUTED_TICKERS.has(typeof text === 'string' ? text : text?.msgid)) return;
+Match.prototype.tickerText = /** @param {string | { msgid: string, params?: object } | null | undefined} text @param {number} [priority] */ function tickerText(text, priority) {
+  if (this.console === true && MUTED_TICKERS.has(/** @type {string} */ (typeof text === 'string' ? text : text?.msgid))) return;
   return upstreamTickerText.call(this, text, priority);
 };
 
@@ -552,7 +579,7 @@ const upstreamPublicView = Match.prototype.publicView;
 // con.bandUnlimited: the 指令's state without its use limits — no count (usesLeft null: the HUD shows no number) and no
 // cooldown; the uses are still counted (bandSkill.js useBandSkill), so turning it off brings the real limits back.
 const upstreamBandSkillState = Match.prototype._bandSkillState;
-Match.prototype._bandSkillState = function _bandSkillState(ps, write = false) {
+Match.prototype._bandSkillState = /** @param {PlayerState} ps */ function _bandSkillState(ps, write = false) {
   const st = upstreamBandSkillState.call(this, ps, write);
   if (st && ps?.consoleBandUnlimited === true && consoleAllowed(this, ps)) { st.usesLeft = null; st.cooldown = 0; }
   return st;
@@ -567,7 +594,7 @@ Match.prototype.publicView = function publicView() {
 const upstreamPrivateView = PlayerState.prototype.privateView;
 PlayerState.prototype.privateView = function privateView() {
   const v = upstreamPrivateView.call(this);
-  try { if (v) { const c = consoleView(this); if (c) v.console = c; } } catch { /* display only */ }
+  try { if (v) { const c = consoleView(this); if (c) /** @type {{ console?: ReturnType<typeof consoleView> }} */ (v).console = c; } } catch { /* display only */ }
   return v;
 };
 

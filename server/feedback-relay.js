@@ -34,7 +34,9 @@ import { KEEP_DAYS, DAY_MS, REPO_RE } from './local-feedback.js';
 const API = 'https://api.github.com';
 const API_VERSION = '2022-11-28';
 const LABEL = 'feedback';
+/** @type {Readonly<Record<string, string>>} */
 const KIND_LABEL = { bug: 'bug', idea: 'enhancement' };
+/** @type {Readonly<Record<string, string>>} */
 const KIND_TITLE = { bug: '버그', idea: '제안', other: '기타' };
 /** a report waits at most this long between tries after a refused request (doubling from POLL) */
 const BACKOFF_MAX_MS = 60 * 60_000;
@@ -47,14 +49,23 @@ const MARKER_SETTLE_MS = 3 * 60_000;
 /** errors of a connection that never opened: the issue cannot exist */
 const NOT_SENT = new Set(['ENOTFOUND', 'EAI_AGAIN', 'ECONNREFUSED', 'ENETUNREACH', 'EHOSTUNREACH', 'UND_ERR_CONNECT_TIMEOUT']);
 const TITLE_MAX = 60;
+
+/**
+ * A stored report (server/local-feedback.js FeedbackInbox.submit), the fields read here.
+ * @typedef {{ id: string, kind: string, text?: string, at?: string, app?: string, local?: string | null,
+ *   build?: string | null, diag?: string | null, battles?: unknown[] | null, public?: boolean }} FeedbackRecord
+ */
 const BODY_MAX = 60_000;
 
 /** a web address as GFM autolinks it (left as written: escapes inside would end up in the link) */
 const URL_RE = /\bhttps?:\/\/[^\s<>"'`]+/g;
 
-/** GitHub-flavoured Markdown of plain text: shows as written, links nobody (@ gets a zero-width space), runs no HTML. */
+/**
+ * GitHub-flavoured Markdown of plain text: shows as written, links nobody (@ gets a zero-width space), runs no HTML.
+ * @param {unknown} text
+ */
 export function escapeMarkdown(text) {
-  const plain = (t) => t
+  const plain = (/** @type {string} */ t) => t
     .replace(/[\\`*_{}[\]()#+\-.!|~>=]/g, (c) => `\\${c}`)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/@/g, '@\u200b');
@@ -67,7 +78,7 @@ export function escapeMarkdown(text) {
   return (out + plain(s.slice(at))).replace(/\n/g, '  \n');
 }
 
-/** A fenced code block around `text` that nothing inside can close. */
+/** A fenced code block around `text` that nothing inside can close. @param {string} text @param {string} [lang] */
 export function fenced(text, lang = 'text') {
   const run = Math.max(2, ...[...String(text).matchAll(/`+/g)].map((m) => m[0].length));
   const fence = '`'.repeat(run + 1);
@@ -75,9 +86,9 @@ export function fenced(text, lang = 'text') {
 }
 
 /** The diagnostics without the client's own ```text fence (it is fenced again here). */
-const diagBody = (diag) => String(diag).replace(/^```text\n/, '').replace(/\n```\s*$/, '');
+const diagBody = (/** @type {unknown} */ diag) => String(diag).replace(/^```text\n/, '').replace(/\n```\s*$/, '');
 
-/** The issue title: kind + the text's first line, shortened. */
+/** The issue title: kind + the text's first line, shortened. @param {FeedbackRecord} rec */
 export function issueTitle(rec) {
   const first = String(rec.text || '').split('\n').find((l) => l.trim()) || '';
   const cps = [...first.trim()];
@@ -85,7 +96,7 @@ export function issueTitle(rec) {
   return `[${KIND_TITLE[rec.kind] || KIND_TITLE.other}] ${line}`;
 }
 
-/** The issue body of a stored report (Korean: the players' language). */
+/** The issue body of a stored report (Korean: the players' language). @param {FeedbackRecord} rec */
 export function issueBody(rec) {
   const receipt = String(rec.id || '').replace(/^FB-\d{8}-/, '');
   const version = [rec.local || rec.app, rec.build ? `build ${rec.build}` : null].filter(Boolean).join(' · ');
@@ -111,9 +122,12 @@ export function issueBody(rec) {
 }
 
 /** base64url of a buffer or a JSON value. */
-const b64url = (v) => Buffer.from(typeof v === 'string' || Buffer.isBuffer(v) ? v : JSON.stringify(v)).toString('base64url');
+const b64url = (/** @type {unknown} */ v) => Buffer.from(typeof v === 'string' || Buffer.isBuffer(v) ? v : JSON.stringify(v)).toString('base64url');
 
-/** A GitHub App JWT (RS256, 9 minutes, backdated a minute against clock drift). */
+/**
+ * A GitHub App JWT (RS256, 9 minutes, backdated a minute against clock drift).
+ * @param {string} appId @param {crypto.KeyObject} key @param {number} [nowMs]
+ */
 export function appJwt(appId, key, nowMs = Date.now()) {
   const iat = Math.floor(nowMs / 1000) - 60;
   const head = `${b64url({ alg: 'RS256', typ: 'JWT' })}.${b64url({ iat, exp: iat + 540, iss: String(appId) })}`;
@@ -153,7 +167,7 @@ export class FeedbackRelay {
     if (!keyFile) throw new Error('feedback relay: SP_GITHUB_APP_KEY (path of the app key) is not set');
     const poll = Number(env.SP_RELAY_POLL_S);
     return new FeedbackRelay({
-      dir: env.SP_FEEDBACK_DIR, repo: (env.SP_FEEDBACK_REPO || '').trim(), appId: env.SP_GITHUB_APP_ID,
+      dir: /** @type {string} */ (env.SP_FEEDBACK_DIR), repo: (env.SP_FEEDBACK_REPO || '').trim(), appId: /** @type {string} */ (env.SP_GITHUB_APP_ID),
       key: fs.readFileSync(keyFile), installation: env.SP_GITHUB_INSTALLATION || null,
       pollMs: Number.isFinite(poll) && poll >= 5 ? poll * 1000 : POLL_MS, log,
     });
@@ -199,6 +213,7 @@ export class FeedbackRelay {
   }
 
   /** The `feedback` label (made when missing; the kind labels are GitHub's defaults). Issues go without it if it cannot be made. */
+  /** @param {string} token */
   async ensureLabels(token) {
     if (this.labels != null) return;
     const r = await this.api('GET', `/repos/${this.repo}/labels/${LABEL}`, { auth: token });
@@ -213,7 +228,7 @@ export class FeedbackRelay {
     }
   }
 
-  /** Record a created issue. */
+  /** Record a created issue. @param {string} id @param {{ number: number, html_url: string }} issue */
   posted(id, issue) {
     fs.writeFileSync(path.join(this.state, `${id}.json`), JSON.stringify({ number: issue.number, url: issue.html_url, at: new Date(this.now()).toISOString() }));
     fs.rmSync(path.join(this.state, `${id}.posting`), { force: true });
@@ -222,6 +237,7 @@ export class FeedbackRelay {
   }
 
   /** Settle the markers of tries without an answer from the repository's issues (see the header). */
+  /** @param {string} token */
   async settle(token) {
     let names;
     try { names = fs.readdirSync(this.state).filter((n) => /^FB-.*\.posting$/.test(n)); } catch { return; }
@@ -260,17 +276,20 @@ export class FeedbackRelay {
     return out;
   }
 
-  /** Post one report. → 'posted' | 'refused' | 'unknown' (no answer: the marker stays for settle) */
+  /**
+   * Post one report. → 'posted' | 'refused' | 'unknown' (no answer: the marker stays for settle)
+   * @param {FeedbackRecord} rec @param {string} token
+   */
   async post(rec, token) {
     const marker = path.join(this.state, `${rec.id}.posting`);
     try {
       fs.writeFileSync(marker, String(this.now()), { flag: 'wx' });
-    } catch (e) {
+    } catch (/** @type {any} */ e) {
       if (e?.code !== 'EEXIST') this.log.error(`[relay] ${rec.id}: ${this.state} not writable (${e?.code || e}) — nothing posted`);
       return 'unknown';
     }
     const labels = this.labels ? [LABEL, KIND_LABEL[rec.kind]].filter(Boolean) : [];
-    const backoff = (why) => {
+    const backoff = (/** @type {string} */ why) => {
       fs.rmSync(marker, { force: true });
       const prev = this.retry.get(rec.id)?.wait || this.pollMs;
       const wait = Math.min(prev * 2, BACKOFF_MAX_MS);
@@ -281,7 +300,7 @@ export class FeedbackRelay {
     let r;
     try {
       r = await this.api('POST', `/repos/${this.repo}/issues`, { auth: token, body: { title: issueTitle(rec), body: issueBody(rec), labels } });
-    } catch (e) {
+    } catch (/** @type {any} */ e) {
       const code = e?.cause?.code || e?.code;
       if (NOT_SENT.has(code)) return backoff(`not connected (${code})`);
       this.log.error(`[relay] ${rec.id}: no answer (${code || e?.name || e}) — settled from the repository's issues on a later scan`);
@@ -308,6 +327,7 @@ export class FeedbackRelay {
 
   /** One scan: settle open markers, post what waits. → the outcomes of the posts. */
   async tick() {
+    /** @type {string[]} */
     const out = [];
     const markers = (() => { try { return fs.readdirSync(this.state).some((n) => n.endsWith('.posting')); } catch { return false; } })();
     if (!markers && !this.pending().length) return out;
@@ -316,7 +336,7 @@ export class FeedbackRelay {
       token = await this.installationToken();
       await this.ensureLabels(token);
       if (markers) await this.settle(token);
-    } catch (e) {
+    } catch (/** @type {any} */ e) {
       this.log.error(`[relay] ${e?.cause?.code || e?.message || e}`);
       return out;
     }
@@ -326,7 +346,7 @@ export class FeedbackRelay {
 
   start() {
     const loop = async () => {
-      try { this.running = this.tick(); await this.running; this.prune(); } catch (e) { this.log.error(`[relay] ${e?.stack || e}`); }
+      try { this.running = this.tick(); await this.running; this.prune(); } catch (/** @type {any} */ e) { this.log.error(`[relay] ${e?.stack || e}`); }
       this.timer = setTimeout(loop, this.pollMs);
     };
     this.log.info(`[relay] posting public feedback from ${this.inbox} to ${this.repo} every ${Math.round(this.pollMs / 1000)} s`);
@@ -334,7 +354,7 @@ export class FeedbackRelay {
   }
 
   async stop() {
-    clearTimeout(this.timer);
+    clearTimeout(/** @type {NodeJS.Timeout | undefined} */ (this.timer));
     this.timer = null;
     try { await this.running; } catch { /* logged */ }
   }
@@ -344,7 +364,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   let relay;
   try {
     relay = FeedbackRelay.fromEnv();
-  } catch (e) {
+  } catch (/** @type {any} */ e) {
     console.error(String(e?.message || e));
     process.exit(2);
   }

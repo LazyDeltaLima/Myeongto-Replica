@@ -34,22 +34,25 @@ const noop = () => {};
  * @typedef {{ where: string, problems: string[] }} Skipped
  */
 
-const isFile = (abs) => { try { return fs.statSync(abs).isFile(); } catch { return false; } };
-const readDirSorted = (dir) => { try { return fs.readdirSync(dir).filter((n) => !n.startsWith('.')).sort(); } catch { return []; } };
+const isFile = (/** @type {string} */ abs) => { try { return fs.statSync(abs).isFile(); } catch { return false; } };
+const readDirSorted = (/** @type {string} */ dir) => { try { return fs.readdirSync(dir).filter((n) => !n.startsWith('.')).sort(); } catch { return []; } };
 
-/** A JSON file of at most MAX_JSON_BYTES, or { error }. */
+/** A JSON file of at most MAX_JSON_BYTES, or { error }. @param {string} abs */
 function readJson(abs) {
   try {
     const st = fs.statSync(abs);
     if (!st.isFile()) return { error: 'not a file' };
     if (st.size > MAX_JSON_BYTES) return { error: `larger than ${MAX_JSON_BYTES >> 20} MB` };
     return { json: JSON.parse(fs.readFileSync(abs, 'utf8')) };
-  } catch (e) {
+  } catch (/** @type {any} */ e) {
     return { error: e instanceof SyntaxError ? `not valid JSON (${e.message})` : String(e?.code || e?.message || e) };
   }
 }
 
-/** Whether `abs` is inside `dir` once symbolic links are resolved (a pack file never leads out of its folder). */
+/**
+ * Whether `abs` is inside `dir` once symbolic links are resolved (a pack file never leads out of its folder).
+ * @param {string} dir @param {string} abs
+ */
 function inside(dir, abs) {
   try {
     const d = fs.realpathSync(dir);
@@ -58,6 +61,7 @@ function inside(dir, abs) {
   } catch { return false; }
 }
 
+/** @param {string} id @param {string} rel */
 const fileUrl = (id, rel) => `${PACKS_URL}${encodeURIComponent(id)}/${rel.split('/').map(encodeURIComponent).join('/')}`;
 
 /**
@@ -71,7 +75,9 @@ export function scanPacks({ publicDir, dataDir, packsDir }, { app = APP_VERSION 
   const found = [];
   /** @type {Skipped[]} */
   const skipped = [];
+  /** @type {{ where: string, warning: string }[]} */
   const warnings = [];
+  /** @param {string} where @param {readonly string[]} list */
   const warn = (where, list) => { for (const w of list) warnings.push({ where, warning: w }); };
 
   // single-file language packs: public/i18n/<code>.json
@@ -169,9 +175,14 @@ export function packIndexOf(packs, { app = APP_VERSION } = {}) {
   return buildPackIndex(entries, { app });
 }
 
-/** What changes when a pack is added, removed or edited: names, sizes and times of the files the scan reads. */
+/**
+ * What changes when a pack is added, removed or edited: names, sizes and times of the files the scan reads.
+ * @param {{ publicDir: string, dataDir: string, packsDir: string }} dirs
+ */
 function signature({ publicDir, dataDir, packsDir }) {
+  /** @type {string[]} */
   const parts = [];
+  /** @param {string} dir @param {number} depth @param {string} tag */
   const add = (dir, depth, tag, namesOnly = false) => {
     for (const n of readDirSorted(dir)) {
       const abs = path.join(dir, n);
@@ -197,11 +208,13 @@ function signature({ publicDir, dataDir, packsDir }) {
  *   recheckMs: how long a scan stays trusted before the folders are looked at again (default 1000; 0 = every call)
  */
 export function createPackRegistry(dirs, { log = { info: noop, warn: noop }, app = APP_VERSION, recheckMs = 1000 } = {}) {
+  /** @type {string | null} */
   let sig = null;
   let checkedAt = -Infinity;
-  /** @type {ReturnType<typeof scanPacks> & { index: ReturnType<typeof packIndexOf>, byId: Map<string, Pack> }} */
+  /** @type {(ReturnType<typeof scanPacks> & { index: ReturnType<typeof packIndexOf>, byId: Map<string, Pack> }) | null} */
   let state = null;
   const told = new Set();
+  /** @param {(line: string) => void} fn @param {string} line */
   const tell = (fn, line) => { if (!told.has(line)) { told.add(line); fn(line); } };
 
   function refresh(force = false) {

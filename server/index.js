@@ -43,7 +43,7 @@ export {
 /**
  * Build and start the HTTP + WebSocket server.
  * @param {{
- *   port?: number, host?: string, quiet?: boolean, log?: object,
+ *   port?: number, host?: string, quiet?: boolean, log?: ReturnType<typeof makeLogger>,
  *   publicDir?: string, dataDir?: string, sharedDir?: string, packsDir?: string,
  *   MatchClass?: new (opts: object) => any, seedFn?: () => number,
  *   lobbyGraceMs?: number, reconnectWindowMs?: number, heartbeatMs?: number, helloTimeoutMs?: number,
@@ -64,7 +64,7 @@ export async function startServer(opts = {}) {
 
   // The process-wide singleton serves the default data dir; a custom dir (tests) gets its own copy. `dataOf({ season })`:
   // a season's data (shared/seasons.js) — the default's files with that season's own in their place.
-  const dataOf = opts.dataDir ? seasonData(loadData(dataDir, { log }), dataDir, { log }) : (o) => getData({ dir: dataDir, log, ...o });
+  const dataOf = opts.dataDir ? seasonData(loadData(dataDir, { log }), dataDir, { log }) : (/** @type {{ season?: string } | undefined} */ o) => getData({ dir: dataDir, log, ...o });
   const { registry, lobby, network } = createSessionStack(opts, { dataOf, log });
   const restart = new RestartNotice({ network, log }); // the deploy's restart countdown: SIGUSR2 (http/boot.js) → server.restart to everyone
   lobby.restartNotice = restart;
@@ -86,13 +86,13 @@ export async function startServer(opts = {}) {
   const wss = attachWebSocket(server, { network, log });
 
   try {
-    await new Promise((resolve, reject) => {
-      const onError = (e) => { server.off('listening', onListening); reject(e); };
+    await /** @type {Promise<void>} */ (new Promise((resolve, reject) => {
+      const onError = (/** @type {Error} */ e) => { server.off('listening', onListening); reject(e); };
       const onListening = () => { server.off('error', onError); resolve(); };
       server.once('error', onError);
       server.once('listening', onListening);
       server.listen(port, host);
-    });
+    }));
   } catch (e) {
     network.close(); // stop heartbeat/sweep timers of the half-built server
     throw e;
@@ -103,6 +103,7 @@ export async function startServer(opts = {}) {
   const actualPort = typeof addr === 'object' && addr ? addr.port : port;
   const url = `http://${host === '0.0.0.0' || host === '::' ? 'localhost' : host}:${actualPort}`;
 
+  /** @type {Promise<void> | null} */
   let closing = null;
   async function close() {
     if (closing) return closing;
@@ -111,11 +112,11 @@ export async function startServer(opts = {}) {
       generation.close();
       try { lobby.shutdown('shutdown'); } catch (e) { log.error('[shutdown] lobby', e); }
       network.close();
-      await new Promise((resolve) => {
+      await /** @type {Promise<void>} */ (new Promise((resolve) => {
         server.close(() => resolve());
         server.closeIdleConnections?.();
         setTimeout(() => { server.closeAllConnections?.(); }, 500).unref();
-      });
+      }));
       try { wss.close(); } catch { /* ignore */ }
     })();
     return closing;

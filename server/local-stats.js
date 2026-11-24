@@ -13,7 +13,10 @@
 
 export const STATS_VERSION = 2;
 
-/** The `[stats]` record for a match summary (Match.finish → room.lastSummary), or null when there is none. */
+/**
+ * The `[stats]` record for a match summary (Match.finish → room.lastSummary), or null when there is none.
+ * @param {import('./lobby.js').Room} room @param {Record<string, any> | null | undefined} summary
+ */
 export function matchStats(room, summary) {
   if (!summary || typeof summary !== 'object') return null;
   const players = Array.isArray(summary.players) ? summary.players : [];
@@ -48,19 +51,22 @@ export function matchStats(room, summary) {
       band: p.bandId ?? null,
       title: p.title?.id ?? null, // the title id only (comment_N): its name / text are upstream's Chinese data
       trophies: p.trophies ?? 0,
-      lineup: (p.lineup || []).map((u) => [u.id, u.tier ?? null, !!u.golden, u.items || []]),
-      bonds: (p.bonds || []).map((b) => [b.bondId, b.layers ?? 0, !!b.active]),
+      lineup: (p.lineup || []).map((/** @type {{ id: string, tier?: number, golden?: boolean, items?: string[] }} */ u) => [u.id, u.tier ?? null, !!u.golden, u.items || []]),
+      bonds: (p.bonds || []).map((/** @type {{ bondId: string, layers?: number, active?: boolean }} */ b) => [b.bondId, b.layers ?? 0, !!b.active]),
       stats: p.stats || {},
     })),
   };
 }
 
-/** Logs the finished match of `room` (its room.lastSummary) as one `[stats]` line; never throws. */
+/**
+ * Logs the finished match of `room` (its room.lastSummary) as one `[stats]` line; never throws.
+ * @param {import('./lobby.js').Lobby} lobby @param {import('./lobby.js').Room} room
+ */
 export function logMatchStats(lobby, room) {
   try {
     const rec = matchStats(room, room.lastSummary);
     if (rec) lobby.log.info(`[stats] ${JSON.stringify(rec)}`);
-  } catch (e) {
+  } catch (/** @type {any} */ e) {
     try { lobby.log.warn(`[stats] ${room?.code} not logged: ${e?.message || e}`); } catch { /* ignore */ }
   }
 }

@@ -102,7 +102,8 @@ but not counted. strict is an option of the whole program, and a folder imports 
 server's options only). A listed file is checked in every config that has it; a listed file neither config has is an
 error.
 
-With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`.
+With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`, the files directly under `server/`
+(`server/*.js`).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -151,6 +152,19 @@ most strict errors were, and the JSDoc that fixed them:
   `null`, `ban: []` is `never[]`): the declaration gets an explicit typedef (`CustomSettings` in `shared/ruleset.js`).
 - an inline `@type` on a callback parameter narrower than the array's element (`forms.every((/** @type {UnitForm} */
   f) => …)` over `(UnitForm | null)[]`) is refused (TS2769): cast at the use inside, `/** @type {UnitForm} */ (f).skills`.
+- a lobby handler takes the validated message destructured (`create(session, { mode, difficulty, … })`): an `@param`
+  with the message's fields as `shared/protocol.js` `C2S` checks them (the message itself is `any` in `onMessage`).
+- `.filter(Boolean)` does not narrow (`room.seats.filter(Boolean)` stays `(Seat | null)[]`): a cast on the call,
+  `/** @type {Seat[]} */ (room.seats.filter(Boolean))`. A value found with a lookup the code knows succeeds
+  (`room.seatOf(id) || room.spectatorOf(id)` of a member): a cast on the expression.
+- `x || {}` is a union with `{}`, whose fields are errors: `@type` on the declaration with the fields optional.
+- `delete o.f` of a field the type requires (TS2790): `delete /** @type {{ f?: number }} */ (o).f`.
+- a method wrapped on another module's prototype (`Match.prototype.finish = function finish(o) …`, local-console.js,
+  local-patch.js): the JSDoc goes on the function expression, `= /** @param {…} o */ function finish(o)`; `this` comes
+  from the assignment. Wrapped by name in a loop (`PlayerState.prototype[k]`): the prototype cast through `unknown` to
+  `Record<string, (...args: any[]) => any>`, and `@this {PlayerState}` on the function.
+- a part's own `this.temp = …` (Split classes, below) makes the merged field `any[] | undefined`; outside the part, cast
+  at the use until the part's line is typed.
 
 ## Split classes
 
@@ -179,7 +193,8 @@ copied onto the prototype. tsc does not see the copy, so:
   sets on one kind of unit (an enemy's `tag`, `route`, `pauseUntil` …, a board piece's `items`), and the `Battle`
   fields a part makes on first use (`_allyTargets ??= new Set()`); in `class-members.d.ts` the same for `Match` and
   `PlayerState` (the console mode's fields from `server/local-console.js`, 规程's `diyLineup` …), `EffectDispatcher`'s
-  `preview`, and the lobby's `Lobby` (`restartNotice`, `generation`: `server/index.js`), `Room` and `Session`. A new
+  `preview`, and the lobby's `Lobby` (`restartNotice`, `generation`: `server/index.js`; `feedback`, `moderation`:
+  `server/local-patch.js`), `Room` and `Session` (the chat moderation's `browserId` …, the chat's `lastChatAt`). A new
   such field goes there too; tsc names it.
 
 `types/class-members.d.ts` imports every match part, so a config that includes it checks all of `server/match/`.

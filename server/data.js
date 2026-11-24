@@ -61,20 +61,21 @@ export function deepFreeze(root) {
 export function loadData(dir = DATA_DIR, { log = console, expected = DATA_FILES } = {}) {
   /** @type {Record<string, any>} */
   const out = {};
+  /** @type {string[]} */
   let names = [];
   try {
     names = fs.readdirSync(dir, { withFileTypes: true })
       .filter((d) => d.isFile() && d.name.toLowerCase().endsWith('.json'))
       .map((d) => d.name)
       .sort();
-  } catch (e) {
+  } catch (/** @type {any} */ e) {
     log.warn(`[data] cannot read ${dir}: ${e.code || e.message} — running without game data`);
   }
   for (const file of names) {
     const key = file.slice(0, -'.json'.length);
     try {
       out[key] = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
-    } catch (e) {
+    } catch (/** @type {any} */ e) {
       log.error(`[data] skipping ${file}: ${e.message}`);
     }
   }
@@ -88,7 +89,7 @@ export function loadData(dir = DATA_DIR, { log = console, expected = DATA_FILES 
  * another season the same object with the files of `<dir>/seasons/<id>/` in place of the default's (loaded once).
  * @param {Readonly<Record<string, any>>} base the default season's data (loadData(dir))
  * @param {string} dir the directory `base` came from
- * @param {{ log?: object }} [opts]
+ * @param {{ log?: { warn: Function, error: Function, info?: Function } }} [opts]
  * @returns {(opts?: { season?: string }) => Readonly<Record<string, any>>}
  */
 export function seasonData(base, dir, { log = console } = {}) {
@@ -112,7 +113,7 @@ let singleton = null;
 /**
  * Process-wide data singleton; loads on first call (later calls ignore `dir` and `log`). `season` (shared/seasons.js)
  * other than the default: seasonData.
- * @param {{ dir?: string, log?: object, season?: string }} [opts]
+ * @param {{ dir?: string, log?: { warn: Function, error: Function, info?: Function }, season?: string }} [opts]
  * @returns {Readonly<Record<string, any>>}
  */
 export function getData({ dir = DATA_DIR, log = console, season } = {}) {
@@ -133,7 +134,10 @@ export const INDEXED_FILES = Object.freeze({
   effects: 'getEffect', enemies: 'getEnemy', waves: 'getWave', stages: 'getStage', bosses: 'getBoss', tokens: 'getToken',
 });
 
-/** Own-property record lookup in a plain-object map; null for anything else. */
+/**
+ * Own-property record lookup in a plain-object map; null for anything else.
+ * @param {Readonly<Record<string, unknown>> | null | undefined} map @param {unknown} id
+ */
 function ownRecord(map, id) {
   if (typeof id !== 'string' || id.length === 0) return null;
   if (!map || typeof map !== 'object' || Array.isArray(map) || !Object.hasOwn(map, id)) return null;

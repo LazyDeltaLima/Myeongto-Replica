@@ -315,13 +315,13 @@ export function encode(msg) {
   }
 }
 
-const onSendDone = (err) => { void err; }; // errors surface through the socket's 'error'/'close' events
+const onSendDone = (/** @type {Error | undefined} */ err) => { void err; }; // errors surface through the socket's 'error'/'close' events
 
 /**
  * Send an already-encoded frame. Skips when the socket is not OPEN, when `droppable` and the socket is
  * congested (> 1 MB queued), and terminates sockets whose queue exceeds 16 MB.
  * @param {import('ws').WebSocket | null | undefined} ws
- * @param {string} data
+ * @param {string | null} data an encoded frame (encode: null when the message did not serialize, then nothing is sent)
  * @param {{ droppable?: boolean }} [opts]
  * @returns {boolean} true when the frame was queued
  */
@@ -338,7 +338,7 @@ export function sendRaw(ws, data, { droppable = false } = {}) {
   }
 }
 
-/** True for frames that may be skipped under backpressure (only battle snapshots). */
+/** True for frames that may be skipped under backpressure (only battle snapshots). @param {{ t?: unknown } | null | undefined} msg */
 export const isDroppable = (msg) => !!msg && msg.t === 'b.snap';
 
 /**
@@ -383,7 +383,8 @@ export const isErrCode = (code) => typeof code === 'string' && Object.hasOwn(ERR
  */
 export function errorMsg(code, rid, detail, room) {
   const known = isErrCode(code);
-  const m = { t: 'error', code: known ? code : ERR.INTERNAL, msg: known ? ERR_TEXT[code] || ERR_TEXT.INTERNAL : ERR_TEXT.INTERNAL };
+  /** @type {{ t: string, code: string, msg: string, rid?: unknown, detail?: string, room?: object }} */
+  const m = { t: 'error', code: known ? code : ERR.INTERNAL, msg: known ? ERR_TEXT[/** @type {keyof typeof ERR_TEXT} */ (code)] || ERR_TEXT.INTERNAL : ERR_TEXT.INTERNAL };
   if (validRid(rid)) m.rid = rid;
   if (detail) m.detail = String(detail).slice(0, 120);
   // a refused room.join's room summary (server/lobby.js joinRefusalInfo): the invited page offers a spectator seat
@@ -397,7 +398,7 @@ export function errorMsg(code, rid, detail, room) {
 
 // Control chars, zero-width & bidi controls, BOM.
 const STRIP_RANGES = [[0x00, 0x1f], [0x7f, 0x9f], [0xad, 0xad], [0x200b, 0x200f], [0x2028, 0x202e], [0x2060, 0x206f], [0xfeff, 0xfeff]];
-const hexEscape = (n) => '\\u' + n.toString(16).padStart(4, '0');
+const hexEscape = (/** @type {number} */ n) => '\\u' + n.toString(16).padStart(4, '0');
 const STRIP_RE = new RegExp('[' + STRIP_RANGES.map(([a, b]) => (a === b ? hexEscape(a) : `${hexEscape(a)}-${hexEscape(b)}`)).join('') + ']', 'g');
 const LONE_SURROGATE_RE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g;
 
@@ -486,10 +487,13 @@ export function limitKeyOf(ip) {
   return g ? `${g.slice(0, 4).map((x) => x.toString(16)).join(':')}::/64` : ip;
 }
 
-/** The client address a trusted local proxy forwards (null when it sent none). */
+/**
+ * The client address a trusted local proxy forwards (null when it sent none).
+ * @param {import('node:http').IncomingHttpHeaders | undefined} headers
+ */
 function forwardedAddress(headers) {
   if (!headers) return null;
-  const one = (h) => (Array.isArray(h) ? h[h.length - 1] : h);
+  const one = (/** @type {string | string[] | undefined} */ h) => (Array.isArray(h) ? h[h.length - 1] : h);
   for (const name of ['cf-connecting-ip', 'x-real-ip']) {
     const ip = normalizeIp(one(headers[name]));
     if (ip) return ip;
@@ -549,7 +553,7 @@ class Connection {
     this.ponged = false;
   }
 
-  /** Server-initiated close (never throws). Later frames from this socket are ignored. */
+  /** Server-initiated close (never throws). Later frames from this socket are ignored. @param {number} code @param {string} reason */
   close(code, reason) {
     this.closing = true;
     try { this.ws.close(code, reason); } catch { /* ignore */ }
@@ -618,18 +622,18 @@ export class Network {
     const conn = new Connection(ws, clientAddress(req, this.opts.trustProxy), this.now(), this.opts);
     this.conns.set(ws, conn);
     if (conn.key) this.connsPerKey.set(conn.key, (this.connsPerKey.get(conn.key) || 0) + 1);
-    ws.on('message', (data, isBinary) => {
+    ws.on('message', (/** @type {Buffer} */ data, /** @type {boolean} */ isBinary) => {
       try { this.onFrame(conn, data, isBinary); } catch (e) { this.log.error('[net] frame handler crashed', e); }
     });
     ws.on('pong', () => { conn.alive = true; if (conn.session && conn.session.ws === ws) conn.session.lastSeen = this.now(); });
-    ws.on('error', (e) => { this.log.debug?.('[net] socket error', e?.code || e?.message); });
+    ws.on('error', (/** @type {NodeJS.ErrnoException | undefined} */ e) => { this.log.debug?.('[net] socket error', e?.code || e?.message); });
     ws.on('close', () => { try { this.onClose(conn); } catch (e) { this.log.error('[net] close handler crashed', e); } });
   }
 
   /** @param {Connection} conn @param {object} msg */
   reply(conn, msg) { return send(conn.ws, msg); }
 
-  /** @param {Connection} conn */
+  /** @param {Connection} conn @param {Buffer} data @param {boolean} isBinary */
   onFrame(conn, data, isBinary) {
     // A socket we are closing (replaced by another tab, hello timeout, flooding, shutdown) may still have
     // frames in flight; acting on them could e.g. mint an orphan session from a late `hello`.
@@ -723,7 +727,7 @@ export class Network {
         } else if (held && (msg.noReplace || (Number.isFinite(msg.claimAt) && session.claimAt != null && msg.claimAt > session.claimAt))) {
           this.log.info?.(`[net] ${name}: hello for ${session.playerId} refused, session in use (${msg.noReplace ? 'no-replace' : 'newer claim'}${seen})`);
           if (session.probeAt == null || session.lastSeen >= session.probeAt) session.probeAt = now;
-          try { if (typeof session.ws.ping === 'function') session.ws.ping(); } catch { /* closing */ }
+          try { if (typeof /** @type {import('ws').WebSocket} */ (session.ws).ping === 'function') /** @type {import('ws').WebSocket} */ (session.ws).ping(); } catch { /* closing */ }
           this.reply(conn, errorMsg(ERR.SESSION_IN_USE, rid));
           return;
         }
@@ -762,12 +766,12 @@ export class Network {
     }
   }
 
-  /** A token this server does not know: a session handed over by the deploy's previous server, if any (handler). */
+  /** A token this server does not know: a session handed over by the deploy's previous server, if any (handler). @param {string} token */
   adoptSession(token) {
     try { return this.handler.adoptSession?.(token) ?? null; } catch (e) { this.log.error('[net] adoptSession crashed', e); return null; }
   }
 
-  /** The session moved to a new socket: unbind and close the old one without firing a disconnect. */
+  /** The session moved to a new socket: unbind and close the old one without firing a disconnect. @param {import('ws').WebSocket} oldWs */
   detachReplaced(oldWs) {
     const old = this.conns.get(oldWs);
     if (old) {
@@ -822,7 +826,7 @@ export class Network {
         if (!conn.alive) { conn.ws.terminate(); continue; }
         conn.alive = false;
         conn.ws.ping();
-      } catch (e) {
+      } catch (/** @type {any} */ e) {
         this.log.debug?.('[net] heartbeat error', e?.message);
       }
     }
@@ -854,7 +858,7 @@ export class Network {
   }
 }
 
-/** Best-effort rid extraction for rate-limited frames (so the client's pending request resolves). */
+/** Best-effort rid extraction for rate-limited frames (so the client's pending request resolves). @param {Buffer} data @param {boolean} isBinary */
 function peekRid(data, isBinary) {
   if (isBinary || !data || data.length > PEEK_RID_MAX_BYTES) return undefined;
   try {

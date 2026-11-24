@@ -63,13 +63,16 @@ export function genName(env = process.env) {
   return /^[a-z0-9]{1,8}$/.test(s) ? s : null;
 }
 
-/** The restart file's text → a generation state ('accept' | 'drain' | 'standby'), null when it is something else. */
+/** The restart file's text → a generation state ('accept' | 'drain' | 'standby'), null when it is something else. @param {unknown} text */
 export function parseGenControl(text) {
   const s = String(text ?? '').trim().toLowerCase();
   return GEN_STATES.includes(s) ? s : null;
 }
 
-/** Does this room still need the server (header 「drain」)? @param {any} room @param {number} now */
+/**
+ * Does this room still need the server (header 「drain」)? @param {any} room @param {number} now
+ * @param {number | null} [endedAt]
+ */
 export function roomNeedsServer(room, now, endedAt = null) {
   const r = roomRow(room, now);
   if (r.phase === PHASE.LOBBY) {
@@ -80,19 +83,22 @@ export function roomNeedsServer(room, now, endedAt = null) {
   return r.matchMin != null && r.matchMin < STALE_MIN;
 }
 
+/** @typedef {{ file: string, at: number, from: string, room: any }} HandoffFile */
+
 /** The handoff folder, read side (header 「handoff」): which file holds which token. */
 export class HandoffInbox {
   /** @param {string} dir @param {() => number} now */
   constructor(dir, now) {
     this.dir = dir;
     this.now = now;
+    /** @type {number | null} */
     this.mtime = null;
     this.scanAt = -Infinity;
-    /** @type {Map<string, { file: string, at: number, from: string, room: any }>} token → its file */
+    /** @type {Map<string, HandoffFile>} token → its file */
     this.byToken = new Map();
   }
 
-  /** The handoff file that holds `token`, or null. */
+  /** The handoff file that holds `token`, or null. @param {unknown} token */
   find(token) {
     if (typeof token !== 'string' || !token) return null;
     this.refresh();
@@ -124,13 +130,14 @@ export class HandoffInbox {
     }
   }
 
-  /** Forget a file and delete it (taken, or too old). */
+  /** Forget a file and delete it (taken, or too old). @param {HandoffFile} e */
   drop(e) {
     unlink(e.file);
     for (const [token, x] of this.byToken) if (x === e) this.byToken.delete(token);
   }
 }
 
+/** @param {string} file */
 function unlink(file) {
   try { fs.unlinkSync(file); } catch { /* gone already */ }
 }
@@ -156,7 +163,7 @@ export class Generation {
     this.drainAt = null;
     /** @type {Map<string, number>} room code → when its match ended during the drain */
     this.endedAt = new Map();
-    /** called once when the drained server is no longer needed (server/http/boot.js ends the process) */
+    /** @type {(() => void) | null} called once when the drained server is no longer needed (server/http/boot.js ends the process) */
     this.onDrained = null;
     this.done = false;
     /** @type {NodeJS.Timeout | null} */
@@ -168,7 +175,7 @@ export class Generation {
 
   get draining() { return this.state === 'drain'; }
 
-  /** Move to `state` (the restart file's word). Only a named generation moves; drain is one-way. */
+  /** Move to `state` (the restart file's word). Only a named generation moves; drain is one-way. @param {string} state */
   set(state) {
     if (!this.id) { this.log.info(`[gen] no SP_GEN: "${state}" ignored`); return false; }
     if (!GEN_STATES.includes(state) || state === this.state) return false;
@@ -198,7 +205,10 @@ export class Generation {
     this.check();
   }
 
-  /** Lobby.onMatchEnd: a room whose match ended during the drain keeps the server for the settlement screen. */
+  /**
+   * Lobby.onMatchEnd: a room whose match ended during the drain keeps the server for the settlement screen.
+   * @param {import('./lobby.js').Room} room
+   */
   onMatchEnd(room) {
     if (!this.draining) return;
     this.endedAt.set(room.code, this.lobby.now());
@@ -207,7 +217,10 @@ export class Generation {
     setImmediate(() => { if (!room.disposed && !room.match) this.handOff(room); });
   }
 
-  /** Write a waiting room for the new server (header 「handoff」). @returns {boolean} whether it was written */
+  /**
+   * Write a waiting room for the new server (header 「handoff」). @param {import('./lobby.js').Room} room
+   * @returns {boolean} whether it was written
+   */
   handOff(room) {
     if (!this.handoffDir) return false;
     try {
@@ -219,7 +232,7 @@ export class Generation {
       fs.renameSync(`${file}.tmp`, file);
       this.log.info(`[gen] ${this.id} handed ${room.code} over`);
       return true;
-    } catch (e) {
+    } catch (/** @type {any} */ e) {
       this.log.info(`[gen] ${this.id} could not hand ${room.code} over: ${e?.message || e}`);
       return false;
     }
@@ -227,7 +240,7 @@ export class Generation {
 
   /**
    * net.js does not know this hello's token: the room another server handed over with it, rebuilt here (header
-   * 「handoff」). @returns {import('./net.js').Session | null} the token's session
+   * 「handoff」). @param {string} token @returns {import('./net.js').Session | null} the token's session
    */
   adopt(token) {
     if (!this.inbox || this.draining) return null;
@@ -253,13 +266,14 @@ export class Generation {
     const waiting = this.waitingRooms().length;
     if (!waiting) { this.finish('no room needs this server'); return; }
     const r = this.restart;
-    if (r && r.at == null && now - this.drainAt >= DRAIN_CUT_MIN * 60_000) {
+    if (r && r.at == null && now - /** @type {number} */ (this.drainAt) >= DRAIN_CUT_MIN * 60_000) {
       this.log.info(`[gen] ${this.id} drain: ${waiting} room(s) left after ${DRAIN_CUT_MIN} min — restart countdown`);
       r.schedule(DRAIN_MAX_MIN - DRAIN_CUT_MIN);
     }
     if (r && r.at != null && r.inMs() === 0) this.finish(`${waiting} room(s) left at the end of the countdown`);
   }
 
+  /** @param {string} why */
   finish(why) {
     this.done = true;
     if (this.timer) clearInterval(this.timer);

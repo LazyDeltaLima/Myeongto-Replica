@@ -252,6 +252,7 @@ export const SOLO_RECONNECT_FALLBACK_SEC = 86_400;
 export { BOT_NAMES };
 
 const OK = Object.freeze({ ok: true });
+/** @param {string} code @param {string} [detail] */
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });
 /** What a draining generation refuses (server/local-generation.js): everything that would bring a player into a room. */
 const DRAIN_REFUSED = new Set(['room.create', 'room.join', 'room.spectate', 'room.queue', 'room.queueAccept', 'room.queueVote']);
@@ -268,17 +269,30 @@ const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
  *             isBot?: undefined, left?: undefined }} Spectator
  *   a spectator seat (Room.spectators); `isBot` / `left` are never set: the code reads them on seats and spectators alike
  * @typedef {{ charId: string, skillIndex: number, uniEquipId: string|null }} DiyLoadout
+ * @typedef {import('./net.js').Session} Session
+ * @typedef {{ live: boolean, ended: boolean, disposed: boolean, match: any, lastPublic: string | null,
+ *   sharedResult: string | null, results: Map<string, string> }} MatchCtx
+ *   a running match's wiring (startMatch): `lastPublic` / `results` / `sharedResult` = the frames kept for the replay
+ * @typedef {{ t: string, [key: string]: unknown }} MatchMsg a frame a match sends
  */
 
-/** Deep-frozen copy of a checked loadout (shared by the session, the seat and the match's PlayerState). */
+/**
+ * Deep-frozen copy of a checked loadout (shared by the session, the seat and the match's PlayerState).
+ * @param {Record<string, { skill: number, module?: string | null }> | null | undefined} loadout
+ */
 function freezeLoadout(loadout) {
+  /** @type {Record<string, { skill: number, module: string | null }>} */
   const out = {};
   for (const [id, e] of Object.entries(loadout || {})) out[id] = Object.freeze({ skill: e.skill, module: e.module ?? null });
   return Object.freeze(out);
 }
 
-/** Deep-frozen copy of checked operator settings (0.2.2 潜能 / 练度; shared by the session, the seat and the match). */
+/**
+ * Deep-frozen copy of checked operator settings (0.2.2 潜能 / 练度; shared by the session, the seat and the match).
+ * @param {Record<string, { potential: number, cultivate: number }> | null | undefined} ops
+ */
 function freezeOps(ops) {
+  /** @type {Record<string, { potential: number, cultivate: number }>} */
   const out = {};
   for (const [id, e] of Object.entries(ops || {})) out[id] = Object.freeze({ potential: e.potential, cultivate: e.cultivate });
   return Object.freeze(out);
@@ -286,6 +300,7 @@ function freezeOps(ops) {
 
 /** The charIds a player may set a potential / 练度 for, per data object (shared/protocol.js cultivationCharIds). */
 const OPS_IDS = new WeakMap();
+/** @param {Readonly<Record<string, any>> | null | undefined} data */
 function opsCharIds(data) {
   if (!data || typeof data !== 'object') return new Set();
   let ids = OPS_IDS.get(data);
@@ -295,6 +310,7 @@ function opsCharIds(data) {
 
 /** data/cards.json (shared/cardOperators.js) as charId → the seasons whose seat cards may show it (room.card's whitelist). */
 const CARD_SEASONS = new WeakMap();
+/** @param {Readonly<Record<string, any>> | null | undefined} data @returns {Map<string, string[]>} */
 function cardSeasons(data) {
   const file = data && typeof data === 'object' ? data.cards : null;
   if (!file || typeof file !== 'object') return new Map();
@@ -308,8 +324,12 @@ function cardSeasons(data) {
   return m;
 }
 
-/** Deep-frozen copy of checked 自选 picks (shared by the session, the seat and the match's PlayerState). */
+/**
+ * Deep-frozen copy of checked 自选 picks (shared by the session, the seat and the match's PlayerState).
+ * @param {Record<string, { charId: string, skillIndex: number, uniEquipId?: string | null }> | null | undefined} picks
+ */
 function freezeDiy(picks) {
+  /** @type {Record<string, DiyLoadout>} */
   const out = {};
   for (const [id, p] of Object.entries(picks || {})) out[id] = Object.freeze({ charId: p.charId, skillIndex: p.skillIndex, uniEquipId: p.uniEquipId ?? null });
   return Object.freeze(out);
@@ -326,15 +346,19 @@ function freezeSkins(skins, hasOperator) {
   return res.ok ? Object.freeze({ ...res.skins }) : null;
 }
 
-/** Do two skin selections hold the same pairs (a resend of the same map is not broadcast again)? */
+/**
+ * Do two skin selections hold the same pairs (a resend of the same map is not broadcast again)?
+ * @param {Readonly<Record<string, string>> | null | undefined} a @param {Readonly<Record<string, string>> | null | undefined} b
+ */
 function sameSkins(a, b) {
   const ka = a ? Object.keys(a) : [], kb = b ? Object.keys(b) : [];
-  return ka.length === kb.length && ka.every((k) => a[k] === b[k]);
+  return ka.length === kb.length && ka.every((k) => /** @type {Readonly<Record<string, string>>} */ (a)[k] === /** @type {Readonly<Record<string, string>>} */ (b)[k]);
 }
 
 /**
  * Where a session keeps its loadout / ops / notOwned / diy of a season (header): the default season's in the session's
  * own fields (they predate seasons), another's in session.seasonal[season].
+ * @param {Session} session @param {string} season
  */
 function settingsOf(session, season) {
   if (season === DEFAULT_SEASON) return session;
@@ -363,7 +387,7 @@ export class Room {
     this.ruleset = resolveRuleset(null);
     /** the 卫戍协议 season (shared/seasons.js) whose data the room's matches run on; set by room.create */
     this.season = DEFAULT_SEASON;
-    /** 规程等级 (header): a solo room of a season with `soloGrades` plays this grade's mode, else null */
+    /** @type {number | null} 规程等级 (header): a solo room of a season with `soloGrades` plays this grade's mode, else null */
     this.grade = null;
     /** 공개방 (header): on the room list and a matchmaking candidate; `publicSince` = made public / back from a match */
     this.public = false;
@@ -390,7 +414,7 @@ export class Room {
     this.reserveSeq = 0;
     /** @type {any} running Match instance */
     this.match = null;
-    /** @type {{ live: boolean, ended: boolean, disposed: boolean, match: any } | null} */
+    /** @type {MatchCtx | null} */
     this.matchCtx = null;
     this.matchCount = 0;
     /** @type {any} summary passed to onEnd by the last match */
@@ -418,7 +442,7 @@ export class Room {
   spectatorOf(playerId) { return this.spectators.find((s) => s.playerId === playerId) || null; }
 
   /** The spectators with a seat reservation, first asked first (header). */
-  reservedSpectators() { return this.spectators.filter((s) => s.reservedSeq).sort((a, b) => a.reservedSeq - b.reservedSeq); }
+  reservedSpectators() { return this.spectators.filter((s) => s.reservedSeq).sort((a, b) => /** @type {number} */ (a.reservedSeq) - /** @type {number} */ (b.reservedSeq)); }
 
   /** Lowest free seat index, or -1. */
   freeSeat() { return this.seats.indexOf(null); }
@@ -439,7 +463,7 @@ export class Room {
   }
 
   /** Humans that have not departed, in seat order. @returns {Seat[]} */
-  activeHumans() { return this.seats.filter((s) => s && !s.isBot && !s.left); }
+  activeHumans() { return /** @type {Seat[]} */ (this.seats.filter((s) => s && !s.isBot && !s.left)); }
 
   /**
    * An 8-seat room that may not start yet: fewer than LARGE_MIN_PLAYERS Doctors, or an AI seat (header; local debug
@@ -527,7 +551,7 @@ export class Lobby {
     this.queue = new Matchmaker(this, { Room, options: this.opts });
     /** @type {Map<string, number[]>} room.join times per client network (header: per-network limits) */
     this.joinLog = new Map();
-    /** lobby.rooms pacing (header 「공개방」): the last list sent (JSON), when, and the pending send */
+    /** @type {string | null} lobby.rooms pacing (header 「공개방」): the last list sent (JSON), when, and the pending send */
     this.roomsSent = null;
     this.roomsAt = -Infinity;
     /** @type {NodeJS.Timeout | null} */
@@ -591,12 +615,12 @@ export class Lobby {
     const kept = session.pendingResult;
     session.pendingResult = null;
     // a player seat, or a spectator seat (header): both carry `connected` / `name`
-    const seat = room.seatOf(session.playerId) || room.spectatorOf(session.playerId);
+    const seat = /** @type {Seat | Spectator} */ (room.seatOf(session.playerId) || room.spectatorOf(session.playerId));
     this.clearGrace(session.playerId);
     // Only a visible change (reconnect, rename, new host) is broadcast; a plain resync (repeated hello on a
     // live socket) answers the requester alone, so hello spam cannot amplify into room-wide traffic.
     let changed = !seat.connected;
-    if (changed) this.seatLog(room, session, Number.isFinite(seat.awayAt) ? `back after ${Math.round((this.now() - seat.awayAt) / 1000)} s` : 'back');
+    if (changed) this.seatLog(room, session, Number.isFinite(seat.awayAt) ? `back after ${Math.round((this.now() - /** @type {number} */ (seat.awayAt)) / 1000)} s` : 'back');
     else if (resumed && !repeat) this.seatLog(room, session, 'back on a new socket (the old one had not closed)');
     seat.connected = true;
     if (!room.match && seat.name !== session.name) { seat.name = session.name; changed = true; }
@@ -661,7 +685,7 @@ export class Lobby {
     session.resumeWindowMs = room && room.match && room.mode === 'solo' ? this.soloResumeWindowMs() : null;
     if (!room) return;
     const player = room.seatOf(session.playerId);
-    const seat = player || room.spectatorOf(session.playerId);
+    const seat = /** @type {Seat | Spectator} */ (player || room.spectatorOf(session.playerId));
     seat.connected = false;
     seat.awayAt = this.now(); // the room's `awayMin` (server/local-rooms.js): how long ago it lost its last connection
     this.seatLog(room, session, player ? 'dropped' : 'dropped (spectator)');
@@ -670,7 +694,7 @@ export class Lobby {
     this.broadcastState(room);
   }
 
-  /** The session's reconnect window elapsed (already removed from the registry). */
+  /** The session's reconnect window elapsed (already removed from the registry). @param {Session} session */
   onExpire(session) {
     session.notice = null;
     session.pendingResult = null;
@@ -703,6 +727,11 @@ export class Lobby {
   // room.* handlers
   // ---------------------------------------------------------------------------------------------------
 
+  /**
+   * @param {Session} session
+   * @param {{ mode: 'solo' | 'coop', difficulty: string, ruleset?: string, custom?: unknown, size?: number, season?: string,
+   *   grade?: number, public?: boolean }} msg
+   */
   create(session, { mode, difficulty, ruleset, custom, size, season = DEFAULT_SEASON, grade, public: listed = false }) {
     if (size === LARGE_SEATS && mode !== 'coop') return fail(ERR.BAD_MSG, 'only a co-op room has 8 seats');
     if (listed && mode !== 'coop') return fail(ERR.BAD_MSG, 'only a co-op room is public'); // 공개방 (header)
@@ -749,7 +778,7 @@ export class Lobby {
   /**
    * room.join — also the 공개방 list's 「참가」 and an accepted matchmaking offer (`viaQueue`: server/matchmaking.js
    * answerOffer, outside the per-network join limit).
-   * @param {any} session @param {{ code: any }} msg @param {{ viaQueue?: boolean }} [how]
+   * @param {Session} session @param {{ code: any }} msg @param {{ viaQueue?: boolean }} [how]
    */
   join(session, { code }, { viaQueue = false } = {}) {
     if (!viaQueue && this.joinRefused(session)) return fail(ERR.RATE, 'too many room.join from your network');
@@ -762,6 +791,7 @@ export class Lobby {
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
     if (this.kickedFrom(room, session.playerId)) return fail(ERR.KICKED); // header: room.kick
     // a co-op room that has no player seat for this one says how full it is: the page may offer a spectator seat
+    /** @param {string} code @param {string} [detail] */
     const refused = (code, detail) => (room.mode === 'solo' ? fail(code, detail) : { ...fail(code, detail), room: room.joinRefusalInfo() });
     if (room.match) return refused(ERR.ROOM_STARTED);
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo room');
@@ -784,6 +814,7 @@ export class Lobby {
     return OK;
   }
 
+  /** @param {Session} session */
   leave(session) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -795,6 +826,7 @@ export class Lobby {
   /**
    * room.spectate: one of a co-op room's spectator seats, in its lobby or during its match (header). In a
    * running match the match registers the spectator and resends what it may see (Match.addSpectator).
+   * @param {Session} session @param {{ code: string }} msg
    */
   spectate(session, { code }) {
     const norm = String(code).trim().toUpperCase();
@@ -826,6 +858,7 @@ export class Lobby {
    * room.spectate of one's own room by a player (header): in LOBBY the player seat is freed and a spectator seat taken,
    * the room's other way round from a spectator's room.join. Not removeMember: the session stays in the room and keeps
    * its replay (a result screen still owed).
+   * @param {Room} room @param {Session} session
    */
   seatToSpectator(room, session) {
     const seat = room.seatOf(session.playerId);
@@ -844,7 +877,10 @@ export class Lobby {
     return OK;
   }
 
-  /** room.removeSpectator (host, any time): the spectator gets room.closed {kicked} and its seat is freed. */
+  /**
+   * room.removeSpectator (host, any time): the spectator gets room.closed {kicked} and its seat is freed.
+   * @param {Session} session @param {{ playerId: string }} msg
+   */
   removeSpectator(session, { playerId }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -856,13 +892,13 @@ export class Lobby {
     this.removeMember(room, playerId);
     if (wasHere) {
       // like room.kick: now, or on the next resume (with the result replay, as after the grace timeout)
-      if (target.connected) sendSession(target, { t: 'room.closed', reason: 'kicked' });
-      else { target.notice = 'kicked'; target.pendingResult = replay; }
+      if (/** @type {Session} */ (target).connected) sendSession(target, { t: 'room.closed', reason: 'kicked' });
+      else { /** @type {Session} */ (target).notice = 'kicked'; /** @type {Session} */ (target).pendingResult = replay; }
     }
     return OK;
   }
 
-  /** room.setSpectatorSeats (host, before the match): how many spectator seats the room has (header). */
+  /** room.setSpectatorSeats (host, before the match): how many spectator seats the room has (header). @param {Session} session @param {{ seats: number }} msg */
   setSpectatorSeats(session, { seats }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -878,7 +914,7 @@ export class Lobby {
     return OK;
   }
 
-  /** room.reserveSeat: a spectator asks for the next free player seat, or takes that back (header). */
+  /** room.reserveSeat: a spectator asks for the next free player seat, or takes that back (header). @param {Session} session @param {{ on: boolean }} msg */
   reserveSeat(session, { on }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -896,6 +932,7 @@ export class Lobby {
   /**
    * Seat the connected spectators with a reservation on the free seats, first asked first (header). The caller
    * broadcasts the state (startMatch does). Not removeMember + room.join: that would drop the replay of the result screen.
+   * @param {Room} room
    */
   fillReservedSeats(room) {
     if (room.match || room.disposed) return;
@@ -911,13 +948,14 @@ export class Lobby {
     }
   }
 
+  /** @param {Session} session @param {{ ready: boolean }} msg */
   ready(session, { ready }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
     if (room.spectatorOf(session.playerId)) return fail(ERR.SPECTATOR);
     if (room.match) return fail(ERR.ROOM_STARTED);
     this.dropReplay(room, session.playerId);
-    const seat = room.seatOf(session.playerId);
+    const seat = /** @type {Seat} */ (room.seatOf(session.playerId));
     if (seat.ready !== ready) {
       seat.ready = ready;
       this.broadcastState(room);
@@ -925,6 +963,7 @@ export class Lobby {
     return OK;
   }
 
+  /** @param {Session} session @param {{ difficulty: string, grade?: number }} msg */
   setDifficulty(session, { difficulty, grade }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -957,12 +996,12 @@ export class Lobby {
     }
   }
 
-  /** lobby.queueCounts to one session (hello, back from a match). @param {any} session */
+  /** lobby.queueCounts to one session (hello, back from a match). @param {Session | null | undefined} session */
   sendQueueCounts(session) {
     if (session && session.connected) sendSession(session, { t: 'lobby.queueCounts', ...this.queue.countsMsg() });
   }
 
-  /** 규칙 모드 (header): host-only, before the match. */
+  /** 규칙 모드 (header): host-only, before the match. @param {Session} session @param {{ preset?: string, custom?: unknown }} msg */
   setRuleset(session, { preset, custom }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -980,7 +1019,10 @@ export class Lobby {
     return OK;
   }
 
-  /** 「AI 队友最后选择」 (GitHub #338): host-only, before the match, co-op rooms only (a solo room has no AI seat). */
+  /**
+   * 「AI 队友最后选择」 (GitHub #338): host-only, before the match, co-op rooms only (a solo room has no AI seat).
+   * @param {Session} session @param {{ on: boolean }} msg
+   */
   setAiPicksLast(session, { on }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -997,7 +1039,7 @@ export class Lobby {
     return OK;
   }
 
-  /** The room's size (header: room.setSize): host-only, before the match, co-op rooms only. */
+  /** The room's size (header: room.setSize): host-only, before the match, co-op rooms only. @param {Session} session @param {{ size: number }} msg */
   setSize(session, { size }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -1007,7 +1049,7 @@ export class Lobby {
     this.dropReplay(room, session.playerId);
     if (room.size === size) return OK;
     this.cancelAutoStart(room);
-    const taken = room.seats.filter(Boolean);
+    const taken = /** @type {Seat[]} */ (room.seats.filter(Boolean));
     // the 8-player mode has no AI teammates (local debug mode aside: server/local-patch.js largeBots)
     const keep = size > MAX_SEATS && !localPatch.largeBots() ? taken.filter((s) => !s.isBot) : taken;
     if (keep.length > size) return fail(ERR.ROOM_FULL, `${keep.length} seats taken`);
@@ -1023,6 +1065,7 @@ export class Lobby {
     return OK;
   }
 
+  /** @param {Session} session */
   addBot(session) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -1034,13 +1077,14 @@ export class Lobby {
     const capped = localPatch.botCap(room, this, session); if (capped) return capped; // local patch: SP_MAX_BOTS(_TOTAL/_PER_ADDR)
     const idx = room.freeSeat();
     if (idx < 0) return fail(ERR.ROOM_FULL);
-    const used = new Set(room.seats.filter((s) => s && s.isBot).map((s) => s.name));
+    const used = new Set(room.seats.filter((s) => s && s.isBot).map((s) => /** @type {Seat} */ (s).name));
     const name = BOT_NAMES.find((n) => !used.has(n)) || `AI·${idx + 1}`;
     room.seats[idx] = { seat: idx, playerId: this.newBotId(room), name, isBot: true, ready: true, connected: true, left: false, botSeq: ++room.botSeq };
     this.broadcastState(room);
     return OK;
   }
 
+  /** @param {Session} session @param {{ seat: number }} msg */
   removeBot(session, { seat }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -1055,7 +1099,7 @@ export class Lobby {
     return OK;
   }
 
-  /** Host removes another human before the match (header: room.kick). */
+  /** Host removes another human before the match (header: room.kick). @param {Session} session @param {{ seat: number, playerId: string }} msg */
   kick(session, { seat, playerId }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -1073,13 +1117,14 @@ export class Lobby {
     room.kicks.set(target.playerId, this.now() + this.opts.kickBlockMs); // its room.join is refused meanwhile (header)
     this.removeMember(room, target.playerId);
     if (wasHere) {
-      if (kicked.connected) sendSession(kicked, { t: 'room.closed', reason: 'kicked' });
-      else { kicked.notice = 'kicked'; kicked.pendingResult = replay; }
+      if (/** @type {Session} */ (kicked).connected) sendSession(kicked, { t: 'room.closed', reason: 'kicked' });
+      else { /** @type {Session} */ (kicked).notice = 'kicked'; /** @type {Session} */ (kicked).pendingResult = replay; }
     }
     this.log.info(`[lobby] ${room.code} ${target.name} removed by the host`);
     return OK;
   }
 
+  /** @param {Session} session */
   start(session) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -1109,7 +1154,10 @@ export class Lobby {
   // 공개방 (header)
   // ---------------------------------------------------------------------------------------------------
 
-  /** room.setPublic (host, any phase, co-op only): the room list and matchmaking take the room, or let it go. */
+  /**
+   * room.setPublic (host, any phase, co-op only): the room list and matchmaking take the room, or let it go.
+   * @param {Session} session @param {{ on: boolean }} msg
+   */
   setPublic(session, { on }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -1125,7 +1173,7 @@ export class Lobby {
     return OK;
   }
 
-  /** room.setAutoStart (host, public co-op rooms): start by itself when full and ready (header). */
+  /** room.setAutoStart (host, public co-op rooms): start by itself when full and ready (header). @param {Session} session @param {{ on: boolean }} msg */
   setAutoStart(session, { on }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -1138,14 +1186,17 @@ export class Lobby {
     return OK;
   }
 
-  /** lobby.watchRooms: the session's 연합 매칭 screen opens (the list goes out at once) or closes (header). */
+  /**
+   * lobby.watchRooms: the session's 연합 매칭 screen opens (the list goes out at once) or closes (header).
+   * @param {Session} session @param {{ on: boolean }} msg
+   */
   watchRooms(session, { on }) {
     session.watchRooms = on;
     if (on) this.sendRooms(session);
     return OK;
   }
 
-  /** Was the player kicked from the room within `kickBlockMs` (header: room.kick)? */
+  /** Was the player kicked from the room within `kickBlockMs` (header: room.kick)? @param {Room} room @param {string} playerId */
   kickedFrom(room, playerId) {
     const until = room.kicks.get(playerId);
     if (until == null) return false;
@@ -1154,8 +1205,9 @@ export class Lobby {
     return false;
   }
 
-  /** The AI seat that gives way to a Doctor in a public room: the last added (header). @returns {Seat | null} */
+  /** The AI seat that gives way to a Doctor in a public room: the last added (header). @param {Room} room @returns {Seat | null} */
   lastBot(room) {
+    /** @type {Seat | null} */
     let pick = null;
     for (const s of room.seats) if (s && s.isBot && (!pick || (s.botSeq ?? 0) >= (pick.botSeq ?? 0))) pick = s;
     return pick;
@@ -1224,7 +1276,7 @@ export class Lobby {
     const rooms = [...this.rooms.values()].filter((r) => r.public && r.mode === 'coop' && !r.disposed)
       .sort((a, b) => (a.match ? 1 : 0) - (b.match ? 1 : 0) || a.publicSince - b.publicSince);
     const rows = rooms.map((r) => this.roomRow(r));
-    const frameFor = (session, shared) => {
+    const frameFor = (/** @type {Session} */ session, /** @type {string | null} */ shared) => {
       const hidden = rooms.filter((r) => r.kicks.size && this.kickedFrom(r, session.playerId));
       return hidden.length ? encode({ t: 'lobby.rooms', rooms: rows.filter((_, i) => !hidden.includes(rooms[i])) }) : shared;
     };
@@ -1245,7 +1297,7 @@ export class Lobby {
     if (rows.some((r) => r.state === 'match')) this.noteRooms(5000);
   }
 
-  /** Every seat taken (AI seats too) and every other Doctor connected and ready: the auto start may count (header). */
+  /** Every seat taken (AI seats too) and every other Doctor connected and ready: the auto start may count (header). @param {Room} room */
   autoStartReady(room) {
     if (!room.autoStart || !room.public || room.mode !== 'coop' || room.match || room.disposed) return false;
     if (room.freeSeat() >= 0 || room.seatsOpen()) return false;
@@ -1255,7 +1307,7 @@ export class Lobby {
     return !this.restartNotice?.startRefusal();
   }
 
-  /** broadcastState: start the auto start's count when the room is ready for it, stop it when it is not (header). */
+  /** broadcastState: start the auto start's count when the room is ready for it, stop it when it is not (header). @param {Room} room */
   refreshAutoStart(room) {
     if (!this.autoStartReady(room)) { this.cancelAutoStart(room); return; }
     if (room.autoTimer) return;
@@ -1264,16 +1316,17 @@ export class Lobby {
     room.autoTimer.unref?.();
   }
 
+  /** @param {Room} room */
   cancelAutoStart(room) {
     if (room.autoTimer) clearTimeout(room.autoTimer);
     room.autoTimer = null;
     room.autoStartAt = null;
   }
 
-  /** The auto start's count ran out: the match starts as room.start would (the host's network limit included). */
+  /** The auto start's count ran out: the match starts as room.start would (the host's network limit included). @param {Room} room */
   autoStartFire(room) {
     if (!this.autoStartReady(room)) { this.broadcastState(room); return; }
-    const key = this.registry.byId(room.hostId)?.limitKey || null;
+    const key = this.registry.byId(/** @type {string} */ (room.hostId))?.limitKey || null;
     if (key && this.opts.maxMatchesPerAddr > 0 && this.countRooms((r) => !!r.match && r.matchKey === key) >= this.opts.maxMatchesPerAddr) {
       this.limitWarn(`match limit (${this.opts.maxMatchesPerAddr}) reached for ${room.code}'s auto start`);
       room.autoStart = false; // no count every 10 s against the limit: the host turns it on again
@@ -1284,7 +1337,7 @@ export class Lobby {
     this.startMatch(room, key);
   }
 
-  /** The per-network room.join limit (header): true when this join is one too many. */
+  /** The per-network room.join limit (header): true when this join is one too many. @param {Session} session */
   joinRefused(session) {
     const key = session.limitKey || null;
     const max = this.opts.joinRateMax;
@@ -1307,6 +1360,7 @@ export class Lobby {
    * room.loadout (DESIGN §16): check the operator loadout — and its per-operator 潜能 / 练度 `ops` (0.2.2) — against the
    * game data, store both on the session and the seat, and — while a match runs — hand them to the match (accepted
    * during its briefing and strategy draft, see the header). Either part refused: nothing is stored.
+   * @param {Session} session @param {{ entries: unknown, ops?: unknown, season?: string }} msg
    */
   loadout(session, { entries, ops, season = DEFAULT_SEASON }) {
     if (!this.seasons.has(season)) return fail(ERR.BAD_MSG, 'season not offered');
@@ -1343,6 +1397,7 @@ export class Lobby {
   /**
    * room.ownership (0.2.0 补位): keep the droppable chess of the not-owned list, store it on the session and the seat
    * (see the header). A running match never takes it: it keeps the list its seat had at its start.
+   * @param {Session} session @param {{ notOwned: unknown, season?: string }} msg
    */
   ownership(session, { notOwned, season = DEFAULT_SEASON }) {
     if (!this.seasons.has(season)) return fail(ERR.BAD_MSG, 'season not offered');
@@ -1364,6 +1419,7 @@ export class Lobby {
    * session and the seat (see the header). A running match takes them only while its briefing or strategy draft runs
    * (match.setDiy, 맹약별 선발 프리셋 — maintainer decision 2026-10-09); otherwise it keeps the picks its seat had at its start
    * and these wait for the next match (ROOM_STARTED).
+   * @param {Session} session @param {{ picks: unknown, season?: string }} msg
    */
   diy(session, { picks, season = DEFAULT_SEASON }) {
     if (!this.seasons.has(season)) return fail(ERR.BAD_MSG, 'season not offered');
@@ -1387,6 +1443,7 @@ export class Lobby {
    * 名片干员 (room.card, header): the operator on the player's seat card, '' for none — a data/cards.json operator of an
    * offered season (cardAllowed). Kept on the session and the seat; a change is broadcast to the room. Cosmetic:
    * accepted in any phase, never touches a match.
+   * @param {Session} session @param {{ charId: string }} msg
    */
   card(session, { charId }) {
     const room = this.roomOf(session);
@@ -1395,12 +1452,12 @@ export class Lobby {
     const seat = room ? room.seatOf(session.playerId) : null;
     if (seat && !seat.isBot && seat.card !== session.card) {
       seat.card = session.card;
-      this.broadcastState(room);
+      this.broadcastState(/** @type {Room} */ (room));
     }
     return OK;
   }
 
-  /** May a seat card show `charId` (header 「名片干员」): a data/cards.json operator of a season the server offers. */
+  /** May a seat card show `charId` (header 「名片干员」): a data/cards.json operator of a season the server offers. @param {unknown} charId */
   cardAllowed(charId) {
     const seasons = typeof charId === 'string' && charId ? cardSeasons(this.safeData(DEFAULT_SEASON)).get(charId) : null;
     return !!seasons && seasons.some((s) => this.seasons.has(s));
@@ -1410,6 +1467,7 @@ export class Lobby {
    * room.skins (header 「Operator skins」): store the outfits this player chose on the session (the operators of any
    * offered season) and the seat (those of the room's season), and hand them to a running match. A waiting room is
    * shown a changed map (room.state seats[].skins).
+   * @param {Session} session @param {{ skins: unknown }} msg
    */
   skins(session, { skins }) {
     const kept = freezeSkins(skins, (id) => [...this.seasons].some((s) => operatorCharIds(this.safeData(s)).has(id)));
@@ -1439,7 +1497,10 @@ export class Lobby {
     return OK;
   }
 
-  /** The session's outfits for a seat in a room of `season`: its operators only (header 「Operator skins」), or null. */
+  /**
+   * The session's outfits for a seat in a room of `season`: its operators only (header 「Operator skins」), or null.
+   * @param {Session} session @param {string} [season]
+   */
   seatSkins(session, season = DEFAULT_SEASON) {
     if (!session.skins) return null;
     const ids = operatorCharIds(this.safeData(season));
@@ -1461,6 +1522,7 @@ export class Lobby {
   }
 
   /** net.js, every hello: the browser id for `welcome.bid` (local patch: server/local-moderation.js). */
+  /** @param {Session} session @param {Parameters<typeof localPatch.identify>[2]} info */
   identify(session, info) { return localPatch.identify(this, session, info); }
 
   // ---------------------------------------------------------------------------------------------------
@@ -1470,9 +1532,9 @@ export class Lobby {
   /** @param {Room} room @param {string | null} [key] per-network limit key of the starter */
   startMatch(room, key = null) {
     this.cancelAutoStart(room);
-    const host = room.seatOf(room.hostId);
+    const host = room.seatOf(/** @type {string} */ (room.hostId));
     if (host) host.ready = true;
-    const seats = room.seats.filter(Boolean).map((s) => ({
+    const seats = /** @type {Seat[]} */ (room.seats.filter(Boolean)).map((s) => ({
       seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, connected: s.connected,
       // DESIGN §16: the human's checked operator loadout and (0.2.2) per-operator 潜能 / 练度 (bots fight with the defaults)
       loadout: s.isBot ? null : s.loadout || null,
@@ -1485,6 +1547,7 @@ export class Lobby {
       skins: s.isBot ? null : s.skins || null,
     }));
     // lastPublic / results: the latest m.public broadcast and the m.result frames (encoded), kept for the replay.
+    /** @type {MatchCtx} */
     const ctx = { live: true, ended: false, disposed: false, match: null, lastPublic: null, sharedResult: null, results: new Map() };
     let seed = 0;
     try { seed = this.seedFn() >>> 0; } catch { seed = randomInt(2 ** 32); }
@@ -1510,13 +1573,13 @@ export class Lobby {
         // the 卫戍协议 season (shared/seasons.js): its data above, its rule switches
         season: room.season,
         // another season's data: a custom ruleset's borrowed battlefields / 特训敌人 types (server/match/borrow.js)
-        seasonData: (s) => this.safeData(s),
+        seasonData: (/** @type {string} */ s) => this.safeData(s),
         log: this.log,
         now: this.now,
-        send: (playerId, msg) => (ctx.live ? this.matchSend(room, ctx, playerId, msg) : false),
-        broadcast: (msg) => { if (ctx.live) this.matchBroadcast(room, ctx, msg); },
-        onEnd: (summary) => this.onMatchEnd(room, ctx, summary),
-        factionOf: (playerId) => localPatch.chatFactionOf(room, playerId), // local patch: the result screen's player colors
+        send: (/** @type {string} */ playerId, /** @type {MatchMsg} */ msg) => (ctx.live ? this.matchSend(room, ctx, playerId, msg) : false),
+        broadcast: (/** @type {MatchMsg} */ msg) => { if (ctx.live) this.matchBroadcast(room, ctx, msg); },
+        onEnd: (/** @type {Record<string, any> | null | undefined} */ summary) => this.onMatchEnd(room, ctx, summary),
+        factionOf: (/** @type {string} */ playerId) => localPatch.chatFactionOf(room, playerId), // local patch: the result screen's player colors
       });
       ctx.match = match;
       room.match = match;
@@ -1548,6 +1611,7 @@ export class Lobby {
    * by choice (maintainer decision 2026-11-18). Neither was settled, so no lastSummary ([stats] line) and no replay (a restarted match is the page's
    * 中途退出 record, public/js/main.js). The chat factions are cleared either way (players pick
    * one after seeing the banned bonds, maintainer 2026-10-09).
+   * @param {Room} room @param {MatchCtx} ctx @param {Record<string, any> | null | undefined} summary
    */
   onMatchEnd(room, ctx, summary) {
     if (ctx.ended || !ctx.live || room.matchCtx !== ctx || room.disposed) return;
@@ -1582,7 +1646,7 @@ export class Lobby {
       if (!s || s.isBot || s.left || s.connected) continue;
       const session = this.registry.byId(s.playerId);
       const frames = session ? this.replayFor(room, s.playerId) : null;
-      if (frames && frames.length) session.pendingResult = frames;
+      if (frames && frames.length) /** @type {Session} */ (session).pendingResult = frames;
     }
     const host = room.hostId ? room.seatOf(room.hostId) : null;
     if (!host || host.isBot || host.left) this.migrateHost(room);
@@ -1606,7 +1670,7 @@ export class Lobby {
     } else this.broadcastState(room);
   }
 
-  /** Match unicast; m.result frames are also kept for the replay. */
+  /** Match unicast; m.result frames are also kept for the replay. @param {Room} room @param {MatchCtx} ctx @param {string} playerId @param {MatchMsg} msg */
   matchSend(room, ctx, playerId, msg) {
     if (msg && msg.t === 'm.result') {
       const data = encode(msg);
@@ -1615,7 +1679,7 @@ export class Lobby {
     return this.sendToPlayer(room, playerId, msg);
   }
 
-  /** Match broadcast; the latest m.public and a broadcast m.result are also kept for the replay. */
+  /** Match broadcast; the latest m.public and a broadcast m.result are also kept for the replay. @param {Room} room @param {MatchCtx} ctx @param {MatchMsg} msg */
   matchBroadcast(room, ctx, msg) {
     const data = this.broadcastRoom(room, msg);
     if (data == null) return;
@@ -1626,9 +1690,10 @@ export class Lobby {
   /**
    * Replay record for the humans still seated when a match ends (null when the match produced no m.result,
    * e.g. it was abandoned: those clients then see "simulation closed").
-   * @param {Room} room @returns {Room['replay']}
+   * @param {Room} room @param {MatchCtx} ctx @returns {Room['replay']}
    */
   buildReplay(room, ctx) {
+    /** @type {Map<string, string>} */
     const frames = new Map();
     for (const s of [...room.seats, ...room.spectators]) {
       if (!s || s.isBot || s.left) continue;
@@ -1639,14 +1704,14 @@ export class Lobby {
     return { publicFrame: ctx.lastPublic, frames, pending: new Set(frames.keys()) };
   }
 
-  /** The replay frames still owed to a player (null when they moved on). @returns {string[] | null} */
+  /** The replay frames still owed to a player (null when they moved on). @param {Room} room @param {string} playerId @returns {string[] | null} */
   replayFor(room, playerId) {
     const r = room.replay;
     if (!r || !r.pending.has(playerId)) return null;
-    return [r.publicFrame, r.frames.get(playerId)].filter(Boolean);
+    return /** @type {string[]} */ ([r.publicFrame, r.frames.get(playerId)].filter(Boolean));
   }
 
-  /** The player moved on from the result screen (acted in the room, left): stop replaying it. */
+  /** The player moved on from the result screen (acted in the room, left): stop replaying it. @param {Room} room @param {string} playerId */
   dropReplay(room, playerId) {
     const r = room.replay;
     if (!r || !r.pending.delete(playerId)) return;
@@ -1692,12 +1757,13 @@ export class Lobby {
     if (frames) for (const frame of frames) sendRaw(session.ws, frame);
   }
 
+  /** @param {string} playerId */
   clearResync(playerId) {
     const t = this.resyncTimers.get(playerId);
     if (t) { clearTimeout(t); this.resyncTimers.delete(playerId); }
   }
 
-  /** Log a per-network limit refusal without letting a refusal loop flood the log. */
+  /** Log a per-network limit refusal without letting a refusal loop flood the log. @param {string} text */
   limitWarn(text) {
     const now = this.now();
     if (now - this.limitLog.at < 10_000) { this.limitLog.suppressed++; return; }
@@ -1714,14 +1780,14 @@ export class Lobby {
     this.log.info(`[lobby] ${room.code} ${session.name} (${session.playerId}) ${event}${at}`);
   }
 
-  /** Number of rooms matching a predicate. */
+  /** Number of rooms matching a predicate. @param {(room: Room) => boolean} pred */
   countRooms(pred) {
     let n = 0;
     for (const r of this.rooms.values()) if (pred(r)) n++;
     return n;
   }
 
-  /** Route a 'g.*' intent to the running match. */
+  /** Route a 'g.*' intent to the running match. @param {Session} session @param {MatchMsg} msg */
   routeGame(session, msg) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -1752,7 +1818,7 @@ export class Lobby {
     return OK;
   }
 
-  /** Call an optional match hook without letting it throw. onLeave falls back to onDisconnect. */
+  /** Call an optional match hook without letting it throw. onLeave falls back to onDisconnect. @param {Room} room @param {string} method @param {...unknown} args */
   callMatch(room, method, ...args) {
     const m = room.match;
     if (!m) return undefined;
@@ -1767,6 +1833,7 @@ export class Lobby {
     }
   }
 
+  /** @param {MatchCtx} ctx */
   disposeMatchCtx(ctx) {
     if (ctx.disposed) return;
     ctx.disposed = true;
@@ -1787,7 +1854,10 @@ export class Lobby {
     return dropped ? resolveRuleset({ preset: 'custom', custom: rules }) : rs;
   }
 
-  /** The game data (of a season other than the default: that season's, shared/seasons.js), never throwing. */
+  /**
+   * The game data (of a season other than the default: that season's, shared/seasons.js), never throwing.
+   * @returns {Readonly<Record<string, any>>}
+   */
   safeData(season = DEFAULT_SEASON) {
     try { return season === DEFAULT_SEASON ? this.getData() : this.getData({ season }); } catch (e) { this.log.error('[lobby] getData failed', e); return Object.freeze({}); }
   }
@@ -1804,7 +1874,7 @@ export class Lobby {
   // Membership helpers
   // ---------------------------------------------------------------------------------------------------
 
-  /** The session's current room (self-heals stale `roomCode`). @returns {Room | null} */
+  /** The session's current room (self-heals stale `roomCode`). @param {Session} session @returns {Room | null} */
   roomOf(session) {
     if (!session.roomCode) return null;
     const room = this.rooms.get(session.roomCode);
@@ -1814,15 +1884,19 @@ export class Lobby {
     return room;
   }
 
-  /** A playerId for a new AI seat of the room. */
+  /** A playerId for a new AI seat of the room. @param {Room} room */
   newBotId(room) {
     let playerId;
     do playerId = 'ai_' + randomBytes(4).toString('hex'); while (room.seatOf(playerId));
     return playerId;
   }
 
-  /** A human's seat with the session's settings of the room's season (header). @returns {Seat} */
+  /**
+   * A human's seat with the session's settings of the room's season (header).
+   * @param {number} idx @param {Session} session @param {string} [season] @returns {Seat}
+   */
   humanSeat(idx, session, season = DEFAULT_SEASON) {
+    /** @type {{ loadout?: Seat['loadout'], ops?: Seat['ops'], notOwned?: Seat['notOwned'], diy?: Seat['diy'] }} */
     const kept = season === DEFAULT_SEASON ? session : session.seasonal?.[season] || {};
     return {
       seat: idx, playerId: session.playerId, name: session.name, isBot: false, ready: false, connected: session.connected, left: false,
@@ -1869,7 +1943,8 @@ export class Lobby {
 
   /**
    * Free a spectator seat (removeMember): the match forgets the spectator; never a host change or a disposal — a
-   * spectator neither holds the host nor keeps a room alive. @returns {boolean} true when it was a spectator seat
+   * spectator neither holds the host nor keeps a room alive. @param {Room} room @param {string} playerId
+   * @returns {boolean} true when it was a spectator seat
    */
   freeSpectatorSeat(room, playerId) {
     const i = room.spectators.findIndex((s) => s.playerId === playerId);
@@ -1885,6 +1960,7 @@ export class Lobby {
    * Lowest-seat connected human becomes host (else lowest-seat human, else null). In LOBBY the new host's ready is
    * cleared: the host never readies (start counts as the host's ready), and a guest's ready kept into the host role
    * showed the seat as 已就绪 instead of 创建者 — the room looked hostless — with no ready button left to undo it.
+   * @param {Room} room
    */
   migrateHost(room) {
     const humans = room.activeHumans();
@@ -1897,6 +1973,7 @@ export class Lobby {
     }
   }
 
+  /** @param {Room} room @param {Seat | Spectator} seat */
   startGrace(room, seat, ms = this.opts.lobbyGraceMs) {
     const playerId = seat.playerId;
     this.clearGrace(playerId);
@@ -1916,6 +1993,7 @@ export class Lobby {
     this.graceTimers.set(playerId, t);
   }
 
+  /** @param {string} playerId */
   clearGrace(playerId) {
     const t = this.graceTimers.get(playerId);
     if (t) { clearTimeout(t); this.graceTimers.delete(playerId); }
@@ -1964,12 +2042,15 @@ export class Lobby {
   // Deploy handoff (header; server/local-generation.js)
   // ---------------------------------------------------------------------------------------------------
 
-  /** A token net.js does not know: a session the deploy's previous server handed over with its room, or null. */
+  /** A token net.js does not know: a session the deploy's previous server handed over with its room, or null. @param {string} token */
   adoptSession(token) { return this.generation?.adopt(token) ?? null; }
 
-  /** A waiting room as the new server rebuilds it (adoptRoom). Departed seats and humans without a session are left out. */
+  /**
+   * A waiting room as the new server rebuilds it (adoptRoom). Departed seats and humans without a session are left out.
+   * @param {Room} room
+   */
   roomSnapshot(room) {
-    const person = (s) => {
+    const person = (/** @type {Seat | Spectator} */ s) => {
       const session = this.registry.byId(s.playerId);
       return session && session.roomCode === room.code ? { playerId: s.playerId, name: s.name, token: session.token } : null;
     };
@@ -2026,10 +2107,10 @@ export class Lobby {
     room.season = this.seasons.has(seasonOf(snap.season)) ? seasonOf(snap.season) : DEFAULT_SEASON;
     if (mode === 'solo' && seasonFeature(room.season, 'soloGrades')) {
       room.grade = isGrade(snap.grade) ? snap.grade : firstGrade(snap.difficulty);
-      room.difficulty = gradeDifficulty(room.grade);
+      room.difficulty = gradeDifficulty(/** @type {number} */ (room.grade));
     }
     const ids = new Map(); // the previous server's playerId → this one's
-    const take = (p) => {
+    const take = (/** @type {{ playerId?: unknown, token: unknown, name?: unknown }} */ p) => {
       const session = this.registry.adopt(p);
       if (!session) return null;
       session.roomCode = code;
@@ -2082,6 +2163,7 @@ export class Lobby {
   // ---------------------------------------------------------------------------------------------------
 
   /** Connected, non-departed human sessions of a room — its spectators included (room.state, match broadcasts). */
+  /** @param {Room} room @returns {Generator<Session>} */
   *memberSessions(room) {
     for (const s of [...room.seats, ...room.spectators]) {
       if (!s || s.isBot || s.left) continue;
@@ -2090,6 +2172,7 @@ export class Lobby {
     }
   }
 
+  /** @param {Room} room */
   broadcastState(room) {
     if (room.disposed) return;
     this.refreshAutoStart(room); // its count, in the state below (header 「공개방」)
@@ -2099,11 +2182,12 @@ export class Lobby {
     this.queue.onRoom(room); // its matchmaking offers (server/matchmaking.js 「공개방」)
   }
 
+  /** @param {Room} room @param {Session} session */
   sendState(room, session) {
     sendSession(session, room.toState());
   }
 
-  /** Match broadcast: encode once, send to every connected member. @returns {string | null} the encoded frame */
+  /** Match broadcast: encode once, send to every connected member. @param {Room} room @param {{ t: string }} msg @returns {string | null} the encoded frame */
   broadcastRoom(room, msg) {
     if (room.disposed) return null;
     const data = encode(msg);
@@ -2113,7 +2197,7 @@ export class Lobby {
     return data;
   }
 
-  /** Match unicast. @returns {boolean} */
+  /** Match unicast. @param {Room} room @param {string} playerId @param {MatchMsg} msg @returns {boolean} */
   sendToPlayer(room, playerId, msg) {
     if (room.disposed) return false;
     const seat = room.seatOf(playerId) || room.spectatorOf(playerId);

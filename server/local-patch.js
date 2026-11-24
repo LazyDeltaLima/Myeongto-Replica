@@ -51,11 +51,18 @@ export { debugFunds, debugMode, DEBUG_PIN_DEFAULT } from './local-console.js';
 
 const OK = Object.freeze({ ok: true });
 
+/**
+ * @typedef {import('./lobby.js').Lobby} Lobby
+ * @typedef {import('./lobby.js').Room} Room
+ * @typedef {import('./net.js').Session} Session
+ */
+
+/** @param {string} code @param {string} [detail] */
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });
 
 // one line of printable text — the cleaning of net.js sanitizeName (keep in sync) with another cap
 const STRIP_RANGES = [[0x00, 0x1f], [0x7f, 0x9f], [0xad, 0xad], [0x200b, 0x200f], [0x2028, 0x202e], [0x2060, 0x206f], [0xfeff, 0xfeff]];
-const hexEscape = (n) => '\\u' + n.toString(16).padStart(4, '0');
+const hexEscape = (/** @type {number} */ n) => '\\u' + n.toString(16).padStart(4, '0');
 const STRIP_RE = new RegExp('[' + STRIP_RANGES.map(([a, b]) => (a === b ? hexEscape(a) : `${hexEscape(a)}-${hexEscape(b)}`)).join('') + ']', 'g');
 const LONE_SURROGATE_RE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g;
 /** @param {unknown} raw @param {number} max @returns {string | null} */
@@ -86,13 +93,14 @@ export function largeBots(env = process.env) {
  * when unset. Only bots of rooms with a connected seated human count (`liveBots`): a room whose humans all dropped
  * parks at its next untimed prep or is abandoned when the 10-minute reconnect window ends, so it does not hold the
  * budget; a returning human may push the count past the cap by that room's bots, never more.
+ * @param {string} name
  */
 export function botBudgetSetting(name, env = process.env) {
   const n = Number.parseInt(env[name] ?? '', 10);
   return n >= 0 ? n : null;
 }
 
-/** AI teammates of a room that cost CPU now: its bots while one of its seated humans is connected, else 0. */
+/** AI teammates of a room that cost CPU now: its bots while one of its seated humans is connected, else 0. @param {Room} room */
 export function liveBots(room) {
   let bots = 0, online = false;
   for (const s of room.seats) {
@@ -107,6 +115,7 @@ export function liveBots(room) {
  * Lobby.addBot: the refusal once the room holds SP_MAX_BOTS AI teammates (0 = none at all), or the server
  * (SP_MAX_BOTS_TOTAL) or the host's network (SP_MAX_BOTS_PER_ADDR, rooms it created; local peers exempt, net.js
  * clientAddress) has its live bots; else null.
+ * @param {Room} room @param {Lobby | null} [lobby] @param {Session | null} [session]
  */
 export function botCap(room, lobby = null, session = null) {
   const maxBots = maxBotsSetting();
@@ -129,25 +138,35 @@ export function botCap(room, lobby = null, session = null) {
     return fail(ERR.BOT_LIMIT, `at most ${total} AI teammates on this server`);
   }
   if (perAddr != null && mine >= perAddr) {
-    lobby.limitWarn?.(`AI teammate limit (${perAddr}) reached for ${session.addr}`);
+    lobby.limitWarn?.(`AI teammate limit (${perAddr}) reached for ${/** @type {Session} */ (session).addr}`);
     return fail(ERR.BOT_LIMIT, `at most ${perAddr} AI teammates from your network`);
   }
   return null;
 }
 
 /**
- * @type {WeakMap<object, { log: any[], seq: number, factions: Map<string, string>, shadow: Map<number, string|null> }>} per
+ * @typedef {{ seq: number, playerId: string, name: string, faction: string | null, text: string, at: number,
+ *   spectator?: boolean, kind?: string }} ChatLine
+ * @typedef {{ log: ChatLine[], seq: number, factions: Map<string, string>, shadow: Map<number, string|null> }} RoomChat
+ */
+/**
+ * @type {WeakMap<object, RoomChat>} per
  * room; `shadow`: seq → sender's browser id of the shadowed lines (header 「Room chat」), seen by their sender only
  */
 const rooms = new WeakMap();
+/** @param {Room} room */
 function chatOf(room) {
   let c = rooms.get(room);
   if (!c) rooms.set(room, (c = { log: [], seq: 0, factions: new Map(), shadow: new Map() }));
   return c;
 }
-const factionsMsg = (c) => ({ t: 'room.factions', factions: Object.fromEntries(c.factions) });
+const factionsMsg = (/** @type {RoomChat} */ c) => ({ t: 'room.factions', factions: Object.fromEntries(c.factions) });
 
-/** First line of Lobby.onMessage: this patch's messages; null for everything else. */
+/**
+ * First line of Lobby.onMessage: this patch's messages; null for everything else.
+ * @param {Lobby} lobby @param {Session} session
+ * @param {{ t: string, text?: unknown, faction?: unknown, on?: unknown, [key: string]: unknown }} msg
+ */
 export function onMessage(lobby, session, msg) {
   if (msg.t === 'room.chat') return chat(lobby, session, msg);
   if (msg.t === 'room.chatFaction') return pickFaction(lobby, session, msg);
@@ -161,6 +180,7 @@ export function onMessage(lobby, session, msg) {
  * 콘솔 모드 (room.setConsole { on }): a solo room's own player turns the console on or off before the match; kept across
  * the room's matches, sent as room.state `console` (server/lobby.js toState). The match it starts is a console match
  * (onMatchCreate). Co-op rooms never have it (maintainer decision 2026-11-15).
+ * @param {Lobby} lobby @param {Session} session @param {{ on?: unknown }} msg
  */
 function setConsole(lobby, session, { on }) {
   const room = lobby.roomOf(session);
@@ -177,7 +197,10 @@ function setConsole(lobby, session, { on }) {
   return OK;
 }
 
-/** Lobby.startMatch, before match.start(): the match of a console room is a console match (server/local-console.js). */
+/**
+ * Lobby.startMatch, before match.start(): the match of a console room is a console match (server/local-console.js).
+ * @param {Room | null | undefined} room @param {Match | null | undefined} match
+ */
 export function onMatchCreate(room, match) {
   if (room && match && room.mode === 'solo' && room.console === true) match.console = true;
 }
@@ -185,6 +208,7 @@ export function onMatchCreate(room, match) {
 /**
  * A feedback report sent during a console match (the console's 「✎ 제보」): the match is still running, so local-feedback.js
  * gets it as the sender's live match — with the console log — instead of a finished one. Null otherwise.
+ * @param {Lobby} lobby @param {Session} session
  */
 function liveConsoleFeedback(lobby, session) {
   const room = lobby.roomOf?.(session);
@@ -195,34 +219,41 @@ function liveConsoleFeedback(lobby, session) {
   return { key: `${room.code}#${room.matchCount}`, console: Array.isArray(m.consoleLog) ? m.consoleLog : [] };
 }
 
-/** The lobby's feedback inbox (SP_FEEDBACK_DIR; off when unset) — made on first use, or the one a test put there. */
+/** The lobby's feedback inbox (SP_FEEDBACK_DIR; off when unset) — made on first use, or the one a test put there. @param {Lobby} lobby */
 export function feedbackOf(lobby) {
   if (!lobby.feedback) lobby.feedback = FeedbackInbox.fromEnv(process.env, lobby.log);
   return lobby.feedback;
 }
 
-/** The lobby's chat moderation (SP_MODERATION_DIR) — made on first use, or the one a test put there. */
+/** The lobby's chat moderation (SP_MODERATION_DIR) — made on first use, or the one a test put there. @param {Lobby} lobby */
 export function moderationOf(lobby) {
   if (!lobby.moderation) lobby.moderation = Moderation.fromEnv(process.env, lobby.log);
   return lobby.moderation;
 }
 
-/** Lobby.identify (net.js, every hello): the browser id to send back in `welcome.bid` (local-moderation.js). */
+/**
+ * Lobby.identify (net.js, every hello): the browser id to send back in `welcome.bid` (local-moderation.js).
+ * @param {Lobby} lobby @param {Session} session @param {Parameters<Moderation['identify']>[1]} info
+ */
 export function identify(lobby, session, info) {
   return moderationOf(lobby).identify(session, info);
 }
 
-/** A human entered a co-op room: one [room] line (local-moderation.js logRoom); none for a solo room. @param {string} event */
+/**
+ * A human entered a co-op room: one [room] line (local-moderation.js logRoom); none for a solo room.
+ * @param {Lobby} lobby @param {Room} room @param {Session} session @param {string} event
+ */
 export function roomEntry(lobby, room, session, event) {
   if (room.mode === 'solo') return;
   moderationOf(lobby).logRoom(room, session, event);
 }
 
-/** Extra welcome fields of this patch (Lobby.welcomeInfo). */
+/** Extra welcome fields of this patch (Lobby.welcomeInfo). @param {Lobby} lobby */
 export function welcomeInfo(lobby) {
   return feedbackOf(lobby).welcomeInfo();
 }
 
+/** @param {Lobby} lobby @param {Session} session @param {{ text?: unknown }} msg */
 function chat(lobby, session, { text }) {
   const room = lobby.roomOf(session);
   if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -242,6 +273,7 @@ function chat(lobby, session, { text }) {
   return OK;
 }
 
+/** @param {Lobby} lobby @param {Session} session @param {{ faction?: unknown }} msg */
 function pickFaction(lobby, session, { faction }) {
   const room = lobby.roomOf(session);
   if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -255,7 +287,7 @@ function pickFaction(lobby, session, { faction }) {
   const now = lobby.now();
   if (now - (session.lastChatAt ?? -Infinity) < CHAT_COOLDOWN_MS) return fail(ERR.RATE);
   session.lastChatAt = now;
-  c.factions.set(seat.playerId, faction);
+  c.factions.set(seat.playerId, /** @type {string} */ (faction));
   push(lobby, room, seat, { kind: 'faction', text: '', at: now });
   lobby.broadcastRoom(room, factionsMsg(c));
   return OK;
@@ -264,6 +296,8 @@ function pickFaction(lobby, session, { faction }) {
 /**
  * Append one line (stamped with the sender's current faction) to the room's history and broadcast it — or, a shadowed
  * line (`only` = its sender's session, header 「Room chat」), send it to its sender alone.
+ * @param {Lobby} lobby @param {Room} room @param {{ playerId: string, name: string }} seat
+ * @param {{ text: string, at: number, spectator?: boolean, kind?: string }} line @param {Session | null} [only]
  */
 function push(lobby, room, seat, line, only = null) {
   const c = chatOf(room);
@@ -275,23 +309,29 @@ function push(lobby, room, seat, line, only = null) {
   else lobby.broadcastRoom(room, { t: 'room.chat', ...msg });
 }
 
-/** A member joined, resumed or took a spectator seat: the room's recent lines and the factions (nothing when empty). */
+/**
+ * A member joined, resumed or took a spectator seat: the room's recent lines and the factions (nothing when empty).
+ * @param {Lobby} lobby @param {Room} room @param {Session} session
+ */
 export function onJoin(lobby, room, session) {
   const c = rooms.get(room);
   if (!c) return;
-  const mine = (l) => l.playerId === session.playerId || (!!session.browserId && c.shadow.get(l.seq) === session.browserId);
+  const mine = (/** @type {ChatLine} */ l) => l.playerId === session.playerId || (!!session.browserId && c.shadow.get(l.seq) === session.browserId);
   const lines = c.shadow.size ? c.log.filter((l) => !c.shadow.has(l.seq) || mine(l)) : c.log;
   if (lines.length) sendSession(session, { t: 'room.chatlog', lines });
   if (c.factions.size) sendSession(session, factionsMsg(c));
 }
 
-/** The chat faction a room's player picked, or null (Match opts.factionOf: m.result players[].faction, read before the clear below). */
+/**
+ * The chat faction a room's player picked, or null (Match opts.factionOf: m.result players[].faction, read before the clear below).
+ * @param {Room | null | undefined} room @param {string} playerId
+ */
 export function chatFactionOf(room, playerId) {
   const c = room ? rooms.get(room) : null;
   return (c && c.factions.get(playerId)) ?? null;
 }
 
-/** The match ended: the factions last one match. */
+/** The match ended: the factions last one match. @param {Lobby} lobby @param {Room} room */
 export function onMatchEnd(lobby, room) {
   if (!room.lastSummary?.console) logMatchStats(lobby, room); // one [stats] log line per finished match (server/local-stats.js); a console match keeps no record
   feedbackOf(lobby).noteMatchEnd(room); // its players may send feedback from the settlement screen
@@ -308,20 +348,24 @@ export function onMatchEnd(lobby, room) {
 //   梓兰   band_shop_refresh_copy_max_lv_char      every manual refresh
 //   佩佩   up_shop_next_refresh_must_present_bond_char  a special refresh is pending (after a listed level-up)
 //   贾维   refresh_shop_count_gain_coin_bond_char_chess the next refresh completes refresh_count, round cap not reached
+/** @param {PlayerState} ps */
 export function refreshBoost(ps) {
   return bandBuffs(ps).some((b) => buffBoosts(ps, b));
 }
 
+/** @typedef {{ key?: string, bb?: Record<string, unknown> }} BandBuff a band's buff record (data/bands.json `buffs`) */
+
+/** @param {PlayerState} ps @returns {BandBuff[]} */
 const bandBuffs = (ps) => {
   const band = ps.bandId ? ps.gd.band(ps.bandId) : null;
   return band && Array.isArray(band.buffs) ? band.buffs : [];
 };
 
-/** Whether this band buff acts on the player's next manual refresh. */
+/** Whether this band buff acts on the player's next manual refresh. @param {PlayerState} ps @param {BandBuff | null} b */
 function buffBoosts(ps, b) {
   const bb = b?.bb || {};
-  const c = (k) => (Number.isFinite(ps.counters?.[k]) ? ps.counters[k] : 0);
-  const n = (v, d) => (Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : d);
+  const c = (/** @type {string} */ k) => (Number.isFinite(/** @type {Record<string, number>} */ (ps.counters)?.[k]) ? /** @type {Record<string, number>} */ (ps.counters)[k] : 0);
+  const n = (/** @type {unknown} */ v, /** @type {number} */ d) => (Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : d);
   switch (b?.key) {
     case 'band_first_self_refresh_present_char': return (ps.round?.refreshes || 0) < 2;
     case 'band_shop_refresh_copy_max_lv_char': return true;
@@ -343,8 +387,8 @@ function buffBoosts(ps, b) {
 // shop.rewardOffer.seq: a new one plays the special clip once (ui/shopBar.js, docs/rules/ui.md 「상점 화면」). A strategy's
 // 「特殊刷新」 refresh (杜遥夜 / 梓兰 / 佩佩) leaves normal goods and plays the normal clip.
 for (const k of ['pushRewardOffer', 'pushItemOffer']) {
-  const upstream = PlayerState.prototype[k];
-  PlayerState.prototype[k] = function pushOffer(...args) {
+  const upstream = /** @type {Record<string, (...args: any[]) => any>} */ (/** @type {unknown} */ (PlayerState.prototype))[k];
+  /** @type {Record<string, (...args: any[]) => any>} */ (/** @type {unknown} */ (PlayerState.prototype))[k] = /** @this {PlayerState} @param {...any} args */ function pushOffer(...args) {
     const offer = upstream.apply(this, args);
     if (offer) offer.seq = this.offerSeq = (Number(this.offerSeq) || 0) + 1;
     return offer;
@@ -354,8 +398,8 @@ for (const k of ['pushRewardOffer', 'pushItemOffer']) {
 const upstreamPrivateView = PlayerState.prototype.privateView;
 PlayerState.prototype.privateView = function privateView() {
   const v = upstreamPrivateView.call(this);
-  try { if (v && v.shop) v.shop.refreshBoost = refreshBoost(this); } catch { /* display only */ }
-  if (v && v.shop && v.shop.rewardOffer) v.shop.rewardOffer.seq = Number(this.offers?.[0]?.seq) || 0;
+  try { if (v && v.shop) /** @type {{ refreshBoost?: boolean }} */ (v.shop).refreshBoost = refreshBoost(this); } catch { /* display only */ }
+  if (v && v.shop && v.shop.rewardOffer) /** @type {{ seq?: number }} */ (v.shop.rewardOffer).seq = Number(this.offers?.[0]?.seq) || 0;
   return v;
 };
 
@@ -364,13 +408,13 @@ PlayerState.prototype.privateView = function privateView() {
 // funds: m.private (new funds) goes out before the throttled m.public (phase ROUND_START), so its baseline was already
 // the new value (0 on every round), and a debug-pinned player's funds never change. While pinned, the gross credit counts.
 const upstreamMatchStartRound = Match.prototype.startRound;
-Match.prototype.startRound = function startRound(r) {
+Match.prototype.startRound = /** @param {number} r */ function startRound(r) {
   const list = Array.isArray(this.order) ? this.order : [];
   for (const ps of list) if (ps) ps._roundGold = { round: r, gain: 0, on: true };
   try { return upstreamMatchStartRound.call(this, r); } finally { for (const ps of list) if (ps && ps._roundGold) ps._roundGold.on = false; }
 };
 const upstreamAddFunds = PlayerState.prototype.addFunds;
-PlayerState.prototype.addFunds = function addFunds(n, opts) {
+PlayerState.prototype.addFunds = /** @param {number} n @param {{ reason?: string }} [opts] */ function addFunds(n, opts) {
   const got = upstreamAddFunds.call(this, n, opts);
   const rg = this._roundGold;
   if (rg && rg.on) rg.gain += fundsPinOf(this) == null || !fundsPinActive() ? got : Math.trunc(Number(n) || 0);
@@ -379,7 +423,7 @@ PlayerState.prototype.addFunds = function addFunds(n, opts) {
 const upstreamRoundGoldView = PlayerState.prototype.privateView;
 PlayerState.prototype.privateView = function privateView() {
   const v = upstreamRoundGoldView.call(this);
-  try { if (v && this._roundGold) v.roundGold = { round: this._roundGold.round, gain: Math.max(0, this._roundGold.gain) }; } catch { /* display only */ }
+  try { if (v && this._roundGold) /** @type {{ roundGold?: { round: number, gain: number } }} */ (v).roundGold = { round: this._roundGold.round, gain: Math.max(0, this._roundGold.gain) }; } catch { /* display only */ }
   return v;
 };
 
@@ -392,6 +436,7 @@ const DEBUG_DIR = '/js/debug/';
 /**
  * Whether a static request is the debug page on a server that does not serve it: only `SP_DEBUG_PAGE=1`
  * serves it; deployed servers answer 404.
+ * @param {string} decodedPath
  */
 export function debugPageHidden(decodedPath, env = process.env) {
   const p = String(decodedPath).toLowerCase();
@@ -405,4 +450,4 @@ export function debugPageHidden(decodedPath, env = process.env) {
  * page needs (`build` for public/js/ui/buildGuard.js) and leaves the player / room counters to checks made from inside
  * the container (Dockerfile HEALTHCHECK, the deploy script).
  */
-export const proxiedRequest = (req) => !!(req && req.headers && req.headers['x-forwarded-for']);
+export const proxiedRequest = (/** @type {import('node:http').IncomingMessage | null | undefined} */ req) => !!(req && req.headers && req.headers['x-forwarded-for']);

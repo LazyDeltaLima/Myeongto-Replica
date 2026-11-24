@@ -52,6 +52,12 @@ declare module '../server/match/Match.js' {
     consoleLog?: Array<Record<string, any>>;
     _consoleEnding?: boolean;
     _consoleRevived?: boolean;
+    // the console's view (server/local-console.js consoleView, made on first use), its last notice, a retry's cleared flag
+    debugCandidates?: ReturnType<typeof import('../server/local-console.js').debugCandidates>;
+    debugBountyBosses?: string[];
+    debugActiveBands?: boolean;
+    consoleNote?: { seq: number, kind: string, round: number } | null;
+    consoleCleared?: boolean;
   }
 }
 
@@ -70,6 +76,13 @@ declare module '../server/match/PlayerState.js' {
     _roundGold?: { round: number, gain: number, on: boolean };
     /** console mode: the seat quit with the console's 「끝내기」 (server/local-console.js) */
     _consoleQuit?: boolean;
+    // server/local-console.js: the funds pin (con.funds; undefined = the env default) and the real funds under it, the
+    // 指令 without limits (con.bandUnlimited), the layers before the first con.setLayers, a preset board's AI seat
+    debugFundsPin?: number | null;
+    _funds?: number;
+    consoleBandUnlimited?: boolean;
+    consoleLayersBase?: Record<string, number> | null;
+    debugLocked?: boolean;
     /** never set: a SpectatorSeat's flag, read wherever a viewer may be either (match/platform.js handle) */
     spectator?: undefined;
   }
@@ -89,6 +102,9 @@ declare module '../server/lobby.js' {
     restartNotice?: import('../server/local-restart.js').RestartNotice;
     /** the deploy's generation (server/local-generation.js; set by server/index.js) */
     generation?: import('../server/local-generation.js').Generation;
+    // server/local-patch.js feedbackOf / moderationOf: made on first use (or put there by a test)
+    feedback?: import('../server/local-feedback.js').FeedbackInbox;
+    moderation?: import('../server/local-moderation.js').Moderation;
   }
   interface Room {
     /** the console mode of a solo room (room.setConsole, server/local-patch.js) */
@@ -101,5 +117,15 @@ declare module '../server/net.js' {
     // lobby-owned (server/lobby.js): the 공개방 list subscription, the 名片干员 of the seat card
     watchRooms?: boolean;
     card?: string | null;
+    // the chat moderation's (server/local-moderation.js Moderation.identify / chatMute): the browser id bound at hello,
+    // its issue time, what the last [id] line logged, the ban whose follow-up was last logged
+    browserId?: string;
+    bidIssuedAt?: number;
+    loggedName?: string;
+    loggedKey?: string | null;
+    netSharedLogged?: string;
+    netMuteLogged?: string;
+    /** the last room.chat / room.chatFaction (server/local-patch.js, the chat cooldown) */
+    lastChatAt?: number;
   }
 }

@@ -35,7 +35,7 @@ export function noStartMinutes(env = process.env) {
 /** The file SIGUSR2 reads (SP_RESTART_FILE, else <tmpdir>/stronghold-restart — /tmp is the container's tmpfs). */
 export const restartFile = (env = process.env) => env.SP_RESTART_FILE || path.join(os.tmpdir(), 'stronghold-restart');
 
-/** The file's text → minutes until the restart (> 0), 0 to cancel, null when unreadable. */
+/** The file's text → minutes until the restart (> 0), 0 to cancel, null when unreadable. @param {unknown} text */
 export function parseRestartFile(text) {
   const s = String(text ?? '').trim().toLowerCase();
   if (s === 'cancel' || s === 'off') return 0;
@@ -66,7 +66,7 @@ export class RestartNotice {
   /** ms until the restart (0 once it is due), null when none is planned. */
   inMs() { return this.at == null ? null : Math.max(0, this.at - this.now()); }
 
-  /** Start (or move) the countdown: the restart comes `minutes` from now; 0 calls it off. */
+  /** Start (or move) the countdown: the restart comes `minutes` from now; 0 calls it off. @param {number} minutes */
   schedule(minutes) {
     if (!(minutes > 0)) { this.cancel(); return; }
     this.clearTimers();
@@ -117,6 +117,7 @@ export class RestartNotice {
 
   close() { this.clearTimers(); }
 
+  /** @param {number} ms @param {() => void} fn */
   later(ms, fn) {
     const timer = setTimeout(fn, ms);
     timer.unref?.();

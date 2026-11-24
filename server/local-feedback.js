@@ -55,6 +55,7 @@ export const BATTLES_MAX = 40;
 export const REPO_RE = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
 
 const OK = Object.freeze({ ok: true });
+/** @param {string} code @param {string} [detail] */
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });
 
 // control characters except tab and newline, the zero-width and direction marks, lone surrogates (cf. local-patch.js)
@@ -75,17 +76,20 @@ export function cleanFeedbackText(raw, max = FEEDBACK_TEXT_MAX) {
   return s ? s : null;
 }
 
-/** `YYYYMMDD` (UTC) of an epoch ms. */
+/** `YYYYMMDD` (UTC) of an epoch ms. @param {number} ms */
 const dayOf = (ms) => new Date(ms).toISOString().slice(0, 10).replace(/-/g, '');
 
-/** Unpack the battles field (base64 gzip of a JSON array): the array, or { error } saying why it was dropped. */
+/**
+ * Unpack the battles field (base64 gzip of a JSON array): the array, or { error } saying why it was dropped.
+ * @param {string} b64
+ */
 export function unpackBattles(b64) {
   try {
     const raw = zlib.gunzipSync(Buffer.from(b64, 'base64'), { maxOutputLength: BATTLES_MAX_BYTES });
     const list = JSON.parse(raw.toString('utf8'));
     if (!Array.isArray(list)) return { error: 'not an array' };
     return { list: list.slice(-BATTLES_MAX) };
-  } catch (e) {
+  } catch (/** @type {any} */ e) {
     return { error: String(e?.code || e?.message || e).slice(0, 80) };
   }
 }
@@ -104,10 +108,11 @@ export class FeedbackInbox {
     this.limits = { recentMs: RECENT_MS, perMatch: PER_MATCH, perAddr: PER_ADDR, global: GLOBAL, ...limits };
     /** playerId → { at, key, stats, console } of the match it just finished */
     this.recent = new Map();
-    /** match key → reports taken */
+    /** @type {Map<string, number>} match key → reports taken */
     this.perMatch = new Map();
-    /** address → send times in the last day */
+    /** @type {Map<string, number[]>} address → send times in the last day */
     this.perAddr = new Map();
+    /** @type {number[]} */
     this.sent = [];
     this.key = null;
     this.pruneTimer = null;
@@ -118,14 +123,17 @@ export class FeedbackInbox {
         this.prune();
         this.pruneTimer = setInterval(() => this.prune(), PRUNE_EVERY_MS);
         this.pruneTimer.unref?.();
-      } catch (e) {
+      } catch (/** @type {any} */ e) {
         this.log.error(`[feedback] inbox ${this.dir} unusable, feedback off: ${e?.message || e}`);
         this.dir = null;
       }
     }
   }
 
-  /** The inbox of SP_FEEDBACK_DIR (off when unset); SP_FEEDBACK_REPO names the repository the relay posts to. */
+  /**
+   * The inbox of SP_FEEDBACK_DIR (off when unset); SP_FEEDBACK_REPO names the repository the relay posts to.
+   * @param {NodeJS.ProcessEnv} [env] @param {{ info: Function, warn: Function, error: Function }} [log]
+   */
   static fromEnv(env = process.env, log = console) {
     const dir = typeof env.SP_FEEDBACK_DIR === 'string' && env.SP_FEEDBACK_DIR.trim() ? env.SP_FEEDBACK_DIR.trim() : null;
     const repo = typeof env.SP_FEEDBACK_REPO === 'string' ? env.SP_FEEDBACK_REPO.trim() : '';
@@ -134,12 +142,12 @@ export class FeedbackInbox {
   }
 
   get enabled() { return !!this.dir; }
-  get inbox() { return path.join(this.dir, 'inbox'); }
+  get inbox() { return path.join(/** @type {string} */ (this.dir), 'inbox'); }
 
   /** The address hash key: SP_FEEDBACK_DIR/.key (32 random bytes, made on first use, mode 0600). */
   loadKey() {
-    const file = path.join(this.dir, '.key');
-    try { return fs.readFileSync(file); } catch (e) { if (e?.code !== 'ENOENT') throw e; }
+    const file = path.join(/** @type {string} */ (this.dir), '.key');
+    try { return fs.readFileSync(file); } catch (/** @type {any} */ e) { if (e?.code !== 'ENOENT') throw e; }
     const key = crypto.randomBytes(32);
     fs.writeFileSync(file, key, { mode: 0o600, flag: 'wx' });
     return key;
@@ -166,7 +174,10 @@ export class FeedbackInbox {
 
   stop() { if (this.pruneTimer) clearInterval(this.pruneTimer); this.pruneTimer = null; }
 
-  /** A match ended (local-patch.js onMatchEnd): its human seats may send feedback for RECENT_MS. */
+  /**
+   * A match ended (local-patch.js onMatchEnd): its human seats may send feedback for RECENT_MS.
+   * @param {import('./lobby.js').Room | null | undefined} room
+   */
   noteMatchEnd(room) {
     if (!this.dir || !room) return;
     const at = this.now();
@@ -233,7 +244,7 @@ export class FeedbackInbox {
     };
     try {
       fs.writeFileSync(file, JSON.stringify(rec), { flag: 'wx', mode: 0o640 });
-    } catch (e) {
+    } catch (/** @type {any} */ e) {
       if (e?.code === 'EEXIST') return fail(ERR.ALREADY, 'id taken');
       this.log.error(`[feedback] ${id} not written: ${e?.message || e}`);
       return fail(ERR.INTERNAL);

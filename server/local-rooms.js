@@ -14,9 +14,9 @@
 
 import { PHASE } from '../shared/constants.js';
 
-const minutes = (ms) => (Number.isFinite(ms) && ms >= 0 ? Math.floor(ms / 60_000) : null);
+const minutes = (/** @type {number} */ ms) => (Number.isFinite(ms) && ms >= 0 ? Math.floor(ms / 60_000) : null);
 
-/** The status row of one lobby room. */
+/** The status row of one lobby room. @param {import('./lobby.js').Room} room @param {number} now */
 export function roomRow(room, now) {
   const m = room.match;
   let humans = 0, connected = 0, bots = 0, awayAt = -Infinity;
@@ -25,7 +25,7 @@ export function roomRow(room, now) {
     if (s.isBot) { bots++; continue; }
     humans++;
     if (s.connected) connected++;
-    else if (Number.isFinite(s.awayAt)) awayAt = Math.max(awayAt, s.awayAt);
+    else if (Number.isFinite(s.awayAt)) awayAt = Math.max(awayAt, /** @type {number} */ (s.awayAt));
   }
   return {
     code: room.code,
@@ -45,7 +45,7 @@ export function roomRow(room, now) {
   };
 }
 
-/** Every room of the lobby, running matches first, then by round (highest first). */
+/** Every room of the lobby, running matches first, then by round (highest first). @param {import('./lobby.js').Lobby} lobby */
 export function roomList(lobby) {
   const now = lobby.now();
   return [...lobby.rooms.values()].map((r) => roomRow(r, now))

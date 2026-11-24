@@ -115,9 +115,11 @@ export const QUEUE_DEFAULTS = Object.freeze({
 });
 
 const OK = Object.freeze({ ok: true });
+/** @param {string} code @param {string} [detail] */
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });
 
 /**
+ * @typedef {import('./net.js').Session} Session
  * @typedef {{ key: string, playerId: string, difficulty: string,
  *   ruleset: string | null, cap: number, season: string, quick: boolean, pool: string, qk: string, joinedAt: number,
  *   limitKey: string | null, group: Group | null, offer: Offer | null, accepting?: boolean, offline: NodeJS.Timeout | null,
@@ -135,18 +137,24 @@ const fail = (code, detail) => (detail ? { error: code, detail } : { error: code
  *   ruleset / cap / qk = the regular queue it completes (a group of quick players alone: classic, 4, their queue)
  */
 
-/** A queue's key: its difficulty, ruleset key (shared/ruleset.js rulesetKey), room size (the 8-player queues) and season. */
+/**
+ * A queue's key: its difficulty, ruleset key (shared/ruleset.js rulesetKey), room size (the 8-player queues) and season.
+ * @param {string} difficulty @param {string | null} ruleset @param {number} [cap] @param {string} [season]
+ */
 const queueKey = (difficulty, ruleset, cap = MAX_SEATS, season = DEFAULT_SEASON) =>
   `${difficulty}|${ruleset}${cap > MAX_SEATS ? `|${cap}` : ''}${season !== DEFAULT_SEASON ? `|${season}` : ''}`;
-/** The `size` and `season` fields of a queue message: only for the 8-player queues / another season (header). */
+/**
+ * The `size` and `season` fields of a queue message: only for the 8-player queues / another season (header).
+ * @param {{ cap: number, season: string }} entry
+ */
 const sizeOf = (entry) => ({ ...(entry.cap > MAX_SEATS ? { size: entry.cap } : {}), ...(entry.season !== DEFAULT_SEASON ? { season: entry.season } : {}) });
-/** A 快速匹配 pool (header): every queue of one difficulty and season. */
+/** A 快速匹配 pool (header): every queue of one difficulty and season. @param {string} difficulty @param {string} [season] */
 const poolKey = (difficulty, season = DEFAULT_SEASON) => `${difficulty}${season !== DEFAULT_SEASON ? `|${season}` : ''}`;
-/** The quick players' queue of a pool. */
+/** The quick players' queue of a pool. @param {string} pool */
 const quickOf = (pool) => `quick|${pool}`;
 /** A group of quick players alone plays the classic 4-seat rules (maintainer decision 2026-11-07). */
 const QUICK_RULESET = 'classic';
-/** The queue fields of a message about an entry: its ruleset and size, or `quick` (header). */
+/** The queue fields of a message about an entry: its ruleset and size, or `quick` (header). @param {Entry} entry */
 const tagOf = (entry) => (entry.quick
   ? { quick: true, ...(entry.season !== DEFAULT_SEASON ? { season: entry.season } : {}) }
   : { ruleset: entry.ruleset, ...sizeOf(entry) });
@@ -170,7 +178,7 @@ export class Matchmaker {
     /** @type {Map<string, string>} queue key → its pool */
     this.qkPool = new Map();
     this.groupSeq = 0;
-    /** lobby.queueCounts pacing (header): the last counts sent (JSON), when, and the pending send */
+    /** @type {string | null} lobby.queueCounts pacing (header): the last counts sent (JSON), when, and the pending send */
     this.countsSent = null;
     this.countsAt = -Infinity;
     /** @type {NodeJS.Timeout | null} */
@@ -202,6 +210,8 @@ export class Matchmaker {
   /**
    * room.queue { difficulty, ruleset?, size?, quick?, season?, anySeason? } — a single player (quick: any ruleset and
    * size; anySeason: every season's public rooms, header).
+   * @param {Session} session
+   * @param {{ difficulty: string, ruleset?: string, size?: number, quick?: boolean, season?: string, anySeason?: boolean }} msg
    */
   queue(session, { difficulty, ruleset: preset, size, quick = false, season = DEFAULT_SEASON, anySeason = false }) {
     const lobby = this.lobby;
@@ -246,7 +256,10 @@ export class Matchmaker {
     return OK;
   }
 
-  /** room.unqueue — idempotent; inside a pending group it is a decline (a public room's offer just goes with the entry). */
+  /**
+   * room.unqueue — idempotent; inside a pending group it is a decline (a public room's offer just goes with the entry).
+   * @param {Session} session
+   */
   unqueue(session) {
     const entry = this.entryOf(session);
     if (!entry) return OK;
@@ -256,7 +269,7 @@ export class Matchmaker {
     return OK;
   }
 
-  /** room.queueVote {} — propose 「바로 시작」 in an 8-player queue of LARGE_MIN_PLAYERS or more (header). */
+  /** room.queueVote {} — propose 「바로 시작」 in an 8-player queue of LARGE_MIN_PLAYERS or more (header). @param {Session} session */
   vote(session) {
     const entry = this.entryOf(session);
     if (!entry) return fail(ERR.WRONG_PHASE, 'not queued');
@@ -274,7 +287,7 @@ export class Matchmaker {
     return OK;
   }
 
-  /** room.queueAccept { accept } */
+  /** room.queueAccept { accept } @param {Session} session @param {{ accept: boolean }} msg */
   accept(session, { accept }) {
     const entry = this.entryOf(session);
     if (entry?.offer) return this.answerOffer(entry, accept);
@@ -297,6 +310,7 @@ export class Matchmaker {
   // Session and room events (from the lobby)
   // ---------------------------------------------------------------------------------------------------
 
+  /** @param {Session} session */
   onDisconnect(session) {
     const entry = this.entries.get(session.playerId);
     // a group member may come back before its deadline; a player with a public room's offer has the grace like a
@@ -312,7 +326,7 @@ export class Matchmaker {
     entry.offline.unref?.();
   }
 
-  /** A resumed or repeated hello: resend what the player is waiting for. */
+  /** A resumed or repeated hello: resend what the player is waiting for. @param {Session} session */
   onResume(session) {
     const entry = this.entryOf(session);
     if (!entry) return;
@@ -322,6 +336,7 @@ export class Matchmaker {
     else { this.sendState(entry, session.playerId); this.tryPool(entry.pool); }
   }
 
+  /** @param {Session} session */
   onExpire(session) {
     const entry = this.entries.get(session.playerId);
     if (!entry) return;
@@ -412,7 +427,7 @@ export class Matchmaker {
         spec = { ruleset: QUICK_RULESET, cap: MAX_SEATS, qk: quickKey };
       }
       if (!members) break;
-      this.form(members, null, spec);
+      this.form(members, null, /** @type {{ ruleset: string | null, cap: number, qk: string }} */ (spec));
     }
     this.offerRooms(pool);
   }
@@ -466,13 +481,13 @@ export class Matchmaker {
     return rulesetKey(room.ruleset) === entry.ruleset && room.size === entry.cap;
   }
 
-  /** The seats matchmaking may still offer: the free ones and the AI ones, less the pending offers. */
+  /** The seats matchmaking may still offer: the free ones and the AI ones, less the pending offers. @param {import('./lobby.js').Room} room */
   openSeats(room) {
     const open = room.seats.filter((s) => !s || s.isBot).length;
     return open - (this.offers.get(room)?.size ?? 0);
   }
 
-  /** Was this room declined by the player within `publicSkipMs`? */
+  /** Was this room declined by the player within `publicSkipMs`? @param {string} playerId @param {string} code @param {number} now */
   skipped(playerId, code, now) {
     const m = this.skips.get(playerId);
     if (!m) return false;
@@ -500,7 +515,7 @@ export class Matchmaker {
     this.noteCounts();
   }
 
-  /** room.queueAccept of an offer (header): accepted → Lobby.join; declined → the room is skipped. */
+  /** room.queueAccept of an offer (header): accepted → Lobby.join; declined → the room is skipped. @param {Entry} entry @param {boolean} accept */
   answerOffer(entry, accept) {
     if (!accept) { this.refuseOffer(entry); return OK; }
     const { room } = /** @type {Offer} */ (entry.offer);
@@ -585,7 +600,9 @@ export class Matchmaker {
    */
   pickFour(list, cap = MAX_SEATS) {
     const sizes = list.map((e) => this.size(e));
+    /** @type {Entry[]} */
     const out = [];
+    /** @param {number} i @param {number} left @returns {boolean} */
     const dfs = (i, left) => {
       if (left === 0) return true;
       for (let j = i; j < list.length; j++) {
@@ -627,17 +644,20 @@ export class Matchmaker {
     for (const k of new Set(members.map((e) => e.qk))) this.broadcastQueue(k);
   }
 
-  /** The confirmation window ran out: entries with a silent human leave, the others go back to the front. */
+  /** The confirmation window ran out: entries with a silent human leave, the others go back to the front. @param {Group} group */
   expire(group) {
     if (!this.live(group)) return;
     if (group.vote) { this.resolveVote(group); return; }
-    const done = (e) => this.ids(e).every((id) => group.accepted.has(id));
+    const done = (/** @type {Entry} */ e) => this.ids(e).every((id) => group.accepted.has(id));
     const stay = group.members.filter(done);
     for (const e of group.members) if (!done(e)) this.drop(e, 'timeout');
     this.dissolve(group, stay);
   }
 
-  /** A member declined (or left / expired): its entry leaves the queue, every other entry goes back to the front. */
+  /**
+   * A member declined (or left / expired): its entry leaves the queue, every other entry goes back to the front.
+   * @param {Group} group @param {Entry} entry @param {string} reason
+   */
   decline(group, entry, reason) {
     if (!this.live(group)) return OK;
     if (group.vote) {
@@ -672,9 +692,9 @@ export class Matchmaker {
     this.tryPool(group.pool);
   }
 
-  /** A vote answer or a leaver: the vote ends once every human of it has answered, else the count goes out. */
+  /** A vote answer or a leaver: the vote ends once every human of it has answered, else the count goes out. @param {Group} group */
   voteAnswered(group) {
-    const no = group.vote.declined;
+    const no = /** @type {NonNullable<Group['vote']>} */ (group.vote).declined;
     if (group.ids.every((id) => group.accepted.has(id) || no.has(id))) this.resolveVote(group);
     else this.sendFound(group);
     return OK;
@@ -683,6 +703,7 @@ export class Matchmaker {
   /**
    * The end of a 「바로 시작」 vote (header): the all-yes entries start if they hold LARGE_MIN_PLAYERS humans, every other
    * entry waits on; fewer yes: everyone waits on and the queue's proposals cool down.
+   * @param {Group} group
    */
   resolveVote(group) {
     if (!this.live(group)) return;
@@ -703,7 +724,7 @@ export class Matchmaker {
     if (rest.length) this.dissolve({ ...group, members: rest }, rest, late ? null : { vote: 'started', started: humans });
   }
 
-  /** Every human accepted: seat them in a new room, in queue order, and start its match (header). */
+  /** Every human accepted: seat them in a new room, in queue order, and start its match (header). @param {Group} group */
   launch(group) {
     const lobby = this.lobby;
     this.endGroup(group);
@@ -765,20 +786,24 @@ export class Matchmaker {
     return q;
   }
 
-  /** The entry the session waits in. @returns {Entry | null} */
+  /** The entry the session waits in. @param {Session} session @returns {Entry | null} */
   entryOf(session) { return this.entries.get(session.playerId) || null; }
 
   /** The entry's humans (one: the queue holds single players). @param {Entry} entry @returns {string[]} */
   ids(entry) { return [entry.playerId]; }
 
+  /** @param {Entry} _entry */
   size(_entry) { return 1; }
 
+  /** @param {Group} group */
   live(group) { return group.members.some((e) => this.entries.get(e.key) === e && e.group === group); }
 
+  /** @param {Group} group */
   endGroup(group) {
     if (group.timer) { clearTimeout(group.timer); group.timer = null; }
   }
 
+  /** @param {Entry} entry */
   online(entry) {
     return this.ids(entry).every((id) => {
       const session = this.lobby.registry.byId(id);
@@ -789,7 +814,7 @@ export class Matchmaker {
   /** A waiting entry group formation and the offers may take: online, no public room offer pending. @param {Entry} entry */
   available(entry) { return !entry.offer && this.online(entry); }
 
-  /** Waiting single players who sit in a room now (a room taken without Lobby.join) leave the queue. */
+  /** Waiting single players who sit in a room now (a room taken without Lobby.join) leave the queue. @param {Entry[]} q */
   dropSeated(q) {
     for (const e of [...q]) {
       const session = this.lobby.registry.byId(e.playerId);
@@ -797,11 +822,12 @@ export class Matchmaker {
     }
   }
 
+  /** @param {Entry} entry */
   clearOffline(entry) {
     if (entry.offline) { clearTimeout(entry.offline); entry.offline = null; }
   }
 
-  /** Take an entry out of the maps and its queue (its public room offer withdrawn). */
+  /** Take an entry out of the maps and its queue (its public room offer withdrawn). @param {Entry} entry */
   unlist(entry) {
     this.clearOffline(entry);
     this.clearOffer(entry);
@@ -861,8 +887,8 @@ export class Matchmaker {
     for (const p of QUEUE_PRESETS) out[p] = Object.fromEntries(DIFFICULTIES.map((d) => [d, 0]));
     for (const q of this.queues.values()) {
       for (const e of q) {
-        if (e.group || e.quick || e.cap !== cap || e.season !== season || !out[e.ruleset] || !(e.difficulty in out[e.ruleset])) continue;
-        out[e.ruleset][e.difficulty] += this.size(e);
+        if (e.group || e.quick || e.cap !== cap || e.season !== season || !out[/** @type {string} */ (e.ruleset)] || !(e.difficulty in out[/** @type {string} */ (e.ruleset)])) continue;
+        out[/** @type {string} */ (e.ruleset)][e.difficulty] += this.size(e);
       }
     }
     return out;
@@ -881,6 +907,11 @@ export class Matchmaker {
    * seasons' `seasons`.
    */
   countsMsg() {
+    /**
+     * @type {{ counts: Record<string, Record<string, number>>, counts8: Record<string, Record<string, number>>,
+     *   quick: Record<string, number>, seasons?: Record<string, object>,
+     *   rooms?: ReturnType<import('./lobby.js').Lobby['publicRoomCounts']> }}
+     */
     const msg = { counts: this.counts(), counts8: this.counts(LARGE_SEATS), quick: this.quickCounts() };
     const others = [...this.lobby.seasons].filter((id) => id !== DEFAULT_SEASON);
     if (others.length) msg.seasons = Object.fromEntries(others.map((id) => [id, { counts: this.counts(MAX_SEATS, id), counts8: this.counts(LARGE_SEATS, id), quick: this.quickCounts(id) }]));
