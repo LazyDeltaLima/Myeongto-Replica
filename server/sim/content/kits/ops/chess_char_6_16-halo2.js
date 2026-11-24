@@ -6,16 +6,23 @@ import { bodyDist, bodyInRange } from '../../../body.js';
 import {
   num, bv, tbb, moduleBb, live, ANY, enemiesIn, onDefaultSkill, selectedSkill, batOf, pullToward, aura,
 } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill, Bb } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { TalentRecord, RangeGrid } from '../../../../../shared/loadoutRecord.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 溯光星源 chess_char_6_16 (凝滞师) — S3 并流连锁; 数据建模; 能源解析
 
+/** @type {KitFn} */
 function halo2(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), mod = moduleBb(chess);
   const isDef = onDefaultSkill(chess), sid = selectedSkill(chess, def);
   const skillGrid = def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null;
   const n = Math.max(1, Math.floor(num(bb['attack@max_target'], 1))), share = num(bb['attack@atk_share']);
+  /** @param {Unit} unit */
   const slug = (unit) => unit.profile?.onHitStatus?.key === 'sluggish' ? num(unit.profile.onHitStatus.duration) : 0;
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 星图闪烁: ATK +atk; every attack then bounces attack@chain.max_target times between enemies (back and forth
     // allowed, never twice in a row on one; attack@projectile_range tiles), each bounce a full hit with her 停顿
@@ -90,9 +97,9 @@ function halo2(bb, chess, def) {
     talents: [
       { install(battle, unit) { // S3: persistent locks + damage transfer between linked targets
         if (!isDef) return;
-        battle.on('beforeAttack', (ctx) => {
+        battle.on('beforeAttack', (/** @type {{ attacker: Unit, targets: Unit[] }} */ ctx) => {
           if (ctx.attacker !== unit || !unit.skill?.active) return;
-          const valid = (e) => e && e.alive && canTargetEnemy(unit, e, ANY) && bodyInRange(e, unit.rangeKeySet);
+          const valid = (/** @type {Unit | null | undefined} */ e) => e && e.alive && canTargetEnemy(unit, e, ANY) && bodyInRange(e, unit.rangeKeySet);
           const keep = (unit.mem.haloLocks || []).filter(valid);
           for (const e of ctx.targets) if (keep.length < n && !keep.includes(e)) keep.push(e);
           ctx.targets = keep.slice(0, n);
@@ -134,9 +141,9 @@ function halo2(bb, chess, def) {
         }, { owner: unit });
       } },
       { install(battle, unit) { // module DEC-X (远方问候): its trait and its 术法充盈 part (both hidden module parts)
-        const parts = (chess?.talents || []).filter((t) => t && t.index === -1 && t.bb);
+        const parts = /** @type {Array<TalentRecord & { bb: Bb }>} */ ((chess?.talents || []).filter((t) => t && t.index === -1 && t.bb));
         const sp = num(parts.find((t) => 'sp_recovery_per_sec' in t.bb)?.bb.sp_recovery_per_sec);
-        const arc = parts.find((t) => 'damage_scale' in t.bb && t.rangeGrid?.length);
+        const arc = /** @type {(TalentRecord & { bb: Bb, rangeGrid: RangeGrid }) | undefined} */ (parts.find((t) => 'damage_scale' in t.bb && t.rangeGrid?.length));
         // "攻击范围内存在敌人时技力自然恢复速度+0.2/秒"
         if (sp > 0) aura(battle, unit, 0.25, () => {
           if (enemiesIn(battle, unit).length) battle.addBuff(unit, { key: 'halo2:decx', duration: 0.3, refresh: 'replace', mods: { spRecoveryFlat: sp } });
@@ -145,10 +152,10 @@ function halo2(bb, chess, def) {
         // key for every source, so two of them never stack; the part's grid is her tile and the four beside it
         const scale = num(arc?.bb.damage_scale, 1);
         if (scale > 1) aura(battle, unit, 0.25, () => {
-          const tiles = new Set(arc.rangeGrid.map(([dr, dc]) => `${unit.tileR + dr},${unit.tileC + dc}`));
+          const tiles = new Set(/** @type {NonNullable<typeof arc>} */ (arc).rangeGrid.map(([dr, dc]) => `${unit.tileR + dr},${unit.tileC + dc}`));
           for (const a of battle.allyUnits) {
             if (a.kind !== 'op' || !live(a) || !tiles.has(`${a.tileR},${a.tileC}`)) continue;
-            const cur = a.findBuff('magicArcane');
+            const cur = /** @type {BuffRec | null} */ (a.findBuff('magicArcane'));
             if (cur && cur.mods.artsDealtMul > scale) continue;
             battle.addBuff(a, { key: 'magicArcane', duration: 0.4, refresh: 'replace', mods: { artsDealtMul: scale }, source: unit });
           }
@@ -173,6 +180,7 @@ function halo2(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_16_a: halo2,
 };

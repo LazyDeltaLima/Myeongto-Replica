@@ -5,16 +5,24 @@ import { COLS } from '../../../constants.js';
 import {
   num, bv, tbb, live, onDefaultSkill, selectedSkill, instantKind, ABNORMAL, hasAbnormal, cleanseAbnormal, aura,
 } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { Scheduled } from '../../../battle/hooks.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 流明 chess_char_6_14 (疗养师) — S3 灯火不灭; 凡人之愿; 应急处理; module 纯铜单筒望远镜
 
+/** @type {KitFn} */
 function lumen(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
   const isDef = onDefaultSkill(chess);
   const hs = num(bb.heal_scale, 1);
+  /** @param {Battle} battle @param {Unit} unit */
   const abnormalAllies = (battle, unit) => battle.alliesInGrid(unit).filter((a) => hasAbnormal(a)).sort((a, b) => a.hpRatio - b.hpRatio || a.deploySeq - b.deploySeq);
+  /** @param {Battle} battle @param {Unit} t */
   const cleanse = (battle, t) => { cleanseAbnormal(battle, t); };
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 沐雨: the next heal also gives its target and the allies around it (8 tiles) aura.heal_scale × ATK healing
     // per second for aura.projectile_life_time s
@@ -49,7 +57,7 @@ function lumen(bb, chess, def) {
       },
       onStrike({ battle, unit, skill }) {
         const { full } = skill.castPick;
-        const tgts = skill.castPick.tgts.filter((t) => t.alive);
+        const tgts = skill.castPick.tgts.filter((/** @type {Unit} */ t) => t.alive);
         for (const t of tgts) {
           battle.heal(unit, t, unit.s.atk * num(bb.heal_scale, 1), { skillHeal: true });
           if (full) cleanse(battle, t);
@@ -113,6 +121,7 @@ function lumen(bb, chess, def) {
         // (lumen_t_2[listener], only without [cooldown]) heals an ally under its hp_ratio 1.0 (not at full HP) and finishes
         // [enable], whose end starts [cooldown] again
         const sc = num(t1.heal_scale), cd = num(t1.duration, 12);
+        /** @type {Scheduled | null} */
         let timer = null;
         const arm = () => {
           timer?.cancel();
@@ -158,6 +167,7 @@ function lumen(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_14_a: lumen,
 };

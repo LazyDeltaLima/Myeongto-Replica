@@ -2,6 +2,9 @@
 // Conventions of the tier-6 kits: ../shared/tier6.js; kit contract and rules: ../README.md.
 
 import { num, tbb, parseN, enemiesIn, skillGridOf, aura } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 仇白 chess_char_6_15 (领主) — S3 问雪; 入隙; 落英; module 雪浸过的斗笠
@@ -9,6 +12,7 @@ import { num, tbb, parseN, enemiesIn, skillGridOf, aura } from '../shared/tier6.
 /** skchr_qiubai_2/sword_split's own 停顿 on what it hits (its `_activeBuffs` blackboard). */
 const SPLIT_SLUGGISH = 1.2;
 
+/** @type {KitFn} */
 function qiubai(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
   const extraTargets = parseN(def?.skill?.description, /额外攻击(\d+)个目标/, 0);
@@ -20,7 +24,9 @@ function qiubai(bb, chess, def) {
   const firstBind = num(t1.duration_advanced), hitOnce = new WeakSet();
   const crowdCnt = num(t0.cnt), crowdAs = num(t0.attack_speed);
   const skillGridQ = skillGridOf(def);
+  /** @param {Battle} battle @param {Unit} unit */
   const groundIn = (battle, unit) => enemiesIn(battle, unit).filter((e) => !e.isFlying);
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 留羽 (attack SP): the next attack binds its target `duration` s; when that bind ends the target and the enemies
     // near it take aoe_scale × ATK arts
@@ -122,6 +128,7 @@ function qiubai(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_15_a: qiubai,
 };

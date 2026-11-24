@@ -3,15 +3,20 @@
 
 import { COLS } from '../../../constants.js';
 import { num, bv, tbb, parseN, WHOLE_FIELD, bstate, aura } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 纯烬艾雅法拉 chess_char_6_20 (行医) — S3 火山回响; 氤氲; 火山灰疗愈
 
+/** @type {KitFn} */
 function agoat2(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
   const hs = num(bb['attack@heal_scale'], 1);
   const shots = Math.max(1, parseN(def?.skill?.description, /(\d+)连发/, 1));
+  /** @param {Unit} a */
   const elemLoad = (a) => (a.elem ? a.elem.burn + a.elem.neural + a.elem.apoptosis + a.elem.erosion : 0);
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 无声润物 (toggle, heal): ATK +atk, one extra heal target, every ally of her range recovers ep_heal_ratio × ATK
     // 元素损伤 per second. 自动触发 with effects on allies only (nothing to target): on as soon as its SP is full (SP_FULL,
@@ -54,7 +59,7 @@ function agoat2(bb, chess, def) {
           battle.on('elementHit', (ctx) => { // the barrier absorbs 元素损伤 of the allies inside it
             const t = ctx.target, d = ctx.dmg;
             if (!t || t.side !== 'ally' || !d || d.type !== 'element' || d.cancel) return;
-            S.agoatVeils = S.agoatVeils.filter((v) => v.pool > 1e-9 && battle.time < v.until);
+            S.agoatVeils = S.agoatVeils.filter((/** @type {{ pool: number, until: number }} */ v) => v.pool > 1e-9 && battle.time < v.until);
             const k = t.tileR * COLS + t.tileC;
             for (const v of S.agoatVeils) {
               if (!v.keys.has(k)) continue;
@@ -152,6 +157,7 @@ function agoat2(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_20_a: agoat2,
 };

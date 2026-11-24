@@ -4,6 +4,9 @@
 import { sortEnemyTargets } from '../../../targeting.js';
 import { summonToken } from '../../tokens.js';
 import { num, tbb, live, opsOf, selectedSkill, batOf } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { Profile } from '../../../professions.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 迷迭香 chess_char_6_12 (投掷手) — S2 末梢阻断; 歼灭战装备; 感知稳定
@@ -13,11 +16,13 @@ const ROSMON_S2_SPLASH = 1.5;
 /** Tag of the after-shocks fired by S2 attacks (profile `shockTags`): they keep its stun chance after the skill ends. */
 const S2_SHOCK = 'rosmon:s2';
 
+/** @type {KitFn} */
 function rosmon(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1);
   const sid = selectedSkill(chess, def);
   const prob = num(bb['attack@prob']), stun = num(bb['attack@stun']);
   const gearId = (chess?.tokens || []).find((t) => /rosmon_shield/.test(String(t))) || 'token_10012_rosmon_shield';
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 思维膨大 (attack SP): the next attack also deals extra_atk_scale × ATK arts to every enemy it hits
     skchr_rosmon_1: {
@@ -64,7 +69,7 @@ function rosmon(bb, chess, def) {
       // lands after it: it keeps the S2 splash and after-shocks (ai.js copies the profile it was fired with) and its stun
       // chance (rosmon_s_2[stun] rides on the attack) — the attack ids fired during the skill and the after-shock tag below.
       onStart({ battle, unit }) {
-        const p = unit.profile;
+        const p = /** @type {Profile} */ (unit.profile);
         unit.mem.rosSaved = { r: p.splashRadius, n: p.shockTimes, t: p.shockTags };
         p.splashRadius = Math.max(num(p.splashRadius, 0.9), ROSMON_S2_SPLASH);
         p.shockTimes = num(p.shockTimes, 2) + Math.floor(num(bb.add_times));
@@ -73,7 +78,7 @@ function rosmon(bb, chess, def) {
       },
       onEnd({ battle, unit }) {
         const s = unit.mem.rosSaved;
-        if (s) { unit.profile.splashRadius = s.r; unit.profile.shockTimes = s.n; unit.profile.shockTags = s.t; }
+        if (s) { /** @type {Profile} */ (unit.profile).splashRadius = s.r; /** @type {Profile} */ (unit.profile).shockTimes = s.n; /** @type {Profile} */ (unit.profile).shockTags = s.t; }
         unit.mem.rosSaved = null;
         if (unit.mem.rosS2Ids) unit.mem.rosS2Ids[1] = battle._attackSeq;
       },
@@ -102,7 +107,7 @@ function rosmon(bb, chess, def) {
         battle.on('deploy', ({ unit: u }) => {
           if (u !== unit || !atk) return;
           const seq = unit.deploySeq;
-          let pick = null, pickSeq = 0;
+          let pick = /** @type {Unit | null} */ (null), pickSeq = 0;
           const drop = () => { if (pick) battle.removeBuff(pick, KEY); pick = null; };
           battle.every(0.25, (b, sched) => {
             if (!live(unit) || unit.deploySeq !== seq) { drop(); if (unit.deploySeq === seq) battle.removeBuff(unit, KEY); sched.cancel(); return; }
@@ -123,6 +128,7 @@ function rosmon(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_12_a: rosmon,
 };

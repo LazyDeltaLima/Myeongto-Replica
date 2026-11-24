@@ -3,17 +3,23 @@
 
 import { bodyInRange } from '../../../body.js';
 import { num, tbb, live, elementDmg } from '../shared/tier6.js';
+/** @import { KitFns, KitFn } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 妮芙 chess_char_6_10 (本源术师, hidden tier-6 entry) — S2 怵然震爆; 失魂; 窥心钥; module 心声
 
+/** @type {KitFn} */
 function nymph(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
+  /** @param {Battle} battle @param {Unit} unit @param {Unit} t @param {number} scale */
   const soul = (battle, unit, t, scale) => {
-    const burst = t.findBuff('apoptosisBurst');
+    const burst = /** @type {BuffRec | null} */ (t.findBuff('apoptosisBurst'));
     if (!burst || !(scale > 0)) return;
     const key = `nymph:soul:${unit.id}`;
-    const cur = t.findBuff(key);
+    const cur = /** @type {BuffRec | null} */ (t.findBuff(key));
     if (cur) { cur.data.scale = Math.max(cur.data.scale, scale); cur.timeLeft = Math.max(cur.timeLeft, burst.timeLeft); return; }
     battle.addBuff(t, {
       key, duration: Math.max(0.1, burst.timeLeft), interval: 1, source: unit, data: { scale },
@@ -70,6 +76,7 @@ function nymph(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_10_a: nymph,
 };

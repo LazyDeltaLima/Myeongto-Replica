@@ -4,10 +4,14 @@
 import {
   num, tbb, live, selectedSkill, batOf, skillGridOf, hasAbnormal, cleanseAbnormal, aura,
 } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 佩佩 chess_char_6_06 (撼地者) — S3 时光震荡; 往昔传承; 弥漫莲香; module 晴雨
 
+/** @type {KitFn} */
 function pepe(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
   const sid = selectedSkill(chess, def);
@@ -15,11 +19,13 @@ function pepe(bb, chess, def) {
   const ext = num(bb['attack@ability_range_forward_extend']);
   const stun = num(bb['attack@stun']), stunMain = num(bb['attack@stun_main'], stun);
   // 往昔传承: "技能期间每击倒1名敌人，技能结束时获得N点技力，至多回复M点" (any timed skill of hers)
+  /** @param {Unit} unit @param {SkillRuntime} skill */
   const pastSp = (unit, skill) => {
     const gain = Math.min(num(t0.max_sp, Infinity), (unit.mem.pepeKills || 0) * num(t0.sp));
     unit.mem.pepeKills = 0;
     if (gain > 0 && unit.alive) skill.gainSp(gain, 'talent');
   };
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 盖戳！: next attack at atk_scale × ATK (splash included); castable while under a 异常状态, which it cleanses
     // (install below)
@@ -126,6 +132,7 @@ function pepe(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_06_a: pepe,
 };

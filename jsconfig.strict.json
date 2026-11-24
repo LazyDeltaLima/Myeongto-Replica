@@ -39,6 +39,7 @@
     "server/sim/content/kits/ops/chess_char_3_*.js",
     "server/sim/content/kits/ops/chess_char_4_*.js",
     "server/sim/content/kits/ops/chess_char_5_*.js",
+    "server/sim/content/kits/ops/chess_char_6_*.js",
     "server/sim/content/kits/ops/standin-*.js"
   ],
   "exclude": []

@@ -5,10 +5,14 @@ import { COLS } from '../../../constants.js';
 import { bodyInKeys } from '../../../body.js';
 import { num, tbb, moduleBb, live, keyOf, enemiesIn, isTok, instantKind, AROUND8, aura } from '../shared/tier6.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns, KitFn, KitSkill, KitTalent } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 圣聆初雪 chess_char_6_02 (阵法术师) — S3 群山俯首; 无垠的雪景; 圣山的祝福; module 千分之一的心
 
+/** @type {KitFn} */
 function sbell2(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), mod = moduleBb(chess);
   const skillGrid = def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null;
@@ -19,8 +23,10 @@ function sbell2(bb, chess, def) {
    * client's SnowAccumulation `_effectSettings` (sbell2_ground_01 at 1 layer, _02 at 2–4, _03 at 5; none at 0), so every
    * change — a layer laid or spread, a gate frozen, the first enemy leaving a tile — is sent as `cells` [[x, y, layers]…]
    * (maintainer decision 2026-10-16; before, only the talent's layers were announced, as a count).
+   * @param {Unit} unit @param {number} k
    */
   const touch = (unit, k) => (unit.mem.snowDirty ||= new Set()).add(k);
+  /** @param {Battle} battle @param {Unit} unit @param {Record<string, unknown>} [extra] */
   const flush = (battle, unit, extra) => {
     const d = unit.mem.snowDirty;
     if (!d?.size) return;
@@ -33,6 +39,7 @@ function sbell2(bb, chess, def) {
    * a neighbouring ground tile (at most max_cast_tile_count spreads per activation); ground enemies on snow take
    * s2_magic_scale × ATK arts per second; an enemy leaving snow gets `cold` s of 寒冷; "积雪在目标点积累至5层时，使目标点变为
    * 冻结状态": a protection point (the blue gate) reaching max snow turns into the frozen 保护目标 (freezeTile).
+   * @param {Battle} battle @param {Unit} unit @param {number} k
    */
   const addSnow = (battle, unit, k) => {
     const snow = unit.mem.snow;
@@ -71,6 +78,7 @@ function sbell2(bb, chess, def) {
    * (nobody may stand on a gate): her token icetgt (blocks 3; one at a time, maxDeployCount 1) appears on it and blocks the
    * enemies walking in, and that tile's snow is used up. Until 0.1.3 (community report #32): any free tile a melee
    * operator could stand on froze at max snow, and the gate never did. Returns true when the token appeared.
+   * @param {Battle} battle @param {Unit} unit @param {number} k
    */
   const freezeTile = (battle, unit, k) => {
     const r = (k / COLS) | 0, c = k % COLS;
@@ -84,6 +92,7 @@ function sbell2(bb, chess, def) {
     battle.fx('summon', { x: c, y: r, id: ice.id, src: unit.id, token: iceId });
     return true;
   };
+  /** @type {KitTalent[]} */
   const talents = [
     { install(battle, unit) { // 无垠的雪景 (+ S2 snow rules)
       const ivN = num(t0.interval, 5.5), ivS = num(bb.interval, ivN);
@@ -174,6 +183,7 @@ function sbell2(bb, chess, def) {
       });
     } });
   }
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 铃音吹雪 (SEARCH trigger, 2 charges): atk_scale × ATK arts + `cold` s of 寒冷 on every enemy in range, pushed
     // (force 1 = 中力) along her direction — PRTS 备注 "固定方向推动（不会因角度过大或距离过近而变化方向与力度），且仅对地面
@@ -241,7 +251,7 @@ function sbell2(bb, chess, def) {
   };
 }
 
-/** The nearest ground tile around `unit` to `e` ("自身周围的可达地面"), or null. */
+/** The nearest ground tile around `unit` to `e` ("自身周围的可达地面"), or null. @param {Battle} battle @param {Unit} unit @param {Unit} e */
 function lureGoal(battle, unit, e) {
   let goal = null, bd = Infinity;
   for (const [dr, dc] of AROUND8) {
@@ -253,6 +263,7 @@ function lureGoal(battle, unit, e) {
   return goal;
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_02_a: sbell2,
 };

@@ -4,16 +4,21 @@
 import {
   num, tbb, moduleBb, live, isElite, keyOf, onDefaultSkill, selectedSkill, batOf, skillGridOf, N4, freeTiles, aura,
 } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 维娜·维多利亚 chess_char_6_07 (术战者) — S3 俱以我之名; 诸王的叹息; 无拘的锋芒; module 城主的冒险
 
+/** @type {KitFn} */
 function siege2(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {}, mod = moduleBb(chess);
   const isDef = onDefaultSkill(chess), sid = selectedSkill(chess, def);
   const tGrid = def?.talents?.[0]?.rangeGrid?.length ? def.talents[0].rangeGrid : [[1, -1], [1, 0], [1, 1], [0, -1], [0, 0], [0, 1], [-1, -1], [-1, 0], [-1, 1]];
   const tokId = (chess?.tokens || []).find((t) => /vlion/.test(String(t))) || 'token_10040_siege2_vlion';
+  /** @param {Unit | null | undefined} u @param {Unit} unit */
   const mine = (u, unit) => u === unit || (!!u && u.kind === 'token' && u.ownerUnit === unit);
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 重铸晖光: the next attack also deals atk_scale × ATK true damage to every ground enemy on the skill's 4
     // surrounding tiles (+ her own)
@@ -128,6 +133,7 @@ function siege2(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_07_a: siege2,
 };

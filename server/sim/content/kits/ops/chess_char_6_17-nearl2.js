@@ -6,8 +6,11 @@ import { bodyInRange } from '../../../body.js';
 import {
   num, tbb, live, hasPower, onDefaultSkill, selectedSkill, N4, bstate, freeTiles, bestTile,
 } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
-/** Deploy-order tracker: last op deployed per owner (read before the update by priority-0 deploy handlers). */
+/** Deploy-order tracker: last op deployed per owner (read before the update by priority-0 deploy handlers). @param {Battle} battle */
 function ensureDeployTracker(battle) {
   const S = bstate(battle);
   if (S.lastOp) return S.lastOp;
@@ -19,11 +22,13 @@ function ensureDeployTracker(battle) {
 // ------------------------------------------------------------------------------------------------------------------
 // 耀骑士临光 chess_char_6_17 (无畏者) — S3 耀阳颔首; 不畏苦暗; 破晓; module 耀阳锋刃
 
+/** @type {KitFn} */
 function nearl2(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
   const t0Grid = def?.talents?.[0]?.rangeGrid?.length ? def.talents[0].rangeGrid : N4;
   const skillGrid = def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null;
   const tokId = (chess?.tokens || []).find((t) => /nearl2_sword/.test(String(t))) || 'token_10019_nearl2_sword';
+  /** @param {Battle} battle @param {Unit} unit @param {number} r @param {number} c @param {number} scale @param {number} stun */
   const sunBurst = (battle, unit, r, c, scale, stun) => {
     const keys = new Set(absoluteRangeKeys(N4, r, c, 1, 0));
     battle.fx('sunBurst', { x: c, y: r, id: unit.id });
@@ -34,7 +39,9 @@ function nearl2(bb, chess, def) {
     }
   };
   const isDef = onDefaultSkill(chess), sid = selectedSkill(chess, def);
+  /** @type {{ map: Map<string | null, Unit> | null }} */
   const lastOps = { map: null };
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 灿焰长刃 (toggle, 持续时间无限): skill range, ATK / ASPD +
     skchr_nearl2_1: {
@@ -120,6 +127,7 @@ function nearl2(bb, chess, def) {
       { install(battle, unit) { // 不畏苦暗 — the 4 tiles around her, air units too [ASSUMED: no 对空 note on PRTS, like “耀阳”]
         const last = ensureDeployTracker(battle);
         const sc = num(t0.atk_scale), stun = num(t0.stun);
+        /** @param {number} times */
         const dawn = (times) => {
           const foes = battle.unitsInGrid(unit, t0Grid, { side: 'enemy' });
           if (foes.length) battle.fx('sunBurst', { x: unit.x, y: unit.y, id: unit.id });
@@ -145,6 +153,7 @@ function nearl2(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_17_a: nearl2,
 };

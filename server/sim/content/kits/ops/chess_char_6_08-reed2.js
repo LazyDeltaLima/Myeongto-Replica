@@ -3,10 +3,14 @@
 
 import { sortEnemyTargets } from '../../../targeting.js';
 import { num, tbb, moduleBb, live, enemiesIn, onDefaultSkill, aura } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 焰影苇草 chess_char_6_08 (咒愈师) — S3 生命火种; 灼痕; 映耀
 
+/** @type {KitFn} */
 function reed2(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {}, mod = moduleBb(chess);
   const isDef = onDefaultSkill(chess);
@@ -15,6 +19,7 @@ function reed2(bb, chess, def) {
   const aoe = num(bb['talent@aoe_scale']), aoeR = num(bb['talent@range_radius'], 1.7);
   const scorchAtk = num(t0.atk), scorchFragile = num(t0.damage_scale, 1) - 1;
   // 灼痕: ATK −22 % (marker buff, 不可叠加) + 32 % 法术脆弱 at full potential (the catalogue status: 同名效果取最高 with other sources)
+  /** @param {Battle} battle @param {Unit} unit @param {Unit | null | undefined} e */
   const scorch = (battle, unit, e) => {
     if (!e || !e.alive) return;
     const sk = unit.skill;
@@ -23,6 +28,7 @@ function reed2(bb, chess, def) {
     battle.addBuff(e, { key: 'reed2:scorch', duration: dur, refresh: 'extend', mods: scorchAtk ? { atkPct: scorchAtk } : null, visible: true, source: unit });
     if (scorchFragile > 0 && e.alive) battle.applyStatus(e, 'artsFragile', { duration: dur, value: scorchFragile, source: unit });
   };
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 迅捷打击·γ型
     'skcom_quickattack[3]': { kind: 'duration', mods: { atkPct: num(bb.atk), aspd: num(bb.attack_speed) } },
@@ -135,6 +141,7 @@ function reed2(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_08_a: reed2,
 };

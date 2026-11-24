@@ -1168,6 +1168,7 @@ export class SkillRuntime {
   /**
    * The event of a cast's hit that comes after its cast: the damage right after it is the skill ability's, so the view puts that ability's
    * effects on the targets (`part` 'end': its closing ability's, as 锏 S3's EndAttack). A display event: no rule reads it.
+   * @param {string | null} [part]
    */
   castHit(part = null) {
     const ev = ['castHit', this.unit.id];

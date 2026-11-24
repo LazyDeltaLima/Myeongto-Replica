@@ -4,8 +4,11 @@
 import { sortEnemyTargets, aggroCmp, absoluteRangeKeys } from '../../../targeting.js';
 import { summonToken, TOKEN_IDS } from '../../tokens.js';
 import { num, bv, tbb, live, hasPower, ANY, isTok, selectedSkill, batOf, aura } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
-/** Barrier of `total` HP decaying linearly to 0 over `dur` seconds. */
+/** Barrier of `total` HP decaying linearly to 0 over `dur` seconds. @param {Battle} battle @param {Unit} u @param {string} key @param {number} total @param {number} dur */
 function decayingShield(battle, u, key, total, dur) {
   if (!(total > 0)) return null;
   const decays = dur > 0;
@@ -31,6 +34,7 @@ const AIRSTRIKE_RADIUS = 1.8;
 // (`_triggerDelta` 0.1) fires projectile_chr_angel2_t1 (CircleCollider2D radius 1.3, life 0.3 s, hits when it stops)
 const BOMB_RADIUS = 1.3, BOMB_GAP = 0.1, BOMB_DELAY = 0.3;
 
+/** @type {KitFn} */
 function angel2(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
   const sid = selectedSkill(chess, def);
@@ -38,13 +42,16 @@ function angel2(bb, chess, def) {
   const shieldRatio = num(bb.shield_max_hp_ratio), shieldDur = num(bb.shield_max_duration);
   const coordId = (chess?.tokens || []).find((t) => /angel2_target/.test(String(t))) || TOKEN_IDS.deliveryTarget;
   const perAttack = 5; // S3 "每次攻击消耗5发" (the 5 连击)
+  /** @param {Battle} battle @param {Unit} unit */
   const coord = (battle, unit) => battle.allyUnits.find((t) => isTok(t, coordId, unit) && t.alive) ?? null;
+  /** @param {Battle} battle @param {Unit} unit */
   const placeCoord = (battle, unit) => {
     unit.mem.angelCoord = false;
     if (coord(battle, unit)) return;
     const t = summonToken(battle, unit, coordId, 'melee');
     if (t) battle.fx('anchor', { x: t.x, y: t.y, id: t.id, src: unit.id });
   };
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 天空大扫除: 8 bullets at attack@atk_scale × ATK, flyers first; stopped by hand ⇒ the remaining bullets are fired
     // at random enemies of her range
@@ -166,11 +173,13 @@ function angel2(bb, chess, def) {
         // `_ignoreIfOwnerDead`), and her death detaches TalentBomb (Entity.OnFinish → ClearAbilities; its
         // `_interruptAbilityOnDetach` 1 and Ability.CleanupForNextCast stop the cast's coroutine).
         const hr = num(t0.hp_ratio), prob = num(t0.prob), sc = num(t0.aoe_atk_scale, num(t0.damage_scale));
-        const rounds = new Map(); // consumer → { t, target, n, amount }
+        const rounds = /** @type {Map<Unit, { t: number, target: Unit, n: number, amount: number }>} */ (new Map()); // consumer → { t, target, n, amount }
+        /** @param {Unit} u */
         const gridOf = (u) => {
           const tg = u.skill?.active ? u.skill.spec?.targeting : null;
           return (tg?.rangeGrid && !tg.showOwnRange ? tg.rangeGrid : u.rangeGrid) || [[0, 0]];
         };
+        /** @param {{ target: Unit, amount: number }} r @param {number} k */
         const bomb = (r, k) => {
           const t = r.target;
           if (!live(unit) || (k > 0 && !t.alive)) return;
@@ -219,6 +228,7 @@ function angel2(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_13_a: angel2,
 };

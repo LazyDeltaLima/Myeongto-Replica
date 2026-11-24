@@ -5,6 +5,10 @@ import { sortEnemyTargets, canTargetEnemy } from '../../../targeting.js';
 import { rotateOffset } from '../../../dir.js';
 import { bodyDist, bodyKeys, bodyInRange } from '../../../body.js';
 import { num, tbb, live, isElite, hasPower, ANY, bstate } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @typedef {{ e: Unit, x: number, y: number, gone?: boolean }} LemuenLock an S3 lock: its enemy and the mark's spot */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 蕾缪安 chess_char_6_01 (神射手) — S3 礼炮·强制追思; 跨境追缉许可; 逃犯引渡手续
@@ -18,6 +22,7 @@ const LEMUEN_SHELL_WINDOW = 10;
  */
 const LEMUEN_SHELL_FLIGHT = 0.3;
 
+/** @param {Battle} battle */
 function ensureWanted(battle) {
   const S = bstate(battle);
   if (S.wanted) return S.wanted;
@@ -70,17 +75,19 @@ function ensureWanted(battle) {
   return W;
 }
 
+/** @type {KitFn} */
 function lemuen(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
   const aim = Math.max(0.05, num(bb['attack@aim_interval'], 0.5));
   const d1 = num(bb['attack@dist_1'], 0.8);
   const d2 = num(bb['attack@dist_2'], num(bb['attack@projectile_range'], 1.5));
   const s1 = num(bb['attack@proj_atk_scale_1'], 1), s2 = num(bb['attack@proj_atk_scale_2'], 1);
+  /** @param {Battle} battle @param {Unit} unit @param {LemuenLock[]} locks */
   const pickLock = (battle, unit, locks) => {
     const cands = battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile);
     if (!cands.length) return null;
     sortEnemyTargets(battle, unit, cands, 'lowDef');
-    const cnt = (e) => locks.reduce((n, L) => n + (L.e === e ? 1 : 0), 0);
+    const cnt = (/** @type {Unit} */ e) => locks.reduce((n, L) => n + (L.e === e ? 1 : 0), 0);
     let best = null;
     for (const e of cands) if (!best || cnt(e) < cnt(best)) best = e;
     return best;
@@ -92,11 +99,13 @@ function lemuen(bb, chess, def) {
   // (limited_hit_time 1): proj_atk_scale_1 × ATK within dist_1 of its point, proj_atk_scale_2 × ATK beyond, all with the
   // ATK cached when the skill ended ("缓存攻击力"); at most LEMUEN_SHELL_WINDOW s of shells ("最多产生33次轰炸").
   const spread = Math.max(0, num(bb['attack@emit_offset'], 0.2));
+  /** @param {LemuenLock} L */
   const markOf = (L) => {
     const e = L.e;
     if (!L.gone && (!e.alive || !e.hidden)) { L.x = e.x; L.y = e.y; if (!e.alive) L.gone = true; }
     return L;
   };
+  /** @param {Battle} battle @param {Unit} unit @param {number} atk @param {number} x @param {number} y */
   const blast = (battle, unit, atk, x, y) => {
     battle.fx('bombard', { x, y, id: unit.id, r: d2 });
     for (const e of battle.foesInColliderRadius(x, y, d2)) {
@@ -105,10 +114,12 @@ function lemuen(bb, chess, def) {
       battle.dealDamage(unit, e, { amount: atk * (d <= d1 + 1e-9 ? s1 : s2), type: 'phys', isSkill: true, isSplash: true, tags: ['skill', 'bombard'] });
     }
   };
+  /** @param {Battle} battle @param {Unit} unit @param {LemuenLock[]} locks */
   const bombard = (battle, unit, locks) => {
     const atk = unit.s.atk;
     const seq = unit.deploySeq;
     const n = Math.min(locks.length, Math.floor(LEMUEN_SHELL_WINDOW / LEMUEN_SHELL_INTERVAL + 1e-9));
+    /** @param {number} i */
     const fire = (i) => {
       // knocked out / withdrawn after the skill ended: the shells not fired yet are dropped (those in the air land)
       if (!(unit.alive && unit.deployed && unit.deploySeq === seq)) return;
@@ -130,11 +141,13 @@ function lemuen(bb, chess, def) {
   };
   // the aim is the S2 mode's Aim ability, a channel of its own clips (Skill_2_Begin → Skill_2_Idle → Skill_2_End) beside its
   // Normal attack (the plain Attack clips): fx 'lemuenAim' { signal: 'aim', on } holds the channel on her model while she aims
+  /** @param {Battle} battle @param {Unit} unit */
   const endAim = (battle, unit) => {
     if (unit.mem.lemAim) battle.fx('lemuenAim', { x: unit.x, y: unit.y, id: unit.id, signal: 'aim', on: 0 });
     unit.mem.lemAim = null;
     battle.removeBuff(unit, 'lemuen:aim');
   };
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 重逢问候: ammo 5, attacks at attack@atk_scale × ATK on one extra target
     skchr_lemuen_1: {
@@ -231,6 +244,7 @@ function lemuen(bb, chess, def) {
         };
         // #428: extra attack range also opens her skill under the existing content-trigger contract.
         unit.skill?.addTriggerRange(() => [{ keys: wantedKeys(), profile: unit.profile }]);
+        /** @type {string | null} */
         let sig = null;
         const refresh = () => { // update immediately when the last source leaves, before another attack can run
           const keys = live(unit) ? wantedKeys() : [];
@@ -265,6 +279,7 @@ function lemuen(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_01_a: lemuen,
 };

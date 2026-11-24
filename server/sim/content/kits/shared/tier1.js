@@ -52,13 +52,14 @@ import { isHpLoss } from '../../../damage.js';
  *
  * A kit as a kit file of ../ops/ writes it (content/index.js Kit, the contract of its header), with the callbacks the
  * engine calls typed: a SkillSpec's hooks take the SkillCtx (skills.js `_call`), its `attack` hooks the same ctx with the
- * target (ai.js; the rest of `attack` overrides the profile's fields, so its callbacks are the profile's), a talent's and
+ * target (ai.js; the rest of `attack` overrides the profile's fields, so its callbacks are the profile's — `funnelMul: null`
+ * turns the profile's drone ramp off), a talent's and
  * the kit's `install` the battle and the unit (battle/players.js `_setupUnit`), the trait is a profile (professions.js). The rest of a spec is read field by field. A kit file's default export is a `KitFns`:
  * a JSDoc `@type {KitFns}` on `export default` types every builder's `(bb, chess, def)` and what it returns.
  * @typedef {(ctx: SkillCtx) => unknown} SkillHook
  * @typedef {{ [key: string]: any, onHit?: SkillHook, onEachHit?: SkillHook, dmgMul?: number | Profile['dmgMul'],
  *   afterHit?: Profile['afterHit'], canAttack?: Profile['canAttack'], afterAttack?: Profile['afterAttack'],
- *   funnelMul?: Profile['funnelMul'], hitsFn?: Profile['hitsFn'] }} KitAttack
+ *   funnelMul?: Profile['funnelMul'] | null, hitsFn?: Profile['hitsFn'] }} KitAttack
  * @typedef {{ [key: string]: any, attack?: KitAttack | null, onStart?: SkillHook, onEnd?: SkillHook, onTick?: SkillHook,
  *   onHit?: SkillHook, onAttack?: SkillHook, onStrike?: SkillHook, onCastEnd?: SkillHook, onCastCut?: SkillHook,
  *   onBeginLost?: SkillHook, autoTrigger?: SkillHook, castCheck?: SkillHook, castVariant?: SkillHook }} KitSkill

@@ -7,6 +7,9 @@ import {
   elementDmg, aura,
 } from '../shared/tier6.js';
 import { holdProtect, byEnemyAttack } from '../shared/tier1.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 /**
  * "传送至自身位置": a ground enemy that can reach `unit`'s tile on the ground grid is moved onto it (unblocked, its
@@ -18,6 +21,7 @@ import { holdProtect, byEnemyAttack } from '../shared/tier1.js';
  * only 消失 / 自缚 / 免疫传送); every 静态刚体 of the mode flies or is 自缚 anyway. A giant boss (`def.giantBoss`) is never
  * moved, 自缚 or not: the move is the client's ForceSetToTilePosition, which refuses an `isGiantBoss` unit — 规程's
  * 假想敌：械 is held by 束缚 only (docs/rules/sim.md 「거대 보스」).
+ * @param {Battle} battle @param {Unit} unit @param {Unit | null | undefined} e
  */
 function teleportEnemy(battle, unit, e) {
   if (!e || !e.alive || e.isFlying || e.s.flags.selfBound || e.def?.giantBoss) return false;
@@ -36,13 +40,16 @@ function teleportEnemy(battle, unit, e) {
 // ------------------------------------------------------------------------------------------------------------------
 // 余 chess_char_6_03 (本源铁卫) — S3 灶里乾坤; 礼尚往来; 闲云隐市; module 人间百味
 
+/** @type {KitFn} */
 function yu(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), mod = moduleBb(chess), tb = def?.traitBb || {};
   const isDef = onDefaultSkill(chess), sid = selectedSkill(chess, def);
   const wallProb = isDef ? num(bb.prob) : 0, wallBurn = isDef ? num(bb.ep_damage_ratio) : 0;
   // "将第二天赋效果赋予全场所有干员" belongs to S3 (the default skill) only
   // (the client's mode S3 holds it, `Modes/S3/Body/Talents/2/GlobalArua`: entered as the cast ends, however it ends, ...)
+  /** @param {Unit} unit */
   const s3On = (unit) => isDef && !!unit.skill?.active && !!unit.mem.yuS3Mode;
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 今日做东 (TAKE_DAMAGE, hurt SP): passive taunt +taunt_level; active: HP / DEF +, every enemy damage instance taken ⇒
     // ep_damage_ratio × ATK 灼燃损伤 on its source (install below)
@@ -81,7 +88,7 @@ function yu(bb, chess, def) {
       // 被动效果：自身更容易受到敌人攻击 (while this skill is carried)
       battle.addBuff(unit, { key: 'yu:host', mods: { taunt: num(bb.taunt_level, 1) }, persist: true, allowDead: true });
       battle.on('damaged', (ctx) => {
-        const s = ctx.source;
+        const s = /** @type {Unit} */ (ctx.source);   // (byEnemyAttack checks it)
         // "每次受到攻击" = the official yu_s_1[inverse_damage]: every enemy damage instance (tier1 byEnemyAttack) — its
         // ApplyElementDamage, then yu_skill3_annex_02 on the attacker (the moment)
         if (ctx.target !== unit || !unit.skill?.active || !byEnemyAttack(ctx) || !s.alive) return;
@@ -151,12 +158,14 @@ function yu(bb, chess, def) {
       { install(battle, unit) { // S3 fire wall
         // yu_s_3[ally] (the burn of an ally's arts damage across the wall): by the attacker's and the target's tiles, on the two
         // sides of his tile's front edge — CheckTargetGridPositionRowOrColWithBB under SwitchDirection, either way across
+        /** @param {Unit} a @param {Unit} b */
         const crossesTiles = (a, b) => {
           const w = unit.mem.yuWall;
           if (w == null) return false;
-          const at = (u) => Math.round(w.axis === 'y' ? u.y : u.x);
+          const at = (/** @type {Unit} */ u) => Math.round(w.axis === 'y' ? u.y : u.x);
           return (at(a) - w.front) * (at(b) - w.front) < 0;
         };
+        /** @param {Unit} a @param {Unit} b @param {boolean} [front] */
         const crosses = (a, b, front = false) => {
           const w = unit.mem.yuWall;
           if (w == null) return false;
@@ -196,6 +205,7 @@ function yu(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_03_a: yu,
 };

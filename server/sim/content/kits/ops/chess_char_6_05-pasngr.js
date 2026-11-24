@@ -6,6 +6,9 @@ import { CHAIN_RADIUS } from '../../../constants.js';
 import { bodyDist, bodyInRange } from '../../../body.js';
 import { num, bv, tbb, live, ANY, enemiesIn, batOf, N4, aura } from '../shared/tier6.js';
 import { powi } from '../../../detmath.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 异客 chess_char_6_05 (链术师) — S3 辉煌裂片; 机理分析; 孤卒
@@ -17,9 +20,11 @@ const STORM_GRID = Object.freeze([[2, 0], [1, -1], [1, 0], [1, 1], [0, -2], [0, 
 /** The storm fx's ring radius (tiles): the diamond's reach — drawn only, the zone is STORM_GRID. */
 const STORM_FX_RADIUS = 2;
 
+/** @type {KitFn} */
 function pasngr(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
   const skillGrid = def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null;
+  /** @param {Battle} battle @param {Unit} unit @param {Unit | null} first @param {number} scale */
   const strike = (battle, unit, first, scale) => {
     const ch0 = unit.profile?.chain || { count: 4, falloff: 0.15, radius: CHAIN_RADIUS };
     // elite module (电磁调节器) upgrades the skill's chain too: skill@chain.atk_scale / skill@sluggish
@@ -45,7 +50,9 @@ function pasngr(bb, chess, def) {
     }
   };
   // the chain of her profile (trait / module: bounce count, falloff, 停顿) with skill overrides
+  /** @param {Unit} unit @param {Record<string, number>} o */
   const chainOf = (unit, o) => ({ ...(unit.profile?.chain || { count: 4, falloff: 0.15, radius: CHAIN_RADIUS, sluggish: 0.5 }), ...o });
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 电能之触: next attack at atk_scale × ATK, bouncing over max_target enemies with a sluggish-s 停顿 (the module's
     // skill@pasngr_s_1.chain.atk_scale sets its falloff)
@@ -53,6 +60,7 @@ function pasngr(bb, chess, def) {
       kind: 'instant',
       attack: { atkScale: bv(bb, 'atk_scale', 1) },
       onStart({ unit, skill }) {
+        /** @type {Record<string, number>} */
         const o = { count: Math.max(1, Math.floor(bv(bb, 'max_target', 4))), sluggish: bv(bb, 'sluggish', 0.5) };
         if (tb['skill@pasngr_s_1.chain.atk_scale'] != null) o.falloff = 1 - num(tb['skill@pasngr_s_1.chain.atk_scale']);
         skill.spec.attack.chain = chainOf(unit, o);
@@ -123,6 +131,7 @@ function pasngr(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_05_a: pasngr,
 };

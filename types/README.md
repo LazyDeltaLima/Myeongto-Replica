@@ -108,7 +108,7 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 (`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and
 the files directly under `server/sim/` (`server/sim/*.js`), the files directly under `server/sim/content/`
 (`server/sim/content/*.js`), the enemy kits `server/sim/content/enemies/` and, of the operator kits
-`server/sim/content/kits/ops/`, the files `chess_char_1_*` to `chess_char_5_*` and the stand-ins `standin-*` (the rest
+`server/sim/content/kits/ops/`, the files `chess_char_1_*` to `chess_char_6_*` and the stand-ins `standin-*` (the rest
 follows by file group).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
@@ -441,6 +441,14 @@ most strict errors were, and the JSDoc that fixed them:
   `hit` and `damaged` takes `HitEv | DamagedEv`, one that sets `stopPropagation` (battle/hooks.js stops there)
   `HitEv & { stopPropagation?: boolean }`. tier5's `isOp` is no type guard: a value it checked is cast where a `Unit`
   is needed.
+  The tier-6 kits (`chess_char_6_*`) declare their builder apart, so each takes `@type {KitFn}` beside `KitFns`; a
+  `skills` literal whose hooks destructure a field `SkillCtx` only has through its index signature (`onTick({ dt })`)
+  takes `@type {Record<string, KitSkill>}` as well (the plain pass refuses it as `skills` otherwise), a `talents`
+  array built apart `@type {KitTalent[]}`; a talent spread in conditionally (`...(c ? [{ install(battle, unit) … }] :
+  [])`) gets no contextual type, so its parameters take inline types. A helper whose `true` means "a unit of hers"
+  (`mine(t)`) is a `@returns {t is Unit}` predicate, a `reduce(…, null)` takes its seed as `/** @type {Unit | null} */
+  (null)`, and a kit's own record kept in `unit.mem` (an S3 drone, a lock) gets a `@typedef` in the file. `attack:
+  { funnelMul: null }` turns the profile's drone ramp off (KitAttack allows `null`).
 - the kit resolver and the generic kit (content/index.js, generic.js): `Kit` (index.js) is the kit contract read by
   key, `Def` a normalised def; the generic skill spec is built as a `Record<string, any>`. A blackboard getter returns
   `number | undefined`, so a `> 0` test on one is cast at the comparison. The guarded `import()` of the domain

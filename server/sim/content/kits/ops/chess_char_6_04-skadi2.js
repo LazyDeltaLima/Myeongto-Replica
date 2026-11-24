@@ -9,22 +9,28 @@ import { hasPower } from '../shared/powers.js';
 import {
   num, bv, tbb, tdesc, moduleBb, parseN, live, enemiesIn, isTok, onDefaultSkill, selectedSkill, aura,
 } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
+/** @param {number} v @param {number} a @param {number} b */
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-/** 深海猎人: the group tag `abyssal` (skadi2_t_2 CheckCharacterGroupTag). */
+/** 深海猎人: the group tag `abyssal` (skadi2_t_2 CheckCharacterGroupTag). @param {Unit} a */
 const isAbyssal = (a) => hasPower(a, 'abyssal');
 
 /**
  * 鼓舞 (ba.inspire "获得额外附加的基础属性加成（同类属性取最高）"): +`val` ATK after the target's own multipliers (flat
  * compensated), strongest source wins. Units flagged `mem.noInspire` (浊心斯卡蒂 "自身不受鼓舞影响") never receive it.
+ * @param {Battle} battle @param {Unit} target @param {number} val @param {Unit} src @param {'atk' | 'def'} [stat]
  */
 function inspire(battle, target, val, src, stat = 'atk') {
   if (!(val > 0) || !live(target) || target.mem.noInspire) return;
   const key = stat === 'def' ? 'inspire:def' : 'inspire';
-  const cur = target.findBuff(key);
+  const cur = /** @type {BuffRec | null} */ (target.findBuff(key));
   if (cur && cur.data && cur.data.src !== src.id && cur.data.val > val && cur.timeLeft > 0.1) return;
-  const { add, mul } = aggregateMods(target.buffs.filter((b) => b.key !== key));
+  const { add, mul } = aggregateMods(/** @type {BuffRec[]} */ (target.buffs).filter((b) => b.key !== key));
   const f = stat === 'def'
     ? Math.max(0, 1 + (add.defPct ?? 0)) * (mul.defMul ?? 1)
     : Math.max(0, 1 + (add.atkPct ?? 0)) * (mul.atkMul ?? 1);
@@ -35,6 +41,7 @@ function inspire(battle, target, val, src, stat = 'atk') {
 // ------------------------------------------------------------------------------------------------------------------
 // 浊心斯卡蒂 chess_char_6_04 (吟游者) — S3 "潮涌，潮枯"; 远古血亲 (海嗣); 捕食习性; module 蜕化的残迹
 
+/** @type {KitFn} */
 function skadi2(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), mod = moduleBb(chess), tb = def?.traitBb || {};
   const isDef = onDefaultSkill(chess), sid = selectedSkill(chess, def);
@@ -43,18 +50,22 @@ function skadi2(bb, chess, def) {
   // S1 / S2 raise the trait ("特性效果提高至N%") while they run; S3 (default) turns it into the tide. The trait is a
   // 生命回复速度 buff on the allies, not a heal (PRTS 分支特性信息 吟游者; professions.js bardRegen)
   const skillRatio = num(bb['attack@atk_to_hp_recovery_ratio'], auraRatio);
+  /** @param {Battle} battle @param {Unit} unit */
   const seaborns = (battle, unit) => battle.allyUnits.filter((t) => isTok(t, tokId, unit) && live(t));
+  /** @param {Battle} battle @param {Unit} unit @param {Unit[]} toks */
   const covered = (battle, unit, toks) => { // allies inside her range ∪ the seaborns' ranges
     const set = new Set(battle.alliesInGrid(unit));
     for (const t of toks) for (const a of battle.alliesInGrid(t)) set.add(a);
     for (const t of toks) set.delete(t);
     return [...set];
   };
+  /** @param {Battle} battle @param {Unit} unit @param {Unit} a */
   const inCover = (battle, unit, a) => {
     const k = a.tileR * COLS + a.tileC;
     if (unit.rangeKeySet?.has(k)) return true;
     return seaborns(battle, unit).some((t) => t.rangeKeySet?.has(k));
   };
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 同归殊途之吟 (SP_FULL): full self heal, max HP +max_hp, trait attack@atk_to_hp_recovery_ratio, and
     // damage_resistance of the damage taken by every ally of her (+ 海嗣) range is transferred to her (install)
@@ -78,13 +89,13 @@ function skadi2(bb, chess, def) {
     trait: {
       install(battle, unit) { // replaces the bard aura: 生命回复速度 normally, tide (true damage + 鼓舞 + self drain) during S3
         unit.mem.noInspire = true; // 自身不受鼓舞影响
-        const isInspire = (b) => b.key === 'inspire' || b.status === 'inspire' || b.key.startsWith('inspire:') || b.key.endsWith(':inspire');
+        const isInspire = (/** @type {BuffRec} */ b) => b.key === 'inspire' || b.status === 'inspire' || b.key.startsWith('inspire:') || b.key.endsWith(':inspire');
         // "海嗣的攻击范围视为自身攻击范围的延伸": an enemy in a 海嗣's range also satisfies her DEFAULT trigger
         if (unit.skill) unit.skill.addTriggerRange(() => seaborns(battle, unit));
         let n = 0;
         battle.every(0.5, () => {
           if (!live(unit)) return; // the continuous trait (including its skill conversion) survives stun
-          for (let i = unit.buffs.length - 1; i >= 0; i--) if (isInspire(unit.buffs[i])) battle.removeBuff(unit, unit.buffs[i]);
+          for (let i = unit.buffs.length - 1; i >= 0; i--) if (isInspire(/** @type {BuffRec} */ (unit.buffs[i]))) battle.removeBuff(unit, unit.buffs[i]);
           n++;
           const toks = seaborns(battle, unit);
           const allies = covered(battle, unit, toks);
@@ -202,6 +213,7 @@ function skadi2(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_04_a: skadi2,
 };

@@ -3,10 +3,14 @@
 
 import { sortEnemyTargets, canTargetEnemy } from '../../../targeting.js';
 import { num, tbb, parseN, live, ANY, enemiesIn, instantKind, pullToward } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 锏 chess_char_6_19 (剑豪) — S3 归于宁静; “天生的武者”; 活着的传奇; module “过往的注脚”
 
+/** @type {KitFn} */
 function blkkgt(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
   const slashes = Math.max(1, parseN(def?.skill?.description, /总计(\d+)次/, 10));
@@ -15,15 +19,18 @@ function blkkgt(bb, chess, def) {
   const skillGrid = def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null;
   // the skill range (x-1): her range while S3 runs — also for the finisher, since onEnd runs before the engine
   // removes the skill's range
+  /** @param {Unit} unit */
   const skillKeys = (unit) => unit.rangeKeys || [];
   // (the finisher strikes after the skill's range is gone: `keys` are the ones it had)
   // S3 hits and pulls air units too — PRTS 锏 S3 备注 "※可对空。不会拖拽自身中心半径0.6708范围内的敌人" (her attacks and S1 /
   // S2 stay ground-only: "地面敌人"); the air units of the mode are 静态刚体, so the pull leaves them in place (Battle.pull)
+  /** @param {Battle} battle @param {Unit} unit @param {readonly number[]} [keys] */
   const victims = (battle, unit, keys = skillKeys(unit)) => {
     const c = battle.enemiesInKeys(keys, unit, { ...unit.profile, canHitFly: true, groundOnly: false });
     sortEnemyTargets(battle, unit, c, null);
     return c.slice(0, maxT);
   };
+  /** @param {Battle} battle @param {Unit} unit @param {number} scale @param {readonly number[]} [keys] */
   const slash = (battle, unit, scale, keys) => {
     const v = victims(battle, unit, keys);
     if (v.length) battle.fx('slash', { x: unit.x, y: unit.y, id: unit.id, n: v.length });
@@ -33,6 +40,7 @@ function blkkgt(bb, chess, def) {
   // aims at her own tile centre, the others at the usual 拉力起点 half a tile ahead; 急停 0.6708 around her)
   // each pull rides a projectile (HarpoonProjectile projectile_chr_blkkgt_s3 / _s3[end]): one stopping on a living target
   // makes her search for enemies to block at once
+  /** @param {Battle} battle @param {Unit} unit @param {number} force @param {boolean} [last] @param {readonly number[]} [keys] */
   const pull = (battle, unit, force, last = false, keys = skillKeys(unit)) => {
     let held = false;
     for (const e of enemiesIn(battle, unit, keys)) {
@@ -41,6 +49,7 @@ function blkkgt(bb, chess, def) {
     }
     if (held) battle.searchBlockeeImmediate(unit);
   };
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 纯粹的武力 (attack SP): the next attack hits up to max_target ground enemies of the 3×3 around her, each twice
     // (her trait) at atk_scale_s1 × ATK
@@ -129,7 +138,7 @@ function blkkgt(bb, chess, def) {
         if (!(at > 0)) { strike(); return; }
         const seq = unit.deploySeq;
         battle.after(at, () => {
-          if (unit.alive && unit.deploySeq === seq && unit.canAct && unit.skillStateUntil > battle.time + 1e-9) strike();
+          if (unit.alive && unit.deploySeq === seq && unit.canAct && /** @type {number} */ (unit.skillStateUntil) > battle.time + 1e-9) strike();
         }, { owner: unit });
       },
     },
@@ -153,6 +162,7 @@ function blkkgt(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_19_a: blkkgt,
 };

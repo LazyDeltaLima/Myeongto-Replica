@@ -6,6 +6,15 @@ import { rotateOffset } from '../../../dir.js';
 import { bodyDist } from '../../../body.js';
 import { num, tbb, hasPower, ANY, selectedSkill, skillGridOf, WHOLE_FIELD, bstate, aura } from '../shared/tier6.js';
 import { hypot, sin, cos, atan2 } from '../../../detmath.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/**
+ * An S3 drone (unit.mem.drones): position, heading, speed, phase, target, attack clock and funnel ramp, orbit centre.
+ * @typedef {{ x: number, y: number, hx: number, hy: number, v: number, age: number, phase: string, t: Unit | null,
+ *   cd: number, rampId: Unit['id'] | null, ramp: number, orbit: { cx: number, cy: number } | null }} Whitw2Drone
+ * @typedef {(e: Unit | null | undefined) => unknown} DroneOk
+ */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 荒芜拉普兰德 chess_char_6_18 (驭械术师) — S3 终幕·浩劫; 头狼; 叙拉古的荣幸
@@ -26,19 +35,21 @@ const WHITW2_CHASE = Object.freeze({ v0: 2, acc: 1, max: 4 });
 const WHITW2_REAPPEAR_SIDE = 1.5;
 const WHITW2_ORBIT = Object.freeze({ r: 0.9, v: 1 });
 
+/** @type {KitFn} */
 function whitw2(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1);
   const sid = selectedSkill(chess, def);
   const spreadTime = Math.max(0, num(bb['attack@times'], 1.3)), R = num(bb['attack@range_radius'], 0.9);
   const dmgScale = num(bb['attack@magic_atk_scale'], 1), fear = num(bb['attack@fear']), slow = num(bb['attack@move_speed']);
   // "非移动敌人": blocked, or not walking (stunned, bound, asleep, waiting, speed 0 …)
-  const still = (e) => !!e.blockedBy || e.moving === false || !(e.s.moveSpeed > 0) || !!(e.s.flags.stun || e.s.flags.freeze || e.s.flags.bind || e.s.flags.sleep || e.s.flags.noMove);
+  const still = (/** @type {Unit} */ e) => !!e.blockedBy || e.moving === false || !(e.s.moveSpeed > 0) || !!(e.s.flags.stun || e.s.flags.freeze || e.s.flags.bind || e.s.flags.sleep || e.s.flags.noMove);
   const skillGridW = skillGridOf(def);
 
   // ---- S3 drones (virtual: positions in unit.mem.drones, fx events for the client) --------------------------------
-  const droneCount = (unit) => 1 + Math.floor(num(bb['attack@cnt'])) + ((unit.mem.wolfStage || 0) >= 3 ? 1 : 0);
+  const droneCount = (/** @type {Unit} */ unit) => 1 + Math.floor(num(bb['attack@cnt'])) + ((unit.mem.wolfStage || 0) >= 3 ? 1 : 0);
   // ① `k` drones leave her evenly spread, the first along her facing (row 0 is the bottom row: angles in the (col, row)
   // plane, counter-clockwise)
+  /** @param {Unit} unit @param {number} k */
   const releaseDrones = (unit, k) => {
     const a0 = atan2(unit.fwd[0], unit.fwd[1]);
     for (let i = 0; i < k; i++) {
@@ -47,15 +58,17 @@ function whitw2(bb, chess, def) {
     }
   };
   // speed v → v + acc·dt (capped); the distance covered at the mean of the two (exact under constant acceleration)
+  /** @param {Whitw2Drone} d @param {{ acc: number, max: number }} lim @param {number} dt */
   const accelerate = (d, lim, dt) => { const v1 = Math.min(lim.max, d.v + lim.acc * dt), s = ((d.v + v1) / 2) * dt; d.v = v1; return s; };
   // (2026-10-24) a drone's target for its marks (render/fx/kitofficial.js 'whitw2Drones'): [id, 0] while it chases it (the
   // ability's `_traceTargetBuff`), [id, 1] once it holds it (the projectile's attached buff), else null
-  const markOf = (d) => (d.t && (d.phase === 'chase' || d.phase === 'lock') ? [d.t.id, d.phase === 'lock' ? 1 : 0] : null);
+  const markOf = (/** @type {Whitw2Drone} */ d) => (d.t && (d.phase === 'chase' || d.phase === 'lock') ? [d.t.id, d.phase === 'lock' ? 1 : 0] : null);
   // ② the selectable enemy nearest to the drone, ties broken by the one nearest to her. [ASSUMED] distances are measured
   // to every enemy's position (a huge enemy's centre, its 判定中心) — the owner's decision of 2026-10-04: the centre, so
   // leader rounds stay close to 0.1.1; the sim's general convention for operator-side distance picks, the hit rectangle
   // (body.js bodyDist: targeting.js sortEnemyTargets 'nearest', 空弦's enemiesAround, 异客 / 溯光星源's chains), was
   // considered — it made a huge leader (胄, 管) the nearest enemy of every drone around it (DESIGN §22.9)
+  /** @param {Battle} battle @param {Unit} unit @param {Whitw2Drone} d @param {DroneOk} ok */
   const pickTarget = (battle, unit, d, ok) => {
     let best = null, bd = Infinity, bh = Infinity;
     for (const e of battle.enemies) {
@@ -66,6 +79,7 @@ function whitw2(bb, chess, def) {
     return best;
   };
   // nothing selectable: circle counter-clockwise on its left, its heading the tangent
+  /** @param {Whitw2Drone} d @param {number} dt */
   const circle = (d, dt) => {
     const { r, v } = WHITW2_ORBIT;
     if (!d.orbit) d.orbit = { cx: d.x - d.hy * r, cy: d.y + d.hx * r };
@@ -79,6 +93,7 @@ function whitw2(bb, chess, def) {
   // centre, its 判定中心), and it reaches a huge enemy when it touches the hit rectangle. [ASSUMED] the turn rate (PRTS
   // 转向速度 1/6 per frame = attack@projectile_turn_speed × 1/30 s) is not modelled: a chasing drone heads straight at
   // its target. [ASSUMED] the fear's source is her (the enemy flees from her, not from the drone).
+  /** @param {Battle} battle @param {Unit} unit @param {Whitw2Drone} d @param {number} dt @param {DroneOk} ok */
   const flyDrone = (battle, unit, d, dt, ok) => {
     d.cd = Math.max(0, d.cd - dt);
     if (d.phase === 'spread') {
@@ -93,8 +108,8 @@ function whitw2(bb, chess, def) {
       // draw taken in her facing-RIGHT frame, so a battle turned with her direction plays the same)
       const h = WHITW2_REAPPEAR_SIDE / 2;
       const [ar, ac] = rotateOffset(battle.rng.range(-h, h), battle.rng.range(-h, h), unit.dir);
-      d.x = d.t.x + ac;
-      d.y = d.t.y + ar;
+      d.x = /** @type {Unit} */ (d.t).x + ac;
+      d.y = /** @type {Unit} */ (d.t).y + ar;
       d.t = null; d.phase = 'seek';
     } else if (d.phase === 'chase' && !ok(d.t)) { d.t = null; d.phase = 'seek'; }
     if (d.phase === 'seek') {
@@ -103,7 +118,7 @@ function whitw2(bb, chess, def) {
       d.t = t; d.phase = 'chase'; d.v = WHITW2_CHASE.v0; d.orbit = null;
       battle.fx('droneLock', { x: t.x, y: t.y, id: t.id, src: unit.id }); // PRTS: the red wolf-eye mark over the target
     }
-    const t = d.t;
+    const t = /** @type {Unit} */ (d.t);   // (a drone without one returned above)
     if (d.phase === 'chase') {
       const s = accelerate(d, WHITW2_CHASE, dt);
       if (bodyDist(t, d.x, d.y) > s + 1e-9) {
@@ -127,6 +142,7 @@ function whitw2(bb, chess, def) {
     battle.dealDamage(unit, t, { amount: unit.s.atk * unit.s.atkScaleMul * d.ramp, type: 'arts', tags: ['droneAttack'] });
   };
 
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 慵怠者悲鸣: passive 浮游单元+1 (trait: one more hit per attack); toggled on: ATK +atk and the drones lock a random
     // non-moving enemy anywhere on the field (re-locking when it moves or falls; install), else her range. The toggle
@@ -179,7 +195,7 @@ function whitw2(bb, chess, def) {
       if (sid === 'skchr_whitw2_1') {
         battle.on('beforeAttack', (ctx) => {
           if (ctx.attacker !== unit || !unit.skill?.active) return;
-          const ok = (e) => e && e.alive && !e.hidden && canTargetEnemy(unit, e, ANY);
+          const ok = (/** @type {Unit | null | undefined} */ e) => e && e.alive && !e.hidden && canTargetEnemy(unit, e, ANY);
           let L = unit.mem.lazyLock;
           if (!ok(L) || !still(L)) {
             const c = battle.enemies.filter((e) => ok(e) && still(e));
@@ -201,10 +217,10 @@ function whitw2(bb, chess, def) {
           for (const e of battle.blockedTargets(unit, ctx.profile)) if (!c.includes(e)) c.push(e);
           if (!c.length) { ctx.targets = []; return; }
           // her own shot: the engine's normal pick of this attack, else the first of the range by her priority
-          let body = ctx.targets.find((e) => c.includes(e));
+          let body = ctx.targets.find((/** @type {Unit} */ e) => c.includes(e));
           if (!body) { const s = c.slice(); sortEnemyTargets(battle, unit, s, ctx.profile?.priority ?? null); body = s[0]; }
           const n = 1 + Math.floor(num(bb['attack@cnt'])) + ((unit.mem.wolfStage || 0) >= 3 ? 1 : 0);
-          m.locks = m.locks.filter((e) => e.alive && c.includes(e)).slice(0, n);
+          m.locks = m.locks.filter((/** @type {Unit} */ e) => e.alive && c.includes(e)).slice(0, n);
           while (m.locks.length < n) {
             const free = c.filter((e) => !m.locks.includes(e));
             m.locks.push(battle.rng.pick(free.length ? free : c));
@@ -249,13 +265,13 @@ function whitw2(bb, chess, def) {
         // 头狼 stage 3 reached while the skill runs: the extra drone is released (PRTS ① "补充浮游单元"; [ASSUMED] only it spreads)
         const add = droneCount(unit) - D.length;
         if (add > 0) { releaseDrones(unit, add); battle.fx('drones', { x: unit.x, y: unit.y, id: unit.id, n: add }); }
-        const ok = (e) => e && e.alive && !e.hidden && canTargetEnemy(unit, e, ANY);
+        const ok = (/** @type {Unit | null | undefined} */ e) => e && e.alive && !e.hidden && canTargetEnemy(unit, e, ANY);
         for (const d of D) {
           if (gone()) return;
           flyDrone(battle, unit, d, dt, ok);
         }
         if (gone()) return;
-        if ((unit.mem.dronesFxT = (unit.mem.dronesFxT || 0) + dt) >= 0.15) { unit.mem.dronesFxT = 0; battle.fx('whitw2Drones', { x: unit.x, y: unit.y, id: unit.id, d: D.flatMap((q) => [Math.round(q.x * 100) / 100, Math.round(q.y * 100) / 100]), t: D.map(markOf) }); } // local patch: the drones' positions for the official drone effect (fxgame.js); `t` each one's target (markOf)
+        if ((unit.mem.dronesFxT = (unit.mem.dronesFxT || 0) + dt) >= 0.15) { unit.mem.dronesFxT = 0; battle.fx('whitw2Drones', { x: unit.x, y: unit.y, id: unit.id, d: D.flatMap((/** @type {Whitw2Drone} */ q) => [Math.round(q.x * 100) / 100, Math.round(q.y * 100) / 100]), t: D.map(markOf) }); } // local patch: the drones' positions for the official drone effect (fxgame.js); `t` each one's target (markOf)
         const near = new Set();
         for (const d of D) for (const e of battle.foesInRadius(d.x, d.y, R)) if (ok(e)) near.add(e);
         if (slow) for (const e of near) battle.addBuff(e, { key: 'whitw2:slow', duration: 0.2, refresh: 'replace', mods: { moveMul: Math.max(0, 1 + slow) }, source: unit });
@@ -306,7 +322,7 @@ function whitw2(bb, chess, def) {
         if (cur) { cur.sp = Math.max(cur.sp, sp); cur.as = Math.max(cur.as, as); return; }
         const cfg = { sp, as };
         S.siracusa.set(unit.ownerId, cfg);
-        const sira = (u) => u && u.kind === 'op' && u.ownerId === unit.ownerId && hasPower(u, 'siracusa');
+        const sira = (/** @type {Unit | null | undefined} */ u) => u && u.kind === 'op' && u.ownerId === unit.ownerId && hasPower(u, 'siracusa');
         // 初始技力+5: every (re)deployment starts with +5 SP (not on top of the SP a unite helper carries over)
         battle.on('deploy', ({ unit: u, initial }) => {
           if (!(cfg.sp > 0) || !sira(u) || !u.skill) return;
@@ -324,6 +340,7 @@ function whitw2(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_18_a: whitw2,
 };

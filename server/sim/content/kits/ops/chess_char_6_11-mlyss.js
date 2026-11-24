@@ -7,11 +7,14 @@ import {
 } from '../shared/tier6.js';
 import { holdProtect } from '../shared/tier1.js';
 import { hasPower } from '../shared/powers.js';
+/** @import { KitFns, KitFn, KitSkill, KitChess, Bb } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
-/** 莱茵生命: the group tag `rhine` (mlyss_e_003_t templates CheckCharacterGroupTag). */
+/** 莱茵生命: the group tag `rhine` (mlyss_e_003_t templates CheckCharacterGroupTag). @param {Unit} u */
 const isRhine = (u) => hasPower(u, 'rhine');
-/** The hidden (index −1) module parts of the selected module, each blackboard on its own (moduleBb merges them). */
-const moduleParts = (chess) => (chess?.talents || []).filter((t) => t && t.index === -1 && t.bb).map((t) => t.bb);
+/** The hidden (index −1) module parts of the selected module, each blackboard on its own (moduleBb merges them). @param {KitChess} chess */
+const moduleParts = (chess) => (chess?.talents || []).filter((t) => t && t.index === -1 && t.bb).map((t) => /** @type {Bb} */ (t.bb));
 /**
  * The 流形's switch casts out of its Recharge mode (token prefab Modes/Recharge/Body/Talents/1 mlyss_wtrman_switch / _melee /
  * _range, official client): `_preDelay` 1 s before their reborn buff brings it back.
@@ -26,6 +29,7 @@ const MANIFOLD_REBORN = 1;
  * 治疗类型则不继承）"): scale × HP/ATK/DEF/RES, block count, BAT/ASPD, range and damage type. The attack itself stays the
  * token's single-target attack (melee or ranged after the copied position) — splash/chain/multi-hit shapes are not
  * listed and not copied. `ranged` (近/远程位) decides the special trait (steal / split).
+ * @param {Battle} battle @param {Unit} t @param {Unit} src @param {number} scale @param {boolean} ranged
  */
 function copyInto(battle, t, src, scale, ranged) {
   const sb = src.base, b = t.base;
@@ -52,13 +56,19 @@ function copyInto(battle, t, src, scale, ranged) {
   battle.refreshRange(t); // the copied grid: current + initial range, trigger keys
 }
 
-/** A split copy's time (`mlyss_wtrman_summon[trigger]`: it dies when the time is up); called again, its time starts over. */
+/**
+ * A split copy's time (`mlyss_wtrman_summon[trigger]`: it dies when the time is up); called again, its time starts over.
+ * @param {Battle} battle @param {Unit} t @param {number} dur
+ */
 function cloneTime(battle, t, dur) {
   t.mem.mlyssCloneTimer?.cancel?.();
   t.mem.mlyssCloneTimer = battle.after(dur, () => { if (t.alive) battle.retreat(t, { reason: 'expired', permanent: true }); }, { owner: t });
 }
 
-/** A split copy of the ranged 流形 `t` on tile (r, c), lasting `dur` s (the 'deploy' listener copies `t` into it). */
+/**
+ * A split copy of the ranged 流形 `t` on tile (r, c), lasting `dur` s (the 'deploy' listener copies `t` into it).
+ * @param {Battle} battle @param {Unit} unit @param {string} tokId @param {Unit} t @param {number} r @param {number} c @param {number} dur
+ */
 function splitCopy(battle, unit, tokId, t, r, c, dur) {
   unit.mem.mlyssCloneOf = t;
   let cl;
@@ -69,6 +79,7 @@ function splitCopy(battle, unit, tokId, t, r, c, dur) {
   return cl;
 }
 
+/** @type {KitFn} */
 function mlyss(bb, chess, def) {
   const tokId = def?.talents?.[0]?.tokenKey || (chess?.tokens || [])[0] || 'token_10030_mlyss_wtrman';
   const t1 = tbb(def, 1), mod = moduleBb(chess);
@@ -78,6 +89,7 @@ function mlyss(bb, chess, def) {
   const pulseIv = Math.max(0.2, bv(bb, 'interval', 2)), bindDur = isDef ? bv(bb, 'duration', 1.5) : 0;
   // "自身与流形攻击力+N%（攻击速度+N）" — every skill of hers buffs the 流形 too while it runs
   const manifoldMods = { atkPct: num(bb.atk), ...(num(bb.attack_speed) ? { aspd: num(bb.attack_speed) } : {}) };
+  /** @param {Battle} battle @param {Unit} t @param {number} dur */
   const buffManifold = (battle, t, dur) => battle.addBuff(t, { key: 'mlyss:s3', mods: manifoldMods, duration: dur });
   // module 落叶四季 (开源节流): copying a 莱茵生命 operator ⇒ she gains `sp`; deploying the copied one ⇒ it gains `sp_other`
   // (TAC-Y's hidden part: `sp` beside `sp_other`; TAC-D's hidden part has an `sp` of its own, for the 流形)
@@ -86,15 +98,17 @@ function mlyss(bb, chess, def) {
   // "缪尔赛思或流形攻击范围内有敌人侵蚀损伤爆发后，对其造成相当于缪尔赛思攻击力400%元素伤害且流形获得80点技力" (atk_scale / sp of
   // the part beside it)
   const tacD = moduleParts(chess).find((b) => 'ep_damage_ratio' in b) ? moduleParts(chess) : null;
-  const erosionRatio = tacD ? num(tacD.find((b) => 'ep_damage_ratio' in b).ep_damage_ratio) : 0;
+  const erosionRatio = tacD ? num(/** @type {Bb} */ (tacD.find((b) => 'ep_damage_ratio' in b)).ep_damage_ratio) : 0;
   const burstPart = tacD?.find((b) => 'atk_scale' in b && 'sp' in b) ?? {};
   const burstScale = num(burstPart.atk_scale), burstSp = num(burstPart.sp);
+  /** @param {Unit} t @param {string} key */
   const tokTal = (t, key) => { for (const x of t.def?.talents || []) if (x?.bb && typeof x.bb[key] === 'number') return x.bb; return {}; };
   // "其被击败后会在25秒后自动刷新" (token talent interval; the talent text as a fallback)
-  const respawnOf = (t) => num(tokTal(t, 'scale').interval, parseN(tdesc(def, 0), /(\d+(?:\.\d+)?)秒后自动刷新/, 25));
-  const isRanged = (src) => (src.def?.position ? src.def.position === 'RANGED' : src.profile?.attack === 'ranged');
+  const respawnOf = (/** @type {Unit} */ t) => num(tokTal(t, 'scale').interval, parseN(tdesc(def, 0), /(\d+(?:\.\d+)?)秒后自动刷新/, 25));
+  const isRanged = (/** @type {Unit} */ src) => (src.def?.position ? src.def.position === 'RANGED' : src.profile?.attack === 'ranged');
 
   // the copy of an operator the automatic operations chose (content/tokens.js manifoldCopyTarget, the token skill's autoTrigger)
+  /** @param {Battle} battle @param {Unit} unit @param {Unit} t @param {Unit} src */
   const copyFrom = (battle, unit, t, src) => {
     copyInto(battle, t, src, num(tokTal(t, 'scale').scale, 1), isRanged(src));
     // `mode`: the 流形's prefab mode from now on (Melee / Range — the client's mlyss_wtrman_switch_melee / _range; the S3 / S2
@@ -102,8 +116,10 @@ function mlyss(bb, chess, def) {
     battle.fx('copy', { x: t.x, y: t.y, id: t.id, src: src.id, mode: isRanged(src) ? 'Range' : 'Melee', by: unit.id });
     if (rhineSp > 0 && isRhine(src) && unit.skill) unit.skill.gainSp(rhineSp, 'talent');
   };
+  /** @param {Battle} battle @param {Unit} unit */
   const mineLive = (battle, unit) => battle.allyUnits.filter((x) => isTok(x, tokId, unit) && live(x));
 
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S1 渐进性润化: fake_cost DP over the skill (1 every mlyss_s_1[cost].interval s, the rest at its end), she and her
     // 流形 ATK / ASPD +
@@ -223,9 +239,10 @@ function mlyss(bb, chess, def) {
       { install(battle, unit) { // 净水即生命: 流形 copy / respawn / melee steal / ranged split
         const S = bstate(battle);
         S.robbed ??= new WeakMap(); // enemy → { atk, def } stolen by any 流形
+        /** @param {Unit | null | undefined} t @returns {t is Unit} */
         const mine = (t) => isTok(t, tokId, unit);
         // a fallen 流形 of hers waiting on its tile (below), but `t`: deployLimit 1 — another one standing ends its wait for good
-        const endDown = (t) => {
+        const endDown = (/** @type {Unit} */ t) => {
           for (const d of battle.allyUnits) {
             if (d === t || !mine(d) || !d.mem.mlyssDown || d.alive || d.removed) continue;
             d.mem.mlyssDown = 0;
@@ -257,7 +274,7 @@ function mlyss(bb, chess, def) {
           if (unit.skill?.active && unit.skill.isTimed) buffManifold(battle, t, unit.skill.timeLeft);
         }, { owner: unit });
         // the 流形 copies when the automatic operations say (content/tokens.js, the token skill's autoTrigger), this way
-        unit.mem.manifoldCopy = (b, t, src) => { if (mine(t) && !t.mem.mlyssClone) copyFrom(b, unit, t, src); };
+        unit.mem.manifoldCopy = (/** @type {Battle} */ b, /** @type {Unit} */ t, /** @type {Unit} */ src) => { if (mine(t) && !t.mem.mlyssClone) copyFrom(b, unit, t, src); };
         // trigger rule MLYSS_WTRMAN ("全部技能，受流形影响") for her own skills (`_TryUsingSkillTypeMlyssWtrman`, not a token):
         // the MANUAL check, then her ATTACK / COMBAT state — the engine's DEFAULT without a trigger grid; her 流形 do not count
         // "其被击败后会在25秒后自动刷新" — the token prefab (official client): a RallyPoint whose live modes hold
@@ -352,7 +369,8 @@ function mlyss(bb, chess, def) {
           }
         }, { owner: unit });
       } },
-      ...(tacD ? [{ install(battle, unit) { // module TAC-D: erosion on her and her 流形's damage; the burst's 元素伤害 and SP
+      ...(tacD ? [{ install(/** @type {Battle} */ battle, /** @type {Unit} */ unit) { // module TAC-D: erosion on her and her 流形's damage; the burst's 元素伤害 and SP
+        /** @param {Unit | null | undefined} t @returns {t is Unit} */
         const mine = (t) => isTok(t, tokId, unit) || (!!t && t === unit.trait?.reinforcement);
         if (erosionRatio > 0) {
           battle.on('damaged', (ctx) => {
@@ -392,6 +410,7 @@ function mlyss(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_11_a: mlyss,
 };

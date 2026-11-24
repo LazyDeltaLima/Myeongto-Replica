@@ -6,23 +6,30 @@ import { hasHp } from '../../../damage.js';
 import {
   num, tbb, moduleBb, live, isElite, enemiesIn, selectedSkill, skillGridOf, bstate, onElementHit, elementDmg, aura,
 } from '../shared/tier6.js';
+/** @import { KitFns, KitFn, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 塑心 chess_char_6_09 (巫役) — S1 “黄金的狂喜”; 无词哀歌; 精神逆构; module 强弱法
 
+/** @type {KitFn} */
 function cello(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {}, mod = moduleBb(chess);
   const sid = selectedSkill(chess, def);
   const isS1 = sid === 'skchr_cello_1' || !(chess?.skills?.length); // S1 = the default (no loadout info ⇒ default)
   // "第二天赋效果提升至N倍" (S3): every 精神逆构 number scaled around 1 (delta × N) while it runs
+  /** @param {Unit} c */
   const boost = (c) => (c.mem.celloBoost > 0 ? c.mem.celloBoost : 1);
+  /** @param {number} v @param {Unit} c */
   const scaled = (v, c) => 1 + (v - 1) * boost(c);
-  /** S2 partner: the other operator of her range with the highest ATK (re-picked every 0.5 s). */
+  /** S2 partner: the other operator of her range with the highest ATK (re-picked every 0.5 s). @param {Battle} battle @param {Unit} unit */
   const pickPartner = (battle, unit) => {
     unit.mem.celloPick = 0.5;
     const ops = battle.alliesInGrid(unit).filter((a) => a !== unit && a.kind === 'op');
-    unit.mem.celloPartner = ops.reduce((best, a) => (!best || a.s.atk > best.s.atk + 1e-9 ? a : best), null);
+    unit.mem.celloPartner = ops.reduce((best, a) => (!best || a.s.atk > best.s.atk + 1e-9 ? a : best), /** @type {Unit | null} */ (null));
   };
+  /** @type {Record<string, KitSkill>} */
   const skills = {
     // S2 “安魂的弥撒”: ASPD +, one extra target; while it runs every damage she or the highest-ATK other operator of her
     // range deals to an enemy also adds ep_damage_ratio × her ATK 凋亡损伤 (install)
@@ -51,7 +58,9 @@ function cello(bb, chess, def) {
         if (unit.mem.celloAcc < 0.5) return;
         unit.mem.celloAcc = 0;
         const ops = battle.alliesInGrid(unit).filter((a) => a !== unit && a.kind === 'op');
-        const top = (f) => ops.reduce((best, a) => (!best || f(a) > f(best) + 1e-9 ? a : best), null);
+        /** @param {(a: Unit) => number} f */
+        const top = (f) => ops.reduce((best, a) => (!best || f(a) > f(best) + 1e-9 ? a : best), /** @type {Unit | null} */ (null));
+        /** @param {Unit | null} a @param {string} key @param {Record<string, number>} mods */
         const give = (a, key, mods) => { if (a) battle.addBuff(a, { key, mods, duration: 0.75, refresh: 'replace', source: unit, visible: true }); };
         give(top((a) => a.base.maxHp), 'cello:tango:hp', { hpPct: num(bb['cello_s_3[max_hp].max_hp']) });
         give(top((a) => a.base.atk), 'cello:tango:atk', { atkPct: num(bb['cello_s_3[atk].atk']) });
@@ -141,6 +150,7 @@ function cello(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_6_09_a: cello,
 };
