@@ -67,7 +67,7 @@ import { BUFFS as BOND } from './effects/bond.js';
 
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
-/** @import { Scheduled } from '../../battle/hooks.js' */
+/** @import { Scheduled, Hook, HookFn } from '../../battle/hooks.js' */
 /** @import { DataScope, FatalEv } from '../support/index.js' */
 /** @import { ItemParams, ItemRec, ItemEntry, ItemHooks } from './shared.js' */
 /**
@@ -239,7 +239,7 @@ class Scope {
     this.b = battle;
     this.u = unit;
     this.tag = tag;
-    /** @type {object[]} */
+    /** @type {Hook[]} */
     this.hooks = [];
     /** @type {Scheduled[]} */
     this.scheds = [];
@@ -256,7 +256,7 @@ class Scope {
    * @param {K} name @param {(c: ItemHooks[K]) => void} fn @param {number} [priority]
    */
   on(name, fn, priority = 0) {
-    const h = this.b.on(name, fn, { owner: this.u, priority });
+    const h = this.b.on(name, /** @type {HookFn} */ (fn), { owner: this.u, priority });
     if (h) this.hooks.push(h);
     return h;
   }

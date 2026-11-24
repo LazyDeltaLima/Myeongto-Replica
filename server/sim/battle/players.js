@@ -3,6 +3,26 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/** @import { PlayerResult } from './lifecycle.js' */
+/**
+ * A unit entry of a PlayerBattleInput (docs/SIM.md): a chess piece (an operator and its loadout), a token piece
+ * (`kind` 'token', its owner by `ownerUid`) or a 整备区 operator (`slot`, createReserveAlly); `row` / `col` are coerced.
+ * @typedef {{ kind?: string, row?: unknown, col?: unknown, abs?: boolean, dir?: string | null, uid?: number | null,
+ *   chessId?: string, tokenId?: string, ownerUid?: number | null, def?: object | null, carryState?: unknown,
+ *   skin?: unknown, items?: string[], cultivate?: unknown, skillIndex?: number | null, moduleId?: string | null,
+ *   standIn?: boolean, diy?: unknown, potential?: unknown, slot?: number }} UnitInput
+ * A player's PlayerBattleInput as the battle reads it (`ps.input`).
+ * @typedef {{ playerId: string, seat?: number, side?: string, colOffset?: number, rowOffset?: number,
+ *   coords?: string, bonds?: Record<string, { layers?: number }>, bandId?: string | null, playerEffects?: unknown[],
+ *   lpForBoss?: number | null, units?: UnitInput[] }} PlayerInput
+ * A player of this field (`Battle.players`): where its board lies on the field, its DP, its units.
+ * @typedef {{ playerId: string, seat: number, side: 'L' | 'R', colOffset: number, rowOffset: number | undefined,
+ *   coords: string, mirror: boolean, facing: number, dir: string, half: 'L' | 'R',
+ *   bonds: Record<string, { layers?: number }>, bandId: string | null, playerEffects: unknown[],
+ *   lpForBoss: number | null, dp: number, units: Unit[], input: PlayerInput, _boardKeys?: Set<number> }} BattlePlayer
+ * What _makeAlly reads of a def (a chess, token or device def).
+ * @typedef {{ id: string, name: string, stats: Record<string, number>, rangeGrid?: ReadonlyArray<ReadonlyArray<number>> }} AllyDef
+ */
 import { COLS, STAGE_COLS, BOSS_ROW_OFFSET } from '../constants.js';
 import { GEO } from '../../../shared/constants.js';
 import { Unit } from '../units.js';
@@ -15,12 +35,15 @@ import { setupUnitKit } from '../content/index.js';
 import { clone } from './util.js';
 
 export class BattlePlayers {
-  /** @this {Battle} */
+  /**
+   * @param {PlayerInput} p
+   * @this {Battle}
+   */
   _addPlayer(p) {
     const bossLike = this.kind === 'boss' || this.kind === 'hidden';
     const side = p.side === 'R' ? 'R' : 'L';
     const mirror = bossLike && side === 'R';
-    const ps = {
+    const ps = /** @type {BattlePlayer} */ ({
       playerId: p.playerId,
       seat: p.seat ?? this.players.length,
       side,
@@ -39,16 +62,17 @@ export class BattlePlayers {
       dp: this.flags.dpInit,
       units: [],
       input: p,
-    };
+    });
     this.players.push(ps);
-    this._perPlayer[ps.playerId] = {
+    this._perPlayer[ps.playerId] = /** @type {PlayerResult} */ ({
       // `killed` / `total` / `leaked` / `perfect` keep the official `counted` reading (DESIGN §5.1); `killedInTotal` /
       // `leakedInTotal` are the HUD capsule's counters of this player's own field (only enemies the round scheduled:
       // spawns.js `_queueSpawn` / `inTotal`, deploy.js), `resolved` is derived from them at result time.
       killed: 0, total: 0, leaked: [], perfect: true, killedInTotal: 0, leakedInTotal: 0,
       // (`tempLayerGains`, the 临时层数 of 规程, is created by its first gain: Battle.addLayers `temp`)
       layerGains: {}, coins: 0, damageDealt: 0, bossDamage: 0, healingDone: 0, deaths: 0, unitsEnd: [], unitStats: [],
-    };
+    });
+    /** @type {Array<[Unit, UnitInput]>} */
     const late = [];
     for (const u of p.units ?? []) {
       try {
@@ -78,6 +102,7 @@ export class BattlePlayers {
 
   /**
    * Board → field tile for a player (see header).
+   * @param {BattlePlayer} ps @param {number} row @param {number} col @param {boolean} [abs] @returns {number[]}
    * @this {Battle}
    */
   mapTile(ps, row, col, abs = false) {
@@ -92,6 +117,7 @@ export class BattlePlayers {
    * 整备区 rows of a boss field (rows 0–1, inside BOSS_RECT) nor the other half of a 联防 or boss field. Moves that must
    * stay where the player could deploy read it (乌尔比安's S3 【移动】, kits/ops/chess_char_5_05-ulpia.js); the 突袭
    * landing reads onFieldBoard (any player of this field).
+   * @param {BattlePlayer | null | undefined} ps @param {number} r @param {number} c
    * @this {Battle}
    */
   onOwnBoard(ps, r, c) {
@@ -112,6 +138,7 @@ export class BattlePlayers {
    * Both halves on the two-helper 联防 field and on a Final Assault / Hidden Core pair field; the own half only for a
    * lone 联防 helper and on a solo boss field; never a boss field's hand / 临时整备区 rows. The 突袭 landing reads it
    * (bonds/addon/battle.js raidTile — the owner's decision of 2026-10-07, docs/rules/sim.md sim-4).
+   * @param {number} r @param {number} c
    * @this {Battle}
    */
   onFieldBoard(r, c) {
@@ -119,7 +146,10 @@ export class BattlePlayers {
     return false;
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {BattlePlayer} ps @param {number} row @param {number} col @returns {number[]}
+   * @this {Battle}
+   */
   _boardTile(ps, row, col) {
     const bossLike = this.kind === 'boss' || this.kind === 'hidden';
     let r = row;
@@ -132,6 +162,7 @@ export class BattlePlayers {
   /**
    * Board direction → field direction for a player (DESIGN §3): as given (default RIGHT) except on the mirrored Final
    * Assault right side, where RIGHT ↔ LEFT (UP / DOWN unchanged). `abs` / field coordinates are taken as they are.
+   * @param {BattlePlayer | null | undefined} ps @param {unknown} dir @param {boolean} [abs]
    * @this {Battle}
    */
   mapDir(ps, dir, abs = false) {
@@ -139,7 +170,10 @@ export class BattlePlayers {
     return ps && ps.mirror && !abs && ps.coords !== 'field' ? mirrorDir(d) : d;
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {BattlePlayer} ps @param {UnitInput} inp @returns {Unit | null}
+   * @this {Battle}
+   */
   _createAllyFromInput(ps, inp) {
     // coerce (a string row would otherwise concatenate: "10" + -7 → "10-7"); non-integers never deploy
     const row = Number(inp.row), col = Number(inp.col);
@@ -175,10 +209,11 @@ export class BattlePlayers {
 
   /**
    * The operator def of a PlayerBattleInput chess entry for its loadout (_createAllyFromInput), or null (logged).
+   * @param {UnitInput} inp
    * @this {Battle}
    */
   _allyDefFromInput(inp) {
-    const lo = { skillIndex: inp.skillIndex ?? null, moduleId: inp.moduleId ?? null };
+    const lo = /** @type {{ skillIndex: number | null, moduleId: string | null, standIn?: boolean, diy?: object, potential?: unknown }} */ ({ skillIndex: inp.skillIndex ?? null, moduleId: inp.moduleId ?? null });
     if (inp.standIn === true) lo.standIn = true;
     if (inp.diy && typeof inp.diy === 'object') lo.diy = inp.diy;
     if (inp.standIn !== true && isPotential(inp.potential)) lo.potential = inp.potential;
@@ -195,6 +230,7 @@ export class BattlePlayers {
    * like a board operator) but off the field: not in the battle-start deployment (`deferDeploy`), on no tile
    * (`removed` until fielded: no reserved tile, no redeploy), left out of the result until fielded. Content fields it
    * with fieldReserve. The same slot twice returns the same unit. Returns the unit or null.
+   * @param {BattlePlayer | null | undefined} ps @param {UnitInput | null | undefined} inp @returns {Unit | null}
    * @this {Battle}
    */
   createReserveAlly(ps, inp) {
@@ -219,6 +255,7 @@ export class BattlePlayers {
    * Field a reserve operator (createReserveAlly) on field tile `tile` ([r, c], its home from now on) facing `dir`: a
    * deployment like a redeploy (full HP, `deploy` {initial:false}). False when it was fielded already or the tile takes
    * no ally (_deploy).
+   * @param {Unit | null | undefined} u @param {number[]} tile @param {string | null} [dir]
    * @this {Battle}
    */
   fieldReserve(u, tile, dir = null) {
@@ -237,6 +274,8 @@ export class BattlePlayers {
    * Token def: an inline def (PlayerBattleInput `def`, spawnToken `opts.def`) as given, else the data record's variant
    * for the owner — `owner` = the owning ally unit (its chess and its selected skill / module: getToken(id,
    * owner.defId, owner.def.loadout), DESIGN §16), a chess id, or null.
+   * @param {string | undefined} tokenId @param {Unit | string | null | undefined} owner
+   * @param {object | null | undefined} inline
    * @this {Battle}
    */
   _tokenDef(tokenId, owner, inline) {
@@ -246,7 +285,12 @@ export class BattlePlayers {
     return this.data.getToken(tokenId, owner ?? null);
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {BattlePlayer | null} ps @param {AllyDef} def @param {string} kind @param {number} r @param {number} c
+   * @param {{ uid?: number | null, ownerUnit?: Unit | null, skin?: string | null, dir?: string | null,
+   *   facing?: string | number | null }} [extra]
+   * @this {Battle}
+   */
   _makeAlly(ps, def, kind, r, c, extra = {}) {
     const st = def.stats;
     const u = new Unit({
@@ -273,7 +317,7 @@ export class BattlePlayers {
   /**
    * Resolve kit/profile/skill for a unit (called by content/index.js; safe to call again).
    * @this {Battle}
-   * @param {object | null} [kit]
+   * @param {Unit} u @param {object | null} [kit]
    */
   _setupUnit(u, kit = null) {
     if (!kit) {
@@ -286,6 +330,7 @@ export class BattlePlayers {
     // 孤立 ("无法被同阵营选中") — no ally heal or ally selection (auras over a range) reaches it
     const ab = u.def.abnormal;
     if (Array.isArray(ab) && ab.length) {
+      /** @type {Record<string, boolean>} */
       const flags = {};
       if (ab.includes('healFree')) flags.noHeal = true;
       if (ab.includes('isolated')) { flags.isolated = true; flags.noHeal = true; }

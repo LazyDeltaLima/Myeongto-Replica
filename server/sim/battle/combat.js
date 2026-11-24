@@ -8,12 +8,18 @@ import { dealDamage as pipeDamage, heal as pipeHeal, applyHpLoss, makeDamageInfo
 import { effectiveProfile, performAttack, acquireTargets } from '../ai.js';
 
 export class BattleCombat {
-  /** @this {Battle} */
+  /**
+   * @this {Battle}
+   * @param {Unit | null} source @param {Unit} target @param {object} dmg a DamageInfo descriptor (damage.js)
+   */
   dealDamage(source, target, dmg) {
     try { return pipeDamage(this, source, target, dmg); } catch (e) { this._internalError('dealDamage', e); return 0; }
   }
 
-  /** @this {Battle} */
+  /**
+   * @this {Battle}
+   * @param {Unit | null} source @param {Unit} target @param {number} amount @param {object} [opts] (damage.js heal)
+   */
   heal(source, target, amount, opts = {}) {
     try { return pipeHeal(this, source, target, amount, opts); } catch (e) { this._internalError('heal', e); return 0; }
   }
@@ -48,21 +54,34 @@ export class BattleCombat {
 
   /**
    * The effect moment `key` of `owner` on the 'dmg' event `target` took this tick (damage.js hitFx).
+   * @param {Unit} target @param {string} key @param {Unit | null} owner @param {number} [life]
    * @this {Battle}
    */
   hitFx(target, key, owner, life) { hitFx(this, target, key, owner, life); }
 
-  /** @this {Battle} */
+  /**
+   * @param {Unit} target @param {number} amount @param {string | null} [element]
+   * @this {Battle}
+   */
   reduceElement(target, amount, element = null) { return reduceElement(target, amount, element); }
 
-  /** @this {Battle} */
+  /**
+   * @this {Battle}
+   * @param {object} d a DamageInfo descriptor
+   */
   makeDamage(d) { return makeDamageInfo(d); }
 
-  /** @this {Battle} */
+  /**
+   * @this {Battle}
+   * @param {object} p a projectile descriptor (projectiles.js add)
+   */
   addProjectile(p) { return this.projectiles.add(p); }
 
   // exposed for ai/content convenience
-  /** @this {Battle} */
+  /**
+   * @param {Unit} u
+   * @this {Battle}
+   */
   effectiveProfile(u) { return effectiveProfile(u); }
 
   /**
@@ -73,8 +92,8 @@ export class BattleCombat {
    * where that ability turns the unit as it is cast (its `DealWithFaceDirection` flags, ai.js swingFace; null nowhere) when that
    * is not its target — left out, the view turns it to its target at the 'atk' (the `_faceToTarget` abilities). Returns true
    * when an attack was made.
-   * @param {object} u
-   * @param {object[]|null} [targets]
+   * @param {Unit} u
+   * @param {Unit[]|null} [targets]
    * @param {{ noAmmo?: boolean, signal?: string|null, face?: string|null }} [opts]
    * @this {Battle}
    */

@@ -3,6 +3,7 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
 import {
   COLS, PUSH_TILES, PUSH_TILES_EFFECT, PULL_WEAK_SHARE, PULL_CRAWL, PULL_ORIGIN, PULL_STOP_RADIUS, PUSH_DIRECTIONAL_MIN_DIST,
   PUSH_UNBALANCE, PULL_UNBALANCE, PULL_UNBALANCE_WEAK, UNBALANCE_MIN,
@@ -13,22 +14,27 @@ import { hypot } from '../detmath.js';
 /**
  * Official push distance (tiles) of a 受力等级 (constants.js PUSH_TILES: ≤ −3 → 0, ≥ 3 → the 3 value); `effect` = a 特效
  * push (PRTS 推与拉's 特效 column, PUSH_TILES_EFFECT: 见行者), else the 弹道 column.
+ * @param {number} level @param {boolean} [effect] @returns {number}
  */
 export function pushTiles(level, effect = false) {
   const l = Math.round(fin(level, -99));
   if (l <= -3) return 0;
-  return (effect ? PUSH_TILES_EFFECT : PUSH_TILES)[Math.min(3, l)];
+  return /** @type {Readonly<Record<number, number>>} */ (effect ? PUSH_TILES_EFFECT : PUSH_TILES)[Math.min(3, l)];
 }
 
-/** 失衡 (UNBALANCE) of a push of 受力等级 `level`, game seconds (constants.js PUSH_UNBALANCE: ≤ −3 → 0, ≥ 3 → the 3 value). */
+/**
+ * 失衡 (UNBALANCE) of a push of 受力等级 `level`, game seconds (constants.js PUSH_UNBALANCE: ≤ −3 → 0, ≥ 3 → the 3 value).
+ * @param {number} level @returns {number}
+ */
 export function pushUnbalance(level) {
   const l = Math.round(fin(level, -99));
-  return l <= -3 ? 0 : PUSH_UNBALANCE[Math.min(3, l)];
+  return l <= -3 ? 0 : /** @type {Readonly<Record<number, number>>} */ (PUSH_UNBALANCE)[Math.min(3, l)];
 }
 
 /**
  * Time a push slide that a wall stops after `moved` of its `dist` tiles takes, when the open slide of `dist` lasts `T`
  * under a uniform deceleration: s(t) = dist·(1 − (1 − t/T)²) ⇒ t = T·(1 − √(1 − moved/dist)).
+ * @param {number} T @param {number} moved @param {number} dist
  */
 export function wallHold(T, moved, dist) {
   if (!(T > 0) || !(dist > 0) || !(moved > 0)) return 0;
@@ -36,7 +42,10 @@ export function wallHold(T, moved, dist) {
   return T * (1 - Math.sqrt(1 - f));
 }
 
-/** 失衡 of a pull of 受力等级 `level`: its force window (PULL_UNBALANCE, 0.5 s below −1), none at ≤ −3 (force 0). */
+/**
+ * 失衡 of a pull of 受力等级 `level`: its force window (PULL_UNBALANCE, 0.5 s below −1), none at ≤ −3 (force 0).
+ * @param {number} level
+ */
 export function pullUnbalance(level) {
   const l = Math.round(fin(level, -99));
   return l <= -3 ? 0 : l < -1 ? PULL_UNBALANCE_WEAK : PULL_UNBALANCE;
@@ -46,6 +55,7 @@ export class BattleDisplacement {
   /**
    * 受力等级 of enemy `e` under a push / pull of 力度 `force` (微小力 −1, 小力 0, 中力 1, 较大力 2, 大力 3, 大力+1 4, 特大力 5):
    * force − its current 重量等级 (massLevel incl. 失重) — PRTS 游戏数据基础 §重量公式, 推与拉 (user playtest #6 item 14).
+   * @param {Unit | null | undefined} e @param {number} force
    * @this {Battle}
    */
   forceLevel(e, force) {
@@ -69,6 +79,9 @@ export class BattleDisplacement {
    * the push nodes pass true (`Nodes.Knockback`, `KnockBackWithDirection`; `KnockBackWithCharacterDirection`
    * passes `!_dontChangeFaceByDirection`, false by default). [ASSUMED] 薄绿's inward push uses the same node (PRTS calls it
    * a push), so it faces away from her. Returns the tiles moved.
+   * @param {Unit} e @param {number} force
+   * @param {{ from?: { x: number, y: number, fwd?: readonly number[] } | null, dir?: { x: number, y: number } | null,
+   *   fixed?: boolean, fixedAngle?: boolean, inward?: boolean, effect?: boolean }} [opts] `from`: the pusher (a unit) or a point
    * @this {Battle}
    */
   push(e, force, { from = null, dir = null, fixed = false, fixedAngle = false, inward = false, effect = false } = {}) {
@@ -97,7 +110,7 @@ export class BattleDisplacement {
     // leaves 失衡 when it hits the wall — the time to slide `moved` of `dist` under the uniform deceleration that would stop
     // it after the row's time, never below the 0.1 s floor (also a slide blocked at the first step)
     const hold = pushUnbalance(level);
-    const holdOf = (moved) => (moved + 1e-6 >= dist ? hold : Math.max(UNBALANCE_MIN, wallHold(hold, moved, dist)));
+    const holdOf = (/** @type {number} */ moved) => (moved + 1e-6 >= dist ? hold : Math.max(UNBALANCE_MIN, wallHold(hold, moved, dist)));
     const moved = this.displace(e, { x: ux, y: uy }, dist, { dur: hold > 0 ? holdOf : 0, face: 'push' });
     if (hold > 0) this._unbalance(e, holdOf(moved));
     return moved;
@@ -110,9 +123,9 @@ export class BattleDisplacement {
    * the official 拉力起点 in front of an operator. The pulled enemy keeps its facing through the slide (displace fx
    * `face: 'keep'`): the client's `Nodes.DragTowardSource.Execute` passes changeFaceByDirection false, and the
    * hook pull (`Enemy.BeginPull` / `StillPull` / `EndPull`) never turns it. Returns the tiles moved.
-   * @param {object} e
+   * @param {Unit} e
    * @param {number} force
-   * @param {{ to?: { x: number, y: number }, center?: object|null, stop?: number }} [opts]
+   * @param {{ to?: { x: number, y: number }, center?: { x: number, y: number, side?: string } | null, stop?: number }} [opts]
    * @this {Battle}
    */
   pull(e, force, { to, center = null, stop = PULL_STOP_RADIUS } = {}) {
@@ -145,6 +158,7 @@ export class BattleDisplacement {
 
   /**
    * Official distance (tiles) a push of 力度 `force` would move `e` on open ground (0 when it cannot be displaced).
+   * @param {Unit} e @param {number} force @param {{ effect?: boolean }} [opts]
    * @this {Battle}
    */
   pushDistance(e, force, { effect = false } = {}) {
@@ -153,6 +167,7 @@ export class BattleDisplacement {
 
   /**
    * Pull `e` "至面前" of ally `unit` (拉力起点 PULL_ORIGIN tiles ahead along its direction, 急停 around its centre).
+   * @param {Unit} e @param {Unit | null | undefined} unit @param {number} force
    * @this {Battle}
    */
   pullToFront(e, unit, force) {
@@ -168,6 +183,7 @@ export class BattleDisplacement {
    * STATIC_BODIES; player report after 0.1.0, "飞机可以被薄绿的技能拉走"). A skill that reaches it still hits it (its targeting
    * is the skill's own: 锏 S3, 薄绿, the 钩索师 …); only the movement is 0, so distance-based effects (drag damage, 见行者 S2's
    * wall stun) come to nothing — but a force > 0 still puts it in the 失衡 state for its 0.1 s floor (_staticForce).
+   * @param {Unit | null | undefined} e
    * @this {Battle}
    */
   _displaceable(e) {
@@ -180,6 +196,7 @@ export class BattleDisplacement {
    * 「0.1 秒保底持续时间」): no movement, the state as long as the force acts — a push's is instant (推与拉 「作用时间：瞬间」) so
    * the UNBALANCE_MIN floor, a pull's is its window (pullUnbalance: 1 s, 0.5 s below −1); a force > 0 (受力等级 ≥ −2) only.
    * Leaders (the boss pool) stay out.
+   * @param {Unit} e @param {number} force @param {boolean} [pull]
    * @this {Battle}
    */
   _staticForce(e, force, pull = false) {
@@ -197,12 +214,13 @@ export class BattleDisplacement {
    * ends with its time, or at once with 浮空 (术语释义 浮空 「触发浮空时清除受到的推/拉力…无法陷入失衡」, ai.js), a 重生 or a route
    * APPEAR (forced state switches). No skill meanwhile either (失衡免疫 「…使用技能」): content skills, blinks and scripted moves
    * check `enemies/helpers.js unbalancedNow` (docs/SIM.md lists what deliberately keeps running).
+   * @param {Unit | null | undefined} e @param {number} dur
    * @this {Battle}
    */
   _unbalance(e, dur) {
     if (!(dur > 0) || !e || !e.alive) return;
     const until = this.time + dur;
-    if (!(e.unbalanceUntil >= until)) e.unbalanceUntil = until;
+    if (!(/** @type {number} */ (e.unbalanceUntil) >= until)) e.unbalanceUntil = until;
     this._cutAttackStand(e);
     e.atkStandUntil = -Infinity;
   }
@@ -214,7 +232,7 @@ export class BattleDisplacement {
    * ⇒ no movement (_displaceable). The tiles it may cross follow its movement (`motion`): a hovering enemy walks the
    * ground, so it stays on ground-passable tiles. `face` (render only): 'push' — the view faces against its travel,
    * 'keep' — it keeps its facing; none — it faces its travel.
-   * @param {object} e
+   * @param {Unit} e
    * @param {{ x: number, y: number }} dir
    * @param {number} distance
    * @param {{ dur?: number | ((moved: number) => number), face?: string|null }} [opts] `dur` (game s): the 失衡

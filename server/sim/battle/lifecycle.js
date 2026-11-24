@@ -4,11 +4,36 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
+/** @import { LeakEntry } from './deploy.js' */
+/** @import { BattlePlayer } from './players.js' */
+/**
+ * A projectile in flight as the line of _tickUnits reads it (projectiles.js: `seq` on the units' counter).
+ * @typedef {{ done?: boolean, firedAt?: number, seq: number }} Shot
+ * An operator / board summon at the end of the battle (`unitsEnd`: the 联防 carry, match/unite.js).
+ * @typedef {{ uid: number | null, id: number, defId: string, hpPct: number, sp: number, skillActive: boolean,
+ *   alive: boolean, respawnLeft?: number }} UnitEnd
+ * A unit's tally for the settlement charts (`unitStats`, server/match/unitTally.js).
+ * @typedef {{ id: number, uid: number | null, defId: string, name: string, kind: string, dmg: number, kills: number,
+ *   heal: number, taken: number, attacks: number, byType?: number[], boss?: number, assist?: Record<string, number>,
+ *   ownerUid?: number }} UnitStat
+ * A player's part of the BattleResult (`_perPlayer`; `resolved` derived at result time).
+ * @typedef {{ killed: number, total: number, leaked: LeakEntry[], perfect: boolean, killedInTotal: number,
+ *   leakedInTotal: number, layerGains: Record<string, number>, tempLayerGains?: Record<string, number>, coins: number,
+ *   damageDealt: number, bossDamage: number, healingDone: number, deaths: number, unitsEnd: UnitEnd[],
+ *   unitStats: UnitStat[], resolved?: number }} PlayerResult
+ * A queued spawn the time limit dropped (`result().unspawned`).
+ * @typedef {{ enemyKey: string, time: number, tag: string | null, sourcePlayerId: string | null }} Unspawned
+ * The BattleResult (DESIGN §5.1).
+ * @typedef {{ time: number, reason: string | null, perPlayer: Record<string, PlayerResult>, killed: number,
+ *   total: number, resolved: number, errors: number, unspawned?: Unspawned[], bossHpLeft?: number,
+ *   synthetic?: boolean }} BattleResult `synthetic`: a stand-in for a field no battle finished (match/fields.js)
+ */
 import { BLOCK_SKILL_TICK, FORCED_EXIT, MAX_BATTLE_TIME } from '../constants.js';
 import { updateAlly, updateEnemy } from '../ai.js';
 import { seasonFeature } from '../../../shared/seasons.js';
 
-const byDeploySeq = (a, b) => a.deploySeq - b.deploySeq;
+const byDeploySeq = (/** @type {Unit} */ a, /** @type {Unit} */ b) => a.deploySeq - b.deploySeq;
 
 export class BattleLifecycle {
   /** @this {Battle} */
@@ -30,7 +55,7 @@ export class BattleLifecycle {
     // wave clock starts one interval after the last (_beginWave). Units already down act meanwhile (SP, auras — no enemy
     // is out yet).
     const seq0 = this._deploySeq;
-    const lists = this.players.map((ps) => ps.units.filter((u) => u.kind === 'op' || u.kind === 'token').slice().sort((a, b) =>
+    const lists = /** @type {BattlePlayer[]} */ (this.players).map((ps) => ps.units.filter((u) => u.kind === 'op' || u.kind === 'token').slice().sort((a, b) =>
       (ps.mirror ? b.homeC - a.homeC : a.homeC - b.homeC) || b.homeR - a.homeR || a.id - b.id));
     // a summon piece flagged `deferDeploy` by content (one its owner's loadout does not make — 赫默 on S1 with a drone
     // piece —, or a skill's summon when shared/constants.js SKILL_SUMMON_START_DEPLOY is off: content/tokens.js
@@ -72,6 +97,7 @@ export class BattleLifecycle {
   /**
    * The wave clock starts (client ON_BATTLE_STARTED, then `Scheduler.Init` / `DoSchedule`): the stage's spawn times count
    * from now (`waveT0`; the time limit from the battle start), the start-of-battle summons rank in aggro, 联防 forced exits, `battleStart`.
+   * @param {number} seq0
    * @this {Battle}
    */
   _beginWave(seq0) {
@@ -161,6 +187,7 @@ export class BattleLifecycle {
    * tick and as another unit moves it (battle/displacement.js displace, a teleport), so a unit sees every enemy where it
    * is now — the client's `LitePhysicsUtil.FindTargetsInBox` goes over the side's units (`UnitManager
    * .GetUnitsBySingleSide`) and reads each one's position (`_CheckContainsPosition`); it keeps no index.
+   * @param {number} dt
    * @this {Battle}
    */
   _tickUnits(dt) {
@@ -177,7 +204,7 @@ export class BattleLifecycle {
     allies.length = 0; line.length = 0; seqs.length = 0; kinds.length = 0;
     for (const u of this.allyUnits) if (u.alive && u.deployed) allies.push(u);
     if (allies.length > 1) allies.sort(byDeploySeq);
-    const pl = this.projectiles, shots = pl.list;
+    const pl = this.projectiles, shots = /** @type {Shot[]} */ (pl.list);
     let ai = 0, ei = 0, pi = 0;
     const na = allies.length, ne = enemies.length, np = shots.length;
     for (;;) {
@@ -200,7 +227,7 @@ export class BattleLifecycle {
         const p = line[i];
         if (p.done) continue;
         // content may replace the list (op-logos.js clears the enemy shots on its range): the ones it dropped are gone
-        if (pl.list !== shotList) { shotList = pl.list; live = new Set(shotList); }
+        if (pl.list !== shotList) { shotList = /** @type {Shot[]} */ (pl.list); live = new Set(shotList); }
         if (live && !live.has(p)) continue;
         try { pl.step(p, dt); } catch (err) { this._internalError('projectiles', err); }
       }
@@ -211,6 +238,7 @@ export class BattleLifecycle {
 
   /**
    * Enemy `e`'s own tick in the line (_tickUnits): its attack / move, then its buffs.
+   * @param {Unit} e @param {number} dt
    * @this {Battle}
    */
   _tickEnemy(e, dt) {
@@ -225,6 +253,7 @@ export class BattleLifecycle {
    * Ally `u`'s own tick in the line (_tickUnits): its attack, its buffs, its skill's duration, its block search when due,
    * its skill. `seq`: its
    * deploySeq as the pass started (a unit redeployed since is a new one: it waits for the next step).
+   * @param {Unit} u @param {number} seq @param {number} dt
    * @this {Battle}
    */
   _tickAlly(u, seq, dt) {
@@ -269,6 +298,7 @@ export class BattleLifecycle {
 
   /**
    * Last-resort finish when building the normal result threw (never throws itself).
+   * @param {string} reason
    * @this {Battle}
    */
   _hardFinish(reason) {
@@ -282,6 +312,7 @@ export class BattleLifecycle {
 
   /**
    * Run until finished or `maxSeconds` of game time elapsed. Returns the result when finished.
+   * @param {number} [maxSeconds] @returns {BattleResult | null}
    * @this {Battle}
    */
   runToEnd(maxSeconds = MAX_BATTLE_TIME) {
@@ -290,7 +321,10 @@ export class BattleLifecycle {
     return this.finished ? this.result() : null;
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {string} name @param {() => void} fn
+   * @this {Battle}
+   */
   _phase(name, fn) {
     if (this.finished || this._endReq) return;
     try { fn(); } catch (e) { this._internalError(name, e); }
@@ -331,6 +365,7 @@ export class BattleLifecycle {
       if (!e.alive || e.isBoss || e.mem.noLeak) continue;
       this._recordLeak(e, true);
     }
+    /** @type {Unspawned[]} */
     this.unspawned = [];
     for (const p of this._pending) {
       if (p.precounted) {
@@ -344,7 +379,10 @@ export class BattleLifecycle {
     this._finish('timeout');
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {string} [reason]
+   * @this {Battle}
+   */
   forceEnd(reason = 'forced') {
     if (this.finished) return;
     if (this._stepping) { if (!this._endReq) this._endReq = reason; return; } // finalised when step() unwinds
@@ -385,7 +423,10 @@ export class BattleLifecycle {
     this._finish('forced');
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {string} reason
+   * @this {Battle}
+   */
   _finish(reason) {
     if (this.finished) return;
     this.finished = true;
@@ -402,13 +443,17 @@ export class BattleLifecycle {
     this.projectiles.clear();
   }
 
-  /** @this {Battle} */
+  /**
+   * @returns {BattleResult}
+   * @this {Battle}
+   */
   _buildResult() {
+    /** @type {Record<string, PlayerResult>} */
     const perPlayer = {};
     // the battle's season (Battle `season`, from the match / spec): the browser's sim data has no config file
     const keepRedeploy = seasonFeature(this.season, 'uniteKeepsRedeploy');
-    for (const ps of this.players) {
-      const pp = this._perPlayer[ps.playerId];
+    for (const ps of /** @type {BattlePlayer[]} */ (this.players)) {
+      const pp = /** @type {PlayerResult} */ (this._perPlayer[ps.playerId]);
       pp.perfect = !this.surrendered && !pp.leaked.some((l) => l.counted !== false);
       // the HUD capsule's numerator of this field (DESIGN §14): this player's own scheduled enemies resolved — knocked
       // down or leaked (`counted` keeps the LP / 完美作战 reading, runtime splits and summons included — a 联防 field
@@ -423,23 +468,23 @@ export class BattleLifecycle {
       // it) in a season whose 联防 inherits it (shared/seasons.js uniteKeepsRedeploy; the 盟约 result has no such field)
       const units = ps.units.filter((u) => !(u.reserve && !(u.deploySeq > 0)));
       pp.unitsEnd = units.filter((u) => u.kind === 'op' || (u.kind === 'token' && u.uid != null)).map((u) => {
-        const e = {
+        const e = /** @type {UnitEnd} */ ({
           uid: u.uid, id: u.id, defId: u.defId,
           hpPct: u.alive ? Math.max(0, Math.min(1, u.hp / u.s.maxHp)) : 0,
           sp: u.skill && !u.skill.noSkill ? Math.round(u.skill.spTotal * 100) / 100 : 0,
           skillActive: !!(u.skill && u.skill.active && u.skill.kind !== 'passive'),
           alive: !!u.alive,
-        };
+        });
         if (keepRedeploy && u.kind === 'op' && !u.alive && this.isDown(u)) e.respawnLeft = Math.round(Math.max(0, u.respawnAt - this.time) * 100) / 100;
         return e;
       });
       // `boss` / `assist` / `ownerUid` feed the settlement's per-operator charts (server/match/unitTally.js): a unit the
       // battle created (no board uid) names the nearest summoner up its chain that has one, so it counts for that operator
       pp.unitStats = units.map((u) => {
-        const e = {
+        const e = /** @type {UnitStat} */ ({
           id: u.id, uid: u.uid, defId: u.defId, name: u.name, kind: u.kind,
           dmg: Math.round(u.stats.dmg), kills: u.stats.kills, heal: Math.round(u.stats.heal), taken: Math.round(u.stats.taken), attacks: u.stats.attacks,
-        };
+        });
         if (u.stats.dmg > 0) e.byType = u.stats.byType.map(Math.round);
         if (u.stats.boss > 0) e.boss = Math.round(u.stats.boss);
         if (u.stats.assist) e.assist = { ...u.stats.assist };
@@ -450,7 +495,7 @@ export class BattleLifecycle {
       });
       perPlayer[ps.playerId] = pp;
     }
-    const res = { time: Math.round(this.time * 1000) / 1000, reason: this.reason, perPlayer, killed: this.killed, total: this.total, resolved: this.resolved, errors: this.errorCount };
+    const res = /** @type {BattleResult} */ ({ time: Math.round(this.time * 1000) / 1000, reason: this.reason, perPlayer, killed: this.killed, total: this.total, resolved: this.resolved, errors: this.errorCount });
     if (this.unspawned && this.unspawned.length) res.unspawned = this.unspawned;
     if (this.sharedBoss) res.bossHpLeft = Math.max(0, this.sharedBoss.hp);
     return res;
@@ -458,6 +503,7 @@ export class BattleLifecycle {
 
   /**
    * BattleResult (valid once finished; a provisional result before).
+   * @returns {BattleResult}
    * @this {Battle}
    */
   result() {

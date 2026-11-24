@@ -5,6 +5,27 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/** @import { RouteSpec } from './tiles.js' */
+/**
+ * A stage's scheduled spawn (the spec's `spawns`; `time`, `count`, `interval` are coerced).
+ * @typedef {{ time?: unknown, count?: unknown, interval?: unknown, enemyKey: string, routeIndex?: number,
+ *   route?: object | null, mods?: EnemyMods | null, sourcePlayerId?: string | null, bounty?: Bounty | null,
+ *   tag?: string | null, ownerPlayerId?: string | null, pos?: number[] | null, countInTotal?: boolean }} SpawnInput
+ * A kill bounty (a 悬赏 card's enemy, a 鸭爵 swap): its coins and the card's owner (economy.js _bountyPayee).
+ * @typedef {{ coins: number, ownerPlayerId?: string | null }} Bounty
+ * An enemy's stat multipliers (spawnEnemy `mods`).
+ * @typedef {{ hpMul?: number, atkMul?: number, defMul?: number, resMul?: number, speedMul?: number }} EnemyMods
+ * A queued spawn (`_pending`, in time order).
+ * @typedef {{ time: number, enemyKey: string, routeIndex: number, route: object | null, mods: EnemyMods | null,
+ *   sourcePlayerId: string | null, bounty: Bounty | null, tag: string | null, ownerPlayerId: string | null,
+ *   pos: number[] | null, seq: number, countInTotal: boolean | undefined, counted?: boolean, inTotal?: boolean,
+ *   precounted?: boolean }} PendingSpawn
+ * spawnEnemy's options (see there): `def` an inline record, `_precounted` / `_scheduled` the queue's own.
+ * @typedef {{ routeIndex?: number, route?: object | null, pos?: number[] | null, mods?: EnemyMods | null,
+ *   tag?: string | null, sourcePlayerId?: string | null, ownerPlayerId?: string | null, bounty?: Bounty | null,
+ *   countInTotal?: boolean, inTotal?: boolean, def?: { [field: string]: unknown } | null, _precounted?: boolean,
+ *   _scheduled?: boolean }} SpawnOpts
+ */
 import { MAX_ALIVE_ENEMIES, FIELD_EDGE_INSET, ENEMY_COLLIDER_RADIUS } from '../constants.js';
 import { Unit } from '../units.js';
 import { compileRoute } from '../ai.js';
@@ -21,7 +42,10 @@ const FALLBACK_ENEMY = Object.freeze({
 });
 
 export class BattleSpawns {
-  /** @this {Battle} */
+  /**
+   * @param {SpawnInput} s @param {boolean} precount
+   * @this {Battle}
+   */
   _queueSpawn(s, precount) {
     if (Number(s.time) === Infinity) return; // "never" — not scheduled, not counted
     // capped: a bogus count (Infinity, 1e9) would otherwise hang the constructor / exhaust memory
@@ -29,11 +53,11 @@ export class BattleSpawns {
     const interval = Math.max(0, fin(s.interval, 0));
     const def = this.data.getEnemy(s.enemyKey);
     for (let i = 0; i < count; i++) {
-      const p = {
+      const p = /** @type {PendingSpawn} */ ({
         time: Math.max(0, fin(s.time, 0)) + i * interval, enemyKey: s.enemyKey, routeIndex: s.routeIndex ?? 0, route: s.route ?? null,
         mods: s.mods ?? null, sourcePlayerId: s.sourcePlayerId ?? null, bounty: s.bounty ?? null, tag: s.tag ?? null,
         ownerPlayerId: s.ownerPlayerId ?? null, pos: s.pos ?? null, seq: ++this._spawnSeq, countInTotal: s.countInTotal,
-      };
+      });
       p.counted = p.countInTotal ?? (!(def && def.notCountInTotal) && p.tag !== 'boss' && p.tag !== 'part');
       // inTotal: the enemies THIS STAGE scheduled that count — the HUD capsule's own set (DESIGN §14 "顶栏胶囊"). A
       // runtime spawn (a split child, a summon, a part, a form change) is never in it, so the capsule's denominator stays
@@ -61,22 +85,32 @@ export class BattleSpawns {
     }
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {number} idx @param {object | null} [explicit] @returns {RouteSpec | null}
+   * @this {Battle}
+   */
   _routeFor(idx, explicit = null) {
     if (explicit) return normalizeRoute(explicit);
     return this.routes[idx] ?? this.routes[0] ?? this._defaultRoute();
   }
 
-  /** @this {Battle} */
+  /**
+   * @returns {RouteSpec | null}
+   * @this {Battle}
+   */
   _defaultRoute() {
     if (this._defRoute !== undefined) return this._defRoute;
     const starts = this.grid.specialTiles('start');
     const ends = this.grid.specialTiles('end');
+    /** @type {RouteSpec | null | undefined} */
     this._defRoute = starts.length && ends.length ? { motion: 'WALK', start: starts[0], end: ends[0], checkpoints: [] } : null;
     return this._defRoute;
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {number[] | { c: number } | null | undefined} tile @returns {string | null}
+   * @this {Battle}
+   */
   _ownerForTile(tile) {
     if (!this.players.length) return null;
     if (this.players.length === 1 || !tile) return this.players[0].playerId;
@@ -90,6 +124,7 @@ export class BattleSpawns {
   /**
    * Spawn an enemy now. opts: { routeIndex, route, pos:[r,c], mods:{hpMul,atkMul,defMul,resMul,speedMul}, tag,
    * sourcePlayerId, ownerPlayerId, bounty:{coins,ownerPlayerId}, countInTotal, inTotal }
+   * @param {string} enemyKey @param {SpawnOpts} [opts] @returns {import('../units.js').Unit | null}
    * @this {Battle}
    */
   spawnEnemy(enemyKey, opts = {}) {
@@ -120,7 +155,8 @@ export class BattleSpawns {
     const R = this.rect; // spawn inside the field (same bounds as _clampPos)
     start = [Math.max(R.r0 - 0.5, Math.min(R.r1 + 0.5, start[0])), Math.max(R.c0 - 0.5, Math.min(R.c1 + 0.5, start[1]))];
     // multipliers: finite and ≥ 0 (hp > 0), anything else counts as 1
-    const mm = (v, pos = false) => { const n = fin(v, 1); return n < 0 || (pos && n <= 0) ? 1 : n; };
+    const mm = (/** @type {number | undefined} */ v, pos = false) => { const n = fin(v, 1); return n < 0 || (pos && n <= 0) ? 1 : n; };
+    /** @type {EnemyMods} */
     const m0 = opts.mods || {};
     const m = { hpMul: mm(m0.hpMul, true), atkMul: mm(m0.atkMul), defMul: mm(m0.defMul), resMul: mm(m0.resMul), speedMul: mm(m0.speedMul) };
     const e = new Unit({
@@ -205,6 +241,7 @@ export class BattleSpawns {
    * `fx: false` = no 'disappear' / 'appear' effect (a 驮兽 passenger boarding / getting off: the client plays none). Either
    * way ['hide', id, 1|0] tells the view (2026-11-20): its snapshot leaves a hidden enemy out as it leaves a leaked one, and
    * the client's `Enemy.isDisappeared` pauses some effects (render/fxgame.js `disappeared`).
+   * @param {import('../units.js').Unit} e @param {boolean} on @param {{ fx?: boolean }} [opts]
    * @this {Battle}
    */
   _setHidden(e, on, { fx = true } = {}) {
@@ -216,7 +253,10 @@ export class BattleSpawns {
     if (fx) this.fx(on ? 'disappear' : 'appear', { x: e.x, y: e.y, id: e.id });
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {import('../units.js').Unit} e
+   * @this {Battle}
+   */
   _syncBossHp(e) {
     const pool = e.bossPool;
     if (!pool) return;
@@ -235,7 +275,10 @@ export class BattleSpawns {
     }
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {import('../units.js').Unit} e
+   * @this {Battle}
+   */
   _clampPos(e) {
     const R = this.rect, m = 0.5 - FIELD_EDGE_INSET; // inside the edge: on the edge tile, never halfway (body.js)
     if (e.x < R.c0 - m) e.x = R.c0 - m;
@@ -248,7 +291,7 @@ export class BattleSpawns {
   _compactEnemies() {
     if (!this._enemiesDirty) return;
     for (const e of this.enemies) if (!e.alive) this._unindexEnemy(e);
-    this.enemies = this.enemies.filter((e) => e.alive);
+    /** @type {Battle} */ (this).enemies = this.enemies.filter((e) => e.alive);
     this._enemiesDirty = false;
   }
 }

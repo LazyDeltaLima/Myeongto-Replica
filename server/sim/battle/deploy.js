@@ -5,6 +5,16 @@
 
 /** @import { Battle } from '../Battle.js' */
 /** @import { Unit } from '../units.js' */
+/** @import { Buff } from './status.js' */
+/**
+ * A queued spawn surrender() charges as a leak (lifecycle.js): the fields _recordLeak reads of an enemy.
+ * @typedef {{ ownerId: string | null, defId: string, mods: object | null, lpr: number,
+ *   sourcePlayerId: string | null, tag: string | null, counted: boolean, inTotal: boolean, isBoss: boolean,
+ *   x?: undefined, y?: undefined, uniteRuntime?: undefined }} LeakSource
+ * A leak of a player's result (`perPlayer[pid].leaked`; `spawned` false: a queued enemy surrender() charged).
+ * @typedef {{ enemyKey: string, mods: object | null, lpr: number, sourcePlayerId: string | null,
+ *   tag: string | null, counted: boolean, boss?: boolean, spawned: boolean, uniteRuntime?: boolean }} LeakEntry
+ */
 import { COLS } from '../constants.js';
 import { unitInfo } from '../snapshot.js';
 import { fin } from './util.js';
@@ -14,6 +24,9 @@ export class BattleDeploy {
    * Deploy `u` on its home tile, or on `tile` ([r, c]: a one-off landing tile — the home stays the board tile; an
    * operator that left the field comes back on its body tile, restTile). `keepSp` = { sp, charges }
    * restored right after the skill reset, before the `deploy` hook fires.
+   * @param {Unit} u
+   * @param {{ initial?: boolean, carry?: { hpPct?: number, sp?: number } | null, tile?: readonly number[] | null,
+   *   keepSp?: { sp: number, charges: number } | null }} [opts] `carry`: a 联防 carry state (Unit.carry)
    * @this {Battle}
    */
   _deploy(u, { initial = false, carry = null, tile = null, keepSp = null } = {}) {
@@ -59,7 +72,7 @@ export class BattleDeploy {
     u.faceTgt = null;   // and faces its deploy direction (the view does the same on 'deploy')
     u.faced = false;
     u.lastAttackAt = -Infinity;
-    for (const k in u.elem) u.elem[k] = 0;
+    for (const k in u.elem) /** @type {Record<string, number>} */ (u.elem)[k] = 0;
     u.ground = !fly && this.grid.isLow(R0, C0) && !this._elevated?.has(k); // a flyer is an air unit, on no ground at all
     u.markDirty();
     u.hp = u.s.maxHp;
@@ -120,6 +133,7 @@ export class BattleDeploy {
    * comes back there (isDown, GitHub #60) — unless `permanent`, or the 突袭 retreat ('raid') that redeploys it at once.
    * `dying`: a forced exit that plays the operator's death animation — a knock-out put off by its own effect (史尔特尔's
    * 余烬, 骑士戒律 + 竞技旗); the `death` hook carries it (Touch's 超脱 counts such an exit: content/tokens.js).
+   * @param {Unit} unit @param {{ reason?: string, permanent?: boolean, dying?: boolean }} [opts]
    * @this {Battle}
    */
   retreat(unit, { reason = 'retreat', permanent = false, dying = false } = {}) {
@@ -127,7 +141,11 @@ export class BattleDeploy {
     this._remove(unit, reason, null, permanent, dying);
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {Unit} unit @param {string} reason @param {Unit | null} [killer] @param {boolean} [permanent]
+   * @param {boolean} [dying]
+   * @this {Battle}
+   */
   _remove(unit, reason, killer = null, permanent = false, dying = false) {
     this._cutAttackStand(unit);
     unit.alive = false;
@@ -143,14 +161,14 @@ export class BattleDeploy {
     }
     unit._removing = false;
     const ci = this._chars.indexOf(unit);
-    if (ci >= 0) { const last = this._chars.pop(); if (last !== unit) this._chars[ci] = last; }
+    if (ci >= 0) { const last = /** @type {Unit} */ (this._chars.pop()); if (last !== unit) this._chars[ci] = last; }
     if (unit.side === 'ally') {
       this.releaseBlocked(unit);
       const k = unit.tileR * COLS + unit.tileC;
       if (this._occ[k] === unit) this._occ[k] = null;
       // keep persistent buffs only
       const kept = [];
-      for (const b of unit.buffs) {
+      for (const b of /** @type {Buff[]} */ (unit.buffs)) {
         if (b.persist) kept.push(b);
         else if (b.visible || b.status) this._ev(['status', unit.id, b.status ?? b.key, 0]);
       }
@@ -289,6 +307,7 @@ export class BattleDeploy {
 
   /**
    * Leak: an enemy reached its goal.
+   * @param {Unit} e
    * @this {Battle}
    */
   leak(e) {
@@ -299,12 +318,16 @@ export class BattleDeploy {
     if (this._hooks.enemyLeak) this.emit('enemyLeak', { enemy: e });
   }
 
-  /** @this {Battle} */
+  /**
+   * `e`: an enemy, or the record surrender() makes of a queued spawn (its fields as an enemy carries them).
+   * @param {Unit | LeakSource} e @param {boolean} timeout
+   * @this {Battle}
+   */
   _recordLeak(e, timeout) {
     const owner = timeout ? e.ownerId : this._ownerForTile([Math.round(e.y), Math.round(e.x)]) ?? e.ownerId;
     const pp = this._pp(owner) ?? this._pp(e.ownerId);
     if (pp) {
-      const entry = { enemyKey: e.defId, mods: e.mods ?? null, lpr: e.lpr ?? 1, sourcePlayerId: e.sourcePlayerId ?? e.ownerId, tag: e.tag ?? null, counted: !!e.counted || e.isBoss, boss: e.isBoss || undefined, spawned: true };
+      const entry = /** @type {LeakEntry} */ ({ enemyKey: e.defId, mods: e.mods ?? null, lpr: e.lpr ?? 1, sourcePlayerId: e.sourcePlayerId ?? e.ownerId, tag: e.tag ?? null, counted: !!e.counted || e.isBoss, boss: e.isBoss || undefined, spawned: true });
       // born while a 联防 field ran (spawns.js): the leaker never sent it in, so it costs nobody LP and raises no ×N —
       // unite.js uniteSurvivors / spec.js uniteLeft filter it; every other reading keeps counting it as usual
       if (e.uniteRuntime) entry.uniteRuntime = true;

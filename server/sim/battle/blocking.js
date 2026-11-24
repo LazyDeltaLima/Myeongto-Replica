@@ -3,6 +3,9 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
+/** @import { Buff } from './status.js' */
+/** A point of the field (x = column, y = row). @typedef {{ x: number, y: number }} Point */
 import { ROWS, COLS, BLOCK_RADIUS_SQ, BLOCK_MIN_DIST, BLOCK_MOVE_TIME, BLOCK_SEARCH_TICKS, BLOCK_WEIGHT_GAP, STEALTH_RESTORE } from '../constants.js';
 import { canTargetEnemy, stealthOffKey } from '../targeting.js';
 import { hypot } from '../detmath.js';
@@ -13,13 +16,19 @@ const MIN_DIST_BTW_BLOCKEES_SQR = 0.010000001;
 const CLOSE_DIST_BTW_BLOCKEES_SQR = 0.16000001;
 const MERGE_FACTOR_OF_SEPARATION = 0.2;
 
-/** Unity's Vector2.normalized: the zero vector below a length of 1e-5. */
+/**
+ * Unity's Vector2.normalized: the zero vector below a length of 1e-5.
+ * @param {number} x @param {number} y @returns {Point}
+ */
 function normalized(x, y) {
   const l = hypot(x, y);
   return l > 1e-5 ? { x: x / l, y: y / l } : { x: 0, y: 0 };
 }
 
-/** Enemy.stableBlockPosition: where a held enemy is going while its block slide runs, else where it stands. */
+/**
+ * Enemy.stableBlockPosition: where a held enemy is going while its block slide runs, else where it stands.
+ * @param {Unit} x @returns {Point}
+ */
 function stableBlockPosition(x) {
   const m = x.blockMove;
   return m ? { x: m.x1, y: m.y1 } : { x: x.x, y: x.y };
@@ -28,6 +37,7 @@ function stableBlockPosition(x) {
 /**
  * BlockBalancer.CalculateBlockOffset: the offset from the blocker's centre (bx, by) at which enemy `e` is held, given the
  * enemies the blocker already holds (`held`, before `e` is added).
+ * @param {Unit[]} held @param {Point} e @param {number} bx @param {number} by @returns {Point}
  */
 export function blockOffset(held, e, bx, by) {
   let ox = e.x - bx, oy = e.y - by;
@@ -87,6 +97,7 @@ export class BattleBlocking {
    * once it wakes it is blocked again only by a blocker with room.
    * Out of turn: searchBlockeeImmediate. The 迷狂牢笼 (PropLikeStaticBlockToken) does not search this way: its kit
    * (op-phatm2.js cageBlock) — every other device searches like an operator (Trap → Token → Character).
+   * @param {Unit} u @param {boolean} [all]
    * @this {Battle}
    */
   _searchBlockees(u, all = false) {
@@ -103,8 +114,9 @@ export class BattleBlocking {
     const ur = u.tileR, uc = u.tileC, et = this._et;
     const px = u.walks ? u.x : uc, py = u.walks ? u.y : ur;
     const k = 1 + (u.s.blockRadiusScale || 0);
+    /** @type {Array<{ e: Unit, w: number, step: number, i: number }>} */
     const cands = [];
-    const consider = (e) => {
+    const consider = (/** @type {Unit} */ e) => {
       if (e.blockedBy || e.hidden || !e.alive) return;
       const f = e.s.flags;
       if (f.unblockable || f.levitate || f.fear || f.sleep) return;
@@ -140,6 +152,7 @@ export class BattleBlocking {
    * is due): true every BLOCK_SEARCH_TICKS ticks, the first on its first tick as a new unit — BObject.OnAllocate →
    * Character.OnReset → `Reset(false)` for every deployment, a redeployment and a 【移动】 too (deploy.js, tiles.js
    * moveRedeploy: the client's mover is born again, ulpia_s3_switch_mode[born] ON_OWNER_BORN).
+   * @param {Unit} u
    * @this {Battle}
    */
   _blockSearchDue(u) {
@@ -155,6 +168,7 @@ export class BattleBlocking {
    * target (HarpoonProjectile / NetCatcherProjectile / PullHitTargetBehaviour .OnProjectileStop — the pulls of 崖心 S2,
    * 歌蕾蒂娅, 百炼嘉维尔 S2, 乌尔比安 S1, 锏 S3 in this mode: their kits call this after the pull) and from the
    * CharSearchBlockeeImmediate node (玛恩纳's mlynar_s_cast at his skill's start: professions.js installLibrator).
+   * @param {Unit | null | undefined} u
    * @this {Battle}
    */
   searchBlockeeImmediate(u) {
@@ -168,6 +182,7 @@ export class BattleBlocking {
    * blocker's centre plus its offset at contact, lengthened to 0.5 and turned off the blocker's other enemies (blockOffset,
    * _moveToBlockPosition; BlockBalancer.CalculateBlockOffset → Enemy.RegisterBlocker) — an enemy blocked by contact
    * while walking in is already ≈ 0.71 away and stays put; one an operator lands or is deployed on is pushed out.
+   * @param {Unit} u @param {Unit} e
    * @this {Battle}
    */
   _addBlockee(u, e) {
@@ -186,6 +201,7 @@ export class BattleBlocking {
    * `m_blockTween` where it stands: a push / pull, a blink, a relocation, 浮空, 不可阻挡, leaving the field); a release by
    * the blocker's side does not (Character.RemoveBlockee → Enemy.UnregisterBlocker only clears the blocker), so the slide
    * runs on after its blocker died, left or let go.
+   * @param {Unit} e @param {number} x @param {number} y
    * @this {Battle}
    */
   _moveToBlockPosition(e, x, y) {
@@ -199,6 +215,7 @@ export class BattleBlocking {
    * from where the slide put it and the slide wins again on the next tick, until it ends at its target (then it walks
    * on from there that same tick). An enemy holding 不可阻挡 / 浮空 / 恐惧 / 沉睡 (Enemy.OnTick: isBlockFree →
    * ReleaseFromBlocker) or off the field stops where it stands.
+   * @param {Unit} e @param {number} dt
    * @this {Battle}
    */
   _tickBlockMove(e, dt) {
@@ -222,9 +239,12 @@ export class BattleBlocking {
    * it came from, BlockBalancer.CalculateBlockOffset — not at its blocker's front) (DESIGN §20; it replaces the playtest #5 QA's melee-only restriction). Only for attacks that hit enemies: a heal
    * attack never asks — it keeps selecting injured allies while its unit blocks (PRTS 卫戍协议/帮助 "对于医疗干员
    * （咒愈师分支除外），攻击目标为需要治疗的单位"; PRTS 选择器 adds only the blocked units its side can pick).
+   * @param {Unit | null | undefined} u @param {object | null} [profile] its attack profile
+   * @returns {Unit[]}
    * @this {Battle}
    */
   blockedTargets(u, profile) {
+    /** @type {Unit[]} */
     const out = [];
     if (!u || !u.blocking || !u.blocking.length) return out;
     for (const e of u.blocking) if (e.blockedBy === u && canTargetEnemy(u, e, profile)) out.push(e);
@@ -240,6 +260,7 @@ export class BattleBlocking {
    * 地面阻挡]. Nothing walks onto such a tile, so it matters for an enemy pushed or pulled against the fence
    * (Battle.displace stops it at the tile edge, 0.5 from the fenced unit — inside the ground block radius). An airborne
    * unit (起飞, flag `liftoff`: "不阻挡地面敌人…可以阻挡飞行敌人") blocks flyers only.
+   * @param {Unit} u @param {Unit} e @param {number} w
    * @this {Battle}
    */
   _blockerFor(u, e, w) {
@@ -249,7 +270,7 @@ export class BattleBlocking {
     if (e.isFlying && !(u.s.flags.blockFly || (u.profile && u.profile.blockFly))) return false;
     // ground enemies: only a ground unit that has not taken off (起飞 "不阻挡地面敌人": flag `liftoff`), standing on a tile
     // ground units can pass (not a fenced 围墙 / 围栏 tile)
-    if (!e.isFlying && (!u.ground || u.s.flags.liftoff || this.grid.tile(u.tileR, u.tileC).pass !== 'ALL')) return false;
+    if (!e.isFlying && (!u.ground || u.s.flags.liftoff || /** @type {{ pass: string }} */ (this.grid.tile(u.tileR, u.tileC)).pass !== 'ALL')) return false;
     const cap = u.s.blockCnt;
     if (cap <= 0) return false;
     let used = 0;
@@ -261,6 +282,7 @@ export class BattleBlocking {
    * Enemy.ReleaseFromBlocker — enemy `e` is let go for its own reason (a push / pull, a blink or relocation, 不可阻挡 /
    * 浮空 / 恐惧 / 沉睡, leaving the field, death): its blocker drops it and its block slide stops where it stands, blocked
    * or not.
+   * @param {Unit} e
    * @this {Battle}
    */
   _unblock(e) {
@@ -271,6 +293,7 @@ export class BattleBlocking {
   /**
    * Enemy.UnregisterBlocker — enemy `e`'s blocker drops it (the blocker died, left, was stunned or lost the capacity):
    * the block slide runs on (_moveToBlockPosition).
+   * @param {Unit} e
    * @this {Battle}
    */
   _unregisterBlocker(e) {
@@ -284,6 +307,7 @@ export class BattleBlocking {
 
   /**
    * Release every enemy blocked by ally `u` (death, retreat, block count drop, substitution…).
+   * @param {Unit | null | undefined} u
    * @this {Battle}
    */
   releaseBlocked(u) {
@@ -301,11 +325,12 @@ export class BattleBlocking {
    * `stealthOff` buff per source; meanwhile it is targetable, operator splash reaches it and it is drawn solid
    * (targeting.js enemyStealthed). A new block inside the window lifts it again and its end restarts the window. Our
    * operators' 隐匿 / 迷彩 are never lifted by blocking (only enemies get here).
+   * @param {Unit | null | undefined} e
    * @this {Battle}
    */
   _stealthSwitch(e) {
     if (!e || e.side !== 'enemy' || !e.alive || !e.s.flags.stealth) return;
-    for (const b of e.buffs.slice()) {
+    for (const b of /** @type {Buff[]} */ (e.buffs.slice())) {
       if (!b.flags || !b.flags.stealth) continue;
       const t = Number.isFinite(b.data?.stealthRestore) ? b.data.stealthRestore : STEALTH_RESTORE;
       if (t > 0) this.addBuff(e, { key: stealthOffKey(b.key), duration: t, flags: { stealthOff: true } });

@@ -53,6 +53,8 @@ declare module '../server/sim/units.js' {
     skillAnimUntil?: number;
     skillStateUntil?: number;
     bornUntil?: number;
+    // a 【移动】 that only lands where the unit flew itself (battle/tiles.js moveRedeploy `inPlace`): no deploy animation
+    quietDeployAt?: number | null;
     // range: the grid relative to the unit and the absolute tile keys (row * COLS + col) it covers
     // (battle/queries.js, skills.js)
     rangeGrid?: ReadonlyArray<ReadonlyArray<number>>;
@@ -60,6 +62,19 @@ declare module '../server/sim/units.js' {
     baseRangeKeys?: number[];
     // the same keys as a set (battle/queries.js, the summons and walkers that set their own range), read by range tests
     rangeKeySet?: Set<number>;
+    // battle/queries.js _refreshRange: the extends the range was built with, the content's extra keys (setExtraRange,
+    // `extraRangeShown`: they join the card's grid) and the grid of the 攻击范围 the detail card shows
+    _rangeExtend?: number;
+    _baseExtend?: number;
+    extraRangeKeys?: number[] | null;
+    extraRangeShown?: boolean;
+    liveRangeGrid?: ReadonlyArray<ReadonlyArray<number>>;
+    // its profession's install ran (battle/players.js _setupUnit: once per unit)
+    _profInstalled?: boolean;
+    // the natural HP regeneration not healed yet (battle/status.js _tickUnitBuffs)
+    _regenAcc?: number;
+    // set while its removal bookkeeping runs (battle/deploy.js _remove): no redeploy from a skill's onEnd meanwhile
+    _removing?: boolean;
     // a board piece (battle/players.js)
     items?: any[];
     reserve?: boolean;

@@ -5,18 +5,22 @@
 
 /** @import { Battle } from '../Battle.js' */
 /** @import { Unit } from '../units.js' */
+/** @import { Buff } from './status.js' */
+/** @typedef {NonNullable<ReturnType<typeof import('../simdata.js').normalizeRoute>>} RouteSpec */
 import { ROWS, COLS, DOWN_STATE } from '../constants.js';
 import { localOrder, localBefore } from '../dir.js';
 
 export class BattleTiles {
   /**
    * Toggle a ground obstacle (enemies re-read their flow field). `kind` 'block' (default, impassable) | 'crate'.
+   * @param {number} r @param {number} c @param {boolean} on @param {string} [kind]
    * @this {Battle}
    */
   setObstacle(r, c, on, kind = 'block') { this.grid.setObstacle(r, c, on, kind); }
 
   /**
    * Move an ally to another tile (keeps state); never onto a living unit or a knocked-out operator (downOn).
+   * @param {Unit} unit @param {number} r @param {number} c
    * @this {Battle}
    */
   relocate(unit, r, c) {
@@ -61,14 +65,16 @@ export class BattleTiles {
    * clip played at the speed of its own length), seconds = the Born clip of a prefab with `_useRealBornTimeFromAnim` (the
    * clip the mode it lands in plays for Born). None while `flags.bornTime` is 0 (the harness's default). Without it the
    * move leaves the born state as it is.
+   * @param {Unit} unit @param {number} r @param {number} c
+   * @param {{ clearSp?: boolean, inPlace?: boolean, clip?: string | null, born?: boolean | number | null }} [opts]
    * @this {Battle}
    */
   moveRedeploy(unit, r, c, { clearSp = false, inPlace = false, clip = null, born = null } = {}) {
     if (!this.relocate(unit, r, c)) return false;
     // the element gauges start empty like a deployment's (deploy.js) and an element burst's lock goes with them (its
     // onRemove empties the gauges too) — upstream #903; the other buffs stay (above)
-    for (const b of unit.buffs.filter((x) => x.flags && x.flags.burstLock)) this.removeBuff(unit, b);
-    for (const k in unit.elem) unit.elem[k] = 0;
+    for (const b of /** @type {Buff[]} */ (unit.buffs).filter((x) => x.flags && x.flags.burstLock)) this.removeBuff(unit, b);
+    for (const k in unit.elem) /** @type {Record<string, number>} */ (unit.elem)[k] = 0;
     unit.markDirty();
     unit.deploySeq = ++this._deploySeq;
     unit.aggroSeq = unit.deploySeq;
@@ -110,7 +116,7 @@ export class BattleTiles {
     if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;
     const u = this._occ[r * COLS + c];
     if (u && u.alive) return true;
-    if (this._heldTiles.size) for (const [o, k] of this._heldTiles) if (k === r * COLS + c && o.alive && o.deployed) return true;
+    if (this._heldTiles.size) for (const [o, k] of this._heldTiles) if (k === r * COLS + c && /** @type {Unit} */ (o).alive && /** @type {Unit} */ (o).deployed) return true;
     const card = src && src.kind === 'token' && src.ownerUnit ? src.ownerUnit : src;
     for (const a of this.allyUnits) {
       if (a.kind === 'op' && a.uid != null && !a.removed && a !== card && a.homeR === r && a.homeC === c && !(except && except(a))) return true;
@@ -125,12 +131,14 @@ export class BattleTiles {
    * Hold (r, c) for `owner` while it stands elsewhere: isReservedTile refuses the tile to every automatic placement as
    * long as `owner` is alive and on the field — the marker a unit leaves on the tile it returns to (Mon3tr S3's 路标形态
    * 重构体, kits/ops/op-monstr.js). One tile per owner; `releaseTile(owner)` frees it.
+   * @param {Unit} owner @param {number} r @param {number} c
    * @this {Battle}
    */
   holdTile(owner, r, c) { this._heldTiles.set(owner, r * COLS + c); }
 
   /**
    * Free the tile `owner` holds (holdTile).
+   * @param {Unit} owner
    * @this {Battle}
    */
   releaseTile(owner) { this._heldTiles.delete(owner); }
@@ -140,6 +148,7 @@ export class BattleTiles {
    * 单位部署): "干员退场后…原地留下一个“倒地干员”…满足再部署条件时，移除场上的该倒地干员并自动部署至该位置" and "倒地干员所在
    * 地块视为可部署，但所有我方单位在此处的部署行为将被阻止" — its tile (`body`, _layBody) takes no other ally: `_deploy`
    * (initial deploys, redeploys, the 突袭 landing, summons), `spawnDevice` and `relocate` refuse it.
+   * @param {number} r @param {number} c @param {Unit | null} [except] @returns {Unit | null}
    * @this {Battle}
    */
   downOn(r, c, except = null) {
@@ -154,6 +163,7 @@ export class BattleTiles {
   /**
    * The tile a withdrawn ally comes back on (redeploy, _checkRedeploys): a down operator's body tile (isDown) — where it
    * fell, or its home (_layBody) — else its home tile.
+   * @param {Unit} u @returns {number[]}
    * @this {Battle}
    */
   restTile(u) {
@@ -172,6 +182,7 @@ export class BattleTiles {
    * `downAtHome` — 乌尔比安 moved by his S3 (kits/ops/chess_char_5_05-ulpia.js) — goes back to its home tile, its
    * deployment tile, wherever it fell (that home taken: where it fell, as above). Sets `u.body` (b.snap `down` carries
    * it); x / y / tileR / tileC keep where it fell, so the `kill` / `death` handlers (被击倒时 effects) still act there.
+   * @param {Unit} u
    * @this {Battle}
    */
   _layBody(u) {
@@ -189,6 +200,7 @@ export class BattleTiles {
    * blocker), then nearest to the unit (Chebyshev; the smaller sideways offset — in the unit's facing-RIGHT frame, so
    * its forward line — breaks ties), then the lowest local (row, col) offset (sim/dir.js localOrder: for a RIGHT-facing
    * unit exactly the lowest tile key). The choice turns with the unit's direction. null when none.
+   * @param {Unit} unit @returns {number[] | null}
    * @this {Battle}
    */
   findTacticalPoint(unit) {
@@ -214,6 +226,7 @@ export class BattleTiles {
    * battles), leg by leg (start → MOVE/APPEAR checkpoints → end, clamped to the rect). R1–R3 spawn at the lower gate
    * only (research 08 §4.1), so the unused upper lane does not attract tactical points. Set of tile keys, cached per
    * grid version.
+   * @returns {Set<number>}
    * @this {Battle}
    */
   groundPathTiles() {
@@ -224,16 +237,16 @@ export class BattleTiles {
     if (this._pathTiles && this._pathTilesVer === ver && used.size === before) return this._pathTiles;
     const set = new Set();
     const R = this.rect;
-    const clampPt = (p) => [Math.max(R.r0, Math.min(R.r1, Math.round(p[0]))), Math.max(R.c0, Math.min(R.c1, Math.round(p[1])))];
-    const ok = (p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]);
-    const walk = (route) => route && route.motion !== 'FLY' && ok(route.start);
-    const routes = this.routes || [];
+    const clampPt = (/** @type {number[]} */ p) => [Math.max(R.r0, Math.min(R.r1, Math.round(p[0]))), Math.max(R.c0, Math.min(R.c1, Math.round(p[1])))];
+    const ok = (/** @type {unknown} */ p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]);
+    const walk = /** @type {(route: RouteSpec | null | undefined) => route is RouteSpec & { start: number[] }} */ ((route) => route && route.motion !== 'FLY' && ok(route.start));
+    const routes = /** @type {Array<RouteSpec | null>} */ (this.routes || []);
     const any = [...used].some((i) => walk(routes[i]));
     routes.forEach((route, i) => {
       if (!walk(route) || (any && !used.has(i))) return;
       const pts = [clampPt(route.start)];
       for (const cp of route.checkpoints || []) if ((cp.type === 'MOVE' || cp.type === 'PATROL' || cp.type === 'APPEAR') && ok(cp.pos)) pts.push(clampPt(cp.pos));
-      if (ok(route.end)) pts.push(clampPt(route.end));
+      if (ok(route.end)) pts.push(clampPt(/** @type {number[]} */ (route.end)));
       for (let j = 1; j < pts.length; j++) {
         const [a, b] = [pts[j - 1], pts[j]];
         const p = this.grid.findPath(a[0], a[1], b[0], b[1]) || this.grid.findPath(a[0], a[1], b[0], b[1], { ignoreObstacles: true });
@@ -241,6 +254,7 @@ export class BattleTiles {
       }
     });
     this._pathTiles = set;
+    /** @type {number} */
     this._pathTilesVer = ver;
     return set;
   }
@@ -256,6 +270,7 @@ export class BattleTiles {
    * knock-down count — but 不屈 rolls on it, and Touch's 超脱 counts a `dying` one: 史尔特尔's 余烬, 骑士戒律 + 竞技旗). The
    * client keeps its model on that tile knocked down with a redeploy countdown (b.snap `down`, render/units.js); summons,
    * devices and enemies simply leave.
+   * @param {Unit | null | undefined} u
    * @this {Battle}
    */
   isDown(u) {
@@ -267,6 +282,7 @@ export class BattleTiles {
    * constants.js DOWN_STATE of a down operator: its timer runs, or it waits for its tile / the DP — the same checks as
    * _checkRedeploys (a living unit or another body on its rest tile). No ally may take the tile it lies on (downOn), so
    * WAIT_TILE is a safeguard only.
+   * @param {Unit} u
    * @this {Battle}
    */
   _downState(u) {

@@ -171,7 +171,7 @@ const keyOf = (u) => Math.round(u.y) * COLS + Math.round(u.x);
 /** @param {Battle} battle @param {string | null} ownerId @returns {Unit[]} */
 const opsOf = (battle, ownerId) => battle.allies(ownerId).filter((/** @type {Unit} */ a) => a.kind === 'op');
 const ANY = Object.freeze({ canHitFly: true });
-/** @param {Battle} battle @param {Unit} unit @param {Iterable<number> | null} [keys] @returns {Unit[]} */
+/** @param {Battle} battle @param {Unit} unit @param {readonly number[] | null} [keys] @returns {Unit[]} */
 const enemiesIn = (battle, unit, keys) => battle.enemiesInKeys(keys || unit.rangeKeys || [], unit, ANY);
 /** @param {Unit | null | undefined} t @param {string} id @param {Unit} owner */
 const isTok = (t, id, owner) => !!t && t.kind === 'token' && t.defId === id && t.ownerUnit === owner;

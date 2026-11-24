@@ -718,7 +718,10 @@ function shotEndsOf(u, t, shot) {
   return shotEnds(shot, u, { x: t.x, y: t.y, dir: t.side === 'enemy' ? null : t.dir, hitAt: t.def?.hitAt, mode: t.mode ?? null });
 }
 
-/** Perform an attack/heal with profile `prof` against `targets`. opts: { noAmmo, signal } (Battle.forceAttack), spell (a kit's later spell). */
+/**
+ * Perform an attack/heal with profile `prof` against `targets`. opts: { noAmmo, signal } (Battle.forceAttack), spell (a kit's later spell).
+ * @param {{ noAmmo?: boolean, signal?: string, spell?: number } | null} [opts]
+ */
 export function performAttack(b, u, prof, targets, opts = null) {
   const isSkill = !!prof.isSkill;
   if (b._hooks.beforeAttack) {

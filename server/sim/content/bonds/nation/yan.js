@@ -17,7 +17,7 @@ import { TICK } from '../../../constants.js';
 import { num, reached, onLayers, onDealt, standing, fieldMaxLayers, isFoe, isAddition, isElement } from '../shared.js';
 /** @import { Battle } from '../../../Battle.js' */
 /** @import { Unit } from '../../../units.js' */
-/** @import { BondInstaller, BondTemplate } from '../shared.js' */
+/** @import { BondInstaller, BondTemplate, BuffRec } from '../shared.js' */
 /** @import { DataScope, DamagedEv } from '../../support/index.js' */
 
 /** "总和的30%" → 0.3 (炎佑 stat share, text only; the scope's data, support dataFile). @param {DataScope} [scope] */
@@ -88,7 +88,7 @@ function installYanAct3(battle, pid, bb, members) {
     if (!(v > 0)) return;
     for (const e of battle.enemies) {
       if (!e.alive || !e.s.flags.burstLock) continue;
-      for (const b of e.buffs) if (b.flags && b.flags.burstLock && Number.isFinite(b.timeLeft)) b.timeLeft -= TICK * v;
+      for (const b of /** @type {BuffRec[]} */ (e.buffs)) if (b.flags && b.flags.burstLock && Number.isFinite(b.timeLeft)) b.timeLeft -= TICK * v;
     }
   });
 }

@@ -160,7 +160,7 @@ function tacticalPoint(battle, unit, prefer = null) {
 
 /**
  * Targetable enemies on `keys`, sorted by the unit's priority (at most `n` when n > 0).
- * @param {Battle} battle @param {Unit} unit @param {Iterable<number>} keys @param {number} [n] @param {object | null} [profile]
+ * @param {Battle} battle @param {Unit} unit @param {readonly number[]} keys @param {number} [n] @param {object | null} [profile]
  * @returns {Unit[]}
  */
 function enemiesOn(battle, unit, keys, n = 0, profile = null) {

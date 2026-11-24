@@ -105,7 +105,7 @@ error.
 With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`, the files directly under `server/`
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, the files directly under
 `server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), the kit helpers
-(`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`.
+(`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, and the `Battle` parts `server/sim/battle/`.
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -212,8 +212,9 @@ most strict errors were, and the JSDoc that fixed them:
 - a registration helper whose callbacks take a known payload per hook name (items/battle.js `Scope.on`): generic over a
   map of the hook names to their payloads (`@template {keyof ItemHooks} K`, `fn: (c: ItemHooks[K]) => void`, the map in
   items/shared.js built from the payload typedefs of `support/index.js` — `AttackEv`, `FatalEv`, `HealEv`,
-  `BeforeStatusEv` joined `DeployEv` … there), so no callback needs an `@param`; a plain `battle.on(name, fn)` callback
-  still takes its payload inline (`(/** @type {DeathEv} */ c) =>`).
+  `BeforeStatusEv` joined `DeployEv` … there), so no callback needs an `@param`. `battle.on` itself is generic the same
+  way (`HookPayloads` in battle/hooks.js, any other name's payload `any`): the Scope passes its callback on as a
+  `HookFn`.
 - a table of behaviours (items/effects `BUFFS` through `early(fn)` / `late(fn)`, bands `BY_KEY`, `MARK_BY_KEY`, the prep
   table `K` filled by assignment `K.key = (ps) => ({ … })`): one function typedef (`ItemFn`, `BandFn`, `BandKeyFn`) on the
   wrapper's parameter or the table's `@type {Record<string, …>}` types every entry's parameters, and a prep entry that
@@ -248,10 +249,11 @@ most strict errors were, and the JSDoc that fixed them:
   `{ kind, side, ownerId, def, items }`: `isOp`, `unitBonds`, `isMember`) takes `UnitLike` — `isOp` is a guard generic
   over it, so a `Unit` stays a `Unit`. A JS object literal is no `Record<string, number>` (it has no index signature):
   a buff's `mods` is `Record<string, any>`.
-- a battle hook's callback (`battle.on(name, fn)`: `fn` has no type, so its parameter needs one) takes the payload
-  typedef of `support/index.js` on its destructuring, `(/** @type {DeployEv} */ { unit, move }) =>` — `DeployEv`,
-  `KillEv`, `DeathEv`, `UnitEv`, `StatusEv`, `TickEv`, `BurstEv`, `HitEv`, `DamagedEv`, `LayerGainEv`, as the engine
-  emits them.
+- a battle hook's callback (`battle.on(name, fn)`) takes the payload typedef of `support/index.js` for an engine hook
+  (`DeployEv`, `KillEv`, `DeathEv`, `SkillEv`, `StatusEv`, `TickEv`, `BurstEv`, `HitEv`, `DamagedEv`, `LayerGainEv` …,
+  as the engine emits them): `on` is generic over the hook name (`HookPayloads`, battle/hooks.js), so a callback needs
+  no `@param` once `battle` is a typed `Battle`; the inline `(/** @type {DeployEv} */ { unit, move }) =>` the content
+  files wrote before still holds (it is checked against the map). A content hook's own name has an `any` payload.
 - a table of installers or handlers typed once on its declaration types every method in it: the IN_BATTLE 特质's
   `@type {Record<string, Installer>}` (`garrisons/shared.js`: `Installer` = (battle, `GarrisonInst[]`)), the prep 特质's
   `@type {Record<string, GarrisonHandlers>}` (`garrisons/prep/shared.js`: a `GarrisonCtx` is a `MetaCtx` whose source is
@@ -297,6 +299,27 @@ most strict errors were, and the JSDoc that fixed them:
   inline type. A generic over several builders' return types (`altSkills`) failed with TS2719: they return `object`.
   A `@type` on a declaration in the middle of a line (`=> { /** @type {…} */ const o = {}; …`) is not read: cast the
   value instead (`const o = /** @type {Record<string, number>} */ ({})`).
+- the `Battle` parts (`server/sim/battle/`) share their records as typedefs where they are made: `Hook`, `HookFn`,
+  `HookPayloads`, `Scheduled` (hooks.js), `Buff` (status.js: `ReturnType<typeof makeBuff>`; `Unit.buffs` is `object[]`,
+  so a list is read through `/** @type {Buff[]} */ (unit.buffs)`), `StatusTpl` / `ValuedTpl` / `ValuedTail` /
+  `StatusOpts` (status.js), `BattlePlayer`, `PlayerInput`, `UnitInput`, `AllyDef` (players.js: `Battle.players` is
+  `any[]`, cast where a part walks it), `PlayerResult`, `BattleResult`, `UnitEnd`, `UnitStat`, `Shot` (lifecycle.js),
+  `LeakEntry` (deploy.js), `SpawnOpts`, `PendingSpawn`, `EnemyMods`, `Bounty` (spawns.js), `RouteSpec` (tiles.js),
+  `TokenOpts`, `DeviceOpts` (summons.js), `FieldSnapshot` (events.js). A record a part only passes on to an untyped
+  function (a DamageInfo, a profile, heal options) is `object`.
+- `@param {object} x` before the `@this` tag swallows the `@this` (`this` is the part class again): put `@this` first
+  in such a block.
+- a field a part sets on a unit (`_regenAcc`, `_rangeExtend`, `liveRangeGrid`, `quietDeployAt` …) is declared in
+  `types/sim-members.d.ts`; a field declared optional there that every enemy gets as it spawns (`atkStandUntil`,
+  `colR`, `unbalanceUntil`) is cast at a comparison, `/** @type {number} */ (e.colR) > wide`, as is an optional option
+  compared to a number (`/** @type {number} */ (opts.duration) > 0`).
+- a part's `this.enemies = this.enemies.filter(…)` made `enemies` a part member inferred from itself (any for every
+  reader of `Battle.enemies`): it writes through `/** @type {Battle} */ (this).enemies`, as above.
+- `Array.isArray` does not narrow a `readonly` array type (the other branch keeps it): a parameter tested that way is
+  `number[]`. A boolean helper that proves a field (`walk(route)` in `groundPathTiles`) is cast to a type predicate,
+  `/** @type {(r: RouteSpec | null) => r is RouteSpec & { start: number[] }} */ ((route) => …)`.
+- `Battle`'s constructor options are `{}` until Battle.js is typed: a part reading one casts there
+  (`/** @type {{ quiet?: boolean }} */ (this.opts).quiet`).
 
 
 ## Split classes

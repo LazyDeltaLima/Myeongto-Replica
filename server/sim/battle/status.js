@@ -4,6 +4,25 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
+/**
+ * A buff on a unit (makeBuff's record; `Unit.buffs` is `object[]`: the lists are read through a cast).
+ * @typedef {ReturnType<typeof makeBuff>} Buff
+ * A catalogue status (buffs.js STATUS) as applyStatus reads it; `plain` / `visible`: applyStrongest's template.
+ * @typedef {{ flags?: Record<string, boolean> | null, immune?: string, valued?: number, enemyOnlyMods?: boolean,
+ *   mods?: Record<string, number> | ((v: number | undefined) => object | null) | null, palsy?: boolean, attract?: boolean,
+ *   buff?: object, plain?: boolean, visible?: boolean }} StatusTpl
+ * A template whose value is "同名效果取最高" (_applyValuedStatus): its mods built from the value.
+ * @typedef {Omit<StatusTpl, 'mods' | 'valued'> & { mods: (v: number) => object | null, valued: number }} ValuedTpl
+ * A waiting weaker effect of "同名效果取最高" (`buff.data.tail`, a list by strength): its value, the strength it competes
+ * with (`stackAs`), its end, its display tag.
+ * @typedef {{ value: number, stackAs?: number | null, until: number, tail?: ValuedTail | null,
+ *   fx?: string | number | null }} ValuedTail
+ * applyStatus's options (see there).
+ * @typedef {{ duration?: number | null, source?: Unit | null, value?: number, force?: boolean, refresh?: string,
+ *   point?: unknown, resistApplied?: boolean, stackAs?: number, reenter?: boolean, fxTag?: string | number | null,
+ *   ignoreSelect?: boolean }} StatusOpts
+ */
 import { COLD_FREEZE_DURATION, LEVITATE_HALF_WEIGHT, RESIST_DEFAULT } from '../constants.js';
 import { makeBuff, STATUS, RESIST_STATUSES } from '../buffs.js';
 import { palsyBuff } from '../damage.js';
@@ -14,6 +33,7 @@ import { stampFear } from '../fear.js';
  * ['status', id, key, 1, sourceId?, { fx?, n? }?]: the applier, the buff's `fxTag` (sent as `fx`) and its 护盾 layers let the client draw
  * the official effect of the buff the status stands for (render/fxstatus.js — the client names effects per buff, not per
  * status). Display only: the golden digests count events by type.
+ * @param {Unit} unit @param {string} key @param {Buff} buff
  */
 function statusOnEvent(unit, key, buff) {
   const src = buff.source && buff.source.id != null ? buff.source.id : null;
@@ -22,11 +42,15 @@ function statusOnEvent(unit, key, buff) {
 }
 
 export class BattleStatus {
-  /** @this {Battle} */
+  /**
+   * @param {Unit | null | undefined} unit @param {Partial<Buff> & { allowDead?: boolean }} b a buff descriptor (makeBuff)
+   * @returns {Buff | null}
+   * @this {Battle}
+   */
   addBuff(unit, b) {
     if (!unit || (!unit.alive && !b.allowDead)) return null;
     const buff = makeBuff(b);
-    const list = unit.buffs;
+    const list = /** @type {Buff[]} */ (unit.buffs);
     let idx = -1;
     for (let i = 0; i < list.length; i++) if (list[i].key === buff.key) { idx = i; break; }
     if (idx >= 0 && buff.refresh !== 'independent') {
@@ -74,12 +98,15 @@ export class BattleStatus {
     return buff;
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {Unit | null | undefined} unit @param {string | object} keyOrBuff a key, or the buff itself
+   * @this {Battle}
+   */
   removeBuff(unit, keyOrBuff) {
     if (!unit) return 0;
     // snapshot reverse-order matches; buffs added by callbacks wait (the client's RemoveBuffs marks the same set; SIM.md §3).
     // onRemove can synchronously remove another buff, so locate each survivor in the current list.
-    const matches = unit.buffs.filter((b) => b === keyOrBuff || b.key === keyOrBuff).reverse();
+    const matches = /** @type {Buff[]} */ (unit.buffs).filter((b) => b === keyOrBuff || b.key === keyOrBuff).reverse();
     let n = 0;
     for (const b of matches) {
       const i = unit.buffs.indexOf(b);
@@ -88,15 +115,18 @@ export class BattleStatus {
     return n;
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {Unit} unit @param {number} i @param {boolean} [callRemove]
+   * @this {Battle}
+   */
   _removeBuffAt(unit, i, callRemove = true) {
-    const b = unit.buffs[i];
+    const b = /** @type {Buff[]} */ (unit.buffs)[i];
     if (!b) return;
     unit.buffs.splice(i, 1);
     unit.markDirty();
     if ((b.visible || b.status)) {
       const key = b.status ?? b.key;
-      if (!unit.buffs.some((x) => (x.status ?? x.key) === key)) this._ev(['status', unit.id, key, 0]);
+      if (!/** @type {Buff[]} */ (unit.buffs).some((x) => (x.status ?? x.key) === key)) this._ev(['status', unit.id, key, 0]);
     }
     if (callRemove && b.onRemove) this._safe(() => b.onRemove({ battle: this, unit, buff: b }), 'buff.onRemove', unit);
   }
@@ -105,6 +135,7 @@ export class BattleStatus {
    * Unit `u`'s buffs for one tick (BuffContainer.Tick in the unit's own tick, after its state machine: battle/lifecycle.js
    * _tickUnits), then its natural HP regeneration (Entity._UpdateHpRecovery). A buff added by an onTick handler starts
    * ticking next tick.
+   * @param {Unit} u @param {number} dt
    * @this {Battle}
    */
   _tickUnitBuffs(u, dt) {
@@ -140,6 +171,7 @@ export class BattleStatus {
 
   /**
    * _tickUnitBuffs: one tick of the buffs `arr` (a copy of `u.buffs`), skipping those removed meanwhile.
+   * @param {Unit} u @param {Buff[]} arr @param {number} dt
    * @this {Battle}
    */
   _tickBuffList(u, arr, dt) {
@@ -193,6 +225,7 @@ export class BattleStatus {
    * the other side, `force` included — PRTS 无敌 "无法被不同阵营选中": so a status carried by the very hit that knocked an
    * enemy out does not land after its 重生's cleanse (DESIGN §21.4). A ground enemy's status never lands on an airborne
    * 起飞 ally (对地规避: targeting.js evadesGround) unless `opts.ignoreSelect`.
+   * @param {Unit | null | undefined} target @param {string} key @param {StatusOpts} [opts]
    * @this {Battle}
    */
   applyStatus(target, key, opts = {}) {
@@ -200,7 +233,7 @@ export class BattleStatus {
     const src = opts.source;
     if (src && src.side && src.side !== target.side && target.s.flags.invulnerable && target.s.flags.untargetable) return false;
     if (!opts.ignoreSelect && target.s.flags.liftoff && evadesGround(src, target)) return false;
-    const tpl = STATUS[key] || { flags: { [key]: true } };
+    const tpl = /** @type {Readonly<Record<string, StatusTpl>>} */ (STATUS)[key] || { flags: { [key]: true } };
     let duration = opts.duration == null ? Infinity : Number(opts.duration);
     let value = opts.value;
     if (!(duration > 0)) return false;
@@ -236,7 +269,7 @@ export class BattleStatus {
       // post-抵抗, so the freeze must not be halved again.
       // [ASSUMED] one catalogue cold, so an enemy-applied second cold uses this max too. PRTS states it on the 友方
       // line only (敌方 cold becomes 冻结 when the target already has 敌方 cold or 敌方 冻结).
-      const prev = target.findBuff('cold');
+      const prev = /** @type {Buff} */ (target.findBuff('cold'));
       const spans = [prev.timeLeft, duration].filter((t) => t === Infinity || (Number.isFinite(t) && t > 0));
       const freezeFor = spans.length ? Math.max(...spans) : COLD_FREEZE_DURATION;
       const froze = this.applyStatus(target, 'freeze', {
@@ -258,14 +291,14 @@ export class BattleStatus {
     }
     const source = opts.source ?? null;
     let entered = true;
-    if (opts.reenter !== true) for (const b of target.buffs) if ((b.status ?? b.key) === key) { entered = false; break; }
+    if (opts.reenter !== true) for (const b of /** @type {Buff[]} */ (target.buffs)) if ((b.status ?? b.key) === key) { entered = false; break; }
     if (tpl.palsy) {
       // the stack count goes to the screen (fx 'stacks'): the client's 麻痹 effect changes with it (render/fxstatus.js STACK_FX)
-      const was = target.findBuff('palsy')?.stacks ?? 0;
+      const was = /** @type {Buff | null} */ (target.findBuff('palsy'))?.stacks ?? 0;
       const pb = this.addBuff(target, { ...palsyBuff(value ?? 1), duration, source });
       if (pb && pb.stacks !== was) this.fx('stacks', { x: target.x, y: target.y, id: target.id, buff: 'palsy', n: pb.stacks });
     } else if (tpl.valued != null && typeof tpl.mods === 'function' && opts.refresh == null) {
-      this._applyValuedStatus(target, key, tpl, duration, value ?? tpl.valued, source, opts.stackAs, opts.fxTag ?? null);
+      this._applyValuedStatus(target, key, /** @type {ValuedTpl} */ (tpl), duration, value ?? tpl.valued, source, opts.stackAs, opts.fxTag ?? null);
     } else {
       const mods = tpl.enemyOnlyMods && target.side !== 'enemy' ? null : typeof tpl.mods === 'function' ? tpl.mods(value) : (tpl.mods || null);
       const b = this.addBuff(target, { key, duration, refresh: opts.refresh ?? 'extend', mods, flags: tpl.flags || null, status: key, visible: true, source, fxTag: opts.fxTag ?? null });
@@ -282,12 +315,13 @@ export class BattleStatus {
 
   /**
    * 抵抗 of a unit: share of a resisted status's duration removed (0 = none; the `resist` status value, ≤ 0.95).
+   * @param {Unit | null | undefined} unit
    * @this {Battle}
    */
   resistOf(unit) {
     if (!unit || !unit.buffs.length) return 0;
     let r = 0;
-    for (const b of unit.buffs) {
+    for (const b of /** @type {Buff[]} */ (unit.buffs)) {
       if (b.status !== 'resist') continue;
       const v = Number.isFinite(b.data?.value) ? b.data.value : RESIST_DEFAULT;
       if (v > r) r = v;
@@ -297,23 +331,26 @@ export class BattleStatus {
 
   /**
    * Σ `data.statusTimeAdd` of the unit's buffs (applyStatus: added to its 1 − 抵抗; 0 without any).
+   * @param {Unit | null | undefined} unit
    * @this {Battle}
    */
   statusTimeAdd(unit) {
     if (!unit || !unit.buffs.length) return 0;
     let a = 0;
-    for (const b of unit.buffs) { const v = b.data && b.data.statusTimeAdd; if (Number.isFinite(v)) a += v; }
+    for (const b of /** @type {Buff[]} */ (unit.buffs)) { const v = b.data && b.data.statusTimeAdd; if (Number.isFinite(v)) a += v; }
     return a;
   }
 
   /**
    * 诱导 target point of an `attract` status buff (enemy walks there; see ai.js moveAttracted).
+   * @param {Unit} target @param {Buff} buff @param {unknown} point [r, c] or {x, y} (or anything else: the source's tile)
+   * @param {Unit | null} source
    * @this {Battle}
    */
   _setAttractPoint(target, buff, point, source) {
     let r = null, c = null;
     if (Array.isArray(point) && Number.isFinite(point[0]) && Number.isFinite(point[1])) { r = point[0]; c = point[1]; }
-    else if (point && typeof point === 'object' && Number.isFinite(point.x) && Number.isFinite(point.y)) { r = point.y; c = point.x; }
+    else if (point && typeof point === 'object' && Number.isFinite(/** @type {{ x: number }} */ (point).x) && Number.isFinite(/** @type {{ y: number }} */ (point).y)) { r = /** @type {{ y: number }} */ (point).y; c = /** @type {{ x: number }} */ (point).x; }
     else if (source && Number.isFinite(source.x) && Number.isFinite(source.y)) { r = source.y; c = source.x; }
     if (r == null) { if (!buff.data.attract) buff.data = { ...buff.data, attract: null }; return; }
     const R = this.rect;
@@ -330,15 +367,16 @@ export class BattleStatus {
    * same-named buffs (PRTS 作战机制 "同名buff的默认叠加策略buff只能表现出一个"). `visible`: the buff is shown to the
    * renderer (a 'status' by its key — an official buff effect, render/fxstatus.js KEY_FX), still no status; `fxTag`: its
    * display tag (sent as the status's `fx`; a waiting weaker one resumes with its own). Returns true when applied.
-   * @param {object} target
+   * @param {Unit | null | undefined} target
    * @param {string} key
-   * @param {{ duration?: number, value?: number, mods?: (v: number) => object, source?: object|null, visible?: boolean, fxTag?: string|number|null }} [opts]
+   * @param {{ duration?: number, value?: number, mods?: (v: number) => object, source?: Unit|null, visible?: boolean, fxTag?: string|number|null }} [opts]
    *   (`duration`, `value` and `mods` are needed; the parameter's `{}` default only keeps a bare call from throwing)
    * @this {Battle}
    */
   applyStrongest(target, key, { duration, value, mods, source = null, visible = false, fxTag = null } = {}) {
     if (!target || !target.alive || !(Number(duration) > 0) || !Number.isFinite(value) || typeof mods !== 'function') return false;
-    this._applyValuedStatus(target, key, { mods, valued: value, plain: true, visible: !!visible }, Number(duration), value, source, null, fxTag);
+    // (`value` is finite here: checked above)
+    this._applyValuedStatus(target, key, { mods, valued: /** @type {number} */ (value), plain: true, visible: !!visible }, Number(duration), /** @type {number} */ (value), source, null, fxTag);
     return true;
   }
 
@@ -348,16 +386,20 @@ export class BattleStatus {
    * `plain` template (applyStrongest) is an ordinary invisible buff, not a status. `stackAs` (finite): the strength this
    * application competes with instead of its value (applyStatus opts.stackAs); kept in `data.stackAs` / the tail.
    * `fxTag` (applyStatus opts.fxTag): the buff's display tag, kept per waiting effect (`fx`) so a resumed one shows its own.
+   * @param {Unit} target @param {string} key @param {ValuedTpl} tpl @param {number} duration @param {number} value
+   * @param {Unit | null} source @param {number | null} [stackAs] @param {string | number | null} [fxTag]
    * @this {Battle}
    */
   _applyValuedStatus(target, key, tpl, duration, value, source, stackAs = null, fxTag = null) {
     const as = Number.isFinite(stackAs) ? stackAs : null;
-    const strength = (v, s = null) => Math.abs(Number.isFinite(s) ? s : Number.isFinite(v) ? v : tpl.valued);
+    const strength = (/** @type {number} */ v, /** @type {number | null | undefined} */ s = null) => Math.abs(Number.isFinite(s) ? /** @type {number} */ (s) : Number.isFinite(v) ? v : tpl.valued);
+    /** @template {Record<string, unknown>} E @param {number} v @param {number | null} s @param {E} extra @returns {{ value: number, stackAs?: number | null } & E} */
     const entry = (v, s, extra) => (Number.isFinite(s) ? { value: v, stackAs: s, ...extra } : { value: v, ...extra });
-    const after = (tail, until) => {
+    const after = (/** @type {ValuedTail | null | undefined} */ tail, /** @type {number} */ until) => {
       while (tail && tail.until <= until) tail = tail.tail;
       return tail || null;
     };
+    /** @param {ValuedTail | null | undefined} tail @param {ValuedTail} incoming @returns {ValuedTail} */
     const insertTail = (tail, incoming) => {
       if (!tail) return incoming;
       const diff = strength(incoming.value, incoming.stackAs) - strength(tail.value, tail.stackAs);
@@ -370,17 +412,17 @@ export class BattleStatus {
       const kept = incoming.until > tail.until ? incoming : tail;
       return { ...kept, tail: after(tail.tail, kept.until) };
     };
-    const make = (v, dur, tail, s = null, fx = null) => ({
+    const make = (/** @type {number} */ v, /** @type {number} */ dur, /** @type {ValuedTail | null} */ tail, /** @type {number | null | undefined} */ s = null, /** @type {string | number | null} */ fx = null) => ({
       ...(tpl.buff || null),   // extra buff fields of the status (抵抗: the 麻痹 decay tick)
       key, duration: dur, refresh: 'replace', mods: tpl.mods(v), flags: tpl.flags || null, status: tpl.plain ? null : key,
       visible: !tpl.plain || !!tpl.visible, source, fxTag: fx,
       data: entry(v, s, { tail }),
-      onExpire: ({ battle, unit, buff }) => {
+      onExpire: (/** @type {{ battle: Battle, unit: Unit, buff: Buff }} */ { battle, unit, buff }) => {
         const t = after(buff.data.tail, battle.time + 1e-6);
         if (t && unit.alive) battle.addBuff(unit, make(t.value, t.until - battle.time, t.tail || null, t.stackAs, t.fx ?? null));
       },
     });
-    const old = target.buffs.find((b) => b.key === key && (tpl.plain || b.status === key));
+    const old = /** @type {Buff[]} */ (target.buffs).find((b) => b.key === key && (tpl.plain || b.status === key));
     if (!old) { this.addBuff(target, make(value, duration, null, as, fxTag)); return; }
     const oldV = old.data && Number.isFinite(old.data.value) ? old.data.value : tpl.valued;
     const oldAs = old.data && Number.isFinite(old.data.stackAs) ? old.data.stackAs : null;
@@ -402,6 +444,9 @@ export class BattleStatus {
     }
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {Unit | null | undefined} target @param {string} key
+   * @this {Battle}
+   */
   removeStatus(target, key) { return this.removeBuff(target, key); }
 }

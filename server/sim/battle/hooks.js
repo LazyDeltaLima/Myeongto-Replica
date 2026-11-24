@@ -5,10 +5,21 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/** @import { DeployEv, KillEv, DeathEv, SkillEv, StatusEv, BeforeStatusEv, HitEv, DamagedEv, AttackEv, FatalEv, HealEv, TickEv, BurstEv, LayerGainEv } from '../content/support/index.js' */
 /**
  * A timer of after / every (the battle's `_sched`); `cancel()` stops it (set on the record right after it is made).
  * @typedef {{ due: number, fn: (battle: Battle, s: Scheduled) => unknown, owner: unknown, interval: number, seq: number,
  *   cancelled: boolean, count?: number, holdsBattle: boolean, cancel: () => void }} Scheduled
+ * A hook's callback: the payload `emit` passes (content's own hooks pass their own) and the battle.
+ * @typedef {(ctx: any, battle: Battle) => unknown} HookFn
+ * The payloads of the engine's hooks (content/support/index.js), by name.
+ * @typedef {{ deploy: DeployEv, kill: KillEv, death: DeathEv, skillStart: SkillEv, skillEnd: SkillEv,
+ *   ammoUsed: SkillEv, statusApplied: StatusEv, beforeStatus: BeforeStatusEv, hit: HitEv, damaged: DamagedEv,
+ *   attack: AttackEv, fatal: FatalEv, heal: HealEv, tick: TickEv, elementBurst: BurstEv, layerGain: LayerGainEv }} HookPayloads
+ * A registered hook (on): `removed` once it is taken off, `once` drops it after its first run.
+ * @typedef {{ name: string, fn: HookFn, priority: number, owner: unknown, seq: number, removed: boolean, once: boolean }} Hook
+ * What the error report reads of a hook's or callback's owner (a unit, mostly).
+ * @typedef {{ defId?: string, name?: string }} Named
  */
 import { TICK, MAX_INTERNAL_ERRORS, MAX_HOOK_DEPTH } from '../constants.js';
 
@@ -20,10 +31,16 @@ export class BattleHooks {
   // =============================================================================================================
   // hook bus
 
-  /** @this {Battle} */
+  /**
+   * @template {string} K
+   * @param {K} name @param {(ctx: K extends keyof HookPayloads ? HookPayloads[K] : any, battle: Battle) => unknown} fn
+   * @param {{ priority?: number, owner?: unknown, once?: boolean }} [opts]
+   * @returns {Hook | null}
+   * @this {Battle}
+   */
   on(name, fn, opts = {}) {
     if (typeof fn !== 'function') return null;
-    const h = { name, fn, priority: Number(opts.priority) || 0, owner: opts.owner ?? null, seq: ++hookSeq, removed: false, once: !!opts.once };
+    const h = /** @type {Hook} */ ({ name, fn, priority: Number(opts.priority) || 0, owner: opts.owner ?? null, seq: ++hookSeq, removed: false, once: !!opts.once });
     const list = this._hooks[name] ?? (this._hooks[name] = []);
     let i = list.length;
     while (i > 0 && list[i - 1].priority < h.priority) i--;
@@ -31,7 +48,10 @@ export class BattleHooks {
     return h;
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {string | Hook} nameOrHandle @param {HookFn} [fn]
+   * @this {Battle}
+   */
   off(nameOrHandle, fn) {
     if (nameOrHandle && typeof nameOrHandle === 'object') {
       const h = nameOrHandle;
@@ -44,14 +64,15 @@ export class BattleHooks {
       }
       return;
     }
-    const list = this._hooks[nameOrHandle];
+    const list = this._hooks[/** @type {string} */ (nameOrHandle)];
     if (!list) return;
     for (let i = list.length - 1; i >= 0; i--) if (!fn || list[i].fn === fn) { list[i].removed = true; list.splice(i, 1); }
-    if (!list.length) delete this._hooks[nameOrHandle];
+    if (!list.length) delete this._hooks[/** @type {string} */ (nameOrHandle)];
   }
 
   /**
    * Remove every hook and scheduled callback registered with `owner`.
+   * @param {unknown} owner
    * @this {Battle}
    */
   offOwner(owner) {
@@ -63,10 +84,17 @@ export class BattleHooks {
     for (const s of this._sched) if (s.owner === owner) s.cancelled = true;
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {string} name
+   * @this {Battle}
+   */
   hasHook(name) { return !!this._hooks[name]; }
 
-  /** @this {Battle} */
+  /**
+   * @template {Record<string, any> | null | undefined} T
+   * @param {string} name @param {T} ctx @returns {T}
+   * @this {Battle}
+   */
   emit(name, ctx) {
     const list = this._hooks[name];
     if (!list) return ctx;
@@ -97,11 +125,12 @@ export class BattleHooks {
   /**
    * The open hook/callback frames (outermost first) — names the loop when the nesting guard trips, e.g.
    * "chain: hit(enemy_1430_lrrook) > damaged(chess_char_3_18_a) > hit(enemy_1430_lrrook) > … > damaged".
+   * @param {string} last
    * @this {Battle}
    */
   _chain(last) {
-    const id = (u) => (u && typeof u === 'object' ? (u.defId ?? u.name ?? '?') : u == null ? '' : String(u));
-    const lab = (i) => {
+    const id = (/** @type {unknown} */ u) => (u && typeof u === 'object' ? (/** @type {Named} */ (u).defId ?? /** @type {Named} */ (u).name ?? '?') : u == null ? '' : String(u));
+    const lab = (/** @type {number} */ i) => {
       const o = this._frameOwner[i];
       let who = id(o);
       const c = this._frameCtx[i];
@@ -123,7 +152,11 @@ export class BattleHooks {
   // =============================================================================================================
   // scheduling
 
-  /** @this {Battle} */
+  /**
+   * @param {number} seconds @param {Scheduled['fn']} fn @param {{ owner?: unknown, holdsBattle?: boolean }} [opts]
+   * @returns {Scheduled}
+   * @this {Battle}
+   */
   after(seconds, fn, opts = {}) {
     const s = /** @type {Scheduled} */ ({ due: this.time + Math.max(0, Number(seconds) || 0), fn, owner: opts.owner ?? null, interval: 0, seq: ++schedSeq, cancelled: false, holdsBattle: !!opts.holdsBattle });
     s.cancel = () => { s.cancelled = true; };
@@ -131,7 +164,11 @@ export class BattleHooks {
     return s;
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {number} seconds @param {Scheduled['fn']} fn @param {{ owner?: unknown, immediate?: boolean }} [opts]
+   * @returns {Scheduled}
+   * @this {Battle}
+   */
   every(seconds, fn, opts = {}) {
     const iv = Math.max(TICK, Number(seconds) || TICK);
     const s = /** @type {Scheduled} */ ({ due: this.time + (opts.immediate ? 0 : iv), fn, owner: opts.owner ?? null, interval: iv, seq: ++schedSeq, cancelled: false, count: 0, holdsBattle: false });
@@ -170,8 +207,10 @@ export class BattleHooks {
 
   /**
    * Run a content callback (skill/buff/projectile/timer/install) isolated from errors; shares the hook depth guard.
+   * @template R
    * @this {Battle}
-   * @param {unknown} [owner]
+   * @param {() => R} fn @param {string} label @param {unknown} [owner]
+   * @returns {R | undefined}
    */
   _safe(fn, label, owner = null) {
     if (this._emitDepth >= MAX_HOOK_DEPTH) {
@@ -185,15 +224,18 @@ export class BattleHooks {
     try { return fn(); } catch (e) { this._handlerError(label, owner, e); return undefined; } finally { this._emitDepth--; }
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {string} label @param {unknown} owner @param {any} e what was thrown @param {boolean} [internal]
+   * @this {Battle}
+   */
   _handlerError(label, owner, e, internal = false) {
     this.errorCount++;
-    const who = owner && owner.defId ? owner.defId : (owner && owner.name) || '';
+    const who = owner && /** @type {Named} */ (owner).defId ? /** @type {Named} */ (owner).defId : (owner && /** @type {Named} */ (owner).name) || '';
     const key = `${label}|${who}|${e && e.message}`;
     if (!this._errKeys.has(key)) {
       this._errKeys.add(key);
       if (this.errors.length < 100) this.errors.push({ label, who, message: String(e && e.message), stack: e && e.stack });
-      if (this.opts.quiet !== true) this.logger.error?.(`[sim] ${label}${who ? ' (' + who + ')' : ''} failed: ${e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e}`);
+      if (/** @type {{ quiet?: boolean }} */ (this.opts).quiet !== true) this.logger.error?.(`[sim] ${label}${who ? ' (' + who + ')' : ''} failed: ${e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e}`);
     }
     // Content handler errors are isolated (the handler is skipped, the battle continues). Repeated *engine*
     // errors mean the field state is suspect: force-end it as a timeout (DESIGN §11).
@@ -206,6 +248,9 @@ export class BattleHooks {
     }
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {string} label @param {unknown} e
+   * @this {Battle}
+   */
   _internalError(label, e) { this._handlerError('internal:' + label, null, e, true); }
 }

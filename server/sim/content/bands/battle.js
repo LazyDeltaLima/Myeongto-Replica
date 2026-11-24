@@ -59,10 +59,11 @@ import { spawnMapChar } from '../tokens.js';
 /** @import { Unit } from '../../units.js' */
 /** @import { DataScope, DeployEv, DeathEv, SkillEv, HitEv, DamagedEv, AttackEv } from '../support/index.js' */
 /** @import { BuffRec } from '../bonds/shared.js' */
+/** @import { BattlePlayer } from '../../battle/players.js' */
 /**
- * A player of the battle (battle/players.js _addPlayer), the fields the bands read: its strategy and its battle input
+ * A player of the battle (battle/players.js _addPlayer) with the fields of its battle input the bands read
  * (PlayerBattleInput: `bandStage`, `bandCommand`, `bandMarks`, `bandChests`, `reserve` …).
- * @typedef {{ playerId: string, bandId: string | null, input: Record<string, any> }} BandPlayer
+ * @typedef {BattlePlayer & { input: Record<string, any> }} BandPlayer
  * A band buff behaviour (BY_KEY), a mark's on its operator (MARK_BY_KEY) and a tile mark's (TILE_MARK_BY_KEY); `p` the
  * buff's params `{ ...bb, ...bbStr }`.
  * @typedef {(battle: Battle, ps: BandPlayer, p: Record<string, any>, bandId: string) => void} BandFn

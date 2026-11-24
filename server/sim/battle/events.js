@@ -3,6 +3,13 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
+/**
+ * The snapshot of a field (Battle.snapshot): the lists after `resolved` only when non-empty.
+ * @typedef {{ fieldId: string | null, t: number, units: unknown[][], dp: number, killed: number, total: number,
+ *   resolved: number, dps?: Record<string, number>, boss?: { hp: number, max: number }, down?: number[][],
+ *   elem?: unknown[][], stand?: number[][], standCut?: number[][] }} FieldSnapshot
+ */
 import { EVENT_BUFFER_CAP } from '../constants.js';
 import { elementView } from '../damage.js';
 import { unitInfo, snapshotUnits } from '../snapshot.js';
@@ -27,15 +34,21 @@ export class BattleEvents {
     return extra;
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {string} msg
+   * @this {Battle}
+   */
   log(msg) {
     const k = 'log:' + msg;
     if (this._errKeys.has(k)) return;
     this._errKeys.add(k);
-    if (this.opts.verbose) this.logger.warn?.(`[sim] ${msg}`);
+    if (/** @type {{ verbose?: boolean }} */ (this.opts).verbose) this.logger.warn?.(`[sim] ${msg}`);
   }
 
-  /** @this {Battle} */
+  /**
+   * @param {unknown[]} tuple
+   * @this {Battle}
+   */
   _ev(tuple) {
     if (!this.recordEvents) return;
     this._evq.push(tuple);
@@ -55,10 +68,11 @@ export class BattleEvents {
   /**
    * Record that an enemy's attack recovery (atkStandUntil) is cut or ignored now — snapshot `standCut`, display metadata
    * (render/interp.js); never changes the attack's timing or state.
+   * @param {Unit} unit
    * @this {Battle}
    */
   _cutAttackStand(unit) {
-    if (unit.side === 'enemy' && Number.isFinite(unit.atkStandUntil) && unit.atkStandUntil > this.time) {
+    if (unit.side === 'enemy' && Number.isFinite(unit.atkStandUntil) && /** @type {number} */ (unit.atkStandUntil) > this.time) {
       unit.atkStandCutAt = this.time;
     }
   }
@@ -76,7 +90,7 @@ export class BattleEvents {
    * @this {Battle}
    */
   snapshot() {
-    const snap = {
+    const snap = /** @type {FieldSnapshot} */ ({
       fieldId: this.fieldId,
       t: Math.round(this.time * 1000) / 1000,
       units: snapshotUnits(this.units, this.time),
@@ -86,28 +100,29 @@ export class BattleEvents {
       // the HUD capsule's numerator (DESIGN §14): the field's own scheduled enemies that are 已解决 (down or leaked).
       // `killed` above counts every counted knock-out (runtime splits / summons too) and may exceed `total`.
       resolved: this.resolved,
-    };
+    });
     if (this.players.length > 1) {
       snap.dps = {};
       for (const p of this.players) snap.dps[p.playerId] = Math.floor(p.dp);
     }
     if (this.sharedBoss) snap.boss = { hp: Math.max(0, Math.round(this.sharedBoss.hp)), max: Math.round(this.sharedBoss.maxHp) };
-    const r2 = (v) => Math.round(v * 100) / 100;
-    let down = null;
+    const r2 = (/** @type {number} */ v) => Math.round(v * 100) / 100;
+    let down = /** @type {number[][] | null} */ (null);
     for (const u of this.allyUnits) {
       if (!this.isDown(u)) continue;
       (down || (down = [])).push([u.id, r2(u.respawnAt), r2(Math.max(0, u.respawnAt - u.deathAt)), this._downState(u), ...this.restTile(u)]);
     }
     if (down) snap.down = down;
-    let elem = null, stand = null, standCut = null;
+    let elem = /** @type {unknown[][] | null} */ (null), stand = /** @type {number[][] | null} */ (null), standCut = /** @type {number[][] | null} */ (null);
     let listed = null;   // the ids in snap.units, built for the first enemy with a cut to report
     for (const u of this.units) {
-      if (u.side === 'enemy' && u.atkStandCutAt >= 0) {
-        const cutAt = Math.round(u.atkStandCutAt * 1000) / 1000;
+      // (both set on every enemy as it spawns: spawns.js)
+      if (u.side === 'enemy' && /** @type {number} */ (u.atkStandCutAt) >= 0) {
+        const cutAt = Math.round(/** @type {number} */ (u.atkStandCutAt) * 1000) / 1000;
         if (cutAt <= snap.t && (listed || (listed = new Set(snap.units.map((x) => x[0])))).has(u.id)) (standCut || (standCut = [])).push([u.id, cutAt]);
       }
       if (!u.alive || !u.deployed || u.hidden) continue;
-      const until = Math.round(u.atkStandUntil * 1000) / 1000;
+      const until = Math.round(/** @type {number} */ (u.atkStandUntil) * 1000) / 1000;
       if (u.side === 'enemy' && !u.s.flags.fear && !u.s.flags.stun && Number.isFinite(until) && until > snap.t) {
         (stand || (stand = [])).push([u.id, until]);
       }

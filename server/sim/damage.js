@@ -658,6 +658,7 @@ export function palsyBuff(n) {
  * by `amount` on its own (PRTS 菲莱 备注: clearing = "一次等同于自身最大元素值（通常为1000）的全类型元素损伤治疗").
  * Returns the total removed. Nothing recovers during a burst cooldown ("爆发冷却状态下，单位所有类型的元素值均无法损失、
  * 无法被其他手段回复").
+ * @param {string | null} [el]
  */
 export function reduceElement(target, amount, el = null) {
   let removed = 0;

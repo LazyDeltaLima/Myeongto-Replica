@@ -69,7 +69,7 @@ function enemiesOnRange(battle, unit, keys = null) {
 }
 /**
  * Targetable enemies in the unit's current range (flyers included), best targets first.
- * @param {Battle} battle @param {Unit} unit @param {number} [n] @param {Iterable<number> | null} [keys]
+ * @param {Battle} battle @param {Unit} unit @param {number} [n] @param {readonly number[] | null} [keys]
  * @returns {Unit[]}
  */
 function targetsInRange(battle, unit, n = 0, keys = null) {

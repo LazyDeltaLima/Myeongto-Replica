@@ -29,7 +29,8 @@
     "server/sim/content/bonds/**/*.js",
     "server/sim/content/items/**/*.js",
     "server/sim/content/bands/**/*.js",
-    "server/sim/content/kits/shared/**/*.js"
+    "server/sim/content/kits/shared/**/*.js",
+    "server/sim/battle/**/*.js"
   ],
   "exclude": []
 }

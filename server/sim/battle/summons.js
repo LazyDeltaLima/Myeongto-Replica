@@ -3,6 +3,16 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 /** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
+/**
+ * spawnToken's options (see there): `def` an inline def, `stats` base stats to set, `kit` the kit to set up with.
+ * @typedef {{ def?: { [field: string]: unknown } | null, anySource?: boolean, force?: boolean, dir?: string | null,
+ *   facing?: string | number | null, stats?: Record<string, number>, kit?: object | null, untargetable?: boolean,
+ *   preBattleAggro?: boolean, hp?: number | null, duration?: number }} TokenOpts
+ * spawnDevice's options (see there).
+ * @typedef {{ hp?: number, atk?: number, def?: number, res?: number, bat?: number, aspd?: number, blockCnt?: number,
+ *   name?: string, dir?: string | null, obstacle?: boolean, obstacleKind?: string, blockRadiusSq?: number }} DeviceOpts
+ */
 import { COLS, OBSTACLE_DEVICES } from '../constants.js';
 import { normDir } from '../dir.js';
 import { SkillRuntime } from '../skills.js';
@@ -15,6 +25,7 @@ export class BattleSummons {
    * Token def of `tokenId` as `owner` (an ally unit: its chess + selected skill / module; or a chess id) summons it —
    * the def spawnToken uses. For content that reads summon stats / skill blackboards: exact in a multi-player field
    * where two players give the same chess different loadouts (an id-only `data.getToken(id, chessId)` is not).
+   * @param {string} tokenId @param {Unit | string | null} [owner]
    * @this {Battle}
    */
   tokenDef(tokenId, owner = null) {
@@ -26,6 +37,7 @@ export class BattleSummons {
    * when the owner's own tokens.json variant says so (`sources` without 'skill' / 'talent' — e.g. 琳琅诗怀雅 S1/S3 make
    * no 香槟炸弹, 赫默 S1 no 医疗探机); true when the data does not tell (no owner variant, inline defs, tokens of
    * other chess).
+   * @param {Unit | string | null | undefined} owner @param {string} tokenId @param {{ sources?: unknown } | null} [def]
    * @this {Battle}
    */
   producesToken(owner, tokenId, def = null) {
@@ -46,6 +58,8 @@ export class BattleSummons {
    * under the default skill the kit stays the authority.
    * `opts.preBattleAggro` is only for a prepared stage map character instantiated at battleStart after its variant
    * is chosen; its aggro precedes initial operators despite the later deploy event.
+   * @param {Unit | string | null} owner @param {string} tokenId @param {number} row @param {number} col
+   * @param {TokenOpts} [opts] @returns {Unit | null}
    * @this {Battle}
    */
   spawnToken(owner, tokenId, row, col, opts = {}) {
@@ -64,7 +78,7 @@ export class BattleSummons {
     const dir = opts.dir != null ? normDir(opts.dir) : opts.facing != null ? normDir(opts.facing) : ownerUnit ? ownerUnit.dir : ps ? ps.dir : 'RIGHT';
     // a summon wears the outfit its owner's skin brings (Unit.skin, display only: the client maps it by tokenSkinMap)
     const u = this._makeAlly(ps, def, 'token', row, col, { ownerUnit, dir, skin: ownerUnit?.skin ?? null });
-    if (opts.stats) for (const [k, v] of Object.entries(opts.stats)) if (Number.isFinite(v)) u.base[k] = v;
+    if (opts.stats) for (const [k, v] of Object.entries(opts.stats)) if (Number.isFinite(v)) /** @type {Record<string, number>} */ (u.base)[k] = v;
     this._setupUnit(u, opts.kit ?? null);
     if (opts.untargetable) this.addBuff(u, { key: 'trait:untargetable', flags: { untargetable: true }, persist: true, allowDead: true });
     if (!this._deploy(u, { initial: false })) {
@@ -77,7 +91,7 @@ export class BattleSummons {
     // known. [ASSUMED] Its replacement keeps the slot's pre-deployment aggro order; ordinary summons stay latest.
     if (opts.preBattleAggro) u.aggroSeq = -1; // aggroCmp falls back to deploySeq when aggroSeq is zero
     if (opts.hp != null && Number.isFinite(Number(opts.hp))) u.hp = Math.max(1, Math.min(u.s.maxHp, Number(opts.hp)));
-    if (opts.duration > 0 && Number.isFinite(Number(opts.duration))) this.after(Number(opts.duration), () => { if (u.alive) this.retreat(u, { reason: 'expired', permanent: true }); }, { owner: u });
+    if (/** @type {number} */ (opts.duration) > 0 && Number.isFinite(Number(opts.duration))) this.after(Number(opts.duration), () => { if (u.alive) this.retreat(u, { reason: 'expired', permanent: true }); }, { owner: u });
     return u;
   }
 
@@ -87,6 +101,7 @@ export class BattleSummons {
    * 1000 and, when it is the only way, walk into it, get blocked by it and break it — research 08 §3.1); 'block' makes
    * the tile impassable. `blockRadiusSq`: the device's own squared block radius (its prefab's `_blockRadiusSquare`), else
    * the devices' BLOCK_RADIUS_SQ.device.
+   * @param {string} key @param {number} row @param {number} col @param {DeviceOpts} [opts] @returns {Unit | null}
    * @this {Battle}
    */
   spawnDevice(key, row, col, opts = {}) {
@@ -110,7 +125,7 @@ export class BattleSummons {
     u.skill = new SkillRuntime(this, u, null, null, {});
     u.obstacle = !!opts.obstacle;
     u.obstacleKind = opts.obstacleKind === 'block' ? 'block' : 'crate';
-    if (opts.blockRadiusSq > 0) u.blockRadiusSq = opts.blockRadiusSq;
+    if (/** @type {number} */ (opts.blockRadiusSq) > 0) u.blockRadiusSq = opts.blockRadiusSq;
     u.alive = true;
     u.deployed = true;
     u.ground = true;
@@ -129,7 +144,7 @@ export class BattleSummons {
 
   /** @this {Battle} */
   _spawnStageDevices() {
-    if (this.opts.devices === false) return;
+    if (/** @type {{ devices?: boolean }} */ (this.opts).devices === false) return;
     for (const d of this.stage.devices || []) {
       // data/stages.json `active` = present at match start (= not hidden in the 下半 level file: act1 m02 starts with no
       // crates, research 08 §3.3); research stages have no `active` ⇒ `hidden` decides.
@@ -143,7 +158,7 @@ export class BattleSummons {
         (this._elevated ??= new Set()).add(d.row * COLS + d.col);
         continue;
       }
-      const spec = OBSTACLE_DEVICES[d.key] ?? (d.role === 'crate' ? { hp: d.stats?.maxHp ?? 100, name: d.name } : null);
+      const spec = /** @type {Readonly<Record<string, { hp: number, name: string }>>} */ (OBSTACLE_DEVICES)[d.key] ?? (d.role === 'crate' ? { hp: d.stats?.maxHp ?? 100, name: d.name } : null);
       if (!spec) continue;
       if (!this.grid.inRect(d.row, d.col)) continue;
       if (this._occ[d.row * COLS + d.col]) continue;
