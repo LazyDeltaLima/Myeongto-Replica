@@ -5,11 +5,15 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 /** @import { Match } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
+/** @import { Piece } from '../player/pieces.js' */
+/** @import { buildBossWave } from '../waves.js' */
 import { buildDeployMap, tileKey } from '../board.js';
 
 export class MatchInfra {
   /**
    * Run a callback with error isolation, then flush the views.
+   * @param {() => void} fn
    * @this {Match}
    */
   guard(fn) {
@@ -18,7 +22,7 @@ export class MatchInfra {
     try { this.flush(); } catch (e) { this.reportError('flush', e); }
   }
 
-  /** @this {Match} */
+  /** @param {string} label @param {any} e what was thrown (any value) @this {Match} */
   reportError(label, e) {
     this.errorCount++;
     const msg = `${label}: ${e && e.message ? e.message : e}`;
@@ -28,10 +32,13 @@ export class MatchInfra {
 
   /**
    * Schedule a guarded callback (tracked for dispose).
+   * @param {number} ms @param {() => void} fn
+   * @returns {unknown} the scheduler's handle (null when disposed)
    * @this {Match}
    */
   later(ms, fn) {
     if (this.disposed) return null;
+    /** @type {unknown} */
     let h = null;
     h = this.sched.setTimeout(() => {
       this._timers.delete(h);
@@ -42,19 +49,20 @@ export class MatchInfra {
     return h;
   }
 
-  /** @this {Match} */
+  /** @param {unknown} h a handle of `later` @this {Match} */
   cancel(h) {
     if (!h) return;
     this.sched.clearTimeout(h);
     this._timers.delete(h);
   }
 
-  /** @this {Match} */
+  /** @param {number} ms @this {Match} */
   scaled(ms) { return Math.max(0, Math.round(ms * this.timerScale)); }
 
   /**
    * Set the phase deadline (seconds; null/0 ⇒ untimed) and its timeout callback. `silent`: the timer runs but no
    * deadline is published (m.public.deadline 0 ⇒ no countdown) — the fixed presentation steps of a solo match.
+   * @param {number} seconds @param {(() => void) | null} [fn] @param {{ silent?: boolean }} [opts]
    * @this {Match}
    */
   setDeadline(seconds, fn, { silent = false } = {}) {
@@ -85,6 +93,7 @@ export class MatchInfra {
 
   /**
    * Whether any chess of a bond is in this match's pool (a 驰援 card of a fully banned bond is never offered).
+   * @param {string} bondId
    * @this {Match}
    */
   bondInPool(bondId) {
@@ -99,6 +108,7 @@ export class MatchInfra {
    * Whether a bond can matter in this match: not in the mode's static inactive list (标准: 拉特兰 / 阿戈尔 / 卡西米尔 /
    * 奥术 … never activate, research 02 §2.1) and still with chess in the pool. 机变 tactic cards whose every target bond
    * is dead are not offered (choices.js).
+   * @param {string} bondId
    * @this {Match}
    */
   bondLive(bondId) {
@@ -111,7 +121,8 @@ export class MatchInfra {
    * The boss-round group of a player (`bossWaves`: the pairs of finalAssault.js pairPlayers, planned in startRound
    * before the players' round start) and its side — 'L', or 'R' for the second player of a pair (the mirrored right
    * half) — or null outside a boss round / for a player without a field.
-   * @returns {{ wave: object, players: string[], side: 'L'|'R' } | null}
+   * @param {PlayerState | null | undefined} ps
+   * @returns {{ wave: ReturnType<typeof buildBossWave>, players: string[], side: 'L'|'R' } | null}
    * @this {Match}
    */
   bossGroupOf(ps) {
@@ -124,6 +135,7 @@ export class MatchInfra {
    * The field a player deploys on (server/match/board.js DEPLOY_FIELDS): in a boss round (最终攻势 / 隐秘核心, from its
    * ROUND_START on — the pairing exists before PlayerState.startRound's recompute) the player's half of the boss field,
    * 'bossL' or 'bossR' (bossGroupOf); otherwise its own normal board. User playtest #5 item 7.
+   * @param {PlayerState} ps
    * @returns {'normal'|'bossL'|'bossR'}
    * @this {Match}
    */
@@ -136,6 +148,7 @@ export class MatchInfra {
    * A fresh deploy map of a player on `field` (default: the field it deploys on now) under its device / tile overrides.
    * Pure — no PlayerState cache is touched (the read-only checker invariants.js uses it; PlayerState.deployMap caches).
    * (A default parameter does not see `@this`: hence the cast.)
+   * @param {PlayerState} ps @param {'normal'|'bossL'|'bossR'} [field]
    * @this {Match}
    */
   deployMapFor(ps, field = (/** @type {Match} */ (/** @type {unknown} */ (this))).deployFieldOf(ps)) {
@@ -145,12 +158,22 @@ export class MatchInfra {
     return map;
   }
 
-  /** @this {Match} */
+  /**
+   * @param {PlayerState} ps @param {string} hook @param {Record<string, any>} [ev]
+   * @param {{ quiet?: boolean, skipKey?: string | null }} [opts]
+   * @returns {Record<string, any>} `ev` as the handlers left it
+   * @this {Match}
+   */
   dispatch(ps, hook, ev = {}, opts = {}) {
     try { return this.dispatcher.dispatch(ps, hook, ev, opts); } catch (e) { this.reportError(`dispatch ${hook}`, e); return ev; }
   }
 
-  /** @this {Match} */
+  /**
+   * @param {PlayerState} ps @param {Piece} item @param {Piece | null} holder @param {string} hook
+   * @param {Record<string, any>} ev
+   * @returns {Record<string, any>}
+   * @this {Match}
+   */
   dispatchItem(ps, item, holder, hook, ev) {
     try { return this.dispatcher.dispatchItem(ps, item, holder, hook, ev); } catch (e) { this.reportError(`dispatchItem ${hook}`, e); return ev; }
   }

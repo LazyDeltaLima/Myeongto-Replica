@@ -445,10 +445,10 @@ export class Match {
     this._prepEndQueued = false;
 
     this.draft = null;
-    this.sp = null;
+    this.sp = /** @type {import('./match/common.js').SpDraft | null} */ (null);
     this.wave = null;
-    this.bossWaves = null;
-    this.fields = [];
+    this.bossWaves = /** @type {import('./match/common.js').BossWave[] | null} */ (null);
+    this.fields = /** @type {import('./match/common.js').MatchField[]} */ ([]);
     this.runner = null;
     /** playerId → fieldId */
     this.watchers = new Map();
@@ -459,7 +459,7 @@ export class Match {
      */
     this.watchPref = new Map();
     this.lastResults = new Map();
-    this.unitePlan = null;
+    this.unitePlan = /** @type {import('./match/settle.js').UnitePlan | null} */ (null);
     /** 联防 outcome for the SETTLE view: { through, helpers, leakers, losses } (settle()), null when no 联防 resolved */
     this.uniteResultView = null;
     /** every alive player's LP charge of the round for the SETTLE view: { playerId: n } (settle()), null outside it */

@@ -4,6 +4,8 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 /** @import { Match } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
+/** @typedef {NonNullable<ReturnType<typeof import('../unite.js').planUnite>>} UnitePlan */
 import { PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { uniteSurvivors } from '../unite.js';
 import { buildResult } from '../results.js';
@@ -15,7 +17,11 @@ import { nameParam } from '../../../shared/botNames.js';
 import { onSettle, resetRoundCounters } from '../botEmotes.js';
 
 export class MatchSettle {
-  /** @this {Match} */
+  /**
+   * @param {UnitePlan | null | undefined} plan the round's 联防 plan (null without one)
+   * @param {Record<string, any> | null | undefined} uniteResult the 联防 field's result
+   * @this {Match}
+   */
   settle(plan, uniteResult) {
     this.phase = PHASE.SETTLE;
     this.runner = null;
@@ -36,8 +42,9 @@ export class MatchSettle {
     // player's own LP charge of this round, the same `loss` deducted below, so the box and the LP bar never disagree. A
     // leaker's own battle leaks are not its charge in a 联防 round, which is why the client cannot work the number out
     // itself. No ticker line: the official reports the outcome in the one dialog. null when no 联防 resolved.
+    // (`survivors` is the 联防's whenever `uniteRan`)
     this.uniteResultView = uniteRan && plan.leakers.length ? {
-      through: plan.leakers.reduce((n, lk) => n + Math.max(0, survivors.get(lk.playerId) || 0), 0),
+      through: plan.leakers.reduce((n, lk) => n + Math.max(0, /** @type {Map<string, number>} */ (survivors).get(lk.playerId) || 0), 0),
       helpers: plan.helpers.map((p) => p.playerId),
       leakers: plan.leakers.map((p) => p.playerId),
       losses: {},
@@ -48,7 +55,7 @@ export class MatchSettle {
       this.uniteRoundsDone = (this.uniteRoundsDone || 0) + 1;
       for (const lk of plan.leakers) {
         lk.uniteTally.sent += plan.leaked.filter((l) => l.sourcePlayerId === lk.playerId).length + (plan.notReentered.get(lk.playerId) || 0);
-        lk.uniteTally.through += Math.max(0, survivors.get(lk.playerId) || 0);
+        lk.uniteTally.through += Math.max(0, /** @type {Map<string, number>} */ (survivors).get(lk.playerId) || 0);
       }
     }
     const alive = this.alivePlayers();
@@ -59,8 +66,8 @@ export class MatchSettle {
     this.roundLossesView = {};
     for (const ps of alive) {
       const r = this.lastResults.get(ps.playerId) || { leaked: [], perfect: true, coins: 0, layerGains: {}, killed: 0, damageDealt: 0 };
-      const counted = (r.leaked || []).filter((l) => l && l.counted !== false).length;
-      const loss = uniteRan && plan.leakers.includes(ps) ? Math.min(cap, survivors.get(ps.playerId) || 0) : Math.min(cap, counted);
+      const counted = (r.leaked || []).filter((/** @type {{ counted?: boolean } | null} */ l) => l && l.counted !== false).length;
+      const loss = uniteRan && plan.leakers.includes(ps) ? Math.min(cap, /** @type {Map<string, number>} */ (survivors).get(ps.playerId) || 0) : Math.min(cap, counted);
       this.roundLossesView[ps.playerId] = loss;
       if (this.uniteResultView) this.uniteResultView.losses[ps.playerId] = loss;
       if (shared) teamLoss += loss;
@@ -131,6 +138,7 @@ export class MatchSettle {
    * 临时层数 are offered to the converting 特质 during the dispatch and lapse after it. The normal round's settle, and
    * a boss / hidden field where the season stacks layers there (shared/seasons.js bossLayerGains: 规程 — bossRounds.js
    * _finishFinal), as after a normal battle.
+   * @param {PlayerState} ps @param {Record<string, any>} r the player's part of the result @param {Record<string, any>} ev
    * @this {Match}
    */
   _battleResultLayers(ps, r, ev) {
@@ -152,9 +160,9 @@ export class MatchSettle {
     ps.recompute();
   }
 
-  /** @this {Match} */
+  /** @param {PlayerState} ps @param {Record<string, any>} r the player's part of the result @this {Match} */
   _charDamageTickers(ps, r) {
-    const steps = (Array.isArray(this.gd.config.broadcasts) ? this.gd.config.broadcasts : []).filter((b) => b.type === 'CHAR_DAMAGE' && Array.isArray(b.params)).map((b) => Number(b.params[0])).filter((n) => n > 0).sort((a, b) => b - a);
+    const steps = (Array.isArray(this.gd.config.broadcasts) ? this.gd.config.broadcasts : []).filter((/** @type {{ type?: string, params?: unknown }} */ b) => b.type === 'CHAR_DAMAGE' && Array.isArray(b.params)).map((/** @type {{ params: unknown[] }} */ b) => Number(b.params[0])).filter((/** @type {number} */ n) => n > 0).sort((/** @type {number} */ a, /** @type {number} */ b) => b - a);
     if (!steps.length) return;
     const board = new Set();
     for (const p of ps.board.values()) board.add(p.uid);
@@ -166,7 +174,7 @@ export class MatchSettle {
       if (!cur || (Number(u.dmg) || 0) > (Number(cur.dmg) || 0)) best.set(key, u);
     }
     for (const u of best.values()) {
-      const hit = steps.find((s) => (u.dmg || 0) >= s);
+      const hit = steps.find((/** @type {number} */ s) => (u.dmg || 0) >= s);
       if (hit) this.tickerFor('CHAR_DAMAGE', [ps.name, u.name || u.defId, String(hit)], { playerId: ps.playerId, param: String(hit) });
     }
   }
@@ -175,6 +183,7 @@ export class MatchSettle {
    * m.roundDmg { round, units: [[uid, dmg], …] } (the round damage panel, shared/roundDamage.js): what each board
    * operator dealt in the player's own battle of this round, summons in their summoner — never the 联防 battle. Kept on
    * the player (`roundDmg`) and sent again on a resync (platform.js), so a reload in the next prep still shows it.
+   * @param {PlayerState | null | undefined} ps @param {Record<string, any> | null | undefined} r
    * @this {Match}
    */
   _sendRoundDamage(ps, r) {
@@ -190,7 +199,7 @@ export class MatchSettle {
     this.startRound(this.round + 1);
   }
 
-  /** @this {Match} */
+  /** @param {{ victory: boolean, hiddenCleared?: boolean, reason?: string }} outcome @this {Match} */
   finish({ victory, hiddenCleared = false, reason = 'defeat' }) {
     if (this.ended || this.disposed) return;
     this.ended = true;
@@ -204,7 +213,7 @@ export class MatchSettle {
     this.deadline = 0;
     for (const f of this.fields) f.live = false;
     this.outcome = { victory: !!victory, hiddenReached: this.hiddenReached, hiddenCleared: !!hiddenCleared, reason };
-    /** @type {Record<string, any>} m.result: buildResult's, or the bare fallback below */
+    /** @type {{ t: string, [key: string]: any }} m.result: buildResult's, or the bare fallback below */
     let result;
     try {
       result = buildResult(this, this.outcome);

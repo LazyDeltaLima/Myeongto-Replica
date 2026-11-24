@@ -271,6 +271,9 @@ export class EffectDispatcher {
   /**
    * Dispatch a hook for one player. `ev` is passed to every handler (mutable: onPrice writes ev.price, onSold
    * ev.gain, onBattleStart ev.input, …) and returned.
+   * @param {import('./PlayerState.js').PlayerState} ps @param {string} hook @param {Record<string, any>} [ev]
+   * @param {{ quiet?: boolean, skipKey?: string | null }} [opts]
+   * @returns {Record<string, any>}
    */
   dispatch(ps, hook, ev = {}, { quiet = false, skipKey = null } = {}) {
     if (ev.preview && !this.preview) {

@@ -133,6 +133,7 @@ import { PlayerPrep } from './player/prep.js';
 import { PlayerRound } from './player/round.js';
 import { PlayerViews } from './player/views.js';
 import { PlayerDiy, DiyStock } from './player/diy.js';
+/** @import { ShopSlot } from './player/economy.js' */
 
 export class PlayerState {
   /**
@@ -166,15 +167,15 @@ export class PlayerState {
     this.infoReroll = false;
     this.lastEmoteAt = -Infinity;
     /** operator loadout (DESIGN §16): frozen { [baseChessId]: { skill, module } }, {} = every chess on its defaults */
-    this.loadout = Object.freeze({});
+    this.loadout = /** @type {Readonly<Record<string, Readonly<{ skill: number, module: string | null }>>>} */ (Object.freeze({}));
     // 0.2.2: the per-operator 潜能 / 练度 ({} = every operator 潜能 6, 精英2 Lv.60 — bots always)
-    this.ops = Object.freeze({});
+    this.ops = /** @type {Readonly<Record<string, Readonly<{ potential: number, cultivate: number }>>>} */ (Object.freeze({}));
     if (!this.isBot && (seat.loadout || seat.ops)) this.setLoadout(seat.loadout ?? null, seat.ops ?? null);
     /**
      * 补位 (0.2.0): the base chess ids this player fields as their stand-ins — the seat's not-owned list when the match
      * started, re-checked against this match's data; frozen, sorted; [] = every operator owned (bots always)
      */
-    this.standIns = Object.freeze([]);
+    this.standIns = /** @type {readonly string[]} */ (Object.freeze([]));
     /** @type {Set<string>} lookup set of `standIns` */
     this._standInSet = new Set();
     if (!this.isBot && seat.notOwned) this.setNotOwned(seat.notOwned);
@@ -182,23 +183,29 @@ export class PlayerState {
      * 自选编队 (0.2.0): the slotted picks { [slotBaseId]: { charId, skillIndex, uniEquipId } } — the seat's when the match
      * started, re-checked; frozen; {} = none (bots always). setDiy makes `this.gd` the player's data view.
      */
-    this.diy = Object.freeze({});
-    /** @type {Map<string, object>} slot id (normal / elite) → composed 自选 record (setDiy) */
-    this._diyRecords = new Map();
+    this.diy = /** @type {Readonly<Record<string, Readonly<{ charId: string, skillIndex: number, uniEquipId: string | null }>>>} */ (Object.freeze({}));
+    /** slot id (normal / elite) → composed 自选 record (setDiy) */
+    this._diyRecords = /** @type {Map<string, import('../../shared/loadoutRecord.js').ChessRecord>} */ (new Map());
     /** the copies of the slotted pieces (initDiyStock, once the match's bans are drawn) */
     this.diyStock = new DiyStock();
     /** slotted slots without stock: every bond of the operator is switched off this match */
-    this.diyBanned = Object.freeze([]);
+    this.diyBanned = /** @type {readonly string[]} */ (Object.freeze([]));
     if (!this.isBot && seat.diy) this.setDiy(seat.diy);
     /**
      * operator skins (docs/rules/upstream.md 「오퍼레이터 스킨」): frozen { [charId]: skinId }, {} = every operator on its
      * default model (bots always). PUBLIC unlike the loadout (m.public players[].skins); display only — no rule reads it.
      */
-    this.skins = Object.freeze({});
+    this.skins = /** @type {Readonly<Record<string, string>>} */ (Object.freeze({}));
     if (!this.isBot && seat.skins) this.setSkins(seat.skins);
+    /**
+     * the 调度中心: its level and upgrade price, the cards on sale (display order; `kinds` the kind of every position,
+     * empty ones included, `layout` an older state's counts: player/economy.js _shopKinds), the freeze, free refreshes
+     * @type {{ level: number, upgradePrice: number, slots: (ShopSlot | null)[], frozen: boolean, freeRefreshes: number,
+     *   kinds?: string[], layout?: { chess: number, item: number } }}
+     */
     this.shop = { level: 1, upgradePrice: this.gd.upgradeBase(1) ?? 0, slots: [], frozen: false, freeRefreshes: 0 };
     /** reward offers queue (merge rewards, special refreshes): { tier, source, label, slots: [{ kind, id, price, sold }] } */
-    this.offers = [];
+    this.offers = /** @type {import('./player/acquire.js').Offer[]} */ ([]);
     /** @type {Array<any>} */
     this.hand = new Array(HAND_SIZE).fill(null);
     /** @type {Array<any>} */
@@ -211,7 +218,7 @@ export class PlayerState {
     this._shopFresh = [];
     /** @type {Map<string, any>} 'r,c' → piece */
     this.board = new Map();
-    /** persistent bond layers */
+    /** @type {Record<string, number>} persistent bond layers */
     this.layers = {};
     /** computed bond states */
     this.bonds = {};
@@ -239,12 +246,16 @@ export class PlayerState {
      * @type {null | { id: string, round: number, sourceItemId: string | null, cards: any[], kind?: 'bandSkill', choiceEvent?: string | null, sourceBandId?: string | null }}
      */
     this.personalChoice = null;
-    /** free-form match-long counters for content (ctx.counter / setCounter), 凯瑟琳's band:cathy:cellTaken among them */
+    /**
+     * free-form match-long counters for content (ctx.counter / setCounter), 凯瑟琳's band:cathy:cellTaken among them
+     * @type {Record<string, number>}
+     */
     this.counters = {};
     /** per-round counters (reset at round start) */
     this.round = { refreshes: 0, buys: 0, sells: 0, spent: 0, gainedChess: 0, arts: 0 };
     this.deployCapBonus = 0;
     this.deployCapMin = 0;
+    /** @type {Record<string, boolean>} stage device alias → active (terrain 机变 cards, content: board.js buildDeployMap) */
     this.deviceOverrides = {};
     this.tileOverrides = {};
     this.stats = {

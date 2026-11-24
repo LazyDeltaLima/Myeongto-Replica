@@ -51,7 +51,7 @@ import { seasonFeature } from '../../shared/seasons.js';
 /**
  * @param {import('./Match.js').Match} m
  * @param {Map<string, object>} results playerId → BattleResult.perPlayer entry of the player's own combat
- * @returns {null | { helpers: any[], leakers: any[], leaked: object[], notReentered: Map<string, number> }}
+ * @returns {null | { helpers: any[], leakers: any[], leaked: Array<Record<string, any>>, notReentered: Map<string, number> }}
  */
 export function planUnite(m, results) {
   if (m.isSolo) return null;

@@ -75,8 +75,10 @@ export function bossFieldPlacement(side, row, col, dir = 'RIGHT') {
  * drawn anew for every boss wave (upstream #845: the official video BV1VCXyBjEN1 p1 40–45 min pairs seats 1-4 · 2-3 at
  * wave 14 and 1-2 · 3-4 at wave 15). [ASSUMED] the draw is uniform. Each pair in seat order (the lower seat on the left
  * half), the pairs by their first seat: [[a, d], [b, c]] / [[a, c], [b]] / [[a]].
- * @param {{ seat: number }[]} alive
+ * @template {{ seat: number }} T
+ * @param {T[]} alive
  * @param {{ shuffle: (a: any[]) => any[] }} rng the match's 'pairs' stream (no other stream is touched)
+ * @returns {T[][]}
  */
 export function pairPlayers(alive, rng) {
   const order = rng.shuffle(alive.slice().sort((a, b) => a.seat - b.seat));
@@ -101,6 +103,7 @@ export function bossPoolHp(gd, bossId, aliveCount) {
  * Match._creditBoss (client reports, per player); the hit that would leave less than BOSS_POOL_MIN_HP takes the rest.
  */
 export class SharedBossPool {
+  /** @param {number} hp @param {{ onHit?: ((playerId: string, dmg: number) => void) | null }} [opts] */
   constructor(hp, { onHit = null } = {}) {
     this.maxHp = Math.max(1, hp);
     this.hp = this.maxHp;

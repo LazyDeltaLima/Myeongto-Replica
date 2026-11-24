@@ -15,6 +15,25 @@ export const BOSS_CLOCK_MS = 250;
  * @typedef {{ ok: true, error?: undefined, detail?: undefined }} Ok
  * @typedef {{ ok?: undefined, error: string, detail?: string }} Fail
  */
+/**
+ * A battle field of the round (Match.fields): its id, kind ('normal' | 'boss' | 'hidden' | 'unite'), players and the
+ * server's battle (a DeadBattle when its spec could not be built), or a client-run field's record (clientCombat.js
+ * _ccField: `cc`, its spec, the authority and its reports, the result, the timers, a boss field's credit and budgets) —
+ * and what the views add (`bench`, the surrender vote).
+ * @typedef {{ fieldId: string, kind: string, players: string[], live: boolean, cc?: boolean,
+ *   battle: import('../../sim/Battle.js').Battle | null, [key: string]: any }} MatchField
+ */
+/**
+ * A boss round's pair (Match.bossWaves, phases.js _planBossWaves): its players and the wave its leader fights in.
+ * @typedef {{ players: string[], wave: ReturnType<typeof import('../waves.js').buildBossWave> }} BossWave
+ */
+/**
+ * The 机变 draft of an SP round (Match.sp, spDraft.js enterSpDraft): choices.js generateDraft's family, texts and cards
+ * (`idx` each), the turn order and its position, the picks (playerId → card idx) and who took each card (idx → playerId).
+ * @typedef {{ family: string, name: string, desc: string, eventId: string | null, cards: Array<Record<string, any>>,
+ *   order: string[], idx: number, picks: Record<string, number>, taken: Record<string, string>, untimed: boolean,
+ *   turnDeadline: number }} SpDraft
+ */
 /** @type {Readonly<Ok>} */
 export const OK = Object.freeze({ ok: true });
 /** @param {string} error @param {string} [detail] @returns {Fail} */

@@ -6,6 +6,7 @@
 // the player state).
 
 /** @import { PlayerState } from '../PlayerState.js' */
+/** @import { Piece } from './pieces.js' */
 import { ERR } from '../../../shared/constants.js';
 import { tileKey, inField, parseDir } from '../board.js';
 import { offsetTile } from '../../sim/dir.js';
@@ -19,6 +20,7 @@ export class PlayerItems {
    * oldest); the replaced item is destroyed. A `replaceUid` that is not one of the target's equipped items is refused.
    * A consume-on-equip item replaces the same way before it resolves (GitHub #263): the carrier keeps a free slot, and a
    * target its effect refuses (博士投影 on an elite) gets the picked item back — nothing is destroyed.
+   * @param {number} itemUid @param {number} targetUid @param {number | null} [replaceUid]
    * @this {PlayerState}
    */
   equip(itemUid, targetUid, replaceUid = null) {
@@ -44,11 +46,13 @@ export class PlayerItems {
       // which so sees the carrier without it (its bonds) — and is destroyed once the effect went through, leaving the slot
       // free (the normal 博士投影 then takes it: ev.keep, so it no longer pushes the oldest item out). A refusal puts it back.
       const off = this._takeReplaced(target, replaceUid);
+      /** @type {{ item: Piece, target: Piece, golden: boolean, keep: boolean, error: string | null, detail?: unknown, consumed: boolean }} the handler's answer */
       const ev = { item, target, golden: !!rec.isGolden, keep: false, error: null, consumed: true };
       this.m.dispatchItem(this, item, target, 'onEquip', ev);
       if (ev.error) {
-        if (off) target.items.splice(Math.min(off.idx, target.items.length), 0, off.piece);
-        return fail(ERR[ev.error] ? ev.error : ERR.BAD_TARGET, typeof ev.detail === 'string' ? ev.detail : undefined);
+        // (_takeReplaced made `target.items`)
+        if (off) /** @type {Piece[]} */ (target.items).splice(Math.min(off.idx, /** @type {Piece[]} */ (target.items).length), 0, off.piece);
+        return fail(/** @type {Readonly<Record<string, string>>} */ (ERR)[ev.error] ? ev.error : ERR.BAD_TARGET, typeof ev.detail === 'string' ? ev.detail : undefined);
       }
       if (off) this.m.dispatchItem(this, off.piece, target, 'onDestroy', { item: off.piece, holder: target, reason: 'replace' });
       // the handler may have destroyed the target (信标) — resolve the item again
@@ -81,12 +85,13 @@ export class PlayerItems {
   /**
    * Attach an item. With both slots used the item `replaceUid` names (the player's pick) is replaced, else the oldest;
    * the replaced item is destroyed.
+   * @param {Piece} target @param {Piece} item @param {number | null} [replaceUid]
    * @this {PlayerState}
    */
   _attach(target, item, replaceUid = null) {
     target.items = target.items || [];
     while (target.items.length >= this.gd.equipSlotsOf(target.id)) {
-      const i = replaceUid != null ? target.items.findIndex((x) => x.uid === replaceUid) : -1;
+      const i = replaceUid != null ? target.items.findIndex((/** @type {Piece} */ x) => x.uid === replaceUid) : -1;
       const [old] = target.items.splice(i >= 0 ? i : 0, 1);
       replaceUid = null;
       this.m.dispatchItem(this, old, target, 'onDestroy', { item: old, holder: target, reason: 'replace' });
@@ -97,12 +102,13 @@ export class PlayerItems {
   /**
    * A consume-on-equip item on a full carrier: take the item `replaceUid` names (else the oldest) off `target` — not yet
    * destroyed — and return { piece, idx } (null while a slot is free).
+   * @param {Piece} target @param {number | null} [replaceUid]
    * @this {PlayerState}
    */
   _takeReplaced(target, replaceUid = null) {
     target.items = target.items || [];
     if (target.items.length < this.gd.equipSlotsOf(target.id)) return null;
-    const i = replaceUid != null ? target.items.findIndex((x) => x.uid === replaceUid) : -1;
+    const i = replaceUid != null ? target.items.findIndex((/** @type {Piece} */ x) => x.uid === replaceUid) : -1;
     const idx = i >= 0 ? i : 0;
     const [piece] = target.items.splice(idx, 1);
     return { piece, idx };
@@ -110,6 +116,7 @@ export class PlayerItems {
 
   /**
    * g.art {itemUid, row, col, dir?}: the Art's range grid is rotated by `dir` (absent ⇒ RIGHT).
+   * @param {number} itemUid @param {number} row @param {number} col @param {string} [dir]
    * @this {PlayerState}
    */
   useArt(itemUid, row, col, dir) {
@@ -131,9 +138,10 @@ export class PlayerItems {
       const p = this.board.get(tileKey(tr, tc));
       if (p) targets.push(p);
     }
+    /** @type {{ item: Piece, row: number, col: number, dir: string, targets: Piece[], error: string | null, detail?: unknown, used: boolean }} the handler's answer */
     const ev = { item: loc.piece, row, col, dir: d, targets, error: null, used: true };
     this.m.dispatchItem(this, loc.piece, null, 'onArt', ev);
-    if (ev.error) return fail(ERR[ev.error] ? ev.error : ERR.BAD_TARGET, typeof ev.detail === 'string' ? ev.detail : undefined);
+    if (ev.error) return fail(/** @type {Readonly<Record<string, string>>} */ (ERR)[ev.error] ? ev.error : ERR.BAD_TARGET, typeof ev.detail === 'string' ? ev.detail : undefined);
     if (ev.used !== false) {
       const again = this.find(itemUid);
       if (again) this._detach(again);
@@ -146,6 +154,7 @@ export class PlayerItems {
   /**
    * g.destroy {uid}: an item in the hand / temp (Arts included). Equipped items are locked (research 04 §2 / addendum:
    * they leave the operator only on promotion, merge or sale); replacing one is g.equip's `replaceUid`.
+   * @param {number} uid
    * @this {PlayerState}
    */
   destroy(uid) {

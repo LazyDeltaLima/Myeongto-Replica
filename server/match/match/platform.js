@@ -4,7 +4,9 @@
 // = elimination (_quit), dispose.
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
-/** @import { Match } from '../Match.js' */
+/** @import { Match, SpectatorSeat } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
+/** @import { Battle } from '../../sim/Battle.js' */
 /** @import { Ok, Fail } from './common.js' */
 import { C2S } from '../../../shared/protocol.js';
 import { PHASE, ERR } from '../../../shared/constants.js';
@@ -51,7 +53,8 @@ export class MatchPlatform {
     if (!msg || typeof msg !== 'object' || typeof msg.t !== 'string' || !GAME_TYPES.has(msg.t)) return fail(ERR.BAD_MSG);
     let res;
     try {
-      res = this._handle(ps, msg);
+      // (a spectator seat gets here with g.watch only, which takes either)
+      res = this._handle(/** @type {PlayerState} */ (ps), msg);
     } catch (e) {
       this.reportError(`handle ${msg.t}`, e);
       res = fail(ERR.INTERNAL);
@@ -148,7 +151,7 @@ export class MatchPlatform {
     return res;
   }
 
-  /** @this {Match} */
+  /** @param {string} playerId @this {Match} */
   onDisconnect(playerId) {
     const ps = this.players.get(playerId);
     if (!ps || ps.isBot || this.disposed) return;
@@ -163,7 +166,7 @@ export class MatchPlatform {
     });
   }
 
-  /** @this {Match} */
+  /** @param {string} playerId @this {Match} */
   onReconnect(playerId) {
     const ps = this.players.get(playerId);
     if (!ps || ps.isBot || ps.left || this.disposed) return;
@@ -179,6 +182,7 @@ export class MatchPlatform {
    * The full state of one human (a reconnect, a resync, a spectator seat): m.public, its m.private (players only), the
    * field it is on / watches — a spectator, like an eliminated player, the field of the player it follows (item 56),
    * else the first; in a prep phase that player's board — or the result once ended.
+   * @param {PlayerState | SpectatorSeat} ps
    * @this {Match}
    */
   _resync(ps) {
@@ -188,9 +192,10 @@ export class MatchPlatform {
     this._publicWholeNext();
     if (!this.ended) {
       if (!ps.spectator) {
-        ps._lastPriv = null;
-        this._sendPrivate(ps, true);
-        if (ps.roundDmg) this.sendTo(playerId, ps.roundDmg); // the last round's damage panel (settle.js _sendRoundDamage)
+        // (a player seat: the casts say what `!ps.spectator` means — the plain configuration does not narrow on it)
+        /** @type {PlayerState} */ (ps)._lastPriv = null;
+        this._sendPrivate(/** @type {PlayerState} */ (ps), true);
+        if (/** @type {PlayerState} */ (ps).roundDmg) this.sendTo(playerId, /** @type {PlayerState} */ (ps).roundDmg); // the last round's damage panel (settle.js _sendRoundDamage)
       }
       if (this.clientCombat) this._resendBattle(ps);
       else if (!this.fields.length && this._follows(ps)) this._followScout(ps, { keep: true });
@@ -204,7 +209,7 @@ export class MatchPlatform {
     }
   }
 
-  /** @this {Match} */
+  /** @param {string} playerId @this {Match} */
   onLeave(playerId) {
     const ps = this.players.get(playerId);
     if (!ps || ps.isBot || ps.left || this.disposed) return;
@@ -230,6 +235,7 @@ export class MatchPlatform {
    * to the shared pool at once, and the seat has no place in later rounds, the Final Assault pairing or the boss pool
    * (bloodPoint per player alive at the fight's start, DESIGN §25.13.4). Rounds passed = the rounds the player had
    * survived when leaving.
+   * @param {PlayerState} ps
    * @this {Match}
    */
   _quit(ps) {
@@ -258,7 +264,8 @@ export class MatchPlatform {
           this._fieldDone(f);
           continue;
         }
-        try { f.battle.forceEnd('left'); } catch (e) { this.reportError('quit forceEnd', e); }
+        // (a field the server runs: its battle is up)
+        try { /** @type {Battle} */ (f.battle).forceEnd('left'); } catch (e) { this.reportError('quit forceEnd', e); }
       }
     }
     // a custom 「共享」 match: the seat takes its part of the team LP with it — the pool × its starting LP ÷ the starting LPs
@@ -301,7 +308,8 @@ export class MatchPlatform {
     this._stopClientCombat();
     for (const h of this._timers) { try { this.sched.clearTimeout(h); } catch { /* ignore */ } }
     this._timers.clear();
-    if (this._pubTimer) { try { this.sched.clearTimeout(this._pubTimer); } catch { /* ignore */ } this._pubTimer = null; }
+    // (through a cast: a part's own `this._pubTimer =` would declare the field again, types/README.md "Split classes")
+    if (this._pubTimer) { try { this.sched.clearTimeout(this._pubTimer); } catch { /* ignore */ } /** @type {Match} */ (this)._pubTimer = null; }
     if (this.ownsScheduler) this.sched.dispose();
   }
 }

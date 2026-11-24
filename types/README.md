@@ -103,7 +103,7 @@ server's options only). A listed file is checked in every config that has it; a 
 error.
 
 With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`, the files directly under `server/`
-(`server/*.js`).
+(`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`.
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -163,8 +163,22 @@ most strict errors were, and the JSDoc that fixed them:
   local-patch.js): the JSDoc goes on the function expression, `= /** @param {…} o */ function finish(o)`; `this` comes
   from the assignment. Wrapped by name in a loop (`PlayerState.prototype[k]`): the prototype cast through `unknown` to
   `Record<string, (...args: any[]) => any>`, and `@this {PlayerState}` on the function.
-- a part's own `this.temp = …` (Split classes, below) makes the merged field `any[] | undefined`; outside the part, cast
-  at the use until the part's line is typed.
+- the match parts' shared records, typed once where they are made: `Piece` / `PieceLoc` (`player/pieces.js`), `Offer`
+  (`player/acquire.js`), `ShopSlot` (`player/economy.js`), `ChessInput` / `PlayerBattleInput` (`player/round.js`),
+  `MatchField` (a field of `Match.fields`: the battle, or a client-run field's record), `BossWave`, `SpDraft`
+  (`match/common.js`), `PublicFrame` (`match/messaging.js`), `UnitePlan` (`match/settle.js`), `BandSkillMsg`
+  (`match/bandSkill.js`); a validated message an intent handler takes is typed with the fields `shared/protocol.js`
+  `C2S` checks (`_onProgress`, `voteSurrender`), `_handle`'s whole `msg` stays `any` (its fields depend on `t`).
+- a field's battle is a `Battle`; the DeadBattle stand-in is cast through `unknown` where it is made (`_specBattle`,
+  `newBattle`: it answers like one), and a server-run field's `f.battle` is cast at the use (`/** @type {Battle} */
+  (f.battle).forceEnd(…)`) — only a client-run field has none.
+- a value one check proves that tsc does not follow (`_bandSkillBlock` refuses a null state, `only('slot')` proves the
+  slot, `Number.isInteger(preferIdx)`): cast at the use, with a comment saying why it holds.
+- the plain configurations (no `strictNullChecks`) do not narrow on an optional `undefined` member (`!ps.spectator` of
+  `PlayerState | SpectatorSeat`, `tr.error` of the target / `Fail` union): cast there too, or the plain pass fails.
+- a multi-line JSDoc cast whose continuation lines lack the ` * ` reads as a broken type (every field `never`): a typedef.
+- `{ baseId }` → `{ baseId: /** @type {string} */ (baseId) }` changes the syntax tree (shorthand property): cast the
+  whole object (`return /** @type {DiySlot} */ ({ baseId, … })`).
 
 ## Split classes
 
@@ -187,7 +201,14 @@ copied onto the prototype. tsc does not see the copy, so:
   field with a cast on the value instead
   (`this.phase = /** @type {string} */ (PHASE.LOBBY)`), which keeps the class's own declaration. `skipLibCheck` hides
   the resulting `TS2430` in the `.d.ts` (a part's literal `phase` against the class's `string`); it changes nothing the
-  `.js` files see.
+  `.js` files see. The class's value cast also types what the parts assign later: `Match.fields`, `sp`, `bossWaves`,
+  `unitePlan`, `PlayerState.offers`, `loadout`, `ops`, `diy`, `standIns`, `skins` (an `Object.freeze({})` alone is
+  `Readonly<{}>`, whose fields are all errors).
+- a part's own member of a field the class also has is `T | undefined` (assigned in a method, not the constructor) and
+  wins in the merged type: `player/pieces.js`'s `this.temp = new Array(…)` made `temp` `any[] | undefined` everywhere.
+  A part that reassigns such a field writes through a cast of `this`, `/** @type {PlayerState} */ (this).temp = …`
+  (`personalChoice` in `player/round.js`, `_pubTimer` in `match/platform.js`): no member of the part, the class's type
+  stays. A field only a part makes keeps its part member (`_deployChests`: a `@type` on the statement).
 - the same files declare what a class gets outside plain `this.x =` assignments in its own file: `SkillRuntime`'s
   `battle` and `unit` and `Unit`'s heavy references (set with `Object.defineProperty`), the fields a battle part or a kit
   sets on one kind of unit (an enemy's `tag`, `route`, `pauseUntil` …, a board piece's `items`), and the `Battle`

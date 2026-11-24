@@ -5,19 +5,25 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 /** @import { Match } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
+/** @import { MatchField } from './common.js' */
 import { ERR } from '../../../shared/constants.js';
 import { HeadlessJob, syntheticResult, validateClientResult, HARD_CAP_SECONDS } from '../fields.js';
 import { resultDigest, compactResult as compactForVerify } from '../../sim/spec.js';
 import { OK, fail } from './common.js';
 
 export class MatchReports {
-  /** @this {Match} */
+  /** @param {unknown} battleId @returns {MatchField | null} @this {Match} */
   _fieldByBattle(battleId) {
     return typeof battleId === 'string' ? this.fields.find((f) => f.cc && f.battleId === battleId) || null : null;
   }
 
   /**
    * b.progress from a field's authority (anything else — a stale battle, a demoted client — is ignored).
+   * @param {PlayerState} ps
+   * @param {{ battleId: string, gt: number, killed: number, total: number, resolved?: number, leaks?: number, bossDmg?: number,
+   *   by?: Record<string, number>, done?: boolean, left?: Record<string, number>, leaksBy?: Record<string, number>,
+   *   top?: Record<string, unknown> }} msg the frame as shared/protocol.js C2S checked it
    * @this {Match}
    */
   _onProgress(ps, msg) {
@@ -34,7 +40,7 @@ export class MatchReports {
     // integer is adopted — an absent field leaves the null placeholder alone, so "not reported" and a reported 0 differ
     // (a `Number(null) === 0` here would defeat every `resolved ?? killed` fallback); a lower value is kept (the final
     // report drops never-spawned enemies from `total`, and a takeover may report a different number)
-    if (Number.isInteger(msg.resolved)) p.resolved = Math.max(0, Math.min(1e5, msg.resolved));
+    if (Number.isInteger(msg.resolved)) p.resolved = Math.max(0, Math.min(1e5, /** @type {number} */ (msg.resolved)));
     f.lastProgressAt = this.sched.now();
     if (f.kind === 'boss' || f.kind === 'hidden') {
       this._creditBoss(f, msg.bossDmg, msg.by);
@@ -51,7 +57,7 @@ export class MatchReports {
       this._bossPublic();
       return OK;
     }
-    if (Number.isFinite(msg.leaks)) p.leaks = Math.max(p.leaks, msg.leaks);
+    if (Number.isFinite(msg.leaks)) p.leaks = Math.max(p.leaks, /** @type {number} */ (msg.leaks));
     // 联防: the leakers' enemies still standing (the latest report; clamped where it is read, _uniteLeft)
     if (f.kind === 'unite' && msg.left && typeof msg.left === 'object') p.left = { ...msg.left };
     this.markPublic();
@@ -60,6 +66,7 @@ export class MatchReports {
 
   /**
    * b.result from a field's authority: validated against the spec; an implausible one is replaced by the server's run.
+   * @param {PlayerState} ps @param {{ battleId: string, result: unknown }} msg
    * @this {Match}
    */
   _onResult(ps, msg) {
@@ -79,6 +86,7 @@ export class MatchReports {
     const result = v.result;
     if (bossLike) {
       // the final b.progress normally carried everything; the result's per-player damage is a lower bound
+      /** @type {Record<string, number>} */
       const by = {};
       let sum = 0;
       for (const pid of f.players) { const d = Number(result.perPlayer[pid] && result.perPlayer[pid].bossDamage) || 0; by[pid] = d; sum += d; }
@@ -111,7 +119,7 @@ export class MatchReports {
       }
       this._bossResultDamage(f, result);
     }
-    const accept = (verified) => {
+    const accept = (/** @type {Record<string, any>} */ verified) => {
       f.result = verified;
       f.resultSource = 'client';
       this._fieldDone(f);
@@ -124,6 +132,7 @@ export class MatchReports {
 
   /**
    * A boss field's accepted client result: each player's bossDamage is at least what the server credited them.
+   * @param {MatchField} f @param {Record<string, any>} result
    * @this {Match}
    */
   _bossResultDamage(f, result) {
@@ -133,13 +142,14 @@ export class MatchReports {
   /**
    * SP_VERIFY: re-simulate in headless slices. 'all' waits before accepting (the server wins on a mismatch);
    * 'sample' accepts immediately and only logs differences for ~1 battle in 8, even after the field's phase ends.
+   * @param {MatchField} f @param {Record<string, any>} result @param {(result: Record<string, any>) => void} accept
    * @this {Match}
    */
   _verifyResult(f, result, accept) {
     if (this.verifyMode === 'off') { accept(result); return; }
     const required = this.verifyMode === 'all';
     const start = () => {
-      const job = new HeadlessJob(this._specBattle(f.spec), { players: f.players, onError: (e) => this.reportError('verify', e) });
+      const job = new HeadlessJob(this._specBattle(f.spec), { players: f.players, onError: (/** @type {unknown} */ e) => this.reportError('verify', e) });
       if (required) {
         // The result has arrived: duplicate reports, disconnects and the old deadline must not start another run.
         f.verifyJob = job;
@@ -159,7 +169,8 @@ export class MatchReports {
         let verified = result;
         try {
           if (!job.run(this.headlessSliceMs)) { schedule(); return; }
-          const run = job.output();
+          // (run() answered true: the job is done)
+          const run = /** @type {NonNullable<ReturnType<HeadlessJob['output']>>} */ (job.output());
           const mine = validateClientResult(f.spec, compactForVerify(run.result), { gd: this.gd });
           const server = mine.ok ? mine.result : run.result;
           this.verifyStats.checked++;

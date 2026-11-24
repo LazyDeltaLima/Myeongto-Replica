@@ -7,6 +7,8 @@
 
 /** @import { Match } from '../Match.js' */
 /** @import { Battle } from '../../sim/Battle.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
+/** @import { MatchField, BossWave } from './common.js' */
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { buildBossWave, bountySpawns, markBounties } from '../waves.js';
@@ -43,7 +45,7 @@ const BOSS_LP_BURST = 10;
 const BOSS_LP_PER_GS = 1;
 
 export class MatchBoss {
-  /** @this {Match} */
+  /** @param {boolean} hidden @this {Match} */
   startFinalAssault(hidden) {
     const alive = this.alivePlayers();
     if (!alive.length) { this.finish({ victory: false, reason: 'eliminated' }); return; }
@@ -80,12 +82,14 @@ export class MatchBoss {
     // drawn now only when the players still in are not the planned ones
     const planned = this.bossWaves ? this.bossWaves.flatMap((w) => w.players) : [];
     const reuse = planned.length === alive.length && alive.every((p) => planned.includes(p.playerId));
-    const groups = reuse ? this.bossWaves.map((w) => w.players.map((id) => this.players.get(id))) : pairPlayers(alive, this.rngPairs);
+    // (`reuse`: the planned pairs, every one of them alive)
+    const groups = reuse ? /** @type {PlayerState[][]} */ (/** @type {BossWave[]} */ (this.bossWaves).map((w) => w.players.map((id) => this.players.get(id)))) : pairPlayers(alive, this.rngPairs);
     this.fields = groups.map((g, i) => {
       const solo = this.isSolo || g.length === 1;
-      const wave = reuse ? this.bossWaves[i].wave : buildBossWave(this.gd, this.rngWaves, this.factions, this.round, { bossId, solo });
+      const wave = reuse ? /** @type {BossWave[]} */ (this.bossWaves)[i].wave : buildBossWave(this.gd, this.rngWaves, this.factions, this.round, { bossId, solo });
       // one spawn list per field, shared by the field's players' onBattleStart handlers (edit it in place)
-      const spawns = wave.spawns.map((s) => ({ ...s, mods: s.mods ? { ...s.mods } : undefined }));
+      /** @type {Record<string, any>[]} */
+      const spawns = wave.spawns.map((/** @type {Record<string, any>} */ s) => ({ ...s, mods: s.mods ? { ...s.mods } : undefined }));
       // bounties with battles left (a multi-round card lasts MULTI_ROUND_BOUNTY_BATTLES) follow their player into the
       // boss field, on the player's half
       g.forEach((ps, j) => {
@@ -126,9 +130,9 @@ export class MatchBoss {
       if (this.clientCombat) return { fieldId, kind: hidden ? 'hidden' : 'boss', players: g.map((p) => p.playerId), opts: bopts, battle: null, live: true };
       const battle = this.newBattle(bopts);
       try {
-        battle.on('enemyLeak', (ctx) => this._bossLeak(ctx && ctx.enemy), { priority: -1000, owner: 'match' });
+        battle.on('enemyLeak', (/** @type {{ enemy?: { lpr?: number } } | null} */ ctx) => this._bossLeak(ctx && ctx.enemy), { priority: -1000, owner: 'match' });
         // leader "扣除目标生命" effects (boss_7 Doom, 斥退 …: server/sim/content/bosses.js lpLoss) hit the team pool
-        battle.on('lpLoss', (ctx) => this._teamLpLoss(ctx && ctx.amount), { priority: -1000, owner: 'match' });
+        battle.on('lpLoss', (/** @type {{ amount?: number } | null} */ ctx) => this._teamLpLoss(ctx && ctx.amount), { priority: -1000, owner: 'match' });
       } catch (e) { this.reportError('boss leak hook', e); }
       return { fieldId, kind: hidden ? 'hidden' : 'boss', players: g.map((p) => p.playerId), battle, live: true };
     });
@@ -136,7 +140,7 @@ export class MatchBoss {
     this.overtimeOver = false; // the overtime window ran out: the boss fields are force-ended (_applyOvertime)
     // HUD: the boss level's countdown (maxPlayTime, 120 real s — the battle goes on past it) and the moment the
     // overtime drain starts — the same moment (gamedata.js bossOvertimeStartReal), both on the field clock
-    const onClock = (realS) => this.sched.now() + Math.round(((realS * this.gd.combatTimeScale) / this.gameSpeed) * 1000);
+    const onClock = (/** @type {number} */ realS) => this.sched.now() + Math.round(((realS * this.gd.combatTimeScale) / this.gameSpeed) * 1000);
     const levelTime = this.gd.bossLevelTime(this.round);
     this.overtimeStartReal = this.gd.bossOvertimeStartReal(this.round);
     this.deadline = this.sched.instant || !levelTime ? 0 : onClock(levelTime);
@@ -151,9 +155,9 @@ export class MatchBoss {
     this.runner.start();
   }
 
-  /** @this {Match} */
+  /** @param {boolean} hidden @this {Match} */
   _startFinalClient(hidden) {
-    const pool = this.bossPool;
+    const pool = /** @type {SharedBossPool} */ (this.bossPool);
     const recs = this.fields.map((x) => this._ccField({ fieldId: x.fieldId, kind: x.kind, players: x.players, opts: x.opts, boss: { poolHp: pool.hp, poolMax: pool.maxHp } }));
     this._finalEnding = null;
     this._bossStartAt = this.sched.now();
@@ -167,8 +171,8 @@ export class MatchBoss {
         f.credit = new CreditPool(pool);
         f.battle = this._specBattle(f.spec, { sharedBoss: f.credit });
         try {
-          f.battle.on('enemyLeak', (ctx) => this._bossLeak(ctx && ctx.enemy), { priority: -1000, owner: 'match' });
-          f.battle.on('lpLoss', (ctx) => this._teamLpLoss(ctx && ctx.amount), { priority: -1000, owner: 'match' });
+          /** @type {Battle} */ (f.battle).on('enemyLeak', (/** @type {{ enemy?: { lpr?: number } } | null} */ ctx) => this._bossLeak(ctx && ctx.enemy), { priority: -1000, owner: 'match' });
+          /** @type {Battle} */ (f.battle).on('lpLoss', (/** @type {{ amount?: number } | null} */ ctx) => this._teamLpLoss(ctx && ctx.amount), { priority: -1000, owner: 'match' });
         } catch (e) { this.reportError('boss leak hook', e); }
       }
       this._watchBossFields(recs);
@@ -191,6 +195,7 @@ export class MatchBoss {
 
   /**
    * The most shared-pool damage a boss field's client reports may have credited by now (server field clock).
+   * @param {MatchField} f
    * @this {Match}
    */
   _bossDmgBudget(f) {
@@ -199,6 +204,7 @@ export class MatchBoss {
 
   /**
    * The most team LP a boss field's client reports may have cost by now (server field clock).
+   * @param {MatchField} f
    * @this {Match}
    */
   _bossLpBudget(f) {
@@ -208,6 +214,7 @@ export class MatchBoss {
   /**
    * A boss field's shared-pool damage, as reported cumulatively by its client (`by`: per player) — credited up to the
    * plausibility budget of the field clock; the rest is credited by later reports / the boss clock (`bossReported`).
+   * @param {MatchField} f @param {unknown} cum @param {Record<string, unknown> | null | undefined} by
    * @this {Match}
    */
   _creditBoss(f, cum, by) {
@@ -240,6 +247,7 @@ export class MatchBoss {
 
   /**
    * A boss field's LP cost (leaks × lpr + leader LP effects): `cumulative` totals from its client, deltas from the server run.
+   * @param {MatchField} f @param {unknown} amount @param {boolean} [cumulative]
    * @this {Match}
    */
   _creditLp(f, amount, cumulative = false) {
@@ -265,6 +273,7 @@ export class MatchBoss {
    * The authority's per-player split of the LP its field's enemy leaks cost (b.progress `leaksBy`: cumulative, per player,
    * the leader's own LP effects not in it) — the highest value seen per player. The field's perfect-payout bounties are
    * paid only where the final result agrees with it (`_bossLeaksAgree`).
+   * @param {MatchField} f @param {Record<string, unknown> | null | undefined} by
    * @this {Match}
    */
   _noteLeaksBy(f, by) {
@@ -283,29 +292,31 @@ export class MatchBoss {
    * (b.progress `leaksBy`; reports without the split explain nothing), and the player's leaked list must show at least the
    * leak LP reported for it (a leak is never moved to the other seat or dropped). A modified authority can still lie in
    * both; what the server cannot see it cannot check (the boss path never re-simulates).
+   * @param {MatchField} f @param {Record<string, any>} res the field's result @param {string} pid
    * @this {Match}
    */
   _bossLeaksAgree(f, res, pid) {
     if (!f.cc || f.resultSource !== 'client') return true;
     if (f.lpReported > 1e-9 && !f.leaksBy) return false;
-    const shown = ((res.perPlayer[pid] && res.perPlayer[pid].leaked) || []).reduce((n, l) => n + (Number.isFinite(l.lpr) && l.lpr >= 0 ? l.lpr : 1), 0);
+    const shown = ((res.perPlayer[pid] && res.perPlayer[pid].leaked) || []).reduce((/** @type {number} */ n, /** @type {{ lpr?: unknown }} */ l) => n + (Number.isFinite(l.lpr) && /** @type {number} */ (l.lpr) >= 0 ? /** @type {number} */ (l.lpr) : 1), 0);
     return shown + 1e-6 >= ((f.leaksBy && f.leaksBy[pid]) || 0);
   }
 
   /**
    * The server runs a boss field in real time (no client left): credits only what exceeds the client's reports.
+   * @param {MatchField} f
    * @this {Match}
    */
   _bossServerRun(f) {
-    const credit = new CreditPool(this.bossPool, { acked: f.bossAcked, ackedBy: f.bossBy });
+    const credit = new CreditPool(/** @type {SharedBossPool} */ (this.bossPool), { acked: f.bossAcked, ackedBy: f.bossBy });
     // (a DeadBattle, when the spec cannot build, answers on() and result() like one)
     const battle = /** @type {Battle} */ (this._specBattle(f.spec, { sharedBoss: credit }));
     f.battle = battle;
     f.credit = credit;
     f.lpCum = 0;
     try {
-      battle.on('enemyLeak', (ctx) => { const e = ctx && ctx.enemy; if (e) this._creditLp(f, Number.isFinite(e.lpr) && e.lpr >= 0 ? e.lpr : 1); }, { priority: -1000, owner: 'match' });
-      battle.on('lpLoss', (ctx) => this._creditLp(f, ctx && ctx.amount), { priority: -1000, owner: 'match' });
+      battle.on('enemyLeak', (/** @type {{ enemy?: { lpr?: unknown } } | null} */ ctx) => { const e = ctx && ctx.enemy; if (e) this._creditLp(f, Number.isFinite(e.lpr) && /** @type {number} */ (e.lpr) >= 0 ? e.lpr : 1); }, { priority: -1000, owner: 'match' });
+      battle.on('lpLoss', (/** @type {{ amount?: number } | null} */ ctx) => this._creditLp(f, ctx && ctx.amount), { priority: -1000, owner: 'match' });
     } catch (e) { this.reportError('boss leak hook', e); }
     if (!this.pacer) this.pacer = new HeadlessPacer(this);
     const entry = this.pacer.add({
@@ -329,6 +340,7 @@ export class MatchBoss {
   /**
    * A boss field's authority left, went silent or sent an implausible result (`demote`: never its authority again):
    * its partner (a replica already running) takes over, else the server.
+   * @param {MatchField} f @param {string} why @param {{ demote?: boolean }} [opts]
    * @this {Match}
    */
   _bossHandover(f, why, { demote = false } = {}) {
@@ -381,7 +393,7 @@ export class MatchBoss {
     else if ((this.teamLp != null && this.teamLp <= 0) || this.overtimeOver) this._endFinal('forced');
   }
 
-  /** @this {Match} */
+  /** @param {'cleared' | 'forced'} reason @this {Match} */
   _endFinal(reason) {
     if (this._finalEnding) return;
     this._finalEnding = reason;
@@ -417,6 +429,7 @@ export class MatchBoss {
 
   /**
    * b.pool { hp, max, teamLp, acked } to everyone (≤ 4 Hz; `force` skips the dedupe, never the rate).
+   * @param {boolean} force
    * @this {Match}
    */
   _broadcastPool(force) {
@@ -432,6 +445,7 @@ export class MatchBoss {
     // reaches 0 — rounded values could show 0 while the server's pool still holds a fraction of a point
     // a server-run field (no client left, or none at all): what its battle has put into the pool so far — a display
     // replica (a reconnecting / watching human) subtracts only its local damage beyond that from the server hp
+    /** @type {Record<string, number>} */
     const acked = {};
     for (const f of this.fields) if (f.cc) acked[f.fieldId] = f.mode === 'server' && f.credit ? Math.max(f.bossAcked, f.credit.cum) : f.bossAcked;
     // `gt`: how far each client-run field's authority has simulated (its b.progress game time; a finished field: its
@@ -439,6 +453,7 @@ export class MatchBoss {
     // lead (public/js/battle/runner.js REPLICA_LEAD_S): on the server clock alone it ran ahead of an authority that lags
     // it (a slow phone, a throttled tab) and showed a fight that had not happened (docs/rules/ui.md 「라운드 대미지 패널」).
     // A server-run field has none: its replicas follow the server clock.
+    /** @type {Record<string, number>} */
     const gt = {};
     for (const f of this.fields) {
       if (!f.cc || f.mode !== 'client') continue;
@@ -461,6 +476,7 @@ export class MatchBoss {
    * 战术特训 card: PRTS "若各自行动阶段就达成完美作战，获得N资金", the same sum SETTLE pays after a normal battle) go to
    * pending funds (spent in the Hidden Core's prep), and every bounty used one of its battles, exactly like SETTLE does
    * for normal rounds.
+   * @param {PlayerState} ps @param {Record<string, any>} pp the player's part of the field's result
    * @param {boolean} perfect the player's own field was perfect and the team won (`_finishFinal`)
    * @this {Match}
    */
@@ -474,15 +490,15 @@ export class MatchBoss {
     ps.dirty();
   }
 
-  /** @this {Match} */
+  /** @param {{ lpr?: unknown } | null | undefined} enemy @this {Match} */
   _bossLeak(enemy) {
     if (!enemy || this.teamLp == null) return;
     // lifePointReduce from data: 0 for harmless enemies (e.g. 装置 / unharmful escorts), 1 when absent
-    const lpr = Number.isFinite(enemy.lpr) && enemy.lpr >= 0 ? enemy.lpr : 1;
+    const lpr = Number.isFinite(enemy.lpr) && /** @type {number} */ (enemy.lpr) >= 0 ? enemy.lpr : 1;
     this._teamLpLoss(lpr);
   }
 
-  /** @this {Match} */
+  /** @param {unknown} amount @this {Match} */
   _teamLpLoss(amount) {
     const n = Number(amount);
     if (this.teamLp == null || !Number.isFinite(n) || !(n > 0)) return;
@@ -560,21 +576,23 @@ export class MatchBoss {
    * code AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo: the countdown ends that long before the server's
    * forced end of the state; what the official server scores then is server logic — here the leader stands, a defeat,
    * maintainer decision 2026-10-10: no strategy's team LP can exceed 150, so a real game's LP runs out first).
+   * @param {number} gt
    * @this {Match}
    */
   _applyOvertime(gt) {
     const start = this.overtimeStartReal ?? this.gd.bossOvertimeStartReal(this.round);
     const windowReal = this.gd.bossOvertimeWindowReal(this.round);
     const due = this.gd.bossOvertimeDue(gt, start, windowReal);
-    if (due > this.overtimeApplied) {
-      const loss = due - this.overtimeApplied;
+    // (`overtimeApplied` is set when the boss round starts: startFinalAssault)
+    if (due > /** @type {number} */ (this.overtimeApplied)) {
+      const loss = due - /** @type {number} */ (this.overtimeApplied);
       this.overtimeApplied = due;
       this._teamLpLoss(loss);
     }
     if ((Number(gt) || 0) / this.gd.combatTimeScale >= start + windowReal) this.overtimeOver = true;
   }
 
-  /** @this {Match} */
+  /** @param {FieldRunner} runner @this {Match} */
   _bossTick(runner) {
     this._applyOvertime(runner.time);
     if ((this.teamLp <= 0 || this.overtimeOver) && this.bossPool.hp > 0) runner.forceAll('forced');
@@ -585,11 +603,12 @@ export class MatchBoss {
     if (runner.ticks % 30 === 0) this.flush();
   }
 
-  /** @this {Match} */
+  /** @param {FieldRunner} runner @param {boolean} hidden @this {Match} */
   _finalDone(runner, hidden) { this._finishFinal(hidden, (f) => runner.resultOf(f)); }
 
   /**
    * Every boss field is over: stats, bounties, then the Hidden Core or RESULT.
+   * @param {boolean} hidden @param {(f: MatchField) => Record<string, any>} resultOf the field's result
    * @this {Match}
    */
   _finishFinal(hidden, resultOf) {
@@ -621,7 +640,7 @@ export class MatchBoss {
           // the own battle counts as perfect when the team won, the result is a real one (not the stand-in of a field that
           // never reported) and the player's own field let no counted enemy through [ASSUMED: the boss battle is a battle
           // of the player's own — "下场作战" — so a perfect-payout card pays as after a normal one]
-          const perfect = victory && !res.synthetic && pp.perfect === true && !(pp.leaked || []).some((l) => l && l.counted !== false)
+          const perfect = victory && !res.synthetic && pp.perfect === true && !(pp.leaked || []).some((/** @type {{ counted?: boolean } | null} */ l) => l && l.counted !== false)
             && this._bossLeaksAgree(f, res, pid);
           this._settleBossBounties(ps, pp, perfect);
         }
@@ -635,7 +654,7 @@ export class MatchBoss {
     }
     // the result screen's leader HP line (m.result bossPools): the pool's size and what the alliance took off it
     if (this.bossPool) {
-      if (!this.bossPoolsDone) this.bossPoolsDone = {};
+      if (!this.bossPoolsDone) this.bossPoolsDone = /** @type {Record<string, { maxHp: number, dealt: number }>} */ ({});
       this.bossPoolsDone[hidden ? 'hidden' : 'final'] = { maxHp: Math.round(this.bossPool.maxHp), dealt: Math.round(Math.max(0, this.bossPool.maxHp - this.bossPool.hp)) };
     }
     this._syncTeamLp();

@@ -5,6 +5,7 @@
 // the player state).
 
 /** @import { PlayerState } from '../PlayerState.js' */
+/** @import { Piece } from './pieces.js' */
 import { ERR, PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { OK, fail } from './common.js';
 
@@ -12,8 +13,14 @@ import { OK, fail } from './common.js';
 /** @type {Set<string>} */
 const LIVE_LAYER_PHASES = new Set([PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.PREP]);
 
+/**
+ * A card of the 调度中心: an operator or an item on sale at `basePrice` (_rollChessSlot / _rollItemSlot), frozen, sold;
+ * effects may add fields.
+ * @typedef {{ kind: string, id: string, basePrice: number, frozen: boolean, sold: boolean, [field: string]: any }} ShopSlot
+ */
+
 export class PlayerEconomy {
-  /** @this {PlayerState} */
+  /** @param {number} n @param {{ reason?: string }} [opts] @this {PlayerState} */
   addFunds(n, { reason = '' } = {}) {
     if (!Number.isFinite(n) || n === 0) return 0;
     const v = Math.trunc(n);
@@ -24,7 +31,7 @@ export class PlayerEconomy {
     return this.funds - before;
   }
 
-  /** @this {PlayerState} */
+  /** @param {number} n @this {PlayerState} */
   spend(n) {
     const v = Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
     if (v > this.funds) return false;
@@ -37,6 +44,7 @@ export class PlayerEconomy {
 
   /**
    * onSpend, dispatched once a payment's action is complete (buy / refresh / levelUp / reward / effect).
+   * @param {number} amount @param {string} reason
    * @this {PlayerState}
    */
   _afterSpend(amount, reason) {
@@ -48,6 +56,7 @@ export class PlayerEconomy {
    * Bond layer gain (prep-side). `requireActive` = "使已激活的【X】层数+N". Returns layers added: at most the room left
    * under the match's cap (GameData.layerCap: BOND_LAYER_CAP 999, shared/constants.js; none under the custom setting) — a
    * gain at the cap adds 0 and dispatches nothing.
+   * @param {string} bondId @param {number} n @param {{ requireActive?: boolean, reason?: string }} [opts]
    * @this {PlayerState}
    */
   addLayers(bondId, n, { requireActive = false, reason = '' } = {}) {
@@ -67,6 +76,7 @@ export class PlayerEconomy {
 
   /**
    * Effective price of a shop slot after onPrice modifiers (never negative).
+   * @param {ShopSlot | null | undefined} slot
    * @this {PlayerState}
    */
   priceOf(slot) {
@@ -77,14 +87,14 @@ export class PlayerEconomy {
     return Number.isFinite(p) ? Math.max(0, Math.round(p)) : slot.basePrice;
   }
 
-  /** @this {PlayerState} */
+  /** @returns {ShopSlot | null} @this {PlayerState} */
   _rollChessSlot() {
     // the slotted 自选 pieces join the draw once the 调度中心 reaches their slot's level (player/diy.js diyRollEntries)
     const id = this.m.pool.roll(this.m.rngShop, { maxTier: this.shop.level, extra: this.diyRollEntries() });
     return id ? { kind: 'chess', id, basePrice: this.gd.chessPrice(id), frozen: false, sold: false } : null;
   }
 
-  /** @this {PlayerState} */
+  /** @returns {ShopSlot | null} @this {PlayerState} */
   _rollItemSlot() {
     const id = this.m.pool.rollItem(this.m.rngShop, this.shop.level, this.m.itemPool);
     return id ? { kind: 'item', id, basePrice: this.gd.itemPrice(id), frozen: false, sold: false } : null;
@@ -118,7 +128,7 @@ export class PlayerEconomy {
     const kinds = this._shopKinds();
     const oldChess = old.filter((_, i) => kinds[i] === 'chess');
     const oldItems = old.filter((_, i) => kinds[i] === 'item');
-    const keep = (s, kind) => (keepFrozen && s && s.kind === kind && !s.sold && s.frozen ? { ...s } : null);
+    const keep = (/** @type {ShopSlot | null} */ s, /** @type {string} */ kind) => (keepFrozen && s && s.kind === kind && !s.sold && s.frozen ? { ...s } : null);
     // frozen slots keep their position; sold / empty / unfrozen positions are rerolled
     const fresh = new Set();
     const chess = [];
@@ -168,6 +178,7 @@ export class PlayerEconomy {
    * 卫戍协议/帮助 §手牌区 "当常规手牌区全满无空位时，玩家将无法执行使手牌溢出的操作" — "例如招募/购入等通常情况下会增加手牌的
    * 操作"; BWIKI 盟约 "当整备区达到上限后将无法进行涉及到整备区的操作（购买、撤回等）"; GitHub #82: the reporter's first-hand
    * check in the official game, "哪怕是已经有了两个相同干员情况"). Until 0.1.3 such a purchase was let through.
+   * @param {number} slotIdx
    * @this {PlayerState}
    */
   buy(slotIdx) {
@@ -246,12 +257,13 @@ export class PlayerEconomy {
     const pinned = /** @type {number | undefined} */ (typeof adjust === 'function' ? adjust() : 0);
     this.stats.refreshes++;
     this.round.refreshes++;
-    this.m.dispatch(this, 'onRefresh', { slots: this.shop.slots, free: true, price: 0, source, pinned: Number.isInteger(pinned) && pinned > 0 ? pinned : 0 });
+    this.m.dispatch(this, 'onRefresh', { slots: this.shop.slots, free: true, price: 0, source, pinned: Number.isInteger(pinned) && /** @type {number} */ (pinned) > 0 ? pinned : 0 });
     this.dirty();
   }
 
   /**
    * A new shop item card of the shop's draw (the shop RNG and level), none of `exclude`; null when none is left.
+   * @param {string[]} [exclude]
    * @this {PlayerState}
    */
   rollShopItem(exclude = []) {
@@ -292,6 +304,8 @@ export class PlayerEconomy {
   /**
    * What selling a chess piece pays: the price a 特质 gave this piece (piece.sellPrice — 规程's 海沫 「自身售出价格+1」,
    * garrisons/prep/shop.js), else its chess's (GameData.sellPrice, 温蒂's fixed price included).
+   * @param {Piece | null | undefined} piece
+   * @returns {number}
    * @this {PlayerState}
    */
   sellPriceOf(piece) {
@@ -304,6 +318,8 @@ export class PlayerEconomy {
    * What selling this owned chess piece pays now: its own price (sellPriceOf) as the strategies change it (onSellPrice —
    * 巫恋's swap pending: 0, 温蒂's fixed price kept). The one price both the sale and the piece view (player/views.js) use,
    * so the price shown is the price paid. The 特质 that read a sell price (旅骨, 棘刺, 海沫's raise) read sellPriceOf.
+   * @param {Piece | null | undefined} piece
+   * @returns {number}
    * @this {PlayerState}
    */
   sellGainOf(piece) {
@@ -312,7 +328,7 @@ export class PlayerEconomy {
     return Number.isFinite(ev?.price) ? Math.max(0, Math.trunc(ev.price)) : this.sellPriceOf(piece);
   }
 
-  /** @this {PlayerState} */
+  /** @param {number} uid @this {PlayerState} */
   sell(uid) {
     const g = this._gate(); if (g) return g;
     const loc = this.find(uid);

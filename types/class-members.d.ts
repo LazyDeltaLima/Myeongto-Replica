@@ -85,6 +85,12 @@ declare module '../server/match/PlayerState.js' {
     debugLocked?: boolean;
     /** never set: a SpectatorSeat's flag, read wherever a viewer may be either (match/platform.js handle) */
     spectator?: undefined;
+    /** the JSON of the last m.private sent (match/messaging.js _sendPrivate) */
+    _lastPriv?: string | null;
+    /** the JSON of the last prep scout's m.field of this board (match/watch.js _notifyPrepScouts) */
+    _prepScoutSig?: string;
+    /** the last m.roundDmg sent, again on a resync (match/settle.js _sendRoundDamage, platform.js) */
+    roundDmg?: { t: 'm.roundDmg', round: number, units: ReturnType<typeof import('../shared/roundDamage.js').foldRoundDamage> };
   }
 }
 

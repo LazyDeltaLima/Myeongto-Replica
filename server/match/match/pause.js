@@ -14,6 +14,7 @@ export class MatchPause {
    * (FieldRunner / HeadlessPacer skip their intervals) — and the browser's runner stops its local clock while
    * `m.public.paused` is true. Solo matches only (co-op battles never pause: WRONG_PHASE) and only while a battle runs;
    * `{ on: false }` is always accepted. A disconnect / leave, or the battle phase ending, resumes.
+   * @param {import('../PlayerState.js').PlayerState} ps @param {boolean} on
    * @this {Match}
    */
   setPause(ps, on) {

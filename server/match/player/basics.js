@@ -8,6 +8,8 @@
 // the player state).
 
 /** @import { PlayerState } from '../PlayerState.js' */
+/** @import { ChessRecord } from '../../../shared/loadoutRecord.js' */
+/** @import { Piece } from './pieces.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { msg, dn } from '../../../shared/i18n.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, resolveLoadout, checkSkinSelection, operatorCharIds } from '../../../shared/protocol.js';
@@ -17,6 +19,7 @@ import { TEMP_SIZE } from './common.js';
 
 /** The charIds a player may set a potential / 练度 for, per game-data object (shared/protocol.js cultivationCharIds). */
 const OPS_IDS = new WeakMap();
+/** @param {{ chess?: Record<string, any>, backups?: any } | null | undefined} raw */
 function opsCharIds(raw) {
   if (!raw || typeof raw !== 'object') return new Set();
   let ids = OPS_IDS.get(raw);
@@ -47,16 +50,19 @@ export class PlayerBasics {
   get bagMode() { return this.gd.equipHandSize > 0; }
   /**
    * temp index `i` is a slot of the 装备区 (bagMode's five visible slots), not overflow.
+   * @param {number} i
    * @this {PlayerState}
    */
   isBagSlot(i) { return this.bagMode && Number.isInteger(i) && i >= 0 && i < TEMP_SIZE; }
   /**
    * The zone a piece of `kind` waits in: 'bag' (规程's 装备区, items) or 'hand'.
+   * @param {string} kind
    * @this {PlayerState}
    */
   zoneOf(kind) { return this.bagMode && kind === 'item' ? 'bag' : 'hand'; }
   /**
    * A free slot of the zone of `kind` (hand, or 规程's 装备区 for items): its index, else -1.
+   * @param {string} kind
    * @this {PlayerState}
    */
   freeZoneSlot(kind) {
@@ -66,6 +72,7 @@ export class PlayerBasics {
   }
   /**
    * The refusal of a buy / pick into a full zone: HAND_FULL, or BAG_FULL for an item in 规程's 装备区.
+   * @param {string} kind
    * @this {PlayerState}
    */
   zoneFullError(kind) { return this.zoneOf(kind) === 'bag' ? ERR.BAG_FULL : ERR.HAND_FULL; }
@@ -83,11 +90,13 @@ export class PlayerBasics {
   /**
    * Index of the prep whose deadline resolves a temp piece (compare with `prepsEnded`): recorded when the piece entered
    * temp (_putTemp); a piece put there by other means counts as due at the current (or next) prep.
+   * @param {Piece | null | undefined} piece
+   * @returns {number}
    * @this {PlayerState}
    */
   tempDue(piece) {
     const due = piece ? this._tempDue.get(piece.uid) : undefined;
-    return Number.isInteger(due) ? due : this.prepsEnded;
+    return Number.isInteger(due) ? /** @type {number} */ (due) : this.prepsEnded;
   }
 
   /**
@@ -102,6 +111,7 @@ export class PlayerBasics {
 
   /**
    * Every write of a piece into a temp slot goes through here (records its due prep).
+   * @param {number} i @param {Piece} piece
    * @this {PlayerState}
    */
   _putTemp(i, piece) {
@@ -125,10 +135,12 @@ export class PlayerBasics {
     if (this.isBot) return false;
     let opsRes = null;
     if (ops !== undefined) {
+      /** @type {Record<string, { potential?: number, cultivate?: number }>} */
       const raw = {};
       if (ops && typeof ops === 'object' && !Array.isArray(ops)) {
         for (const [id, e] of Object.entries(ops)) {
           if (!e || typeof e !== 'object') continue;
+          /** @type {{ potential?: number, cultivate?: number }} */
           const x = {};
           if (Number.isInteger(e.potential)) x.potential = e.potential;
           if (Number.isInteger(e.cultivate)) x.cultivate = e.cultivate;
@@ -142,10 +154,12 @@ export class PlayerBasics {
         return false;
       }
     }
+    /** @type {Record<string, { skill?: number, module?: string }>} */
     const entries = {};
     if (loadout && typeof loadout === 'object' && !Array.isArray(loadout)) {
       for (const [id, e] of Object.entries(loadout)) {
         if (!e || typeof e !== 'object') continue;
+        /** @type {{ skill?: number, module?: string }} */
         const x = {};
         if (Number.isInteger(e.skill)) x.skill = e.skill;
         if (typeof e.module === 'string') x.module = e.module;
@@ -157,10 +171,12 @@ export class PlayerBasics {
       this.m.log?.warn?.(`[match ${this.m.roomCode}] loadout of ${this.playerId} ignored: ${res && res.detail}`);
       return false;
     }
+    /** @type {Record<string, Readonly<{ skill: number, module: string | null }>>} */
     const out = {};
     for (const [id, e] of Object.entries(res.loadout)) out[id] = Object.freeze({ skill: e.skill, module: e.module ?? null });
     this.loadout = Object.freeze(out);
     if (opsRes) {
+      /** @type {Record<string, Readonly<{ potential: number, cultivate: number }>>} */
       const o = {};
       for (const [id, e] of Object.entries(opsRes.ops)) o[id] = Object.freeze({ potential: e.potential, cultivate: e.cultivate });
       this.ops = Object.freeze(o);
@@ -172,7 +188,7 @@ export class PlayerBasics {
    * The potential / 练度 this player's piece of chess record `chessRecord` fights at (0.2.2; shared/potential.js
    * cultivationOf over `this.ops` — defaults 潜能 6, 精英2 Lv.60): the operator the player owns — the chess fielded as
    * itself, an owned 自选 pick (its charId) — or null for a 补位 stand-in and a prototype 自选 pick.
-   * @param {object|null} chessRecord
+   * @param {ChessRecord|null} chessRecord
    * @returns {{ potential: number, cultivate: number } | null}
    * @this {PlayerState}
    */
@@ -187,11 +203,12 @@ export class PlayerBasics {
    * player fields as its stand-in (0.2.0 补位) the stand-in's backup selection, whatever the loadout says; for a slotted
    * 自选 slot (0.2.0, player/diy.js) its pick's skill and module (the composed record's defaults — the loadout never names
    * a DIY slot: shared/protocol.js checkLoadout).
+   * @param {ChessRecord|null} chessRecord
    * @this {PlayerState}
    */
   loadoutFor(chessRecord) {
     if (this.fieldsStandIn(chessRecord)) {
-      return { ...resolveLoadout(null, this.gd.standIn(chessRecord.chessId), (id) => this.gd.standIn(id) || this.gd.chess(id)), potential: null, cultivate: null };
+      return { ...resolveLoadout(null, this.gd.standIn(/** @type {string} */ (/** @type {ChessRecord} */ (chessRecord).chessId)), (id) => this.gd.standIn(id) || this.gd.chess(id)), potential: null, cultivate: null };
     }
     const rec = chessRecord && chessRecord.isDiy && typeof chessRecord.chessId === 'string' ? this.gd.chess(chessRecord.chessId) || chessRecord : chessRecord;
     // 0.2.2: with the operator's potential / 练度 (null for a prototype 自选 pick) — the 自选 summons' hand count reads it
@@ -222,7 +239,7 @@ export class PlayerBasics {
   /**
    * Whether this player's piece of chess record (or id) `rec` fights as its stand-in (0.2.0 补位): its base chess is
    * in `standIns` and the data has the stand-in. Normal and elite alike (the elite uses the same backup).
-   * @param {object|string|null} rec
+   * @param {ChessRecord|string|null} rec
    * @this {PlayerState}
    */
   fieldsStandIn(rec) {
@@ -239,11 +256,11 @@ export class PlayerBasics {
    * operator); else `rec` itself. Rules about the unit's body read it (placement class, summon / bot ranges), and so
    * does what shows the piece (the scouting art, the elite / gift tickers' names — the owner's recall of 2026-10-06: the official
    * mode shows the stand-in everywhere); rules about the chess (price, bonds, 特质, merges, pools) keep reading gd.chess.
-   * @param {object|null} rec
+   * @param {ChessRecord|null} rec
    * @this {PlayerState}
    */
   fieldRecord(rec) {
-    if (rec && this.fieldsStandIn(rec)) return this.gd.standIn(rec.chessId) || rec;
+    if (rec && this.fieldsStandIn(rec)) return this.gd.standIn(/** @type {string} */ (rec.chessId)) || rec;
     if (rec && rec.isDiy && !rec.diyFor && typeof rec.chessId === 'string') return this.gd.chess(rec.chessId) || rec;
     return rec;
   }
@@ -272,7 +289,7 @@ export class PlayerBasics {
    * piece's body: a 补位 stand-in's body (fieldRecord), a 自选 slot's pick (`charId`, which wins when given — a slot's
    * own record has none). [ASSUMED·자료 없음: the official mode has no outfit choice to compare; a stand-in wears the
    * outfit chosen for its body's operator, as upstream]
-   * @param {object|string|null} rec a chess record or id @param {string|null} [charId]
+   * @param {ChessRecord|string|null} rec a chess record or id @param {string|null} [charId]
    * @returns {string|null}
    * @this {PlayerState}
    */
@@ -294,16 +311,20 @@ export class PlayerBasics {
    * @this {PlayerState}
    */
   deployMap() {
+    /** @type {'normal'|'bossL'|'bossR'} */
     const field = typeof this.m.deployFieldOf === 'function' ? this.m.deployFieldOf(this) : 'normal';
     if (this._deployMap && this._deployField !== undefined && this._deployField !== field) {
       this._deployMap = null;
       this._legalityStale = true;
     }
     // 宝藏探机's chests close their tiles (Match.deployMapFor): one placed or touched changes the map
+    /** @type {string} */
     const chests = typeof this.bandChestsNow === 'function' ? this.bandChestsNow().map((x) => x.id).join() : '';
     if (this._deployMap && (this._deployChests ?? '') !== chests) this._deployMap = null;
+    /** @type {string | undefined} */
     this._deployChests = chests;
     if (!this._deployMap) this._deployMap = this.m.deployMapFor(this, field);
+    /** @type {'normal'|'bossL'|'bossR'|undefined} */
     this._deployField = field;
     return this._deployMap;
   }

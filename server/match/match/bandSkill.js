@@ -32,6 +32,11 @@
 // runs on the same handler (`{ ...ev }`: the cost keys reset or raise COST_DELTA there).
 
 /** @import { Match } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
+/**
+ * A g.bandSkill message (shared/protocol.js C2S): the target fields its stage asks for.
+ * @typedef {{ uid?: number, slot?: number, row?: number, col?: number }} BandSkillMsg
+ */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { OK, fail } from './common.js';
 import { inField, fieldTile, tileKey } from '../board.js';
@@ -55,12 +60,13 @@ export const COST_DELTA = SKILL_COST_COUNTER;
 
 const TARGET_FIELDS = ['uid', 'slot', 'row', 'col'];
 const OBSTACLE_ROLES = new Set(['crate', 'mound']);
-const int = (v, d = 0) => { const n = Math.trunc(Number(v)); return Number.isFinite(n) ? n : d; };
+const int = (/** @type {unknown} */ v, d = 0) => { const n = Math.trunc(Number(v)); return Number.isFinite(n) ? n : d; };
 
 export class MatchBandSkill {
   /**
    * The few reads bandStageIndex needs, on the player (no makeCtx: the view asks on every m.private). `write` false: the
    * stage is computed, never stored.
+   * @param {PlayerState} ps @param {boolean} write
    * @this {Match}
    */
   _bandSkillCtx(ps, write) {
@@ -70,15 +76,16 @@ export class MatchBandSkill {
       shopLevel: () => ps.shop.level,
       stats: () => ps.stats,
       roundStats: () => ps.round,
-      bondCount: (id) => (ps.bonds[id] ? ps.bonds[id].count : 0),
-      counter: (k) => (Number.isFinite(ps.counters[k]) ? ps.counters[k] : 0),
-      setCounter: (k, v) => { if (write && Number.isFinite(v)) ps.counters[k] = v; return v; },
+      bondCount: (/** @type {string} */ id) => (ps.bonds[id] ? ps.bonds[id].count : 0),
+      counter: (/** @type {string} */ k) => (Number.isFinite(ps.counters[k]) ? ps.counters[k] : 0),
+      setCounter: (/** @type {string} */ k, /** @type {unknown} */ v) => { if (write && Number.isFinite(v)) ps.counters[k] = /** @type {number} */ (v); return v; },
     };
   }
 
   /**
    * The player's active 指令 now: null when the strategy has no ACTIVE stage at all; else its current stage and what
    * limits it. `write`: move the stage counter on (a use) or only read it (the view).
+   * @param {PlayerState} ps @param {boolean} [write]
    * @this {Match}
    */
   _bandSkillState(ps, write = false) {
@@ -87,7 +94,7 @@ export class MatchBandSkill {
     const src = ps.bandCommand || ps.bandId;
     const rec = src ? gd.band(src) : null;
     const stages = bandStages(rec);
-    if (!stages.some((s) => s && s.type === 'ACTIVE')) return null;
+    if (!stages.some((/** @type {{ type?: string } | null} */ s) => s && s.type === 'ACTIVE')) return null;
     const ctx = this._bandSkillCtx(ps, write);
     const stageIndex = bandStageIndex(ctx, stages, ps.bandCommand ? COMMAND_STAGE_COUNTER : STAGE_COUNTER);
     const stage = stages[stageIndex];
@@ -106,6 +113,7 @@ export class MatchBandSkill {
 
   /**
    * Why the player cannot use its 指令 now (an ERR code + detail), or null — the gate before the target.
+   * @param {PlayerState} ps @param {ReturnType<MatchBandSkill['_bandSkillState']>} st
    * @this {Match}
    */
   _bandSkillBlock(ps, st) {
@@ -123,13 +131,14 @@ export class MatchBandSkill {
 
   /**
    * The intent's target for the stage, or a fail(...) result.
+   * @param {PlayerState} ps @param {Record<string, any>} stage @param {BandSkillMsg} msg
    * @returns {{ target: Record<string, any> | null, error?: undefined } | (import('./common.js').Fail & { target?: undefined })}
    * @this {Match}
    */
   _bandSkillTarget(ps, stage, msg) {
     const t = stage.target && typeof stage.target === 'object' ? stage.target : { type: 'NO_TARGET', filter: null };
-    const given = TARGET_FIELDS.filter((k) => msg[k] !== undefined && msg[k] !== null);
-    const only = (...keys) => given.every((k) => keys.includes(k)) && keys.every((k) => given.includes(k));
+    const given = TARGET_FIELDS.filter((k) => /** @type {Record<string, unknown>} */ (msg)[k] !== undefined && /** @type {Record<string, unknown>} */ (msg)[k] !== null);
+    const only = (/** @type {string[]} */ ...keys) => given.every((k) => keys.includes(k)) && keys.every((k) => given.includes(k));
     switch (t.type) {
       case 'NO_TARGET':
         return given.length ? fail(ERR.BAD_TARGET, 'no target') : { target: null };
@@ -142,7 +151,8 @@ export class MatchBandSkill {
       }
       case 'SHOP_SLOT': {
         if (!only('slot')) return fail(ERR.BAD_TARGET);
-        const s = ps.shop.slots[msg.slot];
+        // (`only('slot')`: the message has it)
+        const s = ps.shop.slots[/** @type {number} */ (msg.slot)];
         if (!s || s.sold) return fail(ERR.BAD_TARGET);
         const want = t.filter === 'EQUIP' ? 'item' : t.filter === 'CHAR' ? 'chess' : null;
         if (want && s.kind !== want) return fail(ERR.BAD_TARGET);
@@ -150,7 +160,7 @@ export class MatchBandSkill {
       }
       case 'MAP_TILE': {
         if (!only('row', 'col')) return fail(ERR.BAD_TARGET);
-        const { row, col } = msg;
+        const { row, col } = /** @type {{ row: number, col: number }} */ (msg);
         if (!this._bandSkillTile(ps, row, col, t.filter)) return fail(ERR.BAD_TILE);
         return { target: { kind: 'tile', row, col } };
       }
@@ -161,6 +171,7 @@ export class MatchBandSkill {
 
   /**
    * Is board tile (row, col) of the player's field a MAP_TILE target of `filter`?
+   * @param {PlayerState} ps @param {number} row @param {number} col @param {string} filter
    * @this {Match}
    */
   _bandSkillTile(ps, row, col, filter) {
@@ -190,18 +201,25 @@ export class MatchBandSkill {
 
   /**
    * g.bandSkill { uid? | slot? | row?, col? }: use the strategy's active 指令 on the target its stage asks for (header).
-   * @param {import('../PlayerState.js').PlayerState} ps
+   * @param {import('../PlayerState.js').PlayerState} ps @param {BandSkillMsg} msg
    * @this {Match}
    */
   useBandSkill(ps, msg) {
-    const st = this._bandSkillState(ps, true);
+    // (null only where _bandSkillBlock refuses: below it the player has an active 指令)
+    const st = /** @type {NonNullable<ReturnType<MatchBandSkill['_bandSkillState']>>} */ (this._bandSkillState(ps, true));
     const blocked = this._bandSkillBlock(ps, st);
     if (blocked) return blocked;
     const tr = this._bandSkillTarget(ps, st.stage, msg);
-    if (tr.error) return tr;
+    if (tr.error) return /** @type {import('./common.js').Fail} */ (tr);
     const src = ps.bandCommand || ps.bandId;
     const key = ps.bandCommand ? bandCommandKey(src) : `band:${src}`;
     const source = { kind: 'band', bandId: src, band: st.rec };
+    /**
+     * the stage handler's answer (the header): `error` a fail(...), `cooldown` a COOLDOWN stage's rounds
+     * @type {{ round: number, bandId: string | null, stageIndex: number, stage: Record<string, any>, effectId: string | null,
+     *   target: Record<string, any> | null | undefined, cost: number, handled: boolean, error: import('./common.js').Fail | null,
+     *   cooldown: number | null }}
+     */
     const ev = {
       round: this.round, bandId: src, stageIndex: st.stageIndex, stage: st.stage, effectId: st.stage.effectId ?? null,
       target: tr.target, cost: st.cost, handled: false, error: null, cooldown: null,
@@ -216,7 +234,7 @@ export class MatchBandSkill {
     ps.counters[USED] += 1;
     ps.counters[TOTAL] = (Number.isFinite(ps.counters[TOTAL]) ? ps.counters[TOTAL] : 0) + 1;
     if (st.avail.type === 'COOLDOWN') {
-      const n = Number.isFinite(ev.cooldown) ? Math.max(0, Math.trunc(ev.cooldown)) : st.avail.count;
+      const n = Number.isFinite(ev.cooldown) ? Math.max(0, Math.trunc(/** @type {number} */ (ev.cooldown))) : st.avail.count;
       ps.counters[READY_ROUND] = this.round + n;
     }
     this.dispatcher.runKey(ps, key, 'onBandSkillUsed', source, { ...ev, cost });
@@ -236,6 +254,7 @@ export class MatchBandSkill {
    * progress.js), bondSwaps ({ bondId: effectId } — the bond directions the strategy switches, _bandBondSwaps) }.
    * A 规程 strategy without an active stage gets the same shape from _bandPassiveView.
    * The target is not part of `usable` (the client highlights the targets its filter allows).
+   * @param {PlayerState} ps
    * @this {Match}
    */
   bandSkillView(ps) {
@@ -276,6 +295,7 @@ export class MatchBandSkill {
    * from another strategy (setBandCommand) —: the same shape, never usable (`blocked` 'passive'), so the HUD shows its
    * portrait, its stage's text and progress — the official panel has a passive ring (autochess_hud_panel `skill_view`
    * variant_passive). Null for a strategy without a stage table (the default season's: no panel there).
+   * @param {PlayerState} ps
    * @this {Match}
    */
   _bandPassiveView(ps) {
@@ -313,12 +333,14 @@ export class MatchBandSkill {
   /**
    * The bonds whose effect the strategy switches for this player ({ bondId: effectId }, content/bonds/dispatch.js
    * swapBondRecord — only a direction the battle runs: a written one), so the bond dialog shows that direction's text.
+   * @param {PlayerState} ps @param {Record<string, any> | null} rec the player's strategy
    * @this {Match}
    */
   _bandBondSwaps(ps, rec) {
     const rep = bondEffectReplacements(rec);
     if (!rep.size) return {};
     const gd = ps.gd || this.gd;
+    /** @type {Record<string, string>} */
     const out = {};
     for (const id of gd.bondIds) {
       const to = rep.get(gd.bond(id)?.effectId);
@@ -352,6 +374,7 @@ export class MatchBandSkill {
 
   /**
    * The stage strategy `bandId`'s 指令 has (would have) for the player now: its own counter's, or from 0 on.
+   * @param {PlayerState} ps @param {string} bandId
    * @this {Match}
    */
   _commandStageNow(ps, bandId) {
@@ -361,18 +384,20 @@ export class MatchBandSkill {
     if (bandId === ps.bandId) return bandStageIndex(base, stages, STAGE_COUNTER);
     if (bandId === ps.bandCommand) return bandStageIndex(base, stages, COMMAND_STAGE_COUNTER);
     const ctx = Object.create(base);
-    ctx.counter = (k) => (k === COMMAND_STAGE_COUNTER ? 0 : base.counter(k));
+    ctx.counter = (/** @type {string} */ k) => (k === COMMAND_STAGE_COUNTER ? 0 : base.counter(k));
     return bandStageIndex(ctx, stages, COMMAND_STAGE_COUNTER);
   }
 
   /**
    * The strategies whose 指令 the player may be offered now (ids in the mode's strategy order; the header's pool).
+   * @param {PlayerState} ps
+   * @returns {string[]}
    * @this {Match}
    */
   _bandCommandPool(ps) {
     const gd = ps.gd || this.gd;
     const current = ps.bandCommand || ps.bandId;
-    return gd.bandIds().filter((id) => {
+    return gd.bandIds().filter((/** @type {string} */ id) => {
       const rec = gd.band(id);
       if (id === current || !hasCommandStages(rec) || isCommandChoice(rec)) return false;
       if (id === ps.bandId) return true; // the own 指令 back
@@ -385,6 +410,8 @@ export class MatchBandSkill {
    * Open the player's 更换指令 choice: { choiceEvent, desc (the text that says how many: 「从N个…指令」), sourceItemId?,
    * sourceBandId? }. Refused — before an rng draw — outside the player's PREP, after Ready, while another personal choice
    * is open or when the pool is empty.
+   * @param {PlayerState} ps
+   * @param {{ choiceEvent?: string | null, desc?: string, sourceItemId?: string | null, sourceBandId?: string | null }} [opts]
    * @this {Match}
    */
   offerBandSkillChoice(ps, { choiceEvent = null, desc = '', sourceItemId = null, sourceBandId = null } = {}) {
@@ -396,7 +423,7 @@ export class MatchBandSkill {
     if (!pool.length) return fail(ERR.BAD_TARGET, 'no band skill to offer');
     const gd = ps.gd || this.gd;
     const cards = this.rngMeta.shuffle(pool.slice()).slice(0, offerCount(desc))
-      .map((bandId) => ({ bandId, effectId: gd.band(bandId).effectId ?? bandId }));
+      .map((/** @type {string} */ bandId) => ({ bandId, effectId: gd.band(bandId).effectId ?? bandId }));
     ps.personalChoice = {
       id: `${this.battlePrefix}.choice.${this.nextUid()}`, round: this.round, kind: 'bandSkill',
       choiceEvent: typeof choiceEvent === 'string' ? choiceEvent : null, sourceItemId, sourceBandId, cards,
@@ -407,6 +434,7 @@ export class MatchBandSkill {
 
   /**
    * The player's 指令 becomes strategy `bandId`'s (the header's rules); false when it has no 指令 or is “追随者们”.
+   * @param {PlayerState} ps @param {string} bandId
    * @this {Match}
    */
   setBandCommand(ps, bandId) {
@@ -423,6 +451,7 @@ export class MatchBandSkill {
   /**
    * One card of the 更换指令 choice as m.private shows it: the 指令's strategy and the stage it would have if taken now
    * (read, never stored) — the fields the 机变 cards carry (`name`, `desc`, `descRaw`) plus the 指令's own.
+   * @param {PlayerState} ps @param {{ bandId: string, effectId: string }} c
    * @this {Match}
    */
   bandCommandCard(ps, c) {
@@ -441,17 +470,22 @@ export class MatchBandSkill {
   }
 }
 
-/** Is the strategy “追随者们” (its 指令 opens 更换指令 itself: never in the pool)? */
+/**
+ * A stage of a strategy's 指令 table, as far as these checks read it (content/bands/meta.js bandStages).
+ * @typedef {{ buffs?: Array<{ key: string } | null> } | null | undefined} BandStage
+ */
+
+/** Is the strategy “追随者们” (its 指令 opens 更换指令 itself: never in the pool)? @param {Record<string, any> | null | undefined} rec */
 function isCommandChoice(rec) {
-  return bandStages(rec).some((st) => (st?.buffs || []).some((b) => b && b.key === COMMAND_CHOICE_KEY));
+  return bandStages(rec).some((/** @type {BandStage} */ st) => (st?.buffs || []).some((b) => b && b.key === COMMAND_CHOICE_KEY));
 }
 
-/** Does the strategy act once for the whole team (TEAM_UNIQUE_KEYS: Touch, 鸭爵)? */
+/** Does the strategy act once for the whole team (TEAM_UNIQUE_KEYS: Touch, 鸭爵)? @param {Record<string, any> | null | undefined} rec */
 function isTeamUnique(rec) {
-  return bandStages(rec).some((st) => (st?.buffs || []).some((b) => b && TEAM_UNIQUE_KEYS.includes(b.key)));
+  return bandStages(rec).some((/** @type {BandStage} */ st) => (st?.buffs || []).some((b) => b && TEAM_UNIQUE_KEYS.includes(b.key)));
 }
 
-/** How many 指令 an offer shows: the N of its text's 「从N个…指令」 (no blackboard field holds it), 1–3. */
+/** How many 指令 an offer shows: the N of its text's 「从N个…指令」 (no blackboard field holds it), 1–3. @param {unknown} desc */
 function offerCount(desc) {
   const m = /从\s*(\d+)\s*个/.exec(String(desc ?? ''));
   return Math.max(1, Math.min(3, m ? Number(m[1]) : 3));

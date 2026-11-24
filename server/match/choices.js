@@ -135,7 +135,10 @@ function itemCard(gd, id) {
 
 /**
  * Build the draft cards for an SP round.
- * @returns {{ family: string, name: string, desc: string, eventId: string|null, cards: object[] } | null}
+ * @param {import('./gamedata.js').GameData} gd @param {Function} rng @param {number} matchRound
+ * @param {{ stageId?: string | null, bondAvailable?: ((bondId: string) => boolean) | null,
+ *   itemAvailable?: ((id: string) => boolean) | null }} [opts]
+ * @returns {{ family: string, name: string, desc: string, eventId: string|null, cards: Array<Record<string, any>> } | null}
  */
 export function generateDraft(gd, rng, matchRound, { stageId = null, bondAvailable = null, itemAvailable = null } = {}) {
   // a custom round plan's 机变 round drafts as its source round (GameData.srcRound)

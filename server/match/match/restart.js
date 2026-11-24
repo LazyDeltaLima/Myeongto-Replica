@@ -6,6 +6,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 /** @import { Match } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { msg } from '../../../shared/i18n.js';
 import { nameParam } from '../../../shared/botNames.js';
@@ -38,6 +39,7 @@ export class MatchRestart {
    * proposer's back. One 'no' ends the vote at once; so do the proposer leaving and the time running out. Every voter
    * agreeing ends the match (_endRestart) — at once when the proposer is the only voter (solo, or AI teammates only).
    * Any 规则 mode (maintainer decision 2026-10-31: a convenience, unlike the 休闲-only 重新抽取).
+   * @param {PlayerState} ps @param {'propose' | 'yes' | 'no' | 'cancel'} op @param {'restart' | 'room'} [target]
    * @this {Match}
    */
   voteRestart(ps, op, target = 'restart') {
@@ -91,6 +93,7 @@ export class MatchRestart {
 
   /**
    * The vote failed: the proposer waits RESTART_RETRY_MS, every human hears why (m.toast).
+   * @param {'no' | 'cancel' | 'timeout' | 'gone'} why @param {PlayerState | null} [ps] the voter of a 'no' / 'cancel'
    * @this {Match}
    */
   _closeRestart(why, ps = null) {
@@ -100,12 +103,13 @@ export class MatchRestart {
     this.restartVote = null;
     if (!this.restartRetryAt) this.restartRetryAt = new Map();
     this.restartRetryAt.set(v.by, this.sched.now() + this.scaled(RESTART_RETRY_MS));
+    // (a 'no' / 'cancel' names its voter)
     const text = v.target === 'room'
-      ? why === 'no' ? msg('{name}反对返回等待室', { name: nameParam(ps.name) })
-        : why === 'cancel' ? msg('{name}撤回了返回等待室的提议', { name: nameParam(ps.name) })
+      ? why === 'no' ? msg('{name}反对返回等待室', { name: nameParam(/** @type {PlayerState} */ (ps).name) })
+        : why === 'cancel' ? msg('{name}撤回了返回等待室的提议', { name: nameParam(/** @type {PlayerState} */ (ps).name) })
         : msg('返回等待室投票未通过')
-      : why === 'no' ? msg('{name}反对重新开始', { name: nameParam(ps.name) })
-      : why === 'cancel' ? msg('{name}撤回了重新开始的提议', { name: nameParam(ps.name) })
+      : why === 'no' ? msg('{name}反对重新开始', { name: nameParam(/** @type {PlayerState} */ (ps).name) })
+      : why === 'cancel' ? msg('{name}撤回了重新开始的提议', { name: nameParam(/** @type {PlayerState} */ (ps).name) })
       : msg('重新开始投票未通过');
     for (const p of this._viewers()) this.toast(p, why === 'no' ? 'warn' : 'info', text);
     this.markPublic();

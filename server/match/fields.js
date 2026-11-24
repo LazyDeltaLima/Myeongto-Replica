@@ -298,6 +298,10 @@ export function timelineSample(b) {
  * a DeadBattle; the run is bounded by HARD_CAP_SECONDS.
  */
 export class HeadlessJob {
+  /**
+   * @param {any} battle a Battle, or a DeadBattle (it answers like one)
+   * @param {{ onError?: ((e: unknown) => void) | null, players?: string[] }} [opts]
+   */
   constructor(battle, { onError = null, players = [] } = {}) {
     this.battle = battle;
     this.onError = onError;
@@ -748,6 +752,7 @@ export function specBounds(spec, gd = null) {
  * Settlement bills that same set (`uniteSurvivors` skips `uniteRuntime` children), so the counter must not use the
  * wider sent + offspring ceiling. Match._uniteLeft (user playtest #6 item 7).
  * @param {object[]} spawns the 联防 spawns (unite.js plan.leaked: { enemyKey, sourcePlayerId, … })
+ * @param {import('./gamedata.js').GameData | null} [gd]
  * @returns {Map<string, number>} leaker id → bound
  */
 export function uniteBillBounds(spawns, gd = null) {
@@ -791,7 +796,10 @@ const sameMods = (a, b) => {
  * the midline of a two-half field is billed to one player's `total` and to the other's leak, so their own numbers
  * clamp it to 0); the players' own (each clamped to their `total`) are the fallback of a result with none; absent when
  * neither is complete.
- * @returns {{ ok: true, result: object, reason?: undefined } | { ok: false, reason: string, result?: undefined }}
+ * @param {Record<string, any>} spec the field's BattleSpec
+ * @param {any} raw the client's b.result payload, checked here field by field
+ * @param {{ gd?: import('./gamedata.js').GameData | null }} [opts]
+ * @returns {{ ok: true, result: Record<string, any>, reason?: undefined } | { ok: false, reason: string, result?: undefined }}
  */
 export function validateClientResult(spec, raw, { gd = null } = {}) {
   /** @param {string} reason @returns {{ ok: false, reason: string }} */

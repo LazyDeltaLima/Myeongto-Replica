@@ -22,6 +22,7 @@ export class PlayerPrep {
    * g.reward {idx}: the pick of the first queued offer (promotion reward, a strategy's special refresh, an item offer).
    * A pick is a 招募 like a purchase: a full regular hand refuses it, also when it would complete a merge (PRTS
    * 卫戍协议/帮助 §手牌区, see buy; GitHub #82).
+   * @param {number} idx
    * @this {PlayerState}
    */
   pickReward(idx) {
@@ -66,7 +67,7 @@ export class PlayerPrep {
     return OK;
   }
 
-  /** @this {PlayerState} */
+  /** @param {boolean} on @this {PlayerState} */
   setReady(on) {
     if (!this.alive) return fail(ERR.ELIMINATED);
     if (this.m.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE);

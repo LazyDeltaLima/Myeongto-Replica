@@ -34,14 +34,15 @@
 // the player state).
 
 /** @import { PlayerState } from '../PlayerState.js' */
+/** @import { ChessRecord } from '../../../shared/loadoutRecord.js' */
 import { KITTED_CHARS } from '../../sim/content/kits/index.js';
 import { checkDiyPicks } from '../../../shared/protocol.js';
 import { diyRecord, diySlot, diyTokenOwner } from '../../../shared/diy.js';
 import { atPotential } from '../../../shared/potential.js';
 import { bondsOff, seasonFeature } from '../../../shared/seasons.js';
 
-const posIntOr = (v, d) => (Number.isInteger(v) && v > 0 ? v : d);
-const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+const posIntOr = (/** @type {unknown} */ v, /** @type {number} */ d) => (Number.isInteger(v) && /** @type {number} */ (v) > 0 ? /** @type {number} */ (v) : d);
+const isObj = (/** @type {unknown} */ v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
 /**
  * The copies of a player's slotted DIY pieces — the shared pool's copy interface (has / cap / left / take / give) for
@@ -53,11 +54,17 @@ export class DiyStock {
     this.entries = new Map();
   }
 
+  /** @param {string} baseId */
   has(baseId) { return this.entries.has(baseId); }
+  /** @param {string} baseId */
   cap(baseId) { return this.entries.get(baseId)?.cap ?? 0; }
+  /** @param {string} baseId */
   left(baseId) { return Math.max(0, this.entries.get(baseId)?.left ?? 0); }
 
-  /** Take up to n copies; returns the number taken (0 for a base id without stock). `overdraw`: as SharedPool.take. */
+  /**
+   * Take up to n copies; returns the number taken (0 for a base id without stock). `overdraw`: as SharedPool.take.
+   * @param {string} baseId @param {number} [n] @param {{ overdraw?: boolean }} [opts]
+   */
   take(baseId, n = 1, { overdraw = false } = {}) {
     const e = this.entries.get(baseId);
     if (!e || !(n > 0)) return 0;
@@ -66,7 +73,7 @@ export class DiyStock {
     return k;
   }
 
-  /** Return n copies (clamped at the cap); returns the number returned. */
+  /** Return n copies (clamped at the cap); returns the number returned. @param {string} baseId @param {number} [n] */
   give(baseId, n = 1) {
     const e = this.entries.get(baseId);
     if (!e || !(n > 0)) return 0;
@@ -77,6 +84,7 @@ export class DiyStock {
 
   /** { baseId: left } (tests / diagnostics). */
   snapshot() {
+    /** @type {Record<string, number>} */
     const o = {};
     for (const [id, e] of this.entries) o[id] = Math.max(0, e.left);
     return o;
@@ -87,19 +95,19 @@ export class DiyStock {
  * The player's view of the match's GameData (see the header): `records` maps the ids of the slotted slots (normal and
  * elite) to their composed 自选 records; every other lookup is the match's own.
  * @param {import('../gamedata.js').GameData} gd
- * @param {Map<string, object>} records
+ * @param {Map<string, ChessRecord>} records
  * @returns {import('../gamedata.js').GameData}
  */
 export function diyGameData(gd, records) {
   const view = Object.create(gd);
   const backups = isObj(gd.raw && gd.raw.backups) ? gd.raw.backups : null;
   const diyTokens = backups && isObj(backups.tokens) ? backups.tokens : {};
-  const tokenOf = (id) => (typeof id === 'string' && Object.hasOwn(diyTokens, id) && isObj(diyTokens[id]) ? diyTokens[id] : null);
+  const tokenOf = (/** @type {unknown} */ id) => (typeof id === 'string' && Object.hasOwn(diyTokens, id) && isObj(diyTokens[id]) ? diyTokens[id] : null);
   Object.defineProperties(view, {
     /** the match's own GameData (the view is per player) */
     matchData: { value: gd },
-    chess: { value: (id) => (typeof id === 'string' && records.has(id) ? records.get(id) : gd.chess(id)) },
-    token: { value: (id) => gd.token(id) || tokenOf(id) },
+    chess: { value: (/** @type {unknown} */ id) => (typeof id === 'string' && records.has(id) ? records.get(id) : gd.chess(id)) },
+    token: { value: (/** @type {string} */ id) => gd.token(id) || tokenOf(id) },
     /**
      * GameData.placeableTokens for a slotted slot: the summons its record lists (the pick's skill and talents) that are
      * placeable, by the variant of the owner form (`bySkill[skillIndex]` sources) — the deploy limit as the count (PRTS
@@ -109,17 +117,18 @@ export function diyGameData(gd, records) {
      * at the owner's potential (`loadout.potential`, PlayerState.loadoutFor; 0.2.2: 望's 棋子 6 below 潜能3, 7 from it).
      */
     placeableTokens: {
-      value: (chessId, loadout = null) => {
+      value: (/** @type {string} */ chessId, /** @type {{ skillIndex?: number | null, potential?: number | null } | null} */ loadout = null) => {
         const rec = typeof chessId === 'string' && records.has(chessId) ? records.get(chessId) : null;
         if (!rec) return gd.placeableTokens(chessId, loadout);
-        const owner = diyTokenOwner(rec.charId, rec.status);
+        // (a composed 自选 record has the pick's charId: shared/diy.js diyRecord)
+        const owner = diyTokenOwner(/** @type {string} */ (rec.charId), rec.status);
         const out = [];
         for (const tid of Array.isArray(rec.tokens) ? rec.tokens : []) {
           const t = tokenOf(tid);
           if (!t || t.kind !== 'summon' || t.placeable !== true) continue;
           const v = isObj(t.variants) ? atPotential(t.variants[owner] ?? null, loadout?.potential) : null;
           if (v) {
-            const alt = loadout && Number.isInteger(loadout.skillIndex) && v.bySkill ? v.bySkill[loadout.skillIndex] : null;
+            const alt = loadout && Number.isInteger(loadout.skillIndex) && v.bySkill ? v.bySkill[/** @type {number} */ (loadout.skillIndex)] : null;
             const src = Array.isArray(alt?.sources) ? alt.sources : Array.isArray(v.sources) ? v.sources : [];
             if (!src.includes('talent') && !src.includes('skill')) continue;
           }
@@ -153,9 +162,11 @@ export class PlayerDiy {
       this.m.log?.warn?.(`[match ${this.m.roomCode}] 自选 picks of ${this.playerId} ignored: ${res && res.detail}`);
       return false;
     }
+    /** @type {Record<string, Readonly<{ charId: string, skillIndex: number, uniEquipId: string | null }>>} */
     const kept = {};
+    /** @type {Map<string, ChessRecord>} */
     const records = new Map();
-    for (const [slotId, pick] of Object.entries(res.picks)) {
+    for (const [slotId, pick] of Object.entries(/** @type {NonNullable<typeof res.picks>} */ (res.picks))) {
       const slot = diySlot(slotId, data);
       let normal;
       let golden;
@@ -198,6 +209,7 @@ export class PlayerDiy {
 
   /**
    * The copy accounting of base chess `baseId` for this player: its own stock for a slotted DIY slot, else the shared pool.
+   * @param {string} baseId
    * @this {PlayerState}
    */
   poolOf(baseId) {

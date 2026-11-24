@@ -7,6 +7,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 /** @import { Match } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { buildNormalWave, buildBossWave } from '../waves.js';
 import { pairPlayers } from '../finalAssault.js';
@@ -68,6 +69,7 @@ export class MatchPhases {
    * so one held button cannot spin up matches back to back. infoRerollers keeps the voters in order: the first one still
    * voting is the proposer the briefing names (m.public.rerollBy). A 休闲 convenience (shared/ruleset.js infoReroll,
    * maintainer decision 2026-10-15): the classic ruleset refuses the vote (BAD_TARGET; its briefing shows no button).
+   * @param {PlayerState} ps @param {boolean} [cancel]
    * @this {Match}
    */
   voteReroll(ps, cancel = false) {
@@ -98,6 +100,7 @@ export class MatchPhases {
    * it (nothing has drawn from the pool before the strategy draft; the 自选 stock likewise: in 规程 it is empty until
    * 确定自选编队). Picked again as often as the player likes while the seat is not ready (准备就绪 is final); an AI seat
    * and a seat under AI 托管 are ready at once and keep the group shown. docs/rules/sim.md 「1인 규정 핵심 맹약 두 묶음」.
+   * @param {PlayerState} ps @param {number} idx
    * @this {Match}
    */
   pickBondGroup(ps, idx) {
@@ -192,7 +195,7 @@ export class MatchPhases {
    */
   humansFirst(order) {
     if (!this.aiPicksLast) return order;
-    const bot = (pid) => !!this.players.get(pid)?.isBot;
+    const bot = (/** @type {string} */ pid) => !!this.players.get(pid)?.isBot;
     return [...order.filter((pid) => !bot(pid)), ...order.filter(bot)];
   }
 
@@ -267,6 +270,7 @@ export class MatchPhases {
    * Whether `bandId` was already picked by another player of this draft. Research 09 §5 / DESIGN §14 corrections:
    * the strategy draft marks a teammate's pick as 队友已选 and it cannot be chosen again (co-op). The automatic
    * assignments — a turn that runs out and a departing seat — obey the same rule: see timeoutBand / defaultBand.
+   * @param {string} bandId @param {string} playerId
    * @this {Match}
    */
   bandTaken(bandId, playerId) {
@@ -306,6 +310,7 @@ export class MatchPhases {
   /**
    * g.bandFocus { bandId? }: the strategy the player highlights in the draft screen (any time before its pick; also
    * while waiting for its turn). A missing / null bandId clears it. Only a timed-out turn reads it (timeoutBand).
+   * @param {PlayerState} ps @param {unknown} bandId
    * @this {Match}
    */
   bandFocus(ps, bandId) {
@@ -319,7 +324,7 @@ export class MatchPhases {
     return OK;
   }
 
-  /** @this {Match} */
+  /** @param {PlayerState} ps @param {unknown} bandId @this {Match} */
   pickBand(ps, bandId) {
     if (this.phase !== PHASE.BAND_DRAFT || !this.draft) return fail(ERR.WRONG_PHASE);
     if (this.draft.picks[ps.playerId]) return fail(ERR.ALREADY);
@@ -330,7 +335,7 @@ export class MatchPhases {
     return OK;
   }
 
-  /** @this {Match} */
+  /** @param {PlayerState | null | undefined} ps @param {string} bandId @param {{ dedupe?: boolean }} [opts] @this {Match} */
   _applyBand(ps, bandId, { dedupe = false } = {}) {
     const d = this.draft;
     if (!d || !ps || d.picks[ps.playerId]) return;
@@ -346,7 +351,7 @@ export class MatchPhases {
     this.startDraftTurn();
   }
 
-  /** @this {Match} */
+  /** @param {PlayerState} ps @this {Match} */
   skipBand(ps) {
     if (this.phase !== PHASE.BAND_DRAFT || !this.draft) return fail(ERR.WRONG_PHASE);
     const d = this.draft;
@@ -404,6 +409,7 @@ export class MatchPhases {
 
   /**
    * g.draftReady: the seat is done with 编队确认.
+   * @param {PlayerState} ps
    * @this {Match}
    */
   draftReady(ps) {
@@ -428,7 +434,7 @@ export class MatchPhases {
     this.later(0, () => { if (token === this._turnToken) this.finishBandDraft(false); });
   }
 
-  /** @this {Match} */
+  /** @param {boolean} timeout @this {Match} */
   finishBandDraft(timeout) {
     if (this.phase !== PHASE.BAND_DRAFT) return;
     ++this._turnToken;
@@ -462,7 +468,7 @@ export class MatchPhases {
     this.markPublic();
   }
 
-  /** @this {Match} */
+  /** @param {number} r @this {Match} */
   startRound(r) {
     this.phase = PHASE.ROUND_START;
     this.round = r;

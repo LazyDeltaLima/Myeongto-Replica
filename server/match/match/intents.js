@@ -16,7 +16,11 @@ import { simRuleFlags } from '../../../shared/ruleset.js';
 import { seasonFeature } from '../../../shared/seasons.js';
 
 export class MatchIntents {
-  /** @this {Match} */
+  /**
+   * @param {PlayerState} ps
+   * @param {any} msg an intent as shared/protocol.js C2S checked it: its fields depend on `t` (handle's own is `{ t }`)
+   * @this {Match}
+   */
   _handle(ps, msg) {
     switch (msg.t) {
       case 'g.infoReady':
@@ -70,7 +74,7 @@ export class MatchIntents {
     }
   }
 
-  /** @this {Match} */
+  /** @param {PlayerState} ps @param {string} id @param {unknown} set @this {Match} */
   emote(ps, id, set) {
     if (!EMOTES.includes(id)) return fail(ERR.BAD_MSG, 'unknown emote');
     const now = this.sched.now();
@@ -83,7 +87,7 @@ export class MatchIntents {
     return OK;
   }
 
-  /** @this {Match} */
+  /** @param {PlayerState} ps @param {boolean} on @this {Match} */
   setAutoplay(ps, on) {
     if (ps.autoplay === on) return OK;
     ps.autoplay = on;
@@ -96,6 +100,7 @@ export class MatchIntents {
 
   /**
    * Let the bot act for a (newly) bot-controlled seat in the current phase.
+   * @param {PlayerState} ps
    * @this {Match}
    */
   kickBot(ps) {
@@ -130,6 +135,7 @@ export class MatchIntents {
 
   /**
    * The start-of-battle stats of a player's board units (see unitStats); [] when the preview battle cannot be built.
+   * @param {PlayerState} ps
    * @this {Match}
    */
   _unitStatsOf(ps) {

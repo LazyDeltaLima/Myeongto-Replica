@@ -9,6 +9,8 @@
 
 /** @import { Match, SpectatorSeat } from '../Match.js' */
 /** @import { PlayerState } from '../PlayerState.js' */
+/** @import { Battle } from '../../sim/Battle.js' */
+/** @import { MatchField } from './common.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { snapFrame } from '../fields.js';
 import { OK, fail } from './common.js';
@@ -17,6 +19,7 @@ export class MatchWatch {
   /**
    * A spectator seat (community report #26; server/lobby.js spectate) joined during the match, came back or asked for a
    * resync: registered once, then resent what an eliminated player watching sees (_resync — never an m.private).
+   * @param {unknown} playerId
    * @this {Match}
    */
   addSpectator(playerId) {
@@ -27,6 +30,7 @@ export class MatchWatch {
 
   /**
    * The spectator left (room.leave / g.leave, removed by the host, reconnect window expired).
+   * @param {string} playerId
    * @this {Match}
    */
   removeSpectator(playerId) {
@@ -35,6 +39,7 @@ export class MatchWatch {
 
   /**
    * The stand-in of a spectator seat, created once (null for a player's id or a bad id).
+   * @param {unknown} playerId
    * @this {Match}
    */
   _spectator(playerId) {
@@ -61,6 +66,7 @@ export class MatchWatch {
   /**
    * g.watch { fieldId, playerId? } — `playerId`: the player the viewer tapped (a shared 联防 / boss pair field shows two,
    * its id does not say which; recorded as the watch preference when that player is on the field).
+   * @param {PlayerState | SpectatorSeat} ps @param {unknown} fieldId @param {string | null} [playerId]
    * @this {Match}
    */
   watch(ps, fieldId, playerId = null) {
@@ -94,6 +100,7 @@ export class MatchWatch {
    * Record the player a manual watch of field `f` names: `playerId` when it is one of the field's players, else the
    * field's only player — never the viewer itself; a shared field without `playerId` names nobody (PR #189's review).
    * Only manual watches write it: the automatic assignments below read it.
+   * @param {PlayerState | SpectatorSeat} ps @param {MatchField | null | undefined} f @param {string | null} [playerId]
    * @this {Match}
    */
   _watchPrefSet(ps, f, playerId = null) {
@@ -106,17 +113,20 @@ export class MatchWatch {
    * The player a viewer follows (an eliminated human, a spectator seat): its watch preference while that player is
    * still in, else the first player still in (seat order — the official FindFirstAvailObTarget, AI teammates included:
    * the remake's AI seats are players), never the viewer itself; null when nobody is left.
+   * @param {PlayerState | SpectatorSeat} ps
+   * @returns {string | null}
    * @this {Match}
    */
   _watchTargetOf(ps) {
-    const ok = (pid) => { const t = typeof pid === 'string' && pid !== ps.playerId ? this.players.get(pid) : null; return !!t && t.alive && !t.left; };
+    const ok = (/** @type {unknown} */ pid) => { const t = typeof pid === 'string' && pid !== ps.playerId ? this.players.get(pid) : null; return !!t && t.alive && !t.left; };
     const pref = this.watchPref.get(ps.playerId);
-    if (ok(pref)) return pref;
+    if (ok(pref)) return /** @type {string} */ (pref);
     return this.order.find((q) => ok(q.playerId))?.playerId ?? null;
   }
 
   /**
    * The field of the player `ps` follows among `fields` (null when that player has none this phase).
+   * @param {PlayerState | SpectatorSeat} ps @param {MatchField[]} fields
    * @this {Match}
    */
   _watchTargetField(ps, fields) {
@@ -126,6 +136,7 @@ export class MatchWatch {
 
   /**
    * Does `ps` follow a player (an eliminated human or a spectator seat, still in the room)?
+   * @param {PlayerState | SpectatorSeat | null | undefined} ps
    * @this {Match}
    */
   _follows(ps) {
@@ -136,13 +147,14 @@ export class MatchWatch {
    * A prep phase (回合开始 / 机变 / 休整期): an eliminated human / spectator seat scouts the board of the player it follows
    * — `keep`: a scout it already has this phase stays (a manual pick, a resync). Until 0.2.0 a phase reset dropped it
    * onto its own empty board every round (community report of 2026-10-06, item 56).
+   * @param {PlayerState | SpectatorSeat} ps @param {{ keep?: boolean }} [opts]
    * @this {Match}
    */
   _followScout(ps, { keep = false } = {}) {
     if (!this._follows(ps) || this.fields.length) return;
     const cur = keep ? this.watchers.get(ps.playerId) : null;
     const kept = typeof cur === 'string' && cur.startsWith('n:') ? this.players.get(cur.slice(2)) : null;
-    const target = kept && kept.alive && !kept.left ? kept : this.players.get(this._watchTargetOf(ps));
+    const target = kept && kept.alive && !kept.left ? kept : this.players.get(/** @type {string} */ (this._watchTargetOf(ps)));
     if (!target) return;
     this.watchers.set(ps.playerId, `n:${target.playerId}`);
     if (ps.connected) this._notifyPrepScouts(target, { to: ps.playerId });
@@ -155,6 +167,7 @@ export class MatchWatch {
    * season: maintainer decision 2026-10-25; the official current season refused it, 「当前无法查看」); so may the other
    * pair's boss field in 最终攻势 / 隐秘核心 while the own one runs (the official game hides it, 「无法查看另一组队友的战场
    * 情况」: a convenience for every season, maintainer decision 2026-11-20); eliminated players may watch anything.
+   * @param {PlayerState | SpectatorSeat} ps @param {string} fieldId @param {string | null} [playerId]
    * @this {Match}
    */
   _watchClient(ps, fieldId, playerId = null) {
@@ -170,6 +183,7 @@ export class MatchWatch {
    * Reconnect / resync: the spec of the field the player is on (fast-forwarded by the client); an eliminated human /
    * spectator seat the field it watches, else the one of the player it follows. With no client field up (a prep phase):
    * the board of the player it follows (item 56; PR #189's review — a resync in prep used to show nothing).
+   * @param {PlayerState | SpectatorSeat} ps
    * @this {Match}
    */
   _resendBattle(ps) {
@@ -199,6 +213,7 @@ export class MatchWatch {
   /**
    * b.start of the boss fields: players get their own pair field, eliminated humans and spectator seats the field of
    * the player they follow (item 56), else the first.
+   * @param {MatchField[]} fields
    * @this {Match}
    */
   _watchBossFields(fields) {
@@ -215,12 +230,13 @@ export class MatchWatch {
    * The spec a spectator seat is shown: the field's own, minus the players' `contentInfo.funds` — a private number (the
    * player's funds at the battle start) that no battle effect reads, so the replica still plays the same battle. The
    * other contentInfo counters stay: battle effects read them (sim/content: handUnits, roundStats.gainedChess).
+   * @param {MatchField} f
    * @this {Match}
    */
   _spectatorSpec(f) {
     if (!f.spectatorSpec) {
       const s = f.spec;
-      const strip = (p) => {
+      const strip = (/** @type {Record<string, any> | null} */ p) => {
         if (!p || !p.contentInfo || !Object.hasOwn(p.contentInfo, 'funds')) return p;
         const { funds, ...contentInfo } = p.contentInfo;
         void funds;
@@ -233,31 +249,35 @@ export class MatchWatch {
 
   /**
    * Humans currently shown a field (its players and its watchers, spectator seats included).
+   * @param {MatchField} f
    * @this {Match}
    */
   _humansShowing(f) {
+    /** @type {Set<string>} */
     const out = new Set();
     for (const pid of f.players) out.add(pid);
     for (const [pid, fid] of this.watchers) if (fid === f.fieldId) out.add(pid);
     return [...out].filter((pid) => { const ps = this.players.get(pid) || this.spectators.get(pid); return ps && !ps.isBot && !ps.left; });
   }
 
-  /** @this {Match} */
+  /** @param {string} fieldId @this {Match} */
   watchersOf(fieldId) {
+    /** @type {string[]} */
     const out = [];
     for (const [pid, fid] of this.watchers) if (fid === fieldId) out.push(pid);
     return out;
   }
 
-  /** @this {Match} */
+  /** @param {string} playerId @param {string} fieldId @this {Match} */
   _sendField(playerId, fieldId) {
     const f = this.fields.find((x) => x.fieldId === fieldId);
     if (f) {
       let meta;
-      try { meta = f.battle.fieldMeta(); } catch (e) { this.reportError('fieldMeta', e); return; }
+      // (a field the server runs: its battle is up)
+      try { meta = /** @type {Battle} */ (f.battle).fieldMeta(); } catch (e) { this.reportError('fieldMeta', e); return; }
       const bench = this.battleBench(f); // 规程's 整备区 standing still (views.js battleBench)
       this.sendTo(playerId, { t: 'm.field', ...meta, fieldId: f.fieldId, kind: f.kind, live: !!f.live, ...(bench.length ? { bench } : null) });
-      try { this.sendTo(playerId, snapFrame(f.fieldId, f.battle.snapshot())); } catch (e) { this.reportError('snapshot', e); }
+      try { this.sendTo(playerId, snapFrame(f.fieldId, /** @type {Battle} */ (f.battle).snapshot())); } catch (e) { this.reportError('snapshot', e); }
       return;
     }
     if (typeof fieldId === 'string' && fieldId.startsWith('n:')) {
@@ -270,6 +290,7 @@ export class MatchWatch {
    * Push prepFieldMeta to whoever is scouting `ps` during prep (GitHub #87). `to` always receives the current view
    * (the player who just asked to watch); everyone scouting it receives a new `m.field` only when that view changed.
    * A live battle field owns the `n:<pid>` id, so this stays quiet once fields exist.
+   * @param {PlayerState | null | undefined} ps @param {{ to?: string | null }} [opts]
    * @this {Match}
    */
   _notifyPrepScouts(ps, { to = null } = {}) {

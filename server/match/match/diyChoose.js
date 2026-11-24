@@ -18,10 +18,12 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 /** @import { Match } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { diySlot } from '../../../shared/diy.js';
 import { OK, fail } from './common.js';
 
+/** @type {Readonly<Record<string, any>>} */
 const EMPTY = Object.freeze({});
 
 export class MatchDiyChoose {
@@ -46,6 +48,7 @@ export class MatchDiyChoose {
    * A new 自选编队 for this match (platform.js setDiy, during the briefing, the strategy draft and — until the seat readies
    * — this step: the preset box of the screen, maintainer decision 2026-11-13): re-checked like the seat's picks
    * (PlayerState.setDiy), kept as the lineup; a chosen slot stays chosen only while it holds the same operator.
+   * @param {PlayerState} ps @param {any} picks `{ [slotBaseId]: { charId, skillIndex?, uniEquipId? } | null }` (PlayerState.setDiy)
    * @returns {boolean} false when the picks do not match the game data
    * @this {Match}
    */
@@ -55,7 +58,7 @@ export class MatchDiyChoose {
     ps.diyLineup = ps.diy;
     ps.setDiy({});
     const lineup = ps.diyLineup;
-    ps.diyChosen = (ps.diyChosen || []).filter((id) => Object.hasOwn(lineup, id) && lineup[id].charId === was[id]?.charId);
+    ps.diyChosen = (ps.diyChosen || []).filter((id) => Object.hasOwn(/** @type {object} */ (lineup), id) && /** @type {Record<string, any>} */ (lineup)[id].charId === was[id]?.charId);
     return true;
   }
 
@@ -66,7 +69,8 @@ export class MatchDiyChoose {
     const dc = this.gd.diyChoose;
     for (const ps of this.order) if (ps.botControlled) ps.diyChooseReady = true;
     this._diyChooseToken = (this._diyChooseToken || 0) + 1;
-    this.setDeadline(this.soloUntimed ? 0 : dc.seconds, () => this.finishDiyChoose());
+    // (the step runs only in a season that has it: GameData.diyChoose is set)
+    this.setDeadline(this.soloUntimed ? 0 : /** @type {NonNullable<typeof dc>} */ (dc).seconds, () => this.finishDiyChoose());
     this.markPublic();
     for (const ps of this.order) this.markPrivate(ps);
     this.maybeEndDiyChoose();
@@ -82,6 +86,7 @@ export class MatchDiyChoose {
 
   /**
    * Whether a seat is done with the step (ready, or nobody waits on it).
+   * @param {PlayerState} ps
    * @this {Match}
    */
   diyChooseDone(ps) {
@@ -91,20 +96,23 @@ export class MatchDiyChoose {
   /**
    * g.diyChoose { slots }: the slots of the seat's lineup it brings into this match — the whole choice, replacing the
    * last one. Refused while the seat is ready, for a slot outside its lineup or twice, and above the tier's limit.
+   * @param {PlayerState} ps @param {string[]} slots
    * @this {Match}
    */
   diyChoose(ps, slots) {
     if (this.phase !== PHASE.DIY_CHOOSE || this.ended) return fail(ERR.WRONG_PHASE);
     if (ps.diyChooseReady) return fail(ERR.ALREADY, 'ready: cancel it first');
     const lineup = ps.diyLineup || EMPTY;
-    const perTier = this.gd.diyChoose.perTier;
+    // (DIY_CHOOSE runs only in a season with the step: GameData.diyChoose is set)
+    const perTier = /** @type {{ perTier: Record<number, number> }} */ (this.gd.diyChoose).perTier;
     const seen = new Set();
     /** @type {Map<number, number>} */
     const count = new Map();
     for (const id of slots) {
       if (!Object.hasOwn(lineup, id) || seen.has(id)) return fail(ERR.BAD_TARGET, `not a slot of the lineup: ${id}`);
       seen.add(id);
-      const tier = diySlot(id, this.gd.raw)?.tier;
+      // (a slot of the lineup: diySlot knows it)
+      const tier = /** @type {number} */ (diySlot(id, this.gd.raw)?.tier);
       const n = (count.get(tier) ?? 0) + 1;
       if (!(n <= (perTier[tier] ?? 0))) return fail(ERR.BAD_TARGET, `more than ${perTier[tier] ?? 0} of tier ${tier}`);
       count.set(tier, n);
@@ -116,6 +124,7 @@ export class MatchDiyChoose {
 
   /**
    * g.diyReady { cancel? }: the seat's 准备就绪, or 取消准备 while the step runs.
+   * @param {PlayerState} ps @param {boolean} [cancel]
    * @this {Match}
    */
   diyReady(ps, cancel = false) {
@@ -163,6 +172,7 @@ export class MatchDiyChoose {
   /**
    * m.private `diyChoose` of a seat in a season with the step: its 自选编队 (`lineup`, the picks by slot), the slots
    * chosen, whether it is ready, and the limit per tier. Null in a season without the step.
+   * @param {PlayerState} ps
    * @this {Match}
    */
   diyChooseView(ps) {

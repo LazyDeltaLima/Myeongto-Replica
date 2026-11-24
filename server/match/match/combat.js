@@ -4,6 +4,9 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 /** @import { Match } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
+/** @import { Battle } from '../../sim/Battle.js' */
+/** @import { MatchField } from './common.js' */
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { withBounties, markBounties } from '../waves.js';
@@ -16,6 +19,8 @@ import { simRuleFlags } from '../../../shared/ruleset.js';
 export class MatchCombat {
   /**
    * Construct a battle; a constructor failure yields a finished stand-in (clean result) and is logged.
+   * @param {Record<string, any>} opts the Battle options @param {{ preview?: boolean }} [o]
+   * @returns {Battle} (the stand-in, a DeadBattle, answers like one)
    * @this {Match}
    */
   newBattle(opts, { preview = false } = {}) {
@@ -26,16 +31,18 @@ export class MatchCombat {
       return new this.BattleClass(full);
     } catch (e) {
       if (!preview) this.reportError(`battle ${opts.fieldId} construct`, e);
-      return new DeadBattle(full, 'forced');
+      return /** @type {Battle} */ (/** @type {unknown} */ (new DeadBattle(full, 'forced')));
     }
   }
 
   /**
    * Spawn list of a field after the onBattleStart handlers (which may edit `ev.spawns`): malformed entries are dropped
    * and a kill bounty is copied into `mods.bountyCoins`, so a leaked bounty enemy keeps paying its killer in 联防.
+   * @param {unknown} list @param {string | null} [ownerPlayerId]
    * @this {Match}
    */
   _sanitizeSpawns(list, ownerPlayerId = null) {
+    /** @type {Array<Record<string, any>>} */
     const out = [];
     for (const s of Array.isArray(list) ? list : []) {
       if (!s || typeof s !== 'object' || typeof s.enemyKey !== 'string' || !this.gd.enemy(s.enemyKey)) continue;
@@ -48,11 +55,12 @@ export class MatchCombat {
     return out;
   }
 
-  /** @this {Match} */
+  /** @param {PlayerState} ps @this {Match} */
   _normalBattle(ps) { return this.newBattle(this._normalOpts(ps)); }
 
   /**
    * Battle options of a player's normal field (after the onBattleStart handlers).
+   * @param {PlayerState} ps @param {{ preview?: boolean, board?: Map<string, any> }} [opts]
    * @this {Match}
    */
   _normalOpts(ps, { preview = false, board = ps.board } = {}) {
@@ -133,6 +141,7 @@ export class MatchCombat {
 
   /**
    * Aggregate a finished field's content/engine errors (battle.errors: unique records) for diagnostics.
+   * @param {MatchField | null | undefined} f @param {Record<string, any> | null | undefined} res the field's result
    * @this {Match}
    */
   _collectSimErrors(f, res) {
@@ -152,11 +161,12 @@ export class MatchCombat {
     }
   }
 
-  /** @this {Match} */
+  /** @param {FieldRunner} runner @this {Match} */
   combatDone(runner) { this._finishCombat((f) => runner.resultOf(f)); }
 
   /**
    * Every normal field has its result: record them, then 联防 or SETTLE.
+   * @param {(f: MatchField) => Record<string, any>} resultOf the field's result
    * @this {Match}
    */
   _finishCombat(resultOf) {

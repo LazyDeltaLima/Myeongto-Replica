@@ -7,6 +7,7 @@
 // the player state).
 
 /** @import { PlayerState } from '../PlayerState.js' */
+/** @import { Piece } from './pieces.js' */
 import { boardOrder, pieceDir } from '../board.js';
 import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains, pieceBonds } from '../bondsMeta.js';
 import { handRules, swapBondRecord } from '../../sim/content/bonds/dispatch.js';
@@ -14,8 +15,24 @@ import { handRules as switchHandRules } from '../../sim/content/garrisons/effect
 import { BAND_MARK, BAND_CHEST, STAGE_COUNTER, COMMAND_STAGE_COUNTER } from '../../sim/content/bands/meta.js';
 import { markInputNeeds } from '../../sim/content/bands/battle.js';
 
+/**
+ * A board or 整备区 operator of the PlayerBattleInput (chessBattleEntry): its tile (`row` `col` `dir`) or hand `slot`,
+ * the items it wears, its loadout, 补位 mark or 自选 pick, potential / 练度, skin, a 联防 field's carried state.
+ * @typedef {{ uid: number, kind: 'chess', chessId: string, items: string[], row?: number, col?: number, dir?: string,
+ *   slot?: number, diy?: { charId: string, skillIndex: number, uniEquipId: string | null }, standIn?: true,
+ *   skillIndex?: number | null, moduleId?: string | null, potential?: number, cultivate?: number, skin?: string,
+ *   carryState?: unknown }} ChessInput
+ */
+/**
+ * The PlayerBattleInput of a player (battleInput, docs/SIM.md): its seat, side and column offset on the field, the board
+ * units, the 整备区 operators a battle may field (`reserve`), the bonds, the strategy, its marks and chests, the effects
+ * a battle reads, the device overrides; the match adds `lpForBoss` on a boss field.
+ * @typedef {{ playerId: string, seat: number, side: 'L'|'R', colOffset: number, units: object[], reserve?: ChessInput[],
+ *   bonds: unknown, bandId: string | null, lpForBoss?: number | null, [field: string]: any }} PlayerBattleInput
+ */
+
 export class PlayerRound {
-  /** @this {PlayerState} */
+  /** @param {number} r @this {PlayerState} */
   startRound(r) {
     this.round = { refreshes: 0, buys: 0, sells: 0, spent: 0, gainedChess: 0, arts: 0 };
     this.pendingLayerGains = null; // settled (or lapsed) at the last SETTLE
@@ -24,7 +41,7 @@ export class PlayerRound {
     const ev = { round: r, income: this.gd.income(r), pending: this.pendingFunds };
     this.pendingFunds = 0;
     this.m.dispatch(this, 'onIncome', ev);
-    const nonNeg = (v) => (Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0);
+    const nonNeg = (/** @type {unknown} */ v) => (Number.isFinite(v) && /** @type {number} */ (v) > 0 ? Math.trunc(/** @type {number} */ (v)) : 0);
     this.addFunds(nonNeg(ev.income) + nonNeg(ev.pending), { reason: 'income' });
     // temp is NOT wiped here: the last prep's deadline resolved what the player could act on (endPrep); what overflowed
     // after it (battle-result grants, SETTLE merges, returned equipment) is shown and usable in this prep (tempDue).
@@ -59,7 +76,7 @@ export class PlayerRound {
 
   // `effects` are kept: a 信标 gift still pending is delivered to the teammate at the next round start (builtin_gift is
   // flagged afterElimination — GitHub #86); nothing else of an eliminated player is dispatched.
-  /** @this {PlayerState} */
+  /** @param {number} round @this {PlayerState} */
   eliminate(round) {
     this.alive = false;
     this.ready = false;
@@ -75,7 +92,8 @@ export class PlayerRound {
     this._tempDue.clear();
     this.offers = [];
     this.bounties = [];
-    this.personalChoice = null;
+    // through a cast: a part's own `this.personalChoice =` would declare the field again (types/README.md "Split classes")
+    /** @type {PlayerState} */ (this).personalChoice = null;
     this.shop.slots = [];
     this.shop.kinds = [];
     this.funds = 0;
@@ -106,6 +124,7 @@ export class PlayerRound {
    * reports the difference to the previous computed state, so a handler's own recompute (a hammer's onGain) reports
    * only what changed after it, and nothing twice. Never for an eliminated player (eliminate clears the board), a
    * detached copy (preview.js previewPlayer: the AI's rehearsals never touch the live state).
+   * @param {PlayerState['bonds'] | null | undefined} before @param {PlayerState['bonds'] | null | undefined} after
    * @this {PlayerState}
    */
   _reportActiveBonds(before, after) {
@@ -136,9 +155,12 @@ export class PlayerRound {
   /**
    * The PlayerBattleInput entry of a chess piece (board: `pos` = { row, col, dir }; 整备区: { slot }) — its loadout, 补位
    * mark or 自选 pick, potential and 练度, items.
+   * @param {Piece} piece @param {{ row: number, col: number, dir: string } | { slot: number }} pos
+   * @returns {ChessInput}
    * @this {PlayerState}
    */
   chessBattleEntry(piece, pos) {
+    /** @type {ChessInput} */
     const u = { uid: piece.uid, kind: 'chess', chessId: piece.id, ...pos, items: (piece.items || []).map((i) => i.id) };
     const pick = this.diyPickOf(piece.id);
     if (pick) {
@@ -170,9 +192,11 @@ export class PlayerRound {
    * The 规程 marks the player's drag 指令 left for this round's battle (content/bands/meta.js addMark):
    * [{ effectId, uid?, itemId?, capAdd?, row?, col? }] — an operator mark only while the operator is still the player's;
    * a tile mark (溃心领域) in board coordinates.
+   * @returns {Array<{ effectId: string, uid?: number, itemId?: string, capAdd?: number, row?: number, col?: number }>}
    * @this {PlayerState}
    */
   bandMarksNow() {
+    /** @type {Array<{ effectId: string, uid?: number, itemId?: string, capAdd?: number, row?: number, col?: number }>} */
     const out = [];
     for (const e of this.effects) {
       if (!e || e.key !== BAND_MARK || !e.data || e.data.round !== this.m.round || typeof e.data.effectId !== 'string') continue;
@@ -189,9 +213,11 @@ export class PlayerRound {
   /**
    * 宝藏探机's chests standing on the player's board (content/bands/meta.js BAND_CHEST): [{ id, row, col, enemyId, coin }]
    * in board coordinates, oldest first. They stay until a battle reports them touched.
+   * @returns {Array<{ id: string, row: number, col: number, enemyId: string, coin: number }>}
    * @this {PlayerState}
    */
   bandChestsNow() {
+    /** @type {Array<{ id: string, row: number, col: number, enemyId: string, coin: number }>} */
     const out = [];
     for (const e of this.effects) {
       if (!e || e.key !== BAND_CHEST || !e.data || !Number.isInteger(e.data.row) || !Number.isInteger(e.data.col) || typeof e.data.enemyId !== 'string') continue;
@@ -206,6 +232,8 @@ export class PlayerRound {
    * state includes those layers, as the strip shows them). The gains stay pending: settle() adds them once.
    * `marks`: the round's 规程 marks (bandMarksNow) — a battle of the round's own (normal, boss); the 联防 field passes
    * false.
+   * @param {{ side?: 'L'|'R', colOffset?: number, carry?: Map<number, unknown> | null, reached?: boolean, marks?: boolean }} [opts]
+   * @returns {PlayerBattleInput}
    * @this {PlayerState}
    */
   battleInput({ side = 'L', colOffset = 0, carry = null, reached = false, marks = true } = {}) {
@@ -237,6 +265,7 @@ export class PlayerRound {
         if (carry && carry.has(piece.uid)) u.carryState = carry.get(piece.uid);
         units.push(u);
       } else if (piece.kind === 'token') {
+        /** @type {{ uid: number, kind: 'token', tokenId: string, row: number, col: number, dir: string, ownerUid?: number, carryState?: unknown }} */
         const u = { uid: piece.uid, kind: 'token', tokenId: piece.id, row: r, col: c, dir: pieceDir(piece), ownerUid: piece.ownerUid };
         if (carry && carry.has(piece.uid)) u.carryState = carry.get(piece.uid); // 联防: { sp } (unite.js)
         units.push(u);
@@ -245,14 +274,15 @@ export class PlayerRound {
     // the 整备区 operators a battle may field (规程's 卡西米尔 6 switch, content/bonds/nation/kazimierz.js, and the switch
     // 特质): only those a bond or 特质 rule asks for (bonds/dispatch.js handRules — the spec reaches every watcher, the rest of the hand stays
     // private); slot = the hand index (0 the leftmost). The hand does not change during a battle (prep intents only)
+    /** @type {ChessInput[]} */
     const reserve = [];
     // (the bond as this player's battle runs it: a strategy that switches its direction — 焰尾's 卡西米尔 — swapBondRecord)
     const band = this.bandId ? this.gd.band(this.bandId) : null;
-    const rules = handRules((id) => swapBondRecord(this.gd.bond(id), band, (e) => this.gd.effect(e))).filter((x) => { const st = this.bonds?.[x.bond]; return st && st.active && (st.count ?? 0) >= x.need; })
+    const rules = handRules((/** @type {string} */ id) => swapBondRecord(this.gd.bond(id), band, (/** @type {string} */ e) => this.gd.effect(e))).filter((x) => { const st = this.bonds?.[x.bond]; return st && st.active && (st.count ?? 0) >= x.need; })
       .map((x) => ({ bonds: [x.bond], position: x.position }));
     // and those a board chess's switch 特质 may call (规程's 耀骑士临光 / 历阵锐枪芬: garrisons/effects/switch.js)
     for (const { piece } of boardOrder(this.board)) {
-      if (piece.kind === 'chess') rules.push(...switchHandRules(this.gd.chess(piece.id), (g) => this.gd.garrison(g)));
+      if (piece.kind === 'chess') rules.push(...switchHandRules(this.gd.chess(piece.id), (/** @type {string} */ g) => this.gd.garrison(g)));
     }
     if (rules.length || wantsHand) {
       (this.hand || []).forEach((piece, slot) => {

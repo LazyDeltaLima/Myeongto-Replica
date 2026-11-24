@@ -1,4 +1,7 @@
 /** @import { Match } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
+/** @import { Battle } from '../../sim/Battle.js' */
+/** @import { MatchField } from './common.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { OK, fail } from './common.js';
 import { syntheticResult } from '../fields.js';
@@ -7,15 +10,15 @@ export const SURRENDER_VOTE_MS = 30000;
 export const SURRENDER_RETRY_MS = 60000;
 /** @type {Set<string>} */
 const PHASES = new Set([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
-const leakLp = result => Object.values(result.perPlayer).reduce((n, p) => n + p.leaked.reduce((s, l) => s + (l.lpr ?? 1), 0), 0);
+const leakLp = (/** @type {{ perPlayer: Record<string, { leaked: Array<{ lpr?: number }> }> }} */ result) => Object.values(result.perPlayer).reduce((n, p) => n + p.leaked.reduce((s, l) => s + (l.lpr ?? 1), 0), 0);
 
 export class MatchSurrender {
-  /** @this {Match} */
+  /** @param {MatchField} f @this {Match} */
   surrenderToken(f) { return f.battleId || `${this.battlePrefix}.${this.round}.${this.phase}.${f.fieldId}`; }
 
-  /** @this {Match} */
+  /** @param {MatchField} f @returns {PlayerState[]} @this {Match} */
   surrenderVoters(f) {
-    return f.players.map(id => this.players.get(id)).filter(p => p && !p.isBot && !p.left && !p.botControlled);
+    return /** @type {PlayerState[]} */ (f.players.map((id) => this.players.get(id)).filter((p) => p && !p.isBot && !p.left && !p.botControlled));
   }
 
   // Membership is fixed for an open vote. Disconnects/AI takeover cancel it, never manufacture consent.
@@ -30,7 +33,7 @@ export class MatchSurrender {
     }
   }
 
-  /** @this {Match} */
+  /** @param {MatchField} f @this {Match} */
   _closeSurrenderVote(f) {
     if (!f.surrenderVote) return;
     this.cancel(f.surrenderVote.timer);
@@ -38,11 +41,16 @@ export class MatchSurrender {
     this.markPublic();
   }
 
-  /** @this {Match} */
+  /**
+   * @param {PlayerState} ps @param {{ fieldId: string, battleId: string, op: 'propose' | 'yes' | 'no' | 'cancel' }} msg
+   *   g.surrender as shared/protocol.js C2S checks it
+   * @this {Match}
+   */
   voteSurrender(ps, { fieldId, battleId, op }) {
     if (!PHASES.has(this.phase) || this.ended || this.disposed || this.restartOutcome || this._finalEnding) return fail(ERR.WRONG_PHASE);
     const f = this.fields.find(x => x.fieldId === fieldId && this.surrenderToken(x) === battleId);
-    if (!f || !f.live || f.done || f.surrendering || f.verifyJob || f.heldResult || (!f.cc && f.battle.finished)) return fail(ERR.WRONG_PHASE);
+    // (a field the server runs, not a client's: its battle is up)
+    if (!f || !f.live || f.done || f.surrendering || f.verifyJob || f.heldResult || (!f.cc && /** @type {Battle} */ (f.battle).finished)) return fail(ERR.WRONG_PHASE);
     const voters = this.surrenderVoters(f);
     if (!ps.connected || !voters.includes(ps)) return fail(ERR.BAD_TARGET);
     this.reconcileSurrenderVotes();
@@ -70,11 +78,11 @@ export class MatchSurrender {
     if (op !== 'yes') return fail(ERR.BAD_MSG);
     v.yes.add(ps.playerId);
     this.markPublic();
-    if (v.voters.every(id => v.yes.has(id))) { this._closeSurrenderVote(f); this._surrenderField(f); }
+    if (v.voters.every((/** @type {string} */ id) => v.yes.has(id))) { this._closeSurrenderVote(f); this._surrenderField(f); }
     return OK;
   }
 
-  /** @this {Match} */
+  /** @param {MatchField} f @this {Match} */
   _surrenderField(f) {
     this._resume();
     this._closeSurrenderVote(f);
@@ -82,9 +90,10 @@ export class MatchSurrender {
     f.surrendered = true;
     this.markPublic();
     if (!f.cc) {
-      const before = leakLp(f.battle.result());
-      f.battle.surrender();
-      if (f.kind === 'boss' || f.kind === 'hidden') this._teamLpLoss(Math.max(0, leakLp(f.battle.result()) - before));
+      // (a field the server runs: its battle is up)
+      const before = leakLp(/** @type {Battle} */ (f.battle).result());
+      /** @type {Battle} */ (f.battle).surrender();
+      if (f.kind === 'boss' || f.kind === 'hidden') this._teamLpLoss(Math.max(0, leakLp(/** @type {Battle} */ (f.battle).result()) - before));
       // FieldRunner emits the final snapshot and completes its ordinary settlement on the next tick.
       return;
     }
@@ -95,7 +104,8 @@ export class MatchSurrender {
     for (const pid of this._humansShowing(f)) this.sendTo(pid, { t: 'b.end', battleId: f.battleId, fieldId: f.fieldId, reason: 'surrender' });
     // Reconstruct the authoritative state at the moment of consent, preserving earned kills, funds and layers.
     // Completed headless jobs contain the future, so those must also be replayed to this cutoff.
-    const battle = wasLiveServer ? f.battle : this._specBattle(f.spec);
+    // (a boss field the server runs live has its battle up)
+    const battle = /** @type {Battle} */ (wasLiveServer ? f.battle : this._specBattle(f.spec));
     const finish = () => {
       if (f.done || this.disposed || this.ended || !this.fields.includes(f)) return;
       if (!battle.finished) battle.surrender();

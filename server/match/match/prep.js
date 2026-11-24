@@ -4,6 +4,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 /** @import { Match } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
 import { PHASE } from '../../../shared/constants.js';
 import { botPrepBeginSteps, botPrepEndSteps } from '../bot.js';
 import { DELAYS } from './common.js';
@@ -41,6 +42,7 @@ export class MatchPrep {
    * layout, temp, Ready). The step generators run the same actions in the same order as the one-shot routine (same
    * rng draws, same decisions); in virtual time (botSliceMs unbounded) each stage runs at once. The prep ending first
    * (deadline) or a newer schedule for the seat drops the job (a step never leaves a transient board behind).
+   * @param {PlayerState} ps @param {number} [i] the seat's place in the staggered start
    * @this {Match}
    */
   scheduleBotPrep(ps, i = 0) {
@@ -50,7 +52,8 @@ export class MatchPrep {
     const bounded = Number.isFinite(this.botSliceMs);
     const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
     /** Step a generator until done or the slice budget is used; `then(value)` once it is done (null on an error). */
-    const drive = (gen, label, then) => {
+    // `then` gets the generator's return: bot.js's layout rehearsal job (untyped there) or null
+    const drive = (/** @type {Generator<unknown, unknown>} */ gen, /** @type {string} */ label, /** @type {(value: any) => void} */ then) => {
       const t0 = now();
       let r = null;
       try {
@@ -70,7 +73,7 @@ export class MatchPrep {
         ps.setReady(true);
       }
     };
-    const end = (job) => {
+    const end = (/** @type {any} */ job) => {
       let gen = null;
       try { gen = botPrepEndSteps(this, ps, job); } catch (e) { this.reportError(`bot ${ps.playerId}`, e); }
       if (!gen) { ready(); return; }
@@ -94,7 +97,7 @@ export class MatchPrep {
     });
   }
 
-  /** @this {Match} */
+  /** @param {PlayerState} ps @this {Match} */
   onReadyChanged(ps) {
     this.markPublic();
     void ps;

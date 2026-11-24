@@ -5,6 +5,10 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 /** @import { Match } from '../Match.js' */
+/** @import { Battle } from '../../sim/Battle.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
+/** @import { MatchField } from './common.js' */
+/** @import { SharedBossPool, CreditPool } from '../finalAssault.js' */
 import { PHASE } from '../../../shared/constants.js';
 import { DeadBattle, syntheticResult, RESULT_GRACE_MS, FIELD_SILENCE_MS, HARD_CAP_SECONDS, HeadlessJob } from '../fields.js';
 import { buildBattleSpec, createBattleFromSpec } from '../../sim/spec.js';
@@ -26,7 +30,7 @@ export class MatchClientCombat {
     for (const f of this.fields) this._clearFieldTimers(f);
   }
 
-  /** @this {Match} */
+  /** @param {MatchField | null | undefined} f @this {Match} */
   _clearFieldTimers(f) {
     if (!f || !f.cc) return;
     for (const k of ['deadlineTimer', 'silenceTimer', 'doneTimer', 'waitTimer', 'sliceTimer', 'verifyTimer']) if (f[k]) { this.cancel(f[k]); f[k] = null; }
@@ -36,13 +40,16 @@ export class MatchClientCombat {
 
   /**
    * A client-combat field record: the JSON BattleSpec of its Battle options plus the authority / result state.
+   * @param {{ fieldId: string, kind: string, players: string[], opts: Record<string, any>,
+   *   boss?: { poolHp: number, poolMax: number } | null }} rec
+   * @returns {MatchField}
    * @this {Match}
    */
   _ccField({ fieldId, kind, players, opts, boss = null }) {
     const seq = `${this.battlePrefix}.${this.round}.${++this._battleSeq}`;
     // protocol ids are ≤ 64 chars (shared/protocol.js isId): the field id is informational, the sequence is unique
     const battleId = seq.length + 1 + String(fieldId).length <= 64 ? `${seq}.${fieldId}` : seq;
-    const spec = buildBattleSpec({ ...opts, battleId, fieldId, kind, content: this.battleContent, boss, season: this.season });
+    const spec = /** @type {Record<string, any>} */ (buildBattleSpec({ ...opts, battleId, fieldId, kind, content: this.battleContent, boss, season: this.season }));
     let total = 0;
     for (const x of spec.spawns) if (x && x.tag !== 'boss' && x.tag !== 'part' && x.countInTotal !== false) total += Math.max(1, Math.floor(Number(x.count) || 1));
     return {
@@ -65,6 +72,8 @@ export class MatchClientCombat {
 
   /**
    * A battle built from a spec on the server (headless / takeover / verification); never throws.
+   * @param {Record<string, any>} spec @param {{ sharedBoss?: SharedBossPool | CreditPool | null }} [opts]
+   * @returns {Battle} (a DeadBattle when the spec cannot build: it answers like one)
    * @this {Match}
    */
   _specBattle(spec, { sharedBoss = null } = {}) {
@@ -72,12 +81,14 @@ export class MatchClientCombat {
       return createBattleFromSpec(spec, this.ds, { BattleClass: this.BattleClass, sharedBoss, logger: this.log, recordEvents: false });
     } catch (e) {
       this.reportError(`battle ${spec && spec.fieldId} construct`, e);
-      return new DeadBattle({ fieldId: spec && spec.fieldId, kind: spec && spec.kind, players: (spec && spec.players) || [], rect: spec && spec.rect, stageId: spec && spec.stageId }, 'forced');
+      return /** @type {Battle} */ (/** @type {unknown} */ (new DeadBattle({ fieldId: spec && spec.fieldId, kind: spec && spec.kind, players: (spec && spec.players) || [], rect: spec && spec.rect, stageId: spec && spec.stageId }, 'forced')));
     }
   }
 
   /**
    * Game seconds a field has run (its clock; a finished field: its final time).
+   * @param {MatchField} f
+   * @returns {number}
    * @this {Match}
    */
   _fieldElapsed(f) {
@@ -90,6 +101,7 @@ export class MatchClientCombat {
 
   /**
    * The connected human who simulates a field: lowest seat among its players (normal: the owner).
+   * @param {MatchField} f @param {string | null} [exclude]
    * @this {Match}
    */
   _authorityFor(f, exclude = null) {
@@ -105,6 +117,7 @@ export class MatchClientCombat {
 
   /**
    * b.start of a field for one recipient (`watch`: not a player of the field).
+   * @param {MatchField} f @param {string} pid @param {{ watch?: boolean }} [opts]
    * @this {Match}
    */
   _startMsg(f, pid, { watch = false } = {}) {
@@ -120,7 +133,7 @@ export class MatchClientCombat {
     };
   }
 
-  /** @this {Match} */
+  /** @param {string} pid @param {MatchField} f @param {{ watch?: boolean }} [opts] @this {Match} */
   _sendStart(pid, f, opts = {}) {
     const ps = this.players.get(pid) || this.spectators.get(pid);
     if (!ps || ps.isBot || ps.left || !ps.connected) return false;
@@ -131,6 +144,7 @@ export class MatchClientCombat {
 
   /**
    * Give every field its authority (a connected human) or run it on the server.
+   * @param {MatchField[]} fields
    * @this {Match}
    */
   _launch(fields) {
@@ -144,7 +158,7 @@ export class MatchClientCombat {
     }
   }
 
-  /** @this {Match} */
+  /** @param {MatchField} f @param {string} pid @this {Match} */
   _assignClient(f, pid) {
     f.mode = 'client';
     f.authority = pid;
@@ -158,6 +172,7 @@ export class MatchClientCombat {
   /**
    * A client field's result deadline: its time limit on the field clock + RESULT_GRACE_MS (then the server takes over),
    * and its silence watchdog (_armSilence).
+   * @param {MatchField} f
    * @this {Match}
    */
   _armDeadline(f) {
@@ -178,6 +193,7 @@ export class MatchClientCombat {
    * when none came yet) is taken over (fields.js FIELD_SILENCE_MS: a frozen page keeps its socket). The timer fires at
    * the last report + the limit and re-arms itself while reports keep coming; a pause cancels it (pause.js) and the
    * resume re-arms it through _armDeadline with `lastProgressAt` moved by the pause.
+   * @param {MatchField} f
    * @this {Match}
    */
   _armSilence(f) {
@@ -195,6 +211,7 @@ export class MatchClientCombat {
 
   /**
    * A server-run normal / 联防 field's result is released at the battle's natural end on the field clock.
+   * @param {MatchField} f
    * @this {Match}
    */
   _armRelease(f) {
@@ -210,6 +227,7 @@ export class MatchClientCombat {
    * The server simulates a field: normal / 联防 headlessly at once (the result is released at the battle's natural end
    * on the field's clock, so the teammates' progress UI and the round pacing stay as if it ran live); boss fields in
    * real time on the pacer (they share the pool), fast-forwarded to the field's clock on a takeover.
+   * @param {MatchField} f @param {string} reason
    * @this {Match}
    */
   _runOnServer(f, reason) {
@@ -229,7 +247,7 @@ export class MatchClientCombat {
     // the former authority (still online after a timeout / an invalid result) stops reporting and keeps its view
     if (prev) this.sendTo(prev, { t: 'b.end', battleId: f.battleId, fieldId: f.fieldId, reason: 'takeover' });
     if (f.kind === 'boss' || f.kind === 'hidden') { this._bossServerRun(f); return; }
-    const job = new HeadlessJob(this._specBattle(f.spec), { onError: (e) => this.reportError(`field ${f.fieldId} step`, e), players: f.players });
+    const job = new HeadlessJob(this._specBattle(f.spec), { onError: (/** @type {unknown} */ e) => this.reportError(`field ${f.fieldId} step`, e), players: f.players });
     f.job = job;
     f.battle = job.battle;
     f.timeline = job.timeline; // grows while the job runs (the teammates' progress UI reads it on the field clock)
@@ -237,7 +255,8 @@ export class MatchClientCombat {
     const complete = () => {
       if (f.job !== job || f.done) return;
       f.job = null;
-      const run = job.output();
+      // (the job is done: complete() runs after run() answered true)
+      const run = /** @type {NonNullable<ReturnType<HeadlessJob['output']>>} */ (job.output());
       f.battle = run.battle;
       f.result = run.result;
       f.resultSource = 'server';
@@ -279,6 +298,7 @@ export class MatchClientCombat {
 
   /**
    * A field has its final result.
+   * @param {MatchField | null | undefined} f
    * @this {Match}
    */
   _fieldDone(f) {
@@ -303,6 +323,7 @@ export class MatchClientCombat {
 
   /**
    * An authoritative human disconnected / left: normal & 联防 fields → server takeover; boss → the partner or the server.
+   * @param {PlayerState} ps @param {string} why
    * @this {Match}
    */
   _authorityLost(ps, why) {

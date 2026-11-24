@@ -164,6 +164,7 @@ export class GameData {
      * 维式重锤 and 突变细胞 are never sold). Every "shop item" draw uses it: the shop item slot (pool.js), the 道具补给 /
      * 机密商店 cards (choices.js) and the shop-eligible item pools (Match.rollItemId).
      */
+    /** @type {Record<string, string[]>} */
     this.shopItemsByTier = {};
     for (const [id, it] of Object.entries(this._items)) {
       if (!isShopItem(it)) continue;
@@ -286,7 +287,7 @@ export class GameData {
    * with the backup skill as the default, talents, module, art, `standInFor`). Null for a PRESET / 自选 chess, an unknown
    * id or data without backups.json. Memoized (frozen records).
    * @param {string} id
-   * @returns {object|null}
+   * @returns {import('../../shared/loadoutRecord.js').ChessRecord | null}
    */
   standIn(id) {
     if (typeof id !== 'string') return null;
@@ -855,6 +856,8 @@ export class GameData {
    * skill): the owner variant's `sources` (`bySkill[skillIndex]` for a non-default skill) name a talent or a skill —
    * 赫默 / 巫恋 on S1 make no drone / doll. `count` = the summon's deploy limit (PRTS 卫戍协议/帮助 "根据召唤物部署数量
    * 上限（非初始持有量），发送等量召唤物至手牌区": 凯瑟琳 2 of her 3 devices).
+   * @param {string} chessId @param {{ skillIndex?: number | null } | null} [loadout]
+   * @returns {{ tokenId: string, count: number }[]}
    */
   placeableTokens(chessId, loadout = null) {
     const c = this.chess(chessId);

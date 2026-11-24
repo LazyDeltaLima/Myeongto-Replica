@@ -6,6 +6,9 @@
 
 /** @import { Match } from '../Match.js' */
 /** @import { PlayerState } from '../PlayerState.js' */
+/** @import { Piece } from '../player/pieces.js' */
+/** @import { PublicFrame } from './messaging.js' */
+/** @import { MatchField } from './common.js' */
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
@@ -21,15 +24,18 @@ import { DRAFT_CONFIRM_SECONDS, INFO_CHECK_SECONDS } from './common.js';
 /**
  * A scouted operator's potential (below 6) and 练度 (0.2.2), like the sim's UnitInfo: PlayerState.loadoutFor's
  * `potential` / `cultivate` (null for a stand-in or a prototype 自选 pick: neither field).
+ * @param {{ potential?: number | null, cultivate?: number | null } | null} lo
+ * @returns {{ potential?: number, cultivate?: number }}
  */
 function cultivationInfo(lo) {
+  /** @type {{ potential?: number, cultivate?: number }} */
   const out = {};
-  if (lo && Number.isInteger(lo.potential) && lo.potential < 6) out.potential = lo.potential;
-  if (lo && Number.isInteger(lo.cultivate)) out.cultivate = lo.cultivate;
+  if (lo && Number.isInteger(lo.potential) && /** @type {number} */ (lo.potential) < 6) out.potential = /** @type {number} */ (lo.potential);
+  if (lo && Number.isInteger(lo.cultivate)) out.cultivate = /** @type {number} */ (lo.cultivate);
   return out;
 }
 /** A reported capsule numerator clamped to its denominator, else null (unknown — never a fabricated 0). */
-const finiteOrNull = (v, cap = Infinity) => {
+const finiteOrNull = (/** @type {unknown} */ v, cap = Infinity) => {
   if (v == null) return null;   // Number(null) === 0: an unreported value must not read as "0 resolved"
   const n = Number(v);
   if (!Number.isFinite(n)) return null;
@@ -37,7 +43,7 @@ const finiteOrNull = (v, cap = Infinity) => {
 };
 
 export class MatchViews {
-  /** @this {Match} */
+  /** @param {PlayerState} ps @this {Match} */
   statusOf(ps) {
     if (ps.left) return 'left';
     if (!ps.alive) return 'dead';
@@ -67,6 +73,7 @@ export class MatchViews {
    * `bossPct`: their share of this leader's pool (SharedBossPool.byPlayer, the BOSS_HIT broadcasts' tally) in whole
    * percent, floored, so the 20 / 50 / 80 % glow steps light when the share reaches them (the leader ranking's operator
    * rows are _leaderTopView).
+   * @param {PlayerState} ps
    * @returns {{ winStreak?: number, bossPct?: number }}
    * @this {Match}
    */
@@ -101,6 +108,7 @@ export class MatchViews {
     const pool = this.bossPool;
     if (!Array.isArray(c.bossDamageThresholds) || !pool || !(pool.maxHp > 0)) return null;
     if (this.phase !== PHASE.FINAL_ASSAULT && this.phase !== PHASE.HIDDEN_CORE) return null;
+    /** @type {{ pid: string, chess: string, d: number, seat: number, i: number }[]} */
     const rows = [];
     this.order.forEach((ps, seat) => {
       if (!ps.alive) return;
@@ -109,7 +117,8 @@ export class MatchViews {
       if (!top || !Array.isArray(top.r)) return;
       const cap = Math.max(0, Number(pool.byPlayer.get(ps.playerId)) || 0);
       const scale = top.s > cap ? cap / top.s : 1;
-      top.r.forEach(([chess, dmg], i) => {
+      // the battle's rows: [chess id, damage] (spec.js bossTopUnits)
+      /** @type {[unknown, unknown][]} */ (top.r).forEach(([chess, dmg], i) => {
         const d = (Number(dmg) || 0) * scale;
         if (d > 0 && typeof chess === 'string') rows.push({ pid: ps.playerId, chess, d, seat, i });
       });
@@ -118,6 +127,7 @@ export class MatchViews {
     rows.sort((a, b) => b.d - a.d || a.seat - b.seat || a.i - b.i);
     const byPid = new Map(this.order.map((ps) => [ps.playerId, ps]));
     return rows.slice(0, BOSS_TOP_ROWS).map((r) => {
+      /** @type {{ pid: string, chess: string, pct: number, diy?: { charId: string, skillIndex: number, uniEquipId: string|null }, standInFor?: string }} */
       const out = { pid: r.pid, chess: r.chess, pct: Math.max(1, Math.min(100, Math.floor((r.d * 100) / pool.maxHp + 1e-9))) };
       const ps = byPid.get(r.pid);
       const pick = ps && typeof ps.diyPickOf === 'function' ? ps.diyPickOf(r.chess) : null;
@@ -138,6 +148,7 @@ export class MatchViews {
    * `slots` its equipment slots when they are not two (the bar is then left out, as on the field). Display
    * only, no rule reads it. Sorted by tier, elites first, then the board's order; [] once eliminated.
    * [ASSUMED·화면: the official row's pieces — the board only, not the 整备区 — and their order]
+   * @param {PlayerState} ps
    * @returns {Array<{ char: string, avatar?: string, tier: number, golden?: true, equip?: number[], slots?: number }>}
    * @this {Match}
    */
@@ -152,13 +163,14 @@ export class MatchViews {
       const rec = chess ? ps.fieldRecord(chess) : null;
       const char = (rec && rec.charId) || piece.id;
       const avatar = rec && rec.assets && rec.assets.avatar;
+      /** @type {{ char: string, avatar?: string, tier: number, golden?: true, equip?: number[], slots?: number }} */
       const v = { char, tier: rec && Number.isInteger(rec.tier) ? rec.tier : 1 };
       if (avatar && avatar !== char) v.avatar = avatar;
       if (rec && rec.isGolden) v.golden = true;
       // the field's equipment bar (render/hud-bars.js EquipBar): one pill per item, 1 = a golden item's gold pill; the
       // slots only past the usual two (an operator with more shows no bar, as on the field)
       if (Array.isArray(piece.items) && piece.items.length) {
-        v.equip = piece.items.map((it) => (gd.isGolden(it && it.id) ? 1 : 0));
+        v.equip = piece.items.map((/** @type {Piece | null} */ it) => (gd.isGolden(it && it.id) ? 1 : 0));
         const slots = gd.equipSlotsOf(piece.id);
         if (slots !== 2) v.slots = slots;
       }
@@ -168,7 +180,7 @@ export class MatchViews {
     return out.map((x) => x.v);
   }
 
-  /** @this {Match} */
+  /** @param {{ playerId: string }} ps @this {Match} */
   fieldOf(ps) {
     const f = this.fields.find((x) => x.players.includes(ps.playerId));
     return f ? f.fieldId : null;
@@ -176,7 +188,7 @@ export class MatchViews {
 
   /** @this {Match} */
   publicView() {
-    /** @type {Record<string, any>} the fixed keys here, the phase's own ones added below */
+    /** @type {PublicFrame} the fixed keys here, the phase's own ones added below */
     const v = {
       t: 'm.public',
       phase: this.phase,
@@ -243,6 +255,7 @@ export class MatchViews {
         ...(ps.skins && Object.keys(ps.skins).length ? { skins: ps.skins } : {}),
       })),
       fields: this.fields.map((f) => {
+        /** @type {{ fieldId: string, kind: string, players: string[], live: boolean, battleId?: string | null, surrendering?: true, surrenderVote?: Record<string, any>, progress?: Record<string, any> }} */
         const v = { fieldId: f.fieldId, kind: f.kind, players: f.players.slice(), live: !!f.live };
         v.battleId = this.surrenderToken(f);
         if (f.surrendering) v.surrendering = true;
@@ -257,7 +270,7 @@ export class MatchViews {
     };
     if (this.teamLp != null) v.teamLp = Math.max(0, Math.round(this.teamLp));
     // a boss round's pairs, drawn for this wave (pairPlayers): the client's boss-prep half and green team frame read them
-    if (this.bossWaves) v.bossPairs = this.bossWaves.map((w) => w.players.slice());
+    if (this.bossWaves) v.bossPairs = this.bossWaves.map((/** @type {{ players: string[] }} */ w) => w.players.slice());
     // a custom round plan (gamedata.js srcRound): the official round this one plays — the client reads the round's
     // config entry (timer gauges) at it; and a custom co-op prep's length (its gauge total, the config holds the official)
     if (this.gd.plan) v.srcRound = this.gd.srcRound(this.round);
@@ -289,7 +302,8 @@ export class MatchViews {
     const leaderTop = this._leaderTopView();
     if (leaderTop) v.leaderTop = leaderTop;
     // 确定自选编队 (规程, diyChoose.js): the step's length (the countdown gauge's total; 0 when untimed); deadline = its end
-    if (this.phase === PHASE.DIY_CHOOSE) v.diyChoose = { seconds: this.soloUntimed ? 0 : this.scaled(this.gd.diyChoose.seconds * 1000) / 1000 };
+    // (GameData.diyChoose is set in a season with the step: DIY_CHOOSE runs only there)
+    if (this.phase === PHASE.DIY_CHOOSE) v.diyChoose = { seconds: this.soloUntimed ? 0 : this.scaled(/** @type {{ seconds: number }} */ (this.gd.diyChoose).seconds * 1000) / 1000 };
     if (this.phase === PHASE.BAND_DRAFT && this.draft) {
       const d = this.draft;
       // turnSeconds: the length of a turn (the countdown gauge's total; 0 when untimed) — deadline = turnDeadline
@@ -309,7 +323,7 @@ export class MatchViews {
         turn: this.spTurn(), picks: { ...s.picks }, taken: { ...s.taken }, untimed: !!s.untimed,
       };
     }
-    if (this.phase === PHASE.UNITE && this.unitePlan) v.unite = { helpers: this.unitePlan.helpers.map((p) => p.playerId), leakers: this.unitePlan.leakers.map((p) => p.playerId) };
+    if (this.phase === PHASE.UNITE && this.unitePlan) v.unite = { helpers: this.unitePlan.helpers.map((/** @type {PlayerState} */ p) => p.playerId), leakers: this.unitePlan.leakers.map((/** @type {PlayerState} */ p) => p.playerId) };
     // SETTLE after a 联防: its outcome as data (settle.js uniteResultView; GitHub #235, PR #112) — { through, helpers,
     // leakers, losses: { playerId: the LP settlement charged this round } } — the client's result box reads the viewer's
     // own charge from it; absent when no 联防 resolved (the client then shows the round's own battle result)
@@ -329,6 +343,7 @@ export class MatchViews {
    * b.progress `resolved`); it is `null` (never 0) while unknown, so the client's `resolved ?? killed` fallback holds.
    * `total` is the capsule's denominator: only the enemies the round scheduled (runtime splits / summons — boss summons
    * included — are in neither part).
+   * @param {MatchField | null | undefined} f
    * @this {Match}
    */
   _fieldProgress(f) {
@@ -373,12 +388,13 @@ export class MatchViews {
    * enemies still standing on the 联防 field (_uniteLeft, uncapped in `uniteLeft`, user playtest #6 item 7), anyone
    * else's own battle count (0: they were perfect). Omitted when 0 and in every other phase (boss rounds charge the
    * merged team LP live).
+   * @param {PlayerState | null | undefined} ps
    * @returns {{ pendingLp?: number, uniteLeft?: number }}
    * @this {Match}
    */
   _pendingLpView(ps) {
     if (!ps || !ps.alive || (this.phase !== PHASE.COMBAT && this.phase !== PHASE.UNITE)) return {};
-    const counted = (r) => (r && Array.isArray(r.leaked) ? r.leaked.filter((l) => l && l.counted !== false).length : 0);
+    const counted = (/** @type {{ leaked?: unknown } | null | undefined} */ r) => (r && Array.isArray(r.leaked) ? r.leaked.filter((l) => l && l.counted !== false).length : 0);
     // 联防: a leaker's enemies still standing on the 联防 field (uncapped), the loss capped like settle()
     const left = this._uniteLeft(ps);
     if (left != null) {
@@ -398,6 +414,7 @@ export class MatchViews {
 
   /**
    * nextEnemies preview for m.private.
+   * @param {PlayerState} ps
    * @this {Match}
    */
   nextEnemiesFor(ps) {
@@ -410,8 +427,9 @@ export class MatchViews {
       // when the ruleset turns the preview on (shared/ruleset.js bossRoutePreview: 休闲); classic sends no path at all
       if (!this.ruleset.options.bossRoutePreview) return list;
       const lead = list.find((e) => e.boss && Array.isArray(e.start));
-      const paths = lead ? bossFieldPaths(this, g).filter((p) => p.enemyKey === lead.enemyKey).map((p) => p.pts) : [];
-      if (paths.length) lead.paths = paths;
+      const paths = lead ? bossFieldPaths(this, g).filter((/** @type {{ enemyKey: string }} */ p) => p.enemyKey === lead.enemyKey).map((/** @type {{ pts: number[][] }} */ p) => p.pts) : [];
+      // (paths only when there is a lead)
+      if (paths.length) /** @type {NonNullable<typeof lead>} */ (lead).paths = paths;
       return list;
     }
     if (!this.wave) return [];
@@ -421,6 +439,7 @@ export class MatchViews {
 
   /**
    * The outfit of a scouted piece (like the sim's UnitInfo.skin): its player's for the operator, a summon its owner's.
+   * @param {PlayerState} ps @param {Piece} piece
    * @this {Match}
    */
   _skinInfo(ps, piece) {
@@ -430,6 +449,7 @@ export class MatchViews {
 
   /**
    * A 自选 piece's pick (like the sim's UnitInfo.diy): a scout's card composes the operator from it (shared/diy.js).
+   * @param {PlayerState} ps @param {Piece} piece
    * @this {Match}
    */
   _diyInfo(ps, piece) {
@@ -440,12 +460,14 @@ export class MatchViews {
   /** The 外勤医疗 reserve medic already standing on each player's field in preparation. Touch replaces it only at
    * battleStart, so the prep view always uses the reserve medic, regardless of the current elite count. The stage's
    * normal-board slot is transformed to the correct half of a boss field by _onBossHalf / the client prep camera.
+   * @param {PlayerState | null | undefined} ps
+   * @returns {Array<Record<string, any>>}
    * @this {Match}
    */
   prepMapChars(ps) {
     if (!ps?.alive || this.phase !== PHASE.PREP || !this.order.some((p) => p.alive && (p.bandId === 'band_amedic' || p.bandCommand === 'band_amedic'))) return [];
     const id = 'char_605_cmedic';
-    const slot = this.stage?.mapChars?.find((m) => m?.key === id && Array.isArray(m.pos) && m.pos[0] >= 9 && m.pos[0] <= 12
+    const slot = this.stage?.mapChars?.find((/** @type {{ key?: string, pos?: unknown, alias?: unknown } | null} */ m) => m?.key === id && Array.isArray(m.pos) && m.pos[0] >= 9 && m.pos[0] <= 12
       && m.pos[1] >= 0 && m.pos[1] <= 10 && !/multi_only/.test(String(m.alias)));
     const rec = this.gd.token(id);
     if (!slot || !rec) return [];
@@ -460,6 +482,7 @@ export class MatchViews {
 
   /** UnitInfo of a player's board pieces on their (board) tiles — a prep scout's board, the boss partner's (bossMateView).
    *  `area: 'board'` (a bench unit says 'hand' / 'temp': prepFieldMeta).
+   * @param {PlayerState} ps
    * @this {Match}
    */
   _prepBoardUnits(ps) {
@@ -484,7 +507,7 @@ export class MatchViews {
         skillIndex: lo && Number.isInteger(lo.skillIndex) ? lo.skillIndex : undefined,
         moduleId: lo && typeof lo.moduleId === 'string' ? lo.moduleId : undefined,
         // the equipped items (like the sim's UnitInfo): a 变形同构体 wearer shows as a member of the bond it grants
-        items: piece.kind === 'chess' && Array.isArray(piece.items) && piece.items.length ? piece.items.map((it) => it.id) : undefined,
+        items: piece.kind === 'chess' && Array.isArray(piece.items) && piece.items.length ? piece.items.map((/** @type {Piece} */ it) => it.id) : undefined,
         standInFor: rec && rec.standInFor ? rec.standInFor : undefined,
         diy: this._diyInfo(ps, piece),
         // operator skins: THIS player's outfit for the piece (a summon wears its owner's: tokenSkin), like UnitInfo.skin
@@ -498,6 +521,7 @@ export class MatchViews {
   /**
    * A boss round's prep (最终攻势 / 隐秘核心: the pairing planned, no field up yet): the other player of `ps`'s pair as
    * { mate: PlayerState, side: its half 'L' | 'R' }, else null (a lone player, any other phase).
+   * @param {PlayerState | null | undefined} ps
    * @returns {{ mate: PlayerState, side: 'L'|'R' } | null}
    * @this {Match}
    */
@@ -506,7 +530,7 @@ export class MatchViews {
     const g = this.bossGroupOf(ps);
     const pid = g && g.players.length > 1 ? g.players.find((x) => x !== ps.playerId) : null;
     const mate = pid ? this.players.get(pid) : null;
-    return mate ? { mate, side: g.side === 'R' ? 'L' : 'R' } : null;
+    return mate ? { mate, side: /** @type {NonNullable<typeof g>} */ (g).side === 'R' ? 'L' : 'R' } : null;
   }
 
   /**
@@ -514,6 +538,7 @@ export class MatchViews {
    * half of the boss field, as the battle will place it (bossFieldPlacement: the right half mirrored, RIGHT ↔ LEFT) — the
    * own prep view draws it beside the own half, read-only, as the official prep shows both players of a pair together
    * (the official client knows every board: ChangePositionDn { boardStatus }, research 09). Null otherwise.
+   * @param {PlayerState | null | undefined} ps
    * @returns {{ playerId: string, side: 'L'|'R', units: object[] } | null}
    * @this {Match}
    */
@@ -525,6 +550,7 @@ export class MatchViews {
 
   /** UnitInfo list of a player's board and hand (prep scouting): board pieces on their tiles, held pieces on the
    *   hand row (row 7) — the scout renders like the own prep bench.
+   * @param {PlayerState} ps
    * @this {Match}
    */
   prepFieldMeta(ps) {
@@ -541,7 +567,7 @@ export class MatchViews {
     // counts it like the player's own (ui/watchBonds.js ownerBoard — a hand operator is owned and counts for 投资人 远见
     // 奇迹, a temp one counts for nothing; GitHub #385, PR #387). The tag survives the boss-half remap (_onBossHalf), the
     // row does not.
-    const benchUnit = (piece, i, y, area) => units.push(this._benchUnit(ps, piece, i, y, area));
+    const benchUnit = (/** @type {Piece} */ piece, /** @type {number} */ i, /** @type {number} */ y, /** @type {string} */ area) => units.push(this._benchUnit(ps, piece, i, y, area));
     for (let i = 0; i < ps.hand.length; i++) {
       if (ps.hand[i]) benchUnit(ps.hand[i], i, GEO.HAND_ROW, 'hand');
     }
@@ -550,6 +576,7 @@ export class MatchViews {
     }
     // `nextEnemies`: the scouted player's coming enemies — their preview pen shows on the scouting board too (research 09
     // §2.2 "Teammates"; render/app.js enterBattle({ prep: true, nextEnemies }))
+    /** @type {ReturnType<MatchViews['nextEnemiesFor']>} */
     let nextEnemies = [];
     try { nextEnemies = this.nextEnemiesFor(ps); } catch (e) { this.reportError('nextEnemies', e); }
     // the scouted player's effects column (策略 / 机变 / 悬赏 …), display-ready (user playtest #2: while scouting, the
@@ -570,6 +597,7 @@ export class MatchViews {
 
   /**
    * UnitInfo of a held piece (a hand or temp slot): the prep scout's bench (prepFieldMeta) and a battle's (battleBench).
+   * @param {PlayerState} ps @param {Piece} piece @param {number} i @param {number} y @param {string} area
    * @this {Match}
    */
   _benchUnit(ps, piece, i, y, area) {
@@ -605,15 +633,17 @@ export class MatchViews {
    * list is taken once per field. Empty in a season without the switch, on a 联防 field and for items (the 装备区 is
    * the temp row). [ASSUMED·화면: the boss / 隐秘核心 field's bench and summon packs — the screenshots show a normal
    * field's operators only]
+   * @param {MatchField | null | undefined} f
    * @this {Match}
    */
   battleBench(f) {
     if (!f || !seasonFeature(this.season, 'benchInBattle') || f.kind === 'unite') return [];
     if (Array.isArray(f.bench)) return f.bench;
     const boss = f.kind === 'boss' || f.kind === 'hidden';
+    /** @type {Array<Record<string, any>>} */
     const out = [];
     for (const p of (f.spec && Array.isArray(f.spec.players) ? f.spec.players : [])) {
-      const ps = p && this.players.get(p.playerId);
+      const ps = /** @type {PlayerState | undefined} */ (p && this.players.get(p.playerId));
       if (!ps || !Array.isArray(ps.hand)) continue;
       ps.hand.forEach((piece, i) => {
         if (!piece || piece.kind === 'item') return;
@@ -627,10 +657,12 @@ export class MatchViews {
 
   /**
    * A prep UnitInfo (board, bench or temp row) placed on side 'L' | 'R' of the boss field (bossFieldPlacement).
+   * @param {Record<string, any>} u @param {'L'|'R'} side
    * @this {Match}
    */
   _onBossHalf(u, side) {
     const p = bossFieldPlacement(side, u.y, u.x, u.dir || 'RIGHT');
+    /** @type {Record<string, any>} */
     const v = { ...u, x: p.col, y: p.row };
     // a board piece keeps facing the same way relative to the leader (mirrored on the right half); a bench piece has no
     // stored facing (it faces right, as the own prep bench draws it)

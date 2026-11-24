@@ -162,7 +162,7 @@ export class SharedPool {
   /**
    * Copy-weighted roll: one copy uniformly among remaining copies of eligible chess. Returns a base id or null.
    * @param {Function} rng
-   * @param {{ maxTier?: number, tier?: number|null, filter?: (id: string, e: object) => boolean,
+   * @param {{ maxTier?: number, tier?: number|null, filter?: (id: string, e: { left: number, tier: number }) => boolean,
    *   extra?: Iterable<[string, { left: number, tier: number }]>|null, ignoreCounts?: boolean }} [opts]
    */
   roll(rng, opts = {}) {
@@ -193,6 +193,8 @@ export class SharedPool {
    * Item roll for the shop's item slot: tier by the chess tier shares at this level, uniform item within the tier,
    * falling back to lower tiers when a tier has no item. With `stock` (SharedItemPool) an item the shared equipment
    * stock cannot cover is left out of its tier first. Returns an item id or null.
+   * @param {Function} rng @param {number} maxTier @param {SharedItemPool | null} [stock]
+   * @returns {string | null}
    */
   rollItem(rng, maxTier, stock = null) {
     const shares = this.tierShares(maxTier);
@@ -272,10 +274,12 @@ export class SharedItemPool {
   /**
    * One id of `ids` the stock can cover: uniform, or by `weights` (Map id → weight). The stock gates eligibility, not
    * probability — the measured table alone does not give shop odds.
+   * @param {Function} rng @param {string[]} ids @param {Map<string, number> | null} [weights]
+   * @returns {string | null}
    */
   pick(rng, ids, weights = null) {
     const list = [...new Set(ids)].filter((id) => this.canGain(id));
-    const pairs = list.map((id) => [id, weights ? Math.max(0, Number(weights.get(id)) || 0) : 1]);
+    const pairs = list.map((id) => /** @type {[string, number]} */ ([id, weights ? Math.max(0, Number(weights.get(id)) || 0) : 1]));
     const total = pairs.reduce((n, p) => n + p[1], 0);
     if (!(total > 0)) return null;
     let r = rng() * total;

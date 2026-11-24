@@ -4,6 +4,7 @@
 // the player state).
 
 /** @import { PlayerState } from '../PlayerState.js' */
+/** @import { Piece } from './pieces.js' */
 import { PHASE } from '../../../shared/constants.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
@@ -12,6 +13,7 @@ import { hasShowTag, garrisonShowValue, itemShowValue } from '../../../shared/sh
 
 /** The 特质 records whose text carries 「{showtag_value_1}」 (规程: ten 特质, normal and elite), per game data. */
 const SHOW_TAG_GARRISONS = new WeakMap();
+/** @param {import('../gamedata.js').GameData} gd */
 function showTagGarrisons(gd) {
   let list = SHOW_TAG_GARRISONS.get(gd);
   if (!list) {
@@ -41,9 +43,14 @@ export class PlayerViews {
     return owner && owner.kind === 'chess' ? this.pieceSkin(owner) : null;
   }
 
-  /** @this {PlayerState} */
+  /** @param {Piece} p @param {number[] | null} [rc] the board tile [row, col] @this {PlayerState} */
   pieceView(p, rc = null) {
     const rec = p.kind === 'item' ? this.gd.item(p.id) : p.kind === 'token' ? this.gd.token(p.id) : this.gd.chess(p.id);
+    /**
+     * @type {{ uid: number, kind: string, id: string, golden: boolean, tier: number | null, items: { uid: number, id: string }[],
+     *   count: number, ownerUid: number | null, skin?: string, sellPrice?: number, row?: number, col?: number, dir?: string,
+     *   showTag?: number }}
+     */
     const v = {
       uid: p.uid,
       kind: p.kind,
@@ -64,7 +71,7 @@ export class PlayerViews {
     // 定期存折's funds now — its card's 「{showtag_value_1}」 (shared/showTag.js; items/meta.js pays the same number)
     if (p.kind === 'item' && hasShowTag(rec?.desc)) {
       const n = itemShowValue(rec, Number.isInteger(p.boughtRound) ? this.m.round - p.boughtRound : 0);
-      if (Number.isFinite(n)) v.showTag = n;
+      if (Number.isFinite(n)) v.showTag = /** @type {number} */ (n);
     }
     return v;
   }
@@ -87,6 +94,7 @@ export class PlayerViews {
         out.push(dolls);
         continue;
       }
+      /** @type {{ id: string, name: string, desc: string, iconKind: string, iconId: string, effectId?: string, counter?: unknown }} */
       const v = { id: e.id, name: e.name || e.id, desc: e.desc || '', iconKind: e.iconKind || 'choice', iconId: e.iconId || e.id };
       // the record the text was copied from: a 机变 card's entry is `<effectId>#<n>` with the card type's icon
       // (icon_team_buff …), neither of them a record id — ui/effectsList.js effectDesc localizes the text by it
@@ -114,11 +122,12 @@ export class PlayerViews {
    * @this {PlayerState}
    */
   showTagsView() {
-    const st = { round: this.round, counter: (k) => (Number.isFinite(this.counters?.[k]) ? this.counters[k] : 0) };
+    const st = { round: this.round, counter: (/** @type {string} */ k) => (Number.isFinite(this.counters?.[k]) ? this.counters[k] : 0) };
+    /** @type {Record<string, number>} */
     const out = {};
     for (const g of showTagGarrisons(this.gd)) {
       const v = garrisonShowValue(g, st);
-      if (Number.isFinite(v)) out[g.garrisonId] = v;
+      if (Number.isFinite(v)) out[g.garrisonId] = /** @type {number} */ (v);
     }
     return out;
   }

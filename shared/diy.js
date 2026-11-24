@@ -93,6 +93,8 @@ function diyOf(data) {
  * data lacks it) and both records. Null for any other id.
  * @param {string} slotId a slot's normal (`_a`) or elite (`_b`) id
  * @param {DiyData|null|undefined} data
+ * @typedef {{ baseId: string, goldenId: string, tier: number, shopLevel: number, elite: boolean,
+ *   normal: ReturnType<typeof chessOf>, golden: ReturnType<typeof chessOf> }} DiySlot
  */
 export function diySlot(slotId, data) {
   const diy = diyOf(data);
@@ -101,7 +103,8 @@ export function diySlot(slotId, data) {
   const s = baseId ? diy.slots[baseId] : null;
   if (!s) return null;
   const shopLevel = Number.isInteger(s.shopLevel) && s.shopLevel > 0 ? s.shopLevel : s.tier;
-  return { baseId, goldenId: s.goldenId, tier: s.tier, shopLevel, elite: slotId !== baseId, normal: chessOf(data, /** @type {string} */ (baseId)), golden: chessOf(data, s.goldenId) };
+  // (`baseId` is a slot's id here: `s` came from it)
+  return /** @type {DiySlot} */ ({ baseId, goldenId: s.goldenId, tier: s.tier, shopLevel, elite: slotId !== baseId, normal: chessOf(data, /** @type {string} */ (baseId)), golden: chessOf(data, s.goldenId) });
 }
 
 /** The base ids of the 自选 slots (data order: tier 5 then tier 6). @param {DiyData|null|undefined} data @returns {string[]} */

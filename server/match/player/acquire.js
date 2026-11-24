@@ -6,6 +6,17 @@
 // the player state).
 
 /** @import { PlayerState } from '../PlayerState.js' */
+/** @import { Piece, PieceLoc } from './pieces.js' */
+/**
+ * The piece a merge is gaining, not stowed yet, beside the owned copies it consumes (`area: 'new'`).
+ * @typedef {{ piece: Piece, area: 'new', idx?: undefined, key?: undefined, holder?: undefined }} NewLoc
+ */
+/**
+ * A queued pick-one offer (pushRewardOffer, pushItemOffer, effects): its tier, `source` ('merge' = the promotion reward),
+ * the bar's `label` and its cards at their price; `seq` its number (server/local-patch.js: a new one plays the clip).
+ * @typedef {{ tier: number | null, source: string, label: string | null,
+ *   slots: Array<{ kind: string, id: string, price: number, sold: boolean }>, seq?: number }} Offer
+ */
 import { pieceDir, parseDir, mergeTile } from '../board.js';
 import { MAX_OFFER_SLOTS } from './common.js';
 import { onMerge } from '../botEmotes.js';
@@ -13,6 +24,7 @@ import { onMerge } from '../botEmotes.js';
 export class PlayerAcquire {
   /**
    * Normal copies of a base chess currently owned (board/hand/temp).
+   * @param {string} baseId
    * @this {PlayerState}
    */
   countCopies(baseId) {
@@ -26,6 +38,7 @@ export class PlayerAcquire {
 
   /**
    * Would acquiring one more normal copy of `chessId` complete a merge?
+   * @param {string} chessId
    * @this {PlayerState}
    */
   completesChessMerge(chessId) {
@@ -42,6 +55,7 @@ export class PlayerAcquire {
    * elite when a merge happened, research 01 §7 "1+1+2"). Returns the owned piece (the elite after a merge) or null.
    * @param {string} chessId
    * @param {{ source?: string, toTemp?: boolean, fromPool?: boolean, silent?: boolean }} [opts]
+   * @returns {Piece | null}
    * @this {PlayerState}
    */
   acquireChess(chessId, { source = 'grant', toTemp = false, fromPool = true, silent = false } = {}) {
@@ -54,6 +68,7 @@ export class PlayerAcquire {
     const taken = fromPool ? this.poolOf(base).take(base, need, { overdraw: true }) : 0;
     const piece = this.newPiece('chess', chessId, { poolCopies: taken });
     this.round.gainedChess++;
+    /** @type {Piece | null} */
     let owned = piece;
     if (!rec.isGolden && this.completesChessMerge(chessId)) {
       owned = this._mergeChess(base, piece);
@@ -81,7 +96,8 @@ export class PlayerAcquire {
    * gets its own summon stack (grantTokensFor: its loadout, like any deployment). Returns the elite piece,
    * or null when the recipe is invalid or there are too few normal copies.
    * @param {string} baseId
-   * @param {any} incoming the acquired, not yet stowed copy (null: only owned copies)
+   * @param {Piece | null} incoming the acquired, not yet stowed copy (null: only owned copies)
+   * @returns {Piece | null}
    * @this {PlayerState}
    */
   _mergeChess(baseId, incoming) {
@@ -89,7 +105,7 @@ export class PlayerAcquire {
     const goldenId = this.gd.goldenIdOf(baseId);
     if (!(need > 1) || !goldenId) return null;
     const locs = this._chessLocations().filter((l) => !this.gd.isGolden(l.piece.id) && this.gd.baseIdOf(l.piece.id) === baseId);
-    /** @type {Array<{ piece: any, area: string, idx?: number, key?: string, holder?: any }>} the copies; `area: 'new'` = the incoming piece */
+    /** @type {Array<PieceLoc | NewLoc>} the copies; `area: 'new'` = the incoming piece */
     const consumed = [];
     if (incoming) consumed.push({ piece: incoming, area: 'new' });
     for (const l of locs) { if (consumed.length >= need) break; consumed.push(l); }
@@ -116,8 +132,8 @@ export class PlayerAcquire {
     copies += this.poolOf(baseId).take(baseId, Math.max(0, this.gd.goldenCopies - copies), { overdraw: true });
     const elite = this.newPiece('chess', goldenId, { poolCopies: copies });
     if (raised > 0) elite.sellPrice = this._raisedSellPrice(goldenId, raised);
-    const deployed = consumed.filter((l) => l.key && !this.board.has(l.key)).map((l) => ({ key: l.key, dir: pieceDir(l.piece) }));
-    const toTile = (t) => { elite.dir = parseDir(t.dir) || 'RIGHT'; this.board.set(t.key, elite); return 'board'; };
+    const deployed = consumed.filter((l) => l.key && !this.board.has(l.key)).map((l) => ({ key: /** @type {string} */ (l.key), dir: pieceDir(l.piece) }));
+    const toTile = (/** @type {{ key: string, dir?: string }} */ t) => { elite.dir = parseDir(t.dir) || 'RIGHT'; this.board.set(t.key, elite); return 'board'; };
     const tile = mergeTile(deployed, (r, c) => this._legal(elite, r, c));
     const where = tile ? toTile(tile) : this.stow(elite, { allowTemp: true });
     for (const it of items) this.stow(it, { allowTemp: true });
@@ -158,6 +174,7 @@ export class PlayerAcquire {
 
   /**
    * Promote a normal chess piece to its elite in place (升华, 博士投影). Takes the elite's extra pool copies, past the stock.
+   * @param {Piece | null | undefined} piece
    * @this {PlayerState}
    */
   promote(piece) {
@@ -214,6 +231,7 @@ export class PlayerAcquire {
    * piece already occupies one, so the upgrade fails (the caller keeps its charge) when no second copy is free
    * (upstream 6bfc0827). A trait-produced piece (noPool, see acquireItem) holds no shared copy: its golden inherits
    * the marker and never waits (upstream PR #496).
+   * @param {Piece} piece
    * @this {PlayerState}
    */
   upgradeItem(piece) {
@@ -234,16 +252,19 @@ export class PlayerAcquire {
    * the user's first-hand report; the normal shop's slots may repeat). The offer reserves no copies (the pick takes one).
    * The player's slotted 自选 pieces join the draw like in its shop (player/diy.js diyRollEntries: once the 调度中心 is at
    * the slot's level) — the reward is a temporary refresh of the shop ("临时刷新3名…干员") [ASSUMED].
+   * @param {string} [source]
+   * @param {{ tier?: number | null, ids?: string[] | null, label?: string | null }} [opts]
    * @this {PlayerState}
    */
   pushRewardOffer(source = 'merge', { tier = null, ids = null, label = null } = {}) {
     const ro = this.gd.rewardOffer();
-    const t = Number.isInteger(tier) ? tier : Math.min(this.shop.level + ro.tierOffset, ro.maxTier);
+    const t = Number.isInteger(tier) ? /** @type {number} */ (tier) : Math.min(this.shop.level + ro.tierOffset, ro.maxTier);
     // an offer never shows one operator twice, whoever built the list (user playtest #6 item 19)
     let list = Array.isArray(ids) ? [...new Set(ids)].filter((id) => this.gd.chess(id)) : null;
     if (!list) {
       list = [];
-      const fresh = (id) => !list.includes(id);
+      // (`list` is the array just made: the closure does not see it narrowed)
+      const fresh = (/** @type {string} */ id) => !/** @type {string[]} */ (list).includes(id);
       for (let i = 0; i < ro.count; i++) {
         let id = null;
         for (let tt = t; tt >= 1 && !id; tt--) id = this.m.pool.roll(this.m.rngShop, { tier: tt, filter: fresh, extra: this.diyStockEntries() }); // local patch: the reward's own tier rule, no 调度中心 gate (maintainer decision 2026-10-07: a 4 → V reward offers a tier-V 自选 pick too)
@@ -260,6 +281,8 @@ export class PlayerAcquire {
   /**
    * Queue a free pick-one offer of items (凯瑟琳 定向投放, 娜仁图亚 见者有份); shown as shop.rewardOffer with slots of kind
    * 'item' under its `label` (the effect's name; player report #6 after 0.1.0).
+   * @param {unknown} ids
+   * @param {{ source?: string, tier?: number | null, label?: string | null }} [opts]
    * @this {PlayerState}
    */
   pushItemOffer(ids, { source = 'effect', tier = null, label = null } = {}) {
@@ -273,6 +296,7 @@ export class PlayerAcquire {
 
   /**
    * Item merge candidates: normal, mergeable, with a golden version.
+   * @param {string} id
    * @this {PlayerState}
    */
   _itemMergeable(id) {
@@ -284,8 +308,9 @@ export class PlayerAcquire {
     return !!(gid && this.gd.item(gid));
   }
 
-  /** @this {PlayerState} */
+  /** @param {string} id @returns {PieceLoc[]} @this {PlayerState} */
   _itemLocations(id) {
+    /** @type {PieceLoc[]} */
     const out = [];
     for (let i = 0; i < this.temp.length; i++) if (this.temp[i] && this.temp[i].kind === 'item' && this.temp[i].id === id) out.push({ piece: this.temp[i], area: 'temp', idx: i });
     for (let i = 0; i < this.hand.length; i++) if (this.hand[i] && this.hand[i].kind === 'item' && this.hand[i].id === id) out.push({ piece: this.hand[i], area: 'hand', idx: i });
@@ -293,7 +318,7 @@ export class PlayerAcquire {
     return out;
   }
 
-  /** @this {PlayerState} */
+  /** @param {string} id @this {PlayerState} */
   completesItemMerge(id) {
     if (!this._itemMergeable(id)) return false;
     const rec = this.gd.item(id);
@@ -316,6 +341,9 @@ export class PlayerAcquire {
    * must stay gated (#466: any acquisition occupies, a third 商业包装方案 must fail), and a gate-skipped-but-counted
    * grant would break the held ≤ cap invariant. A golden inherits the marker only when every consumed copy was
    * exempt; 整备 of an exempt piece never waits for a second stock copy.
+   * @param {string} itemId
+   * @param {{ source?: string, toTemp?: boolean, silent?: boolean, deferMerge?: boolean, noPool?: boolean }} [opts]
+   * @returns {Piece | null}
    * @this {PlayerState}
    */
   acquireItem(itemId, { source = 'grant', toTemp = false, silent = false, deferMerge = false, noPool = false } = {}) {
@@ -326,6 +354,7 @@ export class PlayerAcquire {
       this.m.toast(this, 'warn', '装备库存不足，未获得该装备');
       return null;
     }
+    /** @type {Piece | null} */
     let piece = this.newPiece('item', itemId, noPool ? { noPool: true } : {});
     // A prep-end grant may sit beside an identical copy until the next prep. The invariant counts only copies
     // without this mark, so the fight that is about to start is not reported as a missed merge.
@@ -344,11 +373,12 @@ export class PlayerAcquire {
     return piece;
   }
 
-  /** @this {PlayerState} */
+  /** @param {string} itemId @param {Piece | null} [incoming] @returns {Piece | null} @this {PlayerState} */
   _mergeItem(itemId, incoming = null) {
     const rec = this.gd.item(itemId);
     const need = Number.isInteger(rec.upgradeNum) ? rec.upgradeNum : this.gd.itemMergeCount;
     const locs = this._itemLocations(itemId);
+    /** @type {Array<PieceLoc | NewLoc>} */
     const consumed = incoming ? [{ piece: incoming, area: 'new' }] : [];
     for (const l of locs) { if (consumed.length >= need) break; consumed.push(l); }
     if (consumed.length < need) return null;
@@ -368,6 +398,7 @@ export class PlayerAcquire {
   /**
    * 规程's 组合 (items.json fuseWith / fuseResult, trapChessDataDict canFuse): the owned copy of `id`'s partner — hand,
    * temp or equipped, a prep-end grant still waiting (deferMerge) left out — or null.
+   * @param {string} id
    * @this {PlayerState}
    */
   _fusionPartner(id) {
@@ -375,7 +406,7 @@ export class PlayerAcquire {
     return f ? this._itemLocations(f.with).find((l) => !l.piece.deferMerge) || null : null;
   }
 
-  /** @this {PlayerState} */
+  /** @param {string} id @this {PlayerState} */
   completesItemFusion(id) { return !!this._fusionPartner(id); }
 
   /**
@@ -385,14 +416,17 @@ export class PlayerAcquire {
    * owning (定期存折's "持有时每回合+1" is the copy in the hand), not both worn by one operator. The result holds the
    * parts' stock copies the way a merged 进阶 copy does (_mergeItem). `incoming`: the piece being gained (not yet stowed);
    * null fuses an owned copy of `itemId`.
+   * @param {string} itemId @param {Piece | null} [incoming]
+   * @returns {Piece | null}
    * @this {PlayerState}
    */
   _fuseItem(itemId, incoming = null) {
     const f = this.gd.fusionOf(itemId);
     if (!f) return null;
-    const own = incoming ? { piece: incoming, area: 'new' } : this._itemLocations(itemId).find((l) => !l.piece.deferMerge);
+    const own = /** @type {PieceLoc | NewLoc | undefined} */ (incoming ? { piece: incoming, area: 'new' } : this._itemLocations(itemId).find((l) => !l.piece.deferMerge));
     const partner = this._fusionPartner(itemId);
     if (!own || !partner) return null;
+    /** @type {Array<PieceLoc | NewLoc>} */
     const consumed = [own, partner];
     for (const l of consumed) if (l.area !== 'new') this._detach(l);
     const pooled = consumed.filter((l) => !l.piece.noPool).reduce((n, l) => n + this.m.itemPool.copiesOf(l.piece), 0);
@@ -415,7 +449,7 @@ export class PlayerAcquire {
     const limit = this.hand.length + this.temp.length + this.allChess().reduce((n, p) => n + (p.items || []).length, 0);
     for (let guard = 0; guard < limit; guard++) {
       const counts = new Map();
-      const scan = (p) => { if (p && p.kind === 'item' && this._itemMergeable(p.id)) counts.set(p.id, (counts.get(p.id) || 0) + 1); };
+      const scan = (/** @type {Piece | null} */ p) => { if (p && p.kind === 'item' && this._itemMergeable(p.id)) counts.set(p.id, (counts.get(p.id) || 0) + 1); };
       for (const p of this.hand) scan(p);
       for (const p of this.temp) scan(p);
       for (const holder of this.allChess()) for (const it of holder.items || []) scan(it);

@@ -418,7 +418,7 @@ export function buildNormalWave(gd, rng, factions, round) {
 /**
  * Boss / hidden round template for one boss field; escorts follow the pick of the round's own slot.
  * @param {any} gd @param {any} rng @param {any} factions @param {number} round
- * @param {{ bossId: string, solo: boolean }} opts solo → `_s` template (lone player or solo mode)
+ * @param {{ bossId: string | null, solo: boolean }} opts solo → `_s` template (lone player or solo mode)
  */
 export function buildBossWave(gd, rng, factions, round, { bossId, solo }) {
   const rc = gd.roundCfg(round);
@@ -497,7 +497,9 @@ function hostAction(gd, wave, { fly, token = false }) {
  * combined list. Bounties of several battles (`rounds` > 1: "接下来两场作战", and the multi-round cards, which last
  * choices.js MULTI_ROUND_BOUNTY_BATTLES) spawn in every battle of the player while they last — the Final Assault and the
  * Hidden Core included (`side`: the player's half of the boss field, see routeByMotion).
+ * @param {import('./gamedata.js').GameData} gd @param {number} round @param {Record<string, any>} wave the round's wave
  * @param {Array<{ id: string, card: object }>} bounties
+ * @param {string} playerId @param {{ solo?: boolean, side?: 'L'|'R'|null }} [opts]
  */
 export function bountySpawns(gd, round, wave, bounties, playerId, { solo = false, side = null } = {}) { // eslint-disable-line no-unused-vars
   return bountyPlan(gd, round, wave, bounties, playerId, side).specs;

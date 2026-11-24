@@ -5,6 +5,9 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 /** @import { Match } from '../Match.js' */
+/** @import { PlayerState } from '../PlayerState.js' */
+/** @import { SpDraft } from './common.js' */
+/** @import { ChessRecord } from '../../../shared/loadoutRecord.js' */
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { generateDraft, applyCard, bountyBattles, isMultiRoundBounty, bountyCard } from '../choices.js';
 import { onPickCard } from '../botEmotes.js';
@@ -41,12 +44,13 @@ export class MatchSpDraft {
     return s.order[s.idx] ?? null;
   }
 
-  /** @this {Match} */
+  /** @param {Record<string, any> | null | undefined} card a 机变 card of `sp.cards` @this {Match} */
   spCardAvailable(card) { return !!card && this.sp?.taken[card.idx] == null && (card.kind !== 'item' || this.itemPool.canGain(card.id)); }
 
   /** @this {Match} */
   startSpTurn() {
-    const s = this.sp;
+    // (called while the 机变 draft runs: enterSpDraft made it)
+    const s = /** @type {SpDraft} */ (this.sp);
     this.cancel(this._turnTimer);
     this._turnTimer = null;
     while (s.idx < s.order.length) {
@@ -62,7 +66,7 @@ export class MatchSpDraft {
       const secs = first ? this.gd.timer('spFirst') : this.gd.timer('spTurn');
       this.setDeadline(secs, () => {
         if (this.phase !== PHASE.SP_DRAFT || token !== this._turnToken) return;
-        const ps = this.players.get(this.spTurn());
+        const ps = this.players.get(/** @type {string} */ (this.spTurn()));
         if (!ps) return;
         const avail = s.cards.filter(c => this.spCardAvailable(c)).map(c => c.idx);
         if (!avail.length) { this.finishSpDraft(); return; }
@@ -72,7 +76,7 @@ export class MatchSpDraft {
     } else {
       this.setDeadline(0);
     }
-    const cur = this.players.get(this.spTurn());
+    const cur = this.players.get(/** @type {string} */ (this.spTurn()));
     if (cur && cur.botControlled) this.scheduleSpBot();
     this.markPublic();
   }
@@ -82,7 +86,7 @@ export class MatchSpDraft {
     const token = this._turnToken;
     this.later(this.scaled(DELAYS.BOT_ACTION), () => {
       if (this.phase !== PHASE.SP_DRAFT || token !== this._turnToken || !this.sp) return;
-      const ps = this.players.get(this.spTurn());
+      const ps = this.players.get(/** @type {string} */ (this.spTurn()));
       if (!ps || !ps.botControlled) return;
       const avail = this.sp.cards.filter(c => this.spCardAvailable(c)).map(c => c.idx);
       if (!avail.length) return;
@@ -90,7 +94,7 @@ export class MatchSpDraft {
     });
   }
 
-  /** @this {Match} */
+  /** @param {PlayerState} ps @param {number} idx @this {Match} */
   pickCard(ps, idx) {
     if (this.phase !== PHASE.SP_DRAFT || !this.sp) return fail(ERR.WRONG_PHASE);
     if (!ps.alive) return fail(ERR.ELIMINATED);
@@ -102,7 +106,7 @@ export class MatchSpDraft {
     return OK;
   }
 
-  /** @this {Match} */
+  /** @param {PlayerState} ps @param {number} idx @this {Match} */
   _applyCard(ps, idx) {
     const s = this.sp;
     if (!s || s.picks[ps.playerId] != null || !this.spCardAvailable(s.cards[idx])) return;
@@ -150,6 +154,7 @@ export class MatchSpDraft {
 
   /**
    * g.choice { idx, choiceId }: the owner's pick of its open personal choice — the card becomes a bounty on its next battles.
+   * @param {PlayerState} ps @param {number} idx @param {string | undefined} choiceId
    * @this {Match}
    */
   pickPersonalChoice(ps, idx, choiceId) {
@@ -172,20 +177,21 @@ export class MatchSpDraft {
    * 机变 draft (bot.js botPickCard: the expected pay minus the expected LP lost against the own board, the bots' seeded rng
    * only breaks ties); 'random': the prep's deadline and a seat the engine finishes by other means — one of the cards at
    * random from the meta rng, like a 机变 turn that runs out. Nothing pending: nothing happens, no rng draw.
+   * @param {PlayerState} ps @param {'bot' | 'random'} mode
    * @this {Match}
    */
   autoPickPersonalChoice(ps, mode) {
     const pending = ps.personalChoice;
     if (!pending) return undefined;
-    const indices = pending.cards.map((c, i) => i);
+    const indices = pending.cards.map((/** @type {unknown} */ c, /** @type {number} */ i) => i);
     let idx;
     if (mode !== 'bot') idx = this.rngMeta.pick(indices);
     else if (pending.kind === 'bandSkill') idx = botPickBandCommand(this, ps, pending.cards);
-    else idx = botPickCard(this, ps, pending.cards.map((c) => bountyCard(this.gd, c)), indices);
+    else idx = botPickCard(this, ps, pending.cards.map((/** @type {Record<string, any>} */ c) => bountyCard(this.gd, c)), indices);
     return this.pickPersonalChoice(ps, idx, pending.id);
   }
 
-  /** @this {Match} */
+  /** @param {PlayerState | null | undefined} ps @param {Record<string, any> | null | undefined} card a cards.bounty entry @this {Match} */
   addBounty(ps, card) {
     if (!ps || !card || !this.gd.enemy(card.enemyKey)) return null;
     // a multi-round card lasts MULTI_ROUND_BOUNTY_BATTLES battles (choices.js; the user's call after playtest #6)
@@ -205,33 +211,35 @@ export class MatchSpDraft {
    * draws shop-eligible items (an explicit `items` list, `tiers`, or every tier up to `maxTier`) plus the effect-only
    * ids it names in `plus` — items the shop never sells but the pool still carries (突变细胞 in 凯瑟琳's 定向投放).
    * `exclude` drops ids before the draw (凯瑟琳's spent cell allowance, the choices already drawn for the same offer).
+   * @param {{ pool?: string | null, tier?: number | null, maxTier?: number, shopLevel?: number, exclude?: string[] }} [opts]
+   * @returns {string | null}
    * @this {Match}
    */
   rollItemId({ pool = null, tier = null, maxTier = 6, shopLevel = 6, exclude = [] } = {}) {
     const pools = this.gd.choices.pools && typeof this.gd.choices.pools === 'object' ? this.gd.choices.pools : {};
     const p = typeof pool === 'string' && Object.hasOwn(pools, pool) ? pools[pool] : null;
     const rng = this.rngMeta;
-    const pick = (ids, weights = null) => this.itemPool.pick(rng, exclude.length ? ids.filter((id) => !exclude.includes(id)) : ids, weights);
-    const tierList = (lo, hi) => { const out = []; for (let t = lo; t <= hi; t++) for (const id of this.gd.shopItemsByTier[t] || []) out.push(id); return out; };
+    const pick = (/** @type {string[]} */ ids, /** @type {Map<string, number> | null} */ weights = null) => this.itemPool.pick(rng, exclude.length ? ids.filter((id) => !exclude.includes(id)) : ids, weights);
+    const tierList = (/** @type {number} */ lo, /** @type {number} */ hi) => { const out = []; for (let t = lo; t <= hi; t++) for (const id of this.gd.shopItemsByTier[t] || []) out.push(id); return out; };
     if (p && p.kind === 'equip') {
       // `plus` = effect-only ids the shop never sells (突变细胞): not in shopItemsByTier, and gd.itemPoolCopies is null
       // for them (gd.itemPoolCopies: effect-only items have no shop stock limit), so canGain always lets them through
-      const plus = Array.isArray(p.plus) ? p.plus.filter((id) => this.gd.item(id)) : [];
+      const plus = Array.isArray(p.plus) ? p.plus.filter((/** @type {string} */ id) => this.gd.item(id)) : [];
       if (Array.isArray(p.weighted) && p.weighted.length) {
         // a weighted pool names its own ids and weights, effect-only ones included — `plus` does not apply here
-        const pairs = p.weighted.filter((x) => Array.isArray(x) && this.gd.item(x[0]) && this.itemPool.canGain(x[0]));
-        return pick(pairs.map(x => x[0]), new Map(pairs));
+        const pairs = p.weighted.filter((/** @type {unknown} */ x) => Array.isArray(x) && this.gd.item(x[0]) && this.itemPool.canGain(x[0]));
+        return pick(pairs.map((/** @type {[string, number]} */ x) => x[0]), new Map(pairs));
       }
       if (Array.isArray(p.items) && p.items.length) {
-        const items = p.items.filter((id) => this.gd.item(id));
+        const items = p.items.filter((/** @type {string} */ id) => this.gd.item(id));
         return pick([...items, ...plus]);
       }
       let list;
-      if (Array.isArray(p.tiers) && p.tiers.length) list = p.tiers.flatMap((t) => this.gd.shopItemsByTier[t] || []);
+      if (Array.isArray(p.tiers) && p.tiers.length) list = p.tiers.flatMap((/** @type {number} */ t) => this.gd.shopItemsByTier[t] || []);
       else list = tierList(1, p.maxTier === 'shopLevel' ? Math.max(1, Math.min(6, shopLevel)) : 6);
       return pick([...list, ...plus]);
     }
-    const list = Number.isInteger(tier) ? tierList(tier, tier) : tierList(1, Math.max(1, Math.min(6, maxTier)));
+    const list = Number.isInteger(tier) ? tierList(/** @type {number} */ (tier), /** @type {number} */ (tier)) : tierList(1, Math.max(1, Math.min(6, maxTier)));
     return pick(list);
   }
 
@@ -241,6 +249,9 @@ export class MatchSpDraft {
    * pool filtered by `tier` / `minTier` / `maxTier` (number or 'shopLevel') / `bond`; `golden: true` yields the elite id.
    * `extra` (the drawing player's 自选 stock, player/diy.js diyStockEntries) joins that shared-pool draw, `chessOf` reads the
    * bonds (the player's data view: a slotted slot's operator) — 0.2.0 WE2.
+   * @param {string} poolId
+   * @param {{ shopLevel?: number, extra?: Iterable<[string, { left: number, tier: number }]> | null,
+   *   chessOf?: ((id: string) => ChessRecord | null | undefined) | null, exclude?: string[] }} [opts]
    * @returns {{ kind: 'item'|'chess', id: string, golden?: boolean } | null}
    * @this {Match}
    */
@@ -255,14 +266,14 @@ export class MatchSpDraft {
     }
     if (p.kind !== 'chess') return null;
     const rng = this.rngMeta;
-    const free = (id) => {
+    const free = (/** @type {unknown} */ id) => {
       if (typeof id !== 'string' || !this.gd.chess(id)) return false;
       const base = this.gd.baseIdOf(id);
       return !this.pool.has(base) || this.pool.left(base) > 0;
     };
     let id = null;
     if (Array.isArray(p.weighted) && p.weighted.length) {
-      const pairs = p.weighted.filter((x) => Array.isArray(x) && free(x[0]));
+      const pairs = p.weighted.filter((/** @type {unknown} */ x) => Array.isArray(x) && free(x[0]));
       id = pairs.length ? weightedPick(rng, pairs) : null;
     } else if (Array.isArray(p.items) && p.items.length) {
       const list = p.items.filter(free);
@@ -271,7 +282,7 @@ export class MatchSpDraft {
       const maxTier = p.maxTier === 'shopLevel' ? lvl : Number.isInteger(p.maxTier) ? p.maxTier : 6;
       const minTier = Number.isInteger(p.minTier) ? p.minTier : 1;
       const bond = typeof p.bond === 'string' ? p.bond : null;
-      const recOf = typeof chessOf === 'function' ? chessOf : (cid) => this.gd.chess(cid);
+      const recOf = typeof chessOf === 'function' ? chessOf : (/** @type {string} */ cid) => this.gd.chess(cid);
       id = this.pool.roll(rng, {
         tier: Number.isInteger(p.tier) ? p.tier : null,
         maxTier,
