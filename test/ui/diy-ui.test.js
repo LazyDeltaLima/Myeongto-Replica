@@ -32,6 +32,7 @@ const { ChessDetail, resolveDetail } = await import('../../public/js/ui/detailPa
 const { BondPopup } = await import('../../public/js/ui/bondStrip.js');
 const { ownerBoard } = await import('../../public/js/ui/watchBonds.js');
 const { standInPieces } = await import('../../public/js/screens/game/standInTags.js');
+const { FieldedThumb } = await import('../../public/js/ui/gameComponents.js');
 const { DiyPanelView, DiyPickerView, pickerStart, detailOpen, undoDetail } = await import('../../public/js/screens/diy.js');
 const { data } = await import('../../public/js/data.js');
 const { DATA } = await import('../match/harness.js');
@@ -549,6 +550,17 @@ describe('match UI of a 自选 piece', () => {
     const mod = blocks.find((b) => b.key === 'module');
     assert.ok(JSON.stringify(mod.props).includes('uniequip_002_ascln'), 'the pick\'s module (elite)');
     assert.ok(!blocks.some((b) => b.key === 'garrison'), 'no 特质');
+  });
+
+  // maintainer report 2026-11-24: 规程's leader ranking drew a 自选 row as the slot's glyph 「선」 — the row had no pick
+  test('a row naming a 自选 slot and its pick (m.public leaderTop, m.result) draws the operator (FieldedThumb)', () => {
+    const srcs = (v) => [...walk(v)].map((n) => n.props?.src).filter((x) => typeof x === 'string');
+    const th = expand(FieldedThumb({ u: { id: T6A, diy: { charId: CHEN3, skillIndex: 2, uniEquipId: null } } }));
+    assert.ok(srcs(th).some((x) => x.includes(CHEN3)), `the operator's avatar (${srcs(th)})`);
+    assert.equal(th.props.title, DATA.backups.units[CHEN3].name);
+    const bare = expand(FieldedThumb({ u: { id: T6A } }));
+    assert.ok(!srcs(bare).some((x) => x.includes(CHEN3)), 'without the pick only the slot record');
+    assert.match(readFileSync(path.join(ROOT, 'public/js/ui/avatarBadges.js'), 'utf8'), /<\$\{FieldedThumb\} u=\$\{u\}/, 'the leader ranking draws its rows through FieldedThumb');
   });
 
   // maintainer report 2026-10-08: no 「自选」 tag under the own pieces of a filled slot — upstream 0def7bab's removed

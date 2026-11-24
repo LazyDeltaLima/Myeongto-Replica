@@ -127,6 +127,44 @@ test('the leader ranking on the real match path: a client-run boss field\'s b.pr
   m.dispose?.();
 });
 
+// maintainer report 2026-11-24: a 自选 row drew the slot's glyph 「선」 — the row named the slot, not the pick
+test('the leader ranking: a 自选 slot\'s row carries its pick (the page draws the operator), a plain chess\'s none', REAL, () => {
+  const SLOT = 'chess_char_6_diy1_a';
+  const PICK = { charId: 'char_1050_chen3', skillIndex: 1, uniEquipId: null };
+  const h = makeMatch({
+    mode: 'coop', modeId: 'mode_multi_normal', difficulty: 'NORMAL', seed: 5, fake: true, data: ACT3, season: 'act3autochess',
+    seats: [
+      { seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [SLOT]: PICK } },
+      { seat: 1, playerId: 'p_1', name: 'P1', isBot: false, connected: true },
+    ],
+  }).start();
+  const { m } = h;
+  for (let i = 0; i < 1e5 && m.phase !== PHASE.DIY_CHOOSE; i++) {
+    for (const ps of m.players.values()) {
+      if (m.phase === PHASE.INFO_CHECK && !ps.infoReady) m.handle(ps.playerId, { t: 'g.infoReady' });
+      if (m.phase === PHASE.BAND_DRAFT && m.draftTurn() === ps.playerId) m.handle(ps.playerId, { t: 'g.band', bandId: m.defaultBand(ps.playerId) });
+    }
+    if (m.phase !== PHASE.DIY_CHOOSE && !h.sched.runNext()) break;
+  }
+  assert.equal(m.phase, PHASE.DIY_CHOOSE, 'reached 确定自选编队');
+  assert.ok(m.handle('p_0', { t: 'g.diyChoose', slots: [SLOT] }).ok, 'chose the slot');
+  h.toPrep(2);
+  assert.equal(h.ps('p_0').diyPickOf(SLOT)?.charId, PICK.charId, 'the pick is fielded');
+  m.phase = PHASE.FINAL_ASSAULT;
+  m.bossPool = { maxHp: 1000, byPlayer: new Map([['p_0', 500], ['p_1', 100]]) };
+  m.fields = [{ fieldId: 'f0', kind: 'boss', players: ['p_0', 'p_1'], cc: true, bossTop: {
+    p_0: { s: 500, r: [[SLOT, 300], [SLOT.replace(/_a$/, '_b'), 100]] },
+    p_1: { s: 100, r: [['chess_char_4_22_a', 100]] },
+  } }];
+  const rows = m._leaderTopView();
+  assert.deepEqual(rows.map((r) => r.chess), [SLOT, SLOT.replace(/_a$/, '_b'), 'chess_char_4_22_a']);
+  assert.deepEqual(rows[0].diy, PICK, 'the slot row names its operator');
+  assert.deepEqual(rows[1].diy, PICK, 'the elite slot too');
+  assert.equal(rows[2].diy, undefined, 'a plain chess carries no pick');
+  assert.equal(rows[2].standInFor, undefined, 'nor a stand-in mark when owned');
+  m.dispose?.();
+});
+
 test('盟约 sends no leader ranking (its table has no thresholds)', REAL, () => {
   const h = coop(BASE, undefined).start();
   h.toPrep(2);

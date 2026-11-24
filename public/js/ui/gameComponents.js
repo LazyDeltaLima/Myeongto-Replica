@@ -8,6 +8,8 @@ import { parseRichText, rtClassName } from './richText.js';
 import { FactionGlyph, FactionIcon, useSeatFaction } from './faction.js';
 import { t as tr } from '../../../shared/i18n.js';
 import { skinArt, skinPic } from './skins.js';
+import { diyRecordFor } from './gameLogic/diy.js';
+import { cardStandIn, standInForText } from './gameLogic/standIn.js';
 import {
   uiUrl, chessAvatarUrl, chessPortraitUrl, itemIconUrl, tokenAvatarUrl, enemyIconUrl, bondIconUrl, bandIconUrl,
 } from './assetUrls.js';
@@ -159,6 +161,22 @@ export function UnitThumb({ kind = 'chess', id, golden, size = 'md', tier, showT
     ${si ? html`<span class="uthumb__si" data-standin=${si.charId} aria-hidden="true">${tr('替补')}</span>` : null}
     ${badge}
   </span>`;
+}
+
+/**
+ * The thumbnail of an operator as it fielded, from a row that names its chess id (`u.id`) and what it fielded as: a 自选
+ * slot (`u.diy`, the pick) draws its operator; a 补位 piece (`u.standInFor`) its stand-in, with the small 「替补」 mark —
+ * the title names the chess it fielded for; a summon row (`u.kind` 'token') its summon. The result screen's lineup and
+ * charts (m.result rows) and 规程's leader ranking (m.public leaderTop rows) draw through it: a bare UnitThumb of a 自选
+ * slot id draws the slot record, whose art is none (its glyph 「선」). `ownSkin` / `skinsOf` as UnitThumb.
+ */
+export function FieldedThumb({ u, size = 'sm', ownSkin = false, skinsOf = null }) {
+  const chess = u.kind === 'token' ? null : data.lookup('chess', u.id);
+  const backups = data.get('backups');
+  const dr = u.diy && chess ? diyRecordFor(chess, u.diy, { chess: data.get('chess'), backups }) : null;
+  const si = !dr && chess ? cardStandIn(chess, { unit: u, backups }) : null;
+  return html`<${UnitThumb} kind=${u.kind === 'token' ? 'token' : 'chess'} id=${u.id} golden=${u.golden} tier=${u.tier} size=${size} rec=${dr || si}
+    ownSkin=${ownSkin} skinsOf=${skinsOf} title=${si ? tr('{name}（{note}）', { name: si.name, note: standInForText(chess.name) }) : undefined} />`;
 }
 
 /** Thumbnail for an m.private Piece. */

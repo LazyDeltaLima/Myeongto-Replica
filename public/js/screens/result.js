@@ -21,8 +21,8 @@
 
 import { useEffect, useMemo, useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, MicroLabel, DifficultyTag, Tabs } from '../ui/components.js';
-import { useGameData, Img, UnitThumb, BandIcon, PlayerAvatar, BondGlyph, LpTower, Sprite } from '../ui/gameComponents.js';
-import { normalizeResult, fmtNum, diyRecordFor, cardStandIn, standInForText, hasUnitCharts, playerColors } from '../ui/gameLogic.js';
+import { useGameData, Img, FieldedThumb, BandIcon, PlayerAvatar, BondGlyph, LpTower, Sprite } from '../ui/gameComponents.js';
+import { normalizeResult, fmtNum, hasUnitCharts, playerColors } from '../ui/gameLogic.js';
 import { DamageTab, UniteTab } from './resultCharts.js';
 import { useDocClass } from '../ui/device.js';
 import { data } from '../data.js';
@@ -63,18 +63,14 @@ export function resultBonds(bonds, bondRec = () => null) {
 }
 
 /**
- * One unit of a final lineup: a 自选 piece draws its operator; a 补位 piece (`standInFor`) its stand-in, with the small
- * 「替补」 mark — the title names the chess it fielded for. `own`: the viewer's own lineup, drawn in this browser's chosen
- * skins (UnitThumb ownSkin); another player's (`pid`) in the skins they published (m.public players[].skins) while
- * 其他玩家的皮肤 is on (UnitThumb skinsOf; docs/rules/ui.md 「스킨 고르기」).
+ * One unit of a final lineup (ui/gameComponents.js FieldedThumb: a 自选 piece draws its operator, a 补位 piece its
+ * stand-in). `own`: the viewer's own lineup, drawn in this browser's chosen skins (UnitThumb ownSkin); another player's
+ * (`pid`) in the skins they published (m.public players[].skins) while 其他玩家的皮肤 is on (UnitThumb skinsOf;
+ * docs/rules/ui.md 「스킨 고르기」).
  */
-export function LineupThumb({ u, gd, own = false, pid = null }) {
-  const chess = u.kind === 'token' ? null : gd.chess(u.id);
-  const dr = u.diy && chess ? diyRecordFor(chess, u.diy, { chess: data.get('chess'), backups: data.get('backups') }) : null;
-  const si = !dr && chess ? cardStandIn(chess, { unit: u, backups: gd.backups }) : null;
+export function LineupThumb({ u, own = false, pid = null }) {
   const skinsOf = own ? null : playerSkins(store.get().match?.public?.players, pid, settingsStore.get().otherSkins !== false);
-  return html`<${UnitThumb} kind=${u.kind === 'token' ? 'token' : 'chess'} id=${u.id} golden=${!!u.golden} tier=${u.tier} size="sm" rec=${dr || si} ownSkin=${own} skinsOf=${skinsOf}
-    title=${si ? t('{name}（{note}）', { name: si.name, note: standInForText(chess.name) }) : undefined} />`;
+  return html`<${FieldedThumb} u=${{ ...u, golden: !!u.golden }} ownSkin=${own} skinsOf=${skinsOf} />`;
 }
 
 function PlayerCard({ p, myId, titles, best, solo = false, color = null }) {

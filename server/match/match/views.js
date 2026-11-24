@@ -90,7 +90,10 @@ export class MatchViews {
    * battle) and are scaled so they never add up past what the pool credited that player (SharedBossPool.byPlayer): the
    * page's report splits the damage, it does not add any. Ties: the lower seat, then the player's own order.
    * Alive players only; null outside a boss round or in a season without the badges (config.constants).
-   * @returns {Array<{ pid: string, chess: string, pct: number }>|null}
+   * A row carries what the operator fielded as, the way the settlement's rows do (unitTally.js rowOf): `diy` = a 自选
+   * slot's pick (the chess id is the slot, the page draws the picked operator), `standInFor` = the replaced operator's
+   * charId of a 补位 stand-in — without them the page could only draw the slot record (its glyph 「선」).
+   * @returns {Array<{ pid: string, chess: string, pct: number, diy?: { charId: string, skillIndex: number, uniEquipId: string|null }, standInFor?: string }>|null}
    * @this {Match}
    */
   _leaderTopView() {
@@ -113,7 +116,18 @@ export class MatchViews {
     });
     if (!rows.length) return null;
     rows.sort((a, b) => b.d - a.d || a.seat - b.seat || a.i - b.i);
-    return rows.slice(0, BOSS_TOP_ROWS).map((r) => ({ pid: r.pid, chess: r.chess, pct: Math.max(1, Math.min(100, Math.floor((r.d * 100) / pool.maxHp + 1e-9))) }));
+    const byPid = new Map(this.order.map((ps) => [ps.playerId, ps]));
+    return rows.slice(0, BOSS_TOP_ROWS).map((r) => {
+      const out = { pid: r.pid, chess: r.chess, pct: Math.max(1, Math.min(100, Math.floor((r.d * 100) / pool.maxHp + 1e-9))) };
+      const ps = byPid.get(r.pid);
+      const pick = ps && typeof ps.diyPickOf === 'function' ? ps.diyPickOf(r.chess) : null;
+      if (pick) out.diy = { charId: pick.charId, skillIndex: pick.skillIndex, uniEquipId: pick.uniEquipId };
+      else if (ps && typeof ps.fieldsStandIn === 'function' && ps.fieldsStandIn(r.chess)) {
+        const si = this.gd.standIn(r.chess);
+        if (si && typeof si.standInFor === 'string') out.standInFor = si.standInFor;
+      }
+      return out;
+    });
   }
 
   /**
