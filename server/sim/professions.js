@@ -51,10 +51,40 @@ import { isHpLoss } from './damage.js';
 import { absoluteRangeKeys } from './targeting.js';
 import { bodyKeys, bodyInRange, bodyInRangeTile } from './body.js';
 import { COLS, CHAIN_RADIUS } from './constants.js';
+/** @import { Battle } from './Battle.js' */
+/** @import { Unit, ProfessionState } from './units.js' */
+/** @import { Buff } from './battle/status.js' */
 
+/**
+ * An attack profile (the fields above; a kit's trait adds its own): the callbacks the profession tables give are typed,
+ * the rest is read field by field.
+ * @typedef {{
+ *   [key: string]: any,
+ *   install?(battle: Battle, unit: ProfiledUnit): void,
+ *   dmgMul?(battle: Battle, unit: ProfiledUnit, target: Unit): number,
+ *   afterHit?(battle: Battle, unit: ProfiledUnit, target: Unit, info: Record<string, any>): void,
+ *   canAttack?(battle: Battle, unit: ProfiledUnit): boolean,
+ *   afterAttack?(battle: Battle, unit: ProfiledUnit, targets?: Unit[]): void,
+ *   funnelMul?(battle: Battle, unit: ProfiledUnit, target: Unit, info?: Record<string, any>): number,
+ *   storeEnergy?(battle: Battle, unit: ProfiledUnit): boolean,
+ *   releaseEnergy?(battle: Battle, unit: ProfiledUnit): number,
+ *   hitsFn?(battle: Battle, unit: ProfiledUnit, info?: Record<string, any>): number,
+ * }} Profile
+ * A unit whose profile is resolved (battle/players.js _setupUnit): what the install helpers and the profile callbacks
+ * get. An install helper that sets its own `trait` fields first takes the unit with them set (`LibratorUnit` …).
+ * @typedef {Unit & { profile: Profile }} ProfiledUnit
+ * @typedef {ProfiledUnit & { trait: ProfessionState & { ramp: number } }} LibratorUnit
+ * @typedef {ProfiledUnit & { trait: ProfessionState & { ammo: number, reloading: boolean, reloadCd: number } }} HunterUnit
+ * A trait blackboard (`def.traitBb`, data `trait.bb`).
+ * @typedef {Record<string, any>} TraitBb
+ */
+
+/** @param {Profile} o @returns {Readonly<Profile>} */
 const P = (o) => Object.freeze(o);
+/** @param {unknown} v @param {number} d @returns {number} */
 const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
+/** @type {Readonly<Record<string, Readonly<Profile>>>} */
 export const PROFESSION_DEFAULTS = Object.freeze({
   SNIPER: P({ attack: 'ranged', dmgType: 'phys', projectile: 'arrow', canHitFly: true }),
   CASTER: P({ attack: 'ranged', dmgType: 'arts', projectile: 'bolt', canHitFly: true }),
@@ -80,6 +110,7 @@ export const PROFESSION_DEFAULTS = Object.freeze({
  * (talent / DoT tags: attackType BUFF — [ASSUMED] as before; only 隐德来希's template filters it and no 武者 kit deals such
  * damage). The heal ignores 禁疗 (`ignoreHealFree`: an abnormal flag is one switch whoever set it — PRTS 异常效果).
  */
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installMushaHeal = (battle, unit) => {
   battle.on('damaged', (c) => {
     if (c.source !== unit || !unit.alive || !c.target || c.target.side !== 'enemy') return;
@@ -106,9 +137,10 @@ const installMushaHeal = (battle, unit) => {
  * has its own event and its own cap, as before. Like the 武者's, the heal ignores 禁疗 (PRTS 分支特性信息 收割者 "通过自身特性/
  * 天赋/技能产生的作用于自身的治疗效果会无视自身的禁疗").
  */
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installReaperHeal = (battle, unit) => {
   // moment 'trait': the trait heal's effect moment (render/fx/kitofficial.js `hit`: 休谟斯's humus_trait[heal][effect])
-  const heal = (n) => { if (n > 0 && unit.alive) battle.heal(unit, unit, (unit.profile.selfHeal ?? 50) * n, { self: true, ignoreHealFree: true, moment: 'trait' }); };
+  const heal = (/** @type {number} */ n) => { if (n > 0 && unit.alive) battle.heal(unit, unit, (unit.profile.selfHeal ?? 50) * n, { self: true, ignoreHealFree: true, moment: 'trait' }); };
   battle.on('attack', (ctx) => {
     if (ctx.attacker !== unit || !unit.alive) return;
     heal(Math.min(ctx.targets.length, Math.max(1, unit.s.blockCnt)));
@@ -142,6 +174,7 @@ const installReaperHeal = (battle, unit) => {
  * (`DamageInfo.traitAlly`, the skills' "仅对该角色/干员触发特性"): the heal then goes to that operator instead of the
  * lowest-HP ally in range.
  */
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installIncantation = (battle, unit) => {
   battle.on('damaged', (c) => {
     const t = c.target;
@@ -154,6 +187,7 @@ const installIncantation = (battle, unit) => {
   }, { owner: unit });
 };
 
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installHpDrain = (battle, unit) => {
   battle.every(1, () => {
     if (!unit.alive || !unit.deployed) return;
@@ -164,6 +198,7 @@ const installHpDrain = (battle, unit) => {
   }, { owner: unit });
 };
 
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installMerchant = (battle, unit) => {
   const iv = unit.profile.merchantInterval ?? 3;
   const cost = unit.profile.merchantCost ?? 3;
@@ -180,6 +215,7 @@ const installMerchant = (battle, unit) => {
   }, { owner: unit });
 };
 
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installCharger = (battle, unit) => {
   battle.on('kill', (ctx) => {
     if (ctx.killer === unit && ctx.victim.side === 'enemy') battle.addDp(unit.ownerId, unit.profile.dpOnKill ?? 1);
@@ -218,15 +254,16 @@ const installCharger = (battle, unit) => {
 export const DOLL_SWITCH = 2;
 const DOLL_SWITCH_IMMUNE = new Set(['stun', 'freeze', 'sleep']);
 
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installDollkeeper = (battle, unit) => {
   // the 替身's max HP comes from the unit's own 替身 token (风丸 纸偶) for its selected skill / module (DESIGN §16); a
   // dollkeeper without one (归溟幽灵鲨) must not borrow another operator's token stats: its own max HP (header)
   const dollHpMul = () => {
-    const tokId = (unit.def.tokens || []).map((t) => (typeof t === 'string' ? t : t?.tokenId)).find((t) => t && /shadow|doll/.test(t));
+    const tokId = (unit.def.tokens || []).map((/** @type {string | { tokenId?: string } | null} */ t) => (typeof t === 'string' ? t : t?.tokenId)).find((/** @type {string | undefined} */ t) => t && /shadow|doll/.test(t));
     const tok = tokId ? battle.data.getToken?.(tokId, unit.defId, unit.def?.loadout ?? null) : null;
     return tok && tok.stats.maxHp > 0 ? Math.max(0.05, tok.stats.maxHp / Math.max(1, unit.base.maxHp)) : 1;
   };
-  const at = (extra) => ({ x: unit.x, y: unit.y, id: unit.id, ...extra });
+  const at = (/** @type {Record<string, any>} */ extra) => ({ x: unit.x, y: unit.y, id: unit.id, ...extra });
   // a switch animation: "切换动画开始时会清除自身一切Buff" (header: the running skill and the statuses), then 2 s of 不死
   // (the fatal hook below) 无敌 阻回 禁疗 孤立 强制缴械 and 眩晕 / 冻结 / 睡眠 immunity (beforeStatus below). "切换途中重设自身
   // 生命至最大值": the HP is set to the max at the start (enter / leave) and again when the switch ends, so she always
@@ -240,7 +277,7 @@ const installDollkeeper = (battle, unit) => {
       sk.sp = 0;
       sk.charges = sk.spCost <= 0 ? sk.maxCharges : 0;
     }
-    for (const b of unit.buffs.slice()) if (b.status) battle.removeBuff(unit, b);
+    for (const b of /** @type {Buff[]} */ (unit.buffs.slice())) if (b.status) battle.removeBuff(unit, b);
     unit.trait.dollSwitching = true;
     const done = () => { unit.trait.dollSwitching = false; };
     const ended = () => {
@@ -309,6 +346,7 @@ const installDollkeeper = (battle, unit) => {
   }, { owner: unit });
 };
 
+/** @param {Battle} battle @param {LibratorUnit} unit */
 const installLibrator = (battle, unit) => {
   // ATK ramps linearly to +rampMax (bb atk, default +200 %) over rampTime s (bb max_stack_cnt, default 40) while
   // the skill is inactive; blocks nothing while inactive; everything resets when the skill ends.
@@ -349,6 +387,7 @@ const installLibrator = (battle, unit) => {
   }, { owner: unit });
 };
 
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installPhalanx = (battle, unit) => {
   const apply = () => {
     if (unit.skill?.active) battle.removeBuff(unit, 'trait:phalanxGuard');
@@ -359,6 +398,7 @@ const installPhalanx = (battle, unit) => {
   battle.on('skillEnd', (ctx) => { if (ctx.unit === unit) apply(); }, { owner: unit });
 };
 
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installBearer = (battle, unit) => {
   battle.on('skillStart', (ctx) => {
     if (ctx.unit === unit) { battle.addBuff(unit, { key: 'trait:bearer', mods: { blockCnt: -99 } }); battle.releaseBlocked(unit); }
@@ -366,6 +406,7 @@ const installBearer = (battle, unit) => {
   battle.on('skillEnd', (ctx) => { if (ctx.unit === unit) battle.removeBuff(unit, 'trait:bearer'); }, { owner: unit });
 };
 
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installStalker = (battle, unit) => {
   const p = unit.profile.dodge ?? 0.5;
   battle.addBuff(unit, { key: 'trait:stalker', mods: { dodgePhys: p, dodgeArts: p, taunt: -1 }, persist: true, allowDead: true });
@@ -377,6 +418,7 @@ const installStalker = (battle, unit) => {
 // speed 100 (`_CalculateCooldown`: attack speed buffs do not touch it); `Reload_Loop` has no OnAttack, so the round comes as that
 // time ends (`snhunt_tr_add`, ON_SPELL_END). The group waits for that cooldown, so a target found meanwhile is attacked after
 // it. A stun or a skill cast interrupts the cast, its round lost; its cooldown runs on (`Ability.InterruptIfNot`).
+/** @param {Battle} battle @param {HunterUnit} unit */
 const installHunter = (battle, unit) => {
   const max = unit.profile.ammoMax ?? 8;
   const period = unit.base.bat + (unit.profile.reloadInterval ?? 0);
@@ -385,10 +427,10 @@ const installHunter = (battle, unit) => {
   t.reloading = false;
   t.reloadCd = 0;
   const free = () => unit.canAct && !unit.s.flags.disarm && !unit.swing && !unit.swingOff && !(unit.atkCd > 0) && !(unit.castLeft > 0)
-    && !(unit.skillStateUntil > battle.time + 1e-9) && !unit.skill?._castStage && battle.time >= (unit.bornUntil ?? -Infinity) - 1e-9;
+    && !(/** @type {number} */ (unit.skillStateUntil) > battle.time + 1e-9) && !unit.skill?._castStage && battle.time >= (unit.bornUntil ?? -Infinity) - 1e-9;
   battle.on('tick', (ctx) => {
     if (!unit.alive || !unit.deployed) return;
-    if (t.reloading && (!unit.canAct || unit.s.flags.disarm || unit.swing || unit.skillStateUntil > battle.time + 1e-9 || unit.skill?._castStage)) t.reloading = false;
+    if (t.reloading && (!unit.canAct || unit.s.flags.disarm || unit.swing || /** @type {number} */ (unit.skillStateUntil) > battle.time + 1e-9 || unit.skill?._castStage)) t.reloading = false;
     if (t.reloadCd > 0) {
       t.reloadCd -= ctx.dt;
       if (t.reloadCd <= 1e-9) {
@@ -422,11 +464,13 @@ const installHunter = (battle, unit) => {
  * "必须回收全部回旋投掷物才可以进行下一次攻击") — and once its attack cooldown is ready, so the real interval is the longer
  * of the two ("实际攻击间隔会受投掷物的实际飞行时间影响产生浮动"). A (re)deployed thrower holds a fresh one.
  */
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installLoopshooter = (battle, unit) => {
   unit.trait.boomerangsOut = 0;
   battle.on('deploy', (ctx) => { if (ctx.unit === unit) unit.trait.boomerangsOut = 0; }, { owner: unit });
 };
 
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installTactician = (battle, unit) => {
   const spawn = () => {
     if (!unit.alive || !unit.deployed) return;
@@ -448,6 +492,7 @@ const installTactician = (battle, unit) => {
   battle.on('deploy', (ctx) => { if (ctx.unit === unit) spawn(); }, { owner: unit });
 };
 
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installFunnel = (battle, unit) => {
   // PRTS 分支特性信息 驭械术师: changing the target, or redeploying, resets the drone ramp at once, even against the
   // same living enemy. The per-target map (耶拉 / 至简) resets with it. A free move (moveRedeploy, the same carry as a
@@ -477,6 +522,7 @@ const installFunnel = (battle, unit) => {
  * 「선발 추가 벨로네·비이·지마 더 레이징 타이드·Mon3tr」) — while a free move (乌尔比안 S3) keeps them. Kits with their own store
  * (维伊's 转置能量, 黑键's elite energies) replace `storeEnergy` and release theirs from an `attack` hook.
  */
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installMystic = (battle, unit) => {
   unit.trait.stored = 0;
   battle.on('deploy', (ctx) => { if (ctx.unit === unit && !ctx.move) unit.trait.stored = 0; }, { owner: unit });
@@ -495,6 +541,10 @@ export const BARD_REGEN_DUR = 0.5;
  * target, value } may scale one ally's share (魔王's 微尘: "使该干员受到魔王特性效果提升至1.5倍"). Also the 海嗣 range of
  * 浊心斯卡蒂 (content/tokens.js, kits/ops/chess_char_6_04-skadi2.js).
  */
+/**
+ * @param {Battle} battle @param {Unit | null | undefined} bard @param {Unit | null | undefined} ally @param {number} value
+ * @param {number} [duration]
+ */
 export function bardRegen(battle, bard, ally, value, duration = BARD_REGEN_DUR) {
   if (!bard || !ally || !ally.alive || !(value > 0)) return;
   let v = value;
@@ -504,6 +554,7 @@ export function bardRegen(battle, bard, ally, value, duration = BARD_REGEN_DUR) 
   if (v > 0) battle.addBuff(ally, { key: `trait:bard:${bard.id}`, duration, source: bard, mods: { hpRegen: v }, visible: true });
 }
 
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installBard = (battle, unit) => {
   battle.every(BARD_REGEN_IV, () => {
     // Continuous regeneration is an aura, so stun does not stop it.
@@ -513,21 +564,24 @@ const installBard = (battle, unit) => {
   }, { owner: unit });
 };
 
+/** @param {Battle} battle @param {ProfiledUnit} unit */
 const installSkywalker = (battle, unit) => {
   battle.addBuff(unit, { key: 'trait:skywalker', flags: { blockFly: true }, persist: true, allowDead: true });
 };
 
 /** Target's tile offset from the unit in the unit's facing-RIGHT frame ([dRow, dCol], sim/dir.js toLocal). */
 /** The target (its body: a huge enemy's every tile — body.js) on a tile of `grid` around the unit (its facing frame). */
+/** @param {Unit} unit @param {Unit} target @param {ReadonlyArray<ReadonlyArray<number>>} grid */
 const inTraitGrid = (unit, target, grid) => bodyInRange(target, absoluteRangeKeys(grid, unit.tileR, unit.tileC, unit.dir, 0));
 
 /**
  * 'reaperrange' default front test: the target stands on the unit's own line, at or ahead of it along its facing — a
  * huge enemy when any tile of its body does (body.js).
  */
+/** @param {Unit} unit @param {Unit} target */
 const onFrontLine = (unit, target) => {
   const [fr, fc] = unit.fwd;
-  const lateral = (r, c) => toLocal(r - unit.tileR, c - unit.tileC, unit.dir)[0];
+  const lateral = (/** @type {number} */ r, /** @type {number} */ c) => toLocal(r - unit.tileR, c - unit.tileC, unit.dir)[0];
   if (!target.hitArea) {
     return lateral(Math.round(target.y), Math.round(target.x)) === 0 && (target.x - unit.x) * fc + (target.y - unit.y) * fr >= 0;
   }
@@ -541,6 +595,7 @@ const onFrontLine = (unit, target) => {
 // --------------------------------------------------------------------------------------------------------------
 // subprofession table
 
+/** @type {Readonly<Record<string, Readonly<Profile>>>} */
 export const SUB = Object.freeze({
   // --- SNIPER
   fastshot: P({ priority: 'fly', dmgMul: (b, u, t) => (t.isFlying ? (u.profile.flyScale ?? 1) : 1) }),
@@ -570,11 +625,11 @@ export const SUB = Object.freeze({
       }
     } }),
   hunter: P({ install: installHunter,
-    canAttack: (battle, unit) => (unit.trait.ammo ?? 8) > 0 && !(unit.trait.reloadCd > 0),
+    canAttack: (battle, unit) => (unit.trait.ammo ?? 8) > 0 && !(/** @type {number} */ (unit.trait.reloadCd) > 0),
     dmgMul: (b, u) => u.profile.ammoScale ?? 1.2,
     afterAttack: (battle, unit) => { unit.trait.ammo = Math.max(0, (unit.trait.ammo ?? 8) - 1); } }),
   loopshooter: P({ projectile: 'boomerang', boomerang: true, install: installLoopshooter,
-    canAttack: (battle, unit) => !(unit.trait.boomerangsOut > 0) }),
+    canAttack: (battle, unit) => !(/** @type {number} */ (unit.trait.boomerangsOut) > 0) }),
   reaperrange: P({ allInRange: true,
     dmgMul: (battle, unit, target) => {
       const grid = unit.profile.frontGrid;
@@ -596,7 +651,7 @@ export const SUB = Object.freeze({
       const f = unit.profile.funnel || { init: 0.2, delta: 0.15, max: 1.1 };
       if (unit.trait.funnelTarget === target.id) unit.trait.funnelScale = Math.min(f.max, (unit.trait.funnelScale ?? f.init) + f.delta);
       else { unit.trait.funnelTarget = target.id; unit.trait.funnelScale = f.init; }
-      return unit.trait.funnelScale;
+      return /** @type {number} */ (unit.trait.funnelScale);
     } }),
   mystic: P({ install: installMystic,
     storeEnergy: (battle, unit) => {
@@ -680,6 +735,7 @@ export const SUB = Object.freeze({
  * Trait tunables per subprofession, read from the trait text and the trait blackboard (`def.traitBb`, data
  * `trait.bb`; elites include their module upgrade). Returns profile overrides.
  */
+/** @type {Record<string, (tb: TraitBb, def: Record<string, any>, p: Profile) => Profile>} */
 const TUNE = {
   fastshot: (tb) => ({ flyScale: num(tb.atk_scale, 1) }),
   bombarder: (tb) => ({ shockScale: num(tb['attack@append_atk_scale'], 0.5), shockTimes: num(tb['attack@times'], 2) }),
@@ -732,6 +788,7 @@ const TUNE = {
   stalker: (tb) => ({ dodge: num(tb.prob, 0.5) }),
 };
 
+/** @type {Record<string, string>} */
 const PRIORITY_ALIASES = {
   FLY_FIRST: 'fly', fly: 'fly', LOW_DEF: 'lowDef', lowDef: 'lowDef', lowestDef: 'lowDef', RANGED: 'ranged', ranged: 'ranged',
   lowestHp: 'lowestHp', highestHp: 'highestHp', nearest: 'nearest', farthest: 'farthest',
@@ -739,12 +796,14 @@ const PRIORITY_ALIASES = {
 
 /**
  * Resolve the attack profile of a unit def. `kitTrait` (optional) overrides everything.
- * @returns {object} mutable profile
+ * @param {Record<string, any>} def @param {Profile | null} [kitTrait]
+ * @returns {Profile} mutable profile
  */
 export function resolveProfile(def, kitTrait = null) {
   const prof = PROFESSION_DEFAULTS[def.profession] || PROFESSION_DEFAULTS.WARRIOR;
   const sub = (def.subProf && SUB[def.subProf]) || {};
   const tb = def.traitBb || {};
+  /** @type {Profile} */
   const p = {
     sub: def.subProf || null,
     attack: 'melee', dmgType: 'phys', projectile: 'none', canHitFly: false, maxTargets: 1,

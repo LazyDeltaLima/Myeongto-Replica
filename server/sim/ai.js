@@ -295,6 +295,7 @@ const faceOf = (f, t) => (f === 1 || f === 4 ? t?.id ?? null : f === 2 ? 'D' : f
  * 0.2-tile threshold). A selector the engine does not model takes the target its attack would take now
  * [추정·미조사: docs/rules/sim.md 「스킬 프리팹의 대상 트리거」]; a 'replace' cast's attack goes out at its attack target. none → no turn.
  * A clip-less skill ability (a buff ability: no `cast.time`) is not called here.
+ * @param {import('./skills.js').SkillRuntime | null} [skill]
  */
 export function castFace(b, u, cast, skill = null) {
   if (!u.alive || !u.deployed || !u.canAct) return;

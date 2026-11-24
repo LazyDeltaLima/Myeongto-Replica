@@ -106,8 +106,8 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, the files directly under
 `server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), the kit helpers
 (`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and of
-the files directly under `server/sim/` all but `skills.js`, `professions.js` and `ai.js`
-(listed one by one until those follow).
+the files directly under `server/sim/` all but `ai.js`
+(listed one by one until it follows).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -346,7 +346,22 @@ most strict errors were, and the JSDoc that fixed them:
   cast it where `off` takes it.
 - the targeting helpers (targeting.js) take `Unit`; a priority table is `Record<string, (e: Unit) => number>`, and a
   comparator chosen by a conditional (`trigFirst`'s `cmp`) takes its function type on the declaration, which types
-  every branch. `Unit.trait` is `{}` (a profession's own state): a field read through a cast at the use.
+  every branch. `Unit.trait` is a `ProfessionState` (`units.js`: the profession helpers' fields, optional, and
+  `[key: string]: any` for a kit's own), so a field reads without a cast.
+- the profession tables (professions.js): a profile is a `Profile` — `Record<string, any>` plus its callbacks written
+  as methods (`dmgMul?(battle, unit, target): number` …), so `P({ dmgMul: (b, u, t) => … })` types the callback's
+  parameters, and a method's parameters are compared both ways, so an install helper may take a narrower unit than
+  `ProfiledUnit` (`Unit & { profile: Profile }`): one that sets its own `trait` fields first (`installLibrator`'s
+  `ramp`, `installHunter`'s rounds) takes the unit with them required (`LibratorUnit`, `HunterUnit`), and its closures
+  read them as numbers. The frozen tables keyed by a sub-profession (`SUB`, `PROFESSION_DEFAULTS`, `TUNE`) carry
+  `Record<string, …>` on the declaration.
+- the skill runtime (skills.js): a field first assigned outside the constructor (`reset`'s `_castStage`,
+  `_durationFrom`) is `T | undefined` even with a `@type` on the statement — cast at the
+  read, or once where a method reads a field its caller has just set (`_tickBegin`'s `_begin`, `_tickCast`'s
+  `_castStage`). The prefab trigger is `SkillTrig` (`NonNullable` of `normSkillCast`'s `trig`); a SkillSpec callback's
+  ctx is `SkillCtx` (the fixed fields and `[key: string]: any`); `castPick` stays `any` (each kit its own shape). A
+  unit's optional window (`skillStateUntil`, `bornUntil`) compared with `>` is cast to `number` at the comparison (an
+  absent one compares false, as the code wants).
 - the damage pipeline (damage.js) takes a descriptor as `DamageIn` (`Record<string, any>`: content passes its own
   fields) and reads the normalised one as `DamageInfo` (`ReturnType<typeof makeDamageInfo> & Record<string, any>`,
   cast once where `dealDamage` normalises it). A frozen table read by a string key that varies per entry

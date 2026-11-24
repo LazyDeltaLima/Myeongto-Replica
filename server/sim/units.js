@@ -36,6 +36,12 @@ const moveSpeedOf = (b, v, flags) => (b.moveSpeed > 0 && !(flags && flags.noMove
  * A leaders' shared HP pool (the match's SharedBossPool, server/match; the browser's LocalBossPool, spec.js): the HP
  * the sim reads and writes, and the rest of its record.
  * @typedef {{ hp: number, maxHp: number, [key: string]: any }} BossPool
+ * A unit's profession runtime state (`Unit.trait`): the fields the profession install helpers (professions.js) keep —
+ * 傀儡师's form, 解放者's ramp, 猎手's rounds, 回环射手's boomerangs out, 秘术师's stored energies, 战术家's 援军, 驭械术师's
+ * ramp — and the kits' own entries.
+ * @typedef {{ [key: string]: any, doll?: boolean, dollSwitching?: boolean, ramp?: number, ammo?: number,
+ *   reloading?: boolean, reloadCd?: number, boomerangsOut?: number, stored?: number, reinforcement?: Unit | null,
+ *   funnelTarget?: Unit['id'] | null, funnelScale?: number }} ProfessionState
  */
 
 export class Unit {
@@ -143,6 +149,7 @@ export class Unit {
     // holds this: 乌尔比安 moved by his S3 (the owner's decision of 2026-10-07, a deviation from PRTS's "where it fell");
     // every deployment clears it (battle/deploy.js _deploy)
     this.downAtHome = false;
+    /** @type {ProfessionState} */
     this.trait = {};            // profession runtime state
     // boss: damage to a shared leader pool (damage.js); assist: 联防 knock-outs of other players' enemies, by the leaker
     // (battle/deploy.js, created on the first one) — the settlement's per-operator charts (server/match/unitTally.js)

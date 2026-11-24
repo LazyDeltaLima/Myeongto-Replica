@@ -71,22 +71,46 @@
 import { absoluteRangeKeys, trigFirst, trigAllyFirst, trigAllyOrder, ALLY_TRIG_SORTS, elemTaken } from './targeting.js';
 import { castFace } from './ai.js';
 import { BLOCK_SKILL_TICK, COLS, MIN_ANIM_SCALE, TICK } from './constants.js';
+/** @import { Battle } from './Battle.js' */
+/** @import { Unit } from './units.js' */
+/** @import { Buff } from './battle/status.js' */
+
+/**
+ * A skill prefab's target trigger (data `cast.trig`, simdata.js normSkillTrig) and the range box cached for it
+ * (_trigBoxKeys).
+ * @typedef {NonNullable<NonNullable<ReturnType<typeof import('./simdata.js').normSkillCast>>['trig']>} SkillTrig
+ * @typedef {{ tile: number, dir: Unit['dir'], ext: number, grid: ReadonlyArray<ReadonlyArray<number>>, keys: number[],
+ *   set: Set<number> | null }} TrigBox
+ * A content trigger range (addTriggerRange): its entries are ally units, tile-key lists or `{ keys, profile }`.
+ * @typedef {(battle: Battle, unit: Unit) => Iterable<any> | null | undefined} TriggerRangeFn
+ * A `castHolds` / instant cast's stages (_tickCast).
+ * @typedef {{ strikeAt: number | null, endAt: number, instant?: boolean, cut?: boolean }} CastStage
+ * A 'state' cast playing its begin clip (_beginCast).
+ * @typedef {{ until: number, reason: string, free: boolean }} BeginCast
+ * The ctx a SkillSpec callback gets (header): the battle, the unit, the skill, its blackboard and the call's own fields.
+ * @typedef {{ battle: Battle, unit: Unit, skill: SkillRuntime, bb: Record<string, any>, [key: string]: any }} SkillCtx
+ */
 
 const TICK_RULES = new Set(['SP_FULL', 'SEARCH', 'CUSTOM_RANGE', 'SKILL_RANGE', 'ACTIVE_RANGE', 'GDGLOW_SKILL_2']);
 /** True when a SkillSpec `targeting` changes the unit's range while the skill runs (Battle._refreshRange). */
+/** @param {Record<string, any> | null | undefined} tg */
 const changesRange = (tg) => !!(tg && (tg.rangeGrid || tg.rangeExtend || tg.noRangeExtend));
 /** Enemies that satisfy a content trigger range (any targetable enemy, flyers included). */
 const TRIGGER_PROFILE = Object.freeze({ canHitFly: true });
 // a skill prefab trigger's selector motion (`_targetMotion`): ground only, air only (_trigFound)
 const TRIG_GROUND = Object.freeze({ groundOnly: true });
-const TRIG_AIR = Object.freeze({ canHitFly: true, skipEnemy: (e) => !e.isFlying });
+const TRIG_AIR = Object.freeze({ canHitFly: true, skipEnemy: (/** @type {Unit} */ e) => !e.isFlying });
 /** The selector profile of a skill prefab trigger `t`: by its motion (_trigFound). */
+/** @param {SkillTrig} t */
 const trigProfile = (t) => ((t.motion & 3) === 1 ? TRIG_GROUND : (t.motion & 3) === 2 ? TRIG_AIR : TRIGGER_PROFILE);
 /** An enemy range selector the engine searches (_trigFound, trigTarget): 'range' / 'blocked', enemy side, no subclass filter. */
+/** @param {SkillTrig} t */
 const trigModelled = (t) => (t.sel === 'range' || t.sel === 'blocked') && t.side === 2 && !t.filter;
 /** An ally range selector the engine searches (_trigAllies): no filter it does not read, a `_postFilter` it sorts by. */
+/** @param {SkillTrig} t */
 const trigAllyModelled = (t) => t.sel === 'range' && t.side === 1 && !t.filter && ALLY_TRIG_SORTS.has(t.post);
 // the client's ProfessionCategory bits (an ally trigger's `prof` mask)
+/** @type {Readonly<Record<string, number>>} */
 const PROF_BITS = Object.freeze({
   WARRIOR: 1, SNIPER: 2, TANK: 4, MEDIC: 8, SUPPORT: 16, CASTER: 32, SPECIAL: 64, TOKEN: 128, TRAP: 256, PIONEER: 512,
 });
@@ -142,7 +166,9 @@ export class SkillRuntime {
     // the cast replaces the unit's next attack; 'state' — the unit stays in its Skill state while the skill ability
     // plays; 'free' — no state change. null (not read): the one-attack-interval rule of #298
     this.cast = d.cast ?? null;
+    /** @type {BeginCast | null} */
     this._begin = null;           // a 'state' cast playing its begin clip before the skill starts: { until, reason, free } (_beginCast)
+    /** @type {{ reason: string } | null} */
     this._replace = null;         // a 'replace' cast waiting for the unit's next attack: { reason }
     if (this.kind === 'passive') this.baseSpCost = 0;
     this._spCostMul = 1;          // content may set spCostMul (e.g. 绝技 ×0.7) — see the accessor below
@@ -157,9 +183,13 @@ export class SkillRuntime {
     this.activations = 0;
     this.lastStart = -Infinity;
     this._buffKey = `skill:${unit.id}`;
+    /** @type {number[] | null} */
     this._trigKeys = null;
+    /** @type {Set<number> | null} */
     this._trigSet = null;
+    /** @type {Map<SkillTrig, TrigBox> | null} */
     this._trigBox = null;         // _trigBoxKeys' range boxes: Map trigger → { tile, dir, ext, grid, keys }
+    /** @type {TriggerRangeFn[]} */
     this.triggerRanges = [];      // content trigger ranges (addTriggerRange)
     /** @type {null | (() => number[] | null)} content: the [row, col] the trigger grid is centred on instead of the unit's tile (null: no tile) */
     this.triggerAt = null;
@@ -188,6 +218,7 @@ export class SkillRuntime {
    * enemies only — 0.2.0 WV, additive; the summon areas of upstream's 召唤师 自选 kits used it). A targetable enemy (flyers included unless the entry's profile says otherwise) on those tiles
    * satisfies the DEFAULT rule (and unknown DEFAULT-like rules); it is checked every tick, since the unit itself may
    * have nothing to attack. Returns an unregister fn.
+   * @param {TriggerRangeFn} fn
    */
   addTriggerRange(fn) {
     if (typeof fn !== 'function') return () => {};
@@ -230,8 +261,10 @@ export class SkillRuntime {
 
   get isTimed() { return this.kind === 'duration' || this.kind === 'ammo' || this.kind === 'toggle'; }
 
+  /** @param {Record<string, any>} [extra] @returns {SkillCtx} */
   _ctx(extra) { return { battle: this.battle, unit: this.unit, skill: this, bb: this.bb, ...extra }; }
 
+  /** @param {string} fnName @param {Record<string, any>} [extra] */
   _call(fnName, extra) {
     const fn = this.spec[fnName];
     if (typeof fn !== 'function') return undefined;
@@ -251,6 +284,7 @@ export class SkillRuntime {
   /**
    * Set the official 技力 to `total` (charges rebuilt, nothing fired — a 修改, not a gain): the 联防 carry, applied again
    * once the deployment is done (Battle._deploy). A passive skill, or a timed one that runs already, is left as it is.
+   * @param {number} total
    */
   setSpTotal(total) {
     if (this.noSkill || this.kind === 'passive' || (this.active && this.isTimed) || !Number.isFinite(total)) return;
@@ -265,6 +299,7 @@ export class SkillRuntime {
    * (unitsEnd `sp` = spTotal, rebuilt into charges here). Nothing else of the skill is carried — PRTS 卫戍协议/帮助 §联防阶段
    * "将对应单位的生命比例、技力修改至与上一阶段结束时相同": a skill that was running enters 联防 switched off, with the SP it
    * had left (spent at its activation: 0 for a one-charge skill — PRTS 技能 "触发技能后…消耗相应的技力").
+   * @param {{ sp?: number } | null} [carry]
    */
   reset(carry = null) {
     this.active = false;
@@ -281,10 +316,13 @@ export class SkillRuntime {
     this.nextCastAt = -Infinity;
     this._replace = null;
     this._begin = null;
+    /** @type {CastStage | null} */
     this._castStage = null;
+    /** @type {number} */
     this._durationFrom = 0;
     this._castLost = false;
     this._offPending = false;
+    /** @type {any} a kit's own pick of targets as the cast starts (`_selectTargetTiming` 0), in the kit's own shape */
     this.castPick = null;
     if (this.unit) this.unit.skillStateUntil = 0;
     if (this.noSkill) return;
@@ -293,7 +331,7 @@ export class SkillRuntime {
       return;
     }
     this.sp = 0;
-    this.gainSp(carry && Number.isFinite(carry.sp) ? carry.sp : this.initSp, 'init', true);
+    this.gainSp(carry && Number.isFinite(carry.sp) ? /** @type {number} */ (carry.sp) : this.initSp, 'init', true);
     // a free (spCost 0) non-passive skill is available once per deployment
     if (this.spCost <= 0) this.charges = this.maxCharges;
     if (this.spec.activateOnDeploy) this.activate('deploy');
@@ -334,6 +372,7 @@ export class SkillRuntime {
 
   /** Add SP (fires the `spGain` hook). Ignored while a duration/ammo/toggle skill runs (its bar shows the skill). */
   // ignoreLock is reserved for explicitly documented exceptions (黄沙罗盘), not ordinary SP gifts.
+  /** @param {number} amount @param {string} [reason] @param {boolean} [silent] @param {{ ignoreLock?: boolean }} [opts] */
   gainSp(amount, reason = 'time', silent = false, { ignoreLock = false } = {}) {
     if (this.noSkill || this.kind === 'passive' || !(amount > 0)) return 0;
     if (this.active && this.isTimed && reason !== 'init' && !ignoreLock) return 0;
@@ -384,6 +423,7 @@ export class SkillRuntime {
    * skill ability's timer (`ActiveBuffAbility`: the lifetime is its cooldown, the longest of its buffs' durations;
    * `Ability.OnTick`) and the skill's buffs (`BuffContainer.Tick`), both before `_SearchBlockee`; `BasicSkill.OnTick`
    * then sees the ability no longer affecting and calls `OnSkillEnd`. Here the end comes with the duration.
+   * @param {number} dt
    */
   tickActive(dt) {
     if (this.noSkill) return;
@@ -398,7 +438,7 @@ export class SkillRuntime {
       if (this.spec.onTick) this._call('onTick', { dt });
       // (`durationAfterCast`: the skill's buff comes after its cast in a sequence group, 森蚺 S3: its time starts as that clip's action ends. The
       // group's cooldown timer runs from the cast and a stun leaves it alone, so a stun does not bring the end forward: `Ability.FinishIfNot`)
-      if (this.spec.durationAfterCast && this._durationFrom > this.battle.time + 1e-9) return;
+      if (this.spec.durationAfterCast && /** @type {number} */ (this._durationFrom) > this.battle.time + 1e-9) return;
       if (this.kind === 'duration' || (this.kind === 'ammo' && Number.isFinite(this.timeLeft))) {
         this.timeLeft -= dt;
         if (this.timeLeft <= 1e-9) { this.end('duration'); }
@@ -408,7 +448,7 @@ export class SkillRuntime {
     }
   }
 
-  /** The skill's tick after its unit's block search (`BasicSkill.Tick`): SP regen, tick-based triggers. */
+  /** The skill's tick after its unit's block search (`BasicSkill.Tick`): SP regen, tick-based triggers. @param {number} dt */
   tick(dt) {
     if (this.noSkill) return;
     const u = this.unit;
@@ -514,7 +554,7 @@ export class SkillRuntime {
     const u = this.unit;
     if (t.sel === 'never') return false;
     if (t.sel === 'selfIf') {
-      if (t.notBuff.some((k) => u.findBuff(k))) return false;
+      if (t.notBuff.some((/** @type {string} */ k) => u.findBuff(k))) return false;
       return !(t.hpAtMost != null && u.hpRatio > t.hpAtMost + 1e-9);
     }
     if (trigAllyModelled(t)) return this._trigAllies(t).length >= Math.max(1, t.min);
@@ -527,7 +567,7 @@ export class SkillRuntime {
     return false;
   }
 
-  /** The tile keys of trigger `t`'s range box at the unit's tile and direction (_trigFound; cached per trigger). */
+  /** The tile keys of trigger `t`'s range box at the unit's tile and direction (_trigFound; cached per trigger). @param {SkillTrig} t */
   _trigBoxKeys(t) {
     const u = this.unit;
     const ext = t.extend ? (u.s.rangeExtend || 0) : 0;
@@ -550,12 +590,14 @@ export class SkillRuntime {
    * holding a `notBuff` key (placed by the unit itself for `buffSrc`: AdvancedSelectorWithTagAndBuffKey `_CheckBuff`,
    * FilterBuffTargetValidator); `_postFilter` HP_RATIO_ASC_EP_MIN_ASC_FIRST_NOT_ALL_FULL (38) drops an ally at full HP with
    * no 元素损伤 (`FilterUtil.Filter` drops the candidates its weight function refuses).
+   * @param {SkillTrig} t
    */
   _trigAllies(t) {
     const u = this.unit;
     const b = this.battle;
     const keys = this._trigBoxKeys(t);
-    const c = this._trigBox.get(t);
+    // (_trigBoxKeys has just cached the box)
+    const c = /** @type {TrigBox} */ (/** @type {Map<SkillTrig, TrigBox>} */ (this._trigBox).get(t));
     const set = (c.set ??= new Set(keys));
     const m = t.motion & 3;
     const out = [];
@@ -566,7 +608,7 @@ export class SkillRuntime {
       if ((m === 1 && a.isFlying) || (m === 2 && !a.isFlying)) continue;
       if (t.prof && !(t.prof & (PROF_BITS[a.def?.profession] ?? 0))) continue;
       if (t.noHeal && (a.s.flags.noHeal || a.profile?.noHeal)) continue;
-      if (t.notBuff.length && a.buffs.some((x) => t.notBuff.includes(x.key) && (!t.buffSrc || x.source === u))) continue;
+      if (t.notBuff.length && /** @type {Buff[]} */ (a.buffs).some((x) => t.notBuff.includes(x.key) && (!t.buffSrc || x.source === u))) continue;
       if (t.post === 38 && !(a.hp < a.s.maxHp - 1e-6) && !(elemTaken(a) > 0)) continue;
       out.push(a);
     }
@@ -577,6 +619,7 @@ export class SkillRuntime {
    * The allies an ally selector shaped as trigger `t` selects for an ability that casts at up to `n` targets (the
    * skill ability's own `_selector` set up as its trigger's — 引星棘刺 S3 Token): _trigAllies in the `_postFilter` order, the
    * first `n` (targeting.js trigAllyOrder). undefined when the engine does not model the selector (trigTarget).
+   * @param {SkillTrig | null | undefined} t @param {number} n
    */
   trigAllyTargets(t, n) {
     if (!t || !trigAllyModelled(t)) return undefined;
@@ -591,6 +634,7 @@ export class SkillRuntime {
    * null for none ('never' too); for a modelled ally selector the ally of _trigAllies its `_postFilter` sorts first
    * (targeting.js trigAllyFirst); undefined when the engine does not model the selector (a filter it does not read, a group
    * selector — the same ones _trigFound says true for).
+   * @param {SkillTrig} t
    */
   trigTarget(t) {
     const u = this.unit;
@@ -674,10 +718,11 @@ export class SkillRuntime {
    */
   _triggerKeys() {
     const u = this.unit;
-    const at = this.triggerAt ? this.battle._safe(() => this.triggerAt(), 'skill.triggerAt', u) : null;
+    const at = this.triggerAt ? this.battle._safe(() => /** @type {() => number[] | null} */ (this.triggerAt)(), 'skill.triggerAt', u) : null;
     if (this.triggerAt && !Array.isArray(at)) {
       this._trigKeys = [];
       this._trigSet = new Set();
+      /** @type {number} */
       this._trigTile = -1;
       return this._trigKeys;
     }
@@ -688,7 +733,9 @@ export class SkillRuntime {
       this._trigKeys = absoluteRangeKeys(this.triggerGrid, r0, c0, u.dir, ext);
       this._trigSet = new Set(this._trigKeys);
       this._trigTile = tile;
+      /** @type {Unit['dir']} */
       this._trigDir = u.dir;
+      /** @type {number} */
       this._trigExt = ext;
     }
     return this._trigKeys;
@@ -736,6 +783,7 @@ export class SkillRuntime {
    * trigger boxes (`FindTargetsInBox` with the trigger's enemy options: side ENEMY, category DEFAULT) take it — its token
    * prefab is `_sideType` ENEMY, `_category` DEFAULT —, a heal skill's box too; without a box a unit attacking it is in
    * its attack state (_defaultCondition). Not in enemiesInKeys / canTargetEnemy: the kits' own selectors keep to enemies.
+   * @param {readonly number[] | Set<number> | null | undefined} keys
    */
   _allyTargetIn(keys) {
     const b = this.battle;
@@ -755,6 +803,7 @@ export class SkillRuntime {
    * grid + permanent rangeExtend) — a registered ally target there too, which the unit's attack selects (ai.js
    * acquireTargets; not for heal skills: 禁疗, no patient) —, or an enemy inside a content trigger range (addTriggerRange; not for heal skills).
    * `range` (ACTIVE_RANGE): those absolute tile keys instead of the initial range.
+   * @param {readonly number[] | null} [range]
    */
   _defaultCondition(range = null) {
     const b = this.battle;
@@ -807,6 +856,7 @@ export class SkillRuntime {
    * A CastSkill with a skill ability adds `[strike, action]` (s, castTiming) as the 5th field (variant null without one):
    * when its ability's ON signal sounds and when it ends — the next ability of a sequence group starts then (public/js/audio.js
    * cast cues, docs/rules/audio.md 「스킬 시전 능력 소리」). A display field too.
+   * @param {string} reason @param {number} [lead]
    */
   _evOn(reason, lead = 0) {
     const v = typeof this.spec.castVariant === 'function' ? this._call('castVariant', { reason }) : null;
@@ -870,12 +920,13 @@ export class SkillRuntime {
    * (`ReduceSp`) and whose `OnCastSucceed` stops the SP recovery; until then the bar stays as it was (`BasicSkill.isAffecting`
    * is the skill ability's, not cast yet). A stun, freeze or sleep meanwhile loses the cast and keeps the SP
    * (`SkillState.OnExit` → `BasicSkill.InterruptIfNot` clears the start the clip waits for: `DoStartSkill` then does nothing).
+   * @param {string} reason @param {number} begin @param {boolean} [free]
    */
   _beginCast(reason, begin, free = false) {
     const b = this.battle;
     const u = this.unit;
     // (a 'state' cast leaves the born state: see _startSkill)
-    if (u.bornUntil > b.time) u.bornUntil = b.time;
+    if (/** @type {number} */ (u.bornUntil) > b.time) u.bornUntil = b.time;
     this._begin = { until: b.time + begin, reason, free };
     this._enterSkillState({ action: begin });
     u.skillAnimUntil = Math.max(u.skillAnimUntil ?? -Infinity, b.time + SKILL_ANIM_WINDOW);
@@ -884,12 +935,12 @@ export class SkillRuntime {
 
   /** The begin clip of a cast, in its unit's tick (after its attack update, as the client's coroutine resumes in `SimulateTick`). */
   _tickBegin() {
-    const g = this._begin;
+    const g = /** @type {BeginCast} */ (this._begin);   // (tickActive calls it while one plays)
     const u = this.unit;
     const b = this.battle;
     if (!u.alive || !u.deployed) { this._begin = null; return; }
     // (a stun / freeze / sleep has ended the Skill state — ai.js updateAlly clears skillStateUntil)
-    if (!u.canAct || u.skillStateUntil < g.until - 1e-9) {
+    if (!u.canAct || /** @type {number} */ (u.skillStateUntil) < g.until - 1e-9) {
       this._begin = null;
       this._call('onBeginLost');
       b._ev(['skill', u.id, 0]);
@@ -902,6 +953,7 @@ export class SkillRuntime {
   }
 
   /** The skill starts (activate, or the end of its begin clip — `begun`: its 'skill' on event went out with the cast). */
+  /** @param {string} reason @param {boolean} [begun] */
   _startSkill(reason, begun = false) {
     const u = this.unit;
     const b = this.battle;
@@ -928,7 +980,7 @@ export class SkillRuntime {
     }
     // a 'state' cast leaves the born state (`Character.SwitchToSkillState` switches the state machine to SKILL, which hands
     // over to IDLE as it ends): the unit's attacks are no longer held for the rest of BORN_TIME (ai.js updateAlly)
-    if (this.cast?.mode === 'state' && u.bornUntil > b.time) u.bornUntil = b.time;
+    if (this.cast?.mode === 'state' && /** @type {number} */ (u.bornUntil) > b.time) u.bornUntil = b.time;
     if (!begun) this._evOn(reason);
     u.skillAnimUntil = b.time + SKILL_ANIM_WINDOW;
     // a CastSkill casts its skill ability now: the unit turns by its flags (ai.js castFace; a 'replace' cast turns as
@@ -971,7 +1023,7 @@ export class SkillRuntime {
    */
   _instantStrike() {
     const b = this.battle;
-    if (this.cast?.mode === 'state' && this.cast.dur > 0 && this.unit.skillStateUntil > b.time) {
+    if (this.cast?.mode === 'state' && this.cast.dur > 0 && /** @type {number} */ (this.unit.skillStateUntil) > b.time) {
       const t = this.castTiming();
       this._castStage = { strikeAt: b.time + t.strike, endAt: b.time + t.action, instant: true };
       this._tickCast();
@@ -1054,7 +1106,7 @@ export class SkillRuntime {
     } else this.nextCastAt = b.time + t.cooldown;
   }
 
-  /** The Skill state of a `_switchToState` 1 cast for its action `t.action`: the swing in progress is cut, no attack until it ends (ai.js updateAlly). */
+  /** The Skill state of a `_switchToState` 1 cast for its action `t.action`: the swing in progress is cut, no attack until it ends (ai.js updateAlly). @param {{ action: number }} t */
   _enterSkillState(t) {
     const b = this.battle;
     const u = this.unit;
@@ -1074,10 +1126,10 @@ export class SkillRuntime {
    * owner, so the stages come anyway; the stun cut the clip, so the wait for its OnAttack runs out at the clip's end.
    */
   _tickCast() {
-    const c = this._castStage;
+    const c = /** @type {CastStage} */ (this._castStage);   // (tickActive calls it while one runs)
     const u = this.unit;
     const now = this.battle.time + 1e-9;
-    if (!c.cut && (!u.canAct || u.skillStateUntil < c.endAt - 1e-9)) {
+    if (!c.cut && (!u.canAct || /** @type {number} */ (u.skillStateUntil) < c.endAt - 1e-9)) {
       c.cut = true;
       this._call('onCastCut');
       if (!this.spec.castCarriesOn) {
@@ -1123,7 +1175,7 @@ export class SkillRuntime {
     this.battle._ev(ev);
   }
 
-  /** A 'replace' cast's attack starts (ai.js startReplacement): the skill clip plays for its action. */
+  /** A 'replace' cast's attack starts (ai.js startReplacement): the skill clip plays for its action. @param {number} action */
   beginReplacement(action) {
     const b = this.battle;
     const u = this.unit;
@@ -1154,6 +1206,7 @@ export class SkillRuntime {
   /**
    * Called after each attack/heal performed by the unit. `noAmmo` (Battle.forceAttack opts, or `ctx.noAmmo = true`
    * set by the spec's onAttack) = this attack spends no ammo of a running ammo skill (no `ammoUsed`).
+   * @param {Unit[]} targets @param {unknown} usedOverride @param {boolean} [noAmmo]
    */
   onAttackPerformed(targets, usedOverride, noAmmo = false) {
     if (this.noSkill) return;
@@ -1230,6 +1283,7 @@ export class SkillRuntime {
   // ---- helpers for content -------------------------------------------------------------------------------
   // (non-finite arguments are ignored: a NaN timer/ammo count would keep the skill active forever)
   // (bullets added above the activation's most so far raise the bar's full mark: the bar drains one bullet at a time)
+  /** @param {number} n */
   addAmmo(n) {
     if (!this.active || this.kind !== 'ammo' || !Number.isFinite(n)) return;
     this.ammoLeft += n;
@@ -1239,6 +1293,7 @@ export class SkillRuntime {
    * Bullets given back (AmmoSkillCountModifier `_recoverEventCount` → AbilityEventCounter.RecoverEventCount): never more than
    * were fired, and — unless `skipLimit` (`_recoverSkipLimitCheck`) — at most the activation's full count in all. The max stays;
    * `addAmmo` is the other kind (`_modifyMaxCount`). Returns the bullets given back.
+   * @param {number} n @param {boolean} [skipLimit]
    */
   recoverAmmo(n, skipLimit = false) {
     if (!this.active || this.kind !== 'ammo' || !Number.isFinite(n)) return 0;
@@ -1248,6 +1303,7 @@ export class SkillRuntime {
     this.ammoLeft += k;
     return k;
   }
+  /** @param {number} seconds */
   extend(seconds) { if (this.active && Number.isFinite(this.timeLeft) && Number.isFinite(seconds)) this.timeLeft += seconds; }
   addCharge(n = 1) { if (!Number.isFinite(n)) return; this.charges = Math.max(0, Math.min(this.maxCharges, this.charges + n)); if (this.charges >= this.maxCharges) this.sp = this.spCost; }
   stop() { this.end('stopped'); }
