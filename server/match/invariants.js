@@ -226,14 +226,15 @@ export function collectViolations(m, { limit = 25 } = {}) {
   }
   for (const [base, n] of held) if (!m.pool.has(base) && n !== 0) fail(`non-pool chess ${base} holds ${n} copies`);
 
-  // shared shop-equipment stock: unlike the chess pool it never goes past the cap (no grant overdraws it)
+  // shared shop-equipment stock: the owned copies pass the cap only by what the pieces bought from a card already on
+  // screen carry as `overStock` (pool.js SharedItemPool `over`); no other gain passes it
   if (m.itemPool && gd.raw.items) {
     for (const [id, rec] of Object.entries(gd.raw.items)) {
       if (!rec || rec.isGolden) continue;
       const cap = m.itemPool.cap(id);
       if (!Number.isInteger(cap)) continue;
-      const h = m.itemPool.held(id);
-      if (h > /** @type {number} */ (cap)) fail(`item ${id}: held ${h} > cap ${cap}`);
+      const h = m.itemPool.held(id), over = m.itemPool.over(id);
+      if (h - over > /** @type {number} */ (cap)) fail(`item ${id}: held ${h} − past-stock ${over} > cap ${cap}`);
     }
   }
 

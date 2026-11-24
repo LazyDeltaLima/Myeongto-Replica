@@ -36,7 +36,8 @@ export class PlayerPrep {
     const handFull = this.freeZoneSlot(slot.kind) < 0;
     if (slot.kind === 'item') {
       if (!this.gd.item(slot.id)) return fail(ERR.BAD_TARGET);
-      if (!this.m.itemPool.canGain(slot.id)) return fail(ERR.SOLD_OUT);
+      // an equipment card the offer already shows is taken past the shared stock, as in the shop (economy.js buy;
+      // maintainer decision 2026-11-24, after upstream #624) [ASSUMED·화면]
       if (handFull) return fail(this.zoneFullError('item'));
     } else {
       const rec = this.gd.chess(slot.id);
@@ -53,7 +54,7 @@ export class PlayerPrep {
     this.offers.shift();
     if (price > 0) this.spend(price);
     if (slot.kind === 'item') {
-      const gained = this.acquireItem(slot.id, { source: 'reward' });
+      const gained = this.acquireItem(slot.id, { source: 'reward', displayed: true });
       // 凯瑟琳's 突变细胞 allowance (bands/meta.js up_shop_add_special_goods): a successful pick from her offer spends it
       // [ASSUMED]; her offers still queued lose the cell, keeping their other choices without a re-draw [ASSUMED]
       if (gained && offer.source === 'band:band_cathy' && slot.id === itemIdOfKey('chess_item_5_08_e', this.gd.raw)) {

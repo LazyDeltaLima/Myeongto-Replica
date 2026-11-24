@@ -1555,7 +1555,7 @@ function takeOffers(m, ps) {
     let best = -1;
     let bestS = -Infinity;
     offer.slots.forEach((s, i) => {
-      if (s.sold || (s.kind === 'item' && !m.itemPool.canGain(s.id))) return; // an item the shared stock no longer covers
+      if (s.sold) return; // an item card on screen is taken past the shared stock too (prep.js pickReward)
       const sc = s.kind === 'item' ? (canUseItem(m, ps, s) ? 10 : 1) + gd.tierOf(s.id) * 3 : buyScore(m, ps, s.id, ctx);
       if (sc > bestS) { bestS = sc; best = i; }
     });
@@ -1928,7 +1928,6 @@ function* buyLoopSteps(m, ps, { fillOnly = false, maxRefreshes = 0 } = {}) {
         if (!boardFull) sc += 8;
       } else {
         if (fillOnly) return;
-        if (!m.itemPool.canGain(s.id)) return; // the shared equipment stock ran out since the roll (buy would fail SOLD_OUT)
         if (!canUseItem(m, ps, { id: s.id })) return;
         if (ps.freeZoneSlot('item') < 0) return; // the hand, or 规程's 装备区
         if (ps.funds - price < reserve && !ps.completesItemMerge(s.id)) return;

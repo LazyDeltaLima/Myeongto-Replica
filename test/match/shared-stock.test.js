@@ -38,9 +38,7 @@ test('shared equipment occupancy includes hand/equipped/elite, never displayed o
   a.pushItemOffer([PACK]); assert.equal(m.itemPool.left(PACK), 2, 'display reserves nothing');
   const x = a.acquireItem(PACK), y = b.acquireItem(PACK); assert.ok(x && y);
   assert.equal(m.itemPool.left(PACK), 0);
-  const money = a.funds;
-  assert.equal(a.buy(slot).error, 'SOLD_OUT'); assert.equal(a.funds, money); assert.equal(a.shop.slots[slot].sold, false);
-  assert.equal(a.pickReward(0).error, 'SOLD_OUT'); assert.equal(a.offers.length, 1);
+  a.offers = [];
   const id = [...m.pool.entries.keys()].find(id => m.gd.tierOf(id) === 1), owner = give(m, a, id);
   assert.ok(a.equip(x.uid, owner.uid).ok); assert.equal(m.itemPool.held(PACK), 2);
   assert.ok(a.sell(owner.uid).ok); assert.equal(m.itemPool.held(PACK), 2, 'selling returns equipment to hand, not to stock');
@@ -52,6 +50,41 @@ test('shared equipment occupancy includes hand/equipped/elite, never displayed o
   assert.equal(m.itemPool.held(PACK), 2, 'one upgraded item occupies two normal copies');
   assert.ok(a.destroy(gold.uid).ok); assert.equal(m.itemPool.left(PACK), 2);
   checkInvariants(m); m.dispose();
+});
+
+test('an equipment card already shown is bought past the stock (shop, reward offer); grants and rolls stay limited (after upstream #624)', () => {
+  const h = makeMatch({ mode: 'coop', humans: 2, seed: 11, fake: true }).start().toPrep();
+  const m = h.m, a = h.ps('p_0'), b = h.ps('p_1');
+  a.funds = 10; const slot = a.shop.slots.findIndex(s => s?.kind === 'item');
+  assert.ok(slot >= 0); a.shop.slots[slot] = { kind: 'item', id: PACK, basePrice: 1, sold: false, frozen: true };
+  a.pushItemOffer([PACK]); assert.equal(a.offers.length, 1);
+  const x = a.acquireItem(PACK), y = b.acquireItem(PACK); assert.ok(x && y);
+  assert.equal(m.itemPool.left(PACK), 0);
+  // the shop card: bought, and merged with a's copy into the advanced item, which carries the copy past the stock
+  assert.ok(a.buy(slot).ok); assert.equal(a.funds, 9); assert.equal(a.shop.slots[slot].sold, true);
+  const gold = [...a.hand, ...a.temp].find(p => p && m.gd.baseIdOf(p.id) === PACK);
+  assert.ok(gold && m.gd.isGolden(gold.id)); assert.equal(gold.overStock, 1);
+  assert.equal(m.itemPool.held(PACK), 3); assert.equal(m.itemPool.over(PACK), 1); assert.equal(m.itemPool.left(PACK), 0);
+  checkInvariants(m);
+  // the reward offer: taken past the stock as a normal copy marked with its one copy
+  assert.ok(a.pickReward(0).ok); assert.equal(a.offers.length, 0);
+  const extra = [...a.hand, ...a.temp].find(p => p && p.id === PACK);
+  assert.ok(extra); assert.equal(extra.overStock, 1);
+  assert.equal(m.itemPool.held(PACK), 4); assert.equal(m.itemPool.over(PACK), 2);
+  checkInvariants(m);
+  // a grant, a new offer and the shop's rolls still leave it out
+  assert.equal(b.acquireItem(PACK), null);
+  a.pushItemOffer([PACK]); assert.equal(a.offers.length, 0, 'no offer is made of an item the stock cannot cover');
+  for (let i = 0; i < 200; i++) assert.notEqual(m.gd.baseIdOf(m.pool.rollItem(m.rngShop, 6, m.itemPool) || ''), PACK);
+  // the invariant still catches a copy past the stock that carries no mark
+  delete extra.overStock;
+  assert.throws(() => checkInvariants(m), /past-stock/);
+  extra.overStock = 1;
+  // copies leaving ownership take their marks along; the stock opens once the owned copies are under the cap
+  assert.ok(a.destroy(gold.uid).ok); assert.equal(m.itemPool.over(PACK), 1); assert.equal(m.itemPool.left(PACK), 0);
+  assert.ok(a.destroy(extra.uid).ok); assert.equal(m.itemPool.over(PACK), 0); assert.equal(m.itemPool.left(PACK), 1);
+  assert.ok(b.acquireItem(PACK)); checkInvariants(m);
+  m.dispose();
 });
 
 test('整备 does not upgrade a purchase that would exceed the shared item cap', () => {

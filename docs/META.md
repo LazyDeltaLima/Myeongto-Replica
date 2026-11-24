@@ -608,7 +608,9 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   商业包装方案 2 (`economy.itemPoolCopies` / `itemPoolCopiesOverrides`, `GameData.itemPoolCopies`). `pool.js SharedItemPool`
   counts it live from every player's hand, temp area and equipped items (normal 1, advanced 2); displays reserve nothing.
   A gain the stock cannot cover is not made: the shop's item slot and every item roll / offer / 机变 card leave such an
-  item out, a buy or reward pick fails `SOLD_OUT` before any charge, a 机变 item card a previous pick exhausted shows
+  item out, a card already on screen — a shop slot (a frozen one too) or a reward offer — is still bought, its copies
+  past the stock marked on the piece as `overStock` (maintainer decision 2026-11-24, after upstream #624 [ASSUMED];
+  `invariants.js` checks owned − marked ≤ cap), a 机变 item card a previous pick exhausted shows
   库存不足 and cannot be picked (the turn timer and bots skip it), a grant toasts 装备库存不足 and gives nothing, and 整备
   leaves the bought item normal with its charge unspent when the golden's second copy is not free. Consumed, destroyed or
   eliminated items stop counting [ASSUMED]; non-shop effect-only equipment is uncapped. Item odds are unchanged.

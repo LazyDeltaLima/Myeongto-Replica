@@ -206,11 +206,14 @@ export class PlayerEconomy {
       piece = this.acquireChess(slot.id, { source: 'buy' });
     } else {
       if (!this.gd.item(slot.id)) return fail(ERR.BAD_TARGET);
-      if (!this.m.itemPool.canGain(slot.id)) return fail(ERR.SOLD_OUT);
+      // An equipment card the shop already shows (a frozen one too) stays buyable when the shared stock has run out
+      // since the roll, like an operator card above (maintainer decision 2026-11-24, after upstream 72ebd9f3 / #624)
+      // [ASSUMED·화면: no official recording shows it for equipment]: acquireItem `displayed` marks the copies past the
+      // stock (pool.js SharedItemPool `over`), and the rolls keep leaving the item out.
       if (handFull) return fail(this.zoneFullError('item'));
       this.spend(price);
       slot.sold = true;
-      piece = this.acquireItem(slot.id, { source: 'buy' });
+      piece = this.acquireItem(slot.id, { source: 'buy', displayed: true });
     }
     this.stats.buys++;
     this.round.buys++;

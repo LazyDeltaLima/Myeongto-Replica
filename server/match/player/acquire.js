@@ -341,21 +341,30 @@ export class PlayerAcquire {
    * must stay gated (#466: any acquisition occupies, a third 商业包装方案 must fail), and a gate-skipped-but-counted
    * grant would break the held ≤ cap invariant. A golden inherits the marker only when every consumed copy was
    * exempt; 整备 of an exempt piece never waits for a second stock copy.
+   * `displayed: true` — the card was already on screen (a shop slot, a reward offer: economy.js buy, prep.js
+   * pickReward): the stock does not refuse it, and the copies it could not cover ride on the piece as `overStock`
+   * (pool.js SharedItemPool `over`; maintainer decision 2026-11-24, after upstream #624) [ASSUMED·화면]. Every other
+   * gain — a grant, a roll, a 机变 card — is still refused.
    * @param {string} itemId
-   * @param {{ source?: string, toTemp?: boolean, silent?: boolean, deferMerge?: boolean, noPool?: boolean }} [opts]
+   * @param {{ source?: string, toTemp?: boolean, silent?: boolean, deferMerge?: boolean, noPool?: boolean, displayed?: boolean }} [opts]
    * @returns {Piece | null}
    * @this {PlayerState}
    */
-  acquireItem(itemId, { source = 'grant', toTemp = false, silent = false, deferMerge = false, noPool = false } = {}) {
+  acquireItem(itemId, { source = 'grant', toTemp = false, silent = false, deferMerge = false, noPool = false, displayed = false } = {}) {
     const rec = this.gd.item(itemId);
     if (!rec) return null;
+    const pool = this.m.itemPool;
     // the shared equipment stock (pool.js SharedItemPool): a gain it cannot cover is not made; a noPool grant skips it
-    if (!noPool && !this.m.itemPool.canGain(itemId)) {
+    if (!noPool && !displayed && !pool.canGain(itemId)) {
       this.m.toast(this, 'warn', '装备库存不足，未获得该装备');
       return null;
     }
+    const left = pool.left(itemId);
+    const short = noPool || left === Infinity ? 0 : Math.max(0, pool.need(itemId) - left);
+    /** @type {Record<string, any>} */
+    const marks = noPool ? { noPool: true } : short > 0 ? { overStock: short } : {};
     /** @type {Piece | null} */
-    let piece = this.newPiece('item', itemId, noPool ? { noPool: true } : {});
+    let piece = this.newPiece('item', itemId, marks);
     // A prep-end grant may sit beside an identical copy until the next prep. The invariant counts only copies
     // without this mark, so the fight that is about to start is not reported as a missed merge.
     if (deferMerge) piece.deferMerge = true;
@@ -387,7 +396,11 @@ export class PlayerAcquire {
     // the bought copies held — `poolHeld` (pool.js SharedItemPool.held), not the golden's 2: a trait copy merged with a
     // bought one occupies 1, so a cap of 1 is never passed (until 2026-10-22 such a golden held 2)
     const pooled = consumed.filter((l) => !l.piece.noPool).reduce((n, l) => n + this.m.itemPool.copiesOf(l.piece), 0);
+    /** @type {Record<string, any>} */
     const extra = pooled === 0 ? { noPool: true } : pooled < this.m.itemPool.need(rec.upgradeChessId || rec.goldenId) ? { poolHeld: pooled } : {};
+    // the copies the consumed pieces held past the stock (acquireItem `displayed`) stay held by the golden
+    const over = pooled === 0 ? 0 : consumed.reduce((n, l) => n + (Number.isInteger(l.piece.overStock) ? l.piece.overStock : 0), 0);
+    if (over > 0) extra.overStock = Math.min(over, pooled);
     const golden = this.newPiece('item', rec.upgradeChessId || rec.goldenId, extra);
     this.stow(golden, { allowTemp: true });
     this.stats.itemMerges++;

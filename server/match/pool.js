@@ -278,6 +278,12 @@ export class SharedPool {
  * The four uncapped 〈获得时〉 fixed-equipment traits (SERVER_GAIN_EQUIP: 诗怀雅 / 卡涅利安 and 蜜蜡 (shared garrison 49) /
  * 耶拉 / 缪尔赛思 — 路标月报#2 item 7) carry `noPool` and hold no stock (acquireItem marks them; held() skips them),
  * upstream PR #496 (GitHub #488). Pool-draw traits (洛洛 / 焰尾, SERVER_POOL_*) stay pool-bound like any acquisition.
+ * An equipment card already on screen — a shop slot (a frozen one included) or a reward offer — is bought past the
+ * stock (maintainer decision 2026-11-24, after upstream 72ebd9f3 / #624) [ASSUMED·화면: no official recording shows it
+ * for equipment; the operator rule's video, 路标月报#2 ~2:55, shows operator cards only]: the piece takes the copies it
+ * holds as any piece does, and the copies the stock could not cover ride on it as `overStock` (acquireItem `displayed`),
+ * so the owned count may pass the cap by exactly what those pieces carry (`over`, invariants.js). `left()` clamps at 0,
+ * so the rolls keep leaving the item out until enough copies leave ownership; a piece that leaves takes its mark along.
  */
 export class SharedItemPool {
   /** @param {import('./gamedata.js').GameData} gd @param {() => Iterable<any>} players every seat of the match (eliminated ones hold nothing) */
@@ -306,6 +312,27 @@ export class SharedItemPool {
       if (!p) return;
       if (p.kind === 'item' && this.gd.baseIdOf(p.id) === base) count += this.copiesOf(p);
       for (const item of p.items || []) if (this.gd.baseIdOf(item.id) === base) count += this.copiesOf(item);
+    };
+    for (const ps of this.players()) {
+      for (const p of ps.hand) see(p);
+      for (const p of ps.temp) see(p);
+      for (const p of ps.board.values()) see(p);
+    }
+    return count;
+  }
+  /**
+   * Copies of `id`'s base the owned pieces hold past the cap: the `overStock` marks of pieces bought from a card already
+   * on screen while the stock was short (acquireItem `displayed`). held − over never passes the cap.
+   * @param {string} id
+   */
+  over(id) {
+    const base = this.gd.baseIdOf(id);
+    let count = 0;
+    /** @param {Piece | null | undefined} p */
+    const see = (p) => {
+      if (!p) return;
+      if (p.kind === 'item' && !p.noPool && Number.isInteger(p.overStock) && this.gd.baseIdOf(p.id) === base) count += p.overStock;
+      for (const item of p.items || []) see(item);
     };
     for (const ps of this.players()) {
       for (const p of ps.hand) see(p);
