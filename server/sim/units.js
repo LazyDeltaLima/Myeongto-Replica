@@ -14,19 +14,33 @@ import { aggregateMods } from './buffs.js';
 import { flagsOf } from './snapshot.js';
 import { ASPD_MIN, ASPD_MAX, MOVE_SPEED_MIN, ELEMENT_GAUGE_MAX, ELEMENT_GAUGE_MAX_LEADER } from './constants.js';
 import { DIR_VEC, normDir } from './dir.js';
+/** @import { SkillRuntime } from './skills.js' */
 
+/** @param {number} v @param {number} a @param {number} b */
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const EMPTY = Object.freeze({});
 /** No 练度 multiplier (a unit without one: enemies, summons, stand-ins, a raw spec unit). */
 const NO_MUL = Object.freeze({ atk: 1, def: 1, hp: 1 });
 /** Aggregates can overflow (huge stacked *Mul mods → Infinity) — fall back to `d` so no stat is ever non-finite. */
+/** @param {number} v @param {number} d */
 const fin = (v, d) => (Number.isFinite(v) ? v : d);
 /** 移动速度 after its mods: never below MOVE_SPEED_MIN for a unit that walks (base > 0) unless a noMove state holds it. */
+/** @param {{ moveSpeed: number }} b @param {number} v @param {Record<string, any> | null | undefined} flags */
 const moveSpeedOf = (b, v, flags) => (b.moveSpeed > 0 && !(flags && flags.noMove) ? Math.max(MOVE_SPEED_MIN, v) : Math.max(0, v));
+
+/**
+ * A swing whose strike is not reached yet (ai.js startSwing, the enemies' swing): the time to its strike, its targets
+ * (null: the strike picks them), the strike's selection and, for an ally, the profile it was swung with.
+ * @typedef {{ left: number, targets: Unit[] | null, sel: number, isSkill?: boolean, signal?: string | null,
+ *   prof?: Record<string, any> | null, replace?: SkillRuntime }} Swing
+ * A leaders' shared HP pool (the match's SharedBossPool, server/match; the browser's LocalBossPool, spec.js): the HP
+ * the sim reads and writes, and the rest of its record.
+ * @typedef {{ hp: number, maxHp: number, [key: string]: any }} BossPool
+ */
 
 export class Unit {
   /**
-   * @param {object} init
+   * @param {Record<string, any>} init
    */
   constructor(init) {
     // Heavy references are non-enumerable so assertion diffs / logs never walk the whole battle graph.
@@ -54,7 +68,7 @@ export class Unit {
     this.homeC = this.tileC;
     // knocked-out operators (Battle.isDown): [r, c] of the tile the body lies on and the unit comes back on — where it
     // fell, or its home (Battle._layBody); x / y / tileR / tileC keep where it fell
-    this.body = null;
+    this.body = /** @type {number[] | null} */ (null);
     // deploy direction (sim/dir.js; allies: from the board piece, default RIGHT); `facing` is its derived horizontal
     // sign (sprite flip only) — a legacy `init.facing` ±1 still maps to RIGHT / LEFT
     this.dir = normDir(init.dir ?? init.facing);
@@ -71,9 +85,9 @@ export class Unit {
     this.alive = true;
     this.deployed = false;
     this.removed = false;       // permanently gone (enemies, tokens, retreated-for-good)
-    this.blocking = [];         // ops: enemies currently blocked
-    this.blockedBy = null;      // enemies: blocker unit
-    this.blockMove = null;      // enemies: the slide to the block position (Battle._moveToBlockPosition)
+    this.blocking = /** @type {Unit[]} */ ([]);         // ops: enemies currently blocked
+    this.blockedBy = /** @type {Unit | null} */ (null);      // enemies: blocker unit
+    this.blockMove = /** @type {{ x0: number, y0: number, x1: number, y1: number, t: number } | null} */ (null);      // enemies: the slide to the block position (Battle._moveToBlockPosition)
     this.blockSearchTick = 0;   // allies: ticks to the next search for enemies to block (Battle._searchBlockees)
     // enemies: the walk's velocity and the wall's force, read every few ticks (ai.js walkRoute: the client's MoveController)
     this.moveVx = 0;
@@ -84,46 +98,47 @@ export class Unit {
     // enemies: listed on more than one tile of the range index (their 0.1 collider straddles an edge), and the tiles
     // they are filed on (battle/queries.js _indexEnemy); declared here so the index writing them never changes a unit's shape
     this._ebMulti = false;
-    this._ixT = null;
-    this._ixB = null;
+    this._ixT = /** @type {number[] | null} */ (null);
+    // null exactly while _ixT is (battle/queries.js reads it after _ixT's check)
+    this._ixB = /** @type {number[]} */ (/** @type {unknown} */ (null));
     this._ixX = 0;   // the position it was filed at
     this._ixY = 0;
     this.motion = init.motion ?? 'GROUND'; // enemies: 'WALK' | 'FLY'
-    this.profile = null;        // resolved profession/attack profile
-    this.skill = null;          // SkillRuntime
-    this.kit = null;
+    this.profile = /** @type {Record<string, any> | null} */ (null);        // resolved profession/attack profile
+    this.skill = /** @type {SkillRuntime | null} */ (null);          // SkillRuntime
+    this.kit = /** @type {Record<string, any> | null} */ (null);
     this.atkCd = 0;
-    this.atkMode = undefined;   // ai.js: the attack record (its mode's attack ability) `atkCd` counts for; undefined = not seen yet
+    this.atkMode = /** @type {object | null | undefined} */ (undefined);   // ai.js: the attack record (its mode's attack ability) `atkCd` counts for; undefined = not seen yet
     this.atkCombat = false;     // ai.js syncCombat: a mode with a separate `_combat` ability is on it now; `atkCd` is that ability's
     this.atkCdAlt = 0;          //   and this the other one's, which counts down too
     this.atkSub = false;        // ai.js attackRecordOf: its kit says the running skill has switched to the mode it goes on to
-    this.swing = null;          // a normal attack swung, its strike not reached yet (ai.js startSwing)
-    this.swingOff = null;       // ai.js: a swing of a mode's attack a mode switch detached, playing on to its strike
+    this.swing = /** @type {Swing | null} */ (null);          // a normal attack swung, its strike not reached yet (ai.js startSwing)
+    this.swingOff = /** @type {Swing | null} */ (null);       // ai.js: a swing of a mode's attack a mode switch detached, playing on to its strike
     this.castLeft = 0;          // the rest of the swing after its strike (ai.js: the next swing waits for it)
     this.castSwing = false;     // ai.js: an enemy's `castLeft` is its normal swing's (not a skill cast's)
-    this.mode = null;           // ai.js enemyMode: an enemy's prefab mode after its first (its attack ability), null = the first
+    this.mode = /** @type {string | null} */ (null);           // ai.js enemyMode: an enemy's prefab mode after its first (its attack ability), null = the first
     this.atkSpell = 0;          // ai.js: the attack (1) / combat (2) state its swings run in, 0 none — the next is a first attack
     this.atkSpellExit = 0;      // ai.js endSpell: when a check with no target ends that state (last swing's end + _escapeTime)
-    this.faceTgt = null;        // the main target its latest swing turned it to (ai.js holdFaceTarget)
+    this.faceTgt = /** @type {Unit | null} */ (null);        // the main target its latest swing turned it to (ai.js holdFaceTarget)
     this.faced = false;         // a swing turned it from its deploy direction; 'face' turns it back (ai.js faceIdle)
     this.lastAttackAt = -Infinity;
     this.lastHitAt = -Infinity;
-    this._dmgEv = null;         // its last 'dmg' event (damage.js hitFx)
+    this._dmgEv = /** @type {unknown[] | null} */ (null);         // its last 'dmg' event (damage.js hitFx)
     this.deployedAt = -Infinity;
     this.deathAt = -Infinity;
     this.respawnAt = Infinity;
     this.deploySeq = 0;         // deployment counter; also the identity of one deployment (content: `seq === u.deploySeq`)
     this.aggroSeq = 0;          // 仇恨 order (the later the more attacked): = deploySeq, except summons of the initial deployment
     this.spawnSeq = 0;
-    this.elem = { burn: 0, neural: 0, apoptosis: 0, erosion: 0 };
+    this.elem = /** @type {Record<string, number>} */ ({ burn: 0, neural: 0, apoptosis: 0, erosion: 0 });
     if (this.side === 'enemy') this.elem.rampage = 0;   // 狂躁: enemies only so far (constants.js ELEMENT.rampage)
-    this.burstPending = null;   // { [element]: true } while that element's burst resolves (damage.js burstLocked)
+    this.burstPending = /** @type {Record<string, boolean> | null} */ (null);   // { [element]: true } while that element's burst resolves (damage.js burstLocked)
     this.tags = new Set(init.tags || []);
     /** @type {Record<string, any>} */
     this.mem = {};              // free scratch space for content (per unit)
     // a countdown summon's life on the field ({ from, until } battle times; content/tokens.js startCountdown, cleared by
     // every deployment): its bar shows the time left (snapshot.js unitTuple), its HP never moves (无敌 + 禁疗)
-    this.countdown = null;
+    this.countdown = /** @type {{ from: number, until: number } | null} */ (null);
     // knocked out, the unit lies — and redeploys — on its home tile instead of where it fell (Battle._layBody) while content
     // holds this: 乌尔比安 moved by his S3 (the owner's decision of 2026-10-07, a deviation from PRTS's "where it fell");
     // every deployment clears it (battle/deploy.js _deploy)
@@ -135,18 +150,18 @@ export class Unit {
     this.stats = { dmg: 0, byType: [0, 0, 0, 0], kills: 0, heal: 0, taken: 0, attacks: 0, boss: 0, assist: /** @type {Record<string, number> | null} */ (null) };
     this.hidden = false;        // enemies inside a DISAPPEAR segment
     this.moving = false;        // enemies: walked this tick (drawn on the move clip; ai.js updateEnemy)
-    this.form = null;           // the model's current form (content/enemies/helpers.js setForm, a 傀儡师's 替身 'doll' → snapshot.js unitInfo)
+    this.form = /** @type {string | null} */ (null);           // the model's current form (content/enemies/helpers.js setForm, a 傀儡师's 替身 'doll' → snapshot.js unitInfo)
     this.anim = 0;
     this.persist = { redeployMul: 1, freeRedeploys: 0 };
     this.isBoss = false;
     // the HUD capsule's own flag (battle/spawns.js: set on the enemies the field itself scheduled, DESIGN §14); declared
     // here so every unit keeps the same object shape (the hot loops' property reads)
     this.inTotal = false;
-    this.bossPool = null;
+    this.bossPool = /** @type {BossPool | null} */ (null);
     // 练度 (自持有, 0.2.2; battle/players.js): the owned operator's tier (0–3, effects.json aceffect_char_1…4) and its
     // char_attribute_mul — ATK / DEF / max HP, a multiplier of its own (never summed with the 直接乘算 percentages)
-    this.cultivate = null;
-    this.cultMul = null;
+    this.cultivate = /** @type {number | null} */ (null);
+    this.cultMul = /** @type {{ atk: number, def: number, hp: number } | null} */ (null);
   }
 
   markDirty() { this._dirty = true; }
@@ -161,7 +176,7 @@ export class Unit {
   /** Aggregated stats (lazy: never null once read). @returns {NonNullable<Unit['_s']>} */
   get s() {
     if (this._dirty) this._recalc();
-    return this._s;
+    return /** @type {NonNullable<Unit['_s']>} */ (this._s);
   }
 
   get maxHp() { return this.s.maxHp; }
@@ -170,8 +185,8 @@ export class Unit {
   _recalc() {
     const prevMax = this._s ? this._s.maxHp : this.base.maxHp;
     const { add, mul, flags, shield, permRangeExtend } = aggregateMods(this.buffs);
-    const a = (k) => add[k] ?? 0;
-    const m = (k) => mul[k] ?? 1;
+    const a = (/** @type {string} */ k) => add[k] ?? 0;
+    const m = (/** @type {string} */ k) => mul[k] ?? 1;
     const b = this.base;
     const cm = this.cultMul || NO_MUL;
     const bHp = fin(b.maxHp, 1) > 0 ? fin(b.maxHp, 1) : 1;
@@ -242,6 +257,7 @@ export class Unit {
   /** Can act at all this tick (not stunned/frozen/sleeping/levitated). */
   get canAct() { return this.alive && this.deployed && !this.hidden && !this.s.flags.stun; }
 
+  /** @param {string} k */
   hasFlag(k) { return !!this.s.flags[k]; }
 
   /**
@@ -282,13 +298,15 @@ export class Unit {
     return this.side === 'enemy' && (this.isBoss || (this.def && this.def.rank === 'BOSS')) ? ELEMENT_GAUGE_MAX_LEADER : ELEMENT_GAUGE_MAX;
   }
 
-  /** Element gauge helper */
+  /** Element gauge helper @param {string} el */
   elemRatio(el) { return (this.elem[el] ?? 0) / this.gaugeMax; }
 
+  /** @param {string} key @returns {object | null} */
   findBuff(key) {
-    for (const b of this.buffs) if (b.key === key) return b;
+    for (const b of /** @type {{ key: string }[]} */ (this.buffs)) if (b.key === key) return b;
     return null;
   }
+  /** @param {string} key */
   hasBuff(key) { return this.findBuff(key) !== null; }
 
   toString() { return `${this.kind}#${this.id}(${this.name})`; }

@@ -18,7 +18,7 @@
  * A queued spawn (`_pending`, in time order).
  * @typedef {{ time: number, enemyKey: string, routeIndex: number, route: object | null, mods: EnemyMods | null,
  *   sourcePlayerId: string | null, bounty: Bounty | null, tag: string | null, ownerPlayerId: string | null,
- *   pos: number[] | null, seq: number, countInTotal: boolean | undefined, counted?: boolean, inTotal?: boolean,
+ *   pos: number[] | null, seq: number, countInTotal: boolean | undefined, counted: boolean, inTotal: boolean,
  *   precounted?: boolean }} PendingSpawn
  * spawnEnemy's options (see there): `def` an inline record, `_precounted` / `_scheduled` the queue's own.
  * @typedef {{ routeIndex?: number, route?: object | null, pos?: number[] | null, mods?: EnemyMods | null,
@@ -80,7 +80,7 @@ export class BattleSpawns {
     if (this.waveT0 == null) return; // the battle-start deployment runs: the wave clock has not started (lifecycle.js)
     const now = this.time + 1e-9;
     while (this._pending.length && this._pending[0].time <= now) {
-      const p = this._pending.shift();
+      const p = /** @type {PendingSpawn} */ (this._pending.shift());   // the loop checked the length
       this._safe(() => this.spawnEnemy(p.enemyKey, { ...p, _precounted: p.precounted, _scheduled: true }), 'spawnEnemy');
     }
   }

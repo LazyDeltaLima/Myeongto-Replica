@@ -68,7 +68,14 @@ const FOUR_WAYS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 /** Cached flow fields per grid version (destinations: route ends, checkpoints, attract points). */
 const FIELD_CACHE_MAX = 64;
 
-/** Built-in legend (research 05 §2.3) used when a stage has no legend entry for a glyph. */
+/**
+ * A tile's normalised legend entry (normalizeLegendEntry; `terrain` / `special` absent on a built-in glyph's without them).
+ * @typedef {{ glyph: string, key: string, height: string, build: string, pass: string, terrain?: string | null,
+ *   special?: string | null }} TileInfo
+ */
+
+/** Built-in legend (research 05 §2.3) used when a stage has no legend entry for a glyph.
+ * @type {Readonly<Record<string, { height: string, build: string, pass: string, key: string, terrain?: string, special?: string }>>} */
 export const DEFAULT_LEGEND = Object.freeze({
   '#': { height: 'HIGH', build: 'NONE', pass: 'FLY', key: 'tile_forbidden' },
   X: { height: 'HIGH', build: 'NONE', pass: 'NONE', key: 'tile_forbidden' },
@@ -109,9 +116,12 @@ export const DEPLOY_REFUSED_TILES = Object.freeze(new Set(['tile_deepsea']));
  */
 export const HAND_TILES = Object.freeze(new Set(['tile_achand', 'tile_acbag']));
 
+/** @type {Record<string, string>} */
 const TERRAIN_BY_KEY = { tile_mire: 'mire', tile_smog: 'smog', tile_deepsea: 'deepsea', tile_infection: 'infection', tile_deepwater: 'deepsea', tile_speedup: 'speedup', tile_duel_grassland: 'grassland' };
+/** @type {Record<string, string>} */
 const SPECIAL_BY_KEY = { tile_start: 'start', tile_end: 'end', tile_telin: 'telin', tile_telout: 'telout' };
 
+/** @param {unknown} v */
 function normPass(v) {
   if (v === true) return 'ALL';
   if (v === false) return 'NONE';
@@ -122,7 +132,8 @@ function normPass(v) {
   return 'ALL';
 }
 
-/** Normalise one legend entry (any known format) into `{ height, build, pass, key, terrain, special }`. */
+/** Normalise one legend entry (any known format) into `{ height, build, pass, key, terrain, special }`.
+ * @param {string} glyph @param {any} e the stage legend's entry (any format) @returns {TileInfo} */
 export function normalizeLegendEntry(glyph, e) {
   const base = DEFAULT_LEGEND[glyph] || { height: 'LOW', build: 'NONE', pass: 'ALL', key: 'tile_floor' };
   if (!e || typeof e !== 'object') return { ...base, glyph };
@@ -148,11 +159,12 @@ const EMPTY_TILE = Object.freeze({ glyph: 'X', key: 'tile_forbidden', height: 'H
  * A melee operator may stand on this terrain: LOW ground buildable for ALL or MELEE. It blocks ground enemies there only
  * where ground units can pass — never on a fenced 围墙 / 围栏 tile (Battle._blockerFor, DESIGN §21.23).
  */
+/** @param {TileInfo} t */
 function isBlockableTile(t) { return t.height === 'LOW' && (t.build === 'ALL' || t.build === 'MELEE'); }
 
 export class Grid {
   /**
-   * @param {object} stage stage entry (rows bottom-first)
+   * @param {Record<string, any> | null | undefined} stage stage entry (rows bottom-first)
    * @param {{r0:number,r1:number,c0:number,c1:number}} rect inclusive simulation bounds
    */
   constructor(stage, rect) {
@@ -162,12 +174,13 @@ export class Grid {
     this.cols = COLS;
     const rows = Array.isArray(this.stage.rows) ? this.stage.rows : [];
     const legend = this.stage.legend || {};
+    /** @type {Map<string, Readonly<TileInfo>>} */
     const cache = new Map();
-    const info = (g) => {
+    const info = (/** @type {string} */ g) => {
       if (!cache.has(g)) cache.set(g, Object.freeze(normalizeLegendEntry(g, legend[g])));
-      return cache.get(g);
+      return /** @type {Readonly<TileInfo>} */ (cache.get(g));
     };
-    /** @type {object[]} */
+    /** @type {Readonly<TileInfo>[]} */
     this.tiles = new Array(ROWS * COLS);
     for (let r = 0; r < ROWS; r++) {
       const line = typeof rows[r] === 'string' ? rows[r] : (Array.isArray(rows[r]) ? rows[r].join('') : '');
@@ -192,13 +205,17 @@ export class Grid {
     this._fields = new Map();
   }
 
+  /** @param {number} r @param {number} c */
   key(r, c) { return r * COLS + c; }
+  /** @param {number} r @param {number} c */
   inBounds(r, c) { return r >= 0 && r < ROWS && c >= 0 && c < COLS; }
+  /** @param {number} r @param {number} c */
   inRect(r, c) { const R = this.rect; return r >= R.r0 && r <= R.r1 && c >= R.c0 && c <= R.c1; }
-  /** Tile info (frozen) or an impassable placeholder outside the stage. */
+  /** Tile info (frozen) or an impassable placeholder outside the stage. @param {number} r @param {number} c */
   tile(r, c) { return this.inBounds(r, c) ? this.tiles[r * COLS + c] : EMPTY_TILE; }
 
-  /** Ground units may stand / be placed here (inside the rect, terrain passable, no obstacle of any kind). */
+  /** Ground units may stand / be placed here (inside the rect, terrain passable, no obstacle of any kind).
+   * @param {number} r @param {number} c @param {boolean} [ignoreObstacles] */
   groundPassable(r, c, ignoreObstacles = false) {
     if (!this.inRect(r, c)) return false;
     const t = this.tiles[r * COLS + c];
@@ -206,7 +223,8 @@ export class Grid {
     return ignoreObstacles || !this.obstacle[r * COLS + c];
   }
 
-  /** Walkable for the flow field: in the rect, terrain passable for WALK, not hard-blocked (crates ARE walkable). */
+  /** Walkable for the flow field: in the rect, terrain passable for WALK, not hard-blocked (crates ARE walkable).
+   * @param {number} r @param {number} c @param {boolean} [ignoreObstacles] */
   walkable(r, c, ignoreObstacles = false) {
     if (!this.inRect(r, c)) return false;
     const k = r * COLS + c;
@@ -214,6 +232,7 @@ export class Grid {
     return ignoreObstacles || !(this.obstacle[k] & OB_BLOCK);
   }
 
+  /** @param {number} r @param {number} c */
   flyPassable(r, c) { return this.inRect(r, c) && this.tile(r, c).pass !== 'NONE'; }
 
   /**
@@ -221,6 +240,7 @@ export class Grid {
    * tiles). `ranged` units may also use LOW ALL/MELEE tiles (DESIGN §3). The effective `build` refuses the 深水区
    * (DEPLOY_REFUSED_TILES); a hard-blocked tile (OB_BLOCK: a 射击台 switched on by a map card, a mound) takes no melee
    * unit — the match's deploy map makes a 射击台 ranged-only (server/match/board.js).
+   * @param {number} r @param {number} c @param {{ ranged?: boolean }} [opts]
    */
   canStand(r, c, { ranged = false } = {}) {
     const t = this.tile(r, c);
@@ -230,15 +250,18 @@ export class Grid {
     return t.height === 'LOW' && (t.build === 'ALL' || t.build === 'MELEE');
   }
 
+  /** @param {number} r @param {number} c */
   isLow(r, c) { return this.tile(r, c).height === 'LOW'; }
 
-  /** Ground a melee operator can be deployed on (LOW, buildable ALL / MELEE) — terrain only; blocking: isBlockableTile. */
+  /** Ground a melee operator can be deployed on (LOW, buildable ALL / MELEE) — terrain only; blocking: isBlockableTile.
+   * @param {number} r @param {number} c */
   blockable(r, c) { return isBlockableTile(this.tile(r, c)); }
 
   /**
    * Toggle an obstacle. `kind` 'block' (default: impassable — platforms, mounds, content) or 'crate' (obstacle-like:
    * walkable at OBSTACLE_COST, blocks line of sight). Each kind is its own bit, so a crate turned into a platform on
    * the same tile (map cards) stays consistent whatever the order of the two calls.
+   * @param {number} r @param {number} c @param {unknown} on @param {string} [kind]
    */
   setObstacle(r, c, on, kind = 'block') {
     if (!this.inBounds(r, c)) return;
@@ -251,15 +274,16 @@ export class Grid {
     this._fields.clear();
   }
 
-  /** Any obstacle (crate or block) on the tile. */
+  /** Any obstacle (crate or block) on the tile. @param {number} r @param {number} c */
   isObstacle(r, c) { return this.inBounds(r, c) && this.obstacle[r * COLS + c] !== 0; }
-  /** An obstacle-like (cost-1000) crate on the tile. */
+  /** An obstacle-like (cost-1000) crate on the tile. @param {number} r @param {number} c */
   isCrate(r, c) { return this.inBounds(r, c) && (this.obstacle[r * COLS + c] & OB_CRATE) !== 0; }
-  /** A hard block (platform / mound / content) on the tile. */
+  /** A hard block (platform / mound / content) on the tile. @param {number} r @param {number} c */
   isBlocked(r, c) { return this.inBounds(r, c) && (this.obstacle[r * COLS + c] & OB_BLOCK) !== 0; }
 
-  /** List tiles of a given special kind ('start'|'end'|'telin'|'telout') inside the rect. */
+  /** List tiles of a given special kind ('start'|'end'|'telin'|'telout') inside the rect. @param {string} kind */
   specialTiles(kind) {
+    /** @type {Array<[number, number]>} */
     const out = [];
     const R = this.rect;
     for (let r = R.r0; r <= R.r1; r++) for (let c = R.c0; c <= R.c1; c++) if (this.tile(r, c).special === kind) out.push([r, c]);
@@ -272,6 +296,7 @@ export class Grid {
   /**
    * Flow field toward (er, ec). `allowDiagonal` false ⇒ line of sight only along a row or a column (every autochess
    * route allows diagonals). `ignoreObstacles` ⇒ blocks and crates are ignored (fallback when the goal is walled off).
+   * @param {number} er @param {number} ec @param {{ allowDiagonal?: boolean, ignoreObstacles?: boolean }} [opts]
    * @returns {FlowField}
    */
   flowField(er, ec, { allowDiagonal = true, ignoreObstacles = false } = {}) {
@@ -280,17 +305,19 @@ export class Grid {
     const hit = this._fields.get(ck);
     if (hit) return hit;
     const f = this._buildField(er, ec, allowDiagonal, ignoreObstacles);
-    if (this._fields.size >= FIELD_CACHE_MAX) this._fields.delete(this._fields.keys().next().value);
+    if (this._fields.size >= FIELD_CACHE_MAX) this._fields.delete(/** @type {string} */ (this._fields.keys().next().value));
     this._fields.set(ck, f);
     return f;
   }
 
+  /** @param {number} er @param {number} ec @param {boolean} allowDiagonal @param {boolean} ignore @returns {FlowField} */
   _buildField(er, ec, allowDiagonal, ignore) {
     const N = ROWS * COLS;
+    /** @type {Record<string, any>} */
     const f = { dest: -1, dist: null, parent: null, pen: null, next: null, official: null, cost: null, deep: null, len: null, version: this.version, allowDiagonal, ignore };
     if (!this.inBounds(er, ec)) {
       const none = new Int32Array(N).fill(-1);
-      return Object.assign(f, { dist: none, parent: none, next: none, official: none, pen: new Int32Array(N), cost: new Int32Array(N), deep: new Int32Array(N) });
+      return /** @type {FlowField} */ (Object.assign(f, { dist: none, parent: none, next: none, official: none, pen: new Int32Array(N), cost: new Int32Array(N), deep: new Int32Array(N) }));
     }
     const dest = er * COLS + ec;
     f.dest = dest;
@@ -298,31 +325,32 @@ export class Grid {
     const official = this._spfa(dest, ignore, null);
     const pref = this._spfa(dest, ignore, unb);
     const dist = pref.dist; // the lexicographic relaxation leaves every distance the official one
-    const walk = (r, c) => this.walkable(r, c, ignore) && (ignore || !(this.obstacle[r * COLS + c] & OB_CRATE));
+    const walk = (/** @type {number} */ r, /** @type {number} */ c) => this.walkable(r, c, ignore) && (ignore || !(this.obstacle[r * COLS + c] & OB_CRATE));
     const ray = allowDiagonal ? bresenhamClear : segmentClear;
-    const nextO = smoothChains(official.parent, dist, (a, b) => ray(a, b, walk), null);
+    const nextO = smoothChains(official.parent, dist, (/** @type {number} */ a, /** @type {number} */ b) => ray(a, b, walk), null);
     // preference smoothing (0.1.0's, playtest #2): the line of sight from n toward ancestor `to` may also cover a
     // non-blockable tile — the Bresenham footprint, corner tiles of a diagonal step included — only when that tile is on
     // n's own raw chain between n and `to`; the jump stops at the first ancestor not visible under that rule
     const onChain = new Int32Array(N).fill(-1);
     let from = -1, to = -1;
-    const walkP = (r, c) => {
+    const walkP = (/** @type {number} */ r, /** @type {number} */ c) => {
       if (!walk(r, c)) return false;
       const k = r * COLS + c;
       return !unb[k] || (onChain[k] === from && dist[k] >= dist[to]);
     };
-    const nextP = smoothChains(pref.parent, dist, (a, b) => { from = a; to = b; return ray(a, b, walkP); },
-      (n) => { for (let x = n, g = N; x >= 0 && g-- > 0; x = pref.parent[x]) onChain[x] = n; });
+    const nextP = smoothChains(pref.parent, dist, (/** @type {number} */ a, /** @type {number} */ b) => { from = a; to = b; return ray(a, b, walkP); },
+      (/** @type {number} */ n) => { for (let x = n, g = N; x >= 0 && g-- > 0; x = pref.parent[x]) onChain[x] = n; });
     // per tile, in increasing distance: the official pointer unless the preference one crosses strictly fewer
     // non-blockable tiles on the way to the destination — or as few while only skipping the official waypoint o, which
     // then lies on the straight line to it and leads there (the same walk, one waypoint fewer) — and no more 深水区
     // than the official one (GitHub #375)
+    /** @type {number[]} */
     const order = [];
     for (let k = 0; k < N; k++) if (dist[k] >= 0) order.push(k);
     order.sort((a, b) => dist[a] - dist[b] || a - b);
-    const through = (a, b) => { let n = -unb[a]; crossTiles(a, b, (r, c) => { n += unb[r * COLS + c]; }); return n; };
+    const through = (/** @type {number} */ a, /** @type {number} */ b) => { let n = -unb[a]; crossTiles(a, b, (/** @type {number} */ r, /** @type {number} */ c) => { n += unb[r * COLS + c]; }); return n; };
     const deepW = this.deepWater;
-    const wet = (a, b) => { let n = -deepW[a]; crossTiles(a, b, (r, c) => { n += deepW[r * COLS + c]; }); return n; };
+    const wet = (/** @type {number} */ a, /** @type {number} */ b) => { let n = -deepW[a]; crossTiles(a, b, (/** @type {number} */ r, /** @type {number} */ c) => { n += deepW[r * COLS + c]; }); return n; };
     const next = new Int32Array(N).fill(-1);
     const cost = new Int32Array(N);
     const deep = new Int32Array(N);
@@ -338,12 +366,13 @@ export class Grid {
       cost[k] = best;
       deep[k] = bestWet;
     }
-    return Object.assign(f, { dist, parent: pref.parent, pen: pref.pen, next, official: nextO, cost, deep });
+    return /** @type {FlowField} */ (Object.assign(f, { dist, parent: pref.parent, pen: pref.pen, next, official: nextO, cost, deep }));
   }
 
   /**
    * FIFO SPFA from `dest` (walkable or not) with the official neighbour order and move costs. With `penalty` (per-tile
    * 0/1) the relaxation is lexicographic on (dist, pen): equal-length chains keep the fewest penalised tiles.
+   * @param {number} dest @param {boolean} ignore @param {Uint8Array | null} penalty
    */
   _spfa(dest, ignore, penalty) {
     const N = ROWS * COLS;
@@ -354,7 +383,7 @@ export class Grid {
     const inQ = new Uint8Array(N);
     const q = new Int32Array(N * 4 + 8);
     let qh = 0, qt = 0;
-    const push = (k) => {
+    const push = (/** @type {number} */ k) => {
       if (qt >= q.length) { q.copyWithin(0, qh, qt); qt -= qh; qh = 0; }
       q[qt++] = k;
     };
@@ -382,10 +411,12 @@ export class Grid {
     return { dist, parent, pen };
   }
 
-  /** Geometric length (tiles) of the smoothed route from tile key k to the field's destination (memoised). */
+  /** Geometric length (tiles) of the smoothed route from tile key k to the field's destination (memoised).
+   * @param {FlowField | null | undefined} f @param {number} k */
   fieldLength(f, k) {
     if (!f || k < 0 || f.dist[k] < 0) return Infinity;
     if (!f.len) f.len = new Float64Array(ROWS * COLS).fill(-1);
+    /** @type {number[]} */
     const stack = [];
     let x = k;
     while (x >= 0 && f.len[x] < 0) {
@@ -405,6 +436,8 @@ export class Grid {
   /**
    * Smoothed waypoints [[r,c]…] from (sr,sc) to (er,ec) along the flow field (start and goal included), or null when
    * the start cannot reach the goal. With `ignoreObstacles` the field ignores blocks and crates.
+   * @param {number} sr @param {number} sc @param {number} er @param {number} ec
+   * @param {{ ignoreObstacles?: boolean, allowDiagonal?: boolean }} [opts] @returns {number[][] | null}
    */
   waypoints(sr, sc, er, ec, { ignoreObstacles = false, allowDiagonal = true } = {}) {
     if (!this.inBounds(sr, sc) || !this.inBounds(er, ec)) return null;
@@ -426,6 +459,7 @@ export class Grid {
   /**
    * Tiles crossed by the enemy route from (sr,sc) to (er,ec): the smoothed waypoints joined by their Bresenham lines
    * (start and goal included; consecutive tiles are 8-neighbours). null when unreachable (unless ignoreObstacles).
+   * @param {number} sr @param {number} sc @param {number} er @param {number} ec @param {{ ignoreObstacles?: boolean }} [opts]
    */
   findPath(sr, sc, er, ec, { ignoreObstacles = false } = {}) {
     const wp = this.waypoints(sr, sc, er, ec, { ignoreObstacles });
@@ -438,7 +472,7 @@ export class Grid {
     return out;
   }
 
-  /** Length (tiles) of a polyline of [r,c] points. */
+  /** Length (tiles) of a polyline of [r,c] points. @param {ReadonlyArray<ReadonlyArray<number>>} pts */
   static pathLength(pts) {
     let len = 0;
     for (let i = 1; i < pts.length; i++) len += hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
@@ -464,6 +498,8 @@ export class Grid {
  * Row-major, in-place smoothing (client `_PostprocessAndMakeNextMapSmoothly`): each tile's pointer jumps along its chain
  * (already smoothed pointers for tiles processed earlier) while `los(tile, ancestor)` holds; `begin(tile)`, when given,
  * runs before the tile's jump. Returns the smoothed pointers.
+ * @param {Int32Array} parent @param {Int32Array} dist @param {(a: number, b: number) => boolean} los
+ * @param {((n: number) => void) | null} begin
  */
 function smoothChains(parent, dist, los, begin) {
   const N = parent.length;
@@ -478,13 +514,15 @@ function smoothChains(parent, dist, los, begin) {
   return next;
 }
 
-/** Whether tile key b lies strictly inside the straight segment between tile keys a and c. */
+/** Whether tile key b lies strictly inside the straight segment between tile keys a and c.
+ * @param {number} a @param {number} b @param {number} c */
 function onSegment(a, b, c) {
   const ar = (a / COLS) | 0, ac = a - ar * COLS, br = (b / COLS) | 0, bc = b - br * COLS, cr = (c / COLS) | 0, cc = c - cr * COLS;
   return (br - ar) * (cc - ac) === (bc - ac) * (cr - ar) && (br - ar) * (cr - br) + (bc - ac) * (cc - bc) > 0;
 }
 
-/** Bresenham line of sight between tile keys a → b (client `_RaycastBresenhamLine`). */
+/** Bresenham line of sight between tile keys a → b (client `_RaycastBresenhamLine`).
+ * @param {number} a @param {number} b @param {(r: number, c: number) => boolean} clear */
 function bresenhamClear(a, b, clear) {
   let r = (a / COLS) | 0, c = a - r * COLS;
   const r1 = (b / COLS) | 0, c1 = b - r1 * COLS;
@@ -504,7 +542,8 @@ function bresenhamClear(a, b, clear) {
   return true;
 }
 
-/** Row / column line of sight (client `_RaycastSegmentLine`, routes without diagonal moves). */
+/** Row / column line of sight (client `_RaycastSegmentLine`, routes without diagonal moves).
+ * @param {number} a @param {number} b @param {(r: number, c: number) => boolean} clear */
 function segmentClear(a, b, clear) {
   let r = (a / COLS) | 0, c = a - r * COLS;
   const r1 = (b / COLS) | 0, c1 = b - r1 * COLS;
@@ -518,7 +557,8 @@ function segmentClear(a, b, clear) {
   return true;
 }
 
-/** Tiles of the Bresenham line [r0,c0] → [r1,c1] (same stepping as bresenhamClear). */
+/** Tiles of the Bresenham line [r0,c0] → [r1,c1] (same stepping as bresenhamClear).
+ * @param {ReadonlyArray<number>} a @param {ReadonlyArray<number>} b */
 export function bresenhamTiles(a, b) {
   let [r, c] = a;
   const [r1, c1] = b;
@@ -542,6 +582,7 @@ export function bresenhamTiles(a, b) {
  * passes exactly through a lattice corner) is skipped. Stops early and returns false when `fn` returns false.
  * Integer arithmetic: the k-th column boundary is crossed at t = (2k − 1) / 2dx, the m-th row boundary at
  * (2m − 1) / 2dy.
+ * @param {number} a @param {number} b @param {(r: number, c: number) => unknown} fn
  */
 function crossTiles(a, b, fn) {
   let r = (a / COLS) | 0, c = a - r * COLS;
@@ -558,10 +599,12 @@ function crossTiles(a, b, fn) {
   return true;
 }
 
-/** Tiles [[r,c]…] whose interior the segment between the centres of tiles a = [r,c] and b crosses (crossTiles). */
+/** Tiles [[r,c]…] whose interior the segment between the centres of tiles a = [r,c] and b crosses (crossTiles).
+ * @param {ReadonlyArray<number>} a @param {ReadonlyArray<number>} b */
 export function segmentTiles(a, b) {
+  /** @type {number[][]} */
   const out = [];
-  crossTiles(a[0] * COLS + a[1], b[0] * COLS + b[1], (r, c) => { out.push([r, c]); });
+  crossTiles(a[0] * COLS + a[1], b[0] * COLS + b[1], (/** @type {number} */ r, /** @type {number} */ c) => { out.push([r, c]); });
   return out;
 }
 
@@ -569,6 +612,7 @@ export function segmentTiles(a, b) {
  * Whether a straight move from (x, y) to the centre of tile p = {x: col, y: row} only crosses ground-walkable,
  * crate-free tiles (the start and end tiles excepted). Exact grid traversal (tile (r,c) spans c ± 0.5, r ± 0.5); a
  * line through a tile corner needs both side tiles clear (as the grid's Bresenham smoothing).
+ * @param {Grid} g @param {number} x @param {number} y @param {{ x: number, y: number }} p
  */
 export function straightClear(g, x, y, p) {
   let c = Math.round(x), r = Math.round(y);
@@ -577,7 +621,7 @@ export function straightClear(g, x, y, p) {
   const ddx = dx !== 0 ? Math.abs(1 / dx) : Infinity, ddy = dy !== 0 ? Math.abs(1 / dy) : Infinity;
   let tx = dx !== 0 ? (c + 0.5 * sc - x) / dx : Infinity;
   let ty = dy !== 0 ? (r + 0.5 * sr - y) / dy : Infinity;
-  const clear = (rr, cc) => (rr === p.y && cc === p.x) || (g.walkable(rr, cc) && !(g.obstacle[rr * COLS + cc] & OB_CRATE));
+  const clear = (/** @type {number} */ rr, /** @type {number} */ cc) => (rr === p.y && cc === p.x) || (g.walkable(rr, cc) && !(g.obstacle[rr * COLS + cc] & OB_CRATE));
   for (let guard = 4 * COLS; guard > 0 && (r !== p.y || c !== p.x); guard--) {
     if (tx >= 1 && ty >= 1) break;
     if (Math.abs(tx - ty) < 1e-9) {

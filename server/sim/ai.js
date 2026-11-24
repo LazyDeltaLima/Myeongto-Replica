@@ -1060,6 +1060,7 @@ function doHeal(b, u, prof, t, skillOn = !!(u.skill && u.skill.active)) {
  * Compile a RouteSpec into legs. With `rect`, positional legs are clamped onto the field: a checkpoint outside the
  * rect (e.g. h07_01's extra fly route along row 6) could never be reached because positions are clamped to the rect
  * every tick — the enemy would hover at the border forever instead of finishing its route.
+ * @param {Record<string, any> | null | undefined} route @param {{ r0: number, r1: number, c0: number, c1: number } | null} [rect]
  */
 export function compileRoute(route, rect = null) {
   const legs = [];

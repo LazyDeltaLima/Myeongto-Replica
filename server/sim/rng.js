@@ -8,6 +8,7 @@ export function createRng(seed = 1) {
   return rngFromState((Number(seed) >>> 0) || 0x9e3779b9);
 }
 
+/** @param {number} s */
 function rngFromState(s) {
   const next = () => {
     s = (s + 0x6d2b79f5) >>> 0;
@@ -17,15 +18,15 @@ function rngFromState(s) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
   const rng = () => next();
-  /** integer in [0, n) */
+  /** integer in [0, n) @param {number} n */
   rng.int = (n) => Math.floor(next() * Math.max(0, n));
-  /** float in [a, b) */
+  /** float in [a, b) @param {number} a @param {number} b */
   rng.range = (a, b) => a + next() * (b - a);
-  /** true with probability p */
+  /** true with probability p @param {number} p */
   rng.chance = (p) => next() < p;
-  /** random element (undefined for empty) */
-  rng.pick = (arr) => (arr && arr.length ? arr[Math.floor(next() * arr.length)] : undefined);
-  /** in-place Fisher–Yates shuffle, returns arr */
+  /** random element (undefined for empty) @template T @param {ArrayLike<T> | null | undefined} arr @returns {T} undefined for empty, as an index is */
+  rng.pick = (arr) => (arr && arr.length ? arr[Math.floor(next() * arr.length)] : /** @type {T} */ (undefined));
+  /** in-place Fisher–Yates shuffle, returns arr @template T @param {T[]} arr @returns {T[]} */
   rng.shuffle = (arr) => {
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(next() * (i + 1));
@@ -33,11 +34,11 @@ function rngFromState(s) {
     }
     return arr;
   };
-  /** weighted pick: items with weightFn(item) */
+  /** weighted pick: items with weightFn(item) @template T @param {readonly T[]} arr @param {(x: T) => number} weightFn @returns {T} undefined when no weight is positive, as an index is */
   rng.weighted = (arr, weightFn) => {
     let total = 0;
     for (const x of arr) total += Math.max(0, weightFn(x));
-    if (total <= 0) return undefined;
+    if (total <= 0) return /** @type {T} */ (undefined);
     let r = next() * total;
     for (const x of arr) { r -= Math.max(0, weightFn(x)); if (r < 0) return x; }
     return arr[arr.length - 1];
@@ -49,7 +50,7 @@ function rngFromState(s) {
   return rng;
 }
 
-/** Derive a child seed deterministically (e.g. per field). */
+/** Derive a child seed deterministically (e.g. per field). @param {number} seed @param {unknown} salt */
 export function deriveSeed(seed, salt) {
   let h = (Number(seed) >>> 0) ^ 0x85ebca6b;
   const str = String(salt);

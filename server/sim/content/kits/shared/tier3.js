@@ -165,7 +165,7 @@ function tacticalPoint(battle, unit, prefer = null) {
  */
 function enemiesOn(battle, unit, keys, n = 0, profile = null) {
   const list = battle.enemiesInKeys(keys, unit, profile ?? { canHitFly: true });
-  sortEnemyTargets(battle, unit, list, (profile ?? unit.profile)?.priority ?? null);
+  sortEnemyTargets(battle, unit, list, /** @type {Record<string, any> | null} */ (profile ?? unit.profile)?.priority ?? null);
   return n > 0 && list.length > n ? list.slice(0, n) : list;
 }
 
@@ -240,7 +240,7 @@ function giveSp(u, n, reason = 'talent') {
  * @param {Battle} battle @param {Unit} unit @param {Unit} target
  */
 function funnelMap(battle, unit, target) {
-  const f = unit.profile.funnel || { init: 0.2, delta: 0.15, max: 1.1 };
+  const f = /** @type {Record<string, any>} */ (unit.profile).funnel || { init: 0.2, delta: 0.15, max: 1.1 };
   const m = /** @type {FunnelTrait} */ (unit.trait).funnelMap || (/** @type {FunnelTrait} */ (unit.trait).funnelMap = new Map());
   const prev = m.get(target.id);
   if (prev && prev.t === battle.time) return prev.s;

@@ -37,6 +37,15 @@ import { ROWS, COLS, ENEMY_COLLIDER_RADIUS } from './constants.js';
 import { hypot, roundHalfEven } from './detmath.js';
 
 /**
+ * What the body helpers read of a unit (a Unit, or a stand-in a kit builds): its position, a huge unit's hit area
+ * (normHitArea), an enemy's collider radius, its side.
+ * @typedef {{ x: number, y: number, hitArea?: { w: number, h: number, dx: number, dy: number } | null, colR?: number,
+ *   side?: string }} BodyLike
+ * Tile keys (row × COLS + col): a Set / Map — anything with `has` — or an array.
+ * @typedef {ReadonlySet<number> | ReadonlyMap<number, unknown> | readonly number[]} TileKeys
+ */
+
+/**
  * Validated hit area of a data record (`{ w, h, dx, dy }`, tiles) or null for a regular (point) unit.
  * @param {any} a
  */
@@ -51,21 +60,21 @@ export function normHitArea(a) {
  * The radius of a point unit's collider circle: the enemy's own (`colR`, set on spawn from its data `hitRadius` — the
  * prefab root's CircleCollider2D where it is not the regular 0.1, tools/build-data.mjs enemyGiantBoss), else
  * ENEMY_COLLIDER_RADIUS. docs/rules/sim.md 「적마다 다른 충돌체 반지름」.
- * @param {any} u
+ * @param {{ colR?: number }} u
  */
 export function colliderRadius(u) {
   return u.colR ?? ENEMY_COLLIDER_RADIUS;
 }
 
-/** The world rectangle `{ x0, x1, y0, y1 }` of a huge unit, or null for a point unit (no `hitArea`). */
+/** The world rectangle `{ x0, x1, y0, y1 }` of a huge unit, or null for a point unit (no `hitArea`). @param {BodyLike | null | undefined} u */
 export function hitRect(u) {
   const a = u && u.hitArea;
   if (!a) return null;
-  const cx = u.x + a.dx, cy = u.y + a.dy;
+  const cx = /** @type {BodyLike} */ (u).x + a.dx, cy = /** @type {BodyLike} */ (u).y + a.dy;
   return { x0: cx - a.w / 2, x1: cx + a.w / 2, y0: cy - a.h / 2, y1: cy + a.h / 2 };
 }
 
-/** Tile key of a unit's position (-1 off the grid). */
+/** Tile key of a unit's position (-1 off the grid). @param {BodyLike} u */
 function posKey(u) {
   const r = roundHalfEven(u.y), c = roundHalfEven(u.x);
   return r < 0 || r >= ROWS || c < 0 || c >= COLS ? -1 : r * COLS + c;
@@ -74,6 +83,7 @@ function posKey(u) {
 /**
  * Tile keys (row × COLS + col) the unit occupies: a point unit the tile of its position ([] off the grid), a huge unit
  * every tile its rectangle overlaps (open intervals: a tile only touched along an edge is not overlapped).
+ * @param {BodyLike} u @returns {number[]}
  */
 export function bodyKeys(u) {
   const R = hitRect(u);
@@ -85,7 +95,7 @@ export function bodyKeys(u) {
   return out;
 }
 
-/** Does the unit occupy tile (r, c)? */
+/** Does the unit occupy tile (r, c)? @param {BodyLike} u @param {number} r @param {number} c */
 export function bodyOnTile(u, r, c) {
   const R = hitRect(u);
   if (!R) return roundHalfEven(u.y) === r && roundHalfEven(u.x) === c;
@@ -95,10 +105,11 @@ export function bodyOnTile(u, r, c) {
 /**
  * Does the unit occupy any tile of `keys` (tile keys: a Set / Map — anything with `has` — or an array)? The TILE rule
  * (格子判定: its position's tile, a huge unit's rectangle); a range test uses bodyInRange.
+ * @param {BodyLike | null | undefined} u @param {TileKeys | null | undefined} keys
  */
 export function bodyInKeys(u, keys) {
   if (!u || !keys) return false;
-  const has = typeof keys.has === 'function' ? (k) => keys.has(k) : (k) => keys.includes(k);
+  const has = typeof /** @type {ReadonlySet<number>} */ (keys).has === 'function' ? (/** @type {number} */ k) => /** @type {ReadonlySet<number>} */ (keys).has(k) : (/** @type {number} */ k) => /** @type {readonly number[]} */ (keys).includes(k);
   if (!u.hitArea) { const k = posKey(u); return k >= 0 && has(k); }
   for (const k of bodyKeys(u)) if (has(k)) return true;
   return false;
@@ -110,6 +121,7 @@ export function bodyInKeys(u, keys) {
  * overlapped; one to four tiles at 0.1 or 0.25, off-grid tiles dropped), so an enemy within its radius (0.1) of a range
  * tile's edge is in range.
  * An ally (allies stand on their tile, never tested against an enemy-search range) gets the tile of its position.
+ * @param {BodyLike} u @returns {number[]}
  */
 export function colliderKeys(u) {
   if (u.hitArea || u.side === 'ally') return bodyKeys(u);
@@ -132,10 +144,11 @@ export function colliderKeys(u) {
 /**
  * Is the unit in a RANGE of tile `keys` (a Set / Map — anything with `has` — or an array)? Its collider overlaps one of
  * them (colliderKeys): an attack range, a skill's or trait's range grid. Tile rules use bodyInKeys.
+ * @param {BodyLike | null | undefined} u @param {TileKeys | null | undefined} keys
  */
 export function bodyInRange(u, keys) {
   if (!u || !keys) return false;
-  const has = typeof keys.has === 'function' ? (k) => keys.has(k) : (k) => keys.includes(k);
+  const has = typeof /** @type {ReadonlySet<number>} */ (keys).has === 'function' ? (/** @type {number} */ k) => /** @type {ReadonlySet<number>} */ (keys).has(k) : (/** @type {number} */ k) => /** @type {readonly number[]} */ (keys).includes(k);
   if (u.hitArea || u.side === 'ally') { for (const k of bodyKeys(u)) if (has(k)) return true; return false; }
   // colliderKeys without its array (kits call this per enemy on every aura tick)
   const rho = colliderRadius(u), x = u.x, y = u.y;
@@ -152,13 +165,15 @@ export function bodyInRange(u, keys) {
   return false;
 }
 
-/** Is the unit in the range of the single tile (r, c) — its collider overlaps it (bodyInRange)? False off the grid. */
+/** Is the unit in the range of the single tile (r, c) — its collider overlaps it (bodyInRange)? False off the grid.
+ * @param {BodyLike | null | undefined} u @param {number} r @param {number} c */
 export function bodyInRangeTile(u, r, c) {
   if (!u || r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
   return colliderKeys(u).includes(r * COLS + c);
 }
 
-/** Distance (tiles) from point (x, y) to the unit's body: its position, or its rectangle (0 inside). */
+/** Distance (tiles) from point (x, y) to the unit's body: its position, or its rectangle (0 inside).
+ * @param {BodyLike} u @param {number} x @param {number} y */
 export function bodyDist(u, x, y) {
   const R = hitRect(u);
   if (!R) return hypot(u.x - x, u.y - y);
@@ -167,7 +182,8 @@ export function bodyDist(u, x, y) {
   return hypot(dx, dy);
 }
 
-/** Is the unit's body within `r` tiles of point (x, y)? (the same ≤ r + 1e-9 test as Battle.enemiesInRadius) */
+/** Is the unit's body within `r` tiles of point (x, y)? (the same ≤ r + 1e-9 test as Battle.enemiesInRadius)
+ * @param {BodyLike} u @param {number} x @param {number} y @param {number} r */
 export function bodyInRadius(u, x, y, r) {
   return bodyDist(u, x, y) <= r + 1e-9;
 }
@@ -175,6 +191,7 @@ export function bodyInRadius(u, x, y, r) {
 /**
  * Chebyshev reach in tiles from tile (r, c) to the unit's body (0 = it occupies that tile; 1 = one of the 8 tiles
  * around it; …): "周围八格"-style square areas centred on a tile.
+ * @param {BodyLike} u @param {number} r @param {number} c
  */
 export function bodyTileReach(u, r, c) {
   if (!u.hitArea) return Math.max(Math.abs(roundHalfEven(u.y) - r), Math.abs(roundHalfEven(u.x) - c));

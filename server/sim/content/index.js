@@ -29,6 +29,7 @@
 import { genericKit, genericTalents } from './generic.js';
 import { withUnitLoadouts } from '../simdata.js';
 import { isPotential } from '../../../shared/potential.js';
+/** @import { Battle } from '../Battle.js' */
 
 // Content files are loaded with guarded dynamic imports: a module that fails to load (syntax error, throwing
 // top-level code, missing file) is logged and replaced by an empty module instead of breaking the server.
@@ -260,6 +261,8 @@ export function skillSpecSource(def, kits = KITS) {
  * path (server-run fields, bot rehearsals, tests) gets the same per-battle loadout data view createBattleFromSpec uses
  * (simdata withUnitLoadouts over its players' inputs), so summons spawned during the battle (`getToken(id, owner)`)
  * and every other id-only lookup resolve the owner's selected skill / module there too (DESIGN §16).
+ * @typedef {Array<((b: Battle) => void) | { install?: (b: Battle) => void }>} ExtraContent modules a test or a sandbox adds
+ * @param {Battle} battle @param {{ mode?: string, extra?: ExtraContent | null }} [opts]
  */
 export function installContent(battle, { mode = 'full', extra = null } = {}) {
   try {

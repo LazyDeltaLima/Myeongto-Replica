@@ -76,9 +76,35 @@ import { BattleEvents } from './battle/events.js';
 
 export { pushTiles } from './battle/displacement.js';
 
+/** @import { Unit } from './units.js' */
+/** @import { Projectile } from './projectiles.js' */
+/** @import { Scheduled } from './battle/hooks.js' */
+/** @import { PendingSpawn } from './battle/spawns.js' */
+/** @import { BattleResult } from './battle/lifecycle.js' */
+/** @import { PlayerInput } from './battle/players.js' */
+/** @import { SpawnInput } from './battle/spawns.js' */
+
+/**
+ * The constructor's options (header): the fields it reads by name, and whatever else a part or the content reads
+ * (`quiet`, `verbose`, `devices` …).
+ * @typedef {{ seed?: unknown, kind?: string, modeId?: string | null, round?: number, fieldId?: string | null,
+ *   season?: unknown, logger?: any, recordEvents?: boolean, autoFinish?: boolean, data?: any,
+ *   stage?: Record<string, any> | null, stageId?: string | null, wide?: unknown,
+ *   rect?: { r0: number, r1: number, c0: number, c1: number }, timeLimit?: unknown, flags?: Record<string, any>,
+ *   sharedBoss?: import('./units.js').BossPool | null, routes?: unknown[],
+ *   enemyOverrides?: Record<string, any>, players?: PlayerInput[], spawns?: SpawnInput[], content?: string,
+ *   extraContent?: import('./content/index.js').ExtraContent | null, setup?: (b: Battle) => void, [key: string]: any }} BattleOpts
+ * The battle's flags (constructor): its DP knobs, the born state, the battle-start deployment's interval, and the
+ * switches content and tests set.
+ * @typedef {{ layerGainsEnabled: boolean, dpInit: number, dpPerSec: number, dpMax: number, bornTime: number,
+ *   prebuiltInterval: number, noLayerCap?: boolean, [key: string]: any }} BattleFlags
+ */
+
+/** @type {Readonly<Record<string, { r0: number, r1: number, c0: number, c1: number }>>} */
 const DEFAULT_RECTS = { normal: GEO.NORMAL_RECT, unite: GEO.UNITE_RECT, boss: GEO.BOSS_RECT, hidden: GEO.BOSS_RECT };
 
 export class Battle {
+  /** @param {BattleOpts} [opts] */
   constructor(opts = {}) {
     this.opts = opts;
     this.seed = (Number(opts.seed) >>> 0) || 1;
@@ -117,7 +143,7 @@ export class Battle {
     this.timeLimit = opts.timeLimit == null || !(tl > 0) ? (bossLike ? Infinity : 60) : tl;
     // bornTime: the born state after every deployment, when no attack starts and the few skills whose prefab refuses it
     // wait (constants.js BORN_TIME, skills.js _born)
-    this.flags = { layerGainsEnabled: this.kind === 'normal', ...DP_DEFAULTS, bornTime: BORN_TIME, ...(opts.flags || {}) };
+    this.flags = /** @type {BattleFlags} */ ({ layerGainsEnabled: this.kind === 'normal', ...DP_DEFAULTS, bornTime: BORN_TIME, ...(opts.flags || {}) });
     const bt = Number(this.flags.bornTime);
     this.flags.bornTime = this.flags.bornTime != null && Number.isFinite(bt) && bt >= 0 ? bt : BORN_TIME;
     // prebuiltInterval: game seconds between two pieces of the battle-start deployment (constants.js PREBUILT_INTERVAL)
@@ -125,9 +151,9 @@ export class Battle {
     this.flags.prebuiltInterval = this.flags.prebuiltInterval != null && Number.isFinite(pbi) && pbi >= 0 ? pbi : PREBUILT_INTERVAL;
     // the wave clock (lifecycle.js _beginWave): the battle time the wave scheduler started at — the stage's spawn times
     // and the time limit count from it; null while the battle-start deployment runs
-    this.waveT0 = null;
+    this.waveT0 = /** @type {number | null} */ (null);
     // DP knobs may arrive as undefined/null/strings (e.g. a template without `dp`): never let them poison DP with NaN.
-    for (const k of ['dpInit', 'dpPerSec', 'dpMax']) {
+    for (const k of /** @type {const} */ (['dpInit', 'dpPerSec', 'dpMax'])) {
       const v = Number(this.flags[k]);
       this.flags[k] = this.flags[k] != null && Number.isFinite(v) && v >= 0 ? v : DP_DEFAULTS[k];
     }
@@ -141,7 +167,7 @@ export class Battle {
     this.time = 0;
     this.tickCount = 0;
     this.finished = false;
-    this.reason = null;
+    this.reason = /** @type {string | null} */ (null);
     this.started = false;
     this._startDeploying = false;
     /** @type {import('./units.js').Unit[]} every unit ever created */
@@ -157,9 +183,9 @@ export class Battle {
     this._frameName = new Array(MAX_HOOK_DEPTH).fill(null);   // open hook/callback frames (diagnostics, _chain)
     this._frameOwner = new Array(MAX_HOOK_DEPTH).fill(null);
     this._frameCtx = new Array(MAX_HOOK_DEPTH).fill(null);
-    this._toRelease = [];   // permanently removed units whose hooks / periodic timers are dropped at step end
-    this._sched = [];
-    this._evq = [];
+    this._toRelease = /** @type {Unit[]} */ ([]);   // permanently removed units whose hooks / periodic timers are dropped at step end
+    this._sched = /** @type {Scheduled[]} */ ([]);
+    this._evq = /** @type {unknown[][]} */ ([]);
     this.projectiles = new ProjectileSystem(this);
     this._occ = new Array(ROWS * COLS).fill(null);
     /** @type {Map<object, number>} tiles held for a unit standing elsewhere (holdTile): owner → tile key */
@@ -168,19 +194,19 @@ export class Battle {
     for (let i = 0; i < this._eb.length; i++) this._eb[i] = [];
     this._et = new Array(ROWS * COLS);   // tile buckets (格子判定: the position's tile, a huge enemy's rectangle tiles)
     for (let i = 0; i < this._et.length; i++) this._et[i] = [];
-    this._ixTs = [];   // _indexEnemy's scratch lists
-    this._ixBs = [];
-    this._buffTickCopies = [];   // battle/status.js _tickUnitBuffs: the buff list copies, one per nesting depth
+    this._ixTs = /** @type {number[]} */ ([]);   // _indexEnemy's scratch lists
+    this._ixBs = /** @type {number[]} */ ([]);
+    this._buffTickCopies = /** @type {import('./battle/status.js').Buff[][]} */ ([]);   // battle/status.js _tickUnitBuffs: the buff list copies, one per nesting depth
     this._buffTickDepth = 0;
     this._idSeq = 0;
     this._attackSeq = 0;   // DamageInfo.attackId of normal attacks (one id per attack, all its damage instances)
-    this._castAbility = null;   // { id, ability } while an enemy skill is cast (content/enemies.js onTick; battle/events.js fx)
+    this._castAbility = /** @type {{ id: number, ability: string } | null} */ (null);   // { id, ability } while an enemy skill is cast (content/enemies.js onTick; battle/events.js fx)
     this._deploySeq = 0;
     this._spawnSeq = 0;
-    this._line = [];   // battle/lifecycle.js _tickUnits: the units in tick order, their deploySeq then, which list, the allies sorted
-    this._lineSeq = [];
-    this._lineKind = [];
-    this._lineAllies = [];
+    this._line = /** @type {Array<Unit | Projectile>} */ ([]);   // battle/lifecycle.js _tickUnits: the units in tick order, their deploySeq then, which list, the allies sorted
+    this._lineSeq = /** @type {number[]} */ ([]);
+    this._lineKind = /** @type {number[]} */ ([]);
+    this._lineAllies = /** @type {Unit[]} */ ([]);
     this._enemiesDirty = false;
     this.killed = 0;
     this.total = 0;
@@ -190,20 +216,20 @@ export class Battle {
     // the official LP / 完美作战 reading: every `counted` enemy, runtime splits and summons included.
     this.killedInTotal = 0;
     this.leakedInTotal = 0;
-    this.errors = [];
+    this.errors = /** @type {Array<{ label: string, who: unknown, message: string, stack: unknown }>} */ ([]);
     this.errorCount = 0;
     this._errKeys = new Set();
-    this._result = null;
-    this._skills = { onDamaged: (u) => { if (u.skill) u.skill.onDamaged(); } };
-    this.remainingDistance = (e) => remainingDistance(this, e);
+    this._result = /** @type {BattleResult | null} */ (null);
+    this._skills = { onDamaged: (/** @type {Unit} */ u) => { if (u.skill) u.skill.onDamaged(); } };
+    this.remainingDistance = (/** @type {Unit} */ e) => remainingDistance(this, e);
 
     // ---- players
-    this.players = [];
+    this.players = /** @type {any[]} */ ([]);   // BattlePlayer (battle/players.js); content reads fields of its own
     this._perPlayer = Object.create(null);
     for (const p of opts.players ?? []) if (p && typeof p === 'object') this._addPlayer(p);
 
     // ---- spawns
-    this._pending = [];
+    this._pending = /** @type {PendingSpawn[]} */ ([]);
     for (const s of opts.spawns ?? []) if (s && typeof s === 'object') this._safe(() => this._queueSpawn(s, true), 'queueSpawn');
     this._pending.sort((a, b) => a.time - b.time || a.seq - b.seq);
 
@@ -211,7 +237,7 @@ export class Battle {
     this.contentMode = opts.content ?? 'full';
     this._safe(() => installContent(this, { mode: this.contentMode, extra: opts.extraContent }), 'installContent');
     for (const u of this.allyUnits) if (!u.kit) this._setupUnit(u);
-    if (typeof opts.setup === 'function') this._safe(() => opts.setup(this), 'opts.setup');
+    if (typeof opts.setup === 'function') this._safe(() => /** @type {(b: Battle) => void} */ (opts.setup)(this), 'opts.setup');
   }
 
   /**
@@ -235,7 +261,7 @@ for (const part of [BattlePlayers, BattleLifecycle, BattleHooks, BattleSpawns, B
   for (const key of Reflect.ownKeys(part.prototype)) {
     if (key === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Battle.prototype, key)) throw new Error(`Battle.${String(key)} is defined twice`);
-    Object.defineProperty(Battle.prototype, key, Object.getOwnPropertyDescriptor(part.prototype, key));
+    Object.defineProperty(Battle.prototype, key, /** @type {PropertyDescriptor} */ (Object.getOwnPropertyDescriptor(part.prototype, key)));
   }
 }
 

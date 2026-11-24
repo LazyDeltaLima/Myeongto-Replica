@@ -147,7 +147,7 @@ export class BattleStatus {
       const pool = this._buffTickCopies;
       const arr = pool[depth - 1] ?? (pool[depth - 1] = []);
       const n0 = u.buffs.length;
-      for (let i = 0; i < n0; i++) arr[i] = u.buffs[i];
+      for (let i = 0; i < n0; i++) arr[i] = /** @type {Buff} */ (u.buffs[i]);
       arr.length = n0;
       try {
         this._tickBuffList(u, arr, dt);

@@ -202,7 +202,7 @@ export class BattlePlayers {
     // prototype 自选 pick's (another character than the one the player owns)
     if (isCultivate(inp.cultivate) && !def.standInFor && !def.raw?.diyProto) {
       const mul = typeof this.data.cultivateMul === 'function' ? this.data.cultivateMul(inp.cultivate) : null;
-      if (mul) { u.cultivate = inp.cultivate; u.cultMul = Object.freeze({ ...mul }); u.markDirty(); }
+      if (mul) { u.cultivate = /** @type {number} */ (inp.cultivate); u.cultMul = Object.freeze({ ...mul }); u.markDirty(); }
     }
     return u;
   }
@@ -338,14 +338,15 @@ export class BattlePlayers {
     }
     const spec = u.kit.skill || null;
     u.skill = new SkillRuntime(this, u, u.def.skill, spec, u.def.skill?.bb ?? {});
-    if (u.profile.install && !u._profInstalled) {
+    // the profile resolved above
+    if (/** @type {Record<string, any>} */ (u.profile).install && !u._profInstalled) {
       u._profInstalled = true;
-      this._safe(() => u.profile.install(this, u), 'profile.install', u);
+      this._safe(() => /** @type {Record<string, any>} */ (u.profile).install(this, u), 'profile.install', u);
     }
     for (const t of u.kit.talents || []) {
       if (t && typeof t.install === 'function') this._safe(() => t.install(this, u), 'talent.install', u);
     }
-    if (typeof u.kit.install === 'function') this._safe(() => u.kit.install(this, u), 'kit.install', u);
+    if (typeof u.kit.install === 'function') this._safe(() => /** @type {Record<string, any>} */ (u.kit).install(this, u), 'kit.install', u);
     return u.kit;
   }
 }

@@ -37,6 +37,8 @@ declare module '../server/sim/Battle.js' {
     _elevated?: Set<number>;
     /** route indices the wave has spawned on so far (battle/tiles.js groundPathTiles) */
     _pathRoutesUsed?: Set<number>;
+    /** the last fear application's number (fear.js stampFear) */
+    _fearSeq?: number;
   }
 }
 
@@ -99,6 +101,8 @@ declare module '../server/sim/units.js' {
     atkStandCutAt?: number;
     unbalanceUntil?: number;
     uniteRuntime?: boolean;
+    // an enemy whose skill casts spend bullets (content/local-patch.js): its bullets, sent as its SP bar (snapshot.js)
+    lpAmmo?: { left: number, max: number };
     // a summon that walks and holds no tile (content/bonds/walker.js; battle/deploy.js, battle/blocking.js)
     walks?: boolean;
     // a summoned obstacle (battle/summons.js)

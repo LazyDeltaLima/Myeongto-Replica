@@ -41,13 +41,15 @@ export async function reloadGenerated() {
  * `byOwner[chessId]` variants; stages get the research legend).
  */
 export function loadResearch() {
-  const read = (f) => {
+  const read = (/** @type {string} */ f) => {
     try { return JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'research', f), 'utf8')); } catch { return null; }
   };
   const ops = read('03-operators.json');
   const en = read('05-enemies.json');
   const maps = read('05-maps.json');
+  /** @type {Record<string, any>} */
   const chess = {};
+  /** @type {Record<string, any>} */
   const tokens = {};
   for (const c of ops?.chess ?? []) {
     chess[c.chessId] = c;
@@ -56,6 +58,7 @@ export function loadResearch() {
       tokens[t.tokenId].byOwner[c.chessId] = t;
     }
   }
+  /** @type {Record<string, any>} */
   const stages = {};
   for (const [id, s] of Object.entries(maps?.stages ?? {})) {
     stages[id] = { ...s, legend: maps?._meta?.legend ?? null };

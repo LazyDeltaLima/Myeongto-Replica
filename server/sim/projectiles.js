@@ -20,19 +20,25 @@
 
 import { PROJECTILE_SPEED } from './constants.js';
 import { hypot } from './detmath.js';
+/** @import { Battle } from './Battle.js' */
+
+/** A projectile in flight (ProjectileSystem.add's record). @typedef {ReturnType<ProjectileSystem['add']>} Projectile */
 
 let seq = 0;
+/** @param {unknown} v @param {number} d @returns {number} */
 const fin = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
 export class ProjectileSystem {
+  /** @param {Battle} battle */
   constructor(battle) {
     this.battle = battle;
-    /** @type {object[]} */
+    /** @type {Projectile[]} */
     this.list = [];
     /** > 0 while an `onHit` runs: the damage dealt then flew as a projectile (damage.js dealDamage `isProjectile`). */
     this.landing = 0;
   }
 
+  /** @param {Record<string, any>} p the shot's options (header) */
   add(p) {
     const from = p.from || { x: 0, y: 0 };
     // non-finite coordinates would never "arrive" (NaN distance) and leak the projectile for maxAge
@@ -66,7 +72,7 @@ export class ProjectileSystem {
       fixed: !!p.fixed,
       noWipe: !!p.noWipe,
       data: p.data ?? null,
-      dir: null,
+      dir: /** @type {{ x: number, y: number } | null} */ (null),
       sweep: typeof p.sweep === 'function' ? p.sweep : null,
       onExpire: p.onExpire ?? null,
       age: 0,
@@ -83,7 +89,7 @@ export class ProjectileSystem {
     return proj;
   }
 
-  /** Every projectile in flight, one step each in their order (the units' tick runs them in its line instead). */
+  /** Every projectile in flight, one step each in their order (the units' tick runs them in its line instead). @param {number} dt */
   update(dt) {
     const list = this.list;
     for (let i = 0, n = list.length; i < n; i++) if (!list[i].done && this.list === list) this.step(list[i], dt);
@@ -95,7 +101,8 @@ export class ProjectileSystem {
     if (this.list.some((p) => p.done)) this.list = this.list.filter((p) => !p.done);
   }
 
-  /** One step of projectile `p`: it flies, then hits (onHit), ends unseen (onExpire) or fizzles in this same turn. */
+  /** One step of projectile `p`: it flies, then hits (onHit), ends unseen (onExpire) or fizzles in this same turn.
+   * @param {Projectile} p @param {number} dt */
   step(p, dt) {
     if (p.done) return;
     const t = dt * p.moveScale;
@@ -128,6 +135,7 @@ export class ProjectileSystem {
     }
   }
 
+  /** @param {Projectile} p */
   _land(p) {
     p.done = true;
     if (!p.onHit) return;

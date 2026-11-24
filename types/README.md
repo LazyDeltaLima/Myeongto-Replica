@@ -105,7 +105,9 @@ error.
 With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`, the files directly under `server/`
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, the files directly under
 `server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), the kit helpers
-(`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, and the `Battle` parts `server/sim/battle/`.
+(`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and of
+the files directly under `server/sim/` all but `targeting.js`, `spec.js`, `damage.js`, `simdata.js`, `skills.js`,
+`professions.js` and `ai.js` (listed one by one until those follow).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -318,8 +320,24 @@ most strict errors were, and the JSDoc that fixed them:
 - `Array.isArray` does not narrow a `readonly` array type (the other branch keeps it): a parameter tested that way is
   `number[]`. A boolean helper that proves a field (`walk(route)` in `groundPathTiles`) is cast to a type predicate,
   `/** @type {(r: RouteSpec | null) => r is RouteSpec & { start: number[] }} */ ((route) => …)`.
-- `Battle`'s constructor options are `{}` until Battle.js is typed: a part reading one casts there
-  (`/** @type {{ quiet?: boolean }} */ (this.opts).quiet`).
+- `Battle`'s constructor options are `BattleOpts` and its flags `BattleFlags` (Battle.js: the fields it reads by name plus
+  `[key: string]: any` for what parts, content and tests add); `Battle.players` stays `any[]` (content reads fields
+  of its own on a player), a part walking it casts to `BattlePlayer[]`.
+- the `Unit` fields the constructor starts `null` take their type from a cast on the value (`this.skill = /** @type
+  {SkillRuntime | null} */ (null)`, `profile`, `kit`, `swing` (`Swing`, units.js), `blockedBy`, `countdown` …), so a
+  part reading one after a check it cannot follow (`_setupUnit` gave it a skill; a closure) casts there,
+  `/** @type {SkillRuntime} */ (u.skill).reset(cs)`. A field null exactly while another is (`_ixB` with `_ixT`) is cast
+  through `unknown` to its non-null type. `findBuff` keeps `object | null` and `Unit.buffs` `object[]` (content reads
+  fields of its own on a buff): read through a cast, as above.
+- the sim's small records get a typedef where they are made: `Dir` (dir.js; `isDir` a guard to it, `normDir` returns
+  it), `BodyLike` / `TileKeys` (body.js: what the body helpers read of a unit or a kit's stand-in), `TileInfo`,
+  `FlowField` (grid.js), `Projectile` (projectiles.js, `ReturnType<ProjectileSystem['add']>`; battle/lifecycle.js
+  `Shot` is it), `FearStamp` / `FearMove` (fear.js), `LegPoint` (walk.js), `Checkpoint` (wideStage.js). A table indexed
+  by a string (`STATUS`, `STEER_BY_ENEMY`, `DEFAULT_LEGEND`) takes `@type {Readonly<Record<string, …>>}`.
+- a seeded stream's `pick` / `weighted` return `T`, not `T | undefined`, as an index does (rng.js): their empty case
+  is the caller's, like `arr[i]`. `shuffle` keeps the element type, so a list from `.filter(Boolean)` is cast first.
+- a helper that takes a Set, a Map or an array of keys (`bodyInKeys`, `bodyInRange`: `typeof keys.has === 'function'`)
+  reads each through a cast to the branch's type; tsc does not narrow a union by `typeof x.has`.
 
 
 ## Split classes

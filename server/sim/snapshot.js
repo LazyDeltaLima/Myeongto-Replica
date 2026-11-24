@@ -21,11 +21,14 @@ import { UF, ANIM } from '../../shared/constants.js';
 import { DIE_ANIM_TIME, ATTACK_ANIM_TIME, DEPLOY_ANIM_TIME } from './constants.js';
 import { enemyStealthed } from './targeting.js';
 import { UF_CAMOU, UF_LIFTOFF } from '../../shared/local.js'; // local patch
+/** @import { Unit } from './units.js' */
 
+/** @param {number} v */
 const r2 = (v) => Math.round(v * 100) / 100;
+/** @param {number} v */
 const r1 = (v) => Math.round(v * 10) / 10;
 
-/** Static per-unit info sent on spawn / in m.field. */
+/** Static per-unit info sent on spawn / in m.field. @param {Unit} u */
 export function unitInfo(u) {
   const d = u.def || {};
   return {
@@ -81,7 +84,7 @@ export function unitInfo(u) {
   };
 }
 
-/** Status flag bitmask. */
+/** Status flag bitmask. @param {Unit} u */
 export function flagsOf(u) {
   const f = u.s.flags;
   let bits = 0;
@@ -95,7 +98,7 @@ export function flagsOf(u) {
   if (u.side === 'enemy' ? (f.stealth && enemyStealthed(u)) || f.camou : f.stealth || f.camou) bits |= UF.STEALTH;
   if (f.camou && !(u.side === 'enemy' ? f.stealth && enemyStealthed(u) : f.stealth)) bits |= UF_CAMOU; // local patch: 迷彩 icon (shared/local.js)
   if (u.skill && u.skill.active && u.skill.kind !== 'passive') bits |= UF.SKILL;
-  if (u.s.shield > 0 || u.buffs.some((b) => b.shieldHits > 0)) bits |= UF.SHIELD;
+  if (u.s.shield > 0 || /** @type {{ shieldHits: number }[]} */ (u.buffs).some((b) => b.shieldHits > 0)) bits |= UF.SHIELD;
   if (f.invulnerable) bits |= UF.INVULN;
   if (f.cold) bits |= UF.COLD;
   if (f.sleep) bits |= UF.SLEEP;
@@ -104,7 +107,7 @@ export function flagsOf(u) {
   return bits;
 }
 
-/** Animation code. */
+/** Animation code. @param {Unit} u @param {number} t */
 export function animOf(u, t) {
   if (!u.alive) return ANIM.DIE;
   if (u.s.flags.stun) return ANIM.STUN;
@@ -117,7 +120,7 @@ export function animOf(u, t) {
   return ANIM.IDLE;
 }
 
-/** Snapshot tuple for one unit. */
+/** Snapshot tuple for one unit. @param {Unit} u @param {number} t */
 export function unitTuple(u, t) {
   const sk = u.skill;
   let spMax = sk && !sk.noSkill ? sk.spCost : 0;
@@ -142,7 +145,8 @@ export function unitTuple(u, t) {
   return [u.id, r2(u.x), r2(u.y), hp, maxHp, r1(sp), spMax, flagsOf(u), animOf(u, t)];
 }
 
-/** Units included in a snapshot: deployed & visible, plus recently dead ones (DIE animation). */
+/** Units included in a snapshot: deployed & visible, plus recently dead ones (DIE animation).
+ * @param {Iterable<Unit>} units @param {number} t */
 export function snapshotUnits(units, t) {
   const out = [];
   for (const u of units) {

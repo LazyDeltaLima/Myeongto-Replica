@@ -291,7 +291,7 @@ function hunterFill(rng, rule, list, byId) {
   const max16 = Number.isInteger(rule.maxSeries16) ? rule.maxSeries16 : 2;
   if (out.length < size && !out.some((c) => giants.includes(c))) { const g = rng.pick(giants.filter((c) => !out.includes(c))); if (g) out.push(g); }
   const fits = (/** @type {ChoiceCard} */ c) => !out.includes(c) && (onePer.has(c.series) ? !out.some((x) => x.series === c.series) : c.series !== 16 || out.filter((x) => x.series === 16 && !giants.includes(x)).length < max16);
-  for (const c of rng.shuffle((Array.isArray(rule.cards) ? rule.cards : []).map((/** @type {string} */ id) => byId.get(id)).filter(Boolean))) {
+  for (const c of rng.shuffle(/** @type {ChoiceCard[]} */ ((Array.isArray(rule.cards) ? rule.cards : []).map((/** @type {string} */ id) => byId.get(id)).filter(Boolean)))) {
     if (out.length >= size) break;
     if (fits(c)) out.push(c);
   }

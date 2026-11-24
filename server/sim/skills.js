@@ -101,9 +101,9 @@ export class SkillRuntime {
   /**
    * @param {import('./Battle.js').Battle} battle
    * @param {import('./units.js').Unit} unit
-   * @param {object|null} def normalised skill def (data)
-   * @param {object|null} spec SkillSpec from the kit
-   * @param {object} bb blackboard
+   * @param {Record<string, any> | null} def normalised skill def (data)
+   * @param {Record<string, any> | null} spec SkillSpec from the kit
+   * @param {Record<string, any>} bb blackboard
    */
   constructor(battle, unit, def, spec, bb = {}) {
     Object.defineProperty(this, 'battle', { value: battle, writable: true, enumerable: false });

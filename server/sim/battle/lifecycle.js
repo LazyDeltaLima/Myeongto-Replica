@@ -9,7 +9,7 @@
 /** @import { BattlePlayer } from './players.js' */
 /**
  * A projectile in flight as the line of _tickUnits reads it (projectiles.js: `seq` on the units' counter).
- * @typedef {{ done?: boolean, firedAt?: number, seq: number }} Shot
+ * @typedef {import('../projectiles.js').Projectile} Shot
  * An operator / board summon at the end of the battle (`unitsEnd`: the 联防 carry, match/unite.js).
  * @typedef {{ uid: number | null, id: number, defId: string, hpPct: number, sp: number, skillActive: boolean,
  *   alive: boolean, respawnLeft?: number }} UnitEnd
@@ -221,10 +221,11 @@ export class BattleLifecycle {
     let shotList = shots, live = null;
     for (let i = 0, n = line.length; i < n && !this._endReq; i++) {
       const k = kinds[i];
-      if (k === 0) this._tickEnemy(line[i], dt);
-      else if (k === 1) this._tickAlly(line[i], seqs[i], dt);
+      // `kinds` says which list each came from
+      if (k === 0) this._tickEnemy(/** @type {Unit} */ (line[i]), dt);
+      else if (k === 1) this._tickAlly(/** @type {Unit} */ (line[i]), seqs[i], dt);
       else {
-        const p = line[i];
+        const p = /** @type {Shot} */ (line[i]);
         if (p.done) continue;
         // content may replace the list (op-logos.js clears the enemy shots on its range): the ones it dropped are gone
         if (pl.list !== shotList) { shotList = /** @type {Shot[]} */ (pl.list); live = new Set(shotList); }

@@ -5,6 +5,7 @@
 
 /** @import { Battle } from '../Battle.js' */
 /** @import { Unit } from '../units.js' */
+/** @import { SkillRuntime } from '../skills.js' */
 /** @import { Buff } from './status.js' */
 /**
  * A queued spawn surrender() charges as a leak (lifecycle.js): the fields _recordLeak reads of an enemy.
@@ -83,8 +84,9 @@ export class BattleDeploy {
     if (!free) this._occ[k] = u;
     this._refreshRange(u); // also rebuilds baseRangeKeys (initial range incl. permanent rangeExtend)
     if (!u.skill) this._setupUnit(u);
-    u.skill.reset(cs);
-    const sk = u.skill;
+    // _setupUnit gave it one
+    /** @type {SkillRuntime} */ (u.skill).reset(cs);
+    const sk = /** @type {SkillRuntime} */ (u.skill);
     // the born state of every deployment (constants.js BORN_TIME): no attack until it ends, nor a cast of a skill that waits
     // for it (skills.js _born); no block either
     u.bornUntil = this.time + (this.flags.bornTime > 0 ? u.def?.attackAnim?.born ?? this.flags.bornTime : 0);
@@ -156,7 +158,7 @@ export class BattleDeploy {
     // alive but without its tile in _occ, its buffs wiped and a respawn timer pending) — redeploy from `death` instead
     unit._removing = true;
     if (unit.skill && unit.skill.active) {
-      this._safe(() => unit.skill.end('death'), 'skill.end', unit);
+      this._safe(() => /** @type {SkillRuntime} */ (unit.skill).end('death'), 'skill.end', unit);
       unit.skill.active = false;
     }
     unit._removing = false;

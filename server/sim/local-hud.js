@@ -31,19 +31,25 @@
 //         boss SP bar (render/hud-bars.js; only bosses draw it).
 // The sim runs in the browser (public/js/battle/runner.js serves server/sim at /sim/), so this is client-side data.
 
-/** The `ammo` list of a snapshot (null when empty). */
+/** @import { Battle } from './Battle.js' */
+/** @import { Unit } from './units.js' */
+/** @import { SkillRuntime } from './skills.js' */
+
+/** The `ammo` list of a snapshot (null when empty). @param {Iterable<Unit>} units */
 export function ammoList(units) {
   return hudLists(units).ammo || null;
 }
 
-/** `{ ammo?, shield?, charge?, ovl?, bsp? }` of a snapshot — each only when non-empty — in one pass over the units. */
+/** `{ ammo?, shield?, charge?, ovl?, bsp? }` of a snapshot — each only when non-empty — in one pass over the units.
+ * @param {Iterable<Unit>} units */
 export function hudLists(units) {
+  /** @type {{ ammo?: number[][], shield?: number[][], charge?: number[][], ovl?: number[][], bsp?: number[][] }} */
   const out = {};
   for (const u of units) {
     if (!u.alive || !u.deployed || u.hidden) continue;
     if (u.side === 'ally') {
       let sh = 0;
-      for (const b of u.buffs || []) if (b && b.shield > 0) sh += b.shield;
+      for (const b of /** @type {{ shield: number }[]} */ (u.buffs || [])) if (b && b.shield > 0) sh += b.shield;
       if (sh >= 0.5) (out.shield || (out.shield = [])).push([u.id, Math.round(sh)]);
       const bar = bulletView(u.skill, u);
       if (bar) (out.ammo || (out.ammo = [])).push([u.id, bar[0], bar[1]]);
@@ -61,6 +67,7 @@ export function hudLists(units) {
 /**
  * The stored charges the official mark shows over a unit whose skill is `sk` (see the header `charge`), or 0: an AUTO
  * skill of more than one charge, its charges ready now (BasicSkill.availableCnt — the SP over its cost, whole).
+ * @param {SkillRuntime | null} sk
  */
 export function chargeMark(sk) {
   if (!sk || sk.noSkill || sk.kind === 'passive' || !(sk.maxCharges > 1)) return 0;
@@ -68,7 +75,7 @@ export function chargeMark(sk) {
   return Math.max(0, Math.min(sk.maxCharges, sk.charges | 0));
 }
 
-/** Whether a unit's skill `sk` is a 过载 skill running now (see the header `ovl`). */
+/** Whether a unit's skill `sk` is a 过载 skill running now (see the header `ovl`). @param {SkillRuntime | null} sk */
 export function overloadMark(sk) {
   return !!(sk && !sk.noSkill && sk.active && sk.kind !== 'passive' && sk.def?.overload === 1);
 }
@@ -76,6 +83,8 @@ export function overloadMark(sk) {
 /**
  * `[left, max]` of the bullet bar a unit's skill `sk` shows now (see the header), or null: an ammo skill while it runs
  * (unless the client gives it the cast slider: `bulletMode` 0), a skill with `bulletMode` 1 while it is affecting.
+ * @param {SkillRuntime | null} sk @param {Unit | null} [u]
+ * @returns {[number, number] | null}
  */
 export function bulletView(sk, u) {
   if (!sk || sk.noSkill) return null;
@@ -92,6 +101,8 @@ export function bulletView(sk, u) {
 /**
  * The SP of a non-ammo bullet-mode skill as `[sp, maxSp]` (whole numbers, sp ≤ maxSp), or null when it has no max: 琳琅诗怀雅's
  * purse (her kit's `mem.coins`, out of the skill's blackboard `sp`), else the skill's own SP out of its cost.
+ * @param {SkillRuntime} sk @param {Unit | null} [u]
+ * @returns {[number, number] | null}
  */
 function spBullets(sk, u) {
   const purse = typeof sk.id === 'string' && sk.id.startsWith('skchr_swire2_');
@@ -111,6 +122,7 @@ function spBullets(sk, u) {
  * 0 = none. Sourceless and fixed-value DoT damage never counts. A first version (2026-10-07) compared with the ATK alone.
  */
 export const CRIT_THRESHOLD = 1.5;
+/** @param {{ tags?: string[], sourceless?: boolean }} dmg @param {unknown} ss @param {number} expected @param {number} final */
 export function damageNumberFlag(dmg, ss, expected, final) {
   const tags = dmg.tags || [];
   if (tags.includes('bombard') || tags.includes('snipe')) return 2;
@@ -126,6 +138,7 @@ export function damageNumberFlag(dmg, ss, expected, final) {
  * (enemy_xi_s2), mdrock (enemy_mdrock_s_2) and mousek (mousek_shield) — their sim keys below.
  */
 export const BLOCK_SHOWN = new Set(['ab:xiShield', 'ab:xiShield[a]', 'ab:xiShield[b]', 'ab:xiShield[c]', 'ab:sandDef', 'ab:rockPower']);
+/** @param {Battle} battle @param {Unit | null} target @param {number} final @param {number} flag @param {string} key */
 export function blockedEvent(battle, target, final, flag, key) {
   if (!(flag > 0) || !(final > 0) || !target) return;
   battle._ev(['blk', target.id, Math.round(final), BLOCK_SHOWN.has(key) ? 1 : 0]);

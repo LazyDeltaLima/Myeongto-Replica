@@ -62,7 +62,8 @@ export function roundHalfEven(x) {
 const SPLIT = 134217729; // 2^27 + 1 (Dekker)
 const ACC = [0, 0];
 const BASE = [0, 0];
-/** (ah + al)·(bh + bl) in double-double, into out (TwoProduct by Dekker's split: no FMA) */
+/** (ah + al)·(bh + bl) in double-double, into out (TwoProduct by Dekker's split: no FMA)
+ * @param {number} ah @param {number} al @param {number} bh @param {number} bl @param {number[]} out */
 function mul2(ah, al, bh, bl, out) {
   const p = ah * bh;
   let t = SPLIT * ah;
@@ -82,6 +83,7 @@ function mul2(ah, al, bh, bl, out) {
  * the double-double sum would lose ((−0)¹ = −0, (−0)⁻¹ = −∞).
  * @param {number} x
  * @param {number} n
+ * @returns {number}
  */
 export function powi(x, n) {
   // eslint-disable-next-line no-restricted-properties -- outside the integer domain only (never in the sim)
@@ -102,7 +104,7 @@ export function powi(x, n) {
 
 const S1 = -1.66666666666666324348e-01, S2 = 8.33333333332248946124e-03, S3 = -1.98412698298579493134e-04;
 const S4 = 2.75573137070700676789e-06, S5 = -2.50507602534068634195e-08, S6 = 1.58969099521155010221e-10;
-/** sin on [-π/4, π/4]; y is the tail of x, iy = 0 when y is 0 */
+/** sin on [-π/4, π/4]; y is the tail of x, iy = 0 when y is 0 @param {number} x @param {number} y @param {number} iy */
 function kSin(x, y, iy) {
   if ((hi(x) & 0x7fffffff) < 0x3e400000 && Math.trunc(x) === 0) return x;
   const z = x * x, v = z * x;
@@ -113,7 +115,7 @@ function kSin(x, y, iy) {
 
 const C1 = 4.16666666666666019037e-02, C2 = -1.38888888888741095749e-03, C3 = 2.48015872894767294178e-05;
 const C4 = -2.75573143513906633035e-07, C5 = 2.08757232129817482790e-09, C6 = -1.13596475577881948265e-11;
-/** cos on [-π/4, π/4]; y is the tail of x */
+/** cos on [-π/4, π/4]; y is the tail of x @param {number} x @param {number} y */
 function kCos(x, y) {
   const ix = hi(x) & 0x7fffffff;
   if (ix < 0x3e400000 && Math.trunc(x) === 0) return 1;
@@ -138,7 +140,8 @@ const TWO_PI = 6.283185307179586;
 const Y = [0, 0];
 
 /** x − n·π/2 into Y (head, tail); returns n. |x| ≤ 2^19·π/2: fdlibm's medium path; beyond that (never in the sim)
- * x is first taken modulo the double nearest 2π (exact %), which stays deterministic though not accurate. */
+ * x is first taken modulo the double nearest 2π (exact %), which stays deterministic though not accurate.
+ * @param {number} x0 */
 function remPio2(x0) {
   let x = x0;
   if ((hi(x) & 0x7fffffff) > 0x413921fb) x = x % TWO_PI;

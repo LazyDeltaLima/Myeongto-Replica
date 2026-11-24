@@ -129,7 +129,7 @@ export function spawnGiant(battle, pid, r, c) {
   if (!u) return null;
   u.mode = GIANT_MODE;
   u.form = GIANT_MODE;
-  const giantProf = u.profile;
+  const giantProf = /** @type {Record<string, any>} */ (u.profile); // a walker's profile (spawnWalker)
   giantProf.splashRadius = GIANT_SHOT_RADIUS;
   giantProf.splashScale = 1;
   giantProf.splashGroundOnly = true;

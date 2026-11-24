@@ -189,7 +189,7 @@ export class BattleHooks {
       if (s.interval > 0) {
         let n = 0;
         while (s.due <= now && !s.cancelled && n++ < 8) {
-          s.count++;
+          /** @type {number} */ (s.count)++;
           this._safe(() => s.fn(this, s), 'every', s.owner);
           s.due += s.interval;
         }

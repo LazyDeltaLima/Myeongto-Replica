@@ -28,6 +28,8 @@ import { COLS } from './constants.js';
 import { compileRoute } from './ai.js';
 import { hypot } from './detmath.js';
 import { normalizeRoute } from './simdata.js';
+/** @import { Battle } from './Battle.js' */
+/** @import { RouteSpec } from './battle/tiles.js' */
 
 /** Scheduler PREVIEW_CURSOR_COUNT: cursors per preview. */
 export const PREVIEW_CURSOR_COUNT = 2;
@@ -36,16 +38,18 @@ export const PREVIEW_CURSOR_PRE_DELAY = 3;
 /** Scheduler PREVIEW_CURSOR_INTERVAL (s) between the cursors of one preview. */
 export const PREVIEW_CURSOR_INTERVAL = 0.3;
 
+/** @param {unknown} v @param {number} d @returns {number} */
 const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
 /**
  * The previews of a spawn list: one per marked level action that spawns at least one unit, from its earliest unit.
- * @param {object[]} spawns spawn specs (`time`, `routeIndex`, `route?`, `actionIndex`)
- * @param {object|null} template the field's wave template (data/waves.json record: `spawns[i].previewRoute`)
+ * @param {Record<string, any>[]} spawns spawn specs (`time`, `routeIndex`, `route?`, `actionIndex`)
+ * @param {Record<string, any> | null} template the field's wave template (data/waves.json record: `spawns[i].previewRoute`)
  * @returns {Array<{ actionIndex: number, time: number, routeIndex: number, route: object|null }>} by time
  */
 export function routePreviews(spawns, template) {
   const list = template && Array.isArray(template.spawns) ? template.spawns : [];
+  /** @type {Map<number, { actionIndex: number, time: number, routeIndex: number, route: object | null }>} */
   const first = new Map(); // actionIndex → its earliest spawn spec
   for (const s of Array.isArray(spawns) ? spawns : []) {
     if (!s || typeof s !== 'object' || !Number.isInteger(s.actionIndex)) continue;
@@ -59,7 +63,8 @@ export function routePreviews(spawns, template) {
   return [...first.values()].sort((a, b) => a.time - b.time || a.actionIndex - b.actionIndex);
 }
 
-/** The cursor times of a preview whose action's first unit comes at `spawnTime` (the battle start clamps them to 0). */
+/** The cursor times of a preview whose action's first unit comes at `spawnTime` (the battle start clamps them to 0).
+ * @param {number} spawnTime */
 export function cursorTimes(spawnTime) {
   const out = [];
   for (let i = 0; i < PREVIEW_CURSOR_COUNT; i++) out.push(Math.max(0, spawnTime - PREVIEW_CURSOR_PRE_DELAY + i * PREVIEW_CURSOR_INTERVAL));
@@ -74,8 +79,8 @@ const TRACE_STEP = 0.05;   // the line's step
  * point, WALK legs along the flow field of each target like ai.js walkRoute (the live field, else the
  * obstacle-free one, else straight; turns as it enters a tile, the steering left out), FLY legs straight; WAIT legs add nothing; a DISAPPEAR ends the line (the cursor's
  * run) [추정]. Read-only: flow fields are cached per grid version and pure.
- * @param {object} b Battle
- * @param {object} route RouteSpec (normalizeRoute)
+ * @param {Battle} b Battle
+ * @param {RouteSpec} route RouteSpec (normalizeRoute)
  * @returns {number[][]}
  */
 export function routePolyline(b, route) {
@@ -87,7 +92,7 @@ export function routePolyline(b, route) {
   const g = b.grid;
   const fly = route.motion === 'FLY';
   let at = [r0, c0];
-  const push = (r, c) => { const l = pts[pts.length - 1]; if (l[0] !== r || l[1] !== c) pts.push([r, c]); };
+  const push = (/** @type {number} */ r, /** @type {number} */ c) => { const l = pts[pts.length - 1]; if (l[0] !== r || l[1] !== c) pts.push([r, c]); };
   for (const leg of compileRoute(route, R || null)) {
     if (leg.t === 'disappear' || leg.t === 'appear') break;
     if (leg.t !== 'move') continue;
@@ -126,8 +131,8 @@ export function routePolyline(b, route) {
  * grid as it stands): `[{ t, motion: 'WALK'|'FLY', pts: [[row, col], …], actionIndex }]` by time, or [] when the
  * field's template marks no action (boss fields, the routes the server sends for the Final Assault prep are another
  * thing: server/match/bossPath.js).
- * @param {object} b Battle
- * @param {object} spec BattleSpec (`spawns`, `waveId`)
+ * @param {Battle} b Battle
+ * @param {Record<string, any>} spec BattleSpec (`spawns`, `waveId`)
  */
 export function routePreviewPlan(b, spec) {
   if (!b || !spec || typeof spec !== 'object') return [];

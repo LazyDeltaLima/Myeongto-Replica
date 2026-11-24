@@ -9,10 +9,13 @@
 
 import { COLD_ASPD, COLD_FREEZE_DURATION, FREEZE_RES_DOWN, RESIST_DEFAULT, RESIST_PALSY_DECAY } from './constants.js';
 import { powi } from './detmath.js';
+/** @import { Battle } from './Battle.js' */
+/** @import { Unit } from './units.js' */
+/** @import { StatusTpl } from './battle/status.js' */
 
-/** 抵抗: "麻痹等状态每5秒流失1层" — tick of the resist buff. */
+/** 抵抗: "麻痹等状态每5秒流失1层" — tick of the resist buff. @param {{ battle: Battle, unit: Unit }} c */
 function resistPalsyDecay({ battle, unit }) {
-  const p = unit.findBuff('palsy');
+  const p = /** @type {{ stacks: number } | null} */ (unit.findBuff('palsy'));
   if (!p) return;
   if (--p.stacks <= 0) battle.removeBuff(unit, p);
   else { unit.markDirty(); battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'palsy', n: p.stacks }); }
@@ -64,6 +67,7 @@ export const FLAG_KEYS = Object.freeze([
  * term table (gamedata_const termDescriptionDict, ba.*). `valued: default` marks "同名效果取最高" statuses: a weaker
  * application never overrides a stronger running one (it resumes if it outlasts it) — see Battle.applyStatus.
  * Content applies statuses with `battle.applyStatus(target, key, { duration, source, value })`.
+ * @type {Readonly<Record<string, StatusTpl & { resist?: boolean }>>}
  */
 export const STATUS = Object.freeze({
   // 晕眩: 无法移动、阻挡、攻击及使用技能 (a stunned operator releases the enemies it blocks)
@@ -157,11 +161,12 @@ export const RESIST_STATUSES = Object.freeze(new Set(['stun', 'freeze', 'cold', 
 /** Statuses that should be reported to clients as `['status', id, key, on]`. */
 export const VISIBLE_STATUS = new Set(Object.keys(STATUS));
 
+/** @param {number} v */
 function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
 let buffSeq = 0;
 
-/** Normalise a buff descriptor (does not attach it). */
+/** Normalise a buff descriptor (does not attach it). @param {Record<string, any>} b */
 export function makeBuff(b) {
   const duration = b.duration == null ? Infinity : Number(b.duration);
   return {
@@ -206,6 +211,7 @@ export function makeBuff(b) {
  * Compute aggregated modifiers of a buff list. Returns `{ add: {k: sum}, mul: {k: product}, flags: {k: bool}, shield,
  * permRangeExtend }` — permRangeExtend = the rangeExtend of persistent never-expiring buffs (talents, modules: part of
  * the initial range, Battle._refreshRange).
+ * @param {ReadonlyArray<Record<string, any>>} buffs
  */
 export function aggregateMods(buffs) {
   const add = Object.create(null);
@@ -214,6 +220,7 @@ export function aggregateMods(buffs) {
   let shield = 0;
   let permRangeExtend = 0;
   // dodge sources are independent rolls: total = 1 − Π(1 − p)^stacks (one single source keeps its exact value)
+  /** @type {Record<string, { n: number, p: number, miss: number } | null>} */
   const dodge = { dodgePhys: null, dodgeArts: null };
   for (let i = 0; i < buffs.length; i++) {
     const b = buffs[i];

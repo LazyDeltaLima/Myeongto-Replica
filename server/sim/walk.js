@@ -4,8 +4,12 @@
 
 import { COLS } from './constants.js';
 import { hypot } from './detmath.js';
+/** @import { Battle } from './Battle.js' */
+/** @import { Unit } from './units.js' */
+/** @import { Grid } from './grid.js' */
 
-/** The flow field to tile (r, c) that reaches tile key `k`: with the obstacles, else through them; null when neither does. */
+/** The flow field to tile (r, c) that reaches tile key `k`: with the obstacles, else through them; null when neither does.
+ * @param {Battle} b @param {number} r @param {number} c @param {number} k */
 export function legField(b, r, c, k) {
   const g = b.grid;
   const f = g.flowField(r, c);
@@ -15,6 +19,7 @@ export function legField(b, r, c, k) {
   return null;
 }
 
+/** @param {Battle} b @param {{ x: number, y: number }} e */
 export const tileKey = (b, e) => {
   const r = Math.round(e.y), c = Math.round(e.x);
   return b.grid.inBounds(r, c) ? r * COLS + c : -1;
@@ -25,6 +30,7 @@ export const tileKey = (b, e) => {
  * there has no distance (`Route.Node.isValid` false), so `MoveCheckpoint.GetNextDirection` gives no direction — the steering
  * only brakes and the wall's force (obstacleAvoidForce: toward the nearest neighbour it can walk) takes it out. Until
  * 2026-11-15 it headed straight for the leg's target, through the wall (docs/rules/sim.md 「적이 걷는 법」 벽 칸).
+ * @param {Battle} b @param {Unit} e
  */
 export function inWallTile(b, e) {
   if (e.motion === 'FLY') return false;
@@ -37,6 +43,7 @@ export function inWallTile(b, e) {
 // `steeringEnabled` (BattleOptions.STEERING_ENABLED, MoveController._CalculateSteeringForce).
 const STEER_DEFAULT = Object.freeze({ factor: 8, maxForce: 10 });
 const STEER_DRONE = Object.freeze({ factor: 20, maxForce: 100 });
+/** @type {Readonly<Record<string, Readonly<{ factor: number, maxForce: number }>>>} */
 const STEER_BY_ENEMY = Object.freeze({
   enemy_1005_yokai: STEER_DRONE, enemy_1005_yokai_2: STEER_DRONE, enemy_1005_yokai_3: STEER_DRONE, enemy_1017_defdrn: STEER_DRONE,
   enemy_1040_bombd: STEER_DRONE, enemy_1041_lazerd: STEER_DRONE, enemy_1041_lazerd_2: STEER_DRONE, enemy_1042_frostd: STEER_DRONE,
@@ -45,6 +52,7 @@ const STEER_BY_ENEMY = Object.freeze({
 // Where an enemy's feet are, below its position on the map (MoveController._CalculateObstacleAvoidForce's `footPos`: Enemy.footMapPosition, the
 // animator's foot transform, the Spine under the prefab's Graphic): the prefabs' Graphic y, 0.2 for most, FOOT_BY_ENEMY the others.
 const FOOT_DEFAULT = -0.2;
+/** @param {number} v @param {string[]} ids @returns {Array<[string, number]>} */
 const footGroup = (v, ids) => ids.map((id) => [id, v]);
 const FOOT_BY_ENEMY = Object.freeze(Object.fromEntries([
   ...footGroup(0, ['enemy_1005_yokai', 'enemy_1005_yokai_2', 'enemy_1005_yokai_3', 'enemy_1017_defdrn', 'enemy_1040_bombd', 'enemy_1041_lazerd', 'enemy_1041_lazerd_2',
@@ -63,11 +71,17 @@ const MIN_OBSTACLE_AVOID_INFLUENCE = 0.5;  // MoveController.MIN_OBSTACLE_AVOID_
 export const REACH_SQ = 0.05 * 0.05;              // MoveCheckpoint.CheckReached (reachDistance at least 0.05), Route.CheckReached
 const EIGHT_WAYS = Object.freeze([[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]);
 
-/** A route leg's target (MoveCheckpoint.get_targetPos): its tile's centre plus the level's `reachOffset`. */
+/**
+ * A route leg's target (MoveCheckpoint.get_targetPos): its tile's centre plus the level's `reachOffset`.
+ * @typedef {{ r: number, c: number, dr?: number, dc?: number }} LegPoint
+ * @param {LegPoint} leg
+ */
 export const legX = (leg) => leg.c + (leg.dc ?? 0);
+/** @param {LegPoint} leg */
 export const legY = (leg) => leg.r + (leg.dr ?? 0);
 
-/** Map.CheckPassable for an enemy's way of moving (the whole map, not only the battle's rect). */
+/** Map.CheckPassable for an enemy's way of moving (the whole map, not only the battle's rect).
+ * @param {Grid} g @param {boolean} fly @param {number} r @param {number} c */
 function motionPassable(g, fly, r, c) {
   if (!g.inBounds(r, c)) return false;
   const k = r * COLS + c;
@@ -80,6 +94,7 @@ function motionPassable(g, fly, r, c) {
  * the nearest neighbour it can. Else from the 8 neighbours: its body edge, 0.2 to the neighbour's side, more than
  * TILE_NEAR_THRESHOLD past the tile's centre pushes it back, a side neighbour along its axis, a corner one only when both
  * axes are that near. The edges are the feet's, `footY` from the position (the tile it stands on is the position's); docs/rules/sim.md 「적이 걷는 법」.
+ * @param {Grid} g @param {number} x @param {number} y @param {boolean} fly @param {number} [footY]
  */
 export function obstacleAvoidForce(g, x, y, fly, footY = 0) {
   const r0 = Math.round(y), c0 = Math.round(x);
@@ -115,6 +130,7 @@ export function obstacleAvoidForce(g, x, y, fly, footY = 0) {
 /**
  * One step of the enemy's walk toward the point (ax, ay) at `speed`: the steering, the wall's force and the bounce of
  * ai.js walkRoute's comment. Moves `e`; `e.moving` is the caller's.
+ * @param {Battle} b @param {Unit} e @param {number} ax @param {number} ay @param {number} speed @param {number} dt
  */
 export function steerStep(b, e, ax, ay, speed, dt) {
   const fly = e.motion === 'FLY';
@@ -155,6 +171,8 @@ export function steerStep(b, e, ax, ay, speed, dt) {
  * One tick toward the point (x, y) on tile (r, c), as a DirectionCursor with one checkpoint: within one step it lands there
  * (`PredictReached`), else a walker heads for the centre of the next tile of the flow field — the point itself once that is
  * the point's tile (`MoveCheckpoint.GetNextDirection`: the tile centre plus `reachOffset`) — and a flyer straight for it.
+ * @param {Battle} b @param {Unit} e @param {number} r @param {number} c @param {number} x @param {number} y @param {number} speed
+ * @param {number} dt
  */
 export function walkCursor(b, e, r, c, x, y, speed, dt) {
   const step = speed * dt;

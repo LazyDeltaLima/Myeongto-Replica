@@ -26,7 +26,7 @@ export { WIDE_ROWS, wideHalves, wideShift, wideRect, wideOffsets, wideCols, wide
  */
 export function widenStage(stage, halves) {
   if (!stage || stage._wide || !wideHalves(halves)) return stage;
-  const rows = Array.isArray(stage.rows) ? stage.rows.map((r) => widenRow(r, halves)) : stage.rows;
+  const rows = Array.isArray(stage.rows) ? stage.rows.map((/** @type {unknown} */ r) => widenRow(r, halves)) : stage.rows;
   const devices = [];
   for (const d of stage.devices || []) {
     if (!d || !Number.isInteger(d.col) || d.col < 0) { devices.push(d); continue; }
@@ -55,14 +55,15 @@ export function widenStage(stage, halves) {
  * { pos }) on a wide field of `halves`: it starts the shift further right, walks the checkpoints of the repeated columns
  * there, passes the old start (the junction) and then walks the whole route to the same end.
  * @param {any} route @param {number} halves 3 | 4
+ * @typedef {number[] | { pos: number[] }} Checkpoint a route checkpoint, [row, col] or { pos }
  */
 export function widenRoute(route, halves) {
   if (!route || typeof route !== 'object' || !wideHalves(halves)) return route;
   const s = wideShift(halves), f = firstRepeated(halves);
   const cps = Array.isArray(route.checkpoints) ? route.checkpoints : [];
-  const colOf = (cp) => (Array.isArray(cp) ? cp[1] : cp && typeof cp === 'object' && Array.isArray(cp.pos) ? cp.pos[1] : null);
-  const shift = (cp) => (Array.isArray(cp) ? shiftPos(cp, s) : { ...cp, pos: shiftPos(cp.pos, s) });
-  const added = cps.filter((cp) => Number.isFinite(colOf(cp)) && colOf(cp) >= f).map(shift);
+  const colOf = (/** @type {Checkpoint} */ cp) => (Array.isArray(cp) ? cp[1] : cp && typeof cp === 'object' && Array.isArray(cp.pos) ? cp.pos[1] : null);
+  const shift = (/** @type {Checkpoint} */ cp) => (Array.isArray(cp) ? shiftPos(cp, s) : { ...cp, pos: shiftPos(cp.pos, s) });
+  const added = cps.filter((/** @type {Checkpoint} */ cp) => Number.isFinite(colOf(cp)) && /** @type {number} */ (colOf(cp)) >= f).map(shift);
   const junction = Array.isArray(route.start) ? [[route.start[0], route.start[1]]] : [];
   return { ...route, start: shiftPos(route.start, s), checkpoints: [...added, ...junction, ...cps] };
 }
@@ -83,7 +84,9 @@ export function wideSpan(players, ps, rect) {
   return [lo, hi];
 }
 
-/** The player of the wide field whose span holds column c (wideSpan), else the first. */
+/** The player of the wide field whose span holds column c (wideSpan), else the first.
+ * @template {{ colOffset: number }} P
+ * @param {P[]} players @param {number} c @param {{ c0: number, c1: number }} rect @returns {P | null} */
 export function widePlayerAt(players, c, rect) {
   for (const p of players) {
     const [lo, hi] = wideSpan(players, p, rect);

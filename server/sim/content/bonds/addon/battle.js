@@ -516,7 +516,8 @@ function raidPoll(battle, st) {
     const sk = u.skill;
     const type = raidSkillType(sk);
     if (type === 'PASSIVE' && !u.mem[RAID_SPAWN] && raidJump(battle, st, u, true)) continue;
-    if ((type === 'MANUAL' || type === 'AUTO') && sk.ready && !sk.active && !raidEnemyClose(battle, u) && raidJump(battle, st, u, true)) continue;
+    // a type other than null: it has a skill (raidSkillType)
+    if ((type === 'MANUAL' || type === 'AUTO') && /** @type {SkillRuntime} */ (sk).ready && !/** @type {SkillRuntime} */ (sk).active && !raidEnemyClose(battle, u) && raidJump(battle, st, u, true)) continue;
     const since = Math.max(u.lastAttackAt ?? -Infinity, u.deployedAt ?? -Infinity, u.mem[KEY.raid] ?? -Infinity);
     if (battle.time - since >= idle - 1e-9) raidJump(battle, st, u, false);
   }
