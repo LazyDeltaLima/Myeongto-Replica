@@ -104,7 +104,7 @@ error.
 
 With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`, the files directly under `server/`
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, and the files directly under
-`server/match/` but `audit.js`, `bot.js`, `choices.js`, `effectsMeta.js`, `fields.js` and `waves.js` (listed one by one).
+`server/match/` but `bot.js` and `effectsMeta.js` (listed one by one).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -191,6 +191,25 @@ most strict errors were, and the JSDoc that fixed them:
   (makeCtx's `teammates` returns makeCtx again, so tsc cannot infer it) until makeCtx gets an explicit `@returns`.
 - a seeded stream is `ReturnType<typeof import('../sim/rng.js').createRng>` (`Rng` in `server/match/pool.js`), not
   `Function` (which has no `shuffle`).
+- a helper taking `[value, weight]` pairs (`weightedPick` in `server/match/waves.js`) is `@template T` over
+  `Array<[T, unknown]>`; a pairs list built with `.map((x) => [x, w])` is an array of arrays, not of tuples, until its
+  declaration says so (`/** @type {Array<[string, number]>} */ const pairs = …`).
+- a wrapper of another object's method (`wrap(obj, name, around)` in `server/match/audit.js`) is generic over the object
+  and the key, `around` taking `orig: OmitThisParameter<O[K]>` (the original is bound: a part method's `@this` would
+  refuse a plain call) and the method's own parameters (`O[K] extends (...a: infer A) => unknown ? A : never`), so each
+  wrapper's callback needs no `@param`.
+- the records the match builds and reads back get a typedef where they are made: `SpawnSpec` / `SpawnPreview` /
+  `RoundPick` / `ScaleMods` (`server/match/waves.js`), `TimelineSample` (a tuple, `[gt, killed, total, resolved,
+  left?]`), `RunnerField`, `PacerEntry` (`server/match/fields.js`), `ChoiceCard` (`server/match/choices.js`, a card
+  entry read field by field). An object given more keys after its literal (`spec.tag = …`, `e.respawnLeft = …`) takes the
+  typedef, or an `@type` listing those keys as optional, on its declaration.
+- `Array.isArray(x)` on a `Record<string, any>` parameter narrows the other branch to `any[] | Record<…>`, and an
+  array's own property is then an error (setupMatchWaves' factions array carries `schedule`): cast at the use,
+  `/** @type {WaveFactions} */ (src).schedule`.
+- a check on a method a stand-in may lack (`gd.spDraftCards && …`, TS2774 "always defined"): cast the object there,
+  `/** @type {Partial<GameData>} */ (gd).spDraftCards`.
+- a compound assignment to a field the type leaves optional takes the cast on its target,
+  `/** @type {number} */ (e.skipped) += …`.
 
 ## Split classes
 

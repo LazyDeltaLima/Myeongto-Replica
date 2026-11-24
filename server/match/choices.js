@@ -63,7 +63,13 @@
 //   cards with `team: true` apply to the picker AND every alive teammate ("若存在其他队友则他们也获得").
 
 import { weightedPick } from './waves.js';
+/** @import { GameData } from './gamedata.js' */
+/** @import { Rng } from './pool.js' */
+/** @import { Match } from './Match.js' */
+/** @import { PlayerState } from './PlayerState.js' */
+/** A choices.json card entry (cards.bounty / cards.tactic) or a draft card made from one, read field by field. @typedef {Record<string, any>} ChoiceCard */
 
+/** @type {Record<string, string>} */
 export const FAMILY_NAMES = { bounty: '悬赏决策', supply: '道具补给', shop: '机密商店', tactic: '战术决策' }; // i18n-ignore: = choices.json families (the client shows the localized record)
 
 /**
@@ -75,9 +81,9 @@ export const FAMILY_NAMES = { bounty: '悬赏决策', supply: '道具补给', sh
  * column (DESIGN §20).
  */
 export const MULTI_ROUND_BOUNTY_BATTLES = 2;
-/** A multi-round bounty card ("之后 / 后续的每场作战"; choices.json `multiRound`, or data `rounds` ≥ 90). */
+/** A multi-round bounty card ("之后 / 后续的每场作战"; choices.json `multiRound`, or data `rounds` ≥ 90). @param {ChoiceCard | null | undefined} c */
 export const isMultiRoundBounty = (c) => !!c && (c.multiRound === true || Number(c.rounds) >= 90);
-/** The battles a bounty card's enemies come for (MULTI_ROUND_BOUNTY_BATTLES for a multi-round card), 1–99. */
+/** The battles a bounty card's enemies come for (MULTI_ROUND_BOUNTY_BATTLES for a multi-round card), 1–99. @param {ChoiceCard | null | undefined} c */
 export function bountyBattles(c) {
   if (isMultiRoundBounty(c) && Number.isInteger(MULTI_ROUND_BOUNTY_BATTLES)) return MULTI_ROUND_BOUNTY_BATTLES;
   const r = Number(c && c.rounds);
@@ -88,6 +94,7 @@ const N_ZH = ['', '一', '两', '三', '四', '五']; // i18n-ignore: rewrites t
  * A bounty text as the card lasts: a multi-round card's "之后的 / 后续每场作战" (rich `<@ba.vdown>每场</>` or plain) reads
  * "接下来<@ba.vup>两场作战</>" like the official two-battle cards while MULTI_ROUND_BOUNTY_BATTLES is set; any other
  * text is returned as is.
+ * @param {string | null} text @param {ChoiceCard | null | undefined} c
  */
 export function bountyText(text, c) {
   if (typeof text !== 'string' || !text || !isMultiRoundBounty(c) || !Number.isInteger(MULTI_ROUND_BOUNTY_BATTLES)) return text;
@@ -98,6 +105,7 @@ export function bountyText(text, c) {
     .replace(/(?:之后的|后续的?)每场作战/g, `接下来${battles}`);
 }
 
+/** @param {GameData} gd @param {number} round @returns {Record<string, any>} */
 function scheduleFor(gd, round) {
   const sch = gd.choices.schedule && gd.choices.schedule[gd.modeId];
   const r = sch && sch.rounds && sch.rounds[String(round)];
@@ -109,12 +117,14 @@ function scheduleFor(gd, round) {
 /**
  * The kind of official 悬赏决策 a round has when its schedule does not say (`bountyDraft`): R3 'initial', R9 'boss',
  * R11 'hunter' (choices.json bountyDrafts; player feedback after 0.1.0, report #2).
+ * @param {number} round
  */
 export function bountyDraftKind(round) {
   const r = Number(round);
   return r < 8 ? 'initial' : r < 11 ? 'boss' : 'hunter';
 }
 
+/** @param {GameData} gd */
 function formatCount(gd) {
   const f = gd.choices.format || {};
   const multi = f.multi && Number.isInteger(f.multi.cards) ? f.multi.cards : 6;
@@ -122,12 +132,14 @@ function formatCount(gd) {
   return gd.isSolo ? solo : gd.spDraftCards ? gd.spDraftCards(multi) : multi;
 }
 
+/** @param {GameData} gd @param {number} lo @param {number} hi @returns {string[]} */
 function eligibleItems(gd, lo, hi) {
   const out = [];
   for (let t = lo; t <= hi; t++) for (const id of gd.shopItemsByTier[t] || []) out.push(id);
   return out;
 }
 
+/** @param {GameData} gd @param {string} id */
 function itemCard(gd, id) {
   const it = gd.item(id);
   return { kind: 'item', id, name: it ? it.name : id, desc: it ? it.desc || '' : '', tier: it && Number.isInteger(it.tier) ? it.tier : 1, price: 0 };
@@ -135,7 +147,7 @@ function itemCard(gd, id) {
 
 /**
  * Build the draft cards for an SP round.
- * @param {import('./gamedata.js').GameData} gd @param {Function} rng @param {number} matchRound
+ * @param {GameData} gd @param {Rng} rng @param {number} matchRound
  * @param {{ stageId?: string | null, bondAvailable?: ((bondId: string) => boolean) | null,
  *   itemAvailable?: ((id: string) => boolean) | null }} [opts]
  * @returns {{ family: string, name: string, desc: string, eventId: string|null, cards: Array<Record<string, any>> } | null}
@@ -144,10 +156,11 @@ export function generateDraft(gd, rng, matchRound, { stageId = null, bondAvailab
   // a custom round plan's 机变 round drafts as its source round (GameData.srcRound)
   const round = gd.srcRound ? gd.srcRound(matchRound) : matchRound;
   const sch = scheduleFor(gd, round);
-  const fams = Array.isArray(sch.families) && sch.families.length ? sch.families.map((f) => [f.family, f.weight]) : [['supply', 1]];
+  /** @type {Array<[string, unknown]>} */
+  const fams = Array.isArray(sch.families) && sch.families.length ? sch.families.map((/** @type {Record<string, any>} */ f) => [f.family, f.weight]) : [['supply', 1]];
   let family = weightedPick(rng, fams) || 'supply';
   // co-op: 6 cards, 12 in an 8-player match (GameData.spDraftCards)
-  const n = Number.isInteger(sch.cards) && sch.cards > 0 ? (gd.spDraftCards && !gd.isSolo ? gd.spDraftCards(sch.cards) : Math.min(sch.cards, 6)) : formatCount(gd);
+  const n = Number.isInteger(sch.cards) && sch.cards > 0 ? (/** @type {Partial<GameData>} */ (gd).spDraftCards && !gd.isSolo ? gd.spDraftCards(sch.cards) : Math.min(sch.cards, 6)) : formatCount(gd);
   const opts = { stageId, bondAvailable, round, itemAvailable };
   let cards = buildCards(gd, rng, family, n, sch, opts);
   if (!cards.length && family !== 'supply') { family = 'supply'; cards = buildCards(gd, rng, family, n, sch, opts); }
@@ -159,17 +172,18 @@ export function generateDraft(gd, rng, matchRound, { stageId = null, bondAvailab
   return { family, name: famInfo && famInfo.name ? famInfo.name : FAMILY_NAMES[family] || family, desc: famInfo && famInfo.desc ? famInfo.desc : '', eventId, cards };
 }
 
-/** Bond granted by a 驰援 tactic card (effect buff single_special_choice_gain_bond_chess), else null. */
+/** Bond granted by a 驰援 tactic card (effect buff single_special_choice_gain_bond_chess), else null. @param {GameData} gd @param {unknown} effectId */
 export function reinforcementBond(gd, effectId) {
   const eff = gd.effect(effectId);
   const buffs = eff && Array.isArray(eff.buffs) ? eff.buffs : [];
-  const b = buffs.find((x) => x && x.key === 'single_special_choice_gain_bond_chess');
+  const b = buffs.find((/** @type {Record<string, any> | null} */ x) => x && x.key === 'single_special_choice_gain_bond_chess');
   return b && b.bbStr && typeof b.bbStr.bond === 'string' ? b.bbStr.bond : null;
 }
 
 /**
  * Bonds a tactic card only acts on: the 驰援 bond (single_special_choice_gain_bond_chess) and the bonds of a 盟誓 card
  * (global_special_choice_bond_addlayer bond_list). null when the card does anything else (it is always useful).
+ * @param {GameData} gd @param {unknown} effectId @returns {string[] | null}
  */
 export function cardTargetBonds(gd, effectId) {
   const eff = gd.effect(effectId);
@@ -191,6 +205,7 @@ export function cardTargetBonds(gd, effectId) {
  * feedback #2). Data without the flag (older builds, test fixtures) falls back to the kill bounties. With `kind`
  * ('initial' | 'boss' | 'hunter') the card must also belong to that kind of draft (choices.json `draftPool`; a card
  * without one — test fixtures — fits every kind).
+ * @param {ChoiceCard | null | undefined} c @param {string | null} [kind]
  */
 export function draftBounty(c, kind = null) {
   if (!c) return false;
@@ -199,7 +214,7 @@ export function draftBounty(c, kind = null) {
   return c.payout !== 'perfect';
 }
 
-/** The draft card of a cards.bounty entry (the official rich text, a multi-round card's battles and text rewritten). */
+/** The draft card of a cards.bounty entry (the official rich text, a multi-round card's battles and text rewritten). @param {GameData} gd @param {ChoiceCard} c */
 export function bountyCard(gd, c) {
   const eff = typeof gd.effect === 'function' ? gd.effect(c.effectId) : null;
   return {
@@ -208,8 +223,9 @@ export function bountyCard(gd, c) {
   };
 }
 
-/** Up to `k` cards of `list` not in `taken`, in a shuffled order. */
+/** Up to `k` cards of `list` not in `taken`, in a shuffled order. @template T @param {Rng} rng @param {T[]} list @param {number} k @param {Set<T>} taken */
 function drawDistinct(rng, list, k, taken) {
+  /** @type {T[]} */
   const out = [];
   for (const c of rng.shuffle(list.slice())) {
     if (out.length >= k) break;
@@ -220,13 +236,18 @@ function drawDistinct(rng, list, k, taken) {
   return out;
 }
 
-/** `k` different entries of `list` drawn one by one with weights `weights` (missing / bad weights count 1). */
+/**
+ * `k` different entries of `list` drawn one by one with weights `weights` (missing / bad weights count 1).
+ * @template T @param {Rng} rng @param {T[]} list @param {unknown[] | undefined} weights @param {number} k
+ */
 function drawWeighted(rng, list, weights, k) {
+  /** @type {Array<[T, number]>} */
   const pool = list.map((c, i) => [c, Math.max(0, Number(weights && weights[i]) || 1)]);
+  /** @type {T[]} */
   const out = [];
   while (out.length < k && pool.length) {
     const c = weightedPick(rng, pool);
-    out.push(c);
+    out.push(/** @type {T} */ (c)); // the pool is not empty
     pool.splice(pool.findIndex(([x]) => x === c), 1);
   }
   return out;
@@ -235,18 +256,20 @@ function drawWeighted(rng, list, weights, k) {
 /**
  * The cards of an unseen R3 set (`spec.rule`, [ASSUMED]): one card per tier of `tiers` from the two-battle cards of
  * `series`, at most `perSeries` of one series; a tier the `prefer` cards have is filled first, by one of them.
+ * @param {Rng} rng @param {Record<string, any>} rule @param {ChoiceCard[]} all
  */
 function initialRuleSet(rng, rule, all) {
+  /** @type {ChoiceCard[]} */
   const out = [];
   const perSeries = Number.isInteger(rule.perSeries) ? rule.perSeries : 1;
-  const ofSeries = (s) => out.filter((c) => c.series === s).length;
+  const ofSeries = (/** @type {unknown} */ s) => out.filter((c) => c.series === s).length;
   const prefer = new Set(Array.isArray(rule.prefer) ? rule.prefer : []);
   const series = new Set(Array.isArray(rule.series) ? rule.series : []);
   // the tiers a preferred card has go first, so that it still fits its series
   const prefTiers = new Set(all.filter((c) => prefer.has(c.effectId)).map((c) => c.tier));
   const tiers = rng.shuffle((Array.isArray(rule.tiers) ? rule.tiers : []).slice());
-  for (const tier of [...tiers.filter((t) => prefTiers.has(t)), ...tiers.filter((t) => !prefTiers.has(t))]) {
-    const ok = (c) => !out.includes(c) && c.tier === tier && series.has(c.series) && ofSeries(c.series) < perSeries;
+  for (const tier of [...tiers.filter((/** @type {unknown} */ t) => prefTiers.has(t)), ...tiers.filter((/** @type {unknown} */ t) => !prefTiers.has(t))]) {
+    const ok = (/** @type {ChoiceCard} */ c) => !out.includes(c) && c.tier === tier && series.has(c.series) && ofSeries(c.series) < perSeries;
     const pref = all.filter((c) => prefer.has(c.effectId) && ok(c));
     const c = rng.pick(pref.length ? pref : all.filter(ok));
     if (c) out.push(c);
@@ -258,16 +281,17 @@ function initialRuleSet(rng, rule, all) {
  * Fill an R11 list up to `rule.size` (an unseen event: from nothing; a seen group: its `open` cards) [ASSUMED]: a list
  * without a 特异III giant gets one, the rest are tier I / II cards, at most one per `onePerSeries` series and
  * `maxSeries16` of series 16.
+ * @param {Rng} rng @param {Record<string, any>} rule @param {ChoiceCard[]} list @param {Map<string, ChoiceCard>} byId
  */
 function hunterFill(rng, rule, list, byId) {
   const out = list.slice();
   const size = Number.isInteger(rule.size) ? rule.size : 7;
-  const giants = (Array.isArray(rule.giants) ? rule.giants : []).map((id) => byId.get(id)).filter(Boolean);
+  const giants = /** @type {ChoiceCard[]} */ ((Array.isArray(rule.giants) ? rule.giants : []).map((/** @type {string} */ id) => byId.get(id)).filter(Boolean));
   const onePer = new Set(Array.isArray(rule.onePerSeries) ? rule.onePerSeries : []);
   const max16 = Number.isInteger(rule.maxSeries16) ? rule.maxSeries16 : 2;
   if (out.length < size && !out.some((c) => giants.includes(c))) { const g = rng.pick(giants.filter((c) => !out.includes(c))); if (g) out.push(g); }
-  const fits = (c) => !out.includes(c) && (onePer.has(c.series) ? !out.some((x) => x.series === c.series) : c.series !== 16 || out.filter((x) => x.series === 16 && !giants.includes(x)).length < max16);
-  for (const c of rng.shuffle((Array.isArray(rule.cards) ? rule.cards : []).map((id) => byId.get(id)).filter(Boolean))) {
+  const fits = (/** @type {ChoiceCard} */ c) => !out.includes(c) && (onePer.has(c.series) ? !out.some((x) => x.series === c.series) : c.series !== 16 || out.filter((x) => x.series === 16 && !giants.includes(x)).length < max16);
+  for (const c of rng.shuffle((Array.isArray(rule.cards) ? rule.cards : []).map((/** @type {string} */ id) => byId.get(id)).filter(Boolean))) {
     if (out.length >= size) break;
     if (fits(c)) out.push(c);
   }
@@ -281,26 +305,29 @@ function hunterFill(rng, rule, list, byId) {
  *               10th set; R11 has `slots` = its 7 seen lists, so none is built);
  *   pick 'seen': a group by the number of official matches it came in.
  * The draft is `count` different cards of the list drawn by the group's `weights` (a rule-built card weighs 1).
+ * @param {Rng} rng @param {string} kind @param {Record<string, any>} spec @param {Map<string, ChoiceCard>} byId
  */
 function structuredBounty(rng, kind, spec, byId) {
   const count = Number.isInteger(spec.count) ? spec.count : 6;
   const groups = Array.isArray(spec.groups) ? spec.groups : [];
   let group = null;
   if (spec.pick === 'seen') {
-    group = weightedPick(rng, groups.map((g) => [g, (Array.isArray(g.seen) ? g.seen.filter((x) => Number.isInteger(x)).length : 0) || 1]));
+    group = weightedPick(rng, groups.map((/** @type {Record<string, any>} */ g) => [g, (Array.isArray(g.seen) ? g.seen.filter((x) => Number.isInteger(x)).length : 0) || 1]));
   } else {
     const slots = Math.max(groups.length, Number.isInteger(spec.slots) ? spec.slots : 0);
     const slot = slots > 0 ? rng.int(slots) : 0;
     group = slot < groups.length ? groups[slot] : null;
   }
   const rule = spec.rule || {};
+  /** @type {ChoiceCard[]} */
   let list;
+  /** @type {unknown[] | undefined} */
   let weights;
   if (group) {
     const ids = Array.isArray(group.cards) ? group.cards : [];
     list = [];
     weights = [];
-    ids.forEach((id, i) => { const c = byId.get(id); if (c) { list.push(c); weights.push(Array.isArray(group.weights) ? group.weights[i] : 1); } });
+    ids.forEach((/** @type {string} */ id, /** @type {number} */ i) => { const c = byId.get(id); if (c) { list.push(c); /** @type {unknown[]} */ (weights).push(Array.isArray(group.weights) ? group.weights[i] : 1); } });
     if (kind === 'hunter' && Number(group.open) > 0) list = hunterFill(rng, { ...rule, size: list.length + Number(group.open) }, list, byId);
   } else if (kind === 'initial') {
     list = initialRuleSet(rng, rule, [...byId.values()]);
@@ -316,17 +343,20 @@ function structuredBounty(rng, kind, spec, byId) {
  * Build `n` 悬赏决策 cards for `round` (module header): the official structure of the round's kind, topped up with other
  * eligible cards of that kind when it falls short (test fixtures with a restricted card list), shuffled into place —
  * the official card positions vary — and cut to `n` (solo 3 [ASSUMED]).
+ * @param {GameData} gd @param {Rng} rng @param {number} n @param {Record<string, any>} sch the round's schedule @param {number} round
+ * @returns {ChoiceCard[]}
  */
 function bountyDraftCards(gd, rng, n, sch, round) {
   const kind = typeof sch.bountyDraft === 'string' ? sch.bountyDraft : bountyDraftKind(round);
   const all = Array.isArray(gd.choices.cards && gd.choices.cards.bounty) ? gd.choices.cards.bounty : [];
-  const eligible = all.filter((c) => c && draftBounty(c, kind) && gd.enemy(c.enemyKey));
-  const byId = new Map(eligible.map((c) => [c.effectId, c]));
+  const eligible = all.filter((/** @type {ChoiceCard | null} */ c) => c && draftBounty(c, kind) && gd.enemy(c.enemyKey));
+  /** @type {Map<string, ChoiceCard>} */
+  const byId = new Map(eligible.map((/** @type {ChoiceCard} */ c) => [c.effectId, c]));
   const spec = gd.choices.bountyDrafts && gd.choices.bountyDrafts[kind];
   const out = spec ? structuredBounty(rng, kind, spec, byId) : [];
   const taken = new Set(out);
   if (out.length < n) out.push(...drawDistinct(rng, eligible, n - out.length, taken));
-  return rng.shuffle(out).slice(0, n).map((c) => bountyCard(gd, c));
+  return rng.shuffle(out).slice(0, n).map((/** @type {ChoiceCard} */ c) => bountyCard(gd, c));
 }
 
 /**
@@ -334,16 +364,19 @@ function bountyDraftCards(gd, rng, n, sch, round) {
  * 盟约之币) by the slot's weights, then an item of that tier by `itemWeights` (1 when unlisted; an empty tier falls back to
  * the nearest lower one, then any) — so one item can fill two slots. Positions shuffled; `n` < the slots (solo) keeps
  * `n` of them. Null without a usable `shopDraft` or at a round its `rounds` (when given) does not list.
+ * @param {GameData} gd @param {Rng} rng @param {number} n @param {number | null} [round]
+ * @param {((id: string) => boolean) | null} [itemAvailable]
+ * @returns {ChoiceCard[] | null}
  */
 export function shopDraftCards(gd, rng, n, round = null, itemAvailable = null) {
   const spec = gd.choices.shopDraft;
-  const slots = spec && Array.isArray(spec.slots) ? spec.slots.filter((x) => x && typeof x === 'object') : [];
+  const slots = spec && Array.isArray(spec.slots) ? spec.slots.filter((/** @type {unknown} */ x) => x && typeof x === 'object') : [];
   if (!slots.length) return null;
   if (Array.isArray(spec.rounds) && !spec.rounds.includes(round)) return null;
   const w = spec.itemWeights && typeof spec.itemWeights === 'object' ? spec.itemWeights : {};
   const coin = typeof spec.coin === 'string' && gd.item(spec.coin) ? spec.coin : null;
-  const free = list => itemAvailable ? list.filter(itemAvailable) : list;
-  const ofTier = (t) => {
+  const free = (/** @type {string[]} */ list) => itemAvailable ? list.filter(itemAvailable) : list;
+  const ofTier = (/** @type {number} */ t) => {
     for (let k = t; k >= 1; k--) { const list = free(gd.shopItemsByTier[k] || []); if (list.length) return list; }
     return free(eligibleItems(gd, 1, 6));
   };
@@ -355,14 +388,14 @@ export function shopDraftCards(gd, rng, n, round = null, itemAvailable = null) {
     const kinds = Object.entries(slot).filter(([k]) => k === 'coin' ? !!coin : Number.isInteger(Number(k)));
     const kind = weightedPick(rng, kinds);
     if (kind == null) continue;
-    const list = kind === 'coin' ? [coin] : ofTier(Number(kind));
+    const list = kind === 'coin' ? [/** @type {string} */ (coin)] : ofTier(Number(kind)); // kinds has 'coin' only with a coin
     const id = weightedPick(rng, list.map((x) => [x, Object.hasOwn(w, x) ? w[x] : 1]));
     if (id) out.push(itemCard(gd, id));
   }
   return rng.shuffle(out).slice(0, Math.max(0, n));
 }
 
-/** The draft card of a cards.tactic entry. */
+/** The draft card of a cards.tactic entry. @param {ChoiceCard} c */
 export function tacticCard(c) {
   return { kind: 'tactic', id: c.effectId, name: c.name, desc: c.desc || '', tier: null, team: !!c.team, tacticKind: c.kind };
 }
@@ -373,26 +406,36 @@ export function tacticCard(c) {
  * `kinds` (ally), each by `weights` (1 when unlisted); elsewhere — or when those kinds leave nothing — every card, uniform.
  * Terrain cards only for the match stage; a card whose every target bond is dead in this match (mode-inactive, or no
  * chess left in the pool: `bondAvailable`) is never offered.
+ * @param {GameData} gd @param {Rng} rng @param {number} n
+ * @param {{ stageId?: string | null, bondAvailable?: ((bondId: string) => boolean) | null, round?: number | null }} [opts]
  */
 export function tacticDraftCards(gd, rng, n, { stageId = null, bondAvailable = null, round = null } = {}) {
+  /** @param {ChoiceCard} c */
   const bondOk = (c) => {
     if (typeof bondAvailable !== 'function') return true;
     const bonds = cardTargetBonds(gd, c.effectId);
     return !bonds || bonds.some((b) => !!bondAvailable(b));
   };
   const list = Array.isArray(gd.choices.cards && gd.choices.cards.tactic) ? gd.choices.cards.tactic : [];
-  const pool = list.filter((c) => c && (c.kind !== 'terrain' || (stageId && c.stageId === stageId)) && gd.effect(c.effectId) && bondOk(c));
+  const pool = list.filter((/** @type {ChoiceCard | null} */ c) => c && (c.kind !== 'terrain' || (stageId && c.stageId === stageId)) && gd.effect(c.effectId) && bondOk(c));
   const spec = gd.choices.tacticDraft && typeof gd.choices.tacticDraft === 'object' ? gd.choices.tacticDraft : null;
   const official = !!spec && (!Array.isArray(spec.rounds) || spec.rounds.includes(round));
   const kinds = official && Array.isArray(spec.kinds) && spec.kinds.length ? spec.kinds : null;
   const w = official && spec.weights && typeof spec.weights === 'object' ? spec.weights : {};
-  const ofKinds = kinds ? pool.filter((c) => kinds.includes(c.kind)) : pool;
-  const pairs = (ofKinds.length ? ofKinds : pool).map((c) => [c, Object.hasOwn(w, c.effectId) ? w[c.effectId] : 1]);
+  const ofKinds = kinds ? pool.filter((/** @type {ChoiceCard} */ c) => kinds.includes(c.kind)) : pool;
+  /** @type {Array<[ChoiceCard, unknown]>} */
+  const pairs = (ofKinds.length ? ofKinds : pool).map((/** @type {ChoiceCard} */ c) => [c, Object.hasOwn(w, c.effectId) ? w[c.effectId] : 1]);
   const out = [];
-  for (let i = 0; i < n && pairs.length; i++) out.push(tacticCard(weightedPick(rng, pairs)));
+  for (let i = 0; i < n && pairs.length; i++) out.push(tacticCard(/** @type {ChoiceCard} */ (weightedPick(rng, pairs)))); // pairs is not empty
   return out;
 }
 
+/**
+ * @param {GameData} gd @param {Rng} rng @param {string} family @param {number} n @param {Record<string, any>} sch the round's schedule
+ * @param {{ stageId?: string | null, bondAvailable?: ((bondId: string) => boolean) | null, round?: number,
+ *   itemAvailable?: ((id: string) => boolean) | null }} [opts]
+ * @returns {ChoiceCard[]}
+ */
 function buildCards(gd, rng, family, n, sch, { stageId = null, bondAvailable = null, round = 1, itemAvailable = null } = {}) {
   if (family === 'bounty') return bountyDraftCards(gd, rng, n, sch, round);
   if (family === 'shop') {
@@ -415,8 +458,9 @@ function buildCards(gd, rng, family, n, sch, { stageId = null, bondAvailable = n
   return [];
 }
 
-/** Public card view. */
+/** Public card view. @param {ChoiceCard} c */
 export function cardView(c) {
+  /** @type {Record<string, unknown>} */
   const v = { idx: c.idx, kind: c.kind, id: c.id, name: c.name, desc: c.desc, tier: c.tier ?? null };
   if (c.kind === 'bounty') Object.assign(v, { descRaw: c.descRaw ?? null, coin: c.coin, payout: c.payout, rounds: c.rounds, enemyKey: c.enemyKey, count: c.count });
   if (c.kind === 'item') v.price = 0;
@@ -429,6 +473,7 @@ export function cardView(c) {
  * alive teammate as well.
  * @param {import('./Match.js').Match} m
  * @param {import('./PlayerState.js').PlayerState} ps
+ * @param {ChoiceCard} card the picked draft card
  */
 export function applyCard(m, ps, card) {
   const targets = card.kind === 'tactic' && card.team ? [ps, ...m.alivePlayers().filter((p) => p !== ps)] : [ps];
@@ -442,10 +487,11 @@ export function applyCard(m, ps, card) {
   }
 }
 
+/** @param {Match} m @param {PlayerState} ps @param {ChoiceCard} card */
 function applyDefault(m, ps, card) {
   const gd = m.gd;
   if (card.kind === 'bounty') {
-    const src = (gd.choices.cards && Array.isArray(gd.choices.cards.bounty) ? gd.choices.cards.bounty : []).find((c) => c.effectId === card.id) || card;
+    const src = (gd.choices.cards && Array.isArray(gd.choices.cards.bounty) ? gd.choices.cards.bounty : []).find((/** @type {ChoiceCard} */ c) => c.effectId === card.id) || card;
     m.addBounty(ps, src);
     return;
   }
@@ -497,7 +543,7 @@ function applyDefault(m, ps, card) {
       case 'single_special_choice_gain_bond_chess': {
         // the player's 自选 stock joins the draw, its bonds read through the player's view (player/diy.js diyStockEntries)
         const pgd = ps.gd || gd;
-        const hasBond = (cid) => { const c = pgd.chess(cid); return !!(c && Array.isArray(c.bonds) && c.bonds.includes(bs.bond)); };
+        const hasBond = (/** @type {string} */ cid) => { const c = pgd.chess(cid); return !!(c && Array.isArray(c.bonds) && c.bonds.includes(bs.bond)); };
         for (let i = 0; i < count; i++) {
           const extra = typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null;
           const id = m.pool.roll(m.rngMeta, { maxTier: Math.max(1, ps.shop.level), filter: hasBond, extra })
@@ -522,6 +568,10 @@ function applyDefault(m, ps, card) {
   if (battle || !handled) addRef(ps, card, eff, `choice:${card.id}`, { battle: true });
 }
 
+/**
+ * @param {PlayerState} ps @param {ChoiceCard} card @param {Record<string, any> | null} eff the card's effect record
+ * @param {string} key @param {{ counter?: number | null, battle?: boolean }} [opts]
+ */
 function addRef(ps, card, eff, key, { counter = null, battle = true } = {}) {
   const id = `${card.id}#${ps.m.nextUid()}`;
   ps.effects.push({

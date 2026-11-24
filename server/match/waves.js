@@ -47,8 +47,30 @@ import { gateOf } from '../../shared/constants.js';
 import { widenRoute, wideHalves } from '../sim/wideStage.js';
 import { keepUnbanned, customStagePool, customEnemyTypes, CUSTOM_FIRST_HALF_STAGES, CUSTOM_FIRST_HALF_WEIGHT_OF } from '../../shared/ruleset.js';
 import { seasonFeature } from '../../shared/seasons.js';
+/** @import { GameData } from './gamedata.js' */
+/** @import { Rng } from './pool.js' */
+/**
+ * One spawn action of a battle (a BattleSpec `spawns` entry, the header's SpawnSpec): the round's template action, a
+ * bounty's or a 联防 leak's.
+ * @typedef {{ time: number, enemyKey: string, routeIndex: number, count: number, interval: number, mods?: Record<string, any>,
+ *   actionIndex?: number, preview?: SpawnPreview, tag?: string, countInTotal?: false, bounty?: { coins: number, ownerPlayerId: string },
+ *   ownerPlayerId?: string, sourcePlayerId?: string }} SpawnSpec
+ */
+/** @typedef {{ gate: string, start: number[] | null, fly: boolean, elite: boolean, boss: boolean }} SpawnPreview */
+/** @typedef {NonNullable<ReturnType<typeof pickRoundEntry>>} RoundPick */
+/**
+ * What the round builders take for the match's factions: setupMatchWaves().factions (an array carrying the schedule as
+ * its hidden `schedule`), the setup object (`picks`), or a plain factions array.
+ * @typedef {Record<string, any>} WaveFactions
+ */
+/**
+ * A round's enemy multipliers (GameData.enemyScale / leaderScale: `supplyHpMul` only when the round has one, `defMul` /
+ * `resMul` only when a custom 规则 match sets them).
+ * @typedef {{ hpMul: number, atkMul: number, speedMul: number, supplyHpMul?: number, defMul?: number, resMul?: number }} ScaleMods
+ */
 
 const ACLOON = 'enemy_9012_acloon';
+/** @type {Readonly<Record<string, { cls: string, fly: boolean }>>} */
 const DEFAULT_PLACEHOLDERS = Object.freeze({
   N: { cls: 'normal', fly: false }, E: { cls: 'elite', fly: false }, S: { cls: 'special', fly: false },
   NF: { cls: 'normal', fly: true }, EF: { cls: 'elite', fly: true }, SF: { cls: 'special', fly: true },
@@ -59,7 +81,7 @@ const MIN_ACTION_INTERVAL_RATIO = 0.05;
 const UNITE_OWNER_STEP = 0.5;
 const UNITE_MAX_UNIT_STEP = 5;
 
-/** Weighted pick of [id, weight] pairs with the rng. */
+/** Weighted pick of [id, weight] pairs with the rng. @template T @param {Rng} rng @param {Array<[T, unknown]>} pairs @returns {T | null} */
 export function weightedPick(rng, pairs) {
   let total = 0;
   for (const [, w] of pairs) total += Math.max(0, Number(w) || 0);
@@ -69,7 +91,7 @@ export function weightedPick(rng, pairs) {
   return pairs[pairs.length - 1][0];
 }
 
-/** C# Math.Round(double): banker's rounding (half to even). */
+/** C# Math.Round(double): banker's rounding (half to even). @param {number} x */
 export function roundHalfEven(x) {
   const f = Math.floor(x);
   const d = x - f;
@@ -77,10 +99,12 @@ export function roundHalfEven(x) {
   return Math.floor(x + 0.5);
 }
 
+/** @param {GameData} gd @returns {Record<string, any>} */
 const gen = (gd) => (gd.factions.generation && typeof gd.factions.generation === 'object' ? gd.factions.generation : {});
-const intOr = (v, d) => (Number.isInteger(v) && v > 0 ? v : d);
+/** @param {unknown} v @param {number} d @returns {number} */
+const intOr = (v, d) => (Number.isInteger(v) && /** @type {number} */ (v) > 0 ? /** @type {number} */ (v) : d);
 
-/** Official movement class of an enemy key (randomEnemyAttributeDict.isFlyEnemy, else its motion). */
+/** Official movement class of an enemy key (randomEnemyAttributeDict.isFlyEnemy, else its motion). @param {GameData} gd @param {unknown} key @returns {boolean} */
 export function isFlyKey(gd, key) {
   const e = gd.enemy(key);
   if (!e) return false;
@@ -88,7 +112,7 @@ export function isFlyKey(gd, key) {
   return !!(e.stats && e.stats.motion === 'FLY');
 }
 
-/** Official attribute power P(k) (float32), enemies.json `attrPower`; derived from the stats when absent. */
+/** Official attribute power P(k) (float32), enemies.json `attrPower`; derived from the stats when absent. @param {GameData} gd @param {unknown} key @returns {number} */
 export function attrPower(gd, key) {
   const e = gd.enemy(key);
   if (!e) return 0;
@@ -96,12 +120,13 @@ export function attrPower(gd, key) {
   const s = e.stats || {};
   const f = Math.fround;
   const bf = gen(gd).beFactors || {};
-  const n = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const n = (/** @type {unknown} */ v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   let p = f(f(f(n(s.atk) * (bf.atk ?? 5)) + f(n(s.maxHp) * (bf.hp ?? 1))) + f(n(s.def) * (bf.def ?? 3)));
   p = f(p + f((bf.res ?? 3) * n(s.res)));
   return p;
 }
 
+/** @param {GameData} gd @param {unknown} key */
 const beFactor = (gd, key) => {
   const v = gd.enemy(key)?.beFactor;
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 1;
@@ -110,6 +135,7 @@ const beFactor = (gd, key) => {
 /**
  * Units a placeholder action of `n` template enemies becomes (client `_CalculateEnemyCountByBattleEffectiveness`):
  * clamp(roundHalfEven(f32(f32(f32(n·P(t))/f(t)) / f32(P(new)/f(new)))), min, max).
+ * @param {GameData} gd @param {string} tplKey @param {number} n @param {string} newKey
  */
 export function replacedCount(gd, tplKey, n, newKey) {
   const g = gen(gd);
@@ -123,19 +149,24 @@ export function replacedCount(gd, tplKey, n, newKey) {
   return Math.max(min, Math.min(max, roundHalfEven(ratio)));
 }
 
-/** Placeholder key → { slot, cls, fly } (factions.generation.placeholders, else built from templateSlots). */
+/**
+ * Placeholder key → { slot, cls, fly } (factions.generation.placeholders, else built from templateSlots).
+ * @param {GameData} gd @returns {Record<string, { slot?: string, cls: string, fly: boolean }>}
+ */
 function placeholderMap(gd) {
   const g = gen(gd);
   if (g.placeholders && typeof g.placeholders === 'object') return g.placeholders;
+  /** @type {Record<string, { slot: string, cls: string, fly: boolean }>} */
   const out = {};
   const ts = gd.factions.templateSlots && typeof gd.factions.templateSlots === 'object' ? gd.factions.templateSlots : {};
   for (const [slot, key] of Object.entries(ts)) if (DEFAULT_PLACEHOLDERS[slot]) out[key] = { slot, ...DEFAULT_PLACEHOLDERS[slot] };
   return out;
 }
 
+/** @param {GameData} gd */
 const firstHalfMax = (gd) => intOr(gen(gd).firstHalfMaxRound, Math.floor(intOr(gen(gd).maxLevelCnt, 15) / 2));
 
-/** The special entry list (factions.json entries) sorted by key. */
+/** The special entry list (factions.json entries) sorted by key. @param {GameData} gd @returns {Array<Record<string, any>>} */
 function entryList(gd) {
   const e = gd.factions.entries && typeof gd.factions.entries === 'object' ? Object.values(gd.factions.entries) : [];
   return e.filter((x) => x && typeof x.key === 'string').sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
@@ -144,10 +175,12 @@ function entryList(gd) {
 /**
  * The round pick of a type (client `_GenerateRandomEnemyData`): weighted entry of that type and half whose SPECIAL key
  * is allowed in the mode, plus a random attached normal / elite key (never filtered by the mode).
+ * @param {GameData} gd @param {Rng} rng @param {string | null} type @param {number} round
  * @returns {null | { round: number, type: string, key: string, normal: string|null, elite: string|null, fly: boolean, firstHalf: boolean }}
  */
 export function pickRoundEntry(gd, rng, type, round) {
   const half = round <= firstHalfMax(gd);
+  /** @param {Record<string, any>} e */
   const ok = (e) => e.type === type && !!e.firstHalf === half && e.key !== ACLOON && !!gd.enemy(e.key) && !gd.inactiveEnemies.has(e.key);
   let cands = entryList(gd).filter(ok);
   // no candidate: no pick for the round — its placeholder actions are not spawned (templateSpawns); the client logs
@@ -155,6 +188,7 @@ export function pickRoundEntry(gd, rng, type, round) {
   if (!cands.length) return null;
   const idx = weightedPick(rng, cands.map((e, i) => [i, e.weight ?? 1]));
   const e = cands[Number(idx) || 0];
+  /** @param {unknown} list @returns {string | null} */
   const pickKey = (list) => {
     const keys = (Array.isArray(list) ? list : []).map((x) => (typeof x === 'string' ? x : x && x.key)).filter((k) => typeof k === 'string' && gd.enemy(k) && k !== ACLOON);
     return keys.length ? keys[Math.floor(rng() * keys.length)] : null;
@@ -162,7 +196,7 @@ export function pickRoundEntry(gd, rng, type, round) {
   return { round, type: e.type, key: e.key, normal: pickKey(e.N), elite: pickKey(e.E), fly: typeof e.fly === 'boolean' ? e.fly : isFlyKey(gd, e.key), firstHalf: half };
 }
 
-/** Round type schedule: each chosen type × its slot count, filled with SPECIAL to maxLevelCnt, shuffled. */
+/** Round type schedule: each chosen type × its slot count, filled with SPECIAL to maxLevelCnt, shuffled. @param {GameData} gd @param {Rng} rng @param {string[]} factions */
 export function makeTypeSchedule(gd, rng, factions) {
   const g = gen(gd);
   const max = intOr(g.maxLevelCnt, 15);
@@ -178,6 +212,7 @@ export function makeTypeSchedule(gd, rng, factions) {
   return slots;
 }
 
+/** @param {Rng} rng */
 function scheduleRng(rng) {
   const seed = typeof rng.state === 'function' ? deriveSeed(rng.state(), 'waves:schedule') : Math.floor(rng() * 4294967296);
   return createRng(seed);
@@ -186,7 +221,7 @@ function scheduleRng(rng) {
 /**
  * @param {import('./gamedata.js').GameData} gd
  * @param {ReturnType<typeof import('../sim/rng.js').createRng>} rng
- * @returns {{ stageId: string|null, factions: string[], bossId: string|null, hiddenBossId: string|null, typeSlots: string[], picks: object[] }}
+ * @returns {{ stageId: string|null, factions: string[], bossId: string|null, hiddenBossId: string|null, typeSlots: string[], picks: Array<RoundPick | null> }}
  *   `factions` also carries the schedule as a non-enumerable `schedule` property ({ typeSlots, picks }), so callers
  *   that keep only the factions array (Match: buildNormalWave(gd, rng, this.factions, r)) get the official rounds.
  */
@@ -199,14 +234,15 @@ export function setupMatchWaves(gd, rng) {
   // weigh theirs 50]
   const stageIds = customStagePool(gd.mode.stages, gd.custom, (id) => { const s = gd.stage(id); return !!s && !s.borrowed; });
   const added = new Set(CUSTOM_FIRST_HALF_STAGES);
-  const ownWeight = () => Math.max(0, ...(Array.isArray(gd.mode.stages) ? gd.mode.stages : []).map((id) => Number(gd.stage(id)?.weight) || 0));
+  const ownWeight = () => Math.max(0, ...(Array.isArray(gd.mode.stages) ? gd.mode.stages : []).map((/** @type {string} */ id) => Number(gd.stage(id)?.weight) || 0));
+  /** @param {string} id @param {Record<string, any>} s the stage record */
   const weightOf = (id, s) => (s.borrowed ? (gd.custom?.stages?.extra?.includes(id) ? ownWeight() : 0)
     : s.active !== false && Number(s.weight) > 0 ? Number(s.weight)
     : added.has(id) && gd.custom?.stages?.firstHalf ? Number(gd.stage(CUSTOM_FIRST_HALF_WEIGHT_OF)?.weight) || 0 : 0);
-  const stagePairs = keepUnbanned(stageIds.map((id) => /** @type {[string, Record<string, any> | null]} */ ([id, gd.stage(id)])).filter(([id, s]) => s && weightOf(id, s) > 0).map(([id, s]) => /** @type {[string, number]} */ ([id, weightOf(id, s)])), ([id]) => id, gd.custom?.stages?.ban);
+  const stagePairs = keepUnbanned(stageIds.map((id) => /** @type {[string, Record<string, any> | null]} */ ([id, gd.stage(id)])).filter(([id, s]) => s && weightOf(id, s) > 0).map(([id, s]) => /** @type {[string, number]} */ ([id, weightOf(id, /** @type {Record<string, any>} */ (s))])), ([id]) => id, gd.custom?.stages?.ban);
   let stageId = stagePairs.length ? weightedPick(rng, stagePairs) : null;
   if (!stageId) {
-    const any = Object.keys(gd.raw.stages || {}).filter((id) => gd.stage(id) && gd.stage(id).active);
+    const any = Object.keys(gd.raw.stages || {}).filter((id) => gd.stage(id) && /** @type {Record<string, any>} */ (gd.stage(id)).active);
     stageId = any.length ? any.sort()[0] : null;
   }
   // factions
@@ -234,6 +270,7 @@ export function setupMatchWaves(gd, rng) {
   // the caller draws next from `rng` are unchanged)
   const srng = scheduleRng(rng);
   const typeSlots = makeTypeSchedule(gd, srng, chosen);
+  /** @type {Array<RoundPick | null>} */
   const picks = [null];
   for (let r = 1; r <= typeSlots.length; r++) picks.push(pickRoundEntry(gd, srng, typeSlots[r - 1], r));
   Object.defineProperty(factions, 'schedule', { value: Object.freeze({ typeSlots: typeSlots.slice(), picks }), enumerable: false });
@@ -244,23 +281,27 @@ export function setupMatchWaves(gd, rng) {
  * The pick of round r: from a setup object ({ picks }), a factions array carrying the hidden schedule, or — for a plain
  * factions array (tools, tests) — drawn now: the round's type from the schedule's marginal distribution (each faction
  * 3 of 15 slots, SPECIAL the rest), then its entry.
+ * @param {GameData} gd @param {Rng} rng @param {WaveFactions} factionsOrSetup @param {number} round
+ * @returns {RoundPick | null}
  */
 export function roundPick(gd, rng, factionsOrSetup, round) {
   const src = factionsOrSetup;
-  const picks = src && !Array.isArray(src) && Array.isArray(src.picks) ? src.picks : (src && src.schedule && Array.isArray(src.schedule.picks) ? src.schedule.picks : null);
+  // setupMatchWaves' factions array carries the schedule as a property: the casts keep it past Array.isArray
+  const picks = src && !Array.isArray(src) && Array.isArray(src.picks) ? src.picks : (src && /** @type {WaveFactions} */ (src).schedule && Array.isArray(/** @type {WaveFactions} */ (src).schedule.picks) ? /** @type {WaveFactions} */ (src).schedule.picks : null);
   // a custom round plan's round takes its source round's pick (GameData.srcRound)
   if (picks) return picks[gd.srcRound ? gd.srcRound(round) : round] ?? null;
   const factions = Array.isArray(src) ? src : (src && Array.isArray(src.factions) ? src.factions : []);
   const g = gen(gd);
   const types = gd.factions.types && typeof gd.factions.types === 'object' ? gd.factions.types : {};
   const max = intOr(g.maxLevelCnt, 15);
-  const pairs = factions.map((t) => [t, intOr(types[t]?.count, 3)]);
+  /** @type {Array<[string, number]>} */
+  const pairs = factions.map((/** @type {string} */ t) => [t, intOr(types[t]?.count, 3)]);
   const used = pairs.reduce((s, [, w]) => s + w, 0);
   pairs.push([typeof g.fillType === 'string' ? g.fillType : 'SPECIAL', Math.max(1, max - used)]);
   return pickRoundEntry(gd, rng, weightedPick(rng, pairs), round);
 }
 
-/** Enemy scale mods for round r (bosses excluded by the caller: leaderMods). */
+/** Enemy scale mods for round r (bosses excluded by the caller: leaderMods). @param {GameData} gd @param {number} r */
 export function scaleFor(gd, r) {
   return gd.enemyScale(r);
 }
@@ -268,8 +309,10 @@ export function scaleFor(gd, r) {
 /**
  * The spawn mods of a round's scale for a non-leader enemy: HP / ATK / speed, plus `supplyHpMul` when the round has
  * one and `defMul` / `resMul` when a custom 规则 match sets them (GameData.enemyScale).
+ * @param {ScaleMods} scale
  */
 export function roundMods(scale) {
+  /** @type {ScaleMods} */
   const m = { hpMul: scale.hpMul, atkMul: scale.atkMul, speedMul: scale.speedMul };
   if (scale.supplyHpMul != null) m.supplyHpMul = scale.supplyHpMul;
   if (scale.defMul != null) m.defMul = scale.defMul;
@@ -280,16 +323,18 @@ export function roundMods(scale) {
 /**
  * The spawn mods of a leader (tag 'boss') in round r: the round's ATK / speed but not its HP (the shared pool) —
  * GameData.leaderScale, which a custom 规则 match shapes with its 敌方领袖 percents (DEF / RES only when it sets them).
+ * @param {GameData} gd @param {number} r
  */
 export function leaderMods(gd, r) {
-  const s = gd.leaderScale(r);
+  const s = /** @type {ScaleMods} */ (gd.leaderScale(r));
+  /** @type {{ atkMul: number, speedMul: number, defMul?: number, resMul?: number }} */
   const m = { atkMul: s.atkMul, speedMul: s.speedMul };
   if (s.defMul != null) m.defMul = s.defMul;
   if (s.resMul != null) m.resMul = s.resMul;
   return m;
 }
 
-/** Slot class of an enemy that has no placeholder slot (literal template keys, bounty adds). */
+/** Slot class of an enemy that has no placeholder slot (literal template keys, bounty adds). @param {GameData} gd @param {unknown} enemyKey */
 export function classOf(gd, enemyKey) {
   const e = gd.enemy(enemyKey);
   const fly = isFlyKey(gd, enemyKey);
@@ -301,8 +346,12 @@ export function classOf(gd, enemyKey) {
 /** 'upper' | 'lower' preview zone of a route start: shared/constants.js gateOf (鸭爵's lane rule reads it too, upstream #839). */
 export { gateOf };
 
-const isLeaderTemplate = (tpl) => !!tpl && (tpl.kind === 'boss' || tpl.kind === 'hidden');
+const isLeaderTemplate = (/** @type {Record<string, any> | null} */ tpl) => !!tpl && (tpl.kind === 'boss' || tpl.kind === 'hidden');
 
+/**
+ * @param {GameData} gd @param {string} key @param {Record<string, any> | null | undefined} route
+ * @param {boolean} [boss] @param {boolean} [leader] @returns {SpawnPreview}
+ */
 function previewInfo(gd, key, route, boss = false, leader = undefined) {
   const e = gd.enemy(key);
   const start = route && Array.isArray(route.start) ? route.start.slice(0, 2) : null;
@@ -313,6 +362,7 @@ function previewInfo(gd, key, route, boss = false, leader = undefined) {
  * The actions of a template with the round pick applied.
  * @returns {{ spawns: object[], actions: object[] }} actions[i] = { index, key, tplKey, slot, time, count, tplCount, window, routeIndex, valid,
  *   server } (`server` = client ShouldActionUpToServer: valid, not the leader, no random spawn group)
+ * @param {GameData} gd @param {Record<string, any>} tpl the wave template @param {number} round @param {RoundPick | null} pick
  */
 function templateSpawns(gd, tpl, round, pick) {
   const scale = scaleFor(gd, round);
@@ -352,10 +402,11 @@ function templateSpawns(gd, tpl, round, pick) {
         continue;
       }
       step = Math.max(window / count, MIN_ACTION_INTERVAL_RATIO * window);
-      key = newKey;
+      key = /** @type {string} */ (newKey); // count > 0 only when `ok`: a string key
     }
     if (!gd.enemy(key)) continue;
     const slot = s.slot || classOf(gd, key);
+    /** @type {SpawnSpec} */
     const spec = {
       time,
       enemyKey: key,
@@ -380,6 +431,7 @@ function templateSpawns(gd, tpl, round, pick) {
   return { spawns, actions };
 }
 
+/** @param {GameData} gd @param {RoundPick | null} pick */
 function entriesView(gd, pick) {
   if (!pick) return { ground: null, fly: null };
   const e = gd.factions.entries && gd.factions.entries[pick.key];
@@ -389,8 +441,10 @@ function entriesView(gd, pick) {
 
 /**
  * Shared composition of a normal round.
- * @param {string[]|object} factions setupMatchWaves().factions (carries the schedule), the setup object, or a plain
+ * @param {GameData} gd @param {Rng} rng
+ * @param {WaveFactions} factions setupMatchWaves().factions (carries the schedule), the setup object, or a plain
  *   factions array (the round's type is then drawn with `rng`)
+ * @param {number} round
  * @returns {{ templateId: string|null, spawns: object[], routes: object[], extraRoutes: object[], timeLimit: number,
  *   overrides: object, pick: object|null, entries: { ground: object|null, fly: object|null }, actions: object[] }}
  */
@@ -417,13 +471,13 @@ export function buildNormalWave(gd, rng, factions, round) {
 
 /**
  * Boss / hidden round template for one boss field; escorts follow the pick of the round's own slot.
- * @param {any} gd @param {any} rng @param {any} factions @param {number} round
+ * @param {GameData} gd @param {Rng} rng @param {WaveFactions} factions @param {number} round
  * @param {{ bossId: string | null, solo: boolean }} opts solo → `_s` template (lone player or solo mode)
  */
 export function buildBossWave(gd, rng, factions, round, { bossId, solo }) {
   const rc = gd.roundCfg(round);
   const map = rc && rc.bossTemplates && typeof rc.bossTemplates === 'object' ? rc.bossTemplates : {};
-  let templateId = typeof map[bossId] === 'string' ? map[bossId] : null;
+  let templateId = typeof map[/** @type {string} */ (bossId)] === 'string' ? map[/** @type {string} */ (bossId)] : null;
   if (!templateId) {
     const first = Object.values(map).find((v) => typeof v === 'string');
     templateId = first || null;
@@ -453,8 +507,10 @@ const BOSS_MID_COL = 10;
 /**
  * Route index of the first template route with the requested motion (fallback 0). `side` ('L' | 'R') prefers a route
  * that ends on that player's half of a boss field (pair templates route to both goals).
+ * @param {Array<Record<string, any>>} routes @param {boolean} fly @param {'L' | 'R' | null} [side]
  */
 export function routeByMotion(routes, fly, side = null) {
+  /** @param {Record<string, any> | null} r */
   const ok = (r) => r && (fly ? r.motion === 'FLY' : r.motion !== 'FLY' && r.motion !== 'E_NUM');
   if (side === 'L' || side === 'R') {
     const j = routes.findIndex((r) => ok(r) && Array.isArray(r.end) && (side === 'R' ? r.end[1] > BOSS_MID_COL : r.end[1] < BOSS_MID_COL));
@@ -468,6 +524,7 @@ export function routeByMotion(routes, fly, side = null) {
  * The template action an added enemy joins (client `_GetSpEnemyActionData`): the first SPAWN action of the round's
  * ORIGINAL template whose key is the normal placeholder of the enemy's movement class (`templateEnemyNormal` /
  * `…NormalFly`; tokens `templateEnemyToken` / `…TokenFly`), else the first SPAWN action.
+ * @param {GameData} gd @param {Record<string, any> | null} wave @param {{ fly: boolean, token?: boolean }} opts
  */
 function hostAction(gd, wave, { fly, token = false }) {
   const tpl = wave && wave.templateId ? gd.wave(wave.templateId) : null;
@@ -498,15 +555,16 @@ function hostAction(gd, wave, { fly, token = false }) {
  * choices.js MULTI_ROUND_BOUNTY_BATTLES) spawn in every battle of the player while they last — the Final Assault and the
  * Hidden Core included (`side`: the player's half of the boss field, see routeByMotion).
  * @param {import('./gamedata.js').GameData} gd @param {number} round @param {Record<string, any>} wave the round's wave
- * @param {Array<{ id: string, card: object }>} bounties
+ * @param {Array<{ id: string, card: Record<string, any> }>} bounties
  * @param {string} playerId @param {{ solo?: boolean, side?: 'L'|'R'|null }} [opts]
  */
 export function bountySpawns(gd, round, wave, bounties, playerId, { solo = false, side = null } = {}) { // eslint-disable-line no-unused-vars
   return bountyPlan(gd, round, wave, bounties, playerId, side).specs;
 }
 
-/** Runs of consecutive equal markers: [{ v, start, len }]. */
+/** Runs of consecutive equal markers: [{ v, start, len }]. @template T @param {T[]} list */
 function runsOf(list) {
+  /** @type {Array<{ v: T, start: number, len: number }>} */
   const out = [];
   for (let j = 0; j < list.length; j++) {
     const last = out[out.length - 1];
@@ -516,6 +574,10 @@ function runsOf(list) {
   return out;
 }
 
+/**
+ * @param {GameData} gd @param {number} round @param {Record<string, any>} wave
+ * @param {Array<{ id: string, card: Record<string, any> }>} bounties @param {string} playerId @param {'L' | 'R' | null} side
+ */
 function bountyPlan(gd, round, wave, bounties, playerId, side) {
   const scale = scaleFor(gd, round);
   const routes = (wave && wave.routes) || [];
@@ -523,6 +585,7 @@ function bountyPlan(gd, round, wave, bounties, playerId, side) {
   const leader = isLeaderTemplate(wave && wave.templateId ? gd.wave(wave.templateId) : null);
   const groups = new Map(); // host action index → { host, items: [{ b, c, fly, count }] }
   for (const b of bounties || []) {
+    /** @type {Record<string, any>} */
     const c = b && b.card ? b.card : {};
     if (!gd.enemy(c.enemyKey)) continue;
     const fly = isFlyKey(gd, c.enemyKey);
@@ -531,6 +594,7 @@ function bountyPlan(gd, round, wave, bounties, playerId, side) {
     if (!groups.has(key)) groups.set(key, { host, items: [] });
     groups.get(key).items.push({ b, c, fly, count: Math.max(1, Math.min(20, Number.isInteger(c.count) ? c.count : 1)) });
   }
+  /** @type {SpawnSpec[]} */
   const specs = [];
   const retime = new Map(); // host action index → { time, step, ownRuns: [{ start, len }] }
   const OWN = 0;
@@ -538,7 +602,7 @@ function bountyPlan(gd, round, wave, bounties, playerId, side) {
     const hs = host ? host.s : null;
     const time = hs ? Math.max(0, Number(hs.time) || 0) : 4;
     const window = hs ? Math.max(1, Number.isInteger(hs.count) ? hs.count : 1) * Math.max(0, Number(hs.interval) || 0) : 0;
-    const act = host ? acts.find((a) => a.index === host.index) : null;
+    const act = host ? acts.find((/** @type {Record<string, any>} */ a) => a.index === host.index) : null;
     // the host's own units: only a server-sent action has any (a leader / random-group / invalid host spawns the
     // bounty list alone over its window — client _InsertSpActionToNormal finds no normal list for it)
     const own = act && act.valid && act.server !== false ? act.count : 0;
@@ -563,6 +627,7 @@ function bountyPlan(gd, round, wave, bounties, playerId, side) {
       const motionOk = r && (fly ? r.motion === 'FLY' : r.motion !== 'FLY' && r.motion !== 'E_NUM');
       const sideOk = !(side === 'L' || side === 'R') || (r && Array.isArray(r.end) && (side === 'R' ? r.end[1] > BOSS_MID_COL : r.end[1] < BOSS_MID_COL));
       if (!motionOk || !sideOk) routeIndex = routeByMotion(routes, fly, side);
+      /** @type {SpawnSpec} */
       const spec = {
         time: time + run.start * step,
         enemyKey: c.enemyKey,
@@ -586,7 +651,7 @@ function bountyPlan(gd, round, wave, bounties, playerId, side) {
  * Spawn specs `specs` with each 悬赏 card's unit (mods.bountyId) marked to wear the season's 悬赏 mark (shared/seasons.js
  * bountyMark: 规程 — sim snapshot.js unitInfo `bounty`); unchanged in a season without it. A split or summoned child loses
  * bountyId (content/enemies/helpers.js modsWithoutBounty), so it wears none.
- * @param {string|null|undefined} season @param {Array<object>} specs
+ * @param {string|null|undefined} season @param {Array<SpawnSpec>} specs
  */
 export function markBounties(season, specs) {
   if (!seasonFeature(season, 'bountyMark')) return specs;
@@ -598,6 +663,9 @@ export function markBounties(season, specs) {
  * action that bounties join are re-timed around the inserted bounty units — one spec per run of consecutive own units)
  * followed by the bounty specs. Use it instead of `[...wave.spawns, ...bountySpawns(…)]`, which keeps the host
  * action's own spacing.
+ * @param {GameData} gd @param {number} round @param {Record<string, any>} wave the round's wave
+ * @param {Array<{ id: string, card: Record<string, any> }>} bounties @param {string} playerId @param {{ side?: 'L' | 'R' | null }} [opts]
+ * @returns {SpawnSpec[]}
  */
 export function withBounties(gd, round, wave, bounties, playerId, { side = null } = {}) {
   const { specs, retime } = bountyPlan(gd, round, wave, bounties, playerId, side);
@@ -619,6 +687,7 @@ export function withBounties(gd, round, wave, bounties, playerId, { side = null 
  * The client places the models in the gate's pen zone (≤ 50 shown, elites and bosses always) — except a leader: its
  * entry carries its spawn tile `start` ([row, col] on the boss field) and the Final Assault / Hidden Core prep shows it
  * standing there (render/app.js, community report #12; display only).
+ * @param {Array<Record<string, any> | null> | null | undefined} spawns
  */
 export function previewOf(spawns) {
   /**
@@ -646,7 +715,8 @@ export function previewOf(spawns) {
       _seq: seq++,
     });
   }
-  out.sort((a, b) => a.t - b.t || a._seq - b._seq);
+  // every entry has its `_seq` until the loop below
+  out.sort((a, b) => a.t - b.t || /** @type {number} */ (a._seq) - /** @type {number} */ (b._seq));
   for (const e of out) delete e._seq;
   return out;
 }
@@ -663,7 +733,9 @@ export function previewOf(spawns) {
  * A wide field of the 8-player mode (3–4 helpers, gd.unite.wideFrom; server/sim/wideStage.js) plays the 2-helper
  * template with every route widened (widenRoute: in at the far right, through every half) [ASSUMED].
  * @param {Array<{ enemyKey: string, mods: object|null, sourcePlayerId: string, bounty?: object|null, isToken?: boolean }>} leaked
+ * @param {GameData} gd
  * @param {number} helperCount 1 | 2 (3 | 4 in an 8-player match)
+ * @param {number} [timeLimit]
  * @returns {{ templateId: string|null, spawns: object[], routes: object[], wide: number }} `wide`: the wide field's
  *   halves (3 | 4), else 0
  */
@@ -674,11 +746,12 @@ export function buildUniteWave(gd, leaked, helperCount, timeLimit) { // eslint-d
   const templateId = templates[String(n)] || templates[n] || null;
   const tpl = templateId ? gd.wave(templateId) : null;
   const routes0 = tpl && Array.isArray(tpl.routes) ? tpl.routes : [];
-  const routes = wide ? routes0.map((r) => widenRoute(r, wide)) : routes0;
+  const routes = wide ? routes0.map((/** @type {Record<string, any>} */ r) => widenRoute(r, wide)) : routes0;
   const ts = gd.factions.templateSlots || {};
   const list = tpl && Array.isArray(tpl.spawns) ? tpl.spawns : [];
-  const isSpawn = (s) => s && !(s.action && String(s.action).toUpperCase() !== 'SPAWN');
+  const isSpawn = (/** @type {Record<string, any> | null | undefined} */ s) => s && !(s.action && String(s.action).toUpperCase() !== 'SPAWN');
   /** client `_GetSpEnemyActionData`: the first action whose key is the class placeholder, else action 0 */
+  /** @param {boolean} fly @param {boolean} token */
   const hostIndex = (fly, token) => {
     const want = token ? ts[fly ? 'TF' : 'T'] : ts[fly ? 'NF' : 'N'];
     for (let i = 0; i < list.length; i++) if (isSpawn(list[i]) && (list[i].key ?? list[i].enemyKey) === want) return i;
@@ -689,7 +762,7 @@ export function buildUniteWave(gd, leaked, helperCount, timeLimit) { // eslint-d
   for (const l of leaked || []) {
     if (!l || !gd.enemy(l.enemyKey)) continue;
     const fly = isFlyKey(gd, l.enemyKey);
-    const token = l.isToken === true || gd.enemy(l.enemyKey).tokenOnly === true;
+    const token = l.isToken === true || /** @type {Record<string, any>} */ (gd.enemy(l.enemyKey)).tokenOnly === true;
     const idx = hostIndex(fly, token);
     if (!groups.has(idx)) { groups.set(idx, new Map()); flyOf.set(idx, fly); }
     const owners = groups.get(idx);
@@ -697,6 +770,7 @@ export function buildUniteWave(gd, leaked, helperCount, timeLimit) { // eslint-d
     if (!owners.has(owner)) owners.set(owner, []);
     owners.get(owner).push(l);
   }
+  /** @type {SpawnSpec[]} */
   const spawns = [];
   for (const [idx, owners] of groups) {
     const a = idx >= 0 ? list[idx] : null;
@@ -710,7 +784,8 @@ export function buildUniteWave(gd, leaked, helperCount, timeLimit) { // eslint-d
     let k = 0;
     for (const units of owners.values()) {
       const start = t0 + k * UNITE_OWNER_STEP;
-      units.forEach((l, i) => {
+      units.forEach((/** @type {Record<string, any>} */ l, /** @type {number} */ i) => {
+        /** @type {SpawnSpec} */
         const spec = {
           time: start + i * step, enemyKey: l.enemyKey, routeIndex, count: 1, interval: 0,
           mods: l.mods ? { ...l.mods } : { slot: classOf(gd, l.enemyKey) }, sourcePlayerId: l.sourcePlayerId,

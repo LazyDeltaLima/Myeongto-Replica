@@ -35,6 +35,7 @@ import { TICK, SNAPSHOT_EVERY } from '../sim/constants.js';
 import { layerGainRoom, layerCapOf } from '../../shared/constants.js';
 import { uniteLeft, prebuiltSeconds } from '../sim/spec.js';
 import { diyTokenOwner, diyRecordOf } from '../../shared/diy.js';
+/** @import { GameData } from './gamedata.js' */
 
 export const MAX_TICKS_PER_INTERVAL = 8;
 export const INTERVAL_MS = 1000 / 30;
@@ -42,7 +43,7 @@ export const GAME_SPEED = 2;
 export const HARD_CAP_SECONDS = 3700;
 const SNAP_EVERY = Number.isInteger(SNAPSHOT_EVERY) && SNAPSHOT_EVERY > 0 ? SNAPSHOT_EVERY : 3;
 
-/** Catch-up cap per pacing interval: 8 ticks at the normal 2× speed, proportionally more when sped up. */
+/** Catch-up cap per pacing interval: 8 ticks at the normal 2× speed, proportionally more when sped up. @param {number} [speed] */
 export function maxTicksPerInterval(speed) {
   return Math.max(MAX_TICKS_PER_INTERVAL, Math.ceil((Number(speed) || GAME_SPEED) * 4));
 }
@@ -50,6 +51,8 @@ export function maxTicksPerInterval(speed) {
 /**
  * Wire frame of a snapshot. Every frame is `{ t: '<type>', …payload }`, so the snapshot's game time (DESIGN §8.2)
  * travels as `gt` (game seconds) — the `t` key is the frame type 'b.snap'. `b.ev` frames carry the same `gt`.
+ * @param {string} fieldId
+ * @param {Record<string, any> | null} snap the battle's snapshot()
  */
 export function snapFrame(fieldId, snap) {
   const { t: gt, ...rest } = snap || {};
@@ -63,6 +66,11 @@ export function emptyPerPlayer() {
 
 /** A finished stand-in for a battle that failed to construct. */
 export class DeadBattle {
+  /**
+   * @param {{ fieldId?: string | null, kind?: string, rect?: unknown, stageId?: string | null, players?: Array<{ playerId: string }>,
+   *   [key: string]: unknown }} opts the battle's options (only its ids are read)
+   * @param {string} [reason]
+   */
   constructor(opts, reason = 'forced') {
     this.fieldId = opts.fieldId ?? null;
     this.kind = opts.kind ?? 'normal';
@@ -72,6 +80,7 @@ export class DeadBattle {
     this.time = 0;
     this.tickCount = 0;
     this.errorCount = 1;
+    /** @type {Record<string, ReturnType<typeof emptyPerPlayer>>} */
     const perPlayer = {};
     for (const p of opts.players || []) perPlayer[p.playerId] = emptyPerPlayer();
     this._result = { time: 0, reason, perPlayer, killed: 0, total: 0, resolved: 0, errors: 1, synthetic: true };
@@ -87,11 +96,13 @@ export class DeadBattle {
   off() {}
 }
 
+/** A field FieldRunner steps: its id, kind, players and battle (a Battle, or a DeadBattle: it answers like one). @typedef {{ fieldId: string, kind: string, players: string[], battle: any, live?: boolean }} RunnerField */
+
 export class FieldRunner {
   /**
    * @param {import('./Match.js').Match} m
-   * @param {Array<{ fieldId: string, kind: string, players: string[], battle: any, live?: boolean }>} fields
-   * @param {{ onTick?: (runner: FieldRunner) => void, onDone: (runner: FieldRunner) => void, emit?: boolean }} hooks
+   * @param {Array<RunnerField>} fields
+   * @param {{ onTick?: ((runner: FieldRunner) => void) | null, onDone: (runner: FieldRunner) => void, emit?: boolean }} hooks
    */
   constructor(m, fields, { onTick = null, onDone, emit = true }) {
     this.m = m;
@@ -178,6 +189,7 @@ export class FieldRunner {
     for (const f of this.fields) if (f.live && f.battle.finished) { f.live = false; this.m.markPublic(); this._emit(f); }
   }
 
+  /** @param {RunnerField} f @param {string} reason */
   _forceField(f, reason) {
     try {
       f.battle.forceEnd(reason);
@@ -193,13 +205,14 @@ export class FieldRunner {
     this.m.markPublic();
   }
 
-  /** Force-end every live field (team LP 0, hard cap). */
+  /** Force-end every live field (team LP 0, hard cap). @param {string} reason */
   _forceAll(reason) {
     for (const f of this.fields) if (f.live || !f.battle.finished) this._forceField(f, reason);
   }
 
   forceAll(reason = 'forced') { this._forceAll(reason); this._checkDone(); }
 
+  /** @param {RunnerField} f */
   _emit(f) {
     let ev = [];
     try { ev = f.battle.drainEvents() || []; } catch (e) { this.m.reportError(`field ${f.fieldId} drainEvents`, e); }
@@ -230,7 +243,7 @@ export class FieldRunner {
     this.onDone(this);
   }
 
-  /** Result of a field (never throws). */
+  /** Result of a field (never throws). @param {RunnerField} f */
   resultOf(f) {
     try {
       const r = f.battle.result();
@@ -238,6 +251,7 @@ export class FieldRunner {
     } catch (e) {
       this.m.reportError(`field ${f.fieldId} result`, e);
     }
+    /** @type {Record<string, ReturnType<typeof emptyPerPlayer>>} */
     const perPlayer = {};
     for (const pid of f.players) perPlayer[pid] = emptyPerPlayer();
     return { time: 0, reason: 'forced', perPlayer, killed: 0, total: 0, resolved: 0, errors: 1, synthetic: true };
@@ -275,11 +289,14 @@ const perfNow = () => (globalThis.performance ? globalThis.performance.now() : D
  * index 4 (spec.js uniteLeft; omitted when unknown). `resolved` is the HUD capsule's numerator of that game second
  * (Battle.resolved: the field's own scheduled enemies knocked out or leaked) — the server-run / bot fields have no
  * authority that reports b.progress, so the teammates' capsule reads it from here, never from `progress.leaks`.
+ * @typedef {[number, number, number, number | null, Record<string, number>?]} TimelineSample
+ * @param {any} b a Battle, or a DeadBattle (it answers like one)
+ * @returns {TimelineSample}
  */
 export function timelineSample(b) {
   const total = Number(b && b.total) || 0;
   const resolved = Number.isFinite(b && b.resolved) ? Math.max(0, Math.min(total, b.resolved)) : null;
-  /** @type {Array<number|null|Record<string, number>>} */
+  /** @type {TimelineSample} */
   const s = [Number(b && b.time) || 0, Number(b && b.killed) || 0, total, resolved];
   if (b && b.kind === 'unite') {
     let left = null;
@@ -345,6 +362,7 @@ export class HeadlessJob {
     let result = null;
     try { result = b.result(); } catch (e) { if (this.onError) this.onError(e); }
     if (!result || typeof result !== 'object' || !result.perPlayer) {
+      /** @type {Record<string, ReturnType<typeof emptyPerPlayer>>} */
       const perPlayer = {};
       for (const pid of this.players) perPlayer[pid] = emptyPerPlayer();
       result = { time: Number(b.time) || 0, reason: 'forced', perPlayer, killed: 0, total: 0, errors: 1, synthetic: true };
@@ -359,6 +377,8 @@ export class HeadlessJob {
 
 /**
  * Step a battle to its end right now (HeadlessJob in one go). Returns `{ battle, result, timeline, crashed }`.
+ * @param {any} battle a Battle, or a DeadBattle (it answers like one)
+ * @param {ConstructorParameters<typeof HeadlessJob>[1]} [opts]
  */
 export function runHeadless(battle, opts = {}) {
   const job = new HeadlessJob(battle, opts);
@@ -366,7 +386,10 @@ export function runHeadless(battle, opts = {}) {
   return job.output();
 }
 
-/** Timeline sample at game time `gt`: [gt, killed, total, resolved(left)] of the last sample ≤ gt. */
+/**
+ * Timeline sample at game time `gt`: [gt, killed, total, resolved(left)] of the last sample ≤ gt.
+ * @param {TimelineSample[] | null | undefined} timeline @param {number} gt @returns {TimelineSample}
+ */
 export function timelineAt(timeline, gt) {
   if (!Array.isArray(timeline) || !timeline.length) return [0, 0, 0, null];
   let lo = 0, hi = timeline.length - 1;
@@ -379,17 +402,22 @@ export function timelineAt(timeline, gt) {
 }
 
 /**
+ * A battle HeadlessPacer paces: its callbacks, and skipTicks / skipBudget / skipped while a sliced fast-forward is in progress.
+ * @typedef {{ battle: any, onDone: Function, onTick?: Function, done?: boolean, skipTicks?: number|null,
+ *   skipBudget?: number, skipped?: number }} PacerEntry
+ */
+/**
  * Real-time pacing of server-run battles without snapshots (DESIGN §14: boss fields that share the pool while other
  * fields run on clients). `add({ battle, onDone(entry), onTick?(entry) })`; `skipTo(entry, gt)` fast-forwards a newly
  * added battle silently (takeover). Same accumulator / cap rules as FieldRunner.
  */
 export class HeadlessPacer {
+  /** @param {import('./Match.js').Match} m */
   constructor(m) {
     this.m = m;
     /**
      * skipTicks / skipBudget / skipped: a sliced fast-forward in progress (skipTo with a budget)
-     * @type {Set<{ battle: any, onDone: Function, onTick?: Function, done?: boolean, skipTicks?: number|null,
-     *   skipBudget?: number, skipped?: number }>}
+     * @type {Set<PacerEntry>}
      */
     this.entries = new Set();
     this.interval = null;
@@ -398,6 +426,7 @@ export class HeadlessPacer {
     this.stopped = false;
   }
 
+  /** @param {PacerEntry} entry */
   add(entry) {
     if (this.stopped || !entry || !entry.battle) return entry;
     this.entries.add(entry);
@@ -413,6 +442,7 @@ export class HeadlessPacer {
    * Fast-forward an entry's battle silently until its game time reaches `gt` (bounded). `budgetTicks` (default: all at
    * once) spreads it over the pacing intervals instead — at most that many extra ticks per interval on top of the
    * normal pacing — so a takeover late in a boss fight never stalls the host's event loop.
+   * @param {PacerEntry} entry @param {number} gt @param {{ budgetTicks?: number }} [opts]
    */
   skipTo(entry, gt, { budgetTicks = Infinity } = {}) {
     const cap = Math.ceil(Math.min(Number(gt) || 0, HARD_CAP_SECONDS) / TICK);
@@ -425,7 +455,7 @@ export class HeadlessPacer {
     this._skip(entry, cap, Infinity);
   }
 
-  /** Silent steps toward `cap` ticks (at most `max`); returns the steps taken. */
+  /** Silent steps toward `cap` ticks (at most `max`); returns the steps taken. @param {PacerEntry} entry @param {number} cap @param {number} max */
   _skip(entry, cap, max) {
     const b = entry.battle;
     let k = 0;
@@ -440,6 +470,7 @@ export class HeadlessPacer {
     return k;
   }
 
+  /** @param {PacerEntry} entry */
   remove(entry) { this.entries.delete(entry); if (!this.entries.size) this._clear(); }
 
   stop() { this.stopped = true; this._clear(); this.entries.clear(); }
@@ -464,7 +495,8 @@ export class HeadlessPacer {
       if (e.skipTicks != null) {
         // sliced fast-forward (takeover): the field clock keeps running, so the target moves with the pacing
         e.skipTicks += n;
-        e.skipped += this._skip(e, e.skipTicks, e.skipBudget + n);
+        // skipTo sets skipBudget and skipped together with skipTicks
+        /** @type {number} */ (e.skipped) += this._skip(e, e.skipTicks, /** @type {number} */ (e.skipBudget) + n);
         if (e.done) continue;
         if (b.tickCount >= e.skipTicks) e.skipTicks = null;
         if (e.onTick) { try { e.onTick(e); } catch (err) { this.m.reportError('pacer onTick', err); } }
@@ -483,6 +515,7 @@ export class HeadlessPacer {
     }
   }
 
+  /** @param {PacerEntry} e */
   _finish(e) {
     if (e.done) return;
     e.done = true;
@@ -492,8 +525,12 @@ export class HeadlessPacer {
   }
 }
 
-/** Synthetic per-player results of a field whose client never reported (boss fields only; no LP relevance). */
+/**
+ * Synthetic per-player results of a field whose client never reported (boss fields only; no LP relevance).
+ * @param {string[]} players @param {{ bossBy?: Record<string, number>, time?: number }} [opts]
+ */
 export function syntheticResult(players, { bossBy = {}, time = 0 } = {}) {
+  /** @type {Record<string, ReturnType<typeof emptyPerPlayer>>} */
   const perPlayer = {};
   for (const pid of players) perPlayer[pid] = { ...emptyPerPlayer(), bossDamage: Math.max(0, Number(bossBy[pid]) || 0) };
   return { time, reason: 'forced', perPlayer, killed: 0, total: 0, errors: 0, synthetic: true };
@@ -504,7 +541,10 @@ export function syntheticResult(players, { bossBy = {}, time = 0 } = {}) {
 const derivedCache = new WeakMap();
 const ENEMY_KEY_RE = /enemy_[A-Za-z0-9_]+/g;
 
-/** Enemy keys a spawned enemy's data record mentions (summons, splits, transformations): content may spawn them. */
+/**
+ * Enemy keys a spawned enemy's data record mentions (summons, splits, transformations): content may spawn them.
+ * @param {GameData | null} gd @param {string} key @returns {string[]}
+ */
 function derivedKeys(gd, key) {
   if (!gd || typeof gd.enemy !== 'function') return [];
   let m = derivedCache.get(gd);
@@ -527,6 +567,7 @@ function derivedKeys(gd, key) {
  * (`<X>.enemy_key`) with a count (`<X>.cnt`, e.g. 磨砻 DeadSpawn 2, 烹泉 4, 沉沙's unconsumed blades ≤ 4) or without one
  * (DeathRattle: the 术师 of a 术师快艇 = 1) — the sim's kitDeathSpawn / kitBlades / DeathRattle kits. null when the data
  * gives no such bound (periodic summoners such as 枯朽萃聚使徒's BornBugs, keys a record merely mentions).
+ * @param {GameData | null} gd @param {string} parent @param {string} child @returns {number | null}
  */
 function offspringPerParent(gd, parent, child) {
   const rec = gd && typeof gd.enemy === 'function' ? gd.enemy(parent) : null;
@@ -545,6 +586,7 @@ function offspringPerParent(gd, parent, child) {
 }
 
 const summonCache = new WeakMap();
+/** @param {GameData} gd @returns {{ byOwner: Map<string, string[]>, ownerless: string[] }} */
 function summonIndex(gd) {
   let idx = summonCache.get(gd);
   if (idx) return idx;
@@ -558,7 +600,7 @@ function summonIndex(gd) {
   summonCache.set(gd, idx);
   return idx;
 }
-/** Summon (token) ids a chess (normal or elite) can create: its data `tokens` + tokens naming it an owner. */
+/** Summon (token) ids a chess (normal or elite) can create: its data `tokens` + tokens naming it an owner. @param {GameData} gd @param {unknown} chessId */
 function summonsOf(gd, chessId) {
   if (typeof gd.chess !== 'function' || typeof chessId !== 'string') return [];
   const rec = gd.chess(chessId);
@@ -570,6 +612,7 @@ function summonsOf(gd, chessId) {
 /**
  * Summon ids a 自选 piece (0.2.0: a DIY slot `slotId` with its `pick`) can create: data/backups.json tokens whose owners
  * name the pick's owner form (`<charId>@<statusKey>`, shared/diy.js diyTokenOwner).
+ * @param {GameData} gd @param {unknown} slotId @param {Record<string, any> | null | undefined} pick
  */
 function diySummonsOf(gd, slotId, pick) {
   const tokens = gd.raw && gd.raw.backups && gd.raw.backups.tokens && typeof gd.raw.backups.tokens === 'object' ? gd.raw.backups.tokens : null;
@@ -578,16 +621,17 @@ function diySummonsOf(gd, slotId, pick) {
   const owner = diyTokenOwner(pick.charId, slot.status);
   return Object.keys(tokens).filter((id) => Array.isArray(tokens[id] && tokens[id].owners) && tokens[id].owners.includes(owner));
 }
-/** Summons no chess owns (bond / band units every player may field: 炎佑, 预备干员-医疗, Touch). */
+/** Summons no chess owns (bond / band units every player may field: 炎佑, 预备干员-医疗, Touch). @param {GameData} gd */
 function ownerlessSummons(gd) { return summonIndex(gd).ownerless; }
 
 const WORD_RE = /[A-Za-z][A-Za-z0-9_]*/g;
-const recJson = (rec) => { try { return rec ? JSON.stringify(rec) : ''; } catch { return ''; } };
+const recJson = (/** @type {unknown} */ rec) => { try { return rec ? JSON.stringify(rec) : ''; } catch { return ''; } };
 
 /**
  * Bonds an IN_BATTLE layer gain of this player can name: its bond snapshot (every bond its lineup counts), plus bonds
  * its band, its effects (机变 cards, 驻守 …), its units and their items mention (content grants layers to those —
  * e.g. 克莱门莎's <阿戈尔>). Anything else is a forged gain.
+ * @param {Record<string, any>} p the spec's PlayerBattleInput @param {GameData} gd @returns {Set<string>}
  */
 function layerBondsOf(p, gd) {
   const out = new Set(Object.keys(p.bonds && typeof p.bonds === 'object' ? p.bonds : {}));
@@ -617,15 +661,18 @@ function layerBondsOf(p, gd) {
  * trait's too, 华法琳's 7 / 14, GitHub #175). A trait the data gives no cap (初雪 / 银灰's freeze trait, 菲莱 / 百炼嘉维尔's per-skill
  * 萨尔贡, 斯卡蒂's per-kill …) — or a 魔王, whose +extra on every trait gain counts toward no cap — leaves its bonds bounded
  * only by the room under the layer cap (Infinity here): such boards legitimately gain hundreds of layers a battle.
+ * @param {Record<string, any>} p the spec's PlayerBattleInput
+ * @param {GameData} gd
  * @returns {Map<string, number>} bondId → extra allowance (Infinity: uncapped)
  */
 function layerAllowanceOf(p, gd) {
   const out = new Map();
   if (typeof gd.garrison !== 'function' || typeof gd.chess !== 'function' || typeof gd.bond !== 'function') return out;
-  const units = (Array.isArray(p.units) ? p.units : []).filter((u) => u && u.kind !== 'token' && typeof u.chessId === 'string');
+  const units = (Array.isArray(p.units) ? p.units : []).filter((/** @type {Record<string, any> | null} */ u) => u && u.kind !== 'token' && typeof u.chessId === 'string');
   const lineup = new Set(Object.keys(p.bonds && typeof p.bonds === 'object' ? p.bonds : {}));
   for (const u of units) for (const b of gd.chess(u.chessId)?.bonds || []) lineup.add(b);
   let extra = false;
+  /** @param {Record<string, any>} g a garrison record @param {number} times */
   const credit = (g, times) => {
     const bb = g.bb || {};
     if (Number.isFinite(bb.extra_cnt)) { extra = true; return; }
@@ -651,6 +698,8 @@ function layerAllowanceOf(p, gd) {
 /**
  * Bounds of a battle derived from its spec: spawn counts per enemy key, keys content may add, bounty coins, the
  * player ids and each player's unit uids.
+ * @param {Record<string, any>} spec the field's BattleSpec
+ * @param {GameData | null} [gd]
  */
 export function specBounds(spec, gd = null) {
   const keyCounts = new Map();
@@ -765,12 +814,15 @@ export function uniteBillBounds(spawns, gd = null) {
   return out;
 }
 
+/** @param {unknown} v @param {number} lo @param {number} hi */
 const finiteIn = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+/** @param {Record<string, unknown> | null} a @param {Record<string, unknown> | null} b */
 const sameMods = (a, b) => {
   const ka = a && typeof a === 'object' ? Object.keys(a).filter((k) => a[k] !== undefined).sort() : [];
   const kb = b && typeof b === 'object' ? Object.keys(b).filter((k) => b[k] !== undefined).sort() : [];
   if (ka.length !== kb.length) return false;
-  for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i] || a[ka[i]] !== b[kb[i]]) return false;
+  // keys only when the object is there
+  for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i] || /** @type {Record<string, unknown>} */ (a)[ka[i]] !== /** @type {Record<string, unknown>} */ (b)[kb[i]]) return false;
   return true;
 };
 
@@ -822,6 +874,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
     // 联防: (enemyKey, leaker) budget shared by the helpers' leaks and the never-spawned re-entries
     const sourceLeft = new Map(B.keySourceCounts);
     const derivedLeft = new Map(B.derivedSourceCounts);
+    /** @param {Map<string, number>} left @param {string} key @param {string | null} src */
     const takeFrom = (left, key, src) => {
       const ks = `${key}|${src || ''}`;
       const n = left.get(ks) || 0;
@@ -829,10 +882,13 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
       left.set(ks, n - 1);
       return true;
     };
+    /** @param {string} key @param {string | null} src */
     const takeSource = (key, src) => takeFrom(sourceLeft, key, src);
     // a content-spawned enemy (split, summon): billed only to a leaker who sent in a parent, within its offspring bound
+    /** @param {string} key @param {string | null} src */
     const takeDerived = (key, src) => B.derived.has(key) && takeFrom(derivedLeft, key, src);
     let coinsSum = 0;
+    /** @type {Record<string, Record<string, any>>} */
     const perPlayer = {};
     for (const pid of pids) {
       const p = raw.perPlayer[pid];
@@ -862,10 +918,10 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         // (a split, a summon) carries its parent's mods — the round multipliers, a bounty id — so the leak's mods may
         // equal another schedule entry's: keep those (dropping them would re-enter it weaker and lose its bounty)
         const cands = spawnMods.get(key) || [];
-        const match = cands.find((s) => sameMods(s.mods ?? null, l.mods ?? null)) || null;
+        const match = cands.find((/** @type {Record<string, any>} */ s) => sameMods(s.mods ?? null, l.mods ?? null)) || null;
         const src = match || cands[0] || null;
-        const parent = match ? null : (spec.spawns || []).find((s) => s && typeof s.enemyKey === 'string' && sameMods(s.mods ?? null, l.mods ?? null)) || null;
-        const modsOf = (s) => (s && s.mods ? { ...s.mods } : null);
+        const parent = match ? null : (spec.spawns || []).find((/** @type {Record<string, any> | null} */ s) => s && typeof s.enemyKey === 'string' && sameMods(s.mods ?? null, l.mods ?? null)) || null;
+        const modsOf = (/** @type {Record<string, any> | null} */ s) => (s && s.mods ? { ...s.mods } : null);
         const mods = match ? modsOf(match) : parent ? modsOf(parent) : modsOf(src);
         let sourcePlayerId = typeof l.sourcePlayerId === 'string' ? l.sourcePlayerId : null;
         // set only after a 联防 `uniteRuntime` leak spends the offspring budget below — never copied off another field
@@ -884,6 +940,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
           } else if (!takeSource(key, sourcePlayerId) && !takeDerived(key, sourcePlayerId)) return bad('leak source');
         } else if (sourcePlayerId !== pid && !B.players.has(sourcePlayerId)) sourcePlayerId = pid;
         const lpr = finiteIn(l.lpr, 0, 1000) ? l.lpr : 1;
+        /** @type {{ enemyKey: string, mods: Record<string, any> | null, lpr: number, sourcePlayerId: string | null, tag: string | null, counted: boolean, spawned: true, uniteRuntime?: true, boss?: true }} */
         const e = { enemyKey: key, mods, lpr, sourcePlayerId, tag: src ? (src.tag ?? null) : (typeof l.tag === 'string' ? l.tag : null), counted, spawned: true };
         if (keepRuntime) e.uniteRuntime = true; // stored only after the derived take succeeded, and only for a 联防 spec
         if (l.boss) e.boss = true;
@@ -894,6 +951,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
       // which the spec bounds by maxTotal (the same allowance `killed` is checked against above)
       if (!bossLike && countedLeaks > p.total + B.maxTotal) return bad('leaks > total');
       if (typeof p.perfect !== 'boolean' || p.perfect !== (countedLeaks === 0)) return bad('perfect');
+      /** @type {Record<string, number>} */
       const layerGains = {};
       for (const [bondId, n] of Object.entries(p.layerGains || {})) {
         // ≤ 60 + 4·round + what the player's layer 特质 can add to the bond (layerAllowanceOf; uncapped ones: no flat
@@ -907,6 +965,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
       }
       // 临时层数 (规程): only under the cap with the fixed gains — no flat bound (a kill gives some, 乌萨斯), as the match
       // keeps only what a 特质 converts (SERVER_CONVERT_TEMP_BOND*: a few per round)
+      /** @type {Record<string, number> | null} */
       let tempLayerGains = null;
       for (const [bondId, n] of Object.entries(p.tempLayerGains || {})) {
         const room = layerGainRoom((own.startLayers.get(bondId) || 0) + (layerGains[bondId] || 0), Infinity, layerCapOf(spec.flags));
@@ -927,6 +986,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         if (!u || !Number.isInteger(u.uid) || !own.all.has(u.uid) || seen.has(u.uid)) continue;
         seen.add(u.uid);
         if (!finiteIn(u.hpPct, 0, 1) || !finiteIn(u.sp, 0, 1e5)) return bad('unit state');
+        /** @type {{ uid: number, defId: string, hpPct: number, sp: number, skillActive: boolean, alive: boolean, respawnLeft?: number }} */
         const e = { uid: u.uid, defId: own.all.get(u.uid), hpPct: u.hpPct, sp: u.sp, skillActive: !!u.skillActive, alive: !!u.alive && u.hpPct > 0 };
         // a knocked-out operator's rest of its redeploy timer (规程's 联防 inherits it, unite.js)
         if (u.respawnLeft !== undefined) {
@@ -945,6 +1005,10 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         if (!onBoard && gd && !own.defIds.has(defId)) continue;
         const rec = gd ? (gd.chess?.(defId) || gd.token?.(defId)) : null;
         if (gd && !rec) continue;
+        /**
+         * @type {{ uid: number | null, defId: string, name: string, kind: string, dmg: number, kills: number, heal: number, taken: number,
+         *   attacks: number, boss?: number, byType?: number[], assist?: Record<string, number>, ownerUid?: number }}
+         */
         const us = {
           uid: Number.isInteger(u.uid) ? u.uid : null, defId, name: (onBoard && own.names.get(u.uid)) || (typeof rec?.name === 'string' ? rec.name : defId), kind: u.kind === 'token' ? 'token' : 'op',
           dmg: Math.max(0, Number(u.dmg) || 0), kills: Math.max(0, Math.trunc(Number(u.kills) || 0)), heal: Math.max(0, Number(u.heal) || 0),
@@ -954,8 +1018,9 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         // credited the player): leader damage on boss fields only, 联防 knock-outs only of a leaker of this field, a
         // summoner only on this player's board
         if (bossLike && Number(u.boss) > 0) us.boss = Number(u.boss);
-        if (Array.isArray(u.byType) && u.byType.length === 4) us.byType = u.byType.map((v) => Math.max(0, Number(v) || 0)); // the round damage panel
+        if (Array.isArray(u.byType) && u.byType.length === 4) us.byType = u.byType.map((/** @type {unknown} */ v) => Math.max(0, Number(v) || 0)); // the round damage panel
         if (spec.kind === 'unite' && u.assist && typeof u.assist === 'object') {
+          /** @type {Record<string, number>} */
           const a = {};
           for (const [src, n] of Object.entries(u.assist)) if (src !== pid && B.sources.has(src) && Number.isInteger(n) && n > 0) a[src] = Math.min(n, B.maxTotal);
           if (Object.keys(a).length) us.assist = a;
@@ -963,19 +1028,24 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         if (Number.isInteger(u.ownerUid) && own.all.has(u.ownerUid)) us.ownerUid = u.ownerUid;
         unitStats.push(us);
       }
-      const stat = (v) => (finiteIn(v, 0, 1e13) ? v : 0);
+      /** @param {unknown} v @returns {number} */
+      const stat = (v) => (finiteIn(v, 0, 1e13) ? /** @type {number} */ (v) : 0);
       perPlayer[pid] = {
         killed: p.killed, total: p.total, leaked, perfect: countedLeaks === 0, layerGains, ...(tempLayerGains ? { tempLayerGains } : {}), coins,
         damageDealt: stat(p.damageDealt), bossDamage: stat(p.bossDamage), healingDone: stat(p.healingDone), deaths: Math.trunc(stat(p.deaths)),
         unitsEnd, unitStats,
       };
-      const gone = Array.isArray(p.bandChestsGone) ? [...new Set(p.bandChestsGone.filter((id) => own.chests.has(id)))] : [];
+      const gone = Array.isArray(p.bandChestsGone) ? [...new Set(p.bandChestsGone.filter((/** @type {unknown} */ id) => own.chests.has(id)))] : [];
       if (gone.length) perPlayer[pid].bandChestsGone = gone;
       // the HUD capsule's numerator: kept only when the client reported one (an absent value must stay absent — the
       // teammate UI then falls back to `killed`, never to a fabricated 0); clamped to the denominator
       if (Number.isInteger(p.resolved) && p.resolved >= 0) perPlayer[pid].resolved = Math.min(p.total, p.resolved);
     }
     if (coinsSum > B.bountyCoins + 1e-6) return bad('coins');
+    /**
+     * @type {{ time: number, reason: string, perPlayer: Record<string, Record<string, any>>, killed: number, total: number, errors: number,
+     *   resolved?: number, unspawned?: Array<{ enemyKey: string, sourcePlayerId: string | null, tag: string | null, time: number }> }}
+     */
     const result = { time: raw.time, reason: raw.reason, perPlayer, killed: 0, total: 0, errors: Math.max(0, Math.trunc(Number(raw.errors) || 0)) };
     let ownResolved = 0, ownKnown = pids.length > 0;
     for (const pid of pids) {
@@ -1004,6 +1074,6 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
     }
     return { ok: true, result };
   } catch (e) {
-    return bad(`exception: ${e && e.message}`);
+    return bad(`exception: ${e && /** @type {Error} */ (e).message}`);
   }
 }

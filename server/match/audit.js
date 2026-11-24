@@ -49,6 +49,7 @@ import { bossPoolHp, hiddenEligible } from './finalAssault.js';
 import { helperOrder } from './unite.js';
 import { BAND_TURN_SECONDS } from './Match.js';
 import { INFO_CHECK_SECONDS } from './match/common.js';
+/** @import { PlayerState } from './PlayerState.js' */
 
 /**
  * @param {import('./Match.js').Match} m
@@ -56,6 +57,7 @@ import { INFO_CHECK_SECONDS } from './match/common.js';
  */
 export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
   const gd = m.gd;
+  /** @type {{ violations: string[], checks: number, odds: Record<number, Record<number, number>>, phases: number }} */
   const audit = {
     violations: [],
     checks: 0,
@@ -64,17 +66,25 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     phases: 0,
   };
   const where = () => `${m.phase} R${m.round}`;
-  const fail = (msg) => { if (audit.violations.length < limit) audit.violations.push(`[${where()}] ${msg}`); };
+  const fail = (/** @type {string} */ msg) => { if (audit.violations.length < limit) audit.violations.push(`[${where()}] ${msg}`); };
+  /** @param {string} label @param {() => void} fn */
   const check = (label, fn) => {
     audit.checks++;
-    try { fn(); } catch (e) { fail(`audit ${label} threw: ${e && e.message}`); }
+    try { fn(); } catch (e) { fail(`audit ${label} threw: ${e && /** @type {Error} */ (e).message}`); }
   };
-  const carries = (ps) => gd.leftoverKeptBands.includes(ps.bandId) || gd.leftoverKeptBands.includes(ps.bandCommand);
+  const carries = (/** @type {PlayerState} */ ps) => gd.leftoverKeptBands.includes(ps.bandId) || gd.leftoverKeptBands.includes(ps.bandCommand);
+  /**
+   * An instance-level wrapper of the method `name` of `obj`: `around` gets the bound original and the call's arguments.
+   * @template {object} O @template {string & keyof O} K
+   * @param {O} obj @param {K} name
+   * @param {(this: O, orig: OmitThisParameter<O[K]>, ...args: O[K] extends (...a: infer A) => unknown ? A : never) => unknown} around
+   */
   const wrap = (obj, name, around) => {
     const orig = obj[name];
     if (typeof orig !== 'function') return;
-    obj[name] = function wrapped(...args) { return around.call(this, orig.bind(this), ...args); };
+    obj[name] = /** @type {O[K]} */ (/** @type {unknown} */ (/** @this {O} @param {unknown[]} args */ function wrapped(...args) { return /** @type {Function} */ (around).call(this, orig.bind(this), ...args); }));
   };
+  /** @param {number} seconds @param {string} label @param {{ silentSolo?: boolean }} [opts] */
   const expectDeadline = (seconds, label, { silentSolo = false } = {}) => check(`deadline ${label}`, () => {
     // a solo match's presentation steps run silently (no countdown, Match.soloUntimed)
     const want = seconds > 0 && !(silentSolo && m.soloUntimed) ? Math.max(0, Math.round(seconds * 1000 * m.timerScale)) : 0;
@@ -96,8 +106,10 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
   // temp arrivals: ps → Map(uid → index of the prep whose deadline resolves it); ps → preps ended (own count)
   const tempDue = new Map();
   const prepsEnded = new Map();
-  const endedOf = (ps) => prepsEnded.get(ps) || 0;
+  const endedOf = (/** @type {PlayerState} */ ps) => prepsEnded.get(ps) || 0;
+  /** @param {PlayerState} ps @returns {Map<number, number>} */
   const dueOf = (ps) => { let d = tempDue.get(ps); if (!d) tempDue.set(ps, (d = new Map())); return d; };
+  /** @param {PlayerState} ps @param {string} label */
   const overdue = (ps, label) => {
     const d = dueOf(ps);
     // overflow only: 规程's 装备区 (bagMode's five visible slots) keeps its pieces like the hand
@@ -143,7 +155,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       const f0 = ps.funds;
       const p0 = ps.pendingFunds;
       const up0 = ps.shop.upgradePrice;
-      const kept = ps.shop.slots.map((s, i) => (s ? { i, kind: s.kind, id: s.id, frozen: !!s.frozen, sold: !!s.sold } : null)).filter(Boolean);
+      const kept = /** @type {Array<{ i: number, kind: string, id: string, frozen: boolean, sold: boolean }>} */ (ps.shop.slots.map((s, i) => (s ? { i, kind: s.kind, id: s.id, frozen: !!s.frozen, sold: !!s.sold } : null)).filter(Boolean));
       const offers0 = ps.offers.slice();
       const kinds0 = ps._shopKinds().slice();
       incomeEv.delete(ps);
@@ -156,7 +168,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         if (!inc) fail(`${id}: no onIncome dispatch`);
         else {
           if (inc.initial.income !== want || inc.initial.pending !== p0) fail(`${id}: onIncome started with ${inc.initial.income}+${inc.initial.pending}, expected ${want}+${p0}`);
-          const nn = (v) => (Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0);
+          const nn = (/** @type {number} */ v) => (Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0);
           const credited = nn(inc.ev.income) + nn(inc.ev.pending);
           if (ps.funds - f0 !== credited) fail(`${id}: funds ${f0} → ${ps.funds}, credited ${credited}`);
         }
@@ -192,7 +204,8 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       const res = orig(slotIdx);
       if (res && res.ok) check('buy', () => {
         if (!slot || !slot.sold) fail(`${ps.playerId}: bought slot ${slotIdx} is not marked sold`);
-        if (ps.funds !== f0 - price && !fx && !hasSpendEffects(m, ps)) fail(`${ps.playerId}: buy paid ${f0 - ps.funds}, price ${price}`);
+        // a bought slot was unsold before the buy, so it had a price
+        if (ps.funds !== f0 - /** @type {number} */ (price) && !fx && !hasSpendEffects(m, ps)) fail(`${ps.playerId}: buy paid ${f0 - ps.funds}, price ${price}`);
       });
       return res;
     });
@@ -236,7 +249,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         // the new level's extra slots open EMPTY on the left; the cards shown before keep their places (shifted right by
         // the new slots) until the next roll (LOCAL-PATCH.md 「상점 칸 배치」, maintainer 2026-10-09)
         const { chess, item } = gd.shopSlots(ps.shop.level);
-        const had = (k) => kinds0.filter((x) => x === k).length;
+        const had = (/** @type {string} */ k) => kinds0.filter((x) => x === k).length;
         const want = Math.max(chess, had('chess')) + Math.max(item, had('item'));
         if (ps.shop.slots.length !== want) fail(`${ps.playerId}: ${ps.shop.slots.length} shop slots after the level-up to ${ps.shop.level}, expected ${want}`);
         const added = ps.shop.slots.length - slots0.length;
@@ -304,7 +317,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     runInvariants();
     check('band draft', () => {
       if (m.phase !== PHASE.BAND_DRAFT) return;
-      const d = m.draft;
+      const d = /** @type {Record<string, any>} */ (m.draft); // set for the whole BAND_DRAFT
       const ids = m.order.map((p) => p.playerId).sort();
       if (JSON.stringify(d.order.slice().sort()) !== JSON.stringify(ids)) fail(`draft order ${d.order} != seats ${ids}`);
       // one countdown (user playtest #4 item 4): the step's deadline IS the current turn's, BAND_TURN_SECONDS long
@@ -391,11 +404,12 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     });
     return res;
   });
+  /** @type {{ round: number, expect: boolean } | null} */
   let expectUnite = null;
   // the 联防 decision (both combat modes): made after the COMBAT_END pause from the players still in
   wrap(m, '_afterCombat', function (orig) {
     if (m.phase === PHASE.COMBAT) check('unite trigger', () => {
-      const counted = (pid) => ((m.lastResults.get(pid) || {}).leaked || []).filter((l) => l && l.counted !== false).length;
+      const counted = (/** @type {string} */ pid) => ((m.lastResults.get(pid) || {}).leaked || []).filter((/** @type {Record<string, any> | null} */ l) => l && l.counted !== false).length;
       const alive = m.alivePlayers();
       const leak = alive.some((p) => counted(p.playerId) > 0);
       const perfect = alive.some((p) => counted(p.playerId) === 0);
@@ -406,7 +420,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
   wrap(m, 'startUnite', function (orig, plan) {
     check('unite plan', () => {
       const res = m.lastResults;
-      const counted = (pid) => ((res.get(pid) || {}).leaked || []).filter((l) => l && l.counted !== false).length;
+      const counted = (/** @type {string} */ pid) => ((res.get(pid) || {}).leaked || []).filter((/** @type {Record<string, any> | null} */ l) => l && l.counted !== false).length;
       const alive = m.alivePlayers();
       const leakers = alive.filter((p) => counted(p.playerId) > 0).map((p) => p.playerId).sort();
       const perfect = alive.filter((p) => counted(p.playerId) === 0);
@@ -437,7 +451,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         let sum = 0;
         for (const [ps] of before) {
           const r = m.lastResults.get(ps.playerId) || { leaked: [] };
-          const counted = (r.leaked || []).filter((l) => l && l.counted !== false).length;
+          const counted = (r.leaked || []).filter((/** @type {Record<string, any> | null} */ l) => l && l.counted !== false).length;
           const max = uniteRan && plan.leakers.includes(ps) ? cap : Math.min(cap, counted);
           const loss = m.roundLossesView?.[ps.playerId] ?? 0;
           if (loss > max || (!uniteRan && loss !== max)) fail(`${ps.playerId}: charged ${loss} LP with ${counted} counted leaks (cap ${cap})`);
@@ -445,13 +459,13 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         }
         if (m.teamLp !== Math.max(0, team0 - sum)) fail(`team LP ${team0} − ${sum} → ${m.teamLp}`);
         const out = [...before.keys()].filter((ps) => !ps.alive).length;
-        if (m.teamLp > 0 ? out > 0 : out !== before.size) fail(`${out} of ${before.size} eliminated with team LP ${m.teamLp}`);
+        if (/** @type {number} */ (m.teamLp) > 0 ? out > 0 : out !== before.size) fail(`${out} of ${before.size} eliminated with team LP ${m.teamLp}`);
         expectDeadline(3, 'SETTLE', { silentSolo: true });
         return;
       }
       for (const [ps, lp0] of before) {
         const r = m.lastResults.get(ps.playerId) || { leaked: [] };
-        const counted = (r.leaked || []).filter((l) => l && l.counted !== false).length;
+        const counted = (r.leaked || []).filter((/** @type {Record<string, any> | null} */ l) => l && l.counted !== false).length;
         // after 联防 a leaker pays for every surviving enemy of its source — not the enemies the field itself spawned while
         // it ran (splitters, summoners: `uniteRuntime`) — so only the cap bounds it; everybody else never exceeds own leaks
         const max = uniteRan && plan.leakers.includes(ps) ? cap : Math.min(cap, counted);
@@ -489,13 +503,14 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       const seated = m.fields.flatMap((f) => f.players);
       if (seated.length !== alive.length || alive.some((p) => !seated.includes(p.playerId))) fail(`boss fields ${fields.join(' | ')} != the alive players`);
       if (m.fields.filter((f) => f.players.length !== 2).length > alive.length % 2) fail(`boss fields ${fields.join(' | ')} not in pairs`);
-      for (const f of m.fields) if (f.players.length === 2 && m.players.get(f.players[0]).seat > m.players.get(f.players[1]).seat) fail(`boss field ${f.fieldId} not in seat order`);
+      // a field's players are seated
+      for (const f of m.fields) if (f.players.length === 2 && /** @type {PlayerState} */ (m.players.get(f.players[0])).seat > /** @type {PlayerState} */ (m.players.get(f.players[1])).seat) fail(`boss field ${f.fieldId} not in seat order`);
       m.fields.forEach((f, i) => { if (f.fieldId !== `b${i + 1}`) fail(`boss field id ${f.fieldId}`); });
       if (!hidden && m.teamLp !== lpSum) fail(`team LP ${m.teamLp} != Σ alive LP ${lpSum}`);
       if (hidden && m.teamLp !== teamLp0) fail(`hidden core changed team LP ${teamLp0} → ${m.teamLp}`);
       const want = bossPoolHp(gd, hidden ? m.hiddenBossId : m.bossId, alive.length);
       if (!m.bossPool || m.bossPool.maxHp !== want) fail(`boss pool ${m.bossPool && m.bossPool.maxHp} != ${want}`);
-      if (hidden && !hiddenEligible(gd, { layerSum: m.hiddenLayerSum, teamLp: m.teamLp })) fail('hidden core entered while not eligible');
+      if (hidden && !hiddenEligible(gd, { layerSum: m.hiddenLayerSum, teamLp: /** @type {number} */ (m.teamLp) })) fail('hidden core entered while not eligible'); // set since the Final Assault
       if (hidden && gd.difficulty === 'FUNNY') fail('hidden core on FUNNY');
     });
     return res;
@@ -505,20 +520,20 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     check('result', () => {
       const r = m.lastResultMsg;
       if (!r) { fail('no m.result'); return; }
-      const titles = r.players.map((p) => p.title && p.title.id).filter(Boolean);
+      const titles = r.players.map((/** @type {Record<string, any>} */ p) => p.title && p.title.id).filter(Boolean);
       if (new Set(titles).size !== titles.length) fail(`a title was given twice: ${titles}`);
       const cfg = Array.isArray(gd.config.titles) ? gd.config.titles : [];
       for (const p of r.players) {
-        const t = p.title && cfg.find((x) => x.id === p.title.id);
+        const t = p.title && cfg.find((/** @type {Record<string, any>} */ x) => x.id === p.title.id);
         if (t && t.onlyOnWin && !r.victory) fail(`${p.playerId}: win-only title ${t.id} on a defeat`);
-        const ps = m.players.get(p.playerId);
+        const ps = /** @type {PlayerState} */ (m.players.get(p.playerId)); // every result player is seated
         const want = !ps.alive && ps.eliminatedRound != null ? Math.max(0, ps.eliminatedRound - 1) : r.victory ? gd.bossRound + (r.hiddenCleared ? 1 : 0) : Math.max(0, Math.min(m.round, gd.bossRound) - 1);
         if (p.roundsPassed !== want) fail(`${p.playerId}: roundsPassed ${p.roundsPassed}, expected ${want}`);
       }
       if (r.hiddenReached && !m.hiddenReached) fail('hiddenReached mismatch');
       // after the Final Assault the alive players' LP are their shares of the merged team pool
       if (r.teamLp != null && m.alivePlayers().some((p) => p.lpAtFinal != null)) {
-        const sum = r.players.filter((p) => p.alive).reduce((s, p) => s + p.lp, 0);
+        const sum = r.players.filter((/** @type {Record<string, any>} */ p) => p.alive).reduce((/** @type {number} */ s, /** @type {Record<string, any>} */ p) => s + p.lp, 0);
         if (sum !== r.teamLp) fail(`Σ alive result LP ${sum} != team LP ${r.teamLp}`);
       }
     });
@@ -527,12 +542,15 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
   return audit;
 }
 
-/** Content that may pay out or refund around a purchase (then exact price checks are skipped). */
+/**
+ * Content that may pay out or refund around a purchase (then exact price checks are skipped).
+ * @param {import('./Match.js').Match} m @param {PlayerState} ps
+ */
 function hasSpendEffects(m, ps) {
   const reg = m.registry;
   const keys = ['onBuy', 'onSpend', 'onSold', 'onRefresh', 'onLevelUp', 'onGain', 'onLayers', 'onActiveBonds'];
-  const any = (h) => h && keys.some((k) => typeof h[k] === 'function');
-  if (reg.globals().some(([, h]) => any(h))) return true;
+  const any = (/** @type {Record<string, unknown> | null | undefined} */ h) => h && keys.some((k) => typeof h[k] === 'function');
+  if (reg.globals().some((/** @type {[string, Record<string, unknown>]} */ [, h]) => any(h))) return true;
   if (ps.bandId && any(reg.get(`band:${ps.bandId}`))) return true;
   for (const id of m.gd.bondIds) if (any(reg.get(`bond:${id}`))) return true;
   for (const e of ps.effects) if (e && typeof e.key === 'string' && any(reg.get(e.key))) return true;
