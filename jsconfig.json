@@ -23,8 +23,5 @@
     "types/sim-members.d.ts",
     "types/class-members.d.ts",
     "types/ws.d.ts"
-  ],
-  "exclude": [
-    "shared/bandBonds.js"
   ]
 }

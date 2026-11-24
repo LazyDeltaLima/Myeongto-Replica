@@ -8,7 +8,7 @@
 
 What is checked now:
 
-- `shared/` except `shared/bandBonds.js` (its JSDoc does not match the code yet; see below), in both configs
+- `shared/` whole, in both configs
 - `server/` whole — `server/sim/`, `server/match/` and the lobby, network and HTTP files — with `types/sim-members.d.ts`
   and `types/class-members.d.ts` (the split classes, below), in the server config. The browser
   config keeps only `server/sim/rng.js`, `detmath.js`, `dir.js` and `constants.js`: the whole sim pulls in its Node-only
@@ -185,8 +185,3 @@ To count the errors of folders not yet included, run tsc with a scratch config o
 instance `{ "extends": "<repo>/jsconfig.json", "include": ["<repo>/server/**/*.js", "<repo>/shared/**/*.js",
 "<repo>/types/**/*"] }` (and the browser one over `public/js/`), then `tsc -p <that file> | grep -c 'error TS'`. For strict, `node tools/typecheck-strict.mjs --count` counts every
 folder not yet listed (above).
-
-## Not in the first slice
-
-`shared/bandBonds.js` — the data-shape JSDoc rejects an empty fallback object and a tuple callback. Fix the comments,
-then remove it from `exclude`.

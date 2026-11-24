@@ -16,11 +16,12 @@ const isObj = (v) => !!v && typeof v === 'object';
 /**
  * Bond ids a band is tied to, in the order of `bonds`.
  * @param {{ desc?: string, relateBondIds?: string[], buffs?: Array<{ bb?: object, bbStr?: object }> }|null|undefined} band bands.json record
- * @param {{ bonds: Record<string, { name?: string }>|Array<{ bondId: string, name?: string }>,
+ * @param {{ bonds?: Record<string, { name?: string }>|Array<{ bondId: string, name?: string }>,
  *   pools?: Record<string, { bond?: string }>|null }} ctx bonds.json (map or list) and choices.json `pools`
  * @returns {string[]}
  */
 export function bandBondIds(band, { bonds, pools = null } = {}) {
+  /** @type {Array<[string, { name?: string }]>} */
   const list = Array.isArray(bonds) ? bonds.filter(isObj).map((b) => [b.bondId, b]) : Object.entries(isObj(bonds) ? bonds : {});
   const ids = list.map(([id]) => id).filter((id) => typeof id === 'string');
   if (!isObj(band) || !ids.length) return [];
