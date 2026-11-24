@@ -55,6 +55,9 @@ import { toLocal } from '../../../dir.js';
 import { hasHp } from '../../../damage.js';
 import { COLS } from '../../../constants.js';
 import { startCountdown } from '../../tokens.js';
+/** @import { KitFns, KitChess, KitSpec, KitSkill, Bb } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skchr_bgsnow_1';
 const S2 = 'skchr_bgsnow_2';
@@ -70,13 +73,14 @@ const TAG_PRECIS = 'bgsnow:precis';
 /** 自动打字机: the typewriter's life when neither the token nor the talent carries it (PRTS: 持续25秒 at E2). */
 const LIFE_FALLBACK = 25;
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** First talent of a normalised token def holding `key` (token talents keep no index). */
+/** First talent of a normalised token def holding `key` (token talents keep no index). @param {{ talents?: Array<{ bb?: Bb, description?: string } | null> } | null | undefined} def @param {string} key */
 const tokTalent = (def, key) => (def?.talents ?? []).find((t) => t && t.bb && t.bb[key] != null) ?? null;
 
 /** bgsnow_focus[mark]'s tiles (her Focus aura's ConstBoxRange 5-1): her own tile and the 5 ahead. */
 const MARK_AHEAD = 5;
-/** ARC-Y 正前方: the enemy's body touches her mark's line (local row 0, local columns 0..MARK_AHEAD). */
+/** ARC-Y 正前方: the enemy's body touches her mark's line (local row 0, local columns 0..MARK_AHEAD). @param {Unit} unit @param {Unit} e */
 function inFrontLine(unit, e) {
   for (const k of bodyKeys(e)) {
     const [lr, lc] = toLocal(Math.floor(k / COLS) - unit.tileR, (k % COLS) - unit.tileC, unit.dir);
@@ -85,14 +89,14 @@ function inFrontLine(unit, e) {
   return false;
 }
 
-/** 点题 / its copy: the two 持续伤害 hits after the attack's first (普通伤害) hit, on the same target. */
+/** 点题 / its copy: the two 持续伤害 hits after the attack's first (普通伤害) hit, on the same target. @param {Battle} battle @param {Unit} unit @param {Unit | null | undefined} target @param {number} scale */
 function precisFollowUps(battle, unit, target, scale) {
   for (let i = 0; i < 2 && target && target.alive; i++) {
     battle.dealDamage(unit, target, { amount: unit.s.atk * scale, type: 'phys', isSkill: true, canDodge: false, tags: ['skill', 'dot', TAG_PRECIS] });
   }
 }
 
-/** 抑扬格 / its copy: while `on(unit)`, every attack `prob` to deal ×scale (one roll per attack). */
+/** 抑扬格 / its copy: while `on(unit)`, every attack `prob` to deal ×scale (one roll per attack). @param {Battle} battle @param {Unit} unit @param {number} prob @param {number} scale @param {(u: Unit) => unknown} on */
 function installIamb(battle, unit, prob, scale, on) {
   if (!(prob > 0) || !(scale > 0) || scale === 1) return;
   battle.on('hit', (ctx) => {
@@ -111,6 +115,7 @@ function installIamb(battle, unit, prob, scale, on) {
 /**
  * The typewriter's kit: its skill (the copy of her skill the data gives), 弱点速记, its life and its redeploys.
  * `owner` = 鸿雪, `chess` = her composed record.
+ * @param {Unit} t @param {Unit} owner @param {KitChess} chess @returns {KitSpec}
  */
 function typewriterKit(t, owner, chess) {
   const def = t.def;
@@ -128,7 +133,9 @@ function typewriterKit(t, owner, chess) {
     const dr = Math.abs(t.tileR - owner.tileR), dc = Math.abs(t.tileC - owner.tileC);
     return ring8 ? Math.max(dr, dc) === 1 : dr + dc === 1;
   };
+  /** @param {Unit} u */
   const skillOn = (u) => !!(u.skill && u.skill.active);
+  /** @type {KitSkill | null} */
   let skill = null;
   if (sk?.id === TS1) skill = { kind: 'toggle', mods: { atkPct: num(tb.atk) } };
   else if (sk?.id === TS2) {
@@ -188,6 +195,7 @@ function typewriterKit(t, owner, chess) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   char_4055_bgsnow: (bb, chess) => {
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);

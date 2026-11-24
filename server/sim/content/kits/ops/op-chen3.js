@@ -48,14 +48,23 @@ import { weaknessRetype } from '../../items/battle.js';
 import { talentBb } from '../shared/tier1.js';
 import { hypot } from '../../../detmath.js';
 import { TICK } from '../../../constants.js';
+/** @import { KitFns, KitFn, KitSkill, KitDef } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
+/** @param {unknown} v */
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+/** @param {Unit | null | undefined} u */
 const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
-/** An S2 target that left the field — dead, removed or hidden [ASSUMED: a hidden one counts as gone]. */
+/** An S2 target that left the field — dead, removed or hidden [ASSUMED: a hidden one counts as gone]. @param {Unit | null | undefined} e */
 const gone = (e) => !e || !e.alive || e.removed || e.hidden;
+/** @param {KitDef} def */
 const skillGridOf = (def) => (def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null);
 const ANY = Object.freeze({ canHitFly: true });
+/** @param {Battle} battle @param {Unit} unit */
 const inRange = (battle, unit) => battle.enemiesInKeys(unit.rangeKeys || [], unit, ANY);
+/** @param {{ x: number, y: number }} a @param {{ x: number, y: number }} b */
 const dist = (a, b) => hypot(a.x - b.x, a.y - b.y);
 
 const QI_SPEED = 1.5, QI_RADIUS = 1.3, QI_LOOK = 0.25, QI_EPS = 0.02, S2_INTERVAL = 0.4, S2_PASS_RADIUS = 1.7;
@@ -76,13 +85,16 @@ const S3_HOLD = Object.freeze({ noAttack: true });
  * runs `_CheckHit` → `_ChangeDirection` once per tick, so a dead end (the tile ahead and the one to its
  * right both blocked) takes one 90° turn per tick. Returns the number of turns (0 or 1). `grid` needs inRect(r, c) and
  * tile(r, c).
+ * @param {{ inRect: (r: number, c: number) => boolean, tile: (r: number, c: number) => { height?: string | null, special?: string | null } }} grid @param {{ x: number, y: number, d: string }} st @param {number} dist
  */
 export function chen3QiAdvance(grid, st, dist) {
+  /** @param {number} r @param {number} c */
   const wall = (r, c) => {
     if (!grid.inRect(r, c)) return true;                                  // _checkHitMapEdge
     const t = grid.tile(r, c);
     return t.height === 'HIGH' || t.special === 'start' || t.special === 'end';  // highland / 侵入点 / 保护目标
   };
+  /** @param {string} d */
   const ahead = (d) => {
     const [dr, dc] = dirVec(d), r0 = Math.round(st.y), c0 = Math.round(st.x);
     const past = dr ? (st.y - r0) * dr : (st.x - c0) * dc;              // how far past the centre of its tile
@@ -98,11 +110,12 @@ export function chen3QiAdvance(grid, st, dist) {
   return turns;
 }
 
+/** @type {KitFn} */
 function chen3(bb, chess, def) {
   const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
   const moduleAspd = num(chess?.trait?.bb?.attack_speed, 0);
 
-  /** 剑气 of S3: a virtual mover (chen3QiAdvance), damage once per enemy per straight run. */
+  /** 剑气 of S3: a virtual mover (chen3QiAdvance), damage once per enemy per straight run. @param {Battle} battle @param {Unit} unit */
   const releaseQi = (battle, unit) => {
     const st = { x: unit.x, y: unit.y, d: normDir(unit.dir) };
     let hitSet = new Set();
@@ -134,6 +147,7 @@ function chen3(bb, chess, def) {
    * S2: 10 slashes (+1 per target that leaves the field), passing on; then the 【移动】 and the buff. While slashing
    * (unit.mem.chen3Slashing): 无敌, no attack, 不可阻挡 (blocks nothing), 阻回 (no SP), stun / freeze immune (install), and
    * the skill's 6 s wait (onTick) — they start when she lands.
+   * @param {Battle} battle @param {Unit} unit
    */
   const slashes = (battle, unit) => {
     const seq = unit.deploySeq;
@@ -235,20 +249,23 @@ function chen3(bb, chess, def) {
    * never came with enemies only in the S3 range; before 49eb223e the wave left at S3_BEGIN with the S3 mode from the
    * cast. The spec object is this unit's own (the kit is built per unit): `attack` / `targeting` change with the phase
    * and are put back when the skill ends.
+   * @returns {KitSkill}
    */
   function s3Spec() {
     const S3_ATTACK = { atkScale: num(bb['attack@atk_scale'], 1.8), hits: 3, maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), groundOnly: true, canHitFly: false };
     const S3_TARGETING = { rangeGrid: skillGridOf(def), maxTargets: Math.max(1, num(bb['attack@max_target'], 3)), showOwnRange: true };
     // the state machine restart of switch_mode_restart_fsm: no swing in progress, the newly attached attack ready
+    /** @param {Unit} unit */
     const restart = (unit) => { unit.swing = null; unit.castLeft = 0; unit.atkCd = 0; };
     // phases: 'begin' (Skill_3_Begin and the abilities after it: no attack) → 'mode' (the S3 mode, still no swing this
     // tick) → 'attack'; null = off: the static values (static tools, the next cast)
+    /** @param {Battle | null} battle @param {Unit} unit @param {KitSkill} spec @param {string | null} phase */
     const mode = (battle, unit, spec, phase) => {
       unit.mem.chen3S3 = phase;
       spec.attack = phase === 'begin' || phase === 'mode' ? S3_HOLD : S3_ATTACK;
       spec.targeting = S3_TARGETING;
       if (phase === 'mode') restart(unit);
-      if (phase !== null) battle._refreshRange(unit);   // (the skill end's own range reset follows onEnd)
+      if (phase !== null) /** @type {Battle} */ (battle)._refreshRange(unit);   // (the skill end's own range reset follows onEnd)
     };
     return {
       kind: 'duration',
@@ -345,7 +362,7 @@ function chen3(bb, chess, def) {
         battle.every(0.25, () => {
           if (!live(unit)) return;
           const want = !(unit.blocking && unit.blocking.length);
-          const has = unit.buffs.some((b) => b.key === 'chen3:mod');
+          const has = /** @type {BuffRec[]} */ (unit.buffs).some((b) => b.key === 'chen3:mod');
           if (want && !has) battle.addBuff(unit, { key: 'chen3:mod', duration: Infinity, mods: { aspd: moduleAspd } });
           else if (!want && has) battle.removeBuff?.(unit, 'chen3:mod');
         }, { owner: unit });
@@ -354,6 +371,7 @@ function chen3(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   char_1050_chen3: (bb, chess, def) => chen3(bb, chess, def),
 };

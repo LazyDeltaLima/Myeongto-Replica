@@ -11,13 +11,16 @@
 
 import { num, talentBb, moduleBb, skillRec } from '../shared/tier1.js';
 import { AURA, enemiesOnRange, whileDeployed, pulse } from '../shared/tier4.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
 
 const S1 = 'skchr_ethan_1';
 const S2 = 'skchr_ethan_2';
 const POISON = 'ethan_s_1';
 const BIND = 'ethan_t_1';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_355_ethan: (bb, chess) => {
     const t0 = talentBb(chess, 0), mb = moduleBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);

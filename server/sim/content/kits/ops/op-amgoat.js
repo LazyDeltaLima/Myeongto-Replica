@@ -52,6 +52,10 @@ import { num, talentBb, traitBb, skillRec, statBuff, installAura, batMod, giveSp
 import { hasHp } from '../../../damage.js';
 import { canTargetEnemy } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
+/** @import { KitFns, KitChess, Bb } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_amgoat_1';
 const S2 = 'skchr_amgoat_2';
@@ -66,29 +70,32 @@ const IGNITE_TAG = 'amgoat:ignite';
 const AURA_KEY = 'talent:amgoat:casters';
 const AURA_EVERY = 0.5;
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** A 【术师】 operator (summons are never operators). */
+/** A 【术师】 operator (summons are never operators). @param {Unit | null | undefined} a */
 const isCaster = (a) => !!a && a.kind === 'op' && a.def?.profession === 'CASTER';
-/** An elite or leader enemy (精英或领袖敌人). */
+/** An elite or leader enemy (精英或领袖敌人). @param {Unit | null | undefined} e */
 const isEliteEnemy = (e) => !!e && e.side === 'enemy' && (e.isBoss || e.def?.rank === 'ELITE' || e.def?.rank === 'BOSS');
+/** @param {{ tags?: string[] } | null | undefined} d @param {string} tag */
 const tagged = (d, tag) => !!(d && d.tags && d.tags.includes(tag));
-/** A module trait that works 在集成战略中 only (ISW modules): nothing of it applies in this mode. */
+/** A module trait that works 在集成战略中 only (ISW modules): nothing of it applies in this mode. @param {KitChess} chess */
 const roguelikeOnly = (chess) => /集成战略/.test(String(chess?.trait?.moduleDesc ?? ''));
-/** Named talent `i` of the record (its desc tells the module stage's wording). */
+/** Named talent `i` of the record (its desc tells the module stage's wording). @param {KitChess} chess @param {number} i */
 const talentRec = (chess, i) => (chess?.talents ?? []).filter((t) => t && t.index !== -1)[i] ?? null;
 
-/** "携带时": the aura of installAura, held while she belongs to the battle — on the field or not. */
+/** "携带时": the aura of installAura, held while she belongs to the battle — on the field or not. @param {Battle} battle @param {Unit} unit @param {{ key: string, select: (a: Unit) => unknown, mods: Bb, value: number }} opts */
 function carriedAura(battle, unit, { key, select, mods, value }) {
   battle.every(AURA_EVERY, () => {
     for (const a of battle.alliesFor(unit)) {
       if (!select(a)) continue;
-      const cur = a.findBuff(key);
+      const cur = /** @type {BuffRec | null} */ (a.findBuff(key));
       if (cur && cur.source !== unit && (cur.data?.v ?? 0) > value && cur.timeLeft > 0.05) continue;
       battle.addBuff(a, { key, duration: AURA_EVERY + 0.1, mods, source: unit, data: { v: value }, tags: ['aura'] });
     }
   }, { owner: unit, immediate: true });
 }
 
+/** @type {KitFns} */
 export default {
   char_180_amgoat: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
@@ -96,6 +103,7 @@ export default {
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
     const s2 = skillRec(chess, S2), s3 = skillRec(chess, S3);
     const mr = num(b2.magic_resistance), resDur = num(b2.duration);
+    /** @param {Battle} battle @param {Unit} unit @param {Unit | null | undefined} e */
     const resCut = (battle, unit, e) => {
       if (e && e.alive && mr) battle.applyStrongest(e, 'amgoat:ignite', { duration: resDur, value: mr, mods: (v) => ({ resMul: Math.max(0, 1 + v) }), source: unit });
     };
@@ -156,6 +164,7 @@ export default {
             // (a scan of the enemies: the tile index of enemiesInKeys is the last tick's)
             const top = maxRule && battle.enemies.some((e) => isEliteEnemy(e) && canTargetEnemy(unit, e, unit.profile) && bodyInRange(e, unit.rangeKeySet));
             // floor of a uniform draw in [lo, hi); "取最大值" = |hi − factor| (amgoat_e_t_2)
+            /** @param {number} lo @param {number} hi */
             const draw = (lo, hi) => (hi > lo ? (top ? Math.abs(hi - factor) : Math.floor(battle.rng.range(lo, hi))) : 0);
             const sp = draw(spLo, spHi);
             if (sp > 0) giveSp(unit, sp);

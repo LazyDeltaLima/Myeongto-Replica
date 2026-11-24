@@ -67,6 +67,11 @@ import { num, talentBb, moduleBb, traitBb, skillRec, batMod, up } from '../share
 import { stepOf, STEP_PER_TICK } from '../shared/bounds.js';
 import { tacticalPoint } from '../shared/tier3.js';
 import { COLS, FORCED_EXIT } from '../../../constants.js';
+/** @import { KitFns, KitChess, KitSpec, Bb } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_closur_1';
 const S2 = 'skchr_closur_2';
@@ -84,17 +89,20 @@ export const S3_KEY = 'closur:s3';
 export const RHODES_KEY = 'talent:closur:rhodes';
 export const SLOWDOWN = 'slowdown';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {number} r @param {number} c */
 const tileKey = (r, c) => r * COLS + c;
-/** First talent of a normalised token def holding `key` (token talents keep no index). */
+/** First talent of a normalised token def holding `key` (token talents keep no index). @param {{ talents?: Array<{ bb?: Bb } | null> } | null | undefined} def @param {string} key */
 const tokTalent = (def, key) => (def?.talents ?? []).find((t) => t && t.bb && t.bb[key] != null) ?? null;
 
-/** 迟钝 v: move speed ×(1 − v), attack interval ×1 / (1 − v). */
+/** 迟钝 v: move speed ×(1 − v), attack interval ×1 / (1 − v). @param {number} v */
 const slowMods = (v) => ({ moveMul: Math.max(0, 1 - v), batPct: v < 0.99 ? v / (1 - v) : 99 });
 
 /**
  * One 迟钝 stack of `unit` on enemy `e` (S3): the stacks of one source add up (≤ maxStacks, ≤ cap) and share one timer
  * refreshed by each stack (cleared together when it runs out); the strongest source wins (applyStrongest).
+ * @param {Battle} battle @param {Unit} unit @param {Unit | null | undefined} e @param {{ step: number, maxStacks: number, cap: number, duration: number }} opts
  */
 export function slowdownStack(battle, unit, e, { step, maxStacks, cap, duration }) {
   if (!e || !e.alive || e.side !== 'enemy' || e.kind !== 'enemy' || !(step > 0) || !(duration > 0)) return;
@@ -108,10 +116,12 @@ export function slowdownStack(battle, unit, e, { step, maxStacks, cap, duration 
 /**
  * A skill's DP over time (the client's periodic_cost / closur_s_1[trigger_modify_cost]): `step` DP every `iv` s from
  * `first` s on, `total` in all; a skill that runs its full duration pays the rest at its end.
+ * @param {Unit} unit @param {{ total: number, step?: number, iv: number, first?: number }} opts
  */
 function dpTicker(unit, { total, step = 1, iv, first = iv }) {
   unit.mem.closurDp = { t: 0, next: first, given: 0, total, step, iv };
 }
+/** @param {Battle} battle @param {Unit} unit @param {number} dt */
 function dpTick(battle, unit, dt) {
   const d = unit.mem.closurDp;
   if (!d) return;
@@ -126,6 +136,7 @@ function dpTick(battle, unit, dt) {
     battle.addDp(unit.ownerId, step);
   }
 }
+/** @param {Battle} battle @param {Unit} unit @param {string} reason */
 function dpEnd(battle, unit, reason) {
   const d = unit.mem.closurDp;
   unit.mem.closurDp = null;
@@ -135,6 +146,7 @@ function dpEnd(battle, unit, reason) {
   if (d.given > 0) battle.fx('dp', { x: unit.x, y: unit.y, n: d.given, id: unit.id });
 }
 
+/** @type {KitFns} */
 export default {
   char_4228_closur: (bb, chess) => {
     const t1 = talentBb(chess, 1);
@@ -145,16 +157,18 @@ export default {
     const s1 = skillRec(chess, S1);
     const tokenId = (chess?.talents ?? []).find((t) => t && t.tokenKey)?.tokenKey ?? BASE;
 
-    /** Her 指挥中心 units (board pieces and summons). */
+    /** Her 指挥中心 units (board pieces and summons). @param {Battle} battle @param {Unit} unit */
     const basesOf = (battle, unit) => battle.allyUnits.filter((t) => t.kind === 'token' && t.defId === tokenId && t.ownerUnit === unit);
     /** Her 援军 now (cached per tick): her standing 指挥中心 and every operator / summon of its range (no 孤立 one). */
     // closur_ourbase[eff] ON_BUFF_TRIGGER (every 0.6 s) on her 指挥中心 while her S2 / S3 runs: closur_ourbase[eff_loop], whose audioSignal is the
     // range loop's start [추정·엔진: how that 0.6 s falls against her cast is not modelled, its longest wait is taken]
+    /** @param {Battle} battle @param {Unit} unit @param {SkillRuntime} skill @param {string} k */
     const rangeLoopSound = (battle, unit, skill, k) => battle.after(0.6, () => {
       if (!skill.active) return;
       const t = basesOf(battle, unit).find((b) => up(b));
       if (t) battle.fx('kitHit', { x: t.x, y: t.y, id: t.id, k });
     }, { owner: unit });
+    /** @param {Battle} battle @param {Unit} unit */
     const reinfOf = (battle, unit) => {
       const m = unit.mem;
       if (m.closurReinf && m.closurReinfT === battle.time) return m.closurReinf;
@@ -176,12 +190,13 @@ export default {
       m.closurReinfT = battle.time;
       return set;
     };
-    /** Tiles of the enemies her 援军 block (S2 / S3: "能攻击到自身援军阻挡的敌人"). */
+    /** Tiles of the enemies her 援军 block (S2 / S3: "能攻击到自身援军阻挡的敌人"). @param {Battle} battle @param {Unit} unit @param {Iterable<Unit>} reinf */
     const blockedTiles = (battle, unit, reinf) => {
       const keys = [];
       for (const r of reinf) for (const e of r.blocking) if (e.alive && e.blockedBy === r) keys.push(tileKey(Math.round(e.y), Math.round(e.x)));
       return keys;
     };
+    /** @param {Battle} battle @param {Unit} unit @param {Iterable<number>} keys */
     const setExtra = (battle, unit, keys) => {
       const cur = unit.extraRangeKeys ?? [];
       const uniq = [...new Set(keys)].sort((a, b) => a - b);
@@ -189,12 +204,12 @@ export default {
       battle.setExtraRange(unit, uniq.length ? uniq : null);
     };
 
-    /** The 指挥中心's kit: no attack, 禁疗, the range of her skill, its 战术点形态. `def` = its def for her loadout. */
+    /** The 指挥中心's kit: no attack, 禁疗, the range of her skill, its 战术点形态. `def` = its def for her loadout. @param {Unit} owner @param {Record<string, any> | null} def @returns {KitSpec} */
     const baseKit = (owner, def) => {
       const grid = def?.skill?.rangeGrid ?? def?.rangeGrid ?? [[0, 0]];
       const refresh = num(tokTalent(def, 'interval')?.bb?.interval, REFRESH_FALLBACK);
       return {
-        skill: { kind: 'passive', targeting: { rangeGrid: grid.map((p) => [p[0], p[1]]) } },
+        skill: { kind: 'passive', targeting: { rangeGrid: grid.map((/** @type {number[]} */ p) => [p[0], p[1]]) } },
         trait: { noAttack: true },
         talents: [],
         install(battle, t) {
@@ -401,7 +416,7 @@ export default {
           const give = () => {
             for (const a of battle.allyUnits) {
               if (a.kind !== 'op' || a.ownerId !== unit.ownerId || (a.def?.raw?.nationId ?? a.def?.nationId) !== 'rhodes') continue;
-              const cur = a.findBuff(RHODES_KEY);
+              const cur = /** @type {BuffRec | null} */ (a.findBuff(RHODES_KEY));
               if (cur && num(cur.data?.v) >= atk) continue;
               battle.addBuff(a, { key: RHODES_KEY, mods: { atkPct: atk }, persist: true, allowDead: true, data: { v: atk }, source: unit, tags: ['talent'] });
             }

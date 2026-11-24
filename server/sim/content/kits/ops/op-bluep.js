@@ -12,13 +12,16 @@
 // - MAR-Y: attack_speed while a ground enemy stands in her range (the module's talent, 10; PRTS module text).
 
 import { num, talentBb, moduleBb, skillRec, up, toggleBuff } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
 
 const S1 = 'skchr_bluep_1';
 const S2 = 'skchr_bluep_2';
 const POISON = 'bluep_t_1';
 const GROUND = Object.freeze({ canHitFly: false });
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_129_bluep: (bb, chess) => {
     const t0 = talentBb(chess, 0), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);

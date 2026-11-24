@@ -14,14 +14,18 @@
 import { num, talentBb, traitBb, skillRec } from '../shared/tier1.js';
 import { hasPower } from '../shared/powers.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skcom_atk_up[3]';
 const S2 = 'skchr_cuttle_2';
 /** Skill2_Begin's length (data/assets.json `animations`): the engine waits it out before S2 starts (data `cast.begin`, skills.js beginTime). */
 export const S2_BEGIN = 0.667;
 const MIN_HP = 0.5;
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_218_cuttle: (bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
@@ -33,7 +37,7 @@ export default {
           kind: 'duration',
           mods: { atkPct: num(b2.atk) },
           attack: {
-            skipEnemy: (e) => e.hpRatio < MIN_HP - 1e-9,
+            skipEnemy: (/** @type {Unit} */ e) => e.hpRatio < MIN_HP - 1e-9,
             onEachHit({ battle, unit, target }) {
               if (target?.alive && slowFor > 0) battle.addBuff(target, { key: 'cuttle_s_2[debuff]', source: unit, duration: slowFor, mods: { moveMul: slow }, visible: true, tags: ['skill'] });
             },

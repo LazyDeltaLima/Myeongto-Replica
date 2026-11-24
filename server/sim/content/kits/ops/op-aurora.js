@@ -12,6 +12,8 @@
 //   Her attack on a FROZEN target has ATK × atk_scale (freezeattack2), on any other target it gives c2e_cold for attack@cold s (freezeattack).
 
 import { num, talentBb, traitBb, skillRec, up, toggleBuff } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skchr_aurora_1';
 const S2 = 'skchr_aurora_2';
@@ -21,9 +23,12 @@ export const S2_BULLETS = 9;
 /** Skill_Begin, Skill_2_Begin (data/assets.json `animations`): `BasicSkill.PlayBeginAnimation` waits them out before the skill starts, no attack meanwhile (data `cast.begin`, skills.js beginTime). */
 export const S1_BEGIN = 0.5;
 export const S2_BEGIN = 0.667;
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit | null | undefined} e */
 const frozen = (e) => !!e?.s?.flags?.freeze;
 
+/** @type {KitFns} */
 export default {
   char_422_aurora: (bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);

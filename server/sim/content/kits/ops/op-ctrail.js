@@ -17,6 +17,8 @@
 
 import { num, talentBb, skillRec, toggleBuff } from '../shared/tier1.js';
 import { holdTakeOff, landAfter } from '../shared/liftoff.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { SkillCtx } from '../../../skills.js' */
 
 const S1 = 'skchr_ctrail_1';
 const S2 = 'skchr_ctrail_2';
@@ -24,8 +26,10 @@ const S2 = 'skchr_ctrail_2';
 export const FLY_CLIP = 1;
 const FLY_KEY = 'ctrail_tr[fly]';
 const LAND_KEY = 'ctrail:landing';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @param {SkillCtx} ctx */
 function takeOff({ battle, unit, reason }) {
   // (a deployment's cast comes before Battle sets `bornUntil`)
   const wait = reason === 'deploy' ? battle.flags.bornTime : Math.max(0, (unit.bornUntil ?? -Infinity) - battle.time);
@@ -34,10 +38,12 @@ function takeOff({ battle, unit, reason }) {
     battle.fx('takeoff', { x: unit.x, y: unit.y, id: unit.id });
   } });
 }
+/** @param {SkillCtx} ctx */
 function land({ battle, unit, reason }) {
   landAfter(battle, unit, FLY_CLIP, { key: LAND_KEY, air: FLY_KEY, reason, onLanded: () => battle.releaseBlocked(unit) });   // the flyers she held
 }
 
+/** @type {KitFns} */
 export default {
   char_4165_ctrail: (bb, chess) => {
     const t0 = talentBb(chess, 0), r1 = skillRec(chess, S1), r2 = skillRec(chess, S2), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);

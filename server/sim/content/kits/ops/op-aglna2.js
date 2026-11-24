@@ -70,6 +70,11 @@ import { RESIST_STATUSES } from '../../../buffs.js';
 import { TICK, COLS } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
 import { holdTakeOff, landAfter } from '../shared/liftoff.js';
+/** @import { KitFns, KitChess, KitSpec, DmgRec } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { Dir } from '../../../dir.js' */
 
 const S1 = 'skchr_aglna2_1';
 const S2 = 'skchr_aglna2_2';
@@ -103,10 +108,14 @@ const CHANT_KEY = 'aglna2:chant';
 const MOVE_KEY = 'aglna2:move';
 const TAG_EXTRA = 'aglna2:extra';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit} unit @param {string} id */
 const skillOn = (unit, id) => !!(unit.skill && unit.skill.active && unit.skill.id === id);
+/** @param {number} r @param {number} c */
 const keyOf = (r, c) => `${r},${c}`;
 
+/** @param {Battle} battle @param {Unit} unit @param {number[][] | null} [cells] */
 function takeOff(battle, unit, cells = null) {
   battle.releaseBlocked(unit);   // 起飞 "不阻挡地面敌人": the ground enemies she held walk on
   battle.fx('takeoff', { x: unit.x, y: unit.y, id: unit.id, ...(cells ? { cells } : null) });
@@ -117,8 +126,10 @@ function takeOff(battle, unit, cells = null) {
  * ability's attach to its detach, the block toggle itself only switching its [blocked] / [unblocked] buffs (official
  * client). Her range tiles [x, y] ride on S3's 'takeoff' and on each landing ('aglnaFlight' off), events she sends anyway
  * (render/fx/kitofficial.js 'takeoff' / 'aglnaFlight'; the render ends the line with the skill).
+ * @param {Unit} unit
  */
 const edgeCells = (unit) => (unit.rangeKeys ?? []).map((k) => [k % COLS, Math.floor(k / COLS)]);
+/** @param {Battle} battle @param {Unit} unit */
 function land(battle, unit) { battle.releaseBlocked(unit); }   // the flyers she held
 /**
  * Skill_1_End, Skill_2_End, Skill_3_End, Skill_3_Begin and Start_2 are all this long (data/assets.json `animations`; test/content/op_aglna2.test.js):
@@ -127,10 +138,10 @@ function land(battle, unit) { battle.releaseBlocked(unit); }   // the flyers she
  */
 export const FLY_CLIP = 1;
 const LAND_KEY = 'aglna2:landing';
-/** The landing clip after a skill's end `reason` (shared/liftoff.js). */
+/** The landing clip after a skill's end `reason` (shared/liftoff.js). @param {Battle} battle @param {Unit} unit @param {string} reason */
 function landClip(battle, unit, reason) { landAfter(battle, unit, FLY_CLIP, { key: LAND_KEY, reason, onLanded: () => land(battle, unit) }); }
 
-/** “一会儿见！”'s kit: 无敌, 孤立, not selectable by enemies, blocks nothing, no attack, no skill. */
+/** “一会儿见！”'s kit: 无敌, 孤立, not selectable by enemies, blocks nothing, no attack, no skill. @returns {KitSpec} */
 function markerKit() {
   return {
     skill: null,
@@ -143,6 +154,7 @@ function markerKit() {
 
 /** How far S2's sweep goes: along the tiles a flyer can cross, at most GLIDE_DIST ahead (not her own), to the centre of
  *  the last one (PRTS 备注; projectile_chr_aglna2_s2_fly reach component `_distanceMax` 4, `_ignoreInitialTile`). */
+/** @param {Battle} battle @param {Unit} unit */
 function glideDist(battle, unit) {
   const [fr, fc] = unit.fwd;
   let n = 0;
@@ -150,7 +162,7 @@ function glideDist(battle, unit) {
   return n;
 }
 
-/** S2's sweep from (x0, y0) along `fwd`: each selectable enemy once — an air unit 缚地 `gb` s, any other 浮空 `lev` s. */
+/** S2's sweep from (x0, y0) along `fwd`: each selectable enemy once — an air unit 缚地 `gb` s, any other 浮空 `lev` s. @param {Battle} battle @param {Unit} unit @param {number} lev @param {number} gb @param {number} [chant] */
 function glide(battle, unit, lev, gb, chant = 0) {
   const [fr, fc] = unit.fwd;
   const x0 = unit.x, y0 = unit.y, t0 = battle.time;
@@ -177,6 +189,14 @@ function glide(battle, unit, lev, gb, chant = 0) {
   battle.every(TICK, (b, sched) => { if (sweep()) sched.cancel(); });
 }
 
+/**
+ * S3's state for one activation (her deployment tile and direction, the activation, the marker) and a flight under way
+ * (out to a flyer's tile or back home: its tile, speed, whether home, the next check, its heading).
+ * @typedef {{ r0: number, c0: number, dir0: Dir, act: number, marker: Unit | null }} Aglna2St
+ * @typedef {{ r: number, c: number, speed: number, home: boolean, next: number, vx: number, vy: number }} Aglna2Flight
+ */
+
+/** @type {KitFns} */
 export default {
   char_1015_aglna2: (bb, chess) => {
     const t0 = talentBb(chess, 0);   // atk_scale_lo / atk_scale_hi / mass_level
@@ -193,17 +213,20 @@ export default {
     /** @type {{ rangeGrid: ReadonlyArray<ReadonlyArray<number>>, maxTargets: number }} */
     const s3Targeting = { rangeGrid: g39x4, maxTargets: maxT3 };
     // S3's per-activation state: her deployment tile / direction, the marker
+    /** @type {Aglna2St | null} */
     let st = null;
     // the flight under way — out to a flyer's tile (S3) or back home (after it): { r, c, speed, home, next }
+    /** @type {Aglna2Flight | null} */
     let flight = null;
 
-    /** The original 3-9 of her deployment tile (S3 "原技能范围"), grown by her permanent rangeExtend. */
-    const keys39 = (unit) => absoluteRangeKeys(g39, st.r0, st.c0, st.dir0, unit.s.baseRangeExtend || 0);
+    /** The original 3-9 of her deployment tile (S3 "原技能范围"), grown by her permanent rangeExtend. @param {Unit} unit */
+    const keys39 = (unit) => absoluteRangeKeys(g39, /** @type {Aglna2St} */ (st).r0, /** @type {Aglna2St} */ (st).c0, /** @type {Aglna2St} */ (st).dir0, unit.s.baseRangeExtend || 0);
+    /** @param {Unit} unit */
     const atHome = (unit) => !!st && unit.tileR === st.r0 && unit.tileC === st.c0;
-    /** May she (blocking nothing) block flyer `e` once there: unblocked, no 无法被阻挡 state, room for its weight. */
+    /** May she (blocking nothing) block flyer `e` once there: unblocked, no 无法被阻挡 state, room for its weight. @param {Unit} unit @param {Unit} e */
     const blockable = (unit, e) => !e.blockedBy && !e.s.flags.unblockable && !e.s.flags.levitate && !e.s.flags.fear && !e.s.flags.attract
       && (e.blockWeight ?? 1) <= unit.s.blockCnt;
-    /** A tile her S3 may take: on the field, not impassable, no start / end tile, not hers, empty or her marker's. */
+    /** A tile her S3 may take: on the field, not impassable, no start / end tile, not hers, empty or her marker's. @param {Battle} battle @param {Unit} unit @param {number} r @param {number} c */
     function tileOk(battle, unit, r, c) {
       if (!battle.grid.inRect(r, c) || (r === unit.tileR && c === unit.tileC)) return false;
       const tile = battle.grid.tile(r, c);
@@ -212,7 +235,7 @@ export default {
       const occ = battle.unitAt(r, c);
       return !occ || !occ.alive || (!!st && occ === st.marker);
     }
-    /** The flyer (and its tile) her S3 should fly to now, or null. */
+    /** The flyer (and its tile) her S3 should fly to now, or null. @param {Battle} battle @param {Unit} unit */
     function moveTarget(battle, unit) {
       const cands = battle.enemiesInKeys(keys39(unit), unit, ANY).filter((e) => e.isFlying && blockable(unit, e));
       sortEnemyTargets(battle, unit, cands, null);
@@ -222,18 +245,20 @@ export default {
       }
       return null;
     }
+    /** @param {Battle} battle @param {Unit} unit */
     function placeMarker(battle, unit) {
       if (!st || (st.marker && st.marker.alive)) return;
       st.marker = battle.spawnToken(unit, MARKER, st.r0, st.c0, { kit: markerKit() });
       // its look is its effect alone (render/fxgame.js 'summon' → token_aglna2_agairp_01; spawnToken itself announces nothing)
       if (st.marker) battle.fx('summon', { x: st.marker.x, y: st.marker.y, id: st.marker.id, token: MARKER });
     }
+    /** @param {Battle} battle */
     function dropMarker(battle) {
       const m = st && st.marker;
       if (m && m.alive) battle.retreat(m, { reason: 'expired', permanent: true });
       if (st) st.marker = null;
     }
-    /** Her S3 range for where she stands: the 3-9 ∪ x-4 at home; away, the x-4 here + the anchored 3-9 (extra keys). */
+    /** Her S3 range for where she stands: the 3-9 ∪ x-4 at home; away, the x-4 here + the anchored 3-9 (extra keys). @param {Battle} battle @param {Unit} unit */
     function anchorRange(battle, unit) {
       if (!st || atHome(unit)) {
         s3Targeting.rangeGrid = g39x4;
@@ -243,16 +268,16 @@ export default {
         battle.setExtraRange(unit, keys39(unit), { show: true });   // (the detail card shows it too)
       }
     }
-    /** A 【移动】 of S3 onto (r, c) where her flight ended (no drop-in: she lands there); the marker follows the 备注. */
+    /** A 【移动】 of S3 onto (r, c) where her flight ended (no drop-in: she lands there); the marker follows the 备注. @param {Battle} battle @param {Unit} unit @param {number} r @param {number} c */
     function moveTo(battle, unit, r, c) {
-      const home = r === st.r0 && c === st.c0;
+      const home = r === /** @type {Aglna2St} */ (st).r0 && c === /** @type {Aglna2St} */ (st).c0;
       if (home) dropMarker(battle);
       if (!battle.moveRedeploy(unit, r, c, { inPlace: true })) return false;
       if (!home) placeMarker(battle, unit);
       anchorRange(battle, unit);
       return true;
     }
-    /** Her body takes off along the flight (the client carries her on projectile_chr_aglna2_s3_fly: `_faceToMoveDirection`). */
+    /** Her body takes off along the flight (the client carries her on projectile_chr_aglna2_s3_fly: `_faceToMoveDirection`). @param {Battle} battle @param {Unit} unit @param {number} r @param {number} c @param {boolean} home */
     function fly(battle, unit, r, c, home) {
       battle.releaseBlocked(unit);
       if (!unit.findBuff(MOVE_KEY)) battle.addBuff(unit, { key: MOVE_KEY, flags: FLIGHT_FLAGS, tags: ['skill'] });
@@ -262,6 +287,7 @@ export default {
       // (`signal`: the way home opens on Skill_3_Restart_Begin — CN client, [ASSUMED] the Comback flight's start clip)
       if (!was) battle.fx('aglnaFlight', { x: unit.x, y: unit.y, id: unit.id, on: 1, tx: c, ty: r, ...(home ? { signal: 'comeback' } : null) });
     }
+    /** @param {Battle} battle @param {Unit} unit */
     function stopFlight(battle, unit) {
       flight = null;
       battle.removeBuff(unit, MOVE_KEY);
@@ -269,13 +295,13 @@ export default {
       const cells = skillOn(unit, S3) && unit.alive && unit.deployed ? edgeCells(unit) : null;
       battle.fx('aglnaFlight', { x: unit.x, y: unit.y, id: unit.id, on: 0, dir: unit.dir, ...(cells ? { cells } : null) });
     }
-    /** The deployment direction after a move (备注 "改变部署方向为与最近一次移动方向接近一致，不影响攻击范围"). */
+    /** The deployment direction after a move (备注 "改变部署方向为与最近一次移动方向接近一致，不影响攻击范围"). @param {Aglna2Flight} f */
     const travelDir = (f) => (Math.abs(f.vy) > Math.abs(f.vx) ? (f.vy > 0 ? 'UP' : 'DOWN') : (f.vx < 0 ? 'LEFT' : 'RIGHT'));
-    /** Back onto her tile without a 【移动】 (a flight that found nowhere to land, a knock-out, a withdrawal). */
+    /** Back onto her tile without a 【移动】 (a flight that found nowhere to land, a knock-out, a withdrawal). @param {Unit} unit */
     function snapBack(unit) { unit.x = unit.tileC; unit.y = unit.tileR; }
-    /** The flight reached (flight.r, flight.c). */
+    /** The flight reached (flight.r, flight.c). @param {Battle} battle @param {Unit} unit */
     function arrive(battle, unit) {
-      const f = flight;
+      const f = /** @type {Aglna2Flight} */ (flight);
       if (f.home) {
         if (f.r !== unit.tileR || f.c !== unit.tileC) {
           dropMarker(battle);
@@ -292,7 +318,7 @@ export default {
       if (f.r === unit.tileR && f.c === unit.tileC) { stopFlight(battle, unit); return; }   // turned back to her own tile
       if (tileOk(battle, unit, f.r, f.c)) {
         const dir0 = unit.dir;
-        unit.dir = f.r === st.r0 && f.c === st.c0 ? st.dir0 : travelDir(f);
+        unit.dir = f.r === /** @type {Aglna2St} */ (st).r0 && f.c === /** @type {Aglna2St} */ (st).c0 ? /** @type {Aglna2St} */ (st).dir0 : travelDir(f);
         if (!moveTo(battle, unit, f.r, f.c)) { unit.dir = dir0; snapBack(unit); }
         stopFlight(battle, unit);
         return;
@@ -302,7 +328,7 @@ export default {
       const now = moveTarget(battle, unit);
       if (now) { f.r = now.r; f.c = now.c; } else { f.r = unit.tileR; f.c = unit.tileC; }
     }
-    /** One tick of the flight: the tile re-selected every MOVE_CHECK s (out only), her body moved toward it. */
+    /** One tick of the flight: the tile re-selected every MOVE_CHECK s (out only), her body moved toward it. @param {Battle} battle @param {Unit} unit */
     function stepFlight(battle, unit) {
       const f = flight;
       if (!f) return;
@@ -372,7 +398,7 @@ export default {
             const away = !!st && (!atHome(unit) || !!flight);
             if (reason !== 'death' && away && unit.alive && unit.deployed) {
               land(battle, unit);
-              fly(battle, unit, st.r0, st.c0, true);
+              fly(battle, unit, /** @type {Aglna2St} */ (st).r0, /** @type {Aglna2St} */ (st).c0, true);
               return;
             }
             if (flight) { stopFlight(battle, unit); snapBack(unit); }
@@ -390,6 +416,7 @@ export default {
           // this talent's own — 'addition' / 'item') and IS_CONTINUOUS ('dot'), and its own damage is AdvancedApplyDamage
           // attackType ADDITION, so no other ON_OUTPUT rider (奥术, 卡西米尔, 叙拉古, 伊比利亚骨刺刀 …) answers it. Both
           // halves keep a rider and this talent from re-triggering each other (docs/rules/diy.md 「안젤리나 더 멜로우 위시」)
+          /** @param {Unit | null | undefined} target @param {DmgRec | null | undefined} dmg */
           const extra = (target, dmg) => {
             if (!up(unit) || !target || target.side !== 'enemy' || !target.alive || !hasHp(target) || !dmg) return;
             if (dmg.type === 'element' || dmg.type === 'elemental') return;
@@ -405,8 +432,8 @@ export default {
             const on = up(unit) && !!unit.s.flags.liftoff;
             const inRange = on ? new Set(battle.enemiesInKeys(unit.rangeKeys, unit, ANY)) : null;
             for (const e of battle.enemies) {
-              const mine = e.findBuff(myKey);
-              const want = on && e.alive && inRange.has(e) && !e.buffs.some((b) => b.status === 'weightless' && b.key !== myKey);
+              const mine = /** @type {BuffRec | null} */ (e.findBuff(myKey));
+              const want = on && e.alive && /** @type {Set<Unit>} */ (inRange).has(e) && !/** @type {BuffRec[]} */ (e.buffs).some((b) => b.status === 'weightless' && b.key !== myKey);
               if (want && !mine) battle.addBuff(e, { key: myKey, status: 'weightless', visible: true, mods: { massFlat: -1 }, source: unit });
               else if (!want && mine) battle.removeBuff(e, mine);
             }
@@ -476,7 +503,7 @@ export default {
         battle.every(MOVE_CHECK, () => {
           if (!st || !skillOn(unit, S3) || !up(unit) || flight || !unit.canAct || unit.blocking.length) return;
           if (unit.swing || unit.atkCd > (1 - MOVE_ATTACK_PROGRESS) * unit.s.interval + 1e-9) return;   // her attack first
-          if (unit.skillStateUntil > battle.time + 1e-9) return;   // (the take-off mode S3_TakeOff first: the move is the S3 mode's)
+          if (/** @type {number} */ (unit.skillStateUntil) > battle.time + 1e-9) return;   // (the take-off mode S3_TakeOff first: the move is the S3 mode's)
           const tgt = moveTarget(battle, unit);
           if (tgt) fly(battle, unit, tgt.r, tgt.c, false);
         }, { owner: unit });

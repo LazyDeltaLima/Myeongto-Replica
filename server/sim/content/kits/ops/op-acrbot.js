@@ -22,12 +22,15 @@
 //   on a range of 2–3 tiles]
 
 import { num, talentBb, traitBb, skillRec, statBuff, batMod } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
 
 const S1 = 'skchr_acrbot_1';
 /** acrbot[sk1]'s abnormalImmunes as this engine's statuses. */
 const S1_IMMUNE = Object.freeze(new Set(['stun', 'freeze', 'silence', 'levitate', 'sleep']));
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_618_acrbot: (_bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1), tb = traitBb(chess), b1 = bbOf(chess, S1);

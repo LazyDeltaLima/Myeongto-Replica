@@ -72,6 +72,12 @@ import { stepOf, STEP_PER_TICK } from '../shared/bounds.js';
 import { isElite } from '../shared/tier6.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
 import { resolveHit } from '../../../ai.js';
+/** @import { KitFns, KitChess, KitSpec } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillCtx, SkillRuntime } from '../../../skills.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { Hook } from '../../../battle/hooks.js' */
 
 const S1 = 'skchr_demetr_1';
 const S2 = 'skchr_demetr_2';
@@ -87,8 +93,15 @@ const X2 = Object.freeze([[2, -1], [2, 0], [2, 1], [1, -2], [1, -1], [1, 0], [1,
  * the sim's castTiming). RETURN_GUARD: the clip (0.2 s) when the skill carries no clip timing.
  */
 export const RETURN_GUARD = 0.2;
+/**
+ * S3's state for one cast (`unit.mem.demetrS3`): his located tile, 牵绊 there, the next timer move, the cast's activation,
+ * the elite he last hit and when, a retarget asked, 不死 (the return under way), the move due at the end of its clip.
+ * @typedef {{ home: [number, number], bond: Unit | null, next: number, act: number, lastHit: Unit | null, lastHitAt: number,
+ *   retarget: boolean, undead: boolean, flyAt?: number }} DemetrS3
+ */
+/** @param {Unit} unit @param {SkillRuntime | null | undefined} skill */
 const respawnEndTime = (unit, skill) => {
-  const clip = skill?.cast?.dur > 0 ? skill.cast.dur : RETURN_GUARD;   // FlyToTarget's clip: the same Skill_3_ReStart_Begin
+  const clip = skill?.cast?.dur > 0 ? /** @type {SkillRuntime} */ (skill).cast.dur : RETURN_GUARD;   // FlyToTarget's clip: the same Skill_3_ReStart_Begin
   const iv = unit.s?.interval;
   return iv > 0 ? Math.min(iv, clip) : clip;
 };
@@ -108,15 +121,18 @@ const SECOND_STRIKE = 0.2;
  * (`meansKeyOf`); its 停顿 at the S2 cap; the 【手段】 refresh tick (PRTS 备注 "每0.1秒自然更新一次").
  */
 export const MEANS_KEY = 'talent:demetr:means';
+/** @param {Unit} src */
 export const meansKeyOf = (src) => `talent:demetr:means@${src.id}`;
+/** @param {BuffRec} b */
 const isOwnMeans = (b) => b.key.startsWith('talent:demetr:means@');
 export const MEANS_SLUG_KEY = 'talent:demetr:means:sluggish';
 const MEANS_TICK = 0.1;
 export const STREET_KEY = 'talent:demetr:street';
 export const UNDEAD_KEY = 'skill:demetr:undeadable';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** S1's onHit: the attack's profile without this callback strikes `target` again SECOND_STRIKE s later, the same attackId. */
+/** S1's onHit: the attack's profile without this callback strikes `target` again SECOND_STRIKE s later, the same attackId. @param {SkillCtx} ctx */
 function secondStrike({ battle, unit, target }) {
   if (!target) return;
   const prof = { ...battle.effectiveProfile(unit), skillOnHit: null };
@@ -126,10 +142,12 @@ function secondStrike({ battle, unit, target }) {
     resolveHit(b, unit, prof, target, { isSkill: true, index: 0, attackId }, target.x, target.y);
   }, { owner: unit });
 }
+/** @param {Unit | null | undefined} u */
 const s2On = (u) => !!(u && u.skill && u.skill.active && u.skill.id === S2);
+/** @param {Unit | null | undefined} u */
 const s3On = (u) => !!(u && u.skill && u.skill.active && u.skill.id === S3);
 
-/** 牵绊's kit (a fresh one per summon): no attack, 无敌 and 孤立 (spawnToken adds untargetable). */
+/** 牵绊's kit (a fresh one per summon): no attack, 无敌 and 孤立 (spawnToken adds untargetable). @returns {KitSpec} */
 export function bondKit() {
   return {
     skill: null,
@@ -140,20 +158,21 @@ export function bondKit() {
   };
 }
 
-/** Put / refresh `unit`'s 【手段】 on `e` (the stack rule of demetr_t1[def_dec]: his own stacks, his S2 cap while it runs). */
+/** Put / refresh `unit`'s 【手段】 on `e` (the stack rule of demetr_t1[def_dec]: his own stacks, his S2 cap while it runs). @param {Battle} battle @param {Unit} unit @param {Unit} e @param {{ pct: number, cap5: number, cap8: number, dur: number }} p */
 function applyMeans(battle, unit, e, p) {
-  const old = e.findBuff(meansKeyOf(unit))?.data?.stacks ?? 0;
+  const old = /** @type {BuffRec | null} */ (e.findBuff(meansKeyOf(unit)))?.data?.stacks ?? 0;
   const cap = s2On(unit) ? p.cap8 : p.cap5;
   setMeans(battle, e, unit, { stacks: old < cap ? old + 1 : old, pct: p.pct, cap5: p.cap5, cap8: p.cap8 }, p.dur);
 }
+/** @param {Battle} battle @param {Unit} e @param {Unit} src @param {{ stacks: number, pct: number, cap5: number, cap8: number }} data @param {number} dur */
 function setMeans(battle, e, src, data, dur) {
   battle.addBuff(e, { key: meansKeyOf(src), duration: dur, refresh: 'replace', source: src, data: { ...data, src }, tags: ['talent'], onExpire: ({ battle: b, unit: t }) => syncMeans(b, t) });
   syncMeans(battle, e);
 }
-/** demetr_t1[def_dec_core] on `e`: the strongest DEF reduction of the 贝洛内 holding 【手段】 there acts; 停顿 while one is at his S2 cap. */
+/** demetr_t1[def_dec_core] on `e`: the strongest DEF reduction of the 贝洛内 holding 【手段】 there acts; 停顿 while one is at his S2 cap. @param {Battle} battle @param {Unit} e */
 function syncMeans(battle, e) {
   let best = null, slug = null;
-  for (const b of e.buffs) {
+  for (const b of /** @type {BuffRec[]} */ (e.buffs)) {
     if (!isOwnMeans(b)) continue;
     const d = b.data;
     if (!best || d.pct * d.stacks > best.data.pct * best.data.stacks + 1e-12) best = b;
@@ -166,12 +185,12 @@ function syncMeans(battle, e) {
   if (slug) battle.addBuff(e, { key: MEANS_SLUG_KEY, duration: slug.timeLeft, refresh: 'replace', source: slug.data.src, status: 'sluggish', mods: { moveMul: 0.2 }, visible: true, tags: ['talent'] });
   else battle.removeBuff(e, MEANS_SLUG_KEY);
 }
-/** The 0.1 s update of every 【手段】 (battle-wide, once): above the normal cap without its 贝洛内 in S2 ⇒ back to it. */
+/** The 0.1 s update of every 【手段】 (battle-wide, once): above the normal cap without its 贝洛内 in S2 ⇒ back to it. @param {Battle} battle */
 function installMeansTick(battle) {
   once(battle, 'demetr:means', () => battle.every(MEANS_TICK, () => {
     for (const e of battle.enemies) {
       if (!e.alive) continue;
-      for (const b of e.buffs.filter(isOwnMeans)) {
+      for (const b of /** @type {BuffRec[]} */ (e.buffs).filter(isOwnMeans)) {
         const d = b.data;
         if (!(d.stacks > d.cap5)) continue;
         if (d.src && d.src.alive && d.src.deployed && s2On(d.src)) continue;
@@ -181,6 +200,7 @@ function installMeansTick(battle) {
   }));
 }
 
+/** @type {KitFns} */
 export default {
   char_4037_demetr: (bb, chess) => {
     const tb = traitBb(chess);       // FGT-Y: attack_speed / hp_ratio
@@ -200,7 +220,7 @@ export default {
     const listen = num(b3['attack@finish_listener_duration'], 3);
     const prob = num(b3['attack@demetr_s3[bonus].prob']), probScale = num(b3['attack@demetr_s3[bonus].prob_atk_scale'], 1);
 
-    /** A tile he may 【移动】 onto (FlyToTarget selector options, PRTS 备注). */
+    /** A tile he may 【移动】 onto (FlyToTarget selector options, PRTS 备注). @param {Battle} battle @param {Unit} unit @param {DemetrS3} st @param {number} r @param {number} c */
     const tileOk = (battle, unit, st, r, c) => {
       if (!battle.grid.inRect(r, c) || !battle.grid.canStand(r, c) || !battle.grid.isLow(r, c) || battle.downOn(r, c)) return false;
       if (r === unit.tileR && c === unit.tileC) return true;
@@ -208,7 +228,7 @@ export default {
       if (occ) return occ === st.bond;
       return !battle.isReservedTile(r, c, null, unit);
     };
-    /** The first ground enemy of the x-2 around his located tile standing on a tile he may take. */
+    /** The first ground enemy of the x-2 around his located tile standing on a tile he may take. @param {Battle} battle @param {Unit} unit @param {DemetrS3} st */
     const pickTarget = (battle, unit, st) => {
       const keys = absoluteRangeKeys(area, st.home[0], st.home[1], unit.dir, 0);
       const list = battle.enemiesInKeys(keys, unit, { canHitFly: false, groundOnly: true })
@@ -216,6 +236,7 @@ export default {
       sortEnemyTargets(battle, unit, list, unit.profile?.priority ?? null);
       return list[0] ?? null;
     };
+    /** @param {Battle} battle @param {DemetrS3} st */
     const retreatBond = (battle, st) => {
       if (st.bond && st.bond.alive) battle.retreat(st.bond, { reason: 'expired', permanent: true });
       st.bond = null;
@@ -224,6 +245,7 @@ export default {
      * One 【移动】 of S3 onto (r, c): 牵绊 retreated first when it is his located tile, left there when he leaves it.
      * `second`: a FlyToTargetSecond move (the timer, a fallen elite) — its ability START sounds, FlyToTarget's has no bank
      * (fx `second`, public/js/audio.js).
+     * @param {Battle} battle @param {Unit} unit @param {DemetrS3} st @param {number} r @param {number} c @param {boolean} [second]
      */
     const moveTo = (battle, unit, st, r, c, second = false) => {
       const [hr, hc] = st.home;
@@ -240,6 +262,7 @@ export default {
     /**
      * FlyToTarget(Second): move onto the next target's tile; false without one (or when he cannot act). FlyToTarget at the
      * skill's start (demetr_s3[switch_mode]), FlyToTargetSecond after (`second`: demetr_s3[target_timer], the listeners).
+     * @param {Battle} battle @param {Unit} unit @param {DemetrS3} st @param {boolean} [second]
      */
     const flyTo = (battle, unit, st, second = true) => {
       if (!up(unit) || !unit.canAct || st.undead) return false;
@@ -248,7 +271,7 @@ export default {
       st.next = battle.time + idle;
       return true;
     };
-    /** FlyToTargetSecond is cast when there is a target: true then, the move comes at the end of its clip. */
+    /** FlyToTargetSecond is cast when there is a target: true then, the move comes at the end of its clip. @param {Battle} battle @param {Unit} unit @param {DemetrS3} st @param {SkillRuntime} skill */
     const startFly = (battle, unit, st, skill) => {
       if (!up(unit) || !unit.canAct || st.undead || !pickTarget(battle, unit, st)) return false;
       st.flyAt = battle.time + skill.castTiming().action;
@@ -276,6 +299,7 @@ export default {
           // FlyToTarget picks its target and moves him as its wait for an OnAttack runs out, at the end of Skill_3_ReStart_Begin (no OnAttack; `_selectTargetTiming` 1)
           mods: { atkPct: num(b3['attack@demetr_s3[bonus].atk']), aspd: num(b3['attack@demetr_s3[bonus].attack_speed']) },
           onStart({ battle, unit, skill }) {
+            /** @type {DemetrS3} */
             const st = { home: [unit.tileR, unit.tileC], bond: null, next: battle.time + idle, act: skill.activations, lastHit: null, lastHitAt: -Infinity, retarget: false, undead: false };
             unit.mem.demetrS3 = st;
           },
@@ -336,7 +360,7 @@ export default {
             // located tile (in place when he stands on it) — a 【移动】 that empties the SP (demetr_s3[restore]); the move
             // failing ⇒ InstantKill (a taken tile: unreachable while 牵绊 or he holds it — retreated as above)
             battle.after(guard, () => {
-              battle.off(immune);
+              battle.off(/** @type {Hook} */ (immune));
               battle.removeBuff(unit, RETURN_GUARD_KEY);
               retreatBond(battle, st);
               if (!unit.alive || !unit.deployed) return;
@@ -365,6 +389,7 @@ export default {
         { install(battle, unit) { // 街头直觉
           const init = num(t1.init_prob), dec = num(t1.dec_prob), cnt = Math.max(0, Math.floor(num(t1.trig_cnt)));
           if (!(init > 0)) return;
+          /** @param {number} p */
           const set = (p) => battle.addBuff(unit, { key: STREET_KEY, mods: { dodgePhys: p, dodgeArts: p }, data: { p }, tags: ['talent'] });
           battle.on('deploy', (ctx) => {
             if (ctx.unit !== unit) return;
@@ -420,7 +445,7 @@ export default {
             battle.addBuff(unit, { key: UNDEAD_KEY, flags: { untargetable: true, noBlock: true, healFree: true }, tags: ['skill'], visible: true });
             battle.fx('undying', { x: unit.x, y: unit.y, id: unit.id });
             const act = st.act;
-            battle.after(0, () => { if (unit.mem.demetrS3 === st && s3On(unit) && unit.skill.activations === act) unit.skill.end('fatal'); }, { owner: unit });
+            battle.after(0, () => { if (unit.mem.demetrS3 === st && s3On(unit) && /** @type {SkillRuntime} */ (unit.skill).activations === act) /** @type {SkillRuntime} */ (unit.skill).end('fatal'); }, { owner: unit });
             return;
           }
         }, { owner: unit, priority: -50 });

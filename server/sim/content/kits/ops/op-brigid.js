@@ -15,6 +15,10 @@
 import { canTargetEnemy } from '../../../targeting.js';
 import { hypot } from '../../../detmath.js';
 import { num, talentBb, traitBb, skillRec, up, cheb, instantKind } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { ShotHit } from '../../../ai.js' */
 
 const S1 = 'skchr_brigid_1';
 const S2 = 'skchr_brigid_2';
@@ -24,9 +28,10 @@ const ANY = Object.freeze({ canHitFly: true });
 /** projectile_chr_brigid_s1: its selector's collider, `_speedAfterFirstReach`. */
 export const BOUNCE_RADIUS = 1.7;
 export const BOUNCE_SPEED = 6;
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
-/** The nearest enemy she can select within `r` of (x, y), `skip` left out; the oldest of equals. */
+/** The nearest enemy she can select within `r` of (x, y), `skip` left out; the oldest of equals. @param {Battle} battle @param {Unit} unit @param {number} x @param {number} y @param {number} r @param {Set<Unit> | null} skip */
 function nearest(battle, unit, x, y, r, skip) {
   let best = null, bd = Infinity;
   for (const e of battle.foesInRadius(x, y, r, true)) {
@@ -37,6 +42,7 @@ function nearest(battle, unit, x, y, r, skip) {
   return best;
 }
 
+/** @type {KitFns} */
 export default {
   char_4177_brigid: (bb, chess) => {
     const t0 = talentBb(chess, 0), near = num(traitBb(chess).atk_scale, 1), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
@@ -51,6 +57,7 @@ export default {
               const { battle, unit } = ctx;
               const seen = new Set(ctx.target ? [ctx.target] : []);
               let left = Math.floor(num(b1.times));
+              /** @param {number} x @param {number} y */
               const go = (x, y) => {
                 if (left-- <= 0 || !ctx.home()) { ctx.comeBack(x, y); return; }
                 const next = nearest(battle, unit, x, y, BOUNCE_RADIUS, seen) ?? nearest(battle, unit, x, y, BOUNCE_RADIUS, null);
@@ -58,7 +65,7 @@ export default {
                 seen.add(next);
                 battle.addProjectile({
                   from: { x, y }, target: next, speed: BOUNCE_SPEED, visual: 'boomerang', source: unit, hitDead: true,
-                  onHit: (c) => { if (c.target?.alive) ctx.hit(c.target, c.x, c.y); go(c.x, c.y); },
+                  onHit: (/** @type {ShotHit} */ c) => { if (c.target?.alive) ctx.hit(c.target, c.x, c.y); go(c.x, c.y); },
                 });
               };
               go(ctx.x, ctx.y);

@@ -51,6 +51,10 @@
 
 import { num, talentBb, talentGrid, moduleBb, traitBb, skillRec, statBuff, up, batMod, alliesInGridOf, holdProtect } from '../shared/tier1.js';
 import { periodicDamage } from '../../../damage.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_hodrer_1';
 const S2 = 'skchr_hodrer_2';
@@ -66,12 +70,14 @@ const SMOKE_IV = 1;
 /** The riders and 及锋而试 before the other `hit` handlers read the hit. */
 const T1_PRIORITY = 10;
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** Under a 晕眩 or 束缚 status (及锋而试: abnormal flags STUNNED / UNMOVABLE). */
-const held = (e) => e.buffs.some((b) => (b.status ?? b.key) === 'stun' || (b.status ?? b.key) === 'bind');
-/** The S3 burn of one 赫德雷 on an enemy (independentCharacterSource: one per source). */
+/** Under a 晕眩 or 束缚 status (及锋而试: abnormal flags STUNNED / UNMOVABLE). @param {Unit} e */
+const held = (e) => /** @type {BuffRec[]} */ (e.buffs).some((b) => (b.status ?? b.key) === 'stun' || (b.status ?? b.key) === 'bind');
+/** The S3 burn of one 赫德雷 on an enemy (independentCharacterSource: one per source). @param {Unit} unit */
 const smokeKey = (unit) => `skill:hodrer:smoke:${unit.id}`;
 
+/** @type {KitFns} */
 export default {
   char_4088_hodrer: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
@@ -79,8 +85,9 @@ export default {
     const tb = traitBb(chess);
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
     // hodrer_s[heal] (S1 / S3): HealViaMaxHpRatio and CreateEffect hodrer_skill_01_buff_01 on him — the heal's effect moment
+    /** @param {Battle} battle @param {Unit} unit @param {number} ratio */
     const selfHeal = (battle, unit, ratio) => { if (ratio > 0) battle.heal(unit, unit, unit.s.maxHp * ratio, { self: true, moment: 'hodrer_s[heal]' }); };
-    /** S3: mark `e` (not 无敌) for this cast — its own 1 s burn until the skill ends. */
+    /** S3: mark `e` (not 无敌) for this cast — its own 1 s burn until the skill ends. @param {Battle} battle @param {Unit} unit @param {Unit} e */
     const mark = (battle, unit, e) => {
       const marks = unit.mem.hodrerMarks;
       if (!marks || marks.has(e) || !e.alive || e.s.flags.invulnerable) return;

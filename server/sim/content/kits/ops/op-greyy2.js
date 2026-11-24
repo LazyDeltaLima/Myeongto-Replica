@@ -15,15 +15,20 @@
 import { num, talentBb, traitBb, skillRec, up, giveSp } from '../shared/tier1.js';
 import { sortEnemyTargets } from '../../../targeting.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns, KitChess, Bb } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { ShotHit } from '../../../ai.js' */
 
 const S1 = 'skcom_quickattack[3]';
 const S2 = 'skchr_greyy2_2';
 const ORB_SPEED = 8;     // projectile_chr_greyy2_s2 `_speed`
 const ORB_RADIUS = 1;    // PRTS 备注 of S2
 const GROUND = Object.freeze({ canHitFly: false });
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
-/** The orb, landed at (x, y): its ticks are its own, not owned by her (she may have left). */
+/** The orb, landed at (x, y): its ticks are its own, not owned by her (she may have left). @param {Battle} battle @param {Unit} unit @param {number} x @param {number} y @param {Bb} b2 */
 function beacon(battle, unit, x, y, b2) {
   const dur = num(b2.projectile_delay_time), every = num(b2.interval, 1), scale = num(b2.atk_scale), prob = num(b2.prob), slow = num(b2.sluggish);
   const total = Math.ceil(dur / every - 1e-9);
@@ -41,6 +46,7 @@ function beacon(battle, unit, x, y, b2) {
   }, { immediate: true });
 }
 
+/** @type {KitFns} */
 export default {
   char_1027_greyy2: (bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
@@ -59,7 +65,7 @@ export default {
             const fly = hypot(t.x - unit.x, t.y - unit.y) / ORB_SPEED;
             battle.fx('zone', { x: t.x, y: t.y, id: unit.id, r: ORB_RADIUS, duration: fly + num(b2.projectile_delay_time) });
             battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'greyy2:s2on' }); // the skill ability's ON
-            battle.addProjectile({ from: unit, target: t, speed: ORB_SPEED, visual: 'none', source: unit, hitDead: true, onHit: (c) => beacon(battle, unit, c.x, c.y, b2) });
+            battle.addProjectile({ from: unit, target: t, speed: ORB_SPEED, visual: 'none', source: unit, hitDead: true, onHit: (/** @type {ShotHit} */ c) => beacon(battle, unit, c.x, c.y, b2) });
           },
         },
       },

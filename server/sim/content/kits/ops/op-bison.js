@@ -16,22 +16,29 @@
 import { num, talentBb, talentGrid, traitBb, skillRec, up, installAura, toggleBuff } from '../shared/tier1.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS } from '../../../constants.js';
+/** @import { KitFns, KitChess, Grid } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skcom_def_up[3]';
 const S2 = 'skchr_bison_2';
 /** The aura's selection period [추정·엔진: an aura re-selects often enough that a piece deployed behind him holds it at once]. */
 const AURA_IV = 0.2;
 const COVERED = new Set(['PIONEER', 'WARRIOR']);
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit} unit @param {Grid} grid */
 const keySetOf = (unit, grid) => new Set(absoluteRangeKeys(grid, unit.tileR, unit.tileC, unit.dir, 0));
+/** @param {Unit} a @param {Set<number>} set */
 const onTile = (a, set) => set.has(a.tileR * COLS + a.tileC);
 
+/** @type {KitFns} */
 export default {
   char_325_bison: (bb, chess) => {
     const t0 = talentBb(chess, 0), grid = talentGrid(chess, 0) ?? [[0, -1], [0, 0]];
     const tb = traitBb(chess);
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
     const s2Grid = skillRec(chess, S2)?.rangeGrid ?? null;
+    /** @param {Unit} u */
     const on2 = (u) => !!(u.skill && u.skill.active && u.skill.id === S2);
     return {
       skills: {

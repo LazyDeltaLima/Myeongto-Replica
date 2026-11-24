@@ -21,6 +21,12 @@ import { num, talentBb, moduleBb, skillRec, up, toggleBuff, enemiesInGrid, insta
 import { COLS } from '../../../constants.js';
 import { toLocal } from '../../../dir.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns, KitChess, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { Buff } from '../../../battle/status.js' */
+/** @import { HitEv } from '../../support/index.js' */
 
 const S1 = 'skchr_hbound_1';
 const S2 = 'skchr_hbound_2';
@@ -36,20 +42,30 @@ const AURA = 1 / 3;
 const FIRST = 0.9;
 const EPS = 1e-9;
 const STATE = new WeakMap();   // battle → the last roll per enemy
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
-/** Whether an alchemy unit of anyone is out: this kit's and 引星棘刺's `mem.zones`, 锡人's `mem.tinZones`. */
+/**
+ * One thrown unit (`unit.mem.zones`, throwSpec) and an enemy's state inside it (`in`): its next 1 s tick, the weight rule's
+ * own tick, the time inside, its slow and its weight slow.
+ * @typedef {{ next: number, heavyNext: number | null, t: number, slow: Buff | null, heavy: Buff | null }} HbZoneIn
+ * @typedef {{ x: number, y: number, r: number, sound: string, reached: boolean, land: number, until: number, aura: number,
+ *   in: Map<Unit, HbZoneIn>, atk: number, scale: number, slow: number, moment: string, heavyAt: number | null,
+ *   heavySlow: number, heavyScale: number, hitAt: number, cut: number, heavyCut: number }} HbZone
+ */
+
+/** Whether an alchemy unit of anyone is out: this kit's and 引星棘刺's `mem.zones`, 锡人's `mem.tinZones`. @param {Battle} battle */
 const alchemyOut = (battle) => battle.allyUnits.some((a) => a.mem && ((a.mem.zones?.length ?? 0) > 0 || (a.mem.tinZones ?? 0) > 0));
 
-/** One 'hit' handler per battle: an attack of an enemy holding the buff misses by one roll. No owner: the unit acts after she leaves. */
+/** One 'hit' handler per battle: an attack of an enemy holding the buff misses by one roll. No owner: the unit acts after she leaves. @param {Battle} battle */
 function installHitRate(battle) {
   if (STATE.has(battle)) return;
   const last = new WeakMap();
   STATE.set(battle, last);
-  battle.on('hit', (c) => {
+  battle.on('hit', (/** @type {HitEv & { stopPropagation?: boolean }} */ c) => {
     const e = c.source, d = c.dmg;
     if (!e || e.side !== 'enemy' || !d?.isAttack || d.cancel || (d.type !== 'phys' && d.type !== 'arts')) return;
-    const held = e.findBuff(HITRATE);
+    const held = /** @type {BuffRec | null} */ (e.findBuff(HITRATE));
     if (!held) return;
     const prev = d.attackId ? last.get(e) : null;
     let miss;
@@ -65,7 +81,7 @@ function installHitRate(battle) {
   }, { priority: 300 });
 }
 
-/** The spot: the first ground enemy of her range, else the farthest tile straight ahead. */
+/** The spot: the first ground enemy of her range, else the farthest tile straight ahead. @param {Battle} battle @param {Unit} unit */
 function landing(battle, unit) {
   const t = enemiesInGrid(battle, unit, null, { n: 1, groundOnly: true })[0];
   if (t) return { x: t.x, y: t.y, tile: false };
@@ -79,24 +95,28 @@ function landing(battle, unit) {
   return best;
 }
 
+/** @param {Battle} battle @param {Unit} unit @param {HbZone} z @param {Unit} e */
 function enter(battle, unit, z, e) {
+  /** @type {HbZoneIn} */
   const st = { next: FIRST, heavyNext: null, t: -TICK, slow: null, heavy: null };   // (this step counts as its start)
   z.in.set(e, st);
   if (z.slow < 1) st.slow = battle.addBuff(e, { key: z.moment, source: unit, refresh: 'independent', maxStacks: MANY, mods: { moveMul: z.slow }, tags: ['skill'] });
   return st;
 }
 
+/** @param {Battle} battle @param {HbZone} z @param {Unit} e @param {HbZoneIn} st */
 function leave(battle, z, e, st) {
   z.in.delete(e);
   if (st.slow) battle.removeBuff(e, st.slow);
   if (st.heavy) battle.removeBuff(e, st.heavy);
 }
 
+/** @param {Battle} battle @param {Unit} unit @param {Unit} e @param {number} amount @param {string} moment */
 function arts(battle, unit, e, amount, moment) {
   battle.dealDamage(unit, e, { amount, type: 'arts', isSkill: true, sourceless: true, showSource: true, ignoreSelect: true, tags: ['dot', 'zone'], moment });
 }
 
-/** A landed unit's step (TICK). */
+/** A landed unit's step (TICK). @param {Battle} battle @param {Unit} unit @param {HbZone} z */
 function stepZone(battle, unit, z) {
   z.aura -= TICK;
   if (z.aura <= EPS) {
@@ -115,13 +135,13 @@ function stepZone(battle, unit, z) {
         st.heavy = battle.addBuff(e, { key: HEAVY, source: unit, refresh: 'independent', maxStacks: MANY, visible: true, mods: { moveMul: z.heavySlow }, tags: ['skill'] });
       } else if (weight < z.heavyAt && st.heavyNext != null) {
         st.heavyNext = null;
-        battle.removeBuff(e, st.heavy);
+        battle.removeBuff(e, /** @type {Buff} */ (st.heavy));
         st.heavy = null;
       }
     }
     const cut = z.hitAt > 0 && weight >= z.hitAt ? z.heavyCut : z.cut;
     if (cut > 0) {
-      const held = e.findBuff(HITRATE);
+      const held = /** @type {BuffRec | null} */ (e.findBuff(HITRATE));
       if (!held || cut <= held.data.cut + EPS) battle.addBuff(e, { key: HITRATE, source: unit, duration: 2 * TICK + EPS, data: { cut }, tags: ['talent'] });
     }
     if (st.t >= st.next - EPS) {
@@ -136,7 +156,7 @@ function stepZone(battle, unit, z) {
   }
 }
 
-/** The zone of a skill: S2 has its weight rule (`heavy`). */
+/** The zone of a skill: S2 has its weight rule (`heavy`). @param {KitChess} chess @param {string} id @param {boolean} heavy @returns {KitSkill} */
 function throwSpec(chess, id, heavy) {
   const b = bbOf(chess, id), t0 = talentBb(chess, 0);
   return {
@@ -147,6 +167,7 @@ function throwSpec(chess, id, heavy) {
       const dur = num(b.projectile_delay_time), r = num(b.projectile_range);
       const fly = hypot(at.x - unit.x, at.y - unit.y) / SHOT;
       const mv = Math.max(0, 1 + num(b.move_speed));
+      /** @type {HbZone} */
       const z = {
         x: at.x, y: at.y, r, sound: heavy ? 's2' : 's1', reached: false,
         land: battle.time + fly, until: battle.time + fly + dur, aura: 0, in: new Map(), atk: unit.s.atk,
@@ -162,6 +183,7 @@ function throwSpec(chess, id, heavy) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   char_4232_hbound: (bb, chess) => {
     const sp = num(moduleBb(chess).sp_recovery_per_sec);
@@ -184,7 +206,7 @@ export default {
               stepZone(battle, unit, z);
             }
           }
-          unit.mem.zones = zones.filter((z) => battle.time < z.until - EPS);
+          unit.mem.zones = zones.filter((/** @type {HbZone} */ z) => battle.time < z.until - EPS);
         }, { owner: unit });
         if (sp > 0) toggleBuff(battle, unit, 'hbound_e_t_10', () => up(unit) && alchemyOut(battle), { spRecoveryFlat: sp });
       },

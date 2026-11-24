@@ -50,6 +50,11 @@ import { canTargetEnemy, sortEnemyTargets } from '../../../targeting.js';
 import { dirVec, rotateOffset } from '../../../dir.js';
 import { hitRect } from '../../../body.js';
 import { performAttack } from '../../../ai.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { ModuleState } from '../../../../../shared/loadoutRecord.js' */
 
 const S1 = 'skchr_heyak_1';
 const S2 = 'skchr_heyak_2';
@@ -75,27 +80,34 @@ const AWAY_TAG = 'heyak:away';
 const WEIGHTLESS_KEY = 'heyak:weightless';
 const FRAGILE_EVERY = 0.2;
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** An elite or leader enemy (精英或领袖敌人). */
+/** An elite or leader enemy (精英或领袖敌人). @param {Unit | null | undefined} e */
 const isEliteEnemy = (e) => !!e && e.side === 'enemy' && (e.isBoss || e.def?.rank === 'ELITE' || e.def?.rank === 'BOSS');
+/** @param {{ tags?: string[] } | null | undefined} d @param {string} tag */
 const tagged = (d, tag) => !!(d && d.tags && d.tags.includes(tag));
-/** A module trait that works 在集成战略中 only (ISW-A): nothing of it applies in this mode. */
+/** A module trait that works 在集成战略中 only (ISW-A): nothing of it applies in this mode. @param {KitChess} chess */
 const roguelikeOnly = (chess) => /集成战略/.test(String(chess?.trait?.moduleDesc ?? ''));
-/** The record's active module, or null. */
-const activeModule = (chess) => (chess?.module?.active ? (chess.modules ?? []).find((m) => m && m.uniEquipId === chess.module.id) ?? null : null);
-/** Does the enemy's body touch the 1×1 square centred on (x, y)? */
+/** The record's active module, or null. @param {KitChess} chess */
+const activeModule = (chess) => (chess?.module?.active ? (chess.modules ?? []).find((m) => m && m.uniEquipId === /** @type {ModuleState} */ (chess.module).id) ?? null : null);
+/**
+ * A whirlwind of S3 in flight (`unit.mem.heyakWinds`): its tile, its heading, the tiles left, its age, her deployment, its number.
+ * @typedef {{ x: number, y: number, dx: number, dy: number, left: number, age: number, seq: number, n: number }} HeyakWind
+ */
+/** Does the enemy's body touch the 1×1 square centred on (x, y)? @param {Unit} e @param {number} x @param {number} y */
 function inBox(e, x, y) {
   const R = hitRect(e);
   if (!R) return Math.abs(e.x - x) <= WIND_HALF + 1e-9 && Math.abs(e.y - y) <= WIND_HALF + 1e-9;
   return R.x0 <= x + WIND_HALF && R.x1 >= x - WIND_HALF && R.y0 <= y + WIND_HALF && R.y1 >= y - WIND_HALF;
 }
 
-/** 浮空 from her skills (heyak_s_1[levitate], heyak_s_2 / _3[hit_levitate]: their CreateBuff draws heyak_cyclone_01_emit). */
+/** 浮空 from her skills (heyak_s_1[levitate], heyak_s_2 / _3[hit_levitate]: their CreateBuff draws heyak_cyclone_01_emit). @param {Battle} battle @param {Unit} unit @param {Unit} e @param {number} duration */
 function lift(battle, unit, e, duration) {
   battle.applyStatus(e, 'levitate', { duration, source: unit });
   battle.fx('kitHit', { x: e.x, y: e.y, id: e.id, src: unit.id, k: 'heyak:lift' });
 }
 
+/** @type {KitFns} */
 export default {
   char_4027_heyak: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
@@ -109,7 +121,7 @@ export default {
     const s1 = skillRec(chess, S1), s2 = skillRec(chess, S2), s3 = skillRec(chess, S3);
     const shots = Math.max(1, Math.floor(textCount(String(s2?.desc ?? ''), /(\d+)连发/, SHOTS, 'burst')));
 
-    /** S3: release one attack's three whirlwinds. */
+    /** S3: release one attack's three whirlwinds. @param {Battle} battle @param {Unit} unit @param {HeyakWind[]} winds */
     function releaseWinds(battle, unit, winds) {
       const seq = unit.deploySeq;
       const [fr, fc] = dirVec(unit.dir);
@@ -126,7 +138,7 @@ export default {
         }, { owner: unit });
       }
     }
-    /** The first enemy the whirlwind touches, struck: 浮空 first (PRTS: before 传承终焉), then the damage. True when it hit. */
+    /** The first enemy the whirlwind touches, struck: 浮空 first (PRTS: before 传承终焉), then the damage. True when it hit. @param {Battle} battle @param {Unit} unit @param {HeyakWind} w */
     function windHit(battle, unit, w) {
       const touched = battle.enemies.filter((e) => e.alive && inBox(e, w.x, w.y) && canTargetEnemy(unit, e, unit.profile));
       if (!touched.length) return false;
@@ -183,9 +195,9 @@ export default {
             for (const e of battle.enemies) {
               if (!e.alive) continue;
               // (another 霍尔海雅's 失重 carries the same key: it is hers to keep or drop)
-              const mine = e.findBuff(WEIGHTLESS_KEY);
-              const want = on && inRange.has(e) && e.hpRatio > hiRatio + 1e-9
-                && !e.buffs.some((b) => b.status === 'weightless' && b.key !== WEIGHTLESS_KEY);
+              const mine = /** @type {BuffRec | null} */ (e.findBuff(WEIGHTLESS_KEY));
+              const want = on && /** @type {Set<Unit>} */ (inRange).has(e) && e.hpRatio > hiRatio + 1e-9
+                && !/** @type {BuffRec[]} */ (e.buffs).some((b) => b.status === 'weightless' && b.key !== WEIGHTLESS_KEY);
               if (want && !mine) battle.addBuff(e, { key: WEIGHTLESS_KEY, status: 'weightless', visible: true, mods: { massFlat: -1 }, source: unit });
               else if (!want && mine && mine.source === unit) battle.removeBuff(e, mine);
             }
@@ -229,6 +241,7 @@ export default {
         } else if (sid === S2) {
           // 群星逶迤: the nine shots, each at a random enemy of her range, each rolling its 浮空 before 传承终焉
           const prob = num(b2['attack@prob']), lev = num(b2['attack@levitate']);
+          /** @param {Record<string, any>} prof */
           const pick = (prof) => {
             const cands = battle.enemiesInKeys(unit.rangeKeys, unit, prof);
             for (const e of battle.blockedTargets(unit, prof)) if (!cands.includes(e)) cands.push(e);
@@ -240,6 +253,7 @@ export default {
             const first = pick(ctx.profile);
             if (first) ctx.targets = [first];
             const seq = unit.deploySeq, prof = ctx.profile;
+            /** @param {number} left */
             const shot = (left) => {
               if (!up(unit) || unit.deploySeq !== seq || !unit.canAct) return;
               const e = pick(prof);
@@ -259,7 +273,7 @@ export default {
           }, 10);
         } else if (sid === S3) {
           // 博览者的狂语: the attack's strike releases the whirlwinds and hits nothing itself; those in flight go on (also after she left the field)
-          const winds = (unit.mem.heyakWinds = []);
+          const winds = (unit.mem.heyakWinds = /** @type {HeyakWind[]} */ ([]));
           unit.mem.heyakWindSeq = 0;
           battle.on('beforeAttack', (ctx) => {
             if (ctx.attacker !== unit || !unit.skill?.active) return;

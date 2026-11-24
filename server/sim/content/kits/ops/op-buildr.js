@@ -11,15 +11,20 @@
 // - SOL-X: while she blocks an enemy, ATK and DEF ×(1 + trait atk / def) (buildr_trait[e_002]: ON_OWNER_BLOCKEE_CHANGED).
 
 import { num, talentBb, traitBb, skillRec, skillBbOf, toggleBuff, up } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skcom_charge_cost[3]';
 const S2 = 'skchr_buildr_2';
 const MAX_HP = 'buildr_t[max_hp]';
 const BLOCKED = 'buildr_trait[e_002_blocked]';
 
+/** @type {KitFns} */
 export default {
   char_488_buildr: (bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b2 = skillRec(chess, S2)?.bb ?? {};
+    /** @param {Battle} battle @param {Unit} unit @param {number} n */
     const gain = (battle, unit, n) => {
       battle.addDp(unit.ownerId, n);
       battle.fx('dp', { x: unit.x, y: unit.y, n, id: unit.id });

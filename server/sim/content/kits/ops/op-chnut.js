@@ -15,19 +15,25 @@
 //   element recovery too (`_applyScaleForEPHeal`); the first heal of the skill has no such ally before it.
 
 import { num, talentBb, traitBb, skillRec, up, instantKind } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skchr_chnut_1';
 const S2 = 'skchr_chnut_2';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_4041_chnut: (_bb, chess, def) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
     const ground = num(t0.ep_heal_scale, 1), traitScale = num(b1.trait_scale, 1), again = num(b2['attack@heal_continuously_scale'], 1);
     const epRatio = num(tb.ep_heal_ratio, 0.5);
+    /** @param {Battle} battle @param {Unit | null | undefined} a */
     const lowland = (battle, a) => !!a && a.ground !== false && battle.grid.isLow(a.tileR, a.tileC);
     const s2Grid = skillRec(chess, S2)?.rangeGrid;
-    /** Her heal's scales on `a`: the talent on low ground, S2's repeated ally (unit.mem.chnutAgain, set as the attack starts). */
+    /** Her heal's scales on `a`: the talent on low ground, S2's repeated ally (unit.mem.chnutAgain, set as the attack starts). @param {Battle} battle @param {Unit} unit @param {Unit | null | undefined} a */
     const scaleOn = (battle, unit, a) => {
       const rep = unit.mem.chnutAgain === a && unit.skill?.active && unit.skill.id === S2 ? again : 1;
       return { hp: rep, ep: rep * (lowland(battle, a) ? ground : 1) };

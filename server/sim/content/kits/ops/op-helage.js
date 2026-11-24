@@ -40,6 +40,8 @@
 
 import { num, traitBb, skillRec, toggleBuff, up, onHitOn, holdProtect, PROTECT_TICK_HOLD } from '../shared/tier1.js';
 import { resolveHit } from '../../../ai.js';
+/** @import { KitFns, KitChess, SkillHook } from '../shared/tier1.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_helage_1';
 const S2 = 'skchr_helage_2';
@@ -48,8 +50,9 @@ const S3 = 'skchr_helage_3';
 /** The second strike after the first, from the OnAttack events of his clips (char_188_helage.skel, s): S1 Skill, S2 Skill_2. */
 const SECOND_STRIKE = Object.freeze({ [S1]: 0.133, [S2]: 0.067 });
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** A skill attack's onHit: the attack's profile without this callback strikes `target` again `delay` s later, the same attackId. */
+/** A skill attack's onHit: the attack's profile without this callback strikes `target` again `delay` s later, the same attackId. @param {number} delay @returns {SkillHook} */
 const secondStrike = (delay) => ({ battle, unit, target }) => {
   if (!target) return;
   const prof = { ...battle.effectiveProfile(unit), skillOnHit: null };
@@ -59,9 +62,10 @@ const secondStrike = (delay) => ({ battle, unit, target }) => {
     resolveHit(b, unit, prof, target, { isSkill: true, index: 0, attackId }, target.x, target.y);
   }, { owner: unit });
 };
-/** The blackboard of the talent with data index `i` ({} when absent; module parts with a new index included). */
+/** The blackboard of the talent with data index `i` ({} when absent; module parts with a new index included). @param {KitChess} chess @param {number} i */
 const talentAt = (chess, i) => (chess?.talents ?? []).find((t) => t && t.index === i)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_188_helage: (bb, chess) => {
     const t0 = talentAt(chess, 0), t1 = talentAt(chess, 1), t2 = talentAt(chess, 2);
@@ -90,7 +94,7 @@ export default {
           if (!(maxAs > 0) || !(minHp < 1)) return;
           const key = 'talent:helage:berserk';
           battle.on('tick', () => {
-            const cur = unit.findBuff(key);
+            const cur = /** @type {BuffRec | null} */ (unit.findBuff(key));
             if (!up(unit)) { if (cur) battle.removeBuff(unit, key); return; }
             const v = maxAs * Math.max(0, Math.min(1, (1 - unit.hpRatio) / (1 - minHp)));
             if (cur && Math.abs((cur.data?.v ?? 0) - v) < 0.05) return;

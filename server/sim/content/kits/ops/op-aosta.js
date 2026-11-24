@@ -11,12 +11,16 @@
 // - S2 影钉: base attack time ×(1 + base_attack_time) (the buff's MULTIPLIER, PRTS +50%), ATK +atk, every enemy hit is bound attack@frozen_duration s (aosta_s_2[unmovable]).
 
 import { num, talentBb, skillRec } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skcom_quickattack[3]';
 const S2 = 'skchr_aosta_2';
 const BLEED = 'aosta_t_1';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_346_aosta: (bb, chess) => {
     const t0 = talentBb(chess, 0), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
@@ -40,7 +44,7 @@ export default {
           if (c.source !== unit || !c.dmg?.isAttack || c.target?.side !== 'enemy' || !c.target.alive) return;
           const e = c.target, sk = unit.skill;
           const data = { amount: unit.s.atk * scale * (sk?.active && sk.id === S2 ? num(b2.talent_scale, 1) : 1), from: unit };
-          const had = e.findBuff(BLEED);
+          const had = /** @type {BuffRec | null} */ (e.findBuff(BLEED));
           if (had) Object.assign(had.data, data);
           battle.addBuff(e, {
             key: BLEED, source: unit, duration: dur, interval: 1, refresh: 'extend', visible: true, data, tags: ['talent', 'dot'],

@@ -17,6 +17,8 @@ import { sortEnemyTargets } from '../../../targeting.js';
 import { hypot } from '../../../detmath.js';
 import { num, talentBb, traitBb, skillRec, up, makeZone } from '../shared/tier1.js';
 import { inRange, burstDamageUp } from '../shared/tier5.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Profile } from '../../../professions.js' */
 
 const S1 = 'skchr_christ_1';
 const S2 = 'skchr_christ_2';
@@ -25,8 +27,10 @@ const BURST = 'neuralBurst';
 export const S2_PRE_DELAY = 0.2667;
 /** projectile_chr_christ_s2 `_speed`. */
 export const SPIRIT_SPEED = 8;
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_4198_christ: (bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
@@ -40,7 +44,7 @@ export default {
             const seq = skill.activations;
             battle.after(S2_PRE_DELAY, () => {
               if (!up(unit) || !skill.active || skill.activations !== seq) return;
-              const t = sortEnemyTargets(battle, unit, battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile), unit.profile.priority)[0];
+              const t = sortEnemyTargets(battle, unit, battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile), /** @type {Profile} */ (unit.profile).priority)[0];
               if (!t) return;
               const x = Math.round(t.x), y = Math.round(t.y);
               const r = num(b2.projectile_range), scale = num(b2.atk_scale), ep = num(b2.atk_scale_ep);

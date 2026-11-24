@@ -108,8 +108,8 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 (`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and
 the files directly under `server/sim/` (`server/sim/*.js`), the files directly under `server/sim/content/`
 (`server/sim/content/*.js`), the enemy kits `server/sim/content/enemies/` and, of the operator kits
-`server/sim/content/kits/ops/`, the files `chess_char_1_*` to `chess_char_6_*` and the stand-ins `standin-*` (the rest
-follows by file group).
+`server/sim/content/kits/ops/`, the files `chess_char_1_*` to `chess_char_6_*`, the stand-ins `standin-*` and the
+自选 kits `op-a*` to `op-h*` (the rest follows by file group).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -449,6 +449,14 @@ most strict errors were, and the JSDoc that fixed them:
   (`mine(t)`) is a `@returns {t is Unit}` predicate, a `reduce(…, null)` takes its seed as `/** @type {Unit | null} */
   (null)`, and a kit's own record kept in `unit.mem` (an S3 drone, a lock) gets a `@typedef` in the file. `attack:
   { funnelMul: null }` turns the profile's drone ramp off (KitAttack allows `null`).
+  The 自选 kits (`op-*`) write most of their logic in helpers apart from the builder (`function landing(battle, unit)`,
+  `const bbOf = (chess, id) => …`): each takes `@param`s, merged into the JSDoc it already has (a one-line block gets
+  the tags at its end); a destructured hook written apart (`({ battle, unit, target }) =>`) takes `@param {SkillCtx}
+  ctx`, a helper returning one `@returns {SkillHook}`, one building a skill spec `@returns {KitSkill}`, and a token's
+  kit built in the file (`markerKit`, `baseKit`) `@returns {KitSpec}`. `KitAttack` lists `pickEnemies` and
+  `boomerangOnward` (its ctx `BoomerangCtx`, ai.js throwBoomerang); a projectile's `onHit` takes `ShotHit` (ai.js); a
+  state kept across closures (`let st = null`, S3's per-activation state) takes `@type {… | null}` and a cast where a
+  helper reads it only while it is set; `toggleBuff` (tier1) takes `null` mods (a flag-only buff).
 - the kit resolver and the generic kit (content/index.js, generic.js): `Kit` (index.js) is the kit contract read by
   key, `Def` a normalised def; the generic skill spec is built as a `Record<string, any>`. A blackboard getter returns
   `number | undefined`, so a `> 0` test on one is cast at the comparison. The guarded `import()` of the domain

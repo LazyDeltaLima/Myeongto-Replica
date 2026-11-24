@@ -45,6 +45,9 @@
 
 import { num, up, talentBb, moduleBb, moduleOn, skillRec } from '../shared/tier1.js';
 import { rangeAura, grantBarrier } from '../shared/barrier.js';
+/** @import { KitFns, KitChess, Bb } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { ModuleState } from '../../../../../shared/loadoutRecord.js' */
 
 const S1 = 'skcom_heal_up[3]';
 const S2 = 'skchr_cgbird_2';
@@ -55,15 +58,17 @@ export const PHANTOM_HOLD_CAP = 3;
 /** Seconds between two tries of a fallen 幻影 to come back (tile busy, DP short, none held). */
 const RETRY = 0.25;
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
 /**
  * RIN-X "攻击范围扩大": the picked module's own range grid (its range-only talent change, talentIndex −1), or null — the
  * rule of shared/loadoutRecord.js attackRangeGrid (the card / board range) and shared/tier5.js moduleRangeUp.
+ * @param {KitChess} chess
  */
 function moduleRange(chess) {
   if (!chess?.isGolden || !moduleOn(chess) || !/攻击范围扩大/.test(String(chess?.trait?.moduleDesc ?? ''))) return null;
-  const rec = (chess.modules ?? []).find((m) => m && m.uniEquipId === chess.module.id);
+  const rec = (chess.modules ?? []).find((m) => m && m.uniEquipId === /** @type {ModuleState} */ (chess.module).id);
   const g = (rec?.talentChanges ?? []).find((t) => t && t.talentIndex === -1 && Array.isArray(t.rangeGrid) && t.rangeGrid.length)?.rangeGrid;
   return g ? g.map((p) => [p[0], p[1]]) : null;
 }
@@ -71,14 +76,16 @@ function moduleRange(chess) {
 /**
  * The 幻影's own talent blackboard (`prob`, `hp_ratio`) from its def at the owner's form and module: the last talent
  * holding `prob` — a module's upgrade (RIN-Y stage 3: 40 %) follows the base talent in the variant data.
- * @param {object} def normalised token def
+ * @param {{ talents?: Array<{ bb?: Bb } | null> } | null | undefined} def normalised token def
  */
 export function phantomTalent(def) {
+  /** @type {Bb} */
   let out = {};
   for (const t of def?.talents ?? []) if (t && t.bb && t.bb.prob != null) out = t.bb;
   return out;
 }
 
+/** @type {KitFns} */
 export default {
   char_179_cgbird: (bb, chess) => {
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
@@ -119,6 +126,7 @@ export default {
           const cnt = Math.max(0, Math.floor(num(t1.cnt)));
           if (!(cnt > 0)) return;
           unit.mem.phantomStock = 0;
+          /** @param {Unit | null | undefined} t */
           const mine = (t) => !!t && t.kind === 'token' && t.defId === tokenId && t.ownerUnit === unit;
           battle.on('deploy', (ctx) => {
             const u = ctx.unit;

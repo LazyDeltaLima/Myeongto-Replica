@@ -23,6 +23,12 @@ import { absoluteRangeKeys } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
 import { num, talentBb, talentGrid, skillRec, up, installAura, instantKind } from '../shared/tier1.js';
 import { COLS } from '../../../constants.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillCtx } from '../../../skills.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { SkillRecord } from '../../../../../shared/loadoutRecord.js' */
 
 const S1 = 'skchr_alga_1';
 const S2 = 'skchr_alga_2';
@@ -32,21 +38,26 @@ export const S1_DELTA = 0.1;
 const AURA_IV = 0.1;
 const AURA = 'alga[check_enemy]';
 const TAUNT = 'alga_2[taunt]';
-/** professionMask 639: every operator class, no summon (TOKEN) or device (TRAP). */
+/** professionMask 639: every operator class, no summon (TOKEN) or device (TRAP). @param {Unit} a */
 const isOperator = (a) => a.kind === 'op';
+/** @param {Unit | null | undefined} e */
 const isElite = (e) => !!e && (e.isBoss || e.def?.rank === 'ELITE' || e.def?.rank === 'BOSS');
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_4245_alga: (_bb, chess) => {
     const t0 = talentBb(chess, 0), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
     const grid = talentGrid(chess, 0);
     const base = num(t0['alga[atk_up].atk']), extra = num(t0['alga[check_enemy].atk']);
     const scale = num(b2.talent_scale, 1), debuff = num(b2['attack@debuff_duration']), taunt = num(b2['attack@taunt_level']);
+    /** @param {Unit} u */
     const on2 = (u) => !!(u.skill && u.skill.active && u.skill.id === S2);
-    /** An elite / leader enemy in her attack range, or one she blocks (CheckEnemyLevelMaskInRange, CheckBlockEnemysLevelType). */
+    /** An elite / leader enemy in her attack range, or one she blocks (CheckEnemyLevelMaskInRange, CheckBlockEnemysLevelType). @param {Battle} battle @param {Unit} unit */
     const eliteNear = (battle, unit) => unit.blocking.some(isElite)
       || battle.enemies.some((e) => e.alive && !e.hidden && isElite(e) && bodyInRange(e, unit.rangeKeySet ?? new Set(unit.rangeKeys)));
+    /** @param {SkillCtx} ctx */
     const secondStrike = ({ battle, unit, target }) => {
       if (!target) return;
       const prof = { ...battle.effectiveProfile(unit), skillOnHit: null };
@@ -66,10 +77,10 @@ export default {
         [S2]: {
           kind: 'duration',
           mods: { atkPct: num(b2.atk) },
-          targeting: skillRec(chess, S2)?.rangeGrid ? { rangeGrid: skillRec(chess, S2).rangeGrid } : undefined,
+          targeting: skillRec(chess, S2)?.rangeGrid ? { rangeGrid: /** @type {SkillRecord} */ (skillRec(chess, S2)).rangeGrid } : undefined,
           onEnd({ battle, unit }) {
             for (const e of battle.enemies) {
-              const b = e.findBuff(TAUNT);
+              const b = /** @type {BuffRec | null} */ (e.findBuff(TAUNT));
               if (b && b.source === unit) battle.removeBuff(e, TAUNT);
             }
           },
@@ -94,7 +105,7 @@ export default {
           battle.addBuff(e, { key: 'alga_2', source: unit, duration: debuff, refresh: 'replace', tags: ['skill'] });
           if (taunt) {
             for (const o of battle.enemies) {
-              const b = o !== e ? o.findBuff(TAUNT) : null;
+              const b = o !== e ? /** @type {BuffRec | null} */ (o.findBuff(TAUNT)) : null;
               if (b && b.source === unit) battle.removeBuff(o, TAUNT);
             }
             battle.addBuff(e, { key: TAUNT, source: unit, duration: debuff, refresh: 'replace', mods: { taunt }, visible: true, tags: ['skill'] });

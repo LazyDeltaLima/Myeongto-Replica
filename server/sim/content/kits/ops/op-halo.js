@@ -11,13 +11,18 @@
 // - S2 星束交汇 (mode S2, its range 3-3): ATK +atk, attack@max_target targets, each with the trait's chain.
 
 import { num, talentBb, skillRec, up } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Profile } from '../../../professions.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_halo_1';
 const S2 = 'skchr_halo_2';
 const STACK = 'halo_t_1[stack]';
 const FULL = 'halo_t_1[effect]';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_135_halo: (bb, chess) => {
     const t0 = talentBb(chess, 0), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), s2 = skillRec(chess, S2);
@@ -35,7 +40,7 @@ export default {
         battle.on('tick', () => {
           if (!up(unit)) return;
           const want = Math.min(max, Math.floor((battle.time - (unit.deployedAt ?? 0)) / every));
-          for (let have = unit.findBuff(STACK)?.stacks ?? 0; have < want; have++) {
+          for (let have = /** @type {BuffRec | null} */ (unit.findBuff(STACK))?.stacks ?? 0; have < want; have++) {
             battle.addBuff(unit, { key: STACK, refresh: 'stack', stacks: 1, maxStacks: max, mods: { aspd: v }, tags: ['talent'] });
           }
           if (want >= max && !unit.findBuff(FULL)) battle.addBuff(unit, { key: FULL, visible: true, tags: ['talent'] });
@@ -43,7 +48,7 @@ export default {
       } }],
       install(battle, unit) {
         // the chain's shape comes from the resolved profile (its falloff included); S1 goes over its own count of enemies
-        const ch = unit.profile.chain, spec = unit.skill?.id === S1 ? unit.skill.spec.attack : null;
+        const ch = /** @type {Profile} */ (unit.profile).chain, spec = unit.skill?.id === S1 ? unit.skill.spec.attack : null;
         if (spec) spec.chain = { ...ch, count: Math.max(1, Math.floor(num(b1['chain.max_target'], ch?.count ?? 3))), sluggish: num(b1.sluggish, ch?.sluggish ?? 0.5) };
       },
     };

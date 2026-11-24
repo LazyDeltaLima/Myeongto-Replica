@@ -11,19 +11,26 @@
 
 import { num, skillRec, instantKind } from '../shared/tier1.js';
 import { resolveHit } from '../../../ai.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillCtx } from '../../../skills.js' */
 
 const S1 = 'skchr_fang2_1';
 const S2 = 'skchr_fang2_2';
 /** S1's second strike after the first (skchr_fang2_1 `_triggerDelta`, s). */
 export const S1_DELTA = 0.25;
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_1036_fang2: (bb, chess) => {
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
     const cost = num(b1.cost);
-    /** A kill by S1 (fang2_s_1 ON_TARGET_KILLED): `target` gone once its strike has resolved. */
+    /** A kill by S1 (fang2_s_1 ON_TARGET_KILLED): `target` gone once its strike has resolved. @param {Battle} battle @param {Unit} unit @param {Unit} target */
     const killed = (battle, unit, target) => { if (!target.alive && cost > 0) battle.addDp(unit.ownerId, cost); };
+    /** @param {SkillCtx} ctx */
     const secondStrike = ({ battle, unit, target }) => {
       if (!target) return;
       killed(battle, unit, target);

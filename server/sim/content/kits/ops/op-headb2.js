@@ -67,6 +67,10 @@ import { num, talentBb, traitBb, skillRec, up, giveSp } from '../shared/tier1.js
 import { hasPower } from '../shared/powers.js';
 import { COLS } from '../../../constants.js';
 import { sortEnemyTargets } from '../../../targeting.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_headb2_1';
 const S2 = 'skchr_headb2_2';
@@ -82,7 +86,7 @@ const HIGHLAND_DELAY = 0.1, S3_SPREAD_STEP = 0.125;
 const FPS = 30, SKILL3_FRAMES = 277, HAMMER_FRAMES = Object.freeze([33, 84, 133, 182, 233]);
 /** PRTS 无可抵挡 备注: "每次锤击以正前方1.0距离位置为中心" / "主攻击拥有1.5的溅射半径". */
 const HAMMER_REACH = 1.0, HAMMER_SPLASH = 1.5;
-/** 【乌萨斯学生自治团】: the group tag `student` (character_table teamId; 古米, 凛冬, 烈夏, 苦艾, 真理, 早露, 怒潮凛冬). */
+/** 【乌萨斯学生自治团】: the group tag `student` (character_table teamId; 古米, 凛冬, 烈夏, 苦艾, 真理, 早露, 怒潮凛冬). @param {Unit} u */
 const isStudent = (u) => hasPower(u, 'student');
 /** 万众巨潮: the renewal of the aura while a skill of hers runs. */
 const TIDE_IV = 0.25;
@@ -93,11 +97,14 @@ const HAMMER_TAG = 'headb2Hammer';
 const HIGHLAND_TAG = 'headb2Highland';
 const GROUND = Object.freeze({ canHitFly: false });
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {{ tags?: unknown } | null | undefined} d @param {string} tag */
 const tagged = (d, tag) => !!d && Array.isArray(d.tags) && d.tags.includes(tag);
+/** @param {Unit | null | undefined} a */
 const isOp = (a) => !!a && a.kind === 'op';
 
-/** Tile keys of the 高台 (HIGH tiles of the field rect) whose square the circle of radius `r` around (x, y) touches. */
+/** Tile keys of the 高台 (HIGH tiles of the field rect) whose square the circle of radius `r` around (x, y) touches. @param {Battle} battle @param {number} x @param {number} y @param {number} [r] */
 function highlandsAround(battle, x, y, r = HIGHLAND_PICK_RADIUS) {
   const g = battle.grid, out = [];
   for (let row = Math.floor(y - r); row <= Math.ceil(y + r); row++) {
@@ -109,7 +116,7 @@ function highlandsAround(battle, x, y, r = HIGHLAND_PICK_RADIUS) {
   }
   return out;
 }
-/** The 高台 next to tile key `k` (the spread of S3). */
+/** The 高台 next to tile key `k` (the spread of S3). @param {Battle} battle @param {number} k */
 function highlandNeighbours(battle, k) {
   const r = Math.floor(k / COLS), c = k % COLS, g = battle.grid, out = [];
   for (const [dr, dc] of X5) {
@@ -120,6 +127,7 @@ function highlandNeighbours(battle, k) {
   return out;
 }
 
+/** @type {KitFns} */
 export default {
   char_1051_headb2: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
@@ -128,10 +136,11 @@ export default {
     const s2 = skillRec(chess, S2);
     const splashMul = num(t0.damage_scale, 1);
     const hxScale = num(tb.atk_scale_e, 1), hxCnt = num(tb.cnt, Infinity);
+    /** @param {number} n */
     const hamx = (n) => (hxScale !== 1 && n >= hxCnt ? hxScale : 1);
     const traitShare = num(tb['attack@atk_scale_2'], 0.5);
 
-    /** One 高台 taking effect: its x-5 ground enemies take the splash and 停顿 (束缚 during S3). */
+    /** One 高台 taking effect: its x-5 ground enemies take the splash and 停顿 (束缚 during S3). @param {Battle} battle @param {Unit} unit @param {number} k @param {number} atk @param {boolean} s3 */
     const highlandStrike = (battle, unit, k, atk, s3) => {
       const r = Math.floor(k / COLS), c = k % COLS;
       const keys = [];
@@ -152,6 +161,7 @@ export default {
      * A round of 汹涌怒火's 高台 splashes centred on (x, y): every 高台 within 1.0 triggers now and takes effect
      * HIGHLAND_DELAY s later; with `depth` > 0 (S3) each one that takes effect makes the 高台 next to it that this round has
      * not touched yet trigger — S3_SPREAD_STEP s later —, up to `depth` steps. S2's passive: +sp per 高台 that triggers.
+     * @param {Battle} battle @param {Unit} unit @param {number} x @param {number} y @param {number} [depth]
      */
     const highlandRound = (battle, unit, x, y, depth = 0) => {
       const tiles = highlandsAround(battle, x, y);
@@ -160,6 +170,7 @@ export default {
       const s3 = !!(unit.skill?.active && unit.skill.id === S3);
       const sp = unit.skill?.id === S2 ? num(b2.sp_per_highland) : 0;
       const seen = new Set(tiles);
+      /** @param {number} k @param {number} step */
       const trigger = (k, step) => {
         if (sp > 0) giveSp(unit, sp);
         battle.after(step > 0 && s3 ? S3_SPREAD_STEP : HIGHLAND_DELAY, () => {
@@ -171,7 +182,7 @@ export default {
       };
       for (const k of tiles) trigger(k, 0);
     };
-    /** S3 hammer `k` (1-based): centred 1.0 ahead, a main target on the tile ahead if any, the 1.5 splash, the 高台 round. */
+    /** S3 hammer `k` (1-based): centred 1.0 ahead, a main target on the tile ahead if any, the 1.5 splash, the 高台 round. @param {Battle} battle @param {Unit} unit @param {number} k */
     const hammer = (battle, unit, k) => {
       const [fr, fc] = unit.fwd;
       const cx = unit.x + fc * HAMMER_REACH, cy = unit.y + fr * HAMMER_REACH;
@@ -254,7 +265,7 @@ export default {
             for (const o of battle.alliesFor(unit)) {
               if (!isOp(o)) continue;
               const k = isStudent(o) ? x : 1;
-              const cur = o.findBuff(TIDE_KEY);
+              const cur = /** @type {BuffRec | null} */ (o.findBuff(TIDE_KEY));
               if (cur && cur.source !== unit && (cur.data?.v ?? 0) > a * k && cur.timeLeft > 0.05) continue;
               battle.addBuff(o, { key: TIDE_KEY, duration: TIDE_IV + 0.1, mods: { atkPct: a * k, defPct: d * k }, source: unit, data: { v: a * k }, tags: ['aura'] });
             }
@@ -263,7 +274,7 @@ export default {
           battle.on('skillStart', (c) => { if (c.unit === unit) give(); }, { owner: unit });
           battle.on('skillEnd', (c) => {
             if (c.unit !== unit) return;
-            for (const o of battle.allyUnits) { const b = o.findBuff(TIDE_KEY); if (b && b.source === unit) battle.removeBuff(o, b); }
+            for (const o of battle.allyUnits) { const b = /** @type {BuffRec | null} */ (o.findBuff(TIDE_KEY)); if (b && b.source === unit) battle.removeBuff(o, b); }
           }, { owner: unit });
         } },
       ],

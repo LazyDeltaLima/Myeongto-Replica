@@ -68,6 +68,11 @@ import { absoluteRangeKeys, canTargetEnemy } from '../../../targeting.js';
 import { bodyInKeys } from '../../../body.js';
 import { TICK, COLS } from '../../../constants.js';
 import { roundHalfEven } from '../../../detmath.js';
+/** @import { KitFns, KitChess, Bb } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRecord } from '../../../../../shared/loadoutRecord.js' */
+/** @import { DamagedEv } from '../../support/index.js' */
 
 const S1 = 'skchr_dminon_1';
 const S2 = 'skchr_dminon_2';
@@ -99,24 +104,29 @@ export const COLLAPSE = 'dminon:collapse';
 export const BOUNDARY_TAG = 'dminon:boundary';
 export const SPREAD_TAG = 'dminon:spread';
 const S2_ASPD = 'dminon:s2:aspd';
-/** S1's 【停步标记】 of `u` on an enemy. */
+/** S1's 【停步标记】 of `u` on an enemy. @param {Unit} u */
 export const haltKey = (u) => `dminon:halt#${u.id}`;
-/** S3's buff of `u` on an ally standing on the 国度. */
+/** S3's buff of `u` on an ally standing on the 国度. @param {Unit} u */
 export const guardKey = (u) => `dminon:s3#${u.id}`;
-/** AMB-X's slow of `u` on an enemy. */
+/** AMB-X's slow of `u` on an enemy. @param {Unit} u */
 export const ambxKey = (u) => `dminon:ambx#${u.id}`;
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** Absolute tile keys → [[x, y]…] (column, row: the render's tile points). */
+/** Absolute tile keys → [[x, y]…] (column, row: the render's tile points). @param {readonly number[]} keys */
 const cellsOf = (keys) => keys.map((k) => [k % COLS, Math.floor(k / COLS)]);
+/** @param {Unit} u @param {string} id */
 const skillOn = (u, id) => !!(u.skill && u.skill.active && u.skill.id === id);
+/** @param {number} v */
 const aspdMods = (v) => ({ aspd: -v });
 
 // ---- the shared field ------------------------------------------------------------------------------------------------
-/** battle → the 国度 of the battle, in setup order: [{ unit, aspd }] (aspd = his 实质坍缩 cut, positive). */
+/** battle → the 国度 of the battle, in setup order: [{ unit, aspd }] (aspd = his 实质坍缩 cut, positive). @type {WeakMap<Battle, Array<{ unit: Unit, aspd: number }>>} */
 const DOMS = new WeakMap();
+/** @param {Battle} battle */
 const domsOf = (battle) => DOMS.get(battle) ?? [];
 
+/** @param {Battle} battle @param {Unit} unit @param {number} aspd */
 function register(battle, unit, aspd) {
   let list = DOMS.get(battle);
   if (!list) DOMS.set(battle, (list = []));
@@ -126,6 +136,7 @@ function register(battle, unit, aspd) {
 /**
  * The tiles of the 国度 now: the range tiles of every 国度 on the field — an array (Battle.enemiesOnTiles reads it by index);
  * one 国度's own `rangeKeys` when he is the only one.
+ * @param {Battle} battle
  */
 export function fieldKeys(battle) {
   let one = null, many = null;
@@ -138,7 +149,7 @@ export function fieldKeys(battle) {
   return many ? [...many] : (one ?? []);
 }
 
-/** Does `x` (an enemy or an ally) stand on the 国度 now — the tile of its position (a huge enemy: its rectangle)? */
+/** Does `x` (an enemy or an ally) stand on the 国度 now — the tile of its position (a huge enemy: its rectangle)? @param {Battle} battle @param {Unit} x */
 export function onField(battle, x) {
   for (const { unit } of domsOf(battle)) if (up(unit) && unit.rangeKeySet && bodyInKeys(x, unit.rangeKeySet)) return true;
   return false;
@@ -148,6 +159,7 @@ export function onField(battle, x) {
  * The enemies `unit` can select (`profile`) standing on `tiles` now — the tile rule (bodyInKeys) by their position this
  * instant —, for the effects that may run in the enemy phase (an enemy's hit, a removal), where the per-tick tile index
  * of Battle.enemiesOnTiles still holds the previous tick's positions.
+ * @param {Battle} battle @param {Unit} unit @param {Iterable<number>} tiles @param {Record<string, any> | null} profile
  */
 function foesNow(battle, unit, tiles, profile) {
   const set = new Set(tiles);
@@ -155,7 +167,7 @@ function foesNow(battle, unit, tiles, profile) {
 }
 
 // ---- 此身为界's cache ----------------------------------------------------------------------------------------------------
-/** His ATK and his field now (the arrays the engine replaces on every range rebuild: a reference is a snapshot). */
+/** His ATK and his field now (the arrays the engine replaces on every range rebuild: a reference is a snapshot). @param {Unit} unit */
 function cacheLeave(unit) {
   const c = unit.mem.dminonLeave ?? (unit.mem.dminonLeave = { seq: 0, atk: 0, keys: null });
   c.seq = unit.deploySeq;
@@ -163,7 +175,7 @@ function cacheLeave(unit) {
   c.keys = unit.rangeKeys;
 }
 
-/** 此身为界 lands: `atk` × atk_scale arts and the stun on every ground enemy standing on `tiles`. */
+/** 此身为界 lands: `atk` × atk_scale arts and the stun on every ground enemy standing on `tiles`. @param {Battle} battle @param {Unit} unit @param {number} atk @param {readonly number[]} tiles @param {Bb} tb */
 function boundary(battle, unit, atk, tiles, tb) {
   const scale = num(tb.atk_scale), stun = num(tb.stun);
   // its projectile's `_tileEffectKeyOnStop` on every tile of its `_targetRange` — the 国度 it cached (render/fx/kitofficial.js 'aoe')
@@ -181,6 +193,7 @@ function boundary(battle, unit, atk, tiles, tb) {
  * `_edgeLineRendererEffectKey` dminon_range_line_01 along that range's edges — both following each change of the range
  * (S2 / S3, the spread tiles). 'field' { id, cells, gone } whenever his range tiles change (render/fx/kitofficial.js 'field';
  * the render ends them as he leaves). A reference check first: the engine replaces the array on every rebuild.
+ * @param {Battle} battle @param {Unit} unit
  */
 function showField(battle, unit) {
   const keys = unit.rangeKeys ?? [];
@@ -196,7 +209,7 @@ function showField(battle, unit) {
 }
 
 // ---- S1 / S3 ---------------------------------------------------------------------------------------------------------
-/** S1: every enemy on the 国度 without his mark — 停顿 `dur` s and the mark. */
+/** S1: every enemy on the 国度 without his mark — 停顿 `dur` s and the mark. @param {Battle} battle @param {Unit} unit @param {number} dur */
 function halt(battle, unit, dur) {
   const key = haltKey(unit);
   for (const e of battle.enemiesOnTiles(fieldKeys(battle), unit, ANY)) {
@@ -206,7 +219,7 @@ function halt(battle, unit, dur) {
   }
 }
 
-/** S3: spread his field to the tile of `src` and its four neighbours (cooldown `cd`), `scale` × ATK physical on them. */
+/** S3: spread his field to the tile of `src` and its four neighbours (cooldown `cd`), `scale` × ATK physical on them. @param {Battle} battle @param {Unit} unit @param {Unit} src @param {number} cd @param {number} scale */
 function spread(battle, unit, src, cd, scale) {
   if (!up(unit) || !skillOn(unit, S3)) return;
   const m = unit.mem;
@@ -225,6 +238,7 @@ function spread(battle, unit, src, cd, scale) {
   }
 }
 
+/** @type {KitFns} */
 export default {
   char_4246_dminon: (bb, chess) => {
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
@@ -233,10 +247,12 @@ export default {
     const hidden = moduleBb(chess);
     const dodge = num(traitBb(chess).prob, 0.5);
     const picked = chess?.skill?.skillId ?? null;
+    /** @param {SkillRecord | null | undefined} rec */
     const grid = (rec) => (rec?.rangeGrid ? { rangeGrid: rec.rangeGrid.map((p) => [p[0], p[1]]) } : undefined);
     const cd = num(b3['attack@cd'], 0.5), aoe = num(b3['attack@aoe_atk_scale']);
 
     // S3: his buff on the allies on the 国度 (kept by the 'extend' refresh); its injury observer is the S3 hooks below
+    /** @param {Battle} battle @param {Unit} unit */
     const guard = (battle, unit) => {
       if (!up(unit) || !skillOn(unit, S3)) return;
       const key = guardKey(unit);
@@ -378,8 +394,9 @@ export default {
         if (picked === S3) {
           // the injury observer of his S3 buff: an enemy damage instance its holder takes — a dodged one too ('dodge') —
           // from a ground, visible enemy spreads his field towards it
+          /** @param {DamagedEv} ctx */
           const observe = (ctx) => {
-            const t = ctx.target, src = ctx.source;
+            const t = ctx.target, src = /** @type {Unit} */ (ctx.source);
             if (!t || !t.findBuff(guardKey(unit)) || !byEnemyAttack({ ...ctx, type: ctx.type ?? ctx.dmg?.type })) return;
             if (!src.alive || src.hidden || src.isFlying) return;
             spread(battle, unit, src, cd, aoe);

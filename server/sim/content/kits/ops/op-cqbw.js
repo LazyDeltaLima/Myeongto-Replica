@@ -69,6 +69,11 @@ import { sortEnemyTargets } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
 import { hasHp, isHpLoss } from '../../../damage.js';
 import { COLS } from '../../../constants.js';
+/** @import { KitFns, KitChess, KitSpec, Bb, DmgRec } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { Scheduled, Hook } from '../../../battle/hooks.js' */
+/** @import { ShotHit } from '../../../ai.js' */
 
 const S1 = 'skchr_cqbw_1';
 const S2 = 'skchr_cqbw_2';
@@ -101,19 +106,20 @@ const AIR = Object.freeze({ canHitFly: true });
 /** 落井下石's factor already applied to a damage instance (two W on one field keep the strongest). */
 const STUN_SCALED = new WeakMap();
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** Talent of data index `i` of the composed record (ART-Y's hidden talent 2 has no name). */
+/** Talent of data index `i` of the composed record (ART-Y's hidden talent 2 has no name). @param {KitChess} chess @param {number} i */
 const talentAt = (chess, i) => (chess?.talents ?? []).find((t) => t && t.index === i) ?? null;
-/** First talent of a normalised token def holding `key` (token talents keep no index). */
+/** First talent of a normalised token def holding `key` (token talents keep no index). @param {{ talents?: Array<{ bb?: Bb } | null> } | null | undefined} def @param {string} key */
 const tokTalent = (def, key) => (def?.talents ?? []).find((t) => t && t.bb && t.bb[key] != null) ?? null;
-/** A mine of `unit`. */
+/** A mine of `unit`. @param {Unit | null | undefined} t @param {Unit} unit */
 const isMineOf = (t, unit) => !!t && t.kind === 'token' && t.defId === MINE && t.ownerUnit === unit;
-/** 晕眩 (cqbw_t_2 checks STUNNED: the catalogue stun, not 冻结 / 浮空). */
+/** 晕眩 (cqbw_t_2 checks STUNNED: the catalogue stun, not 冻结 / 浮空). @param {Unit} e */
 const stunned = (e) => e.hasBuff('stun');
-/** D12's early burst: the target fell, left, hides (消失) or is 无敌 + 无法选中 (重生). */
+/** D12's early burst: the target fell, left, hides (消失) or is 无敌 + 无法选中 (重生). @param {Unit | null | undefined} e */
 const gone = (e) => !e || !e.alive || e.hidden || !!(e.s.flags.invulnerable && e.s.flags.untargetable);
 
-/** The enemies of her range and the ones she blocks, by her target order (`_targetMotion` 3: air units too). */
+/** The enemies of her range and the ones she blocks, by her target order (`_targetMotion` 3: air units too). @param {Battle} battle @param {Unit} unit */
 function rangeFoes(battle, unit) {
   const pool = battle.enemiesInKeys(unit.rangeKeys, unit, AIR);
   for (const e of battle.blockedTargets(unit, AIR)) if (!pool.includes(e)) pool.push(e);
@@ -121,7 +127,7 @@ function rangeFoes(battle, unit) {
   return pool;
 }
 
-/** Free deployable tiles of her current range (melee or ranged: 此面向敌 "部署位置=全部位"). */
+/** Free deployable tiles of her current range (melee or ranged: 此面向敌 "部署位置=全部位"). @param {Battle} battle @param {Unit} unit */
 function mineTiles(battle, unit) {
   const out = [];
   for (const k of unit.rangeKeys ?? []) {
@@ -132,7 +138,7 @@ function mineTiles(battle, unit) {
   return out;
 }
 
-/** The tile 惊吓盒子 plants on (the official TileSelector order: tier1 betterEnemyTiles), or null when her range has none free. */
+/** The tile 惊吓盒子 plants on (the official TileSelector order: tier1 betterEnemyTiles), or null when her range has none free. @param {Battle} battle @param {Unit} unit */
 function mineTile(battle, unit) {
   return betterEnemyTiles(battle, unit, mineTiles(battle, unit), 1, GROUND)[0] ?? null;
 }
@@ -140,6 +146,7 @@ function mineTile(battle, unit) {
 /**
  * 此面向敌's kit (header). `owner` = W, `def` = the token def of her pick (the S2 blackboard of the form; ART-X: the
  * token trait atk_scale).
+ * @param {Unit} owner @param {Record<string, any> | null} def @returns {KitSpec}
  */
 function mineKit(owner, def) {
   const sk = def?.skill?.bb ?? {};
@@ -174,9 +181,11 @@ function mineKit(owner, def) {
 /**
  * D12: a bomb stuck to `e` (its cached ATK × scale, `blocked` = ART-X's factor while she stays on the field). It goes off
  * BOMB_DELAY s later, or at once when the target is gone.
+ * @param {Battle} battle @param {Unit} unit @param {Unit} e @param {number} cached @param {Bb} b3 @param {number} blocked
  */
 function plantBomb(battle, unit, e, cached, b3, blocked) {
   const scale = num(b3.atk_scale), stun = num(b3.stun);
+  /** @param {number} x @param {number} y */
   const burst = (x, y) => {
     const mul = up(unit) ? blocked : 1; // a withdrawn W lends her bombs no module
     battle.fx('kitHit', { x, y, id: unit.id, src: unit.id, target: e.id, k: 'cqbw:bombHit' });
@@ -187,7 +196,7 @@ function plantBomb(battle, unit, e, cached, b3, blocked) {
     }
   };
   const spot = { x: e.x, y: e.y };
-  let done = false, watch = null, timer = null;
+  let done = false, /** @type {Hook | null} */ watch = null, /** @type {Scheduled | null} */ timer = null;
   const fire = () => {
     if (done) return;
     done = true;
@@ -203,6 +212,7 @@ function plantBomb(battle, unit, e, cached, b3, blocked) {
   battle.fx('kitHit', { x: e.x, y: e.y, id: unit.id, src: unit.id, target: e.id, k: 'cqbw:bomb' });
 }
 
+/** @type {KitFns} */
 export default {
   char_113_cqbw: (bb, chess) => {
     const t0 = talentAt(chess, 0)?.bb ?? {};     // 设伏 (ART-Y stage 3: interval 8)
@@ -224,7 +234,7 @@ export default {
             battle.fx('kitHit', { x: e.x, y: e.y, id: unit.id, src: unit.id, target: e.id, k: 'cqbw:grenade' });
             battle.addProjectile({
               from: unit, target: e, speed: GRENADE_SPEED, visual: 'bomb', source: unit, hitDead: true,
-              onHit: (c) => {
+              onHit: (/** @type {ShotHit} */ c) => {
                 for (const v of battle.foesInRadius(c.x, c.y, GRENADE_RADIUS, true)) {
                   battle.dealDamage(unit, v, { amount: atk * scale, type: 'phys', isAttack: true, isSkill: true, tags: ['skill', GRENADE_TAG] });
                   if (stun > 0 && hasHp(v)) battle.applyStatus(v, 'stun', { duration: stun, source: unit });
@@ -280,6 +290,7 @@ export default {
             }
           }, { owner: unit });
           if (per > 0 && cap > 0) {
+            /** @param {{ target?: Unit | null, dmg?: DmgRec | null }} ctx */
             const clear = (ctx) => {
               if (ctx.target !== unit || ctx.dmg?.type === 'element' || isHpLoss(ctx.dmg)) return;
               if (unit.findBuff(RAMP_KEY)) battle.removeBuff(unit, RAMP_KEY);
@@ -332,6 +343,7 @@ export default {
             const activate = sk.activate;
             Object.defineProperty(sk, 'activate', {
               configurable: true, writable: true, enumerable: false,
+              /** @param {string} reason @param {{ free?: boolean }} [opts] */
               value(reason, opts) { return mineTiles(battle, unit).length ? activate.call(this, reason, opts) : false; },
             });
           }

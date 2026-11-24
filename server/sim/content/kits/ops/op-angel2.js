@@ -8,7 +8,9 @@
 
 import chess from './chess_char_6_13-angel2.js';
 import { chessKitAsPick } from '../shared/chessPick.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   char_1041_angel2: chessKitAsPick(chess.chess_char_6_13_a, 'skchr_angel2_2'),
 };

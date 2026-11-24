@@ -14,6 +14,11 @@ import { bodyInRange, hitRect } from '../../../body.js';
 import { dirVec } from '../../../dir.js';
 import { COLS } from '../../../constants.js';
 import { hasHp } from '../../../damage.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillCtx, SkillRuntime } from '../../../skills.js' */
+/** @import { Scheduled } from '../../../battle/hooks.js' */
 
 const S1 = 'skchr_clemnt_1', S2 = 'skchr_clemnt_2', S3 = 'skchr_clemnt_3';
 const GROUND = Object.freeze({ canHitFly: false, groundOnly: true });
@@ -26,46 +31,63 @@ const SPLASH_RADIUS = 1.1; // PRTS 2026-10-10: collision test (foesInColliderRad
 const SHELL_FIRST = 1, SHELL_GAP = 1;
 // The shell stops when its source is no longer valid (projectile_chr_clemnt_s3 `_stopWhenSourceInvalid`): her knock-out or
 // withdrawal ends the hits still due (and `_clearReachedEffectWhenStop` clears its reach effect, the render's 'die').
+/** @param {Unit} unit */
 const shellsStop = (unit) => { for (const s of unit.mem.clemntShells ?? []) s.cancel(); unit.mem.clemntShells = []; };
 const CAST = 'clemnt:cast', CARRY = 'clemnt:carry:';
+/** @param {KitChess} raw @param {string} id */
 const skillBb = (raw, id) => skillRec(raw, id)?.bb ?? {};
+/** @param {Unit} u */
 const tile = (u) => [Math.round(u.y), Math.round(u.x)];
+/** @param {Unit} e */
 const immunity = (e) => e.def?.raw?.stats?.otherImmunities ?? [];
 // No current mode enemy has the three named teleport immunities. Also honour explicit normalized flags for custom data.
 // A giant boss (`def.giantBoss`) is never carried, as 余 S2 / 黍 S3 never move one [ASSUMED, CN-only: the cabin's own mover exists in the
 // CN client only, so its giant boss test is not read; every giant boss but 假想敌：管 (自缚) weighs 9+ anyway] — docs/rules/sim.md 「거대 보스」.
+/** @param {Unit} e */
 const cannotCarry = (e) => e.s.flags.selfBound || e.def?.giantBoss || e.def?.immune?.has('exile') || e.def?.immune?.has('teleport')
-  || immunity(e).some((s) => /teleport|transmit|exile/i.test(String(s)));
+  || immunity(e).some((/** @type {unknown} */ s) => /teleport|transmit|exile/i.test(String(s)));
 
-/** Cabin's 1.1 × 1.1 collision square; huge bodies use the engine hit rectangle. */
+/**
+ * S2's cabin (`unit.mem.clemntCabin`, startCabin): where it is and came from, its heading, the way it goes and has gone,
+ * the mass it still takes, its passengers, stopped (the vortex), the vortex's 1 s clock, the full-mass effect shown.
+ * @typedef {{ x: number, y: number, ox: number, oy: number, dr: number, dc: number, distance: number, moved: number,
+ *   mass: number, passengers: Unit[], stopped: boolean, tick: number, full?: boolean }} ClemntCabin
+ */
+
+/** Cabin's 1.1 × 1.1 collision square; huge bodies use the engine hit rectangle. @param {Unit} e @param {number} x @param {number} y */
 function touches(e, x, y) {
   const r = hitRect(e);
   return r ? r.x1 >= x - CATCH_HALF && r.x0 <= x + CATCH_HALF && r.y1 >= y - CATCH_HALF && r.y0 <= y + CATCH_HALF
     : Math.abs(e.x - x) <= CATCH_HALF + 1e-9 && Math.abs(e.y - y) <= CATCH_HALF + 1e-9;
 }
 
+/** @type {KitFns} */
 export default {
   char_4231_clemnt: (bb, raw) => {
     const t0 = talentBb(raw, 0), t1 = talentBb(raw, 1);
     const b1 = skillBb(raw, S1), b2 = skillBb(raw, S2), b3 = skillBb(raw, S3);
+    /** @param {SkillCtx} ctx @param {number} ratio */
     const rider = ({ battle, unit, target, dealt }, ratio) => {
       if (dealt > 0 && hasHp(target)) battle.dealDamage(unit, target, {
         amount: dealt * ratio, type: 'element', element: 'erosion', isSkill: true, tags: ['skill', 'clemnt:rider'],
       });
     };
+    /** @param {Battle} battle @param {Unit} unit */
     const freePassengers = (battle, unit) => {
       const c = unit.mem.clemntCabin;
       if (c) for (const e of c.passengers) battle.removeBuff(e, CARRY + unit.id);
       battle.removeBuff(unit, CAST);
     };
+    /** @param {Battle} battle @param {Unit} unit @param {ClemntCabin} c */
     const finishCabin = (battle, unit, c) => {
       if (c.stopped) return;
       c.stopped = true;
       freePassengers(battle, unit);
       // PRTS: vortex at the cabin's actual stopping position, radius 1.5, can hit air.
       c.tick = 0;
-      battle.fx('tide', { x: c.x, y: c.y, r: VORTEX_RADIUS, dur: unit.skill.timeLeft, id: unit.id });
+      battle.fx('tide', { x: c.x, y: c.y, r: VORTEX_RADIUS, dur: /** @type {SkillRuntime} */ (unit.skill).timeLeft, id: unit.id });
     };
+    /** @param {Battle} battle @param {Unit} unit */
     const startCabin = (battle, unit) => {
       const [dr, dc] = dirVec(unit.dir), [r, col] = tile(unit);
       let distance = DISTANCE;
@@ -76,12 +98,14 @@ export default {
           distance = Math.min(distance, Math.max(0, d - 0.5 - 0.4)); break;
         }
       }
+      /** @type {ClemntCabin} */
       const c = unit.mem.clemntCabin = { x: col, y: r, ox: col, oy: r, dr, dc, distance, moved: 0,
         mass: num(b2['attack@max_passenger_mass'], 8), passengers: [], stopped: false, tick: 0 };
       battle.addBuff(unit, { key: CAST, duration: 10, flags: { disarm: true }, tags: ['skill'] });
       battle.fx('anchor', { x: col + dc * distance, y: r + dr * distance, fromX: col, fromY: r, id: unit.id, dur: distance / SPEED });
       if (distance <= 1e-9) finishCabin(battle, unit, c);
     };
+    /** @param {Battle} battle @param {Unit} unit @param {number} dt */
     const tickCabin = (battle, unit, dt) => {
       const c = unit.mem.clemntCabin;
       if (!c || !up(unit)) return;
@@ -138,6 +162,7 @@ export default {
           type: 'phys', canDodge: false, isSkill: true, tags: ['skill', 'dot', 'clemnt:vortex'] });
       }
     };
+    /** @param {Battle} battle @param {Unit} unit @param {Unit} e @param {{ marks: Map<Unit, number>, tiles: Map<number, number> }} m @param {SkillRuntime} skill */
     const bombard = (battle, unit, e, m, skill) => {
       const [r, c] = tile(e), key = r * COLS + c;
       if ((m.tiles.get(key) ?? -1) > battle.time) return false;
@@ -147,7 +172,7 @@ export default {
       const hits = Math.max(1, Math.floor(num(b3.audio_trigger_cnt, 3)));
       // `n` the shell's hits (public/js/audio.js sounds its fall 0.5 s before each)
       battle.fx('lock', { x: c, y: r, id: e.id, src: unit.id, dur: SHELL_FIRST, n: hits });
-      const shells = unit.mem.clemntShells = (unit.mem.clemntShells ?? []).filter((s) => !s.cancelled && s.due > battle.time);
+      const shells = unit.mem.clemntShells = (unit.mem.clemntShells ?? []).filter((/** @type {Scheduled} */ s) => !s.cancelled && s.due > battle.time);
       for (let n = 0; n < hits; n++) shells.push(battle.after(SHELL_FIRST + n * SHELL_GAP, () => {
         battle.fx('blast', { x: c, y: r, r: 1.5, id: unit.id });
         for (const t of battle.enemies) {
@@ -201,6 +226,7 @@ export default {
               if (until < battle.time - 1e-9 || !e.alive || e.hidden) { m.marks.delete(e); continue; }
               if (canTargetEnemy(unit, e, GROUND)) choices.push(e);
             }
+            /** @param {Unit} e */
             const dist2 = (e) => { const dx = e.x - unit.x, dy = e.y - unit.y; return dx * dx + dy * dy; };
             choices.sort((a, b) => dist2(a) - dist2(b) || a.spawnSeq - b.spawnSeq);
             for (const e of choices) if (bombard(battle, unit, e, m, skill)) { m.marks.delete(e); break; }

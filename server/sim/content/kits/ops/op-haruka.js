@@ -52,6 +52,10 @@
 import { num, up, traitBb, talentBb, skillRec, batMod, giveSp, protectMods } from '../shared/tier1.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS } from '../../../constants.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_haruka_1';
 const S2 = 'skchr_haruka_2';
@@ -69,11 +73,14 @@ const S2_RADIUS = 1.7;
 /** The 8 tiles around a unit and its own (夜啼彩羽's shield_s1 area; the holder itself is left out). */
 const X4 = Object.freeze([[1, -1], [1, 0], [1, 1], [0, -1], [0, 0], [0, 1], [-1, -1], [-1, 0], [-1, 1]]);
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {number} r @param {number} c */
 const tileKey = (r, c) => r * COLS + c;
+/** @param {Unit | null | undefined} u @param {string} id */
 const skillOn = (u, id) => !!(u && u.skill && u.skill.id === id && u.skill.active);
 
-/** Allies that may get a bubble from `by` on tile keys `keys`: no bubble yet, not 孤立; the lowest HP share first. */
+/** Allies that may get a bubble from `by` on tile keys `keys`: no bubble yet, not 孤立; the lowest HP share first. @param {Battle} battle @param {Unit} by @param {ReadonlySet<number>} keys @param {Unit | null} [except] */
 function bubbleCands(battle, by, keys, except = null) {
   const out = battle.allyUnits.filter((a) => a.alive && a.deployed && !a.hidden && a.kind !== 'device' && a !== except
     && keys.has(tileKey(a.tileR, a.tileC)) && !a.findBuff(BUBBLE) && battle.allySelectable(a, by));
@@ -81,6 +88,7 @@ function bubbleCands(battle, by, keys, except = null) {
   return out;
 }
 
+/** @type {KitFns} */
 export default {
   char_4202_haruka: (bb, chess) => {
     const tb = traitBb(chess);
@@ -89,6 +97,7 @@ export default {
     const s2 = skillRec(chess, S2), s3 = skillRec(chess, S3);
     const atkTargets = Math.max(1, Math.floor(num(tb['attack@max_target'], 1)));
     const healTargets = Math.max(1, Math.floor(num(tb['attack@max_target_heal'], 1)));
+    /** @param {number} n */
     const healAttack = (n) => Object.freeze({
       dmgType: 'heal', heal: n > 1 ? { mode: 'multi', count: n } : { mode: 'single' }, healScale: num(tb.heal_scale, 0.75),
       maxTargets: n, projectile: 'none',
@@ -97,12 +106,12 @@ export default {
     const bubbles = Math.max(1, Math.floor(num(t1.max_target_shield, 1)));
     const t2Heal = num(t2.heal_scale), t2Prob = num(t2.prob), t2Sp = num(t2.sp);
     const s3Scale = num(b3.damage_resistance_scale, 1);
-    /** Bubbles per grant: the talent's, + S2's add while it runs. */
+    /** Bubbles per grant: the talent's, + S2's add while it runs. @param {Unit} u */
     const grantCount = (u) => bubbles + (skillOn(u, S2) ? Math.max(0, Math.floor(num(b2.max_target_shield_add))) : 0);
-    /** A bubble's 庇护 now: ×damage_resistance_scale while her S3 runs. */
+    /** A bubble's 庇护 now: ×damage_resistance_scale while her S3 runs. @param {Unit} u */
     const shelterNow = (u) => shelter * (skillOn(u, S3) ? s3Scale : 1);
 
-    /** Give `a` a bubble from `u` (its 庇护, her ATK of now for the T2 heal). */
+    /** Give `a` a bubble from `u` (its 庇护, her ATK of now for the T2 heal). @param {Battle} battle @param {Unit} u @param {Unit} a @param {boolean} [only] */
     function bubble(battle, u, a, only = false) {
       const v = shelterNow(u);
       battle.addBuff(a, {
@@ -112,25 +121,25 @@ export default {
       // `src` her: the event is her kit's (render: its bundle draws the bubble — fxstatus.js KEY_FX — and no stand-in shield)
       battle.fx('shield', { x: a.x, y: a.y, id: a.id, src: u.id, kind: 'bubble', ...(only ? { only: u.id } : null) });
     }
-    /** One bubble grant of `u` on her current range: up to grantCount allies. Returns how many got one. */
+    /** One bubble grant of `u` on her current range: up to grantCount allies. Returns how many got one. @param {Battle} battle @param {Unit} u @param {boolean} [only] */
     function grant(battle, u, only = false) {
       const list = bubbleCands(battle, u, u.rangeKeySet || new Set(u.rangeKeys || []));
       const n = Math.min(grantCount(u), list.length);
       for (let i = 0; i < n; i++) bubble(battle, u, list[i], only && i === 0);
       return n;
     }
-    /** Re-read the 庇护 of every bubble of `u` (S3's start / end). */
+    /** Re-read the 庇护 of every bubble of `u` (S3's start / end). @param {Battle} battle @param {Unit} u */
     function rescale(battle, u) {
       const v = shelterNow(u);
       for (const a of battle.allyUnits) {
-        const b = a.findBuff(BUBBLE);
+        const b = /** @type {BuffRec | null} */ (a.findBuff(BUBBLE));
         if (!b || b.source !== u || !b.data || Math.abs(b.data.v - v) < 1e-12) continue;
         b.data = { ...b.data, v };
         b.mods = protectMods(v);
         a.markDirty();
       }
     }
-    /** S3: levitate the enemy whose damage set a bubble of `u` off, and its per-second damage while it floats. */
+    /** S3: levitate the enemy whose damage set a bubble of `u` off, and its per-second damage while it floats. @param {Battle} battle @param {Unit} u @param {Unit | null | undefined} e */
     function levitate(battle, u, e) {
       if (!e || !e.alive || e.side !== 'enemy' || e.s.flags.invulnerable || e.s.flags.untargetable) return;
       const dur = num(b3.levitate_duration);
@@ -153,7 +162,7 @@ export default {
       });
       battle.fx('levitate', { x: e.x, y: e.y, id: e.id, src: u.id }); // `src`: her (audio.js, its ON_BUFF_START sound)
     }
-    /** A bubble of `u` on `a` breaks (the delay is over): T2's heal and SP, S1's next bubble. */
+    /** A bubble of `u` on `a` breaks (the delay is over): T2's heal and SP, S1's next bubble. @param {Battle} battle @param {Unit} u @param {Unit} a @param {BuffRec} buff */
     function burst(battle, u, a, buff) {
       battle.removeBuff(a, buff);
       const d = buff.data;
@@ -208,7 +217,7 @@ export default {
           battle.on('damaged', (c) => {
             const a = c.target, src = c.source;
             if (!a || a.side !== 'ally' || !src || src.side !== 'enemy' || !(c.amount > 0) || c.type === 'element') return;
-            const b = a.findBuff(BUBBLE);
+            const b = /** @type {BuffRec | null} */ (a.findBuff(BUBBLE));
             if (!b || b.source !== unit) return;
             if (skillOn(unit, S3) && up(unit)) levitate(battle, unit, src);
             if (b.data.boom) return;

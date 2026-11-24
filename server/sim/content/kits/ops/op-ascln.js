@@ -28,34 +28,47 @@
 import { COLS } from '../../../constants.js';
 import { canTargetEnemy } from '../../../targeting.js';
 import { talentBb, moduleBb, traitBb } from '../shared/tier1.js';
+/** @import { KitFns, KitFn, KitChess, KitDef } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
+/** @param {unknown} v */
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+/** @param {Unit | null | undefined} u */
 const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
+/** @param {KitChess} chess @param {KitDef} def */
 const selectedSkill = (chess, def) => chess?.skill?.skillId ?? def?.skill?.id ?? null;
+/** @param {unknown} v @param {KitDef} def */
 function batOf(v, def) {
   const x = num(v);
   if (!x) return 0;
   if (x > 0) return x;
   return Math.max(-0.9, x / (num(def?.stats?.bat, 1) || 1));
 }
+/** @param {KitDef} def */
 const instantKind = (def) => ((def?.skill?.maxCharges ?? 1) > 1 ? 'charges' : 'instant');
+/** @param {KitDef} def */
 const skillGridOf = (def) => (def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null);
 const ANY = Object.freeze({ canHitFly: true });
+/** @param {Battle} battle @param {Unit} unit */
 const inRange = (battle, unit) => battle.enemiesInKeys(unit.rangeKeys || [], unit, ANY);
 
-/** Buff key of `src`'s 死亡拘审 on an enemy (named as upstream's test helpers import it). */
+/** Buff key of `src`'s 死亡拘审 on an enemy (named as upstream's test helpers import it). @param {Unit} src */
 export const dreadKey = (src) => `ascln:judg:${src.id}`;
 /** Tag of the 死亡拘审 damage ticks. */
 export const DREAD_TAG = 'ascln:dread';
 
+/** @type {KitFn} */
 function ascalon(bb, chess, def) {
   const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
   const slow = Math.abs(num(t0.move_speed, -0.18)), ratio = num(t0.atk_ratio, 0.1);
   const maxStacks = Math.max(1, num(t0.max_stack_cnt, 3)), dur = num(t0.debuff_duration, 25);
+  /** @param {Battle} battle @param {Unit} unit @param {Unit | null | undefined} e */
   const judge = (battle, unit, e, n = 1) => {
     if (!e?.alive || e.side !== 'enemy') return;
     for (let i = 0; i < n; i++) {
-      const was = e.findBuff?.(dreadKey(unit))?.stacks ?? 0;
+      const was = /** @type {BuffRec | null | undefined} */ (e.findBuff?.(dreadKey(unit)))?.stacks ?? 0;
       const b = battle.addBuff(e, {
         key: dreadKey(unit), duration: dur, refresh: 'stack', stacks: 1, maxStacks, interval: 1, source: unit, visible: true,
         mods: { moveMul: 1 - slow },
@@ -112,7 +125,7 @@ function ascalon(bb, chess, def) {
             return;
           }
           // AMB-Y: an enemy carrying her 死亡拘审 knocked out (by anyone) heals her
-          if (heal > 0 && u.side === 'enemy' && reason === 'killed' && live(unit) && u.buffs.some((b) => b.key === dreadKey(unit))) {
+          if (heal > 0 && u.side === 'enemy' && reason === 'killed' && live(unit) && /** @type {BuffRec[]} */ (u.buffs).some((b) => b.key === dreadKey(unit))) {
             battle.heal(unit, unit, unit.s.maxHp * heal, { self: true });
           }
         }, { owner: unit });
@@ -186,6 +199,7 @@ function ascalon(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   char_4132_ascln: (bb, chess, def) => ascalon(bb, chess, def),
 };

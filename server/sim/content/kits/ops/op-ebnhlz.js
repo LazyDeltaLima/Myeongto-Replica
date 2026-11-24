@@ -69,6 +69,9 @@ import { num, talentBb, moduleBb, traitBb, skillRec, batMod, up, toggleBuff, bet
 import { canTargetEnemy } from '../../../targeting.js';
 import { hasHp } from '../../../damage.js';
 import { COLS } from '../../../constants.js';
+/** @import { KitFns, KitChess, KitSpec } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skchr_ebnhlz_1';
 const S2 = 'skchr_ebnhlz_2';
@@ -85,33 +88,36 @@ const REMNANT_LIFE = 30;
 const T2_RADIUS = 1.1;
 const GROUND = Object.freeze({ canHitFly: false, groundOnly: true });
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit} unit @param {string} id */
 const skillOn = (unit, id) => !!(unit.skill && unit.skill.active && unit.skill.id === id);
-/** An elite or leader enemy (the ELITE | BOSS level mask of the client's validators; targeting.js priority 'elite'). */
+/** An elite or leader enemy (the ELITE | BOSS level mask of the client's validators; targeting.js priority 'elite'). @param {Unit | null | undefined} e */
 export const eliteOrLeader = (e) => !!e && (!!e.isBoss || e.def?.rank === 'ELITE' || e.def?.rank === 'BOSS');
-/** His stored energies (per deployment): `n` normal, `e` elite, `q` the volleys in flight per target id. */
+/** His stored energies (per deployment): `n` normal, `e` elite, `q` the volleys in flight per target id. @param {Unit} unit */
 const stateOf = (unit) => unit.trait.ebn ?? (unit.trait.ebn = { n: 0, e: 0, q: new Map() });
 
 /**
  * His held energies changed other than by a store — released, spent by S2, turned elite at S3's start or back at its end:
  * fx 'mysticHeld' { n: the trait's energies, e: the elite ones } (render/fxgame.js chargeSync: the charge effects of the
  * ExChargeAttack emitters, the normal one by n and the ex one by e).
+ * @param {Battle} battle @param {Unit} unit
  */
 function held(battle, unit) {
   const v = stateOf(unit);
   battle.fx('mysticHeld', { x: unit.x, y: unit.y, id: unit.id, n: v.n, e: v.e });
 }
 
-/** A tile 荒芜回响 may place a 旧日残影 on: inside the field, deployable (全部位) and free (Battle.isReservedTile). */
+/** A tile 荒芜回响 may place a 旧日残影 on: inside the field, deployable (全部位) and free (Battle.isReservedTile). @param {Battle} battle @param {number} r @param {number} c @param {Unit} src */
 const remnantTileOk = (battle, r, c, src) => battle.grid.inRect(r, c) && battle.grid.canStand(r, c, { ranged: true }) && !battle.isReservedTile(r, c, null, src);
 
-/** Whether `unit`'s attack range holds one tile 荒芜回响 may use (its cast condition; no rng, unlike remnantTiles). */
+/** Whether `unit`'s attack range holds one tile 荒芜回响 may use (its cast condition; no rng, unlike remnantTiles). @param {Battle} battle @param {Unit} unit */
 function hasRemnantTile(battle, unit) {
   for (const k of unit.rangeKeys || []) if (remnantTileOk(battle, Math.floor(k / COLS), k % COLS, unit)) return true;
   return false;
 }
 
-/** The tiles 荒芜回响 places its `need` 旧日残影 on: the free deployable tiles of his range in the official order (tier1 betterEnemyTiles). */
+/** The tiles 荒芜回响 places its `need` 旧日残影 on: the free deployable tiles of his range in the official order (tier1 betterEnemyTiles). @param {Battle} battle @param {Unit} unit @param {number} need */
 function remnantTiles(battle, unit, need) {
   const tiles = [];
   for (const k of unit.rangeKeys || []) {
@@ -124,6 +130,7 @@ function remnantTiles(battle, unit, need) {
 /**
  * 旧日残影's kit: no normal attack; 闪回 once (a selectable ground enemy within REMNANT_RADIUS ⇒ REMNANT_DELAY s later the
  * blast and the inward push, then it withdraws); its life; it leaves with 黑键 (owner kit's death hook).
+ * @param {Unit} owner @returns {KitSpec}
  */
 function remnantKit(owner) {
   return {
@@ -132,7 +139,7 @@ function remnantKit(owner) {
     install(battle, t) {
       const bb = t.def?.skill?.bb ?? {};
       const scale = num(bb.atk_scale, 1), force = num(bb.force, 1);
-      const life = num((t.def?.talents ?? []).find((x) => x && x.bb && x.bb.duration != null)?.bb.duration, REMNANT_LIFE);
+      const life = num((t.def?.talents ?? []).find((/** @type {Record<string, any> | null} */ x) => x && x.bb && x.bb.duration != null)?.bb.duration, REMNANT_LIFE);
       battle.on('deploy', (ctx) => {
         if (ctx.unit !== t) return;
         const seq = t.deploySeq;
@@ -162,6 +169,7 @@ function remnantKit(owner) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   char_4046_ebnhlz: (bb, chess) => {
     const tb = traitBb(chess);
@@ -181,7 +189,7 @@ export default {
     };
     const epRatio = num(hidden.ep_damage_ratio);
 
-    /** 倚音 on the target of one projectile (the main bolt or one energy). */
+    /** 倚音 on the target of one projectile (the main bolt or one energy). @param {Battle} battle @param {Unit} unit @param {Unit | null | undefined} t @param {number} attackId */
     function yiyin(battle, unit, t, attackId) {
       if (!t || !t.alive) return;
       const others = battle.foesInRadius(t.x, t.y, t2.radius, true).filter((e) => e !== t);
@@ -200,7 +208,7 @@ export default {
       }
     }
 
-    /** The main bolt of an attack landed on `victim`: its 倚音, then every energy of its volley (and theirs). */
+    /** The main bolt of an attack landed on `victim`: its 倚音, then every energy of its volley (and theirs). @param {Battle} battle @param {Unit} unit @param {Unit} victim @param {Record<string, any>} hc */
     function land(battle, unit, victim, hc) {
       const v = stateOf(unit);
       const list = v.q.get(victim.id);
@@ -218,6 +226,7 @@ export default {
     return {
       trait: {
         hitsFn: () => 1,   // the engine's main hit only: the stored energies are this kit's (land)
+        /** @param {Battle} battle @param {Unit} unit @param {Unit | null} victim @param {Record<string, any>} hc */
         onEachHit(battle, unit, victim, hc) { if (hc.kind === 'main' && victim && victim.side === 'enemy') land(battle, unit, victim, hc); },
         // the store (the shared profile calls it at his attack check with no valid target — professions.js installMystic:
         // an attack action, the interval restarts): the trait's energies first, then the elite one; during S3 elite ones
@@ -268,7 +277,7 @@ export default {
         [S3]: {
           kind: 'duration',
           mods: { aspd: num(b3.attack_speed), atkPct: num(b3.atk) },
-          attack: { skipEnemy: (e) => !eliteOrLeader(e) },
+          attack: { skipEnemy: (/** @type {Unit} */ e) => !eliteOrLeader(e) },
           onStart({ battle, unit }) {
             const v = stateOf(unit);
             if (!v.n) return;

@@ -59,7 +59,13 @@ import { isHpLoss } from '../../../damage.js';
  * @typedef {(ctx: SkillCtx) => unknown} SkillHook
  * @typedef {{ [key: string]: any, onHit?: SkillHook, onEachHit?: SkillHook, dmgMul?: number | Profile['dmgMul'],
  *   afterHit?: Profile['afterHit'], canAttack?: Profile['canAttack'], afterAttack?: Profile['afterAttack'],
- *   funnelMul?: Profile['funnelMul'] | null, hitsFn?: Profile['hitsFn'] }} KitAttack
+ *   funnelMul?: Profile['funnelMul'] | null, hitsFn?: Profile['hitsFn'], pickEnemies?: (cands: Unit[]) => Unit[],
+ *   boomerangOnward?: (ctx: BoomerangCtx) => void }} KitAttack
+ * A boomerang's flight after its first hit, as an attack's `boomerangOnward` takes it over (ai.js throwBoomerang): `hit`
+ * strikes with this attack's profile, `comeBack` sends it back from there (once; the return projectile or null).
+ * @typedef {{ battle: Battle, unit: Unit, profile: Record<string, any>, target: Unit | null, x: number, y: number,
+ *   attackId: number, isSkill: boolean, home: () => boolean, comeBack: (x: number, y: number) => unknown,
+ *   hit: (target: Unit | null, x: number, y: number) => unknown }} BoomerangCtx
  * @typedef {{ [key: string]: any, attack?: KitAttack | null, onStart?: SkillHook, onEnd?: SkillHook, onTick?: SkillHook,
  *   onHit?: SkillHook, onAttack?: SkillHook, onStrike?: SkillHook, onCastEnd?: SkillHook, onCastCut?: SkillHook,
  *   onBeginLost?: SkillHook, autoTrigger?: SkillHook, castCheck?: SkillHook, castVariant?: SkillHook }} KitSkill
@@ -230,7 +236,7 @@ export function statBuff(battle, unit, key, mods) {
 /**
  * Keep buff `key` on `unit` exactly while cond() holds (checked every tick). `mods` may be a function.
  * @param {Battle} battle @param {Unit} unit @param {string} key @param {() => unknown} cond
- * @param {Bb | (() => Bb)} mods @param {Bb} [extra]
+ * @param {Bb | (() => Bb) | null} mods @param {Bb} [extra]
  */
 export function toggleBuff(battle, unit, key, cond, mods, extra = {}) {
   const check = () => {

@@ -12,17 +12,23 @@
 
 import { num, talentBb, talentGrid, traitBb, skillRec } from '../shared/tier1.js';
 import { batFlat } from '../shared/tier4.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skchr_frostl_1';
 const S2 = 'skchr_frostl_2';
 const S1_SLOW = 'frostl_s_1';
 const S2_SLOW = 'frostl_s_2[slow]';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 const noRangedCut = () => 1;
 
+/** @type {KitFns} */
 export default {
   char_193_frostl: (bb, chess, def) => {
     const t0 = talentBb(chess, 0), grid = talentGrid(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
+    /** @param {Battle} battle @param {Unit} unit @param {Unit} target @param {string} key @param {number} v @param {number} duration */
     const slow = (battle, unit, target, key, v, duration) => {
       if (target?.alive && target.side === 'enemy' && duration > 0) {
         battle.addBuff(target, { key, source: unit, duration, refresh: 'replace', mods: { moveMul: Math.max(0, 1 + v) }, visible: true, tags: ['skill'] });

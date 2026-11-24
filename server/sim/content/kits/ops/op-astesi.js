@@ -11,14 +11,17 @@
 // - S2 星辉剑 (mode S2, its selector `_limitedMaxTargetNumToBlockedCnt`): ATK +atk, DEF +def, block +block_cnt, attacks every enemy she blocks.
 
 import { num, talentBb, traitBb, skillRec, up } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
 
 const S1 = 'skchr_astesi_1';
 const S2 = 'skchr_astesi_2';
 const STACK = 'astesi_t_1[Stack]';
 /** How often the 法术脆弱 of her blockees is renewed, and for how long (s). */
 const FRAGILE_IV = 0.2, FRAGILE_DUR = 0.3;
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_274_astesi: (bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);

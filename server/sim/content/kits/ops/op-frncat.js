@@ -14,6 +14,7 @@
 
 import { resolveHit } from '../../../ai.js';
 import { num, talentBb, traitBb, skillRec, up, toggleBuff, instantKind } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
 
 const S1 = 'skchr_frncat_1';
 const S2 = 'skchr_frncat_2';
@@ -26,8 +27,10 @@ const NEXT_ATK_FX = 'skill:frncat:nextAtk';
 const TALENT_ATTACK = 'T.1';
 /** Attack_2 (data/assets.json `animations`): its length and OnAttack frames. */
 export const DOUBLE = Object.freeze({ dur: 1.2, first: 0.367, second: 0.633 });
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_185_frncat: (bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);

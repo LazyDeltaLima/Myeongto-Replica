@@ -24,6 +24,9 @@
 import { num, talentBb, skillRec, up, installAura } from '../shared/tier1.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS } from '../../../constants.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
 
 const S1 = 'skchr_amiya3_1';
 const S2 = 'skchr_amiya3_2';
@@ -36,14 +39,17 @@ export const S2_TARGETS = 2;
 /** The talents' aura period [추정·엔진: the client's talent abilities attach while she is on the field; re-selected often enough that a unit deployed later holds them at once]. */
 const AURA_IV = 0.2;
 const AIR = Object.freeze({ canHitFly: true });
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_1037_amiya3: (_bb, chess) => {
     const t0 = talentBb(chess, 0), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
     const hpUp = num(t0.max_hp), regen = num(t0.hp_recovery_per_sec_by_max_hp_ratio);
     const s1Grid = skillRec(chess, S1)?.rangeGrid ?? null;
     const uses = Math.max(1, Math.floor(num(b2.skill_max_trigger_time, 1)));
+    /** @param {Unit} u */
     const on = (u) => !!(u.skill && u.skill.active);
     return {
       skills: {
@@ -80,7 +86,7 @@ export default {
           const scale = num(b1.heal_scale);
           battle.on('damaged', (c) => {
             const d = c.dmg;
-            if (c.source !== unit || !on(unit) || unit.skill.id !== S1 || !d?.isAttack || !c.target || c.target.side !== 'enemy' || !(scale > 0)) return;
+            if (c.source !== unit || !on(unit) || /** @type {SkillRuntime} */ (unit.skill).id !== S1 || !d?.isAttack || !c.target || c.target.side !== 'enemy' || !(scale > 0)) return;
             // its CreateEffect amiya3_skill_01_range on her (render/fx/kitofficial.js kitHit)
             battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: 'amiya3:s1' });
             const keys = new Set(absoluteRangeKeys(s1Grid, unit.tileR, unit.tileC, unit.dir, 0));
@@ -92,7 +98,7 @@ export default {
         if (sid === S2) {
           // 整场战斗中该技能只能释放一次: after the last use no SP comes back (activations count every deployment of the battle)
           battle.on('spGain', (c) => {
-            if (c.unit === unit && !unit.skill.active && unit.skill.activations >= uses) c.amount = 0;
+            if (c.unit === unit && !/** @type {SkillRuntime} */ (unit.skill).active && /** @type {SkillRuntime} */ (unit.skill).activations >= uses) c.amount = 0;
           }, { owner: unit });
         }
       },

@@ -10,11 +10,14 @@
 //   ThreePartChannelingAnimation Skill_Begin / Skill_Loop / Skill_End for the whole skill) and strikes `_preDelay` 0.5 s into each swing.
 
 import { num, talentBb, skillRec, statBuff, batMod } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
 
 const S1 = 'skchr_glassb_1';
 const S2 = 'skchr_glassb_2';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_195_glassb: (bb, chess) => {
     const t0 = talentBb(chess, 0);
