@@ -17,32 +17,41 @@ import { t } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 import { wideHalves } from '../../../shared/wideField.js';
 
-/** @param {any} v @returns {boolean} */
+/** @typedef {import('../ui/gameLogic/shared.js').Pub} Pub */
+/** @typedef {import('../ui/gameLogic/shared.js').PubPlayer} PubPlayer */
+/** @typedef {import('../ui/gameLogic/shared.js').PubField} PubField */
+/** @typedef {import('../ui/gameLogic/shared.js').Bag} Bag */
+/** A battle spec of b.start (the keys read here). @typedef {{ players?: Bag[], kind?: string, wide?: number, [key: string]: any }} BattleSpec */
+/** A teammate's progress row. @typedef {{ playerId: string, name: string, isBot: boolean, killed: number|null, resolved: number|null, total: number|null, done: boolean }} ProgressRow */
+/** One effect of the watched player's effects column. @typedef {{ id: string, name: string, desc: string, iconKind: string, iconId: string, effectId?: string, counter?: number }} SpectateEffect */
+
+/** @param {unknown} v @returns {v is Bag} */
 const isObj = (v) => !!v && typeof v === 'object';
+/** @type {Set<unknown>} */
 const COMBAT = new Set([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
 
-/** The server runs client-side combat (m.public.combatMode). @param {any} pub */
+/** The server runs client-side combat (m.public.combatMode). @param {Pub | null | undefined} pub */
 export const isClientCombat = (pub) => !!pub && pub.combatMode === 'client';
 
-/** @param {any} pub @returns {any[]} */
+/** @param {Pub | null | undefined} pub @returns {PubPlayer[]} */
 const players = (pub) => (Array.isArray(pub?.players) ? pub.players.filter(isObj) : []);
-/** @param {any} pub @returns {any[]} */
+/** @param {Pub | null | undefined} pub @returns {PubField[]} */
 const fields = (pub) => (Array.isArray(pub?.fields) ? pub.fields.filter(isObj) : []);
 
-/** The field listing a player, or null. @param {any} pub @param {any} playerId */
+/** The field listing a player, or null. @param {Pub | null | undefined} pub @param {string} playerId */
 export function fieldOf(pub, playerId) {
   return fields(pub).find((f) => Array.isArray(f.players) && f.players.includes(playerId)) || null;
 }
 
-/** Display name of a player id ('队友' when unknown). @param {any} pub @param {string} playerId @returns {string} */
+/** Display name of a player id ('队友' when unknown). @param {Pub | null | undefined} pub @param {string} playerId @returns {string} */
 export function nameOf(pub, playerId) {
   return /** @type {string} */ (playerName(players(pub).find((p) => p.playerId === playerId)?.name)) || t('队友');
 }
 
 /**
  * What tapping a team row does: `{ back: true }` (own row while observing), `{ fieldId }` to observe, or `{ reason }`.
- * @param {any} p m.public player row
- * @param {any} pub
+ * @param {PubPlayer | Bag} p m.public player row
+ * @param {Pub | null | undefined} pub
  * @param {string} myId
  * @param {{ observing?: boolean }} [o]
  */
@@ -72,7 +81,7 @@ export function observeTarget(p, pub, myId, { observing = false } = {}) {
  * 前往查看 under way — and its 返回战场 must not bring it back while the own b.start is on its way), the own field, a
  * 联防 leaker's field or an eliminated player's auto-observed one (those keep their own rules). A loading battle (its
  * state carries no `watch` yet) is decided once it runs, unless the screen already watches (then it is marked seen).
- * @param {any} b battleRunner.state() @param {{ pub?: any, myId?: string, alive?: boolean, watching?: string|null,
+ * @param {Bag} b battleRunner.state() @param {{ pub?: Pub | null, myId?: string, alive?: boolean, watching?: string|null,
  *   seen?: string|null }} [o]
  * @returns {{ seen: string|null, fieldId: string|null }} seen: the new value to remember
  */
@@ -96,7 +105,7 @@ export function resumedWatch(b, { pub = null, myId = '', alive = true, watching 
  * `prep`, an `n:<pid>` id other than the own) and the screen watches nothing (`watching` null — a 返回战场 this phase is
  * not overridden: the caller adopts a board once per phase). Null for a living player: its phase resets keep its own
  * board.
- * @param {{ field?: any, watching?: string|null, alive?: boolean, spectator?: boolean, myId?: string }} o
+ * @param {{ field?: Bag | null, watching?: string|null, alive?: boolean, spectator?: boolean, myId?: string }} o
  * @returns {string|null} the fieldId to watch
  */
 export function followedScout({ field = null, watching = null, alive = true, spectator = false, myId = '' } = {}) {
@@ -106,21 +115,22 @@ export function followedScout({ field = null, watching = null, alive = true, spe
   return fid;
 }
 
-/** A normal field's progress row: { playerId, name, killed, resolved, total, done, isBot }. @param {any} pub @param {any} f @param {string|null} [name] */
+/** A normal field's progress row: { playerId, name, killed, resolved, total, done, isBot }. @param {Pub | null | undefined} pub @param {PubField} f @param {string|null} [name] @returns {ProgressRow} */
 function progressRow(pub, f, name = null) {
-  const pid = f.players[0];
+  const pid = /** @type {string[]} */ (f.players)[0];
   const p = players(pub).find((x) => x.playerId === pid);
-  const pr = isObj(f.progress) ? f.progress : null;
+  /** @type {{ killed?: number, resolved?: number, total?: number, done?: boolean }} */
+  const pr = isObj(f.progress) ? f.progress : {};
   return {
-    playerId: pid, name: playerName(name || p?.name) || t('队友'), isBot: !!p?.isBot,
-    killed: Number.isFinite(pr?.killed) ? pr.killed : null,
-    resolved: Number.isFinite(pr?.resolved) ? pr.resolved : (Number.isFinite(pr?.killed) ? pr.killed : null),
-    total: Number.isFinite(pr?.total) ? pr.total : null,
-    done: f.live === false || !!pr?.done,
+    playerId: pid, name: /** @type {string} */ (playerName(name || p?.name)) || t('队友'), isBot: !!p?.isBot,
+    killed: Number.isFinite(pr.killed) ? /** @type {number} */ (pr.killed) : null,
+    resolved: Number.isFinite(pr.resolved) ? /** @type {number} */ (pr.resolved) : (Number.isFinite(pr.killed) ? /** @type {number} */ (pr.killed) : null),
+    total: Number.isFinite(pr.total) ? /** @type {number} */ (pr.total) : null,
+    done: f.live === false || !!pr.done,
   };
 }
 
-/** Teammates' progress for the waiting pill: [{ playerId, name, killed, resolved, total, done, isBot }]. @param {any} pub @param {any} myId */
+/** Teammates' progress for the waiting pill: [{ playerId, name, killed, resolved, total, done, isBot }]. @param {Pub | null | undefined} pub @param {string} myId */
 export function teammateProgress(pub, myId) {
   /** @type {ReturnType<typeof progressRow>[]} */
   const out = [];
@@ -136,7 +146,7 @@ export function teammateProgress(pub, myId) {
  * The own normal battle's progress row ("你自己"), shown under the observing pill while a teammate is watched in 各自行动
  * (maintainer decision 2026-10-25: the own battle goes on off screen); `done` also when the local simulation already
  * ended (`localDone`: its report may not be back yet). Null outside 各自行动 or without an own normal field.
- * @param {any} pub @param {string} myId @param {{ localDone?: boolean }} [o]
+ * @param {Pub | null | undefined} pub @param {string} myId @param {{ localDone?: boolean }} [o]
  */
 export function ownProgress(pub, myId, { localDone = false } = {}) {
   if (!isObj(pub) || pub.phase !== PHASE.COMBAT) return null;
@@ -158,10 +168,10 @@ export function halfSide(p, wide = 0) {
   return p?.side === 'R' || Number(p?.colOffset) >= 8 ? 'R' : 'L';
 }
 
-/** Whether `layer` is a half of a field (`L`, `R`, a wide field's `H0`…), not 全景. @param {any} layer */
+/** Whether `layer` is a half of a field (`L`, `R`, a wide field's `H0`…), not 全景. @param {unknown} layer */
 export const isHalfLayer = (layer) => layer === 'L' || layer === 'R' || /^H\d$/.test(String(layer));
 
-/** Side of each player of a local field meta (`sides` from the runner, else seat order). @param {any} field @returns {Record<string, string>} */
+/** Side of each player of a local field meta (`sides` from the runner, else seat order). @param {Bag | null | undefined} field @returns {Record<string, string>} */
 export function sidesOf(field) {
   if (isObj(field?.sides)) return field.sides;
   /** @type {string[]} */
@@ -173,7 +183,7 @@ export function sidesOf(field) {
  * The ‹ › camera layers of a 联防 / boss field: LEFT half, 全景, RIGHT half with captions "你自己" / "👁 name" /
  * "全景" / "无人在家"; the 8-player mode's wide 联防 field has one per half from the left with 全景 in the middle
  * (H0 H1 全景 H2 H3 / H0 全景 H1 H2). Empty for normal fields and single-player boss fields.
- * @param {any} field @param {any} pub @param {any} myId
+ * @param {Bag} field @param {Pub | null | undefined} pub @param {string} myId
  * @returns {{ key: string, label: string, self: boolean, watch: boolean, kind: string, pid: string|null }[]}
  */
 export function cameraLayers(field, pub, myId) {
@@ -205,7 +215,7 @@ export function cameraLayers(field, pub, myId) {
   ];
 }
 
-/** Camera options of a layer for view.setCamera(kind, …). @param {any} field @param {any} layer @param {string} [mySide] @returns {any} */
+/** Camera options of a layer for view.setCamera(kind, …). @param {Bag | null | undefined} field @param {unknown} layer @param {string} [mySide] @returns {{ rect: unknown, side: string, half?: boolean, halfOffset?: number }} */
 export function layerCamera(field, layer, mySide = 'L') {
   const rect = field?.rect;
   if (layer === 'L' || layer === 'R') return { rect, side: layer, half: true };
@@ -226,13 +236,13 @@ export function layerCamera(field, layer, mySide = 'L') {
  * everything else through effects.json; `effectIconUrl`'s per-kind fallbacks cover the missing icon ids. Undefined
  * where whose column would be ambiguous (联防 / boss pairs) or there are no effects data (a server-run field's meta
  * comes from the server without effects — the column stays empty rather than showing one's own).
- * @param {any} spec @param {any} members @returns {any[]|undefined}
+ * @param {BattleSpec} spec @param {unknown} members @returns {SpectateEffect[]|undefined}
  */
 export function spectateEffects(spec, members) {
   if (!Array.isArray(members) || members.length !== 1 || !isObj(spec)) return undefined;
-  const p = Array.isArray(spec.players) ? spec.players.find((/** @type {any} */ x) => isObj(x) && x.playerId === members[0]) : null;
+  const p = Array.isArray(spec.players) ? spec.players.find((/** @type {unknown} */ x) => isObj(x) && x.playerId === members[0]) : null;
   if (!p || !Array.isArray(p.playerEffects)) return undefined;
-  /** @type {any[]} */
+  /** @type {SpectateEffect[]} */
   const out = [];
   for (const pe of p.playerEffects) {
     if (!isObj(pe) || typeof pe.id !== 'string' || !pe.id) continue;

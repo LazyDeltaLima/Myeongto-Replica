@@ -22,6 +22,9 @@ import { audio, installAudio } from '../audio.js';
 import { DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { ARENA, SIM_DATA_FILES, HURT, arenaStage, createSandbagBattle, arenaOp, arenaBags, keepSandbags, reviveSandbags, hurtOp, keepOp, fillSp, castNow, rangeTiles } from './sandbag.js';
 
+/** @typedef {import('./sandbag.js').SandbagBattle} SandbagBattle */
+/** @typedef {import('../ui/gameLogic/shared.js').Bag} Bag */
+/** What start() takes: the sandbag battle's config plus the arena's own keys. @typedef {import('./sandbag.js').SandbagCfg & { terrain?: 'flat' | 'high', crates?: [number, number][], keepOp?: () => boolean, hurt?: () => boolean }} ArenaCfg */
 const TICK = 1 / 30;
 /** Data files the view reads (unit models / names, the board art manifest). */
 const VIEW_FILES = ['chess', 'tokens', 'enemies', 'items', 'stages', 'bonds', 'assets', 'local'];
@@ -48,14 +51,14 @@ async function loadSim() {
 /** Sim content errors: kept for the status line, never thrown. */
 /** @param {string[]} errors */
 function makeLogger(errors) {
-  /** @param {...any} a */
+  /** @param {...unknown} a */
   const keep = (...a) => { errors.push(a.map(String).join(' ')); if (errors.length > 50) errors.shift(); console.warn('[sim]', ...a); };
   return Object.freeze({ error: keep, warn: keep, info() {}, debug() {} });
 }
 
 /**
- * @param {any} host
- * @param {{ onEvents?: Function, onRestart?: Function, onKeepOp?: Function }} [hooks]
+ * @param {HTMLElement} host
+ * @param {{ onEvents?: (ev: unknown[][], gt: number) => void, onRestart?: (battle: SandbagBattle) => void, onKeepOp?: (gt: number) => void }} [hooks]
  */
 export async function createArena(host, hooks = {}) {
   await data.loadAll(VIEW_FILES);
@@ -69,9 +72,9 @@ export async function createArena(host, hooks = {}) {
 
   // heard: the audio manager knows this battle's units — it drops every event (spawns too) until the first gesture
   // unlocks it, so the units on the field are handed over then (audio.setFieldUnits)
-  /** @type {any} */ let battle = null;
-  /** @type {any} */ let cfg = null;
-  /** @type {any} */ let stageId = null;
+  /** @type {SandbagBattle | null} */ let battle = null;
+  /** @type {ArenaCfg | null} */ let cfg = null;
+  /** @type {string | null} */ let stageId = null;
   let runs = 0, nextHurt = 0, heard = false;
   let kept = false;   // keepOp healed the operator in the steps since the last emit
   let paused = false, speed = 1, acc = 0, last = 0, raf = 0, destroyed = false, range = false, rangeKey = '';
@@ -82,30 +85,33 @@ export async function createArena(host, hooks = {}) {
 
   /** Push the steps' events and a snapshot to the view and the audio (battle/runner.js emitFrame, one batch). */
   function emit() {
-    const ev = battle.drainEvents() || [];
-    if (reviveSandbags(battle, ev)) ev.push(...(battle.drainEvents() || []));
-    const { t: gt, ...snap } = battle.snapshot();
-    if (!heard && audio.unlocked) { heard = true; audio.setFieldUnits(battle.fieldMeta().units); }
+    const b = /** @type {SandbagBattle} */ (battle);
+    const ev = b.drainEvents() || [];
+    if (reviveSandbags(b, ev)) ev.push(...(b.drainEvents() || []));
+    const { t: gt, ...snap } = b.snapshot();
+    if (!heard && audio.unlocked) { heard = true; audio.setFieldUnits(b.fieldMeta().units); }
     if (ev.length) {
       // the page's log first: the sounds the audio manager starts for these events are logged right after them
       try { hooks.onEvents?.(ev, gt); } catch (err) { console.warn('[arena] onEvents', err); }
-      view.pushEvents({ t: 'b.ev', fieldId: battle.fieldId, gt, ev });
+      view.pushEvents({ t: 'b.ev', fieldId: b.fieldId, gt, ev });
       audio.handleBattleEvents(ev);
     }
     // logged after the blow that took the operator under KEEP_OP
     if (kept) { kept = false; try { hooks.onKeepOp?.(gt); } catch (err) { console.warn('[arena] onKeepOp', err); } }
-    view.pushSnapshot({ ...snap, t: 'b.snap', fieldId: battle.fieldId, gt });
+    view.pushSnapshot({ ...snap, t: 'b.snap', fieldId: b.fieldId, gt });
     if (range) syncRange();
   }
 
   /** @param {number} n */
   function steps(n) {
+    const b = /** @type {SandbagBattle} */ (battle);
+    const c = /** @type {ArenaCfg} */ (cfg);
     const t0 = performance.now();
     for (let i = 0; i < n; i++) {
-      battle.step();
-      keepSandbags(battle);
-      if (cfg.keepOp?.() && keepOp(battle)) kept = true;
-      if (battle.time >= nextHurt && cfg.hurt?.()) { hurtOp(battle); nextHurt = battle.time + HURT.every; }
+      b.step();
+      keepSandbags(b);
+      if (c.keepOp?.() && keepOp(b)) kept = true;
+      if (b.time >= nextHurt && c.hurt?.()) { hurtOp(b); nextHurt = b.time + HURT.every; }
     }
     perf.ticks += n;
     perf.frameMs = perf.frameMs * 0.9 + (performance.now() - t0) * 0.1;
@@ -134,11 +140,11 @@ export async function createArena(host, hooks = {}) {
     view.highlightTiles(tiles.length ? tiles : [], 'range');
   }
 
-  /** @param {any} next */
+  /** @param {ArenaCfg} next */
   function start(next) {
     cfg = { ...next };
     const stage = arenaStage(cfg.terrain, data.get('stages'), cfg.crates);
-    if (stage.id !== stageId) { view.setStage(stage); stageId = stage.id; }
+    if (stage.id !== stageId) { view.setStage(stage); stageId = /** @type {string} */ (stage.id); }
     const fieldId = `debug#${++runs}`;
     battle = createSandbagBattle(sim.mods, sim.ds, { ...cfg, stage, fieldId, logger });
     const meta = battle.fieldMeta();
@@ -169,24 +175,24 @@ export async function createArena(host, hooks = {}) {
     bags: () => arenaBags(battle),
     errors,
     get paused() { return paused; },
-    /** @param {any} v */
+    /** @param {unknown} v */
     setPaused(v) {
       paused = !!v; acc = 0;
       // the sounds stop with the battle (a skill's loop would play on)
       try { if (audio.ctx) { if (paused) audio.ctx.suspend(); else audio.ctx.resume(); } } catch { /* ignore */ }
     },
     get speed() { return speed; },
-    /** @param {any} x */
+    /** @param {unknown} x */
     setSpeed(x) { speed = Number(x) > 0 ? Number(x) : 1; view.setLocalFeed({ on: true, speed }); },
     /** Run `seconds` of game time now (paused stepping). */
     stepOnce(seconds = 0.1) { if (!battle) return; steps(Math.max(1, Math.round(seconds / TICK))); emit(); },
     fillSp() { const ok = fillSp(arenaOp(battle)); if (ok) emit(); return ok; },
     castNow() { const ok = castNow(arenaOp(battle)); if (ok) emit(); return ok; },
-    /** @param {any} key @param {any} unitId */
+    /** @param {string} key @param {number} unitId */
     playFx(key, unitId) { return view.debugFx ? view.debugFx(key, unitId) : Promise.resolve(false); },
-    /** @param {any} on */
+    /** @param {unknown} on */
     showRange(on) { range = !!on; rangeKey = ''; if (range && battle) syncRange(); else view.highlightTiles(null); },
-    /** @param {any} q */
+    /** @param {string} q */
     setQuality(q) { view.setSettings({ quality: q }); },
     stats: () => ({ ...perf, view: view.stats ? view.stats() : null }),
     destroy() { destroyed = true; if (raf) cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); view.destroy(); },

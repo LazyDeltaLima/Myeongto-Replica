@@ -58,6 +58,35 @@ export const HURT = Object.freeze({ every: 1.5, frac: 0.2, floor: 0.35 });
 export const KEEP_OP = 0.25;
 /** An attacking sandbag's reach (tiles): the island's diagonal (6√2 ≈ 8.5) and more — every island tile is in range. */
 export const ISLAND_REACH = 9;
+
+/** @typedef {import('../ui/gameLogic/shared.js').Bag} Bag */
+/** A relative range grid, authored facing RIGHT: [dRow, dCol] pairs. @typedef {number[][]} RangeGrid */
+/** A unit's skill, the members the arena's fillSp / castNow touch. @typedef {{ noSkill?: boolean, kind?: string, active?: boolean, isTimed?: boolean,
+ *   spCost: number, maxCharges: number, setSpTotal: (n: number) => void, activate: (how: string) => boolean }} SandbagSkill */
+/**
+ * A sim unit as the arena reads it (server/sim units; the rest is the sim's).
+ * @typedef {{ id: number, uid?: number, kind: string, side: string, alive: boolean, deployed?: boolean, hp: number, s: { maxHp: number },
+ *   tag?: string, defId: string, spawnY: number, spawnX: number, motion: string, skill?: SandbagSkill | null,
+ *   liveRangeGrid?: RangeGrid, rangeGrid?: RangeGrid, tileR?: number, tileC?: number, x: number, y: number, dir?: string }} SandbagUnit
+ */
+/**
+ * The sim's Battle as the debug arena uses it.
+ * @typedef {{ time: number, fieldId: string, units: SandbagUnit[], allyUnits: SandbagUnit[], enemies: SandbagUnit[],
+ *   step: () => void, drainEvents: () => unknown[][] | undefined, snapshot: () => Bag, fieldMeta: () => Bag & { units: unknown },
+ *   dealDamage: (src: unknown, target: SandbagUnit, o: Bag) => number,
+ *   spawnEnemy: (defId: string, o: Bag) => unknown, on: (name: string, fn: (ctx: Bag) => void) => void }} SandbagBattle
+ */
+/** The sim modules the arena builds a battle from (/sim/Battle.js, /sim/simdata.js). @typedef {{ Battle: new (spec: Bag) => SandbagBattle,
+ *   DataSource: new (files: Record<string, unknown>, base?: unknown) => unknown, withUnitLoadouts: (ds: unknown, players: Bag[]) => unknown }} SandbagSim */
+/**
+ * The config of a sandbag battle.
+ * @typedef {{ fieldId?: string, stage: Bag, chessId: string, skillIndex?: number|null, moduleId?: string|null, dir?: string,
+ *   op?: { row: number, col: number }, bags?: { row: number, col: number }[], enemyKey?: string, bag?: object,
+ *   diy?: object, items?: string[], tokens?: { tokenId: string, row: number, col: number }[],
+ *   blockers?: { chessId: string, row: number, col: number, dir?: string }[],
+ *   spAuto?: () => boolean, seed?: number, logger?: object }} SandbagCfg
+ */
+/** The sim's DataSource, the member the arena calls. @typedef {{ rawEnemy: (key: string) => Bag | null }} SandbagBaseDs */
 const FRONT = Object.freeze({ RIGHT: [0, 1], LEFT: [0, -1], UP: [1, 0], DOWN: [-1, 0] });
 /** Data files the sim reads — a copy of battle/runner.js SIM_DATA_FILES (the test keeps them equal; importing
  *  runner.js would create the app's battle runner wired to the socket). */
@@ -72,7 +101,7 @@ const ROWS = 19, COLS = 21;
  * `crates` ([row, col] island tiles, a scene's): 阻隔工事 stage devices there, the record copied from a real stage's crate
  * (the sim places it as an obstacle, the board draws its model); the id names them too.
  * @param {keyof TERRAINS} terrain
- * @param {any} [stages]
+ * @param {Record<string, Bag> | null} [stages]
  * @param {[number, number][]} [crates]
  */
 export function arenaStage(terrain = 'flat', stages = null, crates = []) {
@@ -87,12 +116,13 @@ export function arenaStage(terrain = 'flat', stages = null, crates = []) {
     for (let c = 0; c < COLS; c++) line += !inArena(r, c) ? '#' : terrain === 'high' && HIGH_ROWS.has(r) ? 'h' : 'r';
     rows.push(line);
   }
-  /** @type {Record<string, any>} */
+  /** @type {Record<string, unknown>} */
   const tiles = {};
+  /** @type {Bag | null} */
   let crate = null;
   for (const st of Object.values(stages && typeof stages === 'object' ? stages : {})) {
     for (const g of ['#', 'r', 'h']) if (!tiles[g] && st && st.tiles && st.tiles[g]) tiles[g] = st.tiles[g];
-    crate ||= (st && Array.isArray(st.devices) && st.devices.find((/** @type {any} */ d) => d && d.key === CRATE_KEY)) || null;
+    crate ||= (st && Array.isArray(st.devices) && st.devices.find((/** @type {Bag} */ d) => d && d.key === CRATE_KEY)) || null;
   }
   const at = (Array.isArray(crates) ? crates : []).filter((p) => Array.isArray(p) && inArena(p[0], p[1]));
   const devices = crate ? at.map(([r, c], i) => ({ ...crate, alias: `${CRATE_KEY}#d${i + 1}`, pos: [r, c], rangeTiles: [[r, c]], hidden: false, active: true })) : [];
@@ -108,12 +138,12 @@ export function arenaStage(terrain = 'flat', stages = null, crates = []) {
  * `bag.attack`: it attacks the allies wherever they stand on the island — a ranged attacker (applyWay RANGED, so not only
  * its blocker: sim/ai.js enemyAttack) with ISLAND_REACH, at `bag.atk` or, with 0 there, its own ATK; a melee enemy's
  * blow (no projectile) lands on its target at the strike, a ranged one's own shot flies.
- * @param {any} raw data/enemies.json record
+ * @param {Bag} raw data/enemies.json record
  * @param {{ hp?: number, def?: number, res?: number, atk?: number, fixed?: boolean, attack?: boolean }} [bag]
  */
 export function sandbagRecord(raw, bag = {}) {
   const st = (raw && raw.stats) || {};
-  /** @param {any} v @param {number} d */
+  /** @param {unknown} v @param {number} d */
   const n = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v != null ? Math.max(0, Number(v)) : d);
   const attack = !!bag.attack;
   const atk = n(bag.atk, 0) || (attack ? n(st.atk, 0) || 1 : 0);
@@ -143,22 +173,17 @@ function bagRoute(row, col, motion) {
 
 /**
  * The sandbag battle.
- * @param {{ Battle: new (...args: any[]) => any, DataSource: new (...args: any[]) => any, withUnitLoadouts: Function }} sim
+ * @param {SandbagSim} sim
  *   the /sim/ modules (Battle.js, simdata.js)
- * @param {any} baseDs the sim's DataSource (all data files)
- * @param {{ fieldId?: string, stage: any, chessId: string, skillIndex?: number|null, moduleId?: string|null, dir?: string,
- *   op?: { row: number, col: number }, bags?: { row: number, col: number }[], enemyKey?: string, bag?: object,
- *   diy?: object, items?: string[], tokens?: { tokenId: string, row: number, col: number }[],
- *   blockers?: { chessId: string, row: number, col: number, dir?: string }[],
- *   spAuto?: () => boolean, seed?: number, logger?: object }} cfg `spAuto()` false = the operator gains no SP by itself
- *   (only fillSp / castNow charge it)
+ * @param {SandbagBaseDs} baseDs the sim's DataSource (all data files)
+ * @param {SandbagCfg} cfg `spAuto()` false = the operator gains no SP by itself (only fillSp / castNow charge it)
  */
 export function createSandbagBattle(sim, baseDs, cfg) {
   const raw = baseDs.rawEnemy(cfg.enemyKey || SANDBAG_DEFAULT);
   if (!raw) throw new Error(`unknown enemy ${cfg.enemyKey}`);
   const ds = new sim.DataSource({ enemies: { [raw.key]: sandbagRecord(raw, cfg.bag) } }, baseDs);
   const op = cfg.op || DEFAULT_OP;
-  /** @type {any} */
+  /** @type {Bag} */
   const unit = { uid: 1, kind: 'chess', chessId: cfg.chessId, row: op.row, col: op.col, dir: cfg.dir || 'RIGHT' };
   if (Number.isInteger(cfg.skillIndex)) unit.skillIndex = cfg.skillIndex;
   if (typeof cfg.moduleId === 'string' && cfg.moduleId) unit.moduleId = cfg.moduleId;
@@ -185,8 +210,8 @@ export function createSandbagBattle(sim, baseDs, cfg) {
     // no battle-start operation cooldown (a fresh skill may go at once), no bond layers
     flags: { bornTime: 0, layerGainsEnabled: false },
     data: sim.withUnitLoadouts(ds, players), content: 'full', autoFinish: false, quiet: true, logger: cfg.logger,
-    setup: (/** @type {any} */ b) => {
-      b.on('spGain', (/** @type {any} */ ctx) => { if (ctx.unit && ctx.unit.side === 'ally' && !spAuto()) ctx.amount = 0; });
+    setup: (/** @type {SandbagBattle} */ b) => {
+      b.on('spGain', (/** @type {Bag} */ ctx) => { if (ctx.unit && ctx.unit.side === 'ally' && !spAuto()) ctx.amount = 0; });
     },
   });
 }
@@ -195,11 +220,11 @@ export function createSandbagBattle(sim, baseDs, cfg) {
  * Where the sandbag goes for an operator on `op` facing `dir` with this range grid (authored facing RIGHT): the tile in
  * front when the range reaches it, else the nearest range tile on the island; a block-only range ([[0,0]]: 重装 / 护卫
  * protectors) puts it on the operator's own tile, BLOCK_OFFSET in front — it is blocked there, as a walking enemy would be.
- * @param {{ row: number, col: number }} op @param {string} [dir] @param {any} [grid]
+ * @param {{ row: number, col: number }} op @param {string} [dir] @param {RangeGrid | null} [grid]
  */
 export function defaultBags(op, dir = 'RIGHT', grid = null) {
   const [fr, fc] = FRONT[/** @type {keyof typeof FRONT} */ (dir)] || FRONT.RIGHT;
-  /** @type {any[]} */
+  /** @type {RangeGrid} */
   const g = (Array.isArray(grid) ? grid : []).filter((x) => Array.isArray(x) && (x[0] || x[1]));
   const turn = (/** @type {number[]} */ [dr, dc]) => (dir === 'UP' ? [dc, -dr] : dir === 'LEFT' ? [-dr, -dc] : dir === 'DOWN' ? [-dc, dr] : [dr, dc]);
   const reach = !Array.isArray(grid) || g.some((x) => x[0] === 0 && x[1] === 1);
@@ -209,14 +234,14 @@ export function defaultBags(op, dir = 'RIGHT', grid = null) {
   return [near || { row: op.row + fr * BLOCK_OFFSET, col: op.col + fc * BLOCK_OFFSET }];
 }
 
-/** The "injured ally" option, one blow: true damage to the operator (it never drops below HURT.floor). @param {any} battle */
+/** The "injured ally" option, one blow: true damage to the operator (it never drops below HURT.floor). @param {SandbagBattle} battle */
 export function hurtOp(battle) {
   const u = arenaOp(battle);
   if (!u || !u.alive || !u.deployed || u.hp <= u.s.maxHp * HURT.floor) return 0;
   return battle.dealDamage(null, u, { amount: u.s.maxHp * HURT.frac, type: 'true', canDodge: false, sourceless: true, tags: ['debug'] });
 }
 
-/** The "operator stands" option, after a step: an operator below KEEP_OP of its max HP is healed to full (true). @param {any} battle */
+/** The "operator stands" option, after a step: an operator below KEEP_OP of its max HP is healed to full (true). @param {SandbagBattle} battle */
 export function keepOp(battle) {
   const u = arenaOp(battle);
   if (!u || !u.alive || u.hp >= u.s.maxHp * KEEP_OP) return false;
@@ -224,12 +249,12 @@ export function keepOp(battle) {
   return true;
 }
 
-/** The operator of the arena (its first deployed ally op), or null. @param {any} battle */
-export const arenaOp = (battle) => (battle ? battle.allyUnits.find((/** @type {any} */ u) => u.kind === 'op') || null : null);
-/** The living sandbags. @param {any} battle @returns {any[]} */
-export const arenaBags = (battle) => (battle ? battle.enemies.filter((/** @type {any} */ e) => e.alive && e.tag === SANDBAG_TAG) : []);
+/** The operator of the arena (its first deployed ally op), or null. @param {SandbagBattle | null} battle */
+export const arenaOp = (battle) => (battle ? battle.allyUnits.find((u) => u.kind === 'op') || null : null);
+/** The living sandbags. @param {SandbagBattle | null} battle @returns {SandbagUnit[]} */
+export const arenaBags = (battle) => (battle ? battle.enemies.filter((e) => e.alive && e.tag === SANDBAG_TAG) : []);
 
-/** After a step: a sandbag below half HP is healed to full (a %-max-HP hit never brings it near 0). @param {any} battle */
+/** After a step: a sandbag below half HP is healed to full (a %-max-HP hit never brings it near 0). @param {SandbagBattle | null} battle */
 export function keepSandbags(battle) {
   for (const e of arenaBags(battle)) if (e.hp < e.s.maxHp * 0.5) e.hp = e.s.maxHp;
 }
@@ -237,13 +262,13 @@ export function keepSandbags(battle) {
 /**
  * After a drain: every sandbag of a 'die' tuple (an execute, an instant kill) stands up again on its tile at once (its
  * 'spawn' tuple goes out with the next drain). Returns how many were revived.
- * @param {any} battle @param {any} ev
+ * @param {SandbagBattle} battle @param {unknown} ev
  */
 export function reviveSandbags(battle, ev) {
   let n = 0;
   for (const x of Array.isArray(ev) ? ev : []) {
     if (!Array.isArray(x) || x[0] !== 'die') continue;
-    const e = battle.units.find((/** @type {any} */ u) => u.id === x[1]);
+    const e = battle.units.find((u) => u.id === x[1]);
     if (!e || e.side !== 'enemy' || e.tag !== SANDBAG_TAG) continue;
     const pos = [e.spawnY, e.spawnX];   // exact: a blocked sandbag stands off its tile's centre
     if (battle.spawnEnemy(e.defId, { pos, route: bagRoute(Math.round(pos[0]), Math.round(pos[1]), e.motion), tag: SANDBAG_TAG, countInTotal: false })) n++;
@@ -251,7 +276,7 @@ export function reviveSandbags(battle, ev) {
   return n;
 }
 
-/** Charge the unit's skill fully (every charge); false for a unit without an active skill or while a timed one runs. @param {any} u */
+/** Charge the unit's skill fully (every charge); false for a unit without an active skill or while a timed one runs. @param {SandbagUnit | null} u */
 export function fillSp(u) {
   const s = u && u.skill;
   if (!s || s.noSkill || s.kind === 'passive' || !u.alive) return false;
@@ -260,16 +285,16 @@ export function fillSp(u) {
   return true;
 }
 
-/** Charge and cast the unit's skill now (its trigger rule and the operation cooldown are skipped). @param {any} u */
+/** Charge and cast the unit's skill now (its trigger rule and the operation cooldown are skipped). @param {SandbagUnit | null} u */
 export function castNow(u) {
   if (!fillSp(u)) return false;
-  return u.skill.activate('manual');
+  return /** @type {SandbagSkill} */ (/** @type {SandbagUnit} */ (u).skill).activate('manual');
 }
 
 /**
  * The unit's live attack range (its grid as the sim keeps it — skills / modules included — authored facing RIGHT, turned
  * to its direction with /sim/dir.js `rotateOffset`) as absolute tiles of the island.
- * @param {any} u ally unit
+ * @param {SandbagUnit} u ally unit
  * @param {(dr: number, dc: number, dir: string) => number[]} rotateOffset [dRow, dCol]
  */
 export function rangeTiles(u, rotateOffset) {
@@ -290,14 +315,14 @@ export function rangeTiles(u, rotateOffset) {
  * a 自选 pick's by its `charId@status` owner key, shared/diy.js diyTokenOwner):
  * [{ tokenId, name, limit (deployLimit), ownerRange (only on its owner's attack range), ownerBeside (only next to it) }].
  * @param {string} chessId the battle's chess id (normal or elite)
- * @param {any[]} tokens token records
+ * @param {Bag[]} tokens token records
  */
 export function ownTokens(chessId, tokens) {
   return (Array.isArray(tokens) ? tokens : []).filter((t) => t && t.placeable && Array.isArray(t.owners) && t.owners.includes(chessId))
     .map((t) => ({ tokenId: t.tokenId, name: t.name, limit: Math.max(1, Number(t.deployLimit) || 1), ownerRange: !!t.ownerRange, ownerBeside: !!t.ownerBeside }));
 }
 
-/** The island tiles of an operator's attack range (its grid, authored facing RIGHT, turned to `dir`). @param {{ row: number, col: number }} op @param {string} dir @param {any} grid */
+/** The island tiles of an operator's attack range (its grid, authored facing RIGHT, turned to `dir`). @param {{ row: number, col: number }} op @param {string} dir @param {RangeGrid | null | undefined} grid */
 export function rangeOf(op, dir, grid) {
   const turn = (/** @type {number[]} */ [dr, dc]) => (dir === 'UP' ? [dc, -dr] : dir === 'LEFT' ? [-dr, -dc] : dir === 'DOWN' ? [-dc, dr] : [dr, dc]);
   return (Array.isArray(grid) ? grid : []).filter(Array.isArray).map(turn).map(([dr, dc]) => ({ row: op.row + dr, col: op.col + dc }))
@@ -314,7 +339,7 @@ export const besideOp = (op, t) => Math.abs(t.row - op.row) + Math.abs(t.col - o
  * front of it first.
  * @param {{ row: number, col: number }} op
  * @param {string} dir
- * @param {any[]} grid the operator's range grid
+ * @param {RangeGrid | null} grid the operator's range grid
  * @param {{ tokenId: string, limit: number, ownerRange: boolean, ownerBeside?: boolean }[]} own ownTokens
  * @param {{ row: number, col: number }[]} [taken] tiles already used (the sandbags)
  */
