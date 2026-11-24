@@ -104,7 +104,7 @@ error.
 
 With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`, the files directly under `server/`
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, and the files directly under
-`server/match/` but `bot.js` and `effectsMeta.js` (listed one by one).
+`server/match/` but `bot.js` (listed one by one).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -186,9 +186,14 @@ most strict errors were, and the JSDoc that fixed them:
 - a `Match` / `PlayerState` field that starts `null` in the constructor gets a value cast there (`this.teamLp = /** @type
   {number | null} */ (null)`, a scheduler handle `/** @type {unknown} */ (null)`); a part that reads it in a phase
   where it is always set casts at the use (`/** @type {SharedBossPool} */ (this.bossPool).hp`).
-- `MetaCtx` / `MetaHandlers` (`server/match/effectsMeta.js`) type the meta handlers: a handler table is
-  `@type {Record<string, MetaHandlers>}`, so its methods' `(ctx, ev)` need no `@param`. `MetaCtx` is still `any`
-  (makeCtx's `teammates` returns makeCtx again, so tsc cannot infer it) until makeCtx gets an explicit `@returns`.
+- `MetaCtx` / `MetaHandlers` / `MetaSource` (`server/match/effectsMeta.js`) type the meta handlers: a handler table is
+  `@type {Record<string, MetaHandlers>}`, so its methods' `(ctx, ev)` need no `@param`, and `ctx.source` is a
+  `MetaSource` (a field only one kind carries, an effect's `ref`, is cast at the use). `MetaCtx` is
+  `ReturnType<typeof makeCtx>`, inferred from the object makeCtx builds; makeCtx calls itself (`teammates`, `player`),
+  so those members carry `@returns {MetaCtx[]}` / `{MetaCtx | null}`, which tsc resolves only when asked. The preview
+  branch passes its own `teammates` / `player` to `previewContext`, whose argument check would need them while makeCtx's
+  return type is still being inferred: there they return `unknown` (as `previewContext` takes them), and only
+  `forPlayer` says `MetaCtx` — without that split tsc gives up on the whole return type (TS7023) and `MetaCtx` is `any`.
 - a seeded stream is `ReturnType<typeof import('../sim/rng.js').createRng>` (`Rng` in `server/match/pool.js`), not
   `Function` (which has no `shuffle`).
 - a helper taking `[value, weight]` pairs (`weightedPick` in `server/match/waves.js`) is `@template T` over

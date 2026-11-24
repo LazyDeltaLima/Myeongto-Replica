@@ -98,7 +98,7 @@ export function onMerge(m, p, info) {
 /**
  * @param {Match} m
  * @param {PlayerState} recipient
- * @param {string} fromPlayerId
+ * @param {string | null} fromPlayerId null: not a player's gift
  */
 export function onGiftTicker(m, recipient, fromPlayerId) {
   // Display names are not unique identities; use the trusted source player id.

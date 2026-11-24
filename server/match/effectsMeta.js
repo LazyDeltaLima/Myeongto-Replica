@@ -55,6 +55,11 @@ import { onGiftTicker } from './botEmotes.js';
 import { previewContext } from './preview.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
 import { traitEventFx } from '../../shared/traitFx.js';
+/** @import { Match } from './Match.js' */
+/** @import { PlayerState } from './PlayerState.js' */
+/** @import { GameData } from './gamedata.js' */
+/** @import { Piece } from './player/pieces.js' */
+/** @import { PreviewState } from './preview.js' */
 
 /**
  * The state of every player of the match as one string (EffectDispatcher._call: did a 特质's run change anything?). The
@@ -68,6 +73,7 @@ import { traitEventFx } from '../../shared/traitFx.js';
  * prep 特质 handler of content/garrisons/prep/*.js would change.
  */
 const STATE_SKIP = new Set(['m', 'gd', 'connected', 'left', 'ready', 'infoReady', 'infoReroll', 'lastEmoteAt', 'autoplay']);
+/** @param {Match} m */
 export function traitState(m) {
   const seen = new WeakSet();
   return JSON.stringify([...(m?.players?.values?.() ?? [])], function (k, v) {
@@ -91,7 +97,7 @@ export const HOOKS = Object.freeze([
 /** Non-hook members a handler object may carry. */
 const HANDLER_EXTRAS = new Set(['run', 'garrisonHooks']);
 
-/** Garrison eventType → dispatcher hook. */
+/** @type {Readonly<Record<string, string>>} Garrison eventType → dispatcher hook. */
 export const GARRISON_HOOK = Object.freeze({
   SERVER_GAIN: 'onGain',
   SERVER_PREP_START: 'onPrepStart',
@@ -108,16 +114,16 @@ export const MAX_DEPTH = 6;
 
 export class MetaRegistry {
   constructor() {
-    /** @type {Map<string, object>} */
+    /** @type {Map<string, MetaHandlers>} */
     this._h = new Map();
-    /** registration problems that do not throw (unknown hook names — usually a typo) */
+    /** @type {string[]} registration problems that do not throw (unknown hook names — usually a typo) */
     this.warnings = [];
   }
 
   /**
    * Register a handler object (or a bare function = { run }) under a key. Replaces an existing registration.
    * @param {string} key
-   * @param {object|Function} handler
+   * @param {MetaHandlers | MetaHook} handler
    */
   register(key, handler) {
     if (typeof key !== 'string' || !KEY_RE.test(key)) throw new TypeError(`MetaRegistry.register: bad key ${String(key)}`);
@@ -132,32 +138,46 @@ export class MetaRegistry {
     return this;
   }
 
+  /** @param {string} key */
   unregister(key) { return this._h.delete(key); }
+  /** @param {string} key */
   get(key) { return this._h.get(key) ?? null; }
+  /** @param {string} key */
   has(key) { return this._h.has(key); }
   keys() { return [...this._h.keys()]; }
 
   // sugar
+  /** @param {string} effectKey @param {MetaHandlers | MetaHook} h */
   garrison(effectKey, h) { return this.register(`garrison:${effectKey}`, h); }
+  /** @param {string} bandId @param {MetaHandlers | MetaHook} h */
   band(bandId, h) { return this.register(`band:${bandId}`, h); }
+  /** @param {string} bondId @param {MetaHandlers | MetaHook} h */
   bond(bondId, h) { return this.register(`bond:${bondId}`, h); }
+  /** @param {string} key @param {MetaHandlers | MetaHook} h */
   item(key, h) { return this.register(`item:${itemKey(key)}`, h); }
+  /** @param {string} effectId @param {MetaHandlers | MetaHook} h */
   choice(effectId, h) { return this.register(`choice:${effectId}`, h); }
+  /** @param {string} id @param {MetaHandlers | MetaHook} h */
   effect(id, h) { return this.register(`effect:${id}`, h); }
+  /** @param {string} name @param {MetaHandlers | MetaHook} h */
   global(name, h) { return this.register(`global:${name}`, h); }
 
   globals() {
+    /** @type {Array<[string, MetaHandlers]>} */
     const out = [];
     for (const [k, h] of this._h) if (k.startsWith('global:')) out.push([k, h]);
     return out;
   }
 }
 
+/** @type {MetaRegistry | null} */
 let defaultRegistry = null;
 
 /**
  * Build a registry: engine built-ins first, then every content module's registerMeta (content wins). `data`: the
  * season's data some handlers are built from (shared/seasons.js; absent: the default season's).
+ * @param {{ builtins?: boolean, content?: boolean, log?: { error?: (...a: unknown[]) => void, warn?: (...a: unknown[]) => void },
+ *   data?: Readonly<Record<string, any>> | null }} [opts]
  */
 export function createRegistry({ builtins = true, content = true, log = console, data = null } = {}) {
   const reg = new MetaRegistry();
@@ -180,7 +200,10 @@ export function getDefaultRegistry() {
 /** @type {WeakMap<object, MetaRegistry>} the registries of other seasons' data (shared/seasons.js), by data object */
 const seasonRegistries = new WeakMap();
 
-/** The registry built from a season's data (another season's match: Match.js), once per data object. */
+/**
+ * The registry built from a season's data (another season's match: Match.js), once per data object.
+ * @param {Readonly<Record<string, any>>} data
+ */
 export function registryFor(data) {
   let reg = seasonRegistries.get(data);
   if (!reg) {
@@ -211,6 +234,7 @@ export class EffectDispatcher {
     this.errorsByKey = new Map();
   }
 
+  /** @param {string} key @param {string} hook @param {any} e what the handler threw */
   _report(key, hook, e) {
     if (this.preview) return;
     this.errors++;
@@ -224,6 +248,10 @@ export class EffectDispatcher {
     this.m.log.error?.(`[match ${this.m.roomCode}] meta handler error ${msg}`, e && e.stack ? e.stack.split('\n').slice(0, 4).join(' | ') : '');
   }
 
+  /**
+   * @param {PlayerState} ps @param {string} key @param {MetaHandlers} handler @param {string} hook
+   * @param {MetaSource} source @param {Record<string, any>} ev @param {number} [repeat]
+   */
   _call(ps, key, handler, hook, source, ev, repeat = 1) {
     const fn = typeof handler[hook] === 'function' ? handler[hook] : source.kind === 'garrison' && typeof handler.run === 'function' ? handler.run : null;
     if (!fn) return;
@@ -237,7 +265,8 @@ export class EffectDispatcher {
     for (let i = 0; i < repeat; i++) {
       try { fn.call(handler, ctx, ev); } catch (e) { this._report(key, hook, e); }
     }
-    if (fx && traitState(this.m) !== before) this.m.sendTo(ps.playerId, { t: 'm.trait', uid: source.piece.uid, fx });
+    // fx: _traitFx answers only for a source piece with a uid
+    if (fx && traitState(this.m) !== before) this.m.sendTo(ps.playerId, { t: 'm.trait', uid: /** @type {Piece} */ (source.piece).uid, fx });
   }
 
   /**
@@ -249,6 +278,7 @@ export class EffectDispatcher {
    * shows nothing — a maintainer decision 2026-11-12, provisional [추정·화면: not seen on an official screen]. Never replayed on a
    * resync.
    */
+  /** @param {PlayerState} ps @param {string} hook @param {MetaSource} source */
   _traitFx(ps, hook, source) {
     if (hook === 'onPrice' || !Number.isInteger(source.piece?.uid) || typeof this.m.sendTo !== 'function') return null;
     if (!ps || ps.isBot || ps.left || !ps.connected) return null;
@@ -256,6 +286,7 @@ export class EffectDispatcher {
   }
 
   /** 获得时 multiplier from 投资人 (investShip): ×2 while active, ×3 at ≥ 100 layers (research 02 §3.17). */
+  /** @param {PlayerState} ps */
   investRepeat(ps) {
     const b = ps.bonds && ps.bonds.investShip;
     if (!b || !b.active) return 1;
@@ -349,7 +380,7 @@ export class EffectDispatcher {
         if (h) this._call(ps, ref.key, h, hook, { kind: 'effect', key: ref.key, ref }, ev);
       }
     } finally {
-      if (deferItems) ps._deferItemMerge--;
+      if (deferItems) /** @type {number} */ (ps._deferItemMerge)--; // set above
       this.depth--;
     }
     return ev;
@@ -360,6 +391,7 @@ export class EffectDispatcher {
    * `afterElimination: true` run — 信标's gift still reaches the teammate when its sender is out (builtinMeta.js
    * builtin_gift, GitHub #86). Nothing else of an eliminated player is dispatched.
    */
+  /** @param {PlayerState} ps @param {string} hook @param {Record<string, any>} [ev] */
   dispatchEliminated(ps, hook, ev = {}) {
     if (!ps || ps.alive || this.depth >= MAX_DEPTH) return ev;
     this.depth++;
@@ -375,7 +407,11 @@ export class EffectDispatcher {
     return ev;
   }
 
-  /** Hooks a garrison handler runs on: its eventType's hook, or what `handler.garrisonHooks(garrison)` returns. */
+  /**
+   * Hooks a garrison handler runs on: its eventType's hook, or what `handler.garrisonHooks(garrison)` returns.
+   * @param {MetaHandlers} h @param {Record<string, any>} g the garrison record
+   * @returns {unknown[]}
+   */
   _garrisonHooks(h, g) {
     if (typeof h.garrisonHooks === 'function') {
       try {
@@ -390,10 +426,11 @@ export class EffectDispatcher {
    * Run the owned chess's garrisons of `hook`. `refreshed` (onRefresh): the board / hand chess taken when the dispatch
    * began (refreshPieces) — each runs if it is still on the board or in the hand (where it stands now); a chess gained
    * meanwhile does not run, nor one that left (sold, consumed by a merge, moved to the 临时整备区).
+   * @param {PlayerState} ps @param {string} hook @param {Record<string, any>} ev @param {Piece[] | null} [refreshed]
    */
   _garrisons(ps, hook, ev, refreshed = null) {
     const gd = ps.gd || this.m.gd;
-    const run = (piece, where) => {
+    const run = (/** @type {Piece} */ piece, /** @type {string} */ where) => {
       const rec = gd.chess(piece.id);
       if (!rec || !Array.isArray(rec.garrisonIds)) return;
       for (const gid of rec.garrisonIds) {
@@ -413,7 +450,7 @@ export class EffectDispatcher {
       return;
     }
     if (hook === 'onPrice') {
-      if (ev && ev.slot && ev.slot.kind === 'chess') run({ uid: 0, kind: 'chess', id: ev.slot.id, items: [] }, 'shop');
+      if (ev && ev.slot && ev.slot.kind === 'chess') run(/** @type {Piece} */ ({ uid: 0, kind: 'chess', id: ev.slot.id, items: /** @type {Piece[]} */ ([]) }), 'shop');
       return;
     }
     if (hook !== 'onPrepStart' && hook !== 'onRoundStart' && hook !== 'onPrepEnd' && hook !== 'onRefresh' && hook !== 'onBattleResult') return;
@@ -432,6 +469,8 @@ export class EffectDispatcher {
    * Run the garrisons of `piece` whose eventType is `eventType` as if that event happened now (ctx.triggerGarrisons).
    * `asPiece` runs them with another piece as `ctx.source.piece` (特质 "与其相同" copies). 投资人 still multiplies
    * SERVER_GAIN. SERVER_PRICE cannot be triggered. Returns the number of garrison handlers run.
+   * @param {PlayerState} ps @param {Piece} piece @param {string} eventType
+   * @param {{ asPiece?: Piece | null, triggeredBy?: string | null }} [opts]
    */
   triggerGarrisons(ps, piece, eventType, { asPiece = null, triggeredBy = null } = {}) {
     const gd = ps.gd || this.m.gd;
@@ -466,7 +505,11 @@ export class EffectDispatcher {
     return n;
   }
 
-  /** Item-specific hook (onEquip / onArt / onDestroy) for one item piece. */
+  /**
+   * Item-specific hook (onEquip / onArt / onDestroy) for one item piece.
+   * @param {PlayerState} ps @param {Piece | null | undefined} item @param {Piece | null | undefined} holder @param {string} hook
+   * @param {Record<string, any>} ev
+   */
   dispatchItem(ps, item, holder, hook, ev) {
     if (!item || this.depth >= MAX_DEPTH) return ev;
     const key = `item:${itemKey(item.id, this.m.gd.raw)}`;
@@ -481,7 +524,11 @@ export class EffectDispatcher {
     return ev;
   }
 
-  /** Run one registry handler directly (choice cards). Returns true when a handler existed. */
+  /**
+   * Run one registry handler directly (choice cards). Returns true when a handler existed.
+   * @param {PlayerState} ps @param {string} key @param {string} hook @param {MetaSource} source
+   * @param {Record<string, any>} ev
+   */
   runKey(ps, key, hook, source, ev) {
     const h = this.registry.get(key);
     if (!h) return false;
@@ -499,7 +546,9 @@ export class EffectDispatcher {
   }
 }
 
+/** @param {PlayerState} ps */
 function ownedChess(ps) {
+  /** @type {Piece[]} */
   const out = [];
   for (const { piece } of boardOrder(ps.board)) if (piece.kind === 'chess') out.push(piece);
   for (const p of ps.hand) if (p && p.kind === 'chess') out.push(p);
@@ -508,14 +557,19 @@ function ownedChess(ps) {
 }
 
 /** The board chess (reading order) then the hand chess — the pieces whose 刷新时 特质 a refresh runs (onRefresh). */
+/** @param {PlayerState} ps */
 function refreshPieces(ps) {
+  /** @type {Piece[]} */
   const out = [];
   for (const { piece } of boardOrder(ps.board)) if (piece.kind === 'chess') out.push(piece);
   for (const p of ps.hand) if (p && p.kind === 'chess') out.push(p);
   return out;
 }
 
-/** Dispatch step 5: is `it` still equipped on `holder`, and `holder` still an owned chess of `ps`? */
+/**
+ * Dispatch step 5: is `it` still equipped on `holder`, and `holder` still an owned chess of `ps`?
+ * @param {PlayerState} ps @param {Piece} holder @param {Piece} it
+ */
 function stillEquipped(ps, holder, it) {
   if (!Array.isArray(holder.items) || !holder.items.includes(it)) return false;
   const loc = ps.find(holder.uid);
@@ -525,14 +579,14 @@ function stillEquipped(ps, holder, it) {
 // =====================================================================================================
 // handler context — the ONLY way content mutates player state (see docs/META.md)
 
-const finiteInt = (n) => (Number.isFinite(n) ? Math.trunc(n) : 0);
+const finiteInt = (/** @type {number} */ n) => (Number.isFinite(n) ? Math.trunc(n) : 0);
 
 /**
  * What a pick-one offer made by an effect is called on the shop bar (m.private shop.rewardOffer.label; player report #6
  * after 0.1.0 — 凯瑟琳's three items came under the promotion reward's 晋升奖励 header): a strategy's effect name
  * (定向投放, 见者有份), an item's name (寻呼模块, 信标), the operator whose 特质 it is (松果), else null.
- * @param {import('./gamedata.js').GameData} gd
- * @param {object} source the dispatch source (kind band / item / garrison …)
+ * @param {GameData} gd
+ * @param {MetaSource | null | undefined} source the dispatch source (kind band / item / garrison …)
  * @returns {string|null}
  */
 export function offerLabel(gd, source) {
@@ -543,23 +597,41 @@ export function offerLabel(gd, source) {
   return null;
 }
 
-/** Who a grantChess toast names: the same speaker as an offer label, or the choice card's name. */
+/**
+ * Who a grantChess toast names: the same speaker as an offer label, or the choice card's name.
+ * @param {GameData} gd @param {MetaSource} source
+ */
 function grantSpeaker(gd, source) {
   return offerLabel(gd, source) || (source && source.kind === 'choice' && source.card && source.card.name) || '';
 }
 
 /**
- * A meta handler's context (makeCtx) and a handler set: hook name → its function of (ctx, ev).
+ * A meta handler's context (makeCtx), one hook's function of (ctx, ev), and a handler set: hook name → its function.
+ * `garrisonHooks(garrison)` widens a 特质 handler's hooks (EffectDispatcher._garrisonHooks).
  * @typedef {ReturnType<typeof makeCtx>} MetaCtx
- * @typedef {{ afterElimination?: boolean, [hook: string]: ((ctx: MetaCtx, ev: Record<string, any>) => unknown) | boolean | undefined }} MetaHandlers
+ * @typedef {(ctx: MetaCtx, ev: Record<string, any>) => unknown} MetaHook
+ * @typedef {{ afterElimination?: boolean, garrisonHooks?: (garrison: Record<string, any>) => unknown,
+ *   [hook: string]: MetaHook | boolean | undefined }} MetaHandlers
+ */
+/**
+ * Where a handler's run comes from (ctx.source): its `kind` and registry `key`, and what that kind carries — a band's
+ * `bandId` / `band`, a bond's `bondId` / `bond` (the player's bond state), a 特质's `piece`, `garrison`, `bb`, `bbStr`,
+ * `where` (and `copiedFrom` / `triggeredBy` when ctx.triggerGarrisons ran it), an item's `piece`, `holder`, `item`, a
+ * persistent effect's `ref`, a choice card's `card`.
+ * @typedef {{ kind: string, key?: string, bandId?: string | null, band?: Record<string, any> | null, bondId?: string,
+ *   bond?: Record<string, any> | null, piece?: Piece, holder?: Piece | null, item?: Record<string, any> | null,
+ *   garrisonId?: string, garrison?: Record<string, any>, bb?: Record<string, any>, bbStr?: Record<string, any>,
+ *   where?: string, trigger?: boolean, copiedFrom?: Piece | null, triggeredBy?: string | null,
+ *   ref?: Record<string, any>, card?: Record<string, any> }} MetaSource
  */
 
 /**
- * @param {import('./Match.js').Match} m
- * @param {import('./PlayerState.js').PlayerState} ps
- * @param {object} source
+ * @param {Match} m
+ * @param {PlayerState} ps
+ * @param {MetaSource} source
  * @param {string} hook
- * @param {object|null} [ev] the event being dispatched (onPrice: ctx.modifyPrice / ctx.setPrice edit ev.price)
+ * @param {Record<string, any> | null} [ev] the event being dispatched (onPrice: ctx.modifyPrice / ctx.setPrice edit ev.price)
+ * @param {PreviewState | null} [preview] the isolated dispatcher's preview state (EffectDispatcher.dispatch with ev.preview)
  */
 export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
   // the player's view of the data: its slotted 自选 slots are its operators (0.2.0, player/diy.js) — chessRecord,
@@ -568,7 +640,7 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
   const rng = preview?.rng ?? m.rngMeta;
   // The roll helpers only read pools/data; shadow their RNG receiver without replacing the live match stream.
   const rolls = preview ? Object.assign(Object.create(m), { rngMeta: rng }) : m;
-  const view = (p) => (p ? ps.pieceView(p) : null);
+  const view = (/** @type {Piece | null | undefined} */ p) => (p ? ps.pieceView(p) : null);
   const ctx = {
     hook,
     source,
@@ -588,8 +660,8 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
      * A fresh stream from the match seed and `salt`: the same draws for every player, dispatch and preview, and no
      * match stream consumed — for a roll that every player of a round shares (鸭爵's swap count: content/bands/meta.js).
      */
-    sharedRng: (salt) => createRng(deriveSeed(m.seed, `meta:${String(salt)}`)),
-    log: (msg) => m.log.info?.(`[meta ${m.roomCode}] ${ps.playerId}: ${msg}`),
+    sharedRng: (/** @type {unknown} */ salt) => createRng(deriveSeed(m.seed, `meta:${String(salt)}`)),
+    log: (/** @type {string} */ msg) => m.log.info?.(`[meta ${m.roomCode}] ${ps.playerId}: ${msg}`),
 
     // ---- reads
     funds: () => ps.funds,
@@ -599,16 +671,16 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     /** The strategy whose 指令 the player took (更换指令: PlayerState.bandCommand), else null. */
     commandBandId: () => ps.bandCommand ?? null,
     shopLevel: () => ps.shop.level,
-    bond: (id) => (ps.bonds[id] ? { ...ps.bonds[id] } : null),
+    bond: (/** @type {string} */ id) => (ps.bonds[id] ? { ...ps.bonds[id] } : null),
     bonds: () => Object.fromEntries(Object.entries(ps.bonds).map(([k, v]) => [k, { ...v }])),
-    bondActive: (id) => !!(ps.bonds[id] && ps.bonds[id].active),
-    bondCount: (id) => (ps.bonds[id] ? ps.bonds[id].count : 0),
-    layers: (id) => ps.layers[id] || 0,
+    bondActive: (/** @type {string} */ id) => !!(ps.bonds[id] && ps.bonds[id].active),
+    bondCount: (/** @type {string} */ id) => (ps.bonds[id] ? ps.bonds[id].count : 0),
+    layers: (/** @type {string} */ id) => ps.layers[id] || 0,
     board: () => boardOrder(ps.board).map(({ r, c, piece }) => ps.pieceView(piece, [r, c])),
     hand: () => ps.hand.map(view),
     temp: () => ps.temp.map(view),
     /** View of an owned piece + `area` ('board'|'hand'|'temp'|'equipped'), `holderUid`, and `row`/`col` on the board. */
-    piece: (uid) => {
+    piece: (/** @type {number} */ uid) => {
       const l = ps.find(uid);
       if (!l) return null;
       /** @type {Record<string, any>} */
@@ -620,16 +692,16 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
      * Board piece standing on (row, col) (row/col included, and its `dir`), or null. "身前一格" of a piece is one step
      * along its facing: sim/dir.js frontOf(row, col, piece.dir) (content/support/meta.js frontPiece / behindPiece).
      */
-    pieceAt: (row, col) => { const p = Number.isInteger(row) && Number.isInteger(col) ? ps.board.get(tileKey(row, col)) : null; return p ? ps.pieceView(p, [row, col]) : null; },
-    chessRecord: (id) => gd.chess(id),
+    pieceAt: (/** @type {number} */ row, /** @type {number} */ col) => { const p = Number.isInteger(row) && Number.isInteger(col) ? ps.board.get(tileKey(row, col)) : null; return p ? ps.pieceView(p, [row, col]) : null; },
+    chessRecord: (/** @type {string} */ id) => gd.chess(id),
     /** Bonds a chess piece counts for: its own + those granted by 变形同构体 pairings. */
-    pieceBonds: (uid) => { const l = ps.find(uid); return l && l.piece.kind === 'chess' ? bondsOfPiece(gd, l.piece) : []; },
+    pieceBonds: (/** @type {number} */ uid) => { const l = ps.find(uid); return l && l.piece.kind === 'chess' ? bondsOfPiece(gd, l.piece) : []; },
     /** 特质 of a chess piece: [{ garrisonId, effectKey, eventType, bb, bbStr, desc }]. */
-    garrisonsOf: (uid) => {
+    garrisonsOf: (/** @type {number} */ uid) => {
       const l = ps.find(uid);
       const rec = l && l.piece.kind === 'chess' ? gd.chess(l.piece.id) : null;
       if (!rec || !Array.isArray(rec.garrisonIds)) return [];
-      return rec.garrisonIds.map((gid) => gd.garrison(gid)).filter(Boolean)
+      return /** @type {Record<string, any>[]} */ (rec.garrisonIds.map((/** @type {string} */ gid) => gd.garrison(gid)).filter(Boolean))
         .map((g) => ({ garrisonId: g.garrisonId, effectKey: g.effectKey, eventType: g.eventType, bb: g.bb || {}, bbStr: g.bbStr || {}, desc: g.desc || '' }));
     },
     stats: () => ({ ...ps.stats }),
@@ -637,46 +709,46 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     shopSlots: () => ps.shop.slots.map((s) => (s ? { kind: s.kind, id: s.id, basePrice: s.basePrice, sold: !!s.sold, frozen: !!s.frozen } : null)),
 
     // ---- counters (player scope, persistent)
-    counter: (k) => (Number.isFinite(ps.counters[k]) ? ps.counters[k] : 0),
-    setCounter: (k, v) => { if (typeof k === 'string' && Number.isFinite(v)) ps.counters[k] = v; return ps.counters[k] ?? 0; },
-    incCounter: (k, n = 1) => { if (typeof k !== 'string' || !Number.isFinite(n)) return 0; ps.counters[k] = (Number.isFinite(ps.counters[k]) ? ps.counters[k] : 0) + n; return ps.counters[k]; },
+    counter: (/** @type {string} */ k) => (Number.isFinite(ps.counters[k]) ? ps.counters[k] : 0),
+    setCounter: (/** @type {string} */ k, /** @type {number} */ v) => { if (typeof k === 'string' && Number.isFinite(v)) ps.counters[k] = v; return ps.counters[k] ?? 0; },
+    incCounter: (/** @type {string} */ k, n = 1) => { if (typeof k !== 'string' || !Number.isFinite(n)) return 0; ps.counters[k] = (Number.isFinite(ps.counters[k]) ? ps.counters[k] : 0) + n; return ps.counters[k]; },
     /** Per-piece counter of the current round (0 in a new round / for a new piece, an elite merged this round included —
      *  PlayerState.pieceRoundCount). */
-    pieceCounter: (uid, k) => { const l = ps.find(uid); return l ? ps.pieceRoundCount(l.piece, k) : 0; },
-    incPieceCounter: (uid, k, n = 1) => { const l = ps.find(uid); return l ? ps.bumpPieceRoundCount(l.piece, k, n) : 0; },
+    pieceCounter: (/** @type {number} */ uid, /** @type {string} */ k) => { const l = ps.find(uid); return l ? ps.pieceRoundCount(l.piece, k) : 0; },
+    incPieceCounter: (/** @type {number} */ uid, /** @type {string} */ k, n = 1) => { const l = ps.find(uid); return l ? ps.bumpPieceRoundCount(l.piece, k, n) : 0; },
 
     // ---- economy
-    addFunds: (n, reason = '') => ps.addFunds(finiteInt(n), { reason }),
-    addPendingFunds: (n) => { const v = finiteInt(n); if (v > 0) { ps.pendingFunds += v; ps.dirty(); } return v > 0 ? v : 0; },
-    spendFunds: (n) => { const v = finiteInt(n); if (!ps.spend(v)) return false; ps._afterSpend(v, 'effect'); return true; },
+    addFunds: (/** @type {number} */ n, reason = '') => ps.addFunds(finiteInt(n), { reason }),
+    addPendingFunds: (/** @type {number} */ n) => { const v = finiteInt(n); if (v > 0) { ps.pendingFunds += v; ps.dirty(); } return v > 0 ? v : 0; },
+    spendFunds: (/** @type {number} */ n) => { const v = finiteInt(n); if (!ps.spend(v)) return false; ps._afterSpend(v, 'effect'); return true; },
     /** The sell price of an owned chess piece (PlayerState.sellPriceOf), and the price a 特质 gives it (规程's 海沫). */
-    sellPrice: (uid) => { const l = ps.find(uid); return l && l.piece.kind === 'chess' ? ps.sellPriceOf(l.piece) : 0; },
-    setSellPrice: (uid, v) => { const l = ps.find(uid); if (!l || l.piece.kind !== 'chess' || !Number.isFinite(v)) return 0; l.piece.sellPrice = Math.max(0, Math.trunc(v)); ps.dirty(); return l.piece.sellPrice; },
+    sellPrice: (/** @type {number} */ uid) => { const l = ps.find(uid); return l && l.piece.kind === 'chess' ? ps.sellPriceOf(l.piece) : 0; },
+    setSellPrice: (/** @type {number} */ uid, /** @type {number} */ v) => { const l = ps.find(uid); if (!l || l.piece.kind !== 'chess' || !Number.isFinite(v)) return 0; l.piece.sellPrice = Math.max(0, Math.trunc(v)); ps.dirty(); return l.piece.sellPrice; },
     grantFreeRefresh: (n = 1) => { const v = finiteInt(n); if (v > 0) { ps.shop.freeRefreshes += v; ps.dirty(); } return ps.shop.freeRefreshes; },
     /** Lower the current 调度中心 level-up price by `n` (not below 0; 规程's 娜仁图亚); returns the new price. */
-    discountLevelUp: (n) => { const v = finiteInt(n); if (v > 0) { ps.shop.upgradePrice = Math.max(0, ps.shop.upgradePrice - v); ps.dirty(); } return ps.shop.upgradePrice; },
+    discountLevelUp: (/** @type {number} */ n) => { const v = finiteInt(n); if (v > 0) { ps.shop.upgradePrice = Math.max(0, ps.shop.upgradePrice - v); ps.dirty(); } return ps.shop.upgradePrice; },
     /** Queue one more promotion reward (晋升奖励, the merge's own offer; 规程's 复奏). */
     promotionReward: () => !!ps.pushRewardOffer('merge'),
 
     // ---- prices (onPrice only; the same as writing ev.price)
-    modifyPrice: (delta) => { if (hook === 'onPrice' && ev && Number.isFinite(delta)) ev.price = Math.max(0, (Number(ev.price) || 0) + delta); return ev ? ev.price : null; },
-    setPrice: (v) => { if (hook === 'onPrice' && ev && Number.isFinite(v)) ev.price = Math.max(0, v); return ev ? ev.price : null; },
+    modifyPrice: (/** @type {number} */ delta) => { if (hook === 'onPrice' && ev && Number.isFinite(delta)) ev.price = Math.max(0, (Number(ev.price) || 0) + delta); return ev ? ev.price : null; },
+    setPrice: (/** @type {number} */ v) => { if (hook === 'onPrice' && ev && Number.isFinite(v)) ev.price = Math.max(0, v); return ev ? ev.price : null; },
 
     // ---- layers
-    addLayers: (bondId, n, opts = {}) => ps.addLayers(bondId, n, { requireActive: !!opts.requireActive, reason: opts.reason || source.key || '' }),
+    addLayers: (/** @type {string} */ bondId, /** @type {number} */ n, /** @type {{ requireActive?: boolean, reason?: string }} */ opts = {}) => ps.addLayers(bondId, n, { requireActive: !!opts.requireActive, reason: opts.reason || source.key || '' }),
     /** 临时层数 of `bondId` the battle that just ended left (规程; onBattleResult only — 0 otherwise). */
-    tempLayers: (bondId) => Math.max(0, Math.floor(Number(ps.tempLayers && ps.tempLayers[bondId]) || 0)),
+    tempLayers: (/** @type {string} */ bondId) => Math.max(0, Math.floor(Number(ps.tempLayers && ps.tempLayers[bondId]) || 0)),
     /** Turn up to `n` of those 临时层数 into fixed layers (SERVER_CONVERT_TEMP_BOND*); returns the layers converted. */
-    convertTempLayers: (bondId, n) => {
+    convertTempLayers: (/** @type {string} */ bondId, /** @type {number} */ n) => {
       const left = Math.max(0, Math.floor(Number(ps.tempLayers && ps.tempLayers[bondId]) || 0));
       const k = Math.min(left, finiteInt(n));
       if (!(k > 0)) return 0;
-      ps.tempLayers[bondId] = left - k;
+      /** @type {Record<string, number>} */ (ps.tempLayers)[bondId] = left - k; // left > 0: the battle's gains are set
       return ps.addLayers(bondId, k, { requireActive: false, reason: source.key || 'garrison' });
     },
 
     // ---- pieces
-    grantChess: (chessId, opts = {}) => {
+    grantChess: (/** @type {string} */ chessId, /** @type {{ golden?: boolean, requirePool?: boolean, source?: string, toTemp?: boolean, fromPool?: boolean, toast?: boolean }} */ opts = {}) => {
       if (!ps.alive) return null;
       let id = chessId;
       if (opts.golden) id = gd.goldenIdOf(chessId) || chessId;
@@ -699,7 +771,7 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       }
       return p ? view(p) : null;
     },
-    grantItem: (itemId, opts = {}) => {
+    grantItem: (/** @type {string} */ itemId, /** @type {{ source?: string, toTemp?: boolean, noPool?: boolean }} */ opts = {}) => {
       if (!ps.alive || !gd.item(itemId)) return null;
       const p = ps.acquireItem(itemId, {
         source: opts.source || source.key || 'effect',
@@ -707,7 +779,7 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
         // noPool: true — the white-give sources of the four operators' trait-fixed equipment (SERVER_GAIN_EQUIP, and
         // a strategy granting the same fixed item) take no shared item pool copy and skip the stock gate
         noPool: !!opts.noPool,
-        deferMerge: ps._deferItemMerge > 0,
+        deferMerge: /** @type {number} */ (ps._deferItemMerge) > 0, // unset outside 休整期结束: undefined > 0 is false
       });
       return p ? view(p) : null;
     },
@@ -717,23 +789,23 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
      * ignoreCounts } (ignoreCounts: uniform over the eligible identities, copies left or not — 拟态物质); bonds are read
      * through the player's data view (a slotted slot: its operator's).
      */
-    rollChess: (opts = {}) => {
-      const f = (id) => {
+    rollChess: (/** @type {{ maxTier?: number, tier?: number, bond?: string, filter?: (id: string) => unknown, ignoreCounts?: boolean }} */ opts = {}) => {
+      const f = (/** @type {string} */ id) => {
         if (opts.bond) { const c = gd.chess(id); if (!c || !Array.isArray(c.bonds) || !c.bonds.includes(opts.bond)) return false; }
         return typeof opts.filter === 'function' ? !!opts.filter(id) : true;
       };
       const extra = typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null;
       return m.pool.roll(rng, { maxTier: Number.isInteger(opts.maxTier) ? opts.maxTier : 6, tier: Number.isInteger(opts.tier) ? opts.tier : null, filter: f, extra, ignoreCounts: opts.ignoreCounts === true });
     },
-    rollItem: (opts = {}) => rolls.rollItemId(opts),
+    rollItem: (/** @type {Parameters<Match['rollItemId']>[0]} */ opts = {}) => rolls.rollItemId(opts),
     /**
      * Roll a choices.json pool: equip pools → { kind: 'item', id }; chess pools (items / weighted / shopEligible with
      * tier, minTier, bond, golden) → { kind: 'chess', id, golden } (a pool chess needs a free copy). null when empty.
      */
-    rollPool: (poolId, opts = {}) => rolls.rollPool(poolId, {
+    rollPool: (/** @type {string} */ poolId, /** @type {Parameters<Match['rollPool']>[1]} */ opts = {}) => rolls.rollPool(poolId, {
       shopLevel: ps.shop.level,
       // a shared-pool draw also takes the player's 自选 stock, its bonds read through the player's view (rollChess)
-      extra: typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null, chessOf: (id) => gd.chess(id),
+      extra: typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null, chessOf: (/** @type {string} */ id) => gd.chess(id),
       ...opts,
     }),
     /**
@@ -741,28 +813,28 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
      * SERVER_CHESS_SOLD / SERVER_REFRESH_SHOP). opts.asUid: run them as if they belonged to that piece. Returns the
      * number of handlers run (nesting is depth-capped).
      */
-    triggerGarrisons: (uid, eventType, opts = {}) => {
+    triggerGarrisons: (/** @type {number} */ uid, /** @type {string} */ eventType, /** @type {{ asUid?: number | null }} */ opts = {}) => {
       const l = ps.find(uid);
       if (!l || l.piece.kind !== 'chess' || typeof eventType !== 'string') return 0;
       const as = opts.asUid != null ? ps.find(opts.asUid) : null;
       if (opts.asUid != null && (!as || as.piece.kind !== 'chess')) return 0;
       return m.dispatcher.triggerGarrisons(ps, l.piece, eventType, { asPiece: as ? as.piece : null, triggeredBy: source.key || null });
     },
-    promote: (uid) => { const l = ps.find(uid); return l ? ps.promote(l.piece) : false; },
+    promote: (/** @type {number} */ uid) => { const l = ps.find(uid); return l ? ps.promote(l.piece) : false; },
     /** Sell an owned chess piece as the sell intent does (price, onSold, funds; PREP only); true when sold. */
-    sell: (uid) => { const r = ps.sell(uid); return !!(r && r.ok); },
+    sell: (/** @type {number} */ uid) => { const r = ps.sell(uid); return !!(r && r.ok); },
     /** 突变细胞's transformation: destroy a chess piece wherever it stands (its equipment returns to the hand first), then
      *  gain `chessId` like any gained operator — hand, overflow temp, a completed merge as usual
      *  (PlayerState.transformChess). Returns the gained piece's view (the elite after a merge) or null. */
-    transform: (uid, chessId) => { const l = ps.find(uid); if (!l || l.piece.kind !== 'chess') return null; const p = ps.transformChess(l.piece, chessId); return p ? view(p) : null; },
+    transform: (/** @type {number} */ uid, /** @type {string} */ chessId) => { const l = ps.find(uid); if (!l || l.piece.kind !== 'chess') return null; const p = ps.transformChess(l.piece, chessId); return p ? view(p) : null; },
     /** Normal item piece → its golden version in place. */
-    upgradeItem: (uid) => { const l = ps.find(uid); return l && l.piece.kind === 'item' ? ps.upgradeItem(l.piece) : false; },
+    upgradeItem: (/** @type {number} */ uid) => { const l = ps.find(uid); return l && l.piece.kind === 'item' ? ps.upgradeItem(l.piece) : false; },
     /**
      * Take an owned equipped item off its holder and stow the same piece (hand, or 规程's 装备区, overflow into the hidden
      * queue) — an effect's forced return, no unequip intent; false (and left on) when it is not equipped or cannot be
      * stowed.
      */
-    unequipDirect: (uid) => {
+    unequipDirect: (/** @type {number} */ uid) => {
       const l = ps.find(uid);
       if (!l || l.piece.kind !== 'item' || l.area !== 'equipped') return false;
       ps._detach(l);
@@ -772,7 +844,7 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       return true;
     },
     /** Attach an owned hand/temp item to an owned chess without equip effects (copies, restores). */
-    equipDirect: (itemUid, chessUid) => {
+    equipDirect: (/** @type {number} */ itemUid, /** @type {number} */ chessUid) => {
       const il = ps.find(itemUid);
       const cl = ps.find(chessUid);
       if (!il || il.piece.kind !== 'item' || il.area === 'equipped' || !cl || cl.piece.kind !== 'chess' || cl.area === 'equipped') return false;
@@ -782,7 +854,7 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       ps.recompute();
       return true;
     },
-    destroyPiece: (uid) => {
+    destroyPiece: (/** @type {number} */ uid) => {
       const l = ps.find(uid);
       if (!l) return false;
       ps._detach(l);
@@ -797,15 +869,15 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       return true;
     },
     /** Queue a free pick-one offer of chess (shop.rewardOffer; `label` defaults to offerLabel(source), the bar's header). */
-    offerChess: (ids, opts = {}) => !!ps.pushRewardOffer(opts.source || source.key || 'effect', { ids, tier: opts.tier ?? null, label: opts.label ?? offerLabel(gd, source) }),
+    offerChess: (/** @type {string[]} */ ids, /** @type {{ source?: string, tier?: number | null, label?: string | null }} */ opts = {}) => !!ps.pushRewardOffer(opts.source || source.key || 'effect', { ids, tier: opts.tier ?? null, label: opts.label ?? offerLabel(gd, source) }),
     /** Queue a free pick-one offer of items (shop.rewardOffer with slots of kind 'item'). */
-    offerItems: (ids, opts = {}) => !!ps.pushItemOffer(ids, { source: opts.source || source.key || 'effect', tier: opts.tier ?? null, label: opts.label ?? offerLabel(gd, source) }),
-    setShopSlot: (i, slot) => {
+    offerItems: (/** @type {string[]} */ ids, /** @type {{ source?: string, tier?: number | null, label?: string | null }} */ opts = {}) => !!ps.pushItemOffer(ids, { source: opts.source || source.key || 'effect', tier: opts.tier ?? null, label: opts.label ?? offerLabel(gd, source) }),
+    setShopSlot: (/** @type {number} */ i, /** @type {{ kind?: string, id: string, price?: number, frozen?: boolean } | null | undefined} */ slot) => {
       if (!Number.isInteger(i) || i < 0 || i >= ps.shop.slots.length) return false;
       if (slot == null) { ps.shop.kinds = ps._shopKinds().slice(); ps.shop.slots[i] = null; ps.dirty(); return true; }
       const kind = slot.kind === 'item' ? 'item' : 'chess';
       if (kind === 'chess' ? !gd.chess(slot.id) : !gd.item(slot.id)) return false;
-      const basePrice = Number.isFinite(slot.price) ? Math.max(0, Math.trunc(slot.price)) : kind === 'chess' ? gd.chessPrice(slot.id) : gd.itemPrice(slot.id);
+      const basePrice = Number.isFinite(slot.price) ? Math.max(0, Math.trunc(/** @type {number} */ (slot.price))) : kind === 'chess' ? gd.chessPrice(slot.id) : gd.itemPrice(slot.id);
       const prev = ps.shop.slots[i]; // local patch: a replaced slot keeps its freeze (frozen shop + 佩佩 / 杜遥夜 special refresh)
       ps.shop.kinds = ps._shopKinds().slice();
       ps.shop.kinds[i] = kind;
@@ -816,13 +888,13 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     /** The kind ('chess' | 'item') of every shop position, empty ones included (the order of shopSlots()). */
     shopKinds: () => ps._shopKinds().slice(),
     /** The shop refreshed by an effect at no price (PlayerState.effectRefresh: `adjust()` runs before onRefresh). */
-    refreshShop: (adjust = null) => { ps.effectRefresh(adjust, source.key || 'effect'); return ps.shop.slots.length; },
+    refreshShop: (/** @type {(() => number | void) | null} */ adjust = null) => { ps.effectRefresh(adjust, source.key || 'effect'); return ps.shop.slots.length; },
     /** A new item card of the shop's own draw (shop RNG and level), none of `exclude` — for setShopSlot. */
-    rollShopItem: (exclude = []) => { const s = ps.rollShopItem(Array.isArray(exclude) ? exclude : []); return s ? s.id : null; },
+    rollShopItem: (/** @type {string[]} */ exclude = []) => { const s = ps.rollShopItem(Array.isArray(exclude) ? exclude : []); return s ? s.id : null; },
     /** One 目标生命值 pool for the alliance now (Final Assault, a custom 「共享」 match): a player's LP is only a share. */
     lpShared: () => m.teamLp != null,
     /** Change the player's 目标生命值 by `n` (never below 1 while alive); returns the change made. */
-    addLp: (n) => {
+    addLp: (/** @type {number} */ n) => {
       const v = finiteInt(n);
       if (!ps.alive || !v || m.teamLp != null) return 0;
       const before = ps.lp;
@@ -830,14 +902,14 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       if (ps.lp !== before) { ps.dirty(); m.markPublic?.(); }
       return ps.lp - before;
     },
-    addDeployCap: (n) => { const v = finiteInt(n); ps.deployCapBonus += v; ps.dirty(); return ps.deployCap; },
-    setDeployCapAtLeast: (n) => { const v = finiteInt(n); if (v > ps.deployCapMin) { ps.deployCapMin = Math.min(v, 12); ps.dirty(); } return ps.deployCap; },
-    setBondCountBonus: (bondId, n) => { if (gd.bond(bondId) && Number.isInteger(n)) { ps.bondCountBonus[bondId] = n; ps.recompute(); } },
-    setDeviceActive: (alias, on) => { if (typeof alias === 'string') { ps.deviceOverrides[alias] = !!on; ps.invalidateDeployMap(); ps.dirty(); } },
-    setTileOverride: (r, c, cls) => { if (Number.isInteger(r) && Number.isInteger(c) && ['melee', 'ranged', 'none'].includes(cls)) { ps.tileOverrides[`${r},${c}`] = cls; ps.invalidateDeployMap(); ps.dirty(); } },
+    addDeployCap: (/** @type {number} */ n) => { const v = finiteInt(n); ps.deployCapBonus += v; ps.dirty(); return ps.deployCap; },
+    setDeployCapAtLeast: (/** @type {number} */ n) => { const v = finiteInt(n); if (v > ps.deployCapMin) { ps.deployCapMin = Math.min(v, 12); ps.dirty(); } return ps.deployCap; },
+    setBondCountBonus: (/** @type {string} */ bondId, /** @type {number} */ n) => { if (gd.bond(bondId) && Number.isInteger(n)) { ps.bondCountBonus[bondId] = n; ps.recompute(); } },
+    setDeviceActive: (/** @type {string} */ alias, /** @type {unknown} */ on) => { if (typeof alias === 'string') { ps.deviceOverrides[alias] = !!on; ps.invalidateDeployMap(); ps.dirty(); } },
+    setTileOverride: (/** @type {number} */ r, /** @type {number} */ c, /** @type {string} */ cls) => { if (Number.isInteger(r) && Number.isInteger(c) && ['melee', 'ranged', 'none'].includes(cls)) { ps.tileOverrides[`${r},${c}`] = cls; ps.invalidateDeployMap(); ps.dirty(); } },
 
     // ---- effects (EffectRef: { id, key?, name, desc, iconKind, iconId, counter?, battle?, params?, data?, hidden? })
-    addEffect: (ref) => {
+    addEffect: (/** @type {Record<string, any> | null | undefined} */ ref) => {
       if (!ref || typeof ref.id !== 'string') return null;
       const existing = ps.effects.find((e) => e.id === ref.id);
       if (existing) { Object.assign(existing, ref); ps.dirty(); return existing; }
@@ -846,25 +918,25 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       ps.dirty();
       return e;
     },
-    removeEffect: (id) => { const i = ps.effects.findIndex((e) => e.id === id); if (i < 0) return false; ps.effects.splice(i, 1); ps.dirty(); return true; },
-    effect: (id) => ps.effects.find((e) => e.id === id) ?? null,
-    setEffectCounter: (id, v) => { const e = ps.effects.find((x) => x.id === id); if (!e) return false; e.counter = v; ps.dirty(); return true; },
+    removeEffect: (/** @type {string} */ id) => { const i = ps.effects.findIndex((e) => e.id === id); if (i < 0) return false; ps.effects.splice(i, 1); ps.dirty(); return true; },
+    effect: (/** @type {string} */ id) => ps.effects.find((e) => e.id === id) ?? null,
+    setEffectCounter: (/** @type {string} */ id, /** @type {unknown} */ v) => { const e = ps.effects.find((x) => x.id === id); if (!e) return false; e.counter = v; ps.dirty(); return true; },
 
     // ---- bounties / choices
-    addBounty: (card) => m.addBounty(ps, card),
-    offerBountyChoice: (cards, sourceItemId) => m.offerBountyChoice(ps, cards, sourceItemId),
+    addBounty: (/** @type {Record<string, any>} */ card) => m.addBounty(ps, card),
+    offerBountyChoice: (/** @type {any[]} */ cards, /** @type {string} */ sourceItemId) => m.offerBountyChoice(ps, cards, sourceItemId),
     // 规程's 更换指令 (choiceType SKILL_CHANGE): { choiceEvent, desc, sourceItemId? | sourceBandId? } — match/bandSkill.js
-    offerBandSkillChoice: (opts) => m.offerBandSkillChoice(ps, opts),
+    offerBandSkillChoice: (/** @type {Parameters<Match['offerBandSkillChoice']>[1]} */ opts) => m.offerBandSkillChoice(ps, opts),
 
     // ---- messaging
     // a string or a shared/i18n.js msg(msgid, params)
-    toast: (text, kind = 'info') => m.toast(ps, kind, text && typeof text === 'object' ? text : String(text)),
-    ticker: (text) => m.tickerText(text && typeof text === 'object' ? text : String(text)),
+    toast: (/** @type {string | { msgid: string, params?: object }} */ text, kind = 'info') => m.toast(ps, kind, text && typeof text === 'object' ? text : String(text)),
+    ticker: (/** @type {string | { msgid: string, params?: object }} */ text) => m.tickerText(text && typeof text === 'object' ? text : String(text)),
     /**
      * CHAR_GIFT broadcast to this player: "{0}博士给你赠送了{1}" — named as this player sees the gift (a chess it fields as
      * its 补位 stand-in by the stand-in's name: 0.2.0, the owner's recall of the official mode, 2026-10-06).
      */
-    giftTicker: (fromName, chessId, fromPlayerId = null) => {
+    giftTicker: (/** @type {string} */ fromName, /** @type {string} */ chessId, /** @type {string | null} */ fromPlayerId = null) => {
       const c = gd.chess(chessId);
       const shown = c && typeof ps.fieldRecord === 'function' ? ps.fieldRecord(c) || c : c;
       m.tickerFor('CHAR_GIFT', [String(fromName), shown ? shown.name : String(chessId)], { to: ps.playerId });
@@ -873,13 +945,17 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     },
 
     // ---- team
+    /** @returns {MetaCtx[]} */
     teammates: () => m.alivePlayers().filter((p) => p !== ps).map((p) => makeCtx(m, p, source, hook, null)),
+    /** @param {string} playerId @returns {MetaCtx | null} */
     player: (playerId) => { const p = m.players.get(playerId); return p && p.alive ? makeCtx(m, p, source, hook, null) : null; },
   };
   if (!preview) return ctx;
-  const forPlayer = (p) => makeCtx(m, preview.players.get(p.playerId) || p, source, hook, null, preview);
+  const forPlayer = /** @param {import('./PlayerState.js').PlayerState} p @returns {MetaCtx} */ (p) => makeCtx(m, preview.players.get(p.playerId) || p, source, hook, null, preview);
   return previewContext(ctx, preview, {
+    /** @returns {unknown[]} */
     teammates: () => m.alivePlayers().filter((p) => p.playerId !== ps.playerId).map(forPlayer),
+    /** @param {string} id @returns {unknown} */
     player: (id) => { const p = m.players.get(id); return p?.alive ? forPlayer(p) : null; },
   });
 }

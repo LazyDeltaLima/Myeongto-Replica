@@ -100,7 +100,7 @@ declare module '../server/match/PlayerState.js' {
 declare module '../server/match/effectsMeta.js' {
   interface EffectDispatcher {
     /** a preview's isolated dispatcher (dispatch with `ev.preview`): its own rng, effect data and players */
-    preview?: { rng: any, data: Map<string, any>, players: Map<string, import('../server/match/PlayerState.js').PlayerState> };
+    preview?: import('../server/match/preview.js').PreviewState;
   }
 }
 

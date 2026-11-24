@@ -83,6 +83,7 @@ function mostBondMate(ctx, bonds) {
   const mates = ctx.teammates();
   if (!mates.length) return null;
   let best = -1;
+  /** @type {MetaCtx[]} */
   let pick = [];
   for (const t of mates) {
     const score = bonds.reduce((s, b) => s + t.bondCount(b), 0);
@@ -115,7 +116,7 @@ const ITEM_HANDLERS = {
         const idx = slots.map((/** @type {Record<string, any> | null} */ s, /** @type {number} */ i) => (s && s.kind === 'chess' && !s.sold ? i : -1)).filter((/** @type {number} */ i) => i >= 0);
         if (!idx.length) break;
         const i = ctx.rng.pick(idx);
-        const id = slots[i].id;
+        const id = /** @type {{ id: string }} */ (slots[i]).id; // i: a chess slot of idx
         ctx.setShopSlot(i, null);
         ctx.grantChess(id);
       }
@@ -306,7 +307,7 @@ const EFFECT_HANDLERS = {
   builtin_gift: {
     afterElimination: true,
     onRoundStart(ctx) {
-      const ref = ctx.source.ref;
+      const ref = /** @type {Record<string, any>} */ (ctx.source.ref); // an effect handler's source carries its ref
       const p = ref.params || {};
       const rec = p.chessId ? ctx.gd.chess(p.chessId) : null;
       if (!rec) { ctx.removeEffect(ref.id); return; }
@@ -321,7 +322,7 @@ const EFFECT_HANDLERS = {
   // the shared equipment stock has no room for the golden's second copy (upstream 6bfc0827).
   builtin_next_buy_golden_item: {
     onBuy(ctx, ev) {
-      const ref = ctx.source.ref;
+      const ref = /** @type {Record<string, any>} */ (ctx.source.ref); // an effect handler's source carries its ref
       if (ev.kind !== 'item' || !ev.piece || ctx.gd.isGolden(ev.piece.id)) return;
       if (ctx.upgradeItem(ev.piece.uid)) {
         ref.counter = Math.max(0, (ref.counter || 1) - 1);
@@ -332,7 +333,7 @@ const EFFECT_HANDLERS = {
   // 升华: the next purchased operator becomes elite
   builtin_next_buy_elite: {
     onBuy(ctx, ev) {
-      const ref = ctx.source.ref;
+      const ref = /** @type {Record<string, any>} */ (ctx.source.ref); // an effect handler's source carries its ref
       if (ev.kind !== 'chess' || !ev.piece || ctx.gd.isGolden(ev.piece.id)) return;
       if (ctx.promote(ev.piece.uid)) {
         ref.counter = Math.max(0, (ref.counter || 1) - 1);

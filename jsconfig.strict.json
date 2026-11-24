@@ -29,6 +29,7 @@
     "server/match/botEmotes.js",
     "server/match/builtinMeta.js",
     "server/match/choices.js",
+    "server/match/effectsMeta.js",
     "server/match/fields.js",
     "server/match/finalAssault.js",
     "server/match/gamedata.js",

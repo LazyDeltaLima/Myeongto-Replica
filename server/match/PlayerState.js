@@ -231,9 +231,9 @@ export class PlayerState {
      * 临时层数 (卫戍协议：规程) the own normal battle left ({ [bondId]: n }), during its settle's onBattleResult dispatch only
      * (ctx.tempLayers / convertTempLayers); null otherwise — the rest lapses (Battle.addLayers `temp`)
      */
-    this.tempLayers = null;
+    this.tempLayers = /** @type {Record<string, number> | null} */ (null);
     /** optional per-bond count bonus written by effects */
-    this.bondCountBonus = {};
+    this.bondCountBonus = /** @type {Record<string, number>} */ ({});
     /** EffectRef list: { id, key, name, desc, iconKind, iconId, counter?, battle, params, data } */
     this.effects = /** @type {Array<Record<string, any>>} */ ([]);
     /** active bounties: { id, card, roundsLeft, chooser } */
@@ -257,7 +257,7 @@ export class PlayerState {
     this.deployCapMin = 0;
     /** @type {Record<string, boolean>} stage device alias → active (terrain 机变 cards, content: board.js buildDeployMap) */
     this.deviceOverrides = {};
-    this.tileOverrides = {};
+    this.tileOverrides = /** @type {Record<string, string>} */ ({});
     this.stats = {
       dmgDealt: 0, kills: 0, leaks: 0, gold: 0, refreshes: 0, merges: 0, itemMerges: 0, itemsEquipped: 0,
       bossDamage: 0, lpLost: 0, buys: 0, sells: 0, perfectRounds: 0, fundsGained: 0, healing: 0,
