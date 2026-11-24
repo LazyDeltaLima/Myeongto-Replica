@@ -46,6 +46,11 @@ import { absoluteRangeKeys } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
 import { isHpLoss } from '../../../damage.js';
 import { acquireTargets, effectiveProfile } from '../../../ai.js';
+/** @import { KitFns, KitChess, Bb } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { HitEv, DamagedEv } from '../../support/index.js' */
 
 const S1 = 'skchr_lmlee_1';
 const S2 = 'skchr_lmlee_2';
@@ -59,16 +64,19 @@ export const GUARD_KEY = 'lmlee:guard';
 /** Tag of S2's burst (not counted as a damage instance on the mark). */
 const BURST_TAG = 'lmlee:burst';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit} unit */
 const markKey = (unit) => `lmlee:mark:${unit.id}`;
+/** @typedef {{ target: Unit, n: number, alive: boolean, atk: number, blocked?: boolean }} LmleeMark S2's mark on its target */
 
-/** End the mark `m` without a burst (he left without blocking the marked enemy, the target left the field). */
+/** End the mark `m` without a burst (he left without blocking the marked enemy, the target left the field). @param {Battle} battle @param {Unit} unit @param {LmleeMark} m */
 function dropMark(battle, unit, m) {
   m.alive = false;
   if (m.target) battle.removeBuff(m.target, markKey(unit));
 }
 
-/** S2's burst of mark `m`: (scale + n × factor) × ATK arts on the selectable enemies within MARK_RADIUS of the target. */
+/** S2's burst of mark `m`: (scale + n × factor) × ATK arts on the selectable enemies within MARK_RADIUS of the target. @param {Battle} battle @param {Unit} unit @param {LmleeMark} m @param {Bb} b2 @param {number | null} [atk] */
 function burstMark(battle, unit, m, b2, atk = null) {
   if (!m.alive) return;
   m.alive = false;
@@ -83,6 +91,7 @@ function burstMark(battle, unit, m, b2, atk = null) {
   }
 }
 
+/** @type {KitFns} */
 export default {
   char_322_lmlee: (bb, chess) => {
     const t0 = talentBb(chess, 0);   // 和气生财 (MER-Y stage 2+: its change)
@@ -134,7 +143,7 @@ export default {
             let n = 0;
             for (const e of battle.enemies) if (e.alive && !e.hidden && bodyInRange(e, around)) n++;
             const k = n === alone ? 2 : 1;
-            const cur = unit.findBuff(selfKey);
+            const cur = /** @type {BuffRec | null} */ (unit.findBuff(selfKey));
             if (self && (!cur || cur.mods?.aspd !== self * k)) battle.addBuff(unit, { key: selfKey, mods: { aspd: self * k }, tags: ['talent'], visible: true });
             if (foe) for (const e of blocked) battle.addBuff(e, { key: foeKey, duration: 0.1, mods: { aspd: foe * k }, source: unit, tags: ['talent'], visible: true });
           }, { owner: unit });
@@ -195,6 +204,7 @@ export default {
           statBuff(battle, unit, 'skill:lmlee:s2passive', { aspd: num(b2.attack_speed) });  // "被动效果：攻击速度+15"
           // the mark: every damage instance of our side on it, its target's knock-out, his leaving the field
           // (a hit the target cancelled — 无敌, a dodge, a block — counts too: `voidHit`, damage.js `voided`)
+          /** @param {DamagedEv | HitEv} ctx */
           const count = (ctx) => {
             const m = unit.mem.lmleeMark;
             if (!m || !m.alive || ctx.target !== m.target) return;

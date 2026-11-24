@@ -109,7 +109,7 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 the files directly under `server/sim/` (`server/sim/*.js`), the files directly under `server/sim/content/`
 (`server/sim/content/*.js`), the enemy kits `server/sim/content/enemies/` and, of the operator kits
 `server/sim/content/kits/ops/`, the files `chess_char_1_*` to `chess_char_6_*`, the stand-ins `standin-*` and the
-自选 kits `op-a*` to `op-h*` (the rest follows by file group).
+自选 kits `op-a*` to `op-o*` (the rest follows by file group).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -456,7 +456,10 @@ most strict errors were, and the JSDoc that fixed them:
   kit built in the file (`markerKit`, `baseKit`) `@returns {KitSpec}`. `KitAttack` lists `pickEnemies` and
   `boomerangOnward` (its ctx `BoomerangCtx`, ai.js throwBoomerang); a projectile's `onHit` takes `ShotHit` (ai.js); a
   state kept across closures (`let st = null`, S3's per-activation state) takes `@type {… | null}` and a cast where a
-  helper reads it only while it is set; `toggleBuff` (tier1) takes `null` mods (a flag-only buff).
+  helper reads it only while it is set; `toggleBuff` (tier1) takes `null` mods (a flag-only buff). A destructured
+  `onHit` takes the type inline on its pattern (`onHit: (/** @type {ShotHit} */ { target }) =>`); a skill's `activate`
+  wrapped through `Object.defineProperty(sk, 'activate', { value(reason, opts) … })` gets no contextual type, so its
+  parameters take inline types; `battle.on` returns `Hook | null`, cast to `Hook` where `battle.off` takes it back.
 - the kit resolver and the generic kit (content/index.js, generic.js): `Kit` (index.js) is the kit contract read by
   key, `Def` a normalised def; the generic skill spec is built as a `Record<string, any>`. A blackboard getter returns
   `number | undefined`, so a `> 0` test on one is cast at the comparison. The guarded `import()` of the domain

@@ -78,6 +78,9 @@
 import { num, talentBb, traitBb, skillRec, batMod, installAura, up } from '../shared/tier1.js';
 import { COLS, TICK, AUTO_TRIGGER_INTERVAL } from '../../../constants.js';
 import { chainHealNext } from '../../../ai.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skchr_monstr_1';
 const S2 = 'skchr_monstr_2';
@@ -114,13 +117,17 @@ const HEAL_OPTS = Object.freeze({ ignoreHealFree: true });
 /** Her jump selectors' options (ChainedSelectorWithFilter `_ignoreHealFree`, `_ignoreAllyTargetFree`): ai.js chainHealNext. */
 const JUMP_OPTS = Object.freeze({ ignoreAllyTargetFree: true, ignoreHealFree: true });
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit} unit @param {string} id */
 const skillOn = (unit, id) => !!(unit.skill && unit.skill.active && unit.skill.id === id);
+/** @param {Unit | null | undefined} t @param {Unit} unit */
 const isProstsOf = (t, unit) => !!t && t.kind === 'token' && t.defId === PROSTS && t.ownerUnit === unit;
+/** @param {Battle} battle @param {Unit} unit */
 const prostsOf = (battle, unit) => battle.allyUnits.filter((t) => isProstsOf(t, unit));
-/** Her 重构体 standing inside her current attack range. */
+/** Her 重构体 standing inside her current attack range. @param {Battle} battle @param {Unit} unit */
 const prostsInRange = (battle, unit) => prostsOf(battle, unit).find((t) => up(t) && !!unit.rangeKeySet && unit.rangeKeySet.has(t.tileR * COLS + t.tileC)) ?? null;
-/** `a` stands on the 3×3 around `b` (x-4: a heal jump's reach, the 重构体's aura). */
+/** `a` stands on the 3×3 around `b` (x-4: a heal jump's reach, the 重构体's aura). @param {Unit} a @param {Unit} b */
 const nearX4 = (a, b) => Math.abs(a.tileR - b.tileR) <= 1 && Math.abs(a.tileC - b.tileC) <= 1;
 
 /**
@@ -128,8 +135,10 @@ const nearX4 = (a, b) => Math.abs(a.tileR - b.tileR) <= 1 && Math.abs(a.tileC - 
  * jump; a free link (her 重构体; herself with `selfFree`) uses no target of the count and the next 1 + `extra` jumps keep the
  * amount. Each link is the 链愈师 one (ai.js chainHealNext — the 3×3 around the last one healed, the lowest HP ratio a
  * full-HP ally included, then the latest deployed; a 孤立 ally and a 禁疗 one too — JUMP_OPTS).
+ * @param {Battle} battle @param {Unit} unit @param {Unit} main @param {number} base @param {{ count: number, step: number, extra: number, mainDone?: boolean, selfFree?: boolean }} opts
  */
 function chainFrom(battle, unit, main, base, { count, step, extra, mainDone = false, selfFree = false }) {
+  /** @param {Unit} t */
   const free = (t) => isProstsOf(t, unit) || (selfFree && t === unit);
   let amount = base;
   if (!mainDone) battle.heal(unit, main, amount, HEAL_OPTS);
@@ -149,12 +158,13 @@ function chainFrom(battle, unit, main, base, { count, step, extra, mainDone = fa
   }
 }
 
-/** The 重构体's kit (owner = Mon3tr): 禁疗, no block, taunt −1, its 流失, the ATK aura, its return. */
+/** The 重构体's kit (owner = Mon3tr): 禁疗, no block, taunt −1, its 流失, the ATK aura, its return. @param {Unit} owner @param {{ atk: number }} opts */
 function prostsKit(owner, { atk }) {
   return {
     skill: null,
     talents: [],
     trait: { noAttack: true },
+    /** @param {Battle} battle @param {Unit} t */
     install(battle, t) {
       const dps = num(t.def?.traitBb?.damage_per_second, 80);
       battle.addBuff(t, { key: PROSTS_ABN_KEY, flags: { noHeal: true, noBlock: true }, mods: { taunt: -1 }, persist: true, allowDead: true });
@@ -189,7 +199,7 @@ function prostsKit(owner, { atk }) {
   };
 }
 
-/** S2: with nobody injured in her range she heals her 重构体 there all the same ("可选择满生命值的重构体进行治疗"). */
+/** S2: with nobody injured in her range she heals her 重构体 there all the same ("可选择满生命值的重构体进行治疗"). @param {Battle} battle @param {Unit} unit */
 function s2CanAttack(battle, unit) {
   const r = prostsInRange(battle, unit);
   if (!r || battle.injuredAlliesInKeys(unit.rangeKeys, unit).length) return true;
@@ -197,6 +207,7 @@ function s2CanAttack(battle, unit) {
   return false;
 }
 
+/** @type {KitFns} */
 export default {
   char_4179_monstr: (bb, chess) => {
     const tb = traitBb(chess);       // attack@chain.max_target (3), attack@chain.atk_scale (0.75; XAH-X 0.85)
@@ -214,8 +225,9 @@ export default {
     return {
       // the chain is chainFrom's (heal mode single: no profession chain); her 重构体 is selectable through its 禁疗
       trait: {
-        heal: { mode: 'single' }, healThrough: (healer, a) => isProstsOf(a, healer),
+        heal: { mode: 'single' }, healThrough: (/** @type {Unit} */ healer, /** @type {Unit} */ a) => isProstsOf(a, healer),
         // her heal has reached its target: the chain jumps on from it (her heal projectiles jump on from where they land)
+        /** @param {Battle} battle @param {Unit} u @param {Unit} t */
         afterHeal(battle, u, t) {
           const list = u.mem.monstrLanding?.get(t.id);
           const a = list && list.shift();
@@ -310,6 +322,7 @@ export default {
             const s2 = skillOn(unit, S2), v = v0 * (s2 ? num(b2.talent_scale, 1) : 1);
             // shown (`visible`) on an ally neither a Mon3tr nor a 重构体 (monstr_t_2[atk_spd] filters them by id; only the others get
             // monstr_t_2[atk_spd_up][effect]); `fxTag` 2: given under S2 ([m2], its eff_2 prefabs), 1: eff_1 (render/fxstatus.js KEY_FX)
+            /** @param {Unit} x */
             const give = (x) => battle.applyStrongest(x, T2_KEY, { duration: d, value: v, mods: (a) => ({ aspd: a }), source: unit,
               visible: x.defId !== PROSTS && x.defId !== unit.defId, fxTag: s2 ? 2 : 1 });
             give(c.target);
@@ -358,7 +371,7 @@ export default {
           const activate = sk.activate;
           Object.defineProperty(sk, 'activate', {
             configurable: true, writable: true, enumerable: false,
-            value(reason, opts) { return prostsOf(battle, unit).some(up) ? activate.call(this, reason, opts) : false; },
+            value(/** @type {string} */ reason, /** @type {{ free?: boolean }} */ opts) { return prostsOf(battle, unit).some(up) ? activate.call(this, reason, opts) : false; },
           });
         }
         // S3's 流失

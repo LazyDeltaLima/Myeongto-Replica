@@ -64,6 +64,11 @@ import { COLS } from '../../../constants.js';
 import { dirVec } from '../../../dir.js';
 import { hypot } from '../../../detmath.js';
 import { atPotential } from '../../../../../shared/potential.js';
+/** @import { KitFns, KitChess, KitSpec, Bb } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { Hook } from '../../../battle/hooks.js' */
 
 const S1 = 'skchr_mcnist_1';
 const S2 = 'skchr_mcnist_2';
@@ -89,20 +94,24 @@ const LIFE_FALLBACK = 30;
 const RETRY = 0.1;
 const TAG_CROSS = 'mcnist:cross';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit | null | undefined} t @param {Unit} unit */
 const isGrafOf = (t, unit) => !!t && t.kind === 'token' && t.defId === MCGRAF && t.ownerUnit === unit;
+/** @param {Battle} battle @param {Unit} unit */
 const grafsOf = (battle, unit) => battle.allyUnits.filter((t) => isGrafOf(t, unit));
+/** @param {Unit} unit @param {string} id */
 const skillOn = (unit, id) => !!(unit.skill && unit.skill.active && unit.skill.id === id);
-/** First talent of a normalised token def holding `key` (token talents keep no index). */
+/** First talent of a normalised token def holding `key` (token talents keep no index). @param {{ talents?: Array<{ bb?: Bb }  |  null> }  |  null  |  undefined} def @param {string} key */
 const tokTalent = (def, key) => (def?.talents ?? []).find((t) => t && t.bb && t.bb[key] != null)?.bb ?? null;
-/** Every 屏障 that comes from `mcn` on `holder` (hers, or her token's: "视为来源于自身的持有者"). */
+/** Every 屏障 that comes from `mcn` on `holder` (hers, or her token's: "视为来源于自身的持有者"). @param {Unit} holder @param {Unit} mcn */
 const barrierLeft = (holder, mcn) => {
   let s = 0;
-  for (const b of holder.buffs) if (b.data && b.data.mcnist === mcn && b.shield > 0) s += b.shield;
+  for (const b of /** @type {BuffRec[]} */ (holder.buffs)) if (b.data && b.data.mcnist === mcn && b.shield > 0) s += b.shield;
   return s;
 };
 
-/** A 屏障 from `mcn` on `holder`: `ratio` × the holder's max HP, physical and arts only, until spent. */
+/** A 屏障 from `mcn` on `holder`: `ratio` × the holder's max HP, physical and arts only, until spent. @param {Battle} battle @param {Unit} mcn @param {Unit} holder @param {string} key @param {number} ratio */
 function grantBarrier(battle, mcn, holder, key, ratio) {
   if (!(ratio > 0) || !holder.alive) return null;
   battle.removeBuff(holder, key);
@@ -120,6 +129,7 @@ function grantBarrier(battle, mcn, holder, key, ratio) {
  * Where the charge stops: from the token's tile along its facing, the farthest tile before a tile it cannot cross (outside
  * the field, not ground-passable, high ground, an enemy on it); then, back towards the token, the first of those tiles it
  * can be deployed on (free, standable for a melee unit, low). Its own tile when it cannot move.
+ * @param {Battle} battle @param {Unit} t
  */
 function chargeEnd(battle, t) {
   const [fr, fc] = dirVec(t.dir);
@@ -141,6 +151,7 @@ function chargeEnd(battle, t) {
 /**
  * A 结构性原理 that left the field comes back on its tile its respawnTime later (her (re)deployment: at once —
  * charge_token[born] sets readyAt), paying its cost, only while she stands; retried until it deploys.
+ * @param {Battle} battle @param {Unit} owner @param {Unit} t
  */
 function scheduleReturn(battle, owner, t) {
   t.mem.readyAt = battle.time + Math.max(0, num(t.base.respawnTime));
@@ -156,6 +167,7 @@ function scheduleReturn(battle, owner, t) {
 /**
  * The 结构性原理's kit (lifetime, 禁疗, 生命方程, S2's 屏障, the S3 charge and weaken aura, its redeploy). `owner` = 机械师,
  * `life` = its lifetime, `t2` = 生命方程's hp_ratio, `b2` / `b3` = her S2 / S3 blackboards.
+ * @param {Unit} owner @param {{ life: number, t2: number, b2: Bb, b3: Bb, aura: { interval: number, start: number, step: number, radius: number } }} opts @returns {KitSpec}
  */
 function grafKit(owner, { life, t2, b2, b3, aura }) {
   return {
@@ -199,7 +211,7 @@ function grafKit(owner, { life, t2, b2, b3, aura }) {
   };
 }
 
-/** S3: the 结构性原理 charges along its facing, strikes around the stop tile and is deployed anew there. */
+/** S3: the 结构性原理 charges along its facing, strikes around the stop tile and is deployed anew there. @param {Battle} battle @param {Unit} mcn @param {Unit} t @param {Bb} b3 */
 function chargeGraf(battle, mcn, t, b3) {
   if (!up(t)) return;
   const { stop, land } = chargeEnd(battle, t);
@@ -231,7 +243,7 @@ function chargeGraf(battle, mcn, t, b3) {
   }, { owner: mcn });
 }
 
-/** S3's cross: every selectable enemy on the x-6 around (r, c) takes `atk` × scale arts, X6_DELAY s after the throw. */
+/** S3's cross: every selectable enemy on the x-6 around (r, c) takes `atk` × scale arts, X6_DELAY s after the throw. @param {Battle} battle @param {Unit} unit @param {number} r @param {number} c @param {number} atk @param {number} scale */
 function throwCross(battle, unit, r, c, atk, scale) {
   battle.fx('aoe', { x: c, y: r, radius: 2, id: unit.id, skill: 'mcnist:cross', tiles: X6.map(([dr, dc]) => [r + dr, c + dc]) });
   battle.after(X6_DELAY, () => {
@@ -242,6 +254,7 @@ function throwCross(battle, unit, r, c, atk, scale) {
   }, { owner: unit });
 }
 
+/** @type {KitFns} */
 export default {
   char_4230_mcnist: (bb, chess) => {
     const t1 = (chess?.talents ?? []).find((t) => t && t.index === 1)?.bb ?? {};   // 生命方程: hp_ratio
@@ -283,7 +296,7 @@ export default {
           // the attack is the cross: no damage on the target itself (its 0.8 s later landing does it)
           attack: { dmgType: 'arts', hitsFn: () => 0 },
           onAttack({ battle, unit, targets }) {
-            const tg = (targets || []).find((e) => e && e.side === 'enemy');
+            const tg = (targets || []).find((/** @type {Unit | null} */ e) => e && e.side === 'enemy');
             if (tg) throwCross(battle, unit, Math.round(tg.y), Math.round(tg.x), unit.s.atk, num(b3['attack@atk_scale'], 1));
           },
           onStart({ battle, unit }) {
@@ -299,6 +312,7 @@ export default {
           const raw = atPotential(variants[unit.def?.tokenOwner] ?? null, unit.def?.loadout?.potential);
           // its life: the token talent's own skill@duration — the SO-A stage-3 change to −1 (无限) is 集成战略-only; a season's
           // elite variant carries only the changed one (fromModule), so the normal piece's variant (baseId) gives it then
+          /** @param {{ talents?: Array<Record<string, any>  |  null> }  |  null  |  undefined} v */
           const lifeOf = (v) => (v?.talents ?? []).find((x) => x && !x.fromModule && x.bb && x.bb['skill@duration'] != null)?.bb['skill@duration'];
           const baseLife = lifeOf(raw) ?? lifeOf(variants[unit.def?.raw?.baseId]);
           for (const t of battle.allyUnits) {
@@ -327,6 +341,7 @@ export default {
         } },
       ],
       install(battle, unit) {
+        /** @param {Unit | null | undefined} h */
         const holds = (h) => h === unit || isGrafOf(h, unit);
         // 超额防护: the hit that breaks the last 屏障 of hers on a unit is cancelled whole (PRTS 生命方程 备注)
         const before = new WeakMap();
@@ -362,7 +377,7 @@ export default {
               battle.dealDamage(unit, e, { amount: unit.s.atk * num(b2.atk_scale, 2), type: 'arts', isSkill: true, tags: ['skill', 'mcnist:shieldBurst'] });
               if (e.alive && !dodged.has(e)) battle.applyStatus(e, 'tremble', { duration: num(b2.not_combat, 2), source: unit });
             }
-            battle.off(dh);
+            battle.off(/** @type {Hook} */ (dh));
           } finally { h.mem.mcnistLock = false; }
           if (!sk || !sk.active || sk.id !== S2 || !(sk.ammoLeft > 0) || !h.alive) return;
           sk.ammoLeft--;

@@ -16,6 +16,10 @@
 
 import { num, talentBb, traitBb, skillRec, up, statBuff } from '../shared/tier1.js';
 import { sortEnemyTargets } from '../../../targeting.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { ShotHit } from '../../../ai.js' */
 
 const S1 = 'skchr_meteo_1';
 const S2 = 'skchr_meteo_2';
@@ -28,10 +32,11 @@ const S2_SPEED = 8;
 const TALENT = 'meteo_t_1';
 const DEBUFF = 'meteo_s_2';
 const SHELL_TAG = 'meteo:shell';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 const AIR = Object.freeze({ canHitFly: true });
 
-/** The enemies of her range and the ones she blocks, by her target order (`_targetMotion` 3: air units too). */
+/** The enemies of her range and the ones she blocks, by her target order (`_targetMotion` 3: air units too). @param {Battle} battle @param {Unit} unit */
 function rangeFoes(battle, unit) {
   const pool = battle.enemiesInKeys(unit.rangeKeys, unit, AIR);
   for (const e of battle.blockedTargets(unit, AIR)) if (!pool.includes(e)) pool.push(e);
@@ -39,16 +44,18 @@ function rangeFoes(battle, unit) {
   return pool;
 }
 
+/** @type {KitFns} */
 export default {
   char_219_meteo: (_bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
     const prob = num(t0.prob), boost = num(t0.atk);
-    /** One roll of the talent; on success meteo_t_1 holds until `release` takes it off. */
+    /** One roll of the talent; on success meteo_t_1 holds until `release` takes it off. @param {Battle} battle @param {Unit} unit */
     const roll = (battle, unit) => {
       if (!(prob > 0) || !boost || !battle.rng.chance(prob)) return false;
       battle.addBuff(unit, { key: TALENT, mods: { atkPct: boost }, tags: ['talent'] });
       return true;
     };
+    /** @param {Battle} battle @param {Unit} unit */
     const release = (battle, unit) => { if (unit.findBuff(TALENT)) battle.removeBuff(unit, TALENT); };
     return {
       skills: {
@@ -65,7 +72,7 @@ export default {
             battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, src: unit.id, target: e.id, k: 'meteo:shell' });
             battle.addProjectile({
               from: unit, target: e, speed: S2_SPEED, visual: 'bomb', source: unit, hitDead: true,
-              onHit: (c) => {
+              onHit: (/** @type {ShotHit} */ c) => {
                 for (const v of battle.foesInRadius(c.x, c.y, S2_RADIUS, true)) {
                   battle.dealDamage(unit, v, { amount: unit.s.atk * scale, type: 'phys', isSkill: true, tags: ['skill', SHELL_TAG] });
                   if (v.alive && def && dur > 0) {

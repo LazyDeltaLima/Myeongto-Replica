@@ -13,12 +13,17 @@
 import { hasHp } from '../../../damage.js';
 import { num, talentBb, traitBb, skillRec, up, toggleBuff } from '../shared/tier1.js';
 import { inRange, burstDamageUp } from '../shared/tier5.js';
+/** @import { KitFns, KitChess, DmgRec } from '../shared/tier1.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
+/** @import { HitEv, DamagedEv } from '../../support/index.js' */
 
 const S1 = 'skchr_kaitou_1';
 const S2 = 'skchr_kaitou_2';
 const BURST = 'apoptosisBurst';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_499_kaitou: (bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
@@ -36,15 +41,16 @@ export default {
       install(battle, unit) {
         burstDamageUp(battle, unit, num(tb.damage_scale));
         // the hit's `_activeBuffs` come before its damage (Projectile.ActionController.OnHitTarget: _AttachBuffs, then _RunActions): the burst is read before the hit
+        /** @param {HitEv | DamagedEv} c */
         const hitOf = (c) => c.source === unit && !!unit.skill?.active && !!c.dmg?.isAttack && c.target?.side === 'enemy';
         battle.on('hit', (c) => { if (hitOf(c)) c.dmg.kaitouBurst = !!c.target.findBuff(BURST); }, { owner: unit, priority: 20 });
         battle.on('damaged', (c) => {
           if (!hitOf(c)) return;
-          const e = c.target, s1 = unit.skill.id === S1;
+          const e = c.target, s1 = /** @type {SkillRuntime} */ (unit.skill).id === S1;
           // (not on a killing blow: the target is at 0 HP here, no burst on the corpse)
           if (s1 && ratio > 0 && c.amount > 0 && hasHp(e)) battle.dealDamage(unit, e, { type: 'element', element: 'apoptosis', amount: c.amount * ratio, tags: ['skill', 'kaitou'] });
           const extra = num((s1 ? b1 : b2)['attack@extra_ep_damage_scale']);
-          if (c.dmg.kaitouBurst && extra > 0 && e.alive && up(unit)) {
+          if (/** @type {DmgRec} */ (c.dmg).kaitouBurst && extra > 0 && e.alive && up(unit)) {
             battle.dealDamage(unit, e, { amount: unit.s.atk * extra, type: 'elemental', element: 'apoptosis', canDodge: false, tags: ['element', 'kaitou'], moment: s1 ? 'kaitou_s_1[ep_damage]' : 'kaitou_s_2[ep_damage]' });
           }
         }, { owner: unit });

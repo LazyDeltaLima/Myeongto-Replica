@@ -48,7 +48,14 @@
     "server/sim/content/kits/ops/op-e*.js",
     "server/sim/content/kits/ops/op-f*.js",
     "server/sim/content/kits/ops/op-g*.js",
-    "server/sim/content/kits/ops/op-h*.js"
+    "server/sim/content/kits/ops/op-h*.js",
+    "server/sim/content/kits/ops/op-i*.js",
+    "server/sim/content/kits/ops/op-j*.js",
+    "server/sim/content/kits/ops/op-k*.js",
+    "server/sim/content/kits/ops/op-l*.js",
+    "server/sim/content/kits/ops/op-m*.js",
+    "server/sim/content/kits/ops/op-n*.js",
+    "server/sim/content/kits/ops/op-o*.js"
   ],
   "exclude": []
 }

@@ -39,6 +39,9 @@
 
 import { num, talentBb, traitBb, skillRec, statBuff, toggleBuff, giveSp, onHitBy } from '../shared/tier1.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
+/** @import { KitFns, KitChess, Grid } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skchr_irene_1';
 const S2 = 'skchr_irene_2';
@@ -53,10 +56,11 @@ const X_1 = Object.freeze([[2, 0], [1, -1], [1, 0], [1, 1], [0, -2], [0, -1], [0
 const AIR = Object.freeze({ canHitFly: true });
 const GROUND = Object.freeze({ canHitFly: false });
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** Absolute tile keys of a skill range at the unit's tile and facing (a 技能范围 ignores 攻击距离: no extend). */
+/** Absolute tile keys of a skill range at the unit's tile and facing (a 技能范围 ignores 攻击距离: no extend). @param {Unit} unit @param {Grid} grid */
 const keysOf = (unit, grid) => absoluteRangeKeys(grid, unit.tileR, unit.tileC, unit.dir, 0);
-/** A living 【海怪】 enemy on the field. */
+/** A living 【海怪】 enemy on the field. @param {Battle} battle */
 const seaMonsterOnField = (battle) => battle.enemies.some((e) => e.alive && !e.hidden && Array.isArray(e.def?.tags) && e.def.tags.includes('seamonster'));
 
 /**
@@ -64,6 +68,7 @@ const seaMonsterOnField = (battle) => battle.enemies.some((e) => e.alive && !e.h
  * enemy side: 白铁's 铁钳号, an ally target — the official trigger selector's side / category take it): every activation path
  * (the strategy's DEFAULT box check, content) is refused and the charge stays — the pattern of 莎草 S2 (ops/chess_char_2_06-papyrs.js,
  * non-enumerable: never serialised).
+ * @param {Battle} battle @param {Unit} unit @param {Grid} grid
  */
 function guardActivation(battle, unit, grid) {
   const sk = unit.skill;
@@ -72,10 +77,11 @@ function guardActivation(battle, unit, grid) {
   const ok = () => battle.unitsInGrid(unit, grid, { side: 'enemy' }).some((e) => !e.isFlying) || battle.allyTargetsInKeys(keysOf(unit, grid), unit).length > 0;
   Object.defineProperty(sk, 'activate', {
     configurable: true, writable: true, enumerable: false,
-    value(reason, opts) { return ok() ? activate.call(this, reason, opts) : false; },
+    value(/** @type {string} */ reason, /** @type {{ free?: boolean }} */ opts) { return ok() ? activate.call(this, reason, opts) : false; },
   });
 }
 
+/** @type {KitFns} */
 export default {
   char_4009_irene: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
@@ -83,6 +89,7 @@ export default {
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
     const s2 = skillRec(chess, S2), s3 = skillRec(chess, S3);
     const grid2 = s2?.rangeGrid ?? R3_12, grid3 = s3?.rangeGrid ?? X_1;
+    /** @param {Battle} battle @param {Unit} unit @param {Unit} e @param {number} s */
     const levitate = (battle, unit, e, s) => { if (e.alive && s > 0) battle.applyStatus(e, 'levitate', { duration: s, source: unit }); };
     const times3 = Math.max(0, Math.floor(num(b3.multi_times, 10)));
     /**
@@ -90,6 +97,7 @@ export default {
      * among the enemy-side targets of the skill range, ground and air, the 铁钳号 included; its projectile reaches at once
      * (`projectile_chr_irene_s_3` AttachToTarget `_immediatelyReach`) and hits every target within 1.1 of it. No target: the
      * shot is spent on nobody.
+     * @param {Battle} battle @param {Unit} unit
      */
     const bombard = (battle, unit) => {
       const m = unit.mem.ireneS3;
@@ -131,7 +139,7 @@ export default {
             skill.castPick = all.slice(0, Math.max(1, Math.floor(num(b2.max_target, 1))));
           },
           onStrike({ battle, unit, skill }) {
-            const v = skill.castPick.filter((e) => e.alive);
+            const v = skill.castPick.filter((/** @type {Unit} */ e) => e.alive);
             battle.fx('slash', { x: unit.x, y: unit.y, id: unit.id, n: v.length, skill: 'irene:tide' });
             for (const e of v) {
               battle.dealDamage(unit, e, { amount: unit.s.atk * num(b2.atk_scale, 1), type: 'phys', isSkill: true, tags: ['skill'] });
@@ -222,6 +230,7 @@ export default {
           const mods = { aspd: num(t1.attack_speed), atkPct: num(t1.atk) };
           statBuff(battle, unit, 'talent:irene:sword', mods);
           if (mods.aspd || mods.atkPct) {
+            /** @type {Record<string, number>} */
             const extra = {};
             for (const [k, v] of Object.entries(mods)) if (v) extra[k] = v;
             toggleBuff(battle, unit, 'talent:irene:seamonster', () => seaMonsterOnField(battle), extra);

@@ -37,6 +37,11 @@ import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS } from '../../../constants.js';
 import { hasHp } from '../../../damage.js';
 import { weaknessRetype } from '../../items/shared.js';
+/** @import { KitFns, KitChess, Grid } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { Profile } from '../../../professions.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const CHAR = 'char_4217_makoto';
 const S1 = 'skchr_makoto_1', S2 = 'skchr_makoto_2', S3 = 'skchr_makoto_3';
@@ -48,7 +53,7 @@ const KILL_TICK = 0.1;
 const ALLOUT_DELAY = 1.6;
 /** makoto[s3_heal_others] → makoto_s3_2_be_healed: the heal lands as that 0.5 s buff ends (ON_BUFF_FINISH ApplyHeal). */
 const HEAL_DELAY = 0.5;
-/** makoto_s3_2_aura TargetValidator professionMask 639: every profession but TOKEN / TRAP — operators, no summon or device. */
+/** makoto_s3_2_aura TargetValidator professionMask 639: every profession but TOKEN / TRAP — operators, no summon or device. @param {Unit} a */
 const operator = (a) => a.kind !== 'token' && a.kind !== 'device';
 /** makoto[switch2stand_s3_2]: Die2Stand Doll_Skill_3_P1toP2_ChangeBegin 0.5 s + SwitchEnd Doll_Skill_3_P1toP2_ChangeEnd 1 s
  *  (`_timeMode` 1, `_maxAnimScale` 1: each step lasts its clip — the model's clip lengths; the mode switches 0.99 s into the
@@ -58,24 +63,31 @@ export const S3_CHANGE = 1.5;
 const SUBSTITUTE_BLOCK = 99;
 
 const ANY = Object.freeze({ canHitFly: true });
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit} unit @param {Grid} grid */
 const keysOf = (unit, grid) => absoluteRangeKeys(grid, unit.tileR, unit.tileC, unit.dir, 0);
+/** @param {Unit} u */
 const tileKey = (u) => u.tileR * COLS + u.tileC;
 
+/** @type {KitFns} */
 export default {
   [CHAR]: (bb, chess) => {
     const t1 = talentBb(chess, 0), t2 = talentBb(chess, 1), tr = traitBb(chess);
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
     // every skill's rangeId and both talents' range_id are x-1 (the radius-2 diamond)
+    /** @param {string} id */
     const personaGrid = (id) => skillRec(chess, id)?.rangeGrid ?? skillRec(chess, S1)?.rangeGrid ?? null;
     const talentGrid = personaGrid(S1);
 
     // ---- the persona profiles (the <替身> modes' attacks) -------------------------------------------------------------
+    /** @param {Battle} battle @param {Unit} unit */
     const injuredBelow = (battle, unit) => {
       const set = unit.rangeKeySet || new Set(unit.rangeKeys || []);
       return battle.allyUnits.filter((a) => a.alive && a.deployed && !a.hidden && a.kind !== 'device' && set.has(tileKey(a))
         && battle.allySelectable(a, unit) && a.s.maxHp > 0 && a.hp / a.s.maxHp < HEAL_BELOW - 1e-9);
     };
+    /** @param {Record<string, any> | null} base @param {string} mode */
     const profileOf = (base, mode) => {
       if (mode === 's1') return { ...base, attack: 'ranged', projectile: 'bolt', dmgType: 'arts', heal: null,
         atkScale: num(b1['attack@atk_scale'], 1), maxTargets: 1, canHitFly: false, groundOnly: true, noAttack: false };
@@ -121,8 +133,10 @@ export default {
       ],
       install(battle, unit) {
         const sid = unit.skill?.id;
+        /** @type {{ mode: string, base: Record<string, any> | null, baseGrid: Unit['rangeGrid'] | null, next: number, heals: Array<{ target: Unit, at: number }> }} */
         const st = unit.mem.mk = { mode: 'normal', base: null, baseGrid: null, next: Infinity, heals: [] };
 
+        /** @param {string} mode */
         const setMode = (mode) => {
           st.mode = mode;
           battle.removeBuff(unit, 'makoto_standin');
@@ -136,6 +150,7 @@ export default {
           if (!st.base) { st.base = unit.profile; st.baseGrid = unit.rangeGrid; }
           // makoto_standin: ATK ×(1 + atk) and +base_attack_time s (from makoto_talent_1), max HP ×(1 + MAX_HP of makoto_tr
           // — the PUM-Y trait's max_hp) and ×(1 + max_hp_t1) (makoto_standin_t1_max_hp): MULTIPLIER items add up
+          /** @type {Record<string, number>} */
           const mods = { atkPct: num(t1.atk), batPct: batMod(t1.base_attack_time, chess), hpPct: num(t1.max_hp_t1) + num(tr.max_hp) };
           // makoto_s3_1_standin: ATTACK_SPEED +talent@attack_speed (ADDITION)
           if (mode === 's3_1') mods.aspd = num(b3['talent@attack_speed']);
@@ -165,7 +180,7 @@ export default {
           if (u !== unit) return;
           if (st.mode !== 'normal') setMode('normal');
           // the aura's 闪避 goes with him (the buffs are the allies', the tick below stops with its owner)
-          for (const a of battle.allyUnits) { const b = a.findBuff('makoto_s3_2_evade'); if (b && b.source === unit) battle.removeBuff(a, b); }
+          for (const a of battle.allyUnits) { const b = /** @type {BuffRec | null} */ (a.findBuff('makoto_s3_2_evade')); if (b && b.source === unit) battle.removeBuff(a, b); }
         }, { owner: unit });
 
         // S3: a lethal hit on 塔纳托斯 (makoto_tr in mode 3) with <替身> time left switches to 俄耳甫斯. The switch is
@@ -175,7 +190,7 @@ export default {
         if (sid === S3) {
           battle.on('fatal', (ctx) => {
             if (ctx.unit !== unit || ctx.prevented || st.mode !== 's3_1' || unit.trait.dollSwitching) return;
-            const sub = unit.findBuff('trait:substitute');
+            const sub = /** @type {BuffRec | null} */ (unit.findBuff('trait:substitute'));
             if (!sub || !(sub.timeLeft > 0.01)) return;
             ctx.prevented = true;
             toOrpheus(battle, unit, sub);
@@ -189,7 +204,7 @@ export default {
           if (st.mode === 's1') {
             // the AbilitySelectableGroup: HealAlly_Lt50Per first when its trigger has a target, else MagicAttack
             const want = injuredBelow(battle, unit).length ? 's1heal' : 's1';
-            if (unit.profile.dmgType !== (want === 's1heal' ? 'heal' : 'arts')) unit.profile = profileOf(st.base, want);
+            if (/** @type {Profile} */ (unit.profile).dmgType !== (want === 's1heal' ? 'heal' : 'arts')) unit.profile = profileOf(st.base, want);
           } else if (st.mode === 's2') {
             if (unit.trait.dollSwitching) return;
             if (Math.round(battle.time / battle.dt) % Math.max(1, Math.round(KILL_TICK / battle.dt))) return;
@@ -222,7 +237,7 @@ export default {
 
         // S1: a heal swing is the group's HealAlly_Lt50Per child (its sounds; MagicAttack is the plain one)
         if (sid === S1) {
-          battle.on('swing', (c) => { if (c.unit === unit && st.mode === 's1' && unit.profile.dmgType === 'heal') c.signal = 'HealAlly_Lt50Per'; }, { owner: unit });
+          battle.on('swing', (c) => { if (c.unit === unit && st.mode === 's1' && /** @type {Profile} */ (unit.profile).dmgType === 'heal') c.signal = 'HealAlly_Lt50Per'; }, { owner: unit });
         }
         // S2: each target is feared `fear` s with chance `prob` (makoto_s2_fear_possibility, Dice); the attack's damage is
         // makoto_s2_fear_damage, whose CreateEffect makoto_skill_02_hit_01 is the hit's effect moment
@@ -250,8 +265,8 @@ export default {
             const on = st.mode === 's3_2' && up(unit) && !unit.trait.dollSwitching;
             const set = on ? (unit.rangeKeySet || new Set(unit.rangeKeys || [])) : null;
             for (const a of battle.allyUnits) {
-              const has = a.findBuff('makoto_s3_2_evade');
-              const want = on && a.alive && a.deployed && operator(a) && set.has(tileKey(a));
+              const has = /** @type {BuffRec | null} */ (a.findBuff('makoto_s3_2_evade'));
+              const want = on && a.alive && a.deployed && operator(a) && /** @type {NonNullable<typeof set>} */ (set).has(tileKey(a));
               if (want && !has) {
                 battle.addBuff(a, { key: 'makoto_s3_2_evade', source: unit, visible: true, tags: ['aura'],
                   mods: { dodgePhys: num(b3['attack@prob']), dodgeArts: num(b3['attack@prob']) } });
@@ -262,10 +277,10 @@ export default {
       },
     };
 
-    /** makoto[switch2stand_s3_2]: the 塔纳托斯 → 俄耳甫斯 switch (see the fatal hook). */
+    /** makoto[switch2stand_s3_2]: the 塔纳托斯 → 俄耳甫斯 switch (see the fatal hook). @param {Battle} battle @param {Unit} unit @param {BuffRec} sub */
     function toOrpheus(battle, unit, sub) {
       const left = sub.timeLeft;
-      for (const b of unit.buffs.slice()) if (b.status) battle.removeBuff(unit, b);
+      for (const b of /** @type {BuffRec[]} */ (unit.buffs).slice()) if (b.status) battle.removeBuff(unit, b);
       const sk = unit.skill;
       if (sk && !sk.noSkill) { sk.sp = 0; sk.charges = sk.spCost <= 0 ? sk.maxCharges : 0; }
       unit.trait.dollSwitching = true;
@@ -286,7 +301,7 @@ export default {
       battle.fx('persona', { x: unit.x, y: unit.y, id: unit.id, form: 'orpheus' });
     }
 
-    /** S.E.E.S.队长's 总攻击: every 结城理 of the field strikes the enemies around it with this one's ATK. */
+    /** S.E.E.S.队长's 总攻击: every 结城理 of the field strikes the enemies around it with this one's ATK. @param {Battle} battle @param {Unit} unit */
     function allout(battle, unit) {
       if (!unit.alive || !unit.deployed || !talentGrid) return;   // makoto_talent_2 ON_OWNER_FINISH ends it
       const amount = unit.s.atk * num(t2.atk_scale);

@@ -28,6 +28,10 @@
 
 import { num, talentBb, skillRec, giveSp, up } from '../shared/tier1.js';
 import { canTargetEnemy } from '../../../targeting.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_ju_1';
 const S2 = 'skchr_ju_2';
@@ -43,11 +47,14 @@ export const CRIPPLE = 'cripple';
 export const DONE = 'ju_s_2[done]';
 const ANY = Object.freeze({ canHitFly: true });
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit} u */
 const on = (u) => !!(u.skill && u.skill.active && u.skill.id === S2);
-/** Is `e` 重伤 (whoever put it there)? */
+/** Is `e` 重伤 (whoever put it there)? @param {Unit | null | undefined} e */
 export const isCrippled = (e) => !!(e && typeof e.findBuff === 'function' && e.findBuff(CRIPPLE));
 
+/** @param {Battle} battle @param {Unit} unit @param {Unit} e @param {{ sp: number, life: number, ms: number }} opts */
 function applyCripple(battle, unit, e, { sp, life, ms }) {
   if (!e || !e.alive || isCrippled(e)) return;
   battle.addBuff(e, {
@@ -63,12 +70,13 @@ function applyCripple(battle, unit, e, { sp, life, ms }) {
   });
 }
 
+/** @type {KitFns} */
 export default {
   char_4221_ju: (bb, chess) => {
     const t0 = talentBb(chess, 0);
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
     const s1 = skillRec(chess, S1);
-    const s1Pick = Object.freeze({ canHitFly: true, skipEnemy: (e) => isCrippled(e) || e.hpRatio > 0.5 + 1e-9 });
+    const s1Pick = Object.freeze({ canHitFly: true, skipEnemy: (/** @type {Unit} */ e) => isCrippled(e) || e.hpRatio > 0.5 + 1e-9 });
     return {
       trait: { priority: 'heaviest', skipEnemy: isCrippled },
       skills: {
@@ -101,7 +109,7 @@ export default {
           applyCripple(battle, unit, e, { sp, life, ms });
         }, { owner: unit });
         battle.on('kill', (c) => {
-          const d = c.victim && typeof c.victim.findBuff === 'function' ? c.victim.findBuff(CRIPPLE) : null;
+          const d = c.victim && typeof c.victim.findBuff === 'function' ? /** @type {BuffRec | null} */ (c.victim.findBuff(CRIPPLE)) : null;
           if (!d || d.source !== unit || !c.killer || c.killer.side !== 'ally') return;
           giveSp(c.killer, num(d.data?.sp));
         }, { owner: unit });
@@ -118,9 +126,11 @@ export default {
         // S2's extra damage: the aura's checks and the queue, which outlives the skill (not the unit)
         const hpRatio = num(b2.hp_ratio, 0.5), extra = num(b2.atk_scale_s2_extra, 1);
         const checks = new Map();
+        /** @type {Array<{ e: Unit, at: number }>} */
         const queue = [];
         let gate = 0, front = true;
         battle.on('deploy', (c) => { if (c.unit === unit) { checks.clear(); queue.length = 0; gate = 0; front = true; } }, { owner: unit });
+        /** @param {Unit} e */
         const land = (e) => {
           if (!e.alive || !canTargetEnemy(unit, e, ANY)) return;
           battle.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'ju_s_2[damage]' });
@@ -142,7 +152,7 @@ export default {
             for (const e of checks.keys()) if (!seen.has(e)) checks.delete(e);
           } else if (checks.size) checks.clear();
           while (queue.length && queue[0].at <= battle.time + 1e-9 && gate <= battle.time + 1e-9) {
-            const { e } = queue.shift();
+            const { e } = /** @type {{ e: Unit, at: number }} */ (queue.shift());
             gate = battle.time + S2_GAP;
             battle.fx('juExtra', { x: e.x, y: e.y, id: e.id, src: unit.id, front: front ? 1 : 0 });
             front = !front;

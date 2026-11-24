@@ -12,6 +12,10 @@ import { COLS, BOSS_ROW_OFFSET } from '../../../constants.js';
 import { GEO } from '../../../../../shared/constants.js';
 import { hasHp } from '../../../damage.js';
 import { HAND_TILES } from '../../../grid.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
 
 const S1 = 'skchr_oxi_1', S2 = 'skchr_oxi_2', S3 = 'skchr_oxi_3';
 const GROUND = Object.freeze({ canHitFly: false, groundOnly: true });
@@ -20,6 +24,7 @@ const ANY = Object.freeze({ canHitFly: true });
 const TRAIL_TIME = 5, TRAIL_STEP = 0.5;
 /** skchr_oxi_3's volley (EmitDirectionalMapEdgeProjectileVolley `_maxBackDistance`): the edge it starts from is at most 11 tiles behind her. */
 const WAVE_MAX_BACK = 11;
+/** @param {KitChess} raw @param {string} id */
 const skillBb = (raw, id) => skillRec(raw, id)?.bb ?? {};
 /**
  * The rows her 簇火 are drawn over (maintainer decision 2026-11-15): every row of their way — off the field too, as the
@@ -28,12 +33,13 @@ const skillBb = (raw, id) => skillRec(raw, id)?.bb ?? {};
  * (grid.js HAND_TILES). `r0` / `r1` the first / last row drawn (±Infinity where no hand row ends the rect). Per grid.
  */
 const drawn = new WeakMap();
+/** @param {Battle} battle */
 function drawRows(battle) {
   const g = battle.grid;
   let d = drawn.get(g);
   if (d) return d;
   const R = g.rect, rows = [GEO.HAND_ROW, GEO.HAND_ROW + BOSS_ROW_OFFSET];
-  const hand = (r) => { if (!rows.includes(r)) return false; for (let c = R.c0; c <= R.c1; c++) if (HAND_TILES.has(g.tile(r, c).key)) return true; return false; };
+  const hand = (/** @type {number} */ r) => { if (!rows.includes(r)) return false; for (let c = R.c0; c <= R.c1; c++) if (HAND_TILES.has(g.tile(r, c).key)) return true; return false; };
   let lo = R.r0, hi = R.r1;
   while (lo <= hi && hand(lo)) lo++;
   while (hi >= lo && hand(hi)) hi--;
@@ -41,10 +47,13 @@ function drawRows(battle) {
   drawn.set(g, d);
   return d;
 }
+/** @param {{ x: number, y: number }} u */
 const tileOf = (u) => [Math.round(u.y), Math.round(u.x)];
-/** 非持续 damage of hers (the templates' FilterDamageModifer `IS_CONTINUOUS` off): a DoT tick carries 'dot'. */
+/** 非持续 damage of hers (the templates' FilterDamageModifer `IS_CONTINUOUS` off): a DoT tick carries 'dot'. @param {Record<string, any> | null | undefined} dmg */
 const direct = (dmg) => !dmg?.tags?.includes('dot');
+/** @typedef {{ wave: { hit: Set<Unit>, id: number }, atk: number, s: number, to: number, sign: number, horizontal: boolean, lane: number }} OxiFire one 簇火 of S3 (volley) */
 
+/** @type {KitFns} */
 export default {
   char_4247_oxi: (bb, raw) => {
     const t0 = talentBb(raw, 0), t1 = talentBb(raw, 1);
@@ -57,15 +66,18 @@ export default {
     // element damage ×(1 + arcane_step × stacks): Nodes.DamageScale with `_isStackable` multiplies by 1 + value × the
     // valid stack count (official client).
     const arcaneMax = Math.max(0, Math.round(num(t0.arcane_max) / Math.max(1e-9, num(t0.arcane_step, 1))));
+    /** @param {Battle} battle @param {Unit} unit @param {{ n: number }} a */
     const arcaneShow = (battle, unit, a) => battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'oxi_t_1_arcane_stack', n: a.n, max: arcaneMax });
 
     // ---- 我即火焰 (talent 2): the footprints (oxi_fire_field_lease, a TimedTileLeaseAbility) ----
     const fieldDuration = num(t1.field_duration, 4), fieldCap = Math.max(0, num(t1.max_count, 25));
     const fieldStep = num(t1.field_interval, 0.3), fieldScale = num(t1.field_atk_scale);
+    /** @param {Battle} battle @param {Unit} unit @param {{ tiles: Map<number, number> }} f @param {number} key */
     const lease = (battle, unit, f, key) => {
       // a re-lease restarts its time [ASSUMED·no source: the maintainer's memory of the official game, "probably" (2026-11-01)]
       // (its 'zone' again: the footprint's effect is held the new time — render/fx/kitofficial.js 'zone')
       // (`n` 1 on a new tile: its `_effectSettings` castedTimeThreshold 1 sounds oxi_fire_field_create — audio.js)
+      /** @param {number} n */
       const show = (n) => battle.fx('zone', { x: key % COLS, y: Math.floor(key / COLS), r: 0.5, dur: fieldDuration, id: unit.id, tile: key, ...(n ? { n } : {}) });
       if (f.tiles.has(key)) { f.tiles.set(key, battle.time + fieldDuration); show(0); return; }
       // full: a new tile is refused (`_rejectNewWhenFull`, kept over the maintainer's memory of the oldest one going —
@@ -74,6 +86,7 @@ export default {
       f.tiles.set(key, battle.time + fieldDuration);
       show(1);
     };
+    /** @param {Battle} battle @param {Unit} unit */
     const tickField = (battle, unit) => {
       const f = unit.mem.oxiField;
       if (!f) return;
@@ -108,9 +121,10 @@ export default {
     // ---- S2 阂断骤雪: cast by oxi_s_2_guard_manager when she is attacked ----
     const guardTotal = num(b2.skill_duration, 1.3), guardHold = num(b2.shelter_hold_duration, 0.2);
     const guardProtect = num(b2.damage_resistance);
-    /** LinearDecayBuffToOwnerDuringAbility: damage_resistance for shelter_hold_duration s, then linearly to 0 at skill_duration. */
+    /** LinearDecayBuffToOwnerDuringAbility: damage_resistance for shelter_hold_duration s, then linearly to 0 at skill_duration. @param {number} dt */
     const shelterAt = (dt) => (dt < guardHold ? guardProtect
       : guardProtect * Math.max(0, 1 - (dt - guardHold) / Math.max(1e-9, guardTotal - guardHold)));
+    /** @param {Battle} battle @param {Unit} unit @param {Unit | null | undefined} from */
     const retaliate = (battle, unit, from) => {
       // TargetCenteredAreaMeleeAttack: around the attacker wherever it stands, else (gone, untargetable) around an enemy she
       // blocks or has in her 1-1 box (the CenterFallbackSelector); no centre = no damage (`_allowNoTarget`, the buffs still
@@ -130,6 +144,7 @@ export default {
         if (dealt > 0 && unit.alive) battle.heal(unit, unit, dealt * num(b2.heal_ratio), { self: true, tags: ['skill'] });
       }
     };
+    /** @param {Battle} battle @param {Unit} unit */
     const guardOpen = (battle, unit) => {
       const t0s = battle.time;
       unit.mem.oxiGuardUntil = t0s + guardTotal;
@@ -145,6 +160,7 @@ export default {
     };
 
     // ---- S3 日冕重烈: the 簇火 volleys ----
+    /** @param {Battle} battle @param {Unit} unit @param {boolean} overload */
     const volley = (battle, unit, overload) => {
       const w = unit.mem.oxiS3;
       if (!w) return;
@@ -184,6 +200,7 @@ export default {
           v, ...(vs !== from ? { d: Math.abs(vs - from) / v } : {}) });
       }
     };
+    /** @param {Battle} battle @param {Unit} unit @param {OxiFire} p @param {number} x @param {number} y */
     const explode = (battle, unit, p, x, y) => {
       const radius = num(b3.range_radius, 1.5), scale = num(b3.heatwave_atk_scale), repeat = num(b3.same_wave_repeat_damage_scale, 1);
       battle.fx('blast', { x, y, r: radius, id: unit.id, element: 'burn', w: p.wave.id, lane: p.lane });
@@ -198,11 +215,12 @@ export default {
           isSkill: true, isSplash: true, canDodge: false, tags: ['skill', 'oxi:fire'] });
       }
     };
+    /** @param {Battle} battle @param {Unit} unit @param {number} dt */
     const tickFires = (battle, unit, dt) => {
       const w = unit.mem.oxiS3;
       if (!w || !w.fires.length) return;
       const step = num(b3.wave_speed, 2.3) * dt, reach = num(b3.projectile_range, 0.5);
-      w.fires = w.fires.filter((p) => {
+      w.fires = w.fires.filter((/** @type {OxiFire} */ p) => {
         p.s += p.sign * step;
         if ((p.to - p.s) * p.sign <= 0) return false;
         const [x, y] = p.horizontal ? [p.s, p.lane] : [p.lane, p.s];
@@ -318,7 +336,7 @@ export default {
             if (target !== unit || !source || source.side !== 'enemy' || dmg.sourceless || !direct(dmg)) return;
             if (dmg.type !== 'phys' && dmg.type !== 'arts' && dmg.type !== 'true' && dmg.type !== 'elemental') return;
             if (battle.time < (unit.mem.oxiGuardUntil ?? -1) - 1e-9) return;
-            const sk = unit.skill;
+            const sk = /** @type {SkillRuntime} */ (unit.skill);
             if (!sk.ready || !unit.canAct || unit.s.flags.silence) return;
             unit.mem.oxiGuardFrom = source;
             if (!sk.activate('TAKE_DAMAGE')) { unit.mem.oxiGuardFrom = null; return; }

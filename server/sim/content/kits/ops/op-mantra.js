@@ -52,6 +52,11 @@ import { bodyInRange } from '../../../body.js';
 import { COLS, PALSY_MAX } from '../../../constants.js';
 import { burstLimit } from '../shared/bounds.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { ShotHit } from '../../../ai.js' */
 
 const S1 = 'skchr_mantra_1';
 const S2 = 'skchr_mantra_2';
@@ -70,23 +75,28 @@ const MARK = 'mantra:hush:';
 /** 全局洞悉 备注 "0.1s后获得1层麻痹". */
 const SPAWN_DELAY = 0.1;
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit | null | undefined} e */
 const palsyImmune = (e) => !!e?.def?.immune?.has?.('palsy');
-/** 麻痹 stacks of an enemy — a 麻痹免疫 one keeps the ineffective stacks 真言 gave it in `mem.mantraPalsy`. */
-const palsyOf = (e) => (palsyImmune(e) ? (e.mem.mantraPalsy ?? 0) : (e.findBuff('palsy')?.stacks ?? 0));
+/** 麻痹 stacks of an enemy — a 麻痹免疫 one keeps the ineffective stacks 真言 gave it in `mem.mantraPalsy`. @param {Unit} e */
+const palsyOf = (e) => (palsyImmune(e) ? (e.mem.mantraPalsy ?? 0) : (/** @type {BuffRec | null} */ (e.findBuff('palsy'))?.stacks ?? 0));
+/** @param {Battle} battle @param {Unit} e @param {number} n */
 function setPalsy(battle, e, n) {
   if (palsyImmune(e)) { e.mem.mantraPalsy = n; return; }
-  const b = e.findBuff('palsy');
+  const b = /** @type {BuffRec | null} */ (e.findBuff('palsy'));
   if (!b) return;
   if (n <= 0) battle.removeBuff(e, b);
   else { b.stacks = n; e.markDirty(); }
 }
 // 【麻痹付与】 takes the enemy's tile (PRTS 备注: 格子判定), unlike the reveal and the overflow (碰撞判定: bodyInRange)
+/** @param {Unit} e @param {Set<number>} set */
 const tileIn = (e, set) => set.has(Math.round(e.y) * COLS + Math.round(e.x));
 
 /** The S1 / S2 riders: share × the damage dealt as 神经 损伤, then elemScale × ATK 元素伤害 on a target in its 神经 burst.
  *  Every hit sounds its branch (`sk` 's1' / 's2'; the attack's IsTargetInEPBreakRecovery IfElse: PlayProjectileAudio
- *  mantra_<sk>_proj_element or _normal — audio.js, kitHit 'mantra:<sk>el' / 'mantra:<sk>'). */
+ *  mantra_<sk>_proj_element or _normal — audio.js, kitHit 'mantra:<sk>el' / 'mantra:<sk>').
+ * @param {Battle} battle @param {Unit} unit @param {Unit | null | undefined} t @param {number} dealt @param {number} share @param {number} elemScale @param {string} sk */
 function riders(battle, unit, t, dealt, share, elemScale, sk) {
   if (!t || t.side !== 'enemy') return;
   if (share > 0 && dealt > 0) elementDmg(battle, unit, t, 'neural', dealt * share, ['skill', 'mantra']);
@@ -97,7 +107,7 @@ function riders(battle, unit, t, dealt, share, elemScale, sk) {
   battle.fx('kitHit', { x: t.x, y: t.y, id: unit.id, k: `mantra:${sk}${burst ? 'el' : ''}` });
 }
 
-/** The nearest enemy within `r` of (x, y) that `unit` can select, none of `skip`. */
+/** The nearest enemy within `r` of (x, y) that `unit` can select, none of `skip`. @param {Battle} battle @param {Unit} unit @param {number} x @param {number} y @param {number} r @param {Set<Unit>} skip */
 function nearestFoe(battle, unit, x, y, r, skip) {
   let best = null, bd = Infinity;
   for (const e of battle.enemiesInRadius(x, y, r)) {
@@ -108,15 +118,17 @@ function nearestFoe(battle, unit, x, y, r, skip) {
   return best;
 }
 
+/** @type {KitFns} */
 export default {
   char_4204_mantra: (bb, chess) => {
     const t0 = talentBb(chess, 0);
     const tb = traitBb(chess);   // PRI-X: damage_scale
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
     const s3 = skillRec(chess, S3);
+    /** @param {Unit} unit */
     const s3On = (unit) => !!(unit.skill && unit.skill.active && unit.skill.id === S3 && unit.mem.mantraS3);
 
-    /** 意识联协: `left` jumps from `from`, each to the nearest not-yet-hit enemy, at JUMP_SPEED. */
+    /** 意识联协: `left` jumps from `from`, each to the nearest not-yet-hit enemy, at JUMP_SPEED. @param {Battle} battle @param {Unit} unit @param {{ x: number, y: number, id?: unknown }} from @param {Set<Unit>} hit @param {number} left @param {number} attackId */
     function chain(battle, unit, from, hit, left, attackId) {
       if (left <= 0) return;
       const next = nearestFoe(battle, unit, from.x, from.y, JUMP_RADIUS, hit);
@@ -125,7 +137,7 @@ export default {
       battle.fx('kitHit', { x: next.x, y: next.y, id: unit.id, k: 'mantra:s2jump', from: from.id, target: next.id });
       battle.addProjectile({
         from: { x: from.x, y: from.y }, target: next, speed: JUMP_SPEED, visual: 'bolt', source: unit, hitDead: true,
-        onHit: ({ target, x, y }) => {
+        onHit: (/** @type {ShotHit} */ { target, x, y }) => {
           if (target && target.alive) {
             const d = battle.dealDamage(unit, target, { amount: unit.s.atk * num(b2['attack@chain.atk_scale'], 1), type: 'arts', isAttack: true, isSkill: true, tags: ['chain'], attackId });
             riders(battle, unit, target, d, num(b2['attack@ep_damage_ratio']), num(b2['attack@element_atk_scale']), 's2');
@@ -135,15 +147,17 @@ export default {
       });
     }
 
-    /** 无言为真: one 溢出麻痹 → an 元素伤害 bounce on `holder`, then to the nearest other enemy (chain_times jumps). */
+    /** 无言为真: one 溢出麻痹 → an 元素伤害 bounce on `holder`, then to the nearest other enemy (chain_times jumps). @param {Battle} battle @param {Unit} unit @param {Unit} holder */
     function bounce(battle, unit, holder) {
       const amount = unit.s.atk * num(b3.atk_scale);
       if (!(amount > 0)) return;
       const hit = new Set([holder]);
+      /** @param {Unit} t */
       const elem = (t) => battle.dealDamage(unit, t, { amount, type: 'elemental', element: 'neural', canDodge: false, isSkill: true, tags: ['skill', 'mantraOverflow'] });
       let left = Math.max(1, Math.floor(num(b3.max_target, 2)));
       if (holder.alive && hasHp(holder)) { elem(holder); left--; }
       battle.fx('mantraArc', { x: holder.x, y: holder.y, id: unit.id, target: holder.id });
+      /** @param {Unit} from @param {number} jumps */
       const jump = (from, jumps) => {
         if (jumps <= 0 || left <= 0) return;
         const next = nearestFoe(battle, unit, from.x, from.y, JUMP_RADIUS, hit);
@@ -153,7 +167,7 @@ export default {
         battle.fx('kitHit', { x: next.x, y: next.y, id: unit.id, k: 'mantra:s3jump', from: from.id, target: next.id });
         battle.addProjectile({
           from: { x: from.x, y: from.y }, target: next, speed: JUMP_SPEED, visual: 'bolt', source: unit,
-          onHit: ({ target }) => {
+          onHit: (/** @type {ShotHit} */ { target }) => {
             if (target && target.alive) elem(target);
             // each object it hits sounds mantra_s_3_element (mantra_s_3[enemy_trigger] EmitProjectile ON_HIT_OBJECT actions:
             // PlayProjectileAudio; the holder's: fx 'mantraArc' — audio.js)
@@ -164,7 +178,7 @@ export default {
       jump(holder, Math.max(0, Math.floor(num(b3.chain_times, 1))));
     }
 
-    /** 溢出麻痹 gained by `e`: one turns into a bounce at once, the next one interval later. */
+    /** 溢出麻痹 gained by `e`: one turns into a bounce at once, the next one interval later. @param {Battle} battle @param {Unit} unit @param {unknown} st @param {Unit} e @param {{ over: number, next: number }} rec @param {number} n */
     function overflow(battle, unit, st, e, rec, n) {
       if (!(n > 0)) return;
       rec.over += n;
@@ -172,14 +186,14 @@ export default {
       rec.next = battle.time + num(b3.interval_projectile_trigger, 1.5);
       bounce(battle, unit, e);
     }
-    /** `e` leaves the overflow (range, fall, skill end): every 溢出麻痹 left bounces at once. */
+    /** `e` leaves the overflow (range, fall, skill end): every 溢出麻痹 left bounces at once. @param {Battle} battle @param {Unit} unit @param {Unit} e @param {{ over: number, next: number }} rec */
     function flush(battle, unit, e, rec) {
       let guard = 0;
       const limit = burstLimit(PALSY_MAX);
       while (rec.over > 0 && guard++ < limit) { rec.over--; bounce(battle, unit, e); } // loop-cap: burstLimit palsy
       if (rec.over > 0) rec.over = 0;
     }
-    /** 真言's own 麻痹 (S3 grants, 全局洞悉): a 麻痹免疫 enemy keeps them (ineffective) for the overflow count. */
+    /** 真言's own 麻痹 (S3 grants, 全局洞悉): a 麻痹免疫 enemy keeps them (ineffective) for the overflow count. @param {Battle} battle @param {Unit} unit @param {Unit} e @param {number} n */
     function givePalsy(battle, unit, e, n) {
       if (!e.alive || !(n > 0)) return;
       if (!palsyImmune(e)) { battle.applyStatus(e, 'palsy', { value: n, source: unit }); return; }
@@ -191,7 +205,8 @@ export default {
       if (owner && n > add) overflow(battle, owner, owner.mem.mantraS3, e, owner.mem.mantraS3.map.get(e), n - add);
     }
     /** 【麻痹付与】: per_active 麻痹 to every enemy she can select on her range (by its tile); kept when there is none (备注
-     *  "在范围内不存在可选敌方单位时保留可付与次数" — 隐匿 ones there are revealed by then, onTick). */
+     *  "在范围内不存在可选敌方单位时保留可付与次数" — 隐匿 ones there are revealed by then, onTick).
+     * @param {Battle} battle @param {Unit} unit */
     function grant(battle, unit) {
       const st = unit.mem.mantraS3;
       if (!st || st.grants <= 0 || !s3On(unit)) return;
@@ -296,7 +311,7 @@ export default {
         { install(battle, unit) { // 全局洞悉: the nearest 侵入点; its spawns get 1 麻痹 0.1 s later
           battle.on('deploy', (ctx) => {
             if (ctx.unit !== unit) return;
-            let best = [], bd = Infinity;
+            let best = /** @type {number[][]} */ ([]), bd = Infinity;
             for (const [r, c] of battle.grid.specialTiles('start')) {
               const d = Math.abs(r - unit.tileR) + Math.abs(c - unit.tileC);
               if (d < bd) { bd = d; best = [[r, c]]; } else if (d === bd) best.push([r, c]);
@@ -320,7 +335,7 @@ export default {
           const st = unit.mem.mantraS3;
           const rec = st.map.get(c.target);
           if (!rec) return;
-          const n = Math.max(1, Math.floor(Number.isFinite(c.value) ? c.value : 1));
+          const n = Math.max(1, Math.floor(Number.isFinite(c.value) ? /** @type {number} */ (c.value) : 1));
           const room = Math.max(0, S3_CAP - palsyOf(c.target));
           if (n <= room) return;
           if (room > 0) c.value = room; else c.cancel = true;

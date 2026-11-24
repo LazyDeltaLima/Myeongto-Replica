@@ -20,6 +20,8 @@ import { num, talentBb, moduleBb, skillRec, up } from '../shared/tier1.js';
 import { hasPower } from '../shared/powers.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS } from '../../../constants.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skcom_quickattack[3]';
 const S2 = 'skchr_leto_2';
@@ -28,12 +30,14 @@ const T1 = 'leto_t_1[attack_speed]';
 const LOR = 'leto_e_002_tr[atk_speed]';
 /** leto_e_002_tr's trigger period (PRTS 备注). */
 const LOR_IV = 0.1;
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
-/** BasicSkill.IsTriggerable of an ally's skill: on the field, able to act, not silenced, ready, not running, no cast waiting. */
+/** BasicSkill.IsTriggerable of an ally's skill: on the field, able to act, not silenced, ready, not running, no cast waiting. @param {Unit} a */
 const triggerable = (a) => up(a) && !a.hidden && a.canAct && !a.s.flags.silence && !!a.skill && !a.skill.noSkill && a.skill.kind !== 'passive'
   && a.skill.ready && !(a.skill.active && a.skill.isTimed) && !a.skill.pending;
 
+/** @type {KitFns} */
 export default {
   char_194_leto: (bb, chess) => {
     const t0 = talentBb(chess, 0), mb = moduleBb(chess);

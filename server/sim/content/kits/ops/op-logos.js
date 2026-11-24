@@ -56,6 +56,12 @@ import { num, talentBb, moduleBb, traitBb, skillRec, up, giveSp, once } from '..
 import { isElite, elementDmg } from '../shared/tier6.js';
 import { hasHp } from '../../../damage.js';
 import { COLS, ROWS } from '../../../constants.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { Projectile } from '../../../projectiles.js' */
+/** @import { ShotHit } from '../../../ai.js' */
 
 const S1 = 'skchr_logos_1';
 const S2 = 'skchr_logos_2';
@@ -72,23 +78,27 @@ const S1_SHOT = 3;
 /** Enemy projectiles slowed by a running 延异视阈 (projectile → Map of the unit id holding it → its scale). */
 const SLOWED = new WeakMap();
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {{ x: number, y: number }} p */
 const tileOf = (p) => {
   const r = Math.round(p.y), c = Math.round(p.x);
   return r >= 0 && r < ROWS && c >= 0 && c < COLS ? r * COLS + c : -1;
 };
-/** Is `p` an enemy projectile (the ProjectileSystem list is the sim's only projectile store)? */
+/** Is `p` an enemy projectile (the ProjectileSystem list is the sim's only projectile store)? @param {Projectile} p */
 const enemyShot = (p) => p && p.source && p.source.side === 'enemy';
 
 /**
  * A shot's change for the view, which flies its own copy from the 'atk' / 'enemyShot' moment and cannot see `speed`: fx
  * 'shotSlow' { from: its shooter, tgt: its target, rate: the speed share now | clear: 1 it is gone } (render/fx/shotslow.js).
+ * @param {Battle} battle @param {Unit} unit @param {Projectile} p @param {Record<string, number>} change
  */
 const shotFx = (battle, unit, p, change) => battle.fx('shotSlow', { x: p.x, y: p.y, id: unit.id, from: p.source.id, tgt: p.target?.id ?? null, ...change });
 
 /**
  * A shot's speed share: the holders' scales multiplied (`BasicMovement._CalculateFinalMoveScale`: every registered modifier),
  * so two 逻各斯 on one shot hold it at the square of the scale.
+ * @param {Battle} battle @param {Unit} unit @param {Projectile} p @param {Map<number, number>} by
  */
 function holdShot(battle, unit, p, by) {
   let rate = 1;
@@ -102,6 +112,7 @@ function holdShot(battle, unit, p, by) {
  * 延异视阈: slow the enemy projectiles on `unit`'s range, restore those that left it. Runs every tick: no allocation. A shot
  * that may not be slowed stays out (`Projectile.RegisterMoveScale` does nothing unless `movementAdjustable`: a harpoon, an
  * attached shot or one with no `_mainEffect`; tools/local-extract/enemy_projectiles.py `adjust`).
+ * @param {Battle} battle @param {Unit} unit @param {number} scale
  */
 function slowShots(battle, unit, scale) {
   const set = unit.rangeKeySet, list = battle.projectiles?.list;
@@ -116,14 +127,14 @@ function slowShots(battle, unit, scale) {
   }
 }
 
-/** `unit` stops holding `p`; held by nobody, it flies at its own speed again. */
+/** `unit` stops holding `p`; held by nobody, it flies at its own speed again. @param {Battle} battle @param {Unit} unit @param {Projectile} p @param {Map<number, number>} by */
 function release(battle, unit, p, by) {
   if (!by.delete(unit.id)) return;
   holdShot(battle, unit, p, by);
   if (!by.size) SLOWED.delete(p);
 }
 
-/** 延异视阈 ends: clear the enemy projectiles on the range (unless disarmed / knocked out), release the rest. */
+/** 延异视阈 ends: clear the enemy projectiles on the range (unless disarmed / knocked out), release the rest. @param {Battle} battle @param {Unit} unit @param {boolean} clear */
 function endShots(battle, unit, clear) {
   const set = unit.rangeKeySet;
   let n = 0;
@@ -143,6 +154,7 @@ function endShots(battle, unit, clear) {
   if (clear) battle.fx('bulletClear', { x: unit.x, y: unit.y, id: unit.id, n });
 }
 
+/** @type {KitFns} */
 export default {
   char_4133_logos: (bb, chess) => {
     const t0 = talentBb(chess, 0);
@@ -156,7 +168,7 @@ export default {
       elemScale: num(t0.element_atk_scale), emit: Math.max(1, Math.floor(num(t0.emit_count, 1))),
     };
 
-    /** 语汇演化: `emit` executions, each a `prob` roll for a shot at a random enemy of his range, landing at T1_SHOT. */
+    /** 语汇演化: `emit` executions, each a `prob` roll for a shot at a random enemy of his range, landing at T1_SHOT. @param {Battle} battle @param {Unit} unit */
     function lexicon(battle, unit) {
       if (!(lex.prob > 0) || !(lex.scale > 0)) return;
       for (let k = 0; k < lex.emit; k++) {
@@ -168,7 +180,7 @@ export default {
         battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, src: unit.id, target: t.id, k: 'logos:t1shot' });
         battle.addProjectile({
           from: unit, target: t, speed: T1_SHOT, visual: 'bolt', source: unit,
-          onHit: ({ target }) => {
+          onHit: (/** @type {ShotHit} */ { target }) => {
             if (!target || !target.alive) return;
             battle.fx('logosLexicon', { x: target.x, y: target.y, id: unit.id, target: target.id });
             battle.dealDamage(unit, target, { amount: atk * lex.scale, type: 'arts', tags: ['talent', 'logosLexicon'] });
@@ -182,7 +194,8 @@ export default {
     }
 
     /** 殁亡's execution of `e` (HP below the threshold); once it has fallen, 语汇演化's rolls, then the follow-up shot from it
-     *  to a random enemy of his range (logos_s_1: CheckUnitAlive → IfNot → TriggerBuffsByKeys → the projectile). */
+     *  to a random enemy of his range (logos_s_1: CheckUnitAlive → IfNot → TriggerBuffsByKeys → the projectile).
+     * @param {Battle} battle @param {Unit} unit @param {Unit} e @param {{ spared: Set<number> }} st */
     function execute(battle, unit, e, st) {
       const left = e.hp;
       battle.fx('logosExecute', { x: e.x, y: e.y, id: unit.id, target: e.id });
@@ -195,11 +208,11 @@ export default {
       battle.fx('kitHit', { x: e.x, y: e.y, id: unit.id, src: unit.id, target: t.id, from: e.id, k: 'logos:s1shot' });
       battle.addProjectile({
         from: { x: e.x, y: e.y }, target: t, speed: S1_SHOT, visual: 'bolt', source: unit,
-        onHit: ({ target }) => { if (target && target.alive) battle.dealDamage(unit, target, { amount: left, type: 'arts', isSkill: true, tags: ['skill', 'logosPerish'] }); },
+        onHit: (/** @type {ShotHit} */ { target }) => { if (target && target.alive) battle.dealDamage(unit, target, { amount: left, type: 'arts', isSkill: true, tags: ['skill', 'logosPerish'] }); },
       });
     }
 
-    /** 提喻: end the lock (its slow leaves the target; logos_s_2[lock] ends — its line with it: fx 'kitHit' 'logos:lock' `on` 0). */
+    /** 提喻: end the lock (its slow leaves the target; logos_s_2[lock] ends — its line with it: fx 'kitHit' 'logos:lock' `on` 0). @param {Battle} battle @param {Unit} unit */
     function unlock(battle, unit) {
       const L = unit.mem.logosLock;
       if (L && L.target) {
@@ -211,6 +224,7 @@ export default {
     const lockIv = num(b2['attack@cooldown'], 0.5);
     const base2 = num(b2['attack@atk_scale_base'], 1), delta2 = num(b2['attack@atk_scale_delta']);
     const maxN = Math.max(0, Math.floor(num(b2['attack@max_stack_cnt'])));
+    /** @param {Unit} unit */
     const s2On = (unit) => !!(unit.skill && unit.skill.active && unit.skill.id === S2);
 
     return {
@@ -308,7 +322,7 @@ export default {
           once(battle, 'logos:artsAddition', () => battle.on('hit', (ctx) => {
             const d = ctx.dmg;
             if (!d || d.type !== 'arts' || !ctx.target || ctx.target.side !== 'enemy') return;
-            const m = ctx.target.findBuff(T2_KEY);
+            const m = /** @type {BuffRec | null} */ (ctx.target.findBuff(T2_KEY));
             if (m && m.data && m.data.value > 0) d.amount += m.data.value;
           }, { priority: -50 }));
         } },

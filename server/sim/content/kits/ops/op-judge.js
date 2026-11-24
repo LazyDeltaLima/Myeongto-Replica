@@ -53,6 +53,11 @@
 
 import { num, traitBb, talentBb, skillRec, toggleBuff, batMod, up, enemiesInGrid, holdProtect, PROTECT } from '../shared/tier1.js';
 import { isHpLoss } from '../../../damage.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_judge_1';
 const S2 = 'skchr_judge_2';
@@ -65,11 +70,14 @@ const X4 = Object.freeze([[1, -1], [1, 0], [1, 1], [0, -1], [0, 0], [0, 1], [-1,
 const S2_FIRST = 0.9;
 const S2_EVERY = 1;
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Record<string, any> | null | undefined} d @param {string} tag */
 const tagged = (d, tag) => !!(d && Array.isArray(d.tags) && d.tags.includes(tag));
-/** Her barrier left (0 without one). */
-const barrierOf = (u) => u.findBuff(BARRIER)?.shield ?? 0;
+/** Her barrier left (0 without one). @param {Unit} u */
+const barrierOf = (u) => /** @type {BuffRec | null} */ (u.findBuff(BARRIER))?.shield ?? 0;
 
+/** @type {KitFns} */
 export default {
   char_4065_judge: (bb, chess) => {
     const tb = traitBb(chess);
@@ -77,18 +85,18 @@ export default {
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
     const s2 = skillRec(chess, S2);
     const capRatio = num(t0.max_hp_ratio, 3);
-    /** S2's 庇护 (damage_resistance[inf] for the skill's time). */
+    /** S2's 庇护 (damage_resistance[inf] for the skill's time). @param {Battle} battle @param {Unit} unit @param {SkillRuntime} skill */
     const protect = (battle, unit, skill) => {
       const dr = num(b2.damage_resistance);
       holdProtect(battle, unit, dr, Math.max(0.05, skill.timeLeft), unit);   // 庇护: the shared effect (同名效果取最高)
     };
-    /** judge_t_1's shield_scale: 1, + S2's shield_scale while S2 runs. */
+    /** judge_t_1's shield_scale: 1, + S2's shield_scale while S2 runs. @param {Unit} unit */
     const shieldScale = (unit) => 1 + (unit.skill?.active && unit.skill.id === S2 ? num(b2.shield_scale) : 0);
-    /** Add `amount` to her barrier while it is below the cap (the CURRENT max HP), capped there. Returns the gain. */
+    /** Add `amount` to her barrier while it is below the cap (the CURRENT max HP), capped there. Returns the gain. @param {Battle} battle @param {Unit} unit @param {number} amount */
     const gain = (battle, unit, amount) => {
       if (!up(unit) || !(amount > 0)) return 0;
       const cap = unit.s.maxHp * capRatio;
-      const cur = unit.findBuff(BARRIER);
+      const cur = /** @type {BuffRec | null} */ (unit.findBuff(BARRIER));
       const have = cur ? cur.shield : 0;
       if (!(cap > have + 1e-9)) return 0;
       const next = Math.min(cap, have + amount);
@@ -97,7 +105,7 @@ export default {
       barrierFx(battle, unit);
       return next - have;
     };
-    /** judge_t_1[effect] ON_BUFF_TRIGGER (header): the barrier's start / break effect from its stack count. */
+    /** judge_t_1[effect] ON_BUFF_TRIGGER (header): the barrier's start / break effect from its stack count. @param {Battle} battle @param {Unit} unit */
     const barrierFx = (battle, unit) => {
       const v = barrierOf(unit), div = unit.s.maxHp * num(t0.higher_effect_hp_ratio, 1), n = unit.mem.judgeFxStack || 0;
       const to = v <= 1e-9 ? 0 : v >= div ? 2 : n > 1 ? 0 : n < 1 ? 1 : n;
@@ -150,7 +158,7 @@ export default {
               for (const e of hit) if (e.alive) battle.dealDamage(unit, e, { amount, type: 'arts', isSkill: true, tags: ['skill', 'judge:atonement'] });
             }
           },
-          onEnd({ battle, unit }) { if (unit.findBuff(PROTECT)?.source === unit) battle.removeBuff(unit, PROTECT); },
+          onEnd({ battle, unit }) { if (/** @type {BuffRec | null} */ (unit.findBuff(PROTECT))?.source === unit) battle.removeBuff(unit, PROTECT); },
         },
         [S3]: {
           kind: 'duration',

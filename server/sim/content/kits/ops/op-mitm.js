@@ -19,6 +19,9 @@ import { num, traitBb, skillRec, up, instantKind } from '../shared/tier1.js';
 import { freeTile, groundTile, tacticalPoint } from '../shared/tier3.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS, FORCED_EXIT } from '../../../constants.js';
+/** @import { KitFns, KitChess, Bb } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skchr_mitm_1';
 const S2 = 'skchr_mitm_2';
@@ -35,30 +38,37 @@ export const WASTE = 'trshrb_t_1[trash_born]';
 /** Passive's buff: at each deployment its [trigger][imme] casts trshrb_switch, so the 小车 is in mode Reborn for REBORN s. */
 export const BORN = 'trshrb_state_1';
 const MARK = 'token:mitm_mark';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** First talent of a normalised token def holding `key`. */
+/** First talent of a normalised token def holding `key`. @param {{ talents?: Array<{ bb?: Bb }  |  null> }  |  null  |  undefined} def @param {string} key */
 const tokBb = (def, key) => (def?.talents ?? []).find((t) => t && t.bb && t.bb[key] != null)?.bb ?? {};
+/** @param {Unit} t */
 const isWaste = (t) => !!t.mem.mitmWaste;
 
+/** @type {KitFns} */
 export default {
   char_4147_mitm: (bb, chess) => {
     const scale = num(traitBb(chess).atk_scale, 1.5);
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
     const tokenId = (chess?.talents ?? []).find((t) => t && t.tokenKey)?.tokenKey ?? CAR;
 
-    /** Her tokens, 小车 and 残骸, placed or summoned. */
+    /** Her tokens, 小车 and 残骸, placed or summoned. @param {Battle} battle @param {Unit} unit */
     const tokensOf = (battle, unit) => battle.allyUnits.filter((t) => t.kind === 'token' && t.defId === tokenId && t.ownerUnit === unit);
+    /** @param {Battle} battle @param {Unit} unit */
     const carsOf = (battle, unit) => tokensOf(battle, unit).filter((t) => !isWaste(t));
-    /** A 小车 in mode Default or Skill: mitm_s_1 and mitm_s_2[to_token] check its mode, so one still in Reborn is passed by. */
+    /** A 小车 in mode Default or Skill: mitm_s_1 and mitm_s_2[to_token] check its mode, so one still in Reborn is passed by. @param {Battle} battle @param {Unit} unit */
     const carUp = (battle, unit) => carsOf(battle, unit).find((t) => up(t) && !t.findBuff(BORN)) ?? null;
+    /** @param {Unit} u @param {Unit | null | undefined} t */
     const isMine = (u, t) => !!t && t.kind === 'token' && t.defId === tokenId && t.ownerUnit === u;
 
+    /** @param {Record<string, any> | null | undefined} def */
     const wasteKit = (def) => {
       const t = tokBb(def, 'trshrb_t_1[trash_born].block_cnt');
       return {
         skill: null,
         trait: { noAttack: true },
         talents: [],
+        /** @param {Battle} battle @param {Unit} w */
         install(battle, w) {
           w.mem.mitmWaste = true;
           w.form = 'waste'; // mode Trash: Idle and Start → Waste, Stun → Stun_3
@@ -73,7 +83,7 @@ export default {
       };
     };
 
-    /** The 残骸 of a 小车 that just left: a random free melee tile of its x-5, none when there is none. */
+    /** The 残骸 of a 小车 that just left: a random free melee tile of its x-5, none when there is none. @param {Battle} battle @param {Unit} owner @param {Unit} car */
     const spawnWaste = (battle, owner, car) => {
       if (!up(owner)) return;
       const keys = absoluteRangeKeys(X5, car.homeR ?? car.tileR, car.homeC ?? car.tileC, car.dir, 0);
@@ -85,12 +95,14 @@ export default {
       if (w) { battle.fx('summon', { x: w.x, y: w.y, id: w.id, src: owner.id, token: tokenId, waste: 1 }); }
     };
 
+    /** @param {Unit} owner @param {Record<string, any> | null | undefined} def */
     const carKit = (owner, def) => {
       const t = tokBb(def, 'interval');
       const refresh = num(t.interval, 15), block = num(t.block_cnt, 1);
       return {
         skill: null,
         talents: [],
+        /** @param {Battle} battle @param {Unit} car */
         install(battle, car) {
           battle.addBuff(car, { key: 'trshrb_t_1[block_cnt]', mods: { blockCnt: block }, flags: { noHeal: true }, persist: true, allowDead: true });
           // a return has already spent its `_preDelay` in the 战术点形态 (back below); any other deployment spends it here

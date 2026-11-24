@@ -17,15 +17,18 @@
 //   [c] 子虚乌有 物理闪避 prob and block +block_cnt.
 
 import { num, talentBb, skillRec, up } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
 
 const S1 = 'skchr_nothin_1';
 const S2 = 'skchr_nothin_2';
 /** Skill_2_Begin's length (data/assets.json `animations`): no attack during it, and the pick at its end (data `cast.begin`, skills.js beginTime). */
 export const S2_BEGIN = 1.1;
 const SLOW = 'nothin_s_2[a][attack_speed_down]';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 const KEYS = Object.freeze(['nothin_s_2[a]', 'nothin_s_2[b]', 'nothin_s_2[c]']);
 
+/** @type {KitFns} */
 export default {
   char_455_nothin: (bb, chess) => {
     const t0 = talentBb(chess, 0);
@@ -52,7 +55,7 @@ export default {
             const pool = KEYS.filter((k) => k !== unit.trait.nothinLast);
             const key = battle.rng.pick(pool);
             unit.trait.nothinLast = key;
-            battle.addBuff(unit, { key, visible: true, mods: modsOf[key] });
+            battle.addBuff(unit, { key, visible: true, mods: modsOf[/** @type {keyof typeof modsOf} */ (key)] });
           },
           onEnd({ battle, unit }) { for (const k of KEYS) battle.removeBuff(unit, k); },
         },

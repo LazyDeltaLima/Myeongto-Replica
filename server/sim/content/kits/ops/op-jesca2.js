@@ -65,6 +65,12 @@ import { num, talentBb, traitBb, moduleOn, skillRec, batMod, up, giveSp, install
 import { offsetTile, dirFromDelta, dirVec } from '../../../dir.js';
 import { isHpLoss } from '../../../damage.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns, KitChess, Bb, Grid } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { ModuleState } from '../../../../../shared/loadoutRecord.js' */
+/** @import { Dir } from '../../../dir.js' */
 
 const S1 = 'skchr_jesca2_1';
 const S2 = 'skchr_jesca2_2';
@@ -86,17 +92,20 @@ const SHIELD_SKILL_KEY = 'skill:jesca2:shield';
 const SHIELD_ABNORMAL_KEY = 'jesca2:shield:abnormal';
 const TAG_BOMB = 'jesca2:bomb';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** A 机动盾牌 of `unit`. */
+/** A 机动盾牌 of `unit`. @param {Unit | null | undefined} t @param {Unit} unit */
 const isShieldOf = (t, unit) => !!t && t.kind === 'token' && t.defId === SHIELD && t.ownerUnit === unit;
+/** @param {Battle} battle @param {Unit} unit */
 const shieldsOf = (battle, unit) => battle.allyUnits.filter((t) => isShieldOf(t, unit));
-/** `t` stands on one of the four tiles next to `unit` (the placement rule "四周"; her x-5 auras reach it there). */
+/** `t` stands on one of the four tiles next to `unit` (the placement rule "四周"; her x-5 auras reach it there). @param {Unit} unit @param {Unit} t */
 const besideOf = (unit, t) => Math.abs(t.tileR - unit.tileR) + Math.abs(t.tileC - unit.tileC) === 1;
-/** The shield of hers standing next to her (the mark jesca2_jckshd_s_3[mark]: its HostMark b-1 holds her), or null. */
+/** The shield of hers standing next to her (the mark jesca2_jckshd_s_3[mark]: its HostMark b-1 holds her), or null. @param {Battle} battle @param {Unit} unit */
 const markOf = (battle, unit) => shieldsOf(battle, unit).find((t) => up(t) && besideOf(unit, t)) ?? null;
+/** @param {Unit} unit @param {string} id */
 const skillOn = (unit, id) => !!(unit.skill && unit.skill.active && unit.skill.id === id);
 
-/** Face `dir` (the range turns with her: Battle.refreshRange; a SkillRuntime trigger grid follows `unit.dir`). */
+/** Face `dir` (the range turns with her: Battle.refreshRange; a SkillRuntime trigger grid follows `unit.dir`). @param {Battle} battle @param {Unit} unit @param {Dir} dir */
 function turnTo(battle, unit, dir) {
   if (unit.dir === dir) return;
   unit.dir = dir;
@@ -104,7 +113,7 @@ function turnTo(battle, unit, dir) {
   tellDir(battle, unit);
 }
 
-/** The farthest local column straight ahead (local row 0) of a relative grid (her current range). */
+/** The farthest local column straight ahead (local row 0) of a relative grid (her current range). @param {Grid | null | undefined} grid */
 function farthestAhead(grid) {
   let n = 0;
   for (const p of grid ?? []) if (Array.isArray(p) && p[0] === 0 && p[1] > n) n = p[1];
@@ -114,14 +123,16 @@ function farthestAhead(grid) {
 /**
  * 灵活应变's piece: the shield's kit (lifetime = its talent's `duration`, 禁疗 + taunt, her turn, its redeploy). `owner` =
  * 涤火杰西卡, `s1Ext` = the life her S1 adds (bb.duration).
+ * @param {Unit} owner @param {{ s1Ext: number }} opts
  */
 function shieldKit(owner, { s1Ext }) {
   return {
     skill: null,
     trait: { noAttack: true },   // "无视野范围" (and ATK 0)
     talents: [],
+    /** @param {Battle} battle @param {Unit} t */
     install(battle, t) {
-      const tal = (t.def?.talents ?? []).find((x) => x && x.bb && x.bb.duration != null)?.bb ?? {};
+      const tal = (t.def?.talents ?? []).find((/** @type {{ bb?: Bb } | null} */ x) => x && x.bb && x.bb.duration != null)?.bb ?? {};
       const life = num(tal.duration, 50);
       const taunt = num(tal.taunt_level, 1);
       // 持有禁疗 (PRTS; jckshd_t abnormal flag 7 — the data's `abnormal` lacks it: given here) and "更容易受到攻击"
@@ -177,6 +188,7 @@ function shieldKit(owner, { s1Ext }) {
 /**
  * S3's shell: from her tile straight ahead to the centre of the farthest tile of her current range, at BOMB_SPEED; the
  * first selectable enemy within BOMB_HIT_RADIUS (ground or air) or the end point sets it off.
+ * @param {Battle} battle @param {Unit} unit @param {Bb} b3
  */
 function fireBomb(battle, unit, b3) {
   const [fr, fc] = dirVec(unit.dir);
@@ -195,7 +207,7 @@ function fireBomb(battle, unit, b3) {
   battle.fx('bombardShell', { x: bomb.tx, y: bomb.ty, id: unit.id, r: bomb.radius, t: hypot(bomb.tx - bomb.x, bomb.ty - bomb.y) / BOMB_SPEED, signal: 'extraBomb', attackTurn: 1 });
 }
 
-/** Move the shells one tick; a shell touching an enemy or reaching its end point explodes. */
+/** Move the shells one tick; a shell touching an enemy or reaching its end point explodes. @param {Battle} battle @param {Unit} unit @param {number} dt */
 function flyShells(battle, unit, dt) {
   const list = unit.mem.jescaShells;
   if (!list || !list.length) return;
@@ -214,6 +226,8 @@ function flyShells(battle, unit, dt) {
   unit.mem.jescaShells = keep;
 }
 
+/** @typedef {{ x: number, y: number, tx: number, ty: number, atk: number, scale: number, radius: number, stun: number }} Jesca2Shell S3's shell in flight (fireBomb) */
+/** @param {Battle} battle @param {Unit} unit @param {Jesca2Shell} s */
 function explode(battle, unit, s) {
   battle.fx('bombard', { x: s.x, y: s.y, id: unit.id, r: s.radius });
   for (const e of battle.foesInRadius(s.x, s.y, s.radius)) {
@@ -224,6 +238,7 @@ function explode(battle, unit, s) {
   }
 }
 
+/** @type {KitFns} */
 export default {
   char_1034_jesca2: (bb, chess) => {
     const t0 = talentBb(chess, 0);   // 灵活应变: def (+18 %)
@@ -231,7 +246,8 @@ export default {
     const tb = traitBb(chess);       // SPT-Y: ability_range_forward_extend
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
     const s2 = skillRec(chess, S2);
-    const mod = moduleOn(chess) ? chess.module.id : null;
+    const mod = moduleOn(chess) ? /** @type {ModuleState} */ (chess.module).id : null;
+    /** @param {Unit} unit */
     const shieldDef = (unit) => (skillOn(unit, S1) ? num(b1.def) : 0) + (skillOn(unit, S3) ? num(b3['jesca2_s_3_token[def].def']) : 0);
     return {
       skills: {
@@ -276,7 +292,7 @@ export default {
             const [br, bc] = offsetTile(unit.tileR, unit.tileC, 0, -1, unit.dir);
             for (const a of [unit, battle.unitAt(br, bc)]) {
               if (!a || a.side !== 'ally' || a.kind === 'device' || !a.alive) continue;
-              const cur = a.findBuff(DEF_KEY);
+              const cur = /** @type {BuffRec | null} */ (a.findBuff(DEF_KEY));
               if (cur && cur.source !== unit && (cur.data?.v ?? 0) > d && cur.timeLeft > 0.05) continue;
               battle.addBuff(a, { key: DEF_KEY, duration: AURA_DUR, mods: { defPct: d }, source: unit, data: { v: d }, tags: ['talent', 'aura'] });
             }
@@ -309,7 +325,7 @@ export default {
           for (const t of shieldsOf(battle, unit)) {
             if (!t.alive) continue;
             const want = up(unit) && besideOf(unit, t) ? shieldDef(unit) : 0;
-            const has = t.findBuff(SHIELD_SKILL_KEY);
+            const has = /** @type {BuffRec | null} */ (t.findBuff(SHIELD_SKILL_KEY));
             if (want > 0 && (!has || has.mods?.defPct !== want)) {
               battle.addBuff(t, { key: SHIELD_SKILL_KEY, mods: { defPct: want }, source: unit, tags: ['skill'] });
             } else if (!(want > 0) && has) battle.removeBuff(t, SHIELD_SKILL_KEY);

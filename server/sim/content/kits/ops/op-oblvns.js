@@ -46,16 +46,28 @@ import { dirVec } from '../../../dir.js';
 import { sortEnemyTargets, canTargetEnemy } from '../../../targeting.js';
 import { talentBb, alliesInGridOf, installAura } from '../shared/tier1.js';
 import { hypot, atan2, sin, cos } from '../../../detmath.js';
+/** @import { KitFns, KitFn, KitSkill, KitChess, KitDef } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { Projectile } from '../../../projectiles.js' */
 
+/** @param {unknown} v @param {number} [d] */
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+/** @param {Unit | null | undefined} u */
 const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
+/** @param {KitChess} chess @param {KitDef} def */
 const selectedSkill = (chess, def) => chess?.skill?.skillId ?? def?.skill?.id ?? null;
+/** @param {KitDef} def */
 const instantKind = (def) => ((def?.skill?.maxCharges ?? 1) > 1 ? 'charges' : 'instant');
+/** @param {KitDef} def */
 const skillGridOf = (def) => (def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null);
 const ANY = Object.freeze({ canHitFly: true });
+/** @param {Battle} battle @param {Unit} unit */
 const inRange = (battle, unit) => battle.enemiesInKeys(unit.rangeKeys || [], unit, ANY);
 /** Per-battle state of this kit (by battle): the Fever gauge per player. */
 const STATE = new WeakMap();
+/** @param {Battle} battle */
 const bstate = (battle) => { let s = STATE.get(battle); if (!s) STATE.set(battle, (s = { fever: new Map() })); return s; };
 
 const FEVER_NEED = 450, FEVER_TIME = 20, NOTE_SAFETY = 60;
@@ -87,23 +99,33 @@ const NOTE_ARC = 20;
 let noteSeq = 0;
 /** The note flight table (render/fxmap.js NOTE_FLIGHT draws with a copy; test/local-patch-diy.test.js compares them). */
 export const OBLVNS_NOTE = NOTE;
+/** @typedef {keyof typeof NOTE} NoteMode */
+/**
+ * @typedef {{ id: number, mode: NoteMode, x: number, y: number, dx: number, dy: number, age: number, state: string,
+ *   target: Unit | null, seekT: number, outT: number, w: number, hit: (t: Unit, n: OblvnsNote) => unknown, fan: number }} OblvnsNote
+ */
 
+/** @type {KitFn} */
 function sakiko(bb, chess, def) {
   const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
   const sid = selectedSkill(chess, def);
   const perDef = num(t0.def_penetrate_ratio, 0.03), perRes = num(t0.magic_resist_penetrate_ratio, 0.02), maxNotes = num(t0.max_cnt, 10);
   const noteDelay = num(t0.delay, 1);
-  /** The movement key of her current attack notes (the client's projectile of the ability she attacks with). */
+  /** The movement key of her current attack notes (the client's projectile of the ability she attacks with). @param {Unit} unit @param {boolean} [blank] */
   const modeOf = (unit, blank = false) => (s3On(unit) ? 's3' : sid === 'skchr_oblvns_2' ? (unit.mem.timbre === 'organ' ? 'organ' : 'piano') : blank ? 'talent' : 'base');
   const skillNoRangedCut = !!(chess?.talents ?? []).find((t) => t && t.index === 0)?.fromModule; // LOR-Y stage 2+
+  /** @param {Unit} unit */
   const s3On = (unit) => !!unit.skill?.active && unit.skill.id === 'skchr_oblvns_3';
+  /** @param {Battle} battle @param {Unit} unit */
   const feverOf = (battle, unit) => {
     const m = bstate(battle).fever;
     let f = m.get(unit.ownerId);
     if (!f) m.set(unit.ownerId, (f = { gauge: 0, until: -1 }));
     return f;
   };
+  /** @param {Battle} battle @param {Unit} unit */
   const inFever = (battle, unit) => feverOf(battle, unit).until > battle.time;
+  /** @param {Battle} battle @param {Unit} unit */
   const startFeverIfFull = (battle, unit) => {
     const f = feverOf(battle, unit);
     if (f.gauge >= FEVER_NEED && f.until <= battle.time) {
@@ -115,6 +137,7 @@ function sakiko(bb, chess, def) {
   // `CastSkill.IsAvailable` → `Ability.isReady`: S1's cooldown of one attack interval and its Skill_1 action — the engine's
   // `skill.nextCastAt`, set right after this onEnd), not on a fixed short delay (that recast S1 every 0.05 s, cutting
   // every swing in its skill state and doubling the casts)
+  /** @type {KitSkill} */
   const recastInFever = { onEnd({ battle, unit, reason }) {
     if (reason === 'stopped' || !inFever(battle, unit) || !live(unit)) return;
     const seq = unit.deploySeq;
@@ -129,7 +152,9 @@ function sakiko(bb, chess, def) {
   } };
   // ---- notes (local patch 2026-10-06): see the header. A note: { id, mode, x, y, dx, dy, age, state 'free'|'track',
   // target, seekT, outT, w (count: 2 = a two-hit note), hit(target) }
+  /** @param {Unit} unit @returns {OblvnsNote[]} */
   const notesOf = (unit) => unit.mem.noteList || (unit.mem.noteList = []);
+  /** @param {Battle} battle @param {Unit} unit @param {OblvnsNote} n @param {string} e @param {Record<string, unknown> | null} [extra] */
   const noteFx = (battle, unit, n, e, extra = null) => battle.fx('oblvnsNote', {
     x: n.x, y: n.y, id: unit.id, n: n.id, e, m: n.mode, a: Math.round((atan2(n.dy, n.dx) * 180) / Math.PI),
     ...(n.target ? { t: n.target.id } : null), ...(n.w > 1 ? { w: n.w } : null), ...(n.fan ? { i: n.fan } : null), ...extra,
@@ -137,6 +162,7 @@ function sakiko(bb, chess, def) {
   /**
    * A new note from her position: `deg` its free-flight heading off her facing (default: random ±NOTE_ARC), `target`
    * the attack's target (traced after the free flight), `hit(target)` its damage, `w` how many notes it stands for.
+   * @param {Battle} battle @param {Unit} unit @param {{ mode: NoteMode, target?: Unit  |  null, hit: (t: Unit, n: OblvnsNote) => unknown, w?: number, deg?: number  |  null, fan?: number }} opts
    */
   const spawnNote = (battle, unit, { mode, target = null, hit, w = 1, deg = null, fan = 0 }) => {
     const [dr, dc] = dirVec(unit.dir);
@@ -148,15 +174,17 @@ function sakiko(bb, chess, def) {
     noteFx(battle, unit, n, 'born');
     return n;
   };
+  /** @param {Unit | null | undefined} t */
   const noteTargetOk = (t) => !!t && t.alive && !t.hidden && t.deployed !== false && canTargetEnemy(null, t, ANY);
-  /** One sim step of her notes (the 'tick' hook, after the projectiles phase). */
+  /** One sim step of her notes (the 'tick' hook, after the projectiles phase). @param {Battle} battle @param {Unit} unit @param {number} dt */
   const noteStep = (battle, unit, dt) => {
-    const list = unit.mem.noteList;
+    const list = /** @type {OblvnsNote[] | undefined} */ (unit.mem.noteList);
     if (!list || !list.length) return;
     const home = live(unit);
     const keys = home ? unit.rangeKeySet || new Set(unit.rangeKeys || []) : null;
     for (let i = list.length - 1; i >= 0; i--) {
       const n = list[i], mv = NOTE[n.mode];
+      /** @param {string} e @param {Record<string, unknown>} [extra] */
       const end = (e, extra) => { list.splice(i, 1); noteFx(battle, unit, n, e, extra); };
       if (!home && n.state !== 'track') { end('gone'); continue; }   // she left: only the tracing notes stay
       n.age += dt;
@@ -179,8 +207,8 @@ function sakiko(bb, chess, def) {
       let speed = mv.free;
       if (n.state === 'track') {
         speed = mv.track;
-        const tx = n.target.x - n.x, ty = n.target.y - n.y, d = hypot(tx, ty);
-        if (d <= Math.max(mv.hit, speed * dt)) { const t = n.target; end('hit'); battle._safe(() => n.hit(t, n), 'oblvns.note', unit); continue; }
+        const tx = /** @type {Unit} */ (n.target).x - n.x, ty = /** @type {Unit} */ (n.target).y - n.y, d = hypot(tx, ty);
+        if (d <= Math.max(mv.hit, speed * dt)) { const t = /** @type {Unit} */ (n.target); end('hit'); battle._safe(() => n.hit(t, n), 'oblvns.note', unit); continue; }
         const k = Math.min(1, mv.turn * dt);
         let ndx = n.dx + (tx / d - n.dx) * k, ndy = n.dy + (ty / d - n.dy) * k;
         const l = hypot(ndx, ndy);
@@ -188,12 +216,12 @@ function sakiko(bb, chess, def) {
       }
       n.x += n.dx * speed * dt; n.y += n.dy * speed * dt;
       if (n.age >= NOTE_SAFETY) { end('gone'); continue; }   // the sim guard only (see the header)
-      const inside = home && keys.has(Math.round(n.y) * COLS + Math.round(n.x));
+      const inside = home && /** @type {NonNullable<typeof keys>} */ (keys).has(Math.round(n.y) * COLS + Math.round(n.x));
       n.outT = inside || n.target ? 0 : n.outT + dt;
       if (n.outT >= noteDelay) end('gone');
     }
   };
-  /** S3: the 2 organ notes of an attack (_s3_mag, arts, attack@atk_scale with the ATK of the attack), 0.1 s apart. */
+  /** S3: the 2 organ notes of an attack (_s3_mag, arts, attack@atk_scale with the ATK of the attack), 0.1 s apart. @param {Battle} battle @param {Unit} unit @param {Unit | null | undefined} target */
   const s3Organ = (battle, unit, target) => {
     const seq = unit.deploySeq, amount = unit.s.atk * num(bb['attack@atk_scale'], 1.8);
     for (let i = 0; i < 2; i++) {
@@ -204,8 +232,8 @@ function sakiko(bb, chess, def) {
       }, { owner: unit });
     }
   };
-  /** Live notes (the 颂乐音符 count). */
-  const noteCount = (unit) => (unit.mem.noteList || []).reduce((a, n) => a + n.w, 0);
+  /** Live notes (the 颂乐音符 count). @param {Unit} unit */
+  const noteCount = (unit) => /** @type {OblvnsNote[]} */ (unit.mem.noteList || []).reduce((a, n) => a + n.w, 0);
   return {
     skills: {
       // 新月的苏醒 (charges 2): 8 notes, arts, decreasing scales, fanned over the enemies of her range
@@ -281,7 +309,7 @@ function sakiko(bb, chess, def) {
           const mode = modeOf(unit), w = Math.max(1, num(battle.effectiveProfile(unit)?.hits, 1)); // S3's hits: 2 is a skill override
           const cachedAtk = { atk: unit.s.atk, atkScaleMul: unit.s.atkScaleMul };
           for (const p of mine) {
-            p.cachedAtk = cachedAtk;
+            /** @type {Projectile & { cachedAtk?: unknown }} */ (p).cachedAtk = cachedAtk;
             spawnNote(battle, unit, { mode, target: p.target, w, hit: (t, n) => p.onHit({ battle, projectile: p, target: t, x: n.x, y: n.y }) });
           }
         }, { owner: unit });
@@ -347,7 +375,7 @@ function sakiko(bb, chess, def) {
         battle.every(0.25, () => {
           if (!live(unit)) return;
           const want = inRange(battle, unit).length >= 2;
-          const has = unit.buffs.some((b) => b.key === 'oblvns:mod');
+          const has = /** @type {BuffRec[]} */ (unit.buffs).some((b) => b.key === 'oblvns:mod');
           if (want && !has) battle.addBuff(unit, { key: 'oblvns:mod', duration: Infinity, mods: { aspd: mAspd } });
           else if (!want && has) battle.removeBuff?.(unit, 'oblvns:mod');
         }, { owner: unit });
@@ -403,6 +431,7 @@ function sakiko(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   char_4182_oblvns: (bb, chess, def) => sakiko(bb, chess, def),
 };

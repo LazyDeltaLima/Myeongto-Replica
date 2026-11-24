@@ -14,6 +14,7 @@
 //   her attack interval, the skill scaling it by base_attack_time (BASE_ATTACK_TIME FINAL_SCALER: "反击频率不小于N%的攻击间隔").
 
 import { num, talentBb, traitBb, skillRec, up, statBuff } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
 
 const S1 = 'skchr_jaksel_1';
 const S2 = 'skchr_jaksel_2';
@@ -22,8 +23,10 @@ const EVADE_ASPD = 'charge_atk_speed_on_evade';
 export const S2_BEGIN = 0.333;
 /** Skill_Loop's OnAttack event (data/assets.json `animations` hits): StrikeBack waits for it (`_waitForAttackEvent`). */
 export const STRIKE_AT = 0.333;
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_347_jaksel: (_bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
@@ -49,7 +52,7 @@ export default {
           // S2: StrikeBack, its cooldown over (the attack interval × base_attack_time since the last one)
           const sk = unit.skill;
           if (!sk?.active || sk.id !== S2 || battle.time + 1e-9 < (unit.mem.jakselStrikeAt ?? -Infinity)) return;
-          if (battle.time + 1e-9 < unit.skillStateUntil) return;   // still in Skill_Start
+          if (battle.time + 1e-9 < /** @type {number} */ (unit.skillStateUntil)) return;   // still in Skill_Start
           unit.mem.jakselStrikeAt = battle.time + unit.s.interval * batScale;
           const seq = unit.deploySeq;
           battle.after(STRIKE_AT, () => {

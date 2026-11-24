@@ -11,16 +11,21 @@
 //   停顿 attack@sluggish s → 束缚 attack@unmoveable s (abnormal flag UNMOVABLE) → 晕眩 attack@stun s.
 
 import { num, talentBb, skillRec, batMod, onHitBy } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_kichi_1';
 const S2 = 'skchr_kichi_2';
 const TALENT = 'kichi_t[cnt]';
 const RAMP = 'skchr_kichi_01[atk_scale]';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_4203_kichi: (bb, chess) => {
     const t0 = talentBb(chess, 0), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
+    /** @type {[string, number][]} */
     const states = [
       ['sluggish', num(b2['attack@sluggish'])],
       ['bind', num(b2['attack@unmoveable'])],
@@ -60,7 +65,7 @@ export default {
           battle.addBuff(unit, { key: TALENT, refresh: 'stack', stacks: 1, maxStacks: max, visible: true, tags: ['talent'] });
         }, { owner: unit });
         onHitBy(battle, unit, ({ dmg }) => {
-          const n = unit.findBuff(TALENT)?.stacks ?? 0;
+          const n = /** @type {BuffRec | null} */ (unit.findBuff(TALENT))?.stacks ?? 0;
           if (n > 0) dmg.mul *= 1 + ds * n;
         });
       } }],

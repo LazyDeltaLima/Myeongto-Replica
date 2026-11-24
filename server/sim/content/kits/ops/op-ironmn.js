@@ -79,6 +79,10 @@ import { num, talentBb, talentGrid, traitBb, skillRec, up, giveSp } from '../sha
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
 import { COLS } from '../../../constants.js';
 import { frontOf } from '../../../dir.js';
+/** @import { KitFns, KitChess, KitSpec, Bb } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { ShotHit } from '../../../ai.js' */
 
 const S1 = 'skchr_ironmn_1';
 const S2 = 'skchr_ironmn_2';
@@ -99,20 +103,23 @@ const CRAB_IMMUNE = new Set(['stun', 'cold', 'freeze', 'levitate', 'bind', 'sile
 /** Seconds between two tries of a device waiting to come back (timer, stock, DP, tile). */
 const RETRY = 0.25;
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** First talent of a normalised token def holding `key` (token talents keep no index). */
+/** First talent of a normalised token def holding `key` (token talents keep no index). @param {{ talents?: Array<{ bb?: Bb }  |  null> }  |  null  |  undefined} def @param {string} key */
 const tokTalent = (def, key) => (def?.talents ?? []).find((t) => t && t.bb && t.bb[key] != null) ?? null;
+/** @param {{ talents?: Array<{ bb?: Bb }  |  null> }  |  null  |  undefined} def @param {string} key */
 const tokBb = (def, key) => tokTalent(def, key)?.bb ?? {};
-/** An operator of our side a device's talent may reach (professionMask 639: operators, not summons). */
+/** An operator of our side a device's talent may reach (professionMask 639: operators, not summons). @param {Unit | null | undefined} a */
 const isOp = (a) => !!a && a.kind === 'op' && a.side === 'ally';
 /**
  * A 工匠's <支援装置> state for the battle: `stock` (持有), `cap` (持有上限), `devices` (its pieces). Shared with 娜斯提
  * (op-nasti.js).
+ * @param {Unit} unit @returns {{ stock: number, cap: number, devices: Set<Unit> }}
  */
 export const deviceState = (unit) => unit.mem.craftsman ?? (unit.mem.craftsman = { stock: 0, cap: 0, devices: new Set() });
-/** The owner's devices standing on the field. */
+/** The owner's devices standing on the field. @param {Unit} unit */
 export const devicesUp = (unit) => [...deviceState(unit).devices].filter((d) => up(d));
-/** Stock +n, capped at the 持有上限 (RechargeToken). */
+/** Stock +n, capped at the 持有上限 (RechargeToken). @param {Unit} unit @param {number} n */
 export function rechargeDevices(unit, n) {
   const st = deviceState(unit);
   st.stock = Math.min(st.cap, st.stock + Math.max(0, n));
@@ -121,9 +128,11 @@ export function rechargeDevices(unit, n) {
 /**
  * Keep buff `key` (one per device: `disableOverride`) on every operator `select` returns, exactly while it does; `mods(a)`
  * re-read whenever `sig()` changes (a skill switching the device's mode). Removed from everyone when the device leaves.
+ * @param {Battle} battle @param {Unit} dev @param {{ key: string, select: () => Unit[], mods: (a: Unit) => Record<string, number>, sig?: () => unknown }} opts
  */
 export function deviceAura(battle, dev, { key, select, mods, sig = () => 0 }) {
   const held = new Map(); // operator → signature it was given
+  /** @param {Unit} a */
   const drop = (a) => { if (a.findBuff(key)) battle.removeBuff(a, key); held.delete(a); };
   battle.on('tick', () => {
     if (!up(dev)) { for (const a of [...held.keys()]) drop(a); return; }
@@ -142,7 +151,7 @@ export function deviceAura(battle, dev, { key, select, mods, sig = () => 0 }) {
   battle.on('death', (ctx) => { if (ctx.unit === dev) for (const a of [...held.keys()]) drop(a); }, { owner: dev, priority: 10 });
 }
 
-/** Operators of our side standing on `keys` (absolute tile keys), the device itself excluded. */
+/** Operators of our side standing on `keys` (absolute tile keys), the device itself excluded. @param {Battle} battle @param {Unit} dev @param {Iterable<number>} keys @param {{ ignoreSelect?: boolean }} [opts] */
 export function opsOn(battle, dev, keys, { ignoreSelect = false } = {}) {
   const set = keys instanceof Set ? keys : new Set(keys);
   const out = [];
@@ -159,6 +168,7 @@ export function opsOn(battle, dev, keys, { ignoreSelect = false } = {}) {
  * field it comes back on its own tile after its redeploy time (data respawnTime), paying its cost (`costOf(dev)`, default its
  * data cost) and spending one of the owner's stock, while the owner stands. `onLeave(dev)` runs as it leaves (节约经费 —
  * not when it leaves with its owner: `dev.mem.withOwner`), `onBack(dev)` when it is back. Shared with 娜斯提 (op-nasti.js).
+ * @param {Battle} battle @param {Unit} dev @param {Unit} owner @param {{ onLeave?: ((dev: Unit) => void)  |  null, costOf?: ((dev: Unit) => number)  |  null, onBack?: ((dev: Unit) => void)  |  null }} [opts]
  */
 export function deviceReturn(battle, dev, owner, { onLeave = null, costOf = null, onBack = null } = {}) {
   battle.on('death', (ctx) => {
@@ -189,7 +199,7 @@ export function deviceReturn(battle, dev, owner, { onLeave = null, costOf = null
   }, { owner: dev, priority: -10 });
 }
 
-/** The owner leaving withdraws its devices on the field (die_to_kill_token / KillTokens), but those `keep(dev)` spares. */
+/** The owner leaving withdraws its devices on the field (die_to_kill_token / KillTokens), but those `keep(dev)` spares. @param {Battle} battle @param {Unit} owner @param {((d: Unit) => boolean)  |  null} [keep] */
 export function devicesLeaveWithOwner(battle, owner, keep = null) {
   battle.on('death', (ctx) => {
     if (ctx.unit !== owner) return;
@@ -201,6 +211,7 @@ export function devicesLeaveWithOwner(battle, owner, keep = null) {
   }, { owner });
 }
 
+/** @type {KitFns} */
 export default {
   char_4072_ironmn: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
@@ -209,7 +220,7 @@ export default {
     const cnt = num(t0.cnt, 3) + extraCnt;
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
 
-    /** Device kit (`dev` = the piece, `owner` = 白铁). */
+    /** Device kit (`dev` = the piece, `owner` = 白铁). @param {Unit} dev @param {Unit} owner @returns {KitSpec} */
     const deviceKit = (dev, owner) => {
       const def = dev.def;
       const sk = def.skill ?? null;
@@ -219,6 +230,7 @@ export default {
       const keys = () => absoluteRangeKeys(grid, dev.tileR, dev.tileC, dev.dir, 0);
       const s1On = () => up(owner) && !!owner.skill?.active && owner.skill.id === S1;
       const s2On = () => up(owner) && !!owner.skill?.active && owner.skill.id === S2;
+      /** @param {Battle} battle */
       const common = (battle) => {
         // 铁钳号 is a unit of the enemy camp (its prefab `_sideType` ENEMY): `enemyCamp` keeps every enemy selection off it
         // (targeting.js canTargetAlly / auraSelectable) while our enemy selections take it (queries.js _pushAllyTargets);
@@ -258,6 +270,7 @@ export default {
           talents: [],
           install(battle) {
             common(battle);
+            /** @type {{ mode: string | null, next: Map<Unit, number>, bleedAt: number }} */
             const m = { mode: null, next: new Map(), bleedAt: Infinity };
             battle.on('deploy', (ctx) => { if (ctx.unit === dev) { m.mode = null; m.next.clear(); } }, { owner: dev });
             battle.on('tick', () => {
@@ -270,8 +283,8 @@ export default {
               for (const a of [...m.next.keys()]) if (!now.includes(a)) m.next.delete(a);
               for (const a of now) {
                 if (!m.next.has(a)) { m.next.set(a, battle.time + every); continue; }
-                if (battle.time + 1e-9 < m.next.get(a)) continue;
-                m.next.set(a, m.next.get(a) + every);
+                if (battle.time + 1e-9 < /** @type {number} */ (m.next.get(a))) continue;
+                m.next.set(a, /** @type {number} */ (m.next.get(a)) + every);
                 if (giveSp(a, 1, 'device') > 0) battle.fx('spGift', { x: a.x, y: a.y, id: a.id, from: dev.id });
               }
               // 每秒流失0.4%生命 (S2: ×2): a 流失, invulnerable or not
@@ -304,7 +317,7 @@ export default {
             // sktok_ironmn_pile3's `_castEffects` on the device, projectile_chr_ironmn_pile3's trail and hit (render/fx/kitofficial.js)
             battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, src: owner.id, tgt: target.id, from: unit.id, k: 'ironmn:crab', dir: unit.dir });
             battle.addProjectile({ from: unit, target, speed: CRAB_SPEED, visual: 'none', source: unit, hitDead: true,
-              onHit: ({ target: t, x, y }) => {
+              onHit: (/** @type {ShotHit} */ { target: t, x, y }) => {
                 if (t && t.alive) battle.dealDamage(unit, t, { amount: atk * atkScale, type: 'phys', isSkill: true, tags: ['summon', 'skill'] });
                 const cx = t ? t.x : x, cy = t ? t.y : y;
                 if (atkScale2 > 0) {
@@ -380,6 +393,7 @@ export default {
           st.cap = cnt;
           const prob = num(t1.prob), gain = num(t1.cnt, 1);
           // 节约经费: a device of his leaving his x-4 ⇒ prob ⇒ +cnt
+          /** @param {Unit} dev */
           const onLeave = (dev) => {
             if (!up(unit) || !absoluteRangeKeys(grid1, unit.tileR, unit.tileC, unit.dir, 0).includes(dev.tileR * COLS + dev.tileC)) return;
             if (!(prob > 0) || !battle.rng.chance(prob)) return;

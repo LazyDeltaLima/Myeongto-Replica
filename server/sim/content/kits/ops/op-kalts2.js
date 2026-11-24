@@ -87,6 +87,11 @@ import { hasPower } from '../shared/powers.js';
 import { releaseSkillSummon } from '../../tokens.js';
 import { COLS } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns, KitChess, KitSpec, Bb } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { Dir } from '../../../dir.js' */
 
 const S1 = 'skchr_kalts2_1';
 const S2 = 'skchr_kalts2_2';
@@ -122,20 +127,25 @@ const S1_KEY = 'skill:kalts2:blockRadius';
 const ANCHOR_KEY = 'kalts2:anchor';
 const TAG_S2 = 'kalts2:s2';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit} unit @param {string} id */
 const skillOn = (unit, id) => !!(unit.skill && unit.skill.active && unit.skill.id === id);
+/** @param {Unit | null | undefined} t @param {Unit} unit */
 const isAnchorOf = (t, unit) => !!t && t.kind === 'token' && t.defId === ANCHOR && t.ownerUnit === unit;
+/** @param {Battle} battle @param {Unit} unit */
 const anchorsOf = (battle, unit) => battle.allyUnits.filter((t) => isAnchorOf(t, unit));
+/** @param {Unit} a */
 const isRhodes = (a) => hasPower(a, 'rhodes');
-/** A friendly operator other than `unit` standing on the field. */
+/** A friendly operator other than `unit` standing on the field. @param {Unit} a @param {Unit} unit */
 const otherOp = (a, unit) => a !== unit && a.kind === 'op' && up(a) && !a.hidden;
-/** The anchor stock content/tokens.js releaseSkillSummon keeps on its owner. */
+/** The anchor stock content/tokens.js releaseSkillSummon keeps on its owner. @param {Unit} unit @param {number} n */
 function setStock(unit, n) {
   const s = unit.mem.summonStock || (unit.mem.summonStock = {});
   s[ANCHOR] = n;
 }
 
-/** The 战术锚点's kit: 无敌, never targeted, no attack, blocks nothing. */
+/** The 战术锚点's kit: 无敌, never targeted, no attack, blocks nothing. @returns {KitSpec} */
 function anchorKit() {
   return {
     skill: null,
@@ -147,7 +157,7 @@ function anchorKit() {
   };
 }
 
-/** T2's entry for operator `a`: 1 护盾 layer unless one from this talent is there, the 生命回复速度 buff (strongest). */
+/** T2's entry for operator `a`: 1 护盾 layer unless one from this talent is there, the 生命回复速度 buff (strongest). @param {Battle} battle @param {Unit} unit @param {Unit} a @param {Bb} t1 */
 function enterT2(battle, unit, a, t1) {
   if (!a.findBuff(T2_SHIELD)) battle.addBuff(a, { key: T2_SHIELD, shieldHits: 1, source: unit, tags: ['talent'] });
   const v = num(t1.hp_recovery_per_sec) * (isRhodes(a) ? num(t1.rhodes_bonus, 1) : 1);
@@ -159,6 +169,7 @@ function enterT2(battle, unit, a, t1) {
 /**
  * S2's 医疗单元 landing on `target` (an enemy, or an injured ally when no enemy could be selected): true damage + 停顿 on
  * the enemies within 1.5, a heal on the allies within 1.5 — damage first on an enemy, heal first (and no 停顿) on an ally.
+ * @param {Battle} battle @param {Unit} unit @param {Unit} target @param {number} attackId @param {Bb} b2
  */
 function s2Burst(battle, unit, target, attackId, b2) {
   const x = target.x, y = target.y;
@@ -186,6 +197,7 @@ function s2Burst(battle, unit, target, attackId, b2) {
  * S2's HealAlly ability: with no enemy to select in her range (blocked ones included) she fires at the lowest-HP-ratio
  * injured ally instead (an attack in every respect: Battle.forceAttack, one bullet). Returns false so the engine's attack
  * loop makes no attack of its own then.
+ * @param {Battle} battle @param {Unit} unit
  */
 function s2CanAttack(battle, unit) {
   const prof = { canHitFly: true };
@@ -195,13 +207,14 @@ function s2CanAttack(battle, unit) {
   return false;
 }
 
-/** The flight's point at the current time. */
+/** @typedef {{ t0: number, T: number, from: { x: number, y: number }, to: { x: number, y: number }, hit: Set<Unit>, anchor: Unit, r: number, c: number, dir: Dir }} K2Flight S3's flight (fly) */
+/** The flight's point at the current time. @param {Battle} battle @param {K2Flight} f */
 function flightPoint(battle, f) {
   const k = f.T > 0 ? Math.min(1, Math.max(0, (battle.time - f.t0) / f.T)) : 1;
   return { x: f.from.x + (f.to.x - f.from.x) * k, y: f.from.y + (f.to.y - f.from.y) * k };
 }
 
-/** The flight's collisions: T2's entry for every operator within 2.2 of its point (once per flight). */
+/** The flight's collisions: T2's entry for every operator within 2.2 of its point (once per flight). @param {Battle} battle @param {Unit} unit @param {K2Flight} f */
 function collide(battle, unit, f) {
   const enter = unit.mem.kalts2Enter;
   if (!enter) return;
@@ -215,7 +228,7 @@ function collide(battle, unit, f) {
   }
 }
 
-/** S3 ③: the arrival — the anchor withdrawn, the stock emptied, a 【移动】 onto its tile facing its direction. */
+/** S3 ③: the arrival — the anchor withdrawn, the stock emptied, a 【移动】 onto its tile facing its direction. @param {Battle} battle @param {Unit} unit */
 function land(battle, unit) {
   const f = unit.mem.k2flight;
   if (!f) return;
@@ -242,7 +255,7 @@ function land(battle, unit) {
   battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX: f.from.x, fromY: f.from.y });
 }
 
-/** S3: the operators S3OperatorSelector picks now — hers other than her in her range, the last deployed first (≤ 2). */
+/** S3: the operators S3OperatorSelector picks now — hers other than her in her range, the last deployed first (≤ 2). @param {Battle} battle @param {Unit} unit */
 function withdrawPicks(battle, unit) {
   return battle.allyUnits
     .filter((a) => otherOp(a, unit) && a.ownerId === unit.ownerId && unit.rangeKeySet?.has(a.tileR * COLS + a.tileC))
@@ -250,7 +263,7 @@ function withdrawPicks(battle, unit) {
     .slice(0, WITHDRAW_MAX);
 }
 
-/** S3 ①②: the 待投放 operators and the take-off towards `anchor` (the flight, fly, from its OnAttack frame). */
+/** S3 ①②: the 待投放 operators and the take-off towards `anchor` (the flight, fly, from its OnAttack frame). @param {Battle} battle @param {Unit} unit @param {Unit} anchor */
 function startTransport(battle, unit, anchor) {
   const picks = withdrawPicks(battle, unit);
   for (const a of picks) {
@@ -278,7 +291,7 @@ function startTransport(battle, unit, anchor) {
   }, { owner: unit });
 }
 
-/** S3 ②: the flight to `anchor`. */
+/** S3 ②: the flight to `anchor`. @param {Battle} battle @param {Unit} unit @param {Unit} anchor */
 function fly(battle, unit, anchor) {
   const from = { x: unit.x, y: unit.y }, to = { x: anchor.x, y: anchor.y };
   const T = hypot(to.x - from.x, to.y - from.y) / TRANSPORT_SPEED;
@@ -291,7 +304,7 @@ function fly(battle, unit, anchor) {
   battle.after(T, () => land(battle, unit), { owner: unit });
 }
 
-/** S3: start the transport when it can (S3 on, not done yet this cast, her linked anchor standing). */
+/** S3: start the transport when it can (S3 on, not done yet this cast, her linked anchor standing). @param {Battle} battle @param {Unit} unit */
 function tryTransport(battle, unit) {
   const m = unit.mem;
   if (!skillOn(unit, S3) || m.k2flight || m.k2takeoff || m.k2landed || !up(unit) || unit.hidden) return;
@@ -300,6 +313,7 @@ function tryTransport(battle, unit) {
   startTransport(battle, unit, a);
 }
 
+/** @type {KitFns} */
 export default {
   char_1052_kalts2: (bb, chess) => {
     const t0 = talentBb(chess, 0);   // 遗尘守望: max_hp, def, block_cnt, block_radius_scale
@@ -308,7 +322,7 @@ export default {
     const s2 = skillRec(chess, S2);
     const picked = chess?.skill?.skillId ?? null;
     return {
-      trait: { healThrough: (healer, a) => !!a && a.kind === 'token' && a.defId === KALTS_MON3TR },
+      trait: { healThrough: (/** @type {Unit} */ healer, /** @type {Unit | null | undefined} */ a) => !!a && a.kind === 'token' && a.defId === KALTS_MON3TR },
       skills: {
         [S1]: { kind: 'duration', mods: { atkPct: num(b1.atk), aspd: num(b1.attack_speed) } },
         [S2]: {
@@ -344,13 +358,15 @@ export default {
       },
       talents: [
         { install(battle, unit) { // 遗尘守望
+          /** @type {Record<string, number>} */
           const mods = {};
-          for (const [k, v] of [['hpPct', num(t0.max_hp)], ['defPct', num(t0.def)], ['blockCnt', num(t0.block_cnt)], ['blockRadiusScale', num(t0.block_radius_scale)]]) if (v) mods[k] = v;
+          for (const [k, v] of /** @type {[string, number][]} */ ([['hpPct', num(t0.max_hp)], ['defPct', num(t0.def)], ['blockCnt', num(t0.block_cnt)], ['blockRadiusScale', num(t0.block_radius_scale)]])) if (v) mods[k] = v;
           battle.addBuff(unit, { key: T1_KEY, mods, flags: { liftoff: true, blockFly: true }, persist: true, allowDead: true, tags: ['talent'] });
           battle.on('deploy', (c) => { if (c.unit === unit && !c.move) battle.fx('takeoff', { x: unit.x, y: unit.y, id: unit.id }); }, { owner: unit });
         } },
         { install(battle, unit) { // 医者丰碑: the operators entering her attack range
           if (!(num(t1.buff_duration) > 0)) return;
+          /** @param {Unit} a */
           const enter = (a) => enterT2(battle, unit, a, t1);
           unit.mem.kalts2Enter = enter;   // S3's flight collisions
           let inside = new Set();
@@ -392,6 +408,7 @@ export default {
         // [추정: the take-off is still mode s3]) or not on the field (her card RESPAWNING). 'kalts2Mark' { ids, off }
         // when the set changes (render/fx/kitofficial.js)
         if (picked === S3) {
+          /** @type {Unit['id'][]} */
           let marked = [];
           battle.every(TRANSPORT_CHECK, () => {
             const ids = up(unit) && !unit.mem.k2flight ? withdrawPicks(battle, unit).map((a) => a.id) : [];
@@ -408,7 +425,7 @@ export default {
             if (!up(unit) || !skillOn(unit, S1)) return;
             for (const a of battle.allyUnits) {
               if (!otherOp(a, unit) || !a.s.flags.liftoff) continue;
-              const cur = a.findBuff(S1_KEY);
+              const cur = /** @type {BuffRec | null} */ (a.findBuff(S1_KEY));
               const own = (a.s.blockRadiusScale || 0) - (cur ? num(cur.mods?.blockRadiusScale) : 0);
               if (own >= v1 - 1e-9 || (cur && cur.source !== unit && num(cur.data?.v) > v1 && cur.timeLeft > 0.05)) continue;
               battle.addBuff(a, { key: S1_KEY, duration: S1_AURA_IV + 0.1, mods: { blockRadiusScale: v1 }, source: unit, data: { v: v1 }, tags: ['skill'] });

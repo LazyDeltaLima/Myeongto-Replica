@@ -15,6 +15,11 @@
 
 import { num, talentBb, skillRec, up, instantKind } from '../shared/tier1.js';
 import { sortEnemyTargets } from '../../../targeting.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { Profile } from '../../../professions.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_liesel_1';
 const S2 = 'skchr_liesel_2';
@@ -24,14 +29,16 @@ export const SKILL_SPLASH = 1.7;
 export const LANDS = Object.freeze([1.2, 1.6, 2.0]);
 const LOCK = 1.5;
 const DOT = 'liesel_s_2[dot]';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
-/** The next main target of S2 among the enemies in her range, the ones she chose in the last LOCK seconds left out. */
+/** The next main target of S2 among the enemies in her range, the ones she chose in the last LOCK seconds left out. @param {Battle} battle @param {Unit} unit @param {string} lock */
 function nextTarget(battle, unit, lock) {
   const cands = battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile).filter((e) => !e.findBuff(lock));
-  return sortEnemyTargets(battle, unit, cands, unit.profile.priority)[0] ?? null;
+  return sortEnemyTargets(battle, unit, cands, /** @type {Profile} */ (unit.profile).priority)[0] ?? null;
 }
 
+/** @type {KitFns} */
 export default {
   char_4031_liesel: (bb, chess) => {
     const t0 = talentBb(chess, 0), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
@@ -58,7 +65,7 @@ export default {
                 for (const e of hits) {
                   battle.dealDamage(unit, e, { amount: unit.s.atk * num(b2.atk_scale, 1), mul, type: 'arts', isAttack: true, isSkill: true, tags: ['liesel:shot'] });
                   if (!e.alive || !(dur > 0) || !(dps > 0)) continue;
-                  const had = e.findBuff(dot);
+                  const had = /** @type {BuffRec | null} */ (e.findBuff(dot));
                   if (had) had.data.atk = cached;
                   battle.addBuff(e, {
                     key: dot, source: unit, duration: dur, interval: 1, refresh: 'extend', visible: true, data: { atk: cached }, tags: ['skill', 'dot'],
@@ -76,13 +83,13 @@ export default {
       talents: [{ install(battle, unit) {
         if (!(scale > 1)) return;
         // one count per attack (its damage instances share attackId; the main target comes first), the splash the attack was fired with
-        let seen = null, many = false;
+        let seen = /** @type {number | null} */ (null), many = false;
         battle.on('hit', (c) => {
           const d = c.dmg;
           if (c.source !== unit || !d?.isAttack || d.tags?.includes('liesel:shot')) return;
           if (d.attackId !== seen) {
             seen = d.attackId;
-            const r = d.isSkill ? SKILL_SPLASH : unit.profile.splashRadius;
+            const r = d.isSkill ? SKILL_SPLASH : /** @type {Profile} */ (unit.profile).splashRadius;
             many = battle.foesInRadius(c.target.x, c.target.y, r, true).length >= minCnt;
           }
           if (many) d.mul *= scale;
