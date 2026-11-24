@@ -28,7 +28,7 @@ import { UNLOCK_TYPES, MARK_CONDS } from './bands/meta.js';
 import { AMEDIC_CONDS, BAND13_ADD_TYPES } from './bands/battle.js';
 import { ENEMY_RANKS } from './choices.js';
 
-const keysOf = (o) => Object.freeze(Object.keys(o));
+const keysOf = (/** @type {object} */ o) => Object.freeze(Object.keys(o));
 
 /** @type {ReadonlyArray<{ table: 'garrisons' | 'buffs' | 'bandNext', keys: readonly string[] | null, event?: string, field: string, known: readonly (string | number)[] | ((key: string) => readonly string[]) | 'garrisonEvents', side: 'battle' | 'prep', where: string }>} */
 export const TABLE_CODES = Object.freeze([

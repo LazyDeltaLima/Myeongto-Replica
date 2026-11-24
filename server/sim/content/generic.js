@@ -48,12 +48,20 @@
 import { normalizeSkill } from '../simdata.js';
 import { sortEnemyTargets } from '../targeting.js';
 import { PUSH_EFFECT_SKILLS } from '../constants.js';
+/** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
+/** @import { SkillCtx } from '../skills.js' */
+/** @import { Kit } from './index.js' */
+/** A buff's `onTick` argument (battle/status.js). @typedef {{ battle: Battle, unit: Unit, buff: Record<string, any> }} BuffTick */
+/** A status the skill applies: its key and seconds. @typedef {{ key: string, duration: number }} StatusOn */
 
+/** @param {unknown} v @returns {number | undefined} */
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v !== '' && Number.isFinite(+v) ? +v : undefined));
 
 /** Plain key first, then `attack@` / `skill@` (stat modifiers). */
+/** @param {Record<string, any>} bb */
 function getter(bb) {
-  return (k) => {
+  return (/** @type {string} */ k) => {
     for (const key of [k, 'attack@' + k, 'skill@' + k]) {
       const v = num(bb[key]);
       if (v !== undefined) return v;
@@ -63,8 +71,9 @@ function getter(bb) {
 }
 
 /** `attack@` key first (per-attack values), then plain / `skill@`. */
+/** @param {Record<string, any>} bb */
 function attackGetter(bb) {
-  return (k) => {
+  return (/** @type {string} */ k) => {
     for (const key of ['attack@' + k, k, 'skill@' + k]) {
       const v = num(bb[key]);
       if (v !== undefined) return v;
@@ -80,6 +89,7 @@ const ELEMENTS = [[/凋亡损伤/, 'apoptosis'], [/灼燃损伤/, 'burn'], [/神
 const STATUS_KEYS = [['stun', 'stun'], ['cold', 'cold'], ['sleep', 'sleep'], ['fear', 'fear'], ['sluggish', 'sluggish'], ['root', 'bind'], ['unmovable', 'bind']];
 
 /** Decide the skill kind from metadata. */
+/** @param {Record<string, any>} sk @param {Record<string, any>} [bb] */
 export function genericKind(sk, bb = {}) {
   if (!sk) return null;
   const g = getter(bb);
@@ -96,6 +106,7 @@ export function genericKind(sk, bb = {}) {
   return sk.maxCharges > 1 ? 'charges' : 'instant';
 }
 
+/** @param {string} text @param {string} fallback */
 function dmgTypeFromText(text, fallback) {
   if (/法术伤害/.test(text)) return 'arts';
   if (/物理伤害/.test(text)) return 'phys';
@@ -104,13 +115,17 @@ function dmgTypeFromText(text, fallback) {
 }
 
 /** Enemies currently in the unit's range, best targets first (at most `n`). */
+/** @param {Battle} battle @param {Unit} unit @param {number} n */
 function enemiesInRange(battle, unit, n) {
   const list = battle.enemiesInKeys(unit.rangeKeys, unit, { canHitFly: true });
   sortEnemyTargets(battle, unit, list, unit.profile?.priority ?? null);
   return n > 0 && list.length > n ? list.slice(0, n) : list;
 }
 
-/** Build a SkillSpec from a normalised skill def and its blackboard. `def` (optional) = normalised unit def. */
+/**
+ * Build a SkillSpec from a normalised skill def and its blackboard. `def` (optional) = normalised unit def.
+ * @param {Record<string, any> | null | undefined} sk @param {Record<string, any>} [bb] @param {Record<string, any> | null} [def] @returns {Record<string, any> | null}
+ */
 export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   if (!sk) return null;
   const g = getter(bb);
@@ -122,11 +137,13 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   const counterText = counterCtx && !/该(角色|干员|单位)受到攻击时/.test(desc);
 
   // ---- stat mods (self) and target debuffs
+  /** @type {Record<string, any>} */
   const mods = {};
+  /** @type {Record<string, any>} */
   const debuff = {};
-  const set = (k, v) => { if (v !== undefined && Number.isFinite(v) && v !== 0) mods[k] = (mods[k] ?? 0) + v; };
-  const onEnemies = (stat) => new RegExp(`(敌人|目标|敌方)[^。；]*${stat}-`).test(desc);
-  const pctOrFlat = (v, pctKey, flatKey, target) => { if (v === undefined || v === 0) return; if (Math.abs(v) > 5) target[flatKey] = (target[flatKey] ?? 0) + v; else target[pctKey] = (target[pctKey] ?? 0) + v; };
+  const set = (/** @type {string} */ k, /** @type {number | undefined} */ v) => { if (v !== undefined && Number.isFinite(v) && v !== 0) mods[k] = (mods[k] ?? 0) + v; };
+  const onEnemies = (/** @type {string} */ stat) => new RegExp(`(敌人|目标|敌方)[^。；]*${stat}-`).test(desc);
+  const pctOrFlat = (/** @type {number | undefined} */ v, /** @type {string} */ pctKey, /** @type {string} */ flatKey, /** @type {Record<string, any>} */ target) => { if (v === undefined || v === 0) return; if (Math.abs(v) > 5) target[flatKey] = (target[flatKey] ?? 0) + v; else target[pctKey] = (target[pctKey] ?? 0) + v; };
   const atk = g('atk');
   if (atk !== undefined && atk < 0 && onEnemies('攻击力')) pctOrFlat(atk, 'atkPct', 'atkFlat', debuff); else pctOrFlat(atk, 'atkPct', 'atkFlat', mods);
   const defv = g('def');
@@ -149,8 +166,8 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   if (dr !== undefined && dr > 0 && dr < 1) mods.dmgTakenMul = 1 - dr;
   // negative regen keys describe enemies ("受到的治疗和回复效果降低50%", 引星棘刺): never a self drain
   const hrs = g('hp_recovery_per_sec'), hrr = g('hp_recovery_per_sec_by_max_hp_ratio');
-  if (hrs > 0) set('hpRegen', hrs);
-  if (hrr > 0) set('hpRegenRatio', hrr);
+  if (/** @type {number} */ (hrs) > 0) set('hpRegen', hrs);
+  if (/** @type {number} */ (hrr) > 0) set('hpRegenRatio', hrr);
   set('spRecoveryFlat', g('sp_recovery_per_sec'));
   set('resIgnoreFlat', g('magic_resist_penetrate_fixed'));
   set('defIgnoreFlat', g('def_penetrate_fixed'));
@@ -162,12 +179,14 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   // so does an ON_DEPLOY passive whose duration is the skill's own (一击即退 "部署后攻击力+X%，防御力+Y%", duration 10, no bb key)
   const ownDuration = num(bb.duration) === undefined && sk.duration > 0 && /^部署后/.test(desc) ? sk.duration : 0;
   const passiveTimed = passive && Object.keys(mods).length
-    ? (num(bb.duration) > 0 && /\d+(\.\d+)?秒内/.test(desc) ? num(bb.duration) : ownDuration)
+    ? (/** @type {number} */ (num(bb.duration)) > 0 && /\d+(\.\d+)?秒内/.test(desc) ? num(bb.duration) : ownDuration)
     : 0;
   if (passiveTimed) kind = 'duration';
 
   // ---- targeting / attack override (never for passives: their scales describe procs)
+  /** @type {Record<string, any>} */
   const targeting = {};
+  /** @type {Record<string, any>} */
   const attack = {};
   if (passiveTimed && /攻击[^。；]*(造成|变为|变成)[^。；]*法术伤害|伤害类型变为法术/.test(desc)) attack.dmgType = 'arts';
   const mt = ga('max_target');
@@ -182,11 +201,11 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   const endBurst = timed && atkPlain !== undefined && /技能结束时[^。]*造成[^。]*攻击力/.test(desc) ? atkPlain : undefined;
   const counterScale = counterText && atkPlain !== undefined && atkAt === undefined ? atkPlain : undefined;
   // "额外造成攻击力N%的…伤害" is bonus damage on top of the attack (烛煌), not the attack's own scale
-  const isExtra = (v) => v !== undefined && [...desc.matchAll(/额外(造成|附带)[^。；]*?攻击力(\d+(\.\d+)?)%/g)].some((m) => Math.abs(+m[2] - v * 100) < 1e-6);
+  const isExtra = (/** @type {number | undefined} */ v) => v !== undefined && [...desc.matchAll(/额外(造成|附带)[^。；]*?攻击力(\d+(\.\d+)?)%/g)].some((m) => Math.abs(+m[2] - v * 100) < 1e-6);
   // a non-healer whose skill "恢复…一名(其他)友方…生命" (古米, 瑕光): its hits heal the most injured ally nearby
   const healerUnit = !!def && (def.dmgType === 'heal' || def.profession === 'MEDIC');
   const allyHealScale = ga('heal_scale');
-  const allyHeal = !passive && !!def && !healerUnit && allyHealScale > 0 && /(恢复|治疗)[^。]*友(方|军)[^。]*生命/.test(desc);
+  const allyHeal = !passive && !!def && !healerUnit && /** @type {number} */ (allyHealScale) > 0 && /(恢复|治疗)[^。]*友(方|军)[^。]*生命/.test(desc);
   const allyHealOthersOnly = /其他友(方|军)/.test(desc);
   const allyHealAll = /所有友(方|军)/.test(desc); // 塞雷娅: heals every injured ally in the skill range
   if (!passive) {
@@ -203,7 +222,9 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   }
 
   // ---- statuses
+  /** @type {StatusOn[]} */
   const hitStatuses = [];
+  /** @type {StatusOn[]} */
   const startStatuses = [];
   let selfStunOnEnd = 0;
   if (!passive) {
@@ -211,15 +232,15 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
       const onAtk = num(bb['attack@' + key]);
       const plain = num(bb[key]) ?? num(bb['skill@' + key]);
       if (onAtk !== undefined && onAtk > 0) hitStatuses.push({ key: status, duration: onAtk });
-      if (plain !== undefined && plain > 0 && !(onAtk > 0 && plain === onAtk)) {
+      if (plain !== undefined && plain > 0 && !(/** @type {number} */ (onAtk) > 0 && plain === onAtk)) {
         if (key === 'stun' && /结束后[^，。；]*晕眩/.test(desc)) selfStunOnEnd = plain;
         else if (timed) startStatuses.push({ key: status, duration: plain });
-        else if (!(onAtk > 0)) hitStatuses.push({ key: status, duration: plain });
+        else if (!(/** @type {number} */ (onAtk) > 0)) hitStatuses.push({ key: status, duration: plain });
       }
     }
   }
   const prob = g('prob');
-  const rollProb = (battle) => !(prob !== undefined && prob > 0 && prob < 1) || battle.rng.chance(prob);
+  const rollProb = (/** @type {Battle} */ battle) => !(prob !== undefined && prob > 0 && prob < 1) || battle.rng.chance(prob);
 
   // ---- element damage attached to hits / counters
   let element = null;
@@ -228,7 +249,7 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
     const el = ELEMENTS.find(([re]) => re.test(desc));
     if (el) element = { el: el[1], ratio: epr, ofDamage: /伤害\d+(\.\d+)?%的[^。，；]{0,3}损伤/.test(desc) };
   }
-  const applyElement = (battle, unit, target, dealt) => {
+  const applyElement = (/** @type {Battle} */ battle, /** @type {Unit} */ unit, /** @type {Unit | null | undefined} */ target, /** @type {number | undefined} */ dealt) => {
     if (!element || !target || !target.alive) return;
     const amount = element.ofDamage ? (dealt || 0) * element.ratio : unit.s.atk * element.ratio;
     if (amount > 0) battle.dealDamage(unit, target, { type: 'element', element: element.el, amount, tags: ['skill'] });
@@ -243,18 +264,18 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   const effectPush = PUSH_EFFECT_SKILLS.has(sk.id);
   const hitElement = element && !counterText;
 
-  const healAlly = (battle, unit) => {
+  const healAlly = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
     if (allyHealAll) {
-      for (const a of battle.injuredAlliesInKeys(unit.rangeKeys, unit)) if (!(allyHealOthersOnly && a === unit)) battle.heal(unit, a, unit.s.atk * allyHealScale);
+      for (const a of battle.injuredAlliesInKeys(unit.rangeKeys, unit)) if (!(allyHealOthersOnly && a === unit)) battle.heal(unit, a, unit.s.atk * /** @type {number} */ (allyHealScale));
       return;
     }
     let best = null;
     for (const a of battle.injuredAlliesInKeys(unit.rangeKeys, unit)) if (!(allyHealOthersOnly && a === unit)) { best = a; break; }
     if (!best) best = battle.alliesInRadius(unit.x, unit.y, 1.5, null).filter((a) => a.hp < a.s.maxHp && !(allyHealOthersOnly && a === unit) && (a === unit || !(a.s.flags.noHeal || a.profile?.noHeal))).sort((a, b) => a.hpRatio - b.hpRatio)[0] ?? null;
-    if (best) battle.heal(unit, best, unit.s.atk * allyHealScale);
+    if (best) battle.heal(unit, best, unit.s.atk * /** @type {number} */ (allyHealScale));
   };
   const onHit = hitStatuses.length || hasForce || hitElement || allyHeal
-    ? (ctx) => {
+    ? (/** @type {SkillCtx} */ ctx) => {
       if (allyHeal) healAlly(ctx.battle, ctx.unit);
       if (!ctx.target || !ctx.target.alive) return;
       if (hitElement) applyElement(ctx.battle, ctx.unit, ctx.target, ctx.dealt);
@@ -273,7 +294,7 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   const hasDebuff = Object.keys(debuff).length > 0 && !passive;
   const debuffKey = `generic:debuff:${sk.id ?? 'skill'}`;
   const aura = hasDebuff && timed && /攻击范围内[^。；]*敌人/.test(desc);
-  const debuffDur = timed ? 5 : (num(bb.duration) > 0 ? num(bb.duration) : 5);
+  const debuffDur = timed ? 5 : (/** @type {number} */ (num(bb.duration)) > 0 ? num(bb.duration) : 5);
   let onHitFinal = onHit;
   if (hasDebuff && !aura) {
     const base = onHit;
@@ -287,6 +308,7 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   let ammo;
   if (kind === 'ammo') ammo = Math.max(1, Math.floor(g('trigger_time') ?? g('ammo') ?? g('cnt') ?? 8));
 
+  /** @type {Record<string, any>} */
   const spec = {
     id: sk.id,
     name: sk.name,
@@ -309,7 +331,9 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   if (gainsDp && sk.skillType === 'AUTO' && !spec.mods && !spec.targeting && !spec.attack) spec.trigger = 'SP_FULL';
 
   // ---- start / end effects
+  /** @type {Array<(ctx: SkillCtx) => void>} */
   const starts = [];
+  /** @type {Array<(ctx: SkillCtx) => void>} */
   const ends = [];
   if (gainsDp) {
     starts.push(({ battle, unit }) => {
@@ -333,11 +357,11 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
       const total = unit.s.maxHp * shieldRatio;
       battle.addBuff(unit, {
         key: `generic:shield:${sk.id ?? 'skill'}`, shield: total, duration: dur > 0 ? dur : Infinity, visible: true, interval: decays ? 0.5 : 0,
-        onTick: decays ? ({ unit: u, buff }) => { buff.shield = Math.max(0, buff.shield - total * 0.5 / dur); u.markDirty(); } : null,
+        onTick: decays ? (/** @type {BuffTick} */ { unit: u, buff }) => { buff.shield = Math.max(0, buff.shield - total * 0.5 / dur); u.markDirty(); } : null,
       });
     });
   }
-  const burst = (scale) => ({ battle, unit }) => {
+  const burst = (/** @type {number} */ scale) => (/** @type {SkillCtx} */ { battle, unit }) => {
     const type = dmgTypeFromText(desc, unit.profile?.dmgType ?? 'phys');
     for (const e of enemiesInRange(battle, unit, 0)) {
       const dealt = battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type, isSkill: true, tags: ['skill', 'burst'] });
@@ -358,11 +382,11 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   if (selfStunOnEnd > 0) {
     ends.push((ctx) => { if (ctx.reason !== 'death' && ctx.unit.alive) ctx.battle.applyStatus(ctx.unit, 'stun', { duration: selfStunOnEnd, source: ctx.unit }); });
   }
-  if (starts.length) spec.onStart = (ctx) => { for (const f of starts) f(ctx); };
-  if (ends.length) spec.onEnd = (ctx) => { for (const f of ends) f(ctx); };
+  if (starts.length) spec.onStart = (/** @type {SkillCtx} */ ctx) => { for (const f of starts) f(ctx); };
+  if (ends.length) spec.onEnd = (/** @type {SkillCtx} */ ctx) => { for (const f of ends) f(ctx); };
   if (aura) {
     const m = { ...debuff };
-    spec.onTick = ({ battle, unit }) => {
+    spec.onTick = (/** @type {SkillCtx} */ { battle, unit }) => {
       for (const e of battle.enemiesInKeys(unit.rangeKeys, unit, { canHitFly: true })) battle.addBuff(e, { key: debuffKey, duration: 0.5, mods: m, refresh: 'extend', source: unit });
     };
   }
@@ -383,11 +407,11 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   return spec;
 }
 
-/** Per-unit hooks for the generic spec (counter-damage). */
+/** Per-unit hooks for the generic spec (counter-damage). @param {Record<string, any> | null} spec */
 function installGeneric(spec) {
   const c = spec && spec.counter;
   if (!c) return null;
-  return (battle, unit) => {
+  return (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
     let readyAt = -Infinity;
     battle.on('damaged', (ctx) => {
       if (ctx.target !== unit || !unit.alive || !unit.skill?.active || battle.time < readyAt) return;
@@ -405,6 +429,7 @@ function installGeneric(spec) {
 }
 
 /** Stat talents genericTalents applies: the stat named in the text → [blackboard key, mod for "+N%", mod for "+N"]. */
+/** @type {Readonly<Record<string, readonly [string, string | null, string]>>} */
 const TALENT_STATS = Object.freeze({
   攻击力: ['atk', 'atkPct', 'atkFlat'], 防御力: ['def', 'defPct', 'defFlat'], 生命上限: ['max_hp', 'hpPct', 'hpFlat'],
   攻击速度: ['attack_speed', null, 'aspd'],
@@ -416,10 +441,12 @@ const STAT_CLAUSE = /^(攻击力|防御力|生命上限|攻击速度)\+(\d+(?:\.
  * "、") and each clause's number is its blackboard key's (×100 for a percentage); every other blackboard key is 0 —
  * else null.
  */
+/** @param {Record<string, any> | null | undefined} t @returns {Record<string, number> | null} */
 export function statTalentMods(t) {
   const text = String(t?.description ?? t?.desc ?? '').trim();
   const bb = t?.bb ?? {};
   if (!text) return null;
+  /** @type {Record<string, number>} */
   const mods = {};
   const used = new Set();
   for (const part of text.split(/[，、,]/)) {
@@ -443,12 +470,13 @@ export function statTalentMods(t) {
  * talent (statTalentMods) as a persistent buff, as the operator kits write theirs (`talent:` key, persist, allowDead).
  * Any other talent — a condition, a proc, a key its text does not state — needs a hand-authored kit and is left out,
  * never half applied.
- * @param {object} def normalised operator def
- * @returns {{ install(battle: object, unit: object): void }[]}
+ * @param {Record<string, any> | null | undefined} def normalised operator def
+ * @returns {{ install(battle: Battle, unit: Unit): void }[]}
  */
 export function genericTalents(def) {
+  /** @type {{ install(battle: Battle, unit: Unit): void }[]} */
   const out = [];
-  (def?.talents ?? []).forEach((t, i) => {
+  (def?.talents ?? []).forEach((/** @type {Record<string, any>} */ t, /** @type {number} */ i) => {
     const mods = statTalentMods(t);
     if (!mods) return;
     const key = `talent:generic:${i}`;
@@ -459,11 +487,13 @@ export function genericTalents(def) {
 
 /**
  * Generic kit: `(bb, chess, def?) => Kit`. `chess` is the data record; `def` the normalised def when available.
+ * @param {Record<string, any> | null | undefined} bb @param {Record<string, any>} chess @param {Record<string, any> | null} [def] @returns {Kit}
  */
 export function genericKit(bb, chess, def = null) {
   const sk = def?.skill ?? normalizeSkill(chess);
   if (!sk) return { skill: null, talents: [], generic: true };
   const spec = genericSkillSpec(sk, bb && Object.keys(bb).length ? bb : sk.bb, def);
+  /** @type {Kit} */
   const kit = { skill: spec, talents: [], generic: true };
   const inst = installGeneric(spec);
   if (inst) kit.install = inst;

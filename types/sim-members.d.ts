@@ -107,6 +107,8 @@ declare module '../server/sim/units.js' {
     uniteRuntime?: boolean;
     // an enemy whose skill casts spend bullets (content/local-patch.js): its bullets, sent as its SP bar (snapshot.js)
     lpAmmo?: { left: number, max: number };
+    // an enemy whose skill selectors pick no flying ally (content/local-patch.js NO_AIR_PICKS; enemies/helpers.js targetsNear)
+    lpGroundPicks?: boolean;
     // a summon that walks and holds no tile (content/bonds/walker.js; battle/deploy.js, battle/blocking.js)
     walks?: boolean;
     // a summoned obstacle (battle/summons.js)

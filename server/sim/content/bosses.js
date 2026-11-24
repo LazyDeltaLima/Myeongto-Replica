@@ -96,6 +96,17 @@ import { hypot, powi } from '../detmath.js';
 import { hitRect, bodyInRadius } from '../body.js';
 import { effectRecord } from './support/index.js';
 import { isNormalDamage } from '../damage.js';
+/** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
+/** @import { AbState, AbSkill, AbList, EnemyAbility, EnemyKit } from './enemies.js' */
+/**
+ * A wave template (data/waves.json) read field by field, or null without one.
+ * @typedef {Record<string, any> | null} Tpl
+ * The time SP of a leader's skill (skillSp): its SP, cap and cost, and the ability that fills it.
+ * @typedef {{ sp: number, max: number, cost: number, ready: () => boolean, spend: (e2: Unit) => void, ab: EnemyAbility }} SkillSp
+ * What a buff's `onTick` is called with (battle/status.js).
+ * @typedef {{ battle: Battle, unit: Unit }} BuffTick
+ */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants
@@ -115,12 +126,14 @@ export const PART_TRANSFER = 1;
 /** The 斩胄之剑 / 破胄之锤 share — the same PRTS 等量 as PART_TRANSFER (kept as a name for the blade kit and its tests). */
 export const BLADE_TRANSFER = PART_TRANSFER;
 /** 破胄之锤 normal attack: 150 % ATK (PRTS 天赋 "普通攻击对攻击范围内的所有我方单位造成攻击力150%的物理普通伤害"; 斩胄之剑 100 %). */
+/** @type {Readonly<Record<string, number>>} */
 const BLADE_ATK_SCALE = Object.freeze({ enemy_9015_acstmb: 1.5 });
 /**
  * Level branches of each part (act1autochess_h08_01 / _s): 斩胄之剑 spawns on the start of `left_hand_origin` (3,12),
  * 破胄之锤 on `right_hand_origin` (3,8). `<hand>_blink` = the preset route 掷剑 blinks to (its start; PRTS "将自身路径改为
  * 关卡预设路径并闪现至路径起点"), `<hand>_origin` = the route the new 初始模式 copy is summoned on ("以关卡预设路径召唤").
  */
+/** @type {Readonly<Record<string, string>>} */
 const BLADE_HAND = Object.freeze({ enemy_9014_acstma: 'left_hand', enemy_9015_acstmb: 'right_hand' });
 /**
  * 死亡集群: a drone that dies (PRTS 能力修正 "该无人机单位死亡时", whoever kills it) costs 胄 `hp_ratio` (2 %) of "最大生命值"
@@ -152,8 +165,10 @@ const ECHO_BLOCK_WEIGHT = 2;
 const PIPE_STRIKE_GAP = 0.25;
 /** 管 / 弦 shot burst radius: the CircleCollider2D of projectile_enemy_acduml (1.8) / _acdumm (1.6), no `range_scale`
  *  (research boss-patterns §2). PRTS gives 弦 3.0, which no client value backs. */
+/** @type {Readonly<Record<string, number>>} */
 const PIPE_SHOT_RADIUS = Object.freeze({ acduml: 1.8, acdumm: 1.6 });
 /** Shots per normal attack: 管 3 (prefab Attack `_additionalTimes` 2), 弦 1. */
+/** @type {Readonly<Record<string, number>>} */
 const PIPE_SHOTS = Object.freeze({ acduml: 3, acdumm: 1 });
 /** Damage tag of a 管 / 弦 shot on a “余音”: the echo pulses as it does under an operator's hit. */
 const ECHO_STRIKE = 'echoStrike';
@@ -217,12 +232,13 @@ const ENEMY_SP_PER_SEC = 1, ANIMATE_DELAY = 2;
  * official client's casting EnemySkill registers itself on its enemy as an attribute modifier from `CastToTarget` to
  * `_OnCastFinish` (`registeredAsModifier`) and its `abnormalFlagMask` is SP_RECOVER_STOPPED (`recoverSpWhenAffecting`
  * is false for every enemy skill), so the enemy's SP stands still while any of its skills casts.
+ * @param {Battle} b @param {Unit} e
  */
 function enemyCasting(b, e) {
   const k = e.mem.ab && e.mem.ab.casting;
   return !!k && b.time < k.until - 1e-9;
 }
-/** The time-SP gain of enemy `e` over `dt` (spData INCREASE_WITH_TIME `increment` a second): see skillSp. */
+/** The time-SP gain of enemy `e` over `dt` (spData INCREASE_WITH_TIME `increment` a second): see skillSp. @param {Battle} b @param {Unit} e @param {Record<string, any>} d @param {number} dt */
 function spGain(b, e, d, dt) {
   if (e.hidden || enemyCasting(b, e)) return 0;
   return dt * (Number.isFinite(d && d.increment) && d.increment > 0 ? d.increment : ENEMY_SP_PER_SEC);
@@ -239,12 +255,13 @@ function spGain(b, e, d, dt) {
  * still while it casts, so a skill whose cooldown is 0 is ready again its cost in seconds after the cast's END. The
  * client counts whole points (a periodic timer that keeps its part-second while stopped); the sum here reaches the cost
  * at the same moment. `e.mem.lpSp` = [sp, max] feeds the boss SP bar (server/sim/local-hud.js). Null without such data.
+ * @param {Unit} e @param {AbSkill | null | undefined} s
  */
 function skillSp(e, s) {
   const d = e.def && e.def.raw && e.def.raw.sp;
   if (!s || !(s.sp > 0) || !d || d.type !== 'INCREASE_WITH_TIME') return null;
   const max = Math.max(s.sp, Number(d.maxSp) || 0);
-  const st = { sp: Math.min(max, Number(d.initSp) || 0), max, cost: s.sp };
+  const st = /** @type {SkillSp} */ ({ sp: Math.min(max, Number(d.initSp) || 0), max, cost: s.sp });
   st.ready = () => st.sp >= st.cost - 1e-9;
   st.spend = (e2) => { st.sp = Math.max(0, st.sp - st.cost); e2.mem.lpSp = [st.sp, max]; };
   st.ab = { tick(b2, e2, a, dt) { st.sp = Math.min(max, st.sp + spGain(b2, e2, d, dt)); e2.mem.lpSp = [st.sp, max]; } };
@@ -256,6 +273,7 @@ function skillSp(e, s) {
  * (`ab.casting`, onSkillSlot), not at all when that cast is cut, the enemy gone or another cast begun first; its fx name the
  * ability (`b._castAbility`: battle/events.js). For a kit whose cast start has a part of its own (the SP it spends as the
  * cast begins), which therefore cannot say `atStrike`.
+ * @param {Battle} b @param {Unit} e @param {AbSkill} s @param {() => void} fn
  */
 function atSpell(b, e, s, fn) {
   const run = () => {
@@ -273,6 +291,7 @@ function atSpell(b, e, s, fn) {
 const EQUIP_KEYS = Object.freeze(['enemy_10028_vtswd', 'enemy_10029_vtshld', 'enemy_10030_vtwand']);
 const SWORD_KEY = 'enemy_10028_vtswd', VEST_KEY = 'enemy_10029_vtshld', WAND_KEY = 'enemy_10030_vtwand';
 /** The buff an operator holding one of 王权号令's pieces carries, by the piece (one piece per operator). */
+/** @type {Readonly<Record<string, string>>} */
 export const HELD_BUFF = Object.freeze({ [SWORD_KEY]: 'boss:heldSword', [VEST_KEY]: 'boss:heldVest', [WAND_KEY]: 'boss:heldWand' });
 /**
  * 黄金回响 (trap_185_vtlntw, 莫非王土 on a 冲击式施术单元 — data/enemies.json 阿利斯泰尔 `devices[]`): its range `x-1` is the
@@ -288,15 +307,17 @@ const SHELL_KEY = 'enemy_9016_acstmr', ECHO_KEY = 'enemy_9023_acdums', PHANTOM_K
 // per-battle state, template resolution
 
 const STATE = new WeakMap();
+/** @param {Battle} b */
 function stOf(b) {
   let st = STATE.get(b);
   if (!st) { st = { tpl: undefined, mirrored: new Set() }; STATE.set(b, st); }
   return st;
 }
 
+/** @param {unknown} a @param {unknown} b */
 const pairEq = (a, b) => Array.isArray(a) && Array.isArray(b) && Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6;
 
-/** The wave template this battle was built from (or null). */
+/** The wave template this battle was built from (or null). @param {Battle} b @returns {Tpl} */
 export function templateOf(b) {
   const st = stOf(b);
   if (st.tpl !== undefined) return st.tpl;
@@ -311,10 +332,10 @@ export function templateOf(b) {
   for (const id of ids) {
     const w = b.data.getWave(id);
     if (!w || !Array.isArray(w.spawns) || !Array.isArray(w.routes)) continue;
-    if (!w.spawns.some((s) => s && s.tag === 'boss' && BOSS_KITS[s.key ?? s.enemyKey])) continue;
+    if (!w.spawns.some((/** @type {Record<string, any> | null} */ s) => s && s.tag === 'boss' && BOSS_KITS[s.key ?? s.enemyKey])) continue;
     if (w.routes.length !== b.routes.length) continue;
     let score = 1;
-    if (w.routes.every((r, i) => { const n = normalizeRoute(r); const m = b.routes[i]; return m && pairEq(n.start, m.start) && pairEq(n.end, m.end); })) score += 8;
+    if (w.routes.every((/** @type {Record<string, any>} */ r, /** @type {number} */ i) => { const n = /** @type {Record<string, any>} */ (normalizeRoute(r)); const m = b.routes[i]; return m && pairEq(n.start, m.start) && pairEq(n.end, m.end); })) score += 8;
     if (/_s$/.test(id) === (b.players.length <= 1)) score += 1;
     if (score > bestScore) { best = w; bestScore = score; }
   }
@@ -322,7 +343,7 @@ export function templateOf(b) {
   return st.tpl;
 }
 
-/** Fallback route from a position to the nearest goal. */
+/** Fallback route from a position to the nearest goal. @param {Battle} b @param {number} x @param {number} y @param {string} [motion] */
 function toGoal(b, x, y, motion = 'WALK') {
   const ends = b.grid.specialTiles('end');
   let best = ends[0] ?? [Math.round(y), Math.round(x)], bd = Infinity;
@@ -330,17 +351,22 @@ function toGoal(b, x, y, motion = 'WALK') {
   return { motion, start: [y, x], end: best, checkpoints: [] };
 }
 
-/** The extra route of a template branch's first spawn (or null). */
+/** The extra route of a template branch's first spawn (or null). @param {Tpl} tpl @param {string} name */
 function branchRoute(tpl, name) {
   const br = tpl && tpl.branches && tpl.branches[name];
   const s = Array.isArray(br) && Array.isArray(br[0]) ? br[0][0] : null;
-  return (s && tpl.extraRoutes && tpl.extraRoutes[s.routeIndex]) || null;
+  return (s && /** @type {Record<string, any>} */ (tpl).extraRoutes && /** @type {Record<string, any>} */ (tpl).extraRoutes[s.routeIndex]) || null;
 }
 
-/** Spawn one phase of a template branch. Returns the spawned enemies. */
+/**
+ * Spawn one phase of a template branch. Returns the spawned enemies.
+ * @param {Battle} b @param {Tpl} tpl @param {string} name @param {number} phaseIdx
+ * @param {{ fallback?: (() => Array<Unit | null>) | null, mods?: Record<string, any> | null, at?: { x: number, y: number } | null }} [opts]
+ * @returns {Unit[]}
+ */
 function branchSpawn(b, tpl, name, phaseIdx, { fallback = null, mods = null, at = null } = {}) {
   const br = tpl && tpl.branches && tpl.branches[name];
-  if (!Array.isArray(br) || !br.length) return fallback ? fallback() : [];
+  if (!Array.isArray(br) || !br.length) return fallback ? /** @type {Unit[]} */ (fallback()) : [];
   const phase = br[Math.max(0, Math.min(phaseIdx, br.length - 1))] || [];
   const out = [];
   for (const s of phase) {
@@ -348,7 +374,7 @@ function branchSpawn(b, tpl, name, phaseIdx, { fallback = null, mods = null, at 
     // placeholder slots (NF/N…) of branch spawns: the match may pass the round's replacements as opts.slotKeys
     const key = (s.slot && b.opts && b.opts.slotKeys && b.opts.slotKeys[s.slot]) || s.key || s.enemyKey;
     if (!key || !String(key).startsWith('enemy_')) continue;
-    const route = tpl.extraRoutes && tpl.extraRoutes[s.routeIndex];
+    const route = /** @type {Record<string, any>} */ (tpl).extraRoutes && /** @type {Record<string, any>} */ (tpl).extraRoutes[s.routeIndex];
     for (let i = 0; i < Math.max(1, s.count ?? 1); i++) {
       const u = b.spawnEnemy(key, { route: route || (at ? toGoal(b, at.x, at.y) : undefined), pos: route ? undefined : at ? [at.y, at.x] : undefined, tag: s.tag ?? null, countInTotal: s.unharmful ? false : undefined, mods });
       if (u) out.push(u);
@@ -369,12 +395,14 @@ function branchSpawn(b, tpl, name, phaseIdx, { fallback = null, mods = null, at 
  * tokens 子代 and 黄金回响 (`Trap`, not `Enemy`: the client's enemy runes skip them — spawnBrood, goldenDef).
  * `key` = the summon's enemy key: when the battle's season lists it in its 补给线 effects' `enemy_exclude` (supplyExcluded —
  * 规程 leaves out 刺胄之弹 and “裂管之音”/“断弦之音”, 盟约 does not), the 补给线 share (`supplyHpMul`) comes out of its HP.
+ * @param {Battle} b @param {number | null} [hpRatio] @param {string | null} [key]
  */
 function summonMods(b, hpRatio = null, key = null) {
   const s = b.flags && b.flags.enemyScale;
   if (!s || typeof s !== 'object') return hpRatio ? { hpMul: hpRatio } : null;
   const supply = Number.isFinite(s.supplyHpMul) && s.supplyHpMul > 0 ? s.supplyHpMul : null;
   const out = supply != null && key != null && supplyExcluded(b, key);
+  /** @type {Record<string, any>} */
   const m = { hpMul: (Number.isFinite(s.hpMul) && s.hpMul > 0 ? s.hpMul : 1) * (hpRatio || 1) / (out ? supply : 1), atkMul: s.atkMul, speedMul: s.speedMul };
   if (s.supplyHpMul != null && !out) m.supplyHpMul = s.supplyHpMul;
   if (s.defMul != null) m.defMul = s.defMul;
@@ -386,7 +414,7 @@ function summonMods(b, hpRatio = null, key = null) {
 const SUPPLY_EFFECTS = Object.freeze(['aceffect_enemy_2', 'aceffect_enemy_2_2']);
 /** @type {WeakMap<object, Set<string>>} */
 const SUPPLY_EXCLUDED = new WeakMap();
-/** Whether the battle's season leaves enemy `key` out of its 补给线 effects (`enemy_exclude`, any of their buffs). */
+/** Whether the battle's season leaves enemy `key` out of its 补给线 effects (`enemy_exclude`, any of their buffs). @param {Battle} b @param {string} key */
 function supplyExcluded(b, key) {
   const scope = effectRecord(SUPPLY_EFFECTS[0], b) ?? effectRecord(SUPPLY_EFFECTS[1], b);
   if (!scope) return false;
@@ -407,18 +435,21 @@ function supplyExcluded(b, key) {
 // ---------------------------------------------------------------------------------------------------------------
 // install
 
+/** @param {Battle} battle */
 export function install(battle) {
   ensureInstalled(battle);
   battle.on('enemySpawn', ({ enemy }) => onSpawn(battle, enemy), { priority: 90 });
 }
 export function registerMeta() {}
 
+/** @param {Battle} b @param {Unit} e */
 function onSpawn(b, e) {
   const kit = BOSS_KITS[e.defId] ?? DEVICE_KITS[e.defId];
   if (typeof kit !== 'function') return;
   if (SELF_BOUND.includes(e.defId)) b.addBuff(e, { key: 'boss:selfBound', persist: true, flags: { noMove: true, selfBound: true, unblockable: true } });
   const tpl = templateOf(b);
   const ab = abOf(b, e);
+  /** @type {AbList} */
   let list = [];
   try { list = kit(ab, e, b, tpl) || []; } catch (err) { b._handlerError('content:bosses', e, err); }
   attach(b, e, list);
@@ -427,6 +458,7 @@ function onSpawn(b, e) {
   if (e.isBoss || e.tag === 'boss') mirror(b, e, tpl);
 }
 
+/** @param {Battle} b @param {Unit} e @param {Tpl} tpl */
 function mirror(b, e, tpl) {
   const st = stOf(b);
   const br = tpl && tpl.branches && tpl.branches.boss_battle_multi_player;
@@ -438,7 +470,7 @@ function mirror(b, e, tpl) {
     if (key !== e.defId) continue;
     b.after(Math.max(0, (s.time ?? 0) - b.time), () => {
       if (b.aliveEnemies().filter((o) => o.defId === key && o.isBoss).length >= 2) return; // the match already did it
-      const route = tpl.extraRoutes && tpl.extraRoutes[s.routeIndex];
+      const route = /** @type {Record<string, any>} */ (tpl).extraRoutes && /** @type {Record<string, any>} */ (tpl).extraRoutes[s.routeIndex];
       const u = b.spawnEnemy(key, { route: route || undefined, tag: 'boss', mods: e.mods });
       if (u) u.mem.mirror = true;
     });
@@ -448,13 +480,15 @@ function mirror(b, e, tpl) {
 // ---------------------------------------------------------------------------------------------------------------
 // shared bits
 
+/** @param {Unit[]} list */
 const opsOnly = (list) => list.filter((u) => u.kind === 'op');
+/** @param {Battle} b @param {Unit} e @param {(o: Unit) => unknown} pred */
 const nearestOf = (b, e, pred) => {
   let best = null, bd = Infinity;
   for (const o of b.enemies) { if (!o.alive || o === e || !pred(o)) continue; const d = hypot(o.x - e.x, o.y - e.y); if (d < bd) { bd = d; best = o; } }
   return best;
 };
-/** Apply a floor to an enemy whose data attack speed is 0 (skill-driven leaders: 铳/管/弦). */
+/** Apply a floor to an enemy whose data attack speed is 0 (skill-driven leaders: 铳/管/弦). @param {Battle} b @param {Unit} e @param {number} [extra] */
 function aspdFloor(b, e, extra = 0) {
   const rawAspd = e.def.raw && e.def.raw.stats ? Number(e.def.raw.stats.aspd) : NaN;
   if (!(rawAspd === 0)) return;
@@ -475,9 +509,11 @@ function aspdFloor(b, e, extra = 0) {
  * has played out (`P.castEnd`). True = a skill took the turn. `engineCast`: the cast is the engine's (`castLeft`, as
  * ai.js enemySkillSlot sets it) — it stands, a stun / freeze / 浮空 cuts it (ai.js cutEnemySwing → enemySkillCut) and an
  * open cast ends with its projectile (content/enemies.js projCastOver); the loop then waits on `castLeft`, not `castEnd`.
+ * @param {Battle} b @param {Unit} e @param {Record<string, any>} P @param {string} acc @param {{ engineCast?: boolean }} [opts]
  */
 function ownAttackTurn(b, e, P, acc, { engineCast = false } = {}) {
   if (!b._hooks.enemySkillSlot) return false;
+  /** @type {{ enemy: Unit, cast: { dur: number, atkCd?: number } | null }} */
   const c = { enemy: e, cast: null };
   b.emit('enemySkillSlot', c);
   if (!c.cast) return false;
@@ -486,25 +522,27 @@ function ownAttackTurn(b, e, P, acc, { engineCast = false } = {}) {
   if (engineCast) {
     e.castLeft = dur;
     e.castSwing = false;
-    if (dur > 0 && !(e.profile?.attackMoves ?? e.def.attackMoves)) e.atkStandUntil = Math.max(e.atkStandUntil, b.time + dur);
+    if (dur > 0 && !(e.profile?.attackMoves ?? e.def.attackMoves)) e.atkStandUntil = Math.max(/** @type {number} */ (e.atkStandUntil), b.time + dur);
     P.castEnd = -Infinity;
   } else P.castEnd = b.time + dur;
   return true;
 }
 
+/** @param {Battle} b @param {Unit} e @param {Unit[]} list @param {Record<string, any>} P @returns {Unit[]} */
 export function fairOrder(b, e, list, P) {
   const l = byPriority(e, list);
   if (b.players.length < 2 || l.length < 2) return l;
-  const key = (u) => `${e.blockedBy === u ? 0 : 1}|${u.s.taunt || 0}`;
+  const key = (/** @type {Unit} */ u) => `${e.blockedBy === u ? 0 : 1}|${u.s.taunt || 0}`;
   const top = key(l[0]);
   const tier = l.filter((u) => key(u) === top), rest = l.filter((u) => key(u) !== top);
   const ids = b.players.map((p) => p.playerId);
   P.turn = ((P.turn ?? -1) + 1) % ids.length;
   const queues = ids.map((pid) => tier.filter((u) => u.ownerId === pid));
+  /** @type {Unit[]} */
   const out = [];
   for (let k = 0; out.length < tier.length && k < tier.length * ids.length + ids.length; k++) {
     const q = queues[(P.turn + k) % ids.length];
-    if (q.length) out.push(q.shift());
+    if (q.length) out.push(/** @type {Unit} */ (q.shift()));
   }
   for (const u of tier) if (!out.includes(u)) out.push(u);
   return out.concat(rest);
@@ -517,16 +555,17 @@ export function fairOrder(b, e, list, P) {
  * 起飞 ally in the 3×3 is stunned and hurt like the others, although the credited 胄 walks). It is still that unit's area
  * selection (PRTS: "令自身周围8格内的所有我方单位…" / "…无视迷彩，可对空", no 无视无法选择): areaAlliesInTiles of `by` — no
  * 隐匿 ally, the one blocking it included (GitHub #97; 掷剑 / 掷锤's "无视无法选择" is their pick of the operator they fly at, not the blast).
+ * @param {Battle} b @param {Unit} src @param {Unit} by @param {number} r @param {number} c @param {number} stun @param {number} dot @param {number} dur @param {string} kind
  */
 function stunBlast(b, src, by, r, c, stun, dot, dur, kind) {
   b.fx('explode', { x: c, y: r, r: 1.5, kind, tiles: 'box' });
   for (const u of areaAlliesInTiles(b, by, r, c, 'box', 1)) {
     if (stun > 0) b.applyStatus(u, 'stun', { duration: stun, source: src, ignoreSelect: true });
     if (dot > 0 && dur > 0) b.addBuff(u, { key: `boss:${kind}Dot`, duration: dur, refresh: 'replace', interval: 1, visible: true,
-      onTick: ({ battle, unit }) => battle.dealDamage(src, unit, { amount: dot, type: 'phys', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', kind] }) });
+      onTick: (/** @type {BuffTick} */ { battle, unit }) => battle.dealDamage(src, unit, { amount: dot, type: 'phys', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', kind] }) });
   }
 }
-/** Distance from point p to segment a–b. */
+/** Distance from point p to segment a–b. @param {number} px @param {number} py @param {number} ax @param {number} ay @param {number} bx @param {number} by */
 function segDist(px, py, ax, ay, bx, by) {
   const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy;
   const t = L > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L)) : 0;
@@ -536,13 +575,14 @@ function segDist(px, py, ax, ay, bx, by) {
 // ---------------------------------------------------------------------------------------------------------------
 // 假想敌：胄 (boss_1 / boss_8) + 刺胄之弹 + 斩胄之剑 / 破胄之锤
 
+/** @param {AbState} ab @param {Unit} e @param {Battle} b @param {Tpl} tpl @returns {AbList} */
 function kitHelm(ab, e, b, tpl) {
   const s1 = ab.sk['1'], s2 = ab.sk['2'];
   const lowRatio = T(ab, '1.hp_ratio') ?? 0, lowScale = T(ab, '1.damage_scale') ?? 1;
   const P = { low: false };
   const range = () => e.base.rangeRadius || 8;
   // 灭顶之灾 "触发索敌和普通攻击相同：选择攻击范围内攻击力最高的1名我方干员" (PRTS 技能, both copies)
-  const shellTargets = (b2) => opsOnly(targetsNear(b2, e, range()));
+  const shellTargets = (/** @type {Battle} */ b2) => opsOnly(targetsNear(b2, e, range()));
   return [
     {
       spawn(b2, e2, a, ab2) { ab2.atkType = 'arts'; },
@@ -597,6 +637,7 @@ function kitHelm(ab, e, b, tpl) {
 /**
  * Max HP the 死亡集群 drone link reads (DRONE_LINK_BASE): 'pool' = the leader's shown max HP (the shared pool), 'unit' =
  * the unit's data max HP (template × spawn hpMul).
+ * @param {Unit} boss @param {string} [base]
  */
 export function droneLinkBase(boss, base = DRONE_LINK_BASE) {
   if (base !== 'unit' || !boss.def || !(boss.def.maxHp > 0)) return boss.s.maxHp;
@@ -611,6 +652,7 @@ export function droneLinkBase(boss, base = DRONE_LINK_BASE) {
  * projectile's `speed` (TRACE_TARGET_WITH_SPEED 0.45 tiles/s), not at its own move speed, and no slow touches it. The
  * projectile traces the target's mount point while the target is valid and its last spot after: an operator does not
  * leave its tile, so the target's tile it is.
+ * @param {Battle} b @param {Unit} boss @param {Unit} target @param {string} skill @param {number} speed
  */
 function fireShell(b, boss, target, skill, speed) {
   const tr = target.tileR, tc = target.tileC;
@@ -631,6 +673,7 @@ function fireShell(b, boss, target, skill, speed) {
  * a snapshot — stays stunBlast).
  */
 const SHELL_ZONE_LIFE = 9.95, SHELL_ZONE_REHIT = 1;
+/** @param {Battle} b @param {Unit} src @param {Unit} by @param {number} r @param {number} c @param {number} dmg @param {number} stun @param {string} skill */
 function shellZone(b, src, by, r, c, dmg, stun, skill) {
   const kind = 'helmShell';
   // the boss's skill names the projectile that carried the shell: the render plays its reach effect (enemy_acstmr_explode)
@@ -653,6 +696,7 @@ function shellZone(b, src, by, r, c, dmg, stun, skill) {
   return h;
 }
 
+/** @param {AbState} ab @param {Unit} e @returns {AbList} */
 function kitShell(ab, e) {
   const stun = T(ab, 'killed.stun') ?? 0, dmg = T(ab, 'killed.value') ?? 0;
   return [{
@@ -686,20 +730,22 @@ function kitShell(ab, e) {
  *     The copy's mode in the client is Back_End (mode 2): the same passive [unmovable], attack and 掷剑 (cooldowns too) as
  *     the first mode — only its entrance clip (Back_End, facing its default way) and effect differ — so it plays as 初始模式.
  *   Every damage it takes is lost by 假想敌：胄 too (BLADE_TRANSFER = PART_TRANSFER 1, 无来源, credited to the attacker).
+ * @param {AbState} ab @param {Unit} e @param {Battle} b @param {Tpl} tpl @returns {AbList}
  */
 function kitBlade(ab, e, b, tpl) {
   const s = ab.sk['1'];
   const bb = s ? s.bb : {};
   const hand = BLADE_HAND[e.defId];
+  /** @type {Record<string, any>} the kit's state */
   const P = { state: 'hover', home: { x: e.x, y: e.y }, hits: 0, target: null };
-  const leader = (b2) => nearestOf(b2, e, (o) => o.isBoss && /enemy_9013_acstmk/.test(o.defId));
-  const hover = (b2, on) => {
+  const leader = (/** @type {Battle} */ b2) => nearestOf(b2, e, (o) => o.isBoss && /enemy_9013_acstmk/.test(o.defId));
+  const hover = (/** @type {Battle} */ b2, /** @type {boolean} */ on) => {
     // the client's GeneralAbilities passive acstma/acstmb_passive[unmovable] (enemy_acstma_invincible) of its hovering modes
     if (on) b2.addBuff(e, { key: 'boss:hover', persist: true, visible: true, flags: { invulnerable: true, untargetable: true },
       fxTag: 'buff:acstma_passive[unmovable]|acstmb_passive[unmovable]' });
     else b2.removeBuff(e, 'boss:hover');
   };
-  const replace = (b2, e2) => { // 以关卡预设路径召唤一个继承自身生命值的初始模式的 copy，随后强制击杀自身
+  const replace = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => { // 以关卡预设路径召唤一个继承自身生命值的初始模式的 copy，随后强制击杀自身
     P.state = 'gone';
     e2.motion = 'FLY';
     const origin = hand ? branchRoute(tpl, `${hand}_origin`) : null;
@@ -718,7 +764,7 @@ function kitBlade(ab, e, b, tpl) {
     }
     b2.kill(e2, null);
   };
-  const shotDown = (b2, e2) => { // 【瘫痪】
+  const shotDown = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => { // 【瘫痪】
     P.state = 'down';
     e2.motion = 'WALK';                                              // 变为地面单位（不改变寻路方式）
     const stun = bb.stun ?? 0;
@@ -733,13 +779,13 @@ function kitBlade(ab, e, b, tpl) {
         hover(b2, true);
         // 自缚 (moved by hand) · 不可阻挡 · 失衡免疫 (PRTS 天赋 "{{特殊机制|静态刚体}}，不可阻挡、失衡免疫…" — data `staticBody` too)
         b2.addBuff(e2, { key: 'boss:anchor', persist: true, flags: { noMove: true, selfBound: true, unblockable: true, noDisplace: true } });
-        if (BLADE_ATK_SCALE[e2.defId]) e2.profile.atkScale = BLADE_ATK_SCALE[e2.defId];
-        e2.profile.canTarget = (u) => !u.isFlying;   // "…不可对空" (below)
+        if (BLADE_ATK_SCALE[e2.defId]) /** @type {Record<string, any>} */ (e2.profile).atkScale = BLADE_ATK_SCALE[e2.defId];
+        /** @type {Record<string, any>} */ (e2.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying;   // "…不可对空" (below)
       },
       // 范围物理伤害 — "普通攻击对攻击范围内的所有我方单位造成…物理普通伤害，不可对空": a normal attack on every operator it can target
       // (canTargetAlly: no 隐匿 or 迷彩 one — it is never blocked —, PRTS 选择器: a normal attack does not ignore 迷彩; until
       // 0.1.2 it took them all, `ranged: false`), never a flying ally (the 炎佑 dragon — until 0.2.1 it was hit)
-      before(c, b2, e2) { const l = targetsNear(b2, e2, e2.base.rangeRadius || 1.6).filter((u) => !u.isFlying); if (l.length) c.targets = l; },
+      before(c, b2, e2) { const l = targetsNear(b2, e2, e2.base.rangeRadius || 1.6).filter((/** @type {Unit} */ u) => !u.isFlying); if (l.length) c.targets = l; },
       taken(c, b2, e2) {
         if (c.amount > 0) { // 受到伤害时令假想敌：胄受到等量的无来源生命流失 (【瘫痪】; 出击模式 [ASSUMED], see PART_TRANSFER)
           const L = leader(b2);
@@ -781,15 +827,18 @@ function kitBlade(ab, e, b, tpl) {
 // ---------------------------------------------------------------------------------------------------------------
 // 假想敌：铳 (boss_2 / boss_9) + 碎铳之簧
 
+/** @param {Unit} o */
 const isGun = (o) => /enemy_9017_achunt/.test(o.defId);
+/** @param {Unit} o */
 const isSpring = (o) => /enemy_90(18|19|20)_actrp/.test(o.defId);
 /**
  * The one living enemy a `BossSelector` (`_postFilter` HATRED_DES, max 1) picks among those `pred` accepts. An enemy's hatred
  * is its taunt level × k − its remaining distance to the exit (client Enemy.get_hatred): with equal taunt the one nearest
  * its EXIT; ties go to the earlier spawn.
+ * @param {Battle} b @param {(o: Unit) => unknown} pred
  */
 function hatredFirst(b, pred) {
-  const key = (o) => [-(o.s.taunt || 0), b.remainingDistance(o), o.spawnSeq];
+  const key = (/** @type {Unit} */ o) => [-(o.s.taunt || 0), b.remainingDistance(o), o.spawnSeq];
   let best = null, bk = null;
   for (const o of b.enemies) {
     if (!o.alive || !pred(o)) continue;
@@ -799,21 +848,23 @@ function hatredFirst(b, pred) {
   return best;
 }
 
+/** @param {AbState} ab @param {Unit} e @param {Battle} b @returns {AbList} */
 function kitGun(ab, e, b) {
   const hidden = /_2$/.test(e.defId);
   const step = T(ab, '2.attack_speed') ?? 0, maxN = T(ab, '2.max_stack_cnt') ?? 0;
+  /** @type {Record<string, any>} the kit's state */
   const P = { last: null, n: 0, charge: null };
   const range = () => e.base.rangeRadius || 2;
-  const setAspd = (b2) => aspdFloor(b2, e, step * P.n);
+  const setAspd = (/** @type {Battle} */ b2) => aspdFloor(b2, e, step * P.n);
   const s1 = ab.sk['1'], s2 = ab.sk['2'], s3 = ab.sk['3'];
-  const groundTargets = (b2) => allTargets(b2, e).filter((u) => u.ground);
+  const groundTargets = (/** @type {Battle} */ b2) => allTargets(b2, e).filter((/** @type {Unit} */ u) => u.ground);
   // 无法被阻挡: the default season's table has it as a line of its own and its prefab keeps BLOCK_FREE in a buff of
   // CommonAbilities/Ability0 (always). 规程's table (2.7.91) moves it into 【最终之罚】 (「技能持续期间，无法被阻挡」) and its
   // prefab into the passive buff achunt_s_1[speed] of Modes/S1 (abnormal flag BLOCK_FREE, the charge's duration), while
   // Modes/Default gains a `_combat` ability (the same shot, `_alwaysIncludeTarget`, one target): blocked, the gun shoots
   // its blocker (official CN client prefab enemy_9017_achunt)
-  const alwaysFree = (e.def?.abilities ?? []).some((a) => a && a.text === '无法被阻挡');
-  const endCharge = (b2, e2) => { // achunt_s_1[reached] / achunt_s_1[speed]'s end: SwitchMode back to Default
+  const alwaysFree = (e.def?.abilities ?? []).some((/** @type {Record<string, any> | null} */ a) => a && a.text === '无法被阻挡');
+  const endCharge = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => { // achunt_s_1[reached] / achunt_s_1[speed]'s end: SwitchMode back to Default
     P.charge = null;
     e2.trace = null;
     b2.removeBuff(e2, 'boss:charge');
@@ -823,10 +874,10 @@ function kitGun(ab, e, b) {
   };
   // _TryUpdateTraceTargetRoute: the target's tile when the gun's path reaches it, else (`_findNearbyReachableTile`) the
   // reachable neighbour of the shortest path ([ASSUMED] ties in TRACE_NEAR order); a new route draws a new offset
-  const retrace = (b2, e2, t) => {
+  const retrace = (/** @type {Battle} */ b2, /** @type {Unit} */ e2, /** @type {Unit} */ t) => {
     const g = b2.grid, sr = Math.round(e2.y), sc = Math.round(e2.x), k = sr * COLS + sc;
     const tr = Math.round(t.y), tc = Math.round(t.x);
-    const len = (r, c) => (g.walkable(r, c) ? g.fieldLength(g.flowField(r, c), k) : Infinity);
+    const len = (/** @type {number} */ r, /** @type {number} */ c) => (g.walkable(r, c) ? g.fieldLength(g.flowField(r, c), k) : Infinity);
     let best = len(tr, tc) < Infinity ? [tr, tc] : null;
     if (!best) {
       let bl = Infinity;
@@ -838,15 +889,15 @@ function kitGun(ab, e, b) {
     P.charge.tx = t.x; P.charge.ty = t.y;
     return true;
   };
-  const clearTrace = (e2) => { e2.trace = null; P.charge.target = null; if (e2.route) e2.route.pts = null; }; // _CleanTraceTarget
-  /** @type {Array<Record<string, any>>} the abilities (plain objects, content/enemies.js header) */
+  const clearTrace = (/** @type {Unit} */ e2) => { e2.trace = null; P.charge.target = null; if (e2.route) e2.route.pts = null; }; // _CleanTraceTarget
+  /** @type {AbList} the abilities (plain objects, content/enemies.js header) */
   const list = [
     {
       spawn(b2, e2) { if (alwaysFree) b2.addBuff(e2, { key: 'boss:unblockable', persist: true, flags: { unblockable: true } }); setAspd(b2); },
       before(c, b2, e2) {
         const bl = e2.blockedBy;
         if (!alwaysFree && bl && bl.alive && bl.deployed) { c.targets = [bl]; return; } // 规程: Default `_combat` — the blocker
-        const l = targetsNear(b2, e2, range()); if (l.length) c.targets = [l.sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q))[0]]; // 优先攻击防御力最高的单位
+        const l = targetsNear(b2, e2, range()); if (l.length) c.targets = [l.sort((/** @type {Unit} */ p, /** @type {Unit} */ q) => q.s.def - p.s.def || aggroCmp(p, q))[0]]; // 优先攻击防御力最高的单位
       },
       // ASPD stacks (official client BrownbTalent_1.Apply, an attachment of the attack ability: as the attack is cast on
       // its target): a target other than the last one clears the stack group, then the attack ALWAYS adds one stack
@@ -890,11 +941,11 @@ function kitGun(ab, e, b) {
     },
     s1 && {
       // Skills/1's selector: any unit of ours (`_targetMotion` 3, flyers too), `_minTargetNum` 1
-      name: s1.name, cd: s1.cd, icd: s1.icd, atStrike: true, cond: (b2) => allTargets(b2, e).length > 0 && !P.charge,
+      name: s1.name, cd: s1.cd, icd: s1.icd, atStrike: true, cond: (/** @type {Battle} */ b2) => allTargets(b2, e).length > 0 && !P.charge,
       fire(b2, e2) {
         // achunt_s_1: SwitchMode S1, then TriggerAbilityUseSelector TraceEnemy — the highest-DEF unit on low ground, no
         // flyer (`_targetMotion` 1, `heightType` 0, `_postFilter` DEF_DES); nobody (only flyers) → back to Default at once
-        const t = groundTargets(b2).sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q))[0];
+        const t = groundTargets(b2).sort((/** @type {Unit} */ p, /** @type {Unit} */ q) => q.s.def - p.s.def || aggroCmp(p, q))[0];
         if (!t) return;
         const dur = T(ab, '3.duration') ?? 0;
         b2._cutAttackStand(e2); e2.atkStandUntil = -Infinity;   // the mode switch's `_restartFSM`: out of its attack recovery
@@ -917,8 +968,9 @@ function kitGun(ab, e, b) {
     // held while ANY other gun or spring lived (PRTS wording). Refresh on hit as well so a hit right after the picked unit
     // dies sees it gone, not a stale polling result. Its ON_OWNER_KILLED (kill_achunt_mark_boss: InstantKill of the
     // selector's pick) is left out: a gun only dies when the shared pool runs out, which ends every boss field.
+    /** @type {Unit | null} */
     let partner = null;
-    const confession = (b2, e2) => {
+    const confession = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => {
       if (partner && partner.alive) {
         const m = T(ab, '4.damage_scale') ?? 1;
         b2.addBuff(e2, { key: 'boss:confession', duration: 0.35, refresh: 'replace', mods: { physTakenMul: m, artsTakenMul: m } });
@@ -936,7 +988,7 @@ function kitGun(ab, e, b) {
           confession(b2, e2);
         }, { owner: e2 });
       },
-      iv: 0.25, tick: confession, hitIn(c, b2, e2) { confession(b2, e2); },
+      iv: 0.25, tick: confession, hitIn(c, /** @type {Battle} */ b2, /** @type {Unit} */ e2) { confession(b2, e2); },
     });
     if (s3) list.push({
       iv: s3.bb.interval ?? 1,
@@ -951,7 +1003,7 @@ function kitGun(ab, e, b) {
       },
     });
     if (s2) list.push({
-      name: s2.name, cd: s2.cd, icd: s2.icd, cond: (b2) => b2.enemies.some((o) => o.alive && isSpring(o)),
+      name: s2.name, cd: s2.cd, icd: s2.icd, cond: (/** @type {Battle} */ b2) => b2.enemies.some((o) => o.alive && isSpring(o)),
       fire(b2, e2) { // 【末日布道】 springs chase 铳 for the whole 5 s gain, invulnerable, trampling operators (kitSpring)
         // PRTS “碎铳之簧” 追逐模式 "不进行普通攻击": `disarm` for the dash (until 0.1.3 it kept shooting while it ran).
         // Each gun casts on its own data timer, and a cast takes every spring — on a pair field the later of the two
@@ -972,21 +1024,23 @@ function kitGun(ab, e, b) {
   return list;
 }
 
+/** @param {AbState} ab @param {Unit} e @returns {AbList} */
 function kitSpring(ab, e) {
   const kind = /9018/.test(e.defId) ? 'arts' : /9019/.test(e.defId) ? 'element' : 'hits';
   const scale = T(ab, '1.damage_scale') ?? 1, regen = T(ab, '1.regenerate_duration') ?? 0;
   const sk = kind === 'arts' ? null : ab.sk['1'];
+  /** @type {Record<string, any>} the kit's state */
   const P = { up: false, barrier: 0, hits: 0, downAt: null, sp: 0, skill: false };
   // 【盲信之誓】 the share's receiver: the prefab's BossSelector (one 假想敌：铳, HATRED_DES — hatredFirst): with equal taunt
   // the gun nearest its EXIT (until 2026-10-15 the gun nearest the spring; the 隐秘核心 pair field has two, branch
   // boss_battle_multi_player)
-  const gun = (b) => hatredFirst(b, isGun);
+  const gun = (/** @type {Battle} */ b) => hatredFirst(b, isGun);
   // the 追逐模式 fallback when its casting gun is gone: the nearest other gun (the remake's own rule)
-  const nearGun = (b) => nearestOf(b, e, (o) => isGun(o));
+  const nearGun = (/** @type {Battle} */ b) => nearestOf(b, e, (o) => isGun(o));
   const range = () => e.base.rangeRadius || 2;
   // 优先攻击防御力最高的单位: the Attack and Skills/1 selectors are `_postFilter` DEF_DES (ties: aggro order)
-  const byDef = (l) => l.sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q))[0];
-  const raise = (b) => {
+  const byDef = (/** @type {Unit[]} */ l) => l.sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q))[0];
+  const raise = (/** @type {Battle} */ b) => {
     P.up = true;
     P.sp = 0;   // actrpb/c_t_1[regenerate] ends with ClearEnemySp, then the shield
     if (kind === 'arts') P.barrier = e.s.maxHp * (T(ab, '1.shield_ratio') ?? 0);
@@ -995,9 +1049,9 @@ function kitSpring(ab, e) {
     b.addBuff(e, { key: 'boss:springShield', persist: true, visible: true, fxTag: `buff:${(/_(actrp[abc])/.exec(e.defId) || [])[1] || 'actrpa'}_t_1` });
     b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: `spring_${kind}` });
   };
-  const drop = (b) => { P.up = false; P.downAt = b.time; b.removeBuff(e, 'boss:springShield'); b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id }); };
+  const drop = (/** @type {Battle} */ b) => { P.up = false; P.downAt = b.time; b.removeBuff(e, 'boss:springShield'); b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id }); };
   /** 【盲信之誓】: the gun loses `c.amount` (taken / healed / gauge below), credited to the ally that caused it. */
-  const pass = (b, c) => {
+  const pass = (/** @type {Battle} */ b, /** @type {Record<string, any>} */ c) => {
     if (!(c.amount > 0)) return;
     const s0 = c.source || c.credit;                                       // a 无来源 burst still passes on (credited)
     const src = s0 && s0.side === 'ally' ? s0 : null;
@@ -1008,14 +1062,14 @@ function kitSpring(ab, e) {
   // the shield's skill (enemy_database spData INCREASE_WHEN_ATTACK: +1 per normal attack, max = spCost): with full SP the
   // next attack IS the skill — no normal hit (until 2026-10-15 it was added on top of every (spCost+1)-th attack). It needs
   // the shield: the broken shield's regenerate buff silences the spring and clears its SP as the shield returns (raise)
-  const skillReady = (e2) => !!sk && P.up && P.sp >= sk.sp && !e2.s.flags.silence;
-  const elementBullet = (b, e2, t0) => { // `times` hits, ATK 100 % phys × 0.8 per bounce + erosion `ep_damage_ratio` each
-    const times = sk.bb.times || 1, ratio = sk.bb.ep_damage_ratio || 0;
+  const skillReady = (/** @type {Unit} */ e2) => !!sk && P.up && P.sp >= sk.sp && !e2.s.flags.silence;
+  const elementBullet = (/** @type {Battle} */ b, /** @type {Unit} */ e2, /** @type {Unit} */ t0) => { // `times` hits, ATK 100 % phys × 0.8 per bounce + erosion `ep_damage_ratio` each
+    const times = /** @type {AbSkill} */ (sk).bb.times || 1, ratio = /** @type {AbSkill} */ (sk).bb.ep_damage_ratio || 0;
     const lastHit = new Map();
-    const fly = (from, t, k) => {
+    const fly = (/** @type {Unit} */ from, /** @type {Unit | null} */ t, /** @type {number} */ k) => {
       if (!t || k >= times) return;
       b.fx('beam', { x: from.x, y: from.y, from: from.id, to: t.id, kind: 'springBullet' });
-      shoot(b, from, t, k ? { ...sk.proj, speed: SPRING_BOUNCE_SPEED } : sk.proj, (tt) => {
+      shoot(b, from, t, k ? { .../** @type {AbSkill} */ (sk).proj, speed: SPRING_BOUNCE_SPEED } : /** @type {AbSkill} */ (sk).proj, (/** @type {Unit} */ tt) => {
         if (!tt || !tt.alive) return;
         lastHit.set(tt, b.time);
         hurt(b, e2, tt, e2.s.atk * powi(SPRING_BOUNCE_FALLOFF, k), 'phys', { tags: ['springBullet'] });
@@ -1023,19 +1077,19 @@ function kitSpring(ab, e) {
         // the next one: the selector's `_postFilter` ALL (no sort) and at most 1 — the first candidate of the range query
         // (until 2026-10-15 the nearest). [ASSUMED] the query's order = the field's ally order (areaAllies); nobody
         // else → the same target again
-        const nx = areaAllies(b, e2, tt.x, tt.y, SPRING_BOUNCE_RANGE).find((u) => u !== tt && !(b.time - (lastHit.get(u) ?? -Infinity) < SPRING_BOUNCE_KEEP)) || (tt.alive ? tt : null);
+        const nx = areaAllies(b, e2, tt.x, tt.y, SPRING_BOUNCE_RANGE).find((/** @type {Unit} */ u) => u !== tt && !(b.time - (lastHit.get(u) ?? -Infinity) < SPRING_BOUNCE_KEEP)) || (tt.alive ? tt : null);
         fly(tt, nx, k + 1);
       }, { source: e2 });
     };
     fly(e2, t0, 0);
   };
-  const tenHits = (b, e2, t) => { // 十连击: ten shots, ATK × `atk_scale` phys each, at the attack's highest-DEF target
+  const tenHits = (/** @type {Battle} */ b, /** @type {Unit} */ e2, /** @type {Unit} */ t) => { // 十连击: ten shots, ATK × `atk_scale` phys each, at the attack's highest-DEF target
     // the target stays the first shot's (Skills/1 `_selectTargetSource` INPUT_TARGET, `_selectTargetTiming` AT_BEGINING,
     // MultiRangedAttack.UpdateTargets): once it is dead the shots left are lost (until 2026-10-15 they re-picked)
     const shot = () => {
       if (!e2.alive || !t.alive) return;
       b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'springCombo' });
-      shoot(b, e2, t, sk.proj, (tt) => hurt(b, e2, tt, e2.s.atk * (sk.bb.atk_scale || 0), 'phys', { tags: ['springCombo'] }), { source: e2 });
+      shoot(b, e2, t, /** @type {AbSkill} */ (sk).proj, (/** @type {Unit} */ tt) => hurt(b, e2, tt, e2.s.atk * (/** @type {AbSkill} */ (sk).bb.atk_scale || 0), 'phys', { tags: ['springCombo'] }), { source: e2 });
     };
     for (let k = 0; k < SPRING_COMBO_HITS; k++) if (k === 0) shot(); else b.after(k * SPRING_COMBO_GAP, shot, { owner: e2 });
   };
@@ -1048,23 +1102,23 @@ function kitSpring(ab, e) {
         if (t) c.targets = [t];
         // the skill attack: the engine makes the attack (cooldown, 'atk', the 'attack' hook) without its hit (ai.js deferHit)
         P.skill = skillReady(e2);
-        e2.profile.deferHit = P.skill;
-        e2.profile.shot = P.skill ? 'springSkill' : undefined;
+        /** @type {Record<string, any>} */ (e2.profile).deferHit = P.skill;
+        /** @type {Record<string, any>} */ (e2.profile).shot = P.skill ? 'springSkill' : undefined;
       },
       attack(c, b, e2, a) {
         if (!P.skill) { if (sk) P.sp = Math.min(sk.sp, P.sp + 1); return; }
         P.skill = false;
-        e2.profile.deferHit = false;
-        e2.profile.shot = undefined;
+        /** @type {Record<string, any>} */ (e2.profile).deferHit = false;
+        /** @type {Record<string, any>} */ (e2.profile).shot = undefined;
         P.sp = 0;
-        const t0 = c.targets.find((u) => u && u.alive);
+        const t0 = c.targets.find((/** @type {Unit | null} */ u) => u && u.alive);
         if (!t0) return;
         // the cast names the official ability (Skills/1 — Skill_b / Skill_c, its effects; content/enemies.js onTick)
         a.casts = (a.casts ?? 0) + 1;
         e2.skillAnimUntil = b.time + 0.5;
-        b.fx('enemySkill', { x: e2.x, y: e2.y, id: e2.id, ability: sk.name, n: a.casts });
+        b.fx('enemySkill', { x: e2.x, y: e2.y, id: e2.id, ability: /** @type {AbSkill} */ (sk).name, n: a.casts });
         const prev = b._castAbility;
-        b._castAbility = { id: e2.id, ability: sk.name };
+        b._castAbility = { id: e2.id, ability: /** @type {AbSkill} */ (sk).name };
         try { if (kind === 'element') elementBullet(b, e2, t0); else tenHits(b, e2, t0); } finally { b._castAbility = prev; }
       },
       hitIn(c, b, e2) {
@@ -1137,9 +1191,10 @@ function kitSpring(ab, e) {
 // ---------------------------------------------------------------------------------------------------------------
 // 假想敌：管 (boss_3 / boss_10) + 假想敌：弦 + “余音”
 
+/** @param {Battle} b @param {string} form */
 const echoesOf = (b, form) => b.enemies.filter((o) => o.alive && o.defId === ECHO_KEY && o.mem.ab && o.mem.ab.form === form);
 
-/** Switch an echo's form (`hit`: its own switch after its hits, acdums_t_1 — the fx `hit` its switch sound, audio). */
+/** Switch an echo's form (`hit`: its own switch after its hits, acdums_t_1 — the fx `hit` its switch sound, audio). @param {Battle} b @param {Unit} echo @param {string} form @param {boolean} [hit] */
 export function setEchoForm(b, echo, form, hit = false) {
   const ab = echo.mem.ab;
   if (!ab) return;
@@ -1160,6 +1215,7 @@ export function setEchoForm(b, echo, form, hit = false) {
 
 /** An echo takes a strike/hit: pulse around it (PRTS “余音” "受到伤害时对半径1.6范围内的我方单位造成…": an area selection of the
  *  echo — no unblocking 隐匿 operator) and count towards the form switch. */
+/** @param {Battle} b @param {Unit} echo */
 export function echoHit(b, echo) {
   const ab = echo.mem.ab;
   if (!ab || !echo.alive) return;
@@ -1177,7 +1233,7 @@ export function echoHit(b, echo) {
         hurt(b, echo, u, atk * (T(ab, '3.atk_scale') ?? 0), 'arts');
         elem(b, echo, u, 'apoptosis', atk * (T(ab, '3.ep_damage_ratio') ?? 0));
       }
-      const need = ab.form === 'gold' ? T(ab, '1.hit_times_to_switch') : T(ab, '2.hit_times_to_switch');
+      const need = /** @type {number} */ (ab.form === 'gold' ? T(ab, '1.hit_times_to_switch') : T(ab, '2.hit_times_to_switch'));
       ab.strikes = (ab.strikes ?? 0) + 1;
       if (echo.alive && need > 0 && ab.strikes >= need) setEchoForm(b, echo, ab.form === 'gold' ? 'dark' : 'gold', true);
     }
@@ -1196,8 +1252,10 @@ export function echoHit(b, echo) {
  * ability and is not used (until 2026-10-14 each echo cast it on its own every 5 s).
  */
 const ECHO_ENSEMBLE_CHECK = 1;
+/** @param {Unit} o */
 const isEcho = (o) => o.alive && o.defId === ECHO_KEY && o.mem.ab;
 
+/** @param {Battle} b @param {Unit} echo */
 function echoEnsemble(b, echo) {
   const ab = echo.mem.ab;
   const gold = ab.form === 'gold';
@@ -1215,6 +1273,7 @@ function echoEnsemble(b, echo) {
   } finally { b._castAbility = prev; }
 }
 
+/** @param {AbState} ab @param {Unit} e @returns {AbList} */
 function kitEcho(ab, e) {
   const d = e.def && e.def.raw && e.def.raw.sp;
   const max = d && d.type === 'INCREASE_WHEN_TAKEN_DAMAGE' ? Number(d.maxSp) || 0 : 0;
@@ -1251,12 +1310,13 @@ function kitEcho(ab, e) {
  * `_ignoreCamouflage`): every operator within `r` takes ATK 100 % arts, and a “余音” it was aimed at takes the hit too
  * (`_alwaysHitTraceTargetInTheEnd` — a real damage instance: 1 of its hits, +1 合奏 SP, its pulse). Returns the units hit,
  * the echo first (the skill's `_activeBuffs` land on each).
+ * @param {Battle} b @param {Unit} e @param {Record<string, any> & { x: number, y: number }} at @param {number} r @param {string} kind
  */
 function pipeBurst(b, e, at, r, kind) {
   b.fx('explode', { x: at.x, y: at.y, r, kind });
   const hit = areaAllies(b, e, at.x, at.y, r);
   for (const u of hit) hurt(b, e, u, e.s.atk, 'arts');
-  if (at.defId === ECHO_KEY && at.alive) { hurt(b, e, at, e.s.atk, 'arts', { tags: [ECHO_STRIKE] }); hit.unshift(at); }
+  if (at.defId === ECHO_KEY && at.alive) { hurt(b, e, /** @type {Unit} */ (at), e.s.atk, 'arts', { tags: [ECHO_STRIKE] }); hit.unshift(/** @type {Unit} */ (at)); }
   return hit;
 }
 
@@ -1266,19 +1326,20 @@ function pipeBurst(b, e, at, r, kind) {
  * `_filterByEnemiesKey` enemy_9023_acdums, `_enemyMode`) or, when there is none, an operator (selector side ENEMY,
  * `_postFilter` HATRED_DES — aggroCmp); `PIPE_SHOTS` shots `PIPE_STRIKE_GAP` apart, each a pipeBurst of `PIPE_SHOT_RADIUS`
  * (until 2026-10-15 it struck only 余音 and only pulsed them: no damage of its own, no attack without one).
+ * @param {AbState} ab @param {Unit} e @param {Battle} b @param {Tpl} tpl @param {{ form: string, prefix: string }} opts @returns {EnemyAbility}
  */
 function pipeCore(ab, e, b, tpl, { form, prefix }) {
   const hi = T(ab, `1.${prefix}_t_1[high_hp].interval`) ?? 40, lo = T(ab, `1.${prefix}_t_1[low_hp].interval`) ?? hi, thr = T(ab, '1.hp_ratio') ?? 0;
   const key = ab.tS['1.enemy_key'] ?? ECHO_KEY;
   const P = { acc: 0, atk: Infinity, castEnd: -Infinity };   // first strike as soon as an echo of its form exists (engine attack rule)
   ab.ownAttack = true;   // its skill takes the turn of this loop's attack (ownAttackTurn)
-  const summon = (b2, e2) => {
+  const summon = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => {
     const got = branchSpawn(b2, tpl, 'summon_enemy', 0, { mods: summonMods(b2, null, key), at: { x: e2.x, y: e2.y }, fallback: () => [b2.spawnEnemy(key, { pos: [e2.y, e2.x], route: toGoal(b2, e2.x, e2.y), mods: summonMods(b2, null, key) })].filter(Boolean) });
     for (const u of got) if (u.defId === ECHO_KEY && form === 'gold') setEchoForm(b2, u, 'gold');
     b2.fx('summon', { x: e2.x, y: e2.y, id: e2.id, key, n: got.length });
   };
   return {
-    spawn(b2, e2) { e2.profile.noAttack = true; aspdFloor(b2, e2); },
+    spawn(b2, e2) { /** @type {Record<string, any>} */ (e2.profile).noAttack = true; aspdFloor(b2, e2); },
     tick(b2, e2, a, dt) {
       P.acc += dt;
       if (P.acc >= (e2.hpRatio < thr ? lo : hi)) { P.acc = 0; summon(b2, e2); }
@@ -1297,7 +1358,7 @@ function pipeCore(ab, e, b, tpl, { form, prefix }) {
       // tiles/s; enemies/helpers.js shoot), bursting as it arrives
       const shot = () => {
         if (!e2.alive || !t.alive) return;
-        shoot(b2, e2, t, e2.def?.proj, (o) => { if (o && o.alive) pipeBurst(b2, e2, o, PIPE_SHOT_RADIUS[prefix], `${prefix}Hit`); });
+        shoot(b2, e2, t, e2.def?.proj, (/** @type {Unit | null} */ o) => { if (o && o.alive) pipeBurst(b2, e2, o, PIPE_SHOT_RADIUS[prefix], `${prefix}Hit`); });
       };
       for (let k = 0; k < PIPE_SHOTS[prefix]; k++) {
         if (k === 0) shot(); else b2.after(k * PIPE_STRIKE_GAP, shot, { owner: e2 });
@@ -1306,6 +1367,7 @@ function pipeCore(ab, e, b, tpl, { form, prefix }) {
   };
 }
 
+/** @param {AbState} ab @param {Unit} e @param {Battle} b @param {Tpl} tpl @returns {AbList} */
 function kitPipe(ab, e, b, tpl) {
   const s = ab.sk['1'];
   const g = skillSp(e, s); // local patch: official SP
@@ -1340,9 +1402,9 @@ function kitPipe(ab, e, b, tpl) {
           // shot hit, the echo included: CreateBuffInCircleRange `range_radius` (0.8, 「中点判定」) around it — 凋亡
           // `ep_damage_ratio` to each operator there, selectable or not (PRTS 「无视其可选性」), itself included — and
           // ApplyElementDamage `ep_damage_ratio` on it, the echo too (the node checks no side; until 2026-10-15 the echo took none).
-          const strike = (echo) => {
+          const strike = (/** @type {Unit} */ echo) => {
             if (!e2.alive || !echo.alive) return;
-            shoot(b2, e2, echo, s.proj, (o) => {
+            shoot(b2, e2, echo, s.proj, (/** @type {Unit | null} */ o) => {
               if (!o || !o.alive) return;
               const hit = pipeBurst(b2, e2, o, PIPE_SHOT_RADIUS.acduml, 'pipeStrike');
               for (const u of hit) {
@@ -1361,6 +1423,7 @@ function kitPipe(ab, e, b, tpl) {
   ];
 }
 
+/** @param {AbState} ab @param {Unit} e @param {Battle} b @param {Tpl} tpl @returns {AbList} */
 function kitString(ab, e, b, tpl) {
   const s = ab.sk['1'];
   const g = skillSp(e, s); // local patch: official SP
@@ -1383,7 +1446,7 @@ function kitString(ab, e, b, tpl) {
           // (CheckEnemyId → SwitchMode 1); as 管's, the echo takes the 凋亡 too (until 2026-10-15 it did not).
           for (const echo of echoes) {
             if (!echo.alive) continue;
-            shoot(b2, e2, echo, s.proj, (o) => {
+            shoot(b2, e2, echo, s.proj, (/** @type {Unit | null} */ o) => {
               if (!o || !o.alive) return;   // a shot in flight lands even if its shooter fell meanwhile
               for (const u of pipeBurst(b2, e2, o, PIPE_SHOT_RADIUS.acdumm, 'stringStrike')) {
                 elem(b2, e2, u, 'apoptosis', e2.s.atk * ep);
@@ -1401,42 +1464,46 @@ function kitString(ab, e, b, tpl) {
 // ---------------------------------------------------------------------------------------------------------------
 // 盐风主教昆图斯 (boss_4)
 
+/** @param {AbState} ab @param {Unit} e @param {Battle} b @param {Tpl} tpl @returns {AbList} */
 function kitQuintus(ab, e, b, tpl) {
+  /** @type {Record<string, any>} the kit's state */
   const P = { stage: 0, t0: null, stageAt: null, tent: 0 };
   const stageSkills = [['Tidewater', 'Rockfall', 'SummonTentac'], ['TidewaterG1', 'RockfallG1', 'SummonTentacG1'], ['TidewaterG2', 'RockfallG2', 'SummonTentacG2', 'Doom']];
+  /** @type {EnemyAbility[]} */
   const skills = [];
   const atkRatio = T(ab, 'epdamage.attack@ep_damage_ratio') ?? 0;
   // 【断裂生殖】 「仅仍有未执行的小队动作指令时可触发」 (PRTS): its level branch (blackboard branch_id; the prefab's
   // MoveNextLevelBranch, not looping), shared by the three forms, is used up after its last phase (7 in the official
   // templates) — then the skill is no longer ready and leaves the attack's turn to the attack (until 2026-10-29 an empty
   // cast still took it). Without the branch (tests, tools: the random-target fallback) no limit.
-  const tentLeft = (s) => {
+  const tentLeft = (/** @type {AbSkill} */ s) => {
     const br = tpl && tpl.branches && tpl.branches[s.bs.branch_id ?? 'dslily_dstnta'];
     return Array.isArray(br) && br.length ? br.length : Infinity;
   };
-  const mk = (name, stage) => {
+  const mk = (/** @type {string} */ name, /** @type {number} */ stage) => {
     const s = ab.sk[name];
     if (!s) return null;
     const kind = name.replace(/G\d$/, '');
     const phases = kind === 'SummonTentac' ? tentLeft(s) : Infinity;
     const pick = QUINTUS_PICK[kind];
+    /** @type {EnemyAbility} */
     const a = { name: s.name, cd: s.cd, icd: s.icd, stage, cond: () => P.stage === stage && P.tent < phases };
     if (pick) { // its units taken as the cast begins, struck at the spell if still alive on the field (QUINTUS_PICK)
       a.fire = (b2, e2, a2) => { a2.picks = pick(b2, e2, P); };
       a.atStrike = (b2, e2, a2) => {
-        const picks = (a2.picks || []).filter((u) => u.alive && u.deployed);
+        const picks = (a2.picks || []).filter((/** @type {Unit} */ u) => u.alive && u.deployed);
         a2.picks = null;
         QUINTUS[kind](b2, e2, s, picks);
       };
-    } else Object.assign(a, { atStrike: true, fire: (b2, e2) => QUINTUS[kind](b2, e2, s, P, tpl) });
+    } else Object.assign(a, { atStrike: true, fire: (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => QUINTUS[kind](b2, e2, s, P, tpl) });
     skills.push(a);
     return a;
   };
-  /** @type {Array<Record<string, any>>} the abilities (plain objects, content/enemies.js header) */
+  /** @type {AbList} the abilities (plain objects, content/enemies.js header) */
   const list = [{
-    spawn(b2, e2) { P.t0 = b2.time; P.stageAt = b2.time; e2.profile.maxTargets = 2; },
+    spawn(b2, e2) { P.t0 = b2.time; P.stageAt = b2.time; /** @type {Record<string, any>} */ (e2.profile).maxTargets = 2; },
     before(c, b2, e2) { // 同时攻击防御最高的两个单位
-      const l = targetsNear(b2, e2, e2.base.rangeRadius || 99).sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q));
+      const l = targetsNear(b2, e2, e2.base.rangeRadius || 99).sort((/** @type {Unit} */ p, /** @type {Unit} */ q) => q.s.def - p.s.def || aggroCmp(p, q));
       if (l.length) c.targets = l.slice(0, 2);
     },
     dealt(c, b2, e2) { elem(b2, e2, c.target, 'neural', e2.s.atk * atkRatio); },
@@ -1447,7 +1514,7 @@ function kitQuintus(ab, e, b, tpl) {
       else if (P.stage === 1 && (lost >= 2 * (T(ab, 'growup2.hp_ratio') ?? 1) || b2.time - P.stageAt >= (T(ab, 'growup2.interval') ?? Infinity))) grow(b2, e2, 2);
     },
   }];
-  const grow = (b2, e2, n) => {
+  const grow = (/** @type {Battle} */ b2, /** @type {Unit} */ e2, /** @type {number} */ n) => {
     P.stage = n; P.stageAt = b2.time;
     // the prefab's mode G1 / G2 (dslily_growup[countdown] / dslily_growup_hp_ratio: SwitchMode from the blackboard's
     // `mode`, `_restartFSM` — 공식 클라에서 확인 2026-11-20): the swing or skill cast running is cut, the new attack is ready
@@ -1467,6 +1534,7 @@ function kitQuintus(ab, e, b, tpl) {
  * in between is not struck (공식 클라에서 확인 — prefab enemy_1521_dslily `Skills/Tidewater*`·`Rockfall*`; until 2026-11-21
  * taken again at the spell).
  */
+/** @type {Record<string, (b: Battle, e: Unit, P: Record<string, any>) => Unit[]>} */
 const QUINTUS_PICK = {
   Tidewater: (b, e) => fieldAllies(b, e),   // "对场上所有我方单位…": every operator it can select
   Rockfall: (b, e, P) => {                  // the N highest-DEF units
@@ -1474,6 +1542,7 @@ const QUINTUS_PICK = {
     return allTargets(b, e).sort((p, q) => q.s.def - p.s.def || aggroCmp(p, q)).slice(0, n);
   },
 };
+/** @type {Record<string, (b: Battle, e: Unit, s: AbSkill, arg: any, tpl?: Tpl) => void>} the 4th argument: the units QUINTUS_PICK took, else the kit's state */
 const QUINTUS = {
   Tidewater(b, e, s, picks) { // 【大潮】 arts + neural on its units (QUINTUS_PICK)
     b.fx('tide', { x: e.x, y: e.y, id: e.id });
@@ -1495,12 +1564,12 @@ const QUINTUS = {
       // the cursor and fails once the cursor is past the last one — from the cast after the last phase on, no 子代
       // (until 2026-10-15 the last phase, all four, came again on every later cast)
       const phase = P.tent < br.length ? br[P.tent] || [] : [];
-      for (const a of phase) { const d = devs.find((x) => x.alias === a.key); if (d && d.pos) spots.push(d); }
+      for (const a of phase) { const d = devs.find((/** @type {Record<string, any>} */ x) => x.alias === a.key); if (d && d.pos) spots.push(d); }
     }
     // no template (tests, tools): one 子代 on a random operator's tile, from any template device record of the key
     if (!branched && !spots.length) {
       const t = b.rng.pick(allTargets(b, e));
-      const d = devs.find((x) => x.key === BROOD_KEY) || broodRecord(b);
+      const d = devs.find((/** @type {Record<string, any>} */ x) => x.key === BROOD_KEY) || broodRecord(b);
       if (t && d) spots = [{ ...d, alias: null, pos: [t.tileR, t.tileC] }];
     }
     P.tent++;
@@ -1522,11 +1591,11 @@ const QUINTUS = {
   },
 };
 
-/** A template device record of 子代 (data/waves.json `devices[]`) from any wave template — for a cast without a template. */
+/** A template device record of 子代 (data/waves.json `devices[]`) from any wave template — for a cast without a template. @param {Battle} b */
 function broodRecord(b) {
   const ids = typeof b.data.waveIds === 'function' ? b.data.waveIds() : [];
   for (const id of ids) {
-    const d = ((b.data.getWave(id) || {}).devices || []).find((x) => x && x.key === BROOD_KEY && x.stats);
+    const d = ((b.data.getWave(id) || {}).devices || []).find((/** @type {Record<string, any> | null} */ x) => x && x.key === BROOD_KEY && x.stats);
     if (d) return d;
   }
   return null;
@@ -1536,6 +1605,7 @@ function broodRecord(b) {
  * The enemy record of a 子代 from its template device record (build-data templateDevice: character_table attributes,
  * hidden talent `1.grow_duration` / `1.duration`, skill sktok_dstnta). A token that never moves (static, 失衡免疫 — it
  * is a stage device) and has no normal attack: 摄食 is its only action (kitBrood). No LP, no kill count (a part).
+ * @param {Record<string, any>} d
  */
 function broodDef(d) {
   const st = d.stats || {};
@@ -1550,6 +1620,7 @@ function broodDef(d) {
 /**
  * Switch on one 子代 at its device tile. Its own numbers: the round's enemy HP / ATK effects (rune `enemy_attribute_mul`,
  * EAttribuesMul) work on an `Enemy` only and a 子代 is a token (`Trap`) — until 2026-10-15 they reached it (summonMods).
+ * @param {Battle} b @param {Unit} boss @param {Record<string, any>} d
  */
 function spawnBrood(b, boss, d) {
   const pos = d.pos;
@@ -1577,29 +1648,31 @@ function spawnBrood(b, boss, d) {
  * Operators can attack it once 隐匿 ends (character_table "可以受到我方攻击"); its HP is its own (no transfer).
  * Model forms (render units.js FORMS): 'larva' (Start_01 → Idle_01), 'grown' (Start_02 → Idle_02 / Die_02), 'feed' (holding:
  * Attack_Begin → Attack_Loop), 'fed' (Attack_End → Idle_02).
+ * @param {AbState} ab @returns {AbList}
  */
 function kitBrood(ab) {
   const grow = T(ab, '1.grow_duration') ?? 0, life = T(ab, '1.duration') ?? Infinity;
   const sk = Object.values(ab.sk)[0] || null;
   const cost = sk && sk.sp > 0 ? sk.sp : 1;
   const atkScale = (sk && sk.bb.atk_scale) ?? 1, epr = (sk && sk.bb.ep_damage_ratio) ?? 0;
+  /** @type {Record<string, any>} the kit's state */
   const P = { t0: 0, stage: 0, sp: 0, hold: null, next: 0 };   // stage 0 幼体, 1 growing, 2 GrowUp
-  const release = (b, e) => {
+  const release = (/** @type {Battle} */ b, /** @type {Unit} */ e) => {
     if (!P.hold) return;
     P.hold = null; P.sp = 0;
     if (!e.alive) return;
     setForm(b, e, 'fed');
     if (sk) b.fx('enemySkillEnd', { x: e.x, y: e.y, id: e.id, ability: sk.name });   // the cast's end (ON_CAST_END: its held effects end)
   };
-  const bite = (b, e, t) => {
+  const bite = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {Unit} */ t) => {
     P.next = b.time + BROOD_HIT_EVERY;
     e.lastAttackAt = b.time;
     hurt(b, e, t, e.s.atk * atkScale, 'phys');
     elem(b, e, t, 'neural', e.s.atk * epr);
     if (t.alive) b.applyStatus(t, 'stun', { duration: BROOD_STUN, source: e });
   };
-  const nearest = (b, e) => targetsNear(b, e, BROOD_REACH)
-    .sort((p, q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || aggroCmp(p, q))[0] || null;
+  const nearest = (/** @type {Battle} */ b, /** @type {Unit} */ e) => targetsNear(b, e, BROOD_REACH)
+    .sort((/** @type {Unit} */ p, /** @type {Unit} */ q) => hypot(p.x - e.x, p.y - e.y) - hypot(q.x - e.x, q.y - e.y) || aggroCmp(p, q))[0] || null;
   return [{
     spawn(b, e, a, ab2) {
       P.t0 = b.time;
@@ -1651,6 +1724,7 @@ function kitBrood(ab) {
 // ---------------------------------------------------------------------------------------------------------------
 // 卢西恩，“猩红血钻” (boss_5) + 不祥幻影
 
+/** @param {AbState} ab @param {Unit} e @returns {AbList} */
 function lucienCore(ab, e) {
   const pen = T(ab, 'penetrate.def_penetrate') ?? 0, prob = T(ab, 'evade.prob') ?? 0, epr = T(ab, 'combat.attack@ep_damage_ratio') ?? 0;
   const s = ab.sk.aoe;
@@ -1689,6 +1763,7 @@ function lucienCore(ab, e) {
   ];
 }
 
+/** @param {AbState} ab @param {Unit} e @returns {AbList} */
 function kitLucien(ab, e) {
   const s = ab.sk.blink;
   return [...lucienCore(ab, e), s && {
@@ -1706,22 +1781,24 @@ function kitLucien(ab, e) {
 // ---------------------------------------------------------------------------------------------------------------
 // 阿利斯泰尔，帝国余晖 (boss_6)
 
+/** @param {AbState} ab @param {Unit} e @param {Battle} b @returns {AbList} */
 function kitLion(ab, e, b) {
   const eq = ab.sk.equip, eqA = ab.sk.equipA, st = ab.sk.store, stA = ab.sk.storeA, su = ab.sk.Suicide;
+  /** @type {Record<string, any>} the kit's state */
   const P = { sp: 0, adv: false, nextAnim: null, vestSide: 0 };
   /** The x side (±1) the boss faces: its route's first column change from where it stands (none: +1). */
-  const frontSide = (e2) => {
+  const frontSide = (/** @type {Unit} */ e2) => {
     for (const l of (e2.route && e2.route.legs) || []) if (l && l.t === 'move' && Number.isFinite(l.c) && Math.abs(l.c - e2.x) > 1e-6) return Math.sign(l.c - e2.x);
     return 1;
   };
   const raw = e.def.raw || {};
-  const golden = (raw.devices || b.data.getEnemy(e.defId)?.raw?.devices || []).find((d) => d && d.key === GOLDEN_KEY) || null;
+  const golden = (raw.devices || b.data.getEnemy(e.defId)?.raw?.devices || []).find((/** @type {Record<string, any> | null} */ d) => d && d.key === GOLDEN_KEY) || null;
   const range = () => e.base.rangeRadius || 3.4;
   const cost = eq ? (eq.sp > 0 ? eq.sp : 25) : Infinity;
   const spData = raw.sp || null, spMax = Math.max(Number.isFinite(cost) ? cost : 0, Number(spData && spData.maxSp) || 0);
   /** Equipment lying on this field, oldest first. */
-  const equipment = (b2) => b2.enemies.filter((q) => q.alive && EQUIP_KEYS.includes(q.defId)).sort((p, q) => p.spawnSeq - q.spawnSeq);
-  const decree = (b2, e2, t) => { // 【王权号令】 plus-shaped strike + random equipment, aimed at `t`
+  const equipment = (/** @type {Battle} */ b2) => b2.enemies.filter((q) => q.alive && EQUIP_KEYS.includes(q.defId)).sort((p, q) => p.spawnSeq - q.spawnSeq);
+  const decree = (/** @type {Battle} */ b2, /** @type {Unit} */ e2, /** @type {Unit} */ t) => { // 【王权号令】 plus-shaped strike + random equipment, aimed at `t`
     const sk = P.adv && eqA ? eqA : eq;
     if (!t) return false;
     const r0 = t.tileR, c0 = t.tileC;
@@ -1754,7 +1831,7 @@ function kitLion(ab, e, b) {
     }
     return true;
   };
-  const animate = (b2, e2) => { // 【莫非王土】 one piece (2 at ≤50 %); false when no branch can cast
+  const animate = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => { // 【莫非王土】 one piece (2 at ≤50 %); false when no branch can cast
     const n = P.adv && stA ? stA.bb.max_target ?? 2 : 1;
     const sk = P.adv && stA ? stA : st;
     // prefab store / storeA: an AbilitySelectableGroup casting its first branch that can (_DoCastInternal walks the
@@ -1814,16 +1891,16 @@ function kitLion(ab, e, b) {
       // `_targetColOffset` 0, `_faceIfSameCol` NONE; DamageScale PHYSICAL_AND_MAGICAL): an attacker in the boss's column
       // is on neither side, and true damage is never cut (until 2026-11-03 the exact x and every damage type)
       hitIn(c, b2, e2) {
-        const v = e2.findBuff('boss:vest'), s = c.source, ty = c.dmg.type;
+        const v = /** @type {Record<string, any> | null} */ (e2.findBuff('boss:vest')), s = c.source, ty = c.dmg.type;
         if (!v || !(v.shield > 0) || !s || (ty !== 'phys' && ty !== 'arts')) return;
         if (Math.sign(Math.round(s.x) - Math.round(e2.x)) === v.data.side) c.dmg.mul *= 1 - v.data.cut;
       },
     },
     // 【王权号令】 (equip, ≤50 % equipA; its cooldown 0): with full SP it waits for the attack's turn and is cast in place of
     // the attack (enemies.js onSkillSlot; until 2026-10-29 at once, on top of the attacks); the SP restarts at the cast
-    ...[[eq, false], [eqA, true]].map(([sk, adv]) => sk && {
+    .../** @type {Array<[AbSkill | undefined, boolean]>} */ ([[eq, false], [eqA, true]]).map(([sk, adv]) => sk && /** @type {EnemyAbility} */ ({
       name: sk.name, cd: 0, icd: 0,
-      cond: (b2, e2) => (P.adv && !!eqA) === adv && P.sp >= cost && targetsNear(b2, e2, range()).length > 0,
+      cond: (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => (P.adv && !!eqA) === adv && P.sp >= cost && targetsNear(b2, e2, range()).length > 0,
       // the SP restarts as it is cast, the strike and the drop come at Skill_1's attack event (castStrikeAt). Its target is
       // taken as the cast begins (the RangedAttack's `_selectTargetTiming` 0, one target with `_alwaysIncludeTarget` — the
       // skill's input target); at the spell the shot goes only to it if still alive on the field (DoCastOnTargets:
@@ -1835,7 +1912,7 @@ function kitLion(ab, e, b) {
         const t = b2.rng.pick(targetsNear(b2, e2, range()));
         atSpell(b2, e2, sk, () => { if (t && t.alive && t.deployed) decree(b2, e2, t); });
       },
-    }),
+    })),
     su && {
       name: su.name, cd: su.cd, icd: su.icd, atStrike: true,
       fire(b2, e2) { // 【斥退】 "对场上所有我方单位…": every operator it can select (fieldAllies)
@@ -1847,7 +1924,7 @@ function kitLion(ab, e, b) {
   ];
 }
 
-/** Whether operator `u` holds one of 王权号令's pieces (enemy_vtmstr_equip_char[A/B/C]). */
+/** Whether operator `u` holds one of 王权号令's pieces (enemy_vtmstr_equip_char[A/B/C]). @param {Unit} u */
 const holdsEquip = (u) => Object.values(HELD_BUFF).some((k) => u.findBuff(k));
 
 /**
@@ -1858,9 +1935,10 @@ const holdsEquip = (u) => Object.values(HELD_BUFF).some((k) => u.findBuff(k));
  * buff (enemy_vtmstr_equip_A/B/C[char]) refuses an operator that already holds a piece; else the operator keeps it for
  * the battle and the piece is gone (InstantKill, no kill): 未装配刀片 ATK ×(1 + `2.atk`), 防护背心 DEF ×(1 + `2.def`),
  * 冲击式施术单元 the wand effect (equipHooks). Until 2026-10-15 nobody picked a piece up.
+ * @param {AbState} ab @param {Unit} e @returns {AbList}
  */
 function kitEquip(ab, e) {
-  const pickUp = (b, q, u) => {
+  const pickUp = (/** @type {Battle} */ b, /** @type {Unit} */ q, /** @type {Unit} */ u) => {
     const key = HELD_BUFF[q.defId];
     if (q.defId === SWORD_KEY) b.addBuff(u, { key, persist: true, visible: true, mods: { atkPct: T(ab, '2.atk') ?? 0 } });
     else if (q.defId === VEST_KEY) b.addBuff(u, { key, persist: true, visible: true, mods: { defPct: T(ab, '2.def') ?? 0 } });
@@ -1890,6 +1968,7 @@ function kitEquip(ab, e) {
  * target's swing is cut — ai.js). Element damage (元素损伤) is no "output damage" here (it raises ON_AFTER_OUTPUT_ELEMENT_DAMAGE
  * only; the templates listen to ON_OUTPUT_DAMAGE). Its own 800 is 无来源: the hook sees no
  * source, so it never re-arms the window. One battle-wide pair of hooks; the state per holder (`Map`).
+ * @param {Battle} b
  */
 function equipHooks(b) {
   const st = stOf(b);
@@ -1915,6 +1994,7 @@ function equipHooks(b) {
  * attack it); it never moves and blocks nobody, nor is it blocked. No LP, no kill count (a part). The round's enemy HP / ATK
  * effects do not reach it: the rune `enemy_attribute_mul` (EAttribuesMul) works on an `Enemy` only, and this is a token
  * (`Trap`) — its own numbers (until 2026-10-15 summonMods).
+ * @param {Record<string, any>} d
  */
 function goldenDef(d) {
   const st = d.stats || {};
@@ -1926,6 +2006,7 @@ function goldenDef(d) {
   };
 }
 
+/** @param {Battle} b @param {Unit} boss @param {Record<string, any>} d @param {number[]} pos */
 function spawnGolden(b, boss, d, pos) {
   const u = b.spawnEnemy(d.key, { def: goldenDef(d), pos, route: { motion: 'FLY', start: pos, end: pos, steps: [{ t: 'wait', s: 99999 }] },
     tag: 'part', countInTotal: false, ownerPlayerId: boss.ownerId });
@@ -1933,13 +2014,14 @@ function spawnGolden(b, boss, d, pos) {
   return u;
 }
 
+/** @returns {AbList} */
 function kitGolden() {
   return [{
     spawn(b, e) {
       b.addBuff(e, { key: 'boss:golden', persist: true, flags: { noMove: true, noDisplace: true, unblockable: true } });
       const r0 = Math.round(e.y), c0 = Math.round(e.x);
       // range x-1: the tiles within Manhattan 2 (the radius alone would also take the (1, 2) tiles at 2.24 + collider)
-      e.profile.canTarget = (a) => Math.abs(a.tileR - r0) + Math.abs(a.tileC - c0) <= 2;
+      /** @type {Record<string, any>} */ (e.profile).canTarget = (/** @type {Unit} */ a) => Math.abs(a.tileR - r0) + Math.abs(a.tileC - c0) <= 2;
     },
   }];
 }
@@ -1959,6 +2041,7 @@ function kitGolden() {
  */
 const DEER_DIST = 1, DEER_SUB_LIFE = 1, DEER_SUB_RADIUS = 0.25;
 
+/** @param {AbState} ab @param {Unit} e @returns {AbList} */
 function kitDeer(ab, e) {
   const dr = T(ab, 'Madness.damage_resistance') ?? 0;
   const atkN = T(ab, 'Madness.enemy_smdeer_mad[attack].max_cnt') ?? 1, skN = T(ab, 'Madness.enemy_smdeer_mad[skill].max_target') ?? 1;
@@ -1966,11 +2049,12 @@ function kitDeer(ab, e) {
   const shot = e.def?.proj || null;                    // projectile_enemy_smdeer (data/enemies.json proj)
   const ATK2 = T(ab, 'atk_scale_2') ?? 1;
   const speed = shot && shot.speed > 0 ? shot.speed : 5;
+  /** @type {Record<string, any>} the kit's state */
   const P = { low: false, acc: Infinity, swing: null, castEnd: -Infinity, lassos: new Set() };   // like engine attacks, the first 冰凌 comes as soon as it has a target
   ab.ownAttack = true;   // 自然涌动 / Doom take the turn of its 冰凌 (ownAttackTurn)
   // the ice of one column: tile k (k tiles below the top row) gets its 冰凌 k·DEER_DIST / speed s after the strike, which
   // hits DEER_SUB_LIFE s after that
-  const icicle = (b, e2, c) => {
+  const icicle = (/** @type {Battle} */ b, /** @type {Unit} */ e2, /** @type {number} */ c) => {
     const top = ROWS - 1;
     b.fx('column', { x: c, y: e2.y, c, id: e2.id, key: shot ? shot.key : 'projectile_enemy_smdeer', sub: 'projectile_enemy_smdeer_2', r0: top, dir: [0, -1], speed, dist: DEER_DIST, life: DEER_SUB_LIFE });
     for (let k = 0; top - k * DEER_DIST >= 0; k++) {
@@ -1987,10 +2071,11 @@ function kitDeer(ab, e) {
       });
     }
   };
-  const strike = (b, e2) => {
+  const strike = (/** @type {Battle} */ b, /** @type {Unit} */ e2) => {
     P.swing = null;
     const cands = fairOrder(b, e2, allTargets(b, e2), P);
     if (!cands.length) { P.acc = Infinity; return; }   // nobody at the strike: the cooldown comes back (ai.js, the engine's whiff rule)
+    /** @type {number[]} */
     const cols = [];
     for (const t of cands) { if (!cols.includes(t.tileC)) cols.push(t.tileC); if (cols.length >= (P.low ? atkN : 1)) break; }
     for (const c of cols) icicle(b, e2, c);
@@ -1999,7 +2084,7 @@ function kitDeer(ab, e) {
   };
   return [
     {
-      spawn(b, e2) { e2.profile.noAttack = true; },
+      spawn(b, e2) { /** @type {Record<string, any>} */ (e2.profile).noAttack = true; },
       tick(b, e2, a, dt) {
         if (!P.low && e2.hpRatio < 0.5) { // <50 %: damage taken reduced, extra targets
           P.low = true;
@@ -2051,9 +2136,9 @@ function kitDeer(ab, e) {
           if (!t.alive || !t.deployed) continue;
           b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'naturalSurge', dur });
           b.applyStatus(t, 'stun', { duration: dur, source: e2 });
-          const stun = t.buffs.find((u) => u.key === 'stun' && u.source === e2) ?? null;
+          const stun = t.buffs.find((/** @type {Record<string, any>} */ u) => u.key === 'stun' && u.source === e2) ?? null;
           const surge = b.addBuff(t, { key: 'boss:surge', duration: dur, interval: 1, visible: true,
-            onTick: ({ battle, unit }) => battle.dealDamage(e2, unit, { amount: e2.s.atk * (lasso.bb.atk_scale ?? 0), type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility'] }) });
+            onTick: (/** @type {BuffTick} */ { battle, unit }) => battle.dealDamage(e2, unit, { amount: e2.s.atk * (lasso.bb.atk_scale ?? 0), type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility'] }) });
           const l = {};
           l.end = () => {
             if (!P.lassos.delete(l)) return;
@@ -2087,6 +2172,7 @@ function kitDeer(ab, e) {
  * ON_OUTPUT_DAMAGE: DamageScale × `FirstAtkDouble.damage_scale`, then it finishes — and acfncb[remove-double-buff] (not
  * silenceable) — ON_AFTER_OUTPUT_DAMAGE: finishes the first and itself. So the first damage it deals is doubled, once;
  * dealt while silenced, the bonus is gone unused.
+ * @param {AbState} ab @returns {AbList}
  */
 function kitFirstDouble(ab) {
   const scale = T(ab, 'FirstAtkDouble.damage_scale') ?? 1;
@@ -2102,6 +2188,7 @@ function kitFirstDouble(ab) {
 // projectile_enemy_acfnc(_2) / projectile_enemy_acfnca
 
 const FNC_PART = 'enemy_9028_acfncb', FNC_ARMOR = 'enemy_9027_acfnca';
+/** @param {Unit} o */
 const isFncArmor = (o) => o.alive && o.defId === FNC_ARMOR;
 /** acfnc[insert-cp]: the part's horizontal direction from the boss (SharedConsts.Direction LEFT = 3) picks the branch. */
 const FNC_BRANCH = Object.freeze({ L: 'left_acfncb', R: 'right_acfncb' });
@@ -2129,14 +2216,14 @@ const FNC_FALL_CHECK = 0.25, FNC_AHEAD_CHECK = 0.5;
 const FNC_PASS_BOX = Object.freeze({ w: 2.95, h: 0.9, dx: 0, dy: -0.5 });
 const FNC_SLAM_BOX = Object.freeze({ w: 2.95, h: 1, dx: 0, dy: 0 });
 const FNC_KILL_BOX = Object.freeze({ w: 2.95, h: 2.95, dx: 0, dy: 1 });
-/** Does a range box `box` on unit `o` meet operator `u`'s 0.25 collider? */
+/** Does a range box `box` on unit `o` meet operator `u`'s 0.25 collider? @param {Unit} o @param {{ w: number, h: number, dx: number, dy: number }} box @param {Unit} u */
 const fncBoxMeets = (o, box, u) => bodyInRadius({ x: o.x, y: o.y, hitArea: box }, u.x, u.y, ALLY_COLLIDER_RADIUS);
-/** Does the hidden 械 `boss`'s KillArmorAura box overlap 冲击之械 `o`'s hit box (its data `hitArea`; a point without one)? */
+/** Does the hidden 械 `boss`'s KillArmorAura box overlap 冲击之械 `o`'s hit box (its data `hitArea`; a point without one)? @param {Unit} boss @param {Unit} o */
 function fncKillTouch(boss, o) {
-  const A = hitRect({ x: boss.x, y: boss.y, hitArea: FNC_KILL_BOX }), B = hitRect(o) ?? { x0: o.x, x1: o.x, y0: o.y, y1: o.y };
+  const A = /** @type {NonNullable<ReturnType<typeof hitRect>>} */ (hitRect({ x: boss.x, y: boss.y, hitArea: FNC_KILL_BOX })), B = hitRect(o) ?? { x0: o.x, x1: o.x, y0: o.y, y1: o.y };
   return A.x0 < B.x1 && B.x0 < A.x1 && A.y0 < B.y1 && B.y0 < A.y1;
 }
-/** Distance from (px, py) to the laser box from (ax, ay) to (bx, by), `half` wide each side (0 inside it). */
+/** Distance from (px, py) to the laser box from (ax, ay) to (bx, by), `half` wide each side (0 inside it). @param {number} px @param {number} py @param {number} ax @param {number} ay @param {number} bx @param {number} by @param {number} half */
 function laserBoxDist(px, py, ax, ay, bx, by, half) {
   const L = hypot(bx - ax, by - ay);
   if (!(L > 1e-9)) return Math.max(0, hypot(px - ax, py - ay) - half);
@@ -2164,6 +2251,7 @@ function laserBoxDist(px, py, ax, ay, bx, by, half) {
  * cooldown 10 → acfnc[after-launch] back to Default), re-summons them at SP 45 (SkSummonArmor: kills the old ones) and
  * loses them all when one is pushed into it (KillArmorAura); its shot bounces (`attack@hit_times` hits in all, RANDOM next
  * target, the same one if alone, × 0.8 per bounce — projectile_enemy_acfnc_2), each hit summoning a part.
+ * @param {AbState} ab @param {Unit} e @param {Battle} b @param {Tpl} tpl @returns {AbList}
  */
 function kitMachine(ab, e, b, tpl) {
   const hidden = /_2$/.test(e.defId);
@@ -2172,16 +2260,16 @@ function kitMachine(ab, e, b, tpl) {
   const squad = ab.sk.SommonSquad, launch = ab.sk.LaunchArmor, resummon = ab.sk.SkSummonArmor;
   const gSquad = skillSp(e, squad), gRe = skillSp(e, resummon);
   const P = { armorOn: false, summoned: false, turn: -1 };
-  const ground = (b2) => allTargets(b2, e).filter((u) => !u.isFlying);
-  const mine = (b2) => b2.enemies.filter((o) => isFncArmor(o) && o.mem.fnc && o.mem.fnc.host === e);
-  const spawnPart = (b2, t, tile) => {
+  const ground = (/** @type {Battle} */ b2) => allTargets(b2, e).filter((u) => !u.isFlying);
+  const mine = (/** @type {Battle} */ b2) => b2.enemies.filter((o) => isFncArmor(o) && o.mem.fnc && o.mem.fnc.host === e);
+  const spawnPart = (/** @type {Battle} */ b2, /** @type {Unit | null} */ t, /** @type {number[]} */ tile) => {
     const side = tile[1] < Math.round(e.x) ? 'L' : 'R';
     const br = branchRoute(tpl, FNC_BRANCH[side]);
     const end = br && Array.isArray(br.end) ? br.end : toGoal(b2, tile[1], tile[0]).end;
     const cp = t && b2.grid.walkable(t.tileR, t.tileC) ? [[t.tileR, t.tileC]] : [];
     return b2.spawnEnemy(FNC_PART, { route: { motion: 'WALK', start: tile, end, checkpoints: cp }, pos: tile, countInTotal: false, mods: summonMods(b2, null, FNC_PART) });
   };
-  const partNear = (b2, t) => { // `_summonOnNearestPassableTile` within x-4 (the 3×3) of the target
+  const partNear = (/** @type {Battle} */ b2, /** @type {Unit} */ t) => { // `_summonOnNearestPassableTile` within x-4 (the 3×3) of the target
     let best = null, bd = Infinity;
     for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
       const r = t.tileR + dr, c = t.tileC + dc;
@@ -2191,13 +2279,13 @@ function kitMachine(ab, e, b, tpl) {
     }
     if (best) spawnPart(b2, t, best);
   };
-  const killArmors = (b2) => { for (const o of mine(b2)) b2.kill(o, null); };
-  const summonArmor = (b2, e2, kill) => { // acfnc[summon_armor] (kill = EnemyKillToken first) / acfnc_t2[summon-immediately]
+  const killArmors = (/** @type {Battle} */ b2) => { for (const o of mine(b2)) b2.kill(o, null); };
+  const summonArmor = (/** @type {Battle} */ b2, /** @type {Unit} */ e2, /** @type {boolean} */ kill) => { // acfnc[summon_armor] (kill = EnemyKillToken first) / acfnc_t2[summon-immediately]
     if (kill) killArmors(b2);
     const br = tpl && tpl.branches && tpl.branches.acfnca;
     const phase = Array.isArray(br) && Array.isArray(br[0]) ? br[0] : [];
     const r0 = Math.round(e2.y) + 1, c0 = Math.round(e2.x);
-    const list = phase.length ? phase.map((s) => tpl.extraRoutes && tpl.extraRoutes[s.routeIndex]).filter(Boolean)
+    const list = phase.length ? phase.map((/** @type {Record<string, any>} */ s) => /** @type {Record<string, any>} */ (tpl).extraRoutes && /** @type {Record<string, any>} */ (tpl).extraRoutes[s.routeIndex]).filter(Boolean)
       : [{ start: [r0, c0 - 2], end: [r0, b2.rect.c0 + 1] }, { start: [r0, c0 + 2], end: [r0, b2.rect.c1 - 1] }];
     for (const rt of list) {
       const o = b2.spawnEnemy(FNC_ARMOR, { route: { motion: 'FLY', start: rt.start, end: rt.start, checkpoints: [] }, pos: rt.start, countInTotal: false, mods: summonMods(b2, null, FNC_ARMOR) });
@@ -2210,20 +2298,21 @@ function kitMachine(ab, e, b, tpl) {
     enemyMode(b2, e2, 'WithArmor');
     if (launchA) launchA.left = launchA.icd;   // the mode's LaunchArmor attaches anew (`_resetCdWaitFirstPeriod`)
   };
+  /** @type {EnemyAbility | null} */
   const launchA = hidden && launch ? {
-    name: launch.name, cd: launch.cd, icd: launch.icd, atStrike: true, cond: (b2) => P.armorOn && mine(b2).some((o) => o.mem.fnc.state === 'hover'),
+    name: launch.name, cd: launch.cd, icd: launch.icd, atStrike: true, cond: (/** @type {Battle} */ b2) => P.armorOn && mine(b2).some((o) => o.mem.fnc.state === 'hover'),
     fire(b2, e2) { // acfnc[trigger-armor-launch] on its 冲击之械, then acfnc[after-launch]: Default mode
       for (const o of mine(b2)) if (o.mem.fnc.state === 'hover' && o.mem.ab && o.mem.ab.launch) o.mem.ab.launch(b2, o);
       P.armorOn = false;
       enemyMode(b2, e2, null);
     },
   } : null;
-  const bounce = (b2, e2, from, k) => { // the next hop of projectile_enemy_acfnc_2
+  const bounce = (/** @type {Battle} */ b2, /** @type {Unit} */ e2, /** @type {Unit} */ from, /** @type {number} */ k) => { // the next hop of projectile_enemy_acfnc_2
     if (k >= hits || !e2.alive) return;
     const others = ground(b2).filter((u) => u !== from);
     const nx = others.length ? b2.rng.pick(others) : (from.alive ? from : null);
     if (!nx) return;
-    shoot(b2, from, nx, { key: 'projectile_enemy_acfnc_2', move: 'TRACE_TARGET_WITH_SPEED', speed: FNC_BOUNCE_SPEED }, (t) => {
+    shoot(b2, from, nx, { key: 'projectile_enemy_acfnc_2', move: 'TRACE_TARGET_WITH_SPEED', speed: FNC_BOUNCE_SPEED }, (/** @type {Unit | null} */ t) => {
       if (!t || !t.alive || !e2.alive) return;   // `_dontHitWhenTargetDead`
       b2.dealDamage(e2, t, { amount: e2.s.atk * powi(FNC_BOUNCE_FALLOFF, k), type: 'phys', isAttack: true, tags: ['fncBounce'] });
       bounce(b2, e2, t, k + 1);
@@ -2311,20 +2400,22 @@ function kitMachine(ab, e, b, tpl) {
  * route's end (IsEnemyReached). Down (AfterFalldown) it can be hit, and every `Init.damage_threshold` damage it takes moves it
  * `Init.move_step` back toward the boss (at most `Init.max_offset_per_second`); its Bound casts projectile_enemy_acfnca once
  * at the other 冲击之械 — a laser following it, operators inside get ATTACK_SPEED + `Bound.attack_speed`.
+ * @param {AbState} ab @param {Unit} e @returns {AbList}
  */
 function kitArmor(ab, e) {
   const fallN = T(ab, 'Falldown.max_valid_stack_cnt') ?? 5, speed = T(ab, 'MoveSpeed.move_speed') ?? 1;
   const thr = T(ab, 'Init.damage_threshold') ?? Infinity, step = T(ab, 'Init.move_step') ?? 0, cap = T(ab, 'Init.max_offset_per_second') ?? 0;
   const slam = ab.sk.FalldownImpl, bound = ab.sk.Bound;
   const F = () => e.mem.fnc || { side: 1, state: 'hover' };
+  /** @type {Record<string, any>} the kit's state */
   const P = { passed: new Set(), triggerX: null, aheadCheck: 0, fallCheck: 0, sawAhead: false, acc: 0, pending: 0, laser: null };
-  const ops = (b2) => b2.allies().filter((u) => u.alive && u.deployed && u.kind === 'op');
-  const ahead = (b2, self) => { // HasCharacterInCertainDirection: an operator further along its way on the rows of its hit box (its own column with `_includeSelfPos`)
+  const ops = (/** @type {Battle} */ b2) => b2.allies().filter((u) => u.alive && u.deployed && u.kind === 'op');
+  const ahead = (/** @type {Battle} */ b2, /** @type {boolean} */ self) => { // HasCharacterInCertainDirection: an operator further along its way on the rows of its hit box (its own column with `_includeSelfPos`)
     const c = Math.round(e.x), s = F().side, R = hitRect(e);
-    const onRows = (u) => (R ? u.tileR + 0.5 > R.y0 && u.tileR - 0.5 < R.y1 : u.tileR === Math.round(e.y));
+    const onRows = (/** @type {Unit} */ u) => (R ? u.tileR + 0.5 > R.y0 && u.tileR - 0.5 < R.y1 : u.tileR === Math.round(e.y));
     return ops(b2).some((u) => onRows(u) && (self ? (u.tileC - c) * s >= 0 : (u.tileC - c) * s > 0));
   };
-  const fall = (b2, e2) => { // FalldownImpl
+  const fall = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => { // FalldownImpl
     const f = F();
     f.state = 'down';
     b2.removeBuff(e2, 'boss:hover');
@@ -2342,7 +2433,7 @@ function kitArmor(ab, e) {
     const other = b2.enemies.find((o) => isFncArmor(o) && o !== e2 && o.mem.fnc && o.mem.fnc.host === f.host && !o.mem.fnc.lasered);
     if (other && !f.lasered) { f.lasered = true; other.mem.fnc.lasered = true; P.laser = other; }
   };
-  ab.launch = (b2, e2) => { // Launch → MoveMode
+  ab.launch = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => { // Launch → MoveMode
     const f = F();
     f.state = 'fly';
     enemyMode(b2, e2, 'MoveMode');
@@ -2354,7 +2445,7 @@ function kitArmor(ab, e) {
       spawn(b2, e2) {
         b2.addBuff(e2, { key: 'boss:hover', persist: true, visible: true, flags: { invulnerable: true, untargetable: true } });
         b2.addBuff(e2, { key: 'boss:anchor', persist: true, flags: { noMove: true, selfBound: true, unblockable: true, noDisplace: true } });
-        e2.profile.noAttack = true;
+        /** @type {Record<string, any>} */ (e2.profile).noAttack = true;
       },
       taken(c) { // SetTakeDamageMoveBackEnemyParam
         if (!(c.amount > 0) || !(thr > 0) || F().state !== 'down') return;
@@ -2423,6 +2514,7 @@ const RAIN_TICK = 0.5;
  * 临时整备区 rows) across that player's half of the battle field (Battle._ownerForTile; the whole width alone). [추정·CN: the
  * official tile listener's selector (AutoChessAdvancedSelector) is CN-only — the whole field, as the sim reads the rain
  * (docs/rules/sim.md 「규정 적·보스」); maintainer decision 2026-11-11] null when the player is not on this field.
+ * @param {Battle} b @param {string} pid
  */
 function rainTiles(b, pid) {
   const ps = b.players.find((p) => p.playerId === pid);
@@ -2439,6 +2531,7 @@ function rainTiles(b, pid) {
   return c0 == null || r1 < r0 ? null : [r0, r1, c0, c1];
 }
 
+/** @param {Battle} b @param {Unit} e */
 function spiderFields(b, e) {
   const ids = b.players.map((p) => p.playerId);
   const own = ids.includes(e.ownerId) ? e.ownerId : ids[0];
@@ -2462,6 +2555,7 @@ function spiderFields(b, e) {
  * `ignoreTargetFree`) has ATTACK_SPEED + `attack_speed` and takes `damage` 真实 every 0.5 s while it stays (TileListener with
  * acspider[sk-poison-area]). [추정·CN: the rain's tiles are not in the prefab (CN-only tile listener) — read with the
  * handbook's "覆盖一片场地" as the target's whole field; a Right turn without another player rains nowhere].
+ * @param {AbState} ab @param {Unit} e @returns {AbList}
  */
 function kitSpider(ab, e) {
   const hidden = /_2$/.test(e.defId);
@@ -2471,14 +2565,14 @@ function kitSpider(ab, e) {
   const step = T(ab, 'Evade.hp_ratio') ?? 0, prob = T(ab, 'Evade.prob') ?? 0, evadeDur = T(ab, 'Evade.duration') ?? 0;
   const net = ab.sk.Net, rain = hidden ? ab.sk.AcidRain : null;
   const P = { evadeAt: 1 - step, rainTurn: 0 };
-  const ground = (b2, e2) => allTargets(b2, e2).filter((u) => !u.isFlying);
-  const evadeCheck = (b2, e2) => { // acspider[evade-ticker]: one step per check (the next one waits for the next check)
+  const ground = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => allTargets(b2, e2).filter((u) => !u.isFlying);
+  const evadeCheck = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => { // acspider[evade-ticker]: one step per check (the next one waits for the next check)
     if (!(step > 0) || !(P.evadeAt > 1e-9) || !(e2.hpRatio < P.evadeAt - 1e-9)) return;
     P.evadeAt = Math.max(0, P.evadeAt - step);
     b2.addBuff(e2, { key: 'boss:acspiderEvade', duration: evadeDur, refresh: 'replace', visible: true, mods: { dodgePhys: prob, dodgeArts: prob }, fxTag: 'buff:acspdier[evade]' });
     b2.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: 'acspiderEvade', dur: evadeDur });
   };
-  const netTargets = (b2, e2) => { // RANDOM per field, `max_target` each, `batch_max_target` in all
+  const netTargets = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => { // RANDOM per field, `max_target` each, `batch_max_target` in all
     const per = Math.max(1, Math.round(net.bb.max_target ?? 1)), cap = Math.max(per, Math.round(net.bb.batch_max_target ?? per));
     const ops = ground(b2, e2).filter((u) => u.kind === 'op');
     const out = [];
@@ -2488,11 +2582,11 @@ function kitSpider(ab, e) {
     }
     return out;
   };
-  const rainOn = (b2, e2, pid) => { // 【悲惨之雨】 on field `pid`
-    const dur = rain.bb.duration ?? 0, dmg = rain.bb.damage ?? 0, aspd = rain.bb.attack_speed ?? 0;
+  const rainOn = (/** @type {Battle} */ b2, /** @type {Unit} */ e2, /** @type {string} */ pid) => { // 【悲惨之雨】 on field `pid`
+    const dur = /** @type {AbSkill} */ (rain).bb.duration ?? 0, dmg = /** @type {AbSkill} */ (rain).bb.damage ?? 0, aspd = /** @type {AbSkill} */ (rain).bb.attack_speed ?? 0;
     const inField = () => b2.allies().filter((u) => u.alive && u.deployed && !u.hidden && u.ownerId === pid);
     // `tiles` [r0, r1, c0, c1]: the tiles the rain is drawn on — that player's part of the field (render/fxgame.js acBossFx)
-    b2.fx('zone', { x: e2.x, y: e2.y, r: 0, dur, kind: 'acspiderRain', field: pid, id: e2.id, ability: rain.name, tiles: rainTiles(b2, pid) });
+    b2.fx('zone', { x: e2.x, y: e2.y, r: 0, dur, kind: 'acspiderRain', field: pid, id: e2.id, ability: /** @type {AbSkill} */ (rain).name, tiles: rainTiles(b2, pid) });
     let left = dur;
     const h = b2.every(RAIN_TICK, () => {
       left -= RAIN_TICK;
@@ -2509,7 +2603,7 @@ function kitSpider(ab, e) {
       spawn(b2, e2) {
         b2.addBuff(e2, { key: 'boss:selfBound', persist: true, flags: { noMove: true, selfBound: true, unblockable: true, noDisplace: true } });
         e2.base.rangeRadius = SPIDER_FIELD;
-        e2.profile.maxTargets = batch;
+        /** @type {Record<string, any>} */ (e2.profile).maxTargets = batch;
       },
       before(c, b2, e2) { // HP_DES on every field
         const all = byPriority(e2, ground(b2, e2));
@@ -2521,7 +2615,7 @@ function kitSpider(ab, e) {
         const t = c.target;
         if (!hidden || !t || !t.alive || !(poisonDmg > 0) || !(poisonDur > 0)) return;
         b2.addBuff(t, { key: 'boss:acspiderPoison', duration: poisonDur, refresh: 'replace', interval: 1, visible: true,
-          onTick: ({ battle, unit }) => { if (e2.alive) battle.dealDamage(e2, unit, { amount: poisonDmg, type: 'true', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'acspiderPoison'] }); } });
+          onTick: (/** @type {BuffTick} */ { battle, unit }) => { if (e2.alive) battle.dealDamage(e2, unit, { amount: poisonDmg, type: 'true', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'acspiderPoison'] }); } });
       },
       taken(c, b2, e2) { evadeCheck(b2, e2); },
     },
@@ -2531,7 +2625,7 @@ function kitSpider(ab, e) {
       cond: (b2, e2) => ground(b2, e2).some((u) => u.kind === 'op'),
       fire(b2, e2) { // 【淤困捕食】
         for (const t of netTargets(b2, e2)) {
-          shoot(b2, e2, t, WEB_SHOT, (t2) => {
+          shoot(b2, e2, t, WEB_SHOT, (/** @type {Unit | null} */ t2) => {
             if (!t2 || !t2.alive || !t2.deployed) return;
             const tile = [t2.tileR, t2.tileC];
             const w = b2.spawnEnemy(WEB_KEY, { route: { motion: 'WALK', start: tile, end: tile, checkpoints: [] }, pos: tile, countInTotal: false, mods: summonMods(b2, null, WEB_KEY) });
@@ -2569,16 +2663,18 @@ function kitSpider(ab, e) {
  * leaving the field kills the web (ON_OWNER_FINISH → InstantKill of its source). It lives `Bundling.duration` s
  * (acweb[existing] → InstantKill) and loses `Bundling.hp_ratio` of its max HP every 1 s (acweb[bleeding], DamageViaMaxHpRatio
  * PURE on itself, no source).
+ * @param {AbState} ab @returns {AbList}
  */
 function kitWeb(ab) {
   const life = T(ab, 'Bundling.duration') ?? Infinity, bleed = T(ab, 'Bundling.hp_ratio') ?? 0;
+  /** @type {Record<string, any>} the kit's state */
   const P = { left: life, bleedAcc: 0, bound: new Map() };
-  const release = (b2) => { for (const [u, buff] of P.bound) b2.removeBuff(u, buff); P.bound.clear(); };
+  const release = (/** @type {Battle} */ b2) => { for (const [u, buff] of P.bound) b2.removeBuff(u, buff); P.bound.clear(); };
   return [
     {
       spawn(b2, e2) {
         b2.addBuff(e2, { key: 'boss:anchor', persist: true, flags: { noMove: true, selfBound: true, noDisplace: true } });
-        e2.profile.noAttack = true;
+        /** @type {Record<string, any>} */ (e2.profile).noAttack = true;
         P.r = Math.round(e2.y); P.c = Math.round(e2.x);
       },
       tick(b2, e2, a, dt) {
@@ -2633,6 +2729,7 @@ const EEL_THUNDER_EVERY = 10;
  * [추정·CN: the stack comes once per attack (`_onlyApplyOnFirstSpell`), its count read before the hit for the shot and after
  * it for the jumps; each jump × `chain.atk_scale` once more than the last; Selector1's `_autoChessFilterType` 3 read as its
  * own field — the two players each have a 鳍 (`boss_battle_multi_player`)]
+ * @param {AbState} ab @param {Unit} e @returns {AbList}
  */
 function kitEel(ab, e) {
   const hidden = /_2$/.test(e.defId);
@@ -2643,21 +2740,22 @@ function kitEel(ab, e) {
   const perStack = T(ab, 'Charge.attack@selector.stack_per_extra') ?? 1, extraPer = T(ab, 'Charge.attack@selector.extra_per_stack') ?? 0;
   const maxStack = T(ab, 'Charge.max_stack_cnt') ?? 0, stackAtk = T(ab, 'Charge.atk') ?? 0, jumpR = T(ab, 'Passive.attack@projectile_range') ?? 0;
   const wAtk = T(ab, 'Weather.atk_scale') ?? 1, wEp = T(ab, 'Weather.ep_damage_ratio') ?? 0;
+  /** @type {Record<string, any>} the kit's state */
   const P = { shield: false, power: false, acc: 0, stacks: new Map(), chainMain: null, thunderAcc: 0 };
-  const stacksOf = (u) => (u && P.stacks.get(u)) || 0;
-  const ground = (b2, e2) => allTargets(b2, e2).filter((u) => !u.isFlying);
-  const setShield = (b2, e2, on) => {
+  const stacksOf = (/** @type {Unit | null} */ u) => (u && P.stacks.get(u)) || 0;
+  const ground = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => allTargets(b2, e2).filter((u) => !u.isFlying);
+  const setShield = (/** @type {Battle} */ b2, /** @type {Unit} */ e2, /** @type {boolean} */ on) => {
     P.shield = on;
     if (on) b2.addBuff(e2, { key: 'boss:aceelShield', persist: true, visible: true, fxTag: 'buff:aceel[shield]' });
     else b2.removeBuff(e2, 'boss:aceelShield');
     b2.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: on ? 'aceelShield' : 'aceelShieldEnd' });
   };
-  const setPower = (b2, e2, on) => {
+  const setPower = (/** @type {Battle} */ b2, /** @type {Unit} */ e2, /** @type {boolean} */ on) => {
     P.power = on;
     if (on) b2.addBuff(e2, { key: 'boss:aceelPower', persist: true, visible: true, fxTag: 'buff:aceel[power-atk]' });
     else b2.removeBuff(e2, 'boss:aceelPower');
   };
-  const chain = (b2, e2, main) => { // projectile_enemy_aceel's jumps from `main`
+  const chain = (/** @type {Battle} */ b2, /** @type {Unit} */ e2, /** @type {Unit} */ main) => { // projectile_enemy_aceel's jumps from `main`
     const n = Math.max(0, Math.round(jumps + Math.floor(stacksOf(main) / Math.max(1, perStack)) * extraPer));
     const hit = new Set([main]);
     let from = main, scale = 1;
@@ -2679,7 +2777,7 @@ function kitEel(ab, e) {
     }
     P.chainMain = null;
   };
-  const blockCheck = (b2, e2) => { if (P.shield && e2.blockedBy) { setShield(b2, e2, false); setPower(b2, e2, true); } };   // CheckBlocked → aceel[power-atk]
+  const blockCheck = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => { if (P.shield && e2.blockedBy) { setShield(b2, e2, false); setPower(b2, e2, true); } };   // CheckBlocked → aceel[power-atk]
   return [
     {
       before(c, b2, e2) { blockCheck(b2, e2); },   // ON_OWNER_BLOCKEE_CHANGED comes with the block, before any attack on the blocker
@@ -2734,7 +2832,7 @@ function kitEel(ab, e) {
         P.thunderAcc = 0;
         const all = b2.allies().filter((u) => u.alive && u.deployed && !u.hidden);
         const ops = ground(b2, e2).filter((u) => u.kind === 'op' && u.ownerId === e2.ownerId);
-        let best = [], bn = -1;
+        let best = /** @type {Unit[]} */ ([]), bn = -1;
         for (const u of ops) {
           const n = all.filter((o) => Math.abs(o.tileR - u.tileR) <= 1 && Math.abs(o.tileC - u.tileC) <= 1).length;
           if (n > bn) { bn = n; best = [u]; } else if (n === bn) best.push(u);
@@ -2791,6 +2889,7 @@ const JU_SPARED = 'enemy_2123_dyjsww';
  * source), and every operator and summon takes physical that ATK × `OutOfControll.atk_scale`, no source (FixedValueDamage
  * `_noSourceDamage`; CreateBuffToCertainSideUnits selects nothing, so 隐匿 does not save it). A boss field ends as its pool
  * empties (DESIGN §5.5), so this shows only where the battle goes on.
+ * @param {AbState} ab @returns {AbList}
  */
 function kitJu(ab) {
   const resist = -(T(ab, 'Huge.one_minus_status_resistance') ?? 0);
@@ -2803,21 +2902,22 @@ function kitJu(ab) {
   const ovAtk = T(ab, 'Overload.atk') ?? 0, ovMove = T(ab, 'Overload.move_speed') ?? 1, ovVol = T(ab, 'Overload.block_volume') ?? 0;
   const lastAtk = T(ab, 'OutOfControll.atk_scale') ?? 1;
   const crushHit = crush && crush.cast && crush.cast.hit > 0 ? crush.cast.hit : 0;   // the clip's OnAttack frame, s
+  /** @type {Record<string, any>} the kit's state */
   const P = { guardAcc: 0, guard: null, trampleAcc: 0, wasBlocked: false, over: false, volLeft: 0, cast: null };
-  const still = (e2) => !!e2.blockedBy || !e2.moving || !!e2.s.flags.stun;
-  const setGuard = (b2, e2, dr) => {
+  const still = (/** @type {Unit} */ e2) => !!e2.blockedBy || !e2.moving || !!e2.s.flags.stun;
+  const setGuard = (/** @type {Battle} */ b2, /** @type {Unit} */ e2, /** @type {number} */ dr) => {
     if (P.guard === dr) return;
     P.guard = dr;
     const m = 1 - dr;
     b2.addBuff(e2, { key: 'boss:juGuard', persist: true, refresh: 'replace', mods: { physTakenMul: m, artsTakenMul: m } });
   };
   // the forced cast (TriggerEnemySkill): its clip starts now, its attack event comes at the clip's OnAttack frame
-  const crushStart = (b2, e2) => {
+  const crushStart = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => {
     b2.fx('enemySkill', { x: e2.x, y: e2.y, id: e2.id, ability: crush ? crush.name : 'CombatAoe' });
     P.cast = { at: b2.time + crushHit, tgt: e2.blockedBy };
     if (!(crushHit > 0)) crushNow(b2, e2);
   };
-  const crushNow = (b2, e2) => {
+  const crushNow = (/** @type {Battle} */ b2, /** @type {Unit} */ e2) => {
     const tgt = P.cast && P.cast.tgt;
     P.cast = null;
     if (!tgt || !tgt.alive || !tgt.deployed) return;
@@ -2833,7 +2933,7 @@ function kitJu(ab) {
     {
       spawn(b2, e2) {
         e2.blockWeight = 3;               // the prefab's `_blockVolume`
-        e2.profile.noAttack = true;       // `Combat` = EmptyAnimatedAbility (the table's applyWay NONE says the same)
+        /** @type {Record<string, any>} */ (e2.profile).noAttack = true;       // `Combat` = EmptyAnimatedAbility (the table's applyWay NONE says the same)
         if (resist > 0) b2.applyStatus(e2, 'resist', { source: e2, value: Math.min(1, resist) });
       },
       tick(b2, e2, a, dt) {
@@ -2872,7 +2972,7 @@ function kitJu(ab) {
 
 // ---------------------------------------------------------------------------------------------------------------
 
-export const BOSS_KITS = Object.freeze({
+export const BOSS_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Object.freeze({
   enemy_9013_acstmk: kitHelm,          // boss_1 假想敌：胄
   enemy_9013_acstmk_2: kitHelm,        // boss_8 假想敌：胄 (隐秘核心)
   enemy_9014_acstma: kitBlade,         // “斩胄之剑”
@@ -2906,10 +3006,10 @@ export const BOSS_KITS = Object.freeze({
   enemy_9037_aceel: kitEel,            // boss_13 假想敌：鳍
   enemy_9037_aceel_2: kitEel,          // boss_16 假想敌：鳍 (隐秘核心)
   enemy_2124_dyjsfg: kitJu,            // boss_17 矩兽
-});
+}));
 export const BOSS_KEYS = Object.freeze(Object.keys(BOSS_KITS));
 /** Stage tokens a leader switches on (template `devices`, not in data/enemies.json), spawned as enemies with an inline record. */
-export const DEVICE_KITS = Object.freeze({
+export const DEVICE_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Object.freeze({
   trap_039_dstnta: kitBrood,           // 子代 (盐风主教昆图斯's 断裂生殖)
   trap_185_vtlntw: kitGolden,          // 黄金回响 (阿利斯泰尔's 莫非王土 on a 冲击式施术单元)
-});
+}));

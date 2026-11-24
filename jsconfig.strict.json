@@ -31,7 +31,15 @@
     "server/sim/content/bands/**/*.js",
     "server/sim/content/kits/shared/**/*.js",
     "server/sim/battle/**/*.js",
-    "server/sim/*.js"
+    "server/sim/*.js",
+    "server/sim/content/bands.js",
+    "server/sim/content/bonds.js",
+    "server/sim/content/bosses.js",
+    "server/sim/content/codes.js",
+    "server/sim/content/enemies.js",
+    "server/sim/content/generic.js",
+    "server/sim/content/index.js",
+    "server/sim/content/local-patch.js"
   ],
   "exclude": []
 }

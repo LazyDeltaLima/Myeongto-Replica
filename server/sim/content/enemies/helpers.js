@@ -9,6 +9,8 @@ import { mitigate } from '../../damage.js';
 import { hypot } from '../../detmath.js';
 import { normShot } from '../../simdata.js';
 import { enemyMode } from '../../ai.js';
+/** @import { Battle } from '../../Battle.js' */
+/** @import { Unit } from '../../units.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -108,7 +110,7 @@ export function abOf(b, e) {
   return e.mem.ab;
 }
 
-/** Attach abilities to an enemy (calls their spawn()). */
+/** Attach abilities to an enemy (calls their spawn()). @param {import('../enemies.js').AbList} list */
 export function attach(b, e, list) {
   const ab = abOf(b, e);
   for (const a of list) {
@@ -151,13 +153,16 @@ export function silenced(e) { return !!e.s.flags.silence; }
  */
 export function unbalancedNow(b, e) { return !!(b && e && b.time < e.unbalanceUntil - 1e-9); }
 
-/** Can enemy `e` use a skill now: alive, on the field, not stunned, not silenced (`sil`), not in its 失衡 state (`b` given). */
+/** Can enemy `e` use a skill now: alive, on the field, not stunned, not silenced (`sil`), not in its 失衡 state (`b` given).
+ * @param {Unit} e @param {unknown} sil @param {Battle | null} [b] */
 export function canCast(e, sil, b = null) { return e.alive && !e.hidden && !e.s.flags.stun && !(sil && e.s.flags.silence) && !unbalancedNow(b, e); }
 
 // ---------------------------------------------------------------------------------------------------------------
 // helpers (exported for bosses.js)
 
-/** Element damage (erosion mapped onto the engine gauge); `ignoreSelect` / `tags` as hurt(). */
+/** Element damage (erosion mapped onto the engine gauge); `ignoreSelect` / `tags` as hurt().
+ * @param {Battle} b @param {Unit | null} src @param {Unit | null | undefined} tgt @param {string} el
+ * @param {number} amount @param {{ ignoreSelect?: boolean, tags?: string[] }} [opts] */
 export function elem(b, src, tgt, el, amount, { ignoreSelect = false, tags = [] } = {}) {
   if (!tgt || !tgt.alive || !(amount > 0)) return 0;
   const element = el === 'erosion' ? EROSION : el;
@@ -169,13 +174,17 @@ export function elem(b, src, tgt, el, amount, { ignoreSelect = false, tags = [] 
  * (abilities that "无视无法选择", direct picks, a flying unit's blast credited to a ground leader): it also reaches an
  * airborne 起飞 ally, which a ground enemy's damage otherwise skips (damage.js, targeting.js evadesGround).
  * `sourceless` = 无来源 damage (damage.js): `src` keeps the credit, hooks and the source's damage-dealt stats do not see it.
+ * @param {Battle} b @param {Unit | null} src @param {Unit | null | undefined} tgt @param {number} amount
+ * @param {string} [type] @param {{ canDodge?: boolean, tags?: string[], isSkill?: boolean, ignoreSelect?: boolean,
+ *   sourceless?: boolean }} [opts]
  */
 export function hurt(b, src, tgt, amount, type = 'phys', { canDodge = false, tags = [], isSkill = true, ignoreSelect = false, sourceless = false } = {}) {
   if (!tgt || !tgt.alive || !(amount > 0)) return 0;
   return b.dealDamage(src, tgt, { amount, type, canDodge, isSkill, ignoreSelect, sourceless, tags: ['enemyAbility', ...tags] });
 }
 
-/** Allies whose tile is within `n` of (r, c): 'plus' = Manhattan (周围四格), 'box' = Chebyshev (周围8格). */
+/** Allies whose tile is within `n` of (r, c): 'plus' = Manhattan (周围四格), 'box' = Chebyshev (周围8格).
+ * @param {Battle} b @param {number} r @param {number} c @param {string} [shape] @param {number} [n] */
 export function alliesInTiles(b, r, c, shape = 'plus', n = 1) {
   const out = [];
   for (const a of b.allies()) {
@@ -186,12 +195,13 @@ export function alliesInTiles(b, r, c, shape = 'plus', n = 1) {
   return out;
 }
 
-/** Allies within radius that enemy `e` could target (ranged rules: stealth / untargetable skipped). */
+/** Allies within radius that enemy `e` could target (ranged rules: stealth / untargetable skipped).
+ * @param {Battle} b @param {Unit} e @param {number} r @param {{ ranged?: boolean, x?: number, y?: number }} [opts] */
 export function targetsNear(b, e, r, { ranged = true, x = e.x, y = e.y } = {}) {
   return b.alliesInRadius(x, y, r).filter((a) => canTargetAlly(e, a, ranged) && !(e.lpGroundPicks && a.isFlying)); // local patch: client skill selector 1 (local-patch.js NO_AIR_PICKS)
 }
 
-/** Every targetable ally on the field. */
+/** Every targetable ally on the field. @param {Battle} b @param {Unit} e */
 export function allTargets(b, e) {
   return b.allies().filter((a) => canTargetAlly(e, a, true) && !(e.lpGroundPicks && a.isFlying)); // local patch: client skill selector 1 (local-patch.js NO_AIR_PICKS)
 }
@@ -202,17 +212,19 @@ export function allTargets(b, e) {
  * for a ground `src`; 迷彩 is not checked). `src` = the enemy whose effect it is (null: none — 隐匿 still applies). A
  * locked target goes first through targetAndArea. Abilities PRTS marks "无视无法选择 / 无视可选性" use b.alliesInRadius with
  * `ignoreSelect` instead.
+ * @param {Battle} b @param {Unit | null} src @param {number} x @param {number} y @param {number} r
  */
 export function areaAllies(b, src, x, y, r) {
   return b.alliesInRadius(x, y, r).filter((a) => areaSelectable(src, a));
 }
 
-/** alliesInTiles for an area effect of `src` (周围四格 / 周围八格 / cross / 3×3 areas — 格子判定): areaSelectable. */
+/** alliesInTiles for an area effect of `src` (周围四格 / 周围八格 / cross / 3×3 areas — 格子判定): areaSelectable.
+ * @param {Battle} b @param {Unit | null} src @param {number} r @param {number} c @param {string} [shape] @param {number} [n] */
 export function areaAlliesInTiles(b, src, r, c, shape = 'plus', n = 1) {
   return alliesInTiles(b, r, c, shape, n).filter((a) => areaSelectable(src, a));
 }
 
-/** Every ally on the field a whole-field ability of `src` selects ("对场上所有我方单位…": 【大潮】, 【斥退】 …). */
+/** Every ally on the field a whole-field ability of `src` selects ("对场上所有我方单位…": 【大潮】, 【斥退】 …). @param {Battle} b @param {Unit | null} src */
 export function fieldAllies(b, src) {
   return b.allies().filter((a) => areaSelectable(src, a));
 }
@@ -221,6 +233,7 @@ export function fieldAllies(b, src) {
  * The allies within `r` of (x, y) a buff aura of enemy `src` takes (targeting.js auraSelectable: no 隐匿 ally, the blocker included,
  * untargetable or sleeping ally — PRTS "隐匿状态下的单位一般无法被敌方的…Buff选择器选中"; an airborne 起飞 ally is still
  * taken [ASSUMED, §21.22]). 寒霜's aura, which PRTS says ignores 隐匿, keeps b.alliesInRadius (allyAura).
+ * @param {Battle} b @param {Unit | null} src @param {number} x @param {number} y @param {number} r
  */
 export function auraAllies(b, src, x, y, r) {
   return b.alliesInRadius(x, y, r).filter((a) => auraSelectable(src, a));
@@ -235,7 +248,7 @@ export function targetAndArea(t, area) {
   return t && t.alive && t.deployed ? [t, ...area.filter((u) => u !== t)] : area;
 }
 
-/** Engine priority (blocker → taunt → latest deployed) on a copy. */
+/** Engine priority (blocker → taunt → latest deployed) on a copy. @param {Unit} e @param {Unit[]} list */
 export function byPriority(e, list) { return sortAllyTargets(e, list.slice()); }
 
 /**
@@ -243,6 +256,9 @@ export function byPriority(e, list) { return sortAllyTargets(e, list.slice()); }
  * them — by default every ally in the circle (【污染秽蚀】 "无视无法选择"); the other zones (dmgZone, 烹泉's steam) pass
  * their area selection (areaAllies). `src` + `ability`: the enemy whose official ability leaves it (the prefab's
  * `Skills/<name>` / `Talent/<name>`) — the fx 'zone' names them, so the render draws that ability's projectile effects there.
+ * @param {Battle} b @param {{ x: number, y: number, r: number, life: number, iv?: number, kind?: string, tick: (units: Unit[]) => void,
+ *   pick?: ((x: number, y: number, r: number) => Unit[]) | null, src?: Record<string, any> | null,
+ *   ability?: string | null }} opts
  */
 export function zone(b, { x, y, r, life, iv = 1, kind = 'zone', tick, pick = null, src = null, ability = null }) {
   b.fx('zone', { x, y, r, dur: life, kind, ...(src && src.id != null && ability ? { id: src.id, ability } : {}) });
@@ -660,12 +676,14 @@ export function mode(b, e, name, fsm = true) {
   return enemyMode(b, e, name, fsm);
 }
 
+/** @param {Record<string, any> | null} [params] */
 export function setForm(b, e, form, fxKind = 'phase', params = null) {
   e.form = form;
   b.fx(fxKind, fxKind === 'phase' ? { ...params, x: e.x, y: e.y, id: e.id, kind: form, form } : { ...params, x: e.x, y: e.y, id: e.id, form });
 }
 
-/** Leader "扣除目标生命" effects: recorded for the match (hook 'lpLoss' + result.lpLoss). */
+/** Leader "扣除目标生命" effects: recorded for the match (hook 'lpLoss' + result.lpLoss).
+ * @param {{ x: number, y: number } | null} [source] */
 export function lpLoss(b, amount, reason, source = null) {
   if (!(amount > 0)) return;
   const st = stOf(b);

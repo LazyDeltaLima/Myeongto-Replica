@@ -106,7 +106,9 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, the files directly under
 `server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), the kit helpers
 (`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and
-the files directly under `server/sim/` (`server/sim/*.js`).
+the files directly under `server/sim/` (`server/sim/*.js`), and of the files directly under `server/sim/content/` the
+domain loaders `bands.js` / `bonds.js`, `codes.js`, the enemy dispatch `enemies.js`, the leaders `bosses.js`, the
+generic kit `generic.js`, the kit resolver `index.js` and `local-patch.js` (the other four, one by one).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -386,6 +388,21 @@ most strict errors were, and the JSDoc that fixed them:
   from `u.swing` (`Swing | null`) once, and an enemy's with its targets required. `--` on an optional field goes
   through a cast of its object, `/** @type {{ boomerangsOut: number }} */ (u.trait).boomerangsOut--`. Enemy fields
   set outside the spawn (`palsyUntil`, `trace`) are declared in `types/sim-members.d.ts`.
+- the enemy abilities (content/enemies.js, bosses.js, local-patch.js): the runtime model of enemies.js's header is
+  typed there once — `AbState` (`e.mem.ab`, with its `AbSkill` table and the open `AbCast`), `EnemyAbility` (its
+  methods, the kit's own fields beside them), `AbList` (what a kit returns, falsy entries included) and `EnemyKit`.
+  A kit's `@returns {AbList}` (or a list's `@type {AbList}`, `push` included) types every method's parameters by
+  context; a list built some other way (`.map` of skill pairs, an ability built field by field) gets the type by a
+  cast or on its declaration. The kit tables (`KITS`, `BOSS_KITS`, `DEVICE_KITS`) are cast to
+  `Readonly<Record<string, EnemyKit>>`. A kit's own state object `P` that starts with `null` fields is
+  `Record<string, any>`; an enemy's `e.profile` (`Record<string, any> | null` on Unit, always set on an enemy) is cast
+  where a kit writes it. The helpers in enemies/helpers.js the kits call with a typed battle (`targetsNear`,
+  `allTargets`, `areaAllies` …, `attach`) carry their `@param`s, so their results are `Unit[]`; the ones with a `null`
+  or `[]` default (`canCast`, `hurt`, `elem`, `setForm`, `lpLoss`, `zone`) say what else they take.
+- the kit resolver and the generic kit (content/index.js, generic.js): `Kit` (index.js) is the kit contract read by
+  key, `Def` a normalised def; the generic skill spec is built as a `Record<string, any>`. A blackboard getter returns
+  `number | undefined`, so a `> 0` test on one is cast at the comparison. The guarded `import()` of the domain
+  loaders returns `Promise<Record<string, any>>`.
 
 
 ## Split classes

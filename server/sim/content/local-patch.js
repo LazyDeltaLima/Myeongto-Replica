@@ -35,26 +35,30 @@
 
 import { abOf, attach, hurt, allTargets, areaAlliesInTiles, canCast, T } from './enemies.js';
 import { attackMotionOf, motionTakes } from '../targeting.js';
+/** @import { Battle } from '../Battle.js' */
+/** @import { Unit } from '../units.js' */
+/** @import { AbState, AbSkill, EnemyAbility } from './enemies.js' */
 
 export const VTSK = 'enemy_10027_vtsk';
 /** 回忆里的誓死 (PRTS): first hit after 1.33 s, one every 0.53 s, the 3×3 弹道 lasts 5.85 s. */
 export const BARRAGE_DELAY = 1.33, BARRAGE_STEP = 0.53, BARRAGE_LIFE = 5.85;
 
+/** @param {Battle} battle */
 export function install(battle) {
-  battle.on('enemySpawn', ({ enemy }) => { if (enemy && enemy.defId === VTSK) patchVtsk(battle, enemy); }, { priority: 101 });
-  battle.on('enemySpawn', ({ enemy }) => { if (enemy && enemy.defId === HLCHGR) patchHlchgr(battle, enemy); }, { priority: 99 });
+  battle.on('enemySpawn', (/** @type {{ enemy: Unit }} */ { enemy }) => { if (enemy && enemy.defId === VTSK) patchVtsk(battle, enemy); }, { priority: 101 });
+  battle.on('enemySpawn', (/** @type {{ enemy: Unit }} */ { enemy }) => { if (enemy && enemy.defId === HLCHGR) patchHlchgr(battle, enemy); }, { priority: 99 });
   // the normal attack's motion filter (docs/rules/sim.md 「적 비행 유닛 공격 전수 조사」): the prefab's UnitMode `_attack`
   // selector `_targetMotion` (data/enemies.json `attackMotion` / `attackMotionModes`, read by tools/local-extract/
   // enemy_projectiles.py — 深池暗影术师 「不会攻击飞行单位」 and the rest of the 2026-10-06 / 2026-11-20 sweeps; 扎罗's M2 only, as its
   // M1 attack never triggers) keeps a flyer out of a ground-only mode's candidates, on top of the kit's own rule (upstream
   // shoots a flyer with every ranged enemy that has none). A 起飞 ally is already out of a ground enemy's reach
   // (targeting.js evadesGround).
-  battle.on('enemySpawn', ({ enemy: e }) => {
+  battle.on('enemySpawn', (/** @type {{ enemy: Unit }} */ { enemy: e }) => {
     if (!enemy0(e) || !motionFiltered(e.def)) return;
-    const own = e.profile.canTarget;
-    e.profile.canTarget = typeof own === 'function'
-      ? (u) => motionTakes(attackMotionOf(e.def, e.form), u) && own(u)
-      : (u) => motionTakes(attackMotionOf(e.def, e.form), u);
+    const own = /** @type {Record<string, any>} */ (e.profile).canTarget;
+    /** @type {Record<string, any>} */ (e.profile).canTarget = typeof own === 'function'
+      ? (/** @type {Unit} */ u) => motionTakes(attackMotionOf(e.def, e.form), u) && own(u)
+      : (/** @type {Unit} */ u) => motionTakes(attackMotionOf(e.def, e.form), u);
   }, { priority: 99 });
   // a kit that picks its own attack targets in 'before' (“灵幛” everyone in reach, the 胄 blades, …) bypasses the engine's
   // candidate filter: after content (priority 50) their targets keep to the mode's motion again (an empty list = no attack)
@@ -62,28 +66,31 @@ export function install(battle) {
     const e = c.attacker;
     if (!enemy0(e) || !motionFiltered(e.def)) return;   // (no own field on the enemy: one object shape, feedback1-transform.test.js)
     const mask = attackMotionOf(e.def, e.form);
-    c.targets = (c.targets || []).filter((t) => t && motionTakes(mask, t));
+    c.targets = (c.targets || []).filter((/** @type {Unit | null} */ t) => t && motionTakes(mask, t));
   }, { priority: 49 });
   // skills whose client Trigger / Selector is _targetMotion 1: their target picks (enemies.js allTargets / targetsNear) skip a
   // flyer; an area their projectile then covers keeps its own client filter (鼠王 唱沙 / 沙狱, “自在” 纬地经天: collision 3)
-  battle.on('enemySpawn', ({ enemy }) => { if (enemy && NO_AIR_PICKS.includes(enemy.defId)) enemy.lpGroundPicks = true; }, { priority: 99 });
+  battle.on('enemySpawn', (/** @type {{ enemy: Unit }} */ { enemy }) => { if (enemy && NO_AIR_PICKS.includes(enemy.defId)) enemy.lpGroundPicks = true; }, { priority: 99 });
 }
 
 export const HLCHGR = 'enemy_10087_hlchgr';
 /** Has the enemy def a normal attack whose motion leaves some unit out in a mode (data `attackMotion`)? */
+/** @param {Record<string, any> | null | undefined} d */
 const motionFiltered = (d) => !!d && d.attackMotion > 0 && (d.attackMotion !== 3 || Object.values(d.attackMotionModes || {}).some((v) => v !== 3));
 // skill target picks, client _targetMotion 1: 鼠王 DriftSand / SandStorm / Mark Trigger, 杰斯顿 IronSandStorm Trigger (its
 // stuns — PRTS 「禁锢装置/飞行单位以外」), “自在” CrossAttack / Mark Selector. Their area parts: enemies.js (“自在” 破桎而出 and
 // “巨大的丑东西”'s 重生 bomb skip flyers there; 唱沙 / 沙狱 / 纬地经天 projectiles keep collision 3 — PRTS 「弹道可对空」)
 export const NO_AIR_PICKS = Object.freeze(['enemy_1509_mousek', 'enemy_1516_jakill', 'enemy_1517_xi']);
+/** @param {Unit | null | undefined} e */
 const enemy0 = (e) => !!e && e.side === 'enemy' && !!e.profile;
 
 /** After content/enemies.js (priority 100): replace its 6 s timer with the ammo skill. */
+/** @param {Battle} b @param {Unit} e */
 function patchHlchgr(b, e) {
-  const ab = abOf(b, e);
+  const ab = /** @type {AbState} */ (abOf(b, e));
   const sk = ab.sk.ForeverEnhance;
   if (!sk) return;
-  ab.list = ab.list.filter((a) => !(a.tick && a.iv > 0 && !a.lpAmmo)); // upstream's only ability: the plain timer
+  ab.list = ab.list.filter((a) => !(a.tick && /** @type {number} */ (a.iv) > 0 && !a.lpAmmo)); // upstream's only ability: the plain timer
   const sp = (e.def && e.def.raw && e.def.raw.sp) || {};
   const max = Math.max(1, Math.floor(Number(sp.maxSp) || 0));
   e.lpAmmo = { left: Math.min(max, Math.max(0, Math.floor(Number(sp.initSp ?? max) || 0))), max };
@@ -91,6 +98,7 @@ function patchHlchgr(b, e) {
 }
 
 /** 赐我力量！: every SkillTrigger.interval s try one cast (≤ max_stack_cnt successes, 1 bullet each). */
+/** @param {AbState} ab @param {AbSkill} sk @returns {EnemyAbility} */
 function foreverEnhance(ab, sk) {
   const maxCasts = T(ab, 'SkillTrigger.max_stack_cnt') ?? Infinity;
   const cost = Math.max(0, sk.sp ?? 1);
@@ -100,8 +108,8 @@ function foreverEnhance(ab, sk) {
     iv: T(ab, 'SkillTrigger.interval') ?? 6,
     tick(b, e, a) {
       const n = a.n ?? 0;
-      if (n >= maxCasts || !(e.lpAmmo.left >= cost) || !canCast(e, false)) return;
-      e.lpAmmo.left -= cost;
+      if (n >= maxCasts || !(/** @type {{ left: number, max: number }} */ (e.lpAmmo).left >= cost) || !canCast(e, false)) return;
+      /** @type {{ left: number, max: number }} */ (e.lpAmmo).left -= cost;
       a.n = n + 1;
       e.skillAnimUntil = b.time + 0.5;
       b.addBuff(e, { key: 'ab:enhance', persist: true, mods: { atkPct: atk0 + a.n * (sk.bb.atk_add ?? 0), moveMul: move0 + a.n * (sk.bb.move_speed_add ?? 0) } });
@@ -109,8 +117,9 @@ function foreverEnhance(ab, sk) {
   };
 }
 
+/** @param {Battle} b @param {Unit} e */
 function patchVtsk(b, e) {
-  const ab = abOf(b, e);
+  const ab = /** @type {AbState} */ (abOf(b, e));
   const ap = ab.sk.Appear, mc = ab.sk.MultiCombat;
   delete ab.sk.Appear;
   delete ab.sk.MultiCombat;
@@ -118,6 +127,7 @@ function patchVtsk(b, e) {
 }
 
 /** 回忆里的誓死: one 3×3 zone on the highest-HP ally's tile; each pulse hits the highest-HP ally inside it, ≤ `times` hits. */
+/** @param {number} times @returns {EnemyAbility} */
 function barrage(times) {
   return {
     spawn(b, e) {
@@ -142,6 +152,7 @@ function barrage(times) {
 }
 
 /** 回忆里的怒守: ready on the data cooldown, cast only while blocked; that melee attack lands as three 100 % hits. */
+/** @param {AbSkill} mc @returns {EnemyAbility} */
 function chargedTriple(mc) {
   const n = mc.bb.times ?? 1;
   return {

@@ -6,10 +6,14 @@
 // `contentInfo`). The parts are loaded with guarded dynamic imports: one failing to load never disables the other.
 // Membership (own bonds, 变形同构体 grants, 调和 enjoying active core bonds) lives in support/index.js.
 
+/** @import { Battle } from '../Battle.js' */
+/** @import { MetaRegistry } from '../../match/effectsMeta.js' */
+
+/** @param {string} path @returns {Promise<Record<string, any>>} */
 async function load(path) {
   try {
     return await import(path);
-  } catch (e) {
+  } catch (/** @type {any} */ e) {
     console.error(`[content] failed to load ${path}: ${e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e}`);
     return {};
   }
@@ -17,14 +21,17 @@ async function load(path) {
 
 const [dispatch, supportMeta] = await Promise.all([load('./bonds/dispatch.js'), load('./support/meta.js')]);
 
+/** @param {Battle} battle */
 export function reserve(battle) {
   if (typeof dispatch.reserve === 'function') dispatch.reserve(battle);
 }
 
+/** @param {Battle} battle */
 export function install(battle) {
   if (typeof dispatch.install === 'function') dispatch.install(battle);
 }
 
+/** @param {MetaRegistry} registry @param {Record<string, any> | null} [data] */
 export function registerMeta(registry, data) {
   let first = null;
   if (typeof supportMeta.registerSupportMeta === 'function') {
