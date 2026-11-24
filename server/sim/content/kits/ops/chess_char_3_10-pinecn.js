@@ -2,7 +2,9 @@
 // Conventions of the tier-3 kits: ../shared/tier3.js; kit contract and rules: ../README.md.
 
 import { num, defOf, talentBb, selectedId, altSkills, instantKindOf, copyGrid } from '../shared/tier3.js';
+/** @import { KitFns, KitSpec, KitSkill } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---- 3_10 松果 · 散射手 — S2 电能过载: ATK + growing with each use (a→d), shorter range; 便携电源: SP regen for 60 s
   chess_char_3_10_a: (bb, chess, def) => {
@@ -12,6 +14,7 @@ export default {
     const steps = Object.keys(bb).filter((k) => /\[[a-z]\]\.atk$/.test(k)).sort().map((k) => num(bb[k]));
     if (!steps.length) steps.push(num(bb.atk));
     const skillGrid = copyGrid(d.skill?.rangeGrid);
+    /** @type {KitSpec & { skill: KitSkill }} */
     const kit = {
       skill: {
         kind: 'duration',

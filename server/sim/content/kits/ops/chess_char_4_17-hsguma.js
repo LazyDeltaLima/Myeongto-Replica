@@ -3,6 +3,8 @@
 
 import { AURA, num, tbb, whileDeployed, pulse, toggleBuff, isSel, alt, channel, withDefaults } from '../shared/tier4.js';
 import { byEnemyAttack } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
 export default withDefaults({
   // ===== 星熊 (protector) S2 荆棘 (passive) — DEF +13 %, answers every enemy damage instance with 65 % ATK phys on its source; talents
@@ -55,7 +57,7 @@ export default withDefaults({
         if (bd) whileDeployed(battle, unit, 0.1, () => toggleBuff(battle, unit, 'hsguma:module', unit.blocking.length > 0, { defPct: bd }));
         if (!S2) return;
         battle.on('damaged', (c) => {
-          const src = c.source;
+          const src = /** @type {Unit} */ (c.source); // byEnemyAttack below: an enemy's damage
           // 荆棘 = the official inverse_damage: every enemy damage instance, not its attacks only (tier1 byEnemyAttack)
           if (c.target !== unit || !unit.alive || !byEnemyAttack(c) || !src.alive) return;
           battle.dealDamage(unit, src, { amount: unit.s.atk * num(bb.atk_scale, 0.65), type: 'phys', canDodge: false, isSkill: true, tags: ['counter'] });

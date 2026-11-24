@@ -3,7 +3,9 @@
 
 import { num, talentBb, enemiesInGrid, instantKind } from '../shared/tier1.js';
 import { tinmanKit } from './chess_char_1_16-tinman.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_19 锡人 “大拉里”: see tinmanKit (chess_char_1_16-tinman.js).

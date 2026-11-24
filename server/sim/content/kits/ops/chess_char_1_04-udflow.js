@@ -2,7 +2,9 @@
 // Conventions of the tier-1 kits: ../shared/tier1.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, moduleOn, installReveal, skillBbOf } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_04 深巡 行动能力剥夺: longer line range (skill grid), ATK +atk, ASPD +attack_speed, fin darts pierce

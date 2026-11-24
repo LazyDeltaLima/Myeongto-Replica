@@ -41,7 +41,7 @@ import { hypot } from '../../../detmath.js';
 import { hasPower } from './powers.js';
 /** @import { Battle } from '../../../Battle.js' */
 /** @import { Unit } from '../../../units.js' */
-/** @import { KitChess, KitDef, Bb, Grid } from './tier1.js' */
+/** @import { KitChess, KitDef, Bb, Grid, KitSkill } from './tier1.js' */
 /** @import { HitEv, HealEv } from '../../support/index.js' */
 /** @import { BuffRec } from '../../bonds/shared.js' */
 
@@ -91,9 +91,9 @@ const isOp = (u) => u && u.kind === 'op';
 // under every skill, so default-skill machinery in them is guarded by the selected skill id (`sid`).
 /** Id of the selected skill of a chess record / def. @param {KitChess} chess @param {KitDef} def */
 const selectedId = (chess, def) => chess?.skill?.skillId ?? def?.skill?.id ?? null;
-/** `skills` map whose entries are built only when read (each spec is a function of the SELECTED skill's bb). @param {Record<string, () => object>} builders */
+/** `skills` map whose entries are built only when read (each spec is a function of the SELECTED skill's bb). @param {Record<string, () => KitSkill>} builders */
 function lazySkills(builders) {
-  /** @type {Record<string, object>} */
+  /** @type {Record<string, KitSkill>} */
   const o = {};
   for (const [id, build] of Object.entries(builders)) Object.defineProperty(o, id, { enumerable: true, get: build });
   return o;

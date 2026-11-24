@@ -11,6 +11,11 @@ import { powi } from '../../../detmath.js';
 import { CHAMPAGNE_TRIGGER, champagneHold, champagneLeavesWithOwner } from '../../tokens.js';
 import { canTargetEnemy } from '../../../targeting.js';
 import { attackTiming } from '../../../ai.js';
+/** @import { KitFns, Tile } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { Profile } from '../../../professions.js' */
 
 /**
  * 琳琅诗怀雅 S2 “见面礼”'s placement range: range_table "x-6" — her tile and the two tiles beyond it in each of the four
@@ -19,11 +24,14 @@ import { attackTiming } from '../../../ai.js';
  */
 const SWIRE2_BOMB_GRID = Object.freeze([[2, 0], [1, 0], [0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [-1, 0], [-2, 0]]);
 
-/** Merchant trait with a callback on every successful DP payment (琳琅诗怀雅 大买家). Same rules as professions.js. */
+/**
+ * Merchant trait with a callback on every successful DP payment (琳琅诗怀雅 大买家). Same rules as professions.js.
+ * @param {(battle: Battle, unit: Unit, cost: number) => void} onPay
+ */
 function merchantInstall(onPay) {
-  return (battle, unit) => {
-    const iv = unit.profile.merchantInterval ?? 3;
-    const cost = unit.profile.merchantCost ?? 3;
+  return (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
+    const iv = /** @type {Profile} */ (unit.profile).merchantInterval ?? 3;
+    const cost = /** @type {Profile} */ (unit.profile).merchantCost ?? 3;
     battle.every(iv, () => {
       if (!alive(unit)) return;
       const pl = battle.getPlayer(unit.ownerId);
@@ -37,6 +45,7 @@ function merchantInstall(onPay) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   // ---- 3_04 琳琅诗怀雅 · 行商 — S2 “见面礼” (passive): with a coin and a free tile of range x-6 her attack's turn
   //      throws a champagne bomb instead (onto an enemy's tile when one stands there; installS2);
@@ -59,16 +68,16 @@ export default {
     const modTal = moduleTalentBb(chess);
     const scale = num(bb.atk_scale, 1);
     const slug = num(bb.sluggish, 2);
-    const tokenId = chess?.skill?.overrideTokenKey ?? (d.tokens || []).find((t) => /gdtrap/.test(String(t))) ?? 'token_10031_swire2_gdtrap';
-    const addCoins = (battle, unit, n) => {
+    const tokenId = chess?.skill?.overrideTokenKey ?? (d.tokens || []).find((/** @type {unknown} */ t) => /gdtrap/.test(String(t))) ?? 'token_10031_swire2_gdtrap';
+    const addCoins = (/** @type {Battle} */ battle, /** @type {Unit} */ unit, /** @type {number} */ n) => {
       const before = unit.mem.coins ?? 0;
       unit.mem.coins = Math.min(coinMax, before + n);
       if (unit.mem.coins > before) fx(battle, 'coin', unit, { n: unit.mem.coins });
     };
-    const bombKit = (owner, switchT) => ({
+    const bombKit = (/** @type {Unit} */ owner, /** @type {number} */ switchT) => ({
       skill: null,
       trait: { noAttack: true },
-      install(battle, bomb) {
+      install(/** @type {Battle} */ battle, /** @type {Unit} */ bomb) {
         champagneHold(battle, bomb);   // 禁疗, no HP loss, never gone because of its HP, no ally selector picks it (tokens.js)
         champagneLeavesWithOwner(battle, bomb);   // she takes it with her when she leaves (die_to_kill_token, tokens.js)
         battle.on('tick', () => {
@@ -110,9 +119,9 @@ export default {
      * x-4 — the 3×3 with her own tile — ally side, `_excludeOwner` 0, max HP ratio 0.7, one target. Until 0.2.0 she was
      * left out and never healed herself (community report of 2026-10-06 「琳琅诗怀雅不会治疗自己」).
      */
-    const installS1 = (battle, unit) => {
+    const installS1 = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       const hs = num(bb['attack@heal_scale'], num(bb.heal_scale, 0));
-      const healable = (a) => {
+      const healable = (/** @type {Unit} */ a) => {
         if (!alive(a) || a.hidden || a.kind === 'device' || a.hpRatio >= healRatio) return false;
         if (a !== unit && (a.s.flags.noHeal || a.profile?.noHeal)) return false; // 禁疗 / 孤立: never a heal target
         if (a === unit && a.s.flags.healFree) return false; // her own 禁疗 (HEAL_FREE) stops a heal of herself too
@@ -130,7 +139,7 @@ export default {
       // (trait.canAttack) the turn is the heal's while one is cast or due
       unit.mem.swire2HealHolds = () => !!unit.mem.swire2Heal || (canCast() && (unit.mem.coins ?? 0) >= coinCost && !!healTarget());
       battle.on('tick', () => {
-        if (unit.mem.swire2Heal || !canCast() || unit.atkCd > 1e-9 || unit.castLeft > 0 || unit.skillStateUntil > battle.time + 1e-9) return;
+        if (unit.mem.swire2Heal || !canCast() || unit.atkCd > 1e-9 || unit.castLeft > 0 || /** @type {number} */ (unit.skillStateUntil) > battle.time + 1e-9) return;
         if ((unit.mem.coins ?? 0) < coinCost) return;
         const best = healTarget();
         if (!best) return;
@@ -170,7 +179,7 @@ export default {
      * no table): `canAttack` holds her attack back while a throw is due and the 'tick' hook (after the attacks) throws
      * when her attack is ready. Until 0.2.0 every attack also dropped a bomb on her 1-1 range, at random.
      */
-    const bombTiles = (battle, unit) => {
+    const bombTiles = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       const out = [];
       for (const k of gridKeys(SWIRE2_BOMB_GRID, unit)) {
         const r = (k / COLS) | 0, c = k % COLS;
@@ -179,9 +188,9 @@ export default {
       return out;
     };
     // (`bombHold`: a refused spawn — a tile freeTile let through — never holds her attack back for longer than one cycle)
-    const hasCoin = (battle, unit) => (unit.mem.coins ?? 0) >= coinCost && !(battle.time < (unit.mem.bombHold ?? -1));
-    const throwDue = (battle, unit) => hasCoin(battle, unit) && bombTiles(battle, unit).length > 0;
-    const installS2 = (battle, unit) => {
+    const hasCoin = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => (unit.mem.coins ?? 0) >= coinCost && !(battle.time < (unit.mem.bombHold ?? -1));
+    const throwDue = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => hasCoin(battle, unit) && bombTiles(battle, unit).length > 0;
+    const installS2 = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       const switchT = num(battle.tokenDef(tokenId, unit)?.skill?.bb?.duration_switch, 3);
       const ground = { ...unit.profile, canHitFly: false };
       battle.on('tick', () => {
@@ -203,7 +212,7 @@ export default {
         fx(battle, 'swire2Throw', unit, { signal: 'spawnToken' });
       }, { owner: unit });
     };
-    const installS3 = (battle, unit) => { // 千金一掷: "击倒敌人时获得一枚金币"
+    const installS3 = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => { // 千金一掷: "击倒敌人时获得一枚金币"
       battle.on('kill', (ctx) => {
         if (ctx.killer === unit && ctx.victim.side === 'enemy' && unit.skill?.active) addCoins(battle, unit, 1);
       }, { owner: unit });
@@ -219,14 +228,14 @@ export default {
         // S2: a throw due takes her attack's turn (installS2); S1: a heal cast or due does (installS1)
         ...(sel === S2 || sel == null ? { canAttack: (battle, unit) => !throwDue(battle, unit) } : {}),
         ...(sel === S1 ? { canAttack: (battle, unit) => !unit.mem.swire2HealHolds?.() } : {}),
-        install: merchantInstall((battle, unit) => {
+        install: merchantInstall((/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
           // MER-Y "每次特性消耗费用时攻击力+4%，最多可以叠加5次" (any time, not only during the skill)
           if (modTal && num(modTal.atk) > 0) {
             battle.addBuff(unit, { key: 'trait:swire2_module', refresh: 'stack', stacks: 1, maxStacks: Math.max(1, num(modTal.max_stack_cnt, 5)), mods: { atkPct: num(modTal.atk) } });
           }
           if (!unit.skill?.active) return; // "技能期间"
           addCoins(battle, unit, num(t0.trait_sp, 1));
-          const max = Math.max(1, num(t0.max_stack_cnt, 8)), was = unit.findBuff('talent:swire2_buyer')?.stacks ?? 0;
+          const max = Math.max(1, num(t0.max_stack_cnt, 8)), was = /** @type {BuffRec | null} */ (unit.findBuff('talent:swire2_buyer'))?.stacks ?? 0;
           const b = battle.addBuff(unit, { key: 'talent:swire2_buyer', refresh: 'stack', stacks: 1, maxStacks: max, mods: { atkPct: num(t0.atk) }, visible: true });
           // swire2_t_1[atk]'s effect, and [max]'s at max_stack_cnt (render/fxstatus.js STACK_FX)
           if (b && b.stacks !== was) battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'talent:swire2_buyer', n: b.stacks, max });

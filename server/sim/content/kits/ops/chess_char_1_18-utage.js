@@ -2,7 +2,10 @@
 // Conventions of the tier-1 kits: ../shared/tier1.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, up, onHitBy, onHitOn, skillBbOf, holdProtect, PROTECT_TICK_HOLD } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_18 宴 落地斩·破门 (passive): at each deployment lose hp_ratio of current HP, then for `duration` s ATK +atk and
@@ -39,7 +42,7 @@ export default {
           battle.on('tick', () => {
             if (!up(unit)) return;
             const v = maxAs * Math.max(0, Math.min(1, (1 - unit.hpRatio) / (1 - minHp)));
-            const cur = unit.findBuff('utage:serious');
+            const cur = /** @type {BuffRec | null} */ (unit.findBuff('utage:serious'));
             if (cur && Math.abs((cur.data?.v ?? 0) - v) < 0.5) return;
             if (v < 0.5) { if (cur) battle.removeBuff(unit, 'utage:serious'); return; }
             battle.addBuff(unit, { key: 'utage:serious', mods: { aspd: v }, data: { v }, tags: ['talent'] });

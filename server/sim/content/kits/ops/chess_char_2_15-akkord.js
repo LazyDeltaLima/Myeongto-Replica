@@ -3,7 +3,9 @@
 
 import { num, talentBb, traitBb, onHitBy, alliesInGridOf, toggleBuff } from '../shared/tier1.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_15 协律 (hidden) 震爆调谐: ATK +atk; each attack sets off a sonic boom at every other operator in range:

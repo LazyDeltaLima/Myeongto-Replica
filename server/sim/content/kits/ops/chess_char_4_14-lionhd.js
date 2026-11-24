@@ -4,6 +4,7 @@
 import {
   num, tbb, grid, targetsInRange, whileDeployed, toggleBuff, resCut, alt, applyModuleRange, withDefaults,
 } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
 export default withDefaults({
   // ===== 莱恩哈特 (splashcaster) S2 解构与爆破 — charges: 170 % arts to all in the wider range + RES −8 % for 6 s; 破片杀伤

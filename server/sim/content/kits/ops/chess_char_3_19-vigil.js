@@ -3,10 +3,14 @@
 
 import { num, defOf, talentBb, selectedId, altSkills, alive, fx, textNum, tacticalPoint } from '../shared/tier3.js';
 import { installWolfTacticalPoint, wolfReturnNow, wolfShadowInterval, wolfTacticalPoint } from '../../tokens.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 /** Tokens `tokenId` summoned by / placed for `owner` (board pieces included). */
-const tokensOf = (battle, owner, tokenId) => battle.allyUnits.filter((t) => t.kind === 'token' && t.defId === tokenId && t.ownerUnit === owner && !t.mem.isClone);
+const tokensOf = (/** @type {Battle} */ battle, /** @type {Unit} */ owner, /** @type {string} */ tokenId) => battle.allyUnits.filter((t) => t.kind === 'token' && t.defId === tokenId && t.ownerUnit === owner && !t.mem.isClone);
 
+/** @type {KitFns} */
 export default {
   // ---- 3_19 伺夜 · 战术家 — the tactical reinforcement is the wolf pack (狼群领袖: 2 wolves, +1 every 25 s up to 3, each
   //      wolf = +1 block and one more bite, a wolf is lost instead of the pack dying; the fatal hit on the last one, or a
@@ -26,23 +30,23 @@ export default {
     const d = defOf(chess, def);
     const sel = selectedId(chess, d);
     const t0 = d.talents?.[0] ?? {}, t1 = talentBb(d, 1);
-    const wolfId = t0.tokenKey ?? (d.tokens || []).find((t) => /wolf/.test(String(t))) ?? 'token_10028_vigil_wolf';
+    const wolfId = t0.tokenKey ?? (d.tokens || []).find((/** @type {unknown} */ t) => /wolf/.test(String(t))) ?? 'token_10028_vigil_wolf';
     const initial = textNum(t0.description, /初始(\d+|[一二两三四五])只/, 2);
     const maxWolves = textNum(t0.description, /至多(\d+|[一二两三四五])只/, 3);
     const hits = textNum(d.skill?.description, /(\d+|[一二两三四五])连击/, 3);
     const bonus = num(bb['attack@vigil_s_3.atk_scale'], 0);
     const pen = num(t1.def_penetrate_fixed, 0);
     /** The standing pack (狼群天性, S3, the TAC-Y mark, S2). */
-    const wolfOf = (u) => (u.trait.reinforcement && u.trait.reinforcement.alive ? u.trait.reinforcement : null);
+    const wolfOf = (/** @type {Unit} */ u) => (u.trait.reinforcement && u.trait.reinforcement.alive ? u.trait.reinforcement : null);
     /** The pack on the field in either form — standing, or in its 战术点形态 (only while 伺夜 stands: tokens.js). */
-    const packOf = (u) => {
+    const packOf = (/** @type {Unit} */ u) => {
       const w = u.trait.reinforcement;
       return w && (w.alive || wolfTacticalPoint(w)) ? w : null;
     };
-    const wolfKit = (vigil) => ({
+    const wolfKit = (/** @type {Unit} */ vigil) => ({
       skill: null,
-      trait: { hitsFn: (b, w) => Math.max(1, w.mem.wolves || 1) },
-      install(battle, w) {
+      trait: { hitsFn: (/** @type {Battle} */ b, /** @type {Unit} */ w) => Math.max(1, w.mem.wolves || 1) },
+      install(/** @type {Battle} */ battle, /** @type {Unit} */ w) {
         const tal = w.def.talents || [];
         const wb = tal[0]?.bb ?? {};
         const per = num(wb.block_cnt, num(wb['vigil_wolf_t_1_enhance[trigger].block_cnt'], 1));
@@ -67,7 +71,7 @@ export default {
           if (back && back.src == null) fx(battle, 'summon', w, { wolves: w.mem.wolves }); // (S1 ① shows its own)
           const seq = w.deploySeq;
           if (grow > 0) {
-            battle.every(grow, (b, sched) => {
+            battle.every(grow, (/** @type {Battle} */ b, sched) => {
               if (!w.alive || w.deploySeq !== seq) { sched.cancel(); return; }
               w.mem.addWolf();
             }, { owner: w });
@@ -89,7 +93,7 @@ export default {
             fx(battle, 'wolfShadowLost', w, { wolves: 0 });
           },
         });
-        const mod = tal.find((t) => t && t.bb && t.bb.damage_scale != null);
+        const mod = tal.find((/** @type {Record<string, any> | null} */ t) => t && t.bb && t.bb.damage_scale != null);
         if (mod) {
           battle.on('hit', (ctx) => {
             if (ctx.target === w && ctx.source && ctx.source.blockedBy === w) ctx.dmg.mul *= num(mod.bb.damage_scale, 1);
@@ -100,17 +104,17 @@ export default {
     // TAC-Y token module talent (taunt_level) of the pack — whichever kit runs it (this one or a tokens.js board piece):
     // the enemies it blocks carry that taunt level while they stay blocked (short refreshed buff: nothing lingers when
     // the pack or 伺夜 leaves)
-    const packTaunt = (w) => {
+    const packTaunt = (/** @type {Unit} */ w) => {
       if (w.mem.packTaunt == null) {
-        const t = (w.def?.talents || []).find((x) => x && x.bb && x.bb.taunt_level != null);
+        const t = (w.def?.talents || []).find((/** @type {Record<string, any> | null} */ x) => x && x.bb && x.bb.taunt_level != null);
         w.mem.packTaunt = t ? num(t.bb.taunt_level) : 0;
       }
       return w.mem.packTaunt;
     };
-    const installPackMark = (battle, unit) => {
+    const installPackMark = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       let cur = new Set();
-      const levelOf = (w) => (w && alive(w) && alive(unit) ? packTaunt(w) : 0);
-      const mark = (e, w, lvl) => battle.addBuff(e, { key: 'token:pack_mark', duration: 0.25, refresh: 'extend', mods: { taunt: lvl }, source: w, visible: true });
+      const levelOf = (/** @type {Unit | null} */ w) => (w && alive(w) && alive(unit) ? packTaunt(w) : 0);
+      const mark = (/** @type {Unit} */ e, /** @type {Unit | null} */ w, /** @type {number} */ lvl) => battle.addBuff(e, { key: 'token:pack_mark', duration: 0.25, refresh: 'extend', mods: { taunt: lvl }, source: w, visible: true });
       // at once when the pack blocks (the operators attacking this tick already see it), kept / dropped every 0.1 s
       battle.on('blocked', (ctx) => {
         const w = wolfOf(unit), lvl = ctx.blocker === w ? levelOf(w) : 0;
@@ -121,7 +125,7 @@ export default {
         const lvl = levelOf(w);
         const next = new Set();
         if (lvl) {
-          for (const e of w.blocking) {
+          for (const e of /** @type {Unit} */ (w).blocking) { // lvl > 0: levelOf found the wolf
             if (!e.alive || e.side !== 'enemy' || e.blockedBy !== w) continue;
             mark(e, w, lvl);
             next.add(e);
@@ -139,7 +143,7 @@ export default {
      * One more “狼影” (S1 ②) on a standing pack: this kit's pack, or a 狼群 board piece run by content/tokens.js (same
      * 'wolf:shadows' buff). False at the maximum. Neither pack's own growth cycle is touched ("与狼群本身的刷新周期互相独立").
      */
-    const addShadow = (battle, vigil, w) => {
+    const addShadow = (/** @type {Battle} */ battle, /** @type {Unit} */ vigil, /** @type {Unit} */ w) => {
       if (typeof w.mem.addWolf === 'function') return w.mem.addWolf();
       const n = Math.max(1, w.mem.shadows ?? 1);
       if (n >= maxWolves) return false;
@@ -150,10 +154,10 @@ export default {
       fx(battle, 'summon', w, { src: vigil.id, wolves: w.mem.shadows });
       return true;
     };
-    const dpGain = (battle, unit, n) => { if (n > 0) { battle.addDp(unit.ownerId, n); fx(battle, 'dp', unit, { n }); } };
+    const dpGain = (/** @type {Battle} */ battle, /** @type {Unit} */ unit, /** @type {number} */ n) => { if (n > 0) { battle.addDp(unit.ownerId, n); fx(battle, 'dp', unit, { n }); } };
     // S1: the cast — ready and the pack on the field in either form (PRTS 备注 「仅场上存在狼群时可触发技能」 with ① for its
     // 战术点形态)
-    const installCall = (battle, unit) => {
+    const installCall = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       battle.on('tick', () => {
         const sk = unit.skill;
         if (!alive(unit) || !sk || !sk.ready || sk.active || !unit.canAct || unit.s.flags.silence || !packOf(unit)) return;
@@ -161,7 +165,7 @@ export default {
       }, { owner: unit });
     };
     // S2: the pack's empowered next attack (armed by the cast; ×scale on its hits; a kill pays once)
-    const installGift = (battle, unit) => {
+    const installGift = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       // the cast: ready, the pack on the field in either form, no unused gift on it (PRTS 备注 「仅场上存在狼群，且狼群未获得此技能的
       // 充能时可触发技能」 — the words of S1's, whose 备注 counts the 战术点形态 [ASSUMED the same for S2])
       battle.on('tick', () => {

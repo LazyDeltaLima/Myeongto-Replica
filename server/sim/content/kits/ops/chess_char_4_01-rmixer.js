@@ -7,15 +7,20 @@ import {
   AURA, num, tbb, grid, hasPower, enemiesOnRange, targetsInRange, whileDeployed, reveal, skillActive, isSel, alt,
   instantKind, withDefaults,
 } from '../shared/tier4.js';
+/** @import { KitFns, KitDef } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 /** Is module `id` the active one? (elites; `'none'` / normal chess ⇒ false) */
-const moduleIs = (def, id) => !!(def?.raw?.module?.active && def.raw.module.id === id);
+const moduleIs = (/** @type {KitDef} */ def, /** @type {string} */ id) => !!(def?.raw?.module?.active && def.raw.module.id === id);
 /**
  * Permanent forward range extension (攻击距离 +n): every range, skill ranges included — except a skill whose range ignores
  * 攻击距离 (`targeting.noRangeExtend`). SPT-Y's "攻击距离+1（不受技能攻击范围变化影响）" reads, as PRTS 修正 it, "（部分技能不受
  * 此影响）" (原因: 语序颠倒、表述模糊) — 信仰搅拌机 S3 备注 "此技能的攻击范围不受'攻击距离'属性影响".
  */
-const rangeUp = (battle, unit, n = 1) => battle.addBuff(unit, { key: 'module:range', mods: { rangeExtend: n }, persist: true, allowDead: true });
+const rangeUp = (/** @type {Battle} */ battle, /** @type {Unit} */ unit, n = 1) => battle.addBuff(unit, { key: 'module:range', mods: { rangeExtend: n }, persist: true, allowDead: true });
 
 export default withDefaults({
   // ===== 信仰搅拌机 (shotprotector) S3 退休前布道 — ammo 30 counters; talents 扫射迎宾仪礼 / 架盾送客仪礼; module: reveal
@@ -43,7 +48,7 @@ export default withDefaults({
                 .filter((a) => a !== unit && a.kind === 'op' && hasPower(a, 'laterano') && a.skill && a.skill.active && a.skill.kind === 'ammo')
                 .sort((a, b) => b.deploySeq - a.deploySeq || a.id - b.id);
               if (!cand[0] || !(n > 0)) return;
-              const k = cand[0].skill.recoverAmmo(n);
+              const k = /** @type {SkillRuntime} */ (cand[0].skill).recoverAmmo(n); // the filter kept ammo skills only
               if (k > 0) battle.fx('reload', { x: cand[0].x, y: cand[0].y, id: cand[0].id, n: k, src: unit.id }); // src: the client's tip is his (render)
             },
           },
@@ -74,7 +79,7 @@ export default withDefaults({
         { install(battle, unit) { // 扫射迎宾仪礼: every damage dealt → DEF +30 / ASPD +3 for 10 s, ≤ 3 stacks
           battle.on('damaged', (c) => {
             if (c.source !== unit || !unit.alive || c.target.side !== 'enemy' || !(c.amount > 0)) return;
-            const max = Math.max(1, num(t0.max_stack_cnt, 3)), was = unit.findBuff('rmixer:t1')?.stacks ?? 0;
+            const max = Math.max(1, num(t0.max_stack_cnt, 3)), was = /** @type {BuffRec | null} */ (unit.findBuff('rmixer:t1'))?.stacks ?? 0;
             const b = battle.addBuff(unit, { key: 'rmixer:t1', duration: num(t0.duration, 10), refresh: 'stack', maxStacks: max,
               mods: { defFlat: num(t0.def), aspd: num(t0.attack_speed) }, visible: true });
             // rmixer_buff_01, swapped for _02 at 3 stacks (render/fxstatus.js STACK_FX)
@@ -136,13 +141,13 @@ export default withDefaults({
           const blocked = battle.blockedTargets(unit, unit.profile);
           const list = targetsInRange(battle, unit).filter((e) => !blocked.includes(e));
           const i = c.source ? list.indexOf(c.source) : -1;
-          if (i > 0) { list.splice(i, 1); list.unshift(c.source); }
+          if (i > 0) { list.splice(i, 1); list.unshift(/** @type {Unit} */ (c.source)); }
           const targets = blocked.concat(list).slice(0, counterMax);
           unit.mem.counterReady = battle.time + unit.s.interval * counterRatio;
           unit.mem.inCounter = true;
           try {
             if (targets.length) battle.forceAttack(unit, targets, { face: 'D' });   // S3Attack `_faceToDefault`
-            else { unit.stats.attacks++; unit.skill.onAttackPerformed([], true); } // a counter into nothing: its bullet goes
+            else { unit.stats.attacks++; /** @type {SkillRuntime} */ (unit.skill).onAttackPerformed([], true); } // a counter into nothing: its bullet goes
           } finally { unit.mem.inCounter = false; }
           battle.fx('counter', { x: unit.x, y: unit.y, id: unit.id, n: targets.length });
         }, { owner: unit });

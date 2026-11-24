@@ -4,6 +4,7 @@
 import {
   num, tbb, grid, whileDeployed, toggleBuff, skillActive, isSel, alt, pullToFront, withDefaults,
 } from '../shared/tier4.js';
+/** @import { KitFns, DmgRec } from '../shared/tier1.js' */
 
 export default withDefaults({
   // ===== 百炼嘉维尔 (centurion) S3 丛林之魂 — ATK/ASPD/block up, takes 50 % now, the rest as 20 s HP loss; talents; module
@@ -74,8 +75,8 @@ export default withDefaults({
           deferred.add(c.dmg);
         }, { owner: unit, priority: -5 });
         battle.on('damaged', (c) => {
-          if (c.target !== unit || !deferred.has(c.dmg)) return;
-          deferred.delete(c.dmg);
+          if (c.target !== unit || !deferred.has(/** @type {DmgRec} */ (c.dmg))) return;
+          deferred.delete(/** @type {DmgRec} */ (c.dmg));
           if (c.amount > 0) unit.mem.gvialDebt = (unit.mem.gvialDebt ?? 0) + (c.amount * dr) / (1 - dr);
         }, { owner: unit });
       },

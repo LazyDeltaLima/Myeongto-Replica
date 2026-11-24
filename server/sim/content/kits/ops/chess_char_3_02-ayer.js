@@ -4,7 +4,9 @@
 import {
   num, defOf, talentBb, traitBb, altSkills, instantKindOf, alive, gridKeys, fx, copyGrid, NINE, aura,
 } from '../shared/tier3.js';
+/** @import { KitFns, KitSpec, KitSkill } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---- 3_02 断崖 · 领主 — S2 浮游刃启动: arts, wider range, each attack hits every enemy blocked by allies around her
   chess_char_3_02_a: (bb, chess, def) => {
@@ -15,6 +17,7 @@ export default {
     const extra = num(bb.atk_scale, 1);
     const moduleArts = num(tb.atk_scale_m, 0);
     const skillGrid = copyGrid(d.skill?.rangeGrid);
+    /** @type {KitSpec & { skill: KitSkill }} */
     const kit = {
       skill: {
         kind: 'duration',

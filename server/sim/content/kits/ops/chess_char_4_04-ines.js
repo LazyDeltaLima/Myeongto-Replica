@@ -4,6 +4,10 @@
 import { bodyDist } from '../../../body.js';
 import { canTargetEnemy } from '../../../targeting.js';
 import { AURA, num, tbb, grid, enemiesOnRange, pulse, isSel, alt, instantKind, withDefaults } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
 
 export default withDefaults({
   // ===== 伊内丝 (agent) S2 暗夜无明 — stealth, +ATK, +1 DP & steal ASPD per attack; talents 影织 / 影哨
@@ -16,7 +20,7 @@ export default withDefaults({
     const g = grid(def.skill?.rangeGrid);
     const step = num(bb['attack@steal_atk_speed'], 5), maxSteal = num(bb['attack@steal_atk_speed_max'], 50);
     const S3 = isSel(def, 'skchr_ines_3');
-    const clearAspd = (battle, unit) => {
+    const clearAspd = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       for (const id of unit.mem.inesAspdVictims || []) { const e = battle.unitById(id); if (e) battle.removeBuff(e, `ines:aspd:${unit.id}`); }
       unit.mem.inesAspdVictims = [];
       unit.mem.inesAspd = 0;
@@ -94,7 +98,7 @@ export default withDefaults({
           unit.mem.woven = new Set();
           unit.mem.atkVictims = [];
           const refresh = () => {
-            unit.mem.atkVictims = unit.mem.atkVictims.filter((id) => battle.unitById(id)?.alive);
+            unit.mem.atkVictims = unit.mem.atkVictims.filter((/** @type {number} */ id) => battle.unitById(id)?.alive);
             const gain = Math.min(num(t0.steal_atk_max, Infinity), num(t0.steal_atk, 90) * unit.mem.atkVictims.length);
             if (unit.alive) { if (gain > 0) battle.addBuff(unit, { key: 'ines:atkGain', mods: { atkFlat: gain } }); else battle.removeBuff(unit, 'ines:atkGain'); }
           };
@@ -139,7 +143,7 @@ export default withDefaults({
           battle.on('deploy', (c) => {
             if (c.unit !== unit || c.move) return;
             if (unit.mem.inesS3Placed) {
-              unit.skill.activate('deploy');
+              /** @type {SkillRuntime} */ (unit.skill).activate('deploy');
               return;
             }
             // 首次部署 only places a 影哨 and retreats; it is not a skill activation.

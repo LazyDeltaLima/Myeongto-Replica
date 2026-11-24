@@ -2,6 +2,8 @@
 // Conventions of the tier-1 kits: ../shared/tier1.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, moduleBb, enemiesInGrid, once, spTimeBonus, makeZone, instantKind } from '../shared/tier1.js';
+/** @import { KitFns, KitFn } from '../shared/tier1.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 // =================================================================================================================
 // kit builders shared by two chess ids
@@ -16,6 +18,7 @@ import { num, talentBb, moduleBb, enemiesInGrid, once, spTimeBonus, makeZone, in
  * (no heal: 无法被友方治疗 / 禁疗 units get it too), set at each pulse until the next. The unit's damage is 无来源 and
  * dodgeable: the official tinman_s_1 / tinman_s_2 deal it with NoSourceDamage MAGICAL, which cancels nothing on dodge
  * (`_ignoreCancelReasonMask` NONE) — her damage-dealt multipliers do not scale it, the kill and the stats stay hers.
+ * @type {KitFn}
  */
 export function tinmanKit(bb, chess, def) {
   const dur = num(bb.projectile_delay_time, 10);
@@ -64,7 +67,7 @@ export function tinmanKit(bb, chess, def) {
           if (!ctx.target || ctx.target.side !== 'enemy') return;
           const tags = ctx.dmg.tags || [];
           if (!(tags.includes('dot') || tags.includes('apoptosis'))) return;
-          const w = ctx.target.findBuff(witherKey);
+          const w = /** @type {BuffRec | null} */ (ctx.target.findBuff(witherKey));
           if (w) ctx.dmg.amount *= w.data?.mul ?? 1;
         }));
       }
@@ -73,6 +76,7 @@ export function tinmanKit(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_16 锡人 (hidden tier-1 entry of chess_char_2_19): see tinmanKit.

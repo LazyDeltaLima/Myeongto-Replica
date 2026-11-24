@@ -6,22 +6,29 @@ import { bodyDist } from '../../../body.js';
 import {
   num, defOf, talentBb, moduleTalentBb, altSkills, instantKindOf, groundAspd, alive, fx, enemiesOn, isLeader, giveSp,
 } from '../shared/tier3.js';
+/** @import { KitFns, KitSpec, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
-/** The unit's own profile damage multiplier on `target` (fastshot fly bonus …) for damage a kit deals itself. */
+/** The unit's own profile damage multiplier on `target` (fastshot fly bonus …) for damage a kit deals itself. @param {Battle} battle @param {Unit} unit @param {Unit} target */
 function profileMul(battle, unit, target) {
   const f = unit.profile?.dmgMul;
   const m = typeof f === 'function' ? f(battle, unit, target) : f;
   return typeof m === 'number' && Number.isFinite(m) ? m : 1;
 }
-/** Targetable enemies within `r` tiles of (x, y), nearest first (spawn order breaks ties), excluding `skip`. */
+/**
+ * Targetable enemies within `r` tiles of (x, y), nearest first (spawn order breaks ties), excluding `skip`.
+ * @param {Battle} battle @param {Unit} unit @param {number} x @param {number} y @param {number} r @param {Set<Unit> | null} [skip]
+ */
 function enemiesAround(battle, unit, x, y, r, skip = null) {
-  const out = battle.foesInRadius(x, y, r).filter((e) => !(skip && skip.has(e)) && canTargetEnemy(unit, e, { canHitFly: true }));
-  const d = (e) => bodyDist(e, x, y);
+  const out = battle.foesInRadius(x, y, r).filter((/** @type {Unit} */ e) => !(skip && skip.has(e)) && canTargetEnemy(unit, e, { canHitFly: true }));
+  const d = (/** @type {Unit} */ e) => bodyDist(e, x, y);
   return out.sort((a, b) => d(a) - d(b) || (a.spawnSeq ?? a.id) - (b.spawnSeq ?? b.id));
 }
 /** 周围 (around a target) for 空弦's scatter / bounce arrows [ASSUMED radius, tiles: not in the data]. */
 const AROUND_R = 1.5;
 
+/** @type {KitFns} */
 export default {
   // ---- 3_21 空弦 · 速射手 — S3 箭矢·暴风: ATK +, range +1, 3 hits × 2 targets; 兰登战术: attack-SP snipers +1 SP / 2.5 s;
   //      铁弦: one-hit shield at deployment, +7 SP when it breaks; 精锐 module MAR-Y: ASPD + with ground enemies in range
@@ -33,16 +40,19 @@ export default {
     const d = defOf(chess, def);
     const t0 = talentBb(d, 0), t1 = talentBb(d, 1);
     const mod = moduleTalentBb(chess);
+    /** @type {KitSkill} */
     const skill = {
       kind: 'duration',
       mods: { atkPct: num(bb.atk) },
       attack: { hits: Math.max(1, Math.floor(num(bb['attack@times'], 1))) },
     };
+    /** @type {Record<string, number>} */
     const tg = {};
     if (num(bb.ability_range_forward_extend) > 0) tg.rangeExtend = Math.round(bb.ability_range_forward_extend);
     if (num(bb['attack@max_target']) > 1) tg.maxTargets = Math.floor(bb['attack@max_target']);
     if (Object.keys(tg).length) skill.targeting = tg;
-    const physHit = (battle, unit, e, scale, tag) => battle.dealDamage(unit, e, { amount: unit.s.atk * scale * profileMul(battle, unit, e), type: 'phys', isSkill: true, tags: ['skill', tag] });
+    const physHit = (/** @type {Battle} */ battle, /** @type {Unit} */ unit, /** @type {Unit} */ e, /** @type {number} */ scale, /** @type {string} */ tag) => battle.dealDamage(unit, e, { amount: unit.s.atk * scale * profileMul(battle, unit, e), type: 'phys', isSkill: true, tags: ['skill', tag] });
+    /** @type {KitSpec} */
     const kit = {
       skill,
       skills: altSkills(chess, d, bb, {
@@ -58,7 +68,7 @@ export default {
                 if (!Number.isFinite(cx) || !Number.isFinite(cy) || !(more > 0)) return;
                 const others = enemiesAround(battle, unit, cx, cy, AROUND_R, new Set([target])).slice(0, more);
                 for (const e of others) physHit(battle, unit, e, sc2, 'archetScatter');
-                if (others.length) fx(battle, 'volley', unit, { targets: others.map((e) => e.id), skill: 'archet_1' });
+                if (others.length) fx(battle, 'volley', unit, { targets: others.map((/** @type {Unit} */ e) => e.id), skill: 'archet_1' });
               },
             },
           };
@@ -69,16 +79,16 @@ export default {
           return {
             kind: instantKindOf(s),
             onStrike({ battle, unit }) {   // (`_selectTargetTiming` 1)
-              const first = enemiesOn(battle, unit, unit.rangeKeys, 1, unit.profile)[0];
+              const first = enemiesOn(battle, unit, /** @type {number[]} */ (unit.rangeKeys), 1, unit.profile)[0];
               if (!first) return;
               const seen = new Set();
               // 'volley' { targets, from? }: the arrow's flight for the client — from her, then on every bounce from the enemy
               // it left (`from`; projectile_chr_archet_s2 `_mainEffectToReplace` archet_skill_02_trail_02 after the first reach)
-              const fire = (from, target, n) => {
+              const fire = (/** @type {{ x: number, y: number }} */ from, /** @type {Unit} */ target, /** @type {number} */ n) => {
                 seen.add(target);
                 battle.addProjectile({
                   from, target, speed: 16, visual: 'arrow', source: unit, hitDead: true,
-                  onHit: ({ target: t, x, y }) => {
+                  onHit: (/** @type {{ target: Unit | null, x: number, y: number }} */ { target: t, x, y }) => {
                     if (t && t.alive) for (let i = 0; i < n && t.alive; i++) physHit(battle, unit, t, sc, 'archetPursuit');
                     if (n <= 1) return;
                     const next = enemiesAround(battle, unit, x, y, AROUND_R, seen)[0];

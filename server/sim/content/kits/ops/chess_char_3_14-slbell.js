@@ -2,7 +2,9 @@
 // Conventions of the tier-3 kits: ../shared/tier3.js; kit contract and rules: ../README.md.
 
 import { num, defOf, talentBb, altSkills, aura } from '../shared/tier3.js';
+/** @import { KitFns, KitSpec } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---- 3_14 初雪 · 削弱者 — S2 自然震慑: DEF/RES shred aura on every enemy in range; 虚弱化: low-HP enemies fragile;
   //      双响: 2 targets
@@ -10,12 +12,14 @@ export default {
     const d = defOf(chess, def);
     const t0 = talentBb(d, 0), t1 = talentBb(d, 1);
     const mr = num(bb.magic_resistance, 0);
+    /** @type {Record<string, number>} */
     const shred = { defPct: num(bb.def) };
     if (mr) {
       if (Math.abs(mr) < 1) shred.resMul = Math.max(0, 1 + mr);
       else shred.resFlat = mr;
     }
     const mt = Math.floor(num(t1['attack@max_target'], 1));
+    /** @type {KitSpec} */
     const kit = {
       skill: {
         kind: 'duration',

@@ -4,6 +4,7 @@
 import {
   AURA, num, tbb, grid, enemiesOnRange, whileDeployed, reveal, alt, instantKind, withDefaults,
 } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
 export default withDefaults({
   // ===== 银灰 (lord) S3 真银斩 — DEF −70 %, ATK +125 %, wider range, ≤ 4 targets at melee scale; 领袖 / 鹰眼视觉; module

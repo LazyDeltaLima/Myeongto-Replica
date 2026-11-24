@@ -2,7 +2,11 @@
 // Conventions of the tier-2 kits: ../shared/tier2.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, traitBb, up, cheb, freeTileAround } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_11 风丸 纸艺·双影: lose hp_ratio of current HP, ATK +atk, summon the <替身> (overrideTokenKey) on a free melee tile
@@ -19,7 +23,7 @@ export default {
     const tb = traitBb(chess);
     const tokId = chess?.skill?.overrideTokenKey ?? (chess?.tokens ?? []).find((x) => /shadow|doll/.test(String(x))) ?? 'token_10022_kazema_shadow';
     const ds = num(t.damage_scale);
-    const origami = (battle, src, atk) => {
+    const origami = (/** @type {Battle} */ battle, /** @type {Unit} */ src, /** @type {number} */ atk) => {
       battle.fx('aoe', { x: src.x, y: src.y, radius: 1.5, id: src.id, skill: 'origami' });
       if (!(ds > 0)) return;
       for (const e of battle.enemies) {

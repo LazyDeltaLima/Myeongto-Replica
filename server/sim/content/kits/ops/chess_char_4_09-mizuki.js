@@ -5,6 +5,8 @@ import {
   AURA, num, tbb, moduleBb, grid, batFlat, enemiesOnRange, whileDeployed, pulse, toggleBuff, skillActive, isSel, alt,
   instantKind, withDefaults,
 } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
 export default withDefaults({
   // ===== 水月 (stalker) S2 囚徒困境 — faster, +ATK, talent 1 +1 target & bind; talents 创伤性癔症 / 反移情; module slow
@@ -23,7 +25,7 @@ export default withDefaults({
           targeting: g ? { rangeGrid: g } : undefined,
           onStart({ battle, unit }) { battle.fx('ripple', { x: unit.x, y: unit.y, id: unit.id }); },
           onAttack({ battle, unit, targets }) {
-            if ((targets || []).filter((e) => e.side === 'enemy').length >= 3) return;
+            if ((targets || []).filter((/** @type {Unit} */ e) => e.side === 'enemy').length >= 3) return;
             // mizuki_s_3[damage]: its DamageViaMaxHpRatio creates no effect (silent: no 真实 hit flash), the buff's CreateEffect
             // (common_magic_hit_01, bound to mizuki_skill_03_hit_02) plays on her — the kit's moment (render/fx/kitofficial.js
             // kitHit; docs/rules/fx.md 「효과 없는 주기적 유실」)

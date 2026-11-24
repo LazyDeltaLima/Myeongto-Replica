@@ -6,9 +6,12 @@ import {
   AURA, AURA_DUR, num, tbb, hasPower, enemiesOnRange, targetsInRange, whileDeployed, toggleBuff, skillActive, isSel,
   alt, instantKind, withDefaults,
 } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 /** Enemy leaders / elites (精英或领袖敌人). */
-const isEliteEnemy = (e) => !!e && (e.isBoss || e.def?.rank === 'ELITE' || e.def?.rank === 'BOSS');
+const isEliteEnemy = (/** @type {Unit} */ e) => !!e && (e.isBoss || e.def?.rank === 'ELITE' || e.def?.rank === 'BOSS');
 
 export default withDefaults({
   // ===== 灵知 (underminer) S2 零度爆发 — charges: 130 % arts + cold to all in range, charged ⇒ 2nd cold; 坚冰 / 殊途同归
@@ -19,7 +22,7 @@ export default withDefaults({
     const t0 = tbb(def, 0), t1 = tbb(def, 1);
     const tb = def.traitBb || {};
     const S3 = isSel(def, 'skchr_gnosis_3');
-    const frozen = (e) => !!e.findBuff('freeze');
+    const frozen = (/** @type {Unit} */ e) => !!e.findBuff('freeze');
     return {
       skills: alt(def, {
         skchr_gnosis_1: () => ({ kind: instantKind(def), attack: { atkScale: num(bb.atk_scale, 1.35), hits: 2 } }),
@@ -33,7 +36,7 @@ export default withDefaults({
             if (!H) return;
             // 范围内所有敌人的冻结延长至技能结束
             for (const e of enemiesOnRange(battle, unit)) {
-              const f = e.findBuff('freeze');
+              const f = /** @type {BuffRec | null} */ (e.findBuff('freeze'));
               if (!f) continue;
               H.add(e.id);
               if (f.timeLeft < skill.timeLeft) { f.timeLeft = skill.timeLeft; f.duration = Math.max(f.duration, skill.timeLeft); }

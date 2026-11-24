@@ -4,10 +4,22 @@
 import { COLS } from '../../../constants.js';
 import { canTargetEnemy, sortEnemyTargets } from '../../../targeting.js';
 import { num, defOf, talentBb, altSkills, statSkill, funnelMap, installFunnelPrune } from '../shared/tier3.js';
+/** @import { KitFns, KitSkill, Bb } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { FunnelRamp } from '../shared/tier3.js' */
+/** @import { Profile } from '../../../professions.js' */
 
 export const DRONE_TAG = 'kjera:drone';
 
+/**
+ * A drone of 心随意动 (`unit.mem.kjeraRel.drones`): its lock and, with `restart`, its own scale; a funnel profile's ramp.
+ * @typedef {{ lock: Unit | null, scale: number | null }} KjeraDrone
+ * @typedef {{ init: number, delta: number, max: number }} FunnelStep
+ */
+
 // One step of the per-target ramp. Two drones that hit the same enemy in the same tick share the step (funnelMap).
+/** @param {Map<number, FunnelRamp>} ramp @param {number} id @param {number} time @param {FunnelStep} f */
 function stepMap(ramp, id, time, f) {
   const prev = ramp.get(id);
   if (prev && prev.t === time) return prev.s;
@@ -16,13 +28,15 @@ function stepMap(ramp, id, time, f) {
   return s;
 }
 
+/** @param {Battle} battle @param {Unit} unit @param {{ drones: KjeraDrone[] }} rel */
 function acquire(battle, unit, rel) {
-  const prof = unit.profile;
-  const ok = (e) => !!e && e.alive && canTargetEnemy(unit, e, prof);
-  const cands = battle.enemiesInKeys(unit.rangeKeys, unit, prof);
+  const prof = /** @type {Profile} */ (unit.profile);
+  const ok = (/** @type {Unit} */ e) => !!e && e.alive && canTargetEnemy(unit, e, prof);
+  const cands = battle.enemiesInKeys(/** @type {number[]} */ (unit.rangeKeys), unit, prof);
   for (const e of battle.blockedTargets(unit, prof)) if (!cands.includes(e)) cands.push(e);
   sortEnemyTargets(battle, unit, cands, prof.priority);
   const usable = cands.filter(ok);
+  /** @type {Set<Unit>} */
   const held = new Set();
   for (const d of rel.drones) {
     if (d.lock && ok(d.lock)) held.add(d.lock);
@@ -30,7 +44,7 @@ function acquire(battle, unit, rel) {
   }
   for (const d of rel.drones) {
     if (d.lock) continue;
-    const e = usable.find((x) => !held.has(x)) ?? usable[0] ?? rel.drones.find((x) => x.lock)?.lock ?? null;
+    const e = usable.find((/** @type {Unit} */ x) => !held.has(x)) ?? usable[0] ?? rel.drones.find((x) => x.lock)?.lock ?? null;
     if (!e) continue;
     held.add(e);
     d.lock = e;
@@ -47,6 +61,8 @@ function acquire(battle, unit, rel) {
  * [ASSUMED] The released drones use the trait ramp (init / +delta / cap). Her blackboard has no drone scale.
  * [ASSUMED] No flight delay. A lock that can no longer be targeted is dropped and the drone retargets. Stun and
  * disarm do not pause the released drones (the skill tick still runs).
+ * @param {Bb} bb @param {{ restart?: boolean, announce?: boolean }} [opts]
+ * @returns {{ skill: KitSkill, install: (battle: Battle, unit: Unit) => void }}
  */
 export function kjeraRelease(bb, { restart = false, announce = false } = {}) {
   const n = 1 + Math.max(0, Math.floor(num(bb['attack@cnt'], 0)));
@@ -56,8 +72,8 @@ export function kjeraRelease(bb, { restart = false, announce = false } = {}) {
       kind: 'duration',
       mods: { atkPct: num(bb.atk) },
       onStart({ battle, unit }) {
-        const key = typeof unit.profile.funnelMul === 'function' ? 'funnelMul' : 'dmgMul';
-        const mul = unit.profile[key];
+        const key = typeof /** @type {Profile} */ (unit.profile).funnelMul === 'function' ? 'funnelMul' : 'dmgMul';
+        const mul = /** @type {Profile} */ (unit.profile)[key];
         unit.profile = { ...unit.profile, [key]: null };
         const ramp = restart ? null : new Map();
         if (ramp && unit.trait.funnelMap) {
@@ -76,9 +92,9 @@ export function kjeraRelease(bb, { restart = false, announce = false } = {}) {
         if (!rel || !unit.alive || !unit.skill?.active) return;
         rel.cd = Math.max(0, rel.cd - dt);
         acquire(battle, unit, rel);
-        if (!rel.drones.some((d) => d.lock) || rel.cd > 1e-9) return;
+        if (!rel.drones.some((/** @type {KjeraDrone} */ d) => d.lock) || rel.cd > 1e-9) return;
         rel.cd = unit.s.interval;
-        const f = unit.profile.funnel || { init: 0.2, delta: 0.15, max: 1.1 };
+        const f = /** @type {Profile} */ (unit.profile).funnel || { init: 0.2, delta: 0.15, max: 1.1 };
         for (const [i, d] of rel.drones.entries()) {
           if (!d.lock || !d.lock.alive) continue;
           const scale = rel.restart
@@ -105,7 +121,7 @@ export function kjeraRelease(bb, { restart = false, announce = false } = {}) {
         if (unit.profile && rel.key) unit.profile = { ...unit.profile, [rel.key]: rel.mul };
       },
     },
-    install(battle, unit) {
+    install(/** @type {Battle} */ battle, /** @type {Unit} */ unit) {
       // 自身攻击: one cold roll on the ordinary body hit. Drone hits roll in onTick, so they are not rolled again.
       battle.on('damaged', (ctx) => {
         if (!unit.mem.kjeraRel || ctx.source !== unit || !ctx.target?.alive || !ctx.dmg) return;
@@ -119,6 +135,7 @@ export function kjeraRelease(bb, { restart = false, announce = false } = {}) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   // ---- 3_20 耶拉 · 驭械术师 — S2 心随意动: +1 drone (2 locks; a lone enemy gets both), ATK +, cold procs; 低眉: ATK +
   //      (more with ≥cnt ground tiles in range). S1 攻击力强化·γ型: ATK + only (one unreleased drone, the trait ramp).

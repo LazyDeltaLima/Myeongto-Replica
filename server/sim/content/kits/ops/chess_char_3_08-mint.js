@@ -3,11 +3,13 @@
 
 import { num, defOf, talentBb, traitBb, altSkills, gridKeys, fx, copyGrid, enemiesOn, aura } from '../shared/tier3.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
+/** @import { KitFns, BattleUnit } from '../shared/tier1.js' */
 
 // S2's end clip Skill_2_End (seconds): the skill ends as it starts, the end burst lands on its OnAttack
 const MINT_END_CLIP = 4 / 3;
 const MINT_BURST_DELAY = 0.6;
 
+/** @type {KitFns} */
 export default {
   // ---- 3_08 薄绿 · 阵法术师 — S2 聚能涡旋: each attack strikes every enemy on her range (the trait's 群体法术伤害) and
   //      pushes each one towards her, end-of-skill burst on
@@ -29,12 +31,12 @@ export default {
     const burstGrid = copyGrid(d.rangeGrid) ?? [[2, 0], [1, -1], [1, 0], [1, 1], [0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [-1, -1], [-1, 0], [-1, 1], [-2, 0]]; // x-1
     const keepDef = num(tb['soil_e_002[buff].def'], 0), keepRes = num(tb['soil_e_002[buff].magic_resistance'], 0);
     // every skill: PLX-X keeps part of the guard, 地质学者 taunt −1 while it runs, DEF aura only while it does not
-    const guardOn = ({ battle, unit }) => {
+    const guardOn = (/** @type {BattleUnit} */ { battle, unit }) => {
       if (keepDef || keepRes) battle.addBuff(unit, { key: 'trait:mint_keep', mods: { defPct: keepDef, resFlat: keepRes } });
       battle.addBuff(unit, { key: 'talent:mint_taunt', mods: { taunt: num(t0.taunt_level, -1) } });
       unit.mem.mintAura?.();
     };
-    const guardOff = ({ battle, unit }) => {
+    const guardOff = (/** @type {BattleUnit} */ { battle, unit }) => {
       battle.removeBuff(unit, 'trait:mint_keep');
       battle.removeBuff(unit, 'talent:mint_taunt');
       unit.mem.mintAura?.();
@@ -57,7 +59,7 @@ export default {
         // the skill's three-part animation (Skill_2_Begin → Skill_2_Loop → Skill_2_End) fits inside its duration and fires the
         // attack-finished event as the end clip starts; the skill's _earlySkillFinishAtAttackFinished ends the skill right
         // there (the official client: BasicSkill.OnSkillStart listens once, _OnReceiveAttackFinishEvent finishes it)
-        ...(num(d.skill?.duration) > MINT_END_CLIP ? { duration: num(d.skill.duration) - MINT_END_CLIP } : {}),
+        ...(num(d.skill?.duration) > MINT_END_CLIP ? { duration: num(/** @type {{ duration?: number }} */ (d.skill).duration) - MINT_END_CLIP } : {}),
         attack: {
           atkScale: num(bb['attack@atk_scale'], 1),
           onHit({ battle, unit, target }) {

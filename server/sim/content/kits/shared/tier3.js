@@ -36,7 +36,7 @@ import { normalizeChess, normalizeSkill } from '../../../simdata.js';
 import { tacticalPoint as sharedTacticalPoint } from '../../tokens.js';
 /** @import { Battle } from '../../../Battle.js' */
 /** @import { Unit } from '../../../units.js' */
-/** @import { KitChess, KitDef, Bb, Grid, Tile } from './tier1.js' */
+/** @import { KitChess, KitDef, Bb, Grid, Tile, KitSkill } from './tier1.js' */
 /** @import { BuffRec } from '../../bonds/shared.js' */
 /**
  * A skill's normalised record (skillData).
@@ -74,10 +74,10 @@ function skillData(chess, d, bb, id) {
 }
 /**
  * `{ [skillId]: SkillSpec }` of the non-default selectable skills: `builders[id](skillData(id))` each.
- * @param {KitChess} chess @param {KitDef} d @param {Bb | null | undefined} bb @param {Record<string, (s: SkillData) => object>} builders
+ * @param {KitChess} chess @param {KitDef} d @param {Bb | null | undefined} bb @param {Record<string, (s: SkillData) => KitSkill>} builders
  */
 function altSkills(chess, d, bb, builders) {
-  /** @type {Record<string, object>} */
+  /** @type {Record<string, KitSkill>} */
   const out = {};
   for (const [id, build] of Object.entries(builders)) out[id] = build(skillData(chess, d, bb, id));
   return out;

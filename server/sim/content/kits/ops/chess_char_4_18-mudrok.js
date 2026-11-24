@@ -5,6 +5,8 @@ import {
   AURA, num, tbb, grid, batFlat, enemyHasTag, targetsInGrid, whileDeployed, pulse, toggleBuff, alt, lonely,
   withDefaults,
 } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 export default withDefaults({
   // ===== 泥岩 (unyield) S2 岩崩锤 — next attack: heal 4 %, 190 % phys to all ground enemies around, 30 % stun; talents
@@ -70,7 +72,7 @@ export default withDefaults({
       },
       talents: [
         { install(battle, unit) { // 沃土予身: a hit-negating layer every 9 s (≤ 3, 1 on deploy); each broken layer heals 20 %
-          const setLayers = (n) => {
+          const setLayers = (/** @type {number} */ n) => {
             const gain = n > (unit.mem.layers ?? 0);
             unit.mem.layers = n;
             if (n > 0) battle.addBuff(unit, { key: 'mudrok:layers', shieldHits: n, visible: true });
@@ -89,7 +91,7 @@ export default withDefaults({
           }, { owner: unit });
           battle.on('damaged', (c) => {
             if (c.target !== unit || !unit.alive) return;
-            const left = unit.findBuff('mudrok:layers')?.shieldHits ?? 0;
+            const left = /** @type {BuffRec | null} */ (unit.findBuff('mudrok:layers'))?.shieldHits ?? 0;
             const broken = (unit.mem.layers ?? 0) - left;
             if (broken <= 0) return;
             unit.mem.layers = left;

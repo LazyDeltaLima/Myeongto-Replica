@@ -3,7 +3,12 @@
 
 import { bodyInRange } from '../../../body.js';
 import { num, talentBb, up, alliesInGridOf, instantKind, batMod } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { Profile } from '../../../professions.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_06 莎草 巧思乍现 (AUTO, 2 charges): the next heal is heal_scale × ATK (chain jumps included) and the talent
@@ -18,11 +23,11 @@ export default {
     const t = talentBb(chess, 0);
     const sc = num(t['attack@scale']), sd = num(t['attack@shield_duration'], 8), boost = num(bb.shield_scale_skill, 1);
     const extra = Math.max(0, Math.floor(num(bb['attack@chain.extra_value'])));
-    const lockOf = (battle, unit) => alliesInGridOf(battle, unit)
+    const lockOf = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => alliesInGridOf(battle, unit)
       .filter((a) => a !== unit && !a.s.flags.noHeal && !a.profile?.noHeal)
       .sort((a, b) => b.s.maxHp - a.s.maxHp || a.deploySeq - b.deploySeq)[0] ?? null;
-    const release = (battle, unit) => {
-      if (unit.mem.papyrsHeal) { unit.profile.heal = unit.mem.papyrsHeal; unit.mem.papyrsHeal = null; }
+    const release = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
+      if (unit.mem.papyrsHeal) { /** @type {Profile} */ (unit.profile).heal = unit.mem.papyrsHeal; unit.mem.papyrsHeal = null; }
       if (unit.mem.papyrsHook) battle.off(unit.mem.papyrsHook);
       unit.mem.papyrsHook = null;
       unit.mem.papyrsLock = null;
@@ -39,8 +44,8 @@ export default {
             // (only reachable when a runtime bypasses the activate guard below, e.g. a copied skill: undo on the next tick)
             if (!lock) { unit.mem.papyrsAbort = true; return; }
             unit.mem.papyrsLock = lock;
-            const h = unit.profile.heal;
-            if (h && extra > 0) { unit.mem.papyrsHeal = h; unit.profile.heal = { ...h, count: Math.max(1, h.count || 3) + extra }; }
+            const h = /** @type {Profile} */ (unit.profile).heal;
+            if (h && extra > 0) { unit.mem.papyrsHeal = h; /** @type {Profile} */ (unit.profile).heal = { ...h, count: Math.max(1, h.count || 3) + extra }; }
             unit.mem.papyrsHook = battle.on('beforeAttack', (ctx) => {
               if (ctx.attacker !== unit || !skill.active) return;
               const L = unit.mem.papyrsLock;
@@ -70,7 +75,7 @@ export default {
           const activate = sk.activate;
           Object.defineProperty(sk, 'activate', {
             configurable: true, writable: true, enumerable: false,
-            value(reason, opts) { return lockOf(battle, unit) ? activate.call(this, reason, opts) : false; },
+            value(/** @type {string} */ reason, /** @type {Record<string, any> | undefined} */ opts) { return lockOf(battle, unit) ? activate.call(this, reason, opts) : false; },
           });
         }
         if (!(sc > 0)) return;

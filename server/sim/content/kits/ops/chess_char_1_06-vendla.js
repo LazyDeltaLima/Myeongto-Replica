@@ -2,7 +2,10 @@
 // Conventions of the tier-1 kits: ../shared/tier1.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, up, byEnemyAttack, alliesInGridOf, skillBbOf } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_06 刺玫 荆藤庇荫: ATK +atk; the ally with the highest max HP in range gets taunt +taunt_level; whenever that ally is
@@ -21,7 +24,7 @@ export default {
     const hs = num(talentBb(chess, 0).heal_scale, 1);
     const tauntKey = 'vendla:taunt';
     // the protégé only exists while 荆藤庇荫 runs (mem.protege is set by its onStart only)
-    const protege = (u) => (u.skill?.active && up(u.mem.protege) && u.mem.protege.findBuff(tauntKey) ? u.mem.protege : null);
+    const protege = (/** @type {Unit} */ u) => (u.skill?.active && up(u.mem.protege) && u.mem.protege.findBuff(tauntKey) ? u.mem.protege : null);
     return {
       skills: { 'skcom_magic_rage[3]': { kind: 'duration', mods: { aspd: num(skillBbOf(chess, 'skcom_magic_rage[3]').attack_speed) } } },
       trait: {
@@ -63,14 +66,14 @@ export default {
       talents: [{ install(battle, unit) {
         battle.on('damaged', (ctx) => {
           const p = protege(unit);
-          if (!p || ctx.target !== p || !byEnemyAttack(ctx) || !ctx.source.alive || !unit.canAct) return;
+          if (!p || ctx.target !== p || !byEnemyAttack(ctx) || !/** @type {Unit} */ (ctx.source).alive || !unit.canAct) return;
           // "并仅对该角色触发刺玫特性": this counter damage is healed by the trait (install above) for the protégé — the
           // damage instance names her, so no separate heal here (it would double)
-          battle.dealDamage(unit, ctx.source, { amount: unit.s.atk * num(bb.atk_scale), type: 'arts', isSkill: true, canDodge: false, tags: ['counter'], traitAlly: p });
-          battle.fx('counter', { x: ctx.source.x, y: ctx.source.y, id: unit.id });
+          battle.dealDamage(unit, /** @type {Unit} */ (ctx.source), { amount: unit.s.atk * num(bb.atk_scale), type: 'arts', isSkill: true, canDodge: false, tags: ['counter'], traitAlly: p });
+          battle.fx('counter', { x: /** @type {Unit} */ (ctx.source).x, y: /** @type {Unit} */ (ctx.source).y, id: unit.id });
         }, { owner: unit });
         if (hs !== 1) {
-          let cacheT = -1, top = null;
+          let cacheT = -1, top = /** @type {Unit | null} */ (null);
           battle.on('heal', (ctx) => {
             if (!up(unit) || ctx.opts?.regen) return;
             if (cacheT !== battle.time) {

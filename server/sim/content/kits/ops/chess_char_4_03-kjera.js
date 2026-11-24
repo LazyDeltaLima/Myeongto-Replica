@@ -4,6 +4,7 @@
 import { COLS } from '../../../constants.js';
 import { num, tbb, withDefaults } from '../shared/tier4.js';
 import { kjeraRelease } from './chess_char_3_20-kjera.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
 export default withDefaults({
   // ===== 耶拉 (funnel, hidden) S2 心随意动 — +1 drone locking targets, ATK up, chance to chill; talent 低眉.

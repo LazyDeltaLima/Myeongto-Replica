@@ -2,7 +2,9 @@
 // Conventions of the tier-3 kits: ../shared/tier3.js; kit contract and rules: ../README.md.
 
 import { num, defOf, talentBb, traitBb, altSkills, instantKindOf, groundAspd, alive, fx } from '../shared/tier3.js';
+/** @import { KitFns, KitSpec } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---- 3_01 能天使 · 速射手 — S3 过载模式: 5 连射 + 攻击间隔缩短; 快速弹匣 ASPD; 天使的祝福 (self + one random ally)
   //      S1 冲锋模式: next attack = 3 shots × atk_scale; S2 扫射模式: 4 shots × attack@atk_scale per attack for 15 s;
@@ -12,7 +14,8 @@ export default {
     const t0 = talentBb(d, 0), t1 = talentBb(d, 1);
     const tb = traitBb(d);
     const bless = { atkPct: num(t1.atk), hpPct: num(t1.max_hp) };
-    const shots = (v) => Math.max(1, Math.floor(num(v, 1)));
+    const shots = (/** @type {unknown} */ v) => Math.max(1, Math.floor(num(v, 1)));
+    /** @type {KitSpec} */
     const kit = {
       skill: {
         kind: 'duration',

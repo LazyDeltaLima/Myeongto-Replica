@@ -2,7 +2,11 @@
 // Conventions of the tier-3 kits: ../shared/tier3.js; kit contract and rules: ../README.md.
 
 import { num, defOf, talentBb, altSkills, instantKindOf, fx, textNum, enemiesOn } from '../shared/tier3.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { Profile } from '../../../professions.js' */
 
+/** @type {KitFns} */
 export default {
   // ---- 3_17 流星 · 速射手 — S2 碎甲击·扩散: instant ATK% phys on ≤5 enemies in range + DEF shred for `duration` s;
   //      空射专精: ×atk_scale vs flying (stacks with the module fly bonus)
@@ -10,13 +14,13 @@ export default {
     const d = defOf(chess, def);
     const t0 = talentBb(d, 0);
     const n = textNum(d.skill?.description, /至多(\d+)个/, 5);
-    const flyMul = (unit, t) => (t.isFlying ? (unit.profile.flyScale ?? 1) * num(t0.atk_scale, 1) : 1);
+    const flyMul = (/** @type {Unit} */ unit, /** @type {Unit} */ t) => (t.isFlying ? (/** @type {Profile} */ (unit.profile).flyScale ?? 1) * num(t0.atk_scale, 1) : 1);
     return {
       trait: { dmgMul: (battle, unit, target) => flyMul(unit, target) },
       skill: {
         kind: 'instant',
         onStrike({ battle, unit }) {   // (`_selectTargetTiming` 1)
-          const list = enemiesOn(battle, unit, unit.rangeKeys, n, unit.profile);
+          const list = enemiesOn(battle, unit, /** @type {number[]} */ (unit.rangeKeys), n, unit.profile);
           // before the damage: the renderer flies the skill's arrows and holds their hits for the landing
           if (list.length) fx(battle, 'volley', unit, { targets: list.map((e) => e.id), skill: 'shotst_2' });
           for (const e of list) {

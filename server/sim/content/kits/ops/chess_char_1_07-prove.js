@@ -5,10 +5,13 @@ import { sortEnemyTargets } from '../../../targeting.js';
 import { frontOf } from '../../../dir.js';
 import { bodyInRangeTile } from '../../../body.js';
 import { num, talentBb, isMainHit, onHitBy, skillBbOf } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
 /** 普罗旺斯 杀戮嗅觉 "普通攻击不再以生命值高于80%的敌人作为目标" — the 80 % exists only in the skill text. */
 const PROVE_S2_MAX_HP = 0.8;
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_07 普罗旺斯 狼眼 (passive): per hp_ratio_drop of HP the target has lost, ATK +atk_scale_up against it — CONTINUOUS,
@@ -24,8 +27,8 @@ export default {
     const t = talentBb(chess, 0);
     const drop = num(bb.hp_ratio_drop), upPer = num(bb.atk_scale_up);
     const S2 = 'skchr_prove_2';
-    const huntable = (e) => e.hpRatio <= PROVE_S2_MAX_HP + 1e-9;
-    const s2On = (u) => !!(u.skill && u.skill.active && u.skill.id === S2);
+    const huntable = (/** @type {Unit} */ e) => e.hpRatio <= PROVE_S2_MAX_HP + 1e-9;
+    const s2On = (/** @type {Unit} */ u) => !!(u.skill && u.skill.active && u.skill.id === S2);
     return {
       skill: { kind: 'passive' },
       skills: { [S2]: { kind: 'duration', mods: { atkPct: num(skillBbOf(chess, S2).atk) } } },

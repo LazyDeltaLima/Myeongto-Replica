@@ -2,10 +2,12 @@
 // Conventions of the tier-2 kits: ../shared/tier2.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, traitBb, onHitOn, enemiesInGrid } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
 /** Skill_2_Begin, the clip of her S2 first attack: its length and OnAttack frame (s). */
 const FIRST_CLIP = 1, FIRST_HIT = 0.6;
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_17 折桠 生存决心: ATK +atk, DEF +def, hits every blocked enemy. Her first attack of the cast (mode S2's FirstAttack, while

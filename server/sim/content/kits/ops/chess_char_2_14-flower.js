@@ -2,7 +2,9 @@
 // Conventions of the tier-2 kits: ../shared/tier2.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, moduleBb, up } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_14 调香师 精调: ASPD +attack_speed (−50), ATK +atk. 熏衣草: every ally on the field recovers

@@ -6,10 +6,13 @@ import {
   num, tbb, grid, targetsInRange, targetsInGrid, toggleBuff, skillActive, withDefaults,
 } from '../shared/tier4.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
 
 /**
  * Free tile for a summon/device: in the rect, standable, not reserved (Battle.isReservedTile: empty, no knocked-out
  * operator lying there) and not the home tile of any ally (dead ones redeploy there).
+ * @param {Battle} battle @param {number} r @param {number} c @param {{ ranged?: boolean, ground?: boolean }} [opts]
  */
 function freeTile(battle, r, c, { ranged = false, ground = false } = {}) {
   if (!Number.isInteger(r) || !Number.isInteger(c) || !battle.grid.inRect(r, c)) return false;

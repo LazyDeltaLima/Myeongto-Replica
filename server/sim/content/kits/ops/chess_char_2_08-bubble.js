@@ -3,7 +3,10 @@
 
 import { num, talentBb, traitBb, byEnemyAttack, onDamagedOn, toggleBuff } from '../shared/tier1.js';
 import { onDefaultSkill } from '../shared/tier2.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_08 泡泡 “挨打”: stops attacking; DEF +def, taunt +taunt_level, each enemy damage instance received (its attack or not:
@@ -20,7 +23,7 @@ export default {
       talents: [{ install(battle, unit) {
         onDamagedOn(battle, unit, (ctx) => {
           if (!byEnemyAttack(ctx) || !unit.alive) return;
-          const src = ctx.source;
+          const src = /** @type {Unit} */ (ctx.source); // byEnemyAttack: an enemy's attack
           if (s2 && unit.skill?.active && src.alive) {
             battle.dealDamage(unit, src, { amount: unit.s.def * num(bb.atk_scale), type: 'phys', isSkill: true, canDodge: false, tags: ['counter'] });
             battle.fx('counter', { x: src.x, y: src.y, id: unit.id });

@@ -3,7 +3,11 @@
 
 import { num, defOf, talentBb, traitBb, selectedId, altSkills, fx, NINE, giveSp } from '../shared/tier3.js';
 import { isHpLoss } from '../../../damage.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
+/** @type {KitFns} */
 export default {
   // ---- 3_06 菲莱 · 本源铁卫 — S2 冥河诅咒: stops attacking, HP +; "受到攻击时" — any damage instance she takes (official
   //      philae_s_2: ON_TAKE_DAMAGE with no source or attack filter) — blasts the ground enemies of the 3×3 around her
@@ -30,7 +34,7 @@ export default {
     const epScale = num(tb.ep_damage_scale, 1);
     const cut = Math.max(0, Math.min(1, num(t0.damage_resistance)));
     // 损伤屏障 of S1: absorbs the gauge gain an element hit would add (after 神河谕使)
-    const installBarrier = (battle, unit) => {
+    const installBarrier = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       battle.on('elementHit', (ctx) => {
         if (ctx.target !== unit || !(unit.mem.philaeBarrier > 0) || !unit.skill?.active) return;
         const dmg = ctx.dmg;
@@ -92,7 +96,7 @@ export default {
           // enemy's attack, a skill hit, 深溟巢涌者's pulse, a 无来源 hit — never a 流失 or an element 损伤 (above), nor a
           // counter / reflection. Until 0.2.0 enemy attacks only (community report of 2026-10-06, item 30)
           const d = ctx.dmg;
-          if (!isS2 || !sk || !sk.active || !d || isHpLoss(d) || (d.tags || []).some((t) => t === 'counter' || t === 'reflect')) return;
+          if (!isS2 || !sk || !sk.active || !d || isHpLoss(d) || (d.tags || []).some((/** @type {string} */ t) => t === 'counter' || t === 'reflect')) return;
           if (battle.time < (unit.mem.philaeCd ?? -Infinity)) return;
           unit.mem.philaeCd = battle.time + cd;
           // "周围的地面敌人" = range x-4, the 3×3 tiles around her (PRTS 备注). Each enemy's philae_s_2[ep] picks its effect by her

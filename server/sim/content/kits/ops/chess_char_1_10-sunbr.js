@@ -2,7 +2,9 @@
 // Conventions of the tier-1 kits: ../shared/tier1.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, traitBb, isMainHit, onHitBy, instantKind, skillRec } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_10 古米 备用军粮 (自动触发, ct charges — an AUTO skill: no 技能策略 applies, it keeps its own rule; PRTS 备注 "此技能

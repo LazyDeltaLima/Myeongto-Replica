@@ -6,6 +6,7 @@ import {
   AURA, num, tbb, grid, hasPower, targetsInGrid, whileDeployed, pulse, toggleBuff, skillActive, isSel, alt,
   withDefaults,
 } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
 export default withDefaults({
   // ===== 焰尾 (pioneer) S3 焰心 — 8 DP over the skill, faster, +ATK, block +1, 60 % dodge; talents 前锋剑术 / 红松骑士团团长

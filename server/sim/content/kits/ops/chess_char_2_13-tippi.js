@@ -4,6 +4,8 @@
 import { num, talentBb, up, onHitOn } from '../shared/tier1.js';
 import { onDefaultSkill } from '../shared/tier2.js';
 import { LIFTOFF_FLAGS, holdTakeOff, landAfter } from '../shared/liftoff.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { SkillCtx } from '../../../skills.js' */
 
 /**
  * 起飞 of 蒂比's skills (gamedata_const ba.liftoff "不阻挡地面敌人且不会被地面敌人攻击，可以阻挡飞行敌人"): the skill's flags
@@ -19,17 +21,18 @@ import { LIFTOFF_FLAGS, holdTakeOff, landAfter } from '../shared/liftoff.js';
  */
 export const FLY_CLIP = 1;
 const LAND_KEY = 'tippi:landing';
-/** 蒂比 take-off: the ground enemies she blocked walk on; no attack during the take-off clip. */
+/** 蒂比 take-off: the ground enemies she blocked walk on; no attack during the take-off clip. @param {SkillCtx} ctx */
 function tippiTakeOff({ battle, unit }) {
   battle.releaseBlocked(unit);
   battle.fx('takeoff', { x: unit.x, y: unit.y, id: unit.id });
   holdTakeOff(battle, unit, FLY_CLIP);
 }
-/** 蒂比 landing when the airborne skill ends: the landing clip in the air, then the flyers she held are released. */
+/** 蒂比 landing when the airborne skill ends: the landing clip in the air, then the flyers she held are released. @param {SkillCtx} ctx */
 function tippiLand({ battle, unit, reason }) {
   landAfter(battle, unit, FLY_CLIP, { key: LAND_KEY, reason, onLanded: () => battle.releaseBlocked(unit) });
 }
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_13 蒂比 紧急赶场通知 (AUTO): "受到攻击后触发" is officially "受到伤害前触发" (PRTS 修正 原因 6; 备注 "在受到伤害前自动

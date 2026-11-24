@@ -3,7 +3,10 @@
 
 import { sortEnemyTargets } from '../../../targeting.js';
 import { num, talentBb, skillRec, batMod } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_17 深靛 光影迷宫: attack interval ×base_attack_time, talent chance ×talent_scale, bound enemies in range take
@@ -18,7 +21,7 @@ export default {
     const t = talentBb(chess, 0);
     const dScale = num(bb['indigo_s_2[damage].atk_scale']);
     const dIv = num(bb['indigo_s_2[damage].interval'], 0.5);
-    const bound = (e) => !!e.s.flags.bind;
+    const bound = (/** @type {Unit} */ e) => !!e.s.flags.bind;
     const r1 = skillRec(chess, 'skchr_indigo_1');
     const b1 = r1?.bb ?? {};
     return {

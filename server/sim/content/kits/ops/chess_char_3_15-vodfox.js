@@ -3,7 +3,9 @@
 
 import { releaseSkillSummon } from '../../tokens.js';
 import { num, defOf, talentBb, aura } from '../shared/tier3.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---- 3_15 巫恋 · 削弱者 (hidden) — S2 诅咒娃娃 "获得一个诅咒娃娃（最多可库存1个）": the doll is a hand piece the player
   //      places (user playtest #6; PRTS 卫戍协议/帮助); each cast gives one and the placed piece takes the field on its
@@ -12,7 +14,7 @@ export default {
   chess_char_3_15_a: (bb, chess, def) => {
     const d = defOf(chess, def);
     const t0 = talentBb(d, 0);
-    const tokenId = chess?.skill?.overrideTokenKey ?? (d.tokens || []).find((t) => /doll/.test(String(t))) ?? 'token_10006_vodfox_doll';
+    const tokenId = chess?.skill?.overrideTokenKey ?? (d.tokens || []).find((/** @type {unknown} */ t) => /doll/.test(String(t))) ?? 'token_10006_vodfox_doll';
     return {
       skill: {
         kind: 'instant',

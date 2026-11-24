@@ -5,7 +5,9 @@ import {
   num, talentBb, talentGrid, moduleOn, up, hurtSpDamage, giveSp, onDamagedOn, alliesInGridOf, statBuff, installReveal,
   skillBbOf,
 } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_20 雷蛇 反击电弧 (hurt SP): attack interval ×(1 + base_attack_time) (PRTS "攻击间隔增大(+70%)": a RATIO for this skill,

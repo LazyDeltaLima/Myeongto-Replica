@@ -3,6 +3,9 @@
 
 import { num, talentBb, traitBb, cheb, onHitBy, skillBbOf } from '../shared/tier1.js';
 import { throwBoomerang } from '../../../ai.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 /** 乐趣加倍's later boomerangs (client `_triggerDelta`, s). */
 const S2_TRIGGER_DELTA = 0.1;
@@ -10,6 +13,8 @@ const S2_TRIGGER_DELTA = 0.1;
 /**
  * Attack-profile `afterAttack` of 乐趣加倍: `extra` more boomerangs at each target of the attack, S2_TRIGGER_DELTA apart,
  * each one hit of this attack (same attackId) — a target dead by then, or a thrower stunned / gone, gets none.
+ * @param {number} extra
+ * @returns {((battle: Battle, unit: Unit, targets: Unit[]) => void) | undefined}
  */
 function extraBoomerangs(extra) {
   if (!(extra > 0)) return undefined;
@@ -30,6 +35,7 @@ function extraBoomerangs(extra) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_09 跃跃 (回环射手: every attack is a boomerang out to the target and back — she attacks again only once it is

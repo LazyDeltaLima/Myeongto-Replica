@@ -2,7 +2,9 @@
 // Conventions of the tier-1 kits: ../shared/tier1.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, traitBb, onHitBy, batMod } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_05 红豆 (hidden) 槌音: base attack time +base_attack_time s, ATK +atk. 蛮力穿刺: each attack prob1 (prob2 while the skill

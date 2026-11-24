@@ -2,7 +2,9 @@
 // Conventions of the tier-1 kits: ../shared/tier1.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, skillBbOf } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_14 格雷伊 静电释放: ASPD +attack_speed, the talent 停顿 lasts talent_scale × longer.

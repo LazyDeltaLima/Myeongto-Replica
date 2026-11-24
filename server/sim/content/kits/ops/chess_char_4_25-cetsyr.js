@@ -8,19 +8,25 @@ import {
   AURA, AURA_DUR, num, tbb, moduleBb, grid, enemyHasTag, whileDeployed, toggleBuff, skillActive, isSel, alt,
   withDefaults,
 } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { Profile } from '../../../professions.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 /**
  * 鼓舞 (ba.inspire "获得额外附加的基础属性加成（同类属性取最高）"): +`val` ATK (or max HP) on top of the target's own
  * percentage multipliers (the flat mod is compensated, so an ATK+% skill does not scale it), the strongest source wins
  * (the ATK key `inspire` is shared with 浊心斯卡蒂's 鼓舞); units flagged `mem.noInspire` (bards: 自身不受鼓舞影响) never
  * receive it. Refreshed by an aura: lapses within AURA_DUR once the source stops.
+ * @param {Battle} battle @param {Unit} target @param {number} val @param {Unit} src @param {'atk' | 'hp'} [stat]
  */
 function inspire(battle, target, val, src, stat = 'atk') {
   if (!(val > 0) || !target || !target.alive || target.mem?.noInspire) return;
   const key = stat === 'hp' ? 'inspire:hp' : 'inspire';
-  const cur = target.findBuff(key);
+  const cur = /** @type {BuffRec | null} */ (target.findBuff(key));
   if (cur && cur.data && cur.data.src !== src.id && cur.data.val > val && cur.timeLeft > 1e-6) return;
-  const { add, mul } = aggregateMods(target.buffs.filter((b) => b.key !== key));
+  const { add, mul } = aggregateMods(/** @type {BuffRec[]} */ (target.buffs).filter((b) => b.key !== key));
   const f = stat === 'hp' ? Math.max(0, 1 + (add.hpPct ?? 0)) * (mul.hpMul ?? 1) : Math.max(0, 1 + (add.atkPct ?? 0)) * (mul.atkMul ?? 1);
   const flat = f > 1e-6 ? val / f : val;
   battle.addBuff(target, { key, mods: stat === 'hp' ? { hpFlat: flat } : { atkFlat: flat }, duration: AURA_DUR, source: src, visible: true, data: { src: src.id, val } });
@@ -39,8 +45,8 @@ export default withDefaults({
     const S1 = isSel(def, 'skchr_cetsyr_1'), S2 = isSel(def, 'skchr_cetsyr_2'), S3 = isSel(def, 'skchr_cetsyr_3');
     const baseCnt = Math.max(0, Math.floor(num(t0.cnt, 3)));
     const MOTE_GAP = 0.5; // [ASSUMED] minimal time between two motes hitting the same enemy (s)
-    const setTrait = (unit, v) => { unit.mem.bardBase ??= unit.profile.auraRatio; unit.profile.auraRatio = num(v, unit.mem.bardBase); };
-    const resetTrait = (unit) => { if (unit.mem.bardBase != null) unit.profile.auraRatio = unit.mem.bardBase; };
+    const setTrait = (/** @type {Unit} */ unit, /** @type {unknown} */ v) => { unit.mem.bardBase ??= /** @type {Profile} */ (unit.profile).auraRatio; /** @type {Profile} */ (unit.profile).auraRatio = num(v, unit.mem.bardBase); };
+    const resetTrait = (/** @type {Unit} */ unit) => { if (unit.mem.bardBase != null) /** @type {Profile} */ (unit.profile).auraRatio = unit.mem.bardBase; };
     return {
       skills: alt(def, {
         skchr_cetsyr_1: () => ({
@@ -62,7 +68,7 @@ export default withDefaults({
           },
           onEnd({ battle, unit }) {
             // back to the normal cap: the motes that come back first are kept
-            unit.mem.motes = (unit.mem.motes || []).slice().sort((a, b) => a - b).slice(0, baseCnt);
+            unit.mem.motes = (unit.mem.motes || []).slice().sort((/** @type {number} */ a, /** @type {number} */ b) => a - b).slice(0, baseCnt);
             unit.mem.moteHit = null;
           },
         }),
@@ -89,7 +95,7 @@ export default withDefaults({
           for (const a of pool) a.hp = Math.max(1, Math.min(a.s.maxHp, a.s.maxHp * ratio));
           battle.fx('redistribute', { x: unit.x, y: unit.y, id: unit.id, ratio: Math.round(ratio * 1000) / 1000 });
         },
-        onEnd({ unit }) { if (unit.mem.bardBase != null) unit.profile.auraRatio = unit.mem.bardBase; },
+        onEnd({ unit }) { if (unit.mem.bardBase != null) /** @type {Profile} */ (unit.profile).auraRatio = unit.mem.bardBase; },
       },
       talents: [
         { install(battle, unit) { // 过往尘埃: 3 motes; touching an operator ⇒ her trait regen ×1.5 on it for 6 s; mote back after 6 s
@@ -97,7 +103,7 @@ export default withDefaults({
           unit.mem.noInspire = true; // trait: 自身不受鼓舞影响 (another bard's 鼓舞 skips her)
           const cooldown = () => (S1 && skillActive(unit) ? num(bb.talent_cool_down, 3) : num(t0.cooldown, 6)); // S1: 重生速度加快
           const takeMote = () => {
-            const i = unit.mem.motes.findIndex((t) => t <= battle.time + 1e-9);
+            const i = unit.mem.motes.findIndex((/** @type {number} */ t) => t <= battle.time + 1e-9);
             if (i < 0) return false;
             unit.mem.motes[i] = battle.time + cooldown();
             return true;
@@ -107,7 +113,7 @@ export default withDefaults({
           // speed `spd` (°/s) of the blackboards
           const announce = () => {
             const sk = skillActive(unit) ? (S2 ? 2 : S3 ? 3 : 0) : 0;
-            const cap = unit.mem.motes.length, n = sk === 3 ? cap : unit.mem.motes.filter((t) => t <= battle.time + 1e-9).length;
+            const cap = unit.mem.motes.length, n = sk === 3 ? cap : unit.mem.motes.filter((/** @type {number} */ t) => t <= battle.time + 1e-9).length;
             const key = `${n}/${cap}/${sk}`;
             if (key === unit.mem.motesShown) return;
             unit.mem.motesShown = key;

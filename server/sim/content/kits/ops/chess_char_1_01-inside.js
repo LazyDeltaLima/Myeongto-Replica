@@ -3,7 +3,9 @@
 
 import { num, talentBb, up, once, skillBbOf, batMod } from '../shared/tier1.js';
 import { hasPower } from '../shared/powers.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_01 隐现 “解决麻烦”: ammo (attack@trigger_time) ATK+atk, base attack time +base_attack_time s, prefers ranged

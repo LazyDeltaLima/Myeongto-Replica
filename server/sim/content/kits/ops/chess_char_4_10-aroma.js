@@ -4,6 +4,8 @@
 import { bodyInRange } from '../../../body.js';
 import { num, tbb, keySet, skillActive, isSel, alt, instantKind, withDefaults } from '../shared/tier4.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 /** 阿罗玛's 非首次标记 (talent 起泡性能测试): one per enemy, shared by every 阿罗玛 (PRTS 备注). */
 const AROMA_MARK = 'aroma:bubbled';
@@ -46,7 +48,7 @@ export default withDefaults({
           if (c.unit !== unit) return;
           for (const id of unit.mem.bubbled) {
             const e = battle.unitById(id);
-            if (e && e.findBuff(AROMA_MARK)?.source === unit) battle.removeBuff(e, AROMA_MARK);
+            if (e && /** @type {BuffRec | null} */ (e.findBuff(AROMA_MARK))?.source === unit) battle.removeBuff(e, AROMA_MARK);
           }
           unit.mem.bubbled.clear();
         }, { owner: unit });

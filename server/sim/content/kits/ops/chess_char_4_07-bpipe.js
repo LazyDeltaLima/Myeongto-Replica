@@ -3,6 +3,7 @@
 
 import { sortEnemyTargets } from '../../../targeting.js';
 import { num, tbb, batFlat, alt, withDefaults } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
 export default withDefaults({
   // ===== 风笛 (charger) S2 高效冲击 — next attack 145 % ×2 (charges); talents 精密填弹 / 军事传统

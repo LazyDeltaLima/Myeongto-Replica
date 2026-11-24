@@ -4,10 +4,14 @@
 import { COLS, ELEMENT_GAUGE_MAX } from '../../../constants.js';
 import { num, talentBb, up } from '../shared/tier1.js';
 import { onDefaultSkill } from '../shared/tier2.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { Profile } from '../../../professions.js' */
 
 /** Largest element gauge of a unit (every element — 侵蚀 included: the bosses' attacks fill it on operators). */
-const elemLoad = (a) => Math.max(a.elem.burn, a.elem.neural, a.elem.apoptosis, a.elem.erosion ?? 0);
+const elemLoad = (/** @type {Unit} */ a) => Math.max(a.elem.burn, a.elem.neural, a.elem.apoptosis, a.elem.erosion ?? 0);
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_05 哈洛德 重症优先: ASPD +attack_speed, heals the ally with the heaviest element damage first; on targets whose
@@ -26,7 +30,7 @@ export default {
         kind: 'duration', heal: true, mods: { aspd: num(bb.attack_speed) },
         onHit({ battle, unit, target }) {
           if (!target || !unit.mem.haroldHalf?.has(target.id) || !(ts > 1)) return;
-          battle.reduceElement(target, unit.s.atk * (unit.profile.heal?.elementHealRatio ?? 0) * (ts - 1));
+          battle.reduceElement(target, unit.s.atk * (/** @type {Profile} */ (unit.profile).heal?.elementHealRatio ?? 0) * (ts - 1));
         },
       },
       skills: { 'skcom_heal_up[3]': { kind: 'duration', heal: true, mods: { atkPct: num(bb.atk) } } },
@@ -36,7 +40,7 @@ export default {
           const cands = battle.injuredAlliesInKeys(unit.rangeKeys, unit, true);
           cands.sort((a, b) => elemLoad(b) - elemLoad(a) || a.hpRatio - b.hpRatio || a.deploySeq - b.deploySeq);
           if (cands.length) ctx.targets = cands.slice(0, Math.max(1, ctx.targets.length));
-          unit.mem.haroldHalf = new Set(ctx.targets.filter((a) => elemLoad(a) > half).map((a) => a.id));
+          unit.mem.haroldHalf = new Set(ctx.targets.filter((/** @type {Unit} */ a) => elemLoad(a) > half).map((/** @type {Unit} */ a) => a.id));
         }, { owner: unit });
         const r = Math.max(0, Math.min(1, num(t.ep_damage_resistance)));
         if (r > 0) {

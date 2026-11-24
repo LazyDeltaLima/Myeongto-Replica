@@ -2,7 +2,10 @@
 // Conventions of the tier-3 kits: ../shared/tier3.js; kit contract and rules: ../README.md.
 
 import { num, defOf, talentBb, altSkills, gridKeys, copyGrid, NINE, aura } from '../shared/tier3.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
+/** @type {KitFns} */
 export default {
   // ---- 3_03 诗怀雅 · 教官 — S2 协同作战: ATK +, first talent ×talent_scale; 近距离作战指导 melee ATK aura
   //      S1 指挥调度: the talent covers the skill's range (x-1 normal / x-2 elite) at ×talent_scale while it runs
@@ -13,7 +16,7 @@ export default {
     const scale = num(bb.talent_scale, 1);
     // "第一天赋生效范围扩大" (talent_range_flag): the selected skill's range replaces the talent's while it is active
     const skillTGrid = num(bb.talent_range_flag) > 0 ? copyGrid(d.skill?.rangeGrid) : null;
-    const refresh = ({ unit }) => unit.mem.swireAura?.();
+    const refresh = (/** @type {{ unit: Unit }} */ { unit }) => unit.mem.swireAura?.();
     return {
       skill: {
         kind: 'duration',

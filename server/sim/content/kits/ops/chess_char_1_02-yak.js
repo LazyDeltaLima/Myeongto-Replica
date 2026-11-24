@@ -2,7 +2,9 @@
 // Conventions of the tier-1 kits: ../shared/tier1.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, statBuff, skillBbOf } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_02 角峰 抗寒体质: HP +max_hp, DEF +def, RES ×(1+magic_resistance). 雪原卫士: RES +magic_resistance (flat).

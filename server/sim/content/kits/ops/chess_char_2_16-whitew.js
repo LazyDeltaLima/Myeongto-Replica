@@ -2,7 +2,10 @@
 // Conventions of the tier-2 kits: ../shared/tier2.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, traitBb, onHitOn } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Profile } from '../../../professions.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_16 拉普兰德 狼魂 (AUTO, attack SP): ATK +atk, arts damage, one extra target, ranged attacks no longer reduced.
@@ -13,6 +16,7 @@ export default {
   chess_char_2_16_a: (bb, chess) => {
     const t = talentBb(chess, 0);
     const tb = traitBb(chess);
+    /** @type {Profile} */
     const trait = {};
     if (num(t.duration) > 0) trait.onHitStatus = { key: 'silence', duration: num(t.duration) };
     if (num(tb.atk_scale_m) > 0) {

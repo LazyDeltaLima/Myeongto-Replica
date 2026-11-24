@@ -2,7 +2,9 @@
 // Conventions of the tier-2 kits: ../shared/tier2.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, statBuff, batMod } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_01 送葬人 最终旅程: normal attacks become double hits, base attack time +base_attack_time s (−0.5 on 2.3 s

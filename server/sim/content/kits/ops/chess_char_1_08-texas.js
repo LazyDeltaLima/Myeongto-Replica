@@ -2,7 +2,9 @@
 // Conventions of the tier-1 kits: ../shared/tier1.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, enemiesInGrid, skillBbOf, RING1 } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_08 德克萨斯 剑雨: +cost DP; every enemy around (skill grid) takes two hits of atk_scale × ATK arts and is

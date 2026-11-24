@@ -107,7 +107,8 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 `server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), the kit helpers
 (`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and
 the files directly under `server/sim/` (`server/sim/*.js`), the files directly under `server/sim/content/`
-(`server/sim/content/*.js`) and the enemy kits `server/sim/content/enemies/`.
+(`server/sim/content/*.js`), the enemy kits `server/sim/content/enemies/` and, of the operator kits
+`server/sim/content/kits/ops/`, the files `chess_char_1_*` to `chess_char_4_*` (the rest follows by file group).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -298,7 +299,8 @@ most strict errors were, and the JSDoc that fixed them:
   what the helper reads (`instantKind(def)`: `{ skill?: { maxCharges?: number } | null }`; `pullToward`'s puller
   `{ x, y, side? }`), a tile list a kit passes as `number[][]` takes `@template {ReadonlyArray<number>} T` (`betterEnemyTiles`,
   `bestTile`), and a `ChessDef` field built from the untyped record (`def.talents`) is `any`: its callbacks take an
-  inline type. A generic over several builders' return types (`altSkills`) failed with TS2719: they return `object`.
+  inline type. A generic over several builders' return types (`altSkills`) failed with TS2719: they return `KitSkill` (the operator
+  kits below).
   A `@type` on a declaration in the middle of a line (`=> { /** @type {…} */ const o = {}; …`) is not read: cast the
   value instead (`const o = /** @type {Record<string, number>} */ ({})`).
 - the `Battle` parts (`server/sim/battle/`) share their records as typedefs where they are made: `Hook`, `HookFn`,
@@ -411,6 +413,26 @@ most strict errors were, and the JSDoc that fixed them:
   compares it with `> 1e-9` casts it to `number` (null compares as no frame). Some tests read kit lines as text
   (`test/docs-consistency.test.js` matches leaders.js `const inR = (b, e, s) =>`): there the `@param`s go on the line
   above.
+- the operator kits (`server/sim/content/kits/ops/`): a kit file's `export default` takes `/** @type {KitFns} */`
+  (kits/shared/tier1.js: `KitFn` is `(bb, chess, def) => KitSpec`), which types every builder's parameters and what it
+  returns: `skill` / `skills` are `KitSkill`s, whose hooks take `SkillCtx`; `attack` is a `KitAttack` (its `onHit` /
+  `onEachHit` take `SkillCtx`, its other callbacks are the profile's it overrides, ai.js effectiveProfile); `install`
+  and `talents[].install` take `(battle, unit)`; `trait` is a `Profile`. An index signature gives a method no
+  contextual type (TS7006 / TS7031 even under `[key: string]: any`), so a hook the engine calls by name is listed in the
+  typedef. A builder declared apart (`function pithst(bb, chess, def)`, an exported `tinmanKit`) takes `@type {KitFn}`
+  in its block; a kit built in a `const kit = { … }` that gets more keys after takes `@type {KitSpec}` (`KitSpec & {
+  skill: KitSkill }` when it then writes `kit.skill.targeting`), a spec built apart `@type {KitSkill}`. The helpers that
+  build a `skills` map (`alt` tier4, `altSkills` tier3, `lazySkills` tier5) take builders returning `KitSkill`, and
+  `withDefaults` (tier4) takes `KitFns`, so the specs inside them are typed too. A helper of a hook that reads only the
+  battle and the unit takes `BattleUnit` (tier1), a skill hook written apart `@param {SkillCtx}`. A buff's `onTick` /
+  `onExpire` / `onRemove` take `BuffTickCtx` / `BuffEndCtx` (buffs.js makeBuff; status.js casts them at the call, where
+  the check sits outside the closure), so `addBuff(u, { onTick: ({ battle, unit, buff }) => … })` needs nothing; a
+  projectile's `onHit` is not typed (`addProjectile` takes `object`; ai.js and enemies/helpers.js type theirs inline):
+  an inline type on its parameter. `unit.profile` (`Profile | null`, set before any talent installs) is cast to
+  `Profile` where a kit reads it, `unit.skill` to `SkillRuntime` after a check tsc does not follow (an `install` that
+  returned without one, a filter that kept armed units), `unit.rangeKeys` (a deployed unit has them) to `number[]`
+  where a helper takes `readonly number[]`, `findBuff` / `unit.buffs` through `BuffRec`, and `skill.castPick` (`any`)
+  gets an inline `Unit` on its callbacks. A `const x = c.source` read after `byEnemyAttack(c)` is cast once there.
 - the kit resolver and the generic kit (content/index.js, generic.js): `Kit` (index.js) is the kit contract read by
   key, `Def` a normalised def; the generic skill spec is built as a `Record<string, any>`. A blackboard getter returns
   `number | undefined`, so a `> 0` test on one is cast at the comparison. The guarded `import()` of the domain

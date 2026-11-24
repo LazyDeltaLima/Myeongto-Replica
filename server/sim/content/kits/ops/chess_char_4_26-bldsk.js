@@ -3,6 +3,10 @@
 
 import { bodyInRange } from '../../../body.js';
 import { num, tbb, keySet, isSel, alt, installLowHpHealBonus, withDefaults } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
 
 export default withDefaults({
   // ===== 华法琳 (physician) S1 紧急包扎 — charges: a heal on an ally below 50 % adds 15 % of its max HP; 血液样本回收
@@ -11,7 +15,7 @@ export default withDefaults({
     const t0 = tbb(def, 0);
     const tb = def.traitBb || {};
     const S1 = isSel(def, 'skchr_bldsk_1');
-    const plasma = (battle, unit, a) => battle.addBuff(a, {
+    const plasma = (/** @type {Battle} */ battle, /** @type {Unit} */ unit, /** @type {Unit} */ a) => battle.addBuff(a, {
       key: 'bldsk:plasma', duration: num(bb.duration, 15) + 1e-6, interval: Math.max(0.1, num(bb.interval, 1)), mods: { atkPct: num(bb.atk) }, visible: true, source: unit,
       onTick: ({ unit: t }) => battle.loseHp(t, t.s.maxHp * num(bb.hp_ratio, 0.03), { silent: true, tags: ['skill', 'plasma'] }), // (no source: not damage dealt; silent: the template's DamageViaMaxHpRatio creates no effect)
     });
@@ -41,7 +45,7 @@ export default withDefaults({
           unit.skill?.gainSp(num(t0['bldsk_t_1[self].sp'], 2), 'talent');
           // SP cannot be gained while a timed skill runs (engine gainSp ignores it): such allies are not picked
           const pick = battle.rng.pick(battle.alliesInGrid(unit).filter((a) => a !== unit && a.skill && !a.skill.noSkill && a.skill.kind !== 'passive' && !(a.skill.active && a.skill.isTimed)));
-          if (pick) { pick.skill.gainSp(num(t0['bldsk_t_1[rand].sp'], 2), 'talent'); battle.fx('spGift', { x: pick.x, y: pick.y, id: pick.id }); }
+          if (pick) { /** @type {SkillRuntime} */ (pick.skill).gainSp(num(t0['bldsk_t_1[rand].sp'], 2), 'talent'); battle.fx('spGift', { x: pick.x, y: pick.y, id: pick.id }); }
         }, { owner: unit });
       } }],
       install(battle, unit) {

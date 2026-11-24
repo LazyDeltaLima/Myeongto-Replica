@@ -2,6 +2,7 @@
 // Conventions of the tier-4 kits: ../shared/tier4.js; kit contract and rules: ../README.md.
 
 import { num, tbb, grid, batFlat, spAura, alt, applyModuleRange, withDefaults } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
 export default withDefaults({
   // ===== 白面鸮 (ringhealer) S2 脑啡肽 — wider range, much faster heals; talent 技力光环 (+0.3 SP/s to all allies)

@@ -3,6 +3,7 @@
 
 import { CAT_SHIELD_KEY } from '../../tokens.js';
 import { AURA, num, whileDeployed, pulse, alt, withDefaults } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
 export default withDefaults({
   // ===== 凯瑟琳 (craftsman) S2 战火淬炼 — stops attacking, HP/DEF up, devices give 6 %/s shields; talent 定向支援信号

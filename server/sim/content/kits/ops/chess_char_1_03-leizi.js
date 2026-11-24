@@ -3,7 +3,10 @@
 
 import { CHAIN_RADIUS } from '../../../constants.js';
 import { num, talentBb, traitBb, onHitBy, skillBbOf } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Profile } from '../../../professions.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_03 惊蛰 初雷: ATK +atk, chain jumps lose no damage. 通流无阻: vs unblocked enemies ATK ×atk_scale (every jump).
@@ -19,7 +22,7 @@ export default {
       } }],
       install(battle, unit) {
         // the chain shape (count / sluggish, elite module included) comes from the resolved chain profile
-        const ch = unit.profile.chain || { count: num(traitBb(chess)['attack@max_target'], 3), radius: CHAIN_RADIUS, sluggish: num(traitBb(chess)['attack@sluggish'], 0.5) };
+        const ch = /** @type {Profile} */ (unit.profile).chain || { count: num(traitBb(chess)['attack@max_target'], 3), radius: CHAIN_RADIUS, sluggish: num(traitBb(chess)['attack@sluggish'], 0.5) };
         if (unit.skill && unit.skill.spec.attack) unit.skill.spec.attack.chain = { ...ch, falloff: 0 };
       },
     };

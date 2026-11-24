@@ -3,7 +3,9 @@
 
 import { releaseSkillSummon } from '../../tokens.js';
 import { num, talentBb, traitBb, installAura } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_02 赫默 医疗无人机 (AUTO, heal trigger): "获得一个医疗无人机 / 最多可库存1个无人机；无人机投入战场后治疗周围友军，

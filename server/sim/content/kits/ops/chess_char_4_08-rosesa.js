@@ -5,6 +5,7 @@ import { COLS } from '../../../constants.js';
 import {
   AURA, num, tbb, batFlat, keySet, whileDeployed, pulse, skillActive, applyModuleRange, withDefaults,
 } from '../shared/tier4.js';
+/** @import { KitFns, DmgRec } from '../shared/tier1.js' */
 
 export default withDefaults({
   // ===== 瑰盐 (ringhealer, hidden) S2 绝妙的长效药呀 — allies in range: 20 % of phys/arts damage → 5 s HP loss
@@ -31,8 +32,8 @@ export default withDefaults({
           deferred.add(c.dmg);
         }, { owner: unit, priority: -5 });
         battle.on('damaged', (c) => {
-          if (!deferred.has(c.dmg) || !(c.amount > 0) || !c.target.alive) return;
-          deferred.delete(c.dmg);
+          if (!deferred.has(/** @type {DmgRec} */ (c.dmg)) || !(c.amount > 0) || !c.target.alive) return;
+          deferred.delete(/** @type {DmgRec} */ (c.dmg));
           const total = (c.amount * (1 - scale)) / Math.max(1e-6, scale);
           const per = total / Math.max(1, Math.round(fin / iv));
           const src = c.source;

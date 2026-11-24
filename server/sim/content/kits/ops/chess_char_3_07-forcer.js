@@ -4,10 +4,13 @@
 import { PUSH_DIRECTIONAL_MIN_DIST } from '../../../constants.js';
 import { num, defOf, talentBb, traitBb, onTiles, gridKeys, fx, copyGrid } from '../shared/tier3.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns, KitSpec } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
 /** Two enemy bodies touch within this distance (tiles) — 见行者 collision stun. */
 const COLLIDE = 0.6;
 
+/** @type {KitFns} */
 export default {
   // ---- 3_07 见行者 · 推击手 (hidden) — S2 惊爆射击: push every enemy in the skill range forward + stun (longer when
   //      slammed into a wall, collided enemies stunned too; air units too [ASSUMED: "范围内所有敌人", no 对空 note on
@@ -22,6 +25,7 @@ export default {
     const sDirect = num(bb['forcer_s_2[hit_directly].stun'], num(bb.stun, 1));
     const sWall = num(bb.stun, sDirect);
     const sBrush = num(bb['forcer_s_2[brush].stun'], sDirect);
+    /** @type {KitSpec} */
     const kit = {
       skill: {
         kind: 'instant',
@@ -30,7 +34,7 @@ export default {
           skill.castPick = battle.enemies.filter((e) => e.alive && !e.hidden && !e.s.flags.untargetable && onTiles(e, keys));
         },
         onStrike({ battle, unit, skill }) {
-          const victims = (skill.castPick ?? []).filter((e) => e.alive);
+          const victims = (skill.castPick ?? []).filter((/** @type {Unit} */ e) => e.alive);
           const pushed = new Set(victims);
           for (const e of victims) {
             // "往身前方向…推开": a directional push whose angle is fixed — PRTS 备注 "不会因为角度过大而改变推动的方向或削减力度"

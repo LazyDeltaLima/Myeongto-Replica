@@ -5,11 +5,15 @@ import {
   AURA, num, tbb, grid, enemiesOnRange, whileDeployed, pulse, spAura, skillActive, isSel, alt, applyModuleRange,
   channel, withDefaults,
 } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const TICK_EPS = 0.01;     // minimal status duration (s)
 /**
  * Knock-back of 力度 `force` away from `from` (a radial push, Battle.push: the official 力度 − 重量 distance — PRTS 推与拉;
  * user playtest #6 item 14). Returns the tiles moved.
+ * @param {Battle} battle @param {Unit} e @param {{ x: number, y: number }} from @param {unknown} force
  */
 function shove(battle, e, from, force) {
   return e && e.alive ? battle.push(e, num(force, 0), { from }) : 0;

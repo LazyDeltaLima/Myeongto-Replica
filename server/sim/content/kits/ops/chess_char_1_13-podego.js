@@ -4,6 +4,8 @@
 import {
   num, talentBb, moduleBb, up, enemiesInGrid, enemyInRange, installAura, spTimeBonus, makeZone, skillBbOf,
 } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
 
 // =================================================================================================================
 // tier-local constants that exist nowhere in data
@@ -11,6 +13,7 @@ import {
 /** Radius (tiles) of 波登可's spore cloud. No blackboard key; PRTS 波登可 备注 "孢子群范围半径为0.9，可对空". */
 const SPORE_RADIUS = 0.9;
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_13 波登可 孢子扩散: a vial bursts on the current target into a projectile_delay_time s spore cloud (radius 0.9,
@@ -31,7 +34,7 @@ export default {
       install(battle, unit) {
         if (unit.skill?.id !== S1) return;
         battle.on('tick', () => {
-          const sk = unit.skill;
+          const sk = /** @type {SkillRuntime} */ (unit.skill); // install returned above without it
           if (!up(unit) || !unit.canAct || !sk.ready || sk.active || sk.opCooling || unit.s.flags.silence) return;
           if (battle.injuredAlliesInKeys(unit.baseRangeKeys || unit.rangeKeys, unit).length) sk.activate('DEFAULT');
         }, { owner: unit });

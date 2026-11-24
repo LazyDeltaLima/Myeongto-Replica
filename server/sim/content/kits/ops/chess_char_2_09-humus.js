@@ -2,7 +2,11 @@
 // Conventions of the tier-2 kits: ../shared/tier2.js; kit contract and rules: ../README.md.
 
 import { num, talentBb } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { SkillCtx } from '../../../skills.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_09 休谟斯 高效处理: block +block_cnt; above peak_1.hp_ratio HP ATK +peak_1.atk (精力充沛), above peak_2.hp_ratio
@@ -11,6 +15,7 @@ export default {
   // HP once (a self heal: her trait bars only healing by others; overflow feeds 再回收).
   chess_char_2_09_a: (bb, chess) => {
     const t = talentBb(chess, 0);
+    /** @type {{ id: string, atk: number, hp: number }[]} */
     const peaks = [];
     for (const [k, v] of Object.entries(bb)) {
       const m = k.match(/\[(peak_\d+)\]\.peak_performance\.(atk|hp_ratio)$/);
@@ -23,9 +28,9 @@ export default {
     const key = 'humus:peak';
     // the buff's `fxTag` is the peak it stands for (1 / 2: peak_1 / peak_2): each runs peak_performance with its own blackboard
     // `peak_performance.effect` (humus_buff_01 / _02 — render/fxstatus.js KEY_FX)
-    const peak = ({ battle, unit }) => {
+    const peak = (/** @type {Pick<SkillCtx, 'battle' | 'unit'>} */ { battle, unit }) => {
       const p = peaks.find((x) => unit.hpRatio > x.hp), lvl = p?.atk ?? 0;
-      const cur = unit.findBuff(key);
+      const cur = /** @type {BuffRec | null} */ (unit.findBuff(key));
       if ((cur?.data?.v ?? 0) === lvl) return;
       // another peak: off first, so the client hears the new `fxTag` (a replaced buff sends no 'status')
       const tag = p ? Number(p.id.slice(5)) || null : null;
@@ -54,7 +59,7 @@ export default {
           if (ctx.target !== unit || !(ctx.amount > 0)) return;
           const over = ctx.amount - (unit.s.maxHp - unit.hp);
           if (!(over > 0)) return;
-          const cur = unit.findBuff('humus:recycle');
+          const cur = /** @type {BuffRec | null} */ (unit.findBuff('humus:recycle'));
           const have = cur ? cur.shield : 0;
           const val = Math.min(unit.s.maxHp * ratio, have + over);
           if (val > have + 1e-6) battle.addBuff(unit, { key: 'humus:recycle', shield: val, source: unit, visible: true, tags: ['talent'] });

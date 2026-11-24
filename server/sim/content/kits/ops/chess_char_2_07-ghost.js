@@ -2,7 +2,9 @@
 // Conventions of the tier-2 kits: ../shared/tier2.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, traitBb, onHitBy, statBuff } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_07 幽灵鲨 肉斩骨断: ATK +atk and HP never drops below 1 while active; stunned `stun` s afterwards.

@@ -8,8 +8,11 @@ import {
 } from '../shared/tier4.js';
 import { hasPower } from '../shared/powers.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
-const isAbyssal = (u) => hasPower(u, 'abyssal');
+const isAbyssal = (/** @type {Unit} */ u) => hasPower(u, 'abyssal');
 
 export default withDefaults({
   // ===== 歌蕾蒂娅 (hookmaster) S3 缺水的碎漩狂舞 — bind a far target, tornado (r 1.5): slow, 85 % arts pulses + pull,
@@ -27,16 +30,16 @@ export default withDefaults({
     const force = num(bb.force, num(bb['attack@force'], 0));
     const iv = Math.max(0.1, num(bb.interval, 1.5));
     const g = grid(def.skill?.rangeGrid);
-    const dragDmg = (battle, unit, e, moved) => { // module: dragged enemies take arts damage ∝ distance
+    const dragDmg = (/** @type {Battle} */ battle, /** @type {Unit} */ unit, /** @type {Unit} */ e, /** @type {number} */ moved) => { // module: dragged enemies take arts damage ∝ distance
       if (!(moved > 0) || !(num(tb.value, 0) > 0) || !e.alive) return;
       battle.dealDamage(unit, e, { amount: num(tb.value) * moved / Math.max(1e-6, num(tb.dist, 1)), type: 'arts', isSkill: true, tags: ['drag'] });
     };
     // module HOK-Y: "向自身拖拽较远的敌人时力度提升一个等级"
     const farR = num(mb['skill@range_radius'], num(mb['attack@range_radius'], 0)), farF = num(mb['skill@delta_force'], num(mb['attack@delta_force'], 0));
-    const selfForce = (unit, e, f) => (farR > 0 && farF > 0 && hypot(e.x - unit.x, e.y - unit.y) > farR + 1e-9 ? f + farF : f);
+    const selfForce = (/** @type {Unit} */ unit, /** @type {Unit} */ e, /** @type {number} */ f) => (farR > 0 && farF > 0 && hypot(e.x - unit.x, e.y - unit.y) > farR + 1e-9 ? f + farF : f);
     // her pulls toward herself ride projectiles (HarpoonProjectile projectile_chr_glady_s1 / _s2, the S3 捕网
     // NetCatcherProjectile projectile_chr_glady_s3_3): one stopping on a living target makes her search at once
-    const pullSelf = (battle, unit, e, f) => {
+    const pullSelf = (/** @type {Battle} */ battle, /** @type {Unit} */ unit, /** @type {Unit} */ e, /** @type {number} */ f) => {
       if (!e || !e.alive) return;
       dragDmg(battle, unit, e, pullToFront(battle, unit, e, selfForce(unit, e, f)));
       if (e.alive) battle.searchBlockeeImmediate(unit);
@@ -117,7 +120,7 @@ export default withDefaults({
           // [ASSUMED·화면: as `endHolds` above, this length was not measured]
           const seq = unit.deploySeq;
           battle.after(0.367, () => {
-            if (unit.alive && unit.deploySeq === seq && unit.canAct && unit.skillStateUntil > battle.time + 1e-9) net();
+            if (unit.alive && unit.deploySeq === seq && unit.canAct && /** @type {number} */ (unit.skillStateUntil) > battle.time + 1e-9) net();
           }, { owner: unit });
         },
       },

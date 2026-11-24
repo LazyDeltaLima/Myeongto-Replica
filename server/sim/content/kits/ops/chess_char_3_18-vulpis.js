@@ -5,10 +5,14 @@ import {
   num, defOf, talentBb, traitBb, altSkills, instantKindOf, alive, gridKeys, fx, copyGrid, enemiesOn, whileTrue,
   isLeader,
 } from '../shared/tier3.js';
+/** @import { KitFns, KitSpec, KitSkill } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 /** 忍冬 S3's 迷彩 (until her next cast): its own buff key, never merged with another unit status. */
 const CAMOU_KEY = 'vulpis:camou';
 
+/** @type {KitFns} */
 export default {
   // ---- 3_18 忍冬 · 尖兵 — S3 隐狐之艺: +DP, range +1, ATK +, decaying ASPD, hits all blocked, 0.2 s stun per hit,
   //      after a kill during the skill 迷彩 from its end until the next cast ("进入迷彩状态，直至下一次开启技能") — the
@@ -30,6 +34,7 @@ export default {
     const tb = traitBb(d);
     const skillGrid = copyGrid(d.skill?.rangeGrid);
     const aspd0 = num(bb.attack_speed, 0);
+    /** @type {KitSpec & { skill: KitSkill }} */
     const kit = {
       skill: {
         kind: 'duration',
@@ -44,7 +49,7 @@ export default {
           unit.mem.vulpisDur = skill.timeLeft;
         },
         onTick({ battle, unit, skill }) {
-          const b = unit.findBuff('skill:vulpis_aspd');
+          const b = /** @type {BuffRec | null} */ (unit.findBuff('skill:vulpis_aspd'));
           const dur = unit.mem.vulpisDur || skill.duration || 1;
           if (b) { b.mods = { aspd: aspd0 * Math.max(0, skill.timeLeft) / dur }; unit.markDirty(); }
         },
@@ -74,7 +79,7 @@ export default {
             onStrike({ battle, unit, skill }) {   // (vulpis_s_2[cost] on ON_SPELL_ON)
               const dp = num(s.bb.cost, 0);
               if (dp > 0) { battle.addDp(unit.ownerId, dp); fx(battle, 'dp', unit, { n: dp }); }
-              const list = skill.castPick.filter((e) => e.alive);
+              const list = skill.castPick.filter((/** @type {Unit} */ e) => e.alive);
               for (const e of list) {
                 const was = !!e.findBuff('sluggish'); // "若敌人已经处于停顿状态" (before this cast)
                 battle.dealDamage(unit, e, { amount: unit.s.atk * num(s.bb.atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill', 'vulpisTorture'] });

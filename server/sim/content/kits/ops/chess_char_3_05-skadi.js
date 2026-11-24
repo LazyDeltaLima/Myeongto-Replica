@@ -3,8 +3,10 @@
 
 import { num, defOf, talentBb, traitBb, altSkills, statSkill, fx } from '../shared/tier3.js';
 import { hasPower } from '../shared/powers.js';
+/** @import { KitFns, KitSpec } from '../shared/tier1.js' */
 
 
+/** @type {KitFns} */
 export default {
   // ---- 3_05 斯卡蒂 · 无畏者 — S3 涌潮悲歌: ATK/DEF/HP +; 深海掠食者 (Abyssal Hunters ATK); 迅捷出击 (redeploy −10 s)
   //      精锐 module DRE-Y: once per deployment, a lethal hit instead restores full HP with max HP −60 % and ASPD +30
@@ -14,6 +16,7 @@ export default {
     const d = defOf(chess, def);
     const t0 = talentBb(d, 0), t1 = talentBb(d, 1);
     const tb = traitBb(d);
+    /** @type {KitSpec} */
     const kit = {
       skill: { kind: 'duration', mods: { atkPct: num(bb.atk), defPct: num(bb.def), hpPct: num(bb.max_hp) } },
       skills: altSkills(chess, d, bb, {

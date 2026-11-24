@@ -4,7 +4,9 @@
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
 import { num, talentBb, talentGrid, traitBb, up, cheb, onHitOn, skillBbOf } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_12 艾丝黛尔 舍身突击 (hurt SP): ATK +atk, cannot be healed by others. 自愈能力: an enemy dying within the talent

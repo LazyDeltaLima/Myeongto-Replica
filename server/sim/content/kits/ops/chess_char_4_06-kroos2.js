@@ -2,6 +2,7 @@
 // Conventions of the tier-4 kits: ../shared/tier4.js; kit contract and rules: ../README.md.
 
 import { num, tbb, batFlat, skillActive, isSel, alt, withDefaults } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
 export default withDefaults({
   // ===== 寒芒克洛丝 (fastshot) S2 封喉 — double shot → 4 shots after 40 hits; talent 中的 (20 % ×1.5 + 0.2 s stun)

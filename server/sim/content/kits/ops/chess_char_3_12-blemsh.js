@@ -6,10 +6,14 @@ import {
   num, defOf, talentBb, traitBb, altSkills, instantKindOf, alive, onTiles, gridKeys, fx, copyGrid, NINE, isLeader,
   giveSp,
 } from '../shared/tier3.js';
+/** @import { KitFns, KitSpec } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 /** Refresh period (s) of 瑕光 S2's 生命回复速度 buff (it lasts two periods, so it never lapses while the skill runs). */
 const REGEN_IV = 0.25;
 
+/** @type {KitFns} */
 export default {
   // ---- 3_12 瑕光 · 守护者 — S3 先贤化身: ATK/DEF +, bonus arts per hit, heals another nearby ally per attack;
   //      剑盾骑士: hurt-SP skills of the team also gain SP on attack; 仁慈: attacks sleeping enemies (first, ×atk_scale);
@@ -28,10 +32,11 @@ export default {
     const heal = num(bb.heal_scale, 0);
     const healGrid = copyGrid(d.skill?.rangeGrid) ?? NINE;
     const mercy = num(t1.atk_scale, 1);
-    const sleepersInRange = (battle, unit) => {
+    const sleepersInRange = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       const set = unit.rangeKeySet;
-      return set ? battle.enemies.filter((e) => e.alive && !e.hidden && e.s.flags.sleep && !e.s.flags.untargetable && !e.isFlying && onTiles(e, set)) : [];
+      return set ? battle.enemies.filter((/** @type {Unit} */ e) => e.alive && !e.hidden && e.s.flags.sleep && !e.s.flags.untargetable && !e.isFlying && onTiles(e, set)) : [];
     };
+    /** @type {KitSpec} */
     const kit = {
       trait: { hitSleep: true }, // 仁慈: 自身可以攻击…沉睡的目标 (沉睡 = 无敌 for everyone else)
       skill: {
@@ -68,8 +73,8 @@ export default {
           const ratio = num(s.bb['attack@atk_to_hp_recovery_ratio'], num(s.bb.atk_to_hp_recovery_ratio, 0));
           // "周围的所有友方单位每秒恢复相当于攻击力N%的生命值": an hpRegen buff on every ally on the skill range's tiles (no
           // device, no 孤立 unit), refreshed every REGEN_IV while the skill's S2 mode holds and removed at its end
-          const regenKey = (unit) => `blemsh:regen:${unit.id}`;
-          const regen = (battle, unit) => {
+          const regenKey = (/** @type {Unit} */ unit) => `blemsh:regen:${unit.id}`;
+          const regen = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
             if (!(ratio > 0)) return;
             const keys = new Set(gridKeys(grid, unit));
             const v = unit.s.atk * ratio;
@@ -135,7 +140,7 @@ export default {
           battle.on('beforeAttack', (ctx) => {
             if (ctx.attacker !== unit) return;
             const s = sleepersInRange(battle, unit);
-            if (s.length) ctx.targets = [s[0], ...ctx.targets.filter((t) => t !== s[0])].slice(0, Math.max(1, ctx.targets.length));
+            if (s.length) ctx.targets = [s[0], ...ctx.targets.filter((/** @type {Unit} */ t) => t !== s[0])].slice(0, Math.max(1, ctx.targets.length));
           }, { owner: unit });
           battle.on('hit', (ctx) => {
             if (ctx.source === unit && ctx.target.side === 'enemy' && ctx.target.s.flags.sleep) ctx.dmg.mul *= mercy;

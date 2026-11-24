@@ -2,7 +2,9 @@
 // Conventions of the tier-2 kits: ../shared/tier2.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, traitBb, onHitBy, batMod } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_18 灰毫 攻击力强化·γ型 (TAKE_DAMAGE, like S2: the official 重装 row; the DEFAULT deviation of DESIGN §21.29 is gone,

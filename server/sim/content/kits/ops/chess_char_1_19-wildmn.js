@@ -2,7 +2,9 @@
 // Conventions of the tier-1 kits: ../shared/tier1.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, skillRec } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 1_19 野鬃 夹枪冲锋: wider range (skill grid), ATK +atk, "攻击会把目标往攻击方向中等力度地推开" (attack@force 1 = 中力) by

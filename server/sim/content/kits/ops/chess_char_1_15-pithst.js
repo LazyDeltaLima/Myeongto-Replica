@@ -3,6 +3,7 @@
 
 import { hasHp } from '../../../damage.js';
 import { num, tbb, isElite, elementDmg } from '../shared/tier6.js';
+/** @import { KitFns, KitFn } from '../shared/tier1.js' */
 
 // ------------------------------------------------------------------------------------------------------------------
 // 盟约·辅助干员 chess_char_1_15 (巫役) — S1 战术咏唱·双型; 迭代元素
@@ -23,6 +24,7 @@ export const PITHST_ELEMENTS = Object.freeze(['neural', 'burn', 'apoptosis']);
  *   * elite module RIT-X "对精英和领袖敌人造成的元素损伤提升18%" = ep_damage_ratio_boss (0.2124) vs ELITE / BOSS enemies:
  *     a talent ratio, not an "元素损伤提升" (PRTS 备注), so it changes nothing else she deals (e.g. a 灼燃维式重锤).
  * The target pick prefers enemies not in a burst (`priority: 'notBurst'`).
+ * @type {KitFn}
  */
 function pithst(bb, chess, def) {
   const t0 = tbb(def, 0);
@@ -49,6 +51,7 @@ function pithst(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   chess_char_1_15_a: pithst,
 };

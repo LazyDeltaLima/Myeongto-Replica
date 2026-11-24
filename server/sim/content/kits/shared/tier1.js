@@ -37,6 +37,8 @@ import { isHpLoss } from '../../../damage.js';
 /** @import { HitEv, DamagedEv, DeployEv } from '../../support/index.js' */
 /** @import { Scheduled } from '../../../battle/hooks.js' */
 /** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { SkillCtx } from '../../../skills.js' */
+/** @import { Profile } from '../../../professions.js' */
 /**
  * The kit helpers' shared types: the raw (loadout-resolved) chess record a kit takes, maybe absent; a blackboard read by
  * key; a damage record as the `hit` / `damaged` hooks carry it; a tile [r, c]; the normalised def a kit takes (absent:
@@ -47,6 +49,27 @@ import { isHpLoss } from '../../../damage.js';
  * @typedef {HitEv['dmg']} DmgRec
  * @typedef {[number, number]} Tile
  * @typedef {ReadonlyArray<ReadonlyArray<number>>} Grid range offsets [dRow, dCol] (a data RangeGrid or a kit's own list)
+ *
+ * A kit as a kit file of ../ops/ writes it (content/index.js Kit, the contract of its header), with the callbacks the
+ * engine calls typed: a SkillSpec's hooks take the SkillCtx (skills.js `_call`), its `attack` hooks the same ctx with the
+ * target (ai.js; the rest of `attack` overrides the profile's fields, so its callbacks are the profile's), a talent's and
+ * the kit's `install` the battle and the unit (battle/players.js `_setupUnit`), the trait is a profile (professions.js). The rest of a spec is read field by field. A kit file's default export is a `KitFns`:
+ * a JSDoc `@type {KitFns}` on `export default` types every builder's `(bb, chess, def)` and what it returns.
+ * @typedef {(ctx: SkillCtx) => unknown} SkillHook
+ * @typedef {{ [key: string]: any, onHit?: SkillHook, onEachHit?: SkillHook, dmgMul?: number | Profile['dmgMul'],
+ *   afterHit?: Profile['afterHit'], canAttack?: Profile['canAttack'], afterAttack?: Profile['afterAttack'],
+ *   funnelMul?: Profile['funnelMul'], hitsFn?: Profile['hitsFn'] }} KitAttack
+ * @typedef {{ [key: string]: any, attack?: KitAttack | null, onStart?: SkillHook, onEnd?: SkillHook, onTick?: SkillHook,
+ *   onHit?: SkillHook, onAttack?: SkillHook, onStrike?: SkillHook, onCastEnd?: SkillHook, onCastCut?: SkillHook,
+ *   onBeginLost?: SkillHook, autoTrigger?: SkillHook, castCheck?: SkillHook, castVariant?: SkillHook }} KitSkill
+ * @typedef {{ [key: string]: any, install?: (battle: Battle, unit: Unit) => void }} KitTalent
+ * @typedef {{ [key: string]: any, skill?: KitSkill | null, skills?: Record<string, KitSkill>,
+ *   talents?: Array<KitTalent | null | false | undefined>, trait?: Profile | null,
+ *   install?: (battle: Battle, unit: Unit) => void }} KitSpec
+ * @typedef {(bb: Bb, chess: ChessRecord, def: ChessDef) => KitSpec} KitFn
+ * @typedef {Record<string, KitFn>} KitFns
+ * What a kit's helper of a hook takes when it reads only the battle and the unit (a SkillCtx and a buff's ctx have both).
+ * @typedef {{ battle: Battle, unit: Unit }} BattleUnit
  */
 
 // =================================================================================================================

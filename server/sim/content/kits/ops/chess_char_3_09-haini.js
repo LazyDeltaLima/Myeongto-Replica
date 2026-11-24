@@ -2,10 +2,13 @@
 // Conventions of the tier-3 kits: ../shared/tier3.js; kit contract and rules: ../README.md.
 
 import { num, defOf, talentBb, altSkills, instantKindOf, alive, onTiles, aura } from '../shared/tier3.js';
+/** @import { KitFns, KitSpec, KitSkill } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
 /** Non-elite, non-leader enemy (海霓 "非精英和领袖敌人"). */
-const isNormalEnemy = (e) => !e.isBoss && String(e.def?.rank ?? 'NORMAL').toUpperCase() === 'NORMAL';
+const isNormalEnemy = (/** @type {Unit} */ e) => !e.isBoss && String(e.def?.rank ?? 'NORMAL').toUpperCase() === 'NORMAL';
 
+/** @type {KitFns} */
 export default {
   // ---- 3_09 海霓 · 削弱者 — S2 阻滞性显色剂: ATK +, 2 targets, slows non-elite enemies in range, their deaths raise the
   //      talent up to max_talent_up; 测绘器材的奇用: non-elite enemies in range are fragile
@@ -15,6 +18,7 @@ export default {
     const slow = num(bb['attack@move_speed'], 0);
     const up = num(bb['attack@talent_up'], 0), upMax = num(bb['attack@max_talent_up'], 1);
     const mt = Math.floor(num(bb['attack@max_target'], 1));
+    /** @type {KitSpec & { skill: KitSkill }} */
     const kit = {
       skill: {
         kind: 'duration',

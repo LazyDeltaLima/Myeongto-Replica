@@ -4,6 +4,7 @@
 import { COLS } from '../../../constants.js';
 import { isHpLoss } from '../../../damage.js';
 import { num, tbb, keySet, skillActive, installLowHpHealBonus, withDefaults } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
 export default withDefaults({
   // ===== 录武官 (physician, hidden) S2 一点关窍 — +ATK; healed allies regain 80 HP per hit taken for 10 s; 学成于聚

@@ -6,6 +6,11 @@ import { sortEnemyTargets } from '../../../targeting.js';
 import {
   AURA, num, tbb, grid, targetsInGrid, whileDeployed, toggleBuff, resCut, isSel, alt, lonely, withDefaults,
 } from '../shared/tier4.js';
+/** @import { KitFns, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
+/** @import { Scheduled } from '../../../battle/hooks.js' */
 
 // S3 剑雨滂沱 timings (EN client prefab skchr_texas2_3, see the kit note): AppearSwordRain `_preDelay` / `_triggerDelta`,
 // the rain buff's `firstTriggerInterval`, the rain sword's `_randomDelayToBorn` (s)
@@ -40,37 +45,37 @@ export default withDefaults({
     const g = grid(def.skill?.rangeGrid) || [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1]];
     const S1 = isSel(def, 'skchr_texas2_1'), S2 = isSel(def, 'skchr_texas2_2');
     const dur = num(def.skill?.duration, S1 ? 11 : S2 ? 8 : 6);
-    const castS1 = (battle, unit) => {
+    const castS1 = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       if (!unit.alive || !unit.deployed) return;
       battle.fx('swordRain', { x: unit.x, y: unit.y, id: unit.id });
     };
     // texas2_recast_not_valid (德克萨斯传统): a kill while the deploy burst casts does not recast (`mem.texasNoRecast`, the
     // talent below) — the S2 `Damage` / S3 `AppearSwordRain` abilities carry it (BuffDuringCasting, INFINITY: from their
     // cast start to OnCastFinish, BURST_CAST after the cast; the S3 second hit at 0.8 s is inside)
-    const noRecastWindow = (battle, unit) => {
+    const noRecastWindow = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       const w = unit.mem.texasNoRecast = {};
       battle.after(BURST_CAST, () => { if (unit.mem.texasNoRecast === w) unit.mem.texasNoRecast = false; }, { owner: unit });
     };
     // S2 / S3: every pending hit / sword of the current release (cancelled when it ends: recast, retreat, death)
-    const stopRelease = (unit) => {
+    const stopRelease = (/** @type {Unit} */ unit) => {
       for (const t of unit.mem.texasRelease || []) t.cancel();
       unit.mem.texasRelease = null;
     };
-    const release = (battle, unit) => {
+    const release = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       stopRelease(unit);
       noRecastWindow(battle, unit);
-      const timers = unit.mem.texasRelease = [];
+      const timers = unit.mem.texasRelease = /** @type {Scheduled[]} */ ([]);
       const seq = unit.deploySeq;
       const live = () => unit.alive && unit.deployed && unit.deploySeq === seq && unit.mem.texasRelease === timers;
       return { timers, live };
     };
-    const castS2 = (battle, unit) => {
+    const castS2 = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       if (!unit.alive || !unit.deployed) return;
       // the cast effect texas2_birth_02_start plays at the cast start (`_castEffects` ON_CAST_START), the hit after `_preDelay`
       battle.fx('swordStorm', { x: unit.x, y: unit.y, id: unit.id });
       const { timers, live } = release(battle, unit);
       const mr = num(bb.magic_resistance, 0);
-      timers.push(battle.after(S2_BURST_PRE, (b) => {
+      timers.push(battle.after(S2_BURST_PRE, (/** @type {Battle} */ b) => {
         if (!live()) return;
         for (const e of targetsInGrid(b, unit, g)) {
           b.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 1.5), type: 'arts', isSkill: true, tags: ['skill', 'burst'] });
@@ -79,23 +84,23 @@ export default withDefaults({
         }
       }, { owner: unit }));
     };
-    const castS3 = (battle, unit) => {
+    const castS3 = (/** @type {Battle} */ battle, /** @type {Unit} */ unit) => {
       if (!unit.alive || !unit.deployed) return;
       battle.fx('swordStorm', { x: unit.x, y: unit.y, id: unit.id });
       const { timers, live } = release(battle, unit);
-      const appear = (b) => {
+      const appear = (/** @type {Battle} */ b) => {
         for (const e of targetsInGrid(b, unit, g)) {
           b.dealDamage(unit, e, { amount: unit.s.atk * num(bb['appear.atk_scale'], 1.15), type: 'arts', isSkill: true, tags: ['skill', 'burst'] });
           if (e.alive) b.applyStatus(e, 'stun', { duration: num(bb['appear.stun'], 1.5), source: unit });
         }
       };
-      const sword = (b, e) => {
+      const sword = (/** @type {Battle} */ b, /** @type {Unit} */ e) => {
         if (!live() || !e.alive) return;
         b.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 0.85), type: 'arts', isSkill: true, tags: ['skill', 'swordRain'] });
         if (e.alive) b.applyStatus(e, 'stun', { duration: num(bb.stun, 0.2), source: unit });
         b.fx('swordRain', { x: e.x, y: e.y, id: e.id, src: unit.id }); // src — the client draws her rain prefab
       };
-      const rain = (b, sched) => {
+      const rain = (/** @type {Battle} */ b, /** @type {Scheduled} */ sched) => {
         if (!live() || !unit.skill?.active) { sched.cancel(); return; }
         const list = targetsInGrid(b, unit, g);
         sortEnemyTargets(b, unit, list, null);
@@ -103,10 +108,10 @@ export default withDefaults({
           timers.push(b.after(b.rng.range(0, S3_SWORD_DELAY), () => sword(b, e), { owner: unit }));
         }
       };
-      timers.push(battle.after(S3_APPEAR_PRE, (b) => { if (live()) appear(b); }, { owner: unit }));
-      timers.push(battle.after(S3_APPEAR_PRE + S3_APPEAR_DELTA, (b) => { if (live()) appear(b); }, { owner: unit }));
+      timers.push(battle.after(S3_APPEAR_PRE, (/** @type {Battle} */ b) => { if (live()) appear(b); }, { owner: unit }));
+      timers.push(battle.after(S3_APPEAR_PRE + S3_APPEAR_DELTA, (/** @type {Battle} */ b) => { if (live()) appear(b); }, { owner: unit }));
       // ModeWithSwordRain, once AppearSwordRain's casting ends
-      timers.push(battle.after(BURST_CAST, (b) => {
+      timers.push(battle.after(BURST_CAST, (/** @type {Battle} */ b) => {
         if (!live()) return;
         const r = b.every(Math.max(0.1, num(bb['texas2_s_3[sword].interval'], 1)), rain, { owner: unit });
         r.due = b.time + S3_RAIN_FIRST;
@@ -114,6 +119,7 @@ export default withDefaults({
       }, { owner: unit }));
     };
     const cast = S1 ? castS1 : S2 ? castS2 : castS3;
+    /** @type {KitSkill} */
     const skill = {
       // S2 / S3: the last step (`Duration` / ModeWithSwordRain, buffs of life `duration`) starts after the burst's casting
       kind: 'duration', activateOnDeploy: true, duration: S1 ? dur : dur + BURST_CAST, spCost: 0, spType: 'none', trigger: 'NEVER',
@@ -157,8 +163,8 @@ export default withDefaults({
               if (!unit.alive || !unit.deployed || unit.deploySeq !== seq) { sched.cancel(); return; }
               if (!unit.canAct) return;
               sched.cancel();
-              unit.skill.end('recast');
-              if (unit.skill.activate('kill', { free: true })) b.heal(unit, unit, unit.s.maxHp * num(t0.hp_ratio, 1), { self: true });
+              /** @type {SkillRuntime} */ (unit.skill).end('recast');
+              if (/** @type {SkillRuntime} */ (unit.skill).activate('kill', { free: true })) b.heal(unit, unit, unit.s.maxHp * num(t0.hp_ratio, 1), { self: true });
             }, { owner: unit, immediate: true }); // (never inside this kill: the scheduler's next pass at the earliest)
           }, { owner: unit });
         } },

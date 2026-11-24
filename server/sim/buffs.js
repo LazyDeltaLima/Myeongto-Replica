@@ -11,7 +11,13 @@ import { COLD_ASPD, COLD_FREEZE_DURATION, FREEZE_RES_DOWN, RESIST_DEFAULT, RESIS
 import { powi } from './detmath.js';
 /** @import { Battle } from './Battle.js' */
 /** @import { Unit } from './units.js' */
-/** @import { StatusTpl } from './battle/status.js' */
+/** @import { StatusTpl, Buff } from './battle/status.js' */
+/**
+ * What a buff's callbacks get (battle/status.js: the tick pass, expiry and removeBuff): the battle, the unit, the buff
+ * and, for onTick, the time since the last call.
+ * @typedef {{ battle: Battle, unit: Unit, buff: Buff, dt: number }} BuffTickCtx
+ * @typedef {{ battle: Battle, unit: Unit, buff: Buff }} BuffEndCtx
+ */
 
 /** 抵抗: "麻痹等状态每5秒流失1层" — tick of the resist buff. @param {{ battle: Battle, unit: Unit }} c */
 function resistPalsyDecay({ battle, unit }) {
@@ -179,11 +185,11 @@ export function makeBuff(b) {
     refresh: b.refresh ?? 'replace',
     mods: b.mods ?? null,
     flags: b.flags ?? null,
-    onTick: b.onTick ?? null,
+    onTick: /** @type {((c: BuffTickCtx) => unknown) | null} */ (b.onTick ?? null),
     interval: b.interval ?? 0,
     _acc: 0,
-    onExpire: b.onExpire ?? null,
-    onRemove: b.onRemove ?? null,
+    onExpire: /** @type {((c: BuffEndCtx) => unknown) | null} */ (b.onExpire ?? null),
+    onRemove: /** @type {((c: BuffEndCtx) => unknown) | null} */ (b.onRemove ?? null),
     tags: b.tags ?? [],
     shield: b.shield ?? (b.mods && b.mods.shield) ?? 0,
     shieldHits: b.shieldHits ?? 0,

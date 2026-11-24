@@ -4,7 +4,9 @@
 import {
   num, talentBb, moduleBb, traitBb, enemiesInGrid, enemyInRange, statBuff, spTimeBonus, instantKind,
 } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_04 小满 乡音沉沉: stops attacking and puts max_target enemies in range to sleep `sleep` s; afterwards ASPD

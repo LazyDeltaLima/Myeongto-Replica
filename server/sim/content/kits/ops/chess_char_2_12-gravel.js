@@ -2,6 +2,7 @@
 // Conventions of the tier-2 kits: ../shared/tier2.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, installAura } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
 /**
  * 砾's normal attack (PRTS 砾 特性备注): "在砾的攻击动作下，每次普通攻击造成两段伤害，但是每段最终只会造成50%的伤害（在计算防御/减伤后，在
@@ -12,6 +13,7 @@ import { num, talentBb, installAura } from '../shared/tier1.js';
 const GRAVEL_HITS = 2;
 const GRAVEL_HIT_DMG_MUL = 0.5;
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_12 砾 鼠群 (passive): at each deployment a barrier of hp_ratio × max HP that decays to 0 over `duration` s

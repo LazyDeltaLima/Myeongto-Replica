@@ -2,7 +2,11 @@
 // Conventions of the tier-3 kits: ../shared/tier3.js; kit contract and rules: ../README.md.
 
 import { num, defOf, talentBb, altSkills, statSkill, textNum, funnelMap, installFunnelPrune } from '../shared/tier3.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
+/** @type {KitFns} */
 export default {
   // ---- 3_13 至简 · 驭械术师 — S2 神工意匠: next attack ATK% arts twice (charges); 忽有所悟: prob of ATK ×atk_scale per attack
   chess_char_3_13_a: (bb, chess, def) => {
@@ -12,7 +16,7 @@ export default {
     const hits = textNum(d.skill?.description, /连续攻击(\d+|[一二两三四五])次/, 2);
     // a won roll marks its target: malist_t_1's CreateEffect malist_hit_extra on it, the moment of the attack's first damage
     // there ('damaged' below — render/fx/kitofficial.js 'hit')
-    const insight = (battle, unit, target) => {
+    const insight = (/** @type {Battle} */ battle, /** @type {Unit} */ unit, /** @type {Unit} */ target) => {
       if (unit) unit.mem.malistWon = null;
       if (!battle.rng.chance(num(t0.prob, 0))) return 1;
       if (unit && target) unit.mem.malistWon = target;

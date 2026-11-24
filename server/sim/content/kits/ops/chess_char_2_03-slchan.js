@@ -2,7 +2,10 @@
 // Conventions of the tier-2 kits: ../shared/tier2.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, traitBb, enemiesInGrid, toggleBuff } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 2_03 崖心 (hidden) 束缚链: up to max_target enemies in the large front grid are dragged (force 1 = 中力; Battle.pullToFront:
@@ -22,7 +25,7 @@ export default {
           unit.mem.slchanFoes = enemiesInGrid(battle, unit, def?.skill?.rangeGrid ?? null, { n: Math.max(1, Math.floor(num(bb.max_target, 1))) });
         },
         onStrike({ battle, unit }) {
-          const foes = (unit.mem.slchanFoes ?? []).filter((e) => e.alive);
+          const foes = (unit.mem.slchanFoes ?? []).filter((/** @type {Unit} */ e) => e.alive);
           unit.mem.slchanFoes = null;
           for (const e of foes) {
             const sx = e.x, sy = e.y;
@@ -36,7 +39,7 @@ export default {
             if (e.alive) battle.applyStatus(e, 'stun', { duration: num(bb.stun), source: unit });
           }
           // her harpoon (projectile_slchan_s2, a HarpoonProjectile) stopping on a living target: she searches at once
-          if (foes.some((e) => e.alive)) battle.searchBlockeeImmediate(unit);
+          if (foes.some((/** @type {Unit} */ e) => e.alive)) battle.searchBlockeeImmediate(unit);
         },
       },
       talents: [{ install(battle, unit) {

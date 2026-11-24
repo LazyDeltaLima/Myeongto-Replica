@@ -35,7 +35,8 @@ import { hasPower } from './powers.js';
 /** @import { Battle } from '../../../Battle.js' */
 /** @import { Unit } from '../../../units.js' */
 /** @import { SkillRuntime } from '../../../skills.js' */
-/** @import { KitChess, KitDef, Bb, Grid, Tile } from './tier1.js' */
+/** @import { KitChess, KitDef, Bb, Grid, Tile, KitFns, KitSkill } from './tier1.js' */
+/** @import { ChessRecord } from '../../../../../shared/loadoutRecord.js' */
 /** @import { HealEv } from '../../support/index.js' */
 /** @import { BuffRec } from '../../bonds/shared.js' */
 
@@ -122,7 +123,7 @@ const skillActive = (u) => !!(u.skill && u.skill.active && u.skill.kind !== 'pas
 const selId = (def) => def?.skill?.id ?? def?.raw?.skill?.skillId ?? null;
 /** Is `id` the selected skill? @param {KitDef} def @param {string} id */
 const isSel = (def, id) => selId(def) === id;
-/** `skills` map of a kit: the spec of the selected skill when a builder exists for it (DESIGN §16 kit contract). @param {KitDef} def @param {Record<string, () => object>} builders */
+/** `skills` map of a kit: the spec of the selected skill when a builder exists for it (DESIGN §16 kit contract). @param {KitDef} def @param {Record<string, () => KitSkill>} builders @returns {Record<string, KitSkill>} */
 function alt(def, builders) {
   const id = selId(def);
   return id && typeof builders[id] === 'function' ? { [id]: builders[id]() } : {};
@@ -213,9 +214,8 @@ const channel = {
 };
 
 // DESIGN §5.6 documents `(bb, chess)`; content/index.js also passes the normalised def — rebuild it when absent.
-/** @import { KitBuilder } from './chessPick.js' */
-/** @param {Record<string, KitBuilder>} kits */
-const withDefaults = (kits) => Object.fromEntries(Object.entries(kits).map(([id, f]) => [id, (/** @type {Bb | null | undefined} */ bb, /** @type {KitChess} */ chess, /** @type {KitDef} */ def) => f(bb || {}, chess, def || normalizeChess(/** @type {NonNullable<KitChess>} */ (chess)))]));
+/** @param {KitFns} kits */
+const withDefaults = (kits) => Object.fromEntries(Object.entries(kits).map(([id, f]) => [id, (/** @type {Bb | null | undefined} */ bb, /** @type {KitChess} */ chess, /** @type {KitDef} */ def) => f(bb || {}, /** @type {ChessRecord} */ (chess), def || normalizeChess(/** @type {NonNullable<KitChess>} */ (chess)))]));
 
 export {
   AURA, AURA_DUR, num, tbb, moduleBb, grid, batFlat, hasPower, enemyHasTag, keySet, enemiesOnRange, targetsInRange,

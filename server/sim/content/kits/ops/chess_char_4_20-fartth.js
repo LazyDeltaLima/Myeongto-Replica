@@ -7,12 +7,15 @@ import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
 import { isHpLoss } from '../../../damage.js';
 import { num, tbb, whileDeployed, toggleBuff, skillActive, isSel, alt, withDefaults } from '../shared/tier4.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 // the stage's width of tiles (21; the grid is wider for the 8-player mode's wide 联防 field, constants.js COLS)
 const LINE = Object.freeze(Array.from({ length: STAGE_COLS }, (_, i) => Object.freeze([0, i])));
-const tileKey = (u) => Math.round(u.y) * COLS + Math.round(u.x);
+const tileKey = (/** @type {Unit} */ u) => Math.round(u.y) * COLS + Math.round(u.x);
 /** HP at 0 (boss pool: pool HP) — a `damaged` hook sees the lethal hit before the kill, while the unit is still `alive`. */
-const downed = (u) => (u.bossPool ? !(u.bossPool.hp > 0) : !(u.hp > 0));
+const downed = (/** @type {Unit} */ u) => (u.bossPool ? !(u.bossPool.hp > 0) : !(u.hp > 0));
 
 export default withDefaults({
   // ===== 远牙 (longrange) S3 光羽箭 — infinite line, +ATK, ×1.25 beyond the normal range; talents 凝神 / 屏息; module
@@ -24,7 +27,7 @@ export default withDefaults({
     const tb = def.traitBb || {};
     const S3 = isSel(def, 'skchr_fartth_3');
     const taunt = num(t1.taunt_level, -1);
-    const setAllied = (battle, unit, keys) => {
+    const setAllied = (/** @type {Battle} */ battle, /** @type {Unit} */ unit, /** @type {number[] | null} */ keys) => {
       const sig = keys ? keys.join(',') : '';
       if (sig === (unit.mem.alliedSig ?? '')) return;
       unit.mem.alliedSig = sig;
@@ -65,7 +68,7 @@ export default withDefaults({
           battle.on('beforeAttack', (c) => {
             if (c.attacker !== unit || !skillActive(unit) || !unit.extraRangeKeys) return;
             const own = new Set(absoluteRangeKeys(unit.rangeGrid, unit.tileR, unit.tileC, unit.dir, unit.s.rangeExtend));
-            const ok = (e) => bodyInRange(e, own) || !!(e.blockedBy && e.blockedBy.side === 'ally' && e.blockedBy.alive);
+            const ok = (/** @type {Unit} */ e) => bodyInRange(e, own) || !!(e.blockedBy && e.blockedBy.side === 'ally' && e.blockedBy.alive);
             if (c.targets.every(ok)) return;
             const cands = battle.enemiesInKeys(unit.rangeKeys, unit, c.profile);
             for (const e of battle.blockedTargets(unit, c.profile)) if (!cands.includes(e)) cands.push(e); // DESIGN §20.3

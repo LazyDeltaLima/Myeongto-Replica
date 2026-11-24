@@ -128,7 +128,7 @@ export class BattleStatus {
       const key = b.status ?? b.key;
       if (!/** @type {Buff[]} */ (unit.buffs).some((x) => (x.status ?? x.key) === key)) this._ev(['status', unit.id, key, 0]);
     }
-    if (callRemove && b.onRemove) this._safe(() => b.onRemove({ battle: this, unit, buff: b }), 'buff.onRemove', unit);
+    if (callRemove && b.onRemove) this._safe(() => /** @type {NonNullable<Buff['onRemove']>} */ (b.onRemove)({ battle: this, unit, buff: b }), 'buff.onRemove', unit);
   }
 
   /**
@@ -184,9 +184,9 @@ export class BattleStatus {
           let n = 0;
           while (b._acc >= b.interval - 1e-9 && n++ < 8) {
             b._acc -= b.interval;
-            this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt: b.interval }), 'buff.onTick', u);
+            this._safe(() => /** @type {NonNullable<Buff['onTick']>} */ (b.onTick)({ battle: this, unit: u, buff: b, dt: b.interval }), 'buff.onTick', u);
           }
-        } else this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt }), 'buff.onTick', u);
+        } else this._safe(() => /** @type {NonNullable<Buff['onTick']>} */ (b.onTick)({ battle: this, unit: u, buff: b, dt }), 'buff.onTick', u);
       }
       if (b.timeLeft !== Infinity) {
         b.timeLeft -= dt;
@@ -194,7 +194,7 @@ export class BattleStatus {
           const i = u.buffs.indexOf(b);
           if (i >= 0) {
             this._removeBuffAt(u, i, false);
-            if (b.onExpire) this._safe(() => b.onExpire({ battle: this, unit: u, buff: b }), 'buff.onExpire', u);
+            if (b.onExpire) this._safe(() => /** @type {NonNullable<Buff['onExpire']>} */ (b.onExpire)({ battle: this, unit: u, buff: b }), 'buff.onExpire', u);
           }
         }
       }

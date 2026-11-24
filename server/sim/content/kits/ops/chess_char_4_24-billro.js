@@ -4,6 +4,9 @@
 import {
   num, tbb, moduleBb, grid, batFlat, enemiesOnRange, whileDeployed, toggleBuff, skillActive, isSel, alt, withDefaults,
 } from '../shared/tier4.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 /** 卡涅利安 S3 食噬之印: the ATK bonus climbs in 1 s steps over 20 s (PRTS 备注; the blackboard has no ramp time). */
 const BILLRO_S3_RAMP = 20;
@@ -30,10 +33,10 @@ export default withDefaults({
     const keepDef = num(tb['billro_e_002[buff].def'], 0), keepRes = num(tb['billro_e_002[buff].magic_resistance'], 0);
     const S1 = isSel(def, 'skchr_billro_1'), S2 = isSel(def, 'skchr_billro_2'), S3 = isSel(def, 'skchr_billro_3');
     const g = grid(def.skill?.rangeGrid);
-    const isCharged = (skill) => skill.maxCharges > 1 && skill.charges + 1 >= skill.maxCharges; // cast with every charge stored
+    const isCharged = (/** @type {SkillRuntime} */ skill) => skill.maxCharges > 1 && skill.charges + 1 >= skill.maxCharges; // cast with every charge stored
     // the charged cast's clips: the skill buff (billro_s_N) switches to mode SN_Enhance when billro_talent_enhance_judge saw
     // ≥ 2 charges available (maxChargeTime 2 — every charge stored), else to SN (render: anims skill `variants.charged`)
-    const castVariant = ({ skill }) => (isCharged(skill) ? 'charged' : null);
+    const castVariant = (/** @type {{ skill: SkillRuntime }} */ { skill }) => (isCharged(skill) ? 'charged' : null);
     return {
       // charged S1: the skill-off trait's 不攻击 stays in force while the skill lasts (PRTS S1 备注) — no attack at all
       trait: S1 ? { canAttack: (battle, u) => !(skillActive(u) && u.mem.billroCharged) } : null,
@@ -65,7 +68,7 @@ export default withDefaults({
           onTick({ unit, dt }) { // 攻击力逐渐增至+N%: PRTS 备注 "从+0%开始在20秒内线性增加，攻击力每1秒更新1次"
             unit.mem.billroRamp = (unit.mem.billroRamp ?? 0) + dt;
             const steps = Math.min(BILLRO_S3_RAMP, Math.floor(unit.mem.billroRamp + 1e-9));
-            const b = unit.findBuff('billro:s3atk');
+            const b = /** @type {BuffRec | null} */ (unit.findBuff('billro:s3atk'));
             if (b && b.mods.atkPct !== num(bb.atk) * steps / BILLRO_S3_RAMP) { b.mods = { atkPct: num(bb.atk) * steps / BILLRO_S3_RAMP }; unit.markDirty(); }
           },
           onEnd({ battle, unit }) {
@@ -73,7 +76,7 @@ export default withDefaults({
             // "持续至技能结束": the marks she set end with her skill (stacks another 卡涅利安 added to them included)
             for (const id of unit.mem.billroMarked || []) {
               const e = battle.unitById(id);
-              if (e && e.findBuff(BILLRO_MARK)?.source === unit) battle.removeBuff(e, BILLRO_MARK);
+              if (e && /** @type {BuffRec | null} */ (e.findBuff(BILLRO_MARK))?.source === unit) battle.removeBuff(e, BILLRO_MARK);
             }
             unit.mem.billroMarked = null;
             unit.mem.billroCharged = false;
@@ -144,7 +147,7 @@ export default withDefaults({
           battle.on('hit', (c) => {
             const e = c.target;
             if (c.source !== unit || e.side !== 'enemy') return;
-            let m = e.findBuff?.(BILLRO_MARK) || null;
+            let m = /** @type {BuffRec | null} */ (e.findBuff?.(BILLRO_MARK) || null);
             if (c.dmg.isAttack && skillActive(unit) && unit.mem.billroCharged) {
               const was = m ? m.stacks : 0;
               if (m) battle.addBuff(e, { key: BILLRO_MARK, refresh: 'stack', maxStacks: BILLRO_MARK_MAX, duration: m.timeLeft });
