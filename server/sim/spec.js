@@ -40,6 +40,10 @@ import { BOSS_POOL_MIN_HP, PREBUILT_INTERVAL } from './constants.js';
 import { wideHalves } from './wideStage.js';
 import { DEFAULT_SEASON, isSeasonId } from '../../shared/seasons.js';
 
+/** @import { BattleOpts } from './Battle.js' */
+/** @import { BossPool } from './units.js' */
+/** @import { Hook } from './battle/hooks.js' */
+
 export const SPEC_VERSION = 1;
 
 /** Deep JSON round trip (exactly what a spec becomes on the wire). */
@@ -48,19 +52,22 @@ export const SPEC_VERSION = 1;
  * group every PREBUILT_INTERVAL — the i-th operator of every player together, then the summon pieces alike — and one
  * more interval after the last. For deadlines and bounds outside the battle (a content-deferred summon piece is counted:
  * an upper bound).
- * @param {object[]} players PlayerBattleInput[] (`units[].kind` 'token' = a summon piece, anything else an operator)
+ * @param {Array<Record<string, any>>} players PlayerBattleInput[] (`units[].kind` 'token' = a summon piece, anything
+ *   else an operator)
+ * @param {number} [interval]
  */
 export function prebuiltSeconds(players, interval = PREBUILT_INTERVAL) {
   let ops = 0, toks = 0;
   for (const p of Array.isArray(players) ? players : []) {
     const units = Array.isArray(p && p.units) ? p.units : [];
-    const t = units.filter((u) => u && u.kind === 'token').length;
+    const t = units.filter((/** @type {Record<string, any> | null} */ u) => u && u.kind === 'token').length;
     ops = Math.max(ops, units.length - t);
     toks = Math.max(toks, t);
   }
   return ops + toks > 0 ? (ops + toks) * interval : 0;
 }
 
+/** @param {unknown} v @returns {any} */
 export function jsonClone(v) {
   if (v === undefined) return undefined;
   return JSON.parse(JSON.stringify(v));
@@ -69,16 +76,18 @@ export function jsonClone(v) {
 // JSON has no Infinity: ±Infinity inputs become ±1e308 (still "larger than anything" for the sim's comparisons and
 // caps) instead of null (which the sim would read as 0); NaN becomes null (the sim treats both as "missing").
 const INF = 1e308;
-const specReplacer = (k, v) => (typeof v === 'number' && !Number.isFinite(v) ? (Number.isNaN(v) ? null : v > 0 ? INF : -INF) : v);
+const specReplacer = (/** @type {string} */ k, /** @type {unknown} */ v) => (typeof v === 'number' && !Number.isFinite(v) ? (Number.isNaN(v) ? null : v > 0 ? INF : -INF) : v);
 
 /**
  * Build the JSON BattleSpec of one field (DESIGN §14). Inputs are the Battle options the match computed (DESIGN §5.1)
  * minus object references: `stageId` instead of a stage object, `boss: { poolHp, poolMax }` instead of a pool.
+ * @param {Record<string, any>} [o] the inputs (header), read field by field
  * @returns {object} a fresh JSON-safe object
  */
 export function buildBattleSpec(o = {}) {
   const bossLike = o.kind === 'boss' || o.kind === 'hidden';
   const tl = Number(o.timeLimit);
+  /** @type {Record<string, unknown>} the JSON bag before its round trip (header: the fields) */
   const spec = {
     v: SPEC_VERSION,
     battleId: o.battleId ?? null,
@@ -110,7 +119,7 @@ export function buildBattleSpec(o = {}) {
   for (const p of out.players) {
     for (const u of (p && Array.isArray(p.units) ? p.units : [])) if (u && typeof u === 'object') sanitizeUnitLoadout(u);
     // the 整备区 operators a bond may field (PlayerBattleInput `reserve`: { slot } instead of a tile) — chess entries only
-    if (p && Array.isArray(p.reserve)) p.reserve = p.reserve.filter((u) => u && typeof u === 'object' && u.kind === 'chess' && Number.isInteger(u.slot)).map(sanitizeUnitLoadout);
+    if (p && Array.isArray(p.reserve)) p.reserve = p.reserve.filter((/** @type {Record<string, any> | null} */ u) => u && typeof u === 'object' && u.kind === 'chess' && Number.isInteger(u.slot)).map(sanitizeUnitLoadout);
   }
   return out;
 }
@@ -120,9 +129,11 @@ const LOADOUT_ID = /^[A-Za-z0-9_\-]{1,64}$/;
 /**
  * A well-formed 自选 pick `{ charId, skillIndex?, uniEquipId? }` reduced to those fields (skill 0–9 or null, module a
  * loadout id or null), or null.
+ * @param {Record<string, any> | null | undefined} d
  */
 function cleanDiyPick(d) {
   if (!d || typeof d !== 'object' || Array.isArray(d) || typeof d.charId !== 'string' || !LOADOUT_ID.test(d.charId)) return null;
+  /** @type {{ charId: string, skillIndex?: number, uniEquipId?: string }} */
   const out = { charId: d.charId };
   if (d.skillIndex != null) {
     if (!(Number.isInteger(d.skillIndex) && d.skillIndex >= 0 && d.skillIndex <= 9)) return null;
@@ -139,6 +150,7 @@ function cleanDiyPick(d) {
  * Keep a unit's `skillIndex` / `moduleId` only when well-formed (the data layer checks legality), `standIn` only when
  * exactly `true` (补位), `diy` only as a well-formed pick (自选), `potential` (1–6) / `cultivate` (0–3) only when
  * well-formed and not on a stand-in. Mutates `u`.
+ * @param {Record<string, any>} u an operator entry of `players[].units[]` / `reserve[]`
  */
 export function sanitizeUnitLoadout(u) {
   if ('skillIndex' in u && !(Number.isInteger(u.skillIndex) && u.skillIndex >= 0 && u.skillIndex <= 9)) delete u.skillIndex;
@@ -165,7 +177,7 @@ export { routePreviewPlan } from './routePreview.js';
  * replica, a takeover re-simulation, a verification run).
  * @param {object} spec BattleSpec
  * @param {any} dataSource DataSource (or raw data maps; default: the sim's default source)
- * @param {{ sharedBoss?: object|null, BattleClass?: typeof Battle, logger?: object, recordEvents?: boolean, quiet?: boolean,
+ * @param {{ sharedBoss?: BossPool|null, BattleClass?: typeof Battle, logger?: object, recordEvents?: boolean, quiet?: boolean,
  *           content?: string }} [opts]
  */
 export function createBattleFromSpec(spec, dataSource, opts = {}) {
@@ -175,6 +187,7 @@ export function createBattleFromSpec(spec, dataSource, opts = {}) {
   let sharedBoss = opts.sharedBoss ?? null;
   if (!sharedBoss && bossLike && s.boss) sharedBoss = new LocalBossPool(s.boss.poolMax, s.boss.poolHp);
   const BattleClass = typeof opts.BattleClass === 'function' ? opts.BattleClass : Battle;
+  /** @type {BattleOpts} */
   const battleOpts = {
     seed: s.seed,
     kind: s.kind,
@@ -218,6 +231,7 @@ export function createBattleFromSpec(spec, dataSource, opts = {}) {
  * changes nothing — so the leader stood at "0 HP" and the field never ended.
  */
 export class LocalBossPool {
+  /** @param {unknown} maxHp @param {unknown} [hp] */
   constructor(maxHp, hp = maxHp) {
     this.maxHp = Math.max(1, Number(maxHp) || 1);
     const h = Number(hp);
@@ -239,6 +253,7 @@ export class LocalBossPool {
     if (Number.isFinite(n)) this.serverHp = Math.max(0, n) + Math.max(0, this.cum - this.acked);
   }
 
+  /** @param {string | null | undefined} playerId @param {unknown} amount */
   damage(playerId, amount) {
     const a = Number(amount);
     const left = this.hp;
@@ -249,6 +264,7 @@ export class LocalBossPool {
     return dealt;
   }
 
+  /** @param {unknown} serverHp @param {unknown} ackedCum */
   sync(serverHp, ackedCum) {
     const h = Number(serverHp);
     if (Number.isFinite(h)) this.serverHp = Math.max(0, Math.min(this.maxHp, h));
@@ -261,6 +277,7 @@ export class LocalBossPool {
  * LP meter of a battle: cumulative LP the field cost its team so far — enemy leaks weighted by `lpr` (data
  * lifePointReduce; 0 for harmless units, 1 when absent) plus leader "扣除目标生命" effects (the sim's 'lpLoss' hook).
  * Boss / hidden fields report it as b.progress.leaks; the server charges the team LP with the deltas.
+ * @param {Battle | null | undefined} battle
  * @returns {{ lp: number, detach: () => void }}
  */
 export function attachLpMeter(battle) {
@@ -276,7 +293,8 @@ export function attachLpMeter(battle) {
     const n = Number(ctx && ctx.amount);
     if (Number.isFinite(n) && n > 0) meter.lp += n;
   }, { priority: -1000, owner: 'lpMeter' });
-  meter.detach = () => { try { battle.off?.(h1); battle.off?.(h2); } catch { /* ignore */ } };
+  // both handles are set: on() returns null only for a callback that is no function
+  meter.detach = () => { try { battle.off?.(/** @type {Hook} */ (h1)); battle.off?.(/** @type {Hook} */ (h2)); } catch { /* ignore */ } };
   return meter;
 }
 
@@ -288,13 +306,14 @@ export function attachLpMeter(battle) {
  * appears while the field runs ever raises it — a 联防 field tags its runtime spawns `uniteRuntime` at birth (spawns.js,
  * maintainer decision 2026-10-22: a child or a summon never crossed the leaker's own goal), and every read here filters
  * it out. Reports `{ [playerId]: n }` (a player with none left is absent), or null for a battle without the sim's state (a stand-in).
+ * @param {Battle | null | undefined} battle
  * @returns {Record<string, number> | null}
  */
 export function uniteLeft(battle) {
   if (!battle) return null;
   /** @type {Record<string, number>} */
   const out = {};
-  const add = (pid) => { if (typeof pid === 'string' && pid) out[pid] = (out[pid] || 0) + 1; };
+  const add = (/** @type {unknown} */ pid) => { if (typeof pid === 'string' && pid) out[pid] = (out[pid] || 0) + 1; };
   if (battle.finished && typeof battle.result === 'function') {
     const r = battle.result();
     if (!r || !r.perPlayer) return null;
@@ -316,6 +335,7 @@ export function uniteLeft(battle) {
  * enemies that reached its goal cost (every leak entry the result will show, × its `lpr`; the field's LP meter minus
  * their sum is the leader's own "扣除目标生命" effects) — and, unite fields, `left` (uniteLeft: each leaker's enemies
  * still standing).
+ * @param {Battle | null | undefined} battle
  */
 export function battleProgress(battle) {
   const r = battle && typeof battle.result === 'function' && battle.finished ? battle.result() : null;
@@ -325,6 +345,11 @@ export function battleProgress(battle) {
   const pool = battle && battle.sharedBoss;
   const gt = Number(battle && battle.time) || 0;
   const total = Math.max(0, Math.trunc(Number(battle && battle.total) || 0));
+  /**
+   * @type {{ gt: number, killed: number, total: number, resolved: number | null, leaks: number, bossDmg: number,
+   *   done: boolean, left?: Record<string, number>, leaksBy?: Record<string, number>,
+   *   top?: Record<string, { s: number, r: Array<[string, number]> }> }}
+   */
   const out = {
     gt: Math.round(gt * 1000) / 1000,
     killed: Math.max(0, Math.trunc(Number(battle && battle.killed) || 0)),
@@ -341,6 +366,7 @@ export function battleProgress(battle) {
     if (left) out.left = left;
   }
   if (battle && (battle.kind === 'boss' || battle.kind === 'hidden')) {
+    /** @type {Record<string, number>} */
     const leaksBy = {};
     for (const pid of Object.keys(pp).slice(0, 4)) leaksBy[pid] = Math.min(1e6, leakEntries(pp[pid]).reduce((n, l) => n + leakLpr(l), 0));
     out.leaksBy = leaksBy;
@@ -390,7 +416,7 @@ export function bossTopUnits(battle) {
   return out;
 }
 
-/** A finite, non-negative integer (never above `cap`), else null — a value the HUD may fall back from. */
+/** A finite, non-negative integer (never above `cap`), else null — a value the HUD may fall back from. @param {unknown} v @param {number} [cap] */
 function numberOrNull(v, cap = Infinity) {
   if (v == null) return null;   // Number(null) === 0: a battle without the counter (a stand-in) must not read as "0"
   const n = Number(v);
@@ -398,14 +424,16 @@ function numberOrNull(v, cap = Infinity) {
   return Math.max(0, Math.min(cap, Math.trunc(n)));
 }
 
-const r4 = (v) => Math.round((Number(v) || 0) * 1e4) / 1e4;
-const modsKey = (m) => (m && typeof m === 'object' ? JSON.stringify(Object.keys(m).filter((k) => m[k] !== undefined).sort().map((k) => [k, m[k]])) : '');
+const r4 = (/** @type {unknown} */ v) => Math.round((Number(v) || 0) * 1e4) / 1e4;
+const modsKey = (/** @type {Record<string, unknown> | null | undefined} */ m) => (m && typeof m === 'object' ? JSON.stringify(Object.keys(m).filter((k) => m[k] !== undefined).sort().map((k) => [k, m[k]])) : '');
 
 /**
  * Canonical summary of a BattleResult (everything the match consumes): used to compare a client's result with the
  * server's re-simulation (SP_VERIFY) and by the determinism tests. Returns `{ json, hash }`.
+ * @param {Record<string, any> | null | undefined} result a BattleResult (or its b.result wire form), read field by field
  */
 export function resultDigest(result) {
+  /** @type {Record<string, any>} */
   const res = result && typeof result === 'object' ? result : {};
   const per = res.perPlayer && typeof res.perPlayer === 'object' ? res.perPlayer : {};
   const players = Object.keys(per).sort().map((pid) => {
@@ -418,10 +446,10 @@ export function resultDigest(result) {
       Object.keys(lg).sort().map((k) => [k, r4(lg[k])]),
       // mods included: a leak re-enters the 联防 with them (round multipliers, bounty id); `uniteRuntime` too — it decides
       // whether the 联防 bills the leak, so a client must not be able to report it differently from the re-simulation
-      (Array.isArray(p.leaked) ? p.leaked : []).map((l) => `${l && l.enemyKey}|${l && l.counted === false ? 0 : 1}|${l && l.uniteRuntime ? 'x' : ''}|${(l && l.sourcePlayerId) || ''}|${modsKey(l && l.mods)}`).sort(),
+      (Array.isArray(p.leaked) ? p.leaked : []).map((/** @type {Record<string, any> | null} */ l) => `${l && l.enemyKey}|${l && l.counted === false ? 0 : 1}|${l && l.uniteRuntime ? 'x' : ''}|${(l && l.sourcePlayerId) || ''}|${modsKey(l && l.mods)}`).sort(),
       Math.round(Number(p.damageDealt) || 0), Math.round(Number(p.bossDamage) || 0),
       // `respawnLeft` (a season whose 联防 inherits the redeploy timer) only when present: the 盟约 digest stays as it was
-      (Array.isArray(p.unitsEnd) ? p.unitsEnd : []).map((u) => {
+      (Array.isArray(p.unitsEnd) ? p.unitsEnd : []).map((/** @type {Record<string, any> | null} */ u) => {
         const e = [u && u.uid, r4(u && u.hpPct), r4(u && u.sp), !!(u && u.alive)];
         if (u && u.respawnLeft != null) e.push(r4(u.respawnLeft));
         return e;
@@ -437,18 +465,20 @@ export function resultDigest(result) {
   return { json, hash: h.toString(16).padStart(8, '0') };
 }
 
-const fnum = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
-const cap = (list, n) => (Array.isArray(list) ? list.slice(0, n) : []);
-const isKey = (v) => typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_\-.:]+$/.test(v);
-const uidOr = (v) => (Number.isInteger(v) && v >= 1 && v <= 0x80000000 ? v : null);
-const keyOr = (v) => (isKey(v) ? v : null);
+const fnum = (/** @type {unknown} */ v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const cap = (/** @type {unknown} */ list, /** @type {number} */ n) => (Array.isArray(list) ? list.slice(0, n) : []);
+const isKey = (/** @type {unknown} */ v) => typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_\-.:]+$/.test(v);
+const uidOr = (/** @type {unknown} */ v) => (Number.isInteger(v) && /** @type {number} */ (v) >= 1 && /** @type {number} */ (v) <= 0x80000000 ? /** @type {number} */ (v) : null);
+const keyOr = (/** @type {unknown} */ v) => (isKey(v) ? /** @type {string} */ (v) : null);
 /** A player's leak entries as the b.result carries them (compactResult: a valid enemy key, at most 400). */
-const leakEntries = (p) => cap(p && p.leaked, 400).filter((l) => l && isKey(l.enemyKey));
+const leakEntries = (/** @type {Record<string, any> | null | undefined} */ p) => cap(p && p.leaked, 400).filter((l) => l && isKey(l.enemyKey));
 /** What one leak entry costs the team on the wire: its `lpr` (0 … 1000), 1 when absent. */
-const leakLpr = (l) => Math.max(0, Math.min(1000, fnum(l && l.lpr, 1)));
+const leakLpr = (/** @type {Record<string, any> | null | undefined} */ l) => Math.max(0, Math.min(1000, fnum(l && l.lpr, 1)));
 
+/** @param {Record<string, unknown> | null | undefined} m */
 function compactMods(m) {
   if (!m || typeof m !== 'object') return null;
+  /** @type {Record<string, unknown>} */
   const out = {};
   let n = 0;
   for (const k of Object.keys(m)) {
@@ -462,14 +492,19 @@ function compactMods(m) {
 /**
  * The part of a BattleResult the server consumes, in the b.result wire shape (shared/protocol.js isBattleResult):
  * numbers only where the match reads them, list sizes capped, names dropped (the server names units from its data).
+ * @param {Record<string, any> | null | undefined} res a BattleResult, read field by field
  */
 export function compactResult(res) {
+  /** @type {Record<string, any>} */
   const r = res && typeof res === 'object' ? res : {};
+  /** @type {Record<string, Record<string, any>>} */
   const perPlayer = {};
   for (const pid of Object.keys(r.perPlayer || {}).slice(0, 4)) {
     const p = r.perPlayer[pid] || {};
+    /** @type {Record<string, number>} */
     const layerGains = {};
     for (const [k, v] of Object.entries(p.layerGains || {}).slice(0, 40)) if (isKey(k) && fnum(v) > 0) layerGains[k] = Math.min(1e4, fnum(v));
+    /** @type {Record<string, number> | null} */
     let tempLayerGains = null;
     for (const [k, v] of Object.entries(p.tempLayerGains || {}).slice(0, 40)) if (isKey(k) && fnum(v) > 0) (tempLayerGains ??= {})[k] = Math.min(1e4, fnum(v));
     const total = Math.max(0, Math.trunc(fnum(p.total)));
@@ -479,6 +514,10 @@ export function compactResult(res) {
       killed: Math.max(0, Math.trunc(fnum(p.killed))),
       total,
       leaked: leakEntries(p).map((l) => {
+        /**
+         * @type {{ enemyKey: string, mods: Record<string, unknown> | null, lpr: number, sourcePlayerId: string | null,
+         *   tag: string | null, counted: boolean, uniteRuntime?: boolean, boss?: boolean, spawned?: boolean }}
+         */
         const o = { enemyKey: l.enemyKey, mods: compactMods(l.mods), lpr: leakLpr(l), sourcePlayerId: keyOr(l.sourcePlayerId), tag: typeof l.tag === 'string' && l.tag.length <= 16 ? l.tag : null, counted: l.counted !== false };
         if (l.uniteRuntime) o.uniteRuntime = true; // born on a 联防 field: the server must not bill it (unite.js uniteSurvivors)
         if (l.boss) o.boss = true;
@@ -499,6 +538,11 @@ export function compactResult(res) {
         ...(!u.alive && u.respawnLeft != null && Number.isFinite(Number(u.respawnLeft)) ? { respawnLeft: Math.max(0, Math.min(1e4, fnum(u.respawnLeft))) } : {}),
       })),
       unitStats: cap(p.unitStats, 160).filter(Boolean).map((u) => {
+        /**
+         * @type {{ uid: number | null, defId: string | null, kind: string, dmg: number, kills: number, heal: number,
+         *   taken: number, attacks: number, boss?: number, byType?: number[], assist?: Record<string, number>,
+         *   ownerUid?: number }}
+         */
         const o = {
           uid: uidOr(u.uid), defId: keyOr(u.defId), kind: typeof u.kind === 'string' && u.kind.length <= 16 ? u.kind : 'op',
           dmg: Math.max(0, Math.round(fnum(u.dmg))), kills: Math.max(0, Math.trunc(fnum(u.kills))), heal: Math.max(0, Math.round(fnum(u.heal))),
@@ -506,8 +550,9 @@ export function compactResult(res) {
         };
         // the settlement charts' fields (server/match/unitTally.js), only when present
         if (fnum(u.boss) > 0) o.boss = Math.round(fnum(u.boss));
-        if (Array.isArray(u.byType) && u.byType.length === 4) o.byType = u.byType.map((v) => Math.max(0, Math.round(fnum(v)))); // the round damage panel
+        if (Array.isArray(u.byType) && u.byType.length === 4) o.byType = u.byType.map((/** @type {unknown} */ v) => Math.max(0, Math.round(fnum(v)))); // the round damage panel
         if (u.assist && typeof u.assist === 'object') {
+          /** @type {Record<string, number>} */
           const a = {};
           for (const [k, v] of Object.entries(u.assist).slice(0, 4)) if (isKey(k) && fnum(v) > 0) a[k] = Math.min(1e5, Math.trunc(fnum(v)));
           if (Object.keys(a).length) o.assist = a;
@@ -521,6 +566,10 @@ export function compactResult(res) {
     const resolved = Number.isFinite(p.resolved) ? Math.max(0, Math.min(total, Math.trunc(p.resolved))) : null;
     if (resolved != null) perPlayer[pid].resolved = resolved;
   }
+  /**
+   * @type {{ reason: string, time: number, killed: number, total: number, perPlayer: Record<string, Record<string, any>>,
+   *   errors: number, resolved?: number, unspawned?: Array<Record<string, unknown>> }}
+   */
   const out = {
     reason: ['cleared', 'timeout', 'forced'].includes(r.reason) ? r.reason : 'forced',
     time: Math.max(0, Math.min(1e5, fnum(r.time))),
@@ -547,16 +596,17 @@ export const RESULT_FRAME_BUDGET = 60 * 1024;
  * at the very end). Never touches what settles LP / funds / layers of a normal field. In order: drop the per-unit
  * statistics, drop the leaks' `mods` (the server rebuilds them from the spec), and — boss fields only, whose leaks cost
  * team LP through b.progress — drop leak entries. Returns the (possibly) trimmed copy.
- * @param {object} result compactResult(...) output
+ * @param {Record<string, any> | null | undefined} result compactResult(...) output
  * @param {{ bossLike?: boolean, budget?: number, battleId?: string }} [o]
  */
 export function fitResult(result, { bossLike = false, budget = RESULT_FRAME_BUDGET, battleId = '' } = {}) {
-  const size = (r) => JSON.stringify({ t: 'b.result', battleId, result: r, rid: 2147483647 }).length;
+  const size = (/** @type {unknown} */ r) => JSON.stringify({ t: 'b.result', battleId, result: r, rid: 2147483647 }).length;
   if (!result || typeof result !== 'object' || size(result) <= budget) return result;
+  /** @type {Record<string, any> & { perPlayer: Record<string, Record<string, any>> }} */
   const r = { ...result, perPlayer: {} };
   for (const [pid, p] of Object.entries(result.perPlayer || {})) r.perPlayer[pid] = { ...p, unitStats: [] };
   if (size(r) <= budget) return r;
-  for (const p of Object.values(r.perPlayer)) p.leaked = (p.leaked || []).map((l) => ({ ...l, mods: null }));
+  for (const p of Object.values(r.perPlayer)) p.leaked = (p.leaked || []).map((/** @type {Record<string, any>} */ l) => ({ ...l, mods: null }));
   if (size(r) <= budget || !bossLike) return r;
   for (const p of Object.values(r.perPlayer)) p.leaked = [];
   if (Array.isArray(r.unspawned)) r.unspawned = [];

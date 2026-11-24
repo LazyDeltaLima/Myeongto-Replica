@@ -106,8 +106,8 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, the files directly under
 `server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), the kit helpers
 (`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and of
-the files directly under `server/sim/` all but `targeting.js`, `spec.js`, `damage.js`, `simdata.js`, `skills.js`,
-`professions.js` and `ai.js` (listed one by one until those follow).
+the files directly under `server/sim/` all but `damage.js`, `simdata.js`, `skills.js`, `professions.js` and `ai.js`
+(listed one by one until those follow).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -338,6 +338,15 @@ most strict errors were, and the JSDoc that fixed them:
   is the caller's, like `arr[i]`. `shuffle` keeps the element type, so a list from `.filter(Boolean)` is cast first.
 - a helper that takes a Set, a Map or an array of keys (`bodyInKeys`, `bodyInRange`: `typeof keys.has === 'function'`)
   reads each through a cast to the branch's type; tsc does not narrow a union by `typeof x.has`.
+- the battle spec and the result wire helpers (spec.js) read JSON field by field: their inputs are
+  `Record<string, any>`, and an object they build key by key (`compactResult`'s `perPlayer` rows, a leak, a unit's
+  stats, `battleProgress`'s `out`) takes a `@type` listing the later keys as optional. `(Array.isArray(x) ? x :
+  []).map((l) => …)` over an `any` `x` is `any[] | never[]`, whose `map` gives the callback no type (TS7006): an
+  inline type on its parameter. A hook handle `battle.on` returned for a callback that is a function is never null:
+  cast it where `off` takes it.
+- the targeting helpers (targeting.js) take `Unit`; a priority table is `Record<string, (e: Unit) => number>`, and a
+  comparator chosen by a conditional (`trigFirst`'s `cmp`) takes its function type on the declaration, which types
+  every branch. `Unit.trait` is `{}` (a profession's own state): a field read through a cast at the use.
 
 
 ## Split classes

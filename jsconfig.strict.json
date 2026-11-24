@@ -45,6 +45,8 @@
     "server/sim/rng.js",
     "server/sim/routePreview.js",
     "server/sim/snapshot.js",
+    "server/sim/spec.js",
+    "server/sim/targeting.js",
     "server/sim/units.js",
     "server/sim/walk.js",
     "server/sim/wideStage.js"

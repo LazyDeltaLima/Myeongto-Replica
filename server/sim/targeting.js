@@ -21,15 +21,23 @@ import { normDir, rotateOffset } from './dir.js';
 import { bodyDist } from './body.js';
 import { roundHalfEven } from './detmath.js';
 
+/** @import { Unit } from './units.js' */
+/** @import { Battle } from './Battle.js' */
+/** @import { Buff } from './battle/status.js' */
+
 /**
  * Build the absolute tile-key list of a grid for a unit standing at (r,c) facing `dir` ('UP'|'RIGHT'|'DOWN'|'LEFT';
  * a legacy facing sign ±1 is read as RIGHT / LEFT).
+ * @param {unknown} grid `[dRow, dCol]` offsets (junk is skipped, below) @param {number} r @param {number} c
+ * @param {unknown} dir @param {number} [extend]
+ * @returns {number[]}
  */
 export function absoluteRangeKeys(grid, r, c, dir, extend = 0) {
+  /** @type {number[]} */
   const keys = [];
   const seen = new Set();
   const d = normDir(dir);
-  const add = (dr, dc) => {
+  const add = (/** @type {number} */ dr, /** @type {number} */ dc) => {
     const [ar, ac] = rotateOffset(dr, dc, d);
     const rr = r + ar, cc = c + ac;
     if (rr < 0 || rr >= ROWS || cc < 0 || cc >= COLS) return;
@@ -53,7 +61,7 @@ export function absoluteRangeKeys(grid, r, c, dir, extend = 0) {
 // record range (shared/loadoutRecord.js attackRangeGrid), re-exported here for the battle (Battle._refreshRange).
 export { extendedGrid } from '../../shared/loadoutRecord.js';
 
-/** Tile key of a unit's current position (rounded half to even, as body.js). */
+/** Tile key of a unit's current position (rounded half to even, as body.js). @param {{ x: number, y: number }} u */
 export function tileKeyOf(u) {
   const r = roundHalfEven(u.y), c = roundHalfEven(u.x);
   if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return -1;
@@ -61,19 +69,20 @@ export function tileKeyOf(u) {
 }
 
 /** Key of the buff that keeps an enemy's 隐匿 source `sourceKey` switched off after a block (Battle._stealthSwitch). */
-export const stealthOffKey = (sourceKey) => `stealthOff:${sourceKey}`;
+export const stealthOffKey = (/** @type {string} */ sourceKey) => `stealthOff:${sourceKey}`;
 
 /**
  * Is enemy `e`'s 隐匿 in effect — no ally selection picks it, operator splash skips it (Battle.foesInRadius), the b.snap
  * stealth bit is set? Not while it is revealed (反隐, flag `reveal`), not while blocked, and not while every 隐匿 source
  * it holds is still switched off after its last block (flag `stealthOff`: PRTS 作战机制 §隐匿 "在被我方单位阻挡后会解除隐匿，
  * 不被阻挡的3秒后重新进入隐匿" — constants.js STEALTH_RESTORE, or the source's own "（解除阻挡N秒后恢复）").
+ * @param {Unit} e
  */
 export function enemyStealthed(e) {
   const f = e.s.flags;
   if (!f.stealth || f.reveal || e.blockedBy) return false;
   if (!f.stealthOff) return true;
-  for (const b of e.buffs) if (b.flags && b.flags.stealth && !e.findBuff(stealthOffKey(b.key))) return true;
+  for (const b of /** @type {Buff[]} */ (e.buffs)) if (b.flags && b.flags.stealth && !e.findBuff(stealthOffKey(b.key))) return true;
   return false;
 }
 
@@ -81,6 +90,7 @@ export function enemyStealthed(e) {
  * Can `attacker` (ally) target enemy `e` at all (ignoring range)? A profile's own exclusion `skipEnemy(e)` (a kit trait:
  * 嵯峨 劝善 "嵯峨不攻击重伤单位") keeps such an enemy out of the unit's normal targets, the enemies it blocks
  * (blockedTargets) and the target condition of its skill triggers (they pass `unit.profile`).
+ * @param {Unit | null | undefined} attacker @param {Unit} e @param {Record<string, any> | null} [profile]
  */
 export function canTargetEnemy(attacker, e, profile) {
   if (!e.alive || e.hidden || !e.deployed) return false;
@@ -89,7 +99,7 @@ export function canTargetEnemy(attacker, e, profile) {
   if (f.stealth && enemyStealthed(e)) return false;
   // `dollHitsFly`: a 傀儡师 whose <替身> state hits air (风丸 — PRTS 特性备注 「<替身>状态下可对空，由技能产生的召唤物不可对空」,
   // an upstream community report of 2026-10-15) targets flyers while substituted (Unit.trait.doll, professions.js installDollkeeper)
-  if (e.isFlying && !(profile && (profile.canHitFly || (profile.dollHitsFly && attacker && attacker.trait && attacker.trait.doll)))) return false;
+  if (e.isFlying && !(profile && (profile.canHitFly || (profile.dollHitsFly && attacker && attacker.trait && /** @type {{ doll?: unknown }} */ (attacker.trait).doll)))) return false;
   if (profile && profile.groundOnly && e.isFlying) return false;
   if (profile && typeof profile.skipEnemy === 'function' && profile.skipEnemy(e)) return false;
   return true;
@@ -107,6 +117,7 @@ export function canTargetEnemy(attacker, e, profile) {
  * never a target of a ground enemy (evadesGround). An enemy whose 索敌不受阻挡影响 (profile `blockFree`: 自制投石机, PRTS 天赋)
  * has no blocker exception: a 隐匿 / 迷彩 ally that blocks it is no target either — so, blocked by an operator on the
  * 排气格栅 with nobody else in range, it does not attack (the official game, community report of 2026-10-06, item 24).
+ * @param {Unit} e @param {Unit} a @param {boolean} [ranged]
  */
 export function canTargetAlly(e, a, ranged) {
   if (!a.alive || !a.deployed || a.hidden || a.kind === 'device') return false;
@@ -122,6 +133,9 @@ export function canTargetAlly(e, a, ranged) {
  * record or def `d` takes in mode `form` (data/enemies.json `attackMotion` / `attackMotionModes`: its prefab's UnitMode
  * `_attack` selector — tools/build-data.mjs attackMotion): the mode named like `form` (case aside) when its modes differ,
  * else the one it comes in. 0 = not read (no rule).
+ * @param {{ attackMotion?: number, attackMotionModes?: Record<string, number> } | null | undefined} d
+ * @param {unknown} [form]
+ * @returns {number}
  */
 export function attackMotionOf(d, form) {
   const modes = d && d.attackMotionModes;
@@ -129,10 +143,10 @@ export function attackMotionOf(d, form) {
     const f = String(form).toLowerCase();
     for (const k in modes) if (k.toLowerCase() === f) return modes[k];
   }
-  return (d && d.attackMotion) | 0;
+  return /** @type {number} */ (d && d.attackMotion) | 0;
 }
 
-/** Does MotionMask `mask` take unit `u` (a flying unit needs the FLY bit 2, a ground one WALK 1)? */
+/** Does MotionMask `mask` take unit `u` (a flying unit needs the FLY bit 2, a ground one WALK 1)? @param {number} mask @param {{ isFlying: boolean }} u */
 export function motionTakes(mask, u) {
   return (mask & (u.isFlying ? 2 : 1)) !== 0;
 }
@@ -158,6 +172,7 @@ export function motionTakes(mask, u) {
  * selecting enemy): 隐匿 still applies, 对地规避 not. Abilities PRTS marks "无视无法选择 / 无视(目标)可选性" never call
  * this (【污染秽蚀】, 【盲信之誓】, 萨卡兹悖谬暴虐兵长's 暴击, 假想敌：淤困's burst spread, 远眺's 暴露 — DamageInfo
  * `ignoreSelect`); neither do map / terrain effects nor 寒霜's aura. Enemy buff auras use auraSelectable.
+ * @param {Unit | null | undefined} src @param {Unit} a
  */
 export function areaSelectable(src, a) {
   return auraSelectable(src, a) && !(a.s.flags.liftoff && evadesGround(src, a));
@@ -170,6 +185,7 @@ export function areaSelectable(src, a) {
  * 寒霜's 攻速下降 Debuff — content/enemies/archetypes.js allyAura keeps that one on every ally): no 隐匿 ally, the one blocking `src`
  * included (GitHub #97), no untargetable or sleeping one; 迷彩 does not protect ("所有光环类能力…均不受迷彩制约"). Unlike areaSelectable it does not
  * apply 对地规避: a ground enemy's aura still reaches an airborne 起飞 ally [ASSUMED, DESIGN §21.20 / §21.22].
+ * @param {Unit | null | undefined} src @param {Unit | null | undefined} a
  */
 export function auraSelectable(src, a) {
   if (!a || !a.alive || !a.deployed || a.hidden || a.kind === 'device') return false;
@@ -193,11 +209,13 @@ export function auraSelectable(src, a) {
  * 仅在选择时生效的异常效果制约"), the blasts of flying units credited to a ground leader (刺胄之弹, 斩胄之剑 / 破胄之锤) and
  * the ticks of a debuff a ground enemy put on it before it took off (出血, 沙狱, burning DoTs, 【自然涌动】: a tick selects
  * nobody). A shot already in flight is refused [ASSUMED] (damage.js).
+ * @param {Unit | null | undefined} src @param {Unit | null | undefined} a
  */
 export function evadesGround(src, a) {
   return !!(a && a.s && a.s.flags.liftoff && src && src.side === 'enemy' && !src.isFlying);
 }
 
+/** @type {Record<string, (e: Unit) => number>} */
 const PRIORITY_FNS = {
   fly: (e) => (e.isFlying ? 0 : 1),
   lowDef: (e) => e.s.def,
@@ -226,9 +244,10 @@ const PRIORITY_FNS = {
  * (trait 优先攻击空中单位 — priority 'fly', a skill's too) comes before its own blocked enemy, so a 速狙 on a melee tile
  * blocking a ground enemy shoots the flyer in its range (PRTS 索敌的概念 「阻挡（近战限定）→特殊优先级→…」); every other
  * priority keeps the blocked enemy first.
- * @param {object} attacker ally unit
- * @param {object[]} cands enemies
- * @param {string|null} priority profile/skill priority key
+ * @param {Battle} battle
+ * @param {Unit} attacker ally unit
+ * @param {Unit[]} cands enemies
+ * @param {string|null} [priority] profile/skill priority key
  */
 export function sortEnemyTargets(battle, attacker, cands, priority) {
   if (cands.length <= 1) return cands;
@@ -262,12 +281,16 @@ export const TRIG_SORTS = new Set([0, 4, 10, 11, 15, 33]);
  * constant − the remaining route), `_Filter_DistToSourceAsc` / `Des` ± the squared distance of the map positions to the unit,
  * `_Filter_HpDes` −HP then −hatred, `_Filter_HatredDesBlockedFirst` an enemy that something blocks then −hatred (공식 클라에서
  * 확인). Ties go by the remaining route, then the spawn order. `post` 0 (ALL): the first candidate as found. null: none.
+ * @param {Battle} battle @param {{ x: number, y: number }} src @param {Unit[]} cands @param {number} [post]
+ * @returns {Unit | null}
  */
 export function trigFirst(battle, src, cands, post) {
   if (!cands.length) return null;
   if (!post) return cands[0];
+  /** @type {(x: Unit, y: Unit) => number} */
   const hatred = (x, y) => (y.s.taunt || 0) - (x.s.taunt || 0) || battle.remainingDistance(x) - battle.remainingDistance(y) || x.spawnSeq - y.spawnSeq;
-  const d2 = (e) => (e.x - src.x) * (e.x - src.x) + (e.y - src.y) * (e.y - src.y);
+  const d2 = (/** @type {Unit} */ e) => (e.x - src.x) * (e.x - src.x) + (e.y - src.y) * (e.y - src.y);
+  /** @type {(x: Unit, y: Unit) => number} */
   const cmp = post === 10 ? (x, y) => d2(y) - d2(x) || hatred(x, y)
     : post === 11 ? (x, y) => d2(x) - d2(y) || hatred(x, y)
       : post === 15 ? (x, y) => y.hp - x.hp || hatred(x, y)
@@ -286,7 +309,7 @@ export function trigFirst(battle, src, cands, post) {
 export const ALLY_TRIG_SORTS = new Set([19, 38, 61]);
 
 /** The largest 元素损伤 an ally holds (its lowest element points: `Entity.minEpType`). */
-export const elemTaken = (a) => Math.max(a.elem.burn, a.elem.neural, a.elem.apoptosis, a.elem.erosion);
+export const elemTaken = (/** @type {Unit} */ a) => Math.max(a.elem.burn, a.elem.neural, a.elem.apoptosis, a.elem.erosion);
 
 /**
  * The first of the allies `cands` an ally skill trigger's selector (`_postFilter` `post`, ALLY_TRIG_SORTS) takes, as
@@ -294,6 +317,8 @@ export const elemTaken = (a) => Math.max(a.elem.burn, a.elem.neural, a.elem.apop
  * EpMinAscFirstNotAllFull` the lowest element points first (the most 元素损伤), then the HP ratio (an ally at full HP and
  * full element points is dropped — skills.js _trigAllies); `_Filter_BlockCntAscCreatedTimeDes` the block count, then the
  * latest created. Ties go by the deployment order. null: none.
+ * @param {Unit[]} cands @param {number} [post]
+ * @returns {Unit | null}
  */
 export function trigAllyFirst(cands, post) {
   if (!cands.length) return null;
@@ -304,7 +329,10 @@ export function trigAllyFirst(cands, post) {
   return best;
 }
 
-/** The order of an ally trigger's `_postFilter` `post` (trigAllyFirst), null for one not modelled. */
+/**
+ * The order of an ally trigger's `_postFilter` `post` (trigAllyFirst), null for one not modelled.
+ * @param {number} [post] @returns {((x: Unit, y: Unit) => number) | null}
+ */
 function trigAllyCmp(post) {
   return post === 19 ? (x, y) => y.s.maxHp - x.s.maxHp || x.deploySeq - y.deploySeq
     : post === 38 ? (x, y) => elemTaken(y) - elemTaken(x) || x.hpRatio - y.hpRatio || x.deploySeq - y.deploySeq
@@ -315,6 +343,7 @@ function trigAllyCmp(post) {
 /**
  * The first `n` of the allies `cands` in the order of an ally selector's `_postFilter` `post` (`FilterUtil.Filter`
  * with the selector's max target count): trigAllyFirst's order, ties by the deployment order; a copy.
+ * @param {Unit[]} cands @param {number | undefined} post @param {number} n
  */
 export function trigAllyOrder(cands, post, n) {
   const cmp = trigAllyCmp(post);
@@ -327,6 +356,7 @@ export function trigAllyOrder(cands, post, n) {
  * 不容易被攻击）→最早出现"): its blocker first → highest taunt level → latest deployed (`aggroSeq`: the deploy order —
  * Battle.start deploys the operators first and ranks the start-of-battle summons after them). Special priorities
  * (优先攻击…) are the enemies' own content: `e.profile.canTarget` filters, key sorts broken by `aggroCmp`.
+ * @param {Unit} enemy @param {Unit[]} cands
  */
 export function sortAllyTargets(enemy, cands) {
   if (cands.length <= 1) return cands;
@@ -341,6 +371,7 @@ export function sortAllyTargets(enemy, cands) {
 /**
  * 仇恨值 order of two allies for an enemy (negative ⇒ `a` first): higher taunt level, then the latest deployed
  * (`aggroSeq`). The tie-break after an enemy's special priority (优先攻击防御力最高的… — PRTS 索敌: 特殊优先级 → 仇恨值).
+ * @param {Unit} a @param {Unit} b
  */
 export function aggroCmp(a, b) {
   const ta = a.s.taunt || 0, tb = b.s.taunt || 0;
