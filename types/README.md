@@ -109,8 +109,9 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 the files directly under `server/sim/` (`server/sim/*.js`), the files directly under `server/sim/content/`
 (`server/sim/content/*.js`), the enemy kits `server/sim/content/enemies/` and the operator kits
 `server/sim/content/kits/ops/`, and in the renderer the 3D board `public/js/render/board3d/` and the effect system's parts
-`public/js/render/fx/`, the files directly under `public/js/` (`public/js/*.js`) and the screens directly under
-`public/js/screens/` (`public/js/screens/*.js`).
+`public/js/render/fx/`, the files directly under `public/js/` (`public/js/*.js`), the screens directly under
+`public/js/screens/` (`public/js/screens/*.js`) and, one by one until the whole folder is clean, the files directly under
+`public/js/ui/` that are (the list names each).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -518,13 +519,25 @@ most strict errors were, and the JSDoc that fixed them:
   no property in common (TS2559): list the property in the typedef, cast an `EventTarget` to `Element`. A frozen table
   imported from elsewhere and read by a string (`PROF_NAME`, `DIFFICULTY_NAMES`) is cast at the read,
   `/** @type {Record<string, string>} */ (PROF_NAME)[p]`. A `ui/` function whose parameter defaults to `null`
-  (`changedCount`, `joinQueue`, `moduleBadge`, `actions.watch`) refuses a string until its own `@param` is written: a
-  cast at the call (`/** @type {ChangedCountFn} */ (changedCount)(…)` in loadout.js, else `any`), to go with that line.
+  refuses a string until its own `@param` says `string | null` (`changedCount`, `joinQueue`, `moduleBadge`,
+  `actions.watch` have theirs since their files are listed, and the casts at their calls are gone).
   Many `test/ui/` tests pin a screen's wiring as source text (`onEnemy=${(k, n) => setDetail(…)}`): an `html`
   template's handler can take its type only inline, so those assertions match the source with the inline types taken
   out (`src.replace(INLINE_TYPES, '')`, card-close.test.js and others); elsewhere keep the pinned text as it is — the
   `@param` on the line above (`/** @param {Event & { target: any }} e */`), a `@type` on a destructuring `const`, a cast
   after a `.filter` rather than at each use.
+- the files directly under `public/js/ui/`: the shared parts type their records where they are made — `GameLookups`
+  (gameComponents.js: useGameData / makeLookups' return type, which also types the lookups' `(id) =>`), `GuardedView`
+  (fieldHost.js guardView: what useFieldView hands the match screen), `LoadoutState` / `RosterFilters` (loadoutSync.js,
+  a cast on loadoutStore's literal), `PrefTarget` (the store a synced setting lives in, read and written by field name —
+  `ReturnType<typeof createStore>` is a store of `unknown`), `DiyPresetState` / `PresetNotice` (diyPresets.js), `Toast`,
+  `TipState`, `QueuedDialog`. A file's own `isObj` is a guard (`@returns {v is Record<string, any>}`), so
+  `Object.hasOwn(x, k)` after it takes the narrowed value. An arrow function in an object literal with an optional
+  parameter (`actions.move(uid, to, dir)`, called with two) takes `@param {string} [dir]` on the property: an inline
+  `@type` on the parameter makes it required. A timer handle a `useRef(null)` keeps for `clearTimeout` is `any` (`null`
+  is no `number | undefined`, and `undefined` in its place would change the code). A store slot a test pins as text
+  (`battleHud`'s `hud`: hud-redraw.test.js matches `Math.floor(s.hud.dp)`) stays `any`; a callback a test pins
+  (season-fade.test.js `const choose = (id) => …`) takes the `@param` on the line above.
 
 
 ## Split classes

@@ -31,7 +31,9 @@ export const DIY_IMPORT_MAX_BYTES = 64 * 1024;
 
 const ID_RE = /^[A-Za-z0-9_\-.:]{1,64}$/;
 const UNSAFE_IDS = new Set(['__proto__', 'constructor', 'prototype']);
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+/** @param {unknown} v @returns {v is string} */
 const isId = (v) => typeof v === 'string' && ID_RE.test(v) && !UNSAFE_IDS.has(v);
 
 /**
@@ -62,10 +64,10 @@ export function parseStoredDiy(raw) {
   return isObj(raw) ? cleanPicks(raw.picks) : {};
 }
 
-/** Serialised form for localStorage. */
+/** Serialised form for localStorage. @param {unknown} picks */
 export const toStoredDiy = (picks) => ({ v: DIY_VERSION, picks: cleanPicks(picks) });
 
-/** Number of filled slots. */
+/** Number of filled slots. @param {unknown} picks */
 export const diyCount = (picks) => Object.keys(cleanPicks(picks)).length;
 
 /**
@@ -75,7 +77,7 @@ export const diyCount = (picks) => Object.keys(cleanPicks(picks)).length;
  */
 export function sanitizeDiyPicks(picks, data, kitted) {
   const res = checkDiyPicks(cleanPicks(picks), { data, kitted });
-  return res && 'ok' in res ? res.picks : {};
+  return res && 'ok' in res ? /** @type {NonNullable<typeof res.picks>} */ (res.picks) : {};
 }
 
 /**
@@ -83,11 +85,11 @@ export function sanitizeDiyPicks(picks, data, kitted) {
  * @param {any} data
  */
 export function diySlotList(data) {
-  return diySlotIds(data).map((id) => diySlot(id, data)).filter(Boolean)
+  return /** @type {NonNullable<ReturnType<typeof diySlot>>[]} */ (diySlotIds(data).map((id) => diySlot(id, data)).filter(Boolean))
     .map((s) => ({ slotId: s.baseId, goldenId: s.goldenId, tier: s.tier, shopLevel: s.shopLevel }));
 }
 
-const backupsOf = (data) => (isObj(data?.backups) ? data.backups : null);
+const backupsOf = (/** @type {any} */ data) => (isObj(data?.backups) ? data.backups : null);
 
 /**
  * What a slot's tier offers of an operator: its two forms (normal E2 Lv1 skill rank 4; elite E2 Lv60 rank 7, module
@@ -118,7 +120,7 @@ export function defaultPick(charId, slotId, data) {
   const ch = pickChoices(charId, slotId, data);
   if (!ch) return { charId };
   if (ch.proto) return { charId };
-  const want = LOCAL_DIY_DEFAULT_SKILL[charId];
+  const want = /** @type {Record<string, number>} */ (LOCAL_DIY_DEFAULT_SKILL)[charId];
   const last = ch.skills.length ? ch.skills[ch.skills.length - 1].index : 0;
   const skillIndex = ch.skills.some((s) => s.index === want) ? want : last;
   return { charId, skillIndex, uniEquipId: ch.modules[0]?.uniEquipId ?? null };
@@ -139,7 +141,7 @@ export function pickOptions(slotId, picks, data, kitted) {
   const backups = backupsOf(data);
   if (!slot || !backups) return [];
   const kit = kitted ? [...kitted] : [];
-  const tierOf = (id) => diySlot(id, data)?.tier ?? null;
+  const tierOf = (/** @type {string} */ id) => diySlot(id, data)?.tier ?? null;
   const roster = cleanPicks(picks);
   return diyPool(slot.tier, { data, kitted: kit }).map((charId) => {
     const proto = isPrototypePick(data, slot.tier, charId);
@@ -147,7 +149,7 @@ export function pickOptions(slotId, picks, data, kitted) {
     for (const [other, p] of Object.entries(roster)) {
       if (p.charId !== charId || tierOf(other) === slot.tier) continue;
       // another tier: an owned operator only once (a prototype may repeat across tiers)
-      if (!isPrototypePick(data, tierOf(other), charId)) { taken = other; break; }
+      if (!isPrototypePick(data, /** @type {number} */ (tierOf(other)), charId)) { taken = other; break; }
     }
     return { charId, unit: backups.units?.[charId] ?? null, bonds: backups.diy?.operators?.[charId]?.bonds ?? [], proto, taken };
   });
@@ -159,10 +161,13 @@ export function pickOptions(slotId, picks, data, kitted) {
  */
 export function slotRecord(slotId, pick, data, { elite = false, potential = null } = {}) {
   if (!isObj(pick)) return null;
-  try { return diyRecord(slotId, pick, { elite, data, potential }); } catch { return null; }
+  try { return diyRecord(slotId, /** @type {Parameters<typeof diyRecord>[1]} */ (pick), { elite, data, potential }); } catch { return null; }
 }
 
-/** Set (or with null, clear) one slot. Returns a new roster (the input is not changed). */
+/**
+ * Set (or with null, clear) one slot. Returns a new roster (the input is not changed).
+ * @param {unknown} picks @param {string} slotId @param {unknown} pick
+ */
 export function setPick(picks, slotId, pick) {
   const next = { ...cleanPicks(picks) };
   if (isObj(pick) && isId(pick.charId)) next[slotId] = cleanPicks({ [slotId]: pick })[slotId];
@@ -172,7 +177,7 @@ export function setPick(picks, slotId, pick) {
 
 // ---- export / import -------------------------------------------------------------------------------------------------
 
-/** Portable payload of a roster, as downloaded / copied by 导出. */
+/** Portable payload of a roster, as downloaded / copied by 导出. @param {unknown} picks @param {{ now?: number }} [opts] */
 export function exportDiy(picks, { now = Date.now() } = {}) {
   const clean = cleanPicks(picks);
   return {
@@ -184,7 +189,7 @@ export function exportDiy(picks, { now = Date.now() } = {}) {
   };
 }
 
-/** Pretty JSON of `exportDiy`. */
+/** Pretty JSON of `exportDiy`. @param {unknown} picks @param {{ now?: number }} [opts] */
 export const serializeDiy = (picks, opts) => JSON.stringify(exportDiy(picks, opts), null, 2);
 
 /**

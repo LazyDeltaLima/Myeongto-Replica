@@ -154,14 +154,14 @@ export function inviteSeasonOf(search, invited) {
  * @param {{ net: any, target?: typeof store, notify?: (text: string) => void }} deps
  */
 export function installSeasons({ net, target = store, notify = (text) => toast(text, 'info', { ttl: 5000 }) }) {
-  const offPong = net.on('pong', (m) => {
+  const offPong = net.on('pong', (/** @type {{ seasons?: unknown } | null | undefined} */ m) => {
     // the first pong names the seasons only when there are several (Lobby.connectInfo): a first pong without them
     // means the default alone; later pongs never carry them
     if (!Array.isArray(m?.seasons)) {
       if (!Array.isArray(target.get().ui.seasons)) target.patch('ui', { seasons: [DEFAULT_SEASON] });
       return;
     }
-    const list = m.seasons.filter(isSeasonId);
+    const list = /** @type {unknown[]} */ (m.seasons).filter(isSeasonId);
     if (!shallowEqual(list, target.get().ui.seasons || [])) target.patch('ui', { seasons: list.length ? list : [DEFAULT_SEASON] });
   });
   // the tab's title names the season on screen, in the current language (ui/lang.js applies it on a switch too)
@@ -172,7 +172,7 @@ export function installSeasons({ net, target = store, notify = (text) => toast(t
   const offStore = target.subscribe((s, prev) => {
     const code = s.room?.code;
     if (!code || code === prev.room?.code) return;
-    const season = seasonOf(s.room.season);
+    const season = seasonOf(/** @type {NonNullable<typeof s.room>} */ (s.room).season);
     if (season === pickedSeason(s) || !offeredSeasonsOf(s).includes(season)) return;
     savePref(SEASON_PREF, season);
     target.patch('ui', { season });
@@ -201,16 +201,17 @@ export function InviteSeason() {
 export function SeasonChip({ onPick = pickSeason }) {
   const st = useStore((s) => ({ offered: offeredSeasonsOf(s), picked: pickedSeason(s) }), shallowEqualDeep);
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLElement | null} */ (null));
   useEffect(() => {
     if (!open) return undefined;
-    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
-    const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const close = (/** @type {Event} */ e) => { if (!ref.current?.contains(/** @type {Node | null} */ (e.target))) setOpen(false); };
+    const esc = (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('pointerdown', close, true);
     document.addEventListener('keydown', esc, true);
     return () => { document.removeEventListener('pointerdown', close, true); document.removeEventListener('keydown', esc, true); };
   }, [open]);
   if (st.offered.length < 2) return null;
+  /** @param {string} id */
   const choose = (id) => { setOpen(false); if (id !== st.picked) onPick(id); };
   return html`<span class="season-chip-wrap" ref=${ref}>
     <button type="button" class=${`season-chip tapx${open ? ' is-open' : ''}`} aria-haspopup="true" aria-expanded=${open ? 'true' : 'false'}
@@ -248,7 +249,7 @@ export function SeasonSeg({ season, testid = null }) {
     title=${t('赛季')}>${seasonName(id)}</span>`;
 }
 
-/** shallowEqual that compares one level of arrays inside (the `offered` list). */
+/** shallowEqual that compares one level of arrays inside (the `offered` list). @param {any} a @param {any} b */
 function shallowEqualDeep(a, b) {
   if (a === b) return true;
   if (!a || !b) return false;

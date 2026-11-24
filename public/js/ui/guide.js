@@ -18,6 +18,7 @@ import { createStore, useStore } from '../store.js';
 import { data, useData, artUrls, nextArtUrl } from '../data.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** Page catalogue in reading order (titles transcribed from the pages). */
@@ -43,6 +44,7 @@ export const GUIDE_CHAPTERS = [
  * @returns {Array<{ key: string, title: string, chapter: number, url: string, urls: string[] }>}
  */
 export function guidePages() {
+  /** @type {Array<{ key: string, title: string, chapter: number, url: string, urls: string[] }>} */
   const out = [];
   GUIDE_CHAPTERS.forEach((ch, ci) => {
     for (const [key, title] of ch.pages) {
@@ -62,7 +64,7 @@ export function guidePages() {
  * @returns {{ kind: 'image', src: string } | { kind: 'tips' }}
  */
 export function guideStage(page, failed) {
-  const src = page ? nextArtUrl(page.urls, failed) : null;
+  const src = page ? nextArtUrl(/** @type {string[]} */ (page.urls), failed) : null;
   return src ? { kind: 'image', src } : { kind: 'tips' };
 }
 
@@ -78,12 +80,16 @@ export function openGuide(page = 0) {
 }
 export const closeGuide = () => guideStore.set({ open: false });
 
-/** Standard 玩法说明 trigger button. */
+/**
+ * Standard 玩法说明 trigger button.
+ * @param {{ class?: string, size?: string, variant?: string, label?: string, square?: boolean }} props
+ */
 export function GuideButton({ class: cls, size = 'sm', variant = 'ghost', label = t('玩法说明'), square = false }) {
   return html`<${Button} variant=${variant} size=${size} icon="book" square=${square} class=${cx('guide-btn', cls)}
     onClick=${() => openGuide(0)} title=${t('玩法说明')} aria-label=${t('玩法说明')}>${square ? null : label}<//>`;
 }
 
+/** @param {string | null | undefined} url */
 function preload(url) {
   if (!url || typeof Image === 'undefined') return;
   const img = new Image();
@@ -94,10 +100,10 @@ function preload(url) {
 
 /** Fallback body when no tutorial page can be shown: the official tips as a numbered list. */
 function TipsFallback() {
-  const tips = (Array.isArray(data.get('config')?.tips) ? data.get('config').tips : []).map((t) => t?.tip).filter(Boolean);
+  const tips = (Array.isArray(data.get('config')?.tips) ? data.get('config').tips : []).map((/** @type {{ tip?: string } | null} */ t) => t?.tip).filter(Boolean);
   return html`<div class="guide__tips">
     <${MicroLabel} tone="mint">${t('TIPS // 模拟要点')}</${MicroLabel}>
-    <ol>${tips.map((t, i) => html`<li key=${i}>${t}</li>`)}</ol>
+    <ol>${tips.map((/** @type {string} */ t, /** @type {number} */ i) => html`<li key=${i}>${t}</li>`)}</ol>
     ${!tips.length ? html`<p class="t-lo">${t('暂无说明内容')}</p>` : null}
   </div>`;
 }
@@ -107,17 +113,17 @@ export function GuideHost() {
   const { open, page } = useStore((s) => s, Object.is, guideStore);
   const ready = useData('local', 'assets', 'config');
   const pages = useMemo(() => (ready ? guidePages() : []), [ready]);
-  const [loaded, setLoaded] = useState(() => new Set());
-  const [failed, setFailed] = useState(() => new Set());
-  const boxRef = useRef(null);
+  const [loaded, setLoaded] = useState(() => /** @type {Set<string>} */ (new Set()));
+  const [failed, setFailed] = useState(() => /** @type {Set<string>} */ (new Set()));
+  const boxRef = useRef(/** @type {HTMLElement | null} */ (null));
   const n = pages.length;
   const i = n ? Math.min(Math.max(0, page), n - 1) : 0;
   const cur = pages[i] || null;
-  const go = (k) => { if (n) guideStore.set({ open: true, page: ((k % n) + n) % n }); };
+  const go = (/** @type {number} */ k) => { if (n) guideStore.set({ open: true, page: ((k % n) + n) % n }); };
 
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (e) => {
+    const onKey = (/** @type {KeyboardEvent} */ e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const k = e.key;
       let handled = true;
@@ -142,11 +148,11 @@ export function GuideHost() {
 
   if (!open) return null;
   const chapter = cur ? GUIDE_CHAPTERS[cur.chapter] : null;
-  const firstOf = (ci) => pages.findIndex((p) => p.chapter === ci);
+  const firstOf = (/** @type {number} */ ci) => pages.findIndex((p) => p.chapter === ci);
   const stage = guideStage(cur, failed); // the next copy when one fails to load; the tips when none is left
   const src = stage.kind === 'image' ? stage.src : null;
   const isLoaded = !!src && loaded.has(src);
-  return html`<div class="guide" role="presentation" onMouseDown=${(e) => { if (e.target === e.currentTarget) closeGuide(); }}>
+  return html`<div class="guide" role="presentation" onMouseDown=${(/** @type {MouseEvent} */ e) => { if (e.target === e.currentTarget) closeGuide(); }}>
     <div class="guide__box brackets" role="dialog" aria-modal="true" aria-label=${t('玩法说明')} tabindex="-1" ref=${boxRef}>
       <header class="guide__head">
         <div class="guide__titles">

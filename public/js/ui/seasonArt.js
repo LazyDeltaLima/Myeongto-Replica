@@ -8,13 +8,16 @@
 import { data, localAsset } from '../data.js';
 import { DEFAULT_SEASON, seasonOf } from '../../../shared/seasons.js';
 
-/** URL of one of a season's own pictures, or null (盟约, or the season's art not extracted). */
+/**
+ * URL of one of a season's own pictures, or null (盟约, or the season's art not extracted).
+ * @param {unknown} season @param {string} group @param {string} name
+ */
 export function seasonArt(season, group, name) {
   const id = seasonOf(season);
   return id === DEFAULT_SEASON ? null : localAsset(`season/${id}/${group}`, name);
 }
 
-/** The season's hub backdrop (the event's on-season entry panel, composed), or null. */
+/** The season's hub backdrop (the event's on-season entry panel, composed), or null. @param {unknown} season */
 export const seasonBackdrop = (season) => seasonArt(season, 'backdrop', 'title');
 
 /**
@@ -27,7 +30,7 @@ export const seasonBackdrop = (season) => seasonArt(season, 'backdrop', 'title')
 export function seasonRaysArt(season) {
   const id = seasonOf(season);
   if (id === DEFAULT_SEASON) return null;
-  const url = (name) => localAsset(`season/${id}/backdrop`, name);
+  const url = (/** @type {string} */ name) => localAsset(`season/${id}/backdrop`, name);
   const rays = url('rays'), base = url('base'), front = url('front');
   return rays && base && front ? { rays, base, front, url } : null;
 }
@@ -55,19 +58,19 @@ export function seasonLogoSet(season, lang) {
   const id = seasonOf(season);
   if (id === DEFAULT_SEASON) return null;
   const group = data.get('local')?.groups?.[`season/${id}/logo`];
-  const entry = (name) => {
+  const entry = (/** @type {string} */ name) => {
     const e = group && typeof group === 'object' ? group[name] : null;
     return e && typeof e.path === 'string' && e.path ? e : null;
   };
   const name = lang === 'ko' && entry('title_season_ko') ? 'title_season_ko' : 'title_season';
   const one = entry(name);
   if (!one) return null;
-  const w = (e) => (Number.isFinite(e.w) && e.w > 0 ? e.w : 0);
+  const w = (/** @type {{ w: number }} */ e) => (Number.isFinite(e.w) && e.w > 0 ? e.w : 0);
   const tiers = [one, ...LOGO_SCALES.map((k) => entry(`${name}_${k}x`))].filter((e) => e && w(e));
   return {
     src: one.path,
     srcset: tiers.length > 1 && w(one) ? tiers.map((e) => `${e.path} ${w(e)}w`).join(', ') : null,
-    aspect: w(one) && one.h > 0 ? w(one) / one.h : 1,
+    aspect: w(one) && /** @type {number} */ (one.h) > 0 ? w(one) / /** @type {number} */ (one.h) : 1,
   };
 }
 
@@ -79,5 +82,5 @@ export function seasonLogoSet(season, lang) {
 export const logoSizes = (aspect, heights) =>
   heights.map(([media, h]) => `${media ? `${media} ` : ''}calc(${h} * ${aspect.toFixed(3)})`).join(', ');
 
-/** The season's logo of the result screen (season_logo_settle_game), or null. */
+/** The season's logo of the result screen (season_logo_settle_game), or null. @param {unknown} season */
 export const seasonSettleLogo = (season) => seasonArt(season, 'logo', 'season_logo_settle_game');

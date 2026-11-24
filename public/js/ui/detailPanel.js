@@ -53,12 +53,16 @@ import { settingsStore } from './settings.js';
 import { tokenVariantFor } from './gameLogic/loadout.js';
 import { hasShowTag, fillShowTag, garrisonShowValue, itemShowValue } from '../../../shared/showTag.js';
 
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 export const PROF_NAME = { PIONEER: N_('先锋'), WARRIOR: N_('近卫'), TANK: N_('重装'), SNIPER: N_('狙击'), CASTER: N_('术师'), MEDIC: N_('医疗'), SUPPORT: N_('辅助'), SPECIAL: N_('特种'), TOKEN: N_('召唤物') };
+/** @type {Readonly<Record<string, string>>} */
 const SP_TYPE = { INCREASE_WITH_TIME: N_('自动回复'), INCREASE_WHEN_ATTACK: N_('攻击回复'), INCREASE_WHEN_TAKEN_DAMAGE: N_('受击回复'), ON_DEPLOY: N_('被动') };
+/** @type {Readonly<Record<string, string>>} */
 const SKILL_TYPE = { MANUAL: N_('自动触发'), AUTO: N_('自动触发'), PASSIVE: N_('被动') };
 /** Fallback type icon by trigger, for a garrison record without its official `eventTypeIcon` (garrisonTypeIconKey). */
+/** @type {Readonly<Record<string, string>>} */
 const EVENT_ICON = { IN_BATTLE: 's_icon_battle', SERVER_GAIN: 's_icon_bond', SERVER_PREP_START: 's_icon_bond', SERVER_PREP_FIN: 's_icon_bond', SERVER_CHESS_SOLD: 's_icon_gold', SERVER_PRICE: 's_icon_gold', SERVER_REFRESH_SHOP: 's_icon_gold' };
 /**
  * A skill text the game contradicts, by skill id: the record keeps the official sentence, the card adds what the sim
@@ -66,8 +70,11 @@ const EVENT_ICON = { IN_BATTLE: 's_icon_battle', SERVER_GAIN: 's_icon_bond', SER
  * "对生命值不高于一半的友方单位" — PRTS corrects it to 低于 (原因 6), and content/tokens.js touchGospel boosts strictly
  * below half (GitHub #260).
  */
+/** @type {Readonly<Record<string, string>>} */
 const SKILL_TEXT_NOTES = { skchr_acmedc_3: N_('实际为生命值低于一半时提高治疗量，正好一半不提高（PRTS 修正，原文为“不高于”）') };
+/** @type {Readonly<Record<string, string>>} */
 export const RANK = { NORMAL: N_('普通'), ELITE: N_('精英'), BOSS: N_('领袖') };
+/** @type {Readonly<Record<string, string>>} */
 export const DMG = { phys: N_('物理'), arts: N_('法术'), heal: N_('治疗'), true: N_('真实'), none: N_('无') };
 
 /** A range grid of at least this many tiles covers the field (纯烬艾雅法拉 S3 "攻击范围扩大至整个战场"): named, not drawn. */
@@ -80,11 +87,14 @@ export const FIELD_WIDE_CELLS = 400;
  */
 export const RANGE_FIT = Object.freeze({ cols: 6, rows: 7 });
 
-/** Inline style of the mini-map (rangeGridBox `box`): its columns, and smaller cells when the grid exceeds RANGE_FIT. */
+/**
+ * Inline style of the mini-map (rangeGridBox `box`): its columns, and smaller cells when the grid exceeds RANGE_FIT.
+ * @param {{ cols: number, rows: number }} box
+ */
 export function rangeGridStyle(box) {
   const cols = `grid-template-columns:repeat(${box.cols}, var(--rg))`;
   if (box.cols <= RANGE_FIT.cols && box.rows <= RANGE_FIT.rows) return cols;
-  const fit = (n, k) => `calc((${k} * .14rem + ${(k - 1) * 2}px) / ${n})`;
+  const fit = (/** @type {number} */ n, /** @type {number} */ k) => `calc((${k} * .14rem + ${(k - 1) * 2}px) / ${n})`;
   return `${cols};gap:0;--rg:max(1px, min(.14rem, ${fit(box.cols, RANGE_FIT.cols)}, ${fit(box.rows, RANGE_FIT.rows)}))`;
 }
 
@@ -101,10 +111,10 @@ export function cardRangeGrid(live, rec, chess) {
   return attackRangeGrid(rec) || chess?.rangeGrid || null;
 }
 
-/** Mini range map. */
+/** Mini range map. @param {{ grid: number[][] | null | undefined, class?: string }} props */
 export function RangeGrid({ grid, class: cls }) {
   if (Array.isArray(grid) && grid.length >= FIELD_WIDE_CELLS) return html`<span class=${cx('rgrid-all', cls)} aria-label=${t('攻击范围')}>${t('全场')}</span>`;
-  const box = rangeGridBox(grid);
+  const box = rangeGridBox(/** @type {Array<[number, number]>} */ (grid));
   if (!box.cells.size) return html`<span class="t-dim">—</span>`;
   const cells = [];
   for (let r = box.r0; r > box.r0 - box.rows; r--) {
@@ -116,11 +126,12 @@ export function RangeGrid({ grid, class: cls }) {
   return html`<div class=${cx('rgrid', cls)} style=${rangeGridStyle(box)} aria-label=${t('攻击范围')}>${cells}</div>`;
 }
 
+/** @param {{ k: any, v: any, sub?: any, tone?: string | null, title?: string }} props */
 function Stat({ k, v, sub, tone = null, title }) {
   return html`<div class=${cx('dstat', tone && `is-${tone}`)} title=${title}><span class="dstat__k">${k}</span><span class="dstat__row"><b class="dstat__v num">${v}</b>${sub ? html`<small>${sub}</small>` : null}</span></div>`;
 }
 
-/** Tolerance below which a live stat counts as its base (display rounding). */
+/** Tolerance below which a live stat counts as its base (display rounding). @type {Readonly<Record<string, number>>} */
 const STAT_EPS = { interval: 0.005, res: 0.05, moveSpeed: 0.005 };
 
 /**
@@ -159,7 +170,7 @@ export function liveStat(live, key, fallback, fmt = fmtNum) {
   return { v: fmt(cur), tone, sub, title: base != null ? t('基础 {v}', { v: fmt(base) }) : undefined };
 }
 
-/** The tag of a live stats block: 实时 (battle) / 开战时 (the prep preview). */
+/** The tag of a live stats block: 实时 (battle) / 开战时 (the prep preview). @param {{ live: any }} props */
 function LiveTag({ live }) {
   if (!live) return null;
   const battle = live.src === 'battle';
@@ -167,15 +178,20 @@ function LiveTag({ live }) {
     : t('下一场作战开始时的数值：已计入装备、盟约层数、特质、策略与机变效果（不含技能与作战中的临时效果）')}>${battle ? t('实时') : t('开战时')}</span>`;
 }
 
-const fmtInterval = (v) => (Number.isFinite(v) && v > 0 ? `${v.toFixed(2)}s` : '—');
-const fmtRes = (v) => (Number.isFinite(v) ? String(Math.round(v * 10) / 10) : '0');
+const fmtInterval = (/** @type {number} */ v) => (Number.isFinite(v) && v > 0 ? `${v.toFixed(2)}s` : '—');
+const fmtRes = (/** @type {number} */ v) => (Number.isFinite(v) ? String(Math.round(v * 10) / 10) : '0');
 
-/** HP bar of the card header: the live HP in battle, else the snapshot's. */
+/**
+ * HP bar of the card header: the live HP in battle, else the snapshot's.
+ * @param {any} live @param {{ hp: number, max: number } | null | undefined} snapHp
+ * @returns {{ hp: number, max: number } | null}
+ */
 export function hpOf(live, snapHp) {
   if (live && live.src === 'battle' && Number.isFinite(live.hp) && Number.isFinite(live.maxHp)) return { hp: live.hp, max: live.maxHp };
   return snapHp || null;
 }
 
+/** @param {{ title: any, micro?: string, children?: any, class?: string }} props */
 function Section({ title, micro, children, class: cls }) {
   return html`<section class=${cx('dsec', cls)}>
     <h4 class="dsec__title">${title}${micro ? html`<${MicroLabel}>${micro}</${MicroLabel}>` : null}</h4>
@@ -183,7 +199,7 @@ function Section({ title, micro, children, class: cls }) {
   </section>`;
 }
 
-const isOffIn = (off, bondId) => !!(off && typeof off.has === 'function' && off.has(bondId));
+const isOffIn = (/** @type {Set<string> | null | undefined} */ off, /** @type {string} */ bondId) => !!(off && typeof off.has === 'function' && off.has(bondId));
 
 /**
  * The 变形同构体's 天赋栏 (gameLogic morphPairings): "搭配以下装备时，携带者视为对应盟约的成员：", then one line per bond — 【bond】
@@ -228,7 +244,10 @@ export function MorphGrantLine({ item, off = null, carried = null }) {
   </p>`;
 }
 
-/** An equipped item of the card: icon, name, effect — and for 变形同构体 / a bond item its pairing (`carried`: the wearer's items). */
+/**
+ * An equipped item of the card: icon, name, effect — and for 变形同构体 / a bond item its pairing (`carried`: the wearer's items).
+ * @param {{ itemId: string, carried?: Array<string|{id:string}> | null, off?: Set<string> | null }} props
+ */
 function ItemRow({ itemId, carried = null, off = null }) {
   const it = data.lookup('items', itemId);
   return html`<div class="ditem">
@@ -241,7 +260,7 @@ function ItemRow({ itemId, carried = null, off = null }) {
 /**
  * The unit's bonds right under the header: icon, name, the player's member count / next threshold, reached tier.
  * `granted`: the bonds among them the unit holds through 变形同构体 (dashed chip, 同构 tag).
- * @param {{ bondIds: string[], bonds?: any[], onBond?: (bondId: string) => void, off?: Set<string>|null, granted?: string[] }} props —
+ * @param {{ bondIds: string[], bonds?: any[], onBond?: ((bondId: string) => void) | null, off?: Set<string>|null, granted?: string[] }} props —
  *   off: the bonds the mode never activates (gameLogic modeOffBonds): 本局禁用 instead of the count
  */
 export function BondChips({ bondIds, bonds = [], onBond = null, off = null, granted = [] }) {
@@ -277,7 +296,7 @@ export function BondChips({ bondIds, bonds = [], onBond = null, off = null, gran
         <span class="dbond__name">${rec?.name || id}</span>
         ${iso.has(id) ? html`<span class="dbond__iso">${t('同构')}</span>` : null}
         <span class=${cx('dbond__count', 'num', next == null && count > 0 && 'is-max')}>${count}${cap != null ? html`<small>/${cap}</small>` : null}</span>
-        ${th.length ? html`<span class="dbond__tiers" aria-hidden="true">${th.map((_, i) => html`<i key=${i} class=${i < tier ? 'on' : ''}></i>`)}</span>` : null}`;
+        ${th.length ? html`<span class="dbond__tiers" aria-hidden="true">${th.map((/** @type {unknown} */ _, /** @type {number} */ i) => html`<i key=${i} class=${i < tier ? 'on' : ''}></i>`)}</span>` : null}`;
       const cls = cx('dbond', active && 'is-active', isOff && 'is-off', rec?.isCore && 'is-core', iso.has(id) && 'is-granted');
       return onBond
         ? html`<button key=${id} type="button" role="listitem" class=${cls} title=${label} aria-label=${label}
@@ -290,6 +309,7 @@ export function BondChips({ bondIds, bonds = [], onBond = null, off = null, gran
 /**
  * 特性 text of the record the unit fights with (DESIGN §16: `lo.record` = the chosen module's traitOverride, or the
  * no-module traitBase for 不装备 — data `trait` is the default module's). Also the 干员调配 screen's (screens/loadout.js).
+ * @param {any} c @param {boolean} golden @param {{ record?: any } | null | undefined} lo
  */
 export function traitText(c, golden, lo) {
   const t = (lo?.record || c).trait || {};
@@ -317,7 +337,7 @@ export const CHESS_SECTIONS = Object.freeze(['head', 'garrison', 'trait', 'stats
 export function garrisonTypeIconKey(garrison) {
   const k = garrison && typeof garrison.eventTypeIcon === 'string' ? garrison.eventTypeIcon : '';
   if (/^icon_[a-z]+$/.test(k)) return `s_${k}`;
-  return EVENT_ICON[garrison?.eventType] || 's_icon_bond';
+  return EVENT_ICON[/** @type {string} */ (garrison?.eventType)] || 's_icon_bond';
 }
 
 /**
@@ -346,7 +366,10 @@ export function itemText(item, piece = null) {
   return fillShowTag(raw, Number.isFinite(piece?.showTag) ? piece.showTag : null, itemShowValue(item, 0));
 }
 
-/** The operator's own effect (特质, garrisons.json): trigger chip + description, compact. `showTags`: garrisonText's. */
+/**
+ * The operator's own effect (特质, garrisons.json): trigger chip + description, compact. `showTags`: garrisonText's.
+ * @param {{ garrison: any, m: any, showTags?: Record<string, number> | null }} props
+ */
 export function GarrisonBlock({ garrison, m, showTags = null }) {
   return html`<section class="dgarrison" aria-label=${t('特质')} data-garrison=${garrison.garrisonId || ''}>
     <div class="dgarrison__head">
@@ -360,9 +383,9 @@ export function GarrisonBlock({ garrison, m, showTags = null }) {
   </section>`;
 }
 
-/** The talents the card lists (天赋): the loadout record's named, not hidden ones. */
+/** The talents the card lists (天赋): the loadout record's named, not hidden ones. @param {any} rec @returns {any[]} */
 export function chessTalents(rec) {
-  return (Array.isArray(rec?.talents) ? rec.talents : []).filter((t) => t && t.name && !t.hidden);
+  return (Array.isArray(rec?.talents) ? rec.talents : []).filter((/** @type {any} */ t) => t && t.name && !t.hidden);
 }
 
 /**
@@ -402,6 +425,7 @@ export function chessStatsBlock({ rec, chess, live = null }) {
 /**
  * A skill's tags (SP type, trigger, initial SP · cost, duration, charges): the operator card's, a map character's and a
  * summon's. A passive skill's SP type and trigger both read 被动 (ON_DEPLOY / PASSIVE): one tag.
+ * @param {any} sk
  */
 export function skillTags(sk) {
   const sp = t(SP_TYPE[sk.spType]) || t('技力');
@@ -414,18 +438,25 @@ export function skillTags(sk) {
     ${sk.maxChargeTime > 1 ? html`<span class="dsp__num">${t('充能')} <b class="num">${sk.maxChargeTime}</b></span>` : null}`;
 }
 
-/** The line under a skill text the game contradicts (SKILL_TEXT_NOTES), or null. */
+/** The line under a skill text the game contradicts (SKILL_TEXT_NOTES), or null. @param {any} sk */
 export function skillTextNote(sk) {
   const note = sk && SKILL_TEXT_NOTES[sk.skillId];
   return note ? html`<p class="dhint dhint--rule" data-skill-note=${sk.skillId}><${Icon} name="info" />${t(note)}</p>` : null;
 }
 
+/**
+ * An operator's card (the old box; the official look is ui/detailArt.js ChessDetailArt): its blocks in CHESS_SECTIONS order.
+ * @param {{ chess: any, piece?: any, unit?: any, snapHp?: { hp: number, max: number } | null, editable?: boolean,
+ *   onSell: Function, bonds?: any[], offBonds?: Set<string> | null, loadout?: any, onBond?: ((bondId: string) => void) | null,
+ *   live?: any, hint?: string | null, unitItems?: any[] | null, standIn?: any, diy?: any, cultOpts?: any,
+ *   showTags?: Record<string, number> | null, skin?: any }} props
+ */
 export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bonds, offBonds = null, loadout, onBond, live = null, hint = null, unitItems = null, standIn = null, diy = null, cultOpts = null, showTags = null, skin = null }) {
   const m = data.get('assets');
   const hp = hpOf(live, snapHp);
   // 0.2.0 自选编队: `chess` is then the composed 自选 record (the operator, the slot's tier / price); its skill and module are
   // the pick's — the lookups resolve the slot's ids to the same pick (shared/diy.js), so the loadout reads them as defaults
-  const getChess = diy ? pickGetter((id) => data.lookup('chess', id), diy, { chess: data.get('chess'), backups: data.get('backups') }) : (id) => data.lookup('chess', id);
+  const getChess = diy ? pickGetter((/** @type {string} */ id) => data.lookup('chess', id), diy, { chess: data.get('chess'), backups: data.get('backups') }) : (/** @type {string} */ id) => data.lookup('chess', id);
   // 0.2.0 补位: a chess fielded as its stand-in shows the stand-in — portrait, name, class, 特性, stats, range, skill,
   // talents, module (its backup selection, no loadout) — under a small 「替补」 tag, with the replaced operator's name
   // where the English name usually is (「银灰的替补」, [ASSUMED] placement); the chess's tier, bonds, 特质 and sell price
@@ -450,10 +481,11 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
   // the bonds the unit counts for: its own + a 变形同构体 pairing's (its piece's items; without one: `unitItems` — a
   // teammate's unit's UnitInfo items, a bond popup 同构 row's wearer's)
   const carried = piece ? items : (Array.isArray(unitItems) ? unitItems : []);
-  const getItem = (id) => data.lookup('items', id);
+  const getItem = (/** @type {string} */ id) => data.lookup('items', id);
   const bondIds = pieceBondIds(c, carried, getItem);
   const grantedIds = bondIds.filter((b) => !(Array.isArray(c.bonds) && c.bonds.includes(b)));
   const sell = piece?.sellPrice ?? c.sellPrice ?? 1; // the piece's own price (规程's 海沫 / 温蒂: player/views.js pieceView)
+  /** @type {Record<string, any>} */
   const blocks = {};
   blocks.head = html`
     <div key="head" class="dhead">
@@ -472,7 +504,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
         ${si ? html`<span class="dhead__for" data-for=${c.chessId}>${standInForText(c.name)}</span>` : html`<span class="dhead__en">${c.appellation || ''}</span>`}
         <div class="dhead__class">
           <${Img} src=${profIconUrl(m, body.profession)} class="dhead__prof" />
-          <span>${t(PROF_NAME[body.profession]) || body.profession || ''}</span>
+          <span>${t(/** @type {Record<string, string>} */ (PROF_NAME)[body.profession]) || body.profession || ''}</span>
           <i class="sep"></i>
           <${Img} src=${subProfIconUrl(m, body)} class="dhead__sub" />
           <span>${body.subProfessionName || ''}</span>
@@ -508,15 +540,15 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
     <//>` : null;
   // (a 变形同构体 / bond item row shows its pairing against what this operator carries: ItemRow `carried`)
   blocks.equip = piece?.kind === 'chess' ? html`<${Section} key="equip" title=${t('装备')} micro=${`EQUIP ${items.length}/${slots}`} class="dsec--equip">
-      ${items.length ? items.map((it) => html`<${ItemRow} key=${it.uid} itemId=${it.id} carried=${items} off=${offBonds} />`) : html`<p class="t-dim dempty">${t('拖拽装备至该干员以配发（最多 {n} 件）', { n: slots })}</p>`}
+      ${items.length ? items.map((/** @type {any} */ it) => html`<${ItemRow} key=${it.uid} itemId=${it.id} carried=${items} off=${offBonds} />`) : html`<p class="t-dim dempty">${t('拖拽装备至该干员以配发（最多 {n} 件）', { n: slots })}</p>`}
     <//>`
     // no own piece (a teammate's unit, a bond popup's 变形同构体 row): what it carries, read-only
     : !piece && carried.length ? html`<${Section} key="equip" title=${t('装备')} micro=${`EQUIP ${carried.length}/2`} class="dsec--equip">
-      ${carried.map((id, i) => html`<${ItemRow} key=${`${i}:${id}`} itemId=${id} carried=${carried} off=${offBonds} />`)}
+      ${carried.map((/** @type {string} */ id, /** @type {number} */ i) => html`<${ItemRow} key=${`${i}:${id}`} itemId=${id} carried=${carried} off=${offBonds} />`)}
     <//>` : null;
   const talents = chessTalents(fr);
   blocks.talents = talents.length ? html`<${Section} key="talents" title=${t('天赋')} micro="TALENT" class="dsec--talent">
-      ${talents.map((t, i) => html`<div key=${i} class="dtalent"><b>${t.name}</b><${RichText} text=${t.descRaw || t.desc} class="dtext" /></div>`)}
+      ${talents.map((/** @type {any} */ t, /** @type {number} */ i) => html`<div key=${i} class="dtalent"><b>${t.name}</b><${RichText} text=${t.descRaw || t.desc} class="dtext" /></div>`)}
     <//>` : null;
   blocks.actions = piece && editable && piece.kind !== 'item' ? html`<div key="actions" class="dactions">
       <${Button} variant="amber" icon="close" class="dpanel__sell" onClick=${() => onSell(piece, si || c)}>${t('出售')}<span class="dsell num">+${sell}</span><//>
@@ -533,6 +565,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
  * official text leaves out (items.json `note`: 突变细胞 returns to the hand after each use) is shown under the effect.
  * 变形同构体 lists its pairings (its 天赋栏: MorphPairings, `offBonds` marks 本局禁用); a bond item says which bond it gives
  * a 变形同构体 wearer (MorphGrantLine). (An equipped item is shown on its wearer's card: ChessDetail's 装备 rows.)
+ * @param {{ item: any, piece?: any, editable?: boolean, onDestroy: Function, offBonds?: Set<string> | null }} props
  */
 export function ItemDetail({ item, piece, editable, onDestroy, offBonds = null }) {
   const m = data.get('assets');
@@ -557,9 +590,10 @@ export function ItemDetail({ item, piece, editable, onDestroy, offBonds = null }
     ${piece && editable ? html`<div class="dactions"><${Button} variant="danger" onClick=${() => onDestroy(piece, item)}>${t('销毁道具')}<//></div>` : null}`;
 }
 
-/** An enemy record's immunities (stats.immunities), in words. */
-export const enemyImmunities = (s) => Object.entries(s?.immunities || {}).filter(([, v]) => v).map(([k]) => ({ stun: t('晕眩'), silence: t('沉默'), sleep: t('沉睡'), frozen: t('冻结'), levitate: t('浮空') }[k] || k));
+/** An enemy record's immunities (stats.immunities), in words. @param {any} s @returns {string[]} */
+export const enemyImmunities = (s) => Object.entries(s?.immunities || {}).filter(([, v]) => v).map(([k]) => /** @type {Record<string, string>} */ ({ stun: t('晕眩'), silence: t('沉默'), sleep: t('沉睡'), frozen: t('冻结'), levitate: t('浮空') })[k] || k);
 
+/** @param {{ enemy: any, snapHp?: { hp: number, max: number } | null, count?: number, live?: any }} props */
 function EnemyDetail({ enemy, snapHp, count, live = null }) {
   const m = data.get('assets');
   const s = enemy.stats || {};
@@ -581,19 +615,19 @@ function EnemyDetail({ enemy, snapHp, count, live = null }) {
       </div>
       <div class="dhead__info">
         <div class="dhead__chips">
-          <span class=${cx('drank', `drank--${(enemy.rank || 'NORMAL').toLowerCase()}`)}>${t(RANK[enemy.rank]) || t('普通')}</span>
+          <span class=${cx('drank', `drank--${(enemy.rank || 'NORMAL').toLowerCase()}`)}>${t(RANK[/** @type {string} */ (enemy.rank)]) || t('普通')}</span>
           <span class="dtag-kind">${s.motion === 'FLY' ? t('空中') : t('地面')}</span>
           ${count ? html`<span class="dtag-kind num">×${count}</span>` : null}
         </div>
         <h3 class="dhead__name">${enemy.name}</h3>
-        <div class="dfactions">${types.map((t) => html`<span key=${t} class="dfaction"><${Img} src=${factionIconUrl(m, factions[t]?.icon)} />${factions[t]?.name || t}</span>`)}</div>
+        <div class="dfactions">${types.map((/** @type {string} */ t) => html`<span key=${t} class="dfaction"><${Img} src=${factionIconUrl(m, factions[t]?.icon)} />${factions[t]?.name || t}</span>`)}</div>
         ${hp ? html`<div class="dhp dhp--enemy"><i style=${`width:${Math.max(0, Math.min(100, (hp.hp / Math.max(1, hp.max)) * 100))}%`}></i><span class="num">${fmtNum(hp.hp)} / ${fmtNum(hp.max)}</span></div>` : null}
       </div>
     </div>
     <div class=${cx('dstats', live && 'is-live')} data-live=${live ? live.src || 'battle' : undefined}>
       <${LiveTag} live=${live} />
       <${Stat} k=${t('生命上限')} ...${st.maxHp} />
-      <${Stat} k=${t('攻击')} ...${st.atk} sub=${st.atk.sub || t(DMG[s.dmgType]) || ''} />
+      <${Stat} k=${t('攻击')} ...${st.atk} sub=${st.atk.sub || t(DMG[/** @type {string} */ (s.dmgType)]) || ''} />
       <${Stat} k=${t('防御')} ...${st.def} />
       <${Stat} k=${t('法术抗性')} ...${st.res} />
       <${Stat} k=${t('移动速度')} ...${st.moveSpeed} />
@@ -624,7 +658,10 @@ export function summonDeployHint(token, startDeploy = SKILL_SUMMON_START_DEPLOY)
     : t('所属干员发动技能时才在摆放的位置出现（未摆放则不会出现）');
 }
 
-/** Chess id of the operator owning a token piece (`ownerUid`), from the player's own pieces (indexPieces). */
+/**
+ * Chess id of the operator owning a token piece (`ownerUid`), from the player's own pieces (indexPieces).
+ * @param {any} piece @param {Map<number, any> | null | undefined} pieces
+ */
 function tokenOwnerId(piece, pieces) {
   if (!piece || piece.kind !== 'token' || !Number.isInteger(piece.ownerUid)) return null;
   const owner = pieces?.get(piece.ownerUid)?.piece;
@@ -635,6 +672,7 @@ function tokenOwnerId(piece, pieces) {
  * A band map character's card (TokenDetail): labelled 干员 with its class (医疗 · 远程位), its 特性, the four stats, its
  * skill — the operator card's row (icon, SP, duration), its text and SKILL_TEXT_NOTES — and its talents, all from the
  * tokens.json record. Until 0.2.1 it took the summon path: 召唤物, base stats only (GitHub #260).
+ * @param {{ token: any, snapHp?: { hp: number, max: number } | null, live?: any, m: any }} props
  */
 function MapCharDetail({ token, snapHp, live, m }) {
   const s = token.stats || {};
@@ -654,7 +692,7 @@ function MapCharDetail({ token, snapHp, live, m }) {
         <h3 class="dhead__name">${token.name}</h3>
         <div class="dhead__class">
           <${Img} src=${profIconUrl(m, token.profession)} class="dhead__prof" />
-          <span>${t(PROF_NAME[token.profession]) || token.profession || ''}</span>
+          <span>${t(/** @type {Record<string, string>} */ (PROF_NAME)[token.profession]) || token.profession || ''}</span>
           <span class="dhead__pos">${token.position === 'MELEE' ? t('近战位') : t('远程位')}</span>
         </div>
         ${hp ? html`<div class="dhp"><i style=${`width:${Math.max(0, Math.min(100, (hp.hp / Math.max(1, hp.max)) * 100))}%`}></i><span class="num">${fmtNum(hp.hp)} / ${fmtNum(hp.max)}</span></div>` : null}
@@ -678,10 +716,14 @@ function MapCharDetail({ token, snapHp, live, m }) {
       ${skillTextNote(sk)}
     <//>` : null}
     ${talents.length ? html`<${Section} title=${t('天赋')} micro="TALENT" class="dsec--talent">
-      ${talents.map((x, i) => html`<div key=${i} class="dtalent"><b>${x.name}</b><${RichText} text=${x.descRaw || x.desc} class="dtext" /></div>`)}
+      ${talents.map((/** @type {any} */ x, /** @type {number} */ i) => html`<div key=${i} class="dtalent"><b>${x.name}</b><${RichText} text=${x.descRaw || x.desc} class="dtext" /></div>`)}
     <//>` : null}`;
 }
 
+/**
+ * A summon's card (or a band map character's: MapCharDetail): its owner's variant's stats, talents and token skill.
+ * @param {{ token: any, piece?: any, ownerId?: string | null, snapHp?: { hp: number, max: number } | null, live?: any }} props
+ */
 export function TokenDetail({ token, piece, ownerId = null, snapHp = null, live = null }) {
   const m = data.get('assets');
   // a band map character (外勤医疗's Touch / 预备干员-医疗, tokens.json kind 'mapChar') is an operator of the mode, not a
@@ -696,7 +738,7 @@ export function TokenDetail({ token, piece, ownerId = null, snapHp = null, live 
     blockCnt: liveStat(live, 'blockCnt', s.blockCnt, (v) => String(v)),
   };
   // what the summon does lives in its talent (凯瑟琳's 支援装置: "使攻击范围内一名友方干员获得…屏障") or token skill (诅咒娃娃)
-  const talents = (v0?.talents || []).filter((t) => t && t.name && t.desc);
+  const talents = (v0?.talents || []).filter((/** @type {any} */ t) => t && t.name && t.desc);
   const skill = v0?.skill && v0.skill.desc && !/^skcom_withdraw/.test(String(v0.skill.skillId || '')) ? v0.skill : null;
   const hint = piece ? summonDeployHint(token) : null;
   return html`
@@ -716,7 +758,7 @@ export function TokenDetail({ token, piece, ownerId = null, snapHp = null, live 
     ${hint ? html`<p class="dhint"><${Icon} name="info" />${hint}</p>` : null}
     ${token.descRaw || token.desc ? html`<${Section} title=${t('说明')}><${RichText} as="p" text=${token.descRaw || token.desc} class="dtext" /><//>` : null}
     ${skill ? html`<${Section} title=${t('技能')}><p class="dtext"><b>${skill.name}</b> ${skill.desc}</p><//>` : null}
-    ${talents.length ? html`<${Section} title=${t('天赋')}>${talents.map((t, i) => html`<p class="dtext" key=${i}><b>${t.name}</b> ${t.desc}</p>`)}<//>` : null}`;
+    ${talents.length ? html`<${Section} title=${t('天赋')}>${talents.map((/** @type {any} */ t, /** @type {number} */ i) => html`<p class="dtext" key=${i}><b>${t.name}</b> ${t.desc}</p>`)}<//>` : null}`;
 }
 
 /**
@@ -763,9 +805,9 @@ function DeviceDetail({ device, snapHp = null, live = null }) {
 /**
  * Resolve what a detail target shows.
  * @param {{ kind:'piece'|'chess'|'item'|'enemy'|'unit'|'token'|'device', id?:string, uid?:number, unit?:any, count?:number,
- *   foreign?:boolean, owner?:string|null }} target `foreign` / `owner`: a chess card of another player's (no 特质 numbers
+ *   foreign?:boolean, owner?:string|null, [key: string]: any } | null} target `foreign` / `owner`: a chess card of another player's (no 特质 numbers
  *   of the viewer's)
- * @param {Map<number, any>} pieces indexPieces(priv)
+ * @param {Map<number, any> | null | undefined} pieces indexPieces(priv)
  * @param {{ priv?: any, backups?: any }} [opts] 0.2.0 补位: the player's own pieces and cards of a chess in
  *   m.private.standIns — a unit carrying `standInFor`, and a teammate's bond popup row that says it (`target.standInFor`)
  *   — resolve with `standIn` (the composed stand-in record the card shows: portrait, name, body, with the chess's
@@ -781,13 +823,18 @@ export function resolveDetail(target, pieces, opts = {}) {
   // 特质 text reads the player's numbers (m.private showTags — GarrisonBlock)
   const priv = opts?.priv;
   if (d && d.type === 'chess' && priv && priv.showTags && typeof priv.showTags === 'object') {
-    const foreign = target.kind === 'chess' && (!!target.foreign || (target.owner != null && target.owner !== priv.playerId));
-    if (d.piece || (target.kind === 'chess' && !foreign)) d.showTags = priv.showTags;
+    // (a detail resolved: `target` was not null)
+    const foreign = /** @type {NonNullable<typeof target>} */ (target).kind === 'chess' && (!!/** @type {NonNullable<typeof target>} */ (target).foreign || (/** @type {NonNullable<typeof target>} */ (target).owner != null && /** @type {NonNullable<typeof target>} */ (target).owner !== priv.playerId));
+    if (d.piece || (/** @type {NonNullable<typeof target>} */ (target).kind === 'chess' && !foreign)) d.showTags = priv.showTags;
   }
   return d;
 }
 
-/** @returns {Record<string, any>|null} */
+/**
+ * @param {Parameters<typeof resolveDetail>[0]} target @param {Map<number, any> | null | undefined} pieces
+ * @param {{ priv?: any, backups?: any }} [opts]
+ * @returns {Record<string, any>|null}
+ */
 function resolveDetailOf(target, pieces, { priv = null, backups = data.get('backups') } = {}) {
   if (!target) return null;
   // a stage device (#228): the screen resolved the device's stage entry (gameLogic.deviceInfo / deviceTipAt); in a battle
@@ -796,15 +843,15 @@ function resolveDetailOf(target, pieces, { priv = null, backups = data.get('back
     const device = target.device && typeof target.device === 'object' ? target.device : null;
     return device ? { type: 'device', device, ...(Number.isInteger(device.unitId) ? { unitId: device.unitId } : {}) } : null;
   }
-  const ownSi = (c) => ownStandIn(c, priv, backups);
+  const ownSi = (/** @type {any} */ c) => ownStandIn(c, priv, backups);
   const dd = { chess: data.get('chess'), backups };
   /** the own card of chess `c`: its 自选 record and pick when the player filled that DIY slot */
-  const ownDiy = (c) => {
+  const ownDiy = (/** @type {any} */ c) => {
     const rec = c ? ownDiyRecord(c, priv, dd) : null;
     return rec ? { chess: rec, diy: ownDiyPick(priv, c) } : null;
   };
   if (target.kind === 'piece') {
-    const e = pieces?.get(target.uid);
+    const e = pieces?.get(/** @type {number} */ (target.uid));
     if (!e) return null;
     const p = e.piece;
     if (p.kind === 'item') { const it = data.lookup('items', p.id); return it ? { type: 'item', item: it, piece: p } : null; }
@@ -817,7 +864,7 @@ function resolveDetailOf(target, pieces, { priv = null, backups = data.get('back
   if (target.kind === 'chess') {
     // a bond popup's 变形同构体 row hands the wearer's item ids on (bondStrip onMember): the card shows the pair and the chip
     const c = data.lookup('chess', target.id);
-    const items = Array.isArray(target.items) ? target.items.filter((x) => typeof x === 'string') : [];
+    const items = Array.isArray(target.items) ? target.items.filter((/** @type {unknown} */ x) => typeof x === 'string') : [];
     // (a bond popup's member card of a teammate's strip — `owner` another player — and the mode's banned list (`foreign`)
     // do not read the viewer's 补位 list: a teammate's row shows the stand-in only when its unit says it is one —
     // `target.standInFor`, from UnitInfo through ui/watchBonds.js ownerBoard)
@@ -873,7 +920,7 @@ function resolveDetailOf(target, pieces, { priv = null, backups = data.get('back
 /**
  * The panel.
  * @param {{ detail:any, editable:boolean, snapHp?:{hp:number,max:number}|null, onSell:(piece:any)=>void, onDestroy:(piece:any)=>void,
- *   bonds?: any[], offBonds?: Set<string>|null, loadout?: any, ops?: any, onBond?: (bondId:string)=>void, side?: 'left'|'right',
+ *   bonds?: any[], offBonds?: Set<string>|null, loadout?: any, ops?: any, onBond?: ((bondId:string)=>void) | null, side?: 'left'|'right',
  *   shopOpen?: boolean, live?: any, voice?: boolean }} props
  *   bonds: the owner's m.private.bonds (counts / tiers of the bond chips); offBonds: the bonds this mode never activates
  *   (gameLogic modeOffBonds — their chips and the 变形同构体 pairing lines read 本局禁用); loadout: m.private.loadout (DESIGN §16) for
@@ -900,7 +947,7 @@ export function DetailPanel({ detail, editable, snapHp, onSell, onDestroy, bonds
   if (!detail) return null;
   let liveNow = null;
   try { liveNow = getter ? getter() : live && typeof live === 'object' ? live : null; } catch { liveNow = null; }
-  const sellIt = async (piece, chess) => {
+  const sellIt = async (/** @type {any} */ piece, /** @type {any} */ chess) => {
     const golden = piece.golden || chess?.isGolden;
     if (golden) {
       const ok = await confirmDialog({ title: t('出售精锐干员'), text: t('确定要出售精锐干员「{name}」吗？出售后获得 {price} 资金。', { name: chess?.name || '', price: piece.sellPrice ?? chess?.sellPrice ?? 1 }), okText: t('出售'), danger: true });
@@ -908,7 +955,7 @@ export function DetailPanel({ detail, editable, snapHp, onSell, onDestroy, bonds
     }
     onSell(piece);
   };
-  const destroyIt = async (piece, item) => {
+  const destroyIt = async (/** @type {any} */ piece, /** @type {any} */ item) => {
     const ok = await confirmDialog({ title: t('销毁道具'), text: t('道具无法出售。确定要销毁「{name}」吗？', { name: item?.name || '' }), okText: t('销毁'), danger: true });
     if (ok) onDestroy(piece);
   };

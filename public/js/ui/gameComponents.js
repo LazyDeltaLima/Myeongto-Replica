@@ -14,6 +14,7 @@ import {
   uiUrl, chessAvatarUrl, chessPortraitUrl, itemIconUrl, tokenAvatarUrl, enemyIconUrl, bondIconUrl, bandIconUrl,
 } from './assetUrls.js';
 
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** Data files the in-match screens use (`backups`: the 补位 stand-ins' bodies — cards, the board model, the detail card; `cards`: the seat card operators behind the order rows, ui/seatCards.js). */
@@ -21,10 +22,14 @@ export const GAME_FILES = ['config', 'assets', 'chess', 'bonds', 'items', 'bands
   'choices', 'effects', 'garrisons', 'factions', 'local', 'backups', 'cards'];
 
 /**
- * Load every in-match data file; returns lookups (sync, null until loaded).
- * @returns {{ ready: boolean, m: any, config: any, chess: (id:string)=>any, bond: (id:string)=>any, item: (id:string)=>any,
+ * @typedef {{ ready: boolean, m: any, config: any, chess: (id:string)=>any, bond: (id:string)=>any, item: (id:string)=>any,
  *   band: (id:string)=>any, enemy: (k:string)=>any, boss: (id:string)=>any, stage: (id:string)=>any, token: (id:string)=>any,
- *   effect: (id:string)=>any, garrison: (id:string)=>any, factions: any, choices: any, backups: any, list: (name:string)=>any[] }}
+ *   effect: (id:string)=>any, garrison: (id:string)=>any, factions: any, choices: any, backups: any, list: (name:string)=>any[] }} GameLookups
+ */
+
+/**
+ * Load every in-match data file; returns lookups (sync, null until loaded).
+ * @returns {GameLookups}
  */
 export function useGameData() {
   const ready = useData(...GAME_FILES);
@@ -32,13 +37,13 @@ export function useGameData() {
   return useMemo(() => makeLookups(ready), [ready, data.locale()]);
 }
 
-/** A 自选 operator's summon record (data/backups.json `tokens`, 0.2.0), or null. */
+/** A 自选 operator's summon record (data/backups.json `tokens`, 0.2.0), or null. @param {string | null | undefined} id */
 export function diyToken(id) {
   const t = typeof id === 'string' ? data.get('backups')?.tokens : null;
-  return t && Object.hasOwn(t, id) ? t[id] : null;
+  return t && Object.hasOwn(t, /** @type {string} */ (id)) ? t[/** @type {string} */ (id)] : null;
 }
 
-/** Non-hook lookups (for event handlers). */
+/** Non-hook lookups (for event handlers). @param {boolean} [ready] @returns {GameLookups} */
 export function makeLookups(ready = true) {
   return {
     ready,
@@ -67,17 +72,20 @@ export function makeLookups(ready = true) {
  * @param {{ src?: string|null, class?: string, alt?: string, fallback?: any, style?: string, onLoad?: (e: Event) => void }} props
  */
 export function Img({ src, class: cls, alt = '', fallback = null, style, onLoad }) {
-  const [bad, setBad] = useState(null);
+  const [bad, setBad] = useState(/** @type {string | null} */ (null));
   if (!src || bad === src) return fallback;
   return html`<img class=${cls} src=${src} alt=${alt} draggable=${false} loading="lazy" style=${style} onLoad=${onLoad /* local patch */} onError=${() => setBad(src)} />`;
 }
 
-/** Official UI sprite by 'group/key' with a fallback. */
+/** Official UI sprite by 'group/key' with a fallback. @param {{ k: string, class?: string, fallback?: any }} props */
 export function Sprite({ k, class: cls, fallback = null }) {
   return html`<${Img} src=${uiUrl(data.get('assets'), k)} class=${cx('sprite', cls)} fallback=${fallback} />`;
 }
 
-/** Official promotion phase from the resolved record's status (not its shop tier or normal / golden form). */
+/**
+ * Official promotion phase from the resolved record's status (not its shop tier or normal / golden form).
+ * @param {{ m: any, phase: number, class?: string }} props
+ */
 export function PromotionIcon({ m, phase, class: cls }) {
   if (!Number.isInteger(phase) || phase < 0 || phase > 2) return null;
   return html`<${Img} src=${uiUrl(m, `elite/elite_${phase}`)} class=${cls}
@@ -107,7 +115,7 @@ export function RichText({ text, class: cls, as = 'span' }) {
       : s.text))}<//>`;
 }
 
-/** Golden (elite) chess? */
+/** Golden (elite) chess? @param {any} piece @param {any} [chess] */
 export const isGoldenPiece = (piece, chess) => !!(piece?.golden || chess?.isGolden || (typeof piece?.id === 'string' && /_b$/.test(piece.id) && piece.kind !== 'item'));
 
 /**
@@ -169,6 +177,8 @@ export function UnitThumb({ kind = 'chess', id, golden, size = 'md', tier, showT
  * the title names the chess it fielded for; a summon row (`u.kind` 'token') its summon. The result screen's lineup and
  * charts (m.result rows) and 规程's leader ranking (m.public leaderTop rows) draw through it: a bare UnitThumb of a 自选
  * slot id draws the slot record, whose art is none (its glyph 「선」). `ownSkin` / `skinsOf` as UnitThumb.
+ * @param {{ u: { id: string, kind?: string, diy?: any, golden?: boolean, tier?: number, [key: string]: any }, size?: string,
+ *   ownSkin?: boolean, skinsOf?: any }} props
  */
 export function FieldedThumb({ u, size = 'sm', ownSkin = false, skinsOf = null }) {
   const chess = u.kind === 'token' ? null : data.lookup('chess', u.id);
@@ -179,7 +189,7 @@ export function FieldedThumb({ u, size = 'sm', ownSkin = false, skinsOf = null }
     ownSkin=${ownSkin} skinsOf=${skinsOf} title=${si ? tr('{name}（{note}）', { name: si.name, note: standInForText(chess.name) }) : undefined} />`;
 }
 
-/** Thumbnail for an m.private Piece. */
+/** Thumbnail for an m.private Piece. @param {{ piece: any, size?: string, class?: string, badge?: any }} props */
 export function PieceThumb({ piece, size = 'md', class: cls, badge }) {
   if (!piece) return null;
   return html`<${UnitThumb} kind=${piece.kind === 'item' ? 'item' : piece.kind === 'token' ? 'token' : 'chess'} id=${piece.id}
@@ -195,8 +205,8 @@ export function PieceThumb({ piece, size = 'md', class: cls, badge }) {
  */
 export function gearPath({ teeth = 8, rTip = 10, rRoot = 7.4, tipW = 3.2, rootW = 4.4, rHole = 3.3 } = {}) {
   const c = 12;
-  const f = (v) => String(Math.round(v * 100) / 100 + 0);
-  const pt = (a, r) => `${f(c + r * Math.cos(a))} ${f(c + r * Math.sin(a))}`;
+  const f = (/** @type {number} */ v) => String(Math.round(v * 100) / 100 + 0);
+  const pt = (/** @type {number} */ a, /** @type {number} */ r) => `${f(c + r * Math.cos(a))} ${f(c + r * Math.sin(a))}`;
   const at = Math.asin(tipW / 2 / rTip), ar = Math.asin(rootW / 2 / rRoot), step = (2 * Math.PI) / teeth;
   let d = `M${pt(-Math.PI / 2 - ar, rRoot)}`;
   for (let i = 0; i < teeth; i++) {
@@ -223,9 +233,9 @@ export const GLYPHS = Object.freeze({
   target: 'M11 2h2v3.1A7 7 0 0 1 18.9 11H22v2h-3.1A7 7 0 0 1 13 18.9V22h-2v-3.1A7 7 0 0 1 5.1 13H2v-2h3.1A7 7 0 0 1 11 5.1zm1 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4z',
 });
 
-/** Extra HUD glyph. */
+/** Extra HUD glyph. @param {{ name: string, class?: string, title?: string }} props */
 export function GIcon({ name, class: cls, title }) {
-  const d = GLYPHS[name];
+  const d = /** @type {Record<string, string>} */ (GLYPHS)[name];
   if (!d) return html`<${Icon} name=${name} class=${cls} title=${title} />`;
   return html`<svg class=${cx('icon', cls)} viewBox="0 0 24 24" width="1em" height="1em" aria-hidden=${title ? undefined : 'true'} focusable="false">
     ${title ? html`<title>${title}</title>` : null}<path d=${d} fill-rule="evenodd" /></svg>`;
@@ -256,14 +266,14 @@ export function LpTower({ value, size = 'md', class: cls, tone, pending = 0, not
   </span>`;
 }
 
-/** Coin glyph (three stacked gold triangles). */
+/** Coin glyph (three stacked gold triangles). @param {{ class?: string }} props */
 export function CoinGlyph({ class: cls }) {
   return html`<svg class=${cx('coin-glyph', cls)} viewBox="0 0 24 24" aria-hidden="true">
     <path d="M12 3.5 16.2 10H7.8z" /><path d="M7 11.5 11.2 18H2.8z" /><path d="M17 11.5 21.2 18h-8.4z" />
   </svg>`;
 }
 
-/** Bond glyph image (white mask tinted by CSS) or first-letter fallback. */
+/** Bond glyph image (white mask tinted by CSS) or first-letter fallback. @param {{ bondId: string, class?: string }} props */
 export function BondGlyph({ bondId, class: cls }) {
   const b = data.lookup('bonds', bondId);
   const src = bondIconUrl(data.get('assets'), bondId);
@@ -272,7 +282,7 @@ export function BondGlyph({ bondId, class: cls }) {
   </span>`;
 }
 
-/** Band (strategy) icon. */
+/** Band (strategy) icon. @param {{ bandId: string | null | undefined, class?: string, size?: string }} props */
 export function BandIcon({ bandId, class: cls, size = 'md' }) {
   const b = data.lookup('bands', bandId);
   return html`<span class=${cx('bandicon', `bandicon--${size}`, cls)} title=${b?.name || ''}>
@@ -280,12 +290,12 @@ export function BandIcon({ bandId, class: cls, size = 'md' }) {
   </span>`;
 }
 
-/** Item (equipment) icon with tier chip. */
+/** Item (equipment) icon with tier chip. @param {{ itemId: string, class?: string, size?: string, showTier?: boolean }} props */
 export function ItemIcon({ itemId, class: cls, size = 'md', showTier = true }) {
   return html`<${UnitThumb} kind="item" id=${itemId} size=${size} class=${cls} showTier=${showTier} />`;
 }
 
-/** Tooltip-wrapped help text with rich markup. */
+/** Tooltip-wrapped help text with rich markup. @param {{ text: any, children?: any, placement?: string }} props */
 export function RichTip({ text, children, placement = 'top' }) {
   return html`<${Tooltip} text=${text ? html`<${RichText} text=${text} />` : null} placement=${placement}>${children}<//>`;
 }

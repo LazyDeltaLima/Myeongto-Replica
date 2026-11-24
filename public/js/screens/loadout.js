@@ -51,6 +51,7 @@ import {
   opsOf, setOps, resetOps, skinSetOf,
 } from '../ui/loadoutModel.js';
 import { loadoutStore, openLoadout, closeLoadout, setEntries, setOpsMap, applyLoadoutEntries, setNotOwned, applyOwnershipImport, setDiyPicks, applyDiyImport } from '../ui/loadoutSync.js';
+/** @import { RosterFilters } from '../ui/loadoutSync.js' */
 import { CultivationSelects, CultivationSection, cultivationView } from './cultivation.js';
 import { SkinSection } from '../ui/skinPicker.js';
 import { SkillIcon, ModuleGlyph, SkillSection, ModuleSection, ProfFilter } from './loadoutSections.js';
@@ -79,8 +80,6 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
  * @typedef {{ skill?: number, module?: string }} LoadoutPatch a choice change (setChoice)
  * @typedef {(charId: string, patch: { potential?: number, cultivate?: number }) => void} OpsSetter
  * @typedef {PointerEvent & { currentTarget: HTMLElement, target: Element | null }} DeckPointer
- * @typedef {(entries: Record<string, any>, getChess: (id: string) => any, ops?: Record<string, any> | null,
- *   roster?: any[] | null, skins?: Record<string, any> | null) => number} ChangedCountFn changedCount (ui/loadoutModel.js)
  */
 
 // ---- export / import (干员调配 presets) -----------------------------------------------------------------------------
@@ -158,7 +157,7 @@ function QuickModule({ m, opt, on, onPick }) {
   return html`<button type="button" class=${cx('lo-q', 'lo-q--mod', on && 'is-on')} data-module=${opt.id} aria-pressed=${on ? 'true' : 'false'}
       aria-label=${label} title=${label} onClick=${() => onPick(opt.id)}>
     <${ModuleGlyph} m=${m} rec=${opt.rec} id=${opt.id} size="q" />
-    ${opt.id !== MODULE_NONE ? html`<b class="lo-q__type num" aria-hidden="true">${moduleBadge(opt.rec, /** @type {any} */ (opt.id))}</b>` : null}
+    ${opt.id !== MODULE_NONE ? html`<b class="lo-q__type num" aria-hidden="true">${moduleBadge(opt.rec, opt.id)}</b>` : null}
   </button>`;
 }
 
@@ -645,7 +644,7 @@ function LoadoutScreen({ st }) {
   const list = filterRoster(roster, st.filters, st.entries, getChess, getBond, st.ops, mySkins);
   const selId = st.sel && roster.some((c) => c.chessId === st.sel) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null;
   const { base, golden } = selId ? recordsOf(selId, getChess) : { base: null, golden: null };
-  const nChanged = /** @type {ChangedCountFn} */ (changedCount)(st.entries, getChess, st.ops, roster, mySkins);
+  const nChanged = changedCount(st.entries, getChess, st.ops, roster, mySkins);
   // the match takes the loadout until its strategy draft ends (server match.setLoadout, the window of setDiy —
   // maintainer decision 2026-10-14); afterwards an edit is stored for the next match
   const locked = (inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.BAND_DRAFT && phase !== PHASE.LOBBY) || st.sync === 'locked';
@@ -706,7 +705,7 @@ function LoadoutScreen({ st }) {
   /** @param {string} id */
   const pick = (id) => {
     if (view === 'deck' && drawer && loadoutStore.get().sel === id) { setDrawer(false); return; }
-    loadoutStore.set({ sel: /** @type {any} */ (id) });
+    loadoutStore.set({ sel: id });
     if (view === 'deck') setDrawer(true); else setNarrowDetail(true);
   };
   // a row's quick choice (PR #301): the same setChoice / setEntries path; the row becomes the selection, a phone stays on the list
@@ -714,7 +713,7 @@ function LoadoutScreen({ st }) {
   const quickChange = (id, patch) => {
     const recs = recordsOf(id, getChess);
     setEntries(setChoice(loadoutStore.get().entries, recs.base, recs.golden, patch));
-    loadoutStore.set({ sel: /** @type {any} */ (id) });
+    loadoutStore.set({ sel: id });
   };
   /** @param {LoadoutPatch} patch */
   const change = (patch) => { if (base) setEntries(setChoice(loadoutStore.get().entries, base, golden, patch)); };
@@ -976,7 +975,7 @@ function LoadoutScreen({ st }) {
                 data-testid="loadout-filter" onClick=${() => setMenu(menu === 'filter' ? null : 'filter')} title=${t('筛选干员 · 切换列表视图')}>
               <${Icon} name="search" /><span class="lo-tbtn__l">${t('筛选')}</span>${nFilters ? html`<b class="lo-tbtn__n num">${nFilters}</b>` : null}</button>
             ${menu === 'filter' ? html`<div class="lo-pop lo-pop--filter">
-              <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(/** @type {any} */ filters) => loadoutStore.set({ filters })} />
+              <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(/** @type {RosterFilters} */ filters) => loadoutStore.set({ filters })} />
               <div class="lo-pop__row">
                 <span class="lo-pop__k">${t('显示方式')}</span>
                 <div class="lo-seg" role="tablist">
@@ -1040,7 +1039,7 @@ function LoadoutScreen({ st }) {
         locked=${locked ? lockedText : null} />`
       : html`<main class=${cx('lo-body', narrowDetail && 'is-detail')}>
       <section class="lo-roster">
-        <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(/** @type {any} */ filters) => loadoutStore.set({ filters })} onDeck=${() => setView('deck')} />
+        <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(/** @type {RosterFilters} */ filters) => loadoutStore.set({ filters })} onDeck=${() => setView('deck')} />
         <div class="lo-list" ref=${gridRef}>
           <${RosterHead} />
           <div class="lo-list__rows" role="list" aria-label=${t('干员列表')}>
@@ -1129,7 +1128,7 @@ export function LoadoutHost() {
  * @param {Record<string, any>|null} [skins] this browser's skin choice
  */
 export function badgeCount(entries, getChess, ops = null, roster = null, skins = null) {
-  return getChess ? /** @type {ChangedCountFn} */ (changedCount)(entries, getChess, ops, roster, skins)
+  return getChess ? changedCount(entries, getChess, ops, roster, skins)
     : Object.keys(entries || {}).length + Object.keys(ops || {}).length + Object.keys(skins || {}).length;
 }
 

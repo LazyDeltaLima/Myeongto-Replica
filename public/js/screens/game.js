@@ -272,7 +272,7 @@ function MatchScreen() {
   const hostRef = useRef(/** @type {HTMLElement | null} */ (null));
   const barRef = useRef(/** @type {HTMLElement | null} */ (null));
   const hudElRef = useRef(/** @type {HTMLElement | null} */ (null));                         // .gm__hud (inside the safe-area insets: the panels' frame)
-  const { view, kind: viewKind, upgrading: viewUpgrading } = /** @type {{ view: FieldView | null, kind: string, upgrading: boolean }} */ (useFieldView(hostRef));
+  const { view, kind: viewKind, upgrading: viewUpgrading } = useFieldView(hostRef);
   // the loading screen stays until the engine has drawn its first frame of the field (render/app.js isReady / 'ready':
   // the textures go up behind it); a view without isReady (the DOM view) is ready at once, and so is a late engine
   // taking over from the DOM view already on screen (no second loading screen, ui/fieldHost.js)
@@ -1116,7 +1116,7 @@ function MatchScreen() {
     const who = playerId ? { fieldId: fid, playerId } : null;
     setWatching(fid);
     setWatchWho(who);
-    const ok = await actions.watch(fid, /** @type {any} */ (playerId));
+    const ok = await actions.watch(fid, playerId);
     if (!ok) {
       setWatching((w) => (w === fid ? prev : w));
       setWatchWho((w) => (w === who ? prevWho : w));
@@ -1210,7 +1210,7 @@ function MatchScreen() {
           const uid = await /** @type {NonNullable<typeof openReplaceRef.current>} */ (openReplaceRef.current)(request);
           if (!Number.isInteger(uid)) { audio.sfx('back', { volume: 0.5 }); return; }
           const r = replaceIntent(intent, /** @type {number} */ (uid));
-          await actions.equip(r.fields.itemUid, r.fields.targetUid, /** @type {{ replaceUid?: number, itemUid?: number }} */ (r.fields).replaceUid);
+          await actions.equip(/** @type {number} */ (r.fields.itemUid), /** @type {number} */ (r.fields.targetUid), /** @type {{ replaceUid?: number, itemUid?: number }} */ (r.fields).replaceUid);
           return;
         }
       }
@@ -1573,7 +1573,7 @@ function MatchScreen() {
     const u = (Array.isArray(field?.units) ? field.units : []).find((/** @type {any} */ x) => x && x.id === detail.unitId);
     return u ? { ...detail, unit: u } : detail;
   }, [detail, field]);
-  const resolved = useMemo(() => resolveDetail(/** @type {GameDetail} */ (detailTarget), placeCtx.pieces, { priv, backups: gd.backups }), [detailTarget, placeCtx, gd.ready, data.locale()]);
+  const resolved = useMemo(() => resolveDetail(detailTarget, placeCtx.pieces, { priv, backups: gd.backups }), [detailTarget, placeCtx, gd.ready, data.locale()]);
   useEffect(() => { if (detail && !resolved && detail.kind === 'piece') setDetail(null); }, [resolved]);
   const snapHp = (() => {
     const id = resolved?.unitId;

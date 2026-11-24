@@ -1086,7 +1086,7 @@ export function LobbyScreen() {
   const [pick, setPick] = useState(season);
   useEffect(() => { if (!open) setPick(season); }, [open, season]);
   const target = pick === 'all' || offered.includes(pick) ? pick : season;
-  /** @type {{ season: any, anySeason: boolean }} */
+  /** @type {{ season: string, anySeason: boolean }} */
   const { season: queueSeason, anySeason } = queueTarget(target, season);
   const queueCounts4 = useStore((s) => seasonQueueCounts(s, queueSeason, false));
   const queueCounts8 = useStore((s) => seasonQueueCounts(s, queueSeason, true));

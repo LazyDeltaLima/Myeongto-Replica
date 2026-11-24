@@ -53,7 +53,7 @@ export function hudPadding(kind, size) {
   let rem = 100;
   try { rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 100; } catch { /* ignore */ }
   const h = size?.height || 1080;
-  const clampH = (v) => Math.min(v, h * 0.4);
+  const clampH = (/** @type {number} */ v) => Math.min(v, h * 0.4);
   if (kind === 'prep' || kind === 'bossPrep') return { top: clampH(rem * 1.95), bottom: clampH(rem * 3.2), left: rem * 2.25, right: rem * 0.9 };
   if (kind === 'boss' || kind === 'hidden' || kind === 'unite') return { top: clampH(rem * 1.9), bottom: clampH(rem * 0.95), left: rem * 2.1, right: rem * 0.95 };
   return { top: clampH(rem * 1.95), bottom: clampH(rem * 1.0), left: rem * 2.25, right: rem * 1.05 };
@@ -152,19 +152,27 @@ function renderPref() {
   return globalThis.__SP_RENDER__ === 'fallback' ? 'fallback' : 'auto';
 }
 
+/** @param {AbortSignal | undefined} signal */
 function abortError(signal) {
   return signal?.reason ?? new DOMException('Field view initialization cancelled', 'AbortError');
 }
 
+/** @param {AbortSignal | undefined} signal */
 function checkActive(signal) {
   if (signal?.aborted) throw abortError(signal);
 }
 
+/**
+ * @template T
+ * @param {T | Promise<T>} p @param {number} ms @param {string} what @param {AbortSignal} [signal]
+ * @returns {Promise<T>}
+ */
 function withTimeout(p, ms, what, signal) {
   return new Promise((resolve, reject) => {
     let settled = false;
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
     let timer;
-    const finish = (done, value) => {
+    const finish = (/** @type {(v: any) => void} */ done, /** @type {unknown} */ value) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -181,20 +189,30 @@ function withTimeout(p, ms, what, signal) {
 }
 
 /**
+ * A mounted field view as the screens hold it (guardView): every METHODS / OPTIONAL method, which never throws; `raw` the
+ * view itself; a late fallback's `upgrade` (the engine view on its way, null if it failed) and `cancelUpgrade()`.
+ * @typedef {{ kind: 'engine' | 'fallback', raw: any, upgrade?: Promise<GuardedView | null>, cancelUpgrade?: () => void,
+ *   on: (event: string, fn: (e: any) => void) => () => void, isReady: () => boolean | undefined, destroy: () => void,
+ *   [key: string]: any }} GuardedView
+ */
+
+/**
  * Wrap a view so no method can throw into the UI (each failing method is logged once).
  * @param {any} view
  * @param {'engine'|'fallback'} kind
+ * @returns {GuardedView}
  */
 export function guardView(view, kind) {
+  /** @type {Set<string>} */
   const warned = new Set();
-  const safe = { kind, raw: view };
+  const safe = /** @type {GuardedView} */ ({ kind, raw: view });
   for (const name of [...METHODS, ...OPTIONAL]) {
-    safe[name] = (...args) => {
+    safe[name] = (/** @type {any[]} */ ...args) => {
       const fn = view && view[name];
       if (typeof fn !== 'function') return name === 'on' ? () => {} : null;
       try {
         const out = fn.apply(view, args);
-        if (out && typeof out.then === 'function') out.catch((err) => { if (!warned.has(name)) { warned.add(name); console.warn(`[field] ${name} failed`, err); } });
+        if (out && typeof out.then === 'function') out.catch((/** @type {unknown} */ err) => { if (!warned.has(name)) { warned.add(name); console.warn(`[field] ${name} failed`, err); } });
         if (name === 'on') return typeof out === 'function' ? out : () => { try { view.off?.(args[0], args[1]); } catch { /* ignore */ } };
         return out;
       } catch (err) {
@@ -216,7 +234,7 @@ export function guardView(view, kind) {
  */
 export function seedAssets(store) {
   if (!store) return;
-  const give = (name, fn) => {
+  const give = (/** @type {string} */ name, /** @type {((m: any) => boolean) | undefined} */ fn) => {
     if (typeof fn !== 'function') return;
     const now = data.get(name);
     if (now) { fn(now); return; }
@@ -264,25 +282,26 @@ export async function mountFieldView(host, { signal, late = false } = {}) {
     const onAbort = () => controller.abort(abortError(signal));
     signal?.addEventListener('abort', onAbort, { once: true });
     if (signal?.aborted) onAbort();
+    /** @type {any} */
     let engineView = null;
     /** `late`: the engine view still on its way after the race was lost */
     /** @type {Promise<any>|null} */
     let upgrade = null;
-    const dispose = (view) => { try { view?.destroy?.(); } catch { /* ignore */ } };
+    const dispose = (/** @type {any} */ view) => { try { view?.destroy?.(); } catch { /* ignore */ } };
     const timing = mountTimer(); // the report's `mount:` line (diag.js): which stage a slow field load spent its time in
     // the factory's stages count while the race runs; what arrives after it was lost is noted as `late` only
     let racing = true;
-    const stages = { step: (name, cut) => { if (racing) timing.step(name, cut); }, part: (name) => { if (racing) timing.part?.(name); }, late: (name, detail) => timing.late(name, detail), done: (kind) => timing.done(kind) };
+    const stages = { step: (/** @type {string} */ name, /** @type {boolean | undefined} */ cut) => { if (racing) timing.step(name, cut); }, part: (/** @type {string} */ name) => { if (racing) timing.part?.(name); }, late: (/** @type {string} */ name, /** @type {string | undefined} */ detail) => timing.late(name, detail), done: (/** @type {string} */ kind) => timing.done(kind) };
     // A factory that ignores cancellation still belongs to this attempt when it eventually returns.
     // `deadline`: the engine cuts its optional waits (art, 3D board) to fit this race instead of losing it
-    const start = (mod, budget) => {
+    const start = (/** @type {any} */ mod, /** @type {number} */ budget) => {
       if (typeof mod?.createFieldView !== 'function') throw new Error('createFieldView missing');
-      return Promise.resolve(mod.createFieldView(host, { ...opts, signal: controller.signal, deadline: Date.now() + budget, timing: stages })).then((view) => {
+      return Promise.resolve(mod.createFieldView(host, { ...opts, signal: controller.signal, deadline: Date.now() + budget, timing: stages })).then((/** @type {any} */ view) => {
         if (controller.signal.aborted) dispose(view); else engineView = view;
         return view;
       });
     };
-    const complete = (view) => {
+    const complete = (/** @type {any} */ view) => {
       const missing = METHODS.filter((k) => typeof view?.[k] !== 'function');
       if (missing.length) throw new Error(`view lacks ${missing.join(', ')}`);
       return view;
@@ -320,12 +339,13 @@ export async function mountFieldView(host, { signal, late = false } = {}) {
       complete(view);
       timing.done('engine');
       return guardView(view, 'engine');
-    } catch (err) {
+    } catch (/** @type {any} */ err) {
       racing = false;
       timing.done(signal?.aborted ? 'cancelled' : 'fallback');
       if (upgrade && !signal?.aborted) {
         console.warn('[field] render engine still loading, using the simplified view meanwhile:', err?.message || err);
         noteRender('simplified view', `${err?.message || err}; the engine keeps loading`);
+        /** @type {GuardedView} */
         let fallback;
         try {
           fallback = guardView(lateFallback(host, { ...opts, assets: data.get('assets') }), 'fallback');
@@ -336,13 +356,13 @@ export async function mountFieldView(host, { signal, late = false } = {}) {
           throw e;
         }
         let handedOver = false;
-        fallback.upgrade = upgrade.then((view) => {
+        fallback.upgrade = /** @type {Promise<any>} */ (upgrade).then((view) => {
           checkActive(controller.signal);
           complete(view);
           handedOver = true;
           timing.late('engine');
           return guardView(view, 'engine');
-        }).catch((e) => {
+        }).catch((/** @type {any} */ e) => {
           // once handed over, aborting would destroy the engine (its factory listens to this signal until destroy)
           controller.abort();
           dispose(engineView);
@@ -379,21 +399,21 @@ export async function mountFieldView(host, { signal, late = false } = {}) {
  * @param {{ current: HTMLElement|null }} hostRef
  */
 export function useFieldView(hostRef) {
-  const [state, setState] = useState({ view: null, kind: 'loading', upgrading: false });
+  const [state, setState] = useState(/** @type {{ view: GuardedView | null, kind: string, upgrading: boolean }} */ ({ view: null, kind: 'loading', upgrading: false }));
   const [attempt, setAttempt] = useState(0);
   const retries = useRef(0);
-  const viewRef = useRef(null);
+  const viewRef = useRef(/** @type {GuardedView | null} */ (null));
   useEffect(() => {
     let dead = false, retrying = false, retryTimer = 0, lateTimer = 0, holdTimer = 0, upgrading = false;
-    let retiring = null; // the DOM view a late engine replaced, still on top for SWAP_HOLD_MS
+    let retiring = /** @type {GuardedView | null} */ (null); // the DOM view a late engine replaced, still on top for SWAP_HOLD_MS
     const host = hostRef.current;
     if (!host) return undefined;
     setState({ view: null, kind: 'loading', upgrading: false });
     const controller = new AbortController();
-    const awaitUpgrade = (fallback) => {
+    const awaitUpgrade = (/** @type {GuardedView} */ fallback) => {
       upgrading = true;
       lateTimer = setTimeout(() => fallback.cancelUpgrade?.(), LATE_MAX_MS);
-      fallback.upgrade.then((engine) => {
+      /** @type {Promise<GuardedView | null>} */ (fallback.upgrade).then((engine) => {
         clearTimeout(lateTimer);
         upgrading = false;
         if (dead || viewRef.current !== fallback) { engine?.destroy(); return; }
@@ -427,7 +447,7 @@ export function useFieldView(hostRef) {
     // A temporary network/vendor failure must not pin this mounted match to fallback forever. Retry once a moment later
     // and on a useful user event, at most twice in succession; the effect cleanup disposes the old view before creating
     // its successor. A hidden page waits for visibilitychange; a late engine still on its way is waited for instead.
-    const onRetry = (e) => {
+    const onRetry = (/** @type {Event | undefined} */ e) => {
       if (dead || retrying || upgrading || viewRef.current?.kind !== 'fallback' || renderPref() === 'fallback'
         || document.visibilityState !== 'visible' || globalThis.navigator?.onLine === false || retries.current >= 2) return;
       retrying = true; retries.current++;

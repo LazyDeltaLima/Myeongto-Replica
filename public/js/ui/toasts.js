@@ -25,13 +25,16 @@ const DEFAULT_MS = { info: 2600, success: 2400, warn: 3200, error: 3600 };
 const MERGE_WINDOW_MS = 2500;
 
 let seq = 0;
-/** @type {{id:number, text:string, kind:string, count:number, at:number, ttl:number, leaving:boolean}[]} */
+/** @typedef {{id:number, text:string, kind:string, count:number, at:number, ttl:number, leaving:boolean}} Toast */
+/** @type {Toast[]} */
 let toasts = [];
+/** @type {Set<Function>} */
 const listeners = new Set();
 const timers = new Map();
 
 const emit = () => { for (const fn of [...listeners]) { try { fn(toasts); } catch (err) { console.error(err); } } };
 
+/** @param {Toast} t */
 function schedule(t) {
   clearTimeout(timers.get(t.id));
   timers.set(t.id, setTimeout(() => dismissToast(t.id), t.ttl));
@@ -49,11 +52,11 @@ export function toast(text, kind = 'info', opts = {}) {
   const msg = String(text ?? '').slice(0, 200).trim();
   if (!msg) return -1;
   const now = Date.now();
-  const ttl = Number.isFinite(opts.ttl) && opts.ttl > 0 ? opts.ttl : DEFAULT_MS[k];
+  const ttl = Number.isFinite(opts.ttl) && /** @type {number} */ (opts.ttl) > 0 ? /** @type {number} */ (opts.ttl) : DEFAULT_MS[k];
   const same = toasts.find((t) => !t.leaving && t.text === msg && t.kind === k && now - t.at < MERGE_WINDOW_MS + t.ttl);
   if (same) {
     toasts = toasts.map((t) => (t === same ? { ...t, count: t.count + 1, at: now, ttl } : t));
-    schedule(toasts.find((t) => t.id === same.id));
+    schedule(/** @type {Toast} */ (toasts.find((t) => t.id === same.id)));
     emit();
     return same.id;
   }
@@ -101,8 +104,8 @@ export function dismissToast(id) {
  */
 export function describeError(err) {
   if (!err) return t('发生未知错误');
-  if (typeof err === 'string') return t(Object.hasOwn(ERR_TEXT, err) ? ERR_TEXT[err] : err);
-  if (err.code && Object.hasOwn(ERR_TEXT, err.code)) return t(ERR_TEXT[err.code]);
+  if (typeof err === 'string') return t(Object.hasOwn(ERR_TEXT, err) ? /** @type {Record<string, string>} */ (ERR_TEXT)[err] : err);
+  if (err.code && Object.hasOwn(ERR_TEXT, err.code)) return t(/** @type {Record<string, string>} */ (ERR_TEXT)[err.code]);
   if (typeof err.message === 'string' && err.message) return t(err.message);
   if (typeof err.msg === 'string' && err.msg) return t(err.msg);
   return t('发生未知错误');
@@ -118,6 +121,7 @@ export function toastError(err) {
   return toast(describeError(err), 'error');
 }
 
+/** @type {Readonly<Record<string, string>>} */
 const ICONS = {
   info: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-6h2v6Zm0-8h-2V7h2v2Z',
   success: 'M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6L20.1 8.4 18.7 7z',
@@ -127,7 +131,7 @@ const ICONS = {
 
 /** Renders the toast stack. Mount once. */
 export function ToastHost() {
-  const [, force] = useReducer((c) => c + 1, 0);
+  const [, force] = useReducer(/** @type {(c: number, a: void) => number} */ ((c) => c + 1), 0);
   useEffect(() => {
     listeners.add(force);
     if (toasts.length) force(); // a toast shown between this host's first render and its effect

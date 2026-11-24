@@ -43,6 +43,7 @@ export function hFresh(type, props, ...children) {
 export const html = htm.bind(hFresh);
 export { h, Fragment };
 
+/** @param {...unknown} parts */
 const cx = (...parts) => parts.flat().filter(Boolean).join(' ');
 
 // ---- icons ---------------------------------------------------------------------------------------
@@ -99,7 +100,7 @@ export const ICONS = {
  * @param {{ name: keyof typeof ICONS, size?: string, class?: string, title?: string }} props
  */
 export function Icon({ name, size, class: cls, title }) {
-  const ic = ICONS[name];
+  const ic = /** @type {{ d: string, eo?: boolean } | undefined} */ (ICONS[name]);
   if (!ic) return null;
   return html`<svg class=${cx('icon', cls)} viewBox="0 0 24 24" width=${size || '1em'} height=${size || '1em'}
     aria-hidden=${title ? undefined : 'true'} role=${title ? 'img' : undefined} focusable="false">
@@ -110,7 +111,10 @@ export function Icon({ name, size, class: cls, title }) {
 
 // ---- small primitives ------------------------------------------------------------------------
 
-/** Tiny uppercase techno label (e.g. "RHODES ISLAND // STRONGHOLD PROTOCOL"). */
+/**
+ * Tiny uppercase techno label (e.g. "RHODES ISLAND // STRONGHOLD PROTOCOL").
+ * @param {{ children?: any, class?: string, tone?: string }} props
+ */
 export function MicroLabel({ children, class: cls, tone }) {
   return html`<span class=${cx('micro', tone && `micro--${tone}`, cls)}>${children}</span>`;
 }
@@ -145,7 +149,7 @@ export function Button({
     class=${cx('btn', `btn--${variant}`, `btn--${size}`, block && 'btn--block', square && 'btn--square',
       active && 'is-active', loading && 'is-loading', cls)}
     disabled=${isDisabled} aria-busy=${loading ? 'true' : undefined} aria-pressed=${active ? 'true' : undefined}
-    onClick=${(e) => { if (!isDisabled && onClick) onClick(e); }} ...${rest}>
+    onClick=${(/** @type {MouseEvent} */ e) => { if (!isDisabled && onClick) onClick(e); }} ...${rest}>
     ${icon ? html`<${Icon} name=${icon} class="btn__icon" />` : null}
     ${children != null && children !== false ? html`<span class="btn__label">${children}</span>` : null}
     ${iconRight ? html`<${Icon} name=${iconRight} class="btn__icon btn__icon--right" />` : null}
@@ -233,9 +237,10 @@ export function TierChip({ tier, golden = false, size = 'md', class: cls }) {
  * Local patch: an image's own pixel size as `--nw` / `--nh` (onLoad). The bond glyph PNGs are the client sprites'
  * tight-packed textures (~100 px) without the 128×128 rect's transparent margin, so css/hud-art.css draws them at
  * natural px × 36 / 128 units — the size Unity gives them in the 36-unit icon box.
+ * @param {Event} e
  */
 export function natSizeVars(e) {
-  const img = e.currentTarget;
+  const img = /** @type {HTMLImageElement} */ (e.currentTarget);
   img.style.setProperty('--nw', String(img.naturalWidth));
   img.style.setProperty('--nh', String(img.naturalHeight));
 }
@@ -251,7 +256,7 @@ export function BondDisc({
   size = 'md', showName = true, onClick, class: cls, title,
 }) {
   // Remember which URL failed (a per-URL flag can't race a reset effect).
-  const [badSrc, setBadSrc] = useState(null);
+  const [badSrc, setBadSrc] = useState(/** @type {string | null} */ (null));
   const imgOk = !!icon && badSrc !== icon;
   const n = Math.max(1, Math.min(8, maxTier | 0 || 3));
   const filled = Math.max(0, Math.min(n, tier | 0));
@@ -289,18 +294,21 @@ const SEG_W = 56;
 const SEG_H = 100;
 const SEG_T = 12;
 const SEG_GAP = 2.2;
+/** @param {number[][]} arr */
 const pts = (arr) => arr.map(([x, y]) => `${x},${y}`).join(' ');
+/** @param {number} y */
 function hSeg(y) {
   const t = SEG_T / 2;
   const x1 = t + SEG_GAP;
   const x2 = SEG_W - t - SEG_GAP;
   return pts([[x1, y], [x1 + t, y - t], [x2 - t, y - t], [x2, y], [x2 - t, y + t], [x1 + t, y + t]]);
 }
+/** @param {number} x @param {number} y1 @param {number} y2 */
 function vSeg(x, y1, y2) {
   const t = SEG_T / 2;
   return pts([[x, y1], [x + t, y1 + t], [x + t, y2 - t], [x, y2], [x - t, y2 - t], [x - t, y1 + t]]);
 }
-const SEG_POLYS = (() => {
+const SEG_POLYS = /** @type {Record<string, string>} */ ((() => {
   const t = SEG_T / 2;
   const mid = SEG_H / 2;
   return {
@@ -308,13 +316,15 @@ const SEG_POLYS = (() => {
     f: vSeg(t, t + SEG_GAP, mid - SEG_GAP), e: vSeg(t, mid + SEG_GAP, SEG_H - t - SEG_GAP),
     b: vSeg(SEG_W - t, t + SEG_GAP, mid - SEG_GAP), c: vSeg(SEG_W - t, mid + SEG_GAP, SEG_H - t - SEG_GAP),
   };
-})();
+})());
 const SEG_ORDER = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+/** @type {Record<string, string>} */
 const DIGIT_SEGS = {
   0: 'abcdef', 1: 'bc', 2: 'abged', 3: 'abgcd', 4: 'fgbc', 5: 'afgcd', 6: 'afgedc', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg',
   '-': 'g', ' ': '', _: 'd', A: 'abcefg', b: 'cdefg', C: 'adef', d: 'bcdeg', E: 'adefg', F: 'aefg', H: 'bcefg', L: 'def', P: 'abefg', o: 'cdeg', r: 'eg', U: 'bcdef',
 };
 
+/** @param {{ ch: string }} props */
 function SegChar({ ch }) {
   if (ch === ':') {
     return html`<svg class="seg__char seg__char--colon" viewBox="0 0 20 100" aria-hidden="true">
@@ -370,6 +380,7 @@ export function useScrollEdges(ref, deps = []) {
 }
 
 // Shared ticker so every live countdown re-renders from one interval per period.
+/** @type {Map<number, { subs: Set<() => void>, id: ReturnType<typeof setInterval> | null }>} */
 const tickers = new Map(); // ms -> { subs:Set, id }
 /**
  * Re-render the calling component every `ms` milliseconds (0/undefined = never) — with `shown`, only on the ticks
@@ -378,7 +389,7 @@ const tickers = new Map(); // ms -> { subs:Set, id }
  * @param {(() => any)|null} [shown]
  */
 export function useTicker(ms, shown = null) {
-  const [, force] = useReducer((c) => c + 1, 0);
+  const [, force] = useReducer(/** @type {(c: number, a: void) => number} */ ((c) => c + 1), 0);
   const shownRef = useRef(shown);
   shownRef.current = shown;
   const seen = useRef(undefined);
@@ -388,14 +399,14 @@ export function useTicker(ms, shown = null) {
     let tk = tickers.get(ms);
     if (!tk) {
       tk = { subs: new Set(), id: null };
-      tk.id = setInterval(() => { for (const fn of [...tk.subs]) fn(); }, ms);
+      tk.id = setInterval(() => { for (const fn of [.../** @type {{ subs: Set<() => void> }} */ (tk).subs]) fn(); }, ms);
       tickers.set(ms, tk);
     }
     const tick = () => { const fn = shownRef.current; if (!fn || !Object.is(fn(), seen.current)) force(); };
     tk.subs.add(tick);
     return () => {
       tk.subs.delete(tick);
-      if (tk.subs.size === 0) { clearInterval(tk.id); tickers.delete(ms); }
+      if (tk.subs.size === 0) { clearInterval(/** @type {ReturnType<typeof setInterval>} */ (tk.id)); tickers.delete(ms); }
     };
   }, [ms]);
 }
@@ -414,7 +425,7 @@ export const hasDeadline = (deadline) => Number.isFinite(deadline) && deadline >
  */
 export function secondsLeft(deadline) {
   if (!hasDeadline(deadline)) return null;
-  return Math.max(0, Math.ceil((deadline - serverNow()) / 1000));
+  return Math.max(0, Math.ceil((/** @type {number} */ (deadline) - serverNow()) / 1000));
 }
 
 /**
@@ -443,7 +454,7 @@ export function Countdown({ deadline, seconds, total, warnAt = 10, label = 'COUN
   const warn = remain != null && remain <= warnAt;
   const text = remain == null ? '--' : String(Math.min(999, remain)).padStart(2, '0');
   const bars = 5;
-  const lit = remain == null ? 0 : Number.isFinite(total) && total > 0 ? Math.max(0, Math.min(bars, Math.ceil((remain / total) * bars))) : bars;
+  const lit = remain == null ? 0 : Number.isFinite(total) && /** @type {number} */ (total) > 0 ? Math.max(0, Math.min(bars, Math.ceil((remain / /** @type {number} */ (total)) * bars))) : bars;
 
   const warned = useRef(false);
   useEffect(() => {
@@ -453,7 +464,7 @@ export function Countdown({ deadline, seconds, total, warnAt = 10, label = 'COUN
     if (cue && onWarn) onWarn();
   });
 
-  const expiredFor = useRef(null);
+  const expiredFor = useRef(/** @type {number | null | undefined} */ (null));
   useEffect(() => {
     if (!onExpire || !live) return;
     if (remain === 0 && expiredFor.current !== deadline) {
@@ -477,6 +488,7 @@ export function Countdown({ deadline, seconds, total, warnAt = 10, label = 'COUN
 
 // ---- Modal & dialogs ---------------------------------------------------------------------------
 
+/** @type {object[]} */
 const modalStack = []; // open modals, topmost last: only the topmost handles keyboard focus / Escape
 
 /**
@@ -485,7 +497,7 @@ const modalStack = []; // open modals, topmost last: only the topmost handles ke
  *   width?: string, closeOnBackdrop?: boolean, class?: string, veilClass?: string, children?: any }} props
  */
 export function Modal({ open, title, hideTitle = false, micro, tone = 'mint', onClose, actions, width, closeOnBackdrop = true, class: cls, veilClass, children }) {
-  const boxRef = useRef(null);
+  const boxRef = useRef(/** @type {HTMLElement | null} */ (null));
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useLayoutEffect(() => {
@@ -493,15 +505,15 @@ export function Modal({ open, title, hideTitle = false, micro, tone = 'mint', on
     const token = {};
     modalStack.push(token);
     const prevFocus = /** @type {HTMLElement | null} */ (typeof document !== 'undefined' ? document.activeElement : null);
-    const box = boxRef.current;
+    const box = /** @type {HTMLElement} */ (boxRef.current);
     // The independent guide can open above SettingsModal (its z-index is higher than --z-modal).
     const topmost = () => modalStack[modalStack.length - 1] === token && !document.querySelector('.guide');
-    const available = (el) => !el.matches(':disabled') && !el.closest('[inert]') && el.getClientRects().length > 0
+    const available = (/** @type {HTMLElement} */ el) => !el.matches(':disabled') && !el.closest('[inert]') && el.getClientRects().length > 0
       && getComputedStyle(el).visibility !== 'hidden';
-    const tabbable = () => [...box.querySelectorAll('button, [href], input, select, textarea, [tabindex], summary')]
+    const tabbable = () => [...box.querySelectorAll(/** @type {'button'} */ ('button, [href], input, select, textarea, [tabindex], summary'))]
       .filter((el) => el.tabIndex >= 0 && available(el));
     const focusFirst = () => (tabbable()[0] || box).focus();
-    const onKey = (e) => {
+    const onKey = (/** @type {KeyboardEvent} */ e) => {
       if (!topmost()) return;
       if (e.key === 'Escape' && closeRef.current) {
         e.stopPropagation();
@@ -509,18 +521,18 @@ export function Modal({ open, title, hideTitle = false, micro, tone = 'mint', on
       } else if (e.key === 'Tab') {
         const els = tabbable();
         const first = els[0] || box, last = els[els.length - 1] || box;
-        if (!els.includes(document.activeElement) || document.activeElement === (e.shiftKey ? first : last)) {
+        if (!els.includes(/** @type {HTMLButtonElement} */ (document.activeElement)) || document.activeElement === (e.shiftKey ? first : last)) {
           e.preventDefault();
           (e.shiftKey ? last : first).focus();
         }
       }
     };
-    const onFocus = (e) => {
-      if (topmost() && !box.contains(e.target)) focusFirst();
+    const onFocus = (/** @type {FocusEvent} */ e) => {
+      if (topmost() && !box.contains(/** @type {Node | null} */ (e.target))) focusFirst();
     };
     window.addEventListener('keydown', onKey);
     window.addEventListener('focusin', onFocus);
-    const autofocus = box.querySelector('[data-autofocus]');
+    const autofocus = box.querySelector(/** @type {'button'} */ ('[data-autofocus]'));
     if (topmost()) {
       if (autofocus && available(autofocus)) autofocus.focus();
       else focusFirst();
@@ -535,7 +547,7 @@ export function Modal({ open, title, hideTitle = false, micro, tone = 'mint', on
   }, [open]);
   if (!open) return null;
   return html`<div class=${cx('modal', veilClass)} role="presentation"
-      onMouseDown=${(e) => { if (closeOnBackdrop && e.target === e.currentTarget && onClose) onClose(); }}>
+      onMouseDown=${(/** @type {MouseEvent} */ e) => { if (closeOnBackdrop && e.target === e.currentTarget && onClose) onClose(); }}>
     <div ref=${boxRef} class=${cx('modal__box', 'brackets', `modal__box--${tone}`, cls)} role="dialog" aria-modal="true" tabindex="-1"
          style=${width ? `width:${width}` : undefined}>
       <div class="modal__stripe" aria-hidden="true"></div>
@@ -549,17 +561,22 @@ export function Modal({ open, title, hideTitle = false, micro, tone = 'mint', on
   </div>`;
 }
 
+/** @typedef {{ id: number, kind: string, opts: Record<string, any>, resolve: (v: any) => void }} QueuedDialog */
 let dialogSeq = 0;
+/** @type {QueuedDialog[]} */
 let dialogs = [];
+/** @type {Set<() => void>} */
 const dialogListeners = new Set();
 const emitDialogs = () => { for (const fn of [...dialogListeners]) fn(); };
 
+/** @param {Record<string, any> | null | undefined} opts @param {'confirm' | 'alert'} kind @returns {Promise<any>} */
 function openDialog(opts, kind) {
   return new Promise((resolve) => {
     dialogs = [...dialogs, { id: ++dialogSeq, kind, opts: opts || {}, resolve }];
     emitDialogs();
   });
 }
+/** @param {number} id @param {boolean} result */
 function closeDialog(id, result) {
   const d = dialogs.find((x) => x.id === id);
   if (!d) return;
@@ -595,7 +612,7 @@ export function closeAllDialogs() {
 
 /** Renders queued imperative dialogs (one at a time). */
 export function DialogHost() {
-  const [, force] = useReducer((c) => c + 1, 0);
+  const [, force] = useReducer(/** @type {(c: number, a: void) => number} */ ((c) => c + 1), 0);
   useEffect(() => {
     dialogListeners.add(force);
     return () => dialogListeners.delete(force);
@@ -605,7 +622,7 @@ export function DialogHost() {
   const { title = t('确认'), text, okText = t('确认'), cancelText = t('取消'), tone, danger, micro = 'CONFIRMATION' } = d.opts;
   const isConfirm = d.kind === 'confirm';
   // Enter confirms unless a specific button has focus (then the native click decides).
-  const onKey = (e) => {
+  const onKey = (/** @type {KeyboardEvent & { target: any }} */ e) => {
     if (e.key === 'Enter' && e.target?.tagName !== 'BUTTON') { e.preventDefault(); closeDialog(d.id, true); }
   };
   return html`<div onKeyDown=${onKey}>
@@ -621,21 +638,25 @@ export function DialogHost() {
 
 // ---- Tooltip -----------------------------------------------------------------------------------
 
+/** @typedef {{ id: number, content: any, rect: DOMRect, placement: string }} TipState */
+/** @type {TipState | null} */
 let tipState = null; // { id, content, rect, placement }
 let tipSeq = 0;
+/** @type {Set<() => void>} */
 const tipListeners = new Set();
+/** @param {TipState | null} s */
 const setTip = (s) => { tipState = s; for (const fn of [...tipListeners]) fn(); };
+
+const TOUCH_TIP_MS = 450;
 
 /**
  * Hover/focus tooltip around its children. Content renders in <TooltipLayer/> (fixed, viewport-clamped).
  * @param {{ text: any, placement?: 'top'|'bottom', delay?: number, block?: boolean, class?: string, children?: any }} props
  */
-const TOUCH_TIP_MS = 450;
-
 export function Tooltip({ text, placement = 'top', delay = 120, block = false, class: cls, children }) {
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLElement | null} */ (null));
   const idRef = useRef(0);
-  const timer = useRef(null);
+  const timer = useRef(/** @type {any} */ (null)); // a timer handle (clearTimeout(null) is a no-op)
   const textRef = useRef(text);
   const pressed = useRef(false); // pointer pressed inside: the focus that follows is not a keyboard focus
   textRef.current = text;
@@ -659,8 +680,8 @@ export function Tooltip({ text, placement = 'top', delay = 120, block = false, c
   // Touch: a tap never shows it (the compatibility mouseenter that follows a tap is ignored); a long press
   // (≥ 450 ms) does, and it goes away shortly after the finger lifts.
   const touchAt = useRef(0);
-  const longTimer = useRef(null);
-  const onPointerDown = (e) => {
+  const longTimer = useRef(/** @type {any} */ (null)); // a timer handle (clearTimeout(null) is a no-op)
+  const onPointerDown = (/** @type {PointerEvent} */ e) => {
     pressed.current = true;
     hide();
     clearTimeout(longTimer.current);
@@ -669,7 +690,7 @@ export function Tooltip({ text, placement = 'top', delay = 120, block = false, c
       longTimer.current = setTimeout(() => { pressed.current = false; show(); }, TOUCH_TIP_MS);
     }
   };
-  const onPointerEnd = (e) => {
+  const onPointerEnd = (/** @type {PointerEvent} */ e) => {
     if (!e || e.pointerType === 'mouse') return;
     touchAt.current = Date.now();
     clearTimeout(longTimer.current);
@@ -687,16 +708,16 @@ export function Tooltip({ text, placement = 'top', delay = 120, block = false, c
   }, [text]);
   return html`<span ref=${ref} class=${cx('tt-anchor', block && 'tt-anchor--block', cls)}
       onMouseEnter=${onMouseEnter} onMouseLeave=${onLeave} onFocusIn=${onFocusIn} onFocusOut=${onLeave} onPointerDown=${onPointerDown}
-      onPointerUp=${onPointerEnd} onPointerCancel=${onPointerEnd} onContextMenu=${(e) => { if (Date.now() - touchAt.current < 900) e.preventDefault(); }}>
+      onPointerUp=${onPointerEnd} onPointerCancel=${onPointerEnd} onContextMenu=${(/** @type {Event} */ e) => { if (Date.now() - touchAt.current < 900) e.preventDefault(); }}>
     ${children}
   </span>`;
 }
 
 /** Renders the active tooltip. Mount once (UiHosts does). */
 export function TooltipLayer() {
-  const [, force] = useReducer((c) => c + 1, 0);
-  const boxRef = useRef(null);
-  const [pos, setPos] = useState(null);
+  const [, force] = useReducer(/** @type {(c: number, a: void) => number} */ ((c) => c + 1), 0);
+  const boxRef = useRef(/** @type {HTMLElement | null} */ (null));
+  const [pos, setPos] = useState(/** @type {{ top: number, left: number, place: string, id: number } | null} */ (null));
   useEffect(() => {
     tipListeners.add(force);
     return () => tipListeners.delete(force);
@@ -754,7 +775,7 @@ export function ProgressBar({ value, max = 100, tone = 'mint', segments = 0, lab
  *   onChange: (id: string) => void, size?: 'sm'|'md', class?: string }} props
  */
 export function Tabs({ items = [], value, onChange, size = 'md', class: cls }) {
-  const onKey = (e) => {
+  const onKey = (/** @type {KeyboardEvent} */ e) => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
     const enabled = items.filter((i) => !i.disabled);
     const idx = enabled.findIndex((i) => i.id === value);
@@ -803,7 +824,7 @@ export const seatHue = (seat) => SEAT_HUES[(((seat | 0) % SEAT_HUES.length) + SE
  *   self?: boolean, ready?: boolean, offline?: boolean, dead?: boolean, empty?: boolean, mark?: any, class?: string }} props
  */
 export function AvatarFrame({ name = '', src, size = 'md', seat = 0, host, bot, self, ready, offline, dead, empty, mark = null, class: cls }) {
-  const [badSrc, setBadSrc] = useState(null);
+  const [badSrc, setBadSrc] = useState(/** @type {string | null | undefined} */ (null));
   const imgOk = !!src && badSrc !== src;
   const hue = seatHue(seat);
   const glyph = [...(name || '').trim()][0] || '?';
@@ -897,19 +918,19 @@ export { doctorNo };
  */
 export function PingPill({ ms, online = true, class: cls }) {
   const ok = online && Number.isFinite(ms);
-  const tier = !ok ? 'off' : ms < 60 ? 'low' : ms < 200 ? 'medium' : 'high';
+  const tier = !ok ? 'off' : /** @type {number} */ (ms) < 60 ? 'low' : /** @type {number} */ (ms) < 200 ? 'medium' : 'high';
   return html`<span class=${cx('ping', `ping--${tier}`, cls)} title=${ok ? t('当前延迟 {ms}ms', { ms }) : t('未连接')}>
     <${Icon} name=${ok ? 'signal' : 'wifiOff'} class="ping__icon" />
-    <span class="ping__value">${ok ? Math.min(9999, Math.round(ms)) : '--'}</span><span class="ping__unit">ms</span>
+    <span class="ping__value">${ok ? Math.min(9999, Math.round(/** @type {number} */ (ms))) : '--'}</span><span class="ping__unit">ms</span>
   </span>`;
 }
 
-/** Players online on the server (pong `n`, server/net.js onlineCount): nothing until the first count arrives. */
+/** Players online on the server (pong `n`, server/net.js onlineCount): nothing until the first count arrives. @param {{ n?: number | null, class?: string }} props */
 export function OnlinePill({ n, class: cls }) {
-  if (!Number.isInteger(n) || n < 0) return null;
+  if (!Number.isInteger(n) || /** @type {number} */ (n) < 0) return null;
   return html`<span class=${cx('ping', 'ping--online', cls)} title=${t('当前在线博士 {n} 名', { n })}>
     <${Icon} name="users" class="ping__icon" />
-    <span class="ping__value">${Math.min(99999, n)}</span><span class="ping__unit">${t('在线')}</span>
+    <span class="ping__value">${Math.min(99999, /** @type {number} */ (n))}</span><span class="ping__unit">${t('在线')}</span>
   </span>`;
 }
 
@@ -921,8 +942,8 @@ export function OnlinePill({ n, class: cls }) {
  */
 export function DifficultyIcon({ difficulty, class: cls }) {
   useData('assets');
-  const [badSrc, setBadSrc] = useState(null);
-  const ui = DIFFICULTY_NAMES[difficulty] ? data.get('assets')?.ui : null;
+  const [badSrc, setBadSrc] = useState(/** @type {string | null} */ (null));
+  const ui = /** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[difficulty] ? data.get('assets')?.ui : null;
   const src = ui && typeof ui === 'object' ? ui[`modeIcon/mode_${String(difficulty).toLowerCase()}_icon`] : null;
   if (typeof src === 'string' && src && badSrc !== src) {
     return html`<img class=${cx('icon', 'dicon', cls)} src=${src} alt="" draggable=${false} onError=${() => setBadSrc(src)} />`;
@@ -941,8 +962,8 @@ export const gradeName = (grade) => (grade === FAST_GRADE ? t('极速模拟') : 
 export function DifficultyTag({ difficulty, size = 'md', class: cls, code, modeId, season }) {
   const grade = modeId ? modeGrade(modeId, season || data.season()) : null;
   if (grade !== null) difficulty = gradeDifficulty(grade);
-  const name = grade !== null ? gradeName(grade) : DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : difficulty || '—';
-  const color = DIFFICULTY_COLORS[difficulty] || 'var(--text-lo)';
+  const name = grade !== null ? gradeName(grade) : /** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[difficulty] ? t(/** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[difficulty]) : difficulty || '—';
+  const color = /** @type {Record<string, string>} */ (DIFFICULTY_COLORS)[difficulty] || 'var(--text-lo)';
   return html`<span class=${cx('dtag', `dtag--${size}`, cls)} style=${`--d-color:${color}`}>
     <${DifficultyIcon} difficulty=${difficulty} class="dtag__icon" />
     <span class="dtag__name">${name}</span>
@@ -988,7 +1009,7 @@ export function TextField({ label, micro, value, onInput, onEnter, placeholder, 
   useEffect(() => {
     if (autoFocus) setTimeout(() => ref.current?.focus(), 60);
   }, []);
-  const handle = (e) => {
+  const handle = (/** @type {Event & { currentTarget: HTMLInputElement }} */ e) => {
     let v = e.currentTarget.value;
     if (!composing.current && transform) {
       const t = transform(v);
@@ -1019,8 +1040,8 @@ export function TextField({ label, micro, value, onInput, onEnter, placeholder, 
         maxLength=${maxLength} disabled=${disabled} autocomplete="off" spellcheck=${false}
         onInput=${handle}
         oncompositionstart=${() => { composing.current = true; }}
-        oncompositionend=${(e) => { composing.current = false; handle(e); }}
-        onKeyDown=${(e) => { if (e.key === 'Enter' && !e.isComposing && !composing.current) onEnter?.(e); }} />
+        oncompositionend=${(/** @type {Event & { currentTarget: HTMLInputElement }} */ e) => { composing.current = false; handle(e); }}
+        onKeyDown=${(/** @type {KeyboardEvent} */ e) => { if (e.key === 'Enter' && !e.isComposing && !composing.current) onEnter?.(e); }} />
     </span>
     ${hint ? html`<span class="field__hint">${hint}</span>` : null}
   </label>`;

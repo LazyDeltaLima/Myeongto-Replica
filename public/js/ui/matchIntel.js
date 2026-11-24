@@ -9,9 +9,13 @@ import { localAsset } from '../data.js';
 import { t, tParts } from '../../../shared/i18n.js';
 import { resolveRuleset, keepUnbanned, customStagePool, seasonOfficialOptions } from '../../../shared/ruleset.js';
 
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
-/** The same boss, special enemies and battlefield in the briefing and draft. */
+/**
+ * The same boss, special enemies and battlefield in the briefing and draft.
+ * @param {{ pub: any, season: unknown, dialog?: boolean }} props
+ */
 export function MatchIntel({ pub, season, dialog = false }) {
   const gd = useGameData();
   const mode = gd.config?.modes?.[pub.modeId];
@@ -22,7 +26,7 @@ export function MatchIntel({ pub, season, dialog = false }) {
   // match draws from the stages its settings add and leave (customStagePool + keepUnbanned, as server/match/waves.js
   // setupMatchWaves)
   const custom = pub.ruleset?.custom;
-  const ownStage = (id) => { const s = gd.stage(id); return !!s && !s.borrowed; };
+  const ownStage = (/** @type {string} */ id) => { const s = gd.stage(id); return !!s && !s.borrowed; };
   const poolN = Array.isArray(mode?.stages) ? keepUnbanned(customStagePool(mode.stages, custom, ownStage), (id) => id, custom?.stages?.ban).length : 0;
   const pool = poolN > 1 ? t('战场随机（共{poolN}张）', { poolN }) : poolN === 1 ? t('战场固定') : '';
   const stageName = stage?.name || pub.stageId || '—';
@@ -58,7 +62,7 @@ export function MatchIntel({ pub, season, dialog = false }) {
             <div class="brief-eboss__text">
               <h2 class="brief-eboss__name">${boss?.name || bossEnemy?.name || t('未知领袖')}</h2>
               ${Array.isArray(boss?.abilities) && boss.abilities.length ? html`<ul class="brief-eboss__desc">
-                ${boss.abilities.slice(0, 3).map((a, i) => html`<li key=${i}><${RichText} text=${a} /></li>`)}
+                ${boss.abilities.slice(0, 3).map((/** @type {string} */ a, /** @type {number} */ i) => html`<li key=${i}><${RichText} text=${a} /></li>`)}
               </ul>` : null}
             </div>
           </div>
@@ -88,7 +92,10 @@ export function MatchIntel({ pub, season, dialog = false }) {
         </div>`}`;
 }
 
-/** The existing match-info modal frame, with vertically stacked briefing intel; titled as the draft's 敌方情报 button. */
+/**
+ * The existing match-info modal frame, with vertically stacked briefing intel; titled as the draft's 敌方情报 button.
+ * @param {{ open: boolean, onClose: Function, pub: any, season: unknown, status?: any }} props
+ */
 export function MatchIntelDialog({ open, onClose, pub, season, status = null }) {
   return html`<${Modal} open=${open && !!pub} onClose=${onClose} title=${t('敌方情报')} hideTitle=${true}
     micro="MATCH INFO // ENEMY & BATTLEFIELD" class="minfo-dlg intel-dlg"

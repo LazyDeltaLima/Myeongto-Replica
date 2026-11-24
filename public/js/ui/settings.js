@@ -28,7 +28,9 @@ import { errorCount, currentBattle, diagnosticsText } from '../diag.js';
 import { copyText } from './clipboard.js';
 import { GpuNote } from './gpuNotice.js';
 import { autoQuality, onAutoQuality } from '../render/auto-quality.js';
+/** @import { HotkeyAction } from './gameLogic/shortcuts.js' */
 
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** Settings store: { bgm, sfx, voice, muted, damageNumbers, quality, keys }. */
@@ -73,16 +75,18 @@ export const useSettings = () => useStore((s) => s, Object.is, settingsStore);
  */
 export const hotkeyLabelOf = (action) => hotkeyLabel(settingsStore.get().keys?.[action]);
 
+/** @param {{ label: any, micro?: string, value: number, onInput: (v: number) => void, icon: string }} props */
 function Slider({ label, micro, value, onInput, icon }) {
   const pct = Math.round(value * 100);
   return html`<label class="set-row">
     <span class="set-row__label"><${Icon} name=${icon} />${label}<${MicroLabel}>${micro}<//></span>
     <input class="set-range" type="range" min="0" max="100" step="5" value=${pct} style=${`--pct:${pct}%`}
-      onInput=${(e) => onInput(Number(e.currentTarget.value) / 100)} />
+      onInput=${(/** @type {Event & { currentTarget: HTMLInputElement }} */ e) => onInput(Number(e.currentTarget.value) / 100)} />
     <span class="set-row__val num">${pct}</span>
   </label>`;
 }
 
+/** @param {{ label: any, micro?: string, value: unknown, onChange: (v: boolean) => void }} props */
 function Toggle({ label, micro = '', value, onChange }) {
   return html`<div class="set-row">
     <span class="set-row__label">${label}${micro ? html`<${MicroLabel}>${micro}<//>` : null}</span>
@@ -107,16 +111,16 @@ function ChatSoundSection({ s }) {
   const { min, max } = CHAT_COOLDOWN;
   const pct = Math.round(((s.chatCooldown - min) / (max - min)) * 100);
   return html`<${Toggle} label=${t('聊天提示音')} micro="CHAT SOUND" value=${s.chatSound}
-      onChange=${(v) => { updateSettings({ chatSound: v }); if (v) preview(); }} />
+      onChange=${(/** @type {boolean} */ v) => { updateSettings({ chatSound: v }); if (v) preview(); }} />
     ${s.chatSound ? html`<${Slider} label=${t('提示音音量')} micro="CHAT VOLUME" icon="signal" value=${s.chatVolume}
-        onInput=${(v) => { updateSettings({ chatVolume: v }); preview(); }} />
+        onInput=${(/** @type {number} */ v) => { updateSettings({ chatVolume: v }); preview(); }} />
       <label class="set-row">
         <span class="set-row__label"><${Icon} name="hourglass" />${t('提示间隔')}<${MicroLabel}>COOLDOWN<//></span>
         <input class="set-range" type="range" min=${min} max=${max} step="1" value=${s.chatCooldown} style=${`--pct:${pct}%`}
-          data-testid="chat-cooldown" onInput=${(e) => updateSettings({ chatCooldown: Number(e.currentTarget.value) })} />
+          data-testid="chat-cooldown" onInput=${(/** @type {Event & { currentTarget: HTMLInputElement }} */ e) => updateSettings({ chatCooldown: Number(e.currentTarget.value) })} />
         <span class="set-row__val num">${t('{n}秒', { n: s.chatCooldown })}</span>
       </label>
-      <${Toggle} label=${t('阵营选择提示')} micro="FACTION ALERTS" value=${s.chatFactionAlerts} onChange=${(v) => updateSettings({ chatFactionAlerts: v })} />
+      <${Toggle} label=${t('阵营选择提示')} micro="FACTION ALERTS" value=${s.chatFactionAlerts} onChange=${(/** @type {boolean} */ v) => updateSettings({ chatFactionAlerts: v })} />
       <p class="set-hint">${t('房间和对局中其他玩家发来新消息时播放表情提示音。提示音播放中或提示间隔内收到的消息不再提示。')}</p>` : null}`;
 }
 
@@ -151,7 +155,7 @@ function NumberUnitsSetting() {
   </div>
   <p class="set-hint">${t('伤害播报、结算、生命值等较大数字的显示方式。')}</p>`;
 }
-/** The rebindable shortcuts' names (msgids), by action. */
+/** The rebindable shortcuts' names (msgids), by action. @type {Readonly<Record<string, string>>} */
 const HOTKEY_NAMES = { refresh: N_('刷新商店'), freeze: N_('冻结 / 解冻商店'), levelUp: N_('升级调度中心'), retreat: N_('撤退选中干员'),
   sell: N_('出售选中干员'), ready: N_('准备就绪'), viewEnemy: N_('查看敌人'), shop: N_('展开 / 收起商店'), pause: N_('暂停（独立模拟）') };
 
@@ -164,14 +168,14 @@ const HOTKEY_NAMES = { refresh: N_('刷新商店'), freeze: N_('冻结 / 解冻�
  * @param {{ keys: Record<string, string>, touchUi: boolean }} props
  */
 function HotkeySection({ keys, touchUi }) {
-  const [waiting, setWaiting] = useState(null); // the action waiting for its new key
-  const [note, setNote] = useState(null);       // { text, warn }: the result line
+  const [waiting, setWaiting] = useState(/** @type {HotkeyAction | null} */ (null)); // the action waiting for its new key
+  const [note, setNote] = useState(/** @type {{ text: string, warn?: boolean } | null} */ (null));       // { text, warn }: the result line
   // a layout effect: the key listener is on as soon as the key shows that it waits (an Esc right after the click must
   // end the wait, never reach the dialog's own Esc)
   useLayoutEffect(() => {
     if (!waiting) return undefined;
     const name = t(HOTKEY_NAMES[waiting]);
-    const onKey = (e) => {
+    const onKey = (/** @type {KeyboardEvent} */ e) => {
       const r = captureHotkey(e);
       if (r.kind === 'leave') { setWaiting(null); return; } // Tab: the focus moves on
       // ahead of the dialog's own Esc (it stays open), a focused button's Enter / Space and every other key handler
@@ -198,7 +202,7 @@ function HotkeySection({ keys, touchUi }) {
         : t('「{action}」已改为 {key}', { action: name, key }) });
     };
     // a press anywhere but the waiting key ends the wait (another key starts its own)
-    const onDown = (e) => { if (!(e.target instanceof Element) || !e.target.closest('.set-key.is-waiting')) setWaiting(null); };
+    const onDown = (/** @type {PointerEvent} */ e) => { if (!(e.target instanceof Element) || !e.target.closest('.set-key.is-waiting')) setWaiting(null); };
     window.addEventListener('keydown', onKey, true);
     window.addEventListener('pointerdown', onDown, true);
     return () => { window.removeEventListener('keydown', onKey, true); window.removeEventListener('pointerdown', onDown, true); };
@@ -254,9 +258,9 @@ const DIAG_NOTES = { copied: N_('已复制诊断信息，可以粘贴到 GitHub 
 
 function DiagSection() {
   const [attach, setAttach] = useState(true);
-  const [note, setNote] = useState(null);       // 'copied' | 'refused' | null: the result line
-  const [manual, setManual] = useState(null);   // the report, when the clipboard refused it
-  const boxRef = useRef(null);
+  const [note, setNote] = useState(/** @type {'copied' | 'refused' | null} */ (null));       // 'copied' | 'refused' | null: the result line
+  const [manual, setManual] = useState(/** @type {string | null} */ (null));   // the report, when the clipboard refused it
+  const boxRef = useRef(/** @type {HTMLTextAreaElement | null} */ (null));
   // the box opens selected for a manual copy, scrolled to its first line (select() leaves it at the end)
   useLayoutEffect(() => {
     const el = boxRef.current;
@@ -295,11 +299,6 @@ const SETTINGS_TABS = [['general', N_('通用')], ['resources', N_('资源')], [
 let lastTab = 'general';
 
 /**
- * One tab's rows: 通用 (language), 资源 (the resource download, the skin data), 声音, 聊天提示, 画面 (maintainer decision 2026-10-14), 快捷键,
- * 问题反馈 — the last two keep their own heads (each with its button).
- * @param {{ id: string, children?: any }} props
- */
-/**
  * 通用 「保持屏幕常亮」 (upstream PR #574, ported by hand as one three-way choice, maintainer decision 2026-11-13): never,
  * during a match's combat (the default), or whenever the page is shown — full screen or not, so an iPhone (no element
  * fullscreen) gets it too. The lock itself is main.js App's (ui/device.js useScreenWakeLock); on iOS the hint adds what
@@ -308,7 +307,7 @@ let lastTab = 'general';
  */
 function WakeLockSetting({ s }) {
   const [ios] = useState(() => isIOS());
-  const label = (id) => (id === 'off' ? tc('toggle', '关闭') : id === 'combat' ? t('战斗中') : t('始终'));
+  const label = (/** @type {string} */ id) => (id === 'off' ? tc('toggle', '关闭') : id === 'combat' ? t('战斗中') : t('始终'));
   return html`<div class="set-row" data-testid="wake-lock">
       <span class="set-row__label">${t('保持屏幕常亮')}<${MicroLabel}>SCREEN WAKE LOCK<//></span>
       <div class="set-seg" role="radiogroup">
@@ -320,8 +319,13 @@ function WakeLockSetting({ s }) {
       ? ` ${t('添加到主屏幕的应用需要 iOS 18.4 或更高版本，低电量模式下可能不生效。')}` : ''}</p>`;
 }
 
+/**
+ * One tab's rows: 通用 (language), 资源 (the resource download, the skin data), 声音, 聊天提示, 画面 (maintainer decision 2026-10-14), 快捷键,
+ * 问题反馈 — the last two keep their own heads (each with its button).
+ * @param {{ id: string, children?: any }} props
+ */
 function SetPanel({ id, children }) {
-  return html`<section class=${`set-sec set-sec--${id}`} role="tabpanel" aria-label=${t(SETTINGS_TABS.find(([k]) => k === id)[1])}
+  return html`<section class=${`set-sec set-sec--${id}`} role="tabpanel" aria-label=${t(/** @type {string[]} */ (SETTINGS_TABS.find(([k]) => k === id))[1])}
     data-testid=${`set-sec-${id}`}>${children}</section>`;
 }
 
@@ -335,7 +339,7 @@ export function SettingsModal({ open, onClose }) {
   const [touchUi] = useState(() => detectFeatures().coarse && !detectFeatures().fine);
   const mtNote = machineTranslationNote(); // a pack marked as machine translation says so under the switch
   const [picked, setTabState] = useState(lastTab);
-  const setTab = (id) => { lastTab = id; setTabState(id); };
+  const setTab = (/** @type {string} */ id) => { lastTab = id; setTabState(id); };
   // 资源: only where the download works (a secure context and a list on the server — resources.js phase 'off' otherwise)
   const resOn = useStore((r) => r.phase !== 'off', Object.is, resStore);
   const tabs = SETTINGS_TABS.filter(([id]) => resOn || id !== 'resources');
@@ -355,24 +359,24 @@ export function SettingsModal({ open, onClose }) {
       <//>` : null}
       ${tab === 'resources' ? html`<${SetPanel} id="resources">
         <${ResourceSetting} />
-        <${SkinPackSetting} others=${s.otherSkins} onOthers=${(v) => updateSettings({ otherSkins: v })} />
+        <${SkinPackSetting} others=${s.otherSkins} onOthers=${(/** @type {boolean} */ v) => updateSettings({ otherSkins: v })} />
       <//>` : null}
       ${tab === 'sound' ? html`<${SetPanel} id="sound">
-        <${Slider} label=${t('背景音乐')} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />
-        <${Slider} label=${t('干员语音')} micro="VOICE" icon="mic" value=${s.voice} onInput=${(v) => updateSettings({ voice: v })} />
+        <${Slider} label=${t('背景音乐')} micro="BGM" icon="play" value=${s.bgm} onInput=${(/** @type {number} */ v) => updateSettings({ bgm: v })} />
+        <${Slider} label=${t('干员语音')} micro="VOICE" icon="mic" value=${s.voice} onInput=${(/** @type {number} */ v) => updateSettings({ voice: v })} />
         <${Slider} label=${t('音效')} micro="SFX" icon="signal" value=${s.sfx}
-          onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
+          onInput=${(/** @type {number} */ v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
         <${VoiceSetting} />${/* local patch */ ''}
-        <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
+        <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(/** @type {boolean} */ v) => updateSettings({ muted: v })} />
       <//>` : null}
       ${tab === 'chat' ? html`<${SetPanel} id="chat">
         <${ChatSoundSection} s=${s} />
-        <${Toggle} label=${t('显示聊天时间')} value=${s.chatShowTime} onChange=${(v) => updateSettings({ chatShowTime: v })} />
-        <${Toggle} label=${t('常驻最近 3 条消息')} micro="PIN RECENT" value=${s.chatPinRecent} onChange=${(v) => updateSettings({ chatPinRecent: v })} />
+        <${Toggle} label=${t('显示聊天时间')} value=${s.chatShowTime} onChange=${(/** @type {boolean} */ v) => updateSettings({ chatShowTime: v })} />
+        <${Toggle} label=${t('常驻最近 3 条消息')} micro="PIN RECENT" value=${s.chatPinRecent} onChange=${(/** @type {boolean} */ v) => updateSettings({ chatPinRecent: v })} />
         <p class="set-hint">${t('开启后对局中聊天收起时，最近 3 条聊天消息一直显示在聊天按钮上方，不再几秒后消失。')}</p>
       <//>` : null}
       ${tab === 'display' ? html`<${SetPanel} id="display">
-        <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
+        <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(/** @type {boolean} */ v) => updateSettings({ damageNumbers: v })} />
         ${s.damageNumbers ? html`<${NumberStyleSetting} />` : ''}${/* local patch: 官方 / 全部 numbers */ ''}
         <div class="set-row">
           <span class="set-row__label">${t('画面质量')}<${MicroLabel}>QUALITY<//></span>
@@ -398,11 +402,11 @@ export function SettingsModal({ open, onClose }) {
         </div>
         <p class="set-hint">${t('拿起或选中棋子时，镜头侧转观察棋盘。自动：盟约开启，规程关闭（与各赛季的官方画面相同）。')}</p>
         <!-- maintainer decision 2026-11-07: no such choice in the official game; the fold always applies.
-        <${Toggle} label=${t('拿起棋子时收起商店')} micro="DEPLOY FOLD" value=${s.deployFold} onChange=${(v) => updateSettings({ deployFold: v })} />
+        <${Toggle} label=${t('拿起棋子时收起商店')} micro="DEPLOY FOLD" value=${s.deployFold} onChange=${(/** @type {boolean} */ v) => updateSettings({ deployFold: v })} />
         -->
         <${NumberUnitsSetting} />
-        <${Toggle} label=${t('精锐干员标记')} micro="ELITE BADGE" value=${s.eliteBadge} onChange=${(v) => updateSettings({ eliteBadge: v })} />
-        <${Toggle} label=${t('回合伤害统计')} micro="ROUND DAMAGE" value=${s.roundDamage} onChange=${(v) => updateSettings({ roundDamage: v })} />
+        <${Toggle} label=${t('精锐干员标记')} micro="ELITE BADGE" value=${s.eliteBadge} onChange=${(/** @type {boolean} */ v) => updateSettings({ eliteBadge: v })} />
+        <${Toggle} label=${t('回合伤害统计')} micro="ROUND DAMAGE" value=${s.roundDamage} onChange=${(/** @type {boolean} */ v) => updateSettings({ roundDamage: v })} />
         ${s.roundDamage ? html`<div class="set-row">
           <span class="set-row__label">${t('伤害统计样式')}<${MicroLabel}>DAMAGE STYLE<//></span>
           <div class="set-seg" role="radiogroup">
@@ -411,7 +415,7 @@ export function SettingsModal({ open, onClose }) {
           </div>
         </div>` : null}
         <p class="set-hint">${t('对局中显示每名干员在自己的作战中造成的伤害和治疗（作战中实时，整备时为上一场作战），召唤物计入召唤者，不含联防。自动：电脑为详细，手机为简洁。')}</p>
-        <${Toggle} label=${t('对局通知')} micro="MATCH NOTICES" value=${s.matchNotices} onChange=${(v) => updateSettings({ matchNotices: v })} />
+        <${Toggle} label=${t('对局通知')} micro="MATCH NOTICES" value=${s.matchNotices} onChange=${(/** @type {boolean} */ v) => updateSettings({ matchNotices: v })} />
         <p class="set-hint">${t('关闭后对局中不再弹出任何通知：获得干员、盟约资金等提示，干员退回整备区、淘汰等警告，以及操作无法执行的原因。')}</p>
         <${UiScaleSetting} />${/* local patch */ ''}
         <${GpuNote} />

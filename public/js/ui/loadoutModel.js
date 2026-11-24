@@ -16,6 +16,7 @@
 import { loadoutOptions, checkLoadout, checkLoadoutOps, resolveLoadout, MODULE_NONE, LOADOUT_LIMITS, SKIN_LIMITS, isCharId, isSkinId } from '../../../shared/protocol.js';
 import { isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from '../../../shared/potential.js';
 import { t, N_ } from '../../../shared/i18n.js';
+/** @import { SkillRecord, ModuleRecord } from '../../../shared/loadoutRecord.js' */
 
 export { MODULE_NONE };
 
@@ -34,7 +35,9 @@ export const ATTR_LABEL = Object.freeze({
   baseAttackTime: [N_('攻击间隔'), N_('秒')], base_attack_time: [N_('攻击间隔'), N_('秒')], moveSpeed: [N_('移动速度'), ''], hpRecoveryPerSec: [N_('每秒回复'), ''],
 });
 
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+/** @param {unknown} v */
 const isInt = (v) => Number.isInteger(v);
 /** id keys a parsed payload must never inject into an entry map: `{ "__proto__": … }` would rewrite the prototype. */
 const UNSAFE_IDS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -54,6 +57,7 @@ export function parseStored(raw) {
   for (const [id, e] of Object.entries(src)) {
     if (Object.keys(out).length >= LOADOUT_LIMITS.entries) break;
     if (UNSAFE_IDS.has(id) || !/^[A-Za-z0-9_\-.:]{1,64}$/.test(id) || !isObj(e)) continue;
+    /** @type {{ skill?: number, module?: string }} */
     const x = {};
     if (isInt(e.skill) && e.skill >= 0 && e.skill <= LOADOUT_LIMITS.skillIndex) x.skill = e.skill;
     if (typeof e.module === 'string' && /^[A-Za-z0-9_\-.:]{1,64}$/.test(e.module)) x.module = e.module;
@@ -84,7 +88,10 @@ export function parseStoredOps(raw) {
   return out;
 }
 
-/** Serialised form for localStorage (`ops`: the per-operator 潜能 / 练度, 0.2.2). */
+/**
+ * Serialised form for localStorage (`ops`: the per-operator 潜能 / 练度, 0.2.2).
+ * @param {Record<string, any> | null | undefined} entries @param {Record<string, any> | null} [ops]
+ */
 export const toStored = (entries, ops = {}) => ({ v: LOADOUT_VERSION, entries: entries || {}, ops: ops || {} });
 
 // ---- 潜能 / 练度 (0.2.2) ------------------------------------------------------------------------------------------------
@@ -112,6 +119,7 @@ export function setOps(ops, charId, patch) {
   const cultivate = patch && isCultivate(patch.cultivate) ? patch.cultivate : cur.cultivate;
   const out = { ...(ops || {}) };
   delete out[charId];
+  /** @type {{ potential?: number, cultivate?: number }} */
   const e = {};
   if (potential !== POTENTIAL_DEFAULT) e.potential = potential;
   if (cultivate !== CULTIVATE_DEFAULT) e.cultivate = cultivate;
@@ -129,7 +137,7 @@ export function skinSetOf(skins, charId) {
   return !!charId && isObj(skins) && Object.hasOwn(skins, charId) && typeof skins[charId] === 'string' && skins[charId] !== '';
 }
 
-/** Remove one operator's 潜能 / 练度 (恢复默认). */
+/** Remove one operator's 潜能 / 练度 (恢复默认). @param {Record<string, any> | null | undefined} ops @param {string} charId */
 export function resetOps(ops, charId) {
   if (!ops || !Object.hasOwn(ops, charId)) return ops;
   const out = { ...ops };
@@ -199,8 +207,10 @@ function cleanSkins(raw) {
  * @param {{ now?: number, ops?: Record<string, any>, skins?: Record<string, string> }} [o]
  */
 export function exportPayload(entries, { now = Date.now(), ops = {}, skins = {} } = {}) {
+  /** @type {Record<string, any>} */
   const clean = {};
   for (const [id, e] of Object.entries(entries || {})) if (isObj(e)) clean[id] = { ...e };
+  /** @type {Record<string, any>} */
   const cleanOps = {};
   for (const [id, e] of Object.entries(ops || {})) if (isObj(e)) cleanOps[id] = { ...e };
   return {
@@ -214,7 +224,10 @@ export function exportPayload(entries, { now = Date.now(), ops = {}, skins = {} 
   };
 }
 
-/** Pretty JSON of `exportPayload` — one preset per file / clipboard payload. */
+/**
+ * Pretty JSON of `exportPayload` — one preset per file / clipboard payload.
+ * @param {Record<string, any>} entries @param {{ now?: number, ops?: Record<string, any>, skins?: Record<string, string> }} [opts]
+ */
 export function serializeExport(entries, opts) {
   return JSON.stringify(exportPayload(entries, opts), null, 2);
 }
@@ -226,21 +239,27 @@ export function serializeExport(entries, opts) {
 // stays the JSON envelope, and a pasted JSON (an older export) still imports.
 
 const CODE_RE = /^SPL(\d+)(j?)\.([A-Za-z0-9_-]+)$/;
-/** Whether pasted text is a one-line code (not JSON): it starts with `SPL<digit>`. */
+/** Whether pasted text is a one-line code (not JSON): it starts with `SPL<digit>`. @param {unknown} text */
 const looksLikeCode = (text) => typeof text === 'string' && /^\s*SPL\d/.test(text);
 
+/** @param {Uint8Array} bytes */
 const toB64url = (bytes) => {
   let bin = '';
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
+/** @param {string} s */
 const fromB64url = (s) => {
   const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 };
-/** The bytes out of `stream` fed with `bytes`; null as soon as they pass `cap` (a code that inflates without end). */
+/**
+ * The bytes out of `stream` fed with `bytes`; null as soon as they pass `cap` (a code that inflates without end).
+ * @param {Uint8Array<ArrayBuffer>} bytes @param {CompressionStream | DecompressionStream} stream @param {number} cap
+ * @returns {Promise<Uint8Array<ArrayBuffer> | null>}
+ */
 async function pipeCapped(bytes, stream, cap) {
   const reader = new Blob([bytes]).stream().pipeThrough(stream).getReader();
   const parts = [];
@@ -288,6 +307,7 @@ export async function expandLoadoutCode(text) {
   const m = CODE_RE.exec(text.replace(/\s+/g, ''));
   if (!m) return text;
   try {
+    /** @type {Uint8Array<ArrayBuffer> | null} */
     let bytes = fromB64url(m[3]);
     if (!m[2]) {
       if (typeof DecompressionStream !== 'function') return text;
@@ -350,21 +370,27 @@ export function recordsOf(baseId, getChess) {
   return { base, golden };
 }
 
-/** SkillRecord of a chess record by skill index (data `skills[]`, else the default `skill`). */
+/**
+ * SkillRecord of a chess record by skill index (data `skills[]`, else the default `skill`).
+ * @param {any} chess @param {number | null | undefined} index @returns {SkillRecord | null}
+ */
 export function skillRecord(chess, index) {
   if (!chess) return null;
   if (Array.isArray(chess.skills)) {
-    const s = chess.skills.find((x) => x && x.index === index);
+    const s = chess.skills.find((/** @type {SkillRecord | null} */ x) => x && x.index === index);
     if (s) return s;
   }
   return chess.skill && chess.skill.index === index ? chess.skill : null;
 }
 
-/** ModuleRecord of an elite by uniEquipId (data `modules[]`, else a minimal record from the default `module`). */
+/**
+ * ModuleRecord of an elite by uniEquipId (data `modules[]`, else a minimal record from the default `module`).
+ * @param {any} golden @param {string | null | undefined} id @returns {ModuleRecord | null}
+ */
 export function moduleRecord(golden, id) {
   if (!golden || !id || id === MODULE_NONE) return null;
   if (Array.isArray(golden.modules)) {
-    const m = golden.modules.find((x) => x && x.uniEquipId === id);
+    const m = golden.modules.find((/** @type {ModuleRecord | null} */ x) => x && x.uniEquipId === id);
     if (m) return m;
   }
   const d = golden.module;
@@ -394,6 +420,7 @@ export function chessOptions(base, golden) {
 
 /**
  * The effective choice of a chess under a stored loadout (defaults for missing / unavailable choices).
+ * @param {Record<string, any> | null | undefined} entries @param {any} base @param {any} golden
  * @returns {{ skill: number|null, module: string|null, changed: boolean }}
  */
 export function effectiveChoice(entries, base, golden) {
@@ -418,6 +445,7 @@ export function setChoice(entries, base, golden, patch) {
   const module = golden && patch && patch.module !== undefined && opt.modules.includes(patch.module) ? patch.module : cur.module;
   const out = { ...(entries || {}) };
   delete out[base.chessId];
+  /** @type {{ skill?: number, module?: string }} */
   const e = {};
   if (skill !== opt.defaultSkill && skill != null) e.skill = skill;
   if (golden && module !== opt.defaultModule && module != null) e.module = module;
@@ -425,7 +453,7 @@ export function setChoice(entries, base, golden, patch) {
   return out;
 }
 
-/** Remove one chess's entry (恢复默认). */
+/** Remove one chess's entry (恢复默认). @param {Record<string, any> | null | undefined} entries @param {string} baseId */
 export function resetChoice(entries, baseId) {
   if (!entries || !Object.hasOwn(entries, baseId)) return entries;
   const out = { ...entries };
@@ -445,6 +473,7 @@ export function sanitizeEntries(entries, getChess) {
   const out = {};
   for (const [id, e] of Object.entries(entries || {})) {
     if (Object.keys(out).length >= LOADOUT_LIMITS.entries) break;
+    /** @type {{ skill?: number, module?: string }} */
     const one = {};
     if (isInt(e?.skill)) one.skill = e.skill;
     if (typeof e?.module === 'string') one.module = e.module;
@@ -452,7 +481,7 @@ export function sanitizeEntries(entries, getChess) {
     const res = checkLoadout({ [id]: one }, getChess);
     if (!res.ok) {
       // keep the part that is still legal (e.g. the skill when a module disappeared)
-      for (const k of ['skill', 'module']) {
+      for (const k of /** @type {const} */ (['skill', 'module'])) {
         if (one[k] === undefined) continue;
         const r = checkLoadout({ [id]: { [k]: one[k] } }, getChess);
         if (r.ok && r.loadout[id]) out[id] = { ...(out[id] || {}), [k]: one[k] };
@@ -464,13 +493,20 @@ export function sanitizeEntries(entries, getChess) {
   return out;
 }
 
-/** Selected SkillRecord of a board / shop chess under a loadout (the elite gets its Lv7 record). */
+/**
+ * Selected SkillRecord of a board / shop chess under a loadout (the elite gets its Lv7 record).
+ * @param {Record<string, any> | null | undefined} loadout @param {any} chess @param {(id: string) => any} getChess
+ * @returns {SkillRecord | null}
+ */
 export function selectedSkill(loadout, chess, getChess) {
   const r = resolveLoadout(loadout, chess, getChess);
   return skillRecord(chess, r.skillIndex) || chess?.skill || null;
 }
 
-/** Selected ModuleRecord of an elite under a loadout (null: none / normal chess). */
+/**
+ * Selected ModuleRecord of an elite under a loadout (null: none / normal chess).
+ * @param {Record<string, any> | null | undefined} loadout @param {any} chess @param {(id: string) => any} getChess
+ */
 export function selectedModule(loadout, chess, getChess) {
   if (!chess || !chess.isGolden) return null;
   const r = resolveLoadout(loadout, chess, getChess);
@@ -483,9 +519,10 @@ export function selectedModule(loadout, chess, getChess) {
  * Visible normal chess (the loadout slots), in shop order: tier, then shopSortId.
  * @param {any[]} list data.list('chess')
  */
-/** Whether a chess record is a loadout slot (a visible normal chess — what the server's checkLoadout accepts). */
+/** Whether a chess record is a loadout slot (a visible normal chess — what the server's checkLoadout accepts). @param {any} c */
 export const isLoadoutSlot = (c) => !!c && !c.isGolden && c.visible !== false && !c.isHidden && !c.isDiy && (!c.baseId || c.baseId === c.chessId);
 
+/** @param {any[] | null | undefined} list */
 export function rosterOf(list) {
   return (Array.isArray(list) ? list : [])
     .filter(isLoadoutSlot)
@@ -513,7 +550,7 @@ export function filterRoster(roster, f = {}, entries = {}, getChess = () => null
       if (!effectiveChoice(entries, c, golden).changed && !opsOf(ops, c.charId).changed && !skinSetOf(skins, c.charId)) return false;
     }
     if (q) {
-      const hay = [c.name, c.appellation, c.subProfessionName, t(PROF_NAME[c.profession]), ...(c.bonds || []).map((b) => getBond(b)?.name)]
+      const hay = [c.name, c.appellation, c.subProfessionName, t(/** @type {Record<string, string>} */ (PROF_NAME)[c.profession]), ...(c.bonds || []).map((/** @type {string} */ b) => getBond(b)?.name)]
         .filter(Boolean).join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
@@ -523,7 +560,9 @@ export function filterRoster(roster, f = {}, entries = {}, getChess = () => null
 
 /** Number of chess whose choice differs from the defaults (only loadout slots of the loaded data count: an entry of a
  *  retired / hidden chess is never sent nor applied) — with `ops` (0.2.2), also those whose operator's 潜能 / 练度 differ,
- *  with `skins` those whose operator wears a chosen skin (skinSetOf). */
+ *  with `skins` those whose operator wears a chosen skin (skinSetOf).
+ * @param {Record<string, any> | null | undefined} entries @param {(id: string) => any} getChess
+ * @param {Record<string, any> | null} [ops] @param {any[] | null} [roster] @param {Record<string, any> | null} [skins] */
 export function changedCount(entries, getChess, ops = null, roster = null, skins = null) {
   const ids = new Set(Object.keys(entries || {}));
   const extra = (ops && Object.keys(ops).length) || (isObj(skins) && Object.keys(skins).length);
@@ -539,10 +578,10 @@ export function changedCount(entries, getChess, ops = null, roster = null, skins
 
 // ---- display helpers -----------------------------------------------------------------------------------------------------
 
-/** "S2" style label of a skill index. */
-export const skillLabel = (index) => (isInt(index) ? `S${index + 1}` : '—');
+/** "S2" style label of a skill index. @param {number | null | undefined} index */
+export const skillLabel = (index) => (isInt(index) ? `S${/** @type {number} */ (index) + 1}` : '—');
 
-/** Short type badge of a module ("MAR-X" → "X", "ISW-α" → "α"); 'none' → "—". */
+/** Short type badge of a module ("MAR-X" → "X", "ISW-α" → "α"); 'none' → "—". @param {any} rec @param {string | null} [id] */
 export function moduleBadge(rec, id = null) {
   if (!rec) return id === MODULE_NONE || id == null ? '—' : '?';
   const t = String(rec.typeName || rec.type || '');
@@ -567,7 +606,7 @@ export function traitLines(trait) {
   return { base, added: added ? String(added) : null };
 }
 
-/** The whole 特性 text of a trait record: its base line, then the module's extra line (`\n` between; RichText breaks it). */
+/** The whole 特性 text of a trait record: its base line, then the module's extra line (`\n` between; RichText breaks it). @param {any} trait */
 export function fullTraitText(trait) {
   const { base, added } = traitLines(trait);
   return base && added ? `${base}\n${added}` : base || added || '';
@@ -579,11 +618,12 @@ export function fullTraitText(trait) {
  * @returns {Array<{ key: string, label: string, text: string, positive: boolean }>}
  */
 export function attrRows(attr) {
+  /** @type {Array<{ key: string, label: string, text: string, positive: boolean }>} */
   const out = [];
   if (!isObj(attr)) return out;
   for (const [k, v] of Object.entries(attr)) {
     if (typeof v !== 'number' || !Number.isFinite(v) || v === 0) continue;
-    const [label, unit] = ATTR_LABEL[k] || [k, ''];
+    const [label, unit] = /** @type {Record<string, string[]>} */ (ATTR_LABEL)[k] || [k, ''];
     const n = Math.abs(v) < 10 && !Number.isInteger(v) ? Number(v.toFixed(2)) : Math.round(v);
     out.push({ key: k, label: t(label), text: `${v > 0 ? '+' : ''}${n}${t(unit)}`, positive: k === 'cost' || k === 'respawnTime' || k === 'respawn_time' || k === 'baseAttackTime' || k === 'base_attack_time' ? v < 0 : v > 0 });
   }
@@ -592,6 +632,7 @@ export function attrRows(attr) {
 
 /**
  * Tags of a SkillRecord: SP recovery, SP numbers, duration / ammo, charges.
+ * @param {any} rec
  * @returns {{ sp: string, spKind: 'time'|'atk'|'def'|'passive', init: number|null, cost: number|null, duration: string|null, charges: number|null, passive: boolean }}
  */
 export function skillTags(rec) {
@@ -602,7 +643,7 @@ export function skillTags(rec) {
   if (rec.durationType === 'AMMO') duration = t('弹药');
   else if (Number(rec.duration) > 0) duration = t('{n}秒', { n: Number(rec.duration) });
   return {
-    sp: t(SP_TYPE[rec.spType]) || (passive ? t('被动') : t('技力')),
+    sp: t(/** @type {Record<string, string>} */ (SP_TYPE)[rec.spType]) || (passive ? t('被动') : t('技力')),
     spKind,
     init: passive ? null : Number.isFinite(rec.initSp) ? rec.initSp : 0,
     cost: passive ? null : Number.isFinite(rec.spCost) ? rec.spCost : 0,
@@ -612,7 +653,7 @@ export function skillTags(rec) {
   };
 }
 
-/** Compact skill preview; SP and duration come from the selected form's generated record. */
+/** Compact skill preview; SP and duration come from the selected form's generated record. @param {any} rec */
 export function quickSkillTags(rec) {
   const tags = skillTags(rec);
   if (!rec) return { ...tags, recovery: '—', duration: '—' };

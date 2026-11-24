@@ -28,6 +28,7 @@ import { t } from '../../../shared/i18n.js';
 export const LONG_PRESS_MS = 520;
 const LONG_PRESS_SLOP = 10;
 
+/** @param {any} win @param {string} q */
 const mq = (win, q) => { try { return !!win.matchMedia?.(q)?.matches; } catch { return false; } };
 
 /**
@@ -108,7 +109,7 @@ export function isIOS(win = globalThis) {
   return /\b(iPhone|iPad|iPod)\b/.test(ua) || (/\bMacintosh\b/.test(ua) && (nav?.maxTouchPoints || 0) > 1);
 }
 
-/** The classes installDeviceSupport puts on <html> for a feature set (pure; tested). */
+/** The classes installDeviceSupport puts on <html> for a feature set (pure; tested). @param {{ [key: string]: unknown }} f */
 export function featureClasses(f) {
   return {
     'sp-touch': !!f.touch,
@@ -180,8 +181,10 @@ export function installScreenWakeLock(win = globalThis) {
   const doc = win.document;
   const wakeLock = win.navigator?.wakeLock;
   if (!doc || !wakeLock) return () => {};
+  /** @type {WakeLockSentinel | null} */
   let sentinel = null;
   let generation = 0;
+  /** @param {WakeLockSentinel | null} lock */
   const release = async (lock) => { try { await lock?.release(); } catch { /* best effort */ } };
   const cancelRetry = () => {
     doc.removeEventListener('pointerdown', onGesture, true);
@@ -191,6 +194,7 @@ export function installScreenWakeLock(win = globalThis) {
     cancelRetry(); // a touch can also send a pointer event
     if (doc.visibilityState === 'visible') void acquire(generation, false);
   };
+  /** @param {number} request @param {boolean} [retry] */
   const acquire = async (request, retry = true) => {
     try {
       const lock = await wakeLock.request('screen');
@@ -221,7 +225,7 @@ export function installScreenWakeLock(win = globalThis) {
   };
 }
 
-/** Hold the screen wake lock while `active` (installScreenWakeLock), released when it turns false or on unmount. */
+/** Hold the screen wake lock while `active` (installScreenWakeLock), released when it turns false or on unmount. @param {unknown} active */
 export function useScreenWakeLock(active) {
   useEffect(() => (active ? installScreenWakeLock() : undefined), [!!active]);
 }
@@ -286,6 +290,7 @@ export function FullscreenButton({ class: cls = '', variant = '' }) {
 
 // ---- boot-time installation ----------------------------------------------------------------------------------------
 
+/** @type {(() => void) | null} */
 let installed = null;
 
 /**
@@ -297,7 +302,9 @@ export function installDeviceSupport(win = globalThis) {
   const doc = win.document;
   if (!doc?.documentElement) return () => {};
   const root = doc.documentElement;
+  /** @type {Array<() => void>} */
   const offs = [];
+  /** @param {any} target @param {string} ev @param {(e: any) => void} fn @param {boolean | AddEventListenerOptions} [opts] */
   const on = (target, ev, fn, opts) => { if (!target?.addEventListener) return; target.addEventListener(ev, fn, opts); offs.push(() => target.removeEventListener(ev, fn, opts)); };
 
   const apply = () => {
@@ -333,6 +340,7 @@ export function installDeviceSupport(win = globalThis) {
   on(win.screen?.orientation, 'change', onRotate);
 
   // no page zoom while playing (iOS Safari ignores user-scalable=no): pinch gestures and ctrl+wheel are cancelled
+  /** @param {Event} e */
   const cancel = (e) => { if (e.cancelable) e.preventDefault(); };
   on(doc, 'gesturestart', cancel, { passive: false });
   on(doc, 'gesturechange', cancel, { passive: false });
@@ -345,7 +353,7 @@ export function installDeviceSupport(win = globalThis) {
   // A touch held still for LONG_PRESS_MS without a native contextmenu gets a synthetic one (the shop cards, reward cards
   // and the fallback board open their detail cards on it), and the click the release would cause is swallowed. The field
   // canvas handles its own long-press (render/drag.js) and is skipped.
-  const lp = { timer: 0, x: 0, y: 0, target: null, native: false, fired: false, swallowUntil: 0 };
+  const lp = { timer: 0, x: 0, y: 0, target: /** @type {Element | null} */ (null), native: false, fired: false, swallowUntil: 0 };
   const lpCancel = () => { clearTimeout(lp.timer); lp.timer = 0; lp.target = null; };
   on(doc, 'pointerdown', (e) => {
     lpCancel();

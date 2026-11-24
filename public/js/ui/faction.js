@@ -15,10 +15,10 @@ import { useStore } from '../store.js';
 import { chatFaction } from '../../../shared/local.js';
 import { t } from '../../../shared/i18n.js';
 
-/** Icon URL of a faction record, or null. */
+/** Icon URL of a faction record, or null. @param {{ bond?: string } | null | undefined} f */
 export const factionIconUrl = (f) => (f ? bondIconUrl(data.get('assets'), f.bond) : null);
 
-/** The faction (record) a player picked, or null. */
+/** The faction (record) a player picked, or null. @param {string | null | undefined} playerId */
 export function useSeatFaction(playerId) {
   const id = useStore((s) => (playerId ? s.chatFactions?.[playerId] ?? null : null));
   return chatFaction(id);
@@ -42,7 +42,10 @@ export function FactionGlyph({ f, name = '', fallback = null }) {
   </span>`;
 }
 
-/** Room seat card (screens/room.js AvatarFrame `mark`): the faction glyph, else the frame's usual first letter. */
+/**
+ * Room seat card (screens/room.js AvatarFrame `mark`): the faction glyph, else the frame's usual first letter.
+ * @param {{ playerId: string | null | undefined, name?: string }} props
+ */
 export function SeatMark({ playerId, name = '' }) {
   const f = useSeatFaction(playerId);
   const letter = html`<span class="avatar__glyph">${[...(name || '').trim()][0] || '?'}</span>`;

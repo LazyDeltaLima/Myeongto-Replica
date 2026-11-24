@@ -43,6 +43,7 @@ import { BuffButton } from './effectsList.js';
 import { t, tParts } from '../../../shared/i18n.js';
 import { SurrenderButton } from './surrender.js';
 
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /**
@@ -50,9 +51,9 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
  * frames (screens/game.js). A store of their own so only the capsule and the DP counter redraw with them, not the whole
  * match screen: on a phone each of those redraws cost 2–10 ms, 5× a second in battle (`render.md` 「성능 표시」).
  */
-export const battleHud = createStore({ hud: null });
+export const battleHud = createStore(/** @type {{ hud: any }} */ ({ hud: null }));
 
-/** Whether two HUD frames draw the same phase capsule (the DP alone moving leaves it as it is). */
+/** Whether two HUD frames draw the same phase capsule (the DP alone moving leaves it as it is). @param {any} a @param {any} b */
 export const sameCapsule = (a, b) => a === b || (!!a && !!b && a.resolved === b.resolved && a.killed === b.killed
   && a.total === b.total && a.boss?.hp === b.boss?.hp && a.boss?.max === b.boss?.max);
 
@@ -167,7 +168,7 @@ export function matchLpCap(pub, config) {
  * @param {any} local @param {any} server
  */
 export function ownLeaks(local, server) {
-  const n = (v) => (Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0);
+  const n = (/** @type {number} */ v) => (Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0);
   return Math.max(n(local), n(server));
 }
 
@@ -208,7 +209,7 @@ export function liveLp(base, { phase, round, lp, statsLeaks = null, leaks = 0, c
   const sl = Number.isFinite(statsLeaks) ? statsLeaks : null;
   const b = base && base.round === round ? base : { round, lp, statsLeaks: sl };
   const landed = lp !== b.lp || (sl != null && b.statsLeaks != null && sl !== b.statsLeaks);
-  const left = phase === PHASE.UNITE && Number.isFinite(uniteLeft) && uniteLeft >= 0 && !landed ? Math.trunc(uniteLeft) : null;
+  const left = phase === PHASE.UNITE && Number.isFinite(uniteLeft) && /** @type {number} */ (uniteLeft) >= 0 && !landed ? Math.trunc(/** @type {number} */ (uniteLeft)) : null;
   const pending = landed ? 0 : Math.min(lp, pendingLoss(left != null ? left : leaks, cap));
   return { base: b, pending, shown: lp, unite: phase === PHASE.UNITE && (pending > 0 || left != null), left };
 }
@@ -237,6 +238,12 @@ export function bossLp(base, { phase, round, teamLp }) {
  * @param {number} lp settled LP @param {number} pending
  * @param {{ unite?: boolean, cap?: number, left?: number|null, boss?: boolean }} [opts]
  */
+/**
+ * The LP tower's title while a loss is pending (liveLp, bossLp): what the −N tick means — the boss round's team loss, the
+ * own battle's leaks, or the 联防 survivors still standing (`left`), with the round's cap.
+ * @param {number | null} lp @param {number} pending
+ * @param {{ unite?: boolean, cap?: number, left?: number | null, boss?: boolean }} [o]
+ */
 export function pendingTip(lp, pending, { unite = false, cap = 10, left = null, boss = false } = {}) {
   if (!(pending > 0)) return null;
   if (boss) return t('全队目标生命值 {lp}：本场战斗已损失 {pending} 点，战斗结束后扣除', { lp, pending });
@@ -247,7 +254,7 @@ export function pendingTip(lp, pending, { unite = false, cap = 10, left = null, 
       : t('目标生命值 {lp}：本回合已有 {pending} 个敌人进入蓝门，结算时扣除 {pending} 点', { lp, pending });
   }
   if (unite && Number.isFinite(left)) {
-    const each = left > cap ? t('剩余不足 {cap} 个后，队友每击倒一个少扣 1 点', { cap }) : t('队友每击倒一个就少扣 1 点');
+    const each = /** @type {number} */ (left) > cap ? t('剩余不足 {cap} 个后，队友每击倒一个少扣 1 点', { cap }) : t('队友每击倒一个就少扣 1 点');
     return t('目标生命值 {lp}：联防中，你漏过的敌人还剩 {left} 个，{each}；按现在结算扣除 {pending} 点（每回合至多 {cap} 点）', { lp, left, each, pending, cap });
   }
   return unite
@@ -293,8 +300,8 @@ export function ReadyToggle({ priv, onToggle, busy, readyCount, total }) {
     ${why ? html`<span class="readywrap__why" id="readywrap-why" role="status" data-testid="ready-why">
       <${Icon} name="warn" />${choice ? html`<span>${reason}</span>`
         : html`<span>${tParts('临时整备区 {n} 个单位待处理', { n: html`<b class="num">${temp.count}</b>`, count: temp.count })}</span>`}</span>` : null}
-    ${Number.isFinite(total) && total > 1 ? html`<span class="readywrap__count">${t('已就绪')} <b class="num">${readyCount}</b>/<span class="num">${total}</span></span>
-      <span class="readywrap__bars" aria-hidden="true">${Array.from({ length: Math.min(4, total) }, (_, k) => html`<i key=${k} class=${k < readyCount ? 'is-ready' : ''}></i>`)}</span>` : null}
+    ${Number.isFinite(total) && /** @type {number} */ (total) > 1 ? html`<span class="readywrap__count">${t('已就绪')} <b class="num">${readyCount}</b>/<span class="num">${total}</span></span>
+      <span class="readywrap__bars" aria-hidden="true">${Array.from({ length: Math.min(4, /** @type {number} */ (total)) }, (_, k) => html`<i key=${k} class=${k < /** @type {number} */ (readyCount) ? 'is-ready' : ''}></i>`)}</span>` : null}
   </div>`;
 }
 
@@ -326,7 +333,11 @@ export function checkSprite(sprite) {
   return theme ? { url: theme, theme: true } : { url: localAsset('ui/battle', sprite), theme: false };
 }
 
-/** One official 🔍 button: the sprite when installed, a CSS look-alike (icon + chevrons) otherwise; `hotkey` = the key label under it. */
+/**
+ * One official 🔍 button: the sprite when installed, a CSS look-alike (icon + chevrons) otherwise; `hotkey` = the key label under it.
+ * @param {{ sprite: string, cls?: string, label: string, chev?: string | null, on?: boolean, disabled?: boolean, onClick?: Function,
+ *   testid?: string, hotkey?: string | null }} props
+ */
 function CheckBtn({ sprite, cls, label, chev, on, disabled, onClick, testid, hotkey = null }) {
   const { url, theme } = checkSprite(sprite);
   return html`<button type="button" class=${cx(cls, 'tapx', url && 'has-sprite', chev && 'is-wide', on && 'is-on', theme && 'is-theme')}
@@ -356,7 +367,7 @@ export function OvertimeWarning({ ot }) {
     </span>
     <span class="otwarn__tag">DOT</span>
     <span class="otwarn__txt">${tParts('超时 · 生命值 {n}/秒', { n: html`<b class="num">−${ot.perSec}</b>` })}</span>
-    ${ot.lost > 0 ? html`<span class="otwarn__lost">${t('已流失')} <b class="num">${ot.lost}</b></span>` : null}
+    ${/** @type {number} */ (ot.lost) > 0 ? html`<span class="otwarn__lost">${t('已流失')} <b class="num">${ot.lost}</b></span>` : null}
     <span key=${ot.secs} class="otwarn__tick num" aria-hidden="true">−${ot.perSec}</span>
   </div>`;
 }
@@ -401,7 +412,7 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
   const warnAt = countdownWarnAt(pub, config);
   // boss rounds: the team LP as the phase began and what it lost since (bossLp); normal rounds: the settled LP and the
   // own battle's leaks so far (liveLp)
-  const bossBaseRef = useRef(null);
+  const bossBaseRef = useRef(/** @type {{ key: string, lp: number } | null} */ (null));
   const team = bossLp(bossBaseRef.current, { phase, round: pub?.round, teamLp: pub?.teamLp });
   bossBaseRef.current = team.base;
   // a custom 「共享」 match (m.public teamLp outside the boss rounds): the tower is the alliance's one LP, the −N tick the
@@ -418,11 +429,11 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
   const otLive = boss && Number(pub?.overtimeAt) > 0;
   useTicker(otLive && frozenAt == null ? 250 : 0);
   const now = Number.isFinite(frozenAt) ? frozenAt : serverNow();
-  const ot = otLive ? overtimeState(pub, now, { perSec: overtimeDrainPerSec(config, pub) }) : null;
+  const ot = otLive ? overtimeState(pub, /** @type {number} */ (now), { perSec: overtimeDrainPerSec(config, pub) }) : null;
   const draining = ot?.state === 'drain';
   const lowLp = (Number.isFinite(lp) && lp - pending <= 5) || draining;
   const cap = matchLpCap(pub, config);
-  const frozenSecs = Number.isFinite(frozenAt) ? remainAt(pub?.deadline, frozenAt) : null;
+  const frozenSecs = Number.isFinite(frozenAt) ? remainAt(pub?.deadline, /** @type {number} */ (frozenAt)) : null;
   const btn = checkButtons({ pen, penAvail, infoOpen: !!drawer });
   const onLeft = () => (pen ? onPen(false) : onDrawer('info'));
   const onRight = () => (pen ? onPen(false) : penAvail ? onPen(true) : null);
@@ -451,7 +462,7 @@ export function TopBar({ pub, priv, hud, total, drawer, onExit, onDrawer, onRead
         <span class="roundbox__label">${t('回合')}</span>
         <b class="roundbox__num num">${roundText}</b>
       </div>
-      <${LiveCapsule} pub=${pub} hud=${hud} miss=${!boss && Number.isFinite(live?.left) ? live.left : null} />
+      <${LiveCapsule} pub=${pub} hud=${hud} miss=${!boss && Number.isFinite(live?.left) ? /** @type {{ left: number }} */ (live).left : null} />
       <${LpTower} value=${lp} size="lg" tone=${lowLp ? 'danger' : boss || shared ? 'team' : null} pending=${pending}
         note=${pending > 0 && !boss && live?.unite ? t('联防中') : null} tip=${pendingTip(lp, pending, { unite: !boss && !!live?.unite, cap, left: live?.left ?? null, boss })} />
       <${Tooltip} text=${btn.right.tip} placement="bottom">
@@ -484,17 +495,21 @@ function LivePing() {
     : html`<${PingPill} ms=${ms} online=${online} />`;
 }
 
-/** DP counter shown at the right edge during combat: `dp`, else the live HUD's (battleHud). */
+/** DP counter shown at the right edge during combat: `dp`, else the live HUD's (battleHud). @param {{ dp?: number | null }} props */
 export function DpCounter({ dp }) {
   const live = useStore((s) => (Number.isFinite(s.hud?.dp) ? Math.floor(s.hud.dp) : null), Object.is, battleHud);
   if (dp === undefined) dp = live;
   if (!Number.isFinite(dp)) return null;
   return html`<div class="dpbox" title=${t('部署费用（再部署消耗）')}>
-    <${GIcon} name="dp" class="dpbox__icon" /><b class="num">${Math.floor(dp)}</b><${MicroLabel}>COST</${MicroLabel}>
+    <${GIcon} name="dp" class="dpbox__icon" /><b class="num">${Math.floor(/** @type {number} */ (dp))}</b><${MicroLabel}>COST</${MicroLabel}>
   </div>`;
 }
 
-/** Hook: stable callback ref helper. */
+/**
+ * Hook: stable callback ref helper.
+ * @template T
+ * @param {T} v
+ */
 export function useLatest(v) {
   const r = useRef(v);
   r.current = v;

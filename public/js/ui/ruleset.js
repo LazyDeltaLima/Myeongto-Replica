@@ -23,7 +23,9 @@ export function rulesetTip(preset, season = null) {
   if (preset === 'custom') return t('由创建者逐项设置 · 不能用于同盟匹配');
   const always = seasonOfficialOptions(season);
   const options = { ...resolveRuleset(preset).options, ...always };
+  /** @type {string[]} */
   const on = [];
+  /** @type {string[]} */
   const off = [];
   for (const [k, o] of Object.entries(RULE_OPTIONS)) {
     if (options[k] === (always[k] ?? o.official)) continue;
@@ -40,7 +42,7 @@ export function rulesetTip(preset, season = null) {
  * @param {readonly string[]} [presets] @param {unknown} [season] the season on screen (rulesetTip)
  */
 export function rulesetTips(presets = RULE_PRESETS, season = null) {
-  const lines = presets.map((p) => t('【{name}】{tip}', { name: t(PRESET_LABELS[p]), tip: rulesetTip(p, season) }));
+  const lines = presets.map((p) => t('【{name}】{tip}', { name: t(/** @type {Record<string, string>} */ (PRESET_LABELS)[p]), tip: rulesetTip(p, season) }));
   for (const [k, o] of Object.entries(RULE_OPTIONS)) {
     if (!o.note || !QUEUE_PRESETS.some((p) => resolveRuleset(p).options[k] !== o.official)) continue;
     lines.push(t('※ {label} — {note}', { label: t(o.label), note: t(o.note, { n: (o.noteN ?? 0).toLocaleString('en-US') }) }));
@@ -49,7 +51,7 @@ export function rulesetTips(presets = RULE_PRESETS, season = null) {
 }
 
 /** The preset's display name. @param {unknown} preset */
-export const presetName = (preset) => t(PRESET_LABELS[resolveRuleset(preset).preset]);
+export const presetName = (preset) => t(/** @type {Record<string, string>} */ (PRESET_LABELS)[resolveRuleset(preset).preset]);
 
 /** The lobby's remembered preset (the default until the player picks one). */
 export function lobbyRuleset() {
@@ -104,7 +106,7 @@ export function RulesetSwitch({ value, editable = true, busy = false, onPick, co
         const opt = html`<button key=${p} type="button" role="radio" aria-checked=${on ? 'true' : 'false'} data-ruleset=${p}
             class=${`dpick__opt rpick__opt${on ? ' is-active' : ''}${locked ? ' is-locked' : ''}`} disabled=${!editable || !!busy || locked}
             onClick=${() => editable && cur !== p && onPick(p)}>
-          ${t(PRESET_LABELS[p])}${counts && !locked ? html`<span class="rpick__n num" data-testid=${`queue-total-${p}`}>${counts[p] ?? 0}</span>` : null}
+          ${t(/** @type {Record<string, string>} */ (PRESET_LABELS)[p])}${counts && !locked ? html`<span class="rpick__n num" data-testid=${`queue-total-${p}`}>${counts[p] ?? 0}</span>` : null}
           ${locked ? html`<${Icon} name="lock" class="rpick__lock" />` : null}
         </button>`;
         if (p !== 'custom' || !onGear || locked) return opt;

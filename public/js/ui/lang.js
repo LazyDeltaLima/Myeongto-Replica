@@ -65,7 +65,7 @@ export function loadLangIndex(doFetch = defaultFetch) {
       registerLangs(readPackIndex(await res.json(), 'lang').map(langMetaOf));
       indexOk = true;
       return true;
-    } catch (err) {
+    } catch (/** @type {any} */ err) {
       console.warn(`[i18n] ${INDEX_URL} unavailable (${err?.message || err}); the menu offers Chinese and the stored language`);
       return false;
     }
@@ -82,7 +82,7 @@ export function loadLangIndex(doFetch = defaultFetch) {
  */
 export function loadUiMessages(lang, doFetch = defaultFetch) {
   if (lang === DEFAULT_LANG) return Promise.resolve(true);
-  if (uiLoads.has(lang)) return uiLoads.get(lang);
+  if (uiLoads.has(lang)) return /** @type {Promise<boolean>} */ (uiLoads.get(lang));
   const url = langInfo(lang)?.ui || `/i18n/${lang}.json`;
   const p = (async () => {
     try {
@@ -90,7 +90,7 @@ export function loadUiMessages(lang, doFetch = defaultFetch) {
       if (!res || !res.ok) throw new Error(`HTTP ${res ? res.status : '???'}`);
       addMessages(lang, await res.json());
       return true;
-    } catch (err) {
+    } catch (/** @type {any} */ err) {
       console.warn(`[i18n] ${url} unavailable (${err?.message || err}); the interface stays as it is`);
       uiLoads.delete(lang);
       return false;
@@ -133,7 +133,7 @@ export const dataChain = (lang) => langChain(lang).filter((c) => langInfo(c)?.da
  * @returns {{ lang: string, fromUrl: boolean }}
  */
 export function initialLang(search = globalThis.location?.search || '', load = loadPref, { tentative = false } = {}) {
-  const pick = (v) => normalizeLang(v) || (tentative ? canonicalLang(v) : null);
+  const pick = (/** @type {unknown} */ v) => normalizeLang(v) || (tentative ? canonicalLang(v) : null);
   let fromUrl = null;
   try { fromUrl = pick(new URLSearchParams(search).get('lang')); } catch { /* ignore */ }
   if (fromUrl) return { lang: fromUrl, fromUrl: true };
@@ -179,6 +179,7 @@ export function setDocTitle(fn) {
   if (globalThis.document) globalThis.document.title = docTitle();
 }
 
+/** @param {string} lang */
 function applyDocument(lang) {
   const doc = globalThis.document;
   if (!doc) return;
@@ -188,7 +189,7 @@ function applyDocument(lang) {
   doc.title = docTitle();
   // local patch: index.html's static rotate hint (a phone held upright) follows the language too — our old DOM
   // translator did that
-  const set = (sel, text) => { const el = doc.querySelector?.(sel); if (el) el.textContent = text; };
+  const set = (/** @type {string} */ sel, /** @type {string} */ text) => { const el = doc.querySelector?.(sel); if (el) el.textContent = text; };
   set('.rotate-hint__title', t('请将设备横屏'));
   set('.rotate-hint__sub', t('卫戍协议：盟约 需要横屏显示以获得完整体验'));
 }
@@ -217,6 +218,7 @@ function wire() {
 }
 
 /** Make a loaded language current: the interface now, the game texts once their overlays are in. */
+/** @param {string} lang */
 function applyLang(lang) {
   setLang(lang);
   data.setLocale(getLang(), dataChain(getLang())).catch(() => {});
@@ -342,7 +344,7 @@ export function machineTranslationNote() {
 export function LangToggle({ class: cls }) {
   const lang = useLang();
   const menu = langMenuModel(useLangs(), lang);
-  const pick = async (code, select = null) => {
+  const pick = async (/** @type {string} */ code, /** @type {HTMLSelectElement | null} */ select = null) => {
     if (!code) return;
     const switched = switchLang(code);
     const request = langRequest;
@@ -352,7 +354,7 @@ export function LangToggle({ class: cls }) {
   };
   if (menu.kind === 'select') {
     return html`<label class=${`set-seg lang-toggle lang-select${cls ? ` ${cls}` : ''}`} data-testid="lang-toggle">
-      <select aria-label=${SWITCH_LABEL} value=${lang} onChange=${(e) => pick(e.currentTarget.value, e.currentTarget)}>
+      <select aria-label=${SWITCH_LABEL} value=${lang} onChange=${(/** @type {Event & { currentTarget: HTMLSelectElement }} */ e) => pick(e.currentTarget.value, e.currentTarget)}>
         ${menu.items.map((it) => html`<option key=${it.code} value=${it.code} lang=${it.htmlLang} title=${it.title || undefined} selected=${it.on}>${it.label}</option>`)}
       </select>
     </label>`;
@@ -378,6 +380,7 @@ export function sentText(sent, raw, local) {
 }
 
 /** config.broadcasts types whose arg at this index is an amount, shown compactly (tickerText) */
+/** @type {Readonly<Record<string, number>>} */
 const TICKER_NUM_ARG = { CHAR_DAMAGE: 2 };
 
 /**
@@ -389,7 +392,7 @@ const TICKER_NUM_ARG = { CHAR_DAMAGE: 2 };
  * @returns {string}
  */
 export function tickerText(msg) {
-  const numAt = TICKER_NUM_ARG[msg?.type] ?? -1;
+  const numAt = TICKER_NUM_ARG[/** @type {string} */ (msg?.type)] ?? -1;
   if ((getLang() !== DEFAULT_LANG || numAt >= 0) && typeof msg?.id === 'string' && Array.isArray(msg.args)) {
     const list = data.get('config')?.broadcasts;
     const b = Array.isArray(list) ? list.find((x) => x && x.id === msg.id) : null;

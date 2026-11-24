@@ -35,11 +35,13 @@ export const SKINS_SYNC_KEY = 'skinsSync';
 export const SKIN_LIST_URL = '/assets/local/spine/skin/skins.json';
 export const SKIN_ART_URL = '/assets/local/spine/skin/art.json';
 
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+/** @param {unknown} v @returns {string | null} */
 const str = (v) => (typeof v === 'string' && v ? v : null);
-/** A picture record of the lists (`{ path, w, h }`) as its URL, or null. */
+/** A picture record of the lists (`{ path, w, h }`) as its URL, or null. @param {unknown} v */
 const pathOf = (v) => (isObj(v) && typeof v.path === 'string' && v.path.startsWith('/assets/') ? v.path : null);
-/** A 立绘 record's card frame (`{ x, y, w, h }`, frame units), or null. */
+/** A 立绘 record's card frame (`{ x, y, w, h }`, frame units), or null. @param {unknown} v @param {string} [key] */
 const frameOf = (v, key = 'frame') => {
   const f = isObj(v) ? v[key] : null;
   return isObj(f) && [f.x, f.y, f.w, f.h].every(Number.isFinite) && f.w > 0 && f.h > 0 ? { x: f.x, y: f.y, w: f.w, h: f.h } : null;
@@ -72,20 +74,20 @@ export function parseStoredSkins(raw) {
 export const skinsStore = createStore({ [SKINS_KEY]: parseStoredSkins(loadPref(SKINS_PREF, null)), [SKINS_SYNC_KEY]: 'idle',
   catalog: /** @type {any} */ (null) });
 
-/** Replace the whole choice (saved at once; the sync picks the change up). */
+/** Replace the whole choice (saved at once; the sync picks the change up). @param {unknown} entries */
 export function setSkins(entries) {
   const next = parseStoredSkins(entries);
   try { savePref(SKINS_PREF, next); } catch { /* private mode: the session keeps it */ }
   skinsStore.set({ [SKINS_KEY]: next });
 }
 
-/** Choose one operator's skin. */
+/** Choose one operator's skin. @param {string} charId @param {string} skinId */
 export function setSkin(charId, skinId) {
   if (!isCharId(charId) || !isSkinId(skinId)) return;
   setSkins({ ...(skinsStore.get()[SKINS_KEY] || {}), [charId]: skinId });
 }
 
-/** Back to the operator's default appearance. */
+/** Back to the operator's default appearance. @param {string} charId */
 export function clearSkin(charId) {
   const next = { ...(skinsStore.get()[SKINS_KEY] || {}) };
   if (!str(charId) || !(charId in next)) return;
@@ -117,7 +119,9 @@ export function buildSkinCatalog(list, art, hi = illustFull()) {
   return { byOwner, bySkin };
 }
 
+/** @type {Promise<any> | null} */
 let loading = null;
+/** @type {{ list: any, art: any } | null} */
 let lists = null; // the two lists the catalogue was built from: { list, art }
 /**
  * Fetch the two lists once (both are listed files: the resource worker keeps them) and put the catalogue in the store.
@@ -141,6 +145,7 @@ illustStore.subscribe((s, prev) => {
   if (s.hi !== prev.hi && lists && isObj(skinsStore.get().catalog)) skinsStore.set({ catalog: buildSkinCatalog(lists.list, lists.art, s.hi) });
 });
 
+/** @param {string} url */
 async function fetchJson(url) {
   const r = await fetch(url);
   if (r.status === 404) return null;
@@ -169,7 +174,7 @@ export function skinRows(catalog, charId, tmplId = null) {
  */
 export function chosenSkin(charId, map = skinsStore.get()[SKINS_KEY], catalog = skinsStore.get().catalog, tmplId = null) {
   const id = str(charId) && isObj(map) ? str(map[charId]) : null;
-  return id && skinRows(catalog, charId, tmplId).some((r) => r.id === id) ? id : null;
+  return id && skinRows(catalog, charId, tmplId).some((/** @type {{ id: string }} */ r) => r.id === id) ? id : null;
 }
 
 /**

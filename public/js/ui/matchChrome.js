@@ -63,14 +63,14 @@ export async function quitMatch() {
   const before = store.get();
   let left = false;
   try {
-    try { await net.request('g.leave', {}); left = true; } catch (err) {
+    try { await net.request('g.leave', {}); left = true; } catch (/** @type {any} */ err) {
       if (err?.code === 'NOT_IN_ROOM') left = true;
       else if (err?.code !== 'WRONG_PHASE') throw err;
     }
     // g.leave already removes the member (server/lobby.js routeGame); only a room without a running match
     // (WRONG_PHASE) needs room.leave, and a redundant request cannot revoke an acknowledged departure (upstream PR #879)
     if (!left) {
-      try { await net.request('room.leave', {}); } catch (err) { if (err?.code !== 'NOT_IN_ROOM') throw err; }
+      try { await net.request('room.leave', {}); } catch (/** @type {any} */ err) { if (err?.code !== 'NOT_IN_ROOM') throw err; }
       left = true;
     }
   } catch (err) {
@@ -107,7 +107,7 @@ export function SeatReserveButton({ reserved, size }) {
  * @param {{ open: boolean, onClose: Function, solo: boolean, onAway?: Function }} props
  */
 export function ExitModal({ open, onClose, solo, onAway }) {
-  const [busy, setBusy] = useState(null);
+  const [busy, setBusy] = useState(/** @type {string | null} */ (null));
   // a spectator seat (community report #26) only leaves its seat: nothing of the match is given up
   const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
   const reserved = useStore((s) => reservedRank(s.room, s.me.playerId));
@@ -117,7 +117,7 @@ export function ExitModal({ open, onClose, solo, onAway }) {
   // a single human (solo, or AI teammates only) restarts at once; co-op proposes the vote
   const alone = restartVoters(pub).length <= 1;
   const voteOpen = !!pub?.restartVote;
-  const restart = (target) => async () => {
+  const restart = (/** @type {string} */ target) => async () => {
     if (busy) return;
     setBusy(target);
     const ok = await actions.restartVote('propose', target);
@@ -206,6 +206,7 @@ export function ExitTile({ onClick, label, ping, online, disabled = false, class
 }
 
 /** The plate pictures' names per modeDifficulty where they differ from it lowercased: step 1 img_title_mode_guide, steps 2–3 mode_train. */
+/** @type {Readonly<Record<number, Readonly<Record<string, string>>>>} */
 const PLATE_NAME = Object.freeze({ 1: { TRAINING: 'guide' }, 2: { TRAINING: 'train' } });
 
 /**
@@ -231,8 +232,8 @@ export function stepHeadArt(step, difficulty, season) {
   const diff = typeof difficulty === 'string' && difficulty ? difficulty : null;
   const name = diff ? (PLATE_NAME[first ? 1 : 2][diff] || diff.toLowerCase()) : null;
   const ui = data.get('assets')?.ui;
-  const mirror = (key) => (ui && typeof ui === 'object' && typeof ui[key] === 'string' && ui[key] ? ui[key] : null);
-  const outer = (n) => localAsset('ui/outer', n);
+  const mirror = (/** @type {string} */ key) => (ui && typeof ui === 'object' && typeof ui[key] === 'string' && ui[key] ? ui[key] : null);
+  const outer = (/** @type {string} */ n) => localAsset('ui/outer', n);
   if (cn) {
     return {
       cn,
@@ -264,15 +265,15 @@ export function StepChain({ step, of, title, pub, season = data.season() }) {
   const difficulty = grade !== null ? gradeDifficulty(grade) : pub?.difficulty || null;
   const art = stepHeadArt(step, mode?.difficulty || difficulty, season);
   const first = step === 1;
-  const name = grade !== null ? gradeName(grade) : DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : mode?.name ? t(mode.name) : '';
-  const color = /^#[0-9a-f]{6}$/i.test(mode?.color || '') ? mode.color : DIFFICULTY_COLORS[difficulty] || null;
+  const name = grade !== null ? gradeName(grade) : /** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[difficulty] ? t(/** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[difficulty]) : mode?.name ? t(mode.name) : '';
+  const color = /^#[0-9a-f]{6}$/i.test(mode?.color || '') ? mode.color : /** @type {Record<string, string>} */ (DIFFICULTY_COLORS)[difficulty] || null;
   const plate = !difficulty ? null : art.plate
     ? html`<span class=${`sh-mode is-step${first ? 1 : 2}`} style=${`--mt:url("${art.plate}")${color ? `;--mc:${color}` : ''}`} data-testid="step-mode"><b>${name}</b></span>`
     : html`<span class="sh-mode is-tag" data-testid="step-mode"><${DifficultyTag} difficulty=${difficulty} modeId=${pub?.modeId} season=${season} /></span>`;
   const num = html`<span class="sh-num"><b>${step}</b><i><s class="sh-num__sl">/</s>${of}</i></span>`;
   return html`<div class=${`stephead__chain ${art.cn ? 'is-cn' : 'is-en'} is-step${step}`}>
     ${plate}
-    ${rules.preset !== 'classic' ? html`<span class="stephead__tags"><span class=${`rtag rtag--${rules.preset}`} data-testid="match-ruleset">${t(PRESET_LABELS[rules.preset])}</span></span>` : null}
+    ${rules.preset !== 'classic' ? html`<span class="stephead__tags"><span class=${`rtag rtag--${rules.preset}`} data-testid="match-ruleset">${t(/** @type {Record<string, string>} */ (PRESET_LABELS)[rules.preset])}</span></span>` : null}
     <i class=${`sh-split${art.split ? '' : ' is-flat'}`} style=${art.split ? `--split:url("${art.split}")` : null} aria-hidden="true"></i>
     ${art.cn && art.char ? html`<i class="sh-char" style=${`--char:url("${art.char}")`} aria-hidden="true"></i>` : null}
     ${art.cn

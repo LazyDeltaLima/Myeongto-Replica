@@ -47,7 +47,15 @@ export const KEEP_LINK = 'keep';
 /** How long the chat's 「…预设已套用 · 撤销」 line stays (ms); its × or typing in the chat drops it sooner (ui/factionPick.js). */
 export const PRESET_NOTICE_MS = 6000;
 
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * @typedef {{ factionId: string | null, base?: boolean, prev: { picks: Record<string, any>, active: string | null },
+ *   inMatch: boolean, at: number }} PresetNotice the chat's 「…预设已套用 · 撤销」 line (applyFactionPreset)
+ * @typedef {{ presets: Record<string, Record<string, any>>, base: Record<string, any>, active: string | null,
+ *   links: Record<string, string>, notice: PresetNotice | null }} DiyPresetState diyPresetStore's state
+ */
 
 /** The season whose presets diyPresetStore holds (setPresetSeason). */
 let presetSeason = DEFAULT_SEASON;
@@ -56,7 +64,7 @@ export const presetSeasonOf = () => presetSeason;
 /** A chat faction of the presets' season, or null. @param {unknown} id @param {unknown} [season] */
 const inSeason = (id, season = presetSeason) => seasonChatFaction(id, season);
 
-const isEmpty = (p) => !p || Object.keys(p).length === 0;
+const isEmpty = (/** @type {Record<string, any> | null | undefined} */ p) => !p || Object.keys(p).length === 0;
 
 /**
  * The valid rosters of a stored envelope (unknown factions, empty presets and junk dropped).
@@ -65,6 +73,7 @@ const isEmpty = (p) => !p || Object.keys(p).length === 0;
  * @param {unknown} [season] whose chat factions are kept (another season's are dropped)
  */
 export function parseStoredPresets(raw, current = {}, season = presetSeason) {
+  /** @type {Record<string, Record<string, any>>} */
   const out = {};
   const src = isObj(raw) && isObj(raw.presets) ? raw.presets : {};
   for (const [id, picks] of Object.entries(src)) {
@@ -81,7 +90,7 @@ export function parseStoredPresets(raw, current = {}, season = presetSeason) {
 const isLinkTarget = (v, season = presetSeason) => v === BASE_LINK || !!inSeason(v, season);
 /** A stored link: a target, or KEEP_LINK (a turned-off recommendation). @param {unknown} v @param {unknown} [season] */
 const isStoredLink = (v, season = presetSeason) => v === KEEP_LINK || isLinkTarget(v, season);
-const isBandId = (v) => typeof v === 'string' && /^band_[A-Za-z0-9_-]{1,48}$/.test(v);
+const isBandId = (/** @type {unknown} */ v) => typeof v === 'string' && /^band_[A-Za-z0-9_-]{1,48}$/.test(v);
 
 /**
  * The valid strategy links of a stored object (unknown targets and junk keys dropped).
@@ -95,7 +104,11 @@ export function cleanLinks(raw, season = presetSeason) {
   return out;
 }
 
-/** The envelope for localStorage. */
+/**
+ * The envelope for localStorage.
+ * @param {Record<string, any>} presets @param {Record<string, any> | null | undefined} base
+ * @param {string | null | undefined} active @param {unknown} [links]
+ */
 export function toStoredPresets(presets, base, active, links = {}) {
   return { v: DIY_PRESETS_VERSION, presets, base: base || {}, active: active ?? null, links: cleanLinks(links) };
 }
@@ -124,14 +137,17 @@ export function bandPresetChoice(bandId, band, links = diyPresetStore.get().link
   return rec && presets?.[rec] ? rec : BASE_LINK;
 }
 
-const samePicks = (a, b) => JSON.stringify(cleanPicks(a)) === JSON.stringify(cleanPicks(b));
+const samePicks = (/** @type {unknown} */ a, /** @type {unknown} */ b) => JSON.stringify(cleanPicks(a)) === JSON.stringify(cleanPicks(b));
 
-/** The stored presets of the season held (`current`: that season's picks, a v1 envelope's base). */
+/**
+ * The stored presets of the season held (`current`: that season's picks, a v1 envelope's base).
+ * @returns {Omit<DiyPresetState, 'notice' | 'links'> & { links?: Record<string, string> }}
+ */
 function readStored(current = loadoutStore.get().diy) {
   try { return parseStoredPresets(loadPref(seasonPref(DIY_PRESETS_PREF, presetSeason), null), current); } catch { return { presets: {}, base: {}, active: null, links: /** @type {Record<string, string>} */ ({}) }; }
 }
 
-export const diyPresetStore = createStore({ links: /** @type {Record<string, string>} */ ({}), ...readStored(), notice: null });
+export const diyPresetStore = createStore(/** @type {DiyPresetState} */ ({ links: /** @type {Record<string, string>} */ ({}), ...readStored(), notice: null }));
 
 /**
  * Hold another season's presets (main.js, on every change of the season on screen — before loadoutSync.js
@@ -148,18 +164,23 @@ export function setPresetSeason(season, target = diyPresetStore) {
   target.set({ links: {}, ...readStored(picks), notice: null });
 }
 
-/** The roster `id` holds (null = base; a faction without a preset: empty). */
+/** The roster `id` holds (null = base; a faction without a preset: empty). @param {DiyPresetState} s @param {string | null | undefined} id */
 function rosterOf(s, id) {
   return id == null ? s.base || {} : s.presets[id] || {};
 }
 
+/** @param {Partial<DiyPresetState>} patch @param {Partial<DiyPresetState>} [extra] */
 function save(patch, extra = {}) {
   const next = { ...diyPresetStore.get(), ...patch };
   try { savePref(seasonPref(DIY_PRESETS_PREF, presetSeason), toStoredPresets(next.presets, next.base, next.active, next.links)); } catch { /* private mode: the session keeps it */ }
   diyPresetStore.set({ presets: next.presets, base: next.base, active: next.active, links: next.links || {}, ...extra });
 }
 
-/** Store `picks` as roster `id` (null = base); an emptied faction's preset goes. */
+/**
+ * Store `picks` as roster `id` (null = base); an emptied faction's preset goes.
+ * @param {DiyPresetState} s @param {string | null | undefined} id @param {unknown} picks
+ * @returns {Partial<DiyPresetState>}
+ */
 function withRoster(s, id, picks) {
   const clean = cleanPicks(picks);
   if (id == null) return { base: clean };
@@ -169,7 +190,10 @@ function withRoster(s, id, picks) {
   return { presets };
 }
 
-/** The tab's preset bar: show roster `id` (a faction or null = 不使用预设); the roster left keeps its picks. */
+/**
+ * The tab's preset bar: show roster `id` (a faction or null = 不使用预设); the roster left keeps its picks.
+ * @param {string | null} id
+ */
 export function selectPreset(id) {
   const target = id != null && inSeason(id) ? id : null;
   const s = diyPresetStore.get();
@@ -179,7 +203,7 @@ export function selectPreset(id) {
   setDiyPicks(rosterOf(diyPresetStore.get(), target));
 }
 
-/** Forget a faction's preset (and show 不使用预设 again if it was the one shown). */
+/** Forget a faction's preset (and show 不使用预设 again if it was the one shown). @param {string} id */
 export function deletePreset(id) {
   const s = diyPresetStore.get();
   if (!s.presets[id] && s.active !== id) return;
@@ -236,7 +260,7 @@ export function linkBand(bandId, target) {
   const links = { ...(diyPresetStore.get().links || {}) };
   if (isStoredLink(target)) {
     if (links[bandId] === target) return;
-    links[bandId] = target;
+    links[bandId] = /** @type {string} */ (target);
   } else {
     if (!(bandId in links)) return;
     delete links[bandId];
@@ -317,8 +341,12 @@ export function clearPresetNotice() {
   if (diyPresetStore.get().notice) diyPresetStore.set({ notice: null });
 }
 
+/** @type {(() => void) | null} */
 let installed = null;
-/** Follow every change of the 自选 picks into the shown roster (main.js, once; returns the unsubscribe). */
+/**
+ * Follow every change of the 自选 picks into the shown roster (main.js, once; returns the unsubscribe).
+ * @param {{ source?: typeof loadoutStore }} [deps]
+ */
 export function installDiyPresets({ source = loadoutStore } = {}) {
   if (installed) return installed;
   let last = source.get().diy;

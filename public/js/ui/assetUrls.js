@@ -3,7 +3,9 @@
 // (glyph, CSS shape) when null. Only URLs present in the manifest are ever returned, so the client
 // never requests files the asset pipeline did not produce (no 404 noise in the console).
 
+/** @param {unknown} v @returns {string | null} */
 const str = (v) => (typeof v === 'string' && v ? v : null);
+/** @param {any} v @returns {Record<string, any> | null} */
 const obj = (v) => (v && typeof v === 'object' ? v : null);
 
 /** @param {any} m manifest @param {string} key 'group/key' */
@@ -53,7 +55,7 @@ export function chessPortraitUrl(m, chess) {
   return (chess?.isGolden ? str(byChar.portraitE2) : null) || str(byChar.portrait);
 }
 
-/** Skill icon of a chess record (manifest `skills[iconId]`, else the empty skill sprite). */
+/** Skill icon of a chess record (manifest `skills[iconId]`, else the empty skill sprite). @param {any} m @param {any} chess */
 export function skillIconUrl(m, chess) {
   const skills = obj(obj(m)?.skills);
   const id = str(chess?.assets?.skillIcon) || str(chess?.skill?.iconId) || str(chess?.skill?.skillId);
@@ -68,6 +70,7 @@ export function skillIconUrl(m, chess) {
  * Skill icon of one skill record (DESIGN §16 `skills[]`: iconId / skillId), else the empty skill sprite — or null with
  * `{ empty: false }` (the asset manifest only carries the default skills' icons: callers then draw a lettered S1–S3
  * tile instead of a blank square).
+ * @param {any} m @param {any} skill @param {{ empty?: boolean }} [opts]
  */
 export function skillRecordIconUrl(m, skill, { empty = true } = {}) {
   const skills = obj(obj(m)?.skills);
@@ -81,29 +84,34 @@ export function skillRecordIconUrl(m, skill, { empty = true } = {}) {
 /**
  * Skill icon of the skill a unit fights with: the loadout's chosen skill (chessLoadout `lo`; null when the manifest
  * lacks its icon) or, for the default skill, the record's own (`body`: the chess or its stand-in).
+ * @param {any} m @param {{ skill?: any, defaultSkill?: boolean } | null | undefined} lo @param {any} body
  */
 export function loadoutSkillIconUrl(m, lo, body) {
   return lo?.skill && !lo.defaultSkill ? skillRecordIconUrl(m, lo.skill, { empty: false }) : skillIconUrl(m, body);
 }
 
+/** @type {Readonly<Record<string, string>>} */
 const PROF_KEY = {
   PIONEER: 'pioneer', WARRIOR: 'warrior', TANK: 'tank', SNIPER: 'sniper', CASTER: 'caster', MEDIC: 'medic',
   SUPPORT: 'support', SPECIAL: 'special',
 };
 
-/** Profession icon (small white glyph). */
+/** Profession icon (small white glyph). @param {any} m @param {string | null | undefined} profession */
 export function profIconUrl(m, profession) {
   const k = PROF_KEY[String(profession || '').toUpperCase()];
   return k ? str(obj(obj(obj(m)?.prof)?.icon)?.[k]) : null;
 }
 
-/** Square profession glyph (manifest `prof.large`: a black glyph on white, drawn as a white one by loadout.css). */
+/**
+ * Square profession glyph (manifest `prof.large`: a black glyph on white, drawn as a white one by loadout.css).
+ * @param {any} m @param {string | null | undefined} profession
+ */
 export function profGlyphUrl(m, profession) {
   const v = obj(obj(obj(m)?.prof)?.large)?.[String(profession || '').toLowerCase()];
   return str(v);
 }
 
-/** Sub-profession icon from a chess record (`assets.subProfIcon` = 'sub_<id>_icon'). */
+/** Sub-profession icon from a chess record (`assets.subProfIcon` = 'sub_<id>_icon'). @param {any} m @param {any} chess */
 export function subProfIconUrl(m, chess) {
   const sub = obj(obj(obj(m)?.prof)?.sub);
   if (!sub) return null;
@@ -112,25 +120,28 @@ export function subProfIconUrl(m, chess) {
   return id ? str(sub[id]) : null;
 }
 
-/** Bond glyph (white; tint in CSS). */
+/** Bond glyph (white; tint in CSS). @param {any} m @param {string | null | undefined} bondId */
 export function bondIconUrl(m, bondId) {
   return bondId ? str(obj(obj(m)?.bonds)?.[bondId]) : null;
 }
 
-/** Band (strategy) icon. */
+/** Band (strategy) icon. @param {any} m @param {string | null | undefined} bandId */
 export function bandIconUrl(m, bandId) {
   return bandId ? str(obj(obj(m)?.bands)?.[bandId]) : null;
 }
 
-/** Item icon for an items.json record (by trapId / iconId) or a raw trap id. */
+/**
+ * Item icon for an items.json record (by trapId / iconId) or a raw trap id.
+ * @param {any} m @param {string | { iconId?: string, trapId?: string } | null | undefined} item
+ */
 export function itemIconUrl(m, item) {
   const items = obj(obj(m)?.items);
   if (!items) return null;
   if (typeof item === 'string') return str(items[item]);
-  return str(items[item?.iconId]) || str(items[item?.trapId]);
+  return str(items[/** @type {string} */ (item?.iconId)]) || str(items[/** @type {string} */ (item?.trapId)]);
 }
 
-/** Enemy icon (manifest keeps fallbacks resolved). */
+/** Enemy icon (manifest keeps fallbacks resolved). @param {any} m @param {string | null | undefined} enemyKey */
 export function enemyIconUrl(m, enemyKey) {
   const e = enemyKey ? obj(obj(obj(m)?.enemies)?.[enemyKey]) : null;
   if (e?.icon) return str(e.icon);
@@ -139,7 +150,7 @@ export function enemyIconUrl(m, enemyKey) {
   return base && base !== enemyKey ? str(obj(obj(obj(m)?.enemies)?.[base])?.icon) : null;
 }
 
-/** Token avatar, falling back to its owner operator's avatar. */
+/** Token avatar, falling back to its owner operator's avatar. @param {any} m @param {string | null | undefined} tokenId */
 export function tokenAvatarUrl(m, tokenId) {
   const tokens = obj(obj(m)?.tokens);
   const t = tokenId ? obj(tokens?.[tokenId]) : null;
@@ -148,17 +159,20 @@ export function tokenAvatarUrl(m, tokenId) {
   return null;
 }
 
-/** Faction (特训敌人 type) icon: `enemyTypeIcon/<icon>`. */
+/** Faction (特训敌人 type) icon: `enemyTypeIcon/<icon>`. @param {any} m @param {string | null | undefined} iconId */
 export function factionIconUrl(m, iconId) {
   return iconId ? uiUrl(m, `enemyTypeIcon/${iconId}`) : null;
 }
 
-/** Title (评语) icon: `titleIcon/<picId>`. */
+/** Title (评语) icon: `titleIcon/<picId>`. @param {any} m @param {string | null | undefined} picId */
 export function titleIconUrl(m, picId) {
   return picId ? uiUrl(m, `titleIcon/${picId}`) : null;
 }
 
-/** Greek type letters of some modules (ISW-α, …) → the Latin letter of the client's icon file names (isw-a). */
+/**
+ * Greek type letters of some modules (ISW-α, …) → the Latin letter of the client's icon file names (isw-a).
+ * @type {Readonly<Record<string, string>>}
+ */
 const GREEK = { 'α': 'a', 'β': 'b', 'γ': 'g', 'δ': 'd', 'Δ': 'd' };
 /** Lower-cased key → path index of a local `groups.module` object (built once per manifest object). */
 const moduleIconIndex = new WeakMap();
@@ -229,12 +243,12 @@ export const SEASON_UI_FOLDERS = Object.freeze({
 export function withSeasonArt(m, local, season, records = {}) {
   const groups = obj(obj(local)?.groups);
   if (!obj(m) || !groups || !str(season)) return m;
-  const group = (folder) => obj(groups[`season/${season}/${folder}`]);
-  const at = (g, name) => (g && name && Object.hasOwn(g, name) ? str(obj(g[name])?.path) : null);
+  const group = (/** @type {string} */ folder) => obj(groups[`season/${season}/${folder}`]);
+  const at = (/** @type {Record<string, any> | null} */ g, /** @type {string | null} */ name) => (g && name && Object.hasOwn(g, name) ? str(obj(g[name])?.path) : null);
   const bandIcons = group('bandicon');
   const bondIcons = group('bondicon');
   const itemIcons = group('shopitemicon');
-  const ui = Object.entries(SEASON_UI_FOLDERS).map(([folder, key]) => [group(folder), key]).filter(([g]) => g);
+  const ui = /** @type {Array<[Record<string, any>, string]>} */ (Object.entries(SEASON_UI_FOLDERS).map(([folder, key]) => [group(folder), key]).filter(([g]) => g));
   if (!bandIcons && !bondIcons && !itemIcons && !ui.length) return m;
   const out = { ...m, bands: { ...obj(m.bands) }, bonds: { ...obj(m.bonds) }, items: { ...obj(m.items) }, ui: { ...obj(m.ui) } };
   for (const b of Array.isArray(records.bands) ? records.bands : []) {

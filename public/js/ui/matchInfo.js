@@ -43,6 +43,7 @@ import { t, dn } from '../../../shared/i18n.js';
 import { customSummary, CustomRulesInfo } from './customSummary.js';
 import { officialBans } from '../../../shared/ruleset.js';
 
+/** @param {...unknown} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /**
@@ -75,14 +76,15 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
  */
 export function matchInfoModel(pub, { bonds = [], chess = () => null, mode = null, priv = null, diyData = null, bans = undefined } = {}) {
   const sets = disabledBondSets(pub, mode?.inactiveBondIds);
-  const stateOf = (id) => (sets.off.has(id) ? 'off' : sets.drawn.has(id) ? 'drawn' : null);
+  const stateOf = (/** @type {string} */ id) => (sets.off.has(id) ? 'off' : sets.drawn.has(id) ? 'drawn' : null);
   const list = (Array.isArray(bonds) ? bonds : []).filter((b) => !!b && typeof b === 'object' && typeof b.bondId === 'string');
   // the client's sort of the stage-info bond items and groups: not banned first, then identifier, then bondId (ordinal)
   const shown = list.filter((b) => !sets.off.has(b.bondId)).sort((a, b) => Number(sets.drawn.has(a.bondId)) - Number(sets.drawn.has(b.bondId))
     || (a.identifier ?? 0) - (b.identifier ?? 0) || (a.bondId < b.bondId ? -1 : a.bondId > b.bondId ? 1 : 0));
-  const tierOf = (id) => chess(id)?.tier ?? 0;
-  const known = (Array.isArray(pub?.bannedChess) ? pub.bannedChess : []).filter((id) => typeof id === 'string' && !!chess(id))
-    .sort((a, b) => tierOf(a) - tierOf(b));
+  const tierOf = (/** @type {string} */ id) => chess(id)?.tier ?? 0;
+  /** @type {string[]} */
+  const known = (Array.isArray(pub?.bannedChess) ? pub.bannedChess : []).filter((/** @type {unknown} */ id) => typeof id === 'string' && !!chess(id))
+    .sort((/** @type {string} */ a, /** @type {string} */ b) => tierOf(a) - tierOf(b));
   const core = shown.filter((b) => b.isCore);
   const addon = shown.filter((b) => !b.isCore);
   const bannedGroups = shown.filter((b) => sets.drawn.has(b.bondId)).map((bond) => {
@@ -93,10 +95,10 @@ export function matchInfoModel(pub, { bonds = [], chess = () => null, mode = nul
   const bondIds = new Set(list.map((b) => b.bondId));
   const bg = pub?.bondGroups;
   const groups = bg && Array.isArray(bg.groups) && bg.groups.length === 2 && bg.groups.every(Array.isArray) && (bg.picked === 0 || bg.picked === 1)
-    ? { groups: bg.groups.map((g) => g.filter((id) => bondIds.has(id))), picked: bg.picked } : null;
+    ? { groups: bg.groups.map((/** @type {string[]} */ g) => g.filter((id) => bondIds.has(id))), picked: bg.picked } : null;
   return {
     groups, addonIncomplete: addon.some((b) => sets.drawn.has(b.bondId)),
-    bannedAll: (Array.isArray(pub?.bannedChess) ? pub.bannedChess : []).filter((id) => typeof id === 'string'),
+    bannedAll: (Array.isArray(pub?.bannedChess) ? pub.bannedChess : []).filter((/** @type {unknown} */ id) => typeof id === 'string'),
     sets, stateOf, bonds: list, core, addon,
     banned: known.filter((id) => listed.has(id)), perBond: bannedPerBond(list, known), bannedGroups,
     diyBanned: priv && diyData ? diyBannedPieces(priv, chess, diyData) : [],
@@ -104,19 +106,22 @@ export function matchInfoModel(pub, { bonds = [], chess = () => null, mode = nul
   };
 }
 
-/** The custom rules lines of a match (m.public.ruleset.custom), or null when it is not a 自定义 match. */
+/**
+ * The custom rules lines of a match (m.public.ruleset.custom), or null when it is not a 自定义 match.
+ * @param {any} pub @param {any[]} bonds @param {any} mode @param {any} bans
+ */
 function customLines(pub, bonds, mode, bans) {
   const rs = pub?.ruleset;
   if (rs?.preset !== 'custom') return null;
   const bondNames = new Map(bonds.map((b) => [b.bondId, b.name]));
-  const name = (kind, id) => (kind === 'bond' ? bondNames.get(id) : kind === 'type' ? data.lendable('types', id)?.name
+  const name = (/** @type {string} */ kind, /** @type {string} */ id) => (kind === 'bond' ? bondNames.get(id) : kind === 'type' ? data.lendable('types', id)?.name
     : kind === 'stage' ? data.lendable('stages', id)?.name : data.lookup('bosses', id)?.name) || id;
   return customSummary(rs.custom, {
     solo: String(pub.modeId || '').includes('single'),
     bans: bans !== undefined ? bans : officialBans(data.get('config'), pub.difficulty, pub.size),
     rounds: Number.isInteger(mode?.lastRound) ? mode.lastRound : null,
     name,
-    hidden: (id) => !!data.lookup('bosses', id)?.hidden,
+    hidden: (/** @type {string} */ id) => !!data.lookup('bosses', id)?.hidden,
   });
 }
 
@@ -132,7 +137,7 @@ export function DiyBannedLine({ model, class: cls = 'brief-banned__diy' }) {
 }
 
 /** A sprite of the client's stage-info view (local-client extraction ui/outer), or null. */
-const outerArt = (name) => localAsset('ui/outer', name);
+const outerArt = (/** @type {string} */ name) => localAsset('ui/outer', name);
 
 /**
  * The section title bar of the stage-info view (perm_bond_title = 核心盟约 / temp_bond_title = 附加盟约 / chess_banned_title /
@@ -147,7 +152,7 @@ const outerArt = (name) => localAsset('ui/outer', name);
 export function InfoTitle({ kind, title, micro, extra = null, bar: barName = null }) {
   const name = barName || (kind === 'perm' ? 'img_group_title_perm_bond' : 'img_group_title');
   const bar = outerArt(name);
-  const icon = outerArt({ perm: 'img_title_icon_temp_bond', temp: 'img_title_icon_perm_bond', enemy: 'img_title_icon_enemy' }[kind] || 'img_title_icon_chess');
+  const icon = outerArt(/** @type {Record<string, string>} */ ({ perm: 'img_title_icon_temp_bond', temp: 'img_title_icon_perm_bond', enemy: 'img_title_icon_enemy' })[kind] || 'img_title_icon_chess');
   return html`<h3 class=${cx('brief-h', 'brief-h--art', `brief-h--${kind}`, icon && 'has-icon', bar && name === 'img_group_title' && 'is-sliced')} style=${bar ? `--bar:url("${bar}")` : null}>
     ${icon ? html`<img class="brief-h__icon" src=${icon} alt="" draggable=${false} />` : null}<span>${title}</span>${extra}<${MicroLabel}>${micro}</${MicroLabel}>
   </h3>`;
@@ -202,10 +207,10 @@ export function MatchBondRow({ title, micro, bonds, model, kind = 'temp', extra 
  * The title row keeps one line (maintainer decision 2026-11-18 — on a phone the drawer's chip had dropped under the
  * title): where the row overflows its box the chip's text shrinks (bestFit, not under TIP_MIN_PX), then ends in an
  * ellipsis (.is-tight; the whole text stays the title). Measured after mounting and when the row's width changes.
- * @param {{ class?: string }} [props]
+ * @param {{ class?: string | null }} [props]
  */
 export function IncompleteTip({ class: cls = null } = {}) {
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLElement | null} */ (null));
   useLayoutEffect(() => {
     const tip = ref.current;
     const row = tip?.parentElement;
@@ -215,7 +220,7 @@ export function IncompleteTip({ class: cls = null } = {}) {
       const w = row.clientWidth;
       if (w === last) return;
       last = w;
-      fitTip(tip, row);
+      fitTip(/** @type {HTMLElement} */ (tip), row);
     };
     fit();
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
@@ -248,7 +253,7 @@ export function fitTip(tip, row) {
 }
 
 /** A sprite of the 规程 briefing's stage-info view (season/act3autochess/stageinfo; the shared ones from ui/outer), or null. */
-export const stageArt = (name) => localAsset('season/act3autochess/stageinfo', name) || outerArt(name);
+export const stageArt = (/** @type {string} */ name) => localAsset('season/act3autochess/stageinfo', name) || outerArt(name);
 
 /**
  * Item i of a group's list in the panel's item_container_(i+1): the 1st, 3rd and 5th on the top row, the 2nd and 4th
@@ -276,14 +281,14 @@ export function BondGroups({ model, onPick = null, hint = null }) {
   const art = ['img_select_text', 'img_blur_bond', 'img_bond_group_select', 'img_select_decorate', 'img_single_choose_bg']
     .map((n, i) => [['--a-text', '--a-blur', '--a-bar', '--a-deco', '--a-bg'][i], stageArt(n)]).filter(([, u]) => u)
     .map(([k, u]) => `${k}:url("${u}")`).join(';');
-  const bondOf = (id) => model.bonds.find((b) => b.bondId === id) || { bondId: id, name: id };
-  const item = (id, off) => {
+  const bondOf = (/** @type {string} */ id) => model.bonds.find((b) => b.bondId === id) || { bondId: id, name: id };
+  const item = (/** @type {string} */ id, /** @type {boolean} */ off) => {
     const bond = bondOf(id);
     const tip = briefingBondTip(bond.name, off ? 'drawn' : null, off ? model.perBond.get(id) || 0 : 0);
     const inner = html`<${InfoBond} bond=${bond} off=${off} />`;
     return html`<div key=${id} class="bgrp__cell" data-bond=${id}><span class="bgrp__bond" title=${tip}>${inner}</span></div>`;
   };
-  const key = (i) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(i); } };
+  const key = (/** @type {number} */ i) => (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); /** @type {(i: number) => void} */ (onPick)(i); } };
   return html`<div class=${cx('bgrp', hint && 'has-hint', onPick && 'is-pickable', !art && 'no-art')} style=${art || null} role=${onPick ? 'radiogroup' : null} data-testid="bond-groups">
     ${hint ? html`<p class="bgrp__hint">${hint}</p>` : null}
     <div class="bgrp__pair">${g.groups.map((list, i) => {
@@ -309,7 +314,7 @@ export function BondGroups({ model, onPick = null, hint = null }) {
  * @param {{ model: MatchInfoModel }} props
  */
 export function BondGroupsView({ model }) {
-  const box = useRef(null);
+  const box = useRef(/** @type {HTMLElement | null} */ (null));
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return undefined;
@@ -367,7 +372,7 @@ export function MatchLegend(_props) {
  * 「스킨 고르기」) — or `src` / `name` / `tier` for a 自选 pick (the operator's own avatar).
  * Sized by `--ci`, the avatar (css/screens/briefing.css); without the local art, CSS stand-ins.
  * @param {{ id?: string|null, src?: string|null, name?: string, tier?: number|null, banned?: boolean, title?: string|null,
- *   class?: string }} props
+ *   class?: string | null }} props
  */
 export function ChessIcon({ id = null, src = null, name = '', tier = null, banned = false, title = null, class: cls = null }) {
   const c = id ? data.lookup('chess', id) : null;
@@ -450,7 +455,7 @@ export function MatchInfo({ model, onChess = null }) {
  * The read-only match-info dialog (the strategy draft's 盟约信息, 确定自选编队's 本局信息): MatchInfo in a Modal that 关闭, a
  * tap outside or Esc closes. `title` follows the caller's button (default 本局信息). `status` (the caller's line, e.g. the
  * draft's turn and countdown) sits left of 关闭.
- * @param {{ open: boolean, onClose: Function, model: MatchInfoModel|null, title?: string, hideTitle?: boolean, status?: any }} props
+ * @param {{ open: boolean, onClose: Function, model: MatchInfoModel|null, title?: string | null, hideTitle?: boolean, status?: any }} props
  */
 export function MatchInfoDialog({ open, onClose, model, title = null, hideTitle = false, status = null }) {
   return html`<${Modal} open=${open && !!model} onClose=${onClose} title=${title ?? t('本局信息')} hideTitle=${hideTitle} micro="MATCH INFO // BONDS & BANNED OPERATORS" class="minfo-dlg"

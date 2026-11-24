@@ -115,7 +115,7 @@ function QuickModule({ m, opt, on, onPick, disabled = false }) {
   return html`<button type="button" class=${cx('lo-q', 'lo-q--mod', on && 'is-on')} data-module=${opt.id} aria-pressed=${on ? 'true' : 'false'}
       aria-label=${label} title=${label} disabled=${disabled} onClick=${() => onPick(opt.id)}>
     <${ModuleGlyph} m=${m} rec=${opt.rec} id=${opt.id} size="q" />
-    ${opt.id !== MODULE_NONE ? html`<b class="lo-q__type num" aria-hidden="true">${moduleBadge(opt.rec, /** @type {any} */ (opt.id))}</b>` : null}
+    ${opt.id !== MODULE_NONE ? html`<b class="lo-q__type num" aria-hidden="true">${moduleBadge(opt.rec, opt.id)}</b>` : null}
   </button>`;
 }
 
