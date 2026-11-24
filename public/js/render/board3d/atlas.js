@@ -16,11 +16,13 @@
 // (512² each), ribbed side panels (gold / grey), the hazard-framed glass hatch, the ▲▼ lift plate, grille slats,
 // dark machinery hatch, gold ring hatch (objective), orange crate panels.
 
+/** @type {Readonly<Record<string, Readonly<{ w: number, h: number }>>>} */
 export const SOURCES = Object.freeze({
   D: Object.freeze({ w: 2048, h: 2048 }),
   common: Object.freeze({ w: 1024, h: 1024 }),
 });
 
+/** @param {string} src @param {number[]} rect @param {{ rot?: number }} [o] */
 const S = (src, rect, o = {}) => Object.freeze({ src, rect: Object.freeze(rect), ...o });
 
 /** Surface → atlas region (see header). Names are used by layout.js. */
@@ -69,24 +71,35 @@ export const SURFACES = Object.freeze({
   arrowDown: S('common', [776, 762, 244, 244]),
 });
 
+/**
+ * @typedef {{ src: string, rect: readonly number[], rot?: number, flipX?: boolean, tint?: string }} Surface an atlas region
+ * @typedef {Record<string, Surface>} UvTable surface name → region (resolveUvTable)
+ */
+
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
-/** Validate one surface record (from tiles.json) → a clean record or null. */
+/** Validate one surface record (from tiles.json) → a clean record or null. @param {unknown} v @returns {Surface | null} */
 export function cleanSurface(v) {
   if (!isObj(v) || !SOURCES[v.src] || !Array.isArray(v.rect) || v.rect.length !== 4) return null;
   const [x, y, w, h] = v.rect.map(Number);
   const src = SOURCES[v.src];
   if (![x, y, w, h].every(Number.isFinite) || w < 4 || h < 4 || x < 0 || y < 0 || x + w > src.w || y + h > src.h) return null;
   const rot = [0, 90, 180, 270].includes(v.rot) ? v.rot : 0;
+  /** @type {Surface} */
   const out = { src: v.src, rect: [x, y, w, h], rot, flipX: !!v.flipX };
   if (typeof v.tint === 'string' && /^#[0-9a-f]{6}$/i.test(v.tint)) out.tint = v.tint;
   return out;
 }
 
-/** Surface table: defaults overridden by a tiles.json `board3d` section (invalid entries ignored). */
+/**
+ * Surface table: defaults overridden by a tiles.json `board3d` section (invalid entries ignored).
+ * @param {unknown} tiles tiles.json @returns {UvTable}
+ */
 export function resolveUvTable(tiles) {
+  /** @type {UvTable} */
   const out = {};
-  for (const [k, v] of Object.entries(SURFACES)) out[k] = cleanSurface(v);
+  for (const [k, v] of Object.entries(SURFACES)) out[k] = /** @type {Surface} */ (cleanSurface(v));
   const extra = isObj(tiles) && isObj(tiles.board3d) ? tiles.board3d : null;
   if (extra) for (const [k, v] of Object.entries(extra)) { const c = cleanSurface(v); if (c) out[k] = c; }
   return out;
@@ -98,6 +111,7 @@ export function resolveUvTable(tiles) {
  * `sub` = [u0, v0, u1, v1] (fractions of the rect, v down) crops the rect (side panels, partial faces).
  * Returns [u,v, u,v, u,v, u,v] in three's convention (v up, textures flipped on upload). `inset` (source px)
  * keeps mip filtering inside the region.
+ * @param {Surface} surface @param {readonly number[] | null} [sub] @param {number} [inset]
  */
 export function surfaceUV(surface, sub = null, inset = 2) {
   const src = SOURCES[surface.src] || SOURCES.D;
@@ -112,13 +126,16 @@ export function surfaceUV(surface, sub = null, inset = 2) {
   // texture corners in face order BL, BR, TR, TL
   let c = [[u0, vBot], [u1, vBot], [u1, vTop], [u0, vTop]];
   if (surface.flipX) c = [c[1], c[0], c[3], c[2]];
-  const turns = ((surface.rot | 0) / 90) & 3;
+  const turns = ((/** @type {number} */ (surface.rot) | 0) / 90) & 3;
   // rotating the texture clockwise on the face = the face corner k samples texture corner k − turns
   for (let t = 0; t < turns; t++) c = [c[1], c[2], c[3], c[0]];
   return [c[0][0], c[0][1], c[1][0], c[1][1], c[2][0], c[2][1], c[3][0], c[3][1]];
 }
 
-/** Sub-rect (fractions) of a side panel that keeps the texture undistorted on a face `width` × `height` tiles. */
+/**
+ * Sub-rect (fractions) of a side panel that keeps the texture undistorted on a face `width` × `height` tiles.
+ * @param {Surface} surface @param {number} width @param {number} height
+ */
 export function sideRect(surface, width, height) {
   const [, , w, h] = surface.rect;
   const faceAspect = Math.max(1e-3, height / Math.max(1e-3, width));
@@ -128,7 +145,7 @@ export function sideRect(surface, width, height) {
   return [0, 0, 1, frac];
 }
 
-/** '#rrggbb' → [r, g, b] (0..1); null → [1, 1, 1]. */
+/** '#rrggbb' → [r, g, b] (0..1); null → [1, 1, 1]. @param {unknown} hex */
 export function tintRgb(hex) {
   if (typeof hex !== 'string' || !/^#[0-9a-f]{6}$/i.test(hex)) return [1, 1, 1];
   const n = parseInt(hex.slice(1), 16);

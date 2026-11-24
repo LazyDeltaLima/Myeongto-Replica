@@ -38,6 +38,23 @@ import { buildOfficialScene, OFFICIAL_DEVICE } from './official.js';
 import { TileOverlay } from './tileOverlay.js'; // local patch: official deploy tint / range stripes (LOCAL-PATCH.md 「배치 UI」)
 import { InfectionFx } from './infection.js'; // local patch: the 活性源石 tile effect (LOCAL-PATCH.md 「공식 맵 렌더링」)
 
+/**
+ * @import { Three, ThreeObj } from './materials.js'
+ * @import { BoardPack } from './load.js'
+ * @import { Rect } from './layout.js'
+ * @import { SceneData } from './official.js'
+ * @import { Camera } from '../projection.js'
+ * @typedef {{ position: Float32Array, normal?: Float32Array | null, uv?: Float32Array | null, color?: Float32Array | null,
+ *   index: Uint16Array | Uint32Array }} MeshData board-space mesh arrays (layout.js Geom, obj.js parseObj)
+ * @typedef {ReturnType<typeof buildBoard>} Board
+ * @typedef {ReturnType<typeof buildOfficialScene>} OfficialBuilt
+ * @typedef {Record<string, ThreeObj | null>} Meshes the board's meshes by part
+ * @typedef {{ x: number, y: number, z: number, size?: number, height?: number, alpha?: number, tint?: number, key?: string,
+ *   top?: string, clip?: { name?: string, t?: number } | null }} DeviceBox render/units.js DeviceView's box of a battle device
+ * @typedef {{ mesh: null, board: BoardScene, readonly destroyed: boolean, update(cam: unknown, b: DeviceBox | null | undefined): void,
+ *   destroy(): void, clipDur?: (name: string) => number }} DeviceHandle a battle device's handle (createDevice)
+ */
+
 /** Lighting rig (tuned against the official screenshots: bright even tops, darker sides, soft shadows). */
 export const LIGHTING = Object.freeze({
   key: { color: 0xfff1df, intensity: 2.6, dir: [-5.2, -3.4, 10] },
@@ -88,14 +105,16 @@ export const GATE_ADD = Object.freeze({ start: 0.2, end: 0.5 });
  *  merged_textures variant has them white) — a red tint fitted to its lines (≈ 253,47,62). */
 export const GATE_START_TINT = Object.freeze([1, 0.22, 0.25]);
 
-/** Gate pulse: the official clip's _TintColor.a curve (2 s loop, 0.134 → 0.229 → 0.134) scaled to our intensity. */
+/** Gate pulse: the official clip's _TintColor.a curve (2 s loop, 0.134 → 0.229 → 0.134) scaled to our intensity. @param {number} t @param {number} [phase] */
 export function gatePulse(t, phase = 0) {
   const k = 0.5 - 0.5 * Math.cos(((t / 2 + phase) % 1) * Math.PI * 2);
   return 0.134 + (0.229 - 0.134) * k;
 }
 
+/** @param {readonly Rect[] | null | undefined} list */
 const areaKey = (list) => (list || []).map((a) => `${a.r0},${a.r1},${a.c0},${a.c1}`).sort().join(';');
 
+/** @param {readonly MeshData[]} list */
 const mergeInto = (list) => {
   // concatenate { position, normal, uv, color?, index } records
   let nv = 0, ni = 0;
@@ -115,7 +134,11 @@ const mergeInto = (list) => {
   return { position, normal, uv, color, index };
 };
 
-/** Apply a 4×4-free transform (scale s, rotate about z by `rot` quarter turns, translate) to board-space data. */
+/**
+ * Apply a 4×4-free transform (scale s, rotate about z by `rot` quarter turns, translate) to board-space data.
+ * @template {MeshData} M
+ * @param {M} src @param {{ x?: number, y?: number, z?: number, s?: number, sz?: number, rot?: number }} opts
+ */
 function placeMesh(src, { x = 0, y = 0, z = 0, s = 1, sz = s, rot = 0 }) {
   const p = src.position, n = src.normal;
   const pos = new Float32Array(p.length), nrm = n ? new Float32Array(n.length) : null;
@@ -123,7 +146,7 @@ function placeMesh(src, { x = 0, y = 0, z = 0, s = 1, sz = s, rot = 0 }) {
   for (let i = 0; i < p.length; i += 3) {
     const px = p[i] * s, py = p[i + 1] * s;
     pos[i] = x + px * ca - py * sa; pos[i + 1] = y + px * sa + py * ca; pos[i + 2] = z + p[i + 2] * sz;
-    if (nrm) { nrm[i] = n[i] * ca - n[i + 1] * sa; nrm[i + 1] = n[i] * sa + n[i + 1] * ca; nrm[i + 2] = n[i + 2]; }
+    if (nrm) { nrm[i] = /** @type {Float32Array} */ (n)[i] * ca - /** @type {Float32Array} */ (n)[i + 1] * sa; nrm[i + 1] = /** @type {Float32Array} */ (n)[i] * sa + /** @type {Float32Array} */ (n)[i + 1] * ca; nrm[i + 2] = /** @type {Float32Array} */ (n)[i + 2]; }
   }
   return { ...src, position: pos, normal: nrm };
 }
@@ -131,23 +154,25 @@ function placeMesh(src, { x = 0, y = 0, z = 0, s = 1, sz = s, rot = 0 }) {
 /**
  * Grow a textured plane `k`× about (cx, cy) keeping its texel density: positions scale by k, UVs scale by k about
  * the texture centre (0..1 → (1−k)/2..(1+k)/2), so a MirroredRepeat texture tiles seamlessly around the original.
+ * @template {MeshData} M
+ * @param {M} src @param {number} cx @param {number} cy @param {number} [k]
  */
 export function extendPlane(src, cx, cy, k = 1) {
   if (!(k > 1) || !src || !src.position) return src;
   const p = src.position, pos = new Float32Array(p.length);
   for (let i = 0; i < p.length; i += 3) { pos[i] = cx + (p[i] - cx) * k; pos[i + 1] = cy + (p[i + 1] - cy) * k; pos[i + 2] = p[i + 2]; }
   let uv = src.uv;
-  if (uv) { uv = new Float32Array(src.uv.length); for (let i = 0; i < uv.length; i++) uv[i] = 0.5 + (src.uv[i] - 0.5) * k; }
+  if (uv) { uv = new Float32Array(/** @type {Float32Array} */ (src.uv).length); for (let i = 0; i < uv.length; i++) uv[i] = 0.5 + (/** @type {Float32Array} */ (src.uv)[i] - 0.5) * k; }
   return { ...src, position: pos, uv };
 }
 
 /** Quarter turns (counter-clockwise about +z) that point the wind device's outlet (−x in the mesh) along `dir`. */
-export const DIR_TURNS = Object.freeze({ LEFT: 0, DOWN: 1, RIGHT: 2, UP: 3 });
+export const DIR_TURNS = /** @type {Readonly<Record<string, number>>} */ (Object.freeze({ LEFT: 0, DOWN: 1, RIGHT: 2, UP: 3 }));
 
 export class BoardScene {
   /**
-   * @param {any} THREE three.js module
-   * @param {any} pack load.js loadBoardPack result
+   * @param {Three} THREE three.js module
+   * @param {BoardPack | null | undefined} pack load.js loadBoardPack result
    * @param {{ canvas?: HTMLCanvasElement, quality?: string, antialias?: boolean, renderer?: any,
    *   preserveDrawingBuffer?: boolean, shadows?: boolean, environment?: boolean, official?: boolean,
    *   loadOfficial?: (stageId: string, o: { retry: boolean, partial: boolean }) => any, officialRetryMs?: number[],
@@ -173,7 +198,7 @@ export class BoardScene {
     R.shadowMap.type = T.PCFShadowMap;
     R.shadowMap.autoUpdate = false;
     this.canvas = R.domElement;
-    this._onLost = (e) => { e.preventDefault?.(); this.lost = true; };
+    this._onLost = (/** @type {Event} */ e) => { e.preventDefault?.(); this.lost = true; };
     this.canvas.addEventListener?.('webglcontextlost', this._onLost);
 
     this.scene = new T.Scene();
@@ -219,7 +244,7 @@ export class BoardScene {
       smog: smogMaterial(T, this.tex, this.focus),
       shadowCatcher: new T.ShadowMaterial({ opacity: 0.32, color: 0x000000 }),
     };
-    this.mat.crateFade = null;
+    /** @type {Record<string, unknown>} */ (this.mat).crateFade = null;
     // lights
     const hemi = new T.HemisphereLight(LIGHTING.hemi.sky, LIGHTING.hemi.ground, LIGHTING.hemi.intensity);
     hemi.position.set(0, 0, 1);
@@ -239,27 +264,40 @@ export class BoardScene {
     this.dynamic = new T.Group();
     this.officialRoot = new T.Group();   // official scene meshes: kept across area rebuilds of the same stage
     this.scene.add(this.root, this.dynamic, this.officialRoot);
+    /** @type {string | null} */
     this.stageKey = null;
+    /** @type {any} data/stages.json entry */
     this.stage = null;
     this.area = AREAS.normal;
     this.areaKey = areaKey(AREAS.normal);
+    /** @type {Rect | null} */
     this.battleRect = null;
+    /** @type {Set<DeviceHandle>} */
     this.devices = new Set();
+    /** @type {{ r: number, c: number, t: number }[]} */
     this.flashes = [];
     this.time = 0;
     this.size = { w: 1, h: 1, dpr: 1 };
     this.camVersion = -1;
+    /** @type {Camera | null} */
     this.camRef = null;
     this.frames = 0;
     this.skipped = 0;                // render() calls that kept the last picture (BOARD_REDRAW_MAX_S)
     this._rev = 0;                   // bumped by every rebuild (_touch)
+    /** @type {{ rev: number, cam: Camera, camVersion: number, t: number, flash: number, ov: number, inf: number } | null} */
     this._drawn = null;              // what the last draw showed: { rev, cam, camVersion, t, flash, eased, ov, inf }
     this.lastMs = 0;
+    /** @type {ReturnType<typeof boxProjectUV<MeshData>> | null} */
     this._crateGeom = null;
+    /** @type {Map<string, SceneData | null>} */
     this.officialData = new Map();   // stageId → loaded official scene (null: none / failed)
+    /** @type {Set<string>} */
     this.officialPending = new Set();
+    /** @type {Set<ReturnType<typeof setTimeout>>} */
     this._officialTimers = new Set(); // pending retries of an official scene that was not loaded whole
+    /** @type {OfficialBuilt | null} */
     this.officialBuilt = null;
+    /** @type {OfficialBuilt | null} */
     this._officialWarm = null;       // an official scene built and warmed off screen, until setStage takes it (_warmOfficial)
     this.overlay = new TileOverlay(T, this.scene); // local patch
     this.infectionFx = new InfectionFx(T, this.scene); // local patch
@@ -267,6 +305,7 @@ export class BoardScene {
 
   // ---- geometry ----------------------------------------------------------------------------------------------
 
+  /** @param {MeshData} data */
   _geometry(data) {
     const T = this.THREE;
     const g = new T.BufferGeometry();
@@ -280,6 +319,10 @@ export class BoardScene {
     return g;
   }
 
+  /**
+   * @param {MeshData | null | undefined} data @param {ThreeObj | null | undefined} material
+   * @param {{ cast?: boolean, receive?: boolean, order?: number }} [opts]
+   */
   _mesh(data, material, { cast = true, receive = true, order = 0 } = {}) {
     if (!data || !material || !(data.index?.length > 0)) return null;
     const m = new this.THREE.Mesh(this._geometry(data), material);
@@ -306,10 +349,13 @@ export class BoardScene {
       this.root.remove(ch);
       // official device models share the official scene's geometry (it disposes it): removed only
       if (ch.userData?.officialDevice) continue;
-      ch.traverse?.((o) => { if (o.geometry) o.geometry.dispose(); });
+      ch.traverse?.((/** @type {ThreeObj} */ o) => { if (o.geometry) o.geometry.dispose(); });
     }
+    /** @type {ThreeObj[]} */
     this._officialStatic = [];
+    /** @type {ThreeObj[]} */
     this._officialCrates = [];
+    /** @type {Meshes} */
     this.meshes = {};
   }
 
@@ -318,6 +364,7 @@ export class BoardScene {
     if (this._crateGeom) return this._crateGeom;
     const uv = this.pack?.uv || {};
     const obj = this.pack?.meshes?.crate;
+    /** @type {MeshData} */
     let base;
     if (obj && obj.normal) base = objToBoard(obj, 0.01);
     else base = boxData(0.9, 0.675);
@@ -326,7 +373,7 @@ export class BoardScene {
     return this._crateGeom;
   }
 
-  /** Built areas (inclusive tile rects): rebuilds when they change. */
+  /** Built areas (inclusive tile rects): rebuilds when they change. @param {readonly Rect[] | null | undefined} rects */
   setArea(rects) {
     const list = Array.isArray(rects) && rects.length ? rects : AREAS.normal;
     const k = areaKey(list);
@@ -338,10 +385,10 @@ export class BoardScene {
     return true;
   }
 
-  /** Rebuild everything for a stage (no-op when the same stage object/grid is set again). */
+  /** Rebuild everything for a stage (no-op when the same stage object/grid is set again). @param {any} stage data/stages.json entry */
   setStage(stage) {
     if (this.destroyed) return;
-    const key = stage ? `${stage.id || ''}|${stage.highlandHeight ?? ''}|${(stage.rows || []).join('/')}|${JSON.stringify((stage.devices || []).map((d) => [d.key, d.pos, d.active, d.dir]))}` : '';
+    const key = stage ? `${stage.id || ''}|${stage.highlandHeight ?? ''}|${(stage.rows || []).join('/')}|${JSON.stringify((stage.devices || []).map((/** @type {{ key?: string, pos?: number[], active?: boolean, dir?: string }} */ d) => [d.key, d.pos, d.active, d.dir]))}` : '';
     if (key === this.stageKey) return;
     this.stageKey = key;
     this.stage = stage || null;
@@ -351,6 +398,7 @@ export class BoardScene {
     if (!stage) return;
     const board = buildBoard(stage, { uv: this.pack?.uv || null, area: this.area });
     this.board = board;
+    /** @type {Meshes} */
     const M = this.meshes = {};
     const official = this._officialFor(stage);
     if (this.officialBuilt && this.officialBuilt.stageId !== official?.stageId) this._dropOfficial();
@@ -392,7 +440,7 @@ export class BoardScene {
     this.renderer.shadowMap.needsUpdate = true;
   }
 
-  /** The loaded official scene of `stage` (null while loading / none); starts the load once per stage. */
+  /** The loaded official scene of `stage` (null while loading / none); starts the load once per stage. @param {any} stage */
   _officialFor(stage) {
     const id = stage?.id;
     const load = this.opts.loadOfficial;
@@ -406,12 +454,13 @@ export class BoardScene {
    * Load the official scene of stage `id`. A scene that could not be loaded whole (official.js rejects: a texture
    * missing would draw black) leaves the procedural board meanwhile and is tried again after OFFICIAL_RETRY_MS
    * (`retry`: only what failed); the last try settles for what loaded (`partial`: a file the server lacks never comes).
+   * @param {string} id @param {number} tries
    */
   _loadOfficial(id, tries) {
     this.officialPending.add(id);
     const delays = this.opts.officialRetryMs || OFFICIAL_RETRY_MS;
     const last = tries >= delays.length;
-    Promise.resolve().then(() => this.opts.loadOfficial(id, { retry: tries > 0, partial: last })).then((data) => ({ data }), (err) => ({ err })).then(/** @param {{ data?: any, err?: any }} res */ ({ data, err }) => {
+    Promise.resolve().then(() => /** @type {NonNullable<typeof this.opts.loadOfficial>} */ (this.opts.loadOfficial)(id, { retry: tries > 0, partial: last })).then((data) => ({ data }), (err) => ({ err })).then(/** @param {{ data?: any, err?: any }} res */ ({ data, err }) => {
       if (this.destroyed) return;
       if (err && !last) {
         this.opts.onOfficialMissing?.(id, String(err?.message || err), tries + 1);
@@ -439,7 +488,8 @@ export class BoardScene {
    * and rendered its shadow map together — an iPhone report saw the field stall for seconds right after it appeared,
    * when the scene arrived. Resolves the built scene (null when it could not be built: setStage builds it then), after
    * WARM_MAX_MS at the latest; never rejects.
-   * @returns {Promise<any>}
+   * @param {SceneData} data
+   * @returns {Promise<OfficialBuilt | null>}
    */
   _warmOfficial(data) {
     let built;
@@ -469,12 +519,13 @@ export class BoardScene {
   _prepare(obj, target = this.scene) {
     const R = this.renderer;
     const textures = new Set();
-    obj.traverse?.((o) => {
+    obj.traverse?.((/** @type {ThreeObj} */ o) => {
       for (const mat of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) {
         for (const v of Object.values(mat)) if (v?.isTexture) textures.add(v);
         for (const u of Object.values(mat.uniforms || {})) if (u?.value?.isTexture) textures.add(u.value);
       }
     });
+    /** @returns {Promise<void>} */
     const nextFrame = () => new Promise((r) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(() => r()) : setTimeout(r, 0)));
     const work = (async () => {
       if (typeof R.compileAsync === 'function') await R.compileAsync(obj, this.camera, target || obj);
@@ -485,12 +536,13 @@ export class BoardScene {
         R.initTexture(t);
       }
     })().catch(() => {});
+    /** @type {ReturnType<typeof setTimeout> | null} */
     let timer = null;
     const cap = new Promise((r) => { timer = setTimeout(r, WARM_MAX_MS); });
-    return Promise.race([work, cap]).then(() => { clearTimeout(timer); });
+    return Promise.race([work, cap]).then(() => { clearTimeout(/** @type {ReturnType<typeof setTimeout>} */ (timer)); });
   }
 
-  /** The warmed official scene (built off screen) of `stageId`, taken once; one of another stage is disposed. */
+  /** The warmed official scene (built off screen) of `stageId`, taken once; one of another stage is disposed. @param {string} [stageId] */
   _takeWarm(stageId) {
     const w = this._officialWarm;
     this._officialWarm = null;
@@ -499,13 +551,16 @@ export class BoardScene {
     return null;
   }
 
-  /** The official scene's HIGH tile height for stage `id` (null: not drawn from an official scene). */
+  /** The official scene's HIGH tile height for stage `id` (null: not drawn from an official scene). @param {string} id */
   highlandFor(id) { return this.officialBuilt && this.officialBuilt.stageId === id ? this.officialBuilt.highland : null; }
 
-  /** The official 射击台 plate height for stage `id` (null: not drawn from an official scene or no device models). */
+  /** The official 射击台 plate height for stage `id` (null: not drawn from an official scene or no device models). @param {string} id */
   platformFor(id) { return this.officialBuilt && this.officialBuilt.stageId === id ? (this.officialBuilt.devices?.top(OFFICIAL_DEVICE.platform) ?? null) : null; }
 
-  /** The official 特制水上平台 deck height for stage `id` (null: not drawn from an official scene or no device model). */
+  /**
+   * The official 特制水上平台 deck height for stage `id` (null: not drawn from an official scene or no device model).
+   * @param {string} id
+   */
   waterPlatformFor(id) { return this.officialBuilt && this.officialBuilt.stageId === id ? (this.officialBuilt.devices?.top(OFFICIAL_DEVICE.waterPlatform) ?? null) : null; }
 
   /** Is the current stage drawn from its official scene? */
@@ -514,8 +569,11 @@ export class BoardScene {
   /** The official device models (official.js devices: scene/devices) when the stage is drawn from its official scene. */
   get _officialDevices() { return this.officialBuilt?.devices || null; }
 
+  /** @param {Board} board */
   _buildDevices(board) {
-    const crates = [], blowers = [];
+    /** @type {MeshData[]} */
+    const crates = [], /** @type {MeshData[]} */ blowers = [];
+    /** @type {import('./layout.js').BoardDevice[]} */
     this.staticCrates = [];
     // local patch (LOCAL-PATCH.md 「공식 스테이지 3D 씬」): with the official scene the procedural board mesh (where the
     // 射击台 and 特制水上平台 slabs lived) is not drawn; the client's own device models stand on their tiles instead
@@ -528,14 +586,14 @@ export class BoardScene {
     if (OD) {
       const seen = new Set();  // board.devices may list a tile twice (a device of two overlapping areas)
       for (const d of board.devices) {
-        const key = d.kind === 'platform' || d.kind === 'waterPlatform' || d.kind === 'mound' || d.kind === 'cannon' ? OFFICIAL_DEVICE[d.kind] : null;
+        const key = d.kind === 'platform' || d.kind === 'waterPlatform' || d.kind === 'mound' || d.kind === 'cannon' ? /** @type {Readonly<Record<string, string>>} */ (OFFICIAL_DEVICE)[d.kind] : null;
         if (!key || !OD.has(key) || seen.has(`${d.r},${d.c}`)) continue;
         seen.add(`${d.r},${d.c}`);
-        const g = OD.mesh(key);
+        const g = /** @type {ThreeObj} */ (OD.mesh(key));
         g.position.set(d.c, d.r, d.z0);
         // the 盐坨子炮 model as exported faces DOWN (its barrel toward −row), the way all four of m10 face; another
         // direction turns it about the up axis
-        if (d.kind === 'cannon') g.rotation.z = ({ DOWN: 0, RIGHT: Math.PI / 2, UP: Math.PI, LEFT: -Math.PI / 2 })[d.dir] ?? 0;
+        if (d.kind === 'cannon') g.rotation.z = /** @type {Record<string, number>} */ ({ DOWN: 0, RIGHT: Math.PI / 2, UP: Math.PI, LEFT: -Math.PI / 2 })[d.dir] ?? 0;
         this._addOfficialDevice(g);
       }
     }
@@ -548,15 +606,18 @@ export class BoardScene {
       else if (d.kind === 'mound' && !OD?.has(OFFICIAL_DEVICE.mound)) crates.push(placeMesh(this.crateGeometry(), { x: d.c, y: d.r, z: d.z0, s: 0.95, sz: 0.55 }));
       else if (d.kind === 'bush') crates.push(placeMesh(bushData(), { x: d.c, y: d.r, z: d.z0 }));
     }
-    if (blowers.length) this.meshes.blowers = this._mesh(mergeInto(blowers), this.mat.wind, { receive: false });
-    if (crates.length) this.meshes.props = this._mesh(mergeInto(crates), this.mat.board);
+    if (blowers.length) /** @type {Meshes} */ (this.meshes).blowers = this._mesh(mergeInto(blowers), this.mat.wind, { receive: false });
+    if (crates.length) /** @type {Meshes} */ (this.meshes).props = this._mesh(mergeInto(crates), this.mat.board);
     this._rebuildCrates();
   }
 
-  /** A static official device model (Group) under root, removed with the stage (_clear) or the crate rebuild. */
+  /**
+   * A static official device model (Group) under root, removed with the stage (_clear) or the crate rebuild.
+   * @param {ThreeObj} g @param {ThreeObj[]} [list]
+   */
   _addOfficialDevice(g, list = (this._officialStatic ||= [])) {
     g.userData.officialDevice = true;
-    g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+    g.traverse((/** @type {ThreeObj} */ o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
     this.root.add(g);
     list.push(g);
     return g;
@@ -564,16 +625,17 @@ export class BoardScene {
 
   _rebuildCrates() {
     this._touch();
-    if (this.meshes.crates) { this.root.remove(this.meshes.crates); this.meshes.crates.geometry.dispose(); this.meshes.crates = null; }
+    if (/** @type {Meshes} */ (this.meshes).crates) { this.root.remove(/** @type {Meshes} */ (this.meshes).crates); /** @type {Meshes} */ (this.meshes).crates.geometry.dispose(); /** @type {Meshes} */ (this.meshes).crates = null; }
     for (const g of this._officialCrates || []) this.root.remove(g);
     this._officialCrates = [];
     const R = this.battleRect;
+    /** @param {{ r: number, c: number }} d */
     const inside = (d) => !!R && d.r >= R.r0 && d.r <= R.r1 && d.c >= R.c0 && d.c <= R.c1;
     const OD = this._officialDevices;
     if (OD && OD.has(OFFICIAL_DEVICE.crate)) {
       // the client's 阻隔工事 model (the procedural crate is the first season's s_common_box_01)
       for (const d of (this.staticCrates || []).filter((x) => !inside(x))) {
-        const g = OD.mesh(OFFICIAL_DEVICE.crate);
+        const g = /** @type {ThreeObj} */ (OD.mesh(OFFICIAL_DEVICE.crate));
         g.position.set(d.c, d.r, d.z0);
         this._addOfficialDevice(g, this._officialCrates);
       }
@@ -581,11 +643,11 @@ export class BoardScene {
       return;
     }
     const list = (this.staticCrates || []).filter((d) => !inside(d)).map((d) => placeMesh(this.crateGeometry(), { x: d.c, y: d.r, z: d.z0 }));
-    if (list.length) this.meshes.crates = this._mesh(mergeInto(list), this.mat.board);
+    if (list.length) /** @type {Meshes} */ (this.meshes).crates = this._mesh(mergeInto(list), this.mat.board);
     this.renderer.shadowMap.needsUpdate = true;
   }
 
-  /** Battle rect (null in prep): static crates inside it are hidden (the sim spawns them as device units). */
+  /** Battle rect (null in prep): static crates inside it are hidden (the sim spawns them as device units). @param {Rect | null | undefined} rect */
   setBattleRect(rect) {
     const next = rect ? { r0: rect.r0, r1: rect.r1, c0: rect.c0, c1: rect.c1 } : null;
     if (JSON.stringify(next) === JSON.stringify(this.battleRect)) return;
@@ -593,22 +655,25 @@ export class BoardScene {
     if (this.board) this._rebuildCrates();
   }
 
+  /** @param {Board} board */
   _buildGates(board) {
     const G = this.pack?.meshes?.gate || {};
     if (!this.tex.gate) return;
+    /** @param {string} slot */
     const place = (slot) => {
       const rec = G[slot];
       if (!rec) return null;
       return objToBoard(rec.mesh, 0.01);
     };
     const parts = { startDown: place('startDown'), startUp: place('startUp'), startBack: place('startBack'), endDown: place('endDown'), endUp: place('endUp') };
-    const startAdd = [], startAb = [], endAdd = [], endAb = [];
+    /** @type {MeshData[]} */
+    const startAdd = [], /** @type {MeshData[]} */ startAb = [], /** @type {MeshData[]} */ endAdd = [], /** @type {MeshData[]} */ endAb = [];
     for (const g of board.gates) {
       // the tile effect's prefab rotation (0, .707, −.707, 0) maps the mesh to (x', −z', y') of the exported OBJ:
       // objToBoard's frame turned half a turn — the warning glyph on the top face points north (the official look)
       const at = { x: g.c, y: g.r, z: g.z + 0.5 + 0.003, rot: 2 };
       if (g.kind === 'start') {
-        for (const k of ['startDown', 'startUp', 'startBack']) { if (parts[k]) startAdd.push(placeMesh(parts[k], at)); }
+        for (const k of /** @type {const} */ (['startDown', 'startUp', 'startBack'])) { if (parts[k]) startAdd.push(placeMesh(parts[k], at)); }
         if (parts.startUp) startAb.push(placeMesh(parts.startUp, at)); // local patch: tile_start's alpha-blended Start_up
       } else {
         if (parts.endDown) endAdd.push(placeMesh(parts.endDown, at));
@@ -616,14 +681,16 @@ export class BoardScene {
       }
     }
     const opt = { cast: false, receive: false, order: 5 };
-    if (startAdd.length) this.meshes.gateStart = this._mesh(mergeInto(startAdd), this.mat.gateStartAdd, opt);
-    if (startAb.length && this.mat.gateStartAb) this.meshes.gateStartAb = this._mesh(mergeInto(startAb), this.mat.gateStartAb, { ...opt, order: 4 }); // local patch
-    if (endAdd.length) this.meshes.gateEndAdd = this._mesh(mergeInto(endAdd), this.mat.gateEndAdd, opt);
-    if (endAb.length) this.meshes.gateEndAb = this._mesh(mergeInto(endAb), this.mat.gateEndAb, { ...opt, order: 4 });
+    if (startAdd.length) /** @type {Meshes} */ (this.meshes).gateStart = this._mesh(mergeInto(startAdd), this.mat.gateStartAdd, opt);
+    if (startAb.length && this.mat.gateStartAb) /** @type {Meshes} */ (this.meshes).gateStartAb = this._mesh(mergeInto(startAb), this.mat.gateStartAb, { ...opt, order: 4 }); // local patch
+    if (endAdd.length) /** @type {Meshes} */ (this.meshes).gateEndAdd = this._mesh(mergeInto(endAdd), this.mat.gateEndAdd, opt);
+    if (endAb.length) /** @type {Meshes} */ (this.meshes).gateEndAb = this._mesh(mergeInto(endAb), this.mat.gateEndAb, { ...opt, order: 4 });
   }
 
+  /** @param {Board} board */
   _buildEdges(board) {
-    const pos = [], uv = [], idx = [];
+    /** @type {number[]} */
+    const pos = [], /** @type {number[]} */ uv = [], /** @type {number[]} */ idx = [];
     const w = 0.085, e = 0.018;
     for (const s of board.edges) {
       const x0 = s.c - 0.5, x1 = s.c + 0.5, y0 = s.r - 0.5, y1 = s.r + 0.5, z = s.z + 0.006;
@@ -643,12 +710,15 @@ export class BoardScene {
     }
     if (!pos.length) return;
     const nrm = new Float32Array(pos.length); for (let i = 2; i < nrm.length; i += 3) nrm[i] = 1;
-    this.meshes.edges = this._mesh({ position: new Float32Array(pos), normal: nrm, uv: new Float32Array(uv), color: null, index: new Uint16Array(idx) }, this.mat.edge, { cast: false, receive: false, order: 3 });
+    /** @type {Meshes} */ (this.meshes).edges = this._mesh({ position: new Float32Array(pos), normal: nrm, uv: new Float32Array(uv), color: null, index: new Uint16Array(idx) }, this.mat.edge, { cast: false, receive: false, order: 3 });
   }
 
+  /** @param {Board} board @param {{ water?: boolean, infection?: boolean }} [opts] */
   _buildTerrain(board, { water = true, infection = true } = {}) {
+    /** @param {number[][]} tiles @param {number} z @param {number} [inset] */
     const quads = (tiles, z, inset = 0) => {
-      const pos = [], uv = [], idx = [];
+      /** @type {number[]} */
+      const pos = [], /** @type {number[]} */ uv = [], /** @type {number[]} */ idx = [];
       for (const [r, c] of tiles) {
         const a = 0.5 - inset, b = pos.length / 3;
         pos.push(c - a, r - a, z, c + a, r - a, z, c + a, r + a, z, c - a, r + a, z);
@@ -660,12 +730,13 @@ export class BoardScene {
     };
     const T = board.terrain;
     const opt = { cast: false, receive: false, order: 2 };
-    if (water && T.water.length) this.meshes.water = this._mesh(quads(T.water, -0.035), this.mat.water, opt);
-    if (T.mire.length) this.meshes.mire = this._mesh(quads(T.mire, 0.006, 0.02), this.mat.mire, opt);
-    if (infection && T.infection.length) this.meshes.infection = this._mesh(quads(T.infection, 0.007, 0.02), this.mat.infection, opt);
+    if (water && T.water.length) /** @type {Meshes} */ (this.meshes).water = this._mesh(quads(T.water, -0.035), this.mat.water, opt);
+    if (T.mire.length) /** @type {Meshes} */ (this.meshes).mire = this._mesh(quads(T.mire, 0.006, 0.02), this.mat.mire, opt);
+    if (infection && T.infection.length) /** @type {Meshes} */ (this.meshes).infection = this._mesh(quads(T.infection, 0.007, 0.02), this.mat.infection, opt);
     if (T.smog.length) {
       // two crossed haze cards per grille tile, standing up
-      const pos = [], uv = [], idx = [];
+      /** @type {number[]} */
+      const pos = [], /** @type {number[]} */ uv = [], /** @type {number[]} */ idx = [];
       for (const [r, c] of T.smog) {
         for (const [dx, dy] of [[1, 0], [0.7, 0.7]]) {
           const b = pos.length / 3, h = 0.95, w = 0.55;
@@ -675,10 +746,11 @@ export class BoardScene {
         }
       }
       const nrm = new Float32Array(pos.length); for (let i = 1; i < nrm.length; i += 3) nrm[i] = -1;
-      this.meshes.smog = this._mesh({ position: new Float32Array(pos), normal: nrm, uv: new Float32Array(uv), color: null, index: new Uint16Array(idx) }, this.mat.smog, { ...opt, order: 6 });
+      /** @type {Meshes} */ (this.meshes).smog = this._mesh({ position: new Float32Array(pos), normal: nrm, uv: new Float32Array(uv), color: null, index: new Uint16Array(idx) }, this.mat.smog, { ...opt, order: 6 });
     }
   }
 
+  /** @param {Board} board */
   _buildBackground(board) {
     const T = this.THREE;
     const B = LIGHTING.bg;
@@ -694,14 +766,15 @@ export class BoardScene {
       const ix = placed.index;
       for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; }
     }
-    this.meshes.bg = this._mesh({ ...placed, color: null }, this.mat.bg, { cast: false, receive: false, order: -2 });
+    /** @type {Meshes} */ (this.meshes).bg = this._mesh({ ...placed, color: null }, this.mat.bg, { cast: false, receive: false, order: -2 });
     // the key light's shadow of the island on the ground far below (S_Background_shadow's role)
     const s = B.size;
     const q = { position: new Float32Array([cx - s / 2, cy - s / 2, B.z + 0.02, cx + s / 2, cy - s / 2, B.z + 0.02, cx + s / 2, cy + s / 2, B.z + 0.02, cx - s / 2, cy + s / 2, B.z + 0.02]), normal: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]), uv: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), color: null, index: new Uint16Array([0, 1, 2, 0, 2, 3]) };
-    this.meshes.bgShadow = this._mesh(q, this.mat.shadowCatcher, { cast: false, receive: true, order: -1 });
+    /** @type {Meshes} */ (this.meshes).bgShadow = this._mesh(q, this.mat.shadowCatcher, { cast: false, receive: true, order: -1 });
     void T;
   }
 
+  /** @param {Board} board */
   _fitShadow(board) {
     const k = this.key;
     const b = board.bounds;
@@ -745,6 +818,7 @@ export class BoardScene {
     const bx = this.crateGeometry().bounds || { x0: -0.45, x1: 0.45, z0: 0, z1: 0.675 };
     const baseSize = Math.max(0.01, bx.x1 - bx.x0), baseH = Math.max(0.01, bx.z1 - bx.z0);
     let dead = false;
+    /** @type {DeviceHandle} */
     const h = {
       mesh: null,
       board: this,
@@ -776,13 +850,17 @@ export class BoardScene {
    */
   _createOfficialDevice() {
     const self = this;
-    let grp = null, ref = null, dead = false, fallback = null, owner = null;
+    /** @type {ThreeObj | null} */
+    let grp = null, /** @type {{ size: number, height: number } | null} */ ref = null, dead = false, /** @type {DeviceHandle | null} */ fallback = null, /** @type {unknown} */ owner = null;
+    /** @type {string | null} */
     let lastKey = null;
+    /** @type {DeviceHandle} */
     const h = {
       mesh: null,
       board: this,
       get destroyed() { return dead; },
       /** Seconds of the official model's clip `name` (Born / Die) for the device last updated, 0 without one. */
+      /** @param {string} name */
       clipDur(name) {
         const c = lastKey && grp ? self._officialDevices?.clip?.(lastKey, name) : null;
         return c && c.dur > 0 ? c.dur : 0;
@@ -807,26 +885,26 @@ export class BoardScene {
         if (official && !grp) {
           {
             owner = OD;
-            grp = OD.mesh(key, { fade: true });
+            grp = /** @type {ThreeObj} */ (OD.mesh(key, { fade: true }));
             grp.userData.officialDevice = true;
-            grp.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+            grp.traverse((/** @type {ThreeObj} */ o) => { if (o.isMesh) o.castShadow = true; });
             self.dynamic.add(grp);
           }
         }
         if (fallback) { fallback.update(cam, b); return; }
         const a = Math.max(0, Math.min(1, b.alpha ?? 1));
-        grp.visible = a > 0.01;
-        grp.position.set(b.x, b.y, b.z);
+        /** @type {ThreeObj} */ (grp).visible = a > 0.01;
+        /** @type {ThreeObj} */ (grp).position.set(b.x, b.y, b.z);
         const s = (b.size || ref.size) / ref.size;
-        grp.scale.set(s, s, Math.max(0.001, (b.height ?? ref.height) / ref.height));
+        /** @type {ThreeObj} */ (grp).scale.set(s, s, Math.max(0.001, (b.height ?? ref.height) / ref.height));
         const tint = Math.max(0, Math.min(1, b.tint ?? 1));
-        for (const m of grp.userData.materials) {
+        for (const m of /** @type {ThreeObj} */ (grp).userData.materials) {
           m.uniforms.uOpacity.value = a; m.depthWrite = a > 0.98;
           if (m.uniforms.uTint) m.uniforms.uTint.value = tint;
         }
         // 2026-11-12: its legacy clip (b.clip { name, t }: 赘生甲壳's Born / Die), else the standing model
-        const posed = OD.pose?.(grp, b.clip?.name || null, b.clip?.t || 0);
-        if (posed !== grp.userData.posed) { grp.userData.posed = posed; self.renderer.shadowMap.needsUpdate = true; }
+        const posed = /** @type {NonNullable<typeof OD>} */ (OD).pose?.(grp, b.clip?.name || null, b.clip?.t || 0);
+        if (posed !== /** @type {ThreeObj} */ (grp).userData.posed) { /** @type {ThreeObj} */ (grp).userData.posed = posed; self.renderer.shadowMap.needsUpdate = true; }
         if (b.clip) self.renderer.shadowMap.needsUpdate = true;
       },
       destroy() {
@@ -843,7 +921,7 @@ export class BoardScene {
     return h;
   }
 
-  /** Red leak flash on the objective box at (r, c). */
+  /** Red leak flash on the objective box at (r, c). @param {number} r @param {number} c */
   flashObjective(r, c) {
     this.flashes.push({ r, c, t: 0 });
     if (this.flashes.length > 8) this.flashes.shift();
@@ -851,12 +929,12 @@ export class BoardScene {
 
   // ---- view ------------------------------------------------------------------------------------------------------
 
-  /** The lit field rect ({ r0, r1, c0, c1 } tiles; null = everything lit). Animated in render(). */
+  /** The lit field rect ({ r0, r1, c0, c1 } tiles; null = everything lit). Animated in render(). @param {Rect | null | undefined} rect */
   setFocus(rect) {
     this.focusTarget = rect ? [rect.c0 - 0.5, rect.r0 - 0.5, rect.c1 + 0.5, rect.r1 + 0.5] : [-50, -50, 70, 70];
   }
 
-  /** Settings quality change: 'low' drops the key light's shadow (antialias is fixed at context creation). */
+  /** Settings quality change: 'low' drops the key light's shadow (antialias is fixed at context creation). @param {string} q */
   setQuality(q) {
     const on = q !== 'low';
     const R = this.renderer;
@@ -868,6 +946,7 @@ export class BoardScene {
     return true;
   }
 
+  /** @param {number} w @param {number} h @param {number} [dpr] */
   resize(w, h, dpr = 1) {
     const W = Math.max(1, Math.round(w)), H = Math.max(1, Math.round(h));
     if (W === this.size.w && H === this.size.h && dpr === this.size.dpr) return;
@@ -878,7 +957,7 @@ export class BoardScene {
     this.camVersion = -1;
   }
 
-  /** Draw a frame with projection camera `cam` at time `t` (seconds). */
+  /** Draw a frame with projection camera `cam` at time `t` (seconds). @param {Camera | null | undefined} cam @param {number} [t] */
   render(cam, t = 0) {
     if (this.destroyed || this.lost || !cam) return false;
     const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
@@ -908,7 +987,7 @@ export class BoardScene {
     let flash = 0;
     for (let i = this.flashes.length - 1; i >= 0; i--) { const f = this.flashes[i]; f.t += dt; if (f.t > 1.2) this.flashes.splice(i, 1); else flash = Math.max(flash, 1 - f.t / 1.2); }
     for (const m of [this.mat.gateEndAdd, this.mat.gateEndAb]) if (m) m.uniforms.uFlash.value.setRGB(flash, flash * 0.12, flash * 0.1);
-    for (const k of ['water', 'mire', 'infection', 'smog']) this.mat[k].uniforms.uTime.value = t;
+    for (const k of /** @type {const} */ (['water', 'mire', 'infection', 'smog'])) this.mat[k].uniforms.uTime.value = t;
     this.officialBuilt?.update(t);
     this.overlay?.update(t); // local patch
     this.infectionFx?.update(t); // local patch
@@ -925,6 +1004,7 @@ export class BoardScene {
    * Whether this frame must be drawn (BOARD_REDRAW_MAX_S): the camera, a rebuild, the redraw cap, a shadow map to render,
    * battle devices (they move every frame), a leak flash (and the frame after it, where the flash went back to 0), an
    * overlay change, an animated material on screen.
+   * @param {Camera} cam @param {number} t @param {number} flash @param {number} ov @param {number} inf
    */
   _changed(cam, t, flash, ov, inf) {
     const d = this._drawn;
@@ -963,9 +1043,9 @@ export class BoardScene {
 
 // ---- small procedural meshes (fallbacks / rare devices) ------------------------------------------------------------
 
-/** Axis-aligned box on the ground, centred on the origin: size × size × height. */
+/** Axis-aligned box on the ground, centred on the origin: size × size × height. @param {number} size @param {number} height */
 export function boxData(size, height) {
-  const a = size / 2, pos = [], nrm = [], uv = [], idx = [];
+  const a = size / 2, /** @type {number[]} */ pos = [], /** @type {number[]} */ nrm = [], /** @type {number[]} */ uv = [], /** @type {number[]} */ idx = [];
   /** @type {[number[], number[][]][]} */
   const faces = [
     [[0, 0, 1], [[-a, -a, height], [a, -a, height], [a, a, height], [-a, a, height]]],
@@ -983,7 +1063,10 @@ export function boxData(size, height) {
   return { position: new Float32Array(pos), normal: new Float32Array(nrm), uv: new Float32Array(uv), index: new Uint16Array(idx) };
 }
 
-/** Device box with an atlas top (blower fallback ▶▶ hatch, turret target plate) and grey sides. */
+/**
+ * Device box with an atlas top (blower fallback ▶▶ hatch, turret target plate) and grey sides.
+ * @param {import('./atlas.js').UvTable | null | undefined} uvTable @param {string} kind
+ */
 function boxWithTop(uvTable, kind) {
   const size = kind === 'turret' ? 0.72 : 0.86, h = kind === 'turret' ? 0.34 : DEVICE_H.platform;
   const b = boxData(size, h);

@@ -32,9 +32,19 @@ import { SURFACES, surfaceUV, sideRect, tintRgb } from './atlas.js';
 import { GLYPH, TILEKEY_GLYPH, TILE_H, tileTop } from '../style.js';
 import { parsePenRect, PEN_RECT } from '../pen.js';
 
+/**
+ * @import { Surface, UvTable } from './atlas.js'
+ * @import { ObjMesh } from './obj.js'
+ * @typedef {{ r0: number, r1: number, c0: number, c1: number }} Rect an inclusive tile rect
+ * @typedef {readonly number[]} Vec a point, normal or colour [x, y, z]
+ * @typedef {{ kind: string, r: number, c: number, dir: string, z0: number, key: string | null, alias: string | null,
+ *   rangeTiles: any[] | null }} BoardDevice a stage device the board draws (stageDevices)
+ */
+
 export const ROWS = 19;
 export const COLS = 21;
 /** Columns of a classified grid: 21, or 29 / 37 on the 8-player mode's wide 联防 field (shared/wideField.js widenStageData). */
+/** @param {readonly (readonly unknown[])[] | null | undefined} grid */
 export const colsOf = (grid) => grid?.[0]?.length || COLS;
 /** How far the island's cliff faces go down (tiles). */
 export const CLIFF = 0.75;
@@ -43,6 +53,7 @@ export const BEVEL = Object.freeze({ low: [0.035, 0.018], block: [0.04, 0.035] }
 /** Deep-sea basins: floor depth below the ground. */
 export const BASIN = 0.14;
 
+/** @param {string} g */
 const CONTENT_OF = (g) => g !== '#' && g !== 'X';
 
 /**
@@ -63,54 +74,61 @@ export const AREAS = Object.freeze({
   all: Object.freeze([Object.freeze({ r0: 0, r1: 18, c0: 0, c1: 20 })]),
 });
 
-/** Area set of a camera kind ('prep' | 'normal' | 'pen' | 'unite' | 'boss' | 'hidden' | 'bossPrep'). */
+/** Area set of a camera kind ('prep' | 'normal' | 'pen' | 'unite' | 'boss' | 'hidden' | 'bossPrep'). @param {string} kind */
 export function areaFor(kind) {
   if (kind === 'unite') return AREAS.unite;
   if (kind === 'boss' || kind === 'hidden' || kind === 'bossPrep') return AREAS.boss;
   return AREAS.normal;
 }
 
-/** Union of area sets (camera transitions show both). */
+/** Union of area sets (camera transitions show both). @param {...(readonly Rect[] | null | undefined)} sets */
 export function unionAreas(...sets) {
+  /** @type {Rect[]} */
   const out = [];
   const seen = new Set();
   for (const s of sets) for (const a of s || []) { const k = `${a.r0},${a.r1},${a.c0},${a.c1}`; if (!seen.has(k)) { seen.add(k); out.push(a); } }
   return out;
 }
+/** @param {number} r @param {number} c */
 const hash2 = (r, c) => ((r * 73856093) ^ (c * 19349663)) >>> 0;
 
 // ---- geometry accumulator ----------------------------------------------------------------------------------
 
 export class Geom {
-  constructor() { this.pos = []; this.nrm = []; this.uv = []; this.col = []; this.idx = []; this.n = 0; }
+  constructor() {
+    this.pos = /** @type {number[]} */ ([]); this.nrm = /** @type {number[]} */ ([]); this.uv = /** @type {number[]} */ ([]);
+    this.col = /** @type {number[]} */ ([]); this.idx = /** @type {number[]} */ ([]); this.n = 0;
+  }
   /**
    * Quad from 4 corners in counter-clockwise order seen from the front (BL, BR, TR, TL), `uv` = 8 numbers in the
    * same corner order, `nrm` one [x,y,z] (flat) or 4, `col` one [r,g,b] or 4.
+   * @param {readonly Vec[]} p @param {ArrayLike<number> | null} uv @param {Vec | readonly Vec[]} nrm
+   * @param {Vec | readonly Vec[] | null} [col]
    */
   quad(p, uv, nrm, col) {
     const base = this.n;
     for (let k = 0; k < 4; k++) {
       const q = p[k];
       this.pos.push(q[0], q[1], q[2]);
-      const nn = Array.isArray(nrm[0]) ? nrm[k] : nrm;
+      const nn = /** @type {Vec} */ (Array.isArray(nrm[0]) ? nrm[k] : nrm);
       this.nrm.push(nn[0], nn[1], nn[2]);
       this.uv.push(uv ? uv[k * 2] : 0, uv ? uv[k * 2 + 1] : 0);
-      const cc = col ? (Array.isArray(col[0]) ? col[k] : col) : [1, 1, 1];
+      const cc = /** @type {Vec} */ (col ? (Array.isArray(col[0]) ? col[k] : col) : [1, 1, 1]);
       this.col.push(cc[0], cc[1], cc[2]);
     }
     this.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
     this.n += 4;
     return this;
   }
-  /** Triangle (CCW from the front). */
+  /** Triangle (CCW from the front). @param {readonly Vec[]} p @param {Vec | readonly Vec[]} nrm @param {Vec | readonly Vec[] | null} [col] */
   tri(p, nrm, col) {
     const base = this.n;
     for (let k = 0; k < 3; k++) {
       this.pos.push(p[k][0], p[k][1], p[k][2]);
-      const nn = Array.isArray(nrm[0]) ? nrm[k] : nrm;
+      const nn = /** @type {Vec} */ (Array.isArray(nrm[0]) ? nrm[k] : nrm);
       this.nrm.push(nn[0], nn[1], nn[2]);
       this.uv.push(0, 0);
-      const cc = col ? (Array.isArray(col[0]) ? col[k] : col) : [1, 1, 1];
+      const cc = /** @type {Vec} */ (col ? (Array.isArray(col[0]) ? col[k] : col) : [1, 1, 1]);
       this.col.push(cc[0], cc[1], cc[2]);
     }
     this.idx.push(base, base + 1, base + 2);
@@ -129,9 +147,13 @@ export class Geom {
   }
 }
 
+/** @param {number} x @param {number} y @param {number} z */
 const norm3 = (x, y, z) => { const l = Math.hypot(x, y, z) || 1; return [x / l, y / l, z / l]; };
 
-/** Bilinear UV at fractions (fx right, fy far) of a face whose corner UVs are [BL, BR, TR, TL] (8 numbers). */
+/**
+ * Bilinear UV at fractions (fx right, fy far) of a face whose corner UVs are [BL, BR, TR, TL] (8 numbers).
+ * @param {ArrayLike<number>} uv @param {number} fx @param {number} fy
+ */
 export function uvAt(uv, fx, fy) {
   const bu = uv[0] + (uv[2] - uv[0]) * fx, bv = uv[1] + (uv[3] - uv[1]) * fx;
   const tu = uv[6] + (uv[4] - uv[6]) * fx, tv = uv[7] + (uv[5] - uv[7]) * fx;
@@ -161,7 +183,7 @@ export function classifyStage(stage, area = null) {
   const pen = parsePenRect(stage?.config?.enemy_place_rect) || PEN_RECT;
   const legend = stage && typeof stage.tiles === 'object' && stage.tiles ? stage.tiles : {};
   // 21 columns; a widened stage's rows are longer (the wide 联防 field)
-  const cols = Math.max(COLS, ...rows.map((l) => (typeof l === 'string' ? l.length : 0)));
+  const cols = Math.max(COLS, ...rows.map((/** @type {unknown} */ l) => (typeof l === 'string' ? l.length : 0)));
   /** @type {BoardTile[][]} */
   const grid = [];
   for (let r = 0; r < ROWS; r++) {
@@ -170,8 +192,8 @@ export function classifyStage(stage, area = null) {
     const row = [];
     for (let c = 0; c < cols; c++) {
       let g = line[c] || '#';
-      if (!GLYPH[g]) g = TILEKEY_GLYPH[legend[g]?.tileKey] || (legend[g]?.height === 'HIGH' ? '#' : 'R');
-      const def = GLYPH[g];
+      if (!/** @type {Readonly<Record<string, { mat: string, h: string | null }>>} */ (GLYPH)[g]) g = /** @type {Readonly<Record<string, string>>} */ (TILEKEY_GLYPH)[legend[g]?.tileKey] || (legend[g]?.height === 'HIGH' ? '#' : 'R');
+      const def = /** @type {Readonly<Record<string, { mat: string, h: string | null }>>} */ (GLYPH)[g];
       const inArea = !area || area.some((a) => r >= a.r0 && r <= a.r1 && c >= a.c0 && c <= a.c1);
       row.push({ r, c, glyph: g, content: inArea && CONTENT_OF(g), inArea, drawn: false, h: tileTop(def.h, stage), raised: !!def.h });
     }
@@ -189,6 +211,7 @@ export function classifyStage(stage, area = null) {
     }
     t.drawn = near;
   }
+  /** @param {number} r @param {number} c */
   const at = (r, c) => grid[r]?.[c] || null;
   for (const row of grid) for (const t of row) {
     t.tint = [1, 1, 1];
@@ -222,6 +245,7 @@ export function classifyStage(stage, area = null) {
     }
   }
   // high-ground plates by connectivity (texture top = the tile's far edge)
+  /** @param {number} r @param {number} c */
   const wall = (r, c) => { const n = at(r, c); return !!n && n.glyph === 'h'; };
   for (const row of grid) for (const t of row) {
     if (t.glyph !== 'h') continue;
@@ -236,7 +260,10 @@ export function classifyStage(stage, area = null) {
   return grid;
 }
 
-/** Top height of tile (r,c) of a classified grid (0 off-grid / not drawn), like tiles.js heightAt. */
+/**
+ * Top height of tile (r,c) of a classified grid (0 off-grid / not drawn), like tiles.js heightAt.
+ * @param {readonly (readonly BoardTile[])[]} grid @param {number} r @param {number} c
+ */
 export function heightOf(grid, r, c) {
   const t = grid[r]?.[c];
   return t && t.drawn ? t.h : 0;
@@ -246,9 +273,14 @@ export function heightOf(grid, r, c) {
 
 /** @type {[string, number, number][]} */
 const DIRS = [['S', 0, -1], ['E', 1, 0], ['N', 0, 1], ['W', -1, 0]];
+/** @type {Record<string, number[]>} */
 const NRM = { S: [0, -1, 0], E: [1, 0, 0], N: [0, 1, 0], W: [-1, 0, 0] };
 
-/** Corners (BL, BR, TR, TL seen from outside) of the side face `dir` of box [x0,x1]×[y0,y1] between zb and zt. */
+/**
+ * Corners (BL, BR, TR, TL seen from outside) of the side face `dir` of box [x0,x1]×[y0,y1] between zb and zt.
+ * @param {string} dir @param {number} x0 @param {number} x1 @param {number} y0 @param {number} y1 @param {number} zb
+ * @param {number} zt
+ */
 export function sideCorners(dir, x0, x1, y0, y1, zb, zt) {
   switch (dir) {
     case 'S': return [[x0, y0, zb], [x1, y0, zb], [x1, y0, zt], [x0, y0, zt]];
@@ -258,19 +290,25 @@ export function sideCorners(dir, x0, x1, y0, y1, zb, zt) {
   }
 }
 
+/** @param {Vec} a @param {Vec} b */
 const mul = (a, b) => [a[0] * b[0], a[1] * b[1], a[2] * b[2]];
+/** @param {Vec} a @param {number} k */
 const scl = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
 
 /**
  * Beveled top of a tile: an inset flat top at `zt` + 4 sloped strips down to `zt − drop` at the tile border.
  * `ao` = corner occlusion [NL, NR, FR, FL] (1 = open).
+ * @param {Geom} g @param {UvTable} uvTable @param {BoardTile} t @param {number} zt @param {number} inset @param {number} drop
+ * @param {readonly number[]} ao @param {Vec} tint
  */
 function bevelTop(g, uvTable, t, zt, inset, drop, ao, tint) {
   const x0 = t.c - 0.5, x1 = t.c + 0.5, y0 = t.r - 0.5, y1 = t.r + 0.5;
-  const surf = uvTable[t.surf] || uvTable.concrete;
-  const uv = surfaceUV({ ...surf, rot: ((surf.rot | 0) + (t.rot | 0)) % 360, flipX: !!surf.flipX !== !!t.flipX });
+  const surf = uvTable[/** @type {string} */ (t.surf)] || uvTable.concrete;
+  const uv = surfaceUV({ ...surf, rot: ((/** @type {number} */ (surf.rot) | 0) + (/** @type {number} */ (t.rot) | 0)) % 360, flipX: !!surf.flipX !== !!t.flipX });
   const b = inset, zo = zt - drop;
+  /** @param {number} fx @param {number} fy */
   const f = (fx, fy) => uvAt(uv, fx, fy);
+  /** @param {number} fx @param {number} fy */
   const colAt = (fx, fy) => {
     // bilinear corner AO
     const a = ao[0] + (ao[1] - ao[0]) * fx, d = ao[3] + (ao[2] - ao[3]) * fx;
@@ -278,6 +316,7 @@ function bevelTop(g, uvTable, t, zt, inset, drop, ao, tint) {
   };
   const ib = b, ie = 1 - b;
   // inner flat top
+  /** @param {number} fx @param {number} fy @param {number} z */
   const P = (fx, fy, z) => [x0 + fx, y0 + fy, z];
   g.quad([P(ib, ib, zt), P(ie, ib, zt), P(ie, ie, zt), P(ib, ie, zt)],
     [...f(ib, ib), ...f(ie, ib), ...f(ie, ie), ...f(ib, ie)], [0, 0, 1],
@@ -300,6 +339,7 @@ function bevelTop(g, uvTable, t, zt, inset, drop, ao, tint) {
 
 /** Final Assault bench plate: a 2×2 grid of light concrete panels on the dark-rimmed top (the official boss field). */
 export const PANEL = Object.freeze({ rim: 0.085, seam: 0.05, lift: 0.004 });
+/** @param {Geom} g @param {UvTable} uvTable @param {BoardTile} t @param {number} zt @param {readonly number[]} ao */
 function benchPanels(g, uvTable, t, zt, ao) {
   const surf = uvTable.concrete || uvTable.steel;
   if (!surf) return;
@@ -311,13 +351,19 @@ function benchPanels(g, uvTable, t, zt, ao) {
     const [fx0, fx1] = span[i], [fy0, fy1] = span[j];
     // each panel shows a quarter of the concrete slab (texture v runs down: the far edge is the top of the crop)
     const uv = surfaceUV(surf, [i * 0.5, (1 - j) * 0.5, i * 0.5 + 0.5, (1 - j) * 0.5 + 0.5]);
+    /** @param {number} fx @param {number} fy */
     const col = (fx, fy) => { const s0 = ao[0] + (ao[1] - ao[0]) * fx, s1 = ao[3] + (ao[2] - ao[3]) * fx; return scl(light, s0 + (s1 - s0) * fy); };
     g.quad([[x0 + fx0, y0 + fy0, z], [x0 + fx1, y0 + fy0, z], [x0 + fx1, y0 + fy1, z], [x0 + fx0, y0 + fy1, z]], uv, [0, 0, 1],
       [col(fx0, fy0), col(fx1, fy0), col(fx1, fy1), col(fx0, fy1)]);
   }
 }
 
-/** A panelled side face from zb to zt; the panel texture keeps its aspect (repeats along the face if needed). */
+/**
+ * A panelled side face from zb to zt; the panel texture keeps its aspect (repeats along the face if needed).
+ * @param {Geom} g @param {UvTable} uvTable @param {string} surfName @param {string} dir @param {number} x0 @param {number} x1
+ * @param {number} y0 @param {number} y1 @param {number} zb @param {number} zt @param {Vec} colBottom @param {Vec} colTop
+ * @param {number} [width]
+ */
 function sideFace(g, uvTable, surfName, dir, x0, x1, y0, y1, zb, zt, colBottom, colTop, width = 1) {
   if (zt - zb < 1e-4) return;
   const surf = uvTable[surfName] || uvTable.graySide;
@@ -329,17 +375,21 @@ function sideFace(g, uvTable, surfName, dir, x0, x1, y0, y1, zb, zt, colBottom, 
 /**
  * Build the whole board of a stage.
  * @param {any} stage data/stages.json entry
- * @param {{ uv?: object, devices?: boolean, area?: readonly { r0: number, r1: number, c0: number, c1: number }[] | null }} [opts] uv =
+ * @param {{ uv?: UvTable | null, devices?: boolean, area?: readonly Rect[] | null }} [opts] uv =
  *   resolveUvTable(tiles.json) (defaults to the built-in table), area = classifyStage's
  */
 export function buildBoard(stage, opts = {}) {
   const uvTable = opts.uv || null;
+  /** @type {UvTable} */
   const UVT = uvTable || Object.fromEntries(Object.entries(SURFACES).map(([k, v]) => [k, { ...v, rect: [...v.rect] }]));
   const grid = classifyStage(stage, opts.area || null);
+  /** @param {number} r @param {number} c */
   const at = (r, c) => grid[r]?.[c] || null;
+  /** @param {BoardTile} t */
   const topZ = (t) => (t.glyph === 'd' ? -BASIN : t.h);
   const board = new Geom(), decal = new Geom(), pipe = new Geom(), glass = new Geom();
-  const gates = [], terrain = { water: [], mire: [], smog: [], infection: [] };
+  /** @type {{ r: number, c: number, kind: string, z: number }[]} */
+  const gates = [], /** @type {Record<'water' | 'mire' | 'smog' | 'infection', number[][]>} */ terrain = { water: [], mire: [], smog: [], infection: [] };
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < colsOf(grid); c++) {
@@ -348,8 +398,9 @@ export function buildBoard(stage, opts = {}) {
     minX = Math.min(minX, c - 0.5); maxX = Math.max(maxX, c + 0.5); minY = Math.min(minY, r - 0.5); maxY = Math.max(maxY, r + 0.5);
     const zt = topZ(t);
     const x0 = c - 0.5, x1 = c + 0.5, y0 = r - 0.5, y1 = r + 0.5;
-    const tint = t.tint;
+    const tint = /** @type {Vec} */ (t.tint);
     // corner occlusion: a corner touching a taller neighbour darkens (NL, NR, FR, FL)
+    /** @param {number} dx @param {number} dy */
     const occl = (dx, dy) => {
       let hi = false;
       for (const [ax, ay] of [[0, 0], [dx, 0], [0, dy], [dx, dy]]) {
@@ -402,6 +453,7 @@ export function buildBoard(stage, opts = {}) {
   }
 
   // fence railings: orange pipes around every connected region of fenced tiles ('b'), posts at the corners
+  /** @param {number} r @param {number} c */
   const fence = (r, c) => { const n = at(r, c); return !!n && n.drawn && n.glyph === 'b'; };
   const rail = { inset: 0.07, h: 0.26, rad: 0.032, post: 0.038 };
   const posts = new Set();
@@ -415,6 +467,7 @@ export function buildBoard(stage, opts = {}) {
     if (N) tube(pipe, [xa, y1 - e, rail.h], [xb, y1 - e, rail.h], rail.rad);
     if (W) tube(pipe, [x0 + e, ya, rail.h], [x0 + e, yb, rail.h], rail.rad);
     if (E) tube(pipe, [x1 - e, ya, rail.h], [x1 - e, yb, rail.h], rail.rad);
+    /** @param {number} x @param {number} y @param {string} key */
     const corner = (x, y, key) => { if (!posts.has(key)) { posts.add(key); tube(pipe, [x, y, 0], [x, y, rail.h + rail.rad], rail.post); } };
     if (S && W) corner(x0 + e, y0 + e, `${r},${c},sw`);
     if (S && E) corner(x1 - e, y0 + e, `${r},${c},se`);
@@ -428,17 +481,20 @@ export function buildBoard(stage, opts = {}) {
   }
 
   // cyan field edge: emissive strips along the play areas' outer border (the official boundary glow)
+  /** @type {{ r: number, c: number, dir: string, z: number }[]} */
   const edges = [];
+  /** @param {BoardTile | null} t */
   const zone = (t) => !!t && t.drawn && t.content && t.glyph !== 'a' && t.glyph !== 'A';
   // "outside": undrawn tiles and the forbidden / separator tiles connected to them (interior holes are not)
   const outside = new Set();
+  /** @type {number[][]} */
   const stack = [];
   for (let r = -1; r <= ROWS; r++) for (let c = -1; c <= colsOf(grid); c++) {
     const t = at(r, c);
     if (!t || !t.drawn) { outside.add(`${r},${c}`); stack.push([r, c]); }
   }
   while (stack.length) {
-    const [r, c] = stack.pop();
+    const [r, c] = /** @type {number[]} */ (stack.pop());
     for (const [, dx, dy] of DIRS) {
       const rr = r + dy, cc = c + dx, n = at(rr, cc);
       if (!n || outside.has(`${rr},${cc}`) || !n.drawn || n.content) continue;
@@ -472,7 +528,10 @@ export function buildBoard(stage, opts = {}) {
 
 // ---- pipes -----------------------------------------------------------------------------------------------------
 
-/** Closed-side cylinder from a to b (8 segments) with flat caps. */
+/**
+ * Closed-side cylinder from a to b (8 segments) with flat caps.
+ * @param {Geom} g @param {Vec} a @param {Vec} b @param {number} rad @param {number} [seg] @param {Vec} [col]
+ */
 export function tube(g, a, b, rad, seg = 8, col = [1, 1, 1]) {
   const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
   const len = Math.hypot(d[0], d[1], d[2]);
@@ -482,13 +541,15 @@ export function tube(g, a, b, rad, seg = 8, col = [1, 1, 1]) {
   let u = [w[1] * ref[2] - w[2] * ref[1], w[2] * ref[0] - w[0] * ref[2], w[0] * ref[1] - w[1] * ref[0]];
   const ul = Math.hypot(...u); u = [u[0] / ul, u[1] / ul, u[2] / ul];
   const v = [w[1] * u[2] - w[2] * u[1], w[2] * u[0] - w[0] * u[2], w[0] * u[1] - w[1] * u[0]];
+  /** @param {number} k */
   const ring = (k) => { const t = (k / seg) * Math.PI * 2, cs = Math.cos(t), sn = Math.sin(t); return [u[0] * cs + v[0] * sn, u[1] * cs + v[1] * sn, u[2] * cs + v[2] * sn]; };
   for (let k = 0; k < seg; k++) {
     const n0 = ring(k), n1 = ring(k + 1);
+    /** @param {Vec} base @param {Vec} n */
     const p = (base, n) => [base[0] + n[0] * rad, base[1] + n[1] * rad, base[2] + n[2] * rad];
     g.quad([p(a, n0), p(a, n1), p(b, n1), p(b, n0)], null, [n0, n1, n1, n0], col);
   }
-  for (const [end, sgn] of [[a, -1], [b, 1]]) {
+  for (const [end, sgn] of /** @type {[Vec, number][]} */ ([[a, -1], [b, 1]])) {
     const n = [w[0] * sgn, w[1] * sgn, w[2] * sgn];
     for (let k = 0; k < seg; k++) {
       const r0 = ring(k), r1 = ring(k + 1);
@@ -505,7 +566,7 @@ export function tube(g, a, b, rad, seg = 8, col = [1, 1, 1]) {
 const DEVICE_KINDS = new Set(['crate', 'platform', 'mound', 'blower', 'turret', 'waterPlatform', 'bush', 'sealedFloor']);
 /** Devices the sim gives no role (tools/build-data.mjs DEVICE_ROLES) but the board draws, by key: 规程 m10's 盐坨子炮 (an
  *  enemy-side cannon the sim runs by its key, content/devices.js tickCannon). */
-const DEVICE_KEY_KINDS = Object.freeze({ trap_196_cnnon: 'cannon' });
+const DEVICE_KEY_KINDS = /** @type {Readonly<Record<string, string>>} */ (Object.freeze({ trap_196_cnnon: 'cannon' }));
 
 /**
  * Active stage devices standing on drawn tiles: `{ kind, r, c, dir, z0, key, alias, rangeTiles }`. Every visible
@@ -514,9 +575,13 @@ const DEVICE_KEY_KINDS = Object.freeze({ trap_196_cnnon: 'cannon' });
  * The official client hides none of them by the way they face: the row-13 machines show in the official normal rounds
  * although row 13 lies outside every configBlackBoard area rect (user playtest #5 item 6), and so do the boss field's
  * row-6 machines under the bench (user playtest #5 follow-up: "吹风机原版道中也该有").
+ * @param {any} stage data/stages.json entry
+ * @param {readonly (readonly BoardTile[])[] | null | undefined} grid
+ * @returns {BoardDevice[]}
  */
 export function stageDevices(stage, grid) {
   const list = Array.isArray(stage?.devices) ? stage.devices : [];
+  /** @type {BoardDevice[]} */
   const out = [];
   for (const d of list) {
     if (!d || !Array.isArray(d.pos) || !Number.isInteger(d.pos[0]) || !Number.isInteger(d.pos[1])) continue;
@@ -533,8 +598,10 @@ export function stageDevices(stage, grid) {
 }
 
 /** Device heights on their tile (platform tops are standing surfaces: tiles.js heightAt adds them). */
+/** @type {Readonly<Record<string, number>>} */
 export const DEVICE_H = Object.freeze({ platform: TILE_H.platform, sealedFloor: 0.05, waterPlatform: 0.2 });
 
+/** @param {Geom} board @param {Geom} decal @param {UvTable} UVT @param {BoardDevice} d @param {readonly (readonly BoardTile[])[]} grid */
 function slabDevice(board, decal, UVT, d, grid) {
   const size = d.kind === 'sealedFloor' ? 0.92 : 0.94;
   const h = DEVICE_H[d.kind] || 0.2;
@@ -555,13 +622,15 @@ function slabDevice(board, decal, UVT, d, grid) {
 /**
  * Convert a parsed OBJ (board3d/obj.js, Unity Y-up exported right-handed with X mirrored) into board space
  * (x = col, y = row, z = up): (x', y', z') → (−x'·s, z'·s, y'·s) — a proper rotation, windings stay outward.
+ * @template {{ position: ArrayLike<number>, normal?: ArrayLike<number> | null }} M
+ * @param {M} obj @param {number} [s]
  */
 export function objToBoard(obj, s = 1) {
   const p = obj.position, n = obj.normal;
   const pos = new Float32Array(p.length), nrm = n ? new Float32Array(n.length) : null;
   for (let i = 0; i < p.length; i += 3) {
     pos[i] = -p[i] * s; pos[i + 1] = p[i + 2] * s; pos[i + 2] = p[i + 1] * s;
-    if (nrm) { nrm[i] = -n[i]; nrm[i + 1] = n[i + 2]; nrm[i + 2] = n[i + 1]; }
+    if (nrm) { nrm[i] = -/** @type {ArrayLike<number>} */ (n)[i]; nrm[i + 1] = /** @type {ArrayLike<number>} */ (n)[i + 2]; nrm[i + 2] = /** @type {ArrayLike<number>} */ (n)[i + 1]; }
   }
   return { ...obj, position: pos, normal: nrm };
 }
@@ -570,6 +639,8 @@ export function objToBoard(obj, s = 1) {
  * Box-project UVs of a (board-space) mesh onto atlas surfaces: faces pointing up take `top`, the others `side`
  * (mapped across the face's horizontal extent × height). Used for the official crate mesh (s_common_box_01), whose
  * own material is assigned at runtime by the client.
+ * @template {{ position: ArrayLike<number>, normal?: ArrayLike<number> | null }} M
+ * @param {M} mesh @param {Surface} top @param {Surface} side
  */
 export function boxProjectUV(mesh, top, side) {
   const p = mesh.position, n = mesh.normal;

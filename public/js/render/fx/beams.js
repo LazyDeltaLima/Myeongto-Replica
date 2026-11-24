@@ -1,7 +1,13 @@
 // public/js/render/fx/beams.js — FxSystem beams and the 炎佑 fire jet.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
-/** @import { FxSystem } from './system.js' */
+/**
+ * @import { FxSystem } from './system.js'
+ * @typedef {{ a: any, b: any, color: number, t: number, dur: number, jitter: number, chain: boolean, seed: number }} Beam a beam
+ *   between two views
+ * @typedef {{ src: unknown, tgt: unknown, disc: any, edge: any, t: number, end: number, jet: number, fire: number, smoke: number,
+ *   seed: number, x: number, y: number, z: number, r: number, col: number }} Flame a fire jet (its sprites `disc`, `edge`)
+ */
 
 import { SHOT_HEIGHT } from './camera.js';
 
@@ -12,7 +18,11 @@ const FLAME_TAIL = 0.2, FLAME_FADE = 0.15, MAX_FLAMES = 8;
 const FLAME_TINTS = Object.freeze([0xffd27a, 0xffa94d, 0xff8a3d, 0xff5a2a]);
 
 export class FxBeams {
-  /** A beam from view `a` to view `b`; `chain`: a bounce, `a` is the previous target (it leaves from its chest). @this {FxSystem} */
+  /**
+   * A beam from view `a` to view `b`; `chain`: a bounce, `a` is the previous target (it leaves from its chest).
+   * @param {any} a @param {any} b @param {number} color @param {number} [dur] @param {number} [jitter] @param {boolean} [chain]
+   * @this {FxSystem}
+   */
   _beam(a, b, color, dur = 0.22, jitter = 1, chain = false) {
     this.beamList.push({ a, b, color, t: 0, dur, jitter, chain, seed: Math.random() * 1000 });
     if (this.beamList.length > 40) this.beamList.shift();
@@ -20,7 +30,7 @@ export class FxBeams {
     this.particle('flare', q.x, q.y, { tint: color, life: 0.16, s0: (q.s / 128) * 0.7, s1: (q.s / 128) * 0.25, a0: 1, a1: 0, rot: Math.random() });
   }
 
-  /** @this {FxSystem} */
+  /** @param {number} dt @this {FxSystem} */
   _updateBeams(dt) {
     const g = this.beams;
     g.clear();
@@ -58,6 +68,8 @@ export class FxBeams {
    * event per game second of the channel; each keeps the jet of dragon `srcId` burning for `dur` real s + FLAME_TAIL
    * onto its locked target `tgtId` (else the spot (x, y)), so the 1 s ticks join into ONE continuous stream, with a
    * burning disc of radius `r` tiles following the target. One jet per dragon (a new tick re-aims and extends it).
+   * @param {unknown} srcId @param {unknown} tgtId @param {number} x @param {number} y @param {number} r @param {number} col
+   * @param {number} dur
    * @this {FxSystem}
    */
   _flame(srcId, tgtId, x, y, r, col, dur) {
@@ -69,19 +81,19 @@ export class FxBeams {
       disc.anchor.set(0.5); disc.blendMode = P.BLEND_MODES.ADD; disc.alpha = 0;
       const edge = new P.Sprite(this.tex.ring);
       edge.anchor.set(0.5); edge.blendMode = P.BLEND_MODES.ADD; edge.alpha = 0;
-      F = { src: srcId, disc, edge, t: 0, end: 0, jet: 0, fire: 0, smoke: 0, seed: Math.random() * 100 };
+      F = /** @type {Flame} */ ({ src: srcId, disc, edge, t: 0, end: 0, jet: 0, fire: 0, smoke: 0, seed: Math.random() * 100 });
       this.flames.push(F);
-      if (this.flames.length > MAX_FLAMES) this._freeFlame(this.flames.shift());
+      if (this.flames.length > MAX_FLAMES) this._freeFlame(/** @type {Flame} */ (this.flames.shift()));
     }
     F.tgt = tgtId; F.x = x; F.y = y; F.z = this._groundZ(x, y); F.r = r; F.col = col;
     F.end = Math.max(F.end, F.t + dur + FLAME_TAIL);
     F.disc.tint = F.edge.tint = col;
   }
 
-  /** @this {FxSystem} */
+  /** @param {Flame} F @this {FxSystem} */
   _freeFlame(F) { F.disc.destroy(); F.edge.destroy(); }
 
-  /** @this {FxSystem} */
+  /** @param {number} dt @this {FxSystem} */
   _updateFlames(dt) {
     if (!this.flames.length) return;
     const cam = this.ctx.cam();

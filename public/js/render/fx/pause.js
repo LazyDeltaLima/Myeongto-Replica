@@ -12,14 +12,22 @@ import { UF_CAMOU } from '../../../../shared/local.js';
 import { statusFxKey } from '../fxstatus.js';
 import { LR_ADDON, parseDir } from '../face-turn.js';
 
-/** Whether `v` wears a status whose effect key (render/fxstatus.js statusFxKey) is `name`. */
+/**
+ * @typedef {{ flag?: string, immune?: string | number, combo?: string, back?: boolean, buff?: unknown, not?: boolean }} PauseTerm
+ *   one `pauseIf` term
+ */
+
+/** Whether `v` wears a status whose effect key (render/fxstatus.js statusFxKey) is `name`. @param {any} v @param {string} name */
 function wears(v, name) {
   if (!v?.statuses) return false;
   for (const k of v.statuses) if (statusFxKey(k) === name) return true;
   return false;
 }
 
-/** Torappu.Battle.AbnormalFlag → whether the view's unit has it now; a flag missing here is not answered (null). */
+/**
+ * Torappu.Battle.AbnormalFlag → whether the view's unit has it now; a flag missing here is not answered (null).
+ * @type {Readonly<Record<string, (v: any) => boolean>>}
+ */
 const FLAGS = Object.freeze({
   STUNNED: (v) => !!((v.flags | 0) & UF.STUNNED),
   FROZEN: (v) => !!((v.flags | 0) & UF.FROZEN),
@@ -33,12 +41,16 @@ const FLAGS = Object.freeze({
   DISARMED_COMBAT: (v) => wears(v, 'tremble'),
   LEVITATE: (v) => wears(v, 'levitate'),
 });
-/** Torappu.Battle.AbnormalCombo (SLEEPING: 沉睡) → whether the unit has it; SHELTERING is not answered. */
+/**
+ * Torappu.Battle.AbnormalCombo (SLEEPING: 沉睡) → whether the unit has it; SHELTERING is not answered.
+ * @type {Readonly<Record<string, (v: any) => boolean>>}
+ */
 const COMBOS = Object.freeze({ SLEEPING: (v) => !!((v.flags | 0) & UF.SLEEP) });
 
 /**
  * 2026-10-27: Torappu.Battle.AbnormalFlag → the immunity an enemy record lists (data/enemies.json `stats.immunities`,
  * `otherImmunities`: the keys server/sim/simdata.js immuneSet makes). The flags missing here have no such key.
+ * @type {Readonly<Record<string, string>>}
  */
 const IMMUNE_KEYS = Object.freeze({
   STUNNED: 'stun', SILENCED: 'silence', FROZEN: 'frozen', LEVITATE: 'levitate', FEARED: 'feared', DISARMED_COMBAT: 'disarmedcombat',
@@ -55,12 +67,13 @@ export function immuneTo(rec, flag) {
   const k = IMMUNE_KEYS[flag];
   const st = rec?.stats;
   if (!k || !st) return null;
+  /** @param {unknown} x */
   const norm = (x) => String(x).replace(/Immune$/, '').toLowerCase();
   if (st.immunities && typeof st.immunities === 'object' && Object.entries(st.immunities).some(([x, on]) => on && norm(x) === k)) return true;
-  return (st.otherImmunities || []).some((x) => norm(x) === k);
+  return (st.otherImmunities || []).some((/** @type {unknown} */ x) => norm(x) === k);
 }
 
-/** The owner faces back: its Back model is drawn (UnitView.entryBack; before the model loads, a deploy facing UP). */
+/** The owner faces back: its Back model is drawn (UnitView.entryBack; before the model loads, a deploy facing UP). @param {any} v */
 export const facesBack = (v) => !!(v && (v.entryBack ?? v.dir === 'UP'));
 
 /**
@@ -72,6 +85,8 @@ export const facesBack = (v) => !!(v && (v.entryBack ?? v.dir === 'UP'));
  * `predictAll`). `preserve` (`_preserveBackWhenPredictingDirection`, only 유키 마코토's S3 casts — CN client only): the back side
  * kept while the face vector parses LEFT / RIGHT, as the model keeps its Back model beside an enemy (face-turn.js turnFace
  * `ud`) [추정·CN: read from the field's name only].
+ * @param {{ predict?: unknown, predictAll?: unknown, preserve?: unknown } | null | undefined} b
+ * @param {any} v
  */
 export function backSide(b, v) {
   if (!b?.predict || !v) return facesBack(v);
@@ -88,6 +103,7 @@ export function backSide(b, v) {
  * 凛御银灰's 战鹰 on his arm (svash2_eagle_sit_*) hides through his S3: skchr_svash2_3's `_buffs` svash2_s_3[bird_eff]
  * [추정: INFINITY, it ends with the skill — the eagle_sit_01 the skill's end creates would stay hidden otherwise].
  */
+/** @type {Readonly<Record<string, number>>} */
 const SKILL_BUFFS = Object.freeze({ 'svash2_s_3[bird_eff]': 2 });
 /**
  * 2026-11-16: client buffs a form holds, which a BuffsKeyAnimatorTrigger names: key → whether view `v` holds it.
@@ -95,12 +111,14 @@ const SKILL_BUFFS = Object.freeze({ 'svash2_s_3[bird_eff]': 2 });
  * takes it off with the way back to the <本体> (the view's `info.form`); his Stand_S2 attack (makoto_skill_02_start_01) fades
  * out on its `end` trigger when he turns back while it plays.
  */
+/** @type {Readonly<Record<string, (v: any) => boolean>>} */
 const FORM_BUFFS = Object.freeze({ makoto_standin: (v) => !!v.info?.form });
-/** Whether view `v` holds client buff `key` (FORM_BUFFS), or null when the view cannot tell. */
+/** Whether view `v` holds client buff `key` (FORM_BUFFS), or null when the view cannot tell. @param {any} v @param {string} key */
 export function viewHoldsBuff(v, key) {
   const f = v ? FORM_BUFFS[key] : null;
   return f ? f(v) : null;
 }
+/** @param {any} v @param {string[]} keys */
 const holdsSkillBuff = (v, keys) => {
   const ks = keys.filter((k) => k in SKILL_BUFFS);
   if (!ks.length) return null;
@@ -111,6 +129,9 @@ const holdsSkillBuff = (v, keys) => {
 /**
  * One `pauseIf` term on `v`: true / false, or null when the view cannot tell. `immune(v, flag)` answers an `immune` term
  * (render/fxgame.js: immuneTo of an enemy owner's record).
+ * @param {PauseTerm} t
+ * @param {any} v
+ * @param {((v: any, flag: string|number) => boolean|null)|null} [immune]
  */
 export function pauseTerm(t, v, immune = null) {
   let on = null;
@@ -125,7 +146,7 @@ export function pauseTerm(t, v, immune = null) {
 
 /**
  * PauseEffectIf (`GetCheckResult`): the terms combined in order — OR, AND with `all` (`_CombinePauseFlag`); null when no term was answered (the client then leaves the pause as it is: `_CheckPause`).
- * @param {{ when: object[], all?: boolean }} rec node `pauseIf`
+ * @param {{ when: PauseTerm[], all?: boolean }} rec node `pauseIf`
  * @param {any} v the owner's view
  * @param {((v: any, flag: string|number) => boolean|null)|null} [immune] see pauseTerm
  * @returns {boolean|null}
@@ -140,7 +161,7 @@ export function pauseIfNow(rec, v, immune = null) {
   return r;
 }
 
-/** The owner's current Spine clip (track 0), or null without a model. */
+/** The owner's current Spine clip (track 0), or null without a model. @param {any} v */
 export function clipOf(v) {
   try { return v?.actor?.spine?.state?.getCurrent?.(0)?.animation?.name ?? null; } catch { return null; }
 }
@@ -149,6 +170,8 @@ export function clipOf(v) {
  * PauseEffectWithAnimation (`_CheckPause`): the owner's clip `clip` asks for the pause when `valid` is given and
  * lacks it or `invalid` holds it (true), for the restore with `restore` (`_noPauseWhenValid`) otherwise (false), else
  * nothing (null); no clip: nothing.
+ * @param {{ valid?: string[], invalid?: string[], restore?: unknown } | null | undefined} rec
+ * @param {string | null | undefined} clip
  */
 export function animPause(rec, clip) {
   if (!rec || !clip) return null;
@@ -159,6 +182,7 @@ export function animPause(rec, clip) {
 /**
  * PauseEffectIfNotMove (`Update`, 2026-10-25): paused while its owner, an Enemy, is not moving by itself
  * (`Enemy.isMovingBySelf` false — here the sim's animation state, ANIM.MOVE [ASSUMED]); any other owner: nothing (null).
+ * @param {any} v
  */
 export function movePause(v) {
   if (!v || v.info?.side !== 'enemy' || typeof v.anim !== 'number') return null;
@@ -168,6 +192,8 @@ export function movePause(v) {
 /**
  * PauseEffectIfNotIdle (`Update`): paused while the owner is not idle (`Character.isInIdletState` — here the
  * sim's animation state, ANIM.IDLE [ASSUMED]), or with the face checks while it faces back / front.
+ * @param {{ back?: unknown, front?: unknown } | null | undefined} rec
+ * @param {any} v
  */
 export function idlePause(rec, v) {
   if (!v || typeof v.anim !== 'number') return null;
@@ -181,6 +207,8 @@ export function idlePause(rec, v) {
  * (fx_extract.py owner_follow) finishes at once because its owner's unit mode index `mode` is another — null `mode`: not
  * known, played. The pause variant (`pause`: paused instead, played again in mode `i` — `Update`) is not played: no extracted
  * prefab with an owner uses it, so it is played as it is.
+ * @param {Record<string, any> | null | undefined} def
+ * @param {unknown} mode
  */
 export function unitModeFinishes(def, mode) {
   const u = def?.unitMode;

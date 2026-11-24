@@ -28,6 +28,10 @@ export declare class MeshStandardMaterial extends Loose {}
 export declare class MeshBasicMaterial extends Loose {}
 export declare class InterleavedBufferAttribute extends Loose {}
 export declare class CanvasTexture extends Loose {}
+export declare class ShadowMaterial extends Loose {}
+export declare class HemisphereLight extends Loose {}
+export declare class DirectionalLight extends Loose {}
+export declare class Fog extends Loose {}
 export declare class Texture extends Loose {}
 export declare class Sphere extends Loose {}
 export declare class Skeleton extends Loose {}
@@ -77,3 +81,5 @@ export declare const DstColorFactor: number;
 export declare const DstAlphaFactor: number;
 export declare const CustomBlending: number;
 export declare const AddEquation: number;
+export declare const PCFShadowMap: number;
+export declare const NoToneMapping: number;

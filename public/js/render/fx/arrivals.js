@@ -1,13 +1,16 @@
 // public/js/render/fx/arrivals.js — FxSystem deploy, promotion, death, crates and pops.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
-/** @import { FxSystem } from './system.js' */
+/**
+ * @import { FxSystem } from './system.js'
+ * @typedef {{ c: PIXI.Container, t: number, dur: number, y0: number }} Pop a screen-space pop
+ */
 
 import { COLORS, DMG_STYLE } from '../style.js';
 import { SKILL_GOLD, easeOut } from './limits.js';
 
 export class FxArrivals {
-  /** @this {FxSystem} */
+  /** @param {any} view @this {FxSystem} */
   deploy(view) {
     if (!view) return;
     if (view.bornOfficial) return; // local patch: the official deploy has no effect — the model drops in (units.js onDeploy)
@@ -43,7 +46,7 @@ export class FxArrivals {
     this.burst(c.x, c.y, s, this.rich ? 12 : 5, 0xffe28a, { speed: 1.5, up: 1.8, life: 0.8, tex: 'dot', size: 0.36 });
   }
 
-  /** @this {FxSystem} */
+  /** @param {any} view @this {FxSystem} */
   death(view) {
     if (!view) return;
     const p = this._chest(view);
@@ -59,7 +62,7 @@ export class FxArrivals {
     this.particle('smoke', p.x, p.y, { add: false, tint: 0x1a1a1a, life: 0.8, s0: s / 128 * 0.6, s1: s / 128 * 1.4, a0: 0.5, a1: 0 });
   }
 
-  /** @this {FxSystem} */
+  /** @param {number} x @param {number} y @param {number} z @param {number | null} [tint] @this {FxSystem} */
   crateBreak(x, y, z, tint = null) {
     const p = this._proj(x, y, (z || 0) + 0.35);
     const s = p.s;
@@ -72,7 +75,11 @@ export class FxArrivals {
     this.particle('smoke', p.x, p.y, { add: false, tint: 0x8a7a60, life: 0.7, s0: s / 128 * 0.6, s1: s / 128 * 1.5, a0: 0.45, a1: 0 });
   }
 
-  /** Screen-space pop (bond layer gain / bounty coins). `icon` = texture or null. @this {FxSystem} */
+  /**
+   * Screen-space pop (bond layer gain / bounty coins). `icon` = texture or null.
+   * @param {PIXI.Texture | null} icon @param {string | null} label @param {number} tint @param {number} [i]
+   * @this {FxSystem}
+   */
   pop(icon, label, tint, i = 0) {
     const P = this.P;
     const size = this.ctx.screenSize();
@@ -107,10 +114,10 @@ export class FxArrivals {
     }
     this.ctx.layers.screen.addChild(c);
     this.pops.push({ c, t: 0, dur: 1.4, y0: top });
-    if (this.pops.length > 12) { const o = this.pops.shift(); o.c.destroy({ children: true }); }
+    if (this.pops.length > 12) { const o = /** @type {Pop} */ (this.pops.shift()); o.c.destroy({ children: true }); }
   }
 
-  /** @this {FxSystem} */
+  /** @param {number} dt @this {FxSystem} */
   _updatePops(dt) {
     let w = 0;
     for (const p of this.pops) {

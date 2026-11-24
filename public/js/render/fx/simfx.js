@@ -14,12 +14,13 @@ import { clamp } from './limits.js';
  */
 const ANCHOR_SNAP = 0.75;
 
+/** @param {unknown} v @param {number} d @returns {number} */
 const num = (v, d) => { const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN; return Number.isFinite(n) ? n : d; };
 
 export class FxSim {
   // ---- sim fx (b.ev ['fx', kind, x, y, extra]) -------------------------------------------------------------
 
-  /** Unit view of an fx's `id` / `src` / … (null when unknown or gone). @this {FxSystem} */
+  /** Unit view of an fx's `id` / `src` / … (null when unknown or gone). @param {unknown} id @returns {any} @this {FxSystem} */
   _viewOf(id) {
     if (id == null || !this.ctx.view) return null;
     const v = this.ctx.view(id);
@@ -31,6 +32,7 @@ export class FxSim {
    * when the event's (x, y) is that unit's spot (within ANCHOR_SNAP tiles) or has none; otherwise at (x, y) on the ground
    * — the sim often names the caster in `id` of an effect elsewhere ('aoe' at a target or ahead of the caster, 'crit'
    * on the victim, 'zone' where a skill lands), which used to be drawn on the caster.
+   * @param {number} x @param {number} y @param {Record<string, any>} ex
    * @this {FxSystem}
    */
   _where(x, y, ex) {
@@ -42,7 +44,7 @@ export class FxSim {
     return this._point(x, y);
   }
 
-  /** An fx at the sim position (x, y), on the ground there. @this {FxSystem} */
+  /** An fx at the sim position (x, y), on the ground there. @param {number} x @param {number} y @this {FxSystem} */
   _point(x, y) {
     return { x, y, z: Number.isFinite(x) && Number.isFinite(y) ? this._groundZ(x, y) : 0, v: null };
   }
@@ -54,10 +56,11 @@ export class FxSim {
    * archetype is 'none' (hitCap: a leader hit cancelled by 限伤 draws nothing); unknown kinds get a generic sparkle. `extra` keys used: id (anchor unit — or the shooter of a `pt` kind), r | radius, dur | duration,
    * t (shell flight, game s), src / from / to / target / targets (unit ids), fx, fy / fromX, fromY / tx, ty (positions),
    * element, n, scale, kind, tiles, hold ('lock': the reticle waits while the shooter's skill runs).
+   * @param {string} kind @param {unknown} x @param {unknown} y @param {unknown} extra
    * @this {FxSystem}
    */
   simFx(kind, x, y, extra) {
-    const ex = extra && typeof extra === 'object' ? extra : {};
+    const ex = /** @type {Record<string, any>} */ (extra && typeof extra === 'object' ? extra : {});
     // 2026-10-10: 跃跃 S2's later boomerang (sim kit chess_char_1_09-caper.js, no 'atk' event of its own) — a
     // second boomerang from her to its target, bowing to the other side (client projectile_chr_caper_s2_1 `_inverseParacurve`);
     // render/fxgame.js flies the official trail instead when it can (ownsFx)
@@ -80,6 +83,7 @@ export class FxSim {
     const ts = this.ctx.timeScale ? Math.max(0.25, this.ctx.timeScale()) : 2;
     const dur = num(ex.dur ?? ex.duration, spec.dur ?? 0) / ts;
     const cam = this.ctx.cam();
+    /** @param {any} v @param {{ x: number, y: number, s: number, depth: number }} [out] */
     const chest = (v, out = /** @type {FxSystem} */ (/** @type {unknown} */ (this))._p) => (v ? this._chest(v, out) : cam.project(at.x, at.y, at.z + 0.5, out));
     const p = chest(at.v);
     const s = p.s;

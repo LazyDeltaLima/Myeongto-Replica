@@ -108,7 +108,8 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 (`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and
 the files directly under `server/sim/` (`server/sim/*.js`), the files directly under `server/sim/content/`
 (`server/sim/content/*.js`), the enemy kits `server/sim/content/enemies/` and the operator kits
-`server/sim/content/kits/ops/`.
+`server/sim/content/kits/ops/`, and in the renderer the 3D board `public/js/render/board3d/` and the effect system's parts
+`public/js/render/fx/`.
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -477,6 +478,22 @@ most strict errors were, and the JSDoc that fixed them:
   `BattlePlan` (choices.js); a coverage row is `CoverageRow` (coverage.js). One declaration of two variables
   (`let status, missing = [];`) takes an inline type on each (`let /** @type {…} */ status, /** @type {string[]} */
   missing = [];`) rather than being split, which would change the syntax tree.
+- the 3D board (`render/board3d/`): the injected three.js module is `Three` (`typeof import('…/vendor/three.module.js')`,
+  board3d/materials.js), its objects `ThreeObj` (any member, as the stand-in's classes); a three.js name the board
+  uses goes into `types/vendor/three.module.d.ts` (then `npm run vendor`, or tools/vendor.mjs `vendorTypes`, copies it
+  beside the module). The board pack is `BoardPack` (load.js), an atlas region `Surface` / `UvTable` (atlas.js), the
+  classified tile `BoardTile` and a drawn device `BoardDevice` (layout.js), a loaded official scene `SceneData`
+  (official.js), mesh arrays `MeshData` (scene.js). A field a method sets first (`this.meshes = {}` in `_clear`) is
+  `T | undefined` under strict even with its `@type`: cast at the use (`/** @type {Meshes} */ (this.meshes).bg = …`).
+- the effect system's parts (`render/fx/`): each pooled record has a typedef where its part makes it (`Particle`,
+  `PartOpts`, `Proj`, `Beam`, `Flame`, `Lock`, `Num`, `Label`, `Ring`, `Aura`, `Zone`, `TileFlash`, `Pop`) and
+  `FxSystem`'s constructor types its pools with them; a record made with only its sprites is cast whole (`p = /** @type
+  {Particle} */ ({ sp, add })`) and `list.shift()` passed on is cast to the record. A part's own `this.x = …` declares
+  `x` on the part class, and the part's type then wins over the system's in the merged `FxSystem`
+  (types/page-members.d.ts): cast the receiver where a part sets a pool (`/** @type {FxSystem} */ (this)._offNums =
+  …`). The kit-event plans are `@type {Record<string, Record<string, KitPlanFn>>}` (kitofficial.js), which types every
+  `cite(key, (o, c) => …)` callback through `cite`'s generic. A unit's view (render/units.js) is taken as `any` (a
+  view or a plain point record reaches the same helpers).
 
 
 ## Split classes

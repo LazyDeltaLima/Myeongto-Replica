@@ -15,7 +15,7 @@ export function ensureDamageFonts() {
         fill: st.fill, fillGradientStops: [0.25, 1], stroke: st.stroke, strokeThickness: 7,
         dropShadow: true, dropShadowColor: '#000000', dropShadowAlpha: 0.45, dropShadowDistance: 2, dropShadowBlur: 2,
       }, { chars: [['0', '9'], '+-×!'], resolution: 2, padding: 6 });
-    } catch (err) { console.warn('[fx] bitmap font', st.font, err?.message || err); }
+    } catch (/** @type {any} */ err) { console.warn('[fx] bitmap font', st.font, err?.message || err); }
   }
   fontsReady = true;
 }

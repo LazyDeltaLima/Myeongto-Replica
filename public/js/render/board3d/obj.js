@@ -7,21 +7,27 @@
 // Faces with more than 3 corners are fanned; negative (relative) indices are honoured; unknown statements are
 // ignored. Vertices are de-duplicated per (v, vt, vn) corner triplet.
 
+/** @param {unknown} text */
 export function parseObj(text) {
   if (typeof text !== 'string' || !text) return null;
-  const v = [], vt = [], vn = [], vc = [];
-  const outPos = [], outNrm = [], outUv = [], outCol = [], idx = [];
+  /** @type {number[]} */
+  const v = [], /** @type {number[]} */ vt = [], /** @type {number[]} */ vn = [], /** @type {number[]} */ vc = [];
+  /** @type {number[]} */
+  const outPos = [], /** @type {number[]} */ outNrm = [], /** @type {number[]} */ outUv = [], /** @type {number[]} */ outCol = [], /** @type {number[]} */ idx = [];
+  /** @type {{ name: string, start: number, count: number }[]} */
   const groups = [];
   const map = new Map();
   let group = { name: 'default', start: 0, count: 0 };
   let hasColor = false;
   const lines = text.split(/\r?\n/);
+  /** @param {string | undefined} s @param {number} len */
   const ref = (s, len) => {
     if (s === undefined || s === '') return -1;
     const n = parseInt(s, 10);
     if (!Number.isFinite(n) || n === 0) return -1;
     return n > 0 ? n - 1 : len + n;
   };
+  /** @param {string} tok */
   const corner = (tok) => {
     const [a, b, c] = tok.split('/');
     const iv = ref(a, v.length / 3), it = ref(b, vt.length / 2), inn = ref(c, vn.length / 3);
@@ -81,13 +87,19 @@ export function parseObj(text) {
   };
 }
 
-/** Uniformly transform a parsed mesh: `fn(x, y, z) → [x, y, z]` for positions, `nfn` for normals (optional). */
+/** @typedef {NonNullable<ReturnType<typeof parseObj>>} ObjMesh */
+
+/**
+ * Uniformly transform a parsed mesh: `fn(x, y, z) → [x, y, z]` for positions, `nfn` for normals (optional).
+ * @param {ObjMesh} mesh @param {(x: number, y: number, z: number) => ArrayLike<number>} fn
+ * @param {((x: number, y: number, z: number) => ArrayLike<number>) | null} [nfn]
+ */
 export function mapMesh(mesh, fn, nfn) {
   const p = mesh.position, pos = new Float32Array(p.length);
   for (let i = 0; i < p.length; i += 3) { const q = fn(p[i], p[i + 1], p[i + 2]); pos[i] = q[0]; pos[i + 1] = q[1]; pos[i + 2] = q[2]; }
   let normal = mesh.normal;
   if (normal && nfn) {
-    const n = mesh.normal; normal = new Float32Array(n.length);
+    const n = /** @type {Float32Array} */ (mesh.normal); normal = new Float32Array(n.length);
     for (let i = 0; i < n.length; i += 3) { const q = nfn(n[i], n[i + 1], n[i + 2]); normal[i] = q[0]; normal[i + 1] = q[1]; normal[i + 2] = q[2]; }
   }
   return { ...mesh, position: pos, normal };

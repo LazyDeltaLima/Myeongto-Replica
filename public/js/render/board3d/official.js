@@ -31,22 +31,37 @@
 // colorspace_fragment). Doing the maths in linear space instead made every product darker and more saturated (the
 // sand orange-brown and grimy, the _BlendColor tint far too strong) — docs/local/official-scenes.md.
 
+/**
+ * @import { Three, ThreeObj, Uniforms } from './materials.js'
+ * @import { Rect } from './layout.js'
+ * @typedef {{ stageId: string, doc: Record<string, any>, buffer: ArrayBuffer, textures: Record<string, HTMLImageElement>,
+ *   lightmaps: Record<string, HTMLImageElement>[], devices: SceneData | null }} SceneData a loaded scene (scene.json as `doc`)
+ * @typedef {{ data: SceneData | null, missing: string[] }} SceneLoad
+ * @typedef {{ geo: ThreeObj, mat: ThreeObj, qpos: number[] | null, material: string, part?: string }} DevPart a device model's
+ *   renderer
+ */
+
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
+/** @param {string} url */
 async function fetchJson(url) {
   try { const r = await fetch(url, { cache: 'no-cache' }); return r.ok ? await r.json() : null; } catch { return null; }
 }
 // revalidated like scene.json: the server sends geom.bin with max-age, and a cached older buffer under a newer
 // scene.json puts its ranges out of bounds (unDzs RangeError) after a re-extract
+/** @param {string} url */
 async function fetchBin(url) {
   try { const r = await fetch(url, { cache: 'no-cache' }); return r.ok ? await r.arrayBuffer() : null; } catch { return null; }
 }
 
 // stageId → Promise<{ data, missing }>: `data` null = no scene listed for the stage (kept for good); `missing` = what
 // failed to load (scene.json / geom.bin / images / the device models) — such a result is loaded again on `retry`
+/** @type {Map<string, Promise<SceneLoad>>} */
 const cache = new Map();
 
 /** Group key of a stage scene in data/local-assets.json. */
+/** @param {string} stageId */
 export const sceneGroup = (stageId) => `scene/${stageId}`;
 /** The device models' pseudo stage (scene/devices: scene_extract.py --devices). */
 export const DEVICES_ID = 'devices';
@@ -57,7 +72,7 @@ export const DEVICES_ID = 'devices';
 // (赘生甲壳 — 规程's 微核沉积者 leaves it where it falls, trap_156_dsshell: a battle device, scene.js _createOfficialDevice by its key)
 export const OFFICIAL_DEVICE = Object.freeze({ crate: 'trap_1105_accrate', platform: 'trap_1106_achplat', waterPlatform: 'trap_040_canoe', mound: 'trap_032_mound', cannon: 'trap_196_cnnon', shell: 'trap_156_dsshell' });
 
-/** Is an official scene listed for `stageId`? (manifest only) */
+/** Is an official scene listed for `stageId`? (manifest only) @param {any} assets @param {string | null | undefined} stageId */
 export function officialSceneListed(assets, stageId) {
   if (!assets || typeof assets.localUrl !== 'function' || !stageId) return false;
   const u = assets.localUrl(sceneGroup(stageId), 'scene');
@@ -76,7 +91,7 @@ export function officialSceneListed(assets, stageId) {
  * @param {any} assets
  * @param {string} stageId
  * @param {{ retry?: boolean, partial?: boolean }} [opts]
- * @returns {Promise<object|null>} null when the stage has no extracted scene
+ * @returns {Promise<SceneData|null>} null when the stage has no extracted scene
  */
 export function loadOfficialScene(assets, stageId, { retry = false, partial = false } = {}) {
   if (!stageId) return Promise.resolve(null);
@@ -86,7 +101,11 @@ export function loadOfficialScene(assets, stageId, { retry = false, partial = fa
   });
 }
 
-/** The cached load of a stage scene → { data, missing: [what failed] }; a result with something missing is loaded again on `retry`. */
+/**
+ * The cached load of a stage scene → { data, missing: [what failed] }; a result with something missing is loaded again on `retry`.
+ * @param {any} assets @param {string} stageId @param {boolean} retry
+ * @returns {Promise<SceneLoad>}
+ */
 function loadScene(assets, stageId, retry) {
   const prev = cache.get(stageId);
   if (prev && !retry) return prev;
@@ -98,11 +117,13 @@ function loadScene(assets, stageId, retry) {
   return p;
 }
 
+/** @param {any} assets @param {string} stageId @param {boolean} retry @returns {Promise<SceneLoad>} */
 async function loadSceneOnce(assets, stageId, retry) {
   try {
     if (!assets || typeof assets.localUrl !== 'function' || typeof assets.image !== 'function') return { data: null, missing: [] };
     let manifest = null;
     try { manifest = await assets.local?.(retry ? { retry: true } : undefined); } catch { manifest = null; }
+    /** @param {string} g @param {string} n */
     const url = (g, n) => { const u = assets.localUrl(g, n); return typeof u === 'string' && u ? encodeURI(u) : null; };
     const g = sceneGroup(stageId);
     const sUrl = url(g, 'scene'), bUrl = url(g, 'geom');
@@ -111,9 +132,13 @@ async function loadSceneOnce(assets, stageId, retry) {
     const [doc, buf] = await Promise.all([fetchJson(sUrl), fetchBin(bUrl)]);
     if (!isObj(doc) || !Array.isArray(doc.groups)) return { data: null, missing: [sUrl] };
     if (!buf) return { data: null, missing: [bUrl] };
+    /** @type {string[]} */
     const missing = [];
+    /** @type {Map<string, ((img: HTMLImageElement) => void)[]>} */
     const wanted = new Map();  // url → [slot setters]
-    const want = (u, set) => { if (!u) return; if (!wanted.has(u)) wanted.set(u, []); wanted.get(u).push(set); };
+    /** @param {string | null} u @param {(img: HTMLImageElement) => void} set */
+    const want = (u, set) => { if (!u) return; if (!wanted.has(u)) wanted.set(u, []); /** @type {((img: HTMLImageElement) => void)[]} */ (wanted.get(u)).push(set); };
+    /** @type {Record<string, HTMLImageElement>} */
     const textures = {};
     for (const m of Object.values(doc.materials || {})) {
       for (const tx of Object.values(m.textures || {})) {
@@ -122,8 +147,9 @@ async function loadSceneOnce(assets, stageId, retry) {
         want(url('scene/tex', name), (img) => { textures[tx.file] = img; });
       }
     }
+    /** @type {Record<string, HTMLImageElement>[]} */
     const lightmaps = (doc.lightmaps || []).map(() => ({}));
-    (doc.lightmaps || []).forEach((lm, i) => {
+    (doc.lightmaps || []).forEach((/** @type {any} */ lm, /** @type {number} */ i) => {
       for (const k of ['light', 'mask']) {
         const f = lm?.[k]?.file;
         if (f) want(url(g, f.replace(/\.png$/, '')), (img) => { lightmaps[i][k] = img; });
@@ -142,7 +168,7 @@ async function loadSceneOnce(assets, stageId, retry) {
       missing.push(...d.missing);
     }
     return { data: { stageId, doc, buffer: buf, textures, lightmaps, devices }, missing };
-  } catch (err) {
+  } catch (/** @type {any} */ err) {
     console.warn('[board3d] official scene load failed', stageId, err);
     return { data: null, missing: [String(err?.message || err)] };
   }
@@ -152,6 +178,7 @@ async function loadSceneOnce(assets, stageId, retry) {
  * Undo scene_extract.py dzs for the range `r` ([byte offset, count]) of `buffer`: the bytes come shuffled by
  * significance (all low bytes, then the next…), each value is a zigzag delta from the previous one of the same
  * component (mod 2^16 / 2^32). `w` 2 → Uint16Array, 4 → Uint32Array.
+ * @param {ArrayBuffer} buffer @param {readonly number[]} r @param {number} w @param {number} comps
  */
 export function unDzs(buffer, r, w, comps) {
   const n = r[1], src = new Uint8Array(buffer, r[0], n * w);
@@ -190,7 +217,9 @@ export const WIDE_KEY = Object.freeze({ rows: Object.freeze([8.5, 12.5]), maxW: 
 export function wideKeys(pos, idx, n, toBoard) {
   const par = new Int32Array(n);
   for (let i = 0; i < n; i++) par[i] = i;
+  /** @param {number} i */
   const find = (i) => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
+  /** @param {number} a @param {number} b */
   const join = (a, b) => { a = find(a); b = find(b); if (a !== b) par[a] = b; };
   for (let i = 0; i + 2 < idx.length; i += 3) { join(idx[i], idx[i + 1]); join(idx[i], idx[i + 2]); }
   // split normals / uvs make several vertices of one corner: the same position joins them
@@ -217,7 +246,7 @@ export function wideKeys(pos, idx, n, toBoard) {
   return out;
 }
 
-/** Give a stage mesh's geometry its seam keys (`aKey`, wideKeys) once; the copies share the geometry. */
+/** Give a stage mesh's geometry its seam keys (`aKey`, wideKeys) once; the copies share the geometry. @param {ThreeObj} mesh */
 function keyGeometry(mesh) {
   const geo = mesh.geometry;
   if (geo.userData.wideKeyed) return;
@@ -225,6 +254,7 @@ function keyGeometry(mesh) {
   if (!p || !index) return;
   const a = p.array, norm = p.normalized && a instanceof Uint16Array ? 1 / 65535 : 1, e = mesh.matrix.elements;
   const v = [0, 0];
+  /** @param {number} i */
   const toBoard = (i) => {
     const x = a[3 * i] * norm, y = a[3 * i + 1] * norm, z = a[3 * i + 2] * norm;
     v[0] = e[0] * x + e[4] * y + e[8] * z + e[12]; v[1] = e[1] * x + e[5] * y + e[9] * z + e[13];
@@ -454,6 +484,7 @@ void main() {
  */
 export const OFFICIAL_LIGHTING = Object.freeze({ lmGain: 0.97, directGain: 0.9, emissionGain: 1.0, ambientGain: 1.0 });
 
+/** @param {Three} THREE @param {unknown} img @param {{ repeat?: boolean, aniso?: number }} [opts] */
 function texture(THREE, img, { repeat = false, aniso = 1 } = {}) {
   if (!img) return null;
   const t = new THREE.Texture(img);
@@ -467,14 +498,17 @@ function texture(THREE, img, { repeat = false, aniso = 1 } = {}) {
   return t;
 }
 
-/** A material / light colour as Unity's gamma-space shaders use it: the stored value, unconverted. */
+/**
+ * A material / light colour as Unity's gamma-space shaders use it: the stored value, unconverted.
+ * @param {Three} THREE @param {readonly number[] | null | undefined} c
+ */
 const raw = (THREE, c) => (c ? new THREE.Color().setRGB(c[0], c[1], c[2], THREE.LinearSRGBColorSpace) : new THREE.Color(1, 1, 1));
 
 /**
  * Build three.js meshes for a loaded official scene (board space, static: matrixAutoUpdate off).
- * @param {any} THREE
- * @param {object} data loadOfficialScene result
- * @param {object} focus materials.js focusUniforms (shared with the procedural board)
+ * @param {Three} THREE
+ * @param {SceneData} data loadOfficialScene result
+ * @param {Uniforms} focus materials.js focusUniforms (shared with the procedural board)
  * @param {{ aniso?: number }} [opts]
  */
 export function buildOfficialScene(THREE, data, focus, opts = {}) {
@@ -483,6 +517,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
   const aniso = opts.aniso || 1;
   const texCache = new Map();
   let texSrc = data.textures;  // the textures of the doc being built (the stage's, then the devices')
+  /** @param {string | undefined} file @param {{ repeat?: boolean }} [o] */
   const tex = (file, o) => {
     if (!file || !texSrc?.[file]) return null;
     const k = `${file}|${!!o?.repeat}`;
@@ -494,7 +529,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
     light: texture(T, lm.light),
     mask: texture(T, lm.mask),
   }));
-  const main = (doc.lights || []).find((l) => l.active && l.type === 1) || null;
+  const main = (doc.lights || []).find((/** @type {{ active?: boolean, type?: number }} */ l) => l.active && l.type === 1) || null;
   const lightDir = main ? new T.Vector3(-main.dir[0], -main.dir[1], -main.dir[2]).normalize() : new T.Vector3(0.4, 0.4, 0.8).normalize();
   const lightColor = main ? raw(T, main.color).multiplyScalar(main.intensity) : new T.Color(1, 1, 1);
   const S = doc.settings || {};
@@ -502,20 +537,23 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
   // generated skybox reflection × m_ReflectionIntensity; mean colour per cube face); older extracts: the ambient sky
   const R = doc.reflection;
   const refl = Array.isArray(R?.faces) && R.faces.length === 6
-    ? R.faces.map((c) => new T.Vector3(c[0], c[1], c[2]).multiplyScalar(R.intensity ?? 1))
+    ? R.faces.map((/** @type {number[]} */ c) => new T.Vector3(c[0], c[1], c[2]).multiplyScalar(R.intensity ?? 1))
     : new Array(6).fill(0).map(() => new T.Vector3(...(S.ambientSky || [0.3, 0.3, 0.3]).slice(0, 3)).multiplyScalar(S.ambientIntensity ?? 1));
   const ambient = S.ambientSky ? raw(T, S.ambientSky).multiplyScalar((S.ambientIntensity ?? 1) * OFFICIAL_LIGHTING.ambientGain) : new T.Color(0.3, 0.3, 0.3);
 
+  /** @type {Map<string, ThreeObj>} */
   const materials = new Map();
+  /** @type {ThreeObj[]} */
   const animated = [];
   // the x range the stage's meshes draw (setWide), shared by every stage material; the device models draw everywhere
   const OPEN = 1e4;
   const clipStage = { value: new T.Vector2(-OPEN, OPEN) };
   // q: a version-2 group's uv ranges ({ uv0, uv1: [sx, sy, ox, oy] }, u16 normalized → uv); folded into uMainST /
   // uUv1ST, so a quantized group gets a material of its own (same program, no extra draw calls)
+  /** @param {string} name @param {number} lmIndex @param {{ uv0: number[], uv1: number[] } | null} [q] */
   const materialFor = (name, lmIndex, q = null) => {
     const key = `${matSrc === doc.materials ? '' : 'dev:'}${name}|${lmIndex}${q ? `|${q.uv0}|${q.uv1}` : ''}`;
-    if (materials.has(key)) return materials.get(key);
+    if (materials.has(key)) return /** @type {ThreeObj} */ (materials.get(key));
     const q0 = q?.uv0 || [1, 1, 0, 0], q1 = q?.uv1 || [1, 1, 0, 0];
     const info = matSrc?.[name] || { shader: null, keywords: [], textures: {}, floats: {}, colors: {} };
     const kw = new Set(info.keywords || []);
@@ -545,6 +583,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       // Unity's built-in Unlit/Texture (the 土石结构 and 特制水上平台 device models): the texture as is, opaque, culled
       const unlitTex = shader === 'Unlit/Texture';
       const blend = !/Scene\/Trap/.test(shader) && !unlitTex && (kw.has('_ALPHABLEND_ON') || particle || (F._Mode ?? 0) >= 2);
+      /** @type {Record<string, number>} */
       const defines = {};
       if (kw.has('_ALPHATEST_ON')) defines.ALPHATEST = 1;
       if (kw.has('_HG_VERTEX_COLOR_BLEND_ON')) defines.VERTEX_BLEND = 1;
@@ -561,7 +600,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       // smoothness only; the desert / Kazimierz / Syracuse maps have metallic ≈ 0), else _Glossiness / _Metallic
       const gloss = kw.has('_METALLICGLOSSMAP') ? tex(X._MetallicGlossMap?.file) : null;
       if (gloss) defines.GLOSSMAP = 1;
-      const color = particle && C._TintColor ? C._TintColor.map((v, i) => (i < 3 ? v * 2 : v * 2)) : (C._Color || [1, 1, 1, 1]);
+      const color = particle && C._TintColor ? C._TintColor.map((/** @type {number} */ v, /** @type {number} */ i) => (i < 3 ? v * 2 : v * 2)) : (C._Color || [1, 1, 1, 1]);
       const col = raw(T, color);
       mat = new T.ShaderMaterial({
         vertexShader: VERT, fragmentShader: FRAG, defines,
@@ -600,10 +639,12 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
     return mat;
   };
 
+  /** @type {ThreeObj[]} */
   const meshes = [];
   // geom.bin version 2 (scene_extract.py pack_geometry): u16 positions on the scene grid doc.quant.pos (the mesh
   // matrix maps them back: translate (x0, y0, z0), uniform scale span), i8 normals, u16 uvs per group range (g.q),
   // optional one-colour groups and u16 indices; version 1: f32 attributes, u32 indices
+  /** @param {Record<string, any>} D @param {ArrayBuffer} buf @param {Record<string, any>} g */
   const geometryOf = (D, buf, g) => {
     const qp = D.version >= 2 && Array.isArray(D.quant?.pos) ? D.quant.pos : null;
     const dz = new Set(Array.isArray(D.quant?.dzs) ? D.quant.dzs : []);
@@ -611,12 +652,14 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
     const q = qp && g.q ? g.q : null;
     if (q) {
       // the dzs arrays are delta + zigzag + byte-shuffled (scene_extract.py dzs): decoded into fresh arrays
+      /** @param {string} k @param {number} comps */
       const u16 = (k, comps) => (dz.has(k) ? unDzs(buf, g[k], 2, comps) : new Uint16Array(buf, g[k][0], g[k][1]));
       geo.setAttribute('position', new T.BufferAttribute(u16('pos', 3), 3, true));
       geo.setAttribute('normal', new T.BufferAttribute(new Int8Array(buf, g.nrm[0], g.nrm[1]), 4, true));
       geo.setAttribute('uv', new T.BufferAttribute(u16('uv0', 2), 2, true));
       geo.setAttribute('uv1', new T.BufferAttribute(u16('uv1', 2), 2, true));
     } else {
+      /** @param {readonly number[]} r */
       const f32 = (r) => new Float32Array(buf, r[0], r[1]);
       geo.setAttribute('position', new T.BufferAttribute(f32(g.pos), 3));
       geo.setAttribute('normal', new T.BufferAttribute(f32(g.nrm), 3));
@@ -660,12 +703,15 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
   // runtime device models (scene/devices, loaded with the stage as data.devices): shared geometry and materials, lit
   // with this stage's main light (their materials are built from the devices' own material table and textures)
   let devices = null;
+  /** @type {ThreeObj[]} */
   const devGeos = [];
   const DV = data.devices;
   if (DV && isObj(DV.doc) && Array.isArray(DV.doc.groups) && DV.buffer) {
     texSrc = DV.textures || {};
     matSrc = DV.doc.materials || {};
+    /** @type {Map<string, DevPart[]>} */
     const parts = new Map();  // device key → [{ geo, mat, qpos, material }]
+    /** @type {Map<string, DevPart[]>} */
     const moving = new Map();  // device key → [{ geo, mat, qpos, material, part }]: the clips' renderers (a group's `part`)
     for (const g of DV.doc.groups) {
       if (!g || !g.vertices || !g.indices || !g.device) continue;
@@ -673,28 +719,32 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       devGeos.push(geo);
       const to = typeof g.part === 'string' ? moving : parts;
       if (!to.has(g.device)) to.set(g.device, []);
-      to.get(g.device).push({ geo, mat: materialFor(g.material, -1, q), qpos: q ? qpos : null, material: g.material, part: g.part });
+      /** @type {DevPart[]} */ (to.get(g.device)).push({ geo, mat: materialFor(g.material, -1, q), qpos: q ? qpos : null, material: g.material, part: g.part });
     }
     texSrc = data.textures;
     matSrc = doc.materials;
     const info = isObj(DV.doc.devices) ? DV.doc.devices : {};
+    /** @param {string} key */
     const clipsOf = (key) => (isObj(info[key]?.clips) ? info[key].clips : null);
     devices = {
-      has: (key) => parts.has(key),
+      has: (/** @type {string} */ key) => parts.has(key),
       /** [[x0, y0, z0], [x1, y1, z1]] of the model around its tile centre (z from the ground). */
-      bounds: (key) => (Array.isArray(info[key]?.bounds) ? info[key].bounds : null),
+      bounds: (/** @type {string} */ key) => (Array.isArray(info[key]?.bounds) ? info[key].bounds : null),
       /** The standing surface's height (a 射击台's plate), null when not recorded. */
-      top: (key) => (parts.has(key) && Number.isFinite(info[key]?.top) ? info[key].top : null),
+      top: (/** @type {string} */ key) => (parts.has(key) && Number.isFinite(info[key]?.top) ? info[key].top : null),
       /**
        * A Group holding the device's model, its origin at the tile centre on the ground. `fade`: materials of its own
        * (uOpacity, blended) sharing the uniforms (light, focus) — the caller disposes them (group.userData.materials).
+       * @param {string} key @param {{ fade?: boolean }} [opts]
        */
       mesh(key, { fade = false } = {}) {
         const list = parts.get(key);
         if (!list) return null;
         const grp = new T.Group();
         grp.userData.materials = [];
+        /** @type {Map<string, ThreeObj>} */
         const mats = new Map();   // one material per source material: the whole model and its parts share it
+        /** @param {DevPart} p */
         const matOf = (p) => {
           if (!fade) return p.mat;
           let mat = mats.get(p.material);
@@ -709,6 +759,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
           }
           return mat;
         };
+        /** @param {DevPart} p */
         const meshOf = (p) => {
           const m = new T.Mesh(p.geo, matOf(p));
           if (p.qpos) { m.position.set(p.qpos[0], p.qpos[1], p.qpos[2]); m.scale.setScalar(p.qpos[3]); }
@@ -724,6 +775,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
         if (mv && clipsOf(key)) {
           const partsGrp = new T.Group();
           partsGrp.visible = false;
+          /** @type {Map<string | undefined, ThreeObj>} */
           const byPart = new Map();
           for (const p of mv) {
             let pg = byPart.get(p.part);
@@ -736,10 +788,11 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
         return grp;
       },
       /** The device's clip `name` (Born / Die: its MeshAnimator's legacy clips) { clip, dur, fps, frames }, else null. */
-      clip: (key, name) => clipsOf(key)?.[name] || null,
+      clip: (/** @type {string} */ key, /** @type {string} */ name) => clipsOf(key)?.[name] || null,
       /**
        * Pose a mesh() group at `t` s into clip `name` (null: the standing model). Renderers the clip does not move keep
        * their rest pose. False when the group has no such clip (the caller draws its own fallback).
+       * @param {ThreeObj | null | undefined} grp @param {string | null} name @param {number} [t]
        */
       pose(grp, name, t = 0) {
         const P = grp?.userData?.parts, whole = grp?.userData?.whole;
@@ -754,6 +807,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
           const seq = c.frames[part];
           if (!Array.isArray(seq) || seq.length < 12) { pg.matrix.identity(); continue; }
           const n = seq.length / 12, a = Math.min(i, n - 1) * 12, b = Math.min(i + 1, n - 1) * 12;
+          /** @param {number} k */
           const v = (k) => seq[a + k] + (seq[b + k] - seq[a + k]) * u;
           pg.matrix.set(v(0), v(1), v(2), v(9), v(3), v(4), v(5), v(10), v(6), v(7), v(8), v(11), 0, 0, 0, 1);
         }
@@ -762,8 +816,10 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
     };
   }
   const hiddenTiles = doc.hidden || {};
+  /** @param {readonly number[] | null | undefined} t @param {Rect} a */
   const overlaps = (t, a) => !!t && t[0] <= a.r1 && t[1] >= a.r0 && t[2] <= a.c1 && t[3] >= a.c0;
   const hl = Number(doc.map?.highlandHeight);
+  /** @param {readonly ThreeObj[]} list @param {readonly Rect[]} rects */
   const showHidden = (list, rects) => {
     for (const m of list) {
       const k = m.userData.hidden;
@@ -774,7 +830,9 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
   // x 18.5 (the old right spawn, where the added halves end — shared/wideField.js) while the stage's own stops there;
   // the pieces around the field go whole to one side (WIDE_KEY)
   const SEAM = 18.5;
+  /** @type {{ halves: number, shift: number, group: ThreeObj, meshes: ThreeObj[], materials: ThreeObj[] } | null} */
   let wide = null; // { halves, shift, group, meshes, materials }
+  /** @type {readonly Rect[]} */
   let area = [];
   const dropWide = () => {
     if (!wide) return;
@@ -791,11 +849,12 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
     camera: typeof doc.map?.cameraEffect === 'string' && doc.map.cameraEffect ? doc.map.cameraEffect : null,
     meshes,
     materials: [...materials.values()],
+    /** @param {readonly Rect[] | null | undefined} rects */
     setArea(rects) {
       area = Array.isArray(rects) ? rects : [];
       showHidden(meshes, area);
       // the copy's hidden sets by the stage tiles under it (the area moved back by the shift)
-      if (wide) showHidden(wide.meshes, area.map((a) => ({ ...a, c0: a.c0 - wide.shift, c1: a.c1 - wide.shift })));
+      if (wide) showHidden(wide.meshes, area.map((a) => ({ ...a, c0: a.c0 - /** @type {{ shift: number }} */ (wide).shift, c1: a.c1 - /** @type {{ shift: number }} */ (wide).shift })));
     },
     /**
      * Draw the island for a wide 联防 field of `halves` (3 | 4: the copy 8 / 16 columns right, from x 18.5), or as the
@@ -810,7 +869,9 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       dropWide();
       if (!shift) return null;
       const clipCopy = { value: new T.Vector2(SEAM, OPEN) };
+      /** @type {Map<ThreeObj, ThreeObj>} */
       const own = new Map();
+      /** @param {ThreeObj} mt */
       const copyOf = (mt) => {
         if (!own.has(mt)) {
           const c = mt.clone();
@@ -852,6 +913,7 @@ export function buildOfficialScene(THREE, data, focus, opts = {}) {
       for (const t of texCache.values()) t.dispose();
       for (const l of lms) { l.light?.dispose(); l.mask?.dispose(); }
     },
+    /** @param {number} t */
     update(t) { for (const m of animated) m.uniforms.uTime.value = t; },
     /** Whether update() moves anything (the board is drawn every frame then: scene.js BOARD_REDRAW_MAX_S). */
     get animated() { return animated.length > 0; },

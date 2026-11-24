@@ -1,7 +1,15 @@
 // public/js/render/fx/particles.js — FxSystem particle pool, bursts, motes and puffs.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
-/** @import { FxSystem } from './system.js' */
+/**
+ * @import { FxSystem } from './system.js'
+ * @typedef {{ add?: boolean, tint?: number, vx?: number, vy?: number, g?: number, drag?: number, life?: number, s0?: number,
+ *   s1?: number, sx?: number, a0?: number, a1?: number, spin?: number, fadeIn?: number, rot?: number, anchorX?: number,
+ *   ay?: number }} PartOpts particle()'s options
+ * @typedef {{ sp: any, add: boolean, x: number, y: number, vx: number, vy: number, g: number, drag: number, life: number,
+ *   max: number, s0: number, s1: number, sx: number, a0: number, a1: number, spin: number, fadeIn: number }} Particle a pooled
+ *   particle record (its sprite `sp` stays in its container)
+ */
 
 import { MAX_PARTICLES, NO_OPTS, clamp } from './limits.js';
 
@@ -30,7 +38,7 @@ export class FxParticles {
   /** Battle clock rate (game s per real s, ≈ 2 in combat). @this {FxSystem} */
   _ts() { const r = this.ctx.timeScale ? Number(this.ctx.timeScale()) : 2; return r > 0.25 ? r : 0.25; }
 
-  /** Ground height of the tile under (x, y). @this {FxSystem} */
+  /** Ground height of the tile under (x, y). @param {number} x @param {number} y @this {FxSystem} */
   _groundZ(x, y) { return this.ctx.heightAt ? (this.ctx.heightAt(Math.round(y), Math.round(x)) || 0) : 0; }
 
   // ---- particles ------------------------------------------------------------------------------------------
@@ -38,17 +46,18 @@ export class FxParticles {
   /**
    * Spawn a screen-space particle; returns its record (set `sx` on it to mirror). `o` is only read (the per-frame
    * emitters pass the shared _o() object). Records are pooled with their sprite; at the cap the oldest is recycled.
+   * @param {string} tex @param {number} x @param {number} y @param {PartOpts} [o]
    * @this {FxSystem}
    */
   particle(tex, x, y, o = NO_OPTS) {
-    if (this.parts.length >= this.maxParticles) this._freeParticle(this.parts.shift());
+    if (this.parts.length >= this.maxParticles) this._freeParticle(/** @type {Particle} */ (this.parts.shift()));
     const add = o.add !== false;
     const t = this.tex[tex] || this.tex.dot;
     let p = (add ? this.freeAdd : this.freeNorm).pop();
     if (!p) {
       const sp = new this.P.Sprite(t);
       (add ? this.addPc : this.normPc).addChild(sp);
-      p = { sp, add };
+      p = /** @type {Particle} */ ({ sp, add });
     }
     const sp = p.sp;
     sp.texture = t;
@@ -65,7 +74,11 @@ export class FxParticles {
     return p;
   }
 
-  /** The shared options object of the per-frame emitters, reset to the defaults (particle() never keeps it). @this {FxSystem} */
+  /**
+   * The shared options object of the per-frame emitters, reset to the defaults (particle() never keeps it).
+   * @returns {PartOpts}
+   * @this {FxSystem}
+   */
   _o() {
     const o = this._po;
     o.add = true; o.tint = 0xffffff; o.vx = 0; o.vy = 0; o.g = 0; o.drag = 0; o.life = 0.5; o.s0 = 1; o.s1 = 1; o.sx = 1;
@@ -73,7 +86,7 @@ export class FxParticles {
     return o;
   }
 
-  /** @this {FxSystem} */
+  /** @param {Particle} p @this {FxSystem} */
   _freeParticle(p) {
     // Pixi's ParticleRenderer draws every child of the container (it never reads `visible`): a freed sprite becomes a
     // zero-size, fully transparent quad — no pixels, no fill cost — until the record is reused
@@ -84,7 +97,7 @@ export class FxParticles {
     (p.add ? this.freeAdd : this.freeNorm).push(p);
   }
 
-  /** @this {FxSystem} */
+  /** @param {number} dt @this {FxSystem} */
   _updateParticles(dt) {
     const list = this.parts;
     let w = 0;
@@ -109,7 +122,12 @@ export class FxParticles {
     list.length = w;
   }
 
-  /** `n` sparks flying out of a screen point (halved at quality 'low'); o: speed, up, g, life, size, tex. @this {FxSystem} */
+  /**
+   * `n` sparks flying out of a screen point (halved at quality 'low'); o: speed, up, g, life, size, tex.
+   * @param {number} x @param {number} y @param {number} s @param {number} n @param {number} tint
+   * @param {{ speed?: number, up?: number, g?: number, life?: number, size?: number, tex?: string }} [o]
+   * @this {FxSystem}
+   */
   burst(x, y, s, n, tint, o = NO_OPTS) {
     const q = this.quality === 'low' ? Math.ceil(n / 2) : n;
     const speed = o.speed ?? 2.2, up = o.up ?? 0, g = (o.g ?? 0) * s, life = o.life ?? 0.35, size = (s / 64) * (o.size ?? 0.45), tex = o.tex || 'spark';
@@ -122,7 +140,11 @@ export class FxParticles {
     }
   }
 
-  /** Trail mote behind an orb (additive dot, drifting a little). @this {FxSystem} */
+  /**
+   * Trail mote behind an orb (additive dot, drifting a little).
+   * @param {number} x @param {number} y @param {number} s @param {number} tint @param {number} width
+   * @this {FxSystem}
+   */
   _mote(x, y, s, tint, width) {
     const o = this._o();
     const j = s * width * 0.25;
@@ -131,7 +153,12 @@ export class FxParticles {
     this.particle('dot', x + (Math.random() - 0.5) * j, y + (Math.random() - 0.5) * j, o);
   }
 
-  /** Trail of a shell: alternately a hot ember (additive) and a grey smoke puff (normal blend). @this {FxSystem} */
+  /**
+   * Trail of a shell: alternately a hot ember (additive) and a grey smoke puff (normal blend).
+   * @param {number} x @param {number} y @param {number} s @param {number} tint @param {number | null | undefined} smoke
+   * @param {number} n
+   * @this {FxSystem}
+   */
   _puff(x, y, s, tint, smoke, n) {
     const o = this._o();
     if ((n + (this.parts.length & 1)) & 1) {

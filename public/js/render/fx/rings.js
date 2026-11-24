@@ -1,7 +1,13 @@
 // public/js/render/fx/rings.js — FxSystem ground rings and skill auras.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
-/** @import { FxSystem } from './system.js' */
+/**
+ * @import { FxSystem } from './system.js'
+ * @typedef {{ sp: any, x: number, y: number, z: number, r0: number, r1: number, t: number, dur: number,
+ *   mode: 'in' | 'pulse' | null }} Ring a pooled ground ring (its sprite `sp`)
+ * @typedef {{ sp: any, disc: any, hex: any, view: any, t: number, mote: number, off?: boolean }} Aura a skill aura (its
+ *   container `sp`)
+ */
 
 import { SKILL_GOLD, easeOut } from './limits.js';
 
@@ -11,6 +17,8 @@ export class FxRings {
   /**
    * Ground ring going from r0 to r1 tiles over `dur` real seconds (easing out, fading). `mode` 'in': a warning closing
    * in — linear, brightening towards its end; 'pulse': throbbing at full size until its end.
+   * @param {number} x @param {number} y @param {number} z @param {number} r0 @param {number} r1 @param {number} tint
+   * @param {number} [dur] @param {string} [tex] @param {'in' | 'pulse' | null} [mode]
    * @this {FxSystem}
    */
   ring(x, y, z, r0, r1, tint, dur = 0.4, tex = 'ring', mode = null) {
@@ -21,7 +29,7 @@ export class FxRings {
       sp.anchor.set(0.5);
       sp.blendMode = P.BLEND_MODES.ADD;
       this.ctx.layers.groundFx.addChild(sp);
-      r = { sp };
+      r = /** @type {Ring} */ ({ sp });
     }
     r.sp.texture = this.tex[tex] || this.tex.ring;
     r.sp.visible = true;
@@ -30,10 +38,10 @@ export class FxRings {
     this._onGround(r.sp, y, z);
     r.x = x; r.y = y; r.z = z; r.r0 = r0; r.r1 = r1; r.t = 0; r.dur = Math.max(0.01, dur); r.mode = mode;
     this.rings.push(r);
-    if (this.rings.length > 80) { const o = this.rings.shift(); o.sp.visible = false; this.ringFree.push(o); }
+    if (this.rings.length > 80) { const o = /** @type {Ring} */ (this.rings.shift()); o.sp.visible = false; this.ringFree.push(o); }
   }
 
-  /** @this {FxSystem} */
+  /** @param {number} dt @this {FxSystem} */
   _updateRings(dt) {
     const cam = this.ctx.cam();
     const p = this._p, q = this._q;
@@ -60,6 +68,7 @@ export class FxRings {
   /**
    * Skill activation (on) / end (off). On: a flash at the body, a gold light pillar with a white-hot core from the
    * feet, a shockwave and a hex ring on the ground, rising motes — then the active aura (_aura) until it ends.
+   * @param {any} view @param {boolean} on @param {{ burst?: boolean } | null} [opts]
    * @this {FxSystem}
    */
   skill(view, on, opts = null) {
@@ -82,7 +91,11 @@ export class FxRings {
     this._aura(view, true);
   }
 
-  /** Active-skill aura: a soft gold glow and a slowly turning hex on the ground under the unit (fading in / out). @this {FxSystem} */
+  /**
+   * Active-skill aura: a soft gold glow and a slowly turning hex on the ground under the unit (fading in / out).
+   * @param {any} view @param {boolean} on
+   * @this {FxSystem}
+   */
   _aura(view, on) {
     const P = this.P;
     let a = this.auras.get(view.id);
@@ -105,7 +118,7 @@ export class FxRings {
     } else if (a) a.off = true;
   }
 
-  /** @this {FxSystem} */
+  /** @param {number} dt @this {FxSystem} */
   _updateAuras(dt) {
     if (!this.auras.size) return;
     const cam = this.ctx.cam();

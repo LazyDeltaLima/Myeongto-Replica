@@ -13,8 +13,13 @@ export const MAX_SLOWED = 24;
  * The entry of `list` event `o` means: same shooter and target (`tgt` null: the shot has no target, a straight one, or its target
  * fell — any of that shooter), the oldest first, as the oldest of them reaches the range first and leaves it first. One already
  * in the state `o` sets is another shot; a cleared shot may be either state, slowed ones first.
+ * @template {{ esrc?: unknown, etgt?: unknown, rate?: any }} T
+ * @param {Iterable<T>} list
+ * @param {{ from?: unknown, tgt?: unknown, clear?: unknown, rate?: unknown }} o
+ * @returns {T | null}
  */
 export function shotOf(list, o) {
+  /** @type {T | null} */
   let other = null;
   for (const x of list) {
     if (x.esrc == null || x.esrc !== o.from || (o.tgt != null && x.etgt !== o.tgt)) continue;

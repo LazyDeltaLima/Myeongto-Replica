@@ -4,6 +4,8 @@
  * Sim fx kind → visual archetype (`a`), colour (`c`) and defaults (`r` radius, `dur` game s, `tex`, `smoke`).
  * Covers every kind emitted by server/sim (Battle, kits, tokens, enemies, bosses, devices, bonds, items); unknown
  * kinds fall back to a keyword guess, then to a generic sparkle (fxSpec).
+ * @typedef {{ a: string, c: number, r?: number, dur?: number, smoke?: number, heavy?: boolean, pt?: boolean, tex?: string }} FxSpec
+ * @type {Readonly<Record<string, FxSpec>>}
  */
 export const FX_KINDS = Object.freeze({
   // blasts
@@ -173,7 +175,11 @@ const FX_GUESS = [
  */
 const SILENT_PHASES = new Set(['bombed', 'warning', 'larva', 'grown', 'feed', 'fed', 'stopped', 'detached', 'passengers', 'Normal', 'Run']);
 
-/** Visual spec of an fx kind (see FX_KINDS); `extra.kind` / `extra.element` may pick a better colour. */
+/**
+ * Visual spec of an fx kind (see FX_KINDS); `extra.kind` / `extra.element` may pick a better colour.
+ * @param {unknown} kind @param {Record<string, any> | null} [extra]
+ * @returns {FxSpec}
+ */
 export function fxSpec(kind, extra = {}) {
   const k = typeof kind === 'string' ? kind : '';
   if (k === 'phase' && SILENT_PHASES.has(extra && extra.kind)) return { a: 'none', c: 0xffffff };
@@ -184,7 +190,7 @@ export function fxSpec(kind, extra = {}) {
   let spec = FX_KINDS[k];
   if (!spec) {
     const g = FX_GUESS.find(([re]) => re.test(k));
-    spec = g ? { ...FX_KINDS[{ heal: 'heal', shield: 'shield', summon: 'summon', blast: 'aoe', zone: 'zone', buff: 'buff', reticle: 'lock', blink: 'blink', vanish: 'disappear', move: 'displace', wave: 'pulse' }[g[1]]] } : { a: 'generic', c: 0xfff2d0 };
+    spec = g ? { ...FX_KINDS[/** @type {string} */ ({ heal: 'heal', shield: 'shield', summon: 'summon', blast: 'aoe', zone: 'zone', buff: 'buff', reticle: 'lock', blink: 'blink', vanish: 'disappear', move: 'displace', wave: 'pulse' }[g[1]])] } : { a: 'generic', c: 0xfff2d0 };
   }
   const el = extra && extra.element;
   if (el && (spec.a === 'blast' || spec.a === 'zone' || spec.a === 'element')) {
@@ -195,7 +201,11 @@ export function fxSpec(kind, extra = {}) {
   return spec;
 }
 
-/** Tiles covered by a blast / telegraph: `tiles` = [[r,c]…] or 'box' (Chebyshev ⌊r⌋ around the centre) or 'disc'. */
+/**
+ * Tiles covered by a blast / telegraph: `tiles` = [[r,c]…] or 'box' (Chebyshev ⌊r⌋ around the centre) or 'disc'.
+ * @param {number} x @param {number} y @param {number} r @param {unknown} tiles
+ * @returns {number[][]}
+ */
 export function tilesAround(x, y, r, tiles) {
   if (Array.isArray(tiles)) return tiles.filter((t) => Array.isArray(t) && Number.isInteger(t[0]) && Number.isInteger(t[1])).slice(0, 80);
   const cr = Math.round(y), cc = Math.round(x), R = Math.max(0, Math.min(6, Math.floor(r)));
@@ -210,6 +220,8 @@ export function tilesAround(x, y, r, tiles) {
  * Tiles of a straight wall through tile (round(y), round(x)): `axis` 'col' = that column, 'row' = that row (余 S3
  * fire wall: perpendicular to his facing, sim/content/kits/ops/chess_char_6_03-yu.js). Clipped to the field `rect` (inclusive
  * { r0, r1, c0, c1 }); without one ±4 tiles.
+ * @param {unknown} x @param {unknown} y @param {string} axis
+ * @param {{ r0: number, r1: number, c0: number, c1: number } | null | undefined} rect
  * @returns {Array<[number, number]>} [[row, col]] in order
  */
 export function wallTiles(x, y, axis, rect) {
@@ -237,7 +249,7 @@ export function wallTiles(x, y, axis, rect) {
  * 이륙」). Never past the 2.5 s 吟唱. [ASSUMED: the return as the end clip ends — the class is CN-only and unchecked.]
  */
 export const AGL_S2_TAKEOFF_END = 1;
-/** When (game s after the cast) her model is back home: see AGL_S2_TAKEOFF_END. */
+/** When (game s after the cast) her model is back home: see AGL_S2_TAKEOFF_END. @param {unknown} travel @param {number} chant */
 export function aglGlideBack(travel, chant) {
   const t = Math.max(0, Number(travel) || 0) + AGL_S2_TAKEOFF_END;
   return chant > 0 ? Math.min(chant, t) : t;

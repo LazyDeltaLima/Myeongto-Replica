@@ -14,7 +14,17 @@
 
 import { ORIGINIUM } from '../style.js';
 
-/** Shared focus uniforms (one object for every lit material). */
+/**
+ * @typedef {typeof import('../../../vendor/three.module.js')} Three the three.js module, injected (types/vendor/three.module.d.ts:
+ *   each class takes any arguments and has any member)
+ * @typedef {{ [key: string]: any }} ThreeObj a three.js object (a material, a texture, a mesh …): any member, as the stand-in's
+ * @typedef {Record<string, { value: any }>} Uniforms a material's uniforms
+ * @typedef {{ uniforms: Uniforms, vertexShader: string, fragmentShader: string }} Shader what onBeforeCompile is given
+ * @typedef {{ [key: string]: ThreeObj | null | undefined }} BoardTex the board pack's textures by role (D, N, R, E, common,
+ *   commonE, noise, waterN, caustics …)
+ */
+
+/** Shared focus uniforms (one object for every lit material). @param {Three} THREE */
 export function focusUniforms(THREE) {
   return {
     uFocus: { value: new THREE.Vector4(0, 9, 10, 12) },  // x0, y0, x1, y1 (world)
@@ -26,9 +36,15 @@ export function focusUniforms(THREE) {
   };
 }
 
-/** Inject the focus falloff into a built-in material (onBeforeCompile). */
+/**
+ * Inject the focus falloff into a built-in material (onBeforeCompile).
+ * @param {ThreeObj} material
+ * @param {Uniforms} uniforms
+ * @returns {ThreeObj}
+ */
 export function addFocus(material, uniforms) {
   const prev = material.onBeforeCompile;
+  /** @param {Shader} shader @param {ThreeObj} renderer */
   material.onBeforeCompile = (shader, renderer) => {
     if (typeof prev === 'function') prev(shader, renderer);
     Object.assign(shader.uniforms, uniforms);
@@ -60,7 +76,12 @@ export function addFocus(material, uniforms) {
   return material;
 }
 
-/** Texture from a loaded image (sRGB colour maps; linear data maps), mipmapped, anisotropic. */
+/**
+ * Texture from a loaded image (sRGB colour maps; linear data maps), mipmapped, anisotropic.
+ * @param {Three} THREE
+ * @param {TexImageSource | null | undefined} image
+ * @param {{ srgb?: boolean, aniso?: number, repeat?: boolean, flipY?: boolean }} [opts]
+ */
 export function makeTexture(THREE, image, { srgb = true, aniso = 1, repeat = false, flipY = true } = {}) {
   if (!image) return null;
   const t = new THREE.Texture(image);
@@ -75,7 +96,11 @@ export function makeTexture(THREE, image, { srgb = true, aniso = 1, repeat = fal
   return t;
 }
 
-/** MT_autochess (see header). `tex` = { D, N?, R?, E? } textures. */
+/**
+ * MT_autochess (see header). `tex` = { D, N?, R?, E? } textures.
+ * @param {Three} THREE @param {BoardTex} tex @param {Uniforms} focus
+ * @param {{ roughness?: number, emissive?: number, normalScale?: number }} [opts]
+ */
 export function boardMaterial(THREE, tex, focus, opts = {}) {
   const m = new THREE.MeshStandardMaterial({
     map: tex.D, vertexColors: true,
@@ -94,6 +119,8 @@ export function boardMaterial(THREE, tex, focus, opts = {}) {
  * random rotation does not matter; the hazard frame and the plate rim stay as they are) re-shaded as sky-lit glass: a
  * soft cloud reflection (T_noise_clouds_01 in world space), a faint trace of the pattern below, low roughness for the
  * key light's glint. Same UVs / atlas as the board.
+ * @param {Three} THREE @param {BoardTex} tex @param {Uniforms} focus
+ * @param {{ roughness?: number, emissive?: number, normalScale?: number }} [opts]
  */
 export function glassMaterial(THREE, tex, focus, opts = {}) {
   const m = boardMaterial(THREE, tex, focus, opts);
@@ -104,6 +131,7 @@ export function glassMaterial(THREE, tex, focus, opts = {}) {
     uSkyHigh: { value: new THREE.Color(0.72, 0.77, 0.82) },
   };
   m.userData.glass = uniforms;
+  /** @param {Shader} shader @param {ThreeObj} renderer */
   m.onBeforeCompile = (shader, renderer) => {
     if (typeof prev === 'function') prev(shader, renderer);
     Object.assign(shader.uniforms, uniforms);
@@ -130,7 +158,10 @@ export function glassMaterial(THREE, tex, focus, opts = {}) {
   return m;
 }
 
-/** MT_autochess_common: alpha-tested device plates (drawn slightly above the tops). */
+/**
+ * MT_autochess_common: alpha-tested device plates (drawn slightly above the tops).
+ * @param {Three} THREE @param {BoardTex} tex @param {Uniforms} focus
+ */
 export function decalMaterial(THREE, tex, focus) {
   const m = new THREE.MeshStandardMaterial({
     map: tex.common, alphaTest: 0.408, roughness: 0.7, metalness: 0,
@@ -140,12 +171,15 @@ export function decalMaterial(THREE, tex, focus) {
   return addFocus(m, focus);
 }
 
-/** Orange tubular fence railings. */
+/** Orange tubular fence railings. @param {Three} THREE @param {Uniforms} focus */
 export function pipeMaterial(THREE, focus) {
   return addFocus(new THREE.MeshStandardMaterial({ color: 0xf0922b, roughness: 0.42, metalness: 0.35 }), focus);
 }
 
-/** Unlit textured material (Torappu/Unlit/Texture): background plane, wind device. */
+/**
+ * Unlit textured material (Torappu/Unlit/Texture): background plane, wind device.
+ * @param {Three} THREE @param {ThreeObj | null} map @param {number} [color] @param {{ fog?: boolean, side?: number }} [opts]
+ */
 export function unlitMaterial(THREE, map, color = 0xffffff, opts = {}) {
   return new THREE.MeshBasicMaterial({ map, color, fog: opts.fog ?? true, side: opts.side ?? THREE.FrontSide });
 }
@@ -196,7 +230,10 @@ export function gateMaterial(THREE, map, { additive = true, tint = [1, 1, 1] } =
   return m;
 }
 
-/** Additive emissive strips (the cyan field edge); `map` = a dash pattern (alpha). */
+/**
+ * Additive emissive strips (the cyan field edge); `map` = a dash pattern (alpha).
+ * @param {Three} THREE @param {ThreeObj | null} map @param {number} [color]
+ */
 export function glowMaterial(THREE, map, color = 0x39d6ff) {
   return new THREE.MeshBasicMaterial({ map, color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
 }
@@ -220,7 +257,10 @@ const FOCUS_GLSL = [
   'float focusMask(vec2 q) { vec2 d = max(vec2(0.0), max(uFocus.xy - q, q - uFocus.zw)); return mix(uFocusDim, 1.0, 1.0 - smoothstep(0.0, uFocusSoft, length(d))); }',
 ].join('\n');
 
-/** Deep sea: teal water with the official water normal map (two scrolling layers) and caustics. */
+/**
+ * Deep sea: teal water with the official water normal map (two scrolling layers) and caustics.
+ * @param {Three} THREE @param {BoardTex} tex @param {Uniforms} focus
+ */
 export function waterMaterial(THREE, tex, focus) {
   const uniforms = { uTime: { value: 0 }, uNormal: { value: tex.waterN || null }, uCaustics: { value: tex.caustics || null }, ...focus };
   return new THREE.ShaderMaterial({
@@ -251,7 +291,7 @@ export function waterMaterial(THREE, tex, focus) {
   });
 }
 
-/** Mire: slow brown-green sludge (cloud noise), sticky bubbles. */
+/** Mire: slow brown-green sludge (cloud noise), sticky bubbles. @param {Three} THREE @param {BoardTex} tex @param {Uniforms} focus */
 export function mireMaterial(THREE, tex, focus) {
   const uniforms = { uTime: { value: 0 }, uNoise: { value: tex.noise || null }, ...focus };
   return new THREE.ShaderMaterial({
@@ -288,9 +328,11 @@ export function mireMaterial(THREE, tex, focus) {
  * The noise is world-space, so the crust carries on into the neighbouring tile: there is deliberately NO per-tile edge
  * fade (the old `edge` term faded every tile out at its own border, which made a field of 活性源石 read as separate
  * patches instead of one floor).
+ * @param {readonly number[]} c
  */
 const V3 = (c) => `vec3(${c.map((v) => Number(v).toFixed(3)).join(', ')})`;
 
+/** @param {Three} THREE @param {BoardTex} tex @param {Uniforms} focus */
 export function infectionMaterial(THREE, tex, focus) {
   const uniforms = { uTime: { value: 0 }, uNoise: { value: tex.noise || null }, ...focus };
   return new THREE.ShaderMaterial({
@@ -322,7 +364,10 @@ export function infectionMaterial(THREE, tex, focus) {
   });
 }
 
-/** Smog: drifting exhaust haze (vertical billboards over the grilles). */
+/**
+ * Smog: drifting exhaust haze (vertical billboards over the grilles).
+ * @param {Three} THREE @param {BoardTex} tex @param {Uniforms} focus
+ */
 export function smogMaterial(THREE, tex, focus) {
   const uniforms = { uTime: { value: 0 }, uNoise: { value: tex.noise || null }, ...focus };
   return new THREE.ShaderMaterial({
@@ -350,13 +395,14 @@ export function smogMaterial(THREE, tex, focus) {
  * Soft studio environment for image-based light (PMREM of a canvas equirect: bright sky with light panels above the
  * horizon, dark void below): gives the glass hatches, steel and gold frames their sheen and fills the shadows.
  * Y-up equirect — the scene rotates it to the board's z-up (scene.environmentRotation).
+ * @param {Three} THREE @param {ThreeObj | null | undefined} renderer
  */
 export function environmentMap(THREE, renderer) {
   if (typeof document === 'undefined' || !renderer) return null;
   const W = 256, H = 128;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
-  const g = c.getContext('2d');
+  const g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
   const grad = g.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, '#dfe7ef'); grad.addColorStop(0.32, '#b9c3cc'); grad.addColorStop(0.5, '#6d757d');
   grad.addColorStop(0.56, '#262b30'); grad.addColorStop(1, '#0c0e10');
@@ -375,12 +421,12 @@ export function environmentMap(THREE, renderer) {
   return rt.texture;
 }
 
-/** Canvas texture of a dash pattern (cyan field edge). */
+/** Canvas texture of a dash pattern (cyan field edge). @param {Three} THREE */
 export function dashTexture(THREE) {
   if (typeof document === 'undefined') return null;
   const c = document.createElement('canvas');
   c.width = 128; c.height = 8;
-  const g = c.getContext('2d');
+  const g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
   g.clearRect(0, 0, 128, 8);
   const grad = g.createLinearGradient(0, 0, 0, 8);
   grad.addColorStop(0, 'rgba(255,255,255,0)'); grad.addColorStop(0.5, 'rgba(255,255,255,1)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
@@ -392,12 +438,12 @@ export function dashTexture(THREE) {
   return t;
 }
 
-/** Soft radial falloff texture (contact shadow of the island on the background, glow cards). */
+/** Soft radial falloff texture (contact shadow of the island on the background, glow cards). @param {Three} THREE @param {number} [size] */
 export function softTexture(THREE, size = 64) {
   if (typeof document === 'undefined') return null;
   const c = document.createElement('canvas');
   c.width = c.height = size;
-  const g = c.getContext('2d');
+  const g = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
   const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
   grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = grad;

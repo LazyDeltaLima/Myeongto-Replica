@@ -4,12 +4,17 @@
 
 /** SharedConsts.Direction order (the prefab's `_mainDir`, an emitter's direction slots): 0 UP, 1 RIGHT, 2 DOWN, 3 LEFT. */
 export const DIR4 = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
-/** The board-frame angle of each direction (+x = column, +y = row = UP; counter-clockwise degrees). */
+
+/**
+ * @import { Three, ThreeObj } from '../board3d/materials.js'
+ * @import { FxInstance } from '../fxplayer.js'
+ */
+/** The board-frame angle of each direction (+x = column, +y = row = UP; counter-clockwise degrees). @type {Record<string, number>} */
 const DEG = { RIGHT: 0, UP: 90, LEFT: 180, DOWN: 270 };
-/** SharedConsts.FOUR_WAYS — each direction as a vector. */
+/** SharedConsts.FOUR_WAYS — each direction as a vector. @type {Record<string, { x: number, y: number }>} */
 const WAY = { UP: { x: 0, y: 1 }, RIGHT: { x: 1, y: 0 }, DOWN: { x: 0, y: -1 }, LEFT: { x: -1, y: 0 } };
 
-/** The four-way direction of a vector (its larger axis; `null` / zero = RIGHT). */
+/** The four-way direction of a vector (its larger axis; `null` / zero = RIGHT). @param {{ x?: unknown, y?: unknown } | null | undefined} d */
 export function parseDir(d) {
   const x = Number(d?.x) || 0, y = Number(d?.y) || 0;
   if (Math.abs(x) >= Math.abs(y)) return x < 0 ? 'LEFT' : 'RIGHT';
@@ -66,12 +71,15 @@ export const EFFECT_DIRECTION = Object.freeze({ x: 0, y: 1 });
  * `ProjectileEffect.OnBeforePlay` sets its root to `mainRot` (`main`, a Unity quaternion; `roll`, degrees about x) — every
  * extracted ProjectileEffect root is bound as a shot's trail. Without this a still shell (帝国炮火先兆者's, spawned on its
  * landing spot) was turned to the caller's ±x: −90°, its fall slanted across the screen (maintainer report).
+ * @param {Record<string, any>} def the prefab's root records (face, bodyFace, mainRot, roll)
+ * @param {{ x: number, y: number }|null|undefined} dir
+ * @param {string|null} [body]
  * @returns {{ flip?: boolean, z?: number, any?: number, node?: number, main?: number[], roll?: number }|null}
  */
 export function effectTurn(def, dir, body = null) {
   if (def?.face) return faceTurn(def.face, dir, body);
   if (!Number.isInteger(def?.bodyFace)) return null;
-  const main = Array.isArray(def.mainRot) && def.mainRot.length === 4 ? def.mainRot.map((v) => Number(v) || 0) : null;
+  const main = Array.isArray(def.mainRot) && def.mainRot.length === 4 ? def.mainRot.map((/** @type {unknown} */ v) => Number(v) || 0) : null;
   const d = main ? EFFECT_DIRECTION : dir || EFFECT_DIRECTION;
   const turn = { any: (Math.atan2(Number(d.y) || 0, Number(d.x) || 0) * 180) / Math.PI - 90, node: def.bodyFace };
   if (main) Object.assign(turn, { main }, Number(def.roll) ? { roll: Number(def.roll) } : null);
@@ -100,7 +108,7 @@ export function followDir(follow, o) {
   const to = o.to || { x: left ? -1 : 1, y: 0 };
   switch (follow.src) {
     case 'four': return { x: Number(to.x) || 0, y: Number(to.y) || 0 };
-    case 'owner': return WAY[o.deploy] || null;
+    case 'owner': return WAY[/** @type {string} */ (o.deploy)] || null;
     case 'faceTo': { const x = s * (Number(to.x) || 0); return (follow.vflip ? x <= 0 : x < 0) ? WAY.LEFT : WAY.RIGHT; }
     case 'lorr': return (follow.left ? left : !left) ? WAY.LEFT : WAY.RIGHT;
     case 'move': return null;
@@ -118,7 +126,7 @@ export function followDir(follow, o) {
  */
 export function faceSwitchCopy(sw, dir4) {
   if (!sw || typeof sw !== 'object') return null;
-  const n = { UP: sw.up, DOWN: sw.down, LEFT: sw.left }[dir4];
+  const n = /** @type {Record<string, string | undefined>} */ ({ UP: sw.up, DOWN: sw.down, LEFT: sw.left })[/** @type {string} */ (dir4)];
   return typeof n === 'string' && n ? n : null;
 }
 
@@ -126,6 +134,9 @@ export function faceSwitchCopy(sw, dir4) {
  * The playback speed an effect gets (`Effect._PlayInternal`): capped at `_limitedPlaybackSpeed` ÷ the battle
  * time scale when that is ≥ 0 (default 2.0 — the effect never runs faster than ×2 on screen), and used only with
  * `_usePlaybackSpeed` (`face.speed` 0: the prefab's own speed, 1.0). Without a record: `speed` as given.
+ * @param {{ speed?: number, limit?: number } | null | undefined} face
+ * @param {unknown} [speed]
+ * @param {number} [timeScale]
  */
 export function playSpeed(face, speed = 1, timeScale = 1) {
   let s = Number(speed) > 0 ? Number(speed) : 1;
@@ -140,6 +151,8 @@ export function playSpeed(face, speed = 1, timeScale = 1) {
  * How long (game seconds) before anything of the effect shows when it plays at `speed` (playSpeed): the root FxDelay
  * (`FxDelay.OnEnable`: `_delayTime` ÷ the playback speed, set only with `_usePlaybackSpeed` —
  * `Effect.UpdatePlaybackSpeed`) plus `_delayToPlay` (`rnd`: up to it — its longest here).
+ * @param {{ fxDelay?: unknown, delay?: unknown } | null | undefined} face
+ * @param {unknown} [speed]
  */
 export function startLead(face, speed = 1) {
   if (!face || typeof face !== 'object') return 0;
@@ -159,6 +172,11 @@ export function startLead(face, speed = 1) {
  * pitches with it (AdvancedMovement: target − position each tick; ParacurveMovement: along its arc; SmoothLerpDirection
  * keeps the new direction unless it turns by more than 90°). `a` is that direction `[dx, dy, dz]`, or a board angle for a
  * level flight (the same turn).
+ * @param {(FxInstance & { _bodyTurned?: boolean }) | null | undefined} inst
+ * @param {Three} THREE
+ * @param {number | number[]} a
+ * @param {() => number} [rnd]
+ * @param {string | null} [key]
  */
 export function bodyTurn(inst, THREE, a, rnd = Math.random, key = null) {
   if (!inst) return;
@@ -178,6 +196,7 @@ export function bodyTurn(inst, THREE, a, rnd = Math.random, key = null) {
  * turns a projectile body — LookRotation(forward = (d × fwd) × d, up = d) in the Unity frame (z = −height, so its forward
  * points down). In the scene (the Unity frame mirrored in z, FxInstance's `unity`): x = u × d, y = d, z = −u with u the
  * down vector made square to d. A direction straight down, or none, leaves it as it is.
+ * @param {ThreeObj} obj @param {Three} THREE @param {number} dx @param {number} dy @param {number} dz
  */
 export function upwardMajor(obj, THREE, dx, dy, dz) {
   const d = new THREE.Vector3(dx, dy, dz);
@@ -190,7 +209,10 @@ export function upwardMajor(obj, THREE, dx, dy, dz) {
   obj.quaternion.setFromRotationMatrix(m);
 }
 
-/** Whether the projectile body a trail prefab `def` sits on stays unturned (bodyTurn), flying on projectile `key`. */
+/**
+ * Whether the projectile body a trail prefab `def` sits on stays unturned (bodyTurn), flying on projectile `key`.
+ * @param {Record<string, any> | null | undefined} def @param {string | null} [key]
+ */
 export function bodyStill(def, key = null) {
   if (def?.still) return true;
   return Array.isArray(def?.stillBy) && typeof key === 'string' && def.stillBy.includes(key.toLowerCase());

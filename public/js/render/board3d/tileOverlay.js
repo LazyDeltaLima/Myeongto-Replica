@@ -37,6 +37,11 @@ export const BENCH_TINT = Object.freeze([0.29, 0.55, 0.65]);
  * (range_material _Color.a), scroll speed (uv / s, _AnimationSpeed); `skill` its `_skillRangeColor`. */
 export const STRIPES = Object.freeze({ color: [1, 128 / 255, 0], heal: [0, 200 / 255, 1], skill: [1, 0, 0], alpha: 0.749, speed: 0.5 });
 /** Lift of the overlays above coplanar board surfaces (depth units, polygon offset). */
+/**
+ * @import { Three, ThreeObj } from './materials.js'
+ * @typedef {(r: number, c: number) => unknown} HeightAt a tile's top height (scene.js heightAt)
+ */
+
 const OFFSET = { tint: [-1, -4], stripes: [-2, -8] };
 const RAISED = 0.01;
 
@@ -44,6 +49,8 @@ const RAISED = 0.01;
  * Positions / uvs of the tile columns: a top quad at the tile's height and, for a raised tile, its 4 sides down to the
  * ground. uv = world (x + 0.5, y + 0.5 + z): continuous across tiles and up the sides (the stripes run on).
  * @returns {{ position: Float32Array, uv: Float32Array, index: Uint16Array|Uint32Array } | null}
+ * @param {unknown} tiles [[r, c]…] or [{ row, col }…]
+ * @param {HeightAt | null | undefined} heightAt
  */
 export function columnData(tiles, heightAt) {
   const list = [];
@@ -61,6 +68,7 @@ export function columnData(tiles, heightAt) {
   const position = new Float32Array(quads * 12), uv = new Float32Array(quads * 8);
   const index = quads * 4 > 65535 ? new Uint32Array(quads * 6) : new Uint16Array(quads * 6);
   let q = 0;
+  /** @param {number[][]} pts */
   const quad = (pts) => {
     for (let k = 0; k < 4; k++) {
       const [x, y, z] = pts[k];
@@ -129,6 +137,7 @@ void main() {
 }`;
 
 export class TileOverlay {
+  /** @param {Three} THREE @param {ThreeObj | null | undefined} parent */
   constructor(THREE, parent) {
     const T = THREE;
     this.T = T;
@@ -152,6 +161,7 @@ export class TileOverlay {
       polygonOffset: true, polygonOffsetFactor: OFFSET.stripes[0], polygonOffsetUnits: OFFSET.stripes[1],
     }), 901);
     // the heal / skill ranges: the same material in their colour, sharing the texture and the scroll
+    /** @param {readonly number[]} color */
     const layer = (color) => {
       const m = this._mesh(this.stripes.material.clone(), 901);
       m.material.uniforms = { ...this.stripes.material.uniforms, uColor: { value: new T.Vector3(...color) } };
@@ -163,6 +173,7 @@ export class TileOverlay {
     this.rev = 0; // bumped by every change of what is drawn (the board redraws: scene.js BOARD_REDRAW_MAX_S)
   }
 
+  /** @param {ThreeObj} tex */
   _texture(tex) {
     const T = this.T;
     tex.wrapS = T.RepeatWrapping; tex.wrapT = T.RepeatWrapping;
@@ -174,6 +185,7 @@ export class TileOverlay {
     return tex;
   }
 
+  /** @param {ThreeObj} material @param {number} order */
   _mesh(material, order) {
     const m = new this.T.Mesh(new this.T.BufferGeometry(), material);
     m.renderOrder = order;
@@ -184,6 +196,10 @@ export class TileOverlay {
     return m;
   }
 
+  /**
+   * @param {'tint' | 'bench' | 'stripes' | 'healStripes' | 'skillStripes'} which @param {unknown} tiles
+   * @param {HeightAt | null | undefined} heightAt
+   */
   _set(which, tiles, heightAt) {
     const mesh = this[which];
     const data = columnData(tiles, heightAt);
@@ -203,20 +219,26 @@ export class TileOverlay {
     mesh.visible = !!data && (!/^(stripes|healStripes|skillStripes)$/.test(which) || !!this.stripes.material.uniforms.uMap.value);
   }
 
-  /** Deployable tiles of the dragged piece (null / [] clears). */
+  /** Deployable tiles of the dragged piece (null / [] clears). @param {unknown} tiles @param {HeightAt | null | undefined} heightAt */
   setTint(tiles, heightAt) { this._set('tint', tiles, heightAt); }
 
-  /** Bench slots that take the dragged piece (null / [] clears). */
+  /** Bench slots that take the dragged piece (null / [] clears). @param {unknown} tiles @param {HeightAt | null | undefined} heightAt */
   setBenchTint(tiles, heightAt) { this._set('bench', tiles, heightAt); }
 
-  /** Range preview tiles (null / [] clears); `heal` / `skill`: the heal-range / skill-range tiles, drawn blue / red. */
+  /**
+   * Range preview tiles (null / [] clears); `heal` / `skill`: the heal-range / skill-range tiles, drawn blue / red.
+   * @param {unknown} tiles @param {HeightAt | null | undefined} heightAt @param {unknown} [heal] @param {unknown} [skill]
+   */
   setStripes(tiles, heightAt, heal = null, skill = null) {
     this._set('stripes', tiles, heightAt);
     this._set('healStripes', heal, heightAt);
     this._set('skillStripes', skill, heightAt);
   }
 
-  /** The client's stripe texture (replaces the procedural copy). */
+  /**
+   * The client's stripe texture (replaces the procedural copy).
+   * @param {{ width?: number, naturalWidth?: number } | null | undefined} img
+   */
   setStripeImage(img) {
     if (!img || !(img.width || img.naturalWidth)) return;
     const tex = this._texture(new this.T.Texture(img));
@@ -227,6 +249,7 @@ export class TileOverlay {
     if (old && old !== tex) old.dispose();
   }
 
+  /** @param {number} t */
   update(t) {
     this.time = t;
     // one uniform object shared by both layers

@@ -9,11 +9,14 @@ import { PROJ } from '../style.js';
  * until it arrives — and in Node, where '/sim/' is no module path — style.js PROJ speeds (a copy the unit tests keep
  * equal to the sim's) stand in.
  */
+/** @type {Record<string, unknown> | null} */
 let simSpeeds = null;
 
 /**
  * Use the sim's speeds (tiles per game second): `table` = PROJECTILE_SPEEDS by kind, `boomerangReturn` =
  * BOOMERANG_RETURN_SPEED (the sim's visual kind of a boomerang flying back); null = style.js PROJ only.
+ * @param {Record<string, unknown> | null} table
+ * @param {unknown} [boomerangReturn]
  */
 export function setSimProjectileSpeeds(table, boomerangReturn = null) {
   if (!table || typeof table !== 'object') { simSpeeds = null; return; }
@@ -29,12 +32,14 @@ if (typeof window !== 'undefined' && typeof window.location?.origin === 'string'
 /**
  * Tiles per game second of a projectile kind ('boomerangReturn': a boomerang's way back): the sim's value, else
  * style.js PROJ (`speed`; the boomerang's `back`), else 15 for a boomerang (the sim's outbound speed) / 12.
+ * @param {string} kind
+ * @returns {number}
  */
 export function projSpeed(kind) {
   const v = simSpeeds ? Number(simSpeeds[kind]) : NaN;
   if (v > 0) return v;
   if (kind === 'boomerangReturn') return PROJ.boomerang?.back > 0 ? PROJ.boomerang.back : projSpeed('boomerang');
-  const f = PROJ[kind]?.speed;
+  const f = /** @type {Record<string, { speed: number }>} */ (PROJ)[kind]?.speed;
   return f > 0 ? f : kind === 'boomerang' ? 15 : 12;
 }
 
@@ -95,7 +100,7 @@ export function opShot(def, skillOn, skillIndex) {
  * @returns {number|null}
  */
 export function opProjSpeed(def, o = {}) {
-  const p = opShot(def, !!o.skillOn, Number.isInteger(o.skillIndex) ? o.skillIndex : 0);
+  const p = opShot(def, !!o.skillOn, Number.isInteger(o.skillIndex) ? /** @type {number} */ (o.skillIndex) : 0);
   if (!p || p.move === 'OTHER') return null;
   if (p.combat && o.blockedNear) return 0;
   const v = Number(p.speed);

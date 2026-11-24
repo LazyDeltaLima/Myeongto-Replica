@@ -8,6 +8,8 @@
  * The outline loops of `cells` [[x, y]…] (column, row): [[[cx, cy]…]…], each closed (its first corner again at its end), its
  * corners at the tiles' edges (x ± 0.5, y ± 0.5), the interior on the left of the walk (x right, y up). Two tiles touching
  * only at a corner give two loops (the walk turns into the interior there). In a fixed order: the same cells, the same loops.
+ * @param {unknown} cells
+ * @returns {number[][][]}
  */
 export function rangeEdges(cells) {
   const inside = new Set();
@@ -15,15 +17,20 @@ export function rangeEdges(cells) {
     const x = Number(c?.[0]), y = Number(c?.[1]);
     if (Number.isInteger(x) && Number.isInteger(y)) inside.add(`${x},${y}`);
   }
+  /** @param {number} x @param {number} y */
   const has = (x, y) => inside.has(`${x},${y}`);
   // directed edges between corners (i, j) = (i − 0.5, j − 0.5): out[corner] = [[to corner, direction]…]
+  /** @typedef {{ a: number[], b: number[], d: number, used: boolean }} Edge */
+  /** @type {Map<string, Edge[]>} */
   const out = new Map();
+  /** @type {Edge[]} */
   const edges = [];
+  /** @param {number[]} a @param {number[]} b @param {number} d */
   const add = (a, b, d) => {
     const k = `${a[0]},${a[1]}`;
     const e = { a, b, d, used: false };
     if (!out.has(k)) out.set(k, []);
-    out.get(k).push(e);
+    /** @type {Edge[]} */ (out.get(k)).push(e);
     edges.push(e);
   };
   const tiles = [...inside].map((k) => k.split(',').map(Number)).sort((p, q) => p[1] - q[1] || p[0] - q[0]);
@@ -33,19 +40,23 @@ export function rangeEdges(cells) {
     if (!has(x, y + 1)) add([x + 1, y + 1], [x, y + 1], 2);     // top, −x
     if (!has(x - 1, y)) add([x, y + 1], [x, y], 3);             // left, −y
   }
+  /** @type {number[][][]} */
   const loops = [];
   for (const first of edges) {
     if (first.used) continue;
     const pts = [first.a];
+    /** @type {Edge | null} */
     let e = first;
     for (let guard = 0; guard <= edges.length && e && !e.used; guard++) {
       e.used = true;
       pts.push(e.b);
+      /** @type {Edge[]} */
       const next = (out.get(`${e.b[0]},${e.b[1]}`) || []).filter((n) => !n.used);
       // at a corner two tiles share diagonally, the left turn (into the interior) closes this tile's loop first
-      e = next.find((n) => n.d === (e.d + 1) % 4) || next.find((n) => n.d === e.d) || next[0] || null;
+      e = next.find((n) => n.d === (/** @type {Edge} */ (e).d + 1) % 4) || next.find((n) => n.d === /** @type {Edge} */ (e).d) || next[0] || null;
     }
     // the turns only (and the first corner again at the end)
+    /** @type {number[][]} */
     const turns = [];
     for (let k = 0; k < pts.length - 1; k++) {
       const p = pts[(k - 1 + pts.length - 1) % (pts.length - 1)], c = pts[k], n = pts[k + 1];

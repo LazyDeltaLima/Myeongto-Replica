@@ -34,7 +34,9 @@
     "server/sim/*.js",
     "server/sim/content/*.js",
     "server/sim/content/enemies/**/*.js",
-    "server/sim/content/kits/ops/**/*.js"
+    "server/sim/content/kits/ops/**/*.js",
+    "public/js/render/board3d/**/*.js",
+    "public/js/render/fx/**/*.js"
   ],
   "exclude": []
 }

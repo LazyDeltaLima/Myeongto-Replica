@@ -4,7 +4,15 @@
 // for a critical / forced hit — the 'dmg' 5th field — heals always); 全部显示 in the settings (number-style.js) keeps the
 // drawn ones below.
 
-/** @import { FxSystem } from './system.js' */
+/**
+ * @import { FxSystem } from './system.js'
+ * @import { Camera } from '../projection.js'
+ * @typedef {{ text: any, font: string, unit: any, style: string, value: number, life: number, end: number, born: number,
+ *   lastHit: number, pop: number, big: boolean, fading: boolean, ox: number, oy: number, x0: number, y0: number, z0: number,
+ *   risePx: number, _x: number, _y: number, _w: number, _h: number, _s?: number, _sc: number, fadeFrom?: number,
+ *   fadeT0: number }} Num a pooled damage number (its bitmap text `text`)
+ * @typedef {{ t: any, y0: number, life: number, max: number }} Label a floating label (its bitmap text `t`)
+ */
 
 import { DMG_STYLE, HIT_TINT, dmgStyleKey } from '../style.js';
 import { camKey } from './camera.js';
@@ -42,29 +50,33 @@ const NUM_CROWD = 6;          // more live numbers than this around a spot → s
 
 const NUM_LANES = Object.freeze([0, -1, 1, -2, 2]);   // lane order (lane widths from the unit's head)
 
-/** Screen scale of a number's text (24 px font) at `s` px per tile. */
+/** Screen scale of a number's text (24 px font) at `s` px per tile. @param {number} s @param {boolean} big @param {string} style */
 const numScale = (s, big, style) => clamp(s / 115, 0.42, 1.05) * (big ? 1.35 : 1) * (style === 'heal' ? 0.9 : 1);
 
-/** Characters of a damage number as drawn (heals get a '+'). */
+/** Characters of a damage number as drawn (heals get a '+'). @param {number} v @param {string} style */
 const numChars = (v, style) => String(Math.round(v)).length + (style === 'heal' ? 1 : 0);
 
 /** Sub-professions whose attacks splash around the struck target (the 阵法术师 / 轰击术师 strike every enemy in range). */
-const SPLASH_SUBS = new Set(['aoesniper', 'splashcaster', 'bombarder', 'fortress', 'hammer']);
+const SPLASH_SUBS = /** @type {Set<string | null>} */ (new Set(['aoesniper', 'splashcaster', 'bombarder', 'fortress', 'hammer']));
 
 export class FxNumbers {
   // ---- hits / numbers -----------------------------------------------------------------------------------------
 
-  /** b.ev 'dmg' visual: glow + sparks in the hit colour; a melee blow (atk 'none' just before) adds its slash. @this {FxSystem} */
+  /**
+   * b.ev 'dmg' visual: glow + sparks in the hit colour; a melee blow (atk 'none' just before) adds its slash.
+   * @param {any} view @param {number} amount @param {unknown} type @param {any} srcView @param {number} [numFlag]
+   * @this {FxSystem}
+   */
   damage(view, amount, type, srcView, numFlag = 0) {
     if (!view) return;
     const style = dmgStyleKey(type);
     const p = this._chest(view);
     const px = p.x, py = p.y, s = p.s;
-    const tint = HIT_TINT[style] || 0xffffff;
+    const tint = /** @type {Record<string, number>} */ (HIT_TINT)[style] || 0xffffff;
     const big = view.maxHp > 0 && amount >= view.maxHp * 0.18;
     const melee = !!srcView && this._slashAt === srcView.id;
     this.particle('glow', px, py, { tint, life: 0.18, s0: (s / 128) * (big ? 1.0 : 0.6), s1: (s / 128) * (big ? 1.5 : 0.9), a0: 0.9, a1: 0 });
-    if (melee) { this._slashAt = null; this._slash(view, srcView, px, py, s, style, big); }
+    if (melee) { /** @type {FxSystem} */ (this)._slashAt = null; this._slash(view, srcView, px, py, s, style, big); }
     this.burst(px, py, s, big ? 8 : melee ? 6 : 4, tint, { speed: melee ? 2.8 : 2.4, size: big ? 0.6 : 0.46 });
     if (srcView && this.ctx.subProfOf && SPLASH_SUBS.has(this.ctx.subProfOf(srcView.info?.defId, srcView.info))) {
       if (!this._lastRing || this.time - this._lastRing > 0.08) {
@@ -75,20 +87,26 @@ export class FxNumbers {
     view.onHit?.();
     if (this.ctx.settings?.damageNumbers !== false) {
       // local patch (LOCAL-PATCH.md 「전투 화면 UI」 ④): the official numbers unless 全部显示 is chosen
-      if (numberStyle() === 'official') (this._offNums || (this._offNums = new OfficialNumbers(this.ctx))).damage(view, amount, numFlag);
+      if (numberStyle() === 'official') (this._offNums || (/** @type {FxSystem} */ (this)._offNums = new OfficialNumbers(this.ctx))).damage(view, amount, numFlag);
       else this.number(view, amount, style, big);
     }
   }
 
-  /** local patch (LOCAL-PATCH.md 「전투 화면 UI」 ④): a red number stopped by a shield (sim 'blk'): blue / BLOCK, official style only. @this {FxSystem} */
+  /**
+   * local patch (LOCAL-PATCH.md 「전투 화면 UI」 ④): a red number stopped by a shield (sim 'blk'): blue / BLOCK, official style only.
+   * @param {any} view @param {number} amount @param {boolean} shown
+   * @this {FxSystem}
+   */
   blocked(view, amount, shown) {
     if (!view || this.ctx.settings?.damageNumbers === false || numberStyle() !== 'official') return;
-    (this._offNums || (this._offNums = new OfficialNumbers(this.ctx))).blocked(view, amount, shown);
+    (this._offNums || (/** @type {FxSystem} */ (this)._offNums = new OfficialNumbers(this.ctx))).blocked(view, amount, shown);
   }
 
   /**
    * Melee blow on `view` by `src`: a crescent swept across the victim, bulging along the blow (attacker → victim on
    * screen, a little random tilt / mirroring), in the hit colour with a white-hot inner stroke.
+   * @param {any} view @param {any} src @param {number} px @param {number} py @param {number} s @param {string} style
+   * @param {boolean} big
    * @this {FxSystem}
    */
   _slash(view, src, px, py, s, style, big) {
@@ -98,13 +116,13 @@ export class FxNumbers {
     const rot = ang + Math.PI / 2 + (Math.random() - 0.5) * 0.9;
     const flip = Math.random() < 0.5 ? -1 : 1;
     const k = big ? 1.25 : 1;
-    const a = this.particle('slash', px, py, { tint: style === 'phys' ? 0xffe2b0 : HIT_TINT[style] || 0xffffff, life: 0.2, s0: (s / 128) * 1.05 * k, s1: (s / 128) * 1.3 * k, a0: 1, a1: 0, rot });
+    const a = this.particle('slash', px, py, { tint: style === 'phys' ? 0xffe2b0 : /** @type {Record<string, number>} */ (HIT_TINT)[style] || 0xffffff, life: 0.2, s0: (s / 128) * 1.05 * k, s1: (s / 128) * 1.3 * k, a0: 1, a1: 0, rot });
     a.sx = flip;
     const b = this.particle('slash', px, py, { tint: 0xffffff, life: 0.12, s0: (s / 128) * 0.8 * k, s1: (s / 128) * 1.0 * k, a0: 0.85, a1: 0, rot });
     b.sx = flip;
   }
 
-  /** @this {FxSystem} */
+  /** @param {any} view @param {number} amount @this {FxSystem} */
   heal(view, amount) {
     if (!view) return;
     const p = this._chest(view);
@@ -116,7 +134,7 @@ export class FxNumbers {
       });
     }
     if (this.ctx.settings?.damageNumbers !== false) {
-      if (numberStyle() === 'official') (this._offNums || (this._offNums = new OfficialNumbers(this.ctx))).heal(view, amount); // local patch
+      if (numberStyle() === 'official') (this._offNums || (/** @type {FxSystem} */ (this)._offNums = new OfficialNumbers(this.ctx))).heal(view, amount); // local patch
       else this.number(view, amount, 'heal', false);
     }
   }
@@ -134,6 +152,7 @@ export class FxNumbers {
    *     far as a margin) with a gap wide enough that two numbers never read as one;
    *   * crowded (> NUM_CROWD numbers near it): it lives shorter; a pair that still ends up overlapping (units walking
    *     into each other) resolves by fading the older one quickly (_updateNums).
+   * @param {any} view @param {number} amount @param {string} style @param {boolean} big
    * @this {FxSystem}
    */
   number(view, amount, style, big) {
@@ -175,6 +194,7 @@ export class FxNumbers {
     const w = numChars(n, style) * NUM_DIGIT_EM * 24 * sc * NUM_POP + NUM_GAP_PX;
     const h = 24 * NUM_LINE_EM * sc * NUM_POP;
     const lane = Math.max(w, 24 * NUM_DIGIT_EM * sc * 3.2) * 0.62;
+    /** @type {{ cx: number, cy: number, lift: number, k: number } | null} */
     let best = null;
     for (const k of NUM_LANES) {
       const cx = ax + k * lane;
@@ -184,7 +204,7 @@ export class FxNumbers {
       if (lift <= h * 1.2) break;              // low enough: keep the nearest lane
     }
     const cap = h * NUM_MAX_LINES;
-    let { cx, cy } = best;
+    let { cx, cy } = /** @type {{ cx: number, cy: number, lift: number, k: number }} */ (best);
     if (ay - cy > cap) {
       // over capacity (a knot of units under fire): join this unit's latest same-style total when it fits, else take
       // the capped spot and drop whatever is there (crowded numbers give way at once)
@@ -214,7 +234,7 @@ export class FxNumbers {
     for (const t of this.nums) if (!t.fading && Math.abs(t._x - cx) < 150 && Math.abs(t._y - cy) < 110) near++;
     const life = near >= NUM_CROWD ? NUM_LIFE * 0.62 : NUM_LIFE;
     const maxNums = this.load >= 2 ? MAX_NUMBERS >> 1 : MAX_NUMBERS;
-    while (this.nums.length >= maxNums) this._releaseNum(this.nums.shift());
+    while (this.nums.length >= maxNums) this._releaseNum(/** @type {Num} */ (this.nums.shift()));
     const t = this._takeNum(style);
     t.text.visible = true;
     t.text.alpha = 1;
@@ -226,7 +246,11 @@ export class FxNumbers {
     this.nums.push(t);
   }
 
-  /** Whether a merged number's grown text still fits among its neighbours (else a new number is made). @this {FxSystem} */
+  /**
+   * Whether a merged number's grown text still fits among its neighbours (else a new number is made).
+   * @param {Num} t @param {number} add @param {boolean} big
+   * @this {FxSystem}
+   */
   _growFits(t, add, big) {
     const sc = numScale(t._s || 100, t.big || big, t.style);
     const w = numChars(t.value + add, t.style) * NUM_DIGIT_EM * 24 * sc * NUM_POP + NUM_GAP_PX;
@@ -241,6 +265,7 @@ export class FxNumbers {
    * Lowest (largest screen y) bottom for a number of size w×h centred at x, starting at y0, clear of every live number
    * now and later: above one it must sit on its top; below one it must leave that one's rise so far as a margin
    * (the new number rises faster and would catch up).
+   * @param {number} x @param {number} y0 @param {number} w @param {number} h @param {number} risePx
    * @this {FxSystem}
    */
   _numSlotPx(x, y0, w, h, risePx) {
@@ -262,7 +287,11 @@ export class FxNumbers {
     return y;
   }
 
-  /** Screen boxes of the live numbers (their current anchor, rise and size) → t._x, t._y (bottom), t._w, t._h. @this {FxSystem} */
+  /**
+   * Screen boxes of the live numbers (their current anchor, rise and size) → t._x, t._y (bottom), t._w, t._h.
+   * @param {Camera} cam
+   * @this {FxSystem}
+   */
   _layoutNums(cam) {
     const p = this._p;
     for (const t of this.nums) {
@@ -280,13 +309,21 @@ export class FxNumbers {
     this._laidKey = camKey(cam);
   }
 
-  /** `_layoutNums` unless the boxes are already current: same frame (fx time) and the same camera framing. @this {FxSystem} */
+  /**
+   * `_layoutNums` unless the boxes are already current: same frame (fx time) and the same camera framing.
+   * @param {Camera} cam
+   * @this {FxSystem}
+   */
   _layoutNumsOnce(cam) {
     if (this._laidAt === this.time && this._laidCam === cam && this._laidKey === camKey(cam)) return;
     this._layoutNums(cam);
   }
 
-  /** A number's box size from its value, style, pop and the scale of its last layout (t._s px per tile). @this {FxSystem} */
+  /**
+   * A number's box size from its value, style, pop and the scale of its last layout (t._s px per tile).
+   * @param {Num} t
+   * @this {FxSystem}
+   */
   _sizeNum(t) {
     const sc = numScale(t._s || 100, t.big, t.style);
     const pop = 1 + t.pop * (NUM_POP - 1);
@@ -295,7 +332,7 @@ export class FxNumbers {
     t._sc = sc;
   }
 
-  /** @this {FxSystem} */
+  /** @param {Num} t @param {number} within @this {FxSystem} */
   _fadeNum(t, within) {
     if (t.fading) return;
     t.fading = true;
@@ -304,33 +341,33 @@ export class FxNumbers {
     t.fadeT0 = t.life;
   }
 
-  /** @this {FxSystem} */
+  /** @param {string} style @returns {Num} @this {FxSystem} */
   _takeNum(style) {
     const P = this.P;
-    const font = DMG_STYLE[style]?.font || DMG_STYLE.phys.font;
-    const pool = this._numPools || (this._numPools = new Map());
+    const font = /** @type {Record<string, { font: string } | undefined>} */ (DMG_STYLE)[style]?.font || DMG_STYLE.phys.font;
+    const pool = this._numPools || (/** @type {FxSystem} */ (this)._numPools = new Map());
     const list = pool.get(font);
     let t = list && list.length ? list.pop() : null;
     if (!t) {
       const text = new P.BitmapText('0', { fontName: font, fontSize: 24, align: 'center' });
       text.anchor.set(0.5, 1);
       this.ctx.layers.text.addChild(text);
-      t = { text, font };
+      t = /** @type {Num} */ ({ text, font });
     }
     return t;
   }
 
-  /** @this {FxSystem} */
+  /** @param {Num} t @this {FxSystem} */
   _releaseNum(t) {
     t.text.visible = false;
     t.unit = null;
-    const pool = this._numPools || (this._numPools = new Map());
+    const pool = this._numPools || (/** @type {FxSystem} */ (this)._numPools = new Map());
     let list = pool.get(t.font);
     if (!list) pool.set(t.font, list = []);
     if (list.length < 30) list.push(t); else t.text.destroy();
   }
 
-  /** @this {FxSystem} */
+  /** @param {number} dt @this {FxSystem} */
   _updateNums(dt) {
     const cam = this.ctx.cam();
     let w = 0;
@@ -368,10 +405,14 @@ export class FxNumbers {
     }
   }
 
-  /** Floating label ('!', '+10') at a screen point, using the damage-number pool. @this {FxSystem} */
+  /**
+   * Floating label ('!', '+10') at a screen point, using the damage-number pool.
+   * @param {number} x @param {number} y @param {unknown} label @param {number} tint @param {number} [life]
+   * @this {FxSystem}
+   */
   numberAt(x, y, label, tint, life = 0.8) {
     const P = this.P;
-    if (this.labels.length >= 24) { const o = this.labels.shift(); o.t.destroy(); }
+    if (this.labels.length >= 24) { const o = /** @type {Label} */ (this.labels.shift()); o.t.destroy(); }
     const t = new P.BitmapText(String(label), { fontName: DMG_STYLE.true.font, fontSize: 26, align: 'center' });
     t.anchor.set(0.5, 1);
     t.tint = tint;
@@ -380,7 +421,7 @@ export class FxNumbers {
     this.labels.push({ t, y0: y, life: 0, max: life });
   }
 
-  /** @this {FxSystem} */
+  /** @param {number} dt @this {FxSystem} */
   _updateLabels(dt) {
     let w = 0;
     for (const l of this.labels) {

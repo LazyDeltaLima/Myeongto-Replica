@@ -22,11 +22,13 @@ export const PROMOTE_QUADS = Object.freeze([
   [[0.45, -0.5, 2.4229], [0.45, -0.5, -0.3609], [-0.55, -0.5, -0.3609], [-0.55, -0.5, 2.4229]],
   [[0.443, 0.494, 0.3829], [0.443, 0.494, -0.1429], [-0.557, 0.494, -0.1429], [-0.557, 0.494, 0.3829]],
 ]);
+/** @import { Three, ThreeObj } from './materials.js' */
+
 const QUAD_UV = [0, 0, 1, 0, 1, 1, 0, 1];
 /** map_promote_04's material values. */
 export const PROMOTE = Object.freeze({ color: [0.963235, 0.119574, 0.063744], st: [0.27, 1, -1.225937, 0], uSpeed: 0.5, dissolve: 0.044, border: 0.409 });
 
-/** Positions / uvs / indices of the effect on `tiles` ([[r, c, z]…]: z = the tile's top). */
+/** Positions / uvs / indices of the effect on `tiles` ([[r, c, z]…]: z = the tile's top). @param {unknown} tiles */
 export function promoteData(tiles) {
   const list = (Array.isArray(tiles) ? tiles : []).filter((t) => Array.isArray(t) && Number.isFinite(t[0]) && Number.isFinite(t[1]));
   if (!list.length) return null;
@@ -68,6 +70,7 @@ void main() {
 }`;
 
 export class InfectionFx {
+  /** @param {Three} THREE @param {ThreeObj | null | undefined} parent */
   constructor(THREE, parent) {
     const T = THREE;
     this.T = T;
@@ -87,6 +90,7 @@ export class InfectionFx {
     parent?.add?.(this.mesh);
   }
 
+  /** @param {unknown} img @param {boolean} repeat */
   _texture(img, repeat) {
     const T = this.T;
     const tex = new T.Texture(img);
@@ -107,7 +111,7 @@ export class InfectionFx {
     this._sync();
   }
 
-  /** The 活性源石 tiles shown ([[r, c, z]…], null clears). */
+  /** The 活性源石 tiles shown ([[r, c, z]…], null clears). @param {unknown} tiles */
   setTiles(tiles) {
     const data = promoteData(tiles);
     const key = data ? Array.from(data.position).join(',') : '';
@@ -131,6 +135,7 @@ export class InfectionFx {
     this.mesh.visible = !!this.key && !!U.uMain.value && !!U.uMask.value;
   }
 
+  /** @param {number} t */
   update(t) { if (this.mesh.visible) this.material.uniforms.uTime.value = t % 1000; }
 
   dispose() {

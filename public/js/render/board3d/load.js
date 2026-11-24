@@ -22,6 +22,18 @@ import { parseObj } from './obj.js';
 // /b/<tag>/r/ URLs (server/http/buildTag.js)
 export const THREE_URL = new URL('../../../vendor/three.module.js', import.meta.url).href;
 
+/**
+ * @import { Three } from './materials.js'
+ * @import { UvTable } from './atlas.js'
+ * @import { ObjMesh } from './obj.js'
+ * @typedef {{ [key: string]: any }} AssetStore public/js/assets.js's store (local(), localUrl(), image(), ready() …)
+ * @typedef {{ key: string, images: Record<string, HTMLImageElement>,
+ *   meshes: { gate: Record<string, { mesh: ObjMesh, material: string | null }>, [key: string]: any },
+ *   tiles: Record<string, any> | null, uv: UvTable,
+ *   materials: { theme: Record<string, any> | null, fx: Record<string, any> | null } }} BoardPack loadBoardPack's result
+ */
+
+/** @type {Promise<Three | null> | null} */
 let threePromise = null;
 let threeFailed = false;
 let threeTry = 0;
@@ -56,9 +68,10 @@ export function webgl2Available(allowSlow = false) {
   } catch { return false; }
 }
 
+/** @param {unknown} v @returns {v is Record<string, any>} */
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
-/** Manifest key → pack slot. */
+/** Manifest key → pack slot. @type {Readonly<Record<string, readonly [string, string]>>} */
 export const PACK_IMAGES = Object.freeze({
   D: ['map/autochess', 'TX_autochessi_D'],
   N: ['map/autochess', 'TX_autochessi_N_rgb'],
@@ -74,6 +87,7 @@ export const PACK_IMAGES = Object.freeze({
   noise: ['map/water', 'T_noise_clouds_01'],
 });
 
+/** @type {Readonly<Record<string, readonly [string, string]>>} */
 export const PACK_MESHES = Object.freeze({
   crate: ['mesh/s_common_box_01', 'pCube2'],
   blower: ['mesh/s_wind_device', 'S_wild_wind_device'],
@@ -85,12 +99,14 @@ export const GATE_NODES = Object.freeze({
   startDown: 'Start_down', startUp: 'Start_up', startBack: 'Start_back', endDown: 'Start_down1', endUp: 'Start_up1',
 });
 
+/** @type {Promise<BoardPack | null> | null} */
 let cached = null;
 let cachedFailed = false;
 
 /**
  * Does the local-art manifest list the board atlas? Reads the manifest only (no images): decides whether the
  * ~2 MB three.js build is worth downloading at all (most hosts have no local-client art → 2D board, no three).
+ * @param {AssetStore | null | undefined} assets @param {{ retry?: boolean }} [opts]
  */
 export async function boardArtListed(assets, opts) {
   return (await boardArtState(assets, opts)) === 'yes';
@@ -99,6 +115,7 @@ export async function boardArtListed(assets, opts) {
 /**
  * 'yes' (the manifest lists the board atlas), 'no' (a manifest without it, or no asset store: this host has no board
  * art) or 'unknown' (the manifest could not be read — maybe a dropped request; `retry` asks for it again).
+ * @param {AssetStore | null | undefined} assets @param {{ retry?: boolean }} [opts]
  */
 export async function boardArtState(assets, { retry = false } = {}) {
   if (!assets || typeof assets.local !== 'function' || typeof assets.localUrl !== 'function') return 'no';
@@ -127,9 +144,11 @@ export async function loadBoard3d(assets, { retry = false, threeUrl = THREE_URL 
   return { status: 'ok', THREE, pack };
 }
 
+/** @param {string} url */
 async function fetchText(url) {
   try { const r = await fetch(url, { cache: 'no-cache' }); return r.ok ? await r.text() : null; } catch { return null; }
 }
+/** @param {string} url */
 async function fetchJson(url) {
   try { const r = await fetch(url, { cache: 'no-cache' }); return r.ok ? await r.json() : null; } catch { return null; }
 }
@@ -137,7 +156,9 @@ async function fetchJson(url) {
 /**
  * Load the board pack through the asset store of public/js/assets.js (needs local(), localUrl(), image()). `retry`
  * loads again after a result of null (and asks the store for the images that failed again).
- * @returns {Promise<object|null>}
+ * @param {AssetStore | null | undefined} assets
+ * @param {{ retry?: boolean }} [opts]
+ * @returns {Promise<BoardPack | null>}
  */
 export function loadBoardPack(assets, { retry = false } = {}) {
   if (cached && retry && cachedFailed) cached = null;
@@ -147,9 +168,11 @@ export function loadBoardPack(assets, { retry = false } = {}) {
     if (!assets || typeof assets.local !== 'function' || typeof assets.localUrl !== 'function' || typeof assets.image !== 'function') return null;
     const manifest = await assets.local().catch(() => null);
     if (!isObj(manifest)) return null;
+    /** @param {string} g @param {string} n */
     const url = (g, n) => { const u = assets.localUrl(g, n); return typeof u === 'string' && u ? encodeURI(u) : null; };
     const dUrl = url(...PACK_IMAGES.D);
     if (!dUrl) return null;
+    /** @type {Record<string, HTMLImageElement>} */
     const images = {};
     await Promise.all(Object.entries(PACK_IMAGES).map(async ([k, [g, n]]) => {
       const u = url(g, n);
@@ -165,6 +188,7 @@ export function loadBoardPack(assets, { retry = false } = {}) {
       (async () => { const u = url('map/fx', 'materials'); return u ? fetchJson(u) : null; })(),
       (async () => { const u = url('map/fx', 'prefab'); return u ? fetchJson(u) : null; })(),
     ]);
+    /** @type {BoardPack['meshes']} */
     const meshes = { gate: {} };
     await Promise.all(Object.entries(PACK_MESHES).map(async ([k, [g, n]]) => {
       const u = url(g, n);

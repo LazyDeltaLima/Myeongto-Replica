@@ -12,6 +12,18 @@ import { cite } from './cite.js';
 import { whenPlays } from './conds.js';
 
 /**
+ * @typedef {{ [key: string]: any }} KitEv a kit 'fx' event's fields (the sim's record)
+ * @typedef {{ skill: number, back: boolean, foe: boolean, left: boolean }} KitCtx what kitOfficialPlan knows of the event
+ * @typedef {{ [key: string]: any }} KitPlay one play (the comment below)
+ * @typedef {{ stop?: string[], play?: KitPlay[], pass?: boolean, skillFlag?: string }} KitPlanOut
+ * @typedef {(o: KitEv, c: KitCtx) => KitPlanOut | null} KitPlanFn
+ * @import { WhenRow } from './conds.js'
+ * @typedef {{ moment?: string, b?: string, reach?: string[], trail?: string[], hit?: string[], lim?: number, when?: WhenRow[],
+ *   held?: string[], once?: string[], end?: string[] }} PlaysKey a key of plays.json (tools/build-fx-plays.mjs)
+ * @typedef {{ keys?: Record<string, PlaysKey> }} Plays the loaded plays.json
+ */
+
+/**
  * One play: `n` the prefab (of the operator's bundle, or of `bundle`), on `on` ('op' the event's operator, 'point' the event's
  * x / y on the ground, else the event's field naming a unit: 'id', 'tgt' …) — circling it with `orbit` { r, spd } —, for `life`:
  *   'once'     its own duration
@@ -55,8 +67,10 @@ import { whenPlays } from './conds.js';
  * `{ back }` the deployed direction, `{ stacks, bb }` a stack count and its bounds, `{ all: true }` the event stands for
  * every condition of the key's rows (the sim decided them; never a choice between prefabs — fx-bindings.test.js).
  */
+/** @param {string} n @param {string} [on] */
 const once = (n, on = 'op') => ({ n, on, life: 'once' });
 const CRAB_SPEED = 10;   // kits/ops/op-ironmn.js CRAB_SPEED: the sim's shot lands then
+/** @type {Readonly<Record<string, string>>} */
 const CRAB_START = Object.freeze({ UP: 'token_ironmn_pile3_skill_03_start_up', DOWN: 'token_ironmn_pile3_skill_03_start_down' });
 /** 余's 灼燃损伤 moments (the sim's 'dmg' 9th field). */
 const YU_HIT = Object.freeze(['yu_s_1[inverse_damage]', 'yu_t_1[enemy]', 'yu_s_3[ally]']);
@@ -66,7 +80,7 @@ const ALL = Object.freeze({ all: true });
 const VEEN_MOUNTS = Object.freeze([5, 6, 8, 9, 10]);
 // 黑键's Default / S1 ExChargeAttack `_mountPointForProjectiles`: SPECIAL_0 / 1 / 2 / 3 (2026-11-16)
 const EBNHLZ_MOUNTS = Object.freeze([5, 6, 8, 9]);
-/** 缪尔赛思's 流形: the form of each of its modes in its effects' names (c0 is Recharge's puddle). */
+/** 缪尔赛思's 流形: the form of each of its modes in its effects' names (c0 is Recharge's puddle). @type {Readonly<Record<string, string>>} */
 const MANIFOLD_FORM = Object.freeze({ Default: 'c1', Melee: 'c2', Range: 'c3' });
 /** Its Recharge mode's switch casts (mlyss_wtrman_switch / _melee / _range): `_preDelay` 1 s (kits chess_char_6_11-mlyss.js MANIFOLD_REBORN). */
 const MANIFOLD_SWITCH = 1;
@@ -87,6 +101,7 @@ export const KIT_NO_STAND_IN = Object.freeze(new Set(['aglna2|takeoff', 'bgsnow|
 // attaches it as the skill starts and detaches it as it ends; the block toggle switches only its buffs. The sim sends her
 // range tiles `cells` on S3's 'takeoff' and on each landing while S3 runs ('aglnaFlight' off; kits op-aglna2.js edgeCells)
 // (her S1 / S2 takeoffs and S3's own carry no prefab at that moment, so no lift ring either: KIT_NO_STAND_IN 'aglna2|takeoff')
+/** @type {KitPlanFn} */
 const AGLNA2_EDGE = cite('skchr_aglna2_3/Toggle/BlockToggle', (o) => (Array.isArray(o.cells)
   ? { play: [{ n: 'aglna2_skill_03_range_line_01', edge: 'cells', slot: 'aglna2Edge', life: 'skill' }] } : null));
 
@@ -94,6 +109,7 @@ const AGLNA2_EDGE = cite('skchr_aglna2_3/Toggle/BlockToggle', (o) => (Array.isAr
  * event → operator bundle → (o, ctx) → { stop?: tag[], play: plays[], pass?: the event keeps its stand-in } | null.
  * ctx: { skill: the operator's skill index 0–2, back: it faces UP (deployed facing the back), foe: the event's `id` unit is
  * an enemy }.
+ * @type {Record<string, Record<string, KitPlanFn>>}
  */
 export const KIT_OFFICIAL = {
   // 号角 T2 血战 (horn_t_1[muso] → buff horn_t_1[reborn_effect], effect horn_buff_01_start_front INFINITY; its start creates
@@ -863,6 +879,7 @@ export const KIT_OFFICIAL = {
   ebnhlzVolley: {
     ebnhlz: cite(['projectile_chr_ebnhlz_charge', 'projectile_chr_ebnhlz_elite', 'projectile_chr_ebnhlz_s1_charge', 'projectile_chr_ebnhlz_s1_elite',
       'projectile_chr_ebnhlz_s3_elite_charge'], (o) => {
+      /** @param {string} trail @param {string} hit @returns {(mount: number) => KitPlay} */
       const shot = (trail, hit) => (mount) => ({ n: trail, fly: 10, to: 'target', mount, hit: [hit] });
       const n = Math.max(0, Number(o.n) || 0), e = Math.max(0, Number(o.e) || 0);
       const [norm, ex, exMounts] = Number(o.s3) ? [null, shot('ebnhlz_skill_03_trail_red', 'ebnhlz_skill_03_hit_red'), [5, 6, 8, 9, 10]]
@@ -989,7 +1006,7 @@ const REED2_ORBIT = Object.freeze({ r: 1, spd: 150, phase: 0 });
 /** 圣聆初雪's tile effect by snow layers (SnowAccumulation `_effectSettings`: thresholds 1 → _01, 2 / 3 / 4 → _02, 5 → _03). */
 const SNOW_GROUND = [null, 'sbell2_ground_01', 'sbell2_ground_02', 'sbell2_ground_02', 'sbell2_ground_02', 'sbell2_ground_03'];
 
-/** 卡涅利安's eff_cond buffs of skill index `i` while it runs (KIT_OFFICIAL shell / sandChains / devour). */
+/** 卡涅利安's eff_cond buffs of skill index `i` while it runs (KIT_OFFICIAL shell / sandChains / devour). @param {number} i @param {boolean} charged */
 function billro(i, charged) {
   const set = [
     { full: ['billro_skill_01_buff_02', 'billro_skill_01_buff_01_02'], half: ['billro_skill_01_buff_01_02'] },
@@ -1000,7 +1017,10 @@ function billro(i, charged) {
   return { play: set[charged ? 'full' : 'half'].map((n) => ({ n, on: 'op', life: 'skill' })) };
 }
 
-/** 灵知 / 流明 S2's charge stage: `n` 1 → key `one`, 2 → `two` (held in one slot until the count changes), else none; `more` too. */
+/**
+ * 灵知 / 流明 S2's charge stage: `n` 1 → key `one`, 2 → `two` (held in one slot until the count changes), else none; `more` too.
+ * @param {KitEv} o @param {string} one @param {string} two @param {KitPlay[]} more
+ */
 function chargeStage(o, one, two, more) {
   const k = Number(o.n) || 0, key = k >= 2 ? two : k === 1 ? one : null;
   return { play: [key ? { tpl: key, on: 'op', slot: 'charge', when: ALL } : { slot: 'charge', off: true }, ...more] };
@@ -1009,8 +1029,9 @@ function chargeStage(o, one, two, more) {
 // events whose `src` is no operator of the moment: 缪尔赛思's 'copy' (`src` the operator her 流形 copies, `by` her) and her
 // 流形's 'split' / 'refresh' / 'pulse' (`src` / `id` the 流形, `by` her; 2026-11-07) —
 // and 焰影苇草 S2's 'strike' (`src` the ally that carries her fireball, `by` her; the other kits' strikes have no `by`)
+/** @type {Record<string, string>} */
 const OPERATOR_FIELD = { copy: 'by', strike: 'by', split: 'by', refresh: 'by', pulse: 'by' };
-/** The operator id of kit event `name` (fxgame.js standInOff's too): `src`, else `by`, else `id`. */
+/** The operator id of kit event `name` (fxgame.js standInOff's too): `src`, else `by`, else `id`. @param {KitEv | null | undefined} o @param {string} name */
 export const kitOperator = (o, name) => (o ? (OPERATOR_FIELD[name] ? o[OPERATOR_FIELD[name]] : null) ?? o.src ?? o.by ?? o.id : null);
 
 /**
@@ -1024,7 +1045,7 @@ export const kitOperator = (o, name) => (o ? (OPERATOR_FIELD[name] ? o[OPERATOR_
 export function kitOfficialPlan(name, o, bundle, ctx = {}) {
   if (!o || typeof o !== 'object') return null;
   const rule = bundle ? KIT_OFFICIAL[name]?.[bundle] : null;
-  const r = typeof rule === 'function' ? rule(o, { skill: Number.isInteger(ctx.skill) ? ctx.skill : 0, back: !!ctx.back, foe: !!ctx.foe, left: !!ctx.left }) : null;
+  const r = typeof rule === 'function' ? rule(o, { skill: Number.isInteger(ctx.skill) ? /** @type {number} */ (ctx.skill) : 0, back: !!ctx.back, foe: !!ctx.foe, left: !!ctx.left }) : null;
   if (!r) return name === 'hit' ? momentPlan(o, bundle, ctx.plays) : null;
   const play = (r?.play || []).flatMap((p) => (p.tpl ? tplPlays(p, ctx.plays) : [p]));
   return r ? { stop: r.stop || [], play, pass: !!r.pass, ...(r.skillFlag ? { skillFlag: r.skillFlag } : {}) } : null;
@@ -1033,6 +1054,7 @@ export function kitOfficialPlan(name, o, bundle, ctx = {}) {
 /**
  * 2026-11-05: a 'hit' moment with no rule: the one prefab the binding rows say its key plays on the unit hit, when that key belongs
  * to the operator's bundle (tools/build-fx-plays.mjs `moment`, `b`). A rule above comes first; a key the rows leave open has one.
+ * @param {KitEv} o @param {string | null} bundle @param {Plays | null | undefined} plays
  */
 function momentPlan(o, bundle, plays) {
   const k = plays?.keys?.[o.k];
@@ -1042,17 +1064,21 @@ function momentPlan(o, bundle, plays) {
 /**
  * A `tpl` play as the plays of its key in `plays` (the loaded public/assets/local/fx/plays.json; tools/build-fx-plays.mjs)
  * — none when the file or the key is missing (the event then keeps its stand-in).
+ * @param {KitPlay} p @param {Plays | null | undefined} plays
+ * @returns {KitPlay[]}
  */
 export function tplPlays(p, plays) {
   const k = plays?.keys?.[p.tpl];
   if (!k) return [];
   const { tpl, when, ...rest } = p;
+  /** @param {string} on @param {{ after?: string }} after */
   const reach = (on, after) => (k.reach || []).map((n) => ({ n, on, life: 'once', ...after }));
   if (rest.fly != null) {
     if (k.trail?.length !== 1) return [];
     return [{ ...rest, n: k.trail[0], ...(rest.to && k.hit?.length ? { hit: [...k.hit] } : {}) }, ...reach('point', { after: 'fly' })];
   }
   const on = whenPlays(k, when);
+  /** @param {'held' | 'once' | 'end'} role */
   const of = (role) => [...new Set([...(k[role] || []), ...on.filter((r) => r.role === role).map((r) => r.n)])];
   const life = rest.life ?? k.lim;
   const endOf = of('end');

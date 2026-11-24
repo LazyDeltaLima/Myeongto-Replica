@@ -65,14 +65,16 @@ export function judge(c, s, held, m = s.stacks || {}) {
   }
 }
 
-/** The stack keys a row's FilterByBuffStackCount conditions count. */
-const stackKeys = (r) => r.if.map((c) => /FilterByBuffStackCount\(\w+ \S+ (.+)\)$/.exec(c)?.[1]).filter(Boolean);
+/** @typedef {{ role: string, n: string, b?: string, if: string[] }} WhenRow a `when` row of plays.json */
+
+/** The stack keys a row's FilterByBuffStackCount conditions count. @param {WhenRow} r */
+const stackKeys = (r) => /** @type {string[]} */ (r.if.map((c) => /FilterByBuffStackCount\(\w+ \S+ (.+)\)$/.exec(c)?.[1]).filter(Boolean));
 
 /**
  * The `when` rows of a key's plays (`k`, from plays.json) that hold in `s`: [{ role, n }]. A held row (a buff kept once it
  * is created) holds if its conditions held at some stack count up to the current one; the buffs the held rows create count
  * as held for the others (the client's triggers run again: mlynar_tr's [b] once [a] is there).
- * @param {{ when?: { role: string, n: string, b?: string, if: string[] }[] } | null | undefined} k
+ * @param {{ when?: WhenRow[] } | null | undefined} k
  * @param {FxState | null | undefined} s
  * @returns {{ role: string, n: string }[]}
  */
@@ -80,8 +82,10 @@ export function whenPlays(k, s) {
   const rows = k?.when;
   if (!rows?.length || !s) return [];
   const held = new Set(s.buffs || []);
+  /** @type {Set<WhenRow>} */
   const on = new Set();
   const counted = s.stacks || {};
+  /** @param {WhenRow} r */
   const holds = (r) => {
     // the counted buff itself: there while it has a stack (the conditions of its creation are what made the stack)
     if (r.b != null && counted[r.b] != null) return counted[r.b] >= 1;

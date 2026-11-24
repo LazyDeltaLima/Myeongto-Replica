@@ -14,13 +14,27 @@ import { FxArrivals } from './arrivals.js';
 import { FxSim } from './simfx.js';
 import { FxZones } from './zones.js';
 
+/**
+ * @import { Particle, PartOpts } from './particles.js'
+ * @import { Proj } from './projectiles.js'
+ * @import { Beam, Flame } from './beams.js'
+ * @import { Lock } from './locks.js'
+ * @import { Num, Label } from './numbers.js'
+ * @import { Ring, Aura } from './rings.js'
+ * @import { Pop } from './arrivals.js'
+ * @import { Zone, TileFlash } from './zones.js'
+ * @import { OfficialNumbers } from '../num-official.js'
+ * @import { Camera } from '../projection.js'
+ */
+
 export class FxSystem {
   /**
-   * @param {{ P, layers: { groundFx, fxAdd, fxNormal, text, screen }, cam: () => any, view: (id) => any,
-   *           heightAt: (r,c)=>number, settings: any, assets: any, timeScale: () => number,
-   *           subProfOf: (defId, info?) => string|null, screenSize: () => {width,height}, fieldTop: () => number,
-   *           loadLevel?: () => number, redVignette?: any, surfaceLayer?: any, viewport?: any,
-   *           fieldRect?: () => any, lookupDef?: (info) => any }} ctx
+   * @param {{ P: any, layers: { groundFx: PIXI.Container, fxAdd: PIXI.Container, fxNormal: PIXI.Container, text: PIXI.Container,
+   *             screen: PIXI.Container }, cam: () => Camera, view?: (id: unknown) => any,
+   *           heightAt: (r: number, c: number) => number, settings: any, assets: any, timeScale: () => number,
+   *           subProfOf: (defId: string, info?: any) => string|null, screenSize: () => { width: number, height: number },
+   *           fieldTop: () => number, loadLevel?: () => number, redVignette?: any, surfaceLayer?: any, viewport?: any,
+   *           fieldRect?: () => any, lookupDef?: (info: any) => any }} ctx
    */
   constructor(ctx) {
     const P = ctx.P;
@@ -37,29 +51,47 @@ export class FxSystem {
     this.shadowLayer = new P.Container();
     ctx.layers.fxNormal.addChild(this.shadowLayer, this.normPc);
     ctx.layers.fxAdd.addChild(this.addPc);
+    /** @type {Particle[]} */
     this.parts = [];          // active particle records { sp, add, x, y, vx, … }
-    this.freeAdd = []; this.freeNorm = [];   // pooled particle records (their sprites stay in the containers)
+    this.freeAdd = /** @type {Particle[]} */ ([]); this.freeNorm = /** @type {Particle[]} */ ([]);   // pooled particle records (their sprites stay in the containers)
+    /** @type {Proj[]} */
     this.projs = [];
+    /** @type {Proj[]} */
     this.projFree = [];
     this.projLayer = new P.Container();
     ctx.layers.fxAdd.addChild(this.projLayer);
+    /** @type {Lock[]} */
     this.locks = [];          // lock-on reticles { view, id, src, x, y, z, t, idle, max, out, ring, core, shell }
+    /** @type {Lock[]} */
     this.lockFree = [];
+    /** @type {PartOpts} */
     this._po = {};            // options of the per-frame emitters (see _o)
     this.beams = new P.Graphics();
     this.beams.blendMode = P.BLEND_MODES.ADD;
     ctx.layers.fxAdd.addChild(this.beams);
+    /** @type {Beam[]} */
     this.beamList = [];
+    /** @type {Flame[]} */
     this.flames = [];         // fire jets (炎佑 祛恶之焰) { src, tgt, x, y, z, r, col, t, end, disc, edge, … }
+    /** @type {Num[]} */
     this.nums = [];
+    /** @type {OfficialNumbers | null} */
     this._offNums = null;         // local patch: OfficialNumbers, made on the first official number (num-official.js)
+    /** @type {Map<string, Num[]>} */
     this._numPools = new Map();   // bitmap font → free number records
+    /** @type {Map<unknown, Aura>} */
     this.auras = new Map();   // unit id → { sprite, ring, t }
+    /** @type {Ring[]} */
     this.rings = [];          // ground rings { sprite, x, y, z, t, dur, r0, r1, tint }
+    /** @type {Ring[]} */
     this.ringFree = [];
+    /** @type {Pop[]} */
     this.pops = [];           // screen-space pops (bond glyphs, coins)
+    /** @type {Zone[]} */
     this.zones = [];          // persistent ground areas (zone / telegraph fx)
+    /** @type {Label[]} */
     this.labels = [];         // floating '!' / '+n' labels
+    /** @type {TileFlash[]} */
     this.tileFlashes = [];    // flashing tile sets (telegraphed boxes)
     this.tileGfx = new P.Graphics();
     this.tileGfx.blendMode = P.BLEND_MODES.ADD;
@@ -87,6 +119,7 @@ export class FxSystem {
     this.projs.length = 0;
     for (const L of this.locks) this._freeLock(L);
     this.locks.length = 0;
+    /** @type {unknown} */
     this._slashAt = null;
     for (const t of this.nums) this._releaseNum(t);
     this.nums.length = 0;
@@ -112,6 +145,7 @@ export class FxSystem {
     this.tintT = 0; this.tintSprite.alpha = 0;
   }
 
+  /** @param {number} dt */
   update(dt) {
     this.time += dt;
     this._updateParticles(dt);
@@ -176,5 +210,5 @@ for (const key of FX_METHOD_ORDER) {
   }
   if (!found) throw new Error(`FxSystem.${key} is missing`);
   if (Object.prototype.hasOwnProperty.call(FxSystem.prototype, key)) throw new Error(`FxSystem.${key} is defined twice`);
-  Object.defineProperty(FxSystem.prototype, key, Object.getOwnPropertyDescriptor(found.prototype, key));
+  Object.defineProperty(FxSystem.prototype, key, /** @type {PropertyDescriptor} */ (Object.getOwnPropertyDescriptor(found.prototype, key)));
 }

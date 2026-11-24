@@ -1,7 +1,15 @@
 // public/js/render/fx/projectiles.js — FxSystem shots, boomerangs, mortar shells and impacts.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
-/** @import { FxSystem } from './system.js' */
+/**
+ * @import { FxSystem } from './system.js'
+ * @import { Camera } from '../projection.js'
+ * @typedef {{ [key: string]: any }} Proj a flying shot's record (pooled with its sprites; render/fxgame.js's trail records
+ *   are read by lobZ / flightSink the same way)
+ * @typedef {{ lookupDef?: (info: any) => any } | null | undefined} DefCtx the effect context's data lookup
+ * @typedef {{ look: string, tint: number, glow: number, len: number, width: number, head: number, trail?: number,
+ *   muzzle?: number, hit?: string, arc?: number, smoke?: number }} ProjSpec a projectile kind's look (style.js PROJ)
+ */
 
 import { PROJ } from '../style.js';
 import { SHOT_HEIGHT, bodyZ, feetZ, liftX } from './camera.js';
@@ -43,6 +51,7 @@ const ARROW_TILES_PER_PX = 0.4 / 100;
 /**
  * 2026-10-16: the speed of operator view `src`'s shot at `tgt` the sim flies (render/fx/speeds.js opProjSpeed: its
  * data/chess.json `shot` of the mode it attacks in, render/fxgame.js keeping `_fxSkillOn`), 0 = no flight, null = not read.
+ * @param {DefCtx} ctx @param {any} src @param {any} tgt @param {number} dist
  */
 export function shotSpeedOf(ctx, src, tgt, dist) {
   let def;
@@ -58,6 +67,7 @@ export function shotSpeedOf(ctx, src, tgt, dist) {
  * far the sim flies operator view `src`'s shot at `tgt` — from its muzzle (opShot `from`) to `tgt`'s hit point (its record's
  * `hitAt`, in attack mode `mode`) on the board, shared/shotFlight.js shotEnds as the sim's server/sim/ai.js takes it — or
  * null when the data has no muzzle (unit to unit, as the sim then flies it).
+ * @param {DefCtx} ctx @param {any} src @param {any} tgt @param {string | null} [mode]
  */
 export function shotFlightOf(ctx, src, tgt, mode = null) {
   let def, tdef;
@@ -74,6 +84,7 @@ export function shotFlightOf(ctx, src, tgt, mode = null) {
 /**
  * 2026-10-23 (official client): the raise height of an operator's shot that flies a parabola (opShot `move` PARACURVE,
  * ParacurveMovement `_raiseHeight` — 灰毫's shell 1), or null (a straight / unread one: the kind's stand-in arc).
+ * @param {DefCtx} ctx @param {any} src
  */
 export function shotArcOf(ctx, src) {
   return shotLobOf(ctx, src)?.arc ?? null;
@@ -82,6 +93,7 @@ export function shotArcOf(ctx, src) {
 /**
  * The lob of an operator's shot: { arc: `_raiseHeight`, noRaise: `_noRaiseHeightThreshold` } of its PARACURVE shot record
  * (tools/local-extract/enemy_projectiles.py reads both), or null (a straight / unread one).
+ * @param {DefCtx} ctx @param {any} src
  */
 export function shotLobOf(ctx, src) {
   let def;
@@ -94,6 +106,8 @@ export function shotLobOf(ctx, src) {
  * { arc, noRaise } of a projectile record that flies a parabola (data/chess.json / enemies.json shot `move` PARACURVE with
  * `height` and `noRaise`; an enemy binding's projectile with `raise` and `noRaise`), or null when it rises nothing. For a
  * trail record (render/fxgame.js placeTrail, lobZ).
+ * @param {{ move?: unknown, height?: unknown, raise?: unknown, noRaise?: unknown } | null | undefined} p
+ * @returns {{ arc: number, noRaise: number } | null}
  */
 export function lobOf(p) {
   if (!p) return null;
@@ -114,6 +128,8 @@ export function lobOf(p) {
  * projectile_enemy_acfnc / acrefd); `noRaise` only for a record without one — a hand-written lob (a kit's play, 跃跃's
  * boomerangs, a kind's stand-in arc). In fractions of the flight (T = 1) here; what the arc cannot reach (a target above
  * its top) is closed along the line.
+ * @param {Proj} rec @param {number} k @param {number} [noRaise]
+ * @returns {number[]}
  */
 export function lobZ(rec, k, noRaise = 1.3) {
   const z0 = rec.z0 ?? 0, tz = rec.tz ?? 0;
@@ -130,6 +146,7 @@ export function lobZ(rec, k, noRaise = 1.3) {
  * 深水区 (docs/rules/fx.md 「심해 구역의 바닥 자르기」): how far under the road a flying shot's floor lies — the lowest of its
  * two ends and of its target's feet, never rising again in flight (`prev`). 0 on any other ground, where it is cut at the
  * road as before; only a shot at or from a sunk body goes lower.
+ * @param {Proj} rec @param {number} [prev]
  */
 export function flightSink(rec, prev = 0) {
   return Math.min(prev, rec.z0 ?? 0, rec.tz ?? 0, rec.tgt?.z ?? 0);
@@ -140,6 +157,7 @@ export function flightSink(rec, prev = 0) {
  * flies now that are made on the ground under it where it reached (opShot `ground`: an EffectBehaviour with
  * `_forceReachTargetGround` / `_followTargetGround`, tools/local-extract/enemy_projectiles.py reach_ground — 灰毫's and 号角's
  * shells), or null.
+ * @param {DefCtx} ctx @param {any} src
  */
 export function shotGroundOf(ctx, src) {
   let def;
@@ -148,7 +166,7 @@ export function shotGroundOf(ctx, src) {
   return Array.isArray(p?.ground) && p.ground.length ? p.ground : null;
 }
 
-/** 2026-10-24: the key of the projectile an operator's shot flies now (opShot `key`), or null. */
+/** 2026-10-24: the key of the projectile an operator's shot flies now (opShot `key`), or null. @param {DefCtx} ctx @param {any} src */
 export function shotKeyOf(ctx, src) {
   let def;
   try { def = ctx?.lookupDef?.(src.info) ?? null; } catch { def = null; }
@@ -161,28 +179,37 @@ export function shotKeyOf(ctx, src) {
  * a drawn height, and a raised point drifts off the upright model toward the board's edges (camera.js liftX). Its flight
  * (time, homing, the boomerang's legs) stays on the units' columns; only the drawing moves.
  */
+/** @param {Camera} cam @param {{ z?: number, hover?: number }} v @param {number} x @param {number} y @param {number} z */
 const liftDX = (cam, v, x, y, z) => liftX(cam, x, y, (v.z || 0) + (v.hover || 0), z) - x;
 
 export class FxProjectiles {
   // ---- helpers ------------------------------------------------------------------------------------------
 
-  /** @this {FxSystem} */
+  /** @param {number} x @param {number} y @param {number} z @param {{ x: number, y: number, s: number, depth: number }} [out] @this {FxSystem} */
   _proj(x, y, z, out = /** @type {FxSystem} */ (/** @type {unknown} */ (this))._p) { return this.ctx.cam().project(x, y, z, out); }
 
-  /** Ground decals: on a raised top they are drawn with that block row (tiles.surfaceLayer), else in groundFx. @this {FxSystem} */
+  /**
+   * Ground decals: on a raised top they are drawn with that block row (tiles.surfaceLayer), else in groundFx.
+   * @param {any} sp @param {number} y @param {number} z
+   * @this {FxSystem}
+   */
   _onGround(sp, y, z) {
     let layer = this.ctx.layers.groundFx;
     if (z > 0.12 && this.ctx.surfaceLayer) layer = this.ctx.surfaceLayer(Math.round(y)) || layer;
     if (sp.parent !== layer) layer.addChild(sp);
   }
 
-  /** @this {FxSystem} */
+  /** @param {any} view @param {{ x: number, y: number, s: number, depth: number }} [out] @this {FxSystem} */
   _chest(view, out = /** @type {FxSystem} */ (/** @type {unknown} */ (this))._p) {
     const z = (view.z || 0) + (view.hover || 0) + (view._headTiles ? view._headTiles * 0.45 : 0.5);
     return this._proj(view.x, view.y, z, out);
   }
 
-  /** Screen point `frac` of a unit's drawn model height above its feet (SHOT_HEIGHT: beams, a mortar's muzzle). @this {FxSystem} */
+  /**
+   * Screen point `frac` of a unit's drawn model height above its feet (SHOT_HEIGHT: beams, a mortar's muzzle).
+   * @param {any} view @param {number} frac @param {{ x: number, y: number, s: number, depth: number }} [out]
+   * @this {FxSystem}
+   */
   _bodyPt(view, frac, out = /** @type {FxSystem} */ (/** @type {unknown} */ (this))._p) {
     const p = this._proj(view.x, view.y, (view.z || 0) + (view.hover || 0), out);
     p.y -= (view._headTiles || 1.2) * frac * p.s;
@@ -194,6 +221,7 @@ export class FxProjectiles {
   /**
    * b.ev 'atk' visual. src/tgt are views (tgt may be null). `opts.inverse` (2026-10-10): a boomerang bowing to
    * the other side — 跃跃 S2's second boomerang (sim fx 'caperBoomerang2', client projectile_chr_caper_s2_1 `_inverseParacurve`).
+   * @param {any} src @param {any} tgt @param {string} kind @param {{ inverse?: boolean } | null} [opts]
    * @this {FxSystem}
    */
   attack(src, tgt, kind, opts = null) {
@@ -207,9 +235,9 @@ export class FxProjectiles {
       if (tgt && tgt !== src && (src.isEnemy || shotSpeedOf(this.ctx, src, tgt, Math.hypot(tgt.x - src.x, tgt.y - src.y)) !== 0)) this._beam(src, tgt, src.isEnemy ? 0xff7a5a : 0xffe6a8, 0.18, 0.15);
       return;
     }
-    let spec = PROJ[kind];
+    let spec = /** @type {Record<string, ProjSpec | undefined>} */ (PROJ)[kind];
     if (!spec || !tgt) {
-      if (kind === 'none' || !kind) this._slashAt = src.id;
+      if (kind === 'none' || !kind) /** @type {FxSystem} */ (this)._slashAt = src.id;
       return;
     }
     const dx = tgt.x - src.x, dy = tgt.y - src.y;
@@ -251,12 +279,17 @@ export class FxProjectiles {
     if (this.rich) this._muzzle(pr);
   }
 
-  /** A pooled projectile record: trail + halo + core sprites (additive, above units) and a ground shadow. @this {FxSystem} */
+  /**
+   * A pooled projectile record: trail + halo + core sprites (additive, above units) and a ground shadow.
+   * @returns {Proj}
+   * @this {FxSystem}
+   */
   _takeProj() {
-    if (this.projs.length >= MAX_PROJ) this._releaseProj(this.projs.shift());
+    if (this.projs.length >= MAX_PROJ) this._releaseProj(/** @type {Proj} */ (this.projs.shift()));
     let pr = this.projFree.pop();
     if (!pr) {
       const P = this.P;
+      /** @param {string} tex @param {number} ax */
       const add = (tex, ax) => {
         const sp = new P.Sprite(this.tex[tex]);
         sp.anchor.set(ax, 0.5);
@@ -292,7 +325,7 @@ export class FxProjectiles {
     return t && t.baseTexture && t.baseTexture.valid ? t : null;
   }
 
-  /** Textures / tints of a projectile's sprites for its look (shown from its first update). @this {FxSystem} */
+  /** Textures / tints of a projectile's sprites for its look (shown from its first update). @param {Proj} pr @this {FxSystem} */
   _dressProj(pr) {
     const spec = pr.spec, look = spec.look;
     const thin = look === 'tracer' || look === 'dart';
@@ -314,7 +347,7 @@ export class FxProjectiles {
     trail.alpha = halo.alpha = core.alpha = shadow.alpha = body.alpha = 0;
   }
 
-  /** @this {FxSystem} */
+  /** @param {Proj} pr @this {FxSystem} */
   _releaseProj(pr) {
     pr.trail.visible = pr.halo.visible = pr.core.visible = pr.shadow.visible = pr.body.visible = false;
     if (pr.held) { boomerangCaught(pr.held); pr.held = null; } // local patch: back in her hand
@@ -325,6 +358,7 @@ export class FxProjectiles {
   /**
    * Sim fx 'shotSlow' (render/fx/shotslow.js): the shot it names flies at `rate` of its speed from now, or is gone without
    * landing (`clear`). The official trails take the same event (render/fxgame.js).
+   * @param {{ from?: unknown, tgt?: unknown, clear?: unknown, rate?: unknown }} o
    * @this {FxSystem}
    */
   shotSlow(o) {
@@ -334,7 +368,7 @@ export class FxProjectiles {
     else pr.rate = Number(o.rate);
   }
 
-  /** @this {FxSystem} */
+  /** @param {number} dt @this {FxSystem} */
   _updateProjs(dt) {
     if (!this.projs.length) return;
     const cam = this.ctx.cam();
@@ -351,7 +385,11 @@ export class FxProjectiles {
     this.projs.length = w;
   }
 
-  /** Screen point of a straight / lobbed shot at flight fraction k (a parabola of height `arc` over the line). @this {FxSystem} */
+  /**
+   * Screen point of a straight / lobbed shot at flight fraction k (a parabola of height `arc` over the line).
+   * @param {Proj} pr @param {number} k @param {Camera} cam @param {{ x: number, y: number, s: number, depth: number }} out
+   * @this {FxSystem}
+   */
   _shotPoint(pr, k, cam, out) {
     const x = pr.x0 + (pr.tx - pr.x0) * k, y = pr.y0 + (pr.ty - pr.y0) * k;
     const z = pr.z0 + (pr.tz - pr.z0) * k + (pr.arc ? pr.arc * 4 * k * (1 - k) : 0);
@@ -361,6 +399,7 @@ export class FxProjectiles {
   /**
    * One frame of a tracer / orb / shell / dart: placed by flight time (homing on the target), trail behind the head
    * along the path (never longer than the part flown), an arrival burst, then a SHOT_FADE linger in the target.
+   * @param {Proj} pr @param {number} dt @param {Camera} cam @param {boolean} rich
    * @this {FxSystem}
    */
   _stepShot(pr, dt, cam, rich) {
@@ -438,6 +477,7 @@ export class FxProjectiles {
    * thrower's current position at the return speed (PRTS 跃跃: 15 out, 3.75 back); gone when caught — or at once when
    * the thrower's view is gone (the sim drops a boomerang whose thrower left). Each leg bows sideways (left of its own
    * direction, so out and back form a loop); it spins, leaves afterimages and a shadow.
+   * @param {Proj} pr @param {number} dt @param {Camera} cam @param {boolean} rich
    * @this {FxSystem}
    */
   _stepBoomerang(pr, dt, cam, rich) {
@@ -510,6 +550,7 @@ export class FxProjectiles {
    * One frame of a 蕾缪安 bombard shell: a long flight first streaks up out of the shooter (`rise` of it, following
    * her); then it falls onto its spot, faster and faster, its shadow growing there. It ends at the impact — the
    * explosion (and the end of its lock) is the sim's own 'bombard' fx.
+   * @param {Proj} pr @param {number} dt @param {Camera} cam @param {boolean} rich
    * @this {FxSystem}
    */
   _stepMortar(pr, dt, cam, rich) {
@@ -567,7 +608,7 @@ export class FxProjectiles {
     return true;
   }
 
-  /** Flash at the shooter as a shot leaves (tracers: an oriented muzzle cone). Cosmetic. @this {FxSystem} */
+  /** Flash at the shooter as a shot leaves (tracers: an oriented muzzle cone). Cosmetic. @param {Proj} pr @this {FxSystem} */
   _muzzle(pr) {
     const spec = pr.spec, look = spec.look;
     if (!spec.muzzle) return;
@@ -584,7 +625,7 @@ export class FxProjectiles {
     }
   }
 
-  /** Arrival burst of a shot (PROJ `hit`): at the target, or the ground under it for shells. @this {FxSystem} */
+  /** Arrival burst of a shot (PROJ `hit`): at the target, or the ground under it for shells. @param {Proj} pr @param {Camera} cam @this {FxSystem} */
   _impact(pr, cam) {
     const spec = pr.spec;
     const p = cam.project(pr.tx + pr.otx, pr.ty, pr.tz, this._g);
@@ -620,7 +661,7 @@ export class FxProjectiles {
     }
   }
 
-  /** The thrower caught its boomerang: a small flash in its hands. @this {FxSystem} */
+  /** The thrower caught its boomerang: a small flash in its hands. @param {Proj} pr @param {Camera} cam @this {FxSystem} */
   _catch(pr, cam) {
     const p = cam.project(pr.bx, pr.by, pr.bz, this._g);
     this.particle('flare', p.x, p.y, { tint: pr.spec.glow, life: 0.12, s0: (p.s / 128) * 0.6, s1: (p.s / 128) * 0.2, a0: 0.9, a1: 0, rot: Math.random() });
@@ -632,6 +673,7 @@ export class FxProjectiles {
    * leaving the shooter; a flight ≥ 0.45 real s climbs out of her first). The spot gets a thin ring closing in and
    * brightening plus the blast radius throbbing until the impact. The shell takes the shooter's lock on that spot: the
    * lock ends with this shell's 'bombard' (_landed).
+   * @param {any} src @param {number} x @param {number} y @param {number} r @param {number} flight
    * @this {FxSystem}
    */
   mortar(src, x, y, r, flight) {
@@ -667,6 +709,7 @@ export class FxProjectiles {
    * fx 'bombard' (the impact) at (x, y) by shooter `src`: the shell falling there has landed (ended now if still in
    * the air) and its lock goes — the lock that shell took, found by the landing point (the sim uses the same spot for
    * both events); a sim without 'bombardShell' releases the shooter's lock nearest to the spot.
+   * @param {unknown} src @param {number} x @param {number} y @param {number} r
    * @this {FxSystem}
    */
   _landed(src, x, y, r) {
@@ -674,7 +717,7 @@ export class FxProjectiles {
       if (pr.spec !== BOMBARD_SHELL || (src != null && pr.src && pr.src.id !== src)) continue;
       if (Math.hypot(pr.tx - x, pr.ty - y) < 0.05) pr.t = Math.max(pr.t, pr.dur);
     }
-    let best = null, bd = Infinity;
+    let best = /** @type {import('./locks.js').Lock | null} */ (null), bd = Infinity;
     for (const L of this.locks) {
       if (L.out >= 0 || (src != null && L.src != null && L.src !== src)) continue;
       const d = L.shell ? Math.hypot(L.sx - x, L.sy - y) : Math.hypot(L.x - x, L.y - y) + 0.5;

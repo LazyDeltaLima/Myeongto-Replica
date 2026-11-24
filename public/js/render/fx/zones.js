@@ -1,7 +1,12 @@
 // public/js/render/fx/zones.js — FxSystem blasts, zones, tile flashes and screen washes.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
-/** @import { FxSystem } from './system.js' */
+/**
+ * @import { FxSystem } from './system.js'
+ * @typedef {{ disc: any, edge: any, x: number, y: number, z: number, r: number, t: number, dur: number, warn: boolean,
+ *   key: unknown, tint: number }} Zone a ground area (its sprites `disc`, `edge`)
+ * @typedef {{ tiles: number[][], tint: number, dur: number, t: number, warn: boolean }} TileFlash flashing tiles [[r, c]…]
+ */
 
 import { NO_OPTS, clamp, easeOut } from './limits.js';
 
@@ -15,6 +20,9 @@ export const ZONE_ALPHA = Object.freeze({ short: [0.28, 0.75], persist: [0.16, 0
  * the persistent areas overlapping it — ÷ √n for n of them, centres closer than ¾ of their radii summed —, so stacked
  * alchemy units read as one brighter area, not a white blot (community report of 2026-10-06 「炼金单元等范围持续性技能特效太亮
  * （尤其是多层叠加以后）」). Short bursts and telegraphs keep their full strength.
+ * @param {Zone} zn
+ * @param {readonly Zone[]} zones
+ * @returns {readonly number[]}
  */
 export function zoneAlpha(zn, zones) {
   if (zn.warn) return ZONE_ALPHA.warn;
@@ -33,6 +41,8 @@ export class FxZones {
    * An explosion on the ground at (x, y, z) of radius r tiles: fireball in `col`, a white flash, a shockwave and a
    * coloured ring on the ground, sparks and smoke. o.heavy (bombard, airstrike …): longer, more sparks, debris flying
    * and a scorch mark; o.small (shell impacts): no coloured ring, fewer sparks; o.tiles: flash those tiles too.
+   * @param {number} x @param {number} y @param {number} z @param {number} r @param {number} col
+   * @param {{ heavy?: boolean, small?: boolean, smoke?: number, tiles?: unknown }} [o]
    * @this {FxSystem}
    */
   explosion(x, y, z, r, col, o = NO_OPTS) {
@@ -65,12 +75,21 @@ export class FxZones {
     if (o.tiles) this.tileFlash(o.tiles, col, 0.45);
   }
 
-  /** Dark (normal-blend) smoke puff. @this {FxSystem} */
+  /**
+   * Dark (normal-blend) smoke puff.
+   * @param {number} x @param {number} y @param {number} size @param {number} tint @param {number} [alpha]
+   * @this {FxSystem}
+   */
   smoke(x, y, size, tint, alpha = 0.45) {
     this.particle('smoke', x, y, { add: false, tint, life: 0.8, s0: size / 128 * 0.9, s1: size / 128 * 2, a0: alpha, a1: 0 });
   }
 
-  /** Motion streak between two world points at height z (dash / pull / blink trails). @this {FxSystem} */
+  /**
+   * Motion streak between two world points at height z (dash / pull / blink trails).
+   * @param {number} x0 @param {number} y0 @param {number} x1 @param {number} y1 @param {number} z @param {number} tint
+   * @param {number} [life]
+   * @this {FxSystem}
+   */
   streak(x0, y0, x1, y1, z, tint, life = 0.3) {
     const cam = this.ctx.cam();
     const a = cam.project(x0, y0, z, this._p), ax = a.x, ay = a.y;
@@ -81,7 +100,11 @@ export class FxZones {
     this.particle('streak', b.x, b.y, { tint, life, s0: th, s1: th * 0.5, sx: len / 128 / th, a0: 0.8, a1: 0, rot: Math.atan2(b.y - ay, b.x - ax), anchorX: 1 });
   }
 
-  /** Light strike from the sky onto a point (lightning / skill strikes / columns). @this {FxSystem} */
+  /**
+   * Light strike from the sky onto a point (lightning / skill strikes / columns).
+   * @param {number} x @param {number} y @param {number} z @param {number} tint @param {boolean} [wide]
+   * @this {FxSystem}
+   */
   strike(x, y, z, tint, wide = false) {
     const cam = this.ctx.cam();
     const g = cam.project(x, y, z);
@@ -96,6 +119,8 @@ export class FxZones {
    * sim fx's `key`): a zone already up under that key is updated in place — moved, resized, its end `dur` from now —
    * instead of a second one stacked on it (引星棘刺 S2's drifting alchemy unit is re-sent every second: twelve layers of the
    * same zone used to pile up, community report of 2026-10-06 「炼金单元等范围持续性技能特效太亮（尤其是多层叠加以后）」).
+   * @param {number} x @param {number} y @param {number} z @param {number} r @param {number} tint @param {number} dur
+   * @param {string} [tex] @param {boolean} [warn] @param {unknown} [key]
    * @this {FxSystem}
    */
   zone(x, y, z, r, tint, dur, tex = 'soft', warn = false, key = null) {
@@ -114,13 +139,13 @@ export class FxZones {
     edge.anchor.set(0.5); edge.blendMode = P.BLEND_MODES.ADD; edge.tint = tint;
     this._onGround(disc, y, z); this._onGround(edge, y, z);
     this.zones.push({ disc, edge, x, y, z, r, t: 0, dur, warn, key, tint });
-    if (this.zones.length > 24) this._freeZone(this.zones.shift());
+    if (this.zones.length > 24) this._freeZone(/** @type {Zone} */ (this.zones.shift()));
   }
 
-  /** @this {FxSystem} */
+  /** @param {Zone} zn @this {FxSystem} */
   _freeZone(zn) { zn.disc.destroy(); zn.edge.destroy(); }
 
-  /** @this {FxSystem} */
+  /** @param {number} dt @this {FxSystem} */
   _updateZones(dt) {
     const cam = this.ctx.cam();
     const p = this._p, q = this._q;
@@ -147,14 +172,18 @@ export class FxZones {
     }
   }
 
-  /** Flash a set of tiles ([[r,c]]) on the ground (telegraphed boxes, blast tiles). @this {FxSystem} */
+  /**
+   * Flash a set of tiles ([[r,c]]) on the ground (telegraphed boxes, blast tiles).
+   * @param {unknown} tiles @param {number} tint @param {number} dur @param {boolean} [warn]
+   * @this {FxSystem}
+   */
   tileFlash(tiles, tint, dur, warn = false) {
     if (!Array.isArray(tiles) || !tiles.length) return;
     this.tileFlashes.push({ tiles: tiles.slice(0, 60), tint, dur: Math.max(0.2, dur), t: 0, warn });
     if (this.tileFlashes.length > 12) this.tileFlashes.shift();
   }
 
-  /** @this {FxSystem} */
+  /** @param {number} dt @this {FxSystem} */
   _updateTileFlashes(dt) {
     const g = this.tileGfx;
     g.clear();
@@ -181,7 +210,11 @@ export class FxZones {
     this.tileFlashes.length = w;
   }
 
-  /** Full-screen colour pulse (field-wide telegraphs, cold wind). @this {FxSystem} */
+  /**
+   * Full-screen colour pulse (field-wide telegraphs, cold wind).
+   * @param {number} tint @param {number} [alpha] @param {number} [dur]
+   * @this {FxSystem}
+   */
   flashScreen(tint, alpha = 0.4, dur = 0.6) {
     this.tintT = dur; this.tintDur = dur; this.tintA = alpha;
     this.tintSprite.tint = tint;
@@ -194,6 +227,7 @@ export class FxZones {
    * with gust streaks racing along, so it reads as wind driving up the field, not quiet snowfall (flake / streak counts,
    * speeds and lives are a visual choice [ASSUMED]; screen y grows downward, so a negative vy rises). Without `gust` (an
    * operator's own cold: 灵知 S3, 麦哲伦 S1's pulses) a short light flurry drifting down, as before.
+   * @param {number} tint @param {boolean} [gust]
    * @this {FxSystem}
    */
   snowfall(tint, gust = false) {

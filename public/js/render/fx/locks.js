@@ -1,7 +1,12 @@
 // public/js/render/fx/locks.js — FxSystem lock reticles.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
-/** @import { FxSystem } from './system.js' */
+/**
+ * @import { FxSystem } from './system.js'
+ * @typedef {{ ring: any, core: any, view: any, id: unknown, src: unknown, x: number, y: number, z: number, dx: number, t: number,
+ *   idle: number, max: number, out: number, shell: boolean, sx: number, sy: number, hold: boolean }} Lock a pooled lock reticle
+ *   (its sprites `ring`, `core`)
+ */
 
 import { SHOT_HEIGHT, bodyZ, liftX } from './camera.js';
 import { FX_KINDS } from './kinds.js';
@@ -24,6 +29,7 @@ export class FxLocks {
    * the shooter's last lock / shell / bombard (_touchLocks). A held lock (`hold`: 蕾缪安 S3, whose skill waits with its
    * bullets and locks while nothing is in range) waits as long as its shooter's skill runs (the view's UF.SKILL), its
    * LOCK_T counted from the skill's end.
+   * @param {any} view @param {unknown} src @param {number} x @param {number} y @param {number} z @param {boolean} [hold]
    * @this {FxSystem}
    */
   _lock(view, src, x, y, z, hold = false) {
@@ -37,7 +43,7 @@ export class FxLocks {
       core.anchor.set(0.5);
       core.blendMode = P.BLEND_MODES.ADD;
       this.projLayer.addChild(ring, core);
-      L = { ring, core };
+      L = /** @type {Lock} */ ({ ring, core });
     }
     L.view = view; L.id = view ? view.id : null; L.src = src ?? null; L.x = x; L.y = y; L.z = z; L.dx = 0;
     L.t = 0; L.idle = 0; L.max = LOCK_T / this._ts(); L.out = -1; L.shell = false; L.sx = x; L.sy = y; L.hold = !!hold;
@@ -45,19 +51,28 @@ export class FxLocks {
     L.ring.alpha = L.core.alpha = 0;
     L.ring.visible = L.core.visible = true;
     this.locks.push(L);
-    if (this.locks.length > MAX_LOCKS) this._freeLock(this.locks.shift());
+    if (this.locks.length > MAX_LOCKS) this._freeLock(/** @type {Lock} */ (this.locks.shift()));
     return L;
   }
 
-  /** Shooter `src` is still at it (a new lock, a shell, a bombard): its live locks restart their LOCK_T wait. @this {FxSystem} */
+  /**
+   * Shooter `src` is still at it (a new lock, a shell, a bombard): its live locks restart their LOCK_T wait.
+   * @param {unknown} src
+   * @this {FxSystem}
+   */
   _touchLocks(src) {
     if (src == null) return;
     for (const L of this.locks) if (L.src === src) L.idle = 0;
   }
 
-  /** The live lock of shooter `src` nearest to (x, y) within `within` tiles (`free`: only one no shell took yet). @this {FxSystem} */
+  /**
+   * The live lock of shooter `src` nearest to (x, y) within `within` tiles (`free`: only one no shell took yet).
+   * @param {unknown} src @param {number} x @param {number} y @param {number} within @param {boolean} [free]
+   * @returns {Lock | null}
+   * @this {FxSystem}
+   */
   _nearestLock(src, x, y, within, free) {
-    let best = null, bd = Infinity;
+    let best = /** @type {Lock | null} */ (null), bd = Infinity;
     for (const L of this.locks) {
       if (L.out >= 0 || (free && L.shell) || (src != null && L.src != null && L.src !== src)) continue;
       const d = Math.hypot(L.x - x, L.y - y);
@@ -66,17 +81,17 @@ export class FxLocks {
     return best && bd <= within ? best : null;
   }
 
-  /** Fade a lock out (it pops outwards as it goes). @this {FxSystem} */
+  /** Fade a lock out (it pops outwards as it goes). @param {Lock | null | undefined} L @this {FxSystem} */
   _releaseLock(L) { if (L && L.out < 0) L.out = 0; }
 
-  /** @this {FxSystem} */
+  /** @param {Lock} L @this {FxSystem} */
   _freeLock(L) {
     L.ring.visible = L.core.visible = false;
     L.view = null;
     this.lockFree.push(L);
   }
 
-  /** @this {FxSystem} */
+  /** @param {number} dt @this {FxSystem} */
   _updateLocks(dt) {
     if (!this.locks.length) return;
     const cam = this.ctx.cam();

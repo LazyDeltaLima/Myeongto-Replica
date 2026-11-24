@@ -1,5 +1,11 @@
 // public/js/render/fx/camera.js — shot heights and camera-relative world heights.
 
+/** @import { Camera } from '../projection.js' */
+/**
+ * @typedef {{ x: number, y: number, z?: number, hover?: number, _headTiles?: number, modelDrop?: unknown }} BodyView a unit's
+ *   view (render/units.js) as these read it
+ */
+
 /**
  * Shot heights (GitHub #61): where a shot or beam leaves a unit (`launch`, ≈ its hands) and where shots, beams and lock
  * marks meet a unit (`aim`, ≈ its chest), as shares of the drawn model's height above the feet (`_headTiles`). The
@@ -14,6 +20,9 @@ export const SHOT_HEIGHT = Object.freeze({ launch: 0.45, aim: 0.5 });
  * World height of the point `frac` of a unit's drawn model height above its feet (SHOT_HEIGHT), seen through `cam`. The
  * feet are the model's: drawn `modelDrop` tiles below the unit's point by its prefab's place (render/units.js, docs/rules/
  * render.md 「모델 위치값·그림자」 — the client's hit / head points are on the model).
+ * @param {Camera | null | undefined} cam
+ * @param {BodyView} v
+ * @param {number} frac
  */
 export function bodyZ(cam, v, frac) {
   const z0 = (v.z || 0) + (v.hover || 0);
@@ -32,6 +41,11 @@ const LIFT_P = { x: 0, y: 0, s: 0, depth: 0 }, LIFT_Q = { x: 0, y: 0, s: 0, dept
  * so an effect raised to a body / head height slid off the model toward the board's edges (render/fxpoints.js
  * liftedPoint, the same correction for a model point). Exact for render/projection.js Camera: at a fixed row and height
  * the screen x is linear in the column.
+ * @param {Camera | null | undefined} cam
+ * @param {number} x
+ * @param {number} y
+ * @param {number} z0
+ * @param {number} z
  */
 export function liftX(cam, x, y, z0, z) {
   if (!cam || typeof cam.project !== 'function' || z === z0) return x;
@@ -42,6 +56,9 @@ export function liftX(cam, x, y, z0, z) {
 /**
  * World point `frac` of a unit's drawn model height (bodyZ) drawn straight above its column `x` (default its own; an
  * effect on a model shifted by MODEL_SHIFT passes that column) on screen, into `out`.
+ * @param {Camera | null | undefined} cam
+ * @param {BodyView} v
+ * @param {number} frac
  */
 export function bodyPoint(cam, v, frac, x = Number(v.x) || 0, out = { x: 0, y: 0, z: 0 }) {
   const z = bodyZ(cam, v, frac);
@@ -49,10 +66,10 @@ export function bodyPoint(cam, v, frac, x = Number(v.x) || 0, out = { x: 0, y: 0
   return out;
 }
 
-/** World height just above a unit's feet (where shells land). */
+/** World height just above a unit's feet (where shells land). @param {{ z?: number, hover?: number }} v */
 const feetZ = (v) => (v.z || 0) + (v.hover || 0) + 0.2;
 
-/** Cheap fingerprint of a camera's framing (the damage-number layout cache is reused only while it is unchanged). */
+/** Cheap fingerprint of a camera's framing (the damage-number layout cache is reused only while it is unchanged). @param {Camera | null | undefined} c */
 const camKey = (c) => (c ? c.tx + c.ty * 1e3 + c.tz * 1e6 + c.tilt * 7.13 + c.dist * 1e4 + c.scale * 3.7e-2 + c.cx * 1.1e-5 + c.cy * 1.3e-8 + (c.yaw || 0) * 5.9 : 0);
 
 export { feetZ, camKey };
