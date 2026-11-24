@@ -88,7 +88,7 @@ export function hitMountOf(hitAt, mode) {
  * on its own deploy side (a summon's / an enemy's `dir`; only four enemies' hit points are off their middle).
  * @param {{from?: any}|null|undefined} shot
  * @param {{x: number, y: number, dir?: string}} s
- * @param {{x: number, y: number, dir?: string, hitAt?: any, mode?: string|null}} t
+ * @param {{x: number, y: number, dir?: string|null, hitAt?: any, mode?: string|null}} t
  * @returns {{ from: number[], to: number[] }}
  */
 export function shotEnds(shot, s, t) {

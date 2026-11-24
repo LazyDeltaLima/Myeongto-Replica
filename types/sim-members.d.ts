@@ -100,6 +100,10 @@ declare module '../server/sim/units.js' {
     atkStandUntil?: number;
     atkStandCutAt?: number;
     unbalanceUntil?: number;
+    // 麻痹震颤: no new attack before this battle time (ai.js enemyStrike; undefined until its first 麻痹)
+    palsyUntil?: number;
+    // a trace: the tile it walks to instead of its route (ai.js updateEnemy; content/bosses.js, enemies/critic.js)
+    trace?: { r: number, c: number, ox?: number, oy?: number } | null;
     uniteRuntime?: boolean;
     // an enemy whose skill casts spend bullets (content/local-patch.js): its bullets, sent as its SP bar (snapshot.js)
     lpAmmo?: { left: number, max: number };

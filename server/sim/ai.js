@@ -44,17 +44,46 @@ import { legField, legX, legY, tileKey, steerStep, walkCursor, inWallTile, REACH
 import { hypot, powi } from './detmath.js';
 import { bodyInRange } from './body.js';
 import { shotEnds } from '../../shared/shotFlight.js';
+/** @import { Battle } from './Battle.js' */
+/** @import { Unit, Swing } from './units.js' */
+/** @import { SkillRuntime } from './skills.js' */
+/** @import { LegPoint } from './walk.js' */
+/** @import { DamageIn } from './damage.js' */
+/** @import { Buff } from './battle/status.js' */
+
+/**
+ * An attack profile as this file reads it (effectiveProfile: the profession profile with the running skill's attack and
+ * targeting overrides), field by field — the profession table's keys, a skill's override keys, a kit's callbacks.
+ * @typedef {Record<string, any>} AttackProfile
+ * One hit of an attack (performAttack → resolveHit): its place in the attack and what the shot carries.
+ * @typedef {{ isSkill?: boolean, index?: number, attackId?: number, energy?: number, signal?: string, spot?: boolean,
+ *   cachedAtk?: { atk?: number, atkScaleMul?: number } }} HitInfo
+ * What a projectile's `onHit` is called with (projectiles.js).
+ * @typedef {{ target: Unit | null, x: number, y: number, projectile?: { cachedAtk?: HitInfo['cachedAtk'] } }} ShotHit
+ * A compiled route leg (compileRoute; portalPickup appends more).
+ * @typedef {{ patrol?: boolean, final?: boolean } & ({ t: 'move', r: number, c: number, dr?: number, dc?: number }
+ *   | { t: 'wait', time: number } | { t: 'disappear' } | { t: 'appear', r: number, c: number })} RouteLeg
+ * An enemy's route as it walks it (`Unit.route`, battle/spawns.js): its legs, the leg it is on, that leg's plan (planLeg)
+ * and the cached remaining lengths (tailLength).
+ * @typedef {{ legs: RouteLeg[], legIdx: number, pts: Array<{ x: number, y: number }> | null, ptIdx: number,
+ *   version?: number, tile?: number, suffix: Float64Array | null, tail?: Float64Array, tailVersion?: number,
+ *   waitLeft?: number | null }} RouteState
+ */
 
 // ---------------------------------------------------------------------------------------------------------------
 // profiles
 
-/** Effective attack profile of an ally unit (base profile + active skill overrides). */
+/**
+ * Effective attack profile of an ally unit (base profile + active skill overrides).
+ * @param {Unit} u
+ * @returns {AttackProfile} (asked of a unit with a profile: its callers check `u.profile` or hold an armed unit)
+ */
 export function effectiveProfile(u) {
   const base = u.profile;
   const sk = u.skill;
   const ov = sk ? sk.attackOverride() : null;
   const tg = sk ? sk.targetingOverride() : null;
-  if (!ov && !tg) return base;
+  if (!ov && !tg) return /** @type {AttackProfile} */ (base);
   const p = Object.assign({}, base);
   p.isSkill = true;
   if (ov) {
@@ -86,6 +115,7 @@ export { obstacleAvoidForce } from './walk.js';
  * `timeLeft`, buff intervals and `every()`): 1 s counted down in thirty steps of 1/30 leaves 2.1e-16 in floating point,
  * which held every attack whose interval is a whole number of ticks — 1 s, 3 s, 4 s … — one tick longer (PR #402; PRTS
  * 作战机制 帧对齐: 1 s is 30 frames). A non-integer count still ends on the tick that crosses 0 (docs/SIM.md §2).
+ * @param {number} cd @param {number} dt
  */
 export function attackCountdown(cd, dt) {
   const left = cd - dt;
@@ -103,6 +133,7 @@ export function attackCountdown(cd, dt) {
  * a living entity, `Ability.OnTick` → `m_cooldownTimer.Update`). A stun / freeze / sleep, 缴械, leaving the field or an
  * attack the profile no longer allows cuts the swing (`InterruptIfNot`): no strike, and the cooldown is left as it is —
  * the next swing waits a whole interval from the cut swing's start.
+ * @param {Battle} b @param {Unit} u @param {number} dt
  */
 export function updateAlly(b, u, dt) {
   if (u.alive && u.deployed && !u.hidden) {
@@ -139,7 +170,7 @@ export function updateAlly(b, u, dt) {
   if (u.swingOff && u.alive && u.deployed && !u.hidden) {
     const off = u.swingOff;
     off.left = attackCountdown(off.left, dt);
-    if (!(off.left > 0)) { u.swingOff = null; allyStrike(b, u, off.prof, off); }
+    if (!(off.left > 0)) { u.swingOff = null; allyStrike(b, u, /** @type {AttackProfile} */ (off.prof), off); }
     if (!u.alive) return;
   }
   // (a stun / freeze / sleep also ends a Skill state — the client's `SkillState.OnTick`: no `canUseAbility` → IDLE)
@@ -166,7 +197,7 @@ export function updateAlly(b, u, dt) {
   // attack cooldown keeps running meanwhile (and the unit has left its attack state)
   // (a stage of the cast still to come: on the clip's last tick the skill ticks after this — it may move the unit, skills.js _tickCast)
   // (a begin clip's last tick: the skill starts after this, in its tick — skills.js _tickBegin)
-  if (u.skillStateUntil > b.time + 1e-9 || (sk?._castStage && !sk._castStage.cut) || sk?._begin) { u.atkSpell = 0; return; }
+  if (/** @type {number} */ (u.skillStateUntil) > b.time + 1e-9 || (sk?._castStage && !sk._castStage.cut) || sk?._begin) { u.atkSpell = 0; return; }
   // entering the COMBAT state (from ATTACK, IDLE, or back from a state that left it: a stun, a skill, the born state)
   // casts a first attack only when the combat ability is ready right then (`Character.States.CombatState.OnEnter`: its
   // `get_combat.isReady` → `_NextCombatOrExit(true)`, else nothing — the swing waits for `OnTick`'s
@@ -186,7 +217,7 @@ export function updateAlly(b, u, dt) {
   u.trait.hadTarget = true;
   if (sk && sk.onAboutToAttack()) {
     if (sk.replacing) { startReplacement(b, u, sk); return; }
-    if (u.skillStateUntil > b.time + 1e-9 || sk._begin) { u.atkSpell = 0; return; }   // a 'state' cast: no attack until its skill ability ends
+    if (/** @type {number} */ (u.skillStateUntil) > b.time + 1e-9 || sk._begin) { u.atkSpell = 0; return; }   // a 'state' cast: no attack until its skill ability ends
     prof = effectiveProfile(u);
     if (prof.noAttack || !u.alive) return;
     targets = acquireTargets(b, u, prof);
@@ -225,6 +256,7 @@ export function updateAlly(b, u, dt) {
   // and its hits' damage (`dmg.signal`)
   let signal = null, strike = t.strike, action = t.action;
   if (b._hooks.swing) {
+    /** @type {{ unit: Unit, targets: Unit[], isSkill: boolean, signal: string | null, timing: { strike: number, action: number, cooldown: number } | null }} */
     const c = { unit: u, targets, isSkill: !!prof.isSkill, signal: null, timing: null };
     b.emit('swing', c);
     if (typeof c.signal === 'string' && c.signal) {
@@ -252,6 +284,7 @@ export function updateAlly(b, u, dt) {
  * skills.js): its swing starts like an attack's — the attack cooldown restarts from the full interval now — and plays the
  * skill ability's clip (SkillRuntime.castTiming); its strike is the skill's effect (allyStrike → fireReplacement). A
  * swing cut before the strike (stun, 缴械 …) spends the cast (dropNextAttack: the client ends it as that attack finishes).
+ * @param {Battle} b @param {Unit} u @param {SkillRuntime} sk
  */
 function startReplacement(b, u, sk) {
   const t = sk.castTiming();
@@ -273,6 +306,7 @@ function startReplacement(b, u, sk) {
  * (`_faceToTarget`, `_faceToFirstCastTarget`; also when the ability was not read [추정]), 'D' its deploy direction
  * (`_faceToDefault`), 'F' its front (`_faceToFront`), null none (an attack on everything in range: 莫斯提马, 白面鸮). The
  * renderer turns the model (render/face-turn.js, docs/rules/render.md 「공격 방향」); the sim's targeting never depends on it.
+ * @param {Unit} u @param {Unit[]} targets
  */
 function swingFace(u, targets) {
   // an attack a 'replace' cast took over that the kit plays as an attack override (spec.attack): the skill ability's flags
@@ -281,7 +315,10 @@ function swingFace(u, targets) {
   return faceOf(f, targets[0]);
 }
 
-/** The turn of facing flag `f` (swingFace) with main target `t`: its id, 'D', 'F' or null. */
+/**
+ * The turn of facing flag `f` (swingFace) with main target `t`: its id, 'D', 'F' or null.
+ * @param {number} f @param {Unit | null | undefined} t
+ */
 const faceOf = (f, t) => (f === 1 || f === 4 ? t?.id ?? null : f === 2 ? 'D' : f === 3 ? 'F' : null);
 
 /**
@@ -296,6 +333,7 @@ const faceOf = (f, t) => (f === 1 || f === 4 ? t?.id ?? null : f === 2 ? 'D' : f
  * [추정·미조사: docs/rules/sim.md 「스킬 프리팹의 대상 트리거」]; a 'replace' cast's attack goes out at its attack target. none → no turn.
  * A clip-less skill ability (a buff ability: no `cast.time`) is not called here.
  * @param {import('./skills.js').SkillRuntime | null} [skill]
+ * @param {Battle} b @param {Unit} u @param {{ face?: number, aimSelf?: boolean } | null | undefined} cast
  */
 export function castFace(b, u, cast, skill = null) {
   if (!u.alive || !u.deployed || !u.canAct) return;
@@ -316,10 +354,12 @@ export function castFace(b, u, cast, skill = null) {
  * The target a swing turned its unit to, checked while the unit waits for its next attack (the client's
  * `Character.States.CombatState`: it stays in combat — and faced that way — while it has a target): gone (dead, off the
  * field, out of its range and not blocked by it) → another target in range takes its place, none → faceIdle.
+ * @param {Battle} b @param {Unit} u @param {AttackProfile} prof
  */
 function holdFaceTarget(b, u, prof) {
   const t = u.faceTgt;
-  if (strikable(t) && (u.blocking.includes(t) || !u.rangeKeySet || bodyInRange(t, u.rangeKeySet))) return;
+  // (t is a unit once strikable says so)
+  if (strikable(t) && (u.blocking.includes(/** @type {Unit} */ (t)) || !u.rangeKeySet || bodyInRange(/** @type {Unit} */ (t), u.rangeKeySet))) return;
   const next = acquireTargets(b, u, prof);
   if (next.length) u.faceTgt = next[0];
   else faceIdle(b, u);
@@ -329,6 +369,7 @@ function holdFaceTarget(b, u, prof) {
  * No target left: the unit turns back to its deploy direction (event ['face', unit], no turn field) — the client's
  * `Character.States.IdleState.OnEnter` → `TryFaceToIdleDirection`: only when it blocks no enemy (and has an Idle clip),
  * `FaceToDirection(idle)`.
+ * @param {Battle} b @param {Unit} u
  */
 function faceIdle(b, u) {
   u.faceTgt = null;
@@ -337,13 +378,19 @@ function faceIdle(b, u) {
   b._ev(['face', u.id]);
 }
 
-/** A swing in progress or its recovery is cut (`Ability.InterruptIfNot`): the cooldown is left as it is. */
+/**
+ * A swing in progress or its recovery is cut (`Ability.InterruptIfNot`): the cooldown is left as it is.
+ * @param {Unit} u
+ */
 function cutSwing(u) {
   u.swing = null;
   u.castLeft = 0;
 }
 
-/** An enemy's normal swing or its recovery is cut (cutSwing); a skill cast (`castLeft` without `castSwing`) plays on. */
+/**
+ * An enemy's normal swing or its recovery is cut (cutSwing); a skill cast (`castLeft` without `castSwing`) plays on.
+ * @param {Unit} e
+ */
 function cutNormalSwing(e) {
   if (e.swing || e.castSwing) cutSwing(e);
 }
@@ -352,6 +399,7 @@ function cutNormalSwing(e) {
  * An enemy's swing or skill cast is cut (cutSwing). A skill cast cut short is an interrupted cast: content hears it
  * (`enemySkillCut` { enemy }, content/enemies.js — the client's `AttackState.OnExit` → `InterruptIfNot` →
  * `FinishIfNot(INTERRUPTED)`, whose finish callback `EnemySkill._OnCastFinish` restarts the skill's cooldown then).
+ * @param {Battle} b @param {Unit} e
  */
 function cutEnemySwing(b, e) {
   const skill = e.castLeft > 0 && !e.castSwing;
@@ -362,6 +410,7 @@ function cutEnemySwing(b, e) {
 /**
  * Enemy `e`'s skill cast is interrupted by its kit (an ability's `InterruptEnemyAbility`, “自在” 破桎而出's last barrier
  * layer broken): it stops casting and standing at once (cutEnemySwing). Nothing when no skill cast plays.
+ * @param {Battle} b @param {Unit} e
  */
 export function interruptEnemyCast(b, e) {
   if (!(e.castLeft > 0) || e.castSwing) return;
@@ -373,6 +422,7 @@ export function interruptEnemyCast(b, e) {
 /**
  * An operator's / summon's swing is cut (cutSwing): a cast "next attack" it carried is spent with it (dropNextAttack).
  * The swing of a detached mode's attack still playing out (`swingOff`) goes on (updateAlly).
+ * @param {Unit} u
  */
 function cutAllySwing(u) {
   const sw = u.swing;
@@ -390,6 +440,7 @@ function cutAllySwing(u) {
  * (`ReplacementSkill.OnCastFinish`, `_recoverSpIfTargetDead`: 48 of the pool's 49 ReplacementSkill prefabs
  * [ASSUMED: all here]); a cut or a whiff refunds nothing. A swing taken before the cast (a TAKE_DAMAGE cast during a
  * normal swing) is not the skill's: the cast stays for the next attack.
+ * @param {Unit} u @param {Swing} sw @param {boolean} refund
  */
 function dropNextAttack(u, sw, refund) {
   const sk = u.skill;
@@ -398,12 +449,16 @@ function dropNextAttack(u, sw, refund) {
   if (refund) sk.addCharge(1);
 }
 
-/** Game seconds rounded to the millisecond (event payloads). */
+/**
+ * Game seconds rounded to the millisecond (event payloads).
+ * @param {number} t
+ */
 const roundMs = (t) => Math.round(t * 1000) / 1000;
 
 /**
  * Whether a target taken at the swing start can still be struck (the client's `AbilityStandard.DoCastOnTargets`: only the
  * cast targets that are `ValidAndAlive`): alive and on the field — an enemy in a portal, an operator withdrawn are not.
+ * @param {Unit | null | undefined} t
  */
 const strikable = (t) => !!t && t.alive && !t.hidden && (t.side !== 'ally' || t.deployed);
 
@@ -420,15 +475,16 @@ const strikable = (t) => !!t && t.alive && !t.hidden && (t.side !== 'ally' || t.
  * A cast "next attack" whose swing ends either way without its attack is spent (dropNextAttack).
  * `off`: the swing of a detached mode's attack (updateAlly `swingOff`) — `prof` is the profile it started with, a refund
  * for no target is its ability's, not the attached one's, and it spends no ammo.
+ * @param {Battle} b @param {Unit} u @param {AttackProfile} prof @param {Swing | null} [off]
  */
 function allyStrike(b, u, prof, off = null) {
-  const sw = off ?? u.swing;
+  const sw = /** @type {Swing} */ (off ?? u.swing);   // (called on a swing at its strike)
   if (!off) u.swing = null;
   if (sw.replace) { sw.replace.fireReplacement(); return; }
   // a next-attack skill cast during a normal swing (塞雷娅 S1's ally-rule heal, 矩's 良弓难张) replaces the NEXT attack
   // (`Character.RegisterReplacement`): this swing strikes as the normal attack it started as, the cast keeps waiting
-  if (!sw.isSkill && prof.isSkill && u.skill?.pending && !u.skill.isTimed) prof = sw.prof ?? u.profile;
-  let targets = sw.targets;
+  if (!sw.isSkill && prof.isSkill && u.skill?.pending && !u.skill.isTimed) prof = /** @type {AttackProfile} */ (sw.prof ?? u.profile);
+  let targets = /** @type {Unit[]} */ (sw.targets);   // (a normal swing's: only a 'replace' swing, gone above, has none)
   if (sw.sel === 1 || sw.sel === 3 || (sw.sel === 2 && !strikable(targets[0])) || (targets[0] && !prof.alliesToo && (targets[0].side === 'ally') !== !!prof.heal)) {
     targets = acquireTargets(b, u, prof);
     if (!targets.length) { if (!off) { u.atkCd = 0; u.castLeft = 0; } dropNextAttack(u, sw, true); return; }
@@ -447,6 +503,7 @@ const TIMING = { strike: 0, action: 0, sel: 0, begun: false };
  * The clip timing record of `u`'s next swing: an enemy's one clip, an operator's Default mode or its active skill's —
  * the Default one while the running skill's spec says `baseClip` (a kit whose skill keeps the Default mode for a while;
  * none does now — 赤刃明霄陈 S3 did until its mode switch moved before her first attack).
+ * @param {Unit} u
  */
 function attackClipOf(u) {
   // an enemy whose kit casts a skill in place of its next swing at the swing's own slot (profile `swingClip`: that skill's
@@ -460,6 +517,7 @@ function attackClipOf(u) {
  * The attack record of `u`'s mode as it stands: attackClipOf before its `_combat` ability. `atkSub`: its kit says the running
  * skill has switched to the mode it goes on to (shared/skill-modes.js SKILL_SUB_MODES: 维什戴尔 S2's 过载, 寒芒克洛丝 S2's
  * four shots), whose attack ability and clip are its own (`sub`).
+ * @param {Unit} u
  */
 function attackRecordOf(u) {
   const a = u.def?.attackAnim;
@@ -474,13 +532,19 @@ function attackRecordOf(u) {
   return a.base;
 }
 
-/** The enemy a unit in its COMBAT state attacks (`Character._FetchCombatTarget`): the first it blocks, alive and not invincible. */
+/**
+ * The enemy a unit in its COMBAT state attacks (`Character._FetchCombatTarget`): the first it blocks, alive and not invincible.
+ * @param {Unit} u
+ */
 function combatTargetOf(u) {
   for (const e of u.blocking ?? []) if (e.alive && !e.s?.flags?.invulnerable) return e;
   return null;
 }
 
-/** The other of a mode's two attack abilities takes over: each has its own cooldown, and both run all the time. */
+/**
+ * The other of a mode's two attack abilities takes over: each has its own cooldown, and both run all the time.
+ * @param {Unit} u
+ */
 function swapCombat(u) {
   const cd = u.atkCd;
   u.atkCd = u.atkCdAlt;
@@ -493,6 +557,7 @@ function swapCombat(u) {
  * 라플란드, 실버애쉬 and eight more): `AttackState.OnTick` goes to COMBAT as soon as `_FetchCombatTarget` finds a blocked enemy, and
  * its `OnExit` interrupts the running attack, swing or recovery, unless a replacement's cast is running; the combat ability
  * is ready or not by its own cooldown. `CombatState.OnTick` leaves with no target only when its cast has played out.
+ * @param {Unit} u
  */
 function syncAllyCombat(u) {
   const r = attackRecordOf(u);
@@ -513,6 +578,7 @@ function syncAllyCombat(u) {
  * The attack record whose ability holds `u`'s attack cooldown (updateAlly `atkMode`): its running timed skill's mode
  * (attackClipOf), else the Default one — an instant / charge skill pending its next attack switches no mode (the client's
  * next-attack skills add to the attack, and a mode such a skill names is entered by its own buffs: 判官 S1 蓄力).
+ * @param {Unit} u
  */
 function attackModeOf(u) {
   const sk = u.skill, a = u.def?.attackAnim;
@@ -539,7 +605,7 @@ function attackModeOf(u) {
  * (`InitAnimation`: scale = attack time ÷ (begin + clip), bounded by its own `_maxAnimScale`), so that swing's strike
  * waits for the clip's OnAttack frame after the begin — (begin + OnAttack) × scale (`begun` true); its swings last the
  * attack interval. A 要塞's `ranged` swing times from `Body/Attack/RangedAttack`'s clip, the record's own from its melee child's.
- * @param {object} u
+ * @param {Unit} u
  * @param {AttackTiming} [out] the record it writes into and returns (a caller's scratch object)
  * @param {boolean} [first]
  * @param {boolean} [ranged]
@@ -582,6 +648,7 @@ export function attackTiming(u, out = { strike: 0, action: 0, sel: 0, begun: fal
  * played out and the attack ability's `_escapeTime` has passed (the client's `AttackState._NextAttackOrExit` /
  * `CombatState._NextCombatOrExit`: IDLE when fixedPlayTime ≥ the exit time the swing's finish set) — its next swing is a
  * first attack again (attackTiming `first`).
+ * @param {Battle} b @param {Unit} u
  */
 function endSpell(b, u) {
   if (u.atkSpell && b.time + 1e-9 >= (u.atkSpellExit ?? 0)) u.atkSpell = 0;
@@ -591,6 +658,7 @@ function endSpell(b, u) {
  * The attack check of a ready unit found no valid target: a 秘术师 profile stores one energy instead (`storeEnergy`,
  * professions.js installMystic — PRTS 分支特性信息 秘术师 "若无有效目标且能量储存数未满，则改为储存一份攻击能量（属于攻击
  * 行为）": the attack interval starts again); with a full store it idles, ready to attack.
+ * @param {Battle} b @param {Unit} u @param {AttackProfile} prof
  */
 function storeEnergy(b, u, prof) {
   if (prof.storeEnergy && prof.storeEnergy(b, u)) u.atkCd = Math.max(u.atkCd, u.s.interval);
@@ -600,19 +668,23 @@ function storeEnergy(b, u, prof) {
  * Release blocked enemies beyond the current block capacity, latest blocked first — the official `Character.UpdateBlockees`:
  * `TryPickOneToRemoveIfVolumeExceeded` picks the list's last entry (blocked order) until the volume fits, each let go by
  * the blocker's side (`Enemy.UnregisterBlocker`: the block slide runs on, so `blockMove` stays).
+ * @param {Battle} b @param {Unit} u
  */
 export function enforceBlockCapacity(b, u) {
   const cap = u.alive && u.deployed ? u.s.blockCnt : 0;
   let used = 0;
   for (const e of u.blocking) used += e.blockWeight ?? 1;
   while (used > cap && u.blocking.length) {
-    const e = u.blocking.pop();
+    const e = /** @type {Unit} */ (u.blocking.pop());   // (the loop checks the length)
     if (e.blockedBy === u) { e.blockedBy = null; b._stealthSwitch(e); }   // a released 隐匿 enemy hides again later
     used -= e.blockWeight ?? 1;
   }
 }
 
-/** Collect targets for an ally with profile `prof`. */
+/**
+ * Collect targets for an ally with profile `prof`.
+ * @param {Battle} b @param {Unit} u @param {AttackProfile} prof @returns {Unit[]}
+ */
 export function acquireTargets(b, u, prof) {
   // a heal attack (医师 / 群愈师 / 疗养师 / 链愈师 / 行医, a skill attack turned into a heal) selects injured allies only,
   // never the enemies its unit blocks — a blocking healer keeps healing: PRTS 卫戍协议/帮助 "对于医疗干员（咒愈师分支除外），
@@ -681,6 +753,7 @@ export function acquireTargets(b, u, prof) {
  * (acquireTargets' order): PRTS 分支特性信息 强攻手 / 重剑手 / 推击手 "普通攻击最大目标数等于阻挡数（不会低于1）", PRTS 作战机制 §AOE伤害判定
  * "锁定人数的无弹道AOE攻击（例如近卫分支“强攻手”）…在抬手时选取范围内的全体目标（不超过其攻击目标上限）", PRTS 忍冬 S3 备注 "可对空" (a
  * flyer she cannot block). Until 0.2.0 it struck the blocked enemies only (one in range when it blocked none).
+ * @param {Unit} u @param {AttackProfile} prof
  */
 function targetCount(u, prof) {
   const base = prof.hitAllBlocked ? Math.max(1, Math.floor(u.s.blockCnt)) : (prof.maxTargets || 1);
@@ -695,6 +768,7 @@ function targetCount(u, prof) {
  * after it). An enemy the unit blocks is struck by the mode's blocked attack (CombatState's `Body/Combat`) — no
  * projectile when the mode's has none (`combat`: 拉普兰德). undefined = not read (a token, a device, test data, a shot
  * whose movement the extract does not know — `move` OTHER): the profile's PROJECTILE_SPEEDS kind.
+ * @param {Unit} u @param {Unit | null} [target]
  */
 export function opShot(u, target = null) {
   const s = u.def?.shot;
@@ -712,6 +786,7 @@ const NO_FLIGHT = Object.freeze({ key: null, move: 'NONE', speed: 0, delay: 0 })
  * The ends of `u`'s flying shot `shot` (opShot) at `t` — its muzzle and `t`'s hit point in the attack mode it is in now
  * (shared/shotFlight.js shotEnds; docs/rules/sim.md 「투사체의 출발·도착 점」) — or null when the data has no muzzle (unit
  * to unit, as before).
+ * @param {Unit} u @param {Unit} t @param {Record<string, any> | null | undefined} shot
  */
 function shotEndsOf(u, t, shot) {
   if (!shot || !shot.from) return null;
@@ -721,7 +796,8 @@ function shotEndsOf(u, t, shot) {
 
 /**
  * Perform an attack/heal with profile `prof` against `targets`. opts: { noAmmo, signal } (Battle.forceAttack), spell (a kit's later spell).
- * @param {{ noAmmo?: boolean, signal?: string, spell?: number } | null} [opts]
+ * @param {{ noAmmo?: boolean, signal?: string | null, spell?: number } | null} [opts]
+ * @param {Battle} b @param {Unit} u @param {AttackProfile} prof @param {Unit[]} targets
  */
 export function performAttack(b, u, prof, targets, opts = null) {
   const isSkill = !!prof.isSkill;
@@ -755,15 +831,15 @@ export function performAttack(b, u, prof, targets, opts = null) {
     // (MultiRangedAttack `_additionalTimes`) sent as an attack of its own — in the 8th field, so the view plays that cast's
     // ON_SPELL_ON effects again instead of starting another cast (docs/rules/fx.md 「시전 이펙트 시점·붙는 대상」 ①)
     const ev = ['atk', u.id, t.id, vis];
-    if (opts?.signal || opts?.spell > 0) ev.push(opts?.signal || null);
-    if (opts?.spell > 0) ev.push(null, null, opts.spell);
+    if (opts?.signal || /** @type {number} */ (opts?.spell) > 0) ev.push(opts?.signal || null);
+    if (/** @type {number} */ (opts?.spell) > 0) ev.push(null, null, /** @type {{ spell: number }} */ (opts).spell);
     b._ev(ev);
     // the official shot of this attack (opShot): its flight time, or none (the hit at the strike)
     const shot = ranged ? opShot(u, t) : undefined;
     if (isHeal) {
       // a heal shot heals as it reaches its ally (赫默's projectile_silent); one that died meanwhile is not healed
       const on = !!(u.skill && u.skill.active);
-      if (shot && shot.speed > 0) b.addProjectile({ from: u, target: t, speed: shot.speed, visual: prof.projectile, source: u, ends: shotEndsOf(u, t, shot), onHit: (c) => { if (c.target) doHeal(b, u, prof, c.target, on); } });
+      if (shot && shot.speed > 0) b.addProjectile({ from: u, target: t, speed: shot.speed, visual: prof.projectile, source: u, ends: shotEndsOf(u, t, shot), onHit: (/** @type {ShotHit} */ c) => { if (c.target) doHeal(b, u, prof, c.target, on); } });
       else if (shot && shot.delay > 0) b.after(shot.delay, () => { if (t.alive && t.deployed) doHeal(b, u, prof, t, on); });
       else doHeal(b, u, prof, t);
       continue;
@@ -795,10 +871,10 @@ export function performAttack(b, u, prof, targets, opts = null) {
       }
       else resolveHit(b, u, prof, t, info, t.x, t.y);
     } else if (ranged && foe) {
-      const speed = shot ? shot.speed : (PROJECTILE_SPEEDS[prof.projectile] ?? PROJECTILE_SPEED);
+      const speed = shot ? shot.speed : (/** @type {Readonly<Record<string, number>>} */ (PROJECTILE_SPEEDS)[prof.projectile] ?? PROJECTILE_SPEED);
       // projectiles land even if the shooter died meanwhile (damage is credited to it)
       b.addProjectile({ from: u, target: t, speed, visual: prof.projectile, source: u, hitDead: prof.splashRadius > 0, ends: shotEndsOf(u, t, shot),
-        onHit: (c) => resolveHit(b, u, prof, c.target, c.projectile?.cachedAtk ? { ...info, cachedAtk: c.projectile.cachedAtk } : info, c.x, c.y) });
+        onHit: (/** @type {ShotHit} */ c) => resolveHit(b, u, prof, c.target, c.projectile?.cachedAtk ? { ...info, cachedAtk: c.projectile.cachedAtk } : info, c.x, c.y) });
     } else if (prof._fortressMelee && prof.splashRadius > 0 && opShot(u, t) === NO_FLIGHT) {
       // a 要塞's blow at the enemy it blocks, where its mode's blocked attack fires no projectile (the official
       // MeleeAttack / BlockedMeleeAttack of 号角's Default and S3, 灰毫's Default: shot `combat`): a plain melee hit, no
@@ -825,31 +901,32 @@ export function performAttack(b, u, prof, targets, opts = null) {
  * S2's dash) takes the flight over after the first hit — ctx { battle, unit, profile, target, x, y, attackId, isSkill,
  * home(), hit(target, x, y) (resolveHit with this attack's profile), comeBack(x, y) (sends it back from there, once;
  * returns the return projectile or null) } — and a content error there sends it back from the hit point.
+ * @param {Battle} b @param {Unit} u @param {AttackProfile} prof @param {Unit} t @param {HitInfo} info
  */
 export function throwBoomerang(b, u, prof, t, info) {
   const seq = u.deploySeq;
   u.trait.boomerangsOut = (u.trait.boomerangsOut || 0) + 1;
   const home = () => u.alive && u.deployed && u.deploySeq === seq;
   let sent = false;
-  const comeBack = (x, y) => {
+  const comeBack = (/** @type {number} */ x, /** @type {number} */ y) => {
     if (sent || !home()) return null;
     sent = true;
     // hitDead: flies on to the thrower's last position even while it is hidden, caught there when it is still home
     return b.addProjectile({ from: { x, y }, target: u, speed: BOOMERANG_RETURN_SPEED, visual: 'boomerangReturn', source: u, hitDead: true,
-      onHit: (r) => {
-        if (!home() || !(u.trait.boomerangsOut > 0)) return;
-        u.trait.boomerangsOut--;
+      onHit: (/** @type {ShotHit} */ r) => {
+        if (!home() || !(/** @type {number} */ (u.trait.boomerangsOut) > 0)) return;
+        /** @type {{ boomerangsOut: number }} */ (u.trait).boomerangsOut--;
         if (b._hooks.boomerangCaught) b.emit('boomerangCaught', { unit: u, attackId: info.attackId ?? 0, isSkill: !!info.isSkill, x: r.x, y: r.y });
       } });
   };
   b.addProjectile({ from: u, target: t, speed: PROJECTILE_SPEEDS.boomerang, visual: 'boomerang', source: u, hitDead: true,
-    onHit: (c) => {
+    onHit: (/** @type {ShotHit} */ c) => {
       // (guarded on its own: a content error in the hit must not cost the thrower its boomerang for the battle)
       if (c.target || prof.splashRadius > 0) b._safe(() => resolveHit(b, u, prof, c.target, info, c.x, c.y), 'boomerang.hit', u);
       if (!home()) return;
       if (typeof prof.boomerangOnward === 'function') {
         const ctx = { battle: b, unit: u, profile: prof, target: c.target, x: c.x, y: c.y, attackId: info.attackId ?? 0, isSkill: !!info.isSkill,
-          home, comeBack, hit: (tgt, x, y) => b._safe(() => resolveHit(b, u, prof, tgt, info, x, y), 'boomerang.hit', u) };
+          home, comeBack, hit: (/** @type {Unit | null} */ tgt, /** @type {number} */ x, /** @type {number} */ y) => b._safe(() => resolveHit(b, u, prof, tgt, info, x, y), 'boomerang.hit', u) };
         if (b._safe(() => { prof.boomerangOnward(ctx); return true; }, 'boomerang.onward', u) === true) return;
       }
       comeBack(c.x, c.y);
@@ -861,6 +938,8 @@ export function throwBoomerang(b, u, prof, t, info) {
  * `info.cachedAtk` { atk, atkScaleMul } — the attacker's ATK and 攻击倍率 multiplier when it fired, used instead of the
  * values at impact (client RangedAttack `_useCachedAtkOnly`); content sets it on the projectile (`projectile.cachedAtk`).
  * `info.spot`: the splash stays centred on (x, y) instead of following the target (a shot's collider left where it was fired).
+ * @param {Battle} b @param {Unit} u @param {AttackProfile} prof @param {Unit | null} target @param {HitInfo} info
+ * @param {number} x @param {number} y
  */
 export function resolveHit(b, u, prof, target, info, x, y) {
   const cached = info.cachedAtk;
@@ -872,12 +951,12 @@ export function resolveHit(b, u, prof, target, info, x, y) {
   const attackId = info.attackId ?? 0;
   // per-victim callbacks (main target, every splash / chain victim): profile `onEachHit(b, u, victim, hctx)` and
   // SkillSpec `attack.onEachHit(ctx)` — `attack.onHit` stays once per attack with the main target
-  const each = prof.onEachHit || prof.skillOnEachHit ? (victim, dealt, kind) => {
+  const each = prof.onEachHit || prof.skillOnEachHit ? (/** @type {Unit} */ victim, /** @type {number} */ dealt, /** @type {string} */ kind) => {
     const hc = { dealt, kind, isSplash: kind === 'splash', isChain: kind === 'chain', main: target, attackId, isSkill: info.isSkill, index: info.index };
     if (prof.onEachHit) b._safe(() => prof.onEachHit(b, u, victim, hc), 'profile.onEachHit', u);
     if (prof.skillOnEachHit && u.skill) {
       const fn = prof.skillOnEachHit;
-      b._safe(() => fn({ battle: b, unit: u, skill: u.skill, bb: u.skill.bb, target: victim, ...hc }), 'skill.attack.onEachHit', u);
+      b._safe(() => fn({ battle: b, unit: u, skill: u.skill, bb: /** @type {SkillRuntime} */ (u.skill).bb, target: victim, ...hc }), 'skill.attack.onEachHit', u);
     }
   } : null;
   if (target && target.alive) {
@@ -904,6 +983,7 @@ export function resolveHit(b, u, prof, target, info, x, y) {
       }
     }
     for (let h = 0; h < hits && target.alive; h++) {
+      /** @type {DamageIn} */
       const d = { amount: atk * scale * mulT * (attachedFunnel ? funnelMul : 1), type: baseType, isAttack: !attachedFunnel, isSkill: info.isSkill,
         tags: attachedFunnel ? [...(prof.tags || []), 'addition', 'funnel'] : (prof.tags || []), attackId, strike: h, signal: info.signal };
       if (split != null) { d.mul = split; if (h > 0) d.noSp = true; }
@@ -956,11 +1036,11 @@ export function resolveHit(b, u, prof, target, info, x, y) {
   if (prof.afterHit) b._safe(() => prof.afterHit(b, u, target, hctx), 'profile.afterHit', u);
   if (prof.skillOnHit && u.skill) {
     const fn = prof.skillOnHit;
-    b._safe(() => fn({ battle: b, unit: u, skill: u.skill, bb: u.skill.bb, target, dealt: dealtTotal, x, y }), 'skill.attack.onHit', u);
+    b._safe(() => fn({ battle: b, unit: u, skill: u.skill, bb: /** @type {SkillRuntime} */ (u.skill).bb, target, dealt: dealtTotal, x, y }), 'skill.attack.onHit', u);
   }
   if (u.skill && u.skill.active && u.skill.spec.onHit) {
     const fn = u.skill.spec.onHit;
-    b._safe(() => fn({ battle: b, unit: u, skill: u.skill, bb: u.skill.bb, target, dealt: dealtTotal, x, y }), 'skill.onHit', u);
+    b._safe(() => fn({ battle: b, unit: u, skill: u.skill, bb: /** @type {SkillRuntime} */ (u.skill).bb, target, dealt: dealtTotal, x, y }), 'skill.onHit', u);
   }
 }
 
@@ -974,6 +1054,9 @@ export function resolveHit(b, u, prof, target, info, x, y) {
  * selector's options (the client's TargetOptions) — `ignoreAllyTargetFree` takes a 孤立 ally, `ignoreHealFree` a 禁疗 one
  * (Mon3tr's ChainedSelectorWithFilter). A flag `healFree` ally is never skipped here — the heal decides (its `ignoreHealFree`);
  * a flag `noHeal` ally is without that option, a profile's `noHeal` always.
+ * @param {Battle} b @param {Unit} healer @param {Unit} prev @param {Set<unknown>} seen ids
+ * @param {{ ignoreAllyTargetFree?: boolean, ignoreHealFree?: boolean } | null} [opts]
+ * @returns {Unit | null}
  */
 export function chainHealNext(b, healer, prev, seen, opts = null) {
   const through = healer && healer.profile && typeof healer.profile.healThrough === 'function' ? healer.profile.healThrough : null;
@@ -994,10 +1077,13 @@ export function chainHealNext(b, healer, prev, seen, opts = null) {
  * ChainedSelectorWithFilter; PRTS 分支特性信息 链愈师): `h.free(unit)`: the unit takes no target of `h.count` and the next jump does not
  * decay; `h.up(unit)`: the rate is × `h.upScale` from that unit on — the rate carries from jump to jump, the unit's own heal decays as usual
  * (乌啾 T1). `each(unit)`: every unit of the chain as it is healed, whether or not it lost HP.
+ * @param {Battle} b @param {Unit} u @param {Unit} main @param {number} base the main unit's heal
+ * @param {Record<string, any>} h the heal record (profile `heal`) @param {{ isSkill?: boolean } | undefined} hopts
+ * @param {((unit: Unit) => void) | null} [each]
  */
 export function chainHealWalk(b, u, main, base, h, hopts, each = null) {
   const step = 1 - (h.falloff ?? 0.25), n = Math.max(1, h.count || 3);
-  const free = (x) => !!(h.free && h.free(x)), up = (x) => !!(h.up && h.up(x));
+  const free = (/** @type {Unit} */ x) => !!(h.free && h.free(x)), up = (/** @type {Unit} */ x) => !!(h.up && h.up(x));
   let rate = up(main) ? h.upScale ?? 1 : 1;
   b.heal(u, main, base * rate, hopts);
   if (each) each(main);
@@ -1017,6 +1103,7 @@ export function chainHealWalk(b, u, main, base, h, hopts, each = null) {
   }
 }
 
+/** @param {Battle} b @param {Unit} u @param {AttackProfile} prof @param {Unit} t @param {boolean} [skillOn] */
 function doHeal(b, u, prof, t, skillOn = !!(u.skill && u.skill.active)) {
   const atk = u.s.atk;
   const scale = (prof.atkScale ?? 1) * (prof.healScale ?? 1) * u.s.atkScaleMul;
@@ -1050,7 +1137,7 @@ function doHeal(b, u, prof, t, skillOn = !!(u.skill && u.skill.active)) {
   // the skill on at the attack (`skillOn`): a heal shot lands after a next-heal skill ended (流明 S1 沐雨's rain)
   if (skillOn && u.skill && u.skill.spec.onHit) {
     const fn = u.skill.spec.onHit;
-    b._safe(() => fn({ battle: b, unit: u, skill: u.skill, bb: u.skill.bb, target: t, heal: amount, x: t.x, y: t.y }), 'skill.onHit', u);
+    b._safe(() => fn({ battle: b, unit: u, skill: u.skill, bb: /** @type {SkillRuntime} */ (u.skill).bb, target: t, heal: amount, x: t.x, y: t.y }), 'skill.onHit', u);
   }
 }
 
@@ -1061,12 +1148,13 @@ function doHeal(b, u, prof, t, skillOn = !!(u.skill && u.skill.active)) {
  * Compile a RouteSpec into legs. With `rect`, positional legs are clamped onto the field: a checkpoint outside the
  * rect (e.g. h07_01's extra fly route along row 6) could never be reached because positions are clamped to the rect
  * every tick — the enemy would hover at the border forever instead of finishing its route.
- * @param {Record<string, any> | null | undefined} route @param {{ r0: number, r1: number, c0: number, c1: number } | null} [rect]
+ * @param {Record<string, any>} route @param {{ r0: number, r1: number, c0: number, c1: number } | null} [rect]
  */
 export function compileRoute(route, rect = null) {
+  /** @type {RouteLeg[]} */
   const legs = [];
-  const cr = (r) => (rect ? Math.max(rect.r0, Math.min(rect.r1, r)) : r);
-  const cc = (c) => (rect ? Math.max(rect.c0, Math.min(rect.c1, c)) : c);
+  const cr = (/** @type {number} */ r) => (rect ? Math.max(rect.r0, Math.min(rect.r1, r)) : r);
+  const cc = (/** @type {number} */ c) => (rect ? Math.max(rect.c0, Math.min(rect.c1, c)) : c);
   for (const cp of route.checkpoints || []) {
     if (cp.type === 'MOVE') legs.push({ t: 'move', r: cr(cp.pos[0]), c: cc(cp.pos[1]), ...(cp.off ? { dr: cp.off[0], dc: cp.off[1] } : {}) });
     else if (cp.type === 'PATROL') legs.push({ t: 'move', r: cr(cp.pos[0]), c: cc(cp.pos[1]), patrol: true });
@@ -1085,9 +1173,10 @@ export function compileRoute(route, rect = null) {
  * left (the route's end is no checkpoint) — the first of the unbroken run of such checkpoints that ends at `i`, so the
  * walk loops over that run; a patrol point with a MOVE (or nothing) before it goes on to `i + 1`. (Its 50-step guard
  * against a loop of zero-length legs is advanceRoute's per-tick guard here.)
+ * @param {ReadonlyArray<RouteLeg>} legs @param {number} i
  */
 export function patrolNext(legs, i) {
-  const loops = (L) => !!L && !L.final && (L.patrol || L.t !== 'move');
+  const loops = (/** @type {RouteLeg | undefined} */ L) => !!L && !L.final && (L.patrol || L.t !== 'move');
   if (loops(legs[i + 1])) return i + 1;
   let s = i;
   while (s > 0 && loops(legs[s - 1])) s--;
@@ -1099,9 +1188,10 @@ export function patrolNext(legs, i) {
  * the enemy's tile (next[tile], next[next[tile]], …, the target) — straight to the target when no field reaches it.
  * The walk uses the first point and re-plans at the next tile (walkRoute); the rest is the remaining distance and what
  * a blink follows.
+ * @param {Battle} b @param {Unit} e @param {LegPoint} leg
  */
 export function planLeg(b, e, leg) {
-  const R = e.route;
+  const R = /** @type {RouteState} */ (e.route);
   let pts;
   if (e.motion === 'FLY') {
     pts = [{ x: legX(leg), y: legY(leg) }];
@@ -1132,9 +1222,12 @@ export function planLeg(b, e, leg) {
   R.suffix = suf;
 }
 
-/** Estimated length of legs after index `idx` (cached per grid version). */
+/**
+ * Estimated length of legs after index `idx` (cached per grid version).
+ * @param {Battle} b @param {Unit} e @param {number} idx
+ */
 function tailLength(b, e, idx) {
-  const R = e.route;
+  const R = /** @type {RouteState} */ (e.route);
   if (R.tailVersion !== b.grid.version || !R.tail) {
     R.tail = new Float64Array(R.legs.length + 1);
     // walk legs backwards: need the start point of each move leg = target of the previous positional leg
@@ -1164,15 +1257,18 @@ function tailLength(b, e, idx) {
   return R.tail[idx] ?? 0;
 }
 
-/** Remaining path distance of an enemy to its goal (tiles). */
+/**
+ * Remaining path distance of an enemy to its goal (tiles).
+ * @param {Battle} b @param {Unit} e
+ */
 export function remainingDistance(b, e) {
-  const R = e.route;
+  const R = /** @type {RouteState | null} */ (e.route);
   if (!R) return 0;
   let d = tailLength(b, e, R.legIdx + 1);
   const leg = R.legs[R.legIdx];
   if (leg && leg.t === 'move' && R.pts && R.ptIdx < R.pts.length) {
     const p = R.pts[R.ptIdx];
-    d += hypot(p.x - e.x, p.y - e.y) + R.suffix[R.ptIdx];
+    d += hypot(p.x - e.x, p.y - e.y) + /** @type {Float64Array} */ (R.suffix)[R.ptIdx];   // (made with the plan)
   } else if (leg && leg.t === 'move') {
     d += hypot(legX(leg) - e.x, legY(leg) - e.y);
   }
@@ -1182,16 +1278,17 @@ export function remainingDistance(b, e) {
 // ---------------------------------------------------------------------------------------------------------------
 // enemy update
 
+/** @param {Battle} b @param {Unit} e @param {number} dt */
 export function updateEnemy(b, e, dt) {
-  const R = e.route;
+  const R = /** @type {RouteState} */ (e.route);
   if (!e.alive) return;
   // hidden (teleporting) enemies only advance wait legs
   const stunned = e.s.flags.stun;
   if (stunned || e.hidden || e.s.flags.fear) b._cutAttackStand(e);
   // 失衡 (UNBALANCE, battle/displacement.js _unbalance): a state machine, not a status — 浮空 ends it (PRTS 术语释义 浮空
   // 「触发浮空时清除受到的推/拉力…无法陷入失衡」); while it lasts the enemy neither walks nor starts a normal attack
-  if (e.s.flags.levitate && e.unbalanceUntil > b.time) e.unbalanceUntil = -Infinity;
-  const unbalanced = b.time < e.unbalanceUntil - 1e-9;   // (the 1e-9: a float-summed end such as 35/30 s keeps its frame)
+  if (e.s.flags.levitate && /** @type {number} */ (e.unbalanceUntil) > b.time) e.unbalanceUntil = -Infinity;
+  const unbalanced = b.time < /** @type {number} */ (e.unbalanceUntil) - 1e-9;   // (the 1e-9: a float-summed end such as 35/30 s keeps its frame)
   // the cooldown runs from the swing start, through a stun / freeze / sleep too (the client's `Entity.OnTick` →
   // `Ability.OnTick`; docs/rules/sim.md 「일반 공격 타이밍」) — not while the enemy is off the field (a DISAPPEAR leg)
   if (!e.hidden) {
@@ -1231,12 +1328,12 @@ export function updateEnemy(b, e, dt) {
     else if (!bl.alive || !bl.deployed || bl.hidden || bl.s.flags.noBlock || bl.s.flags.sleep) b._unregisterBlocker(e);
     else return;
   }
-  if (b.time < e.pauseUntil) return;
+  if (b.time < /** @type {number} */ (e.pauseUntil)) return;
   // standing for an attack clip (attackStand, GitHub #58): only the walking waits — a checkpoint's WAIT keeps running
   // and DISAPPEAR / APPEAR legs still happen (advanceRoute); drawn idle (the client plays the clip, then Move again);
   // a 恐惧 runs at once (it cannot attack). 失衡 holds the walking too — under 恐惧 / 诱导 as well (失衡免疫 says 「失衡期间
   // 无法自主移动」; no source exempts a fear)
-  const standing = winding || unbalanced || (b.time < e.atkStandUntil && !e.s.flags.fear);
+  const standing = winding || unbalanced || (b.time < /** @type {number} */ (e.atkStandUntil) && !e.s.flags.fear);
   if (e.s.flags.noMove) { e.moving = false; return; }   // standing (a 重生, a form change): drawn idle, not walking
   // 恐惧 (ba.fear "无法被阻挡并四散逃跑"; PRTS 诱发移动: 恐惧 outranks 诱导): runs to random tiles of the fan away from
   // its source — a self-inflicted fear flutters inside its own tile (fear.js); the route re-plans once it ends
@@ -1256,10 +1353,11 @@ export function updateEnemy(b, e, dt) {
  * or something else moved it since its last step (a push / pull, or a 恐惧 that outranked the 诱导 for a while) —
  * a stale path would walk through walls. Its route re-plans from wherever it stands once the status ends (route.pts
  * is reset whenever it moved).
+ * @param {Battle} b @param {Unit} e @param {number} dt
  */
 function moveAttracted(b, e, dt) {
   let A = null;
-  for (const x of e.buffs) if (x.status === 'attract' && x.data && x.data.attract) { A = x.data.attract; break; }
+  for (const x of /** @type {Buff[]} */ (e.buffs)) if (x.status === 'attract' && x.data && x.data.attract) { A = x.data.attract; break; }
   if (!A) { e.moving = false; return; }
   walkTo(b, e, A, dt);
 }
@@ -1268,6 +1366,7 @@ function moveAttracted(b, e, dt) {
  * Walk the enemy toward the tile A.r / A.c (moveAttracted, and a trace `e.trace`), ending at its centre moved by A.ox /
  * A.oy (a trace's random offset, TracePositionCursor m_reachedOffset; 0 for 诱导): the same walk as a route's, the client's
  * Enemy._MoveByCursor on the controller's own cursor (walk.js walkCursor), so it needs no plan and a push changes nothing.
+ * @param {Battle} b @param {Unit} e @param {{ r: number, c: number, ox?: number, oy?: number }} A @param {number} dt
  */
 function walkTo(b, e, A, dt) {
   const x = A.c + (A.ox || 0), y = A.r + (A.oy || 0);
@@ -1287,6 +1386,7 @@ function walkTo(b, e, A, dt) {
  * it: it outlives a block or a stand. The wall's force is read every OBSTACLE_AVOID_TICK_PERIOD moving ticks, keeps only its part across
  * the direction, and counts for the velocity's share of the speed, at least 0.5. A step into a tile it cannot pass bounces
  * off the line to that tile's centre (the end of Enemy._MoveByCursor).
+ * @param {Battle} b @param {Unit} e @param {RouteState} R @param {LegPoint} leg @param {number} speed @param {number} dt
  */
 function walkRoute(b, e, R, leg, speed, dt) {
   const fly = e.motion === 'FLY';
@@ -1296,7 +1396,7 @@ function walkRoute(b, e, R, leg, speed, dt) {
   const lx = legX(leg), ly = legY(leg);
   const tx = lx - e.x, ty = ly - e.y;
   if (tx * tx + ty * ty <= step * step) { e.x = lx; e.y = ly; return; }
-  const p = R.pts[0];
+  const p = /** @type {Array<{ x: number, y: number }>} */ (R.pts)[0];   // (planned above)
   if (inWallTile(b, e)) steerStep(b, e, e.x, e.y, speed, dt);   // no direction from a wall tile (walk.js inWallTile)
   else steerStep(b, e, p.x, p.y, speed, dt);
 }
@@ -1306,6 +1406,7 @@ function walkRoute(b, e, R, leg, speed, dt) {
  * down, DISAPPEAR / APPEAR happen (leaving the field ends the clip) — and a MOVE leg holds (GitHub #58 review). A leg
  * that ends lets the next one act in the same tick (DirectionCursor.OnTick, then GetNextDirection's walk over the
  * checkpoints), a WAIT counting one tick.
+ * @param {Battle} b @param {Unit} e @param {number} dt @param {RouteState} R @param {boolean} [standing]
  */
 function advanceRoute(b, e, dt, R, standing = false) {
   let guard = 16;
@@ -1376,15 +1477,16 @@ function advanceRoute(b, e, dt, R, standing = false) {
  * the enemy; until then simdata.js re-inserted an APPEAR at the exit there).
  */
 const PORTAL_WAIT = 3;
+/** @param {Battle} b @param {Unit} e */
 function portalPickup(b, e) {
   if (e.hidden) return false;
   const r = Math.round(e.y), c = Math.round(e.x);
   if (!b.grid.inBounds(r, c) || b.grid.tile(r, c).special !== 'telin') return false;
   const outs = b.grid.specialTiles('telout');
   if (!outs.length) return false;
-  const dist = (p) => hypot(p[0] - r, p[1] - c);
+  const dist = (/** @type {number[]} */ p) => hypot(p[0] - r, p[1] - c);
   const out = outs.reduce((a, x) => (dist(x) > dist(a) ? x : a));
-  const R = e.route;
+  const R = /** @type {RouteState} */ (e.route);
   R.legs.splice(R.legIdx + 1, 0, { t: 'disappear' }, { t: 'wait', time: PORTAL_WAIT }, { t: 'appear', r: out[0], c: out[1] });
   const ends = b.grid.specialTiles('end');
   if (ends.length) {
@@ -1408,6 +1510,7 @@ function portalPickup(b, e) {
  * mode's attack clip (`attackAnim.modes`, attackRecordOf); until 2026-11-07 every form stood for the first mode's.
  * Returns the wind-up and rest (s) into `out`: an enemy with no attack clip known stands ATTACK_PAUSE after the strike
  * (the old rule), a 「不停止移动」 one (`attackMoves`: data or content) never stops.
+ * @param {Unit} e @param {{ wind: number, rest: number }} [out]
  */
 export function attackStand(e, out = { wind: 0, rest: 0 }) {
   out.wind = 0; out.rest = 0;
@@ -1420,7 +1523,10 @@ export function attackStand(e, out = { wind: 0, rest: 0 }) {
   return out;
 }
 const STAND = { wind: 0, rest: 0 };
-/** How long an enemy stands after its strike: the rest of its swing (`castLeft`), else attackStand's (no clip: ATTACK_PAUSE). */
+/**
+ * How long an enemy stands after its strike: the rest of its swing (`castLeft`), else attackStand's (no clip: ATTACK_PAUSE).
+ * @param {Unit} e
+ */
 function standRest(e) {
   const r = attackStand(e, STAND).rest;
   return r > 0 && e.def?.attackAnim?.dur > 0 ? e.castLeft : r;
@@ -1430,6 +1536,7 @@ const STAND_T = { strike: 0, action: 0, sel: 0, begun: false };
 /**
  * The damage frame of an enemy's normal attack: seconds from the start of its swing to the strike (attackTiming — a
  * 「不停止移动」 attacker swings on the move); 0 with no clip known (the strike as the swing starts — the rule before 0.2.0).
+ * @param {Unit} e
  */
 export function attackWindup(e) {
   return attackTiming(e, STAND_T).strike;
@@ -1438,8 +1545,11 @@ export function attackWindup(e) {
 /**
  * The allies `e` could hit now: its blocker (and, with a range, the others in reach), passing its own target rule. An
  * enemy whose 索敌不受阻挡影响 (profile `blockFree`: 自制投石机) selects as if unblocked: the allies in reach it may target.
+ * @param {Battle} b @param {Unit} e @param {number} radius @param {number} reach @param {((a: Unit) => boolean) | null} own
+ * @returns {Unit[]}
  */
 function attackTargets(b, e, radius, reach, own) {
+  /** @type {Unit[]} */
   let targets = [];
   if (e.blockedBy && !(radius > 0 && e.profile && e.profile.blockFree)) {
     const bl = e.blockedBy;
@@ -1467,6 +1577,7 @@ function attackTargets(b, e, radius, reach, own) {
  * / #170: a 0.1 s 卡西米尔 pulse, 忍冬 S3's 0.2 s stun). A strike already made stays made (a shot in flight lands). An
  * enemy with no attack clip known has no wind-up: it strikes as the swing starts. An enemy healer's heal has no wind-up.
  * Returns true while the enemy swings (it stands: updateEnemy; a 「不停止移动」 attacker walks on).
+ * @param {Battle} b @param {Unit} e @param {number} dt
  */
 function enemyAttack(b, e, dt) {
   const def = e.def;
@@ -1499,7 +1610,7 @@ function enemyAttack(b, e, dt) {
   const moves = !!(e.profile?.attackMoves ?? def.attackMoves);
   // the attack slot: the main attack ready (its cooldown over, the last swing or cast played out, no 麻痹震颤) — a ready
   // skill of the enemy is cast in its place before any normal attack is looked for (enemySkillSlot)
-  if (!barred && !e.swing && e.atkCd <= 0 && e.castLeft <= 0 && !(b.time < e.palsyUntil - 1e-9) && enemySkillSlot(b, e)) {
+  if (!barred && !e.swing && e.atkCd <= 0 && e.castLeft <= 0 && !(b.time < /** @type {number} */ (e.palsyUntil) - 1e-9) && enemySkillSlot(b, e)) {
     return e.castLeft > 0 && !moves;
   }
   if (unarmed) return false;   // it never swings (a cast it started plays out: castLeft, atkStandUntil)
@@ -1522,7 +1633,7 @@ function enemyAttack(b, e, dt) {
   }
   if (barred) return false;
   if (e.atkCd > 0 || e.castLeft > 0) return false;   // the cooldown runs, or the last swing still plays out
-  if (b.time < e.palsyUntil - 1e-9) return false;     // 麻痹震颤 (PALSY_STOP): no new attack
+  if (b.time < /** @type {number} */ (e.palsyUntil) - 1e-9) return false;     // 麻痹震颤 (PALSY_STOP): no new attack
   const targets = enemyTargets(e, attackTargets(b, e, radius, reach, own));
   if (!targets.length) return false;                  // ready, nobody in reach: no swing
   const t = attackTiming(e, TIMING);
@@ -1553,6 +1664,7 @@ function enemyAttack(b, e, dt) {
  * `OnExit` interrupts (the combat state likewise), so the cast finishes INTERRUPTED (interruptEnemyCast: its stand ends,
  * its cooldown restarts). Without a restart the skill's own detach decides (`_interruptAbilityOnDetach` of the skill's
  * ability, its mode unknown to the data): the kit cuts it (节日爵士乐手). Returns whether the mode changed.
+ * @param {Battle} b @param {Unit} e @param {string | null} [mode] @param {boolean} [restartFsm]
  */
 export function enemyMode(b, e, mode = null, restartFsm = true) {
   const m = mode == null || mode === e.def?.attackAnim?.mode0 ? null : mode;
@@ -1575,6 +1687,7 @@ export function enemyMode(b, e, mode = null, restartFsm = true) {
  * Whether enemy `e` makes normal attacks (enemyAttack): an armed profile, a damage type and ATK. Such an enemy has an
  * attack slot for its skills (content/enemies.js skillSlot); so does an unarmed one whose prefab has an Attack ability
  * that can be ready (enemies.json `attackAbility`); any other has its skills cast by its kit's own triggers.
+ * @param {Unit} e
  */
 export function enemyHasAttack(e) {
   if (e.profile && e.profile.noAttack) return false;
@@ -1589,9 +1702,11 @@ export function enemyHasAttack(e) {
  * s (it stands, no normal attack meanwhile: `castLeft`) and its main attack's cooldown is `atkCd` (the full interval
  * from now — `Cast` → `mainAttack.ResetCooldown(true)` — unless the skill restarts it as its cast ends). True = a skill
  * was cast in place of the normal attack.
+ * @param {Battle} b @param {Unit} e
  */
 function enemySkillSlot(b, e) {
   if (!b._hooks.enemySkillSlot) return false;
+  /** @type {{ enemy: Unit, cast: { dur: number, atkCd?: number } | null }} */
   const c = { enemy: e, cast: null };
   b.emit('enemySkillSlot', c);
   if (!c.cast) return false;
@@ -1599,11 +1714,14 @@ function enemySkillSlot(b, e) {
   e.atkCd = c.cast.atkCd ?? e.s.interval;
   e.castLeft = dur;
   e.castSwing = false;
-  if (dur > 0 && !(e.profile?.attackMoves ?? e.def.attackMoves)) e.atkStandUntil = Math.max(e.atkStandUntil, b.time + dur);
+  if (dur > 0 && !(e.profile?.attackMoves ?? e.def.attackMoves)) e.atkStandUntil = Math.max(/** @type {number} */ (e.atkStandUntil), b.time + dur);
   return true;
 }
 
-/** The candidates of one enemy attack, ordered (targeting.js sortAllyTargets) and cut to its target count. */
+/**
+ * The candidates of one enemy attack, ordered (targeting.js sortAllyTargets) and cut to its target count.
+ * @param {Unit} e @param {Unit[]} targets
+ */
 function enemyTargets(e, targets) {
   if (targets.length > 1) sortAllyTargets(e, targets);
   const n = Math.max(1, Math.floor(e.profile?.maxTargets ?? 1) + Math.floor(e.s.maxTargets));
@@ -1617,6 +1735,7 @@ function enemyTargets(e, targets) {
  * { key, move, speed, delay }; null = the official attack has no projectile (its hit lands at the strike, the hit effect
  * on the target — 妖怪MKII, 萨卡兹百夫长 …); undefined = not read (test units, data without the extract): the old shot at
  * PROJECTILE_SPEEDS.enemy.
+ * @param {Unit} e
  */
 export function enemyShot(e) {
   const d = e.def;
@@ -1636,6 +1755,7 @@ export function enemyShot(e) {
  * height only draws the arc); a HARPOON line (HarpoonMovement) extends to it at `_speed`; FIXED_DIRECTION is flown at
  * its speed towards the target it was aimed at [추정: no enemy normal attack in the mode flies one but 萨米的意志's, which
  * its kit resolves]. 0 = it does not fly: ATTACH (AttachToTarget — on the target, after `_delayToStart`) and NONE.
+ * @param {Record<string, any> | null | undefined} shot
  */
 export function shotSpeed(shot) {
   if (shot === undefined) return PROJECTILE_SPEEDS.enemy;
@@ -1646,19 +1766,26 @@ export function shotSpeed(shot) {
 /**
  * Whether an enemy's shot at `target` flies: a ranged enemy whose attack has a projectile that moves (enemyShot /
  * shotSpeed), unless it hits its own blocker from under 1 tile.
+ * @param {Unit} e @param {number} radius @param {Unit | undefined} target
  */
 const rangedShotAt = (e, radius, target) => radius > 0 && !(e.blockedBy && target === e.blockedBy && radius < 1) && shotSpeed(enemyShot(e)) > 0;
 
-/** The 'atk' / 'swing' kind of an enemy's attack on `targets`. */
+/**
+ * The 'atk' / 'swing' kind of an enemy's attack on `targets`.
+ * @param {Unit} e @param {number} radius @param {Unit[]} targets
+ */
 function shotKind(e, radius, targets) {
   if (e.profile && e.profile.deferHit) return e.profile.shot || 'none';
   return rangedShotAt(e, radius, targets[0]) ? 'enemy' : 'none';
 }
 
-/** The strike of an enemy's swing (enemyAttack): its damage, or a whiff / 麻痹 / a refund. */
+/**
+ * The strike of an enemy's swing (enemyAttack): its damage, or a whiff / 麻痹 / a refund.
+ * @param {Battle} b @param {Unit} e @param {number} radius @param {number} reach @param {((a: Unit) => boolean) | null} own
+ */
 function enemyStrike(b, e, radius, reach, own) {
   const def = e.def;
-  const sw = e.swing;
+  const sw = /** @type {Swing & { targets: Unit[] }} */ (e.swing);   // (an enemy's swing at its strike: its targets taken)
   e.swing = null;
   let targets;
   if (sw.sel === 1 || sw.sel === 3 || (sw.sel === 2 && !strikable(sw.targets[0]))) {
@@ -1685,7 +1812,7 @@ function enemyStrike(b, e, radius, reach, own) {
   // `FinishIfNot(PALSY)`: the cooldown runs on from the swing start). The `palsyTrigger` hook { enemy, buff, keep } fires
   // as it does (PRTS 真言 备注: "触发麻痹时" = the attack interrupted by 麻痹, not a stack gained): a handler may set `keep` —
   // the stack is not consumed (真言 噤声限域 "触发麻痹时有N%概率不消耗麻痹层数") — or deal damage (the enemy may die there)
-  const palsy = e.buffs.length ? e.findBuff('palsy') : null;
+  const palsy = /** @type {Buff | null} */ (e.buffs.length ? e.findBuff('palsy') : null);
   if (palsy) {
     let keep = false;
     if (b._hooks.palsyTrigger) {
@@ -1724,23 +1851,26 @@ function enemyStrike(b, e, radius, reach, own) {
   // a lethal strike may redeploy its target at once (不屈, M3茧甲): the after-attack effects belong to the struck deployment
   const targetDeployments = new Map(targets.map((t) => [t, t.deploySeq]));
   for (const t of targets) {
-    b._ev(['atk', e.id, t.id, deferred ? (e.profile.shot || 'none') : rangedShot ? 'enemy' : 'none']);
+    b._ev(['atk', e.id, t.id, deferred ? (/** @type {AttackProfile} */ (e.profile).shot || 'none') : rangedShot ? 'enemy' : 'none']);
     if (deferred) continue;
     // a shot that flies as a projectile is 远程途径 (DamageInfo `isProjectile`; PRTS 作战机制 "有弹道的攻击固定为10，无弹道的攻击
     // 固定为01"): what only 近战途径 damage triggers skips it (upstream's 自选 薇薇安娜's 散华 护盾)
-    const hit = (tt, isProjectile = false) => {
+    const hit = (/** @type {Unit | null} */ tt, isProjectile = false) => {
       if (!tt || !tt.alive || !e.alive && !rangedShot) return;
       b.dealDamage(e, tt, { amount: e.s.atk * (e.profile?.atkScale ?? 1), type, isAttack: true, attackId, isProjectile });
     };
     if (rangedShot && hypot(t.x - e.x, t.y - e.y) > 0.75) {
       const shot = enemyShot(e);
-      b.addProjectile({ from: e, target: t, speed: shotSpeed(shot), visual: 'enemy', source: e, fixed: shot?.adjust === 0, noWipe: shot?.elim === 0, onHit: (c) => hit(c.target, true) });
+      b.addProjectile({ from: e, target: t, speed: shotSpeed(shot), visual: 'enemy', source: e, fixed: shot?.adjust === 0, noWipe: shot?.elim === 0, onHit: (/** @type {ShotHit} */ c) => hit(c.target, true) });
     } else hit(t);
   }
   if (b._hooks.attack) b.emit('attack', { attacker: e, targets, targetDeployments, isSkill: false });
 }
 
-/** Enemy healers (dmgType 'heal'): heal the lowest-HP% other enemy within their radius. */
+/**
+ * Enemy healers (dmgType 'heal'): heal the lowest-HP% other enemy within their radius.
+ * @param {Battle} b @param {Unit} e @param {number} radius
+ */
 function enemyHeal(b, e, radius) {
   let best = null;
   for (const o of b.enemiesInRadius(e.x, e.y, Math.max(radius, 1))) {

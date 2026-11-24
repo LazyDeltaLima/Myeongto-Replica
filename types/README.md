@@ -105,9 +105,8 @@ error.
 With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`, the files directly under `server/`
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, the files directly under
 `server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), the kit helpers
-(`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and of
-the files directly under `server/sim/` all but `ai.js`
-(listed one by one until it follows).
+(`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and
+the files directly under `server/sim/` (`server/sim/*.js`).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -377,6 +376,16 @@ most strict errors were, and the JSDoc that fixed them:
   comparison (`normSkillCast`), and a loadout index the `skillIsDefault` check proves is cast at the index.
   `normalizeChess` takes a record: a kit helper's `KitChess` (maybe absent) is cast with `NonNullable` where its
   `def ?? normalizeChess(chess)` falls back.
+- the attack loop and the enemy AI (ai.js): the parameters are `Battle` / `Unit`, and a profile `AttackProfile`
+  (`Record<string, any>`: effectiveProfile's merge of the profession profile and a skill's overrides, read by key;
+  `effectiveProfile` returns it non-null, as its callers hold an armed unit). A projectile's `onHit` takes `ShotHit`
+  inline (`addProjectile` takes an `object`, so the callback has no contextual type). The route legs are a tagged
+  union (`RouteLeg`), and the array `compileRoute` pushes them into carries `@type {RouteLeg[]}`: without it each
+  literal's `t` is a `string`, and a caller's `leg.t !== 'move'` narrows nothing (routePreview.js). An enemy's
+  `e.route` is cast to `RouteState` where it is read (null only in `remainingDistance`). A swing at its strike is cast
+  from `u.swing` (`Swing | null`) once, and an enemy's with its targets required. `--` on an optional field goes
+  through a cast of its object, `/** @type {{ boomerangsOut: number }} */ (u.trait).boomerangsOut--`. Enemy fields
+  set outside the spawn (`palsyUntil`, `trace`) are declared in `types/sim-members.d.ts`.
 
 
 ## Split classes

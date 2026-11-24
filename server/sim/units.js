@@ -114,7 +114,7 @@ export class Unit {
     this.skill = /** @type {SkillRuntime | null} */ (null);          // SkillRuntime
     this.kit = /** @type {Record<string, any> | null} */ (null);
     this.atkCd = 0;
-    this.atkMode = /** @type {object | null | undefined} */ (undefined);   // ai.js: the attack record (its mode's attack ability) `atkCd` counts for; undefined = not seen yet
+    this.atkMode = /** @type {Record<string, any> | null | undefined} */ (undefined);   // ai.js: the attack record (its mode's attack ability) `atkCd` counts for; undefined = not seen yet
     this.atkCombat = false;     // ai.js syncCombat: a mode with a separate `_combat` ability is on it now; `atkCd` is that ability's
     this.atkCdAlt = 0;          //   and this the other one's, which counts down too
     this.atkSub = false;        // ai.js attackRecordOf: its kit says the running skill has switched to the mode it goes on to
