@@ -13,7 +13,7 @@ import { seasonFeature } from '../../../../shared/seasons.js';
 
 // ---- phases ----------------------------------------------------------------------------------------
 
-/** @type {Set<string>} */
+/** @type {Set<string | null | undefined>} */
 const COMBAT_PHASES = new Set([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
 /** @type {Set<string>} */
 const PREP_PHASES = new Set([PHASE.PREP, PHASE.SP_DRAFT, PHASE.ROUND_START]);
@@ -37,6 +37,7 @@ export function phaseMode(phase) {
   return 'prep';
 }
 
+/** @param {string | null | undefined} phase */
 export const isCombatPhase = (phase) => COMBAT_PHASES.has(phase);
 /**
  * The HUD's "你已被淘汰 · 可继续观战队友" pill of an eliminated player: outside combat only — in combat and in the SETTLE
@@ -46,6 +47,7 @@ export const isCombatPhase = (phase) => COMBAT_PHASES.has(phase);
  * @param {string|null|undefined} phase
  */
 export const showDeadPill = (alive, phase) => !alive && !COMBAT_PHASES.has(phase) && phase !== PHASE.SETTLE;
+/** @param {string | null | undefined} phase */
 export const isBossPhase = (phase) => phase === PHASE.FINAL_ASSAULT || phase === PHASE.HIDDEN_CORE;
 /**
  * Whether the bond strip shows its 暂停叠层 / 层数叠加已禁用 state: the phases whose battle gains no bond layers — 联防
@@ -80,7 +82,7 @@ export function phaseBanner(phase, pub, { alive = true, spectator = false } = {}
     case PHASE.COMBAT: return null;
     case PHASE.UNITE: {
       const names = new Map(sortedPlayers(pub).map((p) => [p.playerId, playerName(p.name) || t('博士')]));
-      const helpers = Array.isArray(pub?.unite?.helpers) ? pub.unite.helpers.map((id) => names.get(id)).filter(Boolean) : [];
+      const helpers = Array.isArray(pub?.unite?.helpers) ? pub.unite.helpers.map((/** @type {string} */ id) => names.get(id)).filter(Boolean) : [];
       return { title: t('联防阶段'), micro: 'JOINT DEFENSE', tone: 'orange', sub: helpers.length ? t('联防：{names}', { names: helpers }) : t('完美作战的博士迎战突破防线的敌人') };
     }
     case PHASE.FINAL_ASSAULT: return { title: t('最终攻势'), micro: 'FINAL ASSAULT', tone: 'red', sub: t('击败敌方领袖') };
@@ -119,9 +121,9 @@ export const RESULT_BOX_MS = 2800;
  */
 export function ownRoundLoss(cost) {
   if (!cost) return null;
-  const leaks = Number.isFinite(cost.leaks) ? Math.max(0, Math.trunc(cost.leaks)) : null;
+  const leaks = Number.isFinite(cost.leaks) ? Math.max(0, Math.trunc(/** @type {number} */ (cost.leaks))) : null;
   if (leaks == null) return null;
-  const cap = Number.isFinite(cost.cap) && cost.cap > 0 ? Math.trunc(cost.cap) : 10; // no cap known → the official 10
+  const cap = Number.isFinite(cost.cap) && /** @type {number} */ (cost.cap) > 0 ? Math.trunc(/** @type {number} */ (cost.cap)) : 10; // no cap known → the official 10
   return Math.min(cap, leaks);
 }
 
@@ -174,7 +176,7 @@ export function roundResultBox(loss) {
     : { title: t('作战结束'), micro: 'BATTLE OVER', tone: 'red', sub: t('生命值减少 −{n}', { n }), duration: RESULT_BOX_MS };
 }
 
-/** Label of the prep capsule ("休息一下" in the original). */
+/** Label of the prep capsule ("休息一下" in the original). @param {string | null | undefined} phase */
 export function prepCapsuleLabel(phase) {
   if (phase === PHASE.SP_DRAFT) return t('机变阶段');
   if (phase === PHASE.ROUND_START) return t('回合开始');
@@ -194,11 +196,11 @@ export function prepCapsuleLabel(phase) {
  * @returns {{ remain: number|null, warn: boolean, bars: number, text: string, frac: number }}
  */
 export function countdownState(deadline, now, total, warnAt = 10) {
-  if (!(Number.isFinite(deadline) && deadline > 0) || !Number.isFinite(now)) {
+  if (!(Number.isFinite(deadline) && /** @type {number} */ (deadline) > 0) || !Number.isFinite(now)) {
     return { remain: null, warn: false, bars: 0, text: '--', frac: 0 };
   }
-  const remain = Math.max(0, Math.ceil((deadline - now) / 1000));
-  const t = Number.isFinite(total) && total > 0 ? total : null;
+  const remain = Math.max(0, Math.ceil((/** @type {number} */ (deadline) - now) / 1000));
+  const t = Number.isFinite(total) && /** @type {number} */ (total) > 0 ? total : null;
   const frac = t ? clamp(remain / t, 0, 1) : 1;
   const bars = remain === 0 ? 0 : t ? clamp(Math.ceil(frac * 5), 0, 5) : 5;
   return { remain, warn: remain <= warnAt, bars, text: String(Math.min(999, remain)).padStart(2, '0'), frac };
@@ -216,11 +218,11 @@ export function countdownState(deadline, now, total, warnAt = 10) {
  */
 export function countdownWarnAt(pub, config) {
   const timers = isObj(config?.timers) ? config.timers : {};
-  const num = (v) => (Number.isFinite(v) && v >= 0 ? v : null);
+  const num = (/** @type {number} */ v) => (Number.isFinite(v) && v >= 0 ? v : null);
   switch (pub?.phase) {
     case PHASE.INFO_CHECK: return num(timers.infoCheckHint) ?? 5;
     case PHASE.BAND_DRAFT: return num(timers.bandDraftHint) ?? 15;
-    case PHASE.BATTLE_CHECK: return num(timers.enterSteps?.find?.((s) => s?.step === 'BATTLE_CHECK')?.hint) ?? 0;
+    case PHASE.BATTLE_CHECK: return num(timers.enterSteps?.find?.((/** @type {{ step?: string, hint?: number } | null | undefined} */ s) => s?.step === 'BATTLE_CHECK')?.hint) ?? 0;
     default: return 10;
   }
 }
@@ -235,7 +237,7 @@ export function phaseTotalSeconds(pub, config, myId = null) {
   if (!isObj(pub)) return null;
   const timers = isObj(config?.timers) ? config.timers : {};
   const mode = isObj(config?.modes) ? config.modes[pub.modeId] : null;
-  const num = (v) => (Number.isFinite(v) && v > 0 ? v : null);
+  const num = (/** @type {number} */ v) => (Number.isFinite(v) && v > 0 ? v : null);
   switch (pub.phase) {
     // the co-op briefing's guard (m.public.infoSeconds = INFO_CHECK_SECONDS, 45 s; the official step is 25 s)
     case PHASE.INFO_CHECK: return num(pub.infoSeconds) ?? 45;

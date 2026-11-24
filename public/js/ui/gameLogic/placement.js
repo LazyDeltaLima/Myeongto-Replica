@@ -4,6 +4,7 @@ import { GEO } from '../../../../shared/constants.js';
 import { attackRangeGrid } from '../../../../shared/loadoutRecord.js';
 import { meleeOnHighGround } from '../../../../shared/highGround.js';
 import { pieceDir, rangeTiles } from '../facing.js';
+/** @import { Bag } from './shared.js' */
 import { isObj, tileKey } from './shared.js';
 import { boardTileOf, fieldTile } from './camera.js';
 import { deployedRecord, fieldsStandIn, standInOf } from './standIn.js';
@@ -13,6 +14,11 @@ import { bandSkillTileOk } from '../../../../shared/bandSkillTile.js';
 
 
 // ---- placement (canPlace mirror) ------------------------------------------------------------------------
+
+/**
+ * @typedef {ReturnType<typeof placementContext>} PlaceCtx
+ * @typedef {{ row: number, col: number, piece: Bag }} OwnerAt a summon owner's tile and piece
+ */
 
 /**
  * Deployable tiles of the own board for a stage record, in board coordinates: the normal field (default), or — `field`
@@ -31,7 +37,7 @@ export function deploySets(stage, field = 'normal', overrides = {}) {
     for (const [k, cls] of deployMap(stage, { ...(isObj(overrides) ? overrides : {}), field })) { ranged.add(k); if (cls === 'melee') melee.add(k); }
     return { melee, ranged };
   }
-  const inField = (r, c) => r >= GEO.FIELD.r0 && r <= GEO.FIELD.r1 && c >= GEO.FIELD.c0 && c <= GEO.FIELD.c1;
+  const inField = (/** @type {number} */ r, /** @type {number} */ c) => r >= GEO.FIELD.r0 && r <= GEO.FIELD.r1 && c >= GEO.FIELD.c0 && c <= GEO.FIELD.c1;
   const dt = stage?.deployTiles?.normal;
   if (isObj(dt) && Array.isArray(dt.melee)) {
     for (const t of dt.melee) if (Array.isArray(t) && inField(t[0], t[1])) { melee.add(tileKey(t[0], t[1])); ranged.add(tileKey(t[0], t[1])); }
@@ -60,7 +66,7 @@ const OBSTACLE_ROLES = new Set(['crate', 'mound']);
 const PLATFORM_ROLES = new Set(['platform']);
 /** 特制水上平台 (act1 m05, weight 0 this season): its 深水区 tile takes any unit ("在水上建立可以部署任意单位的平台"). */
 const WATER_PLATFORM_ROLES = new Set(['waterPlatform']);
-const hasKeys = (o) => isObj(o) && Object.keys(o).length > 0;
+const hasKeys = (/** @type {unknown} */ o) => isObj(o) && Object.keys(o).length > 0;
 
 /**
  * The own board's device / tile overrides the server applies to placement (server/match/board.js buildDeployMap
@@ -105,7 +111,7 @@ export function stageOverrides(priv, getEffect = () => null) {
  */
 export function deployMap(stage, { deviceOverrides = {}, tileOverrides = {}, field = 'normal' } = {}) {
   const F = GEO.FIELD;
-  const inField = (r, c) => Number.isInteger(r) && Number.isInteger(c) && r >= F.r0 && r <= F.r1 && c >= F.c0 && c <= F.c1;
+  const inField = (/** @type {number} */ r, /** @type {number} */ c) => Number.isInteger(r) && Number.isInteger(c) && r >= F.r0 && r <= F.r1 && c >= F.c0 && c <= F.c1;
   const map = new Map();
   const rows = Array.isArray(stage?.rows) ? stage.rows : null;
   const legend = isObj(stage?.tiles) ? stage.tiles : {};
@@ -162,7 +168,9 @@ export function effectiveStage(stage, overrides = {}) {
   const devices = (Array.isArray(stage.devices) ? stage.devices : []).map((d) => (
     isObj(d) && d.alias != null && Object.hasOwn(dev, d.alias) ? { ...d, active: !!dev[d.alias] } : d));
   const map = deployMap(stage, { deviceOverrides: dev, tileOverrides: tiles });
+  /** @type {number[][]} */
   const melee = [];
+  /** @type {number[][]} */
   const rangedOnly = [];
   for (const [k, cls] of map) {
     const [r, c] = k.split(',').map(Number);
@@ -179,13 +187,13 @@ export function effectiveStage(stage, overrides = {}) {
  */
 export function indexPieces(priv) {
   const map = new Map();
-  (Array.isArray(priv?.board) ? priv.board : []).forEach((p) => {
+  (Array.isArray(priv?.board) ? priv.board : []).forEach((/** @type {Bag} */ p) => {
     if (isObj(p) && Number.isInteger(p.uid)) map.set(p.uid, { piece: p, area: 'board', row: p.row, col: p.col });
   });
-  (Array.isArray(priv?.hand) ? priv.hand : []).forEach((p, idx) => {
+  (Array.isArray(priv?.hand) ? priv.hand : []).forEach((/** @type {Bag} */ p, /** @type {number} */ idx) => {
     if (isObj(p) && Number.isInteger(p.uid)) map.set(p.uid, { piece: p, area: 'hand', idx });
   });
-  (Array.isArray(priv?.temp) ? priv.temp : []).forEach((p, idx) => {
+  (Array.isArray(priv?.temp) ? priv.temp : []).forEach((/** @type {Bag} */ p, /** @type {number} */ idx) => {
     if (isObj(p) && Number.isInteger(p.uid)) map.set(p.uid, { piece: p, area: 'temp', idx });
   });
   return map;
@@ -221,7 +229,7 @@ export function placementRecords(d, priv) {
 export function placementContext({ priv, stage, editable, field = 'normal', getChess = () => null, getToken = () => null, getItem = () => null, getEffect = () => null, backups = null }) {
   const pieces = indexPieces(priv);
   const boardAt = new Map();
-  for (const e of pieces.values()) if (e.area === 'board') boardAt.set(tileKey(e.row, e.col), e);
+  for (const e of pieces.values()) if (e.area === 'board') boardAt.set(tileKey(/** @type {number} */ (e.row), /** @type {number} */ (e.col)), e);
   const handAt = new Map();
   for (const e of pieces.values()) if (e.area === 'hand') handAt.set(e.idx, e);
   const cap = Number.isInteger(priv?.deployCap) ? priv.deployCap : 8;
@@ -287,6 +295,7 @@ export function bandSkillTiles(ctx, filter, chests = []) {
  * 「可以放置于远程位」 (shared/highGround.js: 歌蕾蒂娅, 崖心, 见行者, normal and elite, any module) is 'ALL': any deployable
  * tile, the 高台 included (server/match/board.js positionClass; the owner's decision of 2026-10-05). Every other MELEE
  * chess is ground-only.
+ * @param {PlaceCtx} ctx @param {Bag | null | undefined} piece
  */
 export function piecePosition(ctx, piece) {
   if (!isObj(piece)) return null;
@@ -307,7 +316,7 @@ export function piecePosition(ctx, piece) {
   return null;
 }
 
-/** Whether a unit piece (chess/token) may stand on a board tile. */
+/** Whether a unit piece (chess/token) may stand on a board tile. @param {PlaceCtx} ctx @param {Bag | null | undefined} piece @param {number} row @param {number} col */
 export function tileAllows(ctx, piece, row, col) {
   const pos = piecePosition(ctx, piece);
   if (!pos) return false;
@@ -323,7 +332,7 @@ export function tileAllows(ctx, piece, row, col) {
  * the piece is not range-bound or its owner is not on the board. `owner` ({ row, col, piece }) replaces the owner's
  * current position (a summon swapped with its own owner). An `ownerBeside` summon (涤火杰西卡's 机动盾牌): the four tiles
  * next to its owner instead. Mirror of server/match/PlayerState.js summonRange.
- * @param {ReturnType<typeof placementContext>} ctx
+ * @param {PlaceCtx} ctx @param {Bag | null | undefined} piece @param {OwnerAt | null} [owner]
  * @returns {Set<string> | null}
  */
 export function summonRange(ctx, piece, owner = null) {
@@ -341,7 +350,7 @@ export function summonRange(ctx, piece, owner = null) {
  * Board tiles ('r,c') an outside-bound summon may NOT stand on — its owner's attack range (tokens.json
  * `ownerRangeOutside`: 凯尔希·思衡托's 战术锚点 "仅可以部署在凯尔希·思衡托攻击范围外的远程位") — or null. Mirror of
  * server/match/player/placement.js summonExcluded.
- * @param {ReturnType<typeof placementContext>} ctx
+ * @param {PlaceCtx} ctx @param {Bag | null | undefined} piece @param {OwnerAt | null} [owner]
  * @returns {Set<string> | null}
  */
 export function summonExcluded(ctx, piece, owner = null) {
@@ -349,14 +358,17 @@ export function summonExcluded(ctx, piece, owner = null) {
   return ownerRangeOf(ctx, piece, owner);
 }
 
-/** Where a summon piece's owner stands: `owner` if given, else its board entry; null when it is off the board. */
+/**
+ * Where a summon piece's owner stands: `owner` if given, else its board entry; null when it is off the board.
+ * @param {PlaceCtx} ctx @param {Bag} piece @param {OwnerAt | null} [owner]
+ */
 function summonOwnerAt(ctx, piece, owner = null) {
   if (owner) return owner;
   for (const e of ctx.boardAt.values()) if (e.piece.uid === piece.ownerUid && e.piece.kind === 'chess') return e;
   return null;
 }
 
-/** The attack-range tiles of a summon piece's owner on the board (summonRange / summonExcluded), or null. */
+/** The attack-range tiles of a summon piece's owner on the board (summonRange / summonExcluded), or null. @param {PlaceCtx} ctx @param {Bag} piece @param {OwnerAt | null} [owner] */
 function ownerRangeOf(ctx, piece, owner = null) {
   const at = summonOwnerAt(ctx, piece, owner);
   const rec = at && ctx.getChess(at.piece.id);
@@ -366,7 +378,7 @@ function ownerRangeOf(ctx, piece, owner = null) {
   return new Set(rangeTiles(grid || rec.rangeGrid, at.row, at.col, pieceDir(at.piece)).map(([r, c]) => tileKey(r, c)));
 }
 
-/** tileAllows plus the owner-range rules of a range-bound summon (summonRange, summonExcluded). */
+/** tileAllows plus the owner-range rules of a range-bound summon (summonRange, summonExcluded). @param {PlaceCtx} ctx @param {Bag} piece @param {number} row @param {number} col @param {OwnerAt | null} [owner] */
 function unitAllowed(ctx, piece, row, col, owner = null) {
   if (!tileAllows(ctx, piece, row, col)) return false;
   const k = tileKey(row, col);
@@ -393,7 +405,7 @@ function unitAllowed(ctx, piece, row, col, owner = null) {
  * @returns {{ ok: boolean, action?: 'move'|'swap'|'orient'|'equip'|'art', reason?: string, code?: string }}
  */
 export function canPlace(ctx, uid, target) {
-  const no = (code, reason) => ({ ok: false, code, reason });
+  const no = (/** @type {string} */ code, /** @type {string} */ reason) => ({ ok: false, code, reason });
   if (!ctx || !ctx.editable) return no('WRONG_PHASE', t('当前阶段无法进行该操作'));
   const src = ctx.pieces.get(uid);
   if (!src) return no('BAD_TARGET', t('找不到该单位'));
@@ -416,7 +428,7 @@ export function canPlace(ctx, uid, target) {
     if (src.area === 'board') {
       if (piece.kind === 'token') return { ok: true, action: 'move' }; // back onto its stack
       if (occ.piece.kind === 'chess') {
-        if (!tileAllows(ctx, occ.piece, src.row, src.col)) return no('BAD_TILE', t('交换后的单位无法部署在原位置'));
+        if (!tileAllows(ctx, occ.piece, /** @type {number} */ (src.row), /** @type {number} */ (src.col))) return no('BAD_TILE', t('交换后的单位无法部署在原位置'));
         return { ok: true, action: 'swap' };
       }
       // Withdrawal removes the operator's own summon stacks, freeing their hand slots too.
@@ -433,8 +445,8 @@ export function canPlace(ctx, uid, target) {
     // 规程's 装备区: an item of it moves between its five slots (the server's PlayerState.move 'temp'); elsewhere the temp
     // row is overflow nothing is dropped into
     const idx = target.idx;
-    const inBag = (i) => Number.isInteger(i) && i >= 0 && i < GEO.TEMP_SIZE;
-    if (!ctx.bag || piece.kind !== 'item' || src.area !== 'temp' || !inBag(src.idx) || !inBag(idx)) return no('BAD_TILE', t('无法放置在该位置'));
+    const inBag = (/** @type {number} */ i) => Number.isInteger(i) && i >= 0 && i < GEO.TEMP_SIZE;
+    if (!ctx.bag || piece.kind !== 'item' || src.area !== 'temp' || !inBag(/** @type {number} */ (src.idx)) || !inBag(idx)) return no('BAD_TILE', t('无法放置在该位置'));
     if (src.idx === idx) return no('ALREADY', t('位置未变化'));
     return { ok: true, action: ctx.priv?.temp?.[idx] ? 'swap' : 'move' };
   }
@@ -459,7 +471,7 @@ export function canPlace(ctx, uid, target) {
     }
     // a range-bound summon (战术点): inside its owner's attack range — seen from the summon's old tile when it is
     // dropped onto its own owner (the two swap); an outside-bound one (战术锚点) outside it
-    const ownerSwap = src.area === 'board' && occ && occ.piece.uid === piece.ownerUid ? { row: src.row, col: src.col, piece: occ.piece } : null;
+    const ownerSwap = src.area === 'board' && occ && occ.piece.uid === piece.ownerUid ? { row: /** @type {number} */ (src.row), col: /** @type {number} */ (src.col), piece: occ.piece } : null;
     const range = summonRange(ctx, piece, ownerSwap);
     if (range && !range.has(tileKey(row, col))) return no('BAD_TILE', ctx?.getToken?.(piece.id)?.ownerBeside === true ? t('只能放置于召唤者四周') : t('只能部署在召唤者攻击范围内'));
     const out = summonExcluded(ctx, piece, ownerSwap);
@@ -468,7 +480,7 @@ export function canPlace(ctx, uid, target) {
       // board → board: move or swap (the occupant must be legal on the source tile — the mover's own summon excepted:
       // a moved operator's summons go back to the hand anyway)
       const ownSummon = occ && occ.piece.kind === 'token' && occ.piece.ownerUid === piece.uid;
-      if (occ && !ownSummon && !unitAllowed(ctx, occ.piece, src.row, src.col)) return no('BAD_TILE', t('交换后的单位无法部署在原位置'));
+      if (occ && !ownSummon && !unitAllowed(ctx, occ.piece, /** @type {number} */ (src.row), /** @type {number} */ (src.col))) return no('BAD_TILE', t('交换后的单位无法部署在原位置'));
       return { ok: true, action: occ ? 'swap' : 'move' };
     }
     if (piece.kind === 'token') {
@@ -483,7 +495,10 @@ export function canPlace(ctx, uid, target) {
   return no('BAD_TILE', t('无法放置在该位置'));
 }
 
-/** @returns {{ ok: boolean, action?: 'equip', reason?: string, code?: string }} */
+/**
+ * @param {PlaceCtx} ctx @param {Bag} itemPiece @param {Bag} targetPiece
+ * @returns {{ ok: boolean, action?: 'equip', reason?: string, code?: string }}
+ */
 function equipCheck(ctx, itemPiece, targetPiece) {
   const item = ctx.getItem(itemPiece.id);
   if (item?.itemType === 'MAGIC') return { ok: false, code: 'BAD_TARGET', reason: t('该道具需要放置在战场上使用') };
@@ -494,9 +509,9 @@ function equipCheck(ctx, itemPiece, targetPiece) {
 }
 
 /** Whether an item record is consumed on equip (data `kind` consume_on_equip*: it resolves at once and takes no slot). */
-const consumedOnEquip = (item) => typeof item?.kind === 'string' && item.kind.startsWith('consume_on_equip');
+const consumedOnEquip = (/** @type {Bag | null | undefined} */ item) => typeof item?.kind === 'string' && item.kind.startsWith('consume_on_equip');
 /** The carrier's equipment slots: its record's `equipSlots` (规程's 机械 4 / 6; server gamedata equipSlotsOf), else 2. */
-const equipSlotsOf = (ctx, piece) => { const n = ctx.getChess?.(piece?.id)?.equipSlots; return Number.isInteger(n) && n > 0 ? n : 2; };
+const equipSlotsOf = (/** @type {PlaceCtx} */ ctx, /** @type {Bag | null | undefined} */ piece) => { const n = ctx.getChess?.(piece?.id)?.equipSlots; return Number.isInteger(n) && n > 0 ? n : 2; };
 
 /** Item effects that promote the carrier (博士投影): the server refuses them on an elite (builtinMeta 'already elite'). */
 const PROMOTE_KEYS = new Set(['use_equip_upgrade_char', 'equip_round_start_upgrade_char']);
@@ -515,7 +530,7 @@ export function equipReplaces(ctx, uid, targetPiece) {
   if (!Array.isArray(targetPiece?.items) || targetPiece.items.length < equipSlotsOf(ctx, targetPiece)) return false;
   const rec = ctx.getItem(ctx.pieces.get(uid)?.piece?.id);
   if (!consumedOnEquip(rec)) return !equipMerges(ctx, uid);
-  const promotes = Array.isArray(rec.buffs) && rec.buffs.some((b) => PROMOTE_KEYS.has(b?.key));
+  const promotes = Array.isArray(rec.buffs) && rec.buffs.some((/** @type {Bag | null | undefined} */ b) => PROMOTE_KEYS.has(b?.key));
   return !(promotes && targetPiece.golden);
 }
 
@@ -550,7 +565,9 @@ export function equipMerges(ctx, uid, itemMergeCount = 2) {
  * @returns {{ legal: Array<[number, number]>, illegal: Array<[number, number]> }}
  */
 export function boardTargets(ctx, uid) {
+  /** @type {Array<[number, number]>} */
   const legal = [];
+  /** @type {Array<[number, number]>} */
   const illegal = [];
   if (!ctx?.pieces?.get(uid)) return { legal, illegal };
   for (let r = GEO.FIELD.r0; r <= GEO.FIELD.r1; r++) {
@@ -594,14 +611,14 @@ export function dropIntent(ctx, uid, target) {
  */
 export function dropFailureReason(ctx, uid, tile) {
   if (!ctx?.editable || !ctx.pieces?.get(uid) || !isObj(tile)) return null;
-  /** @type {Parameters<typeof canPlace>[2]} */
+  /** @type {Parameters<typeof canPlace>[2] | null} */
   let target = null;
   if (tile.area === 'board') target = { area: 'board', row: tile.row, col: tile.col };
-  else if (tile.area === 'hand') target = { area: 'hand', idx: Number.isInteger(tile.idx) ? tile.idx : tile.col };
-  else if (tile.area === 'temp') return ctx.pieces.get(uid).area === 'temp' ? null : t('临时整备区无法放入单位');
+  else if (tile.area === 'hand') target = { area: 'hand', idx: Number.isInteger(tile.idx) ? /** @type {number} */ (tile.idx) : tile.col };
+  else if (tile.area === 'temp') return /** @type {{ area: string }} */ (ctx.pieces.get(uid)).area === 'temp' ? null : t('临时整备区无法放入单位');
   else if (Number.isInteger(tile.row) && tile.row >= GEO.FIELD.r0 && tile.row <= GEO.FIELD.r1) return t('无法部署在该位置');
   else return null;
-  const res = canPlace(ctx, uid, target);
+  const res = canPlace(ctx, uid, /** @type {Parameters<typeof canPlace>[2]} */ (target));
   if (res.ok || res.code === 'ALREADY') return null;
   return res.reason || t('无法放置在该位置');
 }

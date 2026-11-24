@@ -29,14 +29,14 @@ export const STATUS_META = Object.freeze({
  */
 export function snapHud(snap) {
   if (!isObj(snap)) return null;
-  const n = (v) => (Number.isFinite(v) ? v : null);
+  const n = (/** @type {number} */ v) => (Number.isFinite(v) ? v : null);
   let boss = null;
   if (isObj(snap.boss) && Number.isFinite(snap.boss.hp)) boss = { hp: snap.boss.hp, max: n(snap.boss.max) ?? n(snap.boss.maxHp) };
   const killed = n(snap.killed);
   return { killed, resolved: n(snap.resolved) ?? killed, total: n(snap.total), dp: n(snap.dp), boss };
 }
 
-/** Boss HP fraction 0..1 (null when unknown). */
+/** Boss HP fraction 0..1 (null when unknown). @param {{ hp?: number, max?: number, maxHp?: number } | null | undefined} bossHp */
 export function bossFrac(bossHp) {
   if (!isObj(bossHp)) return null;
   const hp = Number(bossHp.hp);
@@ -59,13 +59,13 @@ export function bossPctText(frac) {
   return `${pct.toFixed(1)}%`;
 }
 
-/** Whether a snapshot unit tuple has a flag. */
+/** Whether a snapshot unit tuple has a flag. @param {unknown} flags @param {number} bit */
 export const hasFlag = (flags, bit) => (Number(flags) & bit) !== 0;
 export { UF };
 
 // ---- stats & range --------------------------------------------------------------------------------------------
 
-/** Attack interval in seconds (bat × 100 / aspd). */
+/** Attack interval in seconds (bat × 100 / aspd). @param {unknown} bat @param {unknown} [aspd] */
 export function attackInterval(bat, aspd = 100) {
   const b = Number(bat);
   const a = Number(aspd) > 0 ? Number(aspd) : 100;
@@ -75,8 +75,10 @@ export function attackInterval(bat, aspd = 100) {
 
 /** fmtNum's styles: 'myriad' (10⁴ steps, 万 / 亿), 'thousand' (K / M / B), 'full' (every digit, '1,500,000'). */
 export const NUMBER_UNIT_MODES = Object.freeze(['myriad', 'thousand', 'full']);
+/** @type {'myriad'|'thousand'|'full'|null} */
 let unitMode = null;
 /** Settings → 画面 「数字单位」 (ui/settings.js): one of NUMBER_UNIT_MODES, or null for the language's own style. */
+/** @param {any} mode */
 export function setNumberUnitMode(mode) { unitMode = NUMBER_UNIT_MODES.includes(mode) ? mode : null; }
 /**
  * The style fmtNum uses in `lang` (the current language by default): the setting's, except 'myriad' in a language without
@@ -90,6 +92,7 @@ export function numberUnitMode(lang) {
 }
 
 /** A shortened amount: whole when `whole`, else one decimal without a trailing '.0' (98.0万 → 98万, 40.2万 stays). */
+/** @param {number} x @param {boolean} whole */
 const short = (x, whole) => (whole ? x.toFixed(0) : x.toFixed(1).replace(/\.0$/, ''));
 
 /**
@@ -98,6 +101,7 @@ const short = (x, whole) => (whole ? x.toFixed(0) : x.toFixed(1).replace(/\.0$/,
  * language without them uses the thousands-based units: 1.5e6 → '1.5M', 2.5e5 → '250K', 3e9 → '3B' (English). The
  * player's 「数字单位」 setting overrides the language's style (numberUnitMode). A decimal '.0' is dropped: 2e5 → '20万' / '200K',
  * 1e6 → '1M' (maintainer decision 2026-10-24).
+ * @param {unknown} v
  */
 export function fmtNum(v) {
   const n = Number(v);

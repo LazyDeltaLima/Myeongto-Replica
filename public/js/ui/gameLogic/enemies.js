@@ -6,7 +6,9 @@ import { isObj } from './shared.js';
 
 // ---- enemies ------------------------------------------------------------------------------------------------
 
+/** @type {Record<string, number>} */
 const TAG_ORDER = { boss: 0, bounty: 1, escort: 2 };
+/** @type {Record<string, number>} */
 const RANK_ORDER = { BOSS: 0, ELITE: 1, NORMAL: 2 };
 
 /**
@@ -21,7 +23,7 @@ export function groupEnemies(list, getEnemy = () => null) {
     const tag = typeof e.tag === 'string' ? e.tag : null;
     const k = `${e.enemyKey}|${tag}`;
     const cur = map.get(k) || { enemyKey: e.enemyKey, tag, count: 0 };
-    cur.count += Number.isFinite(e.count) && e.count > 0 ? e.count : 1;
+    cur.count += Number.isFinite(e.count) && /** @type {number} */ (e.count) > 0 ? e.count : 1;
     map.set(k, cur);
   }
   return [...map.values()].map((row) => {
@@ -41,10 +43,14 @@ export function groupEnemies(list, getEnemy = () => null) {
  */
 export const PEN = Object.freeze({ r0: 14, r1: 18, c0: 7, c1: 13, emptyRow: 16, cap: 50, anchors: Object.freeze({ lower: [15, 7], upper: [18, 7] }) });
 
-/** Zone tiles in row-major order (low row first, col 7→13), without the zone's anchor (tile_start) — 13 per zone. */
+/**
+ * Zone tiles in row-major order (low row first, col 7→13), without the zone's anchor (tile_start) — 13 per zone.
+ * @param {string | undefined} gate
+ */
 export function penZoneTiles(gate) {
   const rows = gate === 'upper' ? [17, 18] : [14, 15];
   const [ar, ac] = PEN.anchors[gate === 'upper' ? 'upper' : 'lower'];
+  /** @type {number[][]} */
   const out = [];
   for (const r of rows) for (let c = PEN.c0; c <= PEN.c1; c++) if (!(r === ar && c === ac)) out.push([r, c]);
   return out;
@@ -63,7 +69,7 @@ export function penZoneTiles(gate) {
  * @returns {Array<{ enemyKey: string, gate: 'upper'|'lower', row: number, col: number, slot: number, fly: boolean, elite: boolean, boss: boolean, k: number }>}
  */
 export function penPlacement(entries, opts = {}) {
-  const max = Number.isInteger(opts.cap) && opts.cap > 0 ? opts.cap : PEN.cap;
+  const max = Number.isInteger(opts.cap) && /** @type {number} */ (opts.cap) > 0 ? opts.cap : PEN.cap;
   const { figures } = layoutPen(Array.isArray(entries) ? entries : [], { stage: opts.stage || null, max });
   const perTile = new Map();
   return figures.map((f, k) => {
@@ -89,8 +95,9 @@ export function previewEnemyKey(e) {
   return typeof k === 'string' && k ? k : null;
 }
 
-/** Normalise m.public.factions (type strings or objects) to type ids. */
+/** Normalise m.public.factions (type strings or objects) to type ids. @param {unknown} factions */
 export function factionTypes(factions) {
+  /** @type {string[]} */
   const out = [];
   for (const f of Array.isArray(factions) ? factions : []) {
     const t = typeof f === 'string' ? f : isObj(f) ? (f.type || f.id || f.key) : null;

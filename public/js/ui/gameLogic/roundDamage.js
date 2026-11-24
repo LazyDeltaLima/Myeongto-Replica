@@ -19,7 +19,7 @@ export function roundDamageSource({ round = null, live = null, msg = null, board
     && (round === msg.round || round === msg.round + 1) ? msg : null;
   if (settled && settled.round === round) return { round: settled.round, live: false, pairs: settled.units };
   if (combat && live && Array.isArray(live.units) && Number.isInteger(round)) {
-    return { round, live: !live.done, pairs: foldRoundDamage(board || [], live.units) };
+    return { round: /** @type {number} */ (round), live: !live.done, pairs: foldRoundDamage(board || [], live.units) };
   }
   return settled ? { round: settled.round, live: false, pairs: settled.units } : null;
 }

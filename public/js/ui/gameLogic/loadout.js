@@ -6,7 +6,10 @@ import { cultivationOf, cultivateMul, cultivatedStats, isPotential, isCultivate 
 import { isObj } from './shared.js';
 import { t } from '../../../../shared/i18n.js';
 
-/** The summon owner's variant: exact chess id, normal sibling, then the first available variant. */
+/**
+ * The summon owner's variant: exact chess id, normal sibling, then the first available variant.
+ * @param {{ variants?: Record<string, any> } | null | undefined} token @param {string | null} [ownerId]
+ */
 export function tokenVariantFor(token, ownerId = null) {
   const vs = token?.variants || {};
   if (typeof ownerId === 'string') {
@@ -39,11 +42,13 @@ export function tokenVariantFor(token, ownerId = null) {
 export function chessLoadout(chess, loadout, getChess = () => null, opts = {}) {
   if (!isObj(chess)) return null;
   const lo = isObj(loadout) && !Array.isArray(loadout) ? loadout : null;
+  /** @type {{ skillIndex: number|null, moduleId: string|null }} */
   let r = { skillIndex: null, moduleId: null };
   try { r = resolveLoadout(lo, chess, getChess); } catch { /* defaults */ }
   const skills = Array.isArray(chess.skills) && chess.skills.length ? chess.skills.filter(isObj) : (isObj(chess.skill) ? [chess.skill] : []);
   const skill = skills.find((s) => s.index === r.skillIndex) || (isObj(chess.skill) ? chess.skill : null) || skills[0] || null;
   const base = chess.isGolden ? (getChess(chess.baseId) || chess) : chess;
+  /** @type {{ skills: number[], defaultSkill: number|null, modules?: string[], defaultModule: string|null }} */
   let opt = { defaultSkill: null, defaultModule: null, skills: [] };
   try { opt = loadoutOptions(base, chess.isGolden ? chess : null); } catch { /* defaults */ }
   const defIdx = opt.defaultSkill ?? chess.skill?.index ?? null;
@@ -75,13 +80,14 @@ export function chessLoadout(chess, loadout, getChess = () => null, opts = {}) {
 /**
  * The 潜能 / 练度 of a card's record (chessLoadout `opts`): the unit's own (`cultivation`, null = none) or the player's
  * settings (`ops`, shared/potential.js cultivationOf — null for a stand-in / prototype 自选 record).
+ * @param {any} chess @param {{ ops?: any, cultivation?: { potential?: number|null, cultivate?: number|null } | null } | undefined} opts
  * @returns {{ potential: number, cultivate: number|null } | null}
  */
 function cultivationFor(chess, opts) {
   if (opts && opts.cultivation !== undefined) {
     const c = opts.cultivation;
     if (!isObj(c) || !isObj(chess) || chess.standInFor || chess.diyProto) return null;
-    return { potential: isPotential(c.potential) ? c.potential : 6, cultivate: isCultivate(c.cultivate) ? c.cultivate : null };
+    return { potential: isPotential(c.potential) ? /** @type {number} */ (c.potential) : 6, cultivate: isCultivate(c.cultivate) ? /** @type {number} */ (c.cultivate) : null };
   }
   return cultivationOf(chess, opts ? opts.ops : null);
 }

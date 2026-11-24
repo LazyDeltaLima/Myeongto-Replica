@@ -5,6 +5,8 @@ import { isObj } from './shared.js';
 
 // ---- detail panel placement (user playtest #2 item 8) ---------------------------------------------------------------
 
+/** @typedef {{ left: number, right: number, top: number, bottom: number }} Rect a client-px rectangle */
+
 /**
  * Which side the detail panel goes to so it never covers the selected unit's underframe: the default 'left' panel
  * unless the underframe (buttons included) overlaps it and the 'right' slot is clear of it (else 'left' — the
@@ -15,7 +17,7 @@ import { isObj } from './shared.js';
  */
 export function panelSide(uf, slots) {
   if (!isObj(uf) || !isObj(slots)) return 'left';
-  const hit = (a, b) => !!a && !!b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  const hit = (/** @type {Rect | null | undefined} */ a, /** @type {Rect | null | undefined} */ b) => !!a && !!b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
   if (!hit(uf, slots.left)) return 'left';
   return hit(uf, slots.right) ? 'left' : 'right';
 }
@@ -32,8 +34,8 @@ export function panelSide(uf, slots) {
 export function panelSlots(vp, rem, { shopOpen = false } = {}) {
   const W = Number(vp?.width) || 1920;
   const H = Number(vp?.height) || 1080;
-  const X = Number.isFinite(vp?.left) ? vp.left : 0;
-  const Y = Number.isFinite(vp?.top) ? vp.top : 0;
+  const X = Number.isFinite(vp?.left) ? /** @type {number} */ (vp.left) : 0;
+  const Y = Number.isFinite(vp?.top) ? /** @type {number} */ (vp.top) : 0;
   const R = rem > 0 ? rem : 100;
   const top = R * 2.1;
   const leftH = Math.min(R * 8.4, H - top - R * 1.02);
@@ -66,12 +68,12 @@ export const BPOP = Object.freeze({ width: 5.4, top: 2.1, bottomGap: 0.3, left: 
 export function bondPopupPlace(uf, vp, rem, card = null) {
   const W = Number(vp?.width) || 1920;
   const H = Number(vp?.height) || 1080;
-  const X = Number.isFinite(vp?.left) ? vp.left : 0;
-  const Y = Number.isFinite(vp?.top) ? vp.top : 0;
+  const X = Number.isFinite(vp?.left) ? /** @type {number} */ (vp.left) : 0;
+  const Y = Number.isFinite(vp?.top) ? /** @type {number} */ (vp.top) : 0;
   const R = rem > 0 ? rem : 100;
   const top = Y + R * BPOP.top;
   const bottom = Y + Math.max(R * BPOP.top + R, H - R * BPOP.bottomGap);
-  const rectOf = (p) => {
+  const rectOf = (/** @type {'left'|'beside'|'besideR'|'right'} */ p) => {
     const left = X + (p === 'left' ? R * BPOP.left : p === 'beside' ? R * BPOP.beside
       : p === 'besideR' ? W - R * (BPOP.besideR + BPOP.width) : W - R * (BPOP.right + BPOP.width));
     return { left, right: left + R * BPOP.width, top, bottom };
@@ -80,6 +82,6 @@ export function bondPopupPlace(uf, vp, rem, card = null) {
   /** @type {('left'|'beside'|'besideR'|'right')[]} */
   const order = card === 'left' ? ['beside', 'right', 'left'] : card === 'right' ? ['besideR', 'left', 'right'] : ['left', 'right'];
   if (!isObj(uf)) return order[0];
-  const hit = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  const hit = (/** @type {Rect} */ a, /** @type {Rect} */ b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
   return order.find((p) => !hit(uf, rectOf(p))) || order[0];
 }

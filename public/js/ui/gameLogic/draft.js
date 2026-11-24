@@ -1,5 +1,6 @@
 // ui/gameLogic/draft.js — 机变 and band-draft normalisation. Re-exported from ../gameLogic.js.
 
+/** @import { Bag, Pub } from './shared.js' */
 import { isObj } from './shared.js';
 import { PHASE } from '../../../../shared/constants.js';
 import { t } from '../../../../shared/i18n.js';
@@ -16,7 +17,8 @@ import { t } from '../../../../shared/i18n.js';
  */
 export function normalizeDraft(draft, players = []) {
   const ids = (Array.isArray(players) ? players : []).filter(isObj).map((p) => p.playerId);
-  const order = Array.isArray(draft?.order) && draft.order.length ? draft.order.filter((x) => typeof x === 'string') : ids;
+  /** @type {string[]} */
+  const order = Array.isArray(draft?.order) && draft.order.length ? draft.order.filter((/** @type {unknown} */ x) => typeof x === 'string') : ids;
   let turnPid = null;
   if (typeof draft?.turn === 'string') turnPid = draft.turn;
   else if (Number.isInteger(draft?.turn) && draft.turn >= 0 && draft.turn < order.length) turnPid = order[draft.turn];
@@ -49,13 +51,14 @@ export function normalizeSp(sp, players = []) {
   const order = Array.isArray(sp.order) && sp.order.length ? sp.order.filter((x) => typeof x === 'string') : ids;
   // up to 12: an 8-player match draws 12 cards (GameData.spDraftCards), every other match 6 or fewer
   const cards = (Array.isArray(sp.cards) ? sp.cards : []).slice(0, 12).map((c, idx) => {
+    /** @type {Bag} */
     const card = typeof c === 'string' ? { id: c } : isObj(c) ? { ...c } : {};
     return { ...card, idx, takenBy: typeof card.takenBy === 'string' ? card.takenBy : null };
   });
   const takenBy = new Map(); // idx → playerId
   const pickOf = new Map(); // playerId → idx
   const src = sp.picks;
-  const add = (pid, idx) => {
+  const add = (/** @type {unknown} */ pid, /** @type {number} */ idx) => {
     if (typeof pid !== 'string' || !Number.isInteger(idx) || idx < 0 || idx >= cards.length) return;
     takenBy.set(idx, pid);
     pickOf.set(pid, idx);
@@ -77,7 +80,10 @@ export function normalizeSp(sp, players = []) {
   };
 }
 
-/** Adapt only the recipient's current PREP choice; never write it into the public draft. */
+/**
+ * Adapt only the recipient's current PREP choice; never write it into the public draft.
+ * @param {Pub | null | undefined} pub @param {Bag | null | undefined} priv @param {string} myId
+ */
 export function normalizePersonalChoice(pub, priv, myId) {
   const choice = priv?.personalChoice;
   if (pub?.phase !== PHASE.PREP || !priv || priv.playerId !== myId || priv.alive === false
@@ -94,7 +100,7 @@ export function normalizePersonalChoice(pub, priv, myId) {
         sourceItemId: typeof choice.sourceItemId === 'string' ? choice.sourceItemId : null,
         ownBandId: typeof priv.bandId === 'string' ? priv.bandId : null,
         currentBandId: (typeof bs?.commandBandId === 'string' && bs.commandBandId) || (typeof priv.bandId === 'string' ? priv.bandId : null),
-        currentStage: Number.isInteger(bs?.stage) ? bs.stage : null,
+        currentStage: Number.isInteger(bs?.stage) ? /** @type {Bag} */ (bs).stage : null,
       },
     };
   }
@@ -119,7 +125,7 @@ export function diySlotTier(id) {
  */
 export function hasDiyChooseStep(config) {
   const steps = Array.isArray(config?.timers?.enterSteps) ? config.timers.enterSteps : [];
-  return steps.some((s) => isObj(s) && s.step === 'CUSTOM_CHECK');
+  return steps.some((/** @type {unknown} */ s) => isObj(s) && s.step === 'CUSTOM_CHECK');
 }
 
 /**
@@ -130,7 +136,7 @@ export function hasDiyChooseStep(config) {
  */
 export function startStepCount(config) {
   const steps = Array.isArray(config?.timers?.enterSteps) ? config.timers.enterSteps : null;
-  const n = steps ? steps.filter((s) => isObj(s) && typeof s.step === 'string' && s.step !== 'BATTLE_CHECK').length : 0;
+  const n = steps ? steps.filter((/** @type {unknown} */ s) => isObj(s) && typeof s.step === 'string' && s.step !== 'BATTLE_CHECK').length : 0;
   return n > 0 ? n : 2;
 }
 
@@ -168,7 +174,7 @@ export function toggleDiyChoice(order, slotId, perTier) {
   const cur = (Array.isArray(order) ? order : []).filter((id) => typeof id === 'string');
   if (cur.includes(slotId)) return cur.filter((id) => id !== slotId);
   const tier = diySlotTier(slotId);
-  const limit = Number(isObj(perTier) ? perTier[tier] : 0) || 0;
+  const limit = Number(isObj(perTier) ? perTier[/** @type {number} */ (tier)] : 0) || 0;
   if (limit <= 0) return cur;
   const same = cur.filter((id) => diySlotTier(id) === tier);
   const drop = new Set(same.slice(0, Math.max(0, same.length - limit + 1)));

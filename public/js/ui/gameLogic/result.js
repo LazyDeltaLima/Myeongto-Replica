@@ -1,5 +1,6 @@
 // ui/gameLogic/result.js — end-of-match result normalisation. Re-exported from ../gameLogic.js.
 
+/** @import { Bag, Pub } from './shared.js' */
 import { int, isObj, sortedPlayers } from './shared.js';
 import { t } from '../../../../shared/i18n.js';
 import { playerName } from '../../../../shared/botNames.js';
@@ -7,14 +8,14 @@ import { playerName } from '../../../../shared/botNames.js';
 
 // ---- result -----------------------------------------------------------------------------------------------------------
 
-const num0 = (v) => (Number.isFinite(v) && v > 0 ? v : 0);
-/** A boss round's pool ({ maxHp, dealt }) or null. */
+const num0 = (/** @type {number} */ v) => (Number.isFinite(v) && v > 0 ? v : 0);
+/** A boss round's pool ({ maxHp, dealt }) or null. @param {unknown} p */
 const poolOf = (p) => (isObj(p) && Number.isFinite(p.maxHp) && p.maxHp > 0 ? { maxHp: p.maxHp, dealt: Math.min(p.maxHp, num0(p.dealt)) } : null);
 
 /**
  * Normalise an m.result payload (free-form; see screens/result.js header for the expected shape).
  * @param {any} res
- * @param {any} pub last m.public (fallbacks)
+ * @param {Pub} pub last m.public (fallbacks)
  */
 export function normalizeResult(res, pub) {
   const r = isObj(res) ? res : {};
@@ -23,7 +24,7 @@ export function normalizeResult(res, pub) {
   // that pool: a survivor's remaining LP is the pool, not its own LP from before the Final Assault.
   const teamLp = Number.isFinite(r.teamLp) ? r.teamLp : Number.isFinite(pub?.teamLp) ? pub.teamLp : null;
   const players = (Array.isArray(r.players) ? r.players : []).filter(isObj).map((p) => {
-    const pp = pubPlayers.get(p.playerId) || {};
+    const pp = pubPlayers.get(p.playerId) || /** @type {Bag} */ ({});
     const title = typeof p.title === 'string' ? { id: p.title } : isObj(p.title) ? p.title : null;
     const alive = p.alive ?? pp.alive ?? true;
     const ownLp = Number.isFinite(p.lp) ? p.lp : (Number.isFinite(pp.lp) ? pp.lp : null);
@@ -45,7 +46,7 @@ export function normalizeResult(res, pub) {
       reward: Number.isFinite(p.reward) ? p.reward : 0,
       left: !!p.left,
       // the damage / 联防 tabs (gameLogic/resultCharts.js): absent on older payloads and stored records
-      units: (Array.isArray(p.units) ? p.units : []).filter((u) => isObj(u) && typeof u.id === 'string').map((u) => ({
+      units: (Array.isArray(p.units) ? p.units : []).filter((/** @type {unknown} */ u) => isObj(u) && typeof u.id === 'string').map((/** @type {Bag} */ u) => ({
         ...u, dmg: num0(u.dmg), final: num0(u.final), hidden: num0(u.hidden), assist: isObj(u.assist) ? u.assist : null,
       })),
       unite: isObj(p.unite) ? { sent: num0(p.unite.sent), through: num0(p.unite.through) } : null,

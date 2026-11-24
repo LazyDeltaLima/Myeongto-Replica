@@ -1,17 +1,18 @@
 // ui/gameLogic/watch.js — field ids, the watch switcher, emote bubbles. Re-exported from ../gameLogic.js.
 
+/** @import { Pub, PubField, PubPlayer } from './shared.js' */
 import { isObj, sortedPlayers } from './shared.js';
 import { isCombatPhase } from './phases.js';
 import { t } from '../../../../shared/i18n.js';
 import { playerName } from '../../../../shared/botNames.js';
 
 
-/** Own normal field id (DESIGN §8.3). */
+/** Own normal field id (DESIGN §8.3). @param {string} playerId */
 export const ownFieldId = (playerId) => `n:${playerId}`;
 
 /**
  * Field the player sits in right now (own normal field, or the unite/boss field that lists them).
- * @param {any} pub
+ * @param {Pub | null | undefined} pub
  * @param {string} playerId
  */
 export function homeFieldId(pub, playerId) {
@@ -44,8 +45,8 @@ export function cycleField(fields, current, dir = 1) {
  * eliminated player has no board to watch; any live field may be watched, during 最终攻势 / 隐秘核心 the other pair's
  * boss field too (the official game hides it, "无法查看另一组队友的战场情况" — a convenience for every season,
  * maintainer decision 2026-11-20).
- * @param {any} p m.public player row
- * @param {any} pub
+ * @param {PubPlayer} p m.public player row
+ * @param {Pub | null | undefined} pub
  * @param {string} myId
  * @returns {{ fieldId: string, reason?: undefined } | { reason: string, fieldId?: undefined }}
  */
@@ -61,7 +62,7 @@ export function watchTarget(p, pub, myId) {
 /**
  * Label of the ‹ › view switcher: the watched field (also one whose battle already ended), else the own field —
  * or, for an eliminated spectator (no own field), the watched player / 观战.
- * @param {any} pub
+ * @param {Pub | null | undefined} pub
  * @param {string|null} watching fieldId on screen
  * @param {string} myId
  * @param {boolean} [spectating]
@@ -78,8 +79,8 @@ export function switcherLabel(pub, watching, myId, spectating = false) {
 
 /**
  * Human label of a field for the view switcher.
- * @param {any} field { fieldId, kind, players }
- * @param {any} pub
+ * @param {PubField} field { fieldId, kind, players }
+ * @param {Pub | null | undefined} pub
  * @param {string} myId
  */
 export function fieldLabel(field, pub, myId) {

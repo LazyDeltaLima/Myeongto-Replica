@@ -26,10 +26,11 @@ const OLD_DEFAULTS = Object.freeze({ refresh: 'KeyR', freeze: 'KeyF', levelUp: '
 
 // actions added after a key map could be saved: a map saved before lacks them, and their default may be a key the player
 // gave another action — such an action takes the first free key instead, so the player's map is not reset
+/** @type {ReadonlyArray<HotkeyAction>} */
 const LATER_ACTIONS = Object.freeze(['viewEnemy', 'shop', 'pause']);
 
 /** Whether a saved map is the old defaults, never rebound (viewEnemy, added on its own default first, may be in it). */
-const isOldDefaults = (r) => Object.entries(OLD_DEFAULTS).every(([a, c]) => r[a] === c)
+const isOldDefaults = (/** @type {Record<string, string>} */ r) => Object.entries(OLD_DEFAULTS).every(([a, c]) => r[a] === c)
   && (!Object.hasOwn(r, 'viewEnemy') || r.viewEnemy === 'KeyW') && !Object.hasOwn(r, 'shop') && !Object.hasOwn(r, 'pause');
 
 // The keys a shortcut may use → the `key` value each types on a US layout (lower case): letters, digits, Space, the
@@ -46,7 +47,7 @@ const KEY_OF = new Map(/** @type {[string, string][]} */ ([
 const CODE_OF = new Map([...KEY_OF].map(([code, key]) => [key, code]));
 
 /** A key press's `key`, lower case when it is one character ('' when absent). */
-const keyValue = (e) => {
+const keyValue = (/** @type {{ key?: unknown } | null | undefined} */ e) => {
   const k = e?.key;
   return typeof k !== 'string' ? '' : k.length === 1 ? k.toLowerCase() : k;
 };
@@ -65,7 +66,7 @@ export const isBindableCode = (code) => typeof code === 'string' && KEY_OF.has(c
 export function hotkeyLabel(code) {
   if (!isBindableCode(code)) return '';
   if (code === 'Space') return 'Space';
-  const k = KEY_OF.get(code);
+  const k = /** @type {string} */ (KEY_OF.get(code));
   return k.length === 1 ? k.toUpperCase() : k;
 }
 
@@ -85,7 +86,7 @@ export function sanitizeHotkeys(raw) {
   for (const a of LATER_ACTIONS) {
     if (Object.hasOwn(r, a)) continue;
     const used = new Set(HOTKEY_ACTIONS.filter((b) => b !== a).map((b) => out[b]));
-    if (used.has(out[a])) out[a] = [...KEY_OF.keys()].find((c) => !used.has(c));
+    if (used.has(out[a])) out[a] = /** @type {string} */ ([...KEY_OF.keys()].find((c) => !used.has(c)));
   }
   return new Set(Object.values(out)).size === HOTKEY_ACTIONS.length ? out : { ...DEFAULT_HOTKEYS };
 }
@@ -100,10 +101,10 @@ export function sanitizeHotkeys(raw) {
  */
 export function rebindHotkey(keys, action, code) {
   const cur = sanitizeHotkeys(keys);
-  if (!/** @type {readonly string[]} */ (HOTKEY_ACTIONS).includes(action) || !isBindableCode(code) || cur[action] === code) return { keys: cur, changed: false, swapped: null };
+  if (!/** @type {readonly string[]} */ (HOTKEY_ACTIONS).includes(action) || !isBindableCode(code) || cur[/** @type {HotkeyAction} */ (action)] === code) return { keys: cur, changed: false, swapped: null };
   const swapped = HOTKEY_ACTIONS.find((a) => cur[a] === code) ?? null;
   const next = { ...cur, [action]: code };
-  if (swapped) next[swapped] = cur[action];
+  if (swapped) next[swapped] = cur[/** @type {HotkeyAction} */ (action)];
   return { keys: next, changed: true, swapped };
 }
 
@@ -122,7 +123,7 @@ export const isDefaultHotkeys = (keys) => {
 export function hotkeyOf(e) {
   const typed = CODE_OF.get(keyValue(e));
   if (typed) return typed;
-  return isBindableCode(e?.code) ? e.code : null;
+  return isBindableCode(e?.code) ? /** @type {string} */ (e.code) : null;
 }
 
 /**
@@ -135,7 +136,7 @@ export function hotkeyOf(e) {
  */
 export function actionForKey(e, keys = DEFAULT_HOTKEYS) {
   const map = keys === DEFAULT_HOTKEYS ? keys : sanitizeHotkeys(keys);
-  const find = (code) => (code ? HOTKEY_ACTIONS.find((a) => map[a] === code) ?? null : null);
+  const find = (/** @type {string | null | undefined} */ code) => (code ? HOTKEY_ACTIONS.find((a) => map[a] === code) ?? null : null);
   return find(CODE_OF.get(keyValue(e))) ?? find(typeof e?.code === 'string' ? e.code : null);
 }
 
@@ -208,7 +209,7 @@ const CONTROL = 'button, a[href], input, select, textarea, summary, [contentedit
 export function facingEnter(e, chosen) {
   if (e?.key !== 'Enter') return null;
   const t = e.target;
-  const closest = (sel) => (t && typeof t.closest === 'function' ? t.closest(sel) : null);
+  const closest = (/** @type {string} */ sel) => (t && typeof t.closest === 'function' ? t.closest(sel) : null);
   if (closest('.fwheel__cancel')) return 'cancel';
   if (closest(CONTROL)) return 'swallow';
   return chosen ? 'commit' : 'swallow';

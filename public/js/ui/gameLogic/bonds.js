@@ -1,5 +1,6 @@
 // ui/gameLogic/bonds.js — bond counts, members, harmony, 本局禁用. Re-exported from ../gameLogic.js.
 
+/** @import { Bag, Pub } from './shared.js' */
 import { int, isObj } from './shared.js';
 import { diyPicks } from './diy.js';
 import { t } from '../../../../shared/i18n.js';
@@ -18,7 +19,7 @@ import { t } from '../../../../shared/i18n.js';
  */
 export function sortBonds(bonds, getBond = () => null) {
   const list = (Array.isArray(bonds) ? bonds : []).filter((b) => isObj(b) && typeof b.bondId === 'string');
-  const n = (v) => (Number.isFinite(v) ? v : 0);
+  const n = (/** @type {number | undefined} */ v) => (Number.isFinite(v) ? /** @type {number} */ (v) : 0);
   return [...list].sort((a, b) => (
     (a.off ? 1 : 0) - (b.off ? 1 : 0)
     || (b.active ? 1 : 0) - (a.active ? 1 : 0)
@@ -38,13 +39,17 @@ export function sortBonds(bonds, getBond = () => null) {
  */
 export function bondTier(count, thresholds, maxCount = null) {
   const c = Number.isFinite(count) ? count : 0;
-  if (Number.isFinite(maxCount) && c > maxCount) return 0;
+  if (Number.isFinite(maxCount) && c > /** @type {number} */ (maxCount)) return 0;
   let t = 0;
   for (const th of Array.isArray(thresholds) ? thresholds : []) if (c >= th) t += 1;
   return t;
 }
 
-/** Next threshold above the count, or null when maxed. */
+/**
+ * Next threshold above the count, or null when maxed.
+ * @param {number} count @param {number[]} thresholds
+ * @returns {number | null}
+ */
 export function nextThreshold(count, thresholds) {
   for (const th of Array.isArray(thresholds) ? thresholds : []) if (count < th) return th;
   return null;
@@ -79,6 +84,7 @@ export function grantedBonds(items, getItem = () => null) {
   if (list.length < 2) return [];
   const recs = list.map((it) => getItem(typeof it === 'string' ? it : it?.id)).filter(isObj);
   if (!recs.some((r) => r.canGiveBond)) return [];
+  /** @type {string[]} */
   const out = [];
   for (const r of recs) if (!r.canGiveBond && typeof r.giveBondId === 'string' && r.giveBondId && !out.includes(r.giveBondId)) out.push(r.giveBondId);
   return out;
@@ -90,7 +96,7 @@ export function grantedBonds(items, getItem = () => null) {
  * @returns {string[]}
  */
 export function pieceBondIds(chess, items, getItem = () => null) {
-  const out = (Array.isArray(chess?.bonds) ? chess.bonds : []).filter((b) => typeof b === 'string');
+  const out = (Array.isArray(chess?.bonds) ? chess.bonds : []).filter((/** @type {unknown} */ b) => typeof b === 'string');
   for (const b of grantedBonds(items, getItem)) if (!out.includes(b)) out.push(b);
   return out;
 }
@@ -111,10 +117,10 @@ export function pieceBondIds(chess, items, getItem = () => null) {
 export function morphPairings(itemRecs, bondRecs, { off = null, carried = null } = {}) {
   const recs = [...(itemRecs || [])].filter(isObj);
   const byId = new Map(recs.map((r) => [r.id, r]));
-  const getItem = (id) => byId.get(id) || null;
+  const getItem = (/** @type {string} */ id) => byId.get(id) || null;
   const worn = new Set(grantedBonds(carried, getItem));
   const carriedIds = new Set((Array.isArray(carried) ? carried : []).map((it) => (typeof it === 'string' ? it : it?.id)).filter((x) => typeof x === 'string'));
-  const famOf = (r) => (typeof r.baseId === 'string' && r.baseId ? r.baseId : r.id);
+  const famOf = (/** @type {Bag} */ r) => (typeof r.baseId === 'string' && r.baseId ? r.baseId : r.id);
   /** bondId → family id → { id, name, tier, order, ids } */
   const groups = new Map();
   recs.forEach((r, order) => {
@@ -132,7 +138,7 @@ export function morphPairings(itemRecs, bondRecs, { off = null, carried = null }
     if (!g) continue;
     const bondWorn = worn.has(b.bondId);
     const items = [...g.values()].sort((x, y) => (x.tier - y.tier) || (x.order - y.order))
-      .map((e) => ({ id: e.id, name: e.name, worn: bondWorn && e.ids.some((id) => carriedIds.has(id)) }));
+      .map((e) => ({ id: e.id, name: e.name, worn: bondWorn && e.ids.some((/** @type {string} */ id) => carriedIds.has(id)) }));
     out.push({ bondId: b.bondId, name: typeof b.name === 'string' && b.name ? b.name : b.bondId, off: !!(off && typeof off.has === 'function' && off.has(b.bondId)), worn: bondWorn, items });
   }
   return out;
@@ -195,29 +201,30 @@ export function harmonyMembers(priv, getChess = () => null) {
  */
 export function bondMembers(bond, priv, banned = [], getChess = () => null, getItem = () => null, pieceRecord = null) {
   const bannedSet = banned instanceof Set ? banned : new Set(Array.isArray(banned) ? banned : []);
+  /** @type {string[]} */
   const members = Array.isArray(bond?.visibleMembers) && bond.visibleMembers.length ? bond.visibleMembers : (Array.isArray(bond?.members) ? bond.members : []);
-  const baseOf = (id) => getChess(id)?.baseId || (typeof id === 'string' ? id.replace(/_b$/, '_a') : id);
+  const baseOf = (/** @type {any} */ id) => getChess(id)?.baseId || (typeof id === 'string' ? id.replace(/_b$/, '_a') : id);
   const onBoard = new Set();
   const owned = new Set();
   const inHand = new Set();
   const memberSet = new Set(members);
   /** base id → { on: on the board?, hand: in the hand?, items: the wearer's item ids } — operators of the player that join this bond through 变形同构体 */
   const granted = new Map();
-  const grants = (p) => typeof bond?.bondId === 'string' && grantedBonds(p.items, getItem).includes(bond.bondId);
-  const recOf = (p) => (pieceRecord ? pieceRecord(p) : getChess(p.id));
+  const grants = (/** @type {Bag} */ p) => typeof bond?.bondId === 'string' && grantedBonds(p.items, getItem).includes(bond.bondId);
+  const recOf = (/** @type {Bag} */ p) => (pieceRecord ? pieceRecord(p) : getChess(p.id));
   /** a composed 自选 record whose operator carries this bond */
-  const diyOfBond = (rec) => isObj(rec) && typeof rec.diyFor === 'string' && Array.isArray(rec.bonds) && rec.bonds.includes(bond?.bondId);
+  const diyOfBond = (/** @type {unknown} */ rec) => isObj(rec) && typeof rec.diyFor === 'string' && Array.isArray(rec.bonds) && rec.bonds.includes(bond?.bondId);
   /** slot base id → { on, hand, owned, rec, pick } — the player's 自选 pieces and picks whose operator carries this bond */
   const diy = new Map();
   /** a composed 自选 piece's row record — the normal form, as a member row draws its base chess (an elite copy is the
    *  same member) — and its pick (a teammate's piece: the card the row opens composes it); null for any other piece */
-  const diyRow = (p, rec = recOf(p)) => {
+  const diyRow = (/** @type {Bag} */ p, rec = recOf(p)) => {
     if (!isObj(rec) || typeof rec.diyFor !== 'string') return null;
     const pick = isObj(p.diy) && typeof p.diy.charId === 'string' ? p.diy : null;
     const normal = rec.isGolden ? recOf(pick ? { kind: 'chess', id: rec.diyFor, diy: pick } : { kind: 'chess', id: rec.diyFor }) : rec;
     return { rec: isObj(normal) && normal.diyFor === rec.diyFor ? normal : rec, pick };
   };
-  const diyOf = (p, on, hand) => {
+  const diyOf = (/** @type {Bag} */ p, /** @type {boolean} */ on, /** @type {boolean} */ hand) => {
     const rec = recOf(p);
     if (!diyOfBond(rec)) return false;
     const g = diy.get(rec.diyFor);
@@ -225,7 +232,7 @@ export function bondMembers(bond, priv, banned = [], getChess = () => null, getI
     diy.set(rec.diyFor, { on, hand, owned: true, ...diyRow(p, rec) });
     return true;
   };
-  const itemIds = (p) => p.items.map((it) => (typeof it === 'string' ? it : it?.id)).filter((x) => typeof x === 'string');
+  const itemIds = (/** @type {Bag} */ p) => p.items.map((/** @type {string | { id?: string } | null | undefined} */ it) => (typeof it === 'string' ? it : it?.id)).filter((/** @type {unknown} */ x) => typeof x === 'string');
   for (const p of Array.isArray(priv?.board) ? priv.board : []) {
     if (p?.kind !== 'chess') continue;
     const base = baseOf(p.id);
@@ -255,6 +262,7 @@ export function bondMembers(bond, priv, banned = [], getChess = () => null, getI
   }
   const diyBanned = new Set(Array.isArray(priv?.diyBanned) ? priv.diyBanned : []);
   // a banned member (no stock this match) is not a row, as in the client's dialog (an owned copy — none should be — stays)
+  /** @type {Array<{ id: string, tier: number, name: string, onBoard: boolean, owned: boolean, inHand: boolean, granted?: boolean, items?: string[], diy?: boolean, rec?: any, pick?: any }>} */
   const rows = members.filter((id) => owned.has(id) || !bannedSet.has(id)).map((id) => {
     const c = getChess(id);
     return { id, tier: c?.tier ?? 0, name: c?.name ?? id, onBoard: onBoard.has(id), owned: owned.has(id), inHand: inHand.has(id) };
@@ -269,7 +277,7 @@ export function bondMembers(bond, priv, banned = [], getChess = () => null, getI
     if (!g.owned && (bannedSet.has(id) || diyBanned.has(id))) continue;
     rows.push({ id, tier: g.rec.tier ?? 0, name: g.rec.name ?? id, onBoard: g.on, owned: g.owned, inHand: g.hand, diy: true, rec: g.rec, ...(g.pick ? { pick: g.pick } : {}) });
   }
-  return rows.sort((a, b) => (b.onBoard - a.onBoard) || (b.owned - a.owned) || (a.tier - b.tier) || (a.id < b.id ? -1 : 1));
+  return rows.sort((a, b) => (/** @type {any} */ (b.onBoard) - /** @type {any} */ (a.onBoard)) || (/** @type {any} */ (b.owned) - /** @type {any} */ (a.owned)) || (a.tier - b.tier) || (a.id < b.id ? -1 : 1));
 }
 
 /**
@@ -310,7 +318,7 @@ export function bannedPerBond(bonds, bannedChess) {
   for (const b of Array.isArray(bonds) ? bonds : []) {
     if (!isObj(b)) continue;
     const members = Array.isArray(b.visibleMembers) ? b.visibleMembers : [];
-    out.set(b.bondId, members.filter((id) => banned.has(id)).length);
+    out.set(b.bondId, members.filter((/** @type {string} */ id) => banned.has(id)).length);
   }
   return out;
 }
@@ -328,7 +336,7 @@ export function bannedPerBond(bonds, bannedChess) {
 export function disabledBondSets(pub, staticInactive = []) {
   const off = new Set(Array.isArray(staticInactive) ? staticInactive : []);
   const src = Array.isArray(pub?.drawnDisabledBonds) ? pub.drawnDisabledBonds : Array.isArray(pub?.disabledBonds) ? pub.disabledBonds : [];
-  const drawn = new Set(src.filter((b) => typeof b === 'string' && !off.has(b)));
+  const drawn = new Set(src.filter((/** @type {unknown} */ b) => typeof b === 'string' && !off.has(/** @type {string} */ (b))));
   return { drawn, off };
 }
 
@@ -357,7 +365,7 @@ export function briefingBondTip(name, state, bannedN = 0) {
  */
 export function modeOffBonds(mode) {
   const list = isObj(mode) && Array.isArray(mode.inactiveBondIds) ? mode.inactiveBondIds : [];
-  return new Set(list.filter((b) => typeof b === 'string'));
+  return new Set(list.filter((/** @type {unknown} */ b) => typeof b === 'string'));
 }
 
 /**
@@ -369,7 +377,7 @@ export function modeOffBonds(mode) {
  */
 export function bandOffBonds(band, off) {
   if (!(off instanceof Set) || !off.size || !Array.isArray(band?.bondIds)) return [];
-  return band.bondIds.filter((b) => typeof b === 'string' && off.has(b));
+  return band.bondIds.filter((/** @type {unknown} */ b) => typeof b === 'string' && off.has(/** @type {string} */ (b)));
 }
 
 /**

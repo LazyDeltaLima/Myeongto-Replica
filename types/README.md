@@ -102,7 +102,7 @@ but not counted. strict is an option of the whole program, and a folder imports 
 server's options only). A listed file is checked in every config that has it; a listed file neither config has is an
 error.
 
-With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`.
+With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`.
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -126,6 +126,12 @@ most strict errors were, and the JSDoc that fixed them:
 - an object built with some keys and given more later (`body.hw = …`): the declaration's `@type` lists the later key
   as optional.
 - `new Promise((resolve) => … resolve())` (TS2810): `@returns {Promise<void>}` on the function that returns it.
+- protocol / data objects read field by field (`ui/gameLogic/`): `Bag` (`{ [key: string]: any }`), `Pub`, `PubPlayer`,
+  `PubField` typedefs in `public/js/ui/gameLogic/shared.js` (`/** @import { Bag } from './shared.js' */`). `isObj` is a
+  type guard to `Bag` taking `unknown`: after `isObj(x)` an `any` becomes `Bag`, so a value passed on as a typed pick
+  (`DiyPick`) needs a cast. A callback on an `any` value has no contextual type (TS7006): `(/** @type {unknown} */ x) =>`.
+- a table indexed by a string (`TERRAIN_TIPS[key]`): `@type {Readonly<Record<string, Tip>>}` on the `Object.freeze`
+  declaration also types the callbacks inside it.
 - `globalThis.PIXI` (TS7017): the script-tag global is declared (`declare var PIXI: any` in
   `types/page-globals.d.ts`). A library without types (`ws`): a loose stand-in in `types/` (`types/ws.d.ts`, in the
   server config's `include`).

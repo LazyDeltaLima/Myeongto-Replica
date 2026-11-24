@@ -13,9 +13,15 @@
 
 import { diyRecordOf } from '../../../../shared/diy.js';
 import { bondsOff } from '../../../../shared/seasons.js';
+/** @import { Bag } from './shared.js' */
+/** @import { DiyPick } from '../../../../shared/diy.js' */
 import { isObj } from './shared.js';
 
-/** The player's 自选 picks in this match (m.private.diy; {} when absent). */
+/**
+ * The player's 自选 picks in this match (m.private.diy; {} when absent).
+ * @param {Bag | null | undefined} priv
+ * @returns {Record<string, any>}
+ */
 export function diyPicks(priv) {
   return isObj(priv) && isObj(priv.diy) ? priv.diy : {};
 }
@@ -41,7 +47,7 @@ const CACHE = new WeakMap();
 /**
  * The 自选 record of DIY slot record `chess` (normal or elite) filled with `pick` (shared/diy.js diyRecordOf), cached
  * per data; null for an illegal pick or missing data.
- * @param {any} chess the slot's own chess.json record @param {any} pick `{ charId, skillIndex, uniEquipId }`
+ * @param {any} chess the slot's own chess.json record @param {Bag | null | undefined} pick `{ charId, skillIndex, uniEquipId }`
  * @param {{ chess?: any, backups?: any }} data
  */
 export function diyRecordFor(chess, pick, data) {
@@ -54,12 +60,15 @@ export function diyRecordFor(chess, pick, data) {
   const key = `${chess.chessId}|${pick.charId}|${pick.skillIndex ?? ''}|${pick.uniEquipId ?? ''}|${pot ?? ''}`;
   if (m.has(key)) return m.get(key);
   let rec;
-  try { rec = diyRecordOf(chess, pick, data, { potential: pot }); } catch { rec = null; }
+  try { rec = diyRecordOf(chess, /** @type {DiyPick} */ (pick), data, { potential: pot }); } catch { rec = null; }
   m.set(key, rec);
   return rec;
 }
 
-/** The record the player's own piece / card of `chess` shows: its 自选 record (own pick), or null. */
+/**
+ * The record the player's own piece / card of `chess` shows: its 自选 record (own pick), or null.
+ * @param {any} chess @param {Bag | null | undefined} priv @param {{ chess?: any, backups?: any }} data
+ */
 export function ownDiyRecord(chess, priv, data) {
   const pick = ownDiyPick(priv, chess);
   return pick ? diyRecordFor(chess, pick, data) : null;
@@ -76,7 +85,11 @@ export function cardDiy(chess, { priv = null, unit = null, data = null } = {}) {
   return ownDiyRecord(chess, priv, data);
 }
 
-/** A unit's 自选 pick with its potential (UnitInfo `diy` + `potential`, 0.2.2), or null. */
+/**
+ * A unit's 自选 pick with its potential (UnitInfo `diy` + `potential`, 0.2.2), or null.
+ * @param {any} unit
+ * @returns {Bag | null}
+ */
 export function unitPick(unit) {
   if (!isObj(unit) || !isObj(unit.diy)) return null;
   return Number.isInteger(unit.potential) ? { ...unit.diy, potential: unit.potential } : unit.diy;
@@ -87,6 +100,7 @@ export function unitPick(unit) {
  * pieces and cards resolve against (names, art, position, the loadout / range of a 自选 piece — shared/protocol.js
  * resolveLoadout then reads the pick's skill and module as the record's defaults).
  * @param {(id: string) => any} getChess @param {any} priv m.private (or a getter of the current one) @param {any} data
+ * @returns {(id: string) => any}
  */
 export function diyGetter(getChess, priv, data) {
   return (id) => {
@@ -95,7 +109,11 @@ export function diyGetter(getChess, priv, data) {
   };
 }
 
-/** id → the 自选 record of a slot filled with `pick` (another player's unit), else the chess record. */
+/**
+ * id → the 自选 record of a slot filled with `pick` (another player's unit), else the chess record.
+ * @param {(id: string) => any} getChess @param {Bag | null | undefined} pick @param {{ chess?: any, backups?: any }} data
+ * @returns {(id: string) => any}
+ */
 export function pickGetter(getChess, pick, data) {
   return (id) => {
     const c = getChess(id);
@@ -103,7 +121,7 @@ export function pickGetter(getChess, pick, data) {
   };
 }
 
-/** Whether a record is a composed 自选 record. */
+/** Whether a record is a composed 自选 record. @param {unknown} rec */
 export const isDiyRecord = (rec) => isObj(rec) && typeof rec.diyFor === 'string';
 
 /**
@@ -113,7 +131,7 @@ export const isDiyRecord = (rec) => isObj(rec) && typeof rec.diyFor === 'string'
  * @param {any} priv m.private @param {(id: string) => any} getChess @param {{ chess?: any, backups?: any }} data
  */
 export function diyBannedPieces(priv, getChess, data) {
-  const ids = Array.isArray(priv?.diyBanned) ? priv.diyBanned.filter((id) => typeof id === 'string') : [];
+  const ids = Array.isArray(priv?.diyBanned) ? priv.diyBanned.filter((/** @type {unknown} */ id) => typeof id === 'string') : [];
   const picks = diyPicks(priv);
   const out = [];
   for (const slotId of ids) {

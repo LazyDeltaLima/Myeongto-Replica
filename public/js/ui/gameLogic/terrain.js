@@ -7,10 +7,19 @@
 // with their numbers as params. A device's NAME is a data text (data/stages.json `devices[].name`, localized by the
 // data overlay: "Barricade", "'Double Lids'" …), not a msgid.
 
+/** @import { Bag } from './shared.js' */
 import { isObj } from './shared.js';
 import { t, N_ } from '../../../../shared/i18n.js';
 
 // ---- special terrain tips (GitHub issue #184: 特殊地形的单击信息提示) ----------------------------------------
+
+/**
+ * The shown field's stage, the keys the tips read (data/stages.json).
+ * @typedef {{ rows?: string[], tiles?: Record<string, any>, special?: Bag, devices?: Bag[], [key: string]: any }} TipStage
+ * @typedef {{ name: string, tag: string, lines: (st: Bag | null | undefined) => Array<string | null> }} TerrainTip
+ * @typedef {{ lines: (st: Bag | null | undefined, d: Bag) => Array<string | null>, facts: (st?: Bag | null, d?: Bag) => string[],
+ *   stats?: (st: Bag | null | undefined, d: Bag) => Array<{ k: string, v: string | number }>, range?: boolean }} DeviceTip
+ */
 
 /**
  * What tapping a special tile says. `lines` are functions of the stage's own terrain parameters (`stage.special[<terrain>]`
@@ -18,6 +27,7 @@ import { t, N_ } from '../../../../shared/i18n.js';
  * the battle; the prose is ours (docs/PLAYING.md wording, PRTS 特殊地形 / 沼泽控制 / 深水区 地形信息).
  * `tag` is the chip above the name; `fact` needs the tile's own legend entry (see terrainInfo).
  */
+/** @type {Readonly<Record<string, TerrainTip>>} */
 const TERRAIN_TIPS = Object.freeze({
   infection: {
     name: N_('活性源石'), tag: N_('特殊地形'),
@@ -88,11 +98,15 @@ const TERRAIN_TIPS = Object.freeze({
 });
 
 /** Tile keys that carry a tip of their own although the legend gives them no `special` tag (gates, teleports). */
+/** @type {Readonly<Record<string, string>>} */
 const TIP_BY_TILEKEY = Object.freeze({ tile_start: 'start', tile_end: 'end', tile_telin: 'telin', tile_telout: 'telout' });
 /** 深水区's own legend entry is the one tile whose mechanism overrides the level's buildableType (grid.js DEPLOY_REFUSED_TILES). */
+/** @type {Readonly<Record<string, string>>} */
 const BUILDABILITY = Object.freeze({ ALL: N_('可部署'), MELEE: N_('仅近战位可部署'), RANGED: N_('仅远程位可部署'), NONE: N_('不可部署') });
 
+/** @param {unknown} v @param {number} d */
 const param = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
+/** @param {number} v */
 const pctText = (v) => `${v > 0 ? '+' : '−'}${Math.abs(Math.round(param(v, 0) * 100))}%`;
 
 /**
@@ -102,7 +116,7 @@ const pctText = (v) => `${v > 0 ? '+' : '−'}${Math.abs(Math.round(param(v, 0) 
  * the numbers from that stage's own terrain parameters — the same values the sim runs. It reads the stage only, so a
  * 补位 / 自选 board (whose pieces are other records) explains its tiles the same way. The text is in the current
  * language (t()).
- * @param {{ rows?: string[], tiles?: Record<string, any>, special?: any } | null | undefined} stage the shown field's stage
+ * @param {TipStage | null | undefined} stage the shown field's stage
  * @param {number} row board row (row 0 = the bottom row, DESIGN §1)
  * @param {number} col
  * @returns {{ key:string, name:string, tag:string, row:number, col:number, lines:string[], facts:string[] } | null}
@@ -111,7 +125,7 @@ export function terrainInfo(stage, row, col) {
   const rows = Array.isArray(stage?.rows) ? stage.rows : null;
   const line = rows && Number.isInteger(row) && row >= 0 ? rows[row] : null;
   if (typeof line !== 'string' || !Number.isInteger(col) || col < 0 || col >= line.length) return null;
-  const tiles = isObj(stage.tiles) ? stage.tiles : null;
+  const tiles = isObj(/** @type {TipStage} */ (stage).tiles) ? /** @type {TipStage} */ (stage).tiles : null;
   const tile = tiles ? tiles[line[col]] : null;
   if (!isObj(tile)) return null;
   const key = tile.special || TIP_BY_TILEKEY[tile.tileKey] || null;
@@ -123,7 +137,7 @@ export function terrainInfo(stage, row, col) {
   if (tile.height === 'HIGH') facts.push(t('高台'));
   if (tile.groundPassable === false) facts.push(t('只有空中单位能通过'));
   else if (tile.groundPassable === true) facts.push(t('地面单位可通过'));
-  return { key, name: t(tip.name), tag: t(tip.tag), row, col, lines: tip.lines(stage.special).filter((s) => typeof s === 'string' && s), facts };
+  return { key, name: t(tip.name), tag: t(tip.tag), row, col, lines: /** @type {string[]} */ (tip.lines(/** @type {TipStage} */ (stage).special).filter((s) => typeof s === 'string' && s)), facts };
 }
 
 // ---- stage device tips (GitHub #228, PR #229 by @rickylxw: the stage DEVICES, not only the tiles) ---------------------
@@ -133,8 +147,10 @@ const DEVICE_TIP_ROLES = Object.freeze(['crate', 'turret', 'platform', 'blower']
 /** Roles the battle spawns as device UNITS (Battle._spawnStageDevices, devices.js spawnTurret): in a battle a tap finds them by unit. */
 const DEVICE_UNIT_ROLES = Object.freeze(['crate', 'turret']);
 const TIP_TAG = N_('场地装置');
+/** @type {Readonly<Record<string, string>>} */
 const DIR_NAME = Object.freeze({ UP: N_('上'), DOWN: N_('下'), LEFT: N_('左'), RIGHT: N_('右') });
 
+/** @param {number} v */
 const round1 = (v) => Math.round(v * 10) / 10;
 
 /**
@@ -145,6 +161,7 @@ const round1 = (v) => Math.round(v * 10) / 10;
  * stat grid under the lines (the turret's), `range` whether the card draws the device's rangeGrid (the turret's), `facts`
  * what the tile allows. The card also carries the device's official skill text (deviceSkill) above these lines.
  */
+/** @type {Readonly<Record<string, DeviceTip>>} */
 const DEVICE_TIPS = Object.freeze({
   crate: {
     lines: (st, d) => [
@@ -173,6 +190,7 @@ const DEVICE_TIPS = Object.freeze({
     },
     stats: (st, d) => {
       const s = isObj(d.stats) ? d.stats : {};
+      /** @type {Array<{ k: string, v: string | number }>} */
       const out = [{ k: t('生命上限'), v: param(s.maxHp, 100) }];
       if (param(s.atk, 0)) out.push({ k: t('攻击'), v: param(s.atk, 0) });
       if (param(s.def, 0)) out.push({ k: t('防御'), v: param(s.def, 0) });
@@ -214,15 +232,16 @@ const DEVICE_TIPS = Object.freeze({
     facts: () => [t(BUILDABILITY.NONE)],
   },
 });
+/** @param {number} v */
 const round2 = (v) => Math.round(v * 100) / 100;
 
 /** A stage device entry is drawn: `active` when it carries it, else not `hidden` (render/tiles.js _stageDevices, board3d/layout.js stageDevices). */
-const deviceDrawn = (d) => (typeof d.active === 'boolean' ? d.active : !d.hidden);
+const deviceDrawn = (/** @type {Bag} */ d) => (typeof d.active === 'boolean' ? d.active : !d.hidden);
 
-/** The card of stage device `d` standing at (row, col) — `tip` is DEVICE_TIPS[d.role]. */
+/** The card of stage device `d` standing at (row, col) — `tip` is DEVICE_TIPS[d.role]. @param {TipStage} stage @param {Bag} d @param {number} row @param {number} col */
 function deviceCard(stage, d, row, col) {
   const tip = DEVICE_TIPS[d.role];
-  const lines = tip.lines(stage.special, d).filter((s) => typeof s === 'string' && s);
+  const lines = /** @type {string[]} */ (tip.lines(stage.special, d).filter((s) => typeof s === 'string' && s));
   const stats = typeof tip.stats === 'function' ? tip.stats(stage.special, d) : null;
   const name = typeof d.name === 'string' && d.name ? d.name : String(d.role);
   const skill = deviceSkill(d);
@@ -241,13 +260,14 @@ function deviceCard(stage, d, row, col) {
  * on one opens UICharacterInfoPanel with the trap's name, stats, range and skill. Its name and text come from the stage
  * entry (data/stages.json `devices[].skill`: the level's sktok_* skill, localized by the data overlay); null when the
  * entry has none ('-' is the level files' empty text).
+ * @param {Bag} d
  * @returns {{ name: string, text: string } | null}
  */
 function deviceSkill(d) {
   const sk = isObj(d.skill) ? d.skill : null;
   const text = sk ? String(sk.descRaw ?? sk.desc ?? '').trim() : '';
   if (!text || text === '-') return null;
-  return { name: typeof sk.name === 'string' ? sk.name : '', text };
+  return { name: typeof /** @type {Bag} */ (sk).name === 'string' ? /** @type {Bag} */ (sk).name : '', text };
 }
 
 /**
@@ -257,7 +277,7 @@ function deviceSkill(d) {
  * (`render/tiles.js _stageDevices`, `board3d/layout.js stageDevices`): `active` when set, else not `hidden`. The stage is
  * the shown field's (already the player's own `effectiveStage`, so a card-removed crate is not in the way). The device's
  * name is its data text (localized by the data overlay); the lines are in the current language (t()).
- * @param {{ devices?: any[], special?: any, rows?: string[], tiles?: Record<string, any> } | null | undefined} stage
+ * @param {TipStage | null | undefined} stage
  * @param {number} row board row (row 0 = the bottom row, DESIGN §1)
  * @param {number} col
  * @param {{ roles?: readonly string[] }} [opts] `roles`: only these roles answer (default: the four of DEVICE_TIP_ROLES)
@@ -270,7 +290,7 @@ export function deviceInfo(stage, row, col, { roles = DEVICE_TIP_ROLES } = {}) {
   for (const d of list) {
     if (!isObj(d) || !Array.isArray(d.pos) || d.pos[0] !== row || d.pos[1] !== col) continue;
     if (!roles.includes(d.role) || !DEVICE_TIPS[d.role] || !deviceDrawn(d)) continue;
-    return deviceCard(stage, d, row, col);
+    return deviceCard(/** @type {TipStage} */ (stage), d, row, col);
   }
   return null;
 }
@@ -286,7 +306,7 @@ export function deviceInfo(stage, row, col, { roles = DEVICE_TIP_ROLES } = {}) {
  * battle has arrived (`snap` empty) a unit counts as standing.
  * The result is the same card as `deviceInfo`'s, with `unitId` (the unit, for its live HP: the screen reads `b.snap`
  * through it, like a unit card's `snapHp`).
- * @param {object|null|undefined} stage the shown field's stage
+ * @param {TipStage | null | undefined} stage the shown field's stage
  * @param {number} row @param {number} col
  * @param {{ units?: any[]|null, snap?: Map<number, any[]>|null }} battle the field's unit infos (m.field.units) and the
  *   latest snapshot tuples by unit id ([id, x, y, hp, maxHp, …])
@@ -302,7 +322,7 @@ export function deviceTipAt(stage, row, col, { units = null, snap = null } = {})
   const list = Array.isArray(stage?.devices) ? stage.devices : [];
   const same = list.filter((d) => isObj(d) && d.key === u.defId && DEVICE_UNIT_ROLES.includes(d.role));
   const d = same.find((x) => Array.isArray(x.pos) && x.pos[0] === row && x.pos[1] === col) || same[0];
-  return d ? { ...deviceCard(stage, d, row, col), unitId: u.id } : null;
+  return d ? { ...deviceCard(/** @type {TipStage} */ (stage), d, row, col), unitId: u.id } : null;
 }
 
 /**

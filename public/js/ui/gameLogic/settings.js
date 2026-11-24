@@ -52,7 +52,7 @@ export const SCREEN_WAKE_MODES = Object.freeze(['off', 'combat', 'always']);
  */
 export function sanitizeSettings(raw) {
   const r = isObj(raw) ? raw : {};
-  const vol = (v, d) => (Number.isFinite(v) ? clamp(Math.round(v * 100) / 100, 0, 1) : d);
+  const vol = (/** @type {number} */ v, /** @type {number} */ d) => (Number.isFinite(v) ? clamp(Math.round(v * 100) / 100, 0, 1) : d);
   return {
     bgm: vol(r.bgm, DEFAULT_SETTINGS.bgm),
     sfx: vol(r.sfx, DEFAULT_SETTINGS.sfx),

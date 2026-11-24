@@ -14,7 +14,7 @@ import { atPotential, isPotential, POTENTIAL_DEFAULT } from './potential.js';
  * Resolve a loadout against a chess record. `potential` (潜能 1–6; anything else = 6, full potential — the default)
  * rides along: loadoutRecord composes the record at it (shared/potential.js atPotential).
  * @param {object|null} rec data/chess.json record
- * @param {{ skillIndex?: number, moduleId?: string, skill?: number, module?: string, potential?: number }|null} [loadout]
+ * @param {{ skillIndex?: number|null, moduleId?: string|null, skill?: number, module?: string, potential?: number|null }|null} [loadout]
  * @returns {{ skillIndex: number|null, moduleId: string|null, potential: number, skillIsDefault: boolean,
  *             moduleIsDefault: boolean, potentialIsDefault: boolean, isDefault: boolean }|null} null without a record;
  *             `moduleId` null for chess without module choices
@@ -92,7 +92,7 @@ export function composeTalents(base, changes) {
  * the chosen module (`active:false`, id null for 'none'). A talent that summons through a container token (凛御银灰)
  * follows the selected skill's token. The default loadout returns `rec` itself.
  * @param {object} rec0 data/chess.json record
- * @param {object} lo resolveRecordLoadout(rec0, …)
+ * @param {object|null} lo resolveRecordLoadout(rec0, …)
  */
 export function loadoutRecord(rec0, lo) {
   if (!rec0 || !lo || lo.isDefault) return rec0;

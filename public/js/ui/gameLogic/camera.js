@@ -2,6 +2,7 @@
 
 import { GEO, PHASE } from '../../../../shared/constants.js';
 import { BOSS_ROW_SHIFT, MAX_COL } from '../../render/prepfield.js';
+/** @import { Pub } from './shared.js' */
 import { int, isObj } from './shared.js';
 
 
@@ -12,34 +13,35 @@ import { int, isObj } from './shared.js';
  * match/finalAssault.js pairPlayers: drawn for each boss wave, each pair in seat order; the second of a pair is on the
  * mirrored right half 'R', a lone player on 'L' — bossPairOf). Any other prep: the own board
  * `{ kind: 'prep', opts: { rect, side: 'L' } }`.
- * @param {any} pub m.public
+ * @param {Pub} pub m.public
  * @param {string|null} myId
  * @returns {{ kind: 'prep'|'bossPrep', opts: { rect?: { r0: number, r1: number, c0: number, c1: number }, side: 'L'|'R' } }}
  */
 export function prepCamera(pub, myId) {
   /** @type {{ kind: 'prep'|'bossPrep', opts: { rect?: { r0: number, r1: number, c0: number, c1: number }, side: 'L'|'R' } }} */
   const normal = { kind: 'prep', opts: { rect: { ...GEO.NORMAL_RECT }, side: 'L' } };
-  const r = pub?.round;
+  const r = /** @type {number} */ (pub?.round);
   if (!Number.isInteger(r) || r <= 0 || !(r === pub.bossRound || r === pub.hiddenRound)) return normal;
   const pair = bossPairOf(pub, myId);
   if (!pair) return normal; // eliminated / unknown: no board of its own on the boss field
-  return { kind: 'bossPrep', opts: { side: pair.indexOf(myId) === 1 ? 'R' : 'L' } };
+  return { kind: 'bossPrep', opts: { side: pair.indexOf(/** @type {string} */ (myId)) === 1 ? 'R' : 'L' } };
 }
 
 /**
  * A player's pair of a boss round's prep: the server's `pub.bossPairs` (drawn for each boss wave — upstream #845), or,
  * from a server that does not send them, the alive players in seat order, two by two. null when the player has none.
- * @param {any} pub m.public @param {string|null} myId
+ * @param {Pub} pub m.public @param {string|null} myId
  * @returns {string[]|null}
  */
 function bossPairOf(pub, myId) {
-  if (Array.isArray(pub.bossPairs)) return pub.bossPairs.find((g) => Array.isArray(g) && g.includes(myId)) || null;
+  if (Array.isArray(pub.bossPairs)) return pub.bossPairs.find((g) => Array.isArray(g) && g.includes(/** @type {string} */ (myId))) || null;
   const alive = (Array.isArray(pub.players) ? pub.players : []).filter((p) => isObj(p) && p.alive !== false)
     .sort((a, b) => int(a.seat, 99) - int(b.seat, 99)).map((p) => p.playerId);
-  const idx = alive.indexOf(myId);
+  const idx = alive.indexOf(/** @type {string} */ (myId));
   return idx < 0 ? null : alive.slice(idx - (idx % 2), idx - (idx % 2) + 2);
 }
 
+/** @type {Set<string | undefined>} */
 const BOSS_PREP_PHASES = new Set([PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.PREP]);
 
 /**
@@ -49,7 +51,7 @@ const BOSS_PREP_PHASES = new Set([PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.PREP]
  * server/match/finalAssault.js pairPlayers) through the fight (the boss field listing the
  * viewer). Empty for a lone player, an eliminated player or a spectator seat (no pair of its own) and in every other
  * round. PR #191 framed the partner alone, in gold (not merged).
- * @param {any} pub m.public @param {string|null} myId
+ * @param {Pub} pub m.public @param {string|null} myId
  * @returns {Set<string>}
  */
 export function teamFrameIds(pub, myId) {
@@ -58,11 +60,11 @@ export function teamFrameIds(pub, myId) {
   const players = Array.isArray(pub.players) ? pub.players.filter(isObj) : [];
   const me = players.find((p) => p.playerId === myId);
   if (!me || me.alive === false) return none;
-  const r = pub.round;
+  const r = /** @type {number} */ (pub.round);
   const bossRound = Number.isInteger(r) && r > 0 && (r === pub.bossRound || r === pub.hiddenRound);
   if (pub.phase === PHASE.FINAL_ASSAULT || pub.phase === PHASE.HIDDEN_CORE) {
     const f = (Array.isArray(pub.fields) ? pub.fields : []).find((x) => isObj(x) && (x.kind === 'boss' || x.kind === 'hidden') && Array.isArray(x.players) && x.players.includes(myId));
-    return f && f.players.length > 1 ? new Set(f.players) : none;
+    return f && /** @type {string[]} */ (f.players).length > 1 ? new Set(/** @type {string[]} */ (f.players)) : none;
   }
   if (!bossRound || !BOSS_PREP_PHASES.has(pub.phase)) return none;
   const pair = bossPairOf(pub, myId);
@@ -75,6 +77,7 @@ export function teamFrameIds(pub, myId) {
  * (configBlackBoard left_prepare_camera_param / *_boss_prepare_*, render/projection.js presetCamera `shop: false`) and
  * the folded shop's HUD band (ui/fieldHost.js hudBands), an open one the shop camera. `folded` = the shop bar is shown
  * and folded (an eliminated player's board, which shows no bar, keeps the shop camera).
+ * @param {Pub} pub @param {string|null} myId @param {boolean} [folded]
  * @returns {{ kind: 'prep'|'bossPrep', opts: { rect?: object, side: 'L'|'R', shop: boolean, sideBy?: boolean,
  *   at?: { row: number, col: number } } }} (`sideBy` / `at`: foldCamera adds them)
  */
@@ -161,6 +164,8 @@ export function deployFoldsShop(o) {
  * The field the own pieces are deployed on (server/match/Match.js deployFieldOf): 'bossL' / 'bossR' in the prep of a
  * boss round (the same pairing as `prepCamera`), else 'normal'. Placement legality (`placementContext` → `deployMap`
  * with `field`) reads that field's tiles.
+ * @param {Pub} pub
+ * @param {string|null} myId
  * @returns {'normal'|'bossL'|'bossR'}
  */
 export function deployFieldOf(pub, myId) {
@@ -171,20 +176,27 @@ export function deployFieldOf(pub, myId) {
 /**
  * The stage tile [row, col] of board tile (r, c) on deploy field `field` (server/match/board.js fieldTile): the boss
  * prep's display transform (render/prepfield.js bossPrepField: row − 7, the right half mirrored col c → 20 − c).
+ * @param {string} field @param {number} r @param {number} c
+ * @returns {[number, number]}
  */
 export function fieldTile(field, r, c) {
   if (field !== 'bossL' && field !== 'bossR') return [r, c];
   return [r + BOSS_ROW_SHIFT, field === 'bossR' ? MAX_COL - c : c];
 }
 
-/** The board tile of stage tile (r, c) on deploy field `field` (server/match/board.js boardTileOf). */
+/**
+ * The board tile of stage tile (r, c) on deploy field `field` (server/match/board.js boardTileOf).
+ * @param {string} field @param {number} r @param {number} c
+ * @returns {[number, number]}
+ */
 export function boardTileOf(field, r, c) {
   if (field !== 'bossL' && field !== 'bossR') return [r, c];
   return [r - BOSS_ROW_SHIFT, field === 'bossR' ? MAX_COL - c : c];
 }
 
 /** The band (策略) a player picked, from m.public.players[].bandId (Match.js marksPublic) — the detail card shows it
- *   on a teammate's unit (user playtest #2 item 2: watching a teammate revealed nothing about their 策略). */
+ *   on a teammate's unit (user playtest #2 item 2: watching a teammate revealed nothing about their 策略).
+ * @param {Pub | null | undefined} pub @param {string} ownerId */
 export function ownerBandId(pub, ownerId) {
   const p = Array.isArray(pub?.players) ? pub.players.find((x) => x && x.playerId === ownerId) : null;
   return typeof p?.bandId === 'string' && p.bandId ? p.bandId : null;

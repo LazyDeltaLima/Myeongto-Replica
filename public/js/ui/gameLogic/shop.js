@@ -2,6 +2,7 @@
 // ../gameLogic.js.
 
 import { GEO } from '../../../../shared/constants.js';
+/** @import { Bag } from './shared.js' */
 import { isObj } from './shared.js';
 import { t, tName } from '../../../../shared/i18n.js';
 
@@ -52,6 +53,7 @@ export function mergeProgress(priv, chessId, getChess = () => null) {
  * merge — an elite card never merges, see mergeProgress — or no copy is deployed: the elite goes to the hand). The
  * copies stand on legal tiles, and the elite is the same operator, so the tile needs no legality check here.
  * @param {any} priv
+ * @param {Bag | null | undefined} priv
  * @param {string} chessId
  * @param {(id:string)=>any} [getChess]
  * @returns {{ row: number, col: number, dir: string } | null}
@@ -61,20 +63,20 @@ export function mergeTarget(priv, chessId, getChess = () => null) {
   if (!(copies > 0 && copies + 1 >= need)) return null;
   const c = getChess(chessId);
   const base = c?.baseId || chessId;
-  const board = (Array.isArray(priv?.board) ? priv.board : []).filter((p) => p?.kind === 'chess' && !p.golden && Number.isInteger(p.row) && Number.isInteger(p.col)
+  const board = (Array.isArray(priv?.board) ? priv.board : []).filter((/** @type {Bag | null | undefined} */ p) => p?.kind === 'chess' && !p.golden && Number.isInteger(p.row) && Number.isInteger(p.col)
     && !String(p.id).endsWith('_b') && (p.id === base || getChess(p.id)?.baseId === base));
   if (!board.length) return null;
-  board.sort((a, b) => a.col - b.col || b.row - a.row);
+  board.sort((/** @type {Bag} */ a, /** @type {Bag} */ b) => a.col - b.col || b.row - a.row);
   return { row: board[0].row, col: board[0].col, dir: board[0].dir || 'RIGHT' };
 }
 
-/** Whether every hand slot is taken (the server refuses every purchase / reward pick then: HAND_FULL, GitHub #82). */
+/** Whether every hand slot is taken (the server refuses every purchase / reward pick then: HAND_FULL, GitHub #82). @param {Bag | null | undefined} priv */
 export function handFull(priv) {
   const hand = Array.isArray(priv?.hand) ? priv.hand : [];
-  return hand.length >= GEO.HAND_SIZE && hand.every((p) => p != null);
+  return hand.length >= GEO.HAND_SIZE && hand.every((/** @type {unknown} */ p) => p != null);
 }
 
-/** 规程's 装备区 (m.private bag > 0) has no free slot (the server refuses an item purchase / pick then: BAG_FULL). */
+/** 规程's 装备区 (m.private bag > 0) has no free slot (the server refuses an item purchase / pick then: BAG_FULL). @param {Bag | null | undefined} priv */
 export function bagFull(priv) {
   if (!(Number(priv?.bag) > 0)) return false;
   const temp = Array.isArray(priv?.temp) ? priv.temp : [];
@@ -82,15 +84,15 @@ export function bagFull(priv) {
   return true;
 }
 
-/** The zone a shop / reward card of `kind` goes to is full: 规程's 装备区 for an item, else the hand (PlayerState.freeZoneSlot). */
+/** The zone a shop / reward card of `kind` goes to is full: 规程's 装备区 for an item, else the hand (PlayerState.freeZoneSlot). @param {Bag | null | undefined} priv @param {string} kind */
 export function zoneFull(priv, kind) {
   return Number(priv?.bag) > 0 && kind === 'item' ? bagFull(priv) : handFull(priv);
 }
 
-/** The pieces that overflowed (m.private temp; in 规程 only the queue behind the five 装备区 slots — PlayerState.overflowPieces). */
+/** The pieces that overflowed (m.private temp; in 规程 only the queue behind the five 装备区 slots — PlayerState.overflowPieces). @param {Bag | null | undefined} priv */
 export function overflowOf(priv) {
   const temp = Array.isArray(priv?.temp) ? priv.temp : [];
-  return (Number(priv?.bag) > 0 ? temp.slice(GEO.TEMP_SIZE) : temp).filter((p) => isObj(p));
+  return (Number(priv?.bag) > 0 ? temp.slice(GEO.TEMP_SIZE) : temp).filter((/** @type {unknown} */ p) => isObj(p));
 }
 
 /**

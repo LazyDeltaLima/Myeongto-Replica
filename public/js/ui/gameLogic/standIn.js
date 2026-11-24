@@ -16,16 +16,24 @@
 import { standInRecord } from '../../../../shared/standIn.js';
 import { resolveLoadout } from '../../../../shared/protocol.js';
 import { chessLoadout } from './loadout.js';
+/** @import { Bag } from './shared.js' */
 import { isObj } from './shared.js';
 import { t } from '../../../../shared/i18n.js';
 
-/** Base chess ids the player fields as stand-ins in this match (m.private.standIns; [] when absent). */
+/**
+ * Base chess ids the player fields as stand-ins in this match (m.private.standIns; [] when absent).
+ * @param {Bag | null | undefined} priv
+ * @returns {string[]}
+ */
 export function standInIds(priv) {
   const list = isObj(priv) && Array.isArray(priv.standIns) ? priv.standIns : [];
-  return list.filter((x) => typeof x === 'string');
+  return list.filter((/** @type {unknown} */ x) => typeof x === 'string');
 }
 
-/** Whether the player's own piece / card of chess record `chess` (normal or elite) fields its stand-in. */
+/**
+ * Whether the player's own piece / card of chess record `chess` (normal or elite) fields its stand-in.
+ * @param {Bag | null | undefined} priv @param {Bag | null | undefined} chess
+ */
 export function fieldsStandIn(priv, chess) {
   if (!isObj(chess) || typeof chess.chessId !== 'string') return false;
   const ids = standInIds(priv);
@@ -87,7 +95,7 @@ export function memberStandIn(priv, chess, backups, getChess = () => null) {
   if (!isObj(chess) || typeof chess.chessId !== 'string') return null;
   if (fieldsStandIn(priv, chess)) return standInOf(chess, backups);
   const base = chess.baseId || chess.chessId;
-  const baseOf = (id) => getChess(id)?.baseId || (typeof id === 'string' ? id.replace(/_b$/, '_a') : id);
+  const baseOf = (/** @type {any} */ id) => getChess(id)?.baseId || (typeof id === 'string' ? id.replace(/_b$/, '_a') : id);
   for (const list of [priv?.board, priv?.hand, priv?.temp]) {
     for (const p of Array.isArray(list) ? list : []) {
       if (isObj(p) && typeof p.standInFor === 'string' && p.standInFor && baseOf(p.id) === base) return standInOf(chess, backups);
@@ -96,7 +104,11 @@ export function memberStandIn(priv, chess, backups, getChess = () => null) {
   return null;
 }
 
-/** id → stand-in record (else the chess record): the lookup a stand-in's loadout / options resolve against. */
+/**
+ * id → stand-in record (else the chess record): the lookup a stand-in's loadout / options resolve against.
+ * @param {(id: string) => any} getChess @param {any} backups
+ * @returns {(id: string) => any}
+ */
 export function standInGetter(getChess, backups) {
   return (id) => {
     const c = getChess(id);
@@ -131,6 +143,7 @@ export function deployedRecord(chess, priv, getChess, backups) {
 /**
  * The module id a deployed piece carries: a stand-in's backup module, else the player's loadout. (The 高台 rule no
  * longer reads it: since the owner's decision of 2026-10-05 it is the trait, whatever the module — shared/highGround.js.)
+ * @param {any} chess @param {Bag | null | undefined} priv @param {(id: string) => any} getChess @param {any} backups
  */
 export function deployedModuleId(chess, priv, getChess, backups) {
   if (!isObj(chess)) return null;
@@ -143,17 +156,20 @@ export function deployedModuleId(chess, priv, getChess, backups) {
   } catch { return null; }
 }
 
-/** The small 「替补」 mark of a stand-in record (null without one): cards, the own pieces' tags, thumbnails. */
+/** The small 「替补」 mark of a stand-in record (null without one): cards, the own pieces' tags, thumbnails. @param {unknown} rec */
 export function standInLabel(rec) {
   return isObj(rec) && rec.standInFor ? t('替补') : null;
 }
 
-/** The replaced operator's line of a stand-in's detail card: 「银灰的替补」 (`chessName` = the chess's own name). */
+/** The replaced operator's line of a stand-in's detail card: 「银灰的替补」 (`chessName` = the chess's own name). @param {string | null | undefined} chessName */
 export function standInForText(chessName) {
   return t('{name}的替补', { name: chessName || '' });
 }
 
-/** The 「替补」 mark's title: which chess the stand-in fields for, and what stays the chess's ('' without a stand-in). */
+/**
+ * The 「替补」 mark's title: which chess the stand-in fields for, and what stays the chess's ('' without a stand-in).
+ * @param {unknown} rec @param {string | null | undefined} chessName
+ */
 export function standInTip(rec, chessName) {
   return isObj(rec) && rec.standInFor ? t('未持有{name}：由替补干员 {standIn} 上场（盟约、特质、阶级与价格不变）', { name: chessName || '', standIn: rec.name || '' }) : '';
 }
