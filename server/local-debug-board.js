@@ -42,7 +42,7 @@ export function debugBosses(gd) {
 
 /** The shop chess of a bond, highest tier first (then shop order). @param {GameData} gd @param {string} bondId */
 export function bondMembers(gd, bondId) {
-  const rec = (/** @type {string} */ id) => gd.chess(id);
+  const rec = (/** @type {string} */ id) => /** @type {Record<string, any>} */ (gd.chess(id)); // a listed chess id
   return gd.visibleChess.filter((id) => (rec(id).bonds || []).includes(bondId))
     .sort((a, b) => rec(b).tier - rec(a).tier || (rec(a).shopSortId ?? 0) - (rec(b).shopSortId ?? 0) || (a < b ? -1 : 1));
 }
@@ -51,7 +51,7 @@ export function bondMembers(gd, bondId) {
 export function debugCoreBonds(m) {
   const gd = m.gd;
   const off = new Set([...(m.disabledBonds || []), ...(m.staticInactiveBonds || []), ...gd.modeInactiveBonds]);
-  return gd.bondIds.filter((b) => gd.bond(b)?.isCore && !off.has(b) && bondMembers(gd, b).length >= (gd.bond(b).thresholds?.[0] ?? 3));
+  return gd.bondIds.filter((b) => gd.bond(b)?.isCore && !off.has(b) && bondMembers(gd, b).length >= (/** @type {Record<string, any>} */ (gd.bond(b)).thresholds?.[0] ?? 3));
 }
 
 /**
@@ -65,7 +65,7 @@ export function planDebugBoard(gd, bondId, size) {
   const fits = (gd.bond(bondId)?.thresholds || []).filter((/** @type {number} */ t) => t <= size);
   const want = Math.min(members.length, fits.length ? Math.max(...fits) : size);
   const chosen = members.slice(0, want);
-  const rec = (/** @type {string} */ id) => gd.chess(id);
+  const rec = (/** @type {string} */ id) => /** @type {Record<string, any>} */ (gd.chess(id)); // a listed chess id
   const bondsOf = (/** @type {string} */ id) => rec(id).bonds || [];
   while (chosen.length < size) {
     const held = new Set(chosen.flatMap(bondsOf));
@@ -128,11 +128,11 @@ export function assignDebugBonds(m, senderId, bondId = null) {
  */
 export function applyDebugBoard(m, ps, bondId, level) {
   const gd = m.gd;
-  const held = [...ps.board.values(), ...ps.hand, .../** @type {any[]} */ (ps.temp)].filter(Boolean);
+  const held = [...ps.board.values(), ...ps.hand, ...ps.temp].filter(Boolean);
   for (const p of held) ps.returnCopies(p);
   ps.board.clear();
   ps.hand.fill(null);
-  /** @type {any[]} */ (ps.temp).fill(null);
+  ps.temp.fill(null);
   ps._tempDue?.clear();
   const units = planDebugBoard(gd, bondId, Math.min(ps.deployCap, ps.hand.length));
   const pieces = units.map((id, i) => (ps.hand[i] = ps.newPiece('chess', gd.goldenIdOf(id) || id)));

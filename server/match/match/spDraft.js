@@ -286,7 +286,7 @@ export class MatchSpDraft {
       id = this.pool.roll(rng, {
         tier: Number.isInteger(p.tier) ? p.tier : null,
         maxTier,
-        filter: (cid, e) => e.tier >= minTier && (!bond || (Array.isArray(recOf(cid)?.bonds) && recOf(cid).bonds.includes(bond))),
+        filter: (cid, e) => e.tier >= minTier && (!bond || (Array.isArray(recOf(cid)?.bonds) && /** @type {Record<string, any>} */ (recOf(cid)).bonds.includes(bond))),
         extra,
       });
     }

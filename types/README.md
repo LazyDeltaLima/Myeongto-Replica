@@ -103,7 +103,8 @@ server's options only). A listed file is checked in every config that has it; a 
 error.
 
 With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/screens/game/`, `public/js/render/app/`, `public/js/battle/`, `public/js/debug/`, `public/js/ui/gameLogic/`, `shared/`, the files directly under `server/`
-(`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`.
+(`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, and the files directly under
+`server/match/` but `audit.js`, `bot.js`, `choices.js`, `effectsMeta.js`, `fields.js` and `waves.js` (listed one by one).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -179,6 +180,17 @@ most strict errors were, and the JSDoc that fixed them:
 - a multi-line JSDoc cast whose continuation lines lack the ` * ` reads as a broken type (every field `never`): a typedef.
 - `{ baseId }` → `{ baseId: /** @type {string} */ (baseId) }` changes the syntax tree (shorthand property): cast the
   whole object (`return /** @type {DiySlot} */ ({ baseId, … })`).
+- the data lookups of `server/match/gamedata.js` (`gd.chess(id)`, `item`, `bond`, `band`, `stage` …) return
+  `Record<string, any> | null`: an id the code already checked, or took from the data's own lists (`gd.bondIds`,
+  `visibleChess`), is cast at the use, `/** @type {Record<string, any>} */ (gd.bond(id)).isCore` — no local alias.
+- a `Match` / `PlayerState` field that starts `null` in the constructor gets a value cast there (`this.teamLp = /** @type
+  {number | null} */ (null)`, a scheduler handle `/** @type {unknown} */ (null)`); a part that reads it in a phase
+  where it is always set casts at the use (`/** @type {SharedBossPool} */ (this.bossPool).hp`).
+- `MetaCtx` / `MetaHandlers` (`server/match/effectsMeta.js`) type the meta handlers: a handler table is
+  `@type {Record<string, MetaHandlers>}`, so its methods' `(ctx, ev)` need no `@param`. `MetaCtx` is still `any`
+  (makeCtx's `teammates` returns makeCtx again, so tsc cannot infer it) until makeCtx gets an explicit `@returns`.
+- a seeded stream is `ReturnType<typeof import('../sim/rng.js').createRng>` (`Rng` in `server/match/pool.js`), not
+  `Function` (which has no `shuffle`).
 
 ## Split classes
 

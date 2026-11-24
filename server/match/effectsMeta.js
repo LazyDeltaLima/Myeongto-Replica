@@ -549,6 +549,12 @@ function grantSpeaker(gd, source) {
 }
 
 /**
+ * A meta handler's context (makeCtx) and a handler set: hook name → its function of (ctx, ev).
+ * @typedef {ReturnType<typeof makeCtx>} MetaCtx
+ * @typedef {{ afterElimination?: boolean, [hook: string]: ((ctx: MetaCtx, ev: Record<string, any>) => unknown) | boolean | undefined }} MetaHandlers
+ */
+
+/**
  * @param {import('./Match.js').Match} m
  * @param {import('./PlayerState.js').PlayerState} ps
  * @param {object} source

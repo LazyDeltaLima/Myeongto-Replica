@@ -69,13 +69,19 @@ const GAME_TYPES = new Set(Object.keys(C2S).filter((t) => Object.hasOwn(C2S, t) 
 const DEFAULT_INFO_CHECK_S = 25;
 const MAX_TIMER_MS = 2 ** 31 - 1;
 const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
+/** @typedef {{seat:number, playerId:string, name:string, isBot:boolean, connected:boolean, left:boolean, ready:boolean, lastEmoteAt:number}} StubSeat */
 
-/** Positive finite number or the fallback. */
+/**
+ * Positive finite number or the fallback.
+ * @param {unknown} v
+ * @param {number} fallback
+ * @returns {number}
+ */
 const posNum = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : fallback);
 
 // STUB — replaced in Core phase
 export class StubMatch {
-  /** @param {object} opts see MATCH INTERFACE above */
+  /** @param {Record<string, any>} opts see MATCH INTERFACE above */
   constructor(opts) {
     if (!opts || !Array.isArray(opts.seats) || opts.seats.length === 0) throw new TypeError('Match: seats required');
     if (typeof opts.send !== 'function' || typeof opts.broadcast !== 'function' || typeof opts.onEnd !== 'function') {
@@ -98,7 +104,7 @@ export class StubMatch {
       ? modeCfg.lastRound
       : (this.modeId === 'mode_single_funny' ? 9 : 14);
     this.infoCheckMs = Math.min(MAX_TIMER_MS, posNum(config.timers && config.timers.infoCheck, DEFAULT_INFO_CHECK_S) * 1000);
-    /** @type {Map<string, {seat:number, playerId:string, name:string, isBot:boolean, connected:boolean, left:boolean, ready:boolean, lastEmoteAt:number}>} */
+    /** @type {Map<string, StubSeat>} */
     this.players = new Map();
     for (const s of opts.seats) {
       this.players.set(s.playerId, { ...s, left: false, ready: !!s.isBot, lastEmoteAt: -Infinity });
@@ -146,6 +152,7 @@ export class StubMatch {
     return { ok: true };
   }
 
+  /** @param {string} playerId */
   onDisconnect(playerId) {
     const p = this.players.get(playerId);
     if (!p || p.isBot || this.disposed) return;
@@ -153,6 +160,7 @@ export class StubMatch {
     if (!this.ended) this.broadcastFn(this.publicView());
   }
 
+  /** @param {string} playerId */
   onReconnect(playerId) {
     const p = this.players.get(playerId);
     if (!p || p.isBot || p.left || this.disposed) return;
@@ -163,6 +171,7 @@ export class StubMatch {
     if (!this.ended && !wasConnected) this.broadcastFn(this.publicView());
   }
 
+  /** @param {string} playerId */
   onLeave(playerId) {
     const p = this.players.get(playerId);
     if (!p || p.isBot || p.left || this.disposed) return;
@@ -180,7 +189,10 @@ export class StubMatch {
 
   // ---- stub internals ------------------------------------------------------------------------------
 
-  /** End the stub match when every human is ready (or unconditionally once the deadline passed). */
+  /**
+   * End the stub match when every human is ready (or unconditionally once the deadline passed).
+   * @param {boolean} [deadlinePassed]
+   */
   maybeFinish(deadlinePassed) {
     if (this.ended || this.disposed) return;
     if (!deadlinePassed) {
@@ -230,7 +242,10 @@ export class StubMatch {
     };
   }
 
-  /** DESIGN §8.3 m.private with an empty economy. */
+  /**
+   * DESIGN §8.3 m.private with an empty economy.
+   * @param {StubSeat} p
+   */
   privateView(p) {
     return {
       t: 'm.private',

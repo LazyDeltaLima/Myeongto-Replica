@@ -423,7 +423,7 @@ export class MatchBandSkill {
     if (!pool.length) return fail(ERR.BAD_TARGET, 'no band skill to offer');
     const gd = ps.gd || this.gd;
     const cards = this.rngMeta.shuffle(pool.slice()).slice(0, offerCount(desc))
-      .map((/** @type {string} */ bandId) => ({ bandId, effectId: gd.band(bandId).effectId ?? bandId }));
+      .map((/** @type {string} */ bandId) => ({ bandId, effectId: /** @type {Record<string, any>} */ (gd.band(bandId)).effectId ?? bandId }));
     ps.personalChoice = {
       id: `${this.battlePrefix}.choice.${this.nextUid()}`, round: this.round, kind: 'bandSkill',
       choiceEvent: typeof choiceEvent === 'string' ? choiceEvent : null, sourceItemId, sourceBandId, cards,
@@ -462,8 +462,8 @@ export class MatchBandSkill {
     const i = this._commandStageNow(ps, c.bandId);
     const st = stages[i];
     return {
-      kind: 'bandSkill', id: c.effectId, bandId: c.bandId, bandName: rec.name ?? null, iconId: rec.iconId ?? null,
-      name: st.name ?? rec.effectName ?? '', desc: st.desc ?? '', descRaw: st.descRaw ?? null,
+      kind: 'bandSkill', id: c.effectId, bandId: c.bandId, bandName: /** @type {Record<string, any>} */ (rec).name ?? null, iconId: /** @type {Record<string, any>} */ (rec).iconId ?? null,
+      name: st.name ?? /** @type {Record<string, any>} */ (rec).effectName ?? '', desc: st.desc ?? '', descRaw: st.descRaw ?? null,
       // a passive 指令 has no cost (the card shows none)
       stage: i, stageCount: stages.length, type: st.type ?? null, cost: st.type === 'PASSIVE' ? null : Math.max(0, int(st.cost)),
     };

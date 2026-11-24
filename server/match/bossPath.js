@@ -14,6 +14,7 @@
 
 import { GEO } from '../../shared/constants.js';
 import { Battle } from '../sim/Battle.js';
+/** @import { Match } from './Match.js' */
 
 /** Tick cap of one path run (30 ticks/s): 600 game s — a lap of the slowest leader on the longest field is ~560 s. */
 export const PATH_TICK_CAP = 30 * 600;
@@ -24,14 +25,19 @@ const STILL_TICKS = 30 * 10;
 const CACHE_MAX = 64;
 const cache = new Map();
 
-/** Douglas–Peucker over [row, col] points. */
+/**
+ * Douglas–Peucker over [row, col] points.
+ * @param {number[][]} pts
+ * @param {number} [eps]
+ * @returns {number[][]}
+ */
 export function simplifyPath(pts, eps = PATH_EPS) {
   if (!Array.isArray(pts) || pts.length < 3) return Array.isArray(pts) ? pts.slice() : [];
   const keep = new Uint8Array(pts.length);
   keep[0] = keep[pts.length - 1] = 1;
   const stack = [[0, pts.length - 1]];
   while (stack.length) {
-    const [a, b] = stack.pop();
+    const [a, b] = /** @type {number[]} */ (stack.pop());
     const [ar, ac] = pts[a], [br, bc] = pts[b];
     const dr = br - ar, dc = bc - ac, len = Math.hypot(dr, dc);
     let best = -1, bd = eps;
@@ -45,21 +51,22 @@ export function simplifyPath(pts, eps = PATH_EPS) {
   return pts.filter((_, i) => keep[i]);
 }
 
+/** @param {Record<string, any> | null | undefined} L */
 const legAt = (L) => (L && L.t === 'move' && Number.isFinite(L.r) && Number.isFinite(L.c) ? `${L.r},${L.c}` : null);
 
 /**
  * Run the leaders of a boss field without operators and record their paths.
- * @param {(opts: object) => object} newBattle battle factory (Match.newBattle, or `(o) => new Battle(o)`)
- * @param {object} opts battle options of the field (stageId, rect, routes, waveId, enemyOverrides, …); `players` are
+ * @param {(opts: Record<string, any>) => Record<string, any> | null} newBattle battle factory (Match.newBattle, or `(o) => new Battle(o)`)
+ * @param {Record<string, any>} opts battle options of the field (stageId, rect, routes, waveId, enemyOverrides, …); `players` are
  *   reduced to their seats (no units, effects or bonds), `spawns` to the leader spawns
  * @returns {Array<{ enemyKey: string, pts: number[][] }>} one entry per leader, [row, col] points from its spawn
  */
 export function runLeaderPaths(newBattle, opts) {
-  const players = (opts.players || []).map((p, i) => ({
+  const players = (opts.players || []).map((/** @type {Record<string, any>} */ p, /** @type {number} */ i) => ({
     playerId: p.playerId ?? `p${i + 1}`, seat: p.seat ?? i, side: p.side ?? (i ? 'R' : 'L'), colOffset: p.colOffset ?? (i ? 8 : 0),
     units: [], bonds: {}, bandId: null, playerEffects: [], deviceOverrides: { ...(p.deviceOverrides || {}) },
   }));
-  const spawns = (opts.spawns || []).filter((s) => s && s.tag === 'boss').map((s) => ({ ...s, count: 1, interval: 0 }));
+  const spawns = (opts.spawns || []).filter((/** @type {Record<string, any> | null} */ s) => s && s.tag === 'boss').map((/** @type {Record<string, any>} */ s) => ({ ...s, count: 1, interval: 0 }));
   if (!spawns.length) return [];
   const pool = { hp: 1e12, maxHp: 1e12, damage() {} };
   const b = newBattle({ ...opts, seed: 1, timeLimit: null, players, spawns, sharedBoss: pool });
@@ -101,6 +108,9 @@ export function runLeaderPaths(newBattle, opts) {
 /**
  * The leader paths of a boss group's field (Match: `g` = bossGroupOf(ps)), cached; [] when the group's leader does not
  * walk or the run fails.
+ * @param {Match} m
+ * @param {ReturnType<Match['bossGroupOf']>} g
+ * @returns {Array<{ enemyKey: string, pts: number[][] }>}
  */
 export function bossFieldPaths(m, g) {
   const wave = g && g.wave;
@@ -109,6 +119,7 @@ export function bossFieldPaths(m, g) {
   const devices = pss.map((ps) => (ps && ps.deviceOverrides) || {});
   const key = `${m.stageId}|${wave.templateId}|${pss.length}|${JSON.stringify(devices)}`;
   if (cache.has(key)) return cache.get(key);
+  /** @type {Array<{ enemyKey: string, pts: number[][] }>} */
   let out;
   try {
     // the sim's own Battle, not the match's factory (Match.newBattle: tests inject a fake one and count its fields)

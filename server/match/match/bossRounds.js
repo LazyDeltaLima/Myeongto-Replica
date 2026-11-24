@@ -63,7 +63,7 @@ export class MatchBoss {
     const hitSteps = new Map();
     const pool = new SharedBossPool(bossPoolHp(this.gd, bossId, alive.length), {
       onHit: (pid, dmg) => {
-        const ps = this.players.get(pid);
+        const ps = this.players.get(/** @type {string} */ (pid)); // a hit nobody dealt (null) finds no seat
         if (!ps) return;
         ps.stats.bossDamage += dmg;
         const share = (pool.byPlayer.get(pid) || 0) / pool.maxHp;
@@ -595,7 +595,7 @@ export class MatchBoss {
   /** @param {FieldRunner} runner @this {Match} */
   _bossTick(runner) {
     this._applyOvertime(runner.time);
-    if ((this.teamLp <= 0 || this.overtimeOver) && this.bossPool.hp > 0) runner.forceAll('forced');
+    if ((/** @type {number} */ (this.teamLp) <= 0 || this.overtimeOver) && /** @type {SharedBossPool} */ (this.bossPool).hp > 0) runner.forceAll('forced');
     // client-side combat with every boss field on the server: humans that reconnect / watch run display replicas
     // whose LocalBossPool follows b.pool
     if (this.fields.some((f) => f.cc)) { this._broadcastPool(false); this._bossPublic(); }
@@ -616,7 +616,7 @@ export class MatchBoss {
     this._stopClientCombat();
     // the end condition the server registered first decides (client-side combat: _endFinal — pool 0 → victory, team LP 0
     // → defeat); a boss field's final result may never turn a defeat into a victory (maintainer playtest #6 item 5)
-    const victory = this._finalEnding ? this._finalEnding === 'cleared' : this.bossPool.hp <= 0;
+    const victory = this._finalEnding ? this._finalEnding === 'cleared' : /** @type {SharedBossPool} */ (this.bossPool).hp <= 0;
     const layersOn = seasonFeature(this.season, 'bossLayerGains');
     for (const f of this.fields) {
       const res = resultOf(f);
@@ -663,7 +663,7 @@ export class MatchBoss {
     this.markPublic();
     this.runner = null;
     if (!hidden) {
-      const eligible = victory && !!this.hiddenBossId && hiddenEligible(this.gd, { layerSum: this.hiddenLayerSum, teamLp: this.teamLp });
+      const eligible = victory && !!this.hiddenBossId && hiddenEligible(this.gd, { layerSum: this.hiddenLayerSum, teamLp: /** @type {number} */ (this.teamLp) });
       this.later(this.scaled(DELAYS.SETTLE), () => {
         if (eligible) {
           this.hiddenReached = true;

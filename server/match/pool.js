@@ -26,6 +26,8 @@
 // any chess, drawn by that player's shop only.
 
 import { bondsOff } from '../../shared/seasons.js';
+/** @import { Piece } from './player/pieces.js' */
+/** @typedef {ReturnType<typeof import('../sim/rng.js').createRng>} Rng */
 
 /**
  * Per-match disabled bond set D and banned chess (research 01 A2): D = uniform sample of `core` core bonds and `addon`
@@ -43,7 +45,7 @@ import { bondsOff } from '../../shared/seasons.js';
  * plays (match/phases.js pickBondGroup); until then the left one does, so D holds the right one — the core bonds the
  * count draw takes at 5 of 10, and no other draw moves.
  * @param {import('./gamedata.js').GameData} gd
- * @param {Function} rng seeded rng (createRng)
+ * @param {Rng} rng seeded rng (createRng)
  * @param {{ coreBan?: boolean, soloGroups?: boolean }} [opts]
  * @returns {{ drawn: string[], staticOff: string[], banned: string[], groups: string[][] | null, addonDrawn: string[] }} `addonDrawn`:
  *   the add-on bonds of the draw (a group pick keeps them)
@@ -55,8 +57,9 @@ export function drawDisabledBonds(gd, rng, { coreBan = false, soloGroups = false
     const bond = gd.bond(b);
     return bond && Number(bond.weight) > 0 && !gd.modeInactiveBonds.has(b);
   });
-  const core = eligible.filter((b) => gd.bond(b).isCore);
-  const addon = eligible.filter((b) => !gd.bond(b).isCore);
+  const core = eligible.filter((b) => /** @type {Record<string, any>} */ (gd.bond(b)).isCore);
+  const addon = eligible.filter((b) => !/** @type {Record<string, any>} */ (gd.bond(b)).isCore);
+  /** @param {string} b */
   const random = (b) => gd.bondPick(b) == null;
   const forced = eligible.filter((b) => gd.bondPick(b) === 'ban');
   let groups = null;
@@ -64,6 +67,7 @@ export function drawDisabledBonds(gd, rng, { coreBan = false, soloGroups = false
   if (soloGroups && gd.isSolo && !gd.custom && core.length >= 2) {
     const order = sample(core, core.length, rng);
     const half = Math.floor(order.length / 2);
+    /** @param {Set<string>} set */
     const inOrder = (set) => core.filter((b) => set.has(b));
     groups = [inOrder(new Set(order.slice(half))), inOrder(new Set(order.slice(0, half)))];
     coreDrawn = groups[1];
@@ -82,11 +86,19 @@ export function drawDisabledBonds(gd, rng, { coreBan = false, soloGroups = false
  * @returns {string[]}
  */
 export function bannedChessFor(gd, off, coreBan = false) {
+  /** @param {string} b */
   const isCore = (b) => !!gd.bond(b)?.isCore;
   return gd.visibleChess.filter((id) => bondsOff(gd.chess(id)?.bonds, off, { coreBan, isCore }));
 }
 
-/** `n` of `arr` in a shuffled order — the first ones `ok` takes (all: the official sample). */
+/**
+ * `n` of `arr` in a shuffled order — the first ones `ok` takes (all: the official sample).
+ * @param {string[]} arr
+ * @param {number} n
+ * @param {Rng} rng
+ * @param {((b: string) => boolean) | null} [ok]
+ * @returns {string[]}
+ */
 function sample(arr, n, rng, ok = null) {
   const a = arr.slice();
   rng.shuffle(a);
@@ -113,14 +125,22 @@ export class SharedPool {
     this.banned = [...ban].sort();
   }
 
-  /** Whether a base chess is part of this match's pool (visible, not banned). */
+  /**
+   * Whether a base chess is part of this match's pool (visible, not banned).
+   * @param {string} baseId
+   */
   has(baseId) { return this.entries.has(baseId); }
+  /** @param {string} baseId */
   cap(baseId) { return this.entries.get(baseId)?.cap ?? 0; }
+  /** @param {string} baseId */
   left(baseId) { return Math.max(0, this.entries.get(baseId)?.left ?? 0); }
 
   /**
    * Take up to n copies; returns the number actually taken (0 when not in the pool / empty). `overdraw`: take all n
    * even past the stock (an owned piece always occupies its copies).
+   * @param {string} baseId
+   * @param {number} [n]
+   * @param {{ overdraw?: boolean }} [opts]
    */
   take(baseId, n = 1, { overdraw = false } = {}) {
     const e = this.entries.get(baseId);
@@ -130,7 +150,11 @@ export class SharedPool {
     return k;
   }
 
-  /** Return n copies (clamped at the cap). Returns the number actually returned. */
+  /**
+   * Return n copies (clamped at the cap). Returns the number actually returned.
+   * @param {string} baseId
+   * @param {number} [n]
+   */
   give(baseId, n = 1) {
     const e = this.entries.get(baseId);
     if (!e || !(n > 0)) return 0;
@@ -143,9 +167,12 @@ export class SharedPool {
    * Remaining copies of eligible chess (tier ≤ maxTier, or exactly `tier`): the pool's entries, then `extra` ([id, entry]
    * pairs of the same shape — a player's 自选 stock) under the same filters. `ignoreCounts`: every eligible identity
    * once, whatever its copies left (拟态物质's draw).
+   * @param {{ maxTier?: number, tier?: number|null, filter?: ((id: string, e: { left: number, tier: number }) => boolean) | null, extra?: Iterable<[string, { left: number, tier: number }]>|null, ignoreCounts?: boolean }} [opts]
    */
   _eligible({ maxTier = 6, tier = null, filter = null, extra = null, ignoreCounts = false } = {}) {
+    /** @type {[string, number][]} */
     const out = [];
+    /** @param {Iterable<[string, { left: number, tier: number }]>} list */
     const scan = (list) => {
       for (const [id, e] of list) {
         if (!ignoreCounts && e.left <= 0) continue;
@@ -175,8 +202,13 @@ export class SharedPool {
     return el[el.length - 1][0];
   }
 
-  /** Tier shares of a copy-weighted roll at shop level `maxTier` (current remaining copies). */
+  /**
+   * Tier shares of a copy-weighted roll at shop level `maxTier` (current remaining copies).
+   * @param {number} maxTier
+   * @returns {Record<string, number>}
+   */
   tierShares(maxTier) {
+    /** @type {Record<string, number>} */
     const t = {};
     let total = 0;
     for (const [, e] of this.entries) {
@@ -184,6 +216,7 @@ export class SharedPool {
       t[e.tier] = (t[e.tier] || 0) + e.left;
       total += e.left;
     }
+    /** @type {Record<string, number>} */
     const out = {};
     for (const k of Object.keys(t)) out[k] = total > 0 ? t[k] / total : 0;
     return out;
@@ -220,6 +253,7 @@ export class SharedPool {
 
   /** { baseId: left } snapshot (tests / diagnostics). */
   snapshot() {
+    /** @type {Record<string, number>} */
     const o = {};
     for (const [id, e] of this.entries) o[id] = Math.max(0, e.left);
     return o;
@@ -246,17 +280,28 @@ export class SharedPool {
  * upstream PR #496 (GitHub #488). Pool-draw traits (洛洛 / 焰尾, SERVER_POOL_*) stay pool-bound like any acquisition.
  */
 export class SharedItemPool {
-  /** @param {any} gd @param {() => Iterable<any>} players every seat of the match (eliminated ones hold nothing) */
+  /** @param {import('./gamedata.js').GameData} gd @param {() => Iterable<any>} players every seat of the match (eliminated ones hold nothing) */
   constructor(gd, players) { this.gd = gd; this.players = players; }
-  /** The cap of an item's base, or null (uncapped). */
+  /**
+   * The cap of an item's base, or null (uncapped).
+   * @param {string} id
+   */
   cap(id) { return this.gd.itemPoolCopies(id); }
-  /** Copies one piece of `id` occupies: an advanced (golden) item is the merge of two. */
+  /**
+   * Copies one piece of `id` occupies: an advanced (golden) item is the merge of two.
+   * @param {string} id
+   */
   need(id) { return this.gd.isGolden(id) ? 2 : 1; }
-  /** Copies item piece `p` occupies: none when trait-produced (`noPool`), its `poolHeld` when merged from a trait copy and a bought one (player/acquire.js _mergeItem), else need(). */
+  /**
+   * Copies item piece `p` occupies: none when trait-produced (`noPool`), its `poolHeld` when merged from a trait copy and a bought one (player/acquire.js _mergeItem), else need().
+   * @param {Piece} p
+   */
   copiesOf(p) { return p.noPool ? 0 : Number.isInteger(p.poolHeld) ? p.poolHeld : this.need(p.id); }
+  /** @param {string} id */
   held(id) {
     const base = this.gd.baseIdOf(id);
     let count = 0;
+    /** @param {Piece | null | undefined} p */
     const see = (p) => {
       if (!p) return;
       if (p.kind === 'item' && this.gd.baseIdOf(p.id) === base) count += this.copiesOf(p);
@@ -269,7 +314,9 @@ export class SharedItemPool {
     }
     return count;
   }
+  /** @param {string} id */
   left(id) { const cap = this.cap(id); return cap == null ? Infinity : Math.max(0, cap - this.held(id)); }
+  /** @param {string} id */
   canGain(id) { return this.left(id) >= this.need(id); }
   /**
    * One id of `ids` the stock can cover: uniform, or by `weights` (Map id → weight). The stock gates eligibility, not

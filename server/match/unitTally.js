@@ -22,14 +22,34 @@
 /** Most rows a player's result carries (the screen ranks the top ones; the stored match records keep fewer). */
 export const MAX_UNIT_ROWS = 24;
 
-/** The chess piece a board uid counts for: the piece itself, or the operator behind a summon piece. */
+/** @import { GameData } from './gamedata.js' */
+/** @import { PlayerState } from './PlayerState.js' */
+/** @import { Piece } from './player/pieces.js' */
+/**
+ * One row of unitRows.
+ * @typedef {{ id: string, golden: boolean, tier: number|null, diy?: object, standInFor?: string, sold?: true,
+ *   summon?: true, dmg: number, final: number, hidden: number, assist?: Record<string, number> }} UnitRow
+ */
+
+/**
+ * The chess piece a board uid counts for: the piece itself, or the operator behind a summon piece.
+ * @param {Map<number, Piece>} byUid
+ * @param {number} uid
+ * @returns {Piece | null}
+ */
 function chessFor(byUid, uid) {
+  /** @type {Piece | null | undefined} */
   let p = byUid.get(uid);
-  for (let i = 0; p && p.kind !== 'chess' && i < 4; i++) p = Number.isInteger(p.ownerUid) ? byUid.get(p.ownerUid) : null;
+  for (let i = 0; p && p.kind !== 'chess' && i < 4; i++) p = Number.isInteger(p.ownerUid) ? byUid.get(/** @type {number} */ (p.ownerUid)) : null;
   return p && p.kind === 'chess' ? p : null;
 }
 
-/** The player's row of a chess piece (created on first use); its look follows the latest piece (elite, pick, stand-in). */
+/**
+ * The player's row of a chess piece (created on first use); its look follows the latest piece (elite, pick, stand-in).
+ * @param {GameData} gd
+ * @param {PlayerState} ps
+ * @param {Piece} piece
+ */
 function rowOf(gd, ps, piece) {
   const pick = typeof ps.diyPickOf === 'function' ? ps.diyPickOf(piece.id) : null;
   const key = pick ? `diy:${pick.charId}` : gd.baseIdOf(piece.id);
@@ -44,8 +64,8 @@ function rowOf(gd, ps, piece) {
 
 /**
  * Add one battle's unitStats of a player.
- * @param {any} gd the match's game data
- * @param {any} ps PlayerState
+ * @param {GameData} gd the match's game data
+ * @param {PlayerState} ps
  * @param {any[]|undefined} unitStats BattleResult.perPlayer[pid].unitStats
  * @param {{ boss?: 'final'|'hidden'|null, bossCap?: number|null }} [o] a boss round: which leader, and what the server credited
  */
@@ -62,7 +82,7 @@ export function tallyBattle(gd, ps, unitStats, { boss = null, bossCap = null } =
   let scale = 1;
   if (boss) {
     const sum = hits.reduce((s, [, u]) => s + Math.max(0, Number(u.boss) || 0), 0);
-    if (Number.isFinite(bossCap) && sum > bossCap) scale = sum > 0 ? Math.max(0, bossCap) / sum : 0;
+    if (Number.isFinite(bossCap) && sum > /** @type {number} */ (bossCap)) scale = sum > 0 ? Math.max(0, /** @type {number} */ (bossCap)) / sum : 0;
   }
   for (const [row, u, summon] of hits) {
     const dmg = Math.max(0, Number(u.dmg) || 0);
@@ -84,8 +104,9 @@ export function tallyBattle(gd, ps, unitStats, { boss = null, bossCap = null } =
 /**
  * The player's rows for m.result: every operator that dealt damage or knocked out another player's enemy, most damage
  * first, at most MAX_UNIT_ROWS. `sold`: the operator is no longer the player's (not on the board, in the hand or in temp).
- * @returns {Array<{ id: string, golden: boolean, tier: number|null, diy?: object, standInFor?: string, sold?: true,
- *   summon?: true, dmg: number, final: number, hidden: number, assist?: Record<string, number> }>}
+ * @param {GameData} gd
+ * @param {PlayerState} ps
+ * @returns {UnitRow[]}
  */
 export function unitRows(gd, ps) {
   if (!ps || !ps.unitTally) return [];
@@ -99,6 +120,7 @@ export function unitRows(gd, ps) {
   for (const r of ps.unitTally.values()) {
     const assistSum = Object.values(r.assist).reduce((s, n) => s + n, 0);
     if (!(r.dmg >= 0.5) && !(r.final >= 0.5) && !(r.hidden >= 0.5) && !assistSum) continue;
+    /** @type {UnitRow} */
     const e = { id: r.id, golden: gd.isGolden(r.id), tier: gd.tierOf(r.id) ?? null, dmg: Math.round(r.dmg), final: Math.round(r.final), hidden: Math.round(r.hidden) };
     if (r.diy) e.diy = { ...r.diy };
     if (r.standInFor) e.standInFor = r.standInFor;

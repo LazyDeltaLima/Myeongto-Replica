@@ -32,10 +32,20 @@ import { getData } from '../data.js';
 import { itemKey } from './gamedata.js';
 import { canonicalBuffKey } from '../sim/content/items/aliases.js';
 import { msg, dn } from '../../shared/i18n.js';
+/** @import { MetaCtx, MetaHandlers } from './effectsMeta.js' */
 
-const int = (v, d = 0) => (Number.isFinite(v) ? Math.trunc(v) : d);
+/**
+ * @param {unknown} v
+ * @param {number} [d]
+ */
+const int = (v, d = 0) => (Number.isFinite(v) ? Math.trunc(/** @type {number} */ (v)) : d);
 
-/** item record params of the concrete (normal/golden) item */
+/**
+ * item record params of the concrete (normal/golden) item
+ * @param {MetaCtx} ctx
+ * @param {{ id: string } | null | undefined} item
+ * @returns {Record<string, any>}
+ */
 const paramsOf = (ctx, item) => {
   const rec = item ? ctx.gd.item(item.id) : null;
   return rec && rec.params && typeof rec.params === 'object' ? rec.params : {};
@@ -44,19 +54,31 @@ const paramsOf = (ctx, item) => {
 /**
  * The item gave nothing — the copies are all owned (the shared pool, research 06 §7) or no operator shares the bond — but
  * it is still destroyed ("装备时销毁"): say why instead of swallowing it (GitHub #401, the owner's OK of 2026-10-09).
+ * @param {MetaCtx} ctx
+ * @param {Record<string, any>} ev
  */
 function toastNothing(ctx, ev) {
   const who = ctx.gd.item(ev.item?.id)?.name || '';
   ctx.toast(msg('{who}：没有可获得的同盟约干员', { who: dn(who) }), 'warn');
 }
 
-/** random chess sharing at least one bond with `bonds`, tier ≤ maxTier */
+/**
+ * random chess sharing at least one bond with `bonds`, tier ≤ maxTier
+ * @param {MetaCtx} ctx
+ * @param {Iterable<string>} bonds
+ * @param {number} maxTier
+ * @param {string[] | null} [exclude]
+ */
 function rollSameBond(ctx, bonds, maxTier, exclude = null) {
   const set = new Set(bonds);
-  return ctx.rollChess({ maxTier, filter: (id) => { const c = ctx.gd.chess(id); return !!(c && Array.isArray(c.bonds) && c.bonds.some((b) => set.has(b))) && !(exclude && exclude.includes(id)); } });
+  return ctx.rollChess({ maxTier, filter: (/** @type {string} */ id) => { const c = ctx.gd.chess(id); return !!(c && Array.isArray(c.bonds) && c.bonds.some((/** @type {string} */ b) => set.has(b))) && !(exclude && exclude.includes(id)); } });
 }
 
-/** 信标: the living teammate (not the caller) with the most members of `bonds` ("相应盟约人数最多"), ties at random; null without one. */
+/**
+ * 信标: the living teammate (not the caller) with the most members of `bonds` ("相应盟约人数最多"), ties at random; null without one.
+ * @param {MetaCtx} ctx
+ * @param {string[]} bonds
+ */
 function mostBondMate(ctx, bonds) {
   const mates = ctx.teammates();
   if (!mates.length) return null;
@@ -69,6 +91,7 @@ function mostBondMate(ctx, bonds) {
   return ctx.rng.pick(pick) || null;
 }
 
+/** @type {Record<string, MetaHandlers>} */
 const ITEM_HANDLERS = {
   equip_destory_gain_random_coin: {
     onEquip(ctx, ev) {
@@ -89,7 +112,7 @@ const ITEM_HANDLERS = {
       const n = Math.max(1, int(paramsOf(ctx, ev.item).count, 1));
       for (let k = 0; k < n; k++) {
         const slots = ctx.shopSlots();
-        const idx = slots.map((s, i) => (s && s.kind === 'chess' && !s.sold ? i : -1)).filter((i) => i >= 0);
+        const idx = slots.map((/** @type {Record<string, any> | null} */ s, /** @type {number} */ i) => (s && s.kind === 'chess' && !s.sold ? i : -1)).filter((/** @type {number} */ i) => i >= 0);
         if (!idx.length) break;
         const i = ctx.rng.pick(idx);
         const id = slots[i].id;
@@ -158,7 +181,7 @@ const ITEM_HANDLERS = {
         return;
       }
       const bonds = new Set(ctx.pieceBonds(ev.target.uid));
-      const id = ctx.rollChess({ maxTier: 6, ignoreCounts: true, filter: (cid) => !!ctx.gd.chess(cid)?.bonds?.some((b) => bonds.has(b)) });
+      const id = ctx.rollChess({ maxTier: 6, ignoreCounts: true, filter: (/** @type {string} */ cid) => !!ctx.gd.chess(cid)?.bonds?.some((/** @type {string} */ b) => bonds.has(b)) });
       if (!id) toastNothing(ctx, ev);
       else ctx.grantChess(id, { requirePool: false });
     },
@@ -191,11 +214,12 @@ const ITEM_HANDLERS = {
       const bonds = ctx.pieceBonds(target.uid);
       const original = target.id; // the elite id for an elite (report #6)
       ctx.destroyPiece(target.uid);
+      /** @type {string[]} */
       const ids = [];
       // different operators of the target's tier, topped up from the tier below like the promotion reward (item 19)
       for (let k = 0; k < n; k++) {
         let id = null;
-        for (let t = tier; t >= 1 && !id; t--) id = ctx.rollChess({ tier: t, filter: (x) => !ids.includes(x) });
+        for (let t = tier; t >= 1 && !id; t--) id = ctx.rollChess({ tier: t, filter: (/** @type {string} */ x) => !ids.includes(x) });
         if (id) ids.push(id);
       }
       if (ids.length) ctx.offerChess(ids, { source: 'item', tier });
@@ -238,7 +262,7 @@ const ITEM_HANDLERS = {
   },
   trap_copy_front_char: {
     onArt(ctx, ev) {
-      const target = ev.targets.find((p) => p.kind === 'chess');
+      const target = ev.targets.find((/** @type {Record<string, any>} */ p) => p.kind === 'chess');
       if (!target) { ev.error = 'BAD_TARGET'; ev.detail = 'no operator in range'; return; }
       const copy = ctx.grantChess(target.id, { requirePool: false });
       if (!copy) { ev.error = 'HAND_FULL'; return; }
@@ -253,7 +277,7 @@ const ITEM_HANDLERS = {
       const rec = ctx.gd.item(ev.item.id);
       const perfectOnly = !!(rec && typeof rec.desc === 'string' && rec.desc.includes('完美'));
       const cards = ((ctx.data.choices && ctx.data.choices.cards && ctx.data.choices.cards.bounty) || [])
-        .filter((c) => c && c.tier <= 2 && (perfectOnly ? c.payout === 'perfect' : c.payout === 'kill') && ctx.gd.enemy(c.enemyKey) && !ctx.gd.inactiveEnemies.has(c.enemyKey));
+        .filter((/** @type {Record<string, any> | null} */ c) => c && c.tier <= 2 && (perfectOnly ? c.payout === 'perfect' : c.payout === 'kill') && ctx.gd.enemy(c.enemyKey) && !ctx.gd.inactiveEnemies.has(c.enemyKey));
       const card = ctx.rng.pick(cards);
       if (!card) { ev.error = 'BAD_TARGET'; ev.detail = 'no bounty available'; return; }
       ctx.addBounty(card);
@@ -261,7 +285,10 @@ const ITEM_HANDLERS = {
   },
 };
 
-/** Persistent EffectRef handlers used by built-ins and 机变 defaults. */
+/**
+ * Persistent EffectRef handlers used by built-ins and 机变 defaults.
+ * @type {Record<string, MetaHandlers>}
+ */
 const EFFECT_HANDLERS = {
   builtin_round_coin: {
     onRoundStart(ctx) {
@@ -318,7 +345,7 @@ const EFFECT_HANDLERS = {
 /**
  * Register the built-ins on a registry. Item keys are resolved from the loaded data by buff key.
  * @param {import('./effectsMeta.js').MetaRegistry} reg
- * @param {Readonly<Record<string, any>>} [data]
+ * @param {Readonly<Record<string, any>> | null} [data]
  */
 export function registerBuiltins(reg, data = null) {
   let d = data;
@@ -347,10 +374,15 @@ export function registerBuiltins(reg, data = null) {
 /**
  * Combine several buff-key handlers of one item family (e.g. 博士投影 normal = delayed, golden = immediate): each hook
  * dispatches to the handler whose buff key belongs to the concrete item (normal/golden) in the event.
+ * @param {MetaHandlers[]} handlers
+ * @param {Set<string>} buffKeys
+ * @returns {MetaHandlers}
  */
 function mergeHandlers(handlers, buffKeys) {
   if (handlers.length === 1) return handlers[0];
+  /** @type {Array<[string, MetaHandlers]>} */
   const byKey = [...buffKeys].filter((k) => ITEM_HANDLERS[k]).map((k) => [k, ITEM_HANDLERS[k]]);
+  /** @type {MetaHandlers} */
   const out = {};
   const hooks = new Set();
   for (const [, h] of byKey) for (const name of Object.keys(h)) hooks.add(name);
@@ -358,7 +390,7 @@ function mergeHandlers(handlers, buffKeys) {
     out[hook] = function (ctx, ev) {
       const item = (ev && ev.item) || (ctx.source && ctx.source.piece);
       const rec = item ? ctx.gd.item(item.id) : null;
-      const own = new Set(rec && Array.isArray(rec.buffs) ? rec.buffs.map((b) => canonicalBuffKey(b.key)) : []);
+      const own = new Set(rec && Array.isArray(rec.buffs) ? rec.buffs.map((/** @type {{ key: string }} */ b) => canonicalBuffKey(b.key)) : []);
       for (const [k, h] of byKey) if (own.has(k) && typeof h[hook] === 'function') h[hook](ctx, ev);
     };
   }

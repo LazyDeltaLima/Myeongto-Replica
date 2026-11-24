@@ -37,12 +37,18 @@ const PHASES = new Set(Object.values(PHASE));
  * @returns {string[]}
  */
 export function collectViolations(m, { limit = 25 } = {}) {
+  /** @type {string[]} */
   const out = [];
+  /** @param {string} msg */
   const fail = (msg) => { if (out.length < limit) out.push(msg); };
   const gd = m.gd;
   const held = new Map();
   const uids = new Set();
   const banned = new Set(m.bannedChess || []);
+  /**
+   * @param {{ playerId: string }} ps
+   * @param {{ uid: number }} p
+   */
   const note = (ps, p) => {
     if (!Number.isInteger(p.uid) || p.uid <= 0) fail(`${ps.playerId}: bad uid ${p.uid}`);
     else if (uids.has(p.uid)) fail(`${ps.playerId}: duplicate uid ${p.uid}`);
@@ -104,6 +110,7 @@ export function collectViolations(m, { limit = 25 } = {}) {
     const itemCounts = new Map();
     // A copy gained as the previous prep ended (PlayerState.acquireItem deferMerge) waits until the next prep.
     // It does not count toward "merges are immediate" until that prep's checkItemMerges consumes it.
+    /** @param {{ id: string, deferMerge?: unknown }} it */
     const countItem = (it) => { if (it.deferMerge) return; itemCounts.set(it.id, (itemCounts.get(it.id) || 0) + 1); };
     for (const p of all) {
       note(ps, p);
@@ -115,7 +122,7 @@ export function collectViolations(m, { limit = 25 } = {}) {
         for (const it of p.items || []) {
           note(ps, it);
           if (it.kind !== 'item' || !gd.item(it.id)) fail(`${id}: ${p.id} carries a bad item ${it.kind}:${it.id}`);
-          else if (gd.item(it.id).itemType !== 'EQUIP') fail(`${id}: ${p.id} carries a non-equipment item ${it.id}`);
+          else if (/** @type {Record<string, any>} */ (gd.item(it.id)).itemType !== 'EQUIP') fail(`${id}: ${p.id} carries a non-equipment item ${it.id}`);
           countItem(it);
         }
         const maxCopies = rec.isGolden ? gd.goldenCopies : 1;
@@ -179,7 +186,7 @@ export function collectViolations(m, { limit = 25 } = {}) {
     try {
       const fresh = computeBonds(pgd, ps);
       if (JSON.stringify(fresh) !== JSON.stringify(ps.bonds)) fail(`${id}: stale bonds (missing recompute)`);
-    } catch (e) {
+    } catch (/** @type {any} */ e) {
       fail(`${id}: computeBonds threw ${e && e.message}`);
     }
     // shop
@@ -226,7 +233,7 @@ export function collectViolations(m, { limit = 25 } = {}) {
       const cap = m.itemPool.cap(id);
       if (!Number.isInteger(cap)) continue;
       const h = m.itemPool.held(id);
-      if (h > cap) fail(`item ${id}: held ${h} > cap ${cap}`);
+      if (h > /** @type {number} */ (cap)) fail(`item ${id}: held ${h} > cap ${cap}`);
     }
   }
 

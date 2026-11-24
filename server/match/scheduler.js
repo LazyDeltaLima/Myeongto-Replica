@@ -16,7 +16,10 @@
 // Callbacks are expected to guard themselves; the schedulers still catch and report (onError) so one faulty
 // callback never breaks the queue.
 
+/** A VirtualScheduler callback in its queue (the handle setTimeout / setInterval return). @typedef {{ id: number, at: number, seq: number, fn: Function, every: number, cancelled: boolean }} VTimer */
+
 const MAX_DELAY = 2 ** 31 - 1;
+/** @param {unknown} ms */
 const clampDelay = (ms) => {
   const n = Number(ms);
   if (!Number.isFinite(n) || n <= 0) return 0;
@@ -24,7 +27,7 @@ const clampDelay = (ms) => {
 };
 
 export class RealScheduler {
-  /** @param {{ now?: () => number, onError?: (e: unknown) => void }} [opts] */
+  /** @param {{ now?: () => number, onError?: ((e: unknown) => void) | null }} [opts] */
   constructor({ now = Date.now, onError = null } = {}) {
     this.virtual = false;
     this.instant = false;
@@ -41,12 +44,17 @@ export class RealScheduler {
     try { return Number(this._now()) || Date.now(); } catch { return Date.now(); }
   }
 
+  /** @param {() => void} fn */
   _wrap(fn) {
     return () => {
       try { fn(); } catch (e) { if (this._onError) this._onError(e); else console.error('[scheduler] callback threw', e); }
     };
   }
 
+  /**
+   * @param {() => void} fn
+   * @param {number} ms
+   */
   setTimeout(fn, ms) {
     if (this.disposed || typeof fn !== 'function') return null;
     const run = this._wrap(fn);
@@ -56,12 +64,17 @@ export class RealScheduler {
     return h;
   }
 
+  /** @param {ReturnType<typeof setTimeout> | null | undefined} h */
   clearTimeout(h) {
     if (!h) return;
     clearTimeout(h);
     this._timeouts.delete(h);
   }
 
+  /**
+   * @param {() => void} fn
+   * @param {number} ms
+   */
   setInterval(fn, ms) {
     if (this.disposed || typeof fn !== 'function') return null;
     const h = setInterval(this._wrap(fn), Math.max(1, clampDelay(ms)));
@@ -70,6 +83,7 @@ export class RealScheduler {
     return h;
   }
 
+  /** @param {ReturnType<typeof setInterval> | null | undefined} h */
   clearInterval(h) {
     if (!h) return;
     clearInterval(h);
@@ -87,25 +101,33 @@ export class RealScheduler {
 
 export class VirtualScheduler {
   /**
-   * @param {{ start?: number, instantCombat?: boolean, onError?: (e: unknown) => void }} [opts]
+   * @param {{ start?: number, instantCombat?: boolean, onError?: ((e: unknown) => void) | null }} [opts]
    */
   constructor({ start = 1_700_000_000_000, instantCombat = true, onError = null } = {}) {
     this.virtual = true;
     this.instant = instantCombat !== false;
     this.t = Number(start) || 0;
     this._seq = 0;
-    /** @type {Array<{ id: number, at: number, seq: number, fn: Function, every: number, cancelled: boolean }>} */
+    /** @type {VTimer[]} */
     this._q = [];
     this._onError = onError;
     this.disposed = false;
     /** callbacks executed so far (diagnostics) */
     this.executed = 0;
-    /** errors thrown by callbacks (tests assert this stays empty) */
+    /**
+     * errors thrown by callbacks (tests assert this stays empty)
+     * @type {unknown[]}
+     */
     this.errors = [];
   }
 
   now() { return this.t; }
 
+  /**
+   * @param {() => void} fn
+   * @param {number} ms
+   * @param {number} every
+   */
   _push(fn, ms, every) {
     if (this.disposed || typeof fn !== 'function') return null;
     const e = { id: ++this._seq, at: this.t + clampDelay(ms), seq: this._seq, fn, every, cancelled: false };
@@ -121,9 +143,19 @@ export class VirtualScheduler {
     return e;
   }
 
+  /**
+   * @param {() => void} fn
+   * @param {number} ms
+   */
   setTimeout(fn, ms) { return this._push(fn, ms, 0); }
+  /** @param {VTimer | null | undefined} h */
   clearTimeout(h) { if (h && typeof h === 'object') h.cancelled = true; }
+  /**
+   * @param {() => void} fn
+   * @param {number} ms
+   */
   setInterval(fn, ms) { return this._push(fn, Math.max(1, clampDelay(ms)), Math.max(1, clampDelay(ms))); }
+  /** @param {VTimer | null | undefined} h */
   clearInterval(h) { if (h && typeof h === 'object') h.cancelled = true; }
 
   /** Number of live (not cancelled) queued callbacks. */
@@ -159,6 +191,7 @@ export class VirtualScheduler {
     return true;
   }
 
+  /** @param {VTimer} e */
   _reinsert(e) {
     let lo = 0;
     let hi = this._q.length;
@@ -170,7 +203,10 @@ export class VirtualScheduler {
     this._q.splice(lo, 0, e);
   }
 
-  /** Advance the clock by `ms`, running every callback that falls due (in order). */
+  /**
+   * Advance the clock by `ms`, running every callback that falls due (in order).
+   * @param {number} ms
+   */
   advance(ms) {
     const target = this.t + Math.max(0, Number(ms) || 0);
     for (;;) {
@@ -184,6 +220,8 @@ export class VirtualScheduler {
   /**
    * Run callbacks until `pred()` is true (checked before each callback), the queue is empty, or a limit is hit.
    * Returns true when the predicate held.
+   * @param {() => boolean} pred
+   * @param {{ maxSteps?: number, maxTime?: number }} [opts]
    */
   runUntil(pred, { maxSteps = 1e7, maxTime = Infinity } = {}) {
     const limitT = this.t + maxTime;

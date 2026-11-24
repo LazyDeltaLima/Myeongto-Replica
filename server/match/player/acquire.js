@@ -321,7 +321,7 @@ export class PlayerAcquire {
   /** @param {string} id @this {PlayerState} */
   completesItemMerge(id) {
     if (!this._itemMergeable(id)) return false;
-    const rec = this.gd.item(id);
+    const rec = /** @type {Record<string, any>} */ (this.gd.item(id));
     const n = Number.isInteger(rec.upgradeNum) ? rec.upgradeNum : this.gd.itemMergeCount;
     return this._itemLocations(id).length + 1 >= n;
   }
@@ -375,7 +375,7 @@ export class PlayerAcquire {
 
   /** @param {string} itemId @param {Piece | null} [incoming] @returns {Piece | null} @this {PlayerState} */
   _mergeItem(itemId, incoming = null) {
-    const rec = this.gd.item(itemId);
+    const rec = /** @type {Record<string, any>} */ (this.gd.item(itemId));
     const need = Number.isInteger(rec.upgradeNum) ? rec.upgradeNum : this.gd.itemMergeCount;
     const locs = this._itemLocations(itemId);
     /** @type {Array<PieceLoc | NewLoc>} */
@@ -455,7 +455,7 @@ export class PlayerAcquire {
       for (const holder of this.allChess()) for (const it of holder.items || []) scan(it);
       let did = false;
       for (const [id, n] of counts) {
-        const rec = this.gd.item(id);
+        const rec = /** @type {Record<string, any>} */ (this.gd.item(id));
         const need = Number.isInteger(rec.upgradeNum) ? rec.upgradeNum : this.gd.itemMergeCount;
         if (n >= need) { if (this._mergeItem(id, null)) did = true; break; }
       }

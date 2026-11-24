@@ -30,17 +30,34 @@ import { standInRecord } from '../../shared/standIn.js';
 import { customRoundPlan, customPrepSeconds, keepUnbanned, customPoolCount, customBanLimits, officialStep, stepScale, lpSharedBandOff } from '../../shared/ruleset.js';
 import { BOND_LAYER_CAP, LARGE_SEATS, MAX_SEATS } from '../../shared/constants.js';
 
+/**
+ * @param {Readonly<Record<string, any>> | null | undefined} map
+ * @param {unknown} id
+ * @returns {Record<string, any> | null}
+ */
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
+/**
+ * @template T
+ * @param {unknown} v
+ * @param {T} d
+ * @returns {number | T}
+ */
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
-const posIntOr = (v, d) => (Number.isInteger(v) && v > 0 ? v : d);
+/**
+ * @template T
+ * @param {unknown} v
+ * @param {T} d
+ * @returns {number | T}
+ */
+const posIntOr = (v, d) => (Number.isInteger(v) && /** @type {number} */ (v) > 0 ? /** @type {number} */ (v) : d);
 
 export const DEFAULTS = Object.freeze({
   income: [0, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 12, 12, 12, 12, 12],
   incomeCap: 12,
-  chessPrice: { 1: 2, 2: 3, 3: 3, 4: 3, 5: 4, 6: 4 },
+  chessPrice: /** @type {Readonly<Record<number, number>>} */ ({ 1: 2, 2: 3, 3: 3, 4: 3, 5: 4, 6: 4 }),
   sellPrice: 1,
   refreshPrice: 1,
-  poolCopies: { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 },
+  poolCopies: /** @type {Readonly<Record<number, number>>} */ ({ 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 }),
   mergeCount: 3,
   goldenCopies: 3,
   itemMergeCount: 2,
@@ -52,7 +69,7 @@ export const DEFAULTS = Object.freeze({
   rewardOffer: { count: 3, tierOffset: 1, maxTier: 6, price: 0 },
   upgradePrices: [5, 8, 11, 12, 13],
   maxShopLevel: 6,
-  shopSlots: { 1: { chess: 3, item: 1 }, 2: { chess: 4, item: 1 }, 3: { chess: 4, item: 1 }, 4: { chess: 5, item: 1 }, 5: { chess: 5, item: 1 }, 6: { chess: 5, item: 1 } },
+  shopSlots: /** @type {Readonly<Record<number, { chess: number, item: number }>>} */ ({ 1: { chess: 3, item: 1 }, 2: { chess: 4, item: 1 }, 3: { chess: 4, item: 1 }, 4: { chess: 5, item: 1 }, 5: { chess: 5, item: 1 }, 6: { chess: 5, item: 1 } }),
   defaultBandId: 'band_bldsk',
   defaultStartLp: 28,
   lpCapPerRound: 10,
@@ -61,8 +78,8 @@ export const DEFAULTS = Object.freeze({
   hiddenCore: { single: 350, multi: 1200, minTeamLpExclusive: 1, difficulties: ['NORMAL', 'HARD', 'ABYSS'] },
   dp: { init: 10, perSec: 1, max: 99 },
   unite: { maxHelpers: 2, templates: { 1: 'act1autochess_escaped_single', 2: 'act1autochess_escaped_multi' } },
-  timers: { infoCheck: 25, bandDraft: 50, bandTurn: 50, battleCheck: 3, spFirst: 30, spTurn: 16 },
-  bans: { FUNNY: { core: 0, addon: 1 }, NORMAL: { core: 3, addon: 4 }, HARD: { core: 3, addon: 4 }, ABYSS: { core: 3, addon: 4 } },
+  timers: /** @type {Readonly<Record<string, number>>} */ ({ infoCheck: 25, bandDraft: 50, bandTurn: 50, battleCheck: 3, spFirst: 30, spTurn: 16 }),
+  bans: /** @type {Readonly<Record<string, { core: number, addon: number }>>} */ ({ FUNNY: { core: 0, addon: 1 }, NORMAL: { core: 3, addon: 4 }, HARD: { core: 3, addon: 4 }, ABYSS: { core: 3, addon: 4 } }),
   bandDraft: { skipsPerPlayer: 1, timeoutBandId: 'band_bldsk' },
   leftoverFundsKeptByBands: ['band_cannot'],
 });
@@ -79,16 +96,26 @@ export const COMBAT_TIME_SCALE = 2;
  *          at most `aliveFull` (4); a count left out means a full team;
  *          `perPlayer` false: the fixed pool of 0.1.x (「保持固定血量」, restorable with `solo` 0.25): `coop` whatever the
  *          count, × min(alive, aliveFull) / aliveFull with `aliveScaling`.
- * @param {object|null|undefined} modeScale config.modes[modeId].bossHpScale
- * @param {object|null|undefined} cfgScale config.bossHpScale
+* @param {Record<string, any> | null | undefined} modeScale config.modes[modeId].bossHpScale
+* @param {Record<string, any> | null | undefined} cfgScale config.bossHpScale
  * @param {boolean} isSolo
  * @param {number} [aliveCount] alive players at the Final Assault / Hidden Core start (co-op)
  * @returns {number}
  */
 export function bossPoolShareOf(modeScale, cfgScale, isSolo, aliveCount) {
+  /** @type {Record<string, any>} */
   const ms = modeScale && typeof modeScale === 'object' ? modeScale : {};
+  /** @type {Record<string, any>} */
   const cs = cfgScale && typeof cfgScale === 'object' ? cfgScale : {};
+  /**
+   * @param {string} k
+   * @param {number} d
+   */
   const pick = (k, d) => (Number.isFinite(ms[k]) && ms[k] > 0 ? ms[k] : Number.isFinite(cs[k]) && cs[k] > 0 ? cs[k] : d);
+  /**
+   * @param {string} k
+   * @param {boolean} d
+   */
   const flag = (k, d) => (typeof ms[k] === 'boolean' ? ms[k] : typeof cs[k] === 'boolean' ? cs[k] : d);
   if (isSolo) return pick('solo', 1);
   const full = Math.max(1, Math.floor(pick('aliveFull', 4)));
@@ -148,8 +175,8 @@ export class GameData {
     /** config.eightPlayer in an 8-player co-op match (header), else null */
     this.large = seats === LARGE_SEATS && !this.isSolo && big && typeof big === 'object' ? big : null;
     /** the 8-player numbers' share in this match (largeAt): 0 at 4 players or fewer, 1 at 8 (and when `players` is missing) */
-    this.largeShare = !this.large ? 0 : Number.isInteger(players) && players > 0
-      ? Math.min(1, Math.max(0, (players - MAX_SEATS) / (LARGE_SEATS - MAX_SEATS))) : 1;
+    this.largeShare = !this.large ? 0 : Number.isInteger(players) && /** @type {number} */ (players) > 0
+      ? Math.min(1, Math.max(0, (/** @type {number} */ (players) - MAX_SEATS) / (LARGE_SEATS - MAX_SEATS))) : 1;
     const chess = this.raw.chess && typeof this.raw.chess === 'object' ? this.raw.chess : {};
     this._chess = chess;
     this._items = this.raw.items && typeof this.raw.items === 'object' ? this.raw.items : {};
@@ -205,7 +232,10 @@ export class GameData {
     return r;
   }
 
-  /** The plan entry of round r (hp / atk: its stat multipliers), null without a plan or outside it. */
+  /**
+   * The plan entry of round r (hp / atk: its stat multipliers), null without a plan or outside it.
+   * @param {number} r
+   */
   _planRound(r) {
     const p = this.plan;
     if (!p) return null;
@@ -217,10 +247,11 @@ export class GameData {
    * Leader HP pool multiplier: 1 (the official pool, no tuning layer), or a custom 规则 match's leader HP percent ÷ 100
    * (its 敌方领袖 生命值 — on the shared pool, the only HP a leader has). Read by both pool sizes (finalAssault.bossPoolHp,
    * bossPoolHp below).
+   * @param {string | null} bossId
    */
   bossHpMul(bossId) { // eslint-disable-line no-unused-vars
     const hp = this.custom?.leaders?.hp;
-    return Number.isFinite(hp) && hp !== 100 ? hp / 100 : 1;
+    return Number.isFinite(hp) && hp !== 100 ? /** @type {number} */ (hp) / 100 : 1;
   }
 
   /**
@@ -253,7 +284,7 @@ export class GameData {
 
   /** config.titles with the tuning overrides (stat / rule per title id) merged in. */
   get titles() {
-    const list = Array.isArray(this.config.titles) ? this.config.titles : [];
+    const list = /** @type {Record<string, any>[]} */ (Array.isArray(this.config.titles) ? this.config.titles : []);
     const ov = this.tuning.titles && typeof this.tuning.titles === 'object' ? this.tuning.titles : {};
     return list.map((t) => {
       if (!t || typeof t.id !== 'string' || !Object.hasOwn(ov, t.id) || !ov[t.id] || typeof ov[t.id] !== 'object') return t;
@@ -267,16 +298,27 @@ export class GameData {
 
   // ---- ids ------------------------------------------------------------------------------------------
 
+  /** @param {unknown} id */
   chess(id) { return own(this._chess, id); }
+  /** @param {unknown} id */
   item(id) { return own(this._items, id); }
+  /** @param {unknown} id */
   bond(id) { return own(this._bonds, id); }
+  /** @param {unknown} id */
   band(id) { return own(this.raw.bands, id); }
+  /** @param {unknown} id */
   garrison(id) { return own(this.raw.garrisons, id); }
+  /** @param {unknown} id */
   effect(id) { return own(this.raw.effects, id); }
+  /** @param {unknown} key */
   enemy(key) { return own(this.raw.enemies, key); }
+  /** @param {unknown} id */
   wave(id) { return own(this.raw.waves, id); }
+  /** @param {unknown} id */
   stage(id) { return own(this.raw.stages, id); }
+  /** @param {unknown} id */
   boss(id) { return own(this.raw.bosses, id); }
+  /** @param {unknown} id */
   token(id) { return own(this.raw.tokens, id); }
   get choices() { return this.raw.choices && typeof this.raw.choices === 'object' ? this.raw.choices : {}; }
   get factions() { return this.raw.factions && typeof this.raw.factions === 'object' ? this.raw.factions : {}; }
@@ -301,13 +343,17 @@ export class GameData {
     return rec;
   }
 
-  /** Normal (base) chess id of a chess id (golden → base). */
+  /**
+   * Normal (base) chess id of a chess id (golden → base).
+   * @param {string} id
+   */
   baseIdOf(id) {
     const c = this.chess(id);
     if (!c) return typeof id === 'string' ? id.replace(/_b$/, '_a') : null;
     return c.baseId || (c.isGolden ? id.replace(/_b$/, '_a') : id);
   }
 
+  /** @param {string} id */
   goldenIdOf(id) {
     const c = this.chess(this.baseIdOf(id));
     if (c && c.goldenId && this.chess(c.goldenId)) return c.goldenId;
@@ -315,8 +361,10 @@ export class GameData {
     return alt && this.chess(alt) ? alt : null;
   }
 
+  /** @param {string | null | undefined} id */
   isGolden(id) { const c = this.chess(id) || this.item(id); return !!(c && c.isGolden); }
 
+  /** @param {string} id */
   tierOf(id) {
     const c = this.chess(id) || this.item(id);
     return c && Number.isInteger(c.tier) ? c.tier : 1;
@@ -324,6 +372,7 @@ export class GameData {
 
   // ---- economy --------------------------------------------------------------------------------------
 
+  /** @param {number} r */
   income(r) {
     const round = this.srcRound(r);
     const arr = Array.isArray(this.economy.income) ? this.economy.income : DEFAULTS.income;
@@ -333,6 +382,7 @@ export class GameData {
     return Math.max(0, Math.min(cap, 3 + round));
   }
 
+  /** @param {string} id */
   chessPrice(id) {
     const c = this.chess(id);
     if (c && Number.isFinite(c.price) && c.price >= 0) return c.price;
@@ -347,6 +397,7 @@ export class GameData {
    * 规程's 温蒂 「售出价格为3」 (精锐 6): the price a SERVER_SELF_SELL_PRICE_FIXED 特质 of the record fixes, or null. It is the
    * chess's own price (sellPrice) — an elite merged from two copies (no 获得时 run: PlayerState._mergeChess) sells at it
    * too — and the price 巫恋's swap leaves (bands/meta.js first_sell_char_chess_exchange_char_chess_in_shop).
+   * @param {string} id
    */
   fixedSellPrice(id) {
     const c = this.chess(id);
@@ -357,6 +408,7 @@ export class GameData {
     return null;
   }
 
+  /** @param {string} id */
   sellPrice(id) {
     const c = this.chess(id);
     const fixed = this.fixedSellPrice(id);
@@ -368,6 +420,7 @@ export class GameData {
     return DEFAULTS.sellPrice;
   }
 
+  /** @param {string} id */
   itemPrice(id) {
     const it = this.item(id);
     return it && Number.isFinite(it.price) && it.price >= 0 ? it.price : 2;
@@ -384,9 +437,15 @@ export class GameData {
   get equipHandSize() { const n = this.economy.equipHandSize; return Number.isInteger(n) && n > 0 ? Math.min(n, this.tempSize) : 0; }
   get deployCap() { return posIntOr(this.economy.deployCap, DEFAULTS.deployCap); }
   get equipPerChess() { return posIntOr(this.economy.equipPerChess, DEFAULTS.equipPerChess); }
-  /** Equipment slots of chess `id`: the season record's `equipSlots` (规程 equipSlotNum — 机械 acrbot 4 / elite 6), else equipPerChess. */
-  equipSlotsOf(id) { const c = this.chess(id); return Number.isInteger(c?.equipSlots) && c.equipSlots > 0 ? c.equipSlots : this.equipPerChess; }
-  /** 规程's 组合 partner and result of item `id` (items.json fuseWith / fuseResult), or null. */
+  /**
+   * Equipment slots of chess `id`: the season record's `equipSlots` (规程 equipSlotNum — 机械 acrbot 4 / elite 6), else equipPerChess.
+   * @param {string} id
+   */
+  equipSlotsOf(id) { const c = this.chess(id); return Number.isInteger(c?.equipSlots) && /** @type {Record<string, any>} */ (c).equipSlots > 0 ? /** @type {Record<string, any>} */ (c).equipSlots : this.equipPerChess; }
+  /**
+   * 规程's 组合 partner and result of item `id` (items.json fuseWith / fuseResult), or null.
+   * @param {string} id
+   */
   fusionOf(id) { const r = this.item(id); return r && r.fuseWith && r.fuseResult && this.item(r.fuseWith) && this.item(r.fuseResult) ? { with: r.fuseWith, result: r.fuseResult } : null; }
   get maxArtsPerRound() { return posIntOr(this.economy.maxArtsPerRound, DEFAULTS.maxArtsPerRound); }
   get goldenCopies() { return posIntOr(this.economy.goldenCopies, DEFAULTS.goldenCopies); }
@@ -414,6 +473,7 @@ export class GameData {
    * without the multiplier keeps the solo table. An 8-player match: config.eightPlayer.coopPoolMultiplier (4) at 8
    * players, linear from the 4-player 2 (largeAt: 5 → × 2.5, 6 → × 3, 7 → × 3.5), rounded per operator.
    * A custom ruleset's pool.chess percent scales the result (shared/ruleset.js customPoolCount), the 自选 stock with it.
+   * @param {string} baseId
    */
   poolCopies(baseId) {
     const ov = this.economy.poolCopiesOverrides;
@@ -432,6 +492,7 @@ export class GameData {
    * Null (uncapped) for an item that is not a shop item (effect-only special equipment) or a config without the table.
    * An 8-player match: × config.eightPlayer.itemPoolMultiplier (2) at 8 players, linear from × 1 at 4 (largeAt), rounded.
    * A custom ruleset's pool.items percent scales the result.
+   * @param {string} id
    */
   itemPoolCopies(id) {
     const base = this.baseIdOf(id), rec = this.item(base);
@@ -446,13 +507,14 @@ export class GameData {
    * 迅捷作战粮 / 谢拉格不融冰 / 变形同构体 — and their goldens). 路标月报#2 item 7: what 诗怀雅 / 卡涅利安 / 耶拉 /
    * 缪尔赛思 can obtain has no cap — their white-give sources (the trait itself, and a strategy granting the same
    * fixed item) run outside the shared item stock, while shop purchases and every other acquisition stay bound.
+   * @param {string} id
    */
   isTraitFixedItem(id) {
     if (!this._traitFixed) {
       this._traitFixed = new Set();
       for (const g of Object.values(this.raw.garrisons || {})) {
         if (g?.effectKey === 'SERVER_GAIN_EQUIP' && this.item(g.bbStr?.chess)) {
-          const rec = this.item(g.bbStr.chess);
+          const rec = /** @type {Record<string, any>} */ (this.item(g.bbStr.chess));
           this._traitFixed.add(g.bbStr.chess);
           if (rec.goldenId) this._traitFixed.add(rec.goldenId);
         }
@@ -461,7 +523,10 @@ export class GameData {
     return this._traitFixed.has(id) || this._traitFixed.has(this.baseIdOf(id));
   }
 
-  /** Copies needed to merge (0 = never merges: golden chess). */
+  /**
+   * Copies needed to merge (0 = never merges: golden chess).
+   * @param {string} id
+   */
   mergeCount(id) {
     const c = this.chess(id);
     if (!c || c.isGolden) return 0;
@@ -474,14 +539,14 @@ export class GameData {
   // ---- mode -----------------------------------------------------------------------------------------
 
   get isSolo() { return this.mode.type === 'SINGLE' || /^mode_single_/.test(this.modeId || ''); }
-  get difficulty() { return this.mode.difficulty || (this.modeId ? String(this.modeId).split('_').pop().toUpperCase() : 'NORMAL'); }
+  get difficulty() { return this.mode.difficulty || (this.modeId ? /** @type {string} */ (String(this.modeId).split('_').pop()).toUpperCase() : 'NORMAL'); }
   /** the mode's own round numbers (the custom plan replaces them: lastRound …) */
   get _lastRound0() {
     if (Number.isInteger(this.mode.lastRound) && this.mode.lastRound > 0) return this.mode.lastRound;
     return this.modeId === 'mode_single_funny' ? 9 : 14;
   }
   get _hiddenRound0() { return Number.isInteger(this.mode.hiddenRound) && this.mode.hiddenRound > 0 ? this.mode.hiddenRound : null; }
-  get _spRounds0() { return Array.isArray(this.mode.spRounds) ? this.mode.spRounds.filter((n) => Number.isInteger(n)) : []; }
+  get _spRounds0() { return Array.isArray(this.mode.spRounds) ? this.mode.spRounds.filter((/** @type {unknown} */ n) => Number.isInteger(n)) : []; }
   get lastRound() { return this.plan ? this.plan.rounds.length : this._lastRound0; }
   get bossRound() {
     if (this.plan) return this.plan.rounds.length;
@@ -490,6 +555,7 @@ export class GameData {
   get hiddenRound() { return this.plan ? (this.plan.hidden ? this.plan.rounds.length + 1 : null) : this._hiddenRound0; }
   get maxShopLevel() { return posIntOr(this.mode.maxShopLevel, DEFAULTS.maxShopLevel); }
 
+  /** @param {number} r */
   roundCfg(r) {
     const rounds = this.mode.rounds;
     const k = String(this.srcRound(r));
@@ -503,16 +569,20 @@ export class GameData {
 
   upgradePrices() {
     const arr = Array.isArray(this.mode.upgradePrices) ? this.mode.upgradePrices : DEFAULTS.upgradePrices;
-    return arr.map((v) => Math.max(0, numOr(v, 99)));
+    return arr.map((/** @type {unknown} */ v) => Math.max(0, numOr(v, 99)));
   }
 
-  /** Base price to go from `level` to level+1 (null at max). */
+  /**
+   * Base price to go from `level` to level+1 (null at max).
+   * @param {number} level
+   */
   upgradeBase(level) {
     if (level >= this.maxShopLevel) return null;
     const arr = this.upgradePrices();
     return arr[level - 1] ?? 99;
   }
 
+  /** @param {number} level */
   shopSlots(level) {
     const s = this.mode.shopSlots && this.mode.shopSlots[String(level)];
     const d = DEFAULTS.shopSlots[level] || DEFAULTS.shopSlots[6];
@@ -522,14 +592,20 @@ export class GameData {
     return { chess: Math.min(chess, 8), item: Math.min(item, 4) };
   }
 
-  /** Real-second prep timer for round r (null = untimed); a custom co-op prep length applies (customPrepSeconds). */
+  /**
+   * Real-second prep timer for round r (null = untimed); a custom co-op prep length applies (customPrepSeconds).
+   * @param {number} r
+   */
   prepTime(r) {
     const rc = this.roundCfg(r);
     const v = !rc ? (this.isSolo ? null : 90) : typeof rc.prepTime === 'number' && Number.isFinite(rc.prepTime) && rc.prepTime > 0 ? rc.prepTime : null;
     return this.custom && !this.isSolo && v != null ? customPrepSeconds(this.custom.flow, v) : v;
   }
 
-  /** The round level's `maxPlayTime` (config rounds[r].combatTimeLimit) as data gives it — REAL seconds. */
+  /**
+   * The round level's `maxPlayTime` (config rounds[r].combatTimeLimit) as data gives it — REAL seconds.
+   * @param {number} r
+   */
   combatTimeLimitReal(r) {
     const rc = this.roundCfg(r);
     const v = rc ? rc.combatTimeLimit : undefined;
@@ -544,6 +620,7 @@ export class GameData {
    * as game seconds, the rounds' own spawn schedules would not fit (R2 spawns its last flyer at 43 s of a 45 s limit,
    * R3 at 62 s of 55 s — enemies that can never be killed, or never spawn), while × 2 every limit is ≈ the last spawn +
    * one flyer crossing (R2 43 + 44 ≈ 90, R3 62 + 44 ≈ 110, R5 38 + 67 ≈ 110). docs/BALANCE.md §2.1.
+   * @param {number} r
    */
   combatTimeLimit(r) {
     return this.combatTimeLimitReal(r) * this.combatTimeScale;
@@ -559,6 +636,7 @@ export class GameData {
    * The boss round level's `maxPlayTime` (config rounds[r].levelMaxPlayTime, 120) in REAL seconds — the countdown of
    * the Final Assault / Hidden Core. It is not a hard stop there ("计时结束后战斗仍然会继续", research 01 §10); null
    * when the data has none.
+   * @param {number} r
    */
   bossLevelTime(r) {
     const rc = this.roundCfg(r);
@@ -571,6 +649,7 @@ export class GameData {
    * (only when ≠ 1: co-op 终极 R5–R15) = the share of hpMul from 补给线 / 补给线II (config `supplyHp`), effects whose
    * `enemy_exclude` leaves out the 14 器物 hit-count keys — they take hpMul / supplyHpMul (archetypes.js `times`).
    * A custom round plan's round reads its source round's entry with the plan's HP / ATK (an added round's rise on).
+   * @param {number} r
    */
   baseEnemyScale(r) {
     const e = this.mode.enemyScale && this.mode.enemyScale[String(this.srcRound(r))];
@@ -589,6 +668,7 @@ export class GameData {
    * Enemy multipliers of round r for every enemy but the leaders (their parts, escorts and the 特训 enemies included):
    * the official table (baseEnemyScale) — under a custom 规则 match on its enemy steps and times its 敌人 percents
    * (customScale). The leaders take leaderScale.
+   * @param {number} r
    */
   enemyScale(r) {
     const base = this.baseEnemyScale(r);
@@ -601,6 +681,7 @@ export class GameData {
    * pool, bossHpMul — and their mid-fight summons, content/bosses.js summonMods, which take the HP too): the round's
    * official ones (baseEnemyScale), under a custom 规则 match on its enemy steps and times its 敌方领袖 percents (the
    * 敌人 percents never reach them; their speed keeps the round's).
+   * @param {number} r
    */
   leaderScale(r) {
     const base = this.baseEnemyScale(r);
@@ -608,7 +689,10 @@ export class GameData {
     return c ? this._customScale(r, base, { ...c.leaders, speed: 100, stepHp: c.enemies?.stepHp, stepAtk: c.enemies?.stepAtk }) : base;
   }
 
-  /** The official stat steps round r takes (config enemyScale kHp / kAtk; a custom round plan's own). */
+  /**
+   * The official stat steps round r takes (config enemyScale kHp / kAtk; a custom round plan's own).
+   * @param {number} r
+   */
   _steps(r) {
     const pr = this._planRound(r);
     const e = this.mode.enemyScale && this.mode.enemyScale[String(this.srcRound(r))];
@@ -624,13 +708,14 @@ export class GameData {
    * @param {{ hp?: number, atk?: number, def?: number, res?: number, speed?: number, stepHp?: number|null, stepAtk?: number|null }} pct
    */
   _customScale(r, base, pct) {
-    const p = (v) => (Number.isFinite(v) ? v / 100 : 1);
+    /** @param {number | undefined} v */
+    const p = (v) => (Number.isFinite(v) ? /** @type {number} */ (v) / 100 : 1);
     let { hpMul, atkMul } = base;
     if ((Number.isFinite(pct.stepHp) || Number.isFinite(pct.stepAtk)) && r !== 1) {
       const k = this._steps(r), k1 = this._steps(1);
       const oHp = officialStep(this.mode, 'hp'), oAtk = officialStep(this.mode, 'atk');
-      hpMul = stepScale(hpMul, k.kHp, k1.kHp, Number.isFinite(pct.stepHp) ? pct.stepHp / 100 : oHp, oHp);
-      atkMul = stepScale(atkMul, k.kAtk, k1.kAtk, Number.isFinite(pct.stepAtk) ? pct.stepAtk / 100 : oAtk, oAtk);
+      hpMul = stepScale(hpMul, k.kHp, k1.kHp, Number.isFinite(pct.stepHp) ? /** @type {number} */ (pct.stepHp) / 100 : oHp, oHp);
+      atkMul = stepScale(atkMul, k.kAtk, k1.kAtk, Number.isFinite(pct.stepAtk) ? /** @type {number} */ (pct.stepAtk) / 100 : oAtk, oAtk);
     }
     /** @type {{ hpMul: number, atkMul: number, speedMul: number, supplyHpMul?: number, defMul?: number, resMul?: number }} */
     const out = { ...base, hpMul: hpMul * p(pct.hp), atkMul: atkMul * p(pct.atk), speedMul: base.speedMul * p(pct.speed) };
@@ -654,6 +739,7 @@ export class GameData {
    */
   get diyChoose() {
     const lim = this.economy.diyCharLimitForLevels;
+    /** @type {Record<string, any>[]} */
     const steps = Array.isArray(this.config.timers?.enterSteps) ? this.config.timers.enterSteps : [];
     const step = steps.find((x) => x && x.step === 'CUSTOM_CHECK');
     if (!lim || typeof lim !== 'object' || !step) return null;
@@ -663,6 +749,7 @@ export class GameData {
     return { seconds: posIntOr(step.time, 30), perTier };
   }
 
+  /** @param {string} key */
   timer(key) {
     const t = this.config.timers && this.config.timers[key];
     return typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : DEFAULTS.timers[key] ?? 10;
@@ -698,6 +785,7 @@ export class GameData {
    * from 120 and the team LP drops as soon as it ends, no grace; PRTS 「计时结束后…每超时1秒扣除1目标生命值」). The data's
    * bossTurnHpReduceTime (150) is the overtime's length (bossOvertimeWindowReal, official client); as a start it is used only
    * for a round without a level time.
+   * @param {number} r
    */
   bossOvertimeStartReal(r) { return this.bossLevelTime(r) ?? this.bossOvertimeAfterReal; }
   /**
@@ -705,18 +793,23 @@ export class GameData {
    * 150; else bossOvertimeAfterReal). The client's AutoChessBattleUICountdownViewModel._GetBossBattleTimeInfo:
    * the countdown ends at the server's forced end of the boss state − bossTurnHpReduceTime — so the server ends the boss
    * battle that long after the countdown runs out, and the drain takes at most this many seconds' worth.
+   * @param {number} r
    */
   bossOvertimeWindowReal(r) {
     const rc = this.roundCfg(r);
     const v = rc ? rc.bossOvertimeAfter : undefined;
     return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : this.bossOvertimeAfterReal;
   }
-  /** REAL second of boss round `r` at which the boss battle is force-ended: the drain start + the overtime window. */
+  /**
+   * REAL second of boss round `r` at which the boss battle is force-ended: the drain start + the overtime window.
+   * @param {number} r
+   */
   bossForcedEndReal(r) { return this.bossOvertimeStartReal(r) + this.bossOvertimeWindowReal(r); }
   /**
    * Team LP the overtime drain has taken when a boss field clock reads `gt` game seconds: bossOvertimeDrainReal per
    * whole REAL second past `startReal` (bossOvertimeStartReal; the first point 1 real s after it), counting at most
    * `windowReal` seconds (bossOvertimeWindowReal: the battle is force-ended then).
+   * @param {number} gt
    */
   bossOvertimeDue(gt, startReal = this.bossOvertimeAfterReal, windowReal = Infinity) {
     const over = Math.min((Number(gt) || 0) / this.combatTimeScale - startReal, windowReal);
@@ -748,6 +841,7 @@ export class GameData {
   /**
    * 机变 cards of a co-op draft whose schedule says `cards` (6): an 8-player match draws config.eightPlayer.spDraftCards
    * (12) at 8 players, largeAt rounded (5 → 8, 6 → 9, 7 → 11).
+   * @param {number} cards
    */
   spDraftCards(cards) {
     const n = Number.isInteger(cards) && cards > 0 ? cards : 6;
@@ -756,6 +850,8 @@ export class GameData {
   /**
    * A number of the 8-player mode for this match's players (header): `v4` (the 4-player value) at 4 players or fewer,
    * `v8` (config.eightPlayer's) at 8, linear between. Callers round where the number must be whole.
+   * @param {number} v4
+   * @param {number} v8
    */
   largeAt(v4, v8) { return v4 + (v8 - v4) * this.largeShare; }
   /** 隐秘核心 conditions (`multi`: an 8-player match's is config.eightPlayer.hiddenCoreMulti, 2400 at 8 players, largeAt). */
@@ -773,6 +869,7 @@ export class GameData {
    * The bonds drawn absent per match: config bans[difficulty] (an 8-player match: config.eightPlayer.bans[difficulty]
    * when the config has it — it has none, maintainer decision 2026-10-22), a custom count (not null) in its place,
    * within the season's range (shared/ruleset.js customBanLimits).
+   * @param {string} difficulty
    */
   bans(difficulty) {
     const lb = this.large?.bans;
@@ -783,12 +880,15 @@ export class GameData {
     const c = this.custom?.bonds;
     if (c && (Number.isInteger(c.banCore) || Number.isInteger(c.banAddon))) {
       const lim = customBanLimits(this.config);
-      if (Number.isInteger(c.banCore)) off.core = Math.min(lim.core[1], c.banCore);
-      if (Number.isInteger(c.banAddon)) off.addon = Math.min(lim.addon[1], c.banAddon);
+      if (Number.isInteger(c.banCore)) off.core = Math.min(lim.core[1], /** @type {number} */ (c.banCore));
+      if (Number.isInteger(c.banAddon)) off.addon = Math.min(lim.addon[1], /** @type {number} */ (c.banAddon));
     }
     return off;
   }
-  /** A custom bond setting: 'ban' (absent every match), 'allow' (never drawn absent), null (left to the draw). */
+  /**
+   * A custom bond setting: 'ban' (absent every match), 'allow' (never drawn absent), null (left to the draw).
+   * @param {string} bondId
+   */
   bondPick(bondId) {
     const p = this.custom?.bonds?.pick;
     return p && Object.hasOwn(p, bondId) ? p[bondId] : null;
@@ -809,7 +909,10 @@ export class GameData {
     return keepUnbanned(all, ([id]) => id, this.custom?.bosses?.ban);
   }
 
-  /** Band usable in this mode type. */
+  /**
+   * Band usable in this mode type.
+   * @param {string} bandId
+   */
   bandAllowed(bandId) {
     const b = this.band(bandId);
     if (!b) return false;
@@ -826,6 +929,7 @@ export class GameData {
     return Object.keys(bands).filter((id) => this.bandAllowed(id)).sort((a, b) => numOr(bands[a].sortId, 99) - numOr(bands[b].sortId, 99) || (a < b ? -1 : 1));
   }
 
+  /** @param {string | null} bandId */
   startLp(bandId) {
     const b = this.band(bandId);
     return b && Number.isInteger(b.totalHp) && b.totalHp > 0 ? b.totalHp : this.defaultStartLp;
@@ -869,7 +973,7 @@ export class GameData {
       const vs = t.variants && typeof t.variants === 'object' ? t.variants : {};
       const v = vs[chessId] ?? vs[String(chessId).replace(/_b$/, '_a')] ?? null;
       if (v) {
-        const alt = loadout && Number.isInteger(loadout.skillIndex) && v.bySkill ? v.bySkill[loadout.skillIndex] : null;
+        const alt = loadout && Number.isInteger(loadout.skillIndex) && v.bySkill ? v.bySkill[/** @type {number} */ (loadout.skillIndex)] : null;
         const src = Array.isArray(alt?.sources) ? alt.sources : Array.isArray(v.sources) ? v.sources : [];
         if (!src.includes('talent') && !src.includes('skill')) continue;
       }

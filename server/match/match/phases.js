@@ -214,7 +214,7 @@ export class MatchPhases {
 
   /** @this {Match} */
   startDraftTurn() {
-    const d = this.draft;
+    const d = /** @type {Record<string, any>} */ (this.draft); // the BAND_DRAFT phase made it
     this.cancel(this._turnTimer);
     this._turnTimer = null;
     while (d.idx < d.order.length && d.picks[d.order[d.idx]]) d.idx++;
@@ -441,10 +441,10 @@ export class MatchPhases {
     this.cancel(this._turnTimer);
     this._turnTimer = null;
     for (const ps of this.order) {
-      if (!this.draft.picks[ps.playerId]) {
+      if (!/** @type {Record<string, any>} */ (this.draft).picks[ps.playerId]) {
         // one after another in seat order, so each default sees the ones assigned before it (no duplicates)
         const id = this.defaultBand(ps.playerId);
-        this.draft.picks[ps.playerId] = id;
+        /** @type {Record<string, any>} */ (this.draft).picks[ps.playerId] = id;
         ps.bandId = id;
         if (ps.alive) ps.lp = this.gd.startLp(id);   // a seat gone before the draft keeps its 0 (_applyBand)
       }

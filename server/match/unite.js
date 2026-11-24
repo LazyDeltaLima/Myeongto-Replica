@@ -47,11 +47,16 @@ import { buildUniteWave } from './waves.js';
 import { wideOffsets } from '../sim/wideStage.js';
 import { layerGainRoom } from '../../shared/constants.js';
 import { seasonFeature } from '../../shared/seasons.js';
+/** @import { Match } from './Match.js' */
+/** @import { PlayerState } from './PlayerState.js' */
+/** @typedef {NonNullable<ReturnType<typeof planUnite>>} UnitePlan */
 
 /**
  * @param {import('./Match.js').Match} m
- * @param {Map<string, object>} results playerId → BattleResult.perPlayer entry of the player's own combat
- * @returns {null | { helpers: any[], leakers: any[], leaked: Array<Record<string, any>>, notReentered: Map<string, number> }}
+ * @param {Map<string, Record<string, any>>} results playerId → BattleResult.perPlayer entry of the player's own combat
+ * @returns {null | { helpers: PlayerState[], leakers: PlayerState[],
+ *   leaked: Array<{ enemyKey: string, mods: Record<string, any> | null, lpr: number, sourcePlayerId: string, tag: string | null,
+ *   bounty: { coins: number, ownerPlayerId: string } | null }>, notReentered: Map<string, number> }}
  */
 export function planUnite(m, results) {
   if (m.isSolo) return null;
@@ -61,7 +66,7 @@ export function planUnite(m, results) {
   for (const ps of alive) {
     const r = results.get(ps.playerId);
     if (!r) continue;
-    const counted = (r.leaked || []).filter((l) => l && l.counted !== false);
+    const counted = (r.leaked || []).filter((/** @type {Record<string, any> | null} */ l) => l && l.counted !== false);
     if (counted.length > 0) leakers.push(ps);
     else if (r.perfect !== false) perfects.push(ps);
   }
@@ -70,7 +75,7 @@ export function planUnite(m, results) {
   const leaked = [];
   const notReentered = new Map();
   for (const ps of leakers) {
-    const r = results.get(ps.playerId);
+    const r = /** @type {Record<string, any>} */ (results.get(ps.playerId));
     for (const l of r.leaked || []) {
       if (!l || l.counted === false) continue;
       if (!m.gd.enemy(l.enemyKey)) { notReentered.set(ps.playerId, (notReentered.get(ps.playerId) || 0) + 1); continue; }
@@ -97,6 +102,9 @@ export function planUnite(m, results) {
  * active, Σ layers of the active bonds as the 联防 battle will fight them (the persistent layers plus this round's
  * pending gains, capped like bondsView / settle — PRTS 以其阵地当前的状态; the official "层数最高" tie-break is marked 存疑),
  * operators still standing at the end of the player's own combat.
+ * @param {Match} m
+ * @param {PlayerState} ps
+ * @param {Map<string, Record<string, any>> | null | undefined} results
  */
 export function helperStats(m, ps, results) {
   const units = ps.deployCount;
@@ -108,7 +116,7 @@ export function helperStats(m, ps, results) {
     active = true;
     const stored = Number(ps.layers && ps.layers[id]) || Number(b.layers) || 0;
     const gain = pending && Number(pending[id]);
-    const add = Number.isFinite(gain) && gain > 0 ? layerGainRoom(stored, Math.floor(gain), m.gd.layerCap) : 0;
+    const add = Number.isFinite(gain) && /** @type {number} */ (gain) > 0 ? layerGainRoom(stored, Math.floor(/** @type {number} */ (gain)), m.gd.layerCap) : 0;
     layers += stored + add;
   }
   const r = results && typeof results.get === 'function' ? results.get(ps.playerId) : null;
@@ -125,16 +133,26 @@ export function helperStats(m, ps, results) {
 /**
  * The ≤ maxHelpers helpers, first = the one that meets the enemies first (right-hand field): selection by units >
  * active bond > standing units > seat, then the pair ordered by units > active bond > layers > standing > seat.
+ * @param {Match} m
+ * @param {PlayerState[]} perfects
+ * @param {Map<string, Record<string, any>>} results
+ * @returns {PlayerState[]}
  */
 export function helperOrder(m, perfects, results) {
   const st = new Map(perfects.map((ps) => [ps.playerId, helperStats(m, ps, results)]));
-  const S = (ps) => st.get(ps.playerId);
+  /** @param {PlayerState} ps */
+  const S = (ps) => /** @type {Record<string, any>} */ (st.get(ps.playerId));
   const select = perfects.slice().sort((a, b) => S(b).units - S(a).units || (S(b).active - S(a).active) || S(b).standing - S(a).standing || a.seat - b.seat)
     .slice(0, m.gd.unite.maxHelpers);
   return select.sort((a, b) => S(b).units - S(a).units || (S(b).active - S(a).active) || S(b).layers - S(a).layers || S(b).standing - S(a).standing || a.seat - b.seat);
 }
 
-/** Battle options for the unite field (without data/logger, added by the match). */
+/**
+ * Battle options for the unite field (without data/logger, added by the match).
+ * @param {Match} m
+ * @param {UnitePlan} plan
+ * @param {number} timeLimit
+ */
 export function uniteBattleOpts(m, plan, timeLimit) {
   const wave = buildUniteWave(m.gd, plan.leaked, plan.helpers.length, timeLimit);
   const keepRedeploy = seasonFeature(m.season, 'uniteKeepsRedeploy');
@@ -175,6 +193,8 @@ export function uniteBattleOpts(m, plan, timeLimit) {
  * capped per round. Only what the wave sent IN: a leak the field itself produced (`uniteRuntime` — a split child or a
  * summon born while it ran, spawns.js) was never one of the leaker's own enemies, so nobody pays for it.
  * @returns {Map<string, number>} playerId → survivors (uncapped)
+ * @param {UnitePlan} plan
+ * @param {Record<string, any> | null | undefined} uniteResult
  */
 export function uniteSurvivors(plan, uniteResult) {
   const out = new Map();

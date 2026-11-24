@@ -47,6 +47,9 @@ declare module '../server/match/Match.js' {
     // made on first use by a part, absent until then
     /** playerId → the m.public player row's entries at the last broadcast (match/messaging.js) */
     _pubRowsSent?: Map<string, any>;
+    // the AI teammates' reactions (server/match/botEmotes.js): the round whose settle they reacted to, merges per seat
+    _botEmotesSettledRound?: number;
+    _botEmotesMerges?: Map<string, number>;
     // the console mode of a solo room (server/local-patch.js, server/local-console.js)
     console?: boolean;
     consoleLog?: Array<Record<string, any>>;

@@ -152,7 +152,7 @@ export class PlayerState {
     this.autoplay = false;
     this.alive = true;
     this.lp = 0;
-    this.bandId = null;
+    this.bandId = /** @type {string | null} */ (null);
     /**
      * 规程's 指令 taken from another strategy (更换指令: “追随者们” 好多委托, 投机骰子 — server/match/match/bandSkill.js
      * setBandCommand): the strategy whose active 指令 the player now has instead of its own, or null (its own)
@@ -226,7 +226,7 @@ export class PlayerState {
      * this round's IN_BATTLE layer gains of the finished normal battle ({ [bondId]: n }, Match._finishCombat) until
      * settle() makes them persistent — the views add them (bondsView, DESIGN §20.15); null otherwise
      */
-    this.pendingLayerGains = null;
+    this.pendingLayerGains = /** @type {Record<string, number> | null} */ (null);
     /**
      * 临时层数 (卫戍协议：规程) the own normal battle left ({ [bondId]: n }), during its settle's onBattleResult dispatch only
      * (ctx.tempLayers / convertTempLayers); null otherwise — the rest lapses (Battle.addLayers `temp`)
@@ -235,9 +235,9 @@ export class PlayerState {
     /** optional per-bond count bonus written by effects */
     this.bondCountBonus = {};
     /** EffectRef list: { id, key, name, desc, iconKind, iconId, counter?, battle, params, data } */
-    this.effects = [];
+    this.effects = /** @type {Array<Record<string, any>>} */ ([]);
     /** active bounties: { id, card, roundsLeft, chooser } */
-    this.bounties = [];
+    this.bounties = /** @type {Array<{ id: string, card: { enemyKey: string, count: number, [field: string]: any }, roundsLeft: number, debugEnemies?: boolean }>} */ ([]);
     /**
      * The open personal choice of the Art 教鞭 (Match.offerBountyChoice): up to three cards.bounty entries the owner picks one
      * of with `g.choice { idx, choiceId }` — m.private only; Ready is refused while it is open, the prep's deadline (or the
@@ -268,15 +268,15 @@ export class PlayerState {
     this.unitTally = new Map();
     /** 联防 as a leaker: enemies its leaks sent in over the match (re-entered or not) and those that still got through */
     this.uniteTally = { sent: 0, through: 0 };
-    this.eliminatedRound = null;
+    this.eliminatedRound = /** @type {number | null} */ (null);
     this.lpAtFinal = null;
     /** a custom 「共享」 match: the strategy's starting LP (the seat's part of the team LP when it leaves, platform.js) */
     this.lpStart = null;
     /** last combat result for this player (unite carry state, bounties) */
     this.lastResult = null;
-    this._deployMap = null;
+    this._deployMap = /** @type {Map<string, 'melee' | 'ranged'> | null} */ (null);
     /** the deploy field of `_deployMap` ('normal' | 'bossL' | 'bossR', Match.deployFieldOf) */
-    this._deployField = undefined;
+    this._deployField = /** @type {string | undefined} */ (undefined);
     /** the deploy map changed since the board's legality was last checked (invalidateDeployMap) */
     this._legalityStale = false;
     /** Match.scheduleBotPrep: the latest bot prep of this seat (older sliced rehearsals drop out) */
@@ -290,7 +290,7 @@ for (const part of [PlayerBasics, PlayerPieces, PlayerAcquire, PlayerEconomy, Pl
   for (const key of Reflect.ownKeys(part.prototype)) {
     if (key === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(PlayerState.prototype, key)) throw new Error(`PlayerState.${String(key)} is defined twice`);
-    Object.defineProperty(PlayerState.prototype, key, Object.getOwnPropertyDescriptor(part.prototype, key));
+    Object.defineProperty(PlayerState.prototype, key, /** @type {PropertyDescriptor} */ (Object.getOwnPropertyDescriptor(part.prototype, key)));
   }
 }
 

@@ -1,7 +1,20 @@
 // Battle-input previews: detached board state and a capability-limited meta context (META §1.5 / §2.2).
 import { computeBonds } from './bondsMeta.js';
+/** @import { PlayerState } from './PlayerState.js' */
+/** @import { Piece } from './player/pieces.js' */
+/** @import { GameData } from './gamedata.js' */
+/**
+ * An isolated dispatch's own state (EffectDispatcher `preview`): its RNG, the data views it handed out, the players'
+ * detached copies.
+ * @typedef {{ rng: ReturnType<typeof import('../sim/rng.js').createRng>, data: Map<GameData, GameData>, players: Map<string, PlayerState> }} PreviewState
+ */
 
-/** A candidate never occupies the live board, even between scheduler yields. No recompute() side effects. */
+/**
+ * A candidate never occupies the live board, even between scheduler yields. No recompute() side effects.
+ * @param {PlayerState} ps
+ * @param {Map<string, Piece>} [board]
+ * @returns {PlayerState}
+ */
 export function previewPlayer(ps, board = ps.board) {
   const copy = Object.create(ps);
   copy.board = structuredClone(board);
@@ -23,7 +36,11 @@ const READS = new Set(['funds', 'lp', 'alive', 'bandId', 'commandBandId', 'teamM
   'garrisonsOf', 'stats', 'roundStats', 'shopSlots', 'counter', 'pieceCounter', 'effect', 'rollChess', 'rollItem', 'rollPool']);
 const NOOP = () => undefined;
 
-/** Data lookups are read APIs; hide prototypes and return detached records/properties, including Maps and Sets. */
+/**
+ * Data lookups are read APIs; hide prototypes and return detached records/properties, including Maps and Sets.
+ * @param {GameData} gd
+ * @returns {GameData}
+ */
 function dataView(gd) {
   const cache = new Map();
   // GameData's two lookup memos also belong to the estimate. The underlying records are immutable data.
@@ -35,7 +52,7 @@ function dataView(gd) {
       if (typeof key !== 'string' || key === 'constructor' || key.startsWith('_')) return undefined;
       if (!cache.has(key)) {
         const value = lookup[key];
-        cache.set(key, typeof value === 'function' ? (...args) => structuredClone(value.apply(lookup, args)) : structuredClone(value));
+        cache.set(key, typeof value === 'function' ? (/** @type {unknown[]} */ ...args) => structuredClone(value.apply(lookup, args)) : structuredClone(value));
       }
       return cache.get(key);
     },
@@ -46,14 +63,21 @@ function dataView(gd) {
   });
 }
 
-/** Called only by the isolated dispatcher. The RNG and caches belong to that preview, never the match. */
+/**
+ * Called only by the isolated dispatcher. The RNG and caches belong to that preview, never the match.
+ * @template {Record<string, any>} T
+ * @param {T} ctx
+ * @param {PreviewState} state
+ * @param {{ teammates: () => unknown[], player: (playerId: string) => unknown }} views
+ * @returns {T} the same members as `ctx`
+ */
 export function previewContext(ctx, state, { teammates, player }) {
   const out = Object.create(null);
   for (const key of Object.keys(ctx)) {
     if (['data', 'gd', 'rng', 'sharedRng', 'teammates', 'player'].includes(key)) continue;
     const value = ctx[key];
     out[key] = typeof value === 'function'
-      ? READS.has(key) ? (...args) => structuredClone(value(...args)) : NOOP
+      ? READS.has(key) ? (/** @type {unknown[]} */ ...args) => structuredClone(value(...args)) : NOOP
       : structuredClone(value);
   }
   if (!state.data.has(ctx.gd)) state.data.set(ctx.gd, dataView(ctx.gd));

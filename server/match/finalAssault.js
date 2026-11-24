@@ -38,6 +38,7 @@ import { BOSS_ROW_OFFSET, STAGE_COLS, BOSS_POOL_MIN_HP } from '../sim/constants.
 import { MAX_SEATS } from '../../shared/constants.js';
 import { mirrorDir, normDir } from '../sim/dir.js';
 import { bossBloodPoint, bossPoolShareOf } from './gamedata.js';
+/** @import { GameData } from './gamedata.js' */
 
 /**
  * BOSS_HIT ticker thresholds (activity_table autoChessData.broadcastList comment_boss_hit_1..3, paramList 0.2 / 0.5 /
@@ -63,6 +64,10 @@ export function bossHitSteps(alive) {
  * Where a board piece (board row / col / dir) stands on a boss field for side 'L' | 'R' — the same mapping as the
  * sim (Battle.mapTile / mapDir): rows 9–12 → 2–5; the right side mirrored col c → 20 − c, RIGHT ↔ LEFT.
  * @returns {{ row: number, col: number, dir: 'UP'|'RIGHT'|'DOWN'|'LEFT' }}
+ * @param {string} side
+ * @param {number} row
+ * @param {number} col
+ * @param {string} [dir]
  */
 export function bossFieldPlacement(side, row, col, dir = 'RIGHT') {
   const d = normDir(dir);
@@ -87,7 +92,12 @@ export function pairPlayers(alive, rng) {
   return groups.sort((a, b) => a[0].seat - b[0].seat);
 }
 
-/** Shared boss HP for a boss id with `aliveCount` alive players (GameData.bossPoolShare / bossPoolShareOf; omitted ⇒ a full team). */
+/**
+ * Shared boss HP for a boss id with `aliveCount` alive players (GameData.bossPoolShare / bossPoolShareOf; omitted ⇒ a full team).
+ * @param {Pick<GameData, 'boss' | 'modeId' | 'difficulty'> & Partial<Pick<GameData, 'bossHpMul' | 'bossPoolShare' | 'mode' | 'config' | 'isSolo'>>} gd
+ * @param {string | null} bossId
+ * @param {number} [aliveCount]
+ */
 export function bossPoolHp(gd, bossId, aliveCount) {
   const boss = gd.boss(bossId);
   let base = bossBloodPoint(boss, gd.modeId, gd.difficulty);
@@ -103,7 +113,7 @@ export function bossPoolHp(gd, bossId, aliveCount) {
  * Match._creditBoss (client reports, per player); the hit that would leave less than BOSS_POOL_MIN_HP takes the rest.
  */
 export class SharedBossPool {
-  /** @param {number} hp @param {{ onHit?: ((playerId: string, dmg: number) => void) | null }} [opts] */
+  /** @param {number} hp @param {{ onHit?: ((playerId: string | null, dmg: number) => void) | null }} [opts] */
   constructor(hp, { onHit = null } = {}) {
     this.maxHp = Math.max(1, hp);
     this.hp = this.maxHp;
@@ -112,6 +122,10 @@ export class SharedBossPool {
     this.onHit = onHit;
   }
 
+  /**
+   * @param {string | null} playerId
+   * @param {number} amount
+   */
   damage(playerId, amount) {
     const a = Number(amount);
     if (!Number.isFinite(a) || a <= 0 || this.hp <= 0) return 0;
@@ -145,7 +159,7 @@ export function hiddenEligible(gd, { layerSum, teamLp }) {
 export class CreditPool {
   /**
    * @param {SharedBossPool} pool
-   * @param {{ acked?: number, ackedBy?: Record<string, number>, onCredit?: (playerId: string|null, amount: number) => void }} [o]
+   * @param {{ acked?: number, ackedBy?: Record<string, number>, onCredit?: ((playerId: string|null, amount: number) => void) | null }} [o]
    */
   constructor(pool, { acked = 0, ackedBy = {}, onCredit = null } = {}) {
     this.pool = pool;
@@ -159,6 +173,10 @@ export class CreditPool {
   set hp(v) { /* the sim's fallback path writes hp only when damage() threw; the real pool is never written here */ void v; }
   get maxHp() { return this.pool.maxHp; }
 
+  /**
+   * @param {string | null} playerId
+   * @param {number} amount
+   */
   damage(playerId, amount) {
     const a = Number(amount);
     if (!Number.isFinite(a) || a <= 0) return 0;

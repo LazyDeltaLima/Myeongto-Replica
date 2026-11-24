@@ -24,6 +24,13 @@
 // Layers (`ps.layers[bondId]`) persist the whole match; they are reported for every bond but only matter while active.
 
 import { layerGainRoom } from '../../shared/constants.js';
+/** @import { GameData } from './gamedata.js' */
+/** @typedef {{ board: Map<string, any>, hand: Array<any>, layers: Record<string, number>, bondCountBonus?: Record<string, number> }} BondsPlayer */
+/**
+ * One entry of bondList.
+ * @typedef {{ bondId: string, count: number, active: boolean, tier: number, layers: number, harmony?: number, off?: true,
+ *   thresholds?: number[], countsHand?: boolean }} BondEntry
+ */
 
 export const HARMONY_BOND = 'maniShip';
 export const DEPUTY_BOND = 'deputShip';
@@ -39,7 +46,7 @@ export function pieceBonds(gd, piece) {
   const out = c && Array.isArray(c.bonds) ? c.bonds.slice() : [];
   const items = Array.isArray(piece.items) ? piece.items : [];
   if (items.length >= 2) {
-    const recs = items.map((it) => gd.item(it.id)).filter(Boolean);
+    const recs = /** @type {Record<string, any>[]} */ (items.map((it) => gd.item(it.id)).filter(Boolean));
     if (recs.some((r) => r.canGiveBond)) {
       for (const r of recs) {
         if (r.canGiveBond) continue;
@@ -53,6 +60,8 @@ export function pieceBonds(gd, piece) {
 /**
  * Who carries which bond (computeBonds' and offBondCounts' shared first step): bondId → Set(baseId) on the board / in
  * the hand (the 5 temporary slots never count), bondId → Set(baseId|golden) on the board, and the elite chess on the board.
+ * @param {GameData} gd
+ * @param {BondsPlayer} ps
  */
 function membership(gd, ps) {
   const boardChess = [];
@@ -61,6 +70,11 @@ function membership(gd, ps) {
   const onBoard = new Map();
   const onBoardVariant = new Map();
   const inHand = new Map();
+  /**
+   * @param {Map<string, Set<string>>} m
+   * @param {string} bond
+   * @param {string} key
+   */
   const add = (m, bond, key) => { let s = m.get(bond); if (!s) m.set(bond, (s = new Set())); s.add(key); };
   for (const p of boardChess) {
     const base = gd.baseIdOf(p.id);
@@ -74,9 +88,15 @@ function membership(gd, ps) {
   return { onBoard, onBoardVariant, inHand, goldenOnBoard: boardChess.filter((p) => gd.isGolden(p.id)).length };
 }
 
-/** A bond's member count by its counting mode (before 调和's +1), with the effects' per-bond count bonus. */
+/**
+ * A bond's member count by its counting mode (before 调和's +1), with the effects' per-bond count bonus.
+ * @param {GameData} gd
+ * @param {string} id
+ * @param {ReturnType<typeof membership>} mem
+ * @param {BondsPlayer} ps
+ */
 function rawCount(gd, id, mem, ps) {
-  const bond = gd.bond(id);
+  const bond = /** @type {Record<string, any>} */ (gd.bond(id));
   let count;
   if (bond.countMode === 'BOARD_ALL_CHESS' || bond.thresholdTemplate === 'count_threshold_upward_golden') {
     count = mem.goldenOnBoard;
@@ -90,6 +110,10 @@ function rawCount(gd, id, mem, ps) {
   return Math.max(0, count + (Number.isInteger(bonus[id]) ? bonus[id] : 0));
 }
 
+/**
+ * @param {BondsPlayer} ps
+ * @param {string} id
+ */
 const layersIn = (ps, id) => {
   const v = ps.layers && ps.layers[id];
   return Number.isFinite(v) && v > 0 ? v : 0;
@@ -107,11 +131,14 @@ export function computeBonds(gd, ps) {
 
   /** @type {Record<string, { count: number, active: boolean, tier: number, layers: number, harmony?: number }>} */
   const out = {};
+  /** @param {string} id */
   const layersOf = (id) => layersIn(ps, id);
   const bonus = ps.bondCountBonus || {};
+  /** @param {string} id */
   const bonusOf = (id) => (Number.isInteger(bonus[id]) ? bonus[id] : 0);
 
   // first pass: raw counts
+  /** @type {Record<string, number>} */
   const raw = {};
   for (const id of gd.bondIds) {
     if (gd.modeInactiveBonds.has(id)) continue;
@@ -121,7 +148,7 @@ export function computeBonds(gd, ps) {
   const harmony = gd.bond(HARMONY_BOND);
   const harmonyActive = harmony && raw[HARMONY_BOND] != null && tierFor(harmony, raw[HARMONY_BOND]) >= 1;
   for (const id of Object.keys(raw)) {
-    const bond = gd.bond(id);
+    const bond = /** @type {Record<string, any>} */ (gd.bond(id));
     const harmonyBonus = harmonyActive && bond.isCore && (onBoard.get(id)?.size ?? 0) >= 1 ? 1 : 0;
     const count = raw[id] + harmonyBonus;
     let tier = tierFor(bond, count);
@@ -161,14 +188,22 @@ export function offBondCounts(gd, ps) {
   return out;
 }
 
-/** Ascending member-count thresholds of a bond (fallback: activeCount). */
+/**
+ * Ascending member-count thresholds of a bond (fallback: activeCount).
+ * @param {Record<string, any>} bond
+ * @returns {number[]}
+ */
 export function thresholdsOf(bond) {
-  if (Array.isArray(bond.thresholds) && bond.thresholds.length) return bond.thresholds.filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+  if (Array.isArray(bond.thresholds) && bond.thresholds.length) return bond.thresholds.filter((/** @type {unknown} */ n) => Number.isFinite(n)).sort((/** @type {number} */ a, /** @type {number} */ b) => a - b);
   if (Number.isFinite(bond.activeCount)) return [bond.activeCount];
   return [2];
 }
 
-/** Tier for a member count (downward bonds: 1 while 1 ≤ count ≤ maxCount). */
+/**
+ * Tier for a member count (downward bonds: 1 while 1 ≤ count ≤ maxCount).
+ * @param {Record<string, any>} bond
+ * @param {number} count
+ */
 export function tierFor(bond, count) {
   const th = thresholdsOf(bond);
   if (bond.thresholdTemplate === 'count_threshold_downward') {
@@ -180,7 +215,11 @@ export function tierFor(bond, count) {
   return t;
 }
 
-/** Σ layers over active bonds (hidden-core check, 不朽盟约 title). */
+/**
+ * Σ layers over active bonds (hidden-core check, 不朽盟约 title).
+ * @param {Record<string, { active: boolean, layers?: number }> | null | undefined} bonds
+ * @returns {number}
+ */
 export function activatedLayers(bonds) {
   let n = 0;
   for (const b of Object.values(bonds || {})) if (b.active) n += b.layers || 0;
@@ -199,6 +238,10 @@ export function activatedLayers(bonds) {
 export function bondList(gd, bonds, { full = false, off = null } = {}) {
   const order = new Map(gd.bondIds.map((id, i) => [id, i]));
   const list = [];
+  /**
+   * @param {BondEntry} e
+   * @returns {BondEntry}
+   */
   const extras = (e) => {
     if (!full) return e;
     const bond = gd.bond(e.bondId);
@@ -208,11 +251,12 @@ export function bondList(gd, bonds, { full = false, off = null } = {}) {
   };
   for (const [bondId, b] of Object.entries(bonds || {})) {
     if (!(b.count > 0 || b.layers > 0 || b.active)) continue;
+    /** @type {BondEntry} */
     const e = { bondId, count: b.count, active: b.active, tier: b.tier, layers: b.layers };
-    if (b.harmony > 0) e.harmony = b.harmony;
+    if (/** @type {number} */ (b.harmony) > 0) e.harmony = b.harmony;
     list.push(extras(e));
   }
-  list.sort((a, b) => (b.active - a.active) || (b.layers - a.layers) || ((order.get(a.bondId) ?? 99) - (order.get(b.bondId) ?? 99)));
+  list.sort((a, b) => (/** @type {any} */ (b.active) - /** @type {any} */ (a.active)) || (b.layers - a.layers) || ((order.get(a.bondId) ?? 99) - (order.get(b.bondId) ?? 99)));
   if (off) {
     for (const bondId of gd.bondIds) {
       const o = off[bondId];
@@ -247,8 +291,13 @@ export function bondsWithGains(bonds, gains, cap) {
   return out || bonds;
 }
 
-/** Snapshot for PlayerBattleInput.bonds: { [bondId]: { count, active, tier, layers } } (plain copy). */
+/**
+ * Snapshot for PlayerBattleInput.bonds: { [bondId]: { count, active, tier, layers } } (plain copy).
+ * @param {ReturnType<typeof computeBonds> | null | undefined} bonds
+ * @returns {Record<string, { count: number, active: boolean, tier: number, layers: number }>}
+ */
 export function bondSnapshot(bonds) {
+  /** @type {Record<string, { count: number, active: boolean, tier: number, layers: number }>} */
   const o = {};
   for (const [id, b] of Object.entries(bonds || {})) o[id] = { count: b.count, active: b.active, tier: b.tier, layers: b.layers };
   return o;

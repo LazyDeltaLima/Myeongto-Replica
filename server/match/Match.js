@@ -240,10 +240,15 @@ export { FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS } from './match/common.
 const BOT_REHEARSAL_DEFAULT = 3;
 /** Wall-clock ms of bot layout rehearsal per scheduler callback (real time; virtual time runs it in one go). */
 const BOT_SLICE_MS = 8;
+/** @param {string} k */
 const env = (k) => (typeof process !== 'undefined' && process.env ? process.env[k] : undefined);
 /** Default combat mode: client-side unless SP_COMBAT=server. */
 const envClientCombat = () => String(env('SP_COMBAT') || '').toLowerCase() !== 'server';
-/** SP_VERIFY → 'off' | 'sample' | 'all'. */
+/**
+ * SP_VERIFY → 'off' | 'sample' | 'all'.
+ * @param {unknown} v
+ * @returns {'off' | 'sample' | 'all'}
+ */
 export function parseVerify(v) {
   const s = String(v ?? '').trim().toLowerCase();
   return s === 'all' || s === 'sample' ? s : 'off';
@@ -251,6 +256,7 @@ export function parseVerify(v) {
 const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 
 const dsCache = new WeakMap();
+/** @param {Record<string, any> | null | undefined} data */
 function dataSourceFor(data) {
   if (!data || typeof data !== 'object' || !data.chess) return undefined;
   let ds = dsCache.get(data);
@@ -264,7 +270,7 @@ function dataSourceFor(data) {
  */
 
 export class Match {
-  /** @param {object} opts see MATCH INTERFACE above */
+  /** @param {Record<string, any>} opts see MATCH INTERFACE above */
   constructor(opts) {
     if (!opts || !Array.isArray(opts.seats) || opts.seats.length === 0) throw new TypeError('Match: seats required');
     if (typeof opts.send !== 'function' || typeof opts.broadcast !== 'function' || typeof opts.onEnd !== 'function') {
@@ -327,7 +333,7 @@ export class Match {
     /** real ms spent paused this match (diagnostics) */
     this.pausedMs = 0;
     /** boss rounds (client-side combat): the throttled m.public refresh (_bossPublic) */
-    this._bossPubTimer = null;
+    this._bossPubTimer = /** @type {unknown} */ (null);
     this._bossPubAt = -Infinity;
     this._bossClockOn = false;
     /**
@@ -335,13 +341,14 @@ export class Match {
      * next match of the room (the same socket, the same field ids) never names a battle of this match.
      */
     this.battlePrefix = `${this.seed.toString(36)}${Number.isInteger(opts.matchNo) && opts.matchNo > 0 ? `-${opts.matchNo.toString(36)}` : ''}`;
-    this._progressTimer = null;
-    this._bossClock = null;
+    this._progressTimer = /** @type {unknown} */ (null);
+    this._bossClock = /** @type {unknown} */ (null);
     this._lastPoolAt = -Infinity;
-    this._poolTimer = null;
+    this._poolTimer = /** @type {unknown} */ (null);
     this._lastPoolKey = '';
-    this.pacer = null;
+    this.pacer = /** @type {import('./fields.js').HeadlessPacer | null} */ (null);
 
+    /** @param {string} name */
     const rng = (name) => createRng(deriveSeed(this.seed, name));
     this.rngSetup = rng('setup');
     this.rngShop = rng('shop');
@@ -407,12 +414,11 @@ export class Match {
     this.phase = /** @type {string} */ (PHASE.LOBBY);
     /** INFO_CHECK: when it started (sched ms) and how its reroll vote ended the match, if it did (phases.js) */
     this.infoAt = 0;
-    /** @type {'reroll' | null} */
-    this.infoOutcome = null;
+    this.infoOutcome = /** @type {'reroll' | null} */ (null);
     /** INFO_CHECK: the seats voting 重新抽取, in vote order (phases.js voteReroll / rerollProposer) */
-    this.infoRerollers = [];
+    this.infoRerollers = /** @type {string[]} */ ([]);
     /** the in-match 重新开始 vote (restart.js): the open vote, its outcome, the seats' next allowed proposal (sched ms) */
-    this.restartVote = null;
+    this.restartVote = /** @type {Record<string, any> | null} */ (null);
     /** @type {'restart' | null} */
     this.restartOutcome = null;
     /** @type {Map<string, number>} */
@@ -422,34 +428,34 @@ export class Match {
     /** Final Assault / Hidden Core: ms epoch when the overtime drain starts (m.public.overtimeAt) */
     this.overtimeAt = 0;
     /** …and that start in REAL seconds of the boss round (gamedata.js bossOvertimeStartReal) */
-    this.overtimeStartReal = null;
+    this.overtimeStartReal = /** @type {number | null} */ (null);
     this.uidSeq = 0;
     this.ended = false;
     this.disposed = false;
     this.startedAt = this.sched.now();
     /** @type {Set<any>} */
     this._timers = new Set();
-    this._phaseTimer = null;
-    this._turnTimer = null;
+    this._phaseTimer = /** @type {unknown} */ (null);
+    this._turnTimer = /** @type {unknown} */ (null);
     this._pubDirty = false;
-    this._pubTimer = null;
+    this._pubTimer = /** @type {unknown} */ (null);
     this._lastPubAt = -Infinity;
     this._lastPubJson = '';
     /** @type {Set<PlayerState>} */
     this._privDirty = new Set();
-    this.errors = [];
+    this.errors = /** @type {Array<{ label: string, message: string, stack: string | null }>} */ ([]);
     this.errorCount = 0;
     this.simErrors = 0;
     /** @type {Map<string, { label: string, who: string, message: string, stack: string|null, battles: number, count: number }>} */
     this.simErrorLog = new Map();
     this._prepEndQueued = false;
 
-    this.draft = null;
+    this.draft = /** @type {Record<string, any> | null} */ (null);
     this.sp = /** @type {import('./match/common.js').SpDraft | null} */ (null);
-    this.wave = null;
+    this.wave = /** @type {Record<string, any> | null} */ (null);
     this.bossWaves = /** @type {import('./match/common.js').BossWave[] | null} */ (null);
     this.fields = /** @type {import('./match/common.js').MatchField[]} */ ([]);
-    this.runner = null;
+    this.runner = /** @type {import('./fields.js').FieldRunner | null} */ (null);
     /** playerId → fieldId */
     this.watchers = new Map();
     /**
@@ -461,18 +467,18 @@ export class Match {
     this.lastResults = new Map();
     this.unitePlan = /** @type {import('./match/settle.js').UnitePlan | null} */ (null);
     /** 联防 outcome for the SETTLE view: { through, helpers, leakers, losses } (settle()), null when no 联防 resolved */
-    this.uniteResultView = null;
+    this.uniteResultView = /** @type {Record<string, any> | null} */ (null);
     /** every alive player's LP charge of the round for the SETTLE view: { playerId: n } (settle()), null outside it */
-    this.roundLossesView = null;
+    this.roundLossesView = /** @type {Record<string, number> | null} */ (null);
     /** server-run 联防: the leakers' counts last published (_uniteTick) */
-    this._uniteLeftKey = null;
+    this._uniteLeftKey = /** @type {string | null} */ (null);
     /** 联防: { plan, bounds } — per leaker the most survivors settlement can bill (_uniteLeft's clamp) */
-    this._uniteBounds = null;
-    this.teamLp = null;
-    this.bossPool = null;
+    this._uniteBounds = /** @type {Record<string, any> | null} */ (null);
+    this.teamLp = /** @type {number | null} */ (null);
+    this.bossPool = /** @type {import('./finalAssault.js').SharedBossPool | null} */ (null);
     this.hiddenLayerSum = 0;
     this.hiddenReached = false;
-    this.outcome = null;
+    this.outcome = /** @type {import('./results.js').MatchOutcome | null} */ (null);
     this._turnToken = 0;
   }
 }
@@ -482,6 +488,6 @@ for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, Match
   for (const key of Reflect.ownKeys(part.prototype)) {
     if (key === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Match.prototype, key)) throw new Error(`Match.${String(key)} is defined twice`);
-    Object.defineProperty(Match.prototype, key, Object.getOwnPropertyDescriptor(part.prototype, key));
+    Object.defineProperty(Match.prototype, key, /** @type {PropertyDescriptor} */ (Object.getOwnPropertyDescriptor(part.prototype, key)));
   }
 }

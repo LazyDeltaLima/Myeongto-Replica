@@ -203,7 +203,7 @@ export function setupMatchWaves(gd, rng) {
   const weightOf = (id, s) => (s.borrowed ? (gd.custom?.stages?.extra?.includes(id) ? ownWeight() : 0)
     : s.active !== false && Number(s.weight) > 0 ? Number(s.weight)
     : added.has(id) && gd.custom?.stages?.firstHalf ? Number(gd.stage(CUSTOM_FIRST_HALF_WEIGHT_OF)?.weight) || 0 : 0);
-  const stagePairs = keepUnbanned(stageIds.map((id) => [id, gd.stage(id)]).filter(([id, s]) => s && weightOf(id, s) > 0).map(([id, s]) => [id, weightOf(id, s)]), ([id]) => id, gd.custom?.stages?.ban);
+  const stagePairs = keepUnbanned(stageIds.map((id) => /** @type {[string, Record<string, any> | null]} */ ([id, gd.stage(id)])).filter(([id, s]) => s && weightOf(id, s) > 0).map(([id, s]) => /** @type {[string, number]} */ ([id, weightOf(id, s)])), ([id]) => id, gd.custom?.stages?.ban);
   let stageId = stagePairs.length ? weightedPick(rng, stagePairs) : null;
   if (!stageId) {
     const any = Object.keys(gd.raw.stages || {}).filter((id) => gd.stage(id) && gd.stage(id).active);

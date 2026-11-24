@@ -3,19 +3,33 @@
 // Only mixed human/AI matches; no RNG, decisions, timer scheduling or battle changes.
 // Enabled by default; SP_BOT_EMOTES=0 disables every entry point.
 import { EMOTES, EMOTE_COOLDOWN_MS } from '../../shared/constants.js';
+/** @import { Match } from './Match.js' */
+/** @import { PlayerState } from './PlayerState.js' */
 export const BOT_EMOTES_ON = process.env.SP_BOT_EMOTES !== '0';
+/** @param {string} name */
 const E = (name) => `autochess_battle_${name}`;
+/** @param {Match | null | undefined} m */
 export function hasHumans(m) {
   return !!m?.order?.some((p) => p && !p.isBot) && !!m?.order?.some((p) => p?.isBot);
 }
+/**
+ * @param {Match} m
+ * @param {PlayerState | null | undefined} p
+ * @param {string | null} id
+ */
 export function sendEmote(m, p, id) {
-  if (!BOT_EMOTES_ON || !hasHumans(m) || !p?.isBot || !p.alive || !EMOTES.includes(id)) return false;
+  if (!BOT_EMOTES_ON || !hasHumans(m) || !p?.isBot || !p.alive || !/** @type {readonly unknown[]} */ (EMOTES).includes(id)) return false;
   const now = m.sched.now();
   if (typeof p.lastEmoteAt === 'number' && now - p.lastEmoteAt < EMOTE_COOLDOWN_MS) return false;
   p.lastEmoteAt = now;
   m.broadcast({ t: 'm.emote', playerId: p.playerId, id });
   return true;
 }
+/**
+ * @param {Match} m
+ * @param {string} senderId
+ * @param {string} id
+ */
 export function onHumanEmote(m, senderId, id) {
   if (!BOT_EMOTES_ON || !hasHumans(m) || !m.order.some((p) => p.playerId === senderId && !p.isBot)) return false;
   const replies = { [E('thanks')]: E('noproblem'), [E('sorry')]: E('noproblem'),
@@ -25,12 +39,26 @@ export function onHumanEmote(m, senderId, id) {
   if (!reply) return false;
   return m.order.some((p) => p.isBot && sendEmote(m, p, reply)); // at most one reply, skipping cooling bots
 }
+/**
+ * @param {Match} m
+ * @param {PlayerState} p
+ * @param {{ kind?: string } | null | undefined} card
+ */
 export function onPickCard(m, p, card) {
   return card?.kind === 'bounty' && sendEmote(m, p, E('thinking'));
 }
+/**
+ * @param {Match} m
+ * @param {{ helpers?: PlayerState[] } | null | undefined} plan
+ */
 export function onStartUnite(m, plan) {
   return !!plan?.helpers?.some((p) => p.isBot && sendEmote(m, p, E('nice_cooperate')));
 }
+/**
+ * @param {Match} m
+ * @param {PlayerState} p
+ * @returns {string | null}
+ */
 export function pickSettleEmote(m, p) {
   const r = m.lastResults.get(p.playerId);
   if (!r) return null;
@@ -39,12 +67,13 @@ export function pickSettleEmote(m, p) {
     return (br.killed || 0) - (ar.killed || 0) || (br.damageDealt || 0) - (ar.damageDealt || 0);
   });
   if (ranked.length > 1 && ranked[0] === p && r.killed > 0) return E('call');
-  const leaks = (r.leaked || []).filter((l) => l && l.counted !== false).length;
+  const leaks = (r.leaked || []).filter((/** @type {Record<string, any> | null} */ l) => l && l.counted !== false).length;
   if (leaks > 0) return E('scared');
   if (r.perfect !== false) return E('playingcool');
   if (r.coins > 0) return E('thanks');
   return null;
 }
+/** @param {Match} m */
 export function onSettle(m) {
   if (!BOT_EMOTES_ON || !hasHumans(m) || m._botEmotesSettledRound === m.round) return false;
   m._botEmotesSettledRound = m.round;
@@ -54,6 +83,11 @@ export function onSettle(m) {
   }
   return sent;
 }
+/**
+ * @param {Match} m
+ * @param {PlayerState | null | undefined} p
+ * @param {{ kind?: string } | null | undefined} info
+ */
 export function onMerge(m, p, info) {
   if (!BOT_EMOTES_ON || !hasHumans(m) || !p?.isBot || !p.alive || info?.kind !== 'chess') return false;
   const counts = m._botEmotesMerges ??= new Map();
@@ -61,9 +95,15 @@ export function onMerge(m, p, info) {
   counts.set(p.playerId, n);
   return n === 3 && sendEmote(m, p, E('scared'));
 }
+/**
+ * @param {Match} m
+ * @param {PlayerState} recipient
+ * @param {string} fromPlayerId
+ */
 export function onGiftTicker(m, recipient, fromPlayerId) {
   // Display names are not unique identities; use the trusted source player id.
   return !!m.order.some((p) => p.playerId === fromPlayerId && !p.isBot && p !== recipient)
     && sendEmote(m, recipient, E('thanks'));
 }
+/** @param {Match} m */
 export function resetRoundCounters(m) { m._botEmotesMerges?.clear(); }

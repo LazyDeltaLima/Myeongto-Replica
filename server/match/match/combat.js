@@ -64,7 +64,7 @@ export class MatchCombat {
    * @this {Match}
    */
   _normalOpts(ps, { preview = false, board = ps.board } = {}) {
-    const wave = preview ? structuredClone(this.wave) : this.wave;
+    const wave = /** @type {Record<string, any>} */ (preview ? structuredClone(this.wave) : this.wave);
     if (preview) ps = previewPlayer(ps, board);
     const input = ps.battleInput({ side: 'L', colOffset: 0 });
     // the client's list: bounty units inserted among their host action's own units, which are re-timed around them

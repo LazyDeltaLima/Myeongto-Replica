@@ -16,13 +16,22 @@ import { bondList } from './bondsMeta.js';
 import { boardOrder } from './board.js';
 import { unitRows } from './unitTally.js';
 import { chatFaction } from '../../shared/local.js';
+/** @typedef {{ victory: boolean, hiddenReached: boolean, hiddenCleared: boolean, reason: string }} MatchOutcome */
+/** @import { Match } from './Match.js' */
+/** @import { PlayerState } from './PlayerState.js' */
+/** @import { GameData } from './gamedata.js' */
 
-/** The player's chat faction id (Match opts.factionOf, local patch), or null: bots and solo matches have none. */
+/**
+ * The player's chat faction id (Match opts.factionOf, local patch), or null: bots and solo matches have none.
+ * @param {Match} m
+ * @param {string} playerId
+ */
 function factionOf(m, playerId) {
   const f = m.opts && typeof m.opts.factionOf === 'function' ? m.opts.factionOf(playerId) : null;
   return chatFaction(f) ? f : null;
 }
 
+/** @type {Readonly<Record<string, (ps: PlayerState) => number>>} */
 const STAT_OF = {
   bossDamage: (ps) => ps.stats.bossDamage,
   activatedLayers: (ps) => ps.activatedLayers(),
@@ -33,8 +42,15 @@ const STAT_OF = {
   fundsSpent: (ps) => ps.stats.gold,
 };
 
+/**
+ * @param {GameData} gd
+ * @param {PlayerState[]} players
+ * @param {boolean} victory
+ */
 export function assignTitles(gd, players, victory) {
+  /** @type {Record<string, any>[]} */
   const titles = Array.isArray(gd.titles) ? gd.titles : Array.isArray(gd.config.titles) ? gd.config.titles : [];
+  /** @type {Array<{ ps: PlayerState, t: Record<string, any>, ti: number, rank: number, rel: number }>} */
   const cands = [];
   titles.forEach((t, ti) => {
     if (!t || typeof t.stat !== 'string' || !Object.hasOwn(STAT_OF, t.stat)) return;
@@ -68,6 +84,11 @@ export function assignTitles(gd, players, victory) {
   return out;
 }
 
+/**
+ * @param {GameData} gd
+ * @param {number} roundsPassed
+ * @param {boolean} hiddenCleared
+ */
 function trophiesFor(gd, roundsPassed, hiddenCleared) {
   const tr = gd.config.trophies;
   if (!tr || gd.isSolo) return 0;
@@ -81,10 +102,14 @@ function trophiesFor(gd, roundsPassed, hiddenCleared) {
   return n;
 }
 
+/**
+ * @param {GameData} gd
+ * @param {number} roundsPassed
+ */
 function rewardFor(gd, roundsPassed) {
   const rw = gd.config.rewards;
   if (!rw || !Array.isArray(rw.baseByRoundsPassed)) return 0;
-  const row = rw.baseByRoundsPassed.filter((r) => r.round <= roundsPassed).pop();
+  const row = rw.baseByRoundsPassed.filter((/** @type {Record<string, any>} */ r) => r.round <= roundsPassed).pop();
   if (!row) return 0;
   const df = (rw.difficultyFactor && rw.difficultyFactor[gd.difficulty]) || 1;
   const mf = (rw.modeFactor && rw.modeFactor[gd.isSolo ? 'SINGLE' : 'MULTI']) || 1;
@@ -93,7 +118,7 @@ function rewardFor(gd, roundsPassed) {
 
 /**
  * @param {import('./Match.js').Match} m
- * @param {{ victory: boolean, hiddenReached: boolean, hiddenCleared: boolean, reason: string }} outcome
+ * @param {MatchOutcome} outcome
  */
 export function buildResult(m, outcome) {
   const gd = m.gd;
@@ -104,7 +129,8 @@ export function buildResult(m, outcome) {
   const rows = players.map((ps) => {
     const roundsPassed = !ps.alive && ps.eliminatedRound != null ? Math.max(0, ps.eliminatedRound - 1) : teamRounds;
     const lineup = boardOrder(ps.board).filter((x) => x.piece.kind === 'chess').map(({ r, c, piece }) => {
-      const e = { id: piece.id, golden: gd.isGolden(piece.id), tier: gd.tierOf(piece.id), row: r, col: c, items: (piece.items || []).map((i) => i.id) };
+      /** @type {{ id: string, golden: boolean, tier: number, row: number, col: number, items: string[], diy?: object, standInFor?: string }} */
+      const e = { id: piece.id, golden: gd.isGolden(piece.id), tier: gd.tierOf(piece.id), row: r, col: c, items: (piece.items || []).map((/** @type {{ id: string }} */ i) => i.id) };
       // 0.2.0 自选编队: a DIY slot's pick — the result screen names and draws the operator (shared/diy.js diyRecord)
       const pick = typeof ps.diyPickOf === 'function' ? ps.diyPickOf(piece.id) : null;
       if (pick) e.diy = { charId: pick.charId, skillIndex: pick.skillIndex, uniEquipId: pick.uniEquipId };

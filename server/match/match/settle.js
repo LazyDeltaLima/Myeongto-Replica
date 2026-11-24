@@ -102,7 +102,7 @@ export class MatchSettle {
     }
     if (shared) {
       // nobody falls alone: the shares are written back (_syncTeamLp); the pool at 0 takes the whole alliance out
-      this.teamLp = Math.max(0, this.teamLp - teamLoss);
+      this.teamLp = Math.max(0, /** @type {number} */ (this.teamLp) - teamLoss);
       if (this.teamLp > 0) this._syncTeamLp();
       else {
         for (const ps of alive) {
@@ -216,7 +216,7 @@ export class MatchSettle {
     /** @type {{ t: string, [key: string]: any }} m.result: buildResult's, or the bare fallback below */
     let result;
     try {
-      result = buildResult(this, this.outcome);
+      result = buildResult(this, /** @type {import('../results.js').MatchOutcome} */ (this.outcome));
     } catch (e) {
       this.reportError('buildResult', e);
       result = { t: 'm.result', victory: !!victory, roundsPassed: 0, reason, modeId: this.modeId, difficulty: this.difficulty, players: [] };

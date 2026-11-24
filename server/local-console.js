@@ -450,7 +450,7 @@ function run(m, ps, msg) {
       const g = gate(); if (g) return g;
       if (!gd.bond(msg.bondId)) return fail(ERR.BAD_TARGET, 'no such bond');
       // 调和 协防干员 独行 绝技 (bonds.json noStack): the game keeps no layers for them, the panel offers no stepper
-      if (gd.bond(msg.bondId).noStack) return fail(ERR.BAD_TARGET, 'bond without layers');
+      if (/** @type {Record<string, any>} */ (gd.bond(msg.bondId)).noStack) return fail(ERR.BAD_TARGET, 'bond without layers');
       const n = Math.min(layerCapOf(gd), Math.max(0, Math.trunc(msg.layers)));
       if (!ps.consoleLayersBase) ps.consoleLayersBase = { ...(ps.layers || {}) };
       /** @type {Record<string, number>} */

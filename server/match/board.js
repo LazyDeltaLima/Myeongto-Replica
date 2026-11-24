@@ -41,14 +41,34 @@ import { GEO } from '../../shared/constants.js';
 import { meleeOnHighGround } from '../../shared/highGround.js';
 import { DEFAULT_DIR, isDir, rotateOffset } from '../sim/dir.js';
 import { BOSS_ROW_OFFSET, STAGE_COLS } from '../sim/constants.js';
+/** @import { ChessRecord } from '../../shared/loadoutRecord.js' */
 
 export const FIELD = GEO.FIELD; // { r0: 9, r1: 12, c0: 2, c1: 10 }
+/**
+ * @param {number} r
+ * @param {number} c
+ */
 export const tileKey = (r, c) => `${r},${c}`;
+/**
+ * @param {string} k
+ * @returns {[number, number]}
+ */
 export const parseKey = (k) => { const [r, c] = String(k).split(',').map(Number); return [r, c]; };
-/** A board piece's direction (default RIGHT). */
+/**
+ * A board piece's direction (default RIGHT).
+ * @param {Record<string, any> | null | undefined} piece
+ * @returns {string}
+ */
 export const pieceDir = (piece) => (piece && isDir(piece.dir) ? piece.dir : DEFAULT_DIR);
-/** An intent's optional direction: undefined / null ⇒ RIGHT, a direction name ⇒ itself, anything else ⇒ null (invalid). */
+/**
+ * An intent's optional direction: undefined / null ⇒ RIGHT, a direction name ⇒ itself, anything else ⇒ null (invalid).
+ * @param {string | null | undefined} d
+ */
 export const parseDir = (d) => (d === undefined || d === null ? DEFAULT_DIR : isDir(d) ? d : null);
+/**
+ * @param {number} r
+ * @param {number} c
+ */
 export const inField = (r, c) => Number.isInteger(r) && Number.isInteger(c) && r >= FIELD.r0 && r <= FIELD.r1 && c >= FIELD.c0 && c <= FIELD.c1;
 
 const OBSTACLE_ROLES = new Set(['crate', 'mound']);
@@ -66,16 +86,27 @@ export const DEPLOY_FIELDS = Object.freeze(['normal', 'bossL', 'bossR']);
 export const BOARD_ROWS_ABOVE_BOSS = -BOSS_ROW_OFFSET;
 /** Mirror column of the right boss half: board col c ↔ field col 20 − c (sim Battle.mapTile). */
 export const BOSS_MIRROR_COL = STAGE_COLS - 1;
+/** @param {string} f */
 const fieldOf = (f) => (DEPLOY_FIELDS.includes(f) ? f : 'normal');
 
-/** The stage tile [row, col] a board tile (r, c) stands on in deploy field `field`. */
+/**
+ * The stage tile [row, col] a board tile (r, c) stands on in deploy field `field`.
+ * @param {string} field
+ * @param {number} r
+ * @param {number} c
+ */
 export function fieldTile(field, r, c) {
   const f = fieldOf(field);
   if (f === 'normal') return [r, c];
   return [r - BOARD_ROWS_ABOVE_BOSS, f === 'bossR' ? BOSS_MIRROR_COL - c : c];
 }
 
-/** Inverse of fieldTile: the board tile of stage tile (r, c) in deploy field `field`. */
+/**
+ * Inverse of fieldTile: the board tile of stage tile (r, c) in deploy field `field`.
+ * @param {string} field
+ * @param {number} r
+ * @param {number} c
+ */
 export function boardTileOf(field, r, c) {
   const f = fieldOf(field);
   if (f === 'normal') return [r, c];
@@ -83,7 +114,7 @@ export function boardTileOf(field, r, c) {
 }
 
 /**
- * @param {object|null} stage data/stages.json entry
+ * @param {Readonly<Record<string, any>> | null} stage data/stages.json entry
  * @param {{ deviceOverrides?: Record<string, boolean>, tileOverrides?: Record<string, string>, field?: 'normal'|'bossL'|'bossR' }} [opts]
  * @returns {Map<string, 'melee'|'ranged'>} keyed by BOARD tile 'r,c' (rows 9–12, cols 2–10)
  */
@@ -142,7 +173,7 @@ export function buildDeployMap(stage, { deviceOverrides = {}, tileOverrides = {}
  * 「可以放置于远程位」 (shared/highGround.js: 歌蕾蒂娅, 崖心, 见行者, normal and elite) is widened to 'all': it may also
  * stand on the ranged (高台) tiles. Every other MELEE record stays 'melee'. A token marked `rangedTilesOnly` (tokens
  * "仅可以部署在…远程位": 战术锚点) is 'high': the ranged tiles only. `chess.json` has no `placement` field.
- * @param {object|null} rec
+ * @param {ChessRecord | null} rec
  */
 export function positionClass(rec) {
   if (rec && rec.rangedTilesOnly === true) return 'high';
@@ -156,8 +187,8 @@ export function positionClass(rec) {
  * stand-in's position — the body that is deployed (圣约送葬人's 预备干员-先锋 stands on the ground, 塞雷娅's Touch
  * anywhere) [ASSUMED: the official deploy check reads the fielded character]; tokens and records without a chess id
  * are their own body.
- * @param {{ fieldRecord?: (rec: object) => object }|null} ps
- * @param {object|null} rec
+ * @param {{ fieldRecord?: (rec: ChessRecord | null) => ChessRecord | null } | null} ps
+ * @param {ChessRecord | null} rec
  */
 export function placeClass(ps, rec) {
   if (!rec || !rec.chessId || !ps || typeof ps.fieldRecord !== 'function') return positionClass(rec);
@@ -174,6 +205,7 @@ export function placeClass(ps, rec) {
  * The record's own position class ('melee' | 'ranged' | 'all'), without the placement widening — the class the battle
  * plays (a MELEE operator still blocks on a ground tile; on a 高台 it blocks nothing): the bots' blocker test and their
  * 高台 preference for a widened melee chess (bot.js isBlocker / planLayoutSteps).
+ * @param {ChessRecord | null} rec
  */
 export function basePositionClass(rec) {
   const p = rec && typeof rec.position === 'string' ? rec.position.toUpperCase() : 'ALL';
@@ -182,7 +214,13 @@ export function basePositionClass(rec) {
   return 'all';
 }
 
-/** Whether a unit of placement class `pos` may stand on (r, c). */
+/**
+ * Whether a unit of placement class `pos` may stand on (r, c).
+ * @param {Map<string, string>} map
+ * @param {string} pos
+ * @param {number} r
+ * @param {number} c
+ */
 export function canPlace(map, pos, r, c) {
   if (!inField(r, c)) return false;
   const cls = map.get(tileKey(r, c));
@@ -196,8 +234,11 @@ export function canPlace(map, pos, r, c) {
  * Board tiles ('r,c' keys) of an owner's attack range: `grid` (facing-RIGHT [dRow, dCol] offsets) rotated by `dir`
  * around (r, c) — where a "只能部署在召唤者攻击范围内" summon (tokens.json `ownerRange`) may stand. The owner's own tile is
  * part of most grids but always occupied by the owner. public/js/ui/gameLogic.js mirrors it for the client.
- * @param {number[][]|null} grid
+ * @param {number[][] | null | undefined} grid
  * @returns {Set<string>}
+ * @param {number} r
+ * @param {number} c
+ * @param {string} dir
  */
 export function ownerRangeKeys(grid, r, c, dir) {
   const out = new Set();
@@ -213,12 +254,18 @@ export function ownerRangeKeys(grid, r, c, dir) {
  * Board tiles ('r,c' keys) of the four tiles next to (r, c) — where a summon whose owner's talent reads "只能放置于…四周"
  * (tokens `ownerBeside`: 涤火杰西卡's 机动盾牌) may stand; its owner's facing does not matter.
  * @returns {Set<string>}
+ * @param {number} r
+ * @param {number} c
  */
 export function ownerBesideKeys(r, c) {
   return new Set([tileKey(r + 1, c), tileKey(r - 1, c), tileKey(r, c + 1), tileKey(r, c - 1)]);
 }
 
-/** Legal tiles for a placement class, in reading order (top→bottom, left→right). */
+/**
+ * Legal tiles for a placement class, in reading order (top→bottom, left→right).
+ * @param {Map<string, string>} map
+ * @param {string} pos
+ */
 export function legalTiles(map, pos) {
   const out = [];
   for (let r = FIELD.r1; r >= FIELD.r0; r--) {
@@ -231,6 +278,8 @@ export function legalTiles(map, pos) {
  * Board pieces in reading order: top row first (row desc), left to right within a row (col asc) — the battle input's order
  * (unit ids), the garrisons' dispatch order and the lists the views send. Not the deployment order: the battle deploys by
  * column (Battle.start; mergeTile follows that one).
+ * @template T
+ * @param {Map<string, T>} board
  */
 export function boardOrder(board) {
   return [...board.entries()]
@@ -254,12 +303,16 @@ export function mergeTile(tiles, legal = () => true) {
   return sorted.find((t) => inField(t.r, t.c) && legal(t.r, t.c)) || null;
 }
 
-/** Index of the free slot to fill (right→left, config.economy.handFillOrder), or -1. */
+/**
+ * Index of the free slot to fill (right→left, config.economy.handFillOrder), or -1.
+ * @param {ReadonlyArray<unknown>} arr
+ */
 export function freeSlot(arr) {
   for (let i = arr.length - 1; i >= 0; i--) if (arr[i] == null) return i;
   return -1;
 }
 
+/** @param {ReadonlyArray<unknown>} arr */
 export function countFree(arr) {
   let n = 0;
   for (const x of arr) if (x == null) n++;
