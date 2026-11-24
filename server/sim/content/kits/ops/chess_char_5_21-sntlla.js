@@ -5,6 +5,7 @@ import { COLS } from '../../../constants.js';
 import { attackCountdown } from '../../../ai.js';
 import { toLocal } from '../../../dir.js';
 import { num, talent, skillGrid, batPct, mods, lazySkills, whileOn } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
 /** 寒檀 S2 icicle splash radius (PRTS 备注 "冰凌溅射半径1.5"). */
 const ICICLE_RADIUS = 1.5;
@@ -17,6 +18,7 @@ const ICICLE_DELAY = 0.6;
 /** 寒檀 S2 icicle lines, lateral offsets in her facing-RIGHT frame: ① the line on her left, ② on her right, ③ her own, then ①. */
 const ICICLE_ROWS = [1, -1, 0];
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 寒檀 — S2 “女巫之泪” (15 s): skill range, BAT −2.4 s; attacks become icicles on random tiles of the range (cycling left

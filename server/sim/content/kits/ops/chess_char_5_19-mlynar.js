@@ -6,11 +6,18 @@ import {
   whileOn, permBuff,
 } from '../shared/tier5.js';
 import { byEnemyAttack } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { Profile } from '../../../professions.js' */
+/** @import { HitEv, DamagedEv } from '../../support/index.js' */
 
 /** 玛恩纳 游侠 "周围存在3名及以上敌人" radius (8-neighbourhood). */
 const AROUND_RADIUS = 1.5;
+/** @param {Unit} u */
 const isKazimierz = (u) => hasPower(u, 'kazimierz');
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 玛恩纳 — librator (ramp to +200 % ATK while idle). S3 未照耀的荣光 (26 s, CUSTOM_RANGE): skill range, trait ×2, 5
@@ -31,6 +38,7 @@ export default {
     const up = num(bb.trait_up, 1), perKill = num(bb.per_kill_reduce);
     // S3: the trait bonus = ramp × trait_up + per_kill_reduce × kills, ≥ 0 — the trait's own ramp buff stays, the
     // difference goes into `mlynar:traitUp` (negative once the kills take the bonus below the ramp)
+    /** @param {Battle} battle @param {Unit} unit */
     const applyUp = (battle, unit) => {
       const ramp = num(unit.trait.ramp);
       const extra = unit.mem.mlyUp ? Math.max(0, ramp * up + perKill * num(unit.mem.mlyKills)) - ramp : 0;
@@ -45,10 +53,11 @@ export default {
      * The target is taken at `hit` as well: 天马之枪's 无来源 rider lands before the instance that carries it and may knock
      * the enemy out first. 无动于衷's reflection and a mark another operator's attack set off happen outside his attack:
      * never counted.
+     * @param {Battle} battle @param {Unit} unit @param {(victim: Unit) => void} onKill @param {(() => void) | null} [onAttack]
      */
     const ownKills = (battle, unit, onKill, onAttack = null) => {
       const hit = new Set();
-      const take = (c) => {
+      const take = (/** @type {HitEv | DamagedEv} */ c) => {
         if (c.source === unit && (c.dmg?.isAttack || (c.dmg?.tags || []).includes('mlynarOwn'))) hit.add(c.target);
       };
       battle.on('hit', take, { owner: unit, priority: 1000 });
@@ -90,7 +99,7 @@ export default {
           const scale = num(t1.atk_scale);
           if (!(scale > 0)) return;
           battle.on('damaged', (c) => {
-            const a = c.target, src = c.source;
+            const a = c.target, src = /** @type {Unit} */ (c.source);   // byEnemyAttack (before src.alive below) is false without one
             // the official mlynar_t_2[inverse] (ON_TAKE_DAMAGE, InverseDamage from an enemy source): every enemy damage instance
             // a Kazimierz operator takes, not its attacks only (tier1 byEnemyAttack)
             if (a.side !== 'ally' || !isOp(a) || !isKazimierz(a) || !byEnemyAttack(c) || !src.alive) return;
@@ -112,10 +121,10 @@ export default {
             if (c.unit !== unit || unit.mem.mlyRamp == null) return;
             unit.trait.ramp = unit.mem.mlyRamp;
             unit.mem.mlyRamp = null;
-            if (!(unit.trait.ramp > 0 && unit.alive)) return;
+            if (!(/** @type {number} */ (unit.trait.ramp) > 0 && unit.alive)) return;
             battle.addBuff(unit, { key: 'trait:libratorRamp', mods: { atkPct: unit.trait.ramp }, visible: true });
             // the kept stacks keep their effects (mlynar_s_cast finishes only [killmark]; professions.js installLibrator)
-            const pf = unit.profile, n = Math.round(unit.trait.ramp / ((pf.rampMax ?? 2) / (pf.rampTime ?? 40)));
+            const pf = /** @type {Profile} */ (unit.profile), n = Math.round(/** @type {number} */ (unit.trait.ramp) / ((pf.rampMax ?? 2) / (pf.rampTime ?? 40)));
             battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'trait:libratorRamp', n, max: pf.rampTime ?? 40, ...(pf.rampMid > 0 ? { mid: pf.rampMid } : {}) });
           }, { owner: unit, priority: -100 });
         }

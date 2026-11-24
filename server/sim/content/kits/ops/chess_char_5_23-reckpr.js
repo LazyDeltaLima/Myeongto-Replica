@@ -5,7 +5,10 @@ import { isHpLoss } from '../../../damage.js';
 import {
   num, on, inRange, talent, traitBb, mods, isOp, lazySkills, instantKind, lowHpHealUp,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 录武官 — S2 一点关窍 (25 s): ATK +; healed allies get a 10 s buff healing 80/120 HP on every hit taken.
@@ -40,7 +43,7 @@ export default {
         battle.on('damaged', (c) => {
           const a = c.target;
           if (a.side !== 'ally' || !(c.amount > 0) || a.hp <= 0 || c.type === 'element' || isHpLoss(c.dmg)) return; // (not a 流失)
-          const b = a.findBuff('reckpr:guard');
+          const b = /** @type {BuffRec | null} */ (a.findBuff('reckpr:guard'));
           if (b && b.data.src === unit) battle.heal(unit, a, num(b.data.value));
         }, { owner: unit });
         lowHpHealUp(battle, unit, tb);   // PHY-X: reckpr_e_002_tr filters LT (strictly below)

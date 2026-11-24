@@ -5,6 +5,9 @@
 // level 4 and E2 Lv60 skill level 7); what the data does not carry: PRTS Sharp(卫戍协议), cited where used.
 
 import { num, talentBb, traitBb, skillRec, statBuff, toggleBuff } from '../shared/tier1.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
 
 const S1 = 'skchr_acguad_1';
 const S2 = 'skchr_acguad_2';
@@ -12,6 +15,7 @@ const S3 = 'skchr_acguad_3';
 /** 力战不竭's ATK layers: one buff whose stacks are the layers. */
 const STACK_KEY = 'acguad:s3stack';
 
+/** @type {KitFns} */
 export default {
   // Sharp — talent 1 隐匿刀刃: ATK +atk, physical dodge prob (DRE-X levels 2 / 3 upgrade both). Talent 2 寸步不退: after
   // `interval` s on the field (each deployment), ASPD +attack_speed.
@@ -64,8 +68,8 @@ export default {
         // 力战不竭's layers: decided before every attack the skill makes (after the other beforeAttack handlers, on the
         // attack's final main target); a new target clears them first, so its first attack has one layer
         battle.on('beforeAttack', (c) => {
-          if (c.attacker !== unit || !unit.skill.active) return;
-          const target = (c.targets || []).find((t) => t && t.alive);
+          if (c.attacker !== unit || !/** @type {SkillRuntime} */ (unit.skill).active) return;
+          const target = (c.targets || []).find((/** @type {Unit | null} */ t) => t && t.alive);
           if (!target) return;
           if (unit.mem.acguadTarget !== target) {
             battle.removeBuff(unit, STACK_KEY);

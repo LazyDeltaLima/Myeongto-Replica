@@ -4,7 +4,10 @@
 import {
   AURA_IV, AURA_DUR, num, talent, traitBb, skillGrid, batPct, mods, isAbyssal, isOp, selectedId, lazySkills, whileOn,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 归溟幽灵鲨 — dollkeeper (professions.js installDollkeeper: the 替身 form, its switch animations, 阻回). Her <替身> makes
@@ -90,7 +93,7 @@ export default {
         if (sid === 'skchr_ghost2_3') { // S3: 生命比例高于或等于自身 — judged when the attack starts
           battle.on('beforeAttack', (c) => {
             if (c.attacker !== unit || !unit.skill?.active) return;
-            unit.mem.ghostHeavy = new Map(c.targets.filter(Boolean).map((t) => [t, t.hpRatio >= unit.hpRatio - 1e-9]));
+            unit.mem.ghostHeavy = new Map(c.targets.filter(Boolean).map((/** @type {Unit} */ t) => [t, t.hpRatio >= unit.hpRatio - 1e-9]));
           }, { owner: unit, priority: -100 });
         }
         const hpUp = num(tb.max_hp); // PUM-Y: 替身…生命值提升

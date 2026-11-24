@@ -6,7 +6,13 @@ import {
   num, on, inRange, talent, traitBb, maxCharges, mods, selectedId, lazySkills, skillRange, burstSpUp, elementHit,
   burstDamageUp,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { HitEv, DamagedEv } from '../../support/index.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 妮芙 — S2 怵然震爆 (1/2 charges): next attack 270/300 % ATK arts + 4/5 s fear on the target and an equal arts splash
@@ -21,11 +27,12 @@ export default {
     const t0 = talent(chess, 0), t1 = talent(chess, 1), tb = traitBb(chess), tm = talent(chess, -1);
     const sid = selectedId(chess, def);
     const ep = num(bb.ep_damage_ratio, num(bb['attack@ep_damage_ratio'])), skillSoul = num(bb.element_atk_scale), soulBase = num(t0.element_atk_scale);
+    /** @param {Battle} battle @param {Unit} unit @param {Unit} e @param {number} scale */
     const soul = (battle, unit, e, scale) => {
-      const burst = e.findBuff('apoptosisBurst');
+      const burst = /** @type {BuffRec | null} */ (e.findBuff('apoptosisBurst'));
       if (!burst || !(scale > 0)) return;
       const key = `nymph:soul:${unit.id}`;
-      const cur = e.findBuff(key);
+      const cur = /** @type {BuffRec | null} */ (e.findBuff(key));
       if (cur) { cur.data.scale = Math.max(num(cur.data.scale), scale); return; }
       battle.addBuff(e, {
         key, duration: Math.max(0.1, burst.timeLeft), interval: 1, data: { scale },
@@ -71,7 +78,7 @@ export default {
         { install(battle, unit) { // 窥心钥
           battle.on('elementBurst', (c) => {
             if (c.element !== 'apoptosis' || c.target.side !== 'enemy' || !on(unit) || !inRange(unit, c.target)) return;
-            const max = Math.max(1, num(t1.max_stack_cnt, 10)), was = unit.findBuff('nymph:key')?.stacks ?? 0;
+            const max = Math.max(1, num(t1.max_stack_cnt, 10)), was = /** @type {BuffRec | null} */ (unit.findBuff('nymph:key'))?.stacks ?? 0;
             const b = battle.addBuff(unit, { key: 'nymph:key', refresh: 'stack', maxStacks: max, mods: { atkPct: num(t1.atk) }, visible: true });
             // nymph_t_2[atk][effect] at max_stack_cnt (render/fxstatus.js STACK_FX)
             if (b && b.stacks !== was) battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'nymph:key', n: b.stacks, max });
@@ -86,10 +93,10 @@ export default {
           // the S1 attack's `_activeBuffs` nymph_s_1[ep_damage] (ON_BUFF_START: skill on, target in an apoptosis burst) come before
           // its damage and its 凋亡 gauge (Projectile.ActionController.OnHitTarget: _AttachBuffs, then _RunActions), as 折光's 镭射穿凿
           // (op-kaitou.js): the burst is read before the hit, so the hit that sets a burst off has no extra damage
-          const hitOf = (c) => c.source === unit && !!unit.skill?.active && !!c.dmg?.isAttack && c.target?.side === 'enemy';
+          const hitOf = (/** @type {HitEv | DamagedEv} */ c) => c.source === unit && !!unit.skill?.active && !!c.dmg?.isAttack && c.target?.side === 'enemy';
           battle.on('hit', (c) => { if (hitOf(c)) c.dmg.nymphBurst = !!c.target.findBuff('apoptosisBurst'); }, { owner: unit, priority: 20 });
           battle.on('damaged', (c) => {
-            if (!hitOf(c) || c.type === 'element' || c.type === 'elemental' || !c.dmg.nymphBurst) return;
+            if (!hitOf(c) || c.type === 'element' || c.type === 'elemental' || !/** @type {Record<string, any>} */ (c.dmg).nymphBurst) return;   // hitOf proved an attack's damage
             const e = c.target;
             if (!e.alive || !(extra > 0)) return;
             elementHit(battle, unit, e, unit.s.atk * extra, 'nymphLash', 'apoptosis');

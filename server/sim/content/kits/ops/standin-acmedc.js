@@ -3,13 +3,19 @@
 
 import { num, traitBb, skillRec } from '../shared/tier1.js';
 import { mapCharTalents, touchGospel } from '../../tokens.js';
+/** @import { KitFns, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_acmedc_1', S2 = 'skchr_acmedc_2', S3 = 'skchr_acmedc_3';
 /** S2 宛如天启's "所有医疗干员攻击力+X%" on every medic operator of hers while the skill runs (one per target: 同名 buff). */
 const APOCALYPSE_KEY = 'acmedc:apocalypse';
 
+/** @param {Unit} a */
 const isMedicOp = (a) => a.kind === 'op' && a.alive && a.deployed && !a.hidden && a.def?.profession === 'MEDIC';
 
+/** @type {KitFns} */
 export default {
   // Touch (医师) — skills from data/backups.json (normal E2 Lv1 skill rank 4, elite E2 Lv60 rank 7; skill_table and PRTS
   // Touch(卫戍协议) agree):
@@ -37,6 +43,7 @@ export default {
     const phyScale = num(tb.heal_scale, 1), phyRatio = num(tb.hp_ratio, 0);
     const r1 = skillRec(chess, S1), r2 = skillRec(chess, S2), r3 = skillRec(chess, S3);
     const gospel = r3 ? touchGospel(r3.bb ?? {}, r3) : null;
+    /** @type {Record<string, KitSkill>} */
     const skills = {};
     if (r1) {
       const b1 = r1.bb ?? {};
@@ -54,10 +61,11 @@ export default {
     if (r2) {
       const b2 = r2.bb ?? {};
       const v = num(b2['attack@atk'], 0);
+      /** @param {Battle} battle @param {Unit} unit */
       const grant = (battle, unit) => {
         for (const a of battle.alliesFor(unit, unit.ownerId)) {
           if (!isMedicOp(a)) continue;
-          const cur = a.findBuff(APOCALYPSE_KEY);
+          const cur = /** @type {BuffRec | null} */ (a.findBuff(APOCALYPSE_KEY));
           if (cur && (cur.source === unit || (cur.data?.v ?? 0) >= v)) continue; // another Touch's equal or stronger one
           battle.addBuff(a, { key: APOCALYPSE_KEY, mods: { atkPct: v }, source: unit, data: { v }, tags: ['skill'] });
         }
@@ -69,7 +77,7 @@ export default {
         // medics deployed (or redeployed) while it runs get it too
         onTick({ battle, unit }) { if (v) grant(battle, unit); },
         onEnd({ battle, unit }) {
-          for (const a of battle.allyUnits) if (a.findBuff(APOCALYPSE_KEY)?.source === unit) battle.removeBuff(a, APOCALYPSE_KEY);
+          for (const a of battle.allyUnits) if (/** @type {BuffRec | null} */ (a.findBuff(APOCALYPSE_KEY))?.source === unit) battle.removeBuff(a, APOCALYPSE_KEY);
         },
       };
     }

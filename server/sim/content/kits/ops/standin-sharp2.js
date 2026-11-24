@@ -6,9 +6,11 @@
 
 import { num, talentBb, moduleBb, skillRec, statBuff, toggleBuff } from '../shared/tier1.js';
 import { hasHp, isHpLoss } from '../../../damage.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
 const S1 = 'skchr_sharp2_1';
 
+/** @type {KitFns} */
 export default {
   // 领主·Sharp — trait (the lord profile, professions.js): ranged attacks at atk_scale (80 %) unless the target stands on
   // her tile / the tile in front or she blocks it; range 3-12; hits air units (data canHitFly). Talent 1 无声之锋: ATK

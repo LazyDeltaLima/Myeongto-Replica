@@ -10,6 +10,9 @@ import {
   instantKind, whileOn, permBuff,
 } from '../shared/tier5.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // S3 “我的海疆”'s area (official client: skchr_thorn2_3 `PolygonProjectileToTile` → projectile_chr_thorn2_s3_polygon,
@@ -39,16 +42,22 @@ const SEA_TOKEN_LIFE = 0.5;
  * The area over tile centres `pts` ([x, y]): `{ point: [x, y] }` for one, else `{ poly, hull }` (convex, counter-clockwise;
  * `hull` the tiles left after `_DoCalculateHull` / `_OptimizeLineCollider`'s drop, before the push — `resultForEffect`, the
  * points `Thorn2S3Renderer` draws its line through: the 'seaArea' fx).
+ * @typedef {{ point: number[], poly?: undefined, hull?: undefined }
+ *   | { point?: undefined, poly: number[][], hull: number[][] }} SeaArea
+ * @param {number[][]} pts @returns {SeaArea | null}
  */
 function seaArea(pts) {
+  /** @type {number[][]} */
   const u = [];
   for (const p of pts) if (!u.some((q) => q[0] === p[0] && q[1] === p[1])) u.push(p);
   u.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   if (u.length <= 1) return u.length ? { point: u[0] } : null;
+  /** @param {number[]} o @param {number[]} a @param {number[]} b */
   const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
   const lo = [], hi = [];
-  for (const p of u) { while (lo.length >= 2 && cross(lo.at(-2), lo.at(-1), p) <= 0) lo.pop(); lo.push(p); }
-  for (let i = u.length - 1; i >= 0; i--) { const p = u[i]; while (hi.length >= 2 && cross(hi.at(-2), hi.at(-1), p) <= 0) hi.pop(); hi.push(p); }
+  // (`at` is never undefined there: the loops check two points first)
+  for (const p of u) { while (lo.length >= 2 && cross(/** @type {number[]} */ (lo.at(-2)), /** @type {number[]} */ (lo.at(-1)), p) <= 0) lo.pop(); lo.push(p); }
+  for (let i = u.length - 1; i >= 0; i--) { const p = u[i]; while (hi.length >= 2 && cross(/** @type {number[]} */ (hi.at(-2)), /** @type {number[]} */ (hi.at(-1)), p) <= 0) hi.pop(); hi.push(p); }
   const h = lo.slice(0, -1).concat(hi.slice(0, -1));   // counter-clockwise, collinear points dropped
   if (h.length === 2) {
     const [a, b] = h, len = hypot(b[0] - a[0], b[1] - a[1]);
@@ -64,7 +73,10 @@ function seaArea(pts) {
   return { poly, hull: h };
 }
 
-/** Does the circle (x, y, r) touch the area (`PolygonCircle`: an edge within r, or the centre inside)? */
+/**
+ * Does the circle (x, y, r) touch the area (`PolygonCircle`: an edge within r, or the centre inside)?
+ * @param {SeaArea} area @param {number} x @param {number} y @param {number} r
+ */
 function seaTouchesCircle(area, x, y, r) {
   const r2 = r * r + 1e-9;
   if (area.point) { const dx = x - area.point[0], dy = y - area.point[1]; return dx * dx + dy * dy <= r2; }
@@ -81,7 +93,10 @@ function seaTouchesCircle(area, x, y, r) {
   return inside;
 }
 
-/** Does the rectangle R ({ x0, x1, y0, y1 }) touch the area (`PolygonRectangle`; both convex: no separating axis)? */
+/**
+ * Does the rectangle R ({ x0, x1, y0, y1 }) touch the area (`PolygonRectangle`; both convex: no separating axis)?
+ * @param {SeaArea} area @param {{ x0: number, x1: number, y0: number, y1: number }} R
+ */
 function seaTouchesRect(area, R) {
   if (area.point) { const [x, y] = area.point; return x >= R.x0 && x <= R.x1 && y >= R.y0 && y <= R.y1; }
   const P = area.poly, Q = [[R.x0, R.y0], [R.x1, R.y0], [R.x1, R.y1], [R.x0, R.y1]];
@@ -101,6 +116,7 @@ function seaTouchesRect(area, R) {
  * enemies blocked by an ally standing in it — operators and summons, no devices (`SelectorHitBehaviourWithAllyBlockedEnemy`:
  * its `_allySelector`, `_professionMask` 767 = all but TRAP, `_ignoreAllyTargetFree`, finds the allies in the same area and
  * hits each one's `blockedEnemies`; PRTS 备注 「处于判定区域中的我方单位…阻挡敌人时，被阻挡的敌人视为处于判定区域内」).
+ * @param {Battle} battle @param {{ area: SeaArea }} z
  */
 function seaTargets(battle, z) {
   const A = z.area, pts = A.point ? [A.point] : A.poly;
@@ -123,13 +139,15 @@ function seaTargets(battle, z) {
 }
 
 /** Straight-road length through each tile (max of the horizontal and vertical runs of ground-passable tiles). */
+/** @type {WeakMap<Battle, Map<number, number>>} */
 const ROAD_CACHE = new WeakMap();
+/** @param {Battle} battle @param {number} r @param {number} c */
 function straightRun(battle, r, c) {
   let m = ROAD_CACHE.get(battle);
   if (!m) {
     m = new Map();
     const g = battle.grid, R = battle.rect;
-    const pass = (rr, cc) => g.groundPassable(rr, cc, true);
+    const pass = (/** @type {number} */ rr, /** @type {number} */ cc) => g.groundPassable(rr, cc, true);
     for (let rr = R.r0; rr <= R.r1; rr++) {
       for (let cc = R.c0; cc <= R.c1; cc++) {
         if (!pass(rr, cc)) continue;
@@ -146,6 +164,7 @@ function straightRun(battle, r, c) {
   return m.get(r * COLS + c) ?? 0;
 }
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 引星棘刺 — S2 解构涌潮 (instant / 2 charges elite): throws an alchemy unit at the target: for 12/15 s ground enemies
@@ -170,16 +189,21 @@ export default {
     const baseDur = num(bb.projectile_delay_time, num(bb.remaining_time, 12));
     const r0 = num(bb.projectile_range, 1.1), grow = num(bb.value), speed = num(bb.projectile_move_speed);
     const healMul = Math.max(0, num(bb.heal_scale, 1));
+    /** @param {Battle} battle @param {Unit} unit */
     const extend = (battle, unit) => (battle.alliesInGrid(unit).some((a) => a !== unit && isOp(a)) ? Math.min(num(t0.projectile_extend), num(t0.projectile_extend_max, Infinity)) : 0);
     // S3 ramp: value after `steps` intervals, clamped towards the max ("效果逐渐提升…15秒后达到最大")
+    /** @param {unknown} base @param {unknown} per @param {unknown} max @param {number} steps */
     const ramp = (base, per, max, steps) => {
       const v = num(base) + num(per) * steps;
       return num(max) < num(base) ? Math.max(num(max), v) : Math.min(num(max, v), v);
     };
-    /** One tick (AURA_IV) of an S1 guard zone / S3 sea zone. */
+    /**
+     * One tick (AURA_IV) of an S1 guard zone / S3 sea zone.
+     * @param {Battle} battle @param {Unit} unit @param {Record<string, any>} z @param {Map<Unit, number>} seaHits
+     */
     const tickSpecial = (battle, unit, z, seaHits) => {
       if (z.type === 'guard') {
-        const inZone = (a) => Math.abs(a.tileR - z.r) <= 1 && Math.abs(a.tileC - z.c) <= 1;
+        const inZone = (/** @type {Unit} */ a) => Math.abs(a.tileR - z.r) <= 1 && Math.abs(a.tileC - z.c) <= 1;
         const allies = battle.alliesFor(unit).filter(inZone);
         // one DEF buff per alchemy unit, so two units on one ally add up (+60 +60; PRTS 度算浪波 备注 「效果均可叠加」,
         // GitHub #388 — one shared key let the last unit's buff replace the other's)
@@ -200,7 +224,7 @@ export default {
       if (z.t < AURA_IV - 1e-9) return;
       const iv = Math.max(0.1, num(bb.interval, 1));
       const steps = Math.min(Math.max(0, num(bb.max_stack_cnt, 15)), Math.floor((z.t - AURA_IV + 1e-9) / iv));
-      const foes = seaTargets(battle, z);
+      const foes = seaTargets(battle, /** @type {{ area: SeaArea }} */ (z));   // a sea zone (no `type: 'guard'`)
       for (const e of foes) seaHits.set(e, Math.max(seaHits.get(e) ?? -1, steps));
       if (z.acc >= iv - 1e-9) {
         z.acc -= iv;
@@ -243,7 +267,7 @@ export default {
             const dur = num(bb.projectile_delay_time, 19) + extend(battle, unit);
             if (!ops.length) return;
             // one area over the operators' tiles (`polygonRangeTiles` = the cast targets' tiles; at most 4 points)
-            const area = seaArea(ops.slice(0, 4).map((a) => [a.tileC, a.tileR]));
+            const area = /** @type {SeaArea} */ (seaArea(ops.slice(0, 4).map((a) => [a.tileC, a.tileR])));   // ops is not empty
             (unit.mem.zones ??= []).push({ type: 'sea', anchors: ops, area, t: -SEA_DELAY, acc: Math.max(0.1, num(bb.interval, 1)) - AURA_IV - SEA_DELAY, dur });
             for (const a of ops) {
               // `thrown`: the unit thrown at that operator (skill prefab Token → projectile_chr_thorn2_s3, whose STOP sounds);
@@ -375,7 +399,7 @@ export default {
             for (const e of z.burn.foes) if (e.alive) battle.dealDamage(unit, e, { amount: unit.s.atk * z.burn.scale, type: 'arts', isSkill: true, tags: ['skill', 'mySea'], moment: 'thorn2_s3_enemy_buff' });
             z.burn = null;
           }
-          unit.mem.zones = zones.filter((z) => z.t < z.dur - 1e-9);
+          unit.mem.zones = zones.filter((/** @type {{ t: number, dur: number }} */ z) => z.t < z.dur - 1e-9);
           if (chess?.isGolden && sp > 0 && on(unit) && unit.mem.zones.length) battle.addBuff(unit, { key: 'thorn2:module', duration: AURA_DUR, mods: { spRecoveryFlat: sp } });
         }, { owner: unit });
       },

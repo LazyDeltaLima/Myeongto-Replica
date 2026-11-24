@@ -2,7 +2,10 @@
 // Conventions of the tier-5 kits: ../shared/tier5.js; kit contract and rules: ../README.md.
 
 import { AURA_IV, AURA_DUR, num, talent, skillGrid, mods, isOp, lazySkills, whileOn, spAura } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 铃兰 — S3 狐火渺然 (27/29 s): no attacks, skill range, every enemy in range is sluggish, allies in range recover 9/11 %
@@ -17,7 +20,7 @@ export default {
     const boost = num(bb.scale_delta_to_one, 1);
     const healRatio = num(bb['attack@atk_to_hp_recovery_ratio']);
     const fragile = num(t1.damage_scale, 1) - 1;
-    const foxKey = (unit) => `lisa:fox:${unit.id}`;
+    const foxKey = (/** @type {Unit} */ unit) => `lisa:fox:${unit.id}`;
     return {
       // S1 全力以赴 (duration): ATK +, ASPD +. S2 儿时的舞乐 (toggle, 持续时间无限): ATK +, 2 targets.
       skills: lazySkills({

@@ -2,7 +2,9 @@
 // Conventions of the tier-5 kits: ../shared/tier5.js; kit contract and rules: ../README.md.
 
 import { num, talent, skillGrid, batPct, mods, spAura, moduleRangeUp } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 白面鸮 — ringhealer. S2 脑啡肽 (33/36 s): skill range, BAT −1.8/−1.9 s. T1 技力光环: all allies +0.3 SP/s (highest

@@ -2,6 +2,10 @@
 // 6 余 (S3 + module PRO-X on the elite). Stand-in contract and rules: ../README.md "Stand-in kits".
 
 import { num, talentBb, traitBb, skillRec, statBuff, toggleBuff, up } from '../shared/tier1.js';
+/** @import { KitFns, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_acfend_1', S2 = 'skchr_acfend_2', S3 = 'skchr_acfend_3';
 /** 反馈装甲 on an enemy she blocks, and its S2 version (×talent_mult): one buff per target whatever applies it (同名). */
@@ -12,6 +16,7 @@ const CHECK_INTERVAL = 0.1;
 /** S3 应力倒置 "每秒…": one pulse per second of the skill, the first 1 s after the cast [ASSUMED: no pulse at the cast]. */
 const STRESS_INTERVAL = 1;
 
+/** @type {KitFns} */
 export default {
   // Mechanist (铁卫, blocks 3) — numbers from data/backups.json (normal E2 Lv1 rank 4, elite E2 Lv60 rank 7; skill_table and
   // PRTS Mechanist(卫戍协议) agree):
@@ -34,13 +39,19 @@ export default {
     const fbAspd = num(t1.attack_speed, 0);
     const fbMult = num(r2?.bb?.talent_mult, 1);
     /** Her S2 runs (the enhanced 反馈装甲). */
-    const s2On = (unit) => !!(unit.skill && unit.skill.active && unit.skill.id === S2);
-    /** A 反馈装甲 buff: it ends at the first 0.1 s check of its target that finds nobody blocking it. */
+    const s2On = (/** @type {Unit} */ unit) => !!(unit.skill && unit.skill.active && unit.skill.id === S2);
+    /**
+     * A 反馈装甲 buff: it ends at the first 0.1 s check of its target that finds nobody blocking it.
+     * @param {Battle} battle @param {Unit} unit @param {Unit} e @param {string} key @param {number} aspd
+     */
     const feedback = (battle, unit, e, key, aspd) => battle.addBuff(e, {
       key, mods: { aspd }, source: unit, data: { v: aspd }, tags: ['talent'], interval: CHECK_INTERVAL,
       onTick({ battle: b, unit: t, buff }) { if (!t.blockedBy) b.removeBuff(t, buff); },
     });
-    /** Apply 反馈装甲 (its S2 version while S2 runs) to every enemy she blocks — the talent's 0.1 s application. */
+    /**
+     * Apply 反馈装甲 (its S2 version while S2 runs) to every enemy she blocks — the talent's 0.1 s application.
+     * @param {Battle} battle @param {Unit} unit
+     */
     const applyFeedback = (battle, unit) => {
       if (!fbAspd || !up(unit)) return;
       const enhanced = s2On(unit);
@@ -55,6 +66,7 @@ export default {
         }
       }
     };
+    /** @type {Record<string, KitSkill>} */
     const skills = {};
     if (r1) skills[S1] = { kind: 'duration', mods: { hpPct: num(r1.bb?.max_hp), defPct: num(r1.bb?.def) } };
     if (r2) {
@@ -64,7 +76,7 @@ export default {
         onStart({ battle, unit }) { applyFeedback(battle, unit); },
         onEnd({ battle, unit }) {
           for (const e of battle.enemies) {
-            const b = e.findBuff(FEEDBACK_S2_KEY);
+            const b = /** @type {BuffRec | null} */ (e.findBuff(FEEDBACK_S2_KEY));
             if (b && b.source === unit) battle.removeBuff(e, b);
           }
         },

@@ -25,6 +25,8 @@
 //   before its damage (as 异客's 机理分析 kit reads it; the order of the buff and the hit is not in the data).
 
 import { num, talentBb, skillRec, spTimeBonus } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skchr_acnipe_1';
 const S2 = 'skchr_acnipe_2';
@@ -32,10 +34,13 @@ const S3 = 'skchr_acnipe_3';
 /** Tag of S3's extra damage instance (not an attack: 风坠 skips it). */
 const EXTRA = 'acnipe:extra';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {unknown} v @param {number} d */
 const count = (v, d) => Math.max(1, Math.floor(num(v, d)));
-const s3On = (unit) => !!(unit.skill && unit.skill.active && unit.skill.id === S3);
+const s3On = (/** @type {Unit} */ unit) => !!(unit.skill && unit.skill.active && unit.skill.id === S3);
 
+/** @type {KitFns} */
 export default {
   char_611_acnipe: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);

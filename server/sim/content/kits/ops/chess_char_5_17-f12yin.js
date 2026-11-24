@@ -5,7 +5,10 @@ import {
   HALF_HP, num, talent, traitBb, skillGrid, batPct, mods, selectedId, lazySkills, instantKind, skillRange, whileOn,
   permBuff,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 山 — S2 横扫架势 (stance toggle): DEF −30 %, range = own tile, ATK +35 %, block +1, hits every blocked enemy, 4 % max HP/s
@@ -18,7 +21,7 @@ export default {
     const t0 = talent(chess, 0), t1 = talent(chess, 1), tb = traitBb(chess);
     const sid = selectedId(chess, def);
     const critScale = num(t0.atk_scale, 1);
-    const critProb = (unit) => (sid === 'skchr_f12yin_3' && unit.skill?.active ? num(bb['talent@prob'], num(t0.prob)) : num(t0.prob));
+    const critProb = (/** @type {Unit} */ unit) => (sid === 'skchr_f12yin_3' && unit.skill?.active ? num(bb['talent@prob'], num(t0.prob)) : num(t0.prob));
     return {
       skills: lazySkills({
         skchr_f12yin_1: () => ({ kind: instantKind(chess, def), attack: { atkScale: num(bb.atk_scale, 1), maxTargets: Math.max(1, num(bb.max_target, 2)) } }),

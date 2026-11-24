@@ -7,10 +7,15 @@ import {
   HALF_HP, NEVER, AURA_IV, AURA_DUR, num, on, talent, traitBb, skillGrid, mods, selectedId, lazySkills, instantKind,
   whileOn, lowHpHealUp, permBuff,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 /**
  * Activate the unit's skill whenever it is ready and `cond()` holds (NEVER-trigger skills). Consecutive casts of a
  * multi-charge skill are spaced by at least one attack interval (like the attack-driven DEFAULT rule).
+ * @param {Battle} battle @param {Unit} unit @param {() => boolean} cond
  */
 function autoCast(battle, unit, cond) {
   battle.on('tick', () => {
@@ -22,6 +27,7 @@ function autoCast(battle, unit, cond) {
   }, { owner: unit });
 }
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 塞雷娅 — S2 药物配置 (instant, time SP): heals every ally in the skill range for heal_scale × ATK (cast when one is
@@ -36,12 +42,14 @@ export default {
     const t0 = talent(chess, 0), t1 = talent(chess, 1), tb = traitBb(chess);
     const sid = selectedId(chess, def);
     const grid = skillGrid(chess, def) ?? [[0, 0]];
+    /** @param {Battle} battle @param {Unit} unit */
     const zone = (battle, unit) => {
       const at = unit.tileR * COLS + unit.tileC;
       if (unit.mem.sariaAt !== at) { unit.mem.sariaAt = at; unit.mem.sariaKeys = new Set(absoluteRangeKeys(grid, unit.tileR, unit.tileC, unit.dir, 0)); }
       const keys = unit.mem.sariaKeys;
       return battle.allies().filter((a) => keys.has(a.tileR * COLS + a.tileC) && (a === unit || !(a.s.flags.noHeal || a.profile?.noHeal)));
     };
+    /** @param {Unit} a @param {Unit} unit */
     const healable = (a, unit) => a.kind !== 'device' && (a === unit || !(a.s.flags.noHeal || a.profile?.noHeal));
     return {
       skills: lazySkills({
@@ -96,7 +104,7 @@ export default {
           const iv = Math.max(1, num(t0.interval, 20)), max = Math.max(1, num(t0.max_stack_cnt, 5));
           whileOn(battle, unit, 1, () => {
             const n = Math.min(max, Math.floor((battle.time - unit.deployedAt + 1e-6) / iv));
-            const cur = unit.findBuff('saria:suit');
+            const cur = /** @type {BuffRec | null} */ (unit.findBuff('saria:suit'));
             if (n > 0 && (!cur || cur.stacks !== n)) {
               battle.addBuff(unit, { key: 'saria:suit', stacks: n, maxStacks: max, mods: mods({ atkPct: num(t0.atk), defPct: num(t0.def) }), visible: true });
               // demkni_t_1[stack]'s effect (render/fxstatus.js STACK_FX)

@@ -4,16 +4,21 @@
 import {
   num, on, talent, batPct, mods, hasPower, isOp, selectedId, lazySkills, skillRange, crowdAspd,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillEv } from '../../support/index.js' */
 
+/** @param {Unit} u */
 const isLaterano = (u) => hasPower(u, 'laterano');
 
-/** Enemy `e` attacks `t` in melee (not a ranged shot), mirroring ai.js enemyAttack. */
+/** Enemy `e` attacks `t` in melee (not a ranged shot), mirroring ai.js enemyAttack. @param {Unit} e @param {Unit} t */
 function meleeAttacker(e, t) {
   const melee = e.profile?.melee ?? e.def?.applyWay === 'MELEE';
   const r = num(e.base?.rangeRadius, 0);
   return melee || !(r > 0) || (e.blockedBy === t && r < 1);
 }
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 圣约送葬人 — S2 近身铳斗 (ammo, attack SP): ATK/DEF +, block +1, melee hits dodged with prob (+ammo refill).
@@ -74,7 +79,7 @@ export default {
       talents: [
         { install(battle, unit) { // 受选之人
           let spent = 0;
-          const reset = (c) => { if (c.unit === unit) spent = 0; };
+          const reset = (/** @type {SkillEv} */ c) => { if (c.unit === unit) spent = 0; };
           battle.on('skillStart', reset, { owner: unit });
           battle.on('skillEnd', reset, { owner: unit });
           battle.on('ammoUsed', (c) => { if (c.unit === unit) spent++; }, { owner: unit });

@@ -6,12 +6,18 @@ import { aggroCmp } from '../../../targeting.js';
 import {
   AURA_IV, AURA_DUR, RING1, num, on, talent, mods, dist, hasPower, isOp, selectedId, lazySkills, whileOn,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
+/** @param {Unit} u */
 const isSargonMinos = (u) => hasPower(u, 'sargon', 'minos');
 
-/** Enemy not moving along its route (blocked, stunned, rooted, waiting…). */
+/** Enemy not moving along its route (blocked, stunned, rooted, waiting…). @param {Unit} e */
 const isStill = (e) => !!(e.blockedBy || !e.moving || e.s.flags.stun || e.s.flags.noMove || !(e.s.moveSpeed > 0));
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 缇缇 — S3 旧日绽放 (25 s): ATK +, 2 targets, sleeps non-sleeping targets; during the skill every enemy waking up (or
@@ -30,9 +36,10 @@ export default {
     const minS = num(bb.min_atk_scale, 1), maxS = num(bb.max_atk_scale, minS);
     const chainSleep = num(bb.sleep, hitSleep), radius = num(bb.range_radius, 1.5), chainN = Math.max(1, num(bb.max_target, 1));
     // S2 封护: "第一天赋效果提升至N倍" while it runs
-    const t0Scale = (unit) => (sid === 'skchr_titi_2' && unit.skill?.active ? num(bb.talent_scale, 1) : 1);
+    const t0Scale = (/** @type {Unit} */ unit) => (sid === 'skchr_titi_2' && unit.skill?.active ? num(bb.talent_scale, 1) : 1);
+    /** @param {Battle} battle @param {Unit} unit @param {Unit} a */
     const ward = (battle, unit, a) => {
-      const entered = !a.buffs.some((b) => (b.status ?? b.key) === 'sleep');
+      const entered = !/** @type {BuffRec[]} */ (a.buffs).some((b) => (b.status ?? b.key) === 'sleep');
       battle.addBuff(a, { key: 'titi:ward', flags: { sleep: true }, visible: true, status: 'sleep', data: { src: unit } });
       battle.releaseBlocked(a);
       if (battle.hasHook('statusApplied')) battle.emit('statusApplied', { source: unit, target: a, status: 'sleep', duration: Infinity, entered });
@@ -78,7 +85,7 @@ export default {
               if (!a.alive || !a.deployed || !a.findBuff('titi:ward')) continue;
               for (const e of battle.foesInRadius(a.x, a.y, RING1)) {
                 if (!e.alive) continue;
-                const reenter = !pulsed.has(e) && !e.buffs.some((b) => (b.status ?? b.key) === 'sleep' && b.timeLeft > AURA_DUR + 1e-9);
+                const reenter = !pulsed.has(e) && !/** @type {BuffRec[]} */ (e.buffs).some((b) => (b.status ?? b.key) === 'sleep' && b.timeLeft > AURA_DUR + 1e-9);
                 pulsed.add(e);
                 battle.applyStatus(e, 'sleep', { duration: AURA_DUR, source: unit, reenter });
               }
@@ -106,7 +113,7 @@ export default {
         },
         onEnd({ battle, unit }) {
           for (const a of battle.allyUnits) {
-            const b = a.findBuff('titi:allySleep');
+            const b = /** @type {BuffRec | null} */ (a.findBuff('titi:allySleep'));
             if (b && b.data.src === unit) battle.removeBuff(a, b);
           }
         },
@@ -145,6 +152,7 @@ export default {
         // S3: wake-up burst chain (sleep applied by anyone counts)
         const asleep = new Map();
         // PRTS 备注: "向1.5半径内除该单位外仇恨值最高的敌方单位施加沉睡" — highest aggro (taunt) first, then the nearest
+        /** @param {Unit} from @param {number[] | null} [put] */
         const sleepOthers = (from, put = null) => {
           const cands = battle.foesInRadius(from.x, from.y, radius).filter((o) => o !== from && !o.s.flags.sleep && !o.mem?.candleOwner)
             .sort((a, b) => (b.s.taunt || 0) - (a.s.taunt || 0) || dist(a, from) - dist(b, from) || a.spawnSeq - b.spawnSeq);
@@ -167,6 +175,7 @@ export default {
             const scale = minS + (maxS - minS) * Math.min(1, (battle.time - t0s) / Math.max(0.1, chainSleep));
             battle.dealDamage(unit, e, { amount: unit.s.atk * scale, type: 'arts', isSkill: true, tags: ['skill', 'titiWake'] });
             // `to`: the enemies it puts to sleep (the renderer's line from it — titi_s_3[effect_line]), filled just after
+            /** @type {number[]} */
             const to = [];
             battle.fx('wake', { x: e.x, y: e.y, id: e.id, scale: Math.round(scale * 100) / 100, to });
             sleepOthers(e, to);
@@ -180,6 +189,7 @@ export default {
           // titi_s_3[dmg_ticker] ON_OWNER_FINISH puts titi_s_3[effect_line] on the enemy it sleeps too: its spread sound
           // (public/js/audio.js — no 'wake' here: a dead enemy bursts nothing) and its line titi_skill_03_line_01 from the dead
           // enemy (`from`, BUFF_SOURCE) to each (`to`; public/js/render/fx/kitofficial.js)
+          /** @type {number[]} */
           const to = [];
           sleepOthers(v, to);
           if (to.length) battle.fx('kitHit', { x: v.x, y: v.y, id: unit.id, k: 'titi:spread', n: to.length, from: v.id, to });
@@ -188,11 +198,11 @@ export default {
         battle.on('fatal', (c) => {
           const a = c.unit;
           if (c.prevented || a.side !== 'ally' || a === unit) return;
-          const guard = a.findBuff('titi:allySleep');
+          const guard = /** @type {BuffRec | null} */ (a.findBuff('titi:allySleep'));
           if (guard) { if (guard.data.src === unit) c.prevented = true; return; }
           if (!isOp(a) || !unit.skill?.active || !on(unit) || !unit.rangeKeySet?.has(a.tileR * COLS + a.tileC)) return;
           c.prevented = true;
-          const entered = !a.buffs.some((b) => (b.status ?? b.key) === 'sleep');
+          const entered = !/** @type {BuffRec[]} */ (a.buffs).some((b) => (b.status ?? b.key) === 'sleep');
           battle.addBuff(a, {
             key: 'titi:allySleep', flags: { sleep: true }, visible: true, status: 'sleep', data: { src: unit }, interval: 0.2,
             onTick: ({ unit: x, buff }) => { if (x.hp >= x.s.maxHp - 1e-6) battle.removeBuff(x, buff); },

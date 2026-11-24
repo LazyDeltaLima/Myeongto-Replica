@@ -8,6 +8,11 @@ import { num, talentBb, traitBb, skillRec, statBuff, toggleBuff } from '../share
 import { lonely } from '../shared/tier4.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRecord } from '../../../../../shared/loadoutRecord.js' */
+/** @import { Hook } from '../../../battle/hooks.js' */
 
 const S1 = 'skchr_acspec_1';
 const S2 = 'skchr_acspec_2';
@@ -15,7 +20,7 @@ const S3 = 'skchr_acspec_3';
 const PULL_TAG = 'acspec:pull';
 /** A 被动 ON_DEPLOY skill with a duration: a duration skill every deployment starts (no SP, never cast otherwise). */
 const ON_DEPLOY = Object.freeze({ kind: 'duration', activateOnDeploy: true, spCost: 0, spType: 'none', trigger: 'NEVER' });
-const s1On = (unit) => !!(unit.skill && unit.skill.active && unit.skill.id === S1);
+const s1On = (/** @type {Unit} */ unit) => !!(unit.skill && unit.skill.active && unit.skill.id === S1);
 /**
  * 四维分离's "周围四格": her tile and the four tiles beside it [ASSUMED: her own tile counts — an enemy she blocks stands
  * on it, and the talent is about her being alone with one enemy].
@@ -24,7 +29,7 @@ const AROUND4 = Object.freeze([[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]);
 /** 空间的归依's area when the record has none: range x-4, her tile and the eight around it. */
 const RING_X4 = Object.freeze([[1, -1], [1, 0], [1, 1], [0, -1], [0, 0], [0, 1], [-1, -1], [-1, 0], [-1, 1]]);
 
-/** Living enemies whose body is on her tile or the four beside it, targetable or not (flyers too). */
+/** Living enemies whose body is on her tile or the four beside it, targetable or not (flyers too). @param {Battle} battle @param {Unit} unit */
 function enemiesAround4(battle, unit) {
   const keys = new Set(absoluteRangeKeys(AROUND4, unit.tileR, unit.tileC, unit.dir, 0));
   let n = 0;
@@ -39,6 +44,7 @@ function enemiesAround4(battle, unit) {
  * 的近战攻击，此次附带了拖拽与停顿效果" — so the drag and the 停顿 ride a 0-damage physical hit, and an enemy that dodges it
  * (or is out of reach of a hit: invulnerable, asleep) keeps its place. [ASSUMED] that hit is not a normal attack (no
  * isAttack procs); the drag area is the damage area (the text names no other).
+ * @param {Battle} battle @param {Unit} unit @param {SkillRecord | null | undefined} rec
  */
 function spaceBurst(battle, unit, rec) {
   const sb = rec?.bb ?? {};
@@ -51,7 +57,7 @@ function spaceBurst(battle, unit, rec) {
   try {
     for (const e of around) if (e.alive && !e.blockedBy) battle.dealDamage(unit, e, { amount: 0, type: 'phys', isSkill: true, tags: ['skill', PULL_TAG] });
   } finally {
-    battle.off(h);
+    battle.off(/** @type {Hook} */ (h));   // (null only for a callback that is no function)
   }
   for (const e of around) {
     if (!landed.has(e) || !e.alive) continue;
@@ -60,6 +66,7 @@ function spaceBurst(battle, unit, rec) {
   }
 }
 
+/** @type {KitFns} */
 export default {
   // Misery — trait 再部署时间大幅度减少: the data's respawnTime (18 s). Talent 1 二象命末: each attack is a double hit with
   // attack@prob (PRTS 备注: it is her normal attack's basic logic; EXE-X levels 2 / 3 make it +atk ATK and a higher

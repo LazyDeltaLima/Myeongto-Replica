@@ -8,6 +8,10 @@ import {
   RING1, num, on, inRange, talent, traitBb, skillGrid, mods, dist, isAbyssal, isOp, selectedId, lazySkills, instantKind,
   permBuff, enemiesInGrid,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 /** projectile_chr_ulpia_s3 (TRACE_TARGET_WITH_SPEED): tiles per second. */
 const ANCHOR_SPEED = 15;
@@ -36,6 +40,7 @@ export const BACK_BORN = 0.833;
  * That reborn unit is a mover all the same (ulpia_respawn), so the skill's end brings him "back" where he stands:
  * UlpiaS3CastSkill._RespawnToLocatedPos finds his deployment tile under him and runs the same 【返回】 (Skill_3_End,
  * ulpia_s3_restore empties the SP; onEnd), born again too (BACK_BORN).
+ * @param {Battle} battle @param {Unit} unit @param {number} sr @param {number} sc @param {number} stop @param {string} tokenId
  */
 function move(battle, unit, sr, sc, stop, tokenId) {
   const fromX = unit.x, fromY = unit.y;
@@ -55,7 +60,7 @@ function move(battle, unit, sr, sc, stop, tokenId) {
   // 「乌尔比安使用3技能会在联防阶段跳到红门后」: on the one-helper 联防 map (escaped_single, enemies from the middle gate at
   // col 10) an anchor that met no enemy flew on to the right half, where no enemy ever walks, and he moved there for
   // the whole skill
-  const ok = ([r, c]) => (r !== unit.tileR || c !== unit.tileC) && battle.grid.inRect(r, c) && battle.onOwnBoard(unit.player, r, c) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile(r, c, null, unit);
+  const ok = (/** @type {number[]} */ [r, c]) => (r !== unit.tileR || c !== unit.tileC) && battle.grid.inRect(r, c) && battle.onOwnBoard(unit.player, r, c) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile(r, c, null, unit);
   const dest = [[sr, sc], frontOf(unit.tileR, unit.tileC, unit.dir, stop - 1)].find(ok);
   if (dest == null) { inPlace(); return; }
   const home = [unit.tileR, unit.tileC];
@@ -73,6 +78,7 @@ function move(battle, unit, sr, sc, stop, tokenId) {
   battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
 }
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 乌尔比安 — S3 必须开辟的通路 (25 s, CUSTOM_RANGE row ahead): max HP/ATK +, throws an anchor forward that stops on the
@@ -95,9 +101,9 @@ export default {
     const t0 = talent(chess, 0), t1 = talent(chess, 1), tb = traitBb(chess);
     const sid = selectedId(chess, def);
     const t0Scale = sid === 'skchr_ulpia_2' ? num(bb.talent_scale, 1) : 1;
-    const tokenId = chess?.skill?.overrideTokenKey ?? def?.skill?.raw?.overrideTokenKey ?? 'token_10039_ulpia_block';
+    const tokenId = chess?.skill?.overrideTokenKey ?? /** @type {{ skill?: { raw?: { overrideTokenKey?: string } } | null } | null | undefined} */ (def)?.skill?.raw?.overrideTokenKey ?? 'token_10039_ulpia_block';
     const trig = def?.skill?.trigger?.grid ?? chess?.skill?.trigger?.customRangeGrid ?? [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6]];
-    const reach = Math.max(1, ...trig.filter((p) => p[0] === 0).map((p) => p[1]));
+    const reach = Math.max(1, ...trig.filter((/** @type {number[]} */ p) => p[0] === 0).map((/** @type {number[]} */ p) => p[1]));
     const radius = num(bb.projectile_range, 1.5);
     return {
       skills: lazySkills({
@@ -109,7 +115,7 @@ export default {
             // "向前方扔出船锚": the anchor goes beyond his own reach first (pulling what he already hits is moot), then
             // unblocked ground enemies, then the usual target order
             const list = enemiesInGrid(battle, unit, skillGrid(chess, def) ?? unit.rangeGrid);
-            const reach = (e) => inRange(unit, e);
+            const reach = (/** @type {Unit} */ e) => inRange(unit, e);
             // the anchor is a 捕网 (PRTS 备注 "实际效果为捕网而非拖拽"); 雪雉's 捕网 is "不对空" (PRTS 雪雉 备注) — [ASSUMED] the same
             // for this one: it never lands on or catches air units (FLY, 近地悬浮, 浮空)
             unit.mem.ulpiaMain = list.find((e) => !reach(e) && !e.blockedBy && !e.isFlying) ?? list.find((e) => !e.blockedBy && !e.isFlying) ?? list.find((e) => !e.isFlying) ?? null;
@@ -216,10 +222,10 @@ export default {
             // block_cnt 1): kills credited to any 深海猎人 count while he is on the field, and the 9th stack gives block +1.
             // The mode's tier-5 elite uses module stage 1, whose talent is unchanged — inert unless the blackboard has it
             const threshold = num(t1.add_block_cnt_stack_cnt);
-            const hunterKill = threshold > 0 && isOp(c.killer) && isAbyssal(c.killer);
+            const hunterKill = threshold > 0 && isOp(c.killer) && isAbyssal(/** @type {Unit} */ (c.killer));   // (tier5 isOp is no type guard)
             if ((c.killer !== unit && !hunterKill) || c.victim.side !== 'enemy' || !on(unit)) return;
             battle.addBuff(unit, { key: 'ulpia:blood', refresh: 'stack', maxStacks: Math.max(1, num(t1.max_stack_cnt, 9)), mods: mods({ hpFlat: num(t1.max_hp), atkFlat: num(t1.atk) }) });
-            if (threshold > 0 && unit.findBuff('ulpia:blood')?.stacks >= threshold) {
+            if (threshold > 0 && /** @type {BuffRec | null} */ (unit.findBuff('ulpia:blood'))?.stacks >= threshold) {
               battle.addBuff(unit, { key: 'ulpia:bloodBlock', mods: { blockCnt: num(t1.block_cnt) }, tags: ['talent'] });
             }
             const share = mods({ hpFlat: num(t1['ulpia_t_1[abyssal].max_hp']), atkFlat: num(t1['ulpia_t_1[abyssal].atk']) });

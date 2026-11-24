@@ -2,7 +2,10 @@
 // Conventions of the tier-5 kits: ../shared/tier5.js; kit contract and rules: ../README.md.
 
 import { HALF_HP, NEVER, num, on, inRange, talent, traitBb, lowHpHealUp } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 华法琳 — S1 紧急包扎 (charges, attack SP): the next heal on a target below half HP adds hp_ratio × its max HP.
@@ -25,7 +28,7 @@ export default {
           unit.skill?.gainSp(num(t0['bldsk_t_1[self].sp']), 'talent');
           const others = battle.alliesInGrid(unit).filter((a) => a !== unit && a.skill && !a.skill.noSkill && a.skill.kind !== 'passive');
           const pick = battle.rng.pick(others);
-          if (pick) pick.skill.gainSp(num(t0['bldsk_t_1[rand].sp']), 'talent');
+          if (pick) /** @type {SkillRuntime} */ (pick.skill).gainSp(num(t0['bldsk_t_1[rand].sp']), 'talent');
         }, { owner: unit });
       } }],
       install(battle, unit) {

@@ -37,6 +37,11 @@
 import { canTargetEnemy } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
 import { num, talentBb, moduleBb, skillRec, statBuff, spTimeBonus, enemyInRange, up, batMod } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { HitEv } from '../../support/index.js' */
 
 const S1 = 'skchr_acsupo_1';
 const S2 = 'skchr_acsupo_2';
@@ -49,16 +54,27 @@ const T1_KEY = 'acsupo:t1';
 const LURE_PRIORITY = 300;
 const ANY = Object.freeze({ canHitFly: true });
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {unknown} v @param {number} d */
 const count = (v, d) => Math.max(1, Math.floor(num(v, d)));
+/** @param {Unit} a @param {Unit} u */
 const adjacent4 = (a, u) => Math.abs(a.tileR - u.tileR) + Math.abs(a.tileC - u.tileC) === 1;
+/** @param {Unit} unit */
 const s3On = (unit) => !!(unit.skill && unit.skill.active && unit.skill.id === S3);
 
 // ---- 诱引 (T2): one battle-wide handler over every Raidian of the battle -------------------------------------------
-/** battle → { srcs: [{ unit, phys, arts }], last: WeakMap(enemy → { id, miss }) }. */
+/**
+ * battle → { srcs: [{ unit, phys, arts }], last: WeakMap(enemy → { id, miss }) }.
+ * @typedef {{ srcs: Array<{ unit: Unit, phys: number, arts: number }>, last: WeakMap<Unit, { id: unknown, miss: boolean }> }} LureState
+ * @type {WeakMap<Battle, LureState>}
+ */
 const LURE = new WeakMap();
 
-/** The hit-rate cut (0–1) `e`'s attack of damage type `type` suffers: the strongest of the Raidians whose range holds it. */
+/**
+ * The hit-rate cut (0–1) `e`'s attack of damage type `type` suffers: the strongest of the Raidians whose range holds it.
+ * @param {LureState} st @param {Unit} e @param {string} type
+ */
 function lureCut(st, e, type) {
   let cut = 0;
   for (const s of st.srcs) {
@@ -68,6 +84,7 @@ function lureCut(st, e, type) {
   return Math.min(1, cut);
 }
 
+/** @param {Battle} battle @param {LureState} st @param {HitEv & { stopPropagation?: boolean }} ctx (battle/hooks.js stops at it) */
 function lureHit(battle, st, ctx) {
   const e = ctx.source, d = ctx.dmg;
   if (!e || e.side !== 'enemy' || !d || !d.isAttack || d.cancel || (d.type !== 'phys' && d.type !== 'arts')) return;
@@ -86,6 +103,7 @@ function lureHit(battle, st, ctx) {
   if (ctx.target) battle.fx('dodge', { x: ctx.target.x, y: ctx.target.y, id: ctx.target.id });
 }
 
+/** @param {Battle} battle @param {Unit} unit @param {number} phys @param {number} arts */
 function installLure(battle, unit, phys, arts) {
   if (!phys && !arts) return;
   let st = LURE.get(battle);
@@ -93,12 +111,13 @@ function installLure(battle, unit, phys, arts) {
     st = { srcs: [], last: new WeakMap() };
     LURE.set(battle, st);
     // no owner: it serves every Raidian of the battle, whichever is on the field
-    battle.on('hit', (ctx) => lureHit(battle, st, ctx), { priority: LURE_PRIORITY });
+    battle.on('hit', (ctx) => lureHit(battle, /** @type {LureState} */ (st), ctx), { priority: LURE_PRIORITY });
   }
   st.srcs.push({ unit, phys, arts });
 }
 
 // ---- the kit ---------------------------------------------------------------------------------------------------------
+/** @type {KitFns} */
 export default {
   char_614_acsupo: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
@@ -107,7 +126,10 @@ export default {
     const self = num(t0.attack_speed), ally = num(t0['acsupo_t_1[ally].attack_speed']);
     const scale = num(b3.talent_scale, 1);
     const fragile = num(b3.damage_scale, 1) - 1, atkMul = num(b3.atk, 1);
-    /** S3: 脆弱 / 虚弱 on every enemy of her (skill) range — at the cast, then every AURA_IV s while it runs. */
+    /**
+     * S3: 脆弱 / 虚弱 on every enemy of her (skill) range — at the cast, then every AURA_IV s while it runs.
+     * @param {Battle} battle @param {Unit} unit
+     */
     const s3Aura = (battle, unit) => {
       for (const e of battle.enemiesInKeys(unit.rangeKeys, unit, ANY)) {
         if (fragile > 0) battle.applyStatus(e, 'fragile', { duration: AURA_DUR, value: fragile, source: unit });
@@ -140,7 +162,7 @@ export default {
             const v = ally * (s3On(unit) ? scale : 1);
             for (const a of battle.alliesFor(unit)) {
               if (a === unit || a.kind !== 'op' || !adjacent4(a, unit)) continue;
-              const cur = a.findBuff(T1_KEY);
+              const cur = /** @type {BuffRec | null} */ (a.findBuff(T1_KEY));
               if (cur && cur.source !== unit && (cur.data?.v ?? 0) > v && cur.timeLeft > 0.05) continue;
               battle.addBuff(a, { key: T1_KEY, duration: AURA_DUR, mods: { aspd: v }, source: unit, data: { v }, tags: ['aura'] });
             }

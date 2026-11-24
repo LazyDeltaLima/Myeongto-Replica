@@ -5,12 +5,17 @@ import { mitigate } from '../../../damage.js';
 import {
   RING1, num, on, talent, talentRec, traitBb, skillGrid, mods, dist, lazySkills, instantKind, crowdAspd,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 /** 隐德来希 S3 "每次攻击对心烛至少造成35%攻击力的伤害". */
 const CANDLE_MIN_ATK = 0.35;
 /** 隐德来希 S3 心烛 enemy key (hidden talent bbStr take_extra_enemy_key; not in data/enemies.json). */
 const CANDLE_KEY = 'enemy_5601_entlec';
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 隐德来希 — S3 灵与欲的惜别 (20 s): skill range, ATK +, ASPD +100; summons a 心烛 for up to 3 highest-HP ground enemies
@@ -27,6 +32,7 @@ export default {
     const hpScale = num(bb['attack@max_hp_scale'], 0.6), defScale = num(bb['attack@def_scale'], 1), resScale = num(bb['attack@magic_resistance_scale'], 1);
     const nCandles = Math.max(1, num(bb['attack@max_target'], 3));
     const candleKey = talentRec(chess, 2)?.bbStr?.take_extra_enemy_key ?? CANDLE_KEY;
+    /** @param {Battle} battle @param {Unit} a */
     const aroundN = (battle, a) => battle.foesInRadius(a.x, a.y, RING1).length;
     return {
       skills: lazySkills({
@@ -120,7 +126,7 @@ export default {
               unit.mem.stolen = stolen + n;
               // the victim keeps an explicit running total (a 'stack' refresh would rescale every stack by the last n)
               const key = `etlchi:steal:${unit.id}`;
-              const lost = num(e.findBuff(key)?.data?.total) + n;
+              const lost = num(/** @type {BuffRec | null} */ (e.findBuff(key))?.data?.total) + n;
               const hp0 = e.hp;
               battle.addBuff(e, { key, mods: { hpFlat: -lost }, data: { total: lost } });
               // 偷取生命上限: the victim's current HP only drops where it exceeds the new maximum (the engine keeps ratios)
@@ -142,7 +148,7 @@ export default {
       ],
       install(battle, unit) {
         crowdAspd(battle, unit, 'etlchi:module', num(tb.attack_speed), num(tb.cnt));
-        const mine = (e) => e && e.mem && e.mem.candleOwner === unit;
+        const mine = (/** @type {Unit | null | undefined} */ e) => e && e.mem && e.mem.candleOwner === unit;
         // "心烛只受隐德来希攻击的影响": other sources' element gauges never fill a candle either
         battle.on('elementHit', (c) => { if (mine(c.target) && c.source !== unit) c.dmg.cancel = true; }, { owner: unit });
         battle.on('beforeStatus', (c) => { if (mine(c.target) && c.source !== unit) c.cancel = true; }, { owner: unit });
@@ -173,6 +179,7 @@ export default {
         battle.on('beforeAttack', (c) => { // other allies hit the original instead of the candle
           if (c.attacker === unit || c.attacker.side !== 'ally' || !(unit.mem.candles && unit.mem.candles.length)) return;
           if (!c.targets.some(mine)) return;
+          /** @type {Unit[]} */
           const out = [];
           for (const t of c.targets) {
             if (!mine(t)) { if (!out.includes(t)) out.push(t); continue; }

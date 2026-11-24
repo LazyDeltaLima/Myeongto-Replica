@@ -2,7 +2,10 @@
 // Conventions of the tier-5 kits: ../shared/tier5.js; kit contract and rules: ../README.md.
 
 import { num, talent, traitBb, mods, selectedId, lazySkills, instantKind, whileOn, permBuff } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 史尔特尔 — S3 黄昏 (toggle, 持续时间无限): full heal, ATK +, range +2, 3 targets, max HP +5000 (flat), HP loss ramping
@@ -98,7 +101,7 @@ export default {
         }
         if (sid === 'skchr_surtr_2') { // S2: 仅攻击到一个敌人时对其攻击力提升至140%
           const solo = num(bb['attack@surtr_s_2[critical].atk_scale'], 1);
-          battle.on('beforeAttack', (c) => { if (c.attacker === unit) unit.mem.surtrSolo = !!unit.skill?.active && c.targets.filter((t) => t && t.alive).length === 1; }, { owner: unit, priority: -100 });
+          battle.on('beforeAttack', (c) => { if (c.attacker === unit) unit.mem.surtrSolo = !!unit.skill?.active && c.targets.filter((/** @type {Unit | null} */ t) => t && t.alive).length === 1; }, { owner: unit, priority: -100 });
           battle.on('hit', (c) => {
             if (c.source === unit && unit.mem.surtrSolo && unit.skill?.active && c.dmg.isAttack && !c.dmg.isSplash) c.dmg.amount *= solo;
           }, { owner: unit });

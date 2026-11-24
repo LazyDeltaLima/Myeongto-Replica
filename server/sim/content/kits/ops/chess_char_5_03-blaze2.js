@@ -7,12 +7,16 @@ import {
   AURA_IV, AURA_DUR, num, on, talent, traitBb, skillGrid, batPct, mods, isOp, selectedId, lazySkills, instantKind,
   skillRange, burstSpUp, elementHit, whileOn, burstDamageUp,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 /** 烛煌 绝处重燃 "使附近的敌人晕眩" radius (tiles). PRTS 备注: 1.7. */
 const NEARBY_RADIUS = 1.7;
 /** 烛煌 S3 "攻击变为群体攻击": splash radius around the target (tiles). PRTS 技能3 备注 "攻击溅射半径1.7". */
 const BLAZE_S3_SPLASH = 1.7;
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 烛煌 — S3 众恶的焚场 (ammo): skill range 4-11 (the targets; the DEFAULT cast still needs an enemy in 3-1), ATK +,
@@ -35,6 +39,7 @@ export default {
     const t0 = talent(chess, 0), t1 = talent(chess, 1), tb = traitBb(chess), tm = talent(chess, -1);
     const sid = selectedId(chess, def);
     const lose = num(bb.lose_hp_scale);
+    /** @param {Battle} battle @param {Unit} unit */
     const burnTiles = (battle, unit) => {
       const tiles = unit.mem.blazeTiles;
       if (!tiles || !tiles.size) return;

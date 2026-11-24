@@ -5,12 +5,17 @@ import { sortEnemyTargets } from '../../../targeting.js';
 import {
   HALF_HP, num, on, talent, talentRec, batPct, mods, selectedId, lazySkills, skillRange, moduleRangeUp,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 /** 夕 S1 "下一次攻击溅射范围扩大" — expanded splash radius (tiles; the splash-caster default is 1.1). PRTS: "溅射半径扩大至1.7". */
 const DUSK_SPLASH_RADIUS = 1.7;
 /** 夕 S3 "攻击范围与溅射范围扩大" — the expanded splash radius, the same 1.7 as S1 (PRTS). [ASSUMED for S3] */
 const DUSK_S3_SPLASH = DUSK_SPLASH_RADIUS;
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 夕 — S1 工笔入化 (2 charges): next attack 180 % ATK with an expanded splash. T1 化境: a kill by 夕 or 小自在 → ATK +2 %
@@ -25,15 +30,17 @@ export default {
     const sid = selectedId(chess, def);
     const tokenId = talentRec(chess, 1)?.tokenKey ?? (chess?.tokens || [])[0] ?? 'token_10015_dusk_drgn';
     const tokenDur = num(t1['attack@tokenduration'], 25);
+    /** @param {Battle} battle @param {number} r @param {number} c @param {Unit} src */
     const freeGround = (battle, r, c, src) => battle.grid.inRect(r, c) && battle.grid.canStand(r, c) && !battle.grid.isObstacle(r, c) && !battle.isReservedTile(r, c, null, src);
     // 小自在 expiry follows tk.mem.duskUntil (a refresh pushes it back)
+    /** @param {Battle} battle @param {Unit} tk */
     const expire = (battle, tk) => {
       if (!tk.alive) return;
       const left = num(tk.mem.duskUntil) - battle.time;
       if (left > 1e-6) battle.after(left, () => expire(battle, tk), { owner: tk });
       else battle.retreat(tk, { reason: 'expired', permanent: true });
     };
-    /** Summon 小自在 on (r, c), or move / refresh hers when one is out. */
+    /** Summon 小自在 on (r, c), or move / refresh hers when one is out. @param {Battle} battle @param {Unit} unit @param {number} r @param {number} c */
     const summon = (battle, unit, r, c) => {
       const mine = battle.allyUnits.find((x) => x.kind === 'token' && x.ownerUnit === unit && x.defId === tokenId && x.alive && x.deployed);
       if (mine) {
@@ -72,7 +79,7 @@ export default {
           battle.on('kill', (c) => {
             const k = c.killer;
             if (!k || c.victim.side !== 'enemy' || !(k === unit || (k.kind === 'token' && k.ownerUnit === unit)) || !on(unit)) return;
-            const max = Math.max(1, num(t0.max_stack_cnt, 15)), was = unit.findBuff('dusk:realm')?.stacks ?? 0;
+            const max = Math.max(1, num(t0.max_stack_cnt, 15)), was = /** @type {BuffRec | null} */ (unit.findBuff('dusk:realm'))?.stacks ?? 0;
             const b = battle.addBuff(unit, { key: 'dusk:realm', refresh: 'stack', maxStacks: max, mods: { atkPct: num(t0.atk) }, visible: true });
             // dusk_t_1[atk]'s effect, and [effect]'s at max_stack_cnt (render/fxstatus.js STACK_FX)
             if (b && b.stacks !== was) battle.fx('stacks', { x: unit.x, y: unit.y, id: unit.id, buff: 'dusk:realm', n: b.stacks, max });
@@ -114,7 +121,7 @@ export default {
             const list = battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile);
             sortEnemyTargets(battle, unit, list, null);
             const alt = list.find((e) => !e.blockedBy);
-            if (alt) c.targets = [alt, ...c.targets.slice(1).filter((x) => x !== alt)];
+            if (alt) c.targets = [alt, ...c.targets.slice(1).filter((/** @type {Unit} */ x) => x !== alt)];
           }, { owner: unit, priority: 10 });
           battle.on('attack', (c) => {
             if (c.attacker !== unit || !unit.skill?.active) return;

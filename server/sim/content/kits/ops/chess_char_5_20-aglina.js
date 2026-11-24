@@ -4,10 +4,14 @@
 import {
   AURA_IV, AURA_DUR, num, talent, skillGrid, batPct, mods, selectedId, lazySkills, whileOn,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 /** 安洁莉娜 S3 失重: weight (massLevel) reduction while weightless. PRTS: "重量下降一个等级". */
 const WEIGHTLESS_MASS = 1;
-/** "攻击范围内存在敌人时，技力自然恢复速度+X/秒" (modules DEC-X). */
+/** "攻击范围内存在敌人时，技力自然恢复速度+X/秒" (modules DEC-X). @param {Battle} battle @param {Unit} unit @param {string} key @param {number} sp */
 function enemySpUp(battle, unit, key, sp) {
   if (!(sp > 0)) return;
   whileOn(battle, unit, AURA_IV, () => {
@@ -15,6 +19,7 @@ function enemySpUp(battle, unit, key, sp) {
   });
 }
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 安洁莉娜 — slower (no normal attack while the skill is off). S3 秘杖·反重力模式 (14/18 s; her SEARCH row: an enemy in her
@@ -28,7 +33,8 @@ export default {
   chess_char_5_20_a: (bb, chess, def) => {
     const t0 = talent(chess, 0), t1 = talent(chess, 1), tm = talent(chess, -1);
     const sid = selectedId(chess, def);
-    const ratioBat = (v) => (num(v) > 0 && num(v) < 1 ? num(v) - 1 : batPct(v, chess));
+    const ratioBat = (/** @type {unknown} */ v) => (num(v) > 0 && num(v) < 1 ? num(v) - 1 : batPct(v, chess));
+    /** @param {Battle} battle @param {Unit} unit */
     const weightless = (battle, unit) => {
       const left = Math.max(0.1, num(unit.skill?.timeLeft, 1));
       for (const e of battle.enemies) {
@@ -50,7 +56,7 @@ export default {
         onStart({ battle, unit }) { unit.mem.aglAcc = 0; weightless(battle, unit); battle.fx('weightless', { x: unit.x, y: unit.y, id: unit.id }); },
         onTick({ battle, unit, dt }) { unit.mem.aglAcc += dt; if (unit.mem.aglAcc >= AURA_IV) { unit.mem.aglAcc = 0; weightless(battle, unit); } },
         onEnd({ battle, unit }) {
-          for (const e of battle.enemies) { const b = e.findBuff('aglina:weightless'); if (b && b.data.src === unit) battle.removeBuff(e, b); }
+          for (const e of battle.enemies) { const b = /** @type {BuffRec | null} */ (e.findBuff('aglina:weightless')); if (b && b.data.src === unit) battle.removeBuff(e, b); }
         },
       },
       trait: sid === 'skchr_aglina_1' ? undefined : { noAttackUnlessSkill: true },

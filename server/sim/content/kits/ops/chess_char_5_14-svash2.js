@@ -8,13 +8,18 @@ import {
   AURA_IV, AURA_DUR, num, on, talent, talentRec, skillGrid, mods, hasPower, isOp, selectedId, lazySkills, instantKind,
   skillRange, whileOn, enemiesInGrid,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
+/** @param {Unit} u */
 const isKjerag = (u) => hasPower(u, 'kjerag');
 /** S2's redeploy slash clock (official svash2_s_2[build_set] blackboard defaults, svash2_s_2[build] trigger interval). */
 const REDEPLOY_SLASH = Object.freeze({ first: 1.0, next: 0.4, interval: 0.1 });
 /** S3's line targets: his profile + flying enemies (PRTS 备注 "可对空"). */
-const S3_PROFILE = (u) => ({ ...u.profile, canHitFly: true });
+const S3_PROFILE = (/** @type {Unit} */ u) => ({ ...u.profile, canHitFly: true });
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 凛御银灰 — S2 御敌的锋锐 (2 charges; PRTS 备注 "可对空"): the 6 front-most enemies in the skill range take 260 % ATK
@@ -38,7 +43,10 @@ export default {
     const eyeId = chess?.skill?.overrideTokenKey ?? talentRec(chess, 0)?.tokenKey ?? 'token_10057_svash2_eagle2';
     const n = Math.max(1, num(bb.max_target, 6)), maxStacks = Math.max(1, num(bb.max_stack_cnt, 2));
     const PREF = ['WARRIOR', 'CASTER', 'SNIPER'];
-    /** Waiting (knocked-out) ops of his player split around the eye cost, and the one nearest to the eye (right side first). */
+    /**
+     * Waiting (knocked-out) ops of his player split around the eye cost, and the one nearest to the eye (right side first).
+     * @param {Battle} battle @param {Unit} unit
+     */
     const waitingArea = (battle, unit) => {
       const eye = unit.mem.eyeCost ?? 0;
       const waiting = battle.allyUnits.filter((a) => isOp(a) && a !== unit && a.ownerId === unit.ownerId && !a.alive && !a.removed);
@@ -47,11 +55,13 @@ export default {
       const pick = right.find((a) => PREF.includes(a.def?.profession)) ?? right[0] ?? left[0] ?? null;
       return { waiting, right, left, pick };
     };
+    /** @param {Unit | null | undefined} a @param {number} v */
     const cutCost = (a, v) => {
       if (!a || !(v > 0)) return;
       a.mem.svashCostBase ??= a.base.cost;
       a.base.cost = Math.max(0, a.base.cost - v);
     };
+    /** @param {Battle} battle @param {Unit} caster @param {number} atk */
     const slash = (battle, caster, atk) => {
       // PRTS 备注: the slash ignores 隐匿 and hits flying enemies (and its reveal makes them targetable afterwards)
       const hit = enemiesInGrid(battle, caster, grid, n, { ignoreStealth: true });
@@ -98,7 +108,7 @@ export default {
             if (!unit.mem.svashSwapped) { // 首次开启时交换…基础部署费用
               unit.mem.svashSwapped = true;
               const { waiting } = waitingArea(battle, unit);
-              const baseCost = (a) => a.mem.svashCostBase ?? a.base.cost;
+              const baseCost = (/** @type {Unit} */ a) => a.mem.svashCostBase ?? a.base.cost;
               const byCost = waiting.slice().sort((a, b) => baseCost(b) - baseCost(a) || a.id - b.id);
               const hi = byCost.find((a) => PREF.includes(a.def?.profession)) ?? byCost[0];
               const lo = byCost.filter((a) => a !== hi).pop();
@@ -134,7 +144,7 @@ export default {
       talents: [
         { install(battle, unit) { // 开放性开局
           const sp = num(t0.sp), mul = num(t0.respawn_time, 1);
-          const left = (a) => isOp(a) && a.ownerId === unit.ownerId && (a === unit || a.base.cost < num(unit.mem.eyeCost));
+          const left = (/** @type {Unit} */ a) => isOp(a) && a.ownerId === unit.ownerId && (a === unit || a.base.cost < num(unit.mem.eyeCost));
           battle.on('battleStart', () => {
             if (!on(unit) || !(sp > 0)) return;
             for (const a of battle.allies(unit.ownerId)) if (left(a) && a.skill) a.skill.gainSp(sp, 'talent');
@@ -172,9 +182,9 @@ export default {
           battle.on('beforeAttack', (c) => {
             if (c.attacker !== unit || !unit.skill?.active || !c.targets.length) return;
             const main = c.targets[0];
-            const lat = (r, cc) => toLocal(r - unit.tileR, cc - unit.tileC, unit.dir)[0];
+            const lat = (/** @type {number} */ r, /** @type {number} */ cc) => toLocal(r - unit.tileR, cc - unit.tileC, unit.dir)[0];
             const l0 = lat(Math.round(main.y), Math.round(main.x));
-            const onLine = (e) => bodyKeys(e).some((k) => lat(Math.floor(k / COLS), k % COLS) === l0);
+            const onLine = (/** @type {Unit} */ e) => bodyKeys(e).some((k) => lat(Math.floor(k / COLS), k % COLS) === l0);
             const line = battle.enemiesInKeys(unit.rangeKeys, unit, S3_PROFILE(unit)).filter((e) => e !== main && onLine(e));
             if (line.length) c.targets = [main, ...line];
           }, { owner: unit, priority: 10 });

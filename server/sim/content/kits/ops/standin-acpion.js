@@ -3,6 +3,9 @@
 
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
 import { num, talentBb, traitBb, skillRec, statBuff, toggleBuff, up } from '../shared/tier1.js';
+/** @import { KitFns, KitSkill } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skchr_acpion_1', S2 = 'skchr_acpion_2', S3 = 'skchr_acpion_3';
 /**
@@ -20,6 +23,7 @@ const FRAGRANCE_KEY = 'acpion:fragrance';
 /** Enemies S3 slashes: every selectable enemy on the x-1 skill range, air units included (PRTS 备注 "※可对空"). */
 const SLASH_PROFILE = Object.freeze({ canHitFly: true });
 
+/** @type {KitFns} */
 export default {
   // 郁金香 (尖兵, blocks 2) — numbers from data/backups.json (normal E2 Lv1 rank 4, elite E2 Lv60 rank 7; skill_table and
   // PRTS 郁金香(卫戍协议) agree). DP (部署费用) is the player's redeploy currency here (DESIGN §5.5 "DP").
@@ -42,11 +46,13 @@ export default {
   char_608_acpion: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1), tb = traitBb(chess);
     const r1 = skillRec(chess, S1), r2 = skillRec(chess, S2), r3 = skillRec(chess, S3);
+    /** @param {Battle} battle @param {Unit} unit @param {number} n */
     const dp = (battle, unit, n) => {
       if (!(n > 0)) return;
       battle.addDp(unit.ownerId, n);
       battle.fx('dp', { x: unit.x, y: unit.y, id: unit.id, n });
     };
+    /** @type {Record<string, KitSkill>} */
     const skills = {};
     if (r1) {
       const b1 = r1.bb ?? {};
@@ -85,6 +91,7 @@ export default {
       const times = Math.max(1, Math.floor(num(b3.times, 8))), scale = num(b3.atk_scale, 1), pen = num(b3.def_penetrate, 0);
       const grid = r3.rangeGrid?.length ? r3.rangeGrid : null;
       const lastAt = SLASH_FIRST + (times - 1) * SLASH_GAP;
+      /** @param {Battle} battle @param {Unit} unit */
       const slash = (battle, unit) => {
         const keys = grid ? absoluteRangeKeys(grid, unit.tileR, unit.tileC, unit.dir, 0) : unit.rangeKeys || [];
         const v = battle.enemiesInKeys(keys, unit, SLASH_PROFILE);

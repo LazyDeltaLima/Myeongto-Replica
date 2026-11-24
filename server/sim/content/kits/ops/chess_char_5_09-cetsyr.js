@@ -5,10 +5,15 @@ import { COLS } from '../../../constants.js';
 import { rotateOffset } from '../../../dir.js';
 import { AURA_IV, AURA_DUR, num, talent, traitBb, skillGrid, isOp, leaderOf, whileOn } from '../shared/tier5.js';
 import { hypot, sin, cos } from '../../../detmath.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 /** 魔王 T1 微尘: collision radius of one mote (PRTS 备注 0.4); orbit radius / speed come from the talent bb. */
 const MOTE_HIT_RADIUS = 0.4;
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 魔王 — bard (trait: 生命回复速度 +10 % ATK on the allies in range, professions.js bardRegen). S3 编织重构现世 (30 s):
@@ -23,6 +28,7 @@ export default {
     const skillRatio = num(bb['attack@atk_to_hp_recovery_ratio'], baseRatio);
     const inspire = num(bb.max_hp);
     const shareIv = Math.max(0.1, num(bb['attack@cetsyr_s_3[cal_hp_ratio].interval'], 2));
+    /** @param {Battle} battle @param {Unit} unit */
     const inspireAll = (battle, unit) => {
       if (!(inspire > 0)) return;
       const hp = unit.s.maxHp * inspire;
@@ -58,7 +64,7 @@ export default {
         onEnd({ battle, unit }) {
           if (unit.profile) unit.profile.auraRatio = baseRatio;
           for (const a of battle.allyUnits) {
-            const b = a.findBuff('cetsyr:inspire');
+            const b = /** @type {BuffRec | null} */ (a.findBuff('cetsyr:inspire'));
             if (b && b.data.src === unit) battle.removeBuff(a, b);
           }
         },

@@ -2,7 +2,9 @@
 // Conventions of the tier-5 kits: ../shared/tier5.js; kit contract and rules: ../README.md.
 
 import { num, talent, traitBb, skillGrid, mods, whileOn } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 百炼嘉维尔 — S2 链锯强袭 (33/36 s): skill range, ATK/DEF +; hits on unblocked enemies drag them in front of her.

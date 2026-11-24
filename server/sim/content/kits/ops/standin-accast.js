@@ -24,6 +24,11 @@
 
 import { num, talentBb, skillRec, statBuff, installAura, up } from '../shared/tier1.js';
 import { moduleRangeUp } from '../shared/tier5.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_accast_1';
 const S2 = 'skchr_accast_2';
@@ -33,23 +38,25 @@ const AURA_IV = 0.25;
 const AURA_DUR = 0.4;
 const S2_KEY = 'accast:s2';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 /** A 【术师】 operator (summons are never 【术师】 operators). */
-const isCaster = (a) => !!a && a.kind === 'op' && a.def?.profession === 'CASTER';
-/** One of the 4 tiles next to `u` (相邻四格). */
+const isCaster = (/** @type {Unit | null | undefined} */ a) => !!a && a.kind === 'op' && a.def?.profession === 'CASTER';
+/** One of the 4 tiles next to `u` (相邻四格). @param {Unit} a @param {Unit} u */
 const adjacent4 = (a, u) => Math.abs(a.tileR - u.tileR) + Math.abs(a.tileC - u.tileC) === 1;
 
-/** S2: ATK +v on every 【术师】 operator unless a stronger one from another source is on it. */
+/** S2: ATK +v on every 【术师】 operator unless a stronger one from another source is on it. @param {Battle} battle @param {Unit} unit @param {number} v */
 function casterAtk(battle, unit, v) {
   if (!(v > 0)) return;
   for (const a of battle.alliesFor(unit)) {
     if (!isCaster(a)) continue;
-    const cur = a.findBuff(S2_KEY);
+    const cur = /** @type {BuffRec | null} */ (a.findBuff(S2_KEY));
     if (cur && cur.source !== unit && (cur.data?.v ?? 0) > v && cur.timeLeft > 0.05) continue;
     battle.addBuff(a, { key: S2_KEY, duration: AURA_DUR, mods: { atkPct: v }, source: unit, data: { v }, tags: ['aura'] });
   }
 }
 
+/** @type {KitFns} */
 export default {
   char_612_accast: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
@@ -90,7 +97,7 @@ export default {
         if (unit.skill?.id !== S2) return;
         // S2's aura while it runs (its onStart gives the first application at the cast)
         const v2 = num(b2.atk);
-        battle.every(AURA_IV, () => { if (up(unit) && unit.skill.active) casterAtk(battle, unit, v2); }, { owner: unit });
+        battle.every(AURA_IV, () => { if (up(unit) && /** @type {SkillRuntime} */ (unit.skill).active) casterAtk(battle, unit, v2); }, { owner: unit });
       },
     };
   },

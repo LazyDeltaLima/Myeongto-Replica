@@ -5,6 +5,9 @@ import { bodyInRadius } from '../../../body.js';
 import {
   AURA_IV, AURA_DUR, num, talent, traitBb, batPct, mods, isOp, selectedId, lazySkills, instantKind, whileOn,
 } from '../shared/tier5.js';
+/** @import { KitFns } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 /** 号角 S2 过载 (official client, the skill prefab `skchr_horn_2` is a BurstCastSkill with `_isOverloadSkill`): the skill
  *  overloads once its remaining progress — bullets left over the activation's total, extra bullets counted — is at most
@@ -12,6 +15,7 @@ import {
  *  until it ends (`horn_s_2[overload_mark]` lasts to ON_CAST_END): 10 bullets → shots 6–10. */
 const HORN_S2_OVERLOAD_RATIO = 0.5;
 
+/** @type {KitFns} */
 export default {
   // ---------------------------------------------------------------------------------------------------------------
   // 号角 — S3 终极防线 (24 s in total, a two-segment gauge — PRTS 备注: "技能进行到一半时触发额外效果"): ATK +, BAT −1.2 s
@@ -117,7 +121,7 @@ export default {
           battle.every(AURA_IV, () => {
             const fl = unit.mem.flares;
             if (!fl || !fl.length) return;
-            unit.mem.flares = fl.filter((f) => f.until > battle.time + 1e-9);
+            unit.mem.flares = fl.filter((/** @type {{ until: number }} */ f) => f.until > battle.time + 1e-9);
             const r = num(bb.projectile_range, 1.7);
             for (const f of unit.mem.flares) for (const e of battle.enemies) {
               if (e.alive && !e.hidden && bodyInRadius(e, f.x, f.y, r)) battle.applyStatus(e, 'reveal', { duration: AURA_DUR, source: unit });
@@ -127,8 +131,8 @@ export default {
         if (sid === 'skchr_horn_2') {
           const magic = num(bb['attack@s2.magic_atk_scale']);
           battle.on('ammoUsed', (c) => { // 过载 from the shot that leaves half of the activation's bullets, to the end
-            if (c.unit !== unit || c.skill !== unit.skill || unit.mem.hornS2Over || !(c.left > 0)) return;
-            if (c.left > Math.max(1, num(c.skill.ammoMax)) * HORN_S2_OVERLOAD_RATIO + 1e-9) return;
+            if (c.unit !== unit || c.skill !== unit.skill || unit.mem.hornS2Over || !(/** @type {number} */ (c.left) > 0)) return;
+            if (/** @type {number} */ (c.left) > Math.max(1, num(c.skill.ammoMax)) * HORN_S2_OVERLOAD_RATIO + 1e-9) return;
             unit.mem.hornS2Over = true;
             battle.fx('overload', { x: unit.x, y: unit.y, id: unit.id });
           }, { owner: unit });
@@ -137,7 +141,7 @@ export default {
             // decided at the shot (a shell still in flight when the skill ends keeps it): the effective profile of this
             // attack (a per-attack copy while the skill runs) carries the extra arts splash on every enemy it hits
             const prev = c.profile.onEachHit;
-            c.profile.onEachHit = (b, u, victim, hc) => {
+            c.profile.onEachHit = (/** @type {Battle} */ b, /** @type {Unit} */ u, /** @type {Unit} */ victim, /** @type {Record<string, any>} */ hc) => {
               if (prev) prev(b, u, victim, hc);
               if (victim && victim.alive && victim.side === 'enemy') b.dealDamage(unit, victim, { amount: unit.s.atk * magic, type: 'arts', isSkill: true, isSplash: true, tags: ['skill', 'hornOverload'] });
             };
