@@ -42,10 +42,9 @@ export class PlayerPrep {
     } else {
       const rec = this.gd.chess(slot.id);
       if (!rec || (rec.isDiy && !rec.diyFor)) return fail(ERR.BAD_TARGET);
-      const base = this.gd.baseIdOf(slot.id);
-      const need = rec.isGolden ? this.gd.goldenCopies : 1;
-      const pool = this.poolOf(base); // the shared pool, or this player's 自选 stock
-      if (pool.has(base) && pool.left(base) < need) return fail(ERR.SOLD_OUT);
+      // an operator card the offer already shows is taken past the stock, as in the shop (economy.js buy, GitHub #498;
+      // maintainer decision 2026-11-24, after upstream 221e6b8d) [ASSUMED·화면: the video shows shop cards only]:
+      // acquireChess takes the copies with overdraw, the shared pool or this player's 自选 stock alike
       if (handFull) return fail(ERR.HAND_FULL);
     }
     const price = Number.isFinite(slot.price) && slot.price > 0 ? Math.trunc(slot.price) : 0;

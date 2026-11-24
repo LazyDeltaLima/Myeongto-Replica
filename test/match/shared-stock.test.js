@@ -261,7 +261,7 @@ test('every SERVER_GAIN_EQUIP operator (诗怀雅 / 蜜蜡 / 卡涅利安 / 耶�
   }
 });
 
-test('an operator card already shown stays buyable after the stock ran out (路标月报#2 ~2:55, GitHub #498)', () => {
+test('an operator card already shown stays buyable after the stock ran out, a reward offer too (路标月报#2 ~2:55, GitHub #498)', () => {
   const h = makeMatch({ mode: 'coop', humans: 2, seed: 11, fake: true }).start().toPrep();
   const m = h.m, a = h.ps('p_0'), b = h.ps('p_1');
   const id = [...m.pool.entries.keys()].find((x) => m.gd.tierOf(x) === 6);
@@ -277,9 +277,12 @@ test('an operator card already shown stays buyable after the stock ran out (路�
   checkInvariants(m);
   // the stock still decides what is drawn: the card no longer rolls
   for (let i = 0; i < 30; i++) { a.rollShop(); assert.ok(!a.shop.slots.some((s) => s && s.kind === 'chess' && s.id === id)); }
-  // a reward offer's pick is unchanged: it still fails when the stock is out
+  // a reward offer's card already shown is taken past the stock too (after upstream 221e6b8d)
   a.offers = [{ kind: 'merge', slots: [{ kind: 'chess', id, price: 0, sold: false }] }];
-  assert.equal(a.pickReward(0).error, 'SOLD_OUT');
+  assert.deepEqual(m.handle('p_0', { t: 'g.reward', idx: 0 }), { ok: true });
+  assert.equal(a.offers.length, 0);
+  assert.equal(m.pool.entries.get(id).left, -2, 'the reward copy is held past the stock as well');
+  assert.equal(m.pool.left(id), 0);
   checkInvariants(m);
   m.dispose();
 });

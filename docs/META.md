@@ -601,7 +601,7 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   route, past the stock when it is short (`take(…, { overdraw: true })`: the raw balance goes negative, the public `left()`
   and the rolls clamp it at 0); 拟态物质 draws among the eligible identities (`rollChess` `ignoreCounts`) and grants past the
   stock; displays never reserve copies, and an operator card the shop already shows is bought past the stock (the
-  stock only gates what is drawn: 路标月报#2 ~2:55, GitHub #498; a reward offer's pick still needs a copy left); selling, temp resolution and elimination return exactly what a piece holds
+  stock only gates what is drawn: 路标月报#2 ~2:55, GitHub #498; a reward offer's card too since maintainer decision 2026-11-24, after upstream 221e6b8d [ASSUMED]); selling, temp resolution and elimination return exactly what a piece holds
   (`left + held = cap` always).
 * **Equipment stock** (upstream 6bfc0827, GitHub #466; the same 路标月报#2 video, ~1:30): every shop item has a match-wide
   stock, the same in solo and co-op — by tier 4/6/7/8/7/3, 简易通讯机 5, 蜂鸣器/防暴盾/浓缩嗅盐 6, 寻呼模块/伪装服/拉特兰桥夹 7,
