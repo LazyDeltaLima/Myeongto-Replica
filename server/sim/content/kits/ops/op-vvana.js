@@ -62,6 +62,11 @@
 import { num, talentBb, traitBb, skillRec, up, batMod } from '../shared/tier1.js';
 import { isElite, elementDmg, enemiesIn } from '../shared/tier6.js';
 import { hasHp } from '../../../damage.js';
+/** @import { KitFns, KitChess, Grid } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_vvana_1';
 const S2 = 'skchr_vvana_2';
@@ -72,7 +77,7 @@ const RANGE_3_2 = Object.freeze([[0, 0], [0, 1], [0, 2], [0, 3]].map((p) => Obje
 const S1_HITS = 2, S1_CHARGED_HITS = 3, S2_TWICE_HITS = 2, S3_HITS = 2, S3_LATER_HITS = 3;
 /** AFT-Y: the 法术脆弱 renewal (as 史尔特尔's AFT-Y, kits/ops/chess_char_5_07-surtr.js). */
 const FRAGILE_IV = 0.2, FRAGILE_DUR = 0.3;
-/** After activate's one charge: still ≥ max − 1 ⇒ every charge was stored (蓄力) — a charged cast spends them all. */
+/** After activate's one charge: still ≥ max − 1 ⇒ every charge was stored (蓄力) — a charged cast spends them all. @param {Unit} unit @param {SkillRuntime} skill */
 const s1Charged = (unit, skill) => !!unit.mem.vvanaCharged || (skill.maxCharges > 1 && skill.charges >= skill.maxCharges - 1);
 const AFTD_TAG = 'vvanaAftD';
 const CANDLE_KEY = 'talent:vvana:candle';
@@ -83,9 +88,11 @@ const STOLEN_KEY = 'skill:vvana:stolen';
  *  handlers (priority 0: the enemies' own 护盾, guards); 散华's 护盾 itself last (a guard that cancelled first spends none). */
 const CANDLE_PRIORITY = 100, OUTPUT_PRIORITY = 50, SHIELD_PRIORITY = -500;
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {{ tags?: unknown } | null | undefined} d @param {string} tag */
 const tagged = (d, tag) => !!d && Array.isArray(d.tags) && d.tags.includes(tag);
-/** Her own range grid (the form's 1-1), or the range she switches to. */
+/** Her own range grid (the form's 1-1), or the range she switches to. @param {Battle} battle @param {Unit} unit @param {Grid | null | undefined} grid */
 function setGrid(battle, unit, grid) {
   if (!grid || unit.rangeGrid === grid) return;
   unit.rangeGrid = grid;
@@ -93,15 +100,18 @@ function setGrid(battle, unit, grid) {
 }
 
 // ---- S2 偷取: the losses of the enemies, one battle-wide table (同类属性取最高 over several thieves) ---------------------
-/** battle → Map(enemy → Map(thief id → ASPD stolen)). */
+/** battle → Map(enemy → Map(thief id → ASPD stolen)). @type {WeakMap<Battle, Map<Unit, Map<Unit['id'], number>>>} */
 const STOLEN = new WeakMap();
+/** @param {Battle} battle */
 const stolenOf = (battle) => { let m = STOLEN.get(battle); if (!m) STOLEN.set(battle, (m = new Map())); return m; };
+/** @param {Battle} battle @param {Unit} e @param {Map<Unit['id'], number>} per */
 function applyLoss(battle, e, per) {
   let a = 0;
   for (const v of per.values()) a = Math.max(a, v);
   if (!(a > 0)) { battle.removeBuff(e, STOLEN_KEY); return; }
   battle.addBuff(e, { key: STOLEN_KEY, mods: { aspd: -a }, tags: ['steal'] });
 }
+/** @param {Battle} battle @param {Unit} unit @param {Unit | null} e @param {number} n @param {number} cap */
 function steal(battle, unit, e, n, cap) {
   if (!(n > 0) || !e || !e.alive || e.side !== 'enemy') return;
   const losses = stolenOf(battle);
@@ -113,7 +123,7 @@ function steal(battle, unit, e, n, cap) {
   unit.mem.vvanaLoot = Math.min(cap, (unit.mem.vvanaLoot ?? 0) + n);
   battle.addBuff(unit, { key: LOOT_KEY, mods: { aspd: unit.mem.vvanaLoot }, tags: ['skill'] });
 }
-/** "持续至技能结束或薇薇安娜离场": she gives everything back. */
+/** "持续至技能结束或薇薇安娜离场": she gives everything back. @param {Battle} battle @param {Unit} unit */
 function returnLoot(battle, unit) {
   battle.removeBuff(unit, LOOT_KEY);
   unit.mem.vvanaLoot = 0;
@@ -126,6 +136,7 @@ function returnLoot(battle, unit) {
   unit.mem.vvanaVictims = new Set();
 }
 
+/** @type {KitFns} */
 export default {
   char_4098_vvana: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
@@ -212,8 +223,8 @@ export default {
         { install(battle, unit) { // 散华: a melee-only 护盾 layer from her damage on elite / leader enemies
           const p = num(t1.prob), max = Math.max(1, Math.floor(num(t1.max_stack_cnt, 1)));
           const s3Scale = num(b3.talent_scale, 1);
-          const layers = () => unit.findBuff(SHIELD_KEY)?.data?.n ?? 0;
-          const setLayers = (n) => {
+          const layers = () => /** @type {BuffRec | null} */ (unit.findBuff(SHIELD_KEY))?.data?.n ?? 0;
+          const setLayers = (/** @type {number} */ n) => {
             if (n > 0) battle.addBuff(unit, { key: SHIELD_KEY, data: { n }, visible: true, tags: ['talent'] });
             else battle.removeBuff(unit, SHIELD_KEY);
           };
@@ -243,7 +254,7 @@ export default {
         // S1's 蓄力 mode: both charges stored ⇒ her range is 3-2 until the next end of the skill
         if (unit.skill?.id === S1) {
           // the 蓄力 mode's model (vvana_s_1[mode]: render/units.js FORMS). Display only.
-          const showCharged = (form) => {
+          const showCharged = (/** @type {string | null} */ form) => {
             if ((unit.form ?? null) === form) return;
             unit.form = form;
             battle.fx('vvanaCharge', { x: unit.x, y: unit.y, id: unit.id, form });

@@ -69,6 +69,10 @@ import { bodyInRange } from '../../../body.js';
 import { hasHp, burstLocked } from '../../../damage.js';
 import { MIN_DAMAGE_RATIO, BLOCK_RADIUS_SQ } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns, KitChess, KitSpec, Bb, Grid } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { Battle } from '../../../Battle.js' */
 
 const S1 = 'skchr_phatm2_1';
 const S2 = 'skchr_phatm2_2';
@@ -91,13 +95,17 @@ const X1 = Object.freeze([[2, 0], [1, -1], [1, 0], [1, 1], [0, -2], [0, -1], [0,
 /** Selection profile of her effects on enemies: ground and air. */
 const ANY = Object.freeze({ canHitFly: true });
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit | null | undefined} u @param {string} id */
 const skillOn = (u, id) => !!(u && u.skill && u.skill.id === id && u.skill.active);
+/** @param {Grid} grid @param {Unit} u */
 const keysAt = (grid, u) => new Set(absoluteRangeKeys(grid, u.tileR, u.tileC, u.dir, 0));
 
 /**
  * 神经损伤 of a fixed value that ignores the target's 损伤抵抗 (PRTS 群体性谵妄 备注 "不受目标损伤抗性影响": the client's
  * ApplyFixedElementDamage): the share the engine takes off (damage.js elementIntake) is added back first.
+ * @param {Battle} battle @param {Unit} src @param {Unit} e @param {number} amount
  */
 function fixedNeural(battle, src, e, amount, sourceless = false) {
   if (!(amount > 0) || !hasHp(e)) return 0;
@@ -109,19 +117,21 @@ function fixedNeural(battle, src, e, amount, sourceless = false) {
 /**
  * 本能的召唤's kit (the skill-summon piece of her S2: a fresh one per piece). `owner` = 酒神, `b2` = her S2 blackboard
  * (fallback for the token's own skill blackboard).
+ * @param {Unit} t @param {Unit} owner @param {Bb} b2 @returns {KitSpec}
  */
 function callKit(t, owner, b2) {
   const sb = t.def?.skill?.bb ?? {};
+  /** @param {string} k @param {number} d */
   const pick = (k, d) => num(sb[k], num(b2[k], d));
-  const life = num((t.def?.talents ?? []).find((x) => x && x.bb && x.bb.duration != null)?.bb?.duration, pick('interval', CALL_LIFE));
+  const life = num((t.def?.talents ?? []).find((/** @type {{ bb?: Record<string, any> } | null} */ x) => x && x.bb && x.bb.duration != null)?.bb?.duration, pick('interval', CALL_LIFE));
   const cap = Math.max(1, Math.floor(pick('max_target', 4))), arrive = pick('ability_range_radius', CALL_ARRIVE);
   const grid = t.def?.rangeGrid ?? X1;
   return {
     skill: null,
     trait: { noAttack: true },
     install(battle, tok) {
-      let lured = [], endAt = 0, atk = 0;
-      const mine = (e) => { const a = e.findBuff('attract'); return a && a.source === tok ? a : null; };
+      let lured = /** @type {Unit[]} */ ([]), endAt = 0, atk = 0;
+      const mine = (/** @type {Unit} */ e) => { const a = /** @type {BuffRec | null} */ (e.findBuff('attract')); return a && a.source === tok ? a : null; };
       battle.on('deploy', (c) => {
         if (c.unit !== tok) return;
         lured = [];
@@ -189,7 +199,7 @@ function callKit(t, owner, b2) {
   };
 }
 
-/** 迷狂牢笼's kit (spawned by her S3: a fresh one per cage). */
+/** 迷狂牢笼's kit (spawned by her S3: a fresh one per cage). @returns {KitSpec} */
 function cageKit() {
   return {
     skill: null,
@@ -217,6 +227,7 @@ function cageKit() {
  * 不可阻挡 (恐惧, 诱导, 浮空, 沉睡: DESIGN §24.9). Block count = their weight. Each slides (0.2 s, Battle._moveToBlockPosition) to
  * `BlockeeOffsetPosSet`: an enemy over 0.2 (DIST_MAX) from its centre to a random distance in [0, 0.2) the same way,
  * one within 0.2 stays. The client searches at the token's first tick, here at its spawn (the same tick).
+ * @param {Battle} battle @param {Unit} cage
  */
 function cageBlock(battle, cage, refresh = false) {
   if (refresh) for (const e of cage.blocking.slice()) if (e.blockedBy === cage) battle._unregisterBlocker(e);
@@ -245,7 +256,7 @@ function cageBlock(battle, cage, refresh = false) {
   return cands.length;
 }
 
-/** 空剧场: a 牢笼 on enemy `e`'s ground tile — or the one already there refreshed (`refresh`). */
+/** 空剧场: a 牢笼 on enemy `e`'s ground tile — or the one already there refreshed (`refresh`). @param {Battle} battle @param {Unit} owner @param {Unit} e @param {boolean} refresh */
 function cageAt(battle, owner, e, refresh) {
   const r = Math.round(e.y), c = Math.round(e.x);
   if (!battle.grid.inRect(r, c)) return null;
@@ -260,9 +271,12 @@ function cageAt(battle, owner, e, refresh) {
   return cage;
 }
 
+/** @param {Battle} battle @param {Unit} owner */
 const callsOf = (battle, owner) => battle.allyUnits.filter((t) => t.kind === 'token' && t.defId === CALL && t.ownerUnit === owner);
+/** @param {Battle} battle @param {Unit} owner */
 const cagesOf = (battle, owner) => battle.allyUnits.filter((t) => t.kind === 'token' && t.defId === CAGE && t.ownerUnit === owner && t.alive);
 
+/** @type {KitFns} */
 export default {
   char_1042_phatm2: (bb, chess) => {
     const tb = traitBb(chess);
@@ -275,8 +289,9 @@ export default {
     const dreamAspd = Math.abs(num(t2.attack_speed)), dreamValue = num(t2.value);
     const s3Ratio = num(b3.ep_damage_ratio), s3Iv = Math.max(0.1, num(b3.interval, 1));
     const s3Recover = num(b3['talent@ep_break_recover_speed']), s3After = num(b3['phatm2_s_3[token_cooldown].interval'], CAGE_AFTER);
+    /** @param {Unit} u */
     const s3DotKey = (u) => `phatm2:s3dot#${u.id}`;
-    /** T1's splash around `t`: every other selectable enemy within the radius (中点判定). */
+    /** T1's splash around `t`: every other selectable enemy within the radius (中点判定). @param {Battle} battle @param {Unit} unit @param {Unit} t @param {number} r */
     const splash = (battle, unit, t, r) => {
       if (!(splashRatio > 0)) return;
       for (const e of battle.foesInRadius(t.x, t.y, r, true)) if (e !== t) elementDmg(battle, unit, e, 'neural', unit.s.atk * splashRatio, ['talent']);
@@ -290,7 +305,7 @@ export default {
             atkScale: num(b1.atk_scale, 1), hits: Math.max(1, Math.floor(num(b1.times, 2))),
             onHit({ battle, unit, target }) {
               if (!target || !target.alive || !battle.applyStatus(target, 'bind', { duration: num(b1.unmove), source: unit })) return;
-              const root = target.buffs.find((b) => b.status === 'bind');
+              const root = /** @type {BuffRec[]} */ (target.buffs).find((b) => b.status === 'bind');
               const dur = root && Number.isFinite(root.timeLeft) ? root.timeLeft : num(b1.unmove);
               battle.applyStrongest(target, UNMOVE, { duration: dur, value: num(b1.ep_damage_scale, 1), mods: () => ({}), source: unit });
             },
@@ -317,7 +332,7 @@ export default {
             if (!(s3Recover > 0)) return;
             for (const e of battle.enemies) {
               if (!e.alive || e.hidden || !bodyInRange(e, unit.rangeKeySet)) continue;
-              const lock = e.findBuff('neuralBurst');
+              const lock = /** @type {BuffRec | null} */ (e.findBuff('neuralBurst'));
               if (lock && Number.isFinite(lock.timeLeft)) lock.timeLeft -= dt * s3Recover;
             }
           },
@@ -339,7 +354,7 @@ export default {
         } },
         { install(battle, unit) { // 堕梦: ASPD cut in a 神经损伤 burst (the field); 神经损伤 on a normal attack (her range)
           if (dreamAspd > 0) {
-            const slow = (e) => battle.applyStrongest(e, DREAM, { duration: HOLD, value: dreamAspd, mods: (v) => ({ aspd: -v }), source: unit });
+            const slow = (/** @type {Unit} */ e) => battle.applyStrongest(e, DREAM, { duration: HOLD, value: dreamAspd, mods: (v) => ({ aspd: -v }), source: unit });
             battle.every(IV, () => {
               if (!up(unit)) return;
               for (const e of battle.enemies) if (e.alive && !e.hidden && e.findBuff('neuralBurst')) slow(e);
@@ -407,7 +422,7 @@ export default {
   },
 };
 
-/** Her S2's end or her leaving: the 本能的召唤 in stock is gone and the one on the field leaves. */
+/** Her S2's end or her leaving: the 本能的召唤 in stock is gone and the one on the field leaves. @param {Battle} battle @param {Unit} unit */
 function withdrawCalls(battle, unit) {
   const stock = unit.mem.summonStock;
   if (stock) stock[CALL] = 0;

@@ -15,6 +15,9 @@
 
 import { num, talentBb, traitBb, skillRec, byEnemyAttack, statBuff } from '../shared/tier1.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skchr_pianst_1';
 const S2 = 'skchr_pianst_2';
@@ -29,12 +32,15 @@ export const FINAL_EVENT = 0.533;
 /** range_table x-1, FinalAttack's ConstBoxRange. */
 const X1 = Object.freeze([[2, 0], [1, -1], [1, 0], [1, 1], [0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [-1, -1], [-1, 0], [-1, 1], [-2, 0]]);
 const ALL = Object.freeze({ canHitFly: true });
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_4047_pianst: (bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
     const echo = num(t0.atk_scale), extra = num(tb.atk_scale);
+    /** @param {Battle} battle @param {Unit} unit @param {Unit} e @param {number} amount @param {string[]} tags @param {string} [moment] */
     const arts = (battle, unit, e, amount, tags, moment) => battle.dealDamage(unit, e, { amount, type: 'arts', tags, ...(moment ? { moment } : {}) });
     return {
       skills: {
@@ -78,7 +84,7 @@ export default {
         if (res) statBuff(battle, unit, 'pianst_t_1', { resFlat: res });
         battle.on('damaged', (c) => {
           if (c.target !== unit || !unit.alive || !byEnemyAttack(c)) return;
-          const attack = !!(c.dmg.isAttack || c.dmg.isSplash), src = c.source, sk = unit.skill;
+          const attack = !!(/** @type {Record<string, any>} */ (c.dmg).isAttack || /** @type {Record<string, any>} */ (c.dmg).isSplash), src = /** @type {Unit} */ (c.source), sk = unit.skill;
           if (attack && c.type === 'arts' && echo > 0 && src.alive) {
             battle.fx('kitHit', { x: src.x, y: src.y, id: unit.id, src: unit.id, tgt: src.id, k: 'pianst:echo' });   // pianst_beidong_hit on the attacker (pianst_t_1)
             arts(battle, unit, src, unit.s.atk * echo, ['talent', 'counter'], 'pianst_t_1');

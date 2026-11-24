@@ -21,6 +21,10 @@
 import { num, talentBb, traitBb, skillRec, up } from '../shared/tier1.js';
 import { hasPower } from '../shared/powers.js';
 import { resolveHit } from '../../../ai.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillCtx } from '../../../skills.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_varkis_1';
 const S2 = 'skchr_varkis_2';
@@ -30,11 +34,14 @@ const MINOS = 'minos';
 export const S1_STRIKES = Object.freeze([0.033, 0.067]);
 /** Skill_2_Begin's length (s): the engine waits it out before S2 starts (data `cast.begin`, skills.js beginTime). */
 export const S2_BEGIN = 0.333;
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_4166_varkis: (bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
+    /** @param {SkillCtx} ctx */
     const moreStrikes = ({ battle, unit, target }) => {
       if (!target) return;
       const prof = { ...battle.effectiveProfile(unit), skillOnHit: null };
@@ -46,6 +53,7 @@ export default {
         }, { owner: unit });
       }
     };
+    /** @param {Unit} u */
     const on2 = (u) => u.skill?.id === S2 && u.skill.active;
     return {
       skills: {
@@ -84,11 +92,11 @@ export default {
             if (c.target !== unit || !on2(unit) || c.opts?.regen) return;
             const over = c.amount - (unit.s.maxHp - unit.hp);
             if (!(over > 0)) return;
-            const max = unit.s.maxHp * cap, cur = unit.findBuff(SHIELD);
+            const max = unit.s.maxHp * cap, cur = /** @type {BuffRec | null} */ (unit.findBuff(SHIELD));
             if (cur) { cur.shield = Math.min(max, cur.shield + over); unit.markDirty(); } else battle.addBuff(unit, { key: SHIELD, shield: Math.min(max, over), shieldLast: true, blockFx: true, visible: true, tags: ['skill'] });
           }, { owner: unit, priority: -1000 });
           battle.every(1, () => {
-            const cur = up(unit) && !on2(unit) ? unit.findBuff(SHIELD) : null;
+            const cur = up(unit) && !on2(unit) ? /** @type {BuffRec | null} */ (unit.findBuff(SHIELD)) : null;
             if (!cur) return;
             cur.shield = Math.max(0, cur.shield - dec);
             if (cur.shield <= 1e-9) battle.removeBuff(unit, SHIELD); else unit.markDirty();

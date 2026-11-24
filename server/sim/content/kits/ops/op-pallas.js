@@ -49,6 +49,11 @@ import { num, talentBb, skillRec, up, alliesInGridOf } from '../shared/tier1.js'
 import { frontOf } from '../../../dir.js';
 import { hasPower } from '../shared/powers.js';
 import { resolveHit } from '../../../ai.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillCtx } from '../../../skills.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_pallas_1';
 const S2 = 'skchr_pallas_2';
@@ -61,12 +66,14 @@ const MINOS = 'minos';
 const RANGE_1_1 = Object.freeze([[0, 0], [0, 1]]);
 /** The one 精力充沛 buff of an ally (ba.strong "同类属性取最高"). */
 export const PEAK_KEY = 'talent:pallas:peak';
-/** The S3 holder's DEF / block buff, per 帕拉斯 (independentCharacterSource). */
+/** The S3 holder's DEF / block buff, per 帕拉斯 (independentCharacterSource). @param {Unit} unit */
 export const holderKey = (unit) => `skill:pallas:blessing#${unit.id}`;
 /** The status the holder shows (its official effect: pallas_s_3[effect], render/fxstatus.js). */
 export const BLESSING = 'pallas:blessing';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit | null | undefined} a */
 const isMinos = (a) => !!a && a.kind === 'op' && hasPower(a, MINOS);
 
 /** The buff's `fxTag` bits: which 精力充沛 holds — T1's (effect pallas_buff_01_start) and / or S3's (pallas_skill_03_buff_03). */
@@ -79,8 +86,10 @@ export const PEAK_S3 = 2;
  * whose HP condition holds (never a sum: "同类属性取最高" — peak_performance[atk] `priorityBBKeys` atk). Its `fxTag` holds
  * every source whose condition holds: each source is its own peak_performance[inf] (BuffDB: `disableOverride`), whose
  * peak_performance[effect] creates that source's blackboard `effect` — T1 and S3 on one holder show both (render/fxstatus.js).
+ * @type {WeakMap<Battle, Set<(a: Unit) => [number, number]>>}
  */
 const PEAKS = new WeakMap();
+/** @param {Battle} battle */
 function peakSources(battle) {
   let set = PEAKS.get(battle);
   if (set) return set;
@@ -93,7 +102,7 @@ function peakSources(battle) {
         const [x, t] = f(a);
         if (x > 0) { v = Math.max(v, x); tag |= t; }
       }
-      const cur = a.findBuff(PEAK_KEY);
+      const cur = /** @type {BuffRec | null} */ (a.findBuff(PEAK_KEY));
       if ((cur?.data?.v ?? 0) === v && (cur?.fxTag ?? 0) === tag) continue;
       // another tag: off first, so the client hears the new `fxTag` (a replaced buff sends no 'status')
       if (cur) battle.removeBuff(a, PEAK_KEY);
@@ -106,6 +115,7 @@ function peakSources(battle) {
 /**
  * The holder of 英勇的祝福's buff: the operator deployed on the tile in front of her when it stands on low ground (and her
  * aura may select it), else herself.
+ * @param {Battle} battle @param {Unit} unit
  */
 export function blessingHolder(battle, unit) {
   const [fr, fc] = frontOf(unit.tileR, unit.tileC, unit.dir, 1);
@@ -115,6 +125,7 @@ export function blessingHolder(battle, unit) {
   return unit;
 }
 
+/** @type {KitFns} */
 export default {
   char_485_pallas: (bb, chess) => {
     const t0 = talentBb(chess, 0);   // 英雄的诞生 (INS-X stage 3: hp_ratio 0.5, atk 0.3)
@@ -122,7 +133,7 @@ export default {
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
     const blessDef = num(b3['attack@def']), blessBlock = num(b3['attack@block_cnt']);
     const blessHp = num(b3['attack@peak_performance.hp_ratio'], 0.8), blessAtk = num(b3['attack@peak_performance.atk']);
-    /** Move 英勇的祝福 to the current holder (DEF / block here; its 精力充沛 goes through the shared tick). */
+    /** Move 英勇的祝福 to the current holder (DEF / block here; its 精力充沛 goes through the shared tick). @param {SkillCtx} ctx */
     const bless = ({ battle, unit }) => {
       const st = unit.mem.pallasBless ?? (unit.mem.pallasBless = { holder: null });
       const h = unit.skill?.active && up(unit) ? blessingHolder(battle, unit) : null;
@@ -131,7 +142,7 @@ export default {
       st.holder = h;
       if (h) battle.addBuff(h, { key: holderKey(unit), source: unit, mods: { defPct: blessDef, blockCnt: blessBlock }, tags: ['skill'], status: BLESSING });
     };
-    /** S1's second strike: the attack's profile without this callback, S1_TRIGGER_DELTA later, the same attackId. */
+    /** S1's second strike: the attack's profile without this callback, S1_TRIGGER_DELTA later, the same attackId. @param {SkillCtx} ctx */
     const secondStrike = ({ battle, unit, target }) => {
       if (!target) return;
       const prof = { ...battle.effectiveProfile(unit), skillOnHit: null };

@@ -11,11 +11,14 @@
 
 import { num, talentBb, moduleBb, skillRec, statBuff, toggleBuff, onHitBy } from '../shared/tier1.js';
 import { bodyInRange } from '../../../body.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
 
 const S1 = 'skchr_swllow_1';
 const S2 = 'skchr_swllow_2';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_367_swllow: (bb, chess) => {
     const t0 = talentBb(chess, 0), mb = moduleBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);

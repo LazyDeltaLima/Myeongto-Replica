@@ -10,12 +10,15 @@
 
 import { num, talentBb, traitBb, skillRec, up, giveSp, holdProtect } from '../shared/tier1.js';
 import { COLS } from '../../../constants.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
 
 const S1 = 'skchr_quercu_1';
 const S2 = 'skchr_quercu_2';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 const CHECK = 0.1;
 
+/** @type {KitFns} */
 export default {
   char_492_quercu: (bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);

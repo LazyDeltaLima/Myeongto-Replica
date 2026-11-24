@@ -47,6 +47,9 @@
 // - Melee physical, ground-only (data canHitFly false), block 1, range 1-1; ground enemies target her (no 起飞 / 迷彩).
 
 import { num, traitBb, skillRec, toggleBuff, batMod, up, holdProtect } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { TalentRecord, ModuleRecord, ModuleState } from '../../../../../shared/loadoutRecord.js' */
 
 const S1 = 'skchr_zumama_1';
 const S2 = 'skchr_zumama_2';
@@ -59,14 +62,16 @@ const PROTECT_HOLD = T1_PERIOD + 0.05;
 const STUN_PULSE = 0.1;
 const VALOR = 'talent:zumama:valor';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** The record's active module, or null. */
-const activeModule = (chess) => (chess?.module?.active ? (chess.modules ?? []).find((m) => m && m.uniEquipId === chess.module.id) ?? null : null);
-/** A module whose extra parts work 在生息演算中 only (RA-A): its talent changes do not apply here. */
+/** The record's active module, or null. @param {KitChess} chess */
+const activeModule = (chess) => (chess?.module?.active ? (chess.modules ?? []).find((m) => m && m.uniEquipId === /** @type {ModuleState} */ (chess.module).id) ?? null : null);
+/** A module whose extra parts work 在生息演算中 only (RA-A): its talent changes do not apply here. @param {ModuleRecord | null} mod */
 const sandboxOnly = (mod) => /生息演算/.test(String(mod?.traitOverride?.moduleDesc ?? ''));
-/** Blackboard of the talent with data index `i` in `list` ({} when absent). */
+/** Blackboard of the talent with data index `i` in `list` ({} when absent). @param {TalentRecord[] | null | undefined} list @param {number} i */
 const talentAt = (list, i) => (list ?? []).find((t) => t && t.index === i)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_416_zumama: (bb, chess) => {
     const mod = activeModule(chess);
@@ -86,7 +91,7 @@ export default {
               if (battle.applyStatus(e, 'stun', { duration: STUN_PULSE, source: unit, resistApplied: true })) continue;
               // refused on a blockee that turned 无敌 + 无法选中: the stun it holds stays while it is blocked (the official
               // BlockedToggleChecker adds _buffsToBlockee once as an enemy enters her block list and removes them as it leaves)
-              const st = e.s.flags.invulnerable && e.s.flags.untargetable ? e.findBuff('stun') : null;
+              const st = e.s.flags.invulnerable && e.s.flags.untargetable ? /** @type {BuffRec | null} */ (e.findBuff('stun')) : null;
               if (st && st.timeLeft !== Infinity && st.timeLeft < STUN_PULSE) st.timeLeft = STUN_PULSE;
             }
           },

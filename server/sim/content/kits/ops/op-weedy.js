@@ -64,6 +64,10 @@ import { bodyInRange } from '../../../body.js';
 import { startCountdown } from '../../tokens.js';
 import { hypot } from '../../../detmath.js';
 import { TICK } from '../../../constants.js';
+/** @import { KitFns, KitChess, KitSpec, Bb, Grid } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_weedy_1';
 const S2 = 'skchr_weedy_2';
@@ -87,29 +91,33 @@ const TAG_NITRO = 'weedy:nitro';
 /** `projectile_weedy_s3` `_speed` (温蒂's and the cannon's 液氮炮). */
 const NITRO_SPEED = 8;
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** First talent of a normalised token def whose blackboard holds `key` (token talents keep no index). */
-const tokTalent = (def, key, not = null) => (def?.talents ?? []).find((t) => t && t.bb && t.bb[key] != null && (not == null || t.bb[not] == null)) ?? null;
-/** Push direction along a unit's facing (knockback[dir]). */
+/** First talent of a normalised token def whose blackboard holds `key` (token talents keep no index). @param {Record<string, any> | null | undefined} def @param {string} key @param {string | null} [not] */
+const tokTalent = (def, key, not = null) => (def?.talents ?? []).find((/** @type {{ bb?: Record<string, any> } | null} */ t) => t && t.bb && t.bb[key] != null && (not == null || t.bb[not] == null)) ?? null;
+/** Push direction along a unit's facing (knockback[dir]). @param {Unit} u */
 const along = (u) => ({ x: u.fwd[1], y: u.fwd[0] });
-/** On one of the 4 tiles around (周围4格). */
+/** On one of the 4 tiles around (周围4格). @param {Unit} a @param {Unit} b */
 const beside = (a, b) => Math.abs(a.tileR - b.tileR) + Math.abs(a.tileC - b.tileC) === 1;
 
 /**
  * 移动创伤 (PRTS 特殊机制) on enemy `e`: for `duration` s every `interval` s — and once more at the end — the distance it
  * moved since the last update × `perTile` as true 持续伤害 from `src` (none when that difference is > 4 tiles). A new
  * application while one runs only refreshes its duration: the source and the per-tile damage stay the first one's.
+ * @param {Battle} battle @param {Unit} src @param {Unit} e @param {{ duration: number, perTile: number, interval: number }} opts
  */
 export function rupture(battle, src, e, { duration, perTile, interval }) {
   if (!e || !e.alive || !(duration > 0) || !(perTile > 0)) return;
-  const cur = e.findBuff(RUPTURE_KEY);
+  const cur = /** @type {BuffRec | null} */ (e.findBuff(RUPTURE_KEY));
   if (cur) {
     cur.timeLeft = Math.max(cur.timeLeft, duration);
     cur.duration = Math.max(cur.duration, duration);
     return;
   }
   const st = { x: e.x, y: e.y, moved: 0, acc: 0 };
+  /** @param {Unit} u */
   const step = (u) => { st.moved += hypot(u.x - st.x, u.y - st.y); st.x = u.x; st.y = u.y; };
+  /** @param {Unit} u */
   const flush = (u) => {
     const m = st.moved;
     st.moved = 0;
@@ -133,14 +141,14 @@ export function rupture(battle, src, e, { duration, perTile, interval }) {
  * 'path' = the shortest remaining path (温蒂), 'nearest' = nearest to the shooter (the cannon) — and every enemy within
  * NITRO_SPLASH of it: atk_scale × 温蒂's ATK arts from `src`, the 移动创伤, a push of `force` along the shooter's facing.
  * Returns false when no enemy can be selected there (nothing fires).
- * @param {object} battle
- * @param {{ shooter: object, grid?: ReadonlyArray<ReadonlyArray<number>>|null, pick?: 'path' | 'nearest' }} opts
+ * @param {Battle} battle
+ * @param {{ shooter: Unit, grid?: ReadonlyArray<ReadonlyArray<number>>|null, pick?: 'path' | 'nearest' }} opts
  *   (`pick` left out: 'path')
  */
 export function nitroTarget(battle, { shooter, grid, pick }) {
   const keys = absoluteRangeKeys(grid ?? GRID_4_1, shooter.tileR, shooter.tileC, shooter.dir, 0);
   const cands = battle.enemiesInKeys(keys, shooter, { canHitFly: true });
-  const key = pick === 'nearest' ? (e) => hypot(e.x - shooter.x, e.y - shooter.y) : (e) => battle.remainingDistance(e);
+  const key = pick === 'nearest' ? (/** @type {Unit} */ e) => hypot(e.x - shooter.x, e.y - shooter.y) : (/** @type {Unit} */ e) => battle.remainingDistance(e);
   let target = null, best = Infinity;
   for (const e of cands) {
     const v = key(e);
@@ -149,12 +157,14 @@ export function nitroTarget(battle, { shooter, grid, pick }) {
   return target;
 }
 
+/** @param {Battle} battle @param {{ shooter: Unit, src: Unit, atk: number, sbb: Bb, grid?: Grid | null, force: number, pick?: 'path' | 'nearest', target?: Unit | null }} opts */
 export function liquidNitrogen(battle, { shooter, src, atk, sbb, grid, force, pick, target = nitroTarget(battle, { shooter, grid, pick }) }) {
   if (!target) return false;
   const amount = atk * num(sbb.atk_scale, 1);
   const rup = { duration: num(sbb.duration), perTile: num(sbb.value) * num(sbb.dist, 1), interval: num(sbb.interval, 0.066) };
   const dir = along(shooter);
   const from = { x: shooter.x, y: shooter.y, fwd: shooter.fwd };   // the push is the shooter's as it fired (knockback[dir])
+  /** @param {number} x @param {number} y */
   const land = (x, y) => {
     battle.fx('frostNova', { x, y, r: NITRO_SPLASH, id: shooter.id, src: shooter.id, target: target.id, dmgType: 'arts', skill: 'weedy_3' });
     for (const e of battle.foesInRadius(x, y, NITRO_SPLASH, true)) {
@@ -181,10 +191,10 @@ export function liquidNitrogen(battle, { shooter, src, atk, sbb, grid, force, pi
   return true;
 }
 
-/** 温蒂's deployed cannons. */
+/** 温蒂's deployed cannons. @param {Battle} battle @param {Unit} unit */
 const cannonsOf = (battle, unit) => battle.allyUnits.filter((a) => a.kind === 'token' && a.defId === CANNON && a.ownerUnit === unit && a.alive && a.deployed);
 
-/** The cannon's kit: its attack push, its skill, 蓄水炮强化 on 温蒂, its life and its redeploys. `owner` = 温蒂. */
+/** The cannon's kit: its attack push, its skill, 蓄水炮强化 on 温蒂, its life and its redeploys. `owner` = 温蒂. @param {Unit} t @param {Unit} owner @returns {KitSpec} */
 function cannonKit(t, owner) {
   const def = t.def;
   const life = num(tokTalent(def, 'duration')?.bb?.duration, LIFE_FALLBACK);
@@ -256,6 +266,7 @@ function cannonKit(t, owner) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   char_400_weedy: (bb, chess) => {
     const tb = traitBb(chess);                         // PUS-X: value; PUS-Y: cnt / base_force_level
@@ -265,6 +276,7 @@ export default {
     /**
      * PUS-Y: +base_force_level while she blocks ≥ cnt enemies — counted when the attack starts (`weedyBlocked`, set at
      * `beforeAttack`: the first push of an attack frees an enemy before the second is pushed) or when S3 is cast.
+     * @param {Unit} u @param {number} [n]
      */
     const bonus = (u, n = u.mem.weedyBlocked ?? u.blocking.length) => (blockForce && blockCnt > 0 && n >= blockCnt ? blockForce : 0);
     return {

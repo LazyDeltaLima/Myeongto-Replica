@@ -8,7 +8,9 @@
 
 import chess from './chess_char_6_08-reed2.js';
 import { chessKitAsPick } from '../shared/chessPick.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   // the chess's default S3 (its 「灼痕效果持续至技能结束」 is S3's: onDefaultSkill)
   char_1020_reed2: chessKitAsPick(chess.chess_char_6_08_a, 'skchr_reed2_3'),

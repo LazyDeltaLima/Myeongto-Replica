@@ -45,11 +45,19 @@ import { sortEnemyTargets } from '../../../targeting.js';
 import { attackTiming } from '../../../ai.js';
 import { talentBb } from '../shared/tier1.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns, KitFn, KitChess, KitDef, KitSpec } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { Profile } from '../../../professions.js' */
 
+/** @param {unknown} v */
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+/** @param {Unit | null | undefined} u */
 const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
+/** @param {KitChess} chess @param {KitDef} def */
 const selectedSkill = (chess, def) => chess?.skill?.skillId ?? def?.skill?.id ?? null;
-/** Skill blackboard base_attack_time → engine batPct (a shortening is flat seconds, a lengthening scales). */
+/** Skill blackboard base_attack_time → engine batPct (a shortening is flat seconds, a lengthening scales). @param {unknown} v @param {KitDef} def */
 function batOf(v, def) {
   const x = num(v);
   if (!x) return 0;
@@ -58,6 +66,7 @@ function batOf(v, def) {
 }
 const ANY = Object.freeze({ canHitFly: true });
 const GROUND = Object.freeze({ canHitFly: false });
+/** @param {Battle} battle @param {Unit} unit */
 const inRange = (battle, unit) => battle.enemiesInKeys(unit.rangeKeys || [], unit, ANY);
 
 const WIS_SPLASH = 0.9, WIS_S1_SPLASH = 1.1, WIS_S3_SPLASH = 2.5, WIS_WARD_MAX = 3;
@@ -67,15 +76,16 @@ const SHOCK_AT = 0.15, S1_SHOCKS_AT = Object.freeze([0.5, 0.65]);
 const OL_GAP = 0.1, OL_DELAY = 0.1;
 /** Her summon 魂灵之影 (T2 死魂灵的余息, S3 爆裂黎明). */
 export const SHADOW = 'token_10035_wisdel_wward';
-/** Buff key of her 残影 on an enemy / of the 迷彩 shadow `w` gave her. */
+/** Buff key of her 残影 on an enemy / of the 迷彩 shadow `w` gave her. @param {Unit} host */
 const markKey = (host) => `wis:mark:${host.id}`;
+/** @param {Unit} w */
 const camoKey = (w) => `wis:camou:${w.id}`;
 
-/** The enemy a shadow strikes: a targetable ground enemy of `owner`'s range, unmarked first, then the usual order. */
+/** The enemy a shadow strikes: a targetable ground enemy of `owner`'s range, unmarked first, then the usual order. @param {Battle} battle @param {Unit} owner @param {Unit} t */
 function shadowTarget(battle, owner, t) {
   const pool = battle.enemiesInKeys(owner.rangeKeys || [], t, GROUND).filter((e) => e.alive);
   if (!pool.length) return null;
-  const fresh = pool.filter((e) => !e.buffs.some((b) => b.key === markKey(owner)));
+  const fresh = pool.filter((e) => !/** @type {BuffRec[]} */ (e.buffs).some((b) => b.key === markKey(owner)));
   const list = fresh.length ? fresh : pool;
   sortEnemyTargets(battle, t, list, null);
   return list[0];
@@ -84,6 +94,7 @@ function shadowTarget(battle, owner, t) {
 /**
  * 魂灵之影: no attack; its skill (cast by its own tick once ready, with a ground enemy in 维什戴尔's range) hits one enemy:
  * arts (its ATK), 停顿, her 残影, then 0-2 SP to itself.
+ * @param {Record<string, any>} bb @returns {KitSpec}
  */
 function wisdelWard(bb) {
   const slug = num(bb.sluggish, 1), spMin = num(bb.sp_min, 0), spMax = num(bb.sp_max, 3);
@@ -110,6 +121,7 @@ function wisdelWard(bb) {
       },
     },
     trait: { noAttack: true },
+    /** @param {Battle} battle @param {Unit} t */
     install(battle, t) {
       battle.on('tick', () => {
         const sk = t.skill, owner = t.ownerUnit;
@@ -127,6 +139,12 @@ function wisdelWard(bb) {
   };
 }
 
+/**
+ * What one blast of hers takes (wisdel's `blast`; `afterHitOf` gives all but the position).
+ * @typedef {{ x: number, y: number, scale?: number, radius?: number, at?: number[], after?: number, stun?: number,
+ *   prob?: number, air?: boolean, primary?: boolean, shockKey?: string | null }} BlastOpts
+ */
+/** @type {KitFn} */
 function wisdel(bb, chess, def) {
   const sid = selectedSkill(chess, def);
   const t0 = talentBb(chess, 0);
@@ -137,9 +155,9 @@ function wisdel(bb, chess, def) {
   const markProb = num(t0['attack@prob'], 0.15), bombScale = num(t0['attack@bomb_atk_scale'], 1.5);
   const bombStun = num(t0['attack@stun'], 1), bombR = num(t0['attack@range_radius'], 1.1);
 
-  /** The 残影 of a target: explode it (prob `p`) — called by an aftershock of hers striking a marked enemy. */
+  /** The 残影 of a target: explode it (prob `p`) — called by an aftershock of hers striking a marked enemy. @param {Battle} battle @param {Unit} unit @param {Unit} e @param {number} p */
   const tryBomb = (battle, unit, e, p) => {
-    if (!e.alive || !e.buffs.some((b) => b.key === markKey(unit))) return;
+    if (!e.alive || !/** @type {BuffRec[]} */ (e.buffs).some((b) => b.key === markKey(unit))) return;
     if (battle.rng() >= p) return;
     battle.removeBuff?.(e, markKey(unit));
     battle.fx('explode', { x: e.x, y: e.y, r: bombR, by: unit.id }); // `by` = her, for its hit sound (audio.js kitHitKey)
@@ -148,6 +166,7 @@ function wisdel(bb, chess, def) {
       if (v.alive) battle.applyStatus(v, 'stun', { duration: bombStun, source: unit });
     }
   };
+  /** @param {Battle} battle @param {Unit} unit @param {Unit | null | undefined} e */
   const mark = (battle, unit, e) => {
     if (!e?.alive || !live(unit)) return;
     battle.addBuff(e, { key: markKey(unit), duration: Infinity, source: unit, visible: true });
@@ -156,6 +175,7 @@ function wisdel(bb, chess, def) {
    * One blast at (x, y) (the main target `main`): splash + aftershocks of `after` × ATK, `at` s after it (× main_atk_scale
    * on the main target). `stun` stuns every enemy the blast hits; `prob` = the 残影 explosion chance of the aftershocks;
    * `air` = air units are hit too (S3). `primary` = the engine already dealt the main hit and its splash.
+   * @param {Battle} battle @param {Unit} unit @param {Unit} main @param {BlastOpts} opts
    */
   const blast = (battle, unit, main, { x, y, scale = 1, radius = WIS_SPLASH, at = shocks, after = append, stun = 0, prob = markProb, air = false, primary = false, shockKey = null }) => {
     if (!primary) {
@@ -181,11 +201,12 @@ function wisdel(bb, chess, def) {
       }, { owner: unit });
     }
   };
-  /** A profile `afterHit` running `blast` with the given parameters on the engine's hit. */
+  /** A profile `afterHit` running `blast` with the given parameters on the engine's hit. @param {Omit<BlastOpts, 'x' | 'y'>} opts @returns {NonNullable<Profile['afterHit']>} */
   const afterHitOf = (opts) => (battle, unit, target, info) => blast(battle, unit, target, { x: info.x, y: info.y, primary: true, ...opts });
 
+  /** @param {Battle} battle @param {Unit} unit */
   const ownWards = (battle, unit) => battle.allies(unit.ownerId).filter((a) => a.kind === 'token' && a.defId === SHADOW && a.ownerUnit === unit && a.alive);
-  /** A shadow coming in: 迷彩 for her while it lives, when she stands on its x-5 and may be selected by it (孤立). */
+  /** A shadow coming in: 迷彩 for her while it lives, when she stands on its x-5 and may be selected by it (孤立). @param {Battle} battle @param {Unit} unit @param {Unit} w */
   const grantCamo = (battle, unit, w) => {
     if (!live(unit) || !battle.allySelectable(unit, w)) return;
     if (Math.abs(unit.tileR - w.tileR) + Math.abs(unit.tileC - w.tileC) > 1) return;
@@ -193,7 +214,8 @@ function wisdel(bb, chess, def) {
   };
   /** A shade on the free deployable tile of her range nearest to her, or none when no tile fits. Deployable = on a board
    *  of this field (Battle.onFieldBoard): a teammate's half counts; a boss field's hand / 临时整备区 rows and a solo boss
-   *  field's empty half do not (upstream #557, docs/rules/sim.md). */
+   *  field's empty half do not (upstream #557, docs/rules/sim.md).
+   * @param {Battle} battle @param {Unit} unit */
   const placeWard = (battle, unit, sp = 0) => {
     if (ownWards(battle, unit).length >= WIS_WARD_MAX) return null;
     const tiles = [...(unit.rangeKeys || [])].map((k) => [Math.floor(k / COLS), k % COLS])
@@ -258,7 +280,7 @@ function wisdel(bb, chess, def) {
         }, { owner: unit });
         battle.on('death', ({ unit: u }) => {
           if (u !== unit) return;
-          for (const e of battle.enemies) if (e.buffs.some((b) => b.key === markKey(unit))) battle.removeBuff?.(e, markKey(unit));
+          for (const e of battle.enemies) if (/** @type {BuffRec[]} */ (e.buffs).some((b) => b.key === markKey(unit))) battle.removeBuff?.(e, markKey(unit));
         }, { owner: unit });
       } },
       { install(battle, unit) { // 死魂灵的余息: a shade on deploy (迷彩: placeWard → grantCamo)
@@ -302,7 +324,8 @@ function wisdel(bb, chess, def) {
         const pool = inRange(battle, unit).filter((e) => !e.isFlying);
         if (!pool.length) return;
         ctx.targets = [battle.rng.pick(pool)];
-        const gap = OL_GAP * attackTiming(unit).scale, seq = unit.deploySeq;
+        const gap = OL_GAP * /** @type {number} */ (attackTiming(unit).scale), seq = unit.deploySeq;
+        /** @param {number} left */
         const shot = (left) => {
           if (!live(unit) || unit.deploySeq !== seq || !unit.canAct) return;
           const p2 = inRange(battle, unit).filter((e) => !e.isFlying);
@@ -324,6 +347,7 @@ function wisdel(bb, chess, def) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   char_1035_wisdel: (bb, chess, def) => wisdel(bb, chess, def),
 };

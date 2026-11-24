@@ -56,6 +56,12 @@
 // Statuses: 晕眩 (S1, S3), 虚弱 (T2).
 
 import { num, up, talentBb, skillRec, giveSp, alliesInGridOf } from '../shared/tier1.js';
+/** @import { KitFns, Bb, DmgRec } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
+/** @import { ShotHit } from '../../../ai.js' */
 
 const S1 = 'skchr_tocka_1';
 const S2 = 'skchr_tocka_2';
@@ -78,28 +84,32 @@ const S2_SHOT = 10;
 /** BlockDamage ANY_ATTACK_EXCEPT_ELEMENT: S1's 屏障 takes every damage type but 元素伤害. */
 const SHIELD_TYPES = Object.freeze(['phys', 'arts', 'true']);
 
+/** @param {string} base @param {Unit} src */
 const keyOf = (base, src) => `${base}:${src.id}`;
-const own = (a, base, src) => a.buffs.find((b) => b.key === keyOf(base, src)) ?? null;
-const anyOf = (a, base) => a.buffs.some((b) => b.key.startsWith(`${base}:`));
+/** @param {Unit} a @param {string} base @param {Unit} src */
+const own = (a, base, src) => /** @type {BuffRec[]} */ (a.buffs).find((b) => b.key === keyOf(base, src)) ?? null;
+/** @param {Unit} a @param {string} base */
+const anyOf = (a, base) => /** @type {BuffRec[]} */ (a.buffs).some((b) => b.key.startsWith(`${base}:`));
+/** @param {Unit | null | undefined} u @param {string} id */
 const skillOn = (u, id) => !!(u && u.skill && u.skill.id === id && u.skill.active);
-/** 持续伤害 (attack type BUFF: the 'dot' / 'periodic' damage of the engine). */
+/** 持续伤害 (attack type BUFF: the 'dot' / 'periodic' damage of the engine). @param {DmgRec} d */
 const continuous = (d) => Array.isArray(d.tags) && (d.tags.includes('dot') || d.tags.includes('periodic'));
-/** A skill that is not passive (the selectors' AdvancedCharacterValidator `_hasSkill`, PASSIVE excluded). */
+/** A skill that is not passive (the selectors' AdvancedCharacterValidator `_hasSkill`, PASSIVE excluded). @param {Unit} a @returns {a is Unit & { skill: SkillRuntime }} */
 const activeSkill = (a) => !!(a.skill && !a.skill.noSkill && a.skill.kind !== 'passive');
-/** CheckCharSkillAvailable: the ally's skill could be cast now — ready, not running, no cast waiting. */
+/** CheckCharSkillAvailable: the ally's skill could be cast now — ready, not running, no cast waiting. @param {Unit} a */
 const skillAvailable = (a) => activeSkill(a) && a.skill.ready && !(a.skill.active && a.skill.isTimed) && !a.skill.pending;
-/** BasicSkill.IsTriggerable: also on the field, able to act and not silenced. */
+/** BasicSkill.IsTriggerable: also on the field, able to act and not silenced. @param {Unit} a */
 const triggerable = (a) => up(a) && !a.hidden && a.canAct && !a.s.flags.silence && skillAvailable(a);
-/** CREATED_TIME_DES: the latest deployed first. */
+/** CREATED_TIME_DES: the latest deployed first. @param {Unit} a @param {Unit} b */
 const latest = (a, b) => (b.deployedAt ?? 0) - (a.deployedAt ?? 0) || (b.deploySeq ?? 0) - (a.deploySeq ?? 0);
-/** 技力比例: the SP of the skill over its full SP (stored charges included); a free skill counts as full. */
+/** 技力比例: the SP of the skill over its full SP (stored charges included); a free skill counts as full. @param {Unit} a */
 function spRatio(a) {
   if (!activeSkill(a)) return 0;
   const full = a.skill.spCost * a.skill.maxCharges;
   return full > 0 ? a.skill.spTotal / full : 1;
 }
 
-/** T1 (tocka_t1[sp_and_heal]): `sp` SP for her, a heal of heal_scale × ATK on the most injured other ally operator of her range. */
+/** T1 (tocka_t1[sp_and_heal]): `sp` SP for her, a heal of heal_scale × ATK on the most injured other ally operator of her range. @param {Battle} battle @param {Unit} src @param {Bb} t1 */
 function talent1(battle, src, t1) {
   if (!up(src) || src.hidden) return;
   giveSp(src, num(t1.sp, 0), 'talent');
@@ -108,9 +118,9 @@ function talent1(battle, src, t1) {
   if (pick && amount > 0) battle.heal(src, pick, amount, { moment: 'tocka_t1[heal_core]' });   // its ON_BUFF_START effect on the ally
 }
 
-/** T2's mark on her (tocka_t2[aoe_mark_listener] → [aoe_mark], one) — the next normal attack is T2Attack. */
+/** T2's mark on her (tocka_t2[aoe_mark_listener] → [aoe_mark], one) — the next normal attack is T2Attack. @param {Battle} battle @param {Unit} src @param {Bb | null} t2 */
 function mark(battle, src, t2) {
-  if (!up(src) || !t2 || src.buffs.some((b) => b.key === MARK)) return;
+  if (!up(src) || !t2 || /** @type {BuffRec[]} */ (src.buffs).some((b) => b.key === MARK)) return;
   battle.addBuff(src, { key: MARK, tags: ['talent'] });
   syncT2(src, t2);
 }
@@ -118,6 +128,7 @@ function mark(battle, src, t2) {
 /**
  * A 触发型效果 put on ally `a` (its ON_BUFF_START effect — render/fx/kitofficial.js 'tockaFx'); `shot`: S2's, as its
  * projectile reaches the ally (projectile_chr_tocka_s2 `_effectsWhenHit`).
+ * @param {Battle} battle @param {Unit} src @param {Unit} a @param {number} k
  */
 function putFx(battle, src, a, k, shot = false) {
   battle.fx('tockaFx', { x: a.x, y: a.y, id: a.id, src: src.id, s: k, ...(shot ? { shot: 1 } : {}) });
@@ -127,10 +138,11 @@ function putFx(battle, src, a, k, shot = false) {
  * Her attack profile: T2Attack's (`unit.mem.tockaT2`, a copy of the resolved profile — ai.js performAttack reads the
  * profile it was given, so the copy rides with a shot in flight) while she holds the mark outside S3's mode, else the
  * resolved one (`unit.mem.tockaBase`).
+ * @param {Unit} unit @param {Bb | null} t2
  */
 function syncT2(unit, t2) {
   if (!t2) return;
-  const want = unit.buffs.some((b) => b.key === MARK) && !skillOn(unit, S3);
+  const want = /** @type {BuffRec[]} */ (unit.buffs).some((b) => b.key === MARK) && !skillOn(unit, S3);
   const cur = unit.profile;
   if (cur && cur === unit.mem.tockaT2) {
     if (!want) unit.profile = unit.mem.tockaBase;
@@ -141,7 +153,7 @@ function syncT2(unit, t2) {
   unit.profile = unit.mem.tockaT2 = t2Profile(cur, t2);
 }
 
-/** T2Attack: the attack's damage on every enemy within attack@projectile_range of the hit, 虚弱 and the 持续伤害 on each. */
+/** T2Attack: the attack's damage on every enemy within attack@projectile_range of the hit, 虚弱 and the 持续伤害 on each. @param {Record<string, any>} base @param {Bb} t2 */
 function t2Profile(base, t2) {
   const radius = num(t2['attack@projectile_range'], 0);
   const dur = num(t2['attack@t2_buff_duration'], 0);
@@ -150,20 +162,21 @@ function t2Profile(base, t2) {
   const prev = base.onEachHit;
   return {
     ...base, splashRadius: radius, splashScale: 1,
-    onEachHit(b, u, victim, hc) {
+    onEachHit(/** @type {Battle} */ b, /** @type {Unit} */ u, /** @type {Unit} */ victim, /** @type {Record<string, any>} */ hc) {
       if (prev) prev(b, u, victim, hc);
       t2Debuff(b, u, victim, dur, weak, scale);
     },
   };
 }
 
+/** @param {Battle} battle @param {Unit} src @param {Unit} e @param {number} dur @param {number} weak @param {number} scale */
 function t2Debuff(battle, src, e, dur, weak, scale) {
   if (!e || !e.alive || !(dur > 0)) return;
   if (weak > 0) battle.applyStatus(e, 'weaken', { duration: dur, value: weak, source: src });
   const amount = src.s.atk * scale;   // tocka_mx_a[t2_dot] dot_value: the ATK the shot cached × the scale
   if (!(amount > 0)) return;
   const key = keyOf(DOT, src);
-  const old = e.buffs.find((b) => b.key === key);
+  const old = /** @type {BuffRec[]} */ (e.buffs).find((b) => b.key === key);
   battle.addBuff(e, {
     key, duration: dur, interval: 1, data: { value: Math.max(amount, old?.data?.value ?? 0) }, tags: ['dot'],
     onTick: ({ battle: b, unit: t, buff }) => {
@@ -172,7 +185,7 @@ function t2Debuff(battle, src, e, dur, weak, scale) {
   });
 }
 
-/** S1's picks: up to max_target ally operators of her range with no S1 effect, the lowest HP ratio first, then the latest. */
+/** S1's picks: up to max_target ally operators of her range with no S1 effect, the lowest HP ratio first, then the latest. @param {Battle} battle @param {Unit} unit @param {Bb} bb */
 function s1Targets(battle, unit, bb) {
   const n = Math.max(1, Math.floor(num(bb.max_target, 1)));
   const list = alliesInGridOf(battle, unit).filter((a) => a.kind === 'op' && !anyOf(a, S1_FX));
@@ -180,10 +193,10 @@ function s1Targets(battle, unit, bb) {
   return list.length > n ? list.slice(0, n) : list;
 }
 
-/** tocka_s1[shield]: the 屏障 an S1 effect leaves, losing its starting amount ÷ shield_time every second. */
+/** tocka_s1[shield]: the 屏障 an S1 effect leaves, losing its starting amount ÷ shield_time every second. @param {Battle} battle @param {Unit} a @param {Unit} src @param {number} amount @param {number} time */
 function s1Shield(battle, a, src, amount, time) {
   const key = keyOf(SHIELD, src);
-  const old = a.buffs.find((b) => b.key === key);
+  const old = /** @type {BuffRec[]} */ (a.buffs).find((b) => b.key === key);
   const cap = Math.max(amount, old ? old.shield : 0);
   if (old) battle.removeBuff(a, old);
   if (!(cap > 0)) return;
@@ -198,14 +211,14 @@ function s1Shield(battle, a, src, amount, time) {
   });
 }
 
-/** S2's pick: the latest deployed ally operator on the field with a skill and no S2 effect — not herself, unless she is the only one. */
+/** S2's pick: the latest deployed ally operator on the field with a skill and no S2 effect — not herself, unless she is the only one. @param {Battle} battle @param {Unit} unit */
 function s2Target(battle, unit) {
   const pool = battle.alliesFor(unit).filter((a) => a.kind === 'op' && !a.hidden && activeSkill(a) && !anyOf(a, S2_FX) && !anyOf(a, AUTO));
   pool.sort(latest);
   return pool.find((a) => a !== unit) ?? pool.find((a) => a === unit) ?? null;
 }
 
-/** tocka_s2[trigger] set off: tocka_s2[auto_skill] on the ally, T1, the effect ends. */
+/** tocka_s2[trigger] set off: tocka_s2[auto_skill] on the ally, T1, the effect ends. @param {Battle} battle @param {Unit} src @param {Unit} x @param {BuffRec} fx @param {Bb} b2 @param {Bb} t1 */
 function s2Fire(battle, src, x, fx, b2, t1) {
   battle.removeBuff(x, fx);
   battle.addBuff(x, {
@@ -216,6 +229,7 @@ function s2Fire(battle, src, x, fx, b2, t1) {
   talent1(battle, src, t1);
 }
 
+/** @param {Battle} battle @param {Unit} src @param {Unit} a @param {Bb} b2 @param {Bb} t1 @param {Bb | null} t2 */
 function s2Apply(battle, src, a, b2, t1, t2, shot = false) {
   if (!up(a) || anyOf(a, S2_FX) || anyOf(a, AUTO)) return;
   putFx(battle, src, a, 2, shot);
@@ -226,19 +240,20 @@ function s2Apply(battle, src, a, b2, t1, t2, shot = false) {
   mark(battle, src, t2);
 }
 
-/** SelectCharacter (S3): another ally operator of her range without her S3 effect, by three groups, the highest SP ratio first. */
+/** SelectCharacter (S3): another ally operator of her range without her S3 effect, by three groups, the highest SP ratio first. @param {Battle} battle @param {Unit} src */
 function s3Pick(battle, src) {
   const pool = alliesInGridOf(battle, src).filter((a) => a !== src && a.kind === 'op' && !own(a, S3_FX, src));
   pool.sort((a, b) => spRatio(b) - spRatio(a));
   return pool.find((a) => activeSkill(a) && !a.skill.active) ?? pool.find(activeSkill) ?? pool[0] ?? null;
 }
 
+/** @param {Battle} battle @param {Unit} src @param {Unit} a @param {Bb} b3 @param {Bb | null} t2 @param {Unit | null} [from] */
 function s3Apply(battle, src, a, b3, t2, from = null) {
   // the move's projectile_tocka_s3_effect from the ally it leaves (tocka_s3[trigger] ON_BUFF_TRIGGER EmitProjectile, to the
   // new holder's tile: display only — the buff is on at once, CreateBuffUseAbilitySelector)
   if (from) battle.fx('tockaMove', { x: a.x, y: a.y, id: a.id, from: from.id, src: src.id });
   putFx(battle, src, a, 3);
-  const vk = keyOf(VISIT, src), seen = a.buffs.find((b) => b.key === vk);
+  const vk = keyOf(VISIT, src), seen = /** @type {BuffRec[]} */ (a.buffs).find((b) => b.key === vk);
   const n = Math.min(3, (seen?.fxTag ?? 0) + 1);
   if (!seen || seen.fxTag !== n) {
     if (seen) battle.removeBuff(a, seen);
@@ -252,7 +267,7 @@ function s3Apply(battle, src, a, b3, t2, from = null) {
   mark(battle, src, t2);
 }
 
-/** tocka_s3[bonus]: ATK +bonus_init_atk, down by bonus_atk_dec_per_sec every second to 0, for bonus_duration s. */
+/** tocka_s3[bonus]: ATK +bonus_init_atk, down by bonus_atk_dec_per_sec every second to 0, for bonus_duration s. @param {Battle} battle @param {Unit} src @param {Unit} a @param {Bb} b3 */
 function s3Bonus(battle, src, a, b3) {
   const dec = num(b3.bonus_atk_dec_per_sec);
   battle.addBuff(a, {
@@ -265,7 +280,7 @@ function s3Bonus(battle, src, a, b3) {
   });
 }
 
-/** tocka_s3[trigger] set off on ally `x`: the bonus on it, the move to another ally, the bonus on her, T1. */
+/** tocka_s3[trigger] set off on ally `x`: the bonus on it, the move to another ally, the bonus on her, T1. @param {Battle} battle @param {Unit} src @param {Unit} x @param {Bb} b3 @param {Bb} t1 @param {Bb | null} t2 */
 function s3Fire(battle, src, x, b3, t1, t2) {
   const fx = own(x, S3_FX, src);
   if (!fx || !fx.data.valid) return;
@@ -278,13 +293,14 @@ function s3Fire(battle, src, x, b3, t1, t2) {
   talent1(battle, src, t1);
 }
 
-/** S1 / S2 cast themselves once their SP is full and their selector finds a target (CastSkill + SelectorTrigger). */
+/** S1 / S2 cast themselves once their SP is full and their selector finds a target (CastSkill + SelectorTrigger). @param {Battle} battle @param {Unit} unit @param {string} id */
 function canCast(battle, unit, id) {
   const sk = unit.skill;
   return !!sk && sk.id === id && up(unit) && !unit.hidden && unit.canAct && sk.ready && !unit.s.flags.silence && !sk.pending
     && !sk.active && battle.time >= sk.nextCastAt - 1e-9;
 }
 
+/** @type {KitFns} */
 export default {
   // 冻河 — S1 屏障 + stun effects, S2 skill-ready ASPD (+ MANUAL auto-cast), S3 four-target stun shots and the moving ATK
   // effect; T1 SP + heal per effect set off, T2 the next attack's area 虚弱 + 持续伤害 per effect put on (header above).
@@ -314,7 +330,7 @@ export default {
             const t = s2Target(battle, unit);
             if (!t) return;
             if (t === unit) { s2Apply(battle, unit, t, b2, t1, hasT2); return; }
-            battle.addProjectile({ from: unit, target: t, speed: S2_SHOT, visual: 'orb', source: unit, onHit: ({ target }) => { if (target) s2Apply(battle, unit, target, b2, t1, hasT2, true); } });
+            battle.addProjectile({ from: unit, target: t, speed: S2_SHOT, visual: 'orb', source: unit, onHit: (/** @type {ShotHit} */ { target }) => { if (target) s2Apply(battle, unit, target, b2, t1, hasT2, true); } });
           },
         },
         [S3]: {
@@ -350,7 +366,7 @@ export default {
         if (sid === S1 || sid === S2) {
           battle.on('tick', () => {
             if (!canCast(battle, unit, sid)) return;
-            if (sid === S1 ? s1Targets(battle, unit, b1).length > 0 : !!s2Target(battle, unit)) unit.skill.activate('SP_FULL');
+            if (sid === S1 ? s1Targets(battle, unit, b1).length > 0 : !!s2Target(battle, unit)) /** @type {SkillRuntime} */ (unit.skill).activate('SP_FULL');
           }, { owner: unit });
         }
         if (sid === S1) {
@@ -359,7 +375,7 @@ export default {
           battle.on('hit', (ctx) => {
             const a = ctx.target, d = ctx.dmg;
             if (!a || a.side !== 'ally' || !d || d.cancel || d.type === 'elemental' || continuous(d)) return;
-            const fx = a.buffs.find((b) => b.key === key);
+            const fx = /** @type {BuffRec[]} */ (a.buffs).find((b) => b.key === key);
             if (!fx) return;
             battle.removeBuff(a, fx);
             s1Shield(battle, a, unit, fx.data.atk * num(b1.shield_atk_scale), num(b1.shield_time, 10));

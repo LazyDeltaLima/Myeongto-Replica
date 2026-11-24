@@ -26,6 +26,9 @@
 import { num, talentBb, traitBb, skillRec, up, alliesInGridOf } from '../shared/tier1.js';
 import { chainHealWalk } from '../../../ai.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns, KitChess, Bb } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
 
 const S1 = 'skchr_turdus_1';
 const S2 = 'skchr_turdus_2';
@@ -40,11 +43,14 @@ export const S1_BEGIN = 0.533;
 const SHOT = 10;
 const HOT_IV = 1;
 const TRY_IV = 0.1;
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit} a */
 const isFree = (a) => !!a.findBuff(FREE);
+/** @param {Unit} a */
 const isUp = (a) => !!a.findBuff(UP);
 
-/** S2's two buffs on a unit of its chain. */
+/** S2's two buffs on a unit of its chain. @param {Battle} battle @param {Unit} unit @param {Unit} a @param {Bb} b2 */
 function putBuffs(battle, unit, a, b2) {
   const dur = num(b2.bonus_duration);
   if (!(dur > 0)) return;
@@ -67,6 +73,7 @@ function putBuffs(battle, unit, a, b2) {
   });
 }
 
+/** @type {KitFns} */
 export default {
   char_4224_turdus: (bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess);
@@ -74,7 +81,7 @@ export default {
     const count = Math.max(1, Math.floor(num(tb['attack@chain.max_target'], 3)));
     const falloff = 1 - num(tb['attack@chain.atk_scale'], 0.75);
     const upScale = num(t0['attack@chain.atk_scale_2'], 1);
-    const chain = (extra) => ({ mode: 'chain', count: count + extra, falloff, free: isFree, up: isUp, upScale });
+    const chain = (/** @type {number} */ extra) => ({ mode: 'chain', count: count + extra, falloff, free: isFree, up: isUp, upScale });
     return {
       trait: { heal: chain(0) },
       skills: {

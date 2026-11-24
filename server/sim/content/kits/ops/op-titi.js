@@ -8,7 +8,9 @@
 
 import chess from './chess_char_5_02-titi.js';
 import { chessKitAsPick } from '../shared/chessPick.js';
+/** @import { KitFns } from '../shared/tier1.js' */
 
+/** @type {KitFns} */
 export default {
   char_4056_titi: chessKitAsPick(chess.chess_char_5_02_a, 'skchr_titi_3'),
 };

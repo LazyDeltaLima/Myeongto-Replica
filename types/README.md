@@ -107,9 +107,8 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 `server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), the kit helpers
 (`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and
 the files directly under `server/sim/` (`server/sim/*.js`), the files directly under `server/sim/content/`
-(`server/sim/content/*.js`), the enemy kits `server/sim/content/enemies/` and, of the operator kits
-`server/sim/content/kits/ops/`, the files `chess_char_1_*` to `chess_char_6_*`, the stand-ins `standin-*` and the
-自选 kits `op-a*` to `op-o*` (the rest follows by file group).
+(`server/sim/content/*.js`), the enemy kits `server/sim/content/enemies/` and the operator kits
+`server/sim/content/kits/ops/`.
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -460,6 +459,11 @@ most strict errors were, and the JSDoc that fixed them:
   `onHit` takes the type inline on its pattern (`onHit: (/** @type {ShotHit} */ { target }) =>`); a skill's `activate`
   wrapped through `Object.defineProperty(sk, 'activate', { value(reason, opts) … })` gets no contextual type, so its
   parameters take inline types; `battle.on` returns `Hook | null`, cast to `Hook` where `battle.off` takes it back.
+  A table kept per battle (`const STOLEN = new WeakMap()`) takes `@type {WeakMap<Battle, …>}` on the declaration, so
+  its getter needs no cast; a profile callback `Profile` does not list (`onEachHit(b, u, victim, hc)` on a trait or a
+  profile copy) gets no contextual type and takes inline types (`hc` a `Record<string, any>`, as ai.js builds it); a
+  helper whose `true` proves the skill (`activeSkill(a)`) is a `@returns {a is Unit & { skill: SkillRuntime }}`
+  predicate; `battle.unitAt` (`Unit | null`) checked by `up(a)` (no guard) is cast to `Unit` where it is read.
 - the kit resolver and the generic kit (content/index.js, generic.js): `Kit` (index.js) is the kit contract read by
   key, `Def` a normalised def; the generic skill spec is built as a `Record<string, any>`. A blackboard getter returns
   `number | undefined`, so a `> 0` test on one is cast at the comparison. The guarded `import()` of the domain

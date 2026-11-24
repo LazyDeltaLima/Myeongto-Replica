@@ -20,6 +20,9 @@
 import { num, talentBb, traitBb, skillRec, up } from '../shared/tier1.js';
 import { deviceState, deviceReturn, devicesLeaveWithOwner, rechargeDevices } from './op-ironmn.js';
 import { COLS } from '../../../constants.js';
+/** @import { KitFns, KitChess, KitSpec } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_robrta_1';
 const S2 = 'skchr_robrta_2';
@@ -30,20 +33,24 @@ export const SHIELD_KEY = 'robrta_mach_t';
 export const COUNT_KEYS = Object.freeze(['robrta_mach_t[count_1]', 'robrta_mach_t[count_2]']);
 /** Modes/Running/GeneralAbilities/1 (overrideEffectKey token_robrta_buff_01 / _02). */
 export const RUNNING_KEYS = Object.freeze(['robrta_mach[effect_1]', 'robrta_mach[effect_2]']);
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-const tokBb = (def, key) => (def?.talents ?? []).find((t) => t && t.bb && t.bb[key] != null) ?? null;
-/** "获得2层护盾": no blackboard key holds the count (the prefab's Talents/1 and 1+ differ). */
+/** @param {Record<string, any> | null | undefined} def @param {string} key */
+const tokBb = (def, key) => (def?.talents ?? []).find((/** @type {Record<string, any> | null} */ t) => t && t.bb && t.bb[key] != null) ?? null;
+/** "获得2层护盾": no blackboard key holds the count (the prefab's Talents/1 and 1+ differ). @param {Record<string, any> | null | undefined} def */
 const shieldCount = (def) => {
   const m = String(tokBb(def, 'def')?.description ?? tokBb(def, 'def')?.desc ?? '').match(/(\d+)层/);
   return m ? +m[1] : 1;
 };
 
+/** @type {KitFns} */
 export default {
   char_484_robrta: (bb, chess) => {
     const t0 = talentBb(chess, 0), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
     const charge = Math.floor(num(t0.cnt)), extra = Math.floor(num(traitBb(chess).cnt));
     const tokenId = (chess?.talents ?? []).find((t) => t && t.tokenKey)?.tokenKey ?? MACH;
 
+    /** @param {Record<string, any> | null | undefined} def @returns {KitSpec} */
     const machKit = (def) => {
       const t = tokBb(def, 'def')?.bb ?? {};
       const defUp = num(t.def), life = num(t.duration), hits = shieldCount(def);
@@ -55,7 +62,7 @@ export default {
           battle.addBuff(m, { key: 'robrta_mach_invincible', flags: { invulnerable: true, untargetable: true, noHeal: true }, persist: true, allowDead: true });
           const skey = `${SHIELD_KEY}:${m.id}`;
           m.form = 'rest'; // mode Default: Idle → Default; mode Running from robrta_mach_t[mode], while its DEF buff stands
-          const run = (on) => {
+          const run = (/** @type {boolean} */ on) => {
             const form = on ? 'running' : 'rest';
             if (m.form === form) return;
             m.form = form;
@@ -76,7 +83,7 @@ export default {
           /** The unit it serves now: on a melee tile of its range, an operator or a summon that is no device. */
           const target = () => {
             for (const k of m.rangeKeys || []) {
-              const a = battle.unitAt((k / COLS) | 0, k % COLS);
+              const a = /** @type {Unit} */ (battle.unitAt((k / COLS) | 0, k % COLS));
               if (!up(a) || a === m || a.side !== 'ally' || a.ownerId !== m.ownerId) continue;
               if (a.kind !== 'op' && (a.kind !== 'token' || a.s.flags.invulnerable)) continue;
               if (battle.grid.canStand(a.tileR, a.tileC) && !a.hidden) return a;
@@ -110,7 +117,7 @@ export default {
             counts();
             if (!a) { run(false); return; }
             if (cur === a) {
-              const s = a.findBuff(skey), left = s ? s.shieldHits : 0;
+              const s = /** @type {BuffRec | null} */ (a.findBuff(skey)), left = s ? s.shieldHits : 0;
               // robrta_mach_t ON_TAKE_DAMAGE: each hit a layer stops creates robrta_mach_t[audio] (its audioSignal), on the machine
               if (left < m.mem.machLeft) battle.fx('kitHit', { x: m.x, y: m.y, id: m.id, k: 'robrta:block', n: m.mem.machLeft - left });
               // robrta_mach_t: its last layer spent, token_robrta_buff_end on the unit it served
@@ -122,9 +129,9 @@ export default {
               if (m.mem.machLeft > 0) battle.addBuff(a, { key: skey, shieldHits: m.mem.machLeft, source: m, visible: true, tags: ['talent', 'device'] });
             }
             // 防御加成不叠加: one machine's at a time; the next one takes over when it goes
-            const d = a.findBuff(DEF_KEY);
+            const d = /** @type {BuffRec | null} */ (a.findBuff(DEF_KEY));
             if (!d) battle.addBuff(a, { key: DEF_KEY, mods: { defPct: defUp }, source: m, visible: true, tags: ['talent', 'device'] });
-            run((d ?? a.findBuff(DEF_KEY))?.source === m);
+            run((d ?? /** @type {BuffRec | null} */ (a.findBuff(DEF_KEY)))?.source === m);
           }, { owner: m });
           battle.on('death', (ctx) => { if (ctx.unit === m) release(); }, { owner: m, priority: 10 });
         },

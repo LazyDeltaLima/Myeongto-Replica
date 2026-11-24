@@ -79,10 +79,19 @@ import { DEPLOY_REFUSED_TILES } from '../../../grid.js';
 import { talentBb } from '../shared/tier1.js';
 import { powi } from '../../../detmath.js';
 import { atPotential } from '../../../../../shared/potential.js';
+/** @import { KitFns, KitFn, KitSpec, KitChess, KitDef, Grid } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
+/** @param {unknown} v */
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+/** @param {Unit | null | undefined} u */
 const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
+/** @param {KitChess} chess @param {KitDef} def */
 const selectedSkill = (chess, def) => chess?.skill?.skillId ?? def?.skill?.id ?? null;
+/** @param {KitDef} def */
 const skillGridOf = (def) => (def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null);
 const ANY = Object.freeze({ canHitFly: true });
 
@@ -112,6 +121,8 @@ const FOLLOWER_EXCEPT_TILES = new Set(['tile_end', 'tile_end_cooperate', 'tile_a
  * [not in the client mask 14 above]. Every 跟子 tile goes through followerClass: the talent's, S3's on enemy tiles.
  */
 const FOLLOWER_REFUSED_TILES = DEPLOY_REFUSED_TILES;
+/** @typedef {{ r: number, c: number, cls: number, foe: boolean, dir?: number }} FollowerCand a 跟子 tile candidate (followerOrder) */
+/** @typedef {{ v: number, until: number }} WangSlowStack one stack of 连星's slow (addWangSlow `data.list`) */
 const WANG_S3_EXTRA = 3; // "第一天赋额外至多部署3枚棋子"
 /**
  * Official battle frames (2026-10-10): the client's fixed step is 1/30 s — globalgamemanagers TimeManager
@@ -134,12 +145,15 @@ const STONE_ARM_FRAMES = 30, STONE_BUILD_FRAMES = 4;
  */
 const FOLLOWER_PRE_DELAY = 0.25, S3_SPAWN_COOLDOWN = 0.25;
 
+/** @param {Battle} battle @param {Unit} owner */
 function stonesOf(battle, owner) {
   return battle.allies(owner.ownerId).filter((a) => a.kind === 'token' && a.defId === STONE_ID && a.ownerUnit === owner && a.alive);
 }
+/** @param {Unit | null | undefined} s */
 const isFollower = (s) => !!s?.mem?.wangFollower;
+/** @param {Unit[]} stones @param {number} r @param {number} c */
 const stoneAt = (stones, r, c) => stones.find((s) => s.tileR === r && s.tileC === c) || null;
-/** Stones on the continuous straight line (row or column) through `s`, the longer one. */
+/** Stones on the continuous straight line (row or column) through `s`, the longer one. @param {Unit[]} stones @param {Unit} s */
 function lineCount(stones, s) {
   let best = 1;
   for (const [dr, dc] of [[0, 1], [1, 0]]) {
@@ -151,13 +165,15 @@ function lineCount(stones, s) {
 }
 /** The S3-equipped stone's x-1 trigger / damage area (radius-2 diamond, 13 tiles) as [dr, dc] offsets. */
 const DIAMOND2 = Object.freeze([[0, 0], [1, 0], [2, 0], [-1, 0], [-2, 0], [0, 1], [0, 2], [0, -1], [0, -2], [1, 1], [1, -1], [-1, 1], [-1, -1]]);
+/** @param {Battle} battle @param {number} r @param {number} c */
 const enemiesOnTile = (battle, r, c) => battle.enemies.filter((e) => e.alive && !e.hidden && Math.round(e.y) === r && Math.round(e.x) === c);
-/** Walking enemies on a tile: the only ones that block a stone's placement / redeploy (client _excludeOccupiedByWalkEnemy). */
+/** Walking enemies on a tile: the only ones that block a stone's placement / redeploy (client _excludeOccupiedByWalkEnemy). @param {Battle} battle @param {number} r @param {number} c */
 const walkersOnTile = (battle, r, c) => enemiesOnTile(battle, r, c).filter((e) => !e.isFlying);
 /**
  * An enemy a stone can select (trigger on, hit): PRTS 作战机制 §AOE伤害判定 "AOE的判定是对攻击范围内的每个可以被选中的敌人进行
  * 判定" and 隐匿 "一般无法被敌方的索敌机制和Buff选择器选中为目标" (Battle.foesInRadius: no untargetable, no unrevealed 隐匿 one);
  * PRTS 望 备注 "棋子的索敌…" — the stones select like any summon (maintainer report 2026-10-05: 은신 enemies took the blast).
+ * @param {Unit} e
  */
 const stoneSelectable = (e) => e.alive && !e.hidden && !e.s.flags.untargetable && !(e.s.flags.stealth && enemyStealthed(e));
 /**
@@ -166,21 +182,26 @@ const stoneSelectable = (e) => e.alive && !e.hidden && !e.s.flags.untargetable &
  * valid enemy, _CheckContainsEnemies), then an undeployable one (`buildableType != NONE` sorts after), then — the
  * talent's 跟子 only (TALENT), not S3's InstantSpawn (SKILL_3_INSTANT: equal) — the direction from the centre stone
  * (_GetDirectionPriority: row+ 0, col+ 1, row− 2, col− 3 = up > right > down > left). `x` = { cls (followerClass), foe, dir }.
+ * @param {FollowerCand} a @param {FollowerCand} b
  */
 const followerOrder = (a, b) => (/** @type {any} */ (a.cls === 2) - /** @type {any} */ (b.cls === 2)) || ((b.foe ? 1 : 0) - (a.foe ? 1 : 0))
   || (/** @type {any} */ (a.cls !== 0) - /** @type {any} */ (b.cls !== 0)) || ((a.dir ?? 0) - (b.dir ?? 0));
+/** @param {Unit | null | undefined} owner */
 const wangSkill = (owner) => owner?.skill?.id ?? owner?.def?.skill?.id ?? null;
 
+/** @type {KitFn} */
 function wang(bb, chess, def) {
   const sid = selectedSkill(chess, def);
   const t0 = talentBb(chess, 0);
   const followerCap = Math.max(0, num(t0['attack@max_spawn_cnt'], 0));
   // the 棋子 variant of her form / skill / module (a 自选 piece's token variants are keyed by its owner form)
+  /** @param {Battle} battle @param {Unit} unit */
   const stoneDef = (battle, unit) => battle.tokenDef(STONE_ID, unit);
   /**
    * deployLimit / deckStack of her stone variant with her module (normalizeToken drops both from `stats`; tokens.js
    * deployLimitOf reads the raw variant the same way). local patch (2026-10-08): the module raises the deploy limit
    * 6 → 7 (uniequip_002_wang `byModule` stats) — the kit used to fall back to 6 always (maintainer's video: 7 stones in the prep).
+   * @param {Battle} battle @param {Unit} unit
    */
   const stoneLimits = (battle, unit) => {
     const raw = stoneDef(battle, unit)?.raw;
@@ -195,15 +216,19 @@ function wang(bb, chess, def) {
   };
   // stock = the stone cards in her hand, ≤ deckCap ("最多拥有": the client's card counts — wang_s3_charge_token
   // max_cnt / remaining_cnt via AssignTokenCardCntToBB, _stopSpWhenTokenIsFull; local patch 2026-10-06: not field + hand)
+  /** @param {Unit} unit */
   const st = (unit) => unit.mem.wang || (unit.mem.wang = { stock: 0, deckCap: 7, fieldCap: 6, prepPlaced: 0 });
   /**
    * 铸子 on her birth (the client's wang_t_1 = charge_token[refresh]: ON_OWNER_BORN RechargeToken `_refreshRemainingCnt` →
    * Deck.TokenCard.Recharge sets the card count to min(cnt, maxDeckStackCnt), whatever was left).
+   * @param {Unit} unit
    */
   const refreshStock = (unit) => { const s = st(unit); s.stock = Math.min(s.deckCap, Math.max(0, Math.floor(num(t0.cnt, 0)))); };
+  /** @param {Battle} battle @param {Unit} unit */
   const placed = (battle, unit) => stonesOf(battle, unit).filter((s) => !isFollower(s));
+  /** @param {Battle} battle @param {Unit} unit */
   const followers = (battle, unit) => stonesOf(battle, unit).filter(isFollower);
-  /** Placed stones used up by a trigger, waiting to be redeployed on their own tile. */
+  /** Placed stones used up by a trigger, waiting to be redeployed on their own tile. @param {Battle} battle @param {Unit} unit */
   const waitingOf = (battle, unit) => battle.allyUnits.filter((t) => t.kind === 'token' && t.defId === STONE_ID && t.ownerUnit === unit
     && !t.alive && !t.removed && t.mem.wangUsed);
   /**
@@ -214,6 +239,7 @@ function wang(bb, chess, def) {
    * never comes back when its token leaves, and the automatic deployment draws one — Deck.Card.OnRecycle / Card.Draw); with
    * the stock out a used stone waits for S1 / S2 「立即获得两枚棋子」 or S3's charge. 2026-10-08 – 2026-11-11 a return took
    * none (PRTS 卫戍协议 「若召唤物在战斗期间退场，将在满足条件后立即原地再部署1个」).
+   * @param {Unit} unit @param {number} r @param {number} c
    */
   const inHerRange = (unit, r, c) => !!(unit.rangeKeySet?.has(r * COLS + c) ?? unit.rangeKeys?.includes(r * COLS + c));
   /**
@@ -222,16 +248,18 @@ function wang(bb, chess, def) {
    * deployment (the first 跟子 built is the free one). Formerly ≤ 4 跟子 and one ammo for every one (client
    * SpawnTokenS3InSkill BuildStone counter `_countEvent 4, _expendPerTrigger 1`, maintainer 2026-10-06); upstream: ≤ 3 in all,
    * every one paid, no free one.
+   * @param {number} ammo
    */
   const s3Followers = (ammo) => 1 + Math.min(WANG_S3_EXTRA, ammo);
+  /** @param {Unit} unit */
   const s3Running = (unit) => !!unit.skill?.active && unit.skill.id === 'skchr_wang_3';
-  /** One S3 ammo for a paid 跟子 just built; the last ammo ends S3. */
+  /** One S3 ammo for a paid 跟子 just built; the last ammo ends S3. @param {Unit} unit */
   const spendS3 = (unit) => {
-    unit.skill.ammoLeft = st(unit).ammo = Math.max(0, Math.floor(num(unit.skill.ammoLeft, 0)) - 1);
-    if (unit.skill.ammoLeft <= 0) { unit.skill.end('ammo'); return true; }
+    /** @type {SkillRuntime} */ (unit.skill).ammoLeft = st(unit).ammo = Math.max(0, Math.floor(num(/** @type {SkillRuntime} */ (unit.skill).ammoLeft, 0)) - 1);
+    if (/** @type {SkillRuntime} */ (unit.skill).ammoLeft <= 0) { /** @type {SkillRuntime} */ (unit.skill).end('ammo'); return true; }
     return false;
   };
-  /** One used stone back on its tile per call (AUTO_TRIGGER_INTERVAL: the client deploys one piece per 0.2 s pass). */
+  /** One used stone back on its tile per call (AUTO_TRIGGER_INTERVAL: the client deploys one piece per 0.2 s pass). @param {Battle} battle @param {Unit} unit */
   const redeployUsed = (battle, unit) => {
     if (!live(unit)) return;
     for (const t of waitingOf(battle, unit).sort((a, b) => a.mem.respawnAt - b.mem.respawnAt)) {
@@ -258,22 +286,22 @@ function wang(bb, chess, def) {
       // local patch (2026-10-06, user: "S3 ammo never drops"): while S3 runs, a used stone coming back IS her deployment
       // of a stone in the mode (the client's only in-battle deployment) — it builds the S3 跟子 around it (s3Followers:
       // the talent's one free + ≤ 3 extra, one ammo each)
-      const ammo = s3 ? Math.max(0, Math.floor(num(unit.skill.ammoLeft, 0))) : 0;
+      const ammo = s3 ? Math.max(0, Math.floor(num(/** @type {SkillRuntime} */ (unit.skill).ammoLeft, 0))) : 0;
       followAround(battle, unit, t, s3 ? s3Followers(ammo) : 1, s3);
       syncSpLock(battle, unit);
       return; // one a pass
     }
   };
-  /** 阻回 while the stock is full (S1 / S2). */
+  /** 阻回 while the stock is full (S1 / S2). @param {Battle} battle @param {Unit} unit */
   const syncSpLock = (battle, unit) => {
     if (sid === 'skchr_wang_3') return;
     const s = st(unit);
     const full = s.stock >= s.deckCap;
-    const has = unit.buffs.some((b) => b.key === 'wang:stockFull');
+    const has = /** @type {BuffRec[]} */ (unit.buffs).some((b) => b.key === 'wang:stockFull');
     if (full && !has) battle.addBuff(unit, { key: 'wang:stockFull', duration: Infinity, flags: { noSp: true } });
     else if (!full && has) battle.removeBuff(unit, 'wang:stockFull');
   };
-  /** A 跟子 on (r, c): a projectile of hers — never under the stone deploy limit, holds no tile. */
+  /** A 跟子 on (r, c): a projectile of hers — never under the stone deploy limit, holds no tile. @param {Battle} battle @param {Unit} unit @param {number} r @param {number} c */
   const placeFollower = (battle, unit, r, c, from = 'build') => {
     const tdef = stoneDef(battle, unit);
     if (!tdef) return null;
@@ -289,9 +317,14 @@ function wang(bb, chess, def) {
     battle.fx('summon', { x: f.x, y: f.y, id: f.id, follower: true, src: unit.id });
     return f;
   };
-  /** Her 跟子 in the air: [{ r, c }] — they count toward followerCap and hold their tile for other picks until they land. */
+  /**
+   * Her 跟子 in the air: [{ r, c }] — they count toward followerCap and hold their tile for other picks until they land.
+   * @param {Unit} unit @returns {{ r: number, c: number }[]}
+   */
   const throwsOf = (unit) => (st(unit).throws ||= []);
+  /** @param {Battle} battle @param {Unit} unit */
   const flying = (battle, unit) => followers(battle, unit).length + throwsOf(unit).length;
+  /** @param {Unit} unit @param {number} r @param {number} c */
   const thrownAt = (unit, r, c) => throwsOf(unit).some((t) => t.r === r && t.c === c);
   /**
    * A 跟子 thrown at (r, c) now (the cast start: fx 'wangThrow', the render's falling stone), landing FOLLOWER_PRE_DELAY
@@ -301,6 +334,7 @@ function wang(bb, chess, def) {
    * .CreateProjectileOnTile, which makes the projectile only when WangStoneTriggerManager.TryMarkVisualStone marks the
    * tile — no stone or 跟子 marked there (CheckStoneMarkable) and no character on it (Tile.GetCharacter) — and otherwise
    * runs `_actionsOnMarkFailed` (empty for both of hers).
+   * @param {Battle} battle @param {Unit} unit @param {number} r @param {number} c @param {string} from @param {((f: Unit | null) => void) | null} [land]
    */
   const throwFollower = (battle, unit, r, c, from, land = null) => {
     const seq = unit.deploySeq, t = { r, c };
@@ -314,7 +348,7 @@ function wang(bb, chess, def) {
       land?.(f);
     }, { owner: unit });
   };
-  /** Follower tile class (PRTS 备注): 0 undeployable ground, 1 deployable ground, 2 deployable high ground, null = none. */
+  /** Follower tile class (PRTS 备注): 0 undeployable ground, 1 deployable ground, 2 deployable high ground, null = none. @param {Battle} battle @param {number} r @param {number} c @param {Unit[]} stones @param {Unit | null} [unit] */
   const followerClass = (battle, r, c, stones, unit = null) => {
     if (!battle.grid.inRect(r, c) || stoneAt(stones, r, c) || battle.grid.isObstacle(r, c)) return null;
     if (unit && thrownAt(unit, r, c)) return null; // another 跟子 of hers is falling there
@@ -334,10 +368,12 @@ function wang(bb, chess, def) {
    * (the client's AutoChessMapAreaManager.ConvertChessPositionInfoToRightMap: col' = 2·boundary − col), not
    * the map, and _GetDirectionPriority compares grid offsets. 2026-10-07 – 2026-10-11 (W8) a mirrored
    * field swapped col+ and col− (ORTHO_MIRRORED) — docs/rules/diy.md 「되돌리기」.
+   * @param {Battle} battle @param {Unit} unit @param {number} r0 @param {number} c0 @param {(f: Unit | null) => void} land
    */
   const buildOne = (battle, unit, r0, c0, land) => {
     if (flying(battle, unit) >= followerCap) return false;
     const stones = stonesOf(battle, unit);
+    /** @type {FollowerCand[]} */
     const cand = [];
     ORTHO.forEach(([dr, dc], dir) => {
       const r = r0 + dr, c = c0 + dc;
@@ -357,6 +393,7 @@ function wang(bb, chess, def) {
    * later one built takes one ammo (spendS3; the last ammo ends S3). A build finding no tile is skipped (the client counts
    * the request down either way). While builds are pending S3 does not end for want of stones (the client's
    * WangS3CastSkillWithLimitTimes: hand 0 and `!hasRemainingBuildCnt`).
+   * @param {Battle} battle @param {Unit} unit @param {Unit} s
    */
   const followAround = (battle, unit, s, n = 1, s3 = false) => {
     if (!(n > 0)) return;
@@ -367,7 +404,7 @@ function wang(bb, chess, def) {
       if (!open) return;
       open = false;
       w.building = Math.max(0, (w.building || 0) - 1);
-      if (s3 && s3Running(unit) && w.stock <= 0 && !w.building) unit.skill.end('stones');
+      if (s3 && s3Running(unit) && w.stock <= 0 && !w.building) /** @type {SkillRuntime} */ (unit.skill).end('stones');
     };
     const step = () => {
       if (unit.deploySeq !== seq || !live(unit)) { done(); return; }
@@ -375,20 +412,20 @@ function wang(bb, chess, def) {
       if (paid && !s3Running(unit)) { done(); return; }
       const last = ++i >= n;
       // the ammo is paid as it lands (the last ammo ends S3); the build stays pending until the last one is down
-      const land = (f) => { if ((f && paid && spendS3(unit)) || last) done(); };
+      const land = (/** @type {Unit | null} */ f) => { if ((f && paid && spendS3(unit)) || last) done(); };
       if (!buildOne(battle, unit, r0, c0, land) && last) { done(); return; }
       if (!last) battle.after(STONE_BUILD_FRAMES * TICK, step, { owner: unit });
     };
     step();
   };
-  /** "获得N枚棋子" (ChargeToken): charge = min(deckCap − hand, n) cards; returns the count above it. */
+  /** "获得N枚棋子" (ChargeToken): charge = min(deckCap − hand, n) cards; returns the count above it. @param {Unit} unit @param {number} n */
   const addOwned = (unit, n) => {
     const s = st(unit);
     const add = Math.max(0, Math.min(n, s.deckCap - s.stock));
     s.stock += add;
     return n - add;
   };
-  /** S1 / S2 「立即获得两枚棋子」: cards in her hand only — no stone goes on a new tile (maintainer decision 2026-10-11). */
+  /** S1 / S2 「立即获得两枚棋子」: cards in her hand only — no stone goes on a new tile (maintainer decision 2026-10-11). @param {Battle} battle @param {Unit} unit @param {number} n */
   const gain = (battle, unit, n) => {
     addOwned(unit, n);
     syncSpLock(battle, unit);
@@ -406,7 +443,7 @@ function wang(bb, chess, def) {
           const s = st(unit);
           const seq = unit.deploySeq;
           const running = () => unit.deploySeq === seq && unit.skill?.active && unit.skill.id === 'skchr_wang_3';
-          s.ammo = unit.skill.ammoLeft; // mirrored: SkillRuntime.end zeroes ammoLeft before onEnd (the refund needs it)
+          s.ammo = /** @type {SkillRuntime} */ (unit.skill).ammoLeft; // mirrored: SkillRuntime.end zeroes ammoLeft before onEnd (the refund needs it)
           // no stone placed in the prep at all: nothing is charged or placed and the skill never ends (user's observation
           // of the real game, 2026-10-06 — no deployment ever spends ammo or stones)
           if (!s.prepPlaced) return;
@@ -510,8 +547,9 @@ function wang(bb, chess, def) {
   };
 }
 
-/** 棋子 / 跟子: a trap — untargetable, no damage taken, no attack; triggers when an enemy enters its area while activated. */
+/** 棋子 / 跟子: a trap — untargetable, no damage taken, no attack; triggers when an enemy enters its area while activated. @param {Record<string, any>} bb @param {Record<string, any>} raw @param {Record<string, any> | null} def */
 function wangStone(bb, raw, def) {
+  /** @type {KitSpec} */
   const kit = {
     skill: {
       kind: 'passive',
@@ -571,6 +609,7 @@ function wangStone(bb, raw, def) {
    * 0.1 collider overlaps one of the tiles, a huge enemy's body on any of them (checklist: never loop battle.enemies to
    * deal damage; review 2026-10-06). Collider, not the position's tile (upstream keeps the tile): maintainer decision
    * 2026-10-17 [ASSUMED: no client check of the blast].
+   * @param {Battle} battle @param {Unit} unit @param {Grid} offsets
    */
   function blastFoes(battle, unit, offsets) {
     const keys = [];
@@ -580,7 +619,7 @@ function wangStone(bb, raw, def) {
     }
     return battle.enemiesInKeys(keys, unit, ANY);
   }
-  /** The enemy's collider overlaps the stone's S3 diamond (bodyInRange; off-grid tiles dropped). */
+  /** The enemy's collider overlaps the stone's S3 diamond (bodyInRange; off-grid tiles dropped). @param {Unit} e @param {Unit} unit */
   function inArea(e, unit) {
     const keys = [];
     for (const [dr, dc] of DIAMOND2) {
@@ -590,6 +629,7 @@ function wangStone(bb, raw, def) {
     return bodyInRange(e, keys);
   }
 
+  /** @param {Battle} battle @param {Unit} unit @param {Unit} owner @param {Unit[]} stones @param {Unit} e @param {boolean} wide @param {Set<string>} axes */
   function trigger(battle, unit, owner, stones, e, wide, axes) {
     const tal = talentBb(owner.def?.raw ?? owner.def, 1);
     const n = Math.min(num(tal['attack@max_trigger_cnt'], 3), unit.mem.line ?? lineCount(stones, unit));
@@ -633,7 +673,7 @@ function wangStone(bb, raw, def) {
     // 跟子's damage keeps 望 as its source (client: the 跟子 is her projectile)
     // local patch (maintainer report 2026-10-07): every tick sounds — the client's wang_stone1_t[damage_audio] child buff
     // (triggerInterval 1, first at once) plays p_imp_stwctp_d on each trigger; `kitHit` is the sound-only fx (audio.js)
-    const tick = (t) => {
+    const tick = (/** @type {Unit} */ t) => {
       battle.fx('kitHit', { x: t.x, y: t.y, id: owner.id, k: 'wang:1' });
       battle.dealDamage(owner, t, { amount: atk * scale * mul, type: 'arts', resIgnoreFlat: resFlat, canDodge: false, ignoreSelect: true, sourceless: !isFollower(unit), tags: ['dot', 'trap'] });
     };
@@ -655,17 +695,19 @@ const WANG_SLOW_FLOOR = 0.1;
  * floor: the enemy's move speed never drops under 0.1 through it (the stage is raised to 0.1 ÷ the speed the other effects
  * leave; nothing to raise when they stop it outright). One buff per enemy holds the stacks (`data.list`); shown as 'slow'.
  * Exported for the tests.
+ * @param {Battle} battle @param {Unit} src @param {Unit} e @param {number} value @param {number} duration
  */
 export function addWangSlow(battle, src, e, value, duration) {
   if (!e?.alive || !(duration > 0) || !value) return null;
+  /** @param {Unit} unit @param {BuffRec} b */
   const refresh = (unit, b) => {
     const now = battle.time;
-    b.data.list = b.data.list.filter((x) => x.until > now + 1e-9);
+    b.data.list = b.data.list.filter((/** @type {WangSlowStack} */ x) => x.until > now + 1e-9);
     if (!b.data.list.length) { battle.removeBuff(unit, b); return; }
-    const stage = Math.max(0, 1 + b.data.list.reduce((a, x) => a + x.v, 0));
+    const stage = Math.max(0, 1 + b.data.list.reduce((/** @type {number} */ a, /** @type {WangSlowStack} */ x) => a + x.v, 0));
     // the speed the other effects leave: (base + Σ moveFlat) × Π moveMul of the other buffs
     let flat = num(unit.base.moveSpeed, 0), mul = 1;
-    for (const o of unit.buffs) {
+    for (const o of /** @type {BuffRec[]} */ (unit.buffs)) {
       if (o === b || !o.mods) continue;
       if (typeof o.mods.moveFlat === 'number') flat += o.mods.moveFlat * o.stacks;
       if (typeof o.mods.moveMul === 'number') mul *= powi(o.mods.moveMul, o.stacks);
@@ -674,7 +716,8 @@ export function addWangSlow(battle, src, e, value, duration) {
     const m = others > 1e-9 ? Math.max(stage, Math.min(1, WANG_SLOW_FLOOR / others)) : stage;
     if (b.mods?.moveMul !== m) { b.mods = { moveMul: m }; unit.markDirty(); }
   };
-  let b = e.buffs.find((x) => x.key === WANG_SLOW_KEY);
+  /** @type {BuffRec | null | undefined} */
+  let b = /** @type {BuffRec[]} */ (e.buffs).find((x) => x.key === WANG_SLOW_KEY);
   if (!b) {
     b = battle.addBuff(e, { key: WANG_SLOW_KEY, status: 'slow', source: src, tags: ['skill'], data: { list: [] }, mods: { moveMul: 1 },
       onTick: ({ unit, buff }) => refresh(unit, buff) });
@@ -685,13 +728,14 @@ export function addWangSlow(battle, src, e, value, duration) {
   return b;
 }
 
-/** The kit of a placed 棋子 (a hand piece; not a 跟子): under the stone deploy limit (content/tokens.js, `fromTokens`). */
+/** The kit of a placed 棋子 (a hand piece; not a 跟子): under the stone deploy limit (content/tokens.js, `fromTokens`). @param {Record<string, any> | null | undefined} tdef */
 function placedStoneKit(tdef) {
   const k = wangStone(tdef?.skill?.bb ?? {}, tdef?.raw ?? tdef ?? {}, tdef ?? null);
   k.fromTokens = true;
   return k;
 }
 
+/** @type {KitFns} */
 export default {
   char_2027_wang: (bb, chess, def) => wang(bb, chess, def),
 };

@@ -46,6 +46,9 @@
 import { num, talentBb, moduleBb, traitBb, skillRec, batMod, toggleBuff } from '../shared/tier1.js';
 import { canTargetEnemy, sortEnemyTargets } from '../../../targeting.js';
 import { hypot } from '../../../detmath.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { Battle } from '../../../Battle.js' */
 
 const S1 = 'skchr_veen_1';
 const S2 = 'skchr_veen_2';
@@ -58,23 +61,35 @@ const S2_STACK = 'veen:s2stack';
 /** S2 at its stack cap: veen_s_2_buff_full[effect] (veen_skill_02_buff_03) on her until the skill ends (render/fxstatus.js KEY_FX). */
 const S2_FULL = 'veen:s2full';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit} unit */
 const warKey = (unit) => `veen:war:${unit.id}`;
+/** @param {Unit} unit @param {Unit} e */
 const marked = (unit, e) => !!e.findBuff(warKey(unit));
+/** @param {Unit} unit @param {string} id */
 const skillOn = (unit, id) => !!(unit.skill && unit.skill.active && unit.skill.id === id);
+/**
+ * One stored energy / 转置能量 of a volley (`m`: a 转置能量) and the volley an attack sends to one target (state `q`).
+ * @typedef {{ atk: number, scale: number, stacks: number, s2: boolean, m?: boolean }} VeenShot
+ * @typedef {{ pre: VeenShot[], main: { atk: number, scale: number, bounces: number }, post: VeenShot[] }} VeenVolley
+ * @typedef {{ s: number, t: number, q: Map<Unit['id'], VeenVolley[]>, use: number, k: number }} VeenState
+ */
 /**
  * Her stored energies (per deployment): `s` stored, `t` 转置能量, `q` the volleys in flight per target, `use` the S3 bullets of
  * the attack just made, `k` the S2 stacks.
+ * @param {Unit} unit @returns {VeenState}
  */
 const stateOf = (unit) => unit.trait.veen ?? (unit.trait.veen = { s: 0, t: 0, q: new Map(), use: 0, k: 0 });
 
-/** Enemies she may pick: in her range (or blocked by her), none under her 战争技艺. */
+/** Enemies she may pick: in her range (or blocked by her), none under her 战争技艺. @param {Battle} battle @param {Unit} unit @param {Record<string, any>} prof */
 function validTargets(battle, unit, prof) {
   const cands = battle.enemiesInKeys(unit.rangeKeys, unit, prof);
   for (const e of battle.blockedTargets(unit, prof)) if (!cands.includes(e)) cands.push(e);
   return cands.filter((e) => !marked(unit, e));
 }
 
+/** @type {KitFns} */
 export default {
   char_4226_veen: (bb, chess) => {
     const t0 = talentBb(chess, 0);
@@ -87,7 +102,7 @@ export default {
     const war = { dur: num(t1['attack@duration']), value: num(t1['attack@value']), max: Math.max(1, Math.floor(num(t1['attack@max_stack_cnt'], 1))) };
     const s2 = { atk: num(b2['attack@veen_s_2_buff[stack].atk']), aspd: num(b2['attack@veen_s_2_buff[stack].attack_speed']), max: Math.max(0, Math.floor(num(b2['attack@veen_s_2_buff[stack].max_stack_cnt']))) };
 
-    /** 战争技艺: `n` stacks on `e`. */
+    /** 战争技艺: `n` stacks on `e`. @param {Battle} battle @param {Unit} unit @param {Unit | null} e @param {number} n */
     function warOn(battle, unit, e, n) {
       if (!e || !e.alive || !(war.value > 0) || !(war.dur > 0) || !(n > 0)) return;
       battle.addBuff(e, {
@@ -97,7 +112,7 @@ export default {
         onTick: ({ battle: b, unit: t, buff }) => { b.dealDamage(unit, t, { amount: buff.data.value * buff.stacks, type: 'arts', canDodge: false, tags: ['talent', 'dot', 'veenWar'] }); },
       });
     }
-    /** S2: `n` more stacks (a released shot). */
+    /** S2: `n` more stacks (a released shot). @param {Battle} battle @param {Unit} unit @param {number} n */
     function s2Stack(battle, unit, n) {
       if (!skillOn(unit, S2) || !(s2.max > 0)) return;
       const v = stateOf(unit);
@@ -106,16 +121,16 @@ export default {
       // veen_s_2_buff[stack] at max_stack_cnt: FilterByBuffStackCount → veen_s_2_buff_full[effect] (once: !CheckContainsBuff)
       if (v.k >= s2.max && !unit.findBuff(S2_FULL)) battle.addBuff(unit, { key: S2_FULL, tags: ['skill'], visible: true });
     }
-    /** One hit of the volley: `atk` (cached at release) × `scale` arts, then `stacks` of 战争技艺. */
+    /** One hit of the volley: `atk` (cached at release) × `scale` arts, then `stacks` of 战争技艺. @param {Battle} battle @param {Unit} unit @param {Unit} t @param {number} atk @param {number} scale @param {number} stacks @param {number} attackId @param {boolean} isSkill */
     function hitOnce(battle, unit, t, atk, scale, stacks, attackId, isSkill) {
       battle.dealDamage(unit, t, { amount: atk * scale * unit.s.atkScaleMul, type: 'arts', isAttack: true, isSkill, attackId, tags: ['veen'] });
       warOn(battle, unit, t, stacks);
     }
-    /** S3: `n` bounces from `from`, every BOUNCE_IV s, each bounce × the cached `atk`. */
+    /** S3: `n` bounces from `from`, every BOUNCE_IV s, each bounce × the cached `atk`. @param {Battle} battle @param {Unit} unit @param {Unit} from @param {number} n @param {number} atk @param {number} attackId */
     function bounces(battle, unit, from, n, atk, attackId) {
       const hit = new Map([[from, 1]]);
       let cur = from;
-      const step = (left) => {
+      const step = (/** @type {number} */ left) => {
         if (left <= 0) return;
         battle.after(BOUNCE_IV, () => {
           const near = battle.enemiesInRadius(cur.x, cur.y, BOUNCE_R).filter((e) => canTargetEnemy(unit, e, ANY));
@@ -141,11 +156,12 @@ export default {
     /**
      * A stored energy / 转置能量 of the volley landing: its projectile's HIT sound — her ChargeAttack ability's
      * projectile_chr_veen / _merged, under S2 ChargeAttackS2's _s2 / _s2_merged (public/js/audio.js kitHit).
+     * @param {Battle} battle @param {Unit} unit @param {Unit} victim @param {VeenShot} p
      */
     function landSound(battle, unit, victim, p) {
       battle.fx('kitHit', { x: victim.x, y: victim.y, id: unit.id, k: `veen:${p.s2 ? 's2' : ''}${p.m ? 'm' : ''}hit` });
     }
-    /** The main bolt of an attack lands on `victim`: every hit of its volley (released in order), then the S3 bounces. */
+    /** The main bolt of an attack lands on `victim`: every hit of its volley (released in order), then the S3 bounces. @param {Battle} battle @param {Unit} unit @param {Unit} victim @param {number} attackId @param {boolean} isSkill */
     function land(battle, unit, victim, attackId, isSkill) {
       const v = stateOf(unit);
       const list = v.q.get(victim.id);
@@ -162,7 +178,7 @@ export default {
     return {
       trait: {
         hitsFn: () => 0,   // the volley's hits are the kit's (land)
-        onEachHit(battle, unit, victim, hc) { if (hc.kind === 'main' && victim && victim.side === 'enemy') land(battle, unit, victim, hc.attackId, !!hc.isSkill); },
+        onEachHit(/** @type {Battle} */ battle, /** @type {Unit} */ unit, /** @type {Unit} */ victim, /** @type {Record<string, any>} */ hc) { if (hc.kind === 'main' && victim && victim.side === 'enemy') land(battle, unit, victim, hc.attackId, !!hc.isSkill); },
         // only enemies under her 战争技艺 in range: no valid target — she holds her fire (and stores energy)
         canAttack(battle, u) { return validTargets(battle, u, u.profile).length > 0; },
         // the mystic store (the shared profile calls it at her attack check with no valid target — professions.js
@@ -220,7 +236,7 @@ export default {
         } },
         { install(battle, unit) { // 战争技艺: the stacks come with every hit (warOn); she never picks a marked enemy
           battle.on('beforeAttack', (ctx) => {
-            if (ctx.attacker !== unit || ctx.targets.every((e) => !marked(unit, e))) return;
+            if (ctx.attacker !== unit || ctx.targets.every((/** @type {Unit} */ e) => !marked(unit, e))) return;
             const prof = ctx.profile || unit.profile;
             const cands = validTargets(battle, unit, prof);
             sortEnemyTargets(battle, unit, cands, prof.priority);
@@ -246,7 +262,7 @@ export default {
           const t = v.t, s = v.s;
           v.t = 0; v.s = 0;
           const s3 = skillOn(unit, S3);
-          const pre = [], post = [];
+          const pre = /** @type {VeenShot[]} */ ([]), post = /** @type {VeenShot[]} */ ([]);
           const s2on = skillOn(unit, S2);
           for (let i = 0; i < t; i++) { if (!s3) pre.push({ atk: unit.s.atk, scale: merge, stacks: merge, s2: s2on, m: true }); s2Stack(battle, unit, merge); }
           const main = { atk: unit.s.atk, scale: s3 ? num(b3['attack@base_atk_scale'], 1) : 1, bounces: s3 ? s + merge * t : 0 };

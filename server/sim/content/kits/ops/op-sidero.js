@@ -14,6 +14,7 @@
 //   hp_recovery_per_sec_by_max_hp_ratio × max HP per second (the 生命回复速度 attribute).
 
 import { num, talentBb, traitBb, skillRec, up } from '../shared/tier1.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
 
 const S1 = 'skcom_heal_self[3]';
 const S2 = 'skchr_sidero_2';
@@ -21,8 +22,10 @@ const TALENT = 'sidero_t_1';
 /** The AFT-Y fragility is kept on her blockees (the derived buff follows ON_OWNER_BLOCKEE_CHANGED). */
 const FRAGILE_IV = 0.1;
 const FRAGILE_DUR = 0.25;
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 
+/** @type {KitFns} */
 export default {
   char_333_sidero: (_bb, chess) => {
     const t0 = talentBb(chess, 0), tb = traitBb(chess), b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);

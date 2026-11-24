@@ -24,6 +24,10 @@ import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
 import { holdTakeOff, landAfter, LANDS } from '../shared/liftoff.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillCtx } from '../../../skills.js' */
 
 const S1 = 'skchr_taraxa_1';
 const S2 = 'skchr_taraxa_2';
@@ -35,14 +39,17 @@ const SECOND_SPEED = 10, SPLASH_SPEED = 5;
 const X4 = Object.freeze([[1, -1], [1, 0], [1, 1], [0, -1], [0, 0], [0, 1], [-1, -1], [-1, 0], [-1, 1]]);
 const FLY_KEY = 'taraxa_fly_mode';
 const LAND_KEY = 'taraxa:landing';
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {Unit} a */
 const airBlock = (a) => !!a.s.flags.liftoff;
 
-/** S1's pick: one injured unit at random (battle.rng). */
+/** S1's pick: one injured unit at random (battle.rng). @param {Battle} b @param {Unit} u @param {Unit[]} cands */
 const randomInjured = (b, u, cands) => (cands.length > 1 ? [b.rng.pick(cands)] : cands);
-/** S2's pick: air block mode first, the HP ratio order kept. */
+/** S2's pick: air block mode first, the HP ratio order kept. @param {Battle} b @param {Unit} u @param {Unit[]} cands */
 const airFirst = (b, u, cands) => [...cands.filter(airBlock), ...cands.filter((a) => !airBlock(a))];
 
+/** @param {SkillCtx} ctx */
 function takeOff({ battle, unit, skill }) {
   holdTakeOff(battle, unit, FLY_CLIP, { key: FLY_KEY, onAir: () => {
     battle.releaseBlocked(unit);
@@ -50,16 +57,19 @@ function takeOff({ battle, unit, skill }) {
     battle.fx('kitHit', { x: unit.x, y: unit.y, id: unit.id, k: skill.id === S1 ? 'taraxa:up1' : 'taraxa:up2' });
   } });
 }
+/** @param {SkillCtx} ctx */
 function land({ battle, unit, reason }) {
   if (LANDS.has(reason) && unit.alive && unit.deployed) battle.fx('taraxaFly', { x: unit.x, y: unit.y, id: unit.id, up: 0 });
   landAfter(battle, unit, FLY_CLIP, { key: LAND_KEY, air: FLY_KEY, reason, onLanded: () => battle.releaseBlocked(unit) });
 }
 
+/** @type {KitFns} */
 export default {
   char_4222_taraxa: (bb, chess) => {
     const t0 = talentBb(chess, 0);
     const r1 = skillRec(chess, S1);
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2);
+    /** @param {Battle} battle @param {Unit} unit @param {Unit} a @param {number} scale @param {string} [moment] */
     const healOf = (battle, unit, a, scale, moment) => { if (a.alive && a.deployed) battle.heal(unit, a, unit.s.atk * scale, { isSkill: true, moment }); };
     const secondScale = num(b2['attack@heal_scale'], 1), splashScale = num(b2['attack@heal_scale_2']), splashN = Math.max(0, Math.floor(num(b2['attack@splash_num'], 2)));
     return {

@@ -58,6 +58,10 @@ import { num, traitBb, skillRec, batMod, up, giveSp, holdProtect } from '../shar
 import { COLS } from '../../../constants.js';
 import { hasPower } from '../shared/powers.js';
 import { effectiveProfile, acquireTargets, performAttack } from '../../../ai.js';
+/** @import { KitFns, KitChess, Grid } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skchr_shu_1';
 const S2 = 'skchr_shu_2';
@@ -84,34 +88,39 @@ const SUI = 'sui';
 const FARM = 'talent:shu:farm';
 const HARVEST = 'skill:shu:harvest';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {KitChess} chess @param {string} id @param {Grid} fallback */
 const gridOf = (chess, id, fallback) => { const g = skillRec(chess, id)?.rangeGrid; return g?.length ? g : fallback; };
-/** The talent record with data index `i` (null when absent). */
+/** The talent record with data index `i` (null when absent). @param {KitChess} chess @param {number} i */
 const talentRec = (chess, i) => (chess?.talents ?? []).find((t) => t && t.index === i) ?? null;
-/** The tile key of a unit's position (an enemy: its 判定中心). */
+/** The tile key of a unit's position (an enemy: its 判定中心). @param {Unit} u */
 const tileKey = (u) => Math.round(u.y) * COLS + Math.round(u.x);
-/** An allied unit her heals and tiles may take: on the field, not a device. */
+/** An allied unit her heals and tiles may take: on the field, not a device. @param {Unit | null | undefined} a */
 const onField = (a) => !!a && a.alive && a.deployed && !a.hidden && a.kind !== 'device';
 
+/** @type {KitFns} */
 export default {
   char_2025_shu: (bb, chess) => {
     const tb = traitBb(chess);
     const r0 = talentRec(chess, 0), t0 = r0?.bb ?? {}, t1 = talentRec(chess, 1)?.bb ?? {};
-    const born = RANGE_IDS[r0?.bbStr?.born_range_id] ?? null;
+    const born = RANGE_IDS[/** @type {keyof typeof RANGE_IDS} */ (r0?.bbStr?.born_range_id)] ?? null;
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
     const s1 = skillRec(chess, S1);
     // GUA-Y stages 2/3: the extra ATK sits on the module's hidden talent (index -1), not 天有四时.
     const seasonAtk = num(talentRec(chess, -1)?.bb?.atk);
+    /** @param {Battle} battle @param {Unit} unit */
     const squadOf = (battle, unit) => battle.allyUnits.filter((a) => a.kind === 'op' && a.ownerId === unit.ownerId);
+    /** @param {Battle} battle @param {Unit} unit */
     const suiReady = (battle, unit) => squadOf(battle, unit).filter((a) => hasPower(a, SUI)).length >= SUI_NEEDED;
     const g1 = gridOf(chess, S1, X4), g2 = gridOf(chess, S2, X1), g3 = gridOf(chess, S3, X2);
 
-    /** The sown tiles of her current deployment (a Set of tile keys). */
+    /** The sown tiles of her current deployment (a Set of tile keys). @param {Unit} unit @returns {Set<number>} */
     const sown = (unit) => {
       if (unit.mem.shuSownSeq !== unit.deploySeq || !unit.mem.shuSown) { unit.mem.shuSown = new Set(); unit.mem.shuSownSeq = unit.deploySeq; }
       return unit.mem.shuSown;
     };
-    /** T1's tile effect on every allied unit standing on a sown tile (× S2's extra_extend_scale while it runs). */
+    /** T1's tile effect on every allied unit standing on a sown tile (× S2's extra_extend_scale while it runs). @param {Battle} battle @param {Unit} unit */
     const farm = (battle, unit) => {
       if (!up(unit)) return;
       const tiles = sown(unit);
@@ -120,14 +129,14 @@ export default {
       const hp = num(t0.hp_recovery_per_sec) * scale, dr = num(t0.damage_resistance) * scale;
       for (const a of battle.allyUnits) {
         if (!onField(a) || !tiles.has(a.tileR * COLS + a.tileC) || !battle.allySelectable(a, unit)) continue;
-        const cur = a.findBuff(FARM);
+        const cur = /** @type {BuffRec | null} */ (a.findBuff(FARM));
         if (hp > 0 && !(cur && cur.source !== unit && (cur.data?.v ?? 0) > hp && cur.timeLeft > 0.05)) {
           battle.addBuff(a, { key: FARM, duration: FARM_HOLD, mods: { hpRegen: hp }, source: unit, data: { v: hp }, tags: ['talent'] });
         }
         holdProtect(battle, a, dr, FARM_HOLD, unit);   // 庇护: the shared effect (同名效果取最高)
       }
     };
-    /** Sow the tiles of `grid` around (r, c) — only tiles that can be deployed on or walked. Returns the new ones. */
+    /** Sow the tiles of `grid` around (r, c) — only tiles that can be deployed on or walked. Returns the new ones. @param {Battle} battle @param {Unit} unit @param {number} r @param {number} c @param {Grid} grid */
     const sow = (battle, unit, r, c, grid) => {
       const tiles = sown(unit);
       const fresh = [];
@@ -143,11 +152,12 @@ export default {
       if (fresh.length) { battle.fx('healField', { x: c, y: r, id: unit.id, tiles: fresh }); farm(battle, unit); }
       return fresh.length;
     };
-    /** The 【播种标记】 buff key on an enemy (one per 黍). */
+    /** The 【播种标记】 buff key on an enemy (one per 黍). @param {Unit} unit */
     const markKey = (unit) => `skill:shu:mark:${unit.id}`;
     /** shu_s_3[enemy][mark] on enemy `e` (marked with tile `m`): a 消失 enemy loses it; each new root tile ≥ far
      * (Manhattan) from `m` puts it back on that tile's centre (unblocked, its route re-planned) — never a giant boss
-     * (`def.giantBoss`: ForceSetToTilePosition refuses an `isGiantBoss` unit, docs/rules/sim.md 「거대 보스」). */
+     * (`def.giantBoss`: ForceSetToTilePosition refuses an `isGiantBoss` unit, docs/rules/sim.md 「거대 보스」).
+     * @param {Battle} battle @param {Unit} unit @param {Unit} e @param {{ r: number, c: number, last: number }} m */
     const putBack = (battle, unit, e, m) => {
       if (e.hidden) { battle.removeBuff(e, markKey(unit)); unit.mem.shuMarks?.delete(e.id); return; }
       if (e.def?.giantBoss) return;
@@ -165,7 +175,7 @@ export default {
       battle.fx('teleport', { x: m.c, y: m.r, id: e.id, src: unit.id });
     };
 
-    /** S3: the most injured healable allied unit of her current range (`others`: not herself). */
+    /** S3: the most injured healable allied unit of her current range (`others`: not herself). @param {Battle} battle @param {Unit} unit @param {boolean} others */
     const healTarget = (battle, unit, others) => {
       const list = battle.injuredAlliesInKeys(unit.rangeKeySet || new Set(unit.rangeKeys || []), unit);
       return others ? list.find((a) => a !== unit) ?? null : list[0] ?? null;
@@ -256,7 +266,7 @@ export default {
           battle.on('death', (ctx) => { // 自身退场时清空所有地块的播种效果
             if (ctx.unit !== unit) return;
             sown(unit).clear();
-            for (const a of battle.allyUnits) if (a.findBuff(FARM)?.source === unit) battle.removeBuff(a, FARM);
+            for (const a of battle.allyUnits) if (/** @type {BuffRec | null} */ (a.findBuff(FARM))?.source === unit) battle.removeBuff(a, FARM);
           }, { owner: unit });
           battle.every(FARM_EVERY, () => farm(battle, unit), { owner: unit, immediate: true });
         } },
@@ -278,6 +288,7 @@ export default {
           // 编入队伍且编队中有四名【岁】干员: her squad's operators ATK + for the battle, +sp SP every `interval` s deployed
           const ownSquad = () => squadOf(battle, unit);
           const atk = num(t1.atk), sp = num(t1.sp), iv = num(t1.interval);
+          /** @param {Unit} a */
           const spBuff = (a) => {
             if (sp > 0 && iv > 0) battle.addBuff(a, { key: 'talent:shu:suiSp', interval: iv, onTick: ({ unit: x }) => giveSp(x, sp), source: unit, tags: ['talent'] });
           };
@@ -299,7 +310,7 @@ export default {
       ],
       install(battle, unit) {
         // S3's attack group: FirstSucceed tries Attack, then Heal — an attack with an enemy to strike sounds the Attack child (attack.2.1)
-        battle.on('swing', (c) => { if (c.unit === unit && unit.skill?.active && unit.skill.id === S3 && c.targets?.some((t) => t.side === 'enemy')) c.signal = 'Attack'; }, { owner: unit });
+        battle.on('swing', (c) => { if (c.unit === unit && unit.skill?.active && unit.skill.id === S3 && c.targets?.some((/** @type {Unit} */ t) => t.side === 'enemy')) c.signal = 'Attack'; }, { owner: unit });
         // GUA-Y: damage reduction, independent of the sown tile's 庇护 (official trait damage_resistance).
         const dr = num(tb.damage_resistance);
         if (dr > 0) battle.on('deploy', ({ unit: u }) => {

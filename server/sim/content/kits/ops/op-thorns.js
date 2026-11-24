@@ -66,6 +66,11 @@
 import { num, talentBb, traitBb, skillRec, up } from '../shared/tier1.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
 import { hasHp, isHpLoss } from '../../../damage.js';
+/** @import { KitFns, KitChess } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { DamagedEv } from '../../support/index.js' */
+/** @import { BuffRec } from '../../bonds/shared.js' */
 
 const S1 = 'skcom_atk_up[3]';
 const S2 = 'skchr_thorns_2';
@@ -81,12 +86,14 @@ const AIR = Object.freeze({ canHitFly: true });
 const S3_BUFF = 'skill:thorns:destreza';
 const REGEN_KEY = 'talent:thorns:tide';
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-/** An enemy whose 攻击方式 includes 远程 (PRTS "图鉴中【攻击方式】包含远程的敌人"; data applyWay). */
+/** An enemy whose 攻击方式 includes 远程 (PRTS "图鉴中【攻击方式】包含远程的敌人"; data applyWay). @param {Unit | null | undefined} e */
 const attacksRanged = (e) => { const w = String(e?.def?.applyWay ?? '').toUpperCase(); return w === 'RANGED' || w === 'ALL'; };
 /**
  * 普通伤害 (PRTS 伤害分类; thorns_s_2 FilterDamageModifer attack type NORMAL) an enemy dealt — not 溅射, 持续 (dot /
  * periodic), 附加, element damage, a 流失 or 无来源 damage.
+ * @param {DamagedEv} c
  */
 function normalHitFromEnemy(c) {
   const d = c.dmg;
@@ -96,6 +103,7 @@ function normalHitFromEnemy(c) {
   return !tags.includes('dot') && !tags.includes('periodic') && !tags.includes('addition');
 }
 
+/** @type {KitFns} */
 export default {
   char_293_thorns: (bb, chess) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
@@ -109,14 +117,14 @@ export default {
     const breakMul = num(t0.ep_break_multi);           // LOR-Δ stage 2+: ×multi 元素伤害 in a 神经 burst
     const spikesPoison = !(breakMul > 0);              // LOR-Δ stage 2+: only normal attacks poison
 
-    /** LOR-X "攻击附带10%攻击力的法术伤害": the arts addition of one hit (PRTS: 预计算法术附加伤害). */
+    /** LOR-X "攻击附带10%攻击力的法术伤害": the arts addition of one hit (PRTS: 预计算法术附加伤害). @param {Battle} battle @param {Unit} unit @param {Unit | null} target */
     const addition = (battle, unit, target) => {
       if (loreX > 0 && target && target.alive && target.side === 'enemy' && hasHp(target)) {
         battle.dealDamage(unit, target, { amount: unit.s.atk * loreX, type: 'arts', tags: ['module', 'addition', 'thorns:lorx'] });
       }
     };
 
-    /** T1 神经腐蚀: poison `e` (one per 棘刺; a new hit refreshes it, LOR-X stage 2+ adds a layer). */
+    /** T1 神经腐蚀: poison `e` (one per 棘刺; a new hit refreshes it, LOR-X stage 2+ adds a layer). @param {Battle} battle @param {Unit} unit @param {Unit | null} e */
     const poison = (battle, unit, e) => {
       if (!e || !e.alive || e.side !== 'enemy' || !hasHp(e)) return;
       const dur = num(t0.duration, 3);
@@ -124,7 +132,7 @@ export default {
       if (!(dur > 0) || !(base > 0)) return;
       // one poison per 棘刺 (independentCharacterSource) — but the LOR-Δ stage 2+ one (thorns_e_003_t has no such flag)
       const key = breakMul > 0 ? 'thorns:poison' : `thorns:poison:${unit.id}`;
-      const old = e.findBuff(key);
+      const old = /** @type {BuffRec | null} */ (e.findBuff(key));
       const b = battle.addBuff(e, {
         key, duration: dur, refresh: 'extend', interval: POISON_IV, source: unit, tags: ['dot', 'talent'],
         data: { base, cnt: 1 },

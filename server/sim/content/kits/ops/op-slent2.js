@@ -67,6 +67,10 @@ import { releaseSkillSummon } from '../../tokens.js';
 import { holdsUndying, PRIO_UNDYING_HELD, PRIO_REVIVE } from '../../items/battle.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS } from '../../../constants.js';
+/** @import { KitFns, KitChess, KitSpec, Bb, Grid } from '../shared/tier1.js' */
+/** @import { Battle } from '../../../Battle.js' */
+/** @import { Unit } from '../../../units.js' */
+/** @import { SkillRuntime } from '../../../skills.js' */
 
 const S1 = 'skchr_slent2_1';
 const S2 = 'skchr_slent2_2';
@@ -92,15 +96,19 @@ export const RHINE = Object.freeze(new Set([
   'char_1047_halo2', 'char_248_mgllan', 'char_1031_slent2', 'char_4212_nasti', 'char_4048_doroth', 'char_202_demkni',
 ]));
 
+/** @param {KitChess} chess @param {string} id */
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
+/** @param {number} r @param {number} c */
 const tileKey = (r, c) => r * COLS + c;
-/** An operator of the 莱茵生命 group (summons are no 干员). */
+/** An operator of the 莱茵生命 group (summons are no 干员). @param {Unit | null | undefined} a */
 export const isRhine = (a) => !!a && a.kind === 'op' && RHINE.has(a.def?.charId ?? a.defId);
+/** @param {Set<number> | null | undefined} keys @param {Unit} a */
 const inKeys = (keys, a) => !!keys && keys.has(tileKey(a.tileR, a.tileC));
 
 /**
  * 无声砥柱's 庇护 for an ally at its HP: base × scale × (1 + rs × n), n = its lost HP in whole `step` steps (at most
  * 1 − min_hp_ratio) — the client's HpRatioTrigger count, PRTS 备注 "以1%为最小单位".
+ * @param {Bb} t @param {Unit} ally
  */
 export function shelterOf(t, ally, scale = 1) {
   const base = num(t.damage_resistance_base) * scale;
@@ -111,7 +119,7 @@ export function shelterOf(t, ally, scale = 1) {
   return Math.min(0.95, base * (1 + num(t.resistance_scale) * n));
 }
 
-/** The allies (operators and summons; never a 孤立 one) on absolute tile keys `keys`. */
+/** The allies (operators and summons; never a 孤立 one) on absolute tile keys `keys`. @param {Battle} battle @param {Unit} by @param {Set<number> | null | undefined} keys */
 function alliesOn(battle, by, keys) {
   return battle.allyUnits.filter((a) => a.alive && a.deployed && !a.hidden && a.kind !== 'device' && inKeys(keys, a) && battle.allySelectable(a, by));
 }
@@ -120,10 +128,11 @@ function alliesOn(battle, by, keys) {
  * 夜灯's kit: untargetable ("不会受到攻击": the def's flag, Battle._setupUnit), no attack (ATK 0 ⇒ resolveProfile noAttack),
  * no skill to cast; while it stands, every TALENT_IV s the allies of its x-4 hold her T1 庇护 × damage_resistance_scale.
  * `owner` = 淬羽赫默, `t1` = her T1 blackboard (fallback when the token def carries none).
+ * @param {Unit} t @param {Unit} owner @param {Bb} t1 @returns {KitSpec}
  */
 function lampKit(t, owner, t1) {
   const def = t.def;
-  const tal = (def?.talents ?? []).find((x) => x && x.bb && x.bb.damage_resistance_base != null) ?? null;
+  const tal = (def?.talents ?? []).find((/** @type {{ bb?: Record<string, any>, rangeGrid?: Grid } | null} */ x) => x && x.bb && x.bb.damage_resistance_base != null) ?? null;
   const tb = tal?.bb ?? t1;
   const grid = tal?.rangeGrid ?? def?.rangeGrid ?? X4;
   const scale = num(def?.skill?.bb?.damage_resistance_scale, num(owner.skill?.bb?.damage_resistance_scale, 1));
@@ -143,6 +152,7 @@ function lampKit(t, owner, t1) {
   };
 }
 
+/** @type {KitFns} */
 export default {
   char_1031_slent2: (bb, chess) => {
     const tb = traitBb(chess);
@@ -181,7 +191,7 @@ export default {
           const regenKey = `talent:slent2:regen#${unit.id}`;
           const regen = new Map();   // ally → { next: battle time of its next atk_to_hp_recovery trigger }
           let prevIn = new Set();     // the allies of her range at the previous scan (slent2_t_2 started on them)
-          const stopRegen = (a) => { regen.delete(a); if (a.findBuff(regenKey)) battle.removeBuff(a, regenKey); };
+          const stopRegen = (/** @type {Unit} */ a) => { regen.delete(a); if (a.findBuff(regenKey)) battle.removeBuff(a, regenKey); };
           battle.on('deploy', (c) => { if (c.unit === unit) { unit.mem.slent2Marks = new Set(); prevIn = new Set(); } }, { owner: unit });
           battle.every(TALENT_IV, () => {
             if (!up(unit)) {
@@ -218,7 +228,7 @@ export default {
               if (a.hp - c.amount < a.s.maxHp * barrierBelow - 1e-9) giveBarrier(battle, unit, a, c);
             }, { owner: unit, priority: 100 });
           }
-          /** BLS-Y barrier on operator `a` (once per deployment of hers); `c` = the hpDamage ctx it takes, if any. */
+          /** BLS-Y barrier on operator `a` (once per deployment of hers); `c` = the hpDamage ctx it takes, if any. @param {Battle} b @param {Unit} u @param {Unit} a @param {{ amount: number } | null} c */
           function giveBarrier(b, u, a, c) {
             const marks = u.mem.slent2Marks ?? (u.mem.slent2Marks = new Set());
             if (a.kind !== 'op' || marks.has(a.id)) return;
@@ -243,7 +253,7 @@ export default {
         if (unit.skill?.id !== S3) return;
         // 同一次作战中最多使用2次: after the last use no SP comes back (activations count every deployment of the battle)
         battle.on('spGain', (c) => {
-          if (c.unit === unit && !unit.skill.active && unit.skill.activations >= s3Uses) c.amount = 0;
+          if (c.unit === unit && !/** @type {SkillRuntime} */ (unit.skill).active && /** @type {SkillRuntime} */ (unit.skill).activations >= s3Uses) c.amount = 0;
         }, { owner: unit });
         // the one 不死 of each cast: the first operator of her range taking lethal damage (see the header)
         battle.on('fatal', (c) => {
@@ -265,7 +275,7 @@ export default {
   },
 };
 
-/** 俯瞰视界's end or her leaving: her 夜灯 leave the field (into their redeploy time) and the drone in stock is gone. */
+/** 俯瞰视界's end or her leaving: her 夜灯 leave the field (into their redeploy time) and the drone in stock is gone. @param {Battle} battle @param {Unit} unit */
 function withdrawLamps(battle, unit) {
   const stock = unit.mem.summonStock;
   if (stock) stock[LAMP] = 0;
