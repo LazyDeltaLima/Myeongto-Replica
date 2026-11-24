@@ -58,12 +58,27 @@ import { bossHitLimitOf } from '../../shared/constants.js';
 import { evadesGround } from './targeting.js';
 import { damageNumberFlag, blockedEvent } from './local-hud.js'; // local patch
 
-const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+/** @import { Unit } from './units.js' */
+/** @import { Battle } from './Battle.js' */
+/** @import { Buff } from './battle/status.js' */
+
+/**
+ * A DamageInfo descriptor as content passes it (makeDamageInfo reads it field by field, a kit adds fields of its own).
+ * @typedef {Record<string, any>} DamageIn
+ */
+/**
+ * A DamageInfo after makeDamageInfo, with the fields the pipeline or a kit sets on it later (`lpNum`, `lpExpectDiv`,
+ * `silent`, `origin` …).
+ * @typedef {ReturnType<typeof makeDamageInfo> & Record<string, any>} DamageInfo
+ */
+
+const clamp01 = (/** @type {number} */ v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /**
  * Alive AND still has HP (a boss: its pool's HP). A `damaged` hook sees a lethal hit before `battle.kill`, while the
  * target is still `alive` at 0 HP — element riders attached to that damage (and applyElement itself) skip such a
  * target, or a burst resolves on the corpse (a second fatal, 烛煌 熔点引爆's heal, 妮芙's stack …).
+ * @param {Unit | null | undefined} u
  */
 export function hasHp(u) {
   return !!u && u.alive && (u.bossPool ? u.bossPool.hp > 0 : u.hp > 0);
@@ -76,6 +91,7 @@ export function hasHp(u) {
  * 「공식 바인딩용 이벤트 필드」). null for 无来源 damage (element bursts, `periodicDamage`: no attacker in the client's
  * DamageInfo either) and for damage without a source unit — except 无来源 damage marked `showSource`, whose credited
  * unit plays its own effect for it (锡人's alchemy unit ticks: the client's tinman_s_2[audio] custom trigger).
+ * @param {Unit | null} source @param {DamageIn} dmg
  */
 function attackerId(source, dmg) {
   return source && (!dmg.sourceless || dmg.showSource) && source.id != null ? source.id : null;
@@ -90,7 +106,7 @@ function attackerId(source, dmg) {
  * Funnel ability with its own projectile, whose HIT bank sounds instead of the attack's (docs/rules/audio.md 「스킬·재능 투사체 소리」).
  * 2026-11-04: 3 = an HP loss (Battle.loseHp, tag 'hpLoss'): no ability's hit, whoever its source is — it sounds no impact.
  */
-const dotFlag = (dmg) => (!Array.isArray(dmg?.tags) ? 0 : dmg.tags.includes('dot') ? 1 : dmg.tags.includes('funnel') ? 2 : dmg.tags.includes('hpLoss') ? 3 : 0);
+const dotFlag = (/** @type {DamageIn | null} */ dmg) => (!Array.isArray(dmg?.tags) ? 0 : dmg.tags.includes('dot') ? 1 : dmg.tags.includes('funnel') ? 2 : dmg.tags.includes('hpLoss') ? 3 : 0);
 
 /**
  * The 9th field of the 'dmg' event and the 5th of the 'heal' event (2026-10-24): the official effect moments this hit / heal
@@ -99,21 +115,25 @@ const dotFlag = (dmg) => (!Array.isArray(dmg?.tags) ? 0 : dmg.tags.includes('dot
  * ON_TAKE_DAMAGE graph: 泡泡 T1's 尖刺盾 on its attacker). Absent without one. A field only: events are counted, never
  * hashed, so no golden digest moves (render/fx/kitofficial.js `hit` draws them; docs/SIM.md).
  */
-const fxField = (key, owner) => (typeof key === 'string' && key ? [[key, owner ? owner.id ?? null : null]] : null);
+const fxField = (/** @type {unknown} */ key, /** @type {Unit | null} */ owner) => (typeof key === 'string' && key ? [[key, owner ? owner.id ?? null : null]] : null);
 
 /**
  * Add the effect moment `key` (owned by `owner`, `life` s when the sim knows it) to the 'dmg' event `target` took this tick
  * — for a target-side handler (`damaged`, an attack's `onEachHit`) that runs after the event was sent. Nothing without one.
+ * @param {Battle} battle @param {Unit | null} target @param {unknown} key @param {Unit | null} owner @param {number} [life]
  */
 export function hitFx(battle, target, key, owner, life) {
   const ev = target && target.lastHitAt === battle.time ? target._dmgEv : null;
-  if (!ev || ev[1] !== target.id || typeof key !== 'string' || !key) return;
+  if (!ev || ev[1] !== /** @type {Unit} */ (target).id || typeof key !== 'string' || !key) return;
   const one = [key, owner ? owner.id ?? null : null];
-  if (Number.isFinite(life) && life > 0) one.push(life);
+  if (Number.isFinite(life) && /** @type {number} */ (life) > 0) one.push(/** @type {number} */ (life));
   ev[8] = [...(Array.isArray(ev[8]) ? ev[8] : []), one];
 }
 
-/** Normalise a DamageInfo descriptor. */
+/**
+ * Normalise a DamageInfo descriptor.
+ * @param {DamageIn} [d]
+ */
 export function makeDamageInfo(d = {}) {
   const type = d.type ?? 'phys';
   return {
@@ -164,6 +184,7 @@ export function makeDamageInfo(d = {}) {
  * 触发反伤、受击回复"): shields, damage-taken multipliers and target-side `hit` effects apply, and it is a "受到伤害" for
  * 受击回复 SP and the 重装 TAKE_DAMAGE trigger. Tagged 'dot' (a fixed-value DoT: ATK multipliers skip it; 锡人's 持续伤害
  * boost takes it) and 'periodic'. The caller passes the credit (the carrier / null) as the dealDamage source.
+ * @param {number} amount
  */
 export function periodicDamage(amount) {
   return makeDamageInfo({ amount, type: 'true', canDodge: false, sourceless: true, tags: ['dot', 'periodic'] });
@@ -173,6 +194,7 @@ export function periodicDamage(amount) {
  * Is this the DamageInfo of a 流失 (Battle.loseHp, tag 'hpLoss')? Its `damaged` hook still runs (stats, leader parts,
  * HP thresholds), but a 流失 is not "受到伤害": "受到伤害时" content (heals, counters, 未受伤害 timers, 反伤 chances)
  * skips it — PRTS 作战机制 "生命流失…跳过所有结算与伤判效果…不会触发反伤、受击回复等受到攻击触发的时点".
+ * @param {DamageIn | null | undefined} dmg
  */
 export function isHpLoss(dmg) {
   return !!dmg && Array.isArray(dmg.tags) && dmg.tags.includes('hpLoss');
@@ -191,6 +213,7 @@ export function isHpLoss(dmg) {
  * 荒芜拉普兰德's S3 pulse, PRTS 备注 "持续法术伤害"; 缄默德克萨斯 S1, "伤害分类为法术持续伤害"); 附加伤害 (tag `addition`:
  * 拉普兰德's module, 忍冬's 追凶 — PRTS "法术附加伤害"; item procs and the bonds' riders, own proc included [ASSUMED: 附加,
  * PRTS gives no class]); element damage; 无来源 damage (坚守's thorns); 流失.
+ * @param {DamageIn | null | undefined} dmg
  */
 export function isNormalDamage(dmg) {
   if (!dmg || dmg.isSplash || dmg.sourceless || dmg.type === 'element' || dmg.type === 'elemental') return false;
@@ -204,7 +227,10 @@ export function isNormalDamage(dmg) {
   return true;
 }
 
-/** 沉睡 (ba.sleep "无敌且无法行动"): only attackers whose profile has `hitSleep` (or `ignoreSleep` damage) reach a sleeper. */
+/**
+ * 沉睡 (ba.sleep "无敌且无法行动"): only attackers whose profile has `hitSleep` (or `ignoreSleep` damage) reach a sleeper.
+ * @param {Unit} target @param {Unit | null} source @param {DamageIn} dmg
+ */
 function sleepBlocks(target, source, dmg) {
   return !!target.s.flags.sleep && !dmg.ignoreSleep && !(source && source.profile && source.profile.hitSleep);
 }
@@ -217,6 +243,7 @@ function sleepBlocks(target, source, dmg) {
  * resolves as usual (dodged if physical / arts — PRTS 备注). Sourceless damage and `ignoreSelect` damage still land: no
  * selection (targeting.js evadesGround) — 无视无法选择 abilities, direct picks, flying units' blasts, and the ticks of a
  * debuff already on it (PRTS 异常效果: 无法选择 effects "仅在选择时生效"; the debuff's mods stay too).
+ * @param {Unit} target @param {Unit | null} source @param {DamageIn} dmg
  */
 function liftoffEvades(target, source, dmg) {
   return !!target.s.flags.liftoff && !dmg.ignoreSelect && evadesGround(source, target);
@@ -227,6 +254,8 @@ function liftoffEvades(target, source, dmg) {
  * (epDamageResistance) for 'elemental' damage. 穿透 order: the flat ignore first (0 floor), then the percentage —
  * client `BattleFormula.CalculateDamageInternal`: phys `max(atk×floor, atk − max(0, def − flat) × (1 − pct))`, arts
  * `max(atk×floor, atk × max(0, 100 − max(0, res − flat) × (1 − pct)) / 100)` (PRTS 伤害公式 reads the same).
+ * @param {number} amount @param {string} type @param {{ def?: number, res?: number }} target
+ * @param {{ defIgnoreFlat?: number, defIgnorePct?: number, resIgnoreFlat?: number, resIgnorePct?: number, elementalRes?: number }} [ign]
  */
 export function mitigate(amount, type, target, ign = {}) {
   if (type === 'phys') {
@@ -240,7 +269,7 @@ export function mitigate(amount, type, target, ign = {}) {
     return Math.max(amount * (1 - Math.min(100, eff) / 100), MIN_DAMAGE_RATIO * amount);
   }
   if (type === 'elemental') {
-    const D = Math.max(0, Math.min(100, Number.isFinite(ign.elementalRes) ? ign.elementalRes : 0));
+    const D = Math.max(0, Math.min(100, Number.isFinite(ign.elementalRes) ? /** @type {number} */ (ign.elementalRes) : 0));
     return Math.max(amount * (1 - D / 100), MIN_DAMAGE_RATIO * amount);
   }
   return amount;
@@ -262,6 +291,7 @@ export function mitigate(amount, type, target, ign = {}) {
  * DoT ticks — they all come through dealDamage — and losses passed on to a leader through Battle.loseHp, except the 胄
  * drone link's pool share: `noHitLimit`, DESIGN §25.13.4); element 损伤 (gauge fill, 'element') removes no HP and is
  * never checked. Deterministic (Math.ceil of the same double on every engine).
+ * @param {Battle} battle @param {Unit | null} target @param {number} amount
  */
 export function leaderHitLimit(battle, target, amount) {
   if (!target || !target.isBoss || (battle.kind !== 'boss' && battle.kind !== 'hidden')) return amount;
@@ -280,14 +310,16 @@ export function leaderHitLimit(battle, target, amount) {
  * absorbs every type (PRTS 术语释义 屏障 "若无特殊说明，屏障可吸收全种类伤害"). Older shields first (buff order:
  * "优先消耗先生成的屏障"); a `shieldLast` one after all the others — the client runs buffs by priority, then by the order
  * they were gained (`Buff.CompareTo`), and such a barrier's priority is below theirs (斥罪's judge_t_1, −1000).
+ * @param {Battle} battle @param {Unit} target @param {number} amount @param {string | null} [type]
+ * @param {{ key?: string } | null} [info]
  */
 export function absorbShields(battle, target, amount, type = null, info = null) { // local patch: `info` gets the absorbing buff's key
   if (amount <= 0) return 0;
   let changed = false;
   let rest = amount;
-  const absorbs = (b) => !b.shieldType || (Array.isArray(b.shieldType) ? b.shieldType.includes(type) : b.shieldType === type);
+  const absorbs = (/** @type {Buff} */ b) => !b.shieldType || (Array.isArray(b.shieldType) ? b.shieldType.includes(type) : b.shieldType === type);
   for (let i = 0; i < target.buffs.length && rest > 0; i++) {
-    const b = target.buffs[i];
+    const b = /** @type {Buff} */ (target.buffs[i]);
     if (b.shieldHits > 0 && absorbs(b)) {
       b.shieldHits--;
       rest = 0;
@@ -300,9 +332,9 @@ export function absorbShields(battle, target, amount, type = null, info = null) 
       break;
     }
   }
-  const passes = target.buffs.some((b) => b.shieldLast && b.shield > 0) ? 2 : 1;
+  const passes = /** @type {Buff[]} */ (target.buffs).some((b) => b.shieldLast && b.shield > 0) ? 2 : 1;
   for (let pass = 0; pass < passes; pass++) for (let i = 0; i < target.buffs.length && rest > 0; i++) {
-    const b = target.buffs[i];
+    const b = /** @type {Buff} */ (target.buffs[i]);
     if (passes === 2 && !!b.shieldLast !== (pass === 1)) continue;   // the late barriers in the second pass
     if (b.shield > 0 && absorbs(b)) {
       const take = Math.min(b.shield, rest);
@@ -334,6 +366,8 @@ export function absorbShields(battle, target, amount, type = null, info = null) 
  * (`BuffContainer.OnTakeDamage` skips only finished buffs), so a graph without a FilterDamageModifer node counts it (老鲤
  * S2 `lmlee_s_2[paper]`). Hook `voidHit` hands it to such a counter, `why` = 'invulnerable' (无敌 / 沉睡: cancelled before
  * any buff runs), 'cancel' (a `hit` handler's), 'dodge' (the target's dodge), 'limit' (限伤); it costs nothing while no one listens.
+ * @param {Battle} battle @param {Unit | null} hs @param {Unit} target @param {DamageIn} dmg @param {Unit | null} source
+ * @param {'invulnerable' | 'cancel' | 'dodge' | 'limit'} why
  */
 function voided(battle, hs, target, dmg, source, why) {
   if (battle._hooks.voidHit) battle.emit('voidHit', { source: hs, target, dmg, credit: source, why });
@@ -342,10 +376,12 @@ function voided(battle, hs, target, dmg, source, why) {
 
 /**
  * Full damage pipeline. Returns the HP actually removed (0 when dodged/cancelled/absorbed).
+ * @param {Battle} battle @param {Unit | null} source @param {Unit | null} target @param {DamageIn} dmgIn
+ * @returns {number}
  */
 export function dealDamage(battle, source, target, dmgIn) {
   if (!target || !target.alive || target.removed || target.hidden || !target.deployed) return 0;
-  const dmg = dmgIn && dmgIn._norm ? dmgIn : makeDamageInfo(dmgIn);
+  const dmg = /** @type {DamageInfo} */ (dmgIn && dmgIn._norm ? dmgIn : makeDamageInfo(dmgIn));
   // 远程途径: damage dealt as a projectile lands (an engine shot or a content one) flew (PRTS 作战机制 远近途径 "有弹道的攻击固定为10")
   if (battle.projectiles?.landing > 0) dmg.isProjectile = true;
   if (dmg.type === 'element') return applyElement(battle, source, target, dmg);
@@ -408,9 +444,10 @@ export function dealDamage(battle, source, target, dmgIn) {
     final = leaderHitLimit(battle, target, final);
     if (!(final > 0)) return voided(battle, hs, target, dmg, source, 'limit');
   }
+  /** @type {{ key?: string }} */
   const lpShield = {}, lpBefore = final; // local patch: a red number stopped by a shield → blue / BLOCK (local-hud.js)
   final = absorbShields(battle, target, final, type, lpShield);
-  if (lpBefore > 0 && !(final > 0)) blockedEvent(battle, target, lpBefore, dmg.lpNum, lpShield.key); // local patch
+  if (lpBefore > 0 && !(final > 0)) blockedEvent(battle, target, lpBefore, dmg.lpNum, /** @type {string} */ (lpShield.key)); // local patch
   // 伤判效果 after the barriers (header): a handler may lower what reaches the HP — never raise it (a 流失 skips this)
   if (final > 0 && battle._hooks.hpDamage) {
     const hctx = { source: hs, target, amount: final, dmg, credit: source };
@@ -420,11 +457,15 @@ export function dealDamage(battle, source, target, dmgIn) {
   return applyHpLoss(battle, source, target, final, dmg);
 }
 
-/** A unit's `stats.byType` slot of a damage type (shared/roundDamage.js DAMAGE_TYPES): only the round damage panel reads it. */
+/**
+ * A unit's `stats.byType` slot of a damage type (shared/roundDamage.js DAMAGE_TYPES): only the round damage panel reads it.
+ * @type {Readonly<Record<string, number>>}
+ */
 const TYPE_SLOT = Object.freeze({ phys: 0, arts: 1, true: 2, elemental: 3 });
 
 /**
  * Remove HP (after mitigation) and run damaged/fatal/kill bookkeeping. Also used by `battle.loseHp` (流失).
+ * @param {Battle} battle @param {Unit | null} source @param {Unit} target @param {number} amount @param {DamageIn | null} dmg
  */
 export function applyHpLoss(battle, source, target, amount, dmg) {
   if (!target.alive) return 0;
@@ -439,7 +480,7 @@ export function applyHpLoss(battle, source, target, amount, dmg) {
     }
     dealt = Math.max(0, before - pool.hp);
     if (!Number.isFinite(dealt)) dealt = 0; // a misbehaving pool (NaN hp) must not poison damage stats
-    if (pid != null) { const pp = battle._pp(pid); if (pp) pp.bossDamage += dealt; if (source.stats) source.stats.boss += dealt; }
+    if (pid != null) { const pp = battle._pp(pid); if (pp) pp.bossDamage += dealt; if (/** @type {Unit} */ (source).stats) /** @type {Unit} */ (source).stats.boss += dealt; }
     battle._syncBossHp(target);
   } else {
     const before = target.hp;
@@ -483,7 +524,7 @@ export function applyHpLoss(battle, source, target, amount, dmg) {
  * Are `target`'s element gauges locked (爆发冷却, see header): a burst's `<el>Burst` lock is up (any element — the lock
  * holds every gauge of the unit), or a burst of the unit is resolving right now. The element argument of older callers
  * is ignored.
- * @type {(target: object, el?: string) => boolean}
+ * @type {(target: Unit, el?: string) => boolean}
  */
 export function burstLocked(target) {
   const p = target.burstPending;
@@ -491,10 +532,13 @@ export function burstLocked(target) {
   return !!target.s.flags.burstLock;
 }
 
-/** The burst lock buff (爆发冷却) running on `u`, or null. */
+/**
+ * The burst lock buff (爆发冷却) running on `u`, or null.
+ * @param {Unit} u
+ */
 function burstLockOf(u) {
   let best = null;
-  for (const b of u.buffs) if (b.flags && b.flags.burstLock && (!best || b.timeLeft > best.timeLeft)) best = b;
+  for (const b of /** @type {Buff[]} */ (u.buffs)) if (b.flags && b.flags.burstLock && (!best || b.timeLeft > best.timeLeft)) best = b;
   return best;
 }
 
@@ -507,6 +551,7 @@ function burstLockOf(u) {
  * (0.01–0.99 while no burst runs, 1 during one), so the remainder shown (1 − fill) is never less than what is left —
  * except that a first chip of less than 1 % (under 10 元素值 of 1000) already shows as 1 % taken — and the bar only
  * runs out when the gauge bursts (user playtest #6). `now` = the battle time.
+ * @param {Unit} u @param {number} now
  */
 export function elementView(u, now) {
   const e = u.elem;
@@ -530,13 +575,18 @@ export function elementView(u, now) {
  * The share of an element hit that reaches `target`'s gauge (header): its 元素损伤倍率 (`elemTakenMul`) × max(5 %,
  * 1 − 损伤抵抗 / 100) — the factor applyElement uses after the `elementHit` hook, exported for content that previews a
  * gauge gain.
+ * @param {Unit} target
  */
 export function elementIntake(target) {
   const res = Number(target && target.def ? target.def.epResistance : 0) || 0;
   return target.s.elemTakenMul * Math.max(MIN_DAMAGE_RATIO, 1 - clamp01(res / 100));
 }
 
-/** Element gauge accumulation + burst. Fires `elementHit` { source, target, dmg } first (mutable amount/mul, cancel). */
+/**
+ * Element gauge accumulation + burst. Fires `elementHit` { source, target, dmg } first (mutable amount/mul, cancel).
+ * @param {Battle} battle @param {Unit | null} source @param {Unit} target @param {DamageInfo} dmg
+ * @returns {number}
+ */
 export function applyElement(battle, source, target, dmg) {
   const el = dmg.element;
   if (!el || !(el in target.elem)) return 0;
@@ -558,7 +608,7 @@ export function applyElement(battle, source, target, dmg) {
   const fx = fxField(dmg.moment, source);   // (2026-10-24) a kit's effect moment for this element hit (余's 灼燃损伤)
   if (fx) ev.push(fx);
   battle._ev(ev);
-  if (source) source.stats.elem = (source.stats.elem ?? 0) + amt;
+  if (source) /** @type {{ elem?: number }} */ (source.stats).elem = (/** @type {{ elem?: number }} */ (source.stats).elem ?? 0) + amt;
   if (battle._hooks.damaged) battle.emit('damaged', { source, target, amount: amt, type: 'element', dmg });
   if (target.elem[el] >= max && target.alive) elementBurst(battle, source, target, el);
   return amt;
@@ -568,16 +618,18 @@ export function applyElement(battle, source, target, dmg) {
  * A burst (see header): side-aware official effects; the `<el>Burst` buff is the 爆发冷却 that locks every gauge of the
  * unit for its duration. The unit is marked `burstPending[el]` while the burst resolves (hook, lock, hits), so nothing
  * re-bursts it in the meantime.
+ * @param {Battle} battle @param {Unit | null} source @param {Unit} target @param {string} el
  */
 export function elementBurst(battle, source, target, el) {
-  if (!ELEMENT[el] || !target.alive || burstLocked(target)) return;
+  if (!/** @type {Readonly<Record<string, unknown>>} */ (ELEMENT)[el] || !target.alive || burstLocked(target)) return;
   const pending = target.burstPending || (target.burstPending = {});
   pending[el] = true;
   try { resolveBurst(battle, source, target, el); } finally { pending[el] = false; }
 }
 
+/** @param {Battle} battle @param {Unit | null} source @param {Unit} target @param {string} el */
 function resolveBurst(battle, source, target, el) {
-  const cfg = ELEMENT[el];
+  const cfg = /** @type {Readonly<Record<string, any>>} */ (ELEMENT)[el];
   target.elem[el] = target.gaugeMax;
   // the cooldown's end restores every element of the unit ("随后单位所有种类的元素值恢复至最大值")
   const reset = () => { for (const k of ELEMENT_ORDER) if (k in target.elem) target.elem[k] = 0; };
@@ -586,8 +638,8 @@ function resolveBurst(battle, source, target, el) {
   if (!target.alive) { reset(); return; }
   const tags = ['burst', el];
   // 无来源 damage credited to `source` (header)
-  const hit = (amount, type) => battle.dealDamage(source, target, { amount, type, element: el, sourceless: true, tags });
-  const lock = (duration, extra = {}) => {
+  const hit = (/** @type {number} */ amount, /** @type {string} */ type) => battle.dealDamage(source, target, { amount, type, element: el, sourceless: true, tags });
+  const lock = (/** @type {number} */ duration, /** @type {Record<string, any>} */ extra = {}) => {
     if (!(duration > 0)) { reset(); return null; }
     return battle.addBuff(target, { key: `${el}Burst`, duration, visible: true, onExpire: reset, onRemove: reset, ...extra, flags: { burstLock: true, ...(extra.flags || {}) } });
   };
@@ -611,7 +663,7 @@ function resolveBurst(battle, source, target, el) {
       // 50 % 虚弱, 800 元素伤害 per second; each second the 虚弱 drops to 50 % × 剩余时间 ÷ 总持续时间 (PRTS 元素)
       lock(c.duration, {
         mods: { atkMul: 1 - c.weaken }, interval: 1,
-        onTick: ({ buff }) => {
+        onTick: (/** @type {{ buff: Buff }} */ { buff }) => {
           buff.mods = { atkMul: 1 - c.weaken * Math.max(0, buff.timeLeft) / c.duration };
           target.markDirty();
           hit(c.elemDps, 'elemental');
@@ -647,7 +699,10 @@ function resolveBurst(battle, source, target, el) {
   }
 }
 
-/** Add `n` 麻痹 stacks (at most PALSY_MAX). */
+/**
+ * Add `n` 麻痹 stacks (at most PALSY_MAX).
+ * @param {number} n
+ */
 export function palsyBuff(n) {
   const stacks = Math.max(1, Math.min(PALSY_MAX, Math.floor(Number.isFinite(n) ? n : 1)));
   return { key: 'palsy', refresh: 'stack', stacks, maxStacks: PALSY_MAX, visible: true, status: 'palsy' };
@@ -658,7 +713,7 @@ export function palsyBuff(n) {
  * by `amount` on its own (PRTS 菲莱 备注: clearing = "一次等同于自身最大元素值（通常为1000）的全类型元素损伤治疗").
  * Returns the total removed. Nothing recovers during a burst cooldown ("爆发冷却状态下，单位所有类型的元素值均无法损失、
  * 无法被其他手段回复").
- * @param {string | null} [el]
+ * @param {Unit | null} target @param {number} amount @param {string | null} [el]
  */
 export function reduceElement(target, amount, el = null) {
   let removed = 0;
@@ -685,6 +740,8 @@ export function reduceElement(target, amount, el = null) {
  * A healer whose profile names the target in `healThrough(healer, target)` heals it through its 禁疗 — the `noHeal` flag
  * a summon's 禁疗 sets and the flag `healFree` (never a profile's `noHeal`, 无法被友方治疗: nothing passes that): 凯尔希 on her Mon3tr (PRTS
  * Mon3tr(凯尔希的召唤物) "持有禁疗（可被凯尔希…无视）"; her heal selection takes it too, Battle.injuredAlliesInKeys).
+ * @param {Battle} battle @param {Unit | null} source @param {Unit | null} target @param {number} amount
+ * @param {Record<string, any>} [opts]
  */
 export function heal(battle, source, target, amount, opts = {}) {
   if (!target || !target.alive || target.removed || !target.deployed || target.bossPool) return 0;
@@ -707,7 +764,7 @@ export function heal(battle, source, target, amount, opts = {}) {
   target.hp = Math.min(max, target.hp + actual);
   if (opts.overheal && amt > actual) {
     // overheal becomes a shield (capped at max HP) so hp stays within [0, maxHp]
-    const cur = target.findBuff('overheal');
+    const cur = /** @type {Buff | null} */ (target.findBuff('overheal'));
     const val = Math.min(max, (cur ? cur.shield : 0) + (amt - actual));
     battle.addBuff(target, { key: 'overheal', shield: val, duration: opts.overhealDuration ?? Infinity });
   }

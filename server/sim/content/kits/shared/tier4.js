@@ -215,7 +215,7 @@ const channel = {
 // DESIGN §5.6 documents `(bb, chess)`; content/index.js also passes the normalised def — rebuild it when absent.
 /** @import { KitBuilder } from './chessPick.js' */
 /** @param {Record<string, KitBuilder>} kits */
-const withDefaults = (kits) => Object.fromEntries(Object.entries(kits).map(([id, f]) => [id, (/** @type {Bb | null | undefined} */ bb, /** @type {KitChess} */ chess, /** @type {KitDef} */ def) => f(bb || {}, chess, def || normalizeChess(chess))]));
+const withDefaults = (kits) => Object.fromEntries(Object.entries(kits).map(([id, f]) => [id, (/** @type {Bb | null | undefined} */ bb, /** @type {KitChess} */ chess, /** @type {KitDef} */ def) => f(bb || {}, chess, def || normalizeChess(/** @type {NonNullable<KitChess>} */ (chess)))]));
 
 export {
   AURA, AURA_DUR, num, tbb, moduleBb, grid, batFlat, hasPower, enemyHasTag, keySet, enemiesOnRange, targetsInRange,

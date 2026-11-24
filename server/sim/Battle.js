@@ -91,13 +91,13 @@ export { pushTiles } from './battle/displacement.js';
  *   season?: unknown, logger?: any, recordEvents?: boolean, autoFinish?: boolean, data?: any,
  *   stage?: Record<string, any> | null, stageId?: string | null, wide?: unknown,
  *   rect?: { r0: number, r1: number, c0: number, c1: number }, timeLimit?: unknown, flags?: Record<string, any>,
- *   sharedBoss?: import('./units.js').BossPool | null, routes?: unknown[],
+ *   sharedBoss?: import('./units.js').BossPool | null, routes?: Record<string, any>[],
  *   enemyOverrides?: Record<string, any>, players?: PlayerInput[], spawns?: SpawnInput[], content?: string,
  *   extraContent?: import('./content/index.js').ExtraContent | null, setup?: (b: Battle) => void, [key: string]: any }} BattleOpts
  * The battle's flags (constructor): its DP knobs, the born state, the battle-start deployment's interval, and the
  * switches content and tests set.
  * @typedef {{ layerGainsEnabled: boolean, dpInit: number, dpPerSec: number, dpMax: number, bornTime: number,
- *   prebuiltInterval: number, noLayerCap?: boolean, [key: string]: any }} BattleFlags
+ *   prebuiltInterval: number, noLayerCap?: boolean, bossHitLimit?: number, bossHitClamp?: boolean, [key: string]: any }} BattleFlags
  */
 
 /** @type {Readonly<Record<string, { r0: number, r1: number, c0: number, c1: number }>>} */

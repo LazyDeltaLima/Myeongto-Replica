@@ -52,7 +52,7 @@ import { tacticalPoint as sharedTacticalPoint } from '../../tokens.js';
 /** @param {unknown} v @param {number} [d] */
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 /** @param {KitChess} chess @param {KitDef} def */
-const defOf = (chess, def) => def ?? normalizeChess(chess);
+const defOf = (chess, def) => def ?? normalizeChess(/** @type {NonNullable<KitChess>} */ (chess));
 /** @param {KitDef} d @param {number} i */
 const talentBb = (d, i) => d?.talents?.[i]?.bb ?? {};
 /** @param {KitDef} d */

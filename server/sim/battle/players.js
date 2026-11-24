@@ -279,7 +279,7 @@ export class BattlePlayers {
    * @this {Battle}
    */
   _tokenDef(tokenId, owner, inline) {
-    if (inline) return normalizeToken(tokenId, inline);
+    if (inline) return normalizeToken(/** @type {string} */ (tokenId), inline);
     if (!this.data.getToken) return null;
     if (owner && typeof owner === 'object') return this.data.getToken(tokenId, owner.defId ?? null, owner.def?.loadout ?? null);
     return this.data.getToken(tokenId, owner ?? null);

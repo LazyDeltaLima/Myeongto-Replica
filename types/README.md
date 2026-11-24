@@ -106,7 +106,7 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 (`server/*.js`), the split classes' parts `server/match/match/` and `server/match/player/`, the files directly under
 `server/match/` (`server/match/*.js`), and in `server/sim/content/` the kit registry (`kits/*.js`), the kit helpers
 (`kits/shared/`), `garrisons/`, `support/`, `bonds/`, `items/` and `bands/`, the `Battle` parts `server/sim/battle/`, and of
-the files directly under `server/sim/` all but `damage.js`, `simdata.js`, `skills.js`, `professions.js` and `ai.js`
+the files directly under `server/sim/` all but `skills.js`, `professions.js` and `ai.js`
 (listed one by one until those follow).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
@@ -347,6 +347,21 @@ most strict errors were, and the JSDoc that fixed them:
 - the targeting helpers (targeting.js) take `Unit`; a priority table is `Record<string, (e: Unit) => number>`, and a
   comparator chosen by a conditional (`trigFirst`'s `cmp`) takes its function type on the declaration, which types
   every branch. `Unit.trait` is `{}` (a profession's own state): a field read through a cast at the use.
+- the damage pipeline (damage.js) takes a descriptor as `DamageIn` (`Record<string, any>`: content passes its own
+  fields) and reads the normalised one as `DamageInfo` (`ReturnType<typeof makeDamageInfo> & Record<string, any>`,
+  cast once where `dealDamage` normalises it). A frozen table read by a string key that varies per entry
+  (`ELEMENT[el]`, whose `ally` / `enemy` fields differ by element) is cast to `Readonly<Record<string, any>>` at the
+  read. A unit stat a helper adds on first use (`stats.elem`) is written through a cast, `/** @type {{ elem?: number }} */
+  (source.stats).elem = …`.
+- the data layer (simdata.js) normalises JSON records: their parameters are `Record<string, any> | null | undefined`,
+  a value tested by `typeof` first is `unknown`, and the one that takes an array or an object (`pairOf`) or calls
+  itself on its fields (`normAttackAnim`, with `@returns {AttackAnim | null}` against TS7023) is `any`. The
+  `DataSource` raw lookups that go through `fallback` (`rawChess` …) take `@returns {Record<string, any> | null}`
+  (TS7023 otherwise); its def caches stay `Map<any, any>`, so `getChess` / `getToken` still return what they did.
+  `freezeDef` is generic (`@template T`). A number from `Number(v)` or null compared with `> 0` is cast at the
+  comparison (`normSkillCast`), and a loadout index the `skillIsDefault` check proves is cast at the index.
+  `normalizeChess` takes a record: a kit helper's `KitChess` (maybe absent) is cast with `NonNullable` where its
+  `def ?? normalizeChess(chess)` falls back.
 
 
 ## Split classes

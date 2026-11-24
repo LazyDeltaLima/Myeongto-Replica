@@ -48,10 +48,14 @@ import { normHitArea } from './body.js';
 // ---------------------------------------------------------------------------------------------------------------
 // generic helpers
 
-/** Flatten an Arknights blackboard `[{key,value,valueStr}]` (or a plain object) into `{ key: value }`. */
+/**
+ * Flatten an Arknights blackboard `[{key,value,valueStr}]` (or a plain object) into `{ key: value }`.
+ * @param {Record<string, any> | Record<string, any>[] | null | undefined} bb
+ */
 export function flattenBlackboard(bb) {
   if (!bb) return {};
   if (!Array.isArray(bb)) return { ...bb };
+  /** @type {Record<string, any>} */
   const out = {};
   for (const e of bb) {
     if (!e || e.key == null) continue;
@@ -61,18 +65,20 @@ export function flattenBlackboard(bb) {
   return out;
 }
 
-const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d));
+const num = (/** @type {unknown} */ v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d));
 
 /**
  * Is an items.json record a shop item — what the 调度中心 item slot, the 道具补给 / 机密商店 cards and the "random
  * item" pools (pool_equip_normal …) draw from: a normal EQUIP item with a tier, neither hidden by the official shop
  * table (`hideInShop`: the Arts) nor one of the effect-only items build-data marks `shopExcluded` (the special
  * 维式重锤 of 维多利亚 / 洛洛, 突变细胞 — tools/build-data.mjs SHOP_EXCLUDED_ITEMS).
+ * @param {Record<string, any> | null | undefined} it
  */
 export function isShopItem(it) {
   return !!it && typeof it === 'object' && !it.isGolden && !it.hideInShop && !it.shopExcluded && it.itemType === 'EQUIP' && Number.isInteger(it.tier);
 }
 
+/** @param {unknown} grid */
 function toArrayOfPairs(grid) {
   if (!Array.isArray(grid)) return null;
   const out = [];
@@ -83,6 +89,7 @@ function toArrayOfPairs(grid) {
   return out;
 }
 
+/** @param {unknown} v @param {string} [fallback] */
 export function normDmgType(v, fallback = 'phys') {
   if (v == null) return fallback;
   const s = String(Array.isArray(v) ? v[0] : v).toUpperCase();
@@ -95,6 +102,7 @@ export function normDmgType(v, fallback = 'phys') {
   return fallback;
 }
 
+/** @param {unknown} v */
 export function normSpType(v) {
   const s = String(v ?? '').toUpperCase();
   if (s.includes('TIME')) return 'time';
@@ -103,6 +111,7 @@ export function normSpType(v) {
   return 'none';
 }
 
+/** @param {unknown} v */
 export function normTriggerRule(v) {
   const s = String(v ?? 'DEFAULT').toUpperCase();
   if (s === 'ALWAYS' || s === 'SP_FULL') return 'SP_FULL';
@@ -113,7 +122,10 @@ export function normTriggerRule(v) {
 // ---------------------------------------------------------------------------------------------------------------
 // def normalisers
 
-/** Normalise the skill part of a chess/token record. Returns null when there is no skill. */
+/**
+ * Normalise the skill part of a chess/token record. Returns null when there is no skill.
+ * @param {Record<string, any> | null | undefined} rec
+ */
 export function normalizeSkill(rec) {
   const s = rec && (rec.skill ?? null);
   if (!s || typeof s !== 'object') return null;
@@ -159,26 +171,27 @@ export function normalizeSkill(rec) {
  * sim.md 「즉발 스킬의 시전」) → { mode: 'replace' | 'state' | 'free', begin, resetCd, time, cd, dur, hit, max, pre, wait, face }, or
  * null when absent. `time` null = no skill ability (a buff cast); `dur` null = its clip is not known; `max` −1 → Infinity
  * (no bound), absent → 1 (normAttackAnim).
+ * @param {Record<string, any> | null | undefined} c
  */
 export function normSkillCast(c) {
   if (!c || typeof c !== 'object' || !['replace', 'state', 'free'].includes(c.mode)) return null;
-  const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+  const n = (/** @type {unknown} */ v) => (Number.isFinite(Number(v)) ? Number(v) : null);
   const dur = n(c.dur), hit = n(c.hit), max = n(c.max), cd = n(c.cd), pre = n(c.pre), begin = n(c.begin);
   const time = Number.isInteger(c.time) ? c.time : null;
   return {
     mode: c.mode,
     // a 'state' cast's begin clip (s): the skill starts once it has played (skills.js beginTime)
-    begin: c.mode === 'state' && begin > 0 ? begin : 0,
+    begin: c.mode === 'state' && /** @type {number} */ (begin) > 0 ? begin : 0,
     resetCd: !!c.resetCd,
     // the cast is refused in the born state after a deployment (CastSkill `_canSwitchDuringBorn` / `_canCastDuringBorn`
     // off; skills.js _born)
     bornWait: !!c.bornWait,
     time,
-    cd: cd > 0 ? cd : 0,
-    dur: dur > 0 ? dur : null,
-    hit: dur > 0 && hit != null ? Math.min(dur, Math.max(0, hit)) : null,
+    cd: /** @type {number} */ (cd) > 0 ? cd : 0,
+    dur: /** @type {number} */ (dur) > 0 ? dur : null,
+    hit: /** @type {number} */ (dur) > 0 && hit != null ? Math.min(/** @type {number} */ (dur), Math.max(0, hit)) : null,
     max: max == null ? 1 : max < 0 ? Infinity : Math.max(0.1, max),
-    pre: pre > 0 ? pre : 0,
+    pre: /** @type {number} */ (pre) > 0 ? pre : 0,
     wait: c.wait !== 0 && c.wait !== false,
     // a ThreePart component plays the clip: the action lasts the ability's time (skills.js castTiming)
     hold: c.hold === 1,
@@ -198,10 +211,11 @@ export function normSkillCast(c) {
  * data skill `cast.trig` (tools/build-data.mjs skillTrig — a CastSkill's `_trigger`, docs/rules/sim.md 「스킬 프리팹의 대상
  * 트리거」) → { sel, min, side, motion, extend, filter, post, grid, notBuff, hpAtMost, cond }, or null without one. `post`: the
  * selector's `_postFilter` (targeting.js trigFirst).
+ * @param {Record<string, any> | null | undefined} t
  */
 function normSkillTrig(t) {
   if (!t || typeof t !== 'object' || typeof t.sel !== 'string') return null;
-  const int = (v, d) => (Number.isInteger(v) ? v : d);
+  const int = (/** @type {any} */ v, /** @type {number} */ d) => (Number.isInteger(v) ? v : d);
   return {
     sel: t.sel,
     min: Math.max(0, int(t.min, 1)),
@@ -211,7 +225,7 @@ function normSkillTrig(t) {
     filter: t.filter === 1,
     post: int(t.post, 0),
     grid: toArrayOfPairs(t.grid),
-    notBuff: Array.isArray(t.notBuff) ? t.notBuff.filter((k) => typeof k === 'string') : [],
+    notBuff: Array.isArray(t.notBuff) ? t.notBuff.filter((/** @type {unknown} */ k) => typeof k === 'string') : [],
     hpAtMost: Number.isFinite(t.hpAtMost) && t.hpAtMost > 0 ? t.hpAtMost : null,
     cond: t.cond === 1,
     // an ally selector's filters (skills.js _trigAllies): not the unit itself, these professions only (a mask of
@@ -223,6 +237,7 @@ function normSkillTrig(t) {
   };
 }
 
+/** @param {Record<string, any> | null | undefined} st */
 function normStats(st) {
   st = st || {};
   return {
@@ -246,16 +261,19 @@ function normStats(st) {
 /**
  * An OpDef as SimData hands it out: normalizeChess's def plus the loadout it was built for (getChess / getStandIn /
  * getDiy) and, for a 自选 slot, its summons' variant key (`tokenOwner`, shared/diy.js diyTokenOwner).
- * @typedef {ReturnType<typeof normalizeChess> & { loadout?: Record<string, any>, tokenOwner?: string }} ChessDef
+ * @typedef {ReturnType<typeof normalizeChess> & { loadout?: Record<string, any> | null, tokenOwner?: string }} ChessDef
  */
 
-/** Normalise a chess record (research 03 shape or data/chess.json shape) into an OpDef. */
+/**
+ * Normalise a chess record (research 03 shape or data/chess.json shape) into an OpDef.
+ * @param {Record<string, any>} rec
+ */
 export function normalizeChess(rec) {
   const id = rec.chessId ?? rec.id;
   const golden = !!(rec.isGolden ?? rec.golden ?? /_b$/.test(String(id)));
   const baseId = rec.baseChessId ?? rec.baseId ?? String(id).replace(/_b$/, '_a');
   const skill = normalizeSkill(rec);
-  const talents = (rec.talents ?? []).map((t) => ({
+  const talents = (rec.talents ?? []).map((/** @type {Record<string, any>} */ t) => ({
     name: t.name ?? '',
     description: t.description ?? t.desc ?? '',
     bb: t.bb ? { ...t.bb } : flattenBlackboard(t.blackboard),
@@ -319,20 +337,33 @@ export function normalizeChess(rec) {
 export const resolveLoadout = resolveRecordLoadout;
 export { composeStats, composeTalents, loadoutRecord };
 
-/** Cache key suffix of a resolved non-default loadout ('' for the default). */
+/**
+ * Cache key suffix of a resolved non-default loadout ('' for the default).
+ * @param {Record<string, any> | null | undefined} lo
+ */
 export function loadoutKey(lo) {
   return lo && !lo.isDefault ? `|s${lo.skillIndex}|m${lo.moduleId ?? ''}${lo.potentialIsDefault === false ? `|p${lo.potential}` : ''}` : '';
 }
 
-/** Build an immunity Set from an object `{stun:true,…}` or an array `['stun', 'feared']`. */
+/**
+ * Build an immunity Set from an object `{stun:true,…}` or an array `['stun', 'feared']`.
+ * @param {unknown} v @param {unknown} [extra]
+ */
 export function immuneSet(v, extra = null) {
   const out = new Set();
-  const add = (k) => out.add(String(k).replace(/Immune$/, '').toLowerCase());
+  const add = (/** @type {unknown} */ k) => out.add(String(k).replace(/Immune$/, '').toLowerCase());
   if (Array.isArray(v)) v.forEach(add);
-  else if (v && typeof v === 'object') for (const k of Object.keys(v)) if (v[k]) add(k);
+  else if (v && typeof v === 'object') for (const k of Object.keys(v)) if (/** @type {Record<string, unknown>} */ (v)[k]) add(k);
   if (Array.isArray(extra)) extra.forEach(add);
   return out;
 }
+
+/**
+ * normAttackAnim's record.
+ * @typedef {{ dur: number, born?: number, hit: number | null, max: number, pre: number, wait: boolean, sel: number,
+ *   face: number, begin: number, esc: number, det: boolean, ranged?: AttackAnim | null, combat?: AttackAnim | null,
+ *   sub?: AttackAnim | null, noClip?: boolean, mode0?: any, modes?: Record<string, AttackAnim | null> }} AttackAnim
+ */
 
 /**
  * An attack clip and its attack ability's timing (data/enemies.json `attackAnim`, data/chess.json `attackAnim.base` /
@@ -340,6 +371,8 @@ export function immuneSet(v, extra = null) {
  * OnAttack frame (null = none: the strike lands as the swing ends), the ability's `_maxAnimScale` (−1 → Infinity: no
  * bound; absent → 1, the rule before the client values were read), `_preDelay`, `_waitForAttackEvent` (absent → true)
  * and `_selectTargetTiming` (ai.js attackTiming), and where the swing turns its unit (`face`, ai.js swingFace).
+ * @param {any} a
+ * @returns {AttackAnim | null}
  */
 export function normAttackAnim(a) {
   const dur = a?.noClip ? 0 : Number(a?.dur);
@@ -378,11 +411,14 @@ export function normAttackAnim(a) {
   };
 }
 
-/** data/chess.json `attackAnim` { base, skills } → { base, skills } of normAttackAnim (a skill without a mode of its own: null), or null. */
+/**
+ * data/chess.json `attackAnim` { base, skills } → { base, skills } of normAttackAnim (a skill without a mode of its own: null), or null.
+ * @param {Record<string, any> | null | undefined} a
+ */
 function normOpAttackAnim(a) {
   if (!a || typeof a !== 'object') return null;
   const base = normAttackAnim(a.base);
-  const skills = Array.isArray(a.skills) ? a.skills.map((s) => normAttackAnim(s)) : [];
+  const skills = Array.isArray(a.skills) ? a.skills.map((/** @type {Record<string, any> | null} */ s) => normAttackAnim(s)) : [];
   return base || skills.some(Boolean) ? { base, skills } : null;
 }
 
@@ -390,6 +426,7 @@ function normOpAttackAnim(a) {
  * An official projectile of data/enemies.json (`proj`, `projModes[mode]`, `skills[i].proj`, `talentProj[name]` — tools/
  * build-data.mjs enemyProjectiles) → { key, move, speed, delay }, or null when malformed. `speed` in tiles per second
  * (0 = it does not fly), `delay` the AttachToTarget's `_delayToStart` (0 when none).
+ * @param {Record<string, any> | null | undefined} p
  */
 export function normShot(p) {
   if (!p || typeof p !== 'object' || typeof p.key !== 'string') return null;
@@ -405,10 +442,11 @@ export function normShot(p) {
  * the hit of an AttachToTarget shot that is not instant lands, s after it is fired (迷迭香 S2 1.2, 寒檀 S2 0.6 —
  * tools/local-extract/enemy_projectiles.py attach_land); `trace`: an AttachToTarget that hits its own target in the end
  * wherever that one stands, while it lives (烛煌 S3; the others hit only the enemies in their collider — ai.js).
+ * @param {Record<string, any> | null | undefined} s
  */
 function normOpShot(s) {
   if (!s || typeof s !== 'object') return undefined;
-  const one = (p) => {
+  const one = (/** @type {Record<string, any> | null} */ p) => {
     if (!p || typeof p !== 'object') return null;
     const n = normShot(typeof p.key === 'string' ? p : { ...p, key: '' });
     if (!n) return null;
@@ -423,37 +461,47 @@ function normOpShot(s) {
  * A model point of data/chess.json (a shot's `from`, a unit's `hitAt` — tools/build-data.mjs opMounts / opHitAt) →
  * { F: [du, dv], B: [du, dv] } in tiles on the model from its root (du along the Front model's facing, dv up; B the Back
  * model's, the Front one's when the data has none), or null when absent or malformed.
+ * @param {Record<string, any> | null | undefined} m
  */
 function normMount(m) {
-  const pair = (p) => (Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]) ? [p[0], p[1]] : null);
+  const pair = (/** @type {unknown} */ p) => (Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]) ? [p[0], p[1]] : null);
   const F = pair(m?.F);
-  return F ? { F, B: pair(m.B) ?? F } : null;
+  return F ? { F, B: pair(/** @type {Record<string, any>} */ (m).B) ?? F } : null;
 }
 
 /**
  * An enemy's `hitAt` (tools/build-data.mjs enemyHitAt) → normMount's { F, B } plus `modes` { <attack mode>: { F, B } } where
  * a mode puts the point elsewhere (a hit point that follows a bone: 守墓石像 `Fly`), or null.
+ * @param {Record<string, any> | null | undefined} m
  */
 function normHitAt(m) {
   const base = normMount(m);
   if (!base) return null;
+  /** @type {Record<string, typeof base>} */
   const modes = {};
-  for (const [k, v] of Object.entries(m.modes && typeof m.modes === 'object' ? m.modes : {})) {
+  for (const [k, v] of Object.entries(/** @type {Record<string, any>} */ (m).modes && typeof /** @type {Record<string, any>} */ (m).modes === 'object' ? /** @type {Record<string, any>} */ (m).modes : {})) {
     const n = normMount(v);
     if (n) modes[k] = n;
   }
   return Object.keys(modes).length ? { ...base, modes } : base;
 }
 
-/** { name: shot } of normShot (the `projModes` / `talentProj` maps), or null when empty. */
+/**
+ * { name: shot } of normShot (the `projModes` / `talentProj` maps), or null when empty.
+ * @param {Record<string, any> | null | undefined} m
+ */
 function normShots(m) {
   if (!m || typeof m !== 'object') return null;
+  /** @type {Record<string, NonNullable<ReturnType<typeof normShot>>>} */
   const out = {};
   for (const [k, v] of Object.entries(m)) { const s = normShot(v); if (s) out[k] = s; }
   return Object.keys(out).length ? out : null;
 }
 
-/** Normalise an enemy record (research 05 shape or data/enemies.json shape) into an EnemyDef. */
+/**
+ * Normalise an enemy record (research 05 shape or data/enemies.json shape) into an EnemyDef.
+ * @param {string} key @param {Record<string, any>} e
+ */
 export function normalizeEnemy(key, e) {
   const st = e.stats ?? e;
   const range = num(st.rangeRadius ?? st.range, 0);
@@ -517,7 +565,11 @@ export function normalizeEnemy(key, e) {
   };
 }
 
-/** Normalise a token record (+ optional owner-specific variant: `t.variants[ownerChessId]`). */
+/**
+ * Normalise a token record (+ optional owner-specific variant: `t.variants[ownerChessId]`).
+ * @param {string} id @param {Record<string, any>} t0 @param {string | null} [ownerChessId]
+ * @param {Record<string, any> | null} [variantOverride]
+ */
 export function normalizeToken(id, t0, ownerChessId = null, variantOverride = null) {
   const variant = variantOverride ?? (ownerChessId && t0.variants ? t0.variants[ownerChessId] : null);
   const t = variant ? { ...t0, ...variant } : t0;
@@ -548,7 +600,7 @@ export function normalizeToken(id, t0, ownerChessId = null, variantOverride = nu
     targetPriority: t.targetPriority ?? null,
     untargetable: t.untargetable ?? /不会受到攻击|不会成为/.test(desc),
     // abnormal effects held from deployment (tokens.json `abnormal`, the summon's prefab): 'healFree' 禁疗, 'isolated' 孤立
-    abnormal: Array.isArray(t0.abnormal) ? t0.abnormal.filter((x) => typeof x === 'string') : [],
+    abnormal: Array.isArray(t0.abnormal) ? t0.abnormal.filter((/** @type {unknown} */ x) => typeof x === 'string') : [],
     immune: immuneSet(t.immunities),
     trait: desc,
     traitBb: t.trait && typeof t.trait === 'object' ? { ...(t.trait.bb || {}) } : {},
@@ -560,8 +612,8 @@ export function normalizeToken(id, t0, ownerChessId = null, variantOverride = nu
     hitAt: normMount(t0.hitAt),
     // chess/token records carry a talent array; enemy-shaped records (炎佑 enemy_9012_acloon) one `{ bb, bbStr }` object
     talents: (Array.isArray(t.talents) ? t.talents : t.talents && typeof t.talents === 'object' ? [t.talents] : [])
-      .filter((x) => x && typeof x === 'object')
-      .map((x) => ({ name: x.name ?? '', description: x.desc ?? x.description ?? '', bb: x.bb ? { ...x.bb } : flattenBlackboard(x.blackboard), bbStr: x.bbStr ? { ...x.bbStr } : {}, rangeGrid: toArrayOfPairs(x.rangeGrid), tokenKey: x.tokenKey ?? null })),
+      .filter((/** @type {unknown} */ x) => x && typeof x === 'object')
+      .map((/** @type {Record<string, any>} */ x) => ({ name: x.name ?? '', description: x.desc ?? x.description ?? '', bb: x.bb ? { ...x.bb } : flattenBlackboard(x.blackboard), bbStr: x.bbStr ? { ...x.bbStr } : {}, rangeGrid: toArrayOfPairs(x.rangeGrid), tokenKey: x.tokenKey ?? null })),
     tokens: [],
     count: num(t.count, 1),
     // how the owner (with its loadout) produces this token: ⊆ ['talent','skill','display'] (data variant / bySkill);
@@ -576,13 +628,16 @@ export function normalizeToken(id, t0, ownerChessId = null, variantOverride = nu
 // ---------------------------------------------------------------------------------------------------------------
 // stage / route / wave helpers
 
-/** Accepts a stage entry and returns a sim-ready stage `{ id, rows (bottom-first strings), legend, devices }`. */
+/**
+ * Accepts a stage entry and returns a sim-ready stage `{ id, rows (bottom-first strings), legend, devices }`.
+ * @param {string} id @param {Record<string, any> | null | undefined} s
+ */
 export function normalizeStage(id, s) {
   if (!s) return null;
   if (s._norm) return s;
   let rows = s.rows ?? s.grid ?? null;
-  if (!rows && Array.isArray(s.rowsTopDown)) rows = [...s.rowsTopDown].reverse().map((l) => String(l).replace(/^\s*\d+\s/, ''));
-  const devices = (s.devices ?? []).map((d) => ({
+  if (!rows && Array.isArray(s.rowsTopDown)) rows = [...s.rowsTopDown].reverse().map((/** @type {unknown} */ l) => String(l).replace(/^\s*\d+\s/, ''));
+  const devices = (s.devices ?? []).map((/** @type {Record<string, any>} */ d) => ({
     key: d.key ?? d.id,
     name: d.name ?? d.key,
     row: num(d.row ?? (Array.isArray(d.pos) ? d.pos[0] : d.pos?.row), -1),
@@ -597,13 +652,17 @@ export function normalizeStage(id, s) {
   return { _norm: true, id: s.id ?? s.stageId ?? id, name: s.name ?? id, rows, legend: s.legend ?? s.tiles ?? null, devices, special: s.special ?? null, raw: s };
 }
 
+/** @param {any} v */
 function pairOf(v) {
   if (Array.isArray(v)) return [num(v[0]), num(v[1])];
   if (v && typeof v === 'object') return [num(v.row ?? v.r), num(v.col ?? v.c)];
   return null;
 }
 
-/** Normalise a route (research `{m,s,e,cp}` or data `{motion,start,end,checkpoints}`) into a RouteSpec. */
+/**
+ * Normalise a route (research `{m,s,e,cp}` or data `{motion,start,end,checkpoints}`) into a RouteSpec.
+ * @param {Record<string, any> | null | undefined} r
+ */
 export function normalizeRoute(r) {
   if (!r) return null;
   const m = String(r.motion ?? r.m ?? 'W').toUpperCase();
@@ -631,6 +690,7 @@ export function normalizeRoute(r) {
   return { motion, start, end, checkpoints: cps };
 }
 
+/** @param {unknown} t */
 function normCpType(t) {
   const s = String(t ?? 'MOVE').toUpperCase();
   if (s.includes('DISAPPEAR')) return 'DISAPPEAR';
@@ -644,6 +704,7 @@ function normCpType(t) {
  * Convert a wave template (research roundLevels entry or data/waves.json entry) into `{ routes, spawns }`.
  * Research actions: `{ key, n, pre, int, route }` inside waves[].fragments[].actions (times are cumulative:
  * wave.preDelay + fragment.preDelay + action.pre).
+ * @param {Record<string, any> | null | undefined} tpl @param {{ mods?: Record<string, any> | null, tag?: string }} [opts]
  */
 export function spawnsFromTemplate(tpl, { mods = null, tag = undefined } = {}) {
   if (!tpl) return { routes: [], spawns: [] };
@@ -654,6 +715,8 @@ export function spawnsFromTemplate(tpl, { mods = null, tag = undefined } = {}) {
       if (s.action && String(s.action).toUpperCase() !== 'SPAWN') continue; // non-spawn actions are content's job
       const key = s.enemyKey ?? s.key;
       if (!key) continue;
+      /** @type {{ time: number, enemyKey: any, routeIndex: number, count: number, interval: number, mods: any, tag: any, bounty: any,
+       *   sourcePlayerId: any, countInTotal?: boolean, hidden?: boolean, group?: any }} */
       const sp = {
         time: num(s.time ?? s.t, 0), enemyKey: key, routeIndex: num(s.routeIndex ?? s.route, 0),
         count: Math.max(1, num(s.count ?? s.n, 1)), interval: num(s.interval ?? s.int, 0),
@@ -693,11 +756,21 @@ export function spawnsFromTemplate(tpl, { mods = null, tag = undefined } = {}) {
 
 const IS_NODE = typeof process !== 'undefined' && !!(process && process.versions && process.versions.node);
 
-/** Node default loader (./nodeData.js) or null in browsers. */
+/**
+ * Node default loader (./nodeData.js) or null in browsers.
+ * @type {{ loadGenerated(): Promise<Record<string, any> | null>, reloadGenerated(): Promise<Record<string, any> | null>,
+ *   loadResearch(): Record<string, any> } | null}
+ */
 let nodeLoader = null;
-/** Raw generated data (Node: data/*.json) or the data injected with setSimData (browser). */
+/**
+ * Raw generated data (Node: data/*.json) or the data injected with setSimData (browser).
+ * @type {Record<string, any> | null}
+ */
 let generatedCache = null;
-/** Raw research maps (Node only; loaded lazily). */
+/**
+ * Raw research maps (Node only; loaded lazily).
+ * @type {Record<string, any> | null}
+ */
 let researchCache = null;
 let injected = false;
 
@@ -716,9 +789,11 @@ function loadResearch() {
   return researchCache;
 }
 
+/** @param {any} v @param {string} idKey */
 function asMap(v, idKey) {
   if (!v) return null;
   if (Array.isArray(v)) {
+    /** @type {Record<string, any>} */
     const m = {};
     for (const x of v) if (x && x[idKey] != null) m[x[idKey]] = x;
     return m;
@@ -727,6 +802,7 @@ function asMap(v, idKey) {
   return v;
 }
 
+/** @param {any} v @param {string} key */
 function unwrap(v, key) {
   if (v && typeof v === 'object' && !Array.isArray(v) && v[key] && typeof v[key] === 'object' && Object.keys(v).length <= 4) return v[key];
   return v;
@@ -737,13 +813,16 @@ function unwrap(v, key) {
  * the process: a kit or content module that mutated one (`bb.x = …`, `def.rangeGrid.push(…)`) would silently change
  * later battles and break determinism. Frozen, such a write throws inside the (guarded) content code instead.
  * `raw` (the source record) and Sets (immunities) are left as they are.
+ * @template T
+ * @param {T} d
+ * @returns {T}
  */
 export function freezeDef(d) {
   if (!d || typeof d !== 'object' || Object.isFrozen(d)) return d;
   Object.freeze(d);
   for (const k of Object.keys(d)) {
     if (k === 'raw') continue;
-    const v = d[k];
+    const v = /** @type {Record<string, unknown>} */ (d)[k];
     if (v && typeof v === 'object' && !(v instanceof Set) && !(v instanceof Map)) freezeDef(v);
   }
   return d;
@@ -756,6 +835,7 @@ export function freezeDef(d) {
  * garrisons, bands … of a battle from it (content/support/index.js dataFile).
  */
 export class DataSource {
+  /** @param {Record<string, any>} [raw] @param {DataSource | null} [fallback] */
   constructor(raw = {}, fallback = null) {
     this.all = raw && typeof raw === 'object' ? raw : {};
     this.raw = {
@@ -774,17 +854,27 @@ export class DataSource {
     this._stage = new Map();
   }
 
+  /** @param {string} id @returns {Record<string, any> | null} */
   rawChess(id) { return this.raw.chess[id] ?? this.fallback?.rawChess(id) ?? null; }
+  /** @param {string} key @returns {Record<string, any> | null} */
   rawEnemy(key) {
     return this.raw.enemies[key] ?? this.raw.enemies['enemy_' + key] ?? this.raw.enemies[String(key).replace(/^enemy_/, '')] ?? this.fallback?.rawEnemy(key) ?? null;
   }
-  /** A token record: data/tokens.json, else the 自选 picks' summons (data/backups.json `tokens`). */
+  /**
+   * A token record: data/tokens.json, else the 自选 picks' summons (data/backups.json `tokens`).
+   * @param {string} id @returns {Record<string, any> | null}
+   */
   rawToken(id) { return this.raw.tokens[id] ?? this.fallback?.rawToken(id) ?? this.rawBackups()?.tokens?.[id] ?? null; }
+  /** @param {string} id @returns {Record<string, any> | null} */
   rawStage(id) { return this.raw.stages[id] ?? this.fallback?.rawStage(id) ?? null; }
+  /** @param {string} id @returns {Record<string, any> | null} */
   rawWave(id) { return this.raw.waves[id] ?? this.fallback?.rawWave(id) ?? null; }
-  /** data/backups.json (`{ units, diy }`) of this source or its fallback, or null. */
+  /** data/backups.json (`{ units, diy }`) of this source or its fallback, or null. @returns {Record<string, any> | null} */
   rawBackups() { return this.raw.backups ?? (typeof this.fallback?.rawBackups === 'function' ? this.fallback.rawBackups() : null); }
-  /** A data/effects.json record of this source, its fallback, or the default game data (Node / the injected data). */
+  /**
+   * A data/effects.json record of this source, its fallback, or the default game data (Node / the injected data).
+   * @param {string} id @returns {Record<string, any> | null}
+   */
   rawEffect(id) {
     const own = this.raw.effects && Object.prototype.hasOwnProperty.call(this.raw.effects, id) ? this.raw.effects[id] : null;
     if (own) return own;
@@ -797,7 +887,7 @@ export class DataSource {
    * char_attribute_mul (shared/potential.js cultivateMul), or null.
    * @param {number} cultivate
    */
-  cultivateMul(cultivate) { return cultivateMul((id) => this.rawEffect(id), cultivate); }
+  cultivateMul(cultivate) { return cultivateMul((/** @type {string} */ id) => this.rawEffect(id), cultivate); }
 
   /**
    * Chess def for the default loadout, or for `loadout` `{ skillIndex, moduleId }` (DESIGN §16; resolved with
@@ -808,6 +898,7 @@ export class DataSource {
    * its own def for that loadout. `loadout.diy` (`{ charId, skillIndex, uniEquipId }`): the 自选 def of a DIY slot
    * (getDiy; null when the pick is not legal for that slot). `loadout.potential` (1–6): the record at that potential
    * (loadoutRecord; not for a stand-in).
+   * @param {string} id @param {Record<string, any> | null} [loadout]
    */
   getChess(id, loadout = null) {
     if (loadout && loadout.diy && typeof loadout.diy === 'object') return this.getDiy(id, loadout.diy, loadout.potential);
@@ -836,6 +927,7 @@ export class DataSource {
    * stand-in at the chess's status, `def.charId` the stand-in's, `def.standInFor` the replaced operator's charId,
    * `def.loadout` the backup selection (`isDefault`, `standIn: true`). Null for a chess without a stand-in (PRESET,
    * DIY) or when the data lacks it. Cached per id.
+   * @param {string} id
    */
   getStandIn(id) {
     const key = `${id}|standIn`;
@@ -878,14 +970,15 @@ export class DataSource {
       const own = rec.diyProto ? POTENTIAL_DEFAULT : pot;
       d.loadout = {
         ...resolveLoadout(rec, null), potential: own, potentialIsDefault: own === POTENTIAL_DEFAULT,
-        diy: { charId: rec.charId, skillIndex: rec.skill.index, uniEquipId: rec.module?.id ?? null },
+        diy: { charId: rec.charId, skillIndex: /** @type {NonNullable<typeof rec.skill>} */ (rec.skill).index, uniEquipId: rec.module?.id ?? null },
       };
-      d.tokenOwner = diyTokenOwner(rec.charId, rec.status);
+      d.tokenOwner = diyTokenOwner(/** @type {string} */ (rec.charId), rec.status);
       freezeDef(d);
     }
     this._chess.set(key, d);
     return d;
   }
+  /** @param {string} key */
   getEnemy(key) {
     if (this._enemy.has(key)) return this._enemy.get(key);
     const r = this.rawEnemy(key);
@@ -900,6 +993,7 @@ export class DataSource {
    * (token skill of that slot, count, sources) and `.byModule[id]` (module token attributes, trait, talents).
    * `def.sources` / `def.count` are those of the owner's loadout (a hand piece exists only when `sources` has more
    * than 'display'; PlayerState / the kits' skill summons read them from here).
+   * @param {string} id @param {string | null} [ownerChessId] @param {Record<string, any> | null} [ownerLoadout]
    */
   getToken(id, ownerChessId = null, ownerLoadout = null) {
     if (ownerChessId && ownerLoadout && ownerLoadout.diy && typeof ownerLoadout.diy === 'object') return this.getDiyToken(id, ownerChessId, ownerLoadout.diy, ownerLoadout.potential);
@@ -915,7 +1009,7 @@ export class DataSource {
     if (!r && ownerChessId) {
       // look inside the owner chess record
       const owner = this.rawChess(ownerChessId);
-      const t = (owner?.tokens ?? []).find((x) => x && typeof x === 'object' && (x.tokenId ?? x.id) === id);
+      const t = (owner?.tokens ?? []).find((/** @type {Record<string, any> | null} */ x) => x && typeof x === 'object' && (x.tokenId ?? x.id) === id);
       if (t) r = t;
     }
     let owner = ownerChessId;
@@ -929,8 +1023,8 @@ export class DataSource {
     // the owner's potential (0.2.2): the variant's talents (and counts) at it — before the skill / module parts merge
     if (variant && olo && olo.potentialIsDefault === false) variant = atPotential(variant, olo.potential);
     if (variant && olo && !olo.isDefault) {
-      if (!olo.skillIsDefault && variant.bySkill && variant.bySkill[olo.skillIndex]) variant = { ...variant, ...variant.bySkill[olo.skillIndex] };
-      if (!olo.moduleIsDefault && variant.byModule && variant.byModule[olo.moduleId]) variant = { ...variant, ...variant.byModule[olo.moduleId] };
+      if (!olo.skillIsDefault && variant.bySkill && variant.bySkill[/** @type {number} */ (olo.skillIndex)]) variant = { ...variant, ...variant.bySkill[/** @type {number} */ (olo.skillIndex)] };
+      if (!olo.moduleIsDefault && variant.byModule && variant.byModule[/** @type {string} */ (olo.moduleId)]) variant = { ...variant, ...variant.byModule[/** @type {string} */ (olo.moduleId)] };
     }
     const d = r ? freezeDef(normalizeToken(id, r, owner, variant)) : null;
     this._token.set(ck, d);
@@ -958,7 +1052,7 @@ export class DataSource {
     if (variant) variant = atPotential(variant, pot);
     if (variant) {
       const si = pick.skillIndex;
-      if (Number.isInteger(si) && variant.bySkill && variant.bySkill[si]) variant = { ...variant, ...variant.bySkill[si] };
+      if (Number.isInteger(si) && variant.bySkill && variant.bySkill[/** @type {number} */ (si)]) variant = { ...variant, ...variant.bySkill[/** @type {number} */ (si)] };
       const mid = pick.uniEquipId;
       if (typeof mid === 'string' && variant.byModule && variant.byModule[mid]) variant = { ...variant, ...variant.byModule[mid] };
     }
@@ -966,12 +1060,14 @@ export class DataSource {
     this._token.set(ck, d);
     return d;
   }
+  /** @param {string} id */
   getStage(id) {
     if (this._stage.has(id)) return this._stage.get(id);
     const d = normalizeStage(id, this.rawStage(id));
     this._stage.set(id, d);
     return d;
   }
+  /** @param {string} id */
   getWave(id) { return this.rawWave(id); }
   chessIds() {
     const s = new Set(Object.keys(this.raw.chess));
@@ -990,7 +1086,9 @@ export class DataSource {
   }
 }
 
+/** @type {DataSource | null} */
 let defaultSource = null;
+/** @type {DataSource | null} */
 let researchSource = null;
 
 /** Research-only data source (Node: docs/research JSON; browsers: empty). Used as fallback and by tests. */
@@ -1038,7 +1136,10 @@ export async function reloadDataSources() {
   defaultSource = null;
 }
 
-/** Build a DataSource from an injected object (maps or a DataSource instance). */
+/**
+ * Build a DataSource from an injected object (maps or a DataSource instance).
+ * @param {any} data
+ */
 export function toDataSource(data) {
   if (!data) return getDefaultSource();
   if (data instanceof DataSource) return data;
@@ -1058,8 +1159,8 @@ export function toDataSource(data) {
  * content/index.js installContent (every Battle, however constructed). An entry with `standIn: true` (补位) maps its
  * chess id to the stand-in def (`getChess(id, { standIn: true })`) the same way, and one with `diy` (自选: `{ charId,
  * skillIndex, uniEquipId }`) to its 自选 def (`getChess(id, { diy })`); a `potential` (1–6) rides along (0.2.2).
- * @param {object} ds DataSource
- * @param {object[]} players PlayerBattleInput[] (spec players)
+ * @param {Record<string, any>} ds DataSource
+ * @param {Record<string, any>[]} players PlayerBattleInput[] (spec players)
  */
 export function withUnitLoadouts(ds, players) {
   if (!ds || typeof ds.getChess !== 'function' || isLoadoutView(ds)) return ds;
@@ -1073,6 +1174,7 @@ export function withUnitLoadouts(ds, players) {
       const diy = u.diy && typeof u.diy === 'object' ? u.diy : null;
       const pot = u.standIn !== true && isPotential(u.potential) ? u.potential : null;
       if (u.skillIndex != null || u.moduleId != null || u.standIn === true || diy || pot != null) any = true;
+      /** @type {{ skillIndex: any, moduleId: any, standIn?: boolean, diy?: Record<string, any>, potential?: number }} */
       const lo = { skillIndex: u.skillIndex ?? null, moduleId: u.moduleId ?? null };
       if (u.standIn === true) lo.standIn = true;
       if (diy) lo.diy = diy;
@@ -1086,15 +1188,18 @@ export function withUnitLoadouts(ds, players) {
   }
   if (!any) return ds;
   const view = Object.create(ds);
-  view.getChess = (id, loadout = null) => ds.getChess(id, loadout ?? map.get(id) ?? null);
+  view.getChess = (/** @type {string} */ id, /** @type {Record<string, any> | null} */ loadout = null) => ds.getChess(id, loadout ?? map.get(id) ?? null);
   if (typeof ds.getToken === 'function') {
-    view.getToken = (id, owner = null, ownerLoadout = null) => ds.getToken(id, owner, ownerLoadout ?? (owner != null ? map.get(owner) ?? null : null));
+    view.getToken = (/** @type {string} */ id, /** @type {string | null} */ owner = null, /** @type {Record<string, any> | null} */ ownerLoadout = null) => ds.getToken(id, owner, ownerLoadout ?? (owner != null ? map.get(owner) ?? null : null));
   }
   view.loadoutConflicts = [...conflicts];
   return view;
 }
 
-/** Whether `ds` is a per-battle loadout view (withUnitLoadouts). */
+/**
+ * Whether `ds` is a per-battle loadout view (withUnitLoadouts).
+ * @param {unknown} ds
+ */
 export function isLoadoutView(ds) {
   return !!ds && typeof ds === 'object' && Object.prototype.hasOwnProperty.call(ds, 'loadoutConflicts');
 }
