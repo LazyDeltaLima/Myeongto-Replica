@@ -8,6 +8,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { shortcutBlocked, showDeadPill, closesOnFieldPress } from '../../public/js/ui/gameLogic.js';
 import { PHASE } from '../../shared/constants.js';
+// the inline JSDoc types of a callback's parameters (types/README.md 「Strict」) are not part of the wiring pinned here
+const INLINE_TYPES = /\/\*\* @type \{.*?\} \*\/ /g;
 
 describe('暂离 (AI 托管) is scoped to one match', () => {
   test('the flag survives in-match updates and is dropped when the match ends or its state is cleared', async () => {
@@ -72,7 +74,7 @@ describe('detail card vs a press on the field', () => {
     const h = src.slice(src.indexOf("view.on('pieceClick'"), src.indexOf("view.on('tileClick'"));
     assert.ok(h.length > 0);
     assert.match(h, /const penKey = previewEnemyKey\(e\);\s*if \(penKey\) \{ setDetail\(\{ kind: 'enemy', id: penKey, fromField: true \}\); return; \}/);
-    assert.match(src, /onEnemy=\$\{\(k, n\) => setDetail\(\{ kind: 'enemy', id: k, count: n, from: 'drawer' \}\)\}/, 'the drawer opens it without fromField');
+    assert.match(src.replace(INLINE_TYPES, ''), /onEnemy=\$\{\(k, n\) => setDetail\(\{ kind: 'enemy', id: k, count: n, from: 'drawer' \}\)\}/, 'the drawer opens it without fromField');
   });
 
   test('the field press handler closes the card whether or not a piece is selected', () => {

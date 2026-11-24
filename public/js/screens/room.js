@@ -85,6 +85,10 @@ import { RoomSeasonSeg, seasonName } from '../ui/season.js';
 import { modeArt, ModeSegs } from '../ui/modeCapsule.js';
 
 /**
+ * @typedef {NonNullable<ReturnType<typeof normalizeSeats>[number]>} RoomSeat a taken seat (normalizeSeats)
+ * @typedef {ReturnType<typeof roomFacts>} RoomFacts
+ */
+/**
  * Seats padded to the room's capacity (co-op 4 or its `size` 8, solo 1), each null or a seat record.
  * @param {any} room room.state payload
  * @returns {(null | {seat:number, playerId:any, name:string, isBot:boolean, ready:boolean, connected:boolean, card?:string})[]}
@@ -107,14 +111,14 @@ export function normalizeSeats(room) {
  */
 export function roomFacts(room, myId) {
   const seats = normalizeSeats(room);
-  const occupied = seats.filter(Boolean);
+  const occupied = /** @type {RoomSeat[]} */ (seats.filter(Boolean));
   const humans = occupied.filter((s) => !s.isBot);
   const mine = occupied.find((s) => s.playerId === myId) || null;
   const isHost = room?.hostId != null && room.hostId === myId;
   const others = humans.filter((s) => s.playerId !== myId);
   // The host never readies: starting the match is the host's ready (server rule), so the count
   // treats the host as ready — "已就绪 0/1" next to "准许进入模拟" would contradict itself.
-  const isReady = (s) => !!s.ready || s.playerId === room?.hostId;
+  const isReady = (/** @type {RoomSeat} */ s) => !!s.ready || s.playerId === room?.hostId;
   const readyHumans = humans.filter(isReady).length;
   const othersReady = others.every((s) => s.ready && s.connected !== false);
   // SP_MAX_BOTS (local patch): room.state maxBots, null = only the seats limit the AI teammates
@@ -132,7 +136,7 @@ export function roomFacts(room, myId) {
     canStart: isHost && othersReady && !!mine && !seatsOpen,
     othersReady,
     // spectator seats (never players: not in `humans`, never counted for ready / start)
-    spectators: Array.isArray(room?.spectators) ? room.spectators.filter((s) => s && typeof s === 'object') : [],
+    spectators: /** @type {any[]} */ (Array.isArray(room?.spectators) ? room.spectators.filter((/** @type {any} */ s) => s && typeof s === 'object') : []),
     spectatorSeats: SPECTATOR_SEATS.includes(room?.spectatorSeats) ? room.spectatorSeats : MIN_SPECTATORS,
     spectating: isSpectating(room, myId),
   };
@@ -188,7 +192,7 @@ export function toSpectateOption(room, facts) {
  */
 export function sizeOption(room, myId) {
   if (!room || room.mode === 'solo') return null;
-  const taken = normalizeSeats(room).filter(Boolean);
+  const taken = /** @type {RoomSeat[]} */ (normalizeSeats(room).filter(Boolean));
   return {
     size: seatsOf(room.size),
     editable: room.hostId != null && room.hostId === myId,
@@ -231,7 +235,10 @@ export function autoStartOption(room, myId) {
   return { on: room.autoStart === true };
 }
 
-/** The whole seconds left of a running auto start count (room.state.autoStartAt, server time), else null. */
+/**
+ * The whole seconds left of a running auto start count (room.state.autoStartAt, server time), else null.
+ * @param {any} room @param {number} now
+ */
 export function autoStartLeft(room, now) {
   return room && Number.isFinite(room.autoStartAt) ? Math.max(0, Math.ceil((room.autoStartAt - now) / 1000)) : null;
 }
@@ -239,6 +246,7 @@ export function autoStartLeft(room, now) {
 /**
  * Invite link for a room code (current page URL with ?room=CODE; a room of another 卫戍协议 season than the default adds
  * &season=<id>, so the invited title names it: ui/season.js).
+ * @param {string} code @param {string} [season]
  */
 export function inviteLink(code, season = DEFAULT_SEASON) {
   const loc = globalThis.location;
@@ -255,7 +263,7 @@ export function inviteLink(code, season = DEFAULT_SEASON) {
  * @returns {string}
  */
 export function inviteMessage(room, name) {
-  const difficulty = DIFFICULTY_NAMES[room?.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : '';
+  const difficulty = /** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[room?.difficulty] ? t(/** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[room.difficulty]) : '';
   const rs = resolveRuleset(room?.ruleset);
   const out = [
     `${inviteLink(room?.code ?? '', room?.season)} ${seasonOf(room?.season) === DEFAULT_SEASON
@@ -265,7 +273,7 @@ export function inviteMessage(room, name) {
   ];
   if (rs.custom) {
     const mode = DIFFICULTIES.includes(room.difficulty) ? getMode(modeIdFor('coop', room.difficulty)) : null;
-    const lookup = { bond: getBond, boss: getBoss, stage: (id) => data.lendable('stages', id), type: (id) => data.lendable('types', id) };
+    const lookup = { bond: getBond, boss: getBoss, stage: (/** @type {string} */ id) => data.lendable('stages', id), type: (/** @type {string} */ id) => data.lendable('types', id) };
     const lines = customSummary(rs.custom, {
       bans: officialBans(getConfig(), room.difficulty, room.size),
       rounds: Number.isInteger(mode?.lastRound) ? mode.lastRound : null,
@@ -286,7 +294,10 @@ export function inviteMessage(room, name) {
  */
 export { copyText };
 
-/** A picker tile's avatar; the name's first character when there is no art or it fails to load. */
+/**
+ * A picker tile's avatar; the name's first character when there is no art or it fails to load.
+ * @param {{ src: string | null, name: string }} props
+ */
 function CardThumb({ src, name }) {
   const [bad, setBad] = useState(false);
   return html`<span class="cardpick__img">${src && !bad
@@ -298,6 +309,7 @@ function CardThumb({ src, name }) {
  * 名片干员 picker (更换立绘 on one's own seat card): the operators a seat card can show (ui/seatCards.js, every offered season —
  * search by name, rarity tabs) and 默认, no pick: the card shows the operator chosen by the player id. Picking closes it;
  * the current choice takes the focus.
+ * @param {{ current: string, list: any[], m: any, onPick: (charId: string) => void, onClose: () => void }} props
  */
 function CardPicker({ current, list, m, onPick, onClose }) {
   const [q, setQ] = useState('');
@@ -412,6 +424,7 @@ function useSeatBox() {
  * empty seat: + 邀请 (copies the key; the first empty seat says so) and, for the host of a co-op room, 添加 AI 队友 in the
  * empty name card's place — nothing else (maintainer decision 2026-11-08); a spectator sees the event's waiting
  * figure. A portrait that fails to load gives way to the avatar frame.
+ * @param {{ seat: RoomSeat | null, index: number, room: any, facts: RoomFacts, myId: string | null, busy: string | null, onAddBot: () => void, onRemoveBot: (seat: number) => void, onKick: (seat: number, name: unknown, playerId: string) => void, onInvite: () => void, pics?: any[], operator?: any, onPickCard?: (() => void) | null, toSpectate?: { enabled: boolean, onClick: () => void } | null, firstEmpty?: boolean }} props
  */
 function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, pics = [], operator = null, onPickCard = null, toSpectate = null, firstEmpty = false }) {
   const [badArt, setBadArt] = useState(/** @type {string[]} */ ([]));
@@ -473,7 +486,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
     ${seat.isBot && facts.isHost ? html`<button type="button" class="rseat__kick" disabled=${busy === `rm${index}`} onClick=${() => onRemoveBot(index)}
       title=${t('移除该 AI 队友')} aria-label=${t('移除 AI 队友')}><${Icon} name="robot" /><${Icon} name="close" /></button>` : null}
     ${!seat.isBot && !isMe && facts.isHost ? html`<button type="button" class="rseat__kick" disabled=${busy === `kick${index}`}
-      onClick=${() => onKick(index, name, seat.playerId)} title=${t('将该博士移出同盟')} aria-label=${t('移出该博士')}><${Icon} name="user" /><${Icon} name="close" /></button>` : null}
+      onClick=${() => onKick(index, name, /** @type {string} */ (seat.playerId))} title=${t('将该博士移出同盟')} aria-label=${t('移出该博士')}><${Icon} name="user" /><${Icon} name="close" /></button>` : null}
     <div class="rseat__plate">
       ${isMe ? html`<span class="rseat__me" role="img" aria-label=${t('你')} title=${t('你')}><${Sprite} k="room/icon_self_room" fallback=${html`<${Icon} name="user" />`} /></span>` : null}
       <${AvatarFrame} size="sm" name=${seat.name} seat=${index} bot=${seat.isBot} self=${isMe} mark=${mark} />
@@ -500,6 +513,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
  * 观战席 in the status line: the count, the host's pick of the seat count (a co-op host always sees it) and 名单, which
  * opens the spectators upwards (host: ✕ frees a seat). The line stays one line however many watch (maintainer decision
  * 2026-11-08: six names in the line wrapped the status line onto three and pushed the seat cards up).
+ * @param {{ facts: RoomFacts, coop: boolean, myId: string | null, busy: string | null, onRemove: (playerId: string) => void, onSeats: (n: number) => void }} props
  */
 function SpectatorBar({ facts, coop, myId, busy, onRemove, onSeats }) {
   const picks = coop && facts.isHost;
@@ -514,10 +528,12 @@ function SpectatorBar({ facts, coop, myId, busy, onRemove, onSeats }) {
 /** A menu of the status line opening upwards (and the seat card's ⋯ menu): Escape or a press outside `ref` closes it. */
 function useUpMenu() {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLElement | null} */ (null));
   useEffect(() => {
     if (!open) return undefined;
-    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    /** @param {Event} e */
+    const close = (e) => { if (!ref.current?.contains(/** @type {Node | null} */ (e.target))) setOpen(false); };
+    /** @param {KeyboardEvent} e */
     const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('pointerdown', close, true);
     document.addEventListener('keydown', esc, true);
@@ -526,7 +542,10 @@ function useUpMenu() {
   return { open, setOpen, ref };
 }
 
-/** 名单: the spectators, folded into one button of the status line (their count is the label's) — whole names, 预约 n, the host's ✕. */
+/**
+ * 名单: the spectators, folded into one button of the status line (their count is the label's) — whole names, 预约 n, the host's ✕.
+ * @param {{ facts: RoomFacts, myId: string | null, busy: string | null, onRemove: (playerId: string) => void }} props
+ */
 function SpectatorRoster({ facts, myId, busy, onRemove }) {
   const { open, setOpen, ref } = useUpMenu();
   const reserved = facts.spectators.filter((s) => s.reserved).length;
@@ -546,7 +565,10 @@ function SpectatorRoster({ facts, myId, busy, onRemove }) {
   </span>`;
 }
 
-/** The 「AI 队友最后选择」 switch (co-op): the host toggles it, everybody else sees its state (由创建者设置 in its tooltip). */
+/**
+ * The 「AI 队友最后选择」 switch (co-op): the host toggles it, everybody else sees its state (由创建者设置 in its tooltip).
+ * @param {{ option: { on: boolean, editable: boolean } | null, busy: string | null, onToggle: (on: boolean) => void, short?: boolean }} props
+ */
 function AiLastToggle({ option, busy, onToggle, short = false }) {
   if (!option) return null;
   return html`<div class="ailast">
@@ -560,7 +582,10 @@ function AiLastToggle({ option, busy, onToggle, short = false }) {
   </div>`;
 }
 
-/** The host's 自动开始 switch beside 「AI 队友最后选择」: the same part, its tooltip says what it does (maintainer decision 2026-11-20). */
+/**
+ * The host's 自动开始 switch beside 「AI 队友最后选择」: the same part, its tooltip says what it does (maintainer decision 2026-11-20).
+ * @param {{ option: { on: boolean } | null, busy: string | null, onToggle: (on: boolean) => void }} props
+ */
 function AutoStartToggle({ option, busy, onToggle }) {
   if (!option) return null;
   return html`<div class="ailast">
@@ -576,9 +601,11 @@ function AutoStartToggle({ option, busy, onToggle }) {
 /**
  * The host's pick of the room's 观战席 count, in the status line: a menu opening upwards (the room's bottom bar is under
  * it, and on a phone the screen's edge). Never below the spectators seated. Escape or a press outside closes it.
+ * @param {{ facts: RoomFacts, busy: string | null, onPick: (n: number) => void }} props
  */
 function SpectatorSeatsSelect({ facts, busy, onPick }) {
   const { open, setOpen, ref } = useUpMenu();
+  /** @param {number} n */
   const pick = (n) => {
     setOpen(false);
     if (n !== facts.spectatorSeats) onPick(n);
@@ -606,6 +633,7 @@ function SpectatorSeatsSelect({ facts, busy, onPick }) {
  * press anywhere on it opens 选择模拟协议 (the event's switch has a touch area as wide as the bar). The switch is the
  * host's: anybody else opens the dialog read-only and sees none [ASSUMED·화면: the event's room was not recorded from a
  * guest's seat]. Without the sprites (an install without the art) the bar is a dark capsule with the project's icons.
+ * @param {{ room: any, rules: any, sizeOpt: ReturnType<typeof sizeOption>, info: any, editable: boolean, busy: string | null, onOpen: () => void }} props
  */
 function ModeBar({ room, rules, sizeOpt, info, editable, busy, onOpen }) {
   const art = modeArt(room.difficulty);
@@ -623,6 +651,7 @@ function ModeBar({ room, rules, sizeOpt, info, editable, busy, onOpen }) {
  * (auto_chess_mode_choice_pop_view btn_range_switch, track range_bg 237×50) as the project's `.rtrack`, the picked side a
  * white pill with its icon and name, the other side its grey icon alone. The host switches it (room.setPublic); anybody
  * else sees it read-only.
+ * @param {{ option: { on: boolean, editable: boolean } | null, busy: string | null, onPick: (on: boolean) => void }} props
  */
 function PublicToggle({ option, busy, onPick }) {
   if (!option) return null;
@@ -634,6 +663,7 @@ function PublicToggle({ option, busy, onPick }) {
 /**
  * The big button of the bottom right (开始模拟 / 准备就绪 / 已就绪 / 入座 / 预约座位 / 取消匹配 / 观战中), styled like
  * 选择模拟协议's. A disabled reason goes in the project's Tooltip around it (a native title never shows on touch).
+ * @param {{ label: any, onClick?: (() => void) | null, disabled: boolean, loading?: boolean, ready?: boolean | null, icon?: string | null, testid?: string | null }} props
  */
 function GoButton({ label, onClick = null, disabled, loading = false, ready = null, icon = null, testid = null }) {
   return html`<button type="button" class=${`proto-start rs-go${ready ? ' is-ready' : ''}`} disabled=${disabled} onClick=${onClick}
@@ -656,7 +686,7 @@ export function RoomScreen() {
   const conn = useStore((s) => s.connection, shallowEqual);
   const customRules = useStore((s) => s, Object.is, customRulesStore);
   const short = useMediaQuery(SHORT_SCREEN_QUERY);
-  const [busy, setBusy] = useState(null);
+  const [busy, setBusy] = useState(/** @type {string | null} */ (null));
   const seatBox = useSeatBox();
   const alive = useRef(true);
   const inFlight = useRef(false); // synchronous guard against double clicks (state updates are async)
@@ -697,7 +727,10 @@ export function RoomScreen() {
   const graded = isGrade(room.grade);
   const info = graded ? gradeInfo(room.grade) : difficultyInfo(room.mode, room.difficulty);
 
-  /** Runs one request at a time; resolves true once the server took it (false: not sent, or refused — toasted). */
+  /**
+   * Runs one request at a time; resolves true once the server took it (false: not sent, or refused — toasted).
+   * @param {string} kind @param {() => Promise<any>} fn
+   */
   const run = async (kind, fn) => {
     if (inFlight.current) return false;
     if (!online) { toast(t('连接中断，请稍候重试'), 'warn'); return false; }
@@ -712,31 +745,36 @@ export function RoomScreen() {
   const toggleReady = () => run('ready', () => net.request('room.ready', { ready: !myReady }));
   const start = () => run('start', () => net.request('room.start', {}));
   const addBot = () => run('add', () => net.request('room.addBot', {}));
+  /** @param {number} seat */
   const removeBot = (seat) => run(`rm${seat}`, () => net.request('room.removeBot', { seat }));
   // the host removes a human before the match (community report #17): asked first; the player may join again after 10
   // minutes (server/lobby.js room.kick, ERR.KICKED). The
   // confirmed player's id goes along: if they left and someone else took the seat meanwhile, the server refuses it.
+  /** @param {number} seat @param {unknown} name @param {string} playerId */
   const kick = async (seat, name, playerId) => {
     if (inFlight.current) return;
     const ok = await confirmDialog({ title: t('移出同盟'), text: t('确定将「{name}」移出同盟吗？对方 10 分钟内无法再次加入。', { name: name || t('博士') }), okText: t('移出'), danger: true });
     if (ok) run(`kick${seat}`, () => net.request('room.kick', { seat, playerId }));
   };
+  /** @param {boolean} on */
   const setAiLast = (on) => run('ailast', () => net.request('room.setAiPicksLast', { on }));
   // 콘솔 모드 (local patch: server/local-patch.js setConsole): a solo room only, before its match
+  /** @param {boolean} on */
   const setConsole = (on) => run('console', () => net.request('room.setConsole', { on }));
   const sizeOpt = sizeOption(room, me.playerId);
   // 4 → 8 frees the AI seats (the 8-player mode has none): asked first. Resolves true once the server took it.
+  /** @param {number} size */
   const setSize = async (size) => {
     if (inFlight.current) return false;
-    if (size > MAX_SEATS && sizeOpt?.bots > 0) {
-      const ok = await confirmDialog({ title: t('改为 8 人同盟'), text: t('八人同盟没有 AI 队友，{n} 名 AI 队友将被移出。确定改为 8 人同盟吗？', { n: sizeOpt.bots }), okText: t('改为 8 人') });
+    if (size > MAX_SEATS && /** @type {number} */ (sizeOpt?.bots) > 0) {
+      const ok = await confirmDialog({ title: t('改为 8 人同盟'), text: t('八人同盟没有 AI 队友，{n} 名 AI 队友将被移出。确定改为 8 人同盟吗？', { n: /** @type {NonNullable<typeof sizeOpt>} */ (sizeOpt).bots }), okText: t('改为 8 人') });
       if (!ok) return false;
     }
     return run('size', () => net.request('room.setSize', { size }));
   };
   const roomRules = resolveRuleset(room.ruleset);
   const isCustom = roomRules.preset === 'custom';
-  const rulesEditable = rulesetOption(room, me.playerId).editable;
+  const rulesEditable = /** @type {NonNullable<ReturnType<typeof rulesetOption>>} */ (rulesetOption(room, me.playerId)).editable;
   // 自定义 rules: the host edits the room's (sent at once), anybody else views them, live
   const customGear = !isCustom ? null
     : rulesEditable
@@ -745,6 +783,7 @@ export function RoomScreen() {
       : () => openCustomRules({ rules: roomRules.custom, readonly: true, roomMode: room.mode, difficulty: room.difficulty, grade: graded ? room.grade : null, size: room.size,
         live: () => store.get().room?.ruleset?.custom ?? null });
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
+  /** @param {string} playerId */
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
   const sit = () => run('sit', () => net.request('room.join', { code: room.code }));
   // and back: a Doctor of the room's lobby moves to a spectator seat (room.spectate of this room; server/lobby.js header)
@@ -757,14 +796,17 @@ export function RoomScreen() {
       run('tospec', () => net.request('room.spectate', { code: room.code }));
     },
   };
+  /** @param {number} seats */
   const setSpectatorSeats = (seats) => run('specseats', () => net.request('room.setSpectatorSeats', { seats }));
   // the next free seat (server/lobby.js header 「Seat reservation」): the toggle while none is free or one is reserved
   const myReserved = reservedRank(room, me.playerId);
   const reserve = () => run('reserve', () => net.request('room.reserveSeat', { on: !myReserved }));
   // 공개방 (header): the host puts the room on 同盟匹配's list or takes it off
   const pubOpt = publicOption(room, me.playerId);
+  /** @param {boolean} on */
   const setPublic = (on) => run('public', () => net.request('room.setPublic', { on }));
   const autoOpt = autoStartOption(room, me.playerId);
+  /** @param {boolean} on */
   const setAutoStart = (on) => run('autostart', () => net.request('room.setAutoStart', { on }));
   const autoLeft = autoStartLeft(room, serverNow());
   const leave = async () => {
@@ -778,7 +820,7 @@ export function RoomScreen() {
     setBusy('leave');
     try {
       await net.request('room.leave', {});
-    } catch (err) {
+    } catch (/** @type {any} */ err) {
       if (err?.code !== 'NOT_IN_ROOM') toastError(err);
     } finally {
       // Leaving locally is always safe: the server either confirmed or no longer has us in the room.
@@ -787,6 +829,7 @@ export function RoomScreen() {
       if (alive.current) setBusy(null);
     }
   };
+  /** @param {'code' | 'link'} what */
   const copy = async (what) => {
     const ok = await copyText(what === 'code' ? room.code : inviteMessage(room, me.name));
     if (ok) toast(what === 'code' ? t('已复制同盟密钥 {code}', { code: room.code }) : t('已复制邀请链接'), 'success');
@@ -808,7 +851,7 @@ export function RoomScreen() {
     if (sizeOpt && size !== sizeOpt.size && !(await setSize(size))) return;
     if (isGrade(grade)) {
       if (grade !== room.grade) {
-        if (!(await run('diff', () => net.request('room.setDifficulty', { difficulty: gradeDifficulty(grade), grade })))) return;
+        if (!(await run('diff', () => net.request('room.setDifficulty', { difficulty: gradeDifficulty(/** @type {number} */ (grade)), grade })))) return;
         savePref('lobby.grade', grade);
       }
     } else if (difficulty !== room.difficulty) {
@@ -874,7 +917,7 @@ export function RoomScreen() {
   const consoleBtn = coop ? null : html`<${ConsoleToggle} on=${room.console === true} busy=${busy === 'console'} disabled=${!online || !!room.inMatch} onToggle=${setConsole} />`;
 
   return html`<div class=${`screen room-screen rs${coop ? '' : ' rs--solo'}${coop ? ' has-chat' : ''}${facts.large ? ' rs--8' : ''}`}
-      style=${`--d-color:${DIFFICULTY_COLORS[room.difficulty] || 'var(--amber)'}; --n:${facts.large ? MAX_SEATS : facts.seats.length}`}>
+      style=${`--d-color:${/** @type {Record<string, string>} */ (DIFFICULTY_COLORS)[room.difficulty] || 'var(--amber)'}; --n:${facts.large ? MAX_SEATS : facts.seats.length}`}>
     <div class="rs__bg" aria-hidden="true"></div>
     <header class="topbar rs-top">
       <div class="topbar__left rs-top__left">
@@ -905,7 +948,7 @@ export function RoomScreen() {
       ${facts.seats.map((s, i) => {
         const op = seatOperator(s, cards, { myId: me.playerId, myCard });
         const skin = op ? seatCardSkin(s, op.chess.charId, { myId: me.playerId, localSkins: skins[SKINS_KEY], otherSkins, pack: skinPack }) : null;
-        const skinRow = skin && skins.catalog?.bySkin?.get(skin)?.owner === op.chess.charId ? skins.catalog.bySkin.get(skin) : null;
+        const skinRow = skin && skins.catalog?.bySkin?.get(skin)?.owner === /** @type {NonNullable<typeof op>} */ (op).chess.charId ? skins.catalog.bySkin.get(skin) : null;
         // the skin's 立绘 (once the skin data is downloaded and that copy cached), its portrait, then the default 立绘 and
         // portrait — each giving way to the next when it fails to load (docs/rules/ui.md 「명함 오퍼레이터」)
         const pics = op ? [
@@ -921,7 +964,7 @@ export function RoomScreen() {
       })}
       ${coop ? null : html`<aside class="solo-brief rs-brief brackets">
         <${MicroLabel} tone="mint">BRIEFING<//>
-        <h2>${graded ? gradeName(room.grade) : DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : ''} <span class="num t-dim">${info.code}</span></h2>
+        <h2>${graded ? gradeName(room.grade) : /** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[room.difficulty] ? t(/** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[room.difficulty]) : ''} <span class="num t-dim">${info.code}</span></h2>
         <p>${info.desc}</p>
         <ul>
           ${info.effects.map((e) => html`<li key=${e}>${e}</li>`)}
@@ -949,15 +992,15 @@ export function RoomScreen() {
         ${goButton}
       </div>
     </footer>
-    ${picking ? html`<${CardPicker} current=${myCard} list=${cardList} m=${m} onPick=${(id) => { setCard(id); setPicking(false); }} onClose=${() => setPicking(false)} />` : null}
+    ${picking ? html`<${CardPicker} current=${myCard} list=${cardList} m=${m} onPick=${(/** @type {string} */ id) => { setCard(id); setPicking(false); }} onClose=${() => setPicking(false)} />` : null}
     ${proto ? protoEditable
-      ? html`<${ProtocolSelect} roomMode=${protoMode} difficulty=${proto.difficulty} onDifficulty=${(d) => setProto({ ...proto, difficulty: d })}
-          grade=${proto.grade} onGrade=${(g) => setProto({ ...proto, grade: g })}
+      ? html`<${ProtocolSelect} roomMode=${protoMode} difficulty=${proto.difficulty} onDifficulty=${(/** @type {string} */ d) => setProto({ ...proto, difficulty: d })}
+          grade=${proto.grade} onGrade=${(/** @type {number | null} */ g) => setProto({ ...proto, grade: g })}
           onClose=${closeProto} onStart=${confirmProto} busy=${busy === 'diff' || busy === 'rules' || busy === 'size' ? 'create' : null} online=${online} action=${t('确认')} hint=${protoHint}
           brief=${html`<${CustomBrief} roomMode=${protoMode} ruleset=${proto.ruleset} customRules=${protoCustom} difficulty=${proto.difficulty} grade=${proto.grade} />`}
-          rules=${html`<${ProtoRules} roomMode=${protoMode} ruleset=${proto.ruleset} onRuleset=${(r) => setProto({ ...proto, ruleset: r })}
+          rules=${html`<${ProtoRules} roomMode=${protoMode} ruleset=${proto.ruleset} onRuleset=${(/** @type {string} */ r) => setProto({ ...proto, ruleset: r })}
             onGear=${editCustom} size=${proto.size}
-            onSize=${sizeOpt ? (n) => setProto({ ...proto, size: n }) : null} sizeLocked=${!!sizeOpt && proto.size > MAX_SEATS && !sizeOpt.shrinkable} />`} />`
+            onSize=${sizeOpt ? (/** @type {number} */ n) => setProto({ ...proto, size: n }) : null} sizeLocked=${!!sizeOpt && proto.size > MAX_SEATS && !sizeOpt.shrinkable} />`} />`
       : html`<${ProtocolSelect} roomMode=${protoMode} difficulty=${room.difficulty} onDifficulty=${() => {}} onClose=${closeProto} grade=${graded ? room.grade : null}
           online=${online} readOnly=${true}
           brief=${html`<${CustomBrief} roomMode=${protoMode} ruleset=${roomRules.preset} difficulty=${room.difficulty} grade=${graded ? room.grade : null}

@@ -42,6 +42,7 @@ import { t, tParts } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 import { resolveRuleset, seasonOfficialOptions } from '../../../shared/ruleset.js';
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** INFO_CHECK screen. */
@@ -54,7 +55,7 @@ export function BriefingScreen() {
   const matchNo = useStore((s) => s.room?.matchNo ?? 0);
   const season = useStore((s) => s.room?.season ?? null);
   const [exit, setExit] = useState(false);
-  const [busy, setBusy] = useState(null);
+  const [busy, setBusy] = useState(/** @type {string | null} */ (null));
   // the server refuses 重新抽取 in the briefing's first second (phases.js INFO_REROLL_MIN_MS): the button waits as long
   const [armed, setArmed] = useState(false);
   useEffect(() => {
@@ -80,6 +81,7 @@ export function BriefingScreen() {
   const info = matchInfoModel(pub, { bonds: gd.list('bonds'), chess: gd.chess, mode, priv, diyData: { chess: data.get('chess'), backups: data.get('backups') } });
   const rules = { ...resolveRuleset(pub.ruleset).options, ...seasonOfficialOptions(season) };
 
+  /** @param {'ready' | 'reroll'} kind */
   const vote = (kind) => async () => {
     if (busy || closing) return;
     // a reroll vote can be taken back in co-op (the button turns into 取消重新抽取); 准备就绪 is final
@@ -155,13 +157,14 @@ function GroupsTitle({ kind, title, tip = null }) {
  * @param {{ pub: any, info: any, me: any, closing: boolean, mode: any, gd: any }} props
  */
 function GroupsMain({ pub, info, me, closing, mode, gd }) {
-  const [side, setSide] = useState(null); // 'boss' | the 特训敌人 type whose description is open
+  const [side, setSide] = useState(/** @type {string | null} */ (null)); // 'boss' | the 特训敌人 type whose description is open
   const [zoom, setZoom] = useState(false);
   const [busy, setBusy] = useState(false);
   const hint = useRef(null);
   const hintText = t('请选择一组在本次模拟中激活的盟约，未被选择的盟约将不会出现在本次模拟中');
   useFitLine(hint, hintText);
   const canPick = !!me && !me.ready && !closing;
+  /** @param {number} i */
   const pick = async (i) => {
     if (!canPick || busy || info.groups.picked === i) return;
     setBusy(true);
@@ -176,6 +179,7 @@ function GroupsMain({ pub, info, me, closing, mode, gd }) {
   const vars = [['--a-right', 'img_right_bg'], ['--a-rdeco', 'img_stage_info_right_ecoration'], ['--a-map', 'bg_map'], ['--a-zoom', 'img_check'],
     ['--a-frame', 'img_enemy_frame'], ['--a-tag', 'bg_enemy_title'], ['--a-type', 'bg_enemy_type'], ['--a-title', 'img_group_title'], ['--a-row', 'img_content_bkg']]
     .map(([k, n]) => [k, stageArt(n)]).filter(([, u]) => u).map(([k, u]) => `${k}:url("${u}")`).join(';');
+  /** @param {string} k */
   const toggle = (k) => setSide((v) => (v === k ? null : k));
   return html`<main class="brief__main brief2" style=${vars || null} data-testid="brief-groups">
     <section class="brief2__left">
@@ -183,7 +187,7 @@ function GroupsMain({ pub, info, me, closing, mode, gd }) {
       <${BondGroups} model=${info} onPick=${canPick ? pick : null}
         hint=${html`<span ref=${hint} class="brief2__hint">${hintText}</span>`} />
       <${GroupsTitle} kind="addon" title=${t('附加盟约')} tip=${info.addonIncomplete ? html`<${IncompleteTip} />` : null} />
-      <div class="brief2__addon">${info.addon.map((b) => html`<div key=${b.bondId} class="brief2__cell" data-bond=${b.bondId}>
+      <div class="brief2__addon">${info.addon.map((/** @type {any} */ b) => html`<div key=${b.bondId} class="brief2__cell" data-bond=${b.bondId}>
         <span class="bgrp__bond" title=${b.name}><${InfoBond} bond=${b} off=${!!info.stateOf(b.bondId)} /></span>
       </div>`)}</div>
       <${BannedOperators} model=${info} />
@@ -204,7 +208,7 @@ function GroupsMain({ pub, info, me, closing, mode, gd }) {
       </button>
       ${side === 'boss' ? html`<div class="brief2-desc" data-testid="brief-leader-desc">
         <span class="brief2-desc__round">${tParts('第 {r} 回合 · 最终攻势', { r: html`<b class="num">${pub.bossRound ?? mode?.bossRound ?? pub.lastRound ?? 14}</b>` })}</span>
-        ${Array.isArray(boss?.abilities) && boss.abilities.length ? html`<ul>${boss.abilities.slice(0, 3).map((a, i) => html`<li key=${i}><${RichText} text=${a} /></li>`)}</ul>` : null}
+        ${Array.isArray(boss?.abilities) && boss.abilities.length ? html`<ul>${boss.abilities.slice(0, 3).map((/** @type {string} */ a, /** @type {number} */ i) => html`<li key=${i}><${RichText} text=${a} /></li>`)}</ul>` : null}
       </div>` : null}
       <div class="brief2-types">${types.map((ty) => html`<div key=${ty}>
         <button type="button" class=${'brief2-type' + (side === ty ? ' is-open' : '')} data-type=${ty} aria-expanded=${side === ty ? 'true' : 'false'} onClick=${() => toggle(ty)}>

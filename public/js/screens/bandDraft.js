@@ -78,6 +78,7 @@ import { t, tParts, tName, N_ } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 import { applyPresetChoice } from '../ui/factionPick.js';
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /**
@@ -179,18 +180,25 @@ function useSkipArrow() {
  * 规程's strategy sections (activity_table bandDataListDict `bandType`, bands.json) in the draft grid, with the official
  * captions: 泛用型策略 (GENERAL) and 盟约型策略 (BONDRELEVANT, sorted after them by sortId) — official draft recordings
  * (upstream 042f47d3 / 7a52854a: BV11NW869ELq part 4 0:28, BV13LWM6BEvY match 1 1:36). A season without bandType has none.
+ * @type {Readonly<Record<string, Readonly<{ id: string, name: string, icon: string }>>>}
  */
 export const BAND_SECTIONS = Object.freeze({
   GENERAL: Object.freeze({ id: 'general', name: N_('泛用型策略'), icon: 'crown' }),
   BONDRELEVANT: Object.freeze({ id: 'bond', name: N_('盟约型策略'), icon: 'link' }),
 });
 
-/** 本局禁用 on a strategy card whose bonds `names` the mode switches off (bandOffBonds); nothing otherwise. */
+/**
+ * 本局禁用 on a strategy card whose bonds `names` the mode switches off (bandOffBonds); nothing otherwise.
+ * @param {{ names?: string[] }} props
+ */
 export function BandOffTag({ names = [] }) {
   return names.length ? html`<span class="dband__off" title=${bandOffLine(names)}>${t('本局禁用')}</span>` : null;
 }
 
-/** The detail pane's note for such a strategy: "本局禁用【拉特兰】盟约，此策略效果可能无法发挥" (the bond names struck through). */
+/**
+ * The detail pane's note for such a strategy: "本局禁用【拉特兰】盟约，此策略效果可能无法发挥" (the bond names struck through).
+ * @param {{ names?: string[] }} props
+ */
 export function BandOffNote({ names = [] }) {
   if (!names.length) return null;
   return html`<p class="draft-detail__off" role="note" aria-label=${bandOffLine(names)}><${Icon} name="info" /><span>${tParts('本局禁用{names}盟约，此策略效果可能无法发挥', { names: names.map((n, i) => html`<span key=${i}>${tParts('【{name}】', { name: html`<s class="draft-detail__offname">${n}</s>` })}</span>`) })}</span></p>`;
@@ -206,6 +214,7 @@ export function BandOffNote({ names = [] }) {
  * @param {boolean} [lpShared] the custom 「所有回合共享目标生命值」 is on in this (non-solo) match
  */
 export function allowedBands(bands, modeType, modeId = null, lpShared = false) {
+  /** @param {any} b */
   const sid = (b) => (Number.isFinite(b.sortId) ? b.sortId : 99);
   return (Array.isArray(bands) ? bands : [])
     .filter((b) => b && (!modeType || !Array.isArray(b.modeTypeList) || b.modeTypeList.includes(modeType)))
@@ -228,7 +237,7 @@ export const DEFAULT_TIMEOUT_BAND = 'band_bldsk';
  */
 export function timeoutBand(bands, taken, defaultId = DEFAULT_TIMEOUT_BAND) {
   const list = Array.isArray(bands) ? bands : [];
-  const has = (id) => !!(taken && typeof taken.has === 'function' && taken.has(id));
+  const has = (/** @type {string} */ id) => !!(taken && typeof taken.has === 'function' && taken.has(id));
   if (defaultId && !has(defaultId) && (!list.length || list.some((b) => b.bandId === defaultId))) return defaultId;
   return list.find((b) => !has(b.bandId))?.bandId || defaultId || null;
 }
@@ -283,7 +292,7 @@ export function draftSelection(sel, { bands, taken, myPick, myTurn, defaultId = 
 export function autoPickBand(sel, { bands, taken, myPick = null, defaultId = DEFAULT_TIMEOUT_BAND }) {
   if (myPick) return null;
   const list = Array.isArray(bands) ? bands : [];
-  const has = (id) => !!(taken && typeof taken.has === 'function' && taken.has(id));
+  const has = (/** @type {string} */ id) => !!(taken && typeof taken.has === 'function' && taken.has(id));
   if (sel && !has(sel) && list.some((b) => b.bandId === sel)) return sel;
   return timeoutBand(list, taken, defaultId);
 }
@@ -297,7 +306,7 @@ export function autoPickBand(sel, { bands, taken, myPick = null, defaultId = DEF
 export function draftTip({ timed, turnSeconds = null, autoName = null, selected = true }) {
   const skip = t('联合模拟在选择策略时可以进行一次跳过');
   if (!timed) return t('{skip}；本局不限时', { skip });
-  const clock = Number(turnSeconds) > 0 ? t('每位博士有 {n} 秒', { n: Math.round(turnSeconds) }) : t('每位博士限时决策');
+  const clock = Number(turnSeconds) > 0 ? t('每位博士有 {n} 秒', { n: Math.round(/** @type {number} */ (turnSeconds)) }) : t('每位博士限时决策');
   if (!autoName) return t('{skip}；{clock}', { skip, clock });
   return selected ? t('{skip}；{clock}，超时将自动选择当前选中的「{autoName}」', { skip, clock, autoName })
     : t('{skip}；{clock}，超时将自动选择「{autoName}」', { skip, clock, autoName });
@@ -363,24 +372,26 @@ let presetAppliedFor = '';
  */
 export function draftInfoStatus({ myPick = null, pickName = null, myTurn, turnName = null, secs = null, waiting = false }) {
   if (myPick) return { text: `${t('已选择「{name}」', { name: pickName || '' })}${waiting ? t('，等待其他博士') : ''}`, secs: null, tone: 'mint' };
-  const s = Number.isFinite(secs) ? Math.max(0, Math.round(secs)) : null;
+  const s = Number.isFinite(secs) ? Math.max(0, Math.round(/** @type {number} */ (secs))) : null;
   const tone = s != null && s <= 10 ? 'warn' : 'gold';
   if (myTurn) return { text: t('轮到你决策'), secs: s, tone };
   return { text: turnName ? t('{turnName} 决策中', { turnName }) : t('等待轮到你'), secs: s, tone: s != null ? tone : 'dim' };
 }
 
-/** A 自选 pick's operator (backups.json units; the slot's preview): its name and avatar (the 自选编队 tab's own icon). */
+/** A 自选 pick's operator (backups.json units; the slot's preview): its name and avatar (the 自选编队 tab's own icon). @param {any} pick */
 const pickUnit = (pick) => (pick?.charId ? data.get('backups')?.units?.[pick.charId] || { charId: pick.charId } : null);
+/** @param {any} m @param {any} u */
 const pickAvatar = (m, u) => (u ? chessAvatarUrl(m, { charId: u.charId, assets: { avatar: u.assets?.avatar } }) : null);
-/** A DIY slot's tier from its id (chess_char_<tier>_diy…) when the slot list is not loaded. */
+/** A DIY slot's tier from its id (chess_char_<tier>_diy…) when the slot list is not loaded. @param {string} id */
 const slotTier = (id) => Number(/^chess_char_(\d)_/.exec(id)?.[1]) || null;
 
+/** @typedef {{ v: string, label: string, f?: any, empty?: boolean, off?: boolean }} PresetOption a choice of the 自选预设 row */
 /**
  * The roster choices of the 自选预设 row: 保持当前编队 (`keep`; not on 规程's 确定自选编队, whose cards are the roster in
  * use), 不使用预设, then the season's chat factions (their icon, 未设置 when the faction has no preset, 本局禁用 when this
  * match disables its bond).
  * @param {Record<string, any>} presets @param {string[]|null} off @param {{ keep?: boolean }} [o]
- * @returns {Array<{ v: string, label: string, f?: any, empty?: boolean, off?: boolean }>}
+ * @returns {PresetOption[]}
  */
 export function presetOptions(presets, off, { keep = true } = {}) {
   const offIds = Array.isArray(off) ? off : [];
@@ -403,14 +414,14 @@ export function presetOptions(presets, off, { keep = true } = {}) {
  */
 export function PresetPicker({ choice, presets, off, locked, onChoice, keep = true }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLElement | null} */ (null));
   useEffect(() => { if (locked) setOpen(false); }, [locked]);
   // the opened list floats over the pane (maintainer request 2026-10-13: opening it must not grow the pane into a scroll):
   // fixed under the button, or above it when the viewport has no room below, as wide as the button
   useLayoutEffect(() => {
     if (!open) return;
     const btn = ref.current?.querySelector('.draft-preset__sel');
-    const list = ref.current?.querySelector('.draft-preset__list');
+    const list = /** @type {HTMLElement | null | undefined} */ (ref.current?.querySelector('.draft-preset__list'));
     if (!btn || !list) return;
     const r = btn.getBoundingClientRect();
     const h = list.offsetHeight;
@@ -424,10 +435,13 @@ export function PresetPicker({ choice, presets, off, locked, onChoice, keep = tr
   }, [open]);
   useEffect(() => {
     if (!open) return undefined;
-    const away = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    /** @param {Event} e */
+    const away = (e) => { if (ref.current && !ref.current.contains(/** @type {Node | null} */ (e.target))) setOpen(false); };
+    /** @param {KeyboardEvent} e */
     const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } };
     // a fixed list would stay behind when the pane scrolls or the window resizes: close it instead
-    const moved = (e) => { if (!ref.current?.querySelector('.draft-preset__list')?.contains(e.target)) setOpen(false); };
+    /** @param {Event} e */
+    const moved = (e) => { if (!ref.current?.querySelector('.draft-preset__list')?.contains(/** @type {Node | null} */ (e.target))) setOpen(false); };
     const resized = () => setOpen(false);
     document.addEventListener('pointerdown', away, true);
     document.addEventListener('keydown', esc, true);
@@ -441,11 +455,14 @@ export function PresetPicker({ choice, presets, off, locked, onChoice, keep = tr
   const opts = presetOptions(presets, off, { keep });
   const cur = opts.find((o) => o.v === choice) || opts[0];
   const ban = localAsset('ui/outer', 'img_bond_banned');
+  /** @param {PresetOption} o */
   const tip = (o) => [o.label, o.empty && t('尚未设置预设'), o.off && t('本局禁用')].filter(Boolean).join(' · ');
   // 保持当前编队 ✓ / 不使用预设 − (glyphs: they have no faction icon)
+  /** @param {PresetOption} o */
   const line = (o) => html`<span class="draft-preset__icw">${o.f ? html`<${FactionIcon} f=${o.f} class="chat__facico draft-preset__ico" />`
     : html`<${Icon} name=${o.v === KEEP_LINK ? 'check' : 'minus'} class="draft-preset__ico is-glyph" />`}
     ${o.off && ban ? html`<img class="draft-preset__ban" src=${ban} alt="" draggable=${false} />` : null}</span><span class="draft-preset__optname">${o.label}</span>`;
+  /** @param {PresetOption} o */
   const stateCls = (o) => cx(o.empty && 'is-empty', o.off && 'is-off');
   return html`<div class="draft-preset__pick" ref=${ref}>
     <button type="button" id="draft-preset-sel" data-testid="draft-preset-select" data-value=${cur.v}
@@ -482,6 +499,7 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
   const list = slots.length ? slots.map((x) => ({ id: x.slotId, tier: x.tier, shop: x.shopLevel }))
     : Object.keys(picks || {}).map((id) => ({ id, tier: slotTier(id), shop: slotTier(id) }));
   // the slots by tier, in slot order (5阶 ×2, 6阶 ×2)
+  /** @type {{ tier: number | null, shop: number | null, slots: typeof list }[]} */
   const groups = [];
   for (const x of list) {
     const g = groups.find((y) => y.tier === x.tier);
@@ -492,8 +510,9 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
   // a pick whose every bond is off this match would never reach the shop: drawn as the briefing's banned operators
   const offSet = new Set(Array.isArray(off) ? off : []);
   const diyData = { chess: data.get('chess'), backups: data.get('backups') };
+  /** @param {string} id */
   const getChess = (id) => data.lookup('chess', id);
-  const rule = { coreBan: seasonFeature(store.get().room?.season, 'coreBondBan'), isCore: (b) => !!data.lookup('bonds', b)?.isCore };
+  const rule = { coreBan: seasonFeature(store.get().room?.season, 'coreBondBan'), isCore: (/** @type {string} */ b) => !!data.lookup('bonds', b)?.isCore };
   return html`<div class="draft-preset" data-testid="draft-preset">
     <div class="draft-preset__head" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><${MicroLabel} tone="mint">DIY PRESET</${MicroLabel}><label for="draft-preset-sel">${t('自选预设')}</label>
       ${tags.map((k) => html`<span key=${k} class=${`draft-preset__tag is-${TAG[k][0]}`}>${TAG[k][1]}</span>`)}</div>
@@ -532,7 +551,7 @@ export function DraftPresetRow({ band, choice, link, presets, base, live, off, l
     </div>`)}</div>
     <div class="draft-preset__foot">
       <label class="draft-preset__keep" title=${t('确认选择时套用，超时自动选择时也会套用；选择阵营预设时聊天阵营一并切换')}><input type="checkbox"
-        checked=${remember && choice !== KEEP_LINK} disabled=${locked || choice === KEEP_LINK} onChange=${(e) => onRemember(e.currentTarget.checked)} />${t('记住此策略的预设')}</label>
+        checked=${remember && choice !== KEEP_LINK} disabled=${locked || choice === KEEP_LINK} onChange=${(/** @type {{ currentTarget: HTMLInputElement }} */ e) => onRemember(e.currentTarget.checked)} />${t('记住此策略的预设')}</label>
       ${onEdit ? html`<${Button} variant="ghost" size="sm" icon="edit" class="draft-preset__edit" data-testid="draft-preset-edit" disabled=${locked}
         title=${t('在自选编队中编辑此预设')} onClick=${() => onEdit()}>${t('编辑自选编队')}<//>` : null}
     </div>
@@ -566,6 +585,9 @@ export function DraftInfoButtons({ onIntel, onInfo }) {
   </div>`;
 }
 
+/**
+ * @param {{ p: any, i: number, picked: string | null, cur: boolean, self: boolean, ready: boolean, gd: any, art?: string | null, checked?: boolean }} props
+ */
 export function OrderRow({ p, i, picked, cur, self, ready, gd, art = null, checked = !!picked }) {
   const [badArt, setBadArt] = useState(/** @type {string[]} */ ([]));
   const shownArt = seatArtSrc([art], badArt);
@@ -589,7 +611,10 @@ export function OrderRow({ p, i, picked, cur, self, ready, gd, art = null, check
   </div>`;
 }
 
-/** 「【effect】 description」 of a strategy (the data's description usually opens with the 【effect】 already). */
+/**
+ * 「【effect】 description」 of a strategy (the data's description usually opens with the 【effect】 already).
+ * @param {{ band: any, class?: string }} props
+ */
 function BandText({ band, class: cls }) {
   const text = band.descRaw || band.desc || '';
   const head = band.effectName && !String(text).includes(`【${band.effectName}】`) ? `【${band.effectName}】` : '';
@@ -609,7 +634,7 @@ export function useOrderArt(gd, myId) {
   // the seat's skin as on its seat card (ui/seatArt.js seatCardSkin), its portrait once the skin data is downloaded and cached
   const sk = skinArt();
   const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);
-  return (p) => {
+  return (/** @type {any} */ p) => {
     if (p.isBot) return null;
     const seat = (Array.isArray(roomSeats) && roomSeats.find((x) => x && x.playerId === p.playerId)) || { playerId: p.playerId };
     const op = seatOperator(seat, cards, { myId, myCard });
@@ -625,16 +650,16 @@ export function BandDraftScreen() {
   const myId = useStore((s) => s.me.playerId);
   const roomSolo = useStore((s) => s.room?.mode === 'solo');
   const gd = useGameData();
-  const [sel, setSel] = useState(null);
-  const [busy, setBusy] = useState(null);
+  const [sel, setSel] = useState(/** @type {string | null} */ (null));
+  const [busy, setBusy] = useState(/** @type {'pick' | 'ready' | 'skip' | null} */ (null));
   const [exit, setExit] = useState(false);
   const [skipped, setSkipped] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [intelOpen, setIntelOpen] = useState(false);
   const season = useStore((s) => s.room?.season ?? null);
   // 전략별 선발 프리셋: this match's roster choice per strategy (bandId → choice) and 记住此策略的预设 (bandId → bool, on)
-  const [presetSel, setPresetSel] = useState({});
-  const [remember, setRemember] = useState({});
+  const [presetSel, setPresetSel] = useState(/** @type {Record<string, string>} */ ({}));
+  const [remember, setRemember] = useState(/** @type {Record<string, boolean>} */ ({}));
   const links = useStore((s) => s.links, Object.is, diyPresetStore);
   const presets = useStore((s) => s.presets, Object.is, diyPresetStore);
   const baseRoster = useStore((s) => s.base, Object.is, diyPresetStore);
@@ -651,7 +676,7 @@ export function BandDraftScreen() {
   const draft = normalizeDraft(pub?.draft, players);
   const myPick = draft.picks.get(myId) || priv?.bandId || null;
   const myTurn = !myPick && (solo || draft.turnPid === myId);
-  const skipsLeft = draft.skipsLeft.has(myId) ? draft.skipsLeft.get(myId) : (skipped ? 0 : 1);
+  const skipsLeft = draft.skipsLeft.has(myId) ? /** @type {number} */ (draft.skipsLeft.get(myId)) : (skipped ? 0 : 1);
   const canSkip = !solo && myTurn && skipsLeft > 0 && draftCanPass(draft);
   const taken = solo ? new Map() : teammateBands(draft.picks, myId);
   const pickers = new Map(); // bandId → players
@@ -680,7 +705,7 @@ export function BandDraftScreen() {
   const clock = solo ? null : draftClock(pub);
   // the highlighted band is what a turn that runs out takes (Match.timeoutBand): report every change before my pick
   const timed = !solo && !!pub?.draft && !pub.draft.untimed;
-  const focusSent = useRef(null);
+  const focusSent = useRef(/** @type {string | null} */ (null));
   useEffect(() => {
     // (a spectator seat — community report #26 — is in no draft order: it never reports)
     if (!timed || myPick || !sel || focusSent.current === sel || !draft.order.includes(myId)) return;
@@ -698,7 +723,9 @@ export function BandDraftScreen() {
   const inDraft = draft.order.includes(myId);
   // 规程: the 自选预设 is picked on 确定自选编队 (screens/diyChoose.js), the draft's detail pane has no row (maintainer decision 2026-11-13)
   const diyStep = hasDiyChooseStep(gd.config);
+  /** @param {string} bid */
   const choiceFor = (bid) => presetSel[bid] ?? bandPresetChoice(bid, gd.band(bid), links, presets);
+  /** @param {string} bid */
   const applyBandPreset = async (bid) => {
     presetAppliedFor = `${roomKey}|${bid}`;
     const choice = choiceFor(bid);
@@ -711,6 +738,7 @@ export function BandDraftScreen() {
     await flushDiySync();
   };
   // my strategy's row after the pick (its 编队确认 included): a new choice applies at once
+  /** @param {string} bid @param {string} v */
   const changeChoice = (bid, v) => {
     setPresetSel({ ...presetSel, [bid]: v });
     if (myPick !== bid || pub?.phase !== PHASE.BAND_DRAFT || v === KEEP_LINK) return;
@@ -719,13 +747,16 @@ export function BandDraftScreen() {
   };
   // 编辑自选编队: the 自选编队 tab on the roster the row shows (keep, or a faction without a preset: the one in use —
   // choiceRoster); an empty slot's picker with it
+  /** @param {string} bid @param {string | null} [slotId] */
   const editPreset = (bid, slotId = null) => {
     const roster = choiceRoster(choiceFor(bid));
     if (roster !== undefined) selectPreset(roster);
     openLoadout('draft', null, 'diy', slotId);
   };
   // a filled slot's ×: empties it in the roster the row shows (the picks in use only when that is the one shown)
+  /** @param {string} bid @param {string} slotId */
   const clearPresetSlot = (bid, slotId) => clearRosterSlot(choiceFor(bid), slotId);
+  /** @param {string} bid @param {boolean} v */
   const changeRemember = (bid, v) => {
     setRemember({ ...remember, [bid]: v });
     if (v && myPick === bid && choiceFor(bid) !== KEEP_LINK) linkBand(bid, choiceFor(bid));
@@ -769,7 +800,7 @@ export function BandDraftScreen() {
   const infoStatus = (infoOpen || intelOpen) ? draftInfoStatus({ myPick, pickName: myPick ? gd.band(myPick)?.name : null, myTurn, turnName, secs: turnSecs,
     waiting: !solo && !draft.done }) : null;
 
-  const rows = solo ? players.filter((p) => p.playerId === myId) : draft.order.map((pid) => players.find((p) => p.playerId === pid)).filter(Boolean);
+  const rows = solo ? players.filter((p) => p.playerId === myId) : /** @type {typeof players} */ (draft.order.map((pid) => players.find((p) => p.playerId === pid)).filter(Boolean));
   // the official sprites (draftArt) and the 跳过 arrow cut from btn_skip
   const orderArt = draftArt('order');
   const detailArt = draftArt('detail');
@@ -817,7 +848,7 @@ export function BandDraftScreen() {
             <${BandOffTag} names=${offNames} />
             ${link && !isTaken ? html`<span class="dband__link" title=${t('已关联{faction}预设', { faction: t(link.name) })}
               style=${`--fac:${link.color}`} data-link=${links[b.bandId]}><${FactionIcon} f=${link} /></span>` : null}
-            ${who.length ? html`<span class="dband__who">${who.slice(0, 4).map((p) => html`<${PlayerAvatar} key=${p.playerId} player=${p} size="sm" />`)}</span>` : null}
+            ${who.length ? html`<span class="dband__who">${who.slice(0, 4).map((/** @type {any} */ p) => html`<${PlayerAvatar} key=${p.playerId} player=${p} size="sm" />`)}</span>` : null}
             ${isTaken ? html`<span class="dband__taken">${t('队友已选')}</span>` : null}
             ${on ? html`<span class="dband__selmark" aria-hidden="true">SELECTED</span>` : null}
           </button>`];
@@ -836,9 +867,9 @@ export function BandDraftScreen() {
           ${inDraft && !diyStep ? html`<${DraftPresetRow} band=${band} choice=${choiceFor(band.bandId)} link=${links?.[band.bandId] ?? null}
             presets=${presets} base=${baseRoster} live=${livePicks} off=${pub?.disabledBonds ?? null} m=${gd.m}
             locked=${(!!myPick && myPick !== band.bandId) || busy === 'pick'}
-            remember=${remember[band.bandId] ?? true} onChoice=${(v) => changeChoice(band.bandId, v)}
-            onRemember=${(v) => changeRemember(band.bandId, v)} onEdit=${(slotId) => editPreset(band.bandId, slotId)}
-            onClear=${(slotId) => clearPresetSlot(band.bandId, slotId)} />` : null}
+            remember=${remember[band.bandId] ?? true} onChoice=${(/** @type {string} */ v) => changeChoice(band.bandId, v)}
+            onRemember=${(/** @type {boolean} */ v) => changeRemember(band.bandId, v)} onEdit=${(/** @type {string} */ slotId) => editPreset(band.bandId, slotId)}
+            onClear=${(/** @type {string} */ slotId) => clearPresetSlot(band.bandId, slotId)} />` : null}
         </div>` : html`<p class="t-dim draft-detail__body">${t('选择一个策略查看详情')}</p>`}
         <div class="draft-detail__actions">
           ${confirmOn && inDraft ? html`<div class="draft-confirm" role="status" data-testid="draft-confirm">

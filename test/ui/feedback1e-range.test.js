@@ -106,7 +106,7 @@ test('the game screen hands the card the live entry it already reads (battle run
   assert.match(src, /grid=\$\{cardRangeGrid\(live, rec, chess\)\}/);
   assert.match(src, /blocks\.stats = chessStatsBlock\(\{ rec: fr, chess: c, live \}\)/, 'the card draws it through the shared block');
   const game = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
-  assert.match(game, /battleRunner\.unitStats\(uid, fid\)/);
+  assert.match(game, /battleRunner\)?\.unitStats\(uid, fid\)/); // (a cast may close on battleRunner: types/README.md 「Strict」)
 });
 
 test('远牙 S3 光羽箭 (default, "攻击范围改为前方无限长的直线"): the 21-tile line is drawn whole, in the box\'s own space', async () => {

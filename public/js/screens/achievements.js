@@ -35,11 +35,15 @@ import { seasonInfo, DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
-/** The doctor's line (name, trophies), the solo / co-op rows and the six titles: 总览 and the lobby's 成就统计. */
+/**
+ * The doctor's line (name, trophies), the solo / co-op rows and the six titles: 总览 and the lobby's 成就统计.
+ * @param {{ agg: any, gd: any, nickname: string }} props
+ */
 function ProfileBlock({ agg, gd, nickname }) {
-  const titles = (Array.isArray(gd.config?.titles) ? gd.config.titles : []).map((x) => ({ ...x, count: agg.titles[x.id]?.count || 0 }));
+  const titles = (Array.isArray(gd.config?.titles) ? gd.config.titles : []).map((/** @type {any} */ x) => ({ ...x, count: agg.titles[x.id]?.count || 0 }));
   // records whose room mode is unknown (`roomMode` null) count in the total but in neither mode row
   const unknownMode = Math.max(0, agg.count - agg.modes.solo.games - agg.modes.coop.games);
   return html`<div class="st-overview-details">
@@ -79,6 +83,7 @@ function ProfileBlock({ agg, gd, nickname }) {
     </div>`;
 }
 
+/** @param {{ title: any, manifest: any, class?: string }} props */
 function RecordHeading({ title, manifest, class: cls }) {
   return html`<h3 class=${cx('st-record-heading', cls)} style=${`background-image:url(${uiUrl(manifest, 'statistics/headingBar')})`}>
     <span class="st-record-heading__icon" aria-hidden="true">
@@ -88,6 +93,7 @@ function RecordHeading({ title, manifest, class: cls }) {
   </h3>`;
 }
 
+/** @param {{ unit: any, gd: any }} props */
 function AchievementOperator({ unit, gd }) {
   const base = gd.chess(unit.id);
   const backups = data.get('backups');
@@ -117,7 +123,7 @@ function AchievementOperator({ unit, gd }) {
  */
 export function BondAchievement({ peak, gd }) {
   if (!peak) return html`<p class="st-hint">${t('暂无可用的盟约最高叠加战绩')}</p>`;
-  const bonds = (peak.player.bonds || []).filter((b) => b.active).sort((a, b) => b.layers - a.layers);
+  const bonds = (peak.player.bonds || []).filter((/** @type {any} */ b) => b.active).sort((/** @type {any} */ a, /** @type {any} */ b) => b.layers - a.layers);
   const lineup = peak.player.lineup;
   return html`<div class="st-achievement">
     <div class="st-achievement__peak">
@@ -131,7 +137,7 @@ export function BondAchievement({ peak, gd }) {
         : html`<li key=${i} class="st-achievement-unit is-empty" aria-hidden="true"><i></i><span>${t('NO INFO')}</span>
           <div class="st-achievement-unit__items"><div class="st-achievement-unit__slot"><i></i></div><div class="st-achievement-unit__slot"><i></i></div></div>
         </li>`)}</ul>
-      <ul class="st-achievement__bonds">${bonds.map((bond) => html`<li key=${bond.bondId} title=${gd.bond(bond.bondId)?.name || bond.bondId}
+      <ul class="st-achievement__bonds">${bonds.map((/** @type {any} */ bond) => html`<li key=${bond.bondId} title=${gd.bond(bond.bondId)?.name || bond.bondId}
         style=${`background-image:url(${uiUrl(gd.m, 'statistics/achievementBondTile')})`}>
         <${BondGlyph} bondId=${bond.bondId} />${gd.bond(bond.bondId)?.noStack ? null : html`<b class="num">${fmtNum(bond.layers)}</b>`}
       </li>`)}</ul>
@@ -139,15 +145,15 @@ export function BondAchievement({ peak, gd }) {
   </div>`;
 }
 
-/** The official statistics view fills and highlights counts at 20 awards. */
+/** The official statistics view fills and highlights counts at 20 awards. @param {{ titles: any[], manifest: any }} props */
 function TitleHexagon({ titles, manifest }) {
   const byId = new Map(titles.map((x) => [x.id, x]));
   const mask = uiUrl(manifest, 'statistics/titleMask');
   const glow = uiUrl(manifest, 'statistics/countGlow');
-  const [loadedArt, setLoadedArt] = useState([]);
+  const [loadedArt, setLoadedArt] = useState(/** @type {string[]} */ ([]));
   useEffect(() => {
     let active = true;
-    const images = [mask, glow].filter(Boolean).map((url) => {
+    const images = /** @type {string[]} */ ([mask, glow].filter(Boolean)).map((url) => {
       const image = new Image();
       image.onload = () => { if (active) setLoadedArt((loaded) => loaded.includes(url) ? loaded : [...loaded, url]); };
       image.src = url;
@@ -181,7 +187,10 @@ function TitleHexagon({ titles, manifest }) {
   </div>`;
 }
 
-/** Single-match records, always in the requested funds / promotions / defeats order. */
+/**
+ * Single-match records, always in the requested funds / promotions / defeats order.
+ * @param {{ maxima: Record<string, number | null>, manifest: any }} props
+ */
 function MatchRecords({ maxima, manifest }) {
   const rows = [
     ['gold', N_('单局最多消耗资金'), 'recordFunds'],
@@ -198,7 +207,7 @@ function MatchRecords({ maxima, manifest }) {
   </div>`;
 }
 
-/** 盟约记录: the three most used alliances and the first one's operators (盟约&策略 and the lobby's 成就统计). */
+/** 盟约记录: the three most used alliances and the first one's operators (盟约&策略 and the lobby's 成就统计). @param {{ agg: any, gd: any }} props */
 function BondRecords({ agg, gd }) {
   useData('chess');
   const bonds = Object.entries(agg.bonds).sort((a, b) => (b[1].games - a[1].games) || a[0].localeCompare(b[0]));
@@ -231,7 +240,10 @@ function BondRecords({ agg, gd }) {
       </ul>` : null}`;
 }
 
-/** 策略记录: the three most used strategies and the ones with the special mark (`records`: ui/stats.js achievementRecords). */
+/**
+ * 策略记录: the three most used strategies and the ones with the special mark (`records`: ui/stats.js achievementRecords).
+ * @param {{ agg: any, gd: any, records: any[] }} props
+ */
 function StrategyRecords({ agg, gd, records }) {
   const badges = strategyBadgeIds(records, data.get('bands'));
   const rows = Object.entries(agg.bands).sort((a, b) => (b[1].games - a[1].games) || (b[1].wins - a[1].wins));
@@ -289,6 +301,7 @@ export function AchievementDialog({ onClose }) {
   // the season on screen (data.js setSeason): each season has its own records, levels and achievements
   const seasonRecords = useMemo(() => recordsOfSeason(peekStatsRecords(), season), [season]);
   const [ruleset, setRuleset] = useState(() => achievementRuleset(seasonRecords, loadPref(ACHV_RULESET_PREF, null)));
+  /** @param {string} p */
   const pickRuleset = (p) => { setRuleset(p); savePref(ACHV_RULESET_PREF, { ruleset: p, at: Date.now() }); };
   const counts = useMemo(() => Object.fromEntries(RULE_PRESETS.map((p) => [p, recordsOfRuleset(seasonRecords, p).length])), [seasonRecords]);
   const records = useMemo(() => recordsOfRuleset(seasonRecords, ruleset), [seasonRecords, ruleset]);

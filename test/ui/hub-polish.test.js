@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+// the inline JSDoc types of a callback's parameters (types/README.md 「Strict」) are not part of the wiring pinned here
+const INLINE_TYPES = /\/\*\* @type \{.*?\} \*\/ /g;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (rel) => readFileSync(path.join(ROOT, rel), 'utf8');
@@ -105,7 +107,8 @@ test('选择模拟协议: 快速匹配 is the official range switch over the sta
   assert.match(select, /<p class="proto-hint">[\s\S]*?<\/p>\s*\$\{range\}\s*<button type="button" class=\$\{`proto-start/);
   assert.match(select, /<\/div>\s*\$\{brief\}\s*<\/div>/, 'the brief ends with the custom line');
   assert.match(src, /range=\$\{matching \? html`<\$\{QuickRange\} quick=\$\{quick\} onQuick=\$\{pickQuick\} \/>` : null\}/);
-  const quick = src.slice(src.indexOf('export function QuickRange('), src.indexOf('/**', src.indexOf('export function QuickRange(')));
+  const bare = src.replace(INLINE_TYPES, '');
+  const quick = bare.slice(bare.indexOf('export function QuickRange('), bare.indexOf('/**', bare.indexOf('export function QuickRange(')));
   assert.match(quick, /role="switch" aria-checked=\$\{quick \? 'true' : 'false'\}/);
   assert.match(quick, /side\('wide', 'wide_icon', t\('快速匹配'\), quick\)/);
   assert.match(quick, /side\('exact', 'accurate_icon', t\('精准匹配'\), !quick\)/);

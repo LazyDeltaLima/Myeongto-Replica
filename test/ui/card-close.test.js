@@ -8,6 +8,8 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { closesOnOutsidePress, drawerClosesOnPress, openedFromWindow, windowCardGone, closesOnFieldPress, WINDOW_CARD_KEEP } from '../../public/js/ui/gameLogic.js';
+// the inline JSDoc types of a callback's parameters (types/README.md 「Strict」) are not part of the wiring pinned here
+const INLINE_TYPES = /\/\*\* @type \{.*?\} \*\/ /g;
 
 const read = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8');
 /** A stand-in for a pressed element: `closest` answers for the selectors listed in `inside`. */
@@ -74,8 +76,8 @@ describe('the 本局信息 / 敌方情报 drawer closes on a press outside it', 
 describe('the match screen wires it', () => {
   const game = read('public/js/screens/game.js');
   test('the drawer rows and the bond members mark where their card came from', () => {
-    assert.match(game, /onEnemy=\$\{\(k, n\) => setDetail\(\{ kind: 'enemy', id: k, count: n, from: 'drawer' \}\)\}/);
-    assert.match(game, /onChess=\$\{\(id\) => setDetail\(\{ kind: 'chess', id, foreign: true, from: 'drawer' \}\)\}/);
+    assert.match(game.replace(INLINE_TYPES, ''), /onEnemy=\$\{\(k, n\) => setDetail\(\{ kind: 'enemy', id: k, count: n, from: 'drawer' \}\)\}/);
+    assert.match(game.replace(INLINE_TYPES, ''), /onChess=\$\{\(id\) => setDetail\(\{ kind: 'chess', id, foreign: true, from: 'drawer' \}\)\}/);
     assert.match(game, /diy: diy \|\| null, from: 'bond' \}\)\} \/>/);
   });
   test('a window press closes it, its window closing closes it, Esc closes a bond member\'s card before its popup', () => {

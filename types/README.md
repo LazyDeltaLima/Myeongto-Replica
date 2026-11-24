@@ -109,7 +109,8 @@ With strict on now: `types/*`, `server/http/`, `public/js/i18n/`, `public/js/scr
 the files directly under `server/sim/` (`server/sim/*.js`), the files directly under `server/sim/content/`
 (`server/sim/content/*.js`), the enemy kits `server/sim/content/enemies/` and the operator kits
 `server/sim/content/kits/ops/`, and in the renderer the 3D board `public/js/render/board3d/` and the effect system's parts
-`public/js/render/fx/`, and the files directly under `public/js/` (`public/js/*.js`).
+`public/js/render/fx/`, the files directly under `public/js/` (`public/js/*.js`) and the screens directly under
+`public/js/screens/` (`public/js/screens/*.js`).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -506,6 +507,24 @@ most strict errors were, and the JSDoc that fixed them:
   the async IIFE that makes it (`const p = x = (async () => { … x === p … })()`, TS2454): a declared type that admits
   `undefined` turns that check off. A `let` that only a closure fills with a DOM node (`s = ctx.createBufferSource()`
   where `ctx` is any) stays `| null` there: cast the assigned value.
+- the screens directly under `public/js/screens/`: a component's props take `@param {{ … }} props`; a `useState(null)`
+  or `useRef(null)` slot is `null` under strict, so the initial value is cast (`useState(/** @type {string | null} */
+  (null))`, `useRef(/** @type {HTMLElement | null} */ (null))`). A handler written inline in an `html` template has no
+  contextual type: an inline type on its parameter (`onChange=${(/** @type {{ currentTarget: HTMLSelectElement }} */ e)
+  => …}`); a listener handed to `addEventListener` takes `Event` / `KeyboardEvent` (a narrower `target` refuses the
+  overload: cast `e.target` at the use). A record the screen reads method by method takes a loose typedef with
+  `[key: string]: any` (game.js `FieldView`, `GameDetail`, `KeyedBox`) rather than `any` on every callback: `view.on(name,
+  (e) => …)` is typed by `on`'s own signature. A weak type (`{ from?: string }`, `{ closest?: … }`) refuses a value with
+  no property in common (TS2559): list the property in the typedef, cast an `EventTarget` to `Element`. A frozen table
+  imported from elsewhere and read by a string (`PROF_NAME`, `DIFFICULTY_NAMES`) is cast at the read,
+  `/** @type {Record<string, string>} */ (PROF_NAME)[p]`. A `ui/` function whose parameter defaults to `null`
+  (`changedCount`, `joinQueue`, `moduleBadge`, `actions.watch`) refuses a string until its own `@param` is written: a
+  cast at the call (`/** @type {ChangedCountFn} */ (changedCount)(…)` in loadout.js, else `any`), to go with that line.
+  Many `test/ui/` tests pin a screen's wiring as source text (`onEnemy=${(k, n) => setDetail(…)}`): an `html`
+  template's handler can take its type only inline, so those assertions match the source with the inline types taken
+  out (`src.replace(INLINE_TYPES, '')`, card-close.test.js and others); elsewhere keep the pinned text as it is — the
+  `@param` on the line above (`/** @param {Event & { target: any }} e */`), a `@type` on a destructuring `const`, a cast
+  after a `.filter` rather than at each use.
 
 
 ## Split classes

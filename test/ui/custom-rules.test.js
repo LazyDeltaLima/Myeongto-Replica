@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// the inline JSDoc types of a callback's parameters (types/README.md 「Strict」) are not part of the wiring pinned here
+const INLINE_TYPES = /\/\*\* @type \{.*?\} \*\/ /g;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (f) => readFileSync(path.join(ROOT, f), 'utf8');
@@ -171,7 +173,7 @@ test('the lobby and the room: room.create / room.setRuleset carry the settings; 
   assert.match(bar, /data-testid="room-difficulty"/);
   assert.match(bar, /<\$\{ModeSegs\} [^>]*ids=\$\{true\}/, 'the 规则 / 人数 parts keep room-ruleset / room-size (ui/modeCapsule.js)');
   assert.doesNotMatch(room, /room-gear|RoomOptions|rs-pill/);
-  assert.match(room, /onSize=\$\{sizeOpt \? \(n\) => setProto\(\{ \.\.\.proto, size: n \}\) : null\}/);
+  assert.match(room.replace(INLINE_TYPES, ''), /onSize=\$\{sizeOpt \? \(n\) => setProto\(\{ \.\.\.proto, size: n \}\) : null\}/);
   const hint = room.slice(room.indexOf('<div class="rs-hint">'), room.indexOf('</div>', room.indexOf('<div class="rs-hint">')));
   assert.match(hint, /<\$\{AiLastToggle\}/);
   assert.match(read('public/index.html'), /css\/screens\/custom-rules\.css/);

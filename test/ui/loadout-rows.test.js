@@ -9,6 +9,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// the inline JSDoc types of a callback's parameters (types/README.md 「Strict」) are not part of the wiring pinned here
+const INLINE_TYPES = /\/\*\* @type \{.*?\} \*\/ /g;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 globalThis.fetch = async (url) => {
@@ -171,7 +173,7 @@ test('the module card reads its talent changes at the operator\'s 潜能, as 局
   assert.ok(lines.some((x) => x === '攻击范围内存在2名及以上敌人时攻击速度<@ba.kw>+12</>'));
   // the detail hands the operator's 潜能 to its module section, which hands it to the card (screens/loadoutSections.js)
   const src = readFileSync(path.join(ROOT, 'public/js/screens/loadout.js'), 'utf8');
-  assert.match(src, /<\$\{ModuleSection\} m=\$\{m\} golden=\$\{golden\} moduleOptions=\$\{opt\.moduleOptions\} module=\$\{choice\.module\}\s+onPick=\$\{\(id\) => onChange\(\{ module: id \}\)\} potential=\$\{opsOf\(ops, chess\.charId\)\.potential\} \/>/);
+  assert.match(src.replace(INLINE_TYPES, ''), /<\$\{ModuleSection\} m=\$\{m\} golden=\$\{golden\} moduleOptions=\$\{opt\.moduleOptions\} module=\$\{choice\.module\}\s+onPick=\$\{\(id\) => onChange\(\{ module: id \}\)\} potential=\$\{opsOf\(ops, chess\.charId\)\.potential\} \/>/);
   const sections = readFileSync(path.join(ROOT, 'public/js/screens/loadoutSections.js'), 'utf8');
   assert.match(sections, /<\$\{ModuleInfo\} m=\$\{m\} golden=\$\{golden\} opt=\$\{modOpt\} potential=\$\{potential\} \/>/);
 });

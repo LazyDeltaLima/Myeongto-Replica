@@ -45,18 +45,30 @@ import { diyPresetStore, selectPreset, deletePreset, toggleBandLink, bandLinkTar
 import { chatFactionsOf, chatFaction } from '../../../shared/local.js';
 import { t } from '../../../shared/i18n.js';
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+/** @type {Record<number, string>} */
 const ROMAN_FULL = { 1: 'Ⅰ', 2: 'Ⅱ', 3: 'Ⅲ', 4: 'Ⅳ', 5: 'Ⅴ', 6: 'Ⅵ' };
 /** The lineup's size in canvas units (auto_chess_deploy_diy_lineup_state: the tag's overhang to the Ⅵ slots' corner). */
 const LINEUP_W = 958;
 const LINEUP_H = 547.5;
+/**
+ * @typedef {{ charId: string, skillIndex?: number | null, uniEquipId?: string | null }} DiyPick a slot's pick (the roster entry)
+ * @typedef {NonNullable<ReturnType<typeof pickChoices>>} DiyChoices what a slot's tier offers of an operator
+ * @typedef {ReturnType<typeof pickOptions>[number]} DiyOption a row of the picker's list
+ */
 
 /** The data the 自选 rules read (shared/diy.js): chess.json + backups.json (localized copies). */
 export const diyData = () => ({ chess: data.get('chess'), backups: data.get('backups') });
 
-/** A unit summary's avatar / portrait URL (a backups.json unit or a composed record). */
+/**
+ * A unit summary's avatar / portrait URL (a backups.json unit or a composed record).
+ * @param {any} m @param {any} unit @param {boolean} [elite]
+ */
 const avatarOf = (m, unit, elite = false) => chessAvatarUrl(m, unit && { charId: unit.charId, assets: { avatar: elite ? unit.assets?.avatarGolden : unit.assets?.avatar } });
-const classLine = (u) => `${t(PROF_NAME[u?.profession] || '') || ''}${u?.subProfessionName ? ` · ${u.subProfessionName}` : ''}`;
+/** @param {any} u */
+const classLine = (u) => `${t(/** @type {Record<string, string>} */ (PROF_NAME)[u?.profession] || '') || ''}${u?.subProfessionName ? ` · ${u.subProfessionName}` : ''}`;
+/** @param {string} id */
 const bondName = (id) => data.lookup('bonds', id)?.name || id;
 
 // ---- the picker's list (the roster's rows, after upstream 0.3.3) -------------------------------------------------------
@@ -66,9 +78,11 @@ const bondName = (id) => data.lookup('bonds', id)?.name || id;
  * every row draws its skills and modules, so a search keystroke must not recompose all of them. The memo belongs to the
  * loaded backups.json — a language switch or a data reload replaces that object and drops the memo with it; nothing is
  * cached while the data is absent.
+ * @type {unknown}
  */
 let choicesOf = null;
 const choicesMemo = new Map();
+/** @param {string} charId @param {string} slotId @param {any} D @returns {DiyChoices | null} */
 function rowChoices(charId, slotId, D) {
   const backups = D?.backups ?? null;
   if (!backups) return pickChoices(charId, slotId, D);
@@ -78,7 +92,10 @@ function rowChoices(charId, slotId, D) {
   return choicesMemo.get(key);
 }
 
-/** One skill to tap: the roster's quick choice (screens/loadout.js QuickSkill) — it writes the draft. */
+/**
+ * One skill to tap: the roster's quick choice (screens/loadout.js QuickSkill) — it writes the draft.
+ * @param {{ m: any, opt: DiyChoices['skills'][number], on: boolean, elite: boolean, onPick: (index: number) => void, disabled?: boolean }} props
+ */
 function QuickSkill({ m, opt, on, elite, onPick, disabled = false }) {
   const rec = elite ? opt.elite || opt.normal : opt.normal || opt.elite;
   const tags = quickSkillTags(rec);
@@ -89,13 +106,16 @@ function QuickSkill({ m, opt, on, elite, onPick, disabled = false }) {
   </button>`;
 }
 
-/** One module to tap (不装备 first): the roster's quick choice (screens/loadout.js QuickModule). */
+/**
+ * One module to tap (不装备 first): the roster's quick choice (screens/loadout.js QuickModule).
+ * @param {{ m: any, opt: { id: string, rec: any }, on: boolean, onPick: (id: string) => void, disabled?: boolean }} props
+ */
 function QuickModule({ m, opt, on, onPick, disabled = false }) {
   const label = opt.id === MODULE_NONE ? t('不装备模组') : `${opt.rec?.typeName || ''} · ${opt.rec?.name || opt.id}`;
   return html`<button type="button" class=${cx('lo-q', 'lo-q--mod', on && 'is-on')} data-module=${opt.id} aria-pressed=${on ? 'true' : 'false'}
       aria-label=${label} title=${label} disabled=${disabled} onClick=${() => onPick(opt.id)}>
     <${ModuleGlyph} m=${m} rec=${opt.rec} id=${opt.id} size="q" />
-    ${opt.id !== MODULE_NONE ? html`<b class="lo-q__type num" aria-hidden="true">${moduleBadge(opt.rec, opt.id)}</b>` : null}
+    ${opt.id !== MODULE_NONE ? html`<b class="lo-q__type num" aria-hidden="true">${moduleBadge(opt.rec, /** @type {any} */ (opt.id))}</b>` : null}
   </button>`;
 }
 
@@ -111,10 +131,12 @@ function DiyHead() {
 
 /** The 不装备 option and a module record as a quick choice's option (loadoutModel.js chessOptions' shape). */
 const noneOpt = { id: MODULE_NONE, rec: null };
+/** @param {{ uniEquipId: string, rec: any }} x */
 const moduleOpt = (x) => ({ id: x.uniEquipId, rec: x.rec });
 
 /** What a row shows as chosen: the draft's choice for the drafted operator, else the operator's own default pick (what a
  *  fresh selection starts with — ui/diyModel.js defaultPick: the last skill, the first module). */
+/** @param {DiyChoices | null} ch @param {string} charId @param {DiyPick | null} draft */
 function rowChoice(ch, charId, draft) {
   const def = ch ? { skill: ch.skills.length ? ch.skills[ch.skills.length - 1].index : null, module: ch.modules[0]?.uniEquipId ?? null } : null;
   if (draft && draft.charId === charId) {
@@ -130,6 +152,7 @@ function rowChoice(ch, charId, draft) {
  * drawn left of its skills in the official select_index's look. An operator the OTHER tier holds is greyed out with
  * where it is, and every control of its row but 详情 is disabled. Narrow screens (≤ 1000 px, the list alone) end the row
  * with 详情 › — the one way to the detail there, since a tap on the row is add / remove (maintainer decision 2026-11-19).
+ * @param {{ m: any, tier: number, opt: DiyOption, ch: DiyChoices | null, takenTier: number | null, choice: DiyPick | null, index: number, selected: boolean, ops: any, onOps: Function | null, onSel: (charId: string) => void, onQuick: (charId: string, patch: Partial<DiyPick>) => void, onDetail: (charId: string) => void, level: string }} props
  */
 function DiyRow({ m, tier, opt, ch, takenTier, choice, index, selected, ops, onOps, onSel, onQuick, onDetail, level }) {
   const skinCtx = skinArt();
@@ -140,9 +163,11 @@ function DiyRow({ m, tier, opt, ch, takenTier, choice, index, selected, ops, onO
   const cur = rowChoice(ch, opt.charId, choice);
   const curMod = cur.module ?? MODULE_NONE;
   const slots = [0, 1, 2].map((i) => (ch && ch.skills[i]) || null);
+  /** @param {Partial<DiyPick>} patch */
   const pick = (patch) => onQuick(opt.charId, patch);
   // the row itself adds / removes the operator too (the shared, row-anchored guard of screens/loadoutSections.js); a
   // taken option does nothing
+  /** @param {MouseEvent} e */
   const onRowClick = (e) => { if (!taken && !rowControlHit(e)) onSel(opt.charId); };
   return html`<div role="listitem" data-char=${opt.charId}
       class=${cx('diy-opt', 'lo-card', `lo-card--t${tier}`, index > 0 && 'is-on', selected && 'is-sel', taken && 'is-taken')} onClick=${onRowClick}>
@@ -161,14 +186,14 @@ function DiyRow({ m, tier, opt, ch, takenTier, choice, index, selected, ops, onO
     <div class="lo-card__skills lo-quick" role="group" aria-label=${t('选择技能')}>
       ${slots.map((s, i) => (s
         ? html`<${QuickSkill} key=${s.index} m=${m} opt=${s} elite=${level === 'elite'} on=${s.index === cur.skill} disabled=${taken}
-            onPick=${(index) => pick({ skillIndex: index })} />`
+            onPick=${(/** @type {number} */ index) => pick({ skillIndex: index })} />`
         : html`<span key=${`e${i}`} class="lo-q lo-q--empty" aria-hidden="true"></span>`))}
     </div>
     <div class="lo-card__mods lo-quick" role="group" aria-label=${t('选择模组')} title=${t('模组仅在精锐形态生效')}>
       ${[html`<${QuickModule} key="none" m=${m} opt=${noneOpt} on=${curMod === MODULE_NONE} disabled=${taken}
-            onPick=${(id) => pick({ uniEquipId: id === MODULE_NONE ? null : id })} />`,
+            onPick=${(/** @type {string} */ id) => pick({ uniEquipId: id === MODULE_NONE ? null : id })} />`,
         ...(ch?.modules || []).map((x) => html`<${QuickModule} key=${x.uniEquipId} m=${m} opt=${moduleOpt(x)} on=${curMod === x.uniEquipId} disabled=${taken}
-            onPick=${(id) => pick({ uniEquipId: id === MODULE_NONE ? null : id })} />`)]}
+            onPick=${(/** @type {string} */ id) => pick({ uniEquipId: id === MODULE_NONE ? null : id })} />`)]}
     </div>
     ${onOps
       ? html`<${CultivationSelects} charId=${opt.charId} ops=${ops} onSet=${onOps} note=${note} disabled=${taken} />`
@@ -178,16 +203,19 @@ function DiyRow({ m, tier, opt, ch, takenTier, choice, index, selected, ops, onO
   </div>`;
 }
 
-/** The tier's slots in data order (ui/diyModel.js diySlotList). */
+/** The tier's slots in data order (ui/diyModel.js diySlotList). @param {number} tier @param {any} D */
 const tierSlots = (tier, D) => diySlotList(D).filter((s) => s.tier === tier);
 
 /**
  * The tier's choice as the picker starts it: the operators of its slots in slot order (an operator twice in a stored
  * roster counts once) and their picks.
  * @returns {{ order: string[], edits: Record<string, any> }}
+ * @param {number} tier @param {Record<string, any> | null | undefined} picks @param {any} D
  */
 export function pickerStart(tier, picks, D) {
+  /** @type {string[]} */
   const order = [];
+  /** @type {Record<string, any>} */
   const edits = {};
   for (const s of tierSlots(tier, D)) {
     const p = picks?.[s.slotId];
@@ -217,11 +245,12 @@ export function DiyPicker(props) {
   const [previewLevel, setPreviewLevel] = useState('elite');
   // phones: the detail over the list — what the operator had when it opened (detailOpen; the detail's 取消 puts it back,
   // its 确认 keeps the changes; both return to the list)
-  const [detailOf, setDetailOf] = useState(null);
-  const [prof, setProf] = useState(null);
+  const [detailOf, setDetailOf] = useState(/** @type {ReturnType<typeof detailOpen> | null} */ (null));
+  const [prof, setProf] = useState(/** @type {string | null} */ (null));
   const [query, setQuery] = useState('');
   const [order, setOrder] = useState(start.order);
   const [edits, setEdits] = useState(start.edits);
+  /** @param {string | null} charId */
   const onNarrowDetail = (charId) => setDetailOf(charId ? detailOpen(charId, edits, props.ops, skinsStore.get()[SKINS_KEY]) : null);
   const onDetailCancel = () => {
     const was = detailOf;
@@ -245,9 +274,10 @@ export function DiyPicker(props) {
   // attached in the same commit as the picker (a plain effect waits for the next frame, and an Esc pressed in between
   // was swallowed — the overlay skipped it, the picker did not hear it yet; the 0.2.2 full browser pass). On a phone's
   // detail Esc is the detail's 取消 (back to the list); `escRef` holds the current action so the listener stays put.
-  const escRef = useRef(null);
+  const escRef = useRef(/** @type {(() => void) | null} */ (null));
   escRef.current = detailOf ? onDetailCancel : props.onClose;
   useLayoutEffect(() => {
+    /** @param {KeyboardEvent} e */
     const onKey = (e) => {
       if (e.key !== 'Escape' || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.modal')) return;
       e.preventDefault();
@@ -257,6 +287,7 @@ export function DiyPicker(props) {
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, []);
+  /** @param {number} cap */
   const refuse = (cap) => {
     toast(t('{tier}阶自选编队最多{n}名。再次点击已选择的干员可将其移出', { tier: ROMAN_FULL[props.tier] || props.tier, n: cap }), 'warn');
     setBump((n) => n + 1);
@@ -285,7 +316,7 @@ export function detailOpen(charId, edits, ops, skins) {
  */
 export function undoDetail(was, now, { setEdits, onOps, setSkin: wear, clearSkin: unwear }) {
   const { charId } = was;
-  setEdits((prev) => {
+  setEdits((/** @type {Record<string, any>} */ prev) => {
     const next = { ...prev };
     if (was.entry) next[charId] = was.entry; else delete next[charId];
     return next;
@@ -322,13 +353,16 @@ export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = 
   const tiers = new Map(diySlotList(D).map((s) => [s.slotId, s.tier]));
   // the tier's own operators at opening first, in slot order; the rest as the pool lists them
   const options = slotId ? pickOptions(slotId, picks, D, kitted) : [];
+  /** @param {string} c */
   const rank = (c) => { const i = top.indexOf(c); return i < 0 ? top.length : i; };
   const sorted = options.map((o, i) => /** @type {[any, number]} */ ([o, i])).sort((a, b) => rank(a[0].charId) - rank(b[0].charId) || a[1] - b[1]).map(([o]) => o);
   const q = query.trim().toLowerCase();
   const list = sorted.filter((o) => (!prof || o.unit?.profession === prof)
-    && (!q || [o.unit?.name, o.unit?.appellation, o.unit?.subProfessionName, t(PROF_NAME[o.unit?.profession] || ''), ...o.bonds.map(bondName)].some((x) => typeof x === 'string' && x.toLowerCase().includes(q))));
+    && (!q || [o.unit?.name, o.unit?.appellation, o.unit?.subProfessionName, t(/** @type {Record<string, string>} */ (PROF_NAME)[o.unit?.profession] || ''), ...o.bonds.map(bondName)].some((x) => typeof x === 'string' && x.toLowerCase().includes(q))));
+  /** @param {string} charId */
   const choiceOf = (charId) => edits[charId] || defaultPick(charId, slotId, D);
   // a tap on a row: in the choice → out (the rest renumber); else in at the end, unless the tier is full
+  /** @param {string} charId */
   const sel = (charId) => {
     if (order.includes(charId)) { onFocus(charId); onOrder(order.filter((c) => c !== charId)); return; }
     if (order.length >= cap) { onRefuse(cap); return; }
@@ -337,10 +371,12 @@ export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = 
   };
   // a row's quick choice (or the detail's): that operator's entry, chosen or not — an update of the latest entries, so two
   // taps before the next render both count
+  /** @param {string} charId @param {Partial<DiyPick>} patch */
   const quick = (charId, patch) => {
     onFocus(charId);
     onEdits((prev) => ({ ...prev, [charId]: { ...(prev[charId] || defaultPick(charId, slotId, D)), ...patch } }));
   };
+  /** @param {string} charId */
   const detail = (charId) => { onFocus(charId); onNarrowDetail(charId); };
   const draft = focus && slotId ? choiceOf(focus) : null;
   const ch = draft ? rowChoices(draft.charId, slotId, D) : null;
@@ -352,13 +388,16 @@ export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = 
   const label = t('{tier}阶 自选', { tier });
   const base = draft ? slotRecord(slotId, draft, D, { potential }) : null;
   const golden = draft ? slotRecord(slotId, draft, D, { elite: true, potential }) : null;
-  const previewEntries = base ? { [base.baseId || base.chessId]: { skill: skillOn, module: modOn || 'none' } } : {};
+  const previewEntries = base ? { [/** @type {string} */ (base.baseId || base.chessId)]: { skill: skillOn, module: modOn || 'none' } } : {};
+  /** @param {string} id */
   const previewChess = (id) => id === golden?.chessId ? golden : base;
   // the 默认 badge is suppressed: on a slot record `isDefault` marks the CURRENT pick (shared/standIn.js composeUnitRecord),
   // not the operator's official default; the module list itself is the DIY one (ui/diyModel.js), 不装备 first
   const skillOptions = base ? chessOptions(base, golden).skillOptions.map((s) => ({ ...s, isDefault: false })) : [];
   const moduleOptions = ch ? [noneOpt, ...ch.modules.map(moduleOpt)] : [];
+  /** @param {number} i */
   const pickSkill = (i) => quick(draft.charId, { skillIndex: i });
+  /** @param {string} id */
   const pickModule = (id) => quick(draft.charId, { uniEquipId: id === MODULE_NONE ? null : id });
   const full = order.length >= cap;
   return html`<section class=${cx('diy-pick', narrowDetail && 'is-detail')} role="dialog" aria-label=${t('{slot}：选择干员', { slot: label })} data-testid="diy-picker" data-tier=${tier}
@@ -374,7 +413,7 @@ export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = 
               <b key=${bump} class=${cx('diy-pick__num', full && 'is-full', bump > 0 && 'is-bump')} data-testid="diy-pick-count">${order.length}/${cap}</b>
             </span>
             <${TextField} size="sm" icon="search" value=${query} placeholder=${t('搜索干员 / 职业 / 盟约')} class="lo-search"
-              onInput=${(v) => setQuery(String(v).slice(0, 24))} />
+              onInput=${(/** @type {string} */ v) => setQuery(String(v).slice(0, 24))} />
           </div>
           <div class="lo-frow diy-pick__profrow"><${ProfFilter} m=${m} prof=${prof} onProf=${onProf} /></div>
         </header>
@@ -401,10 +440,10 @@ export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = 
                 <h2 class="lo-dhead__name">${base.name || unit.name}</h2>
                 <span class="lo-dhead__en">${base.appellation || unit.appellation || ''}</span>
                 <span class="lo-dhead__class">
-                  <${Img} src=${profGlyphUrl(m, base.profession)} class="lo-dhead__prof lo-profglyph" />${t(PROF_NAME[base.profession] || '')}
+                  <${Img} src=${profGlyphUrl(m, base.profession)} class="lo-dhead__prof lo-profglyph" />${t(/** @type {Record<string, string>} */ (PROF_NAME)[base.profession] || '')}
                   <i class="lo-sep"></i><${Img} src=${subProfIconUrl(m, base)} class="lo-dhead__prof" />${base.subProfessionName || ''}
                 </span>
-                <span class="lo-dhead__bonds">${(base.bonds || []).map((b) => html`<span key=${b} class="lo-bond">
+                <span class="lo-dhead__bonds">${(base.bonds || []).map((/** @type {string} */ b) => html`<span key=${b} class="lo-bond">
                   <${Img} src=${bondIconUrl(m, b)} class="lo-bond__icon" fallback=${html`<i class="lo-bond__dot"></i>`} />${bondName(b)}</span>`)}</span>
               </div>
             </div>
@@ -440,18 +479,19 @@ export function DiyPickerView({ m, tier, picks, kitted, onDone, onClose, prof = 
  *   `ops` / `onOps`: the stored 潜能 / 练度 and their setter (0.2.2 — the picker's rows and detail carry the selects)
  */
 export function DiyPanel(props) {
-  const [picking, setPicking] = useState(null);
+  const [picking, setPicking] = useState(/** @type {number | null} */ (null));
   const [fold, setFold] = useState(false); // phones: the lead, the preset bar and the linked strategies over the lineup
   // a slot handed over by openLoadout (the strategy draft's preset slot): its tier's picker opens once, and closing it —
   // 确认 or 取消 — returns to the draft (closes the overlay — maintainer requests 2026-10-13)
   const handed = useStore((s) => s.diyPick, Object.is, loadoutStore);
-  const [back, setBack] = useState(null);
+  const [back, setBack] = useState(/** @type {number | null} */ (null));
   useEffect(() => {
     if (!handed) return;
     const tier = diySlotList(diyData()).find((s) => s.slotId === handed)?.tier ?? null;
     if (tier != null) { setPicking(tier); setBack(tier); setFold(false); }
     loadoutStore.set({ diyPick: null });
   }, [handed]);
+  /** @param {number | null} v */
   const onPicking = (v) => {
     setPicking(v);
     if (v) { setFold(false); return; }
@@ -462,7 +502,9 @@ export function DiyPanel(props) {
   useEffect(() => {
     if (!fold) return undefined;
     const keep = '.diy__fold, .diy .own__bar, .diy .diy-presets, .diy-links__grid, .modal';
-    const away = (e) => { if (!e.target?.closest?.(keep)) setFold(false); };
+    /** @param {Event} e */
+    const away = (e) => { if (!/** @type {Element | null} */ (e.target)?.closest?.(keep)) setFold(false); };
+    /** @param {KeyboardEvent} e */
     const esc = (e) => {
       if (e.key !== 'Escape' || document.querySelector('.diy-links__grid, .modal')) return;
       e.preventDefault(); e.stopImmediatePropagation(); setFold(false);
@@ -474,12 +516,12 @@ export function DiyPanel(props) {
   // the lineup's unit (css/screens/loadout.css .diy-lineup --lu): the HUD unit, or the body's room when that takes no more
   // than 15 % off it (else the body scrolls); on a phone (the fold, max-height 560 px) always the room — both rows on
   // screen (maintainer decision 2026-11-19). The names fit again at the new size (ui/fitLine.js).
-  const mainRef = useRef(null);
+  const mainRef = useRef(/** @type {HTMLElement | null} */ (null));
   useLayoutEffect(() => {
     const body = mainRef.current?.querySelector('.diy__body');
     if (!body || typeof ResizeObserver !== 'function') return undefined;
     const fit = () => {
-      const lineup = body.querySelector('.diy-lineup');
+      const lineup = /** @type {HTMLElement | null} */ (body.querySelector('.diy-lineup'));
       if (!lineup) return;
       lineup.style.removeProperty('--lu');
       const u = lineup.getBoundingClientRect().width / LINEUP_W;
@@ -490,7 +532,7 @@ export function DiyPanel(props) {
       const phone = matchMedia('(max-height: 560px)').matches;
       const lu = phone ? Math.min(u, room) : room < u && room >= u * 0.85 ? room : u;
       if (u > 0 && lu > 0) lineup.style.setProperty('--lu', `${lu}px`);
-      for (const n of lineup.querySelectorAll('.dccard__name')) fitLine(n, CARD_NAME_FIT);
+      for (const n of /** @type {NodeListOf<HTMLElement>} */ (lineup.querySelectorAll('.dccard__name'))) fitLine(n, CARD_NAME_FIT);
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -542,11 +584,11 @@ export function DiyPresetBar({ presets, active, onSelect, onDelete, links = null
  */
 export function PresetBandLinks(props) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLElement | null} */ (null));
   useLayoutEffect(() => {
     if (!open) return;
     const btn = ref.current?.querySelector('.diy-links__add');
-    const list = ref.current?.querySelector('.diy-links__grid');
+    const list = /** @type {HTMLElement | null | undefined} */ (ref.current?.querySelector('.diy-links__grid'));
     if (!btn || !list) return;
     const r = btn.getBoundingClientRect();
     const h = list.offsetHeight;
@@ -559,9 +601,12 @@ export function PresetBandLinks(props) {
   }, [open]);
   useEffect(() => {
     if (!open) return undefined;
-    const away = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    /** @param {Event} e */
+    const away = (e) => { if (ref.current && !ref.current.contains(/** @type {Node | null} */ (e.target))) setOpen(false); };
+    /** @param {KeyboardEvent} e @param {KeyboardEvent} e */
     const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } };
-    const moved = (e) => { if (!ref.current?.querySelector('.diy-links__grid')?.contains(e.target)) setOpen(false); };
+    /** @param {Event} e */
+    const moved = (e) => { if (!ref.current?.querySelector('.diy-links__grid')?.contains(/** @type {Node | null} */ (e.target))) setOpen(false); };
     const resized = () => setOpen(false);
     document.addEventListener('pointerdown', away, true);
     document.addEventListener('keydown', esc, true);
@@ -585,18 +630,24 @@ export function PresetBandLinks(props) {
  *   open?: boolean, onOpen?: (v: boolean) => void }} props
  */
 export function PresetBandLinksView({ target, links, bands, onToggle, open = false, onOpen = () => {} }) {
+  /** @param {any} b */
   const sid = (b) => (Number.isFinite(b.sortId) ? b.sortId : 99);
   const list = bands.filter((b) => b && typeof b.bandId === 'string').sort((a, b) => sid(a) - sid(b));
+  /** @param {any} b */
   const at = (b) => bandLinkTarget(b, links);
+  /** @param {any} b */
   const byRec = (b) => !links[b.bandId] && at(b) === target;
   const here = list.filter((b) => at(b) === target);
+  /** @param {string} w */
   const whereName = (w) => (w === BASE_LINK ? t('不使用预设') : t(chatFaction(w)?.name || ''));
+  /** @param {any} b */
   const tip = (b) => {
     const w = at(b);
     if (w === target) return `${b.name} · ${byRec(b) ? t('推荐：以该阵营为核心的策略，点击取消') : t('已关联此预设，点击取消')}`;
     if (w) return `${b.name} · ${t('已关联{where}，点击改为关联此预设', { where: whereName(w) })}`;
     return `${b.name} · ${t('点击关联此预设')}`;
   };
+  /** @param {string | null} w */
   const badge = (w) => (w === BASE_LINK ? html`<${Icon} name="minus" class="diy-band__mark is-glyph" />`
     : chatFaction(w) ? html`<${FactionIcon} f=${chatFaction(w)} class="chat__facico diy-band__mark" />` : null);
   return html`<span class="diy-links__k">${t('关联策略')}</span>
@@ -628,10 +679,12 @@ export function PresetBandLinksView({ target, links, bands, onToggle, open = fal
  * −40, −21.5), and the tier's six slots (123×266, from x 80 every 143, y −10): a filled one is the 干员调配 card
  * (ui/diyCard.js DiyCard, at the slot's own 123 width), an empty one the official empty slot pop_diy_item_add. A tap on
  * a slot opens its tier's picker. Sizes are canvas units times --lu (css/screens/loadout.css `.diy-lineup`).
+ * @param {{ m: any, picks: Record<string, any>, legal: Record<string, any>, ops: any, onOpen: (tier: number) => void }} props
  */
 function DiyLineup({ m, picks, legal, ops, onOpen }) {
   const slots = diySlotList(diyData());
   const tiers = [...new Set(slots.map((s) => s.tier))];
+  /** @param {string} n */
   const art = (n) => uiUrl(m, `diyLineupArt/${n}`);
   const vars = cssUrlVars([...diyCardArt(m), ['--dl-band', art('pop_diy_level_tag_bg')], ['--dl-add', art('pop_diy_item_add')]]);
   const bad = t('这项自选在当前版本不可用，开局时会被移除');
@@ -667,6 +720,7 @@ function DiyLineup({ m, picks, legal, ops, onOpen }) {
  * official row tag's idiom (a dark slab of fine stripes, the ✕ ◆ ◇ marks, a 「NO.」 bracket, a vertical English line —
  * in CSS, the sprite has the tier glyph in it) naming the preset shown and its linked strategies; a tap floats the lead,
  * the preset bar and the links over the lineup (maintainer decision 2026-11-19, look 가).
+ * @param {{ open: boolean, onToggle: (open: boolean) => void, active: string | null, links: Record<string, string> | null, bands: any[] | null }} props
  */
 function DiyFold({ open, onToggle, active, links, bands }) {
   const on = chatFaction(active);
@@ -697,6 +751,7 @@ export function DiyPanelView({ m, picks, legal, kitted, onSet, onSetMany = null,
   const D = diyData();
   const art = withDiyChooseArt(m, data.get('local')); // 盟约 too draws 规程's lineup and card art (ui/assetUrls.js)
   // 确认 of the picker: the tier's slots 1… in the order chosen, the rest emptied — one write when the caller takes it
+  /** @param {number} tier @param {any[]} list */
   const fill = (tier, list) => {
     const entries = tierSlots(tier, D).map((s, i) => [s.slotId, list[i] || null]);
     if (onSetMany) onSetMany(entries); else for (const [id, p] of entries) onSet(id, p);
@@ -712,6 +767,6 @@ export function DiyPanelView({ m, picks, legal, kitted, onSet, onSetMany = null,
       <${DiyLineup} m=${art} picks=${picks} legal=${legal} ops=${ops} onOpen=${setPicking} />
     </div>
     ${picking != null ? html`<${DiyPicker} key=${picking} m=${m} tier=${picking} picks=${picks} kitted=${kitted} ops=${ops} onOps=${onOps} onClose=${() => setPicking(null)}
-      onDone=${(list) => { fill(picking, list); setPicking(null); }} />` : null}
+      onDone=${(/** @type {any[]} */ list) => { fill(picking, list); setPicking(null); }} />` : null}
   </main>`;
 }

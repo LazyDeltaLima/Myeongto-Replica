@@ -16,13 +16,24 @@ import { data } from '../data.js';
 import { chatFaction } from '../../../shared/local.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+/** @param {number} n @param {number} d */
 const pctOf = (n, d) => (d > 0 ? (n > 0 && n / d < 0.01 ? '<1%' : `${Math.round((n / d) * 100)}%`) : '—');
 const ROUND_NAMES = { sum: N_('合计'), final: N_('最终攻势'), hidden: N_('隐秘核心') };
 /** Ranking rows shown before 显示全部. */
 const TOP_DAMAGE = 10, TOP_UNITE = 8;
+/**
+ * @typedef {import('../ui/gameLogic/resultCharts.js').ChartPlayer} ChartPlayer
+ * @typedef {import('../ui/gameLogic/resultCharts.js').ChartUnit} ChartUnit
+ * @typedef {import('../ui/gameLogic/resultCharts.js').ChartColor} ChartColor
+ * @typedef {{ key: string, n: number, label?: number, color?: string, cls?: string | false | null, title?: string }} StackSeg
+ * @typedef {{ r: { players: ChartPlayer[], bossPools: any, uniteRounds?: number | null, [key: string]: any },
+ *   myId: string | null, colors: Map<string, ChartColor>, Thumb: any }} ChartProps the result (normalizeResult), the viewer,
+ *   the players' colors (playerColors) and the result screen's LineupThumb
+ */
 
-/** The display name of a result unit row (its 自选 operator, its 补位 stand-in, else the chess). */
+/** The display name of a result unit row (its 自选 operator, its 补位 stand-in, else the chess). @param {any} gd @param {ChartUnit} u */
 function unitName(gd, u) {
   const chess = gd.chess(u.id);
   if (!chess) return u.id;
@@ -31,7 +42,10 @@ function unitName(gd, u) {
   return (dr || si || chess).name || u.id;
 }
 
-/** A player's name with its color dot (and the faction name, or AI). */
+/**
+ * A player's name with its color dot (and the faction name, or AI).
+ * @param {{ p: ChartPlayer, color?: string, myId: string | null, sub?: boolean }} props
+ */
 function Who({ p, color, myId, sub = true }) {
   const f = chatFaction(p.faction);
   return html`<span class="rch-who">
@@ -40,14 +54,17 @@ function Who({ p, color, myId, sub = true }) {
   </span>`;
 }
 
-/** Legend chips (focus one player); `valueText(p)` adds a number. */
+/**
+ * Legend chips (focus one player); `valueText(p)` adds a number.
+ * @param {{ players: ChartPlayer[], colors: Map<string, ChartColor>, focus: string | null, setFocus: (id: string | null) => void, valueText?: ((p: ChartPlayer) => string) | null }} props
+ */
 function Legend({ players, colors, focus, setFocus, valueText = null }) {
   return html`<div class="rch-legend">${players.map((p) => html`<button key=${p.playerId} type="button" class="rch-chip" aria-pressed=${focus === p.playerId ? 'true' : 'false'}
       onClick=${() => setFocus(focus === p.playerId ? null : p.playerId)}>
     <i class="rch-dot" style=${`background:${colors.get(p.playerId)?.color}`}></i>${p.name}${valueText ? html` <b class="num">${valueText(p)}</b>` : null}</button>`)}</div>`;
 }
 
-/** One stacked bar: segments { key, n, color, cls?, title } over `max`. */
+/** One stacked bar: segments { key, n, color, cls?, title } over `max`. @param {{ segs: StackSeg[], max: number, tall?: boolean }} props */
 function Stack({ segs, max, tall = false }) {
   return html`<span class=${cx('rch-stack', tall && 'is-tall')}>${segs.filter((s) => s.n > 0).map((s) => {
     const w = (s.n / max) * 100;
@@ -55,13 +72,13 @@ function Stack({ segs, max, tall = false }) {
   })}</span>`;
 }
 
-/** 伤害 tab. */
+/** 伤害 tab. @param {ChartProps} props */
 export function DamageTab({ r, myId, colors, Thumb }) {
   const gd = useGameData();
   const fought = !!(r.bossPools.final || r.bossPools.hidden);
   const [sort, setSort] = useState(/** @type {'total'|'leader'} */ (fought ? 'leader' : 'total'));
   const [round, setRound] = useState(/** @type {'sum'|'final'|'hidden'} */ ('sum'));
-  const [focus, setFocus] = useState(null);
+  const [focus, setFocus] = useState(/** @type {string | null} */ (null));
   const [all, setAll] = useState(false);
   const players = r.players;
   const coop = players.length > 1;
@@ -69,19 +86,22 @@ export function DamageTab({ r, myId, colors, Thumb }) {
   const pool = leaderPool(r.bossPools, round);
   const teamTotal = players.reduce((s, p) => s + playerSum(p, 'total'), 0);
   const base = byLeader ? (pool ? pool.maxHp : 0) : teamTotal;
+  /** @param {ChartPlayer} p */
   const share = (p) => (byLeader ? playerSum(p, 'leader', round) : playerSum(p, 'total'));
   const rows = damageRanking(players, { sort, round });
   const maxT = Math.max(1, ...rows.map((x) => x.total)), maxL = Math.max(1, ...rows.map((x) => x.leader));
   const shown = all ? rows : rows.slice(0, TOP_DAMAGE);
   const byId = new Map(players.map((p) => [p.playerId, p]));
   const roundName = t(ROUND_NAMES[round]);
+  /** @param {boolean} on @param {number} v @param {number} max @param {string | undefined} color */
   const cell = (on, v, max, color) => html`<span class=${cx('rch-track', !on && 'is-off')}><span class="rch-bar" style=${`width:${(v / max) * 100}%;background:${color}`}></span></span>
     <span class=${cx('rch-val num', !on && 'is-off')}>${v > 0 ? fmtNum(v) : '—'}</span>`;
+  /** @param {ReturnType<typeof damageRanking>[number]} x @param {string} name @param {ChartPlayer} p */
   const tip = (x, name, p) => [
     `${name} · ${p.name}`,
-    `${t('造成伤害')}: ${Math.round(x.unit.dmg).toLocaleString('en-US')}`,
-    r.bossPools.final ? `${t('领袖伤害')} · ${t('最终攻势')}: ${Math.round(x.unit.final).toLocaleString('en-US')}` : null,
-    r.bossPools.hidden ? `${t('领袖伤害')} · ${t('隐秘核心')}: ${Math.round(x.unit.hidden).toLocaleString('en-US')}` : null,
+    `${t('造成伤害')}: ${Math.round(/** @type {number} */ (x.unit.dmg)).toLocaleString('en-US')}`,
+    r.bossPools.final ? `${t('领袖伤害')} · ${t('最终攻势')}: ${Math.round(/** @type {number} */ (x.unit.final)).toLocaleString('en-US')}` : null,
+    r.bossPools.hidden ? `${t('领袖伤害')} · ${t('隐秘核心')}: ${Math.round(/** @type {number} */ (x.unit.hidden)).toLocaleString('en-US')}` : null,
     pool ? `${t('占领袖生命值')} (${roundName}): ${pctOf(leaderOf(x.unit, round), pool.maxHp)}` : null,
     x.unit.summon ? t('含召唤物') : null,
   ].filter(Boolean).join('\n');
@@ -96,7 +116,7 @@ export function DamageTab({ r, myId, colors, Thumb }) {
         ...players.map((p) => ({ key: p.playerId, n: share(p), color: colors.get(p.playerId)?.color, cls: focus && focus !== p.playerId && 'is-dim', title: `${p.name}: ${Math.round(share(p)).toLocaleString('en-US')} (${pctOf(share(p), base)})` })),
         ...(byLeader && pool && pool.dealt < pool.maxHp ? [{ key: 'left', n: pool.maxHp - pool.dealt, cls: 'is-left', title: t('剩余生命值 {n}', { n: fmtNum(pool.maxHp - pool.dealt) }) }] : []),
       ]} />
-      <${Legend} players=${players} colors=${colors} focus=${focus} setFocus=${setFocus} valueText=${(p) => pctOf(share(p), base)} />` : null}
+      <${Legend} players=${players} colors=${colors} focus=${focus} setFocus=${setFocus} valueText=${(/** @type {ChartPlayer} */ p) => pctOf(share(p), base)} />` : null}
     </div>
     <div class="rch-rank" role="list">
       <div class="rch-row is-head">
@@ -105,7 +125,7 @@ export function DamageTab({ r, myId, colors, Thumb }) {
         <button type="button" class=${cx('rch-colh', !byLeader && 'is-off')} aria-pressed=${byLeader ? 'true' : 'false'} onClick=${() => setSort('leader')}>${t('领袖伤害')}${r.bossPools.hidden ? ` · ${roundName}` : ''}</button>
       </div>
       ${shown.map((x, i) => {
-        const p = byId.get(x.playerId), color = colors.get(x.playerId)?.color, name = unitName(gd, x.unit);
+        const p = /** @type {ChartPlayer} */ (byId.get(x.playerId)), color = colors.get(x.playerId)?.color, name = unitName(gd, x.unit);
         return html`<div key=${`${x.playerId}:${x.unit.id}:${i}`} role="listitem" title=${tip(x, name, p)}
             class=${cx('rch-row', i < 3 && 'is-top', focus && focus !== x.playerId && 'is-dim', coop && x.playerId === myId && 'is-mine')}>
           <span class="rch-no num">${i + 1}</span>
@@ -120,17 +140,20 @@ export function DamageTab({ r, myId, colors, Thumb }) {
   </div>`;
 }
 
-/** 联防 tab (co-op). */
+/** 联防 tab (co-op). @param {ChartProps} props */
 export function UniteTab({ r, myId, colors, Thumb }) {
   const gd = useGameData();
   const [side, setSide] = useState('helper');
-  const [focus, setFocus] = useState(null);
+  const [focus, setFocus] = useState(/** @type {string | null} */ (null));
   const [all, setAll] = useState(false);
   const players = r.players;
   const fl = uniteFlows(players);
   if (!fl.totals.sent && !fl.ranking.length) return html`<div class="rch"><p class="rch-empty">${t('本局没有发生联防')}</p></div>`;
+  /** @param {string} pid */
   const color = (pid) => colors.get(pid)?.color;
+  /** @param {string} pid */
   const name = (pid) => players.find((p) => p.playerId === pid)?.name ?? pid;
+  /** @param {string} h @param {string} l @param {number} n */
   const pairTitle = (h, l, n) => t('{helper} → {leaker}的敌人 {n} 只', { helper: name(h), leaker: name(l), n });
   let flow;
   if (side === 'helper') {
@@ -186,8 +209,8 @@ export function UniteTab({ r, myId, colors, Thumb }) {
     ${fl.ranking.length ? html`<div class="rch-block">
       <h3 class="rch-h">${t('干员联防击倒')}</h3>
       <div class="rch-rank" role="list">${rank.map((x, i) => {
-        const p = players.find((q) => q.playerId === x.playerId), nm = unitName(gd, x.unit);
-        const by = Object.entries(x.unit.assist).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+        const p = /** @type {ChartPlayer} */ (players.find((q) => q.playerId === x.playerId)), nm = unitName(gd, x.unit);
+        const by = Object.entries(/** @type {Record<string, number>} */ (x.unit.assist)).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
         return html`<div key=${`${x.playerId}:${x.unit.id}:${i}`} role="listitem" class=${cx('rch-row is-one', i < 3 && 'is-top', focus && focus !== x.playerId && 'is-dim', x.playerId === myId && 'is-mine')}
             title=${[`${nm} · ${p.name}`, ...by.map(([l, n]) => `${t('{name}的敌人', { name: name(l) })}: ${n}`)].join('\n')}>
           <span class="rch-no num">${i + 1}</span>

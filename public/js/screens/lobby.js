@@ -96,7 +96,10 @@ import { data, getConfig, getMode, getStage, useData } from '../data.js';
 import { t, tc, tParts, N_ } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
 
-/** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
+/**
+ * Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent.
+ * @type {Record<'single' | 'multi', Record<string, { code: string, desc: string, effects: string[] }>>}
+ */
 export const MODE_TEXT = {
   single: {
     FUNNY: { code: 'AC-1', desc: N_('时长较短的模拟训练'), effects: [N_('可以快速完成作战'), N_('常规奖励')] },
@@ -112,7 +115,10 @@ export const MODE_TEXT = {
   },
 };
 
-/** Battlefield pool per difficulty when config.json is absent (the modes' `stages` lists; same for solo and co-op). */
+/**
+ * Battlefield pool per difficulty when config.json is absent (the modes' `stages` lists; same for solo and co-op).
+ * @type {Record<string, string[] | number>}
+ */
 export const STAGE_POOL = { FUNNY: ['act1autochess_m01'], NORMAL: 8, HARD: 7, ABYSS: 7 };
 
 /**
@@ -142,7 +148,7 @@ export function stageNote(stages) {
     if (ids.length === 1) { const name = stageLabel(ids[0]); return name ? t('战场固定为 {name}', { name }) : t('战场固定'); }
     return ids.length > 1 ? t('战场随机（共{n}张）', { n: ids.length }) : '';
   }
-  return Number.isInteger(stages) && stages > 1 ? t('战场随机（共{stages}张）', { stages }) : '';
+  return Number.isInteger(stages) && /** @type {number} */ (stages) > 1 ? t('战场随机（共{stages}张）', { stages }) : '';
 }
 
 const MODE_CARDS = [
@@ -200,7 +206,7 @@ export function difficultyInfo(roomMode, difficulty) {
   // modeIdFor() lower-cases the difficulty: never call it with a value the server did not validate.
   const m = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor(roomMode, difficulty)) : null;
   const effects = Array.isArray(m?.effectDescList)
-    ? m.effectDescList.map((e) => String(e).replace(/^[·•・･\s]+/, '')).filter(Boolean)
+    ? m.effectDescList.map((/** @type {unknown} */ e) => String(e).replace(/^[·•・･\s]+/, '')).filter(Boolean)
     : fallback.effects.map((e) => t(e));
   const rounds = Number.isFinite(m?.lastRound) ? m.lastRound : roomMode === 'solo' && difficulty === 'FUNNY' ? 9 : 14;
   return {
@@ -235,7 +241,7 @@ export { gradeName };
 export function gradeInfo(grade) {
   const difficulty = gradeDifficulty(grade);
   const m = getMode(modeIdFor('solo', difficulty, grade));
-  const effects = Array.isArray(m?.effectDescList) ? m.effectDescList.map((e) => String(e).replace(/^[·•・･\s]+/, '')).filter(Boolean) : [];
+  const effects = Array.isArray(m?.effectDescList) ? m.effectDescList.map((/** @type {unknown} */ e) => String(e).replace(/^[·•・･\s]+/, '')).filter(Boolean) : [];
   return {
     code: typeof m?.code === 'string' ? m.code : '',
     desc: typeof m?.desc === 'string' ? m.desc : '',
@@ -296,7 +302,7 @@ export function parseRoomParam(search) {
 
 /** Recently joined/created co-op room codes (most recent first). */
 export function recentRooms() {
-  const list = loadPref('recentRooms', []);
+  const list = loadPref('recentRooms', /** @type {string[]} */ ([]));
   return Array.isArray(list) ? list.filter((c) => typeof c === 'string' && CODE_RE.test(c)).slice(0, 4) : [];
 }
 
@@ -314,7 +320,10 @@ const FALLBACK_TIPS = [
 ];
 const TIP_ROTATE_MS = 5000; // matchingTipRotateInterval
 
-/** The 01/15 counter (when `total` is given) and the previous / next arrows of a hub card's head. */
+/**
+ * The 01/15 counter (when `total` is given) and the previous / next arrows of a hub card's head.
+ * @param {{ at: number, total?: number, onStep: (d: number) => void, prev?: string, next?: string, atStart?: boolean, atEnd?: boolean }} props
+ */
 function TipsPager({ at, total = 0, onStep, prev = t('上一条'), next = t('下一条'), atStart = false, atEnd = false }) {
   return html`<span class="tips__pager">
     ${total ? html`<span class="tips__idx num">${String(at + 1).padStart(2, '0')}<span class="t-dim">/${String(total).padStart(2, '0')}</span></span>` : null}
@@ -326,11 +335,11 @@ function TipsPager({ at, total = 0, onStep, prev = t('上一条'), next = t('下
 /**
  * The main lines of a release for the hub's 更新 card: the first change of each group (`### heading`), then the
  * further changes in order, up to `n`; the closing 기여 group (credits) is left out.
- * @param {{ blocks?: object[] }} entry
+ * @param {{ blocks?: Array<{ h?: string, ul?: any[] }> }} entry
  * @param {number} n
  */
 export function newsLines(entry, n) {
-  const firsts = [], rest = [];
+  const firsts = /** @type {any[]} */ ([]), rest = /** @type {any[]} */ ([]);
   const seen = new Set();
   let group = '';
   for (const b of entry?.blocks || []) {
@@ -346,7 +355,7 @@ function useTips() {
   const cfg = getConfig();
   const fallback = FALLBACK_TIPS.map((x) => t(x));
   const tips = Array.isArray(cfg?.tips)
-    ? cfg.tips.map((x) => (typeof x === 'string' ? x : x?.tip)).filter((x) => typeof x === 'string' && x)
+    ? cfg.tips.map((/** @type {any} */ x) => (typeof x === 'string' ? x : x?.tip)).filter((/** @type {unknown} */ x) => typeof x === 'string' && x)
     : fallback;
   const list = tips.length ? tips : fallback;
   const [idx, setIdx] = useState(() => Math.floor(Math.random() * list.length));
@@ -355,7 +364,7 @@ function useTips() {
     return () => clearInterval(id);
   }, []);
   const i = ((idx % list.length) + list.length) % list.length;
-  return { list, i, step: (d) => setIdx(i + d + list.length) };
+  return { list, i, step: (/** @type {number} */ d) => setIdx(i + d + list.length) };
 }
 
 /**
@@ -366,6 +375,7 @@ function useTips() {
  * `patchNotesSeen`, ui/patchNotes.js) is marked NEW for this visit, and on a short screen opens its tab. Without patch
  * notes (/changelog.json unreachable) only the tips show. 查看全部 asks the hub (`onAll(fresh)`) to open the 更新记录
  * dialog: drawn in here it would stay inside the left column's layer, under the right column and the entry cards.
+ * @param {{ short: boolean, notes: any[] | null, onAll: (fresh: boolean) => void }} props
  */
 function HubNotes({ short, notes, onAll }) {
   const tips = useTips();
@@ -382,6 +392,7 @@ function HubNotes({ short, notes, onAll }) {
   const count = notes?.length || 0;
   const r = Math.max(0, Math.min(rel, count - 1));
   const entry = notes?.[r] || null;
+  /** @param {number} d */
   const stepRel = (d) => setRel(Math.max(0, Math.min(count - 1, r + d)));
   const relPager = html`<${TipsPager} at=${r} onStep=${stepRel} prev=${t('较新的版本')} next=${t('较早的版本')} atStart=${r === 0} atEnd=${r >= count - 1} />`;
   const tipPager = html`<${TipsPager} at=${tips.i} total=${short ? 0 : tips.list.length} onStep=${tips.step} />`;
@@ -429,7 +440,10 @@ function StampRing() {
   </svg>`;
 }
 
-/** A difficulty's rounds (+ 隐秘核心) and battlefields: on its card's meta line, and in the brief when the cards show only their names. */
+/**
+ * A difficulty's rounds (+ 隐秘核心) and battlefields: on its card's meta line, and in the brief when the cards show only their names.
+ * @param {{ info: { rounds: number, hidden: boolean, stageNote: string } }} props
+ */
 function DifficultyRounds({ info }) {
   return [
     html`<span key="r"><b class="num">${info.rounds}</b> ${tc('rounds', '回合')}${info.hidden ? html` ${t('+ 隐秘核心')}` : null}</span>`,
@@ -442,15 +456,16 @@ function DifficultyRounds({ info }) {
  * out with a glow in the difficulty's colour and the 已选定 stamp. `disabled`: shown, not chosen (a room's other doctors).
  * `waiting`: the Doctors waiting in its queue (同盟匹配), else null; `rooms`: its waiting public rooms (同盟匹配), else null —
  * a short screen shows the two as one badge (the chosen card's name was cut beside two).
+ * @param {{ roomMode: 'solo' | 'coop', difficulty: string, selected: boolean, onSelect: (d: string) => void, disabled?: boolean, waiting?: number | null, rooms?: number | null }} props
  */
 function DifficultyCard({ roomMode, difficulty, selected, onSelect, disabled = false, waiting = null, rooms = null }) {
   const info = difficultyInfo(roomMode, difficulty);
-  return html`<button type="button" class=${`pcard diff-card${selected ? ' is-on is-selected' : ''}`} style=${`--d-color:${DIFFICULTY_COLORS[difficulty]}`}
+  return html`<button type="button" class=${`pcard diff-card${selected ? ' is-on is-selected' : ''}`} style=${`--d-color:${/** @type {Record<string, string>} */ (DIFFICULTY_COLORS)[difficulty]}`}
       disabled=${disabled} onClick=${() => onSelect(difficulty)} aria-pressed=${selected ? 'true' : 'false'}>
     <span class="pcard__glow" aria-hidden="true"></span>
     <span class=${`pcard__head${rooms != null ? ' has-both' : ''}`}>
       <${DifficultyIcon} difficulty=${difficulty} class="pcard__glyph" />
-      <span class="pcard__name">${t(DIFFICULTY_NAMES[difficulty])}</span>
+      <span class="pcard__name">${t(/** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[difficulty])}</span>
       ${waiting != null ? html`<span class=${`pcard__wait${waiting > 0 ? ' is-on' : ''}`} data-testid=${`queue-count-${difficulty}`}>${t('等待 {n}', { n: waiting })}</span>` : null}
       ${rooms != null ? html`<span class=${`pcard__wait pcard__rooms${rooms > 0 ? ' is-on' : ''}`} data-testid=${`room-count-${difficulty}`}>${t('房间 {n}', { n: rooms })}</span>
         <span class="pcard__wait pcard__both">${t('{n} · 房间 {m}', { n: waiting ?? 0, m: rooms })}</span>` : null}
@@ -469,22 +484,26 @@ function DifficultyCard({ roomMode, difficulty, selected, onSelect, disabled = f
  * One 规程等级 of 选择模拟协议 (maintainer decision 2026-11-12, 시안 B: a row each, closer to the official list than the
  * cards): the difficulty's glyph, the grade's name with its difficulty (极速模拟: its description), code, rounds; the
  * selected one slides out in its colour with a tick. The brief at the left carries the rest.
+ * @param {{ grade: number, selected: boolean, onSelect: (g: number) => void, disabled?: boolean }} props
  */
 function GradeRow({ grade, selected, onSelect, disabled = false }) {
   const info = gradeInfo(grade);
   return html`<button type="button" class=${`grow${selected ? ' is-on' : ''}`} style=${`--d-color:${info.color}`} data-grade=${grade}
       disabled=${disabled} onClick=${() => onSelect(grade)} aria-pressed=${selected ? 'true' : 'false'}>
     <${DifficultyIcon} difficulty=${info.difficulty} class="grow__glyph" />
-    <span class="grow__name"><b>${gradeName(grade)}</b><small>${grade === FAST_GRADE ? info.desc : t(DIFFICULTY_NAMES[info.difficulty])}</small></span>
+    <span class="grow__name"><b>${gradeName(grade)}</b><small>${grade === FAST_GRADE ? info.desc : t(/** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[info.difficulty])}</small></span>
     <span class="grow__code num">${info.code}</span>
     <span class="grow__rounds"><b class="num">${info.rounds}</b> ${tc('rounds', '回合')}${info.hidden ? ` ${t('+ 隐秘核心')}` : ''}</span>
     <span class="grow__tick" aria-hidden="true">${selected ? html`<${Icon} name="check" />` : null}</span>
   </button>`;
 }
 
-/** 选择模拟协议's 规程等级 rows (GradeRow): the picked one scrolled into view when the list opens. */
+/**
+ * 选择模拟协议's 规程等级 rows (GradeRow): the picked one scrolled into view when the list opens.
+ * @param {{ grade: number | null, onGrade: (g: number) => void, disabled: boolean }} props
+ */
 function GradeList({ grade, onGrade, disabled }) {
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLElement | null} */ (null));
   useLayoutEffect(() => { ref.current?.querySelector('.grow.is-on')?.scrollIntoView?.({ block: 'center' }); }, []);
   return html`<div ref=${ref} class="proto-list proto-list--grades" role="group" aria-label=${t('规程等级')}>
     ${GRADES.map((g) => html`<${GradeRow} key=${g} grade=${g} selected=${grade === g} onSelect=${onGrade} disabled=${disabled} />`)}
@@ -497,6 +516,7 @@ function GradeList({ grade, onGrade, disabled }) {
  * 'names' (a line each, as on a phone). A list that still does not fit scrolls. [ASSUMED·자료 없음] the levels and their order
  */
 export const CARD_FIT_LEVELS = ['full', 'brief', 'names'];
+/** @param {(level: string) => boolean} overflows */
 export function pickCardFit(overflows) {
   return CARD_FIT_LEVELS.find((level) => !overflows(level)) || CARD_FIT_LEVELS[CARD_FIT_LEVELS.length - 1];
 }
@@ -507,12 +527,12 @@ export function pickCardFit(overflows) {
  * box, so measuring cannot loop.
  */
 function ProtoFit() {
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLElement | null} */ (null));
   const fit = () => {
-    const body = ref.current?.closest('.proto__body');
+    const body = /** @type {HTMLElement | null | undefined} */ (ref.current?.closest('.proto__body'));
     const list = body?.querySelector('.proto-list');
     if (!list) return;
-    body.dataset.fit = pickCardFit((level) => { body.dataset.fit = level; return list.scrollHeight > list.clientHeight + 1; });
+    /** @type {HTMLElement} */ (body).dataset.fit = pickCardFit((level) => { /** @type {HTMLElement} */ (body).dataset.fit = level; return list.scrollHeight > list.clientHeight + 1; });
   };
   useLayoutEffect(fit);
   useLayoutEffect(() => {
@@ -530,7 +550,10 @@ function ProtoFit() {
   return html`<i ref=${ref} class="proto__fit" hidden></i>`;
 }
 
-/** The sum of every number in a queue-count table ({ [ruleset]: { [difficulty]: n } } or { [difficulty]: n }). */
+/**
+ * The sum of every number in a queue-count table ({ [ruleset]: { [difficulty]: n } } or { [difficulty]: n }).
+ * @param {unknown} c @returns {number}
+ */
 export function countAll(c) {
   if (typeof c === 'number') return Number.isFinite(c) && c > 0 ? c : 0;
   return c && typeof c === 'object' ? Object.values(c).reduce((a, v) => a + countAll(v), 0) : 0;
@@ -539,8 +562,11 @@ export function countAll(c) {
 /**
  * The Doctors a 快速匹配 player can be grouped with at a difficulty: the quick queue and every ruleset × size queue of that
  * difficulty (docs/rules/ui.md 「빠른 매칭」: the quick side shows the whole difficulty).
+ * @param {Record<string, any> | null | undefined} counts4 @param {Record<string, any> | null | undefined} counts8
+ * @param {Record<string, any> | null | undefined} quick @param {string} difficulty
  */
 export function quickWaiting(counts4, counts8, quick, difficulty) {
+  /** @param {Record<string, any> | null | undefined} c */
   const of = (c) => (c && typeof c === 'object' ? Object.values(c).reduce((a, byD) => a + countAll(byD?.[difficulty]), 0) : 0);
   return of(counts4) + of(counts8) + countAll(quick?.[difficulty]);
 }
@@ -549,8 +575,10 @@ export function quickWaiting(counts4, counts8, quick, difficulty) {
  * One of the three entries at the bottom right of the hub (独立模拟 / 同盟模拟 / 同盟匹配): opens its dialog. 同盟匹配's
  * carries two badges in its top left, across from its icon (maintainer decision 2026-11-20; the line that stood above
  * the three entries is gone): the season's waiting Doctors and the public rooms of every season — a 0 dimmed, in place.
+ * @param {{ card: any, onOpen: (id: string) => void, waiting?: number | null, rooms?: number | null }} props
  */
 export function HubEntry({ card, onOpen, waiting = null, rooms = null }) {
+  /** @param {number} n @param {string} text @param {string} testid */
   const badge = (n, text, testid) => html`<b class=${`hub-entry__wait num${n > 0 ? '' : ' is-zero'}`} data-testid=${testid}>${text}</b>`;
   return html`<div class="hub-entry-wrap">
     <button type="button" class=${`mode-card hub-entry hub-entry--${card.id}`} data-mode=${card.id} onClick=${() => onOpen(card.id)}
@@ -567,7 +595,7 @@ export function HubEntry({ card, onOpen, waiting = null, rooms = null }) {
   </div>`;
 }
 
-/** The 成就统计 label's badge (original drawing). */
+/** The 成就统计 label's badge (original drawing). @param {{ class?: string }} props */
 function AchBadge({ class: cls }) {
   return html`<svg class=${cls} viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 3h14v12l-7 6-7-6zm4 5v2h2V8zm4 0v2h2V8zm-4.5 4.2a4.5 4.5 0 0 0 7 0l-1.3-1a3 3 0 0 1-4.4 0z" fill-rule="evenodd" /></svg>`;
 }
@@ -578,6 +606,7 @@ function AchBadge({ class: cls }) {
  * maintainer decision 2026-11-07) — the LV and the trophies from this browser's records of the season on screen
  * (ui/level.js, ui/stats.js aggregateStats: the 成就统计 window's numbers). Read again whenever the window or 统计数据
  * closes (an import or 清空 there changes them). Opens the 成就统计 window (screens/achievements.js).
+ * @param {{ onOpen: () => void, openTick: number }} props
  */
 function AchievementCard({ onOpen, openTick }) {
   const me = useStore((s) => s.me, shallowEqual);
@@ -611,7 +640,7 @@ function AchievementCard({ onOpen, openTick }) {
     </span>
     <span class="hub-ach__label">
       <${AchBadge} class="hub-ach__badge" />
-      <span>${t('成就统计')}</span><span class=${`hub-ach__rs rtag--${ruleset}`} data-testid="hub-ach-ruleset">${t(PRESET_LABELS[ruleset])}</span><b class="hub-ach__lv num">LV.${lv}</b>
+      <span>${t('成就统计')}</span><span class=${`hub-ach__rs rtag--${ruleset}`} data-testid="hub-ach-ruleset">${t(/** @type {Record<string, string>} */ (PRESET_LABELS)[ruleset])}</span><b class="hub-ach__lv num">LV.${lv}</b>
       <span class="hub-ach__who"><span class="hub-ach__name">${me.name || t('博士')}</span><${MicroLabel}>${me.playerId != null ? `DOCTOR #${doctorNo(me.playerId)}` : 'DOCTOR'}<//></span>
     </span>
   </button>`;
@@ -621,6 +650,7 @@ function AchievementCard({ onOpen, openTick }) {
  * A plate of the hub's right column on short screens (≤ 520 px tall), where the left column gives way: 成就统计 and
  * 加入同盟 · 观战 (which opens 选择同盟方式, whose join card holds the key) [ASSUMED·자료 없음: a remake layout for small
  * screens; css/screens/lobby.css shows them only then].
+ * @param {{ glyph: any, label: string, onClick: () => void, class?: string }} props
  */
 function SidePlate({ glyph, label, onClick, class: cls }) {
   return html`<button type="button" class=${`hub-plate ${cls}`} onClick=${onClick}>
@@ -641,6 +671,7 @@ function SweepGlyph() {
 /**
  * S.W.E.E.P.报告: a light plate with bracket marks. The report itself is bundle ui-E's; until then the plate keeps its
  * place in the column and says so.
+ * @param {{ onClick: () => void }} props
  */
 function SweepPlate({ onClick }) {
   return html`<button type="button" class="hub-plate hub-plate--sweep lobby-sweep" onClick=${onClick} title=${t('S.W.E.E.P.报告：盟约、策略与敌方资料')}>
@@ -698,28 +729,34 @@ function HubTitle() {
   useData('local');
   const ownSet = seasonLogoSet(season, lang);
   const own = ownSet?.src ?? null;
-  const [bad, setBad] = useState(null); // a listed logo that fails to load gives the words back
+  const [bad, setBad] = useState(/** @type {string | null} */ (null)); // a listed logo that fails to load gives the words back
   const ownOk = !!own && bad !== own;
   const mark = html`<${Emblem} />`;
   return html`<div class=${`hub-center${ownOk ? ' has-season' : ''}`}>
-    <div class="hub-center__mark"><${HubRadar} />${ownOk ? html`<img key=${own} class="hub-center__season" src=${own} srcset=${ownSet.srcset ?? undefined}
-      sizes=${ownSet.srcset ? logoSizes(ownSet.aspect, HUB_LOGO_HEIGHTS) : undefined} alt="" draggable=${false} onError=${() => setBad(own)} />`
+    <div class="hub-center__mark"><${HubRadar} />${ownOk ? html`<img key=${own} class="hub-center__season" src=${own} srcset=${/** @type {NonNullable<typeof ownSet>} */ (ownSet).srcset ?? undefined}
+      sizes=${/** @type {NonNullable<typeof ownSet>} */ (ownSet).srcset ? logoSizes(/** @type {NonNullable<typeof ownSet>} */ (ownSet).aspect, HUB_LOGO_HEIGHTS) : undefined} alt="" draggable=${false} onError=${() => setBad(own)} />`
       : season === DEFAULT_SEASON ? html`<${Sprite} k="entry/season_logo" class="hub-center__logo" fallback=${mark} />` : mark}</div>
     ${alphabetic || ownOk ? null : html`<div class="hub-center__en">STRONGHOLD PROTOCOL <b>${seasonInfo(season).mark}</b></div>`}
     <h1 class=${`hub-center__title${alphabetic ? ' hub-center__title--latin' : ''}${ownOk ? ' sr-only' : ''}`}>${t('卫戍协议')}<span>${alphabetic ? ': ' : '：'}</span><em>${seasonName(season)}</em></h1>
   </div>`;
 }
 
-/** File names of the official 选择模拟协议 pictures (assets `modeChoice/<name>_rhodes_island`). */
+/** File names of the official 选择模拟协议 pictures (assets `modeChoice/<name>_rhodes_island`). @type {Record<string, string>} */
 const PROTOCOL_ART = { FUNNY: 'funny', NORMAL: 'normal', HARD: 'hard', ABYSS: 'abyss' };
 
-/** The selected difficulty's scene (ui/protocolScene.js): the official picture on the drawn grid, squares and cable. */
+/**
+ * The selected difficulty's scene (ui/protocolScene.js): the official picture on the drawn grid, squares and cable.
+ * @param {{ difficulty: string }} props
+ */
 function ProtocolArt({ difficulty }) {
   useData('assets');
   return html`<${ProtocolScene} difficulty=${difficulty} art=${uiUrl(data.get('assets'), `modeChoice/${PROTOCOL_ART[difficulty]}_rhodes_island`)} />`;
 }
 
-/** The ‹ + dotted rook plate at the top left of the full-screen dialogs: back to the hub (or the dialog below). */
+/**
+ * The ‹ + dotted rook plate at the top left of the full-screen dialogs: back to the hub (or the dialog below).
+ * @param {{ onClick: () => void, class?: string }} props
+ */
 function BackPlate({ onClick, class: cls = '' }) {
   return html`<button type="button" class=${`proto-back ${cls}`} onClick=${onClick} title=${t('返回')} aria-label=${t('返回')}>
     <${Icon} name="chevronLeft" /><span class="proto-back__home"><${Icon} name="rook" /></span>
@@ -729,13 +766,14 @@ function BackPlate({ onClick, class: cls = '' }) {
 /**
  * The 人数 switch (同盟匹配 on 选择模拟协议; 创建同盟 on 选择同盟方式): a 4-seat or an 8-seat alliance. `counts` = { [size]: n }
  * shows the Doctors waiting in the queues of each size (同盟匹配).
+ * @param {{ value: number, onPick: (n: number) => void, counts?: Record<number, number> | null, disabled?: boolean, class?: string }} props
  */
 export function SizeSwitch({ value, onPick, counts = null, disabled = false, class: cls = '' }) {
   const tip = t('八人同盟：{n}–{max} 名博士即可开始，没有 AI 队友；卡池、敌方数值和联防人数随开局人数调整', { n: LARGE_MIN_PLAYERS, max: LARGE_SEATS });
   return html`<${Tooltip} text=${tip}>
     <div class=${`dpick rpick lobby-size ${cls}`.trim()} role="radiogroup" aria-label=${t('人数')}>
       ${ROOM_SIZES.map((n) => html`<button key=${n} type="button" role="radio" aria-checked=${value === n ? 'true' : 'false'} data-size=${n} disabled=${disabled}
-          class=${`dpick__opt rpick__opt${value === n ? ' is-active' : ''}`} onClick=${(e) => { e.stopPropagation(); if (value !== n) onPick(n); }}>
+          class=${`dpick__opt rpick__opt${value === n ? ' is-active' : ''}`} onClick=${(/** @type {MouseEvent} */ e) => { e.stopPropagation(); if (value !== n) onPick(n); }}>
         ${t('{n}人', { n })}${counts ? html`<span class="rpick__n num" data-testid=${`queue-size-${n}`}>${counts[n] ?? 0}</span>` : null}
       </button>`)}
     </div>
@@ -748,14 +786,16 @@ export function SizeSwitch({ value, onPick, counts = null, disabled = false, cla
  * 2026-11-20 — 同盟模拟 is private, 同盟匹配's 创建公开联合 public): the official matching range switch's pill — the other side folds its name away and shows its icon alone; the name
  * stays in the DOM, so the track keeps its width and the picked pill grows across it as the other `.rtrack` switches do,
  * css/screens/room.css). `editable` false or `busy`: the buttons disabled (a guest's read-only view).
+ * @param {{ value: boolean, onPick: (on: boolean) => void, editable?: boolean, busy?: any, fold?: boolean, tip?: string | null, class?: string, 'data-testid'?: string | null }} props
  */
 export function PublicSwitch({ value, onPick, editable = true, busy = false, fold = false, tip = null, class: cls = '', 'data-testid': testid = null }) {
+  /** @param {boolean} on @param {string} icon @param {string} label */
   const side = (on, icon, label) => {
     const active = value === on;
     return html`<button type="button" role="radio" aria-checked=${active ? 'true' : 'false'} data-public=${on ? '1' : '0'}
         class=${`dpick__opt rpick__opt pubsw__opt${active ? ' is-active' : ''}`} disabled=${!editable || !!busy}
         title=${fold ? label : null} aria-label=${fold ? label : null}
-        onClick=${(e) => { e.stopPropagation(); if (editable && !active) onPick(on); }}>
+        onClick=${(/** @type {MouseEvent} */ e) => { e.stopPropagation(); if (editable && !active) onPick(on); }}>
       <${Icon} name=${icon} /><span class="pubsw__name">${label}</span>
     </button>`;
   };
@@ -766,7 +806,10 @@ export function PublicSwitch({ value, onPick, editable = true, busy = false, fol
   <//>`;
 }
 
-/** A label of the rule rows, its letters spread to the widest label's width (一 span a letter: Korean words have no spaces). */
+/**
+ * A label of the rule rows, its letters spread to the widest label's width (一 span a letter: Korean words have no spaces).
+ * @param {{ text: string }} props
+ */
 function RowKey({ text }) {
   return html`<span class="proto-rules__k">${/\s/.test(text) ? text : [...text].map((c, i) => html`<span key=${i}>${c}</span>`)}</span>`;
 }
@@ -782,6 +825,7 @@ function RowKey({ text }) {
  * lobby's chip, the one place a season is picked. A picked 自定义's summary is CustomBrief, in the brief at the left.
  * No 公开 row (maintainer decision 2026-11-20): 同盟模拟 makes a private room; a public one is made from 同盟匹配's list
  * (创建公开联合, the lobby's 'pa' dialog).
+ * @param {{ roomMode: string, ruleset: string, onRuleset: (p: string) => void, onGear?: (() => void) | null, size?: number, onSize?: ((n: number) => void) | null, quick?: boolean, counts4?: any, counts8?: any, readOnly?: boolean, sizeLocked?: boolean }} props
  */
 export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize, quick = false, counts4 = null, counts8 = null, readOnly = false, sizeLocked = false }) {
   const matching = roomMode === 'match';
@@ -817,6 +861,7 @@ export function ProtoRules({ roomMode, ruleset, onRuleset, onGear, size, onSize,
  * A picked 自定义's line at the end of 选择模拟协议's brief (maintainer decision 2026-11-08: out of the rule rows, so the
  * right column stands the same for every 规则): 自定义规则 · the preset in use and how many settings differ from the
  * official ones (CustomSummary; 同盟匹配 has no 自定义, and a solo room is never an 8-seat one).
+ * @param {{ roomMode: string, ruleset: string, customRules: any, difficulty: string, grade?: number | null }} props
  */
 export function CustomBrief({ roomMode, ruleset, customRules, difficulty, grade = null }) {
   if (roomMode === 'match' || ruleset !== 'custom') return null;
@@ -829,11 +874,12 @@ export function CustomBrief({ roomMode, ruleset, customRules, difficulty, grade 
  * too). A dark track (range_bg) whose white hatched pill (range_selectbg) covers three quarters of it with the picked
  * side's icon and name; the other side shows its icon alone (wide_icon / accurate_icon, assets `room/*`; its name when
  * the icon is missing).
+ * @param {{ quick: boolean, onQuick?: (on: boolean) => void }} props
  */
 export function QuickRange({ quick, onQuick }) {
   useData('assets');
   const m = data.get('assets');
-  const side = (k, icon, name, on) => {
+  const side = (/** @type {string} */ k, /** @type {string} */ icon, /** @type {string} */ name, /** @type {boolean} */ on) => {
     const src = uiUrl(m, `room/${icon}`);
     return html`<span class=${`qrange__o qrange__o--${k}${on ? ' is-sel' : ''}`}>
       ${src ? html`<i class="qrange__icon" aria-hidden="true" style=${`--m:url("${src}")`}></i>` : null}
@@ -849,6 +895,13 @@ export function QuickRange({ quick, onQuick }) {
 }
 
 /**
+ * @typedef {{ roomMode: 'solo' | 'coop' | 'match', difficulty: string, onDifficulty: (d: string) => void, onClose: () => void,
+ *   onStart?: () => void, busy: string | null, online: boolean, rules?: any, waiting?: ((d: string) => number) | null,
+ *   action?: string | null, hint?: string | null, readOnly?: boolean, range?: any, brief?: any, grade?: number | null,
+ *   onGrade?: ((g: number) => void) | null, stage?: any, rooms?: ((d: string) => number) | null,
+ *   head?: { icon: string, name: string, en: string } | null, sub?: any, wait?: any, locked?: boolean }} ProtocolSelectProps
+ */
+/**
  * 选择模拟协议 (laid out after the event's second screen): full screen — the selected difficulty's official picture and
  * brief at the left (`brief`, a node at its end: CustomBrief), the rule rows (`rules`, a node) and the four difficulty
  * cards down the right (the chosen one slides out with the 已选定 stamp), the hint, `range` (a node: QuickRange) and the
@@ -861,6 +914,7 @@ export function QuickRange({ quick, onQuick }) {
  * (创建公开联合's PUBLIC ROOM). `sub`: the start button's second line (同盟匹配's target, a node). `wait`: nodes in place
  * of the hint, `range` and the start button (同盟匹配 while queued alone: ui/matchQueue.js QueueWait), with the rule rows
  * (the caller's `rules`) and the cards `locked`: disabled and dimmed.
+ * @param {ProtocolSelectProps} props
  */
 export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, onStart, busy, online, rules = null, waiting = null,
   action = null, hint = null, readOnly = false, range = null, brief = null, grade = null, onGrade = null, stage = null, rooms = null, head = null,
@@ -874,7 +928,7 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
   const label = action || (roomMode === 'solo' ? t('开始独立模拟') : roomMode === 'match' ? t('开始匹配') : t('创建同盟'));
   const defaultHint = roomMode === 'solo' ? t('创建后即可开始模拟') : roomMode === 'match' ? t('寻找同一难度、规则和人数的公开联合与博士') : t('非公开同盟 · 创建后用邀请码邀请好友或添加 AI 队友');
   return html`<${Modal} open=${true} onClose=${onClose} class="proto" veilClass="proto-veil">
-    <div class="proto__body" style=${`--d-color:${ginfo ? ginfo.color : DIFFICULTY_COLORS[difficulty]}`} data-difficulty=${difficulty} data-mode=${roomMode}>
+    <div class="proto__body" style=${`--d-color:${ginfo ? ginfo.color : /** @type {Record<string, string>} */ (DIFFICULTY_COLORS)[difficulty]}`} data-difficulty=${difficulty} data-mode=${roomMode}>
       <div class="proto__bg" aria-hidden="true"></div>
       <${ProtoFit} />
       <header class="proto-top">
@@ -889,7 +943,7 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
           <div key=${difficulty} class="proto__pic"><${ProtocolArt} difficulty=${difficulty} /></div>
           <div class="proto-brief">
             <span class="proto-brief__code num">${info.code}</span>
-            <b class="proto-brief__name">${graded ? gradeName(/** @type {number} */ (grade)) : t(DIFFICULTY_NAMES[difficulty])}</b>
+            <b class="proto-brief__name">${graded ? gradeName(/** @type {number} */ (grade)) : t(/** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[difficulty])}</b>
             <p>${info.desc}</p>
             <div class="proto-brief__more" data-testid="proto-brief-more">
               <span class="proto-brief__effects">${info.effects.map((e) => html`<span key=${e}>${e}</span>`)}</span>
@@ -932,6 +986,7 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
  * (the key field with 观战, the recent keys that only fill it, 加入同盟). 同盟模拟 itself opens 选择模拟协议 (maintainer
  * decision 2026-11-08: the room is made at the difficulty, 规则, 人数 and 赛季 picked there, no second step in the room).
  * `short`: the screen is at most 520 px tall — the key field's placeholder is the field's name alone.
+ * @param {{ onClose: () => void, code: string, onCode: (v: string) => void, codeOk: boolean, online: boolean, busy: string | null, onJoin: () => void, onSpectate: () => void, recent: string[], focusKey?: any, short?: boolean }} props
  */
 export function AllianceSelect({ onClose, code, onCode, codeOk, online, busy, onJoin, onSpectate, recent, focusKey, short = false }) {
   return html`<${Modal} open=${true} onClose=${onClose} class="ally" veilClass="proto-veil">
@@ -962,7 +1017,7 @@ export function AllianceSelect({ onClose, code, onCode, codeOk, online, busy, on
             </div>
             <span class="ally-recent join-foot">
               ${recent.length ? html`<span class="t-lo">${t('最近的同盟')}</span>
-                ${recent.map((c) => html`<button key=${c} type="button" class="code-chip num" title=${t('填入密钥（不会直接加入）')}
+                ${recent.map((/** @type {string} */ c) => html`<button key=${c} type="button" class="code-chip num" title=${t('填入密钥（不会直接加入）')}
                   onClick=${() => onCode(c)}>${c}</button>`)}`
                 : html`<span class="t-dim">${t('向同伴索取 {ROOM_CODE_LEN} 位同盟密钥，或直接打开邀请链接', { ROOM_CODE_LEN })}</span>`}
             </span>
@@ -976,7 +1031,10 @@ export function AllianceSelect({ onClose, code, onCode, codeOk, online, busy, on
   <//>`;
 }
 
-/** The hub's 加入同盟 box (left column): the key, 加入同盟, 观战 and the recent keys, as the earlier lobby's join panel. */
+/**
+ * The hub's 加入同盟 box (left column): the key, 加入同盟, 观战 and the recent keys, as the earlier lobby's join panel.
+ * @param {{ code: string, onCode: (v: string) => void, codeOk: boolean, online: boolean, busy: string | null, onJoin: () => void, onSpectate: () => void, recent: string[] }} props
+ */
 function JoinBox({ code, onCode, codeOk, online, busy, onJoin, onSpectate, recent }) {
   return html`<div class="hub-join brackets" data-testid="hub-join">
     <div class="hub-join__head"><${Icon} name="key" /><span>${t('加入同盟')}</span><${MicroLabel}>JOIN WITH ALLIANCE KEY<//></div>
@@ -990,7 +1048,7 @@ function JoinBox({ code, onCode, codeOk, online, busy, onJoin, onSpectate, recen
     </div>
     ${recent.length ? html`<div class="join-foot">
       <span class="t-lo">${t('最近的同盟')}</span>
-      ${recent.map((c) => html`<button key=${c} type="button" class="code-chip num" title=${t('填入密钥（不会直接加入）')} onClick=${() => onCode(c)}>${c}</button>`)}
+      ${recent.map((/** @type {string} */ c) => html`<button key=${c} type="button" class="code-chip num" title=${t('填入密钥（不会直接加入）')} onClick=${() => onCode(c)}>${c}</button>`)}
     </div>` : null}
   </div>`;
 }
@@ -1013,7 +1071,7 @@ export function LobbyScreen() {
   const publicRooms = useStore((s) => s.ui.publicRooms ?? null);
   // the open dialog: 'solo' | 'match' (选择模拟协议) | 'coop' (选择模拟协议 → 创建同盟, private) | 'pa' (同盟匹配's
   // 创建公开联合: the same screen, a public room) | 'join' (加入同盟 · 观战, AllianceSelect)
-  const [open, setOpen] = useState(null);
+  const [open, setOpen] = useState(/** @type {'solo' | 'match' | 'coop' | 'pa' | 'join' | null} */ (null));
   const [sweepOpen, setSweepOpen] = useState(false);
   const [achOpen, setAchOpen] = useState(false);
   const [achTick, setAchTick] = useState(0);
@@ -1028,6 +1086,7 @@ export function LobbyScreen() {
   const [pick, setPick] = useState(season);
   useEffect(() => { if (!open) setPick(season); }, [open, season]);
   const target = pick === 'all' || offered.includes(pick) ? pick : season;
+  /** @type {{ season: any, anySeason: boolean }} */
   const { season: queueSeason, anySeason } = queueTarget(target, season);
   const queueCounts4 = useStore((s) => seasonQueueCounts(s, queueSeason, false));
   const queueCounts8 = useStore((s) => seasonQueueCounts(s, queueSeason, true));
@@ -1039,7 +1098,7 @@ export function LobbyScreen() {
   // queued alone: 同盟匹配's screen waits in its right column (ui/matchQueue.js QueueWait), the picks locked
   const queued = useStore((s) => !!s.ui.queue);
   const [code, setCode] = useState('');
-  const [busy, setBusy] = useState(null);
+  const [busy, setBusy] = useState(/** @type {string | null} */ (null));
   const [recent] = useState(recentRooms);
   const [coarse] = useState(() => detectFeatures().coarse);
   const shortScreen = useMediaQuery(SHORT_SCREEN_QUERY);
@@ -1061,16 +1120,22 @@ export function LobbyScreen() {
   const big = roomMode !== 'solo' && size === LARGE_SEATS;
   const roomRuleset = ruleset;
 
+  /** @param {number} g */
   const pickGrade = (g) => { setGrade(g); savePref('lobby.grade', g); };
+  /** @param {string} d */
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
+  /** @param {number} n */
   const pickSize = (n) => { setSize(n); savePref('lobby.size', n); };
+  /** @param {boolean} on */
   const pickQuick = (on) => { setQuick(on); savePref('lobby.quick', on); };
+  /** @param {string} p */
   const pickRuleset = (p) => { setRuleset(p); if (isQueuePreset(p)) setQueueRuleset(p); saveLobbyRuleset(p); };
   // 同盟匹配 has no 自定义 (QUEUE_PRESETS): it queues with the last of 经典 / 休闲 picked
   const shownRuleset = matching ? queueRuleset : roomRuleset;
   const editCustom = () => openCustomRules({ rules: customDraft(), roomMode: roomMode === 'solo' ? 'solo' : 'coop', difficulty,
     grade: graded ? grade : null, size: big ? LARGE_SEATS : MAX_SEATS, onApply: () => pickRuleset('custom') });
 
+  /** @param {string} kind @param {() => any} fn */
   const run = async (kind, fn) => {
     if (inFlight.current) return;
     if (!online) { toast(t('尚未连接到服务器，请稍候'), 'warn'); return; }
@@ -1091,6 +1156,7 @@ export function LobbyScreen() {
   const openPublicNew = () => { setRuleset(queueRuleset); setOpen('pa'); };
   // the waiting dialog's 以公开联合等待 (ui/matchQueue.js): out of the queue, then a public room of its conditions — a
   // 快速匹配 queue's ruleset and size are the lobby's remembered ones
+  /** @param {any} q the queue's conditions (ui/matchQueue.js) */
   const queuePublic = (q) => openPublicRoom({ mode: 'coop', difficulty: q.difficulty, ruleset: q.quick ? queueRuleset : q.ruleset ?? queueRuleset,
     ...sizeFields('coop', q.quick ? size : seatsOf(q.size)), ...seasonFields(q.season ?? season) }, { queued: true });
   // 开始匹配: the drop-down's season (queueTarget)
@@ -1126,13 +1192,15 @@ export function LobbyScreen() {
     identity.setEntered(false);
     store.set((s) => ({ session: { ...s.session, entered: false } }));
   };
+  /** @param {string} v */
   const onCode = (v) => setCode(normalizeCode(v));
   // the queue's waiting Doctors per difficulty card: its ruleset × size queue, or with 快速匹配 the whole difficulty
-  const waiting = matching ? (d) => (quick ? quickWaiting(queueCounts4, queueCounts8, queueQuick, d) : queueCountOf(big ? queueCounts8 : queueCounts4, queueRuleset, d)) : null;
+  const waiting = matching ? (/** @type {string} */ d) => (quick ? quickWaiting(queueCounts4, queueCounts8, queueQuick, d) : queueCountOf(big ? queueCounts8 : queueCounts4, queueRuleset, d)) : null;
   // the hub's 「公开房间 N」: the public rooms waiting in every offered season (maintainer decision 2026-11-20)
   const totalRooms = countAll(queueRooms);
   const waitHere = matching && queued;
   // 开始匹配's second line: what it looks for (header; the drop-down's `target`, the chip's `season`)
+  /** @param {any} text */
   const bold = (text) => html`<b>${text}</b>`;
   const targetLine = target === 'all' ? tParts('{target} 公开联合 · 新联合 {season}', { target: bold(t('所有赛季')), season: bold(seasonName(season)) })
     : target === season ? tParts('{season} 赛季', { season: bold(seasonName(target)) })
@@ -1183,7 +1251,7 @@ export function LobbyScreen() {
       grade=${graded ? grade : null} onGrade=${pickGrade}
       onClose=${() => setOpen(publicNew ? 'match' : null)} onStart=${matching ? queue : create} busy=${busy} online=${online} waiting=${waiting}
       sub=${matching ? targetLine : null} wait=${waitHere ? html`<${QueueWait} onPublic=${queuePublic} />` : null} locked=${waitHere}
-      rooms=${matching ? (d) => roomsWaiting(publicRooms, target, d) : null}
+      rooms=${matching ? (/** @type {string} */ d) => roomsWaiting(publicRooms, target, d) : null}
       stage=${matching ? html`<${PublicRooms} season=${season} pick=${target} onPick=${setPick} difficulty=${difficulty} ruleset=${queueRuleset} size=${big ? LARGE_SEATS : MAX_SEATS} quick=${quick} online=${online}
         onCreate=${openPublicNew} />` : null}
       head=${publicNew ? PUBLIC_HEAD : null}
@@ -1205,11 +1273,12 @@ export function LobbyScreen() {
 /**
  * Beside a picked 自定义: the preset whose settings are in use (none when they were changed after it) and how many
  * settings differ from the official ones of the chosen difficulty (and room size: an 8-seat room's official bans).
+ * @param {{ rules: any, store: { presets: Array<{ id: string, name: string, rules: any }>, active: string | null }, roomMode: string, difficulty: string, grade?: number | null, size: number }} props
  */
 export function CustomSummary({ rules, store: st, roomMode, difficulty, grade = null, size }) {
   // a 规程 solo room compares with its 规程等级's mode and difficulty
   const graded = roomMode === 'solo' && isGrade(grade);
-  const diff = graded ? gradeDifficulty(grade) : difficulty;
+  const diff = graded ? gradeDifficulty(/** @type {number} */ (grade)) : difficulty;
   const mode = DIFFICULTIES.includes(diff) ? getMode(modeIdFor(roomMode === 'solo' ? 'solo' : 'coop', diff, graded ? grade : null)) : null;
   const n = customDiffs(rules, { bans: officialBans(getConfig(), diff, size), rounds: mode?.lastRound ?? null }).length;
   const p = st.presets.find((x) => x.id === st.active && JSON.stringify(x.rules) === JSON.stringify(rules));

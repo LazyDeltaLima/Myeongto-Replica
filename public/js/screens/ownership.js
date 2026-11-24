@@ -19,15 +19,22 @@ import { PROF_NAME } from '../ui/loadoutModel.js';
 import { ownershipRoster, rosterByTier, isOwned, standInSummary } from '../ui/ownershipModel.js';
 import { t, tParts } from '../../../shared/i18n.js';
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
 
-/** The roster of the tab (data.list('chess'), memoised on the data being ready). */
+/**
+ * The roster of the tab (data.list('chess'), memoised on the data being ready).
+ * @param {unknown} ready the data's ready flag (a memo dependency)
+ */
 export function useOwnershipRoster(ready) {
   return useMemo(() => ownershipRoster(data.list('chess')), [ready, data.locale()]);
 }
 
-/** One chess: the operator → its stand-in, and the 持有 switch (the whole card is the switch). */
+/**
+ * One chess: the operator → its stand-in, and the 持有 switch (the whole card is the switch).
+ * @param {{ m: any, chess: any, backups: any, owned: boolean, onToggle: (chessId: string, owned: boolean) => void }} props
+ */
 export function OwnCard({ m, chess, backups, owned, onToggle }) {
   const si = standInSummary(chess, backups);
   const sk = skinArt(); // both operators in this browser's chosen skin (docs/rules/ui.md 「스킨 고르기」)
@@ -41,7 +48,7 @@ export function OwnCard({ m, chess, backups, owned, onToggle }) {
       <span class="own-card__ava"><${Img} src=${skinPic(chess, 'avatar', sk, { own: true }) || chessAvatarUrl(m, chess)} fallback=${html`<b>${[...(chess.name || '?')][0]}</b>`} /></span>
       <span class="own-card__txt">
         <b class="own-card__name">${chess.name}</b>
-        <small>${t(PROF_NAME[chess.profession] || '')}${chess.subProfessionName ? ` · ${chess.subProfessionName}` : ''}</small>
+        <small>${t(/** @type {Record<string, string>} */ (PROF_NAME)[chess.profession] || '')}${chess.subProfessionName ? ` · ${chess.subProfessionName}` : ''}</small>
       </span>
     </span>
     <span class="own-card__arrow" aria-hidden="true"><${Icon} name="chevronRight" /></span>
@@ -49,7 +56,7 @@ export function OwnCard({ m, chess, backups, owned, onToggle }) {
       <span class="own-card__ava own-card__ava--sub">${si ? html`<${Img} src=${skinPic(si.record, 'avatar', sk, { own: true }) || chessAvatarUrl(m, si.record)} fallback=${html`<b>${[...(si.name || '?')][0]}</b>`} />` : null}</span>
       <span class="own-card__txt">
         <b class="own-card__name">${si ? si.name : '—'}</b>
-        <small>${si ? `${t(PROF_NAME[si.profession] || '')}${slot ? ` · ${slot} ${skill.name || ''}` : ''}` : t('无替补数据')}</small>
+        <small>${si ? `${t(/** @type {Record<string, string>} */ (PROF_NAME)[si.profession] || '')}${slot ? ` · ${slot} ${skill.name || ''}` : ''}` : t('无替补数据')}</small>
       </span>
     </span>
     <span class="own-card__state"><i class="own-switch" aria-hidden="true"><i></i></i>${owned ? t('持有') : t('未持有')}</span>
@@ -75,7 +82,7 @@ export function OwnershipPanel({ m, roster, notOwned, onToggle }) {
       ${groups.length ? groups.map((g) => html`<section key=${g.tier} class="own-tier" data-tier=${g.tier} aria-label=${t('{tier}阶', { tier: g.tier })}>
         <h3 class="own-tier__head"><${TierChip} tier=${g.tier} size="sm" />${tParts('{tier}阶', { tier: html`<span class="num">${ROMAN[g.tier]}</span>` })}<span class="num t-dim">${g.list.length}</span></h3>
         <div class="own-grid">
-          ${g.list.map((c) => html`<${OwnCard} key=${c.chessId} m=${m} chess=${c} backups=${backups} owned=${isOwned(notOwned, c.chessId)} onToggle=${onToggle} />`)}
+          ${g.list.map((/** @type {any} */ c) => html`<${OwnCard} key=${c.chessId} m=${m} chess=${c} backups=${backups} owned=${isOwned(notOwned, c.chessId)} onToggle=${onToggle} />`)}
         </div>
       </section>`) : html`<p class="lo-empty t-dim">${offOnly ? t('全部持有：没有由替补干员上场的棋子') : t('没有可下掉的干员')}</p>`}
     </div>

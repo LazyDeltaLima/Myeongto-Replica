@@ -50,6 +50,7 @@ import { Img } from '../ui/gameComponents.js';
 const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g;
 // Lone surrogates are removed by a scan, not a regex: the lookbehind such a regex needs is a *syntax error* in Safari
 // < 16.4, which would stop the whole client from loading there.
+/** @param {string} str */
 export function stripLoneSurrogates(str) {
   let out = '';
   for (let i = 0; i < str.length; i++) {
@@ -115,6 +116,7 @@ const RIDGE_KEYS = ['titleRidges', 'entry/bg_mountains_tiled'];
  */
 export function findUiAsset(assets, names) {
   if (!assets || typeof assets !== 'object') return null;
+  /** @param {any} v @returns {string | null} */
   const asUrl = (v) => {
     if (typeof v === 'string') return v;
     if (v && typeof v === 'object') return v.url || v.path || v.src || null;
@@ -130,7 +132,7 @@ export function findUiAsset(assets, names) {
   const lists = [Array.isArray(ui) ? ui : null, Array.isArray(assets.files) ? assets.files : null].filter(Boolean);
   for (const list of lists) {
     for (const n of names) {
-      const hit = list.map(asUrl).find((u) => typeof u === 'string' && u.includes('/ui/') && u.toLowerCase().split('/').pop().startsWith(n.toLowerCase()));
+      const hit = list.map(asUrl).find((/** @type {string | null} */ u) => typeof u === 'string' && u.includes('/ui/') && /** @type {string} */ (u.toLowerCase().split('/').pop()).startsWith(n.toLowerCase()));
       if (hit) return hit;
     }
   }
@@ -157,6 +159,7 @@ const EMBLEM = [
 
 export function Emblem() {
   const dots = useMemo(() => {
+    /** @type {{ cx: number, cy: number, r: number, accent: boolean, d: number }[]} */
     const out = [];
     EMBLEM.forEach((row, r) => {
       [...row].forEach((ch, c) => {
@@ -180,8 +183,10 @@ export function Emblem() {
 /**
  * The event's logo in the emblem's brackets, sized as the entry film leaves it (its 1280×720 stage fitted to the
  * screen: the logo 144 px wide, the brackets 12 × 129 px, 4 px from it), so the film lands on the title screen.
+ * @param {{ src: string }} props
  */
 function FilmLogo({ src }) {
+  /** @param {number} px */
   const k = (px) => `min(${(px / 12.8).toFixed(3)}vw,${(px / 7.2).toFixed(3)}vh)`;
   const br = `width:${k(12)};height:${k(129)}`;
   return html`<div class="emblem emblem--logo" aria-hidden="true" style=${`gap:${k(4)}`}>
@@ -214,6 +219,7 @@ function Ridges() {
   </svg>`;
 }
 
+/** @type {Record<string, string>} */
 const STATUS_TEXT = {
   idle: N_('准备连接'), connecting: N_('正在连接服务器'), connected: N_('已连接服务器'), handshaking: N_('正在验证身份'),
   online: N_('已连接服务器'), reconnecting: N_('连接中断，正在重连'), closed: N_('连接已关闭'),
@@ -242,7 +248,7 @@ export function TitleScreen() {
   const seasonBg = seasonBackdrop(season);
   const markSet = seasonLogoSet(season, lang);
   const seasonMark = markSet?.src ?? null;
-  const [markBad, setMarkBad] = useState(null); // a listed logo that fails to load gives the words back
+  const [markBad, setMarkBad] = useState(/** @type {string | null} */ (null)); // a listed logo that fails to load gives the words back
   const markOk = !!seasonMark && markBad !== seasonMark;
   const backdrop = seasonBg ? null : findUiAsset(assets, BACKDROP_KEYS);
   const ridges = seasonBg ? null : findUiAsset(assets, RIDGE_KEYS);
@@ -251,9 +257,9 @@ export function TitleScreen() {
   const alliance = useLobbyArt() && !seasonBg;
   const logo = season === DEFAULT_SEASON ? uiUrl(assets, 'entry/season_logo') : null;
   // Track load/fail per URL (not as booleans reset in effects: an image can load before an effect runs).
-  const [bgLoadedUrl, setBgLoadedUrl] = useState(null);
-  const [ridgesLoadedUrl, setRidgesLoadedUrl] = useState(null);
-  const [ridgesFailedUrl, setRidgesFailedUrl] = useState(null);
+  const [bgLoadedUrl, setBgLoadedUrl] = useState(/** @type {string | null} */ (null));
+  const [ridgesLoadedUrl, setRidgesLoadedUrl] = useState(/** @type {string | null} */ (null));
+  const [ridgesFailedUrl, setRidgesFailedUrl] = useState(/** @type {string | null} */ (null));
   const bgLoaded = !!backdrop && bgLoadedUrl === backdrop;
   const ridgesLoaded = !!ridges && ridgesLoadedUrl === ridges;
   const ridgesFailed = !!ridges && ridgesFailedUrl === ridges;
@@ -320,8 +326,8 @@ export function TitleScreen() {
     </div>
 
     <main class="title-main">
-      ${markOk ? html`<img key=${seasonMark} class="title-logo" data-reveal="logo" src=${seasonMark} srcset=${markSet.srcset ?? undefined}
-          sizes=${markSet.srcset ? logoSizes(markSet.aspect, TITLE_LOGO_HEIGHTS) : undefined} alt="" draggable=${false} onError=${() => setMarkBad(seasonMark)} />`
+      ${markOk ? html`<img key=${seasonMark} class="title-logo" data-reveal="logo" src=${seasonMark} srcset=${/** @type {NonNullable<typeof markSet>} */ (markSet).srcset ?? undefined}
+          sizes=${/** @type {NonNullable<typeof markSet>} */ (markSet).srcset ? logoSizes(/** @type {NonNullable<typeof markSet>} */ (markSet).aspect, TITLE_LOGO_HEIGHTS) : undefined} alt="" draggable=${false} onError=${() => setMarkBad(seasonMark)} />`
         : logo ? html`<${FilmLogo} src=${logo} />` : html`<${Emblem} />`}
       ${alphabetic || markOk ? null : html`<div class="title-en">
         <span class="title-en__a">STRONGHOLD PROTOCOL</span>

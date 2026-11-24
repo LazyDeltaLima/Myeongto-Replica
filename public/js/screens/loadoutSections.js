@@ -16,6 +16,7 @@ import { t } from '../../../shared/i18n.js';
 import { MODULE_NONE, PROF_ORDER, PROF_NAME, skillLabel, moduleBadge, attrRows, skillTags, traitLines, moduleRecord } from '../ui/loadoutModel.js';
 import { atPotential } from '../../../shared/potential.js';
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /**
@@ -50,12 +51,12 @@ export function rowControlHit(e) {
 export function ProfFilter({ m, prof, onProf }) {
   return html`<div class="lo-chips lo-chips--prof" role="group" aria-label=${t('职业')}>
     ${PROF_ORDER.map((p) => html`<button key=${p} type="button" class=${cx('lo-chip', 'lo-chip--prof', prof === p && 'is-on')}
-      aria-pressed=${prof === p ? 'true' : 'false'} title=${t(PROF_NAME[p])} onClick=${() => onProf(prof === p ? null : p)}>
-      <${Img} src=${profGlyphUrl(m, p)} class="lo-chip__icon lo-profglyph" fallback=${html`<span>${t(PROF_NAME[p])[0]}</span>`} /><span class="lo-chip__lbl">${t(PROF_NAME[p])}</span></button>`)}
+      aria-pressed=${prof === p ? 'true' : 'false'} title=${t(/** @type {Record<string, string>} */ (PROF_NAME)[p])} onClick=${() => onProf(prof === p ? null : p)}>
+      <${Img} src=${profGlyphUrl(m, p)} class="lo-chip__icon lo-profglyph" fallback=${html`<span>${t(/** @type {Record<string, string>} */ (PROF_NAME)[p])[0]}</span>`} /><span class="lo-chip__lbl">${t(/** @type {Record<string, string>} */ (PROF_NAME)[p])}</span></button>`)}
   </div>`;
 }
 
-/** Skill icon URL for a SkillRecord (assets manifest `skills[iconId]` / `skillsById`), null when absent. */
+/** Skill icon URL for a SkillRecord (assets manifest `skills[iconId]` / `skillsById`), null when absent. @param {any} m @param {any} rec */
 function skillIconOf(m, rec) {
   const skills = m && typeof m === 'object' ? m.skills : null;
   if (!skills || !rec) return null;
@@ -65,7 +66,10 @@ function skillIconOf(m, rec) {
   return alt && typeof skills[alt] === 'string' ? skills[alt] : null;
 }
 
-/** Skill icon with the official selection outline; falls back to a lettered tile. */
+/**
+ * Skill icon with the official selection outline; falls back to a lettered tile.
+ * @param {{ m: any, rec: any, index: number, on?: boolean, size?: string }} props
+ */
 export function SkillIcon({ m, rec, index, on = false, size = 'md' }) {
   const src = skillIconOf(m, rec);
   return html`<span class=${cx('lo-sicon', `lo-sicon--${size}`, on && 'is-on')}>
@@ -77,6 +81,7 @@ export function SkillIcon({ m, rec, index, on = false, size = 'md' }) {
 /**
  * Module icon URL: the official type icon from the local-client art (`local-assets.json` groups.module, matched
  * case-insensitively by typeName), else manifest `modules[icon]` / `uniequip[icon]` when the asset pipeline provides one.
+ * @param {any} m @param {any} rec
  */
 function moduleIconOf(m, rec) {
   if (!rec) return null;
@@ -93,7 +98,10 @@ function moduleIconOf(m, rec) {
   return null;
 }
 
-/** Module badge tile: the official type icon when the local-client art has it, else the type letter; ⊘ for 不装备. */
+/**
+ * Module badge tile: the official type icon when the local-client art has it, else the type letter; ⊘ for 不装备.
+ * @param {{ m: any, rec: any, id: string, size?: string }} props
+ */
 export function ModuleGlyph({ m, rec, id, size = 'md' }) {
   const src = rec ? moduleIconOf(m, rec) : null;
   if (id === MODULE_NONE || !rec) {
@@ -106,7 +114,10 @@ export function ModuleGlyph({ m, rec, id, size = 'md' }) {
   </span>`;
 }
 
-/** One skill of the 技能 section: icon, slot, name, the 默认 / 已装备 badges, the SP tags and the description. */
+/**
+ * One skill of the 技能 section: icon, slot, name, the 默认 / 已装备 badges, the SP tags and the description.
+ * @param {{ m: any, opt: any, on: boolean, level: 'normal'|'elite', onPick: (index: number) => void, locked?: boolean }} props
+ */
 export function SkillOption({ m, opt, on, level, onPick, locked = false }) {
   const rec = level === 'elite' ? opt.elite || opt.normal : opt.normal || opt.elite;
   const tags = skillTags(rec);
@@ -154,7 +165,7 @@ export function ModuleInfo({ m, golden, opt, potential = null }) {
   // 特性: the trait the elite fights with under this module (the class trait, or the module's rewrite of it), then the
   // module's extra line under PRTS's own label 特性追加 — the line adds to the class trait (item 16.2)
   const lines = traitLines(rec.traitOverride);
-  const talents = (Array.isArray(rec.talentChanges) ? rec.talentChanges : []).filter((t) => t && (t.name || t.desc) && !t.hidden);
+  const talents = (Array.isArray(rec.talentChanges) ? rec.talentChanges : []).filter((/** @type {any} */ t) => t && (t.name || t.desc) && !t.hidden);
   return html`<div class="lo-minfo">
     <div class="lo-minfo__title"><${Img} src=${moduleIconOf(m, rec)} class="lo-minfo__icon" /><span class="lo-minfo__type num">${rec.typeName || ''}</span><b>${rec.name || rec.uniEquipId}</b>
       ${opt.isDefault ? html`<span class="lo-badge lo-badge--def">${t('默认')}</span>` : null}</div>
@@ -164,7 +175,7 @@ export function ModuleInfo({ m, golden, opt, potential = null }) {
     </div>
     ${lines.base ? html`<div class="lo-minfo__row" data-trait="base"><span class="lo-minfo__k">${t('特性')}</span><${RichText} class="lo-minfo__v" text=${lines.base} /></div>` : null}
     ${lines.added ? html`<div class="lo-minfo__row" data-trait="added"><span class="lo-minfo__k">${t('特性追加')}</span><${RichText} class="lo-minfo__v" text=${lines.added} /></div>` : null}
-    ${talents.map((tal, i) => html`<div key=${i} class="lo-minfo__row"><span class="lo-minfo__k">${t('天赋')}</span>
+    ${talents.map((/** @type {any} */ tal, /** @type {number} */ i) => html`<div key=${i} class="lo-minfo__row"><span class="lo-minfo__k">${t('天赋')}</span>
       <span class="lo-minfo__v">${tal.name ? html`<b class="lo-minfo__tname">${tal.name}</b>` : null}<${RichText} text=${tal.descRaw || tal.desc || ''} /></span></div>`)}
   </div>`;
 }
@@ -177,6 +188,7 @@ export function ModuleInfo({ m, golden, opt, potential = null }) {
  *   onLevel: (level: 'normal'|'elite') => void, onPick: (index: number) => void, locked?: boolean }} props
  */
 export function SkillSection({ m, chess, golden, skillOptions, skill, level, onLevel, onPick, locked = false }) {
+  /** @param {any} c */
   const lv = (c) => c?.status?.skillLevel ?? '—';
   return html`<section class="lo-sec">
     <header class="lo-sec__head">

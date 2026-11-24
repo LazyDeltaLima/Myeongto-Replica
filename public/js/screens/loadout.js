@@ -70,8 +70,18 @@ import { reducedMotion } from '../ui/device.js';
 
 export { openLoadout, closeLoadout };
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
+/**
+ * @typedef {ReturnType<typeof chessOptions>['skillOptions'][number]} SkillOpt
+ * @typedef {ReturnType<typeof chessOptions>['moduleOptions'][number]} ModuleOpt
+ * @typedef {{ skill?: number, module?: string }} LoadoutPatch a choice change (setChoice)
+ * @typedef {(charId: string, patch: { potential?: number, cultivate?: number }) => void} OpsSetter
+ * @typedef {PointerEvent & { currentTarget: HTMLElement, target: Element | null }} DeckPointer
+ * @typedef {(entries: Record<string, any>, getChess: (id: string) => any, ops?: Record<string, any> | null,
+ *   roster?: any[] | null, skins?: Record<string, any> | null) => number} ChangedCountFn changedCount (ui/loadoutModel.js)
+ */
 
 // ---- export / import (干员调配 presets) -----------------------------------------------------------------------------
 //
@@ -81,7 +91,10 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
 // (encodeLoadoutCode), 下载文件 saves the JSON; 导入 reads either (expandLoadoutCode → parseImport). The skin choice
 // (ui/skins.js, not per season) travels with it. The dialog is a shared Modal rendered next to the overlay, not inside it.
 
-/** Save `text` as a download. Silent no-op when the browser refuses downloads — 复制 stays available. */
+/**
+ * Save `text` as a download. Silent no-op when the browser refuses downloads — 复制 stays available.
+ * @param {string} filename @param {string} text
+ */
 function downloadText(filename, text) {
   try {
     const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
@@ -95,7 +108,10 @@ function downloadText(filename, text) {
   } catch { /* ignore */ }
 }
 
-/** Read a picked file as text (`File.text()`, with a FileReader fallback for older Safari). */
+/**
+ * Read a picked file as text (`File.text()`, with a FileReader fallback for older Safari).
+ * @param {File} file @returns {Promise<string>}
+ */
 function readFileText(file) {
   if (typeof file?.text === 'function') return file.text();
   return new Promise((resolve, reject) => {
@@ -108,7 +124,7 @@ function readFileText(file) {
 
 /** `stronghold-loadout-20261003-1245.json` (`stronghold-ownership-…` for the 干员持有 list, `stronghold-diy-…` for 自选编队) */
 function exportFilename(now = new Date(), what = 'loadout') {
-  const p = (n) => String(n).padStart(2, '0');
+  const p = (/** @type {number} */ n) => String(n).padStart(2, '0');
   return `stronghold-${what}-${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}.json`;
 }
 
@@ -119,7 +135,10 @@ function exportFilename(now = new Date(), what = 'loadout') {
 // so the eye runs down a column; the portrait and name open the detail (on a phone it slides over; a quick choice keeps
 // the list). Hook-free (the tests draw it).
 
-/** One skill to tap: its icon, the equipped one ringed; the label / tooltip says slot, name, SP and duration (quickSkillTags). */
+/**
+ * One skill to tap: its icon, the equipped one ringed; the label / tooltip says slot, name, SP and duration (quickSkillTags).
+ * @param {{ m: any, opt: SkillOpt, on: boolean, elite: boolean, onPick: (index: number) => void }} props
+ */
 function QuickSkill({ m, opt, on, elite, onPick }) {
   const rec = elite ? opt.elite || opt.normal : opt.normal || opt.elite;
   const tags = quickSkillTags(rec);
@@ -130,13 +149,16 @@ function QuickSkill({ m, opt, on, elite, onPick }) {
   </button>`;
 }
 
-/** One module to tap (不装备 first): the type icon with its letter in the corner; the elite's equipped one ringed. */
+/**
+ * One module to tap (不装备 first): the type icon with its letter in the corner; the elite's equipped one ringed.
+ * @param {{ m: any, opt: ModuleOpt, on: boolean, onPick: (id: string) => void }} props
+ */
 function QuickModule({ m, opt, on, onPick }) {
   const label = opt.id === MODULE_NONE ? t('不装备模组') : `${opt.rec?.typeName || ''} · ${opt.rec?.name || opt.id}`;
   return html`<button type="button" class=${cx('lo-q', 'lo-q--mod', on && 'is-on')} data-module=${opt.id} aria-pressed=${on ? 'true' : 'false'}
       aria-label=${label} title=${label} onClick=${() => onPick(opt.id)}>
     <${ModuleGlyph} m=${m} rec=${opt.rec} id=${opt.id} size="q" />
-    ${opt.id !== MODULE_NONE ? html`<b class="lo-q__type num" aria-hidden="true">${moduleBadge(opt.rec, opt.id)}</b>` : null}
+    ${opt.id !== MODULE_NONE ? html`<b class="lo-q__type num" aria-hidden="true">${moduleBadge(opt.rec, /** @type {any} */ (opt.id))}</b>` : null}
   </button>`;
 }
 
@@ -155,6 +177,7 @@ export function RosterHead() {
  * the detail), three skill slots (an empty one when the chess has two skills), the elite's modules, the 潜能 / 练度 selects.
  * `level` 'elite': the skills' details at 精锐 Lv.7 (the shared preview). A chess marked not owned (干员持有) shows the
  * 「替补」 tag: its stand-in fights with a fixed skill and no 潜能 / 练度, the choices here apply once it is owned again.
+ * @param {{ m: any, chess: any, golden: any, entries: Record<string, any>, ops?: Record<string, any>, selected: boolean, onPick: (id: string) => void, onChange: (id: string, patch: LoadoutPatch) => void, onOps: OpsSetter, level?: string, notOwned?: boolean }} props
  */
 export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPick, onChange, onOps, level = 'normal', notOwned = false }) {
   const skinCtx = skinArt(); // the operator's pictures in this browser's chosen skin (ui/skins.js skinPic)
@@ -175,7 +198,7 @@ export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPic
       </span>
       <span class="lo-card__id">
         <span class="lo-card__name">${chess.name}</span>
-        <span class="lo-card__bonds">${(chess.bonds || []).map((b) => html`<${Img} key=${b} src=${bondIconUrl(m, b)} class="lo-card__bond"
+        <span class="lo-card__bonds">${(chess.bonds || []).map((/** @type {string} */ b) => html`<${Img} key=${b} src=${bondIconUrl(m, b)} class="lo-card__bond"
           alt=${data.lookup('bonds', b)?.name || b} fallback=${html`<i class="lo-bond__dot" title=${data.lookup('bonds', b)?.name || b}></i>`} />`)}</span>
         ${notOwned ? html`<span class="lo-card__sub" title=${t('未持有（干员持有）：由替补干员上场')}>${t('替补')}</span>` : null}
       </span>
@@ -183,11 +206,11 @@ export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPic
     ${changed ? html`<span class="lo-card__flag" aria-label=${t('已调整')}></span>` : null}
     <div class="lo-card__skills lo-quick" role="group" aria-label=${t('选择技能')}>
       ${slots.map((sk, i) => (sk ? html`<${QuickSkill} key=${sk.index} m=${m} opt=${sk} elite=${elite} on=${sk.index === choice.skill}
-        onPick=${(skill) => onChange(chess.chessId, { skill })} />` : html`<span key=${`e${i}`} class="lo-q lo-q--empty" aria-hidden="true"></span>`))}
+        onPick=${(/** @type {number} */ skill) => onChange(chess.chessId, { skill })} />` : html`<span key=${`e${i}`} class="lo-q lo-q--empty" aria-hidden="true"></span>`))}
     </div>
     <div class="lo-card__mods lo-quick" role="group" aria-label=${t('选择模组')} title=${t('模组仅在精锐形态生效')}>
       ${golden ? modules.map((mo) => html`<${QuickModule} key=${mo.id} m=${m} opt=${mo} on=${mo.id === choice.module}
-        onPick=${(module) => onChange(chess.chessId, { module })} />`) : null}
+        onPick=${(/** @type {string} */ module) => onChange(chess.chessId, { module })} />`) : null}
     </div>
     <${CultivationSelects} charId=${chess.charId} ops=${ops} onSet=${onOps} note=${standInNote} />
   </div>`;
@@ -195,22 +218,28 @@ export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPic
 
 // ---- detail --------------------------------------------------------------------------------------------------------------
 
-/** The same attribute records and rich-text renderer as the in-match card, including literal trigger markers. */
+/**
+ * The same attribute records and rich-text renderer as the in-match card, including literal trigger markers.
+ * @param {{ chess: any, m: any }} props
+ */
 export function LoadoutGarrisons({ chess, m }) {
-  const records = (chess?.garrisonIds || []).map((id) => data.lookup('garrisons', id)).filter(Boolean);
+  const records = (chess?.garrisonIds || []).map((/** @type {string} */ id) => data.lookup('garrisons', id)).filter(Boolean);
   return records.length ? html`<section class="lo-garrisons" data-variant=${chess.isGolden ? 'elite' : 'normal'}>
-    ${records.map((garrison) => html`<${GarrisonBlock} key=${garrison.garrisonId} garrison=${garrison} m=${m} />`)}
+    ${records.map((/** @type {any} */ garrison) => html`<${GarrisonBlock} key=${garrison.garrisonId} garrison=${garrison} m=${m} />`)}
   </section>` : null;
 }
 
-/** The name of a chess's 补位 stand-in (data/backups.json), or null. */
+/** The name of a chess's 补位 stand-in (data/backups.json), or null. @param {any} chess */
 const standInName = (chess) => data.get('backups')?.units?.[chess?.backup?.charId]?.name ?? null;
 
 
+/**
+ * @param {{ m: any, chess: any, golden: any, entries: Record<string, any>, ops?: Record<string, any>, onChange: (patch: LoadoutPatch) => void, onOps: OpsSetter, onReset: () => void, locked: boolean, level?: string, onLevel: (level: string) => void, notOwned?: boolean }} props
+ */
 function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset, locked, level = 'normal', onLevel, notOwned = false }) {
   const [statLevel, setStatLevel] = useState('elite'); // 局内数值: the 精锐 shows the chosen module's effect
   const setLevel = onLevel;
-  const bodyRef = useRef(null);
+  const bodyRef = useRef(/** @type {HTMLElement | null} */ (null));
   useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [chess?.chessId]);
   const skinCtx = skinArt();
   if (!chess) return html`<aside class="lo-detail lo-detail--empty"><p class="t-dim">${t('没有符合条件的干员')}</p></aside>`;
@@ -228,10 +257,10 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
         <h2 class="lo-dhead__name">${chess.name}</h2>
         <span class="lo-dhead__en">${chess.appellation || ''}</span>
         <span class="lo-dhead__class">
-          <${Img} src=${profGlyphUrl(m, chess.profession)} class="lo-dhead__prof lo-profglyph" />${t(PROF_NAME[chess.profession] || '')}
+          <${Img} src=${profGlyphUrl(m, chess.profession)} class="lo-dhead__prof lo-profglyph" />${t(/** @type {Record<string, string>} */ (PROF_NAME)[chess.profession] || '')}
           <i class="lo-sep"></i><${Img} src=${subProfIconUrl(m, chess)} class="lo-dhead__prof" />${chess.subProfessionName || ''}
         </span>
-        <span class="lo-dhead__bonds">${(chess.bonds || []).map((b) => html`<span key=${b} class="lo-bond">
+        <span class="lo-dhead__bonds">${(chess.bonds || []).map((/** @type {string} */ b) => html`<span key=${b} class="lo-bond">
           <${Img} src=${bondIconUrl(m, b)} class="lo-bond__icon" fallback=${html`<i class="lo-bond__dot"></i>`} />${data.lookup('bonds', b)?.name || b}</span>`)}</span>
       </div>
       <${Button} variant="ghost" size="sm" icon="refresh" class="lo-dhead__reset" disabled=${!changed} onClick=${onReset}>${t('恢复默认')}<//>
@@ -241,10 +270,10 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
       <${CultivationSection} charId=${chess.charId} ops=${ops} onSet=${onOps} standIn=${notOwned} />
       <${LoadoutGarrisons} chess=${level === 'elite' && golden ? golden : chess} m=${m} />
       <${SkillSection} m=${m} chess=${chess} golden=${golden} skillOptions=${opt.skillOptions} skill=${choice.skill} level=${level}
-        onLevel=${setLevel} onPick=${(i) => onChange({ skill: i })} />
+        onLevel=${setLevel} onPick=${(/** @type {number} */ i) => onChange({ skill: i })} />
       <${LoadoutStats} base=${chess} golden=${golden} entries=${entries} ops=${ops} level=${statLevel} onLevel=${setStatLevel} />
       <${ModuleSection} m=${m} golden=${golden} moduleOptions=${opt.moduleOptions} module=${choice.module}
-        onPick=${(id) => onChange({ module: id })} potential=${opsOf(ops, chess.charId).potential} />
+        onPick=${(/** @type {string} */ id) => onChange({ module: id })} potential=${opsOf(ops, chess.charId).potential} />
       ${notOwned ? html`<p class="lo-locknote lo-locknote--standin" data-testid="loadout-standin-note"><${Icon} name="info" />${standInName(chess) ? t('干员持有中标记为未持有：此棋子由替补干员 {name} 上场，技能与模组固定（补位干员技能不可更改）；这里的调配在改回「持有」后生效', { name: standInName(chess) })
         : t('干员持有中标记为未持有：此棋子由替补干员上场，技能与模组固定（补位干员技能不可更改）；这里的调配在改回「持有」后生效')}</p>` : null}
       ${locked ? html`<p class="lo-locknote"><${Icon} name="info" />${t('本局的调配已锁定，修改将在下一局生效')}</p>` : null}
@@ -254,8 +283,12 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
 
 // ---- filters -------------------------------------------------------------------------------------------------------------
 
-/** The roster's filters; `onDeck` (the list view): a button at the end that switches to the 卡片视图. */
+/**
+ * The roster's filters; `onDeck` (the list view): a button at the end that switches to the 卡片视图.
+ * @param {{ m: any, filters: any, onFilters: (filters: any) => void, bonds: any[], onDeck?: (() => void) | null }} props
+ */
 function Filters({ m, filters, onFilters, bonds, onDeck = null }) {
+  /** @param {Record<string, any>} patch */
   const set = (patch) => onFilters({ ...filters, ...patch });
   return html`<div class="lo-filters">
     <div class="lo-frow">
@@ -265,13 +298,13 @@ function Filters({ m, filters, onFilters, bonds, onDeck = null }) {
           aria-pressed=${filters.tier === tier ? 'true' : 'false'} title=${t('{tier}阶', { tier })} onClick=${() => set({ tier: filters.tier === tier ? null : tier })}><span class="num"><${Roman} n=${tier} /></span></button>`)}
       </div>
       <${TextField} size="sm" icon="search" value=${filters.query} placeholder=${t('搜索干员 / 职业 / 盟约')} class="lo-search"
-        onInput=${(v) => set({ query: String(v).slice(0, 24) })} />
+        onInput=${(/** @type {string} */ v) => set({ query: String(v).slice(0, 24) })} />
     </div>
     <div class="lo-frow">
-      <${ProfFilter} m=${m} prof=${filters.prof} onProf=${(prof) => set({ prof })} />
+      <${ProfFilter} m=${m} prof=${filters.prof} onProf=${(/** @type {string | null} */ prof) => set({ prof })} />
       <label class="lo-select">
         <span class="lo-select__k">${t('盟约')}</span>
-        <select value=${filters.bond || ''} onChange=${(e) => set({ bond: e.currentTarget.value || null })} aria-label=${t('按盟约筛选')}>
+        <select value=${filters.bond || ''} onChange=${(/** @type {{ currentTarget: HTMLSelectElement }} */ e) => set({ bond: e.currentTarget.value || null })} aria-label=${t('按盟约筛选')}>
           <option value="">${t('全部盟约')}</option>
           ${bonds.map((b) => html`<option key=${b.bondId} value=${b.bondId}>${b.name}</option>`)}
         </select>
@@ -294,7 +327,7 @@ const VIEW_PREF = 'loadout.view';
 export const loadoutViewPref = () => (loadPref(VIEW_PREF, 'list') === 'deck' ? 'deck' : 'list');
 const DECK_TIERS = [1, 2, 3, 4, 5, 6];
 
-/** 潜能 as six pips (the card's star row). */
+/** 潜能 as six pips (the card's star row). @param {{ n: number }} props */
 function PotPips({ n }) {
   return html`<span class="lo-op__pot" title=${t('潜能 {n}', { n })}>${DECK_TIERS.map((i) => html`<i key=${i} class=${i <= n ? 'is-on' : ''}></i>`)}</span>`;
 }
@@ -303,6 +336,7 @@ function PotPips({ n }) {
  * One operator card: tier, the normal / elite levels, the half-body portrait with its branch icon, the equipped skill and
  * module, 潜能 (when editable: cultivationView), name and bonds; a 替补 ribbon when marked not owned. `quick` ('skill' |
  * 'module' | 'cult') adds a column of quick choices beside the card — the same handlers as the list's RosterRow.
+ * @param {{ m: any, chess: any, golden: any, entries: Record<string, any>, ops?: Record<string, any>, selected?: boolean, quick?: string | null, onPick: (id: string) => void, onChange: (id: string, patch: LoadoutPatch) => void, onOps: OpsSetter, notOwned?: boolean }} props
  */
 export function DeckCard({ m, chess, golden, entries, ops = {}, selected = false, quick = null, onPick, onChange, onOps, notOwned = false }) {
   const skinCtx = skinArt();
@@ -317,7 +351,7 @@ export function DeckCard({ m, chess, golden, entries, ops = {}, selected = false
   const standInNote = notOwned ? t('未持有（干员持有）：由替补干员上场，替补干员没有潜能与练度') : null;
   return html`<div role="listitem" data-chess=${chess.chessId}
       class=${cx('lo-op', `lo-op--t${chess.tier}`, selected && 'is-sel', changed && 'is-changed', notOwned && 'is-standin', quick && 'is-quick')}>
-    <div class="lo-op__card" onClick=${(e) => { if (!e.target.closest?.('button, select, input')) onPick(chess.chessId); }}>
+    <div class="lo-op__card" onClick=${(/** @type {{ target: Element }} */ e) => { if (!e.target.closest?.('button, select, input')) onPick(chess.chessId); }}>
       <div class="lo-op__rail">
         <${TierChip} tier=${chess.tier} size="sm" class="lo-op__tier" />
         <span class="lo-op__lv" title=${t('普通 / 精锐等级')}>
@@ -338,16 +372,16 @@ export function DeckCard({ m, chess, golden, entries, ops = {}, selected = false
         </span>
       </button>
       <span class="lo-op__meta">${cv.potentialOn ? html`<${PotPips} n=${cv.potential} />` : null}<span class="lo-op__name">${chess.name}</span></span>
-      <span class="lo-op__bonds">${(chess.bonds || []).map((b) => html`<span key=${b} class="lo-op__bond" title=${data.lookup('bonds', b)?.name || b}>
+      <span class="lo-op__bonds">${(chess.bonds || []).map((/** @type {string} */ b) => html`<span key=${b} class="lo-op__bond" title=${data.lookup('bonds', b)?.name || b}>
         <${Img} src=${bondIconUrl(m, b)} fallback=${html`<i class="lo-bond__dot"></i>`} /></span>`)}</span>
     </div>
     ${quick === 'skill' ? html`<div class="lo-op__quick lo-quick" role="group" aria-label=${t('选择技能')}>
         ${[0, 1, 2].map((i) => opt.skillOptions[i] || null).map((s, i) => (s ? html`<${QuickSkill} key=${s.index} m=${m} opt=${s} elite=${!!golden}
-          on=${s.index === choice.skill} onPick=${(skill) => onChange(chess.chessId, { skill })} />` : html`<span key=${`e${i}`} class="lo-q lo-q--empty" aria-hidden="true"></span>`))}
+          on=${s.index === choice.skill} onPick=${(/** @type {number} */ skill) => onChange(chess.chessId, { skill })} />` : html`<span key=${`e${i}`} class="lo-q lo-q--empty" aria-hidden="true"></span>`))}
       </div>`
       : quick === 'module' ? html`<div class="lo-op__quick lo-quick" role="group" aria-label=${t('选择模组')} title=${t('模组仅在精锐形态生效')}>
         ${golden ? modules.map((mo) => html`<${QuickModule} key=${mo.id} m=${m} opt=${mo} on=${mo.id === choice.module}
-          onPick=${(module) => onChange(chess.chessId, { module })} />`) : html`<span class="lo-op__none">${t('无精锐')}</span>`}
+          onPick=${(/** @type {string} */ module) => onChange(chess.chessId, { module })} />`) : html`<span class="lo-op__none">${t('无精锐')}</span>`}
       </div>`
       : quick === 'cult' ? html`<div class="lo-op__quick lo-op__quick--cult"><${CultivationSelects} charId=${chess.charId} ops=${ops} onSet=${onOps} note=${standInNote} /></div>` : null}
   </div>`;
@@ -356,6 +390,7 @@ export function DeckCard({ m, chess, golden, entries, ops = {}, selected = false
 /**
  * A tier group's tall marker: the official shopLevelSprite/shop_level_tag_N (it carries 'NO.', the numeral and the
  * event's own vertical line) or, without that art, the CSS marker (NO. and the Roman numeral); the group's count below.
+ * @param {{ m: any, tier: number, count: number }} props
  */
 export function TierMark({ m, tier, count }) {
   return html`<div class=${cx('lo-tmark', `tier--${tier}`)} aria-hidden="true">
@@ -365,13 +400,16 @@ export function TierMark({ m, tier, count }) {
   </div>`;
 }
 
-/** The 甄选干员 card closing tiers 5 and 6: the 自选编队 slots of that tier, filled / total; opens the 自选编队 tab. */
+/**
+ * The 甄选干员 card closing tiers 5 and 6: the 自选编队 slots of that tier, filled / total; opens the 自选编队 tab.
+ * @param {{ m: any, tier: number, slots: ReturnType<typeof diySlotList>, picks: Record<string, any> | null, onOpen: () => void }} props
+ */
 function DiyDeckCard({ m, tier, slots, picks, onOpen }) {
   const skinCtx = skinArt();
   const mine = slots.filter((s) => s.tier === tier);
   if (!mine.length) return null;
   const D = diyData();
-  const recs = mine.map((s) => (picks?.[s.slotId] ? slotRecord(s.slotId, picks[s.slotId], D) : null)).filter(Boolean);
+  const recs = /** @type {any[]} */ (mine.map((s) => (picks?.[s.slotId] ? slotRecord(s.slotId, picks[s.slotId], D) : null)).filter(Boolean));
   return html`<button type="button" class=${cx('lo-op', 'lo-op--diy', `lo-op--t${tier}`)} data-diy-tier=${tier} onClick=${onOpen}
       title=${t('{tier}阶 自选名额：持有的 6★ 干员或原型干员', { tier })}>
     <span class="lo-diy__frame">
@@ -388,7 +426,8 @@ function DiyDeckCard({ m, tier, slots, picks, onOpen }) {
  * that ends it is swallowed, so a card is not picked by letting go. Touch and pen keep the browser's own scrolling.
  */
 function useDragScroll() {
-  const drag = useRef(null), swallow = useRef(false);
+  const drag = useRef(/** @type {{ id: number, x: number, left: number, moved: boolean } | null} */ (null)), swallow = useRef(false);
+  /** @param {DeckPointer} e */
   const end = (e) => {
     const d = drag.current;
     drag.current = null;
@@ -398,11 +437,11 @@ function useDragScroll() {
     setTimeout(() => { swallow.current = false; }, 0);
   };
   return {
-    onPointerDown: (e) => {
+    onPointerDown: (/** @type {DeckPointer} */ e) => {
       if (e.pointerType !== 'mouse' || e.button !== 0 || e.target?.closest?.('select, input, textarea, .lo-op__quick--cult')) return;
       drag.current = { id: e.pointerId, x: e.clientX, left: e.currentTarget.scrollLeft, moved: false };
     },
-    onPointerMove: (e) => {
+    onPointerMove: (/** @type {DeckPointer} */ e) => {
       const d = drag.current;
       if (!d || d.id !== e.pointerId) return;
       const dx = e.clientX - d.x;
@@ -416,7 +455,7 @@ function useDragScroll() {
     },
     onPointerUp: end,
     onPointerCancel: end,
-    onClickCapture: (e) => { if (swallow.current) { swallow.current = false; e.stopPropagation(); e.preventDefault(); } },
+    onClickCapture: (/** @type {MouseEvent} */ e) => { if (swallow.current) { swallow.current = false; e.stopPropagation(); e.preventDefault(); } },
   };
 }
 
@@ -424,6 +463,7 @@ function useDragScroll() {
  * The deck: one group per tier present in `list` (a tall marker, then the cards flowing in two rows), the 甄选 card closing
  * tiers 5 / 6 (not while filtering). A vertical wheel scrolls it sideways; `onTier` reports the tier group at the left
  * edge (the bottom bar).
+ * @param {{ m: any, list: any[], getChess: (id: string) => any, st: any, selId: string | null, quick: string | null, onPick: (id: string) => void, onChange: (id: string, patch: LoadoutPatch) => void, onOps: OpsSetter, onDiy: () => void, diySlots: ReturnType<typeof diySlotList>, diyPicks: Record<string, any>, deckRef: any, drawer: boolean, onTier: (tier: number) => void, filtered: boolean }} props
  */
 function DeckView({ m, list, getChess, st, selId, quick, onPick, onChange, onOps, onDiy, diySlots, diyPicks, deckRef, drawer, onTier, filtered }) {
   const groups = DECK_TIERS.map((tier) => ({ tier, items: list.filter((c) => c.tier === tier) }))
@@ -431,16 +471,18 @@ function DeckView({ m, list, getChess, st, selId, quick, onPick, onChange, onOps
   const raf = useRef(0);
   useEffect(() => () => cancelAnimationFrame(raf.current), []); // no tier report after the deck is gone
   const dragScroll = useDragScroll();
+  /** @param {{ currentTarget: HTMLElement }} e */
   const onScroll = (e) => {
     const el = e.currentTarget;
     cancelAnimationFrame(raf.current);
     raf.current = requestAnimationFrame(() => {
       const left = el.getBoundingClientRect().left + (drawer ? el.clientWidth * 0.4 : 24);
       let cur = groups[0]?.tier || 1;
-      for (const sec of el.querySelectorAll('.lo-tgroup')) if (sec.getBoundingClientRect().left <= left) cur = Number(sec.dataset.tier);
+      for (const sec of /** @type {NodeListOf<HTMLElement>} */ (el.querySelectorAll('.lo-tgroup'))) if (sec.getBoundingClientRect().left <= left) cur = Number(sec.dataset.tier);
       onTier(cur);
     });
   };
+  /** @param {WheelEvent & { currentTarget: HTMLElement, target: Element | null }} e */
   const onWheel = (e) => {
     const el = e.currentTarget;
     if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
@@ -467,6 +509,7 @@ function DeckView({ m, list, getChess, st, selId, quick, onPick, onChange, onOps
  * The deck's bottom bar: jump to a tier (the open 自选 slots above 5 / 6), 确认配置 while 快速配置 is on, and — while this
  * match's loadout is locked (`locked`: the full notice, its title) — a 「本局已锁定 · 下一局生效」 chip: the bar is the one
  * strip every width and 快速配置 keep on screen (the top bar's note is cut short or hidden on narrow screens).
+ * @param {{ counts: Record<number, number>, active: number, onJump: (tier: number) => void, diyOpen: Record<number, number>, quick: string | null, onConfirm: () => void, locked?: string | null }} props
  */
 export function DeckBar({ counts, active, onJump, diyOpen, quick, onConfirm, locked = null }) {
   return html`<nav class="lo-bbar" aria-label=${t('按阶级跳转')}>
@@ -505,6 +548,7 @@ const DECK_HELP = Object.freeze([
   [N_('甄选干员'), N_('5阶、6阶末尾的卡片即自选编队：持有的 6★ 干员或原型干员，只进入你自己的商店。')],
   [N_('筛选与导入导出'), N_('「筛选」按阶级、职业、盟约、名字查找，或切换回列表视图；「更多」里导出 / 导入调配、全部恢复默认。')],
 ]);
+/** @param {{ onClose: () => void }} props */
 export function DeckHelp({ onClose }) {
   return html`<${Modal} open=${true} onClose=${onClose} title=${t('卡片视图说明')} micro="CARD VIEW"
       actions=${html`<${Button} variant="primary" onClick=${onClose}>${t('知道了')}<//>`}>
@@ -514,13 +558,14 @@ export function DeckHelp({ onClose }) {
 
 // ---- screen -------------------------------------------------------------------------------------------------------------
 
+/** @type {Record<string, string[]>} */
 const SYNC_TEXT = {
   idle: ['', ''], pending: [N_('保存中…'), 'is-busy'], sending: [N_('同步中…'), 'is-busy'], synced: [N_('已同步'), 'is-ok'],
   locked: [N_('本局已锁定 · 下一局生效'), 'is-warn'], error: [N_('同步失败'), 'is-bad'],
 };
-/** The 干员持有 tab's status line: the setting never applies to a running match. */
+/** The 干员持有 tab's status line: the setting never applies to a running match. @type {Record<string, string[]>} */
 const OWN_SYNC_TEXT = { ...SYNC_TEXT, locked: [N_('下一局生效'), 'is-warn'] };
-/** The 自选编队 tab's status line (msgids, translated where shown): out of match, like 干员持有. */
+/** The 自选编队 tab's status line (msgids, translated where shown): out of match, like 干员持有. @type {Record<string, string[]>} */
 const DIY_SYNC_TEXT = { ...OWN_SYNC_TEXT };
 
 /**
@@ -564,7 +609,10 @@ export function loadoutOpsImportRefusal(ops, ready, status = data.status) {
   return importRefusal('diy', ready, status);
 }
 
-/** In place of a tab whose game data did not load (missingGameData): which files, and what to try (GitHub #173). */
+/**
+ * In place of a tab whose game data did not load (missingGameData): which files, and what to try (GitHub #173).
+ * @param {{ files: string[] }} props
+ */
 export function DataMissing({ files }) {
   const urls = files.map((name) => `/data/${DATA_FILES[name] || `${name}.json`}`);
   return html`<div class="lo-loading lo-missing" role="alert" data-testid="loadout-data-missing">
@@ -574,7 +622,7 @@ export function DataMissing({ files }) {
   </div>`;
 }
 
-/** The overlay screen. */
+/** The overlay screen. @param {{ st: any }} props the 干员调配 store's state (loadoutStore) */
 function LoadoutScreen({ st }) {
   const ready = useData('chess', 'bonds', 'assets', 'local', 'backups', 'garrisons', 'effects');
   const phase = useStore((s) => s.match?.public?.phase || null);
@@ -583,7 +631,9 @@ function LoadoutScreen({ st }) {
   // overlay closes when it runs out (the strategy draft has its own entry; the loadout locks when the draft ends)
   const infoDeadline = useStore((s) => (s.match?.public?.phase === PHASE.INFO_CHECK ? s.match.public.deadline : 0));
   const m = data.get('assets');
+  /** @param {string} id */
   const getChess = (id) => data.lookup('chess', id);
+  /** @param {string} id */
   const getBond = (id) => data.lookup('bonds', id);
   const roster = useMemo(() => rosterOf(data.list('chess')), [ready, data.locale()]); // (names follow a language switch)
   const bonds = useMemo(() => {
@@ -595,26 +645,28 @@ function LoadoutScreen({ st }) {
   const list = filterRoster(roster, st.filters, st.entries, getChess, getBond, st.ops, mySkins);
   const selId = st.sel && roster.some((c) => c.chessId === st.sel) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null;
   const { base, golden } = selId ? recordsOf(selId, getChess) : { base: null, golden: null };
-  const nChanged = changedCount(st.entries, getChess, st.ops, roster, mySkins);
+  const nChanged = /** @type {ChangedCountFn} */ (changedCount)(st.entries, getChess, st.ops, roster, mySkins);
   // the match takes the loadout until its strategy draft ends (server match.setLoadout, the window of setDiy —
   // maintainer decision 2026-10-14); afterwards an edit is stored for the next match
   const locked = (inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.BAND_DRAFT && phase !== PHASE.LOBBY) || st.sync === 'locked';
-  const gridRef = useRef(null);
-  const fileRef = useRef(null);                            // hidden <input type=file> of the 导入 dialog
+  const gridRef = useRef(/** @type {HTMLElement | null} */ (null));
+  const fileRef = useRef(/** @type {HTMLInputElement | null} */ (null));                            // hidden <input type=file> of the 导入 dialog
   const [narrowDetail, setNarrowDetail] = useState(false); // phones: the detail slides over the roster
   // the detail's 普通 / 精锐 skill toggle: one preview for its skills, its 特质 and the rows' skill details (display only)
   const [previewLevel, setPreviewLevel] = useState('normal');
-  const [io, setIo] = useState(null);                      // 导出 / 导入 dialog: { mode, text } | null
+  const [io, setIo] = useState(/** @type {any} */ (null));                      // 导出 / 导入 dialog: { mode, text } | null
   // 卡片视图: the view, 快速配置, the detail drawer, the 筛选 / 更多 popovers, ⓘ, the tier at the deck's left edge
   const [view, setViewState] = useState(loadoutViewPref);
-  const [quick, setQuick] = useState(null);                // null | 'skill' | 'module' | 'cult'
+  const [quick, setQuick] = useState(/** @type {'skill' | 'module' | 'cult' | null} */ (null));                // null | 'skill' | 'module' | 'cult'
   const [drawer, setDrawer] = useState(false);
-  const [menu, setMenu] = useState(null);                  // null | 'filter' | 'more'
+  const [menu, setMenu] = useState(/** @type {'filter' | 'more' | null} */ (null));                  // null | 'filter' | 'more'
+  /** @param {'list' | 'deck'} v */
   const setView = (v) => { setViewState(v); savePref(VIEW_PREF, v); setDrawer(false); setQuick(null); setMenu(null); };
   const [help, setHelp] = useState(false);
-  const tierSink = useRef(null);                           // the bottom bar's tier (DeckBarLive), set without a redraw here
+  const tierSink = useRef(/** @type {((tier: number) => void) | null} */ (null));                           // the bottom bar's tier (DeckBarLive), set without a redraw here
+  /** @param {number} tier */
   const setActiveTier = (tier) => tierSink.current?.(tier);
-  const deckRef = useRef(null);
+  const deckRef = useRef(/** @type {HTMLElement | null} */ (null));
   /** @type {{ current: Record<string, any> }} */
   const ui = useRef({});
   ui.current = { drawer, menu, quick, setDrawer, setMenu, setQuick };
@@ -630,15 +682,19 @@ function LoadoutScreen({ st }) {
   // 自选编队 (0.2.0 DIY): the stored picks, those the server would keep (the kit list of the last welcome)
   const nDiy = diyCount(st.diy);
   const diyLegal = ready ? sanitizeDiyPicks(st.diy, diyData(), st.diyKitted || []) : {};
+  /** @param {string} slotId @param {any} pick */
   const setDiySlot = (slotId, pick) => setDiyPicks(setPick(loadoutStore.get().diy, slotId, pick));
   // the tier picker's 确认: its slots in one write (one sync)
+  /** @param {Array<[string, any]>} entries */
   const setDiySlots = (entries) => setDiyPicks(entries.reduce((p, [slotId, pick]) => setPick(p, slotId, pick), loadoutStore.get().diy));
   const clearDiy = async () => {
     if (!nDiy) return;
     const ok = await confirmDialog({ title: t('全部清空'), text: t('清空全部 {n} 个自选名额？', { n: nDiy }), okText: t('全部清空') });
     if (ok) setDiyPicks({});
   };
+  /** @param {string} t */
   const setTab = (t) => loadoutStore.set({ tab: t });
+  /** @param {string} id @param {boolean} owned */
   const toggleOwned = (id, owned) => setNotOwned(setOwned(loadoutStore.get().notOwned, id, owned));
   const ownAll = async () => {
     if (!nNotOwned) return;
@@ -647,19 +703,23 @@ function LoadoutScreen({ st }) {
   };
   // the cards: a card opens the drawer, the open card again closes it
   // (the list's phone 'detail over the list' state stays off here: 筛选 → 列表 would reopen the detail)
+  /** @param {string} id */
   const pick = (id) => {
     if (view === 'deck' && drawer && loadoutStore.get().sel === id) { setDrawer(false); return; }
-    loadoutStore.set({ sel: id });
+    loadoutStore.set({ sel: /** @type {any} */ (id) });
     if (view === 'deck') setDrawer(true); else setNarrowDetail(true);
   };
   // a row's quick choice (PR #301): the same setChoice / setEntries path; the row becomes the selection, a phone stays on the list
+  /** @param {string} id @param {LoadoutPatch} patch */
   const quickChange = (id, patch) => {
     const recs = recordsOf(id, getChess);
     setEntries(setChoice(loadoutStore.get().entries, recs.base, recs.golden, patch));
-    loadoutStore.set({ sel: id });
+    loadoutStore.set({ sel: /** @type {any} */ (id) });
   };
+  /** @param {LoadoutPatch} patch */
   const change = (patch) => { if (base) setEntries(setChoice(loadoutStore.get().entries, base, golden, patch)); };
   // 0.2.2: an operator's 潜能 / 练度 (by charId: its normal, elite and 自选 forms share them)
+  /** @param {string} charId @param {{ potential?: number, cultivate?: number }} patch */
   const setOpsOf = (charId, patch) => setOpsMap(setOps(loadoutStore.get().ops, charId, patch));
   const resetOne = () => {
     if (!base) return;
@@ -673,11 +733,11 @@ function LoadoutScreen({ st }) {
     if (!ok) return;
     // the roster's operators only: a 自选 pick's settings belong to the 自选编队 tab
     const rosterChars = new Set(roster.map((c) => c.charId));
-    const keep = {};
+    const keep = /** @type {Record<string, any>} */ ({});
     for (const [id, e] of Object.entries(loadoutStore.get().ops || {})) if (!rosterChars.has(id)) keep[id] = e;
     setOpsMap(keep);
     setEntries({});
-    const keepSkins = {};
+    const keepSkins = /** @type {Record<string, any>} */ ({});
     for (const [id, skin] of Object.entries(skinsStore.get()[SKINS_KEY] || {})) if (!rosterChars.has(id)) keepSkins[id] = skin;
     setSkins(keepSkins);
   };
@@ -705,6 +765,7 @@ function LoadoutScreen({ st }) {
   };
   const ioDownload = () => downloadText(exportFilename(new Date(), ioOwn ? 'ownership' : ioDiy ? 'diy' : 'loadout'), io?.file ?? ioText);
   const ioPick = () => fileRef.current?.click();
+  /** @param {{ currentTarget: HTMLInputElement }} e */
   const ioFile = async (e) => {
     const f = e.currentTarget.files && e.currentTarget.files[0];
     e.currentTarget.value = ''; // picking the same file twice must fire again
@@ -744,7 +805,7 @@ function LoadoutScreen({ st }) {
     if (opsRefused) { toast(opsRefused.text, opsRefused.tone); return; }
     // 0.2.2: a payload with `ops` replaces the 潜能 / 练度 too (an older export leaves them alone)
     const opIds = res.ops ? cultivationCharIds(data.get('chess'), data.get('backups')) : null;
-    const r = applyLoadoutEntries(res.entries, getChess, res.ops ? { ops: res.ops, isOperator: (id) => opIds.has(id) } : {});
+    const r = applyLoadoutEntries(res.entries, getChess, res.ops ? { ops: res.ops, isOperator: (id) => /** @type {Set<string>} */ (opIds).has(id) } : {});
     const { applied, dropped } = r;
     const nOps = r.ops ?? 0;
     const nSkins = res.skins ? Object.keys(res.skins).length : 0;
@@ -761,12 +822,13 @@ function LoadoutScreen({ st }) {
 
   // Esc closes; ←/→ browse the filtered roster (not while typing in the search field)
   useEffect(() => {
+    /** @param {KeyboardEvent} e */
     const onKey = (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (document.querySelector('.modal')) return; // a confirm dialog handles its own keys
       // the 自选 picker's / strategy grid's / phone fold's Esc closes only that (diy.js)
       if (e.key === 'Escape' && document.querySelector('.diy-pick, .diy-links__grid, .diy.is-fold-open')) return;
-      const typing = e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
+      const typing = e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(/** @type {HTMLElement} */ (e.target).tagName);
       if (e.key === 'Escape') {
         e.preventDefault(); e.stopImmediatePropagation();
         // the card view peels back one layer at a time on its tab: a popover, 快速配置, the drawer, then the overlay
@@ -780,7 +842,7 @@ function LoadoutScreen({ st }) {
       }
       if (typing) return;
       // (a row's quick choices: ←/→ stay with the focused group, PR #301)
-      if (e.target?.closest?.('.lo-quick') && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) return;
+      if (/** @type {Element | null} */ (e.target)?.closest?.('.lo-quick') && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) return;
       if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && loadoutStore.get().tab !== 'ownership' && loadoutStore.get().tab !== 'diy') {
         const ids = filterRoster(rosterOf(data.list('chess')), loadoutStore.get().filters, loadoutStore.get().entries, getChess, getBond, loadoutStore.get().ops, skinsStore.get()[SKINS_KEY]).map((c) => c.chessId);
         if (!ids.length) return;
@@ -809,7 +871,7 @@ function LoadoutScreen({ st }) {
     const d = deckRef.current;
     const open = view === 'deck' && drawer && !!base;
     if (d && open !== wasDrawer.current) {
-      if (open) drawerW.current = d.parentElement?.querySelector('.lo-drawer')?.offsetWidth || 0;
+      if (open) drawerW.current = /** @type {HTMLElement | null | undefined} */ (d.parentElement?.querySelector('.lo-drawer'))?.offsetWidth || 0;
       d.scrollLeft += open ? drawerW.current : -drawerW.current;
     }
     wasDrawer.current = open;
@@ -818,13 +880,15 @@ function LoadoutScreen({ st }) {
   // a popover closes on a press outside it
   useEffect(() => {
     if (!menu) return undefined;
-    const onDown = (e) => { if (!e.target?.closest?.('.lo-pop, .lo-popbtn')) setMenu(null); };
+    /** @param {Event} e */
+    const onDown = (e) => { if (!/** @type {Element | null} */ (e.target)?.closest?.('.lo-pop, .lo-popbtn')) setMenu(null); };
     document.addEventListener('pointerdown', onDown, true);
     return () => document.removeEventListener('pointerdown', onDown, true);
   }, [menu]);
+  /** @param {number} tier */
   const jumpTier = (tier) => {
     const deck = deckRef.current;
-    const sec = deck?.querySelector(`.lo-tgroup[data-tier="${tier}"]`);
+    const sec = /** @type {HTMLElement | null | undefined} */ (deck?.querySelector(`.lo-tgroup[data-tier="${tier}"]`));
     if (!deck || !sec) return;
     deck.scrollTo({ left: Math.max(0, sec.offsetLeft - (drawer ? deck.clientWidth * 0.4 : 0)), behavior: reducedMotion() ? 'auto' : 'smooth' });
     setActiveTier(tier);
@@ -902,7 +966,7 @@ function LoadoutScreen({ st }) {
         ${inMatch && hasDeadline(infoDeadline) ? html`<${Countdown} deadline=${infoDeadline} size="sm" gauge=${false} label=${t('确认本局信息')} class="lo-deadline" />` : null}
         ${quick ? html`<span class="lo-qbar__k">${t('快速编辑')}</span>
           <div class="lo-qseg" role="tablist" aria-label=${t('快速编辑')}>
-            ${[['skill', t('技能')], ['module', t('模组')], ['cult', `${t('潜能')} · ${t('练度')}`]].map(([k, l]) => html`<button key=${k} type="button" role="tab"
+            ${/** @type {['skill' | 'module' | 'cult', string][]} */ ([['skill', t('技能')], ['module', t('模组')], ['cult', `${t('潜能')} · ${t('练度')}`]]).map(([k, l]) => html`<button key=${k} type="button" role="tab"
               data-quick=${k} aria-selected=${quick === k ? 'true' : 'false'} class=${cx(quick === k && 'is-on')} onClick=${() => setQuick(k)}>${l}</button>`)}
           </div>`
         : html`${syncText && st.sync !== 'locked' ? html`<span class=${cx('lo-sync', syncCls)} role="status">${t(syncText)}</span>` : null}
@@ -912,7 +976,7 @@ function LoadoutScreen({ st }) {
                 data-testid="loadout-filter" onClick=${() => setMenu(menu === 'filter' ? null : 'filter')} title=${t('筛选干员 · 切换列表视图')}>
               <${Icon} name="search" /><span class="lo-tbtn__l">${t('筛选')}</span>${nFilters ? html`<b class="lo-tbtn__n num">${nFilters}</b>` : null}</button>
             ${menu === 'filter' ? html`<div class="lo-pop lo-pop--filter">
-              <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(filters) => loadoutStore.set({ filters })} />
+              <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(/** @type {any} */ filters) => loadoutStore.set({ filters })} />
               <div class="lo-pop__row">
                 <span class="lo-pop__k">${t('显示方式')}</span>
                 <div class="lo-seg" role="tablist">
@@ -976,7 +1040,7 @@ function LoadoutScreen({ st }) {
         locked=${locked ? lockedText : null} />`
       : html`<main class=${cx('lo-body', narrowDetail && 'is-detail')}>
       <section class="lo-roster">
-        <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(filters) => loadoutStore.set({ filters })} onDeck=${() => setView('deck')} />
+        <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(/** @type {any} */ filters) => loadoutStore.set({ filters })} onDeck=${() => setView('deck')} />
         <div class="lo-list" ref=${gridRef}>
           <${RosterHead} />
           <div class="lo-list__rows" role="list" aria-label=${t('干员列表')}>
@@ -1017,7 +1081,7 @@ function LoadoutScreen({ st }) {
           : html`${t('把导出的内容粘贴到下方，或点「选择文件」。')}${nChanged ? html`${tParts('导入会{overwrite}当前的 {nChanged} 名干员调配。', { overwrite: html`<strong>${t('覆盖')}</strong>`, nChanged })}` : null}`}</p>
       <textarea class="lo-io__text" data-testid="loadout-io-text" spellcheck=${false} readOnly=${io.mode === 'export'} value=${ioText}
         placeholder=${io.mode === 'export' ? '' : ioDiy ? t('在此粘贴导出的自选编队内容…') : ioOwn ? t('在此粘贴导出的干员持有内容…') : t('在此粘贴导出的调配内容…')}
-        onInput=${(e) => setIo({ ...io, text: e.currentTarget.value })}></textarea>
+        onInput=${(/** @type {{ currentTarget: HTMLTextAreaElement }} */ e) => setIo({ ...io, text: e.currentTarget.value })}></textarea>
       <input type="file" accept=".json,application/json,text/plain" class="lo-io__file" ref=${fileRef} onChange=${ioFile} />
     <//>` : null}
 <//>`;
@@ -1065,7 +1129,7 @@ export function LoadoutHost() {
  * @param {Record<string, any>|null} [skins] this browser's skin choice
  */
 export function badgeCount(entries, getChess, ops = null, roster = null, skins = null) {
-  return getChess ? changedCount(entries, getChess, ops, roster, skins)
+  return getChess ? /** @type {ChangedCountFn} */ (changedCount)(entries, getChess, ops, roster, skins)
     : Object.keys(entries || {}).length + Object.keys(ops || {}).length + Object.keys(skins || {}).length;
 }
 

@@ -37,6 +37,7 @@ import { playerSkins } from '../ui/skins.js';
 import { settingsStore } from '../ui/settings.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 // The first seven present are shown (+ remaining LP = a 4×2 grid); the title (评语) stats come first.
@@ -58,6 +59,7 @@ const STAT_ROWS = [
 export function resultBonds(bonds, bondRec = () => null) {
   const list = (Array.isArray(bonds) ? bonds : []).filter((b) => b && typeof b.bondId === 'string')
     .map((b) => (bondRec(b.bondId)?.noStack ? { ...b, hideLayers: true } : b));
+  /** @param {{ hideLayers?: boolean, layers?: number }} b */
   const shown = (b) => (b.hideLayers ? 0 : b.layers || 0);
   return list.filter((b) => b.active || shown(b) > 0).sort((a, b) => shown(b) - shown(a)).slice(0, 6);
 }
@@ -67,17 +69,19 @@ export function resultBonds(bonds, bondRec = () => null) {
  * stand-in). `own`: the viewer's own lineup, drawn in this browser's chosen skins (UnitThumb ownSkin); another player's
  * (`pid`) in the skins they published (m.public players[].skins) while 其他玩家的皮肤 is on (UnitThumb skinsOf;
  * docs/rules/ui.md 「스킨 고르기」).
+ * @param {{ u: any, own?: boolean, pid?: string | null }} props
  */
 export function LineupThumb({ u, own = false, pid = null }) {
   const skinsOf = own ? null : playerSkins(store.get().match?.public?.players, pid, settingsStore.get().otherSkins !== false);
   return html`<${FieldedThumb} u=${{ ...u, golden: !!u.golden }} ownSkin=${own} skinsOf=${skinsOf} />`;
 }
 
+/** @param {{ p: any, myId: string | null, titles: any[], best: Record<string, string>, solo?: boolean, color?: string | null }} props */
 function PlayerCard({ p, myId, titles, best, solo = false, color = null }) {
   const gd = useGameData();
-  const titleRec = p.title ? titles.find((x) => x.id === p.title.id) || null : null;
+  const titleRec = p.title ? titles.find((/** @type {any} */ x) => x.id === p.title.id) || null : null;
   // (the server sends the title's Chinese name: the localized config.titles record when it is that record's)
-  const rawTitle = p.title ? (data.getRaw('config')?.titles || []).find((x) => x && x.id === p.title.id) || null : null;
+  const rawTitle = p.title ? (data.getRaw('config')?.titles || []).find((/** @type {any} */ x) => x && x.id === p.title.id) || null : null;
   const titleName = sentText(p.title?.name, rawTitle?.name, titleRec?.name) || titleRec?.name || null;
   const stats = STAT_ROWS.filter(([k]) => Number.isFinite(p.stats[k])).slice(0, 7);
   const band = p.bandId ? gd.band(p.bandId) : null;
@@ -92,7 +96,7 @@ function PlayerCard({ p, myId, titles, best, solo = false, color = null }) {
       </div>
       <div class="rcard__mid">
         <div class="rcard__lineup">
-          ${lineup.length ? lineup.map((u, i) => html`<${LineupThumb} key=${i} u=${u} gd=${gd} own=${p.playerId === myId} pid=${p.playerId} />`)
+          ${lineup.length ? lineup.map((/** @type {any} */ u, /** @type {number} */ i) => html`<${LineupThumb} key=${i} u=${u} gd=${gd} own=${p.playerId === myId} pid=${p.playerId} />`)
             : html`<span class="rcard__noinfo">${p.alive === false ? t('阵容已撤离') : 'NO INFO'}</span>`}
         </div>
         ${bonds.length ? html`<div class="rcard__bonds">${bonds.map((b) => html`<span key=${b.bondId} class=${cx('rbond', b.active && 'is-on')} title=${gd.bond(b.bondId)?.name || b.bondId}>
@@ -136,7 +140,7 @@ export function ResultView({ res, pub = null, myId = null, backLabel, onBack, qu
   // html.sp-result: toasts move over the hero column (result.css) — at the top centre they covered the tab row
   useDocClass('sp-result');
   const titles = Array.isArray(gd.config?.titles) ? gd.config.titles : [];
-  const best = {};
+  const best = /** @type {Record<string, string>} */ ({});
   for (const [k] of STAT_ROWS) {
     let top = null;
     for (const p of r.players) if (Number.isFinite(p.stats[k]) && p.stats[k] > 0 && (top == null || p.stats[k] > top.v)) top = { v: p.stats[k], id: p.playerId };

@@ -14,6 +14,7 @@ import { opsOf } from '../ui/loadoutModel.js';
 import { CULTIVATE_EFFECTS, POTENTIAL_MIN, POTENTIAL_MAX } from '../../../shared/potential.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const POTENTIALS = Array.from({ length: POTENTIAL_MAX - POTENTIAL_MIN + 1 }, (_, i) => POTENTIAL_MIN + i);
 const TIERS = CULTIVATE_EFFECTS.map((_, i) => i);
@@ -22,12 +23,12 @@ const FALLBACK_NAMES = Object.freeze([N_('未精英化'), N_('精英阶段1'), N
 /** The short names a row's select shows (the full official name is its title and the detail's). */
 const SHORT_NAMES = Object.freeze([N_('未精英化'), N_('精英1'), N_('精英2'), N_('精英2 Lv.60')]);
 
-/** The official name of 练度 tier `n` (effects.json `name`, localized), else its fallback. */
+/** The official name of 练度 tier `n` (effects.json `name`, localized), else its fallback. @param {number} n */
 export function cultivateName(n) {
   return data.lookup('effects', CULTIVATE_EFFECTS[n])?.name || t(FALLBACK_NAMES[n] || '');
 }
 
-/** The official effect text of 练度 tier `n` (effects.json `desc`: 「攻击力、防御力和最大生命值+10%」 …), or ''. */
+/** The official effect text of 练度 tier `n` (effects.json `desc`: 「攻击力、防御力和最大生命值+10%」 …), or ''. @param {number} n */
 export function cultivateDesc(n) {
   return data.lookup('effects', CULTIVATE_EFFECTS[n])?.desc || '';
 }
@@ -53,18 +54,18 @@ export function cultivationView(charId, ops) {
 export function CultivationSelects({ charId, ops, onSet, note = null, disabled = false }) {
   if (!charId) return null;
   const cur = opsOf(ops, charId);
-  const set = (patch) => onSet(charId, patch);
+  const set = (/** @type {{ potential?: number, cultivate?: number }} */ patch) => onSet(charId, patch);
   // a setting off the default stands out (mint); the default stays quiet — it is the same on every row
   return html`<span class=${cx('lo-cult', cur.changed && 'is-changed', note && 'is-moot')} data-char=${charId} title=${note || undefined}>
     <span class=${cx('lo-select', 'lo-cult__sel', 'lo-cult__pot', cur.potential !== 6 && 'is-off')}>
       <select value=${String(cur.potential)} aria-label=${t('潜能')} data-cult="potential" disabled=${disabled}
-        onChange=${(e) => set({ potential: Number(e.currentTarget.value) })}>
+        onChange=${(/** @type {{ currentTarget: HTMLSelectElement }} */ e) => set({ potential: Number(e.currentTarget.value) })}>
         ${POTENTIALS.map((n) => html`<option key=${n} value=${String(n)}>${t('潜能 {n}', { n })}</option>`)}
       </select>
     </span>
     <span class=${cx('lo-select', 'lo-cult__sel', 'lo-cult__tier', cur.cultivate !== TIERS.length - 1 && 'is-off')} title=${note ? undefined : cultivateName(cur.cultivate)}>
       <select value=${String(cur.cultivate)} aria-label=${t('练度')} data-cult="cultivate" disabled=${disabled}
-        onChange=${(e) => set({ cultivate: Number(e.currentTarget.value) })}>
+        onChange=${(/** @type {{ currentTarget: HTMLSelectElement }} */ e) => set({ cultivate: Number(e.currentTarget.value) })}>
         ${TIERS.map((n) => html`<option key=${n} value=${String(n)}>${t(SHORT_NAMES[n])}</option>`)}
       </select>
     </span>
@@ -79,7 +80,7 @@ export function CultivationSelects({ charId, ops, onSet, note = null, disabled =
 export function CultivationSection({ charId, ops, onSet, standIn = false }) {
   if (!charId) return null;
   const cur = opsOf(ops, charId);
-  const set = (patch) => onSet(charId, patch);
+  const set = (/** @type {{ potential?: number, cultivate?: number }} */ patch) => onSet(charId, patch);
   return html`<section class=${cx('lo-sec', 'lo-sec--cult', standIn && 'is-moot')} aria-label=${t('潜能与练度')} data-char=${charId}>
     <header class="lo-sec__head">
       <h3>${t('潜能与练度')}<${MicroLabel}>POTENTIAL<//></h3>

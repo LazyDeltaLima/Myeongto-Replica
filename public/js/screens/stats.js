@@ -39,6 +39,7 @@ import { t, N_ } from '../../../shared/i18n.js';
 import { RulesetSwitch, lobbyRuleset } from '../ui/ruleset.js';
 import { activeSeason } from '../ui/season.js';
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** Rows of 对局记录 shown at first and added by each 显示更多. */
@@ -65,21 +66,24 @@ const TABS = [
   { id: 'history', name: N_('对局记录'), micro: 'HISTORY' },
 ];
 
+/** @param {number} n @param {number} d */
 const pct = (n, d) => (d > 0 ? `${Math.round((n / d) * 100)}%` : '—');
+/** @param {number | null | undefined} ms */
 const dateTime = (ms) => {
   if (!ms) return '—';
   const d = new Date(ms);
-  const p = (n) => String(n).padStart(2, '0');
+  const p = (/** @type {number} */ n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
-/** Time played: minutes up to 99, then hours with one decimal. */
+/** Time played: minutes up to 99, then hours with one decimal. @param {number | null | undefined} ms */
 function playedText(ms) {
   const mins = Math.round((ms || 0) / 60000);
   return mins < 100 ? t('{n} 分', { n: fmtNum(mins) }) : t('{n} 小时', { n: (mins / 60).toFixed(1) });
 }
-const difficultyName = (d) => (DIFFICULTY_NAMES[d] ? t(DIFFICULTY_NAMES[d]) : t('未知'));
+/** @param {string} d */
+const difficultyName = (d) => (/** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[d] ? t(/** @type {Record<string, string>} */ (DIFFICULTY_NAMES)[d]) : t('未知'));
 
-/** Save `text` as a download. Silent no-op when the browser refuses downloads. */
+/** Save `text` as a download. Silent no-op when the browser refuses downloads. @param {string} filename @param {string} text */
 function downloadText(filename, text) {
   try {
     const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
@@ -93,7 +97,10 @@ function downloadText(filename, text) {
   } catch { /* ignore */ }
 }
 
-/** Read a picked file as text (`File.text()`, with a FileReader fallback for older Safari). */
+/**
+ * Read a picked file as text (`File.text()`, with a FileReader fallback for older Safari).
+ * @param {File} file @returns {Promise<string>}
+ */
 function readFileText(file) {
   if (typeof file?.text === 'function') return file.text();
   return new Promise((resolve, reject) => {
@@ -106,11 +113,11 @@ function readFileText(file) {
 
 /** `stronghold-stats-20261008-2130.json` */
 function exportFilename(now = new Date()) {
-  const p = (n) => String(n).padStart(2, '0');
+  const p = (/** @type {number} */ n) => String(n).padStart(2, '0');
   return `stronghold-stats-${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}.json`;
 }
 
-/** One labelled number card. */
+/** One labelled number card. @param {{ label: string, micro: string, value: any, tone?: string }} props */
 function StatCard({ label, micro, value, tone }) {
   return html`<div class=${cx('st-card', tone && `st-card--${tone}`)}>
     <${MicroLabel} tone=${tone === 'gold' ? 'gold' : 'mint'}>${micro}<//>
@@ -119,6 +126,7 @@ function StatCard({ label, micro, value, tone }) {
   </div>`;
 }
 
+/** @param {{ title: string, micro: string, children?: any, class?: string }} props */
 function Section({ title, micro, children, class: cls }) {
   return html`<section class=${cx('st-sec', cls)}>
     <h3 class="st-sec__h"><span>${title}</span><${MicroLabel}>${micro}<//></h3>
@@ -126,10 +134,10 @@ function Section({ title, micro, children, class: cls }) {
   </section>`;
 }
 
-/** 总览: cards, the per-difficulty table, the six titles, and the line about what counts. */
+/** 总览: cards, the per-difficulty table, the six titles, and the line about what counts. @param {{ agg: any, gd: any }} props */
 function Overview({ agg, gd }) {
   const rows = DIFFICULTIES.filter((d) => agg.byDifficulty[d]).concat(Object.keys(agg.byDifficulty).filter((d) => !DIFFICULTIES.includes(d)));
-  const titles = (Array.isArray(gd.config?.titles) ? gd.config.titles : []).map((x) => ({ ...x, count: agg.titles[x.id]?.count || 0 }));
+  const titles = (Array.isArray(gd.config?.titles) ? gd.config.titles : []).map((/** @type {any} */ x) => ({ ...x, count: agg.titles[x.id]?.count || 0 }));
   return html`<${Section} title=${t('总览')} micro="OVERVIEW">
     <div class="st-cards">
       <${StatCard} micro="GAMES" value=${fmtNum(agg.count)} label=${t('总局数')} />
@@ -147,7 +155,7 @@ function Overview({ agg, gd }) {
         ${rows.map((d) => {
           const v = agg.byDifficulty[d];
           return html`<tr key=${d}>
-            <td class="st-diff" style=${`--d-color:${DIFFICULTY_COLORS[d] || 'var(--text-lo)'}`}>${difficultyName(d)}</td>
+            <td class="st-diff" style=${`--d-color:${/** @type {Record<string, string>} */ (DIFFICULTY_COLORS)[d] || 'var(--text-lo)'}`}>${difficultyName(d)}</td>
             <td class="num">${fmtNum(v.games)}</td>
             <td class="num">${fmtNum(v.wins)}</td>
             <td class="num">${pct(v.wins, v.games)}</td>
@@ -158,7 +166,7 @@ function Overview({ agg, gd }) {
     </table></div>` : null}
     ${titles.length ? html`<h4 class="st-sub">${t('称号')}</h4>
       <div class="st-titles">
-        ${titles.map((x) => html`<div key=${x.id} class=${cx('st-title', !x.count && 'is-none')} title=${x.text || ''}>
+        ${titles.map((/** @type {any} */ x) => html`<div key=${x.id} class=${cx('st-title', !x.count && 'is-none')} title=${x.text || ''}>
           <${Img} src=${titleIconUrl(gd.m, x.picId)} class="st-title__icon" fallback=${html`<${Icon} name="crown" />`} />
           <div class="st-title__text"><span>${x.name}</span><b class="num">${fmtNum(x.count)}</b></div>
         </div>`)}
@@ -168,7 +176,7 @@ function Overview({ agg, gd }) {
   <//>`;
 }
 
-/** 策略: per-band used / passed / pass rate, most used first (the maintainer's headline ask). */
+/** 策略: per-band used / passed / pass rate, most used first (the maintainer's headline ask). @param {{ agg: any, gd: any }} props */
 function Bands({ agg, gd }) {
   const rows = Object.entries(agg.bands).sort((a, b) => (b[1].games - a[1].games) || (b[1].wins - a[1].wins));
   return html`<${Section} title=${t('策略')} micro="STRATEGIES">
@@ -196,7 +204,7 @@ const SUM_ROWS = [
   ['refreshes', N_('刷新次数')], ['leaks', N_('未击倒')], ['lpLost', N_('损失生命')],
 ];
 
-/** 战斗累计: the self player's sums over the settled matches. */
+/** 战斗累计: the self player's sums over the settled matches. @param {{ agg: any }} props */
 function CombatSums({ agg }) {
   const rows = SUM_ROWS.filter(([k]) => Number.isFinite(agg.sums[k]));
   return html`<${Section} title=${t('战斗累计')} micro="COMBAT TOTALS">
@@ -206,7 +214,10 @@ function CombatSums({ agg }) {
   <//>`;
 }
 
-/** One 对局记录 row: what it was, who won, whether it counted and whether the settlement can be re-viewed. */
+/**
+ * One 对局记录 row: what it was, who won, whether it counted and whether the settlement can be re-viewed.
+ * @param {{ rec: any, gd: any, onOpen: (rec: any) => void }} props
+ */
 function HistoryRow({ rec, gd, onOpen }) {
   const self = selfRowOf(rec);
   const quit = rec.end === 'quit';
@@ -220,7 +231,7 @@ function HistoryRow({ rec, gd, onOpen }) {
   return html`<tr class=${cx(quit ? 'is-quit' : won ? 'is-win' : 'is-lose', !counted && 'is-excluded', view && 'is-clickable')}
       title=${view ? t('点击查看该局结算') : !counted ? t('没有清完第一个回合就退出，不计入统计') : quit ? t('中途退出的对局没有结算可看') : t('较早的对局只保留汇总，不能回看结算')}
       tabIndex=${view ? 0 : undefined}
-      onClick=${view ? open : undefined} onKeyDown=${view ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } } : undefined}>
+      onClick=${view ? open : undefined} onKeyDown=${view ? (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } } : undefined}>
     <td class="st-t">${dateTime(rec.t)}</td>
     <td>${difficultyName(rec.difficulty)}</td>
     <td>${rec.roomMode === 'solo' ? t('单人') : rec.roomMode === 'coop' ? t('同盟') : '—'}</td>
@@ -233,14 +244,17 @@ function HistoryRow({ rec, gd, onOpen }) {
   </tr>`;
 }
 
-/** 对局记录: every stored match, newest first, HISTORY_PAGE rows at a time. */
+/**
+ * 对局记录: every stored match, newest first, HISTORY_PAGE rows at a time.
+ * @param {{ records: any[], gd: any, onOpen: (rec: any) => void }} props
+ */
 function History({ records, gd, onOpen }) {
   const [shown, setShown] = useState(HISTORY_PAGE);
   const rows = records.slice(0, shown);
   return html`<${Section} title=${t('对局记录')} micro=${`HISTORY · ${records.length}`}>
     ${rows.length ? html`<div class="st-tablewrap"><table class="st-table st-table--history">
       <thead><tr><th>${t('时间')}</th><th>${t('难度')}</th><th>${t('模式')}</th><th>${t('策略')}</th><th>${t('结果')}</th><th class="num">${t('回合')}</th><th class="st-go">${t('结算')}</th></tr></thead>
-      <tbody>${rows.map((r) => html`<${HistoryRow} key=${r.id} rec=${r} gd=${gd} onOpen=${onOpen} />`)}</tbody>
+      <tbody>${rows.map((/** @type {any} */ r) => html`<${HistoryRow} key=${r.id} rec=${r} gd=${gd} onOpen=${onOpen} />`)}</tbody>
     </table></div>
     ${records.length > shown ? html`<div class="st-more"><${Button} size="sm" variant="secondary" onClick=${() => setShown(shown + HISTORY_PAGE)}>${t('显示更多（还有 {n} 局）', { n: records.length - shown })}<//></div>` : null}
     <p class="st-hint">${t('点击一行，回看该局结算；中途退出的对局只留记录。')} ${t('最多保留最近 {max} 局，只有最新的 {full} 局能回看结算。', { max: MAX_RECORDS, full: FULL_KEEP })}</p>`
@@ -248,7 +262,10 @@ function History({ records, gd, onOpen }) {
   <//>`;
 }
 
-/** A stored match re-viewed as its settlement screen: the full game data is loaded now (the lobby alone never loads it). */
+/**
+ * A stored match re-viewed as its settlement screen: the full game data is loaded now (the lobby alone never loads it).
+ * @param {{ rec: any, onBack: () => void }} props
+ */
 function Replay({ rec, onBack }) {
   const gd = useGameData();
   const res = useMemo(() => recordToResult(rec), [rec]);
@@ -256,14 +273,14 @@ function Replay({ rec, onBack }) {
   return html`<${ResultView} res=${res} pub=${null} myId=${rec.selfId} backLabel=${t('返回统计')} onBack=${onBack} quiet=${true} />`;
 }
 
-/** The overlay, rendered while open (its data hooks run only then). */
+/** The overlay, rendered while open (its data hooks run only then). @param {{ tab: string, ruleset: string }} props */
 function StatsScreen({ tab, ruleset }) {
   const ready = useData('config', 'bands', 'assets');
   const gd = useMemo(() => makeLookups(ready), [ready, data.locale()]);
   const [stats, setStats] = useState(() => loadStats());
   const [replay, setReplay] = useState(null);
-  const boxRef = useRef(null);
-  const fileRef = useRef(null);
+  const boxRef = useRef(/** @type {HTMLElement | null} */ (null));
+  const fileRef = useRef(/** @type {HTMLInputElement | null} */ (null));
   const replayRef = useRef(null);
   replayRef.current = replay;
   const inMatch = useStore((s) => selectRoute(s) === 'game');
@@ -272,6 +289,7 @@ function StatsScreen({ tab, ruleset }) {
   // a match starting (the host pressed 开始) takes the player to its briefing: the overlay must not sit on top of it
   useEffect(() => { if (inMatch) closeStats(); }, [inMatch]);
   useEffect(() => {
+    /** @param {KeyboardEvent} e */
     const onKey = (e) => {
       if (e.key !== 'Escape' || document.querySelector('.modal')) return; // a confirm dialog on top takes the Esc
       e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
@@ -298,6 +316,7 @@ function StatsScreen({ tab, ruleset }) {
       toastError(err);
     }
   };
+  /** @param {{ currentTarget: HTMLInputElement }} e */
   const doFile = async (e) => {
     const file = e.currentTarget.files?.[0];
     e.currentTarget.value = ''; // allow re-picking the same file
@@ -310,7 +329,7 @@ function StatsScreen({ tab, ruleset }) {
       reload();
       const tail = (skipped ? t('（跳过重复 {skipped} 条）', { skipped }) : '') + (dropped ? t('（{n} 条无法读取）', { n: dropped }) : '');
       toast(added ? t('已导入 {added} 条记录{tail}', { added, tail }) : t('没有新记录（全部与现有数据重复）'), 'success');
-    } catch (err) {
+    } catch (/** @type {any} */ err) {
       toast(err?.code === 'stats-newer-version' ? t('导入失败：这份文件由更新版本的客户端导出，请先升级客户端') : t('导入失败：不是有效的统计导出文件'), 'error');
     }
   };
@@ -336,7 +355,7 @@ function StatsScreen({ tab, ruleset }) {
     <header class="st-top">
       <div class="st-top__left">
         <${Button} variant="ghost" size="md" icon="chevronLeft" class="st-back" onClick=${closeStats} aria-label=${t('返回')} title=${t('返回 (Esc)')}>${t('返回')}<//>
-        <${RulesetSwitch} value=${ruleset} class="st-rules" onPick=${(p) => statsStore.set({ ruleset: p })} />
+        <${RulesetSwitch} value=${ruleset} class="st-rules" onPick=${(/** @type {string} */ p) => statsStore.set({ ruleset: p })} />
       </div>
       <div class="st-top__center">
         <${MicroLabel} tone="mint">STATISTICS // ${tabInfo.micro}<//>

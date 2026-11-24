@@ -49,12 +49,17 @@ import { flushDiySync, resendDiySync, loadoutStore } from '../ui/loadoutSync.js'
 import { t } from '../../../shared/i18n.js';
 import { seasonFeature } from '../../../shared/seasons.js';
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+/** @type {Record<number, string>} */
 const ROMAN = { 1: 'Ⅰ', 2: 'Ⅱ', 3: 'Ⅲ', 4: 'Ⅳ', 5: 'Ⅴ', 6: 'Ⅵ' };
 
-/** The sprites the CSS draws (custom properties on the screen): the season's extract, else none (the CSS fills). */
+/**
+ * The sprites the CSS draws (custom properties on the screen): the season's extract, else none (the CSS fills).
+ * @param {any} m the assets manifest
+ */
 function artVars(m) {
-  const art = (n) => uiUrl(m, `diyChooseArt/${n}`);
+  const art = (/** @type {string} */ n) => uiUrl(m, `diyChooseArt/${n}`);
   return cssUrlVars([
     ['--dc-doc', art('doc_color')], ['--dc-num', art('num_bg')], ['--dc-tips', art('tips')],
     ...diyCardArt(m),
@@ -63,7 +68,10 @@ function artVars(m) {
   ]);
 }
 
-/** One tier row (auto_chess_diy_choose_level_view): its cards from the right, the tier mark and n/limit. */
+/**
+ * One tier row (auto_chess_diy_choose_level_view): its cards from the right, the tier mark and n/limit.
+ * @param {{ m: any, row: ReturnType<typeof diyChooseRows>[number], ready: boolean, onTap: (slotId: string) => void, ops: any }} props
+ */
 function TierRow({ m, row, ready, onTap, ops }) {
   const has = row.slots.length > 0;
   const shown = ready ? row.slots.filter((s) => s.chosen) : row.slots;
@@ -82,9 +90,12 @@ function TierRow({ m, row, ready, onTap, ops }) {
   </section>`;
 }
 
-/** panel_team_selected: the 已选择自选编队 mark (select_doc_chess ×4, select_doc_main, select_doc_arrow, select_doc_text). */
+/**
+ * panel_team_selected: the 已选择自选编队 mark (select_doc_chess ×4, select_doc_main, select_doc_arrow, select_doc_text).
+ * @param {{ m: any }} props
+ */
 function DoneMark({ m }) {
-  const art = (n) => uiUrl(m, `diyChooseArt/${n}`);
+  const art = (/** @type {string} */ n) => uiUrl(m, `diyChooseArt/${n}`);
   const chess = art('select_doc_chess');
   return html`<div class="dcdone" data-testid="diy-choose-done">
     <span class="dcdone__mark" aria-hidden="true">
@@ -105,7 +116,7 @@ export function DiyPresetBox({ bandId, band, off, locked, onBusy }) {
   const links = useStore((s) => s.links, Object.is, diyPresetStore);
   const presets = useStore((s) => s.presets, Object.is, diyPresetStore);
   const active = useStore((s) => s.active, Object.is, diyPresetStore);
-  const [picked, setPicked] = useState(null);
+  const [picked, setPicked] = useState(/** @type {string | null} */ (null));
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   // the roster in use (see the header); the one just picked while it applies
@@ -113,6 +124,7 @@ export function DiyPresetBox({ bandId, band, off, locked, onBusy }) {
   const link = links?.[bandId] ?? null;
   const tags = presetChoiceTags(choice, { link, rec: bandRecommendation(band), off });
   const TAG = { linked: ['link', t('已关联')], rec: ['rec', t('推荐')], off: ['off', t('本局禁用')] };
+  /** @param {string} v */
   const pick = async (v) => {
     setPicked(v);
     if (remember) linkBand(bandId, v);
@@ -126,6 +138,7 @@ export function DiyPresetBox({ bandId, band, off, locked, onBusy }) {
       onBusy?.(false);
     }
   };
+  /** @param {boolean} v */
   const keep = (v) => {
     setRemember(v);
     if (v && picked != null) linkBand(bandId, picked);
@@ -135,7 +148,7 @@ export function DiyPresetBox({ bandId, band, off, locked, onBusy }) {
     <${PresetPicker} choice=${choice} presets=${presets} off=${off} locked=${locked || busy} onChoice=${pick} keep=${false} />
     ${tags.map((k) => html`<span key=${k} class=${`draft-preset__tag is-${TAG[k][0]}`}>${TAG[k][1]}</span>`)}
     <label class="dcpreset__keep" title=${t('选择阵营预设时聊天阵营一并切换')}><input type="checkbox" checked=${remember} disabled=${locked}
-      onChange=${(e) => keep(e.currentTarget.checked)} />${t('记住此策略的预设')}</label>
+      onChange=${(/** @type {{ currentTarget: HTMLInputElement }} */ e) => keep(e.currentTarget.checked)} />${t('记住此策略的预设')}</label>
     <span class="dcpreset__hint">${t('切换预设后，下方卡片换成该预设的编队；已选择的卡片只保留干员未变的位置')}</span>
   </div>`;
 }
@@ -165,13 +178,15 @@ export function DiyChooseScreen() {
   const [settled, setSettled] = useState(0);
   const inFlight = useRef(0);
   const srvKey = srv.join(',');
-  useEffect(() => { if (!inFlight.current) setOrder((o) => settleDiyChoice(o, srv)); }, [srvKey, settled]);
+  useEffect(() => { if (!inFlight.current) setOrder((/** @type {string[]} */ o) => settleDiyChoice(o, srv)); }, [srvKey, settled]);
 
   const off = new Set(Array.isArray(pub?.disabledBonds) ? pub.disabledBonds : []);
   const D = { chess: data.get('chess'), backups: data.get('backups') };
+  /** @param {string} id */
   const getChess = (id) => data.lookup('chess', id);
-  const rule = { coreBan: seasonFeature(roomSeason, 'coreBondBan'), isCore: (b) => !!data.lookup('bonds', b)?.isCore };
+  const rule = { coreBan: seasonFeature(roomSeason, 'coreBondBan'), isCore: (/** @type {string} */ b) => !!data.lookup('bonds', b)?.isCore };
   const rows = diyChooseRows(view, ready ? srv : order, (slotId, pick) => diyPickOff(slotId, pick, off, getChess, D, rule));
+  /** @param {string} slotId */
   const tap = (slotId) => {
     if (!view || ready || busy || presetBusy) return;
     const slot = rows.flatMap((r) => r.slots).find((s) => s.slotId === slotId);
@@ -185,6 +200,7 @@ export function DiyChooseScreen() {
       if (!inFlight.current) setSettled((n) => n + 1);
     });
   };
+  /** @param {boolean} [cancel] */
   const readyUp = async (cancel) => {
     if (!view || busy || presetBusy) return;
     setBusy(true);
@@ -205,7 +221,7 @@ export function DiyChooseScreen() {
   const players = sortedPlayers(pub);
   const draftOrder = Array.isArray(pub?.draft?.order) ? pub.draft.order : [];
   const listed = solo ? players.filter((p) => p.playerId === myId)
-    : [...draftOrder.map((pid) => players.find((p) => p.playerId === pid)).filter(Boolean), ...players.filter((p) => !draftOrder.includes(p.playerId))];
+    : [...draftOrder.map((/** @type {string} */ pid) => players.find((p) => p.playerId === pid)).filter(Boolean), ...players.filter((p) => !draftOrder.includes(p.playerId))];
   const artOf = useOrderArt(gd, myId);
   const orderArt = draftArt('order');
   const readyN = players.filter((p) => p.ready).length;

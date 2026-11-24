@@ -37,6 +37,7 @@ import { openGuide, guidePages } from '../ui/guide.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { seasonFeature } from '../../../shared/seasons.js';
 
+/** @param {...any} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const TAB_PREF = 'sweep.tab';
 const TABS = [
@@ -47,8 +48,13 @@ const TABS = [
 /** 装备报告, the fourth tab of a season with `equipReport` (规程). */
 const EQUIP_TAB = { id: 'equip', name: N_('装备报告'), icon: () => html`<${Icon} name="shield" />` };
 const EQUIP_TIERS = [1, 2, 3, 4, 5, 6];
+/**
+ * @typedef {{ item: any, golden: any | null }} EquipRow a row of the 装备报告 (equipReportGroups)
+ * @typedef {{ kind: 'boss' | 'type', id: string }} EnemySel the 敌方资料 tile on the left
+ * @typedef {{ title: string | null, keys: string[] | null, key: string | null }} CodexOpen what the enemy codex opens on
+ */
 
-/** The tabs the season on screen has (data.js season). */
+/** The tabs the season on screen has (data.js season). @param {string | null | undefined} season */
 export const reportTabs = (season) => (seasonFeature(season, 'equipReport') ? [...TABS, EQUIP_TAB] : TABS);
 
 /**
@@ -61,6 +67,7 @@ export const reportTabs = (season) => (seasonFeature(season, 'equipReport') ? [.
 export function equipReportGroups(items) {
   const list = (Array.isArray(items) ? items : items && typeof items === 'object' ? Object.values(items) : []).filter((it) => it && typeof it === 'object');
   const byId = new Map(list.filter((it) => typeof it.id === 'string').map((it) => [it.id, it]));
+  /** @param {any} it */
   const sortId = (it) => (Number.isFinite(it.shopSortId) ? it.shopSortId : 1e9);
   const base = list.filter((it) => it.itemType === 'EQUIP' && it.isGolden !== true && typeof it.id === 'string' && EQUIP_TIERS.includes(it.tier))
     .sort((a, b) => a.tier - b.tier || sortId(a) - sortId(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
@@ -73,9 +80,13 @@ export function equipReportGroups(items) {
   })).filter((g) => g.items.length);
 }
 
+/** @type {Record<string, string>} */
 const MODE_NAME = { SINGLE: N_('独立模拟'), MULTI: N_('同盟模拟') };
+/** @type {Record<string, string>} */
 const RANK = { NORMAL: N_('普通'), ELITE: N_('精英'), BOSS: N_('领袖') };
+/** @type {Record<string, string>} */
 const APPLY = { MELEE: N_('近战'), RANGED: N_('远程'), ALL: N_('近战 / 远程'), NONE: N_('不攻击') };
+/** @type {Record<string, string>} */
 const DMG = { phys: N_('物理'), arts: N_('法术'), heal: N_('治疗') };
 
 // ---- enemy grades ------------------------------------------------------------------------------------------------------
@@ -110,6 +121,7 @@ export function enemyGrade(key, v, levels = data.get('factions')?.handbookLevels
 export function codexEnemies(list) {
   const seen = new Set();
   const out = [];
+  /** @param {string | undefined} k */
   const num = (k) => { const m = /enemy_(\d+)/.exec(k || ''); return m ? Number(m[1]) : 1e9; };
   for (const e of [...(Array.isArray(list) ? list : [])].sort((a, b) => num(a?.key) - num(b?.key) || String(a?.key).localeCompare(String(b?.key)))) {
     if (!e || typeof e.key !== 'string' || e.tokenOnly) continue;
@@ -130,7 +142,10 @@ export function bossEnemyKeys(boss) {
 
 // ---- small pieces ------------------------------------------------------------------------------------------------------
 
-/** The big square at the top of the left panel (bracket corners, a ring behind a glyph or the art). */
+/**
+ * The big square at the top of the left panel (bracket corners, a ring behind a glyph or the art).
+ * @param {{ src?: string | null, glyph?: boolean, art?: boolean, item?: boolean, name: string, sub?: any, fallback?: any, mark?: any, badge?: any }} props
+ */
 function Hero({ src, glyph = false, art = false, item = false, name, sub = null, fallback, mark = null, badge = null }) {
   return html`<div class="sw-hero">
     <span class=${cx('sw-hero__box', glyph && 'is-glyph', art && 'is-art', item && 'is-item', mark && 'is-mark')}>
@@ -148,6 +163,7 @@ function Hero({ src, glyph = false, art = false, item = false, name, sub = null,
  * under a dark glyph in a 72 box (`img_icon_bond` #051b17); the left panel (`hero`) the grey disc
  * `img_left_bond_icon_bkg` (200 × 184) under a white glyph in a 150 box. The glyph is sized from its 128-unit sprite
  * rect (natSizeVars). Without the art, a light circle.
+ * @param {{ bond: any, m: any, hero?: boolean }} props
  */
 function BondMark({ bond, m, hero = false }) {
   const bg = localAsset('ui/handbook', hero ? 'img_left_bond_icon_bkg' : 'img_bond_item_bkg');
@@ -156,14 +172,20 @@ function BondMark({ bond, m, hero = false }) {
   </span>`;
 }
 
-/** One tile of the right grid. */
+/**
+ * One tile of the right grid.
+ * @param {{ on: boolean, onClick: () => void, title: string, kind: string, children?: any, badge?: any }} props
+ */
 function Tile({ on, onClick, title, kind, children, badge = null }) {
   return html`<button type="button" class=${cx('sw-tile', `sw-tile--${kind}`, on && 'is-on')} onClick=${onClick} title=${title} aria-pressed=${on ? 'true' : 'false'}>
     <span class="sw-tile__in">${children}</span>${badge}
   </button>`;
 }
 
-/** A section of the right grid: a glyph above `[ name ]`, then its tiles. */
+/**
+ * A section of the right grid: a glyph above `[ name ]`, then its tiles.
+ * @param {{ name: string, glyph: any, children?: any, count?: number | null }} props
+ */
 function Section({ name, glyph, children, count = null }) {
   return html`<section class="sw-sec">
     <header class="sw-sec__head">
@@ -174,7 +196,10 @@ function Section({ name, glyph, children, count = null }) {
   </section>`;
 }
 
-/** A small enemy thumbnail with its 图鉴 number in the corner. */
+/**
+ * A small enemy thumbnail with its 图鉴 number in the corner.
+ * @param {{ e: any, m: any, on?: boolean, onClick?: (() => void) | null, size?: string }} props
+ */
 function EnemyThumb({ e, m, on = false, onClick = null, size = 'sm' }) {
   const Tag = onClick ? 'button' : 'span';
   return html`<${Tag} type=${onClick ? 'button' : undefined} class=${cx('sw-eth', `sw-eth--${size}`, on && 'is-on', e.rank === 'BOSS' && 'is-boss', e.rank === 'ELITE' && 'is-elite')}
@@ -186,14 +211,15 @@ function EnemyThumb({ e, m, on = false, onClick = null, size = 'sm' }) {
 
 // ---- 盟约报告 ----------------------------------------------------------------------------------------------------------
 
+/** @param {{ bond: any, m: any, notOwned: string[] }} props */
 function BondPanel({ bond, m, notOwned }) {
   const off = new Set(Array.isArray(notOwned) ? notOwned : []);
   const ids = Array.isArray(bond.visibleMembers) && bond.visibleMembers.length ? bond.visibleMembers : (bond.members || []);
-  const members = ids.map((id) => data.lookup('chess', id)).filter(Boolean)
-    .sort((a, b) => (b.tier - a.tier) || ((a.shopSortId ?? 0) - (b.shopSortId ?? 0)));
-  const anyOff = members.some((c) => off.has(c.chessId));
+  const members = ids.map((/** @type {string} */ id) => data.lookup('chess', id)).filter(Boolean)
+    .sort((/** @type {any} */ a, /** @type {any} */ b) => (b.tier - a.tier) || ((a.shopSortId ?? 0) - (b.shopSortId ?? 0)));
+  const anyOff = members.some((/** @type {any} */ c) => off.has(c.chessId));
   const sk = skinArt(); // the members in this browser's chosen skin (docs/rules/ui.md 「스킨 고르기」)
-  const steps = Array.isArray(bond.thresholds) ? bond.thresholds.filter((n) => Number.isFinite(n)) : [];
+  const steps = Array.isArray(bond.thresholds) ? bond.thresholds.filter((/** @type {number} */ n) => Number.isFinite(n)) : [];
   return html`<div class="sw-detail">
     <${Hero} glyph=${true} name=${bond.name} mark=${html`<${BondMark} bond=${bond} m=${m} hero=${true} />`} />
     <div class="sw-facts">
@@ -207,7 +233,7 @@ function BondPanel({ bond, m, notOwned }) {
         <span class="sw-box__k"><${Icon} name="user" />${t('对应干员')}<small class="num">${members.length}</small></span>
         ${anyOff ? html`<span class="sw-box__note"><span class="sw-box__swap" aria-hidden="true">⇄</span>${t('未持有的干员由替补干员上场')}</span>` : null}
       </div>
-      <div class="sw-ops">${members.map((c) => html`<span key=${c.chessId} class=${cx('sw-op', `sw-op--t${c.tier}`, off.has(c.chessId) && 'is-standin')}
+      <div class="sw-ops">${members.map((/** @type {any} */ c) => html`<span key=${c.chessId} class=${cx('sw-op', `sw-op--t${c.tier}`, off.has(c.chessId) && 'is-standin')}
           title=${c.name}>
         <${Img} src=${skinPic(c, 'avatar', sk, { own: true }) || chessAvatarUrl(m, c)} fallback=${html`<span class="sw-op__txt">${[...(c.name || '?')][0]}</span>`} />
         <span class="sw-op__tier"><${Roman} n=${c.tier} /></span>
@@ -217,6 +243,7 @@ function BondPanel({ bond, m, notOwned }) {
   </div>`;
 }
 
+/** @param {{ m: any, sel: string | undefined, onSel: (id: string) => void }} props */
 function BondsTab({ m, sel, onSel }) {
   const all = (data.list('bonds') || []).filter((b) => b && b.bondId).sort((a, b) => (a.identifier ?? 99) - (b.identifier ?? 99));
   const sections = [
@@ -233,25 +260,27 @@ function BondsTab({ m, sel, onSel }) {
 
 // ---- 策略报告 ----------------------------------------------------------------------------------------------------------
 
+/** @param {{ band: any, m: any }} props */
 function BandPanel({ band, m }) {
-  const modes = (Array.isArray(band.modeTypeList) ? band.modeTypeList : []).filter((k) => MODE_NAME[k]);
-  const bonds = (Array.isArray(band.bondIds) ? band.bondIds : []).map((id) => data.lookup('bonds', id)).filter(Boolean);
+  const modes = (Array.isArray(band.modeTypeList) ? band.modeTypeList : []).filter((/** @type {string} */ k) => MODE_NAME[k]);
+  const bonds = (Array.isArray(band.bondIds) ? band.bondIds : []).map((/** @type {string} */ id) => data.lookup('bonds', id)).filter(Boolean);
   return html`<div class="sw-detail">
     <${Hero} src=${bandIconUrl(m, band.bandId)} art=${true} name=${band.name}
       fallback=${html`<span class="sw-hero__txt">${[...(band.name || '?')][0]}</span>`} />
     <div class="sw-facts">
       <span class="sw-pill">${t('初始生命值')}<b class="num">${band.totalHp ?? '—'}</b></span>
-      ${modes.map((k) => html`<span key=${k} class="sw-pill sw-pill--ghost">${t(MODE_NAME[k])}</span>`)}
+      ${modes.map((/** @type {string} */ k) => html`<span key=${k} class="sw-pill sw-pill--ghost">${t(MODE_NAME[k])}</span>`)}
     </div>
     <div class="sw-text">
       ${band.effectName ? html`<h4 class="sw-text__h">${band.effectName}</h4>` : null}
       <${RichText} as="p" text=${band.descRaw || band.desc || ''} />
-      ${bonds.length ? html`<p class="sw-text__bonds">${t('相关盟约')}${bonds.map((b) => html`<span key=${b.bondId} class="sw-chip">
+      ${bonds.length ? html`<p class="sw-text__bonds">${t('相关盟约')}${bonds.map((/** @type {any} */ b) => html`<span key=${b.bondId} class="sw-chip">
         <${Img} src=${bondIconUrl(m, b.bondId)} />${b.name}</span>`)}</p>` : null}
     </div>
   </div>`;
 }
 
+/** @param {{ m: any, sel: string | undefined, onSel: (id: string) => void }} props */
 function BandsTab({ m, sel, onSel }) {
   const all = (data.list('bands') || []).filter((b) => b && b.bandId).sort((a, b) => (a.sortId ?? 99) - (b.sortId ?? 99));
   return html`<${Section} name=${t('策略')} glyph=${html`<${Icon} name="rook" />`} count=${all.length}>
@@ -265,6 +294,7 @@ function BandsTab({ m, sel, onSel }) {
 
 // ---- 装备报告 (规程) ---------------------------------------------------------------------------------------------------
 
+/** @param {{ row: EquipRow, m: any }} props */
 function EquipPanel({ row, m }) {
   const { item, golden } = row;
   const flavor = typeof item.flavor === 'string' ? item.flavor.trim() : '';
@@ -282,6 +312,7 @@ function EquipPanel({ row, m }) {
   </div>`;
 }
 
+/** @param {{ m: any, groups: ReturnType<typeof equipReportGroups>, sel: string | undefined, onSel: (id: string) => void }} props */
 function EquipTab({ m, groups, sel, onSel }) {
   return groups.map((g) => html`<${Section} key=${g.tier} name=${t('{tier}阶', { tier: g.tier })} count=${g.items.length}
       glyph=${html`<${TierChip} tier=${g.tier} size="sm" />`}>
@@ -296,8 +327,10 @@ function EquipTab({ m, groups, sel, onSel }) {
 /** The enemies tab's entries: { kind: 'boss'|'type', id }. */
 const bossList = () => (data.list('bosses') || []).filter((b) => b && b.bossId && !b.hidden).sort((a, b) => (a.sortId ?? 99) - (b.sortId ?? 99));
 const typeList = () => Object.values(data.get('factions')?.types || {}).filter((f) => f && f.type).sort((a, b) => (a.sortId ?? 99) - (b.sortId ?? 99));
+/** @param {any} f */
 const typeKeys = (f) => [...new Set([...(Array.isArray(f?.pool) ? f.pool : []), ...(Array.isArray(f?.entries) ? f.entries : [])])];
 
+/** @param {{ sel: EnemySel, m: any, onCodex: (open: CodexOpen) => void }} props */
 function EnemyPanel({ sel, m, onCodex }) {
   if (sel.kind === 'boss') {
     const boss = data.lookup('bosses', sel.id);
@@ -340,6 +373,7 @@ function EnemyPanel({ sel, m, onCodex }) {
   </div>`;
 }
 
+/** @param {{ m: any, sel: Partial<EnemySel>, onSel: (sel: EnemySel) => void, onCodex: (open: CodexOpen) => void }} props */
 function EnemiesTab({ m, sel, onSel, onCodex }) {
   const bosses = bossList();
   const types = typeList();
@@ -371,6 +405,7 @@ const STAT_ROWS = [
   ['res', N_('法术抗性'), 'bolt'], ['elementDmgRes', N_('损伤抵抗'), 'warn'],
 ];
 
+/** @param {any} e @param {string} key */
 function statValue(e, key) {
   const s = e?.stats || {};
   if (key === 'interval' || key === 'atk') {
@@ -381,6 +416,7 @@ function statValue(e, key) {
   if (key === 'moveSpeed') return Number(s.moveSpeed) > 0 ? s.moveSpeed : null;
   return s[key] ?? 0;
 }
+/** @param {string} key @param {number | null} v */
 function statText(key, v) {
   if (v == null) return '—';
   if (key === 'interval') return `${Math.round(v * 10) / 10}s`;
@@ -388,13 +424,14 @@ function statText(key, v) {
   return fmtNum(v);
 }
 
+/** @param {{ e: any, m: any }} props */
 function CodexDetail({ e, m }) {
   const s = e.stats || {};
   const factions = data.get('factions')?.types || {};
-  const types = (Array.isArray(e.acTypes) ? e.acTypes : e.acType ? [e.acType] : []).filter((k) => factions[k]);
+  const types = (Array.isArray(e.acTypes) ? e.acTypes : e.acType ? [e.acType] : []).filter((/** @type {string} */ k) => factions[k]);
   const imm = Object.entries(s.immunities || {}).filter(([, v]) => v).map(([k]) => ({ stun: t('晕眩'), silence: t('沉默'), sleep: t('沉睡'), frozen: t('冻结'), levitate: t('浮空') }[k] || k));
   const abil = abilityRows(e.abilities, false);
-  const dmg = (Array.isArray(s.dmgTypes) && s.dmgTypes.length ? s.dmgTypes : [s.dmgType]).filter((k) => DMG[k]).map((k) => t(DMG[k]));
+  const dmg = (Array.isArray(s.dmgTypes) && s.dmgTypes.length ? s.dmgTypes : [s.dmgType]).filter((/** @type {string} */ k) => DMG[k]).map((/** @type {string} */ k) => t(DMG[k]));
   return html`<div class="sw-cd" key=${e.key}>
     <div class="sw-cd__head">
       <span class="sw-cd__cat">${t(RANK[e.rank] || RANK.NORMAL)}${s.motion === 'FLY' ? ` · ${t('空中')}` : ''}</span>
@@ -418,7 +455,7 @@ function CodexDetail({ e, m }) {
       })}</div>
     </div>
     ${e.descRaw || e.desc ? html`<${RichText} as="p" text=${e.descRaw || e.desc} class="sw-cd__desc" />` : null}
-    ${types.length ? html`<p class="sw-cd__types">${types.map((k) => html`<span key=${k} class="sw-chip"><${Img} src=${factionIconUrl(m, factions[k].icon)} />${factions[k].name}</span>`)}</p>` : null}
+    ${types.length ? html`<p class="sw-cd__types">${types.map((/** @type {string} */ k) => html`<span key=${k} class="sw-chip"><${Img} src=${factionIconUrl(m, factions[k].icon)} />${factions[k].name}</span>`)}</p>` : null}
     <h4 class="sw-cd__h">${t('能力')}</h4>
     <ul class="sw-cd__abil">
       ${abil.length ? abil.map((a, i) => html`<li key=${i}><${RichText} text=${a.text} /></li>`) : html`<li class="t-dim">${t('无特殊能力')}</li>`}
@@ -429,14 +466,17 @@ function CodexDetail({ e, m }) {
 
 const RANK_TABS = [['all', N_('全部')], ['NORMAL', N_('普通')], ['ELITE', N_('精英')], ['BOSS', N_('领袖')]];
 
-/** The enemy codex over the report: a list at the left, the detail at the right. */
+/**
+ * The enemy codex over the report: a list at the left, the detail at the right.
+ * @param {{ open: CodexOpen, m: any, onClose: () => void }} props
+ */
 function EnemyCodex({ open, m, onClose }) {
   const [rank, setRank] = useState('all');
   const [q, setQ] = useState('');
-  const [scope, setScope] = useState(open.keys);
+  const [scope, setScope] = useState(/** @type {string[] | null} */ (open.keys));
   const [sel, setSel] = useState(open.key);
   const all = useMemo(() => codexEnemies(data.list('enemies') || []), [data.get('enemies')]);
-  const pool = scope ? scope.map((k) => data.lookup('enemies', k)).filter(Boolean) : all;
+  const pool = /** @type {any[]} */ (scope ? scope.map((k) => data.lookup('enemies', k)).filter(Boolean) : all);
   const needle = q.trim().toLowerCase();
   const list = pool.filter((e) => (rank === 'all' || e.rank === rank)
     && (!needle || String(e.name || '').toLowerCase().includes(needle) || String(e.handbookIndex || '').toLowerCase().includes(needle)));
@@ -447,7 +487,7 @@ function EnemyCodex({ open, m, onClose }) {
       <button type="button" class="sw-back" onClick=${onClose} aria-label=${t('返回')} title=${t('返回 (Esc)')}><${Icon} name="chevronLeft" /></button>
       <span class="sw-codex__title">${t('敌方图鉴')}</span>
       ${scope ? html`<button type="button" class="sw-scope" onClick=${() => setScope(null)} title=${t('显示全部敌人')}>${open.title || t('筛选')}<${Icon} name="close" /></button>` : null}
-      <label class="sw-search"><${Icon} name="search" /><input type="search" value=${q} placeholder=${t('名称或编号')} onInput=${(ev) => setQ(ev.currentTarget.value)} /></label>
+      <label class="sw-search"><${Icon} name="search" /><input type="search" value=${q} placeholder=${t('名称或编号')} onInput=${(/** @type {{ currentTarget: HTMLInputElement }} */ ev) => setQ(ev.currentTarget.value)} /></label>
     </div>
     <div class="sw-codex__body">
       <div class="sw-codex__list">
@@ -487,12 +527,13 @@ export function SweepReport({ onClose }) {
   const tabs = reportTabs(data.season());
   const [tabPref, setTabState] = useState(() => { const v = loadPref(TAB_PREF, 'bonds'); return [...TABS, EQUIP_TAB].some((x) => x.id === v) ? v : 'bonds'; });
   const tab = tabs.some((x) => x.id === tabPref) ? tabPref : 'bonds';
+  /** @param {string} v */
   const setTab = (v) => { setTabState(v); savePref(TAB_PREF, v); };
-  const [itemSel, setItemSel] = useState(null);
-  const [bondSel, setBondSel] = useState(null);
-  const [bandSel, setBandSel] = useState(null);
-  const [enemySel, setEnemySel] = useState(null);
-  const [codex, setCodex] = useState(null);
+  const [itemSel, setItemSel] = useState(/** @type {string | null} */ (null));
+  const [bondSel, setBondSel] = useState(/** @type {string | null} */ (null));
+  const [bandSel, setBandSel] = useState(/** @type {string | null} */ (null));
+  const [enemySel, setEnemySel] = useState(/** @type {EnemySel | null} */ (null));
+  const [codex, setCodex] = useState(/** @type {CodexOpen | null} */ (null));
 
   // defaults once the data is there: the first tile of each tab
   const bonds = ready ? (data.list('bonds') || []).filter((b) => b && b.bondId).sort((a, b) => (a.identifier ?? 99) - (b.identifier ?? 99)) : [];
