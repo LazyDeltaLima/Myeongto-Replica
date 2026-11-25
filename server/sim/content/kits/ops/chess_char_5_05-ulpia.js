@@ -23,6 +23,11 @@ const ANCHOR_SPEED = 15;
  */
 export const MOVE_BORN = 1;
 export const BACK_BORN = 0.833;
+/**
+ * What both 【移动】s of S3 pass on besides the skill's progress: the second talent's stacks (PRTS 备注 "【移动】后仅继承下列效果：
+ * 技能进度、第二天赋叠加层数") — Battle.moveRedeploy `keep`; every other buff of his ends with the old character.
+ */
+const MOVE_KEEP = ['ulpia:blood', 'ulpia:bloodBlock'];
 
 /**
  * S3 ③ 【移动】 as the anchor stops (the skill prefab's anchor ability: `_extraActions` on ON_PROJECTILE_STOP) — always made
@@ -44,7 +49,7 @@ export const BACK_BORN = 0.833;
  */
 function move(battle, unit, sr, sc, stop, tokenId) {
   const fromX = unit.x, fromY = unit.y;
-  const born = { born: MOVE_BORN };
+  const born = { born: MOVE_BORN, keep: MOVE_KEEP };
   const inPlace = () => {
     if (battle.moveRedeploy(unit, unit.tileR, unit.tileC, { clip: 'here', ...born }) && unit.alive && unit.skill?.active) {
       unit.mem.anchorHome = { r: unit.tileR, c: unit.tileC, marker: null };
@@ -65,8 +70,8 @@ function move(battle, unit, sr, sc, stop, tokenId) {
   if (dest == null) { inPlace(); return; }
   const home = [unit.tileR, unit.tileC];
   // the 【移动】 is a redeploy on the new tile (Battle.moveRedeploy: a new deployment, deploy effects fire again,
-  // no exit) that keeps the running skill — "【移动】后仅继承下列效果：技能进度、第二天赋叠加层数"; the rest of
-  // his buffs are kept too (owner's deviation, DESIGN §22.3). The marker is deployed after the move (备注 ③)
+  // no exit) that keeps the running skill and the second talent's stacks — "【移动】后仅继承下列效果：技能进度、第二天赋叠加层数";
+  // his other buffs end with the old character (MOVE_KEEP). The marker is deployed after the move (备注 ③)
   if (!battle.moveRedeploy(unit, dest[0], dest[1], { clip: 'anchor', ...born }) || !unit.alive || !unit.skill?.active) return;
   // knocked out while moved, he lies and redeploys on his deployment tile (Battle._layBody) — the owner's decision
   // of 2026-10-07 (community report 28 「乌尔比安3技能期间死亡…应回到初始部署位复活」), a deliberate deviation from
@@ -204,7 +209,7 @@ export default {
             // (after a 【移动】 where he stood: a 【返回】 where he stands, with no marker to take back)
             const fromX = unit.x, fromY = unit.y, moved = unit.tileR !== h.r || unit.tileC !== h.c;
             // (born again as the move: RespawnCharacter, Born = Skill_3_Back — BACK_BORN)
-            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true, clip: 'back', born: BACK_BORN }) && moved) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
+            if (battle.moveRedeploy(unit, h.r, h.c, { clearSp: true, clip: 'back', born: BACK_BORN, keep: MOVE_KEEP }) && moved) battle.fx('teleport', { x: unit.x, y: unit.y, id: unit.id, fromX, fromY });
           }
         },
       },

@@ -92,10 +92,10 @@ const SHARE_KEYS = Object.freeze(['env_gbuff_new_with_verify']);
  * not added, no second LATE_ENABLE — the lent items and their tile stay). It ends with its time or with its owner
  * (Entity.OnFinish clears the owner's buffs → ON_BUFF_FINISH RemoveGlobalBuffByAlias → GlobalBuff.OnRemoved takes the
  * lent buffs off every unit). A receiver that leaves loses them with its own buffs and gets them again only when it is
- * deployed in that ring. A 【移动】 is a new character in the client (Character.MoveLikeRespawnSelf): the lender's own
- * `[share][buff]` is a buff it holds, which the 【移动】 deviation keeps (moveRedeploy, DESIGN §22.3) — its lending goes
- * on —, while what a receiver got is a global buff the new character's RegisterUnit checks again, so a receiver's
- * 【移动】 keeps it only inside the ring (docs/rules/sim.md 「【移动】과 전역 버프」).
+ * deployed in that ring. A 【移动】 is a new character in the client (Character.MoveLikeRespawnSelf finishes the old one): the
+ * lender's own `[share][buff]` ends with it, so a lender's 【移动】 ends its lending like a knock-out (Battle.moveRedeploy;
+ * kept until maintainer decision 2026-11-25), while what a receiver got is a global buff the new character's
+ * RegisterUnit checks again, so a receiver's 【移动】 keeps it only inside the ring (docs/rules/sim.md 「【移动】과 전역 버프」).
  * Returns the cast handler (lender, layers).
  * @param {Battle} battle @param {BondBb} share
  */
@@ -125,7 +125,8 @@ function shareEquipment(battle, share) {
     if (!S.isOp(unit)) return;
     for (const [from, st] of running) {
       if (battle.time >= st.until - 1e-9) { running.delete(from); continue; }
-      if (unit === from) continue;
+      // (a lender deployed while lending has 【移动】ed: a knock-out or a retreat has ended it at the exit — `death`)
+      if (unit === from) { end(from); continue; }
       if (inRing(st, unit)) give(from, st, unit);
       else if (st.to.delete(unit)) items.endLentItems(battle, from, unit);
     }

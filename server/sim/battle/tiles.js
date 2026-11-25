@@ -50,10 +50,20 @@ export class BattleTiles {
    * deploySeq / aggroSeq / deployedAt (the deploy animation; once-per-deployment effects re-arm) — announced by
    * `deploy` { initial: false, move: true }: deploy effects fire again ("可以通过移动行为多次触发部署时触发的效果"). Not an
    * exit: no `die` / `death`, so no knock-out, no redeploy timer or cost ("因移动撤退时不会积累再部署惩罚") — 不屈 and
-   * 阿戈尔's revive, which act on exits "因移动之外的原因" (PRTS 阿戈尔 备注), never see it. HP, buffs and a running skill
-   * stay: officially nothing carries over but what the mover's skill names (乌尔比安 S3: 技能进度 and the second talent's
-   * stacks); the remake keeps the rest too (owner's deviation, DESIGN §22.3) but the element gauges and a burst's lock
-   * (emptied as on a deployment, upstream #903). (r, c) may be the unit's own tile: a 【移动】 where it stands. `clearSp`: the 技力 is emptied before the
+   * 阿戈尔's revive, which act on exits "因移动之外的原因" (PRTS 阿戈尔 备注), never see it. The HP stays ("以当前血量").
+   * Checked against the official client: the mover is a new character — Character.MoveLikeRespawnSelf finishes the old one
+   * (FinishMe, reason MOVE_LIKE_RESPAWN_SELF: Entity.OnFinish clears its buffs, each running its ON_BUFF_FINISH) and
+   * spawns the card again the way a deployment does (Deck.SpawnCharacterOrToken); the function itself hands nothing over.
+   * So the unit's buffs end here, through removeBuff (onRemove = ON_BUFF_FINISH), but for what the new character has
+   * again: `persist` buffs — its talents, trait and module, the global buffs BattleController.RegisterUnit puts on every
+   * new unit (bonds, items, 特质; the `deploy` handlers judge them anew), what the card's shared blackboard keeps
+   * (阿戈尔's devour gains: `egir_bond_atk` …, put back by the bond's global buff) —, the running skill's own buff, and
+   * the buffs `keep` names. The running skill goes on: every 【移动】 here is its mover's own skill, which passes its
+   * progress to the new character (乌尔比安 S3: "【移动】后仅继承下列效果：技能进度、第二天赋叠加层数") [ASSUMED·미조사: the
+   * other movers' prefabs are not yet read for what they pass on, docs/rules/sim.md 「【移动】과 전역 버프」]; `keep`: the
+   * other buffs that skill passes on (乌尔比安's second-talent stacks). The element gauges are emptied as on a deployment
+   * (upstream #903). Since maintainer decision 2026-11-25; before it every buff stayed (the owner's deviation of
+   * docs/history/0.1.2.md §22.3). (r, c) may be the unit's own tile: a 【移动】 where it stands. `clearSp`: the 技力 is emptied before the
    * deploy handlers run ("部署时将清空技力"; 乌尔比安's 【返回】 "将清空技力，但仍可以享受后续由其他效果提供的技力").
    * `inPlace`: the unit flew there itself and only lands — the 'deploy' event carries a 1 and the snapshot no deploy
    * animation (quietDeployAt), so the client shows no drop-in, ring or deploy sound (予愿安洁莉娜 S3: the client respawns
@@ -66,14 +76,17 @@ export class BattleTiles {
    * clip the mode it lands in plays for Born). None while `flags.bornTime` is 0 (the harness's default). Without it the
    * move leaves the born state as it is.
    * @param {Unit} unit @param {number} r @param {number} c
-   * @param {{ clearSp?: boolean, inPlace?: boolean, clip?: string | null, born?: boolean | number | null }} [opts]
+   * @param {{ clearSp?: boolean, inPlace?: boolean, clip?: string | null, born?: boolean | number | null, keep?: readonly string[] | null }} [opts]
    * @this {Battle}
    */
-  moveRedeploy(unit, r, c, { clearSp = false, inPlace = false, clip = null, born = null } = {}) {
+  moveRedeploy(unit, r, c, { clearSp = false, inPlace = false, clip = null, born = null, keep = null } = {}) {
     if (!this.relocate(unit, r, c)) return false;
-    // the element gauges start empty like a deployment's (deploy.js) and an element burst's lock goes with them (its
-    // onRemove empties the gauges too) — upstream #903; the other buffs stay (above)
-    for (const b of /** @type {Buff[]} */ (unit.buffs).filter((x) => x.flags && x.flags.burstLock)) this.removeBuff(unit, b);
+    // the old character's buffs end (above), an element burst's lock among them (its onRemove empties the gauges too);
+    // the element gauges start empty like a deployment's (deploy.js) — upstream #903
+    const sk0 = unit.skill;
+    const skillKey = sk0 && sk0.active ? sk0._buffKey : null;
+    const ends = /** @type {Buff[]} */ (unit.buffs).filter((x) => !x.persist && x.key !== skillKey && !(keep && keep.includes(x.key)));
+    for (const b of ends.reverse()) this.removeBuff(unit, b);
     for (const k in unit.elem) /** @type {Record<string, number>} */ (unit.elem)[k] = 0;
     unit.markDirty();
     unit.deploySeq = ++this._deploySeq;

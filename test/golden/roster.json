@@ -894,7 +894,7 @@
           "coins": 10,
           "dmg": 1152310,
           "bossDmg": 0,
-          "heal": 90223,
+          "heal": 90220,
           "deaths": 2,
           "layerGains": {"sargonShip":66}
         }
@@ -903,7 +903,7 @@
         ["p1",1,"op","chess_char_4_23_b",2,"uniequip_002_gvial2",0,0,3,1,28749,4557,1465,43,2],
         ["p1",2,"op","chess_char_5_08_a",2,null,4037.53,1,1,12,78167,3621,7055,57,2],
         ["p1",3,"op","chess_char_5_01_a",1,null,3781.23,1,4,0,0,1005,4789,0,0],
-        ["p1",4,"op","chess_char_5_05_a",2,null,12526.5,1,382,6,61860,2108,14715,2,3],
+        ["p1",4,"op","chess_char_5_05_a",2,null,12526.5,1,382,6,61860,2108,14711,2,3],
         ["p1",5,"op","chess_char_5_06_a",2,null,5456.13,1,10,33,461365,7558,11838,125,3],
         ["p1",6,"op","chess_char_5_07_a",2,null,8215.84,1,348,9,68107,70344,26861,40,2],
         ["p1",7,"op","chess_char_4_24_b",1,"uniequip_002_billro",4013.33,1,5,8,63622,957,4458,63,4],
@@ -932,10 +932,10 @@
         "enemy_2052_smgia": [1,0,1,1288,69415],
         "enemy_5601_entlec": [8,8,0,0,96274]
       },
-      "hooks": [1,131,5700,616,616,1818,2769,20653,111,114,28,26,54,30166,571,24,112,2,1,162,29,2,0],
-      "events": {"atk":1020,"bounty":5,"castHit":3,"deploy":19,"die":112,"dmg":1796,"engage":8,"face":54,"fx":518,"heal":49,"layer":29,"leak":2,"skill":54,"spawn":124,"status":583,"swing":656},
-      "fx": {"anchor":3,"aoe":2,"bandage":1,"burst":2,"candle":8,"charges":10,"downed":3,"ember":1,"explode":1,"garrison":29,"garrisonGrant":1,"jungleSoul":2,"kitHit":100,"mote":96,"motes":72,"overload":2,"redistribute":42,"revive":4,"reweave":3,"sandChains":3,"sandChainsCharged":1,"spGift":42,"splash":54,"summon":2,"talent":4,"telegraph":2,"wake":28},
-      "snaps": "012a5339 2fe84203 4d942cf2 c7937fa4 762cb62f 782b46ae 251c9e71 f2a111eb 9ed34494 841e56e0 43f10bde 56eeab85 46f4139d 8116a705 2ed1bbdf 9eaaa648 1e14a283 9ba26cc4 d5b8e6f1"
+      "hooks": [1,131,5700,616,616,1818,2769,20647,111,114,28,26,54,30166,571,24,112,2,1,162,29,2,0],
+      "events": {"atk":1020,"bounty":5,"castHit":3,"deploy":19,"die":112,"dmg":1796,"engage":8,"face":54,"fx":543,"heal":49,"layer":29,"leak":2,"skill":54,"spawn":124,"status":601,"swing":656},
+      "fx": {"anchor":3,"aoe":2,"bandage":1,"burst":2,"candle":8,"charges":10,"downed":3,"ember":1,"explode":1,"garrison":29,"garrisonGrant":1,"jungleSoul":2,"kitHit":100,"mote":97,"motes":96,"overload":2,"redistribute":42,"revive":4,"reweave":3,"sandChains":3,"sandChainsCharged":1,"spGift":42,"splash":54,"summon":2,"talent":4,"telegraph":2,"wake":28},
+      "snaps": "012a5339 2fe84203 e6eb9335 6f702ead 6557080c 7e60f82d ef65d474 7c205154 4faaa403 f240550f 11554169 1972235a 6c0e49e6 7960888a 551f4e70 09dc84ff 4346e3f8 0ccc2123 c63b7422"
     },
     "roster-014": {
       "about": "pass 0 band 6: chess_char_5_11_a chess_char_5_19_a chess_char_5_13_a chess_char_5_14_a chess_char_5_01_b chess_char_5_17_a chess_char_5_12_a chess_char_5_15_a chess_char_5_20_a chess_char_5_21_a chess_char_5_22_a chess_char_5_23_a",
@@ -1039,15 +1039,15 @@
           "coins": 12,
           "dmg": 1871603,
           "bossDmg": 0,
-          "heal": 81368,
+          "heal": 81374,
           "deaths": 1,
           "layerGains": {"indomShip":20}
         }
       },
       "units": [
         ["p1",1,"op","chess_char_5_08_b",2,"uniequip_002_horn",3052.5,1,8,15,168598,11213,0,72,4],
-        ["p1",2,"op","chess_char_5_11_b",1,"uniequip_002_demkni",5245.28,1,6,0,0,11377,20403,0,63],
-        ["p1",3,"op","chess_char_5_05_b",2,"uniequip_002_ulpia",13942.57,1,285,47,693418,60859,42086,55,6],
+        ["p1",2,"op","chess_char_5_11_b",1,"uniequip_002_demkni",5245.28,1,6,0,0,11377,20711,0,63],
+        ["p1",3,"op","chess_char_5_05_b",2,"uniequip_002_ulpia",13942.57,1,285,47,693418,60859,41784,55,6],
         ["p1",4,"op","chess_char_5_06_b",2,"uniequip_002_etlchi",3626.7,1,11,3,35130,0,0,10,3],
         ["p1",5,"op","chess_char_5_13_b",1,"uniequip_002_ghost2",4145.61,1,12,1,3455,13150,3247,2,1],
         ["p1",6,"op","chess_char_5_14_b",1,"none",2391.4,1,13,9,187561,3261,111,33,34],
@@ -1088,10 +1088,10 @@
         "enemy_5601_entlec": [3,3,0,0,7014],
         "enemy_9006_actoxi": [30,30,0,12509,699840]
       },
-      "hooks": [1,146,5575,353,353,2132,2792,6887,111,122,134,132,5,18707,3734,63,110,0,1,223,2,0,86],
+      "hooks": [1,146,5575,353,353,2132,2792,6838,111,122,134,132,5,18707,3734,63,110,0,1,223,2,0,86],
       "events": {"atk":410,"bounty":6,"castHit":112,"deploy":33,"die":122,"dmg":2061,"engage":11,"face":123,"fx":603,"heal":1536,"layer":2,"skill":266,"spawn":132,"status":773,"swing":425,"tplfx":106},
       "fx": {"anchor":6,"aoe":38,"candle":3,"dodge":86,"ember":2,"enemyShot":30,"enemySkill":1,"garrison":2,"healAoe":63,"kitHit":8,"overload":4,"phase":2,"revive":2,"roadTiles":1,"sp":78,"splash":5,"stacks":7,"substitute":1,"summon":3,"swap":1,"telegraph":1,"teleport":11,"zone":248},
-      "snaps": "18604bcb 8961ef39 0b00766c fadebf65 51758240 96d09ce2 e1805c6e 6b85c922 fdd5968a 9183ea74 91d89a3e e23b5d29 603a5487 c6e290c2 0a7cd6a1 e518b1fc 58565c41 be1b7444 b776a6db"
+      "snaps": "18604bcb 8961ef39 0b00766c ba31897b 8b21dd50 de67d35e d5fc122a 406d151e 9e5bb8e6 a067d558 1468f4f2 334030d5 8ecdebab 6ceea936 86a2130d ecb6e718 250018b5 7479a9f0 23b686d7"
     },
     "roster-016": {
       "about": "pass 0 band 6: chess_char_5_19_b chess_char_6_03_a chess_char_6_06_a chess_char_5_17_b chess_char_5_20_b chess_char_5_21_b chess_char_5_22_b chess_char_5_23_b chess_char_6_01_a chess_char_6_02_a chess_char_6_04_a chess_char_6_05_a token_10017_skadi2_dedant",

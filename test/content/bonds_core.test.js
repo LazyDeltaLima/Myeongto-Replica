@@ -265,9 +265,10 @@ test('萨尔贡 × 娜仁图亚 lending: a receiver knocked out holding a lent �
   checkInvariants(h.b);
 });
 
-// A 【移动】 is a new character in the client: the lender's `[share][buff]` is its own buff (kept by the DESIGN §22.3
-// deviation), a receiver's loan is a global buff RegisterUnit checks again (docs/rules/sim.md 「【移动】과 전역 버프」)
-test('萨尔贡 × 娜仁图亚 lending and 【移动】: the lender’s move keeps lending; a receiver’s move keeps it only inside the ring', () => {
+// A 【移动】 is a new character in the client: the lender's `[share][buff]` is its own buff and ends with the old character
+// (Entity.OnFinish → ON_BUFF_FINISH RemoveGlobalBuffByAlias), a receiver's loan is a global buff RegisterUnit checks
+// again (docs/rules/sim.md 「【移动】과 전역 버프」)
+test('萨尔贡 × 娜仁图亚 lending and 【移动】: the lender’s move ends the lending; a receiver’s move keeps it only inside the ring', () => {
   const h = sargonLend([
     { chessId: 's0_a', row: 10, col: 4, items: [HAMMER_A] }, { chessId: 'r_a', row: 11, col: 4 },
     { chessId: 'q1_a', row: 9, col: 4 }, { chessId: 'q2_a', row: 12, col: 9 },
@@ -289,8 +290,11 @@ test('萨尔贡 × 娜仁图亚 lending and 【移动】: the lender’s move ke
   lc(q2.s.atk, 1150, 'moved into the ring: lent too');
   assert.ok(h.b.moveRedeploy(s0, R0, C0 + 4), 'the lender moves away');
   h.step(1);
-  lc(r.s.atk, 1150, 'the lender’s 【移动】 keeps its lending (its own buff, DESIGN §22.3)');
-  lc(q2.s.atk, 1150, 'the lender’s 【移动】 keeps its lending (q2)');
+  lc(r.s.atk, 1000, 'the lender’s 【移动】 ends its lending (its [share][buff] ends with the old character)');
+  lc(q2.s.atk, 1000, 'the lender’s 【移动】 ends its lending (q2)');
+  assert.ok(h.b.moveRedeploy(q1, R0 + 1, C0 + 4), 'q1 moves next to the moved lender');
+  h.step(1);
+  lc(q1.s.atk, 1000, 'nothing lent from the lender’s new tile either');
   checkInvariants(h.b);
 });
 

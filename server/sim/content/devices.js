@@ -472,8 +472,8 @@ function enterTerrain(battle, st, u, code) {
  * so without it the loss continues. One effect per unit (PRTS 作战机制: "同名buff的默认叠加策略buff只能表现出一个"): a
  * unit that already carries it gets its full `duration` back and keeps its per-second rhythm — no second effect, no
  * extra tick [ASSUMED: the time counts from the last contact — so an operator deployed on it, always in contact, drains
- * past `duration`]. An operator moved off the tile (Battle.relocate: 夕's 小自在 …; Battle.moveRedeploy: 乌尔比安 S3)
- * keeps it for its time; leaving the field drops it with every buff; a 重生 clears it (enemies/archetypes.js rebirthCleanse: PRTS
+ * past `duration`]. An operator moved off the tile (Battle.relocate: 夕's 小自在 …) keeps it for its time; leaving the
+ * field drops it with every buff, and so does a 【移动】 (Battle.moveRedeploy: the old character's buffs end); a 重生 clears it (enemies/archetypes.js rebirthCleanse: PRTS
  * 特殊机制 §重生 "清空自身身上除白名单外所有Buff") and contact gives it again while the unit is on the tile [ASSUMED]. The
  * tick (infectionDamage) is true damage no unit deals (无来源), tagged 'terrain' = 环境伤害 (PRTS 自然环境 lists 活性源石),
  * not 'dot' [ASSUMED: PRTS 伤害分类's list of BUFF damage does not name it].
@@ -602,13 +602,12 @@ function ensureTick(battle, st) {
     for (const k of st.cannons) tickCannon(battle, k, dt);
   });
   // a unit that (re)deploys / spawns starts fresh (death drops its buffs) and gets its tile's terrain at once: smog
-  // must already hide an operator from the first enemy shot of the battle. A 【移动】 (ctx.move: 乌尔比安 S3,
-  // Battle.moveRedeploy) keeps its buffs, so it changes tiles like a walk instead: starting from nothing would strand
-  // the old tile's smog / airflow buff on it
+  // must already hide an operator from the first enemy shot of the battle. A 【移动】 (ctx.move, Battle.moveRedeploy)
+  // too: the old character's terrain and airflow buffs ended with it, so the new tile's are put on from nothing
   battle.on('deploy', (ctx) => {
     const u = ctx.unit;
     if (!u || !u.mem || u.kind === 'device') return;
-    if (!ctx.move) { u.mem.terrain = 0; u.mem.airAtk = 0; u.mem.airMul = 1; u.mem.airPx = null; u.mem.stormNext = null; }
+    u.mem.terrain = 0; u.mem.airAtk = 0; u.mem.airMul = 1; u.mem.airPx = null; u.mem.stormNext = null;
     refreshUnit(battle, st, u);
   }, { priority: 90 });
 }

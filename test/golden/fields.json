@@ -157,9 +157,9 @@
         "enemy_9016_acstmr": [7,6,0,0,41]
       },
       "hooks": [1,44,6000,639,639,1211,1300,3819,23,23,55,52,160,21097,2906,2,25,0,1,18,0,0,0],
-      "events": {"atk":639,"castHit":29,"deploy":19,"die":23,"dmg":1211,"engage":5,"face":2,"fx":344,"heal":179,"skill":107,"spawn":35,"status":363,"swing":643},
+      "events": {"atk":639,"castHit":29,"deploy":19,"die":23,"dmg":1211,"engage":5,"face":2,"fx":344,"heal":179,"skill":107,"spawn":35,"status":365,"swing":643},
       "fx": {"anchor":5,"beam":43,"camouflage":1,"enemySkill":11,"explode":6,"healAoe":24,"kitHit":5,"overload":1,"reborn":1,"shell":7,"splash":159,"stacks":67,"substitute":2,"summon":4,"swap":2,"zone":6},
-      "snaps": "7b1d9c92 b4d01ab0 b3271bb1 ef983e90 44a9dbad dd9bab52 efbec2ce 890da2d4 a578296a 90c34e93 9c1bc5c8 c766e2f7 06be766a e1b371ad a84435ed 6617c3f0 15729c07 578f5933 c90b92cb df2b6855"
+      "snaps": "7b1d9c92 b4d01ab0 b3271bb1 ef983e90 44a9dbad dd9bab52 efbec2ce 890da2d4 a578296a 90c34e93 9c1bc5c8 c766e2f7 97d59b59 3c728a4e 1e4ca49a 0bfacd77 a076c10c 6518350c 79e95ecc a46a755a"
     },
     "boss-boss_2-pair": {
       "about": "假想敌：铳 pair pool 6000000: chess_char_5_19_b chess_char_4_01_b chess_char_5_14_b chess_char_5_17_b chess_char_5_15_b chess_char_5_20_b chess_char_5_21_b chess_char_5_22_b chess_char_5_23_b chess_char_4_02_b | chess_char_4_11_b chess_char_4_04_b chess_char_4_07_b chess_char_4_16_b chess_char_4_09_b chess_char_4_06_b chess_char_4_10_b chess_char_4_12_b chess_char_4_13_b chess_char_4_14_b token_10041_cathy_catsld token_10041_cathy_catsld",

@@ -5,7 +5,9 @@
 // "【返回】时将清空技力，但仍可以享受后续由其他效果提供的技力"; PRTS 术语释义 【移动】 "不退场，以当前血量在目标位置部署",
 // "本质上为一次特殊的撤退-再部署行为", "因移动撤退时不会积累再部署惩罚", "可以通过移动行为多次触发部署时触发的效果",
 // "部署时将清空技力". Now both are Battle.moveRedeploy: a new deployment with a `deploy` { move: true } event, no exit.
-// Owner's deviation kept (DESIGN §22.3): his buffs — the 阿戈尔 devour gains — stay through both moves.
+// His buffs end with the old character but for what the new one has again: the 阿戈尔 devour gains (the card's shared
+// blackboard, put back by the bond's global buff) stay through both moves, and the S3 passes on its progress and the
+// second talent's stacks (Battle.moveRedeploy, docs/rules/sim.md 「【移动】과 전역 버프」).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -138,7 +140,7 @@ test('乌尔比安 S3 with 不屈 at 100 %: the moves roll nothing (a 【移动�
   clean(h);
 });
 
-test('乌尔比安 S3: the 阿戈尔 devour gains stay through the 【移动】 and the 【返回】 (owner\'s deviation, DESIGN §22.3)', REAL, () => {
+test('乌尔比安 S3: the 阿戈尔 devour gains stay through the 【移动】 and the 【返回】 (the card\'s shared blackboard, put back by the bond\'s global buff)', REAL, () => {
   const fod = chessRec({ id: 't_fod', profession: 'WARRIOR', skill: null, stats: { atk: 1000, maxHp: 100, def: 0, blockCnt: 2 } });
   const h = makeBattle({
     defs: { enemies: { e_dummy: dummy }, chess: { t_fod: fod } },
@@ -239,8 +241,9 @@ test('乌尔比安 S3: no legal tile where the anchor fell nor one back from it 
 });
 
 // a 【移动】 is a retreat and redeploy (PRTS 术语释义「移动」): like a deployment it empties the element gauges, and an element
-// burst's lock goes with them — at the 【移动】 and again at the 【返回】; the other buffs stay (DESIGN §22.3; upstream #903)
-test('乌尔比安 S3: the 【移动】 and the 【返回】 empty his element gauges and lift an element burst\'s lock (upstream #903)', REAL, () => {
+// burst's lock goes with them — at the 【移动】 and again at the 【返回】 (upstream #903). The old character's other buffs end
+// too (the client finishes it), but for what his S3 passes on: its progress and the second talent's stacks (PRTS 备注)
+test('乌尔比安 S3: the 【移动】 and the 【返回】 empty his element gauges, lift an element burst\'s lock and end his other buffs but the second talent\'s (upstream #903)', REAL, () => {
   const h = makeBattle({
     defs: { enemies: { e_dummy: dummy } },
     units: [{ chessId: ULP, row: 10, col: 3 }],
@@ -250,12 +253,16 @@ test('乌尔比安 S3: the 【移动】 and the 【返回】 empty his element g
   const injure = () => {
     Object.assign(u.elem, { burn: 400, neural: 250, apoptosis: 333, erosion: 90 });
     b.addBuff(u, { key: 'burnBurst', duration: 10, flags: { burstLock: true } });
-    b.addBuff(u, { key: 'keep:me', duration: 60 });
+    b.addBuff(u, { key: 'gone:me', duration: 60, mods: { atkFlat: 7 } });
+    b.addBuff(u, { key: 'ulpia:blood', refresh: 'stack', maxStacks: 9, mods: { atkFlat: 30 } });
+    b.addBuff(u, { key: 'persist:me', persist: true, mods: { defFlat: 5 } });
   };
   const cleared = (when) => {
     assert.deepEqual({ ...u.elem }, { ...u.elem, burn: 0, neural: 0, apoptosis: 0, erosion: 0 }, `${when}: gauges`);
     assert.equal(u.buffs.some((x) => x.flags && x.flags.burstLock), false, `${when}: no burst lock`);
-    assert.ok(u.findBuff('keep:me'), `${when}: the other buffs stay`);
+    assert.equal(u.findBuff('gone:me'), null, `${when}: his other buffs end with the old character (Battle.moveRedeploy, docs/rules/sim.md 「【移动】과 전역 버프」)`);
+    assert.ok(u.findBuff('ulpia:blood'), `${when}: the second talent's stacks are passed on`);
+    assert.ok(u.findBuff('persist:me'), `${when}: what the new character has again stays (persist)`);
   };
   h.step();
   h.run(2);
@@ -265,6 +272,7 @@ test('乌尔比安 S3: the 【移动】 and the 【返回】 empty his element g
   h.castDone(u);
   assert.deepEqual([u.tileR, u.tileC], [10, 6], 'moved onto the anchor tile');
   cleared('the 【移动】');
+  assert.ok(u.findBuff(u.skill._buffKey), 'the 【移动】 keeps the running S3 and its own buff');
   injure();
   assert.ok(h.runUntil(() => !u.skill.active, 40), 'the skill ends');
   assert.deepEqual([u.tileR, u.tileC], [10, 3], 'back home');
@@ -415,6 +423,8 @@ test('Battle.moveRedeploy: refused like relocate (nothing changes); 气流 follo
   assert.ok(b.moveRedeploy(u, 11, 5));
   h.run(0.2);
   assert.ok(u.findBuff('terrain:airflow') && u.s.atk > 1000, 'the new tile\'s airflow starts');
+  assert.ok(b.moveRedeploy(u, 11, 5), 'a 【移动】 where it stands');
+  assert.ok(u.findBuff('terrain:airflow') && u.s.atk > 1000, 'the old character\'s airflow ended with it, the new one gets the tile\'s at once (devices.js deploy)');
   clean(h);
 });
 

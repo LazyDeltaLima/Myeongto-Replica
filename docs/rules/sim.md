@@ -1261,9 +1261,18 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   `Deck.Card.SpawnPrefab`, 보통 배치와 같은 길로 새 캐릭터)이고, 기습 착지 `AutoChessRebuildCharacterOnTile`도 같은 함수를 부른다 → 새 캐릭터가 태어날 때
   `BattleController.RegisterUnit`이 전역 버프를 다시 붙여(위 「에기르(맹약) 부활은 공식 클라대로」의 근거) ON_BUFF_START가 다시 돈다.
   테스트 `test/content/items.test.js` 「黄沙罗盘」(재배치·【移动】).
-- **【移动】과 전역 버프 — DESIGN §22.3 편차가 지키는 것과 공식대로 다시 도는 것** (2026-11-25): 공식 【移动】은 옛 캐릭터를 끝내고(`FinishMe` 사유 11 → `Entity.OnFinish`가
-  버프·능력을 모두 지움) 카드에서 새 캐릭터를 보통 배치와 같은 길로 만든다(위 사막 나침반 줄). §22.3 편차(`moveRedeploy`)가 지키는 것은 공식이 그때 **아주 잃는 것** —
-  그 오퍼레이터의 HP, 지니던 버프(吞噬 이득처럼 사건이 준 것, 자기 버프가 하는 일 포함), 도는 스킬 — 이다. 공식이 새 캐릭터에 **다시 붙이는 것**(`BattleController.RegisterUnit`이
+- **【移动】과 전역 버프 — 옛 캐릭터와 함께 끝나는 것과 새 캐릭터가 다시 받는 것** (2026-11-25, 버프는 2026-11-26부터): 공식 【移动】은 옛 캐릭터를 끝내고(`FinishMe` 사유 11 → `Entity.OnFinish`가
+  버프·능력을 모두 지움) 카드에서 새 캐릭터를 보통 배치와 같은 길로 만든다(위 사막 나침반 줄). `Character.MoveLikeRespawnSelf` 자체는 옛 캐릭터에서 아무것도 넘기지 않는다(공식 클라에서 확인:
+  카드 번호를 들고 `FinishMe` → 덱 `SpawnCharacterOrToken`뿐, 둘째 판 `_MoveLikeRespawn`도 카드를 찾아 같은 함수). 그래서 `moveRedeploy`는 그 오퍼레이터의 버프를 끝낸다 —
+  `removeBuff`로, `onRemove`가 도니 공식 ON_BUFF_FINISH와 같다 —, 새 캐릭터가 다시 갖는 것만 빼고: `persist` 버프(재능·특성·모듈, 아래 전역 버프, 카드의 공유 블랙보드에 남는 것 — 에기르(맹약) 吞噬 이득은
+  템플릿 `act1autochess_bond_eff_egir[eat_mark]`가 먹은 이의 공유 블랙보드 `egir_bond_atk`·`egir_bond_block_cnt`·`egir_bond_hp`에 더하고 맹약 전역 버프의 ON_BUFF_TRIGGER가 새 캐릭터마다 그 값으로
+  다시 붙이므로 【移动】에도 남는다), 도는 스킬과 그 스킬 버프, 스킬이 넘기는 것(`keep` — 울피아누스 S3: 제2재능 「血脉的哺养」 중첩, PRTS 备注 「【移动】后仅继承下列效果：技能进度、第二天赋叠加层数」).
+  HP는 지금 HP 그대로(PRTS 术语释义 「以当前血量在目标位置部署」 — 클라에서 어디서 넘기는지는 안 읽음). 도는 스킬이 이어지는 것은 이 모드의 【移动】이 모두 그 오퍼레이터 자신의 스킬이 일으키고 그 스킬이 진행을
+  넘기기 때문이다 [추정·미조사: 울피아누스 밖 【移动】 키트(Mon3tr·벨로네·첸 더 던스트릭·켈시 에스페란타·안젤리나 더 멜로우 위시)가 무엇을 넘기는지는 아직 안 읽음]. 사르곤(맹약) 빌려 준 이의 【移动】은 그의 `[share][buff]`가
+  옛 캐릭터와 함께 끝나 빌려 주기도 끝난다(아래 「빌려 주기의 생애」 ⑥). 「관리자 결정 2026-11-25」로 옛 편차를 걷었다: 이전에는 HP·버프·도는 스킬을 모두 남겼다(docs/history/0.1.2.md §22.3,
+  옛 근거는 吞噬 이득을 공식이 잃는다고 보았음 — 공유 블랙보드라 공식도 남는다). 지형·기류 버프도 끝나고 새 칸의 것을 처음부터 받는다(`content/devices.js` `deploy`). 테스트
+  `test/sim/feedback3-ulpia-move.test.js` 「…end his other buffs but the second talent's」·「…气流 follows the tile change…」·「the 阿戈尔 devour gains stay…」, `test/content/bonds_core.test.js` 「…the lender’s move ends the lending…」.
+  공식이 새 캐릭터에 **다시 붙이는 것**(`BattleController.RegisterUnit`이
   `m_globalBuffs` 전부를 `TryAddBuff`: 맹약·특질·장비의 전역 버프, 룬 `env_gbuff_new`·`env_gbuff_new_with_verify`)과 배치마다 다시 붙는 특질 동적 능력(룬
   `char_dynamic_ability_new`)은 ON_BUFF_START·처음 상태부터 다시 돈다 — 【移动】에도 보통 배치처럼 다시 판정하고 다시 센다. 그래서 灵巧 오라(`bondeffect_skillful`, `env_gbuff_new`)는
   새 칸에서 다시 판정(둘레에 멤버 말이 없으면 끝), 특질 attrByBond(`env_gbuff_new_with_verify`)는 지금 층으로 다시 계산, 특질 `gar_event_selfkillenemy` 처치 수
@@ -3195,10 +3204,10 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 
 ### 【이동】은 원소 게이지와 폭발 잠금을 비운다 (upstream `7da8ff20`, upstream #903)
 
-- 규칙: `Battle.moveRedeploy`(【이동】)가 배치처럼 원소 게이지 모두(灼燃·神经·凋亡·侵蚀, 적이면 狂躁도)를 0으로 하고, 원소 폭발 뒤 잠금 버프(`burstLock`)를 지운다. 다른 버프는 지금처럼 남는다(아래 옛 결정).
+- 규칙: `Battle.moveRedeploy`(【이동】)가 배치처럼 원소 게이지 모두(灼燃·神经·凋亡·侵蚀, 적이면 狂躁도)를 0으로 하고, 원소 폭발 뒤 잠금 버프(`burstLock`)를 지운다. 2026-11-26부터는 잠금만이 아니라 옛 캐릭터의 버프가 모두 끝난다(위 「【移动】과 전역 버프」).
   울피아누스 S3의 이동과 【반환】, 켈시 에스페란타·안젤리나 더 멜로우 위시·벨로네·Mon3tr·첸 더 던스트릭, 「从不混淆的方向」 대체 복귀 등 【이동】을 쓰는 곳 모두. 전에는 일반 배치(`battle/deploy.js`)만 비웠다.
 - 근거: PRTS 술어 「移动」 「本质上为一次特殊的撤退-再部署行为」, 공식 클라에서 【이동】은 퇴장 사유 `MOVE_LIKE_RESPAWN_SELF` 뒤 다시 태어나는 것(위 「누가 막나」의 새 유닛, `fx.md` 「모듈 장비 배치 이펙트」).
-  upstream의 凋敝(`necrosis`)는 우리에 없어 뺐다. 버프를 남기는 것은 옛 관리자 결정(DESIGN §22.3, 공식은 스킬 진행·재능 2 층만 물려받음)이라 그대로다.
+  upstream의 凋敝(`necrosis`)는 우리에 없어 뺐다. 다른 버프를 남기던 옛 관리자 편차(docs/history/0.1.2.md §22.3)는 관리자 결정 2026-11-25로 걷었다(위 「【移动】과 전역 버프」).
 - 테스트 `test/sim/feedback3-ulpia-move.test.js` 「the 【移动】 and the 【返回】 empty his element gauges…」.
 
 ### 울피아누스 S3의 【이동】은 반드시 일어난다 — 제자리 【이동】 (upstream `fbc83fd7`, upstream #903)
@@ -3378,7 +3387,8 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   시라쿠사 정장은 공격 속도만 가고 좌우 두 칸 능력(`char_dynamic_ability_new`)은 안 간다. ④ 빌려 준 이가 쓰러지거나 철수하면 그 자리에서 다 거둔다. ⑤ 받는 쪽은 빌려 준 순간의
   빌려 주는 이 칸 둘레 8칸이라, 빌려 주기가 도는 동안 그 칸에 새로 배치된 오퍼레이터도 받고, 받던 이가 둘레 밖에 다시 배치되면 잃는다. 돌고 있는 동안의 재시전은 시간만 새로 채우고
   새로 빌려 주지 않는다. ⑥ 【移动】(2026-11-25부터, 위 「【移动】과 전역 버프」의 기준): 공식 【移动】은 새 캐릭터(`Character.MoveLikeRespawnSelf` → 옛 캐릭터 `FinishMe`)라
-  빌려 준 이가 옮기면 빌려 주기가 끝나지만, 빌려 준 이의 `[share][buff]`는 그가 지니던 버프라 §22.3 편차(`moveRedeploy`)가 지켜 우리는 빌려 주기를 그대로 잇는다(둘레는 시전한 칸 그대로).
+  빌려 준 이가 옮기면 그의 `[share][buff]`가 옛 캐릭터와 함께 끝나(`ON_BUFF_FINISH` `RemoveGlobalBuffByAlias`) 빌려 주기가 끝난다 — 쓰러짐과 같다(2026-11-26부터; 이전에는 §22.3 편차로
+  빌려 주기를 그대로 이었다).
   받던 이가 받은 것은 `AutoChessShareEquipEffect`가 만든 전역 버프라 새 캐릭터의 `RegisterUnit`이 다시 검사하므로, 받던 이가 【移动】으로 둘레 밖에 서면 거두고 둘레 안이면 그대로,
   옮겨 들어온 이는 받는다(재배치와 같음). 이전(2026-11-25 전): 받던 이의 【移动】도 받던 것을 그대로 두었다. 전에는 한 사람이 같은 장비를 빌려 주면
   `lend:<장비>` 하나(다시 빌려 주면 시간만, 누가 빌려 주든), 능력까지 빌려 주고, 빌려 준 이가 쓰러져도 60초를 채우고, 시전 때 둘레에 선 이만 받았다.
