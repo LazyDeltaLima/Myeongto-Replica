@@ -3519,7 +3519,24 @@
 - 대체 칸의 자리(2026-11-26): 칸을 싣는 사건(`tiles`)의 대체 칸 깜빡임·폭발은 사건의 (x, y) 칸을 중심으로 그린다(`fx/simfx.js simFx`) —
   `id` 유닛이 0.75칸 안에 서 있어도 그 위로 옮기지 않는다(`_where`는 `tiles` 없는 사건만). 예전에는 부패한 기사 `chargeAttack`(막는 이 칸에서
   0.15~0.7칸)·쇠퇴한 기사 `blastArrow`(0.7칸)의 'telegraph'가 `id`로 시전한 적을 싣는 탓에 품질 낮음·바인딩 없을 때 십자가 적 쪽 칸에 깔렸다.
-- 재발 방지: `test/content/enemy-cast-target.test.js`(바인딩의 `castTargetEffects`를 가진 능력을 모두 훑어 시전 시작 사건이 대상을 싣는지,
+- 시전 이펙트의 때(2026-11-26, 공식 클라에서 확인): 채널 스킬의 시전 이펙트는 각자 제 사건(`opt` `s`·`e`)에 켜지고 꺼진다. 부패한 기사
+  `ChargeAttack`(세 단계 채널, 블랙보드 `duration` 4초: 시작 0.833초 + 루프 + 끝 `Skill_End` 2.133초)은 `dekght_skill_01_gather`(시전 시작 →
+  `ON_ATTACK_FINISH`)·`_gather_02`(시전 시작 → 시전 끝)·`_start`·`_start_02`·`_start_03`(`ON_ATTACK_FINISH` → 시전 끝)을 붙인다. 그
+  `ThreePartChannelingAnimation`은 `_fireAttackFinishEvent` 1·`_delayToFireAttackSkillEvent` 1·`_delaySecond` 0이라 끝 클립이 시작할 때
+  `ON_ATTACK_FINISH`를 낸다(`DoPlayAnimation`; 지연 없이도 끝 클립 앞에서 냄 — 강화 석궁 기습자 `CrossAttack`은 `_fireAttackFinishEvent` 1만,
+  그 `enemy_msnip_skill_start`(시전 시작 → `ON_ATTACK_FINISH`)도 같은 때 꺼짐). 렌더 `echanFinishAt`이 그 때를 데이터 `skillCast.*`의 채널
+  (`chanBegin`·`chanEnd`를 채널 길이에 맞춤, 시뮬 `chanStrikeAt`과 같은 식)에서 셈한다 — 부패한 기사는 1.867초, 망치 타격(2.967초)보다
+  1.1초 앞. `ON_ATTACK_FINISH`를 기다리는 채널(`chan.wait`)이나 채널 없는 능력은 예전대로 시전 시작·끝. 시전 안의 다른 fx('explode'·같은
+  능력의 탄)는 새 시전이 아니라서, 그 능력의 붙잡힌 시전이 이어지는 동안에는 시전 이펙트를 다시 틀지 않고(`eskillFx` `start` 거짓) 맞은 이펙트의
+  시계(`_fxESkill.late`: 그 뒤 3초)와, 탄이 처음 향하는 대상의 시작 이펙트(`proj.targetStart` — '사미의 의지' 올가미)만 움직인다. 예전에는
+  1초 넘게 뒤에 온 그 fx가 시전 이펙트를 모두 다시 틀었다(부패한 기사 다섯, 강화 석궁 기습자, 검은 뿔의 루울 `skill`), 붙잡힌 시전을 풀어
+  버리기도 했다. 붙잡힌 시전의 `_onlyOnce` 맞은 이펙트를 시전 끝까지 잡는 것은 끝 사건이 시전 끝(`e` 3)인 것만이다 — 강화 석궁 기습자 등의
+  `enemy_hummbd_buff_01`(`e` 4)은 예전처럼 맞을 때마다 제 길이. 남은 것: 적 스킬의 `ON_SPELL_ON`·`ON_CAST_END`에 켜지는 시전 이펙트
+  ('즈자이' `ShieldBurst`의 `enemy_xi_skill_02_hit`, 검은 뿔의 루울 `skill`의 `enemy_xdelk_skill_start_01` 등)는 `SPELL_BLASTS` 둘 말고는
+  아직 시전 시작에 틀린다. [화면 미확인]
+- 재발 방지: `test/render/eskill-attack-finish.test.js`(실제 키트의 부패한 기사 시전을 렌더에 넣어 다섯 이펙트가 제 때 한 번씩인지, 타격의 맞은
+  이펙트가 나오는지; `ON_ATTACK_FINISH` 시전 이펙트를 가진 적 능력을 모두 훑어 렌더가 셀 채널이 있는지, 다른 길이 세는 것은 까닭과 함께 목록),
+  `test/content/enemy-cast-target.test.js`(바인딩의 `castTargetEffects`를 가진 능력을 모두 훑어 시전 시작 사건이 대상을 싣는지,
   키트가 제 사건으로 싣는 것은 까닭과 함께 목록), `test/render/enemy-cast-target-fx.test.js`(렌더가 시전 대상 위에 시전 시작에 트는지 — 스킬
   `tgt`·`tgts`·채널, 'swing' 대상, 키트 공격 'beam'; 생성된 `enemy-modes.json`에서 바인딩의 시전 시작 `castTargetEffects`가 모두 `castTgt`이고
   `hit`에 없는지), `test/render/enemy-tile-warn.test.js`(시뮬 콘텐츠의 칸 'telegraph' 종류를 모두 훑어 `TILE_WARN_SKILLS`에 있는지, 그 종류의 'explode'가 적을 `id` 아닌 `caster`로 싣는지(시전 안의 것은 까닭과 함께 목록), 그 적들이 그 능력을

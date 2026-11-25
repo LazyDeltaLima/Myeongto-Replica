@@ -157,7 +157,8 @@ import { animPause, backSide, viewHoldsBuff, clipOf, facesBack, idlePause, immun
  *   cast?: string[], replace?: boolean, [key: string]: unknown } | null, sig?: string | null, inTgt?: View | null,
  *   inputLate?: string[] | null, ctLate?: string[] | null, spell?: number, part?: EPart, [key: string]: unknown }} FxCast an attack's cast
  *   (beginCast)
- * @typedef {{ part: EPart, t: number, hold: unknown, until: number | null, held: Set<unknown> | null, inPlace: boolean }} ESkillRec
+ * @typedef {{ part: EPart, t: number, hold: unknown, until: number | null, held: Set<unknown> | null, inPlace: boolean, late?: number,
+ *   tgtStart?: Set<unknown> }} ESkillRec
  *   an enemy's held skill (eskillFx)
  * @typedef {{ key?: string, reached?: string[], hit?: string[], trail?: string[], stop?: string[], targetStart?: string[],
  *   move?: string, hook?: unknown, mount?: unknown, link?: number, speed?: number, raise?: number, noRaise?: number,
@@ -7244,7 +7245,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const dir = Array.isArray(o.dir) && o.dir.length >= 2 ? [Number(o.dir[0]) || 0, Number(o.dir[1]) || 0] : null;
     if (!pr || !from || (!tgt && !dir)) return false;
     // the cast's own effects when no 'enemySkill' came before it (one play per ability and moment: eskillFx)
-    if (shooter && typeof o.ability === 'string' && o.ability) eskillFx(shooter, o.ability);
+    if (shooter && typeof o.ability === 'string' && o.ability) eskillFx(shooter, o.ability, { start: false });
     const t = Number(o.t) > 0 ? Number(o.t) : 0;
     // 2026-10-31: its start effects where it leaves (projectile_enemy_actoxi's enemy_actoxi_die_2_start, the only one so far)
     if (Array.isArray(pr.start) && pr.start.length) eplay(owner, pr.start, { at: from });
@@ -8195,15 +8196,42 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return ms?.[k] || ms?.[k2] || s?.[k] || s?.[k2] || null;
   }
   /**
+   * 2026-11-26, official client (docs/rules/fx.md 「적 범위 공격의 경고 칸」 「시전 이펙트의 때」): s after the cast's start that
+   * ability `key` of enemy `v` raises ON_ATTACK_FINISH, when the ability plays a three-part channel of `len` s (data
+   * `skillCast.*`, itself or a child of its sequence) — null otherwise, or when the channel waits for that event
+   * (`chan.wait`: its loop lasts until it). ThreePartChannelingAnimation `_fireAttackFinishEvent` raises it as the end clip
+   * starts (`_delayToFireAttackSkillEvent` after `_delaySecond`, 0 in this mode's prefabs: 腐败骑士's ChargeAttack, 重弩突袭者's
+   * CrossAttack); begin and end are fitted into `len` as the sim's chanStrikeAt (content/enemies/helpers.js).
+   * @param {View} v @param {string} key @param {number} len
+   */
+  function echanFinishAt(v, key, len) {
+    /** @param {unknown} c @returns {Record<string, unknown> | null} */
+    const chanRec = (c) => {
+      if (!c || typeof c !== 'object') return null;
+      const r = /** @type {Record<string, unknown>} */ (c), ch = /** @type {{ loop?: unknown } | null | undefined} */ (r.chan);
+      if (ch && typeof ch.loop === 'string') return r;
+      for (const s of Array.isArray(r.subs) ? r.subs : []) { const x = chanRec(s); if (x) return x; }
+      return null;
+    };
+    const r = len > 0 ? chanRec(unitDef(v.info)?.skillCast?.[key.toLowerCase()]) : null;
+    if (!r || /** @type {{ wait?: unknown }} */ (r.chan).wait) return null;
+    const dur = (/** @type {unknown} */ x) => { const d = Number(/** @type {{ dur?: unknown } | null | undefined} */ (x)?.dur); return d > 0 ? d : 0; };
+    const bd = dur(r.chanBegin), ed = dur(r.chanEnd);
+    const k = bd + ed > len ? len / (bd + ed) : 1;
+    return Math.max(bd * k, len - ed * k);
+  }
+  /**
    * An enemy's ability `key` used now: its cast effects on it, its own buff / attach effects (looping while a 'skill' lasts —
    * `loop`, cut at 20 s [추정: an end the sim does not announce]; once otherwise), its projectile's trail to `target` with its
    * start effects there; the units its damage hits next get its hit effects (eskillHit). true when the enemy binds it.
+   * `start` false: a later fx of the cast (its 'explode', a shot that names it) — inside a held cast of that ability still
+   * running, only its hits' clock moves to now (2026-11-26: the cast's effects are its start's, never played again).
    * @param {View} v
    * @param {string} key
    * `targets`: its cast's targets (the sim's 'enemySkill' `tgts`, else [`target`]) — its cast-target effects (ecastTgtFx).
-   * @param {{ on?: boolean, loop?: boolean, target?: View | null, targets?: (View | null)[] | null, hold?: boolean, holdFor?: number, cap?: number }} [opts]
+   * @param {{ on?: boolean, loop?: boolean, target?: View | null, targets?: (View | null)[] | null, hold?: boolean, holdFor?: number, cap?: number, start?: boolean }} [opts]
    */
-  function eskillFx(v, key, { on = true, loop = false, target = null, targets = null, hold = false, holdFor = ESKILL_HOLD_CAP, cap = 20 } = {}) {
+  function eskillFx(v, key, { on = true, loop = false, target = null, targets = null, hold = false, holdFor = ESKILL_HOLD_CAP, cap = 20, start = true } = {}) {
     const part = eskillPart(v, key);
     if (!part || !eOn(v)) return false;
     const pr0 = part.proj || {};
@@ -8213,7 +8241,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!on) {
       for (const l of live) if (l.tag === 'eskill' && l.owner === id) l.inst.stop();
       if (trace) trace({ kind: 'eskillEnd', names: [key], by: id, at: null });   // tests: its held effects stopped
-      if (v._fxESkill) { v._fxESkill.hold = false; v._fxESkill.t = -99; }   // a held skill's end: its later damage is no hit of it
+      if (v._fxESkill) { v._fxESkill.hold = false; v._fxESkill.t = -99; v._fxESkill.late = undefined; }   // a held skill's end: its later damage is no hit of it
+      return true;
+    }
+    const cur = /** @type {ESkillRec | undefined} */ (v._fxESkill);
+    if (!start && cur && cur.part === part && cur.hold && clockS <= (cur.until ?? -Infinity)) {
+      cur.t = cur.late = clockS;
+      // its projectile's start effects on each unit it leaves for (`_effectsToTargetWhenStart`: '萨米的意志''s lassos, 'beam' `to`)
+      const ts = part.proj?.targetStart;
+      if (target && target !== v && Array.isArray(ts) && !cur.tgtStart?.has(target.id)) { (cur.tgtStart ??= new Set()).add(target.id); eplay(v, ts, { at: target }); }
       return true;
     }
     const k = `${id}:${key.toLowerCase()}`;
@@ -8221,16 +8257,29 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const l of live) if (l.owner === id && l.tag === `aura:${key.toLowerCase()}`) l.inst.stop();
     // 2026-11-12: its ready mark, when it goes as the cast starts (ReadyEnemySkillEffect `_stopBeforeCast`, ereadyFx)
     if (part.readyEarly) for (const l of live) if (l.owner === id && l.tag === `ready:${key.toLowerCase()}`) l.inst.stop();
-    v._fxESkill = { part, t: clockS, hold, until: hold ? clockS + holdFor : null, held: hold ? new Set() : null, inPlace: inPlaceOfAttack(v, part) };
+    const rec = /** @type {ESkillRec} */ ({ part, t: clockS, hold, until: hold ? clockS + holdFor : null, held: hold ? new Set() : null, inPlace: inPlaceOfAttack(v, part) });
+    v._fxESkill = rec;
     if (clockS - (eskillSeen.get(k) ?? -9) < 1) return true;
     eskillSeen.set(k, clockS);
     if (hold) {
       // 2026-10-15: a held skill (the sim's fx 'enemySkill' `hold` until its 'enemySkillEnd' — 子代's 摄食): its loop cast
       // effects (opt `o` 0, to ON_CAST_END) last until that end, cut at ESKILL_HOLD_CAP s [추정: a lost end]; (2026-11-14) a
-      // channel of known length (`holdFor`: its `dur`, content/enemies.js chanView) to that length
-      const names = edirs(v, part, part.cast), loops = names.filter((n) => part.opt?.[n]?.o === 0);
-      eplay(v, names.filter((n) => !loops.includes(n)), { tag: 'cast' });
-      if (loops.length) eplay(v, loops, { buff: true, tag: 'eskill', until: clockS + holdFor });
+      // channel of known length (`holdFor`: its `dur`, content/enemies.js chanView) to that length. (2026-11-26) Each at its
+      // own events (opt `s` / `e`): ON_ATTACK_FINISH (echanFinishAt) starts or ends the ones bound to it — 腐败骑士's
+      // gather to it, its three start effects from it —; without that moment they keep the cast's start and end
+      const t0 = clockS, af = echanFinishAt(v, key, holdFor);
+      const at = (/** @type {string} */ n, /** @type {'s' | 'e'} */ w) => af != null && part.opt?.[n]?.[w] === CAST_EVENT.ATTACK_FINISH;
+      const playHeld = (/** @type {string[]} */ base) => {
+        const names = edirs(v, part, base), loops = names.filter((n) => part.opt?.[n]?.o === 0);
+        eplay(v, names.filter((n) => !loops.includes(n)), { tag: 'cast' });
+        const toEnd = loops.filter((n) => !at(n, 'e')), toAf = loops.filter((n) => at(n, 'e'));
+        if (toEnd.length) eplay(v, toEnd, { buff: true, tag: 'eskill', until: t0 + holdFor });
+        if (toAf.length) eplay(v, toAf, { buff: true, tag: 'eskill', until: t0 + /** @type {number} */ (af) });
+      };
+      const later = (part.cast || []).filter((n) => at(n, 's'));
+      playHeld((part.cast || []).filter((n) => !later.includes(n)));
+      // its end ('enemySkillEnd': hold off), the enemy's death or a new cast before that moment play none of them
+      if (later.length) castsDelayed.push({ t: t0 + /** @type {number} */ (af), run: () => { if (v._fxESkill === rec && rec.hold && v.alive !== false && eOn(v)) playHeld(later); } });
     } else {
       // (2026-11-12) the strike's own cast effects wait for the strike when the sim signals it (SPELL_BLASTS)
       const atBlast = !!SPELL_BLASTS[v.info?.defId]?.[key];
@@ -8242,7 +8291,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     ecastTgtFx(v, part, targets || [target], hold ? clockS + holdFor : null, 'eskill');
     const pr = part.proj;
     if (target && pr && target !== v) {
-      if (Array.isArray(pr.targetStart)) eplay(v, pr.targetStart, { at: target });
+      if (Array.isArray(pr.targetStart)) { (rec.tgtStart ??= new Set()).add(target.id); eplay(v, pr.targetStart, { at: target }); }
       const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
       const speed = Number(pr.speed) > 0 ? Number(pr.speed) : 0;
       if (r && speed > 0 && !pr.link && !trailFull() && lib) {
@@ -8290,14 +8339,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function eskillHit(tid, by, views) {
     const v = /** @type {View} */ (by != null ? views.get(by) : null);   // (none: no `s`, no `tgt`)
     const s = /** @type {ESkillRec} */ (v && v._fxESkill);   // (none: no `tgt`)
-    const tgt = s && (s.hold ? clockS <= (s.until ?? Infinity) : clockS - s.t <= 3) && eOn(v) ? views.get(tid) : null;
+    // (2026-11-26) and 3 s from a later fx of a held cast (`late`: its 'explode' — 腐败骑士's hammer), as before that fx moved
+    // nothing else
+    const tgt = s && ((s.hold ? clockS <= (s.until ?? Infinity) : clockS - s.t <= 3) || clockS - (s.late ?? -99) <= 3) && eOn(v) ? views.get(tid) : null;
     if (!tgt) return false;
     const key = `${by}:${tid}`;
     if (clockS - (lastHit.get(key) ?? -9) < HIT_GAP_S) return true;
     lastHit.set(key, clockS);
     // 2026-10-15: a held skill's `_onlyOnce` hit effects (enemy-modes.json `hopt`): on its first hit of each unit, held there
     // until the skill ends (子代's trap_dstnta_attack_01_hit on the operator it holds, to ON_CAST_END)
-    const once = s.hold && s.part.hopt ? (s.part.hit || []).filter((n) => /** @type {NonNullable<EPart['hopt']>} */ (s.part.hopt)[n]?.once) : [];
+    // (2026-11-26: only while it holds and only those that end with the cast — `e` ON_CAST_END; a hit 3 s from a later fx of
+    // it past its end (`late`), and 重弩突袭者's enemy_hummbd_buff_01 (to ON_SPELL_ON), are plain hits as before)
+    const hopt = /** @type {NonNullable<EPart['hopt']>} */ (s.part.hopt);
+    const once = s.hold && clockS <= (s.until ?? Infinity) && hopt ? (s.part.hit || []).filter((n) => hopt[n]?.once && hopt[n]?.e === CAST_EVENT.CAST_END) : [];
     for (const n of once) {
       if (/** @type {Set<unknown>} */ (s.held).has(`${tid}:${n}`)) continue;   // (held: a held skill's)
       /** @type {Set<unknown>} */ (s.held).add(`${tid}:${n}`);
@@ -9548,7 +9602,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
               const chan = e[1] === 'enemySkill' && Number(o.dur) > 0 ? Number(o.dur) : 0;
               const held = e[1] === 'enemySkill' && (!!o.hold || chan > 0);
               if (held) elassoStart(v, eskillPart(v, /** @type {string} */ (k)), tv, chan || ESKILL_HOLD_CAP);
-              if (eskillFx(v, /** @type {string} */ (k), { target: tv, targets: tvs, hold: held, holdFor: chan || ESKILL_HOLD_CAP }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
+              // (2026-11-26) the cast's other fx ('explode' of 腐败骑士's hammer …) are no new cast (`start`)
+              const start = e[1] === 'enemySkill';
+              if (eskillFx(v, /** @type {string} */ (k), { target: tv, targets: tvs, hold: held, holdFor: chan || ESKILL_HOLD_CAP, start }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
               return;
             }
           }
