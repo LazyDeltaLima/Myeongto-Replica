@@ -37,6 +37,13 @@ import { localAsset } from '../data.js';
 import { GEO } from '../../../shared/constants.js';
 import { t, tParts } from '../../../shared/i18n.js';
 
+/**
+ * @import { FieldViewLike } from './facingWheel.js'
+ * @import { UfActions, UfSkill } from './underframeArt.js'
+ * @typedef {{ poly: Array<[number, number]> }} PolyTile
+ */
+
+/** @param {...(string | false | null | undefined)} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** Runner glyph of 撤退 (a figure leaving through a door; original shape). */
@@ -68,13 +75,13 @@ export function PlateIcon({ sprite, glyph, tone }) {
  * place (the diamond lies under the detail card).
  * @param {{ x: number, y: number, s: number }|null} g view.tileScreen(row, col)
  * @param {number} [rem] root font size (px)
- * @param {{ actions?: { retreat: boolean, sell: number|null, destroy: boolean } | null, onBoard?: boolean, skill?: any }} [opts]
+ * @param {{ actions?: UfActions | null, onBoard?: boolean, skill?: UfSkill | null }} [opts]
  * @returns {{ left: number, right: number, top: number, bottom: number }|null}
  */
 export function underframeRect(g, rem = 100, { actions = null, onBoard = true, skill = null } = {}) {
   if (!g || !Number.isFinite(g.x) || !Number.isFinite(g.y)) return null;
   const art = actions ? underframeArt() : null;
-  if (art && menuBasis(g)) return menuRect(g, actions, onBoard, art.skill ? skill : null);
+  if (art && menuBasis(g)) return menuRect(g, /** @type {UfActions} */ (actions), onBoard, art.skill ? skill : null); // art only with actions
   const s = g.s > 0 ? g.s : 64;
   const half = s * 1.05;
   const P = rem * 0.56;                 // plate
@@ -89,16 +96,16 @@ export function underframeRect(g, rem = 100, { actions = null, onBoard = true, s
 /**
  * `skill` (game/range.js skillButton) adds the official menu's skill button to a field piece; `skillRange` is its range
  * toggle, flipped through `onSkillRange`.
- * @param {{ view: any, uid?: number|null, row: number, col: number, actions: { retreat: boolean, sell: number|null, destroy: boolean },
+ * @param {{ view: FieldViewLike | null, uid?: number|null, row: number, col: number, actions: UfActions,
  *   name?: string, busy?: boolean, onRetreat?: () => void, onSell?: () => void, onDestroy?: () => void,
- *   skill?: any, skillRange?: boolean, onSkillRange?: (on: boolean) => void }} props
+ *   skill?: UfSkill | null, skillRange?: boolean, onSkillRange?: (on: boolean) => void }} props
  */
 export function Underframe({ view, uid = null, row, col, actions, name = '', busy = false, onRetreat, onSell, onDestroy, skill = null, skillRange = false, onSkillRange }) {
   const g = useTileScreen(view, row, col);
   if (!g || !actions) return null;
   const s = g.s > 0 ? g.s : 64;
   const half = s * 1.05;
-  const stop = (e) => e.stopPropagation();
+  const stop = (/** @type {Event} */ e) => e.stopPropagation();
   const keys = { retreat: hotkeyLabelOf('retreat'), sell: hotkeyLabelOf('sell') }; // the player's keys (设置 → 快捷键)
   const art = underframeArt();
   if (art && menuBasis(g)) {
@@ -122,17 +129,17 @@ export function Underframe({ view, uid = null, row, col, actions, name = '', bus
   </div><div class="uframe" data-uid=${uid} style=${box} role="group"
       aria-label=${t('{name} 操作', { name: name || t('单位') })}>
     ${actions.retreat ? html`<button type="button" class="uframe__btn uframe__btn--retreat" disabled=${busy} onPointerDown=${stop}
-        onClick=${(e) => { stop(e); onRetreat?.(); }} title=${actions.sell != null ? t('撤退至整备区（{key}）', { key: keys.retreat }) : t('撤退至整备区')} aria-label=${t('撤退')} aria-keyshortcuts=${actions.sell != null ? keys.retreat : undefined}>
+        onClick=${(/** @type {Event} */ e) => { stop(e); onRetreat?.(); }} title=${actions.sell != null ? t('撤退至整备区（{key}）', { key: keys.retreat }) : t('撤退至整备区')} aria-label=${t('撤退')} aria-keyshortcuts=${actions.sell != null ? keys.retreat : undefined}>
       <${RetreatGlyph} /><span class="uframe__label">${actions.sell != null ? t('撤退[{key}]', { key: keys.retreat }) : t('撤退')}</span>
     </button>` : null}
     ${actions.sell != null ? html`<button type="button" class="uframe__btn uframe__btn--sell" disabled=${busy} onPointerDown=${stop}
-        onClick=${(e) => { stop(e); onSell?.(); }} title=${t('出售（+{sell} 资金，{key}）', { sell: actions.sell, key: keys.sell })} aria-label=${t('出售，获得 {sell} 资金', { sell: actions.sell })} aria-keyshortcuts=${keys.sell}>
+        onClick=${(/** @type {Event} */ e) => { stop(e); onSell?.(); }} title=${t('出售（+{sell} 资金，{key}）', { sell: actions.sell, key: keys.sell })} aria-label=${t('出售，获得 {sell} 资金', { sell: actions.sell })} aria-keyshortcuts=${keys.sell}>
       <${PlateIcon} sprite="icon_sell" glyph="sell" tone="sell" />
       <span class="uframe__label">${t('出售[{key}]', { key: keys.sell })}</span>
       <${HexBadge} value=${`+${actions.sell}`} tone="gold" size="sm" class="uframe__price" />
     </button>` : null}
     ${actions.destroy ? html`<button type="button" class=${cx('uframe__btn', 'uframe__btn--destroy')} disabled=${busy} onPointerDown=${stop}
-        onClick=${(e) => { stop(e); onDestroy?.(); }} title=${t('销毁道具')} aria-label=${t('销毁')}>
+        onClick=${(/** @type {Event} */ e) => { stop(e); onDestroy?.(); }} title=${t('销毁道具')} aria-label=${t('销毁')}>
       <${PlateIcon} sprite="icon_destory" glyph="trash" tone="destroy" />
       <span class="uframe__label">${t('销毁')}</span>
     </button>` : null}
@@ -151,11 +158,14 @@ export function Underframe({ view, uid = null, row, col, actions, name = '', bus
  * @returns {{ quad: Array<[number, number]>, left: number, right: number, top: number, bottom: number, y: number, side: 'left'|'right' } | null}
  */
 export function tempRowFrame(a, b, { labelW = 0, gap = 8, vw = Infinity } = {}) {
-  const ok = (t) => t && Array.isArray(t.poly) && t.poly.length >= 4 && t.poly.every((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]));
+  const ok = (/** @type {PolyTile | null} */ t) => t && Array.isArray(t.poly) && t.poly.length >= 4 && t.poly.every((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]));
   if (!ok(a) || !ok(b)) return null;
-  const backs = [a.poly[0], a.poly[1], b.poly[0], b.poly[1]];
-  const fronts = [a.poly[2], a.poly[3], b.poly[2], b.poly[3]];
+  // a and b are set from here on (ok passed)
+  const backs = [/** @type {PolyTile} */ (a).poly[0], /** @type {PolyTile} */ (a).poly[1], /** @type {PolyTile} */ (b).poly[0], /** @type {PolyTile} */ (b).poly[1]];
+  const fronts = [/** @type {PolyTile} */ (a).poly[2], /** @type {PolyTile} */ (a).poly[3], /** @type {PolyTile} */ (b).poly[2], /** @type {PolyTile} */ (b).poly[3]];
+  /** @param {Array<[number, number]>} pts */
   const minX = (pts) => pts.reduce((m, p) => (p[0] < m[0] ? p : m));
+  /** @param {Array<[number, number]>} pts */
   const maxX = (pts) => pts.reduce((m, p) => (p[0] > m[0] ? p : m));
   const quad = [minX(backs), maxX(backs), maxX(fronts), minX(fronts)];
   const xs = quad.map((p) => p[0]);
@@ -182,7 +192,7 @@ export function tempRowRule(ready) {
 /**
  * The temp row's notice: dashed red frame + label (count, what to do, what happens at the end of the prep — tempRowRule).
  * `label` false (a piece is being dragged / placed): the frame only, nothing over the pieces the player is moving.
- * @param {{ view: any, count: number, items?: number, label?: boolean, ready?: boolean }} props
+ * @param {{ view: FieldViewLike | null, count: number, items?: number, label?: boolean, ready?: boolean }} props
  */
 export function TempRowNotice({ view, count, items = 0, label = true, ready = false }) {
   const a = useTileScreen(view, GEO.TEMP_ROW, GEO.TEMP_C0);

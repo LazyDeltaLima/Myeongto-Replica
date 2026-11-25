@@ -31,7 +31,33 @@ import { facingSwallows, facingEnter } from './gameLogic.js';
 import { settingsStore } from './settings.js';
 import { t } from '../../../shared/i18n.js';
 
+/**
+ * The field view as the wheel reads it: render/app.js, the DOM fallback (ui/fallbackField.js) or fieldHost's guarded
+ * wrapper around one (`raw`). Every hook is optional (a view without one loses the visual only); the engine's dev hooks
+ * (`debug`) stand in for the missing ones.
+ * @typedef {{ x: number, y: number, s: number, poly: Array<[number, number]>, mirror?: boolean }} TileGeom
+ * @typedef {{ destroyed?: boolean, x: number, y: number, z: number, lift?: number, _home?: { x: number, y: number, z: number },
+ *   _tween?: { fx: number, fy: number, fz: number, tx: number, ty: number, tz: number, t: number } | null,
+ *   setDir?: (dir: string | null) => void }} EnginePieceView
+ * @typedef {(row: number, col: number) => number} HeightAt
+ * @typedef {{ cam?: { project: (x: number, y: number, z: number) => { x: number, y: number, s: number } },
+ *   app?: { view?: HTMLCanvasElement }, tiles?: { heightAt?: HeightAt },
+ *   views?: Map<string, EnginePieceView>, board3d?: { overlay?: unknown } }} EngineDebug
+ * @typedef {{ [key: string]: unknown, raw?: FieldViewLike | null, tileScreen?: (row: number, col: number) => TileGeom | null,
+ *   holdPiece?: (uid: number, tile: { row: number, col: number } | null) => void,
+ *   setPieceDir?: (uid: number, dir: string | null) => void,
+ *   highlightTiles?: (tiles: Array<[number, number]>, style: object) => void,
+ *   prepField?: () => { mirror?: boolean } | null | undefined, debug?: EngineDebug }} FieldViewLike
+ * @typedef {{ uid: number, kind?: string, dir?: unknown }} DirPiece a piece of m.private, read for its facing
+ * @typedef {{ g: TileGeom | null, half: number, dead: number, dir: string | null, bdir: string | null, mirror: boolean,
+ *   onCommit: (dir: string) => void, onCancel: () => void, onPreview?: (dir: string | null) => void,
+ *   basis: DirBasis | null }} WheelLive what the wheel's handlers read of its latest render
+ * @import { DirBasis } from './placeArt.js'
+ */
+
+/** @param {...(string | false | null | undefined | 0 | '')} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+/** @param {FieldViewLike | null | undefined} view @returns {FieldViewLike | null} */
 const rawOf = (view) => (view && view.raw) || view || null;
 
 /** Range highlight of the wheel / a selected unit (orange, drawn under the units by the render engine). */
@@ -44,7 +70,8 @@ export const FACING_HEAL_STYLE = Object.freeze({ ...FACING_STYLE, color: 0x33c8f
 /**
  * Screen geometry of a tile's top face, in client px: centre, px per tile at that depth, the 4 corners.
  * `mirror`: the tile is on the mirrored right half of the Final Assault prep (render/app.js tileScreen).
- * @returns {{ x: number, y: number, s: number, poly: Array<[number, number]>, mirror?: boolean } | null}
+ * @param {FieldViewLike | null | undefined} view @param {number} row @param {number} col
+ * @returns {TileGeom | null}
  */
 export function tileScreen(view, row, col) {
   const raw = rawOf(view);
@@ -61,16 +88,20 @@ export function tileScreen(view, row, col) {
       const z = dbg.tiles && typeof dbg.tiles.heightAt === 'function' ? dbg.tiles.heightAt(row, col) : 0;
       const cr = canvas.getBoundingClientRect();
       const c = cam.project(col, row, z);
-      const corner = (dx, dy) => { const p = cam.project(col + dx, row + dy, z); return /** @type {[number, number]} */ ([cr.left + p.x, cr.top + p.y]); };
+      const corner = (/** @type {number} */ dx, /** @type {number} */ dy) => { const p = cam.project(col + dx, row + dy, z); return /** @type {[number, number]} */ ([cr.left + p.x, cr.top + p.y]); };
       return { x: cr.left + c.x, y: cr.top + c.y, s: c.s, poly: [corner(-0.5, 0.5), corner(0.5, 0.5), corner(0.5, -0.5), corner(-0.5, -0.5)] };
     }
   } catch { /* no geometry: the caller hides its visuals */ }
   return null;
 }
 
-/** Per-view pins of the engine fallback (dev hooks): uid → { row, col }. */
+/**
+ * Per-view pins of the engine fallback (dev hooks): uid → { row, col }.
+ * @type {WeakMap<FieldViewLike, { map: Map<number, { row: number, col: number }>, raf: number }>}
+ */
 const pins = new WeakMap();
 
+/** @param {FieldViewLike} raw */
 function pinLoop(raw) {
   const st = pins.get(raw);
   if (!st || st.raf) return;
@@ -79,7 +110,8 @@ function pinLoop(raw) {
     if (!st.map.size) return;
     try {
       const views = raw.debug && raw.debug.views;
-      const heightAt = raw.debug && raw.debug.tiles && raw.debug.tiles.heightAt ? (r, c) => raw.debug.tiles.heightAt(r, c) : () => 0;
+      // the closure runs only when the check before it found the hook
+      const heightAt = raw.debug && raw.debug.tiles && raw.debug.tiles.heightAt ? (/** @type {number} */ r, /** @type {number} */ c) => /** @type {HeightAt} */ (/** @type {Required<EngineDebug>} */ (raw.debug).tiles.heightAt)(r, c) : () => 0;
       for (const [uid, t] of st.map) {
         const v = views && views.get('p:' + uid);
         if (!v || v.destroyed) continue;
@@ -100,6 +132,7 @@ function pinLoop(raw) {
 /**
  * Keep a dropped piece standing on `tile` while its direction is being chosen / the move is in flight (`tile` null
  * releases it; the caller re-applies the prep state so the piece settles where the server says).
+ * @param {FieldViewLike | null | undefined} view @param {number} uid @param {{ row: number, col: number } | null | undefined} tile
  */
 export function holdPiece(view, uid, tile) {
   const raw = rawOf(view);
@@ -119,7 +152,10 @@ export function holdPiece(view, uid, tile) {
   }
 }
 
-/** Show a piece facing `dir` (live wheel preview, or the stored m.private `dir`). */
+/**
+ * Show a piece facing `dir` (live wheel preview, or the stored m.private `dir`).
+ * @param {FieldViewLike | null | undefined} view @param {number} uid @param {unknown} dir
+ */
 export function setPieceDir(view, uid, dir) {
   const raw = rawOf(view);
   if (!raw || !Number.isInteger(uid)) return;
@@ -133,6 +169,9 @@ export function setPieceDir(view, uid, dir) {
 /**
  * Apply the stored facing of every own piece (board: `piece.dir`, default RIGHT; bench: RIGHT) to the view, except
  * `skip` (the piece whose direction the wheel is previewing).
+ * @param {FieldViewLike | null | undefined} view
+ * @param {{ [key: string]: unknown, board?: (DirPiece | null)[], hand?: (DirPiece | null)[], temp?: (DirPiece | null)[] } | null | undefined} priv
+ * @param {number | null} [skip]
  */
 export function syncPieceDirs(view, priv, skip = null) {
   if (!view || !priv) return;
@@ -142,7 +181,7 @@ export function syncPieceDirs(view, priv, skip = null) {
 
 /**
  * Light the rotated range of a piece on (row, col) facing `dir` (no grid / dir clears the style's group).
- * @param {any} view @param {Array<[number, number]>|null} grid @param {number} row @param {number} col
+ * @param {FieldViewLike | null | undefined} view @param {Array<[number, number]>|null} grid @param {number} row @param {number} col
  * @param {string|null} dir
  * @param {Readonly<{ group: string, color: number, fill: number, line: number, heal?: boolean, skill?: boolean }>} [style]
  */
@@ -153,9 +192,13 @@ export function showRange(view, grid, row, col, dir, style = FACING_STYLE) {
   return tiles;
 }
 
-/** Follow a tile's screen position (the camera may still be moving, the window may resize). */
+/**
+ * Follow a tile's screen position (the camera may still be moving, the window may resize). No tile (`row` / `col`
+ * null): null — tileScreen answers null for anything but integers, hence the casts below.
+ * @param {FieldViewLike | null | undefined} view @param {number | null | undefined} row @param {number | null | undefined} col
+ */
 export function useTileScreen(view, row, col) {
-  const [g, setG] = useState(() => tileScreen(view, row, col));
+  const [g, setG] = useState(() => tileScreen(view, /** @type {number} */ (row), /** @type {number} */ (col)));
   const last = useRef('');
   useEffect(() => {
     let raf = 0;
@@ -164,7 +207,7 @@ export function useTileScreen(view, row, col) {
     if (!view || !Number.isInteger(row) || !Number.isInteger(col)) { last.current = ''; setG(null); return undefined; }
     const tick = () => {
       if (!alive) return;
-      const t = tileScreen(view, row, col);
+      const t = tileScreen(view, /** @type {number} */ (row), /** @type {number} */ (col));
       const key = t ? `${t.x.toFixed(1)},${t.y.toFixed(1)},${t.s.toFixed(2)}` : '';
       if (key !== last.current) { last.current = key; setG(t); }
       raf = requestAnimationFrame(tick);
@@ -178,8 +221,10 @@ export function useTileScreen(view, row, col) {
 // ---- the wheel -------------------------------------------------------------------------------------------------------
 
 /** Chevron centre (viewBox units, diamond half-diagonal = 100) and rotation per direction. */
+/** @type {Readonly<Record<string, [number, number, number]>>} */
 const CHEV = { UP: [0, -64, -90], RIGHT: [64, 0, 0], DOWN: [0, 64, 90], LEFT: [-64, 0, 180] };
 
+/** @param {{ dir: string, on: boolean }} props */
 function Chevron({ dir, on }) {
   const [x, y, rot] = CHEV[dir];
   return html`<g class=${cx('fwheel__chev', on && 'is-on')} transform=${`translate(${x} ${y}) rotate(${rot})`}>
@@ -189,15 +234,14 @@ function Chevron({ dir, on }) {
 
 /**
  * The direction wheel overlay.
- * @param {{ view: any, row: number, col: number, grid: Array<[number, number]>|null, heal?: boolean, name?: string,
+ * @param {{ view: FieldViewLike | null, row: number, col: number, grid: Array<[number, number]>|null, heal?: boolean, name?: string,
  *   onPreview?: (dir: string|null) => void, onCommit: (dir: string) => void, onCancel: () => void }} props
  */
 export function FacingWheel({ view, row, col, grid, heal = false, name = '', onPreview, onCommit, onCancel }) {
   const g = useTileScreen(view, row, col);
-  const [dir, setDir] = useState(null);
-  const [drag, setDrag] = useState(null); // { id } while a pointer is down
-  /** @type {{ current: Record<string, any> }} */
-  const live = useRef({});
+  const [dir, setDir] = useState(/** @type {string | null} */ (null));
+  const [drag, setDrag] = useState(/** @type {{ id: number } | null} */ (null)); // { id } while a pointer is down
+  const live = useRef(/** @type {WheelLive} */ ({}));
   const s = g && g.s > 0 ? g.s : 64;
   // local patch (LOCAL-PATCH.md 「배치 UI」): the client's selector when its sprites are installed (ui/placeArt.js)
   const art = dirArt();
@@ -218,6 +262,7 @@ export function FacingWheel({ view, row, col, grid, heal = false, name = '', onP
   // a new wheel's useRangeHighlight has drawn the same 'facing' group)
   useLayoutEffect(() => () => { showRange(view, null, row, col, null); }, []);
 
+  /** @param {number} clientX @param {number} clientY */
   const choose = (clientX, clientY) => {
     const L = live.current;
     if (!L.g) return null;
@@ -225,6 +270,7 @@ export function FacingWheel({ view, row, col, grid, heal = false, name = '', onP
     setDir(d);
     return d;
   };
+  /** @param {number} clientX @param {number} clientY */
   const inside = (clientX, clientY) => {
     const L = live.current;
     if (!L.g) return true;
@@ -232,24 +278,27 @@ export function FacingWheel({ view, row, col, grid, heal = false, name = '', onP
     return Math.abs(clientX - L.g.x) + Math.abs(clientY - L.g.y) <= L.half * 1.18;
   };
 
+  /** @param {PointerEvent} e */
   const onDown = (e) => {
     if (e.button != null && e.button !== 0) { e.preventDefault(); return; }
-    if (e.target && e.target.closest && e.target.closest('.fwheel__cancel')) return;
+    if (e.target && /** @type {Element} */ (e.target).closest && /** @type {Element} */ (e.target).closest('.fwheel__cancel')) return;
     e.preventDefault();
     if (!inside(e.clientX, e.clientY)) { onCancel(); return; }
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    try { /** @type {Element} */ (e.currentTarget).setPointerCapture(e.pointerId); } catch { /* ignore */ }
     setDrag({ id: e.pointerId });
     choose(e.clientX, e.clientY);
   };
+  /** @param {PointerEvent} e */
   const onMove = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     choose(e.clientX, e.clientY);
   };
+  /** @param {PointerEvent} e */
   const onUp = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     setDrag(null);
     const d = choose(e.clientX, e.clientY);
-    if (d) onCommit(boardDir(d, live.current.mirror)); else onCancel();
+    if (d) onCommit(/** @type {string} */ (boardDir(d, live.current.mirror))); else onCancel(); // a direction maps to one
   };
   const onPointerCancel = () => { setDrag(null); setDir(null); };
 
@@ -258,8 +307,9 @@ export function FacingWheel({ view, row, col, grid, heal = false, name = '', onP
   // behind the wheel) it does nothing, elsewhere it commits the previewed direction. The wheel takes the focus when it
   // opens, so a button focused before the drop (a click leaves it focused) cannot swallow the confirming Enter; Tab then
   // reaches ✕ first. Nothing gives the focus back when it closes (a restored 准备 would take the next Enter / Space).
-  const rootRef = useRef(null);
+  const rootRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   useEffect(() => {
+    /** @param {KeyboardEvent} e */
     const onKey = (e) => {
       const L = live.current;
       if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); L.onCancel(); return; }
@@ -269,7 +319,7 @@ export function FacingWheel({ view, row, col, grid, heal = false, name = '', onP
       if (enter) {
         e.preventDefault(); e.stopImmediatePropagation();
         if (enter === 'cancel') L.onCancel();
-        else if (enter === 'commit') L.onCommit(L.bdir);
+        else if (enter === 'commit') L.onCommit(/** @type {string} */ (L.bdir)); // facingEnter commits only a chosen direction
         return;
       }
       // no ready / shop while choosing: Space and every key of the player's map (设置 → 快捷键)
@@ -284,7 +334,7 @@ export function FacingWheel({ view, row, col, grid, heal = false, name = '', onP
   const box = half * 2;
   return html`<div ref=${rootRef} tabIndex="-1" class=${cx('fwheel', drag && 'is-pressed', dir && `is-${dir.toLowerCase()}`)} role="dialog" aria-label=${name ? t('选择「{name}」的朝向', { name }) : t('选择朝向')}
       onPointerDown=${onDown} onPointerMove=${onMove} onPointerUp=${onUp} onPointerCancel=${onPointerCancel}
-      onContextMenu=${(e) => { e.preventDefault(); onCancel(); }}>
+      onContextMenu=${(/** @type {Event} */ e) => { e.preventDefault(); onCancel(); }}>
     ${g ? html`<${Stripes} tiles=${tiles} view=${view} row=${row} col=${col} />` : null}
     ${g && basis ? html`<div class="fwheel__dia pwheel-host">
       <${PlaceWheelArt} g=${g} basis=${basis} art=${art} dir=${dir} onCancel=${onCancel} />
@@ -299,8 +349,8 @@ export function FacingWheel({ view, row, col, grid, heal = false, name = '', onP
         <path class="fwheel__inner" d=${`M0 ${-DEAD_ZONE_TILES / 1.5 * 100} L${DEAD_ZONE_TILES / 1.5 * 100} 0 L0 ${DEAD_ZONE_TILES / 1.5 * 100} L${-DEAD_ZONE_TILES / 1.5 * 100} 0 Z`} />
         ${DIRS.map((d) => html`<${Chevron} key=${d} dir=${d} on=${dir === d} />`)}
       </svg>
-      <button type="button" class="fwheel__cancel" onPointerDown=${(e) => e.stopPropagation()}
-        onClick=${(e) => { e.stopPropagation(); onCancel(); }} aria-label=${t('点击取消')}>
+      <button type="button" class="fwheel__cancel" onPointerDown=${(/** @type {Event} */ e) => e.stopPropagation()}
+        onClick=${(/** @type {Event} */ e) => { e.stopPropagation(); onCancel(); }} aria-label=${t('点击取消')}>
         <${LocalSprite} name="cancel_icon" class="fwheel__x" fallback=${html`<span class="fwheel__x fwheel__x--txt">✕</span>`} />
         <span>${t('点击取消')}</span>
       </button>
@@ -310,9 +360,13 @@ export function FacingWheel({ view, row, col, grid, heal = false, name = '', onP
   </div>`;
 }
 
-/** Keep the view's 'facing' highlight group on the rotated range; returns the tiles. */
+/**
+ * Keep the view's 'facing' highlight group on the rotated range; returns the tiles.
+ * @param {FieldViewLike | null | undefined} view @param {Array<[number, number]> | null} grid @param {number} row
+ * @param {number} col @param {string | null} dir @param {boolean} heal
+ */
 function useRangeHighlight(view, grid, row, col, dir, heal) {
-  const [tiles, setTiles] = useState([]);
+  const [tiles, setTiles] = useState(/** @type {Array<[number, number]>} */ ([]));
   useLayoutEffect(() => { setTiles(showRange(view, grid, row, col, dir, heal ? FACING_HEAL_STYLE : FACING_STYLE)); }, [view, grid, row, col, dir, heal]);
   return tiles;
 }
@@ -322,6 +376,7 @@ function useRangeHighlight(view, grid, row, col, dir, heal) {
  * canvas and above the three.js board canvas — the units stand on the stripes like in the original. Otherwise (2D
  * board: the Pixi canvas is opaque; DOM fallback) the stripes are an overlay above the field and skip the piece's
  * own tile. Returns null for the overlay case.
+ * @param {FieldViewLike | null | undefined} view
  * @returns {{ host: HTMLElement, before: HTMLElement } | null}
  */
 export function stripeMount(view) {
@@ -338,8 +393,12 @@ export function stripeMount(view) {
 const SVG_NS = 'http://www.w3.org/2000/svg';
 let stripeSeq = 0;
 
-/** Screen polygons (client px) of range tiles, as SVG `points` strings, offset by (ox, oy). */
+/**
+ * Screen polygons (client px) of range tiles, as SVG `points` strings, offset by (ox, oy).
+ * @param {FieldViewLike | null | undefined} view @param {Array<[number, number]>} tiles @param {number} [ox] @param {number} [oy]
+ */
 export function stripePolys(view, tiles, ox = 0, oy = 0) {
+  /** @type {{ k: string, pts: string }[]} */
   const out = [];
   for (const [r, c] of tiles) {
     const t = tileScreen(view, r, c);
@@ -351,6 +410,7 @@ export function stripePolys(view, tiles, ox = 0, oy = 0) {
 /**
  * Striped orange range tiles (the official look), re-projected every frame (the camera may still move). The solid
  * orange fill is the render view's highlight group under the units; these are the light stripes on top of it.
+ * @param {{ tiles: Array<[number, number]>, view: FieldViewLike | null, row: number, col: number }} props
  */
 function Stripes({ tiles, view, row, col }) {
   const [, setN] = useState(0);

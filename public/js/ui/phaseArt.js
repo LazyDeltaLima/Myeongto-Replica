@@ -77,11 +77,13 @@ const RESULT = Object.freeze({
   '--pr-text1': 'doc_text_01', '--pr-text2': 'doc_text_02', '--pr-body': 'emoji_body', '--pr-miss': 'miss_emoji_head',
   '--pr-blood': 'blood_icon', '--pr-tile': 'tile_line',
 });
+/** @type {Readonly<Record<string, { map: Readonly<Record<string, string>>, cls: string, local?: string }>>} */
 const KIND = { round: { map: ROUND, cls: 'has-phase-art' }, choose: { map: CHOOSE, cls: 'has-phase-art' }, result: { map: RESULT, cls: 'has-phase-art', local: 'ui/battle' } };
 const NONE = Object.freeze({ cls: '', style: '' });
+/** @type {Map<string, { m: unknown, v: { cls: string, style: string } }>} */
 const cache = new Map();
 
-/** { cls, style }: `has-phase-art` and the sprite variables when the web manifest has every sprite, else nothing. */
+/** { cls, style }: `has-phase-art` and the sprite variables when the web manifest has every sprite, else nothing. @param {string} kind */
 export function phaseArt(kind) {
   const k = KIND[kind];
   if (!k) return NONE;
@@ -101,7 +103,9 @@ export function phaseArt(kind) {
 }
 
 /** Position of a prefab RectTransform inside its parent (centre anchors): x, y = anchoredPosition (y up), w, h = size. */
+/** @param {number} x @param {number} y @param {number} w @param {number} h */
 const box = (x, y, w, h) => `left:calc(50% + var(--pu) * ${x - w / 2});top:calc(50% - var(--pu) * ${y + h / 2});width:calc(var(--pu) * ${w});height:calc(var(--pu) * ${h})`;
+/** @param {string} cls @param {string} b */
 const i = (cls, b) => html`<i class=${cls} style=${b} aria-hidden="true"></i>`;
 
 // the mascot's floating squares (round_start_dialog blank_01…05, #1aad88), relative to the emoji box
@@ -124,7 +128,7 @@ export function RoundStartBanner({ round, gold = null, watching = false, remain 
   const [gone, setGone] = useState(false);
   // local patch: keep the credited funds once known — the banner outlives ROUND_START (the phase turns PREP / 机变 while
   // it still shows, and useRoundGold is null there: the 获得 box dropped to 0)
-  const kept = useRef(null);
+  const kept = useRef(/** @type {number | null} */ (null));
   if (Number.isFinite(gold)) kept.current = gold;
   gold = kept.current;
   useEffect(() => {
@@ -135,7 +139,7 @@ export function RoundStartBanner({ round, gold = null, watching = false, remain 
   if (gone) return null;
   const art = phaseArt('round');
   const r = String(Math.max(0, Math.trunc(Number(round) || 0))).padStart(2, '0');
-  const g = Number.isFinite(gold) && gold > 0 ? Math.trunc(gold) : 0;
+  const g = Number.isFinite(gold) && /** @type {number} */ (gold) > 0 ? Math.trunc(/** @type {number} */ (gold)) : 0;
   return html`<div class=${['parb', art.cls, leaving && 'is-leaving'].filter(Boolean).join(' ')} style=${art.style} role="status" aria-live="polite"
       aria-label=${watching ? `${t('回合 {r}', { r })} · ${t('观战中')}` : g ? t('回合 {r} · 获得 {g}', { r, g }) : t('回合 {r}', { r })}>
     <div class="parb__c" style=${box(0, 0, 1280, 720)}>
@@ -171,7 +175,7 @@ export function RoundStartBanner({ round, gold = null, watching = false, remain 
         <i class="parb__glow" style=${box(0, -15, 112, 32.5)} aria-hidden="true"></i>
         ${DOTS.map(([x, y, d], k) => html`<i key=${k} class="parb__dot" style=${`${box(27 + x, -13 + y, 4, 4)};--d:${d}s`} aria-hidden="true"></i>`)}
       </div>`}
-      ${Number.isFinite(remain) && remain > 0 ? html`<div class="parb__remain" style=${`${box(0, 91.6, 322, 64)};${remainBg()}`}>
+      ${Number.isFinite(remain) && /** @type {number} */ (remain) > 0 ? html`<div class="parb__remain" style=${`${box(0, 91.6, 322, 64)};${remainBg()}`}>
         <span class="parb__remain-text">${tParts('剩余 {n} 回合', { n: html`<b>${remain}</b>` })}</span></div>` : null}
     </div>
   </div>`;
@@ -223,7 +227,9 @@ export function BattleEndBanner({ perfect, lost = 0, duration = 1800, onDone }) 
     : { bg: box(2.3, 2.8, 631.8, 298.6), blank: [-127.2, 115.6], doc: [-120.1, 87.3], dot: [-90.1, -82.8], left: -137, title: -4.4, mask: -18.1 };
   const W = perfect ? 618.9 : 631.8, H = perfect ? 291.6 : 298.6;
   // anchors (1, 0) / (1, 1) of the plate: from its right-bottom / right-top corner
+  /** @param {number} x @param {number} y @param {number} w @param {number} h */
   const rb = (x, y, w, h) => box(W / 2 + x, -H / 2 + y, w, h);
+  /** @param {number} x @param {number} y @param {number} w @param {number} h */
   const rt = (x, y, w, h) => box(W / 2 + x, H / 2 + y, w, h);
   const ALPHA = [0.6, 1, 0.2, 0.6, 0.4, 1];
   return html`<div class=${['parb', 'prb', perfect ? 'is-perfect' : 'is-miss', art.cls, leaving && 'is-leaving'].filter(Boolean).join(' ')} style=${art.style}
@@ -267,10 +273,10 @@ export function BattleEndBanner({ perfect, lost = 0, duration = 1800, onDone }) 
  * `roundGold { round, gain }` (m.private, server/local-patch.js) of this round when present; else own funds now minus the
  * funds of the last render before the phase became ROUND_START.
  * @param {string} phase @param {number|null|undefined} funds own m.private funds
- * @param {{ round: number, gain: number }|null} [rg] m.private roundGold @param {number} [round] m.public round
+ * @param {{ round: number, gain: number }|null} [rg] m.private roundGold @param {number | null} [round] m.public round
  */
 export function useRoundGold(phase, funds, rg = null, round = null) {
-  const last = useRef({ phase: null, funds: null, base: null });
+  const last = useRef(/** @type {{ phase: string | null, funds: number | null, base: number | null }} */ ({ phase: null, funds: null, base: null }));
   const f = Number.isFinite(funds) ? funds : null;
   const L = last.current;
   if (phase === PHASE.ROUND_START && L.phase !== PHASE.ROUND_START) L.base = L.funds;
@@ -286,7 +292,7 @@ export function useRoundGold(phase, funds, rg = null, round = null) {
  *  clip's length, linear, then switches the panel off. */
 export const TURN_FLASH_MS = 1333;
 
-/** True for TURN_FLASH_MS after `on` turns true. */
+/** True for TURN_FLASH_MS after `on` turns true. @param {boolean} on */
 export function useTurnFlash(on) {
   const [flash, setFlash] = useState(false);
   useEffect(() => {

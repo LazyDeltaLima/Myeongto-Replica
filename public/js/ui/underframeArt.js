@@ -39,6 +39,15 @@ import { localAsset } from '../data.js';
 import { dirBasis, DIR_HALF_TILES } from './placeArt.js';
 import { t } from '../../../shared/i18n.js';
 
+/**
+ * @import { DirTile, DirProject } from './placeArt.js'
+ * @typedef {NonNullable<ReturnType<typeof underframeArt>>} UfArt the menu sprites
+ * @typedef {{ m: number[], pt: DirProject }} MenuBasis
+ * @typedef {{ retreat: boolean, sell: number | null, destroy: boolean }} UfActions the buttons a piece offers (facing.js underframeActions)
+ * @typedef {{ icon: string | null, spCost: number, grid: unknown }} UfSkill game/range.js skillButton
+ * @typedef {{ left: number, top: number, right: number, bottom: number }} UfBox client px
+ */
+
 /** Scale of panel_direction_selector: its local units → the battle UI's world canvas units. */
 const SELECTOR_SCALE = 2.5;
 /** underframe_panel `root` scale. */
@@ -102,7 +111,8 @@ export function underframeArt() {
 /**
  * Ground-plane basis of the menu canvas at a tile: local units = the world canvas units of the battle UI (x right,
  * y down on screen). Kept unmirrored on the mirrored half of the Final Assault prep: 撤退 stays on the left.
- * @returns {{ m: number[], pt: (x: number, y: number) => [number, number] } | null}
+ * @param {DirTile | null | undefined} g
+ * @returns {MenuBasis | null}
  */
 export function menuBasis(g) {
   const b = dirBasis(g, DIR_HALF_TILES / SELECTOR_SCALE);
@@ -114,7 +124,8 @@ export function menuBasis(g) {
 
 /**
  * Client-px bounding box of a local rect (centre, size) through a basis.
- * @param {any} basis @param {number[]} centre [x, y] @param {number} w @param {number} h
+ * @param {MenuBasis} basis @param {number[]} centre [x, y] @param {number} w @param {number} h
+ * @returns {UfBox}
  */
 function boxOf(basis, [cx, cy], w, h) {
   const xs = [], ys = [];
@@ -125,14 +136,15 @@ function boxOf(basis, [cx, cy], w, h) {
   return { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
 }
 
+/** @param {number[]} p @param {number[]} q @param {number} [k] @returns {[number, number]} */
 const add = (p, q, k = 1) => [p[0] + q[0] * k, p[1] + q[1] * k];
 
 /**
  * Where everything sits, in menu canvas units: the tap areas and key caps of the buttons shown (centre, size), the
  * util plate's origin and scale, the skill group's centre and its range toggle. `onBoard` = the underframe, else the
  * bench menu; `skill` = game/range.js skillButton (the underframe only).
- * @param {{ retreat: boolean, sell: number|null, destroy: boolean }} actions
- * @param {{ grid: any } | null} [skill]
+ * @param {UfActions} actions @param {boolean} onBoard
+ * @param {{ grid: unknown } | null} [skill]
  */
 export function menuLayout(actions, onBoard, skill = null) {
   const R = ROOT_SCALE;
@@ -150,6 +162,8 @@ export function menuLayout(actions, onBoard, skill = null) {
 /**
  * Client-px rect the menu's buttons cover (the diamond itself lies under the detail card): for the detail card / bond
  * popup placement (ui/underframe.js underframeRect).
+ * @param {DirTile | null | undefined} g @param {UfActions} actions @param {boolean} onBoard @param {{ grid: unknown } | null} [skill]
+ * @returns {UfBox | null}
  */
 export function menuRect(g, actions, onBoard, skill = null) {
   const basis = menuBasis(g);
@@ -168,7 +182,7 @@ export function menuRect(g, actions, onBoard, skill = null) {
   };
 }
 
-/** A key cap (pc_key_holder) at a local point. */
+/** A key cap (pc_key_holder) at a local point. @param {{ at: number[], label: string, k: number }} props */
 function KeyCap({ at, label, k }) {
   if (!label) return null;
   const s = KEY * k;
@@ -178,7 +192,10 @@ function KeyCap({ at, label, k }) {
   </g>`;
 }
 
-/** The util plate (AutoChessUnderFramePanelButton / the menu button's util_btn), drawn at its origin. */
+/**
+ * The util plate (AutoChessUnderFramePanelButton / the menu button's util_btn), drawn at its origin.
+ * @param {{ art: UfArt, kind: 'sell' | 'destroy', price: number | null, text: string }} props
+ */
 function UtilPlate({ art, kind, price, text }) {
   const P = UTIL.plate;
   const [px, py] = P.at;
@@ -195,9 +212,14 @@ function UtilPlate({ art, kind, price, text }) {
   </g>`;
 }
 
-/** The skill group (AutoChessUnderFrameSkillButton), drawn at its centre in root units. */
+/**
+ * The skill group (AutoChessUnderFrameSkillButton), drawn at its centre in root units. Drawn only with the skill
+ * sprites (menuLayout gets the skill only then), so `art.skill` is set.
+ * @param {{ art: UfArt & { skill: NonNullable<UfArt['skill']> }, skill: UfSkill, rangeOn: boolean }} props
+ */
 function SkillGroup({ art, skill, rangeOn }) {
   const S = SKILL;
+  /** @param {string} href @param {{ at: number[], w: number, h: number }} box @param {string | null} [cls] */
   const img = (href, { at, w, h }, cls = null) => html`<image class=${cls} href=${href} x=${at[0] - w / 2} y=${at[1] - h / 2} width=${w} height=${h} preserveAspectRatio="none" />`;
   return html`<g class="ufa__skill">
     ${skill.icon ? img(skill.icon, S.icon) : html`<rect class="ufa__skillnone" x=${S.icon.at[0] - S.icon.w / 2} y=${S.icon.at[1] - S.icon.h / 2} width=${S.icon.w} height=${S.icon.h} />`}
@@ -209,7 +231,7 @@ function SkillGroup({ art, skill, rangeOn }) {
 
 /**
  * The diamond layer (field piece only) — under the detail card, like the original's .uframe--dia.
- * @param {{ g: any, art: any }} props
+ * @param {{ g: DirTile, art: UfArt }} props
  */
 export function UnderframeDiamondArt({ g, art }) {
   const basis = menuBasis(g);
@@ -225,43 +247,43 @@ export function UnderframeDiamondArt({ g, art }) {
 /**
  * The buttons layer: the art (pointer-transparent SVG on the ground plane) + one transparent <button> per button over
  * its tap area (hotspot / collider), carrying the hotkey label for assistive tech and the tests.
- * @param {{ g: any, art: any, actions: { retreat: boolean, sell: number|null, destroy: boolean }, onBoard: boolean,
+ * @param {{ g: DirTile, art: UfArt, actions: UfActions, onBoard: boolean,
  *   keys: { retreat: string, sell: string }, busy?: boolean, onRetreat?: () => void, onSell?: () => void, onDestroy?: () => void,
- *   skill?: { icon: string|null, spCost: number, grid: any } | null, skillRange?: boolean, onSkillRange?: (on: boolean) => void }} props
+ *   skill?: UfSkill | null, skillRange?: boolean, onSkillRange?: (on: boolean) => void }} props
  */
 export function UnderframeButtonsArt({ g, art, actions, onBoard, keys, busy = false, onRetreat, onSell, onDestroy, skill = null, skillRange = false, onSkillRange }) {
   const basis = menuBasis(g);
   if (!basis) return null;
   const L = menuLayout(actions, onBoard, art.skill ? skill : null);
   const [a, b, c, d, e, f] = basis.m;
-  const stop = (ev) => ev.stopPropagation();
+  const stop = (/** @type {Event} */ ev) => ev.stopPropagation();
   const R = ROOT_SCALE;
   const W = L.withdraw;
   const U = L.util;
   const kind = actions.destroy ? 'destroy' : 'sell';
   // the layer's box sits on the piece (g): the SVG and the tap boxes are placed back to client px from there
-  const hitStyle = (box) => `left:${box.left - g.x}px;top:${box.top - g.y}px;width:${box.right - box.left}px;height:${box.bottom - box.top}px`;
+  const hitStyle = (/** @type {UfBox} */ box) => `left:${box.left - g.x}px;top:${box.top - g.y}px;width:${box.right - box.left}px;height:${box.bottom - box.top}px`;
   // the tap boxes first: the art's hover / pressed / disabled looks follow them by sibling selectors (css/place-art.css)
   return html`${W ? html`<button type="button" class="uframe__btn uframe__btn--retreat ufa__hit" disabled=${busy} onPointerDown=${stop}
         style=${hitStyle(boxOf(basis, W.at, W.hit, W.hit))}
-        onClick=${(ev) => { stop(ev); onRetreat?.(); }} title=${actions.sell != null ? t('撤退至整备区（{key}）', { key: keys.retreat }) : t('撤退至整备区')}
+        onClick=${(/** @type {Event} */ ev) => { stop(ev); onRetreat?.(); }} title=${actions.sell != null ? t('撤退至整备区（{key}）', { key: keys.retreat }) : t('撤退至整备区')}
         aria-label=${t('撤退')} aria-keyshortcuts=${actions.sell != null ? keys.retreat : undefined}>
       <span class="uframe__label ufa__sr">${actions.sell != null ? t('撤退[{key}]', { key: keys.retreat }) : t('撤退')}</span>
     </button>` : null}
     ${U && actions.sell != null ? html`<button type="button" class="uframe__btn uframe__btn--sell ufa__hit" disabled=${busy} onPointerDown=${stop}
         style=${hitStyle(boxOf(basis, U.hit.at, U.hit.w, U.hit.h))}
-        onClick=${(ev) => { stop(ev); onSell?.(); }} title=${t('出售（+{sell} 资金，{key}）', { sell: actions.sell, key: keys.sell })}
+        onClick=${(/** @type {Event} */ ev) => { stop(ev); onSell?.(); }} title=${t('出售（+{sell} 资金，{key}）', { sell: actions.sell, key: keys.sell })}
         aria-label=${t('出售，获得 {sell} 资金', { sell: actions.sell })} aria-keyshortcuts=${keys.sell}>
       <span class="uframe__label ufa__sr">${t('出售[{key}]', { key: keys.sell })}</span>
     </button>` : null}
     ${U && actions.destroy ? html`<button type="button" class="uframe__btn uframe__btn--destroy ufa__hit" disabled=${busy} onPointerDown=${stop}
         style=${hitStyle(boxOf(basis, U.hit.at, U.hit.w, U.hit.h))}
-        onClick=${(ev) => { stop(ev); onDestroy?.(); }} title=${t('销毁道具')} aria-label=${t('销毁')}>
+        onClick=${(/** @type {Event} */ ev) => { stop(ev); onDestroy?.(); }} title=${t('销毁道具')} aria-label=${t('销毁')}>
       <span class="uframe__label ufa__sr">${t('销毁')}</span>
     </button>` : null}
     ${L.skill?.toggle ? html`<button type="button" class="uframe__btn uframe__btn--range ufa__hit" onPointerDown=${stop}
         style=${hitStyle(boxOf(basis, L.skill.toggle, SKILL.toggle.w * R, SKILL.toggle.h * R))}
-        onClick=${(ev) => { stop(ev); onSkillRange?.(!skillRange); }} title=${t('技能范围')} aria-label=${t('技能范围')} aria-pressed=${skillRange ? 'true' : 'false'}>
+        onClick=${(/** @type {Event} */ ev) => { stop(ev); onSkillRange?.(!skillRange); }} title=${t('技能范围')} aria-label=${t('技能范围')} aria-pressed=${skillRange ? 'true' : 'false'}>
       <span class="uframe__label ufa__sr">${t('技能范围')}</span>
     </button>` : null}
     <svg class="ufa ufa--btns" aria-hidden="true" style=${`left:${-g.x}px;top:${-g.y}px`}><g transform=${`matrix(${a} ${b} ${c} ${d} ${e} ${f})`}>

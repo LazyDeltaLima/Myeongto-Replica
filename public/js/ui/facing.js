@@ -17,6 +17,22 @@ import { attackRangeGrid } from '../../../shared/loadoutRecord.js';
 import { facingless } from '../../../shared/trap-tokens.js'; // local patch
 import { N_ } from '../../../shared/i18n.js';
 
+/**
+ * @import { ChessRecord } from '../../../shared/loadoutRecord.js'
+ * @import { FieldViewLike } from './facingWheel.js'
+ */
+/**
+ * The records these rules read field by field: a piece of m.private (board / hand / temp), an indexPieces entry
+ * (gameLogic placementContext), a summon / item record, and the lookups that find them.
+ * @typedef {{ [key: string]: unknown, uid: number, kind: string, id: string, dir?: unknown, items?: unknown,
+ *   sellPrice?: number, ownerUid?: number }} FacePiece
+ * @typedef {{ piece: FacePiece, area: string, row?: number, col?: number, idx?: number, equipped?: boolean }} FaceEntry
+ * @typedef {{ [key: string]: unknown, itemType?: string, rangeGrid?: Array<[number, number]> | null, profession?: string,
+ *   subProfessionId?: string, sellPrice?: number }} UnitRecord
+ * @typedef {{ getChess: (id: string) => ChessRecord | null | undefined, getToken: (id: string) => UnitRecord | null | undefined,
+ *   getItem: (id: string) => UnitRecord | null | undefined, chessRecord?: (rec: ChessRecord) => ChessRecord | null | undefined }} FaceLookups
+ */
+
 export const DIRS = Object.freeze(['UP', 'RIGHT', 'DOWN', 'LEFT']);
 export const DEFAULT_DIR = 'RIGHT';
 /** Dead-zone radius of the wheel, in tiles (research 09 §1.2: ~0.5 tile). */
@@ -31,6 +47,7 @@ export const DIR_VEC = Object.freeze({
 });
 
 /** Chinese label (for aria / tooltips). */
+/** @type {Readonly<Record<string, string>>} */
 export const DIR_LABEL = Object.freeze({ UP: N_('上'), RIGHT: N_('右'), DOWN: N_('下'), LEFT: N_('左') });
 
 /**
@@ -47,9 +64,12 @@ export function normDir(d, fallback = DEFAULT_DIR) {
   return fallback;
 }
 
-/** Rotate a range offset given relative to facing RIGHT (DESIGN §3). */
+/**
+ * Rotate a range offset given relative to facing RIGHT (DESIGN §3).
+ * @param {number} dr @param {number} dc @param {unknown} dir @returns {[number, number]}
+ */
 export function rotateOffset(dr, dc, dir) {
-  const z = (v) => (v === 0 ? 0 : v); // no −0
+  const z = (/** @type {number} */ v) => (v === 0 ? 0 : v); // no −0
   switch (normDir(dir)) {
     case 'UP': return [z(dc), z(-dr)];
     case 'LEFT': return [z(-dr), z(-dc)];
@@ -61,14 +81,17 @@ export function rotateOffset(dr, dc, dir) {
 /**
  * Absolute board tiles of a range grid for a piece standing on (row, col) facing `dir` (clipped to the stage grid,
  * deduplicated). `extend` adds columns along +dCol before rotating (rangeExtend, DESIGN §3).
- * @param {Array<[number, number]>} grid
+ * @param {Array<[number, number]>} grid @param {number} row @param {number} col @param {unknown} dir
+ * @param {{ extend?: number, rows?: number, cols?: number }} [opts]
  * @returns {Array<[number, number]>}
  */
 export function rangeTiles(grid, row, col, dir, { extend = 0, rows = GEO.ROWS, cols = GEO.COLS } = {}) {
+  /** @type {Array<[number, number]>} */
   const out = [];
   const seen = new Set();
   const list = Array.isArray(grid) ? grid : [];
   const ext = Number.isInteger(extend) && extend > 0 ? extend : 0;
+  /** @param {number} dr @param {number} dc */
   const push = (dr, dc) => {
     const [rr, rc] = rotateOffset(dr, dc, dir);
     const r = row + rr, c = col + rc;
@@ -84,6 +107,7 @@ export function rangeTiles(grid, row, col, dir, { extend = 0, rows = GEO.ROWS, c
   }
   if (ext) {
     // rangeExtend: every row of the grid grows by `ext` columns at its far (+dCol) end
+    /** @type {Map<number, number>} */
     const rowsOf = new Map();
     for (const g of list) if (Array.isArray(g) && Number.isFinite(g[0]) && Number.isFinite(g[1])) rowsOf.set(g[0], Math.max(rowsOf.get(g[0]) ?? -Infinity, g[1]));
     for (const [dr, far] of rowsOf) for (let k = 1; k <= ext; k++) push(dr, far + k);
@@ -94,6 +118,7 @@ export function rangeTiles(grid, row, col, dir, { extend = 0, rows = GEO.ROWS, c
 /**
  * Direction of a swipe from the wheel centre. `dx`, `dy` in screen px (+y down); `dead` = dead-zone radius in px.
  * The dominant axis decides (ties go to the horizontal axis, where the lanes are).
+ * @param {number} dx @param {number} dy @param {number} [dead]
  * @returns {'UP'|'RIGHT'|'DOWN'|'LEFT'|null}
  */
 export function dirFromDelta(dx, dy, dead = 0) {
@@ -103,6 +128,7 @@ export function dirFromDelta(dx, dy, dead = 0) {
   return dy < 0 ? 'UP' : 'DOWN';
 }
 
+/** @type {Readonly<Record<string, string>>} */
 const MIRROR = Object.freeze({ UP: 'UP', RIGHT: 'LEFT', DOWN: 'DOWN', LEFT: 'RIGHT' });
 
 /**
@@ -110,7 +136,7 @@ const MIRROR = Object.freeze({ UP: 'UP', RIGHT: 'LEFT', DOWN: 'DOWN', LEFT: 'RIG
  * right half of the Final Assault prep the board is drawn mirrored (research 09 §1.2: col c → 20 − c, RIGHT ↔ LEFT;
  * render/prepfield.js), so a swipe to the screen's right means board LEFT there; UP / DOWN are unchanged. The mapping
  * is its own inverse: `boardDir(boardDir(d, m), m) === d` (also the screen chevron of a board direction).
- * @param {'UP'|'RIGHT'|'DOWN'|'LEFT'|null} dir
+ * @param {string | null} dir
  * @param {boolean} mirror `tileScreen(row, col).mirror` / `view.prepField().mirror` of the render view
  */
 export function boardDir(dir, mirror = false) {
@@ -120,20 +146,24 @@ export function boardDir(dir, mirror = false) {
   return mirror ? MIRROR[d] : d;
 }
 
-/** Whether the view draws the prep board mirrored (right-hand Final Assault prep); false for views without the hook. */
+/**
+ * Whether the view draws the prep board mirrored (right-hand Final Assault prep); false for views without the hook.
+ * @param {FieldViewLike | null | undefined} view
+ */
 export function viewMirrored(view) {
   const raw = view && (view.raw || view);
   try { return !!(raw && typeof raw.prepField === 'function' && raw.prepField()?.mirror); } catch { return false; }
 }
 
-/** Direction of an arrow key (keyboard alternative of the swipe). */
+/** Direction of an arrow key (keyboard alternative of the swipe). @param {string} key */
 export function dirFromKey(key) {
-  return { ArrowUp: 'UP', ArrowRight: 'RIGHT', ArrowDown: 'DOWN', ArrowLeft: 'LEFT' }[key] || null;
+  return /** @type {Record<string, string>} */ ({ ArrowUp: 'UP', ArrowRight: 'RIGHT', ArrowDown: 'DOWN', ArrowLeft: 'LEFT' })[key] || null;
 }
 
+/** @param {unknown} v @returns {v is Record<string, unknown>} */
 const isObj = (v) => !!v && typeof v === 'object';
 
-/** The piece's stored facing (m.private board pieces carry `dir`; absent ⇒ RIGHT, the server default). */
+/** The piece's stored facing (m.private board pieces carry `dir`; absent ⇒ RIGHT, the server default). @param {unknown} piece */
 export const pieceDir = (piece) => normDir(isObj(piece) ? piece.dir : null);
 
 /**
@@ -142,17 +172,18 @@ export const pieceDir = (piece) => normDir(isObj(piece) ? piece.dir : null);
  * "被动效果：攻击范围扩大" skill, a module's 攻击距离 — shared/loadoutRecord.js attackRangeGrid, the prep card's range;
  * `chessRecord` resolves the player's loadout), a summon's grid, an Art's grid (画卷 `1-1`). Null when there is nothing
  * to show.
- * @param {{ getChess:(id:string)=>any, getToken:(id:string)=>any, getItem:(id:string)=>any, chessRecord?:(rec:any)=>any }} lookups
+ * @param {FaceLookups} lookups @param {FacePiece | null | undefined} piece
  */
 export function previewGrid(lookups, piece) {
   if (!isObj(piece) || !lookups) return null;
+  /** @type {ChessRecord | UnitRecord | null | undefined} */
   let rec = null;
   if (piece.kind === 'chess') {
     rec = lookups.getChess?.(piece.id);
-    if (rec && typeof lookups.chessRecord === 'function') { try { rec = lookups.chessRecord(rec) || rec; } catch { /* the data record */ } }
+    if (rec && typeof lookups.chessRecord === 'function') { try { rec = lookups.chessRecord(/** @type {ChessRecord} */ (rec)) || rec; } catch { /* the data record */ } }
   } else if (piece.kind === 'token') rec = lookups.getToken?.(piece.id);
   else if (piece.kind === 'item') { rec = lookups.getItem?.(piece.id); if (rec?.itemType !== 'MAGIC') return null; }
-  const grid = !rec ? null : piece.kind === 'chess' ? attackRangeGrid(rec) : (Array.isArray(rec.rangeGrid) ? rec.rangeGrid : null);
+  const grid = !rec ? null : piece.kind === 'chess' ? attackRangeGrid(/** @type {ChessRecord} */ (rec)) : (Array.isArray(rec.rangeGrid) ? rec.rangeGrid : null);
   return grid && grid.length ? grid : null;
 }
 
@@ -161,18 +192,24 @@ export function previewGrid(lookups, piece) {
  * official GridRangeDrawer takes `_healRangeColor` when the range's ability is a heal ability): a 医疗 operator other
  * than a 咒愈师 (incantationmedic, whose attack deals damage). Checked against the client prefab of every operator and
  * summon of both seasons' pools: their attack ability is a Heal / RangedHeal exactly then; a 吟游者's aura is not one.
- * @param {any} rec a chess / backup / token record (`profession`, `subProfessionId`)
+ * @param {UnitRecord | ChessRecord | null | undefined} rec a chess / backup / token record (`profession`, `subProfessionId`)
  */
 export const healRange = (rec) => !!rec && rec.profession === 'MEDIC' && rec.subProfessionId !== 'incantationmedic';
 
-/** healRange of the piece previewGrid shows (its chess / token record; an item: never). */
+/**
+ * healRange of the piece previewGrid shows (its chess / token record; an item: never).
+ * @param {FaceLookups} lookups @param {FacePiece | null | undefined} piece
+ */
 export function previewHeal(lookups, piece) {
   if (!isObj(piece) || !lookups) return false;
   const rec = piece.kind === 'chess' ? lookups.getChess?.(piece.id) : piece.kind === 'token' ? lookups.getToken?.(piece.id) : null;
   return healRange(rec);
 }
 
-/** Whether an Art is placed with a direction (its range reaches beyond its own tile, e.g. 画卷 `[[0,0],[0,1]]`). */
+/**
+ * Whether an Art is placed with a direction (its range reaches beyond its own tile, e.g. 画卷 `[[0,0],[0,1]]`).
+ * @param {UnitRecord | null | undefined} item
+ */
 export function artHasFacing(item) {
   const g = Array.isArray(item?.rangeGrid) ? item.rangeGrid : [];
   return g.some((x) => Array.isArray(x) && (x[0] !== 0 || x[1] !== 0));
@@ -181,9 +218,9 @@ export function artHasFacing(item) {
 /**
  * Whether dropping `uid` on `target` enters the direction step (instead of sending the intent at once): operators and
  * summons dropped on a board tile (move, swap or their own tile), and directional Arts used on a tile.
- * @param {{ pieces: Map<number, any>, getItem?: (id:string)=>any }} ctx placementContext (gameLogic.js)
+ * @param {{ pieces: Map<number, FaceEntry>, getItem?: (id: string) => UnitRecord | null | undefined }} ctx placementContext (gameLogic.js)
  * @param {number} uid
- * @param {any} target
+ * @param {unknown} target
  * @param {{ ok: boolean, action?: string }} res canPlace(ctx, uid, target)
  */
 export function needsFacing(ctx, uid, target, res) {
@@ -201,10 +238,12 @@ export function needsFacing(ctx, uid, target, res) {
  * and `to.dir`, which server/match/PlayerState.move reads when the top-level one does not reach it — Match.handle
  * currently forwards only `msg.to` (`ps.move(msg.uid, msg.to)`), and without the copy every placement was stored
  * facing RIGHT and the model snapped back after the wheel. g.art has no such fallback (see the review report).
- * @returns {{ t: 'g.move', fields: { uid, to: { area, row, col, dir }, dir } } | { t: 'g.art', fields: { itemUid, row, col, dir } }}
+ * @param {FacePiece} piece @param {{ row: number, col: number }} target @param {unknown} dir
+ * @returns {{ t: 'g.move', fields: { uid: number, to: { area: 'board', row: number, col: number, dir: string }, dir: string } }
+ *   | { t: 'g.art', fields: { itemUid: number, row: number, col: number, dir: string } }}
  */
 export function facingIntent(piece, target, dir) {
-  const d = normDir(dir);
+  const d = /** @type {string} */ (normDir(dir)); // the default fallback is a direction
   if (piece?.kind === 'item') return { t: 'g.art', fields: { itemUid: piece.uid, row: target.row, col: target.col, dir: d } };
   return { t: 'g.move', fields: { uid: piece.uid, to: { area: 'board', row: target.row, col: target.col, dir: d }, dir: d } };
 }
@@ -212,7 +251,7 @@ export function facingIntent(piece, target, dir) {
 /**
  * Whether 销毁 may be offered for item `uid`: a loose item in the hand or the temp slots. Items equipped on an operator
  * (a piece's `items`, or an entry some other index marks `equipped`) are locked — g.destroy would be refused.
- * @param {{ pieces: Map<number, any> }} ctx placementContext / indexPieces view
+ * @param {{ pieces: Map<number, FaceEntry> }} ctx placementContext / indexPieces view
  * @param {number} uid
  */
 export function itemDestroyable(ctx, uid) {
@@ -220,7 +259,7 @@ export function itemDestroyable(ctx, uid) {
   if (!e || e.piece?.kind !== 'item' || e.equipped) return false;
   if (e.area !== 'hand' && e.area !== 'temp') return false;
   for (const o of ctx.pieces.values()) {
-    if (o.piece?.kind === 'chess' && Array.isArray(o.piece.items) && o.piece.items.some((it) => it && it.uid === uid)) return false;
+    if (o.piece?.kind === 'chess' && Array.isArray(o.piece.items) && o.piece.items.some((/** @type {{ uid?: number } | null} */ it) => it && it.uid === uid)) return false;
   }
   return true;
 }
@@ -229,7 +268,8 @@ export function itemDestroyable(ctx, uid) {
  * Underframe (selection diamond) of a tapped own piece (research 09 §1.2 / §5): the buttons it offers.
  *   board operator → 撤退 (to the bench) + 出售 +N · board summon → 撤退 · bench / temp operator → 出售 +N ·
  *   item or Art (bench / temp) → 销毁 · bench summon → nothing.
- * @param {{ pieces: Map<number, any>, getChess?: (id:string)=>any }} ctx
+ * @param {{ pieces: Map<number, FaceEntry>, getChess?: (id: string) => UnitRecord | ChessRecord | null | undefined }} ctx
+ * @param {number} uid
  * @returns {{ retreat: boolean, sell: number|null, destroy: boolean } | null} sell = the price shown ("+N")
  */
 export function underframeActions(ctx, uid) {
@@ -244,13 +284,13 @@ export function underframeActions(ctx, uid) {
   if (p.kind !== 'chess') return null;
   // the piece's own price when the server sends one (规程's 海沫 / 温蒂: player/views.js pieceView), else the record's
   const price = p.sellPrice ?? ctx.getChess?.(p.id)?.sellPrice;
-  return { retreat: onBoard, sell: Number.isFinite(price) ? price : 1, destroy: false };
+  return { retreat: onBoard, sell: Number.isFinite(price) ? /** @type {number} */ (price) : 1, destroy: false };
 }
 
 /**
  * Where 撤退 puts a board piece: the first free bench slot (a summon goes back onto its stack — any slot works; an
  * operator whose own summon stacks sit on the bench frees them). Null when the bench is full.
- * @param {{ pieces: Map<number, any>, handAt: Map<number, any> }} ctx
+ * @param {{ pieces: Map<number, FaceEntry>, handAt: Map<number, FaceEntry> }} ctx @param {number} uid
  */
 export function retreatSlot(ctx, uid) {
   const e = ctx?.pieces?.get(uid);

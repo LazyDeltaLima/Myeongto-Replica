@@ -6,6 +6,7 @@
 import { html, Spinner } from './components.js';
 import { t } from '../../../shared/i18n.js';
 
+/** @param {...(string | false | null | undefined | (string | false | null | undefined)[])} p */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** @param {{ on: boolean, busy?: boolean, disabled?: boolean, onToggle: (on: boolean) => void }} props */

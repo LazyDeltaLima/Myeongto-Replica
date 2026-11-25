@@ -561,6 +561,17 @@ most strict errors were, and the JSDoc that fixed them:
   typed-array prototypes) or `@this {ArrayLike<unknown>}`; bytes piped through a `CompressionStream` are
   `Uint8Array<ArrayBuffer>` (one over any buffer is neither a `BlobPart` nor the stream's chunk). The `data-k` refs of
   the alliance scene are `Record<string, any>` (an element, or a list of them).
+- the placement and direction parts directly under `public/js/ui/` (facing.js, facingWheel.js, placeArt.js,
+  underframe.js, underframeArt.js, consoleLists.js, phaseArt.js, hudArt.js), written without `any`: the field view the
+  wheel and the underframe read is `FieldViewLike` (facingWheel.js: its optional hooks `tileScreen` / `holdPiece` /
+  `setPieceDir` / `highlightTiles` / `prepField`, the engine's dev hooks `debug`, `[key: string]: unknown` for the rest;
+  a `GuardedView` passes), a tile's geometry `TileGeom` / `DirTile` and the selector's `DirBasis` (placeArt.js), the
+  pieces and records the facing rules read `FacePiece` / `FaceEntry` / `UnitRecord` / `FaceLookups` (facing.js), the
+  console lists' rows and entries `ConsoleChessRow` … `DebugEntry` (consoleLists.js). A hook read inside a closure after
+  the check that found it (`raw.debug.tiles.heightAt`) loses the narrowing: make the member the code always calls
+  required in the typedef (`cam.project`) or cast at the call; a member only tested for (`if (x.heightAt)`) stays
+  optional, or the test reads as always true (TS2774). A `useTileScreen(view, row, col)` given no tile (null) casts
+  `row` / `col` where it hands them to `tileScreen`, which answers null for anything but integers.
 
 
 ## Split classes

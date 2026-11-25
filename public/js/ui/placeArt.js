@@ -39,9 +39,18 @@ export function dirArt() {
 }
 
 /**
+ * A tile's screen geometry (facingWheel.js tileScreen: centre + top-face corners), the selector's ground-plane basis,
+ * and a local → client px projection.
+ * @typedef {{ x: number, y: number, poly?: Array<[number, number]> }} DirTile
+ * @typedef {{ m: number[], toLocal: (x: number, y: number) => [number, number] }} DirBasis
+ * @typedef {(x: number, y: number) => [number, number]} DirProject
+ */
+
+/**
  * Ground-plane basis of the selector around a tile (tileScreen geometry `g`: centre + top-face corners): the SVG matrix
  * mapping its local units (vertices at ±R0, y down = screen down) to client px, and the inverse for hit tests.
- * @returns {{ m: number[], toLocal: (x: number, y: number) => [number, number] } | null}
+ * @param {DirTile | null | undefined} g @param {number} [halfTiles]
+ * @returns {DirBasis | null}
  */
 export function dirBasis(g, halfTiles = DIR_HALF_TILES) {
   const p = g && Array.isArray(g.poly) && g.poly.length === 4 ? g.poly : null;
@@ -53,27 +62,30 @@ export function dirBasis(g, halfTiles = DIR_HALF_TILES) {
   const a = k * ex[0], b = k * ex[1], c = -k * ey[0], d = -k * ey[1];
   const det = a * d - b * c;
   if (!Number.isFinite(det) || Math.abs(det) < 1e-9) return null;
-  const m = [a, b, c, d, g.x, g.y];
+  // g is set from here on (it has the poly)
+  const m = [a, b, c, d, /** @type {DirTile} */ (g).x, /** @type {DirTile} */ (g).y];
   /** @type {(x: number, y: number) => [number, number]} */
-  const toLocal = (x, y) => { const X = x - g.x, Y = y - g.y; return [(d * X - c * Y) / det, (-b * X + a * Y) / det]; };
+  const toLocal = (x, y) => { const X = x - /** @type {DirTile} */ (g).x, Y = y - /** @type {DirTile} */ (g).y; return [(d * X - c * Y) / det, (-b * X + a * Y) / det]; };
   return { m, toLocal };
 }
 
-/** Inside the diamond (with a little slack), in client px. */
+/** Inside the diamond (with a little slack), in client px. @param {DirBasis | null | undefined} basis @param {number} x @param {number} y */
 export function insideDiamond(basis, x, y, slack = 1.12) {
   if (!basis) return true;
   const [u, v] = basis.toLocal(x, y);
   return Math.abs(u) + Math.abs(v) <= R0 * slack;
 }
 
+/** @type {Readonly<Record<string, [number, number]>>} */
 const VERT = { UP: [0, -R0], RIGHT: [R0, 0], DOWN: [0, R0], LEFT: [-R0, 0] };
 // the quarter frames are sprite_rectangle_frame_triangle sliced with a 6-unit border whose solid white is its outer 4
 // units: a 4-unit stroke centred 2 units inside the diamond's edge (the diamond scaled about its centre)
 const EDGE_IN = 1 - (2 * Math.SQRT2) / R0;
 const OUT = { UP: [0, -1], RIGHT: [1, 0], DOWN: [0, 1], LEFT: [-1, 0] };
+/** @type {Readonly<Record<string, number>>} */
 const ROT = { UP: 90, RIGHT: 180, DOWN: -90, LEFT: 0 }; // the sprite's chevron points left (−x)
 
-/** The two outer half-edges of a direction's quarter, meeting on its vertex (local units). */
+/** The two outer half-edges of a direction's quarter, meeting on its vertex (local units). @param {string} d */
 function quarter(d) {
   const [vx, vy] = VERT[d];
   const h = R0 / 2;
@@ -83,7 +95,7 @@ function quarter(d) {
 
 /**
  * The selector (full-screen SVG, pointer-transparent) + the tap target of the cancel tag.
- * @param {{ g: any, basis: any, art: { chev: string, cancel: string, bubble: string }, dir: string|null,
+ * @param {{ g: DirTile | null, basis: DirBasis | null, art: { chev: string, cancel: string, bubble: string }, dir: string|null,
  *   onCancel: () => void, cancelLabel?: string, backLabel?: string }} props
  */
 export function PlaceWheelArt({ g, basis, art, dir, onCancel, cancelLabel = t('取消'), backLabel = t('拖回中心区域取消') }) {
@@ -91,6 +103,7 @@ export function PlaceWheelArt({ g, basis, art, dir, onCancel, cancelLabel = t('�
   const [a, b, c, d, e, f] = basis.m;
   const M = `matrix(${a} ${b} ${c} ${d} ${e} ${f})`;
   const W = globalThis.innerWidth || 4000, H = globalThis.innerHeight || 3000;
+  /** @type {DirProject} */
   const pt = (x, y) => [a * x + c * y + e, b * x + d * y + f];
   const dia = ['UP', 'RIGHT', 'DOWN', 'LEFT'].map((k) => pt(...VERT[k]).map((n) => n.toFixed(1)).join(' '));
   const sel = dir && VERT[dir] ? dir : null;
@@ -128,12 +141,13 @@ export function PlaceWheelArt({ g, basis, art, dir, onCancel, cancelLabel = t('�
     </svg>
     <button type="button" class=${`fwheel__cancel pwheel__tap${sel ? '' : ' is-on'}`} aria-label=${t('点击取消')}
       style=${`left:${tx}px;top:${ty}px;width:${tw}px;height:${th}px`}
-      onPointerDown=${(ev) => ev.stopPropagation()} onClick=${(ev) => { ev.stopPropagation(); onCancel(); }}></button>`;
+      onPointerDown=${(/** @type {Event} */ ev) => ev.stopPropagation()} onClick=${(/** @type {Event} */ ev) => { ev.stopPropagation(); onCancel(); }}></button>`;
 }
 
 /**
  * The bubble stays upright on screen (its text must not be foreshortened): placed at its local spot, scaled by the
  * selector's horizontal px per unit.
+ * @param {DirProject} pt
  */
 function bubbleAt(pt) {
   const [x0, y0] = pt(0, 0), [x1] = pt(1, 0);

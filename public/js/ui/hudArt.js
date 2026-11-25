@@ -44,6 +44,7 @@ export function sanitizeUiScale(v) {
   return Math.round(Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, n)) * 100) / 100;
 }
 export const uiScaleStore = createStore({ k: sanitizeUiScale(loadPref('uiScale', null)) });
+/** @param {number} k */
 function applyUiScale(k) {
   try { globalThis.document?.documentElement?.style.setProperty('--ui-k', String(k)); } catch { /* no DOM */ }
 }
@@ -59,7 +60,7 @@ export function UiScaleSetting() {
   return html`<label class="set-row" data-ui-scale=${pct}>
     <span class="set-row__label"><${Icon} name="expand" />${t('界面大小')}<${MicroLabel}>UI SCALE<//></span>
     <input class="set-range" type="range" min="90" max="100" step="1" value=${pct} style=${`--pct:${(pct - 90) * 10}%`}
-      onInput=${(e) => setUiScale(Number(e.currentTarget.value) / 100)} />
+      onInput=${(/** @type {Event & { currentTarget: HTMLInputElement }} */ e) => setUiScale(Number(e.currentTarget.value) / 100)} />
     <span class="set-row__val num">${pct}</span>
   </label>`;
 }
@@ -136,6 +137,7 @@ const TEAM = ['--ha-plist', '--ha-border', '--ha-php', '--ha-self'];
 const READY = ['--ha-pr-bg', '--ha-pr-frame', '--ha-pr-bar'];
 const CARD = ['--ha-m-dead', '--ha-m-rec', '--ha-m-quit', '--ha-watch', '--ha-done', '--ha-doing', '--ha-ob-btn', '--ha-ob-back'];
 
+/** @type {{ m: unknown, l: unknown, v: { cls: string, style: string } | null }} */
 let cache = { m: null, l: null, v: null };
 
 /** { cls, style } of the game screen root: `has-hud-art` and the sprite variables, or nothing without the sprites. */
@@ -199,12 +201,13 @@ export function bondBoardOf(thresholds, count, active) {
 
 /**
  * The bond popup's < > arrows: the neighbours of `id` in the strip's order (sortBonds — the order the strip draws).
- * @param {{ bonds: any[], id: string, onOpen: (bondId: string) => void }} props
+ * @param {{ bonds: { bondId: string, off?: boolean }[], id: string, onOpen: (bondId: string) => void }} props
  */
 export function BondNav({ bonds, id, onOpen }) {
   const list = sortBonds(Array.isArray(bonds) ? bonds : [], (b) => data.lookup('bonds', b)).filter((b) => !b.off).map((b) => b.bondId);
   const i = list.indexOf(id);
   if (i < 0 || list.length < 2) return null;
+  /** @param {number} d */
   const go = (d) => onOpen(list[(i + d + list.length) % list.length]);
   return html`<div class="bpop-nav" role="group" aria-label=${t('切换盟约')}>
     <button type="button" class="bpop-nav__btn bpop-nav__btn--prev" aria-label=${t('上一个盟约')} onClick=${() => go(-1)}></button>
