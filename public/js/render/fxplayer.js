@@ -176,7 +176,7 @@ export const QUALITY = Object.freeze({
 export const MAX_INSTANCES = 24;
 /** (2026-10-21) the node keys of the client's pause / finish behaviours (fx_extract.py pause_scripts; render/fx/pause.js). */
 export const PAUSE_KEYS = Object.freeze(['pauseIf', 'pauseOther', 'pauseAnim', 'pauseIdle', 'pauseMove', 'pauseGone', 'pauseMenu', 'pauseSpine', 'finishIf']);
-/** Lasting effects (buff loops, skill walls / zones: render/fxgame.js isLasting) alive at once besides them (2026-10-10:
+/** Lasting effects (buff loops, skill walls: render/fxgame.js isLasting; a skill zone's are pinned) alive at once besides them (2026-10-10:
  * 余 S3's wall alone is 2 per tile + 2 ends — 44 across the boss field). */
 export const MAX_LASTING = 48;
 /** The player's own backstop over every instance (a caller without its own cap, or two views at once). */

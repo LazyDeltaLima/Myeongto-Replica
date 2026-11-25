@@ -586,7 +586,8 @@ export const isLasting = (l, now) => !!(l && (l.buff || l.keep || l.until == nul
  * self-buff, 余 S3's fire wall and other lasting effects showed and vanished, or never showed, in a full battle: one list
  * capped at 24 ended the oldest effect, nearly always a buff loop or a wall piece started with the skill — the hits and
  * casts of a few attackers fill 24 within a second).
- * A `pinned` entry (2026-10-16: an operator's always-on effects, alwaysOn — a few per unit on the board) is never ended here.
+ * A `pinned` entry (2026-10-16: an operator's always-on effects, alwaysOn — a few per unit on the board; 2026-11-26: a skill
+ * area's effects, zoneFx — they end at their own `until`) is never ended here.
  * @param {readonly LiveEntry[]} list
  * @param {number} now
  * @param {number} capShort
@@ -4591,7 +4592,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (loop && ps.length > 2) ps.push({ ...ps[0] });
     const go = () => {
       const until = clockS + life;
-      spawn(bundle, name, { ...ps[0] }, { owner: null, buff: false, until }, { over: false, hook }).then((l) => {
+      // (2026-11-26) pinned as zoneFx's areas: the zone's own line ends at `until`, never by the live caps
+      spawn(bundle, name, { ...ps[0] }, { owner: null, buff: false, until, pinned: true }, { over: false, hook }).then((l) => {
         if (!l) return;
         l.inst.setPath?.(ps);
         zoneEnd(l, until, true);
@@ -6171,7 +6173,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (foe) nrec.at = shellLand(foe);   // as it lands: the orb traced the target there
       for (const n of [...fx, ...aura]) {
         // (2026-11-17) her shot's reach effects are hers: a unit drawn in a skin plays the skin's (spawn `hook`)
-        spawn(bundle, n, nrec.at, { owner: null, buff: false, until: nrec.until }, { over: false, floor, hook: src }).then((l) => {
+        // (2026-11-26, user report 「패신저 S3 장판이 1~3초 만에 사라짐」) pinned: the area ends at its own `until` (zoneEnd), never
+        // by the live caps — a 4 s storm is not lasting (isLasting), so it counted as a short effect and its strikes' hits past
+        // MAX_INSTANCES ended it first (liveOverCap: the oldest short one), with no finish
+        spawn(bundle, n, nrec.at, { owner: null, buff: false, until: nrec.until, pinned: true }, { over: false, floor, hook: src }).then((l) => {
           if (!l) return;
           nrec.list.push(l);
           if (aura.includes(n)) nrec.aura.add(l);
