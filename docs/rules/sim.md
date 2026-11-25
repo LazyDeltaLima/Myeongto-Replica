@@ -3394,6 +3394,15 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   블랙보드·`extraRuntimeData`(위치 검사기)만 채우고 `playerSideMask`는 비워 둔다(기본 0 = ALL) → `GlobalBuff.OnInit`이 그 값으로 `TargetOptions.Init`(마스크 판) →
   `_VerifyTarget`의 `TargetOptions.VerifyTargetWithPlayerSide`가 부르는 `BattleUtil.VerifyTargetWithPlayerSide` → `PlayerSideCategories.CheckBelongToMask`는 마스크 0이면
   늘 참. 남는 검사는 프리팹 `_options`의 아군 편·직업 마스크와 `_UnitVerify`의 거리뿐이다(두 플레이어의 오퍼레이터는 모두 아군 편, 플레이어 편만 SIDE_A·SIDE_B로 다름).
+- 빌린 재배치 감소는 쓰러지는 그때의 것만 든다(2026-11-26, 바뀐 것 없음 — 확인만): 불굴의 사출기(`chess_item_2_01_e`, 재배치 시간 −30 %/−50 %)를 빌려 받던 이가
+  빌려 주기가 도는 동안 쓰러지거나 철수하면 그 재배치 시간이 빌린 만큼 줄고(자기가 든 것과 같음), 쓰러져 있는 동안 빌려 주기가 끝나도(빌려 준 이가 쓰러짐·시간 끝) 이미 정해진 재배치 시간은
+  그대로다. 다시 배치된 뒤에는 빌려 주기가 아직 돌고 둘레 안일 때만 다시 받는다. 우리 쪽: `deploy.js _remove`가 재배치 시간을 그 순간의 지속 버프(빌린 grant의 `redeployMul` 포함)로 한 번
+  정하고, 쓰러져 있는 동안 남아 있는 빌린 grant는 그 뒤 어디서도 다시 읽히지 않는다. 근거(공식 클라에서 확인): 그 장비의 효과 버프 `act1autochess_acarm056_buff`(전역 버프
+  `act1autochess_equip_acarm056_global_buff`)는 능력치 수정이 아니라 `ON_OWNER_FINISH`의 `CreateCardBuff`(`UNTIL_NEXT_SPAWN`, `_isRatio`)로 카드에 재배치 감소를 건다 ·
+  `Character.OnFinish` → `Unit.OnFinish` → `Entity.OnFinish`가 `BuffContainer.OnOwnerFinish`(버프마다 `ON_OWNER_FINISH`, 빌려 받은 전역 버프의 것도)를 먼저 돌리고 그다음 `Clear` ·
+  그 뒤 `BattleController.OnCharacterFinished` → `Deck.RecycleCard` → `Deck.Card.OnRecycle`이 재배치 타이머를 `m_newRespawnTimePeriod`로 시작하는데, 이 값은
+  `AddCardBuff` → `_UpdateCardBuff`가 방금 건 카드 버프로 고쳐 둔 것이다. 카드의 그 값을 쓰는 곳은 `Deck.Card.Init`·`UpdateDeckAttributeData`(프리팹 기본 능력치)·`_UpdateCardBuff`(카드 버프)뿐이라,
+  재배치 감소는 쓰러지는 그 순간에 지닌 버프가 카드 버프로 남긴 것만 든다. 시험 `test/content/bonds_core.test.js` 「…a receiver knocked out holding a lent 不屈弹射器…」.
 - 빌린 장비는 짝 장비 검사에서 「가진 것」이 아니다(2026-11-26, `items/shared.js carries`): 짝 장비(`equip_chess_id`)가 있어야 켜지는 효과(페가수스의 투구·랜스, 총기사의 위엄,
   해구 실험체, 쉐라간드의 눈물, 사막 나침반, 패밀리 배지)는 그 효과를 가진 오퍼레이터가 **자기가 든** 짝 장비만 센다. 그래서 빌린 짝 장비로는 안 켜지고(패밀리 배지를 든 이가 시라쿠사 정장을
   빌려도 추가 피해 없음), 빌린 짝 효과 장비는 받는 쪽이 자기가 든 짝 장비를 보고 켜진다(페가수스의 랜스를 든 이가 투구를 빌리면 투구의 재생은 켜지고 자기 랜스의 추가 피해는 안 켜짐).

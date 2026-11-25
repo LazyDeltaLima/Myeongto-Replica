@@ -7,6 +7,7 @@ import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/batt
 import { prdBase } from '../../server/sim/content/bonds/addon/battle.js';
 import { bondBb, deps, reached, yanyouShare, lateranoAmmo, registerMeta as coreRegisterMeta } from '../../server/sim/content/bonds/core.js';
 import * as items from '../../server/sim/content/items.js';
+import { itemGrants } from '../../server/sim/content/items/battle.js';
 import { TOKEN_IDS } from '../../server/sim/content/tokens.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { makeMatch, DATA, give, legalTileFor } from '../match/harness.js';
@@ -228,6 +229,39 @@ test('萨尔贡 × 娜仁图亚 lending: an operator deployed in the ring meanwh
   h.b.kill(s0);
   h.step(1);
   lc(q1.s.atk, 1000, 'the lender’s knock-out takes it back at once');
+  checkInvariants(h.b);
+});
+
+// 不屈弹射器's redeploy cut is its buff's ON_OWNER_FINISH CreateCardBuff (UNTIL_NEXT_SPAWN, on the card), run by
+// Entity.OnFinish before it clears the owner's buffs — the lent ones as well — and the card's timer starts after that
+// (BattleController.OnCharacterFinished → RecycleCard): a receiver knocked out while it holds the loan redeploys sooner,
+// and nothing about the loan reaches it while it is down
+test('萨尔贡 × 娜仁图亚 lending: a receiver knocked out holding a lent 不屈弹射器 redeploys sooner; the loan’s end while it is down changes nothing', () => {
+  const CATAPULT_A = 'chess_item_2_01_e_a'; // 不屈弹射器: respawn_time −0.3
+  const h = sargonLend([
+    { chessId: 's0_a', row: 10, col: 4, items: [CATAPULT_A] }, { chessId: 'r_a', row: 11, col: 4 },
+    { chessId: 'q1_a', row: 12, col: 8 },
+  ]);
+  const s0 = h.unit('s0_a'), r = h.unit('r_a'), q1 = h.unit('q1_a');
+  const [R0, C0] = [s0.tileR, s0.tileC];
+  s0.skill.activate('test', { free: true });
+  h.step(1);
+  h.b.kill(r);
+  h.b.kill(q1);
+  const base = q1.respawnAt - q1.deathAt;
+  assert.ok(base > 0, 'q1 has a redeploy time');
+  lc(r.respawnAt - r.deathAt, base * 0.7, 'knocked out holding the loan: the lent 不屈弹射器 counts (ON_OWNER_FINISH before the buffs are cleared)');
+  const at = r.respawnAt;
+  h.b.kill(s0);
+  h.step(1);
+  lc(r.respawnAt, at, 'the lender’s knock-out while r is down leaves r’s redeploy as it was (the card buff lasts until the next spawn)');
+  h.run(base);
+  if (!r.alive) assert.ok(h.b.redeploy(r, { free: true }), 'r deployed again');
+  assert.ok(r.alive && Math.max(Math.abs(r.tileR - R0), Math.abs(r.tileC - C0)) === 1, 'r back on a tile of the old ring');
+  h.step(1);
+  assert.equal(itemGrants(h.b, r).filter((g) => g.lent).length, 0, 'the ended loan does not come back with r');
+  h.b.kill(r);
+  lc(r.respawnAt - r.deathAt, base, 'the next knock-out: the full redeploy time');
   checkInvariants(h.b);
 });
 
