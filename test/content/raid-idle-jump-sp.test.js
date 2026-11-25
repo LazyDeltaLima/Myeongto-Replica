@@ -5,7 +5,10 @@
 //   SP, so the landing has the initial SP (player report: 锏 with 变形同构体 often landed with SP 0 — her S3 slashes run in
 //   the Skill state and make no ON_AFTER_ATTACK, so the 10 s can run out in the middle of S3);
 // - the ready-skill jump (CheckCharSkillAvailable → BasicSkill.IsAvailable → ownerCanUseSkill) waits while the member is
-//   stunned or silenced; the 10 s one does not.
+//   stunned or silenced; the 10 s one does not;
+// - the 10 s count from the end of the attack ability the attack state started (ON_AFTER_ATTACK: `Character.OnAfterAttack`
+//   from `AttackState._StartAttack`'s finish callback, whatever the finish reason) — after the swing's recovery, not at its
+//   strike, and a swing a stun cuts before its strike counts too (ai.js noteAttackEnd, `attackEndAt`).
 // Run: node --test test/content/raid-idle-jump-sp.test.js
 
 import { test } from 'node:test';
@@ -52,7 +55,7 @@ test('锏 S3: a 10 s no-attack jump in the middle of S3 ends it and lands with h
     assert.ok(h.runUntil(() => sk.active, 40), `${chessId}: S3 cast`);
     const t0 = h.b.time;
     assert.equal(sk.spTotal, 0, 'S3 spent its SP');
-    u.lastAttackAt = -Infinity;
+    u.attackEndAt = -Infinity;
     u.deployedAt = t0 - 20;
     u.mem['bond:raidShip'] = undefined;
     const n = landings.length;
@@ -72,7 +75,7 @@ test('突袭 10 s jump: the SP before the jump comes on top of the initial SP, r
     const sk = u.skill;
     h.run(0.5);
     sk.setSpTotal(before);
-    u.lastAttackAt = -Infinity;
+    u.attackEndAt = -Infinity;
     u.deployedAt = h.b.time - 20;
     u.mem['bond:raidShip'] = undefined;
     const n = landings.length;
@@ -100,7 +103,7 @@ test('突袭 ready-skill jump waits while the member is stunned or silenced; the
     assert.equal(jumps(), 0, `${status}: no ready-skill jump${RULE}`);
     if (status === 'stun') {
       // still stunned: the 10 s path has no such condition
-      u.lastAttackAt = -Infinity;
+      u.attackEndAt = -Infinity;
       u.deployedAt = h.b.time - 20;
       h.run(0.3);
       assert.equal(jumps(), 1, `stunned: the 10 s jump still goes${RULE}`);
@@ -109,4 +112,44 @@ test('突袭 ready-skill jump waits while the member is stunned or silenced; the
     }
     checkInvariants(h.b);
   }
+});
+
+/** The member's raid jumps (their times). @param {ReturnType<typeof field>['h']} h @param {Record<string, any>} u */
+const raidJumps = (h, u) => h.hooksOf('death').filter((c) => c.unit === u && c.reason === 'raid').map((c) => c.t);
+const POLL = 0.25;   // (content/bonds/addon/battle.js RAID_POLL)
+
+test('突袭 10 s jump counts from the end of the swing (after its recovery), not from its strike', () => {
+  const { h, u } = field({ chessId: 'chess_char_6_19_a' });
+  const noSkill = () => u.skill.setSpTotal(0);   // (no skill jump or cast in the way)
+  // her first swing after the first 10 s jump (from her deployment): its strike, then no swing again
+  assert.ok(h.runUntil(() => { noSkill(); return u.lastAttackAt > -Infinity; }, 30), 'she struck');
+  const strikeAt = u.lastAttackAt, recovery = u.castLeft;
+  assert.ok(u.atkCast && recovery > POLL, `a recovery after the strike (${recovery} s)`);
+  const n = raidJumps(h, u).length;
+  const endAt = strikeAt + recovery;
+  assert.ok(h.runUntil(() => { noSkill(); u.atkCd = 1e9; return !u.atkCast; }, 5), 'the swing played out');
+  assert.ok(Math.abs(u.attackEndAt - endAt) < 0.05, `its end ${u.attackEndAt} after the recovery (${endAt})`);
+  assert.ok(h.runUntil(() => { noSkill(); u.atkCd = 1e9; return raidJumps(h, u).length > n; }, 15), 'jumped again');
+  const t = raidJumps(h, u)[n];
+  assert.ok(t >= endAt + 10 - 1e-6 && t < endAt + 10 + POLL + 0.05,
+    `jump at ${t}: 10 s after the swing's end ${endAt}, not after its strike ${strikeAt}${RULE}`);
+  checkInvariants(h.b);
+});
+
+test('突袭 10 s jump: a swing a stun cuts before its strike is an attack too (ON_AFTER_ATTACK at the cut)', () => {
+  const { h, u } = field({ chessId: 'chess_char_6_19_a' });
+  const noSkill = () => u.skill.setSpTotal(0);
+  const n0 = raidJumps(h, u).length;
+  // after the first 10 s jump: her next swing, cut by a stun before it strikes
+  assert.ok(h.runUntil(() => { noSkill(); return raidJumps(h, u).length > n0 && !!u.swing; }, 30), 'a swing after the landing');
+  assert.equal(u.lastAttackAt, -Infinity, 'no strike yet');
+  const cutAt = h.b.time;
+  assert.ok(cutAt > raidJumps(h, u)[n0] + 1e-6, 'the swing started after the landing');
+  assert.ok(h.b.applyStatus(u, 'stun', { duration: 1 }), 'stunned');
+  const n = raidJumps(h, u).length;
+  assert.ok(h.runUntil(() => { noSkill(); u.atkCd = 1e9; return raidJumps(h, u).length > n; }, 15), 'jumped again');
+  assert.equal(u.lastAttackAt, -Infinity, 'the cut swing never struck');
+  const t = raidJumps(h, u)[n];
+  assert.ok(t >= cutAt + 10 - 1e-6 && t < cutAt + 10 + POLL + 0.05, `jump at ${t}: 10 s after the cut ${cutAt}${RULE}`);
+  checkInvariants(h.b);
 });

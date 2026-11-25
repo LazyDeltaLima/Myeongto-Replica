@@ -314,7 +314,7 @@
           "title": {"id":"comment_1","name":"百花齐放","picId":"comment_icon_1_0","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 0,
           "reward": 0,
-          "stats": {"activatedLayers":2791,"bossDamage":5470200,"dmgDealt":11364633,"gold":150,"itemsEquipped":18,"kills":307,"leaks":0,"lpLost":0,"merges":5,"perfectRounds":13,"refreshes":26},
+          "stats": {"activatedLayers":2791,"bossDamage":5470200,"dmgDealt":11363783,"gold":150,"itemsEquipped":18,"kills":307,"leaks":0,"lpLost":0,"merges":5,"perfectRounds":13,"refreshes":26},
           "lineup": ["1_15_b@12,5","3_03_a@12,6","6_08_a@10,3[2_01_e_b]","4_03_a@10,5[1_01_e_a+4_13_e_a]","6_13_a@9,3[3_06_e_a+1_07_e_a]","1_10_b@9,4[1_05_e_a+1_06_e_a]","6_16_a@9,5[3_07_e_a+4_08_e_a]","6_15_a@9,6[4_12_e_a+4_04_e_a]"],
           "bonds": ["arcaneShip 1/313","deputShip 0/300","docShip 1/344","egirShip 0/300","emptyShip 1/309","iberiaShip 0/300","indomShip 1/339","investShip 0/300","kazimierzShip 0/300","kjeragShip 0/300","lethaniaShip 0/300","maniShip 0/300","miraShip 0/300","preciShip 0/300","raidShip 1/342","sargonShip 0/300","siracusaShip 0/300","skillfulShip 0/300","soloShip 0/300","steadShip 1/369","suntShip 1/300","swiftShip 0/424","ursusShip 1/475","victoriaShip 0/300","visiShip 0/305","yanShip 0/300"]
         }

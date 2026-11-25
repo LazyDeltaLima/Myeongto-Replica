@@ -133,9 +133,31 @@ export function attackCountdown(cd, dt) {
  * a living entity, `Ability.OnTick` → `m_cooldownTimer.Update`). A stun / freeze / sleep, 缴械, leaving the field or an
  * attack the profile no longer allows cuts the swing (`InterruptIfNot`): no strike, and the cooldown is left as it is —
  * the next swing waits a whole interval from the cut swing's start.
+ * The end of each such cast, cut or not, is the unit's ON_AFTER_ATTACK (noteAttackEnd).
  * @param {Battle} b @param {Unit} u @param {number} dt
  */
 export function updateAlly(b, u, dt) {
+  noteAttackEnd(b, u);   // (a cut from outside since the last tick: a kit, a retreat …)
+  tickAlly(b, u, dt);
+  noteAttackEnd(b, u);
+}
+
+/**
+ * The end of the attack ability `u`'s attack / combat state started — its whole cast (swing and recovery) played out, or
+ * cut before or after its strike (a stun, 缴械, a Skill-state cast, a mode switch whose ability interrupts on detach), or
+ * its targets gone at the strike: the client's `Character.OnAfterAttack`, which `AttackState._StartAttack` /
+ * `CombatState._StartAttack` call from the cast's finish callback whatever the finish reason (its skill slot, talents,
+ * then every buff's ON_AFTER_ATTACK). `u.attackEndAt` keeps the time (content/bonds/addon/battle.js: 기습's no-attack
+ * time); `lastAttackAt` stays the strike's. A kit's own attack (Battle.forceAttack) or a Skill-state skill's hits are no
+ * such cast.
+ * @param {Battle} b @param {Unit} u
+ */
+export function noteAttackEnd(b, u) {
+  if (u.atkCast && !(u.castLeft > 0)) { u.atkCast = false; u.attackEndAt = b.time; }
+}
+
+/** updateAlly's tick. @param {Battle} b @param {Unit} u @param {number} dt */
+function tickAlly(b, u, dt) {
   if (u.alive && u.deployed && !u.hidden) {
     // (the stats first: a changed interval re-times the cooldown before this tick counts it — units.js _recalc)
     if (u._dirty) u._recalc();
@@ -150,6 +172,8 @@ export function updateAlly(b, u, dt) {
     if (mode !== u.atkMode) {
       if (u.atkMode !== undefined) {
         const old = u.atkCombat && u.atkMode?.combat ? u.atkMode.combat : u.atkMode;
+        // (the detached cast that plays on ends — its ON_AFTER_ATTACK — when its time is out: `atkOffLeft`)
+        if (u.atkCast && !old?.det && u.castLeft > 0) { u.atkOffLeft = Math.max(u.atkOffLeft, u.castLeft); u.atkCast = false; }
         u.atkCd = 0;
         u.atkCdAlt = 0;
         u.atkCombat = false;
@@ -162,6 +186,10 @@ export function updateAlly(b, u, dt) {
     if (u.atkCd > 0) u.atkCd = attackCountdown(u.atkCd, dt);
     if (u.atkCdAlt > 0) u.atkCdAlt = attackCountdown(u.atkCdAlt, dt);
     if (u.castLeft > 0) u.castLeft = attackCountdown(u.castLeft, dt);
+    if (u.atkOffLeft > 0) {
+      u.atkOffLeft = attackCountdown(u.atkOffLeft, dt);
+      if (!(u.atkOffLeft > 0)) u.attackEndAt = b.time;
+    }
   }
   if (u.blocking.length) enforceBlockCapacity(b, u);
   // a detached mode's attack plays on through whatever stops the unit: the state's exit interrupts only the attached
@@ -274,6 +302,8 @@ export function updateAlly(b, u, dt) {
     }
   }
   b._ev(swingEv);
+  noteAttackEnd(b, u);   // (the last cast's end, this tick)
+  u.atkCast = true;
   u.castLeft = action;
   u.swing = { left: strike, targets, sel: prof.strikeSel ?? t.sel, isSkill: !!prof.isSkill, signal, prof };
   if (!(strike > 1e-9)) allyStrike(b, u, prof);
@@ -293,6 +323,8 @@ function startReplacement(b, u, sk) {
   // (the cast takes the attack state's turn: the next normal attack is no first attack)
   u.atkSpell = u.atkSpell || (u.atkCombat ? 2 : 1);
   u.atkSpellExit = b.time + t.action;
+  noteAttackEnd(b, u);
+  u.atkCast = true;   // (`Character.get_attack` is the replacement: the attack state's cast all the same)
   u.castLeft = t.action;
   u.swing = { left: t.strike, targets: null, sel: 0, isSkill: true, replace: sk, prof: null };
   sk.beginReplacement(t.action);

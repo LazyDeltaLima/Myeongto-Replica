@@ -69,7 +69,7 @@
 //   still applied (`active` is already false); they are removed right after it (unless onEnd re-activated the skill).
 
 import { absoluteRangeKeys, trigFirst, trigAllyFirst, trigAllyOrder, ALLY_TRIG_SORTS, elemTaken } from './targeting.js';
-import { castFace } from './ai.js';
+import { castFace, noteAttackEnd } from './ai.js';
 import { BLOCK_SKILL_TICK, COLS, MIN_ANIM_SCALE, TICK } from './constants.js';
 /** @import { Battle } from './Battle.js' */
 /** @import { Unit } from './units.js' */
@@ -1112,6 +1112,7 @@ export class SkillRuntime {
     const u = this.unit;
     u.swing = null;
     u.castLeft = 0;
+    noteAttackEnd(b, u);   // (the cut attack's ON_AFTER_ATTACK, now)
     u.skillStateUntil = b.time + t.action;
     if (t.action > SKILL_ANIM_WINDOW) u.skillAnimUntil = b.time + t.action;
   }

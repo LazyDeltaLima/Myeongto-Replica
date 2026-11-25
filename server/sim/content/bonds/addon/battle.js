@@ -369,7 +369,9 @@ function applyAura(battle, st, u) {
 //   no attack      — [attack]: no_attack_duration s without an attack ([attacked] is re-made on every ON_AFTER_ATTACK
 //                    and when the buff is enabled) — no range, skill or stun condition. ON_AFTER_ATTACK is the end of the
 //                    character's attack ability that its Attack / Combat state started (`Character.OnAfterAttack` from
-//                    `AttackState._StartAttack` and its finish callback), so a skill that runs in the Skill state
+//                    `AttackState._StartAttack` and its finish callback, whatever the finish reason: ai.js noteAttackEnd,
+//                    `u.attackEndAt`) — the swing's end after its recovery, not its strike, and a swing cut before its
+//                    strike (a stun, a Skill-state cast starting) counts too. A skill that runs in the Skill state
 //                    (锏 S3's slashes and finisher) makes none: it can jump in the middle of one, which ends it (above).
 //                    The SP ratio is kept (AssignCurSpToBB → modify_sp[ratio]) on top of the new character's initial SP
 //                    (Battle._deploy keepSp; a skill that ran had spent its SP). The idle time starts again at the
@@ -530,7 +532,7 @@ function raidPoll(battle, st) {
     // a type other than null: it has a skill (raidSkillType)
     // (BasicSkill.IsAvailable → ownerCanUseSkill: no jump while stunned / frozen / asleep or silenced)
     if ((type === 'MANUAL' || type === 'AUTO') && /** @type {SkillRuntime} */ (sk).ready && !/** @type {SkillRuntime} */ (sk).active && u.canAct && !u.s.flags.sleep && !u.s.flags.silence && !raidEnemyClose(battle, u) && raidJump(battle, st, u, true)) continue;
-    const since = Math.max(u.lastAttackAt ?? -Infinity, u.deployedAt ?? -Infinity, u.mem[KEY.raid] ?? -Infinity);
+    const since = Math.max(u.attackEndAt ?? -Infinity, u.deployedAt ?? -Infinity, u.mem[KEY.raid] ?? -Infinity);
     if (battle.time - since >= idle - 1e-9) raidJump(battle, st, u, false);
   }
 }

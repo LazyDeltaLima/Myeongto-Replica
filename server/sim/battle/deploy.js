@@ -74,6 +74,9 @@ export class BattleDeploy {
     u.faceTgt = null;   // and faces its deploy direction (the view does the same on 'deploy')
     u.faced = false;
     u.lastAttackAt = -Infinity;
+    u.atkCast = false;  // (a new character: no attack ability of the old one ends on it)
+    u.atkOffLeft = 0;
+    u.attackEndAt = -Infinity;
     for (const k in u.elem) /** @type {Record<string, number>} */ (u.elem)[k] = 0;
     u.ground = !fly && this.grid.isLow(R0, C0) && !this._elevated?.has(k); // a flyer is an air unit, on no ground at all
     u.markDirty();

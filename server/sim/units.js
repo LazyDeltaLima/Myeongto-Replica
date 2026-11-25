@@ -128,6 +128,9 @@ export class Unit {
     this.faceTgt = /** @type {Unit | null} */ (null);        // the main target its latest swing turned it to (ai.js holdFaceTarget)
     this.faced = false;         // a swing turned it from its deploy direction; 'face' turns it back (ai.js faceIdle)
     this.lastAttackAt = -Infinity;
+    this.atkCast = false;       // ai.js: the attack ability its attack / combat state started is casting (swing + recovery)
+    this.atkOffLeft = 0;        // ai.js: the rest of such a cast a mode switch detached, playing on beside the new mode's
+    this.attackEndAt = -Infinity;   // ai.js noteAttackEnd: when that cast last ended, cut or not (ON_AFTER_ATTACK)
     this.lastHitAt = -Infinity;
     this._dmgEv = /** @type {unknown[] | null} */ (null);         // its last 'dmg' event (damage.js hitFx)
     this.deployedAt = -Infinity;
