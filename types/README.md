@@ -666,9 +666,15 @@ most strict errors were, and the JSDoc that fixed them:
   into the typedefs, never into the line (`o.turnMs` read as a value: `camTurnMs` is `number | undefined`); where only
   a cast fits, the test's pattern allows it (feedback3-leader-prep: `layoutPen(stand ? /** @type {PenItem[]} */ (list)`).
   The context handed to the unit views is units.js `ViewCtx`: its `[k: string]: any` gives no parameter types, so the
-  arrow entries keep their own. The view map (`views`) is an untyped `new Map()` until units.js is
-  strict (its views take fields app.js sets: `_sig`, `_home`, `_tween`); a parameter fed from it is the fields read
-  (`PenFigure`). A flag stored on a function (`handleEvent.warned`) is a cast to `typeof f & { warned?: boolean }`.
+  arrow entries keep their own. The view map (`views`) is `Map<unknown, AppView>` (`AppView`: `UnitView | ItemView |
+  DeviceView`; keyed by `unknown` as the effect syncs that take it are, since the wire ids reach it unchecked) and the
+  pen's `Map<string, UnitView>`; the fields app.js sets on a view are `AppViewFields` in `types/page-members.d.ts`.
+  app.js tells the three apart by their members (`typeof v.setDir === 'function'`, `v.onSwing?.()`): the same d.ts
+  declares the UnitView members a hand item or a device lacks as `?: undefined` (`Lacks<…>`), so the test narrows the
+  union. tsc says nothing when a class has a listed member (its own wins), so the list only goes stale: take a member
+  out when its class gains it. Where the code knows the kind without such a test (a battle's 'die': a unit or a
+  device), a cast says so. A flag stored on a function (`handleEvent.warned`) is a cast to
+  `typeof f & { warned?: boolean }`.
 
 
 ## Split classes

@@ -69,8 +69,29 @@ declare module '../public/js/render/units.js' {
     /** false while the effect layer is off: the status icons stand in (fxstatus.js, each frame) */
     _statusIcons?: boolean;
   }
-  interface ItemView extends AppViewFields {}
-  interface DeviceView extends AppViewFields {}
+  // app.js tells the views of its map apart by their members (`typeof v.setDir === 'function'`, `v.onSwing?.()`,
+  // `if (!v.face) return`): the UnitView members a hand item or a device lacks are declared absent on it, so such a test
+  // narrows the map's `UnitView | ItemView | DeviceView` to the class that has the member. tsc reports no clash when
+  // the class has a listed member (its own member wins, checked): take a member out of the list when the class gains it.
+  /** UnitView members the class lacks, each as `?: undefined`. */
+  type Lacks<K extends PropertyKey> = { [P in K]?: undefined };
+  interface ItemView extends AppViewFields, Lacks<'setDir' | 'onDeploy' | 'setSkill' | 'setCount' | 'setItems' | 'setEquip'
+    | 'clearHome' | 'setOverlap' | 'markHome' | 'hover' | 'setTokenMode' | 'windUp' | 'face' | 'faceDeploy' | 'dir'
+    | 'turnTo' | 'turnToward' | 'onSwing' | 'onAttack' | 'die' | 'dying' | 'dieDur' | 'onStatus' | 'onStatusHit'
+    | 'onStatusCount' | 'slideTo' | 'onEnemySkill' | 'onEnemySkillEnd' | 'onSignal' | 'glide' | 'setForm' | 'fadeIn'
+    | 'setDown' | 'down' | 'actor' | 'spineReady' | 'culled' | 'isBoss' | 'imp' | '_spineBusy'> {
+    /** the status effects fxgame.js statusOn started on it, by key (the elite glow of a hand item) */
+    _fxStatusOn?: Set<string>;
+  }
+  interface DeviceView extends AppViewFields, Lacks<'shadow' | 'setDir' | 'lift' | 'dimmed' | 'setIcon' | 'setCount'
+    | 'setItems' | 'setEquip' | 'clearHome' | 'setOverlap' | 'markHome' | 'hover' | 'setTokenMode' | 'face'
+    | 'faceDeploy' | 'dir' | 'turnTo' | 'turnToward' | 'onSwing' | 'dieDur' | 'onStatusHit' | 'onStatusCount'
+    | 'slideTo' | 'onEnemySkill' | 'onEnemySkillEnd' | 'onSignal' | 'glide' | 'setForm' | 'fadeIn' | 'setDown' | 'down'
+    | 'root' | 'actor' | 'spineReady' | 'culled' | 'isBoss' | 'imp' | '_spineBusy' | 'retryAssets'> {
+    /** the status effects fxgame.js statusOn started on it, by key */
+    _fxStatusOn?: Set<string>;
+  }
+  interface UnitView extends Lacks<'setIcon'> {}
 }
 
 declare module '../public/js/render/fxplayer.js' {

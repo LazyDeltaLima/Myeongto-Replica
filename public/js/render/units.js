@@ -1070,6 +1070,7 @@ export class UnitView {
     // 规程's battle bench (app.js setBattleBench): greyed like a knocked-out operator (DOWN_LOOK.tint) and standing still on
     // its idle clip's first frame — the official battle draws the waiting pieces so (maintainer report 2026-11-13)
     this._still = !!opts.still;
+    /** @type {boolean | undefined} (undefined: decided again on the next update — app.js shows a hidden pen figure) */
     this.culled = false;          // outside the viewport this frame (not animated, not drawn)
     this._offDt = 0;              // animation time skipped while culled
     this._far = false;            // small on screen (adaptive LOD, with hysteresis)
@@ -2122,7 +2123,11 @@ export class UnitView {
     }
   }
 
-  /** A (re)deployment; `key`: the deploy clip's key (the sim's 'deploy' event 4th field — SpineActor.deploy). */
+  /**
+   * A (re)deployment; `key`: the deploy clip's key (the sim's 'deploy' event 4th field — SpineActor.deploy). Returns
+   * whether the official drop-in plays.
+   * @param {string | null} [key] @returns {boolean}
+   */
   onDeploy(key = null) {
     const official = !this.enemyModel && !!this.entry; // local patch: the official drop-in (BORN_LEAD_S, BORN_TINT_S)
     this.bornOfficial = official;

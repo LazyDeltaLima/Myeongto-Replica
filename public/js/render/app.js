@@ -184,6 +184,7 @@ import { createRouteCursors, createBattleCursors } from './fxroute.js'; // the b
  * @import { Three } from './board3d/materials.js'
  * @import { BoardPack } from './board3d/load.js'
  * @import { SkinInfo } from './skin-gate.js'
+ * @import { StatusView } from './fxstatus.js'
  */
 /**
  * The records this file reads, by the fields it reads (the rest of each is `unknown`): a piece of m.private (hand /
@@ -209,9 +210,10 @@ import { createRouteCursors, createBattleCursors } from './fxroute.js'; // the b
  *   [key: string]: unknown }} FieldMetaIn
  * @typedef {{ fieldId: unknown, kind: string, rect: TileRect, stageId: unknown, prep: boolean, wide: number }} BattleMeta
  * @typedef {{ x: number, y: number, z: number }} WorldPt
- * @typedef {{ visible: boolean } | null | undefined} Shown
- * @typedef {{ destroyed?: boolean, culled?: unknown, update(dt: number, cam: Camera, clock: number): void, root?: Shown,
- *   hud?: Shown, shadow?: Shown, facingArrow?: Shown, blockIcon?: Shown }} PenFigure a pen / leader figure (hidePenView)
+ * @typedef {UnitView | ItemView | DeviceView} AppView a view of the `views` map: a unit, a hand item or a device
+ * @typedef {Map<unknown, StatusView>} StatusViews the `views` map as fxstatus.js reads it: a unit view's status fields
+ *   (its `charge` is set from the constructor: tsc sees it as possibly unset); a hand item or a device has no `flags`,
+ *   which syncStatusFx skips
  * @typedef {{ [key: string]: unknown }} FxExtra a b.ev fx's extra record (`e[4]`)
  * @typedef {[kind: 'fx', fx: unknown, x: unknown, y: unknown, extra: FxExtra, ...rest: unknown[]]} FxEv
  * @typedef {[kind: 'spawn' | 'deploy' | 'swing' | 'atk' | 'dmg' | 'heal' | 'blk' | 'skill' | 'leak' | 'status' | 'layer'
@@ -447,6 +449,7 @@ export async function createFieldView(host, options = {}) {
   let hudZoom = 1, /** @type {{ key: string, stage: AppStage | null, px: number }} */ hudRef = { key: '', stage: null, px: 1 }; // the battle HUD's zoom on a wide 联防 field (updateHudZoom)
   /** @type {{ band: number[], focus: TileRect, field: number[], area: ReturnType<typeof boardArea>, pen: boolean, leader: boolean } | null} */
   let pendingView = null;     // tile band/focus to apply when the camera transition ends
+  /** @type {Map<unknown, AppView>} */
   const views = new Map();    // key → view (prep: 'p:'+uid; battle: unit id)
   /** @type {PrepEntry[]} */
   let prepPieces = [];        // { uid, piece, area, idx, row, col, key }
@@ -487,12 +490,12 @@ export async function createFieldView(host, options = {}) {
   /** @type {Function | null} */
   let canPlaceFn = null;
   let editable = false;
-  /** @type {{ uid: unknown, key: string, view: ReturnType<typeof views.get>, from: DragSlot | null | undefined, home: WorldPt } | null} */
+  /** @type {{ uid: unknown, key: string, view: AppView, from: DragSlot | null | undefined, home: WorldPt } | null} */
   let dragState = null;       // { uid, key, view, from, home: {x,y,z} }
   const pending = new Map();  // key → { t, home } dropped pieces awaiting the server
   const held = new Map();     // uid → world { x, y, z }: prep pieces pinned to a tile by the direction step (holdPiece)
   const overlaps = new Map(); // uid of a held piece → the view key of the piece it stands over, greyed (holdPiece)
-  /** @type {ReturnType<typeof views.get> | null} */
+  /** @type {AppView | null} */
   let hoverUnit = null;
   let frameMs = 16, fps = 60, lastNow = performance.now();
   const layerPops = new Map();
@@ -510,6 +513,7 @@ export async function createFieldView(host, options = {}) {
   /** @type {{ uid: unknown, tiles: number[][] } | null} */
   let legalKeep = null;        // local patch: { uid, tiles } — the deploy tiles of a board drop, lit again by its holdPiece
   // enemy preview pen (render/pen.js): figure key → UnitView (own map: never touched by the battle sync)
+  /** @type {Map<string, UnitView>} */
   const penViews = new Map();
   /** @type {string | null} */
   let penSig = null;
@@ -1207,6 +1211,7 @@ export async function createFieldView(host, options = {}) {
       // (the model is part of it: a piece whose body changes — a merge, an own 补位 / 自选 setting arriving — is rebuilt)
       // (and its skin: a skin chosen in the prep rebuilds the piece — the gate then judges it, render/skin-gate.js)
       const sig = `${info.kind}|${info.defId}|${info.golden ? 1 : 0}|${info.spine || ''}${info.chip ? '|' + info.tier : ''}${info.skin ? '|' + info.skin : ''}`; // local patch: a summon's owner chip
+      /** @type {AppView | null | undefined} */
       let v = views.get(key);
       if (v && v._sig !== sig) { dropView(key); v = null; }
       const w = slotWorld(e);
@@ -1246,6 +1251,7 @@ export async function createFieldView(host, options = {}) {
           pending.delete(key);
           if (moved || Math.abs(v.x - w.x) + Math.abs(v.y - w.y) > 1e-3) v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: w.x, ty: w.y, tz: w.z, t: 0 };
           v.lift = 0;
+          /** @type {boolean | void} */
           let dropped = false; // local patch: the official drop-in (units.js onDeploy → true)
           if (e.area === 'board' && !prevBoard.has(e.uid) && v.onDeploy) { dropped = v.onDeploy(); fx.deploy(v); prepDeployed(e, info); }
           // local patch: a piece sent back from the board to the bench drops in on its slot too (official capture), silently
@@ -1258,7 +1264,8 @@ export async function createFieldView(host, options = {}) {
       v._home = w;
       v.dimmed = false;
       if (info.kind === 'item' && v.setIcon) v.setIcon(info.icon); // an icon the manifest named late (onAssets)
-      if (v.setCount) v.setCount(e.piece.kind === 'token' ? e.piece.count : 0);
+      // (a token piece always carries its count: server match/player/views.js)
+      if (v.setCount) v.setCount(e.piece.kind === 'token' ? /** @type {number} */ (e.piece.count) : 0);
       if (v.setItems) v.setItems(Array.isArray(e.piece.items) ? e.piece.items.map((it) => { const r = data.item(it?.id); return assets.itemIcon ? assets.itemIcon(r ? { trapId: r.trapId, iconId: r.iconId } : it?.id) : null; }) : []);
       if (v.setEquip) v.setEquip(Array.isArray(e.piece.items) ? e.piece.items.map((it) => !!data.item(it?.id)?.isGolden) : [], equipSlotsOf(e.piece.id)); // local patch: official equip bar (hud-bars.js)
       v._showFacing = e.area === 'board';
@@ -1302,6 +1309,7 @@ export async function createFieldView(host, options = {}) {
       const w = boardWorld(ch.row, ch.col);
       const id = `c:${ch.row},${ch.col}`;
       keep.add(id);
+      /** @type {AppView | null | undefined} */
       let v = views.get(id);
       if (v && v._sig !== ch.enemyId) { dropView(id); v = null; }
       if (v) { v.setWorld(w.x, w.y, w.z); continue; }
@@ -1337,6 +1345,7 @@ export async function createFieldView(host, options = {}) {
       if (!info) continue;
       keep.add(info.id);
       const sig = `${info.defId}|${info.golden ? 1 : 0}|${info.spine || ''}|${info.x},${info.y}|${info.dir || ''}|${(info.items || []).join(',')}`;
+      /** @type {AppView | null | undefined} */
       let v = views.get(info.id);
       if (v && v._sig !== sig) { dropView(info.id); v = null; }
       if (v) continue;
@@ -1431,7 +1440,7 @@ export async function createFieldView(host, options = {}) {
     penHidden = !!hidden;
     for (const v of penViews.values()) hidePenView(v, penHidden);
   }
-  /** @param {PenFigure} v @param {boolean} hidden */
+  /** @param {UnitView} v @param {boolean} hidden */
   function hidePenView(v, hidden) {
     if (!v || v.destroyed) return;
     if (hidden) {
@@ -2038,7 +2047,8 @@ export async function createFieldView(host, options = {}) {
     v._born = performance.now();
     views.set(id, v);
     // a summon's prefab mode it is already in (a 'copy' / 'split' fx before this view): its clip set, no change clip
-    if (info.tmode && v.setTokenMode) v.setTokenMode(info.tmode.mode, { quiet: true, by: info.tmode.by != null ? views.get(info.tmode.by) ?? null : null });
+    // (`by`: the summon's owner, an operator's view)
+    if (info.tmode && v.setTokenMode) v.setTokenMode(info.tmode.mode, { quiet: true, by: info.tmode.by != null ? /** @type {UnitView | null} */ (views.get(info.tmode.by) ?? null) : null });
     // local patch: a scouted prep board's piece drops in when first shown there or moved (scoutSeen); a board piece (not
     // the bench) with its deploy sound only under SCOUT_DEPLOY_SFX (off: maintainer decision 2026-10-11, the client's
     // camera switch makes no SetCharacter)
@@ -2144,7 +2154,8 @@ export async function createFieldView(host, options = {}) {
       v._swingTurn = true;
       const f = k === 'face' ? e[2] : e[5];
       if (f === 'D') v.faceDeploy(false);
-      else if (f === 'F') { const [dx, dy] = dirVector(v.dir); v.turnTo(dx * 0.5, dy * 0.5 - 1); }   // Entity.FaceToFront
+      // (`dir` null on an enemy's model: dirVector reads it as UP)
+      else if (f === 'F') { const [dx, dy] = dirVector(/** @type {string} */ (v.dir)); v.turnTo(dx * 0.5, dy * 0.5 - 1); }   // Entity.FaceToFront
       else if (f != null) { const t = views.get(f); if (t) v.turnToward(t.x, t.y); }
       return;
     }
@@ -2231,7 +2242,8 @@ export async function createFieldView(host, options = {}) {
         const used = consumedIds.delete(e[1]);
         const follower = followerIds.delete(e[1]);
         if (v && v.alive) {
-          v.die(e[2] === FORCED_EXIT || follower);
+          // (a battle's 'die' is a unit's or a device's: a hand item stands only on a scouted prep board)
+          /** @type {UnitView | DeviceView} */ (v).die(e[2] === FORCED_EXIT || follower);
           if (follower) { v.dying = 1e-3; v.dieDur = 1e-3; }   // gone on the next frame
           // 2026-10-10: an enemy whose official dead effect plays (fxgame.js ownsDeath) gets no procedural puff
           else if (showsDeathFx(v.info, used, e[2]) && !fxGame.ownsDeath?.(v)) fx.death(v);
@@ -2248,10 +2260,10 @@ export async function createFieldView(host, options = {}) {
         fx.leak();
         break;
       }
-      case 'status': { const v = views.get(e[1]); if (v) v.onStatus?.(e[2], !!e[3], e[3] ? statusSource(views, e) : null); break; }
+      case 'status': { const v = views.get(e[1]); if (v) v.onStatus?.(e[2], !!e[3], e[3] ? statusSource(/** @type {StatusViews} */ (views), e) : null); break; }
       case 'fx': {
         // a 护盾 layer used up (sim damage.js absorbShields): one fewer layer effect (fxstatus.js LAYER_FX)
-        if (e[1] === 'parry' && e[4] && typeof e[4] === 'object' && e[4].buff) views.get(e[4].id)?.onStatusHit?.(e[4].buff);
+        if (e[1] === 'parry' && e[4] && typeof e[4] === 'object' && e[4].buff) views.get(e[4].id)?.onStatusHit?.(/** @type {string} */ (e[4].buff)); // (the sim's buff key)
         // a kit buff's layers / stacks now (泥岩's layer gains, 卡涅利安's S3 mark): fxstatus.js LAYER_FX / STACK_FX
         if (e[1] === 'stacks' && e[4] && typeof e[4] === 'object' && e[4].buff) views.get(e[4].id)?.onStatusCount?.(e[4].buff, e[4].n, e[4]);
         if (e[4] && typeof e[4] === 'object' && e[4].consumed && e[4].id != null) {
@@ -2318,7 +2330,7 @@ export async function createFieldView(host, options = {}) {
           const inf = infos.get(e[4].id), from = e[1] === 'split' ? infos.get(e[4].src)?.tmode : null;
           const tm = e[1] === 'copy' ? (typeof e[4].mode === 'string' ? { mode: e[4].mode, by: e[4].by ?? null } : null) : from || null;
           if (inf && tm) inf.tmode = tm;
-          if (tm) views.get(e[4].id)?.setTokenMode?.(tm.mode, { quiet: e[1] === 'split', by: tm.by != null ? views.get(tm.by) ?? null : null });
+          if (tm) views.get(e[4].id)?.setTokenMode?.(tm.mode, { quiet: e[1] === 'split', by: tm.by != null ? /** @type {UnitView | null} */ (views.get(tm.by) ?? null) : null });
         }
         if (fxGame.ownsFx(e)) break; // local patch: drawn with its official effect (render/fxgame.js)
         if (late > 0 && e[1] === 'shotSlow' && e[4]) fx.shotSlow(e[4]);   // late, it still changes the shots in the air
@@ -2384,6 +2396,7 @@ export async function createFieldView(host, options = {}) {
     if (slideAt > renderT) interp.forEachUpcoming(renderT, slideAt, /** @type {(e: BattleEvent) => void} */ (startSlide));
     interp.sample(renderT, sample);
     for (const [id, s] of sample) {
+      /** @type {AppView | null | undefined} */
       let v = views.get(id);
       if (!v && gone.has(id)) {
         if (s.anim === ANIM.DIE || !(s.hp > 0)) continue; // the tail of its DIE window: stays gone
@@ -2401,6 +2414,7 @@ export async function createFieldView(host, options = {}) {
     downSeq++;
     if (down) {
       for (const d of down) {
+        /** @type {AppView | null | undefined} */
         let v = views.get(d[0]);
         let fresh = false;
         if (!v) {
@@ -2627,7 +2641,7 @@ export async function createFieldView(host, options = {}) {
       lap('tiles');
       fx.update(dt);
       lap('hud');
-      syncStatusFx(views, fxGame, mode === 'battle'); // local patch: official status effects (fxstatus.js)
+      syncStatusFx(/** @type {StatusViews} */ (views), fxGame, mode === 'battle'); // local patch: official status effects (fxstatus.js)
       syncGoldenFx(views, fxGame, mode === 'prep'); // local patch: the official elite glow in the prep (fxgolden.js)
       if (traitFxPending()) drainTraitFx(views, fxGame, mode === 'prep'); // 2026-11-12: m.trait, once its piece's view is up
       // 2026-11-12: 规程's 指令 marks (fxband.js) in the prep — the operators' every frame while there are some (their views
@@ -2660,8 +2674,9 @@ export async function createFieldView(host, options = {}) {
   function census() {
     const frames = Math.max(1, frameNo - censusFrame);
     censusFrame = frameNo;
-    const costly = [...views.values()].filter((v) => v._perfMs > 0).sort((a, b) => b._perfMs - a._perfMs).slice(0, 3)
-      .map((v) => ({ id: v.info?.defId ?? String(v.id), ms: v._perfMs / frames, boss: !!v.isBoss, imp: !!v.imp }));
+    // (`_perfMs`: unset on a view no frame updated yet, which the filter drops)
+    const costly = [...views.values()].filter((v) => /** @type {number} */ (v._perfMs) > 0).sort((a, b) => /** @type {number} */ (b._perfMs) - /** @type {number} */ (a._perfMs)).slice(0, 3)
+      .map((v) => ({ id: v.info?.defId ?? String(v.id), ms: /** @type {number} */ (v._perfMs) / frames, boss: !!v.isBoss, imp: !!v.imp }));
     for (const v of views.values()) v._perfMs = 0;
     let objs = 0, shown = 0;
     const walk = (/** @type {PIXI.Container} */ o, /** @type {boolean} */ on) => {
