@@ -3483,7 +3483,13 @@
   그 순간의 이펙트 둘도 여기서 튼다 — '제국의 갑옷'의 표식은 그 칸에 선 아군에게 버프로 5.8초(`eholdBuff`), 알리스테어 탄의 시작 이펙트는 그 칸의
   아군에게(없으면 그 자리). 시뮬 이벤트가 능력도 대상도 안 실어서 렌더가 `kind`로 능력을 찾는다. 바인딩이 없거나 그 능력이 추출되지 않은 적,
   품질 낮음은 빨간 칸 그대로.
-  [추정·미조사: 표식 버프와 0.8초 버프가 같은 `buffKey`(`enemy_vtsk_skillRange`, `maxStackCnt` 1)라 뒤 것이 표식을 갈아 끼우는지 — 표식은 5.8초로 둠]
+  표식은 제 길이 5.8초 그대로다(2026-11-26 공식 클라에서 확인). 표식 버프와 그 시작이 만드는 0.8초 버프는 같은 `buffKey`
+  `enemy_vtsk_skillRange`(둘 다 `disableOverride` 거짓·`overrideKey` 빔 → 덮어쓰기 키 = `buffKey`)라 한 덮어쓰기 묶음(`Buff.OverrideGroup`)에
+  들지만 `overrideType` DEFAULT라 둘 다 큐에 남고, 큐에서 앞선 하나만 켜질 뿐이다(`maxStackCnt` 1은 STACK에서만 읽힘). 켜고 끄기는 속성 수정자·
+  트리거·켜짐/꺼짐 사건만 바꾸는데 두 버프에는 셋 다 없다. 남은 시간은 꺼진 버프도 줄고(`Buff.OnTick`), `ON_BUFF_FINISH`도 켜짐과 무관하게 돈다
+  (`Buff.OnFinish`) — 칸 경고는 어느 쪽이 켜지든 0.8초에 깔린다. 버프 이펙트는 버프가 시작할 때 이펙트 이름으로 붙고(`Entity.OnBuffStart` →
+  `AddBuffEffect`, 이름당 하나·참조 수) 그 버프가 끝날 때 같은 이름으로 떼어지는데(`OnBuffFinish` → `RemoveBuffEffect`), 0.8초 버프는 이펙트
+  이름이 없어(`overrideEffectKey` 없음, 템플릿 `effectKey` 빔) 표식 이펙트를 건드리지 않는다. 그래서 렌더의 표식 길이는 추출된 `hitBuffLife` 5.8 그대로.
   [화면 미확인]
 - 남은 것: 이 공격들의 'explode'(`chargeAttack`·`blastArrow`·`barrage`)는 시뮬이 적 `id`를 안 실어 대체 폭발 칸이 공식 범위 이펙트 위에 그대로 그려진다.
 - 재발 방지: `test/render/enemy-tile-warn.test.js`(시뮬 콘텐츠의 칸 'telegraph' 종류를 모두 훑어 `TILE_WARN_SKILLS`에 있는지, 그 적들이 그 능력을

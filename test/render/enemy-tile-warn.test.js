@@ -138,4 +138,8 @@ test('the enemies that send them bind those abilities with extracted effects (en
   const ap = em.enemy_10027_vtsk?.skills?.appear;
   assert.deepEqual(ap?.tileFx, [{ fx: 'enemy_vtsk_skill_01_range_01', at: 0.8 }], `'제국의 갑옷' Appear's tile warning: ${JSON.stringify(ap)}`);
   assert.ok(em.$fx.enemy_vtsk_skill_01_range_01, 'enemy_vtsk_skill_01_range_01 extracted');
+  // its marker keeps its own 5.8 s: the 0.8 s buff of the same buffKey (DEFAULT override, no effect of its own) does not end it
+  // (docs/rules/fx.md 「적 범위 공격의 경고 칸」)
+  assert.equal(ap?.hitBuffLife?.enemy_vtsk_skill_01_marker_01, 5.8,
+    `'제국의 갑옷' Appear's marker lasts its own 5.8 s (docs/rules/fx.md 「적 범위 공격의 경고 칸」): ${JSON.stringify(ap?.hitBuffLife)}`);
 });
