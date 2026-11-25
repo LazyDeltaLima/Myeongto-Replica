@@ -39,7 +39,13 @@ import { localAsset } from '../data.js';
 import { t } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 
-const cx = (...p) => p.flat().filter(Boolean).join(' ');
+const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ');
+
+/** @import { Pub, PubPlayer } from './gameLogic/shared.js' */
+/**
+ * @typedef {{ playerId: string, lp?: number, alive?: boolean, uniteLeft?: number, pendingLp?: number,
+ *   [key: string]: unknown }} LpRow  an m.public players[] entry, read for its LP
+ */
 
 /**
  * The official card's connect_status mask (player_status_item, css/hud-art.css `has-hud-card`): 'dead' (mask_dead, the
@@ -48,7 +54,7 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
  * a battle still running: fighting, or helping in a 联防); null otherwise — the dead, the departed, and a player still
  * deciding or not yet ready shows nothing (maintainer report 2026-10-10: the dots are the battle phase's, for the
  * players whose battle has not ended).
- * @param {any} p m.public players[] entry
+ * @param {{ alive?: boolean, status?: string, connected?: boolean, isBot?: boolean } | null | undefined} p m.public players[] entry
  * @returns {{ mask: 'dead'|'quit'|'reconnect'|null, action: 'done'|'doing'|null }}
  */
 export function cardState(p) {
@@ -61,7 +67,7 @@ export function cardState(p) {
   return { mask, action: null };
 }
 
-/** Official status glyphs (ui/battle) per m.public players[].status; CSS glyph fallback. */
+/** Official status glyphs (ui/battle) per m.public players[].status; CSS glyph fallback. @type {Record<string, string>} */
 const STATUS_SPRITE = { ready: 'icon_complete', deciding: 'icon_waiting', done: 'icon_complete', dead: 'icon_dead' }; // ready = done: the card's complete_part
 
 /**
@@ -70,19 +76,19 @@ const STATUS_SPRITE = { ready: 'icon_complete', deciding: 'icon_waiting', done: 
  * 联防 a leaker's enemies still standing (the ×N tag), else null — for a teammate the local 联防 replica's count when
  * one is given (`uniteLocal`, the runner's state().uniteLeft: { [playerId]: n }, absent = none left; the pending loss
  * is then min(cap, left)), else m.public players[].uniteLeft / pendingLp.
- * @param {any} p m.public players[] entry @param {any} pub m.public
+ * @param {LpRow} p m.public players[] entry @param {Pub | null | undefined} pub m.public
  * @param {{ lp?: number|null, pending: number, unite: boolean, left?: number|null } | null} [self] the own live value (only for the own row)
  * @param {{ uniteLocal?: Record<string, number> | null, cap?: number }} [opts]
  * @returns {{ lp: number|null, pending: number, unite: boolean, left: number|null }}
  */
 export function rowLp(p, pub, self = null, { uniteLocal = null, cap = 10 } = {}) {
-  const pubLp = Number.isFinite(p?.lp) ? p.lp : null;
+  const pubLp = Number.isFinite(p?.lp) ? /** @type {number} */ (p.lp) : null;
   if ((pub?.phase !== PHASE.COMBAT && pub?.phase !== PHASE.UNITE) || p?.alive === false) return { lp: pubLp, pending: 0, unite: false, left: null };
-  const lp = self && Number.isFinite(self.lp) ? self.lp : pubLp;
+  const lp = self && Number.isFinite(self.lp) ? /** @type {number} */ (self.lp) : pubLp;
   const leaker = pub.phase === PHASE.UNITE && Array.isArray(pub.unite?.leakers) && pub.unite.leakers.includes(p.playerId);
   const local = !self && leaker && uniteLocal && typeof uniteLocal === 'object' ? uniteRemaining(uniteLocal[p.playerId] ?? 0, null) : null;
   const rawLeft = pub.phase !== PHASE.UNITE ? null : self ? self.left : local != null ? local : p.uniteLeft;
-  const left = Number.isFinite(rawLeft) && rawLeft >= 0 ? Math.trunc(rawLeft) : null;
+  const left = Number.isFinite(rawLeft) && /** @type {number} */ (rawLeft) >= 0 ? Math.trunc(/** @type {number} */ (rawLeft)) : null;
   if (lp == null) return { lp, pending: 0, unite: false, left };
   const raw = self ? self.pending : local != null ? Math.min(cap, local) : p.pendingLp;
   const pending = Math.min(lp, Math.max(0, Math.trunc(Number(raw) || 0)));
@@ -114,18 +120,20 @@ export function rowLpTip(lp, cap = 10) {
 }
 
 /**
- * @param {{ pub:any, myId:string, watching:string|null, bubbles: Map<string,{id:string,seq:number,set?:string}>, onWatch:(p:any)=>void,
+ * @param {{ pub: Pub | null | undefined, myId: string, watching: string | null,
+ *   bubbles: Map<string, { id: string, seq: number, set?: string }>, onWatch: (p: PubPlayer) => void,
  *   compact?: boolean, teamLp?: number|null, self?: { lp?: number|null, pending: number, unite: boolean, left?: number|null } | null,
- *   cap?: number, uniteLocal?: Record<string, number> | null, after?: any,
- *   observe?: null | { canObserve: (p:any) => { fieldId?: string, reason?: string|null, back?: boolean }, observing: boolean, onBack: () => void } }} props
+ *   cap?: number, uniteLocal?: Record<string, number> | null, after?: unknown,
+ *   observe?: null | { canObserve: (p: PubPlayer) => { fieldId?: string, reason?: string|null, back?: boolean },
+ *     observing: boolean, onBack: () => void } }} props
  *   uniteLocal: the local 联防 replica's per-leaker counts while it is on screen (battle runner state().uniteLeft), else null
  *   after: drawn at the end of the list, positioned against it (the phone's round damage chip, ui/roundDamage.js)
  */
 export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = false, observe = null, self: selfLive = null, cap = 10, uniteLocal = null, after = null }) {
   const [detail, setDetail] = useState(false);
-  const [geo, setGeo] = useState(null);
+  const [geo, setGeo] = useState(/** @type {ReturnType<typeof measureDetail>} */ (null));
   const [resized, setResized] = useState(0);
-  const asideRef = useRef(null);
+  const asideRef = useRef(/** @type {HTMLElement | null} */ (null));
   const phaseKey = `${pub?.phase}:${pub?.round}`;
   // [ASSUMED·화면: the dialog closes when the phase or round changes, or the view moves]
   useEffect(() => { setDetail(false); }, [phaseKey, watching, observe?.observing]);
@@ -163,24 +171,24 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
   if (!players.length) return null;
   // a boss round: the viewer's pair framed in green from the round's start (item 51 — the official bg_team_border,
   // tinted like the official green; a plain green ring without the local art)
-  const team = teamFrameIds(pub, myId);
+  const team = teamFrameIds(/** @type {Pub} */ (pub), myId);
   const frameArt = team.size ? localAsset('ui/battle', 'bg_team_border') : null;
   // a teammate's 前往查看 tag in the dialog: observable now (observeTarget), or without `observe` any teammate still in
-  const canGo = (p) => (observe ? !!(observe.canObserve(p) || {}).fieldId : p.alive !== false && p.status !== 'left');
-  const go = (p) => { setDetail(false); onWatch(p); };
+  const canGo = (/** @type {PubPlayer} */ p) => (observe ? !!(observe.canObserve(p) || {}).fieldId : p.alive !== false && p.status !== 'left');
+  const go = (/** @type {PubPlayer} */ p) => { setDetail(false); onWatch(p); };
   const watchedAny = !!watching && players.some((p) => watching === p.fieldId || watching === `n:${p.playerId}`);
-  return [open ? html`<div key="veil" class="pdetail-veil" aria-hidden="true" onPointerDown=${(e) => { e.preventDefault(); setDetail(false); }}></div>` : null,
+  return [open ? html`<div key="veil" class="pdetail-veil" aria-hidden="true" onPointerDown=${(/** @type {Event} */ e) => { e.preventDefault(); setDetail(false); }}></div>` : null,
     html`<aside key="team" ref=${asideRef} class=${cx('team', compact && 'team--compact', watchedAny && 'has-watched', players.length === 1 && 'is-solo' /* local patch: css/hud-art.css */, players.length > 4 && 'is-8' /* the 8-player mode: smaller rows */, open && 'has-pdetail')} aria-label=${t('同盟成员')}>
     ${players.map((p, i) => {
       const self = p.playerId === myId;
       const status = p.alive === false ? 'dead' : p.status;
-      const meta = STATUS_META[status] || STATUS_META.acting;
+      const meta = (/** @type {Record<string, (typeof STATUS_META)[keyof typeof STATUS_META]>} */ (STATUS_META))[status] || STATUS_META.acting;
       const watched = watching && (watching === p.fieldId || watching === `n:${p.playerId}`);
       const bubble = bubbles?.get(p.playerId);
       const offline = p.connected === false && !p.isBot && status !== 'left';
       const av = open && geo ? geo.rows[i]?.av : null;
       const goTag = !!av && !self && !watched && canGo(p);
-      const bt = goTag && p.winStreak > 0 ? geo.rows[i]?.bt : null;
+      const bt = goTag && p.winStreak > 0 ? (/** @type {NonNullable<typeof geo>} */ (geo)).rows[i]?.bt : null;
       const back = self && (observe ? observe.observing : !!watching && watchedAny && !watched);
       const title = playerName(p.name) || t('博士');
       const lp = rowLp(p, pub, self ? selfLive : null, { uniteLocal, cap });
@@ -201,7 +209,7 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
         <div class="team__info">
           <span class="team__name">${playerName(p.name) || t('博士')}</span>
           <div class="team__line">
-            <${LpTower} value=${lp.lp} size="sm" tone=${Number.isFinite(lp.lp) && lp.lp - lp.pending <= 5 ? 'danger' : null} pending=${lp.pending}
+            <${LpTower} value=${lp.lp} size="sm" tone=${Number.isFinite(lp.lp) && /** @type {number} */ (lp.lp) - lp.pending <= 5 ? 'danger' : null} pending=${lp.pending}
               plate=${!samePlate(lp)} tint tip=${rowLpTip(lp, cap)} />
             <${Tooltip} text=${offline ? t('连接已断开') : t(meta.text)} placement="right">
               <span class=${cx('team__status', `is-${meta.tone}`, offline && 'is-offline', `is-act-${card.action || 'none'}`, (offline || STATUS_SPRITE[status]) && localAsset('ui/battle', offline ? 'icon_reconnect' : STATUS_SPRITE[status]) && 'has-sprite')} aria-label=${t(meta.text)}>

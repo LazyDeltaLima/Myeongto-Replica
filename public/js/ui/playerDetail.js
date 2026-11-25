@@ -26,14 +26,25 @@ import { data, localAsset } from '../data.js';
 import { t } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 
-const cx = (...p) => p.flat().filter(Boolean).join(' ');
+const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ');
 /** The official name card's height (part_namecard 257.04 × 78.12): the row's unit is the list avatar's height / this. */
 export const CARD_H = 78;
 const ROMAN = ['', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'];
 const ART = 'season/act3autochess/playerdetail';
 
+/**
+ * @typedef {{ bondId: string, count?: number, layers?: number, tier?: number, active?: boolean, off?: boolean,
+ *   [key: string]: unknown }} PdBond  an entry of m.public players[].bonds
+ * @typedef {{ char: string, avatar?: string, tier: number, golden?: boolean, equip?: number[], slots?: number }} PdUnit
+ *   an entry of m.public players[].lineup
+ * @typedef {{ playerId: string, name?: string, alive?: boolean, bandId?: string, shopLevel?: number, winStreak?: number,
+ *   bonds?: unknown, lineup?: unknown, [key: string]: unknown }} PdPlayer  a row of m.public players
+ */
+
 // operator names by charId (a tooltip only: a 自选 or 补位 body the chess table lacks has none), per loaded chess table
+/** @type {WeakMap<object, Map<string, string>>} */
 const charNames = new WeakMap();
+/** @param {string} char */
 function charName(char) {
   const all = data.get('chess');
   if (!all || typeof all !== 'object') return '';
@@ -47,7 +58,7 @@ function charName(char) {
 }
 
 /** An official sprite of the dialog as a CSS variable declaration, '' without the local extract. */
-const artVar = (name, sprite) => {
+const artVar = (/** @type {string} */ name, /** @type {string} */ sprite) => {
   const u = localAsset(ART, sprite);
   return u ? `--pd-${name}:url("${u}");` : '';
 };
@@ -55,19 +66,20 @@ const artVar = (name, sprite) => {
 /**
  * The dialog's bonds of a player: the lit ones (official: a teammate's 1st-round row reads NOINFO while the own row shows
  * its lit 独行 — CN capture 2026-11-15), in the HUD strip's order.
- * @param {any[]} bonds m.public players[].bonds
+ * @param {unknown} bonds m.public players[].bonds
+ * @returns {PdBond[]}
  */
 export function detailBonds(bonds) {
-  return sortBonds((Array.isArray(bonds) ? bonds : []).filter((b) => b && b.active && !b.off), (id) => data.lookup('bonds', id));
+  return sortBonds((Array.isArray(bonds) ? bonds : []).filter((/** @type {PdBond | null} */ b) => b && b.active && !b.off), (id) => data.lookup('bonds', id));
 }
 
 /**
  * The dialog's operators of a player (m.public players[].lineup), malformed entries dropped.
- * @param {any[]} lineup
- * @returns {Array<{ char: string, avatar?: string, tier: number, golden?: boolean, equip?: number[], slots?: number }>}
+ * @param {unknown} lineup
+ * @returns {PdUnit[]}
  */
 export function detailLineup(lineup) {
-  return (Array.isArray(lineup) ? lineup : []).filter((u) => u && typeof u.char === 'string' && u.char);
+  return (Array.isArray(lineup) ? lineup : []).filter((/** @type {{ char?: unknown } | null} */ u) => u && typeof u.char === 'string' && u.char);
 }
 
 function NoInfo() {
@@ -75,6 +87,7 @@ function NoInfo() {
   return html`<i class=${cx('pdetail__noinfo', u && 'has-sprite')} style=${u ? `--pd-noinfo:url("${u}")` : undefined}>${u ? null : 'NO INFO'}</i>`;
 }
 
+/** @param {{ bonds: PdBond[], unit: string }} props */
 function Bonds({ bonds, unit }) {
   const m = data.get('assets');
   if (!bonds.length) return html`<${NoInfo} />`;
@@ -91,6 +104,7 @@ function Bonds({ bonds, unit }) {
   </div>`;
 }
 
+/** @param {{ lineup: PdUnit[], own: boolean, skins: Record<string, string> | null }} props */
 function Operators({ lineup, own, skins }) {
   if (!lineup.length) return html`<${NoInfo} />`;
   const m = data.get('assets');
@@ -103,7 +117,7 @@ function Operators({ lineup, own, skins }) {
       const tier = Math.max(1, Math.min(6, u.tier | 0));
       // the field's equipment bar (render/hud-bars.js EquipBar): equip_bg with a white pill per item, a golden item's
       // gold pill; none without items or past two slots (the field shows none there either)
-      const eq = Array.isArray(u.equip) && u.equip.length && !(u.slots > 2) ? u.equip.slice(0, 2) : null;
+      const eq = Array.isArray(u.equip) && u.equip.length && !(/** @type {number} */ (u.slots) > 2) ? u.equip.slice(0, 2) : null;
       return html`<span key=${i} class=${cx('pdetail__op', u.golden && 'is-golden')} title=${name || undefined}>
         <span class="pdetail__av"><${Img} src=${src} fallback=${html`<i class="pdetail__glyph">${[...(name || '?')][0]}</i>`} /></span>
         <i class="pdetail__fr" aria-hidden="true"></i>
@@ -117,13 +131,13 @@ function Operators({ lineup, own, skins }) {
 
 /**
  * The dialog: one row per player, at the list rows' places (`geo`, measured by ui/teamPanel.js against the list).
- * @param {{ players: any[], myId: string, geo: { left: number, top: number, width: number, height: number, k: number,
+ * @param {{ players: PdPlayer[], myId: string, geo: { left: number, top: number, width: number, height: number, k: number,
  *   rows: Array<{ top: number, height: number, hole: number, at: number, ah: number }> } }} props
  */
 export function PlayerDetail({ players, myId, geo }) {
   const others = settingsStore.get().otherSkins !== false;
   const m = data.get('assets');
-  const eqArt = (name, sprite) => { const u = localAsset('ui/battlecommon', sprite); return u ? `--pd-${name}:url("${u}");` : ''; };
+  const eqArt = (/** @type {string} */ name, /** @type {string} */ sprite) => { const u = localAsset('ui/battlecommon', sprite); return u ? `--pd-${name}:url("${u}");` : ''; };
   const vars = artVar('card', 'name_card_cover') + artVar('combo', 'combo_win_back') + artVar('list', 'detail_list_back')
     + artVar('arrow', 'list_arrow') + artVar('frame', 'char_avatar_frame') + artVar('gold', 'char_avatar_gold_gradient')
     + artVar('tframe', 'team_check_frame') + artVar('tcheck', 'team_check_icon')
@@ -136,7 +150,7 @@ export function PlayerDetail({ players, myId, geo }) {
       const own = p.playerId === myId;
       const bonds = detailBonds(p.bonds);
       const lineup = detailLineup(p.lineup);
-      const lvl = Math.max(1, Math.min(6, p.shopLevel | 0));
+      const lvl = Math.max(1, Math.min(6, /** @type {number} */ (p.shopLevel) | 0));
       const lvlArt = localAsset('season/act3autochess/playerdetailshoplevel', `shop_level_${lvl}`);
       const band = p.bandId ? data.lookup('bands', p.bandId) : null;
       const bandArt = p.bandId ? bandIconUrl(m, p.bandId) : null;
@@ -145,7 +159,7 @@ export function PlayerDetail({ players, myId, geo }) {
         <i class="pdetail__hole" style=${`width:${g.hole}px`}></i>
         <div class="pdetail__card">
           <span class="pdetail__name"><span class="pdetail__nm">${playerName(p.name) || t('博士')}</span><small class="pdetail__tag num">#${doctorNo(p.playerId)}</small></span>
-          ${p.winStreak > 0 ? html`<span class="pdetail__combo">${t('完美连胜 {n}', { n: p.winStreak })}</span>` : null}
+          ${/** @type {number} */ (p.winStreak) > 0 ? html`<span class="pdetail__combo">${t('完美连胜 {n}', { n: p.winStreak })}</span>` : null}
           <i class=${cx('pdetail__shop', lvlArt && 'has-sprite')} style=${lvlArt ? `--pd-shop:url("${lvlArt}")` : undefined}
             title=${t('调度中心等级 {n}', { n: lvl })}>${lvlArt ? null : html`<small>LEVEL</small>${ROMAN[lvl]}`}</i>
         </div>
@@ -182,7 +196,7 @@ export function streakTopStyle(bt) {
 export function goFrameStyle(av) {
   const a = av.w / 72;
   const w = 93 * a, h = 84.6 * (av.h / 72);
-  const r1 = (v) => Math.round(v * 10) / 10;
+  const r1 = (/** @type {number} */ v) => Math.round(v * 10) / 10;
   const art = localAsset(ART, 'btn_ob_other');
   const arrow = localAsset(ART, 'ob_arrow');
   return `left:${r1(av.x + av.w / 2 - w / 2)}px;top:${r1(av.y + av.h / 2 - 4 * a - h / 2)}px;width:${r1(w)}px;height:${r1(h)}px;--a:${r1(a * 1000) / 1000}px;`
@@ -212,7 +226,7 @@ export function measureDetail(aside, margin) {
   const right = (side ? side.right : window.innerWidth) - margin;
   const top = R[0].top - gap / 2;
   const bottom = R[R.length - 1].bottom + gap / 2;
-  const r1 = (v) => Math.round(v * 10) / 10;
+  const r1 = (/** @type {number} */ v) => Math.round(v * 10) / 10;
   return {
     left: r1(left - a.left), top: r1(top - a.top), width: r1(right - left), height: r1(bottom - top), k: Math.round(k * 1000) / 1000,
     rows: R.map((r, i) => ({ top: r1(r.top - gap / 2 - a.top), height: r1(r.height + gap), hole: r1(Math.max(B[i].right, A[i].right) - left + 6 * k),

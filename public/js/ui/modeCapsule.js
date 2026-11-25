@@ -22,6 +22,9 @@ import { useStore } from '../store.js';
  * The event room's group_mode per difficulty (auto_chess_room_state root_easy / _normal / _hard / _abyss, in the order of
  * DIFFICULTIES): its icon, and the colour of its name and light (light_mode, white, tinted). icon_easy is white and
  * tinted too; the other three icons carry their colour.
+ * @typedef {{ icon: string, color: string, tint?: boolean }} ModeRoot
+ * @typedef {string | { preset?: string } | null | undefined} RulesetLike  a ruleset preset, or m.public.ruleset
+ * @type {Readonly<Record<string, ModeRoot>>}
  */
 export const MODE_ROOTS = Object.freeze({
   FUNNY: { icon: 'icon_easy', color: '#ffa015', tint: true },
@@ -33,13 +36,13 @@ export const MODE_ROOTS = Object.freeze({
 /**
  * The capsule's sprites for a difficulty (null where the install has no art: the capsule then draws a dark pill with the
  * project's icons) and the style that hands them to room.css.
- * @param {string} difficulty @param {any} [m] the assets manifest
+ * @param {string} difficulty @param {unknown} [m] the assets manifest
  */
 export function modeArt(difficulty, m = data.get('assets')) {
   const root = MODE_ROOTS[difficulty] || MODE_ROOTS.FUNNY;
-  const art = (k) => uiUrl(m, `room/${k}`);
+  const art = (/** @type {string} */ k) => uiUrl(m, `room/${k}`);
   const bg = art('bg_mode'), light = art('light_mode'), icon = art(root.icon), knob = art('btn_switch_mode');
-  const url = (u) => (u ? `url("${u}")` : 'none');
+  const url = (/** @type {string | null | undefined} */ u) => (u ? `url("${u}")` : 'none');
   return { root, bg, light, icon, knob, style: `--rm-bg:${url(bg)}; --rm-light:${url(light)}; --rm-ico:${url(icon)}; --rm-knob:${url(knob)}; --rm-c:${root.color}` };
 }
 
@@ -47,9 +50,11 @@ export function modeArt(difficulty, m = data.get('assets')) {
  * The capsule's 规则 | 难度 | 人数 parts. `name`: the difficulty's (or 规程等级's) name, the difficulty's own by default;
  * `code`: its AC-MP code, none when absent; `size`: none when null; `ids`: the waiting room's test ids; `quick`: a
  * 快速匹配 queue's target — 快速匹配 in the 规则 part (it takes any ruleset).
+ * @param {{ art: ReturnType<typeof modeArt>, ruleset: RulesetLike, difficulty: string, name?: string | null,
+ *   code?: string | null, size?: number | null, ids?: boolean, quick?: boolean }} props
  */
 export function ModeSegs({ art, ruleset, difficulty, name = null, code = null, size = null, ids = false, quick = false }) {
-  const label = name ?? (DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : '');
+  const label = name ?? ((/** @type {Record<string, string>} */ (DIFFICULTY_NAMES))[difficulty] ? t((/** @type {Record<string, string>} */ (DIFFICULTY_NAMES))[difficulty]) : '');
   return [
     quick ? html`<span key="r" class="rs-mode__seg rs-mode__rules rtag--quick">${t('快速匹配')}</span>`
       : html`<span key="r" class=${`rs-mode__seg rs-mode__rules rtag--${typeof ruleset === 'string' ? ruleset : ruleset?.preset}`} data-testid=${ids ? 'room-ruleset' : null}>${presetName(ruleset)}</span>`,
@@ -67,6 +72,8 @@ export function ModeSegs({ art, ruleset, difficulty, name = null, code = null, s
  * part in front (a room of another season than the picked one, the offered room's; ui/season.js SeasonSeg) — 'all' is
  * 所有赛季, the matchmaking's target when the list's drop-down looks in every season (ui/matchQueue.js QueueWait);
  * `quick`: 快速匹配 in the 规则 part (ModeSegs).
+ * @param {{ season?: string | null, ruleset: RulesetLike, difficulty: string, size?: number | null, quick?: boolean,
+ *   class?: string, testid?: string | null }} props
  */
 export function ModeCapsule({ season = null, ruleset, difficulty, size = null, quick = false, class: cls = '', testid = null }) {
   const art = modeArt(difficulty);
@@ -82,6 +89,7 @@ export function ModeCapsule({ season = null, ruleset, difficulty, size = null, q
  * card) in the skin that Doctor chose for it (`skin`, as the waiting room's seat card wears it: another Doctor's, so only
  * with 其他玩家的皮肤 on; docs/rules/ui.md 「스킨 고르기」), the host's with the crown, an AI teammate (a Doctor who comes in
  * takes its seat), an empty seat.
+ * @param {{ seats: unknown, size: number }} props
  */
 export function RoomSeats({ seats, size }) {
   const { cards } = useCardOperators();

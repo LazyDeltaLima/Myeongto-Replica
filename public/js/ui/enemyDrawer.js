@@ -18,9 +18,17 @@ import { factionIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 
-const cx = (...p) => p.flat().filter(Boolean).join(' ');
+const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ');
+/** @type {Record<string, string>} */
 const TAG = { boss: N_('领袖'), bounty: N_('悬赏'), escort: N_('护卫') };
 
+/** @import { Pub } from './gameLogic/shared.js' */
+/**
+ * @typedef {{ nextEnemies?: Array<{ enemyKey: string, count?: number, tag?: string }>, bandId?: string,
+ *   [key: string]: unknown }} DrawerPriv  m.private, read for the drawer
+ */
+
+/** @param {{ types: string[] }} props */
 function FactionChips({ types }) {
   const f = data.get('factions')?.types || {};
   const m = data.get('assets');
@@ -28,8 +36,9 @@ function FactionChips({ types }) {
     <${Img} src=${factionIconUrl(m, f[t]?.icon)} class="fchip__icon" /><span>${f[t]?.name || t}</span></span>`)}</div>`;
 }
 
+/** @param {{ pub: Pub | null | undefined, priv: DrawerPriv | null | undefined, onEnemy: (key: string, count: number) => void }} props */
 function EnemiesTab({ pub, priv, onEnemy }) {
-  const rows = groupEnemies(priv?.nextEnemies, (k) => data.lookup('enemies', k));
+  const rows = groupEnemies(/** @type {Array<{ enemyKey: string, count?: number, tag?: string }>} */ (priv?.nextEnemies), (k) => data.lookup('enemies', k));
   const types = factionTypes(pub?.factions);
   const f = data.get('factions')?.types || {};
   const total = rows.reduce((s, r) => s + r.count, 0);
@@ -49,7 +58,7 @@ function EnemiesTab({ pub, priv, onEnemy }) {
             ${r.tag ? html`<span class=${`etag etag--${r.tag}`}>${t(TAG[r.tag] || r.tag)}</span>` : null}
             ${r.rank === 'ELITE' ? html`<span class="etag etag--elite">${t('精英')}</span>` : null}
             ${r.fly ? html`<span class="etag etag--fly">${t('空中')}</span>` : null}
-            ${r.acTypes.map((ty) => html`<span key=${ty} class="etag etag--faction">${(f[ty]?.name || ty).replace(t('特训敌人·'), '')}</span>`)}
+            ${r.acTypes.map((/** @type {string} */ ty) => html`<span key=${ty} class="etag etag--faction">${(f[ty]?.name || ty).replace(t('特训敌人·'), '')}</span>`)}
           </span>
         </span>
         <b class="erow__count num">×${r.count}</b>
@@ -58,12 +67,17 @@ function EnemiesTab({ pub, priv, onEnemy }) {
     ${boss ? html`<div class="eboss">
       <${UnitThumb} kind="enemy" id=${boss.enemyKey} size="md" />
       <div><${MicroLabel} tone="gold">${t('ENEMY LEADER // 敌方领袖')}</${MicroLabel}><b>${boss.name}</b>
-        <span class="t-lo">${t('第 {r} 回合 · 最终攻势', { r: pub.bossRound ?? data.get('config')?.modes?.[pub.modeId]?.bossRound ?? pub.lastRound ?? 14 })}</span></div>
+        <span class="t-lo">${t('第 {r} 回合 · 最终攻势', { r: (/** @type {Pub} */ (pub)).bossRound ?? data.get('config')?.modes?.[(/** @type {Pub} */ (pub)).modeId]?.bossRound ?? (/** @type {Pub} */ (pub)).lastRound ?? 14 })}</span></div>
     </div>` : null}
   </div>`;
 }
 
-/** The 本局信息 tab (hookless). Exported for the tests. */
+/**
+ * The 本局信息 tab (hookless). Exported for the tests. `priv` is typed as present: without one `priv.bandId` is read only
+ * behind a given `bandId`.
+ * @param {{ pub: Pub | null | undefined, priv: DrawerPriv, onChess: (id: string) => void,
+ *   bandId?: string | null, bandOwner?: string | null }} props
+ */
 export function InfoTab({ pub, priv, onChess, bandId = null, bandOwner = null }) {
   const model = matchInfoModel(pub, {
     bonds: data.list('bonds'), chess: (id) => data.lookup('chess', id), mode: data.get('config')?.modes?.[pub?.modeId],
@@ -83,7 +97,8 @@ export function InfoTab({ pub, priv, onChess, bandId = null, bandOwner = null })
 }
 
 /**
- * @param {{ tab:'enemies'|'info', onTab:(t:string)=>void, pub:any, priv:any, onClose:Function, onEnemy:(key:string, count:number)=>void, onChess:(id:string)=>void,
+ * @param {{ tab:'enemies'|'info', onTab:(t:string)=>void, pub: Pub | null | undefined, priv: DrawerPriv | null | undefined,
+ *   onClose: () => void, onEnemy:(key:string, count:number)=>void, onChess:(id:string)=>void,
  *   bandId?: string|null, bandOwner?: string|null }} props
  *   bandId / bandOwner: while scouting a teammate's prep board, the watched player's 策略 (m.public players[].bandId)
  *   replaces one's own in the 本局信息 tab (game.js scoutBandId; user playtest #2 item 2)

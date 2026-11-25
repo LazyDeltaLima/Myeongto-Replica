@@ -5,8 +5,14 @@ import { chessStatsBlock, traitText, chessTalents } from './detailPanel.js';
 import { chessLoadout } from './gameLogic.js';
 import { data } from '../data.js';
 import { t } from '../../../shared/i18n.js';
-const cx = (...parts) => parts.filter(Boolean).join(' ');
-const getChessRec = (id) => data.lookup('chess', id);
+const cx = (/** @type {unknown[]} */ ...parts) => parts.filter(Boolean).join(' ');
+const getChessRec = (/** @type {string} */ id) => data.lookup('chess', id);
+
+/**
+ * @typedef {{ trait?: { desc?: string } | null, isGolden?: boolean, [key: string]: unknown }} StatsChess  a chess.json record
+ * @typedef {{ elite: boolean, chess: StatsChess, lo: ReturnType<typeof chessLoadout>, record: unknown, trait: string,
+ *   talents: ReturnType<typeof chessTalents> }} StatsPreview
+ */
 
 /**
  * What 局内数值 shows (GitHub issue #64): the chess variant — the 精锐 record when asked for and the chess has one, else
@@ -14,12 +20,12 @@ const getChessRec = (id) => data.lookup('chess', id);
  * the in-match detail card and the sim do (shared/loadoutRecord.js): the elite's chosen module's stats / 特性 / talents
  * (不装备: the base ones), the chosen skill's passive range; a normal chess has no module, the skill does not change its
  * stats. Nothing is recomputed here.
- * @param {any} base normal chess record @param {any} golden its elite record or null
- * @param {Record<string, any>} entries the stored loadout @param {'normal'|'elite'} level
- * @param {(id: string) => any} getChess
- * @param {Record<string, any>|null} [ops] the stored 潜能 / 练度 (0.2.2: the numbers at the operator's settings — the
+ * @param {StatsChess | null | undefined} base normal chess record @param {StatsChess | null | undefined} golden its elite record or null
+ * @param {Record<string, unknown>} entries the stored loadout @param {'normal'|'elite'} level
+ * @param {(id: string) => unknown} getChess
+ * @param {Record<string, unknown>|null} [ops] the stored 潜能 / 练度 (0.2.2: the numbers at the operator's settings — the
  *   练度 multiplier needs effects.json; none set = 潜能 6, 精英2 Lv.60)
- * @returns {{ elite: boolean, chess: any, lo: any, record: any, trait: string, talents: any[] } | null} null without a record
+ * @returns {StatsPreview | null} null without a record
  */
 export function statsPreview(base, golden, entries, level, getChess, ops = null) {
   const elite = level === 'elite' && !!golden;
@@ -36,7 +42,8 @@ export function statsPreview(base, golden, entries, level, getChess, ops = null)
  * card's stats block (ui/detailPanel.js chessStatsBlock) without live numbers, so what a player reads here is what the
  * shop / board card shows before a battle (not the equipment, bond or skill-cast changes of a running match). The
  * toggle picks the 普通 or the 精锐 record; 精锐 is the default because the module only exists there.
- * @param {{ base: any, golden: any, entries: Record<string, any>, level: 'normal'|'elite', onLevel: (l: 'normal'|'elite') => void, getChess?: (id: string) => any,
+ * @param {{ base: StatsChess | null | undefined, golden: StatsChess | null | undefined, entries: Record<string, unknown>,
+ *   level: 'normal'|'elite', onLevel: (l: 'normal'|'elite') => void, getChess?: (id: string) => unknown,
  *   ops?: Record<string, { potential?: number, cultivate?: number }>|null }} props
  */
 export function LoadoutStats({ base, golden, entries, level, onLevel, getChess = getChessRec, ops = null }) {

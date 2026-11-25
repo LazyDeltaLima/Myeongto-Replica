@@ -14,12 +14,13 @@ import { data, localAsset } from '../data.js';
 import { t, tName, N_ } from '../../../shared/i18n.js';
 import { sentText } from './lang.js';
 
+/** @type {Record<string, string>} */
 const KIND = { band: N_('策略'), choice: N_('机变'), team: N_('团队增益'), item: N_('道具'), garrison: N_('特质') };
 
 /**
  * A 悬赏's counter line in the current language: the battles its enemies still come for (server/match/player/views.js
  * sends the same Chinese text as `counterText` beside the count; a multi-round card has no count).
- * @param {{ counter?: number|null }} e
+ * @param {{ counter?: number|string|null }} e
  */
 export const bountyCounterText = (e) => (e.counter == null ? t('之后的每场作战') : t('还剩 {left} 场作战', { left: e.counter }));
 
@@ -36,7 +37,7 @@ const SOURCES = ['effects', 'bands', 'items', 'garrisons'];
 export function effectDesc(e) {
   const desc = e.desc || '';
   if (!desc) return desc;
-  const from = (file, id) => {
+  const from = (/** @type {string} */ file, /** @type {unknown} */ id) => {
     const raw = typeof id === 'string' && id ? data.lookupRaw(file, id) : null;
     if (!raw) return desc;
     const loc = data.lookup(file, id) || raw;
@@ -76,7 +77,7 @@ export function effectDesc(e) {
  * The 强化效果 button's sprite (`buff_btn_clickable`, opened `buff_btn_opened`): the season theme's (`seasonSkin/*`),
  * else 规程's default theme's — 盟约's HUD has no such button, and it takes 规程's (maintainer decision 2026-11-19); null
  * on a server without the local extract (a look-alike box then). The spectator button (ui/spectators.js) draws the same.
- * @param {any} m data/assets.json as the screen reads it @param {boolean} open @returns {string|null}
+ * @param {unknown} m data/assets.json as the screen reads it @param {boolean} open @returns {string|null}
  */
 export function buffBtnSprite(m, open) {
   const name = open ? 'buff_btn_opened' : 'buff_btn_clickable';
@@ -87,16 +88,19 @@ export function buffBtnSprite(m, open) {
  * The 强化效果 button and its list (`effects`: the own m.private.effects, or the watched teammate's: m.field / the
  * spectated battle's). The button sprites of buffBtnSprite, a look-alike without them; nothing when there is no effect [ASSUMED·화면: an official CN prep screen of
  * a round 13 shows no such button left of the 🔍; whether it hides only when empty is not seen].
- * @param {{ effects: any[]|null|undefined }} props
+ * @typedef {{ id?: string, effectId?: string, iconId?: string, iconKind?: string, name?: string, desc?: string,
+ *   counterText?: unknown, counter?: number | string | null, roundFunds?: number, stack?: number,
+ *   [key: string]: unknown }} EffectEntry  an entry of m.private.effects (server/match/player/views.js effectsView)
+ * @param {{ effects: EffectEntry[]|null|undefined }} props
  */
 export function BuffButton({ effects }) {
   const [open, setOpen] = useState(false);
-  const root = useRef(null);
+  const root = useRef(/** @type {HTMLElement | null} */ (null));
   const list = (Array.isArray(effects) ? effects : []).filter((e) => e && (e.name || e.desc));
   useEffect(() => {
     if (!open) return undefined;
-    const away = (e) => { if (root.current && !root.current.contains(e.target)) setOpen(false); };
-    const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const away = (/** @type {Event} */ e) => { if (root.current && !root.current.contains(/** @type {Node | null} */ (e.target))) setOpen(false); };
+    const esc = (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('pointerdown', away, true);
     document.addEventListener('keydown', esc);
     return () => { document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', esc); };
@@ -109,15 +113,15 @@ export function BuffButton({ effects }) {
   return html`<div class=${open ? 'buffs is-open' : 'buffs'} ref=${root}>
     <button type="button" class=${sprite ? 'buffs__btn tapx has-sprite' : 'buffs__btn tapx'} style=${sprite ? `--buff-sprite:url("${sprite}")` : undefined}
       aria-expanded=${open} aria-label=${t('生效中的效果')} title=${t('生效中的效果')} data-testid="check-buff"
-      onKeyDown=${(e) => { if (e.key === ' ') e.stopPropagation(); }} onClick=${() => setOpen((o) => !o)}>
+      onKeyDown=${(/** @type {KeyboardEvent} */ e) => { if (e.key === ' ') e.stopPropagation(); }} onClick=${() => setOpen((o) => !o)}>
       ${sprite ? null : html`<${GIcon} name="bolt" class="buffs__ic" />`}<b class="buffs__n num">${list.length}</b>
     </button>
     ${open ? html`<div class="buffs__dlg" role="dialog" aria-label=${t('生效中的效果')} style=${bg ? `--buff-bg:url("${bg}")` : undefined}>
       <ul class="buffs__list">${list.map((e, i) => html`<li key=${e.id ?? i} class=${`buffs__row buffs__row--${e.iconKind || 'x'}`}>
         <span class="buffs__icon"><${Img} src=${effectIconUrl(m, e)} fallback=${html`<${GIcon} name="bolt" />`} /></span>
         <div class="buffs__text">
-          <p class="buffs__head"><b class="buffs__name">${tName(e.name) || t('效果')}</b><span class="buffs__kind">${t(KIND[e.iconKind] || '')}${e.counterText ? ` · ${bountyCounterText(e)}` : e.counter != null && e.counter !== '' ? ` · ${e.counter}` : ''}</span></p>
-          ${Number.isFinite(e.roundFunds) ? html`<p class="buffs__desc">${t('每回合开始时额外获得 {n} 资金', { n: e.roundFunds })}${e.stack > 1 ? html` <span class="buffs__kind">${t('已使用 {n} 个', { n: e.stack })}</span>` : null}</p>`
+          <p class="buffs__head"><b class="buffs__name">${tName(e.name) || t('效果')}</b><span class="buffs__kind">${t(KIND[/** @type {string} */ (e.iconKind)] || '')}${e.counterText ? ` · ${bountyCounterText(e)}` : e.counter != null && e.counter !== '' ? ` · ${e.counter}` : ''}</span></p>
+          ${Number.isFinite(e.roundFunds) ? html`<p class="buffs__desc">${t('每回合开始时额外获得 {n} 资金', { n: e.roundFunds })}${/** @type {number} */ (e.stack) > 1 ? html` <span class="buffs__kind">${t('已使用 {n} 个', { n: e.stack })}</span>` : null}</p>`
             : html`<${RichText} as="p" class="buffs__desc" text=${effectDesc(e)} />`}
         </div>
       </li>`)}</ul>

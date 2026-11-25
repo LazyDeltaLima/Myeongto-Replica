@@ -29,23 +29,31 @@ export const BURST_CHECK_MS = 3_000;
 export const BURST_CHECKS = 4;
 
 /**
+ * @typedef {(url: string, init: RequestInit) => Promise<{ ok: boolean, json: () => Promise<unknown> } | null | undefined>} BuildFetch
+ * @typedef {(fn: (...args: unknown[]) => void, ms: number) => unknown} SetTimer  setTimeout / setInterval (or a test's clock)
+ * @typedef {(handle: unknown) => void} ClearTimer  clearTimeout / clearInterval
+ */
+
+/**
  * Fetch `/healthz` and return its `build` tag (null when unavailable, not reported, or too slow). Never throws.
- * @param {Function} fetchFn @param {{ timeoutMs?: number, setTimeout?: Function, clearTimeout?: Function }} [o]
+ * @param {BuildFetch} fetchFn @param {{ timeoutMs?: number, setTimeout?: SetTimer, clearTimeout?: ClearTimer }} [o]
  * @returns {Promise<string|null>}
  */
 export async function fetchBuild(fetchFn, o = {}) {
-  const timeoutMs = Number.isFinite(o.timeoutMs) && o.timeoutMs > 0 ? o.timeoutMs : BUILD_FETCH_TIMEOUT_MS;
-  const setT = o.setTimeout || ((fn, ms) => globalThis.setTimeout(fn, ms));
-  const clearT = o.clearTimeout || ((h) => globalThis.clearTimeout(h));
+  const timeoutMs = Number.isFinite(o.timeoutMs) && /** @type {number} */ (o.timeoutMs) > 0 ? /** @type {number} */ (o.timeoutMs) : BUILD_FETCH_TIMEOUT_MS;
+  const setT = o.setTimeout || ((/** @type {(...args: unknown[]) => void} */ fn, /** @type {number} */ ms) => globalThis.setTimeout(fn, ms));
+  const clearT = o.clearTimeout || ((/** @type {unknown} */ h) => globalThis.clearTimeout(/** @type {ReturnType<typeof setTimeout>} */ (h)));
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  /** @type {unknown} */
   let timer = null;
+  /** @type {Promise<never>} */
   const tooSlow = new Promise((_, reject) => {
     timer = setT(() => { try { ctrl?.abort(); } catch { /* ignore */ } reject(new Error('timeout')); }, timeoutMs);
   });
   try {
     const res = await Promise.race([fetchFn('/healthz', { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined }), tooSlow]);
     if (!res || !res.ok) return null;
-    const body = await res.json();
+    const body = /** @type {{ build?: unknown } | null} */ (await res.json());
     return body && typeof body.build === 'string' && body.build ? body.build : null;
   } catch {
     return null;
@@ -56,11 +64,11 @@ export async function fetchBuild(fetchFn, o = {}) {
 
 /**
  * One check, against the build this page already knows.
- * @param {{ fetchFn?: Function, known?: string|null, timeoutMs?: number, setTimeout?: Function, clearTimeout?: Function }} [o]
+ * @param {{ fetchFn?: BuildFetch, known?: string|null, timeoutMs?: number, setTimeout?: SetTimer, clearTimeout?: ClearTimer }} [o]
  * @returns {Promise<{ status: 'first'|'current'|'new'|'unknown', build: string|null }>}
  */
 export async function checkBuildOnce(o = {}) {
-  const fetchFn = o.fetchFn || ((url, init) => globalThis.fetch(url, init));
+  const fetchFn = o.fetchFn || ((/** @type {string} */ url, /** @type {RequestInit} */ init) => globalThis.fetch(url, init));
   const build = await fetchBuild(fetchFn, o);
   if (!build) return { status: 'unknown', build: null };            // unreachable / not reported: never a reload
   if (!o.known) return { status: 'first', build };
@@ -69,23 +77,26 @@ export async function checkBuildOnce(o = {}) {
 
 /**
  * Watch for a new build.
- * @param {{ fetchFn?: Function, reload?: Function, inMatch?: () => boolean, intervalMs?: number, timeoutMs?: number,
- *           setInterval?: Function, clearInterval?: Function, setTimeout?: Function, clearTimeout?: Function,
+ * @param {{ fetchFn?: BuildFetch, reload?: () => void, inMatch?: () => boolean, intervalMs?: number, timeoutMs?: number,
+ *           setInterval?: SetTimer, clearInterval?: ClearTimer, setTimeout?: SetTimer, clearTimeout?: ClearTimer,
  *           onStale?: (info: { build: string, known: string|null, waiting: boolean }) => void }} [o]
  * @returns {{ stop: () => void, check: () => Promise<object>, burst: (n?: number) => Promise<void>, stale: () => boolean, known: () => string|null }}
  */
 export function startBuildGuard(o = {}) {
-  const fetchFn = o.fetchFn || ((url, init) => globalThis.fetch(url, init));
+  const fetchFn = o.fetchFn || ((/** @type {string} */ url, /** @type {RequestInit} */ init) => globalThis.fetch(url, init));
   const reload = o.reload || (() => globalThis.location.reload());
   const inMatch = typeof o.inMatch === 'function' ? o.inMatch : () => false;
-  const setIv = o.setInterval || ((fn, ms) => globalThis.setInterval(fn, ms));
-  const clearIv = o.clearInterval || ((h) => globalThis.clearInterval(h));
-  const intervalMs = Number.isFinite(o.intervalMs) && o.intervalMs > 0 ? o.intervalMs : BUILD_CHECK_MS;
+  const setIv = o.setInterval || ((/** @type {(...args: unknown[]) => void} */ fn, /** @type {number} */ ms) => globalThis.setInterval(fn, ms));
+  const clearIv = o.clearInterval || ((/** @type {unknown} */ h) => globalThis.clearInterval(/** @type {ReturnType<typeof setInterval>} */ (h)));
+  const intervalMs = Number.isFinite(o.intervalMs) && /** @type {number} */ (o.intervalMs) > 0 ? /** @type {number} */ (o.intervalMs) : BUILD_CHECK_MS;
+  /** @type {string | null} */
   let known = null;      // the build this page runs — memory only (one page == one set of loaded modules)
+  /** @type {string | null} */
   let candidate = null;  // the last new build seen; needs BUILD_CONFIRMATIONS checks in a row to be acted on
   let seen = 0;          // consecutive checks that reported `candidate`
   let stale = false;     // a new build is confirmed → reload as soon as no match is on screen
   let pending = false;
+  /** @type {unknown} */
   let timer = null;
   let stopped = false;
 
@@ -110,7 +121,7 @@ export function startBuildGuard(o = {}) {
     const first = !stale;
     stale = true;
     const waiting = inMatch();
-    if (first) { try { o.onStale?.({ build: r.build, known, waiting }); } catch { /* ignore */ } }
+    if (first) { try { o.onStale?.({ build: /** @type {string} */ (r.build), known, waiting }); } catch { /* ignore */ } }
     if (!waiting) reloadNow();
     return { status: 'stale', build: r.build, known };
   };
@@ -120,7 +131,7 @@ export function startBuildGuard(o = {}) {
   timer = setIv(tick, intervalMs);
   // A restart the page heard of (ui/restartNotice.js onRestarted) is over: check now and a few times BURST_CHECK_MS apart
   // instead of waiting up to two intervals. The same rules hold — two agreeing checks, never on 'unknown', a match waits.
-  const setT = o.setTimeout || ((fn, ms) => globalThis.setTimeout(fn, ms));
+  const setT = o.setTimeout || ((/** @type {(...args: unknown[]) => void} */ fn, /** @type {number} */ ms) => globalThis.setTimeout(fn, ms));
   const burst = async (n = BURST_CHECKS) => {
     for (let i = 0; i < n && !stopped && !stale; i++) {
       if (i > 0) await new Promise((r) => setT(r, BURST_CHECK_MS));

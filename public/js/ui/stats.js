@@ -65,14 +65,65 @@ export const IMPORT_MAX_CHARS = 8_000_000;
 const FULL_KEY = `sp.pref.${STATS_PREF_KEY}`;
 const DAMAGED_KEY = `${FULL_KEY}.damaged`;
 
-/** @returns {{ v: number, records: Array }} a fresh empty envelope */
+/**
+ * The normalized record (normalizeRecord) and its rows; a compacted record (compactRecord) keeps only the frame of
+ * COMPACT_FRAME and the player's own summary row, so the other fields are optional.
+ * @typedef {{ charId: string | null, skillIndex: number, uniEquipId: string | null }} RecDiy  a 自选 pick of a row
+ * @typedef {{ id: string, golden: boolean, tier: number, items: string[], kind?: 'token', diy?: RecDiy,
+ *   standInFor?: string | null }} LineupEntry
+ * @typedef {{ id: string, golden: boolean, tier: number, dmg: number, final: number, hidden: number, diy?: RecDiy,
+ *   standInFor?: string | null, sold?: boolean, summon?: boolean, assist?: Record<string, number> }} UnitRow
+ * @typedef {{ bondId: string, layers: number, active: boolean }} BondRow
+ * @typedef {{ maxHp: number, dealt: number }} BossPool
+ * @typedef {{ final: BossPool | null, hidden: BossPool | null }} BossPools
+ * @typedef {{ playerId: string, seat: number, name?: string, isBot?: boolean, left: boolean, alive: boolean,
+ *   victory: boolean, roundsPassed: number | null, eliminatedRound: number | null, lp?: number | null,
+ *   bandId: string | null, title: { id: string | null } | null, trophies: number, reward: number,
+ *   lineup?: LineupEntry[], bonds?: BondRow[], usedBondIds?: string[], stats: Record<string, number>, units?: UnitRow[],
+ *   unite?: { sent: number, through: number } | null, faction?: string | null }} PlayerRow
+ * @typedef {{ id: string, v: number, t: number, end: 'quit' | 'settled', victory: boolean, roundsPassed: number | null,
+ *   lastRound?: number | null, hiddenReached: boolean, hiddenCleared: boolean, reason: string | null,
+ *   modeId: string | null, difficulty: string | null, stageId?: string | null, bossId?: string | null,
+ *   hiddenBossId?: string | null, seed?: number | null, durationMs?: number | null, teamLp?: number | null,
+ *   bossPools?: BossPools | null, uniteRounds?: number | null, roomMode: 'solo' | 'coop' | null, ruleset: string,
+ *   selfId?: string | null, season?: string, compact?: boolean, players: PlayerRow[] }} StatsRecord
+ * @typedef {{ v: number, records: StatsRecord[] }} StatsEnvelope
+ * @typedef {{ victory: boolean, roundsPassed: number | null, hiddenReached: boolean, hiddenCleared: boolean,
+ *   reason: string | null, modeId: string | null, difficulty: string | null, bossId?: string | null,
+ *   hiddenBossId?: string | null, seed?: number | null, durationMs?: number | null, teamLp?: number | null,
+ *   players: PlayerRow[], lastRound?: number | null, bossPools?: BossPools, uniteRounds?: number | null }} RecordResult
+ *   the m.result-shaped payload of a record (recordToResult)
+ * @typedef {{ games: number, wins: number, hiddenCleared: number }} ModeTally
+ * @typedef {{ total: number, count: number, excluded: number, wins: number, rounds: { total: number, max: number },
+ *   duration: { totalMs: number }, hidden: { reached: number, cleared: number }, byDifficulty: Record<string, ModeTally>,
+ *   byMode: { solo: number, coop: number }, titles: Record<string, { count: number }>,
+ *   bands: Record<string, { games: number, wins: number }>, sums: Record<string, number>, trophies: number,
+ *   modes: { solo: ModeTally, coop: ModeTally }, bonds: Record<string, { games: number }>,
+ *   maxima: Record<string, number | null> }} StatsAggregate  aggregateStats
+ * @typedef {{ phase?: string, round?: number, players?: unknown, modeId?: unknown, lastRound?: unknown,
+ *   difficulty?: unknown, stageId?: unknown, bossId?: unknown, hiddenBossId?: unknown, teamLp?: unknown,
+ *   ruleset?: unknown, [key: string]: unknown }} StatsPub  m.public, read for a quit record
+ * @typedef {{ match?: { public?: StatsPub | null, result?: unknown } | null, me?: { playerId?: string | null } | null,
+ *   room?: { code?: string, mode?: string | null, season?: unknown } | null, [key: string]: unknown }} StatsAppState
+ *   the app store state, read for the tracker and a quit record
+ * @typedef {{ bandId: string, victorCount?: number, sortId?: number, [key: string]: unknown }} BandRec  a bands.json row
+ * @typedef {{ count: number, [key: string]: unknown }} TrophyMedal  config.trophies.medals[]
+ * @typedef {{ chessId: string, charId?: string, tier: number, shopSortId?: number, isGolden?: boolean, isHidden?: boolean,
+ *   isDiy?: boolean, visible?: boolean, bonds?: string[], [key: string]: unknown }} BondChess  a chess.json row
+ */
+
+/** @returns {StatsEnvelope} a fresh empty envelope */
 export const emptyStats = () => ({ v: STATS_VERSION, records: [] });
 
+/** @param {unknown} v @returns {v is Record<string, unknown>} */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
-const int = (v, d) => (Number.isFinite(v) ? Math.round(v) : d);
-const num = (v) => (Number.isFinite(v) ? v : null);
+/** @template D @param {unknown} v @param {D} d @returns {number | D} */
+const int = (v, d) => (Number.isFinite(v) ? Math.round(/** @type {number} */ (v)) : d);
+/** @param {unknown} v @returns {number | null} */
+const num = (v) => (Number.isFinite(v) ? /** @type {number} */ (v) : null);
+/** @param {unknown} v @param {boolean} [d] */
 const bool = (v, d = false) => (typeof v === 'boolean' ? v : d);
-/** A non-empty string, cut to `max` characters. */
+/** A non-empty string, cut to `max` characters. @param {unknown} v @param {number} [max] */
 const str = (v, max = 64) => (typeof v === 'string' && v.length ? v.slice(0, max) : null);
 
 // per-record bounds (an imported file is foreign data: nothing a row holds may grow without limit)
@@ -85,13 +136,13 @@ const MAX_BONDS = 24;
 const MAX_STAT_KEYS = 24;
 const MAX_NAME = 24;
 const MAX_UNITS = 16; // the result screen's per-operator rows a stored record keeps (m.result sends up to 24)
-/** A non-negative finite number, rounded (0 otherwise). */
-const pos = (v) => (Number.isFinite(v) && v > 0 ? Math.round(v) : 0);
+/** A non-negative finite number, rounded (0 otherwise). @param {unknown} v */
+const pos = (v) => (Number.isFinite(v) && /** @type {number} */ (v) > 0 ? Math.round(/** @type {number} */ (v)) : 0);
 
 /**
  * Copy only the finite numeric keys of a stats block (the settlement's numbers; a numeric field this build does not
  * know is kept too, up to MAX_STAT_KEYS — display can lag, data should not).
- * @param {any} raw
+ * @param {unknown} raw
  * @returns {Record<string, number>}
  */
 function normalizeStatBlock(raw) {
@@ -101,7 +152,7 @@ function normalizeStatBlock(raw) {
   let n = 0;
   for (const [k, v] of Object.entries(raw)) {
     if (!Number.isFinite(v) || k.length > 32) continue;
-    out[k] = v;
+    out[k] = /** @type {number} */ (v);
     if (++n >= MAX_STAT_KEYS) break;
   }
   return out;
@@ -126,36 +177,37 @@ function fnv1a(s) {
  * (server/lobby.js result replay): seed + duration + mode + rounds + outcome + who I was. Two distinct
  * matches colliding on all of these is not a real scenario; a replayed m.result hits the same id and is
  * dropped, which is the point (recording happens on every m.result arrival, replays included).
- * @param {any} res raw m.result payload
+ * @param {unknown} res raw m.result payload
  * @param {string|null|undefined} myId the local player's id at that moment
  * @returns {string}
  */
 export function recordId(res, myId) {
-  const r = isObj(res) ? res : {};
+  const r = /** @type {Record<string, unknown>} */ (isObj(res) ? res : {});
   return `r1.${fnv1a([r.seed ?? '-', r.durationMs ?? '-', r.modeId ?? '-', r.roundsPassed ?? '-', r.victory ? 1 : 0, myId ?? '-'].join('|'))}`;
 }
 
 /**
  * Normalize ONE player row: known fields defaulted and bounded, unknown fields dropped. `quit`: the record is a quit
  * record, whose row may not know its rounds (`roundsPassed: null`).
- * @param {any} raw
+ * @param {unknown} raw
  * @param {boolean} [quit]
- * @returns {any}
+ * @returns {PlayerRow}
  */
 function normalizePlayerRow(raw, quit = false) {
-  const p = isObj(raw) ? raw : {};
+  const p = /** @type {Record<string, unknown>} */ (isObj(raw) ? raw : {});
   // the page and the replay read the title record from the game data by id: the sent texts are not kept
   const title = isObj(p.title) && str(p.title.id) ? { id: str(p.title.id) } : null;
   const lineup = (Array.isArray(p.lineup) ? p.lineup : []).filter(isObj).slice(0, MAX_LINEUP).map((u) => {
     // ids only — the tile position (row/col) is replay detail, not a statistic; items kept (配发装备统计); a 自选
     // pick and a 补位 stand-in kept too, or the replayed card would draw the plain operator
+    /** @type {LineupEntry} */
     const e = {
       id: str(u.id) || '', golden: bool(u.golden), tier: int(u.tier, 0),
-      items: (Array.isArray(u.items) ? u.items : []).filter((i) => typeof i === 'string' && i.length).slice(0, MAX_ITEMS).map((i) => i.slice(0, 64)),
+      items: /** @type {string[]} */ ((Array.isArray(u.items) ? u.items : []).filter((/** @type {unknown} */ i) => typeof i === 'string' && i.length)).slice(0, MAX_ITEMS).map((i) => i.slice(0, 64)),
     };
     if (u.kind === 'token') e.kind = 'token';
     if (isObj(u.diy) && str(u.diy.charId)) {
-      e.diy = { charId: str(u.diy.charId), skillIndex: Number.isInteger(u.diy.skillIndex) ? u.diy.skillIndex : 0, uniEquipId: str(u.diy.uniEquipId) };
+      e.diy = { charId: str(u.diy.charId), skillIndex: Number.isInteger(u.diy.skillIndex) ? /** @type {number} */ (u.diy.skillIndex) : 0, uniEquipId: str(u.diy.uniEquipId) };
     }
     if (str(u.standInFor)) e.standInFor = str(u.standInFor);
     return e;
@@ -165,16 +217,18 @@ function normalizePlayerRow(raw, quit = false) {
   })).filter((b) => b.bondId);
   // the result screen's 伤害 / 联防 tabs (server/match/unitTally.js): the top MAX_UNITS operators, numbers rounded
   const units = (Array.isArray(p.units) ? p.units : []).filter(isObj).slice(0, MAX_UNITS).map((u) => {
+    /** @type {UnitRow} */
     const e = { id: str(u.id) || '', golden: bool(u.golden), tier: int(u.tier, 0), dmg: pos(u.dmg), final: pos(u.final), hidden: pos(u.hidden) };
     if (isObj(u.diy) && str(u.diy.charId)) {
-      e.diy = { charId: str(u.diy.charId), skillIndex: Number.isInteger(u.diy.skillIndex) ? u.diy.skillIndex : 0, uniEquipId: str(u.diy.uniEquipId) };
+      e.diy = { charId: str(u.diy.charId), skillIndex: Number.isInteger(u.diy.skillIndex) ? /** @type {number} */ (u.diy.skillIndex) : 0, uniEquipId: str(u.diy.uniEquipId) };
     }
     if (str(u.standInFor)) e.standInFor = str(u.standInFor);
     if (u.sold === true) e.sold = true;
     if (u.summon === true) e.summon = true;
     if (isObj(u.assist)) {
+      /** @type {Record<string, number>} */
       const a = {};
-      for (const [k, v] of Object.entries(u.assist).slice(0, MAX_PLAYERS)) if (str(k) && pos(v) > 0) a[str(k)] = pos(v);
+      for (const [k, v] of Object.entries(u.assist).slice(0, MAX_PLAYERS)) if (str(k) && pos(v) > 0) a[/** @type {string} */ (str(k))] = pos(v);
       if (Object.keys(a).length) e.assist = a;
     }
     return e;
@@ -204,10 +258,10 @@ function normalizePlayerRow(raw, quit = false) {
   };
 }
 
-/** m.result bossPools ({ final, hidden: { maxHp, dealt } | null }) or null. */
+/** m.result bossPools ({ final, hidden: { maxHp, dealt } | null }) or null. @param {unknown} raw @returns {BossPools | null} */
 function normalizeBossPools(raw) {
   if (!isObj(raw)) return null;
-  const one = (x) => (isObj(x) && pos(x.maxHp) > 0 ? { maxHp: pos(x.maxHp), dealt: Math.min(pos(x.maxHp), pos(x.dealt)) } : null);
+  const one = (/** @type {unknown} */ x) => (isObj(x) && pos(x.maxHp) > 0 ? { maxHp: pos(x.maxHp), dealt: Math.min(pos(x.maxHp), pos(x.dealt)) } : null);
   const out = { final: one(raw.final), hidden: one(raw.hidden) };
   return out.final || out.hidden ? out : null;
 }
@@ -216,18 +270,19 @@ function normalizeBossPools(raw) {
  * Normalize ONE match record to the current shape (a strict schema: missing fields get defaults, unknown ones are
  * dropped, every string / list is bounded). A record without an `end` is a settled one — the PR #323 build, which
  * never recorded anything else, wrote none.
- * @param {any} raw
- * @returns {any|null} null when the row is not salvageable (no usable player row at all)
+ * @param {unknown} raw
+ * @returns {StatsRecord|null} null when the row is not salvageable (no usable player row at all)
  */
 export function normalizeRecord(raw) {
-  const r = isObj(raw) ? raw : {};
+  const r = /** @type {Record<string, unknown>} */ (isObj(raw) ? raw : {});
   // a record IS a played match — no usable players array, no record
   if (!Array.isArray(r.players)) return null;
   const quit = r.end === 'quit';
   const players = r.players.filter(isObj).slice(0, MAX_PLAYERS).map((p) => normalizePlayerRow(p, quit));
   if (!players.length) return null;
+  /** @type {StatsRecord} */
   const rec = {
-    id: str(r.id),
+    id: /** @type {string} */ (str(r.id)), // an id-less record gets its content id below
     v: STATS_VERSION,
     t: int(r.t, 0),
     end: quit ? 'quit' : 'settled',
@@ -248,7 +303,7 @@ export function normalizeRecord(raw) {
     bossPools: normalizeBossPools(r.bossPools),
     uniteRounds: num(r.uniteRounds),
     roomMode: r.roomMode === 'solo' || r.roomMode === 'coop' ? r.roomMode : null,
-    ruleset: isRulePreset(r.ruleset) ? r.ruleset : LEGACY_RULESET,
+    ruleset: isRulePreset(r.ruleset) ? /** @type {string} */ (r.ruleset) : LEGACY_RULESET,
     selfId: str(r.selfId),
     players,
   };
@@ -262,35 +317,36 @@ export function normalizeRecord(raw) {
   return rec;
 }
 
-/** The 卫戍协议 season of a record (normalizeRecord: none = the default season). @param {any} rec @returns {string} */
+/** The 卫戍协议 season of a record (normalizeRecord: none = the default season). @param {{ season?: unknown } | null | undefined} rec @returns {string} */
 export const recordSeason = (rec) => (typeof rec?.season === 'string' && rec.season ? rec.season : DEFAULT_SEASON);
 
 /**
  * The MIGRATIONS chain: `MIGRATIONS[v]` upgrades a v-envelope to v+1, for v = STATS_VERSION and down.
  * Every stored / imported envelope walks the whole chain.
  *   1 → 2: the records gain `ruleset` (규칙 모드); the matches before it count as 休闲 (LEGACY_RULESET).
- * @type {Record<number, (stats: any) => any>}
+ * @type {Record<number, (stats: { v: number, records: unknown[] }) => { v: number, records: unknown[] }>}
  */
 export const MIGRATIONS = {
   1: ({ records }) => ({ v: 2, records: records.map((r) => (isObj(r) && !isRulePreset(r.ruleset) ? { ...r, ruleset: LEGACY_RULESET } : r)) }),
 };
 
-/** Newest first (the stored order): by time, then id. */
+/** Newest first (the stored order): by time, then id. @param {StatsRecord} a @param {StatsRecord} b */
 const newestFirst = (a, b) => (b.t - a.t) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 /**
  * Bring any stored / imported envelope to the current version.
- * @param {any} raw
- * @returns {{ stats: { v: number, records: any[] }, changed: boolean, newer: boolean, dropped: number }}
+ * @param {unknown} raw
+ * @returns {{ stats: StatsEnvelope, changed: boolean, newer: boolean, dropped: number }}
  *   `newer` = the data was written by a NEWER build: returned untouched, callers must not save over it.
  *   `dropped` = rows that were not salvageable, repeated a record or went beyond MAX_RECORDS: gone from `stats`.
  */
 export function migrateStats(raw) {
   if (!isObj(raw) || !Array.isArray(raw.records)) return { stats: emptyStats(), changed: false, newer: false, dropped: 0 };
-  if ((raw.v ?? 0) > STATS_VERSION) {
-    return { stats: { v: raw.v, records: raw.records }, changed: false, newer: true, dropped: 0 };
+  if (/** @type {number} */ (raw.v ?? 0) > STATS_VERSION) {
+    return { stats: { v: /** @type {number} */ (raw.v), records: raw.records }, changed: false, newer: true, dropped: 0 };
   }
-  let v = Number.isFinite(raw.v) ? raw.v : 0;
+  let v = Number.isFinite(raw.v) ? /** @type {number} */ (raw.v) : 0;
+  /** @type {unknown[]} */
   let records = raw.records;
   let changed = v !== STATS_VERSION;
   while (v < STATS_VERSION) {
@@ -299,6 +355,7 @@ export function migrateStats(raw) {
     v++;
   }
   // a hand-edited / merged list can be oversized, unsorted or repeat a record: only the newest MAX_RECORDS survive, newest first
+  /** @type {StatsRecord[]} */
   const normalized = [];
   const seen = new Set(); // a record listed twice (hand-merged data) counts once: the first copy
   for (const r of records) {
@@ -309,7 +366,7 @@ export function migrateStats(raw) {
   const kept = normalized.slice(0, MAX_RECORDS);
   const dropped = records.length - kept.length;
   // storage is rewritten (self-healed) when a row went, the order changed or an id-less row got its content id
-  changed ||= dropped > 0 || kept.some((rec, i) => !isObj(records[i]) || rec.id !== records[i].id);
+  changed ||= dropped > 0 || kept.some((rec, i) => !isObj(records[i]) || rec.id !== (/** @type {Record<string, unknown>} */ (records[i])).id);
   return { stats: { v: STATS_VERSION, records: kept }, changed, newer: false, dropped };
 }
 
@@ -321,7 +378,7 @@ function readRaw() {
 /**
  * Read + migrate the persisted envelope; self-heals older shapes back to storage. An unreadable value (not JSON, or
  * not an envelope) is moved to `sp.pref.stats.damaged` — kept for a manual recovery — and the history starts again.
- * @returns {{ v: number, records: any[], newer: boolean, dropped: number, damaged: boolean }}
+ * @returns {{ v: number, records: StatsRecord[], newer: boolean, dropped: number, damaged: boolean }}
  */
 export function loadStats() {
   const raw = readRaw();
@@ -341,7 +398,7 @@ export function loadStats() {
 /**
  * The stored records for a glance (the lobby's 成就统计 card and window): read and migrated in memory only — nothing is
  * written back and an unreadable or newer value reads as no records, so 统计数据 still finds it and says so.
- * @returns {any[]}
+ * @returns {StatsRecord[]}
  */
 export function peekStatsRecords() {
   const raw = readRaw();
@@ -353,10 +410,10 @@ export function peekStatsRecords() {
   return newer ? [] : stats.records;
 }
 
-/** The 规则 模式 of a record (a record from before rulesets is 休闲, LEGACY_RULESET). @param {any} r */
-export const recordRuleset = (r) => (isRulePreset(r?.ruleset) ? r.ruleset : LEGACY_RULESET);
+/** The 规则 模式 of a record (a record from before rulesets is 休闲, LEGACY_RULESET). @param {{ ruleset?: unknown } | null | undefined} r */
+export const recordRuleset = (r) => (isRulePreset(r?.ruleset) ? /** @type {string} */ ((/** @type {{ ruleset?: unknown }} */ (r)).ruleset) : LEGACY_RULESET);
 
-/** The records of one 规则 模式 (成就统计 and the hub card's LV count each apart). @param {any[]} records @param {string} ruleset */
+/** The records of one 规则 模式 (成就统计 and the hub card's LV count each apart). @param {StatsRecord[]} records @param {string} ruleset */
 export function recordsOfRuleset(records, ruleset) {
   return (Array.isArray(records) ? records : []).filter((r) => recordRuleset(r) === ruleset);
 }
@@ -364,21 +421,22 @@ export function recordsOfRuleset(records, ruleset) {
 /**
  * The 规则 模式 成就统计 and the hub card show (maintainer decision 2026-11-08): the one picked last in the window, or the
  * one of the match played last, whichever came later; 经典 with neither.
- * @param {any[]} records @param {{ ruleset?: unknown, at?: unknown } | null} saved the window's last pick (pref `achv.ruleset`)
+ * @param {StatsRecord[]} records @param {{ ruleset?: unknown, at?: unknown } | null} saved the window's last pick (pref `achv.ruleset`)
  * @returns {string}
  */
 export function achievementRuleset(records, saved) {
+  /** @type {StatsRecord | null} */
   let last = null;
   for (const r of Array.isArray(records) ? records : []) if (Number.isFinite(r?.t) && (!last || r.t > last.t)) last = r;
   const pick = saved && isRulePreset(saved.ruleset) && Number.isFinite(saved.at) ? saved : null;
-  if (pick && (!last || pick.at >= last.t)) return /** @type {string} */ (pick.ruleset);
+  if (pick && (!last || /** @type {number} */ (pick.at) >= last.t)) return /** @type {string} */ (pick.ruleset);
   return last ? recordRuleset(last) : 'classic';
 }
 
 /**
  * The records of one season (recordSeason; every record when `season` is null): each season has its own 卫戍认证 levels
  * and its own achievements, as 统计数据 shows the season on screen.
- * @param {any[]} records @param {string|null} season
+ * @param {StatsRecord[]} records @param {string|null} season
  */
 export function recordsOfSeason(records, season) {
   const list = Array.isArray(records) ? records : [];
@@ -387,6 +445,7 @@ export function recordsOfSeason(records, season) {
 
 // ---- compaction + the storage budget ---------------------------------------------------------------------------
 
+/** @type {(keyof StatsRecord)[]} */
 const COMPACT_FRAME = ['id', 'v', 't', 'end', 'victory', 'roundsPassed', 'lastRound', 'hiddenReached', 'hiddenCleared', 'reason', 'modeId',
   'difficulty', 'roomMode', 'ruleset', 'durationMs', 'selfId'];
 
@@ -394,12 +453,13 @@ const COMPACT_FRAME = ['id', 'v', 't', 'end', 'victory', 'roundsPassed', 'lastRo
  * The compact form of a record: the frame and the player's OWN row without lineup, bonds and name — everything the
  * aggregates, the history list, 成就统计 and the level read (the active bonds as their ids), nothing a replay needs.
  * Teammates are gone. Idempotent.
- * @param {any} rec a normalized record
- * @returns {any}
+ * @param {StatsRecord} rec a normalized record
+ * @returns {StatsRecord}
  */
 export function compactRecord(rec) {
   const self = selfRowOf(rec);
   const usedBondIds = usedBondIdsOf(self);
+  /** @type {Record<string, unknown>} */
   const out = {};
   for (const k of COMPACT_FRAME) if (rec[k] != null) out[k] = rec[k];
   out.compact = true;
@@ -410,17 +470,18 @@ export function compactRecord(rec) {
     trophies: self.trophies, reward: self.reward,
     ...(usedBondIds.length ? { usedBondIds } : {}),
   }] : [];
-  return out;
+  return /** @type {StatsRecord} */ (out);
 }
 
 /**
  * What goes to storage: the newest FULL_KEEP records and the record of the highest bond layers as they are, older ones
  * compacted, then the oldest dropped until the JSON fits `maxChars` (the newest record is always kept).
- * @param {any[]} records newest first
+ * @param {StatsRecord[]} records newest first
  * @param {number} [maxChars]
- * @returns {any[]}
+ * @returns {StatsRecord[]}
  */
 export function fitToBudget(records, maxChars = MAX_CHARS) {
+  /** @type {StatsRecord[]} */
   const kept = [];
   let used = 40; // the envelope itself
   const peakId = highestBondRecord(records.slice(0, MAX_RECORDS))?.record.id;
@@ -437,7 +498,7 @@ export function fitToBudget(records, maxChars = MAX_CHARS) {
 /**
  * Persist the envelope. Never overwrites an envelope of a newer build. Compacts and trims to the budget first; a write
  * the browser refuses (quota — other keys share it) is retried with half the history, down to a handful of records.
- * @param {{ v: number, records: any[], newer?: boolean }} stats
+ * @param {{ v: number, records: StatsRecord[], newer?: boolean }} stats
  * @returns {boolean} whether a write stuck
  */
 export function saveStats(stats) {
@@ -473,12 +534,12 @@ export function roomModeOf(modeId, roomMode) {
  * Build one settled record from a raw m.result payload (+ context). Null when there is nothing to store: payloads
  * without players (the error-path settlement) or matches the local player did not take part in (spectator
  * seats get every result pushed too — eliminated players, who ARE in players[], keep recording).
- * @param {any} res raw m.result payload
- * @param {{ myId?: string|null, roomMode?: string|null, ruleset?: any, season?: string|null, now?: number }} ctx
- * @returns {any|null}
+ * @param {unknown} res raw m.result payload
+ * @param {{ myId?: string|null, roomMode?: string|null, ruleset?: unknown, season?: string|null, now?: number }} ctx
+ * @returns {StatsRecord|null}
  */
 export function buildRecord(res, ctx = {}) {
-  const r = isObj(res) ? res : {};
+  const r = /** @type {Record<string, unknown>} */ (isObj(res) ? res : {});
   if (!Array.isArray(r.players) || !r.players.length) return null;
   const myId = str(ctx.myId);
   const selfRow = r.players.find((p) => isObj(p) && p.playerId === myId);
@@ -528,12 +589,12 @@ export const liveMatch = createLiveMatch();
 /**
  * Feed the tracker one app state (cheap: called on every store change).
  * @param {ReturnType<typeof createLiveMatch>} live
- * @param {any} state the app store state
+ * @param {StatsAppState} state the app store state
  * @param {number} [now]
  */
 export function observeMatch(live, state, now = Date.now()) {
   const pub = state?.match?.public;
-  const inMatch = !!pub && !!pub.phase && pub.phase !== PHASE.LOBBY && pub.phase !== PHASE.RESULT && !state.match.result;
+  const inMatch = !!pub && !!pub.phase && pub.phase !== PHASE.LOBBY && pub.phase !== PHASE.RESULT && !(/** @type {NonNullable<StatsAppState['match']>} */ (state.match)).result;
   if (!inMatch) { live.active = false; return live; }
   const round = Number(pub.round) || 0;
   if (!live.active) {
@@ -542,12 +603,15 @@ export function observeMatch(live, state, now = Date.now()) {
     live.sawStart = round <= 1;
     live.aliveRound = null;
   }
-  const me = Array.isArray(pub.players) ? pub.players.find((p) => isObj(p) && p.playerId === state.me?.playerId) : null;
+  const me = Array.isArray(pub.players) ? pub.players.find((/** @type {unknown} */ p) => isObj(p) && p.playerId === state.me?.playerId) : null;
   if (me && me.alive !== false) live.aliveRound = Math.max(live.aliveRound ?? 0, round);
   return live;
 }
 
-/** Start following the store (main.js). Returns the unsubscribe function. */
+/**
+ * Start following the store (main.js). Returns the unsubscribe function.
+ * @param {{ get: () => StatsAppState, subscribe: (fn: (s: StatsAppState) => void) => () => void }} store
+ */
 export function installStatsRecorder(store) {
   observeMatch(liveMatch, store.get());
   return store.subscribe((s) => observeMatch(liveMatch, s));
@@ -556,7 +620,7 @@ export function installStatsRecorder(store) {
 /**
  * The rounds a player who leaves in `phase` of `round` has cleared — the server's rule for a quit (platform.js _quit:
  * eliminated in round k ⇒ k − 1 passed; leaving in the settlement of round k counts k).
- * @param {string} phase @param {number} round
+ * @param {string | undefined} phase @param {number} round
  */
 export function clearedRounds(phase, round) {
   const r = Number.isFinite(round) ? round : 0;
@@ -567,17 +631,17 @@ export function clearedRounds(phase, round) {
  * Build the quit record of a match the local player is leaving (放弃模拟), from the app state and the tracker. Null when
  * there is nothing of mine to record: no match on screen, its settlement already here (that one is recorded by
  * recordResult), a spectator seat, or a match the page never saw.
- * @param {any} state the app store state BEFORE the match is cleared
+ * @param {StatsAppState} state the app store state BEFORE the match is cleared
  * @param {{ live?: ReturnType<typeof createLiveMatch>, now?: number }} [ctx]
- * @returns {any|null}
+ * @returns {StatsRecord|null}
  */
 export function buildQuitRecord(state, ctx = {}) {
   const live = ctx.live ?? liveMatch;
   const now = int(ctx.now, Date.now());
   const pub = state?.match?.public;
   const myId = str(state?.me?.playerId);
-  if (!pub || !myId || state.match.result || !live.active) return null;
-  const row = Array.isArray(pub.players) ? pub.players.find((p) => isObj(p) && p.playerId === myId) : null;
+  if (!pub || !myId || (/** @type {NonNullable<StatsAppState['match']>} */ (state.match)).result || !live.active) return null;
+  const row = Array.isArray(pub.players) ? pub.players.find((/** @type {unknown} */ p) => isObj(p) && p.playerId === myId) : null;
   if (!row) return null; // a spectator seat is no player of the match
   const alive = row.alive !== false;
   const round = Number(pub.round) || 0;
@@ -620,12 +684,13 @@ export function buildQuitRecord(state, ctx = {}) {
  * RE-VIEWED because the record kept every field the payload had. Whatever a record never stored is simply absent and
  * normalizeResult defaults it, exactly like a tolerant live payload. A quit record (nothing was settled) and a
  * compacted one (its rows are gone) have no settlement to show.
- * @param {any} rec
- * @returns {any|null} null when the row is not a usable, full, settled record
+ * @param {unknown} rec
+ * @returns {RecordResult|null} null when the row is not a usable, full, settled record
  */
 export function recordToResult(rec) {
   const r = normalizeRecord(rec);
   if (!r || r.end === 'quit' || r.compact) return null;
+  /** @type {RecordResult} */
   const res = {
     victory: r.victory,
     roundsPassed: r.roundsPassed,
@@ -649,9 +714,9 @@ export function recordToResult(rec) {
 
 /**
  * Append one record: replays (same content id) are dropped, newest first, capped at MAX_RECORDS.
- * @param {{ v: number, records: any[] }} stats
- * @param {any} record
- * @returns {{ stats: { v: number, records: any[] }, added: boolean }}
+ * @param {StatsEnvelope} stats
+ * @param {StatsRecord | null} record
+ * @returns {{ stats: StatsEnvelope, added: boolean }}
  */
 export function appendRecord(stats, record) {
   if (!record || !record.id) return { stats, added: false };
@@ -660,7 +725,7 @@ export function appendRecord(stats, record) {
   return { stats: { v: STATS_VERSION, records }, added: true };
 }
 
-/** load → append → save of one built record (never over an envelope of a newer build). @returns {any|null} the record when stored */
+/** load → append → save of one built record (never over an envelope of a newer build). @param {StatsRecord | null} rec @returns {StatsRecord|null} the record when stored */
 function storeRecord(rec) {
   if (!rec) return null;
   const stats = loadStats();
@@ -673,9 +738,9 @@ function storeRecord(rec) {
 /**
  * Record a finished match end-to-end (load → append → save). Returns the built record, or null when
  * nothing was stored (no players / not my match / replay).
- * @param {any} res raw m.result payload
- * @param {{ myId?: string|null, roomMode?: string|null, ruleset?: any, season?: string|null, now?: number }} [ctx]
- * @returns {any|null}
+ * @param {unknown} res raw m.result payload
+ * @param {{ myId?: string|null, roomMode?: string|null, ruleset?: unknown, season?: string|null, now?: number }} [ctx]
+ * @returns {StatsRecord|null}
  */
 export function recordResult(res, ctx = {}) {
   return storeRecord(buildRecord(res, ctx));
@@ -683,9 +748,9 @@ export function recordResult(res, ctx = {}) {
 
 /**
  * Record the match the player is giving up (放弃模拟), before the app clears its state. Returns the record, or null.
- * @param {any} state the app store state before the match is cleared
+ * @param {StatsAppState} state the app store state before the match is cleared
  * @param {{ live?: ReturnType<typeof createLiveMatch>, now?: number }} [ctx]
- * @returns {any|null}
+ * @returns {StatsRecord|null}
  */
 export function recordQuit(state, ctx = {}) {
   const live = ctx.live ?? liveMatch;
@@ -696,11 +761,12 @@ export function recordQuit(state, ctx = {}) {
 
 /**
  * Merge two envelopes (import into existing): union by record id, newest first, capped.
- * @param {{ records: any[] }} a current (wins ties)
- * @param {{ records: any[] }} b incoming
- * @returns {{ v: number, records: any[] }}
+ * @param {{ records: unknown[] }} a current (wins ties)
+ * @param {{ records: unknown[] }} b incoming
+ * @returns {StatsEnvelope}
  */
 export function mergeStats(a, b) {
+  /** @type {Map<string, StatsRecord>} */
   const byId = new Map();
   for (const r of [...(Array.isArray(b?.records) ? b.records : []), ...(Array.isArray(a?.records) ? a.records : [])]) {
     const rec = normalizeRecord(r);
@@ -712,9 +778,9 @@ export function mergeStats(a, b) {
 
 /**
  * Parse + migrate + merge an exported / pasted payload into the current data.
- * @param {any} raw parsed JSON of the imported file
- * @param {{ records: any[] }} current current envelope
- * @returns {{ stats: { v: number, records: any[] }, added: number, skipped: number, dropped: number }}
+ * @param {unknown} raw parsed JSON of the imported file
+ * @param {{ records: StatsRecord[] }} current current envelope
+ * @returns {{ stats: StatsEnvelope, added: number, skipped: number, dropped: number }}
  *   added = records new to this device; skipped = duplicates of records it has; dropped = rows of the file that could
  *   not be read
  */
@@ -743,8 +809,8 @@ export function importStats(raw, current) {
 
 /**
  * The payload the export button downloads (envelope + a little provenance).
- * @param {{ records: any[] }} stats
- * @returns {{ app: string, kind: string, v: number, exportedAt: string, records: any[] }}
+ * @param {{ records: StatsRecord[] }} stats
+ * @returns {{ app: string, kind: string, v: number, exportedAt: string, records: StatsRecord[] }}
  */
 export function exportStats(stats) {
   return {
@@ -765,8 +831,8 @@ const SELF_STATS = ['dmgDealt', 'kills', 'bossDamage', 'activatedLayers', 'merge
  * recordResult always have selfId; the fallbacks only serve imported / hand-made data. A record that names its selfId
  * but lost that row (an 8-player match stored while the cap was 6 seats) has no self row: falling back gave the
  * player another human's strategy and numbers.
- * @param {any} rec
- * @returns {any|null}
+ * @param {{ players?: unknown, selfId?: unknown } | null | undefined} rec a record (or an unchecked row of one)
+ * @returns {PlayerRow|null}
  */
 export function selfRowOf(rec) {
   const ps = Array.isArray(rec?.players) ? rec.players : [];
@@ -776,25 +842,28 @@ export function selfRowOf(rec) {
     || null;
 }
 
-/** Whether this record counts as a win for its self player (per-row victory = team won AND still in). */
+/**
+ * Whether this record counts as a win for its self player (per-row victory = team won AND still in).
+ * @param {{ victory?: unknown }} rec @param {PlayerRow | null} self
+ */
 const selfWon = (rec, self) => (self ? !!self.victory : !!rec.victory);
 
 /**
  * The rounds the player passed in a record: its own row's (the table the settlement prints per player), else the
  * team's; 0 when the record does not know.
- * @param {any} rec
+ * @param {StatsRecord | null | undefined} rec
  */
 export function roundsOf(rec) {
   const self = selfRowOf(rec);
   const v = self && Number.isFinite(self.roundsPassed) ? self.roundsPassed : rec?.roundsPassed;
-  return Number.isFinite(v) ? v : 0;
+  return Number.isFinite(v) ? /** @type {number} */ (v) : 0;
 }
 
 /**
  * Whether a record enters the aggregates (see the header). A settled record always does. A quit record does once the
  * player had finished at least one battle: cleared a round, or was already eliminated; a match given up before that —
  * entered and left right away — is history only.
- * @param {any} rec a normalized record
+ * @param {unknown} rec a normalized record
  * @returns {boolean}
  */
 export function countsTowardStats(rec) {
@@ -802,19 +871,20 @@ export function countsTowardStats(rec) {
   if (rec.end !== 'quit') return true;
   const self = selfRowOf(rec);
   if (!self) return false;
-  return self.alive === false || (Number.isFinite(self.roundsPassed) && self.roundsPassed >= 1);
+  return self.alive === false || (Number.isFinite(self.roundsPassed) && /** @type {number} */ (self.roundsPassed) >= 1);
 }
 
 /**
  * Aggregate records for the stats page — over the records that count; `total` / `excluded` say how many did not.
  * Everything is keyed by ids (bandId / titleId / difficulty); the page maps them to names and icons through the game
  * data. The combat totals read the settled records' stat blocks (a quit record has none).
- * @param {any[]} records
- * @returns {any}
+ * @param {StatsRecord[]} records
+ * @returns {StatsAggregate}
  */
 export function aggregateStats(records) {
   const all = Array.isArray(records) ? records : [];
   const rs = all.filter(countsTowardStats);
+  /** @type {StatsAggregate} */
   const out = {
     total: all.length, count: rs.length, excluded: all.length - rs.length, wins: 0,
     rounds: { total: 0, max: 0 },
@@ -886,28 +956,33 @@ export function aggregateStats(records) {
   return out;
 }
 
-/** The bonds a row had active at the settlement (a compacted row keeps only their ids). */
+/**
+ * The bonds a row had active at the settlement (a compacted row keeps only their ids).
+ * @param {{ usedBondIds?: unknown, bonds?: unknown } | null | undefined} player
+ * @returns {string[]}
+ */
 function usedBondIdsOf(player) {
-  const ids = Array.isArray(player?.usedBondIds) ? player.usedBondIds
-    : (Array.isArray(player?.bonds) ? player.bonds : []).filter((b) => b?.active === true).map((b) => b.bondId);
-  return [...new Set(ids.filter((id) => typeof id === 'string' && id.length).map((id) => id.slice(0, 64)))].slice(0, MAX_BONDS);
+  const ids = /** @type {unknown[]} */ (Array.isArray(player?.usedBondIds) ? player.usedBondIds
+    : (Array.isArray(player?.bonds) ? player.bonds : []).filter((/** @type {{ active?: unknown } | null} */ b) => b?.active === true).map((/** @type {{ bondId?: unknown }} */ b) => b.bondId));
+  return [...new Set(/** @type {string[]} */ (ids.filter((id) => typeof id === 'string' && id.length)).map((id) => id.slice(0, 64)))].slice(0, MAX_BONDS);
 }
 
 /**
  * 卫戍成就's peak: the settled record whose own row had the active bond of the most layers (a full record: the lineup is
  * drawn). [ASSUMED·자료 없음: upstream's reading of the event's achievement window — the official peak is kept on the
  * account; the settlement's active bonds are the nearest this project records]
- * @param {any[]} records
- * @returns {{ record: any, player: any, bond: { bondId: string, layers: number, active: boolean } }|null}
+ * @param {StatsRecord[]} records
+ * @returns {{ record: StatsRecord, player: PlayerRow, bond: BondRow }|null}
  */
 export function highestBondRecord(records) {
+  /** @type {{ record: StatsRecord, player: PlayerRow, bond: BondRow } | null} */
   let best = null;
   for (const record of Array.isArray(records) ? records : []) {
     if (!isObj(record) || record.end === 'quit' || record.compact) continue;
     const player = selfRowOf(record);
     for (const bond of player?.bonds || []) {
       if (!bond.active || !Number.isFinite(bond.layers) || bond.layers <= 0) continue;
-      if (!best || bond.layers > best.bond.layers) best = { record, player, bond };
+      if (!best || bond.layers > best.bond.layers) best = /** @type {{ record: StatsRecord, player: PlayerRow, bond: BondRow }} */ ({ record, player, bond });
     }
   }
   return best;
@@ -916,10 +991,11 @@ export function highestBondRecord(records) {
 /**
  * 策略记录's special marks: the strategies the player won with at least their `victorCount` times (bands.json, the
  * official threshold); 入门协议 counts nothing.
- * @param {any[]} records @param {Record<string, any>|any[]} bands
+ * @param {StatsRecord[]} records @param {Record<string, BandRec> | BandRec[] | null | undefined} bands
  * @returns {string[]} band ids, by sortId
  */
 export function strategyBadgeIds(records, bands) {
+  /** @type {Map<string, number>} */
   const clears = new Map();
   for (const rec of Array.isArray(records) ? records : []) {
     if (!isObj(rec) || rec.end === 'quit' || rec.difficulty === 'TRAINING' || rec.modeId === 'mode_training_1') continue;
@@ -927,22 +1003,31 @@ export function strategyBadgeIds(records, bands) {
     if (!self?.bandId || !selfWon(rec, self)) continue;
     clears.set(self.bandId, (clears.get(self.bandId) || 0) + 1);
   }
-  return Object.values(bands || {}).filter((band) => Number.isInteger(band?.victorCount) && band.victorCount > 0
-    && (clears.get(band.bandId) || 0) >= band.victorCount)
+  return Object.values(bands || {}).filter((band) => Number.isInteger(band?.victorCount) && /** @type {number} */ (band.victorCount) > 0
+    && (clears.get(band.bandId) || 0) >= /** @type {number} */ (band.victorCount))
     .sort((a, b) => (a.sortId || 0) - (b.sortId || 0) || a.bandId.localeCompare(b.bandId))
     .map((band) => band.bandId);
 }
 
-/** The highest trophy medal reached (config.trophies.medals, whatever their order). */
+/**
+ * The highest trophy medal reached (config.trophies.medals, whatever their order).
+ * @param {number | null | undefined} total @param {TrophyMedal[] | null | undefined} medals
+ * @returns {TrophyMedal | null}
+ */
 export function trophyMedalOf(total, medals) {
-  const count = Number.isFinite(total) ? Math.max(0, total) : 0;
+  const count = Number.isFinite(total) ? Math.max(0, /** @type {number} */ (total)) : 0;
   return (Array.isArray(medals) ? medals : []).reduce((best, medal) =>
-    Number.isFinite(medal?.count) && medal.count >= 0 && medal.count <= count && (!best || medal.count > best.count) ? medal : best, null);
+    Number.isFinite(medal?.count) && medal.count >= 0 && medal.count <= count && (!best || medal.count > best.count) ? medal : best, /** @type {TrophyMedal | null} */ (null));
 }
 
-/** The season's operators of a bond (one per operator and tier, no golden / hidden / 自选 records), by tier. */
+/**
+ * The season's operators of a bond (one per operator and tier, no golden / hidden / 自选 records), by tier.
+ * @param {BondChess[] | null | undefined} chess @param {string | null | undefined} bondId
+ * @returns {BondChess[]}
+ */
 export function bondMemberChess(chess, bondId) {
   if (!bondId) return [];
+  /** @type {Set<string>} */
   const seen = new Set();
   return (Array.isArray(chess) ? chess : []).filter((c) => {
     if (!c || c.isGolden || c.isHidden || c.isDiy || c.visible === false || !c.bonds?.includes(bondId)) return false;

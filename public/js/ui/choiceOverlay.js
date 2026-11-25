@@ -36,8 +36,25 @@ import { playerName } from '../../../shared/botNames.js';
 import { sentText } from './lang.js';
 import { fillShowTag, itemShowValue } from '../../../shared/showTag.js';
 
-const cx = (...p) => p.flat().filter(Boolean).join(' ');
+const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ');
 
+/** @import { Pub } from './gameLogic/shared.js' */
+/**
+ * @typedef {{ idx: number, takenBy: string | null, soldOut?: boolean, kind?: string, effectId?: string, itemId?: string,
+ *   id?: string, name?: string, desc?: string, descRaw?: string, tier?: number, team?: boolean, enemyKey?: string,
+ *   tacticKind?: string, coin?: number, bandId?: string, bandName?: string, stage?: number, stageCount?: number,
+ *   cost?: number, [key: string]: unknown }} SpCard  a normalised card (gameLogic normalizeSp)
+ * @typedef {{ sourceItemId?: string | null, ownBandId?: string | null, currentBandId?: string | null,
+ *   currentStage?: number | null }} SpCommand  a 更换指令 choice's 指令 (gameLogic normalizePersonalChoice)
+ * @typedef {{ family: string | null, name: string | null, desc: string | null, untimed: boolean, cards: SpCard[],
+ *   order: string[], turnPid: string | null, pickOf: Map<string, number>, command?: SpCommand,
+ *   [key: string]: unknown }} SpView  normalizeSp(...) / normalizePersonalChoice(...)
+ * @typedef {{ kind: string, name: string, desc: string, tier: number | null, icon: string | null, team: boolean,
+ *   coin: number | null, bandName?: string, stage?: { n: number, of: number } | null, cost?: number | null }} SpCardView
+ *   a card's display fields
+ */
+
+/** @param {unknown} t */
 const bare = (t) => String(t || '').replace(/\s+/g, '');
 
 /**
@@ -56,13 +73,14 @@ export function cardText(card, rich, rawRich = rich) {
 
 /**
  * Resolve an sp card to display fields.
- * @param {any} card normalised card ({ idx, takenBy, effectId?, itemId?, id?, name?, desc?, descRaw?, tier?, team?, enemyKey? })
+ * @param {SpCard} card normalised card ({ idx, takenBy, effectId?, itemId?, id?, name?, desc?, descRaw?, tier?, team?, enemyKey? })
  * @param {string|null} family 'bounty'|'supply'|'shop'|'tactic'
+ * @returns {SpCardView}
  */
 export function resolveSpCard(card, family) {
   if (card.kind === 'bandSkill' || family === 'command') return resolveCommandCard(card);
   const choices = data.get('choices');
-  const byEffect = (list, id) => (Array.isArray(list) && id ? list.find((x) => x && x.effectId === id) : null);
+  const byEffect = (/** @type {unknown} */ list, /** @type {string | null | undefined} */ id) => (Array.isArray(list) && id ? list.find((x) => x && x.effectId === id) : null);
   const effectId = card.effectId || (!card.itemId && typeof card.id === 'string' && data.lookup('effects', card.id) ? card.id : null);
   const eff = effectId ? data.lookup('effects', effectId) : null;
   const itemId = card.itemId || (!effectId && typeof card.id === 'string' && data.lookup('items', card.id) ? card.id : null);
@@ -98,11 +116,12 @@ export function resolveSpCard(card, family) {
  * cost in the card's cost slot (group_cost) — maintainer decision 2026-11-12 (option A); the official game's screen of
  * this choice is not known [추정·화면]. The name and text are the strategy record's (the language pack's), the stage's
  * leading 「【name】」 line dropped (the card shows the name above it).
- * @param {any} card
+ * @param {SpCard} card
+ * @returns {SpCardView}
  */
 export function resolveCommandCard(card) {
   const rec = card.bandId ? data.lookup('bands', card.bandId) || data.lookupRaw('bands', card.bandId) : null;
-  const stage = Number.isInteger(card.stage) ? rec?.skills?.[card.stage] : null;
+  const stage = Number.isInteger(card.stage) ? rec?.skills?.[/** @type {number} */ (card.stage)] : null;
   const text = bandSkillText(stage?.descRaw || stage?.desc || card.descRaw || card.desc || '', null);
   const stageCount = Number(card.stageCount) || 0;
   return {
@@ -114,8 +133,8 @@ export function resolveCommandCard(card) {
     team: false,
     coin: null,
     bandName: rec?.name || tName(card.bandName) || '',
-    stage: stageCount > 1 && Number.isInteger(card.stage) ? { n: card.stage + 1, of: stageCount } : null,
-    cost: Number.isFinite(card.cost) ? Math.max(0, card.cost) : null,
+    stage: stageCount > 1 && Number.isInteger(card.stage) ? { n: /** @type {number} */ (card.stage) + 1, of: stageCount } : null,
+    cost: Number.isFinite(card.cost) ? Math.max(0, /** @type {number} */ (card.cost)) : null,
   };
 }
 
@@ -130,8 +149,8 @@ export function currentCommand(command) {
   const rec = id ? data.lookup('bands', id) || data.lookupRaw('bands', id) : null;
   const skills = Array.isArray(rec?.skills) ? rec.skills : [];
   const taken = id !== (command?.ownBandId ?? null);
-  if (!rec || !skills.length || (!taken && !skills.some((s) => s && s.type === 'ACTIVE'))) return null;
-  const stage = skills[Number.isInteger(command.currentStage) ? command.currentStage : 0] || skills.find((s) => s && s.type === 'ACTIVE');
+  if (!rec || !skills.length || (!taken && !skills.some((/** @type {{ type?: string } | null} */ s) => s && s.type === 'ACTIVE'))) return null;
+  const stage = skills[/** @type {number} */ (Number.isInteger((/** @type {SpCommand} */ (command)).currentStage) ? (/** @type {SpCommand} */ (command)).currentStage : 0)] || skills.find((/** @type {{ type?: string } | null} */ s) => s && s.type === 'ACTIVE');
   return { bandId: id, bandName: rec.name || '', name: stage?.name || rec.effectName || '' };
 }
 
@@ -146,7 +165,7 @@ export function pickBusy(busyIdx, card, mine) {
 
 /**
  * Whether I may pick a card right now: my turn (solo: always), no pick of mine yet, the card free and no pick in flight.
- * @param {any} sp normalizeSp(...) @param {{ idx: number, takenBy?: string|null, soldOut?: boolean } | null | undefined} card
+ * @param {SpView | null | undefined} sp normalizeSp(...) @param {{ idx: number, takenBy?: string|null, soldOut?: boolean } | null | undefined} card
  * @param {{ myId: string, solo: boolean, busyIdx?: number|null }} o
  */
 export function cardPickable(sp, card, { myId, solo, busyIdx = null }) {
@@ -172,7 +191,7 @@ export function spTap(armed, idx, pickable) {
 /**
  * The selected card while it can still be picked (my turn, not taken, nothing in flight), else null — a selection
  * never outlives the state that allowed it.
- * @param {number|null} armed @param {any} sp @param {{ myId: string, solo: boolean, busyIdx?: number|null }} o
+ * @param {number|null} armed @param {SpView | null | undefined} sp @param {{ myId: string, solo: boolean, busyIdx?: number|null }} o
  */
 export function armedCard(armed, sp, o) {
   if (armed == null || !sp) return null;
@@ -182,11 +201,12 @@ export function armedCard(armed, sp, o) {
 
 /**
  * The overlay: keeps the two-tap selection and renders ChoiceView. `onPick(idx)` sends the confirmed card (g.choice).
- * @param {{ pub:any, sp:any, myId:string, solo:boolean, personal?:boolean, onPick:(idx:number)=>void, busyIdx?:number|null, total?:number|null }} props
+ * @param {{ pub: Pub | null | undefined, sp: SpView | null | undefined, myId: string, solo: boolean, personal?: boolean,
+ *   onPick: (idx: number) => void, busyIdx?: number | null, total?: number | null }} props
  */
 export function ChoiceOverlay(props) {
   const { sp, myId, solo, busyIdx = null, onPick } = props;
-  const [sel, setSel] = useState(null);
+  const [sel, setSel] = /** @type {[number | null, (v: number | null) => void]} */ (useState(null));
   // 收起: folded until 展开; a new draft (another family, round or card set) opens unfolded
   const [collapsed, setCollapsed] = useState(false);
   const draftKey = sp ? `${sp.family}|${pubRound(props.pub)}|${(sp.cards || []).map((c) => c?.idx).join(',')}` : '';
@@ -197,12 +217,12 @@ export function ChoiceOverlay(props) {
   useEffect(() => { if (sel != null && armed == null) setSel(null); }, [sel, armed]);
   useEffect(() => {
     if (armed == null) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') setSel(null); };
+    const onKey = (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Escape') setSel(null); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [armed]);
   if (!sp) return null;
-  const tap = (idx) => {
+  const tap = (/** @type {number} */ idx) => {
     const card = sp.cards.find((c) => c && c.idx === idx);
     const r = spTap(armed, idx, cardPickable(sp, card, { myId, solo, busyIdx }));
     setSel(r.armed);
@@ -213,17 +233,17 @@ export function ChoiceOverlay(props) {
     onConfirm=${() => { if (armed != null) tap(armed); }} onDisarm=${() => setSel(null)} onCollapse=${() => { setSel(null); setCollapsed(true); }} />`;
 }
 
-const pubRound = (pub) => (pub && Number.isFinite(pub.round) ? pub.round : '');
+const pubRound = (/** @type {Pub | null | undefined} */ pub) => (pub && Number.isFinite(pub.round) ? pub.round : '');
 
 /**
  * The folded draft (收起): one button at the screen's right edge that opens it again — the family's name and 展开; it
  * glows while the viewer still has to pick.
- * @param {{ sp: any, myId: string, solo: boolean, personal?: boolean, onExpand: () => void }} props
+ * @param {{ sp: SpView | null | undefined, myId: string, solo: boolean, personal?: boolean, onExpand: () => void }} props
  */
 export function ChoicePill({ sp, myId, solo, personal = false, onExpand }) {
   if (!sp) return null;
-  const fam = data.get('choices')?.families?.[sp.family] || null;
-  const rawFam = data.getRaw('choices')?.families?.[sp.family] || null;
+  const fam = data.get('choices')?.families?.[/** @type {string} */ (sp.family)] || null;
+  const rawFam = data.getRaw('choices')?.families?.[/** @type {string} */ (sp.family)] || null;
   const name = sentText(sp.name, rawFam?.name, fam?.name) || fam?.name || t('机变');
   const myTurn = (personal || solo || sp.turnPid === myId) && sp.pickOf?.get?.(myId) == null;
   return html`<button type="button" class=${cx('spov-pill', myTurn && 'is-turn')} data-testid="sp-expand" onClick=${onExpand}
@@ -238,13 +258,14 @@ export function ChoicePill({ sp, myId, solo, personal = false, onExpand }) {
  * 黄沙罗盘 — scrolls inside the card instead of running past its plate (maintainer decision 2026-10-12). The official
  * view's arrow slots are empty; here ▲ / ▼ show while there is more above / below (the maintainer chose this option), so
  * a cut text is visible as such. Wheel and touch drags scroll it; a tap still picks the card (a drag never clicks).
+ * @param {{ children?: unknown }} props
  */
 function CardScroll({ children }) {
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLElement | null} */ (null));
   const more = useScrollEdges(ref);
   // the tier chip (common_chess_level) is part of the official scrolled content: it leaves once the text scrolls
   useEffect(() => {
-    const card = ref.current?.closest('.spcard');
+    const card = /** @type {HTMLElement | null | undefined} */ (ref.current?.closest('.spcard'));
     if (!card) return;
     if (more.up) card.dataset.scrolled = ''; else delete card.dataset.scrolled;
   }, [more.up]);
@@ -257,19 +278,19 @@ function CardScroll({ children }) {
 
 /**
  * The overlay's view (pure: no hooks — test/ui renders it as a function).
- * @param {{ pub:any, sp:any, myId:string, solo:boolean, personal?:boolean, busyIdx?:number|null, total?:number|null, armed?:number|null,
- *   onTap?:(idx:number)=>void, onConfirm?:()=>void, onDisarm?:()=>void, turnFlash?:boolean,
+ * @param {{ pub: Pub | null | undefined, sp: SpView | null | undefined, myId: string, solo: boolean, personal?: boolean,
+ *   busyIdx?: number | null, total?: number | null, armed?: number | null, onTap?: (idx: number) => void, onConfirm?:()=>void, onDisarm?:()=>void, turnFlash?:boolean,
  *   onCollapse?:(() => void)|null }} props
  */
 export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = null, total = null, armed = null, onTap = () => {}, onConfirm = () => {}, onDisarm = () => {}, turnFlash = false, onCollapse = null }) {
   if (!sp) return null;
   const art = phaseArt('choose'); // local patch: the official look (ui/phaseArt.js)
-  const fam = data.get('choices')?.families?.[sp.family] || null;
-  const rawFam = data.getRaw('choices')?.families?.[sp.family] || null;
+  const fam = data.get('choices')?.families?.[/** @type {string} */ (sp.family)] || null;
+  const rawFam = data.getRaw('choices')?.families?.[/** @type {string} */ (sp.family)] || null;
   const players = new Map(sortedPlayers(pub).map((p) => [p.playerId, p]));
   const myTurn = solo || sp.turnPid === myId;
   const mine = sp.pickOf.get(myId);
-  const turnName = playerName(players.get(sp.turnPid)?.name) || t('队友');
+  const turnName = playerName(players.get(/** @type {string} */ (sp.turnPid))?.name) || t('队友');
   const special = /_s$/.test(String(sp.family || ''));
   const command = sp.family === 'command' ? sp.command || {} : null;
   const now = command ? currentCommand(command) : null;
@@ -279,9 +300,9 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
   const armedCardRec = armed != null ? sp.cards.find((c) => c && c.idx === armed) : null;
   const armedName = armedCardRec ? resolveSpCard(armedCardRec, sp.family).name : null;
   // a press anywhere but a card or the confirm button drops the selection
-  const onDown = (e) => {
+  const onDown = (/** @type {Event} */ e) => {
     if (armed == null) return;
-    const t = e.target;
+    const t = /** @type {Element | null} */ (e.target);
     if (t && typeof t.closest === 'function' && t.closest('.spcard, .spov__confirm, .spov__collapse')) return;
     onDisarm();
   };

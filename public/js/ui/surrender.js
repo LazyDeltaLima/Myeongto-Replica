@@ -7,11 +7,17 @@ import { playerName } from '../../../shared/botNames.js';
 import { PHASE } from '../../../shared/constants.js';
 import { MatchVoteBanner } from './restartVote.js';
 
-const PHASES = new Set([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
-export const surrenderField = (pub, myId) => PHASES.has(pub?.phase) && !pub.restarted
-  ? pub.fields?.find(f => f.live && !f.surrendering && f.battleId && f.players.includes(myId)) || null : null;
-const votersOf = (pub, field) => (pub.players || []).filter(p => field.players.includes(p.playerId) && !p.isBot && p.status !== 'left' && !p.autoplay);
+/** @import { Pub, PubField } from './gameLogic/shared.js' */
 
+/** @type {Set<string | undefined>} */
+const PHASES = new Set([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
+/** @param {Pub | null | undefined} pub @param {string} myId @returns {PubField | null} */
+export const surrenderField = (pub, myId) => PHASES.has(pub?.phase) && !(/** @type {Pub} */ (pub)).restarted
+  ? (/** @type {Pub} */ (pub)).fields?.find(f => f.live && !f.surrendering && f.battleId && /** @type {string[]} */ (f.players).includes(myId)) || null : null;
+/** @param {Pub} pub @param {PubField} field */
+const votersOf = (pub, field) => (pub.players || []).filter(p => /** @type {string[]} */ (field.players).includes(p.playerId) && !p.isBot && p.status !== 'left' && !p.autoplay);
+
+/** @param {{ pub: Pub | null | undefined, myId: string }} props */
 export function SurrenderButton({ pub, myId }) {
   const [busy, setBusy] = useState(false);
   const asking = useRef(false);
@@ -22,7 +28,7 @@ export function SurrenderButton({ pub, myId }) {
     if (asking.current) return;
     asking.current = true;
     try {
-      const voters = votersOf(pub, field);
+      const voters = votersOf(/** @type {Pub} */ (pub), field);
       if (voters.length <= 1) {
         const boss = field.kind === 'boss' || field.kind === 'hidden';
         const ok = await confirmDialog({ title: t('放弃本次战斗？'),
@@ -35,7 +41,7 @@ export function SurrenderButton({ pub, myId }) {
       const latest = surrenderField(store.get().match.public, myId);
       if (!latest || latest.battleId !== field.battleId || latest.surrenderVote) return;
       setBusy(true);
-      await actions.surrender(field);
+      await actions.surrender(/** @type {PubField & { battleId: string }} */ (field));
     } finally { asking.current = false; setBusy(false); }
   };
   return html`<div class="readywrap"><button type="button" class="readybtn tapx surrenderbtn" data-testid="surrender-button"
@@ -44,14 +50,15 @@ export function SurrenderButton({ pub, myId }) {
   </button></div>`;
 }
 
+/** @param {{ pub: Pub | null | undefined, myId: string }} props */
 export function SurrenderVoteBanner({ pub, myId }) {
-  const field = (pub?.fields || []).find(f => f.surrenderVote && f.players.includes(myId));
-  if (!field || !PHASES.has(pub?.phase) || pub.restarted) return null;
+  const field = (pub?.fields || []).find(f => f.surrenderVote && /** @type {string[]} */ (f.players).includes(myId));
+  if (!field || !PHASES.has(pub?.phase) || (/** @type {Pub} */ (pub)).restarted) return null;
   const v = field.surrenderVote;
-  const voters = (pub.players || []).filter(p => v.voters.includes(p.playerId));
+  const voters = ((/** @type {Pub} */ (pub)).players || []).filter(p => v.voters.includes(p.playerId));
   const by = voters.find(p => p.playerId === v.by);
   const title = v.by === myId ? t('你提议放弃战斗') : t('{name} 提议放弃战斗', { name: playerName(by?.name) || t('博士') });
   return html`<${MatchVoteBanner} key=${`${field.battleId}:${v.by}:${v.deadline}`} v=${v} voters=${voters} myId=${myId}
     title=${title} note=${t('本阵地参与者全员同意时放弃战斗')} icon="close" testId="surrender-vote"
-    class=${pub.restartVote ? 'rvote--second' : ''} onVote=${op => actions.surrender(field, op)} />`;
+    class=${(/** @type {Pub} */ (pub)).restartVote ? 'rvote--second' : ''} onVote=${(/** @type {string} */ op) => actions.surrender(/** @type {PubField & { battleId: string }} */ (field), op)} />`;
 }

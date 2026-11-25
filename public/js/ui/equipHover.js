@@ -37,8 +37,16 @@ const EQUIPPED_S = 0.417;
 /** [추정] Follow point as a fraction of the hovered tile's screen depth (far edge 0 → near edge 1). */
 export const FOLLOW_DEPTH = 0.7;
 
-/** The popup sprites when the local client art is installed, else null (no popup — the upstream look). */
+/** @import { PlaceCtx } from './gameLogic/placement.js' */
+/** @import { FieldViewLike, TileGeom } from './facingWheel.js' */
+/** @typedef {NonNullable<ReturnType<typeof equipHoverState>> & { equipped?: boolean }} HoverState */
+
+/**
+ * The popup sprites when the local client art is installed, else null (no popup — the upstream look).
+ * @returns {Record<string, string> | null}
+ */
 export function equipHoverArt() {
+  /** @type {Record<string, string>} */
   const out = {};
   for (const k of SPRITES) {
     const url = localAsset(G, `img_EquipSlot_${k}`);
@@ -51,6 +59,8 @@ export function equipHoverArt() {
 /**
  * What the popup shows while item `itemUid` is dragged over `tile` (render/drag.js tileHover: { row, col, area, idx }):
  * the operator there takes it (canPlace 'equip'), else null.
+ * @param {PlaceCtx | null | undefined} ctx @param {number} itemUid
+ * @param {{ row: number, col: number, area: string, idx?: number } | null | undefined} tile
  */
 export function equipHoverState(ctx, itemUid, tile) {
   if (!ctx?.pieces || !tile || (tile.area !== 'board' && tile.area !== 'hand')) return null;
@@ -61,7 +71,7 @@ export function equipHoverState(ctx, itemUid, tile) {
   const occ = target.area === 'hand' ? ctx.handAt?.get(target.idx) : ctx.boardAt?.get(tileKey(target.row, target.col));
   const piece = occ?.piece;
   if (!piece || piece.kind !== 'chess') return null;
-  const items = (Array.isArray(piece.items) ? piece.items : []).filter((it) => it && typeof it === 'object').map((it) => it.id);
+  const items = (Array.isArray(piece.items) ? piece.items : []).filter((/** @type {unknown} */ it) => it && typeof it === 'object').map((/** @type {{ id: string }} */ it) => it.id);
   const intent = dropIntent(ctx, itemUid, target);
   const n = ctx.getChess?.(piece.id)?.equipSlots;
   return {
@@ -76,10 +86,10 @@ export function equipHoverState(ctx, itemUid, tile) {
   };
 }
 
-const sameState = (a, b) => !!a && !!b && a.uid === b.uid && a.row === b.row && a.col === b.col && a.full === b.full && a.slots === b.slots
+const sameState = (/** @type {HoverState | null} */ a, /** @type {HoverState} */ b) => !!a && !!b && a.uid === b.uid && a.row === b.row && a.col === b.col && a.full === b.full && a.slots === b.slots
   && !!a.equipped === !!b.equipped && a.items.join('|') === b.items.join('|');
 
-/** The follow point of a tile (client px): FOLLOW_DEPTH down its screen quad. */
+/** The follow point of a tile (client px): FOLLOW_DEPTH down its screen quad. @param {TileGeom | null} g */
 function followPoint(g) {
   if (!g) return null;
   const ys = Array.isArray(g.poly) && g.poly.length ? g.poly.map((p) => p[1]) : null;
@@ -88,6 +98,7 @@ function followPoint(g) {
   return { x: g.x, y: far + (near - far) * FOLLOW_DEPTH };
 }
 
+/** @param {{ i: number, id: string | null, target: boolean, flash: boolean, art: Record<string, string> }} props */
 function Slot({ i, id, target, flash, art }) {
   const icon = id ? itemIconUrl(data.get('assets'), data.lookup('items', id)) : null;
   return html`<span class=${['eqh__slot', target && 'is-target', flash && 'is-flash'].filter(Boolean).join(' ')} style=${`--i:${i}`}>
@@ -104,7 +115,7 @@ function Slot({ i, id, target, flash, art }) {
 /**
  * The popup. Keeps the last state through the close clip (and the equipped flash), so it can be unmounted by passing
  * `state` null.
- * @param {{ view: any, state: ReturnType<typeof equipHoverState> & { equipped?: boolean } | null }} props
+ * @param {{ view: FieldViewLike | null | undefined, state: HoverState | null }} props
  */
 export function EquipHoverPanel({ view, state }) {
   const art = equipHoverArt();

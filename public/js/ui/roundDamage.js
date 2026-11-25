@@ -23,7 +23,7 @@ import { net } from '../net.js';
 import { data } from '../data.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
-const cx = (...p) => p.flat().filter(Boolean).join(' ');
+const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ');
 
 /** The phone layout's media query (css/devices.css: the corner tools behind ⋯). */
 export const PHONE_QUERY = '(max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse), '
@@ -44,7 +44,12 @@ export function usePhoneLayout() {
 }
 
 // the latest m.roundDmg, kept across remounts of the game screen (a resync sends it again)
+/** @typedef {{ round: number, units: number[][] }} RoundDmgMsg  m.roundDmg */
+/** @typedef {ReturnType<NonNullable<typeof battleRunner>['ownDamage']>} LiveDamage */
+/** @import { Pub } from './gameLogic/shared.js' */
+/** @type {RoundDmgMsg | null} */
 let lastMsg = null;
+/** @type {Set<(m: RoundDmgMsg | null) => void>} */
 const subs = new Set();
 net?.on?.('m.roundDmg', (m) => { lastMsg = m; for (const fn of subs) fn(m); });
 
@@ -54,12 +59,12 @@ function useRoundDamageMsg() {
   return m;
 }
 
-/** The live reading of the own battle while a battle phase runs (null otherwise). */
+/** The live reading of the own battle while a battle phase runs (null otherwise). @param {boolean} combat @param {string} myId */
 function useLiveDamage(combat, myId) {
-  const [live, setLive] = useState(null);
+  const [live, setLive] = useState(/** @type {LiveDamage} */ (null));
   useEffect(() => {
     if (!combat || !battleRunner || !myId) { setLive(null); return undefined; }
-    const read = () => setLive(battleRunner.ownDamage(myId));
+    const read = () => setLive((/** @type {NonNullable<typeof battleRunner>} */ (battleRunner)).ownDamage(myId));
     read();
     const id = setInterval(read, 500);
     return () => clearInterval(id);
@@ -72,14 +77,16 @@ const SWORD = 'M20 3h1v4L10.4 17.6l1.4 1.4-1.4 1.4-2.1-2.1-3.5 3.5-1.4-1.4 3.5-3
 const Swords = () => html`<svg class="icon rdmg__ic" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false">
   <path d=${SWORD} fill="currentColor" /><path d=${SWORD} fill="currentColor" transform="matrix(-1 0 0 1 24 0)" /></svg>`;
 
-const pct = (x) => (x > 0 && x < 0.01 ? '<1%' : `${Math.round(x * 100)}%`);
+const pct = (/** @type {number} */ x) => (x > 0 && x < 0.01 ? '<1%' : `${Math.round(x * 100)}%`);
 
 /** The damage types in shared/roundDamage.js's DAMAGE_TYPES order: class and legend word (detailPanel.js DMG; 元素 = 'elemental'). */
 const TYPE_MARKS = [['phys', N_('物理')], ['arts', N_('法术')], ['true', N_('真实')], ['elem', N_('元素')]];
+/** @type {Array<['dmg' | 'heal', string]>} */
 const TABS = [['dmg', N_('伤害')], ['heal', N_('治疗')]];
 
 /**
- * @param {{ pub: any, priv: any, myId: string, place: 'desktop'|'phone', spectator?: boolean }} props `place`: where this
+ * @param {{ pub: Pub | null | undefined, priv: { board?: unknown[] | null, [key: string]: unknown } | null | undefined,
+ *   myId: string, place: 'desktop'|'phone', spectator?: boolean }} props `place`: where this
  *   copy is mounted — only the one matching the layout draws
  */
 export function RoundDamage({ pub, priv, myId, place, spectator = false }) {
@@ -97,13 +104,13 @@ export function RoundDamage({ pub, priv, myId, place, spectator = false }) {
   if (!mine) return null;
   const src = roundDamageSource({ round: pub?.round ?? null, live, msg, board: priv.board, combat });
   if (!src) return null;
-  const toggle = (v) => { setOpen(v); savePref('roundDamageOpen', v); };
+  const toggle = (/** @type {boolean} */ v) => { setOpen(v); savePref('roundDamageOpen', v); };
   const full = (styleSet === 'auto' ? (phone ? 'compact' : 'full') : styleSet) === 'full';
   const heal = tab === 'heal';
-  const pick = (v) => { setTab(v); savePref('roundDamageTab', v); };
+  const pick = (/** @type {'dmg' | 'heal'} */ v) => { setTab(v); savePref('roundDamageTab', v); };
   const { rows, rest, total } = roundDamageRows(src.pairs, priv.board, phone ? ROUND_DAMAGE_ROWS.phone : ROUND_DAMAGE_ROWS.desktop, /** @type {'dmg'|'heal'} */ (tab));
   const m = data.get('assets');
-  const recOf = (piece) => {
+  const recOf = (/** @type {{ id: string }} */ piece) => {
     const chess = gd.chess(piece.id);
     if (!chess) return null;
     return ownStandIn(chess, priv, data.get('backups')) || ownDiyRecord(chess, priv, { chess: data.get('chess'), backups: data.get('backups') }) || chess;
@@ -129,7 +136,7 @@ export function RoundDamage({ pub, priv, myId, place, spectator = false }) {
           const name = rec?.name || r.piece.id;
           const val = html`<span class="rdmg__val num">${fmtNum(r.value)}${full ? html`<small>${pct(r.share)}</small>` : null}</span>`;
           const bar = html`<span class="rdmg__track"><i class=${r.parts ? 'is-stack' : heal ? 'is-heal' : ''} style=${`width:${(r.bar * 100).toFixed(1)}%`}>${r.parts
-            ? TYPE_MARKS.map(([id], k) => (r.parts[k] > 0 ? html`<span key=${id} class=${`is-${id}`} style=${`flex-grow:${r.parts[k].toFixed(3)}`}></span>` : null)) : null}</i></span>`;
+            ? TYPE_MARKS.map(([id], k) => ((/** @type {number[]} */ (r.parts))[k] > 0 ? html`<span key=${id} class=${`is-${id}`} style=${`flex-grow:${(/** @type {number[]} */ (r.parts))[k].toFixed(3)}`}></span>` : null)) : null}</i></span>`;
           return html`<li key=${r.uid} class=${cx('rdmg__row', !heal && i === 0 && r.value > 0 && 'is-top')} title=${`${name} · ${fmtNum(r.value)}`}>
             <${Img} class="rdmg__av" src=${rec ? skinPic(rec, 'avatar', sk, { skin: r.piece.skin }) || chessAvatarUrl(m, rec) : null} alt="" fallback=${html`<b>${[...name][0] || '?'}</b>`} />
             ${full ? html`<span class="rdmg__nm">${name}</span>${val}${bar}` : html`${bar}${val}`}

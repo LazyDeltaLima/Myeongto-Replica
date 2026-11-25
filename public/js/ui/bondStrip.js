@@ -44,16 +44,29 @@ import { data } from '../data.js';
 import { bondBoardStyle, bondBoardOf } from './hudArt.js'; // local patch
 import { t, tc, tParts, tName } from '../../../shared/i18n.js';
 
-const cx = (...p) => p.flat().filter(Boolean).join(' ');
+const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ');
+
+/**
+ * @typedef {{ bondId: string, count?: number, layers?: number, tier?: number, active?: boolean, off?: boolean,
+ *   thresholds?: number[], tempLayers?: number, harmony?: number, countsHand?: boolean, [key: string]: unknown }} StripBond
+ *   an entry of a bond list (m.private bonds, m.public players[].bonds, ui/watchBonds.js)
+ * @typedef {{ phase?: { by: string, at: number[] } | null, [key: string]: unknown }} PhaseRec  a bonds.json / effects.json record
+ * @typedef {{ bandSkill?: { bondSwaps?: Record<string, string> | null } | null, bandId?: string, [key: string]: unknown }} PopupPriv
+ *   m.private (or a teammate's board: ui/watchBonds.js ownerBoard)
+ * @typedef {Event & { currentTarget: HTMLElement }} StripEv
+ */
 
 // Keep gesture state on the DOM element across match-driven component renders.
+/** @type {WeakMap<HTMLElement, { id: number | null, x: number, left: number, dragging: boolean }>} */
 const stripDrags = new WeakMap();
+/** @param {PointerEvent & StripEv} e */
 function stripPointerDown(e) {
   const el = e.currentTarget;
   stripDrags.delete(el);
   if (e.pointerType !== 'mouse' || e.button !== 0 || el.scrollWidth <= el.clientWidth + 1) return;
   stripDrags.set(el, { id: e.pointerId, x: e.clientX, left: el.scrollLeft, dragging: false });
 }
+/** @param {PointerEvent & StripEv} e */
 function stripPointerMove(e) {
   const el = e.currentTarget;
   const drag = stripDrags.get(el);
@@ -68,6 +81,7 @@ function stripPointerMove(e) {
   el.scrollLeft = drag.left - dx;
   e.preventDefault();
 }
+/** @param {PointerEvent & StripEv} e */
 function stripPointerEnd(e) {
   const el = e.currentTarget;
   const drag = stripDrags.get(el);
@@ -76,9 +90,11 @@ function stripPointerEnd(e) {
   el.classList.remove('is-dragging');
   if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
 }
+/** @param {PointerEvent & StripEv} e */
 function stripPointerLeave(e) {
   if (!stripDrags.get(e.currentTarget)?.dragging) stripDrags.delete(e.currentTarget);
 }
+/** @param {MouseEvent & StripEv} e */
 function stripClick(e) {
   if (!stripDrags.get(e.currentTarget)?.dragging || e.detail === 0) return;
   e.preventDefault();
@@ -86,6 +102,7 @@ function stripClick(e) {
 }
 
 // local patch: the official list scrolls sideways past 7 bonds (css/hud-art.css) — a vertical wheel scrolls it too
+/** @param {WheelEvent & StripEv} e */
 function stripWheel(e) {
   const el = e.currentTarget;
   if (!el || el.scrollWidth <= el.clientWidth + 1 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
@@ -120,12 +137,15 @@ export function bondPhaseOf(b, phase) {
   return Math.min(phase.at.filter((x) => v >= x).length, 3);
 }
 
-/** The phase rule of a bond record, or of the direction a strategy switched it to when that effect carries one. */
+/**
+ * The phase rule of a bond record, or of the direction a strategy switched it to when that effect carries one.
+ * @param {PhaseRec | null | undefined} rec @param {PhaseRec | null | undefined} eff
+ */
 function phaseRule(rec, eff) {
   return eff && eff.phase !== undefined ? eff.phase : rec?.phase ?? null;
 }
 
-/** The "👁 name" tag of a teammate's strip (DESIGN §20.15). */
+/** The "👁 name" tag of a teammate's strip (DESIGN §20.15). @param {{ owner: string }} props */
 function OwnerTag({ owner }) {
   return html`<span class="bstrip__owner" title=${t('正在查看 {owner} 的盟约', { owner })} data-owner=${owner}>
     <${GIcon} name="eye" class="bstrip__eye" /><${MicroLabel}>${owner}</${MicroLabel}>
@@ -133,7 +153,7 @@ function OwnerTag({ owner }) {
 }
 
 /**
- * @param {{ bonds: any[], layersDisabled?: boolean, onOpen:(bondId:string)=>void, openId?: string|null, max?: number,
+ * @param {{ bonds: StripBond[], layersDisabled?: boolean, onOpen:(bondId:string)=>void, openId?: string|null, max?: number,
  *   owner?: string|null, swaps?: Record<string, string>|null }} props — owner: the watched teammate's name (null = your
  *   own bonds); swaps: your strategy's direction switches (m.private.bandSkill.bondSwaps — a teammate's are not sent)
  */
@@ -172,17 +192,17 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       const board = bondBoardOf(th, b.count ?? 0, !!b.active); // local patch: the official disc board (hudArt.js)
       // 临时层数 in the shown count (the battle's live layers: ui/watchBonds.js withLiveLayers `tempLayers`): the official
       // HUD draws the whole count in yellow (CN capture 2026-11-11; docs/rules/ui.md 「임시 중첩 표시」)
-      const temp = b.tempLayers > 0 && !rec?.noStack ? b.tempLayers : 0;
+      const temp = /** @type {number} */ (b.tempLayers) > 0 && !rec?.noStack ? b.tempLayers : 0;
       const phaseN = phase ? bondPhaseOf(b, phaseRule(rec, swaps?.[b.bondId] ? data.lookup('effects', swaps[b.bondId]) : null)) : 0;
       const phaseArt = phaseN ? uiUrl(m, `bondPhaseIcon/bond_level_${phaseN}`) : null;
-      return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null} style=${board.style} data-full=${board.full ? '1' : null}
+      return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${/** @type {number} */ (b.harmony) > 0 ? b.harmony : null} style=${board.style} data-full=${board.full ? '1' : null}
           data-temp=${temp || null} data-phase=${phaseN || null} class=${cx('bslot', b.active && 'is-active', temp && 'has-temp', openId === b.bondId && 'is-open')}>
         ${phaseN ? html`<i class=${cx('bslot__phase', phaseArt && 'has-sprite')} style=${phaseArt ? `--phase:url("${phaseArt}")` : undefined}
           title=${t('阶段 {n}', { n: ROMAN[phaseN] })} aria-hidden="true">${phaseArt ? null : ROMAN[phaseN]}</i>` : null}
         <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : b.layers ?? 0}
           tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
-          title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${need ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}${temp ? ` · ${t('临时层数')} +${temp}` : ''}`} />
+          title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${need ?? '-'}${/** @type {number} */ (b.harmony) > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}${temp ? ` · ${t('临时层数')} +${temp}` : ''}`} />
         <span class=${cx('bslot__count', 'num', next == null && 'is-max')}>${b.count ?? 0}<small>/${need ?? '-'}</small></span>
       </div>`;
     })}
@@ -195,19 +215,21 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
  * The bond record with another direction's effect (规程's direction switch): the effect's id, name and text; the
  * placeholders take the effect's own base / per-stack names (effects.json `descParams`, 规程's effectDescParamDataDict)
  * and blackboard, else keep the bond's by index (formatBondEffect).
- * @param {any} b bonds.json record
+ * @param {{ effectDescParams?: unknown, bb?: object, effectId?: string, effectName?: string, effectDesc?: string,
+ *   effectDescRaw?: string, [key: string]: unknown }} b bonds.json record
  * @param {string} effectId
- * @param {any} eff effects.json record
+ * @param {{ desc?: string, descRaw?: string, descParams?: unknown, params?: unknown, name?: string }} eff effects.json record
  */
 export function swappedBond(b, effectId, eff) {
   const src = eff.descRaw || eff.desc || '';
-  const byIndex = new Map((Array.isArray(b.effectDescParams) ? b.effectDescParams : []).map((p) => [p.index, p]));
+  /** @type {Map<number, { index: number, base?: unknown, perStack?: unknown, max?: unknown }>} */
+  const byIndex = new Map((Array.isArray(b.effectDescParams) ? b.effectDescParams : []).map((/** @type {{ index: number, base?: unknown, perStack?: unknown, max?: unknown }} */ p) => [p.index, p]));
   const params = [...String(src).matchAll(/\{(\d+)(?::([^{}]+))?\}/g)].map((m) => {
     const i = Number(m[1]);
     // 规程: the effect's own keys (effects.json descParams); 盟约's effects have none and keep the bond's by index
     const own = Array.isArray(eff.descParams) ? eff.descParams[i] : null;
     const p = own || byIndex.get(i);
-    return { index: i, format: m[2] || null, base: p?.base ?? null, perStack: p?.perStack ?? null, ...(Number(p?.max) > 0 ? { max: p.max } : {}) };
+    return { index: i, format: m[2] || null, base: p?.base ?? null, perStack: p?.perStack ?? null, ...(Number(p?.max) > 0 ? { max: /** @type {{ max?: unknown }} */ (p).max } : {}) };
   });
   // the swapped effect's blackboard first (its keys may be none of the bond's own effect: 维多利亚 _2 share_equip_duration_*)
   const bb = eff.params && typeof eff.params === 'object' ? { ...b.bb, ...eff.params } : b.bb;
@@ -216,8 +238,8 @@ export function swappedBond(b, effectId, eff) {
 
 /**
  * Bond detail popup.
- * @param {{ bondId: string, entry?: any, priv?: any, banned?: string[], onClose: Function,
- *   onMember?: (chessId:string, items?:string[]|null, standInFor?:string|null, diy?:any)=>void,
+ * @param {{ bondId: string, entry?: StripBond | null, priv?: PopupPriv | null, banned?: string[], onClose: () => void,
+ *   onMember?: (chessId:string, items?:string[]|null, standInFor?:string|null, diy?:unknown)=>void,
  *   place?: 'left'|'beside'|'besideR'|'right'|null, over?: boolean, beside?: 'left'|'right'|null, owner?: string|null, off?: boolean,
  *   skins?: Record<string, string>|null }} props —
  *   `place`: where it opens (gameLogic bondPopupPlace; `beside: 'left'` = the older spelling of 'beside'); `over`: above the
@@ -236,8 +258,8 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   if (!base) return null;
   const swapTo = priv?.bandSkill?.bondSwaps?.[bondId] || null;
   const swapEff = swapTo ? data.lookup('effects', swapTo) : null;
-  const b = swapEff ? swappedBond(base, swapTo, swapEff) : base;
-  const swapBand = swapEff ? data.lookup('bands', priv.bandId)?.name || '' : null;
+  const b = swapEff ? swappedBond(base, /** @type {string} */ (swapTo), swapEff) : base;
+  const swapBand = swapEff ? data.lookup('bands', (/** @type {PopupPriv} */ (priv)).bandId)?.name || '' : null;
   const count = entry?.count ?? 0;
   const layers = entry?.layers ?? 0;
   // the 临时层数 part of `layers` (a battle's live count, ui/watchBonds.js withLiveLayers): the official dialog shows the
@@ -254,17 +276,17 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   // their rows wear no 「自选」 badge — maintainer decision 2026-10-08, docs/LOCAL-PATCH.md 「0.2.0 병합」)
   const dd = { chess: data.get('chess'), backups: data.get('backups') };
   const getChess = diyGetter((id) => data.lookup('chess', id), priv, dd);
-  const pieceRecord = (p) => (p && p.diy && typeof p.diy === 'object' ? diyRecordFor(data.lookup('chess', p.id), p.diy, dd) : null) || getChess(p.id);
+  const pieceRecord = (/** @type {{ id: string, diy?: unknown }} */ p) => (p && p.diy && typeof p.diy === 'object' ? diyRecordFor(data.lookup('chess', p.id), p.diy, dd) : null) || getChess(p.id);
   const members = bondMembers(b, priv, banned, getChess, (id) => data.lookup('items', id), pieceRecord);
   // 补位: the stand-in a row shows (a 自选 row is its operator already)
-  const rawChess = (id) => data.lookup('chess', id);
-  const siOf = (mb) => (mb.diy ? null : memberStandIn(priv, rawChess(mb.id), data.get('backups'), rawChess));
+  const rawChess = (/** @type {string} */ id) => data.lookup('chess', id);
+  const siOf = (/** @type {ReturnType<typeof bondMembers>[number]} */ mb) => (mb.diy ? null : memberStandIn(priv, rawChess(mb.id), data.get('backups'), rawChess));
   const countsHand = entry?.countsHand ?? b.countsHand;
   const need = bondRequireCount(b, th); // the client's m (bondRequireCount): 炎 ×4 reads 4/3
   const hasNow = !off && !!(b.effectDescRaw || b.effectDesc);
   const at = place || (beside === 'left' ? 'beside' : 'left');
   // 调和's +1 in this count (the server's word), and the 调和 operators on that board who give it
-  const harmony = !off && Number.isInteger(entry?.harmony) && entry.harmony > 0 ? entry.harmony : 0;
+  const harmony = !off && Number.isInteger(entry?.harmony) && (/** @type {{ harmony: number }} */ (entry)).harmony > 0 ? (/** @type {{ harmony: number }} */ (entry)).harmony : 0;
   const harmonyBy = harmony ? harmonyMembers(priv, getChess).map((x) => {
     const si = memberStandIn(priv, rawChess(x.id), data.get('backups'), rawChess);
     return si ? { ...x, name: si.name } : x;
@@ -293,7 +315,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
     </header>
     ${off ? html`<p class="bpop__off" role="note">${t('本模式下该盟约不会激活（其干员仍可能因所属的其他盟约出现）')}</p>` : null}
     <div class="bpop__tiers">
-      ${th.map((n, i) => html`<span key=${i} class=${cx('bpop__tier', i < tier && 'is-on')}><b class="num">${n}</b><small>${b.maxCount != null ? t('名及以下') : tc('bond-threshold', '名')}</small></span>`)}
+      ${th.map((/** @type {number} */ n, /** @type {number} */ i) => html`<span key=${i} class=${cx('bpop__tier', i < tier && 'is-on')}><b class="num">${n}</b><small>${b.maxCount != null ? t('名及以下') : tc('bond-threshold', '名')}</small></span>`)}
     </div>
     ${hasNow ? html`<section class=${cx('bpop__sec', 'bpop__sec--now', active && 'is-active')}>
       ${swapBand != null ? html`<p class="bpop__swap" role="note">⇄ ${t('策略「{band}」：此盟约改为另一方向的效果', { band: swapBand })}</p>` : null}

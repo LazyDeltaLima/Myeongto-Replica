@@ -20,13 +20,23 @@ import { switcherLabel, cycleField } from './gameLogic.js';
 import { t } from '../../../shared/i18n.js';
 import { battleArt, ObInfo } from './battleArt.js';
 
-const cx = (...p) => p.flat().filter(Boolean).join(' ');
+const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ');
+
+/** @import { Pub } from './gameLogic/shared.js' */
+/** @import { ProgressRow } from '../battle/observe.js' */
+/**
+ * @typedef {{ key: string, label: string, self: boolean, watch: boolean, kind?: string, pid?: string | null }} HudLayer
+ *   a ‹ › layer (battle/observe.js cameraLayers)
+ * @typedef {{ progress?: ProgressRow[] | null, observing?: { name: string } | null, layers?: HudLayer[], layer?: string,
+ *   onLayer?: (k: string) => void, own?: ProgressRow | null }} ClientHudState  the client-side combat's part of the HUD
+ */
 
 /**
  * The teammates the progress list names one by one: all of them, or — more than four (the 8-player mode) — only those still
  * fighting, the finished ones folded into one 「作战结束 n/N」 pill (two or three rows of seven pills otherwise) [추정].
- * @param {Array<{ playerId: string, done?: boolean }>} list
- * @returns {{ rows: any[], done: number | null, total: number }}
+ * @template {{ playerId: string, done?: boolean }} R
+ * @param {R[]} list
+ * @returns {{ rows: R[], done: number | null, total: number }}
  */
 export function progressRows(list) {
   const all = Array.isArray(list) ? list : [];
@@ -35,7 +45,10 @@ export function progressRows(list) {
   return { rows, done: all.length - rows.length, total: all.length };
 }
 
-/** Teammates' progress under the waiting pill (css/screens/game.css .chud__progress / .chud__prog). */
+/**
+ * Teammates' progress under the waiting pill (css/screens/game.css .chud__progress / .chud__prog).
+ * @param {{ list: ProgressRow[] | null | undefined, label?: string }} props
+ */
 function ProgressList({ list, label = t('队友作战进度') }) {
   if (!Array.isArray(list) || !list.length) return null;
   const { rows, done, total } = progressRows(list);
@@ -51,11 +64,9 @@ function ProgressList({ list, label = t('队友作战进度') }) {
 }
 
 /**
- * @param {{ pub:any, myId:string, watching:string|null, hud?:any, myDone:boolean, onWatch:(fieldId:string)=>void, spectating?: boolean, spectator?: boolean,
- *   client?: null | { progress?: any[]|null, observing?: { name: string }|null,
- *                     layers?: Array<{ key: string, label: string, self: boolean, watch: boolean }>, layer?: string, onLayer?: (k: string) => void,
- *                     own?: any|null },
- *   waitBand?: boolean }} props `waitBand`: the official bottom band (ui/battleArt.js BottomTips) says the wait instead
+ * @param {{ pub: Pub | null | undefined, myId: string, watching: string | null, hud?: { dp?: number | null } | null,
+ *   myDone: boolean, onWatch: (fieldId: string) => void, spectating?: boolean, spectator?: boolean,
+ *   client?: ClientHudState | null, waitBand?: boolean }} props `waitBand`: the official bottom band (ui/battleArt.js BottomTips) says the wait instead
  */
 export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectating = false, spectator = false, client = null, waitBand = false }) {
   // `spectator`: a spectator seat (community report #26) watches like an eliminated player, under its own caption
@@ -81,11 +92,15 @@ export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectatin
   </div>`;
 }
 
+/**
+ * @param {{ pub?: Pub | null, hud?: { dp?: number | null } | null, myDone: boolean, spectating: boolean, spectator?: boolean,
+ *   client: ClientHudState, waitBand?: boolean }} props
+ */
 function ClientHud({ pub = null, hud, myDone, spectating, spectator = false, client, waitBand = false }) {
   const layers = Array.isArray(client.layers) ? client.layers : [];
   const idx = Math.max(0, layers.findIndex((l) => l.key === (client.layer || 'ALL')));
   const cur = layers[idx] || null;
-  const step = (d) => {
+  const step = (/** @type {number} */ d) => {
     if (!layers.length || !client.onLayer) return;
     const n = Math.min(layers.length - 1, Math.max(0, idx + d));
     if (n !== idx) client.onLayer(layers[n].key);

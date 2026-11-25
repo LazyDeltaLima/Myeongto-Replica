@@ -56,7 +56,7 @@ export function OwnCard({ m, chess, backups, owned, onToggle }) {
       <span class="own-card__ava own-card__ava--sub">${si ? html`<${Img} src=${skinPic(si.record, 'avatar', sk, { own: true }) || chessAvatarUrl(m, si.record)} fallback=${html`<b>${[...(si.name || '?')][0]}</b>`} />` : null}</span>
       <span class="own-card__txt">
         <b class="own-card__name">${si ? si.name : '—'}</b>
-        <small>${si ? `${t(/** @type {Record<string, string>} */ (PROF_NAME)[si.profession] || '')}${slot ? ` · ${slot} ${skill.name || ''}` : ''}` : t('无替补数据')}</small>
+        <small>${si ? `${t(/** @type {Record<string, string>} */ (PROF_NAME)[si.profession] || '')}${slot ? ` · ${slot} ${(/** @type {NonNullable<typeof skill>} */ (skill)).name || ''}` : ''}` : t('无替补数据')}</small>
       </span>
     </span>
     <span class="own-card__state"><i class="own-switch" aria-hidden="true"><i></i></i>${owned ? t('持有') : t('未持有')}</span>

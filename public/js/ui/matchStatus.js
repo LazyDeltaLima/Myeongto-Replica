@@ -13,9 +13,17 @@
 
 import { PHASE } from '../../../shared/constants.js';
 
+/** @import { Pub } from './gameLogic/shared.js' */
+/**
+ * @typedef {{ modes?: Record<string, { rounds?: Record<string, { levelMaxPlayTime?: number }> }>,
+ *   bossOvertimeDrainPerSec?: number, [key: string]: unknown }} StatusConfig  data/config.json, the keys read here
+ */
+
+/** @param {unknown} v @returns {v is Record<string, unknown>} */
 const isObj = (v) => !!v && typeof v === 'object';
+/** @type {Set<string | undefined>} */
 const BOSS_PHASES = new Set([PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
-/** Battle phases a solo player may pause (a solo run has no 联防). */
+/** Battle phases a solo player may pause (a solo run has no 联防). @type {Set<string | undefined>} */
 const PAUSE_PHASES = new Set([PHASE.COMBAT, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
 
 /** Level time of a boss round when the config does not say (research 01 §3: maxPlayTime 120 s). */
@@ -25,26 +33,27 @@ export const OVERTIME_WARN_BEFORE = 30;
 
 /**
  * The level's countdown length (s) of a boss round — the gauge total of the 120 s countdown.
- * @param {any} pub m.public
- * @param {any} config data/config.json
+ * @param {Pub | null | undefined} pub m.public
+ * @param {StatusConfig | null | undefined} config data/config.json
  * @returns {number|null} null outside boss rounds
  */
 export function bossLevelSeconds(pub, config) {
   if (!isObj(pub) || !BOSS_PHASES.has(pub.phase)) return null;
   const mode = isObj(config?.modes) ? config.modes[pub.modeId] : null;
   const v = mode?.rounds?.[String(pub.srcRound ?? pub.round)]?.levelMaxPlayTime;
-  return Number.isFinite(v) && v > 0 ? v : BOSS_LEVEL_SECONDS;
+  return Number.isFinite(v) && /** @type {number} */ (v) > 0 ? /** @type {number} */ (v) : BOSS_LEVEL_SECONDS;
 }
 
 /**
  * Team LP lost per real second of overtime: m.public.overtimeDrain (an 8-player match's, by its head count), else
  * config.bossOvertimeDrainPerSec, default 1.
+ * @param {StatusConfig | null | undefined} config @param {Pub | null} [pub]
  */
 export function overtimeDrainPerSec(config, pub = null) {
   const own = pub?.overtimeDrain;
   if (Number.isFinite(own) && own >= 0) return own;
   const v = config?.bossOvertimeDrainPerSec;
-  return Number.isFinite(v) && v >= 0 ? v : 1;
+  return Number.isFinite(v) && /** @type {number} */ (v) >= 0 ? /** @type {number} */ (v) : 1;
 }
 
 /**
@@ -53,7 +62,7 @@ export function overtimeDrainPerSec(config, pub = null) {
  *   { state: 'pending', secs }            the drain starts in `secs` s (shown once the level countdown ran out, or
  *                                         within OVERTIME_WARN_BEFORE s of the drain)
  *   { state: 'drain', secs, lost, perSec } draining for `secs` whole seconds: `lost` LP so far, `perSec` LP/s
- * @param {any} pub m.public
+ * @param {Pub | null | undefined} pub m.public
  * @param {number} now
  * @param {{ perSec?: number, warnBefore?: number }} [o]
  */
@@ -75,7 +84,7 @@ export function overtimeState(pub, now, { perSec = 1, warnBefore = OVERTIME_WARN
 /**
  * Whether the solo pause control is offered: solo runs only (hidden in co-op), while the player's own battle runs
  * (server Match.setPause: WRONG_PHASE once no battle is live). While paused the control stays (to resume).
- * @param {any} pub m.public
+ * @param {Pub | null | undefined} pub m.public
  * @param {{ solo?: boolean, alive?: boolean, done?: boolean }} [o] done: the own battle is over
  */
 export function pauseAvailable(pub, { solo = false, alive = true, done = false } = {}) {
@@ -84,24 +93,24 @@ export function pauseAvailable(pub, { solo = false, alive = true, done = false }
   return PAUSE_PHASES.has(pub.phase);
 }
 
-/** Whether m.public says the (solo) match is paused. */
+/** Whether m.public says the (solo) match is paused. @param {Pub | null | undefined} pub */
 export const isPaused = (pub) => isObj(pub) && !!pub.paused;
 
-/** The pause intent (C2S g.pause {on}). */
+/** The pause intent (C2S g.pause {on}). @param {unknown} on */
 export const pauseIntent = (on) => ({ t: 'g.pause', fields: { on: !!on } });
 
 /**
  * The clock every HUD countdown reads: the live server time, or — while paused — the moment the pause began
  * (m.public.pausedAt when the server sends it, else the first time this client saw `paused`).
- * @param {any} pub m.public
+ * @param {Pub | null | undefined} pub m.public
  * @param {number} now live server-corrected ms epoch
  * @param {number|null} seenAt when this client first saw the pause (ms epoch), or null
  */
 export function frozenNow(pub, now, seenAt = null) {
   if (!isPaused(pub)) return now;
-  const at = Number(pub.pausedAt);
+  const at = Number((/** @type {Pub} */ (pub)).pausedAt);
   if (Number.isFinite(at) && at > 0) return Math.min(now, at);
-  return Number.isFinite(seenAt) ? Math.min(now, seenAt) : now;
+  return Number.isFinite(seenAt) ? Math.min(now, /** @type {number} */ (seenAt)) : now;
 }
 
 /**
@@ -110,6 +119,6 @@ export function frozenNow(pub, now, seenAt = null) {
  * @param {number} now ms epoch
  */
 export function remainAt(deadline, now) {
-  if (!(Number.isFinite(deadline) && deadline > 0) || !Number.isFinite(now)) return null;
-  return Math.max(0, Math.ceil((deadline - now) / 1000));
+  if (!(Number.isFinite(deadline) && /** @type {number} */ (deadline) > 0) || !Number.isFinite(now)) return null;
+  return Math.max(0, Math.ceil((/** @type {number} */ (deadline) - now) / 1000));
 }

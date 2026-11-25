@@ -54,7 +54,7 @@ export function tickerSupersedes(line, old) {
 }
 
 /** A line's broadcast priority (activity_table autoChessData.broadcastList `priority`, sent with m.ticker; none = 0). */
-const prio = (t) => (t && typeof t.priority === 'number' && Number.isFinite(t.priority) ? t.priority : 0);
+const prio = (/** @type {TickerLine | null | undefined} */ t) => (t && typeof t.priority === 'number' && Number.isFinite(t.priority) ? t.priority : 0);
 
 /**
  * Takes `fresh` lines in: a line that supersedes the one on screen replaces it there, one that supersedes a queued line
@@ -114,11 +114,11 @@ export function nextTickerLine(queue, round) {
 export function Ticker() {
   const items = useStore((s) => s.ticker);
   const round = useStore((s) => s.match?.public?.round ?? null);
-  const seen = useRef(null);
-  const queue = useRef([]);
+  const seen = useRef(/** @type {number | null} */ (null));
+  const queue = useRef(/** @type {TickerLine[]} */ ([]));
   const roundRef = useRef(round);
-  const [cur, setCur] = useState(null);
-  const timer = useRef(null);
+  const [cur, setCur] = useState(/** @type {TickerLine | null} */ (null));
+  const timer = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null));
   roundRef.current = round;
 
   useEffect(() => {
@@ -128,7 +128,7 @@ export function Ticker() {
       seen.current = list.length ? list[list.length - 1].id : 0;
       return;
     }
-    const fresh = list.filter((t) => t && t.id > seen.current && Date.now() - t.at < 30000);
+    const fresh = list.filter((/** @type {TickerLine | null} */ t) => t && t.id > /** @type {number} */ (seen.current) && Date.now() - /** @type {number} */ (t.at) < 30000);
     if (!fresh.length) return;
     seen.current = fresh[fresh.length - 1].id;
     const r = enqueueTickerLines(queue.current, cur, fresh);
@@ -144,11 +144,12 @@ export function Ticker() {
     if (r.dropCur) next();
   }, [round]);
 
-  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => () => clearTimeout(/** @type {ReturnType<typeof setTimeout>} */ (timer.current)), []);
 
+  /** @param {TickerLine | null} it */
   function show(it) {
     setCur(it);
-    clearTimeout(timer.current);
+    clearTimeout(/** @type {ReturnType<typeof setTimeout>} */ (timer.current));
     if (it) {
       audio.sfx('broadcast', { volume: 0.5 });
       timer.current = setTimeout(next, officialArt() ? OFFICIAL_MS : TICKER_MS);

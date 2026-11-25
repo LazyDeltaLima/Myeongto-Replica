@@ -25,14 +25,22 @@ export const OWNERSHIP_IMPORT_MAX_BYTES = 64 * 1024;
 
 const ID_RE = /^[A-Za-z0-9_\-.:]{1,64}$/;
 const UNSAFE_IDS = new Set(['__proto__', 'constructor', 'prototype']);
+/** @param {unknown} v @returns {v is Record<string, unknown>} */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
 /**
+ * @typedef {{ chessId: string, tier: number, shopSortId?: number, visible?: boolean, isHidden?: boolean,
+ *   [key: string]: unknown }} RosterChess  a chess.json record the screen lists
+ * @typedef {NonNullable<ReturnType<typeof standInRecord>>} StandInRec  a composed stand-in record (shared/standIn.js)
+ */
+
+/**
  * Structurally valid, deduplicated, sorted ids of a raw list (junk dropped; at most OWNERSHIP_LIMITS.notOwned).
- * @param {any} list
+ * @param {unknown} list
  * @returns {string[]}
  */
 export function cleanIds(list) {
+  /** @type {Set<string>} */
   const out = new Set();
   for (const id of Array.isArray(list) ? list : []) {
     if (out.size >= OWNERSHIP_LIMITS.notOwned) break;
@@ -43,7 +51,7 @@ export function cleanIds(list) {
 
 /**
  * Parse a stored setting (any junk → []): `{ v, notOwned }` or a bare array from an older build.
- * @param {any} raw
+ * @param {unknown} raw
  * @returns {string[]}
  */
 export function parseStoredOwnership(raw) {
@@ -51,12 +59,12 @@ export function parseStoredOwnership(raw) {
   return isObj(raw) ? cleanIds(raw.notOwned) : [];
 }
 
-/** Serialised form for localStorage. */
+/** Serialised form for localStorage. @param {unknown} notOwned */
 export const toStoredOwnership = (notOwned) => ({ v: OWNERSHIP_VERSION, notOwned: cleanIds(notOwned) });
 
 /**
  * The ids to keep / send against the loaded data: droppable chess only (checkNotOwned), sorted.
- * @param {any} notOwned @param {(id: string) => any} getChess
+ * @param {unknown} notOwned @param {(id: string) => unknown} getChess
  * @returns {string[]}
  */
 export function sanitizeNotOwned(notOwned, getChess) {
@@ -64,7 +72,7 @@ export function sanitizeNotOwned(notOwned, getChess) {
   return res && res.ok ? res.notOwned : [];
 }
 
-/** Whether a chess is owned under a not-owned list (its base id is absent). */
+/** Whether a chess is owned under a not-owned list (its base id is absent). @param {unknown} notOwned @param {string} chessId */
 export function isOwned(notOwned, chessId) {
   return !(Array.isArray(notOwned) && notOwned.includes(chessId));
 }
@@ -84,7 +92,7 @@ export function setOwned(notOwned, chessId, owned = !isOwned(notOwned, chessId))
 
 /**
  * The chess the screen lists: droppable chess in this season's shop (visible), in shop order (tier, shopSortId).
- * @param {any[]} list data.list('chess')
+ * @param {RosterChess[] | null | undefined} list data.list('chess')
  */
 export function ownershipRoster(list) {
   return (Array.isArray(list) ? list : [])
@@ -92,12 +100,13 @@ export function ownershipRoster(list) {
     .sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0) || (a.shopSortId ?? 0) - (b.shopSortId ?? 0) || String(a.chessId).localeCompare(String(b.chessId)));
 }
 
-/** The roster grouped by tier: [{ tier, list }] in tier order. */
+/** The roster grouped by tier: [{ tier, list }] in tier order. @param {RosterChess[]} roster */
 export function rosterByTier(roster) {
+  /** @type {Map<number, RosterChess[]>} */
   const by = new Map();
   for (const c of roster) {
     if (!by.has(c.tier)) by.set(c.tier, []);
-    by.get(c.tier).push(c);
+    (/** @type {RosterChess[]} */ (by.get(c.tier))).push(c);
   }
   return [...by.entries()].sort((a, b) => a[0] - b[0]).map(([tier, list]) => ({ tier, list }));
 }
@@ -105,21 +114,21 @@ export function rosterByTier(roster) {
 /**
  * What the screen shows of a chess's stand-in: the composed record (shared/standIn.js — the stand-in at the chess's
  * normal status with its backup skill) reduced to the card's fields; null without the data.
- * @param {any} chess normal chess record @param {any} backups data/backups.json
+ * @param {Parameters<typeof standInRecord>[0]} chess normal chess record @param {Parameters<typeof standInRecord>[1]} backups data/backups.json
  * @returns {{ charId: string, name: string, appellation: string, profession: string, subProfessionName: string,
- *   rarity: number, skill: any, record: any } | null}
+ *   rarity: number, skill: StandInRec['skill'], record: StandInRec } | null}
  */
 export function standInSummary(chess, backups) {
   let rec;
   try { rec = standInRecord(chess, backups); } catch { rec = null; }
   if (!rec) return null;
   return {
-    charId: rec.charId, name: rec.name, appellation: rec.appellation || '', profession: rec.profession,
+    charId: /** @type {string} */ (rec.charId), name: rec.name, appellation: rec.appellation || '', profession: rec.profession,
     subProfessionName: rec.subProfessionName || '', rarity: rec.rarity, skill: rec.skill, record: rec,
   };
 }
 
-/** Number of listed chess marked as not owned (ids of retired / unknown chess do not count). */
+/** Number of listed chess marked as not owned (ids of retired / unknown chess do not count). @param {unknown} notOwned @param {RosterChess[] | null | undefined} roster */
 export function notOwnedCount(notOwned, roster) {
   const ids = new Set(Array.isArray(notOwned) ? notOwned : []);
   let n = 0;
@@ -129,7 +138,7 @@ export function notOwnedCount(notOwned, roster) {
 
 // ---- export / import -------------------------------------------------------------------------------------------------
 
-/** Portable payload of a not-owned list, as downloaded / copied by 导出. */
+/** Portable payload of a not-owned list, as downloaded / copied by 导出. @param {unknown} notOwned @param {{ now?: number }} [opts] */
 export function exportOwnership(notOwned, { now = Date.now() } = {}) {
   const list = cleanIds(notOwned);
   return {
@@ -141,14 +150,14 @@ export function exportOwnership(notOwned, { now = Date.now() } = {}) {
   };
 }
 
-/** Pretty JSON of `exportOwnership`. */
+/** Pretty JSON of `exportOwnership`. @param {unknown} notOwned @param {{ now?: number }} [opts] */
 export const serializeOwnership = (notOwned, opts) => JSON.stringify(exportOwnership(notOwned, opts), null, 2);
 
 /**
  * Parse an imported list: the envelope, the stored `{ v, notOwned }` form, a bare array of ids, or the text of any of
  * them. STRUCTURAL only — the caller sanitises against the loaded data (sanitizeNotOwned). An envelope may hold an empty
  * list (= every operator owned).
- * @param {any} input payload or text
+ * @param {unknown} input payload or text
  * @returns {{ ok: true, notOwned: string[], error?: undefined } | { ok: false, error: string, notOwned?: undefined }}
  */
 export function parseOwnershipImport(input) {
@@ -161,7 +170,7 @@ export function parseOwnershipImport(input) {
   }
   if (Array.isArray(raw)) return { ok: true, notOwned: cleanIds(raw) };
   if (!isObj(raw)) return { ok: false, error: t('无法识别的格式') };
-  const v = Number.isInteger(raw.v) ? raw.v : null;
+  const v = Number.isInteger(raw.v) ? /** @type {number} */ (raw.v) : null;
   if (v != null && v > OWNERSHIP_VERSION) return { ok: false, error: t('这份数据来自更新的版本（v{v}），请先更新游戏', { v }) };
   const kind = typeof raw.kind === 'string' ? raw.kind : null;
   if (kind && kind !== OWNERSHIP_EXPORT_KIND) return { ok: false, error: t('这不是干员持有的数据') };

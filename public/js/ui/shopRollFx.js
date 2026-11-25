@@ -19,6 +19,12 @@ const ORANGE = [1, 0.3997, 0.2925];
 const SIZE_A = [[0, 0], [0.1, 1], [0.39, 0.22], [0.63, 0.61], [1, 0]];
 const SIZE_B = [[0, 0], [0.12, 0.76], [0.24, 0.44], [0.42, 0.97], [0.61, 0.15], [0.74, 0.78], [1, 0]];
 const ALPHA_12 = [[0, 0], [0.13, 1], [0.84, 1], [1, 0]];
+/**
+ * @typedef {{ at: [number, number, number], box?: [number, number], burst: { t: number, n: number, cycles: number, every: number },
+ *   life: [number, number], size: [number, number], sizeCurves: number[][][], colour: number[][], vy: [number, number],
+ *   alpha: number[][] }} StarDef  one star emitter of root_fx
+ */
+/** @type {StarDef[]} */
 const STARS = [
   { at: [0.5, 40, 17], box: [664, 125], burst: { t: 4 / 60, n: 3, cycles: 5, every: 0.01 }, life: [0.7, 1.3], size: [40, 80],
     sizeCurves: [SIZE_A, SIZE_B], colour: [ORANGE, [1, 0.83, 0.1647]], vy: [5, 20], alpha: ALPHA_12 },
@@ -30,8 +36,9 @@ const STARS = [
 ];
 const STEPS = 16; // keyframes per particle
 
-const lerp = (a, b, t) => a + (b - a) * t;
-const rand = (lo, hi) => lerp(lo, hi, Math.random());
+const lerp = (/** @type {number} */ a, /** @type {number} */ b, /** @type {number} */ t) => a + (b - a) * t;
+const rand = (/** @type {number} */ lo, /** @type {number} */ hi) => lerp(lo, hi, Math.random());
+/** @param {number[][]} keys @param {number} t */
 function curveAt(keys, t) {
   for (let i = 1; i < keys.length; i++) {
     if (t <= keys[i][0]) {
@@ -42,10 +49,13 @@ function curveAt(keys, t) {
   return keys[keys.length - 1][1];
 }
 
-/** Spawn the stars into `layer` (the size of `box`); returns the cleanup. `u` = px per prefab unit. */
+/**
+ * Spawn the stars into `layer` (the size of `box`); returns the cleanup. `u` = px per prefab unit.
+ * @param {HTMLElement} box @param {Element} layer @param {number} u @param {string | null} tex
+ */
 function playStars(box, layer, u, tex) {
   const W = box.clientWidth, H = box.clientHeight;
-  const spawn = (def, startS) => {
+  const spawn = (/** @type {StarDef} */ def, /** @type {number} */ startS) => {
     const life = rand(...def.life);
     const size = rand(...def.size) * u;
     const pick = Math.random(), tint = Math.random();
@@ -60,6 +70,7 @@ function playStars(box, layer, u, tex) {
       + (tex ? `;-webkit-mask-image:url("${tex}");mask-image:url("${tex}")` : ';border-radius:50%;background-image:none');
     if (!tex) el.style.background = `radial-gradient(circle, rgb(${c.join(',')}) 0 12%, rgba(${c.join(',')}, .45) 22%, transparent 50%)`;
     layer.appendChild(el);
+    /** @type {Keyframe[]} */
     const frames = [];
     for (let k = 0; k <= STEPS; k++) {
       const t = k / STEPS;
@@ -77,12 +88,12 @@ function playStars(box, layer, u, tex) {
 
 /** root_fx of the special refresh, laid over the card row (ui/shopBar.js, while `is-special`). */
 export function RollFx() {
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLElement | null} */ (null));
   useEffect(() => {
     const box = ref.current;
     if (!box || typeof box.animate !== 'function') return undefined;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
-    const unit = box.querySelector('.shopbar__rollunit');
+    const unit = /** @type {HTMLElement | null} */ (box.querySelector('.shopbar__rollunit'));
     const u = (unit?.offsetWidth || 0) / 100;
     if (!(u > 0)) return undefined;
     const layer = box.querySelector('.shopbar__stars');

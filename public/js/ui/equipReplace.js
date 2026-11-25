@@ -19,15 +19,24 @@ import { UnitThumb, RichText, GIcon } from './gameComponents.js';
 import { localAsset } from '../data.js';
 import { t, tParts } from '../../../shared/i18n.js';
 
-const cx = (...p) => p.flat().filter(Boolean).join(' ');
+const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ');
+/** @param {unknown} v @returns {v is Record<string, unknown>} */
 const isObj = (v) => !!v && typeof v === 'object';
 
 /**
+ * @typedef {{ uid: number, id: string, kind?: string, golden?: boolean, items?: { uid: number, id: string }[],
+ *   [key: string]: unknown }} EqPiece  a piece of m.private (placementContext pieces)
+ * @typedef {{ name?: string, standInFor?: unknown, diyFor?: unknown, [key: string]: unknown }} EqChess  a chess record
+ * @typedef {{ name?: string, tier?: number, isGolden?: boolean, desc?: string, descRaw?: string,
+ *   [key: string]: unknown }} EqItem  an items.json record
+ */
+
+/**
  * What the replace dialog shows for a g.equip drop intent that needs a replacement (`intent.confirmReplace`).
- * @param {{ pieces: Map<number, any> }} ctx placementContext
+ * @param {{ pieces?: Map<number, { piece?: EqPiece | null }> } | null | undefined} ctx placementContext
  * @param {{ t: string, fields: { itemUid: number, targetUid: number }, confirmReplace?: boolean }|null} intent gameLogic dropIntent
- * @param {(id: string) => any} [getChess]
- * @param {(id: string) => any} [getItem]
+ * @param {(id: string) => EqChess | null | undefined} [getChess]
+ * @param {(id: string) => EqItem | null | undefined} [getItem]
  */
 export function replaceRequest(ctx, intent, getChess = () => null, getItem = () => null) {
   if (!intent || intent.t !== 'g.equip' || !intent.confirmReplace || !isObj(intent.fields)) return null;
@@ -36,7 +45,7 @@ export function replaceRequest(ctx, intent, getChess = () => null, getItem = () 
   if (!isObj(target) || target.kind !== 'chess' || !isObj(item) || item.kind !== 'item') return null;
   const equipped = (Array.isArray(target.items) ? target.items : []).filter((it) => isObj(it) && Number.isInteger(it.uid));
   if (equipped.length < 2) return null;
-  const rec = (id) => getItem(id) || null;
+  const rec = (/** @type {string} */ id) => getItem(id) || null;
   const shown = getChess(target.id) || null;
   return {
     targetUid: target.uid,
@@ -57,18 +66,23 @@ export function replaceRequest(ctx, intent, getChess = () => null, getItem = () 
  */
 export function replaceIntent(intent, replaceUid) {
   const f = intent?.fields || {};
+  /** @type {{ itemUid?: number, targetUid?: number, replaceUid?: number }} */
   const fields = { itemUid: f.itemUid, targetUid: f.targetUid };
   if (Number.isInteger(replaceUid)) fields.replaceUid = replaceUid;
   return { t: 'g.equip', fields };
 }
 
 /** One official sprite as a CSS custom property (empty when the local-client art is not installed). */
-const spriteVar = (name, sprite) => {
+const spriteVar = (/** @type {string} */ name, /** @type {string} */ sprite) => {
   const url = localAsset('ui/battle', sprite);
   return url ? `${name}:url("${url}");` : '';
 };
 
-/** An item card of the dialog (the incoming item on top, the two equipped options below). */
+/**
+ * An item card of the dialog (the incoming item on top, the two equipped options below).
+ * @param {{ id: string, item: { uid: number, id?: string, name?: string }, rec?: EqItem | null, selected?: boolean,
+ *   option?: boolean, onPick?: (uid: number) => void }} props
+ */
 function ItemCard({ id, item, rec, selected = false, option = false, onPick }) {
   const tier = rec?.tier;
   const body = html`
@@ -83,7 +97,7 @@ function ItemCard({ id, item, rec, selected = false, option = false, onPick }) {
     <${RichText} as="p" class="eqr__desc" text=${rec?.descRaw || rec?.desc || ''} />`;
   if (!option) return html`<div class="eqr__card eqr__card--new">${body}</div>`;
   return html`<button type="button" role="radio" aria-checked=${selected ? 'true' : 'false'} data-uid=${item.uid}
-      class=${cx('eqr__card', 'eqr__opt', selected && 'is-sel')} onClick=${() => onPick(item.uid)}>
+      class=${cx('eqr__card', 'eqr__opt', selected && 'is-sel')} onClick=${() => (/** @type {(uid: number) => void} */ (onPick))(item.uid)}>
     ${body}
     <span class="eqr__flag" aria-hidden=${selected ? 'false' : 'true'}>
       <${GIcon} name="trash" class="eqr__flag-icon" /><span>${t('将被销毁')}</span>
@@ -93,11 +107,11 @@ function ItemCard({ id, item, rec, selected = false, option = false, onPick }) {
 
 /**
  * The dialog.
- * @param {{ request: ReturnType<typeof replaceRequest>, getItem?: (id: string) => any, busy?: boolean,
+ * @param {{ request: ReturnType<typeof replaceRequest>, getItem?: (id: string) => EqItem | null | undefined, busy?: boolean,
  *   onConfirm: (replaceUid: number) => void, onCancel: () => void }} props
  */
 export function EquipReplaceDialog({ request, getItem = () => null, busy = false, onConfirm, onCancel }) {
-  const [sel, setSel] = useState(null);
+  const [sel, setSel] = useState(/** @type {number | null} */ (null));
   const key = request ? `${request.targetUid}:${request.item.uid}` : '';
   useEffect(() => { setSel(null); }, [key]);
   if (!request) return null;
@@ -112,7 +126,7 @@ export function EquipReplaceDialog({ request, getItem = () => null, busy = false
   const confirmIcon = localAsset('ui/battle', 'equip_replace_comfirm_icon');
   const swapIcon = localAsset('ui/battle', 'equip_replace_replace_icon');
   // A focused button owns Enter through its native click, including Cancel and the item options.
-  return html`<div class="eqr-host" style=${style} onKeyDown=${(e) => { if (e.key === 'Enter' && e.target?.tagName !== 'BUTTON' && chosen && !busy) { e.preventDefault(); onConfirm(chosen.uid); } }}>
+  return html`<div class="eqr-host" style=${style} onKeyDown=${(/** @type {KeyboardEvent & { target: HTMLElement | null }} */ e) => { if (e.key === 'Enter' && e.target?.tagName !== 'BUTTON' && chosen && !busy) { e.preventDefault(); onConfirm(chosen.uid); } }}>
     <${Modal} open=${true} tone="red" class="eqr" width="min(7.6rem, 96vw)" micro="EQUIPMENT · REPLACE" title=${t('替换装备')} onClose=${onCancel}
       actions=${html`
         <${Button} variant="secondary" icon="close" class="eqr__cancel" onClick=${onCancel}>${t('取消')}<//>
@@ -133,7 +147,7 @@ export function EquipReplaceDialog({ request, getItem = () => null, busy = false
       <div class="eqr__arrow" aria-hidden="true"><i class="eqr__aline"></i><i class="eqr__ahead eqr__ahead--l"></i><i class="eqr__ahead eqr__ahead--r"></i></div>
       <div class="eqr__opts" data-n=${request.options.length} role="radiogroup" aria-label=${t('选择被替换的装备')}>
         ${request.options.map((o) => html`<${ItemCard} key=${o.uid} id=${o.id} item=${o} rec=${getItem(o.id)} option=${true}
-          selected=${o.uid === sel} onPick=${(uid) => setSel((s) => (s === uid ? null : uid))} />`)}
+          selected=${o.uid === sel} onPick=${(/** @type {number} */ uid) => setSel((s) => (s === uid ? null : uid))} />`)}
       </div>
       <p class="eqr__hint">${chosen ? html`${tParts('将销毁「{old}」并配发「{item}」', { old: html`<b>${chosen.name}</b>`, item: html`<b>${request.item.name}</b>` })}` : t('点击选择要替换的装备')}</p>
     <//>

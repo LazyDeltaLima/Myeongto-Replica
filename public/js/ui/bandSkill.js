@@ -31,14 +31,40 @@ import { t, tParts, N_ } from '../../../shared/i18n.js';
 import { GEO, PHASE } from '../../../shared/constants.js';
 import { bandSkillTiles, tileKey } from './gameLogic.js';
 
-const cx = (...p) => p.flat().filter(Boolean).join(' ');
+const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ');
+
+/** @import { PlaceCtx } from './gameLogic/placement.js' */
+/**
+ * @typedef {{ value?: number, target?: number }} BandProgress  a stage's value/target (`tag`, `unlock`)
+ * @typedef {{ type?: string, filter?: string | null, tip?: string | null }} BandTarget  a stage's target
+ * @typedef {{ stage: number, type?: string, target?: BandTarget | null, cost?: number, usesLeft?: number | null,
+ *   cooldown?: number | null, usable?: boolean, blocked?: string | null, showTag?: string | null,
+ *   tag?: BandProgress | null, unlock?: BandProgress | null, commandBandId?: string | null,
+ *   chests?: { row: number, col: number }[], [key: string]: unknown }} BandSkillState  m.private.bandSkill
+ *   (server/match/match/bandSkill.js bandSkillView)
+ * @typedef {{ uid: number, kind?: string, row: number, col: number }} BandBoardPiece
+ * @typedef {{ uid: number, kind?: string }} BandHandPiece
+ * @typedef {{ bandSkill?: BandSkillState | null, bandId?: string, funds?: number, board?: BandBoardPiece[],
+ *   hand?: (BandHandPiece | null)[], shop?: { slots?: ({ sold?: boolean, kind?: string } | null)[] },
+ *   [key: string]: unknown }} BandPriv  m.private, read for the 指令
+ * @typedef {{ piece?: { uid: number } | null, tile?: { row: number, col: number } | null }} BandHit  view.pickAt
+ * @typedef {{ fields: object, tile?: [number, number], card?: Element }} BandTargetHit
+ * @typedef {{ highlightTiles?: (tiles: Array<[number, number]>, style: object | string) => unknown,
+ *   pickAt?: (x: number, y: number) => BandHit | null }} BandView  the field view's hooks the 指令 calls
+ * @typedef {{ id: number, sx: number, sy: number, x0: number, y0: number, moved: boolean,
+ *   res: BandTargetHit | null }} BandPress  a press on the portrait
+ * @typedef {{ x0: number, y0: number, x: number, y: number, ok: boolean }} BandDrag
+ */
 
 /** The pointed target's tile (render/tiles.js style; its own group so the placement highlights stay). */
 export const BAND_SKILL_HL = Object.freeze({ color: 0xffffff, fill: 0.32, line: 1, group: 'bandSkill' });
 /** Pointer travel (px) before a press on the portrait becomes a drag. */
 const DRAG_START = 8;
 
-/** The stage's target tip (the table's `targetTip`; the client's texts — only the first is seen on an official screen). */
+/**
+ * The stage's target tip (the table's `targetTip`; the client's texts — only the first is seen on an official screen).
+ * @type {Record<string, string[]>}
+ */
 const TIPS = {
   AUTO_CHESS_BANDSKILL_TIPS_OPEARTOR_BATTLE: [N_('请指向{place}的干员'), N_('战场或整备区')],
   // [ASSUMED·화면] the three below: their client texts are not in the tables (bundle mix-Q)
@@ -46,25 +72,30 @@ const TIPS = {
   AUTO_CHESS_BANDSKILL_TIPS_EQUIP_SHOP: [N_('请指向{place}的装备'), N_('调度中心')],
   AUTO_CHESS_BANDSKILL_TIPS_BATTLEFIELD: [N_('请指向{place}的可用地块'), N_('战场')],
 };
+/** @type {Record<string, string>} */
 const TIP_BY_TARGET = { COMMON_CHESS: 'AUTO_CHESS_BANDSKILL_TIPS_OPEARTOR_BATTLE', MAP_TILE: 'AUTO_CHESS_BANDSKILL_TIPS_BATTLEFIELD' };
 
-/** The tip of a stage's target ({ type, filter, tip }). */
+/**
+ * The tip of a stage's target ({ type, filter, tip }).
+ * @param {BandTarget | null | undefined} target
+ * @returns {string[] | null}
+ */
 export function bandSkillTip(target) {
   if (!target) return null;
-  const key = TIPS[target.tip] ? target.tip
+  const key = TIPS[/** @type {string} */ (target.tip)] ? target.tip
     : target.type === 'SHOP_SLOT' ? (target.filter === 'EQUIP' ? 'AUTO_CHESS_BANDSKILL_TIPS_EQUIP_SHOP' : 'AUTO_CHESS_BANDSKILL_TIPS_OPEARTOR_SHOP')
-      : TIP_BY_TARGET[target.type];
+      : TIP_BY_TARGET[/** @type {string} */ (target.type)];
   return key ? TIPS[key] : null;
 }
 
 /**
  * The counter under the portrait: { icon: 'lock'|'clock'|null, text } or null.
- * @param {any} bs m.private.bandSkill
+ * @param {BandSkillState | null | undefined} bs m.private.bandSkill
  * @returns {{ icon: 'lock'|'clock'|null, text: string, value?: number, target?: number } | null}
  */
 export function bandSkillCounter(bs) {
   if (!bs) return null;
-  const vt = (p) => (p && Number.isFinite(p.value) && Number.isFinite(p.target) ? { value: p.value, target: p.target } : null);
+  const vt = (/** @type {BandProgress | null | undefined} */ p) => (p && Number.isFinite(p.value) && Number.isFinite(p.target) ? { value: p.value, target: p.target } : null);
   const shows = bs.showTag === 'value_target';
   if (bandSkillPassive(bs)) {
     const tag = shows ? vt(bs.tag) : null;
@@ -74,12 +105,12 @@ export function bandSkillCounter(bs) {
     const un = shows ? vt(bs.unlock) : null;
     return un ? { icon: 'lock', text: `${un.value}/${un.target}`, ...un } : { icon: 'lock', text: '' };
   }
-  if (bs.cooldown > 0) return { icon: 'clock', text: String(bs.cooldown) };
+  if (/** @type {number} */ (bs.cooldown) > 0) return { icon: 'clock', text: String(bs.cooldown) };
   if (Number.isFinite(bs.usesLeft)) return { icon: null, text: String(bs.usesLeft) };
   return null;
 }
 
-/** A strategy without an active 指令 (bandSkillView's _bandPassiveView): a portrait and a detail, never used. */
+/** A strategy without an active 指令 (bandSkillView's _bandPassiveView): a portrait and a detail, never used. @param {BandSkillState | null | undefined} bs */
 export function bandSkillPassive(bs) {
   return !!bs && (bs.blocked === 'passive' || bs.type === 'PASSIVE');
 }
@@ -88,21 +119,21 @@ export function bandSkillPassive(bs) {
  * The stage text with its 「{@tag}」 / 「{@unlock}」 filled: (value/target) highlighted, or nothing when the server sends no
  * progress for it.
  * @param {string} text rich text (bands.json skills[i].descRaw, localised)
- * @param {any} bs m.private.bandSkill
+ * @param {BandSkillState | null | undefined} bs m.private.bandSkill
  */
 export function bandSkillText(text, bs) {
-  const fill = (p) => (p && Number.isFinite(p.value) && Number.isFinite(p.target) ? `<@ba.vup>(${p.value}/${p.target})</>` : '');
+  const fill = (/** @type {BandProgress | null | undefined} */ p) => (p && Number.isFinite(p.value) && Number.isFinite(p.target) ? `<@ba.vup>(${p.value}/${p.target})</>` : '');
   return String(text || '').replace(/\{@tag\}/g, () => fill(bs?.tag)).replace(/\{@unlock\}/g, () => fill(bs?.unlock));
 }
 
 /**
  * The g.bandSkill fields for what lies under a client point, or null when nothing there is the stage's target.
- * @param {any} bs m.private.bandSkill
- * @param {any} priv m.private
+ * @param {BandSkillState | null | undefined} bs m.private.bandSkill
+ * @param {BandPriv | null | undefined} priv m.private
  * @param {{ piece?: { uid:number }|null, tile?: { row:number, col:number }|null }|null} hit view.pickAt
  * @param {Element|null} el the DOM element under the point (a 调度中心 card: `.shopbar__cards [data-slot]`)
  * @param {Set<string>|null} [usable] a MAP_TILE stage's usable board tiles 'r,c' (bandSkillTiles); a tile outside is none
- * @returns {null | { fields: object, tile?: [number, number], card?: Element }}
+ * @returns {null | BandTargetHit}
  */
 export function bandSkillTarget(bs, priv, hit, el, usable = null) {
   const tg = bs?.target;
@@ -110,9 +141,9 @@ export function bandSkillTarget(bs, priv, hit, el, usable = null) {
   if (tg.type === 'COMMON_CHESS') {
     const uid = hit?.piece?.uid;
     if (!Number.isInteger(uid)) return null;
-    const board = (Array.isArray(priv.board) ? priv.board : []).find((p) => p && p.uid === uid);
-    const handIdx = (Array.isArray(priv.hand) ? priv.hand : []).findIndex((p) => p && p.uid === uid);
-    const piece = board || (handIdx >= 0 ? priv.hand[handIdx] : null);
+    const board = (Array.isArray(priv.board) ? priv.board : []).find((/** @type {BandBoardPiece | null} */ p) => p && p.uid === uid);
+    const handIdx = (Array.isArray(priv.hand) ? priv.hand : []).findIndex((/** @type {BandHandPiece | null} */ p) => p && p.uid === uid);
+    const piece = board || (handIdx >= 0 ? (/** @type {(BandHandPiece | null)[]} */ (priv.hand))[handIdx] : null);
     if (!piece || (tg.filter === 'CHAR' && piece.kind !== 'chess')) return null;
     return { fields: { uid }, tile: board ? [board.row, board.col] : [GEO.HAND_ROW, handIdx] };
   }
@@ -123,14 +154,14 @@ export function bandSkillTarget(bs, priv, hit, el, usable = null) {
     if (!s || s.sold) return null;
     const want = tg.filter === 'EQUIP' ? 'item' : tg.filter === 'CHAR' ? 'chess' : null;
     if (want && s.kind !== want) return null;
-    return { fields: { slot }, card };
+    return /** @type {BandTargetHit} */ ({ fields: { slot }, card });
   }
   if (tg.type === 'MAP_TILE') {
     const tile = hit?.tile;
     const F = GEO.FIELD;
     if (!tile || tile.row < F.r0 || tile.row > F.r1 || tile.col < F.c0 || tile.col > F.c1) return null;
     // the server judges the ground (the stage's groundPassable / buildable); an occupied tile is never PASSABLE_AND_BUILDABLE
-    if (tg.filter === 'PASSABLE_AND_BUILDABLE' && (priv.board || []).some((p) => p && p.row === tile.row && p.col === tile.col)) return null;
+    if (tg.filter === 'PASSABLE_AND_BUILDABLE' && (priv.board || []).some((/** @type {BandBoardPiece | null} */ p) => p && p.row === tile.row && p.col === tile.col)) return null;
     if (usable && !usable.has(tileKey(tile.row, tile.col))) return null;
     return { fields: { row: tile.row, col: tile.col }, tile: [tile.row, tile.col] };
   }
@@ -141,7 +172,10 @@ const LOOK = html`<svg class="bskill__lookico" viewBox="0 0 16 16" aria-hidden="
 const CLOCK = html`<svg class="bskill__cico" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.2" fill="currentColor"/><path d="M6 3v3.2h2.6" stroke="#15171a" stroke-width="1.5" fill="none"/></svg>`;
 const LOCK = html`<svg class="bskill__cico" viewBox="0 0 12 14" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.6" fill="currentColor"/><path d="M3.4 6V4.3a2.6 2.6 0 015.2 0V6" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>`;
 
-/** The drag arrow: from the portrait's centre (x0, y0) to the pointer (x1, y1), its head at the pointer. */
+/**
+ * The drag arrow: from the portrait's centre (x0, y0) to the pointer (x1, y1), its head at the pointer.
+ * @param {{ x0: number, y0: number, x1: number, y1: number }} props
+ */
 function Arrow({ x0, y0, x1, y1 }) {
   const len = Math.hypot(x1 - x0, y1 - y0);
   if (len < 4) return null;
@@ -163,30 +197,32 @@ function Arrow({ x0, y0, x1, y1 }) {
 }
 
 /**
- * @param {{ view: any, priv: any, phase: string, combat: boolean, place?: any }} props
+ * @param {{ view: BandView | null | undefined, priv: BandPriv, phase: string, combat: boolean,
+ *   place?: PlaceCtx | null }} props
  *   view: the field view (render/app.js or ui/fallbackField.js: pickAt, highlightTiles); combat: a battle phase on screen;
  *   place: the own placement context (gameLogic placementContext — the stage, deploy field and overrides a tile 指令 reads)
  */
 export function BandSkill({ view, priv, phase, combat, place = null }) {
-  const bs = priv?.bandSkill || null;
+  // (typed with a target: the drag reads `bs.target.filter` only behind target === 'MAP_TILE', a stage with a target)
+  const bs = /** @type {(BandSkillState & { target: { filter: string } }) | null} */ (priv?.bandSkill || null);
   const [open, setOpen] = useState(false);
-  const [drag, setDrag] = useState(null); // { x0, y0, x, y, ok }
-  const press = useRef(null);
-  const ring = useRef(null);
-  const card = useRef(null);
+  const [drag, setDrag] = useState(/** @type {BandDrag | null} */ (null)); // { x0, y0, x, y, ok }
+  const press = useRef(/** @type {BandPress | null} */ (null));
+  const ring = useRef(/** @type {HTMLElement | null} */ (null));
+  const card = useRef(/** @type {Element | null} */ (null));
   const prep = phase === PHASE.PREP && !combat;
   const canUse = !!bs && prep && !!bs.usable;
   const target = bs?.target?.type || 'NO_TARGET';
 
-  const mark = (res) => {
+  const mark = (/** @type {BandTargetHit | null | undefined} */ res) => {
     if (card.current && card.current !== res?.card) card.current.classList.remove('is-skill-target');
     card.current = res?.card || null;
     if (card.current) card.current.classList.add('is-skill-target');
     try { view?.highlightTiles?.(res?.tile ? [res.tile] : [], BAND_SKILL_HL); } catch { /* cosmetic */ }
   };
   // a tile 指令's usable tiles, tinted for the whole drag (the placement drag's own look: 'legal')
-  const area = useRef(null);
-  const showArea = (tiles) => {
+  const area = useRef(/** @type {Set<string> | null} */ (null));
+  const showArea = (/** @type {[number, number][] | null} */ tiles) => {
     area.current = tiles ? new Set(tiles.map(([r, c]) => tileKey(r, c))) : null;
     try { view?.highlightTiles?.(tiles || [], 'legal'); } catch { /* cosmetic */ }
   };
@@ -197,7 +233,7 @@ export function BandSkill({ view, priv, phase, combat, place = null }) {
   useLayoutEffect(() => () => { mark(null); if (area.current) showArea(null); }, [view]);
   useEffect(() => {
     if (!drag) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') stop(); };
+    const onKey = (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Escape') stop(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [!!drag]);
@@ -216,19 +252,20 @@ export function BandSkill({ view, priv, phase, combat, place = null }) {
   const locked = !passive && bs.type !== 'ACTIVE';
   const tip = bandSkillTip({ ...(bs.target || {}), tip: stage?.target?.tip ?? bs.target?.tip ?? null });
 
-  const resolve = (x, y) => {
+  const resolve = (/** @type {number} */ x, /** @type {number} */ y) => {
+    /** @type {Element | null} */
     let el = null;
     try { el = document.elementFromPoint(x, y); } catch { /* none */ }
     const hit = target === 'SHOP_SLOT' ? null : view?.pickAt?.(x, y) ?? null;
     return bandSkillTarget(bs, priv, hit, el, area.current);
   };
-  const onDown = (e) => {
+  const onDown = (/** @type {PointerEvent & { currentTarget: Element }} */ e) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     const r = ring.current?.getBoundingClientRect();
     press.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, x0: r ? r.left + r.width / 2 : e.clientX, y0: r ? r.top + r.height / 2 : e.clientY, moved: false, res: null };
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* old browsers */ }
   };
-  const onMove = (e) => {
+  const onMove = (/** @type {PointerEvent} */ e) => {
     const p = press.current;
     if (!p || p.id !== e.pointerId) return;
     if (!p.moved) {
@@ -242,7 +279,7 @@ export function BandSkill({ view, priv, phase, combat, place = null }) {
     mark(p.res);
     setDrag({ x0: p.x0, y0: p.y0, x: e.clientX, y: e.clientY, ok: !!p.res });
   };
-  const onUp = (e) => {
+  const onUp = (/** @type {PointerEvent} */ e) => {
     const p = press.current;
     if (!p || p.id !== e.pointerId) return;
     if (p.moved) {
@@ -263,7 +300,7 @@ export function BandSkill({ view, priv, phase, combat, place = null }) {
       <div class="bskill__band" ref=${ring} role="button" tabIndex="0"
         aria-label=${`${name}${canUse && target === 'NO_TARGET' ? ` · ${t('点击使用')}` : canUse ? ` · ${t('拖拽使用')}` : ''}`}
         onPointerDown=${onDown} onPointerMove=${onMove} onPointerUp=${onUp} onPointerCancel=${stop} onLostPointerCapture=${() => { if (press.current?.moved) stop(); }}
-        onKeyDown=${(e) => { if ((e.key === 'Enter' || e.key === ' ') && canUse && target === 'NO_TARGET') { e.preventDefault(); e.stopPropagation(); actions.bandSkill({}); } }}>
+        onKeyDown=${(/** @type {KeyboardEvent} */ e) => { if ((e.key === 'Enter' || e.key === ' ') && canUse && target === 'NO_TARGET') { e.preventDefault(); e.stopPropagation(); actions.bandSkill({}); } }}>
         <span class="bskill__ring"><${Img} src=${bandIconUrl(data.get('assets'), bandId)} class="bskill__icon"
           fallback=${html`<span class="bskill__glyph">${[...(name || '?')][0]}</span>`} /></span>
         ${cost > 0 ? html`<b class=${cx('bskill__cost', 'num', short && 'is-short')}>${cost}</b>` : null}

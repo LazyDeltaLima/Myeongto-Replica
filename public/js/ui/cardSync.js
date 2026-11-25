@@ -10,17 +10,25 @@ import { cardStore, CARD_KEY, CARD_SYNC_KEY } from './seatArt.js';
 export const CARD_RETRY_MS = 1500;
 
 /**
- * Wire the 名片干员 sync once (main.js). Dependencies are injectable for tests.
- * @param {{ net: any, target?: ReturnType<typeof import('../store.js').createStore>,
- *   timers?: { setTimeout: Function, clearTimeout: Function } }} deps
+ * @typedef {{ status: string, request: (type: string, body: object) => Promise<unknown>,
+ *   on: (event: string, fn: () => void) => (() => void) | undefined }} CardNet  the client net (net.js), the members used here
+ * @typedef {{ net: CardNet, target?: typeof cardStore,
+ *   timers?: { setTimeout: (fn: () => void, ms: number) => unknown, clearTimeout: (handle: unknown) => void } }} CardSyncDeps
  */
-export function installCardSync({ net, target = cardStore, timers } = /** @type {any} */ ({})) {
-  const T = timers || { setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms), clearTimeout: (id) => globalThis.clearTimeout(id) };
+
+/**
+ * Wire the 名片干员 sync once (main.js). Dependencies are injectable for tests.
+ * @param {CardSyncDeps} deps
+ */
+export function installCardSync({ net, target = cardStore, timers } = /** @type {CardSyncDeps} */ ({})) {
+  const T = timers || { setTimeout: (/** @type {() => void} */ fn, /** @type {number} */ ms) => globalThis.setTimeout(fn, ms), clearTimeout: (/** @type {unknown} */ id) => globalThis.clearTimeout(/** @type {ReturnType<typeof setTimeout>} */ (id)) };
+  /** @type {unknown} */
   let timer = null;
   let seq = 0;
+  /** @type {string | null} */
   let lastSent = null; // the pick the server accepted on this session
-  const setState = (s) => { if (target.get()[CARD_SYNC_KEY] !== s) target.set({ [CARD_SYNC_KEY]: s }); };
-  const later = (ms) => { T.clearTimeout(timer); timer = T.setTimeout(() => { timer = null; void send(); }, ms); };
+  const setState = (/** @type {string} */ s) => { if (target.get()[CARD_SYNC_KEY] !== s) target.set({ [CARD_SYNC_KEY]: s }); };
+  const later = (/** @type {number} */ ms) => { T.clearTimeout(timer); timer = T.setTimeout(() => { timer = null; void send(); }, ms); };
 
   async function send() {
     if (net.status !== 'online') { setState('idle'); return; } // the next welcome sends it
@@ -35,9 +43,9 @@ export function installCardSync({ net, target = cardStore, timers } = /** @type 
       setState('synced');
     } catch (err) {
       if (my !== seq) return;
-      const code = err && err.code;
+      const code = err && (/** @type {{ code?: unknown }} */ (err)).code;
       if (code === 'RATE' || code === 'TIMEOUT' || code === 'OFFLINE') later(CARD_RETRY_MS);
-      else { console.warn('[card] room.card refused', code, err && err.detail); setState('error'); }
+      else { console.warn('[card] room.card refused', code, err && (/** @type {{ detail?: unknown }} */ (err)).detail); setState('error'); }
     }
   }
 

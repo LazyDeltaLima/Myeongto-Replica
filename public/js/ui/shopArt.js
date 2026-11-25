@@ -71,6 +71,7 @@ const THEME_NAME = Object.freeze({
  * card's grey matte (disable_matte) and the upgrade box's inner plate (inner_bg). */
 const THEME_ONLY = Object.freeze({ '--sa-card-mask': 'mask_char', '--sa-card-disable': 'disable_color', '--sa-up-matte': 'frame_matte' });
 
+/** @type {{ m: unknown, l: unknown, v: { cls: string, style: string } | null }} */
 let cache = { m: null, l: null, v: null };
 
 /** { cls, style } of the shop bar: `has-shop-art` and the sprite variables, or nothing when the manifest lacks them. */
@@ -78,10 +79,11 @@ export function shopArt() {
   const m = data.get('assets');
   const l = data.get('local');
   if (cache.m === m && cache.l === l && cache.v) return cache.v;
+  /** @type {string[]} */
   const vars = [];
   const theme = !!uiUrl(m, 'seasonSkin/chess_frame_normal');
-  const themed = (key) => {
-    const name = Object.hasOwn(THEME_NAME, key) ? THEME_NAME[key] : key.slice(key.indexOf('/') + 1);
+  const themed = (/** @type {string} */ key) => {
+    const name = Object.hasOwn(THEME_NAME, key) ? (/** @type {Record<string, string | null>} */ (THEME_NAME))[key] : key.slice(key.indexOf('/') + 1);
     return theme && name ? uiUrl(m, `seasonSkin/${name}`) : null;
   };
   for (const [k, key] of Object.entries(WEB)) {
@@ -109,7 +111,7 @@ export function shopArt() {
 
 /**
  * The watermark of an operator card: its 特质's type icon (the large `garrisonTypeIcon/icon_*`), null when unknown.
- * @param {any} chess chess.json record
+ * @param {{ garrisonIds?: unknown } | null | undefined} chess chess.json record
  */
 export function garrisonMarkUrl(chess) {
   const gid = Array.isArray(chess?.garrisonIds) ? chess.garrisonIds[0] : null;

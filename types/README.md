@@ -119,8 +119,7 @@ the files directly under `server/sim/` (`server/sim/*.js`), the files directly u
 (`server/sim/content/*.js`), the enemy kits `server/sim/content/enemies/` and the operator kits
 `server/sim/content/kits/ops/`, and in the renderer the 3D board `public/js/render/board3d/` and the effect system's parts
 `public/js/render/fx/`, the files directly under `public/js/` (`public/js/*.js`), the screens directly under
-`public/js/screens/` (`public/js/screens/*.js`) and, one by one until the whole folder is clean, the files directly under
-`public/js/ui/` that are (the list names each).
+`public/js/screens/` (`public/js/screens/*.js`) and the files directly under `public/js/ui/` (`public/js/ui/*.js`).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -586,6 +585,15 @@ most strict errors were, and the JSDoc that fixed them:
   them (the cards' `ArtTab[]`). A setter that indexes `el.style` by a key takes `StyleKey` (the string-valued keys of
   `CSSStyleDeclaration`). Preact's `options` hooks are written as methods in the typedef (`diffed?(vnode): void`), which
   `Options` then fits; a property-function member does not.
+- the shop, team and battle-HUD files directly under `public/js/ui/` (the last 25: shopBar.js, stats.js, bandSkill.js,
+  watchBonds.js, choiceOverlay.js and the rest), written without `any`, which folded the list into `public/js/ui/*.js`:
+  a file's own `isObj` becomes a guard (`@returns {v is Record<string, unknown>}`), so foreign input stays `unknown` and
+  is read field by field; the snapshot is `Pub` / `PubPlayer` / `PubField` of `gameLogic/shared.js` (a found field's
+  optional `players` is cast where it is read: `/** @type {string[]} */ (f.players)`); what a function builds from
+  foreign data gets the typedef of its output (stats.js `StatsRecord` and its rows, `StatsAggregate`). A shorthand
+  property (`{ record, player, bond }`) is cast as a whole object, never one member (that changes the AST); a timer
+  handle in `useRef(null)` is `ReturnType<typeof setTimeout> | null`, cast to `ReturnType<typeof setTimeout>` where
+  `clearTimeout` reads it; a set of phases asked with `pub?.phase` is `Set<string | undefined>`.
 
 
 ## Split classes
