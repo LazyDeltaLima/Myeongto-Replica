@@ -1251,9 +1251,12 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - **阿戈尔 吞噬 팀원 — 관리자 결정 2026-10-11 「지금 규칙 유지(A)」**: 에기르 멤버는 앞 칸의 오퍼레이터를 주인과 상관없이 먹는다(#140 결정 그대로, `bonds/nation/egir.js devour`).
   그래프 읽기(bonds.md B9: 맹약이 안 켜진 팀원은 `eat_calculated`로 안 먹음)와 다르지만, 联防·보스 필드는 두 플레이어 구역 경계에 공격 지점·배치 불가 칸이 있어 팀원
   오퍼레이터가 에기르 멤버 앞 칸에 설 수 없으므로 결과가 같다(관리자 설명). 동작 변경 없음.
-- **黄沙罗盘 「첫 스킬 끝」 = 배치마다**: 클라 버프 템플릿 `act1autochess_acarm103_buff` ON_BUFF_START가 `has_used_skill`을 0으로, ON_SKILL_FINISH는 그 값이 0일 때만
-  萨尔贡 운반자에게 `sp`(그다음 1) → 재배치하면 다시 받는다(이전: 전투당 한 번). `items/effects/bond.js` `doneSeq`(배치 번호). [추정·미조사: 기습 착지·【移动】 때 클라가 이 글로벌 버프를 다시 붙이는지 확인 안 함] 기습 착지·【移动】도 새 배치로 봄.
-  테스트 `test/content/items.test.js` 「黄沙罗盘」.
+- **사막 나침반(`chess_item_6_07_e`, 黄沙罗盘) 「첫 스킬 끝」 = 배치마다**: 클라 버프 템플릿 `act1autochess_acarm103_buff` ON_BUFF_START가 `has_used_skill`을 0으로, ON_SKILL_FINISH는 그 값이 0일 때만
+  사르곤 운반자에게 `sp`(그다음 1) → 재배치하면 다시 받는다(이전: 전투당 한 번). `items/effects/bond.js` `doneSeq`(배치 번호). 기습 착지·【移动】도 새 배치 —
+  공식 클라에서 확인(2026-11-25): 【移动】은 `Character.MoveLikeRespawnSelf`(`FinishMe`(사유 11 `MOVE_LIKE_RESPAWN_SELF`) → `Deck.SpawnCharacterOrToken` →
+  `Deck.Card.SpawnPrefab`, 보통 배치와 같은 길로 새 캐릭터)이고, 기습 착지 `AutoChessRebuildCharacterOnTile`도 같은 함수를 부른다 → 새 캐릭터가 태어날 때
+  `BattleController.RegisterUnit`이 전역 버프를 다시 붙여(위 「에기르(맹약) 부활은 공식 클라대로」의 근거) ON_BUFF_START가 다시 돈다.
+  테스트 `test/content/items.test.js` 「黄沙罗盘」(재배치·【移动】).
 - **炎国短刀·有限加速器 = 이 시즌 장비, 쌓임은 배치마다** (2026-10-25, 묶음 U): 이 시즌 활동 표 `eff_acarm040`·`eff_acarm052`(`env_gbuff_new_with_verify`)가 다른 모드
   이름의 전역 버프 `act1vautochess_equip_acarm024_global_buff`·`…acarm037_global_buff`를 붙인다(이름만 다른 모드). 두 전역 버프의 셈(`buff_cnt` 0)은 버프 자신의
   것이고 배치마다 새로 붙으므로(黄沙罗盘과 같음) 쌓임은 그 배치 동안만 간다(이전: 전투 내내).

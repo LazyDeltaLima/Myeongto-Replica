@@ -813,6 +813,16 @@ test('黄沙罗盘: initial SP +30 / +50; (萨尔贡) first skill end +30 SP; + 
   u.skill.activate('test', { free: true });
   u.skill.end('test');
   close(u.skill.sp, 3, 'the 30 once per deployment; the cast\'s own 3 again');
+  // a 【移动】 is a new deployment for the client too (Character.MoveLikeRespawnSelf: FinishMe, then the card spawns a new
+  // character — BattleController.RegisterUnit adds the global buff again); the 突袭 landing goes the same way
+  // (AutoChessRebuildCharacterOnTile → MoveLikeRespawnSelf; ours: retreat + redeploy, the case above)
+  u.skill.sp = 0;
+  assert.ok(h.b.moveRedeploy(u, 10, 5), 'moved');
+  close(u.skill.sp, 30, '【移动】: the initial SP again');
+  u.skill.sp = 0;
+  u.skill.activate('test', { free: true });
+  u.skill.end('test');
+  close(u.skill.sp, 33, '【移动】: the first skill end of the new deployment +30 again (and the cast\'s own 3)');
   cover(A('6_07'), B('6_07'), A('2_04'), B('2_04'));
 });
 
