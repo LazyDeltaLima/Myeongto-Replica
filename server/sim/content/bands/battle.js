@@ -63,14 +63,14 @@ import { spawnMapChar } from '../tokens.js';
 /**
  * A player of the battle (battle/players.js _addPlayer) with the fields of its battle input the bands read
  * (PlayerBattleInput: `bandStage`, `bandCommand`, `bandMarks`, `bandChests`, `reserve` …).
- * @typedef {BattlePlayer & { input: Record<string, any> }} BandPlayer
+ * @typedef {BattlePlayer & { input: Record<string, unknown> }} BandPlayer
  * A band buff behaviour (BY_KEY), a mark's on its operator (MARK_BY_KEY) and a tile mark's (TILE_MARK_BY_KEY); `p` the
  * buff's params `{ ...bb, ...bbStr }`.
- * @typedef {(battle: Battle, ps: BandPlayer, p: Record<string, any>, bandId: string) => void} BandFn
- * @typedef {(battle: Battle, ps: BandPlayer, u: Unit, p: Record<string, any>, key: string) => void} MarkFn
- * @typedef {(battle: Battle, ps: BandPlayer, tile: number[], p: Record<string, any>) => void} TileMarkFn
- * A mark of the battle input (`bandMarks`: `{ effectId, uid | itemId, capAdd? }`, a tile mark `{ effectId, row, col }`).
- * @typedef {Record<string, any>} BandMark
+ * @typedef {(battle: Battle, ps: BandPlayer, p: Record<string, unknown>, bandId: string) => void} BandFn
+ * @typedef {(battle: Battle, ps: BandPlayer, u: Unit, p: Record<string, unknown>, key: string) => void} MarkFn
+ * @typedef {(battle: Battle, ps: BandPlayer, tile: number[], p: Record<string, unknown>) => void} TileMarkFn
+ * A mark of the battle input (`bandMarks`: `{ effectId, uid | itemId, capAdd?, gone? }`, a tile mark `{ effectId, row, col }`).
+ * @typedef {{ effectId: string, uid?: number, gone?: true, itemId?: string, capAdd?: number, row?: number, col?: number, [field: string]: unknown }} BandMark
  * A map-character variant of band_amedic (amedicVariants).
  * @typedef {{ cond: string, cnt: number, chars: string[] }} AmedicVariant
  */
@@ -127,7 +127,7 @@ const BY_KEY = {
     if (!bond) return;
     const t = p.bond_add_type;
     const byLevel = t == null || t === '' || t === 'by_charlevel';
-    if (!byLevel && !BAND13_ADD_TYPES.includes(t)) return; // a type this does not read gains nothing (content/coverage.js)
+    if (!byLevel && !(typeof t === 'string' && BAND13_ADD_TYPES.includes(t))) return; // a type this does not read gains nothing (content/coverage.js)
     battle.on('death', (/** @type {DeathEv} */ c) => {
       const u = c.unit;
       if (c.reason !== 'killed' || !isOp(u) || u.ownerId !== ps.playerId || !isMember(battle, u, bond)) return;
@@ -345,7 +345,7 @@ export function hasBattlePart(bandId, scope = null) {
 /**
  * The strategy's buffs in this battle: those of the stage the player reached (PlayerBattleInput `bandStage`, 规程's
  * 指令 stages — bands/meta.js bandStageIndex), else the record's own (one stage).
- * @param {Record<string, any> | null | undefined} band @param {unknown} stage
+ * @param {Parameters<typeof buffsOf>[0]} band @param {unknown} stage
  */
 export function bandBattleBuffs(band, stage) {
   if (!band) return [];
@@ -414,8 +414,26 @@ const PRIO_MARK_LOCK = 1000;
 const PRIO_MARK_LAST = -2000;
 
 /**
+ * The mark buffs that, when their marked operator is gone before the battle (sold, merged away — no piece of the player
+ * has its uid), land on every operator the player fields at combat start instead of on nobody. The official 消解空间
+ * does this (CN play, maintainer report 2026-11-25: marked on the field or in the 整备区, then sold — every fielded
+ * operator falls on its first damage, a self knock-out as on the marked one), a bug the maintainer chose to follow while
+ * the official game keeps it (maintainer decision 2026-11-25). The official fix is one deletion here: without the key
+ * the gone mark gives nothing again, as every other mark (round.js bandMarksNow, installMarks).
+ * [ASSUMED·CN: a gone operator other than a sold one (merged away, removed by another 指令) does the same; the
+ * operators a switch brings in later do not take it; with several fielded, each knock-out calls the next rightmost
+ * 整备区 operator, as the marked one's would — the video showed only 不屈 rebuilds]
+ */
+export const MARK_SPREADS_WHEN_GONE = new Set([MARK_SWAP]);
+
+/** Does this mark's effect spread to the fielded operators when its operator is gone (MARK_SPREADS_WHEN_GONE)? @param {Parameters<typeof buffsOf>[0]} eff */
+export function markSpreadsWhenGone(eff) {
+  return buffsOf(eff).some((b) => b.bbKey != null && MARK_SPREADS_WHEN_GONE.has(b.bbKey));
+}
+
+/**
  * What a mark's effect record asks of the battle input: { upgrade, giveItem, hand } (server/match/player/round.js).
- * @param {Record<string, any> | null | undefined} eff
+ * @param {Parameters<typeof buffsOf>[0]} eff
  */
 export function markInputNeeds(eff) {
   const out = { upgrade: false, giveItem: false, hand: false };
@@ -589,6 +607,7 @@ const TILE_MARK_BY_KEY = {
 
 /** @param {Battle} battle @param {BandPlayer} ps @param {BandMark} m */
 function installTileMark(battle, ps, m) {
+  if (m.row == null || m.col == null) return;
   const tile = battle.mapTile(ps, m.row, m.col);
   if (!battle.grid.inRect(tile[0], tile[1])) return;
   for (const b of buffsOf(effectRecord(m.effectId, battle))) {
@@ -626,7 +645,7 @@ function installChests(battle) {
         }
       }
     });
-    battle.on('battleEnd', (/** @type {{ result: Record<string, any> | null }} */ { result }) => {
+    battle.on('battleEnd', (/** @type {{ result: { perPlayer?: Record<string, Record<string, unknown>> } | null }} */ { result }) => {
       /** @type {string[]} */
       const gone = [];
       for (const ch of chests) {
@@ -649,16 +668,22 @@ function installMarks(battle) {
         }
         continue;
       }
-      const u = markedUnit(battle, ps, m.uid);
-      if (!u) continue;
+      const eff = effectRecord(m.effectId, battle);
+      // a gone operator's mark (round.js bandMarksNow `gone`) on every operator the player fields (MARK_SPREADS_WHEN_GONE)
+      const targets = m.gone
+        ? (markSpreadsWhenGone(eff) ? battle.allyUnits.filter((u) => isOp(u) && u.ownerId === ps.playerId && !u.reserve) : [])
+        : [markedUnit(battle, ps, m.uid)];
       const key = keyOf(ps.bandId || 'band', `mark:${m.effectId}`);
-      try {
-        if (num(m.capAdd, 0) > 0) { addCapMod(battle, u, Math.floor(num(m.capAdd, 0)), 0); continue; }
-        for (const b of buffsOf(effectRecord(m.effectId, battle))) {
-          const f = b.bbKey ? MARK_BY_KEY[b.bbKey] : null;
-          if (f) f(battle, ps, u, b.p, key);
-        }
-      } catch (e) { battle._handlerError?.(`band:${ps.bandId}:mark`, u, e); }
+      for (const u of targets) {
+        if (!u) continue;
+        try {
+          if (num(m.capAdd, 0) > 0) { addCapMod(battle, u, Math.floor(num(m.capAdd, 0)), 0); continue; }
+          for (const b of buffsOf(eff)) {
+            const f = b.bbKey ? MARK_BY_KEY[b.bbKey] : null;
+            if (f) f(battle, ps, u, b.p, key);
+          }
+        } catch (e) { battle._handlerError?.(`band:${ps.bandId}:mark`, u, e); }
+      }
     }
   }
 }

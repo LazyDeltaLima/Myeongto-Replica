@@ -13,7 +13,7 @@ import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains, pieceBonds
 import { handRules, swapBondRecord } from '../../sim/content/bonds/dispatch.js';
 import { handRules as switchHandRules } from '../../sim/content/garrisons/effects/switch.js';
 import { BAND_MARK, BAND_CHEST, STAGE_COUNTER, COMMAND_STAGE_COUNTER } from '../../sim/content/bands/meta.js';
-import { markInputNeeds } from '../../sim/content/bands/battle.js';
+import { markInputNeeds, markSpreadsWhenGone } from '../../sim/content/bands/battle.js';
 
 /**
  * A board or 整备区 operator of the PlayerBattleInput (chessBattleEntry): its tile (`row` `col` `dir`) or hand `slot`,
@@ -28,7 +28,7 @@ import { markInputNeeds } from '../../sim/content/bands/battle.js';
  * units, the 整备区 operators a battle may field (`reserve`), the bonds, the strategy, its marks and chests, the effects
  * a battle reads, the device overrides; the match adds `lpForBoss` on a boss field.
  * @typedef {{ playerId: string, seat: number, side: 'L'|'R', colOffset: number, units: object[], reserve?: ChessInput[],
- *   bonds: unknown, bandId: string | null, lpForBoss?: number | null, [field: string]: any }} PlayerBattleInput
+ *   bonds: unknown, bandId: string | null, lpForBoss?: number | null, [field: string]: unknown }} PlayerBattleInput
  */
 
 export class PlayerRound {
@@ -190,20 +190,24 @@ export class PlayerRound {
 
   /**
    * The 规程 marks the player's drag 指令 left for this round's battle (content/bands/meta.js addMark):
-   * [{ effectId, uid?, itemId?, capAdd?, row?, col? }] — an operator mark only while the operator is still the player's;
-   * a tile mark (溃心领域) in board coordinates.
-   * @returns {Array<{ effectId: string, uid?: number, itemId?: string, capAdd?: number, row?: number, col?: number }>}
+   * [{ effectId, uid?, gone?, itemId?, capAdd?, row?, col? }] — an operator mark only while the operator is still the
+   * player's, or `gone` for one whose effect then spreads to the field (MARK_SPREADS_WHEN_GONE); a tile mark (溃心领域)
+   * in board coordinates.
+   * @returns {Array<{ effectId: string, uid?: number, gone?: true, itemId?: string, capAdd?: number, row?: number, col?: number }>}
    * @this {PlayerState}
    */
   bandMarksNow() {
-    /** @type {Array<{ effectId: string, uid?: number, itemId?: string, capAdd?: number, row?: number, col?: number }>} */
+    /** @type {Array<{ effectId: string, uid?: number, gone?: true, itemId?: string, capAdd?: number, row?: number, col?: number }>} */
     const out = [];
     for (const e of this.effects) {
       if (!e || e.key !== BAND_MARK || !e.data || e.data.round !== this.m.round || typeof e.data.effectId !== 'string') continue;
       const d = e.data;
-      if (d.uid != null && !this.find(d.uid)) continue;
+      // the marked operator is gone (sold, merged away): nothing, but for a mark that then spreads to the field
+      // (content/bands/battle.js MARK_SPREADS_WHEN_GONE — the official 消解空间)
+      const gone = d.uid != null && !this.find(d.uid);
+      if (gone && !markSpreadsWhenGone(this.gd.effect(d.effectId))) continue;
       out.push({
-        effectId: d.effectId, ...(d.uid != null ? { uid: d.uid } : null), ...(d.itemId ? { itemId: d.itemId } : null), ...(d.capAdd ? { capAdd: d.capAdd } : null),
+        effectId: d.effectId, ...(d.uid != null ? { uid: d.uid } : null), ...(gone ? { gone: true } : null), ...(d.itemId ? { itemId: d.itemId } : null), ...(d.capAdd ? { capAdd: d.capAdd } : null),
         ...(Number.isInteger(d.row) && Number.isInteger(d.col) ? { row: d.row, col: d.col } : null),
       });
     }
@@ -253,7 +257,7 @@ export class PlayerRound {
       const need = markInputNeeds(this.gd.effect(mk.effectId));
       if (need.upgrade && mk.uid != null) upgrade.add(mk.uid);
       if (need.giveItem && typeof mk.itemId === 'string' && this.gd.item(mk.itemId)) gifts.push(mk.itemId);
-      if (need.hand && mk.uid != null && [...this.board.values()].some((p) => p.uid === mk.uid)) wantsHand = true;
+      if (need.hand && mk.uid != null && (mk.gone || [...this.board.values()].some((p) => p.uid === mk.uid))) wantsHand = true;
     }
     const units = [];
     for (const { r, c, piece } of boardOrder(this.board)) {

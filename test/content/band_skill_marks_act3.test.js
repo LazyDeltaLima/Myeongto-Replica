@@ -10,7 +10,7 @@ import { makeMatch, give, legalTileFor } from '../match/harness.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { buildBattleSpec, createBattleFromSpec } from '../../server/sim/spec.js';
 import { BAND_MARK } from '../../server/sim/content/bands/meta.js';
-import { bandBattleBuffs } from '../../server/sim/content/bands/battle.js';
+import { bandBattleBuffs, MARK_SPREADS_WHEN_GONE } from '../../server/sim/content/bands/battle.js';
 import { tileKey } from '../../server/match/board.js';
 import { reviveNow } from '../../server/sim/content/items/battle.js';
 import { capOf } from '../../server/sim/content/garrisons/effects/triggered.js';
@@ -265,4 +265,75 @@ test('消解空间 (Misery) on a 乌萨斯 operator: its knock-out is its own �
   assert.ok(!unitOf(b, hand.uid)?.alive, 'back on its tile at once: the 整备区 operator stays out');
   assert.ok(revives >= selfKills - 1 && u.alive && !u.removed, `back each time (${revives})`);
   assert.equal(b.tempLayerGainsOf('p_0').ursusShip, 2 * selfKills, '临时层数 +2 per self knock-out');
+});
+
+/** Misery's mark on `where` ('board' | 'hand'), then that operator sold: two other board operators, two hand operators. */
+function soldMarkSetup(where) {
+  const s = setup({ band: 'band_breakaway' });
+  const { m, ps, use } = s;
+  const t2 = visible.filter((c) => c.tier === 2).map((c) => c.chessId);
+  const marked = where === 'board' ? onBoard(m, ps, t2[0]) : give(m, ps, t2[0], 'hand');
+  const field = [onBoard(m, ps, t2[1]), onBoard(m, ps, t2[2])];
+  const hand = [give(m, ps, firstOf((c) => c.tier === 1), 'hand'), give(m, ps, firstOf((c) => c.tier === 3), 'hand')];
+  assert.deepEqual(use({ uid: marked.uid }), OK);
+  assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: marked.uid }), OK);
+  const slotOf = (q) => ps.hand.findIndex((x) => x && x.uid === q.uid);
+  hand.sort((a, b) => slotOf(b) - slotOf(a)); // rightmost first
+  return { ...s, field, hand };
+}
+
+for (const where of ['board', 'hand']) {
+  test(`消解空间 (Misery) marked on a ${where} operator that is then sold: every fielded operator falls on its first damage, by its own hand, and calls the next rightmost 整备区 operator (the official bug)`, () => {
+    // maintainer report 2026-11-25 (CN play): marked, then sold — every ground operator on the field fell as damage came
+    // (and 不屈 brought each back); the official behaviour is followed while the official game keeps it
+    const { m, ps, field, hand } = soldMarkSetup(where);
+    const mk = ps.battleInput().bandMarks;
+    assert.equal(mk?.length, 1, 'the gone operator\'s mark reaches the battle');
+    assert.equal(mk[0].gone, true);
+    assert.equal(ps.battleInput().reserve?.length, 2, 'the hand operators reach the battle');
+    const b = battleOf(m, ps);
+    untilStarted(b);
+    let own = 0;
+    b.on('death', (c) => { if (c.killer === c.unit) own++; });
+    field.forEach((q, i) => {
+      const u = unitOf(b, q.uid);
+      const tile = [u.tileR, u.tileC];
+      b.emit('damaged', { target: u, amount: 1, type: 'true' });
+      assert.equal(u.alive, false, `board operator ${i} knocked out (rules/sim.md 「Misery」: MARK_SPREADS_WHEN_GONE)`);
+      assert.ok(u.removed, 'no body');
+      const next = unitOf(b, hand[i].uid);
+      assert.ok(next && next.alive && next.deployed, `the rightmost 整备区 operator not fielded yet comes in (${i})`);
+      assert.deepEqual([next.tileR, next.tileC], tile);
+    });
+    assert.equal(own, 2, 'each knock-out credited to the operator itself');
+    const late = unitOf(b, hand[0].uid);
+    b.emit('damaged', { target: late, amount: 1, type: 'true' });
+    assert.ok(late.alive, 'an operator a switch brought in does not take it');
+  });
+}
+
+test('without the official bug (MARK_SPREADS_WHEN_GONE emptied, as after an official fix) a sold operator\'s 消解空间 mark gives nothing; another mark gives nothing either way', () => {
+  const saved = [...MARK_SPREADS_WHEN_GONE];
+  MARK_SPREADS_WHEN_GONE.clear();
+  try {
+    const { m, ps, field, hand } = soldMarkSetup('board');
+    assert.equal(ps.battleInput().bandMarks, undefined, 'no mark in the battle input');
+    const b = battleOf(m, ps);
+    untilStarted(b);
+    for (const q of field) {
+      const u = unitOf(b, q.uid);
+      b.emit('damaged', { target: u, amount: 1, type: 'true' });
+      assert.ok(u.alive, 'nothing on the field');
+    }
+    for (const q of hand) assert.ok(!unitOf(b, q.uid)?.deployed, 'no 整备区 operator comes in');
+  } finally {
+    for (const k of saved) MARK_SPREADS_WHEN_GONE.add(k);
+  }
+  // 意志鼓舞 (百炼嘉维尔) on a sold operator: nothing, as before
+  const g = setup({ band: 'band_survive' });
+  const sold = onBoard(g.m, g.ps, firstOf((c) => c.tier === 2));
+  onBoard(g.m, g.ps, firstOf((c) => c.tier === 1));
+  assert.deepEqual(g.use({ uid: sold.uid }), OK);
+  assert.deepEqual(g.m.handle('p_0', { t: 'g.sell', uid: sold.uid }), OK);
+  assert.equal(g.ps.battleInput().bandMarks, undefined, 'a mark outside MARK_SPREADS_WHEN_GONE drops with its operator');
 });
