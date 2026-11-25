@@ -190,23 +190,34 @@ test('余 garrison_38 (周围八格) and 烛煌 41 (攻击范围): an enemy\'s e
   done(h);
 });
 
-test('浊心斯卡蒂 garrison_64: each deployment of another operator in her attack range → 阿戈尔 +2 / +4 (≤ 20 / 40)', () => {
+test('浊心斯卡蒂 garrison_64: each deployment of an operator in her attack range, her own included → 阿戈尔 +2 / +4 (≤ 20 / 40)', () => {
   for (const [q, n] of [['a', 2], ['b', 4]]) {
     const h = fight({ ops: { s: [10, 4, { g: [`garrison_64_${q}`] }], a: [10, 6, {}], o: [12, 4, {}] }, bonds: { egirShip: B(0) } });
-    assert.equal(gains(h).egirShip, n, `${q}: the placement after her`);
+    // her own placement counts (the aura is attached in her Born and her range holds her tile: she carries the template
+    // buff herself before her ON_OWNER_LOCATE, which triggers on BUFF_SOURCE — herself; docs/rules/sim.md 「규정 특질 —
+    // 전투 쪽」), and so does the placement after her
+    assert.equal(gains(h).egirShip, 2 * n, `${q}: her own placement and the one after her`);
     const a = h.unit('a');
     h.b.kill(a);
     a.respawnAt = h.b.time;
     h.run(1);
     assert.ok(a.alive && a.deployed);
-    assert.equal(gains(h).egirShip, 2 * n, `${q}: the redeploy`);
+    assert.equal(gains(h).egirShip, 3 * n, `${q}: the redeploy`);
     // a 【移动】 is a new character on the spawn path (Character.MoveLikeRespawnSelf): it locates again — into the range
     // counts, out of it does not
     assert.ok(h.b.moveRedeploy(a, 10, 5));
-    assert.equal(gains(h).egirShip, 3 * n, `${q}: a 【移动】 inside the range`);
+    assert.equal(gains(h).egirShip, 4 * n, `${q}: a 【移动】 inside the range`);
     const o = h.unit('o');
     assert.ok(h.b.moveRedeploy(o, 12, 5));
-    assert.equal(gains(h).egirShip, 3 * n, `${q}: a 【移动】 outside the range`);
+    assert.equal(gains(h).egirShip, 4 * n, `${q}: a 【移动】 outside the range`);
+    // her own redeploy is a new character too: its aura is attached again in its Born and it counts
+    const s = h.unit('s');
+    h.b.kill(s);
+    s.respawnAt = h.b.time;
+    h.b.getPlayer(s.ownerId).dp += s.base.cost;   // a's redeploy spent the DP
+    h.run(1);
+    assert.ok(s.alive && s.deployed);
+    assert.equal(gains(h).egirShip, 5 * n, `${q}: her own redeploy`);
     done(h);
   }
 });

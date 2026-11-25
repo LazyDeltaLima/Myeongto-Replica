@@ -367,21 +367,22 @@ export const EVENTS = {
   },
 
   // 规程 浊心斯卡蒂 garrison_64 "攻击范围内每有一名我方干员部署…" (ON_OWNER_LOCATE on the allies of the holder's attack range):
-  // every deployment of another operator of the player onto a tile of the range while the holder is on the field — the
+  // every deployment of an operator of the player onto a tile of the range while the holder is on the field — the
   // battle-start placement (one piece after another, lifecycle _prebuiltStep: those placed after the holder), a redeploy,
-  // a 突袭 landing, a 【移动】 (`deploy` with move). Checked in the official client: the prefab is an AuraAbility that puts
-  // the template's buff on the allied operators in range, and ON_OWNER_LOCATE is the end of the new character's born
-  // state (BornState → Character.OnLocate), which a 【移动】's new character (Character.MoveLikeRespawnSelf → the deck's
-  // spawn path) goes through as a deployment does. [ASSUMED·미조사: the holder itself does not count — whether the aura
-  // puts the buff on its own holder before her ON_OWNER_LOCATE (the template then triggers on BUFF_SOURCE, herself) is
-  // not read.]
+  // a 突袭 landing, a 【移动】 (`deploy` with move) — her own included. Checked in the official client: the prefab is an
+  // AuraAbility that puts the template's buff on the allied operators in range, and ON_OWNER_LOCATE is the end of the new
+  // character's born state (BornState → Character.OnLocate), which a 【移动】's new character (Character.MoveLikeRespawnSelf
+  // → the deck's spawn path) goes through as a deployment does. The holder herself: the aura (a root dynamic ability,
+  // `at_root`) is attached in her Born (Tile.LocateCharacter → Character.LocateOnTile → Unit.OnBorn), long before the end of
+  // her born state; its `_selfOption` is the default (only EXCLUDE leaves the owner out) and her range holds her own
+  // tile, so she carries the buff too, and her ON_OWNER_LOCATE triggers on BUFF_SOURCE — herself.
   act3autochess_gar_event_onstart_inrange(battle, list) {
     battle.on('deploy', (/** @type {DeployEv} */ { unit }) => {
       if (!unit || !S.isOp(unit)) return;
 
       for (const it of list) {
         const h = it.unit;
-        if (unit !== h && unit.ownerId === h.ownerId && S.onField(h) && S.inRange(h, unit)) fire(battle, it);
+        if (unit.ownerId === h.ownerId && S.onField(h) && S.inRange(h, unit)) fire(battle, it);
       }
     });
   },
