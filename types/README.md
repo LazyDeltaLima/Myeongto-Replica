@@ -572,6 +572,20 @@ most strict errors were, and the JSDoc that fixed them:
   required in the typedef (`cam.project`) or cast at the call; a member only tested for (`if (x.heightAt)`) stays
   optional, or the test reads as always true (TS2774). A `useTileScreen(view, row, col)` given no tile (null) casts
   `row` / `col` where it hands them to `tileScreen`, which answers null for anything but integers.
+- the battle-art, film and console parts directly under `public/js/ui/` (battleArt.js, clipFilm.js, entryFilm.js,
+  detailArt.js, consolePanel.js, perfHud.js, fallbackField.js), written without `any`: the film file season_ui.py writes
+  is `ClipFilmData` (clipFilm.js: its nodes `FilmNode`, materials `FilmMaterial` — a union on `kind` —, curves
+  `ClipCurve`, a loaded film `LoadedFilm`), the scene a film mounts `FilmScene` (entryFilm.js), the detail cards' records
+  `CardChess` / `CardStats` / `ItemCard` / `TokenCard` and a live entry `LiveEntry` (`ReturnType<typeof unitStatsEntry>`,
+  detailArt.js), m.private.console `ConsoleView` (consolePanel.js), the field view's numbers `ViewStats` / `Census`
+  (perfHud.js), the simplified field's state `FfState` (fallbackField.js). The typedefs must hold in both checks, and the
+  non-strict one narrows no union by `undefined`: a member with no discriminant writes it `kind?: never` (then
+  `m.kind === 'sheet'` narrows in both); a member told apart only by an optional field (`if (!n.amin) return`) is cast
+  where it is read after the test. A record built from a literal with `null` fields is cast to its typedef as a whole
+  (`const st = /** @type {FfState} */ ({ … })`); a `.filter(Boolean)` over a list with `null`s is cast to the list without
+  them (the cards' `ArtTab[]`). A setter that indexes `el.style` by a key takes `StyleKey` (the string-valued keys of
+  `CSSStyleDeclaration`). Preact's `options` hooks are written as methods in the typedef (`diffed?(vnode): void`), which
+  `Options` then fits; a property-function member does not.
 
 
 ## Split classes

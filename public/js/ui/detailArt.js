@@ -49,8 +49,31 @@ import { useStore } from '../store.js';
 import { skinArt, wornSkin, cardWorn, cardSkinArt } from './skins.js';
 import { settingsStore } from './settings.js';
 import { t, N_ } from '../../../shared/i18n.js';
+/** @import { unitStatsEntry } from '../../../shared/protocol.js' */
+/** @import { Bag } from './gameLogic/shared.js' */
 
-const cx = (...p) => p.flat().filter(Boolean).join(' ');
+/**
+ * The records the cards read, the fields they read (the rest unknown).
+ * @typedef {{ atk?: number, def?: number, res?: number, blockCnt?: number, bat?: number, aspd?: number, cost?: number,
+ *   respawnTime?: number, maxHp: number, moveSpeed?: number, rangeRadius?: number, lpr?: number, dmgType?: string,
+ *   motion?: string, [key: string]: unknown }} CardStats  a record's stats (a data record has its
+ *   maxHp; the cards test it with Number.isFinite for one that is missing)
+ * @typedef {{ chessId?: string, charId?: string, tmplId?: string, name?: string, tier?: number, isGolden?: boolean,
+ *   profession?: string, status?: { phase?: number, level?: number }, stats?: CardStats, standInFor?: string,
+ *   [key: string]: unknown }} CardChess  a chess.json record (or a 补位 stand-in's composed record)
+ * @typedef {{ kind?: string, id?: string, golden?: boolean, count?: number, [key: string]: unknown }} CardPiece  a piece
+ *   of m.private
+ * @typedef {ReturnType<typeof unitStatsEntry> & { src?: string }} LiveEntry  a unit's live stats (`src` 'battle' or the
+ *   prep preview's)
+ * @typedef {{ hp: number, max: number }} SnapHp
+ * @typedef {{ id: string, label: string, nodes: unknown[] }} ArtTab  a tab of the card and its vnodes
+ * @typedef {{ name?: string, desc?: string, descRaw?: string, [key: string]: unknown }} CardTalent
+ * @typedef {{ skillId?: string, name?: string, desc?: string, descRaw?: string, [key: string]: unknown }} CardSkill
+ * @typedef {{ key?: unknown, [k: string]: unknown }} DetailBlock  a keyed vnode of ChessDetail
+ * @typedef {{ props?: { class?: unknown, className?: unknown, children?: unknown }, type?: unknown }} VNodeLike
+ */
+
+const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ');
 
 /**
  * Tab → the ChessDetail blocks (CHESS_SECTIONS keys) it shows, in the client's tab order.
@@ -65,7 +88,7 @@ export const ART_TABS = Object.freeze([
 
 /**
  * Split ChessDetail's keyed blocks into the official card's parts.
- * @param {any[]} blocks @returns {{ by: Map<string, any>, tabs: Array<{ id: string, label: string, nodes: any[] }> }}
+ * @param {DetailBlock[]} blocks @returns {{ by: Map<string, DetailBlock>, tabs: ArtTab[] }}
  */
 export function artParts(blocks) {
   const by = new Map((Array.isArray(blocks) ? blocks : []).filter((b) => b && b.key != null).map((b) => [String(b.key), b]));
@@ -76,6 +99,7 @@ export function artParts(blocks) {
 /**
  * The card's art: the skin 立绘 the unit wears (`skin`, ui/skins.js cardSkinArt: its path and frame), else the local
  * 立绘 (`chararts`, with its illust frame; the chosen copy, illustEntry), else the portrait.
+ * @param {unknown} m the web manifest (data/assets.json) @param {CardChess | null | undefined} chess
  * @param {boolean} [hi] the original-resolution copy (default: the page's choice, illust-res.js)
  * @param {{ src: string, frame: { x: number, y: number, w: number, h: number } } | null} [skin]
  * @returns {{ src: string|null, full: boolean, frame: { x: number, y: number, w: number, h: number } | null }}
@@ -102,36 +126,45 @@ export const TRAP_CLASS_SPRITE = 'icon_profession_token_lighten';
  * the whole box: the glowing white rim, the half-dark fill and the white drone glyph — so the box drops its own border
  * and fill (`is-sprite`). Extracted by tools/local-extract (ui/battlecommon); without it, or when it fails to load,
  * `fallback` in the plain box.
- * @param {{ fallback: any }} props
+ * @param {{ fallback: unknown }} props
  */
 export function ClassBox({ fallback }) {
   const src = localAsset('ui/battlecommon', TRAP_CLASS_SPRITE);
-  const [bad, setBad] = useState(null);
+  const [bad, setBad] = useState(/** @type {string | null} */ (null));
   const ok = !!src && bad !== src;
   return html`<span class=${cx('dart__prof', ok && 'is-sprite')}>${ok
     ? html`<img class="dart__profsprite" src=${src} alt="" draggable=${false} onError=${() => setBad(src)} />`
     : fallback}</span>`;
 }
 
-const fmtInterval = (v) => (Number.isFinite(v) && v > 0 ? `${v.toFixed(2)}s` : '—');
-const fmtRes = (v) => (Number.isFinite(v) ? String(Math.round(v * 10) / 10) : '0');
+const fmtInterval = (/** @type {number} */ v) => (Number.isFinite(v) && v > 0 ? `${v.toFixed(2)}s` : '—');
+const fmtRes = (/** @type {number} */ v) => (Number.isFinite(v) ? String(Math.round(v * 10) / 10) : '0');
 
+/**
+ * One line of the stat list (liveStat's fields, or a plain value).
+ * @param {{ k: unknown, v: unknown, tone?: string | null, sub?: unknown, title?: string, cls?: string }} props
+ */
 function Line({ k, v, tone, sub, title, cls }) {
   return html`<div class=${cx('dart__stat', tone && `is-${tone}`, cls)} title=${title}><span>${k}</span><b class="num">${v}</b>${sub ? html`<small class="num">${sub}</small>` : null}</div>`;
 }
 
+/**
+ * @param {{ chess: CardChess, piece?: CardPiece | null, live?: LiveEntry | null, snapHp?: SnapHp | null, loadout?: unknown,
+ *   standIn?: CardChess | null, diy?: Bag | null, cultOpts?: Bag | null, skin?: unknown, [key: string]: unknown }} props
+ *   ChessDetail's (ui/detailPanel.js)
+ */
 export function ChessDetailArt(props) {
-  const [tab, setTab] = useState(null);
+  const [tab, setTab] = useState(/** @type {string | null} */ (null));
   const hi = useStore((x) => x.hi, Object.is, illustStore); // the 立绘 copy: a change in the settings redraws the card
   const { chess: c, piece, live = null, snapHp = null, loadout = null, standIn = null, diy = null, cultOpts = null, skin = null } = props;
-  const blocks = ChessDetail(props);
+  const blocks = ChessDetail(/** @type {Parameters<typeof ChessDetail>[0]} */ (props));
   const { by, tabs } = artParts(blocks);
   const m = data.get('assets');
   // the body the card shows and the record the unit fights with: as ChessDetail (ui/detailPanel.js) — a 补位 stand-in's
   // backup selection, else the player's loadout over the chess (a 自选 record through its pick)
   const si = standIn && standIn.standInFor ? standIn : null;
   const body = si || c;
-  const getChess = diy ? pickGetter((id) => data.lookup('chess', id), diy, { chess: data.get('chess'), backups: data.get('backups') }) : (id) => data.lookup('chess', id);
+  const getChess = diy ? pickGetter((id) => data.lookup('chess', id), diy, { chess: data.get('chess'), backups: data.get('backups') }) : (/** @type {string} */ id) => data.lookup('chess', id);
   // 0.2.2 潜能 / 练度 (upstream 7a0937e3): the same `cultOpts` as ChessDetail — the player's settings or a teammate's unit's own
   const lo = si ? standInLoadout(si, getChess, data.get('backups')) : chessLoadout(c, loadout, getChess, { ...(cultOpts || {}), effects: data.get('effects') });
   const fr = lo?.record || body;
@@ -152,7 +185,7 @@ export function ChessDetailArt(props) {
     blockCnt: liveStat(live, 'blockCnt', s.blockCnt, (v) => String(v)), interval: liveStat(live, 'interval', attackInterval(s.bat, s.aspd), fmtInterval),
   };
   const hp = live && live.src === 'battle' && Number.isFinite(live.hp) && Number.isFinite(live.maxHp) ? { hp: live.hp, max: live.maxHp }
-    : snapHp || { hp: Number.isFinite(live?.maxHp) ? live.maxHp : s.maxHp, max: Number.isFinite(live?.maxHp) ? live.maxHp : s.maxHp };
+    : snapHp || { hp: Number.isFinite(live?.maxHp) ? /** @type {LiveEntry} */ (live).maxHp : s.maxHp, max: Number.isFinite(live?.maxHp) ? /** @type {LiveEntry} */ (live).maxHp : s.maxHp };
   const pct = Number.isFinite(hp?.hp) && hp.max > 0 ? Math.max(0, Math.min(100, (hp.hp / hp.max) * 100)) : 100;
   const cur = tabs.find((t) => t.id === tab) || tabs[0] || null;
   // each tab is its own vertical scroll view, as the client's detailedPanels group_* scroll_desc: equipped items with
@@ -160,8 +193,8 @@ export function ChessDetailArt(props) {
   // through to the bench pads under it — could not be scrolled (css/hud-art.css .dart__pane.is-scroll)
   const paneRef = useRef(null);
   const edges = useScrollEdges(paneRef, [cur?.id]);
-  const phase = Number.isInteger(c.status?.phase) ? c.status.phase : null;
-  const level = Number.isFinite(c.status?.level) ? c.status.level : null;
+  const phase = Number.isInteger(c.status?.phase) ? /** @type {NonNullable<CardChess['status']>} */ (c.status).phase : null;
+  const level = Number.isFinite(c.status?.level) ? /** @type {NonNullable<CardChess['status']>} */ (c.status).level : null;
   const eliteUrl = phase != null ? uiUrl(m, `elite/elite_${phase}`) : null;
   // the bond tiles: ChessDetail's own bond chips (counts, 同构, 本局禁用, the popup on a tap) out of its header
   const chips = findByClass(by.get('head'), 'dbonds');
@@ -222,10 +255,12 @@ export function ChessDetailArt(props) {
  * the HP bar (a battle's live HP, a prep card shows the record's 生命上限), and the tabs 技能 (the device's own skill text)
  * / 装置机制 (our mechanism lines and what the tile allows). No art (a trap has no 立绘 — [ASSUMED] the client's panel
  * then shows none); the class box is a TRAP's (ClassBox; an info glyph without the local-client sprite).
- * @param {{ device: any, snapHp?: { hp:number, max:number }|null, live?: any }} props
+ * @param {{ device: { key?: string, name?: string, tag?: string, lines?: string[], facts?: string[],
+ *   stats?: { k: string, v: string | number }[], skill?: { name?: string, text?: string }, range?: number[][] } | null,
+ *   snapHp?: SnapHp | null, live?: LiveEntry | null }} props gameLogic deviceInfo / deviceTipAt
  */
 export function DeviceDetailArt({ device, snapHp = null, live = null }) {
-  const [tab, setTab] = useState(null);
+  const [tab, setTab] = useState(/** @type {string | null} */ (null));
   const stats = Array.isArray(device?.stats) ? device.stats : [];
   const range = Array.isArray(device?.range) && device.range.length ? device.range : null;
   const sk = device?.skill && typeof device.skill === 'object' && device.skill.text ? device.skill : null;
@@ -233,7 +268,7 @@ export function DeviceDetailArt({ device, snapHp = null, live = null }) {
   const maxRow = stats.find((x) => x && x.k === t('生命上限'));
   const hp = battle || snapHp || (maxRow && Number.isFinite(Number(maxRow.v)) ? { hp: Number(maxRow.v), max: Number(maxRow.v) } : null);
   const pct = hp && hp.max > 0 ? Math.max(0, Math.min(100, (hp.hp / hp.max) * 100)) : 100;
-  const tabs = [
+  const tabs = /** @type {ArtTab[]} */ ([
     sk ? { id: 'skill', label: N_('技能'), nodes: [
       sk.name ? html`<p key="n" class="dtext"><b>${sk.name}</b></p>` : null,
       html`<${RichText} key="t" as="p" text=${sk.text} class="dtext" />`,
@@ -242,7 +277,7 @@ export function DeviceDetailArt({ device, snapHp = null, live = null }) {
       ...(Array.isArray(device?.lines) ? device.lines : []).map((line, i) => html`<p class="dtext" key=${`l${i}`}>${line}</p>`),
       Array.isArray(device?.facts) && device.facts.length ? html`<p key="f" class="dtext dart__facts"><b>${t('这一格')}</b> ${device.facts.join(' · ')}</p>` : null,
     ].filter(Boolean) },
-  ].filter(Boolean);
+  ].filter(Boolean));
   const cur = tabs.find((x) => x.id === tab) || tabs[0];
   const paneRef = useRef(null);
   const edges = useScrollEdges(paneRef, [cur?.id]);
@@ -280,12 +315,14 @@ export function DeviceDetailArt({ device, snapHp = null, live = null }) {
  * factions under it; the stat list as EnemyDetail's (live in a battle, coloured against its spawned stats), the HP bar in
  * red; the tabs 能力 (abilities, immunities) / 说明 (the description when it has no abilities). [ASSUMED] the whole layout
  * (no official enemy card exists to measure).
- * @param {{ enemy: any, snapHp?: { hp:number, max:number }|null, count?: number, live?: any }} props
+ * @param {{ enemy: { key?: string, name?: string, rank?: string, acTypes?: string[], acType?: string, stats?: CardStats,
+ *   abilities?: unknown[], descRaw?: string, desc?: string, [key: string]: unknown } | null, snapHp?: SnapHp | null,
+ *   count?: number, live?: LiveEntry | null }} props detailPanel EnemyDetail's (an enemies.json record)
  */
 export function EnemyDetailArt({ enemy, snapHp = null, count = 0, live = null }) {
-  const [tab, setTab] = useState(null);
+  const [tab, setTab] = useState(/** @type {string | null} */ (null));
   const m = data.get('assets');
-  const s = enemy?.stats || {};
+  const s = /** @type {CardStats} */ (enemy?.stats || {});
   const types = Array.isArray(enemy?.acTypes) ? enemy.acTypes : enemy?.acType ? [enemy.acType] : [];
   const factions = data.get('factions')?.types || {};
   const imm = enemyImmunities(s);
@@ -294,19 +331,19 @@ export function EnemyDetailArt({ enemy, snapHp = null, count = 0, live = null })
     moveSpeed: liveStat(live, 'moveSpeed', s.moveSpeed, (v) => String(Math.round(v * 100) / 100)),
     interval: liveStat(live, 'interval', attackInterval(s.bat, s.aspd), fmtInterval),
   };
-  const hp = hpOf(live, snapHp) || (Number.isFinite(live?.maxHp) ? { hp: live.maxHp, max: live.maxHp } : Number.isFinite(s.maxHp) ? { hp: s.maxHp, max: s.maxHp } : null);
+  const hp = hpOf(live, snapHp) || (Number.isFinite(live?.maxHp) ? { hp: /** @type {LiveEntry} */ (live).maxHp, max: /** @type {LiveEntry} */ (live).maxHp } : Number.isFinite(s.maxHp) ? { hp: s.maxHp, max: s.maxHp } : null);
   const pct = hp && hp.max > 0 ? Math.max(0, Math.min(100, (hp.hp / hp.max) * 100)) : 100;
   const rank = enemy?.rank === 'BOSS' || enemy?.rank === 'ELITE' ? enemy.rank : 'NORMAL';
   const abil = Array.isArray(enemy?.abilities) && enemy.abilities.length ? abilityRows(enemy.abilities, !!live?.silenced) : [];
   const desc = enemy?.descRaw || enemy?.desc || '';
   const immLine = imm.length ? html`<p key="imm" class="dhint"><${Icon} name="shield" />${t('免疫：{list}', { list: imm })}</p>` : null;
-  const tabs = [
+  const tabs = /** @type {ArtTab[]} */ ([
     abil.length || (immLine && !desc) ? { id: 'abilities', label: N_('能力'), nodes: [
       immLine,
       abil.length ? html`<ul key="a" class="dabil">${abil.map((a, i) => html`<li key=${i} class=${a.off ? 'is-off' : null}><${RichText} text=${a.text} /></li>`)}</ul>` : null,
     ].filter(Boolean) } : null,
     !abil.length && desc ? { id: 'desc', label: N_('说明'), nodes: [immLine, html`<${RichText} key="d" as="p" text=${desc} class="dtext" />`].filter(Boolean) } : null,
-  ].filter(Boolean);
+  ].filter(Boolean));
   const cur = tabs.find((x) => x.id === tab) || tabs[0] || null;
   const paneRef = useRef(null);
   const edges = useScrollEdges(paneRef, [cur?.id]);
@@ -326,11 +363,11 @@ export function EnemyDetailArt({ enemy, snapHp = null, count = 0, live = null })
       <div class="dart__mid">
         <div class=${cx('dart__stats', live && 'is-live')} data-live=${live ? live.src || 'battle' : undefined}
             title=${live ? (live.src === 'battle' ? t('当前作战中的实时数值（绿色为增益，红色为减益）') : t('下一场作战开始时的数值')) : undefined}>
-          <${Line} k=${t('攻击')} ...${st.atk} sub=${st.atk.sub || t(DMG[s.dmgType]) || ''} />
+          <${Line} k=${t('攻击')} ...${st.atk} sub=${st.atk.sub || t(/** @type {Record<string, string>} */ (DMG)[/** @type {string} */ (s.dmgType)]) || ''} />
           <${Line} k=${t('防御')} ...${st.def} />
           <${Line} k=${t('法抗')} ...${st.res} />
           <${Line} k=${t('移动速度')} ...${st.moveSpeed} cls="is-white" />
-          <${Line} k=${t('攻击范围')} v=${s.rangeRadius > 0 ? s.rangeRadius : t('近战')} cls="is-white" />
+          <${Line} k=${t('攻击范围')} v=${/** @type {number} */ (s.rangeRadius) > 0 ? s.rangeRadius : t('近战')} cls="is-white" />
           <${Line} k=${t('目标价值')} v=${s.lpr ?? 1} cls="is-white" />
           <${Line} k=${t('攻击间隔')} ...${st.interval} cls="is-extra" />
         </div>
@@ -351,7 +388,7 @@ export function EnemyDetailArt({ enemy, snapHp = null, count = 0, live = null })
  * profession TRAP, phase 0 at level 1, HP 100, ATK / DEF / RES / block 0, range 0-1 — 画卷's 1-1 is the item's
  * `rangeGrid` already; cost 0 for the 112 equipment, 5 for the 3 奇术), so the official card shows those numbers
  * (test/ui/item-card-art.test.js checks them against the tables when they are downloaded).
- * @param {any} item items.json record
+ * @param {ItemCard | null | undefined} item items.json record
  */
 export function itemTrapStats(item) {
   return { level: 1, maxHp: 100, atk: 0, def: 0, res: 0, blockCnt: 0, cost: item?.itemType === 'MAGIC' ? 5 : 0 };
@@ -367,16 +404,21 @@ export function itemTrapStats(item) {
  * 变形同构体's 天赋 tab (its pairings), and a 说明 tab (the flavour text, how it is used, where an unsold item comes from).
  * No art (a trap has no 立绘); the class box holds the device card's glyph ([ASSUMED]: the client's TRAP class icon is
  * not extracted). 销毁 stays the underframe's (the card renders it only for a caller that passes `editable` + `onDestroy`).
- * @param {{ item: any, piece?: any, editable?: boolean, onDestroy?: Function, offBonds?: Set<string>|null }} props
+ * @typedef {{ id?: string, name?: string, itemType?: string, isGolden?: boolean, rangeGrid?: number[][], effectName?: string,
+ *   canGiveBond?: boolean, giveBondId?: string, note?: string, flavor?: string, mergeable?: boolean,
+ *   shopExcluded?: boolean, shopExcludedBy?: string, tier?: number, iconId?: string, trapId?: string,
+ *   [key: string]: unknown }} ItemCard  an items.json record
+ * @param {{ item: ItemCard | null, piece?: CardPiece | null, editable?: boolean,
+ *   onDestroy?: ((piece: CardPiece, item: ItemCard | null) => void) | null, offBonds?: Set<string>|null }} props
  */
 export function ItemDetailArt({ item, piece = null, editable = false, onDestroy = null, offBonds = null }) {
-  const [tab, setTab] = useState(null);
+  const [tab, setTab] = useState(/** @type {string | null} */ (null));
   const m = data.get('assets');
   const st = itemTrapStats(item);
   const golden = !!item?.isGolden;
   const magic = item?.itemType === 'MAGIC';
   const range = Array.isArray(item?.rangeGrid) && item.rangeGrid.length ? item.rangeGrid : [[0, 0]];
-  const tabs = [
+  const tabs = /** @type {ArtTab[]} */ ([
     { id: 'skill', label: N_('技能'), nodes: [
       html`<div key="s" class="dskill" data-item=${item?.id || ''}>
         <${Img} src=${itemIconUrl(m, item)} class="dskill__icon dskill__icon--item" fallback=${html`<span class="dskill__icon dskill__icon--empty"><${GIcon} name="bolt" /></span>`} />
@@ -398,7 +440,7 @@ export function ItemDetailArt({ item, piece = null, editable = false, onDestroy 
       item?.shopExcluded ? html`<p key="x" class="dhint dhint--source"><${Icon} name="info" />${t('调度中心不出售 · 获取途径：{source}', { source: item.shopExcludedBy || t('效果获得') })}</p>` : null,
       piece && editable && onDestroy ? html`<div key="a" class="dactions"><${Button} variant="danger" onClick=${() => onDestroy(piece, item)}>${t('销毁道具')}<//></div>` : null,
     ].filter(Boolean) },
-  ].filter(Boolean);
+  ].filter(Boolean));
   const cur = tabs.find((x) => x.id === tab) || tabs[0];
   const paneRef = useRef(null);
   const edges = useScrollEdges(paneRef, [cur?.id]);
@@ -436,7 +478,10 @@ export function ItemDetailArt({ item, piece = null, editable = false, onDestroy 
   ];
 }
 
-/** The first vnode under `node` whose class list holds `cls` (ChessDetail's bond chips inside its header). */
+/**
+ * The first vnode under `node` whose class list holds `cls` (ChessDetail's bond chips inside its header).
+ * @param {unknown} node @param {string} cls @param {number} [depth] @returns {unknown}
+ */
 function findByClass(node, cls, depth = 0) {
   if (!node || depth > 8) return null;
   if (Array.isArray(node)) {
@@ -444,10 +489,10 @@ function findByClass(node, cls, depth = 0) {
     return null;
   }
   if (typeof node !== 'object') return null;
-  const p = node.props || {};
+  const p = /** @type {NonNullable<VNodeLike['props']>} */ (/** @type {VNodeLike} */ (node).props || {});
   const c = typeof p.class === 'string' ? p.class : typeof p.className === 'string' ? p.className : '';
   if (c.split(/\s+/).includes(cls)) return node;
-  if (typeof node.type === 'function' && node.type.name === 'BondChips') return node;
+  if (typeof (/** @type {VNodeLike} */ (node).type) === 'function' && /** @type {Function} */ (/** @type {VNodeLike} */ (node).type).name === 'BondChips') return node;
   return findByClass(p.children, cls, depth + 1);
 }
 
@@ -464,34 +509,40 @@ function findByClass(node, cls, depth = 0) {
  * the field). [ASSUMED]: the tier is the owner's chess tier, else I (the client's fallback sprite when the token carries
  * no autochess_chess_id — whether it carries the owner's is not read); 费用 is the token's own cost. The class box is a
  * TOKEN's (ClassBox — the summon's avatar without the local-client sprite); a map character's is its profession's.
- * @param {{ token: any, piece?: any, ownerId?: string|null, snapHp?: { hp:number, max:number }|null, live?: any }} props
+ * @typedef {{ kind?: string, tokenId?: string, name?: string, stats?: CardStats, rangeGrid?: number[][], phase?: number,
+ *   level?: number, profession?: string, position?: string, trait?: { descRaw?: string, desc?: string }, descRaw?: string,
+ *   desc?: string, skill?: CardSkill, talents?: unknown, variants?: Record<string, unknown>, [key: string]: unknown }} TokenCard
+ *   a tokens.json record (its owner's variant: the same fields), or a band map character (`kind` 'mapChar')
+ * @param {{ token: TokenCard | null, piece?: CardPiece | null, ownerId?: string|null, snapHp?: SnapHp | null,
+ *   live?: LiveEntry | null }} props
  */
 export function TokenDetailArt({ token, piece = null, ownerId = null, snapHp = null, live = null }) {
-  const [tab, setTab] = useState(null);
+  const [tab, setTab] = useState(/** @type {string | null} */ (null));
   const m = data.get('assets');
   const mapChar = token?.kind === 'mapChar';
   const v0 = mapChar ? null : tokenVariantFor(token, ownerId);
-  const rec = v0 || token || {};
-  const s = rec.stats || token?.stats || {};
+  const rec = /** @type {TokenCard} */ (v0 || token || {});
+  const s = /** @type {CardStats} */ (rec.stats || token?.stats || {});
   const owner = typeof ownerId === 'string' ? data.lookup('chess', ownerId) : null;
   const st = {
     atk: liveStat(live, 'atk', s.atk), def: liveStat(live, 'def', s.def), res: liveStat(live, 'res', s.res ?? 0, fmtRes),
     blockCnt: liveStat(live, 'blockCnt', s.blockCnt, (v) => String(v)), interval: liveStat(live, 'interval', attackInterval(s.bat, s.aspd), fmtInterval),
   };
-  const hp = hpOf(live, snapHp) || (Number.isFinite(live?.maxHp) ? { hp: live.maxHp, max: live.maxHp } : Number.isFinite(s.maxHp) ? { hp: s.maxHp, max: s.maxHp } : null);
+  const hp = hpOf(live, snapHp) || (Number.isFinite(live?.maxHp) ? { hp: /** @type {LiveEntry} */ (live).maxHp, max: /** @type {LiveEntry} */ (live).maxHp } : Number.isFinite(s.maxHp) ? { hp: s.maxHp, max: s.maxHp } : null);
   const pct = hp && hp.max > 0 ? Math.max(0, Math.min(100, (hp.hp / hp.max) * 100)) : 100;
   const range = live && Array.isArray(live.range) && live.range.length ? live.range : Array.isArray(rec.rangeGrid) && rec.rangeGrid.length ? rec.rangeGrid : token?.rangeGrid || null;
-  const phase = Number.isInteger(rec.phase) ? rec.phase : Number.isInteger(token?.phase) ? token.phase : null;
-  const level = Number.isFinite(rec.level) ? rec.level : Number.isFinite(token?.level) ? token.level : null;
+  const phase = Number.isInteger(rec.phase) ? rec.phase : Number.isInteger(token?.phase) ? /** @type {TokenCard} */ (token).phase : null;
+  const level = Number.isFinite(rec.level) ? rec.level : Number.isFinite(token?.level) ? /** @type {TokenCard} */ (token).level : null;
   const eliteUrl = phase != null ? uiUrl(m, `elite/elite_${phase}`) : null;
   // the skill: a summon's withdraw skill (skcom_withdraw) says nothing (TokenDetail's rule)
   const sk = rec.skill && rec.skill.desc && !/^skcom_withdraw/.test(String(rec.skill.skillId || '')) ? rec.skill : null;
   // an enemy-shaped record (炎佑 enemy_9012_acloon) carries one `{ bb, bbStr }` talent object, not a list: no 天赋 tab
+  /** @type {CardTalent[]} */
   const talents = mapChar ? chessTalents(token) : (Array.isArray(rec.talents) ? rec.talents : []).filter((x) => x && x.name && x.desc);
   const trait = (mapChar ? token.trait?.descRaw || token.trait?.desc : '') || token?.descRaw || token?.desc || '';
   const hint = piece ? summonDeployHint(token) : null;
   const prof = mapChar ? profIconUrl(m, token.profession) : null;
-  const tabs = [
+  const tabs = /** @type {ArtTab[]} */ ([
     sk ? { id: 'skill', label: N_('技能'), nodes: [
       html`<div key="s" class="dskill" data-skill=${sk.skillId || ''}>
         <${Img} src=${skillRecordIconUrl(m, sk, { empty: false })} class="dskill__icon" fallback=${html`<span class="dskill__icon dskill__icon--empty"></span>`} />
@@ -506,7 +557,7 @@ export function TokenDetailArt({ token, piece = null, ownerId = null, snapHp = n
     trait ? { id: 'trait', label: N_('特性'), nodes: [html`<${RichText} key="t" as="p" text=${trait} class="dtext" />`] } : null,
     talents.length ? { id: 'talents', label: N_('天赋'), nodes: talents.map((x, i) => html`<div key=${i} class="dtalent"><b>${x.name}</b><${RichText} text=${x.descRaw || x.desc} class="dtext" /></div>`) } : null,
     hint ? { id: 'desc', label: N_('说明'), nodes: [html`<p key="h" class="dhint"><${Icon} name="info" />${hint}</p>`] } : null,
-  ].filter(Boolean);
+  ].filter(Boolean));
   const cur = tabs.find((x) => x.id === tab) || tabs[0] || null;
   const paneRef = useRef(null);
   const edges = useScrollEdges(paneRef, [cur?.id]);
@@ -521,9 +572,9 @@ export function TokenDetailArt({ token, piece = null, ownerId = null, snapHp = n
         <div class="dart__tier">
           <${TierChip} tier=${owner?.tier ?? 1} golden=${!!owner?.isGolden} size="md" />
           ${mapChar
-            ? html`<span class="dtag-kind">${t('干员')}</span><span class="dtag-kind">${t(PROF_NAME[token.profession]) || token.profession || ''} · ${token.position === 'MELEE' ? t('近战位') : t('远程位')}</span>`
+            ? html`<span class="dtag-kind">${t('干员')}</span><span class="dtag-kind">${t(/** @type {Record<string, string>} */ (PROF_NAME)[/** @type {string} */ (token.profession)]) || token.profession || ''} · ${token.position === 'MELEE' ? t('近战位') : t('远程位')}</span>`
             : html`<span class="dtag-token">${t('召唤物')}</span>`}
-          ${piece?.count > 1 ? html`<span class="dtag-kind num">×${piece.count}</span>` : null}
+          ${/** @type {number} */ (piece?.count) > 1 ? html`<span class="dtag-kind num">×${/** @type {CardPiece} */ (piece).count}</span>` : null}
           <i class="dart__split"></i>
           ${eliteUrl ? html`<img class="dart__elite" src=${eliteUrl} alt="" />` : null}
           ${level != null ? html`<span class="dart__lv"><small>LV</small><b class="num">${level}</b></span>` : null}
@@ -554,10 +605,10 @@ export function TokenDetailArt({ token, piece = null, ownerId = null, snapHp = n
 }
 
 /**
- * @param {{ uid?: number, piece?: any } | null} p screens/game.js `drag` or `facing`
- * @param {Map<number, any>} pieces indexPieces(priv)
- * @param {{ priv?: any, backups?: any }} [opts] resolveDetail's: the player's m.private (its 自选 picks and 补位 list)
- * @returns {any|null} a resolveDetail result of type 'chess'
+ * @param {{ uid?: number, piece?: CardPiece } | null} p screens/game.js `drag` or `facing`
+ * @param {Map<number, unknown>} pieces indexPieces(priv)
+ * @param {{ priv?: unknown, backups?: unknown }} [opts] resolveDetail's: the player's m.private (its 自选 picks and 补位 list)
+ * @returns {Record<string, unknown> | null} a resolveDetail result of type 'chess'
  */
 export function placingDetail(p, pieces, opts) {
   if (!p || !Number.isInteger(p.uid)) return null;

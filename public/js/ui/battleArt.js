@@ -18,6 +18,7 @@ import { modeGrade } from '../../../shared/seasons.js';
 import { uiUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
 import { t, N_ } from '../../../shared/i18n.js';
+/** @import { Bag } from './gameLogic/shared.js' */
 
 /** CSS variable → ui/battle sprite, per dialog. */
 const ART = Object.freeze({
@@ -85,11 +86,15 @@ const ART = Object.freeze({
 /** The local extraction folder of a dialog's sprites (ui/battle unless named here). */
 const FOLDER = Object.freeze({ confirm: 'ui/common' });
 const NONE = Object.freeze({ cls: '', style: '' });
+/** @type {Map<string, { m: unknown, v: { cls: string, style: string } }>} */
 const cache = new Map();
 
-/** { cls: 'has-battle-art', style } when the local extraction has every sprite of `kind`, else { cls: '', style: '' }. */
+/**
+ * { cls: 'has-battle-art', style } when the local extraction has every sprite of `kind`, else { cls: '', style: '' }.
+ * @param {string} kind a key of ART
+ */
 export function battleArt(kind) {
-  const map = ART[kind];
+  const map = /** @type {Readonly<Record<string, Readonly<Record<string, string>>>>} */ (ART)[kind];
   if (!map) return NONE;
   const m = data.get('local');
   const hit = cache.get(kind);
@@ -98,7 +103,7 @@ export function battleArt(kind) {
   let ok = !!m;
   for (const [name, key] of Object.entries(map)) {
     const cut = key.lastIndexOf('/');
-    const u = cut > 0 ? localAsset(key.slice(0, cut), key.slice(cut + 1)) : localAsset(FOLDER[kind] || 'ui/battle', key);
+    const u = cut > 0 ? localAsset(key.slice(0, cut), key.slice(cut + 1)) : localAsset(/** @type {Readonly<Record<string, string>>} */ (FOLDER)[kind] || 'ui/battle', key);
     if (!u) { ok = false; break; }
     vars.push(`${name}:url("${u}")`);
   }
@@ -120,13 +125,19 @@ export function preloadBattleArt(kinds) {
   }
 }
 
-/** Position of a prefab RectTransform inside its parent (centre anchors): x, y = anchoredPosition (y up), w, h = size. */
+/**
+ * Position of a prefab RectTransform inside its parent (centre anchors): x, y = anchoredPosition (y up), w, h = size.
+ * @param {number} x @param {number} y @param {number} w @param {number} h
+ */
 const box = (x, y, w, h) => `left:calc(50% + var(--pu) * ${x - w / 2});top:calc(50% - var(--pu) * ${y + h / 2});width:calc(var(--pu) * ${w});height:calc(var(--pu) * ${h})`;
+/** @param {string} cls @param {string} b @param {string} [extra] */
 const i = (cls, b, extra = '') => html`<i class=${cls} style=${extra ? `${b};${extra}` : b} aria-hidden="true"></i>`;
 
 /**
  * A RectMask2D box (bg_mask / full_line_mask): the mask rect at (x, y) of size w × h trimmed by its padding (Unity's
  * x = left, y = bottom, z = right, w = top). Returns the visible box's style and the shift its children need.
+ * @param {number} x @param {number} y @param {number} w @param {number} h
+ * @param {[number, number, number, number]} padding
  */
 function maskBox(x, y, w, h, [pl, pb, pr, pt]) {
   const vw = w - pl - pr; const vh = h - pb - pt;
@@ -134,7 +145,10 @@ function maskBox(x, y, w, h, [pl, pb, pr, pt]) {
   return { style: `${box(cx, cy, vw, vh)};overflow:hidden`, dx: x - cx, dy: y - cy };
 }
 
-/** Hook: after `on` turns false the element stays `ms` longer (its fade-out); returns [mounted, leaving]. */
+/**
+ * Hook: after `on` turns false the element stays `ms` longer (its fade-out); returns [mounted, leaving].
+ * @param {boolean} on @param {number} ms @returns {[boolean, boolean]}
+ */
 function useLinger(on, ms) {
   const [mounted, setMounted] = useState(on);
   useEffect(() => {
@@ -145,7 +159,10 @@ function useLinger(on, ms) {
   return [mounted || on, !on];
 }
 
-/** A dialog that plays `ms` and fades out over `outMs`, then calls onDone; returns [gone, leaving]. */
+/**
+ * A dialog that plays `ms` and fades out over `outMs`, then calls onDone; returns [gone, leaving].
+ * @param {number} ms @param {number} outMs @param {(() => void) | undefined} onDone @returns {[boolean, boolean]}
+ */
 function usePlay(ms, outMs, onDone) {
   const [leaving, setLeaving] = useState(false);
   const [gone, setGone] = useState(false);
@@ -170,18 +187,18 @@ export const LOADING_SAME = Object.freeze({ loading_ac_normal: 'loading_ac_core'
  * What the loading screen shows for a mode record (config.json modes[modeId]): its picture (the web manifest's
  * `loading/<loadingPic>`), code and full mode name (「AC-4 초월 시뮬레이션」, maintainer decision 2026-10-11 — the
  * 模拟 / 시뮬레이션 stays); null when the picture is not in the manifest.
- * @param {any} mode
+ * @param {{ loadingPic?: string, code?: unknown, name?: unknown, [key: string]: unknown } | null | undefined} mode
  * @returns {{ pic: string, code: string, name: string } | null}
  */
 export function loadingArt(mode) {
   if (!mode || typeof mode !== 'object' || !mode.loadingPic) return null;
   const id = mode.loadingPic;
-  const pic = uiUrl(data.get('assets'), `loading/${id}`) || (LOADING_SAME[id] ? uiUrl(data.get('assets'), `loading/${LOADING_SAME[id]}`) : null);
+  const pic = uiUrl(data.get('assets'), `loading/${id}`) || (/** @type {Readonly<Record<string, string>>} */ (LOADING_SAME)[id] ? uiUrl(data.get('assets'), `loading/${/** @type {Readonly<Record<string, string>>} */ (LOADING_SAME)[id]}`) : null);
   if (!pic) return null;
   return { pic, code: String(mode.code || ''), name: t(String(mode.name || '')) };
 }
 
-/** A random official tip (config.json `tips`, weighted), or ''. */
+/** A random official tip (config.json `tips`, weighted), or ''. @param {OfficialTip[] | null | undefined} tips */
 function pickTip(tips) {
   const list = Array.isArray(tips) ? tips.filter((x) => x && typeof x.tip === 'string' && x.tip) : [];
   if (!list.length) return '';
@@ -198,7 +215,8 @@ function pickTip(tips) {
  * a tip along the bottom (panel_tips 250 tall, the text 300 in from either side) and "Loading" with its three dots at
  * the bottom right (text_loading, 154 × 67 at −77 / 33.5). Shown while `show` (BATTLE_CHECK, the field view loading),
  * then fades out ([추정] the length: _fadeTime is not in the scene typetree).
- * @param {{ show: boolean, art: { pic: string, code: string, name: string }, tips?: any[] }} props
+ * @typedef {{ tip?: string, weight?: unknown, [key: string]: unknown }} OfficialTip  a config.json `tips` entry
+ * @param {{ show: boolean, art: { pic: string, code: string, name: string }, tips?: OfficialTip[] }} props
  */
 export function LoadingScreen({ show, art, tips }) {
   const [mounted, leaving] = useLinger(show, 400);
@@ -321,7 +339,7 @@ export function BottomTips({ type, shopOpen = false }) {
   useEffect(() => { if (type) setShown(type); }, [type]);
   const [mounted, leaving] = useLinger(!!type, 250);
   const cur = type || shown;
-  const cfg = TIPS[cur];
+  const cfg = TIPS[/** @type {keyof typeof TIPS} */ (cur)];
   if (!mounted || !cfg) return null;
   const icon = localAsset('ui/battle', cfg.icon);
   return html`<div class=${['btip', shopOpen && 'is-up', leaving && 'is-leaving'].filter(Boolean).join(' ')} role="status" aria-live="polite"
@@ -343,7 +361,7 @@ export function BottomTips({ type, shopOpen = false }) {
  */
 export function waitsForStage({ phase, deadline, now, graceMs = 800 }) {
   if (!['PREP', 'SP_DRAFT', 'ROUND_START', 'SETTLE'].includes(String(phase))) return false;
-  return Number.isFinite(deadline) && deadline > 0 && now > deadline + graceMs;
+  return Number.isFinite(deadline) && /** @type {number} */ (deadline) > 0 && now > /** @type {number} */ (deadline) + graceMs;
 }
 
 /**
@@ -399,7 +417,9 @@ export function HelpBattleBanner({ onDone }) {
   if (gone) return null;
   const art = battleArt('help');
   const W = 631.78, H = 298.59;
+  /** @param {number} x @param {number} y @param {number} w @param {number} h */
   const rb = (x, y, w, h) => box(W / 2 + x, -H / 2 + y, w, h);
+  /** @param {number} x @param {number} y @param {number} w @param {number} h */
   const rt = (x, y, w, h) => box(W / 2 + x, H / 2 + y, w, h);
   const ALPHA = [0.6, 1, 0.2, 0.6, 0.4, 1];
   const ARROWS = [[190.6, 0.4], [147.3, 1], [103.7, 0.4], [60.1, 0.2]];
@@ -439,7 +459,10 @@ export function HelpBattleBanner({ onDone }) {
 /** trans_rest / trans_battle / trans_coop / trans_boss lengths (s → ms). */
 export const TRANS_MS = Object.freeze({ rest: 4230, battle: 2670, coop: 3270, boss: 4370 });
 
-/** The round bar's stage for a phase: 'rest' | 'battle' | 'coop' | 'boss' | null. */
+/**
+ * The round bar's stage for a phase: 'rest' | 'battle' | 'coop' | 'boss' | null.
+ * @param {string | null | undefined} phase @returns {keyof typeof TRANS_MS | null}
+ */
 export function transKind(phase) {
   if (phase === 'PREP') return 'rest';
   if (phase === 'COMBAT') return 'battle';
@@ -455,7 +478,7 @@ export function transKind(phase) {
  * @returns {{ kind: string, key: number } | null}
  */
 export function useCapsuleTrans(phase) {
-  const [cur, setCur] = useState(null);
+  const [cur, setCur] = useState(/** @type {{ kind: string, key: number } | null} */ (null));
   const prev = useRef(phase);
   useEffect(() => {
     const was = prev.current;
@@ -481,6 +504,7 @@ export function useCapsuleTrans(phase) {
 export function CapsuleTrans({ kind }) {
   const art = battleArt('trans');
   if (!art.cls) return null;
+  /** @param {number} x @param {number} y @param {number} w @param {number} h */
   const u = (x, y, w, h) => `left:calc(50% + var(--u) * ${x - w / 2});top:calc(50% - var(--u) * ${y + h / 2});width:calc(var(--u) * ${w});height:calc(var(--u) * ${h})`;
   const caption = kind === 'coop' ? t('联防开始') : t('开始作战');
   return html`<span class=${`ctrans is-${kind}`} style=${art.style} aria-hidden="true">
@@ -520,7 +544,7 @@ export function CapsuleTrans({ kind }) {
  * icon_ob_self + 你自己) right of the caption with its kills / total, ✓ once over [ASSUMED: the official current season has no
  * such chip; the new season's layout is not known yet].
  * @param {{ cur: { kind?: string, label: string } | null, arrows?: boolean, prev?: (() => void) | null, next?: (() => void) | null, lost?: boolean,
- *   own?: { resolved?: number|null, killed?: number|null, total?: number|null, done?: boolean } | null, children?: any }} props
+ *   own?: { resolved?: number|null, killed?: number|null, total?: number|null, done?: boolean } | null, children?: unknown }} props
  *   `arrows`: the halves of a 联防 / boss field (`prev` / `next` null at either end)
  */
 export function ObInfo({ cur, arrows = false, prev = null, next = null, lost = false, own = null, children = null }) {
@@ -570,7 +594,7 @@ export const BOSS_PREP_MS = Object.freeze({ single: 3500, hidden: 3500, multi: 3
  * boss round's own prep, not the boss battle (maintainer report 2026-10-10: 「보스 라운드의 휴식시간에 들어가기 전」).
  * Here that is the boss round's ROUND_START (m.public bossRound / hiddenRound): 'hidden' for the hidden round, else
  * 'single' alone and 'multi' in co-op.
- * @param {string|null|undefined} phase @param {any} pub m.public @param {boolean} solo
+ * @param {string|null|undefined} phase @param {Bag | null | undefined} pub m.public @param {boolean} solo
  * @returns {'single'|'multi'|'hidden'|null}
  */
 export function bossOpening(phase, pub, solo) {
@@ -593,7 +617,8 @@ export function bossOpening(phase, pub, solo) {
  * (32 #22e8bd) — KR 「최종 공세 / 힘을 합쳐 리더 적 섬멸!」. `hidden` (隐秘核心): bg_type_01 with sp_bg_doc_line, the
  * warning signs, boss_sp_icon, the portrait in boss_bg_sp, 隐藏回合已解锁 (34 #09d7e3) over 挑战失败不影响胜利结算 (19
  * #a0b2b3) — KR 「히든 코어 개방 / 실패해도 정산에 지장 없음」. KR: the maintainer's captures.
- * @param {{ kind: 'single'|'multi'|'hidden', portrait?: string|null, team?: Array<{ id: string, avatar: any, lp: number, mine: boolean }>, onDone?: () => void }} props
+ * @param {{ kind: 'single'|'multi'|'hidden', portrait?: string|null, team?: Array<{ id: string, avatar: unknown, lp: number, mine: boolean }>, onDone?: () => void }} props
+ *   `avatar`: the member's avatar vnode
  */
 export function BossPrepare({ kind, portrait = null, team = [], onDone }) {
   const [gone, leaving] = usePlay(BOSS_PREP_MS[kind] || 3500, 400, onDone);
@@ -603,16 +628,17 @@ export function BossPrepare({ kind, portrait = null, team = [], onDone }) {
   const multi = kind === 'multi';
   const total = team.reduce((s, m) => s + Math.max(0, Math.trunc(Number(m.lp) || 0)), 0);
   // the member slots of group_team (panel_mumber_01…04 at x −199.5), spread over the same span for fewer players [추정]
-  const ysOf = (n) => ({ 1: [0], 2: [72, -77], 3: [110.8, -2.2, -115], 4: [110.8, 33.7, -40.2, -115] }[Math.min(4, Math.max(1, n))] || []);
+  const ysOf = (/** @type {number} */ n) => ({ 1: [0], 2: [72, -77], 3: [110.8, -2.2, -115], 4: [110.8, 33.7, -40.2, -115] }[Math.min(4, Math.max(1, n))] || []);
   // the 8-player mode (maintainer decision 2026-10-16): the first four on the left of the middle ring, the others mirrored
   // on its right; in_02 shrinks the team as it slides left so its right column clears the leader [추정: no official layout]
   const wide = team.length > 4;
   const sides = wide ? [team.slice(0, 4), team.slice(4, 8)] : [team.slice(0, 4)];
   const RING = 97.5;
+  /** @param {number} x @param {number} r the column (1: the right one) */
   const mx = (x, r) => (r ? 2 * RING - x : x); // a right-column x: mirrored around the ring
   const mainX = multi ? 287.9 : -1.2;
   const mainY = multi ? -28.7 : -17.7;
-  const doc = (side) => html`<i class=${`bbp__doc is-${side}`} style=${box(side === 'l' ? -229.7 + 71.31 - 47.5 : 182 - 23.69 + 47.5, 25 - 0.2, 95, 2)}>
+  const doc = (/** @type {'l' | 'r'} */ side) => html`<i class=${`bbp__doc is-${side}`} style=${box(side === 'l' ? -229.7 + 71.31 - 47.5 : 182 - 23.69 + 47.5, 25 - 0.2, 95, 2)}>
     <i class="bbp__dblank"></i><i class="bbp__dframe"><i></i></i></i>`;
   const title = multi ? t('合力迎击领袖！') : hidden ? t('挑战失败不影响胜利结算') : t('迎击首领敌人');
   const plateMask = maskBox(-5.2, -20.1, 1000, 520, [0, 52, 0, 52]);
@@ -685,7 +711,7 @@ export function BossPrepare({ kind, portrait = null, team = [], onDone }) {
  * The ending of a match from m.result (the client's AutoChessSettleDataModel.EndingStatus): 'NORM_BOSS_WIN' (the leader
  * beaten, no hidden round), 'HIDE_BOSS_FAIL' (the leader beaten, the hidden core not), 'HIDE_BOSS_WIN' (both),
  * 'GAME_OVER' (defeat / elimination); null for an aborted match (abandoned, error) or no result.
- * @param {any} r m.result
+ * @param {Bag | null | undefined} r m.result
  */
 export function endingOf(r) {
   if (!r || typeof r !== 'object') return null;
@@ -715,6 +741,7 @@ export function SettleEnding({ status, portrait = null, onDone }) {
   const [gone, leaving] = usePlay(cfg.ms - 400, 400, onDone);
   if (gone) return null;
   const art = battleArt('ending');
+  /** @param {number} x @param {number} y @param {boolean} sp the hidden core's @param {boolean} cleared */
   const info = (x, y, sp, cleared) => html`<i class=${sp ? 'bse__info is-sp' : 'bse__info'} style=${box(x, y, 100, 100)}>
     <i class="bse__infobg" style=${box(0, sp ? -4 : 0, 122, 122)}></i>
     ${portrait && !sp ? html`<i class="bse__portrait" style=${`${box(0, 0, 60, 60)};background-image:url("${portrait}")`}></i>` : null}
@@ -825,15 +852,16 @@ export function SelfDead({ onWatch, onExit }) {
 export function ReadyTipDialog({ text, check = true, only = false, onAnswer }) {
   if (only) check = false;
   const [noMore, setNoMore] = useState(false);
-  const okRef = useRef(null);
+  const okRef = useRef(/** @type {HTMLButtonElement | null} */ (null));
   const live = useRef({ noMore, onAnswer, only });
   live.current = { noMore, onAnswer, only };
   useEffect(() => {
     try { okRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
     // Esc cancels, Enter confirms (capture: the match's own Space / Enter shortcuts must not see them)
+    /** @param {KeyboardEvent} e */
     const onKey = (e) => {
       if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); live.current.onAnswer(live.current.only, false); }
-      else if (e.key === 'Enter' && e.target?.tagName !== 'BUTTON') { e.preventDefault(); e.stopImmediatePropagation(); live.current.onAnswer(true, live.current.noMore); }
+      else if (e.key === 'Enter' && /** @type {HTMLElement | null} */ (e.target)?.tagName !== 'BUTTON') { e.preventDefault(); e.stopImmediatePropagation(); live.current.onAnswer(true, live.current.noMore); }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
@@ -898,7 +926,7 @@ export function OnlyConfirmDialog({ text, onOk }) {
 /**
  * The solo-resume dialog shows when a match screen opens on a solo run already under way (a reload or a new tab: the
  * client asks before ReqResumeSingleMode) — not on its first phases (the run is just starting) nor its result.
- * @param {any} pub m.public of the first state this screen sees @param {boolean} solo
+ * @param {Bag | null | undefined} pub m.public of the first state this screen sees @param {boolean} solo
  */
 export function soloResumeDue(pub, solo) {
   if (!solo || !pub || typeof pub.phase !== 'string') return false;
@@ -907,10 +935,13 @@ export function soloResumeDue(pub, solo) {
 
 // ---- the latency panel (panel_ping) ---------------------------------------------------------------------------------
 
-/** Latency tier by constData pingConds (cond 1 / 60 / 200 ms → ping.low / ping.medium / ping.high). */
+/**
+ * Latency tier by constData pingConds (cond 1 / 60 / 200 ms → ping.low / ping.medium / ping.high).
+ * @param {number | null | undefined} ms
+ */
 export function pingTier(ms) {
   if (!Number.isFinite(ms)) return null;
-  return ms >= 200 ? 'high' : ms >= 60 ? 'medium' : 'low';
+  return /** @type {number} */ (ms) >= 200 ? 'high' : /** @type {number} */ (ms) >= 60 ? 'medium' : 'low';
 }
 
 /**
@@ -925,8 +956,8 @@ export function PingPanel({ ms, online = true }) {
   const art = battleArt('ping');
   const ok = online && Number.isFinite(ms);
   const tier = ok ? pingTier(ms) : null;
-  const num = html`<b class=${`bping__num is-${tier || 'off'}`}>${ok ? Math.min(9999, Math.round(ms)) : '--'}</b>`;
-  return html`<span class=${['bping', art.cls].join(' ')} style=${art.style} title=${ok ? t('当前延迟 {ms}ms', { ms: Math.round(ms) }) : t('未连接')}
+  const num = html`<b class=${`bping__num is-${tier || 'off'}`}>${ok ? Math.min(9999, Math.round(/** @type {number} */ (ms))) : '--'}</b>`;
+  return html`<span class=${['bping', art.cls].join(' ')} style=${art.style} title=${ok ? t('当前延迟 {ms}ms', { ms: Math.round(/** @type {number} */ (ms)) }) : t('未连接')}
     data-testid="ping-panel">${num}ms</span>`;
 }
 
@@ -966,7 +997,7 @@ export function ModePanel({ modeId, art, difficulty = null }) {
   const season = data.season();
   const grade = modeGrade(modeId, season);
   const mode = data.get('config')?.modes?.[modeId];
-  const name = grade !== null ? gradeName(grade) : DIFFICULTY_NAMES[difficulty || ''] ? t(DIFFICULTY_NAMES[difficulty || '']) : mode?.name ? t(mode.name) : '';
+  const name = grade !== null ? gradeName(grade) : /** @type {Readonly<Record<string, string>>} */ (DIFFICULTY_NAMES)[difficulty || ''] ? t(/** @type {Readonly<Record<string, string>>} */ (DIFFICULTY_NAMES)[difficulty || '']) : mode?.name ? t(mode.name) : '';
   const color = /^#[0-9a-f]{6}$/i.test(mode?.color || '') ? mode.color : null; // config modes[].color = the table's modeColor
   useLayoutEffect(() => {
     const el = ref.current;

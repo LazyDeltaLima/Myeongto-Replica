@@ -36,4 +36,6 @@ interface Window {
 declare var __SP_VIEW__: { kind?: string, raw?: any } | null | undefined;
 // `'fallback'` keeps the render engine away (ui/fieldHost.js renderMode; dev and the mock harness).
 declare var __SP_RENDER__: string | undefined;
+// a screen check sets it before the page loads to see the entry film under automation (ui/entryFilm.js playEntryFilm)
+declare var __SP_ENTRY_FILM__: boolean | undefined;
 declare var __SP__: { store: unknown, net: unknown, data: unknown, version: number, import: (p: string) => Promise<unknown> } | undefined;

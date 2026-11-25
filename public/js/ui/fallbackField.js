@@ -31,9 +31,48 @@ import { t } from '../../../shared/i18n.js';
 
 const DRAG_PX = 6;
 const DMG_TTL = 900;
-const cx = (...p) => p.flat().filter(Boolean).join(' ');
+const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ');
 
-/** Avatar URL for a UnitInfo `avatar` asset id (chars / E2 / tokens / enemies). */
+/**
+ * What the view is handed and keeps, the fields read (the rest unknown).
+ * @typedef {{ chars?: Record<string, { avatar?: string, avatarE2?: string }>, [key: string]: unknown }} FfManifest  the
+ *   web manifest (data/assets.json)
+ * @typedef {{ name?: string, tier?: number, iconId?: string, trapId?: string, [key: string]: unknown }} FfRecord  a data record (data.lookup)
+ * @typedef {{ get?: (name: string) => unknown, lookup?: (file: string, id: unknown) => FfRecord | null | undefined }} FfData
+ *   the page's data store
+ * @typedef {{ rows?: unknown, tiles?: Record<string, { tileKey?: string, height?: string, buildable?: string,
+ *   special?: string }>, [key: string]: unknown }} FfStage  a stage (its glyph rows and tile kinds)
+ * @typedef {{ r0: number, r1: number, c0: number, c1: number }} FfRect
+ * @typedef {{ uid: number, kind?: string, id?: string, golden?: boolean, tier?: number, dir?: string,
+ *   items?: { uid?: number }[], count?: number, skin?: unknown, [key: string]: unknown }} FfPiece  a piece of m.private
+ * @typedef {FfPiece & { row: number, col: number }} FfBoardPiece
+ * @typedef {{ [key: string]: unknown, prepMapChars?: ({ uid?: unknown, x: number, y: number, defId?: string, name?: string } | null)[],
+ *   board?: (FfBoardPiece | null)[], hand?: (FfPiece | null)[], temp?: (FfPiece | null)[],
+ *   nextEnemies?: Parameters<typeof penPlacement>[0] }} FfPriv  m.private
+ * @typedef {{ id?: number, uid?: number | null, side?: string, avatar?: string, defId?: string, boss?: boolean,
+ *   golden?: boolean, name?: string, x: number, y: number, maxHp?: number, [key: string]: unknown }} FfUnit  a UnitInfo
+ * @typedef {[number, number, number, number, number, number, number, number, number, ...unknown[]]} SnapTuple  a snapshot
+ *   tuple [id, x, y, hp, maxHp, sp, spMax, flags, anim, …]
+ * @typedef {{ [key: string]: unknown, kind?: string, wide?: unknown, prep?: boolean, rect?: FfRect, units?: (FfUnit | null)[],
+ *   bench?: (FfUnit | null)[], fieldId?: unknown, nextEnemies?: Parameters<typeof penPlacement>[0] }} FfField  m.field
+ * @typedef {{ area: 'board', row: number, col: number } | { area: 'hand', idx: number }
+ *   | { area: 'outside', clientX: number, clientY: number }} DropTarget
+ * @typedef {{ uid: number, sx: number, sy: number, x: number, y: number, moved: boolean, pointerId: number,
+ *   piece: FfPiece }} FfDrag
+ * @typedef {{ stage: FfStage | null, camera: string, rect: FfRect, side: string, deployField: string, mode: string,
+ *   priv: FfPriv | null, editable: boolean, canPlace: ((uid: number, target: DropTarget) => boolean) | null,
+ *   field: FfField | null, units: Map<number, FfUnit>, snapUnits: Map<number, SnapTuple>, highlight: Map<string, string>,
+ *   hlGroups: Map<string, { name: string, tiles: Set<string> }>, held: Map<number, { row: number, col: number }>,
+ *   dirs: Map<number, string>, drag: FfDrag | null, hoverTarget: DropTarget | null,
+ *   floats: { key: string, id: number, text: string, type: string, at: number }[],
+ *   settings: { damageNumbers?: boolean, [key: string]: unknown }, size: { w: number, h: number }, destroyed: boolean,
+ *   pen: Parameters<typeof penPlacement>[0], bench: FfUnit[] }} FfState
+ */
+
+/**
+ * Avatar URL for a UnitInfo `avatar` asset id (chars / E2 / tokens / enemies).
+ * @param {FfManifest | null} m @param {{ avatar?: string, defId?: string, side?: string } | null | undefined} info
+ */
 function unitArt(m, info) {
   const id = info?.avatar || info?.defId;
   if (!m || !id) return null;
@@ -45,7 +84,10 @@ function unitArt(m, info) {
   return null;
 }
 
-/** Look of the stage tile (row, col) on the fallback board (stage coordinates). */
+/**
+ * Look of the stage tile (row, col) on the fallback board (stage coordinates).
+ * @param {FfStage | null | undefined} stage @param {number} row @param {number} col
+ */
 export function fallbackTileClass(stage, row, col) {
   const rows = stage?.rows;
   const glyph = Array.isArray(rows) && typeof rows[row] === 'string' ? rows[row][col] : 'r';
@@ -66,27 +108,28 @@ export function fallbackTileClass(stage, row, col) {
 /**
  * Create the DOM fallback view.
  * @param {HTMLElement} host
- * @param {{ data?: any, assets?: any, settings?: any }} [opts]
+ * @param {{ data?: FfData, assets?: FfManifest, settings?: Record<string, unknown> }} [opts]
  */
 export function createFallbackView(host, opts = {}) {
   const dataStore = opts.data;
-  const m = () => opts.assets || dataStore?.get?.('assets') || null;
-  const lookup = (file, id) => dataStore?.lookup?.(file, id) ?? null;
+  const m = () => /** @type {FfManifest | null} */ (opts.assets || dataStore?.get?.('assets') || null);
+  const lookup = (/** @type {string} */ file, /** @type {unknown} */ id) => dataStore?.lookup?.(file, id) ?? null;
+  /** @type {Map<string, Set<(payload: unknown) => void>>} */
   const listeners = new Map();
   const root = document.createElement('div');
   root.className = 'ff';
   host.appendChild(root);
 
-  const st = {
+  const st = /** @type {FfState} */ ({
     stage: null, camera: 'prep', rect: { ...GEO.NORMAL_RECT }, side: 'L', deployField: 'normal',
     mode: 'prep', priv: null, editable: false, canPlace: null,
     field: null, units: new Map(), snapUnits: new Map(), highlight: new Map(), hlGroups: new Map(), held: new Map(), dirs: new Map(),
     drag: null, hoverTarget: null, floats: [], settings: { damageNumbers: true, ...(opts.settings || {}) },
     size: { w: 0, h: 0 }, destroyed: false, pen: [],
     bench: [], // 规程's battle bench (m.field `bench`): the 整备区 standing still under the field, render/app.js setBattleBench
-  };
+  });
 
-  const emit = (type, payload) => {
+  const emit = (/** @type {string} */ type, /** @type {unknown} */ payload) => {
     for (const fn of [...(listeners.get(type) || [])]) {
       try { fn(payload); } catch (err) { console.error('[fallback-field] listener failed', err); }
     }
@@ -123,11 +166,15 @@ export function createFallbackView(host, opts = {}) {
     return { tile, left, top, cols, rows: r.r1 - r.r0 + 1, bw, bh };
   }
 
+  /** @param {ReturnType<typeof layout>} L @param {number} row @param {number} col */
   const tilePos = (L, row, col) => ({ x: (col - st.rect.c0) * L.tile, y: (st.rect.r1 - row) * L.tile });
+  /** @param {ReturnType<typeof layout>} L @param {number} idx */
   const handPos = (L, idx) => ({ x: idx * L.tile, y: (L.rows + 0.6) * L.tile });
+  /** @param {ReturnType<typeof layout>} L @param {number} idx */
   const tempPos = (L, idx) => ({ x: (GEO.TEMP_C0 + idx) * L.tile, y: (L.rows + 1.72) * L.tile });
 
   // ---- pieces (prep) ---------------------------------------------------------------------------------------
+  /** @param {FfPiece} p */
   function pieceArt(p) {
     const mm = m();
     if (p.kind === 'item') return itemIconUrl(mm, lookup('items', p.id));
@@ -137,14 +184,18 @@ export function createFallbackView(host, opts = {}) {
     // the skin the own piece wears (pieceView `skin`; ui/skins.js skinPic — the default avatar without the skin data)
     return (rec && skinPic(rec, 'avatar', skinArt(), { skin: p.skin })) || chessAvatarUrl(mm, rec);
   }
-  /** 0.2.0 补位: the player's own piece of a chess it does not own is its stand-in, bench and board alike (render/app.js pieceInfo) */
+  /**
+   * 0.2.0 补位: the player's own piece of a chess it does not own is its stand-in, bench and board alike (render/app.js pieceInfo)
+   * @param {FfRecord | null} chess
+   */
   function ownSi(chess) {
     return chess ? ownStandIn(chess, st.priv, dataStore?.get?.('backups') ?? null) : null;
   }
-  /** 0.2.0 自选编队: the player's own piece of a DIY slot it filled is its operator (gameLogic ownDiyRecord) */
+  /** 0.2.0 自选编队: the player's own piece of a DIY slot it filled is its operator (gameLogic ownDiyRecord) @param {FfRecord | null} chess */
   function ownDiy(chess) {
     return chess ? ownDiyRecord(chess, st.priv, { chess: dataStore?.get?.('chess') ?? null, backups: dataStore?.get?.('backups') ?? null }) : null;
   }
+  /** @param {FfPiece} p */
   function pieceName(p) {
     if (p.kind === 'item') return lookup('items', p.id)?.name || t('道具');
     if (p.kind === 'token') return lookup('tokens', p.id)?.name || t('召唤物');
@@ -152,6 +203,7 @@ export function createFallbackView(host, opts = {}) {
     return (ownSi(chess) || ownDiy(chess) || chess)?.name || t('干员');
   }
 
+  /** @param {{ p: FfPiece, x: number, y: number, L: ReturnType<typeof layout>, area: string }} props */
   function Piece({ p, x, y, L, area }) {
     const src = pieceArt(p);
     const dragging = st.drag?.uid === p.uid && st.drag.moved;
@@ -161,17 +213,18 @@ export function createFallbackView(host, opts = {}) {
     const wedge = (area === 'board' || st.held.has(p.uid)) && p.kind !== 'item';
     return html`<div class=${cx('ff-piece', `ff-piece--${p.kind}`, golden && 'is-golden', dragging && 'is-lifted', st.editable && 'is-draggable', area === 'temp' && 'is-temp', wedge && `ff-dir--${dir.toLowerCase()}`)}
         data-uid=${p.uid} style=${`transform:translate(${x}px,${y}px);width:${L.tile}px;height:${L.tile}px`}
-        onPointerDown=${(e) => onDown(e, p)} onContextMenu=${(e) => { e.preventDefault(); emit('pieceClick', { uid: p.uid, button: 2, clientX: e.clientX, clientY: e.clientY }); }}
+        onPointerDown=${(/** @type {PointerEvent} */ e) => onDown(e, p)} onContextMenu=${(/** @type {MouseEvent} */ e) => { e.preventDefault(); emit('pieceClick', { uid: p.uid, button: 2, clientX: e.clientX, clientY: e.clientY }); }}
         onPointerEnter=${() => emit('pieceHover', { uid: p.uid })} onPointerLeave=${() => emit('pieceHover', { uid: null })}
         title=${pieceName(p)}>
       <div class="ff-piece__art">${src ? html`<img src=${src} alt="" draggable=${false} />` : html`<span>${[...pieceName(p)][0]}</span>`}</div>
       ${tier && p.kind !== 'token' ? html`<${TierChip} tier=${tier} golden=${golden} size="sm" class="ff-piece__tier" />` : null}
       ${p.kind === 'chess' && Array.isArray(p.items) && p.items.length ? html`<div class="ff-piece__items">${p.items.map((it) => html`<i key=${it.uid}></i>`)}</div>` : null}
-      ${p.kind === 'token' && p.count > 1 ? html`<b class="ff-piece__count">×${p.count}</b>` : null}
+      ${p.kind === 'token' && /** @type {number} */ (p.count) > 1 ? html`<b class="ff-piece__count">×${p.count}</b>` : null}
       ${wedge ? html`<i class="ff-piece__dir" aria-hidden="true"></i>` : null}
     </div>`;
   }
 
+  /** @param {PointerEvent} e @param {FfPiece} p */
   function onDown(e, p) {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -181,6 +234,7 @@ export function createFallbackView(host, opts = {}) {
     window.addEventListener('pointercancel', onCancel);
   }
 
+  /** @param {number} clientX @param {number} clientY @returns {DropTarget} */
   function targetAt(clientX, clientY) {
     const els = document.elementsFromPoint(clientX, clientY);
     for (const el of els) {
@@ -193,6 +247,7 @@ export function createFallbackView(host, opts = {}) {
     return { area: 'outside', clientX, clientY };
   }
 
+  /** @param {PointerEvent} e */
   function onMove(e) {
     const d = st.drag;
     if (!d) return;
@@ -216,6 +271,7 @@ export function createFallbackView(host, opts = {}) {
     window.removeEventListener('pointercancel', onCancel);
   }
 
+  /** @param {PointerEvent} e */
   function onUp(e) {
     const d = st.drag;
     endDrag();
@@ -238,12 +294,14 @@ export function createFallbackView(host, opts = {}) {
 
   // ---- tiles ----------------------------------------------------------------------------------------------
   // the stage tile a board tile shows: in a boss round's prep the player's half of the boss field (fieldTile)
+  /** @param {number} row @param {number} col */
   function tileClass(row, col) {
     const [r, c] = st.mode === 'prep' ? fieldTile(st.deployField, row, col) : [row, col];
     return fallbackTileClass(shownStage(), r, c);
   }
 
   // the stage behind the board: widened on the 8-player mode's wide 联防 field (shared/wideField.js; one copy per stage)
+  /** @type {{ base: FfStage | null, halves: number, out: FfStage | null }} */
   let wideMemo = { base: null, halves: 0, out: null };
   function shownStage() {
     const halves = st.mode === 'battle' && st.field?.kind === 'unite' ? wideHalves(st.field.wide) : 0;
@@ -252,12 +310,14 @@ export function createFallbackView(host, opts = {}) {
     return wideMemo.out;
   }
 
+  /** @param {DropTarget | null} target */
   function dropState(target) {
     if (!st.drag?.moved || !target || typeof st.canPlace !== 'function') return null;
     try { return st.canPlace(st.drag.uid, target) ? 'legal' : 'illegal'; } catch { return null; }
   }
 
   // ---- battle ---------------------------------------------------------------------------------------------------
+  /** @param {{ id: number, L: ReturnType<typeof layout> }} props */
   function BattleUnit({ id, L }) {
     const info = st.units.get(id);
     const s = st.snapUnits.get(id);
@@ -274,8 +334,8 @@ export function createFallbackView(host, opts = {}) {
     return html`<div class=${cx('ff-unit', enemy ? 'is-enemy' : 'is-ally', info.golden && 'is-golden', info.boss && 'is-boss', dead && 'is-dead',
         hasFlag(flags, UF.SKILL) && 'is-skill', hasFlag(flags, UF.STUNNED | UF.FROZEN | UF.SLEEP) && 'is-stunned', hasFlag(flags, UF.FLYING) && 'is-fly')}
         style=${`transform:translate(${px - size / 2}px,${py - size / 2}px);width:${size}px;height:${size}px`}
-        onPointerDown=${(e) => { if (e.button === 0) emit('pieceClick', { unitId: id, uid: info.uid ?? null, unit: info, button: 0, clientX: e.clientX, clientY: e.clientY }); }}
-        onContextMenu=${(e) => { e.preventDefault(); emit('pieceClick', { unitId: id, uid: info.uid ?? null, unit: info, button: 2, clientX: e.clientX, clientY: e.clientY }); }}>
+        onPointerDown=${(/** @type {PointerEvent} */ e) => { if (e.button === 0) emit('pieceClick', { unitId: id, uid: info.uid ?? null, unit: info, button: 0, clientX: e.clientX, clientY: e.clientY }); }}
+        onContextMenu=${(/** @type {MouseEvent} */ e) => { e.preventDefault(); emit('pieceClick', { unitId: id, uid: info.uid ?? null, unit: info, button: 2, clientX: e.clientX, clientY: e.clientY }); }}>
       <div class="ff-unit__art">${src ? html`<img src=${src} alt="" draggable=${false} />` : html`<span>${[...(info.name || '?')][0]}</span>`}</div>
       <div class="ff-unit__bars"><i class="hp" style=${`width:${hpPct}%`}></i>${!enemy && spMax > 0 ? html`<i class="sp" style=${`width:${spPct}%`}></i>` : null}</div>
     </div>`;
@@ -312,7 +372,7 @@ export function createFallbackView(host, opts = {}) {
       const y = (PEN.r1 - mdl.row + 0.5 + o[1]) * tile - size / 2;
       const src = unitArt(m(), { side: 'enemy', defId: mdl.enemyKey, avatar: mdl.enemyKey });
       const name = lookup('enemies', mdl.enemyKey)?.name || mdl.enemyKey;
-      const tap = (e) => { if (e.button == null || e.button === 0) emit('pieceClick', { enemyKey: mdl.enemyKey, preview: true, unit: { side: 'enemy', defId: mdl.enemyKey, name }, button: 0, clientX: e.clientX, clientY: e.clientY }); };
+      const tap = (/** @type {MouseEvent} */ e) => { if (e.button == null || e.button === 0) emit('pieceClick', { enemyKey: mdl.enemyKey, preview: true, unit: { side: 'enemy', defId: mdl.enemyKey, name }, button: 0, clientX: e.clientX, clientY: e.clientY }); };
       return html`<button key=${mdl.k} type="button" class=${cx('ff-unit', 'is-enemy', 'ff-pen__enemy', (mdl.elite || mdl.boss) && 'is-boss', mdl.fly && 'is-fly')}
           data-enemy=${mdl.enemyKey} title=${name} aria-label=${name}
           style=${`transform:translate(${x}px,${y}px);width:${size}px;height:${size}px;z-index:${10 + mdl.slot}`} onClick=${tap}>
@@ -340,7 +400,7 @@ export function createFallbackView(host, opts = {}) {
         const hov = st.hoverTarget?.area === 'board' && st.hoverTarget.row === row && st.hoverTarget.col === col ? dropState(st.hoverTarget) : null;
         tiles.push(html`<div key=${k} class=${cx('ff-tile', `ff-tile--${tileClass(row, col)}`, hl && `is-${hl}`, hov && `is-hover-${hov}`)}
           data-drop="board" data-row=${row} data-col=${col}
-          onPointerDown=${(e) => { if (e.button === 0) emit('tileClick', { row, col, button: 0, clientX: e.clientX, clientY: e.clientY }); }}
+          onPointerDown=${(/** @type {PointerEvent} */ e) => { if (e.button === 0) emit('tileClick', { row, col, button: 0, clientX: e.clientX, clientY: e.clientY }); }}
           style=${`transform:translate(${p.x}px,${p.y}px);width:${L.tile}px;height:${L.tile}px`}></div>`);
       }
     }
@@ -348,7 +408,7 @@ export function createFallbackView(host, opts = {}) {
     const hand = [];
     const now = performance.now();
     if (st.mode === 'prep' && st.priv) {
-      const heldPos = (p) => { const t = st.held.get(p.uid); return t ? tilePos(L, t.row, t.col) : null; };
+      const heldPos = (/** @type {FfPiece} */ p) => { const t = st.held.get(p.uid); return t ? tilePos(L, t.row, t.col) : null; };
       for (const u of Array.isArray(st.priv.prepMapChars) ? st.priv.prepMapChars : []) {
         if (!u || !Number.isInteger(u.x) || !Number.isInteger(u.y) || typeof u.defId !== 'string') continue;
         const pos = tilePos(L, u.y, u.x);
@@ -387,10 +447,11 @@ export function createFallbackView(host, opts = {}) {
     const bench = st.mode === 'battle' ? st.bench.map((u) => {
       const pos = handPos(L, u.x);
       const src = unitArt(m(), u);
+      /** @param {MouseEvent} e @param {number} button */
       const click = (e, button) => emit('pieceClick', { unitId: 'b:' + u.uid, uid: u.uid, unit: u, button, clientX: e.clientX, clientY: e.clientY });
       return html`<div key=${`b:${u.uid}`} class=${cx('ff-unit', 'is-ally', 'is-bench', u.golden && 'is-golden')}
           style=${`transform:translate(${pos.x + L.tile * 0.07}px,${pos.y + L.tile * 0.07}px);width:${L.tile * 0.86}px;height:${L.tile * 0.86}px`}
-          onPointerDown=${(e) => { if (e.button === 0) click(e, 0); }} onContextMenu=${(e) => { e.preventDefault(); click(e, 2); }}>
+          onPointerDown=${(/** @type {PointerEvent} */ e) => { if (e.button === 0) click(e, 0); }} onContextMenu=${(/** @type {MouseEvent} */ e) => { e.preventDefault(); click(e, 2); }}>
         <div class="ff-unit__art">${src ? html`<img src=${src} alt="" draggable=${false} />` : html`<span>${[...(u.name || '?')][0]}</span>`}</div>
       </div>`;
     }) : null;
@@ -424,7 +485,9 @@ export function createFallbackView(host, opts = {}) {
 
   const view = {
     kind: 'fallback',
+    /** @param {FfStage | null | undefined} stage */
     setStage(stage) { st.stage = stage || null; schedule(); },
+    /** @param {string} kind @param {{ rect?: FfRect, side?: string } | null} [o] */
     setCamera(kind, o = {}) {
       st.camera = kind || 'prep';
       if (kind === 'pen') { schedule(); return; } // the board keeps its rect for the way back
@@ -437,6 +500,7 @@ export function createFallbackView(host, opts = {}) {
       st.side = o?.side || 'L';
       schedule();
     },
+    /** @param {FfPriv | null | undefined} priv @param {{ editable?: boolean, canPlace?: FfState['canPlace'] }} [o] */
     setPrep(priv, o = {}) {
       st.mode = 'prep';
       st.priv = priv || null;
@@ -447,6 +511,7 @@ export function createFallbackView(host, opts = {}) {
       if (!st.editable && st.drag) { endDrag(); st.drag = null; st.hoverTarget = null; }
       schedule();
     },
+    /** @param {FfField | null | undefined} field */
     enterBattle(field) {
       st.mode = 'battle';
       st.field = field || null;
@@ -458,14 +523,15 @@ export function createFallbackView(host, opts = {}) {
       if (field?.rect && Number.isFinite(field.rect.r0)) st.rect = { ...field.rect };
       for (const u of Array.isArray(field?.units) ? field.units : []) if (u && u.id != null) {
         st.units.set(u.id, u);
-        st.snapUnits.set(u.id, [u.id, u.x, u.y, u.maxHp, u.maxHp, 0, 0, 0, 0]);
+        st.snapUnits.set(u.id, [u.id, u.x, u.y, /** @type {number} */ (u.maxHp), /** @type {number} */ (u.maxHp), 0, 0, 0, 0]);
       }
       // 规程's bench under a normal field (a boss field's halves have no hand row here); a piece already fielded is left out
       const fielded = new Set([...st.units.values()].map((u) => u.uid).filter((x) => x != null));
       st.bench = !field?.prep && (field?.kind || 'normal') === 'normal' && Array.isArray(field?.bench)
-        ? field.bench.filter((u) => u && u.uid != null && u.y === GEO.HAND_ROW && Number.isInteger(u.x) && !fielded.has(u.uid)) : [];
+        ? /** @type {FfUnit[]} */ (field.bench.filter((u) => u && u.uid != null && u.y === GEO.HAND_ROW && Number.isInteger(u.x) && !fielded.has(u.uid))) : [];
       schedule();
     },
+    /** @param {{ units?: unknown[], fieldId?: unknown } | null | undefined} snap */
     pushSnapshot(snap) {
       if (st.mode !== 'battle' || !snap || !Array.isArray(snap.units)) return;
       if (st.field && snap.fieldId && st.field.fieldId && snap.fieldId !== st.field.fieldId) return;
@@ -473,15 +539,16 @@ export function createFallbackView(host, opts = {}) {
       for (const t of snap.units) {
         if (!Array.isArray(t) || t.length < 9) continue;
         seen.add(t[0]);
-        st.snapUnits.set(t[0], t);
+        st.snapUnits.set(t[0], /** @type {SnapTuple} */ (t));
       }
       for (const id of [...st.snapUnits.keys()]) if (!seen.has(id)) st.snapUnits.delete(id);
       schedule();
     },
+    /** @param {unknown[] | { ev?: unknown[], fieldId?: unknown } | null | undefined} payload */
     pushEvents(payload) {
       const ev = Array.isArray(payload) ? payload : payload && Array.isArray(payload.ev) ? payload.ev : null;
       if (!ev) return;
-      if (!Array.isArray(payload) && st.field?.fieldId && payload.fieldId && payload.fieldId !== st.field.fieldId) return;
+      if (!Array.isArray(payload) && st.field?.fieldId && /** @type {{ fieldId?: unknown }} */ (payload).fieldId && /** @type {{ fieldId?: unknown }} */ (payload).fieldId !== st.field.fieldId) return;
       const now = performance.now();
       for (const e of ev) {
         if (!Array.isArray(e)) continue;
@@ -498,6 +565,10 @@ export function createFallbackView(host, opts = {}) {
       }
       schedule();
     },
+    /**
+     * @param {Array<[number, number] | { row: number, col: number } | null> | null | undefined} tiles
+     * @param {string | { group?: string } | null | undefined} style
+     */
     highlightTiles(tiles, style) {
       if (!tiles || !style) { st.highlight.clear(); st.hlGroups.clear(); schedule(); return; }
       if (typeof style === 'object' && style.group) {
@@ -506,7 +577,7 @@ export function createFallbackView(host, opts = {}) {
         for (const t of Array.isArray(tiles) ? tiles : []) {
           const row = Array.isArray(t) ? t[0] : t?.row;
           const col = Array.isArray(t) ? t[1] : t?.col;
-          if (Number.isInteger(row) && Number.isInteger(col)) set.add(tileKey(row, col));
+          if (Number.isInteger(row) && Number.isInteger(col)) set.add(tileKey(/** @type {number} */ (row), /** @type {number} */ (col)));
         }
         if (set.size) st.hlGroups.set(style.group, { name: 'range', tiles: set }); else st.hlGroups.delete(style.group);
         schedule();
@@ -518,23 +589,30 @@ export function createFallbackView(host, opts = {}) {
       for (const t of Array.isArray(tiles) ? tiles : []) {
         const row = Array.isArray(t) ? t[0] : t?.row;
         const col = Array.isArray(t) ? t[1] : t?.col;
-        if (Number.isInteger(row) && Number.isInteger(col)) st.highlight.set(tileKey(row, col), style);
+        if (Number.isInteger(row) && Number.isInteger(col)) st.highlight.set(tileKey(/** @type {number} */ (row), /** @type {number} */ (col)), /** @type {string} */ (style));
       }
       schedule();
     },
+    /** @param {Record<string, unknown> | null | undefined} s */
     setSettings(s) { st.settings = { ...st.settings, ...(s || {}) }; schedule(); },
+    /** @param {string} type @param {(payload: unknown) => void} fn */
     on(type, fn) {
       if (typeof fn !== 'function') return () => {};
       if (!listeners.has(type)) listeners.set(type, new Set());
-      listeners.get(type).add(fn);
+      /** @type {Set<(payload: unknown) => void>} */ (listeners.get(type)).add(fn);
       return () => listeners.get(type)?.delete(fn);
     },
+    /** @param {string} type @param {(payload: unknown) => void} fn */
     off(type, fn) { listeners.get(type)?.delete(fn); },
+    /** @param {unknown} uid */
     pieceScreenRect(uid) {
       const el = root.querySelector(`[data-uid="${Number(uid)}"]`);
       return el ? el.getBoundingClientRect() : null;
     },
-    /** Client geometry of a tile: centre, px per tile, corners (board tiles and 整备区 slots of the prep layout). */
+    /**
+     * Client geometry of a tile: centre, px per tile, corners (board tiles and 整备区 slots of the prep layout).
+     * @param {number} row @param {number} col
+     */
     tileScreen(row, col) {
       const L = layout();
       const br = root.querySelector('.ff-board')?.getBoundingClientRect();
@@ -547,7 +625,10 @@ export function createFallbackView(host, opts = {}) {
       const x0 = br.left + p.x, y0 = br.top + p.y, s = L.tile;
       return { x: x0 + s / 2, y: y0 + s / 2, s, poly: [[x0, y0], [x0 + s, y0], [x0 + s, y0 + s], [x0, y0 + s]] };
     },
-    /** What lies under a client point in the prep: { piece: { uid } | null, tile: { row, col } | null } (render/app.js pickAt). */
+    /**
+     * What lies under a client point in the prep: { piece: { uid } | null, tile: { row, col } | null } (render/app.js pickAt).
+     * @param {number} clientX @param {number} clientY
+     */
     pickAt(clientX, clientY) {
       if (st.mode !== 'prep') return null;
       let piece = null, tile = null;
@@ -560,11 +641,13 @@ export function createFallbackView(host, opts = {}) {
       }
       return piece || tile ? { piece, tile } : null;
     },
+    /** @param {number} uid @param {{ row: number, col: number } | null} tile */
     holdPiece(uid, tile) {
       if (tile && Number.isInteger(tile.row) && Number.isInteger(tile.col)) st.held.set(uid, { row: tile.row, col: tile.col });
       else st.held.delete(uid);
       schedule();
     },
+    /** @param {number} uid @param {unknown} dir */
     setPieceDir(uid, dir) {
       const d = typeof dir === 'string' ? dir.toUpperCase() : null;
       if (d && ['UP', 'RIGHT', 'DOWN', 'LEFT'].includes(d)) st.dirs.set(uid, d); else st.dirs.delete(uid);

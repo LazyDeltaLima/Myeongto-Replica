@@ -17,6 +17,40 @@
 import { data, localAsset } from '../data.js';
 import { seasonOf, DEFAULT_SEASON } from '../../../shared/seasons.js';
 
+/**
+ * The film file season_ui.py writes (`season/<id>/entry/film`), the fields this module reads.
+ * @typedef {number | number[]} KeyValue  a key's value: a number, or a vector (scale)
+ * @typedef {[number, KeyValue, KeyValue | null, KeyValue | null]} CurveKey  [time, value, inSlope, outSlope]; a null
+ *   slope is an infinite one (a stepped key)
+ * @typedef {{ p: string, a: string, k: CurveKey[] }} ClipCurve  the attribute `a` of the node at path `p`
+ * @typedef {{ type: number, color: number[], sprite?: string | null, mat?: string }} FilmImage  a node's Image: its
+ *   colour (rgba), its sprite (null: a sprite of another bundle, not carried) and its material
+ * @typedef {{ p: string, active: boolean, alpha?: number, img?: FilmImage, mask?: boolean, particles?: boolean }} FilmNodeBase
+ * @typedef {FilmNodeBase & { amin: number[], amax: number[], pos: number[], size: number[], piv: number[],
+ *   scale: number[] }} FilmRectNode  a node with a RectTransform
+ * @typedef {FilmNodeBase & { amin?: undefined }} FilmBareNode  a particle system without a RectTransform
+ * @typedef {FilmRectNode | FilmBareNode} FilmNode
+ * @typedef {{ add?: boolean, kind: 'sheet', cols: number, rows: number, tint: number[], tex: string }} SheetMaterial
+ * @typedef {{ add?: boolean, kind: 'ring', inStep: number, inSmooth: number, outStep: number, outSmooth: number,
+ *   lines: boolean, tex?: undefined }} RingMaterial
+ * @typedef {{ add?: boolean, kind: 'dissolve', masked: boolean, tex?: undefined }} DissolveMaterial
+ * @typedef {{ add?: boolean, kind?: never, tex?: undefined }} PlainMaterial  (no kind: a plain image)
+ * @typedef {SheetMaterial | RingMaterial | DissolveMaterial | PlainMaterial} FilmMaterial  what a material draws
+ * @typedef {{ w: number, h: number, border?: number[] }} FilmSprite
+ * @typedef {{ version: number, canvas: number[], film: string, cover: string, nodes: FilmNode[],
+ *   materials: Record<string, FilmMaterial>, sprites: Record<string, FilmSprite>, curves: ClipCurve[],
+ *   [key: string]: unknown }} ClipFilmData
+ * @typedef {{ [attr: string]: number } & { scale?: number[] }} ClipValues  one node's animated values at a second
+ * @typedef {{ url: string, im: HTMLImageElement }} FilmPicture
+ * @typedef {{ id: string, film: ClipFilmData, url: (n: string) => string | undefined,
+ *   tinted: (n: string, rgb: number[]) => string | undefined }} LoadedFilm  a film with its pictures loaded
+ * @typedef {{ left: number, top: number, w: number, h: number }} FilmBox
+ * @typedef {{ [K in keyof CSSStyleDeclaration]: CSSStyleDeclaration[K] extends string ? K : never }[keyof CSSStyleDeclaration]} StyleKey
+ * @typedef {{ n: FilmNode, el: HTMLDivElement, set: (k: StyleKey, v: string) => void,
+ *   paint: null | ((col: number[]) => void), kids: NodeRec[], rays: HTMLDivElement[] | null,
+ *   map?: (x: number, y: number) => number[], box?: FilmBox }} NodeRec  one laid-out node of the film
+ */
+
 /** The clip second the film switches itself off (canvas_front/entry_anim_season_on m_IsActive → 0). */
 export const FILM_OFF = 2.5667;
 /** The clip's length: the hub is in (_OnAnimEnd). */
@@ -36,17 +70,19 @@ const RAYS = Object.freeze({ from: 1.15, full: 1.3, fade: 1.65, to: 1.85, angles
  * Unity's AnimationCurve between keyframes [time, value, inSlope, outSlope] (a Hermite spline; a null tangent — an
  * infinite one — holds the left key's value: a stepped key such as m_IsActive). `pick` reads one axis of a vector key.
  * Before the first key the first value, after the last the last.
- * @param {Array<[number, any, any, any]>} keys @param {number} t @param {(v: any) => number} [pick]
+ * @param {CurveKey[]} keys @param {number} t @param {(v: KeyValue | null) => number | null} [pick] (a value is never
+ *   null; a slope is null where the key's is)
+ * @returns {number}
  */
-export function evalCurve(keys, t, pick = (v) => v) {
+export function evalCurve(keys, t, pick = /** @type {(v: KeyValue | null) => number | null} */ ((v) => v)) {
   if (!keys.length) return 0;
-  if (t <= keys[0][0]) return pick(keys[0][1]);
+  if (t <= keys[0][0]) return /** @type {number} */ (pick(keys[0][1]));
   const last = keys[keys.length - 1];
-  if (t >= last[0]) return pick(last[1]);
+  if (t >= last[0]) return /** @type {number} */ (pick(last[1]));
   let i = 0;
   while (keys[i + 1][0] < t) i++;
   const k0 = keys[i], k1 = keys[i + 1];
-  const v0 = pick(k0[1]), v1 = pick(k1[1]), m0 = pick(k0[3]), m1 = pick(k1[2]);
+  const v0 = /** @type {number} */ (pick(k0[1])), v1 = /** @type {number} */ (pick(k1[1])), m0 = pick(k0[3]), m1 = pick(k1[2]);
   if (m0 == null || m1 == null) return v0;
   const dt = k1[0] - k0[0];
   if (dt <= 0) return v1;
@@ -54,13 +90,15 @@ export function evalCurve(keys, t, pick = (v) => v) {
   return (2 * s3 - 3 * s2 + 1) * v0 + (s3 - 2 * s2 + s) * m0 * dt + (-2 * s3 + 3 * s2) * v1 + (s3 - s2) * m1 * dt;
 }
 
+/** @param {number} a @returns {(v: KeyValue | null) => number | null} */
 const axis = (a) => (v) => (Array.isArray(v) ? v[a] : v);
 
 /**
  * Every animated value of the clip at second t: Map path → { attribute: value, scale: [x, y] }.
- * @param {Array<{ p: string, a: string, k: any[] }>} curves @param {number} t
+ * @param {ClipCurve[]} curves @param {number} t
  */
 export function sampleClip(curves, t) {
+  /** @type {Map<string, ClipValues>} */
   const out = new Map();
   for (const c of curves) {
     let o = out.get(c.p);
@@ -75,7 +113,7 @@ export function sampleClip(curves, t) {
  * A RectTransform in its parent's rect (pw × ph, Unity units, y up), with the clip's overrides `o`: the CSS box
  * (left / top from the parent's top left) and the pivot.
  * @param {{ amin: number[], amax: number[], pos: number[], size: number[], piv: number[] }} n
- * @param {number} pw @param {number} ph @param {Record<string, number>} [o]
+ * @param {number} pw @param {number} ph @param {ClipValues} [o]
  */
 export function rectOf(n, pw, ph, o = {}) {
   const pos = [o['m_AnchoredPosition.x'] ?? n.pos[0], o['m_AnchoredPosition.y'] ?? n.pos[1]];
@@ -88,7 +126,10 @@ export function rectOf(n, pw, ph, o = {}) {
   return { left, top: ph - bottom - h, w, h };
 }
 
-/** The canvas scale of a 1280×720 canvas expanded to a vw × vh screen (CanvasScaler Expand) and its size in units. */
+/**
+ * The canvas scale of a 1280×720 canvas expanded to a vw × vh screen (CanvasScaler Expand) and its size in units.
+ * @param {number} vw @param {number} vh @param {number[]} [canvas]
+ */
 export function canvasFit(vw, vh, canvas = [1280, 720]) {
   const s = Math.min(vw / canvas[0], vh / canvas[1]);
   return { s, w: vw / s, h: vh / s };
@@ -96,7 +137,9 @@ export function canvasFit(vw, vh, canvas = [1280, 720]) {
 
 // ---- loading --------------------------------------------------------------------------------------------------------
 
+/** @type {Map<string, Promise<LoadedFilm | null>>} */
 const filmCache = new Map();
+/** @param {string} url @returns {Promise<HTMLImageElement>} */
 const loadImg = (url) => new Promise((resolve, reject) => {
   const im = new Image();
   im.decoding = 'async';
@@ -104,13 +147,17 @@ const loadImg = (url) => new Promise((resolve, reject) => {
   im.onerror = () => reject(new Error(`load ${url}`));
   im.src = url;
 });
+/** @param {number[] | undefined} c */
 const isWhite = (c) => !c || (c[0] > 0.999 && c[1] > 0.999 && c[2] > 0.999);
 
-/** A picture multiplied by a colour (Unity's Image colour), as a data URL; made once per picture and colour. */
+/**
+ * A picture multiplied by a colour (Unity's Image colour), as a data URL; made once per picture and colour.
+ * @param {HTMLImageElement} im @param {number[]} rgb
+ */
 function tint(im, rgb) {
   const cv = document.createElement('canvas');
   cv.width = im.naturalWidth; cv.height = im.naturalHeight;
-  const x = cv.getContext('2d');
+  const x = /** @type {CanvasRenderingContext2D} */ (cv.getContext('2d'));
   x.drawImage(im, 0, 0);
   const d = x.getImageData(0, 0, cv.width, cv.height);
   for (let i = 0; i < d.data.length; i += 4) { d.data[i] *= rgb[0]; d.data[i + 1] *= rgb[1]; d.data[i + 2] *= rgb[2]; }
@@ -118,7 +165,7 @@ function tint(im, rgb) {
   return cv.toDataURL();
 }
 
-/** True when the season has an extracted entry film (data/local-assets.json loaded). */
+/** True when the season has an extracted entry film (data/local-assets.json loaded). @param {unknown} season */
 export function hasClipFilm(season) {
   const id = seasonOf(season);
   return id !== DEFAULT_SEASON && !!localAsset(`season/${id}/entry`, 'film');
@@ -128,42 +175,46 @@ export function hasClipFilm(season) {
  * The season's film with every picture loaded (and the tinted copies made), or null: no extract, a file that failed,
  * or not within `timeoutMs`. A film that loaded once is kept for the page.
  * @param {unknown} season @param {number} [timeoutMs]
+ * @returns {Promise<LoadedFilm | null>}
  */
 export function loadClipFilm(season, timeoutMs = 3000) {
   const id = seasonOf(season);
   if (!filmCache.has(id)) {
-    const p = (async () => {
+    const p = (/** @type {() => Promise<LoadedFilm | null>} */ (async () => {
       await data.load('local');
       const group = `season/${id}/entry`;
       const url = localAsset(group, 'film');
       if (!url) return null;
-      const film = await (await fetch(url)).json();
+      const film = /** @type {ClipFilmData | null} */ (await (await fetch(url)).json());
       if (film?.version !== 1) return null;
       const names = new Set(Object.keys(film.sprites || {}));
       for (const m of Object.values(film.materials || {})) if (m.tex) names.add(m.tex);
+      /** @type {Map<string, FilmPicture>} */
       const images = new Map();
       await Promise.all([...names].map(async (n) => {
         const u = localAsset(group, n);
         if (!u) throw new Error(`no ${n}`);
         images.set(n, { url: u, im: await loadImg(u) });
       }));
+      /** @type {Map<string, string>} */
       const tinted = new Map();
+      /** @param {string} name @param {number[]} rgb */
       const tinted1 = (name, rgb) => {
         const key = `${name}|${rgb.join(',')}`;
-        if (!tinted.has(key)) tinted.set(key, tint(images.get(name).im, rgb));
+        if (!tinted.has(key)) tinted.set(key, tint(/** @type {FilmPicture} */ (images.get(name)).im, rgb));
         return tinted.get(key);
       };
       for (const n of film.nodes) {
-        const img = n.img, m = img && film.materials[img.mat];
+        const img = n.img, m = img && film.materials[/** @type {string} */ (img.mat)];
         if (img?.sprite && !isWhite(img.color) && m?.kind !== 'dissolve') tinted1(img.sprite, img.color);
         if (m?.kind === 'sheet' && !isWhite(m.tint)) tinted1(m.tex, m.tint);
       }
       return { id, film, url: (n) => images.get(n)?.url, tinted: (n, rgb) => (isWhite(rgb) ? images.get(n)?.url : tinted1(n, rgb)) };
-    })().catch((err) => { console.warn('[film] not loaded', err); filmCache.delete(id); return null; });
+    }))().catch((err) => { console.warn('[film] not loaded', err); filmCache.delete(id); return null; });
     filmCache.set(id, p);
   }
-  const p = filmCache.get(id);
-  return Promise.race([p, new Promise((r) => setTimeout(() => r(null), timeoutMs))]);
+  const p = /** @type {Promise<LoadedFilm | null>} */ (filmCache.get(id));
+  return Promise.race([p, /** @type {Promise<null>} */ (new Promise((r) => setTimeout(() => r(null), timeoutMs)))]);
 }
 
 // ---- the film -------------------------------------------------------------------------------------------------------
@@ -176,25 +227,30 @@ const CSS = `.spa-clip{position:absolute;inset:0;overflow:hidden;pointer-events:
 .spa-clip__ray{position:absolute;left:0;top:0;width:3200px;height:1.5px;margin:-.75px 0 0 -1600px;
   background:linear-gradient(90deg,transparent,rgb(var(--c)) 30%,rgb(var(--c)) 70%,transparent)}`;
 
-/** Writes a style property only when its text changed (a frame touches only what moved). */
+/**
+ * Writes a style property only when its text changed (a frame touches only what moved).
+ * @param {HTMLElement} el @returns {(k: StyleKey, v: string) => void}
+ */
 function setter(el) {
+  /** @type {Record<string, string>} */
   const last = {};
   return (k, v) => { if (last[k] !== v) { last[k] = v; el.style[k] = v; } };
 }
 
 /**
  * Draws one node's Image into `el` (its child, under its children): what the prefab and the material say.
+ * @param {LoadedFilm} loaded @param {FilmNode} node @param {HTMLDivElement} el
  * @returns {null | ((col: number[]) => void)} the per-frame colour update, null when nothing draws
  */
 function drawImage(loaded, node, el) {
   const { film } = loaded;
   const img = node.img;
   if (!img) return null;
-  const m = film.materials[img.mat] || {};
+  const m = /** @type {FilmMaterial} */ (film.materials[/** @type {string} */ (img.mat)] || {});
   const st = el.style;
   if (m.add) el.classList.add('spa-clip__i--add');
   const set = setter(el);
-  const rgb = (c) => `${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)}`;
+  const rgb = (/** @type {number[]} */ c) => `${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)}`;
   if (m.kind === 'sheet') {
     const frames = m.cols * m.rows;
     st.backgroundImage = `url("${loaded.tinted(m.tex, m.tint)}")`;
@@ -207,7 +263,7 @@ function drawImage(loaded, node, el) {
     };
   }
   if (m.kind === 'ring') {
-    const p = (r) => `${((r / 0.5) * 100).toFixed(2)}%`;
+    const p = (/** @type {number} */ r) => `${((r / 0.5) * 100).toFixed(2)}%`;
     const soft = !m.lines && m.inSmooth > 0.02;
     const c0 = rgb(img.color);
     if (m.lines) { // a faint scan-line band
@@ -229,7 +285,7 @@ function drawImage(loaded, node, el) {
     st.background = `rgb(${rgb(img.color)})`;
     return (c) => set('opacity', String(c[3]));
   }
-  const meta = film.sprites[img.sprite] || {};
+  const meta = /** @type {Partial<FilmSprite>} */ (film.sprites[img.sprite] || {});
   const url = m.kind === 'dissolve' ? loaded.url(img.sprite) : loaded.tinted(img.sprite, img.color);
   const [bl, bb, br, bt] = (meta.border || [0, 0, 0, 0]).map((v) => Math.round(v));
   if ((img.type === 1 || img.type === 2) && bl + bb + br + bt > 0) { // Sliced, or Tiled with borders: the ends once
@@ -255,7 +311,7 @@ function drawImage(loaded, node, el) {
 
 /**
  * Builds the film in `host` (filling it). render(t) shows clip second t; the film is off from FILM_OFF on.
- * @param {HTMLElement} host @param {NonNullable<Awaited<ReturnType<typeof loadClipFilm>>>} loaded
+ * @param {HTMLElement} host @param {LoadedFilm} loaded
  */
 export function mountClipFilm(host, loaded) {
   const { film } = loaded;
@@ -271,14 +327,16 @@ export function mountClipFilm(host, loaded) {
   stage.className = 'spa-clip__stage';
   box.append(stage);
   const filmCurves = film.curves.filter((c) => c.p === film.cover || c.p === film.film || c.p.startsWith(film.film + '/'));
-  const parentOf = (p) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
-  /** @type {Map<string, any>} */
+  const parentOf = (/** @type {string} */ p) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
+  /** @type {Map<string, NodeRec>} */
   const byPath = new Map();
+  /** @type {NodeRec[]} */
   const roots = [];
   for (const n of film.nodes) {
     const el = document.createElement('div');
     el.className = 'spa-clip__n';
     if (n.mask || n.p.endsWith('/mask')) el.style.overflow = 'hidden';
+    /** @type {NodeRec} */
     const rec = { n, el, set: setter(el), paint: null, kids: [], rays: null };
     if (n.img) {
       const i = document.createElement('div');
@@ -296,37 +354,42 @@ export function mountClipFilm(host, loaded) {
   const marker = byPath.get(`${film.film}/part_1/back_desc/desc`);
   host.append(box);
 
-  // lays one node out; `map` turns a point of the parent's box into stage units (for the rays' anchor)
+  /**
+   * lays one node out; `map` turns a point of the parent's box into stage units (for the rays' anchor)
+   * @param {NodeRec} rec @param {number} pw @param {number} ph @param {Map<string, ClipValues>} a
+   * @param {(x: number, y: number) => number[]} map
+   */
   function layout(rec, pw, ph, a, map) {
     const n = rec.n;
     if (!n.amin) { rec.set('display', 'none'); return; } // a particle system without a RectTransform
-    const o = a.get(n.p) || {};
+    const o = /** @type {ClipValues} */ (a.get(n.p) || {});
     const active = o.m_IsActive !== undefined ? o.m_IsActive > 0.5 : n.active;
     rec.set('display', active ? '' : 'none');
     if (!active) return;
-    const r = rectOf(n, pw, ph, o);
+    const r = rectOf(/** @type {FilmRectNode} */ (n), pw, ph, o); // (narrowed by the amin test under strict only)
     rec.set('left', `${r.left}px`); rec.set('top', `${r.top}px`); rec.set('width', `${r.w}px`); rec.set('height', `${r.h}px`);
-    const sc = o.scale || n.scale || [1, 1];
-    const ox = n.piv[0] * r.w, oy = (1 - n.piv[1]) * r.h;
+    const sc = o.scale || /** @type {FilmRectNode} */ (n).scale || [1, 1];
+    const ox = /** @type {FilmRectNode} */ (n).piv[0] * r.w, oy = (1 - /** @type {FilmRectNode} */ (n).piv[1]) * r.h;
     rec.set('transformOrigin', `${ox}px ${oy}px`);
     rec.set('transform', sc[0] !== 1 || sc[1] !== 1 ? `scale(${sc[0]},${sc[1]})` : '');
     const cg = o.m_Alpha ?? n.alpha;
     rec.set('opacity', cg === undefined ? '' : String(cg));
     if (rec.paint) {
-      const c = n.img.color;
+      const c = /** @type {FilmImage} */ (n.img).color;
       rec.paint([o['m_Color.r'] ?? c[0], o['m_Color.g'] ?? c[1], o['m_Color.b'] ?? c[2], o['m_Color.a'] ?? c[3]]);
     }
     rec.map = (x, y) => map(r.left + ox + (x - ox) * sc[0], r.top + oy + (y - oy) * sc[1]);
     rec.box = r;
     for (const k of rec.kids) layout(k, r.w, r.h, a, rec.map);
   }
+  /** @param {number} t */
   function rays(t) {
     const rec = [...byPath.values()].find((x) => x.rays);
     if (!rec?.rays || !rec.map || !marker?.map) return;
     const env = t < RAYS.from || t > RAYS.to ? 0 : t < RAYS.full ? (t - RAYS.from) / (RAYS.full - RAYS.from)
       : t > RAYS.fade ? (RAYS.to - t) / (RAYS.to - RAYS.fade) : 1;
     // the marker's centre in stage units, then in ui_particle's box (a box that is only moved, never scaled)
-    const m = marker.map(marker.box.w / 2, marker.box.h / 2);
+    const m = marker.map(/** @type {FilmBox} */ (marker.box).w / 2, /** @type {FilmBox} */ (marker.box).h / 2);
     const o = rec.map(0, 0);
     rec.rays.forEach((el, i) => {
       el.style.opacity = String(env * RAYS.alpha);
@@ -335,6 +398,7 @@ export function mountClipFilm(host, loaded) {
   }
   let vw = 0, vh = 0, fit = canvasFit(1, 1);
   return {
+    /** @param {number} t */
     render(t) {
       const w = host.clientWidth || innerWidth, h = host.clientHeight || innerHeight;
       if (w !== vw || h !== vh) {
@@ -368,12 +432,14 @@ export const REVEAL = Object.freeze({
 /**
  * The hub's part of the clip played on the title screen's parts: render(t) sets their opacity / scale / offset from
  * the clip, clear() hands them back. Parts that are not on the screen are skipped.
- * @param {any} film @param {ParentNode} [root]
+ * @param {ClipFilmData} film @param {ParentNode} [root]
  */
 export function titleReveal(film, root = document) {
   const curves = film.curves.filter((c) => Object.values(REVEAL).some((r) => r.p === c.p));
+  /** @type {Set<HTMLElement>} */
   const touched = new Set();
   return {
+    /** @param {number} t */
     render(t) {
       const a = sampleClip(curves, t);
       const { s } = canvasFit(innerWidth, innerHeight, film.canvas);

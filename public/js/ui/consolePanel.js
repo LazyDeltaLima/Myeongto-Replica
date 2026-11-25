@@ -32,6 +32,26 @@ import { data } from '../data.js';
 import { loadPref, savePref, useStore } from '../store.js';
 import { N_, t, tName } from '../../../shared/i18n.js';
 import { PHASE } from '../../../shared/constants.js';
+/** @import { DebugEntry, DiyCandidate, EnemyEntry, ItemEntry, OwnedPiece } from './consoleLists.js' */
+
+/**
+ * m.private.console (server/local-console.js consoleView) and the parts of m.private the panel reads.
+ * @typedef {{ seq: number, kind: string, round: number }} ConsoleNoteRec  the last time the match went back to a prep
+ * @typedef {{ skills: { index: number, name: string }[], modules: { id: string, name: string, type: string }[] }} DiyTierForm
+ *   a 自选 candidate's tier: its skills and (elite) modules
+ * @typedef {{ round?: number, hiddenRound?: number | null, at?: number, bossId?: string | null, hiddenBossId?: string | null,
+ *   bosses?: string[], hiddenBosses?: string[] }} ConsoleBoss
+ * @typedef {{ console?: boolean, fundsPin?: boolean, pinValue?: number, bandUnlimited?: boolean | null,
+ *   candidates?: DiyCandidate[], enemies?: { enemyKey: string, count: number }[], bountyBosses?: string[],
+ *   boss?: ConsoleBoss, rounds?: { last?: number, sp?: number[] }, layers?: Record<string, number>, layersEdited?: boolean,
+ *   layersBase?: Record<string, number> | null, layerCap?: number, note?: ConsoleNoteRec | null }} ConsoleView
+ * @typedef {{ [key: string]: unknown, diy?: Record<string, { charId?: string, skillIndex?: number, uniEquipId?: string } | null>,
+ *   bonds?: { bondId: string, count?: number, active?: boolean, tier?: number }[], board?: (OwnedPiece | null)[],
+ *   hand?: (OwnedPiece | null)[], temp?: (OwnedPiece | null)[] }} ConsolePriv  m.private
+ * @typedef {{ bondId: string, name?: string, isCore?: boolean, thresholds?: number[], noStack?: boolean,
+ *   identifier?: number }} ConsoleBond  a bonds.json record
+ * @typedef {Event & { currentTarget: HTMLInputElement }} InputEv
+ */
 
 export const CONSOLE_KEY = '`';            // KeyboardEvent.key that folds / unfolds the panel
 const CONSOLE_CODE = 'Backquote';
@@ -39,7 +59,7 @@ const OPEN_PREF = 'consoleOpen';
 const TAB_PREF = 'consoleTab';
 const NOTE_MS = 7000;
 const NONE = 'none';
-const cx = (...p) => p.flat().filter(Boolean).join(' ');
+const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ');
 
 const TABS = [['ops', N_('干员')], ['items', N_('装备')], ['enemies', N_('敌人')], ['round', N_('回合')], ['bonds', N_('盟约')]];
 // the fold glyph (a panel with its edge arrow): the head's fold button and the phone rail's (maintainer decision
@@ -54,14 +74,17 @@ const NOTE_TEXT = {
   eliminated: N_('目标生命值耗尽——不淘汰，生命值恢复，重新进行第{round}回合'),
 };
 
-/** The panel's request: the server's refusal toasted (a tier's two 自选 slots taken: with the names). */
+/**
+ * The panel's request: the server's refusal toasted (a tier's two 自选 slots taken: with the names).
+ * @param {string} type @param {object} [fields]
+ */
 async function send(type, fields = {}) {
   try {
     await net.request(type, fields);
     audio.sfx('pick');
     return true;
   } catch (err) {
-    const full = diySlotsFullOf(err?.detail);
+    const full = diySlotsFullOf(/** @type {{ detail?: unknown } | null | undefined} */ (err)?.detail);
     if (full) toast(t('{tier}阶的两个自选栏位已被持有棋子的干员占用（{names}），请先出售', { tier: roman(full.tier), names: full.names.map((n) => tName(n)).join(', ') }), 'error');
     else toastError(err);
     audio.sfx('error', { volume: 0.6 });
@@ -69,10 +92,11 @@ async function send(type, fields = {}) {
   }
 }
 
-const typing = (e) => { const el = e.target; return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable); };
+const typing = (/** @type {Event} */ e) => { const el = /** @type {HTMLElement | null} */ (e.target); return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable); };
 
 /**
- * @param {{ con: any, pub: any, priv: any, phase: string }} props — con = m.private.console
+ * @param {{ con: ConsoleView | null, pub: { round?: number, [key: string]: unknown } | null, priv: ConsolePriv | null,
+ *   phase: string }} props — con = m.private.console
  */
 export function ConsolePanel({ con, pub, priv, phase }) {
   const [open, setOpen] = useState(() => loadPref(OPEN_PREF, true) !== false);
@@ -80,12 +104,13 @@ export function ConsolePanel({ con, pub, priv, phase }) {
   const [fb, setFb] = useState(false);
   const [ending, setEnding] = useState(false);
   const feedbackOn = useStore((s) => s.enabled, Object.is, feedbackStore);
+  /** @param {boolean} [v] */
   const toggle = (v) => setOpen((o) => { const n = typeof v === 'boolean' ? v : !o; savePref(OPEN_PREF, n); return n; });
-  const pick = (k) => { setTab(k); savePref(TAB_PREF, k); };
+  const pick = (/** @type {string} */ k) => { setTab(k); savePref(TAB_PREF, k); };
   // the open sheet hides the bottom-left corner (css/console-panel.css); a page class, not :has() (test/client-static.test.js)
   useDocClass('cxp-open', open);
   useEffect(() => {
-    const onKey = (e) => {
+    const onKey = (/** @type {KeyboardEvent} */ e) => {
       if ((e.key !== CONSOLE_KEY && e.code !== CONSOLE_CODE) || e.repeat || e.ctrlKey || e.altKey || e.metaKey || typing(e)) return;
       e.preventDefault();
       toggle();
@@ -97,7 +122,7 @@ export function ConsolePanel({ con, pub, priv, phase }) {
   // drag from the hand or a shop tap works in the same move. Not while its feedback / end dialog is open.
   useEffect(() => {
     if (!open || fb || ending) return undefined;
-    const onDown = (e) => {
+    const onDown = (/** @type {PointerEvent} */ e) => {
       const el = e.target;
       if (!(el instanceof Element) || el.closest('.cxp, .cxp-launch, .cxp-note')) return;
       toggle(false);
@@ -141,10 +166,13 @@ export function ConsolePanel({ con, pub, priv, phase }) {
     ${ending ? html`<${ConsoleEndDialog} live=${live} onClose=${() => setEnding(false)} />` : null}`;
 }
 
-/** The notice of a match that went back to a prep instead of ending (once per note.seq; none for a note older than the page). */
+/**
+ * The notice of a match that went back to a prep instead of ending (once per note.seq; none for a note older than the page).
+ * @param {{ note?: ConsoleNoteRec | null }} props
+ */
 function ConsoleNote({ note }) {
   const seen = useRef(note?.seq ?? 0);
-  const [shown, setShown] = useState(null);
+  const [shown, setShown] = useState(/** @type {ConsoleNoteRec | null} */ (null));
   useEffect(() => {
     if (!note || !(note.seq > seen.current)) return undefined;
     seen.current = note.seq;
@@ -152,27 +180,31 @@ function ConsoleNote({ note }) {
     const id = setTimeout(() => setShown(null), NOTE_MS);
     return () => clearTimeout(id);
   }, [note?.seq]);
-  if (!shown || !NOTE_TEXT[shown.kind]) return null;
+  if (!shown || !/** @type {Record<string, string>} */ (NOTE_TEXT)[shown.kind]) return null;
   return html`<div class="cxp-note" role="status" aria-live="polite" onClick=${() => setShown(null)}>
     <span class="cxp__tag">CONSOLE</span>
-    <span><b>${t(NOTE_TEXT[shown.kind], { round: shown.round })}</b>
+    <span><b>${t(/** @type {Record<string, string>} */ (NOTE_TEXT)[shown.kind], { round: shown.round })}</b>
       <small>${t('可以换首领或回合再试 · 要结束请到 控制台 ▸ 回合 ▸ 结束控制台')}</small></span>
   </div>`;
 }
 
-/** 「콘솔 끝내기」: the official confirm dialog's look (battleArt 'confirm') with three answers. */
+/**
+ * 「콘솔 끝내기」: the official confirm dialog's look (battleArt 'confirm') with three answers.
+ * @param {{ live: boolean, onClose: () => void }} props
+ */
 function ConsoleEndDialog({ live, onClose }) {
-  const [art, setArt] = useState(null);
+  const [art, setArt] = useState(/** @type {{ cls: string, style: string } | null} */ (null));
   useEffect(() => {
     let on = true;
     import('./battleArt.js').then((m) => { if (on) setArt(m.battleArt('confirm')); }).catch(() => { if (on) setArt({ cls: '', style: '' }); });
-    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); onClose(); } };
+    const onKey = (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); onClose(); } };
     window.addEventListener('keydown', onKey, true);
     return () => { on = false; window.removeEventListener('keydown', onKey, true); };
   }, []);
-  const end = async (fields) => { onClose(); await act('con.end', fields, { sfx: false }); };
+  const end = async (/** @type {object} */ fields) => { onClose(); await act('con.end', fields, { sfx: false }); };
   const text = live ? t('结束控制台吗？结算画面只用于查看，不会计入记录。') : t('结束本局吗？（本地调试：结算照常记录）');
   if (!art) return null;
+  /** @param {string} cls @param {string} label @param {() => void} onClick @param {boolean} [icon] */
   const btn = (cls, label, onClick, icon = true) => html`<button type="button" class=${cx('bcd__btn', cls)} onClick=${onClick}>
     <i class="bcd__btnbg" aria-hidden="true"></i><span class="bcd__group">${icon ? html`<i class="bcd__icon" aria-hidden="true"></i>` : null}<span>${label}</span></span></button>`;
   return html`<div class=${cx('bart', 'bcd', 'cxp-end', art.cls)} style=${art.style} role="dialog" aria-modal="true" aria-label=${text}>
@@ -191,6 +223,7 @@ function ConsoleEndDialog({ live, onClose }) {
 // ---- 오퍼레이터 ------------------------------------------------------------------------------------------------------
 
 const TIER_LIST = [1, 2, 3, 4, 5, 6];
+/** @param {{ value: number, onChange: (v: number) => void }} props */
 function TierSeg({ value, onChange }) {
   return html`<span class="cxp__seg">
     <b class=${cx(!value && 'on')} onClick=${() => onChange(0)}>${t('全部')}</b>
@@ -199,16 +232,21 @@ function TierSeg({ value, onChange }) {
   </span>`;
 }
 
+/** @template V @param {{ value: V, options: [V, unknown][], onChange: (v: V) => void, amber?: boolean }} props */
 function Seg({ value, options, onChange, amber = false }) {
   return html`<span class=${cx('cxp__seg', amber && 'amber')}>${options.map(([v, label]) => html`<b key=${v} class=${cx(value === v && 'on')} onClick=${() => onChange(v)}>${label}</b>`)}</span>`;
 }
 
+/** @param {{ tier: number }} props */
 function TierBadge({ tier }) {
   const u = tierChipUrl(tier);
   return u ? html`<img class="cxp__tier" src=${u} alt=${roman(tier)} />` : html`<b class="cxp__tier"><${Roman} n=${tier} /></b>`;
 }
 
-/** An operator / enemy picture on the official avatar plate and frame (equipReplace avatart_bg / _frame). */
+/**
+ * An operator / enemy picture on the official avatar plate and frame (equipReplace avatart_bg / _frame).
+ * @param {{ src?: string | null, kind?: string, tier?: number, children?: unknown }} props
+ */
 function Pic({ src, kind = 'op', tier = 0, children }) {
   const m = data.get('assets');
   const bg = uiUrl(m, 'equipReplace/avatart_bg'), fr = uiUrl(m, 'equipReplace/avatart_frame');
@@ -218,12 +256,13 @@ function Pic({ src, kind = 'op', tier = 0, children }) {
     ${tier ? html`<${TierBadge} tier=${tier} />` : null}${children}</span>`;
 }
 
+/** @param {{ con: ConsoleView, priv: ConsolePriv | null, prep: boolean }} props */
 function OpsTab({ con, priv, prep }) {
   const [bond, setBond] = useState('');
   const [tier, setTier] = useState(0);
   const [query, setQuery] = useState('');
   const [elite, setElite] = useState(false);
-  const [pop, setPop] = useState(null); // { key, at: the tapped cell }
+  const [pop, setPop] = useState(/** @type {{ key: string, at: HTMLElement } | null} */ (null)); // { key, at: the tapped cell }
   const [busy, setBusy] = useState(false);
   const entries = useMemo(() => debugEntries(data.list('chess'), con.candidates, (id) => data.lookupRaw('chess', id), (id) => data.lookup('bonds', id)),
     [con.candidates, data.status('chess'), data.status('bonds'), data.locale()]);
@@ -231,6 +270,7 @@ function OpsTab({ con, priv, prep }) {
     .sort((a, b) => (a.identifier ?? 99) - (b.identifier ?? 99)), [entries, data.status('bonds'), data.locale()]);
   const shown = filterDebugEntries(entries, { bond, tier, query });
   const m = data.get('assets');
+  /** @param {DebugEntry} e @param {{ currentTarget: HTMLElement }} ev the click */
   const add = async (e, ev) => {
     if (busy || !prep) return;
     if (e.kind === 'diy') { setPop({ key: e.key, at: ev.currentTarget }); return; }
@@ -240,10 +280,10 @@ function OpsTab({ con, priv, prep }) {
   };
   // in this browser's chosen skin (docs/rules/ui.md 「스킨 고르기」)
   const sk = skinArt();
-  const avatar = (e) => { const rec = e.kind === 'diy' ? { charId: e.charId } : data.lookup('chess', e.key); return skinPic(rec, 'avatar', sk, { own: true }) || chessAvatarUrl(m, rec); };
+  const avatar = (/** @type {DebugEntry} */ e) => { const rec = e.kind === 'diy' ? { charId: e.charId } : data.lookup('chess', e.key); return skinPic(rec, 'avatar', sk, { own: true }) || chessAvatarUrl(m, rec); };
   // the bond filter button (css/console-panel.css .cxp__bchip): the official glyph as a mask over a token colour, the name
   // inside; five letters and more (라이타니엔) a size smaller
-  const chip = (b) => {
+  const chip = (/** @type {ConsoleBond} */ b) => {
     const ic = bondIconUrl(m, b.bondId), name = tName(b.name), on = bond === b.bondId;
     return html`<button key=${b.bondId} type="button" class=${cx('cxp__bchip', on && 'on')} title=${name} aria-pressed=${on} onClick=${() => setBond(on ? '' : b.bondId)}>
       <span class=${cx('ic', !ic && 'txt')} style=${ic ? `--ic:url("${ic}")` : undefined} aria-hidden="true">${ic ? null : [...name][0]}</span>
@@ -258,68 +298,75 @@ function OpsTab({ con, priv, prep }) {
     <div class="cxp__row top"><span class="cxp__bk">${t('核心')}</span><span class="cxp__bonds">${bonds.filter((b) => b.isCore).map(chip)}</span></div>
     <div class="cxp__row top"><span class="cxp__bk">${t('附加')}</span><span class="cxp__bonds">${bonds.filter((b) => !b.isCore).map(chip)}</span></div>
     <div class="cxp__row"><input type="search" class="cxp__search" value=${query} placeholder=${t('搜索干员 / 职业 / 盟约')} aria-label=${t('搜索干员 / 职业 / 盟约')}
-      onInput=${(e) => setQuery(String(e.currentTarget.value).slice(0, 24))} /><span class="cxp__count">${t('{n} 名', { n: shown.length })}</span></div>
+      onInput=${(/** @type {InputEv} */ e) => setQuery(String(e.currentTarget.value).slice(0, 24))} /><span class="cxp__count">${t('{n} 名', { n: shown.length })}</span></div>
     <div class="cxp__grid g6">
-      ${shown.map((e) => html`<button key=${e.key} type="button" class=${cx('cxp__cell', e.hidden && 'hid')} disabled=${!prep} onClick=${(ev) => add(e, ev)} title=${e.name}>
+      ${shown.map((e) => html`<button key=${e.key} type="button" class=${cx('cxp__cell', e.hidden && 'hid')} disabled=${!prep} onClick=${(/** @type {{ currentTarget: HTMLElement }} */ ev) => add(e, ev)} title=${e.name}>
         <${Pic} src=${avatar(e)} tier=${e.kind === 'diy' ? 0 : e.tiers[0]}>
           ${e.kind === 'diy' ? html`<span class="cxp__flag diy">${t('自选')}</span>` : e.hidden ? html`<span class="cxp__flag">${t('隐藏')}</span>` : null}
         <//><span class="nm">${e.name}</span></button>`)}
     </div>
-    ${popEntry ? html`<${DiyPop} key=${popEntry.key} entry=${popEntry} at=${pop.at} priv=${priv} tierF=${tier} prep=${prep} onClose=${() => setPop(null)} />` : null}`;
+    ${popEntry ? html`<${DiyPop} key=${popEntry.key} entry=${popEntry} at=${/** @type {NonNullable<typeof pop>} */ (pop).at} priv=${priv} tierF=${tier} prep=${prep} onClose=${() => setPop(null)} />` : null}`;
 }
 
 /** The 自选 pick's forms in data/backups.json (con.addDiy's server/local-console.js formKey): the page's own, translated. */
+/** @param {string} charId @param {number} tier @param {boolean} elite */
 const diyForm = (charId, tier, elite) => data.get('backups')?.units?.[charId]?.forms?.[elite ? `2/60/7/${tier === 6 ? 3 : 1}` : '2/1/4/0'] || null;
 
 /**
  * Where the pick window goes in the scrolled list: under the tapped cell, over it when the room below runs out, never
  * outside the visible part of the list (the list scrolls; a fixed top put it above the view). `extra` is height the
  * window may still grow by (the module row of 精锐), reserved now so that toggling it does not move the window.
+ * @param {HTMLElement | null} pop @param {HTMLElement | null} cell @param {number} [extra]
  */
 function placePop(pop, cell, extra = 0) {
   const body = pop?.offsetParent;
   if (!body || !cell) return;
   const b = body.getBoundingClientRect(), c = cell.getBoundingClientRect();
-  const gap = 4, h = pop.offsetHeight + extra, top0 = body.scrollTop, bottom0 = top0 + body.clientHeight;
+  const gap = 4, h = /** @type {HTMLElement} */ (pop).offsetHeight + extra, top0 = body.scrollTop, bottom0 = top0 + body.clientHeight;
   let top = c.bottom - b.top + top0 + gap;
   if (top + h > bottom0 - gap) top = c.top - b.top + top0 - h - gap;
-  pop.style.top = `${Math.max(top0 + gap, Math.min(top, bottom0 - h - gap))}px`;
+  /** @type {HTMLElement} */ (pop).style.top = `${Math.max(top0 + gap, Math.min(top, bottom0 - h - gap))}px`;
 }
 
-/** Keeps a placed window where it is, moving it up only as far as its bottom would leave the visible list. */
+/** Keeps a placed window where it is, moving it up only as far as its bottom would leave the visible list. @param {HTMLElement | null} pop */
 function keepPopInView(pop) {
   const body = pop?.offsetParent;
   if (!body) return;
-  const gap = 4, top0 = body.scrollTop, bottom0 = top0 + body.clientHeight, top = pop.offsetTop;
-  if (top + pop.offsetHeight > bottom0 - gap) pop.style.top = `${Math.max(top0 + gap, bottom0 - pop.offsetHeight - gap)}px`;
+  const gap = 4, top0 = body.scrollTop, bottom0 = top0 + body.clientHeight, top = /** @type {HTMLElement} */ (pop).offsetTop;
+  if (top + /** @type {HTMLElement} */ (pop).offsetHeight > bottom0 - gap) /** @type {HTMLElement} */ (pop).style.top = `${Math.max(top0 + gap, bottom0 - /** @type {HTMLElement} */ (pop).offsetHeight - gap)}px`;
 }
 
-/** The height the 模组 row adds to the pick window: one row like the 阶级 row plus the column gap. */
+/** The height the 模组 row adds to the pick window: one row like the 阶级 row plus the column gap. @param {HTMLElement | null} pop */
 function moduleRowRoom(pop) {
-  const row = pop?.querySelector('.cxp__row');
-  return row ? row.offsetHeight + (parseFloat(getComputedStyle(pop).rowGap) || 0) : 0;
+  const row = /** @type {HTMLElement | null | undefined} */ (pop?.querySelector('.cxp__row'));
+  return row ? row.offsetHeight + (parseFloat(getComputedStyle(/** @type {HTMLElement} */ (pop)).rowGap) || 0) : 0;
 }
 
-/** A 自选 pick's small window: tier V / VI, normal / elite, skill, module (elite only) → con.addDiy. */
+/**
+ * A 自选 pick's small window: tier V / VI, normal / elite, skill, module (elite only) → con.addDiy.
+ * @param {{ entry: DebugEntry, at: HTMLElement, priv: ConsolePriv | null, tierF: number, prep: boolean, onClose: () => void }} props
+ *   `entry`: a 自选 entry (its `cand`)
+ */
 function DiyPop({ entry, at, priv, tierF, prep, onClose }) {
-  const cand = entry.cand;
-  const ref = useRef(null);
+  const cand = /** @type {DiyCandidate & { tiers: Record<number, DiyTierForm> }} */ (entry.cand);
+  const ref = useRef(/** @type {HTMLDivElement | null} */ (null));
   const [tier, setTier] = useState(() => (tierF && cand.tiers[tierF] ? tierF : cand.tiers[6] ? 6 : 5));
   const [elite, setElite] = useState(false);
-  const pickOf = (tr) => Object.entries(priv?.diy || {}).find(([id, p]) => p && p.charId === cand.charId && id.startsWith(`chess_char_${tr}_`))?.[1] || null;
+  const pickOf = (/** @type {number} */ tr) => Object.entries(priv?.diy || {}).find(([id, p]) => p && p.charId === cand.charId && id.startsWith(`chess_char_${tr}_`))?.[1] || null;
   const [skill, setSkill] = useState(() => pickOf(tier)?.skillIndex ?? 0);
   const [mod, setMod] = useState(() => pickOf(tier)?.uniEquipId ?? NONE);
   const [busy, setBusy] = useState(false);
-  const rec = cand.tiers[tier] || { skills: [], modules: [] };
+  const rec = /** @type {DiyTierForm} */ (cand.tiers[tier] || { skills: [], modules: [] });
   const m = data.get('assets');
   // placed on opening and on a tier change with the module row's room reserved; 普通 / 精锐 then leaves it where it is
   useLayoutEffect(() => placePop(ref.current, at, elite ? 0 : moduleRowRoom(ref.current)), [at, tier]);
   useLayoutEffect(() => keepPopInView(ref.current), [elite]);
   // the server's candidates carry the Chinese names; the page's backups have them in the player's language
-  const skillName = (s) => diyForm(cand.charId, tier, false)?.skills?.[s.index]?.name || tName(s.name);
-  const modName = (x) => { const r = (diyForm(cand.charId, tier, true)?.modules || []).find((y) => y.uniEquipId === x.id); return r?.typeName || x.type || r?.name || tName(x.name); };
+  const skillName = (/** @type {DiyTierForm['skills'][number]} */ s) => diyForm(cand.charId, tier, false)?.skills?.[s.index]?.name || tName(s.name);
+  const modName = (/** @type {DiyTierForm['modules'][number]} */ x) => { const r = (diyForm(cand.charId, tier, true)?.modules || []).find((/** @type {{ uniEquipId?: string, typeName?: string, name?: string }} */ y) => y.uniEquipId === x.id); return r?.typeName || x.type || r?.name || tName(x.name); };
   const add = async () => {
     setBusy(true);
+    /** @type {{ charId: string, tier: number, golden: boolean, skill?: number, module?: string }} */
     const fields = { charId: cand.charId, tier, golden: elite };
     if (rec.skills.some((s) => s.index === skill)) fields.skill = skill;
     if (elite) fields.module = rec.modules.some((x) => x.id === mod) ? mod : NONE;
@@ -343,6 +390,7 @@ function DiyPop({ entry, at, priv, tierF, prep, onClose }) {
 
 // ---- 장비 ----------------------------------------------------------------------------------------------------------
 
+/** @param {{ prep: boolean }} props */
 function ItemsTab({ prep }) {
   const [tier, setTier] = useState(0);
   const [golden, setGolden] = useState(false);
@@ -351,12 +399,12 @@ function ItemsTab({ prep }) {
   const entries = useMemo(() => consoleItemEntries(data.list('items'), (id) => data.lookupRaw('items', id)), [data.status('items'), data.locale()]);
   const shown = filterItemEntries(entries, { tier, golden, query });
   const m = data.get('assets');
-  const add = async (e) => { if (busy) return; setBusy(true); await send('con.addItem', { itemId: e.key, golden }); setBusy(false); };
+  const add = async (/** @type {ItemEntry} */ e) => { if (busy) return; setBusy(true); await send('con.addItem', { itemId: e.key, golden }); setBusy(false); };
   return html`
     <div class="cxp__row"><span class="cxp__k">${t('阶级')}</span><${TierSeg} value=${tier} onChange=${setTier} /><span class="cxp__sp"></span>
       <${Seg} amber value=${golden} options=${[[false, t('普通')], [true, t('强化')]]} onChange=${setGolden} /></div>
     <div class="cxp__row"><input type="search" class="cxp__search" value=${query} placeholder=${t('搜索装备名称 / 效果')} aria-label=${t('搜索装备名称 / 效果')}
-      onInput=${(e) => setQuery(String(e.currentTarget.value).slice(0, 24))} /><span class="cxp__count">${t('{n} 件', { n: shown.length })}</span></div>
+      onInput=${(/** @type {InputEv} */ e) => setQuery(String(e.currentTarget.value).slice(0, 24))} /><span class="cxp__count">${t('{n} 件', { n: shown.length })}</span></div>
     <div class="cxp__grid g6">
       ${shown.map((e) => { const rec = data.lookup('items', e.key); const rar = uiUrl(m, `itemRarity/r${Math.min(6, Math.max(1, e.tier || 1))}`);
         return html`<button key=${e.key} type="button" class="cxp__cell" disabled=${!prep} onClick=${() => add(e)} title=${e.name}>
@@ -368,6 +416,7 @@ function ItemsTab({ prep }) {
 
 // ---- 적 ------------------------------------------------------------------------------------------------------------
 
+/** @param {{ con: ConsoleView, prep: boolean }} props */
 function EnemiesTab({ con, prep }) {
   const [rank, setRank] = useState('');
   const [query, setQuery] = useState('');
@@ -381,15 +430,16 @@ function EnemiesTab({ con, prep }) {
   const shown = entries.filter((e) => (!rank || e.rank === rank) && (!q || e.hay.includes(q)));
   const m = data.get('assets');
   const queued = Array.isArray(con.enemies) ? con.enemies : [];
-  const add = async (e) => { if (busy) return; setBusy(true); await send('con.addEnemy', { enemyKey: e.key, count: n }); setBusy(false); };
+  const add = async (/** @type {EnemyEntry} */ e) => { if (busy) return; setBusy(true); await send('con.addEnemy', { enemyKey: e.key, count: n }); setBusy(false); };
+  /** @param {string | null} [enemyKey] */
   const clear = async (enemyKey = null) => { setBusy(true); await send('con.clearEnemies', enemyKey ? { enemyKey } : {}); setBusy(false); };
-  const name = (k) => data.lookup('enemies', k)?.name || k;
+  const name = (/** @type {string} */ k) => data.lookup('enemies', k)?.name || k;
   return html`
     <div class="cxp__row"><span class="cxp__k">${t('阶级')}</span>
       <${Seg} value=${rank} options=${[['', t('全部')], ['NORMAL', t('普通')], ['ELITE', t('精英')], ...(bossKeys.length ? [['BOSS', t('首领')]] : [])]} onChange=${setRank} />
       <span class="cxp__sp"></span><span class="cxp__hint">${t('首领在「回合」页选择')}</span></div>
     <div class="cxp__row"><input type="search" class="cxp__search" value=${query} placeholder=${t('搜索敌人')} aria-label=${t('搜索敌人')}
-      onInput=${(e) => setQuery(String(e.currentTarget.value).slice(0, 24))} />
+      onInput=${(/** @type {InputEv} */ e) => setQuery(String(e.currentTarget.value).slice(0, 24))} />
       <span class="cxp__k">${t('数量')}</span><span class="cxp__step"><i onClick=${() => setN(Math.max(1, n - 1))}>−</i><b class="num">${n}</b><i onClick=${() => setN(Math.min(20, n + 1))}>+</i></span></div>
     <div class="cxp__grid g7">
       ${shown.map((e) => html`<button key=${e.key} type="button" class="cxp__cell" disabled=${!prep} onClick=${() => add(e)}
@@ -410,11 +460,12 @@ function EnemiesTab({ con, prep }) {
 
 // ---- 라운드 --------------------------------------------------------------------------------------------------------
 
+/** @param {{ con: ConsoleView, pub: { round?: number, [key: string]: unknown } | null, prep: boolean, onEnd: () => void }} props */
 function RoundTab({ con, pub, prep, onEnd }) {
-  const boss = con.boss || {};
+  const boss = /** @type {ConsoleBoss} */ (con.boss || {});
   const last = con.rounds?.last || boss.round || 14;
   const at = boss.at || pub?.round || 1;
-  const [target, setTarget] = useState(null);
+  const [target, setTarget] = useState(/** @type {number | null} */ (null));
   const [bondId, setBondId] = useState('');
   const [level, setLevel] = useState('normal');
   const [busy, setBusy] = useState(false);
@@ -423,12 +474,13 @@ function RoundTab({ con, pub, prep, onEnd }) {
   const tgt = target && target <= last ? target : null;
   const jump = async () => { if (!tgt) return; setBusy(true); if (await send('con.jumpRound', { round: tgt })) setTarget(null); setBusy(false); };
   const preset = async () => { setBusy(true); await send('con.presetBoard', bondId ? { bondId, layers: level } : { layers: level }); setBusy(false); };
-  const setBoss = async (f) => { setBusy(true); await send('con.setBoss', f); setBusy(false); };
+  const setBoss = async (/** @type {object} */ f) => { setBusy(true); await send('con.setBoss', f); setBusy(false); };
   const funds = async () => { setBusy(true); await act('con.funds', { on: !con.fundsPin }, { sfx: false }); setBusy(false); };
   const unlimited = async () => { setBusy(true); await act('con.bandUnlimited', { on: !con.bandUnlimited }, { sfx: false }); setBusy(false); };
   const coreBonds = useMemo(() => data.list('bonds').filter((b) => b && b.isCore).sort((a, b) => (a.identifier ?? 99) - (b.identifier ?? 99)), [data.status('bonds'), data.locale()]);
   const rounds = Array.from({ length: last }, (_, i) => i + 1);
-  const label = (r) => (r === at ? t('当前') : r === boss.round ? t('最终攻势') : r === boss.hiddenRound ? t('隐秘核心') : (con.rounds?.sp || []).includes(r) ? t('机变') : '');
+  const label = (/** @type {number} */ r) => (r === at ? t('当前') : r === boss.round ? t('最终攻势') : r === boss.hiddenRound ? t('隐秘核心') : (con.rounds?.sp || []).includes(r) ? t('机变') : '');
+  /** @param {string} id @param {boolean} on @param {object} f */
   const bossCell = (id, on, f) => { const rec = data.lookup('bosses', id); return html`<button key=${id} type="button" class=${cx('cxp__boss', on && 'on')} disabled=${busy} onClick=${() => setBoss(f)} title=${rec?.name || id}>
     <${Pic} kind="boss" src=${enemyIconUrl(m, rec?.enemyKey) || enemyIconUrl(m, rec?.handbookId)} /><span class="nm">${rec?.name || id}</span></button>`; };
   return html`
@@ -440,7 +492,7 @@ function RoundTab({ con, pub, prep, onEnd }) {
     <div class="cxp__sec">${t('成品阵容')}</div>
     <p class="cxp__note">${t('清空场上、备战区和临时区，按盟约布置全精锐阵容（层数按第14回合水平）')}</p>
     <div class="cxp__row"><span class="cxp__k">${t('盟约')}</span>
-      <select class="cxp__select" value=${bondId} onChange=${(e) => setBondId(e.currentTarget.value)}>
+      <select class="cxp__select" value=${bondId} onChange=${(/** @type {Event & { currentTarget: HTMLSelectElement }} */ e) => setBondId(e.currentTarget.value)}>
         <option value="">${t('随机')}</option>${coreBonds.map((b) => html`<option key=${b.bondId} value=${b.bondId}>${tName(b.name)}</option>`)}
       </select>
       <span class="cxp__k">${t('层数')}</span><${Seg} value=${level} options=${LAYER_LEVELS.map(([v, l]) => [v, t(l)])} onChange=${setLevel} /></div>
@@ -460,28 +512,30 @@ function RoundTab({ con, pub, prep, onEnd }) {
 
 // ---- 맹약 ----------------------------------------------------------------------------------------------------------
 
+/** @param {{ con: ConsoleView, priv: ConsolePriv | null, prep: boolean }} props */
 function BondsTab({ con, priv, prep }) {
   const [scope, setScope] = useState('all'); // 'all' | 'field' (배치 중) | 'held' (보유 중)
   const [busy, setBusy] = useState(false);
-  const [draft, setDraft] = useState({});
+  const [draft, setDraft] = useState(/** @type {Record<string, string>} */ ({}));
   const list = useMemo(() => data.list('bonds').filter((b) => b && b.bondId).sort((a, b) => (a.identifier ?? 99) - (b.identifier ?? 99)), [data.status('bonds'), data.locale()]);
   const mine = new Map((Array.isArray(priv?.bonds) ? priv.bonds : []).map((b) => [b.bondId, b]));
-  const layers = con.layers || {};
+  const layers = /** @type {Record<string, number>} */ (con.layers || {});
   const base = con.layersBase || null;
   const cap = con.layerCap || 999;
   const D = { chess: data.get('chess'), backups: data.get('backups') };
   const owned = ownedBondSets(priv, (p) => { const c = data.lookup('chess', p.id); return (c && ownDiyRecord(c, priv, D)) || c; },
     (rec, p) => pieceBondIds(rec, p.items, (id) => data.lookup('items', id)));
-  const inList = (set) => list.filter((b) => set.has(b.bondId));
+  const inList = (/** @type {Set<string>} */ set) => list.filter((b) => set.has(b.bondId));
   const shown = scope === 'field' ? inList(owned.field) : scope === 'held' ? inList(owned.held) : list;
   const m = data.get('assets');
+  /** @param {string} bondId @param {number | string} v */
   const set = async (bondId, v) => {
     const n = Math.max(0, Math.min(cap, Math.trunc(Number(v)) || 0));
     setDraft((d) => { const x = { ...d }; delete x[bondId]; return x; });
     setBusy(true); await send('con.setLayers', { bondId, layers: n }); setBusy(false);
   };
   const reset = async () => { setBusy(true); await send('con.resetLayers'); setBusy(false); };
-  const row = (b) => {
+  const row = (/** @type {ConsoleBond} */ b) => {
     const cur = layers[b.bondId] ?? 0;
     const st = mine.get(b.bondId);
     const th = Array.isArray(b.thresholds) ? b.thresholds : [];
@@ -497,8 +551,8 @@ function BondsTab({ con, priv, prep }) {
       ${b.noStack ? html`<span class="cxp__nostack">${t('没有层数')}</span>` : html`<span class="cxp__step">
         <i class="w" onClick=${() => !busy && prep && set(b.bondId, cur - 10)}>−10</i><i onClick=${() => !busy && prep && set(b.bondId, cur - 1)}>−</i>
         <input class="num" inputMode="numeric" value=${val} aria-label=${t('层数')} disabled=${!prep}
-          onInput=${(e) => setDraft((d) => ({ ...d, [b.bondId]: String(e.currentTarget.value).replace(/[^0-9]/g, '').slice(0, 5) }))}
-          onKeyDown=${(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+          onInput=${(/** @type {InputEv} */ e) => setDraft((d) => ({ ...d, [b.bondId]: String(e.currentTarget.value).replace(/[^0-9]/g, '').slice(0, 5) }))}
+          onKeyDown=${(/** @type {KeyboardEvent & { currentTarget: HTMLInputElement }} */ e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
           onBlur=${() => { if (draft[b.bondId] != null && Number(draft[b.bondId]) !== cur) set(b.bondId, draft[b.bondId]); else setDraft((d) => { const x = { ...d }; delete x[b.bondId]; return x; }); }} />
         <i onClick=${() => !busy && prep && set(b.bondId, cur + 1)}>+</i><i class="w" onClick=${() => !busy && prep && set(b.bondId, cur + 10)}>+10</i>
       </span>

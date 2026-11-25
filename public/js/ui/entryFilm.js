@@ -22,6 +22,8 @@ import { hasClipFilm, loadClipFilm, mountClipFilm, titleReveal, FILM_AUDIO, FILM
 import { seasonOf, DEFAULT_SEASON } from '../../../shared/seasons.js';
 import { t } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
+/** @import { AudioManager } from '../audio.js' */
+/** @import { LoadedFilm } from './clipFilm.js' */
 
 // The cue for a manifest that does not list it: the manifest's own entry (audio.sfx.ui.load) carries the content hash, so
 // the worker answers it from a finished download (upstream #725).
@@ -42,7 +44,7 @@ const CSS = `
 .spa-entry__skip{position:absolute;right:3%;bottom:3.5%;z-index:2;font:12px/1 "Microsoft YaHei","Noto Sans SC",sans-serif;
   letter-spacing:.2em;color:rgba(220,240,236,.45);pointer-events:none;transition:opacity .3s}`;
 
-const mq = (q) => { try { return !!globalThis.matchMedia(q).matches; } catch { return false; } };
+const mq = (/** @type {string} */ q) => { try { return !!globalThis.matchMedia(q).matches; } catch { return false; } };
 /** A phone / tablet: a coarse (touch) pointer and no mouse. */
 const touchDevice = () => (mq('(pointer: coarse)') || mq('(any-pointer: coarse)')) && !mq('(any-pointer: fine)');
 /** Phones play the opening in landscape (in portrait the game shows its rotate hint; a 16:9 film would be a strip). */
@@ -62,7 +64,8 @@ async function prepareSound(cueKey, fallback, season) {
   const track = resolveBgm(manifest, 'lobby', season);
   const listed = manifest?.audio?.sfx?.ui?.[cueKey];
   const cue = typeof listed === 'string' && listed ? listed : fallback;
-  const wait = (p) => Promise.race([Promise.resolve(p).catch(() => null), new Promise((r) => setTimeout(() => r(null), 2500))]);
+  /** @template T @param {T} p @returns {Promise<Awaited<T> | null>} */
+  const wait = (p) => Promise.race([Promise.resolve(p).catch(() => null), /** @type {Promise<null>} */ (new Promise((r) => setTimeout(() => r(null), 2500)))]);
   const [sfx] = await Promise.all([wait(cue ? audio._buffer(cue) : null), wait(track?.intro ? audio._buffer(track.intro) : null), wait(track ? audio._buffer(track.loop) : null)]);
   return { sfx };
 }
@@ -71,13 +74,18 @@ async function prepareSound(cueKey, fallback, season) {
  * A season's film for run(): its pictures (preload), its scene (mount: render(T) / destroy, grain optional), its span
  * in its own seconds (from → to, the cover fading from fadeAt), its sound (cue key, when the cue and the music start),
  * and what it does as it starts and ends.
- * @typedef {{ label: string, preload: (ms: number) => Promise<boolean>, mount: (host: HTMLElement) => any,
+ * @typedef {{ render: (T: number) => void, destroy: () => void, grain?: () => void }} FilmScene  a mounted film; a film
+ *   with grainUntil has grain()
+ * @typedef {{ label: string, preload: (ms: number) => Promise<boolean>, mount: (host: HTMLElement) => FilmScene,
  *   span: { from: number, fadeAt: number, to: number }, cue: { key: string, fallback: string|null, at: number },
  *   bgmAt: number, season: string|null, clear?: boolean, onStart?: (t0: number) => void, onEnd?: () => void,
  *   grainUntil?: number }} Film
  */
 
-/** 盟约: the event's opening rebuilt from its recording (ui/allianceScene.js). */
+/**
+ * 盟约: the event's opening rebuilt from its recording (ui/allianceScene.js).
+ * @param {typeof mountAllianceIntro} [mount] @returns {Film}
+ */
 export function allianceFilm(mount = mountAllianceIntro) {
   return {
     label: t('卫戍协议') + ' · ' + t('盟约'),
@@ -96,16 +104,16 @@ export function allianceFilm(mount = mountAllianceIntro) {
 /**
  * A later season: its hub's entry clip (ui/clipFilm.js). The dialog is see-through once the film is up (the film's
  * own black back covers the page until it fades), and the clip's hub part plays on the title screen under it.
- * @param {string} season
+ * @param {string} season @returns {Film}
  */
 export function clipSeasonFilm(season) {
-  let loaded = null, reveal = null;
+  let loaded = /** @type {LoadedFilm | null} */ (null), reveal = /** @type {ReturnType<typeof titleReveal> | null} */ (null);
   return {
     label: t('卫戍协议') + ' · ' + t('规程'),
     preload: async (ms) => { loaded = await loadClipFilm(season, ms); return !!loaded; },
     mount: (host) => {
-      const scene = mountClipFilm(host, loaded);
-      reveal = titleReveal(loaded.film);
+      const scene = mountClipFilm(host, /** @type {LoadedFilm} */ (loaded));
+      reveal = titleReveal(/** @type {LoadedFilm} */ (loaded).film);
       return {
         render: (T) => { scene.render(T); reveal?.render(T); },
         destroy: () => { scene.destroy(); reveal?.clear(); reveal = null; },
@@ -120,7 +128,7 @@ export function clipSeasonFilm(season) {
   };
 }
 
-/** The film of the season on screen, or null (a season whose film is not extracted). */
+/** The film of the season on screen, or null (a season whose film is not extracted). @param {unknown} season */
 export function filmFor(season) {
   const id = seasonOf(season);
   if (id === DEFAULT_SEASON) return allianceFilm();
@@ -130,13 +138,15 @@ export function filmFor(season) {
  * Hold the screen's music for the opening: the playing track fades out and every playBgm meanwhile is only remembered;
  * the release starts the remembered (else the last) track from its top — audio.js's own start, fade-in included.
  * Null when the music cannot play now.
- * @param {any} [a] the audio manager (tests pass a stand-in)
+ * @param {AudioManager} [a] the audio manager (tests pass a stand-in)
  * @returns {(() => void) | null} the release
  */
 export function holdBgm(a = audio) {
   if (!a.ctx || Object.prototype.hasOwnProperty.call(a, 'playBgm')) return null;
   // the key and its season (resolveBgm): a key alone played the default season's lobby track after 规程's film
+  /** @type {{ key: string | null, season: string | null } | undefined} */
   let asked;
+  /** @param {string | null} key @param {string | null} [season] */
   const placeholder = (key, season = null) => { asked = { key, season }; };
   a.playBgm = placeholder;
   try { ++a.bgmToken; a._fadeOutBgm(); } catch { /* ignore */ }
@@ -144,7 +154,7 @@ export function holdBgm(a = audio) {
   return () => {
     if (!held) return;
     held = false;
-    if (a.playBgm === placeholder) delete a.playBgm;
+    if (a.playBgm === placeholder) delete /** @type {{ playBgm?: unknown }} */ (a).playBgm;
     const { key, season } = asked ?? { key: a.lastBgmKey ?? 'lobby', season: a.bgmSeason ?? null };
     try { a.playBgm(key, season); } catch { /* ignore */ }
   };
@@ -170,18 +180,18 @@ function run(allowed, film) {
   el.className = 'spa-entry';
   el.setAttribute('aria-label', film.label);
   el.innerHTML = '<span class="spa-entry__skip"></span>';
-  el.firstChild.textContent = t('点击跳过');
+  /** @type {ChildNode} */ (el.firstChild).textContent = t('点击跳过');
   const locked = !(audio.ctx && audio.ctx.state === 'running');
   const skipLabel = /** @type {HTMLElement} */ (el.querySelector('.spa-entry__skip'));
-  let gate = Promise.resolve(), gateKey = null;
+  let gate = Promise.resolve(), gateKey = /** @type {(() => void) | null} */ (null);
   if (locked) {
     skipLabel.style.opacity = '0';
     const card = document.createElement('div');
     card.className = 'spa-entry__gate';
     card.innerHTML = '<b></b><i>TAP TO START</i>';
-    card.firstChild.textContent = t('点击进入');
+    /** @type {ChildNode} */ (card.firstChild).textContent = t('点击进入');
     // the Latin line is a decoration under a CJK prompt; a Latin translation already says it
-    if (scriptOf(t('点击进入')) === 'alphabetic') card.lastChild.remove();
+    if (scriptOf(t('点击进入')) === 'alphabetic') /** @type {ChildNode} */ (card.lastChild).remove();
     el.append(card);
     gate = new Promise((resolve) => {
       const go = () => {
@@ -200,7 +210,8 @@ function run(allowed, film) {
   document.body.append(el);
   try { el.showModal(); } catch { el.setAttribute('open', ''); }
 
-  let scene = null, raf = 0, release = null, bgmTimer = 0, done = false, src = null;
+  let scene = /** @type {FilmScene | null} */ (null), raf = 0, release = /** @type {(() => void) | null} */ (null), bgmTimer = 0, done = false,
+    src = /** @type {{ node: AudioBufferSourceNode, gain: GainNode, when: number } | null} */ (null);
   const cleanup = () => {
     cancelAnimationFrame(raf);
     try { scene?.destroy(); } catch { /* ignore */ }
@@ -209,7 +220,7 @@ function run(allowed, film) {
     el.remove();
     playing = false;
   };
-  /** 'end' (the film ran out), 'skip' (a tap / key) or 'leave' (the route left the title / lobby) */
+  /** @param {'end' | 'skip' | 'leave'} how 'end' (the film ran out), 'skip' (a tap / key) or 'leave' (the route left the title / lobby) */
   const finish = (how) => {
     if (done) return;
     done = true;
@@ -295,8 +306,8 @@ function run(allowed, film) {
       if (done) return;
       const T = from + (performance.now() - t0) / 1000;
       if (T >= to) { finish('end'); return; }
-      if (film.grainUntil && T < film.grainUntil) scene.grain();
-      scene.render(Math.max(from, T));
+      if (film.grainUntil && T < film.grainUntil) /** @type {() => void} */ (/** @type {FilmScene} */ (scene).grain)();
+      /** @type {FilmScene} */ (scene).render(Math.max(from, T));
       const fade = Math.min(1, Math.max(0, (T - fadeAt) / (to - fadeAt)));
       el.style.opacity = (1 - fade).toFixed(3);
       if (fade > 0) { el.style.pointerEvents = 'none'; skipLabel.style.opacity = '0'; }
