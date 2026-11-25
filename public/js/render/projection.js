@@ -50,6 +50,28 @@
 
 export const DEG = Math.PI / 180;
 
+/**
+ * @typedef {{ tx?: number, ty?: number, tz?: number, tilt?: number, dist?: number, scale?: number, cx?: number, cy?: number, yaw?: number }} CameraOptions
+ * @typedef {{ x: number, y: number, s: number, depth: number }} Projected a projected point (`Camera.project`)
+ * @typedef {{ r0: number, r1: number, c0: number, c1: number }} TileRect inclusive tile bounds
+ * @typedef {{ r0?: unknown, r1?: unknown, c0?: unknown, c1?: unknown }} RectLike a rect before `normRect`
+ * @typedef {{ top?: number, right?: number, bottom?: number, left?: number }} Padding CSS px
+ * @typedef {{ width: number, height: number, padding?: Padding }} Viewport CSS px
+ * @typedef {{ near?: unknown, far?: unknown }} ThreeOpts clip planes of the three.js camera
+ * @typedef {{ fov: number, aspect: number, near: number, far: number, position: number[], up: number[], target: number[],
+ *   view: { fullWidth: number, fullHeight: number, offsetX: number, offsetY: number, width: number, height: number } }} ThreeCameraParams
+ * @typedef {import('../../vendor/three.module.js').PerspectiveCamera} ThreePerspectiveCamera
+ * @typedef {{ pitch?: unknown, fovY?: unknown, base?: readonly number[], sideBy?: unknown }} OfficialOpts
+ * @typedef {{ L: string, R: string }} SideKeys camera param key per side
+ * @typedef {{ near: number, zNear: number, far: number, zFar: number }} KeepBand
+ * @typedef {{ rect: Readonly<TileRect>, margin: number, headroom: number, tilt: number, dist: number, official: Readonly<SideKeys>,
+ *   officialNoShop?: Readonly<SideKeys>, half?: Readonly<SideKeys>, keep?: Readonly<KeepBand> }} CameraPreset
+ * @typedef {OfficialOpts & { rect?: RectLike | null, side?: unknown, half?: unknown, halfOffset?: number | null, shop?: unknown,
+ *   fit?: unknown, config?: Record<string, unknown> | null, hud?: { top?: number, bottom?: number } | null,
+ *   at?: { row: number, col: number } | null, tilt?: number, dist?: number, margin?: number, headroom?: number,
+ *   maxTilePx?: number, minTilePx?: number }} PresetOptions
+ */
+
 /** Columns of the battle grid (GEO.WIDE_COLS: room for the widest 联防 field) and the last column of a stage (21 wide). */
 const BATTLE_COLS = 37, STAGE_LAST = 20;
 
@@ -70,6 +92,7 @@ export const OFFICIAL = Object.freeze({
  * FOV left free come out 30° / 40°): the bench row in view, as the official battle shows it; the boss halves (m02) and the 联防 right half (m05) too.
  * The 联防 left half and 全景 follow by the pairs (below); 隐秘核心 is the boss field (its 全景 key). [ASSUMED·화면: one screenshot each; the CN camera plugin's own
  * settings could not be read]
+ * @type {Readonly<Record<string, Readonly<Record<string, string>>>>}
  */
 export const SEASON_CAMERA_PARAMS = Object.freeze({
   act3autochess: Object.freeze({
@@ -91,20 +114,24 @@ export const SEASON_CAMERA_PARAMS = Object.freeze({
   }),
 });
 
-/** Keys no level has, and the level key they stand for there (CAMERA_PRESETS unite `half`). */
+/** Keys no level has, and the level key they stand for there (CAMERA_PRESETS unite `half`). @type {Readonly<Record<string, string>>} */
 export const CAMERA_KEY_FALLBACK = Object.freeze({
   left_unite_camera_param: 'left_battle_camera_param',
   right_unite_camera_param: 'right_battle_camera_param',
 });
 
-/** A stage's camera config: its `config` with its season's SEASON_CAMERA_PARAMS on top (the season = the id's prefix). */
+/**
+ * A stage's camera config: its `config` with its season's SEASON_CAMERA_PARAMS on top (the season = the id's prefix).
+ * @param {{ id?: unknown, config?: unknown } | null | undefined} stage
+ * @returns {Record<string, unknown> | null}
+ */
 export function stageCameraConfig(stage) {
-  const cfg = stage && stage.config && typeof stage.config === 'object' ? stage.config : null;
+  const cfg = stage && stage.config && typeof stage.config === 'object' ? /** @type {Record<string, unknown>} */ (stage.config) : null;
   const over = typeof stage?.id === 'string' ? SEASON_CAMERA_PARAMS[stage.id.split('_')[0]] : null;
   return over ? { ...(cfg || {}), ...over } : cfg;
 }
 
-/** configBlackBoard camera params (identical in all 11 autochess stages; stage.config overrides). */
+/** configBlackBoard camera params (identical in all 11 autochess stages; stage.config overrides). @type {Readonly<Record<string, string>>} */
 export const OFFICIAL_PARAMS = Object.freeze({
   left_prepare_camera_param: '(-4.67,0.3,-2.46,1)',
   left_shop_camera_param: '(-4.83,-1.75,-3.77,1)',
@@ -140,6 +167,7 @@ const KEEP_Z_BENCH = 0.16, KEEP_Z_HIGH = 0.42;
  * `keep` (prep views): the band `clearHud` keeps clear of the HUD — `near` = world row (y) of the bench's near edge
  * (hand row 7 / boss row 0) with the pads' tops at `zNear`, `far` = the field's back edge (row 12 / boss row 5) with
  * its raised tops at `zFar`.
+ * @type {Readonly<Record<string, CameraPreset>>}
  */
 export const CAMERA_PRESETS = Object.freeze({
   prep: Object.freeze({
@@ -179,7 +207,9 @@ export const CAMERA_PRESETS = Object.freeze({
 const EPS = 1e-6;
 const MIN_DEPTH = 0.05;
 
+/** @param {unknown} v @param {number} d @returns {number} */
 const finite = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+/** @param {number} v @param {number} lo @param {number} hi */
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 /**
@@ -187,7 +217,7 @@ const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
  */
 export class Camera {
   /**
-   * @param {{ tx?: number, ty?: number, tz?: number, tilt?: number, dist?: number, scale?: number, cx?: number, cy?: number, yaw?: number }} [options]
+   * @param {CameraOptions} [options]
    */
   constructor(options) {
     const o = options && typeof options === 'object' ? options : {};
@@ -210,6 +240,7 @@ export class Camera {
   update() {
     const t = this.tilt * DEG, a = this.yaw * DEG;
     const s = Math.sin(t), c = Math.cos(t), sa = Math.sin(a), ca = Math.cos(a);
+    // set outside the constructor, so `number | undefined` to tsc: the other methods cast them where they read them
     this._fx = c * sa; this._fy = s; this._fz = -c * ca;   // forward
     this._ux = -s * sa; this._uy = c; this._uz = s * ca;   // up
     this._rx = ca; this._rz = sa;                          // right (no row component)
@@ -223,7 +254,7 @@ export class Camera {
     return this;
   }
 
-  /** Copy every parameter from another camera. */
+  /** Copy every parameter from another camera. @param {Camera} o */
   copy(o) {
     this.tx = o.tx; this.ty = o.ty; this.tz = o.tz; this.tilt = o.tilt; this.dist = o.dist;
     this.scale = o.scale; this.cx = o.cx; this.cy = o.cy; this.yaw = o.yaw || 0;
@@ -238,75 +269,83 @@ export class Camera {
   }
 
   /** World position of the camera (the pinhole). */
-  position() { return { x: this._px, y: this._py, z: this._pz }; }
+  position() { return { x: /** @type {number} */ (this._px), y: /** @type {number} */ (this._py), z: /** @type {number} */ (this._pz) }; }
 
   /** Focal length in CSS px (screen distance of the image plane). */
-  focal() { return this._k; }
+  focal() { return /** @type {number} */ (this._k); }
 
-  /** Depth of a world point along the view axis (≥ MIN_DEPTH). */
+  /** Depth of a world point along the view axis (≥ MIN_DEPTH). @param {number} x @param {number} y @param {number} [z] */
   depthOf(x, y, z = 0) {
-    const d = (x - this._px) * this._fx + (y - this._py) * this._fy + (z - this._pz) * this._fz;
+    const d = (x - /** @type {number} */ (this._px)) * /** @type {number} */ (this._fx) + (y - /** @type {number} */ (this._py)) * /** @type {number} */ (this._fy) + (z - /** @type {number} */ (this._pz)) * /** @type {number} */ (this._fz);
     return d > MIN_DEPTH ? d : MIN_DEPTH;
   }
 
   /**
    * Project a world point. Writes `{ x, y, s, depth }` into `out` (allocated when omitted):
    * screen position (CSS px) and `s` = CSS px per world unit at that point.
+   * @param {number} x @param {number} y @param {number} [z] @param {Projected} [out]
+   * @returns {Projected}
    */
   project(x, y, z = 0, out = { x: 0, y: 0, s: 0, depth: 0 }) {
-    const vx = x - this._px, vy = y - this._py, vz = z - this._pz;
-    let depth = vx * this._fx + vy * this._fy + vz * this._fz;
+    const vx = x - /** @type {number} */ (this._px), vy = y - /** @type {number} */ (this._py), vz = z - /** @type {number} */ (this._pz);
+    let depth = vx * /** @type {number} */ (this._fx) + vy * /** @type {number} */ (this._fy) + vz * /** @type {number} */ (this._fz);
     if (!(depth > MIN_DEPTH)) depth = MIN_DEPTH;
-    const up = vx * this._ux + vy * this._uy + vz * this._uz;
-    const k = this._k / depth;
-    out.x = this.cx + (vx * this._rx + vz * this._rz) * k;
+    const up = vx * /** @type {number} */ (this._ux) + vy * /** @type {number} */ (this._uy) + vz * /** @type {number} */ (this._uz);
+    const k = /** @type {number} */ (this._k) / depth;
+    out.x = this.cx + (vx * /** @type {number} */ (this._rx) + vz * /** @type {number} */ (this._rz)) * k;
     out.y = this.cy - up * k;
     out.s = k;
     out.depth = depth;
     return out;
   }
 
-  /** CSS px per world unit at a world point. */
-  scaleAt(x, y, z = 0) { return this._k / this.depthOf(x, y, z); }
+  /** CSS px per world unit at a world point. @param {number} x @param {number} y @param {number} [z] */
+  scaleAt(x, y, z = 0) { return /** @type {number} */ (this._k) / this.depthOf(x, y, z); }
 
   /**
    * World height above (x, y, z) whose projection lies `px` CSS px above the projection of (x, y, z) — exact for this
    * camera. A unit's model is an upright screen billboard, so a point at a given drawn height on it (render/fx.js
    * SHOT_HEIGHT, GitHub #61) is this lift, not that many tiles: under the 30° pitch a vertical world height shows at
    * about half its length.
+   * @param {number} x @param {number} y @param {number} z @param {number} px
    */
   liftFor(x, y, z, px) {
-    const vx = x - this._px, vy = y - this._py, vz = z - this._pz;
-    let depth = vx * this._fx + vy * this._fy + vz * this._fz;
+    const vx = x - /** @type {number} */ (this._px), vy = y - /** @type {number} */ (this._py), vz = z - /** @type {number} */ (this._pz);
+    let depth = vx * /** @type {number} */ (this._fx) + vy * /** @type {number} */ (this._fy) + vz * /** @type {number} */ (this._fz);
     if (!(depth > MIN_DEPTH)) depth = MIN_DEPTH;
-    const up = vx * this._ux + vy * this._uy + vz * this._uz;
+    const up = vx * /** @type {number} */ (this._ux) + vy * /** @type {number} */ (this._uy) + vz * /** @type {number} */ (this._uz);
     // screen y = cy − k·up/depth; raising z by h: up += h·u.z, depth += h·f.z — solve for the wanted up/depth ratio
-    const ratio = up / depth + px / this._k;
-    const den = this._uz - ratio * this._fz;
-    if (!(den > 1e-6)) return px / Math.max(1e-6, (this._k / depth) * Math.max(this._uz, 0.1));
+    const ratio = up / depth + px / /** @type {number} */ (this._k);
+    const den = /** @type {number} */ (this._uz) - ratio * /** @type {number} */ (this._fz);
+    if (!(den > 1e-6)) return px / Math.max(1e-6, (/** @type {number} */ (this._k) / depth) * Math.max(/** @type {number} */ (this._uz), 0.1));
     return (ratio * depth - up) / den;
   }
 
   /**
    * Inverse projection onto the horizontal plane at height `z`. Returns `{ x, y }` (written into `out`) or
    * null when the view ray does not hit the plane in front of the camera.
+   * @param {number} sx @param {number} sy @param {number} [z] @param {{ x: number, y: number }} [out]
+   * @returns {{ x: number, y: number } | null}
    */
   unproject(sx, sy, z = 0, out = { x: 0, y: 0 }) {
     // Ray direction for screen point: d = f + r·a + u·b with a = (sx−cx)/k, b = −(sy−cy)/k.
-    const a = (sx - this.cx) / this._k;
-    const b = -(sy - this.cy) / this._k;
-    const dx = this._fx + a * this._rx + b * this._ux;
-    const dy = this._fy + b * this._uy;
-    const dz = this._fz + a * this._rz + b * this._uz;
+    const a = (sx - this.cx) / /** @type {number} */ (this._k);
+    const b = -(sy - this.cy) / /** @type {number} */ (this._k);
+    const dx = /** @type {number} */ (this._fx) + a * /** @type {number} */ (this._rx) + b * /** @type {number} */ (this._ux);
+    const dy = /** @type {number} */ (this._fy) + b * /** @type {number} */ (this._uy);
+    const dz = /** @type {number} */ (this._fz) + a * /** @type {number} */ (this._rz) + b * /** @type {number} */ (this._uz);
     if (Math.abs(dz) < EPS) return null;
-    const t = (z - this._pz) / dz;
+    const t = (z - /** @type {number} */ (this._pz)) / dz;
     if (!(t > 0) || !Number.isFinite(t)) return null;
-    out.x = this._px + t * dx;
-    out.y = this._py + t * dy;
+    out.x = /** @type {number} */ (this._px) + t * dx;
+    out.y = /** @type {number} */ (this._py) + t * dy;
     return out;
   }
 
-  /** The equivalent THREE.PerspectiveCamera parameters for a `width`×`height` CSS px viewport (see below). */
+  /**
+   * The equivalent THREE.PerspectiveCamera parameters for a `width`×`height` CSS px viewport (see below).
+   * @param {number} width @param {number} height @param {ThreeOpts | null} [opts]
+   */
   threeParams(width, height, opts) { return threeCameraParams(this, width, height, opts); }
 }
 
@@ -317,6 +356,8 @@ export class Camera {
  * `{ fov (vertical, degrees), aspect, near, far, position: [x,y,z], up: [x,y,z], target: [x,y,z],
  *    view: { fullWidth, fullHeight, offsetX, offsetY, width, height } }` (three's setViewOffset: the off-axis
  * principal point (cx, cy)). World axes are the projection's (x = col, y = row, z = up).
+ * @param {Camera} cam @param {number} width @param {number} height @param {ThreeOpts | null} [opts]
+ * @returns {ThreeCameraParams}
  */
 export function threeCameraParams(cam, width, height, opts) {
   const o = opts && typeof opts === 'object' ? opts : {};
@@ -335,6 +376,9 @@ export function threeCameraParams(cam, width, height, opts) {
 /**
  * Configure a THREE.PerspectiveCamera (duck-typed: fov, aspect, near, far, position, up, lookAt, setViewOffset,
  * updateProjectionMatrix, updateMatrixWorld) to project exactly like `cam` on a `width`×`height` CSS px viewport.
+ * @param {Camera} cam @param {ThreePerspectiveCamera} three @param {number} width @param {number} height
+ * @param {ThreeOpts | null} [opts]
+ * @returns {ThreePerspectiveCamera}
  */
 export function syncThreeCamera(cam, three, width, height, opts) {
   const p = threeCameraParams(cam, width, height, opts);
@@ -352,16 +396,20 @@ export function syncThreeCamera(cam, three, width, height, opts) {
   return three;
 }
 
-/** Ease for camera transitions. */
+/** Ease for camera transitions. @param {number} t */
 export const easeInOutCubic = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+/** @param {number} t */
 export const easeOutCubic = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - Math.pow(1 - t, 3));
-/** The official camera tweens (Ease 12, SIDE_BY). */
+/** The official camera tweens (Ease 12, SIDE_BY). @param {number} t */
 export const easeOutQuart = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - Math.pow(1 - t, 4));
 
-/** Interpolate two cameras into `out` (scale in log space so zooms feel linear). */
+/**
+ * Interpolate two cameras into `out` (scale in log space so zooms feel linear).
+ * @param {Camera} a @param {Camera} b @param {number} t @param {Camera} [out]
+ */
 export function lerpCamera(a, b, t, out = new Camera()) {
   const u = t <= 0 ? 0 : t >= 1 ? 1 : t;
-  const L = (p, q) => p + (q - p) * u;
+  const L = (/** @type {number} */ p, /** @type {number} */ q) => p + (q - p) * u;
   out.tx = L(a.tx, b.tx); out.ty = L(a.ty, b.ty); out.tz = L(a.tz, b.tz);
   out.tilt = L(a.tilt, b.tilt); out.dist = L(a.dist, b.dist);
   out.scale = Math.exp(L(Math.log(Math.max(EPS, a.scale)), Math.log(Math.max(EPS, b.scale))));
@@ -370,7 +418,10 @@ export function lerpCamera(a, b, t, out = new Camera()) {
   return out.update();
 }
 
-/** The controller's world position of a camera: its pinhole less what `Offset` and the turned `Camera` node add. */
+/**
+ * The controller's world position of a camera: its pinhole less what `Offset` and the turned `Camera` node add.
+ * @param {Camera} cam @param {number[]} out
+ */
 function controllerOf(cam, out) {
   const p = cam.position(), a = (cam.yaw || 0) * DEG, w = (cam.yaw || 0) / SIDE_BY.yaw, b = OFFICIAL.base;
   out[0] = p.x - w * SIDE_BY.pos[0] - b[2] * Math.sin(a);
@@ -383,10 +434,11 @@ function controllerOf(cam, out) {
  * The official flight between two cameras into `out`: the rig's parts on their own clocks — the controller by `move`,
  * `Offset` (its position and turn, always together: `yaw` tells how far along it is) by `turn` (eased progress 0…1).
  * The image (focal length, principal point: `clearHud`) follows the controller. `a` may be a camera in mid flight.
+ * @param {Camera} a @param {Camera} b @param {number} move @param {number} turn @param {Camera} [out]
  */
 export function flyRig(a, b, move, turn, out = new Camera()) {
   const pa = controllerOf(a, [0, 0, 0]), pb = controllerOf(b, [0, 0, 0]);
-  const L = (p, q, u) => p + (q - p) * u;
+  const L = (/** @type {number} */ p, /** @type {number} */ q, /** @type {number} */ u) => p + (q - p) * u;
   const yaw = L(a.yaw || 0, b.yaw || 0, turn), ar = yaw * DEG, w = yaw / SIDE_BY.yaw, base = OFFICIAL.base;
   const t = b.tilt * DEG, s = Math.sin(t), c = Math.cos(t), sa = Math.sin(ar), ca = Math.cos(ar);
   const px = L(pa[0], pb[0], move) + w * SIDE_BY.pos[0] + base[2] * sa;
@@ -404,6 +456,8 @@ export function flyRig(a, b, move, turn, out = new Camera()) {
  * Normalised copy of a rect ({r0,r1,c0,c1} inclusive; swapped bounds fixed; missing bounds = the 19 × 21 stage; clamped
  * to the battle grid: 19 rows, 37 columns — the stages' 21 and the 8-player mode's wide 联防 fields of 29 / 37,
  * shared/wideField.js).
+ * @param {RectLike | null} [rect] @param {number} [rows] @param {number} [cols]
+ * @returns {TileRect}
  */
 export function normRect(rect, rows = 19, cols = BATTLE_COLS) {
   const src = rect && typeof rect === 'object' ? rect : {};
@@ -417,9 +471,9 @@ export function normRect(rect, rows = 19, cols = BATTLE_COLS) {
 
 /**
  * Camera that frames `rect` inside the viewport.
- * @param {{r0,r1,c0,c1}} rect inclusive tile bounds
- * @param {{ width: number, height: number, padding?: { top?, right?, bottom?, left? } }} viewport CSS px
- * @param {{ tilt?, dist?, margin?: number, headroom?: number, maxTilePx?: number, minTilePx?: number }} [options]
+ * @param {RectLike} rect inclusive tile bounds
+ * @param {Viewport} viewport CSS px
+ * @param {{ tilt?: number, dist?: number, margin?: number, headroom?: number, maxTilePx?: number, minTilePx?: number }} [options]
  *   margin (tiles) around the rect; headroom (tiles) of vertical space kept above the far row for units.
  */
 export function fitCamera(rect, viewport, options) {
@@ -456,7 +510,7 @@ export function fitCamera(rect, viewport, options) {
   return cam.update();
 }
 
-/** Parse a configBlackBoard camera param "(x,y,z,w)" → [x, y, z, w] (null when malformed). */
+/** Parse a configBlackBoard camera param "(x,y,z,w)" → [x, y, z, w] (null when malformed). @param {unknown} v @returns {number[] | null} */
 export function parseCameraParam(v) {
   if (Array.isArray(v)) {
     const a = v.map(Number);
@@ -472,8 +526,9 @@ export function parseCameraParam(v) {
  * The official camera of a configBlackBoard param on a `width`×`height` viewport (see the header): position =
  * OFFICIAL.base + param (+ the narrow-screen adjustment), pitch 30°, vertical FOV 40°, centred principal point.
  * `opts.sideBy`: the official side camera (SIDE_BY).
- * @param {string|number[]} param "(x,y,z,w)" or [x,y,z]
+ * @param {string|number[]|null} param "(x,y,z,w)" or [x,y,z]
  * @param {{ width: number, height: number }} viewport
+ * @param {OfficialOpts | null} [opts]
  */
 export function officialCamera(param, viewport, opts) {
   const o = opts && typeof opts === 'object' ? opts : {};
@@ -540,6 +595,7 @@ export function clearHud(cam, hud, keep, viewport) {
   return out.update();
 }
 
+/** @param {TileRect | null} a @param {Readonly<TileRect>} b */
 const sameRect = (a, b) => !!a && !!b && a.r0 === b.r0 && a.r1 === b.r1 && a.c0 === b.c0 && a.c1 === b.c1;
 
 /**
@@ -555,6 +611,8 @@ const sameRect = (a, b) => !!a && !!b && a.r0 === b.r0 && a.r1 === b.r1 && a.c0 
  * side camera (SIDE_BY); `opts.at` = { row, col } (display tile): the official camera of a selected piece, the controller
  * over that tile at the height the shop state gives (AutoChessCameraPlugin CUSTOM_CHARACTER) — the band to keep clear is
  * then that tile.
+ * @param {string} kind @param {Viewport} viewport @param {PresetOptions | null} [options]
+ * @returns {Camera}
  */
 export function presetCamera(kind, viewport, options) {
   const opts = options && typeof options === 'object' ? options : {};
@@ -612,8 +670,11 @@ export function presetCamera(kind, viewport, options) {
  * Tile under a screen point, honouring raised tiles: planes are tried from the highest height down, and a hit
  * counts only when the tile found there really has that height. Returns `{ row, col }` or null (off-grid).
  * @param {Camera} cam
- * @param {(row:number, col:number) => number} heightAt  tile top height (0 for low / off-grid)
+ * @param {number} sx @param {number} sy screen point, CSS px
+ * @param {((row:number, col:number) => number) | null} heightAt  tile top height (0 for low / off-grid)
  * @param {number[]} [levels] distinct heights to test (descending), default [heights present…, 0]
+ * @param {number} [rows] @param {number} [cols]
+ * @returns {{ row: number, col: number, x: number, y: number } | null}
  */
 export function pickTile(cam, sx, sy, heightAt, levels = [0], rows = 19, cols = 21) {
   const p = { x: 0, y: 0 };
@@ -632,7 +693,10 @@ export function pickTile(cam, sx, sy, heightAt, levels = [0], rows = 19, cols = 
   return null;
 }
 
-/** Screen-space quad (4 projected corners, counter-clockwise from near-left) of a tile top at height z. */
+/**
+ * Screen-space quad (4 projected corners, counter-clockwise from near-left) of a tile top at height z.
+ * @param {Camera} cam @param {number} row @param {number} col @param {number} [z] @param {number} [inset]
+ */
 export function tileQuad(cam, row, col, z = 0, inset = 0) {
   const a = 0.5 - inset;
   return [

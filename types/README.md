@@ -127,7 +127,8 @@ the files directly under `server/sim/` (`server/sim/*.js`), the files directly u
 `server/sim/content/kits/ops/`, and in the renderer the 3D board `public/js/render/board3d/` and the effect system's parts
 `public/js/render/fx/`, the files directly under `public/js/` (`public/js/*.js`), the screens directly under
 `public/js/screens/` (`public/js/screens/*.js`), the files directly under `public/js/ui/` (`public/js/ui/*.js`) and,
-one by one, 20 of the files directly under `public/js/render/` (the small helpers: drag.js, pick.js, pen.js and the rest).
+one by one, 24 of the files directly under `public/js/render/` (the small helpers: drag.js, pick.js, pen.js and the rest;
+the camera, the board, the snapshot buffer and the Spine actor: projection.js, tiles.js, interp.js, spine.js).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -612,6 +613,18 @@ most strict errors were, and the JSDoc that fixed them:
   (num-official.js `OffNum`); a property first set outside the constructor (`this._key = …`) gets its `@type` on that
   assignment; a closure over a state that is set whenever it runs (drag.js `st`) casts it at each read
   (`/** @type {DragState} */ (st)`).
+- the camera, the board, the snapshot buffer and the Spine actor directly under `public/js/render/` (projection.js,
+  tiles.js, interp.js, spine.js): fields a method sets that the constructor only calls (`Camera.update`'s `_fx` … `_k`,
+  `SnapshotBuffer.reset`'s `snaps` / `events`, `SpineActor`'s `skillEndUntil` …) are `T | undefined` even with a `@type`
+  on the statement, so they are cast at each read (`/** @type {number} */ (this._px)`, `/** @type {Snapshot[]} */
+  (this.snaps)`; a compound assignment casts its target, `/** @type {number} */ (this.endNextAt) += d`), the runtime
+  statements unchanged. A check whose answer tsc can use is a type guard (`has(name)` `@returns {name is string}`,
+  `isClip` `a is SpClipAttachment`); a method that returns what it is given takes `@overload` blocks (`_dn`: a `string`
+  in, a `string` out). pixi-spine's objects are typedefs of the members read, the display members units.js uses
+  included (`SpSpine`); three.js's camera is the vendored stand-in's class
+  (`import('../../vendor/three.module.js').PerspectiveCamera`). A call into a file not typed yet whose `= null` default
+  reads as `null` under strict (textures.js `tileAtlas`, `groundTexture`) casts the callee to its real signature
+  (tiles.js `TileAtlasFn`); the cast goes once that file has its JSDoc.
 
 
 ## Split classes

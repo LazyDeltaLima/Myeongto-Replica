@@ -35,18 +35,46 @@ import { GLYPH, TILEKEY_GLYPH, TILE_H, COLORS, ORIGINIUM, tileTop } from './styl
 import { parsePenRect, PEN_RECT } from './pen.js';
 
 /**
+ * @import { Camera, Projected } from './projection.js'
+ * @typedef {{ tileKey?: string, height?: string }} StageLegend a stage legend entry
+ * @typedef {{ pos: number[], role: string, dir?: string, active?: unknown, hidden?: unknown, rangeTiles?: unknown,
+ *   [key: string]: unknown }} StageDevice a stage device record (data/stages.json)
+ * @typedef {{ rows?: unknown, tiles?: unknown, devices?: unknown, config?: { enemy_place_rect?: unknown } | null,
+ *   waterPlatformHeight?: unknown, platformHeight?: unknown, highlandHeight?: unknown, [key: string]: unknown }} StageRec
+ *   a stage record (data/stages.json) as this file reads it
+ * @typedef {{ mat: string, h: string | null }} GlyphDef style.js GLYPH entry
+ * @typedef {{ r0: number, r1: number, c0: number, c1: number }} TileRect inclusive tile bounds
+ * @typedef {{ color: number, fill: number, line: number, stripes?: boolean, group?: string }} HlStyle
+ * @typedef {{ size: number, height: number, top: string, side: string }} DeviceBox
+ * @typedef {{ kind: string, pts: number[][], u: number[], shade: number, alpha: number, order: number,
+ *   faceDir: string | 0, fx?: number, row: number, col: number, rot?: number, ao?: number[] }} Quad a textured quad
+ * @typedef {{ [mat: string]: number[] | undefined, blank?: number[] }} UvMap material → [u0, v0, u1, v1]
+ * @typedef {{ update(): void }} PixiBuffer a PIXI.Buffer
+ * @typedef {{ quads: Quad[], row: number | null, noSort: boolean, pos: Float32Array, uvq: Float32Array, col: Float32Array,
+ *   idx: Uint16Array, order: number[], posBuf: PixiBuffer, uvqBuf: PixiBuffer, colBuf: PixiBuffer, idxBuf: PixiBuffer,
+ *   mesh: PIXI.Mesh }} MeshRec a mesh record (TileField._makeMesh)
+ * @typedef {{ fogNear: number, fogFar: number, lcx: number, lcy: number, lrx: number, lry: number }} Light
+ * @typedef {{ key?: string, images?: { BG?: unknown, [key: string]: unknown },
+ *   tiles?: { backdrop?: { crop?: number[] | null, tilesPerRepeat?: number } } }} TileArt render/boardArt.js result
+ * @typedef {{ sprite: PIXI.Sprite, r: number, c: number, kind: string, phase: number, ox: number, oy: number,
+ *   sp: number, x?: number, y?: number, s?: number }} AnimSprite `x` / `y` / `s`: set by _placeAnim
+ * @typedef {(art?: TileArt | null) => ReturnType<typeof tileAtlas>} TileAtlasFn textures.js tileAtlas
+ * @typedef {(img?: unknown, crop?: number[] | null) => ReturnType<typeof groundTexture>} GroundTextureFn textures.js groundTexture
+ */
+
+/**
  * Depth-sort key (unit layer zIndex) of block row `row`: the row's far edge. Units use
  * `-cam.depthOf(x, y, 0) * 100`, so a unit is drawn after (in front of) the row's blocks iff y < row + ½.
  */
-export const rowDepthKey = (cam, row) => -cam.depthOf(0, row + 0.5, 0) * 100;
+export const rowDepthKey = (/** @type {Camera} */ cam, /** @type {number} */ row) => -cam.depthOf(0, row + 0.5, 0) * 100;
 /** Offsets above rowDepthKey: row blocks < devices on the row < things lying on the row's raised tops. */
 export const ROW_KEY = Object.freeze({ blocks: 0, devices: 0.01, surface: 0.02 });
 /** Gate / objective boxes (low tiles) of row `row`: after the row's blocks, before units standing in the box. */
-export const boxDepthKey = (cam, row) => -cam.depthOf(0, row + 0.45, 0) * 100;
+export const boxDepthKey = (/** @type {Camera} */ cam, /** @type {number} */ row) => -cam.depthOf(0, row + 0.45, 0) * 100;
 
 const ROWS = 19, COLS = 21;
 /** Columns of a parsed grid: 21, or 29 / 37 on the 8-player mode's wide 联防 field (shared/wideField.js widenStageData). */
-const colsOf = (G) => G?.[0]?.length || COLS;
+const colsOf = (/** @type {StageTile[][] | null | undefined} */ G) => G?.[0]?.length || COLS;
 const PLAYABLE_DIST = 2;         // margin tiles farther than this from a playable tile are not drawn
 const CLIFF_DEPTH = 0.62;        // how far the island's edge faces go down to the ground plane (tiles)
 /** Brightness of the board meshes (vertex colour above 1 lifts the mid-grey board art a little). */
@@ -80,6 +108,7 @@ void main(void) {
   gl_FragColor = vec4(c.rgb * vColor.rgb, c.a) * (vColor.a * uAlpha);
 }`;
 
+/** @type {Readonly<Record<string, HlStyle>>} */
 const HL_STYLES = {
   legal: { color: COLORS.legal, fill: 0.26, line: 0.9 },
   illegal: { color: COLORS.illegal, fill: 0.32, line: 0.95 },
@@ -90,6 +119,7 @@ const HL_STYLES = {
   deploy: { color: 0x9fd4ff, fill: 0.12, line: 0.45 },
 };
 
+/** @type {Readonly<Record<string, string>>} */
 const SIDE_MAT = {
   wall: 'wallSide', forbid: 'forbidSide', forbid2: 'forbidSide', sep: 'sepSide', hand: 'benchSide', temp: 'benchSideTemp',
   fence: 'fenceSide', margin: 'forbidSide',
@@ -99,17 +129,18 @@ const SIDE_MAT = {
  * Parse a stage record into a per-tile info grid (tolerant of partial/malformed data). `band` = [r0, r1] rows drawn;
  * `field` = [f0, f1] rows of the active field — drawn rows outside it are dim, non-playable scenery (e.g. the enemy
  * preview pen behind the normal field, or the normal field behind the boss field).
- * @typedef {{ r: number, c: number, glyph: string, mat: string, hClass: any, h: number, playable: boolean,
+ * @typedef {{ r: number, c: number, glyph: string, mat: string, hClass: string | null, h: number, playable: boolean,
  *   inBand: boolean, scenery: boolean, dist: number, alpha: number, drawn: boolean, focus: boolean, top?: string,
  *   devH?: number }} StageTile `top`: a high-ground plate's frame piece; `devH`: a device's drawn top (TileField)
- * @param {any} stage
+ * @param {StageRec | null | undefined} stage
  * @param {number[]} [band]
  * @param {number[]} [field]
  * @returns {StageTile[][]}
  */
 export function parseStage(stage, band = [0, ROWS - 1], field = [0, 13]) {
   const rows = Array.isArray(stage?.rows) ? stage.rows : [];
-  const legend = stage && typeof stage.tiles === 'object' && stage.tiles ? stage.tiles : {};
+  /** @type {Readonly<Record<string, StageLegend | undefined>>} */
+  const legend = stage && typeof stage.tiles === 'object' && stage.tiles ? /** @type {Record<string, StageLegend | undefined>} */ (stage.tiles) : {};
   // 21 columns; a widened stage's rows are longer (the wide 联防 field)
   const cols = Math.max(COLS, ...rows.map((l) => (typeof l === 'string' ? l.length : 0)));
   /** @type {StageTile[][]} */
@@ -120,8 +151,9 @@ export function parseStage(stage, band = [0, ROWS - 1], field = [0, 13]) {
     const row = [];
     for (let c = 0; c < cols; c++) {
       let g = line[c] || '#';
-      if (!GLYPH[g]) g = TILEKEY_GLYPH[legend[g]?.tileKey] || (legend[g]?.height === 'HIGH' ? '#' : 'R');
-      const def = GLYPH[g];
+      // (an absent tileKey reads no glyph)
+      if (!/** @type {Readonly<Record<string, GlyphDef | undefined>>} */ (GLYPH)[g]) g = /** @type {Readonly<Record<string, string | undefined>>} */ (TILEKEY_GLYPH)[/** @type {string} */ (legend[g]?.tileKey)] || (legend[g]?.height === 'HIGH' ? '#' : 'R');
+      const def = /** @type {Readonly<Record<string, GlyphDef>>} */ (GLYPH)[g];
       const inBand = r >= band[0] && r <= band[1];
       const scenery = r < field[0] || r > field[1];
       row.push({ r, c, glyph: g, mat: def.mat, hClass: def.h, h: tileTop(def.h, stage), playable: inBand && !scenery && g !== '#' && g !== 'X', inBand, scenery, dist: 0, alpha: 1, drawn: true, focus: true });
@@ -155,7 +187,7 @@ export function parseStage(stage, band = [0, ROWS - 1], field = [0, 13]) {
     if (t.glyph === '#' && t.dist >= 2) t.mat = 'margin';
   }
   // high-ground plates: frame piece by connectivity (texture top = the tile's far edge)
-  const wall = (r, c) => { const n = grid[r]?.[c]; return !!n && n.drawn && n.glyph === 'h'; };
+  const wall = (/** @type {number} */ r, /** @type {number} */ c) => { const n = grid[r]?.[c]; return !!n && n.drawn && n.glyph === 'h'; };
   for (const row of grid) for (const t of row) {
     if (t.glyph !== 'h' || !t.drawn) continue;
     const L = wall(t.r, t.c - 1), Rt = wall(t.r, t.c + 1);
@@ -168,6 +200,7 @@ export function parseStage(stage, band = [0, ROWS - 1], field = [0, 13]) {
   return grid;
 }
 
+/** @param {number} r @param {number} c */
 const hash2 = (r, c) => ((r * 73856093) ^ (c * 19349663)) >>> 0;
 
 /** Stripe spacing (tiles, along x) of striped range highlights. */
@@ -175,6 +208,7 @@ const STRIPE_STEP = 0.2;
 /**
  * Diagonal stripes (world x − y = const, like the official striped range tiles) clipped to tile (r, c)'s top at
  * height z, drawn as light orange lines into `g`.
+ * @param {number} r @param {number} c @param {number} [inset] @param {number} [step]
  */
 export function stripeSegments(r, c, inset = 0.05, step = STRIPE_STEP) {
   const a = 0.5 - inset;
@@ -187,6 +221,10 @@ export function stripeSegments(r, c, inset = 0.05, step = STRIPE_STEP) {
   }
   return out;
 }
+/**
+ * @param {PIXI.Graphics} g @param {Camera} cam @param {number} r @param {number} c @param {number} z @param {number} inset
+ * @param {number} lw @param {Projected} p
+ */
 function drawStripes(g, cam, r, c, z, inset, lw, p) {
   g.lineStyle(lw, 0xffc27a, 0.55, 0.5);
   for (const [xa, ya, xb, yb] of stripeSegments(r, c, inset)) {
@@ -198,6 +236,7 @@ function drawStripes(g, cam, r, c, z, inset, lw, p) {
   g.lineStyle(0);
 }
 
+/** @param {StageTile} t */
 function variantMat(t) {
   if (t.top) return t.top;
   const h = hash2(t.r, t.c) % 7;
@@ -215,7 +254,7 @@ function variantMat(t) {
 
 /** Device roles we draw, and whether they stand on the tile as a 3D prop. */
 const DEVICE_ROLES = new Set(['crate', 'platform', 'mound', 'blower', 'turret', 'waterPlatform', 'bush', 'sealedFloor']);
-/** Textured box props: role → { size (tiles), height, top / side materials }. */
+/** Textured box props: role → { size (tiles), height, top / side materials }. @type {Readonly<Record<string, DeviceBox>>} */
 export const DEVICE_BOX = Object.freeze({
   crate: { size: 0.84, height: 0.74, top: 'crateTop', side: 'crateSide' },
   platform: { size: 0.94, height: 0.26, top: 'platformTop', side: 'forbidSide' },
@@ -224,7 +263,7 @@ export const DEVICE_BOX = Object.freeze({
   blower: { size: 0.86, height: 0.28, top: 'blowerTop', side: 'forbidSide' },
   turret: { size: 0.72, height: 0.34, top: 'turretTop', side: 'forbidSide' },
 });
-/** Box prop of a battle device unit by its defId (sim `spawnDevice`: stage device keys). */
+/** Box prop of a battle device unit by its defId (sim `spawnDevice`: stage device keys). @param {unknown} defId */
 export function deviceBoxOf(defId) {
   const k = String(defId || '');
   if (k.includes('accrate') || k.includes('crate')) return DEVICE_BOX.crate;
@@ -233,7 +272,7 @@ export function deviceBoxOf(defId) {
   if (k.includes('blower')) return DEVICE_BOX.blower;
   return null;
 }
-/** Texture rotation (clockwise quarter turns) so a ▶ icon on a device top points along its `dir`. */
+/** Texture rotation (clockwise quarter turns) so a ▶ icon on a device top points along its `dir`. @type {Readonly<Record<string, number>>} */
 const DIR_ROT = Object.freeze({ RIGHT: 0, DOWN: 1, LEFT: 2, UP: 3 });
 
 export class TileField {
@@ -246,46 +285,67 @@ export class TileField {
     this.P = P;
     this.layers = layers;
     this.atlas = tileAtlas();
+    /** @type {TileArt | null} */
     this.art = null;
+    /** @type {StageRec | null} */
     this.stage = null;
     this.grid = parseStage(null);
+    /** @type {Quad[]} */
     this.quads = [];
     this.mesh = null;              // ground mesh (low tops + cliffs)
+    /** @type {MeshRec[]} */
     this.meshes = [];              // every mesh record { quads, row, buffers…, mesh }
+    /** @type {Map<number, MeshRec>} */
     this.rowMeshes = new Map();    // block row → mesh record (in the unit layer)
+    /** @type {Map<number, PIXI.Container>} */
     this.rowSurfaces = new Map();  // block row → Container for things on its raised tops
     this.shader = null;
+    /** @type {MeshRec | null} */
     this.plane = null;             // backdrop ground plane mesh record
     this.planeShader = null;
     this.hlGfx = new P.Graphics();
+    /** @type {{ r: number, c: number, gate: boolean, g: PIXI.Graphics }[]} */
     this.boxes = [];               // gate / objective wire boxes { r, c, gate, g } (in the unit layer)
     this.flowGfx = new P.Graphics();
     this.flowGfx.blendMode = P.BLEND_MODES.ADD;
     layers.overlay.addChild(this.hlGfx, this.flowGfx);
     this.animLayer = new P.Container();
     layers.anim.addChild(this.animLayer);
+    /** @type {Map<string, { tiles: number[][], style: HlStyle }>} */
     this.highlights = new Map();   // group → { tiles: [[r,c]], style }
+    /** @type {{ dev: StageDevice, gfx: PIXI.Graphics, row: number, col: number, role: string, dir: string, seed: number, visible: boolean }[]} */
     this.devices = [];             // Graphics props { dev, gfx, row, col, role } (mounds, bushes)
+    /** @type {{ dev: StageDevice, row: number, col: number, role: string, dir: string, visible: boolean }[]} */
     this.devBoxes = [];            // textured box props (in the row meshes) { dev, row, col, role }
+    /** @type {{ dev: StageDevice, row: number, col: number, dir: string, visible: boolean }[]} */
     this.blowers = [];             // { dev, row, col, dir } airflow sources
-    /** (row, col) → whether the blower there needs the streaks (render/app.js: fxgame.js deviceTileStandIn); null: always. */
+    /**
+     * (row, col) → whether the blower there needs the streaks (render/app.js: fxgame.js deviceTileStandIn); null: always.
+     * @type {((row: number, col: number) => boolean) | null}
+     */
     this.windStandIn = null;
+    /** @type {AnimSprite[]} */
     this.animSprites = [];         // { sprite, r, c, kind, phase }
+    /** @type {TileRect | null} */
     this.battleRect = null;
+    /** @type {Camera | null} */
     this.cam = null;
     this.camVersion = -1;
     this.time = 0;
+    /** @type {{ r: number, c: number, t: number }[]} */
     this.flashes = [];             // objective leak flashes { r, c, t }
     this._p = { x: 0, y: 0, s: 0, depth: 0 };
     this.levels = [0];
     this.band = [0, ROWS - 1];
     this.field = [0, 13];
+    /** @type {TileRect | null} */
     this.focus = null;
+    /** @type {Set<BoxMesh>} */
     this.boxMeshes = new Set();    // live BoxMesh instances (re-textured on art swaps)
     this.external = false;         // true: the 3D board layer draws the board (see header)
   }
 
-  /** Let an external (3D) board layer draw the board: only highlights / airflow / grid queries stay here. */
+  /** Let an external (3D) board layer draw the board: only highlights / airflow / grid queries stay here. @param {unknown} on */
   setExternal(on) {
     const next = !!on;
     if (next === this.external) return;
@@ -311,6 +371,7 @@ export class TileField {
   /**
    * Rows drawn (`band` [r0, r1]) and the focused rect (tiles outside it are dimmed). Rebuilds the geometry only
    * when something changed.
+   * @param {number[] | null} [band] @param {TileRect | null} [focus] @param {number[] | null} [field]
    */
   setView(band, focus, field) {
     const b = Array.isArray(band) ? [Math.max(0, band[0] | 0), Math.min(ROWS - 1, band[1] | 0)] : [0, ROWS - 1];
@@ -327,22 +388,26 @@ export class TileField {
   /**
    * Use the real board art (render/boardArt.js result) or null for the procedural look. Swaps the atlas texture
    * (identical UV layout) and the ground plane texture; geometry is rebuilt so art-only materials apply.
+   * @param {TileArt | null} art
    */
   setArt(art) {
     const next = art && art.images ? art : null;
     if ((next?.key || '') === (this.art?.key || '') && this.shader) return;
     this.art = next;
-    this.atlas = tileAtlas(next);
+    // (textures.js has no JSDoc yet: its `= null` defaults read as `null` under strict)
+    this.atlas = /** @type {TileAtlasFn} */ (tileAtlas)(next);
     if (this.shader) this.shader.uniforms.uSampler = this.atlas.texture;
-    if (this.planeShader) this.planeShader.uniforms.uSampler = groundTexture(next?.images?.BG || null, next?.tiles?.backdrop?.crop);
+    if (this.planeShader) this.planeShader.uniforms.uSampler = /** @type {GroundTextureFn} */ (groundTexture)(next?.images?.BG || null, next?.tiles?.backdrop?.crop);
     for (const b of this.boxMeshes) b.retexture();
     if (this.stage) this._rebuild();
   }
 
-  /** Tile info (always an object; off-grid → forbidden). */
+  /** Tile info (always an object; off-grid → forbidden). @param {number} r @param {number} c */
   tile(r, c) { return this.grid[r]?.[c] || { r, c, glyph: '#', mat: 'forbid', h: 0, playable: false, drawn: false }; }
+  /** @param {number} r @param {number} c */
   heightAt(r, c) { const t = this.grid[r]?.[c]; return t && t.drawn ? t.h + (t.devH || 0) : 0; }
 
+  /** @param {StageRec | null | undefined} stage */
   setStage(stage) {
     this.stage = stage || null;
     this._rebuild();
@@ -361,7 +426,7 @@ export class TileField {
       if (!t) continue;
       if (d.role === 'platform') t.devH = tileTop('platform', stage);  // local patch: the official plate when drawn
       else if (d.role === 'mound') t.devH = TILE_H.platform;
-      else if (d.role === 'waterPlatform') t.devH = Number(stage?.waterPlatformHeight) > 0 ? Number(stage.waterPlatformHeight) : DEVICE_BOX.waterPlatform.height; // the official deck when drawn
+      else if (d.role === 'waterPlatform') t.devH = Number(stage?.waterPlatformHeight) > 0 ? Number(/** @type {StageRec} */ (stage).waterPlatformHeight) : DEVICE_BOX.waterPlatform.height; // the official deck when drawn
     }
     const hs = new Set([0]);
     for (const row of this.grid) for (const t of row) if (t.drawn) hs.add(t.h + (t.devH || 0));
@@ -381,6 +446,7 @@ export class TileField {
 
   _stageDevices() {
     const list = Array.isArray(this.stage?.devices) ? this.stage.devices : [];
+    /** @type {StageDevice[]} */
     const out = [];
     for (const d of list) {
       if (!d || !Array.isArray(d.pos) || !Number.isInteger(d.pos[0]) || !Number.isInteger(d.pos[1])) continue;
@@ -414,10 +480,12 @@ export class TileField {
     this.quads = quads;
   }
 
+  /** @param {Quad[]} quads @param {number | null} row @param {unknown} shader @param {boolean} [noSort] */
   _makeMesh(quads, row, shader, noSort = false) {
     const P = this.P;
     const n = quads.length;
-    const m = { quads, row, noSort, pos: new Float32Array(n * 8), uvq: new Float32Array(n * 12), col: new Float32Array(n * 16), idx: new Uint16Array(n * 6), order: new Array(n) };
+    // (its buffers and mesh are added below)
+    const m = /** @type {MeshRec} */ ({ quads, row, noSort, pos: new Float32Array(n * 8), uvq: new Float32Array(n * 12), col: new Float32Array(n * 16), idx: new Uint16Array(n * 6), order: new Array(n) });
     m.posBuf = new P.Buffer(m.pos, false, false);
     m.uvqBuf = new P.Buffer(m.uvq, false, false);
     m.colBuf = new P.Buffer(m.col, false, false);
@@ -441,7 +509,7 @@ export class TileField {
     this.mesh = null;
     const { ground, rows } = splitQuadGroups(this.quads);
     if (!this.shader) this.shader = P.Shader.from(VERT, FRAG, { uSampler: this.atlas.texture, uAlpha: 1 });
-    if (!this.planeShader) this.planeShader = P.Shader.from(VERT, FRAG, { uSampler: groundTexture(this.art?.images?.BG || null, this.art?.tiles?.backdrop?.crop), uAlpha: 1 });
+    if (!this.planeShader) this.planeShader = P.Shader.from(VERT, FRAG, { uSampler: /** @type {GroundTextureFn} */ (groundTexture)(this.art?.images?.BG || null, this.art?.tiles?.backdrop?.crop), uAlpha: 1 });
     // backdrop ground plane (under everything)
     const plane = buildPlaneQuads(this.grid, this.art?.tiles?.backdrop?.tilesPerRepeat || 8);
     this.plane = this._makeMesh(plane, null, this.planeShader, true);
@@ -464,6 +532,7 @@ export class TileField {
   /**
    * Container for things lying on the raised tops of block row `row` (drawn after that row's blocks, before its
    * units), or null when the row has no raised blocks (callers then use their ordinary ground layer).
+   * @param {number} row
    */
   surfaceLayer(row) {
     const r = Math.round(row);
@@ -479,13 +548,14 @@ export class TileField {
     return s;
   }
 
+  /** @param {PIXI.Container} s */
   _freeSurface(s) {
     // children belong to their owners (unit shadows, fx rings…): hand them back to the ground layers
     for (const ch of [...s.children]) { if (ch !== s._hl) this.layers.overlay.addChild(ch); }
     s.destroy({ children: true });
   }
 
-  /** Lighting parameters of the current view (fog distances + the focused field's spotlight). */
+  /** Lighting parameters of the current view (fog distances + the focused field's spotlight). @param {Camera} cam @returns {Light} */
   _light(cam) {
     const F = this.focus || { r0: 9, r1: 12, c0: 0, c1: 10 };
     return {
@@ -495,7 +565,7 @@ export class TileField {
     };
   }
 
-  /** Re-project the ground when the camera changed (call every frame; cheap when unchanged). */
+  /** Re-project the ground when the camera changed (call every frame; cheap when unchanged). @param {Camera | null} cam @param {boolean} [force] */
   project(cam, force = false) {
     if (!cam) return;
     if (!force && cam === this.cam && cam.version === this.camVersion) return;
@@ -528,15 +598,16 @@ export class TileField {
    * Set a highlight group. `tiles`: [[r,c]] or [{row,col}] (null/empty clears). `style`: 'legal' | 'illegal' |
    * 'range' | 'rangeStand' | 'hover' | 'target' | 'deploy' | { color, fill, line, group }. `opts.stripes`: light
    * diagonal stripes over the fill (the official striped range tiles; drawn under the units like every highlight).
-   * @param {any} tiles
+   * @param {unknown} tiles
    * @param {string | { color?: number, fill?: number, line?: number, group?: string }} [style]
    * @param {string} [group]
    * @param {{ stripes?: boolean }} [opts]
    */
   setHighlights(tiles, style = 'range', group, opts) {
-    let st = typeof style === 'object' && style ? { ...HL_STYLES.range, ...style } : (HL_STYLES[style] || HL_STYLES.range);
+    let st = typeof style === 'object' && style ? { ...HL_STYLES.range, ...style } : (HL_STYLES[/** @type {string} */ (style)] || HL_STYLES.range);   // (a string here: the non-strict pass does not narrow it)
     if (opts && opts.stripes) st = { ...st, stripes: true };
     const key = group || (typeof style === 'object' && style?.group) || (typeof style === 'string' ? style : 'custom');
+    /** @type {number[][]} */
     const list = [];
     if (Array.isArray(tiles)) {
       for (const t of tiles) {
@@ -549,6 +620,7 @@ export class TileField {
     this._drawHighlights();
   }
 
+  /** @param {string} [group] */
   clearHighlights(group) {
     if (group) this.highlights.delete(group); else this.highlights.clear();
     this._drawHighlights();
@@ -612,7 +684,7 @@ export class TileField {
     this._applyBattleRect();
   }
 
-  /** In battle, crates / turrets inside the field rect are sim units (kind 'device'): hide the static ones there. */
+  /** In battle, crates / turrets inside the field rect are sim units (kind 'device'): hide the static ones there. @param {TileRect | null} rect */
   setBattleRect(rect) {
     const next = rect ? { ...rect } : null;
     if (JSON.stringify(next) === JSON.stringify(this.battleRect)) return;
@@ -628,7 +700,7 @@ export class TileField {
 
   _applyBattleRect() {
     const R = this.battleRect;
-    const inside = (d) => !!R && d.row >= R.r0 && d.row <= R.r1 && d.col >= R.c0 && d.col <= R.c1;
+    const inside = (/** @type {{ row: number, col: number }} */ d) => !!R && d.row >= R.r0 && d.row <= R.r1 && d.col >= R.c0 && d.col <= R.c1;
     for (const d of this.devBoxes) d.visible = !(inside(d) && (d.role === 'crate' || d.role === 'turret'));
     for (const d of this.devices) { d.visible = true; d.gfx.visible = true; }
   }
@@ -660,6 +732,7 @@ export class TileField {
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < colsOf(this.grid); c++) {
       const t = this.grid[r][c];
       if (!t.drawn || t.scenery || r >= 13) continue;
+      /** @param {string} kind @param {string} tex @param {unknown} blend @param {number} tint @param {number} [n] */
       const add = (kind, tex, blend, tint, n = 1) => {
         for (let i = 0; i < n; i++) {
           const s = new P.Sprite(fx.tex[tex]);
@@ -695,13 +768,13 @@ export class TileField {
     }
   }
 
-  /** Leak flash on an objective tile (b.ev 'leak'). */
+  /** Leak flash on an objective tile (b.ev 'leak'). @param {number} r @param {number} c */
   flashObjective(r, c) {
     this.flashes.push({ r, c, t: 0 });
     if (this.flashes.length > 8) this.flashes.shift();
   }
 
-  /** Per-frame animation (dt seconds). */
+  /** Per-frame animation (dt seconds). @param {number} dt */
   update(dt) {
     this.time += dt;
     const t = this.time;
@@ -710,7 +783,7 @@ export class TileField {
       switch (a.kind) {
         case 'smog': {
           const k = (t * 0.25 * a.sp + a.phase) % 1;
-          s.position.set(a.x + Math.sin(t * 0.5 + a.phase) * px * 0.08, a.y - k * px * 0.5);
+          s.position.set(/** @type {number} */ (a.x) + Math.sin(t * 0.5 + a.phase) * px * 0.08, /** @type {number} */ (a.y) - k * px * 0.5);   // (placed: _placeAnim)
           s.scale.set((px / 128) * (0.9 + k * 0.8), (px / 128) * (0.6 + k * 0.5));
           s.alpha = 0.55 * Math.sin(k * Math.PI);
           break;
@@ -822,6 +895,7 @@ export class TileField {
 /**
  * Project mesh record `m` ({ quads, pos, uvq, col, idx, order, *Buf, noSort }) with camera `cam`: perspective-correct
  * UVs (u·w, v·w, w), per-vertex fog + spotlight shading, painter's index order.
+ * @param {Camera} cam @param {MeshRec} m @param {Light} light @param {Projected} [p]
  */
 export function projectMesh(cam, m, light, p = { x: 0, y: 0, s: 0, depth: 0 }) {
   const qs = m.quads;
@@ -835,10 +909,11 @@ export function projectMesh(cam, m, light, p = { x: 0, y: 0, s: 0, depth: 0 }) {
     const q = qs[i];
     // back-facing E/W faces collapse to nothing
     let visible = q.alpha > 0;
-    if (q.faceDir === 'E') visible = visible && camX > q.fx;
-    else if (q.faceDir === 'W') visible = visible && camX < q.fx;
+    // (an E / W face has its fx; an absent rot is 0)
+    if (q.faceDir === 'E') visible = visible && camX > /** @type {number} */ (q.fx);
+    else if (q.faceDir === 'W') visible = visible && camX < /** @type {number} */ (q.fx);
     const u = q.u;
-    const rot = q.rot | 0;
+    const rot = /** @type {number} */ (q.rot) | 0;
     for (let k = 0; k < 4; k++) {
       const pt = q.pts[k];
       cam.project(pt[0], pt[1], pt[2], p);
@@ -879,6 +954,9 @@ export function projectMesh(cam, m, light, p = { x: 0, y: 0, s: 0, depth: 0 }) {
 /**
  * Append the visible faces of a textured box (top + S/E/W sides; N never faces the camera) to `quads`.
  * `o`: { row, col (sort keys), rot (top texture quarter turns), alpha, kind ('block' default) }.
+ * @param {Quad[]} quads @param {UvMap | null | undefined} uv @param {number} cx @param {number} cy @param {number} z0
+ * @param {number} size @param {number} height @param {string} topMat @param {string} sideMat
+ * @param {{ row?: number, col?: number, rot?: number, alpha?: number, kind?: string }} [o]
  */
 export function boxQuads(quads, uv, cx, cy, z0, size, height, topMat, sideMat, o = {}) {
   const a = size / 2;
@@ -889,22 +967,25 @@ export function boxQuads(quads, uv, cx, cy, z0, size, height, topMat, sideMat, o
   quads.push({ ...base, pts: sidePts('S', x0, x1, y0, y1, zt, z0), u: side, shade: 0.86, order: 1, faceDir: 'S', fx: cx });
   quads.push({ ...base, pts: sidePts('E', x0, x1, y0, y1, zt, z0), u: side, shade: 0.64, order: 1, faceDir: 'E', fx: x1 });
   quads.push({ ...base, pts: sidePts('W', x0, x1, y0, y1, zt, z0), u: side, shade: 0.64, order: 1, faceDir: 'W', fx: x0 });
-  quads.push({ ...base, pts: [[x0, y1, zt], [x1, y1, zt], [x1, y0, zt], [x0, y0, zt]], u: top, shade: 1, order: 0, faceDir: 0, rot: o.rot | 0 });
+  quads.push({ ...base, pts: [[x0, y1, zt], [x1, y1, zt], [x1, y0, zt], [x0, y0, zt]], u: top, shade: 1, order: 0, faceDir: 0, rot: /** @type {number} */ (o.rot) | 0 });
   return quads;
 }
 
 /**
  * Backdrop ground plane under the island (z = −CLIFF_DEPTH), textured with repeating concrete, with contact
  * shadows baked into the vertex shading near drawn tiles.
+ * @param {StageTile[][]} G @param {number} [tilesPerRepeat]
  */
 export function buildPlaneQuads(G, tilesPerRepeat = 5) {
+  /** @type {Quad[]} */
   const quads = [];
   const T = Math.max(1, Number(tilesPerRepeat) || 5);
   const z = -CLIFF_DEPTH;
   // distance field (tiles) to the nearest drawn tile, sampled at vertices
+  /** @type {number[][]} */
   const drawn = [];
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < colsOf(G); c++) if (G[r]?.[c]?.drawn) drawn.push([c, r]);
-  const occl = (x, y) => {
+  const occl = (/** @type {number} */ x, /** @type {number} */ y) => {
     if (!drawn.length) return 1;
     let best = Infinity;
     for (const [c, r] of drawn) {
@@ -916,8 +997,9 @@ export function buildPlaneQuads(G, tilesPerRepeat = 5) {
     // contact shadow at the island's foot, then a slow falloff into the dark surroundings
     return (1 - 0.6 * Math.exp(-d / 0.9)) * (0.42 + 0.58 * Math.exp(-d / 7));
   };
+  /** @type {Map<number, number>} */
   const cache = new Map();
-  const ao = (x, y) => { const k = x * 1000 + y; let v = cache.get(k); if (v === undefined) { v = occl(x, y); cache.set(k, v); } return v; };
+  const ao = (/** @type {number} */ x, /** @type {number} */ y) => { const k = x * 1000 + y; let v = cache.get(k); if (v === undefined) { v = occl(x, y); cache.set(k, v); } return v; };
   const S = PLANE.cell;
   for (let y = PLANE.y0; y < PLANE.y1; y += S) for (let x = PLANE.x0; x < PLANE.x1; x += S) {
     const xa = x - 0.5, xb = x - 0.5 + S, ya = y - 0.5, yb = y - 0.5 + S;
@@ -933,9 +1015,12 @@ export function buildPlaneQuads(G, tilesPerRepeat = 5) {
 
 /** A standalone textured box mesh (battle devices), sharing the TileField shader & atlas. */
 export class BoxMesh {
+  /** @param {TileField} field */
   constructor(field) {
     this.field = field;
+    /** @type {Quad[]} */
     this.quads = [];
+    /** @type {MeshRec | null} */
     this.m = null;
     this.key = '';
     this.dirty = true;
@@ -946,11 +1031,14 @@ export class BoxMesh {
   /** Material UVs changed (art swap): rebuild the quads next update. */
   retexture() { this.key = ''; this.dirty = true; }
 
-  /** @param {any} cam @param {{ x, y, z, size, height, top, side, alpha?, rot? }} b */
+  /**
+   * @param {Camera | null} cam
+   * @param {{ x: number, y: number, z: number, size: number, height: number, top: string, side: string, alpha?: number, rot?: number }} b
+   */
   update(cam, b) {
     if (this.destroyed || !cam) return;
     const f = this.field;
-    const key = `${b.x.toFixed(3)},${b.y.toFixed(3)},${b.z.toFixed(3)},${b.size.toFixed(3)},${b.height.toFixed(3)},${b.top},${b.side},${b.rot | 0}`;
+    const key = `${b.x.toFixed(3)},${b.y.toFixed(3)},${b.z.toFixed(3)},${b.size.toFixed(3)},${b.height.toFixed(3)},${b.top},${b.side},${/** @type {number} */ (b.rot) | 0}`;
     const alpha = b.alpha ?? 1;
     if (key !== this.key) {
       this.key = key;
@@ -971,7 +1059,7 @@ export class BoxMesh {
     if (this.dirty || this.camVersion !== cam.version) {
       this.dirty = false;
       this.camVersion = cam.version;
-      projectMesh(cam, this.m, f._light(cam), f._p);
+      projectMesh(cam, /** @type {MeshRec} */ (this.m), f._light(cam), f._p);   // (made above)
     }
   }
 
@@ -988,10 +1076,16 @@ export class BoxMesh {
  * Tile geometry as quads: `{ kind: 'low'|'block'|'cliff', pts: [[x,y,z]×4], u: [u0,v0,u1,v1], shade, alpha,
  * order (0 top, 1 side), faceDir: 0|'S'|'E'|'W', fx (x of an E/W face: visible when the camera is beyond it),
  * row, col, rot? (top texture quarter turns) }`. Pure (uv map from the tile atlas).
+ * @param {StageTile[][]} G @param {UvMap | null | undefined} uv
  */
 export function buildTileQuads(G, uv) {
+  /** @type {Quad[]} */
   const quads = [];
   const blank = (uv && uv.blank) || [0, 0, 0, 0];
+  /**
+   * @param {string} kind @param {string} mat @param {number[][]} pts @param {number} shade @param {number} alpha
+   * @param {number} order @param {string | 0} faceDir @param {StageTile} tile
+   */
   const add = (kind, mat, pts, shade, alpha, order, faceDir, tile) => {
     const u = (uv && uv[mat]) || blank;
     const fx = faceDir === 'E' ? tile.c + 0.5 : faceDir === 'W' ? tile.c - 0.5 : tile.c;
@@ -1007,7 +1101,7 @@ export function buildTileQuads(G, uv) {
     // top (texture top = far edge)
     add(H > 0 ? 'block' : 'low', topMat, [[x0, y1, H], [x1, y1, H], [x1, y0, H], [x0, y0, H]], dim, t.alpha, 0, 0, t);
     // sides: S (near), E, W. N faces are never visible (the camera is always south of the field).
-    const sideMat = SIDE_MAT[t.mat] || SIDE_MAT[t.hClass] || 'lowSide';
+    const sideMat = SIDE_MAT[t.mat] || SIDE_MAT[/** @type {string} */ (t.hClass)] || 'lowSide';
     for (const [dir, dr, dc] of /** @type {[string, number, number][]} */ ([['S', -1, 0], ['E', 0, 1], ['W', 0, -1]])) {
       const n = G[r + dr]?.[c + dc];
       const nDrawn = !!(n && n.drawn);
@@ -1025,9 +1119,11 @@ export function buildTileQuads(G, uv) {
   return quads;
 }
 
-/** Ground quads (cliffs + low tiles) and raised-block quads grouped by row (each row is depth-sorted with units). */
+/** Ground quads (cliffs + low tiles) and raised-block quads grouped by row (each row is depth-sorted with units). @param {Quad[]} quads */
 export function splitQuadGroups(quads) {
+  /** @type {Quad[]} */
   const ground = [];
+  /** @type {Map<number, Quad[]>} */
   const rows = new Map();
   for (const q of quads) {
     if (q.kind !== 'block') { ground.push(q); continue; }
@@ -1041,6 +1137,7 @@ export function splitQuadGroups(quads) {
 /**
  * Painter's order of quad indices (in place): cliffs, then low tiles far→near, then blocks far→near, outer→inner
  * (by distance from the camera's column) within a row, each block's sides before its top.
+ * @param {number[]} order @param {Quad[]} qs @param {number} camX
  */
 export function sortQuadOrder(order, qs, camX) {
   return order.sort((a, b) => {
@@ -1059,6 +1156,11 @@ export function sortQuadOrder(order, qs, camX) {
   });
 }
 
+/**
+ * @param {string} dir @param {number} x0 @param {number} x1 @param {number} y0 @param {number} y1 @param {number} zt
+ * @param {number} zb
+ * @returns {number[][]}
+ */
 function sidePts(dir, x0, x1, y0, y1, zt, zb) {
   switch (dir) {
     case 'S': return [[x0, y0, zt], [x1, y0, zt], [x1, y0, zb], [x0, y0, zb]];
@@ -1068,6 +1170,7 @@ function sidePts(dir, x0, x1, y0, y1, zt, zb) {
   }
 }
 
+/** @param {number} a @param {number} b @param {number} t */
 export function mixColor(a, b, t) {
   const k = Math.max(0, Math.min(1, t));
   const ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255;
@@ -1077,9 +1180,12 @@ export function mixColor(a, b, t) {
 
 // ---- device drawing helpers (Graphics, projected corners) -----------------------------------------------------
 
+/**
+ * @param {Camera} cam @param {number} cx @param {number} cy @param {number} z0 @param {number} size @param {number} height
+ */
 function boxCorners(cam, cx, cy, z0, size, height) {
   const a = size / 2;
-  const P = (x, y, z) => { const p = cam.project(x, y, z); return [p.x, p.y]; };
+  const P = (/** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ z) => { const p = cam.project(x, y, z); return [p.x, p.y]; };
   return {
     // bottom
     b0: P(cx - a, cy - a, z0), b1: P(cx + a, cy - a, z0), b2: P(cx + a, cy + a, z0), b3: P(cx - a, cy + a, z0),
@@ -1088,6 +1194,10 @@ function boxCorners(cam, cx, cy, z0, size, height) {
   };
 }
 
+/**
+ * @param {PIXI.Graphics} g @param {number[][]} pts @param {number} color @param {number} [alpha]
+ * @param {number[] | null} [line] [width, colour, alpha?]
+ */
 function poly(g, pts, color, alpha = 1, line = null) {
   if (line) g.lineStyle(line[0], line[1], line[2] ?? 1, 0.5); else g.lineStyle(0);
   g.beginFill(color, alpha);
@@ -1095,6 +1205,10 @@ function poly(g, pts, color, alpha = 1, line = null) {
   g.endFill();
 }
 
+/**
+ * @param {PIXI.Graphics} g @param {Camera} cam @param {number} cx @param {number} cy @param {number} z0 @param {number} size
+ * @param {number} height @param {number} top @param {number} front @param {number} side
+ */
 function drawBox(g, cam, cx, cy, z0, size, height, top, front, side) {
   const k = boxCorners(cam, cx, cy, z0, size, height);
   const camX = cam.tx;
@@ -1105,6 +1219,10 @@ function drawBox(g, cam, cx, cy, z0, size, height, top, front, side) {
   return k;
 }
 
+/**
+ * @param {PIXI.Graphics} g @param {Camera} cam @param {number} cx @param {number} cy @param {number} z0 @param {number} size
+ * @param {number} height @param {unknown} seed
+ */
 function drawCrate(g, cam, cx, cy, z0, size, height, seed) {
   const s = cam.scaleAt(cx, cy, z0);
   // soft contact shadow
@@ -1135,6 +1253,7 @@ function drawCrate(g, cam, cx, cy, z0, size, height, seed) {
   void seed;
 }
 
+/** @param {PIXI.Graphics} g @param {Camera} cam @param {number} cx @param {number} cy @param {number} z0 @param {number} seed */
 function drawMound(g, cam, cx, cy, z0, seed) {
   const R = rng(seed);
   for (let i = 0; i < 5; i++) {
@@ -1147,6 +1266,7 @@ function drawMound(g, cam, cx, cy, z0, seed) {
   }
 }
 
+/** @param {PIXI.Graphics} g @param {Camera} cam @param {number} cx @param {number} cy @param {number} z0 @param {number} seed */
 function drawBush(g, cam, cx, cy, z0, seed) {
   const R = rng(seed);
   for (let i = 0; i < 6; i++) {
@@ -1159,9 +1279,14 @@ function drawBush(g, cam, cx, cy, z0, seed) {
   }
 }
 
+/** @param {number[]} a @param {number[]} b @param {number} t */
 const lerp2 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
-/** Glowing wireframe box (gates / objective) with a warning glyph on the front face. */
+/**
+ * Glowing wireframe box (gates / objective) with a warning glyph on the front face.
+ * @param {PIXI.Graphics} g @param {Camera} cam @param {number} cx @param {number} cy @param {number} z0 @param {number} size
+ * @param {number} height @param {number} color @param {number} pulse @param {boolean} gate
+ */
 function drawWireBox(g, cam, cx, cy, z0, size, height, color, pulse, gate) {
   const k = boxCorners(cam, cx, cy, z0, size, height);
   const s = cam.scaleAt(cx, cy, z0);

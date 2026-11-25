@@ -52,6 +52,61 @@
 // own idle clip, which go straight back to that idle: the skill's end clip closes the skill, not each spell of attacks
 // while it runs.
 
+/** @import { HeldSkin } from './heldWheel.js' */
+
+/**
+ * The manifest's clip roles (tools/assets: `anims`) as this file reads them: a role names its clips; the unit's roles
+ * hold one per state.
+ * @typedef {{ begin?: string | null, loop?: string | null, end?: string | string[] | null, idle?: string | null,
+ *   up?: string | null, alts?: string[], pick?: string, from?: unknown, combat?: SpineRole | null,
+ *   signals?: Record<string, string | SpineRole>, swap?: Record<string, string>,
+ *   down?: { by?: string, map?: Record<string, string>, deployClips?: string[] }, strike?: unknown, stance?: unknown,
+ *   plainAttack?: unknown, via?: string, modeAttack?: unknown, firstAttackBegin?: string | null, firstBegin?: unknown,
+ *   attackBegin?: string | null, attackEnd?: string | null, variants?: Record<string, SpineRole>,
+ *   downMode?: SpineRole & { by?: string }, beginDown?: string | null, endDown?: string | null, endProj?: number,
+ *   stun?: string | null, die?: string | null, deploy?: string | null, deploys?: Record<string, string>,
+ *   [key: string]: unknown }} SpineRole
+ * @typedef {{ idle?: string | string[] | null, deploy?: string | null, die?: string | null, attack?: SpineRole | null,
+ *   skill?: SpineRole | null, move?: SpineRole | null, stun?: SpineRole | null, run?: SpineRole | null,
+ *   skills?: Record<string, SpineRole>, equip?: Record<string, SpineRoles>, [key: string]: unknown }} SpineRoles
+ * @typedef {{ anims?: SpineRoles, animations?: Record<string, number>, hits?: Record<string, number[]>,
+ *   bounds?: { height?: number } | null, [key: string]: unknown }} SpineEntry a manifest Spine entry
+ *
+ * The pixi-spine objects read here (the script-tag runtime has no types), with the display members render/units.js uses.
+ * @typedef {{ worldVerticesLength?: number, computeWorldVertices?: SpWorldVerts, region?: unknown, x?: number,
+ *   y?: number, width?: number, height?: number, scaleX?: number, scaleY?: number, rotation?: number,
+ *   triangles?: ArrayLike<number>, type?: number, endSlot?: SpSlotData | null, [key: string]: unknown }} SpAttachment
+ * @typedef {SpAttachment & { worldVerticesLength: number, computeWorldVertices: SpWorldVerts }} SpClipAttachment
+ * @typedef {(slot: SpSlot, start: number, count: number, out: Float32Array, offset: number, stride: number) => void} SpWorldVerts
+ * @typedef {{ index: number }} SpSlotData
+ * @typedef {{ matrix?: { a: number, b: number, c: number, d: number, tx: number, ty: number } | null, a: number, b: number,
+ *   c: number, d: number, worldX: number, worldY: number }} SpBone spine-ts's a…d / worldX / worldY, pixi-spine's `matrix`
+ * @typedef {{ renderable: boolean }} SpGraphics
+ * @typedef {{ data: SpSlotData, bone?: SpBone | null, attachment?: SpAttachment | null,
+ *   getAttachment?: () => SpAttachment | null, clippingContainer?: { mask: unknown } | null,
+ *   currentGraphics?: SpGraphics | null, color: { a: number }, setAttachment(attachment: unknown): void }} SpSlot
+ * @typedef {{ timeScale: number, mixDuration: number, trackTime: number, loop: boolean, mixingFrom: unknown,
+ *   animationEnd: number, animationStart: number }} SpTrackEntry
+ * @typedef {{ tracks: Array<SpTrackEntry | null>, setAnimation(track: number, name: string, loop: boolean): SpTrackEntry | null,
+ *   addAnimation(track: number, name: string, loop: boolean, delay: number): SpTrackEntry | null,
+ *   addListener(listener: { event: (entry: unknown, ev: { data?: { name?: string }, stringValue?: string } | null) => void }): void
+ * }} SpState
+ * @typedef {{ slots: SpSlot[], drawOrder: SpSlot[], skin: unknown, data?: { findSkin?: (name: string) => HeldSkin | null },
+ *   setSkin(skin: unknown): void, setSlotsToSetupPose(): void }} SpSkeleton
+ * @typedef {{ getAttachments?: () => Array<{ attachment?: SpAttachment | null } | null> }} SpSkin
+ * @typedef {{ animations?: Array<{ name: string }>, skins?: SpSkin[] }} SpData PIXI.spine skeleton data
+ * @typedef {{ autoUpdate: boolean, state: SpState, stateData: { defaultMix: number }, skeleton: SpSkeleton,
+ *   slotContainers: Array<{ visible: boolean } | undefined>, spineData: { findAnimation(name: string): { duration: number } | null },
+ *   createGraphics?: (slot: SpSlot, att: SpAttachment) => SpGraphics, tint: number, alpha: number, visible: boolean,
+ *   scale: { set(x: number, y?: number): void }, position: { set(x: number, y?: number): void },
+ *   parent: PIXI.Container | null, getLocalBounds(): { x: number, y: number, width: number, height: number },
+ *   update(dt: number): void, destroy(options: object): void }} SpSpine a PIXI.spine.Spine
+ * @typedef {{ v: Float32Array, poly: Float32Array, w: Float32Array, a: Float64Array, b: Float64Array }} ClipBuf
+ *   the eyelid fallback's scratch buffers
+ * @typedef {((rgb: unknown) => number) & { fast?: boolean }} Rgb2hex
+ */
+
+/** @param {number} v @param {number} lo @param {number} hi */
 const clampN = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 /**
@@ -59,7 +114,7 @@ const clampN = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
  * it runs the shared Color — an array compare, a normalise and a copy per call, about a tenth of a skeleton's update in
  * a desktop profile. An [r, g, b(, a)] array gets the same number straight away (Color.normalize clamps each channel to
  * 0..1, refreshInt packs them); anything else goes to PIXI's own (`slow`).
- * @param {any} rgb @param {(rgb: any) => number} slow
+ * @param {unknown} rgb @param {(rgb: unknown) => number} slow
  */
 export function fastRgb2hex(rgb, slow) {
   if ((Array.isArray(rgb) || rgb instanceof Float32Array) && rgb.length >= 3 && rgb.length <= 4) {
@@ -69,12 +124,15 @@ export function fastRgb2hex(rgb, slow) {
   return slow(rgb);
 }
 
-/** Puts fastRgb2hex in PIXI.utils once (pixi-spine reads `PIXI.utils.rgb2hex` at each call). @param {any} P PIXI */
+/**
+ * Puts fastRgb2hex in PIXI.utils once (pixi-spine reads `PIXI.utils.rgb2hex` at each call).
+ * @param {{ utils?: { rgb2hex?: Rgb2hex } } | null | undefined} P PIXI
+ */
 export function installFastRgb2hex(P) {
   const u = P?.utils;
   if (!u || typeof u.rgb2hex !== 'function' || u.rgb2hex.fast) return;
   const slow = u.rgb2hex;
-  const fast = (rgb) => fastRgb2hex(rgb, slow);
+  const fast = (/** @type {unknown} */ rgb) => fastRgb2hex(rgb, slow);
   fast.fast = true;
   u.rgb2hex = fast;
 }
@@ -92,6 +150,7 @@ const SWING_HOLD = 0.1;
  * Playback speed of a swing (pure): the clip reaches its strike frame `hit` (clip seconds; no OnAttack event → the clip
  * end) `windup` game seconds after it starts — 1 / the sim's clip scale (server/sim/ai.js attackTiming), within its
  * [0.1, 10] bounds (MIN_ANIM_SCALE).
+ * @param {number} hit @param {number} windup
  */
 export function swingSpeed(hit, windup) {
   return clampN(hit / windup, 0.1, 10);
@@ -112,6 +171,7 @@ const SKILL_CLIP_MIN = 0.2;
  * seconds. The clip plays at `ts = loopDur / interval` (one loop per attack); started `lead` before the attack it
  * reaches the strike frame on time: from `start = hit − lead·ts` at `ts` when little of the wind-up is lost,
  * otherwise from (nearly) the beginning at up to MAX_WIND_SPEEDUP × ts (`tsWind`).
+ * @param {number} loopDur @param {number} hit @param {number} interval @param {number} lead
  * @returns {{ ts: number, tsWind: number, start: number }}
  */
 export function windUpPlan(loopDur, hit, interval, lead) {
@@ -125,10 +185,14 @@ export function windUpPlan(loopDur, hit, interval, lead) {
   return { ts, tsWind, start };
 }
 
-/** A clipping attachment (pixi-spine AttachmentType.Clipping = 6). */
+/**
+ * A clipping attachment (pixi-spine AttachmentType.Clipping = 6).
+ * @param {SpAttachment | null | undefined} a
+ * @returns {a is SpClipAttachment}
+ */
 const isClip = (a) => !!a && (a.type === 6 || a.constructor?.name === 'ClippingAttachment' || ('endSlot' in a && 'vertices' in a && !('uvs' in a)));
 
-/** Whether any skin of the skeleton data has a clipping attachment. */
+/** Whether any skin of the skeleton data has a clipping attachment. @param {SpData | null | undefined} data */
 export function hasClipping(data) {
   try {
     for (const skin of data?.skins || []) {
@@ -141,6 +205,7 @@ export function hasClipping(data) {
 
 /**
  * Is (x, y) inside the polygon of `n` points `pts` (flat [x0, y0, x1, y1, …])? Ray casting (PR #384 by @Convey123).
+ * @param {number} x @param {number} y @param {ArrayLike<number>} pts @param {number} n
  */
 export function pointInPolygon(x, y, pts, n) {
   let inside = false;
@@ -164,30 +229,32 @@ const CLIP_HIDE_SHARE = 0.25, CLIP_KEEP_SHARE = 0.5;
  * order. Returns the number of floats written, 0 when nothing is measurable. pixi-spine keeps a bone's world transform
  * in `bone.matrix` (a PIXI Matrix, whose b / c are spine's c / b); spine-ts's a…d / worldX / worldY are read only when
  * there is no matrix — 0.2.2 read those alone, undefined on pixi-spine's bones, so no region was ever measured.
+ * @param {SpSlot} slot @param {SpAttachment} att @param {{ v: Float32Array }} buf
  */
 function drawnVerts(slot, att, buf) {
-  const n = att.worldVerticesLength | 0;
+  const n = /** @type {number} */ (att.worldVerticesLength) | 0;   // (a region has none: 0)
   if (n >= 2 && typeof att.computeWorldVertices === 'function') {
     if (buf.v.length < n) buf.v = new Float32Array(n);
     att.computeWorldVertices(slot, 0, n, buf.v, 0, 2);
     return n;
   }
   const b = slot.bone;
-  if (att.region === undefined || !b || !Number.isFinite(att.x) || !Number.isFinite(att.y) || !(att.width > 0) || !(att.height > 0)) return 0;
+  // (x, y, width and height are numbers past this check)
+  if (att.region === undefined || !b || !Number.isFinite(att.x) || !Number.isFinite(att.y) || !(/** @type {number} */ (att.width) > 0) || !(/** @type {number} */ (att.height) > 0)) return 0;
   const m = b.matrix;
   const a = m ? m.a : b.a, bb = m ? m.c : b.b, c = m ? m.b : b.c, d = m ? m.d : b.d, tx = m ? m.tx : b.worldX, ty = m ? m.ty : b.worldY;
-  const hw = (att.width * (Number.isFinite(att.scaleX) ? att.scaleX : 1)) / 2, hh = (att.height * (Number.isFinite(att.scaleY) ? att.scaleY : 1)) / 2;
+  const hw = (/** @type {number} */ (att.width) * (Number.isFinite(att.scaleX) ? /** @type {number} */ (att.scaleX) : 1)) / 2, hh = (/** @type {number} */ (att.height) * (Number.isFinite(att.scaleY) ? /** @type {number} */ (att.scaleY) : 1)) / 2;
   const rad = ((att.rotation || 0) * Math.PI) / 180, cs = Math.cos(rad), sn = Math.sin(rad);
   const v = buf.v;
   for (let q = 0; q < 4; q++) {
     const px = q === 0 || q === 3 ? -hw : hw, py = q < 2 ? -hh : hh;
-    const lx = px * cs - py * sn + att.x, ly = px * sn + py * cs + att.y;
+    const lx = px * cs - py * sn + /** @type {number} */ (att.x), ly = px * sn + py * cs + /** @type {number} */ (att.y);
     v[q * 2] = a * lx + bb * ly + tx; v[q * 2 + 1] = c * lx + d * ly + ty;
   }
   return 8;
 }
 
-/** Twice the signed area of the polygon of `n` points `p` (flat). */
+/** Twice the signed area of the polygon of `n` points `p` (flat). @param {ArrayLike<number>} p @param {number} n */
 function area2(p, n) {
   let s = 0;
   for (let i = 0, j = n - 1; i < n; j = i++) s += p[j * 2] * p[i * 2 + 1] - p[i * 2] * p[j * 2 + 1];
@@ -198,6 +265,8 @@ function area2(p, n) {
  * Area of the polygon `poly` (`pn` points) inside the convex polygon `win` (`wn` points): Sutherland–Hodgman with the
  * clip polygon as the subject, so a concave one is measured exactly (the bridge edges a concave subject leaves along the
  * window's border add no area). `buf.a` / `buf.b` are scratch buffers, grown to fit (each pass at most doubles the points).
+ * @param {ArrayLike<number>} poly @param {number} pn @param {ArrayLike<number>} win @param {number} wn
+ * @param {{ a: Float64Array, b: Float64Array }} buf
  */
 function clippedArea(poly, pn, win, wn, buf) {
   const w2 = area2(win, wn);
@@ -227,13 +296,14 @@ function clippedArea(poly, pn, win, wn, buf) {
  * By the share of its drawn area inside the polygon — what the stencil would keep: each mesh triangle (a region: its
  * quad) clips the polygon — and in the middle band (CLIP_HIDE_SHARE … CLIP_KEEP_SHARE), or when no area is measurable
  * (a path, a collapsed mesh), by its centre (mesh: the mean of its vertices; region: its quad's centre).
+ * @param {SpSlot} slot @param {SpAttachment} att @param {ClipBuf} buf @param {ArrayLike<number>} poly @param {number} pn
  */
 function clipHides(slot, att, buf, poly, pn) {
   const n = drawnVerts(slot, att, buf);
   if (!n) return false;
   const v = buf.v, tri = att.triangles;
   let total = 0, inside = 0;
-  if ((att.worldVerticesLength | 0) < 2) { total = Math.abs(area2(v, 4)) / 2; inside = clippedArea(poly, pn, v, 4, buf); }
+  if ((/** @type {number} */ (att.worldVerticesLength) | 0) < 2) { total = Math.abs(area2(v, 4)) / 2; inside = clippedArea(poly, pn, v, 4, buf); }
   else if (tri && tri.length >= 3) {
     const w = buf.w;
     for (let k = 0; k + 2 < tri.length; k += 3) {
@@ -257,15 +327,17 @@ function clipHides(slot, att, buf, poly, pn) {
 
 export class SpineActor {
   /**
-   * @param {any} spineData PIXI.spine skeleton data
-   * @param {object} entry manifest Spine entry (anims, animations, hits, bounds, pma)
+   * @param {SpData} spineData PIXI.spine skeleton data
+   * @param {SpineEntry} entry manifest Spine entry (anims, animations, hits, bounds, pma)
    */
   constructor(spineData, entry) {
     const P = globalThis.PIXI;
     this.entry = entry;
+    /** @type {SpineRoles} */
     this.roles = entry.anims || {};
     this.durations = entry.animations || {};
     installFastRgb2hex(P);
+    /** @type {SpSpine} */
     this.spine = new P.spine.Spine(spineData);
     this.spine.autoUpdate = false;
     this.names = new Set((spineData.animations || []).map((a) => a.name));
@@ -276,6 +348,7 @@ export class SpineActor {
      */
     this.clipped = hasClipping(spineData);
     this.clipOn = true;
+    /** @type {Set<number>} */
     this._clipHidden = new Set(); // slot indexes the eyelid fallback hid in its last pass (_eyeMaskFallback)
     if (this.clipped) {
       const sp = this.spine;
@@ -299,6 +372,7 @@ export class SpineActor {
     this.endAt = 0;               // landing in endRoles (the next form's) when given
     this.endRoles = null;
     this.skillIndex = null;       // the skill slot whose clip `skill` plays (setSkillIndex), null = the manifest's primary
+    /** @type {string | null} */
     this.skillVariant = null;     // the latest cast's clip variant (setSkill: anims skill `variants`)
     this.skillDown = false;       // the latest cast switched to the skill's facing-down mode (setSkill: anims skill `downMode`)
     /**
@@ -307,6 +381,7 @@ export class SpineActor {
      * @type {(() => { deploy: boolean, face: boolean })|null}
      */
     this.downs = null;
+    /** @type {{ signal: string, interval: number } | null} */
     this.pendingSignal = null;    // a signalSwing waiting for the skill's opening clip to end
     this.runMode = false;         // move on the model's own Run cycle (setRunMode)
     this.formRoles = null;        // the clip set of the form in force (setForm), over the unit's own roles
@@ -321,6 +396,7 @@ export class SpineActor {
     this.frozen = false;
     this.still = false;           // standStill: the idle clip's first frame for good (规程's battle bench)
     this.stunFall = false;        // the stun is an operator's (setBase `fall`): no Stun clip → the Die clip (_enterStun)
+    /** @type {'clip' | 'fall' | 'freeze' | null} */
     this.stunHow = null;          // mode 'stun': 'clip' | 'fall' | 'freeze'
     this.dead = false;
     this.interval = 1;
@@ -334,9 +410,12 @@ export class SpineActor {
     this.wound = false;           // wound up for the coming attack (windUp → attack)
     this.swingUntil = null;       // the end of a swing's clip (swing): attacks meanwhile leave it alone
     this.lastAttackEnd = null;    // the clock when the attack mode last ended (a first swing after it: _firstBegin)
+    /** @type {Array<[string, string]> | null} */
     this.fortressClips = null;    // a 要塞's [melee, ranged] clip pairs (render/units.js FORTRESS_CLIPS)
+    /** @type {boolean | null} */
     this.atkRanged = null;        // …and whether its latest attack was ranged (null: not known yet — the role's clip)
     this.combatHit = false;       // the latest swing hits an enemy this unit blocks: the role's `combat` clip (units.js onSwing)
+    /** @type {{ clip: SpineRole, name: string | null, n: number } | null} */
     this.alt = null;              // the attack clip a role with turns (anims `alts`) plays now: { clip, name, n }
     this.altRandom = Math.random; // its 'random' / 'other' choice
     this._applied = false;        // an update has posed the skeleton since its clip last changed (poseHeld)
@@ -344,7 +423,7 @@ export class SpineActor {
     this._play(this._idleName(), true);
   }
 
-  /** Enable / disable the skeleton's clipping masks. */
+  /** Enable / disable the skeleton's clipping masks. @param {boolean | number | null | undefined} on */
   setClipping(on) {
     on = !!on;
     if (!this.clipped || on === this.clipOn) return;
@@ -375,6 +454,7 @@ export class SpineActor {
   /**
    * A fast mover walks on its model's own Run cycle (`anims.run`; PR #275 by @xcdoge): 猎狗pro (moveSpeed 1.9, 行动速度很快)
    * ships Move_Loop 0.80 s next to Run_Loop 0.53 s. Composes with setSkillIndex; a model without a Run cycle is unchanged.
+   * @param {unknown} on
    */
   setRunMode(on) {
     this.runMode = !!on;
@@ -409,6 +489,8 @@ export class SpineActor {
    * then holds). `end` = { clip, in, roles? } (game s): a closing clip played the same way so that it ends `in` s from
    * now, landing in `roles` — a leader's 重生 ends on its last clip while the sim still holds it, and the next form
    * starts on its own clips.
+   * @param {SpineRoles | null} roles @param {string | string[] | null} [change]
+   * @param {{ clip: string, in: number, roles?: SpineRoles | null } | null} [end] @param {boolean} [hold]
    */
   setForm(roles, change = null, end = null, hold = false) {
     const anims = this._baseRoles();
@@ -428,6 +510,7 @@ export class SpineActor {
 
   /**
    * A dead model that stands on in a form (render/units.js FORMS `stands`): back on the form's clips, after `change`.
+   * @param {SpineRoles | null} roles @param {string | string[] | null} [change]
    */
   stand(roles, change = null) {
     this.dead = false;
@@ -441,6 +524,7 @@ export class SpineActor {
    * SKIN_FORMS. A skin this skeleton lacks changes nothing. The slots go back to their setup attachments through the new
    * skin (Skeleton.setSkin alone only swaps the attachments the old skin had on), and the next update re-poses a held
    * model (poseHeld).
+   * @param {string | null} name
    */
   setSkin(name) {
     const sk = this.spine?.skeleton;
@@ -476,7 +560,7 @@ export class SpineActor {
       const lead = this.wound && this.windUntil != null
         ? Math.max(0, this.windUntil - this.clock) : 0;
       const ts = lead > 0 ? Math.max(0, hit - start) / lead : track.timeScale;
-      const tailTs = lead > 0 ? this.windTs : ts;
+      const tailTs = lead > 0 ? /** @type {number} */ (this.windTs) : ts;   // (wound up: windUp set it)
       this._play(name, track.loop, { start, timeScale: ts, mix: 0 });
       this.attackUntil = this.clock + lead +
         Math.max(0, dur - (lead > 0 ? hit : start)) / tailTs;
@@ -496,6 +580,7 @@ export class SpineActor {
   /**
    * Play a form's transition clip once — or its clips one after another (an array: 风丸's 替身 comes on Die_2 then
    * Start_B); attacks and the resting state wait for them (mode 'change').
+   * @param {string | string[]} clip @param {boolean} [hold]
    */
   _change(clip, hold = false) {
     const clips = this._changeClips(clip);
@@ -510,15 +595,18 @@ export class SpineActor {
     this.changeUntil = this.clock + this.dur(clips);
   }
 
-  /** The clips of a change (one name or an array) this skeleton has. */
+  /** The clips of a change (one name or an array) this skeleton has. @param {unknown} c @returns {string[]} */
   _changeClips(c) { return (Array.isArray(c) ? c : [c]).filter((n) => this.has(n)); }
 
-  has(name) { return !!name && this.names.has(name); }
+  /** @param {unknown} name @returns {name is string} */
+  has(name) { return !!name && this.names.has(/** @type {string} */ (name)); }
+  /** @param {string | string[]} name @returns {number} */
   dur(name) {
     if (Array.isArray(name)) return name.reduce((t, n) => t + (this.has(n) ? this.dur(n) : 0), 0);   // clips in a row
     const d = this.durations[name]; return typeof d === 'number' && d > 0 ? d : this._durFromData(name);
   }
 
+  /** @param {string} name */
   _durFromData(name) {
     try { const a = this.spine.spineData.findAnimation(name); return a && a.duration > 0 ? a.duration : 1; } catch { return 1; }
   }
@@ -534,7 +622,8 @@ export class SpineActor {
 
   _idleName() {
     const sk = this.roles.skill;
-    if (this._stance()) return this._dn(sk, this.has(sk.idle) ? sk.idle : sk.loop);
+    // (a stance needs the skill role: _stance)
+    if (this._stance()) return this._dn(sk, this.has(/** @type {SpineRole} */ (sk).idle) ? /** @type {SpineRole} */ (sk).idle : /** @type {SpineRole} */ (sk).loop);
     if (this.skillOn && sk && this.has(sk.idle)) return this._dn(sk, sk.idle);
     // a form's idle may list clips: the first this skeleton has (render/units.js FORMS: 泥岩 asleep)
     const idle = [this.roles.idle].flat().find((n) => this.has(n));
@@ -550,7 +639,7 @@ export class SpineActor {
   }
 
   /**
-   * @param {string} name
+   * @param {string | null | undefined} name
    * @param {boolean} loop
    * @param {{ timeScale?: number, mix?: number, track?: number, start?: number }} [o]
    */
@@ -568,6 +657,7 @@ export class SpineActor {
     return true;
   }
 
+  /** @param {string | null | undefined} name @param {boolean} loop @param {number} [timeScale] */
   _queue(name, loop, timeScale = 1) {
     if (!this.has(name)) return false;
     const e = this.spine.state.addAnimation(0, name, loop, 0);
@@ -579,6 +669,7 @@ export class SpineActor {
   /**
    * Resting state from the snapshot. `fall` (with 'stun'): an operator's stun, not a freeze / sleep — without a Stun clip
    * it falls on its Die clip (_enterStun).
+   * @param {string} base @param {unknown} [fall]
    */
   setBase(base, fall = false) {
     if (this.dead || this.still) return;
@@ -611,8 +702,9 @@ export class SpineActor {
     this.stunHow = how;
     this.frozen = false;
     if (how === 'clip') {
-      if (this.has(s.begin)) { this._play(s.begin, false); this._queue(s.loop, true); }
-      else this._play(s.loop, this._stunLoops());
+      // (how is 'clip' only with a stun role)
+      if (this.has(/** @type {SpineRole} */ (s).begin)) { this._play(/** @type {SpineRole} */ (s).begin, false); this._queue(/** @type {SpineRole} */ (s).loop, true); }
+      else this._play(/** @type {SpineRole} */ (s).loop, this._stunLoops());
     } else if (how === 'fall') {
       // back from a freeze / sleep over the fall: it is still down (the frozen Die clip goes on)
       const d = this.dieClip(this.skillOn);
@@ -643,6 +735,7 @@ export class SpineActor {
    * An attack is due in `lead` game seconds (the renderer sees it ahead in the snapshot buffer): start the attack
    * clip from its wind-up so the strike frame lands when the attack event is rendered. Returns true once started;
    * false when it is still too early (call again next frame) or there is nothing to wind up.
+   * @param {number} interval @param {number} lead @param {boolean} [once] @param {string | null} [signal]
    */
   windUp(interval, lead, once = false, signal = null) {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant' || this.mode === 'aim' || !(lead >= 0)) return false;
@@ -684,6 +777,7 @@ export class SpineActor {
    * child ability the sim casts in its place (the 9th field); a clip the role names for it is the whole swing (折桠 S2's
    * FirstAttack `Skill_2_Begin`, 慕斯's double attack `Attack_2`). Returns false when nothing was started (stunned, dying, a
    * change clip, no attack clip, no wind-up — the 'atk' path then shows the strike as before).
+   * @param {number} windup @param {string | null} [alt] @param {unknown} [first] @param {unknown} [signal]
    */
   swing(windup, alt = null, first = false, signal = null) {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant' || this.mode === 'aim' || !(windup > 0)) return false;
@@ -711,7 +805,8 @@ export class SpineActor {
     this.swingAt = this.clock;
     this.swingWindup = windup;
     this.swingFirst = !!first;
-    this.swingSignal = own ? signal : null;
+    /** @type {string | null} */
+    this.swingSignal = own ? /** @type {string} */ (signal) : null;
     this.windUntil = null;
     this.wound = false;
     if (begin) { this._play(begin, false, { timeScale: ts, mix: 0.06 }); this._queue(name, false, ts); }
@@ -725,6 +820,7 @@ export class SpineActor {
    * it the client's first-attack-only begin (tools/assets/anim-overrides.mjs FIRST_ATTACK_BEGIN), or `attackBegin`; a skill
    * clip's `attackBegin` (歌蕾蒂娅 S2's attack channel, which the sim does not time) also opens a swing that follows no
    * attack for FIRST_ATTACK_GAP [ASSUMED: the client's attack state].
+   * @param {SpineRole} clip @param {boolean} first
    */
   _firstBegin(clip, first) {
     if (this._swingClip(clip) !== clip) return null;
@@ -753,11 +849,12 @@ export class SpineActor {
    * next normal attack does not cut it (it cut it at once: she struck with the plain Attack). The last clip of a row can be cut: the
    * sim holds the attacks for that row's ability (歌蕾蒂娅 S3's FinalAttack ends before its Skill_3_End does)
    */
-  _endPlaying() { return this.mode === 'skillEnd' && this.clock < this.skillEndUntil && !(this.endRow && !this.endNext?.length); }
+  _endPlaying() { return this.mode === 'skillEnd' && this.clock < /** @type {number} */ (this.skillEndUntil) && !(this.endRow && !this.endNext?.length); }
 
   /**
    * An attack happened now. `interval` = seconds between attacks (game time already scaled to real); `once` = a one-off
    * cast (no rhythm): the clip plays once at its own speed from its strike frame, then the resting state.
+   * @param {number} interval @param {boolean} [once] @param {string | null} [signal]
    */
   attack(interval, once = false, signal = null) {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant' || this.mode === 'aim') return;   // a form change / 吟唱 plays out
@@ -813,6 +910,7 @@ export class SpineActor {
    * role names a clip for it (anims `signals`, tools/assets/anim-overrides.mjs SIGNAL_CLIPS — 圣约送葬人's 受选之人 shot
    * Attack_B): that clip once at its own speed from its strike frame — the sim resolved the strike already — over a
    * swing still playing; the other 'atk' events of the same strike leave it alone.
+   * @param {string} name
    */
   _signalStrike(name) {
     if (this.mode === 'attack' && this.current === name && this.signalAt === this.clock) return;
@@ -832,6 +930,7 @@ export class SpineActor {
    * A behaviour of the attack ability that strikes nothing, as an fx `signal` tells (秘术师 storing an energy: fx
    * 'mysticStore' { signal: 'store' }): the role's `signals` clip once from its start over `interval` game seconds (its
    * attack time, as the client scales an attack clip). False when the role names none.
+   * @param {string} signal @param {number} interval
    */
   signalSwing(signal, interval) {
     if (this.dead || this.mode === 'stun' || this.mode === 'die' || this.mode === 'change' || this.mode === 'held' || this.mode === 'chant') return false;
@@ -844,7 +943,7 @@ export class SpineActor {
     if (!this.has(raw)) return false;
     const name = this._dn(role, raw);   // (the running mode's pair: 涤火杰西卡's S3[D])
     // the skill's opening clip plays out first (新约能天使 S3: Skill_3_Begin, then the strike at the 投递坐标)
-    if (this.mode === 'skillBegin' && this.clock < this.skillBeginUntil) { this.pendingSignal = { signal, interval }; return true; }
+    if (this.mode === 'skillBegin' && this.clock < /** @type {number} */ (this.skillBeginUntil)) { this.pendingSignal = { signal, interval }; return true; }
     const dur = this.dur(name);
     const ts = swingSpeed(dur, clampN(Number.isFinite(interval) && interval > 0 ? interval : this.interval, 0.08, 8));
     this.mode = 'attack';
@@ -863,6 +962,7 @@ export class SpineActor {
    * tools/assets/anim-overrides.mjs SIGNAL_CLIPS { begin, loop, end }): on = its begin once, then its loop until off; off =
    * its end, played out as a skill's End is (mode skillEnd), then the resting state. The running skill's clip names it, else
    * the attack role. False when no role names a channel for `signal`.
+   * @param {string} signal @param {unknown} on
    */
   holdSignal(signal, on) {
     const sk = this.skillOn ? this.roles.skill?.signals?.[signal] : null;
@@ -888,6 +988,7 @@ export class SpineActor {
    * The role an attack plays now: none while a stance skill runs (_stance), the running skill's clip — unless its mode
    * attacks with the plain attack clip (anims skill `plainAttack`: 瑕光 S2's Skill_2 is the cast, her attacks Attack) —,
    * else the attack role.
+   * @returns {SpineRole | null}
    */
   _attackClip() {
     if (this._stance()) return null;   // the client's attack `_animKey ""`: the stance runs on
@@ -901,13 +1002,15 @@ export class SpineActor {
   /**
    * The clip an attack of role `clip` plays: its loop, or for a 要塞 (fortressClips) the pair's melee or ranged clip by its
    * latest attack's kind (atkRanged) — the client's MeleeAttack / BlockedMeleeAttack / BlockedRangedAttack vs RangedAttack.
+   * @param {SpineRole} clip
+   * @returns {string}
    */
   _loopOf(clip) {
     const role = clip;
     clip = this._swingClip(clip);
     // a Back skeleton's role names the facing-up clip (`up`: the client's `_upAnimKey`, GetAnimKey — the Back model is
-    // drawn facing up only)
-    const loop = this.has(clip.up) ? clip.up : clip.loop;
+    // drawn facing up only); the loop is a clip the skeleton has (_attackClip, _swingClip check it)
+    const loop = /** @type {string} */ (this.has(clip.up) ? clip.up : clip.loop);
     const name = clip.alts && this.alt?.clip === clip && this.has(this.alt.name) ? this.alt.name : loop;
     if (this.atkRanged == null || !this.fortressClips) return this._dn(role, name);
     const pair = this.fortressClips.find((p) => p[0] === name || p[1] === name);
@@ -921,6 +1024,7 @@ export class SpineActor {
    * (`_faceToTarget` → `Entity.faceDirection`, else `Entity.direction`; `_faceToFirstCastTarget` with
    * `_checkFaceToFirstCastTargetDownAttack` also the facing), ThreePartOneshotAnimation._GetAnimBundle, BasicSkill.get_beginAnim
    * (deploy) and the skill buffs' CheckCharacterDefaultDirection / CheckFaceDirection.
+   * @param {string | null | undefined} by
    */
   _facesDown(by) {
     const f = by && this.downs ? this.downs() : null;
@@ -932,13 +1036,31 @@ export class SpineActor {
    * Clip `name` of role `role` as the unit faces now: the role's `swap` (a facing-down mode's clip for the mode's, path by
    * path), then its facing-down clip (`down` { by, map }: the client's `_downAnimKey` / `_downEndAnimKey`, a ThreePart's `_down`
    * bundle) when the unit faces down by `by` (docs/rules/render.md 「Spine 클립 커버리지」 아래 방향).
+   * @overload
+   * @param {SpineRole | null | undefined} role @param {string} name
+   * @returns {string}
+   */
+  /**
+   * @overload
+   * @param {SpineRole | null | undefined} role @param {string | null | undefined} name
+   * @returns {string | null | undefined}
+   */
+  /**
+   * @overload
+   * @param {SpineRole | null | undefined} role @param {unknown} name a role's `end` may be a row of clips: passed through
+   * @returns {unknown}
+   */
+  /**
+   * @param {SpineRole | null | undefined} role @param {unknown} name
+   * @returns {unknown}
    */
   _dn(role, name) {
     if (!name || !role) return name;
-    const sw = role.swap?.[name];
+    const sw = role.swap?.[/** @type {string} */ (name)];
     if (sw && this.has(sw)) name = sw;
-    const to = role.down?.map?.[name];
-    return to && this.has(to) && this._facesDown(role.down.deployClips?.includes(name) ? 'deploy' : role.down.by) ? to : name;   // (`deployClips`: clips of the role that go by the deployed direction)
+    const to = role.down?.map?.[/** @type {string} */ (name)];
+    // (`to` comes from role.down)
+    return to && this.has(to) && this._facesDown(/** @type {NonNullable<SpineRole['down']>} */ (role.down).deployClips?.includes(/** @type {string} */ (name)) ? 'deploy' : /** @type {NonNullable<SpineRole['down']>} */ (role.down).by) ? to : name;   // (`deployClips`: clips of the role that go by the deployed direction)
   }
 
   /**
@@ -947,6 +1069,7 @@ export class SpineActor {
    * choose this attack's clip by `pick`: 'loop' in turn from the first (from clip `from` — an AbilityRandomGroup Loop starts
    * at its second child), 'random' any, 'other' a random first and then never the one just played. `keep` = the clip to keep
    * (a model swapped mid-swing). True when the role has turns.
+   * @param {SpineRole} clip @param {string | null} [keep]
    */
   _nextAlt(clip, keep = null) {
     clip = clip && this._swingClip(clip);
@@ -969,6 +1092,9 @@ export class SpineActor {
    * The clip of role `clip` this swing plays: its `combat` clip while the swing hits an enemy this unit blocks (the
    * client's COMBAT state ability, UnitMode._combat — `{ loop, alts?, pick? }`, tools/assets/anim-overrides.mjs
    * COMBAT_CLIPS), else the role clip itself.
+   * @template {SpineRole | null | undefined} R
+   * @param {R} clip
+   * @returns {R | SpineRole}
    */
   _swingClip(clip) {
     const c = this.combatHit ? clip?.combat : null;
@@ -993,6 +1119,7 @@ export class SpineActor {
     return this._attackClip() === sk ? this._dn(sk, sk.idle) : null;
   }
 
+  /** @param {string} anim @param {number} dur */
   _hitTime(anim, dur) {
     const hits = this.entry.hits && this.entry.hits[anim];
     if (Array.isArray(hits) && hits.length && Number.isFinite(hits[0])) return clampN(hits[0], 0, dur);
@@ -1003,6 +1130,7 @@ export class SpineActor {
    * Skill active flag changed. `variant` (on): the cast's clip variant — the sim's 'skill' event 4th field, anims skill
    * `variants` (tools/assets/anim-overrides.mjs SKILL_VARIANTS: 灵知's charged S2 Skill_3, 缄默德克萨斯's S3 recast Start_3_2) —
    * kept until the next cast.
+   * @param {boolean | number | null | undefined} on @param {string | null} [variant]
    */
   setSkill(on, variant = null) {
     on = !!on;
@@ -1046,7 +1174,7 @@ export class SpineActor {
         const begin = this._skillBegin(sk);
         this.mode = 'skillBegin';
         this._play(begin, false, { mix: 0.08 });
-        this.skillBeginUntil = this.clock + this.dur(begin);
+        this.skillBeginUntil = this.clock + this.dur(/** @type {string} */ (begin));   // (the clip checked above)
         // then the skill's own idle until an attack plays its loop (community report #23); without one, the loop
         const next = this._afterBegin(sk);
         if (next) this._queue(next, true);
@@ -1068,7 +1196,7 @@ export class SpineActor {
       if (sk.strike && this.mode === 'attack') return;
       // an instant skill switches off while its own one-shot clip runs: let the clip finish — the state machine plays
       // its End clip (or the base) when the window ends — instead of cutting it with End / base right now
-      if (this.skillClipOnce && this.clock < this.skillBeginUntil) {
+      if (this.skillClipOnce && this.clock < /** @type {number} */ (this.skillBeginUntil)) {
         this.skillEndPending = true;
         return;
       }
@@ -1087,6 +1215,9 @@ export class SpineActor {
    * A skill clip's own begin / end (`f`), or null: a skill that attacks with the plain attack clip (`via: 'attack'`) casts
    * none of its own — the begin / end it carries from the attack role are that role's spell of attacks (the client plays
    * no clip as 耀骑士临光 S2, 蕾缪安 S2 or 凯尔希·思衡托 S1 starts or ends: their skill prefabs have no animated ability).
+   * @template {'begin' | 'end'} F
+   * @param {SpineRole | null | undefined} sk @param {F} f
+   * @returns {SpineRole[F] | null | undefined}
    */
   _castOf(sk, f) {
     const v = sk?.[f];
@@ -1096,6 +1227,7 @@ export class SpineActor {
   /**
    * The skill's opening clip as the unit faces now: the skill prefab's `beginDown` when it was deployed facing down
    * (BasicSkill.get_beginAnim: `_beginAnimDown`), else its begin (_castOf) through its facing-down clips (_dn).
+   * @param {SpineRole} sk
    */
   _skillBegin(sk) {
     if (sk?.beginDown && this.has(sk.beginDown) && this._facesDown('deploy')) return sk.beginDown;
@@ -1114,6 +1246,7 @@ export class SpineActor {
    * Skill_3_Begin → _Loop → _End) — in mode skillEnd; false when it has none. A row whose channel waits for its projectile
    * (anims skill `endProj`, tools/assets/anim-keys.mjs; docs/rules/render.md 「스킬 끝 채널의 루프」) loops its middle clip
    * from the begin clip's end until `endProj` s after the begin clip's OnAttack frame — not for the loop clip's length.
+   * @param {SpineRole} sk
    */
   _skillEnd(sk) {
     const down = sk.endDown && this.has(sk.endDown) && this._facesDown(sk.down?.by) ? sk.endDown : null;   // (a mix table row: anim-keys.mjs)
@@ -1121,8 +1254,8 @@ export class SpineActor {
     if (!clips.length) return false;
     const durs = clips.map((n) => this.dur(n));
     const loops = clips.map(() => false);
-    if (!down && sk.endProj > 0 && clips.length === 3) {
-      durs[1] = Math.max(0, this._hitTime(clips[0], durs[0]) + sk.endProj - durs[0]);
+    if (!down && /** @type {number} */ (sk.endProj) > 0 && clips.length === 3) {
+      durs[1] = Math.max(0, this._hitTime(clips[0], durs[0]) + /** @type {number} */ (sk.endProj) - durs[0]);
       loops[1] = true;
     }
     this.mode = 'skillEnd';
@@ -1139,6 +1272,7 @@ export class SpineActor {
    * The clip a skill's Begin (or 吟唱) hands over to: the skill's own idle when its attacks are its loop clip
    * (_skillIdle) or when it attacks with the plain attack clip (`via: 'attack'` with an idle of its own: 歌蕾蒂娅 S3's
    * Skill_3_Chant), else its loop.
+   * @param {SpineRole | null | undefined} sk
    */
   _afterBegin(sk) {
     const idle = this._skillIdle() || (sk?.via === 'attack' && this.has(sk.idle) ? this._dn(sk, sk.idle) : null);
@@ -1150,7 +1284,7 @@ export class SpineActor {
    * `_afterEndAnim`): `begin` once, `loop` until the `end` clip — from `endAt` game seconds (after `begin`), else so that it
    * closes the `total` —, and at `total` `after` plays as the skill's begin clip (mode skillBegin: the skill's idle / loop
    * follow). Attacks wait meanwhile (mode 'chant'), a 'skill' on only sets the flag. 予愿安洁莉娜 S2 (render/units.js glide).
-   * @param {{ begin?: string, loop?: string, end?: string, endAt?: number, total?: number, after?: string }} o
+   * @param {{ begin?: string, loop?: string, end?: string, endAt?: number, total: number, after?: string }} o
    */
   chant({ begin, loop, end, endAt, total, after }) {
     if (this.dead || !(total > 0) || !this.has(loop)) return false;
@@ -1158,7 +1292,7 @@ export class SpineActor {
     this.frozen = false;
     if (this.has(begin)) { this._play(begin, false, { mix: 0.08 }); this._queue(loop, true); } else this._play(loop, true, { mix: 0.08 });
     this.chantEnd = this.has(end) ? end : null;
-    const at = Number.isFinite(endAt) ? endAt : total - (this.chantEnd ? this.dur(end) : 0);
+    const at = Number.isFinite(endAt) ? /** @type {number} */ (endAt) : total - (this.chantEnd ? this.dur(/** @type {string} */ (end)) : 0);
     this.chantEndAt = this.clock + Math.max(this.has(begin) ? this.dur(begin) : 0, at);
     this.chantUntil = this.clock + total;
     this.chantAfter = this.has(after) ? after : null;
@@ -1172,7 +1306,7 @@ export class SpineActor {
       this._play(this.chantEnd, false, { mix: 0.08 });
       this.chantUntil = Math.min(this.chantUntil, this.clock + this.dur(this.chantEnd));
       this.chantEnd = null;
-    } else if (!(this.clock >= this.chantEndAt)) this.chantUntil = this.clock;   // no end clip: rest now
+    } else if (!(this.clock >= /** @type {number} */ (this.chantEndAt))) this.chantUntil = this.clock;   // no end clip: rest now
     return true;
   }
 
@@ -1197,6 +1331,7 @@ export class SpineActor {
    * The deploy clip once: the running skill's own for `key` (anims skill `deploys`, the sim's 'deploy' event 4th field — a
    * 【移动】 by the skill: 乌尔比安 S3 Skill_3_ReStart_A / _Back), else the running skill's mode's (anims skill `deploy`, its
    * Born pair: 缄默德克萨斯 S2 / S3, cast as she deploys, come in on Start_2 / Start_3), else the unit's.
+   * @param {string | null} [key]
    */
   deploy(key = null) {
     if (this.dead) return;
@@ -1220,6 +1355,7 @@ export class SpineActor {
    * The skeleton's death clip, or null: the running skill's own (anims skill `die`: the Die pair of the skill's mode,
    * tools/assets/anim-overrides.mjs SKILL_STATE_CLIPS) while it runs — `inSkill` (render/units.js: a model rebuilt for
    * the knock-out) or skillDying() —, else the unit's.
+   * @param {boolean} [inSkill]
    */
   dieClip(inSkill = this.skillDying()) {
     const sd = inSkill ? this.roles.skill?.die : null;
@@ -1242,6 +1378,7 @@ export class SpineActor {
    * models, GitHub issue #25; a few idle-only summons and enemies) stops whatever looped — an attack, a skill or the idle —
    * and holds the first frame of its idle clip (frozen when it has none either) [ASSUMED look]: a dead unit never goes on attacking. A
    * knocked-out operator shows its fall with the Front model instead (render/units.js _wantsBack).
+   * @param {boolean} [inSkill]
    */
   die(inSkill = this.skillDying()) {
     if (this.dead) return 0;
@@ -1266,7 +1403,7 @@ export class SpineActor {
     this._holdIdle(0);
   }
 
-  /** The pose of a dead skeleton without a death clip: its idle clip's first frame (frozen when it has none either). */
+  /** The pose of a dead skeleton without a death clip: its idle clip's first frame (frozen when it has none either). @param {number} mix */
   _holdIdle(mix) {
     const idle = this.has(this.roles.idle) ? this.roles.idle : this.has('Idle') ? 'Idle' : null;
     if (idle) this._play(idle, false, { mix, timeScale: 0 });
@@ -1284,6 +1421,7 @@ export class SpineActor {
     const e = this.spine.state.tracks[0];
     if (!e || e.loop || e.timeScale === 0 || e.mixingFrom || e.trackTime < e.animationEnd - e.animationStart) return false;
     if (this._bodyChecked === e) return false;        // looked at once per played-out clip: its last frame stays
+    /** @type {SpTrackEntry | null | undefined} */
     this._bodyChecked = e;
     const slots = this.spine.skeleton.slots;
     if (!slots.length) return false;
@@ -1324,6 +1462,7 @@ export class SpineActor {
     this._play(this._baseName(), true);
   }
 
+  /** @param {number} dt */
   update(dt) {
     this.clock += dt;
     if (this.endClip && this.clock >= this.endAt) {
@@ -1336,7 +1475,7 @@ export class SpineActor {
       // a compressed wind-up reached its strike frame: back to the rhythm speed (attack() also does it)
       this.windUntil = null;
       const e = this.spine.state.tracks[0];
-      if (e && this.mode === 'attack') e.timeScale = this.windTs;
+      if (e && this.mode === 'attack') e.timeScale = /** @type {number} */ (this.windTs);
     }
     switch (this.mode) {
       case 'attack':
@@ -1349,13 +1488,13 @@ export class SpineActor {
           // a skill with its own idle: back to that idle (its end clip is for the end of the skill, setSkill(false)) —
           // through the skill's own end of a spell of attacks when it has one (`attackEnd`: 伺夜 S3 Skill3_ABC_Idle_Into)
           const toSkillIdle = clip === this.roles.skill && !!this._skillIdle();
-          const end = this._dn(clip, toSkillIdle ? clip.attackEnd : clip?.end);
+          const end = this._dn(clip, toSkillIdle ? /** @type {SpineRole} */ (clip).attackEnd : clip?.end);
           if (clip && this.has(end)) { this._play(end, false); this._queue(this._baseName(), true); }
           else this._play(this._baseName(), true, { mix: 0.15 });
         }
         break;
       case 'skillBegin':
-        if (this.clock >= this.skillBeginUntil) {
+        if (this.clock >= /** @type {number} */ (this.skillBeginUntil)) {
           const ps = this.pendingSignal;
           this.pendingSignal = null;
           if (ps) { this.mode = 'base'; if (this.signalSwing(ps.signal, ps.interval)) break; }
@@ -1365,7 +1504,8 @@ export class SpineActor {
           this.skillClipOnce = false;
           this.skillEndPending = false;
           this.mode = 'base';
-          if (pending && this._skillEnd(sk)) {
+          // (pending only from setSkill's off path, which had a skill role)
+          if (pending && this._skillEnd(/** @type {SpineRole} */ (sk))) {
             // the skill switched off inside its own clip: its End clip closes it now
           } else if (once || pending || !this.has(sk?.loop)) {
             // the one-shot clip is over (or the skill has no loop clip at all): rest. A Begin clip with a queued next
@@ -1375,27 +1515,27 @@ export class SpineActor {
         }
         break;
       case 'skillEnd':
-        if (this.endNext?.length && this.clock >= this.endNextAt && this.clock < this.skillEndUntil) {
-          const next = this.endNext.shift();
+        if (this.endNext?.length && this.clock >= /** @type {number} */ (this.endNextAt) && this.clock < /** @type {number} */ (this.skillEndUntil)) {
+          const next = /** @type {{ n: string, d: number, loop: boolean }} */ (this.endNext.shift());
           this._play(next.n, next.loop, { mix: 0.05 });
-          this.endNextAt += next.d;
+          /** @type {number} */ (this.endNextAt) += next.d;
         }
-        if (this.clock >= this.skillEndUntil) { this.mode = 'base'; this._play(this._baseName(), true); }
+        if (this.clock >= /** @type {number} */ (this.skillEndUntil)) { this.mode = 'base'; this._play(this._baseName(), true); }
         break;
       case 'chant':
         if (this.clock >= this.chantUntil) this._chantDone();
-        else if (this.chantEnd && this.clock >= this.chantEndAt) { this._play(this.chantEnd, false, { mix: 0.08 }); this.chantEnd = null; }
+        else if (this.chantEnd && this.clock >= /** @type {number} */ (this.chantEndAt)) { this._play(this.chantEnd, false, { mix: 0.08 }); this.chantEnd = null; }
         break;
       case 'deploy':
-        if (this.clock >= this.deployUntil) { this.mode = 'base'; this._play(this._baseName(), true); }
+        if (this.clock >= /** @type {number} */ (this.deployUntil)) { this.mode = 'base'; this._play(this._baseName(), true); }
         break;
       case 'change':
-        if (this.changeNext?.length && this.clock >= this.changeNextAt && this.clock < this.changeUntil) {
-          const next = this.changeNext.shift();
+        if (this.changeNext?.length && this.clock >= /** @type {number} */ (this.changeNextAt) && this.clock < /** @type {number} */ (this.changeUntil)) {
+          const next = /** @type {string} */ (this.changeNext.shift());
           this._play(next, false, { mix: 0.05 });
-          this.changeNextAt += this.dur(next);
+          /** @type {number} */ (this.changeNextAt) += this.dur(next);
         }
-        if (this.clock >= this.changeUntil) {
+        if (this.clock >= /** @type {number} */ (this.changeUntil)) {
           this.mode = this.changeHold ? 'held' : 'base';
           if (this.changeHold) this.stunWanted = false;
           else if (this.stunWanted) { this.stunWanted = false; this._enterStun(); } else this._play(this._baseName(), true);
@@ -1465,12 +1605,13 @@ export class SpineActor {
   /** Model height in skeleton units (setup-pose bounds, else a chibi default). */
   get height() {
     const b = this.entry.bounds;
-    if (b && Number.isFinite(b.height) && b.height > 20) return Math.min(b.height, 900);
+    if (b && Number.isFinite(b.height) && /** @type {number} */ (b.height) > 20) return Math.min(/** @type {number} */ (b.height), 900);
     return 380;
   }
 
   destroy() {
     try { this.spine.destroy({ children: true, texture: false, baseTexture: false }); } catch { /* ignore */ }
-    this.spine = null;
+    // a destroyed actor is never used again
+    this.spine = /** @type {SpSpine} */ (/** @type {unknown} */ (null));
   }
 }

@@ -43,22 +43,49 @@
 import { stateFx } from '../../../shared/protocol.js';
 import { ANIM, UF } from '../../../shared/constants.js';
 
+/**
+ * @typedef {number | string} UnitId
+ * @typedef {[id: UnitId, x: number, y: number, hp: number, maxHp: number, sp: number, spMax: number, flags: number,
+ *   anim: number, el?: string, elFill?: number, elUntil?: number, elDur?: number]} UnitTupleBase a normalised unit tuple
+ * @typedef {UnitTupleBase & { ammo?: number[], bsp?: number[], shield?: number, charge?: number, ovl?: number }} UnitTuple
+ * @typedef {[id: UnitId, respawnAt: number, respawnTime: number, state: number, row?: number, col?: number]} DownEntry
+ * @typedef {{ gt?: unknown, t?: unknown, units?: unknown, elem?: unknown, ammo?: unknown, bsp?: unknown, shield?: unknown,
+ *   charge?: unknown, ovl?: unknown, down?: unknown, stand?: unknown, standCut?: unknown, [key: string]: unknown }} SnapIn
+ *   a b.snap payload as received
+ * @typedef {{ t: number, units: Map<UnitId, UnitTuple>, down: DownEntry[] | null, stand: Map<UnitId, number> | null,
+ *   standCut: Map<UnitId, number> | null, raw: SnapIn, at?: number }} Snapshot a normalised snapshot (normalizeSnapshot)
+ * @typedef {unknown[]} BattleEvent a b.ev entry, `[kind, …]`
+ * @typedef {{ t: number, ev: BattleEvent }} QueuedEvent
+ * @typedef {{ t: number, at: number }} Arrival a snapshot's game time and real arrival time
+ * @typedef {{ id: UnitId, x: number, y: number, hp: number, maxHp: number, sp: number, spMax: number, flags: number,
+ *   anim: number, vx: number, vy: number, seen: number, el: string | null, elFill: number, elUntil: number, elDur: number,
+ *   ammo?: number[] | null, bsp?: number[] | null, shield?: number, charge?: number, ovl?: number }} UnitSample
+ */
+
 export const TUPLE = Object.freeze({ ID: 0, X: 1, Y: 2, HP: 3, MAXHP: 4, SP: 5, SPMAX: 6, FLAGS: 7, ANIM: 8, EL: 9, EL_FILL: 10, EL_UNTIL: 11, EL_DUR: 12 });
-/** The unit was (re)deployed between tuples `a` and the newer `b`: `b` plays the deploy animation, `a` did not (sim snapshot animOf). */
+/**
+ * The unit was (re)deployed between tuples `a` and the newer `b`: `b` plays the deploy animation, `a` did not (sim snapshot animOf).
+ * @param {UnitTuple} a @param {UnitTuple} b
+ */
 const redeployed = (a, b) => b[8] === ANIM.DEPLOY && a[8] !== ANIM.DEPLOY;
 /** Element keys a snapshot `elem` entry may carry (server/sim/constants.js ELEMENT_ORDER). */
 const ELEMENT_KEYS = new Set(['neural', 'erosion', 'burn', 'apoptosis', 'rampage']);
 
 const MAX_EVENTS = 6000;
+/** @param {unknown} v @param {number} [d] @returns {number} */
 const finite = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+/** @param {number} v @param {number} lo @param {number} hi */
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 /**
  * Game time unit `id` starts moving between snapshot `a` and the newer `b` (interpolation and extrapolation share it):
  * the end of `a`'s stand when it falls inside the interval and `b` records no cut there, else `a.t`.
+ * @param {Snapshot} a @param {Snapshot} b @param {UnitId} id
+ * @returns {number}
  */
 function movementStart(a, b, id) {
-  const until = a.stand?.get(id), cutAt = b.standCut?.get(id);
+  // an absent stand or cut compares false, as wanted
+  const until = /** @type {number} */ (a.stand?.get(id)), cutAt = /** @type {number} */ (b.standCut?.get(id));
   return until > a.t && until <= b.t && !(cutAt >= a.t && cutAt <= b.t) ? until : a.t;
 }
 
@@ -69,6 +96,7 @@ export const COSMETIC_EVENTS = new Set(['atk', 'swing', 'dmg', 'heal', 'fx', 'la
  * (shared/protocol.js fxForm) is state: dropping it left the view on the old model after a long main-thread stall, on a
  * watched field after a hidden tab and on a field entered late (user report #5 after 0.1.0) — the fourth place the client
  * keeps it, with battle/runner.js keepsState and screens/game.js keepEarly; so is 望's 'wangLink' (shared/protocol.js stateFx).
+ * @param {unknown} ev
  */
 export const isCosmeticEvent = (ev) => Array.isArray(ev) && COSMETIC_EVENTS.has(ev[0]) && !stateFx(ev);
 
@@ -76,6 +104,7 @@ export const isCosmeticEvent = (ev) => Array.isArray(ev) && COSMETIC_EVENTS.has(
  * Game time (s) of a b.snap / b.ev payload, or NaN. On the wire every frame is `{ t: '<type>', … }`, so the server
  * sends the game time as `gt` (server/match/fields.js snapFrame); raw Battle snapshots and the demo recordings
  * carry it as a numeric `t`. This is the only place that conversion happens.
+ * @param {{ gt?: unknown, t?: unknown, [key: string]: unknown } | null | undefined} msg
  */
 export function frameTime(msg) {
   if (!msg || typeof msg !== 'object') return NaN;
@@ -88,11 +117,14 @@ export function frameTime(msg) {
  * state, row?, col?]] | null, stand: Map<id, until> | null, standCut: Map<id, at> | null, raw }` or null when unusable. Tuples with a non-finite id/x/y are skipped; other numbers default
  * to 0; a unit's `elem` entry (see header) is appended to its tuple; malformed `elem` / `down` entries are dropped.
  * `stand` keeps finite end times after `t` of units in the snapshot; `standCut` keeps finite times in [0, t] of units in it.
+ * @param {SnapIn | null | undefined} snap
+ * @returns {Snapshot | null}
  */
 export function normalizeSnapshot(snap) {
   if (!snap || typeof snap !== 'object') return null;
   const t = frameTime(snap);
   if (!Number.isFinite(t)) return null;
+  /** @type {Map<UnitId, UnitTuple>} */
   const units = new Map();
   const list = Array.isArray(snap.units) ? snap.units : [];
   for (const u of list) {
@@ -112,22 +144,25 @@ export function normalizeSnapshot(snap) {
   }
   // local patch (LOCAL-PATCH.md 「전투 화면 UI」): b.snap `ammo` [[id, left, max]] rides on the tuple as `.ammo` (sample `ammo`)
   // and `bsp` [[id, sp, max]] (a boss's official SP) as `.bsp`
-  for (const [key, list] of [['ammo', snap.ammo], ['bsp', snap.bsp]]) if (Array.isArray(list)) for (const e of list) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[2]) > 0) tu[key] = [Math.max(0, finite(e[1])), finite(e[2])]; }
+  for (const [key, list] of /** @type {Array<['ammo' | 'bsp', unknown]>} */ ([['ammo', snap.ammo], ['bsp', snap.bsp]])) if (Array.isArray(list)) for (const e of list) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[2]) > 0) tu[key] = [Math.max(0, finite(e[1])), finite(e[2])]; }
   // b.snap `shield` [[id, amount]] (an ally's barrier HP, sim local-hud.js) rides on the tuple as `.shield`
   if (Array.isArray(snap.shield)) for (const e of snap.shield) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[1]) > 0) tu.shield = finite(e[1]); }
   // b.snap `charge` [[id, n]] (an AUTO charge skill's stored charges, sim local-hud.js chargeMark) rides on it as `.charge`
   if (Array.isArray(snap.charge)) for (const e of snap.charge) { const tu = Array.isArray(e) && units.get(e[0]); if (tu && finite(e[1]) >= 1) tu.charge = Math.floor(finite(e[1])); }
   // b.snap `ovl` [[id, 1?]] (a running 过载 skill, sim local-hud.js overloadMark) rides on it as `.ovl`: 2 once it has overloaded
   if (Array.isArray(snap.ovl)) for (const e of snap.ovl) { const tu = Array.isArray(e) && units.get(e[0]); if (tu) tu.ovl = e[1] === 1 ? 2 : 1; }
+  /** @type {DownEntry[] | null} */
   let down = null;
   if (Array.isArray(snap.down)) {
     for (const d of snap.down) {
       if (!Array.isArray(d) || !(typeof d[0] === 'number' || typeof d[0] === 'string')) continue;
+      /** @type {DownEntry} */
       const e = [d[0], finite(d[1]), Math.max(0, finite(d[2])), finite(d[3]) | 0];
       if (Number.isInteger(d[4]) && Number.isInteger(d[5])) e.push(d[4], d[5]);
       (down || (down = [])).push(e);
     }
   }
+  /** @type {Map<UnitId, number> | null} */
   let stand = null;
   if (Array.isArray(snap.stand)) {
     for (const e of snap.stand) {
@@ -135,6 +170,7 @@ export function normalizeSnapshot(snap) {
       (stand || (stand = new Map())).set(e[0], e[1]);
     }
   }
+  /** @type {Map<UnitId, number> | null} */
   let standCut = null;
   if (Array.isArray(snap.standCut)) {
     for (const e of snap.standCut) {
@@ -165,33 +201,31 @@ export class SnapshotBuffer {
   }
 
   reset() {
-    /**
-     * @type {{t:number, units:Map<any, any[] & { ammo?: any, bsp?: any, shield?: number, charge?: number, ovl?: number }>,
-     *   raw:any, at?:number, down?: any[], stand?: Map<any, any>, standCut?: Map<any, any>}[]} ascending by t (normalizeSnapshot;
-     *   `at` set as it arrives)
-     */
+    // set outside the constructor, so `T | undefined` to tsc: the other methods cast them where they read them
+    /** @type {Snapshot[]} ascending by t (normalizeSnapshot; `at` set as it arrives) */
     this.snaps = [];
-    /** @type {{t:number, at:number}[]} arrival log for rate estimation */
+    /** @type {Arrival[]} arrival log for rate estimation */
     this.arrivals = [];
     this.rate = this.defaultRate;
     this.renderT = NaN;
     this.lastNow = NaN;
     this.interval = 0.1 * this.defaultRate / 2; // game s between snapshots (estimated)
-    /** @type {{t:number, ev:any}[]} */
+    /** @type {QueuedEvent[]} */
     this.events = [];
-    /** @type {Map<number|string, number[]>} Parasite attachment blink times, retained after cosmetic fx is consumed. */
+    /** @type {Map<UnitId, number[]>} Parasite attachment blink times, retained after cosmetic fx is consumed. */
     this.parasiteBlinkTimes = new Map();
     this.meta = null; // latest snapshot's extra fields (dp, killed, total, boss…)
     return this;
   }
 
-  get newestT() { return this.snaps.length ? this.snaps[this.snaps.length - 1].t : NaN; }
-  get oldestT() { return this.snaps.length ? this.snaps[0].t : NaN; }
-  get size() { return this.snaps.length; }
+  get newestT() { return /** @type {Snapshot[]} */ (this.snaps).length ? /** @type {Snapshot[]} */ (this.snaps)[/** @type {Snapshot[]} */ (this.snaps).length - 1].t : NaN; }
+  get oldestT() { return /** @type {Snapshot[]} */ (this.snaps).length ? /** @type {Snapshot[]} */ (this.snaps)[0].t : NaN; }
+  get size() { return /** @type {Snapshot[]} */ (this.snaps).length; }
 
   /**
    * Add a snapshot received at real time `now` (seconds). Out-of-order / duplicate snapshots are dropped;
    * a snapshot far older than the newest (a server-side reset, e.g. a new battle) resets the buffer.
+   * @param {SnapIn | null | undefined} snap @param {number} now
    * @returns {boolean} accepted
    */
   push(snap, now) {
@@ -199,114 +233,116 @@ export class SnapshotBuffer {
     if (!s) return false;
     now = finite(now, this.lastNow || 0);
     const newest = this.newestT;
-    if (this.snaps.length) {
+    if (/** @type {Snapshot[]} */ (this.snaps).length) {
       if (s.t < newest - 5) this.reset(); // the server restarted the stream (new battle): old events are obsolete
       else if (s.t <= newest) return false;
     }
     s.at = now;
-    const prev = this.snaps[this.snaps.length - 1];
+    const prev = /** @type {Snapshot[]} */ (this.snaps)[/** @type {Snapshot[]} */ (this.snaps).length - 1];
     if (prev) {
       const dt = s.t - prev.t;
       if (dt > 0 && dt < 2) this.interval = this.interval * 0.8 + dt * 0.2;
     }
-    this.snaps.push(s);
+    /** @type {Snapshot[]} */ (this.snaps).push(s);
     this.meta = s.raw;
     // rate estimate over a ~1.5 s window of arrivals
-    this.arrivals.push({ t: s.t, at: now });
-    while (this.arrivals.length > 2 && now - this.arrivals[0].at > 1.5) this.arrivals.shift();
-    if (this.arrivals.length >= 4) {
-      const a = this.arrivals[0], b = this.arrivals[this.arrivals.length - 1];
+    /** @type {Arrival[]} */ (this.arrivals).push({ t: s.t, at: now });
+    while (/** @type {Arrival[]} */ (this.arrivals).length > 2 && now - /** @type {Arrival[]} */ (this.arrivals)[0].at > 1.5) /** @type {Arrival[]} */ (this.arrivals).shift();
+    if (/** @type {Arrival[]} */ (this.arrivals).length >= 4) {
+      const a = /** @type {Arrival[]} */ (this.arrivals)[0], b = /** @type {Arrival[]} */ (this.arrivals)[/** @type {Arrival[]} */ (this.arrivals).length - 1];
       const dReal = b.at - a.at, dGame = b.t - a.t;
       if (dReal > 0.2 && dGame > 0) this.rate = clamp(this.rate * 0.7 + (dGame / dReal) * 0.3, this.minRate, this.maxRate);
     }
     // trim old snapshots (keep at least 2). Trimming never waits for the render clock: while the page is hidden
     // (no animation frames) snapshots keep arriving and must not pile up; a clock left behind is clamped.
     const horizon = s.t - this.keep * this.rate;
-    while (this.snaps.length > 2 && this.snaps[1].t < horizon) this.snaps.shift();
-    for (const [id, times] of this.parasiteBlinkTimes) {
-      const kept = times.filter((t) => t > this.snaps[0].t);
-      if (kept.length) this.parasiteBlinkTimes.set(id, kept);
-      else this.parasiteBlinkTimes.delete(id);
+    while (/** @type {Snapshot[]} */ (this.snaps).length > 2 && /** @type {Snapshot[]} */ (this.snaps)[1].t < horizon) /** @type {Snapshot[]} */ (this.snaps).shift();
+    for (const [id, times] of /** @type {Map<UnitId, number[]>} */ (this.parasiteBlinkTimes)) {
+      const kept = times.filter((t) => t > /** @type {Snapshot[]} */ (this.snaps)[0].t);
+      if (kept.length) /** @type {Map<UnitId, number[]>} */ (this.parasiteBlinkTimes).set(id, kept);
+      else /** @type {Map<UnitId, number[]>} */ (this.parasiteBlinkTimes).delete(id);
     }
-    if (!Number.isFinite(this.renderT)) this.renderT = Math.max(this.snaps[0].t, s.t - this.delay * this.rate);
-    else if (this.renderT < this.snaps[0].t) this.renderT = this.snaps[0].t;
+    if (!Number.isFinite(this.renderT)) this.renderT = Math.max(/** @type {Snapshot[]} */ (this.snaps)[0].t, s.t - this.delay * this.rate);
+    else if (/** @type {number} */ (this.renderT) < /** @type {Snapshot[]} */ (this.snaps)[0].t) this.renderT = /** @type {Snapshot[]} */ (this.snaps)[0].t;
     return true;
   }
 
   /**
    * Queue a b.ev batch. `t` (game s, the frame's `gt`) when the server stamps it; otherwise the batch is placed
    * inside the latest snapshot interval (see header).
+   * @param {unknown} evs @param {number} now @param {unknown} [t]
    */
   pushEvents(evs, now, t) {
     if (!Array.isArray(evs) || !evs.length) return 0;
     let stamp = typeof t === 'number' && Number.isFinite(t) ? t : NaN;
     if (!Number.isFinite(stamp)) {
       const n = this.newestT;
-      stamp = Number.isFinite(n) ? n - this.interval * 0.5 : (Number.isFinite(this.renderT) ? this.renderT : 0);
+      stamp = Number.isFinite(n) ? n - this.interval * 0.5 : (Number.isFinite(this.renderT) ? /** @type {number} */ (this.renderT) : 0);
     }
     let added = 0;
     for (const ev of evs) {
       if (!Array.isArray(ev) || typeof ev[0] !== 'string') continue;
-      this.events.push({ t: stamp, ev });
+      /** @type {QueuedEvent[]} */ (this.events).push({ t: stamp, ev });
       if (ev[0] === 'fx' && ev[1] === 'teleport' && ev[4]?.kind === 'parasite') {
         const id = ev[4]?.id;
         if ((typeof id === 'number' && Number.isFinite(id)) || (typeof id === 'string' && id)) {
-          const times = this.parasiteBlinkTimes.get(id) ?? [];
+          const times = /** @type {Map<UnitId, number[]>} */ (this.parasiteBlinkTimes).get(id) ?? [];
           times.push(stamp);
           if (times.length > 32) times.shift();
-          this.parasiteBlinkTimes.set(id, times);
+          /** @type {Map<UnitId, number[]>} */ (this.parasiteBlinkTimes).set(id, times);
         }
       }
       added++;
     }
     // bounded queue (hidden tab: nothing consumes it) — shed the oldest cosmetic events first
-    if (this.events.length > MAX_EVENTS) {
+    if (/** @type {QueuedEvent[]} */ (this.events).length > MAX_EVENTS) {
       const keep = [];
-      const excess = this.events.length - MAX_EVENTS;
+      const excess = /** @type {QueuedEvent[]} */ (this.events).length - MAX_EVENTS;
       let shed = 0;
-      for (const e of this.events) {
+      for (const e of /** @type {QueuedEvent[]} */ (this.events)) {
         if (shed < excess && isCosmeticEvent(e.ev)) { shed++; continue; }
         keep.push(e);
       }
       this.events = keep.length > MAX_EVENTS * 2 ? keep.slice(keep.length - MAX_EVENTS * 2) : keep;
     }
     // keep sorted (batches normally arrive in order; a server stamp may be older)
-    if (this.events.length > 1 && this.events[this.events.length - 1].t < this.events[this.events.length - 1 - added]?.t) {
-      this.events.sort((a, b) => a.t - b.t);
+    if (/** @type {QueuedEvent[]} */ (this.events).length > 1 && /** @type {QueuedEvent[]} */ (this.events)[/** @type {QueuedEvent[]} */ (this.events).length - 1].t < /** @type {QueuedEvent[]} */ (this.events)[/** @type {QueuedEvent[]} */ (this.events).length - 1 - added]?.t) {
+      /** @type {QueuedEvent[]} */ (this.events).sort((a, b) => a.t - b.t);
     }
     return added;
   }
 
   /**
    * Advance the render clock to real time `now` (seconds). Returns renderT (NaN until the first snapshot).
+   * @param {number} now
    */
   update(now) {
     now = finite(now, 0);
-    if (!this.snaps.length) { this.lastNow = now; return NaN; }
-    const dt = Number.isFinite(this.lastNow) ? clamp(now - this.lastNow, 0, 1) : 0;
+    if (!/** @type {Snapshot[]} */ (this.snaps).length) { this.lastNow = now; return NaN; }
+    const dt = Number.isFinite(this.lastNow) ? clamp(now - /** @type {number} */ (this.lastNow), 0, 1) : 0;
     this.lastNow = now;
     const newest = this.newestT;
     const target = newest - this.delay * this.rate;
     if (!Number.isFinite(this.renderT)) this.renderT = target;
-    this.renderT += dt * this.rate;
-    const err = target - this.renderT;
+    /** @type {number} */ (this.renderT) += dt * this.rate;
+    const err = target - /** @type {number} */ (this.renderT);
     if (Math.abs(err) > this.snapAfter * this.rate) this.renderT = target;
-    else this.renderT += err * Math.min(1, dt * 3);
+    else /** @type {number} */ (this.renderT) += err * Math.min(1, dt * 3);
     const cap = newest + this.maxExtrapolate * this.rate;
-    if (this.renderT > cap) this.renderT = cap;
-    if (this.renderT < this.snaps[0].t) this.renderT = this.snaps[0].t;
+    if (/** @type {number} */ (this.renderT) > cap) this.renderT = cap;
+    if (/** @type {number} */ (this.renderT) < /** @type {Snapshot[]} */ (this.snaps)[0].t) this.renderT = /** @type {Snapshot[]} */ (this.snaps)[0].t;
     return this.renderT;
   }
 
   /** Jump the render clock to the newest snapshot (scrubbing / first frame after a reset). */
   snapToNewest() {
-    if (this.snaps.length) this.renderT = this.newestT;
+    if (/** @type {Snapshot[]} */ (this.snaps).length) this.renderT = this.newestT;
     return this.renderT;
   }
 
-  /** Index of the newest snapshot with t ≤ time (−1 when time is before all). */
+  /** Index of the newest snapshot with t ≤ time (−1 when time is before all). @param {number} time */
   _indexAt(time) {
-    const s = this.snaps;
+    const s = /** @type {Snapshot[]} */ (this.snaps);
     let lo = 0, hi = s.length - 1, ans = -1;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1;
@@ -315,18 +351,20 @@ export class SnapshotBuffer {
     return ans;
   }
 
+  /** @param {UnitId} id @param {number} from @param {number} to */
   _parasiteBlinkAt(id, from, to) {
     let first = Infinity;
-    for (const t of this.parasiteBlinkTimes.get(id) ?? []) if (t > from && t <= to && t < first) first = t;
+    for (const t of /** @type {Map<UnitId, number[]>} */ (this.parasiteBlinkTimes).get(id) ?? []) if (t > from && t <= to && t < first) first = t;
     return first;
   }
 
   /**
    * Game time of the first snapshot after `time` (default renderT) — the newer end of the interval sample() interpolates
    * — or NaN when there is none (extrapolating). render/app.js starts a push's slide while that interval is shown.
+   * @param {number} [time]
    */
-  nextSnapT(time = this.renderT) {
-    const s = this.snaps;
+  nextSnapT(time = /** @type {number} */ (this.renderT)) {
+    const s = /** @type {Snapshot[]} */ (this.snaps);
     const i = this._indexAt(time) + 1;
     return Number.isFinite(time) && i < s.length ? s[i].t : NaN;
   }
@@ -334,9 +372,10 @@ export class SnapshotBuffer {
   /**
    * The `down` list (knocked-out operators waiting to redeploy, see header) of the snapshot shown at `time` (default
    * renderT) — the same snapshot sample() reads flags from — or null.
+   * @param {number} [time]
    */
-  downAt(time = this.renderT) {
-    const s = this.snaps;
+  downAt(time = /** @type {number} */ (this.renderT)) {
+    const s = /** @type {Snapshot[]} */ (this.snaps);
     if (!s.length || !Number.isFinite(time)) return null;
     const ia = this._indexAt(time);
     return s[ia < 0 ? 0 : ia].down || null;
@@ -346,9 +385,10 @@ export class SnapshotBuffer {
    * Interpolated state at `time` (default renderT). Fills and returns `out` (a Map id → sample object reused
    * across calls: `{ id, x, y, hp, maxHp, sp, spMax, flags, anim, vx, vy, seen, el, elFill, elUntil, elDur }` —
    * `el` = the shown element gauge (null: none), see header). Samples of units no longer present are deleted from `out`.
+   * @param {number} [time] @param {Map<UnitId, UnitSample>} [out]
    */
-  sample(time = this.renderT, out = new Map()) {
-    const s = this.snaps;
+  sample(time = /** @type {number} */ (this.renderT), out = new Map()) {
+    const s = /** @type {Snapshot[]} */ (this.snaps);
     if (!s.length || !Number.isFinite(time)) { out.clear(); return out; }
     let ia = this._indexAt(time);
     if (ia < 0) ia = 0;
@@ -366,11 +406,12 @@ export class SnapshotBuffer {
       if (b) {
         const dx = b[1] - a[1], dy = b[2] - a[2];
         // (a deployment in between — the newer snapshot starts its deploy animation — lands on its tile, no slide)
-        const jumpAt = this._parasiteBlinkAt(id, A.t, B.t);
+        // `b` is set only when `B` is
+        const jumpAt = this._parasiteBlinkAt(id, A.t, /** @type {Snapshot} */ (B).t);
         const tele = dx * dx + dy * dy > this.teleport * this.teleport || redeployed(a, b) || jumpAt < Infinity;
         const afterJump = alpha >= 1 || time >= jumpAt;
-        const start = movementStart(A, B, id);
-        const moveSpan = B.t - start;
+        const start = movementStart(A, /** @type {Snapshot} */ (B), id);
+        const moveSpan = /** @type {Snapshot} */ (B).t - start;
         const moveAlpha = moveSpan > 0 ? clamp((time - start) / moveSpan, 0, 1) : 0;
         o.x = tele ? (afterJump ? b[1] : a[1]) : a[1] + dx * moveAlpha;
         o.y = tele ? (afterJump ? b[2] : a[2]) : a[2] + dy * moveAlpha;
@@ -406,7 +447,7 @@ export class SnapshotBuffer {
       else if (!(o.hp > 0)) o.hp = 0;
       o.flags = a[7];
       o.anim = a[8];
-      if (a.length > 9) { o.el = a[9]; o.elFill = a[10]; o.elUntil = a[11]; o.elDur = a[12]; } else if (o.el !== null) { o.el = null; o.elFill = 0; o.elUntil = 0; o.elDur = 0; }
+      if (a.length > 9) { o.el = /** @type {string} */ (a[9]); o.elFill = /** @type {number} */ (a[10]); o.elUntil = /** @type {number} */ (a[11]); o.elDur = /** @type {number} */ (a[12]); } else if (o.el !== null) { o.el = null; o.elFill = 0; o.elUntil = 0; o.elDur = 0; }
       o.ammo = a.ammo || null; o.bsp = a.bsp || null; // local patch: official bullet bar, boss SP
       o.shield = a.shield || 0; // the barrier on the official HP bar
       o.charge = a.charge || 0; // the stored charges of the official skill mark (hud-bars.js SkillMark)
@@ -423,13 +464,15 @@ export class SnapshotBuffer {
    * earlier is returned, and when `late` (a Map) is given it records that event → how far (game s) its stamp lies
    * before `time`, so the caller can skip its stale cosmetics (render/app.js: a late form fx switches the model without
    * replaying its telegraph and with its closing clip shortened).
+   * @param {number} [time] @param {BattleEvent[]} [out] @param {number | null} [dropCosmeticBefore]
+   * @param {Map<BattleEvent, number> | null} [late]
    */
-  takeEvents(time = this.renderT, out = [], dropCosmeticBefore = null, late = null) {
-    if (!this.events.length || !Number.isFinite(time)) return out;
+  takeEvents(time = /** @type {number} */ (this.renderT), out = [], dropCosmeticBefore = null, late = null) {
+    if (!/** @type {QueuedEvent[]} */ (this.events).length || !Number.isFinite(time)) return out;
     let n = 0;
-    while (n < this.events.length && this.events[n].t <= time) n++;
+    while (n < /** @type {QueuedEvent[]} */ (this.events).length && /** @type {QueuedEvent[]} */ (this.events)[n].t <= time) n++;
     if (!n) return out;
-    const list = this.events;
+    const list = /** @type {QueuedEvent[]} */ (this.events);
     for (let i = 0; i < n; i++) {
       const e = list[i];
       if (typeof dropCosmeticBefore === 'number' && e.t < dropCosmeticBefore) {
@@ -447,9 +490,10 @@ export class SnapshotBuffer {
   /**
    * Look ahead: call `fn(ev, t)` for every queued event stamped in (from, to] (ascending; nothing is removed).
    * Lets the renderer start animations that must peak when an event becomes due (attack wind-ups).
+   * @param {number} from @param {number} to @param {(ev: BattleEvent, t: number) => void} fn
    */
   forEachUpcoming(from, to, fn) {
-    const list = this.events;
+    const list = /** @type {QueuedEvent[]} */ (this.events);
     for (let i = 0; i < list.length; i++) {
       const e = list[i];
       if (e.t > to) break;
@@ -457,10 +501,10 @@ export class SnapshotBuffer {
     }
   }
 
-  /** Deliver every queued event now (used before a reset so state events are not lost). */
+  /** Deliver every queued event now (used before a reset so state events are not lost). @param {BattleEvent[]} [out] */
   flushEvents(out = []) {
-    for (const e of this.events) out.push(e.ev);
-    this.events.length = 0;
+    for (const e of /** @type {QueuedEvent[]} */ (this.events)) out.push(e.ev);
+    /** @type {QueuedEvent[]} */ (this.events).length = 0;
     return out;
   }
 }
