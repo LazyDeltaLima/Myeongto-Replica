@@ -147,7 +147,7 @@ test('萨尔贡 6 + 娜仁图亚: no ATK stacks; skill start lends the caster’
     h.step(1);
     h.unit('s0_a').skill.activate('test', { free: true });
     assert.deepEqual(calls.map((c) => c[1]).sort(), ['none_a', 's1_a', 's2_a']);
-    assert.deepEqual(calls[0][2], { maxTier: 5, duration: 60 });
+    assert.deepEqual(calls[0][2], { maxTier: 5, duration: 60, keys: ['env_gbuff_new_with_verify'] });
     assert.equal(h.unit('s1_a').s.aspd, 112, 'ASPD stacks still apply');
     close(h.unit('s1_a').s.atk, 1000, 1e-6, 'no ATK stacks with 娜仁图亚');
     // a member without equipment lends nothing
@@ -164,6 +164,71 @@ test('萨尔贡 6 + 娜仁图亚: no ATK stacks; skill start lends the caster’
     h.run(1);
     assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors));
   }
+});
+
+// 萨尔贡 × 娜仁图亚 lends as the client's `[share][buff]` AutoChessShareEquipEffect does (docs/rules/sim.md 「같은 장비 둘은
+// 둘 다 효과가 있다」 「빌린 장비도 같다」): one global buff per equipment instance and per lender, the
+// `env_gbuff_new_with_verify` effects only, to the ring around the lender's tile — also an operator deployed there while
+// it lasts —, ended by the lender's leaving (ON_BUFF_FINISH RemoveGlobalBuffByAlias)
+/** close() whose failure names the rule (the client's lending path) */
+const lc = (a, b, msg) => close(a, b, 1e-6, `${msg} — the client's AutoChessShareEquipEffect path, docs/rules/sim.md 「같은 장비 둘은 둘 다 효과가 있다」 빌려 주기의 생애`);
+const sargonLend = (units) => {
+  const list = [...sargonDefs(6), ['r_a', ['preciShip']], ['q1_a', ['preciShip']], ['q2_a', ['preciShip']]];
+  const h = makeBattle({ defs: defsOf(list), units, bandId: 'band_narant', bonds: { sargonShip: bondOn(6, 0, null, [3, 6]) }, timeLimit: 999, autoFinish: false });
+  h.step(1);
+  return h;
+};
+const HAMMER_A = 'chess_item_1_01_e_a', SUIT_A = 'chess_item_3_01_e_a'; // 维式重锤 (ATK +15 %), 叙拉古正装 (ASPD +15; its ability: the two side tiles +10)
+
+test('萨尔贡 × 娜仁图亚 lending: each item instance and each lender stacks; only the env_gbuff_new_with_verify effects', () => {
+  // s0 (10,4) and s1 (10,6) both have r (11,5) on a diagonal; q1 (12,5) and q2 (11,6) are r's possible side tiles, out of
+  // s0's ring and beside neither lender
+  const h = sargonLend([
+    { chessId: 's0_a', row: 10, col: 4, items: [HAMMER_A, HAMMER_A, SUIT_A] }, { chessId: 's1_a', row: 10, col: 6, items: [HAMMER_A] },
+    { chessId: 'r_a', row: 11, col: 5 }, { chessId: 'q1_a', row: 12, col: 5 }, { chessId: 'q2_a', row: 11, col: 6 },
+  ]);
+  const r = h.unit('r_a'), q1 = h.unit('q1_a'), q2 = h.unit('q2_a');
+  const aspd0 = q1.s.aspd;
+  h.unit('s0_a').skill.activate('test', { free: true });
+  h.step(1);
+  lc(r.s.atk, 1000 * (1 + 0.15 * 2), 'both of s0’s 维式重锤');
+  lc(r.s.aspd, aspd0 + 15, '叙拉古正装’s ASPD');
+  lc(q1.s.aspd, aspd0, 'the suit’s side-tile ability is not lent (q1)');
+  lc(q2.s.aspd, aspd0, 'the suit’s side-tile ability is not lent (q2)');
+  h.unit('s1_a').skill.activate('test', { free: true });
+  h.step(1);
+  lc(r.s.atk, 1000 * (1 + 0.15 * 3), 's1’s 维式重锤 on top');
+  h.unit('s0_a').skill.end('test');
+  h.unit('s0_a').skill.activate('test', { free: true });
+  h.step(1);
+  lc(r.s.atk, 1000 * (1 + 0.15 * 3), 'a cast while it runs lends nothing more');
+  checkInvariants(h.b);
+});
+
+test('萨尔贡 × 娜仁图亚 lending: an operator deployed in the ring meanwhile gets it; the lender’s knock-out ends it', () => {
+  const h = sargonLend([
+    { chessId: 's0_a', row: 10, col: 4, items: [HAMMER_A] }, { chessId: 'r_a', row: 11, col: 4 },
+    { chessId: 'q1_a', row: 12, col: 8 }, { chessId: 'q2_a', row: 12, col: 9 },
+  ]);
+  const s0 = h.unit('s0_a'), r = h.unit('r_a'), q1 = h.unit('q1_a'), q2 = h.unit('q2_a');
+  const [R0, C0] = [s0.tileR, s0.tileC];
+  s0.skill.activate('test', { free: true });
+  h.step(1);
+  lc(r.s.atk, 1150, 'lent to the neighbour');
+  lc(q1.s.atk, 1000, 'not to one far away');
+  h.b.retreat(q1);
+  assert.ok(h.b.redeploy(q1, { tile: [R0, C0 + 1] }), 'q1 deployed beside the lender');
+  h.step(1);
+  lc(q1.s.atk, 1150, 'deployed in the ring while the lending runs: lent too');
+  h.b.retreat(r);
+  assert.ok(h.b.redeploy(r, { tile: [R0 + 2, C0 + 3] }), 'r deployed out of the ring');
+  h.step(1);
+  lc(r.s.atk, 1000, 'redeployed out of the ring: no more');
+  lc(q2.s.atk, 1000, 'not to one far away (q2)');
+  h.b.kill(s0);
+  h.step(1);
+  lc(q1.s.atk, 1000, 'the lender’s knock-out takes it back at once');
+  checkInvariants(h.b);
 });
 
 // ---------------------------------------------------------------------------------------------------------------------

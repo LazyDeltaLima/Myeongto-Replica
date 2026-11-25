@@ -611,27 +611,36 @@ function joinOverrideGroup(battle, rt, u, b, S, rec) {
 }
 
 /**
- * Install the battle effects of item `itemId` on `u`. `lent` grants use their own buff keys (`@lend`).
- * Returns the grant `{ id, key, lent, dispose() }` or null when the item has no battle part.
- * @param {Battle} battle @param {Unit} u @param {string} itemId @param {{ lent?: boolean }} [opts] @returns {Grant | null}
+ * Install the battle effects of item `itemId` on `u`. A lent grant (lendItemEffects) names its own grant id and scope tag
+ * (one per lender and item instance) and may keep only the buffs whose rune key `only` accepts.
+ * Returns the grant `{ id, key, lent, dispose() }` or null when the item has no battle part (left).
+ * @param {Battle} battle @param {Unit} u @param {string} itemId
+ * @param {{ lent?: { gid: string, tag: string, lender: Unit, only?: ((key: string | null) => boolean) | null } | null }} [opts]
+ * @returns {Grant | null}
  */
-export function installItem(battle, u, itemId, { lent = false } = {}) {
+export function installItem(battle, u, itemId, { lent = null } = {}) {
   // hasBattleEffect is false for a missing record
   const rec = /** @type {ItemRec} */ (itemRecord(itemId, battle));
   if (!isOp(u) || !hasBattleEffect(rec, battle)) return null;
+  const only = lent && lent.only ? lent.only : null;
+  const buffs = only ? buffsOf(rec).filter((b) => only(b.key)) : buffsOf(rec);
+  const key = itemKeyOf(itemId, battle);
+  const h = hammerInfo(key, battle);
+  const hammer = h && (!only || buffs.some((b) => b.bbKey === h.bbKey)) ? h : null;
+  const byItem = BY_ITEM[key] && (!only || BY_ITEM_ASKS[key].every((k) => buffs.some((b) => b.bbKey === k))) ? BY_ITEM[key] : null;
+  if (only && !hammer && !byItem && !buffs.some((b) => STAT_BUFFS.has(b.bbKey) || BY_BUFF[/** @type {string} */ (b.bbKey)])) return null;
   const rt = runtime(battle);
   const gm = grantsOf(rt, u);
-  const gid = lent ? `lend:${itemId}` : `own:${itemId}:${gm.size}`;
-  // a further own copy of the same item (two advanced 源石溶剂 on one operator; upstream #902) installs under its own keys,
+  const gid = lent ? lent.gid : `own:${itemId}:${gm.size}`;
+  // a further copy of the same item (two advanced 源石溶剂 on one operator; upstream #902) installs under its own keys,
   // so every copy counts: the client's per-unit buffs of the item global buffs (battle/prefabs `[uc]globalbuffs.ab`,
   // 공식 클라에서 확인) all set `disableOverride` — no override group — but the two of OVERRIDE_GROUPED. Until 2026-11-07
-  // the second copy's buffs replaced the first's. The first copy keeps the plain tag; a lent copy keeps `@lend`
-  // (lending the same id again only refreshes it).
+  // the second copy's buffs replaced the first's. The first own copy keeps the plain tag; a lent one its lender's tag.
   const copies = lent ? 0 : [...gm.values()].filter((g) => !g.lent && g.id === itemId).length;
-  const tag = lent ? '@lend' : copies ? `#${(rt.copySeq = (rt.copySeq || 0) + 1)}` : '';
+  const tag = lent ? lent.tag : copies ? `#${(rt.copySeq = (rt.copySeq || 0) + 1)}` : '';
   const S = new Scope(battle, u, `item:${itemId}${tag}`);
-  const key = itemKeyOf(itemId, battle);
-  const grant = /** @type {Grant} */ ({ gid, id: itemId, key, lent, scope: S, timer: null, dispose: /** @type {() => void} */ (/** @type {unknown} */ (null)) });
+  const grant = /** @type {Grant} */ ({ gid, id: itemId, key, lent: !!lent, scope: S, timer: null, dispose: /** @type {() => void} */ (/** @type {unknown} */ (null)) });
+  if (lent) grant.lender = lent.lender;
   grant.dispose = () => {
     if (S.disposed) return;
     S.dispose();
@@ -640,21 +649,19 @@ export function installItem(battle, u, itemId, { lent = false } = {}) {
   };
   gm.set(gid, grant);
   try {
-    const buffs = buffsOf(rec);
     for (const b of buffs) {
       if (OVERRIDE_GROUPED.has(b.bbKey)) joinOverrideGroup(battle, rt, u, b, S, rec);
       else applyItemBuff(battle, u, b, S, rec);
     }
-    const h = hammerInfo(key, battle);
-    if (h) {
+    if (hammer) {
       const hs = hammerAcquire(battle, rt, u);
-      hs.own[h.type]++;
-      if (!hs.params[h.type]) hs.params[h.type] = bp(rec, h.bbKey);
+      hs.own[hammer.type]++;
+      if (!hs.params[hammer.type]) hs.params[hammer.type] = bp(rec, hammer.bbKey);
       hammerRefresh(battle, rt, u, hs);
-      S.onDispose(() => { hs.own[h.type] = Math.max(0, hs.own[h.type] - 1); hammerRelease(battle, rt, u, hs); });
+      S.onDispose(() => { hs.own[hammer.type] = Math.max(0, hs.own[hammer.type] - 1); hammerRelease(battle, rt, u, hs); });
     }
     for (const b of buffs) { const e = BY_BUFF[b.bbKey]; if (e && e.late) e.run(battle, u, b.p, S, rec); }
-    if (BY_ITEM[key]) BY_ITEM[key](battle, u, rec, S, grant);
+    if (byItem) byItem(battle, u, rec, S, grant);
   } catch (e) {
     battle._handlerError?.(`item:${itemId}`, u, e);
   }
@@ -673,30 +680,41 @@ export function install(battle) {
 }
 
 /**
- * 萨尔贡 × 娜仁图亚 (P1): temporarily grant `toUnit` the battle effects of every item `fromUnit` carries with
- * tier ≤ maxTier (meta-only / consume items skipped) for `duration` s. Lending the same item id to the same unit again
- * refreshes its timer (no stacking, whoever lends it). Returns the number of item effects lent (new + refreshed).
- * @param {Battle} battle @param {Unit} fromUnit @param {Unit} toUnit @param {{ maxTier?: number, duration?: number }} [opts]
+ * Lend `toUnit` the battle effects of the items `fromUnit` carries with tier ≤ maxTier for `duration` s — 萨尔贡 ×
+ * 娜仁图亚 (bonds/nation/sargon.js) and 规程's 维多利亚 6 (bonds/nation/victoria.js). The client's AutoChessShareEquipEffect
+ * makes, for every equipment instance the lender's card holds (two copies of one item: two), a new global buff of each
+ * effect buff's prefab (`bbStr.key`) with the effect's blackboard (공식 클라에서 확인; docs/rules/sim.md 「같은 장비 둘은 둘 다
+ * 효과가 있다」 「빌린 장비도 같다」): so each lender's each instance is its own grant here (`lend:<lender>:<n>:<item>`,
+ * scope tag `@lend:<lender>#<n>`), stacking with the receiver's own copies and with another lender's as own copies do
+ * (OVERRIDE_GROUPED still queue on one key). `keys`: the effect buffs' rune keys that are lent (萨尔贡's `_keyFilter`
+ * [`env_gbuff_new_with_verify`] — 叙拉古正装's ability is not); null lends every buff. Lending again what this lender lent
+ * this unit only sets its end to `duration` s from now. Returns the number of item instances lent (new + refreshed).
+ * @param {Battle} battle @param {Unit} fromUnit @param {Unit} toUnit
+ * @param {{ maxTier?: number, duration?: number, keys?: readonly string[] | null }} [opts]
  */
-export function lendItemEffects(battle, fromUnit, toUnit, { maxTier = 5, duration = 60 } = {}) {
+export function lendItemEffects(battle, fromUnit, toUnit, { maxTier = 5, duration = 60, keys = null } = {}) {
   if (!battle || !isOp(fromUnit) || !isOp(toUnit) || fromUnit === toUnit) return 0;
   if (!toUnit.alive || toUnit.removed) return 0;
   const dur = num(duration, 60);
   if (!(dur > 0)) return 0;
   const rt = runtime(battle);
   const gm = grantsOf(rt, toUnit);
+  const only = keys ? (/** @type {string | null} */ k) => k != null && keys.includes(k) : null;
   let n = 0;
-  for (const id of itemsOf(fromUnit)) {
+  const ids = itemsOf(fromUnit);
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
     const rec = itemRecord(id, battle);
     if (!rec || num(rec.tier, 99) > maxTier || !hasBattleEffect(rec, battle)) continue;
+    const gid = `lend:${fromUnit.id}:${i}:${id}`;
     /** @type {Grant | null | undefined} */
-    let g = gm.get(`lend:${id}`);
-    if (!g) g = installItem(battle, toUnit, id, { lent: true });
+    let g = gm.get(gid);
+    if (!g) g = installItem(battle, toUnit, id, { lent: { gid, tag: `@lend:${fromUnit.id}#${i}`, lender: fromUnit, only } });
     if (!g) continue;
-    if (g.timer) g.timer.cancel();
-    g.until = battle.time + dur;
-    g.timer = battle.after(dur, () => g.dispose());
-    g.lender = fromUnit;
+    const grant = g;
+    if (grant.timer) grant.timer.cancel();
+    grant.until = battle.time + dur;
+    grant.timer = battle.after(dur, () => grant.dispose());
     n++;
   }
   if (n) fxOn(battle, 'buff', toUnit, 'item:lend', 'lend', { from: fromUnit.id, n, duration: dur });
@@ -704,9 +722,9 @@ export function lendItemEffects(battle, fromUnit, toUnit, { maxTier = 5, duratio
 }
 
 /**
- * End now the item effects `fromUnit` lent `toUnit` (lendItemEffects) — 规程's 维多利亚 6 when the lending buff ends
- * before its time (its ON_BUFF_DISABLE AutoChessRemoveEquipEffectByAlias). An effect another unit lent again since is
- * that unit's and stays. Returns the number ended.
+ * End now the item effects `fromUnit` lent `toUnit` (lendItemEffects) — when the lending buff ends before its time:
+ * 萨尔贡 × 娜仁图亚's ON_BUFF_FINISH RemoveGlobalBuffByAlias, 规程's 维多利亚 6 ON_BUFF_DISABLE
+ * AutoChessRemoveEquipEffectByAlias. What another unit lent stays. Returns the number ended.
  * @param {Battle | null | undefined} battle @param {Unit} fromUnit @param {Unit} toUnit
  */
 export function endLentItems(battle, fromUnit, toUnit) {

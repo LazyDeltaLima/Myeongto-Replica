@@ -4,8 +4,8 @@
 //                                   +base_attack_speed for base_time + time_per_stack·L s, ≤ max_buff_stack_cnt); 6: each
 //                                   stack also ATK +base_atk (additive, one 直接乘算 buff)
 //   act2autochess_bond_eff_sargon   ([share], band_narant) read by the act-1 installer: at 6 with 纳兰特 the caster instead
-//                                   lends its equipment (tier ≤ filter_item_level) to the 8 surrounding operators
-//                                   (items.js lendItemEffects)
+//                                   lends its equipment (tier ≤ filter_item_level) to the operators around it for
+//                                   base_power_time + power_time_per_stack·L s (items.js lendItemEffects; share below)
 //   act3autochess_bond_eff_sargon   (卫戍协议：规程) the same stacks, no ATK: its 6-tier effect is the 流沙 ground below
 //   act3autochess_bond_eff_sargon_power   (规程, 6 of the player's own; numbers on its [tile_listener] buff) a member's
 //                                   skill start lays a 流沙 tile on the nearest ground tile of its attack range that is no
@@ -55,6 +55,7 @@ function installSargon(battle, pid, bb, members, { atk }) {
     if (n > 0 && u.alive) battle.addBuff(u, { key: 'bond:sargon:atk', mods: S.directMods({ atk: perAtk * n }) });
     else battle.removeBuff(u, 'bond:sargon:atk');
   };
+  const lend = narant && six ? shareEquipment(battle, share) : null;
   battle.on('skillStart', (/** @type {SkillEv} */ { unit }) => {
     if (!memberSet.has(unit)) return;
     const L = S.bondLayers(battle, pid, 'sargonShip');
@@ -70,26 +71,77 @@ function installSargon(battle, pid, bb, members, { atk }) {
         syncAtk(m);
       }
     }
-    if (narant && six) lendAround(battle, unit, share, S.bondLayers(battle, pid, 'sargonShip'));
+    if (lend) lend(unit, S.bondLayers(battle, pid, 'sargonShip'));
   });
 }
 
-/** @param {Battle} battle @param {Unit} from @param {BondBb} share @param {number} L */
-function lendAround(battle, from, share, L) {
-  if (!S.itemsOf(from).length) return;
-  const lend = typeof deps.lendItemEffects === 'function' ? deps.lendItemEffects
-    : typeof items.lendItemEffects === 'function' ? items.lendItemEffects : null;
-  if (!lend) return;
-  const duration = num(share.base_power_time, 0) + num(share.power_time_per_stack, 0) * L;
-  if (!(duration > 0)) return;
+/** The rune key of the equipment effects 萨尔贡 × 娜仁图亚 lends (`[share][buff]` AutoChessShareEquipEffect `_keyFilter`). */
+const SHARE_KEYS = Object.freeze(['env_gbuff_new_with_verify']);
+
+/**
+ * 萨尔贡 × 娜仁图亚's lending (client buff templates `act2autochess_bond_eff_sargon[share]` and `[share][buff]`, EN
+ * client; 공식 클라에서 확인, docs/rules/sim.md 「같은 장비 둘은 둘 다 효과가 있다」 「빌린 장비도 같다」): a member's skill cast
+ * gives it `[share][buff]` for base_power_time + power_time_per_stack·L s. Its ON_BUFF_LATE_ENABLE makes one global buff
+ * per equipment instance (tier ≤ filter_item_level, the `env_gbuff_new_with_verify` effects only), aliased by the lender,
+ * whose validator takes the units within √2 of the lender's tile at that moment, its own tile left out — the 8 around
+ * it, and so also an operator deployed there later while it lasts (BattleController.RegisterUnit offers every new unit to
+ * every global buff). The buff is EXTEND: a cast while it runs only refills its time (Buff.OverrideGroup: the new buff is
+ * not added, no second LATE_ENABLE — the lent items and their tile stay). It ends with its time or with its owner
+ * (Entity.OnFinish clears the owner's buffs → ON_BUFF_FINISH RemoveGlobalBuffByAlias → GlobalBuff.OnRemoved takes the
+ * lent buffs off every unit). A receiver that leaves loses them with its own buffs and gets them again only when it is
+ * deployed in that ring. A 【移动】 keeps what it has (moveRedeploy: buffs stay, DESIGN §22.3), the lender's included.
+ * Returns the cast handler (lender, layers).
+ * @param {Battle} battle @param {BondBb} share
+ */
+function shareEquipment(battle, share) {
   const maxTier = num(share.filter_item_level, 5);
-  let n = 0;
-  for (const a of S.alliesAround(battle, from, S.N8)) {
-    if (!S.isOp(a)) continue;
-    lend(battle, from, a, { maxTier, duration });
-    n++;
-  }
-  if (n) S.fxOn(battle, 'bondShare', from, 'bond:sargonShip', 'narant', { n, duration });
+  /** lender → its running [share][buff]: the ring's centre, its end and the operators that hold its loans @type {Map<Unit, { r: number, c: number, until: number, to: Set<Unit> }>} */
+  const running = new Map();
+  const lendItems = () => (typeof deps.lendItemEffects === 'function' ? deps.lendItemEffects
+    : typeof items.lendItemEffects === 'function' ? items.lendItemEffects : null);
+  const inRing = (/** @type {{ r: number, c: number }} */ st, /** @type {Unit} */ u) => {
+    const dr = u.tileR - st.r, dc = u.tileC - st.c, d = dr * dr + dc * dc;
+    return d > 0 && d <= 2;
+  };
+  const give = (/** @type {Unit} */ from, /** @type {{ until: number, to: Set<Unit> }} */ st, /** @type {Unit} */ a) => {
+    const lend = lendItems();
+    if (!lend) return;
+    st.to.add(a);
+    lend(battle, from, a, { maxTier, duration: st.until - battle.time, keys: SHARE_KEYS });
+  };
+  const end = (/** @type {Unit} */ from) => {
+    const st = running.get(from);
+    if (!st) return;
+    running.delete(from);
+    for (const a of st.to) items.endLentItems(battle, from, a);
+  };
+  battle.on('deploy', (/** @type {{ unit: Unit, move?: boolean }} */ { unit, move }) => {
+    if (!S.isOp(unit)) return;
+    for (const [from, st] of running) {
+      if (battle.time >= st.until - 1e-9) { running.delete(from); continue; }
+      if (unit === from || unit.ownerId !== from.ownerId) continue;
+      if (inRing(st, unit)) give(from, st, unit);
+      else if (!move && st.to.delete(unit)) items.endLentItems(battle, from, unit);
+    }
+  });
+  battle.on('death', (/** @type {{ unit: Unit }} */ { unit }) => { if (running.has(unit)) end(unit); });
+  return (/** @type {Unit} */ from, /** @type {number} */ L) => {
+    if (!S.itemsOf(from).length) return;
+    const duration = num(share.base_power_time, 0) + num(share.power_time_per_stack, 0) * L;
+    if (!(duration > 0)) return;
+    let st = running.get(from);
+    if (st && battle.time >= st.until - 1e-9) { running.delete(from); st = undefined; }
+    if (st) {
+      st.until = battle.time + duration;
+      for (const a of st.to) if (a.alive) give(from, st, a);
+    } else {
+      st = { r: from.tileR, c: from.tileC, until: battle.time + duration, to: new Set() };
+      running.set(from, st);
+      for (const a of S.alliesAround(battle, from, S.N8)) if (S.isOp(a)) give(from, st, a);
+    }
+    const n = [...st.to].filter((a) => a.alive).length;
+    if (n) S.fxOn(battle, 'bondShare', from, 'bond:sargonShip', 'narant', { n, duration });
+  };
 }
 
 // =====================================================================================================================

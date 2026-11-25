@@ -14,6 +14,9 @@
 //                                     (`_targetsCacheKey`; INDEX 「버프 덮어쓰기 그룹」: the new buff is not added, so no
 //                                     second ON_BUFF_ENABLE). Its end, the lender's knock-out or retreat included
 //                                     (ON_BUFF_DISABLE AutoChessRemoveEquipEffectByAlias), takes the loans back.
+//                                     Each item instance is lent on its own and stacks as 萨尔贡's lending does (items.js
+//                                     lendItemEffects), every effect buff lent [ASSUMED·CN: the CN node has no
+//                                     `_keyFilter` and other fields than the EN one read for 萨尔贡]
 //   (prep: the 维式重锤 every `layer` layers — bond_layer_added_reward_equip, bonds/templates.js)
 
 import * as S from '../../support/index.js';
