@@ -60,7 +60,7 @@ test('fxgame: enemy events take their own branch (swing / atk / dmg attacker / s
   assert.match(SRC, /case 'leak': stopOwned\(e\[1\]\); return;/);
   // the shot leaves its _mountPointType point; its flight takes the official speed
   assert.match(SRC, /const from = eshotFrom\(src, pr\.mount\);/);
-  assert.match(SRC, /dur: Math\.max\(0\.04, dist \/ \(erec\(src\) \? projSpeed\(e\[3\]\) : eshotSpeed\(src\)\)\)/);
+  assert.match(SRC, /dur: Math\.max\(0\.04, dist \/ \(erec\(src\) \? projSpeed\((?:\/\*\* @type \{string\} \*\/ \()?e\[3\]\)?\) : eshotSpeed\(src\)\)\)/);
   // effect names without case
   assert.match(SRC, /emodes\?\.\$fx\?\.\[name\.toLowerCase\(\)\]/);
 });

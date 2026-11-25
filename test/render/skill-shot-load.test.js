@@ -31,7 +31,7 @@ test("an operator's skill shot list is loaded at its deploy (warmShot)", () => {
 });
 
 test("a harpoon's moving effect ends as its projectile stops (歌蕾蒂娅 S3's range_04: FinishMe, not just the emission)", () => {
-  assert.match(body('planHarpoon'), /\.then\(\(l\) => \{ if \(l\) zoneEnd\(l, l\.until, true\); \}\)/);
+  assert.match(body('planHarpoon'), /\.then\(\(l\) => \{ if \(l\) zoneEnd\(l, (?:\/\*\* @type \{number\} \*\/ \()?l\.until\)?, true\); \}\)/);
 });
 
 test('a flying shot is moved by its trail record, not pinned to where it left, and stays while it flies', () => {

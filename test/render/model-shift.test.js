@@ -45,7 +45,7 @@ test('fxgame places effects, shots and line ends of a shifted model at its drawn
   assert.match(FX, /if \(!v \|\| !\(v\.modelDX \|\| 'glideS' in v \|\| foot\)\) return v;/);
   // every trail aims at the drawn model: shotTo's column is mx (lifted onto the model, lift-drift.test.js)
   assert.match(FX, /bodyPoint\(camRef, t, SPAWN_FRAC\[2\], mx\(t\), hitAt\)/);
-  assert.equal((FX.match(/\.\.\.aimOf\(t(gt|arget|)\)|\.\.\.aimOf\(u\)/g) || []).length, 7, 'every trail record aims through aimOf');
+  assert.equal((FX.match(/\.\.\.aimOf\((?:\/\*\* @type \{View\} \*\/ \()?t(gt|arget|)\)?\)|\.\.\.aimOf\(u\)/g) || []).length, 7, 'every trail record aims through aimOf');
   assert.doesNotMatch(FX, /tx: mx\(t(gt|arget)\)/);
   assert.match(FX, /Object\.assign\(rec, aimOf\(t\)\);/);
   assert.match(FX, /if \(mount === 7\) return \{ x: mx\(src\),/);

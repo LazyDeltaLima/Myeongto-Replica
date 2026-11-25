@@ -29,7 +29,7 @@ test('stepLine grows a line by its `lineDyn.tween` from its first frame (the sta
   const body = SRC.slice(SRC.indexOf('function stepLine(rec)'), SRC.indexOf('function stepLine(rec)') + 900);
   assert.match(body, /const tw = Number\(rec\.dyn\.tween\) \|\| 0;/, 'stepLine reads lineDyn.tween (docs/rules/fx.md 「선 끝이 시작에서 자라남」)');
   assert.match(body, /if \(tw > 0 && rec\.t0 == null\) rec\.t0 = clockS;/, 'its time starts at the first step (the client\'s OnPlay)');
-  assert.match(body, /lineTweenEnd\(elinePoint\(rec\.src, rec\.dyn\.sMount, lineT, null\), elinePoint\(rec\.tgt, rec\.dyn\.eMount, lineB, null\), k, rec\.dyn\.eOff\)/);
+  assert.match(body, /lineTweenEnd\(elinePoint\((?:\/\*\* @type \{View\} \*\/ \()?rec\.src\)?, rec\.dyn\.sMount, lineT, null\), elinePoint\((?:\/\*\* @type \{View\} \*\/ \()?rec\.tgt\)?, rec\.dyn\.eMount, lineB, null\), k, rec\.dyn\.eOff\)/);
 });
 
 test('the extracted 逻各斯 S2 lock line carries its 0.2 s tween (when the local effects are installed)', (t) => {

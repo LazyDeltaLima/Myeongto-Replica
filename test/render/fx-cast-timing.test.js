@@ -113,7 +113,7 @@ test('패신저 S3: the storm (kit fx \'storm\') plays her S3 projectile\'s rang
   assert.match(SRC, /if \(e\[1\] === 'lightning' && chainFx\(e, views\)\) return;/);
   assert.match(SRC, /const names = \[\.\.\.\(Number\(o\.i\) === 0 \? extracted\(src, c\.first\) : \[\]\), \.\.\.extracted\(src, sk\.target\)\];/);
   // one line per strike through its units (chainLine: FxInstance.setPath)
-  assert.match(SRC, /if \(line && camRef\) chainLine\(`storm:\$\{o\.src\}:\$\{strikes\.get\(o\.src\) \|\| 0\}`, bundleOf\(src\)\.bundle, line, from, tgt, c\.hit === 1, src\);/);
+  assert.match(SRC, /if \(line && camRef\) chainLine\(`storm:\$\{o\.src\}:\$\{strikes\.get\(o\.src\) \|\| 0\}`, (?:\/\*\* @type \{FxBundle\} \*\/ \()?bundleOf\(src\)\)?\.bundle, line, (?:\/\*\* @type \{View\} \*\/ \()?from\)?, tgt, c\.hit === 1, src\);/);
   // 2026-10-17: the range ends with the storm as Effect.FinishMe (gone at once: no `_delayToFinish`), not by its particles —
   // its cloud is one 50 s particle that kept the field on the board
   assert.match(SRC, /zoneEnd\(l, nrec\.until, !nrec\.aura\.has\(l\)\);/);

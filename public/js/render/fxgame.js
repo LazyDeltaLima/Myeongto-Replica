@@ -137,29 +137,40 @@ import { animPause, backSide, viewHoldsBuff, clipOf, facesBack, idlePause, immun
  * @typedef {{ idle?: string[], back?: string[], hide?: string[], show?: string[], proj?: unknown, lock?: unknown, from?: number,
  *   attach?: unknown, speed?: number, delay?: unknown, wait?: unknown, trail?: string[], hit?: string[], seq?: string[][],
  *   overSeq?: string[][], [key: string]: unknown }} Funnel a drone (modes.json `funnels[mode][i]`)
- * @typedef {SkillFx & { hitGroups?: Rec | null, shotHit?: string[], castTgtOpt?: Record<string, CastOpt | undefined> | null, chain?: Rec | null,
+ * @typedef {SkillFx & { hitGroups?: HitGroups | null, shotHit?: string[], castTgtOpt?: Record<string, CastOpt | undefined> | null, chain?: Rec | null,
  *   zone?: { fx?: string[], aura?: string[], onProj?: boolean } }} FxSkill a skill's row (modes.json `skills[i]`)
  * @typedef {Omit<ModeBind, 'funnels' | 'skills'> & { owner?: string, charge?: ChargeBind, dollBack?: string[], dollBorn?: string[],
  *   turn?: string[], hitAim?: string[], dirs?: { t: number, s: string[] }[], castTgt?: string[], funnels?: Funnel[][],
  *   clipFx?: ({ loop?: number, groups?: { anim: string, cast?: string[], hit?: string[] }[] } | null)[],
- *   shotFrom?: (number | null)[],
+ *   shotFrom?: (number | null)[], aura?: Record<string, string[] | undefined>, hitGroups?: (HitGroups | null)[], chainHit?: (number | null)[],
+ *   attachFoeMax?: Record<string, number | undefined>,
  *   skills?: (FxSkill | null)[], [key: string]: unknown }} ModeRow an operator's modes.json entry
  * @typedef {{ t: number, hitAt: number, end: number | null, speed: number, mode: number, fired: Set<string>,
  *   struckAt: number | null, skip: boolean, first: boolean, cut?: boolean, group?: { hit?: string[], start?: string[],
  *   cast?: string[], replace?: boolean, [key: string]: unknown } | null, sig?: string | null, inTgt?: View | null,
- *   inputLate?: string[] | null, ctLate?: string[] | null, [key: string]: unknown }} FxCast an attack's cast
+ *   inputLate?: string[] | null, ctLate?: string[] | null, spell?: number, part?: EPart, [key: string]: unknown }} FxCast an attack's cast
  *   (beginCast)
  * @typedef {{ part: EPart, t: number, hold: unknown, until: number | null, held: Set<unknown> | null, inPlace: boolean }} ESkillRec
  *   an enemy's held skill (eskillFx)
  * @typedef {{ key?: string, reached?: string[], hit?: string[], trail?: string[], stop?: string[], targetStart?: string[],
- *   move?: string, hook?: unknown, mount?: unknown,
+ *   move?: string, hook?: unknown, mount?: unknown, link?: number, speed?: number, raise?: number, noRaise?: number,
+ *   start?: string[], tileStart?: string[], ground?: string[], sub?: (EProj | null)[], rope?: string, onSrc?: number,
  *   [key: string]: unknown }} EProj an enemy shot (enemy-modes.json `proj`)
- * @typedef {{ proj?: EProj | null, cast?: string[], hit?: string[], summon?: string[], hopt?: Record<string, { once?: boolean } | undefined>,
+ * @typedef {{ proj?: EProj | null, cast?: string[], hit?: string[], summon?: string[],
+ *   hopt?: Record<string, { once?: boolean | number, e?: number } | undefined>,
+ *   opt?: Record<string, CastOpt | undefined>, dirs?: { t: number, s: string[] }[], buff?: string[], attach?: string[],
+ *   tile?: string[], hitBuff?: string[], hitBuffLife?: Record<string, number | undefined>, ready?: string[], readyEarly?: number,
+ *   anim?: string, aim?: string[], dying?: string[], blink?: { from?: string[], to?: string[] }, line?: { fx?: string, life?: number }[],
  *   [key: string]: unknown }} EPart an enemy attack or ability's effects (enemy-modes.json)
- * @typedef {{ name?: string, ranged?: EPart | null, melee?: EPart | null, aura?: string[], [key: string]: unknown }} EMode an
+ * @typedef {{ name?: string, ranged?: EPart | null, melee?: EPart | null, aura?: string[], skills?: Record<string, EPart | undefined>,
+ *   anim?: string[], [key: string]: unknown }} EMode an
  *   enemy mode
  * @typedef {{ modes?: (EMode | null)[], skills?: Record<string, EPart | undefined>, aura?: string[], camera?: string[],
- *   points?: PtsTable, _buffMemo?: Map<string, EnemyBuffs | null>, [key: string]: unknown }} ERow an enemy's
+ *   points?: PtsTable, _buffMemo?: Map<string, EnemyBuffs | null>, buffFx?: Record<string, string[] | undefined>,
+ *   passenger?: string[], born?: string[], start?: string, dead?: string, _animSkill?: Map<string, string>, buffBlocked?: Record<string, string[] | undefined>,
+ *   auraEnd?: Record<string, string | undefined>, reborn?: { fx: string[], mode?: number | null, to?: number, clear?: number }[],
+ *   rebornAbility?: (EPart & { mode?: number | null, to?: number, buffs?: { fx: string, ev: number, once?: unknown }[] })[],
+ *   [key: string]: unknown }} ERow an enemy's
  *   enemy-modes.json entry
  * @typedef {{ mode: number, names: string[], on: Set<unknown> }} FoeRec a skill's mode buffs held by enemies (foeFx)
  * @typedef {{ key: string, n: number, k: number, ls: LiveEntry[][], locks: Map<number, { tid: unknown, [key: string]: unknown }>,
@@ -191,7 +202,7 @@ import { animPause, backSide, viewHoldsBuff, clipOf, facesBack, idlePause, immun
  *   its instance, what it follows, whose it is, when it ends
  * @typedef {{ from: THREE.Vector3 | null, to: THREE.Vector3 | null, dur: number, real: boolean, t: number,
  *   ease: (t: number) => number }} Fly a FlyToPredefinedLocation flight (startFly)
- * @typedef {{ inst: FxInstance | null, tgt: View | null, x0: number, y0: number, z0?: number, tx: number, ty: number,
+ * @typedef {{ inst: FxInstance | null, tgt: View | null | undefined, x0: number, y0: number, z0?: number, tx: number, ty: number,
  *   tz?: number, k: number, dur: number, arc?: number, key?: string | null, src?: View, back?: number, rate?: number,
  *   phase?: number, ride?: View, d0?: number, gx?: number, gy?: number, still?: boolean, sink?: number,
  *   [key: string]: unknown }} ShotRec a flying trail (`trails`: trailShot, launchTrail, stepTrails)
@@ -199,7 +210,29 @@ import { animPause, backSide, viewHoldsBuff, clipOf, facesBack, idlePause, immun
  *   battle clock (`castsDelayed`)
  * @typedef {{ src: View, names: string[], buff: boolean, t: number, done?: Set<unknown> }} Pend a hit waiting for its
  *   'dmg' (`pending`: expect)
- * @typedef {{ src: View, t: number, ground?: unknown, [key: string]: unknown }} AtkRec an attack's record on its target (`lastAtk`)
+ * @typedef {{ src: View, t: number, mode: number, kind?: string | null, shot?: boolean, combat?: boolean, sig?: string | null,
+ *   hitT?: number, n?: number, cast?: FxCast | null, spellHit?: number, reach?: boolean, epart?: EPart, ground?: unknown,
+ *   [key: string]: unknown }} AtkRec an attack's record on its target (`lastAtk`, `healAtk`; its `mode` attackModeOf's)
+ * @typedef {{ g: string[][], base?: string[], starts?: string[][], shots?: string[][], dt?: number, loop?: boolean | number,
+ *   rand?: boolean | number }} HitGroups an attack's per-strike hits (modes.json `hitGroups[mode]`, skills[i].hitGroups: strikeGroups)
+ * @typedef {{ at: Pt, onProj: boolean, vx: number, vy: number, sx: number, sy: number, st: number, until: number, r0: number,
+ *   list: LiveEntry[], aura: Set<LiveEntry> }} ZoneRec a skill projectile's reach effects (`zones`: zoneFx)
+ * @typedef {{ x: number, y: number, hits: string[][], marks: LiveEntry[], shell: LiveEntry | null, done: boolean }} EMortar
+ *   an enemy's shell fired at a spot (`emortars`: emortarFx)
+ * @typedef {{ x: number, y: number, id: unknown, pr: EProj, src: View, marks: LiveEntry[], done: boolean }} DShell an enemy
+ *   projectile lying on a spot until its blast (`dshells`: dshellFx, eprojTelegraph, eprojDrop)
+ * @typedef {{ r: number, c: number, z: number, dir: string, pax: LiveEntry | null, paxOn: boolean, laid: boolean, t0: number }}
+ *   Cannon a 盐坨子炮 on the field (`cannons`: setCannons)
+ * @typedef {{ at: Pt, ang: number, speed: number, rad: number, l: LiveEntry | null, done: boolean, hit: string[] }} SoulBall
+ *   a fireball circling its caster (`soulBalls`: soulFx 'orbit')
+ * @typedef {{ l: LiveEntry | null, from: Pt, to: Pt, done: boolean }} SoulLine a soul mage's laser line (`soulLines`)
+ * @typedef {{ sMount: number, eMount: number, sOff?: unknown, eOff?: unknown, tween?: number, start?: unknown, gonePause?: unknown,
+ *   endDead?: string, [key: string]: unknown }} LineDyn a line's mount points and ends (fx_extract.py `lineDyn` / `lineEm`)
+ * @typedef {{ src: View | Anchor, tgt: View | Anchor, until: number, l: LiveEntry | null, sp: Pt | null, dyn: LineDyn,
+ *   ended: boolean, tag: string | null, owner: unknown, skill: boolean, spLive?: LiveEntry, fade?: number, t0?: number,
+ *   held?: boolean, heldWait?: number | null, head?: Anchor, key?: string }} ELine a line between two units (`elines`:
+ *   startLine; its `dyn` is set as its prefab loads, with `l`)
+ * @typedef {{ tgt: View, l: LiveEntry | null, until: number, done: boolean }} BreathRec 炎佑's 祛恶之焰 on its target (`ebreath`)
  * @typedef {{ x: number, y: number, l: LiveEntry | null, loading: boolean, none: boolean, stood: boolean, key: string }}
  *   SandFloor a 流沙 tile's floor (`sandFloors`)
  * @typedef {{ fx: string[], iv?: unknown, buff: string, [key: string]: unknown }} SwBB a blackboard switch (fx_extract.py `swBB`)
@@ -422,6 +455,7 @@ const SHOT_BLASTS = new Set(['bomb', 'cansld', 'wingnt']);
  * `_lifeTime` 3.2 s) — the sim's 'telegraph' { x, y, dur, kind, tgt } as it is put on, 'explode' { x, y, kind, caster, tgt }
  * as it stops (on time, or at once when the cast is cut), its damage right after.
  */
+/** @type {Readonly<Record<string, string | undefined>>} */
 const STUCK_SHOTS = Object.freeze({ c4: 'C4' });
 /** 2026-11-11: 'explode' kinds whose official blast has no effect of its own — the ability's cast effects draw it. */
 const CAST_BLASTS = new Set(['ltndruAoe']);
@@ -437,6 +471,7 @@ const ABILITY_SHOT_ATKS = new Set(['uareapMissile']);
  * (projectile_enemy_uareap_skill: AttachToTarget `_delayToStart` 0.6 on the spot, `_effectsWhenReached` enemy_uareap_skill_hit_01,
  * no hit effect).
  */
+/** @type {Set<unknown>} */
 const AREA_SHOT_BLASTS = new Set(['uareap']);
 /**
  * 2026-11-12 (docs/rules/fx.md 「규정 살카즈 후예 무리」): an enemy skill whose strike (its clip's attack event) the sim sends
@@ -445,6 +480,7 @@ const AREA_SHOT_BLASTS = new Set(['uareap']);
  * 惩戒者's StunAttack (reborn.js kitDfat: its Skill clip, the strike 0.567 s in): enemy_dfat_skill_start_01.
  */
 const DFAT_STUN = Object.freeze({ StunAttack: 'dfatStun' });
+/** @type {Readonly<Record<string, Readonly<Record<string, string>> | undefined>>} */
 const SPELL_BLASTS = Object.freeze({ enemy_1362_dfat: DFAT_STUN, enemy_1362_dfat_2: DFAT_STUN });
 /**
  * 2026-11-12 (docs/rules/fx.md 「규정 재생 무리」): an enemy kit's moment (the sim's fx 'kitHit' { id, k }) whose client buff
@@ -452,7 +488,9 @@ const SPELL_BLASTS = Object.freeze({ enemy_1362_dfat: DFAT_STUN, enemy_1362_dfat
  * breaking a 赘生甲壳 (element.js kitNucleus 'dslntf:break': dslntf_s_1[block]'s CreateEffect enemy_dslntf_buff_02, BUFF_SOURCE
  * — the 孽生者).
  */
+/** @type {Readonly<Record<string, string | undefined>>} */
 const EKIT_HIT_FX = Object.freeze({ 'dslntf:break': 'dslntf_s_1[block]' });
+/** @type {Readonly<Record<string, Readonly<Record<string, string>> | undefined>>} */
 const FORM_MODES = Object.freeze({
   enemy_1116_liprr: PRISONER_MODES, enemy_1116_liprr_2: PRISONER_MODES, enemy_1118_lidbox_2: PRISONER_MODES,
   enemy_1119_vofsd: PRISONER_MODES, enemy_1121_lifbos: PRISONER_MODES, enemy_1121_lifbos_2: PRISONER_MODES,
@@ -774,6 +812,7 @@ export const CANNON_KEY = 'trap_196_cnnon';
 export const CANNON_MUZZLE = Object.freeze({ fwd: 0.138, up: 0.456 });
 /** Board steps (x = column, y = row) of a device direction (server/sim/dir.js DIR_VEC: DOWN = −row). */
 /** @type {Readonly<Record<string, readonly [number, number]>>} */
+/** @type {Readonly<Record<string, readonly number[]>>} */
 const CANNON_STEP = Object.freeze({ UP: [0, 1], DOWN: [0, -1], LEFT: [-1, 0], RIGHT: [1, 0] });
 /** content/devices.js CANNON_REACH: its own tile and the four ahead (range 4-1). */
 const CANNON_REACH = 4;
@@ -2223,7 +2262,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // display tree: an impostor-drawn model renders its skeleton elsewhere, units.js _updateImpostor). The scale is the
     // view's own (units.js `modelSX` / `modelSY`, facing mirror included): an impostor's skeleton is scaled for its atlas
     // slot without the mirror, or not at all (render/impostor.js draw)
-    const kx = Number.isFinite(v.modelSX) ? v.modelSX : sp.scale.x, ky = Number.isFinite(v.modelSY) ? v.modelSY : sp.scale.y;
+    const kx = Number.isFinite(v.modelSX) ? /** @type {number} */ (v.modelSX) : sp.scale.x, ky = Number.isFinite(v.modelSY) ? /** @type {number} */ (v.modelSY) : sp.scale.y;
     const ox = (v.root?.x ?? v.screen.x) + (v.body?.x || 0), oy = (v.root?.y ?? v.screen.y) + (v.body?.y || 0);
     const g = { x: ox + bone.x * kx, y: oy + bone.y * ky };
     // the world point under it on the model's plane (fxpoints.js planePoint: the official mount point's 3D place — 2026-10-31,
@@ -2888,7 +2927,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const n = sk ? skinName(src, n0) : n0;
       if (!trailReady.has(`${b.bundle}/${n}`)) { ensure().then((ok) => (ok ? lib.load(b.bundle, n) : null)).then((def) => { if (def) trailReady.add(`${b.bundle}/${n}`); }, () => {}); skips.first++; return; }
       const go = () => { if (!trailFull() && !gone.has(ownerOf(tgt))) launchTrail({ ...rec, inst: null, k: 0, ...aimOf(tgt) }, b.bundle, n); };
-      if (sg.dt > 0) castsDelayed.push({ t: clockS + sg.dt * (k + 1), run: go }); else go();
+      if (/** @type {number} */ (/** @type {HitGroups} */ (sg).dt) > 0) castsDelayed.push({ t: clockS + /** @type {number} */ (/** @type {HitGroups} */ (sg).dt) * (k + 1), run: go }); else go();
     });
     return true;
   }
@@ -4305,7 +4344,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // 2026-10-23 (maintainer arena check 「歌蕾蒂娅 S3 끝에 작살로 끌어온 회오리가 조금 오래 남음」): ended as the projectile stops, the
     // client's FinishMe (zoneEnd: gone `_delayToFinish` later) — a plain `until` only stopped emitting, and range_04's 10 s
     // particles stayed about 2 s after the head was back
-    if (mv) castsDelayed.push({ t: clockS + out, run: () => spawn(pb.bundle, mv, head, { owner: null, buff: false, until: clockS + backT }, { over: false, hook: op }).then((l) => { if (l) zoneEnd(l, l.until, true); }) });
+    if (mv) castsDelayed.push({ t: clockS + out, run: () => spawn(pb.bundle, mv, head, { owner: null, buff: false, until: clockS + backT }, { over: false, hook: op }).then((l) => { if (l) zoneEnd(l, /** @type {number} */ (l.until), true); }) });
     return out;
   }
   /**
@@ -5912,10 +5951,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * announced. Its first target is the cast's main target (input-target effects, lastTarget). `spell` (the 'atk' 8th
    * field, 1, 2 …): a later spell of the cast that struck last, sent as an attack of its own (spellFx) — no cast of its own.
    * @param {View} src
+   * @param {number} mode
+   * @param {string | null} [kind]
+   * @param {View | null} [tgt]
+   * @param {string | null} [sig]
+   * @param {number} [spell]
    */
   function strikeFx(src, mode, kind = null, tgt = null, sig = null, spell = 0) {
     if (spell > 0) { spellFx(src, src._fxCast, mode, kind, sig, spell); return; }
-    let c = src._fxCast;
+    let c = /** @type {FxCast} */ (src._fxCast);   // (none or another cast: !same, begun below)
     const same = c && c.mode === mode && clockS <= c.hitAt + SWING_SLACK && (c.struckAt == null || clockS - c.struckAt < 0.03) && (c.sig ?? null) === sig;
     const { names: own, split } = boundFor(src, mode, 'cast', kind);
     if (!same) {   // no 'swing' for this attack: its swing effects now (the moment they had before)
@@ -5949,6 +5993,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * 霍尔海雅 S2's nine shots 0.05 s apart); each spell number plays once per cast, whatever the targets. Before, the
    * strikes of one 'atk' played them once, and an 'atk' of its own began another cast (its swing effects again, the loops cut).
    * @param {View} src
+   * @param {FxCast | null | undefined} c
+   * @param {number} mode
+   * @param {string | null | undefined} kind
+   * @param {string | null | undefined} sig
+   * @param {number} n
    */
   function spellFx(src, c, mode, kind, sig, n) {
     if (!c || c.skip || src._fxCast !== c || c.mode !== mode || (c.sig ?? null) !== (sig ?? null) || c.struckAt == null) return;
@@ -5959,6 +6008,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // the post-delay runs after a later spell — the clip's remainder or a wait of its own — not read]
     if (c.end != null && c.end < clockS) c.end = clockS;
     const bind = bindOf(src);
+    /** @param {string} x */
     const on = (x) => castTiming(bind, mode, x)?.s === CAST_EVENT.SPELL_ON;
     const cast = castOf(boundFor(src, mode, 'cast', kind).names, c.group).filter(on);
     if (cast.length) playCast(src, c, cast);
@@ -5972,6 +6022,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * (迷迭香 S2's range looped on her by the `_range` name rule — fxmap.js activationEffects now leaves it to this).
    * @param {View} src
    * @param {View} tgt
+   * @param {number} mode
+   * @param {boolean} [shot]
    */
   function shotStartFx(src, tgt, mode, shot = false) {
     const sg = strikeGroups(src, mode, shot);
@@ -5988,14 +6040,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // `_selector`'s range selectors `_targetSide 2`, `_maxNum 1`, the enemy already holding `halo2_s_3_link` first) — sits on
   // that enemy: here the enemy her attacks hit, kept on it while it lives and the skill lasts, then the next one she hits;
   // `attachFoeMax` caps how many hold it at once (none: every enemy hit).
-  /** @param {View} src @param {View | null | undefined} tgt */
+  /**
+   * @param {View} src @param {View | null | undefined} tgt
+   * @param {number} mode
+   */
   function foeFx(src, tgt, mode) {
     const f = src._fxFoe;
     if (!f || !tgt || tgt.info?.side !== 'enemy' || f.mode !== mode) return;
     const tid = ownerOf(tgt);
     for (const id of [...f.on]) { const u = lastViews?.get(id); if (!u || u.alive === false || u.remove) f.on.delete(id); }
     if (f.on.has(tid)) return;
-    const b = bundleOf(src);
+    const b = /** @type {FxBundle} */ (bundleOf(src));   // (its 'atk' tested it)
     let put = false;
     for (const n of f.names) {
       const max = bindOf(src)?.attachFoeMax?.[n] || 0;
@@ -6015,6 +6070,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // r / radius, duration / dur; a `key`-ed one re-sent each second as it drifts and grows): the effects play there and stop
   // when its time is up. The aura's scale follows the radius from the first event's [추정: the prefab is drawn for the
   // thrown radius]. 引星棘刺, 锡人, 号角 S1, 波登可 S2 have such projectiles.
+  /** @type {Map<string, ZoneRec>} */
   const zones = new Map();   // `${caster}:${key}` → { at, vx, vy, st, until, r0, list: [live entries], aura: Set }
   // 2026-11-16 (official client — EffectBehaviour.OnProjectileReached, Effect.Play(ILocatable), Effect._InitLocation): without
   // `_forceReachTargetGround` / `_followTargetGround` / `_useTraceTargetWhenReach` the reach effects are created on the
@@ -6025,6 +6081,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * The unit the attack's shot of `src` that carried this zone at (x, y) flew to (taken within 3 s, near the spot), once.
    * @param {View} src
+   * @param {number} x
+   * @param {number} y
    */
   function shotAimOf(src, x, y) {
     const a = src._fxShotAim;
@@ -6042,6 +6100,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * The ground enemy within 1 tile of (x, y) a zone of `src` is thrown at, when its skill's shot makes the zone's `fx` on the ground (opShot `ground`), else null.
    * @param {View} src
    * @param {Views} views
+   * @param {number} x
+   * @param {number} y
+   * @param {string[]} fx
    */
   function groundZoneTarget(src, x, y, fx, views) {
     let def;
@@ -6060,7 +6121,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function zoneFx(e, views) {
     const o = /** @type {FxRec} */ (e[4]);
     if (!o || typeof o !== 'object' || failed) return false;
-    const src = views.get(o.id);
+    const src = /** @type {View} */ (views.get(o.id));
     if (!isOp(src) || !bundleOf(src)) return false;
     const z = skillBind(src)?.zone;
     const fx = extracted(src, z?.fx), aura = extracted(src, z?.aura);
@@ -6089,9 +6150,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const foe = aim ? null : groundZoneTarget(src, x, y, fx, views);
     const at = aim ? shotTo(aim) : { x, y, z: 0 };
     const floor = aim ? Number(aim.z) || 0 : null;
-    const nrec = { at, onProj: !!z.onProj, vx: 0, vy: 0, sx: x, sy: y, st: clockS, until, r0: r, list: [], aura: new Set() };
+    /** @type {ZoneRec} */
+    const nrec = { at, onProj: !!/** @type {{ onProj?: boolean }} */ (z).onProj, vx: 0, vy: 0, sx: x, sy: y, st: clockS, until, r0: r, list: [], aura: new Set() };
     if (k) zones.set(k, nrec);
-    const bundle = bundleOf(src).bundle;
+    const bundle = /** @type {FxBundle} */ (bundleOf(src)).bundle;
     const put = () => {
       if (foe) nrec.at = shellLand(foe);   // as it lands: the orb traced the target there
       for (const n of [...fx, ...aura]) {
@@ -6108,7 +6170,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     // effects play as it lands (OnProjectileReached); one that an attack already carried (号角 S1: takeShot) does not fly again
     const s = src._fxShot;
     const fly = !aim && s && (s.t == null || s.t === clockS) ? skillShotOut(src, foe ?? { x, y, z: 0 }) : -1;
-    if (fly >= 0) { s.t = clockS; castsDelayed.push({ t: clockS + fly, run: put }); } else put();
+    if (fly >= 0) { /** @type {{ t: number | null }} */ (s).t = clockS; castsDelayed.push({ t: clockS + fly, run: put }); } else put();
     return true;
   }
   /**
@@ -6116,6 +6178,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * does (→ `Effect.FinishMe`): gone its prefab's `_delayToFinish` later (def.finish; none: at
    * once) — 2026-10-17 (maintainer report 「패신저 S3 이펙트가 스킬이 끝났는데도 안 사라짐」): stopped, pasngr_skill_03_range's
    * cloud (a 50 s particle) kept the whole field on the board for 46 s more. The aura stops emitting at `until`, as before.
+   * @param {LiveEntry} l
+   * @param {number} until
+   * @param {boolean} finish
    */
   function zoneEnd(l, until, finish) {
     l.until = until;
@@ -6134,7 +6199,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function chainFx(e, views) {
     const o = /** @type {FxRec} */ (e[4]);
     if (!o || typeof o !== 'object' || failed) return false;
-    const src = views.get(o.src), tgt = views.get(o.id);
+    const src = /** @type {View} */ (views.get(o.src)), tgt = views.get(o.id);
     if (!tgt || !isOp(src) || !bundleOf(src)) return false;
     const sk = skillBind(src), c = sk?.chain;
     if (!c) return false;
@@ -6144,7 +6209,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (Number(o.i) === 0) strikes.set(o.src, (strikes.get(o.src) || 0) + 1);
     const from = o.from != null ? views.get(o.from) : null;
     const line = from ? extracted(src, c.line)[0] : null;
-    if (line && camRef) chainLine(`storm:${o.src}:${strikes.get(o.src) || 0}`, bundleOf(src).bundle, line, from, tgt, c.hit === 1, src);
+    if (line && camRef) chainLine(`storm:${o.src}:${strikes.get(o.src) || 0}`, /** @type {FxBundle} */ (bundleOf(src)).bundle, line, /** @type {View} */ (from), tgt, c.hit === 1, src);
     return true;
   }
   // ---- a chain shot's line (2026-10-16, official client, docs/rules/fx.md 「연쇄 공격」) ------------------------------
@@ -6168,6 +6233,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * A struck unit's point on a chain's line: its hit point, or where its entity stands (`transform.position`).
    * @param {View} v
+   * @param {boolean} hit
    */
   function chainPoint(v, hit) {
     if (hit) return elinePoint(v, 1, { x: 0, y: 0, z: 0 });
@@ -6177,6 +6243,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * Chain `key`'s line through `from` (its first unit, for a new chain) and `to`, now.
    * @param {string} bundle
+   * @param {string} key
+   * @param {string} name
+   * @param {View} from
+   * @param {View} to
+   * @param {boolean} hit
+   * @param {View | null} [hook]
    */
   function chainLine(key, bundle, name, from, to, hit, hook = null) {
     let c = chainLines.get(key);
@@ -6197,7 +6269,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /** @param {Ev} e @param {Views} views */
   function chainHop(e, views) {
-    const prev = e[1], next = e[2], src = views.get(e[5]);
+    const prev = e[1], next = e[2], src = /** @type {View} */ (views.get(e[5]));
     if (!isOp(src)) return;
     const head = e[6] ?? prev;
     const a = aimed.get(`${e[5]}:${head}`);
@@ -6212,13 +6284,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const line = bound(src, m, 'chain')[0];
     if (!line) return;
     chainAtks.add(e);
-    if (camRef) chainLine(`${e[5]}:${head}`, bundleOf(src).bundle, line, from, tgt, bindOf(src)?.chainHit?.[m] === 1, src);
+    if (camRef) chainLine(`${e[5]}:${head}`, /** @type {FxBundle} */ (bundleOf(src)).bundle, line, from, tgt, bindOf(src)?.chainHit?.[m] === 1, src);
   }
   /**
    * An operator attack `a` (lastAtk / healAtk record) hitting `tgt`: its mode's hit effects (a 要塞's of the attack it made:
    * boundFor; a skill's shot: its projectile's, takeShot), else the name-mapped hit. One impact per attack: the record leaves
    * `map` (a mark's / DoT's later ticks are no attack's hit; audio.js does the same).
    * @param {View} tgt
+   * @param {AtkRec} a
+   * @param {unknown} tid
+   * @param {Map<unknown, AtkRec>} map
+   * @param {number | null} [strike]
+   * @param {boolean} [landed]
    */
   function attackHit(a, tgt, tid, map, strike = null, landed = false) {
     const key = `${a.src.id ?? a.src.info?.id}:${tid}`;
@@ -6226,7 +6303,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const again = !!sg && (a.hitT === clockS || (strike != null && strike > (a.n ?? -1))); // a later strike of the same attack (strikeGroups)
     if (!again && clockS - (lastHit.get(key) ?? -9) < HIT_GAP_S) return;
     lastHit.set(key, clockS);
-    if (sg) { a.n = strike ?? (again ? a.n + 1 : 0); a.hitT = clockS; } else map.delete(tid);
+    if (sg) { a.n = strike ?? (again ? /** @type {number} */ (a.n) + 1 : 0); a.hitT = clockS; } else map.delete(tid);
     // (2026-10-21) a talent's own attack (`sig`): that ability's hits instead of the mode's (modePart `replace`)
     const tp = a.sig ? modePart(bindOf(a.src), bundleOf(a.src)?.prefabs, a.mode, a.sig, null) : null;
     // (2026-11-12) the attack's per-side child for this target (sideFx: 结城理 S1 俄耳甫斯's HealAlly_Lt50Per on an ally, its
@@ -6235,7 +6312,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     let { names: hitList, split } = tp?.replace ? { names: tp.hit, split: true } : sp ? { names: sp.hit, split: true }
       : sg?.base ? { names: extracted(a.src, sg.base), split: false }   // strikes with shots of their own
       : a.shot ? { names: extracted(a.src, skillBind(a.src)?.shotHit), split: false } : boundFor(a.src, a.mode, 'hit', a.kind, !!a.combat);
-    if (sg) hitList = [...new Set([...hitList, ...extracted(a.src, sg.g[strikeIndex(sg, a.n)])])];
+    if (sg) hitList = [...new Set([...hitList, ...extracted(a.src, sg.g[strikeIndex(sg, /** @type {number} */ (a.n))])])];
     const c = a.src._fxCast?.mode === a.mode ? a.src._fxCast : null; // 2026-10-11: its cast (clip group, loop end, speed)
     const all = withGroup(hitList, c?.group?.hit);
     const hits = all.filter((n) => !swingTarget(a.src, a.mode, n) && !shotHit(a.src, a.mode, n)).slice(0, MAX_HIT_FX);
@@ -6267,18 +6344,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * numbered by its 8th field `strike` (damage.js; without it, an older sim: the i-th of them). Before, only the first
    * played, and with a name-mapped hit (no mode binding).
    * @param {View | null | undefined} v
+   * @param {number | null | undefined} mode
+   * @param {boolean} [shot]
+   * @returns {HitGroups | null}
    */
   function strikeGroups(v, mode, shot = false) {
     let g = null;
     if (shot) g = skillBind(v)?.hitGroups;
-    else if (Number.isInteger(mode) && mode >= 0) g = bindOf(v)?.hitGroups?.[mode];
+    else if (Number.isInteger(mode) && /** @type {number} */ (mode) >= 0) g = bindOf(v)?.hitGroups?.[/** @type {number} */ (mode)];
     else if (mode === -1) {
-      const vf = variantFx(v?.info?.spine || v?.info?.defId, skillIdx(v), v._fxCastVariant);   // 2026-11-06: the group child this cast picked
+      const vf = variantFx(v?.info?.spine || v?.info?.defId, skillIdx(v), /** @type {View} */ (v)._fxCastVariant);   // 2026-11-06: the group child this cast picked
       g = vf ? { g: vf.hits } : skillBind(v)?.hitGroups;
       if (g?.shots) g = null;   // its strikes' shots are its own shot's (takeShot)
     }
     return g && Array.isArray(g.g) && g.g.length ? g : null;
   }
+  /**
+   * @param {HitGroups} sg
+   * @param {number} n
+   */
   const strikeIndex = (sg, n) => (sg.rand ? Math.floor(Math.random() * sg.g.length) : sg.loop ? n % sg.g.length : Math.min(n, sg.g.length - 1));
   /**
    * 2026-10-16: a heal shot's hit. The client's heal projectile (赫默 projectile_silent, 莎草 projectile_chr_papyrs …) plays
@@ -6301,16 +6385,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * (2026-11-04, official client) the skills whose mode's attack is a heal pulse that the sim's kit runs (a 'heal' with no
    * attack before it): charId → skill index. 塞雷娅 S3 钙质化: Modes/S3/Body/Attack picks allies (`_targetSide` 1, no target
    * limit, `_cooldown` 1) and binds the mode's hit common_heal_hit_01 — her kit heals the area's allies each second.
+   * @type {Readonly<Record<string, number | undefined>>}
    */
   const PULSE_HEAL = Object.freeze({ char_202_demkni: 2 });
   const pulseAtk = new Map();   // attackHit's record map for those hits (each played at once)
-  /** @param {Views} views */
+  /**
+   * @param {Views} views
+   * @param {unknown} tid
+   * @param {unknown} by
+   */
   function pulseHit(tid, by, views) {
-    const src = by != null ? views.get(by) : null, tgt = views.get(tid);
+    const src = /** @type {View} */ (by != null ? views.get(by) : null), tgt = views.get(tid);
     if (!tgt || !isOp(src) || !src._fxSkillOn || PULSE_HEAL[src.info.spine || src.info.defId] !== skillIdx(src) || !bundleOf(src)) return;
     const mode = modeNow(src);
     if (bound(src, mode, 'hit').length) attackHit({ src, t: clockS, mode, kind: null, shot: false }, tgt, tid, pulseAtk);   // never a name-mapped stand-in
   }
+  /** @param {number} g */
   function stepZones(g) {
     for (const [k, rec] of zones) {
       if (clockS > rec.until + 1) { zones.delete(k); continue; }
@@ -6350,14 +6440,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!src || !(bundleOf(src) || efoe(src))) return;
     if (!mod) skips.off++;
   }
-  /** @param {View} v */
-  const ebindOf = (v) => (efoe(v) && emodes ? emodes[v.info.defId] || emodes[v.info.spine] || null : null);
-  /** [bundle, prefab] of effect `name` when it is extracted (enemy-modes.json `$fx`, without case), or null. */
+  /** @param {View | null | undefined} v */
+  const ebindOf = (v) => (efoe(v) && emodes ? emodes[/** @type {View} */ (v).info.defId] || emodes[/** @type {string} */ (/** @type {View} */ (v).info.spine)] || null : null);
+  /**
+   * [bundle, prefab] of effect `name` when it is extracted (enemy-modes.json `$fx`, without case), or null.
+   * @param {unknown} name
+   * @returns {string[] | null}
+   */
   function efx(name) {
     const r = typeof name === 'string' && name ? emodes?.$fx?.[name.toLowerCase()] : null;
     return Array.isArray(r) && index?.bundles?.[r[0]]?.includes(r[1]) ? r : null;
   }
-  /** @param {View} v */
+  /** @param {View | null | undefined} v */
   const eOn = (v) => !!(index && emodes && !failed && q() !== 'low' && ebindOf(v));
   /**
    * The attack mode name an enemy view stands in by its sim form (FORM_MODES: 守墓石像's 'fly' → 'Fly'), for its hit point
@@ -6366,19 +6460,19 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function emodeName(v) {
     const id = v?.info?.defId;
-    return typeof v?.form === 'string' && id ? (FORM_MODES[id] || FORM_MODES[v.info.spine])?.[v.form] ?? null : null;
+    return typeof v?.form === 'string' && id ? (FORM_MODES[id] || FORM_MODES[/** @type {string} */ (v.info.spine)])?.[v.form] ?? null : null;
   }
   /**
    * The enemy's mode now: the one its sim form stands for (FORM_MODES, 2026-10-23), else the one whose attack clip is its
    * clip set's attack (a form switch changes it), else 0.
-   * @param {View | null | undefined} v
+   * @param {View} v
    */
   function emodeOf(v) {
     const b = ebindOf(v);
     if (!b || !Array.isArray(b.modes) || !b.modes.length) return null;
     const rm = erec(v) ? enemyRecordMode(v.info.defId)?.mode ?? -1 : -1;
     if (rm >= 0) return rm < b.modes.length ? rm : 0;
-    const fm = typeof v.form === 'string' ? (FORM_MODES[v.info.defId] || FORM_MODES[v.info.spine])?.[v.form] : null;
+    const fm = typeof v.form === 'string' ? (FORM_MODES[v.info.defId] || FORM_MODES[/** @type {string} */ (v.info.spine)])?.[v.form] : null;
     if (fm && b.modes.length > 1) {
       const i = b.modes.findIndex((m) => m?.name === fm);
       if (i >= 0) return i;
@@ -6394,19 +6488,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * { mode, part } of an enemy attack of the sim's kind `kind` ('none' / none: a melee strike — its Combat, else Attack).
    * @param {View} v
+   * @param {string | null | undefined} kind
    */
   function epart(v, kind) {
-    const b = ebindOf(v), mode = emodeOf(v);
+    const b = /** @type {{ modes: (EMode | null)[] }} */ (ebindOf(v)), mode = emodeOf(v);   // (a mode only with its binding)
     const m = mode == null ? null : b.modes[mode];
     if (!m) return null;
     const shot = !!kind && kind !== 'none';
-    return { mode, part: (shot ? m.ranged || m.melee : m.melee || m.ranged) || null };
+    return /** @type {{ mode: number, part: EPart | null }} */ ({ mode, part: (shot ? m.ranged || m.melee : m.melee || m.ranged) || null });
   }
   /** @param {View} v @returns {1 | -1} */
   const efacing = (v) => ((v.visFacing ?? v.facing ?? 1) < 0 ? -1 : 1);
   /**
    * The directional copies of `names` for the enemy's facing (a part's `dirs`, dirCopies).
    * @param {View} v
+   * @param {EPart | null | undefined} part
+   * @param {string[] | null | undefined} names
    */
   const edirs = (v, part, names) => dirCopies(part?.dirs, names || [], ['UP', 'RIGHT', 'DOWN', 'LEFT'].indexOf(facingDir(v)), efacing(v) < 0).names;
   /**
@@ -6421,6 +6518,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const n of names || []) {
       const r = efx(n);
       if (!r) continue;
+      /** @type {Partial<LiveEntry>} */
       const entry = { owner: owner !== undefined ? owner : at ? null : ownerOf(v), buff, onCaster: !at, tag, speed, cast };
       if (buff) entry.until = until ?? null; else if (until != null) entry.until = until;
       if (on !== undefined) entry.on = on;
@@ -6430,9 +6528,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * The cast effects `names` of cast `c` (c.part's timings: loop end, first-attack delay, once per cast).
    * @param {View} v
+   * @param {FxCast} c
+   * @param {string[]} names
    */
   function eplayCast(v, c, names) {
-    const part = c.part;
+    const part = /** @type {EPart} */ (c.part);
     for (const n of edirs(v, part, names)) {
       const opt = part.opt?.[n] || null;
       if (opt?.once && c.fired.has(n)) continue;
@@ -6444,8 +6544,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (delay > 0) castsDelayed.push({ t: clockS + delay, run: go }); else go();
     }
   }
+  /**
+   * @param {EPart} part
+   * @param {string} phase
+   */
   const phaseIn = (part, phase) => (part?.cast || []).filter((n) => castPhase(part.opt?.[n] || null) === phase);
-  /** @param {View} src */
+  /**
+   * @param {View} src
+   * @param {number} windup
+   * @param {string | null | undefined} kind
+   */
   function eswingFx(src, windup, kind) {
     const p = epart(src, kind);
     if (!p || !p.part) return;
@@ -6453,11 +6561,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     c.part = p.part;
     if (!c.skip) eplayCast(src, c, phaseIn(p.part, 'swing'));
   }
-  /** @param {View} src */
+  /**
+   * @param {View} src
+   * @param {string | null | undefined} kind
+   */
   function estrikeFx(src, kind) {
     const p = epart(src, kind);
     if (!p || !p.part) return null;
-    let c = src._fxCast;
+    let c = /** @type {FxCast} */ (src._fxCast);   // (none or another cast: !same, begun below)
     const same = c && c.mode === p.mode && c.part === p.part && clockS <= c.hitAt + SWING_SLACK && (c.struckAt == null || clockS - c.struckAt < 0.03);
     if (!same) {   // no 'swing' for this attack: its swing effects now
       c = beginCast(src, 0, p.mode);
@@ -6472,10 +6583,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * Where an enemy's shot leaves: its `_mountPointType` point (enemy-modes.json points; GROUND = its feet), its muzzle.
    * @param {View} src
+   * @param {unknown} mount
    */
   function eshotFrom(src, mount) {
     if (mount === 7) return { x: mx(src), y: src.y, z: (src.z || 0) + (src.hover || 0) };
-    const key = Number.isInteger(mount) ? pointKey(mountSpawn({ type: mount })) : null;
+    const key = Number.isInteger(mount) ? pointKey(mountSpawn({ type: /** @type {number} */ (mount) })) : null;
     const p = (key && specialPoint(src, shotAt, key)) || specialPoint(src, shotAt, 'muzzle');
     return onModel(src, p || bodyPoint(camRef, src, SHOT_HEIGHT.launch, mx(src)));
   }
@@ -6494,12 +6606,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * @param {Ev & { 3?: string }} e an attack event (its 4th field the attack kind)
    * @param {View} src
    * @param {View} tgt
+   * @param {EPart | null | undefined} part
    */
   function etrailShot(e, src, tgt, part) {
     let shot;
     try { shot = enemyShot(enemyDef(src.info?.defId), src.info?.form); } catch { shot = undefined; }
     // 2026-11-14: a link shot (玩具独轮车's harpoon — the sim strikes it at once) draws its line (elinkShot)
-    if (part?.proj?.link > 0 && tgt && (shot == null || shot.link) && (e[3] === 'enemy' || erec(src))) return elinkShot(e, src, tgt, part.proj);
+    if (/** @type {number} */ (part?.proj?.link) > 0 && tgt && (shot == null || shot.link) && (e[3] === 'enemy' || erec(src))) return elinkShot(e, src, tgt, /** @type {EProj} */ (/** @type {EPart} */ (part).proj));
     if (shot === null || (shot && (shot.link || shot.instant || shot.move === 'ATTACH'))) return false; // no flight (the sim: instant)
     const pr = (shot?.key && eprojByKey(src, shot.key)) || (part && part.proj);
     if (!pr || !tgt || (e[3] !== 'enemy' && !erec(src)) || pr.link || failed) return false;
@@ -6517,12 +6630,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const from = eshotFrom(src, pr.mount);
     launchTrail({ inst: null, esrc: src.id, etgt: tgt.id, tgt, x0: from.x, y0: from.y, z0: from.z, ...aimOf(tgt), k: 0,
       // (an enemy-record ally flies the sim's shot of its kind: the sim gives it an ally's speed)
-      dur: Math.max(0.04, dist / (erec(src) ? projSpeed(e[3]) : eshotSpeed(src))), ...((shot ? lobOf(shot) : lobOf(pr)) ?? { arc: 0 }) }, r[0], r[1]);
+      dur: Math.max(0.04, dist / (erec(src) ? projSpeed(/** @type {string} */ (e[3])) : eshotSpeed(src))), ...((shot ? lobOf(shot) : lobOf(pr)) ?? { arc: 0 }) }, r[0], r[1]);
     return true;
   }
   /**
    * The enemy's bound projectile `key` (enemy-modes.json: a mode's attack or a skill), or null.
    * @param {View} v
+   * @param {string} key
+   * @returns {EProj | null}
    */
   function eprojByKey(v, key) {
     const b = ebindOf(v);
@@ -6536,8 +6651,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // sim's flight `t` (a PARACURVE on its `_raiseHeight` arc; TRACE / FIXED_DIRECTION / HARPOON straight [추정: a harpoon's
   // stretched line is drawn as its trail]); its `_effectsToTargetWhenStart` on the target as it leaves, its `_effectsWhenHit` /
   // `_effectsWhenReached` there as it lands (the 'dmg' of that moment then plays only the ability's own hit effects).
+  /** @type {Map<string, EProj> | null} */
   let eprojAll = null;   // projectile key → its record in any enemy's bindings (a hop's shooter may bind it under another id)
-  /** @param {View | null | undefined} v */
+  /**
+   * @param {View | null | undefined} v
+   * @param {unknown} key
+   * @returns {EProj | null}
+   */
   function eprojOf(v, key) {
     if (typeof key !== 'string' || !key) return null;
     const own = v && ebindOf(v) ? eprojByKey(v, key) : null;
@@ -6569,6 +6689,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * (emortarLand). true = drawn here.
    */
   const EMORTAR_FALL = 0.27;
+  /** @type {EMortar[]} */
   const emortars = [];   // { x, y, hits: [[bundle, prefab]], marks: [live entries], shell: live entry | null, done }
   /** @param {Ev} e @param {Views} views */
   function emortarFx(e, views) {
@@ -6578,10 +6699,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     try { shot = enemyShot(enemyDef(src.info?.defId), src.info?.form); } catch { shot = undefined; }
     const pr = shot?.key ? eprojByKey(src, shot.key) : null;
     const trail = efx(Array.isArray(pr?.trail) ? pr.trail[0] : null);
-    const hits = [...new Set([...(pr?.reached || []), ...(pr?.hit || [])])].map(efx).filter(Boolean).slice(0, MAX_HIT_FX);
-    const starts = (pr?.targetStart || []).map(efx).filter(Boolean);
+    const hits = /** @type {string[][]} */ ([...new Set([...(pr?.reached || []), ...(pr?.hit || [])])].map(efx).filter(Boolean).slice(0, MAX_HIT_FX));
+    const starts = /** @type {string[][]} */ ((pr?.targetStart || []).map(efx).filter(Boolean));
     if (!pr || (!trail && !hits.length && !starts.length)) return false;
     const x = Number(e[2]), y = Number(e[3]), t = Math.max(0.05, Number(o.t) || 0.5);
+    /** @type {EMortar} */
     const rec = { x, y, hits, marks: [], shell: null, done: false };
     emortars.push(rec);
     if (emortars.length > 64) emortars.shift();
@@ -6641,7 +6763,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const o = /** @type {FxRec} */ (e[4]), parent = o.id != null ? views.get(o.id) : null;
     if (!parent?.info || parent.info.side !== 'enemy' || !eOn(parent)) return false;
     const split = esplitFx(e, parent, views);
-    const c = emodes?.[o.key];
+    const c = emodes?.[/** @type {string} */ (o.key)];
     return split || (typeof c?.start === 'string' && !!efx(c.start)) || (Array.isArray(c?.born) && c.born.some(efx));
   }
   /**
@@ -6652,15 +6774,17 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * projectile_enemy_sbeast's trail). true = drawn.
    * @param {Ev} e
    * @param {Views} views
+   * @param {View} parent
    */
   function esplitFx(e, parent, views) {
     const o = /** @type {FxRec} */ (e[4]), b = ebindOf(parent);
-    const part = b?.skills ? Object.values(b.skills).find((p) => Array.isArray(p?.summon) && p.summon.length) : null;
+    const part = /** @type {EPart & { summon: string[] } | null | undefined} */ (b?.skills ? Object.values(b.skills).find((p) => Array.isArray(p?.summon) && p.summon.length) : null);
     if (!part || !part.summon.some(efx)) return false;
     const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
+    /** @type {View[]} */
     const kids = [];
-    for (const [id, t] of eborn) if (t === clockS && views.get(id)?.info?.defId === o.key) kids.push(views.get(id));
-    const pr = part.proj, r = efx(Array.isArray(pr?.trail) ? pr.trail[0] : null), speed = Number(pr?.speed) > 0 ? Number(pr.speed) : 0;
+    for (const [id, t] of eborn) if (t === clockS && views.get(id)?.info?.defId === o.key) kids.push(/** @type {View} */ (views.get(id)));
+    const pr = part.proj, r = efx(Array.isArray(pr?.trail) ? pr.trail[0] : null), speed = Number(pr?.speed) > 0 ? Number(/** @type {EProj} */ (pr).speed) : 0;
     for (let i = 0; i < Math.max(1, kids.length); i++) eplay(parent, part.summon, { at, owner: null, tag: 'split' });
     if (r && speed > 0 && camRef && !trailFull()) {
       for (const k of kids) {
@@ -6670,7 +6794,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     } else if (r && dry && trace) for (const k of kids) trace({ kind: 'spawn', names: [r[1]], by: ownerOf(parent), on: ownerOf(k), tag: 'splitTrail', facing: 1 });   // tests
     return true;
   }
+  /** @type {DShell[]} */
   const dshells = [];   // { x, y, id, pr, src, marks: [live entries], done }
+  /** @type {Map<unknown, { t: number, rec: Pick<DShell, 'src' | 'pr'> }>} */
   const dblasts = new Map();   // thrower id → { t: the battle clock of its blast, rec }
   /** @param {Ev} e @param {Views} views */
   function dshellFx(e, views) {
@@ -6681,9 +6807,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const pr = shot?.key ? eprojByKey(src, shot.key) : null;
     if (!pr || ![...(pr.reached || []), ...(pr.stop || []), ...(pr.hit || [])].some(efx)) return false;
     const x = Number(e[2]), y = Number(e[3]), dur = Math.max(0.05, Number(o.dur) || 0);
+    /** @type {DShell} */
     const rec = { x, y, id: o.id, pr, src, marks: [], done: false };
     dshells.push(rec);
-    if (dshells.length > 64) dshells.shift().done = true;
+    if (dshells.length > 64) /** @type {DShell} */ (dshells.shift()).done = true;
     for (const n of pr.reached || []) {
       const r = efx(n);
       if (!r) continue;
@@ -6717,6 +6844,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * A 'dmg' on `tid` by thrower `by` in the tick of its shell's blast: the projectile's hit effect on it.
    * @param {Views} views
+   * @param {unknown} tid
+   * @param {unknown} by
    */
   function dblastHit(tid, by, views) {
     const b = dblasts.get(by);
@@ -6748,7 +6877,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const x = Number(e[2]), y = Number(e[3]);
     for (const n of start.slice(0, MAX_HIT_FX)) { const r = efx(n); if (r) spawn(r[0], r[1], { x, y, z: 0 }, { owner: null, buff: false }, { over: false }); }
     dshells.push({ x, y, id: o.id, pr: { stop: pr.reached || [], hit: pr.hit || [] }, src, marks: [], done: false });
-    if (dshells.length > 64) dshells.shift().done = true;
+    if (dshells.length > 64) /** @type {DShell} */ (dshells.shift()).done = true;
     return true;
   }
   /**
@@ -6761,9 +6890,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * unit the burst hits (dblastHit) — not the reach effect again on each. true = drawn (no stand-in ring or blast).
    * @param {Ev} e
    * @param {View} src
+   * @param {EProj} pr
    */
   function eprojDrop(e, src, pr) {
-    const o = /** @type {FxRec} */ (e[4]), r = efx(pr.trail[0]);
+    const o = /** @type {FxRec} */ (e[4]), r = efx(/** @type {string[]} */ (pr.trail)[0]);
     if (!r) return false;
     const x = Number(e[2]), y = Number(e[3]), dur = Math.max(0.04, Number(o.dur) || 0);
     if (camRef && !trailFull()) {
@@ -6771,7 +6901,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       launchTrail({ inst: null, esrc: src.id, etgt: null, tgt: null, x0: from.x, y0: from.y, z0: from.z, tx: x, ty: y, tz: 0, k: 0, dur, arc: 0 }, r[0], r[1]);
     } else if (dry && trace) trace({ kind: 'spawn', names: [r[1]], by: ownerOf(src), on: null, tag: 'dropTrail', facing: 1 });   // tests
     dshells.push({ x, y, id: o.id, pr: { stop: pr.reached || [], hit: pr.hit || [] }, src, marks: [], done: false });
-    if (dshells.length > 64) dshells.shift().done = true;
+    if (dshells.length > 64) /** @type {DShell} */ (dshells.shift()).done = true;
     return true;
   }
   /**
@@ -6826,7 +6956,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const o = /** @type {FxRec} */ (e[4]), v = views.get(o.caster) || (e[1] === 'explode' ? stuckBy.get(o.caster) : null);
     if (!v || !eOn(v)) return false;
     if (e[1] === 'telegraph') { stuckBy.set(o.caster, v); if (stuckBy.size > 64) stuckBy.delete(stuckBy.keys().next().value); }
-    const pr = eskillPart(v, STUCK_SHOTS[o.kind])?.proj;
+    const pr = eskillPart(v, STUCK_SHOTS[/** @type {string} */ (o.kind)])?.proj;
     if (!pr || ![...(pr.targetStart || []), ...(pr.reached || [])].some(efx)) return false;
     const tv = o.tgt != null ? views.get(o.tgt) : null;
     const on = tv && tv.alive !== false && !tv.remove ? tv : null;
@@ -6848,18 +6978,31 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * trap_cnnon_start, `passenger` trap_cnnon_buff, the talent EnemyCannon00D's cast trap_cnnon_attack_start and shell
    * projectile_trap_cnnon_small_death (trail trap_cnnon_trail_1, reach trap_cnnon_explode_1, hit trap_cnnon_explode_hit).
    */
+  /** @type {Map<string, Cannon>} */
   const cannons = new Map();
   const cannonRow = () => emodes?.[CANNON_KEY] || null;
   const cannonOn = () => !!(index && emodes && !failed && q() !== 'low' && cannonRow());
-  /** A point of cannon `k`: `up` above its tile, `fwd` along its barrel. */
+  /**
+   * A point of cannon `k`: `up` above its tile, `fwd` along its barrel.
+   * @param {Cannon} k
+   * @param {number} [up]
+   * @param {number} [fwd]
+   */
   const cannonAt = (k, up = 0, fwd = 0) => {
     const [sx, sy] = CANNON_STEP[k.dir] || CANNON_STEP.DOWN;
     return { x: k.c + sx * fwd, y: k.r + sy * fwd, z: (k.z || 0) + up };
   };
+  /** @param {Cannon} k */
   const cannonDir = (k) => { const [x, y] = CANNON_STEP[k.dir] || CANNON_STEP.DOWN; return { x, y }; };
   /**
    * One effect of a cannon (no owner, on the upper layer, for battle `gen`): `turn` its root's turn (SpecialPoint0's), `dir`
    * the direction it is played with (the cannon's: `ParticleEffect.FaceTo`). Resolves its live entry, or null.
+   * @param {number} gen
+   * @param {string} name
+   * @param {Pt} at
+   * @param {Partial<LiveEntry>} extra
+   * @param {{ turn?: readonly number[] | null, dir?: { x: number, y: number } | null }} [opts]
+   * @returns {Promise<LiveEntry | null>}
    */
   async function cannonPlay(gen, name, at, extra, { turn = null, dir = null } = {}) {
     const r = efx(name);
@@ -6881,7 +7024,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function stepCannons() {
     if (!cannons.size || !cannonOn()) return;
-    const row = cannonRow(), gen = stormGen;
+    const row = /** @type {ERow} */ (cannonRow()), gen = stormGen;   // (cannonOn tested it)
     for (const k of cannons.values()) {
       if (k.laid) continue;
       k.laid = true;
@@ -6890,7 +7033,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (clockS < k.t0 + 5) for (const n of row.buffFx?.['trap_cnnon[born]'] || []) cannonPlay(gen, n, cannonAt(k), { buff: true, until: k.t0 + 5, tag: 'cannonBorn' }, { dir: cannonDir(k) });
     }
   }
-  /** Cannon `k` takes a passenger on board (`on`) or lets it go: DurbusAbility `_passengerEffects` on the cannon meanwhile. */
+  /**
+   * Cannon `k` takes a passenger on board (`on`) or lets it go: DurbusAbility `_passengerEffects` on the cannon meanwhile.
+   * @param {Cannon} k
+   * @param {boolean} on
+   */
   function cannonCarry(k, on) {
     if (!on) {
       k.paxOn = false;
@@ -6915,11 +7062,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const o = /** @type {FxRec} */ (e[4] || {}), k = cannons.get(`${Number(e[2])},${Number(e[3])}`);
     if (!k || !cannonOn()) return false;
     if (o.carry != null) { cannonCarry(k, !!o.carry); return true; }
-    const part = cannonRow().skills?.enemycannon00d, pr = part?.proj;
+    const part = /** @type {ERow} */ (cannonRow()).skills?.enemycannon00d, pr = part?.proj;
     const tx = Number(o.tx), ty = Number(o.ty), t = Number(o.t);
     if (!o.fire || !pr || !Number.isFinite(tx) || !Number.isFinite(ty)) return false;
     const gen = stormGen;
-    for (const n of part.cast || []) cannonPlay(gen, n, cannonAt(k), { buff: false, tag: 'cannonCast' }, { turn: MOUND_SP0_TURN, dir: cannonDir(k) });
+    for (const n of /** @type {EPart} */ (part).cast || []) cannonPlay(gen, n, cannonAt(k), { buff: false, tag: 'cannonCast' }, { turn: MOUND_SP0_TURN, dir: cannonDir(k) });
     const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
     if (r && t > 0 && t <= 6) {
       const p0 = cannonAt(k, CANNON_MUZZLE.up, CANNON_MUZZLE.fwd);
@@ -6937,12 +7084,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * @param {Views} views
    */
   function cannonBlast(e, views) {
-    const pr = cannonOn() ? cannonRow().skills?.enemycannon00d?.proj : null;
+    const pr = cannonOn() ? /** @type {ERow} */ (cannonRow()).skills?.enemycannon00d?.proj : null;
     if (!pr) return false;
     const x = Number(e[2]), y = Number(e[3]), gen = stormGen;
     const at = { x, y, z: tileTop(x, y) };
     for (const n of (pr.reached || []).slice(0, MAX_HIT_FX)) cannonPlay(gen, n, at, { buff: false, tag: 'cannonBlast' });
-    const hit = (pr.hit || []).map((n) => efx(n)).filter(Boolean).slice(0, MAX_HIT_FX);
+    const hit = /** @type {string[][]} */ ((pr.hit || []).map((n) => efx(n)).filter(Boolean).slice(0, MAX_HIT_FX));
     for (const id of Array.isArray(e[4]?.hit) ? e[4].hit : []) {
       const v = views.get(id);
       if (!v || v.alive === false || v.remove) continue;
@@ -6950,13 +7097,20 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     return true;
   }
-  /** The projectile record of shot `key` when it can be drawn officially (the layer on, its trail or hit extracted), else null. */
+  /**
+   * The projectile record of shot `key` when it can be drawn officially (the layer on, its trail or hit extracted), else null.
+   * @param {View | null | undefined} owner
+   * @param {unknown} key
+   */
   function eshotDrawable(owner, key) {
     if (!owner || !index || !emodes || failed || q() === 'low') return null;
     const pr = eprojOf(owner, key);
     return pr && [...(pr.trail || []), ...(pr.hit || []), ...(pr.reached || [])].some(efx) ? pr : null;
   }
-  /** @param {Views} views */
+  /**
+   * @param {Views} views
+   * @param {FxRec} o
+   */
   function eshotFx(o, views) {
     const shooter = o.id != null ? views.get(o.id) : null;
     const from = o.from != null ? views.get(o.from) : shooter;
@@ -6975,6 +7129,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const r = efx(Array.isArray(pr.trail) ? pr.trail[0] : null);
     if (r && camRef && t > 0 && t <= (dir ? 12 : 6) && !pr.link && !trailFull()) {
       const p0 = from === shooter ? eshotFrom(from, pr.mount) : shotTo(from);
+      /** @type {ShotRec} */
       let rec;
       if (dir) {
         // straight along `dir` (board axes: +x the next column, +y the next row up) to the predicted first hit, `range` tiles
@@ -6983,7 +7138,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         rec = { inst: null, esrc: o.id ?? o.from, etgt: null, tgt: null, x0: p0.x, y0: p0.y, z0: p0.z, tx: p0.x + dir[0] * range, ty: p0.y + dir[1] * range, tz: p0.z, k: 0, dur: Math.max(0.04, t), arc: 0 };
       } else {
         const arc = (o.move ?? pr.move) === 'PARACURVE' || (o.move == null && Number(pr.raise) > 0) ? Math.max(0, Number(pr.raise) || 0) : 0;
-        rec = { inst: null, esrc: o.id ?? o.from, etgt: o.tgt, tgt, x0: p0.x, y0: p0.y, z0: p0.z, ...aimOf(tgt), k: 0, dur: Math.max(0.04, t), arc, noRaise: Number(pr.noRaise) };
+        rec = { inst: null, esrc: o.id ?? o.from, etgt: o.tgt, tgt, x0: p0.x, y0: p0.y, z0: p0.z, ...aimOf(/** @type {View} */ (tgt)), k: 0, dur: Math.max(0.04, t), arc, noRaise: Number(pr.noRaise) };
       }
       ensure().then((ok) => { if (ok && lib) launchTrail(rec, r[0], r[1]); }, () => {});
     }
@@ -6994,7 +7149,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     eshotLand.set(`${o.id ?? o.from}:${o.tgt}`, clockS + t);
     eshotLast.set(o.id ?? o.from, { tgt: o.tgt, t: clockS + t });
     if (eshotLast.size > 64) eshotLast.delete(eshotLast.keys().next().value);
-    const go = () => { if (land.length && tgt.alive !== false && !tgt.remove) eplay(owner, land, { at: tgt }); };
+    const go = () => { if (land.length && /** @type {View} */ (tgt).alive !== false && !/** @type {View} */ (tgt).remove) eplay(owner, land, { at: tgt }); };
     if (t > 0) castsDelayed.push({ t: clockS + t, run: go, esrc: o.id ?? o.from, etgt: o.tgt }); else go();   // esrc, etgt: shotSlowFx
     return true;
   }
@@ -7010,7 +7165,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function eshellRide(e, views) {
     const o = /** @type {FxRec} */ (e[4]), boss = views.get(o.caster), shell = views.get(o.id);
     if (!boss || !shell || !eOn(boss)) return false;
-    const pr = eskillPart(boss, o.ability)?.proj;
+    const pr = /** @type {EProj} */ (eskillPart(boss, o.ability)?.proj);   // (none: no `r` below)
     const r = efx(Array.isArray(pr?.trail) ? pr.trail[0] : null);
     const gx = Number(o.tx), gy = Number(o.ty);
     if (!r || pr.link || !Number.isFinite(gx) || !Number.isFinite(gy)) return false;
@@ -7043,7 +7198,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function eprojAreaFx(e, views) {
     const o = /** @type {FxRec} */ (e[4]);
     if (!o || typeof o !== 'object' || o.id == null || typeof o.ability !== 'string' || !o.ability) return false;
-    const v = views.get(o.id);
+    const v = /** @type {View} */ (views.get(o.id));   // (eOn and `&& v` test it)
     const pr = (eOn(v) ? eskillPart(v, o.ability)?.proj : null) || (e[1] === 'zone' && !failed && q() !== 'low' ? ezoneShots.get(o.id) : null);
     if (e[1] === 'zone') ezoneShots.delete(o.id);
     if (!pr) return false;
@@ -7052,7 +7207,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!names.length) return false;
     const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
     if (e[1] !== 'zone') {
-      for (const n of names.slice(0, MAX_HIT_FX)) { const r = efx(n); spawn(r[0], r[1], at, { owner: null, buff: false }, { over: false }); }
+      for (const n of names.slice(0, MAX_HIT_FX)) { const r = /** @type {string[]} */ (efx(n)); spawn(r[0], r[1], at, { owner: null, buff: false }, { over: false }); }
       // 2026-11-12: its burst's damage of this tick — the projectile's own hit effects on each unit (AREA_SHOT_BLASTS)
       if (AREA_SHOT_BLASTS.has(o.kind) && v) {
         dblasts.set(o.id, { t: clockS, rec: { src: v, pr: { hit: pr.hit || [] } } });
@@ -7063,7 +7218,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const dur = Math.max(0, Number(o.dur ?? o.duration) || 0);
     const until = clockS + (dur > 0 ? dur : 3);
     for (const n of names.slice(0, MAX_HIT_FX)) {
-      const r = efx(n);
+      const r = /** @type {string[]} */ (efx(n));   // (names: the extracted ones)
       spawn(r[0], r[1], at, { owner: null, buff: false, until }, { over: false }).then((l) => { if (l) zoneEnd(l, until, true); });
     }
     return true;
@@ -7082,11 +7237,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    *   operator it binds (fxstatus.js `viewOf`) — no summon puff.
    * Without the boss's effects extracted, false: the stand-ins stay.
    */
+  /** @type {Record<string, string>} */
   const AC_PHASE_BUFF = { acspiderEvade: 'acspdier[evade]', aceelShield: 'aceel[shield]' };
+  /** @type {Set<unknown>} */
   const AC_NO_BORN = new Set(['enemy_9036_acweb']);
   // 2026-11-12 (docs/rules/fx.md 「규정 특수 적 항목·호위」): enemies whose sim form change is the client's SwitchMode alone — it
   // creates no effect (stepEnemies), so the 'phase' of their setForm draws no stand-in: 神勇的帕拉杜利斯 into Run and back,
   // 暴走食人花 into Eat and back (whether or not the view says it knows the form: formSwitchOnly is the general rule)
+  /** @type {Set<unknown>} */
   const SWITCH_ONLY = new Set(['enemy_10163_mnctur_2', 'enemy_10003_trwlpl_2']);
   /**
    * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」): an enemy skill cast in a mode the sim holds as a form, whose buff's effect
@@ -7094,6 +7252,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * { ability: form }. 暴走食人花's Skills/Eat in mode Eat (bounty.js kitTrwlpl → form 'eat' for its 20 s): enemy_trwlpl_s's
    * effect enemy_trwlpl_idlebuff_02 (a looping prefab).
    */
+  /** @type {Readonly<Record<string, Readonly<Record<string, string>> | undefined>>} */
   const FORM_HELD_SKILLS = Object.freeze({ enemy_10003_trwlpl_2: Object.freeze({ Eat: 'eat' }) });
   /**
    * 2026-11-12 (docs/rules/fx.md 「규정 특수 적 항목·호위」): a sim 'phase' { id, kind, form } of an enemy (or a walking ally)
@@ -7101,26 +7260,30 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * back (form null) — the client's SwitchMode, which creates no effect: the clip set (and its change clip) is the switch, no
    * stand-in puff on top. A form the model does not draw keeps the puff (nothing else shows it).
    * @param {Views} views
+   * @param {FxRec} o
    */
   function formSwitchOnly(o, views) {
     const v = views.get(o.id);
     if (!v?.info || !(v.info.side === 'enemy' || v.info.walks)) return false;
     return typeof v.knowsForm === 'function' && !!v.knowsForm(o.form);
   }
-  /** @param {Views} views */
+  /**
+   * @param {Views} views
+   * @param {FxRec} o
+   */
   function formHeldEnd(o, views) {
     const v = views.get(o.id), m = v ? FORM_HELD_SKILLS[v.info?.defId] : null;
-    if (m) for (const [k, f] of Object.entries(m)) if (o.form !== f) eskillFx(v, k, { on: false });
+    if (m) for (const [k, f] of Object.entries(m)) if (o.form !== f) eskillFx(/** @type {View} */ (v), k, { on: false });
   }
   /** @param {Ev} e @param {Views} views */
   function acBossFx(e, views) {
     const o = /** @type {FxRec} */ (e[4]);
     if (!o || typeof o !== 'object') return false;
     if (e[1] === 'phase' && 'form' in o && SWITCH_ONLY.has(views.get(o.id)?.info?.defId)) return true;
-    if (e[1] === 'phase' && (o.kind in AC_PHASE_BUFF || o.kind === 'aceelShieldEnd')) {
+    if (e[1] === 'phase' && (/** @type {string} */ (o.kind) in AC_PHASE_BUFF || o.kind === 'aceelShieldEnd')) {
       const v = views.get(o.id);
       if (!eOn(v)) return false;
-      if (o.kind !== 'aceelShieldEnd') return (ebindOf(v)?.buffFx?.[AC_PHASE_BUFF[o.kind]] || []).some(efx);
+      if (o.kind !== 'aceelShieldEnd') return (ebindOf(v)?.buffFx?.[AC_PHASE_BUFF[/** @type {string} */ (o.kind)]] || []).some(efx);
       const ns = (ebindOf(v)?.buffBlocked?.['aceel[shield]'] || []).filter((n) => efx(n));   // enemy-modes.json `buffBlocked`
       if (!ns.length) return false;
       eplay(v, ns);
@@ -7129,7 +7292,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (e[1] === 'link' && o.kind === 'aceelChain' && typeof o.key === 'string') {
       return eshotFx({ id: o.id, from: o.from, tgt: o.to, key: o.key, t: Number(o.dur) || 0.2 }, views);
     }
-    if (e[1] === 'summon' && AC_NO_BORN.has(o.key)) return !!(emodes?.[o.key] && !emodes[o.key].start && eOn(views.get(o.id)));
+    if (e[1] === 'summon' && AC_NO_BORN.has(o.key)) return !!(emodes?.[/** @type {string} */ (o.key)] && !/** @type {ERow} */ (emodes[/** @type {string} */ (o.key)]).start && eOn(views.get(o.id)));
     if (e[1] === 'zone' && o.kind === 'acspiderRain') return acRainFx(o, views);
     return false;
   }
@@ -7157,7 +7320,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /** @type {SandFloor[]} */
   const sandFloors = [];
   let sandWait = false;   // a record has no floor / stand-in yet (or lost it to a clear / teardown)
+  /** @type {boolean | null} */
   let sandMode = null;    // sandOfficial() at the last stepSand
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   function addSand(x, y) {
     x = Math.round(Number(x)); y = Math.round(Number(y));
     if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
@@ -7175,7 +7343,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // the tuple, not in its extra)
   /** @param {Ev} e */
   function sargonSandFx(e) {
-    if (addSand(e[2], e[3])) stepSand();
+    if (addSand(/** @type {number} */ (e[2]), /** @type {number} */ (e[3]))) stepSand();
   }
   function stepSand() {
     if (!sandFloors.length) return;
@@ -7227,21 +7395,27 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * `animFin` `end` → the fading clip). A new rain on the same field ends the one before. false (the stand-in zone) without
    * the effect extracted.
    */
+  /** @type {Map<string, { id: unknown, live: LiveEntry[] }>} */
   const acRains = new Map();   // `${spider id}:${field}` → { id, live: the floors }
   const bandTiles = new Map(); // 2026-11-12 (setBandTiles): `${bundle}/${name}@${x},${y}` → { l: its live entry once loaded, off }
+  /** @param {string} key */
   function acRainOff(key) {
     for (const l of acRains.get(key)?.live || []) if (!l.stopped) zoneEnd(l, Math.min(l.until ?? clockS, clockS), true);
     acRains.delete(key);
   }
-  /** @param {Views} views */
+  /**
+   * @param {Views} views
+   * @param {FxRec} o
+   */
   function acRainFx(o, views) {
-    const v = views.get(o.id);
+    const v = /** @type {View} */ (views.get(o.id));   // (eOn tests it)
     const t = Array.isArray(o.tiles) && o.tiles.length === 4 ? o.tiles.map(Number) : null;
     if (!eOn(v) || !t || !t.every(Number.isInteger)) return false;
-    const names = [...new Set(eskillPart(v, o.ability)?.tile || [])].map(efx).filter(Boolean);
+    const names = /** @type {string[][]} */ ([...new Set(eskillPart(v, o.ability)?.tile || [])].map(efx).filter(Boolean));
     if (!names.length) return false;
     const key = `${o.id}:${o.field}`;
     acRainOff(key);
+    /** @type {{ id: unknown, live: LiveEntry[] }} */
     const rec = { id: o.id, live: [] };
     acRains.set(key, rec);
     const until = clockS + Math.max(0, Number(o.dur) || 0);
@@ -7293,21 +7467,24 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    *   running Laser skill's (eskillHit: proj.hit enemy_lrwzrd_skill_hit_02 per 'dmg').
    */
   const SOUL_KINDS = new Set(['capture', 'orbit', 'orbitEnd', 'laser', 'laserEnd']);
+  /** @type {Map<unknown, Map<unknown, SoulBall>>} */
   const soulBalls = new Map();   // caster id → Map(ball n → { at, ang, speed, r, l, done })
+  /** @type {Map<unknown, SoulLine>} */
   const soulLines = new Map();   // caster id → { l, from, to, done }
   /** @param {Ev} e @param {Views} views */
   function soulFx(e, views) {
     const o = /** @type {FxRec} */ (e[4]), kind = e[1];
-    const v = o?.id != null ? views.get(o.id) : null;
+    const v = /** @type {View} */ (o?.id != null ? views.get(o.id) : null);   // (eOn tests it)
     if (kind === 'capture') { if (v) v._fxSouls = Math.max(0, Number(o.n) || 0); return eOn(v); }
     if (kind === 'orbit' || kind === 'laser') if (v) v._fxSouls = kind === 'laser' ? 0 : Math.max(0, (v._fxSouls || 0) - 1);
     if (kind === 'orbitEnd') return soulBallEnd(o, views);
     if (kind === 'laserEnd') { soulLineEnd(o.id); return true; }
     if (!eOn(v)) return false;
-    const pr = eprojOf(v, o.key) || eskillPart(v, kind === 'orbit' ? 'summonFireball' : 'Laser')?.proj;
+    const pr = /** @type {EProj} */ (eprojOf(v, o.key) || eskillPart(v, kind === 'orbit' ? 'summonFireball' : 'Laser')?.proj);   // (none: no `r` below)
     const r = efx(Array.isArray(pr?.trail) ? pr.trail[0] : null);
     if (!r) return false;
     if (kind === 'orbit') {
+      /** @type {SoulBall} */
       const ball = { at: { x: v.x, y: v.y, z: (v.z || 0) + (v.hover || 0) }, ang: Number(o.ang) || 0, speed: Number(o.speed) || 0,
         rad: Number(o.r) || 0, l: null, done: false, hit: pr.hit || [] };
       soulBallPlace(ball, v);
@@ -7328,6 +7505,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     try { from = eshotFrom(v, pr.mount); } catch { from = null; }   // (no camera yet: at its feet)
     if (!from || ![from.x, from.y, from.z].every(Number.isFinite)) from = { x: v.x, y: v.y, z: (v.z || 0) + (v.hover || 0) };
     const lift = from.z - ((v.z || 0) + (v.hover || 0));
+    /** @type {SoulLine} */
     const rec = { l: null, from, to: { x: to[0], y: to[1], z: lift }, done: false };
     soulLines.set(o.id, rec);
     spawn(r[0], r[1], { x: from.x, y: from.y, z: 0 }, { owner: null, buff: false, until: clockS + 3600, tag: 'soulLaser' }, { over: true }).then((l) => {
@@ -7341,6 +7519,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * A fireball `ball` at its angle now, about caster `v`'s position.
    * @param {View} v
+   * @param {SoulBall} ball
    */
   function soulBallPlace(ball, v) {
     const a = (ball.ang * Math.PI) / 180;
@@ -7348,9 +7527,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     ball.at.y = v.y + ball.rad * Math.sin(a);
     ball.at.z = (v.z || 0) + (v.hover || 0);
   }
-  /** @param {Views} views */
+  /**
+   * @param {Views} views
+   * @param {{ id?: unknown, n?: unknown, tgt?: unknown }} o
+   */
   function soulBallEnd(o, views) {
-    const m = soulBalls.get(o.id), ball = m?.get(o.n);
+    const m = /** @type {Map<unknown, SoulBall>} */ (soulBalls.get(o.id)), ball = m?.get(o.n);   // (none: no ball)
     if (!ball) return true;
     m.delete(o.n);
     if (!m.size) soulBalls.delete(o.id);
@@ -7361,6 +7543,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (tgt) eplay(v || tgt, ball.hit.slice(0, MAX_HIT_FX), { at: tgt });
     return true;
   }
+  /** @param {unknown} id */
   function soulLineEnd(id) {
     const rec = soulLines.get(id);
     if (!rec) return;
@@ -7371,6 +7554,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * The fireballs turn about their casters (game time `g`); a caster gone takes its fireballs and laser with it.
    * @param {Views} views
+   * @param {number} g
    */
   function stepSouls(views, g) {
     for (const [id, m] of soulBalls) {
@@ -7404,10 +7588,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const on = !!(index && emodes && !failed && q() !== 'low');
     const v = views?.get?.(o.id) || null;
     const main = on ? eprojOf(v, o.key) : null, sub = on ? eprojOf(v, o.sub) : null;
-    const subFx = sub ? [...new Set([...(sub.trail || []), ...(sub.reached || []), ...(sub.start || [])])].map(efx).filter(Boolean) : [];
+    const subFx = /** @type {string[][]} */ (sub ? [...new Set([...(sub.trail || []), ...(sub.reached || []), ...(sub.start || [])])].map(efx).filter(Boolean) : []);
     const mainR = main ? efx(Array.isArray(main.trail) ? main.trail[0] : null) : null;
     let rect = null;
     try { rect = fieldRect(); } catch { /* every tile */ }
+    /**
+     * @param {number} r
+     * @param {number} c
+     */
     const shown = (r, c) => !rect || ![rect.r0, rect.r1, rect.c0, rect.c1].every(Number.isFinite)
       || (r >= rect.r0 - 0.5 && r <= rect.r1 + 0.5 && c >= rect.c0 - 0.5 && c <= rect.c1 + 0.5);
     const cells = [];
@@ -7445,21 +7633,27 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     fireWeapon: 'projectile_enemy_acfort_skill', springBullet: 'projectile_enemy_actrpb', springCombo: 'projectile_enemy_actrpc',
     acdumlStrike: 'projectile_enemy_acduml', acdummStrike: 'projectile_enemy_acdumm', chainBuff: 'projectile_enemy_smsha_s',
   };
-  /** Damage by `by` on `tid` around the landing of its official shot: the projectile's own hit effects are the shot's. */
+  /**
+   * Damage by `by` on `tid` around the landing of its official shot: the projectile's own hit effects are the shot's.
+   * @param {unknown} by
+   * @param {unknown} tid
+   */
   const eshotHitDone = (by, tid) => Math.abs(clockS - (eshotLand.get(`${by}:${tid}`) ?? -99)) < 0.6;
   /**
    * An attack's / skill's effects on a unit its damage hit: its hit list + its projectile's hit / reach, ≤ MAX_HIT_FX.
    * @param {View} src
    * @param {View} tgt
+   * @param {EPart} part
+   * @param {boolean} [noProj]
    */
   function ehitFx(src, part, tgt, noProj = false) {
-    const pr = noProj ? {} : part.proj || {};
+    const pr = /** @type {EProj} */ (noProj ? {} : part.proj || {});
     let names = [...new Set([...(part.hit || []), ...(pr.hit || []), ...(pr.reached || [])])].filter((n) => efx(n)).slice(0, MAX_HIT_FX);
     // (2026-11-16, official client — EffectBehaviour.OnProjectileReached) a flying projectile's reach effects made on the ground
     // where it reached (enemy-modes.json proj.ground: `_forceReachTargetGround`, 烹泉's shell) stand under its end (shellLand), not
     // on the target; an AttachToTarget one (no `move`: 高准度伦蒂尼姆城防自行炮's, 萨卡兹王庭军精锐术师's — `_attachToMountPoint` 0) sits on
     // its target's spot already
-    const ground = pr.move && Array.isArray(pr.ground) ? names.filter((n) => pr.ground.includes(n)) : [];
+    const ground = pr.move && Array.isArray(pr.ground) ? names.filter((n) => /** @type {string[]} */ (pr.ground).includes(n)) : [];
     if (ground.length) { eplay(src, edirs(src, part, ground), { at: shellLand(tgt) }); names = names.filter((n) => !ground.includes(n)); }
     const aim = new Set(part.aim || []);
     const plain = edirs(src, part, names.filter((n) => !aim.has(n)));
@@ -7476,14 +7670,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // the prefab's own run; a buff whose end the tables
   // do not give (INFINITY / CUSTOM: a stun's, a status's — its end is the sim's) — the prefab's own run as before, but one at
   // a time per name on the unit (no second copy while one plays) [추정].
+  /** @type {Map<string, { l: LiveEntry | null, until: number | undefined }>} */
   const ebuffs = new Map();   // `${target id}:${prefab}` → { l: live entry | null while it loads, until }
-  /** @param {View} src @param {View} tgt */
+  /**
+   * @param {View} src @param {View} tgt
+   * @param {EPart} part
+   */
   function eholdBuff(src, part, tgt) {
     const tid = ownerOf(tgt);
-    for (const n of part.hitBuff.slice(0, 2)) {
+    for (const n of /** @type {string[]} */ (part.hitBuff).slice(0, 2)) {   // (ehitFx tested it)
       const r = efx(n);
       if (!r) continue;
-      const life = part.hitBuffLife?.[n];
+      const life = /** @type {number} */ (part.hitBuffLife?.[n]);   // (none: undefined — neither 0 nor > 0)
       if (life === 0) { eplay(src, [n], { at: tgt }); continue; }
       const until = life > 0 ? clockS + life : undefined;
       const key = `${tid}:${n}`;
@@ -7492,6 +7690,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         if (until !== undefined) { rec.until = until; if (rec.l) rec.l.until = until; }
         continue;
       }
+      /** @type {{ l: LiveEntry | null, until: number | undefined }} */
       const nr = { l: null, until };
       ebuffs.set(key, nr);
       spawn(r[0], r[1], tgt, { owner: null, buff: false, on: tid, until, tag: 'debuff' }, { over: true, facing: efacing(src) }).then((l) => {
@@ -7510,11 +7709,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // (`_finishIfBuffNotExists` + `_buffKeyForFinish`): `life` after the last hit, at the target's death, or when its source is
   // gone; the effect then fades (`_delayToFinish` 0.5: stop()).
   // [추정: the buff goes on with the attack's hit — its 'dmg' — and a hit while it stands refreshes it (maxStackCnt 1)]
+  /** @type {Map<unknown, ELine>} */
   const elines = new Map();   // `${source id}:${target id}:${prefab}` → { src, tgt, until, l, sp, dyn }
   const lineA = { x: 0, y: 0, z: 0 }, lineB = { x: 0, y: 0, z: 0 }, lineT = { x: 0, y: 0, z: 0 };
   /**
    * A unit's point of Entity.MountPointType `type` (GROUND: its feet; a point its model lacks: half its height).
    * @param {View} v
+   * @param {number} type
+   * @param {Pt} out
+   * @param {unknown} [off]
+   * @returns {Pt}
    */
   function elinePoint(v, type, out, off) {
     const key = type === 7 ? null : pointKey(mountSpawn({ type }));
@@ -7527,6 +7731,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * The CreateLineEffect lines of the buffs an enemy's attack / skill `part` puts on `tgt` (enemy-modes.json `line`).
    * @param {View} src
    * @param {View} tgt
+   * @param {EPart | null | undefined} part
    */
   function elineFx(src, part, tgt) {
     if (!Array.isArray(part?.line) || !camRef) return;
@@ -7554,7 +7759,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const key = `${ownerOf(src)}:${ownerOf(tgt)}:${name}`;
     const rec = elines.get(key);
     if (rec && rec.fade == null) { rec.until = Math.max(rec.until, clockS + Math.max(0, life)); return; }   // the buff refreshed
-    const nrec = { src, tgt, until: clockS + Math.max(0, life), l: null, sp: null, dyn: null, ended: false, tag: meta?.tag ?? null, owner: meta?.owner ?? null, skill: !!meta?.skill };
+    /** @type {ELine} */
+    const nrec = { src, tgt, until: clockS + Math.max(0, life), l: null, sp: null, dyn: /** @type {never} */ (null), ended: false, tag: meta?.tag ?? null, owner: meta?.owner ?? null, skill: !!meta?.skill };
     elines.set(key, nrec);
     // (2026-11-14) `meta.onSrc`: made on the shooter, not on the line's end (HarpoonRenderer `_spawnOnSource`, elassoStart)
     const host = meta?.onSrc ? src : tgt;
@@ -7566,7 +7772,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       nrec.l = l;
       l.sinkFrom = src;   // 深水区: a line from a sunk shooter is not cut at the road either
       // (a LineEffectEmitter — fx_extract.py `lineEm` — names its start / end effects but leaves the ends to its maker)
-      nrec.dyn = l.inst.def?.lineDyn || (l.inst.def?.lineEm ? { ...dyn0, ...l.inst.def.lineEm } : dyn0);
+      nrec.dyn = /** @type {LineDyn} */ (l.inst.def?.lineDyn || (l.inst.def?.lineEm ? { ...dyn0, ...l.inst.def.lineEm } : dyn0));
       if (life < 0) nrec.until = clockS + (l.inst.def?.duration || 1);
       stepLine(nrec);
       const st = typeof nrec.dyn.start === 'string' ? nrec.dyn.start : null;
@@ -7582,16 +7788,18 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * = `_tweenDuration`) the end grows out of the start — point 1 = lerp(start point, end point, clamp(t / duration)) + the end
    * offset, t counted from the line's `OnPlay` (`m_lerpTime` 0) by the scaled delta time, here the battle clock from its
    * first frame; the start offset is not in the lerp. 逻各斯 S2's lock line `logos_skill2_line_01` (0.2 s).
+   * @param {ELine} rec
    */
   function stepLine(rec) {
     if (!rec.l?.inst) return;
-    const a = elinePoint(rec.src, rec.dyn.sMount, lineA, rec.dyn.sOff);
+    // (an end that is a point, not a unit — linkLine's head —: no model point, its spot; elinePoint reads no view field then)
+    const a = elinePoint(/** @type {View} */ (rec.src), rec.dyn.sMount, lineA, rec.dyn.sOff);
     const tw = Number(rec.dyn.tween) || 0;
     if (tw > 0 && rec.t0 == null) rec.t0 = clockS;
-    const k = lineTween(tw, tw > 0 ? clockS - rec.t0 : 0);
+    const k = lineTween(tw, tw > 0 ? clockS - /** @type {number} */ (rec.t0) : 0);
     const b = k < 1
-      ? lineTweenEnd(elinePoint(rec.src, rec.dyn.sMount, lineT, null), elinePoint(rec.tgt, rec.dyn.eMount, lineB, null), k, rec.dyn.eOff)
-      : elinePoint(rec.tgt, rec.dyn.eMount, lineB, rec.dyn.eOff);
+      ? lineTweenEnd(elinePoint(/** @type {View} */ (rec.src), rec.dyn.sMount, lineT, null), elinePoint(/** @type {View} */ (rec.tgt), rec.dyn.eMount, lineB, null), k, rec.dyn.eOff)
+      : elinePoint(/** @type {View} */ (rec.tgt), rec.dyn.eMount, lineB, rec.dyn.eOff);
     rec.l.inst.setLine?.(a, b);
     if (rec.sp) { rec.sp.x = a.x; rec.sp.y = a.y; rec.sp.z = a.z; }
   }
@@ -7606,21 +7814,24 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * used — the line lasts the channel, as the sim's lock does] true = drawn here.
    */
   const EBREATH_HOLD = 1.2;
+  /** @type {Map<unknown, BreathRec>} */
   const ebreath = new Map();   // dragon id → { tgt, l: its target effect (live entry) | null, until, done }
   /** @param {Ev} e @param {Views} views */
   function ebreathFx(e, views) {
     const o = /** @type {FxRec} */ (e[4]), src = views.get(o.id), tgt = views.get(o.target);
     if (!src || !tgt || !erec(src) || !enemyRecordMode(src.info.defId) || !eOn(src)) return false;
-    const part = eskillPart(src, enemyRecordMode(src.info.defId).skill);
+    const part = /** @type {EPart & { proj: EProj }} */ (eskillPart(src, /** @type {{ skill: string }} */ (enemyRecordMode(src.info.defId)).skill));   // (none: no `line`)
     const line = efx(Array.isArray(part?.proj?.trail) ? part.proj.trail[0] : null);
     if (!line) return false;
     ownFx.add(e);
     for (const l of elines.values()) if (l.src === src && l.tgt !== tgt) l.until = Math.min(l.until, clockS);   // a new lock
-    startLine(line[0], line[1], src, tgt, EBREATH_HOLD, { sMount: Number.isInteger(part.proj.mount) ? part.proj.mount : 2, eMount: 1 });
+    startLine(line[0], line[1], src, tgt, EBREATH_HOLD, { sMount: Number.isInteger(part.proj.mount) ? /** @type {number} */ (part.proj.mount) : 2, eMount: 1 });
     const id = ownerOf(src);
+    /** @type {BreathRec | null | undefined} */
     let rec = ebreath.get(id);
     if (rec && (rec.tgt !== tgt || rec.done || clockS > rec.until)) { endBreathOn(rec); rec = null; }
     if (!rec) {
+      /** @type {BreathRec} */
       const r = { tgt, l: null, until: 0, done: false };
       rec = r;
       ebreath.set(id, r);
@@ -7633,6 +7844,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (rec.l) rec.l.until = rec.until;
     return true;
   }
+  /** @param {BreathRec} rec */
   function endBreathOn(rec) { rec.done = true; if (rec.l) rec.l.until = clockS; }
   /**
    * 祛恶之焰 ended ('skill' off): its line fades now (`_delayToFinish`, stepLines), its target effect stops.
@@ -7643,7 +7855,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (rec) { endBreathOn(rec); ebreath.delete(id); }
     for (const l of elines.values()) if (l.src === v) l.until = Math.min(l.until, clockS);
   }
-  /** A line's effects (the line, its start effect) paused or played on (setPaused). */
+  /**
+   * A line's effects (the line, its start effect) paused or played on (setPaused).
+   * @param {ELine} rec
+   * @param {boolean} on
+   */
   function pauseLine(rec, on) {
     for (const l of [rec.l, rec.spLive]) if (l) { l.pzSelf = on; setPaused(l); }
   }
@@ -7652,9 +7868,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * either end is a disappeared enemy (`disappeared`) the line and its start / end effects are paused, not finished — its
    * buff runs on (`until` is not moved). As the enemy shows again the end is its new view (the old one left the board with
    * it), the line plays on (held ≤ 1 s for the view to come). true = held this frame.
+   * @param {ELine} rec
    */
   function lineHeld(rec) {
-    /** @param {View | null | undefined} v */
+    /** @param {View | Anchor | null | undefined} v */
     const idOf = (v) => (v?.info ? ownerOf(v) : null);
     if ([rec.src, rec.tgt].some((v) => idOf(v) != null && disappeared.has(idOf(v)))) {
       rec.held = true; rec.heldWait = null;
@@ -7663,7 +7880,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     if (!rec.held) return false;
     let ready = true;
-    for (const end of ['src', 'tgt']) {
+    for (const end of /** @type {('src' | 'tgt')[]} */ (['src', 'tgt'])) {
       const v = rec[end], id = idOf(v);
       if (id == null || !(v.alive === false || v.remove)) continue;
       const now = lastViews?.get(id);
@@ -7685,7 +7902,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       // (`endDead` 'alive') also finishes it while an end is in its 重生 (`alive` false there; 'reborn', `aliveOrReborn`,
       // keeps it, as a line without either does)
       const reb = rec.dyn?.endDead === 'alive';
-      const gone2 = (/** @type {View | null | undefined} */ v) => !v || v.alive === false || v.remove || gone.has(ownerOf(v)) || (reb && v.form === 'reborn');
+      const gone2 = (/** @type {View | (Anchor & { form?: string | null }) | null | undefined} */ v) => !v || v.alive === false || v.remove || gone.has(ownerOf(v)) || (reb && v.form === 'reborn');
       if (gone2(rec.tgt) || gone2(rec.src)) {
         rec.ended = true;
         rec.l?.inst.stop(true);
@@ -7713,10 +7930,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * with `_waitForProjectileInvalid`) finishes it (Effect.FinishMe: it fades out). The sim's stand-in beams of the channel
    * (LASSO_BEAMS) are not drawn while it shows. true = drawn.
    */
+  /** @type {Map<unknown, { rec: ELine, tgt: View, name: string }>} */
   const elassos = new Map();   // caster id → { rec: its elines record, tgt, name: its prefab }
-  /** A link projectile's line prefab: its HarpoonRenderer's `_mainEffect` (`proj.rope`), else its first trail. */
+  /**
+   * A link projectile's line prefab: its HarpoonRenderer's `_mainEffect` (`proj.rope`), else its first trail.
+   * @param {EProj | null | undefined} pr
+   */
   const ropeOf = (pr) => efx(typeof pr?.rope === 'string' ? pr.rope : Array.isArray(pr?.trail) ? pr.trail[0] : null);
-  /** @param {View | null | undefined} v @param {View | null | undefined} tgt */
+  /** @param {View} v @param {EPart | null | undefined} part @param {View | null | undefined} tgt @param {number} dur */
   function elassoStart(v, part, tgt, dur) {
     const pr = part?.proj;
     if (!pr?.link || !tgt || tgt === v || !(dur > 0) || !camRef) return false;
@@ -7735,6 +7956,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * shot's `_mountPointType`.
    * @param {View} v
    * @param {View} tgt
+   * @param {EProj} pr
+   * @param {string[]} r
+   * @param {number} dur
    */
   function linkLine(v, pr, r, tgt, dur) {
     let from;
@@ -7749,7 +7973,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       return p;
     };
     const head = { id: `lasso:${++ropeSeq}`, get alive() { return tgt.alive !== false && !tgt.remove && !gone.has(ownerOf(tgt)); }, get x() { return at().x; }, get y() { return p.y; }, get z() { return p.z; } };
-    startLine(r[0], r[1], v, head, dur, { sMount: Number.isInteger(pr.hook) ? pr.hook : Number.isInteger(pr.mount) ? pr.mount : 2, eMount: 7 }, { onSrc: !!pr.onSrc });
+    startLine(r[0], r[1], v, head, dur, { sMount: Number.isInteger(pr.hook) ? /** @type {number} */ (pr.hook) : Number.isInteger(pr.mount) ? /** @type {number} */ (pr.mount) : 2, eMount: 7 }, { onSrc: !!pr.onSrc });
     const key = `${ownerOf(v)}:${head.id}:${r[1]}`, rec = elines.get(key) || null;
     if (rec) { rec.head = head; rec.key = key; }
     return rec;
@@ -7764,12 +7988,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * spring's or the gun's fall ends the line at once). true = drawn (no stand-in link).
    */
   const FAITH_SLACK = 0.25;
+  /** @type {Map<unknown, { rec: ELine, body: LiveEntry | null }>} */
   const faith = new Map();   // `${gun}:${spring}` → { rec, body: live entry | null }
   /** @param {Ev} e @param {Views} views */
   function efaithFx(e, views) {
     const o = /** @type {FxRec} */ (e[4]), v = views.get(o.from), sp = views.get(o.to);
     if (!v || !sp || v === sp || !eOn(v) || !camRef || failed) return false;
-    const pr = eskillPart(v, '3')?.proj;
+    const pr = /** @type {EProj} */ (eskillPart(v, '3')?.proj);   // (none: no `r` below)
     const r = pr?.link ? ropeOf(pr) : null;
     if (!r) return false;
     const k = `${o.from}:${o.to}`, until = clockS + (Number(o.dur) > 0 ? Number(o.dur) : 1) + FAITH_SLACK;
@@ -7781,11 +8006,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     const rec = linkLine(v, pr, r, sp, until - clockS);
     if (!rec) return false;
+    /** @type {{ rec: ELine, body: LiveEntry | null }} */
     const nf = { rec, body: null };
     faith.set(k, nf);
     if (faith.size > 32) faith.delete(faith.keys().next().value);
     const bn = (pr.trail || []).find((n) => n !== pr.rope), br = bn ? efx(bn) : null;
-    if (br) spawn(br[0], br[1], rec.head, { owner: null, buff: true, until: rec.until, tag: 'faith' }).then((l) => { if (l) { nf.body = l; l.until = rec.until; } }, () => {});
+    if (br) spawn(br[0], br[1], /** @type {Anchor} */ (rec.head), { owner: null, buff: true, until: rec.until, tag: 'faith' }).then((l) => { if (l) { nf.body = l; l.until = rec.until; } }, () => {});
     return true;
   }
   /**
@@ -7796,6 +8022,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * @param {Ev} e
    * @param {View} src
    * @param {View} tgt
+   * @param {EProj} pr
    */
   function elinkShot(e, src, tgt, pr) {
     if (!camRef || failed || tgt === src) return false;
@@ -7829,11 +8056,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   // `caster` on every fx of that cast — docs/SIM.md; the ability = data/enemies.json skills[].prefabKey = the prefab's
   // Skills/<name> without case)
   const eskillSeen = new Map();   // `${id}:${key}` → battle clock: one play per ability and moment
-  /** @param {View} v */
+  /** @param {View} v @param {unknown} key @returns {EPart | null} */
   function eskillPart(v, key) {
     const b = ebindOf(v), s = b?.skills;
     if (typeof key !== 'string' || !key || !b) return null;
-    const k = key.toLowerCase(), k2 = k.split('/').pop();
+    const k = key.toLowerCase(), k2 = /** @type {string} */ (k.split('/').pop());
     // (2026-11-14) the mode now's own ability of that name first (enemy-modes.json modes[i].skills: one that differs from
     // the first mode's — '斩胄之剑''s BornAnim Skills/2 in Back_End: clip Back_End, enemy_acstma_back_end)
     const ms = b.modes?.[emodeOf(v) ?? -1]?.skills;
@@ -7844,6 +8071,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * `loop`, cut at 20 s [추정: an end the sim does not announce]; once otherwise), its projectile's trail to `target` with its
    * start effects there; the units its damage hits next get its hit effects (eskillHit). true when the enemy binds it.
    * @param {View} v
+   * @param {string} key
+   * @param {{ on?: boolean, loop?: boolean, target?: View | null, hold?: boolean, holdFor?: number, cap?: number }} [opts]
    */
   function eskillFx(v, key, { on = true, loop = false, target = null, hold = false, holdFor = ESKILL_HOLD_CAP, cap = 20 } = {}) {
     const part = eskillPart(v, key);
@@ -7902,6 +8131,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * attack clip (谢拉格's giant's PowerAttack on a frozen enemy, B_Attack: the sim strikes it as an attack after its fx
    * 'enemySkill'). That attack's swing and strike then draw nothing of the plain attack (its hit is the ability's, eskillHit).
    * @param {View | null | undefined} v
+   * @param {EPart} part
    */
   function inPlaceOfAttack(v, part) {
     if (!v?.info?.walks || typeof part?.anim !== 'string') return false;
@@ -7911,11 +8141,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * An enemy kit's moment (EKIT_HIT_FX): its client buff's effects once on that enemy. true = drawn here.
    * @param {Views} views
+   * @param {FxRec} o
    */
   function ekitHitFx(o, views) {
     const v = o.id != null ? views.get(o.id) : null;
     if (!v || !eOn(v)) return false;
-    const names = ebindOf(v)?.buffFx?.[EKIT_HIT_FX[o.k]];
+    const names = ebindOf(v)?.buffFx?.[/** @type {string} */ (EKIT_HIT_FX[/** @type {string} */ (o.k)])];
     if (!Array.isArray(names) || !names.some(efx)) return false;
     eplay(v, names, { tag: 'cast' });
     return true;
@@ -7923,10 +8154,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * A 'dmg' on `tid` by enemy `by` (the sim's attacker field) within 3 s of its ability: that ability's hit effects.
    * @param {Views} views
+   * @param {unknown} tid
+   * @param {unknown} by
    */
   function eskillHit(tid, by, views) {
-    const v = by != null ? views.get(by) : null;
-    const s = v && v._fxESkill;
+    const v = /** @type {View} */ (by != null ? views.get(by) : null);   // (none: no `s`, no `tgt`)
+    const s = /** @type {ESkillRec} */ (v && v._fxESkill);   // (none: no `tgt`)
     const tgt = s && (s.hold ? clockS <= (s.until ?? Infinity) : clockS - s.t <= 3) && eOn(v) ? views.get(tid) : null;
     if (!tgt) return false;
     const key = `${by}:${tid}`;
@@ -7934,22 +8167,29 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     lastHit.set(key, clockS);
     // 2026-10-15: a held skill's `_onlyOnce` hit effects (enemy-modes.json `hopt`): on its first hit of each unit, held there
     // until the skill ends (子代's trap_dstnta_attack_01_hit on the operator it holds, to ON_CAST_END)
-    const once = s.hold && s.part.hopt ? (s.part.hit || []).filter((n) => s.part.hopt[n]?.once) : [];
+    const once = s.hold && s.part.hopt ? (s.part.hit || []).filter((n) => /** @type {NonNullable<EPart['hopt']>} */ (s.part.hopt)[n]?.once) : [];
     for (const n of once) {
-      if (s.held.has(`${tid}:${n}`)) continue;
-      s.held.add(`${tid}:${n}`);
+      if (/** @type {Set<unknown>} */ (s.held).has(`${tid}:${n}`)) continue;   // (held: a held skill's)
+      /** @type {Set<unknown>} */ (s.held).add(`${tid}:${n}`);
       eplay(v, [n], { at: tgt, owner: ownerOf(v), on: tid, buff: true, tag: 'eskill', until: s.until ?? clockS + ESKILL_HOLD_CAP });
     }
-    ehitFx(v, once.length ? { ...s.part, hit: s.part.hit.filter((n) => !once.includes(n)) } : s.part, tgt, eshotHitDone(by, tid));
+    ehitFx(v, once.length ? { ...s.part, hit: /** @type {string[]} */ (s.part.hit).filter((n) => !once.includes(n)) } : s.part, tgt, eshotHitDone(by, tid));
     return true;
   }
-  /** The ability key an enemy 'fx' event names (`ability`; `prefabKey`, a string `skill` too), or null. */
+  /**
+   * The ability key an enemy 'fx' event names (`ability`; `prefabKey`, a string `skill` too), or null.
+   * @param {FxRec} o
+   */
   const fxAbility = (o) => {
     const k = o.ability ?? o.prefabKey ?? (typeof o.skill === 'string' ? o.skill : null);
     return typeof k === 'string' && k ? k : null;
   };
   // a bound skill whose clip the model starts (render/units.js: a skill flag, a form's change clip — 'Revive', 'Skill_2' …)
   // plays its effects too: the render shows that ability then, whether or not the sim names it
+  /**
+   * @param {ERow & { modes: (EMode | null)[] }} b
+   * @returns {Map<string, string>}
+   */
   function animSkill(b) {
     if (b._animSkill) return b._animSkill;
     const atk = new Set(b.modes.flatMap((m) => (m?.anim || []).map((a) => String(a).toLowerCase())));
@@ -7981,6 +8221,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * [bundle, prefab] of a deploy / dead effect of `v`: its own bundle's (a summon's: tokenBundle), else the shared common one; null when not extracted.
    * @param {View} v
+   * @param {string} name
    */
   function allyFx(v, name) {
     const b = bundleOf(v);
@@ -7995,6 +8236,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * bundle (诅咒娃娃: vodfox) or in `<owner>_token` (斯卡蒂的海嗣: skadi2_token, pkgrps/btl_pfb_fx_token_2.ab). The bundle of
    * `name`, or null.
    * @param {View | null | undefined} v
+   * @param {string | null | undefined} name
    */
   function tokenBundle(v, name) {
     const owner = v?.info?.kind === 'token' ? bindOf(v)?.owner : null;
@@ -8016,12 +8258,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!aura || typeof aura !== 'object') return;
     const id = ownerOf(v);
     const list = v.alive !== false && !failed && q() !== 'low' ? aura[String(v.info.skillIndex ?? '')] ?? Object.values(aura)[0] ?? [] : [];
-    const names = list.map((n) => [tokenBundle(v, n), n]).filter(([b]) => b);
+    const names = /** @type {[string, string][]} */ (list.map((n) => [tokenBundle(v, n), n]).filter(([b]) => b));
     const key = names.map(([, n]) => n).join('|');
-    const rec0 = v._fxAura;
+    const rec0 = /** @type {AuraRec} */ (v._fxAura);   // (none: no key, `rec0?.key`)
     // the same aura still loading or playing (a lost one — its 'die' ended it, the view stands again — comes back after 1 s)
     if (!force && (rec0?.key ?? '') === key && (!key || rec0.pending > 0 || rec0.lives.some((l) => !l.inst.done) || clockS - rec0.t < 1)) return;
     for (const l of live) if (l.tag === 'tokAura' && l.owner === id) l.inst.stop(force);
+    /** @type {AuraRec} */
     const rec = { key, lives: [], pending: names.length, t: clockS };
     v._fxAura = rec;
     for (const [b, n] of names) {
@@ -8048,7 +8291,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!v?.info?.bounty || v.alive === false || v.remove) continue;
       const rec = v._fxBounty;
       if (rec && (rec.pending || rec.live?.inst && !rec.live.inst.done || clockS - rec.t < 1)) continue;
-      const id = ownerOf(v), mark = { pending: true, live: null, t: clockS };
+      const id = ownerOf(v), mark = /** @type {BountyMark} */ ({ pending: true, live: null, t: clockS });
       v._fxBounty = mark;
       spawn(BOUNTY_MARK[0], BOUNTY_MARK[1], v, { owner: id, buff: true, onCaster: true, until: null, tag: 'bountyMark', pinned: true }, { over: true, facing: efacing(v) })
         .then((l) => { mark.pending = false; mark.t = clockS; if (!l) return; if (v._fxBounty !== mark || v.alive === false) l.inst.stop(true); else mark.live = l; });
@@ -8092,6 +8335,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * (its finish reason MOVE_LIKE_RESPAWN_SELF). `info.equip` the module in effect (sim/snapshot.js); the prefabs per module
    * are the extracted index's `equips` (fx_extract.py --equips: the shared bundle `uniequip`).
    * @param {View} v
+   * @param {unknown} id
    */
   function moduleFx(v, id) {
     const names = v.info.kind === 'op' && v.info.equip ? index?.equips?.[/** @type {string} */ (v.info.equip)] ?? [] : [];
@@ -8105,14 +8349,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * attaches the root's common abilities with the unit, so their INFINITY buffs' effects stay through every mode and
    * skill. Started on each deploy (a 【移动】 re-attaches them: the old ones end first), ended by its 'die' (stopOwned).
    * Not `buff` entries: stopBuffs ends those with every skill.
-   * @param {View | null | undefined} v
+   * @param {View} v
+   * @param {unknown} id
    */
   function alwaysOn(v, id) {
     const b = bundleOf(v);
     const names = b ? commonEffects(bindOf(v), b.prefabs, ownedNow(), v?.info?.spine || v?.info?.defId, plays, skillIdx(v)) : [];
     if (!names.length) return;
     for (const l of live) if (l.tag === 'common' && l.owner === id) l.inst.stop(true);
-    for (const n of names) spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'common', pinned: true }, { over: false, facing: efacing(v) });
+    for (const n of names) spawn(/** @type {FxBundle} */ (b).bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'common', pinned: true }, { over: false, facing: efacing(v) });
   }
   /**
    * 2026-10-21 (maintainer decision 2026-10-21, official client): the Default mode's own effects (fxmap.js defaultModeEffects).
@@ -8125,7 +8370,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * (2026-11-07) A mode the equipped skill holds by the sim form (FORM_HELD_MODES: 丰川祥子 S2's 钢琴 / 风琴) is drawn the same
    * way from the deployment on: its own attach list (her oblvns_skill_02_buff_01 / _buff), swapped when the form changes
    * (`form`: the one her 'spGain' event announces).
-   * @param {View | null | undefined} v
+   * @param {View} v
    */
   function defaultModeFx(v, force = false, form = v?.form) {
     const id = ownerOf(v), b = bundleOf(v);
@@ -8134,19 +8379,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     const m = h > 0 ? h : v._fxSkillOn ? modeNow(v) ?? -1 : 0;
     const on = b && !failed && q() !== 'low' && v.alive !== false;
     const foe = h > 0 ? new Set(bindOf(v)?.attachFoe?.[h] || []) : null;
-    const names = !on ? [] : h > 0 ? bound(v, h, 'attach').filter((n) => !foe.has(n) && !ownedNow().has(n))
-      : !(m > 0) ? defaultModeEffects(bindOf(v), b.prefabs, ownedNow()) : [];
+    const names = !on ? [] : h > 0 ? bound(v, h, 'attach').filter((n) => !/** @type {Set<string>} */ (foe).has(n) && !ownedNow().has(n))
+      : !(m > 0) ? defaultModeEffects(bindOf(v), /** @type {FxBundle} */ (b).prefabs, ownedNow()) : [];
     const key = names.join('|');
     if (!force && (v._fxMode0?.key ?? '') === key) return;
     for (const l of live) if (l.tag === 'mode0' && l.owner === id) l.inst.stop(force);
     const rec = { key };
     v._fxMode0 = rec;
     for (const n of names) {
-      spawn(b.bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'mode0', pinned: true }, { over: false, facing: efacing(v) })
+      spawn(/** @type {FxBundle} */ (b).bundle, n, v, { owner: id, buff: false, onCaster: true, until: null, tag: 'mode0', pinned: true }, { over: false, facing: efacing(v) })
         .then((l) => { if (l && v._fxMode0 !== rec) l.inst.stop(); });
     }
   }
-  /** @param {View} v */
+  /**
+   * @param {View} v
+   * @param {unknown} reason
+   */
   function allyDeathFx(v, reason) {
     if (reason !== 'killed' || !isAlly(v) || failed || q() === 'low') return;
     const r = allyFx(v, deadEffect(bindOf(v)));
@@ -8171,7 +8419,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (!v) { if (clockS - t > 2) eborn.delete(id); continue; }
       eborn.delete(id);
       if (!eOn(v) || v.alive === false) continue;
-      const b = ebindOf(v);
+      const b = /** @type {ERow} */ (ebindOf(v));   // (eOn tested it)
       v._fxEMode = emodeOf(v);
       if (b.start) eplay(v, [b.start], { tag: 'born' });
       // 2026-11-11: its born_effect buff's CreateEffect (enemy-modes.json `born`: 腐化的原生质's plasm_birth_01_start …)
@@ -8202,7 +8450,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const v of views.values()) {
       // (2026-11-11: a walking ally from an enemy record too — its form's mode, told to the sound)
       if ((v?.info?.side !== 'enemy' && !v?.info?.walks) || v.alive === false || !ebindOf(v)) continue;
-      const cams = !v.remove && eOn(v) ? ebindOf(v).camera : null;
+      const cams = !v.remove && eOn(v) ? /** @type {ERow} */ (ebindOf(v)).camera : null;
       if (cams) for (const n of cams) camWant.add(n);
       if (v._fxEMode === undefined) { v._fxEMode = emodeOf(v); v._fxEClip = v.actor?.current; v._fxEForm = v.form ?? null; v._fxRebSeen = v.form === 'reborn'; continue; } // on the field before this layer
       // 2026-10-23: a rebirth starting — the 重生 form coming on (a leader's reborn()) — plays its RebornTalent `_effects`;
@@ -8234,7 +8482,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       const clip = v.actor?.current;
       if (clip !== v._fxEClip) {
         v._fxEClip = clip;
-        const k = typeof clip === 'string' ? animSkill(ebindOf(v)).get(clip.toLowerCase()) : null;
+        const k = typeof clip === 'string' ? animSkill(/** @type {ERow & { modes: (EMode | null)[] }} */ (ebindOf(v))).get(clip.toLowerCase()) : null;
         if (k) eskillFx(v, k);
         // … or a form's closing clip starting (render/units.js FORMS `end`: the 逐火 ember standing up on Revive — the sim's
         // stand-up comes as that clip ends, the client's rebirth plays its clip and effects from its start)
@@ -8256,6 +8504,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * effect starts or ends only when the set changes.
    */
   const camWant = new Set();
+  /** @type {Map<string, { l: LiveEntry | null, off: boolean, on: boolean }>} */
   const camFx = new Map();   // effect name → { l: live entry (null while it loads), off }
   /**
    * 2026-11-11 (docs/rules/fx.md 「규정 전장의 화면·맵 이펙트」): the camera effect of the level the board shows — its level
@@ -8307,7 +8556,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!dry && (destroyed || failed || q() === 'low')) return;   // (no layer to play them on: the procedural view)
     for (const n of camWant) if (!camFx.has(n)) startCameraFx(n);
   }
+  /** @param {string} name */
   async function startCameraFx(name) {
+    /** @type {{ l: LiveEntry | null, off: boolean, on: boolean }} */
     const c = { l: null, off: false, on: false };
     camFx.set(name, c);
     const r = efx(name) || (stageCams.has(name) ? tplPrefab(name) : null);
@@ -8333,6 +8584,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * their own (`BattleController.CreateEffects`) — finished as it ends only with `_clearEffectsAfterReborn`, which none of
    * ours sets (`clear` 0) [추정: such a one would play its own length here too].
    * @param {View} v
+   * @param {number | null | undefined} mode
    */
   function erebornFx(v, mode) {
     const b = ebindOf(v);
@@ -8343,7 +8595,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /**
    * enemy-modes.json `rebornAbility` of enemy `v`'s rebirth from mode `mode` (the talent outside the modes or in it), or null.
-   * @param {View | null | undefined} v
+   * @param {View} v
+   * @param {number | null | undefined} [mode]
    */
   function rebornAbOf(v, mode = v._fxEMode) {
     const lst = ebindOf(v)?.rebornAbility;
@@ -8365,12 +8618,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * one put on during the 重生 held to its end, where the sim's own status for that buff takes over (扎罗's
    * `ab:wolfRage` → enemy_wlfmster_m2_eff), any other its own length.
    * @param {View} v
+   * @param {number} ev
+   * @param {number | null | undefined} [mode]
    */
   function erebornAbility(v, ev, mode = v._fxEMode) {
     const ra = rebornAbOf(v, mode);
     if (!ra) return;
     const id = ownerOf(v);
     // the loops this event ends — every one at the ability's end
+    /** @param {unknown} tag */
     const ends = (tag) => tag === `rebornAb:${ev}` || (ev === CAST_EVENT.CAST_END && String(tag).startsWith('rebornAb:'));
     for (const l of live) if (l.owner === id && ends(l.tag) && (l.until == null || l.until > clockS)) l.until = clockS;
     if (!eOn(v)) return;
@@ -8397,7 +8653,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * An enemy's death: its dead effect where it falls — its mode's `_overrideDeadEffect`, else the root's `_deadEffect`, else
    * common_enemy_die_01 (the client's `Enemy.get_deadEffect`). enemy-modes.json `dead` carries the default
    * already (enemy_bindings.py); '' = none (a `Trap` token without its own: 子代), the fallback only for an entry without it.
-   * @param {View | null | undefined} v
+   * @param {View} v
    */
   const edeadOf = (v) => {
     const b = ebindOf(v);
@@ -8432,9 +8688,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * start when `_stopBeforeCast`: `readyEarly`, eskillFx) and at the detach — a knock-out stops it with the owner's held
    * effects (stopOwned). true = drawn here.
    * @param {Views} views
+   * @param {FxRec} o
    */
   function ereadyFx(o, views) {
-    const v = views.get(o.id);
+    const v = /** @type {View} */ (views.get(o.id));   // (eOn tests it)
     if (!eOn(v) || typeof o.ability !== 'string') return false;
     const part = eskillPart(v, o.ability);
     if (!part?.ready?.some(efx)) return false;
@@ -8450,7 +8707,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * @param {Views} views
    */
   function espellBlast(e, views) {
-    const o = /** @type {FxRec} */ (e[4]), v = views.get(o.id);
+    const o = /** @type {FxRec} */ (e[4]), v = /** @type {View} */ (views.get(o.id));   // (eOn tests it)
     const part = eOn(v) ? eskillPart(v, o.ability) : null;
     if (!part) return false;
     const names = (part.cast || []).filter((n) => part.opt?.[n]?.s === CAST_EVENT.SPELL_ON && efx(n));
@@ -8459,7 +8716,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   }
   /** @param {Ev} e @param {Views} views */
   function eblinkFx(e, views) {
-    const o = /** @type {FxRec} */ (e[4]), v = views.get(o.id);
+    const o = /** @type {FxRec} */ (e[4]), v = /** @type {View} */ (views.get(o.id));   // (eOn tests it)
     if (!eOn(v)) return false;
     const bl = eskillPart(v, o.ability)?.blink;
     if (!bl || ![...(bl.from || []), ...(bl.to || [])].some(efx)) return false;
