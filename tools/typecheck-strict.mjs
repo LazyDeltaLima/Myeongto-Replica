@@ -8,10 +8,16 @@
 // A second rule rides along: a file in an any-free folder (ANY_FREE below) may not write `any` in a type position (a
 // JSDoc `{…}` type, a `types/*.d.ts` declaration) unless the same line says `any: <why>`. types/README.md "Strict".
 //
+// A third rule, a ratchet: outside ANY_FREE the count of type-position `any` per file (lines saying `any: <why>` not
+// counted) is compared with the table tools/any-baseline.json. More than the table fails; fewer is taken into the table
+// with `--update`, which only ever lowers it (it refuses a rise).
+//
 // Usage: node tools/typecheck-strict.mjs          exit 1 on an error in a listed file or an `any` in an any-free file
 //        node tools/typecheck-strict.mjs --count  also print the strict errors of every other folder (to pick the next)
+//        node tools/typecheck-strict.mjs --update lower tools/any-baseline.json to today's counts (never raises; creates it when missing)
 //        node tools/typecheck-strict.mjs --any    print the type-position `any` of every file by folder (to pick the next)
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
@@ -78,6 +84,9 @@ const anyPerDir = new Map();
 /** @type {Set<string>} */
 const anyDone = new Set();
 const ANY_MARK = /\bany: \S/;
+const BASELINE = 'tools/any-baseline.json';
+/** @type {Map<string, number>} file -> unmarked type-position `any`, files outside ANY_FREE only */
+const anyNow = new Map();
 let anyBad = 0;
 
 const count = process.argv.includes('--count');
@@ -99,22 +108,23 @@ for (const name of CONFIGS) {
   for (const sf of program.getSourceFiles()) {
     const file = sf.fileName;
     const own = listed.has(file);
-    if (!own && (!count || program.isSourceFileFromExternalLibrary(sf) || program.isSourceFileDefaultLibrary(sf))) continue;
     const rel = path.relative(ROOT, file);
-    if (rel.startsWith('..') || rel.startsWith(`public${path.sep}vendor${path.sep}`)) continue;
-    if (!anyDone.has(file) && true && !program.isSourceFileFromExternalLibrary(sf) && !program.isSourceFileDefaultLibrary(sf)) {
+    const lib = program.isSourceFileFromExternalLibrary(sf) || program.isSourceFileDefaultLibrary(sf);
+    if (!rel.startsWith('..') && !rel.startsWith(`public${path.sep}vendor${path.sep}`) && !lib && !anyDone.has(file)) {
       anyDone.add(file);
       const lines = anyLines(sf);
+      const text = sf.text.split('\n');
+      const unmarked = lines.filter((ln) => !ANY_MARK.test(text[ln - 1]));
       if (anyMode && lines.length) anyPerDir.set(path.dirname(rel), (anyPerDir.get(path.dirname(rel)) ?? 0) + lines.length);
       if (anyFree(rel)) {
-        const text = sf.text.split('\n');
-        for (const ln of lines) {
-          if (ANY_MARK.test(text[ln - 1])) continue;
+        for (const ln of unmarked) {
           anyBad++;
           console.error(`${rel}:${ln}: \`any\` in a type position in an any-free folder. Write unknown and narrow it, a typedef of the fields read ([key: string]: unknown for the rest), or a real signature; where \`any\` is truly needed put \`any: <why>\` on the same line (types/README.md "Strict", bundles' 「any의 길」).`);
         }
-      }
+      } else if (unmarked.length) anyNow.set(rel.split(path.sep).join('/'), unmarked.length);
     }
+    if (!own && (!count || lib)) continue;
+    if (rel.startsWith('..') || rel.startsWith(`public${path.sep}vendor${path.sep}`)) continue;
     const diags = [...program.getSyntacticDiagnostics(sf), ...program.getSemanticDiagnostics(sf)];
     if (own) {
       seen.add(file);
@@ -148,6 +158,42 @@ if (anyMode) {
   for (const [dir, n] of [...anyPerDir].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))) console.log(`${String(n).padStart(6)}  ${dir}`);
 }
 failed += anyBad;
+
+// Ratchet: the unmarked `any` of a file outside ANY_FREE may not grow past the table.
+const baseFile = path.join(ROOT, BASELINE);
+/** @type {Record<string, number>} */
+const base = fs.existsSync(baseFile) ? JSON.parse(fs.readFileSync(baseFile, 'utf8')) : {};
+const update = process.argv.includes('--update');
+if (!fs.existsSync(baseFile) && !update) {
+  console.error(`${BASELINE} is missing: run \`node tools/typecheck-strict.mjs --update\` once to create it.`);
+  failed++;
+}
+let raised = 0;
+for (const [rel, n] of anyNow) {
+  const was = base[rel] ?? 0;
+  if (n > was && fs.existsSync(baseFile)) {
+    raised++;
+    console.error(`${rel}: ${n} \`any\` in type positions, the table ${BASELINE} allows ${was}. A new \`any\` is not allowed: write unknown and narrow it, a typedef of the fields read, or the real signature; where it is truly needed put \`any: <why>\` on the same line (types/README.md "Strict", No \`any\`). The table only goes down: when a file's \`any\` count drops, run \`node tools/typecheck-strict.mjs --update\` and commit it.`);
+  }
+}
+if (update) {
+  /** @type {Record<string, number>} */
+  const next = {};
+  const fresh = !fs.existsSync(baseFile);
+  for (const [rel, n] of [...anyNow].sort((a, b) => a[0].localeCompare(b[0]))) {
+    if (!fresh && n > (base[rel] ?? 0)) continue; // never raised; reported above
+    next[rel] = fresh ? n : Math.min(n, base[rel]);
+  }
+  fs.writeFileSync(baseFile, `${JSON.stringify(next, null, 1)}\n`);
+  const gone = new Set(Object.keys(base).map((f) => path.posix.dirname(f)));
+  for (const f of Object.keys(next)) gone.delete(path.posix.dirname(f));
+  for (const d of gone) if (!anyFree(`${d}/x`)) console.log(`${d}: no \`any\` left, add it to ANY_FREE`);
+  console.log(`${BASELINE}: ${Object.keys(next).length} files, ${Object.values(next).reduce((a, b) => a + b, 0)} \`any\``);
+} else if (!raised && fs.existsSync(baseFile)) {
+  const lower = Object.keys(base).filter((f) => (anyNow.get(f) ?? 0) < base[f]).length;
+  if (lower) console.log(`${lower} file(s) have fewer \`any\` than ${BASELINE}: run \`node tools/typecheck-strict.mjs --update\``);
+}
+failed += raised;
 
 if (failed) {
   console.error(`strict: ${failed} error(s) in the folders ${LIST} lists`);

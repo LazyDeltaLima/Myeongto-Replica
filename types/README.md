@@ -102,7 +102,12 @@ express, and its line says `any: <why>`. `tools/typecheck-strict.mjs` enforces i
 an `any` in a type position (a JSDoc `{…}` type, a `types/*.d.ts` declaration) without `any: <why>` on the same line fails
 `npm run typecheck`. `node tools/typecheck-strict.mjs --any` prints the count per folder; add a folder to `ANY_FREE` once it
 reads 0. A file touched for other work in a folder not on `ANY_FREE` yet has its old `any` taken out in the same
-commit, and the folder joins `ANY_FREE` once `--any` reads 0 for it (maintainer decision 2026-11-25). Some of the older
+commit, and the folder joins `ANY_FREE` once `--any` reads 0 for it (maintainer decision 2026-11-25). A ratchet covers the other folders: `tools/any-baseline.json`
+holds, per file outside `ANY_FREE`, the count of type-position `any` (lines saying `any: <why>` not counted), and
+`npm run typecheck` fails when a file has more than its entry (a new `any`; a new file starts at 0). The table only goes
+down: when a file's `any` is taken out (by the render strict work or any other edit), run
+`node tools/typecheck-strict.mjs --update` and commit the table with it; `--update` never raises an entry, and it names a
+folder that reached 0 so it can join `ANY_FREE`. Some of the older
 examples below still show `any` where they were written before this rule; do not copy it.
 
 `tools/typecheck-strict.mjs` (the last step of `npm run typecheck`) checks each config whole with `strict` added and
