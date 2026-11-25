@@ -1204,11 +1204,11 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   포함)로 `in_normal_range`. ON_BUFF_TRIGGER(층 변화)는 층 ≥ 40이면 공속, 아니면 `in_normal_range`일 때만. 그래서 받는 쪽이 **배치될 때** 판정하고 필드에 있는 동안
   유지 — 멤버가 물러나거나 쓰러지거나 옮겨도 이미 받은 쪽은 그대로, 값은 지금 층. 멤버 말 위치 = 서 있는 칸, 아니면 기다리는 칸(쓰러졌으면 몸 칸, 아니면 집 칸) —
   작전 시작 차례 배치에서 먼저 나온 오퍼도 아직 안 나온 멤버의 말을 봄. 이전: 0.25초마다 다시 계산(쓰러진 멤버만 몸 칸에서 계속, 물러난 멤버는 끔).
-  재배치·기습 착지·받는 쪽의 【移动】(`moveRedeploy`)은 새 배치라 새 칸에서 다시 판정한다(아래 「【移动】과 전역 버프」; 2026-11-25부터 — 이전: 【移动】은 판정 유지 [추정]).
-  `relocate`(이벤트 없이 칸만 바꿈)는 판정 유지. **[추정]**: 물러난(쓰러짐 아닌) 멤버의 말도 집 칸에 있는 것으로 셈; 받는 쪽은 오퍼레이터만.
+  재배치·기습 착지·받는 쪽의 【移动】(`moveRedeploy`)은 새 배치라 새 칸에서 다시 판정한다(아래 「【移动】과 전역 버프」; 2026-11-25부터 — 이전에는 【移动】이면 판정을 유지했다).
+  `relocate`(이벤트 없이 칸만 바꿈)는 판정 유지. **[추정·미조사: 철수한 말이 판 위치 표(`chessInstMap`)에 남는지, 이 전역 버프 프리팹의 대상 검사기를 안 읽음]**: 물러난(쓰러짐 아닌) 멤버의 말도 집 칸에 있는 것으로 셈; 받는 쪽은 오퍼레이터만.
   `bonds/addon/battle.js judgeAura`. 테스트 `test/content/bonds_addon.test.js` 「灵巧」.
 - **特质 `gar_event_selfkillenemy` 처치 수**: 그래프가 `current_cnt`를 ON_BUFF_START(배치마다)에 0으로 — 재배치하면 처음부터 셈(이전: 전투 내내 이어짐).
-  【移动】도 새 배치라 처음부터(아래 「【移动】과 전역 버프」, 2026-11-25부터 — 이전: 【移动】은 이어 셈 [추정]). `garrisons/effects/events.js`(`deploy`). 테스트 `garrisons_battle.test.js` 「selfkillenemy」.
+  【移动】도 새 배치라 처음부터(아래 「【移动】과 전역 버프」, 2026-11-25부터 — 이전에는 【移动】이면 이어 셌다). `garrisons/effects/events.js`(`deploy`). 테스트 `garrisons_battle.test.js` 「selfkillenemy」.
 - **特质 `respawnTimeByBond`(耀骑士临光 garrison_144)**: EN 템플릿에 이 키가 없고 비슷한 `act1autochess_gar_eff_respawnByBond`(퇴장 때 카드 버프, 층/divide **floor 없음**)만
   있다. CN의 새 템플릿일 수 있어 그대로(floor 단계 + 상시 재배치 배율).
 - **炎 9명 炎佑 ATK ×1.5 = 전체 ATK**: `bond_eff_yan[long]`이 ATK FINAL_SCALER(`content/tokens.js spawnYanyou`의 [ASSUMED] 삭제).
@@ -1245,7 +1245,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   경로가 아니라 그대로. 테스트 `bands.test.js` 「克莱门莎」(실제 경로 포함).
 - **特质 attrByBond = 배치 때 계산 — 관리자 결정 2026-10-11 「클라대로」**: 클라 버프 템플릿 `act1autochess_gar_eff_attrByBond`는 노드가 모두 ON_BUFF_START에 있다
   (`AutoChessAssignBondStackCntToBB` → 층 ÷ divide_num `_finalFloor` → 능력치마다 × 단계, 상한 `max_stack` 999999) — ON_BUFF_TRIGGER가 없어 전투 중 층이 늘어도 다시
-  계산하지 않는다. 그래서 그 오퍼레이터가 다시 배치될 때(쓰러진 뒤 재배치·기습 착지·【移动】 — 아래 「【移动】과 전역 버프」, 2026-11-25부터; 이전: 【移动】은 유지 [추정])만 그 순간의 층으로 다시 정한다. `act2autochess_gar_eff_attrByBond_add_onstart`도
+  계산하지 않는다. 그래서 그 오퍼레이터가 다시 배치될 때(쓰러진 뒤 재배치·기습 착지·【移动】 — 아래 「【移动】과 전역 버프」, 2026-11-25부터; 이전에는 【移动】이면 유지했다)만 그 순간의 층으로 다시 정한다. `act2autochess_gar_eff_attrByBond_add_onstart`도
   ON_BUFF_START뿐이라 같은 방식(이전에는 층이 늘면 돌고 있는 시한 버프를 다시 계산; 관리자 결정 2026-10-11 「공식이 배치 때만 계산하면 그대로」 — 화면 확인 항목). `ab_damageScaleByBond`(ON_BUFF_TRIGGER)와 `respawnTimeByBond`(EN 템플릿 없음)는 계속 층을
   따라감. `garrisons/effects/stats.js installReaders`. **되돌리기**: `installReaders`의 `layerGain` 재계산 목록 `live`에 attrByBond·add_onstart를 다시 넣으면 2026-10-11 전 동작
   (층이 늘 때마다 다시 계산; bonds.md T1). 테스트 `test/content/garrisons_battle.test.js` 「attrByBond」(실제 경로 포함).
@@ -1265,7 +1265,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   `char_dynamic_ability_new`)은 ON_BUFF_START·처음 상태부터 다시 돈다 — 【移动】에도 보통 배치처럼 다시 판정하고 다시 센다. 그래서 灵巧 오라(`bondeffect_skillful`, `env_gbuff_new`)는
   새 칸에서 다시 판정(둘레에 멤버 말이 없으면 끝), 특질 attrByBond(`env_gbuff_new_with_verify`)는 지금 층으로 다시 계산, 특질 `gar_event_selfkillenemy` 처치 수
   (`env_gbuff_new_with_verify`)와 `gar_event_consume_ammo` 센 수(동적 능력)는 0부터. 같은 기준으로 이미 그렇던 것: 사막 나침반 「첫 스킬 끝」, 桑葚 재판정,
-  `attrByBond_add_onstart`. 이전(2026-11-25 전): 이 넷은 【移动】이면 건너뜀 [추정: 클라는 진짜 (재)배치에서만 ON_BUFF_START]. `bonds/addon/battle.js`(灵巧 `deploy`),
+  `attrByBond_add_onstart`. 이전(2026-11-25 전): 이 넷은 【移动】이면 건너뛰었다(클라가 진짜 (재)배치에서만 ON_BUFF_START를 돌린다고 보았음). `bonds/addon/battle.js`(灵巧 `deploy`),
   `garrisons/effects/stats.js installReaders`, `garrisons/effects/events.js`. 테스트 `test/content/bonds_addon.test.js` 「灵巧」, `test/content/garrisons_battle.test.js`
   「selfkillenemy」·「consume_ammo: a redeployment and a 【移动】…」·「attrByBond (26 ids)」.
 - **炎国短刀·有限加速器 = 이 시즌 장비, 쌓임은 배치마다** (2026-10-25, 묶음 U): 이 시즌 활동 표 `eff_acarm040`·`eff_acarm052`(`env_gbuff_new_with_verify`)가 다른 모드
