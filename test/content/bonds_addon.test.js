@@ -206,6 +206,22 @@ test('灵巧: the battle-start deployment one by one — a receiver deployed bef
   checkInvariants(h.b);
 });
 
+// the global buff prefab act1autochess_bond_eff_skillful: _options professionMask 639 (TOKEN 128 / TRAP 256 left out)
+test('灵巧: only operators receive it — a summon deployed next to a member gets nothing (profession mask 639)', () => {
+  const defs = { chess: { k_1: op('k_1', ['skillfulShip']), k_n: op('k_n', []) } };
+  const h = makeBattle({
+    defs, bonds: { skillfulShip: bond(1, 5) },
+    units: [{ chessId: 'k_1', row: 10, col: 4 }, { chessId: 'k_n', row: 10, col: 3 }],
+  });
+  h.step(2);
+  assert.equal(h.unit('k_n').s.aspd, 115, 'an operator on the cross receives it');
+  const tok = h.b.spawnToken(h.unit('k_n'), 'test_token', 10, 5, { def: { name: 'tok', stats: { maxHp: 1000, atk: 100, def: 0, magicResistance: 0, blockCnt: 0, baseAttackTime: 1, attackSpeed: 100 }, rangeGrid: [[0, 0]], profession: 'TOKEN', skill: null } });
+  h.step(2);
+  assert.ok(tok && tok.alive, 'the summon is on the field');
+  assert.equal(tok.s.aspd, 100, 'a summon on the cross: no 灵巧 (docs/rules/sim.md 「盟约·특질·장비·생성기 2라운드」 灵巧)');
+  checkInvariants(h.b);
+});
+
 test('奥术: member arts damage → target arts taken ×(1.2+0.01·L) for 3 s; tier 2 below 50% HP ×1.4', () => {
   const bb = bondBb('arcaneShip');
   const defs = { chess: { a_m: chessRec({ id: 'a_m', bonds: ['arcaneShip'], profession: 'CASTER', skill: null, rangeGrid: [[0, 0]] }), a_x: op('a_x', []) }, enemies: DUMMY };

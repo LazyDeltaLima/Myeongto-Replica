@@ -1205,7 +1205,10 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   유지 — 멤버가 물러나거나 쓰러지거나 옮겨도 이미 받은 쪽은 그대로, 값은 지금 층. 멤버 말 위치 = 서 있는 칸, 아니면 기다리는 칸(쓰러졌으면 몸 칸, 아니면 집 칸) —
   작전 시작 차례 배치에서 먼저 나온 오퍼도 아직 안 나온 멤버의 말을 봄. 이전: 0.25초마다 다시 계산(쓰러진 멤버만 몸 칸에서 계속, 물러난 멤버는 끔).
   재배치·기습 착지·받는 쪽의 【移动】(`moveRedeploy`)은 새 배치라 새 칸에서 다시 판정한다(아래 「【移动】과 전역 버프」; 2026-11-25부터 — 이전에는 【移动】이면 판정을 유지했다).
-  `relocate`(이벤트 없이 칸만 바꿈)는 판정 유지. **[추정·미조사: 철수한 말이 판 위치 표(`chessInstMap`)에 남는지, 이 전역 버프 프리팹의 대상 검사기를 안 읽음]**: 물러난(쓰러짐 아닌) 멤버의 말도 집 칸에 있는 것으로 셈; 받는 쪽은 오퍼레이터만.
+  `relocate`(이벤트 없이 칸만 바꿈)는 판정 유지. 물러난(쓰러짐 아닌) 멤버의 말도 집 칸에 있는 것으로 셈: 전투 중 캐릭터가 끝나면(쓰러짐·철수, 이유 10·11 = 다시 태어남·【移动】 빼고)
+  `AutoChessGameManager.OnDestroyEntity` → `AutoChessBattleUtil.DestroyEntityToDummy`가 캐릭터를 거두고 그 말의 `ChessInst.pos` 칸에 쓰러진 모양의 더미를 세울 뿐,
+  말은 판 위치 표(`chessMapInfo.chessInstMap`)에 남는다(그 표에서 빼는 `ChessMapInfo.RemoveChessInst`는 준비 단계의 회수·끌어 놓기만 부름; 공식 클라에서 확인, 2026-11-25).
+  받는 쪽은 오퍼레이터만: 전역 버프 프리팹 `act1autochess_bond_eff_skillful`의 `_options` = 아군·직업 마스크 639(소환물 128·장치 256 빠짐). 테스트 「灵巧: only operators receive it…」.
   `bonds/addon/battle.js judgeAura`. 테스트 `test/content/bonds_addon.test.js` 「灵巧」.
 - **特质 `gar_event_selfkillenemy` 처치 수**: 그래프가 `current_cnt`를 ON_BUFF_START(배치마다)에 0으로 — 재배치하면 처음부터 셈(이전: 전투 내내 이어짐).
   【移动】도 새 배치라 처음부터(아래 「【移动】과 전역 버프」, 2026-11-25부터 — 이전에는 【移动】이면 이어 셌다). `garrisons/effects/events.js`(`deploy`). 테스트 `garrisons_battle.test.js` 「selfkillenemy」.

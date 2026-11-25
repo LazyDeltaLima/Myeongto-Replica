@@ -306,6 +306,10 @@ function suntSpCost(u, bb) {
 // receiver judges again on its new tile: officially it is a new character (Character.MoveLikeRespawnSelf), whose
 // RegisterUnit attaches the global buff again (docs/rules/sim.md 「盟约·특질·장비·생성기 2라운드」 灵巧).
 
+// A member that left the field keeps its piece on the board: the client's AutoChessGameManager.OnDestroyEntity in battle
+// (AutoChessBattleUtil.DestroyEntityToDummy) recycles the character and leaves a dead-like dummy on its ChessInst.pos,
+// the ChessInst staying in chessMapInfo.chessInstMap — a knock-out and a withdrawal alike. Receivers are operators only:
+// the global buff prefab's _options professionMask 639 (no TOKEN 128, no TRAP 256).
 /** Board tile of a member's piece: where it stands, else where it waits (its body tile when down, else its home). @param {Battle} battle @param {Unit} m */
 function auraPieceTile(battle, m) {
   if (!m || m.removed) return null;
