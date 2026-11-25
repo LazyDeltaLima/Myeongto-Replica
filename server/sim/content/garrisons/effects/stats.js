@@ -91,7 +91,7 @@ export function stepsOf(battle, it) {
   return Math.floor(sum / div);
 }
 
-/** @param {Record<string, any>} bb @param {number} k */
+/** @param {Record<string, unknown>} bb @param {number} k */
 function attrMods(bb, k) {
   // "每叠加N层，本干员攻击力+X%": a 直接乘算 bonus like every other "+X%" of the 卫戍 systems (support directMods)
   const m = S.directMods({ atk: S.num(bb.atk, 0) * k, hp: S.num(bb.max_hp, 0) * k, def: S.num(bb.def, 0) * k });
@@ -149,8 +149,8 @@ export function installReaders(battle, by) {
   for (const it of list) applyReader(battle, it);
   // attrByBond is computed at a deployment only (client buff template act1autochess_gar_eff_attrByBond: every node under
   // ON_BUFF_START — the floored steps (`_finalFloor`) × each stat, capped by max_stack 999999 — and no ON_BUFF_TRIGGER):
-  // an in-battle layer gain leaves it as it is until the operator deploys again (a redeploy, a 突袭 landing; a 【移动】
-  // keeps it). attrByBond_add_onstart likewise (ON_BUFF_START only: its timed buff keeps the steps it started with —
+  // an in-battle layer gain leaves it as it is until the operator deploys again (a redeploy, a 突袭 landing, a 【移动】:
+  // officially a new character, Character.MoveLikeRespawnSelf, that takes the global buff again). attrByBond_add_onstart likewise (ON_BUFF_START only: its timed buff keeps the steps it started with —
   // until 2026-10-11 a layer gain re-scaled the running buff). The other readers follow the live layers
   // (ab_damageScaleByBond: ON_BUFF_TRIGGER; respawnTimeByBond has no EN template).
   const ATTR = 'act1autochess_gar_eff_attrByBond';
@@ -158,8 +158,8 @@ export function installReaders(battle, by) {
   const live = list.filter((it) => it.key !== ATTR && it.key !== ONSTART);
   const atDeploy = byUnit(list.filter((it) => it.key === ATTR));
   if (atDeploy.size) {
-    battle.on('deploy', (/** @type {DeployEv} */ { unit, move }) => {
-      const arr = move ? null : atDeploy.get(unit);
+    battle.on('deploy', (/** @type {DeployEv} */ { unit }) => {
+      const arr = atDeploy.get(unit);
       if (arr) for (const it of arr) applyReader(battle, it);
     });
   }

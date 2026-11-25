@@ -177,7 +177,7 @@ function ammoScope(it, u) {
  * read, so 风丸's swaps added no 不屈 layers). The sweep in test/content/garrisons_battle.test.js holds it to every
  * 傀儡师 owner of every season.
  */
-export const countsSwaps = (/** @type {Record<string, any> | null | undefined} */ g) => /替身|傀儡/.test((g && g.desc) || '');
+export const countsSwaps = (/** @type {{ desc?: string } | null | undefined} */ g) => /替身|傀儡/.test((g && g.desc) || '');
 
 /** Installers by effect key: (battle, instances of the key). @type {Record<string, Installer>} */
 export const EVENTS = {
@@ -193,9 +193,10 @@ export const EVENTS = {
     const m = byUnit(list);
     for (const it of list) it.allies = /我方干员/.test(it.g.desc || '');
     // the kill count (current_cnt) starts again at 0 on every deployment: the client's buff graph zeroes it on
-    // ON_BUFF_START; a relocation (`deploy` with move) keeps it
-    battle.on('deploy', (/** @type {DeployEv} */ { unit, move }) => {
-      const arr = !move && m.get(unit);
+    // ON_BUFF_START — a 【移动】 (`deploy` with move) too: officially a new character (Character.MoveLikeRespawnSelf)
+    // that takes the global buff again
+    battle.on('deploy', (/** @type {DeployEv} */ { unit }) => {
+      const arr = m.get(unit);
       if (arr) for (const it of arr) it.cnt = 0;
     });
     battle.on('kill', (/** @type {KillEv} */ { killer, victim }) => {
@@ -233,15 +234,15 @@ export const EVENTS = {
   // a consumer counts at most once per 0.1 s (the 5 bullets of one attack are one). [self] ticks every 0.3 s
   // (waitFirstTriggerInterval, from the deployment) and passes ONE threshold per tick (target += consume_count).
   // The count (consumed_cnt) and threshold live on the holder's buffs: a withdrawal finishes the entity, which clears
-  // every buff (durable ones too; only a fake death keeps those) and its abilities ⇒ each deployment starts from 0; a
-  // relocation (`deploy` with move) keeps them, as for the kill count above.
+  // every buff (durable ones too; only a fake death keeps those) and its abilities ⇒ each deployment starts from 0, a
+  // 【移动】 (`deploy` with move) too: officially a new character on the same spawn path, as for the kill count above.
   act1autochess_gar_event_consume_ammo(battle, list) {
     const LOCK = 0.1, TICK = 0.3;
     const reset = (/** @type {GarrisonInst} */ it) => { it.locks = new Map(); it.cnt = 0; it.target = Math.max(1, S.num(it.bb.consume_count, 1)); };
     for (const it of list) { reset(it); it.seq = -1; it.next = 0; }
     const m = byUnit(list);
-    battle.on('deploy', (/** @type {DeployEv} */ { unit, move }) => {
-      const arr = !move && m.get(unit);
+    battle.on('deploy', (/** @type {DeployEv} */ { unit }) => {
+      const arr = m.get(unit);
       if (arr) for (const it of arr) reset(it);
     });
     battle.on('ammoUsed', (/** @type {UnitEv} */ { unit }) => {

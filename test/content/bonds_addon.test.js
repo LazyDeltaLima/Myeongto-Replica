@@ -148,7 +148,7 @@ test('迅捷 / 不屈 proc chances: p = min(1, base + per·L) at each layer coun
 // 灵巧 — client buff graph act1autochess_bond_eff_skillful: judged once on the receiver's deployment from the member PIECES
 // on the 3×3 (x-4) / cross (x-5) around it (AutoChessFilterCharacterBondIds, GetChessInstByPos); ASPD from the
 // live layers, at ≥ 40 for the whole 3×3, else only for the cross; kept while the receiver stays.
-test('灵巧: judged on deployment (cross, 3×3 at ≥40 layers, live value) and kept when the member moves or leaves', () => {
+test('灵巧: judged on deployment (cross, 3×3 at ≥40 layers, live value), kept when the member moves or leaves, judged again on the receiver\'s 【移动】', () => {
   const defs = { chess: { k_1: op('k_1', ['skillfulShip']), k_2: op('k_2', ['skillfulShip']), k_n: op('k_n', []), k_d: op('k_d', []), k_f: op('k_f', []) } };
   const h = makeBattle({
     defs, bonds: { skillfulShip: bond(1, 5) },
@@ -183,6 +183,11 @@ test('灵巧: judged on deployment (cross, 3×3 at ≥40 layers, live value) and
   assert.ok(h.b.redeploy(n, { free: true }));
   assert.deepEqual([n.tileR, n.tileC], [10, 5]);
   assert.equal(a('k_n'), 150, 're-judged on redeploy: the withdrawn member\'s piece waits on its tile (10, 4)');
+  // a 【移动】 is a new character officially (Character.MoveLikeRespawnSelf → RegisterUnit attaches the global buff again)
+  assert.ok(h.b.moveRedeploy(n, 12, 8));
+  assert.equal(a('k_n'), 100, '【移动】 onto a tile with no member piece around: the aura ends');
+  assert.ok(h.b.moveRedeploy(h.unit('k_f'), 11, 4));
+  assert.equal(a('k_f'), 150, '【移动】 next to the withdrawn member\'s piece (10, 4): judged again, it gets the aura');
   checkInvariants(h.b);
 });
 

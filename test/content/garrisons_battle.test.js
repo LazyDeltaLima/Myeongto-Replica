@@ -139,6 +139,12 @@ test('selfkillenemy (送葬人 / 休谟斯 / 斯卡蒂 / 海霓 / 伺夜 / 风�
     assert.deepEqual(gains(h), {}, '斯卡蒂: 1 kill, redeploy, 1 kill → no gain');
     kill();
     assert.deepEqual(gains(h), { egirShip: 1, steadShip: 1, raidShip: 1 }, 'the 2nd kill since the redeploy');
+    kill();
+    assert.ok(h.b.moveRedeploy(u, 10, 5));
+    kill();
+    assert.deepEqual(gains(h), { egirShip: 1, steadShip: 1, raidShip: 1 }, '斯卡蒂: 1 kill, 【移动】 (a new character officially), 1 kill → no gain');
+    kill();
+    assert.deepEqual(gains(h), { egirShip: 2, steadShip: 2, raidShip: 2 }, 'the 2nd kill since the 【移动】');
   }
   assert.deepEqual(run('garrison_50_a', 5, { victoriaShip: B(0), visiShip: B(0), indomShip: B(0) }), { victoriaShip: 6, visiShip: 6, indomShip: 6 }, '风笛: first 3 kills');
   assert.deepEqual(run('garrison_50_b', 5, { victoriaShip: B(0), visiShip: B(0), indomShip: B(0) }), { victoriaShip: 12, visiShip: 12, indomShip: 12 });
@@ -269,7 +275,7 @@ test('consume_ammo: one count per consumer per 0.1 s, one threshold per 0.3 s ti
   assert.equal(gains(h).lateranoShip, n0, 'no catch-up past the count');
 });
 
-test('consume_ammo: a redeployment starts the count again, a relocation keeps it (the withdrawal clears every buff)', () => {
+test('consume_ammo: a redeployment and a 【移动】 start the count again (the withdrawal clears every buff; a 【移动】 is a new character)', () => {
   const gid = 'garrison_23_a'; // 圣约送葬人: self, every 7 → 拉特兰 +per
   const per = num(GR(gid).bb.bond_add_count);
   const h = battle({ units: [{ id: 'exe', g: [gid], row: 10, col: 4 }], bonds: { lateranoShip: B(0) } });
@@ -286,7 +292,9 @@ test('consume_ammo: a redeployment starts the count again, a relocation keeps it
   shoot(h, u, 6);
   assert.ok(h.b.moveRedeploy(u, 10, 6));
   shoot(h, u, 1);
-  assert.deepEqual(gains(h), { lateranoShip: 2 * per }, '【移动】 keeps the count: 6 + 1');
+  assert.deepEqual(gains(h), { lateranoShip: per }, '6 before the 【移动】 + 1 after: no threshold');
+  shoot(h, u, 6);
+  assert.deepEqual(gains(h), { lateranoShip: 2 * per }, 'the 7th since the 【移动】');
 });
 
 test('enemy_abflag_inrange (初雪 / 银灰 28): entering 冻结 in range × prob; a refreshed freeze is not a new entry', () => {
@@ -725,7 +733,7 @@ test('attrByBond (26 ids): floor(Σ layers of the listed ACTIVE bonds / divide_n
   h.b.addLayers('p1', 'egirShip', 3, 'test');
   h.step(1);
   assert.ok(h.b.moveRedeploy(mz, 9, 4));
-  approx(mz.s.atk, 500 * 1.09, 'a 【移动】 keeps it [ASSUMED]');
+  approx(mz.s.atk, 500 * 1.10, 'a 【移动】 reads the layers again (officially a new character that takes the global buff again): 30 / 3 = 10 × 1 %');
   checkInvariants(h.b);
 });
 

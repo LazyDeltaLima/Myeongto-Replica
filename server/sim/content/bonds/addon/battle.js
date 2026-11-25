@@ -76,7 +76,7 @@ import { templatesOf } from '../shared.js';
  * A player's add-on bond state for the battle (makeState): its operators, the tier, numbers and members of each add-on
  * bond it has active, and what the passives keep between layer changes.
  * @typedef {{ pid: string, ops: Unit[], tiers: Record<string, number>, bb: Record<string, BondBb>,
- *   members: Record<string, Set<Unit>>, pending?: boolean, raidMilestone?: boolean, raidMods?: Record<string, any>,
+ *   members: Record<string, Set<Unit>>, pending?: boolean, raidMilestone?: boolean, raidMods?: Record<string, number>,
  *   arcaneMul?: number, arcaneLowMul?: number, auraMods?: { aspd: number }, auraWide?: boolean }} AddonState
  * @typedef {{ t: number, d: number }} RaidKey a jump candidate's sort key (raidTargets)
  */
@@ -302,7 +302,9 @@ function suntSpCost(u, bb) {
 // around the receiver's tile, then the board piece on each tile, AutoChessBattleUtil.GetChessInstByPos, and its bonds) —
 // no member piece on the 3×3 → the buff ends; else "x-5" (the cross, own tile included) sets in_normal_range.
 // ON_BUFF_TRIGGER (live layers): ASPD when L ≥ power_bond_stack_cnt, else only when in_normal_range. The judgment is
-// kept for the receiver's stay on the field: a member that leaves, falls or moves later changes nothing.
+// kept for the receiver's stay on the field: a member that leaves, falls or moves later changes nothing. A 【移动】 of the
+// receiver judges again on its new tile: officially it is a new character (Character.MoveLikeRespawnSelf), whose
+// RegisterUnit attaches the global buff again (docs/rules/sim.md 「盟约·특질·장비·생성기 2라운드」 灵巧).
 
 /** Board tile of a member's piece: where it stands, else where it waits (its body tile when down, else its home). @param {Battle} battle @param {Unit} m */
 function auraPieceTile(battle, m) {
@@ -388,7 +390,7 @@ const OPPOSITE_DIR = Object.freeze({ UP: 'DOWN', DOWN: 'UP', RIGHT: 'LEFT', LEFT
 /** The member's official skill type: 'PASSIVE' | 'AUTO' | 'MANUAL' (def.skillType; our passive kits count as PASSIVE). @param {SkillRuntime | null | undefined} sk */
 function raidSkillType(sk) {
   if (!sk || sk.noSkill) return null;
-  const t = String(/** @type {Record<string, any>} */ (sk.def)?.skillType ?? '').toUpperCase();
+  const t = String(/** @type {{ skillType?: unknown }} */ (sk.def)?.skillType ?? '').toUpperCase();
   if (sk.kind === 'passive' || t === 'PASSIVE') return 'PASSIVE';
   return sk.manual ? 'MANUAL' : 'AUTO';
 }
@@ -591,12 +593,12 @@ export function install(battle) {
     });
   }
 
-  // 灵巧 aura: judged on every deployment of one of the player's operators (the initial ones included); a relocation
-  // (`deploy` with move: true) keeps the judgment [추정: the client re-runs ON_BUFF_START only on a real (re)spawn]
+  // 灵巧 aura: judged on every deployment of one of the player's operators (the initial ones included), a 【移动】
+  // (`deploy` with move: true) too — the official one is a new character, whose global buffs start again
   if (has(ID.skillful)) {
     battle.on('deploy', (/** @type {DeployEv} */ c) => {
       const u = c.unit, st = u && byPid[u.ownerId];
-      if (!st || !st.tiers[ID.skillful] || u.kind !== 'op' || c.move) return;
+      if (!st || !st.tiers[ID.skillful] || u.kind !== 'op') return;
       judgeAura(battle, st, u);
     });
   }
