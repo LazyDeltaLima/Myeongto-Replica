@@ -17,6 +17,22 @@ import { watchCanvas } from '../diag.js';
 
 const PIXI = () => globalThis.PIXI;
 
+/**
+ * @typedef {ReturnType<typeof PIXI>} Pixi the PixiJS namespace (`globalThis.PIXI`)
+ * @typedef {() => number} Rng a seeded PRNG (rng)
+ * @typedef {{ light: string, dark: string, seamColor?: string, hi?: string, lo?: string, bevel?: number, seam?: number }} Bevel
+ * @typedef {{ proc?: string, src?: string, rect?: number[], scale?: number, rot?: unknown, flipX?: unknown, flipY?: unknown,
+ *   tint?: unknown, bright?: number, alpha?: number }} ArtLayer a tile-art layer (tools/crop-board-atlas.mjs schema)
+ * @typedef {{ key?: unknown, tiles?: { materials?: Record<string, unknown> | null, [key: string]: unknown } | null,
+ *   images?: { [key: string]: unknown } | null }} TexArt render/boardArt.js result, the members read here
+ * @typedef {{ texture: PIXI.Texture, uv: Record<string, number[]>, canvas: HTMLCanvasElement, art: boolean, artCount: number,
+ *   key: string }} TileAtlas
+ * @typedef {{ base: PIXI.BaseTexture, tex: Record<string, PIXI.Texture>, canvas: HTMLCanvasElement }} FxAtlas
+ * @typedef {{ base: PIXI.BaseTexture, canvas: HTMLCanvasElement, size: number, arcs: PIXI.Texture[], track: PIXI.Texture,
+ *   downDisc: PIXI.Texture, disc: Record<string, PIXI.Texture>, discEnemy: Record<string, PIXI.Texture> }} HudRings
+ */
+
+/** A canvas of at least 1 × 1 px, watched for a lost 2D context. @param {number} w @param {number} h */
 export function makeCanvas(w, h) {
   const c = document.createElement('canvas');
   c.width = Math.max(1, Math.ceil(w));
@@ -25,7 +41,7 @@ export function makeCanvas(w, h) {
   return c;
 }
 
-/** Deterministic PRNG (mulberry32). */
+/** Deterministic PRNG (mulberry32). @param {number} seed @returns {Rng} */
 export function rng(seed) {
   let a = seed >>> 0;
   return () => {
@@ -37,6 +53,7 @@ export function rng(seed) {
   };
 }
 
+/** @type {(r: number, g: number, b: number, a: number) => string} */
 const rgba = (r, g, b, a) => `rgba(${r | 0},${g | 0},${b | 0},${a})`;
 
 // =============================================================================================================
@@ -62,7 +79,10 @@ export const MATERIALS = [
   'penGlass',
 ];
 
-/** Art layers of materials the crop table (tiles.json) may not describe yet: the board atlas' glass hatch + a glaze. */
+/**
+ * Art layers of materials the crop table (tiles.json) may not describe yet: the board atlas' glass hatch + a glaze.
+ * @type {Readonly<Record<string, readonly ArtLayer[]>>}
+ */
 const DEFAULT_ART_LAYERS = Object.freeze({
   penGlass: Object.freeze([Object.freeze({ src: 'D', rect: [549, 1787, 255, 256] }), Object.freeze({ proc: 'glass' })]),
   // 活性源石 (GitHub #184): the official concrete slab the 3D board lays its crust on (`board3d/atlas.js concrete`), plus
@@ -72,6 +92,10 @@ const DEFAULT_ART_LAYERS = Object.freeze({
   infection2: Object.freeze([Object.freeze({ src: 'D', rect: [256, 512, 256, 256] }), Object.freeze({ proc: 'originium2' })]),
 });
 
+/**
+ * @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} w @param {number} h @param {Rng} r
+ * @param {number} n @param {readonly string[]} colors @param {readonly number[]} [size]
+ */
 function speckle(ctx, x, y, w, h, r, n, colors, size = [0.6, 1.8]) {
   for (let i = 0; i < n; i++) {
     ctx.fillStyle = colors[(r() * colors.length) | 0];
@@ -80,6 +104,7 @@ function speckle(ctx, x, y, w, h, r, n, colors, size = [0.6, 1.8]) {
   }
 }
 
+/** @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} s @param {Bevel} o */
 function bevelTile(ctx, x, y, s, o) {
   const m = o.seam ?? 3;
   ctx.fillStyle = o.seamColor ?? '#2a3033';
@@ -102,12 +127,13 @@ function bevelTile(ctx, x, y, s, o) {
 /**
  * Toroidal value noise on an `n × n` grid: `(u, v) ∈ [0, 1)` wraps, so a cell that is repeated over the board joins
  * itself without a seam (the knobs of 活性源石's crust line up across neighbouring tiles).
+ * @param {number} n @param {number} seed @returns {(u: number, v: number) => number}
  */
 function noiseField(n, seed) {
   const r = rng(seed);
   const g = new Float32Array(n * n);
   for (let i = 0; i < g.length; i++) g[i] = r();
-  const smooth = (t) => t * t * (3 - 2 * t);
+  const smooth = (/** @type {number} */ t) => t * t * (3 - 2 * t);
   return (u, v) => {
     const x = u * n, y = v * n;
     const x0 = Math.floor(x), y0 = Math.floor(y);
@@ -121,6 +147,7 @@ function noiseField(n, seed) {
 
 const ORIGINIUM_RES = 256;   // the crust's own resolution (scaled into the atlas cell)
 
+/** @type {(a: number, b: number, t: number) => number} */
 const smoothstep = (a, b, t) => {
   const k = Math.max(0, Math.min(1, (t - a) / (b - a)));
   return k * k * (3 - 2 * k);
@@ -134,18 +161,20 @@ const smoothstep = (a, b, t) => {
  * reaches the tile's edges, so a field of 活性源石 carries on into the neighbouring tile instead of ending in a frame.
  * `mirrored` draws the second variant (`infection2`; `render/tiles.js variantMat` picks between them by tile).
  */
+/** @type {Map<string, HTMLCanvasElement>} */
 const _originiumCells = new Map();
 
 /**
  * 活性源石's crust, rendered once per variant into `size × size` pixels (cached: the atlas rebuilds on every board art
  * change, the pattern does not). `mirrored` is the second variant (see `originiumOverlay`).
+ * @param {number} size @param {boolean} mirrored
  */
 function originiumCanvas(size, mirrored) {
   const key = `${size}:${mirrored ? 1 : 0}`;
   const hit = _originiumCells.get(key);
   if (hit) return hit;
   const canvas = makeCanvas(size, size);
-  const ctx = canvas.getContext('2d');
+  const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
   const crustN = noiseField(16, 9137), fineN = noiseField(32, 4421), grainN = noiseField(64, 733);
   const img = ctx.createImageData(size, size);
   const d = img.data;
@@ -185,11 +214,13 @@ function originiumCanvas(size, mirrored) {
  * tile's edges, so a field of 活性源石 carries on into the neighbouring tile instead of ending in a frame — the noise
  * wraps, so a repeated cell joins itself. Drawn through `drawImage`, so the callers' transform (the procedura draw path
  * scales a 112 px cell up to the atlas cell) applies; `putImageData` would ignore it.
+ * @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} s @param {boolean} [mirrored]
  */
 function originiumOverlay(ctx, x, y, s, mirrored = false) {
   ctx.drawImage(originiumCanvas(ORIGINIUM_RES, mirrored), x, y, s, s);
 }
 
+/** @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} s @param {Rng} r @param {number} n @param {string} color */
 function cracks(ctx, x, y, s, r, n, color) {
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
@@ -208,6 +239,10 @@ function cracks(ctx, x, y, s, r, n, color) {
   }
 }
 
+/**
+ * @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} s @param {number} inset
+ * @param {number} len @param {string} color @param {number} width
+ */
 function brackets(ctx, x, y, s, inset, len, color, width) {
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
@@ -221,6 +256,10 @@ function brackets(ctx, x, y, s, inset, len, color, width) {
   ctx.stroke();
 }
 
+/**
+ * @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} w @param {number} h
+ * @param {number} [stripe] @param {string} [c1] @param {string} [c2]
+ */
 function hazardBand(ctx, x, y, w, h, stripe = 10, c1 = '#e8b21f', c2 = '#1b1d1f') {
   ctx.save();
   ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
@@ -234,6 +273,7 @@ function hazardBand(ctx, x, y, w, h, stripe = 10, c1 = '#e8b21f', c2 = '#1b1d1f'
   ctx.restore();
 }
 
+/** @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} w @param {number} h @param {number} r */
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
@@ -243,7 +283,7 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-/** @type {Record<string, (ctx: CanvasRenderingContext2D, x: number, y: number, s: number, r?: any) => void>} */
+/** @type {Record<string, (ctx: CanvasRenderingContext2D, x: number, y: number, s: number, r: Rng) => void>} */
 const MAT_DRAW = {
   road(ctx, x, y, s, r) { roadBase(ctx, x, y, s, r, 1); brackets(ctx, x, y, s, 11, 15, 'rgba(255,255,255,0.42)', 2.4); },
   road2(ctx, x, y, s, r) { roadBase(ctx, x, y, s, r, 2); brackets(ctx, x, y, s, 11, 15, 'rgba(255,255,255,0.42)', 2.4); },
@@ -456,6 +496,10 @@ const MAT_DRAW = {
   },
 };
 
+/**
+ * @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} s @param {Rng} r
+ * @param {number} variant @param {boolean} [plain]
+ */
 function roadBase(ctx, x, y, s, r, variant, plain) {
   bevelTile(ctx, x, y, s, plain
     ? { light: '#838b90', dark: '#727a7f', seamColor: '#3a4246' }
@@ -469,6 +513,7 @@ function roadBase(ctx, x, y, s, r, variant, plain) {
   }
 }
 
+/** @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} s @param {Rng} r */
 function floorBase(ctx, x, y, s, r) {
   bevelTile(ctx, x, y, s, { light: '#5f676b', dark: '#51585c', seamColor: '#2b3134', hi: 'rgba(255,255,255,0.12)' });
   ctx.fillStyle = 'rgba(0,0,0,0.16)';
@@ -476,6 +521,7 @@ function floorBase(ctx, x, y, s, r) {
   speckle(ctx, x + 4, y + 4, s - 8, s - 8, r, 180, ['rgba(255,255,255,0.05)', 'rgba(0,0,0,0.08)']);
 }
 
+/** @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} s @param {Rng} r @param {boolean} alt */
 function forbidBase(ctx, x, y, s, r, alt) {
   ctx.fillStyle = '#20262a'; ctx.fillRect(x, y, s, s);
   const g = ctx.createLinearGradient(x, y, x + s, y + s);
@@ -490,6 +536,10 @@ function forbidBase(ctx, x, y, s, r, alt) {
   speckle(ctx, x + 3, y + 3, s - 6, s - 6, r, 100, ['rgba(255,255,255,0.03)', 'rgba(0,0,0,0.12)']);
 }
 
+/**
+ * @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} s @param {Rng} r
+ * @param {string} color @param {boolean} inward
+ */
 function portal(ctx, x, y, s, r, color, inward) {
   bevelTile(ctx, x, y, s, { light: '#2a2236', dark: '#1a1522', seamColor: '#0e0b12' });
   const cx = x + s / 2, cy = y + s / 2;
@@ -503,6 +553,10 @@ function portal(ctx, x, y, s, r, color, inward) {
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, 16, 0, Math.PI * 2); ctx.fill();
 }
 
+/**
+ * @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} s @param {Rng} r
+ * @param {string} dash @param {string} fill
+ */
 function benchTop(ctx, x, y, s, r, dash, fill) {
   bevelTile(ctx, x, y, s, { light: '#323b40', dark: '#262d31', seamColor: '#15191b', hi: 'rgba(255,255,255,0.14)' });
   speckle(ctx, x + 4, y + 4, s - 8, s - 8, r, 120, ['rgba(255,255,255,0.04)', 'rgba(0,0,0,0.1)']);
@@ -512,6 +566,7 @@ function benchTop(ctx, x, y, s, r, dash, fill) {
   ctx.setLineDash([]);
 }
 
+/** @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} s @param {Rng} r @param {string} led */
 function benchSide(ctx, x, y, s, r, led) {
   const g = ctx.createLinearGradient(x, y, x, y + s);
   g.addColorStop(0, '#2c3438'); g.addColorStop(1, '#121618');
@@ -520,11 +575,12 @@ function benchSide(ctx, x, y, s, r, led) {
   ctx.fillStyle = led; ctx.fillRect(x, y + s * 0.34, s, s * 0.1);
 }
 
+/** @type {Map<string, TileAtlas>} */
 const _atlases = new Map();   // art key → atlas
 
 /**
  * Procedural finishing layers usable in tiles.json (`{ proc: 'rim' }`): a bevelled block edge.
- * @type {Record<string, (ctx: CanvasRenderingContext2D, x: number, y: number, s: number, r?: any) => void>}
+ * @type {Record<string, (ctx: CanvasRenderingContext2D, x: number, y: number, s: number, r?: Rng) => void>}
  */
 const PROC_LAYERS = {
   /** 活性源石's crust over the official concrete (DEFAULT_ART_LAYERS.infection); the second variant is mirrored. */
@@ -561,25 +617,29 @@ const PROC_LAYERS = {
   },
 };
 
-/** Draw one tile-art layer (tools/crop-board-atlas.mjs schema) into the cell interior at (x, y, INNER²). */
+/**
+ * Draw one tile-art layer (tools/crop-board-atlas.mjs schema) into the cell interior at (x, y, INNER²); `img` the layer's
+ * source image (null for a procedural layer).
+ * @param {CanvasRenderingContext2D} ctx @param {CanvasImageSource | null} img @param {ArtLayer} ly @param {number} x @param {number} y
+ */
 function drawArtLayer(ctx, img, ly, x, y) {
   if (ly.proc) { PROC_LAYERS[ly.proc]?.(ctx, x, y, INNER); return; }
-  const [sx, sy, sw, sh] = ly.rect;
-  const sc = Number.isFinite(ly.scale) && ly.scale > 0 ? Math.min(1, ly.scale) : 1;
+  const [sx, sy, sw, sh] = /** @type {number[]} */ (ly.rect);
+  const sc = Number.isFinite(ly.scale) && /** @type {number} */ (ly.scale) > 0 ? Math.min(1, /** @type {number} */ (ly.scale)) : 1;
   const size = INNER * sc;
   // work canvas: the crop, rotated/flipped, scaled to the (decal) size; tint = multiply (alpha kept)
   const w = makeCanvas(size, size);
-  const c = w.getContext('2d');
+  const c = /** @type {CanvasRenderingContext2D} */ (w.getContext('2d'));
   c.imageSmoothingQuality = 'high';
   c.save();
   c.translate(size / 2, size / 2);
   const rot = ((Number(ly.rot) || 0) % 360 + 360) % 360;
   if (rot) c.rotate((rot * Math.PI) / 180);
   c.scale(ly.flipX ? -1 : 1, ly.flipY ? -1 : 1);
-  c.drawImage(img, sx, sy, sw, sh, -size / 2, -size / 2, size, size);
+  c.drawImage(/** @type {CanvasImageSource} */ (img), sx, sy, sw, sh, -size / 2, -size / 2, size, size);
   c.restore();
   const tint = typeof ly.tint === 'string' && /^#[0-9a-f]{6}$/i.test(ly.tint) ? ly.tint : null;
-  const bright = Number.isFinite(ly.bright) ? ly.bright : 1;
+  const bright = Number.isFinite(ly.bright) ? /** @type {number} */ (ly.bright) : 1;
   if (tint || bright !== 1) {
     c.globalCompositeOperation = 'multiply';
     if (tint) { c.fillStyle = tint; c.fillRect(0, 0, size, size); }
@@ -592,12 +652,12 @@ function drawArtLayer(ctx, img, ly, x, y) {
     c.translate(size / 2, size / 2);
     if (rot) c.rotate((rot * Math.PI) / 180);
     c.scale(ly.flipX ? -1 : 1, ly.flipY ? -1 : 1);
-    c.drawImage(img, sx, sy, sw, sh, -size / 2, -size / 2, size, size);
+    c.drawImage(/** @type {CanvasImageSource} */ (img), sx, sy, sw, sh, -size / 2, -size / 2, size, size);
     c.restore();
     c.globalCompositeOperation = 'source-over';
   }
   ctx.save();
-  ctx.globalAlpha = Number.isFinite(ly.alpha) ? Math.max(0, Math.min(1, ly.alpha)) : 1;
+  ctx.globalAlpha = Number.isFinite(ly.alpha) ? Math.max(0, Math.min(1, /** @type {number} */ (ly.alpha))) : 1;
   ctx.drawImage(w, x + (INNER - size) / 2, y + (INNER - size) / 2);
   ctx.restore();
 }
@@ -606,6 +666,7 @@ function drawArtLayer(ctx, img, ly, x, y) {
  * The tile material atlas: `{ texture, uv: { [material]: [u0, v0, u1, v1] }, art: boolean, artCount }` (UVs of
  * the inner square; identical for every atlas). `art` (render/boardArt.js): `{ key, tiles: { materials }, images:
  * { D, common, … } }` — materials it describes are composed from the real board art, the rest stay procedural.
+ * @param {TexArt | null} [art] @returns {TileAtlas}
  */
 export function tileAtlas(art = null) {
   const key = art && art.key ? String(art.key) : '';
@@ -613,13 +674,14 @@ export function tileAtlas(art = null) {
   if (hit) return hit;
   const P = PIXI();
   const canvas = makeCanvas(ATLAS_W, ATLAS_H);
-  const out = canvas.getContext('2d');
+  const out = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
   // Each cell is drawn and its gutters clamped in a CELL² work canvas, then copied into the atlas once. The clamp copies
   // a canvas onto itself, and WebKit copies the whole source backing store for that: on the 2048² atlas it was 256
   // copies of 16 MB per atlas (an iPhone report, 2026-10-17: `tiles 7.3 s` in the mount's setup).
   const cell = makeCanvas(CELL, CELL);
-  const ctx = cell.getContext('2d');
+  const ctx = /** @type {CanvasRenderingContext2D} */ (cell.getContext('2d'));
   const perRow = ATLAS_W / CELL;
+  /** @type {Record<string, number[]>} */
   const uv = {};
   let artCount = 0;
   const mats = art?.tiles?.materials && typeof art.tiles.materials === 'object' ? art.tiles.materials : null;
@@ -630,12 +692,13 @@ export function tileAtlas(art = null) {
     ctx.save();
     ctx.beginPath(); ctx.rect(x, y, INNER, INNER); ctx.clip();
     let drawn = false;
-    const layers = mats && Array.isArray(mats[name]) ? mats[name] : (mats && art?.images?.D ? DEFAULT_ART_LAYERS[name] || null : null);
+    const layers = mats && Array.isArray(mats[name]) ? /** @type {readonly ArtLayer[]} */ (mats[name]) : (mats && art?.images?.D ? DEFAULT_ART_LAYERS[name] || null : null);
     if (layers && layers.length) {
       try {
-        const ok = layers.every((ly) => ly && (PROC_LAYERS[ly.proc] || (Array.isArray(ly.rect) && ly.rect.length === 4 && art.images?.[ly.src])));
+        // mats is set only with an art (above): the reads of `art` below are on it
+        const ok = layers.every((ly) => ly && (PROC_LAYERS[/** @type {string} */ (ly.proc)] || (Array.isArray(ly.rect) && ly.rect.length === 4 && /** @type {TexArt} */ (art).images?.[/** @type {string} */ (ly.src)])));
         if (ok) {
-          for (const ly of layers) drawArtLayer(ctx, ly.proc ? null : art.images[ly.src], ly, x, y);
+          for (const ly of layers) drawArtLayer(ctx, ly.proc ? null : /** @type {CanvasImageSource} */ (/** @type {{ [key: string]: unknown }} */ (/** @type {TexArt} */ (art).images)[/** @type {string} */ (ly.src)]), ly, x, y);
           drawn = true;
           artCount++;
         }
@@ -671,7 +734,9 @@ export function tileAtlas(art = null) {
  * Repeating ground texture for the backdrop plane: the board art's BG (optionally a `crop` [x, y, w, h] of it,
  * resampled to a POT canvas so it can repeat everywhere), else a procedural dark concrete.
  */
+/** @type {Map<string, PIXI.Texture>} */
 const _groundTex = new Map();
+/** @param {unknown} [img] the board art's BG image (anything falsy: the procedural ground) @param {readonly number[] | null} [crop] */
 export function groundTexture(img = null, crop = null) {
   const key = img ? `art:${crop ? crop.join(',') : ''}` : 'proc';
   let t = _groundTex.get(key);
@@ -680,12 +745,12 @@ export function groundTexture(img = null, crop = null) {
   let src = img;
   if (src && Array.isArray(crop) && crop.length === 4) {
     const c = makeCanvas(512, 512);
-    const x = c.getContext('2d');
-    try { x.drawImage(src, crop[0], crop[1], crop[2], crop[3], 0, 0, 512, 512); src = c; } catch { /* keep full image */ }
+    const x = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
+    try { x.drawImage(/** @type {CanvasImageSource} */ (src), crop[0], crop[1], crop[2], crop[3], 0, 0, 512, 512); src = c; } catch { /* keep full image */ }
   }
   if (!src) {
     const c = makeCanvas(512, 512);
-    const x = c.getContext('2d');
+    const x = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
     x.fillStyle = '#2b2a2c'; x.fillRect(0, 0, 512, 512);
     speckle(x, 0, 0, 512, 512, rng(99), 5000, ['rgba(255,255,255,0.035)', 'rgba(0,0,0,0.12)', 'rgba(60,56,58,0.2)'], [1, 4]);
     for (let i = 0; i < 18; i++) radial(x, rng(i)() * 512, rng(i + 50)() * 512, 60 + rng(i + 9)() * 120, [[0, 'rgba(0,0,0,0.12)'], [1, 'rgba(0,0,0,0)']]);
@@ -703,6 +768,7 @@ export function groundTexture(img = null, crop = null) {
 const FX_W = 1024, FX_H = 512;
 /** Status icons: one 32 px row at the bottom of the FX atlas (frames `st_<key>`). */
 const STATUS_ROW_Y = 448;
+/** @type {FxAtlas | null} */
 let _fx = null;
 
 /**
@@ -714,7 +780,7 @@ let _fx = null;
  * 32², streak / tracer / bolt 128×32 (head at the right), slash 128×64 (arc bulging up), pillar 64×256 (foot at the
  * bottom).
  */
-/** @type {Record<string, [number, number, number, number, (c: CanvasRenderingContext2D, x: number, y: number, w: number, h?: number) => void]>} */
+/** @type {Record<string, [number, number, number, number, (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => void]>} */
 const FX_DRAW = {
   glow: [0, 0, 128, 128, (c, x, y, w) => { radial(c, x + w / 2, y + w / 2, w / 2, [[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,255,255,0.6)'], [1, 'rgba(255,255,255,0)']]); }],
   soft: [128, 0, 128, 128, (c, x, y, w) => { radial(c, x + w / 2, y + w / 2, w / 2, [[0, 'rgba(255,255,255,0.8)'], [1, 'rgba(255,255,255,0)']]); }],
@@ -767,7 +833,7 @@ const FX_DRAW = {
   flare: [896, 0, 128, 128, (c, x, y, w) => {
     const cx = x + w / 2, cy = y + w / 2;
     radial(c, cx, cy, w / 2 - 1, [[0, 'rgba(255,255,255,0.95)'], [0.12, 'rgba(255,255,255,0.55)'], [0.4, 'rgba(255,255,255,0.1)'], [1, 'rgba(255,255,255,0)']]);
-    const ray = (a, len, half) => {
+    const ray = (/** @type {number} */ a, /** @type {number} */ len, /** @type {number} */ half) => {
       c.save(); c.translate(cx, cy); c.rotate(a);
       const g = c.createLinearGradient(0, 0, len, 0);
       g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)');
@@ -886,6 +952,10 @@ const FX_DRAW = {
   }],
 };
 
+/**
+ * @param {CanvasRenderingContext2D} c @param {number} cx @param {number} cy @param {number} r
+ * @param {ReadonlyArray<readonly [number, string]>} stops
+ */
 function radial(c, cx, cy, r, stops) {
   const g = c.createRadialGradient(cx, cy, 0, cx, cy, r);
   for (const [o, col] of stops) g.addColorStop(o, col);
@@ -893,7 +963,10 @@ function radial(c, cx, cy, r, stops) {
   c.fillRect(cx - r, cy - r, r * 2, r * 2);
 }
 
-/** Fade a horizontal frame towards its tail (left edge transparent → `mid` alpha at 55 % → opaque head at the right). */
+/**
+ * Fade a horizontal frame towards its tail (left edge transparent → `mid` alpha at 55 % → opaque head at the right).
+ * @param {CanvasRenderingContext2D} c @param {number} x @param {number} y @param {number} w @param {number} h @param {number} mid
+ */
 function fadeTail(c, x, y, w, h, mid) {
   c.globalCompositeOperation = 'destination-in';
   const g = c.createLinearGradient(x, 0, x + w - 8, 0);
@@ -904,18 +977,19 @@ function fadeTail(c, x, y, w, h, mid) {
 
 /** The FX atlas layout (no canvas needed): `{ size: [w, h], frames: { name: [x, y, w, h] } }` incl. `st_<key>` icons. */
 export function fxFrames() {
+  /** @type {Record<string, number[]>} */
   const frames = {};
   for (const [name, [x, y, w, h]] of Object.entries(FX_DRAW)) frames[name] = [x, y, w, h];
   STATUS_KEYS.forEach((k, i) => { frames['st_' + k] = [(i % 32) * 32, STATUS_ROW_Y + Math.floor(i / 32) * 32, 32, 32]; });
   return { size: [FX_W, FX_H], frames };
 }
 
-/** FX atlas: `{ base, tex: { [name]: PIXI.Texture } }` (all frames share one base texture). */
+/** FX atlas: `{ base, tex: { [name]: PIXI.Texture } }` (all frames share one base texture). @returns {FxAtlas} */
 export function fxAtlas() {
   if (_fx) return _fx;
   const P = PIXI();
   const canvas = makeCanvas(FX_W, FX_H);
-  const ctx = canvas.getContext('2d');
+  const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
   const { frames } = fxFrames();
   for (const [name, [x, y, w, h, draw]] of Object.entries(FX_DRAW)) {
     ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
@@ -929,6 +1003,7 @@ export function fxAtlas() {
     ctx.restore();
   }
   const base = P.BaseTexture.from(canvas, { mipmap: P.MIPMAP_MODES.ON });
+  /** @type {Record<string, PIXI.Texture>} */
   const tex = {};
   for (const [name, [x, y, w, h]] of Object.entries(frames)) tex[name] = new P.Texture(base, new P.Rectangle(x, y, w, h));
   _fx = { base, tex, canvas };
@@ -938,9 +1013,10 @@ export function fxAtlas() {
 export const STATUS_KEYS = ['stun', 'freeze', 'cold', 'stealth', 'shield', 'fragile', 'sleep', 'invuln', 'silence', 'slow', 'bind', 'fear', 'weaken', 'levitate', 'taunt', 'burn', 'neural', 'necrosis', 'blocked', 'skill', 'doll', 'healFree', 'refraction'];
 STATUS_KEYS.push('camou'); // local patch: 迷彩 (위장) icon, apart from 隐匿 (render/units.js UF_CAMOU)
 
+/** @param {CanvasRenderingContext2D} c @param {string} key @param {number} x @param {number} y @param {number} s */
 function drawStatusIcon(c, key, x, y, s) {
   const cx = x + s / 2, cy = y + s / 2;
-  const disc = (fill, stroke) => {
+  const disc = (/** @type {string} */ fill, /** @type {string} */ stroke) => {
     c.fillStyle = fill; c.beginPath(); c.arc(cx, cy, s / 2 - 1.5, 0, Math.PI * 2); c.fill();
     c.strokeStyle = stroke; c.lineWidth = 1.6; c.stroke();
   };
@@ -961,6 +1037,7 @@ function drawStatusIcon(c, key, x, y, s) {
     }
     case 'camou': { // local patch: 迷彩 (위장) — an olive disc with camouflage blotches, a sage rim (隐匿 is the grey slashed eye)
       disc('rgba(28,36,18,0.92)', '#a9c27a');
+      /** @param {number} dx @param {number} dy @param {number} rx @param {number} ry @param {number} a @param {string} col */
       const blot = (dx, dy, rx, ry, a, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx + dx, cy + dy, rx, ry, a, 0, Math.PI * 2); c.fill(); };
       blot(-5, -5, 6, 3.6, 0.5, '#6f8f3e');
       blot(5, -2, 5, 3.2, -0.6, '#c8b77a');
@@ -1071,13 +1148,14 @@ function drawStatusIcon(c, key, x, y, s) {
   }
 }
 
+/** @param {CanvasRenderingContext2D} c @param {number} cx @param {number} cy @param {number} R @param {number} r */
 function star(c, cx, cy, R, r) {
   c.beginPath();
   for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + (k * Math.PI) / 5, rad = k % 2 ? r : R; c.lineTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad); }
   c.closePath(); c.fill();
 }
 
-/** Icon texture for a status key (b.ev 'status' key or a flag name); null when unknown. */
+/** Icon texture for a status key (b.ev 'status' key or a flag name); null when unknown. @param {string} key */
 export function statusTexture(key) {
   const k = STATUS_KEYS.includes(key) ? key : statusIconKey(key);
   return k ? fxAtlas().tex['st_' + k] || null : null;
@@ -1087,8 +1165,10 @@ export function statusTexture(key) {
 // Tier chips (roman numerals), backdrop
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
+/** @type {{ canvas: HTMLCanvasElement, base: PIXI.BaseTexture, tex: Map<string, PIXI.Texture>, w: number, h: number } | null} */
 let _chips = null;
 
+/** @param {CanvasRenderingContext2D} c @param {number} w @param {number} h */
 function drawChips(c, w, h) {
   c.clearRect(0, 0, w * 7, h * 2);
   for (let g = 0; g < 2; g++) for (let t = 1; t <= 6; t++) {
@@ -1108,7 +1188,7 @@ function drawChips(c, w, h) {
   }
 }
 
-/** Tier chip texture: tier 1–6, golden → gold plate. */
+/** Tier chip texture: tier 1–6, golden → gold plate. @param {number} tier @param {unknown} [golden] */
 export function tierChip(tier, golden) {
   if (!_chips) {
     const P = PIXI();
@@ -1116,7 +1196,7 @@ export function tierChip(tier, golden) {
     const canvas = makeCanvas(w * 7, h * 2);
     const base = P.BaseTexture.from(canvas);
     _chips = { canvas, base, tex: new Map(), w, h };
-    drawChips(canvas.getContext('2d'), w, h);
+    drawChips(/** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d')), w, h);
     base.update();
   }
   const t = Math.max(1, Math.min(6, tier | 0 || 1));
@@ -1137,28 +1217,29 @@ export function tierChip(tier, golden) {
 export function refreshTierChips() {
   if (!_chips) return;
   try {
-    drawChips(_chips.canvas.getContext('2d'), _chips.w, _chips.h);
+    drawChips(/** @type {CanvasRenderingContext2D} */ (_chips.canvas.getContext('2d')), _chips.w, _chips.h);
     _chips.base.update();
   } catch { /* keep the old glyphs */ }
 }
 
+/** @type {{ gradient: PIXI.Texture, vignette: PIXI.Texture, grid: PIXI.Texture, red: PIXI.Texture } | null} */
 let _bg = null;
 /** Backdrop textures: vertical gradient + vignette. */
 export function backdropTextures() {
   if (_bg) return _bg;
   const P = PIXI();
   const g = makeCanvas(4, 512);
-  const c = g.getContext('2d');
+  const c = /** @type {CanvasRenderingContext2D} */ (g.getContext('2d'));
   const lg = c.createLinearGradient(0, 0, 0, 512);
   lg.addColorStop(0, '#0a0e0d'); lg.addColorStop(0.45, '#141c1a'); lg.addColorStop(0.75, '#0f1413'); lg.addColorStop(1, '#060808');
   c.fillStyle = lg; c.fillRect(0, 0, 4, 512);
   const v = makeCanvas(512, 512);
-  const vc = v.getContext('2d');
+  const vc = /** @type {CanvasRenderingContext2D} */ (v.getContext('2d'));
   const rg = vc.createRadialGradient(256, 230, 60, 256, 256, 360);
   rg.addColorStop(0, 'rgba(0,0,0,0)'); rg.addColorStop(0.7, 'rgba(0,0,0,0.25)'); rg.addColorStop(1, 'rgba(0,0,0,0.75)');
   vc.fillStyle = rg; vc.fillRect(0, 0, 512, 512);
   const grid = makeCanvas(64, 64);
-  const gc = grid.getContext('2d');
+  const gc = /** @type {CanvasRenderingContext2D} */ (grid.getContext('2d'));
   gc.strokeStyle = 'rgba(78,216,175,0.05)'; gc.lineWidth = 1;
   gc.beginPath(); gc.moveTo(0.5, 0); gc.lineTo(0.5, 64); gc.moveTo(0, 0.5); gc.lineTo(64, 0.5); gc.stroke();
   gc.fillStyle = 'rgba(78,216,175,0.08)'; gc.fillRect(0, 0, 2, 2);
@@ -1171,9 +1252,10 @@ export function backdropTextures() {
   return _bg;
 }
 
+/** @param {Pixi} P */
 function redVignette(P) {
   const v = makeCanvas(256, 256);
-  const c = v.getContext('2d');
+  const c = /** @type {CanvasRenderingContext2D} */ (v.getContext('2d'));
   const rg = c.createRadialGradient(128, 128, 70, 128, 128, 182);
   rg.addColorStop(0, 'rgba(255,40,30,0)'); rg.addColorStop(1, 'rgba(255,40,30,0.9)');
   c.fillStyle = rg; c.fillRect(0, 0, 256, 256);
@@ -1183,6 +1265,7 @@ function redVignette(P) {
 // =============================================================================================================
 // Fallback portraits: avatar in a rarity-coloured diamond
 
+/** @type {Map<string, PIXI.Texture>} */
 const _diamonds = new Map();   // LRU (insertion order = recency)
 const DIAMOND_PX = 160;
 const DIAMOND_MAX = 160;       // ≈ 16 MB of 160×160 canvases at most (plus the ones views still show)
@@ -1201,9 +1284,9 @@ export function diamondTexture(key, img, color, o = {}) {
   const P = PIXI();
   const S = DIAMOND_PX, h = S / 2;
   const canvas = makeCanvas(S, S);
-  const c = canvas.getContext('2d');
+  const c = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
   const col = '#' + (color >>> 0).toString(16).padStart(6, '0');
-  const path = (inset) => { c.beginPath(); c.moveTo(h, inset); c.lineTo(S - inset, h); c.lineTo(h, S - inset); c.lineTo(inset, h); c.closePath(); };
+  const path = (/** @type {number} */ inset) => { c.beginPath(); c.moveTo(h, inset); c.lineTo(S - inset, h); c.lineTo(h, S - inset); c.lineTo(inset, h); c.closePath(); };
   // glow
   c.save(); c.shadowColor = col; c.shadowBlur = 14; path(10); c.fillStyle = '#0d1112'; c.fill(); c.restore();
   // picture
@@ -1245,18 +1328,19 @@ export function diamondTexture(key, img, color, o = {}) {
   // still show it) and is garbage once no sprite uses it (the renderer's texture GC frees its GPU copy)
   tex = new P.Texture(new P.BaseTexture(canvas));
   _diamonds.set(k, tex);
-  while (_diamonds.size > DIAMOND_MAX) _diamonds.delete(_diamonds.keys().next().value);
+  while (_diamonds.size > DIAMOND_MAX) _diamonds.delete(/** @type {string} */ (_diamonds.keys().next().value));
   return tex;
 }
 
+/** @type {WeakMap<object, PIXI.Texture>} */
 const _silhouettes = new WeakMap(); // image → texture (field views are mounted once per match: one canvas per image)
-/** White copy of an image's alpha (so a dark silhouette can be tinted to any colour). Cached per image. */
+/** White copy of an image's alpha (so a dark silhouette can be tinted to any colour). Cached per image. @param {HTMLImageElement | HTMLCanvasElement} img */
 export function silhouetteTexture(img) {
   const hit = img && typeof img === 'object' ? _silhouettes.get(img) : null;
   if (hit && !hit.destroyed && hit.baseTexture && !hit.baseTexture.destroyed) return hit;
   const P = PIXI();
   const c = makeCanvas(img.width, img.height);
-  const x = c.getContext('2d');
+  const x = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
   x.drawImage(img, 0, 0);
   x.globalCompositeOperation = 'source-in';
   x.fillStyle = '#ffffff';
@@ -1266,13 +1350,14 @@ export function silhouetteTexture(img) {
   return tex;
 }
 
+/** @type {PIXI.Texture | null} */
 let _shadow = null;
 /** Soft elliptical shadow (used when the asset sprite is missing). */
 export function shadowTexture() {
   if (_shadow) return _shadow;
   const P = PIXI();
   const c = makeCanvas(256, 96);
-  const x = c.getContext('2d');
+  const x = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
   x.save(); x.scale(1, 96 / 256);
   const g = x.createRadialGradient(128, 128, 10, 128, 128, 124);
   g.addColorStop(0, 'rgba(0,0,0,0.75)'); g.addColorStop(0.6, 'rgba(0,0,0,0.45)'); g.addColorStop(1, 'rgba(0,0,0,0)');
@@ -1283,7 +1368,9 @@ export function shadowTexture() {
 }
 
 /** Item pedestal composite (icon in a rounded frame coloured by tier). */
+/** @type {Map<string, PIXI.Texture>} */
 const _items = new Map();
+/** @param {string} key @param {HTMLImageElement | null} img @param {number} color frame colour (0xRRGGBB) */
 export function itemTexture(key, img, color) {
   const k = `${key}|${img ? 1 : 0}|${color}`;
   let tex = _items.get(k);
@@ -1291,7 +1378,7 @@ export function itemTexture(key, img, color) {
   const P = PIXI();
   const S = 128;
   const canvas = makeCanvas(S, S);
-  const c = canvas.getContext('2d');
+  const c = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
   const col = '#' + (color >>> 0).toString(16).padStart(6, '0');
   c.save(); c.shadowColor = col; c.shadowBlur = 12;
   roundRect(c, 14, 14, S - 28, S - 28, 16); c.fillStyle = '#101517'; c.fill(); c.restore();
@@ -1329,17 +1416,19 @@ export const ELEMENT_RING = Object.freeze({
   burn: Object.freeze({ disc: '#8f3512', glyph: '#f0cdbd', tint: 0xe0632c }),
   apoptosis: Object.freeze({ disc: '#363338', glyph: '#bdb8c2', tint: 0x9c8fb0 }),
 });
-const RING_KEYS = Object.keys(ELEMENT_RING);
+const RING_KEYS = /** @type {(keyof typeof ELEMENT_RING)[]} */ (Object.keys(ELEMENT_RING));
 const RC = 64;              // cell px
 const RING_R = 26, RING_W = 6.5, DISC_R = 21.5;
 /** The element disc's diameter as a share of its atlas cell (a sprite `d / HUD_DISC` px wide draws a `d` px disc). */
 export const HUD_DISC = (2 * DISC_R) / RC;
+/** @type {HudRings | null} */
 let _rings = null;
 
 /**
  * The rim of an element disc: a light inner ring (about 1 px at the drawn size) inside a dark edge, so the dark discs
  * (凋亡) stay readable on the dark ground (user playtest #6) [ASSUMED look].
  */
+/** @param {CanvasRenderingContext2D} c @param {number} cx @param {number} cy */
 function discRim(c, cx, cy) {
   c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = 3;
   c.beginPath(); c.arc(cx, cy, DISC_R - 2.5, 0, Math.PI * 2); c.stroke();
@@ -1347,6 +1436,7 @@ function discRim(c, cx, cy) {
   c.beginPath(); c.arc(cx, cy, DISC_R, 0, Math.PI * 2); c.stroke();
 }
 
+/** @param {CanvasRenderingContext2D} c @param {string} el @param {number} cx @param {number} cy @param {string} col */
 function drawElementGlyph(c, el, cx, cy, col) {
   c.fillStyle = col; c.strokeStyle = col; c.lineCap = 'round'; c.lineJoin = 'round';
   if (el === 'neural') {           // concentric target
@@ -1355,7 +1445,7 @@ function drawElementGlyph(c, el, cx, cy, col) {
     c.beginPath(); c.arc(cx, cy, 7, 0, Math.PI * 2); c.stroke();
     c.beginPath(); c.arc(cx, cy, 2.6, 0, Math.PI * 2); c.fill();
   } else if (el === 'erosion') {   // a big and a small water drop over a wave
-    const drop = (x, y, r) => {
+    const drop = (/** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ r) => {
       c.beginPath(); c.moveTo(x, y - r * 2.1);
       c.bezierCurveTo(x + r * 0.5, y - r * 1.2, x + r, y - r * 0.5, x + r, y + r * 0.1);
       c.arc(x, y + r * 0.1, r, 0, Math.PI);
@@ -1379,14 +1469,16 @@ function drawElementGlyph(c, el, cx, cy, col) {
 /**
  * The HUD ring atlas: `{ arcs: Texture[RING_STEPS + 1], track, disc: { [element]: Texture }, discEnemy: { [element] },
  * downDisc }` — every frame RC px square, centred on the ring centre (anchor 0.5). Built once, lazily.
+ * @returns {HudRings}
  */
 export function hudRings() {
   if (_rings) return _rings;
   const P = PIXI();
   const W = 8 * RC, rowsArc = Math.ceil((RING_STEPS + 1) / 8), H = (rowsArc + 2) * RC;
   const canvas = makeCanvas(W, H);
-  const c = canvas.getContext('2d');
-  const cell = (i) => [(i % 8) * RC, Math.floor(i / 8) * RC];
+  const c = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
+  const cell = (/** @type {number} */ i) => [(i % 8) * RC, Math.floor(i / 8) * RC];
+  /** @type {{ arcs: number[][], [key: string]: number[] | number[][] }} */
   const frames = { arcs: [] };
   // arcs: white with a thin dark edge (readable on light and dark ground)
   for (let k = 0; k <= RING_STEPS; k++) {
@@ -1430,19 +1522,19 @@ export function hudRings() {
     frames['e:' + el] = [x, row + RC];
   });
   const base = P.BaseTexture.from(canvas, { mipmap: P.MIPMAP_MODES.ON });
-  const tex = ([x, y]) => new P.Texture(base, new P.Rectangle(x, y, RC, RC));
+  const tex = (/** @type {number[]} */ [x, y]) => new P.Texture(base, new P.Rectangle(x, y, RC, RC));
   _rings = {
     base, canvas, size: RC,
     arcs: frames.arcs.map(tex),
-    track: tex(frames.track),
-    downDisc: tex(frames.downDisc),
-    disc: Object.fromEntries(RING_KEYS.map((el) => [el, tex(frames['a:' + el])])),
-    discEnemy: Object.fromEntries(RING_KEYS.map((el) => [el, tex(frames['e:' + el])])),
+    track: tex(/** @type {number[]} */ (frames.track)),
+    downDisc: tex(/** @type {number[]} */ (frames.downDisc)),
+    disc: Object.fromEntries(RING_KEYS.map((el) => [el, tex(/** @type {number[]} */ (frames['a:' + el]))])),
+    discEnemy: Object.fromEntries(RING_KEYS.map((el) => [el, tex(/** @type {number[]} */ (frames['e:' + el]))])),
   };
   return _rings;
 }
 
-/** Arc frame of a fraction 0..1 (rounded to the nearest step; a non-zero fraction never shows an empty ring). */
+/** Arc frame of a fraction 0..1 (rounded to the nearest step; a non-zero fraction never shows an empty ring). @param {number} frac */
 export function ringArc(frac) {
   const r = hudRings();
   const f = frac > 1 ? 1 : frac > 0 ? frac : 0;
@@ -1453,6 +1545,7 @@ export function ringArc(frac) {
 
 /** Redeploy-ring label style (the seconds left, "DP", "!"); `fill` is set per label. */
 export const DOWN_LABEL_STYLE = Object.freeze({ fontFamily: 'Bender, Oxanium, "Noto Sans SC", sans-serif', fontSize: 32, fontWeight: '700', fill: '#ffffff', stroke: '#0b0f0e', strokeThickness: 6 });
+/** @type {Map<string, PIXI.Text>} */
 const _downLabels = new Map();
 
 /**
@@ -1461,6 +1554,7 @@ const _downLabels = new Map();
  * canvas and re-uploaded its texture on every change, once a second per knocked-out operator, though rings mostly show the
  * same few numbers; the shared one is drawn once and kept, the same pixels. At most 80 counts (the longest respawn in
  * chess.json) + "DP" + "!" per resolution, ≈ 2.5 MB at resolution 2.
+ * @param {string | number} label @param {string | number} fill @param {number} [resolution]
  */
 export function downLabel(label, fill, resolution = 1) {
   const key = `${label}|${fill}|${resolution}`;

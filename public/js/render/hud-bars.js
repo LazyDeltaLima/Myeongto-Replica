@@ -70,12 +70,19 @@
 
 import { loadPoints } from './fxpoints.js'; // the model's head point (the stored-charge mark)
 
+/**
+ * The view's asset store, by the members read here (render/assets.js): a local client sprite's url, a web manifest one.
+ * @typedef {{ localUrl?: (group: string, name: string | null) => string | null | undefined,
+ *   ui?: (key: string) => string | null | undefined } | null | undefined} HudAssets
+ */
+
+/** @type {(v: number, lo: number, hi: number) => number} */
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 /** Reference canvas of the battle HUD (CSS px per unit = min(w / W, h / H)). */
 export const HUD_REF = Object.freeze({ w: 1920, h: 1080 });
 
-/** CSS px per HUD unit for a view `vp` ({ width, height } CSS px); 1 without one. */
+/** CSS px per HUD unit for a view `vp` ({ width, height } CSS px); 1 without one. @param {{ width?: unknown, height?: unknown } | null} [vp] */
 export function hudUnit(vp) {
   const w = Number(vp?.width), h = Number(vp?.height);
   if (!(w > 0 && h > 0)) return 1;
@@ -84,7 +91,10 @@ export function hudUnit(vp) {
 
 /** Units from the unit's point up to `hud_unit`'s centre for a model that stands on its point (see header). */
 export const HUD_ANCHOR = 24.5;
-/** Screen y (px) of `hud_unit`'s centre for the unit's point at `y`, `anchor` units under it, with `u` px per unit. */
+/**
+ * Screen y (px) of `hud_unit`'s centre for the unit's point at `y`, `anchor` units under it, with `u` px per unit.
+ * @param {number} y @param {number} u @param {number} [anchor]
+ */
 export const hudAnchorY = (y, u, anchor = HUD_ANCHOR) => y - anchor * u;
 
 /** Ally bars (see header), in HUD units (y: below hud_unit's centre). */
@@ -149,11 +159,12 @@ export const RESPAWN_HUD = Object.freeze({ y: 105 * 1.25, size: 85 * 0.7 * 1.25,
 
 /**
  * The style of an enemy's bars (ENEMY_BAR, BOSS_BAR, GIANT_BAR): the parts only some have are optional.
+ * @typedef {{ name: string, w: number, h: number, dy: number }} BarEmblem
+ * @typedef {{ h: number, dy: number, color: number, alpha: number, grow: readonly number[], frameGrow?: readonly number[] }} BarSp
+ * @typedef {{ name: string, grow: readonly number[], alpha: number, border: readonly number[] }} BarFrame
+ * @typedef {{ name: string, grow: readonly number[], tint: number, alpha: number, border: readonly number[] }} BarHit
  * @typedef {{ w: number, h: number, y: number, hp: number, alpha: number, plateAlpha: number, grow: readonly number[],
- *   hard?: boolean, emblem?: { name: string, w: number, h: number, dy: number },
- *   sp?: { h: number, dy: number, color: number, alpha: number, grow: readonly number[], frameGrow?: readonly number[] },
- *   frame?: { name: string, grow: readonly number[], alpha: number, border: readonly number[] },
- *   hit?: { name: string, grow: readonly number[], tint: number, alpha: number, border: readonly number[] } }} EnemyBarStyle
+ *   hard?: boolean, emblem?: BarEmblem, sp?: BarSp, frame?: BarFrame, hit?: BarHit }} EnemyBarStyle
  */
 
 /** Enemy bars (see header), in HUD units; y: below hud_unit's centre (normal / boss) or from the feet (giant). @type {EnemyBarStyle} */
@@ -177,6 +188,9 @@ export const HIT_FLASH = 0.35;
 /**
  * The giant boss panel of an enemy record (data/enemies.json `giantBoss` { sx, off }: its prefab root is the client's
  * EnemyGiantBoss — `_bossHudScale.x` and `_bossHudOffset` in tiles, read by tools/local-extract/enemy_bindings.py), or null.
+ * @typedef {{ sx: number, off: number[] }} GiantBoss
+ * @param {{ giantBoss?: { sx?: unknown, off?: unknown } | null } | null | undefined} rec
+ * @returns {GiantBoss | null}
  */
 export function giantBossOf(rec) {
   const g = rec && rec.giantBoss;
@@ -193,6 +207,7 @@ const AMMO_BLOCK_MIN = 1;
 /** From this many bullets the client's bullet bar has no gaps (UIBulletBar IGNORE_GAP_COUNT): one bar of the share left. */
 export const BULLET_NO_GAP = 40;
 
+/** A tinted white rect sprite anchored at its left middle. @param {typeof PIXI} P @param {PIXI.Container} parent @param {number} color @param {number} alpha @returns {PIXI.Sprite} */
 function rect(P, parent, color, alpha) {
   const s = new P.Sprite(P.Texture.WHITE);
   s.tint = color;
@@ -211,6 +226,10 @@ const PLATE = Object.freeze({ name: 'sprite_bg', border: Object.freeze([4, 5, 4,
  * plain rect of the box at `bare` alpha while the sprite is not there (`bare` null: nothing).
  */
 class Plate {
+  /**
+   * @param {typeof PIXI} P @param {PIXI.Container} parent
+   * @param {{ name: string | null, border: readonly number[], tint?: number, alpha: number, bare?: number | null }} opts
+   */
   constructor(P, parent, { name, border, tint = 0x000000, alpha, bare = null }) {
     this.P = P; this.name = name; this.bare = bare;
     this.rect = bare != null ? rect(P, parent, tint, bare) : null;
@@ -218,7 +237,11 @@ class Plate {
     if (this.slice) { this.slice.tint = tint; this.slice.alpha = alpha; this.slice.visible = false; parent.addChild(this.slice); }
   }
 
-  /** Around the box centred (cx, cy) px, `wU` × `hU` units (× `sx` across), sprite `grow` [x, y] units larger. */
+  /**
+   * Around the box centred (cx, cy) px, `wU` × `hU` units (× `sx` across), sprite `grow` [x, y] units larger.
+   * @param {HudAssets} assets @param {number} cx @param {number} cy @param {number} wU @param {number} hU
+   * @param {readonly number[]} grow @param {number} u @param {number} [sx]
+   */
   update(assets, cx, cy, wU, hU, grow, u, sx = 1) {
     const t = this.slice ? texOf(this.P, localUrl(assets, 'ui/battlecommon', this.name)) : null;
     if (this.slice) this.slice.visible = !!t;
@@ -241,6 +264,7 @@ class Plate {
  * `update` places them; `hide` hides them; they go with the parent.
  */
 export class AllyBars {
+  /** @param {typeof PIXI} P @param {PIXI.Container} parent */
   constructor(P, parent) {
     this.P = P;
     this.anchor = HUD_ANCHOR; // hud_unit's centre over the unit's point (units.js: 0 for a model at its prefab place)
@@ -256,6 +280,7 @@ export class AllyBars {
     this.spTint = rect(P, this.root, B.overTint, B.overTintAlpha); // a 过载 skill's spent first half (overloadBar)
     this.spTint.visible = false;
     this.ammoTrack = rect(P, this.root, B.ammoTrack, B.ammoTrackAlpha);
+    /** @type {PIXI.Sprite[]} */
     this.blocks = [];
     this.root.visible = false;
   }
@@ -267,6 +292,10 @@ export class AllyBars {
    * SP bar), `cast` (the skill runs: the SP bar is its remaining duration), `ammo` ([left, max] or null), `split` (the
    * barrier's share of the HP fill's length, shieldedBar — 0: none), `overload` (a 过载 skill runs: overloadBar), `overloaded` (it has overloaded);
    * `assets` for the plate sprite. Returns the bottom edge (px) of the bars.
+   * @param {number} x @param {number} y @param {number} u
+   * @param {{ hp: number, ghost: number, sp?: number | null, cast?: boolean, ammo?: readonly number[] | null, split?: number,
+   *   overload?: boolean, overloaded?: boolean }} bar
+   * @param {HudAssets} [assets]
    */
   update(x, y, u, { hp, ghost, sp = null, cast = false, ammo = null, split = 0, overload = false, overloaded = false }, assets = null) {
     const B = ALLY_BAR;
@@ -286,7 +315,7 @@ export class AllyBars {
     this.sp.visible = sp != null && !showAmmo;
     this.spTint.visible = false;
     if (this.sp.visible) {
-      let k = clamp(sp, 0, 1), color = /** @type {number} */ (cast ? B.cast : B.sp), alpha = /** @type {number} */ (B.alpha);
+      let k = clamp(/** @type {number} */ (sp), 0, 1), color = /** @type {number} */ (cast ? B.cast : B.sp), alpha = /** @type {number} */ (B.alpha);
       if (ov) {
         const R = OVERLOAD_RATIO;
         if (k > R) {
@@ -300,14 +329,14 @@ export class AllyBars {
       this.sp.position.set(x0, sy); this.sp.width = w * k; this.sp.height = h;
     }
     let bullets = showAmmo ? ammo : null, over = false;
-    if (!ov) this.overShown = null;
+    if (!ov) /** @type {number | null} */ this.overShown = null;
     if (bullets && ov) {
       const half = bullets[1] * OVERLOAD_RATIO, left = bullets[0], fits = left <= half + 1e-9;
       over = overloaded || fits;
       // refilled above the ratio once overloaded: UIBulletBar.ShowBulletCount ignores a count above its max, so the overload
       // bar keeps what it last showed (the client's vertex colour)
       if (over && fits) this.overShown = left;
-      bullets = over ? (left > 0 ? [fits ? left : this.overShown ?? half, half] : null) : [Math.max(0, left - half), bullets[1] - half];
+      bullets = over ? (left > 0 ? [fits ? left : this.overShown ?? half, half] : null) : [Math.max(0, left - half), /** @type {readonly number[]} */ (bullets)[1] - half];
     }
     drawBullets(this, bullets, x0, sy, w, h, u, over);
     this.box = { x0, w, top: hy - h / 2 };
@@ -318,6 +347,9 @@ export class AllyBars {
 /**
  * Bullet blocks (see header) on `o.ammoTrack` / `o.blocks` (made on use in `o.root`): `ammo` [left, max] or null (hidden),
  * the row's left `x0`, centre `y`, size `w` × `h` px; `over`: the overload bullet bar's track and colour.
+ * @param {{ P: typeof PIXI, root: PIXI.Container, ammoTrack: PIXI.Sprite, blocks: PIXI.Sprite[] }} o
+ * @param {readonly number[] | null | undefined} ammo
+ * @param {number} x0 @param {number} y @param {number} w @param {number} h @param {number} u @param {boolean} [over]
  */
 function drawBullets(o, ammo, x0, y, w, h, u, over = false) {
   const B = ALLY_BAR;
@@ -330,7 +362,7 @@ function drawBullets(o, ammo, x0, y, w, h, u, over = false) {
     const max = Math.max(1, Math.round(ammo[1])), left = clamp(Math.round(ammo[0]), 0, max);
     const gap = B.ammoGap * u, bw = (w - gap * (max - 1)) / max;
     const color = over ? B.over : B.ammo;
-    const block = (i) => {
+    const block = (/** @type {number} */ i) => {
       let b = o.blocks[i];
       if (!b) b = o.blocks[i] = rect(o.P, o.root, color, B.ammoAlpha);
       else if (b.tint !== color) b.tint = color;
@@ -348,11 +380,14 @@ function drawBullets(o, ammo, x0, y, w, h, u, over = false) {
   for (let i = used; i < o.blocks.length; i++) o.blocks[i].visible = false;
 }
 
+/** One row of an enemy's bars: its plate(s) and fills. @typedef {{ frame?: Plate, plate: Plate, ghost?: PIXI.Sprite, fill: PIXI.Sprite }} BarRow */
+
 /**
  * The HP bar of an enemy (see header): `kind` 'normal' | 'boss' | 'giant' (`giant` = its giantBossOf panel). `hit()`
  * flashes a giant's bar; textures of the emblem / frame / glow come from `assets` once loaded (none: plain bars).
  */
 export class EnemyBars {
+  /** @param {typeof PIXI} P @param {PIXI.Container} parent @param {string} kind @param {GiantBoss | null} [giant] */
   constructor(P, parent, kind, giant = null) {
     this.P = P; this.kind = kind; this.giant = giant;
     this.anchor = HUD_ANCHOR;
@@ -362,10 +397,11 @@ export class EnemyBars {
     this.emblem = B.emblem ? new P.Sprite(P.Texture.EMPTY) : null;
     if (this.emblem) { this.emblem.anchor.set(0.5); this.emblem.visible = false; this.root.addChild(this.emblem); }
     this.hitGlow = B.hit ? slice(P, this.root, B.hit.border) : null;
-    if (this.hitGlow) { this.hitGlow.tint = B.hit.tint; this.hitGlow.visible = false; }
+    if (this.hitGlow) { this.hitGlow.tint = /** @type {BarHit} */ (B.hit).tint; this.hitGlow.visible = false; }
     // a row: its plate(s) and fills — the giant panel's hard black plate under a white frame, the others' sprite_bg plate
+    /** @param {number} color @param {number} alpha @param {boolean} sp */
     const row = (color, alpha, sp) => {
-      const r = {};
+      const r = /** @type {BarRow} */ ({});
       if (B.frame) r.frame = new Plate(P, this.root, { name: B.frame.name, border: B.frame.border, tint: 0xffffff, alpha: B.frame.alpha });
       r.plate = B.hard ? new Plate(P, this.root, { name: null, border: [0, 0, 0, 0], alpha: B.plateAlpha, bare: B.plateAlpha })
         : new Plate(P, this.root, { ...PLATE, alpha: B.plateAlpha, bare: B.plateAlpha * PLATE.core });
@@ -375,8 +411,12 @@ export class EnemyBars {
     };
     this.hpRow = row(B.hp, B.alpha, false);
     this.hp = this.hpRow.fill; this.ghost = this.hpRow.ghost;
+    /** @type {BarRow | null} */
     this.spRow = null;
-    this.ammoTrack = null; this.blocks = [];
+    /** @type {PIXI.Sprite | null} */
+    this.ammoTrack = null;
+    /** @type {PIXI.Sprite[]} */
+    this.blocks = [];
     this.flash = 0;
     this.root.visible = false;
   }
@@ -389,6 +429,9 @@ export class EnemyBars {
   /**
    * Draw for feet at (x, y), `u` px per unit, `s` px per tile (the giant's tile offset), `dt` s; `hp` / `ghost` shares of
    * the max HP, `sp` a boss's SP share (null: none), `ammo` [left, max] (圣堂剑士); `assets` for the sprites.
+   * @param {number} x @param {number} y @param {number} u @param {number} s @param {number} dt
+   * @param {{ hp: number, ghost: number, sp?: number | null, ammo?: readonly number[] | null }} bar
+   * @param {HudAssets} assets
    */
   update(x, y, u, s, dt, { hp, ghost, sp = null, ammo = null }, assets) {
     const B = this.B;
@@ -399,34 +442,34 @@ export class EnemyBars {
     if (this.giant) { cx += this.giant.off[0] * s; cy = y - this.giant.off[1] * s + B.y * u; }
     else cy = hudAnchorY(y, u, this.anchor) + B.y * u;
     const x0 = cx - w / 2;
-    const tex = (n) => texOf(this.P, localUrl(assets, 'ui/battlecommon', n));
+    const tex = (/** @type {string} */ n) => texOf(this.P, localUrl(assets, 'ui/battlecommon', n));
     if (this.emblem) {
-      const t = tex(B.emblem.name);
+      const t = tex(/** @type {BarEmblem} */ (B.emblem).name);
       this.emblem.visible = !!t;
-      if (t) { this.emblem.texture = t; this.emblem.position.set(cx, cy + B.emblem.dy * u); this.emblem.width = B.emblem.w * u; this.emblem.height = B.emblem.h * u; }
+      if (t) { this.emblem.texture = t; this.emblem.position.set(cx, cy + /** @type {BarEmblem} */ (B.emblem).dy * u); this.emblem.width = /** @type {BarEmblem} */ (B.emblem).w * u; this.emblem.height = /** @type {BarEmblem} */ (B.emblem).h * u; }
     }
     if (this.hitGlow) {
       this.flash = Math.max(0, this.flash - dt);
-      const t = this.flash > 0 ? tex(B.hit.name) : null;
+      const t = this.flash > 0 ? tex(/** @type {BarHit} */ (B.hit).name) : null;
       this.hitGlow.visible = !!t;
       if (t) {
-        const g = B.hit.grow;
-        this.hitGlow.texture = t; this.hitGlow.alpha = B.hit.alpha * (this.flash / HIT_FLASH);
+        const g = /** @type {BarHit} */ (B.hit).grow;
+        this.hitGlow.texture = t; this.hitGlow.alpha = /** @type {BarHit} */ (B.hit).alpha * (this.flash / HIT_FLASH);
         this.hitGlow.scale.set(u * sx, u); this.hitGlow.width = B.w + g[0]; this.hitGlow.height = B.h + g[1];
         this.hitGlow.position.set(cx - (B.w + g[0]) * u * sx / 2, cy - (B.h + g[1]) * u / 2);
       }
     }
     const r = this.hpRow;
-    if (r.frame) r.frame.update(assets, cx, cy, B.w, B.h, B.frame.grow, u, sx);
+    if (r.frame) r.frame.update(assets, cx, cy, B.w, B.h, /** @type {BarFrame} */ (B.frame).grow, u, sx);
     r.plate.update(assets, cx, cy, B.w + (B.hard ? B.grow[0] : 0), B.h + (B.hard ? B.grow[1] : 0), B.hard ? [0, 0] : B.grow, u, sx);
-    r.ghost.position.set(x0, cy); r.ghost.width = w * clamp(ghost, 0, 1); r.ghost.height = h;
+    /** @type {PIXI.Sprite} */ (r.ghost).position.set(x0, cy); /** @type {PIXI.Sprite} */ (r.ghost).width = w * clamp(ghost, 0, 1); /** @type {PIXI.Sprite} */ (r.ghost).height = h;
     r.fill.position.set(x0, cy); r.fill.width = w * clamp(hp, 0, 1); r.fill.height = h;
     let bottom = cy + h / 2;
     // a boss's SP row (BOSS_BAR / GIANT_BAR sp) under the HP bar
     const S = B.sp;
     if (S && sp != null) {
       if (!this.spRow) {
-        const P = this.P, row = {};
+        const P = this.P, row = /** @type {BarRow} */ ({});
         if (B.frame) row.frame = new Plate(P, this.root, { name: B.frame.name, border: B.frame.border, tint: 0xffffff, alpha: B.frame.alpha });
         row.plate = B.hard ? new Plate(P, this.root, { name: null, border: [0, 0, 0, 0], alpha: B.plateAlpha, bare: B.plateAlpha })
           : new Plate(P, this.root, { ...PLATE, alpha: S.alpha, bare: S.alpha * PLATE.core });
@@ -434,7 +477,7 @@ export class EnemyBars {
         this.spRow = row;
       }
       const q = this.spRow, sy = cy + S.dy * u;
-      if (q.frame) q.frame.update(assets, cx, sy, B.w, S.h, S.frameGrow, u, sx);
+      if (q.frame) q.frame.update(assets, cx, sy, B.w, S.h, /** @type {readonly number[]} */ (S.frameGrow), u, sx);
       q.plate.update(assets, cx, sy, B.w + (B.hard ? S.grow[0] : 0), S.h + (B.hard ? S.grow[1] : 0), B.hard ? [0, 0] : S.grow, u, sx);
       q.fill.visible = true; q.fill.position.set(x0, sy); q.fill.width = w * clamp(sp, 0, 1); q.fill.height = S.h * u;
       bottom = sy + S.h * u / 2;
@@ -452,8 +495,8 @@ export class EnemyBars {
 
 /**
  * A 9-sliced sprite (PIXI NineSlicePlane; a plain Sprite where there is none), anchored at its top-left.
- * @param {any} P
- * @param {any} parent
+ * @param {typeof PIXI} P
+ * @param {PIXI.Container} parent
  * @param {readonly number[]} border [left, top, right, bottom]
  */
 function slice(P, parent, [l, t, r, b]) {
@@ -462,7 +505,9 @@ function slice(P, parent, [l, t, r, b]) {
   return o;
 }
 
+/** @type {Map<string, PIXI.Texture | null>} */
 const _tex = new Map();
+/** A loaded texture of `url` (made once per url), or null. @param {typeof PIXI} P @param {string | null | undefined} url @returns {PIXI.Texture | null} */
 function texOf(P, url) {
   if (!url) return null;
   let tex = _tex.get(url);
@@ -472,11 +517,14 @@ function texOf(P, url) {
   }
   return tex && tex.baseTexture && tex.baseTexture.valid ? tex : null;
 }
+/** @type {(assets: HudAssets, group: string, name: string | null) => string | null | undefined} */
 const localUrl = (assets, group, name) => (typeof assets?.localUrl === 'function' ? assets.localUrl(group, name) : null);
 
 /**
  * The official prep tier chip of tier 1..6: `{ tex, k }` — `k` = HUD units per texture px (the interior sized as the
  * official's) — or null while none is installed / loaded (the caller keeps its drawn chip). `assets`: the view's store.
+ * @param {typeof PIXI} P @param {HudAssets} assets @param {number} tier
+ * @returns {{ tex: PIXI.Texture, k: number } | null}
  */
 export function prepChip(P, assets, tier) {
   const t = clamp(tier | 0 || 1, 1, 6);
@@ -487,7 +535,11 @@ export function prepChip(P, assets, tier) {
   return tex ? { tex, k: PREP_CHIP.interior / 30 } : null;
 }
 
-/** The prep equipment bar's textures `{ bg, normal, gold }`, or null while they are not installed / loaded. */
+/**
+ * The prep equipment bar's textures `{ bg, normal, gold }`, or null while they are not installed / loaded.
+ * @typedef {{ bg: PIXI.Texture, normal: PIXI.Texture, gold: PIXI.Texture }} EquipTex
+ * @param {typeof PIXI} P @param {HudAssets} assets @returns {EquipTex | null}
+ */
 export function equipTextures(P, assets) {
   const bg = texOf(P, localUrl(assets, 'ui/battlecommon', 'equip_bg'));
   const normal = texOf(P, localUrl(assets, 'ui/battlecommon', 'equip_normal_icon'));
@@ -495,7 +547,7 @@ export function equipTextures(P, assets) {
   return bg && normal && gold ? { bg, normal, gold } : null;
 }
 
-/** The plate under a hand token stack's count (PREP_TOKEN), or null while it is not installed / loaded. */
+/** The plate under a hand token stack's count (PREP_TOKEN), or null while it is not installed / loaded. @param {typeof PIXI} P @param {HudAssets} assets */
 export const tokenCountPlate = (P, assets) => texOf(P, localUrl(assets, 'ui/battlecommon', 'token_cnt_bg'));
 
 /**
@@ -506,18 +558,21 @@ export const tokenCountPlate = (P, assets) => texOf(P, localUrl(assets, 'ui/batt
  * Pills and dashes are made the first time a piece needs them and kept (no allocation in a frame that needs no more).
  */
 export class EquipBar {
+  /** @param {typeof PIXI} P @param {PIXI.Container} parent */
   constructor(P, parent) {
     this.P = P;
     this.anchor = HUD_ANCHOR;
     this.root = new P.Container();
+    /** @type {PIXI.Sprite[]} */
     this.bgs = [];
+    /** @type {PIXI.Sprite[]} */
     this.slots = [];
     this._grow(2);
     this.root.visible = false;
     parent.addChild(this.root);
   }
 
-  /** Enough pills and dashes for `n` slots (bgs first, so the dashes draw over every pill). */
+  /** Enough pills and dashes for `n` slots (bgs first, so the dashes draw over every pill). @param {number} n */
   _grow(n) {
     const P = this.P;
     const mk = () => { const s = new P.Sprite(P.Texture.EMPTY); s.anchor.set(0.5); return s; };
@@ -530,6 +585,8 @@ export class EquipBar {
   /**
    * Draw for feet at (x, y), `u` px per unit, for `gold` (one boolean per equipped item) on `slots` equipment slots
    * (at least the items; 2 by default) with textures `t`.
+   * @param {number} x @param {number} y @param {number} u @param {readonly unknown[]} gold @param {EquipTex} t
+   * @param {number} [slots]
    */
   update(x, y, u, gold, t, slots = 2) {
     const E = PREP_EQUIP;
@@ -555,10 +612,13 @@ export class EquipBar {
   }
 }
 
-let _respawnTex = null, _respawnAssets = null; // the textures once all three are loaded, per asset store
+/** @typedef {{ bg: PIXI.Texture, fill: PIXI.Texture, lack: PIXI.Texture }} RespawnTex */
+/** @type {RespawnTex | null} */
+let _respawnTex = null, /** @type {HudAssets} */ _respawnAssets = null; // the textures once all three are loaded, per asset store
 /**
  * The redeploy countdown's textures `{ bg, fill, lack }`, or null while they are not installed / loaded or there is no
  * SimpleMesh (the fill is a RadialFill mesh, as the element ring's).
+ * @param {typeof PIXI} P @param {HudAssets} assets @returns {RespawnTex | null}
  */
 export function respawnTextures(P, assets) {
   if (!P.SimpleMesh) return null;
@@ -573,6 +633,7 @@ export function respawnTextures(P, assets) {
 
 /** The redeploy countdown of one knocked-out operator (see header), drawn into `parent`. */
 export class RespawnHud {
+  /** @param {typeof PIXI} P @param {PIXI.Container} parent */
   constructor(P, parent) {
     this.anchor = HUD_ANCHOR;
     this.root = new P.Container();
@@ -596,6 +657,7 @@ export class RespawnHud {
    * Draw for feet at (x, y), `u` px per unit, with textures `t`: `amount` = the fill's share (the client sets
    * 1 − Card.respawnProgress, the time left) on countdown_background, or null for cost_lack alone (the timer is done
    * but the card is not readyToSpawn).
+   * @param {number} x @param {number} y @param {number} u @param {number | null} amount @param {RespawnTex} t
    */
   update(x, y, u, amount, t) {
     const R = RESPAWN_HUD;
@@ -632,22 +694,34 @@ export class RespawnHud {
 // points entry or a drawn model uses the prefab's own place, 154.7 over hud_unit.
 export const SKILL_MARK = Object.freeze({ y: 154.7, headUp: 30, disc: 36, discColor: 0x404040, discAlpha: 0.39, ring: 50, color: 0xffd900, text: 26, textY: 3, baseline: (1.05 - 1.2 / 2) * 26 - 3, turn: 10 });
 const MARK_FONT = ['Novecento Wide', 'Bender', 'sans-serif'];
-/** The ring's angle (radians, Pixi: clockwise positive) `t` seconds after the mark appeared: −360° per SKILL_MARK.turn. */
+/** The ring's angle (radians, Pixi: clockwise positive) `t` seconds after the mark appeared: −360° per SKILL_MARK.turn. @param {number} t */
 export const markRingAngle = (t) => -((((t % SKILL_MARK.turn) + SKILL_MARK.turn) % SKILL_MARK.turn) / SKILL_MARK.turn) * Math.PI * 2;
 const wallSec = () => (globalThis.performance?.now?.() ?? Date.now()) / 1000;
+/**
+ * The points table of fxpoints.js by the members read here: per model, its head point's place per side.
+ * @typedef {{ [model: string]: { head?: { F?: { at?: unknown }, B?: { at?: unknown } } } | undefined }} HeadPoints
+ * @typedef {{ info?: { spine?: string, defId?: string } | null, entryBack?: unknown, spineReady?: unknown, modelSY?: number,
+ *   root?: { y: number } | null, body?: { y?: number } | null }} HeadView the unit view's members read (render/units.js)
+ */
+/** @type {HeadPoints | null} */
 let markPoints = null;
-loadPoints().then((p) => { markPoints = p; });
-/** The screen y (px) of a view's head point on its drawn model, or null (no points entry, no model drawn yet). */
+loadPoints().then((/** @type {HeadPoints | null} */ p) => { markPoints = p; });
+/**
+ * The screen y (px) of a view's head point on its drawn model, or null (no points entry, no model drawn yet).
+ * @param {HeadView | null | undefined} v @param {HeadPoints | null} [points]
+ */
 export function headPointY(v, points = markPoints) {
-  const e = v?.info && points?.[v.info.spine || v.info.defId]?.head;
-  const side = e && (v.entryBack ? e.B || e.F : e.F || e.B);
+  const e = v?.info && points?.[/** @type {string} */ (v.info.spine || v.info.defId)]?.head;
+  // e is set only for a view (v?.info): the reads below are on that view
+  const side = e && (/** @type {HeadView} */ (v).entryBack ? e.B || e.F : e.F || e.B);
   const at = side?.at;
-  if (!Array.isArray(at) || !Number.isFinite(at[1]) || !v.spineReady || !Number.isFinite(v.modelSY) || !v.root) return null;
-  return v.root.y + (v.body?.y || 0) - at[1] * Math.abs(v.modelSY);
+  if (!Array.isArray(at) || !Number.isFinite(at[1]) || !/** @type {HeadView} */ (v).spineReady || !Number.isFinite(/** @type {HeadView} */ (v).modelSY) || !/** @type {HeadView} */ (v).root) return null;
+  return /** @type {{ y: number }} */ (/** @type {HeadView} */ (v).root).y + (/** @type {HeadView} */ (v).body?.y || 0) - at[1] * Math.abs(/** @type {number} */ (/** @type {HeadView} */ (v).modelSY));
 }
 
 /** The stored-charge mark of one allied unit (see above), drawn into `parent`. */
 export class SkillMark {
+  /** @param {typeof PIXI} P @param {PIXI.Container} parent */
   constructor(P, parent) {
     this.P = P;
     this.anchor = HUD_ANCHOR;
@@ -664,6 +738,7 @@ export class SkillMark {
     this.root.visible = false;
     this.n = 0;
     this.t0 = 0;
+    /** @type {{ w: number, top: number, pad: number } | null} */
     this.metric = null;
     parent.addChild(this.root);
     // a number drawn before the font arrived keeps the fallback face: draw (and measure) it again once loaded
@@ -683,7 +758,10 @@ export class SkillMark {
     return this.metric;
   }
 
-  /** The number by its baseline (SKILL_MARK.baseline under the ring's centre `cx, cy`) and advance width, `u` px per unit. */
+  /**
+   * The number by its baseline (SKILL_MARK.baseline under the ring's centre `cx, cy`) and advance width, `u` px per unit.
+   * @param {number} cx @param {number} cy @param {number} u
+   */
   _placeLabel(cx, cy, u) {
     const M = SKILL_MARK, k = u / 2, m = this._metric();
     if (!m) { this.label.anchor.set(0.5); this.label.position.set(cx, cy - M.textY * u); return; }
@@ -696,6 +774,8 @@ export class SkillMark {
   /**
    * Draw for feet at (x, y), `u` px per unit, `n` stored charges (≤ 0: hidden), over the head of `view` when its model point
    * is known (headPointY); sprites from `assets` (local client); `now` = wall-clock seconds (the ring ignores game speed).
+   * @param {number} x @param {number} y @param {number} u @param {number} n @param {HudAssets} [assets]
+   * @param {HeadView | null} [view] @param {number} [now]
    */
   update(x, y, u, n, assets = null, view = null, now = wallSec()) {
     const M = SKILL_MARK;
@@ -733,6 +813,14 @@ export class SkillMark {
 // The value is render/units.js elementLeft(): the 元素值 left (PRTS 「以白条显示剩余的元素值」), refilling over a 爆发冷却.
 // Sprites: local client ui/battlecommon; without them (or SimpleMesh) units.js keeps its drawn gauge row.
 
+/**
+ * @typedef {{ y: number, scale: number, color: Readonly<Record<string, number | undefined>>,
+ *   icon: Readonly<Record<string, string | undefined>> }} EpAlly
+ * @typedef {{ y: number, scale: number, color: Readonly<Record<string, number | undefined>>,
+ *   breakColor: Readonly<Record<string, number | undefined>> }} EpEnemy
+ * @typedef {'ally' | 'enemy'} EpSide
+ * @type {Readonly<{ ally: EpAlly, enemy: EpEnemy }>}
+ */
 export const EP = Object.freeze({
   ally: Object.freeze({
     y: 25.9, scale: 1.2,
@@ -751,6 +839,7 @@ const FAN = 48;
 
 /** A texture drawn Filled Radial360 from the top, clockwise (Unity Image fill origin Top): a fan mesh over its square. */
 class RadialFill {
+  /** @param {typeof PIXI} P @param {PIXI.Container} parent */
   constructor(P, parent) {
     this.n = FAN + 2;
     this.v = new Float32Array(this.n * 2);
@@ -762,7 +851,7 @@ class RadialFill {
     parent.addChild(this.mesh);
   }
 
-  /** Texture `t`, `size` local units across, fill `amount` 0..1. */
+  /** Texture `t`, `size` local units across, fill `amount` 0..1. @param {PIXI.Texture} t @param {number} size @param {number} amount */
   update(t, size, amount) {
     const m = this.mesh;
     if (m.texture !== t) m.texture = t;
@@ -790,8 +879,12 @@ const EP_NAMES = Object.freeze({
   enemy: Object.freeze(['slider_ep_back_enemy', 'slider_ep_color_enemy', 'slider_ep_fill_back_enemy', 'slider_ep_fill_enemy', 'sprite_ep_break_spread', 'sprite_ep_break_hint']),
 });
 
-/** The textures of an element ring for `side` 'ally' | 'enemy' (all of them, or null while any is missing). */
+/**
+ * The textures of an element ring for `side` 'ally' | 'enemy' (all of them, or null while any is missing).
+ * @param {typeof PIXI} P @param {HudAssets} assets @param {EpSide} side @returns {Record<string, PIXI.Texture> | null}
+ */
 function epTextures(P, assets, side) {
+  /** @type {Record<string, PIXI.Texture>} */
   const out = {};
   for (const n of EP_NAMES[side]) { const t = texOf(P, localUrl(assets, 'ui/battlecommon', n)); if (!t) return null; out[n] = t; }
   return out;
@@ -802,11 +895,16 @@ function epTextures(P, assets, side) {
  * installed ring sprite may load before the row stands in for it (a slow network still shows the gauge), in ms.
  */
 export const EP_WAIT_MS = 3000;
+/** @type {Set<string>} */
 const _texErr = new Set();          // urls whose image failed to load
+/** @type {Map<string, number>} */
 const _texAsked = new Map();        // url → when it was first asked for (performance.now)
 const nowMs = () => (globalThis.performance?.now?.() ?? Date.now());
 
-/** One sprite's load state: 'ready' | 'loading' | 'none' (no url, failed, or loading past EP_WAIT_MS). */
+/**
+ * One sprite's load state: 'ready' | 'loading' | 'none' (no url, failed, or loading past EP_WAIT_MS).
+ * @param {typeof PIXI} P @param {string | null | undefined} url
+ */
 function texState(P, url) {
   if (!url || _texErr.has(url)) return 'none';
   if (!_texAsked.has(url)) {
@@ -819,13 +917,14 @@ function texState(P, url) {
     return 'loading';
   }
   if (texOf(P, url)) return 'ready';
-  return nowMs() - _texAsked.get(url) > EP_WAIT_MS ? 'none' : 'loading';
+  return nowMs() - /** @type {number} */ (_texAsked.get(url)) > EP_WAIT_MS ? 'none' : 'loading';
 }
 
 /**
  * 2026-11-15: the element ring's art for `side`: 'ready' (draw the ring), 'loading' (installed, still loading: draw
  * neither — the gauge row used to flash before the ring) or 'none' (no SimpleMesh, not installed, a failed load, or
  * loading past EP_WAIT_MS: the gauge row under the bars stands in). Asked per frame only until a unit has its ring.
+ * @param {typeof PIXI} P @param {HudAssets} assets @param {EpSide} side
  */
 export function epRingState(P, assets, side) {
   if (!P.SimpleMesh) return 'none';
@@ -838,14 +937,18 @@ export function epRingState(P, assets, side) {
   return loading ? 'loading' : 'ready';
 }
 
-/** 2026-11-15: ask for both sides' ring sprites ahead (render/app.js, entering prep and battle): an element's first hit finds them loaded. */
+/**
+ * 2026-11-15: ask for both sides' ring sprites ahead (render/app.js, entering prep and battle): an element's first hit finds them loaded.
+ * @param {typeof PIXI} P @param {HudAssets} assets
+ */
 export function prewarmEpRings(P, assets) {
   if (!P?.SimpleMesh) return;
-  for (const side of ['ally', 'enemy']) for (const n of EP_NAMES[side]) texState(P, localUrl(assets, 'ui/battlecommon', n));
+  for (const side of /** @type {EpSide[]} */ (['ally', 'enemy'])) for (const n of EP_NAMES[side]) texState(P, localUrl(assets, 'ui/battlecommon', n));
 }
 
 /** One unit's element ring (see above), in `parent` (the view's HUD container). */
 export class ElementRing {
+  /** @param {typeof PIXI} P @param {PIXI.Container} parent @param {EpSide} side */
   constructor(P, parent, side) {
     this.P = P; this.side = side;
     this.anchor = HUD_ANCHOR;
@@ -872,6 +975,8 @@ export class ElementRing {
   /**
    * Draw the gauge of element `el` (sim key) at value `k` 0..1 (elementLeft) for feet (x, y), `u` px per unit, `dt` s;
    * `cooling`: in its 爆发冷却 (a burst just started when it turns on).
+   * @param {HudAssets} assets @param {string} el @param {number} k @param {boolean} cooling @param {number} x @param {number} y
+   * @param {number} u @param {number} dt
    */
   update(assets, el, k, cooling, x, y, u, dt) {
     const E = EP[this.side], t = epTextures(this.P, assets, this.side);
@@ -886,20 +991,21 @@ export class ElementRing {
     this.pulse = Math.max(0, this.pulse - dt); this.burst = Math.max(0, this.burst - dt);
     // the back slider follows the value down with a delay (as the HP bar's loss), at once up
     this.ghost = k >= this.ghost ? k : Math.max(k, this.ghost - dt * 0.9);
+    /** @param {PIXI.Sprite} s @param {PIXI.Texture} tex @param {number} w @param {number} h @param {number} [tint] @param {number} [alpha] */
     const set = (s, tex, w, h, tint = 0xffffff, alpha = 1) => { s.texture = tex; s.width = w; s.height = h; s.tint = tint; s.alpha = alpha; s.visible = alpha > 0; };
     if (this.side === 'ally') {
       const p = this.pulse / EP_PULSE;
       set(this.spread, t.sprite_ep_hit_spread, 76 * (1 - p), 78 * (1 - p), col, p);
       set(this.disc, t.sprite_ep_color, 28, 28, col);
       set(this.back, t.slider_ep_back, 54, 54, 0xffffff, 0.784);
-      this.ghostFill.update(t.slider_ep_fill, 28, this.ghost);
+      /** @type {RadialFill} */ (this.ghostFill).update(t.slider_ep_fill, 28, this.ghost);
       this.fill.update(t.slider_ep_fill, 28, k);
       const ic = t[EP.ally.icon[el] ?? 'sprite_ep_icon'];
       set(this.icon, ic, ic.width, ic.height);
     } else {
       set(this.back, t.slider_ep_back_enemy, 51, 51);
       set(this.disc, t.slider_ep_color_enemy, t.slider_ep_color_enemy.width, t.slider_ep_color_enemy.height, col);
-      this.fillBack.update(t.slider_ep_fill_back_enemy, 17, 1);
+      /** @type {RadialFill} */ (this.fillBack).update(t.slider_ep_fill_back_enemy, 17, 1);
       this.fill.update(t.slider_ep_fill_enemy, 12, k);
       const b = this.burst / EP_BREAK, bc = EP.enemy.breakColor[el] ?? col;
       set(this.spread, t.sprite_ep_break_spread, 41 * (1 - b * 0.5) * 1.5, 42 * (1 - b * 0.5) * 1.5, bc, b);

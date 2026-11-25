@@ -12,6 +12,8 @@ declare namespace PIXI {
   type Sprite = any; // any: a class of the script-tag PixiJS build, which has no types here
   type Graphics = any; // any: a class of the script-tag PixiJS build, which has no types here
   type Renderer = any; // any: a class of the script-tag PixiJS build, which has no types here
+  type BaseTexture = any; // any: a class of the script-tag PixiJS build, which has no types here
+  type Text = any; // any: a class of the script-tag PixiJS build, which has no types here
 }
 
 // Prefixed, non-standard and removed DOM members the page feature-tests before use (ui/device.js fullscreen, the

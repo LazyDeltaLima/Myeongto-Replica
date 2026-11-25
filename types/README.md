@@ -127,8 +127,9 @@ the files directly under `server/sim/` (`server/sim/*.js`), the files directly u
 `server/sim/content/kits/ops/`, and in the renderer the 3D board `public/js/render/board3d/` and the effect system's parts
 `public/js/render/fx/`, the files directly under `public/js/` (`public/js/*.js`), the screens directly under
 `public/js/screens/` (`public/js/screens/*.js`), the files directly under `public/js/ui/` (`public/js/ui/*.js`) and,
-one by one, 24 of the files directly under `public/js/render/` (the small helpers: drag.js, pick.js, pen.js and the rest;
-the camera, the board, the snapshot buffer and the Spine actor: projection.js, tiles.js, interp.js, spine.js).
+one by one, 26 of the files directly under `public/js/render/` (the small helpers: drag.js, pick.js, pen.js and the rest;
+the camera, the board, the snapshot buffer and the Spine actor: projection.js, tiles.js, interp.js, spine.js; the drawn
+textures and the unit HUD: textures.js, hud-bars.js).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -623,8 +624,18 @@ most strict errors were, and the JSDoc that fixed them:
   in, a `string` out). pixi-spine's objects are typedefs of the members read, the display members units.js uses
   included (`SpSpine`); three.js's camera is the vendored stand-in's class
   (`import('../../vendor/three.module.js').PerspectiveCamera`). A call into a file not typed yet whose `= null` default
-  reads as `null` under strict (textures.js `tileAtlas`, `groundTexture`) casts the callee to its real signature
-  (tiles.js `TileAtlasFn`); the cast goes once that file has its JSDoc.
+  reads as `null` under strict casts the callee to its real signature at the call; the cast goes once that file has its
+  JSDoc (tiles.js's casts of textures.js `tileAtlas` / `groundTexture` went with textures.js's).
+- the drawn textures and the unit HUD directly under `public/js/render/` (textures.js, hud-bars.js): every
+  `getContext('2d')` is cast to `CanvasRenderingContext2D` where it is declared; the drawer tables are typed on their
+  declaration (`MAT_DRAW` takes the `Rng`, `PROC_LAYERS` may not, `FX_DRAW` gets the frame's `h`), so their entries
+  need no `@param`; an outer value of unknown shape stays `unknown` and is cast only where a call needs it (textures.js
+  `groundTexture(img)`: `CanvasImageSource` at `drawImage`). The asset store, the unit view and the points table are
+  typedefs of the members read (hud-bars.js `HudAssets`, `HeadView`, `HeadPoints`); a style's optional part is cast
+  where an earlier check on another member proves it (`/** @type {BarHit} */ (B.hit)` under `if (this.hitGlow)`), and
+  a row object built in two steps is cast to its typedef where it is made (`BarRow`). In textures.js the module's own
+  `const PIXI = () => globalThis.PIXI` shadows the global's value, so the namespace it takes is `ReturnType<typeof
+  PIXI>` (`Pixi`); `PIXI.BaseTexture` and `PIXI.Text` join `types/page-globals.d.ts`.
 
 
 ## Split classes

@@ -58,8 +58,6 @@ import { parsePenRect, PEN_RECT } from './pen.js';
  *   tiles?: { backdrop?: { crop?: number[] | null, tilesPerRepeat?: number } } }} TileArt render/boardArt.js result
  * @typedef {{ sprite: PIXI.Sprite, r: number, c: number, kind: string, phase: number, ox: number, oy: number,
  *   sp: number, x?: number, y?: number, s?: number }} AnimSprite `x` / `y` / `s`: set by _placeAnim
- * @typedef {(art?: TileArt | null) => ReturnType<typeof tileAtlas>} TileAtlasFn textures.js tileAtlas
- * @typedef {(img?: unknown, crop?: number[] | null) => ReturnType<typeof groundTexture>} GroundTextureFn textures.js groundTexture
  */
 
 /**
@@ -395,9 +393,9 @@ export class TileField {
     if ((next?.key || '') === (this.art?.key || '') && this.shader) return;
     this.art = next;
     // (textures.js has no JSDoc yet: its `= null` defaults read as `null` under strict)
-    this.atlas = /** @type {TileAtlasFn} */ (tileAtlas)(next);
+    this.atlas = tileAtlas(next);
     if (this.shader) this.shader.uniforms.uSampler = this.atlas.texture;
-    if (this.planeShader) this.planeShader.uniforms.uSampler = /** @type {GroundTextureFn} */ (groundTexture)(next?.images?.BG || null, next?.tiles?.backdrop?.crop);
+    if (this.planeShader) this.planeShader.uniforms.uSampler = groundTexture(next?.images?.BG || null, next?.tiles?.backdrop?.crop);
     for (const b of this.boxMeshes) b.retexture();
     if (this.stage) this._rebuild();
   }
@@ -509,7 +507,7 @@ export class TileField {
     this.mesh = null;
     const { ground, rows } = splitQuadGroups(this.quads);
     if (!this.shader) this.shader = P.Shader.from(VERT, FRAG, { uSampler: this.atlas.texture, uAlpha: 1 });
-    if (!this.planeShader) this.planeShader = P.Shader.from(VERT, FRAG, { uSampler: /** @type {GroundTextureFn} */ (groundTexture)(this.art?.images?.BG || null, this.art?.tiles?.backdrop?.crop), uAlpha: 1 });
+    if (!this.planeShader) this.planeShader = P.Shader.from(VERT, FRAG, { uSampler: groundTexture(this.art?.images?.BG || null, this.art?.tiles?.backdrop?.crop), uAlpha: 1 });
     // backdrop ground plane (under everything)
     const plane = buildPlaneQuads(this.grid, this.art?.tiles?.backdrop?.tilesPerRepeat || 8);
     this.plane = this._makeMesh(plane, null, this.planeShader, true);
