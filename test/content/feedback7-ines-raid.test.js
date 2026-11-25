@@ -3,7 +3,7 @@
 // her kit casts it in its deploy hook). The 突袭 jump (activity_table bondeffect_raid "保留技力立即再部署") retreats her —
 // ending the running S3 — and redeploys her with the SP kept (Battle.redeploy keepSp): that snapshot held 0 charges and
 // overwrote the charge reset() gives a free skill at every deployment, so the landing could not recast S3. A skill that
-// costs SP still keeps its SP / charges.
+// costs SP still keeps its SP / charges (on top of the initial SP: the official jump makes a new character).
 // Run: node --test test/content/feedback7-ines-raid.test.js
 
 import { test } from 'node:test';
@@ -12,6 +12,7 @@ import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.
 
 function field(skillIndex) {
   const landings = [];
+  let before = NaN;
   const h = makeBattle({
     defs: { enemies: { e_walk: enemyRec({ key: 'e_walk', hp: 1e7, speed: 0.5, atk: 0 }) } },
     timeLimit: 20, autoFinish: false, seed: 1, flags: { dpInit: 99, dpPerSec: 0, dpMax: 999 },
@@ -24,8 +25,10 @@ function field(skillIndex) {
       b.on('deploy', ({ unit }) => {
         if (unit.uid !== 1 || b.time < 0.5) return;
         const sk = unit.skill;
-        landings.push({ t: b.time, tile: [unit.tileR, unit.tileC], charges: sk.charges, sp: sk.sp, active: sk.active });
+        landings.push({ t: b.time, tile: [unit.tileR, unit.tileC], charges: sk.charges, sp: sk.sp, total: sk.spTotal, active: sk.active, before });
       }, { priority: 1000 });
+      // the SP total as the jump's retreat leaves the field
+      b.on('death', ({ unit }) => { if (unit.uid === 1) before = unit.skill.spTotal; });
     },
   });
   h.step();
@@ -59,11 +62,13 @@ test('突袭 still keeps the SP of a skill that costs SP (伊内丝 S2: a full c
   assert.equal(full.landings[0].sp, full.u.skill.spCost);
   checkInvariants(full.h.b);
 
+  // the idle jump: the new character's initial SP + the SP it had, rounded, capped (docs/rules/sim.md 기습)
   const part = field(1);
-  const initSp = part.u.skill.sp;
+  const sk = part.u.skill, initSp = sk.initSp;
   part.h.run(12);
   assert.equal(part.landings.length, 1, 'the idle trigger');
-  assert.equal(part.landings[0].charges, 0);
-  assert.ok(part.landings[0].sp > initSp + 5, `kept ${part.landings[0].sp} (a bar that started at ${initSp})`);
+  const l = part.landings[0];
+  assert.ok(l.before > 5 && l.before < sk.spCost, `a partial bar before the jump (${l.before})`);
+  assert.equal(l.total, Math.min(sk.spCost, initSp + Math.round(l.before)), `kept ${l.before} on the initial ${initSp}: ${l.total}`);
   checkInvariants(part.h.b);
 });

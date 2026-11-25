@@ -347,23 +347,32 @@ function applyAura(battle, st, u) {
 //                    the character's buffs go; community report of 2026-10-06 item 44: a revived passive member jumps
 //                    at once]), whatever is in its range: one jump per deployment, as soon as a candidate enemy exists
 //                    (缄默德克萨斯's ON_DEPLOY skills are PASSIVE in the client tables).
-//   ready skill    — MANUAL or AUTO: the skill is ready (CheckCharSkillAvailable), not running (CheckCharSkillAffecting)
-//                    and no enemy stands on the member's own tile or the tile in front of it (CheckHasEnemyInRange, range
-//                    "1-1", _useAttackRange false: the client's `Nodes.CheckHasEnemyInRange.Execute` reads the
-//                    blackboard / node range id, not the attack range, and counts every valid enemy whose body overlaps
-//                    it). No [spawn] check: it jumps again whenever the enemy leaves that box. The AUTO skills too, by an
-//                    official recording (maintainer decision 2026-10-19; until then MANUAL only): 瑕光 with S1 (AUTO,
-//                    "下次攻击", two charges) waited, charged, until a landing tile freed, jumped with both charges kept,
-//                    jumped again 0.7 s later — the enemy, unblockable after its blink, had walked off her front tile
-//                    [ASSUMED: read from the recording] —, then attacked. The skill-start [trig] below stays.
+//   ready skill    — MANUAL or AUTO: the skill is ready (CheckCharSkillAvailable → BasicSkill.IsAvailable: SP enough and
+//                    `ownerCanUseSkill` — not stunned, frozen or asleep (Entity.inAbnormalState), not silenced), not
+//                    running (CheckCharSkillAffecting) and no enemy stands on the member's own tile or the tile in front
+//                    of it (CheckHasEnemyInRange, range "1-1", _useAttackRange false: the client's
+//                    `Nodes.CheckHasEnemyInRange.Execute` reads the blackboard / node range id, not the attack range, and
+//                    counts every valid enemy whose body overlaps it). No [spawn] check: it jumps again whenever the
+//                    enemy leaves that box. The AUTO skills too, by an official recording (maintainer decision
+//                    2026-10-19; until then MANUAL only): 瑕光 with S1 (AUTO, "下次攻击", two charges) waited, charged,
+//                    until a landing tile freed, jumped with both charges kept, jumped again 0.7 s later — the enemy,
+//                    unblockable after its blink, had walked off her front tile [ASSUMED: read from the recording] —,
+//                    then attacked. The skill-start [trig] below stays.
 //   AUTO skill     — on its skill start, when the member carries no [spawn] mark and blocks nothing (CheckBlocked): the
 //                    derived [trig] jumps RAID_TRIG s later (triggerInterval 0.3, waitFirstTriggerInterval) and again
-//                    every RAID_TRIG s while the skill runs (the retreat ends the skill, so once) [ASSUMED: the jump ends
-//                    the skill as our retreat does].
+//                    every RAID_TRIG s while the skill runs (the retreat ends the skill, so once: the official jump
+//                    finishes the old character — `Character.MoveLikeRespawnSelf` FinishMe(11) — and its running skill
+//                    with it; a new character is born).
+//                    The PASSIVE, skill-start and no-attack ways do not look at stun or silence; the ready-skill way does.
 //   no attack      — [attack]: no_attack_duration s without an attack ([attacked] is re-made on every ON_AFTER_ATTACK
-//                    and when the buff is enabled) — no range or skill condition; the SP ratio is kept
-//                    (AssignCurSpToBB → modify_sp[ratio]). The idle time starts again at the landing [ASSUMED: the
-//                    [attacked] mark is re-made by the re-enable after the move].
+//                    and when the buff is enabled) — no range, skill or stun condition. ON_AFTER_ATTACK is the end of the
+//                    character's attack ability that its Attack / Combat state started (`Character.OnAfterAttack` from
+//                    `AttackState._StartAttack` and its finish callback), so a skill that runs in the Skill state
+//                    (锏 S3's slashes and finisher) makes none: it can jump in the middle of one, which ends it (above).
+//                    The SP ratio is kept (AssignCurSpToBB → modify_sp[ratio]) on top of the new character's initial SP
+//                    (Battle._deploy keepSp; a skill that ran had spent its SP). The idle time starts again at the
+//                    landing: the new character gets the global buffs anew (RegisterUnit), and ON_BUFF_LATE_ENABLE
+//                    makes its [attacked].
 // The three skill ways land with full SP ([spawn] = modify_sp[ratio] sp 1.0: the client's `Nodes.ModifySp.Execute`
 // sets RoundToInt(maxSp × ratio)); a passive skill has none.
 
@@ -517,7 +526,8 @@ function raidPoll(battle, st) {
     const type = raidSkillType(sk);
     if (type === 'PASSIVE' && !u.mem[RAID_SPAWN] && raidJump(battle, st, u, true)) continue;
     // a type other than null: it has a skill (raidSkillType)
-    if ((type === 'MANUAL' || type === 'AUTO') && /** @type {SkillRuntime} */ (sk).ready && !/** @type {SkillRuntime} */ (sk).active && !raidEnemyClose(battle, u) && raidJump(battle, st, u, true)) continue;
+    // (BasicSkill.IsAvailable → ownerCanUseSkill: no jump while stunned / frozen / asleep or silenced)
+    if ((type === 'MANUAL' || type === 'AUTO') && /** @type {SkillRuntime} */ (sk).ready && !/** @type {SkillRuntime} */ (sk).active && u.canAct && !u.s.flags.sleep && !u.s.flags.silence && !raidEnemyClose(battle, u) && raidJump(battle, st, u, true)) continue;
     const since = Math.max(u.lastAttackAt ?? -Infinity, u.deployedAt ?? -Infinity, u.mem[KEY.raid] ?? -Infinity);
     if (battle.time - since >= idle - 1e-9) raidJump(battle, st, u, false);
   }
@@ -535,8 +545,8 @@ function raidAutoTrig(battle, st, u) {
 }
 
 /**
- * "保留技力立即再部署": retreat the unit and redeploy it for free on (r, c) with its SP / charges kept (engine redeploy
- * `tile` + `keepSp`: restored before the `deploy` handlers run; the board tile stays its home). Should the landing fail
+ * "保留技力立即再部署": retreat the unit and redeploy it for free on (r, c) with its SP kept (engine redeploy `tile` +
+ * `keepSp`: added to the initial SP before the `deploy` handlers run; the board tile stays its home). Should the landing fail
  * (raidTile skips taken, reserved and body tiles, so only content refusing it), the unit goes straight back to its home
  * tile (never stranded off the field).
  * Returns 'raid' | 'home' | false.

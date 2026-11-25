@@ -754,7 +754,9 @@ export function standInScenarios() {
     if (!placed.size) throw new Error('standins: no progress');
     const band = Math.max(...picked.filter((w) => placed.has(w.chessId)).map((w) => w.band));
     const round = BAND_ROUND[band];
-    const seed = deriveSeed(20261005, `standins:${i}`);
+    // the salt `d` (2026-11-25): with `standins:${i}`, the 突袭 landing SP fix left the 预备干员-近卫 stand-in's S2 (37 SP,
+    // none at deployment) uncast — its unit fell 2 s short — and test/golden-standins.test.js wants every one cast
+    const seed = deriveSeed(20261005, `standins:d:${i}`);
     const wave = normalWave(gd, round, seed);
     const pid = 'p1';
     scenarios.push({

@@ -369,7 +369,7 @@ test('skill end: onEnd runs with the skill mods and range still applied, then th
 // ---------------------------------------------------------------------------------------------------------------
 // 9) redeploy { free, tile, keepSp }
 
-test('redeploy: { tile } lands on another tile (home unchanged; knocked out there, it comes back there); { keepSp } restores SP before deploy fires', () => {
+test('redeploy: { tile } lands on another tile (home unchanged; knocked out there, it comes back there); { keepSp } adds the SP to the initial SP before deploy fires', () => {
   let atDeploy = null;
   const h = makeBattle({
     defs: { chess: { t_gd: guard({ skill: { spCost: 10, initSp: 2 } }), t_x: guard({ id: 't_x' }) } },
@@ -389,7 +389,7 @@ test('redeploy: { tile } lands on another tile (home unchanged; knocked out ther
   assert.equal(h.b.redeploy(u, { tile: [12, 8], keepSp: true }), true);
   assert.deepEqual([u.tileR, u.tileC, u.homeR, u.homeC], [12, 8, 10, 4], 'landed; home unchanged');
   assert.equal(h.b.unitAt(12, 8), u);
-  approx(atDeploy, sp, 1e-9, 'SP restored before the deploy hook');
+  approx(atDeploy, 2 + Math.round(sp), 1e-9, 'SP kept on top of the initial SP (rounded), before the deploy hook');
   approx(u.hp, u.s.maxHp);
   // plain redeploy: initSp; knocked out there later → the auto-redeploy comes back on that tile (PRTS 卫戍协议/帮助
   // "…原地留下一个“倒地干员”…满足再部署条件时…自动部署至该位置"; player report F5 after 0.1.0); a retreat too (every 退场:
@@ -424,11 +424,11 @@ test('redeploy keepSp: charges survive too', () => {
   const u = h.unit('t_gd');
   h.run(5);
   assert.equal(u.skill.charges, 2);
-  const sp = u.skill.sp;
+  const total = u.skill.spTotal;
   h.b.retreat(u);
   h.b.redeploy(u, { keepSp: true });
   assert.equal(u.skill.charges, 2);
-  approx(u.skill.sp, sp, 1e-9);
+  approx(u.skill.spTotal, Math.round(total), 1e-9, 'the SP total kept (rounded; initial SP 0)');
   checkInvariants(h.b);
 });
 

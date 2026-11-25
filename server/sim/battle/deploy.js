@@ -19,15 +19,16 @@
 import { COLS } from '../constants.js';
 import { unitInfo } from '../snapshot.js';
 import { fin } from './util.js';
+import { roundHalfEven } from '../detmath.js';
 
 export class BattleDeploy {
   /**
    * Deploy `u` on its home tile, or on `tile` ([r, c]: a one-off landing tile — the home stays the board tile; an
-   * operator that left the field comes back on its body tile, restTile). `keepSp` = { sp, charges }
-   * restored right after the skill reset, before the `deploy` hook fires.
+   * operator that left the field comes back on its body tile, restTile). `keepSp` = { total }: the SP total the unit
+   * had, added to its initial SP right after the skill reset, before the `deploy` hook fires.
    * @param {Unit} u
    * @param {{ initial?: boolean, carry?: { hpPct?: number, sp?: number } | null, tile?: readonly number[] | null,
-   *   keepSp?: { sp: number, charges: number } | null }} [opts] `carry`: a 联防 carry state (Unit.carry)
+   *   keepSp?: { total: number } | null }} [opts] `carry`: a 联防 carry state (Unit.carry)
    * @this {Battle}
    */
   _deploy(u, { initial = false, carry = null, tile = null, keepSp = null } = {}) {
@@ -93,14 +94,16 @@ export class BattleDeploy {
     // the operations pass walks the characters in the client's `UnitManager.characters` order: appended at each
     // deployment, the last one moved into the hole of one that leaves (`UnorderedArray.Remove`; _remove)
     if (!this._chars.includes(u)) this._chars.push(u);
-    // keepSp (突袭 "保留技力"): the SP / charges before the jump — not for a skill that costs no SP (spCost 0, the
-    // deploy-timed skills), which reset() just re-armed as at every deployment: the retreat ended it, so its snapshot
-    // holds 0 charges, and writing that back took the charge 伊内丝 S3's deploy hook casts with (community report:
-    // 伊内丝激活突袭瞬移以后3技能被吞; those with activateOnDeploy run already, skipped by `!sk.active`)
+    // keepSp (突袭 "保留技力"): the official jump makes a new character, born with its initial SP (`Entity.Init`:
+    // min(initSp, maxSp)), and then adds RoundToInt(maxSp × the old one's SP ratio) (`AssignCurSpToBB` _isRatio →
+    // `modify_sp[ratio]`, `ModifySp` adds a modifier) — so the SP total before the jump on top of the initial SP, capped
+    // at the maximum; a skill that ran meanwhile had spent its SP (0 kept: the initial SP alone). Not for a skill that
+    // costs no SP (spCost 0, the deploy-timed skills), which reset() just re-armed as at every deployment: the retreat
+    // ended it, so its snapshot holds 0 charges, and writing that back took the charge 伊内丝 S3's deploy hook casts with
+    // (community report: 伊内丝激活突袭瞬移以后3技能被吞; those with activateOnDeploy run already, skipped by `!sk.active`)
     if (keepSp && !sk.noSkill && sk.kind !== 'passive' && !sk.active && sk.spCost > 0) {
-      sk.charges = Math.max(0, Math.min(sk.maxCharges, Math.floor(fin(keepSp.charges, 0))));
-      sk.sp = Math.max(0, Math.min(sk.spCost, fin(keepSp.sp, 0)));
-      if (sk.charges >= sk.maxCharges) sk.sp = sk.spCost;
+      const max = sk.maxCharges * sk.spCost;
+      sk.setSpTotal(Math.min(max, sk.spTotal + roundHalfEven(Math.max(0, Math.min(max, fin(keepSp.total, 0))))));
     }
     if (first) this._ev(['spawn', unitInfo(u)]);
     this._ev(['deploy', u.id]);
@@ -250,7 +253,7 @@ export class BattleDeploy {
    *   free=true   no DP cost (false: pays `base.cost`, refused when the player lacks the DP)
    *   tile=[r,c]  land on this in-rect tile instead (the home stays the board tile); refused (false) when the tile is
    *               outside the rect, a living unit stands there or another knocked-out operator lies there — no fallback
-   *   keepSp      keep the SP / charges the unit had (保留技力): restored before the `deploy` hook fires
+   *   keepSp      keep the SP the unit had (保留技力): its SP total added to the initial SP, before the `deploy` hook fires
    * Returns true when the unit was deployed (full HP, `deploy {initial:false}` fires).
    * @param {Unit} unit @param {{ free?: boolean, tile?: readonly number[] | null, keepSp?: boolean }} [opts]
    * @this {Battle}
@@ -278,7 +281,7 @@ export class BattleDeploy {
       ps.dp = Math.max(0, ps.dp - cost); // paid before `deploy` fires (handlers see the new DP)
     }
     const sk = unit.skill;
-    const keep = keepSp && sk && !sk.noSkill && sk.kind !== 'passive' ? { sp: sk.sp, charges: sk.charges } : null;
+    const keep = keepSp && sk && !sk.noSkill && sk.kind !== 'passive' ? { total: sk.spTotal } : null;
     if (this._deploy(unit, { initial: false, tile: at, keepSp: keep })) return true;
     if (paid > 0 && ps) ps.dp = Math.min(this.flags.dpMax, ps.dp + paid);
     return false;
