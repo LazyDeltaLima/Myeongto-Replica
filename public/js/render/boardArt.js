@@ -11,8 +11,17 @@
 // (board3d/load.js, which reads the manifest only) and this art share one download — also when the manifest lists
 // the WebP copy tools/local-extract writes and the table still names the PNG.
 
+/**
+ * The members of the assets store (public/js/assets.js createAssets) this file reads.
+ * @typedef {{ local: () => Promise<unknown>, localUrl?: (group: string, name: string) => string | null | undefined,
+ *   image: (url: string) => Promise<HTMLImageElement | null> }} BoardAssets
+ * @typedef {{ key: string, tiles: Record<string, unknown>, images: Record<string, HTMLImageElement> }} BoardArt
+ */
+
+/** @type {Promise<BoardArt | null> | null} */
 let cached = null;
 
+/** @param {unknown} v @returns {v is Record<string, unknown>} */
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 /** The manifest group of the board textures (and of their crop table). */
@@ -21,7 +30,7 @@ export const BOARD_GROUP = 'map/autochess';
 /**
  * URL of a crop-table image: the local-art manifest's entry for the same texture (group `BOARD_GROUP`, name = the
  * file name without its extension), else the table's own path.
- * @param {any} assets store of public/js/assets.js
+ * @param {BoardAssets | null | undefined} assets store of public/js/assets.js
  * @param {string} path tiles.json `source[k].path`
  */
 export function sourceUrl(assets, path) {
@@ -30,7 +39,7 @@ export function sourceUrl(assets, path) {
   return typeof listed === 'string' && listed ? listed : path;
 }
 
-/** @param {any} assets store of public/js/assets.js (needs local(), localUrl(), image()) */
+/** @param {BoardAssets | null | undefined} assets store of public/js/assets.js (needs local(), localUrl(), image()) */
 export function loadBoardArt(assets) {
   if (cached) return cached;
   cached = (async () => {
@@ -40,12 +49,14 @@ export function loadBoardArt(assets) {
     const atlasUrl = assets.localUrl ? assets.localUrl(BOARD_GROUP, 'TX_autochessi_D') : null;
     if (!atlasUrl) return null;
     const dir = atlasUrl.replace(/\/[^/]*$/, '');
+    /** @type {unknown} */
     let tiles = null;
     try {
       const res = await fetch(`${dir}/tiles.json`, { cache: 'no-cache' });
       tiles = res.ok ? await res.json() : null;
     } catch { tiles = null; }
     if (!isObj(tiles) || !isObj(tiles.materials) || !isObj(tiles.source)) return null;
+    /** @type {Record<string, HTMLImageElement>} */
     const images = {};
     await Promise.all(Object.entries(tiles.source).map(async ([k, s]) => {
       const url = isObj(s) && typeof s.path === 'string' && s.path ? sourceUrl(assets, s.path) : null;

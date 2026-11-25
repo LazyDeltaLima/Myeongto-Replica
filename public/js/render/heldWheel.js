@@ -15,22 +15,34 @@
 // trail), so the wheel leaves the hand when the flight starts and is back when that flight ends: `view._boomOut` counts
 // the flights out. The sim gates her next attack on its own catch (server/sim/ai.js throwBoomerang).
 
+/**
+ * The pixi-spine objects read here (the script-tag runtime has no types), and the views and actors as this file reads
+ * them (render/units.js UnitView, render/spine.js SpineActor).
+ * @typedef {{ getAttachments(): Array<{ slotIndex: number, attachment: unknown }> }} HeldSkin
+ * @typedef {{ data?: { findSkin?: (name: string) => HeldSkin | null }, setSkin(skin: HeldSkin | null): void,
+ *   slots: Array<{ setAttachment(attachment: unknown): void } | undefined> }} HeldSkeleton
+ * @typedef {{ spine?: { skeleton?: HeldSkeleton | null } | null, _heldSkin?: HeldSkin | null, _held?: boolean,
+ *   _applied?: boolean }} HeldActor
+ * @typedef {{ _boomOut?: number, destroyed?: boolean, id?: string | number, actor?: HeldActor | null }} HeldView
+ */
+
 /** The Spine skin of a held projectile (char_4100_caper: C_Weapon_03, the wheel). */
 export const HELD_SKIN = 'Bullet';
 
-/** A drawn boomerang left `view`'s hand. */
+/** A drawn boomerang left `view`'s hand. @param {HeldView | null | undefined} view */
 export function boomerangThrown(view) {
   if (view) view._boomOut = (view._boomOut || 0) + 1;
 }
 
-/** A drawn boomerang flight of `view` ended (caught, or dropped with its thrower). */
+/** A drawn boomerang flight of `view` ended (caught, or dropped with its thrower). @param {HeldView | null | undefined} view */
 export function boomerangCaught(view) {
-  if (view && view._boomOut > 0) view._boomOut--;
+  if (view && /** @type {number} */ (view._boomOut) > 0) /** @type {number} */ (view._boomOut)--;
 }
 
 /**
  * Show / hide the held projectile on `actor` (render/spine.js SpineActor) for `view`: the skeleton's HELD_SKIN while no
  * flight of it is out. Skeletons without that skin are left alone. Called every frame (cheap: a cached skin, a flag).
+ * @param {HeldActor | null | undefined} actor @param {HeldView | null | undefined} view
  */
 export function syncHeldWeapon(actor, view) {
   const sk = actor?.spine?.skeleton;
@@ -41,7 +53,7 @@ export function syncHeldWeapon(actor, view) {
   const skin = actor._heldSkin;
   if (!skin) return;
   if (view) tracked.add(view);
-  const held = !(view?._boomOut > 0);
+  const held = !(/** @type {number} */ (view?._boomOut) > 0);
   if (actor._held === held) return;
   actor._held = held;
   sk.setSkin(held ? skin : null);
@@ -55,6 +67,7 @@ export function syncHeldWeapon(actor, view) {
   actor._applied = false;
 }
 
+/** @type {Set<HeldView>} */
 const tracked = new Set();   // the views with a held-projectile skin (heldStats)
 /** Dev / E2E: [{ id, out: flights out, held: skin on }] of the live views with a held projectile. */
 export function heldStats() {

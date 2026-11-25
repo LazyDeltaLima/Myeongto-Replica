@@ -17,19 +17,22 @@ export const AUTO_LEVELS = Object.freeze(['high', 'medium']);
  */
 export const AUTO_STEP = Object.freeze({ downAfter: 20, upAfter: 120, upMax: 600, calmFrameMs: 17.6, calmJsMs: 8 });
 
+/** @type {string} */
 let level = 'high';
 let downs = 0;
+/** @type {Set<(level: string) => void>} */
 const listeners = new Set();
 
 /** The preset 「自动」 has in effect ('high' | 'medium'). */
 export const autoQuality = () => level;
 
-/** A chosen quality as the reports print it: 「自动」 with the preset in effect ('auto:medium'). */
+/** A chosen quality as the reports print it: 「自动」 with the preset in effect ('auto:medium'). @param {string} q */
 export const qualityInEffect = (q) => (q === 'auto' ? `auto:${level}` : q);
 
-/** Listen for steps; returns the unsubscribe. */
+/** Listen for steps; returns the unsubscribe. @param {(level: string) => void} fn */
 export function onAutoQuality(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 
+/** @param {string} q */
 function setLevel(q) {
   if (q === level) return;
   level = q;
@@ -42,6 +45,7 @@ function setLevel(q) {
  * and the field frame JS (ms), and the frame limit's `frameScale`; steps the shared level (listeners told) and returns true when it moved. A field with few
  * units says nothing about headroom (its load level drops to 0 even on slow frames — a match's opening rounds on a
  * phone still hot from the last one), so the calm count holds there; a crowded frame that is not calm restarts it.
+ * @returns {(dt: number, loadLevel: number, busy?: boolean, frameMs?: number, jsMs?: number, scale?: number) => boolean}
  */
 export function autoQualityStepper() {
   let heavy = 0, calm = 0;

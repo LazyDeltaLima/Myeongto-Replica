@@ -39,9 +39,19 @@ const CLUSTER = Object.freeze([
   Object.freeze([[-0.27, 0.22], [0, 0.26], [0.27, 0.22], [-0.27, -0.22], [0, -0.26], [0.27, -0.22]]),
 ]);
 
+/**
+ * The stage fields read here (data/stages.json: `config.enemy_place_rect`, the glyph rows and their legend), a legend
+ * tile's fields, and a clean preview entry (penEntries).
+ * @typedef {{ config?: { enemy_place_rect?: unknown } | null, rows?: unknown, tiles?: unknown }} PenStage
+ * @typedef {{ tileKey?: string, bb?: { previewNotAlloed?: unknown } | null, passable?: string }} PenTileDef
+ * @typedef {{ enemyKey: string, count: number, gate: string, t: number, fly: boolean, boss: boolean, elite: boolean,
+ *   i: number }} PenEntry
+ */
+
+/** @param {unknown} v @returns {v is Record<string, unknown>} */
 const isObj = (v) => !!v && typeof v === 'object';
 
-/** mulberry32 */
+/** mulberry32 @param {number} seed */
 function rng(seed) {
   let a = seed >>> 0;
   return () => {
@@ -53,13 +63,14 @@ function rng(seed) {
   };
 }
 
+/** @param {string} s */
 function hashStr(s) {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
   return h >>> 0;
 }
 
-/** Parse a configBlackBoard rect "((r0,c0),(r1,c1))" → { r0, r1, c0, c1 } (null when malformed). */
+/** Parse a configBlackBoard rect "((r0,c0),(r1,c1))" → { r0, r1, c0, c1 } (null when malformed). @param {unknown} v */
 export function parsePenRect(v) {
   if (typeof v !== 'string') return null;
   const n = v.replace(/[()\s]/g, '').split(',').map(Number);
@@ -70,13 +81,16 @@ export function parsePenRect(v) {
 /**
  * The pen's two zones for a stage (defaults when the stage is missing or malformed): `{ rect, lower, upper }`, each
  * zone `{ anchor: [r, c], tiles: [[r, c]…] }` in row-major order (research 08 §4.2: low row first, then col).
+ * @param {PenStage | null | undefined} stage
  */
 export function penZones(stage) {
   const rect = parsePenRect(stage?.config?.enemy_place_rect) || { ...PEN_RECT };
   const rows = Array.isArray(stage?.rows) ? stage.rows : null;
-  const legend = isObj(stage?.tiles) ? stage.tiles : {};
-  const glyph = (r, c) => (rows && typeof rows[r] === 'string' ? rows[r][c] : null);
+  const legend = /** @type {Record<string, PenTileDef | undefined>} */ (isObj(stage?.tiles) ? stage.tiles : {});
+  const glyph = (/** @type {number} */ r, /** @type {number} */ c) => (rows && typeof rows[r] === 'string' ? rows[r][c] : null);
+  /** @type {number[][]} */
   const anchors = [];
+  /** @type {number[][]} */
   const cand = [];
   for (let r = rect.r0; r <= rect.r1; r++) {
     for (let c = rect.c0; c <= rect.c1; c++) {
@@ -98,8 +112,8 @@ export function penZones(stage) {
   }
   if (!anchors.length) anchors.push([rect.r0 + 1, rect.c0], [rect.r1, rect.c0]);
   anchors.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-  const zones = anchors.map((a) => ({ anchor: a, tiles: [] }));
-  const dist = (a, t) => Math.abs(a[0] - t[0]) + Math.abs(a[1] - t[1]);
+  const zones = anchors.map((a) => ({ anchor: a, tiles: /** @type {number[][]} */ ([]) }));
+  const dist = (/** @type {number[]} */ a, /** @type {number[]} */ t) => Math.abs(a[0] - t[0]) + Math.abs(a[1] - t[1]);
   for (const t of cand) {
     let best = zones[0], bd = Infinity;
     for (const z of zones) { const d = dist(z.anchor, t); if (d < bd) { bd = d; best = z; } }
@@ -110,8 +124,9 @@ export function penZones(stage) {
   return { rect, lower: zones[0], upper: zones[zones.length - 1], zones };
 }
 
-/** Clean, time-sorted entries of an m.private.nextEnemies list. */
+/** Clean, time-sorted entries of an m.private.nextEnemies list. @param {unknown} list */
 export function penEntries(list) {
+  /** @type {PenEntry[]} */
   const out = [];
   if (!Array.isArray(list)) return out;
   list.forEach((e, i) => {
@@ -126,7 +141,7 @@ export function penEntries(list) {
   return out;
 }
 
-/** Signature of a preview list (unchanged signature ⇒ the pen is left as it is). */
+/** Signature of a preview list (unchanged signature ⇒ the pen is left as it is). @param {unknown} list */
 export function penSignature(list) {
   return penEntries(list).map((e) => `${e.enemyKey}:${e.count}:${e.gate[0]}:${e.t}:${e.fly ? 1 : 0}${e.elite ? 1 : 0}${e.boss ? 1 : 0}`).join('|');
 }
@@ -134,6 +149,7 @@ export function penSignature(list) {
 /**
  * Figures shown per entry after thinning (see header): [{ entry, n }] in spawn order.
  * @param {ReturnType<typeof penEntries>} entries
+ * @param {number} [max]
  */
 export function thinPreview(entries, max = MAX_PREVIEW) {
   const total = entries.reduce((s, e) => s + e.count, 0);
@@ -160,15 +176,15 @@ export function thinPreview(entries, max = MAX_PREVIEW) {
 
 /**
  * Lay the preview out in the pen (see header).
- * @param {Array<object>} list m.private.nextEnemies
- * @param {{ stage?: object, max?: number, perTile?: number }} [opts]
+ * @param {unknown} list m.private.nextEnemies
+ * @param {{ stage?: PenStage | null, max?: number, perTile?: number }} [opts]
  */
 export function layoutPen(list, opts = {}) {
   const entries = penEntries(list);
   const sig = penSignature(list);
   const Z = penZones(opts.stage);
-  const max = Number.isInteger(opts.max) && opts.max > 0 ? opts.max : MAX_PREVIEW;
-  const perTile = Number.isInteger(opts.perTile) && opts.perTile > 0 ? opts.perTile : PER_TILE;
+  const max = Number.isInteger(opts.max) && /** @type {number} */ (opts.max) > 0 ? /** @type {number} */ (opts.max) : MAX_PREVIEW;
+  const perTile = Number.isInteger(opts.perTile) && /** @type {number} */ (opts.perTile) > 0 ? /** @type {number} */ (opts.perTile) : PER_TILE;
   const plan = thinPreview(entries, max);
   const shown = plan.reduce((s, p) => s + p.n, 0);
   const total = entries.reduce((s, e) => s + e.count, 0);
@@ -176,8 +192,8 @@ export function layoutPen(list, opts = {}) {
   const totalShowCnt = Math.max(1, Math.min(max, total));
   const rand = rng(hashStr(sig) || 1);
   const load = new Map();              // "r,c" → figures on the tile
-  const key = (t) => `${t[0]},${t[1]}`;
-  const has = (t) => (load.get(key(t)) || 0) < perTile;
+  const key = (/** @type {number[]} */ t) => `${t[0]},${t[1]}`;
+  const has = (/** @type {number[]} */ t) => (load.get(key(t)) || 0) < perTile;
   const allTiles = [...Z.lower.tiles, ...Z.upper.tiles];
   const placed = [];
   const kOf = { lower: 0, upper: 0 };
@@ -229,7 +245,10 @@ export function layoutPen(list, opts = {}) {
   return { figures, total, shown, sig };
 }
 
-/** Whether a tile lies inside the pen rect (rows 14–18 × cols 7–13 by default). */
+/**
+ * Whether a tile lies inside the pen rect (rows 14–18 × cols 7–13 by default).
+ * @param {number} row @param {number} col @param {{ r0: number, r1: number, c0: number, c1: number }} [rect]
+ */
 export function inPen(row, col, rect = PEN_RECT) {
   return row >= rect.r0 && row <= rect.r1 && col >= rect.c0 && col <= rect.c1;
 }

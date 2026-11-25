@@ -26,21 +26,32 @@ const MAX_PAGES = { main: 3, clip: 2 };
 const PAGE_PX = { main: 2048, clip: 1024 };
 const GRID = 16;
 
+/**
+ * @typedef {'main' | 'clip'} ImpKind
+ * @typedef {{ y: number, h: number, x: number, free: Array<{ x: number, w: number }>, live: number }} ImpShelf
+ * @typedef {{ kind: ImpKind, size: number, rt: PIXI.Texture, batch: PIXI.Container, erasers: PIXI.Container,
+ *   bodies: PIXI.Container, shelves: ImpShelf[], nextY: number, queued: number, cleared: boolean, index: number }} ImpPage
+ * @typedef {{ page: ImpPage, shelf: ImpShelf, clip: boolean, x: number, y: number, w: number, h: number,
+ *   eraser: PIXI.Sprite, tex: PIXI.Texture, freed: boolean }} ImpSlot
+ */
+
 export class ImpostorAtlas {
-  /** @param {any} renderer PIXI renderer */
+  /** @param {PIXI.Renderer} renderer PIXI renderer */
   constructor(renderer) {
     this.P = globalThis.PIXI;
     this.R = renderer;
     this.res = Math.max(1, Math.min(2, renderer.resolution || 1));
+    /** @type {ImpPage[]} */
     this.pages = [];
     this.parked = new this.P.Container(); // skeletons of impostor units (never rendered directly)
     this.parked.visible = false;
     this.stats = { pages: 0, slots: 0, drawn: 0, full: 0 };
   }
 
-  /** CSS px per side of a page of `kind`. */
+  /** CSS px per side of a page of `kind`. @param {ImpKind} kind */
   sizeOf(kind) { return Math.floor(PAGE_PX[kind] / this.res); }
 
+  /** @param {ImpKind} kind @returns {ImpPage | null} */
   _page(kind) {
     if (this.pages.filter((p) => p.kind === kind).length >= MAX_PAGES[kind]) return null;
     const P = this.P;
@@ -51,15 +62,20 @@ export class ImpostorAtlas {
     const erasers = new P.Container();
     const bodies = new P.Container();
     batch.addChild(erasers, bodies);
+    /** @type {ImpPage} */
     const page = { kind, size, rt, batch, erasers, bodies, shelves: [], nextY: 0, queued: 0, cleared: false, index: this.pages.length };
     this.pages.push(page);
     this.stats.pages = this.pages.length;
     return page;
   }
 
-  /** Allocate a slot of at least w×h CSS px (rounded up to the grid); null when every page is full. */
+  /**
+   * Allocate a slot of at least w×h CSS px (rounded up to the grid); null when every page is full.
+   * @param {number} w @param {number} h @param {{ clip?: boolean }} [opts]
+   * @returns {ImpSlot | null}
+   */
   alloc(w, h, { clip = false } = {}) {
-    const kind = clip ? 'clip' : 'main';
+    const kind = /** @type {ImpKind} */ (clip ? 'clip' : 'main');
     const W = Math.max(GRID, Math.ceil(w / GRID) * GRID), H = Math.max(GRID, Math.ceil(h / GRID) * GRID);
     if (W > this.sizeOf(kind) || H > this.sizeOf(kind)) return null;
     const pages = this.pages.filter((p) => p.kind === kind);
@@ -73,6 +89,7 @@ export class ImpostorAtlas {
     return null;
   }
 
+  /** @param {ImpPage} page @param {number} W @param {number} H @returns {ImpSlot | null} */
   _allocIn(page, W, H) {
     // reuse a freed slot of a fitting size first
     for (const sh of page.shelves) {
@@ -82,12 +99,14 @@ export class ImpostorAtlas {
       if (sh.x + W <= page.size) { const x = sh.x; sh.x += W; return this._slot(page, sh, x, W); }
     }
     if (page.nextY + H > page.size) return null;
+    /** @type {ImpShelf} */
     const sh = { y: page.nextY, h: H, x: W, free: [], live: 0 };
     page.nextY += H;
     page.shelves.push(sh);
     return this._slot(page, sh, 0, W);
   }
 
+  /** @param {ImpPage} page @param {ImpShelf} sh @param {number} x @param {number} w @returns {ImpSlot} */
   _slot(page, sh, x, w) {
     const P = this.P;
     const y = sh.y, h = sh.h;
@@ -102,6 +121,7 @@ export class ImpostorAtlas {
     return { page, shelf: sh, clip: page.kind === 'clip', x, y, w, h, eraser, tex, freed: false };
   }
 
+  /** @param {ImpSlot | null | undefined} slot */
   free(slot) {
     if (!slot || slot.freed) return;
     slot.freed = true;
@@ -118,16 +138,21 @@ export class ImpostorAtlas {
     sh.free.length = 0;
     const L = page.shelves;
     while (L.length && L[L.length - 1].live === 0) {
-      const top = L.pop();
+      const top = /** @type {ImpShelf} */ (L.pop());
       page.nextY = top.y;
     }
   }
 
-  /** Keep a skeleton here while its unit is an impostor (hidden unless drawn this frame). */
+  /** Keep a skeleton here while its unit is an impostor (hidden unless drawn this frame). @param {PIXI.Container} obj */
   park(obj) { if (obj && obj.parent !== this.parked) this.parked.addChild(obj); obj.visible = false; }
+  /** @param {PIXI.Container | null | undefined} obj */
   unpark(obj) { if (obj && obj.parent === this.parked) this.parked.removeChild(obj); if (obj) obj.visible = true; }
 
-  /** Queue `obj` to be drawn into `slot` this frame with the local transform (scale a/d, offset tx/ty in the slot). */
+  /**
+   * Queue `obj` to be drawn into `slot` this frame with the local transform (scale a/d, offset tx/ty in the slot).
+   * @param {ImpSlot | null | undefined} slot @param {PIXI.Container | null | undefined} obj
+   * @param {{ a: number, d: number, tx: number, ty: number }} m
+   */
   draw(slot, obj, m) {
     if (!slot || slot.freed || !obj) return;
     const page = slot.page;

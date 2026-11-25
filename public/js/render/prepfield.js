@@ -19,9 +19,12 @@
 export const BOSS_ROW_SHIFT = -7;
 export const MAX_COL = 20;
 
+/** @import { HitArea } from './pick.js' */
+
+/** @type {Readonly<Record<string, string>>} */
 const MIRROR = Object.freeze({ RIGHT: 'LEFT', LEFT: 'RIGHT', UP: 'UP', DOWN: 'DOWN' });
 
-/** RIGHT ↔ LEFT (UP / DOWN unchanged); unknown values pass through. */
+/** RIGHT ↔ LEFT (UP / DOWN unchanged); unknown values pass through. @template T @param {T} d @returns {T | string} */
 export function mirrorDir(d) {
   return typeof d === 'string' && MIRROR[d.toUpperCase()] ? MIRROR[d.toUpperCase()] : d;
 }
@@ -70,15 +73,19 @@ export const BOSS_DISP_MAX_ROW = 6;
 /**
  * Map a list of board tiles ([[r,c]] or [{row,col}]) to display tiles ([[r,c]]). In the Final Assault prep tiles that
  * do not land on the boss field (display rows 0–6, cols 0–20) are dropped.
+ * @param {PrepXf} xf
+ * @param {ReadonlyArray<readonly number[] | { row?: number, col?: number } | null | undefined> | null | undefined} tiles
+ * @returns {number[][]}
  */
 export function tilesToDisp(xf, tiles) {
+  /** @type {number[][]} */
   const out = [];
   if (!Array.isArray(tiles)) return out;
   const boss = xf && xf.kind === 'bossPrep';
   for (const t of tiles) {
     const r = Array.isArray(t) ? t[0] : t?.row, c = Array.isArray(t) ? t[1] : t?.col;
     if (!Number.isInteger(r) || !Number.isInteger(c)) continue;
-    const d = xf.toDisp(r, c);
+    const d = xf.toDisp(/** @type {number} */ (r), /** @type {number} */ (c));
     if (boss && (d.row < 0 || d.row > BOSS_DISP_MAX_ROW || d.col < 0 || d.col > MAX_COL)) continue;
     out.push([d.row, d.col]);
   }
@@ -90,9 +97,10 @@ export function tilesToDisp(xf, tiles) {
  * a spawn tile `start` ([row, col], boss-field rows 0–5) → { entry, row, col, tiles } — `tiles` its hit tiles there
  * (render/pick.js hitTiles: the sim's hit rectangle, data/enemies.json `hitArea` through `hitAreaOf(enemyKey)`; a point
  * leader its own tile) — or null.
- * @param {Array<object>|null} list m.private.nextEnemies
- * @param {(enemyKey: string) => any} hitAreaOf
- * @param {(x: number, y: number, a: any) => number[][]} hitTilesOf render/pick.js hitTiles
+ * @param {ReadonlyArray<{ boss?: unknown, enemyKey?: unknown, start?: unknown, [key: string]: unknown } | null | undefined> | null | undefined} list
+ *   m.private.nextEnemies
+ * @param {(enemyKey: string) => HitArea | null | undefined} hitAreaOf
+ * @param {(x: number, y: number, a: HitArea | null | undefined) => number[][]} hitTilesOf render/pick.js hitTiles
  */
 export function leaderStand(list, hitAreaOf, hitTilesOf) {
   if (!Array.isArray(list)) return null;
@@ -100,9 +108,10 @@ export function leaderStand(list, hitAreaOf, hitTilesOf) {
     && Number.isInteger(e.start[0]) && Number.isInteger(e.start[1]) && e.start[0] >= 0 && e.start[0] <= BOSS_DISP_MAX_ROW
     && e.start[1] >= 0 && e.start[1] <= MAX_COL);
   if (!entry) return null;
-  const [row, col] = entry.start;
+  const [row, col] = /** @type {number[]} */ (entry.start);
+  /** @type {HitArea | null | undefined} */
   let area = null;
-  try { area = hitAreaOf ? hitAreaOf(entry.enemyKey) : null; } catch { area = null; }
+  try { area = hitAreaOf ? hitAreaOf(/** @type {string} */ (entry.enemyKey)) : null; } catch { area = null; }
   const tiles = (typeof hitTilesOf === 'function' ? hitTilesOf(col, row, area) : [[row, col]])
     .filter(([r, c]) => r >= 0 && r <= BOSS_DISP_MAX_ROW && c >= 0 && c <= MAX_COL);
   return { entry, row, col, tiles };

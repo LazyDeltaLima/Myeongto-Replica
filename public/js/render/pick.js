@@ -31,6 +31,8 @@ export const AREA_PICK = 1;
 /**
  * World rectangle (tiles: x = col, y = row) of a hit area `{ w, h, dx, dy }` for a unit at (x, y) — the same rectangle
  * as server/sim/body.js hitRect: `w` along the columns × `h` along the rows, centred `dx` columns right / `dy` rows up.
+ * @typedef {{ w: number, h: number, dx?: number, dy?: number }} HitArea data/enemies.json `hitArea`
+ * @param {number} x @param {number} y @param {HitArea | null | undefined} a
  * @returns {{ x0: number, x1: number, y0: number, y1: number } | null}
  */
 export function hitRectAt(x, y, a) {
@@ -42,6 +44,8 @@ export function hitRectAt(x, y, a) {
  * Board tiles ([[row, col]]) a unit at (x, y) is hit on — as server/sim/body.js bodyKeys: a huge unit (`hitArea`) every tile
  * its rectangle overlaps (open intervals: a tile only touched along an edge is not), a point unit the tile of its
  * position; clipped to the rows × cols grid (19 × 21). The Final Assault prep draws a leader's (render/app.js, report #12).
+ * @param {number} x @param {number} y @param {HitArea | null | undefined} a @param {number} [rows] @param {number} [cols]
+ * @returns {number[][]}
  */
 export function hitTiles(x, y, a, rows = 19, cols = 21) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) return [];
@@ -49,25 +53,34 @@ export function hitTiles(x, y, a, rows = 19, cols = 21) {
   if (!R) { const r = Math.round(y), c = Math.round(x); return r >= 0 && r < rows && c >= 0 && c < cols ? [[r, c]] : []; }
   const r0 = Math.max(0, Math.floor(R.y0 + 0.5 + EPS)), r1 = Math.min(rows - 1, Math.ceil(R.y1 - 0.5 - EPS));
   const c0 = Math.max(0, Math.floor(R.x0 + 0.5 + EPS)), c1 = Math.min(cols - 1, Math.ceil(R.x1 - 0.5 - EPS));
+  /** @type {number[][]} */
   const out = [];
   for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) out.push([r, c]);
   return out;
 }
+/** @param {PickUnit['area']} A @param {{ x: number, y: number } | null} g */
 const inArea = (A, g) => !!A && !!g && g.x >= A.x0 && g.x <= A.x1 && g.y >= A.y0 && g.y <= A.y1;
 /** Screen point inside a huge body's upright box: `hw` tiles (its px per tile) either side of its x, feet up to head. */
-const inBox = (b, px, py) => !!b && b.hw > 0 && b.s > 0 && Math.abs(px - b.x) <= b.hw * b.s
+/** @param {PickUnit['body']} b @param {number} px @param {number} py */
+const inBox = (b, px, py) => !!b && /** @type {number} */ (b.hw) > 0 && b.s > 0 && Math.abs(px - b.x) <= /** @type {number} */ (b.hw) * b.s
   && py >= Math.min(b.top, b.feet) && py <= Math.max(b.top, b.feet);
 
 const EPS = 1e-9;
+/** @param {{ row?: unknown, col?: unknown } | null | undefined} t @returns {t is { row: number, col: number }} */
 const isTile = (t) => !!t && Number.isInteger(t.row) && Number.isInteger(t.col);
+/** @param {PickUnit} u @param {PickGround | null} t */
 const onTile = (u, t) => isTile(u.tile) && isTile(t) && u.tile.row === t.row && u.tile.col === t.col;
-const depthOf = (u) => (u && Number.isFinite(u.depth) ? u.depth : 0);
-/** Tiles between a unit's ground position and the pointer's point on the ground (0 when either is unknown). */
+/** @param {PickUnit | null} u @returns {number} */
+const depthOf = (u) => (u && Number.isFinite(u.depth) ? /** @type {number} */ (u.depth) : 0);
+/** Tiles between a unit's ground position and the pointer's point on the ground (0 when either is unknown). @param {PickUnit} u @param {PickGround | null} g */
 function groundDist(u, g) {
   if (!g || !Number.isFinite(g.x) || !Number.isFinite(g.y) || !Number.isFinite(u.x) || !Number.isFinite(u.y)) return 0;
-  return Math.hypot(u.x - g.x, u.y - g.y);
+  return Math.hypot(/** @type {number} */ (u.x) - /** @type {number} */ (g.x), /** @type {number} */ (u.y) - /** @type {number} */ (g.y));
 }
-/** Tiles (its px per tile) between screen point (px, py) and an enemy's drawn body — the line from its feet up to its head. */
+/**
+ * Tiles (its px per tile) between screen point (px, py) and an enemy's drawn body — the line from its feet up to its head.
+ * @param {PickUnit['body']} b @param {number} px @param {number} py
+ */
 function bodyDist(b, px, py) {
   if (!b || !(b.s > 0) || ![b.x, b.top, b.feet, px, py].every(Number.isFinite)) return Infinity;
   const y = Math.max(Math.min(b.top, b.feet), Math.min(Math.max(b.top, b.feet), py));
@@ -117,11 +130,12 @@ export function pickOnTile(units, ground) {
 export function pickBattle(units, ground, px, py) {
   if (!Array.isArray(units)) return null;
   const onGround = !!ground && Number.isFinite(ground.x) && Number.isFinite(ground.y);
+  /** @type {T | null} */
   let best = null, bd = Infinity;
-  const better = (u, d) => {
+  const better = (/** @type {T} */ u, /** @type {number} */ d) => {
     if (d < bd - EPS) return true;
     if (Math.abs(d - bd) > EPS) return false;
-    if (!!u.tile !== !!best.tile) return !!u.tile; // a tie: the ally standing there
+    if (!!u.tile !== !!/** @type {T} */ (best).tile) return !!u.tile; // a tie: the ally standing there
     return depthOf(u) > depthOf(best);
   };
   for (const u of units) {
@@ -130,9 +144,9 @@ export function pickBattle(units, ground, px, py) {
     if (u.tile) { if (onTile(u, ground)) d = groundDist(u, ground); }
     else {
       d = bodyDist(u.body, px, py);
-      if (!u.fly && onGround && Number.isFinite(u.x) && Number.isFinite(u.y)) d = Math.min(d, Math.hypot(u.x - ground.x, u.y - ground.y));
+      if (!u.fly && onGround && Number.isFinite(u.x) && Number.isFinite(u.y)) d = Math.min(d, Math.hypot(/** @type {number} */ (u.x) - /** @type {number} */ (/** @type {PickGround} */ (ground).x), /** @type {number} */ (u.y) - /** @type {number} */ (/** @type {PickGround} */ (ground).y)));
       if (!(d <= ENEMY_REACH)) {
-        if (u.fly || !(inBox(u.body, px, py) || (onGround && inArea(u.area, ground)))) continue;
+        if (u.fly || !(inBox(u.body, px, py) || (onGround && inArea(u.area, /** @type {{ x: number, y: number }} */ (ground))))) continue;
         d = AREA_PICK;
       }
     }

@@ -6,10 +6,12 @@
 
 export const NUMBER_STYLES = Object.freeze(['official', 'classic']);
 const KEY = 'sp.pref.dmgNumberStyle';
+/** @type {string | null} */
 let current = null;
+/** @type {Set<(style: string) => void>} */
 const listeners = new Set();
 
-const sanitize = (v) => (NUMBER_STYLES.includes(v) ? v : 'official');
+const sanitize = (/** @type {unknown} */ v) => (NUMBER_STYLES.includes(/** @type {string} */ (v)) ? /** @type {string} */ (v) : 'official');
 
 /** The chosen style ('official' | 'classic'). */
 export function numberStyle() {
@@ -21,12 +23,12 @@ export function numberStyle() {
   return current;
 }
 
-/** Choose a style (saved; listeners told). */
+/** Choose a style (saved; listeners told). @param {string} v */
 export function setNumberStyle(v) {
   current = sanitize(v);
   try { globalThis.localStorage?.setItem(KEY, JSON.stringify(current)); } catch { /* ignore */ }
   for (const fn of listeners) { try { fn(current); } catch { /* ignore */ } }
 }
 
-/** Listen for changes; returns the unsubscribe. */
+/** Listen for changes; returns the unsubscribe. @param {(style: string) => void} fn */
 export function onNumberStyle(fn) { listeners.add(fn); return () => listeners.delete(fn); }

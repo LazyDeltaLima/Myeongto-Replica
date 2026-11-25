@@ -14,13 +14,16 @@ export const TILE_H = Object.freeze({
  * scene (render/board3d/official.js, docs/local/official-scenes.md) carries `highlandHeight` — every HIGH tile of the client's map
  * (forbidden blocks, separators, bench pads, high ground) stands at that one height (0.4 desert, 0.3 Kazimierz) —
  * local patch.
+ * @param {string | null | undefined} hClass
+ * @param {{ platformHeight?: unknown, highlandHeight?: unknown } | null | undefined} stage
+ * @returns {number}
  */
 export function tileTop(hClass, stage) {
   if (!hClass) return 0;
   // the official 射击台 model's plate (scene/devices, set with highlandHeight) — local patch
-  if (hClass === 'platform' && Number(stage?.platformHeight) > 0) return Number(stage.platformHeight);
+  if (hClass === 'platform' && Number(stage?.platformHeight) > 0) return Number(/** @type {{ platformHeight?: unknown }} */ (stage).platformHeight);
   const h = Number(stage?.highlandHeight);
-  return hClass !== 'platform' && Number.isFinite(h) && h > 0 ? h : TILE_H[hClass];
+  return hClass !== 'platform' && Number.isFinite(h) && h > 0 ? h : TILE_H[/** @type {keyof typeof TILE_H} */ (hClass)];
 }
 
 /** Stage glyph → material + height class (data/stages.json legend, DATA.md §12). */
@@ -108,6 +111,7 @@ export const ORIGINIUM = Object.freeze({
 /**
  * One channel of a working (linear) colour as the 0–255 sRGB value a canvas stores — the shaders' `#include
  * <colorspace_fragment>` does this for the 3D board, the canvas has to do it itself.
+ * @param {number} v
  */
 export function linearToSrgb255(v) {
   const k = Number(v);
@@ -115,7 +119,7 @@ export function linearToSrgb255(v) {
   return Math.max(0, Math.min(255, Math.round(s * 255)));
 }
 
-/** A working (linear) `ORIGINIUM` colour as the `#rrggbb` sRGB string of the canvas (`textures.js originiumCanvas`). */
+/** A working (linear) `ORIGINIUM` colour as the `#rrggbb` sRGB string of the canvas (`textures.js originiumCanvas`). @param {readonly number[]} rgb */
 export function linearToHex(rgb) {
   return `#${rgb.map((v) => linearToSrgb255(v).toString(16).padStart(2, '0')).join('')}`;
 }
@@ -128,7 +132,7 @@ export const DMG_STYLE = Object.freeze({
   elem: { font: 'sp-dmg-elem', fill: ['#fff4e0', '#ff7b3a'], stroke: '#3a1000' },
 });
 
-/** Map b.ev dmg types to a style key. */
+/** Map b.ev dmg types to a style key. @param {unknown} type */
 export function dmgStyleKey(type) {
   if (type === 'phys' || type === 'arts' || type === 'true' || type === 'heal') return type;
   if (type === 'burn' || type === 'neural' || type === 'apoptosis' || type === 'erosion' || type === 'rampage' || type === 'element') return 'elem';
@@ -168,7 +172,10 @@ export const PROJ = Object.freeze({
   droneBomb: { look: 'shell', speed: 5, once: true, tint: 0xffe2c8, glow: 0xff5a3a, len: 0.6, width: 0.3, head: 0.5, trail: 0xff7a4a, arc: 0.35, smoke: 0x2e2824, hit: 'boom' },
 });
 
-/** Status keys (b.ev 'status' + UF flags) → icon atlas key (render/textures.js) and colour. */
+/**
+ * Status keys (b.ev 'status' + UF flags) → icon atlas key (render/textures.js) and colour.
+ * @type {Readonly<Record<string, string>>}
+ */
 export const STATUS_ICON = Object.freeze({
   stun: 'stun', freeze: 'freeze', cold: 'cold', stealth: 'stealth', shield: 'shield', fragile: 'fragile',
   artsFragile: 'fragile', physFragile: 'fragile', elemFragile: 'fragile', sleep: 'sleep', invulnerable: 'invuln',
@@ -204,7 +211,7 @@ export function statusIconSuppressed(key, statuses) {
   return typeof (/** @type {Set<string>} */ (statuses)).has === 'function' ? (/** @type {Set<string>} */ (statuses)).has('silence') : Array.isArray(statuses) && statuses.includes('silence');
 }
 
-/** Icon key (textures STATUS_KEYS) for a b.ev status key or flag name; null when it has no icon. */
+/** Icon key (textures STATUS_KEYS) for a b.ev status key or flag name; null when it has no icon. @param {unknown} key */
 export function statusIconKey(key) {
   if (typeof key !== 'string' || !key) return null;
   if (STATUS_ICON[key]) return STATUS_ICON[key];

@@ -23,32 +23,46 @@
 //   gate.model(info, base) → { key, front, back|null } | null   base(back) = the default entry of that side (the fallback);
 //                                          key = the skin key drawn (the effect layer reads that skin's points and effects by it)
 
+/**
+ * The two lists as loaded (each read field by field), and once checked (`skins` a record in both).
+ * @typedef {{ models?: { skins?: unknown } | null, list?: { skins?: unknown } | null }} SkinLoaded
+ * @typedef {{ skins: Record<string, unknown> }} SkinTable
+ * @typedef {{ models: SkinTable, list: SkinTable }} SkinLists
+ * @typedef {{ skin?: unknown, side?: unknown, ownerId?: unknown, mine?: unknown, spine?: unknown, defId?: unknown }} SkinInfo
+ */
+
+/** @param {unknown} v @returns {v is Record<string, unknown>} */
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+/** @param {unknown} v */
 const str = (v) => (typeof v === 'string' && v ? v : null);
 
 export const SKIN_MODELS = '/assets/local/spine/skin/models.json';
 export const SKIN_LIST = '/assets/local/spine/skin/skins.json';
 
 /** The skin key a unit draws for its player's skin `skinId`: the skin itself on its owner, a summon's skin of it on that
- *  summon (skins.json `tokens`), else null. `unitId` is the id the view draws (UnitInfo `spine`, else `defId`). */
+ *  summon (skins.json `tokens`), else null. `unitId` is the id the view draws (UnitInfo `spine`, else `defId`).
+ * @param {{ skins?: unknown } | null | undefined} list @param {string} skinId @param {string | null} unitId
+ * @returns {string | null} */
 export function skinKeyFor(list, skinId, unitId) {
   const rec = isObj(list?.skins) ? list.skins[skinId] : null;
   if (!isObj(rec) || !str(unitId)) return null;
   if (rec.owner === unitId) return skinId;
-  const tk = isObj(rec.tokens) ? str(rec.tokens[unitId]) : null;
-  return tk && isObj(list.skins[tk]) && list.skins[tk].owner === unitId ? tk : null;
+  const tk = isObj(rec.tokens) ? str(rec.tokens[/** @type {string} */ (unitId)]) : null;
+  // `list.skins` is a record here (rec came from it)
+  return tk && isObj(/** @type {SkinTable} */ (list).skins[tk]) && /** @type {Record<string, unknown>} */ (/** @type {SkinTable} */ (list).skins[tk]).owner === unitId ? tk : null;
 }
 
 /**
  * One side record of models.json as a Spine entry (`{ skel, atlas, textures, pma, anims, animations, events, hits, bounds }`,
  * the fields of a data/assets.json model), or null while it lacks any of what drawing it needs: its pages, their kind
  * (`pma`) and its key table (`anims`).
+ * @param {unknown} side @param {unknown} [fallback] the default entry of that side
  */
 export function skinSideEntry(side, fallback = null) {
   if (!isObj(side)) return null;
   const skel = str(side.skel), atlas = str(side.atlas);
-  const pages = Array.isArray(side.pages) ? side.pages.filter(str) : [];
-  if (!skel || !/^\/[^\s#?]*\.skel$/.test(skel) || !atlas || !pages.length || pages.length !== side.pages.length) return null;
+  const pages = /** @type {string[]} */ (Array.isArray(side.pages) ? side.pages.filter(str) : []);
+  if (!skel || !/^\/[^\s#?]*\.skel$/.test(skel) || !atlas || !pages.length || pages.length !== /** @type {unknown[]} */ (side.pages).length) return null;
   if (typeof side.pma !== 'boolean' || !isObj(side.anims)) return null;
   return {
     skel, atlas, textures: pages, pma: side.pma, anims: side.anims,
@@ -57,8 +71,13 @@ export function skinSideEntry(side, fallback = null) {
   };
 }
 
-/** Every file of a model record (both sides): what must be cached before it is drawn. */
+/**
+ * Every file of a model record (both sides): what must be cached before it is drawn.
+ * @param {Record<string, unknown> | null | undefined} rec
+ * @returns {unknown[]}
+ */
 export function skinFiles(rec) {
+  /** @type {unknown[]} */
   const out = [];
   for (const s of [rec?.front, rec?.back]) {
     if (!isObj(s)) continue;
@@ -68,14 +87,17 @@ export function skinFiles(rec) {
 }
 
 /**
- * @param {{ chosen: () => boolean, cached: (paths: string[]) => boolean, self: () => any, others: () => boolean,
- *   load: () => Promise<{ models: any, list: any }> }} deps
+ * @param {{ chosen: () => boolean, cached: (paths: unknown[]) => boolean, self: () => unknown, others: () => boolean,
+ *   load: () => Promise<SkinLoaded | null | undefined> }} deps
  *   chosen: the player chose the skin data; cached: every path is in the cache as listed; self: the own player id;
  *   others: 其他玩家的皮肤 is on; load: the two lists (fetched once they are cached)
  */
 export function createSkinGate(deps) {
+  /** @type {SkinLists | null} */
   let lists = null;        // { models, list } once loaded
+  /** @type {Promise<void> | null} */
   let loading = null;
+  /** @type {{ lists: SkinLists | null, others: boolean, self: unknown, memo: Map<string, Record<string, unknown> | null> } | null} */
   let scene = null;        // { lists, others, self, memo: Map<skin key, { rec, files ok }> } — this scene's view of things
 
   function ensure() {
@@ -84,14 +106,15 @@ export function createSkinGate(deps) {
     try { go = !!deps.chosen() && !!deps.cached([SKIN_MODELS, SKIN_LIST]); } catch { go = false; }
     if (!go) return;
     loading = Promise.resolve().then(deps.load).then((l) => {
-      if (isObj(l) && isObj(l.models?.skins) && isObj(l.list?.skins)) lists = l;
+      if (isObj(l) && isObj(l.models?.skins) && isObj(l.list?.skins)) lists = /** @type {SkinLists} */ (l);
       loading = null;
     }, () => { loading = null; });
   }
 
   function current() {
     if (!scene) {
-      let others = true, self = null;
+      /** @type {boolean} */
+      let others = true, /** @type {unknown} */ self = null;
       try { others = deps.others() !== false; } catch { /* on */ }
       try { self = deps.self() ?? null; } catch { /* none */ }
       scene = { lists: lists && deps.chosen() ? lists : null, others, self, memo: new Map() };
@@ -110,22 +133,22 @@ export function createSkinGate(deps) {
     /**
      * The skin model `info` draws, `{ key, front, back }` (back null: the skin has no Back model; `key` the skin key — a summon's
      * own skin key, skinKeyFor), or null: the default model.
-     * @param {any} info the view's UnitInfo (`skin`, `side`, `ownerId`, `mine`: an own prep piece)
-     * @param {(back: boolean) => any} [base] the default entry of a side (each skin entry's `fallback`)
+     * @param {SkinInfo | null | undefined} info the view's UnitInfo (`skin`, `side`, `ownerId`, `mine`: an own prep piece)
+     * @param {(back: boolean) => unknown} [base] the default entry of a side (each skin entry's `fallback`)
      */
     model(info, base) {
       ensure();
       const skinId = str(info?.skin);
-      if (!skinId || info.side !== 'ally') return null;
+      if (!skinId || /** @type {SkinInfo} */ (info).side !== 'ally') return null;
       const s = current();
       if (!s.lists) return null;
-      const mine = info.mine === true || (info.ownerId != null && info.ownerId === s.self);
+      const mine = /** @type {SkinInfo} */ (info).mine === true || (/** @type {SkinInfo} */ (info).ownerId != null && /** @type {SkinInfo} */ (info).ownerId === s.self);
       if (!mine && !s.others) return null;
-      const key = skinKeyFor(s.lists.list, skinId, str(info.spine) || str(info.defId));
+      const key = skinKeyFor(s.lists.list, skinId, str(/** @type {SkinInfo} */ (info).spine) || str(/** @type {SkinInfo} */ (info).defId));
       if (!key) return null;
       let m = s.memo.get(key);
       if (m === undefined) {
-        const rec = s.lists.models.skins[key];
+        const rec = /** @type {Record<string, unknown>} */ (s.lists.models.skins[key]);   // its fields read only once isObj (files)
         const files = isObj(rec) ? skinFiles(rec) : [];
         let ok;
         try { ok = !!files.length && deps.cached(files); } catch { ok = false; }
@@ -133,16 +156,18 @@ export function createSkinGate(deps) {
         s.memo.set(key, m);
       }
       if (!m) return null;
-      const fb = (back) => { try { return base ? base(back) : null; } catch { return null; } };
+      const fb = (/** @type {boolean} */ back) => { try { return base ? base(back) : null; } catch { return null; } };
       return { key, front: skinSideEntry(m.front, fb(false)), back: m.back ? skinSideEntry(m.back, fb(true)) : null };
     },
   };
 }
 
 /** The two lists, fetched once per page and kept for every field after it (a failed fetch is tried again). */
+/** @type {Promise<SkinLoaded> | null} */
 let pageLists = null;
+/** @returns {Promise<SkinLoaded>} */
 export function pageSkinLists() {
-  const json = (u) => fetch(u).then((r) => { if (!r.ok) throw new Error(`${u}: ${r.status}`); return r.json(); });
+  const json = (/** @type {string} */ u) => fetch(u).then((r) => { if (!r.ok) throw new Error(`${u}: ${r.status}`); return r.json(); });
   if (!pageLists) {
     pageLists = Promise.all([json(SKIN_MODELS), json(SKIN_LIST)]).then(([models, list]) => ({ models, list }));
     pageLists.catch(() => { pageLists = null; });
@@ -158,7 +183,9 @@ export function pageSkinLists() {
  * @param {() => boolean} others
  */
 export function pageSkinGate(others) {
-  let res = null, st = null, asked = false, gate = null;
+  /** @type {typeof import('../resources.js') | null} */
+  let res = null, /** @type {typeof import('../store.js') | null} */ st = null, asked = false,
+    /** @type {ReturnType<typeof createSkinGate> | null} */ gate = null;
   let modsReady = Promise.resolve();
   const mods = () => {
     if (!asked && typeof globalThis.caches !== 'undefined') {
@@ -170,9 +197,9 @@ export function pageSkinGate(others) {
     return res && st;
   };
   gate = createSkinGate({
-    chosen: () => !!mods() && res.resourcePacks().skin === true,
-    cached: (paths) => !!mods() && res.resourceCached(paths),
-    self: () => (mods() ? st.store.get()?.me?.playerId ?? null : null),
+    chosen: () => !!mods() && /** @type {typeof import('../resources.js')} */ (res).resourcePacks().skin === true,
+    cached: (paths) => !!mods() && /** @type {typeof import('../resources.js')} */ (res).resourceCached(paths),
+    self: () => (mods() ? /** @type {typeof import('../store.js')} */ (st).store.get()?.me?.playerId ?? null : null),
     others,
     load: pageSkinLists,
   });

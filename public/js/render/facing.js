@@ -18,21 +18,32 @@ export const FACING = Object.freeze({
   trim: Object.freeze({ x: 31, y: 8, w: 65, h: 112, rect: 128 }),
 });
 
+/**
+ * @import { Camera } from './projection.js'
+ * @typedef {{ ring: PIXI.Texture, arrow: PIXI.Texture }} FacingTextures
+ * @typedef {{ ui?: (key: string) => string | null | undefined }} FacingAssets the asset store's member read here (assets.js)
+ */
+
 const UV = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]);
 const IDX = new Uint16Array([0, 1, 2, 0, 2, 3]);
 const P0 = { x: 0, y: 0, s: 0, depth: 0 };
 
+/** @param {typeof PIXI} P @param {PIXI.Container} parent @param {PIXI.Texture} tex @returns {PIXI.Mesh} */
 function quad(P, parent, tex) {
   const m = new P.SimpleMesh(tex, new Float32Array(8), UV, IDX);
   parent.addChild(m);
   return m;
 }
 
-/** The marker's textures `{ ring, arrow }` from the asset store, or null while they are not there / not loaded. */
+/**
+ * The marker's textures `{ ring, arrow }` from the asset store, or null while they are not there / not loaded.
+ * @param {typeof PIXI} P @param {FacingAssets | null | undefined} assets
+ * @returns {FacingTextures | null}
+ */
 export function facingTextures(P, assets) {
   if (!P.SimpleMesh || typeof assets?.ui !== 'function') return null;
-  const get = (name) => {
-    const url = assets.ui(`battle/${name}`);
+  const get = (/** @type {string} */ name) => {
+    const url = /** @type {(key: string) => string | null | undefined} */ (/** @type {FacingAssets} */ (assets).ui)(`battle/${name}`);
     if (!url) return null;
     let t = _tex.get(url);
     if (t === undefined) { try { t = P.Texture.from(url); } catch { t = null; } _tex.set(url, t); }
@@ -41,10 +52,12 @@ export function facingTextures(P, assets) {
   const ring = get('sprite_direction_ring'), arrow = get('sprite_direction_arrow');
   return ring && arrow ? { ring, arrow } : null;
 }
+/** @type {Map<string, PIXI.Texture | null>} */
 const _tex = new Map();
 
 /** The ring + arrow of one unit, as ground quads in a container (`root`) the caller places in a layer. */
 export class FacingMarker {
+  /** @param {typeof PIXI} P @param {FacingTextures} t */
   constructor(P, t) {
     this.root = new P.Container();
     this.ring = quad(P, this.root, t.ring);
@@ -55,6 +68,8 @@ export class FacingMarker {
 
   /**
    * Lay it at world (x, y, z) facing `step` ([dx, dy], render/units.js DIR_STEP) with camera `cam`; `alpha` the unit's.
+   * @param {Camera} cam @param {number} x @param {number} y @param {number} z @param {readonly number[]} step
+   * @param {number} alpha
    */
   update(cam, x, y, z, step, alpha) {
     this.root.alpha = alpha;
@@ -62,9 +77,10 @@ export class FacingMarker {
     // a standing unit under a still camera keeps its corners (each frame re-projected 8 of them for every ally)
     const k0 = this._key;
     if (k0 && k0.cam === cam && k0.v === cam.version && k0.x === x && k0.y === y && k0.z === z && k0.dx === dx && k0.dy === dy) return;
+    /** @type {{ cam: Camera, v: number, x: number, y: number, z: number, dx: number, dy: number } | undefined} */
     this._key = { cam, v: cam.version, x, y, z, dx, dy };
     const px = -dy, py = dx;                 // the texture's "up" (−v) on the ground: left of the facing
-    const put = (mesh, pts) => {
+    const put = (/** @type {PIXI.Mesh} */ mesh, /** @type {number[][]} */ pts) => {
       const v = mesh.vertices;
       for (let i = 0; i < 4; i++) { const p = cam.project(pts[i][0], pts[i][1], z, P0); v[i * 2] = p.x; v[i * 2 + 1] = p.y; }
       mesh.vertices = v;
@@ -74,7 +90,7 @@ export class FacingMarker {
     put(this.ring, [[x - r, y + r], [x + r, y + r], [x + r, y - r], [x - r, y - r]]); // round: axis-aligned
     const T = FACING.trim, k = FACING.arrow / T.rect;
     const cx = x + dx * FACING.arrowOut, cy = y + dy * FACING.arrowOut;
-    const corner = (u, v) => {
+    const corner = (/** @type {number} */ u, /** @type {number} */ v) => {
       const along = (u - T.rect / 2) * k, side = (T.rect / 2 - v) * k;
       return [cx + dx * along + px * side, cy + dy * along + py * side];
     };

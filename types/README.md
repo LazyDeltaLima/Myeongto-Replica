@@ -101,7 +101,9 @@ What may stay is one declaration of an outer value with no type (a script-tag gl
 express, and its line says `any: <why>`. `tools/typecheck-strict.mjs` enforces it in the folders of its `ANY_FREE` list:
 an `any` in a type position (a JSDoc `{…}` type, a `types/*.d.ts` declaration) without `any: <why>` on the same line fails
 `npm run typecheck`. `node tools/typecheck-strict.mjs --any` prints the count per folder; add a folder to `ANY_FREE` once it
-reads 0. Some of the older examples below still show `any` where they were written before this rule; do not copy it.
+reads 0. A file touched for other work in a folder not on `ANY_FREE` yet has its old `any` taken out in the same
+commit, and the folder joins `ANY_FREE` once `--any` reads 0 for it (maintainer decision 2026-11-25). Some of the older
+examples below still show `any` where they were written before this rule; do not copy it.
 
 `tools/typecheck-strict.mjs` (the last step of `npm run typecheck`) checks each config whole with `strict` added and
 fails on an error located in a file `jsconfig.strict.json` `include`s; the rest of the program is checked strict too,
@@ -119,7 +121,8 @@ the files directly under `server/sim/` (`server/sim/*.js`), the files directly u
 (`server/sim/content/*.js`), the enemy kits `server/sim/content/enemies/` and the operator kits
 `server/sim/content/kits/ops/`, and in the renderer the 3D board `public/js/render/board3d/` and the effect system's parts
 `public/js/render/fx/`, the files directly under `public/js/` (`public/js/*.js`), the screens directly under
-`public/js/screens/` (`public/js/screens/*.js`) and the files directly under `public/js/ui/` (`public/js/ui/*.js`).
+`public/js/screens/` (`public/js/screens/*.js`), the files directly under `public/js/ui/` (`public/js/ui/*.js`) and,
+one by one, 20 of the files directly under `public/js/render/` (the small helpers: drag.js, pick.js, pen.js and the rest).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -594,6 +597,16 @@ most strict errors were, and the JSDoc that fixed them:
   property (`{ record, player, bond }`) is cast as a whole object, never one member (that changes the AST); a timer
   handle in `useRef(null)` is `ReturnType<typeof setTimeout> | null`, cast to `ReturnType<typeof setTimeout>` where
   `clearTimeout` reads it; a set of phases asked with `pub?.phase` is `Set<string | undefined>`.
+- the small helpers directly under `public/js/render/` (drag.js, pick.js, pen.js, skin-gate.js, item-models.js,
+  impostor.js and 14 more), written without `any`: the PixiJS namespace a function takes is `typeof PIXI` and its
+  objects `PIXI.Container` / `PIXI.Sprite` / `PIXI.Texture` / `PIXI.Renderer` (the one `any` stays in
+  `types/page-globals.d.ts`, each new name marked `any: <why>`); the camera is `Camera` of `projection.js` (`@import`);
+  pixi-spine's skeleton and the assets store are typedefs of the members read (heldWheel.js `HeldSkeleton`,
+  item-models.js `ItemAssets`, boardArt.js `BoardAssets`). A `getContext('2d')` is cast to `CanvasRenderingContext2D`
+  where it is declared; a pooled record built in two steps is cast to its full typedef where it is made
+  (num-official.js `OffNum`); a property first set outside the constructor (`this._key = …`) gets its `@type` on that
+  assignment; a closure over a state that is set whenever it runs (drag.js `st`) casts it at each read
+  (`/** @type {DragState} */ (st)`).
 
 
 ## Split classes

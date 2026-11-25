@@ -14,17 +14,21 @@ export const ELITE_RING = Object.freeze({ r: 0.46, lift: 0.012, pulse: 2.2, alph
 /** Badge: the ui asset, its width × the chip's height, and its centre's gap from the chip's right edge × its width. */
 export const ELITE_BADGE = Object.freeze({ ui: 'eliteLarge/elite_2_large', width: 1.3, gap: 0.6 });
 
+/** @import { Camera } from './projection.js' */
+
+/** @param {number} w @param {number} h */
 const makeCanvas = (w, h) => {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   return c;
 };
 
+/** @type {PIXI.Texture | null} */
 let _ring = null;
-/** The ring texture (a gold band with a soft outer edge and a faint fill), drawn once. */
+/** The ring texture (a gold band with a soft outer edge and a faint fill), drawn once. @param {typeof PIXI} P */
 export function eliteRingTexture(P) {
   if (_ring) return _ring;
-  const c = makeCanvas(256, 256), x = c.getContext('2d');
+  const c = makeCanvas(256, 256), x = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
   const g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
   g.addColorStop(0, 'rgba(255,200,60,0.10)'); g.addColorStop(0.70, 'rgba(255,200,60,0.18)');
   g.addColorStop(0.80, 'rgba(255,214,90,0.95)'); g.addColorStop(0.86, 'rgba(255,240,170,1)'); g.addColorStop(0.90, 'rgba(255,200,60,0.85)');
@@ -33,10 +37,13 @@ export function eliteRingTexture(P) {
   return (_ring = P.Texture.from(c));
 }
 
+/** @type {Map<string, PIXI.Texture | null>} */
 const _badge = new Map(); // url → Texture | null (loading / failed)
 /**
  * The badge texture for the chevron image at `url`: null while it loads (or when it failed). The chevrons are tinted
  * a top-down gold gradient over a dark outline (16 offset copies), so they read on the light tiles and over the glow.
+ * @param {typeof PIXI} P @param {string | null | undefined} url
+ * @returns {PIXI.Texture | null | undefined}
  */
 export function eliteBadgeTexture(P, url) {
   if (!url) return null;
@@ -47,17 +54,17 @@ export function eliteBadgeTexture(P, url) {
   img.onload = () => {
     try {
       const bw = 128, bh = Math.max(1, Math.round((bw * img.height) / img.width)), pad = 10;
-      const tint = (col) => {
-        const t = makeCanvas(bw, bh), x = t.getContext('2d');
+      const tint = (/** @type {string} */ col) => {
+        const t = makeCanvas(bw, bh), x = /** @type {CanvasRenderingContext2D} */ (t.getContext('2d'));
         x.drawImage(img, 0, 0, bw, bh);
         x.globalCompositeOperation = 'source-in';
         x.fillStyle = col; x.fillRect(0, 0, bw, bh);
         return t;
       };
-      const c = makeCanvas(bw + pad * 2, bh + pad * 2), x = c.getContext('2d');
+      const c = makeCanvas(bw + pad * 2, bh + pad * 2), x = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
       const dark = tint('rgba(18,12,4,0.9)');
       for (let a = 0; a < 16; a++) x.drawImage(dark, pad + Math.cos((a / 8) * Math.PI) * 7, pad + Math.sin((a / 8) * Math.PI) * 7);
-      const gold = tint('#ffd04a'), gx = gold.getContext('2d');
+      const gold = tint('#ffd04a'), gx = /** @type {CanvasRenderingContext2D} */ (gold.getContext('2d'));
       const gd = gx.createLinearGradient(0, 0, 0, bh);
       gd.addColorStop(0, '#fff1b0'); gd.addColorStop(0.5, '#ffd04a'); gd.addColorStop(1, '#f0a81e');
       gx.globalCompositeOperation = 'source-atop'; gx.fillStyle = gd; gx.fillRect(0, 0, bw, bh);
@@ -76,11 +83,15 @@ const CORNERS = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
 
 /** The ground ring of one piece: a quad on the floor (projected by the camera, so it foreshortens with the board). */
 export class EliteRing {
+  /** @param {typeof PIXI} P */
   constructor(P) {
     this.mesh = new P.SimpleMesh(eliteRingTexture(P), new Float32Array(8), UV, IDX);
   }
 
-  /** Lay it at world (x, y, z) with camera `cam`; `alpha` the unit's, `t` the clock (a slow pulse). */
+  /**
+   * Lay it at world (x, y, z) with camera `cam`; `alpha` the unit's, `t` the clock (a slow pulse).
+   * @param {Camera} cam @param {number} x @param {number} y @param {number} z @param {number} alpha @param {number} t
+   */
   update(cam, x, y, z, alpha, t) {
     const m = this.mesh, R = ELITE_RING.r;
     const v = m.vertices;

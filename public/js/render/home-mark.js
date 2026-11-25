@@ -14,6 +14,7 @@
 // While the drag lasts one Sprite is placed per frame — nothing redrawn or allocated (CONTRIBUTING "Per-frame
 // rendering"); only one piece is dragged at a time.
 
+/** @import { Camera } from './projection.js' */
 import { COLORS } from './style.js';
 
 export const HOME_MARK = Object.freeze({
@@ -42,12 +43,12 @@ const MAX_SIDE = 1024;
 
 export class HomeMark {
   /**
-   * @param {any} P PIXI
-   * @param {any} renderer
-   * @param {any} body the view's model container (UnitView.body), drawn as it stands now
+   * @param {typeof PIXI} P PIXI
+   * @param {PIXI.Renderer} renderer
+   * @param {PIXI.Container} body the view's model container (UnitView.body), drawn as it stands now
    * @param {{ x: number, y: number, z: number }} at the world point drawn at the body's origin
    * @param {number} s screen px per tile the body is drawn at now
-   * @param {any} layer the depth-sorted unit layer
+   * @param {PIXI.Container} layer the depth-sorted unit layer
    * @returns {HomeMark|null} null without a renderer, a drawn body or a render target
    */
   static draw(P, renderer, body, at, s, layer) {
@@ -97,6 +98,10 @@ export class HomeMark {
     }
   }
 
+  /**
+   * @param {typeof PIXI} P PIXI @param {PIXI.Texture} texture the mark's picture @param {number} ax @param {number} ay its
+   * anchor @param {{ x: number, y: number, z: number }} at @param {number} s @param {PIXI.Container} layer
+   */
   constructor(P, texture, ax, ay, at, s, layer) {
     this.texture = texture;
     this.at = { x: at.x, y: at.y, z: at.z };
@@ -107,7 +112,10 @@ export class HomeMark {
     layer.addChild(this.sprite);
   }
 
-  /** The frame's place: on its world point, scaled with the camera, turned by its lean; `depth` = its zIndex. */
+  /**
+   * The frame's place: on its world point, scaled with the camera, turned by its lean; `depth` = its zIndex.
+   * @param {Camera} cam @param {number} depth
+   */
   place(cam, depth) {
     const a = this.at, p = cam.project(a.x, a.y, a.z, this.p);
     const sp = this.sprite;

@@ -33,34 +33,58 @@ const PAD = 2;
 /** Outline width, cell CSS px (≈ 2 screen px at a 1080p prep board: the official ring around a dragged item). */
 const OUTLINE_PX = 2;
 
+/**
+ * An item's model entry (assets.itemSpine), the skeleton data the assets store hands out for it (pixi-spine's, read for
+ * its clip names), the store's members read here, a cell of the page, a snapshot, an `acquire` reference and an outline.
+ * @typedef {{ anims?: { idle?: unknown } | null, [key: string]: unknown }} ItemEntry
+ * @typedef {{ animations?: Array<{ name?: string } | undefined> }} ItemSpineData
+ * @typedef {{ spine: { acquire(entry: ItemEntry): Promise<ItemSpineData>, release(entry: ItemEntry): void } }} ItemAssets
+ * @typedef {{ texture: PIXI.Texture, ax: number, ay: number, k: number, top: number, bottom: number, width: number }} ItemSnap
+ * @typedef {{ entry: ItemEntry, refs: number, index: number, texture: PIXI.Texture | null, snap: ItemSnap | null,
+ *   spine: PIXI.Container | null, data: ItemSpineData | null, gone: boolean, ready?: Promise<ItemSnap | null>,
+ *   failed?: boolean, shrunk?: boolean }} ItemCell
+ * @typedef {{ cell: ItemCell, ready: Promise<ItemSnap | null> | undefined, released?: boolean }} ItemRef
+ * @typedef {{ rt: PIXI.Texture, texture: PIXI.Texture, color: number }} ItemOutline
+ */
+
 export class ItemModels {
   /**
-   * @param {any} renderer PIXI renderer
-   * @param {any} assets the render host's assets (assets.js: `spine.acquire / release`)
+   * @param {PIXI.Renderer} renderer PIXI renderer
+   * @param {ItemAssets | null | undefined} assets the render host's assets (assets.js: `spine.acquire / release`)
    */
   constructor(renderer, assets) {
     this.P = globalThis.PIXI;
     this.R = renderer;
-    this.assets = assets;
+    this.assets = /** @type {ItemAssets} */ (assets); // acquire() checks it before any use
     this.res = Math.max(1, Math.min(2, renderer?.resolution || 1));
     this.size = Math.floor(PAGE_PX / this.res);          // CSS px per page side
     this.cols = Math.max(1, Math.floor(this.size / CELL));
+    /** @type {PIXI.Texture | null} */
     this.rt = null;                                       // created with the first model
+    /** @type {Map<ItemEntry, ItemCell>} */
     this.cells = new Map();                               // entry → cell
+    /** @type {number[]} */
     this.free = [];                                       // cell indexes never used or given back
     for (let i = this.cols * this.cols - 1; i >= 0; i--) this.free.push(i);
+    /** @type {Set<ItemCell>} */
     this.idle = new Set();                                // cells with no reference, oldest release first
     this.stats = { cells: 0, drawn: 0, full: 0, failed: 0, shrunk: 0 };   // shrunk: models drawn under REF_PX to fit
+    /** @type {Map<PIXI.Texture, ItemOutline>} */
     this.outlines = new Map();                            // snapshot texture → its outline's render texture
     this._ctx = { contextChange: () => this._redrawAll() };
     try { renderer?.runners?.contextChange?.add(this._ctx); } catch { /* no runner: no restore */ }
   }
 
-  /** A reference to the snapshot of `entry` (null without an entry); `ready` resolves to the snapshot or null. */
+  /**
+   * A reference to the snapshot of `entry` (null without an entry); `ready` resolves to the snapshot or null.
+   * @param {ItemEntry | null | undefined} entry
+   * @returns {ItemRef | null}
+   */
   acquire(entry) {
     if (!entry || !this.assets?.spine) return null;
     let cell = this.cells.get(entry);
     if (!cell) {
+      /** @type {ItemCell} */
       cell = { entry, refs: 0, index: -1, texture: null, snap: null, spine: null, data: null, gone: false };
       cell.ready = this._load(cell);
       this.cells.set(entry, cell);
@@ -71,7 +95,7 @@ export class ItemModels {
     return { cell, ready: cell.ready };
   }
 
-  /** Give back a reference of `acquire` (once each). */
+  /** Give back a reference of `acquire` (once each). @param {ItemRef | null | undefined} ref */
   release(ref) {
     const cell = ref?.cell;
     if (!cell || ref.released) return;
@@ -81,6 +105,7 @@ export class ItemModels {
     else if (!cell.ready || cell.failed) this._drop(cell);
   }
 
+  /** @param {ItemCell} cell @returns {Promise<ItemSnap | null>} */
   async _load(cell) {
     let data;
     try {
@@ -102,7 +127,7 @@ export class ItemModels {
       spine.update(0);
       cell.spine = spine;
     } catch (err) {
-      console.warn('[render] item model build failed', err?.message || err);
+      console.warn('[render] item model build failed', /** @type {{ message?: unknown } | null | undefined} */ (err)?.message || err);
       this.stats.failed++;
       cell.failed = true;
       this._release(cell.entry);
@@ -119,17 +144,24 @@ export class ItemModels {
     return cell.snap;
   }
 
-  /** A free cell index: a never-used / given-back one, else the oldest idle cell's (that cell is dropped); -1 when full. */
+  /**
+   * A free cell index: a never-used / given-back one, else the oldest idle cell's (that cell is dropped); -1 when full.
+   * @returns {number}
+   */
   _cellIndex() {
-    if (this.free.length) return this.free.pop();
+    if (this.free.length) return /** @type {number} */ (this.free.pop());
     for (const old of this.idle) {
       this._drop(old);
-      if (this.free.length) return this.free.pop();
+      if (this.free.length) return /** @type {number} */ (this.free.pop());
     }
     return -1;
   }
 
-  /** Draw `cell.spine` into its cell; the snapshot, or null when the page cannot be made. */
+  /**
+   * Draw `cell.spine` into its cell; the snapshot, or null when the page cannot be made.
+   * @param {ItemCell} cell
+   * @returns {ItemSnap | null}
+   */
   _draw(cell) {
     const P = this.P;
     if (!this.rt) {
@@ -176,7 +208,7 @@ export class ItemModels {
    * that is being dragged in its slot), a texture of the cell's size and anchor. Drawn once per model, the first time
    * one is dragged, into a small render texture of its own: the silhouette is the snapshot drawn at offsets around a
    * circle, then filled with the colour by a SRC_IN pass — no filter, nothing redrawn per frame.
-   * @param {{ texture: any }|null} snap
+   * @param {{ texture: PIXI.Texture } | null | undefined} snap
    * @param {number} color 0xRRGGBB
    */
   outline(snap, color) {
@@ -192,6 +224,7 @@ export class ItemModels {
     return rt;
   }
 
+  /** @param {ItemOutline} o */
   _drawOutline(o) {
     const P = this.P;
     const box = new P.Container();
@@ -210,6 +243,7 @@ export class ItemModels {
     return ok;
   }
 
+  /** @param {PIXI.Texture} texture */
   _dropOutline(texture) {
     const o = this.outlines.get(texture);
     if (!o) return;
@@ -224,17 +258,21 @@ export class ItemModels {
     for (const o of this.outlines.values()) this._drawOutline(o);
   }
 
+  /** @param {ItemEntry} entry */
   _release(entry) { try { this.assets.spine.release(entry); } catch { /* ignore */ } }
 
+  /** @param {ItemCell} cell */
   _dropSpine(cell) {
     if (cell.spine) { try { cell.spine.destroy({ children: true }); } catch { /* ignore */ } cell.spine = null; }
     if (cell.data) { this._release(cell.entry); cell.data = null; }
   }
 
+  /** @param {ItemCell} cell */
   _free(cell) {
     if (cell.index >= 0) { this.free.push(cell.index); cell.index = -1; }
   }
 
+  /** @param {ItemCell} cell */
   _drop(cell) {
     if (cell.gone) return;
     cell.gone = true;

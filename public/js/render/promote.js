@@ -7,21 +7,29 @@
 // on the elite (fx.promote: gold pillar + rings, streaks from the vanished copies) instead of the plain deploy flash.
 
 /**
- * @template {{ uid: number, area: string, piece: any }} E
+ * A prep piece as setPrep lists it (render/app.js prepPieces): the fields read here.
+ * @typedef {{ kind?: string, id: string, golden?: boolean, [key: string]: unknown }} PromotePiece
+ * @typedef {(id: string) => { baseId?: string, isGolden?: boolean } | null | undefined} ChessOf
+ */
+
+/**
+ * @template {{ uid: number, area: string, piece: PromotePiece }} E
  * @param {Array<E>} prev entries of the previous setPrep (render/app.js prepPieces)
  * @param {Array<E>} next entries of this setPrep
- * @param {(id: string) => any} chessOf chess record lookup (`baseId`, `isGolden`)
+ * @param {ChessOf} chessOf chess record lookup (`baseId`, `isGolden`)
  * @returns {Map<number, Array<E>>} new elite uid → the vanished copies (prev entries)
  */
 export function promotionsOf(prev, next, chessOf) {
+  /** @type {Map<number, Array<E>>} */
   const out = new Map();
   if (!Array.isArray(prev) || !prev.length || !Array.isArray(next)) return out;
   const before = new Set(prev.map((e) => e.uid));
   const now = new Set(next.map((e) => e.uid));
-  const baseOf = (id) => chessOf(id)?.baseId || id;
-  const isElite = (p) => !!(p?.golden || chessOf(p?.id)?.isGolden);
+  const baseOf = (/** @type {string} */ id) => chessOf(id)?.baseId || id;
+  const isElite = (/** @type {PromotePiece} */ p) => !!(p?.golden || chessOf(p?.id)?.isGolden);
   const gone = prev.filter((e) => e.piece?.kind === 'chess' && !now.has(e.uid) && !isElite(e.piece));
   if (!gone.length) return out;
+  /** @type {Set<number>} */
   const used = new Set();
   for (const e of next) {
     if (e.piece?.kind !== 'chess' || before.has(e.uid) || !isElite(e.piece)) continue;
@@ -41,14 +49,16 @@ export function promotionsOf(prev, next, chessOf) {
  * (a strategy, a reward, a 特质) or the 升华 buy. An elite that only moved keeps its uid (none); an in-place promotion
  * (博士投影, PlayerState.promote) keeps it too. The caller decides when the previous state counts (render/app.js setPrep:
  * not the first state of a page). docs/rules/audio.md 「배치 효과음」 「정예 합성음」.
- * @param {Array<{ uid: number, piece: any }>} prev entries of the previous setPrep
- * @param {Array<{ uid: number, piece: any }>} next entries of this setPrep
- * @param {(id: string) => any} chessOf chess record lookup (`isGolden`)
+ * @param {Array<{ uid: number, piece: PromotePiece }>} prev entries of the previous setPrep
+ * @param {Array<{ uid: number, piece: PromotePiece }>} next entries of this setPrep
+ * @param {ChessOf} chessOf chess record lookup (`isGolden`)
  * @returns {number[]} the new elites' uids
  */
 export function newElitesOf(prev, next, chessOf) {
   if (!Array.isArray(next)) return [];
+  /** @type {Set<number>} */
   const seen = new Set(Array.isArray(prev) ? prev.map((e) => e.uid) : []);
+  /** @type {number[]} */
   const out = [];
   for (const e of next) {
     if (e?.piece?.kind !== 'chess' || seen.has(e.uid)) continue;

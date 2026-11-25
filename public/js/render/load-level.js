@@ -31,6 +31,8 @@ export const frameScale = (limit) => (limit > 0 && limit < 60 ? 60 / limit : 1);
 /**
  * A frame-weighted mean of a per-frame value whose frames are forgotten with the time constant `tau` (s): each frame
  * adds one frame and its value, both decayed by e^(−dt/tau) — the mean over roughly the last `tau` s.
+ * @param {number} tau
+ * @returns {(dt: number, x: number) => number}
  */
 export function meanOf(tau) {
   let n = 0, v = 0;
@@ -42,7 +44,11 @@ export function meanOf(tau) {
   };
 }
 
-/** The mean frame interval (ms) of roughly the last `tau` s (meanOf of the intervals: a long frame counted once). */
+/**
+ * The mean frame interval (ms) of roughly the last `tau` s (meanOf of the intervals: a long frame counted once).
+ * @param {number} tau
+ * @returns {(dt: number) => number}
+ */
 export function meanWindow(tau) {
   const m = meanOf(tau);
   return (dt) => m(dt, dt * 1000);
@@ -60,6 +66,7 @@ export function loadLevelStepper() {
   const up = meanWindow(LOAD_STEP.upTau), down = meanWindow(LOAD_STEP.downTau), work = meanOf(LOAD_STEP.upTau);
   const s = { level: 0, upMs: 0, downMs: 0, workMs: 0, worst: 0, step };
   let slowFor = 0, fastFor = 0;
+  /** @param {number} dt @param {boolean} busy @param {number} [workMs] @param {number} [scale] @returns {number | null} */
   function step(dt, busy, workMs = dt * 1000, scale = 1) {
     s.upMs = up(dt);
     s.downMs = down(dt);

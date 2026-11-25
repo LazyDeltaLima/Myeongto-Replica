@@ -32,50 +32,68 @@ export const OFFICIAL_NUM = Object.freeze({
   block: Object.freeze({ color: '#ff9000', font: 'sp-num-off-block', chars: 'BLOCK' }),
 });
 /** DOTween's eases (DG.Tweening.Ease OutExpo 18 / InExpo 17 / OutCubic 9) on 0..1. */
-export const outExpo = (k) => (k >= 1 ? 1 : 1 - 2 ** (-10 * k));
-export const inExpo = (k) => (k <= 0 ? 0 : 2 ** (10 * (k - 1)));
-const outCubic = (k) => 1 - (1 - k) ** 3;
+export const outExpo = (/** @type {number} */ k) => (k >= 1 ? 1 : 1 - 2 ** (-10 * k));
+export const inExpo = (/** @type {number} */ k) => (k <= 0 ? 0 : 2 ** (10 * (k - 1)));
+const outCubic = (/** @type {number} */ k) => 1 - (1 - k) ** 3;
 /** Bitmap font size (px) the glyphs are rendered at; drawn scaled to the HUD size. */
 const GLYPH = 60;
 const MAX = 80;
 
 // Generated once, at the first number (the HUD's CSS already uses the font, so it is normally loaded by then).
+/**
+ * @typedef {'dmg' | 'heal' | 'blue' | 'block'} NumKind
+ * @typedef {{ screen?: { x: number, y: number } | null, hudAnchor?: number }} NumView the unit view's fields read here
+ * @typedef {{ text: PIXI.Container, font: string, view: NumView | null, kind: NumKind, crit: boolean, age: number,
+ *   dx: number, dy: number, x: number, y: number, anchor: number }} OffNum a number on screen (pooled per font)
+ * @typedef {{ P: typeof PIXI, layers: { text: PIXI.Container },
+ *   viewport?: () => { width: number, height: number } | null | undefined }} NumCtx the field view's members read here
+ */
+
 let fonts = false;
+/** @param {typeof PIXI} P */
 function ensureFonts(P) {
   if (fonts) return;
   for (const k of ['dmg', 'heal', 'blue', 'block']) {
-    const o = OFFICIAL_NUM[k];
+    const o = /** @type {{ font: string, color: string, chars?: string }} */ (OFFICIAL_NUM[/** @type {NumKind} */ (k)]);
     try {
       P.BitmapFont.from(o.font, {
         fontFamily: ['Novecento Wide', 'Bender', 'sans-serif'], fontSize: GLYPH, fill: o.color,
         // Shadow (1, −1) at 30 → 2 px down-right at the glyph size
         dropShadow: true, dropShadowColor: '#000000', dropShadowAlpha: 0.5, dropShadowDistance: 2 * Math.SQRT2, dropShadowAngle: Math.PI / 4, dropShadowBlur: 0,
       }, { chars: o.chars ? [o.chars] : [['0', '9'], '+'], resolution: 1, padding: 4 });
-    } catch (err) { console.warn('[num] bitmap font', o.font, err?.message || err); }
+    } catch (err) { console.warn('[num] bitmap font', o.font, /** @type {{ message?: unknown } | null | undefined} */ (err)?.message || err); }
   }
   fonts = true;
 }
 
 /** The official numbers of one field view: `damage` / `heal` spawn, `update` animates, `destroy` frees. */
 export class OfficialNumbers {
+  /** @param {NumCtx} ctx */
   constructor(ctx) {
     this.ctx = ctx; this.P = ctx.P;
+    /** @type {OffNum[]} */
     this.live = [];
+    /** @type {Map<string, OffNum[]>} */
     this.pool = new Map();
     try { globalThis.document?.fonts?.load?.(`${GLYPH}px "Novecento Wide"`)?.catch?.(() => {}); } catch { /* ignore */ }
   }
 
-  /** A damage number of `amount` on `view` when `flag` (1 crit, 2 forced) says so. */
+  /** A damage number of `amount` on `view` when `flag` (1 crit, 2 forced) says so. @param {NumView | null | undefined} view @param {number} amount @param {number} [flag] */
   damage(view, amount, flag) {
-    if (!(flag > 0)) return;
+    if (!(/** @type {number} */ (flag) > 0)) return;
     this._spawn(view, amount, 'dmg', flag === 1);
   }
 
+  /** @param {NumView | null | undefined} view @param {number} amount */
   heal(view, amount) { this._spawn(view, amount, 'heal', false); }
 
-  /** A red number stopped by a shield: `shown` → the blue number of `amount`, else 「BLOCK」. */
+  /**
+   * A red number stopped by a shield: `shown` → the blue number of `amount`, else 「BLOCK」.
+   * @param {NumView | null | undefined} view @param {number} amount @param {unknown} shown
+   */
   blocked(view, amount, shown) { this._spawn(view, amount, shown ? 'blue' : 'block', false); }
 
+  /** @param {NumView | null | undefined} view @param {number} amount @param {NumKind} kind @param {boolean} crit */
   _spawn(view, amount, kind, crit) {
     const n = Math.round(amount);
     if (!(n > 0 || kind === 'block') || !view || !view.screen) return;
@@ -86,7 +104,7 @@ export class OfficialNumbers {
       const text = new this.P.BitmapText('0', { fontName: o.font, fontSize: GLYPH, align: 'center' });
       text.anchor.set(0.5);
       this.ctx.layers.text.addChild(text);
-      t = { text, font: o.font };
+      t = /** @type {OffNum} */ ({ text, font: o.font });   // the rest is set below
     }
     t.text.text = kind === 'block' ? 'BLOCK' : (kind === 'heal' ? '+' : '') + n;
     t.text.visible = true;
@@ -94,13 +112,14 @@ export class OfficialNumbers {
     t.dx = (Math.random() * 2 - 1) * OFFICIAL_NUM.spread[0];
     t.dy = (Math.random() * 2 - 1) * OFFICIAL_NUM.spread[1];
     t.x = view.screen.x; t.y = view.screen.y; t.anchor = view.hudAnchor ?? HUD_ANCHOR; // hud_unit over the point (units.js)
-    if (this.live.length >= MAX) this._free(this.live.shift());
+    if (this.live.length >= MAX) this._free(/** @type {OffNum} */ (this.live.shift()));
     this.live.push(t);
     this._place(t);
   }
 
+  /** @param {OffNum} t */
   _place(t) {
-    const O = OFFICIAL_NUM, o = O[t.kind];
+    const O = OFFICIAL_NUM, o = /** @type {{ rise: number }} */ (O[t.kind]);   // read in the heal branch only
     const u = hudUnit(this.ctx.viewport?.());
     // stays where it spawned: the client parents the text to the battle UI's text layer and sets its position once from the
     // unit HUD's `popup` (UIController.ShowNumericText → UIPopup.InitPosition), so it does not follow
@@ -121,7 +140,7 @@ export class OfficialNumbers {
     t.text.alpha = 1 - inExpo(k);
   }
 
-  /** Advance by `dt` real seconds. */
+  /** Advance by `dt` real seconds. @param {number} dt */
   update(dt) {
     let w = 0;
     for (const t of this.live) {
@@ -133,6 +152,7 @@ export class OfficialNumbers {
     this.live.length = w;
   }
 
+  /** @param {OffNum} t */
   _free(t) {
     t.text.visible = false; t.view = null;
     let list = this.pool.get(t.font);

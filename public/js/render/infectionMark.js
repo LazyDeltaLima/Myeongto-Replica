@@ -16,7 +16,7 @@
 
 export const MARK = Object.freeze({ icon: 0.254, glow: 0.536, lift: 0.077, period: 2 / 3 });
 
-/** Tint red, alpha, scale of the icon at time t (s): the clip's 3 keys, eased (Hermite with flat ends ≈ cosine). */
+/** Tint red, alpha, scale of the icon at time t (s): the clip's 3 keys, eased (Hermite with flat ends ≈ cosine). @param {number} t */
 export function markPhase(t) {
   const u = ((t % MARK.period) + MARK.period) % MARK.period / MARK.period;   // 0..1
   const k = 0.5 - 0.5 * Math.cos(u * 2 * Math.PI);                            // 0 → 1 (mid) → 0
@@ -32,9 +32,12 @@ export function markPhase(t) {
  * player's field — starts over, as every battle numbers its units from 1 again (sim Battle `_idSeq`), so the keys a
  * battle marked would otherwise mark the next one's units (maintainer report 2026-11-03: an enemy that crossed the tile
  * in battle was marked in the 联防 battle too). `clear()` outside a battle.
+ * @returns {{ see(battle: unknown, key: unknown, onTile: unknown): boolean, clear(): void }}
  */
 export function createInfectionTouches() {
+  /** @type {Set<unknown>} */
   const touched = new Set();
+  /** @type {unknown} */
   let current = null;
   return {
     see(battle, key, onTile) {
@@ -48,11 +51,17 @@ export function createInfectionTouches() {
 
 /** Size of the client textures (px) — the sprites are scaled from it, also while they still load. */
 const TEX = 128;
-const hexRed = (v) => (Math.round(Math.max(0, Math.min(1, v)) * 255) << 16);
+const hexRed = (/** @type {number} */ v) => (Math.round(Math.max(0, Math.min(1, v)) * 255) << 16);
 
+/**
+ * @param {typeof PIXI} P @param {PIXI.Container | null | undefined} layer
+ * @param {{ icon?: string | null, glow?: string | null } | null | undefined} urls the client textures' URLs
+ * @returns {{ update(list: ReadonlyArray<{ x: number, y: number, s: number }> | null | undefined, t: number): void, destroy(): void }}
+ */
 export function createInfectionMarks(P, layer, urls) {
   let texIcon = null, texGlow = null;
   try { if (urls?.icon && urls?.glow) { texIcon = P.Texture.from(urls.icon); texGlow = P.Texture.from(urls.glow); } } catch { texIcon = texGlow = null; }
+  /** @type {Array<{ c: PIXI.Container, glow: PIXI.Sprite, icon: PIXI.Sprite }>} */
   const pool = [];
   const root = new P.Container();
   layer?.addChild?.(root);
@@ -69,11 +78,11 @@ export function createInfectionMarks(P, layer, urls) {
   return {
     update(list, t) {
       const n = texIcon && texGlow && Array.isArray(list) ? list.length : 0;
-      const ph = n ? markPhase(t) : null;
+      const ph = /** @type {ReturnType<typeof markPhase>} */ (n ? markPhase(t) : null);   // read only while n > 0
       for (let i = 0; i < Math.max(n, pool.length); i++) {
         if (i >= n) { pool[i].c.visible = false; continue; }
         const m = pool[i] || (pool[i] = make());
-        const p = list[i];
+        const p = /** @type {ReadonlyArray<{ x: number, y: number, s: number }>} */ (list)[i];
         m.c.visible = true;
         m.c.position.set(p.x, p.y - MARK.lift * p.s);
         const g = (MARK.glow * p.s) / TEX;

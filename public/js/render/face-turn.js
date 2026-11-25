@@ -36,6 +36,7 @@ export const SWITCH_TIME = 0.15;
  * the way to edge-on in the first half and back from it in the second (the change happens at dur/2); 1 once it is over.
  * The angle comes from `Quaternion.Lerp(identity, 90° about the axis, k)`, the normalised lerp, whose quaternion is
  * (w, y) = (1 − k + k·√½, k·√½): cos(angle) = (w² − y²) / (w² + y²).
+ * @param {number} t @param {number} [dur]
  */
 export function turnWidth(t, dur = SWITCH_TIME) {
   if (!(t < dur) || !(dur > 0)) return 1;
@@ -48,6 +49,8 @@ export function turnWidth(t, dur = SWITCH_TIME) {
 /**
  * `MapUtil.ParseDirection(v, addon)`: the direction whose unit vector has the largest dot product with v normalised,
  * LEFT / RIGHT getting `addon` on top (the first of equal ones wins). null for a zero vector.
+ * @param {number} dx @param {number} dy @param {number} [addon]
+ * @returns {string | null}
  */
 export function parseDir(dx, dy, addon = 0) {
   const len = Math.hypot(dx, dy);
@@ -66,6 +69,9 @@ export function parseDir(dx, dy, addon = 0) {
  * mirror; UP / DOWN keep the default right), `ud` 'UP' | 'DOWN' (Back model for UP), `dir4` its 4-way face direction
  * (`Entity.faceDirection` = ParseDirection(faceTo, 0): effects that turn with their owner read it), `to` the face
  * vector itself (`Entity.m_faceTo`, normalised: a FollowDirection effect reads its x, 2026-10-22).
+ * @typedef {{ lr: number, ud: string, dir4: string, to: { x: number, y: number } }} FaceState
+ * @param {string} dir
+ * @returns {FaceState}
  */
 export function faceOf(dir) {
   const d = DIRS.includes(dir) ? dir : 'RIGHT';
@@ -77,6 +83,7 @@ export function faceOf(dir) {
  * Turn facing state `f` toward the vector (dx, dy) (`idle`: FaceToDirection(idle) — the way back to the deploy
  * direction). Mutates `f`; returns 0 nothing changed, 1 the mirror / face direction changed, 2 the up / down half too
  * (the model swaps Front ⇄ Back).
+ * @param {FaceState} f @param {number} dx @param {number} dy @param {boolean} [idle]
  */
 export function turnFace(f, dx, dy, idle = false) {
   const plain = parseDir(dx, dy, 0);
@@ -96,7 +103,7 @@ export function turnFace(f, dx, dy, idle = false) {
   return changed;
 }
 
-/** The vector of a direction name (UP = +y). */
+/** The vector of a direction name (UP = +y). @param {string} dir */
 export function dirVector(dir) {
   return VEC[Math.max(0, DIRS.indexOf(dir))];
 }
