@@ -287,7 +287,6 @@
  "server/sim/damage.js": 5,
  "server/sim/grid.js": 3,
  "server/sim/nodeData.js": 3,
- "server/sim/professions.js": 8,
  "server/sim/projectiles.js": 1,
  "server/sim/routePreview.js": 3,
  "server/sim/simdata.js": 70,

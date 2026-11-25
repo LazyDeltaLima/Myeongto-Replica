@@ -56,19 +56,26 @@ import { COLS, CHAIN_RADIUS } from './constants.js';
 /** @import { Buff } from './battle/status.js' */
 
 /**
+ * The hit a profile callback is told about (ai.js resolveHit / performAttack): its { isSkill, index, attackId } and, for
+ * a 秘术师, the energies that leave with it; `afterHit` also gets { dealt, x, y } and the profile the shot was fired with.
+ * @typedef {{ isSkill?: boolean, index?: number, attackId?: number, energy?: number, dealt?: number, x?: number, y?: number,
+ *   profile?: Profile, [key: string]: unknown }} HitInfo
+ */
+
+/**
  * An attack profile (the fields above; a kit's trait adds its own): the callbacks the profession tables give are typed,
  * the rest is read field by field.
  * @typedef {{
- *   [key: string]: any,
+ *   [key: string]: any, // any: a kit's trait adds fields of its own, read field by field across ai.js / targeting.js / the kits
  *   install?(battle: Battle, unit: ProfiledUnit): void,
  *   dmgMul?(battle: Battle, unit: ProfiledUnit, target: Unit): number,
- *   afterHit?(battle: Battle, unit: ProfiledUnit, target: Unit, info: Record<string, any>): void,
+ *   afterHit?(battle: Battle, unit: ProfiledUnit, target: Unit, info: HitInfo & { dealt: number, x: number, y: number }): void,
  *   canAttack?(battle: Battle, unit: ProfiledUnit): boolean,
  *   afterAttack?(battle: Battle, unit: ProfiledUnit, targets?: Unit[]): void,
- *   funnelMul?(battle: Battle, unit: ProfiledUnit, target: Unit, info?: Record<string, any>): number,
+ *   funnelMul?(battle: Battle, unit: ProfiledUnit, target: Unit, info?: HitInfo): number,
  *   storeEnergy?(battle: Battle, unit: ProfiledUnit): boolean,
  *   releaseEnergy?(battle: Battle, unit: ProfiledUnit): number,
- *   hitsFn?(battle: Battle, unit: ProfiledUnit, info?: Record<string, any>): number,
+ *   hitsFn?(battle: Battle, unit: ProfiledUnit, info?: HitInfo): number,
  * }} Profile
  * A unit whose profile is resolved (battle/players.js _setupUnit): what the install helpers and the profile callbacks
  * get. An install helper that sets its own `trait` fields first takes the unit with them set (`LibratorUnit` …).
@@ -76,7 +83,7 @@ import { COLS, CHAIN_RADIUS } from './constants.js';
  * @typedef {ProfiledUnit & { trait: ProfessionState & { ramp: number } }} LibratorUnit
  * @typedef {ProfiledUnit & { trait: ProfessionState & { ammo: number, reloading: boolean, reloadCd: number } }} HunterUnit
  * A trait blackboard (`def.traitBb`, data `trait.bb`).
- * @typedef {Record<string, any>} TraitBb
+ * @typedef {Record<string, unknown>} TraitBb
  */
 
 /** @param {Profile} o @returns {Readonly<Profile>} */
@@ -263,7 +270,7 @@ const installDollkeeper = (battle, unit) => {
     const tok = tokId ? battle.data.getToken?.(tokId, unit.defId, unit.def?.loadout ?? null) : null;
     return tok && tok.stats.maxHp > 0 ? Math.max(0.05, tok.stats.maxHp / Math.max(1, unit.base.maxHp)) : 1;
   };
-  const at = (/** @type {Record<string, any>} */ extra) => ({ x: unit.x, y: unit.y, id: unit.id, ...extra });
+  const at = (/** @type {Record<string, unknown>} */ extra) => ({ x: unit.x, y: unit.y, id: unit.id, ...extra });
   // a switch animation: "切换动画开始时会清除自身一切Buff" (header: the running skill and the statuses), then 2 s of 不死
   // (the fatal hook below) 无敌 阻回 禁疗 孤立 强制缴械 and 眩晕 / 冻结 / 睡眠 immunity (beforeStatus below). "切换途中重设自身
   // 生命至最大值": the HP is set to the max at the start (enter / leave) and again when the switch ends, so she always
@@ -495,16 +502,18 @@ const installTactician = (battle, unit) => {
 /** @param {Battle} battle @param {ProfiledUnit} unit */
 const installFunnel = (battle, unit) => {
   // PRTS 分支特性信息 驭械术师: changing the target, or redeploying, resets the drone ramp at once, even against the
-  // same living enemy. The per-target map (耶拉 / 至简) resets with it. A free move (moveRedeploy, the same carry as a
-  // 秘术师's stored energy and 乌尔比安 S3) keeps the ramp. An in-flight drone still applies the ramp it computes on
-  // impact, so a shot launched before the reset can step the new ramp.
+  // same living enemy. The per-target map (耶拉 / 至简) resets with it. A 【移动】 (moveRedeploy) resets it too: the ramp is
+  // the trait ability's own state (CammouTrait: last target, stack count, set from the ability's blackboard when its data
+  // is set), not the card's shared blackboard, and the new character a 【移动】 spawns sets its data anew (checked against
+  // the official client; docs/rules/sim.md 「【移动】과 전역 버프」). An in-flight drone still applies the ramp it computes
+  // on impact, so a shot launched before the reset can step the new ramp.
   const reset = () => {
     unit.trait.funnelTarget = null;
     unit.trait.funnelScale = unit.profile.funnel?.init ?? 0.2;
     unit.trait.funnelMap?.clear();
   };
   reset();
-  battle.on('deploy', (ctx) => { if (ctx.unit === unit && !ctx.move) reset(); }, { owner: unit });
+  battle.on('deploy', (ctx) => { if (ctx.unit === unit) reset(); }, { owner: unit });
 };
 
 /**
@@ -519,13 +528,16 @@ const installFunnel = (battle, unit) => {
  * performAttack after `beforeAttack`: "攻击被打断且弹道未能成功生成的情况下，储存的能量不会被消耗") with its main target and land
  * with its main hit, one damage instance each (`hitsFn`; "由储存能量形成的弹道造成攻击力100%的法术普通伤害" — each as the
  * main hit). A redeployment holds no energy — each deployment is a new unit in the official client (docs/rules/diy.md
- * 「선발 추가 벨로네·비이·지마 더 레이징 타이드·Mon3tr」) — while a free move (乌尔比안 S3) keeps them. Kits with their own store
+ * 「선발 추가 벨로네·비이·지마 더 레이징 타이드·Mon3tr」) — and neither does a 【移动】: the count is the charge ability's own
+ * (ChargeRangedAttack / AbilityChargeableGroup `m_chargeTimes`, 0 when its data is set), not the card's shared
+ * blackboard, and the 【移动】's new character sets its data anew (checked against the official client; docs/rules/sim.md
+ * 「【移动】과 전역 버프」). Kits with their own store
  * (维伊's 转置能量, 黑键's elite energies) replace `storeEnergy` and release theirs from an `attack` hook.
  */
 /** @param {Battle} battle @param {ProfiledUnit} unit */
 const installMystic = (battle, unit) => {
   unit.trait.stored = 0;
-  battle.on('deploy', (ctx) => { if (ctx.unit === unit && !ctx.move) unit.trait.stored = 0; }, { owner: unit });
+  battle.on('deploy', (ctx) => { if (ctx.unit === unit) unit.trait.stored = 0; }, { owner: unit });
 };
 
 /** Refresh period / lifetime (s) of a bard trait's 生命回复速度 buff: it lapses within BARD_REGEN_DUR once the bard stops. */
@@ -732,10 +744,17 @@ export const SUB = Object.freeze({
 });
 
 /**
+ * The unit def fields resolveProfile and the tunables read (Unit `def`: the normalised chess / token / enemy / device).
+ * @typedef {{ profession: string, subProf?: string | null, traitBb?: TraitBb, trait?: string | null, charId?: string,
+ *   raw?: { charId?: string, trait?: { rangeGrid?: unknown } } | null, attackKind?: string | null, dmgType?: string | null,
+ *   projectile?: string | null, canHitFly?: boolean | null, targetPriority?: string | null, splashRadius?: number | null,
+ *   type?: string, stats: { atk: number }, [key: string]: unknown }} ProfileDef
+ */
+/**
  * Trait tunables per subprofession, read from the trait text and the trait blackboard (`def.traitBb`, data
  * `trait.bb`; elites include their module upgrade). Returns profile overrides.
  */
-/** @type {Record<string, (tb: TraitBb, def: Record<string, any>, p: Profile) => Profile>} */
+/** @type {Record<string, (tb: TraitBb, def: ProfileDef, p: Profile) => Profile>} */
 const TUNE = {
   fastshot: (tb) => ({ flyScale: num(tb.atk_scale, 1) }),
   bombarder: (tb) => ({ shockScale: num(tb['attack@append_atk_scale'], 0.5), shockTimes: num(tb['attack@times'], 2) }),
@@ -796,7 +815,7 @@ const PRIORITY_ALIASES = {
 
 /**
  * Resolve the attack profile of a unit def. `kitTrait` (optional) overrides everything.
- * @param {Record<string, any>} def @param {Profile | null} [kitTrait]
+ * @param {ProfileDef} def @param {Profile | null} [kitTrait]
  * @returns {Profile} mutable profile
  */
 export function resolveProfile(def, kitTrait = null) {

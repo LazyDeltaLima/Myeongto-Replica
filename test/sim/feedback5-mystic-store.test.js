@@ -92,7 +92,7 @@ test('a bind on her only target is no valid target: her next attack check stores
   done(h);
 });
 
-test('disarmed (缴械) or stunned: no storing; an attack cancelled before its shot keeps the energies; a redeployment holds none [ASSUMED]', () => {
+test('disarmed (缴械) or stunned: no storing; an attack cancelled before its shot keeps the energies; a redeployment holds none', () => {
   const h = field();
   const u = h.unit(ID);
   h.step();
@@ -119,5 +119,17 @@ test('disarmed (缴械) or stunned: no storing; an attack cancelled before its s
   h.b.retreat(u);
   h.b.redeploy(u, { free: true });
   assert.equal(u.trait.stored, 0, 'a redeployment holds no energy');
+  done(h);
+});
+
+test('a 【移动】 holds no energy either: the new character\'s charge ability starts at 0 (docs/rules/sim.md 「【移动】과 전역 버프」)', () => {
+  const h = field();
+  const u = h.unit(ID);
+  h.run(5);
+  assert.ok(u.trait.stored >= 2, `stored ${u.trait.stored}`);
+  assert.equal(h.b.moveRedeploy(u, 10, 3), true);
+  assert.equal(u.trait.stored, 0, 'the official 【移动】 spawns a new character: its ChargeRangedAttack count is set to 0 with its data');
+  h.run(0.2);
+  assert.ok(u.trait.stored <= 1, 'stores again from nothing');
   done(h);
 });

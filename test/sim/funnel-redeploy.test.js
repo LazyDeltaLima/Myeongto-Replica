@@ -70,7 +70,7 @@ test('continuous attacks ramp and cap; changing the living target resets normall
   near(u.trait.funnelScale, u.profile.funnel.init);
 });
 
-test('another unit deployment and a free move keep this ramp; unrelated trait state survives redeployment', () => {
+test('another unit deployment keeps this ramp; a 【移动】 restarts it like a redeployment; unrelated trait state survives redeployment', () => {
   const h = make('chess_char_2_10_a', [{ chessId: 'chess_char_1_02_a', row: 12, col: 3 }]);
   const u = h.unit('chess_char_2_10_a'), other = h.unit('chess_char_1_02_a');
   ramp(h, u);
@@ -81,9 +81,14 @@ test('another unit deployment and a free move keep this ramp; unrelated trait st
   assert.equal(h.b.redeploy(other), true);
   assert.equal(u.trait.funnelTarget, target);
   near(u.trait.funnelScale, scale);
+  // the official 【移动】 spawns a new character whose trait ability (CammouTrait) sets its ramp anew — nothing on the
+  // card's shared blackboard carries it (docs/rules/sim.md 「【移动】과 전역 버프」)
   assert.equal(h.b.moveRedeploy(u, 10, 3), true);
-  assert.equal(u.trait.funnelTarget, target);
-  near(u.trait.funnelScale, scale);
+  assert.equal(u.trait.funnelTarget, null, 'a 【移动】 starts the drone ramp again (a new character in the official client)');
+  near(u.trait.funnelScale, u.profile.funnel.init);
+  const n0 = steps(h, u).length;
+  assert.equal(h.runUntil(() => steps(h, u).length >= n0 + 3, 10), true);
+  assert.ok(u.trait.funnelScale > u.profile.funnel.init, 'ramps again after the 【移动】');
   h.b.retreat(u);
   assert.equal(h.b.redeploy(u), true);
   assert.equal(u.trait.testUnrelated, sentinel);

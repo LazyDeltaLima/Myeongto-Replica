@@ -1277,7 +1277,11 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   태어나므로(같은 born에서 `monstr_s_3[route]`가 모드를 바꿈) 【返回】 뒤 재구성체가 칸이 비는 대로 바로 돌아온다(이전: 스킬 시작에 물린 그때부터 재배치 시간 15초); 적 「'데몬의 칼날'」
   (`enemy_2048_smgrd`)의 [국가](【国度】)는 【移动】한 새 캐릭터에도 그 칸이면 다시 붙는다(`AbstractBindingTileGlobalBuff.VerifyUnitTile`; 이전: 【移动】은 건너뛰어 옛 버프를 지닌 채 [국가]
   밖으로 나가도 남았음). `enemies/leaders.js`, `kits/ops/op-chen3.js`·`op-monstr.js`, 테스트 `test/local-patch-diy-chen3.test.js` 「寒暑觉知 after a 【移动】…」,
-  `test/content/op_monstr.test.js` 「S3 不死…」, `test/content/enemies_bosses.test.js` 「【国度】 stays on every tile…」. 그대로인 것: 클로저 S2 배치 비용 반환은 【移动】에 안
+  `test/content/op_monstr.test.js` 「S3 不死…」, `test/content/enemies_bosses.test.js` 「【国度】 stays on every tile…」. 직업 특성 상태도 같은 기준으로(2026-11-26, 공식 클라에서 확인): 비술사(秘术师)가 모은 에너지는 그 특성의 충전 능력(`ChargeRangedAttack`·`AbilityChargeableGroup`)의
+  `m_chargeTimes`이고 능력의 데이터를 정할 때(`DoSetData`) 0이 되며, 드론 술사(驭械术师)의 드론 배율은 특성 능력 `CammouTrait`의 마지막 대상·중첩 수(`DoSetData`가 능력
+  블랙보드의 처음값·증가·상한·최대 중첩(없으면 프리팹 값)으로 처음값을 두고 중첩 0, 대상이 바뀌면 `SetFunnelAtkScale`이 중첩 0부터)라 — 둘 다 능력 자신의 칸이고 카드의 공유 블랙보드가 아니다 — 【移动】의 새 캐릭터는 둘 다 처음부터다
+  (이전: 【移动】이면 이어짐). 지금 【移动】하는 키트 가운데 비술사·드론 술사는 없어 게임에서 달라지는 것은 없다. `professions.js installFunnel`·`installMystic`, 테스트
+  `test/sim/funnel-redeploy.test.js` 「…a 【移动】 restarts it…」, `test/sim/feedback5-mystic-store.test.js` 「a 【移动】 holds no energy either…」. 그대로인 것: 클로저 S2 배치 비용 반환은 【移动】에 안
   돈다(공식 `closur_s_2[friend]`가 마지막 퇴장 사유 MOVE_LIKE_RESPAWN_SELF·EXTERNAL을 거름); 이네스·쏜즈 더 로드스타·에벤홀츠·「대리인」(`standin-acspec`)·왕(자기 복귀)의
   `!move` 갈래는 그 오퍼레이터를 【移动】시키는 키트가 없어 돌 일이 없다. 사르곤(맹약) 빌려 준 이의 【移动】은 그의 `[share][buff]`가
   옛 캐릭터와 함께 끝나 빌려 주기도 끝난다(아래 「빌려 주기의 생애」 ⑥). 「관리자 결정 2026-11-25」로 옛 편차를 걷었다: 이전에는 HP·버프·도는 스킬을 모두 남겼다(docs/history/0.1.2.md §22.3,
