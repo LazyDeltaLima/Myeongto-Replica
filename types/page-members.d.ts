@@ -181,6 +181,8 @@ declare module '../public/js/render/fxplayer.js' {
     flightDepth?: number;
     /** the place cells it counts in (render/fxgame.js posCapped) */
     posCell?: number[] | null;
+    /** never set by the player: render/fxgame.js addLive's log falls back to it, then to '?', without a def name */
+    name?: string;
   }
 }
 

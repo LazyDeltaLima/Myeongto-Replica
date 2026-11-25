@@ -205,6 +205,13 @@ most strict errors were, and the JSDoc that fixed them:
   one file keeps on the views in an interface the three extend (`FxViewFields`).
 - a module-level field that is null only while the layer is down and never read then (render/fxgame.js `layers`,
   `camera`, `lib`, made together with `mod`): its type without `null`, `/** @type {never} */ (null)` where it is emptied.
+- a function that returns null only for a null argument (render/fxgame.js `lifted`): two `@overload` blocks before the
+  implementation's own JSDoc, the non-null argument's first — callers that pass a view get no `null` back.
+- a value that is a view or a point standing for one, read by fields only a view has (render/fxgame.js `Spot`:
+  `View | (Anchor & Partial<Pick<UnitView, 'face' | 'dir' | …>>)`): those fields optional on the point's side. Optional
+  `never` fields on the point's own typedef do not work: a view then no longer passes as a point.
+- a source line a test reads as text (render/fxgame.js lines pinned by `test/render/*-fx.test.js`): a cast there breaks
+  the test; type the declaration the value comes from instead (`const sv = /** @type {View} */ (views.get(o.id))`).
 - `delete o.f` of a field the type requires (TS2790): `delete /** @type {{ f?: number }} */ (o).f`.
 - a method wrapped on another module's prototype (`Match.prototype.finish = function finish(o) …`, local-console.js,
   local-patch.js): the JSDoc goes on the function expression, `= /** @param {…} o */ function finish(o)`; `this` comes

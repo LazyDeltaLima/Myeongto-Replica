@@ -112,14 +112,22 @@ import { effectTurn } from './fx/face.js';
  *   [key: string]: unknown }} FaceRec the root's
  *   effect component (render/fx/face.js)
  * @typedef {{ nodes: FxNode[], materials: Record<string, MatRec | undefined>, geoms: Record<string, THREE.BufferGeometry | null>,
- *   lib: FxLibrary, bundle?: string, face?: FaceRec, mount?: { followScaleSign?: boolean, followScale?: boolean },
+ *   lib: FxLibrary, bundle?: string, face?: FaceRec, mount?: { followScaleSign?: boolean, followScale?: boolean,
+ *   useBehaviourPause?: boolean, pauseWhenInvalid?: boolean, onlyPauseWhenInvalid?: boolean, keepOriginRotation?: number,
+ *   type?: number },
  *   jitter?: unknown[], rdir?: unknown[], lod?: { off?: number[], ps?: [number, number][] }, clips?: FxClip[], sms?: SmDef[],
  *   animSrc?: AnimSource[], animBuff?: AnimBuff[], animFin?: AnimFinish[], mainPs?: number, offFinish?: number[],
- *   finish?: number, name?: string, duration?: number, swFace?: { oneShot?: boolean, [key: string]: unknown },
+ *   finish?: number, name?: string, duration?: number, swFace?: { oneShot?: boolean, up?: string, down?: string, left?: string,
+ *   [key: string]: unknown },
  *   back?: { effect?: string, beh?: boolean, force?: boolean, sync?: boolean, oneShot?: boolean, predict?: unknown } | null,
  *   three?: { up?: string, [key: string]: unknown } | null, right?: string, rightOnce?: boolean, rightRev?: boolean,
- *   follow?: { once?: boolean, [key: string]: unknown } | null, tileH?: number,
- *   [key: string]: unknown }} FxDef a loaded prefab (FxLibrary.load: its meshes in `geoms`, its library `lib`)
+ *   follow?: { once?: boolean, src?: string, left?: number, vflip?: number, [key: string]: unknown } | null, tileH?: number,
+ *   spawn?: number, rootTile?: boolean, height?: number, lineDyn?: Record<string, unknown>, lineEm?: Record<string, unknown>,
+ *   followOwner?: boolean, posCap?: boolean, rgroup?: { pick?: string[], self?: boolean, noOwner?: boolean, mainPos?: boolean },
+ *   equipFx?: { hooks?: [string, unknown, string][], pause?: boolean }, fly?: { loc: number, inv?: boolean, dur?: unknown,
+ *   real?: boolean, ease: number }, swBB?: { fx: string[], iv?: unknown, buff: string, [key: string]: unknown },
+ *   [key: string]: unknown }} FxDef a loaded prefab (FxLibrary.load: its meshes in `geoms`, its library `lib`) — the fields
+ *   render/fxgame.js reads by name too
  */
 /**
  * The player's own records.

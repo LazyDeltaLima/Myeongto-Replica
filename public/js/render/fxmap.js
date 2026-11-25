@@ -503,12 +503,12 @@ export function combatEffects(bind, prefabs, n, role, combatNow) {
  * @param {number|null} n
  * @param {string|null|undefined} sig
  * @param {boolean|null} ally
- * @returns {{ replace: boolean, cast?: string[], trail?: string[], hit?: string[] } | null} (all three lists are there)
+ * @returns {{ replace: boolean, cast: string[], trail: string[], hit: string[] } | null} (all three lists are there)
  */
 export function modePart(bind, prefabs, n, sig, ally) {
   if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || /** @type {number} */ (n) < 0) return null;
-  /** @param {RoleLists | null | undefined} p @param {boolean} replace */
-  const pick = (p, replace) => (p ? { replace, ...Object.fromEntries(/** @type {('cast' | 'trail' | 'hit')[]} */ (['cast', 'trail', 'hit']).map((r) => [r, (Array.isArray(p[r]) ? p[r] : []).filter((x) => prefabs.includes(x))])) } : null);
+  /** @param {RoleLists | null | undefined} p @param {boolean} replace @returns {{ replace: boolean, cast: string[], trail: string[], hit: string[] } | null} */
+  const pick = (p, replace) => (p ? /** @type {{ replace: boolean, cast: string[], trail: string[], hit: string[] }} */ ({ replace, ...Object.fromEntries(/** @type {('cast' | 'trail' | 'hit')[]} */ (['cast', 'trail', 'hit']).map((r) => [r, (Array.isArray(p[r]) ? p[r] : []).filter((x) => prefabs.includes(x))])) }) : null);
   if (typeof sig === 'string' && sig) {
     const t = bind.talentAtk?.[/** @type {number} */ (n)]?.[sig];
     if (t) return pick(t, true);
