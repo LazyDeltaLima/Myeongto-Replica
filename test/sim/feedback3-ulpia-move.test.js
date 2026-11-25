@@ -280,6 +280,36 @@ test('乌尔比安 S3: the 【移动】 and the 【返回】 empty his element g
   clean(h);
 });
 
+test('乌尔比安 S3: the 【移动】 keeps the HP ratio, not the HP, when a max-HP buff ends with the old character; the SP stays 0 (official: each mover\'s sync buff)', REAL, () => {
+  // official client: the new character starts at full HP (Entity.get_initHp = maxHp) and the skill's initSp; the mover's
+  // own buff carries the HP ratio across (ulpia_s3_hp_ratio_sync: ON_OWNER_FINISH MOVE_LIKE_RESPAWN_SELF → AssignHpRatioToBB
+  // → shared blackboard; ON_OWNER_BORN → FetchHpToBlackboard _isHpRatio) and ulpia_s3_respawn_buff clears the SP
+  // (docs/rules/sim.md 「【移动】과 전역 버프」). Here the unit object stays: its HP follows the max-HP change by ratio.
+  const h = makeBattle({
+    defs: { enemies: { e_dummy: dummy } },
+    units: [{ chessId: ULP, row: 10, col: 3 }],
+    enemies: [{ key: 'e_dummy', pos: [10, 6] }], hooks: ['deploy'], autoFinish: false, timeLimit: 120,
+  });
+  const b = h.b, u = h.unit(ULP);
+  h.step();
+  h.run(2);
+  const max0 = u.s.maxHp;
+  b.addBuff(u, { key: 'gone:hp', duration: 60, mods: { hpPct: 0.5 } });
+  close(u.s.maxHp, max0 * 1.5, 1e-6, 'the buff raises his max HP');
+  u.hp = u.s.maxHp * 0.4;
+  u.skill.gainSp(1000);
+  assert.ok(h.runUntil(() => u.skill.active, 2));
+  const maxBefore = u.s.maxHp; // with the S3's own max-HP gain too: that buff stays (the running skill)
+  close(u.hp / maxBefore, 0.4, 1e-9);
+  h.castDone(u);
+  assert.deepEqual([u.tileR, u.tileC], [10, 6], 'moved onto the anchor tile');
+  assert.equal(u.findBuff('gone:hp'), null, 'the max-HP buff ended with the old character');
+  close(u.s.maxHp, maxBefore - max0 * 0.5, 1e-6, 'the new character lacks that buff\'s max HP');
+  close(u.hp / u.s.maxHp, 0.4, 1e-9, 'the HP ratio before the move (FetchHpToBlackboard _isHpRatio), not the HP itself (which would leave a higher ratio)');
+  assert.ok(u.skill.active && u.skill.sp === 0, `the skill runs on with no SP (${u.skill.sp}): ClearCharacterSp`);
+  clean(h);
+});
+
 test('从不混淆的方向 fallback: a kit that only places the marker — the owner comes back by a 【移动】 with its SP emptied', REAL, () => {
   const kit = () => ({ talents: [], skill: { kind: 'duration', duration: 3, trigger: 'SP_FULL', spCost: 10, initSp: 10,
     onStart({ battle, unit }) {

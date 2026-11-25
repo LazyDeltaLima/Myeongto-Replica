@@ -1267,7 +1267,15 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   `removeBuff`로, `onRemove`가 도니 공식 ON_BUFF_FINISH와 같다 —, 새 캐릭터가 다시 갖는 것만 빼고: `persist` 버프(재능·특성·모듈, 아래 전역 버프, 카드의 공유 블랙보드에 남는 것 — 에기르(맹약) 吞噬 이득은
   템플릿 `act1autochess_bond_eff_egir[eat_mark]`가 먹은 이의 공유 블랙보드 `egir_bond_atk`·`egir_bond_block_cnt`·`egir_bond_hp`에 더하고 맹약 전역 버프의 ON_BUFF_TRIGGER가 새 캐릭터마다 그 값으로
   다시 붙이므로 【移动】에도 남는다), 도는 스킬과 그 스킬 버프, 스킬이 넘기는 것(`keep` — 울피아누스 S3: 제2재능 「血脉的哺养」 중첩, PRTS 备注 「【移动】后仅继承下列效果：技能进度、第二天赋叠加层数」).
-  HP는 지금 HP 그대로(PRTS 术语释义 「以当前血量在目标位置部署」 — 클라에서 어디서 넘기는지는 안 읽음). 도는 스킬이 이어지는 것은 이 모드의 【移动】이 모두 그 오퍼레이터 자신의 스킬이 일으키고 그 스킬이 진행을
+  HP는 옮기기 전 HP 비율 그대로(PRTS 术语释义 「以当前血量在目标位置部署」, 안젤리나 더 멜로우 위시 S3 备注 「立刻流失一次生命值以匹配移动前的生命比例」). 공식 클라에서 확인(2026-11-26): 배치 길
+  (`Deck.Card.SpawnPrefab` → `CharacterCard.SpawnInternal` → `BattleController.CreateCharacter` → `Character.BuildAt` → `Entity.Init`)은 `lastFinishReason`을 보지 않고
+  새 캐릭터를 최대 HP(`Entity.get_initHp` = `maxHp`)·스킬의 `initSp`로 시작한다. 비율을 넘기는 것은 【移动】하는 오퍼레이터 자신의 버프다 — 울피아누스 `ulpia_s3_hp_ratio_sync`, Mon3tr
+  `monstr_s_3[sync_hp]`, 벨로네 `demetr_s3_t[born_sync]`, 첸 더 던스트릭 `chen3_s2_t[hp_ratio_sync]`, 켈시 에스페란타 `kalts2_s3_restore_sync_hp`: 옛 캐릭터의 ON_OWNER_FINISH가
+  사유 MOVE_LIKE_RESPAWN_SELF일 때 `AssignHpRatioToBB`로 HP 비율을 카드 공유 블랙보드에 두고(다른 사유면 −1), 새 캐릭터의 ON_OWNER_BORN이 0보다 크면 `FetchHpToBlackboard`
+  (`_isHpRatio`: (그 비율 − 지금 비율)·최대 HP만큼 `Modifier.NewHp`)로 맞춘다. SP는 같은 키트들의 버프가 새 캐릭터에서 비운다(`ClearCharacterSp`: `ulpia_s3_respawn_buff`·
+  `chen3_s2[ban_sp]`·`demetr_s3[disable_sp]`·`kalts2_try_restore_skill`·`monstr_s_3[reborned_passive]`). 우리는 유닛이 그대로라 최대 HP가 바뀔 때마다 HP 비율을 지키고(`units.js`
+  `_recalc`), 도는 한 번 충전 스킬의 SP는 0이며(여섯 스킬 모두 `maxChargeTime` 1), 끝에서 옮기는 【返回】는 `clearSp` — 같은 결과다. 옛 캐릭터와 함께 끝나는 최대 HP 버프가 있으면 HP가
+  아니라 비율이 남는다. 테스트 `test/sim/feedback3-ulpia-move.test.js` 「…keeps the HP ratio, not the HP…」. 안 읽음: 착지 때 SP를 주는 배치 효과(迅捷作战粮 등)와 그 `ClearCharacterSp`의 차례. 도는 스킬이 이어지는 것은 이 모드의 【移动】이 모두 그 오퍼레이터 자신의 스킬이 일으키고 그 스킬이 진행을
   넘기기 때문이다. 다른 【移动】 키트도 공식 클라에서 확인(2026-11-26): Mon3tr S3 `monstr_s_3_buff[respawn]`의 `RespawnCharacter`가 넘기는 공유 블랙보드 키에
   `monstr_skill_progress`가 있고, 첸 더 던스트릭 S2는 착지한 새 캐릭터에 `chen3_s2[respawn_buff]`(그 스킬의 6초)를 준다. 벨로네 S3·켈시 에스페란타 S3는 스킬이 【移动】을
   되풀이하고 착지 뒤에도 이어진다(PRTS 备注). 여섯 키트의 버프 템플릿에서 옛 캐릭터의 다른 버프를 새 캐릭터로 넘기는 노드는 없다(카드 버프는 Mon3tr의 `respawn_buff`와 켈시 에스페란타가

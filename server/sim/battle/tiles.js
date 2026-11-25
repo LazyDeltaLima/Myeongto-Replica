@@ -50,7 +50,11 @@ export class BattleTiles {
    * deploySeq / aggroSeq / deployedAt (the deploy animation; once-per-deployment effects re-arm) — announced by
    * `deploy` { initial: false, move: true }: deploy effects fire again ("可以通过移动行为多次触发部署时触发的效果"). Not an
    * exit: no `die` / `death`, so no knock-out, no redeploy timer or cost ("因移动撤退时不会积累再部署惩罚") — 不屈 and
-   * 阿戈尔's revive, which act on exits "因移动之外的原因" (PRTS 阿戈尔 备注), never see it. The HP stays ("以当前血量").
+   * 阿戈尔's revive, which act on exits "因移动之外的原因" (PRTS 阿戈尔 备注), never see it. The HP ratio stays
+   * ("以当前血量"; 予愿安洁莉娜 S3 备注 "立刻流失一次生命值以匹配移动前的生命比例"): checked against the official client, the new character starts at full HP and the skill's initSp, and each mover's own
+   * buff puts back the ratio its old character had (`*_hp_ratio_sync`: AssignHpRatioToBB at the MOVE_LIKE_RESPAWN_SELF
+   * finish, FetchHpToBlackboard by ratio at the born) and empties the SP (ClearCharacterSp) — here the unit stays and its
+   * HP follows each max-HP change by ratio (units.js), and a running one-charge skill holds no SP.
    * Checked against the official client: the mover is a new character — Character.MoveLikeRespawnSelf finishes the old one
    * (FinishMe, reason MOVE_LIKE_RESPAWN_SELF: Entity.OnFinish clears its buffs, each running its ON_BUFF_FINISH) and
    * spawns the card again the way a deployment does (Deck.SpawnCharacterOrToken); the function itself hands nothing over.
