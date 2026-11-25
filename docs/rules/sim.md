@@ -3351,8 +3351,12 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   따로)인데, `act1autochess_acarm050_global_buff`(SP 회복)과 `[g]halfidle_block_fixed_damage`만 0·`DEFAULT` — 같은 키의 버프는 줄을 서고 끝나지 않은 첫 것만 켜진다
   (`Buff.OverrideGroup`, 「버프 덮어쓰기 그룹」). `GlobalBuff.TryAddBuff`는 그 프리팹의 `_buffs`를 그대로 건다(장비 하나 = 전역 버프 하나, 횟수 제한은 그 전역 버프 안에서만).
   upstream은 사본 전부 겹침을 추정으로 넣었다(근거 없음 표시).
-- [추정·미조사: 나란투야(전략)가 빌려 준 장비(`lendItemEffects`)가 자기 것과 같은 장비일 때 — 지금은 빌린 것도 따로 겹침, 덮어쓰기 묶음 둘은 같은 줄에 섬; 빌려 주기의 클라 경로를 안 읽음]
-- 테스트 `test/content/items.test.js` 「two advanced 源石溶剂 on one operator…」·「override-grouped item buffs…」.
+- 빌린 장비도 같다(2026-11-25): 나란투야(전략)의 사르곤(맹약)이 빌려 준 장비(`lendItemEffects`)가 받는 쪽이 든 것과 같은 장비면 둘 다 효과를 내고(해머 + 빌린 해머 = +15 % + 15 %),
+  덮어쓰기 묶음 둘은 같은 줄에 서서 받는 쪽 자기 것(먼저 붙은 것)만 켜진다. 근거(공식 클라에서 확인): `act2autochess_bond_eff_sargon[share][buff]`의 `ON_BUFF_LATE_ENABLE`
+  `AutoChessShareEquipEffect`는 빌려 주는 이의 장비마다 그 장비 효과 버프 중 `_keyFilter`(`env_gbuff_new_with_verify`)에 드는 것의 `key`(전역 버프 프리팹 이름)로 **전역 버프를 새로 만든다**
+  (`BattleController.CreateAndInitGlobalBuff` — 같은 이름이 있어도 새로 더함; 별칭 `bond_eff_sargon#auto_chess_share#<빌려 주는 이>`, 위치 검사기는 빌려 준 칸 둘레 거리² 1~2).
+  같은 프리팹이라 받는 쪽에 붙는 버프의 키도 자기 장비의 것과 같고, 두 프리팹의 버프에는 `independentCharacterSource`가 없어 출처가 달라도 한 줄이다. 빌려 주기의 다른 차이 → bundles 줄.
+- 테스트 `test/content/items.test.js` 「two advanced 源石溶剂 on one operator…」·「override-grouped item buffs…」·「lendItemEffects: an item the receiver carries too stacks…」.
 
 ### 에기르(맹약) 부활은 공식 클라대로 — 쓰러질 때마다·쓰러진 차례로, 연합 방어에 쓰러진 채 든 구성원도 (upstream #882, 관리자 결정 2026-11-13)
 

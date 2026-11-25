@@ -914,6 +914,27 @@ test('lendItemEffects (萨尔贡 × 娜仁图亚): tier ≤ V battle effects len
   close(to.s.atk, 500, 'expired');
 });
 
+// A lent item is a new global buff of the same prefab on the receiver (AutoChessShareEquipEffect → CreateAndInitGlobalBuff,
+// 공식 클라에서 확인): lent and own copies of one item both count, but the two override-grouped buffs still queue on one
+// key — the receiver's own first (docs/rules/sim.md 「같은 장비 둘은 둘 다 효과가 있다」)
+test('lendItemEffects: an item the receiver carries too stacks, except the override-grouped SP regen / damage block', () => {
+  const ops = { t_op: op('t_op'), t_a: op('t_a') };
+  const h = fight({ ops, units: [
+    { chessId: 't_op', row: 10, col: 3, items: [A('1_01'), B('2_04'), B('6_04')] },
+    { chessId: 't_a', row: 11, col: 3, items: [A('1_01'), A('2_04'), A('6_04')] },
+  ], foes: [[11, 9]] });
+  h.step(1);
+  const [from, to] = [h.unit('t_op'), h.unit('t_a')];
+  assert.equal(lendItemEffects(h.b, from, to, { maxTier: Infinity, duration: 30 }), 3);
+  close(to.s.atk, 500 * (1 + 0.15 + 0.15), 'own + lent 维式重锤 both count');
+  close(to.s.spRecovery, 1.15, 'SP regen: the own 萨尔贡浓茶 only (the lent advanced one queues behind it)');
+  close(hitTrue(h, foe(h), to, 1000), 1000 - 180, 'one 海沟实验体 block: the own one (−180)');
+  h.run(30.1);
+  close(to.s.atk, 575, 'lent hammer expired');
+  close(to.s.spRecovery, 1.15, 'own SP regen stays');
+  checkInvariants(h.b);
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 // prep side
 
