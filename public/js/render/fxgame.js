@@ -472,7 +472,7 @@ const CAST_BLASTS = new Set(['ltndruAoe']);
  * on the tiles) → that ability (the prefab's Skills/<name>, as the sim's ab.sk names it; enemy-modes.json skills keys are its lower
  * case). The official game lays no tile warning for them: the ability's
  * own effects show the moment (its cast, its hits' range effects, the buff it puts on its target), so an enemy that binds
- * the ability draws no stand-in tile flash (etileWarn). Two of them have an effect of that moment no other event draws:
+ * the ability draws no stand-in tile flash (etileWarn) and no stand-in blast at its 'explode' of that kind (etilePart). Two of them have an effect of that moment no other event draws:
  * 帝国的甲胄's 回忆里的誓死 (Appear: the marker its empty shot puts on the target, `hitBuff` enemy_vtsk_skill_01_marker_01,
  * 5.8 s) and 阿利斯泰尔's 王权号令 (equip: projectile_enemy_vtlionk_s1's `_effectsToTargetWhenStart`
  * enemy_vtlionk_skill_01_hit_01) — the sim's events name neither the ability nor the target, so they are played here.
@@ -6913,6 +6913,22 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return true;
   }
   /**
+   * 2026-11-26 (docs/rules/fx.md 「적 범위 공격의 경고 칸」): the ability of TILE_WARN_SKILLS kind `kind` that enemy view `src`
+   * binds with an extracted effect (its tile effects, cast, hits, buff on its target, projectile), or null — then the stand-in
+   * tile flash and blast stay (no binding, not that ability, nothing of it extracted, low quality).
+   * @param {View | null | undefined} src
+   * @param {unknown} kind
+   * @returns {EPart | null}
+   */
+  function etilePart(src, kind) {
+    if (!src || !eOn(src)) return null;
+    const part = eskillPart(src, TILE_WARN_SKILLS[/** @type {string} */ (kind)]);
+    if (!part) return null;
+    const pr = part.proj || {};
+    return [...(part.tileFx || []).map((t) => t.fx), ...(part.cast || []), ...(part.hit || []), ...(part.hitBuff || []), ...(pr.trail || []),
+      ...(pr.hit || []), ...(pr.reached || []), ...(pr.targetStart || [])].some(efx) ? part : null;
+  }
+  /**
    * 2026-11-26 (docs/rules/fx.md 「적 범위 공격의 경고 칸」): an enemy ability's area on the tiles — sim fx 'telegraph'
    * { x, y, r, tiles, dur?, kind, id } (TILE_WARN_SKILLS). When the enemy binds that ability, its own effects show the moment
    * and no stand-in tile flash is drawn; the effects of that moment no other event draws play here: the ability's `hitBuff`
@@ -6923,12 +6939,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function etileWarn(e, views) {
     const o = /** @type {FxRec} */ (e[4]), src = views.get(o.id);
-    if (!src || !eOn(src)) return false;
-    const part = eskillPart(src, TILE_WARN_SKILLS[/** @type {string} */ (o.kind)]);
-    const pr = part?.proj || {};
-    const tileFx = (part?.tileFx || []).filter((t) => efx(t.fx));
-    if (!part || !tileFx.length && ![...(part.cast || []), ...(part.hit || []), ...(part.hitBuff || []), ...(pr.trail || []), ...(pr.hit || []),
-      ...(pr.reached || []), ...(pr.targetStart || [])].some(efx)) return false;   // nothing of it extracted: the stand-in stays
+    const part = etilePart(src, o.kind);
+    if (!src || !part) return false;   // nothing of it extracted: the stand-in stays
+    const pr = part.proj || {};
+    const tileFx = (part.tileFx || []).filter((t) => efx(t.fx));
     const x = Number(e[2]), y = Number(e[3]);
     // the official tile warning: its buff's tile effects on the tile, `at` s after it goes on (Nodes.CreateTileEffect: no source,
     // its own length — '제국의 갑옷' enemy_vtsk_skill_01_range_01, 0.8 s after the marker)
@@ -9424,6 +9438,13 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-11-26: an enemy ability's tile area — its own effects, no stand-in tile flash (etileWarn)
           if (e[1] === 'telegraph' && e[4]?.tiles && e[4].id != null && TILE_WARN_SKILLS[/** @type {string} */ (e[4].kind)]) {
             if (etileWarn(e, views)) ownFx.add(e);
+            return;
+          }
+          // … and its blast after the cast (fx 'explode' { kind, caster }: 쇠퇴한 기사's arrow blast, '제국의 갑옷''s pulses — no
+          // `ability`; 부패한 기사's hammer comes inside its cast with it, the ability path below): the ability's own effects show
+          // it (its hits' range effects, the buff on its target), no stand-in blast or tile flash when the enemy binds it
+          if (e[1] === 'explode' && e[4]?.caster != null && e[4].ability == null && TILE_WARN_SKILLS[/** @type {string} */ (e[4].kind)]) {
+            if (etilePart(views.get(e[4].caster), e[4].kind)) ownFx.add(e);
             return;
           }
           // 2026-11-11: 冰原卫法者's projectile appearing where it fell, then its strike; the bombs and shells of 规程's CRITIC

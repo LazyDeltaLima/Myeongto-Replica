@@ -11,7 +11,7 @@ import { createFxLayer, TILE_WARN_SKILLS } from '../../public/js/render/fxgame.j
 import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
-const NAMES = ['vt_marker', 'vt_range', 'vt_trail', 'li_start', 'li_lock', 'li_tstart', 'dk_hit', 'dk_range'];
+const NAMES = ['vt_marker', 'vt_range', 'vt_trail', 'li_start', 'li_lock', 'li_tstart', 'dk_hit', 'dk_range', 'da_start', 'da_buff'];
 const EMODES = {
   $fx: Object.fromEntries(NAMES.map((n) => [n, ['b', n]])),
   // 帝国的甲胄-like: Appear's empty shot puts a 5.8 s marker buff on its target
@@ -23,6 +23,9 @@ const EMODES = {
     proj: { key: 'p_li', mount: 2, targetStart: ['li_tstart'] }, anim: 'Skill_1' } } },
   // 腐败骑士-like hammer: its hits' range effects (drawn on the 'dmg' of the strike)
   enemy_dk: { modes: [{ name: 'Mode', anim: ['Attack'] }], skills: { chargeattack: { cast: [], opt: {}, hit: ['dk_hit', 'dk_range'] } } },
+  // 衰败骑士-like arrows: its buff on the arrow's target shows the range until the blast
+  enemy_da: { modes: [{ name: 'Default', anim: ['Attack'] }], skills: { tripleattack: { cast: ['da_start'], opt: { da_start: { s: 2, e: 3, o: 0 } }, hit: [],
+    hitBuff: ['da_buff'], proj: { key: 'p_da', mount: 2 }, anim: 'Skill' } } },
   // bound, but not that ability
   enemy_other: { modes: [{ name: 'Default', anim: ['Attack'] }], skills: { somethingelse: { cast: ['dk_hit'], opt: {}, hit: [] } } },
 };
@@ -116,6 +119,71 @@ test('every sim tile telegraph names its enemy ability for the render (TILE_WARN
     assert.ok(TILE_WARN_SKILLS[k], `sim fx 'telegraph' kind '${k}' (${file}) sends \`tiles\` but render/fxgame.js TILE_WARN_SKILLS does not name `
       + 'its enemy ability: the screen draws the red stand-in tile flash the official game does not have. Add the ability (enemy-modes.json '
       + 'skills key) — docs/rules/fx.md 「적 범위 공격의 경고 칸」');
+  }
+});
+
+test('enemy tile area blast: bound ability → no stand-in blast or tile flash (its own effects show it); unbound → the stand-in stays', async () => {
+  const plays = [];
+  const layer = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, trace: (p) => plays.push(p) });
+  await settle();
+  const views = new Map([[1, enemy(1, 'enemy_vt')], [3, enemy(3, 'enemy_dk')], [4, enemy(4, 'enemy_other')], [5, enemy(5, 'enemy_none')],
+    [6, enemy(6, 'enemy_da')], [10, ally(10, 6, 2)]]);
+  layer.onEvent(['tick'], views);
+  // the sim's own events (Battle.fx): 衰败骑士's arrow blast and 帝国的甲胄's pulse come after the cast, naming their `caster`;
+  // 腐败骑士's hammer comes inside its cast (`caster` and `ability` from the cast)
+  const da = fxEvent('explode', { x: 6, y: 2, r: 1, kind: 'blastArrow', tiles: 'plus', caster: 6 });
+  const vt = fxEvent('explode', { x: 6, y: 2, r: 0.5, kind: 'barrage', caster: 1 });
+  const dk = fxEvent('explode', { x: 6, y: 2, r: 1, kind: 'chargeAttack', tiles: 'plus', caster: 3, ability: 'ChargeAttack' });
+  for (const [ev, who] of [[da, '衰败骑士 爆炸箭'], [vt, '帝国的甲胄 回忆里的誓死'], [dk, '腐败骑士 蓄力锤']]) {
+    layer.onEvent(ev, views);
+    assert.equal(layer.ownsFx(ev), true, `no stand-in blast for ${who}'s 'explode' when the enemy binds the ability (docs/rules/fx.md 「적 범위 공격의 경고 칸」)`);
+  }
+  plays.splice(0);
+  // the stand-in stays: an enemy without that ability, one without a binding, a caster gone
+  for (const caster of [4, 5, 99]) {
+    const ev = fxEvent('explode', { x: 6, y: 2, r: 1, kind: 'blastArrow', tiles: 'plus', caster });
+    layer.onEvent(ev, views);
+    assert.equal(layer.ownsFx(ev), false, `stand-in kept: caster ${caster}`);
+  }
+  // … and at low quality
+  const low = createFxLayer({ host: null, above: null, quality: () => 'low', dry: true });
+  await settle();
+  low.onEvent(['tick'], views);
+  const ev = fxEvent('explode', { x: 6, y: 2, r: 1, kind: 'blastArrow', tiles: 'plus', caster: 6 });
+  low.onEvent(ev, views);
+  assert.equal(low.ownsFx(ev), false, 'stand-in kept at low quality');
+});
+
+/** Every sim 'explode' of a TILE_WARN_SKILLS kind (server/sim/content), from the source: kind → its extra's text. */
+function simTileExplodes() {
+  const out = new Map();
+  const walk = (d) => {
+    for (const f of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, f.name);
+      if (f.isDirectory()) walk(p);
+      else if (f.name.endsWith('.js')) {
+        for (const m of readFileSync(p, 'utf8').matchAll(/fx\('explode',\s*\{([^}]*)\}/g)) {
+          const k = /\bkind:\s*'(\w+)'/.exec(m[1]);
+          if (k && TILE_WARN_SKILLS[k[1]]) out.set(k[1], { file: p.slice(ROOT.length + 1), extra: m[1] });
+        }
+      }
+    }
+  };
+  walk(join(ROOT, 'server/sim/content'));
+  return out;
+}
+
+// blasts that name their enemy through the cast they come in (server/sim/battle/events.js puts the cast's `caster` and
+// `ability` on every fx of it), not by a literal `caster`
+const IN_CAST = { chargeAttack: '腐败骑士 蓄力锤: the strike of its cast (content/enemies.js castSkill atStrike)' };
+test('every sim blast of an enemy tile area names its enemy as `caster`, never `id` (the render finds the ability by it)', () => {
+  const found = simTileExplodes();
+  assert.ok(found.has('blastArrow') && found.has('barrage') && found.has('chargeAttack'), `the sweep found the known blasts: ${[...found.keys()]}`);
+  for (const [k, { file, extra }] of found) {
+    assert.ok(!/\bid:/.test(extra), `sim fx 'explode' kind '${k}' (${file}) names its enemy in \`id\`: render/fx/simfx.js _where moves the stand-in onto `
+      + 'that unit when it stands within 0.75 tiles, and render/fxgame.js reads `caster` to find the ability — use `caster` (docs/rules/fx.md 「적 범위 공격의 경고 칸」)');
+    assert.ok(/\bcaster:/.test(extra) || IN_CAST[k], `sim fx 'explode' kind '${k}' (${file}) names no \`caster\`: render/fxgame.js cannot tell that `
+      + 'the enemy binds the ability and draws the stand-in blast the official game does not have (docs/rules/fx.md 「적 범위 공격의 경고 칸」)');
   }
 });
 

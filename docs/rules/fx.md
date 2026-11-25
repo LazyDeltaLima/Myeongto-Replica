@@ -3483,6 +3483,10 @@
   그 순간의 이펙트 둘도 여기서 튼다 — '제국의 갑옷'의 표식은 그 칸에 선 아군에게 버프로 5.8초(`eholdBuff`), 알리스테어 탄의 시작 이펙트는 그 칸의
   아군에게(없으면 그 자리). 시뮬 이벤트가 능력도 대상도 안 실어서 렌더가 `kind`로 능력을 찾는다. 바인딩이 없거나 그 능력이 추출되지 않은 적,
   품질 낮음은 빨간 칸 그대로.
+  폭발(2026-11-26): 같은 능력의 'explode'도 그 적이 능력을 바인딩했으면 대체 폭발(칸 깜빡임 포함)을 안 그린다(`etilePart`) — 그 순간은 능력의
+  자기 이펙트(타격의 범위 이펙트, 대상에 거는 버프)뿐이다. 쇠퇴한 기사 `blastArrow`와 '제국의 갑옷' `barrage`의 폭발은 시전 밖이라 `ability` 없이
+  `caster`만 싣고, 렌더가 그 적과 `kind`로 능력을 찾는다. 부패한 기사 `chargeAttack`의 폭발은 시전 안이라 `ability`가 붙어 적 능력 길(`eskillFx`)이
+  대체를 끈다. 바인딩이 없거나 그 능력이 추출되지 않은 적, 품질 낮음은 대체 폭발 그대로.
   표식은 제 길이 5.8초 그대로다(2026-11-26 공식 클라에서 확인). 표식 버프와 그 시작이 만드는 0.8초 버프는 같은 `buffKey`
   `enemy_vtsk_skillRange`(둘 다 `disableOverride` 거짓·`overrideKey` 빔 → 덮어쓰기 키 = `buffKey`)라 한 덮어쓰기 묶음(`Buff.OverrideGroup`)에
   들지만 `overrideType` DEFAULT라 둘 다 큐에 남고, 큐에서 앞선 하나만 켜질 뿐이다(`maxStackCnt` 1은 STACK에서만 읽힘). 켜고 끄기는 속성 수정자·
@@ -3501,9 +3505,9 @@
   `faceEvent`가 안 읽음) — 사제 투석기의 조준 표시. 가상적: 관의 공격은 키트가 직접 하여 'swing'이 없고, fx 'beam' { from, to }가 대상을 싣는다.
   조건을 풀어 새로 `tgt`가 붙은 다른 적 스킬은 없었다(골든 전투 훑기; 문드러진 응집 사도 `BornBugs`의 fire가 소환한 적을 돌려주던 것은 고침), 이펙트
   골든(`fx-events.json`)도 그대로 — 시전 시작에 `eskillFx` 투사체 꼬리가 새로 나가는 능력 없음.
-- 남은 것: 렌더가 이 `caster`로 그 능력을 바인딩한 적의 대체 폭발을 안 그리기, `tgt`로 시전 대상 이펙트 틀기(이 묶음의 fx 줄).
+- 남은 것: `tgt`로 시전 대상 이펙트 틀기, `tiles` 있는 대체 칸을 (x, y)에 고정하기(이 묶음의 fx 줄).
 - 재발 방지: `test/content/enemy-cast-target.test.js`(바인딩의 `castTargetEffects`를 가진 능력을 모두 훑어 시전 시작 사건이 대상을 싣는지,
-  키트가 제 사건으로 싣는 것은 까닭과 함께 목록), `test/render/enemy-tile-warn.test.js`(시뮬 콘텐츠의 칸 'telegraph' 종류를 모두 훑어 `TILE_WARN_SKILLS`에 있는지, 그 적들이 그 능력을
+  키트가 제 사건으로 싣는 것은 까닭과 함께 목록), `test/render/enemy-tile-warn.test.js`(시뮬 콘텐츠의 칸 'telegraph' 종류를 모두 훑어 `TILE_WARN_SKILLS`에 있는지, 그 종류의 'explode'가 적을 `id` 아닌 `caster`로 싣는지(시전 안의 것은 까닭과 함께 목록), 그 적들이 그 능력을
   추출된 이펙트와 함께 바인딩하는지, '제국의 갑옷' `Appear`의 `tileFx`가 추출되는지); 칸 이펙트 읽기는 원인 제거 — 추출기가 템플릿에서 읽음.
 
 ### 추출 누락 보고 — fx_coverage (2026-10-16, 관리자 요청 「이펙트를 추출해 적용할 때마다 공식과 어긋나는 근본 원인」)
