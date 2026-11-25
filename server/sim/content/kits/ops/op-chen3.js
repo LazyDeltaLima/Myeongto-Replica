@@ -332,8 +332,15 @@ function chen3(bb, chess, def) {
         const T = num(t1.stack_time, 7), lo = num(t1.heal_atk_scale_min, 30) / 100, hi = num(t1.heal_atk_scale_max, 160) / 100;
         let since = battle.time, dodge = false;
         battle.on('damaged', (c) => { if (c.target === unit && c.amount > 0 && !isHpLoss(c.dmg)) since = battle.time; }, { owner: unit });
-        // the held dodge's status back after a redeploy took her buffs (its effect only: the dodge itself is `dodge`)
-        battle.on('deploy', (c) => { if (c.unit === unit && dodge) battle.addBuff(unit, { key: 'chen3:evade', visible: true }); }, { owner: unit });
+        // every deployment — a 【移动】 too (Battle.moveRedeploy) — is a new character: the held dodge (chen3_t2[evade], a
+        // buff of the old character) has ended with it, and the count starts again (chen3_t2 ON_BUFF_START makes a new
+        // chen3_t2[timer], its stacks from 0) — official client; until 2026-11-26 both carried over a redeploy and a 【移动】
+        battle.on('deploy', (c) => {
+          if (c.unit !== unit) return;
+          dodge = false;
+          since = battle.time;
+          battle.removeBuff(unit, 'chen3:evade');
+        }, { owner: unit });
         // the held dodge (BT chen3_t2[evade]: Evade PHYSICAL_AND_MAGICAL, _applyWayFilter ALL, LOW_PRIORITY): any dodgeable
         // physical / arts damage instance, after her other dodges (PRTS 闪避优先级 −1000 — S2's 50 % is rolled first and,
         // when it dodges, the held one is kept). A dodge lands no damage: the counter goes on (chen3_t2 resets on

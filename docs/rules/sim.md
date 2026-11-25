@@ -1268,7 +1268,18 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   템플릿 `act1autochess_bond_eff_egir[eat_mark]`가 먹은 이의 공유 블랙보드 `egir_bond_atk`·`egir_bond_block_cnt`·`egir_bond_hp`에 더하고 맹약 전역 버프의 ON_BUFF_TRIGGER가 새 캐릭터마다 그 값으로
   다시 붙이므로 【移动】에도 남는다), 도는 스킬과 그 스킬 버프, 스킬이 넘기는 것(`keep` — 울피아누스 S3: 제2재능 「血脉的哺养」 중첩, PRTS 备注 「【移动】后仅继承下列效果：技能进度、第二天赋叠加层数」).
   HP는 지금 HP 그대로(PRTS 术语释义 「以当前血量在目标位置部署」 — 클라에서 어디서 넘기는지는 안 읽음). 도는 스킬이 이어지는 것은 이 모드의 【移动】이 모두 그 오퍼레이터 자신의 스킬이 일으키고 그 스킬이 진행을
-  넘기기 때문이다 [추정·미조사: 울피아누스 밖 【移动】 키트(Mon3tr·벨로네·첸 더 던스트릭·켈시 에스페란타·안젤리나 더 멜로우 위시)가 무엇을 넘기는지는 아직 안 읽음]. 사르곤(맹약) 빌려 준 이의 【移动】은 그의 `[share][buff]`가
+  넘기기 때문이다. 다른 【移动】 키트도 공식 클라에서 확인(2026-11-26): Mon3tr S3 `monstr_s_3_buff[respawn]`의 `RespawnCharacter`가 넘기는 공유 블랙보드 키에
+  `monstr_skill_progress`가 있고, 첸 더 던스트릭 S2는 착지한 새 캐릭터에 `chen3_s2[respawn_buff]`(그 스킬의 6초)를 준다. 벨로네 S3·켈시 에스페란타 S3는 스킬이 【移动】을
+  되풀이하고 착지 뒤에도 이어진다(PRTS 备注). 여섯 키트의 버프 템플릿에서 옛 캐릭터의 다른 버프를 새 캐릭터로 넘기는 노드는 없다(카드 버프는 Mon3tr의 `respawn_buff`와 켈시 에스페란타가
+  물린 오퍼레이터에 거는 것뿐). 안젤리나 더 멜로우 위시 S3는 CN 클라 전용 동작이라 넘기는 것을 확인할 자료가 없다 [추정·자료 없음: CN 클라 전용 클래스 — 스킬과 탄환은 남김].
+  키트에서 그 기준으로 고친 것(2026-11-26): 첸 더 던스트릭 제2재능 「한서각지」(寒暑觉知)의 쥔 회피(`chen3_t2[evade]`)와 7초 셈(`chen3_t2[timer]`)은 옛 캐릭터의 버프라 배치마다
+  — 【移动】도, 쓰러진 뒤 재배치도 — 처음부터(이전: 둘 다 이어짐); Mon3tr 재능 「자가 복구」(自我修复)의 `monstr_t_1[born_charge]`(ON_OWNER_BORN)는 S3 【移动】에서도 돈다 — 새 캐릭터가
+  태어나므로(같은 born에서 `monstr_s_3[route]`가 모드를 바꿈) 【返回】 뒤 재구성체가 칸이 비는 대로 바로 돌아온다(이전: 스킬 시작에 물린 그때부터 재배치 시간 15초); 적 「'데몬의 칼날'」
+  (`enemy_2048_smgrd`)의 [국가](【国度】)는 【移动】한 새 캐릭터에도 그 칸이면 다시 붙는다(`AbstractBindingTileGlobalBuff.VerifyUnitTile`; 이전: 【移动】은 건너뛰어 옛 버프를 지닌 채 [국가]
+  밖으로 나가도 남았음). `enemies/leaders.js`, `kits/ops/op-chen3.js`·`op-monstr.js`, 테스트 `test/local-patch-diy-chen3.test.js` 「寒暑觉知 after a 【移动】…」,
+  `test/content/op_monstr.test.js` 「S3 不死…」, `test/content/enemies_bosses.test.js` 「【国度】 stays on every tile…」. 그대로인 것: 클로저 S2 배치 비용 반환은 【移动】에 안
+  돈다(공식 `closur_s_2[friend]`가 마지막 퇴장 사유 MOVE_LIKE_RESPAWN_SELF·EXTERNAL을 거름); 이네스·쏜즈 더 로드스타·에벤홀츠·「대리인」(`standin-acspec`)·왕(자기 복귀)의
+  `!move` 갈래는 그 오퍼레이터를 【移动】시키는 키트가 없어 돌 일이 없다. 사르곤(맹약) 빌려 준 이의 【移动】은 그의 `[share][buff]`가
   옛 캐릭터와 함께 끝나 빌려 주기도 끝난다(아래 「빌려 주기의 생애」 ⑥). 「관리자 결정 2026-11-25」로 옛 편차를 걷었다: 이전에는 HP·버프·도는 스킬을 모두 남겼다(docs/history/0.1.2.md §22.3,
   옛 근거는 吞噬 이득을 공식이 잃는다고 보았음 — 공유 블랙보드라 공식도 남는다). 지형·기류 버프도 끝나고 새 칸의 것을 처음부터 받는다(`content/devices.js` `deploy`). 테스트
   `test/sim/feedback3-ulpia-move.test.js` 「…end his other buffs but the second talent's」·「…气流 follows the tile change…」·「the 阿戈尔 devour gains stay…」, `test/content/bonds_core.test.js` 「…the lender’s move ends the lending…」.

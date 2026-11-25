@@ -2918,6 +2918,14 @@ test(`${nm('enemy_2048_smgrd')}: 【国度】 stays on every tile it passed — 
   h.runUntil(() => h.unit('t_wall')?.alive, 60);
   h.run(0.1);
   assert.equal(h.unit('t_wall').s.aspd, cut, 'redeployed on a fogged tile');
+  // a 【移动】 is a new character too (Battle.moveRedeploy): its buff ends with the old one and the 国度 gives it again on a
+  // fogged tile, none on a clear one (docs/rules/sim.md 「【移动】과 전역 버프」)
+  const w2 = h.unit('t_wall');
+  assert.ok(h.b.moveRedeploy(w2, w2.tileR, w2.tileC));
+  assert.ok(w2.findBuff('ab:blackFog'), 'a 【移动】 onto a fogged tile gets it again');
+  assert.equal(w2.s.aspd, cut);
+  assert.ok(h.b.moveRedeploy(w2, 12, 3));
+  assert.ok(!w2.findBuff('ab:blackFog'), 'a 【移动】 onto a clear tile ends it');
 });
 
 test(`${nm('enemy_2050_smsha')}: 【反自然馈赠】 chains over ${skb('enemy_2050_smsha', 'ChainBuff').bb['chain.max_target']} enemies (move ×${1 + skb('enemy_2050_smsha', 'ChainBuff').bb.move_speed}, ASPD +${skb('enemy_2050_smsha', 'ChainBuff').bb.attack_speed}); silence stops it`, () => {

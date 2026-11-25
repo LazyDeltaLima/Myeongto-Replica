@@ -59,8 +59,8 @@ export class BattleTiles {
    * new unit (bonds, items, 特质; the `deploy` handlers judge them anew), what the card's shared blackboard keeps
    * (阿戈尔's devour gains: `egir_bond_atk` …, put back by the bond's global buff) —, the running skill's own buff, and
    * the buffs `keep` names. The running skill goes on: every 【移动】 here is its mover's own skill, which passes its
-   * progress to the new character (乌尔比安 S3: "【移动】后仅继承下列效果：技能进度、第二天赋叠加层数") [ASSUMED·미조사: the
-   * other movers' prefabs are not yet read for what they pass on, docs/rules/sim.md 「【移动】과 전역 버프」]; `keep`: the
+   * progress to the new character (乌尔比安 S3: "【移动】后仅继承下列效果：技能进度、第二天赋叠加层数"; the other movers too, checked
+   * against the official client but 予愿安洁莉娜's CN-only one, docs/rules/sim.md 「【移动】과 전역 버프」); `keep`: the
    * other buffs that skill passes on (乌尔比安's second-talent stacks). The element gauges are emptied as on a deployment
    * (upstream #903). Since maintainer decision 2026-11-25; before it every buff stayed (the owner's deviation of
    * docs/history/0.1.2.md §22.3). (r, c) may be the unit's own tile: a 【移动】 where it stands. `clearSp`: the 技力 is emptied before the

@@ -216,6 +216,22 @@ describe('赤刃明霄陈 kit — research 2026-10-07 §2 fixes', () => {
     h.runUntil(() => heals.length >= 2, T + 4);
     assert.ok(Math.abs(heals[1] - heals[0] - T) < 0.25, `the next heal ${(heals[1] - heals[0]).toFixed(2)} s after the first (want ${T})`);
   });
+
+  test('寒暑觉知 after a 【移动】: the held dodge ends with the old character and the count starts again (chen3_t2[evade] / [timer] are its buffs)', () => {
+    {
+      const { h, u, src } = armed();
+      assert.ok(u.findBuff('chen3:evade'), 'held before the move');
+      assert.ok(h.b.moveRedeploy(u, u.tileR, u.tileC));
+      assert.ok(!u.findBuff('chen3:evade'), 'the held dodge ended with the old character');
+      assert.ok(h.b.dealDamage(src, u, { amount: 300, type: 'phys', isAttack: true }) > 0, 'no dodge held after the move');
+    }
+    // no damage meanwhile: the next heal comes T s after the move, not T s after the first heal (2 s before the move)
+    const { h, u, T, heals } = armed();
+    const t0 = h.b.time;
+    assert.ok(h.b.moveRedeploy(u, u.tileR, u.tileC));
+    h.runUntil(() => heals.length >= 2, T + 4);
+    assert.ok(Math.abs(heals[1] - t0 - T) < 0.25, `the next heal ${(heals[1] - t0).toFixed(2)} s after the move (want ${T})`);
+  });
 });
 
 describe('赤刃明霄陈 through the real match path (seats[].diy → Match board → battleInput → BattleSpec → createBattleFromSpec)', () => {

@@ -407,6 +407,10 @@ test('S3 不死: a fatal blow leaves her at 1 HP (untargetable, blocking nothing
   assert.ok(!u.skill.active, 'the skill ended');
   assert.deepEqual([u.tileR, u.tileC], [10, 4], 'returned');
   assert.ok(!u.s.flags.untargetable, 'targetable again');
+  // the return is a new character born (monstr_t_1[born_charge] at the 【移动】's born too): her 重构体, withdrawn at the
+  // cast well under its 15 s redeploy time ago, is back on its tile at the next try, as after a deployment of hers
+  h.run(0.3);
+  assert.ok(p.alive && p.deployed && p.tileR === 10 && p.tileC === 6, 'her 重构体 back at once after the return');
   h.b.dealDamage(null, u, { amount: 1e7, type: 'true', sourceless: true });
   assert.ok(u.alive && u.hp <= 1, '1 s 不死 after the return');
   h.run(1.1);

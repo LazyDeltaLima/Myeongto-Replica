@@ -43,8 +43,8 @@
 //   −1, loses 8 HP every 0.1 s from 1 s after it lands (流失, Battle.loseHp — PRTS "每0.1s流失8生命值"; trait damage_per_second
 //   80); every ally of its
 //   3×3 but itself (checked every tick) (no 孤立 one) ATK +atk (0.2; XAH-X stage 3 0.3; 同名效果取最高). Gone (destroyed or withdrawn) ⇒ back on its
-//   tile its redeploy time (15 s) after, paying its cost (3 DP), only while she stands — her deployment (not a 【移动】)
-//   readies a waiting one at once (monstr_t_1[born_charge]) — the 卫戍 return of a placed summon (PRTS 卫戍协议/帮助 "若召唤物在
+//   tile its redeploy time (15 s) after, paying its cost (3 DP), only while she stands — her deployment (her S3 【移动】s too: a new
+//   character, born) readies a waiting one at once (monstr_t_1[born_charge]) — the 卫戍 return of a placed summon (PRTS 卫戍协议/帮助 "若召唤物在
 //   战斗期间退场，将在满足条件后立即原地再部署1个"; the client's AutoChessBattleTrigger tries every AUTO_TRIGGER_INTERVAL s, as
 //   望's 棋子 — docs/rules/diy.md); withdrawn when she leaves the field (not on her S3 moves).
 // - T2 战术协同: every heal of hers (chain jumps included) gives its target and herself ASPD +attack_speed for buff_duration s —
@@ -309,8 +309,12 @@ export default {
             battle.releaseTile(unit);
             for (const t of prostsOf(battle, unit)) if (t.alive) battle.retreat(t, { reason: 'retreat', permanent: true });
           }, { owner: unit });
+          // monstr_t_1[born_charge] (ON_OWNER_BORN: no valid token ⇒ RechargeToken) — at her S3 【移动】s too: each is a new
+          // character born on its tile (monstr_s_3[route] restarts her mode at that same born). On the way out its tile is hers,
+          // so it waits; after the return it is back as soon as its tile is free (until 2026-11-26 a move skipped this and it
+          // kept the redeploy time of its withdrawal at the cast)
           battle.on('deploy', (c) => {
-            if (c.unit !== unit || c.move) return;
+            if (c.unit !== unit) return;
             for (const t of prostsOf(battle, unit)) if (!t.alive && !t.removed) t.mem.readyAt = battle.time;
           }, { owner: unit });
         } },

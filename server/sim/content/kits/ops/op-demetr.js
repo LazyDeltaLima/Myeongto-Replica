@@ -44,7 +44,7 @@
 //   蒂比's attack, docs/rules/sim.md 「오퍼레이터 공격 형태」); ground targets only, as every attack of his (selector targetMotion 1).
 // - S3 清算 (MANUAL, 30 s; data CUSTOM_RANGE on x-2): ATK +atk, ASPD +attack_speed, each damage instance attack@…prob to be
 //   ×prob_atk_scale (AtkScaleUp: on the attack's ATK, before DEF). At the cast he 【移动】s (Battle.moveRedeploy: no exit, HP
-//   / buffs / the skill kept, deploy effects again — 街头直觉's 80 %) onto the tile of the first ground enemy of the x-2 around
+//   and the skill kept, his other buffs ending with the old character, deploy effects again — 街头直觉's 80 %) onto the tile of the first ground enemy of the x-2 around
 //   his located tile (his tile at the cast) whose tile he may take — a melee-buildable low-ground tile of the field, nobody
 //   on it but his 牵绊 or himself, no knocked-out operator, no other piece's reserved tile — in the usual target order
 //   (sortEnemyTargets); without one he moves in place once. He takes another target the same way when the elite / leader

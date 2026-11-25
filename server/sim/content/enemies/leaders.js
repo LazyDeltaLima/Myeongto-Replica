@@ -502,9 +502,11 @@ function kitLeaderMisc(key, ab, e) {
         if (st.blackFog) return st.blackFog;
         // the global buff is made once, with the first boss's ability values
         const fog = st.blackFog = { tiles: new Set(), aspd: T(ab, 'BlackFog.attack_speed') ?? 0 };
-        // a character deployed later gets it by its root tile (AbstractBindingTileGlobalBuff.VerifyUnitTile); a move is no new unit
-        b.on('deploy', ({ unit, move }) => {
-          if (!move && unit.side === 'ally' && unit.alive && fog.tiles.has(unit.tileR * COLS + unit.tileC)) giveFog(b, unit, fog.aspd);
+        // a character deployed later gets it by its root tile (AbstractBindingTileGlobalBuff.VerifyUnitTile) — after a 【移动】
+        // too: the mover is a new character, its buff ended with the old one (Battle.moveRedeploy; until 2026-11-26 a move
+        // kept the old buff and skipped this, so a move off the 国度 kept the cut)
+        b.on('deploy', ({ unit }) => {
+          if (unit.side === 'ally' && unit.alive && fog.tiles.has(unit.tileR * COLS + unit.tileC)) giveFog(b, unit, fog.aspd);
         }, { priority: 50 });
         return fog;
       };
