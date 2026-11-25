@@ -3,7 +3,8 @@
 // 等待中 / 决策中 / the picked strategy, the strategy box and ✓ outside it), the current picker framed, with 敌方情报 | 盟约信息, 干员调配
 // and the co-op tip under it; centre = a 4-wide wall of every strategy allowed for the mode type (portrait and name, SELECTED
 // brackets on the highlighted one); a band a teammate already picked carries the picker's avatar and is marked 队友已选 —
-// it cannot be chosen again (research 09 §5, guidebook 策略与轮选; the server refuses it too); right = the detail pane,
+// it cannot be chosen again (research 09 §5, guidebook 策略与轮选; the server refuses it too — except under the custom
+// 「允许重复选择策略」, where a taken band keeps only the avatar); right = the detail pane,
 // always shown on the highlighted band (art, 初始生命值, name, 【effect】 description, the 自选预设 row) with 跳过 (co-op,
 // once) beside 确认选择. The step header stays this fork's (maintainer decision 2026-11-07: the briefing shares it).
 // One countdown (user playtest #4 item 4): every turn has the same clock (Match BAND_TURN_SECONDS, m.public.draft
@@ -78,7 +79,10 @@ import { t, tParts, tName, N_ } from '../../../shared/i18n.js';
 import { playerName } from '../../../shared/botNames.js';
 import { applyPresetChoice } from '../ui/factionPick.js';
 
-/** @param {...any} p class names, arrays of them and falsy values (left out) */
+/** @import { Bag, Pub, PubPlayer } from '../ui/gameLogic/shared.js' */
+/** @import { GameLookups } from '../ui/gameComponents.js' */
+
+/** @param {...unknown} p class names, arrays of them and falsy values (left out) */
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /**
@@ -102,7 +106,7 @@ const artCache = new Map();
 
 /**
  * The CSS variables of a part's official sprites ('detail' | 'order'), or '' when the manifest lacks any of them.
- * @param {'detail'|'order'} part @param {any} [m] data/assets.json
+ * @param {'detail'|'order'} part @param {unknown} [m] data/assets.json
  */
 export function draftArt(part, m = data.get('assets')) {
   const hit = artCache.get(part);
@@ -208,13 +212,13 @@ export function BandOffNote({ names = [] }) {
  * Bands selectable in a mode (modeTypeList contains the mode's type, and — 规程 — the mode is not one of its
  * inactiveModeIds; no own-LP strategy while a custom match shares one 目标生命值: lpSharedBandOff — as the server's
  * GameData.bandAllowed), sorted by sortId.
- * @param {any[]} bands
+ * @param {Bag[]} bands
  * @param {string|null} modeType 'SINGLE'|'MULTI'
  * @param {string|null} [modeId] the match's mode
  * @param {boolean} [lpShared] the custom 「所有回合共享目标生命值」 is on in this (non-solo) match
  */
 export function allowedBands(bands, modeType, modeId = null, lpShared = false) {
-  /** @param {any} b */
+  /** @param {Bag} b */
   const sid = (b) => (Number.isFinite(b.sortId) ? b.sortId : 99);
   return (Array.isArray(bands) ? bands : [])
     .filter((b) => b && (!modeType || !Array.isArray(b.modeTypeList) || b.modeTypeList.includes(modeType)))
@@ -230,8 +234,8 @@ export const DEFAULT_TIMEOUT_BAND = 'band_bldsk';
  * The strategy the server assigns me when my turn times out (server/match/match/phases.js defaultBand): the official default
  * 「华法琳」 while no teammate holds it, else the first free strategy in draft order (sortId) — never one a teammate
  * already picked (队友已选).
- * @param {any[]} bands allowedBands(...) (sortId order)
- * @param {Map<string, any>} taken teammateBands(...)
+ * @param {Bag[]} bands allowedBands(...) (sortId order)
+ * @param {Map<string, unknown>} taken teammateBands(...)
  * @param {string} [defaultId]
  * @returns {string|null}
  */
@@ -273,7 +277,7 @@ export function teammateBands(picks, myId) {
  * else the band a timeout would give me (timeoutBand: 「华法琳」 while free, else the first free one). When it is my
  * turn and the shown band was taken meanwhile (队友已选), that default instead (confirm would be disabled).
  * @param {string|null} sel
- * @param {{ bands: any[], taken: Map<string, any>, myPick: string|null, myTurn: boolean, defaultId?: string }} o
+ * @param {{ bands: Bag[], taken: Map<string, unknown>, myPick: string|null, myTurn: boolean, defaultId?: string }} o
  */
 export function draftSelection(sel, { bands, taken, myPick, myTurn, defaultId = DEFAULT_TIMEOUT_BAND }) {
   if (!Array.isArray(bands) || !bands.length) return sel;
@@ -287,7 +291,7 @@ export function draftSelection(sel, { bands, taken, myPick, myTurn, defaultId = 
  * The strategy a turn that runs out assigns me (server Match.timeoutBand): the highlighted band while it is one of
  * the mode's and no teammate holds it, else timeoutBand. Null after my pick.
  * @param {string|null} sel the highlighted band
- * @param {{ bands: any[], taken: Map<string, any>, myPick?: string|null, defaultId?: string }} o
+ * @param {{ bands: Bag[], taken: Map<string, unknown>, myPick?: string|null, defaultId?: string }} o
  */
 export function autoPickBand(sel, { bands, taken, myPick = null, defaultId = DEFAULT_TIMEOUT_BAND }) {
   if (myPick) return null;
@@ -315,11 +319,12 @@ export function draftTip({ timed, turnSeconds = null, autoName = null, selected 
 /**
  * The step header's countdown during the draft: the current turn's (m.public.deadline = draft.turnDeadline) with a
  * turn's length as the gauge total — null when the draft is untimed.
- * @param {any} pub m.public
+ * @param {Pub | null | undefined} pub m.public
  * @returns {{ deadline: number, total: number|null } | null}
  */
 export function draftClock(pub) {
-  const d = pub && typeof pub.draft === 'object' ? pub.draft : null;
+  if (!pub) return null;
+  const d = typeof pub.draft === 'object' ? pub.draft : null;
   if (!d || d.untimed) return null;
   const deadline = Number(pub.deadline) > 0 ? Number(pub.deadline) : Number(d.turnDeadline) || 0;
   if (!(deadline > 0)) return null;
@@ -333,8 +338,8 @@ export function draftClock(pub) {
  * has none: that empty roster applies — maintainer decision 2026-10-29), 不使用预设's roster, or the live picks for
  * 保持当前编队.
  * @param {string} choice a chat faction id, BASE_LINK or KEEP_LINK
- * @param {{ presets?: Record<string, any>, base?: Record<string, any> }} st diyPresetStore state
- * @param {Record<string, any>} live the live picks (loadoutStore diy)
+ * @param {{ presets?: Record<string, Bag>, base?: Bag }} st diyPresetStore state
+ * @param {Bag} live the live picks (loadoutStore diy)
  */
 export function presetPreviewPicks(choice, st, live) {
   if (choice === BASE_LINK) return st?.base || {};
@@ -378,19 +383,19 @@ export function draftInfoStatus({ myPick = null, pickName = null, myTurn, turnNa
   return { text: turnName ? t('{turnName} 决策中', { turnName }) : t('等待轮到你'), secs: s, tone: s != null ? tone : 'dim' };
 }
 
-/** A 自选 pick's operator (backups.json units; the slot's preview): its name and avatar (the 自选编队 tab's own icon). @param {any} pick */
+/** A 自选 pick's operator (backups.json units; the slot's preview): its name and avatar (the 自选编队 tab's own icon). @param {Bag | null | undefined} pick */
 const pickUnit = (pick) => (pick?.charId ? data.get('backups')?.units?.[pick.charId] || { charId: pick.charId } : null);
-/** @param {any} m @param {any} u */
+/** @param {unknown} m @param {Bag | null} u */
 const pickAvatar = (m, u) => (u ? chessAvatarUrl(m, { charId: u.charId, assets: { avatar: u.assets?.avatar } }) : null);
 /** A DIY slot's tier from its id (chess_char_<tier>_diy…) when the slot list is not loaded. @param {string} id */
 const slotTier = (id) => Number(/^chess_char_(\d)_/.exec(id)?.[1]) || null;
 
-/** @typedef {{ v: string, label: string, f?: any, empty?: boolean, off?: boolean }} PresetOption a choice of the 自选预设 row */
+/** @typedef {{ v: string, label: string, f?: Bag, empty?: boolean, off?: boolean }} PresetOption a choice of the 自选预设 row */
 /**
  * The roster choices of the 自选预设 row: 保持当前编队 (`keep`; not on 规程's 确定自选编队, whose cards are the roster in
  * use), 不使用预设, then the season's chat factions (their icon, 未设置 when the faction has no preset, 本局禁用 when this
  * match disables its bond).
- * @param {Record<string, any>} presets @param {string[]|null} off @param {{ keep?: boolean }} [o]
+ * @param {Record<string, Bag>} presets @param {string[]|null} off @param {{ keep?: boolean }} [o]
  * @returns {PresetOption[]}
  */
 export function presetOptions(presets, off, { keep = true } = {}) {
@@ -409,7 +414,7 @@ export function presetOptions(presets, off, { keep = true } = {}) {
  * preset has its icon left uncoloured (grey), a faction this match disables carries the
  * briefing's own img_bond_banned mark top-right of its icon (as the briefing draws it; without that local art the dimmed
  * name); both say so in the tooltip.
- * @param {{ choice: string, presets: Record<string, any>, off: string[]|null, locked: boolean, onChoice: (v: string) => void,
+ * @param {{ choice: string, presets: Record<string, Bag>, off: string[]|null, locked: boolean, onChoice: (v: string) => void,
  *   keep?: boolean }} props keep: offer 保持当前编队 (presetOptions)
  */
 export function PresetPicker({ choice, presets, off, locked, onChoice, keep = true }) {
@@ -486,8 +491,8 @@ export function PresetPicker({ choice, presets, off, locked, onChoice, keep = tr
  * icon on hover, and its × (`onClear(slotId)`) empties it in the roster shown; a faction without a
  * preset: four empty slots) —, 记住 and 编辑自选编队 (`onEdit()`). The dropdown names the roster the row shows and
  * edits (diyPresets.js choiceRoster), so no line repeats it (maintainer request 2026-10-29).
- * @param {{ band: any, choice: string, link: string|null, presets: Record<string, any>, base: Record<string, any>,
- *   live: Record<string, any>, off: string[]|null, locked: boolean, remember: boolean, m?: any,
+ * @param {{ band: Bag | null, choice: string, link: string|null, presets: Record<string, Bag>, base: Bag,
+ *   live: Bag, off: string[]|null, locked: boolean, remember: boolean, m?: unknown,
  *   onChoice: (v: string) => void, onRemember: (v: boolean) => void, onEdit?: ((slotId?: string) => void)|null,
  *   onClear?: ((slotId: string) => void)|null }} props
  */
@@ -586,7 +591,7 @@ export function DraftInfoButtons({ onIntel, onInfo }) {
 }
 
 /**
- * @param {{ p: any, i: number, picked: string | null, cur: boolean, self: boolean, ready: boolean, gd: any, art?: string | null, checked?: boolean }} props
+ * @param {{ p: PubPlayer, i: number, picked: string | null, cur: boolean, self: boolean, ready: boolean, gd: GameLookups, art?: string | null, checked?: boolean }} props
  */
 export function OrderRow({ p, i, picked, cur, self, ready, gd, art = null, checked = !!picked }) {
   const [badArt, setBadArt] = useState(/** @type {string[]} */ ([]));
@@ -613,7 +618,7 @@ export function OrderRow({ p, i, picked, cur, self, ready, gd, art = null, check
 
 /**
  * 「【effect】 description」 of a strategy (the data's description usually opens with the 【effect】 already).
- * @param {{ band: any, class?: string }} props
+ * @param {{ band: Bag, class?: string }} props
  */
 function BandText({ band, class: cls }) {
   const text = band.descRaw || band.desc || '';
@@ -625,7 +630,7 @@ function BandText({ band, class: cls }) {
 /**
  * 名片干员 (ui/seatArt.js): the operator of each Doctor's seat card in the room (seats[].card; one's own pick at once), else
  * the one chosen by the player id — the room's seat cards' art on the order rows. Returns player → portrait URL or null.
- * @param {any} gd useGameData() @param {string|null} myId
+ * @param {GameLookups} gd useGameData() @param {string|null} myId
  */
 export function useOrderArt(gd, myId) {
   const roomSeats = useStore((s) => s.room?.seats);
@@ -634,7 +639,7 @@ export function useOrderArt(gd, myId) {
   // the seat's skin as on its seat card (ui/seatArt.js seatCardSkin), its portrait once the skin data is downloaded and cached
   const sk = skinArt();
   const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);
-  return (/** @type {any} */ p) => {
+  return (/** @type {PubPlayer} */ p) => {
     if (p.isBot) return null;
     const seat = (Array.isArray(roomSeats) && roomSeats.find((x) => x && x.playerId === p.playerId)) || { playerId: p.playerId };
     const op = seatOperator(seat, cards, { myId, myCard });
@@ -678,7 +683,10 @@ export function BandDraftScreen() {
   const myTurn = !myPick && (solo || draft.turnPid === myId);
   const skipsLeft = draft.skipsLeft.has(myId) ? /** @type {number} */ (draft.skipsLeft.get(myId)) : (skipped ? 0 : 1);
   const canSkip = !solo && myTurn && skipsLeft > 0 && draftCanPass(draft);
-  const taken = solo ? new Map() : teammateBands(draft.picks, myId);
+  // the custom 「允许重复选择策略」 (flow.bandDup, co-op only — the server's Match.bandDup): nothing is 队友已选, the
+  // teammates' avatars still show on their picks (pickers)
+  const bandDup = !solo && pub?.ruleset?.custom?.flow?.bandDup === true;
+  const taken = solo || bandDup ? new Map() : teammateBands(draft.picks, myId);
   const pickers = new Map(); // bandId → players
   for (const [pid, bid] of draft.picks) {
     const p = players.find((x) => x.playerId === pid);
@@ -848,7 +856,7 @@ export function BandDraftScreen() {
             <${BandOffTag} names=${offNames} />
             ${link && !isTaken ? html`<span class="dband__link" title=${t('已关联{faction}预设', { faction: t(link.name) })}
               style=${`--fac:${link.color}`} data-link=${links[b.bandId]}><${FactionIcon} f=${link} /></span>` : null}
-            ${who.length ? html`<span class="dband__who">${who.slice(0, 4).map((/** @type {any} */ p) => html`<${PlayerAvatar} key=${p.playerId} player=${p} size="sm" />`)}</span>` : null}
+            ${who.length ? html`<span class="dband__who">${who.slice(0, 4).map((/** @type {PubPlayer} */ p) => html`<${PlayerAvatar} key=${p.playerId} player=${p} size="sm" />`)}</span>` : null}
             ${isTaken ? html`<span class="dband__taken">${t('队友已选')}</span>` : null}
             ${on ? html`<span class="dband__selmark" aria-hidden="true">SELECTED</span>` : null}
           </button>`];

@@ -16,6 +16,15 @@ import { OK, fail, DELAYS, BAND_TURN_SECONDS, INFO_CHECK_SECONDS, DRAFT_CONFIRM_
 import { SharedPool, bannedChessFor } from '../pool.js';
 import { seasonFeature } from '../../../shared/seasons.js';
 
+/**
+ * The strategy draft's state (this.draft during BAND_DRAFT, enterBandDraft): the turn order, the current turn, the picks
+ * (playerId → bandId), the skips left, the clock and the highlighted bands (g.bandFocus); `confirm` = the switched-off
+ * 编队确认 (enterDraftConfirm).
+ * @typedef {{ order: string[], idx: number, picks: Record<string, string>, skipsLeft: Record<string, number>,
+ *   untimed: boolean, turnDeadline: number, focus: Map<string, string>,
+ *   confirm?: { deadline: number, ready: Set<string> } }} BandDraftState
+ */
+
 /** The briefing's 重新抽取 is refused this long after INFO_CHECK starts (ms; MatchPhases.voteReroll). */
 export const INFO_REROLL_MIN_MS = 1000;
 
@@ -214,7 +223,7 @@ export class MatchPhases {
 
   /** @this {Match} */
   startDraftTurn() {
-    const d = /** @type {Record<string, any>} */ (this.draft); // the BAND_DRAFT phase made it
+    const d = /** @type {BandDraftState} */ (this.draft); // the BAND_DRAFT phase made it
     this.cancel(this._turnTimer);
     this._turnTimer = null;
     while (d.idx < d.order.length && d.picks[d.order[d.idx]]) d.idx++;
@@ -267,13 +276,24 @@ export class MatchPhases {
   }
 
   /**
+   * The custom 「允许重复选择策略」 (flow.bandDup): teammates may pick the same strategy. Co-op only (a solo draft has no
+   * teammates). The official draft refuses a teammate's pick (bandTaken).
+   * @this {Match}
+   */
+  get bandDup() { return !this.isSolo && !!this.gd.custom?.flow?.bandDup; }
+
+  /**
    * Whether `bandId` was already picked by another player of this draft. Research 09 §5 / DESIGN §14 corrections:
    * the strategy draft marks a teammate's pick as 队友已选 and it cannot be chosen again (co-op). The automatic
    * assignments — a turn that runs out and a departing seat — obey the same rule: see timeoutBand / defaultBand.
+   * The custom 「允许重复选择策略」 (flow.bandDup, co-op only) lifts the rule: nothing is taken, so a pick, a timeout, a
+   * departing seat and an AI seat may all take a strategy a teammate holds (the team-wide strategies act once however
+   * many hold them: Touch 外勤医疗, 鸭爵 — content/bands/ TEAM_UNIQUE_KEYS).
    * @param {string} bandId @param {string} playerId
    * @this {Match}
    */
   bandTaken(bandId, playerId) {
+    if (this.bandDup) return false;
     const picks = this.draft?.picks || {};
     for (const [pid, id] of Object.entries(picks)) if (pid !== playerId && id === bandId) return true;
     return false;
@@ -441,10 +461,10 @@ export class MatchPhases {
     this.cancel(this._turnTimer);
     this._turnTimer = null;
     for (const ps of this.order) {
-      if (!/** @type {Record<string, any>} */ (this.draft).picks[ps.playerId]) {
+      if (!/** @type {BandDraftState} */ (this.draft).picks[ps.playerId]) {
         // one after another in seat order, so each default sees the ones assigned before it (no duplicates)
         const id = this.defaultBand(ps.playerId);
-        /** @type {Record<string, any>} */ (this.draft).picks[ps.playerId] = id;
+        /** @type {BandDraftState} */ (this.draft).picks[ps.playerId] = id;
         ps.bandId = id;
         if (ps.alive) ps.lp = this.gd.startLp(id);   // a seat gone before the draft keeps its 0 (_applyBand)
       }

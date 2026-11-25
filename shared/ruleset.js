@@ -128,7 +128,8 @@ export const OFFICIAL_TYPE_COUNT = 3;
  *            CUSTOM_FIRST_HALF_STAGES join the pool · ban: stage ids never drawn (one stays) · extra: other
  *            seasons' stages joining the pool (shared/seasonBorrow.js)
  *   flow     rounds · prep / prepSec · lpCapOff: no 10-per-round cap · lpShared: one 目标生命值 for the
- *            alliance in every round · routePreview: the walking leader's route
+ *            alliance in every round · routePreview: the walking leader's route · bandDup: teammates may pick the
+ *            same strategy (the official draft marks a teammate's pick 队友已选 and refuses it; co-op only — GameData.bandDup)
  *   pool     chess / items: percent of the shared chess pool's copies and of the shop equipment stock (customPoolCount)
  */
 /** @type {CustomSettings} */
@@ -140,7 +141,7 @@ export const CUSTOM_OFFICIAL = deepFreeze({
   types: { count: null, pick: {} },
   bosses: { ban: [], hitMode: 'void', hitLimit: BOSS_HIT_LIMIT },
   stages: { info: false, reroll: false, firstHalf: false, ban: [], extra: [] },
-  flow: { rounds: null, prep: 'official', prepSec: 90, lpCapOff: false, lpShared: false, routePreview: false },
+  flow: { rounds: null, prep: 'official', prepSec: 90, lpCapOff: false, lpShared: false, routePreview: false, bandDup: false },
   pool: { chess: 100, items: 100 },
 });
 
@@ -154,7 +155,7 @@ export const CUSTOM_OFFICIAL = deepFreeze({
  *   types: { count: number|null, pick: Record<string, string> },
  *   bosses: { ban: string[], hitMode: string, hitLimit: number },
  *   stages: { info: boolean, reroll: boolean, firstHalf: boolean, ban: string[], extra: string[] },
- *   flow: { rounds: number|null, prep: string, prepSec: number, lpCapOff: boolean, lpShared: boolean, routePreview: boolean },
+ *   flow: { rounds: number|null, prep: string, prepSec: number, lpCapOff: boolean, lpShared: boolean, routePreview: boolean, bandDup: boolean },
  *   pool: { chess: number, items: number },
  * }} CustomSettings
  */
@@ -185,13 +186,13 @@ function deepFreeze(o) {
   return o;
 }
 
-/** @param {unknown} v @returns {v is Record<string, any>} */
+/** @param {unknown} v @returns {v is Record<string, unknown>} */
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const isIdStr = (/** @type {unknown} */ v) => typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_\-.]+$/.test(v);
-/** @param {any} v @param {readonly number[]} range @param {any} dflt */
-const intIn = (v, range, dflt) => (Number.isFinite(v) ? Math.min(range[1], Math.max(range[0], Math.round(v))) : dflt);
-/** @param {any} v @param {readonly number[]} range */
-const intOrNull = (v, range) => (v === null || v === undefined || !Number.isFinite(v) ? null : intIn(v, range, null));
+/** @template {number | null} D @param {unknown} v @param {readonly number[]} range @param {D} dflt @returns {number | D} */
+const intIn = (v, range, dflt) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(range[1], Math.max(range[0], Math.round(v))) : dflt);
+/** @param {unknown} v @param {readonly number[]} range */
+const intOrNull = (v, range) => (typeof v !== 'number' || !Number.isFinite(v) ? null : intIn(v, range, null));
 /** @template T @param {unknown} v @param {readonly T[]} list @param {T} dflt @returns {T} */
 const oneOf = (v, list, dflt) => (/** @type {readonly unknown[]} */ (list).includes(v) ? /** @type {T} */ (v) : dflt);
 /** @template T @param {unknown} v @param {T} dflt */
@@ -206,8 +207,10 @@ const idList = (/** @type {unknown} */ v) => (Array.isArray(v) ? [...new Set(v.f
  * @returns {Readonly<typeof CUSTOM_OFFICIAL>} a new frozen object
  */
 export function sanitizeCustom(raw) {
-  const r = isObj(raw) ? /** @type {any} */ (raw) : {};
-  const sec = (/** @type {string} */ k) => (isObj(r[k]) ? r[k] : {});
+  /** @type {Record<string, unknown>} */
+  const r = isObj(raw) ? raw : {};
+  /** @param {string} k @returns {Record<string, unknown>} */
+  const sec = (k) => { const v = r[k]; return isObj(v) ? v : {}; };
   const O = CUSTOM_OFFICIAL;
   const b = sec('bonds'), e = sec('enemies'), l = sec('leaders'), ty = sec('types'), bo = sec('bosses'), s = sec('stages'), f = sec('flow'), p = sec('pool');
   const pct = (/** @type {unknown} */ v, /** @type {number} */ d) => intIn(v, CUSTOM_LIMITS.pct, d);
@@ -215,13 +218,13 @@ export function sanitizeCustom(raw) {
   const picks = (m, list) => {
     /** @type {Record<string, string>} */
     const out = {};
-    if (isObj(m)) for (const k of Object.keys(m).filter(isIdStr).sort().slice(0, CUSTOM_LIMITS.ids)) if (list.includes(m[k])) out[k] = m[k];
+    if (isObj(m)) for (const k of Object.keys(m).filter(isIdStr).sort().slice(0, CUSTOM_LIMITS.ids)) { const v = m[k]; if (typeof v === 'string' && list.includes(v)) out[k] = v; }
     return out;
   };
   const pick = picks(b.pick, CUSTOM_BOND_PICKS);
   // the former `curve` field (settings saved before maintainer decision 2026-11-15): a shaped curve reads as its quick
   // pick at the 盟约 steps (stepPreset without a mode), 'step' / 'official' as the multipliers given
-  const legacy = Object.hasOwn(CUSTOM_STEP_PRESETS, e.curve) ? stepPreset(null, e.curve) : null;
+  const legacy = typeof e.curve === 'string' && Object.hasOwn(CUSTOM_STEP_PRESETS, e.curve) ? stepPreset(null, e.curve) : null;
   const steps = e.curve === 'official' ? { stepHp: null, stepAtk: null } : legacy ?? e;
   return deepFreeze({
     v: CUSTOM_VERSION,
@@ -254,6 +257,7 @@ export function sanitizeCustom(raw) {
       lpCapOff: bool(f.lpCapOff, O.flow.lpCapOff),
       lpShared: bool(f.lpShared, O.flow.lpShared),
       routePreview: bool(f.routePreview, O.flow.routePreview),
+      bandDup: bool(f.bandDup, O.flow.bandDup),
     },
     pool: { chess: pct(p.chess, 100), items: pct(p.items, 100) },
   });
@@ -282,7 +286,7 @@ export const OWN_LP_BAND_SKILLS = Object.freeze(['skill_drop_hp_to_low_gain_coin
  * band skill (bands.json `skills[].buffs[].key`) is an OWN_LP_BAND_SKILLS effect would do nothing the whole match — the
  * pool is merged right after the draft (maintainer decision 2026-11-21). The server's GameData.bandAllowed and the
  * client's allowedBands both ask this.
- * @param {any} band a bands.json record
+ * @param {{ skills?: unknown } | null | undefined} band a bands.json record
  * @param {boolean} lpShared the match shares one 目标生命值 in every round
  */
 export function lpSharedBandOff(band, lpShared) {
@@ -298,18 +302,20 @@ export function lpSharedBandOff(band, lpShared) {
  * most CUSTOM_LIMITS.types[1] (the 15 round slots); fewer types than the count leave more rounds to 特训敌人·特异 (the
  * schedule fills them: server/match/waves.js makeTypeSchedule). Returns null while the settings change nothing, so the
  * official draw — and its rng stream — stays as it was.
- * @param {readonly string[]} random @param {number} n @param {any} custom @param {(list: string[]) => void} shuffle
+ * @param {readonly string[]} random @param {number} n @param {{ types?: { count?: unknown, pick?: unknown } } | null | undefined} custom
+ * @param {(list: string[]) => void} shuffle
  * @param {readonly string[]} [borrowed]
  * @returns {string[] | null}
  */
 export function customEnemyTypes(random, n, custom, shuffle, borrowed = []) {
   const ty = custom?.types;
+  /** @type {Record<string, unknown>} */
   const pick = ty && isObj(ty.pick) ? ty.pick : {};
   const set = (/** @type {string} */ k) => pick[k] === 'ban' || pick[k] === 'force';
   if (!ty || (ty.count == null && !random.some(set) && !borrowed.length)) return null;
   const all = [...random, ...borrowed.filter((k) => !random.includes(k))];
   const forced = all.filter((k) => pick[k] === 'force');
-  const want = Math.min(CUSTOM_LIMITS.types[1], Math.max(forced.length, Number.isInteger(ty.count) ? ty.count : n));
+  const want = Math.min(CUSTOM_LIMITS.types[1], Math.max(forced.length, Number.isInteger(ty.count) ? /** @type {number} */ (ty.count) : n));
   const rest = all.filter((k) => !set(k));
   shuffle(rest);
   return [...forced, ...rest].slice(0, want);
@@ -334,14 +340,16 @@ export const CUSTOM_FIRST_HALF_WEIGHT_OF = 'act1autochess_m01';
  * own stage joins only through the mode's pool or the 上半 switch, so settings made in another season (stages.extra
  * naming this season's stage, a share code) never add a stage the difficulty's pool lacks. Required: without it the
  * function throws, so no caller can draw from a pool the server does not.
- * @param {readonly string[] | null | undefined} stageIds @param {any} custom @param {(id: string) => boolean} ownStage
+ * @param {readonly string[] | null | undefined} stageIds @param {{ stages?: { firstHalf?: unknown, extra?: unknown } } | null | undefined} custom
+ * @param {(id: string) => boolean} ownStage
  * @returns {string[]}
  */
 export function customStagePool(stageIds, custom, ownStage) {
   if (typeof ownStage !== 'function') throw new TypeError('customStagePool: ownStage(id) is required');
   const ids = Array.isArray(stageIds) ? [...stageIds] : [];
   if (custom?.stages?.firstHalf) for (const id of CUSTOM_FIRST_HALF_STAGES) if (!ids.includes(id) && ownStage(id)) ids.push(id);
-  for (const id of Array.isArray(custom?.stages?.extra) ? custom.stages.extra : []) if (!ids.includes(id) && !ownStage(id)) ids.push(id);
+  const extra = custom?.stages?.extra;
+  for (const id of Array.isArray(extra) ? extra : []) if (typeof id === 'string' && !ids.includes(id) && !ownStage(id)) ids.push(id);
   return ids;
 }
 
@@ -349,14 +357,15 @@ export function customStagePool(stageIds, custom, ownStage) {
  * The bond ban count ranges of a season (maintainer decision 2026-10-18 「the official range」): 0 to the most any
  * difficulty of its config.json bans draws, within CUSTOM_LIMITS — 盟约 3 core / 4 add-on, 规程 5 / 5. The settings
  * dialog's steppers and the match (GameData.bans) keep to them.
- * @param {any} config data/config.json of the season
+ * @param {{ bans?: unknown } | null | undefined} config data/config.json of the season
  * @returns {{ core: [number, number], addon: [number, number] }}
  */
 export function customBanLimits(config) {
-  const rows = config?.bans && typeof config.bans === 'object' ? Object.values(config.bans).filter((b) => b && typeof b === 'object') : [];
+  const bans = config?.bans;
+  const rows = isObj(bans) ? Object.values(bans).filter(isObj) : [];
   /** @param {string} k @param {readonly number[]} lim */
   const most = (k, lim) => {
-    const v = Math.max(0, ...rows.map((b) => (Number.isInteger(b[k]) ? b[k] : 0)));
+    const v = Math.max(0, ...rows.map((b) => { const x = b[k]; return typeof x === 'number' && Number.isInteger(x) ? x : 0; }));
     return /** @type {[number, number]} */ ([lim[0], Math.min(lim[1], v || lim[1])]);
   };
   return { core: most('core', CUSTOM_LIMITS.banCore), addon: most('addon', CUSTOM_LIMITS.banAddon) };
@@ -372,12 +381,17 @@ export function optionsOfCustom(c) {
  * config.eightPlayer.bans[difficulty] when the config has it — shared/constants.js LARGE_SEATS; it has none, so the same
  * table), null when the config has none. The custom
  * dialog's 「官方值」, its differences (customDiffs `base.bans`) and the summaries compare with it.
- * @param {any} config data/config.json @param {string} difficulty @param {number} [size] the room size (4 | 8)
+ * @param {{ bans?: Record<string, BanCounts>, eightPlayer?: { bans?: Record<string, BanCounts> } } | null | undefined} config
+ *   data/config.json
+ * @param {string} difficulty @param {number} [size] the room size (4 | 8)
+ * @returns {BanCounts | null}
  */
 export function officialBans(config, difficulty, size) {
   const big = size === LARGE_SEATS ? config?.eightPlayer?.bans?.[difficulty] : null;
   return big || config?.bans?.[difficulty] || null;
 }
+
+/** @typedef {{ core?: number, addon?: number }} BanCounts a difficulty's bond ban counts (config.json bans[difficulty]) */
 
 /**
  * The settings that differ from the official ones, as dotted paths grouped by the dialog's tab (`bonds.banCore`,
@@ -411,7 +425,7 @@ export function customDiffs(raw, base = {}) {
   for (const id of c.stages.extra) out.push(`stages.extra.${id}`);
   if (!same(c.flow.rounds, base.rounds)) out.push('flow.rounds');
   if (c.flow.prep !== O.flow.prep) out.push('flow.prep');
-  for (const k of /** @type {const} */ (['lpCapOff', 'lpShared', 'routePreview'])) if (c.flow[k] !== O.flow[k]) out.push(`flow.${k}`);
+  for (const k of /** @type {const} */ (['lpCapOff', 'lpShared', 'routePreview', 'bandDup'])) if (c.flow[k] !== O.flow[k]) out.push(`flow.${k}`);
   for (const k of /** @type {const} */ (['chess', 'items'])) if (c.pool[k] !== O.pool[k]) out.push(`pool.${k}`);
   return out;
 }
@@ -433,25 +447,36 @@ export function customPoolCount(n, pct) {
  * The official multiplier of one stat step of a mode (config.json enemyScale: hp = base × step^kHp, atk = base ×
  * step^kAtk) — read off its rows with the fewest and the most steps, HP from the rows without a 补给线 share (supplyHp:
  * co-op 终极's HP rows carry it on top): 盟约 HP ×1.2, ATK ×1.1, 规程 ATK ×1.11. A mode
- * whose rows never step: ×1.2 / ×1.1. @param {any} mode @param {'hp'|'atk'} stat
+ * whose rows never step: ×1.2 / ×1.1. @param {StepMode | null | undefined} mode @param {'hp'|'atk'} stat
  */
 export function officialStep(mode, stat) {
   const kKey = stat === 'hp' ? 'kHp' : 'kAtk';
-  const rows = Object.values(isObj(mode?.enemyScale) ? mode.enemyScale : {})
-    .filter((e) => isObj(e) && Number.isFinite(e[kKey]) && Number(e[stat]) > 0 && (stat !== 'hp' || e.supplyHp == null || e.supplyHp === 1));
-  let lo = null, hi = null;
-  for (const e of rows) {
-    if (!lo || e[kKey] < lo[kKey]) lo = e;
-    if (!hi || e[kKey] > hi[kKey]) hi = e;
+  const scale = mode?.enemyScale;
+  /** @type {{ k: number, v: number }[]} */
+  const rows = [];
+  for (const e of isObj(scale) ? Object.values(scale) : []) {
+    if (!isObj(e)) continue;
+    const k = e[kKey], v = Number(e[stat]);
+    if (typeof k === 'number' && Number.isFinite(k) && v > 0 && (stat !== 'hp' || e.supplyHp == null || e.supplyHp === 1)) rows.push({ k, v });
   }
-  if (!lo || !hi || hi[kKey] === lo[kKey]) return stat === 'hp' ? 1.2 : 1.1;
-  return Math.round((hi[stat] / lo[stat]) ** (1 / (hi[kKey] - lo[kKey])) * 1e4) / 1e4;
+  /** @type {{ k: number, v: number } | null} */
+  let lo = null;
+  /** @type {{ k: number, v: number } | null} */
+  let hi = null;
+  for (const e of rows) {
+    if (!lo || e.k < lo.k) lo = e;
+    if (!hi || e.k > hi.k) hi = e;
+  }
+  if (!lo || !hi || hi.k === lo.k) return stat === 'hp' ? 1.2 : 1.1;
+  return Math.round((hi.v / lo.v) ** (1 / (hi.k - lo.k)) * 1e4) / 1e4;
 }
+
+/** A mode record as officialStep / stepPreset read it (config.json modes[id]: its enemyScale rows). @typedef {{ enemyScale?: unknown }} StepMode */
 
 /**
  * The multipliers a quick pick (CUSTOM_STEP_PRESETS) fills in, in hundredths: the mode's official step to the pick's
  * power, rounded — 盟约 gentle ×1.15 HP / ×1.07 ATK, steep ×1.26 / ×1.13, flat ×1.00 / ×1.00. Another name (official)
- * gives nulls, the official steps. @param {any} mode (null: the 盟约 steps, officialStep's own) @param {string} name
+ * gives nulls, the official steps. @param {StepMode | null | undefined} mode (null: the 盟约 steps, officialStep's own) @param {string} name
  * @returns {{ stepHp: number | null, stepAtk: number | null }}
  */
 export function stepPreset(mode, name) {
@@ -481,12 +506,13 @@ export function stepScale(m, k, k1, step, official) {
  * rounds, round 1 and the final assault stay); more rounds keep 1..last−1 and add rounds that cycle the three late waves
  * before the final assault (last−3..last−1), their steps rising on from the last of them by the slope of those three
  * [ASSUMED], the final assault and the hidden core rising as much.
- * @param {{ lastRound: number, hiddenRound?: number | null, spRounds?: number[], enemyScale?: Record<string, { kHp?: number, kAtk?: number, hp?: number, atk?: number }> }} mode
+ * @param {{ lastRound?: number, hiddenRound?: number | null, spRounds?: number[], enemyScale?: Record<string, { kHp?: number, kAtk?: number, hp?: number, atk?: number }> }} mode
  * @param {number | null} [n] the custom count (null = the mode's)
  * @returns {{ rounds: PlanRound[], hidden: { src: number, kHp: number, kAtk: number, hp: number, atk: number } | null }}
  */
 export function customRoundPlan(mode, n = null) {
-  const last = Number.isInteger(mode?.lastRound) && mode.lastRound > 0 ? mode.lastRound : 14;
+  const lr = mode?.lastRound;
+  const last = typeof lr === 'number' && Number.isInteger(lr) && lr > 0 ? lr : 14;
   const sp = new Set((Array.isArray(mode?.spRounds) ? mode.spRounds : []).filter(Number.isInteger));
   const num = (/** @type {unknown} */ v, /** @type {number} */ d) => (Number.isFinite(v) ? /** @type {number} */ (v) : d);
   const stats = (/** @type {number} */ r) => {
@@ -579,9 +605,10 @@ function customRuleset(custom) {
  */
 export function resolveRuleset(v) {
   if (v && typeof v === 'object' && resolvedCustom.has(v)) return /** @type {Ruleset} */ (v);
-  const preset = typeof v === 'string' ? v : v && typeof v === 'object' ? /** @type {any} */ (v).preset : null;
-  if (preset === 'custom') return customRuleset(v && typeof v === 'object' ? /** @type {any} */ (v).custom : null);
-  return PRESET_RULESETS[isQueuePreset(preset) ? preset : DEFAULT_PRESET];
+  const o = isObj(v) ? v : null;
+  const preset = typeof v === 'string' ? v : o ? o.preset : null;
+  if (preset === 'custom') return customRuleset(o ? o.custom : null);
+  return PRESET_RULESETS[typeof preset === 'string' && isQueuePreset(preset) ? preset : DEFAULT_PRESET];
 }
 
 /**
@@ -630,10 +657,10 @@ export const rulesetKey = (/** @type {unknown} */ rs) => resolveRuleset(rs).pres
  */
 export function simRuleFlags(rs) {
   const r = resolveRuleset(rs);
-  /** @type {Record<string, any>} */
+  /** @type {{ bossHitClamp?: true, bossHitLimit?: number, noLayerCap?: true }} */
   const flags = {};
   for (const [k, o] of Object.entries(RULE_OPTIONS)) {
-    if (o.scope === 'sim' && o.flag && r.options[k] !== o.official) flags[o.flag] = true;
+    if (o.scope === 'sim' && o.flag && r.options[k] !== o.official) /** @type {Record<string, unknown>} */ (flags)[o.flag] = true;
   }
   const c = r.custom;
   if (c) {

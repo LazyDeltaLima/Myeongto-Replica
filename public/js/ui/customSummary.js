@@ -105,6 +105,7 @@ export function customSummary(raw, { solo = false, bans = null, rounds = null, n
     else if (c.flow.prep !== O.flow.prep) add('flow.prep', t('休整期 {x}', { x: c.flow.prep.replace('x', '×') }));
     if (c.flow.lpCapOff) add('flow.lpCapOff', t('解除每回合目标生命值减少上限'));
     if (c.flow.lpShared) add('flow.lpShared', t('所有回合共享目标生命值'));
+    if (c.flow.bandDup) add('flow.bandDup', t('允许重复选择策略'));
   }
   if (c.pool.chess !== O.pool.chess) add('pool.chess', t('干员卡池 {n}%', { n: c.pool.chess }));
   if (c.pool.items !== O.pool.items) add('pool.items', t('装备库存 {n}%', { n: c.pool.items }));

@@ -34,7 +34,7 @@ import { seasonInfo } from '../../../shared/seasons.js';
 import { modeIdFor, DIFFICULTIES, LARGE_SEATS, isGrade, gradeDifficulty } from '../../../shared/constants.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
-/** @import { CustomSettings } from '../../../shared/ruleset.js' */
+/** @import { CustomSettings, BanCounts } from '../../../shared/ruleset.js' */
 /** @import { Bag } from './gameLogic/shared.js' */
 /** @typedef {Readonly<CustomSettings>} Rules */
 /** @typedef {Exclude<keyof CustomSettings, 'v'>} RuleSection */
@@ -42,9 +42,9 @@ import { t, N_ } from '../../../shared/i18n.js';
  * What every tab gets (CustomRulesBody's `ctx`): the settings on screen, their setters, the mode record and the
  * official values the settings compare with.
  * @typedef {{ work: Rules, set: (sec: RuleSection, k: string, v: unknown) => void,
- *   setWork: (next: Rules | ((w: Rules) => Rules)) => void, readonly: boolean, solo: boolean, mode: any, bans: any,
- *   banLimits: ReturnType<typeof customBanLimits>, base: { bans: any, rounds: number | null }, difficulty: string,
- *   size: number, config: any }} PaneProps
+ *   setWork: (next: Rules | ((w: Rules) => Rules)) => void, readonly: boolean, solo: boolean, mode: Bag | null, bans: BanCounts | null,
+ *   banLimits: ReturnType<typeof customBanLimits>, base: { bans: BanCounts | null, rounds: number | null }, difficulty: string,
+ *   size: number, config: Bag | null }} PaneProps
  */
 /** @typedef {Event & { target: HTMLInputElement }} InputEv */
 
@@ -73,7 +73,7 @@ export const customDialogStore = createStore(/** @type {DialogState} */ ({ open:
  * `size`: the room's seat count (an 8-seat room compares with the 8-player official values — shared/ruleset.js officialBans).
  * `grade`: a 规程 solo room's 规程等级 (its mode and difficulty are the grade's), null elsewhere.
  * @param {{ rules: unknown, readonly?: boolean, live?: (() => unknown) | null, roomMode?: 'solo'|'coop', difficulty?: string,
- *   grade?: number | null, size?: number, onApply?: ((rules: any) => void) | null }} opts
+ *   grade?: number | null, size?: number, onApply?: ((rules: Rules) => void) | null }} opts
  */
 export function openCustomRules({ rules, readonly = false, live = null, roomMode = 'coop', difficulty = 'FUNNY', grade = null, size = 4, onApply = null }) {
   const graded = roomMode === 'solo' && isGrade(grade);
@@ -142,7 +142,7 @@ function Seg({ options, value, onChange, disabled }) {
     onClick=${() => o.v !== value && onChange(o.v)}>${o.label}</button>`)}</span>`;
 }
 
-/** @param {{ label: string, note?: string | null, official?: string | null, children?: any, locked?: boolean }} p */
+/** @param {{ label: string, note?: string | null, official?: string | null, children?: unknown, locked?: boolean }} p */
 function Row({ label, note, official, children, locked }) {
   return html`<div class=${cx('crx-row', locked && 'is-locked')}>
     <div class="crx-row__l"><span>${label}</span>${note ? html`<em>${note}</em>` : null}</div>
@@ -151,7 +151,7 @@ function Row({ label, note, official, children, locked }) {
   </div>`;
 }
 
-/** @param {{ title: string, sub?: string | null, children?: any }} p */
+/** @param {{ title: string, sub?: string | null, children?: unknown }} p */
 const Sec = ({ title, sub, children }) => html`<section class="crx-sec">
   <h3 class="crx-sec__h">${title}${sub ? html`<small>${sub}</small>` : null}</h3>
   ${children}
@@ -162,14 +162,14 @@ const Sec = ({ title, sub, children }) => html`<section class="crx-sec">
 /**
  * Custom settings fitted to the season on screen (shared/seasonBorrow.js fitCustomToSeason): its own files (the dialog
  * has them loaded) and the files of the seasons that lend to it, loaded first. `from` = the season a share code names.
- * @param {any} rules @param {string | null} from
+ * @param {unknown} rules @param {string | null} from
  */
 async function fitToSeason(rules, from) {
   const season = data.season();
   const lenders = borrowSeasons(season).map((sid) => [sid, data.seasonStore(sid)]).filter(([, st]) => st);
   await Promise.all(lenders.flatMap(([, st]) => ['stages', 'factions'].map((n) => st.load(n))));
   const own = Object.fromEntries(['bonds', 'bosses', 'stages', 'factions', 'config'].map((n) => [n, data.getRaw(n)]));
-  /** @type {[string, { stages?: any, factions?: any }][]} */
+  /** @type {[string, { stages?: unknown, factions?: unknown }][]} */
   const foreign = lenders.map(([sid, st]) => [sid, { stages: st.getRaw('stages'), factions: st.getRaw('factions') }]);
   return fitCustomToSeason(rules, own, foreign, { season, from });
 }
@@ -447,7 +447,7 @@ const STEP_PRESET_LABELS = { official: N_('官方'), gentle: N_('平缓'), steep
 /**
  * The 快速设置 row under the step multipliers: each button fills both with its values for this difficulty (stepPreset)
  * and is lit while both are those; values set by hand light none. Its note lists what each fills in.
- * @param {{ work: Rules, mode: any, readonly: boolean, onPick: (p: StepPair) => void }} p
+ * @param {{ work: Rules, mode: Bag | null, readonly: boolean, onPick: (p: StepPair) => void }} p
  */
 function StepPresets({ work, mode, readonly, onPick }) {
   /** @param {'hp' | 'atk'} stat */
@@ -471,7 +471,7 @@ function StepPresets({ work, mode, readonly, onPick }) {
  * The hp multiplier per round as the match spawns it (config.json enemyScale hp): the official line (dashed) and the
  * custom one (the steps × hp%, over the custom rounds) — left out while it is the official line itself (the official steps,
  * hp 100 %, the official round count: maintainer request 2026-10-18).
- * @param {{ work: Rules, mode: any }} p
+ * @param {{ work: Rules, mode: Bag | null }} p
  */
 export function CurveChart({ work, mode }) {
   if (!mode) return null;
@@ -811,6 +811,12 @@ function FlowPane({ work, set, readonly, solo, mode, base, size, config }) {
         <${Switch} on=${work.flow.lpShared} disabled=${readonly || solo} onChange=${(/** @type {boolean} */ v) => set('flow', 'lpShared', v)} />
       <//>
     <//>
+    <${Sec} title=${t('策略')} sub=${t('仅同盟')}>
+      <${Row} label=${t('允许重复选择策略')} note=${t('队友已选的策略也可以选择 — 全队只生效一次的策略（如外勤医疗）多人选择也不会叠加')}
+          official=${t('官方：不能重复')} locked=${solo}>
+        <${Switch} on=${work.flow.bandDup} disabled=${readonly || solo} onChange=${(/** @type {boolean} */ v) => set('flow', 'bandDup', v)} />
+      <//>
+    <//>
     <${PoolSec} work=${work} set=${set} readonly=${readonly} solo=${solo} size=${size} config=${config} />
     <${Sec} title=${t('其他便利功能')} sub=${t('休闲规则的项目')}>
       <${Row} label=${t('移动型领袖路线预览')} note=${t('最终攻势休整期中敌方领袖将要走的路线')} official=${t('官方：没有')}>
@@ -861,7 +867,7 @@ function PoolSec({ work, set, readonly, solo, size, config }) {
   <//>`;
 }
 
-/** @type {Readonly<Record<string, (p: PaneProps) => any>>} */
+/** @type {Readonly<Record<string, (p: PaneProps) => unknown>>} */
 const PANES = { bonds: BondsPane, enemies: EnemiesPane, types: TypesPane, bosses: BossesPane, stages: StagesPane, flow: FlowPane };
 
 /** The tabs' names, for tests. */
