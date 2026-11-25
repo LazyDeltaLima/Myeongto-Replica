@@ -44,8 +44,8 @@ test('an enemy\'s mount points: HIT / HEAD / MUZZLE / SPECIAL_0 resolve to its t
 test('fxgame: enemy events take their own branch (swing / atk / dmg attacker / skill / fx ability / spawn / die / leak)', () => {
   // (efoe: an enemy, or an ally built from an enemy record — 炎佑, 2026-10-23)
   // (2026-11-11: an ability cast in place of the attack — a walking ally's, inPlaceOfAttack — draws no attack swing)
-  assert.match(SRC, /if \(efoe\(src\)\) \{ if \(eOn\(src\) && !(?:\/\*\* @type \{View\} \*\/ \()?src\)?\._fxESkill\?\.inPlace\) eswingFx\((?:\/\*\* @type \{View\} \*\/ \()?src\)?, Number\(e\[2\]\) \|\| 0, e\[3\]\); return; \}/);
-  assert.match(SRC, /const p = estrikeFx\(src, e\[3\]\);/);
+  assert.match(SRC, /if \(efoe\(src\)\) \{ if \(eOn\(src\) && !(?:\/\*\* @type \{View\} \*\/ \()?src\)?\._fxESkill\?\.inPlace\) eswingFx\((?:\/\*\* @type \{View\} \*\/ \()?src\)?, Number\(e\[2\]\) \|\| 0, e\[3\], typeof e\[5\] === 'number' \? views\.get\(e\[5\]\) \|\| null : null\); return; \}/);
+  assert.match(SRC, /const p = estrikeFx\(src, e\[3\], tgt \|\| null\);/);
   assert.match(SRC, /etrailShot\(e, src, tgt, p\.part\);/);
   // contract 1: the attacker is the 6th field of 'dmg'
   assert.match(SRC, /const by = e\.length >= 6 && e\[5\] != null \? e\[5\] : null;/);

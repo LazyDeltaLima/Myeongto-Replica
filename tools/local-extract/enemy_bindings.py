@@ -872,8 +872,9 @@ def uniq(lst):
 
 
 def emit_part(abilities, projs):
-    """{cast, opt, hit, aim?, dirs?, proj?, hitBuff?, attach?, tile?} of the abilities of one attack (or one skill)."""
+    """{cast, opt, hit, castTgt?, castTgtOpt?, aim?, dirs?, proj?, hitBuff?, attach?, tile?} of the abilities of one attack (or one skill)."""
     cast, opt, hit, aim, dirs, attach, hit_buff, lines, hopt, tile, tile_fx = [], {}, [], [], [], [], [], [], {}, [], []
+    cast_tgt, ct_opt = [], {}
     buff_life = {}
     proj = None
     for a in abilities:
@@ -886,7 +887,16 @@ def emit_part(abilities, projs):
                 dirs.append({'t': em['dir'], 's': em['slots'][:4] + [''] * (4 - len(em['slots'][:4]))})
         for k in ('hitEffects', 'inputTargetEffects', 'castTargetEffects'):
             for em in a.get(k) or []:
-                hit += em['fx']
+                # (2026-11-26, docs/rules/fx.md 「적 범위 공격의 경고 칸」) a CastTargetEffectOptions of ON_CAST_START goes on the
+                # cast's targets as the cast starts (`castTgt`, timed by `castTgtOpt`: its end, loop), not on each unit its damage
+                # hits — 鼠王's DriftSand mousek_skill_01_range_02, 自制投石机's lock-on; the operators' char_modes.py keeps the
+                # same split (cast_target_timing)
+                if k == 'castTargetEffects' and em.get('start', 2) == 2:
+                    cast_tgt += em['fx']
+                    for n in uniq(em['fx']):
+                        ct_opt.setdefault(n, opt_of(em))
+                else:
+                    hit += em['fx']
                 # `_onlyOnce`: the first hit of the cast only, held until its end event (子代's 摄食 trap_dstnta_attack_01_hit on
                 # the held operator until ON_CAST_END 3)
                 if em.get('onlyOnce'):
@@ -957,6 +967,9 @@ def emit_part(abilities, projs):
                 if subs:
                     proj['sub'] = subs
     part = {'cast': uniq(cast), 'opt': opt, 'hit': uniq(hit)}
+    if cast_tgt:
+        part['castTgt'] = uniq(cast_tgt)
+        part['castTgtOpt'] = ct_opt
     if aim:
         part['aim'] = uniq(aim)
     if hopt:
@@ -982,7 +995,8 @@ def emit_part(abilities, projs):
 
 
 def names_of_part(p):
-    out = list(p.get('cast', [])) + list(p.get('hit', [])) + list(p.get('attach', [])) + list(p.get('hitBuff', [])) + list(p.get('tile', []))
+    out = list(p.get('cast', [])) + list(p.get('hit', [])) + list(p.get('castTgt', [])) + list(p.get('attach', [])) + list(p.get('hitBuff', []))
+    out += list(p.get('tile', []))
     out += [x['fx'] for x in p.get('line', []) + p.get('tileFx', [])]
     pr = p.get('proj') or {}
     for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart', 'stop'):

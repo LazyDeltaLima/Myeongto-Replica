@@ -3505,9 +3505,22 @@
   `faceEvent`가 안 읽음) — 사제 투석기의 조준 표시. 가상적: 관의 공격은 키트가 직접 하여 'swing'이 없고, fx 'beam' { from, to }가 대상을 싣는다.
   조건을 풀어 새로 `tgt`가 붙은 다른 적 스킬은 없었다(골든 전투 훑기; 문드러진 응집 사도 `BornBugs`의 fire가 소환한 적을 돌려주던 것은 고침), 이펙트
   골든(`fx-events.json`)도 그대로 — 시전 시작에 `eskillFx` 투사체 꼬리가 새로 나가는 능력 없음.
-- 남은 것: `tgt`로 시전 대상 이펙트 틀기, `tiles` 있는 대체 칸을 (x, y)에 고정하기(이 묶음의 fx 줄).
+- 시전 대상 이펙트(2026-11-26, 공식 클라에서 확인): 능력의 `_castTargetEffects`(CastTargetEffectOptions) 중 시전 시작(`ON_CAST_START`)의 것은
+  시전 대상 위에 시전이 시작할 때 한 번 생긴다 — 피해가 닿은 유닛마다가 아니다. 추출기 `enemy_bindings.py emit_part`가 그것을 `hit`에서 떼어
+  `castTgt`(타이밍 `castTgtOpt`)로 싣고(오퍼레이터 `char_modes.py`와 같은 나눔; 다른 시점의 것은 `hit`에 남음), 렌더 `ecastTgtFx`가 튼다:
+  스킬은 'enemySkill'의 `tgt`(여럿이면 `tgts`) 위에 — 래트킹 `DriftSand`의 `mousek_skill_01_range_02`(십자 7칸 모래빛)·`_range`, `SandStorm`의
+  `mousek_skill_02_range`, 검은 뿔의 루울 `skill`의 `enemy_xdelk_buff_03`(채널 `dur` 동안, 'enemySkillEnd'에 멈춤), 가상적: 기계 `SommonSquad`의
+  `enemy_acfnc_skill_01_locked_01`(두 대상); 일반 공격은 'swing' 6번째 칸의 대상 위에 시전 끝까지 — 사제 투석기 `enemy_mnctpt_lockon_1`·`_2`
+  ('swing'에 대상이 없으면 타격 'atk'의 대상에); 가상적: 관은 키트 공격의 'beam' `to` 위에 `enemy_acduml_lockon`. 반복(`o` 0)인 것의 끝은
+  일반 공격은 시전 끝(공격 클립 길이), 채널 스킬은 그 길이; 시뮬이 끝을 안 싣는 시전(채널 아닌 스킬, 관의 키트 공격)은 프리팹 제 길이
+  [추정·자료 없음: 시뮬이 그 시전의 끝(`ON_CAST_END`)을 안 실음]. 예전에는 `hit`에 합쳐져 래트킹의 모래 십자가 시전 2초 뒤 맞은 유닛마다 깔렸고, 사제 투석기는 맞은 이펙트 상한(둘)을 조준 둘이 채워 착탄
+  `enemy_mnctpt_attack_hit`가 안 나왔다(이제 나옴).
+  [화면 미확인]
+- 남은 것: `tiles` 있는 대체 칸을 (x, y)에 고정하기(이 묶음의 fx 줄).
 - 재발 방지: `test/content/enemy-cast-target.test.js`(바인딩의 `castTargetEffects`를 가진 능력을 모두 훑어 시전 시작 사건이 대상을 싣는지,
-  키트가 제 사건으로 싣는 것은 까닭과 함께 목록), `test/render/enemy-tile-warn.test.js`(시뮬 콘텐츠의 칸 'telegraph' 종류를 모두 훑어 `TILE_WARN_SKILLS`에 있는지, 그 종류의 'explode'가 적을 `id` 아닌 `caster`로 싣는지(시전 안의 것은 까닭과 함께 목록), 그 적들이 그 능력을
+  키트가 제 사건으로 싣는 것은 까닭과 함께 목록), `test/render/enemy-cast-target-fx.test.js`(렌더가 시전 대상 위에 시전 시작에 트는지 — 스킬
+  `tgt`·`tgts`·채널, 'swing' 대상, 키트 공격 'beam'; 생성된 `enemy-modes.json`에서 바인딩의 시전 시작 `castTargetEffects`가 모두 `castTgt`이고
+  `hit`에 없는지), `test/render/enemy-tile-warn.test.js`(시뮬 콘텐츠의 칸 'telegraph' 종류를 모두 훑어 `TILE_WARN_SKILLS`에 있는지, 그 종류의 'explode'가 적을 `id` 아닌 `caster`로 싣는지(시전 안의 것은 까닭과 함께 목록), 그 적들이 그 능력을
   추출된 이펙트와 함께 바인딩하는지, '제국의 갑옷' `Appear`의 `tileFx`가 추출되는지); 칸 이펙트 읽기는 원인 제거 — 추출기가 템플릿에서 읽음.
 
 ### 추출 누락 보고 — fx_coverage (2026-10-16, 관리자 요청 「이펙트를 추출해 적용할 때마다 공식과 어긋나는 근본 원인」)

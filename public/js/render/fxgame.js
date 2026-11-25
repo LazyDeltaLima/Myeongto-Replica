@@ -168,7 +168,8 @@ import { animPause, backSide, viewHoldsBuff, clipOf, facesBack, idlePause, immun
  *   opt?: Record<string, CastOpt | undefined>, dirs?: { t: number, s: string[] }[], buff?: string[], attach?: string[],
  *   tile?: string[], hitBuff?: string[], hitBuffLife?: Record<string, number | undefined>, ready?: string[], readyEarly?: number,
  *   anim?: string, aim?: string[], dying?: string[], blink?: { from?: string[], to?: string[] }, line?: { fx?: string, life?: number }[],
- *   tileFx?: { fx: string, at: number }[], [key: string]: unknown }} EPart an enemy attack or ability's effects (enemy-modes.json)
+ *   tileFx?: { fx: string, at: number }[], castTgt?: string[], castTgtOpt?: Record<string, CastOpt | undefined>,
+ *   [key: string]: unknown }} EPart an enemy attack or ability's effects (enemy-modes.json)
  * @typedef {{ name?: string, ranged?: EPart | null, melee?: EPart | null, aura?: string[], skills?: Record<string, EPart | undefined>,
  *   anim?: string[], dead?: string, [key: string]: unknown }} EMode an
  *   enemy mode
@@ -6577,6 +6578,33 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
   /**
+   * 2026-11-26, official client (docs/rules/fx.md 「적 범위 공격의 경고 칸」): an enemy ability's CastTargetEffectOptions of
+   * ON_CAST_START (enemy-modes.json `castTgt`, timed by `castTgtOpt` — enemy_bindings.py emit_part) on each of its cast's
+   * targets as the cast starts: 鼠王's DriftSand sand cross mousek_skill_01_range_02 and SandStorm's mousek_skill_02_range on
+   * the unit it casts on (the sim's 'enemySkill' `tgt`), 乌顶巨角卢鲁's enemy_xdelk_buff_03, 假想敌：械's two locks (`tgts`),
+   * 自制投石机's lock-on (its 'swing' target), 假想敌：管's (its kit attack's 'beam' `to`). A loop one (`o` 0, to ON_CAST_END)
+   * lasts to the cast's end `end`, tagged `tag` on the caster (endCast / an 'enemySkillEnd' stop it); `end` null — a cast
+   * whose end the sim does not send — its prefab's own run [추정·자료 없음: 시뮬이 그 시전의 끝을 안 실음]. Until 2026-11-26
+   * they sat in `hit` and played on each unit the damage hit, seconds later.
+   * @param {View} v
+   * @param {EPart | null | undefined} part
+   * @param {(View | null | undefined)[]} tgts
+   * @param {number | null} end
+   * @param {string} tag
+   */
+  function ecastTgtFx(v, part, tgts, end, tag) {
+    const names = part?.castTgt;
+    if (!part || !Array.isArray(names) || !names.length) return;
+    const aim = new Set(part.aim || []), id = ownerOf(v);
+    for (const t of tgts) {
+      if (!t || t === v || t.alive === false || t.remove) continue;
+      for (const n of edirs(v, part, names)) {
+        const loop = part.castTgtOpt?.[n]?.o === 0 && end != null;
+        eplay(v, [n], { at: t, owner: id, ...(loop ? { on: ownerOf(t), tag, until: end } : { tag: 'cast' }), aim: aim.has(n) ? v : null });
+      }
+    }
+  }
+  /**
    * @param {EPart} part
    * @param {string} phase
    */
@@ -6586,18 +6614,27 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * @param {number} windup
    * @param {unknown} kind (epart)
    */
-  function eswingFx(src, windup, kind) {
+  /**
+   * @param {View} src
+   * @param {number} windup
+   * @param {unknown} kind (epart)
+   * @param {View | null} [tgt] the swing's target (the sim's 'swing' 6th field)
+   */
+  function eswingFx(src, windup, kind, tgt = null) {
     const p = epart(src, kind);
     if (!p || !p.part) return;
     const c = beginCast(src, windup, p.mode);
     c.part = p.part;
-    if (!c.skip) eplayCast(src, c, phaseIn(p.part, 'swing'));
+    if (c.skip) return;
+    eplayCast(src, c, phaseIn(p.part, 'swing'));
+    if (tgt) ecastTgtFx(src, p.part, [tgt], c.end, 'castLoop'); else if (p.part.castTgt?.length) c.ctLate = p.part.castTgt;
   }
   /**
    * @param {View} src
    * @param {unknown} kind (epart)
+   * @param {View | null} [tgt] the attack's target ('atk')
    */
-  function estrikeFx(src, kind) {
+  function estrikeFx(src, kind, tgt = null) {
     const p = epart(src, kind);
     if (!p || !p.part) return null;
     let c = /** @type {FxCast} */ (src._fxCast);   // (none or another cast: !same, begun below)
@@ -6606,7 +6643,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       c = beginCast(src, 0, p.mode);
       c.part = p.part;
       if (!c.skip) eplayCast(src, c, phaseIn(p.part, 'swing'));
-    }
+      if (!c.skip && tgt) ecastTgtFx(src, p.part, [tgt], c.end, 'castLoop');
+    } else if (c.ctLate && tgt) { c.ctLate = null; if (!c.skip) ecastTgtFx(src, p.part, [tgt], c.end, 'castLoop'); }   // a swing that named no target
     if (c.struckAt != null && clockS - c.struckAt < 0.03) return p;
     c.struckAt = clockS;
     if (!c.skip) eplayCast(src, c, phaseIn(p.part, 'strike'));
@@ -7720,6 +7758,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     fireWeapon: 'projectile_enemy_acfort_skill', springBullet: 'projectile_enemy_actrpb', springCombo: 'projectile_enemy_actrpc',
     acdumlStrike: 'projectile_enemy_acduml', acdummStrike: 'projectile_enemy_acdumm', chainBuff: 'projectile_enemy_smsha_s',
   };
+  // (2026-11-26) the ones of them that are the enemy's normal attack, driven by its kit (bosses.js pipeCore: 假想敌：管 / 弦 —
+  // profile.noAttack, no 'swing' / 'atk'): the attack mode's cast-target effects go on `to` then (ecastTgtFx)
+  const KIT_ATTACK_BEAMS = new Set(['acdumlStrike', 'acdummStrike']);
   /**
    * Damage by `by` on `tid` around the landing of its official shot: the projectile's own hit effects are the shot's.
    * @param {unknown} by
@@ -8159,13 +8200,14 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * start effects there; the units its damage hits next get its hit effects (eskillHit). true when the enemy binds it.
    * @param {View} v
    * @param {string} key
-   * @param {{ on?: boolean, loop?: boolean, target?: View | null, hold?: boolean, holdFor?: number, cap?: number }} [opts]
+   * `targets`: its cast's targets (the sim's 'enemySkill' `tgts`, else [`target`]) — its cast-target effects (ecastTgtFx).
+   * @param {{ on?: boolean, loop?: boolean, target?: View | null, targets?: (View | null)[] | null, hold?: boolean, holdFor?: number, cap?: number }} [opts]
    */
-  function eskillFx(v, key, { on = true, loop = false, target = null, hold = false, holdFor = ESKILL_HOLD_CAP, cap = 20 } = {}) {
+  function eskillFx(v, key, { on = true, loop = false, target = null, targets = null, hold = false, holdFor = ESKILL_HOLD_CAP, cap = 20 } = {}) {
     const part = eskillPart(v, key);
     if (!part || !eOn(v)) return false;
     const pr0 = part.proj || {};
-    if (![...(part.cast || []), ...(part.hit || []), ...(part.buff || []), ...(part.attach || []), ...(pr0.trail || []), ...(pr0.hit || []),
+    if (![...(part.cast || []), ...(part.hit || []), ...(part.castTgt || []), ...(part.buff || []), ...(part.attach || []), ...(pr0.trail || []), ...(pr0.hit || []),
       ...(pr0.reached || []), ...(pr0.targetStart || [])].some(efx)) return false; // nothing of it extracted: the procedural stand-ins stay
     const id = ownerOf(v);
     if (!on) {
@@ -8197,6 +8239,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
     const own = [...(part.buff || []), ...(part.attach || [])];
     if (own.length) eplay(v, own, loop ? { buff: true, tag: 'eskill', until: clockS + cap } : { tag: 'cast' });
+    ecastTgtFx(v, part, targets || [target], hold ? clockS + holdFor : null, 'eskill');
     const pr = part.proj;
     if (target && pr && target !== v) {
       if (Array.isArray(pr.targetStart)) eplay(v, pr.targetStart, { at: target });
@@ -9298,7 +9341,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
             if (src._fxESkill?.inPlace) { src._fxESkill.inPlace = false; return; }   // the ability's strike (inPlaceOfAttack)
             if (ABILITY_SHOT_ATKS.has(/** @type {string} */ (e[3]))) return;   // 2026-11-12: its ability's shot (破城者's missiles), drawn at its burst
             const tgt = views.get(e[2]);
-            const p = estrikeFx(src, e[3]);
+            const p = estrikeFx(src, e[3], tgt || null);
             if (tgt && p?.part) {
               lastAtk.set(tgt.id ?? tgt.info?.id, { src, t: clockS, mode: p.mode, epart: p.part });
               etrailShot(e, src, tgt, p.part);
@@ -9351,7 +9394,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         // ON_CAST_START cast effects (swingFx). Every state event reaches onEvent, so render/app.js needs no call of its own.
         case 'swing': {
           const src = views.get(e[1]);
-          if (efoe(src)) { if (eOn(src) && !/** @type {View} */ (src)._fxESkill?.inPlace) eswingFx(/** @type {View} */ (src), Number(e[2]) || 0, e[3]); return; }
+          if (efoe(src)) { if (eOn(src) && !/** @type {View} */ (src)._fxESkill?.inPlace) eswingFx(/** @type {View} */ (src), Number(e[2]) || 0, e[3], typeof e[5] === 'number' ? views.get(e[5]) || null : null); return; }
           if (src) src._fxCombat = Number(e[6]) === 1;   // 2026-10-21: at an enemy it blocks (combatEffects, altGroup)
           // (2026-10-21) the 9th field: a talent ability cast in place of the attack; the 6th: its target, when it turns to it; the 8th: a first attack (1 / 2, 2026-11-17: beginCast)
           if (src) swingFx(src, Number(e[2]) || 0, views, /** @type {string | null | undefined} */ (e[3]), typeof e[8] === 'string' && e[8] ? e[8] : null, typeof e[5] === 'number' ? e[5] : null, e[7] === 1 || e[7] === 2);
@@ -9479,6 +9522,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           }
           if (e[1] === 'beam' && e[4] && SHOT_BEAMS[/** @type {string} */ (e[4].kind)]) {
             const o = /** @type {FxRec} */ (e[4]), from = views.get(o.from ?? o.id);
+            // 2026-11-26: a kit's own normal attack (KIT_ATTACK_BEAMS, no 'swing'): its cast-target effects on `to` as it starts
+            if (from && KIT_ATTACK_BEAMS.has(/** @type {string} */ (o.kind)) && efoe(from) && eOn(from)) ecastTgtFx(from, epart(from, 'enemy')?.part, [views.get(o.to)], null, 'cast');
             const pr = from && views.get(o.to) ? eshotDrawable(views.get(o.caster) || from, /** @type {string} */ (SHOT_BEAMS[/** @type {string} */ (o.kind)])) : null;
             if (pr && !pr.link && efx(Array.isArray(pr.trail) ? pr.trail[0] : null)) { ownFx.add(e); return; } // its trail flies instead
           }
@@ -9495,13 +9540,15 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
               // 2026-11-12: a skill whose buff effect lasts with its form (FORM_HELD_SKILLS) — held to that form's end
               if (e[1] === 'enemySkill' && FORM_HELD_SKILLS[/** @type {string} */ (v.info?.defId)]?.[/** @type {string} */ (k)]) { eskillFx(v, /** @type {string} */ (k), { loop: true, cap: ESKILL_HOLD_CAP }); return; }
               const tgt = o.target ?? o.tgt ?? o.to, tv = tgt != null ? views.get(tgt) || null : null;
+              // 2026-11-26: every unit the cast is on (`tgts`: 假想敌：械's SommonSquad, the main one first) — its cast-target effects
+              const tvs = Array.isArray(o.tgts) ? o.tgts.map((t) => views.get(t) || null) : [tv];
               // 2026-11-14: a channel the sim gives a length (`dur`: content/enemies.js chanView, a kit's own channel) is held
               // that long or to its 'enemySkillEnd' (its ON_CAST_END effects, its hits' effects), and its link projectile's
               // line shows; (2026-11-15) a `hold` one to that end (at most ESKILL_HOLD_CAP)
               const chan = e[1] === 'enemySkill' && Number(o.dur) > 0 ? Number(o.dur) : 0;
               const held = e[1] === 'enemySkill' && (!!o.hold || chan > 0);
               if (held) elassoStart(v, eskillPart(v, /** @type {string} */ (k)), tv, chan || ESKILL_HOLD_CAP);
-              if (eskillFx(v, /** @type {string} */ (k), { target: tv, hold: held, holdFor: chan || ESKILL_HOLD_CAP }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
+              if (eskillFx(v, /** @type {string} */ (k), { target: tv, targets: tvs, hold: held, holdFor: chan || ESKILL_HOLD_CAP }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
               return;
             }
           }
