@@ -3491,8 +3491,19 @@
   `AddBuffEffect`, 이름당 하나·참조 수) 그 버프가 끝날 때 같은 이름으로 떼어지는데(`OnBuffFinish` → `RemoveBuffEffect`), 0.8초 버프는 이펙트
   이름이 없어(`overrideEffectKey` 없음, 템플릿 `effectKey` 빔) 표식 이펙트를 건드리지 않는다. 그래서 렌더의 표식 길이는 추출된 `hitBuffLife` 5.8 그대로.
   [화면 미확인]
-- 남은 것: 이 공격들의 'explode'(`chargeAttack`·`blastArrow`·`barrage`)는 시뮬이 적 `id`를 안 실어 대체 폭발 칸이 공식 범위 이펙트 위에 그대로 그려진다.
-- 재발 방지: `test/render/enemy-tile-warn.test.js`(시뮬 콘텐츠의 칸 'telegraph' 종류를 모두 훑어 `TILE_WARN_SKILLS`에 있는지, 그 적들이 그 능력을
+- 시뮬 신호(2026-11-26): 이 공격들의 'explode'는 시전한 적을 `caster`로 싣는다 — 부패한 기사 `chargeAttack`은 원래부터 시전 안에서 나와
+  `caster`·`ability`가 붙고, 쇠퇴한 기사 `blastArrow`(화살이 닿은 뒤 `b.after`)와 '제국의 갑옷' `barrage`(등장 처리기)는 키트가 `caster`를 직접 싣는다.
+  `id`가 아닌 까닭: 대체 그림(`fx/simfx.js _where`)은 `id`의 유닛이 사건 자리에서 0.75칸 안이면 그 유닛 위에 그린다 — 부패한 기사는 막는 이의 칸에서
+  0.5~0.7칸, 쇠퇴한 기사도 0.7칸에 서는 일이 있어(골든 전투에서 잼) 대체 폭발 칸이 적 쪽 칸으로 옮겨 간다. 시전 대상: 시전 시작의 'enemySkill'이
+  키트의 fire가 돌려준 유닛을 `tgt`(여럿이면 `tgts`, 주 대상 먼저)로 싣는다 — 채널 스킬만이 아니라 모두(`content/enemies.js castSkill`). 공식이 시전
+  대상 위에 `_castTargetEffects`(`ON_CAST_START`)를 트는 능력은 모두 대상을 돌려준다: 래트킹 `DriftSand`·`SandStorm`, 검은 뿔의 루울 `skill`(막는 이),
+  가상적: 기계 `SommonSquad`(두 대상). 적의 일반 공격 'swing'은 6번째 칸에 주 대상을 싣는다(`ai.js enemyAttack`; 적 모델은 사건으로 돌지 않아
+  `faceEvent`가 안 읽음) — 사제 투석기의 조준 표시. 가상적: 관의 공격은 키트가 직접 하여 'swing'이 없고, fx 'beam' { from, to }가 대상을 싣는다.
+  조건을 풀어 새로 `tgt`가 붙은 다른 적 스킬은 없었다(골든 전투 훑기; 문드러진 응집 사도 `BornBugs`의 fire가 소환한 적을 돌려주던 것은 고침), 이펙트
+  골든(`fx-events.json`)도 그대로 — 시전 시작에 `eskillFx` 투사체 꼬리가 새로 나가는 능력 없음.
+- 남은 것: 렌더가 이 `caster`로 그 능력을 바인딩한 적의 대체 폭발을 안 그리기, `tgt`로 시전 대상 이펙트 틀기(이 묶음의 fx 줄).
+- 재발 방지: `test/content/enemy-cast-target.test.js`(바인딩의 `castTargetEffects`를 가진 능력을 모두 훑어 시전 시작 사건이 대상을 싣는지,
+  키트가 제 사건으로 싣는 것은 까닭과 함께 목록), `test/render/enemy-tile-warn.test.js`(시뮬 콘텐츠의 칸 'telegraph' 종류를 모두 훑어 `TILE_WARN_SKILLS`에 있는지, 그 적들이 그 능력을
   추출된 이펙트와 함께 바인딩하는지, '제국의 갑옷' `Appear`의 `tileFx`가 추출되는지); 칸 이펙트 읽기는 원인 제거 — 추출기가 템플릿에서 읽음.
 
 ### 추출 누락 보고 — fx_coverage (2026-10-16, 관리자 요청 「이펙트를 추출해 적용할 때마다 공식과 어긋나는 근본 원인」)

@@ -362,8 +362,11 @@ function castSkill(b, e, a, k = null) {
   // the cast's events name the official ability (docs/SIM.md events; the client binds the enemy's effects and
   // sounds by it — the prefab's `Skills/<name>`, research of the client's UnitMode.GenerateSignalId): fx
   // 'enemySkill' { id, ability, n } as it starts, and `ability` / `caster` on every fx the cast makes now. A skill whose
-  // ability plays a three-part channel (`skillCast.*.chan`, chanCast) tells the view how long it lasts (chanView) and,
-  // when its fire returns the unit it casts on, that target `tgt` (the channel's set by the way it faces, its link line)
+  // ability plays a three-part channel (`skillCast.*.chan`, chanCast) tells the view how long it lasts (chanView). When
+  // its fire (the cast's start) returns the unit it casts on — or the units, first the main one — that target is `tgt`
+  // (and all of them `tgts` when there are more): the channel's link line and the way it faces, the effects the
+  // client plays on the cast's targets as it starts (`_castTargetEffects`, ON_CAST_START — 鼠王's DriftSand / SandStorm,
+  // 乌顶巨角卢鲁's skill, 假想敌：械's SommonSquad)
   const s = a.name ? e.mem.ab.sk[a.name] : null;
   const ch = chanCast(s && s.cast);
   const p = a.name ? b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: a.name, n: a.casts, ...(ch ? chanView(e, ch, s.bb) : null) }) : null;
@@ -382,7 +385,7 @@ function castSkill(b, e, a, k = null) {
   // (castStrikeAt's null — a parallel group, a sequence after a projectile — compares as no frame, like 0)
   const at = a.atStrike && (k || part) && s ? /** @type {number} */ (castStrikeAt(e, s.cast, s.bb)) : 0;
   const t = at > 1e-9 && !part ? null : run(/** @type {AbFn} */ (a.fire));
-  if (ch && p && t && t !== e && t.id != null) p.tgt = t.id;
+  if (p) castTargets(p, e, t);
   if (at > 1e-9) {
     b.after(at - 1e-9, () => {
       if (!e.alive || (k && (e.mem.ab.casting !== k || !(e.castLeft > 0) || e.castSwing))) return;
@@ -390,6 +393,21 @@ function castSkill(b, e, a, k = null) {
     }, { owner: e });
   } else if (part) run(part);
 }
+
+/**
+ * Put the target(s) a cast's fire returned on its 'enemySkill' payload `p`: `tgt` the first unit other than the caster, `tgts`
+ * every one when there are more (a fire's other return values — an fx payload, a flag — name no target).
+ * @param {Record<string, unknown>} p @param {Unit} e @param {unknown} t
+ */
+function castTargets(p, e, t) {
+  const ids = (Array.isArray(t) ? t : [t]).filter((u) => isUnit(u) && u !== e).map((u) => /** @type {Unit} */ (u).id);
+  if (!ids.length) return;
+  p.tgt = ids[0];
+  if (ids.length > 1) p.tgts = ids;
+}
+
+/** Whether `u` is a unit of the battle (an operator, a summon, an enemy). @param {unknown} u @returns {u is Unit} */
+const isUnit = (u) => !!u && typeof u === 'object' && 'side' in u && (u.side === 'ally' || u.side === 'enemy') && 'id' in u && u.id != null;
 
 /** The cast record of `cast` that plays a three-part channel — itself, else a child of its sequence (死亡之眼's LineAttack) — or null. @param {Record<string, any> | null | undefined} cast @returns {Record<string, any> | null} */
 function chanCast(cast) {

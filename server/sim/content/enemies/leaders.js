@@ -259,6 +259,7 @@ function kitLeaderMisc(key, ab, e) {
         skill(ds, (b, e2, a) => {
           const t = highest(b, e2);
           a.at = t ? { t, x: t.x, y: t.y, r: t.tileR, c: t.tileC } : null;
+          return t;   // the cast's target as it begins ('enemySkill' tgt): its `_castTargetEffects` go there
         }, { cond: (b, e2) => allTargets(b, e2).length > 0, atStrike: (b, e2, a) => {
           const at0 = a.at;
           a.at = null;
@@ -278,6 +279,7 @@ function kitLeaderMisc(key, ab, e) {
         skill(ss, (b, e2, a) => {
           const t = lowest(b, e2);
           a.at = t ? { t, x: t.x, y: t.y } : null;
+          return t;   // (as DriftSand's)
         }, { cond: (b, e2) => allTargets(b, e2).length > 0, atStrike: (b, e2, a) => {
           const at0 = a.at;
           a.at = null;
@@ -350,7 +352,7 @@ function kitLeaderMisc(key, ab, e) {
           const at = a.at;
           a.at = null;
           if (!at) return;
-          b.fx('explode', { x: at.cc, y: at.r, r: 1, kind: 'chargeAttack', tiles: 'plus' });
+          b.fx('explode', { x: at.cc, y: at.r, r: 1, kind: 'chargeAttack', tiles: 'plus' });   // (its `caster` / `ability`: the cast's)
           for (const u of areaAlliesInTiles(b, e2, at.r, at.cc, 'plus', 1)) hurt(b, e2, u, e2.s.atk * (s.bb['dekght[aoe].atk_scale'] ?? s.bb.atk_scale ?? 1), 'phys');
         } })];
     }
@@ -377,7 +379,9 @@ function kitLeaderMisc(key, ab, e) {
             b.fx('telegraph', { x: cc, y: r, r: 1, dur: delay, kind: 'blastArrow', tiles: 'plus', id: e2.id });
             b.after(delay, () => {
               if (!e2.alive) return;
-              b.fx('explode', { x: cc, y: r, r: 1, kind: 'blastArrow', tiles: 'plus' });
+              // `caster`, not `id`: an `id` anchors the view's stand-in on that unit when it stands within 0.75 tiles (render/fx/simfx.js
+              // _where) — the knight beside its target's cross
+              b.fx('explode', { x: cc, y: r, r: 1, kind: 'blastArrow', tiles: 'plus', caster: e2.id });
               // "对主目标造成法术普通伤害，对溅射目标造成法术溅射伤害": the arrow's target + the 周围四格 (an area)
               for (const u of targetAndArea(tt, areaAlliesInTiles(b, e2, r, cc, 'plus', 1))) hurt(b, e2, u, e2.s.atk * scale, 'arts');
             }, { owner: e2 });
@@ -1149,6 +1153,7 @@ function kitElk(ab) {
     P.ch = { t: /** @type {Unit} */ (e.blockedBy), on: false };
     b.addBuff(e, { key: 'ab:elkCharge', duration: dur + 0.1, visible: true, flags: { disarm: true } });
     b.fx('telegraph', { x: /** @type {Unit} */ (e.blockedBy).x, y: /** @type {Unit} */ (e.blockedBy).y, r: 0.5, dur, kind: 'elkCharge', id: e.id });
+    return P.ch.t;   // the cast's target ('enemySkill' tgt): its `_castTargetEffects` enemy_xdelk_buff_03
   }, { cond: (b, e) => !P.ch && !failing(e) && !!(e.blockedBy && e.blockedBy.alive), atStrike: (b, e) => {
     const ch = P.ch;
     if (!ch || !ch.t.alive) return;

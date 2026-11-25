@@ -1673,8 +1673,11 @@ function enemyAttack(b, e, dt) {
   e.castLeft = t.action;
   e.castSwing = true;   // (the recovery is the attack ability's: enemyMode)
   // its `_combat` ability swings (atkCombat: enemies.json `attackAnim.combat`, blocked): the 7th field 1, as an operator's —
-  // the renderer plays that ability's clip (the model's `attack.combat`, tools/assets/anim-overrides.mjs putEnemyAttackKeys)
-  b._ev(e.atkCombat ? ['swing', e.id, roundMs(t.strike), shotKind(e, radius, targets), 0, null, 1] : ['swing', e.id, roundMs(t.strike), shotKind(e, radius, targets)]);
+  // the renderer plays that ability's clip (the model's `attack.combat`, tools/assets/anim-overrides.mjs putEnemyAttackKeys).
+  // The 6th field is its main target (the attack ability's cast target as it starts: the effects the client plays there
+  // then, `_castTargetEffects` ON_CAST_START — 自制投石机's lock-on); an enemy's model turns by no event (render/app.js faceEvent)
+  const aim = targets[0]?.id ?? null;
+  b._ev(e.atkCombat ? ['swing', e.id, roundMs(t.strike), shotKind(e, radius, targets), 0, aim, 1] : ['swing', e.id, roundMs(t.strike), shotKind(e, radius, targets), 0, aim]);
   e.swing = { left: t.strike, targets, sel: t.sel };
   if (t.strike > 1e-9) return !moves;
   enemyStrike(b, e, radius, reach, own);

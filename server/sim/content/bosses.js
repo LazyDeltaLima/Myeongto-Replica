@@ -2373,6 +2373,7 @@ function kitMachine(ab, e, b, tpl) {
             b2.fx('summon', { x: t.x, y: t.y, id: e2.id, tgt: t.id, kind: 'acfncSquad' });
           }
         });
+        return picks;   // the cast's targets ('enemySkill' tgt / tgts): its `_castTargetEffects` enemy_acfnc_skill_01_locked_01 on each
       },
     },
     launchA,

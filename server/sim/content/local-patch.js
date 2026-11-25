@@ -143,7 +143,7 @@ function barrage(times) {
           const t = areaAlliesInTiles(b, e, r, c, 'box', 1).sort((p, q) => q.hp - p.hp)[0];
           if (!t) return;
           hits++;
-          b.fx('explode', { x: t.x, y: t.y, r: 0.5, kind: 'barrage' });
+          b.fx('explode', { x: t.x, y: t.y, r: 0.5, kind: 'barrage', caster: e.id });   // (its enemy; `caster`, as blastArrow's)
           hurt(b, e, t, e.s.atk, 'phys');
         }, { owner: e });
       }
