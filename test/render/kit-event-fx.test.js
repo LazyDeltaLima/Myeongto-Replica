@@ -749,7 +749,7 @@ test('引星棘刺 S3 (2026-11-19): the area\'s line (Thorn2S3Renderer thorn2_sk
   assert.equal(kitOfficialPlan('seaArea', { id: 1, pts: [[3, 10]], delay: 0.5, duration: 19 }, 'thorn2'), null, 'one tile: resultForEffect is empty, every point the same');
   assert.equal(fxSpec('seaArea').a, 'none', 'no stand-in: the \'zone\' rings are the fallback');
   // fxgame.js: a `path` play lays the line once, closes a loop back to its first point, and finishes it at its life's end
-  assert.match(GAME, /if \(p\.path\) \{ if \(pathLine\(pb\.bundle, name, o\[p\.path\], !!p\.loop, Number\(op\.z\) \|\| 0, Number\(p\.after\) \|\| 0, Number\(p\.life\) \|\| 0, op\)\) n\+\+; continue; \}/);
+  assert.match(GAME, /if \(p\.path\) \{ if \(pathLine\(pb\.bundle, name, o\[p\.path\], !!p\.loop, Number\((?:\/\*\* @type \{View\} \*\/ \()?op\)?\.z\) \|\| 0, Number\(p\.after\) \|\| 0, Number\(p\.life\) \|\| 0, op\)\) n\+\+; continue; \}/);
   assert.match(GAME, /if \(loop && ps\.length > 2\) ps\.push\(\{ \.\.\.ps\[0\] \}\);/);
   assert.match(GAME, /l\.inst\.setPath\?\.\(ps\);\s*zoneEnd\(l, until, true\);/);
   // zoneFx: a zone's `life` (the thrown projectile's own time) ends its reach effects before the area's `duration`

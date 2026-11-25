@@ -31,6 +31,7 @@ import { whenPlays } from './fx/conds.js';
  * @property {string[][]} [attach]
  * @property {string[][]} [input]
  * @property {string[][]} [tgtStart]
+ * @property {string[][]} [chain]
  * @property {string[][]} [attachFoe]
  * @property {(Record<string, CastOpt> | null)[]} [castOpt]
  * @property {({ melee?: RoleLists, ranged?: RoleLists } | null)[]} [fortress]
@@ -46,6 +47,7 @@ import { whenPlays } from './fx/conds.js';
  * @property {string[]} [common]
  * @property {({ idle?: string[], back?: string[] } | null)[][]} [funnels]
  */
+/** @typedef {'cast' | 'hit' | 'trail' | 'attach' | 'input' | 'tgtStart' | 'chain'} BindRole a mode's bound list (boundEffects) */
 /** @typedef {Readonly<Record<string, Readonly<Record<number, { forms: Readonly<Record<string, string>>, also: readonly string[] }>>>>} HeldModeTable */
 /** @typedef {Readonly<{ tpl: string | readonly string[], face?: boolean }>} HeldKey a client key (or keys) */
 /** @typedef {Readonly<{ tpl: string, born?: readonly string[], bySkill?: boolean }>} TalentKey */
@@ -133,7 +135,8 @@ export const NOTE_FX = Object.freeze(/** @type {Record<string, Readonly<{ shots:
   s3: note('projectile_chr_oblvns_s3_phy'),
   s3m: note('projectile_chr_oblvns_s3_mag'),
 }));
-export const NOTE_FLIGHT = Object.freeze({
+/** @typedef {{ free: number, sine?: number, track: number, turn: number, pass?: { speed: number, time: number } }} NoteFlight */
+export const NOTE_FLIGHT = Object.freeze(/** @type {Record<'base' | 'talent' | 's1' | 'piano' | 'organ' | 's3' | 's3m', NoteFlight>} */ ({
   base: { free: 2.0, track: 2.0, turn: 5 },
   talent: { free: 1.3, sine: 0.3, track: 2.0, turn: 7 },
   s1: { free: 1.7, track: 2.2, turn: 5 },
@@ -141,7 +144,7 @@ export const NOTE_FLIGHT = Object.freeze({
   organ: { free: 0.7, sine: 0.15, track: 1.0, turn: 2.5 },
   s3: { free: 0.8, sine: 0.5, track: 1.3, turn: 7.5 },
   s3m: { free: 0.8, sine: 0.5, track: 1.3, turn: 7.5 },
-});
+}));
 /**
  * Trail / hit prefab of a note (`fan` 1–8: the S1 note's own projectile) from `plays` (the loaded plays.json). null for an
  * unknown mode, without the file, or when its projectile has not one trail and a hit.
@@ -327,7 +330,7 @@ export const KIT_HIT = Object.freeze(new Set(['swire2_skill_01_hit']));
  * @param {ModeBind | null | undefined} bind modes.json entry
  * @param {readonly string[]|null|undefined} prefabs the operator's extracted prefabs (index.json bundles[bundle])
  * @param {number|null} n
- * @param {'cast'|'hit'|'trail'|'attach'} role
+ * @param {BindRole} role
  */
 export function boundEffects(bind, prefabs, n, role) {
   if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || /** @type {number} */ (n) < 0) return [];

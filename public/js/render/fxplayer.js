@@ -3823,7 +3823,7 @@ export function hasBackOrder(def) {
 export class FxInstance {
   /**
    * @param {FxDef} def FxLibrary.load result
-   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, dir?: {x: number, y: number}|null, body?: string|null, speed?: number, delays?: boolean, scale?: number, floor?: number|null, split?: boolean|'backOnly', atSpawn?: boolean, pivot?: boolean, hold?: number|null, ahead?: boolean, tilt?: readonly number[]|null, pinned?: boolean }} [opts]
+   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1|null, dir?: {x: number, y: number}|null, body?: string|null, speed?: number, delays?: boolean, scale?: number, floor?: number|null, split?: boolean|'backOnly', atSpawn?: boolean, pivot?: boolean, hold?: number|null, ahead?: boolean, tilt?: readonly number[]|null, pinned?: boolean }} [opts]
    *   tilt (2026-10-22): a Unity quaternion the whole prefab is turned by inside the Unity frame — the `Graphic` rotation of
    *   the unit it is created on (render/fxpoints.js GRAPHIC_TILT / takesGraphicTurn); world-space particles are not turned
    *   facing / dir / body (maintainer decision 2026-10-11 「공식대로」): the effect turns as the client's `ParticleEffect.FaceTo`

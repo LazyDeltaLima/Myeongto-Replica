@@ -79,7 +79,7 @@ test('圣约送葬人 S3\'s buff by the deploy facing, 伺夜 S3\'s attack-end e
   assert.deepEqual(castEnd('char_427_vigil', bind, 1, ['vigil_skill_03_A_start_01']), [], 'not extracted');
   assert.deepEqual(castEnd('char_1032_excu2', bind, 1, null), []);
   // a fixed frame after the cast's end, unless a new cast began or it was cut
-  assert.match(SRC, /castsDelayed\.push\(\{ t: c\.end \+ FIXED_FRAME_S, run: \(\) => \{ if \(v\._fxCast === c && !c\.cut && v\.alive !== false\)/);
+  assert.match(SRC, /castsDelayed\.push\(\{ t: (?:\/\*\* @type \{number\} \*\/ \()?c\.end\)? \+ FIXED_FRAME_S, run: \(\) => \{ if \(v\._fxCast === c && !c\.cut && v\.alive !== false\)/);
   // a right copy listed alone plays as its left / right pair (凯尔希·思衡托 S3, 寒檀 S2: effectsFor skips `_left` names)
   assert.match(SRC, /names\[i\]\.replace\(\/_right\(\?=_\|\$\)\/, '_left'\)/);
 });

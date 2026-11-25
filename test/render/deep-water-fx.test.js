@@ -35,7 +35,7 @@ test('every effect that can reach a sunk body takes its floor from it', () => {
   // a flight (launchTrail → placeTrail)
   assert.match(FXGAME, /rec\.inst\.setSink\(rec\.sink = flightSink\(rec, rec\.sink\)\);/);
   // spawn: over the units as well as under them (it was the road for every `over` effect: hits, lines, ropes)
-  assert.match(FXGAME, /floor: drop \? null : floor \?\? \(at\.z < 0 \|\| !over \? at\.z \|\| 0 : 0\),/);
+  assert.match(FXGAME, /floor: drop \? null : floor \?\? \((?:\/\*\* @type \{number\} \*\/ \()?at\.z\)? < 0 \|\| !over \? at\.z \|\| 0 : 0\),/);
   // what follows a unit that sinks after it started: buffs, statuses, lines
   assert.match(FXGAME, /l\.inst\.setSink\(Math\.min\(vz, body\?\.z \|\| 0, l\.sinkFrom\?\.z \|\| 0\)\);/);
   // a line from a sunk shooter

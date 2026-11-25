@@ -65,7 +65,7 @@ test('fxgame: swing → ON_CAST_START effects, atk → ON_SPELL_ON ones; loops e
   assert.match(SRC, /if \(l\.tag === 'castLoop' && l\.owner === id && !l\.inst\.stopping\) l\.inst\.stop\(\);/);
   assert.match(SRC, /endCast\(v\); v\._fxFoe = null;/);   // (its first attack is the sim's swing's since 2026-11-17: test/render/first-attack-fx.test.js)
   // the first attack's delay ÷ the playback speed
-  assert.match(SRC, /const delay = c\.first && opt\?\.d > 0 \? opt\.d \/ c\.speed : 0;/);
+  assert.match(SRC, /const delay = c\.first && (?:\/\*\* @type \{number\} \*\/ \()?opt\?\.d\)? > 0 \? (?:\/\*\* @type \{\{ d: number \}\} \*\/ \()?opt\)?\.d \/ c\.speed : 0;/);
 });
 
 test('아스트젠 더 라이트체이서 S3: the link effect is held by one enemy (its ability\'s _selector picks side 2, max 1), not by her', () => {

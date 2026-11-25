@@ -150,7 +150,7 @@ test('the dash spawns fly_range_01 at her tile, turned to the sweep, and the tra
   const dash = SRC.slice(SRC.indexOf("case 'dash': {"), SRC.indexOf("case 'dash': {") + 1600);
   assert.match(dash, /const at = \{ x: x \+ \(Number\(src\?\.modelDX\) \|\| 0\), y, z: Number\(src\?\.z\) \|\| 0 \};/);
   assert.match(dash, /spawn\(b\.bundle, range, at, \{ owner: o\.id, buff: true, until: clockS \+ fly \}, \{ dir: \{ x: dx, y: dy \} \}\)/);
-  assert.match(dash, /if \(trail\) spawn\(b\.bundle, trail, src,/);
+  assert.match(dash, /if \(trail\) spawn\(b\.bundle, trail, (?:\/\*\* @type \{View\} \*\/ \()?src\)?,/);
 });
 
 test('an effect on her without a FollowMountPoint (aglna2_skill_02_buff_01 at her feet) stays on her tile while the model glides', () => {

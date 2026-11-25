@@ -215,6 +215,14 @@ most strict errors were, and the JSDoc that fixed them:
   When nothing before the line can carry the type (`let p0 = null, …` read in a closure, `l.finishAt <=` of an optional
   field), the cast goes on the line and the test's pattern takes it as optional, the pinned text otherwise as it was:
   `(?:\/\*\* @type \{number\} \*\/ \()?l\.finishAt\)?` (owner-follow-fx, status-finish, fx-face-switch and others).
+  Some tests read more than a line: test/render/fx-bindings.test.js takes the prefab names fxgame.js builds in a template
+  literal as patterns (a cast's `{…}` inside `${…}` breaks them: type the declaration), and kit-event-fx.test.js looks for
+  each kit event's name in quotes anywhere in the file (a typedef's description that quotes one, `'burst'`, hides it).
+- a handler whose event record its dispatch tested (`e[1] === 'parry' && e[4]`) takes the event with the record required
+  (render/fxgame.js `FxRecEv`, `ParryEv`: `BattleEvent & { 4: FxRec & { buff: string } }`), cast once at the dispatch;
+  an optional-and-required intersection (`Ev & { 4: FxRec }`) still reads `e[4]` as possibly undefined.
+- a frozen table of records of different shapes (fxmap.js `NOTE_FLIGHT`, some with `sine` or `pass`) is a union of
+  literal types whose optional fields are errors where one member lacks them: a typedef of the record, cast on the literal.
 - `delete o.f` of a field the type requires (TS2790): `delete /** @type {{ f?: number }} */ (o).f`.
 - a method wrapped on another module's prototype (`Match.prototype.finish = function finish(o) …`, local-console.js,
   local-patch.js): the JSDoc goes on the function expression, `= /** @param {…} o */ function finish(o)`; `this` comes
