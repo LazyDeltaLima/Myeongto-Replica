@@ -231,6 +231,35 @@ test('萨尔贡 × 娜仁图亚 lending: an operator deployed in the ring meanwh
   checkInvariants(h.b);
 });
 
+// A 【移动】 is a new character in the client: the lender's `[share][buff]` is its own buff (kept by the DESIGN §22.3
+// deviation), a receiver's loan is a global buff RegisterUnit checks again (docs/rules/sim.md 「【移动】과 전역 버프」)
+test('萨尔贡 × 娜仁图亚 lending and 【移动】: the lender’s move keeps lending; a receiver’s move keeps it only inside the ring', () => {
+  const h = sargonLend([
+    { chessId: 's0_a', row: 10, col: 4, items: [HAMMER_A] }, { chessId: 'r_a', row: 11, col: 4 },
+    { chessId: 'q1_a', row: 9, col: 4 }, { chessId: 'q2_a', row: 12, col: 9 },
+  ]);
+  const s0 = h.unit('s0_a'), r = h.unit('r_a'), q1 = h.unit('q1_a'), q2 = h.unit('q2_a');
+  const [R0, C0] = [s0.tileR, s0.tileC];
+  s0.skill.activate('test', { free: true });
+  h.step(1);
+  lc(r.s.atk, 1150, 'lent to r');
+  lc(q1.s.atk, 1150, 'lent to q1');
+  assert.ok(h.b.moveRedeploy(r, R0 + 1, C0 + 1), 'r moves to another tile of the ring');
+  h.step(1);
+  lc(r.s.atk, 1150, 'a receiver’s 【移动】 inside the ring keeps it');
+  assert.ok(h.b.moveRedeploy(q1, R0 - 1, C0 + 3), 'q1 moves out of the ring');
+  h.step(1);
+  lc(q1.s.atk, 1000, 'a receiver’s 【移动】 out of the ring takes it back (the new character’s RegisterUnit check)');
+  assert.ok(h.b.moveRedeploy(q2, R0 - 1, C0 + 1), 'q2 moves into the ring');
+  h.step(1);
+  lc(q2.s.atk, 1150, 'moved into the ring: lent too');
+  assert.ok(h.b.moveRedeploy(s0, R0, C0 + 4), 'the lender moves away');
+  h.step(1);
+  lc(r.s.atk, 1150, 'the lender’s 【移动】 keeps its lending (its own buff, DESIGN §22.3)');
+  lc(q2.s.atk, 1150, 'the lender’s 【移动】 keeps its lending (q2)');
+  checkInvariants(h.b);
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // 维多利亚
 

@@ -3374,7 +3374,10 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   ② 두 사람이 같은 장비를 빌려 주면 둘 다 겹친다(빌려 주는 이·장비 하나마다 따로 — 키 `lend:<빌려 주는 이>:<n>:<장비>`). ③ `env_gbuff_new_with_verify` 효과만 빌려 주어
   시라쿠사 정장은 공격 속도만 가고 좌우 두 칸 능력(`char_dynamic_ability_new`)은 안 간다. ④ 빌려 준 이가 쓰러지거나 철수하면 그 자리에서 다 거둔다. ⑤ 받는 쪽은 빌려 준 순간의
   빌려 주는 이 칸 둘레 8칸이라, 빌려 주기가 도는 동안 그 칸에 새로 배치된 오퍼레이터도 받고, 받던 이가 둘레 밖에 다시 배치되면 잃는다. 돌고 있는 동안의 재시전은 시간만 새로 채우고
-  새로 빌려 주지 않는다. 【移动】은 버프를 지키는 편차(DESIGN §22.3, `moveRedeploy`)대로 받던 것·빌려 준 것을 그대로 둔다(옮겨 들어온 이는 받음). 전에는 한 사람이 같은 장비를 빌려 주면
+  새로 빌려 주지 않는다. ⑥ 【移动】(2026-11-25부터, 위 「【移动】과 전역 버프」의 기준): 공식 【移动】은 새 캐릭터(`Character.MoveLikeRespawnSelf` → 옛 캐릭터 `FinishMe`)라
+  빌려 준 이가 옮기면 빌려 주기가 끝나지만, 빌려 준 이의 `[share][buff]`는 그가 지니던 버프라 §22.3 편차(`moveRedeploy`)가 지켜 우리는 빌려 주기를 그대로 잇는다(둘레는 시전한 칸 그대로).
+  받던 이가 받은 것은 `AutoChessShareEquipEffect`가 만든 전역 버프라 새 캐릭터의 `RegisterUnit`이 다시 검사하므로, 받던 이가 【移动】으로 둘레 밖에 서면 거두고 둘레 안이면 그대로,
+  옮겨 들어온 이는 받는다(재배치와 같음). 이전(2026-11-25 전): 받던 이의 【移动】도 받던 것을 그대로 두었다. 전에는 한 사람이 같은 장비를 빌려 주면
   `lend:<장비>` 하나(다시 빌려 주면 시간만, 누가 빌려 주든), 능력까지 빌려 주고, 빌려 준 이가 쓰러져도 60초를 채우고, 시전 때 둘레에 선 이만 받았다.
   근거(공식 클라에서 확인): 위 `AutoChessShareEquipEffect`가 인스턴스마다 전역 버프를 만들고 `_addImmediately`로 그때 선 유닛에 건다 · 새로 태어난 유닛은 `BattleController.RegisterUnit`이
   모든 전역 버프에 `TryAddBuff`(위치 검사기 `_UnitVerify`) · `[share]`의 `ON_SKILL_CAST_SUCCEED`가 만드는 `[share][buff]`는 `overrideType` EXTEND(새 버프를 안 더해 `ON_BUFF_LATE_ENABLE`이
@@ -3382,8 +3385,9 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   `BattleController.RemoveGlobalBuffByAlias`가 별칭이 같은 전역 버프마다 `GlobalBuff.OnRemoved`(붙인 유닛마다 그 버프를 뗌) · 프리팹 `_options`의 직업 마스크가 소환물·장치를 뺀다
   (오퍼레이터만). 규정 빅토리아 6(락락 전략)도 같은 `lendItemEffects`라 장비 하나·빌려 주는 이마다 겹친다 — 아래 「규정」 빅토리아 줄.
 - 테스트 `test/content/items.test.js` 「two advanced 源石溶剂 on one operator…」·「override-grouped item buffs…」·「lendItemEffects: an item the receiver carries too stacks…」,
-  `test/content/bonds_core.test.js` 「萨尔贡 × 娜仁图亚 lending: each item instance and each lender stacks…」·「…an operator deployed in the ring meanwhile gets it…」.
-- 재발 방지: `test/content/bonds_core.test.js` 「萨尔贡 × 娜仁图亚 lending…」 둘.
+  `test/content/bonds_core.test.js` 「萨尔贡 × 娜仁图亚 lending: each item instance and each lender stacks…」·「…an operator deployed in the ring meanwhile gets it…」·
+  「萨尔贡 × 娜仁图亚 lending and 【移动】…」.
+- 재발 방지: `test/content/bonds_core.test.js` 「萨尔贡 × 娜仁图亚 lending…」 셋.
 
 ### 에기르(맹약) 부활은 공식 클라대로 — 쓰러질 때마다·쓰러진 차례로, 연합 방어에 쓰러진 채 든 구성원도 (upstream #882, 관리자 결정 2026-11-13)
 
