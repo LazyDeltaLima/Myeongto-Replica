@@ -1240,7 +1240,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   전투 중 재접속하면 그때 본 값부터 [ASSUMED]. 툴팁 「全队目标生命值 {lp}：本场战斗已损失 {pending} 点，战斗结束后扣除」.
 - **공식과 다르게 남긴 것(관리자 결정 2026-10-11, 「공식대로」 삭제를 되돌림)**: 자기 전투(일반 라운드 COMBAT) 중 「−N」. 클라 `SelfBattleRoundStatus.lostHpDisplay`는
   늘 0이라 공식은 자기 전투 동안 「−x」를 아예 띄우지 않고, 联防(`HelpBattleRoundStatus.lostHpDisplay` =
-  `selfEnemyEscapedCntInHelpBattleState`, 상한 적용)과 보스전에서만 띄운다. 우리 「−N」은 user playtest #3 item 2 요청이라 그대로 둠(한때 공식대로 지웠다가 관리자 요청으로 복원).
+  `selfEnemyEscapedCntInHelpBattleState`, 상한 적용)과 보스전에서만 띄운다. 우리 「−N」은 user playtest #3 item 2 요청이라 그대로 둠(한때 공식대로 지웠다가 관리자 요청으로 복원). 클라로 확인된 공식 로직이 옛 편차를 이기는 규칙(관리자 결정 2026-11-26, CONTRIBUTING 3절)에서도 화면 편의라 예외로 남김(같은 날 관리자 결정).
 - 확인: `test/ui/playtest3.test.js`(liveLp·LpTower·bossLp), `test/ui/playtest6-unite.test.js` [화면 미확인].
 - **팀 칸의 ×N·−N 자리(관리자 결정 2026-10-16, 시안 비교 후 「안 1」)**: 공식 플레이어 칸(`AutoChessBattlePlayerStatusItemView`)의 HP 묶음은
   아이콘·숫자뿐이고(×N 주황 알약 `tag_miss`는 단계 알약에만, −x 판 `_loseHpGrp`는 위쪽 LP에만), 팀 칸의 ×N·−N은 우리 추가(user playtest #3 item 2,

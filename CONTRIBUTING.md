@@ -123,7 +123,8 @@ This is a remake of the official mode; the official game decides.
   decision 2026-10-26). Known official behaviour is implemented as it is, not left as an assumption. An older deviation
   in `docs/design/`, `docs/history/` or `docs/rules/`, even one recorded as a maintainer decision, gives way once the
   official client's logic for that rule is confirmed (checked against the client, not inferred): the rule follows the
-  official game and the deviation is withdrawn with its comments (maintainer decision 2026-11-26). A decision the
+  official game and the deviation is withdrawn with its comments (maintainer decision 2026-11-26; game rules only — a
+  screen convenience the maintainer keeps is not one). A decision the
   maintainer takes is cited as "maintainer decision YYYY-MM-DD". A decision the maintainer calls provisional stays marked so in `docs/rules/` and is never presented as settled.
 - **Rules that differ from upstream or from the official game** are recorded with their evidence in
   [docs/rules/](docs/rules/README.md), one file per domain (`sim`, `diy`, `ui`, `render`, `fx`, `audio`, `upstream`).
