@@ -700,7 +700,7 @@ const wallSec = () => (globalThis.performance?.now?.() ?? Date.now()) / 1000;
 /**
  * The points table of fxpoints.js by the members read here: per model, its head point's place per side.
  * @typedef {{ [model: string]: { head?: { F?: { at?: unknown }, B?: { at?: unknown } } } | undefined }} HeadPoints
- * @typedef {{ info?: { spine?: string, defId?: string } | null, entryBack?: unknown, spineReady?: unknown, modelSY?: number,
+ * @typedef {{ info?: { spine?: string | null, defId?: string } | null, entryBack?: unknown, spineReady?: unknown, modelSY?: number,
  *   root?: { y: number } | null, body?: { y?: number } | null }} HeadView the unit view's members read (render/units.js)
  */
 /** @type {HeadPoints | null} */

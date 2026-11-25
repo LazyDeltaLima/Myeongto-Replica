@@ -74,6 +74,7 @@
     "public/js/render/style.js",
     "public/js/render/textures.js",
     "public/js/render/tiles.js",
+    "public/js/render/units.js",
     "public/js/*.js",
     "public/js/screens/*.js",
     "public/js/ui/*.js"

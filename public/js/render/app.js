@@ -174,7 +174,7 @@ import { drainTraitFx, traitFxPending } from './fxtrait.js'; // 2026-11-12: 规�
 import { createRouteCursors, createBattleCursors } from './fxroute.js'; // the boss route preview (LOCAL-PATCH.md 「보스 경로 미리보기」); the battle start's official one (render.md 「적 경로 미리보기」)
 
 /**
- * @import { ViewCtx } from './units.js'
+ * @import { ViewCtx, UnitInfo } from './units.js'
  * @import { BattleEvent, SnapIn, UnitId } from './interp.js'
  * @import { CanPlace, DragSlot, DragOutside, DragPiece } from './drag.js'
  * @import { Padding, RectLike, TileRect } from './projection.js'
@@ -220,8 +220,8 @@ import { createRouteCursors, createBattleCursors } from './fxroute.js'; // the b
  * @typedef {FxEv | UnitEv | DieEv} Ev a b.ev entry as handleEvent's switch reads it: the kinds of its cases (another kind falls to
  *   `default`), each case testing what it reads before using it
  * @typedef {Record<string, Record<string, unknown> | undefined>} FormTable units.js FORMS / SKIN_FORMS by model
- * @typedef {{ kind: string, defId: unknown, golden?: boolean, spine?: unknown, chip?: boolean, tier?: unknown, skin?: unknown,
- *   dir?: string, icon?: unknown, [key: string]: unknown }} PieceInfo
+ * @typedef {{ kind: string, defId: string, golden?: boolean, spine?: string | null, chip?: boolean, tier?: number, skin?: unknown,
+ *   dir?: string, icon?: string | null, [key: string]: unknown }} PieceInfo
  * @typedef {{ piece: PrepPiece, area: 'hand' | 'temp' | 'board', uid: number, row?: number, col?: number, idx?: number,
  *   key?: string }} PrepEntry
  * @typedef {{ uid: number, kind?: string, id?: string, area: string, idx?: number, row?: number, col?: number,
@@ -281,7 +281,7 @@ const HUD_ZOOM_MIN = 0.45;
  * @param {HTMLElement} host
  * `deadline` (epoch ms): the caller's own limit (ui/fieldHost.js); the optional waits stop in time for it.
  * @param {{ data?: { subscribe?: (fn: (name: string) => void) => () => unknown, status?: (name: string) => unknown, [k: string]: unknown },
- *           assets?: unknown, audio?: { spineEvent?(id: UnitId, name: string, value: unknown): void } | null,
+ *           assets?: unknown, audio?: { spineEvent?(id: UnitId, name: string | null, value: unknown): void } | null,
  *           settings?: { damageNumbers?: boolean, quality?: string, eliteBadge?: boolean, otherSkins?: boolean, frameLimit?: number, [k: string]: unknown },
  *           signal?: AbortSignal, deadline?: number, timing?: MountTiming | null, skinGate?: ReturnType<typeof pageSkinGate>, board?: string, antialias?: boolean,
  *           padding?: Padding|((kind:string, size:{width:number,height:number}) => Padding | null | undefined),
@@ -549,7 +549,7 @@ export async function createFieldView(host, options = {}) {
     terrainAt: (/** @type {number} */ r, /** @type {number} */ c) => (tiles ? tiles.tile(r, c).mat : null),   // the stage tile's material ('deepsea': units.js deepSink)
     // a battle unit's Spine clip event (render/spine.js onEvent; null = its model is up) → its official sound
     // (audio.js spineEvent, docs/rules/audio.md 「공격 소리 신호」); not on a scouted prep board or the pen
-    /** @param {UnitId} id @param {string} name @param {unknown} value */
+    /** @param {UnitId} id @param {string | null} name (null: its model is up) @param {unknown} value */
     spineEvent: (id, name, value) => { if (mode === 'battle' && !battleMeta?.prep) { opts.audio?.spineEvent?.(id, name, value); fxGame.spineEvent(id, name); } },
     // an ally's skin model or null (render/units.js UnitView._skinModel)
     skinModel: (/** @type {SkinInfo | null | undefined} */ info, /** @type {((back: boolean) => unknown) | undefined} */ base) => skinGate.model(info, base),
@@ -2009,7 +2009,7 @@ export async function createFieldView(host, options = {}) {
 
   // a hand item on a scouted prep board (UnitInfo kind 'item'): the plate's icon and colour resolve client-side,
   // exactly like the own prep bench (pieceInfo)
-  /** @param {{ defId?: unknown, tier?: unknown, golden?: unknown, [key: string]: unknown }} info */
+  /** @param {UnitInfo} info */
   function scoutItemInfo(info) {
     const rec = data.item(info.defId);
     const tier = rec?.tier || info.tier || 1;

@@ -127,10 +127,10 @@ the files directly under `server/sim/` (`server/sim/*.js`), the files directly u
 `server/sim/content/kits/ops/`, and in the renderer the 3D board `public/js/render/board3d/` and the effect system's parts
 `public/js/render/fx/`, the files directly under `public/js/` (`public/js/*.js`), the screens directly under
 `public/js/screens/` (`public/js/screens/*.js`), the files directly under `public/js/ui/` (`public/js/ui/*.js`) and,
-one by one, 37 of the files directly under `public/js/render/` (the small helpers: drag.js, pick.js, pen.js and the rest;
+one by one, 38 of the files directly under `public/js/render/` (the small helpers: drag.js, pick.js, pen.js and the rest;
 the camera, the board, the snapshot buffer and the Spine actor: projection.js, tiles.js, interp.js, spine.js; the drawn
 textures and the unit HUD: textures.js, hud-bars.js; the effect layer's helpers: fxmap.js, fxstatus.js, fxsubmit.js,
-fxpoints.js and 6 more; the field view itself: app.js).
+fxpoints.js and 6 more; the field view itself: app.js; the unit, hand item and device views: units.js).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -185,6 +185,11 @@ most strict errors were, and the JSDoc that fixed them:
   `/** @type {Seat[]} */ (room.seats.filter(Boolean))`. A value found with a lookup the code knows succeeds
   (`room.seatOf(id) || room.spectatorOf(id)` of a member): a cast on the expression.
 - `x || {}` is a union with `{}`, whose fields are errors: `@type` on the declaration with the fields optional.
+- a class field first set in a method, even one only the constructor calls (`_buildHud`, `_applyPlace` in
+  render/units.js), is `T | undefined` to tsc, and a declaration in `types/*.d.ts` does not change that (the JS
+  assignment wins): cast at the read, `/** @type {number} */ (this.hudAnchor)`. A field that starts `null` in the
+  constructor and is made later takes its type from an `@type` on the constructor's line.
+- `Array.isArray` does not narrow a `readonly string[]` out of `string | readonly string[]`: cast the one-clip branch.
 - `delete o.f` of a field the type requires (TS2790): `delete /** @type {{ f?: number }} */ (o).f`.
 - a method wrapped on another module's prototype (`Match.prototype.finish = function finish(o) …`, local-console.js,
   local-patch.js): the JSDoc goes on the function expression, `= /** @param {…} o */ function finish(o)`; `this` comes

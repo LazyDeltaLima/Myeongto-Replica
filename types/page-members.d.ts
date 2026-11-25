@@ -16,6 +16,7 @@ import type { FxRings } from '../public/js/render/fx/rings.js';
 import type { FxArrivals } from '../public/js/render/fx/arrivals.js';
 import type { FxSim } from '../public/js/render/fx/simfx.js';
 import type { FxZones } from '../public/js/render/fx/zones.js';
+import type { StatusFrom } from '../public/js/render/units.js';
 
 declare module '../public/js/render/fx/system.js' {
   interface FxSystem extends FxParticles, FxProjectiles, FxBeams, FxLocks, FxNumbers, FxRings, FxArrivals, FxSim,
@@ -31,22 +32,45 @@ declare module '../public/js/render/board3d/scene.js' {
 }
 
 declare module '../public/js/render/units.js' {
-  interface UnitView {
+  /** What render/app.js keeps on each view of its `views` map (a unit, a hand item or a device alike). */
+  interface AppViewFields {
+    /** the piece's look the view was built for: a new one rebuilds it (app.js setPrep, syncChests, syncMates) */
+    _sig?: string;
+    /** a prep piece's tile or slot (app.js setPrep) */
+    _home?: { x: number, y: number, z: number };
+    /** the walk of a prep piece to its tile (app.js) */
+    _tween?: { fx: number, fy: number, fz: number, tx: number, ty: number, tz: number, t: number } | null;
     /** a bench piece's view of a scouted board (app.js) */
     _bench?: boolean;
     /** the view was seen in a snapshot (app.js: fades in once) */
     _seen?: boolean;
-    /** the walk of a prep piece to its tile (app.js) */
-    _tween?: { fx: number, fy: number, fz: number, tx: number, ty: number, tz: number, t: number } | null;
+    /** when the battle view was built (performance clock; app.js: one never seen goes after 8 s) */
+    _born?: number;
+    /** its unit is in no snapshot or info the view knows (app.js unknownUnit: rebuilt from its info) */
+    _unknown?: boolean;
+    /** the down list it was last on (app.js syncBattle) */
+    _downSeq?: number;
+    /** its swing turned it already (app.js faceEvent): the strike's 'atk' does not turn it again */
+    _swingTurn?: boolean;
+    /** the game time of the attack that last turned it (app.js faceEvent) */
+    _atkTurnAt?: number;
+    /** a 'skill' event that came while it was not up yet, played at its deploy (app.js handleEvent) */
+    _skillAtDeploy?: unknown[] | null;
+    /** the update time it took since the last census (app.js census) */
+    _perfMs?: number;
     /** a board piece shows its facing wedge (app.js; bench pieces leave it unset) */
     _showFacing?: boolean;
+  }
+  interface UnitView extends AppViewFields {
     /** status key → its source (onStatus; made on the first one) */
-    statusFrom?: Map<string, any>;
+    statusFrom?: Map<string, StatusFrom>;
     /** the status effects fxgame.js statusOn started on it, by key */
     _fxStatusOn?: Set<string>;
     /** false while the effect layer is off: the status icons stand in (fxstatus.js, each frame) */
-    _statusIcons?: any;
+    _statusIcons?: boolean;
   }
+  interface ItemView extends AppViewFields {}
+  interface DeviceView extends AppViewFields {}
 }
 
 declare module '../public/js/render/fxplayer.js' {
@@ -62,21 +86,21 @@ declare module '../public/js/audio.js' {
   interface AudioManager {
     // set by voice.js on the page's one manager
     /** the dubbed voice table of the chosen language (voice.js voiceTableOf) */
-    voiceTable?: () => any;
+    voiceTable?: () => ReturnType<typeof import('../public/js/voice.js').voiceTableOf>;
     /** the chosen voice language ('off' | 'jp' | …) */
     voiceLang?: () => string;
     /** the official battle voice rules (voicePolicy.js createVoicePolicy) */
     voicePolicy?: ReturnType<typeof import('../public/js/voicePolicy.js').createVoicePolicy>;
     // made on first use (`||= new Map()` …), absent until then
     /** chess id → when its prep deploy sound last played */
-    _prepDeployAt?: Map<any, number>;
+    _prepDeployAt?: Map<unknown, number>;
     /** the opening voice's pending timers */
-    _openingTimers?: Set<any>;
+    _openingTimers?: Set<ReturnType<typeof setTimeout>>;
     /** field → a running acid rain's loop { by, held, until } */
-    _acidRains?: Map<any, { by: any, held: any, until: number }>;
+    _acidRains?: Map<string, { by: unknown, held: Array<() => void>, until: number }>;
     /** unit id → the cancels of its shells' fall sounds still due */
-    _shellFalls?: Map<any, Array<() => void>>;
+    _shellFalls?: Map<unknown, Array<() => void>>;
     /** unit id → its pending charge sounds */
-    _mcnistCharge?: Map<any, any>;
+    _mcnistCharge?: Map<unknown, unknown>;
   }
 }

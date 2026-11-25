@@ -47,7 +47,6 @@
  "public/js/render/fx/zones.js": 2,
  "public/js/render/fxgame.js": 21,
  "public/js/render/fxplayer.js": 4,
- "public/js/render/units.js": 12,
  "public/js/resource-entries.js": 1,
  "public/js/resources.js": 6,
  "public/js/screens/achievements.js": 21,
@@ -329,7 +328,6 @@
  "shared/wideField.js": 1,
  "types/class-members.d.ts": 4,
  "types/page-globals.d.ts": 6,
- "types/page-members.d.ts": 11,
  "types/sim-members.d.ts": 8,
  "types/sim-url.d.ts": 5,
  "types/ws.d.ts": 6

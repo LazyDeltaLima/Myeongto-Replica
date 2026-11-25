@@ -57,8 +57,8 @@
 /**
  * The manifest's clip roles (tools/assets: `anims`) as this file reads them: a role names its clips; the unit's roles
  * hold one per state.
- * @typedef {{ begin?: string | null, loop?: string | null, end?: string | string[] | null, idle?: string | null,
- *   up?: string | null, alts?: string[], pick?: string, from?: unknown, combat?: SpineRole | null,
+ * @typedef {{ begin?: string | null, loop?: string | null, end?: string | readonly string[] | null, idle?: string | null,
+ *   up?: string | null, alts?: readonly string[], pick?: string, from?: unknown, combat?: SpineRole | null,
  *   signals?: Record<string, string | SpineRole>, swap?: Record<string, string>,
  *   down?: { by?: string, map?: Record<string, string>, deployClips?: string[] }, strike?: unknown, stance?: unknown,
  *   plainAttack?: unknown, via?: string, modeAttack?: unknown, firstAttackBegin?: string | null, firstBegin?: unknown,
@@ -66,7 +66,7 @@
  *   downMode?: SpineRole & { by?: string }, beginDown?: string | null, endDown?: string | null, endProj?: number,
  *   stun?: string | null, die?: string | null, deploy?: string | null, deploys?: Record<string, string>,
  *   [key: string]: unknown }} SpineRole
- * @typedef {{ idle?: string | string[] | null, deploy?: string | null, die?: string | null, attack?: SpineRole | null,
+ * @typedef {{ idle?: string | readonly string[] | null, deploy?: string | null, die?: string | null, attack?: SpineRole | null,
  *   skill?: SpineRole | null, move?: SpineRole | null, stun?: SpineRole | null, run?: SpineRole | null,
  *   skills?: Record<string, SpineRole>, equip?: Record<string, SpineRoles>, [key: string]: unknown }} SpineRoles
  * @typedef {{ anims?: SpineRoles, animations?: Record<string, number>, hits?: Record<string, number[]>,
@@ -410,7 +410,7 @@ export class SpineActor {
     this.wound = false;           // wound up for the coming attack (windUp → attack)
     this.swingUntil = null;       // the end of a swing's clip (swing): attacks meanwhile leave it alone
     this.lastAttackEnd = null;    // the clock when the attack mode last ended (a first swing after it: _firstBegin)
-    /** @type {Array<[string, string]> | null} */
+    /** @type {ReadonlyArray<readonly string[]> | null} */
     this.fortressClips = null;    // a 要塞's [melee, ranged] clip pairs (render/units.js FORTRESS_CLIPS)
     /** @type {boolean | null} */
     this.atkRanged = null;        // …and whether its latest attack was ranged (null: not known yet — the role's clip)
@@ -489,7 +489,7 @@ export class SpineActor {
    * then holds). `end` = { clip, in, roles? } (game s): a closing clip played the same way so that it ends `in` s from
    * now, landing in `roles` — a leader's 重生 ends on its last clip while the sim still holds it, and the next form
    * starts on its own clips.
-   * @param {SpineRoles | null} roles @param {string | string[] | null} [change]
+   * @param {SpineRoles | null} roles @param {string | readonly string[] | null} [change]
    * @param {{ clip: string, in: number, roles?: SpineRoles | null } | null} [end] @param {boolean} [hold]
    */
   setForm(roles, change = null, end = null, hold = false) {
@@ -510,7 +510,7 @@ export class SpineActor {
 
   /**
    * A dead model that stands on in a form (render/units.js FORMS `stands`): back on the form's clips, after `change`.
-   * @param {SpineRoles | null} roles @param {string | string[] | null} [change]
+   * @param {SpineRoles | null} roles @param {string | readonly string[] | null} [change]
    */
   stand(roles, change = null) {
     this.dead = false;
@@ -580,7 +580,7 @@ export class SpineActor {
   /**
    * Play a form's transition clip once — or its clips one after another (an array: 风丸's 替身 comes on Die_2 then
    * Start_B); attacks and the resting state wait for them (mode 'change').
-   * @param {string | string[]} clip @param {boolean} [hold]
+   * @param {string | readonly string[]} clip @param {boolean} [hold]
    */
   _change(clip, hold = false) {
     const clips = this._changeClips(clip);
@@ -600,10 +600,11 @@ export class SpineActor {
 
   /** @param {unknown} name @returns {name is string} */
   has(name) { return !!name && this.names.has(/** @type {string} */ (name)); }
-  /** @param {string | string[]} name @returns {number} */
+  /** @param {string | readonly string[]} name @returns {number} */
   dur(name) {
     if (Array.isArray(name)) return name.reduce((t, n) => t + (this.has(n) ? this.dur(n) : 0), 0);   // clips in a row
-    const d = this.durations[name]; return typeof d === 'number' && d > 0 ? d : this._durFromData(name);
+    // (`name` is one clip here: Array.isArray does not narrow a readonly array out)
+    const d = this.durations[/** @type {string} */ (name)]; return typeof d === 'number' && d > 0 ? d : this._durFromData(/** @type {string} */ (name));
   }
 
   /** @param {string} name */
@@ -1284,7 +1285,7 @@ export class SpineActor {
    * `_afterEndAnim`): `begin` once, `loop` until the `end` clip — from `endAt` game seconds (after `begin`), else so that it
    * closes the `total` —, and at `total` `after` plays as the skill's begin clip (mode skillBegin: the skill's idle / loop
    * follow). Attacks wait meanwhile (mode 'chant'), a 'skill' on only sets the flag. 予愿安洁莉娜 S2 (render/units.js glide).
-   * @param {{ begin?: string, loop?: string, end?: string, endAt?: number, total: number, after?: string }} o
+   * @param {{ begin?: string | null, loop?: string | null, end?: string | null, endAt?: number, total: number, after?: string }} o
    */
   chant({ begin, loop, end, endAt, total, after }) {
     if (this.dead || !(total > 0) || !this.has(loop)) return false;
