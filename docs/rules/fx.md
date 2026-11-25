@@ -3453,6 +3453,27 @@
   [추정: 공식은 지연 3초 뒤 꼬리를 틀고 도착 시점은 안 읽음 — 착탄에 맞춰 0.27초 앞당김] 소리는 rules/audio.md 「적 소리」. 테스트
   `test/render/enemy-mortar-fx.test.js`. [실제 판 이상 없음 2026-10-28]
 
+### 적 범위 공격의 경고 칸 (2026-11-26, 관리자 제보 「적 범위 공격의 경고 칸이 공식과 다름」, 공식 클라에서 확인)
+
+- 예전: 시뮬이 칸을 실어 보내는 적 범위 공격 fx 'telegraph' { `tiles`, `kind` }('제국의 갑옷' 등장 폭격 `barrage`, 알리스테어, 제국의 여광의
+  장비 투척 `royalDecree`, 래트킹 십자 모래 `driftSand`, '즈자이' 십자 공격 `xiCross`, 부패한 기사 모아 치기 `chargeAttack`, 쇠퇴한 기사 폭발 화살 `blastArrow`)를
+  `fx/zones.js tileFlash`가 빨간 칸 깜빡임으로 그렸다. 공식 이펙트는 그 위에 따로 나왔다.
+- 공식에는 적 공격용 칸 경고가 없다. 후보였던 `map.ab` `map_act1autochess_warning_01`은 위수 협의 판 설정의 준비 단계 이펙트다: 공개 표
+  `battle_misc_table` `miscConfig.AUTOCHESS.effectConfig.tempChessRegionClearWarningEffect`(클래스 `AutoChessBattleMiscConfig.EffectConfig`,
+  `AutoChessEffectManager`의 `m_invalidHandTileWarningEffectList` 칸별 이펙트) — 대기 칸이 비워질 것을 알리는 표시. 같은 설정의 `buildableTileHintEffect`가
+  `map_act1autochess_place_01`, `maskEffectWhenGainChess` `_gainchess_01`, `deckRegionEffect` `_target_01`. `common_trap_warning_01`은 트래퍼 특성 토큰의 버프
+  (`trapper_e_trait[token]`)라 이것도 아니다. 그 순간은 각 적 능력의 자기 이펙트가 보여 준다(`enemy-modes.json`): 래트킹 `driftsand`의 타격 범위
+  `mousek_skill_01_range`·`_range_02`, '즈자이' `crossattack` 투사체 타격 `enemy_xi_skill_01_hit`, 부패한 기사 `chargeattack` 타격 `dekght_skill_01_hit`·`_range`
+  (모으는 동안은 자기 몸의 `dekght_skill_01_gather` 등뿐), 쇠퇴한 기사 `tripleattack`이 대상에 거는 `dekght_2_skill_01_buff`(폭발까지의 범위 표시), 알리스테어 `equip`
+  타격 `enemy_vtlionk_skill_01_lock_01`과 투사체 `projectile_enemy_vtlionk_s1`의 `_effectsToTargetWhenStart` `enemy_vtlionk_skill_01_hit_01`, '제국의 갑옷'
+  `Appear`의 빈 탄이 대상에 거는 표식 `hitBuff` `enemy_vtsk_skill_01_marker_01`(5.8초).
+- 지금(`fxgame.js TILE_WARN_SKILLS`·`etileWarn`): 그 능력을 바인딩한 적의 칸 'telegraph'는 빨간 칸을 안 그린다(`ownFx`). 다른 이벤트가 안 그리는 그 순간의
+  이펙트 둘은 여기서 튼다 — '제국의 갑옷'의 표식은 그 칸에 선 아군에게 버프로 5.8초(`eholdBuff`), 알리스테어 탄의 시작 이펙트는 그 칸의 아군에게(없으면 그 자리).
+  시뮬 이벤트가 능력도 대상도 안 실어서 렌더가 `kind`로 능력을 찾는다. 바인딩이 없거나 그 능력이 추출되지 않은 적, 품질 낮음은 빨간 칸 그대로.
+- 남은 것: 이 공격들의 'explode'(`chargeAttack`·`blastArrow`·`barrage`)는 시뮬이 적 `id`를 안 실어 대체 폭발 칸이 공식 범위 이펙트 위에 그대로 그려진다.
+- 재발 방지: `test/render/enemy-tile-warn.test.js`(시뮬 콘텐츠의 칸 'telegraph' 종류를 모두 훑어 `TILE_WARN_SKILLS`에 있는지, 그 적들이 그 능력을
+  추출된 이펙트와 함께 바인딩하는지).
+
 ### 추출 누락 보고 — fx_coverage (2026-10-16, 관리자 요청 「이펙트를 추출해 적용할 때마다 공식과 어긋나는 근본 원인」)
 
 - **원인**: 이펙트가 공식처럼 보이는지는 프리팹의 그림 데이터, 그것을 재생하는 로직(`fxplayer.js`), 언제·어디에 트는지(바인딩) 셋이 정하는데
@@ -3592,8 +3613,8 @@
     안 막히지 않은 비행 적이 필요).
   - 남은 8개는 골든이 아니라 렌더가 안 트는 것: 프라마닉스 더 프레리타 `sbell2_tile_defrost`·사리아 `demkni_buff_01_self`·카넬리안
     `billro_beidong_buff_03`·엔텔레키아 `etlchi_skill_03_line_01_end`, 실버애쉬 더 레인프로스트 S3 `svash2_skill_03_trail_02`(클라 투사체
-    `_effectsAlignToProjectileDirection`, `_trail_left/_right_01`과 함께 렌더에 바인딩 없음), `map_act1autochess_place_01`(클라 데이터·코드
-    문자열 어디에도 없음), `S_desert_wall_02_start_Mesh`(장치 모델로 구워 `official.js`가 그림 — 아래 「战场#06 沙尘暴 연출」),
+    `_effectsAlignToProjectileDirection`, `_trail_left/_right_01`과 함께 렌더에 바인딩 없음), `map_act1autochess_place_01`(2026-11-26 정정: 공개 표
+    `battle_misc_table` 위수 협의 `effectConfig.buildableTileHintEffect` — 준비 단계 칸 표시, 위 「적 범위 공격의 경고 칸」), `S_desert_wall_02_start_Mesh`(장치 모델로 구워 `official.js`가 그림 — 아래 「战场#06 沙尘暴 연출」),
     `screen_desert_down_to_up`(m06의 위 방향 폭풍 장치 `#2`는 어디서도 켜지지 않음; 서명은 기록되는 `up_to_down`과 같음 107개).
 - **입자 필드 — 모듈 안까지 (2026-10-26, 관리자 요청 「새 오퍼레이터마다 일일이 대조하지 않게」)**: 酒神 S2 타격 물결이 2.7배 높았던 것(위 「입자 크기
   방식 Local — 부모 크기 무시」)은 추출기가 `scalingMode`를 `scaling`으로 옮겼는데 플레이어가 한 번도 안 읽은 탓이다. 보고는 모듈을 통째로만 봐서(읽는

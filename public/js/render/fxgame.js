@@ -468,6 +468,20 @@ const STUCK_SHOTS = Object.freeze({ c4: 'C4' });
 /** 2026-11-11: 'explode' kinds whose official blast has no effect of its own — the ability's cast effects draw it. */
 const CAST_BLASTS = new Set(['ltndruAoe']);
 /**
+ * 2026-11-26 (docs/rules/fx.md 「적 범위 공격의 경고 칸」): the sim's 'telegraph' kinds with `tiles` (an enemy ability's area
+ * on the tiles) → that ability (the prefab's Skills/<name>, as the sim's ab.sk names it; enemy-modes.json skills keys are its lower
+ * case). The official game lays no tile warning for them: the ability's
+ * own effects show the moment (its cast, its hits' range effects, the buff it puts on its target), so an enemy that binds
+ * the ability draws no stand-in tile flash (etileWarn). Two of them have an effect of that moment no other event draws:
+ * 帝国的甲胄's 回忆里的誓死 (Appear: the marker its empty shot puts on the target, `hitBuff` enemy_vtsk_skill_01_marker_01,
+ * 5.8 s) and 阿利斯泰尔's 王权号令 (equip: projectile_enemy_vtlionk_s1's `_effectsToTargetWhenStart`
+ * enemy_vtlionk_skill_01_hit_01) — the sim's events name neither the ability nor the target, so they are played here.
+ * A kind missing here keeps the red tile flash (test/render/enemy-tile-warn.test.js sweeps the sim's kinds).
+ */
+export const TILE_WARN_SKILLS = Object.freeze(/** @type {Readonly<Record<string, string | undefined>>} */ ({
+  barrage: 'Appear', royalDecree: 'equip', driftSand: 'DriftSand', xiCross: 'CrossAttack', chargeAttack: 'ChargeAttack', blastArrow: 'TripleAttack',
+}));
+/**
  * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」): 'atk' kinds that are the shot of the enemy's running ability, not its plain
  * attack — 破城者's SkyProjectile missiles (bounty.js kitUareap, MultiRangedAttack of projectile_enemy_uareap_skill): no
  * plain-attack effects; the projectile shows only at its burst ('explode', AREA_SHOT_BLASTS).
@@ -6899,6 +6913,38 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return true;
   }
   /**
+   * 2026-11-26 (docs/rules/fx.md 「적 범위 공격의 경고 칸」): an enemy ability's area on the tiles — sim fx 'telegraph'
+   * { x, y, r, tiles, dur?, kind, id } (TILE_WARN_SKILLS). When the enemy binds that ability, its own effects show the moment
+   * and no stand-in tile flash is drawn; the effects of that moment no other event draws play here: the ability's `hitBuff`
+   * held `hitBuffLife` s on the unit at the spot (eholdBuff), its projectile's `targetStart` on it (or on the spot).
+   * true = drawn by the ability (no stand-in).
+   * @param {Ev} e
+   * @param {Views} views
+   */
+  function etileWarn(e, views) {
+    const o = /** @type {FxRec} */ (e[4]), src = views.get(o.id);
+    if (!src || !eOn(src)) return false;
+    const part = eskillPart(src, TILE_WARN_SKILLS[/** @type {string} */ (o.kind)]);
+    const pr = part?.proj || {};
+    if (!part || ![...(part.cast || []), ...(part.hit || []), ...(part.hitBuff || []), ...(pr.trail || []), ...(pr.hit || []),
+      ...(pr.reached || []), ...(pr.targetStart || [])].some(efx)) return false;   // nothing of it extracted: the stand-in stays
+    const x = Number(e[2]), y = Number(e[3]);
+    /** @type {View | null} */
+    let on = null;
+    for (const v of views.values()) {
+      if (v?.alive === false || v?.info?.side === 'enemy' || !(Math.abs(v.x - x) < 0.5 && Math.abs(v.y - y) < 0.5)) continue;
+      on = v;
+      break;
+    }
+    if (Array.isArray(part.hitBuff) && part.hitBuff.length && on) eholdBuff(src, part, on);
+    const start = (pr.targetStart || []).slice(0, MAX_HIT_FX);
+    if (start.length) {
+      if (on) eplay(src, start, { at: on });
+      else eplay(src, start, { at: { x, y, z: 0 }, over: false });
+    }
+    return true;
+  }
+  /**
    * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」): an enemy ability's projectile dropped on a spot in a set time — sim fx
    * 'telegraph' { x, y, r, dur, id, ability } as it leaves, 'explode' { …, id, ability } `dur` s later, the burst's damage right
    * after it in that tick (遮天面包机's Bomb, bounty.js kitNsbomb: projectile_enemy_nsbomb, AdvancedMovement TRACE_TARGET_WITHIN_TIME
@@ -9366,6 +9412,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-11-11: 萨卡兹子裔轰击者's shell lying where it landed, then its blast (规程)
           if ((e[1] === 'telegraph' || e[1] === 'explode') && e[4]?.kind === 'dthrowShell') {
             if (e[1] === 'telegraph' ? dshellFx(e, views) : dshellBlast(e)) ownFx.add(e);
+            return;
+          }
+          // 2026-11-26: an enemy ability's tile area — its own effects, no stand-in tile flash (etileWarn)
+          if (e[1] === 'telegraph' && e[4]?.tiles && e[4].id != null && TILE_WARN_SKILLS[/** @type {string} */ (e[4].kind)]) {
+            if (etileWarn(e, views)) ownFx.add(e);
             return;
           }
           // 2026-11-11: 冰原卫法者's projectile appearing where it fell, then its strike; the bombs and shells of 规程's CRITIC
