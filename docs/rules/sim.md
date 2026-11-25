@@ -3387,6 +3387,13 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   다시 안 돎, 「버프 덮어쓰기 그룹」) · 주인이 끝나면 `Entity.OnFinish` → `BuffContainer.Clear` → `Buff.OnFinish`가 `ON_BUFF_FINISH`를 돌려 `RemoveGlobalBuffByAlias` →
   `BattleController.RemoveGlobalBuffByAlias`가 별칭이 같은 전역 버프마다 `GlobalBuff.OnRemoved`(붙인 유닛마다 그 버프를 뗌) · 프리팹 `_options`의 직업 마스크가 소환물·장치를 뺀다
   (오퍼레이터만). 규정 빅토리아 6(락락 전략)도 같은 `lendItemEffects`라 장비 하나·빌려 주는 이마다 겹친다 — 아래 「규정」 빅토리아 줄.
+- 빌려 주기는 플레이어를 가리지 않는다(2026-11-26, `bonds/nation/sargon.js shareEquipment`): 두 사람이 한 필드에 서는 연합 방어·보스 조에서 빌려 준 칸 둘레 8칸에 선
+  **다른 플레이어의** 오퍼레이터도 받는다(시전 때 선 이, 도는 동안 그 칸에 배치되거나 【移动】으로 들어온 이 모두). 실제로는 두 플레이어 구역이 그만큼 가깝지 않아
+  (두 시즌 모든 맵에서 경계인 무대 10열은 배치 불가 — 왼쪽 구역 끝 9열과 오른쪽 구역 첫 11열은 거리² 4 이상) 【移动】으로 남의 구역에 들어간 경우에만 생긴다.
+  전에는 같은 플레이어의 오퍼레이터에게만 빌려 주었다. 근거(공식 클라에서 확인): `AutoChessShareEquipEffect._ShareEquip`이 새로 만드는 `GlobalBuffData`는 `prefabKey`·
+  블랙보드·`extraRuntimeData`(위치 검사기)만 채우고 `playerSideMask`는 비워 둔다(기본 0 = ALL) → `GlobalBuff.OnInit`이 그 값으로 `TargetOptions.Init`(마스크 판) →
+  `_VerifyTarget`의 `TargetOptions.VerifyTargetWithPlayerSide`가 부르는 `BattleUtil.VerifyTargetWithPlayerSide` → `PlayerSideCategories.CheckBelongToMask`는 마스크 0이면
+  늘 참. 남는 검사는 프리팹 `_options`의 아군 편·직업 마스크와 `_UnitVerify`의 거리뿐이다(두 플레이어의 오퍼레이터는 모두 아군 편, 플레이어 편만 SIDE_A·SIDE_B로 다름).
 - 빌린 장비는 짝 장비 검사에서 「가진 것」이 아니다(2026-11-26, `items/shared.js carries`): 짝 장비(`equip_chess_id`)가 있어야 켜지는 효과(페가수스의 투구·랜스, 총기사의 위엄,
   해구 실험체, 쉐라간드의 눈물, 사막 나침반, 패밀리 배지)는 그 효과를 가진 오퍼레이터가 **자기가 든** 짝 장비만 센다. 그래서 빌린 짝 장비로는 안 켜지고(패밀리 배지를 든 이가 시라쿠사 정장을
   빌려도 추가 피해 없음), 빌린 짝 효과 장비는 받는 쪽이 자기가 든 짝 장비를 보고 켜진다(페가수스의 랜스를 든 이가 투구를 빌리면 투구의 재생은 켜지고 자기 랜스의 추가 피해는 안 켜짐).
@@ -3397,8 +3404,8 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
 - 테스트 `test/content/items.test.js` 「two advanced 源石溶剂 on one operator…」·「override-grouped item buffs…」·「lendItemEffects: an item the receiver carries too stacks…」·
   「lendItemEffects: a lent partner does not count in a combo item’s partner check…」,
   `test/content/bonds_core.test.js` 「萨尔贡 × 娜仁图亚 lending: each item instance and each lender stacks…」·「…an operator deployed in the ring meanwhile gets it…」·
-  「萨尔贡 × 娜仁图亚 lending and 【移动】…」.
-- 재발 방지: `test/content/bonds_core.test.js` 「萨尔贡 × 娜仁图亚 lending…」 셋, `test/content/items.test.js` 「lendItemEffects: a lent partner does not count…」(빌린 짝 장비).
+  「萨尔贡 × 娜仁图亚 lending and 【移动】…」·「…lending on a shared field: another player’s operator in the ring gets it too」.
+- 재발 방지: `test/content/bonds_core.test.js` 「萨尔贡 × 娜仁图亚 lending…」 넷(넷째는 다른 플레이어), `test/content/items.test.js` 「lendItemEffects: a lent partner does not count…」(빌린 짝 장비).
 
 ### 에기르(맹약) 부활은 공식 클라대로 — 쓰러질 때마다·쓰러진 차례로, 연합 방어에 쓰러진 채 든 구성원도 (upstream #882, 관리자 결정 2026-11-13)
 

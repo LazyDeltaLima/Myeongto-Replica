@@ -260,6 +260,40 @@ test('萨尔贡 × 娜仁图亚 lending and 【移动】: the lender’s move ke
   checkInvariants(h.b);
 });
 
+// The global buff `_ShareEquip` makes has no player-side mask (GlobalBuffData.playerSideMask 0 = every side): on a shared
+// field another player's operator in the ring is lent too — the board halves never meet, a 【移动】 across them does
+test('萨尔贡 × 娜仁图亚 lending on a shared field: another player’s operator in the ring gets it too', () => {
+  const list = [...sargonDefs(6), ['r_a', ['preciShip']], ['q1_a', ['preciShip']], ['q2_a', ['preciShip']]];
+  const side = (pid, seat, units, extra) => ({ playerId: pid, seat, side: seat ? 'R' : 'L', colOffset: 0, bandId: null, playerEffects: [], bonds: {}, units, ...extra });
+  const h = makeBattle({
+    defs: defsOf(list), timeLimit: 999, autoFinish: false,
+    players: [
+      side('p1', 0, [{ uid: 1, kind: 'chess', chessId: 's0_a', row: 10, col: 4, items: [HAMMER_A] }],
+        { bandId: 'band_narant', bonds: { sargonShip: bondOn(6, 0, null, [3, 6]) } }),
+      side('p2', 1, [{ uid: 11, kind: 'chess', chessId: 'r_a', row: 11, col: 5 }, { uid: 12, kind: 'chess', chessId: 'q1_a', row: 12, col: 9 },
+        { uid: 13, kind: 'chess', chessId: 'q2_a', row: 9, col: 8 }]),
+    ],
+  });
+  h.step(1);
+  const s0 = h.unit('s0_a'), r = h.unit('r_a'), q1 = h.unit('q1_a'), q2 = h.unit('q2_a');
+  assert.ok(r.ownerId === 'p2' && s0.ownerId === 'p1', 'two players on one field');
+  s0.skill.activate('test', { free: true });
+  h.step(1);
+  lc(r.s.atk, 1150, 'another player’s operator in the ring at the cast (no player-side mask)');
+  lc(q1.s.atk, 1000, 'not to one far away');
+  h.b.retreat(q1);
+  assert.ok(h.b.redeploy(q1, { tile: [s0.tileR - 1, s0.tileC + 1] }), 'q1 deployed beside the lender');
+  h.step(1);
+  lc(q1.s.atk, 1150, 'another player’s operator deployed in the ring meanwhile (RegisterUnit, no player-side mask)');
+  assert.ok(h.b.moveRedeploy(q2, s0.tileR, s0.tileC - 1), 'q2 moves into the ring');
+  h.step(1);
+  lc(q2.s.atk, 1150, 'another player’s operator moved into the ring');
+  h.b.kill(s0);
+  h.step(1);
+  lc(r.s.atk, 1000, 'the lender’s knock-out takes it back from every player');
+  checkInvariants(h.b);
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // 维多利亚
 

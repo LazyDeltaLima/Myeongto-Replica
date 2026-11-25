@@ -85,7 +85,10 @@ const SHARE_KEYS = Object.freeze(['env_gbuff_new_with_verify']);
  * per equipment instance (tier ≤ filter_item_level, the `env_gbuff_new_with_verify` effects only), aliased by the lender,
  * whose validator takes the units within √2 of the lender's tile at that moment, its own tile left out — the 8 around
  * it, and so also an operator deployed there later while it lasts (BattleController.RegisterUnit offers every new unit to
- * every global buff). The buff is EXTEND: a cast while it runs only refills its time (Buff.OverrideGroup: the new buff is
+ * every global buff). Any player's operators: `_ShareEquip`'s GlobalBuffData sets no `playerSideMask` (0 = every
+ * side, PlayerSideCategories.CheckBelongToMask), so on a shared field (联防, a boss pair) the check is the ring alone —
+ * the board halves never come that close (stage column 10 takes no operator), a 【移动】 onto the other half can. The
+ * buff is EXTEND: a cast while it runs only refills its time (Buff.OverrideGroup: the new buff is
  * not added, no second LATE_ENABLE — the lent items and their tile stay). It ends with its time or with its owner
  * (Entity.OnFinish clears the owner's buffs → ON_BUFF_FINISH RemoveGlobalBuffByAlias → GlobalBuff.OnRemoved takes the
  * lent buffs off every unit). A receiver that leaves loses them with its own buffs and gets them again only when it is
@@ -122,7 +125,7 @@ function shareEquipment(battle, share) {
     if (!S.isOp(unit)) return;
     for (const [from, st] of running) {
       if (battle.time >= st.until - 1e-9) { running.delete(from); continue; }
-      if (unit === from || unit.ownerId !== from.ownerId) continue;
+      if (unit === from) continue;
       if (inRing(st, unit)) give(from, st, unit);
       else if (st.to.delete(unit)) items.endLentItems(battle, from, unit);
     }
@@ -140,7 +143,11 @@ function shareEquipment(battle, share) {
     } else {
       st = { r: from.tileR, c: from.tileC, until: battle.time + duration, to: new Set() };
       running.set(from, st);
-      for (const a of S.alliesAround(battle, from, S.N8)) if (S.isOp(a)) give(from, st, a);
+      // every player's operators: the global buff `_ShareEquip` makes has no player-side mask (the header)
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        const a = dr || dc ? S.allyAt(battle, st.r + dr, st.c + dc, null) : null;
+        if (S.isOp(a)) give(from, st, /** @type {Unit} */ (a));
+      }
     }
     const n = [...st.to].filter((a) => a.alive).length;
     if (n) S.fxOn(battle, 'bondShare', from, 'bond:sargonShip', 'narant', { n, duration });
