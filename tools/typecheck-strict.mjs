@@ -5,8 +5,12 @@
 // is checked whole with strict added, and only the errors located in a listed file fail; a listed file is checked in
 // every config that has it (shared/ in both). types/README.md "Strict" says how to add a folder.
 //
-// Usage: node tools/typecheck-strict.mjs          exit 1 on an error in a listed file
+// A second rule rides along: a file in an any-free folder (ANY_FREE below) may not write `any` in a type position (a
+// JSDoc `{…}` type, a `types/*.d.ts` declaration) unless the same line says `any: <why>`. types/README.md "Strict".
+//
+// Usage: node tools/typecheck-strict.mjs          exit 1 on an error in a listed file or an `any` in an any-free file
 //        node tools/typecheck-strict.mjs --count  also print the strict errors of every other folder (to pick the next)
+//        node tools/typecheck-strict.mjs --any    print the type-position `any` of every file by folder (to pick the next)
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,6 +43,43 @@ const formatHost = {
   getNewLine: () => '\n',
 };
 
+// Folders whose files hold no `any` in a type position (each entry: the folder directly, no subfolders, unless it ends
+// in `/**`). Add a folder once `--any` reports 0 for it.
+const ANY_FREE = [
+  'public/js/debug/**',
+  'server/sim/content/bonds/nation',
+  'server/sim/content/items/effects',
+];
+
+/** Type-position `any` of a source file, as [line, text] pairs: AnyKeyword nodes, JSDoc types included.
+ * @param {ts.SourceFile} sf @returns {number[]} 1-based lines */
+function anyLines(sf) {
+  /** @type {number[]} */
+  const lines = [];
+  /** @param {ts.Node} n */
+  const walk = (n) => {
+    if (n.kind === ts.SyntaxKind.AnyKeyword) lines.push(sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1);
+    for (const d of /** @type {{ jsDoc?: ts.Node[] }} */ (n).jsDoc ?? []) walk(d);
+    ts.forEachChild(n, walk);
+  };
+  walk(sf);
+  return lines;
+}
+
+/** @param {string} rel */
+function anyFree(rel) {
+  const dir = path.dirname(rel).split(path.sep).join('/');
+  return ANY_FREE.some((e) => (e.endsWith('/**') ? dir === e.slice(0, -3) || dir.startsWith(e.slice(0, -2)) : dir === e));
+}
+
+const anyMode = process.argv.includes('--any');
+/** @type {Map<string, number>} */
+const anyPerDir = new Map();
+/** @type {Set<string>} */
+const anyDone = new Set();
+const ANY_MARK = /\bany: \S/;
+let anyBad = 0;
+
 const count = process.argv.includes('--count');
 const listed = new Set(parse(LIST).fileNames);
 /** @type {Set<string>} */
@@ -61,6 +102,19 @@ for (const name of CONFIGS) {
     if (!own && (!count || program.isSourceFileFromExternalLibrary(sf) || program.isSourceFileDefaultLibrary(sf))) continue;
     const rel = path.relative(ROOT, file);
     if (rel.startsWith('..') || rel.startsWith(`public${path.sep}vendor${path.sep}`)) continue;
+    if (!anyDone.has(file) && true && !program.isSourceFileFromExternalLibrary(sf) && !program.isSourceFileDefaultLibrary(sf)) {
+      anyDone.add(file);
+      const lines = anyLines(sf);
+      if (anyMode && lines.length) anyPerDir.set(path.dirname(rel), (anyPerDir.get(path.dirname(rel)) ?? 0) + lines.length);
+      if (anyFree(rel)) {
+        const text = sf.text.split('\n');
+        for (const ln of lines) {
+          if (ANY_MARK.test(text[ln - 1])) continue;
+          anyBad++;
+          console.error(`${rel}:${ln}: \`any\` in a type position in an any-free folder. Write unknown and narrow it, a typedef of the fields read ([key: string]: unknown for the rest), or a real signature; where \`any\` is truly needed put \`any: <why>\` on the same line (types/README.md "Strict", bundles' 「any의 길」).`);
+        }
+      }
+    }
     const diags = [...program.getSyntacticDiagnostics(sf), ...program.getSemanticDiagnostics(sf)];
     if (own) {
       seen.add(file);
@@ -88,6 +142,12 @@ if (count) {
   console.log('strict errors outside the list, per folder, its subfolders apart (the larger of the two configs):');
   for (const [dir, n] of rows) console.log(`${String(n).padStart(6)}  ${dir}`);
 }
+
+if (anyMode) {
+  console.log('type-position `any` per folder (files in the strict list or, with --count, in the program):');
+  for (const [dir, n] of [...anyPerDir].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))) console.log(`${String(n).padStart(6)}  ${dir}`);
+}
+failed += anyBad;
 
 if (failed) {
   console.error(`strict: ${failed} error(s) in the folders ${LIST} lists`);

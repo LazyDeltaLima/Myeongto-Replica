@@ -43,7 +43,7 @@ What most errors of a new folder were in `server/sim/`, and the JSDoc that fixed
 - an object or array built empty and filled later (`const out = {}`, `const list = [{ … }]` then `list.push(other)`):
   `/** @type {…} */` on the declaration.
 - a sort comparator that subtracts booleans (`(a === u) - (b === u)`): a cast on each side,
-  `/** @type {any} */ (a === u)`, so the code stays as it is.
+  `/** @type {number} */ (/** @type {unknown} */ (a === u))`, or write the number (`Number(a === u)`) where the code may change.
 - an `@` in prose (`by @name`) is read as a tag: quote it in backticks.
 
 And in `server/match/` and the rest of `server/`:
@@ -65,13 +65,13 @@ And in `public/js/render/` and `battle/`:
   number][]}` on it, or a cast on an inline literal.
 - a field set outside the class body (`v._tween = …` in app.js, `this.kids ||= []`, `({ g: this.g } = …)`): on an
   exported class, declare it in `types/page-members.d.ts`; on a module-private one, a typedef of the class with the field
-  (`@typedef {RowBatch & { g: any, ib: any }} RowBatchMesh`) and `@this {RowBatchMesh}` on the methods that use it.
-- a `setTimeout` handle is a number with the DOM types: `/** @type {any} */ (t)?.unref?.()` for the Node-only call.
+  (`@typedef {RowBatch & { g: PIXI.Graphics, ib: Float32Array }} RowBatchMesh`, the fields' own types) and `@this {RowBatchMesh}` on the methods that use it.
+- a `setTimeout` handle is a number with the DOM types: `/** @type {{ unref?: () => void }} */ (/** @type {unknown} */ (t)).unref?.()` for the Node-only call.
 
 And in `public/js/ui/`, `screens/` and the rest of `public/js/`:
 
 - a ref or object filled later (`const live = useRef({})`, then `live.current = { pub, … }`): `/** @type {{ current:
-  Record<string, any> }} */` on the declaration — `useRef({})` is a ref of `{}`, whose members are all errors.
+  Record<string, unknown> }} */` (or a typedef of the fields read) on the declaration — `useRef({})` is a ref of `{}`, whose members are all errors.
 - a component's props `@param` lists every prop the function destructures; a callback prop with a `() => {}` default
   is typed by its default (no arguments) unless the `@param` gives it.
 - a literal fallback passed to a generic (`loadPref(KEY, true)`): the result is the literal (`true`), so a comparison
@@ -93,6 +93,15 @@ And in `public/js/ui/`, `screens/` and the rest of `public/js/`:
 `types/core.js` follows docs/DESIGN.md §5.2, §5.4, §8 and docs/SIM.md §4, §9. Where those two disagree on `DamageInfo.type`, the typedef uses the union `makeDamageInfo` actually builds (`'elemental'` as well as `'element'`).
 
 ## Strict
+
+**No `any`** (maintainer decision 2026-11-25): do not write `any` unless it is truly needed. A value of unknown shape is
+`unknown`, narrowed where it is read; a record read field by field is a typedef of the fields read plus
+`[key: string]: unknown` for the rest; a callback table is the real signature or a generic; `catch (e)` stays `unknown`.
+What may stay is one declaration of an outer value with no type (a script-tag global) and the places JSDoc cannot
+express, and its line says `any: <why>`. `tools/typecheck-strict.mjs` enforces it in the folders of its `ANY_FREE` list:
+an `any` in a type position (a JSDoc `{…}` type, a `types/*.d.ts` declaration) without `any: <why>` on the same line fails
+`npm run typecheck`. `node tools/typecheck-strict.mjs --any` prints the count per folder; add a folder to `ANY_FREE` once it
+reads 0. Some of the older examples below still show `any` where they were written before this rule; do not copy it.
 
 `tools/typecheck-strict.mjs` (the last step of `npm run typecheck`) checks each config whole with `strict` added and
 fails on an error located in a file `jsconfig.strict.json` `include`s; the rest of the program is checked strict too,
@@ -121,13 +130,13 @@ most strict errors were, and the JSDoc that fixed them:
 - a parameter without `@param` (most of them, TS7006): an `@param`, or `(/** @type {string} */ x) =>` inline on an
   arrow function's parameter. A callback passed where the parameter's type is known needs none. Some tests read a
   source line as text (`test/ui/playtest-item-detail.test.js` matches `renderInfo`'s `items:` line): there, type the
-  value the callback is called on (`@param {{ [key: string]: any, items?: unknown }} u`) instead of the line.
+  value the callback is called on (`@param {{ [key: string]: unknown, items?: unknown }} u`) instead of the line.
 - a variable declared empty (`let timer;`, `let out = null`, `const out = []`) and filled in a closure (TS7034,
   TS7005): `/** @type {…} */` on the declaration. In `let a = null, b;` the statement's `@type` types only `a`: give
-  `b` its own inline (`let a = null, /** @type {any} */ b;`).
+  `b` its own inline (`let a = null, /** @type {Foo | null} */ b;`).
 - a parameter whose default is `null` (`reason = null`): its type is `null` under strict, and every caller passing a
   string is an error; an `@param {string | null} [reason]`.
-- a `catch (e)` variable is `unknown` (`e.code`: TS2339 on `{}`): `catch (/** @type {any} */ e)`.
+- a `catch (e)` variable is `unknown` (`e.code`: TS2339 on `{}`): leave `e` as `unknown` and narrow it (`e instanceof Error ? e.message : String(e)`; a code field: `(e && typeof e === 'object' && 'code' in e) ? e.code : …`).
 - a value that is not null only because of an earlier check tsc does not follow (`signal` set together with
   `onAbort`, `stack.pop()` after `while (stack.length)`): a cast at the use, `/** @type {AbortSignal} */ (signal)`.
 - an object or a frozen table indexed by a string (`MIME[ext]`, `headers['Content-Length'] = …`, TS7053):
@@ -135,14 +144,14 @@ most strict errors were, and the JSDoc that fixed them:
 - an object built with some keys and given more later (`body.hw = …`): the declaration's `@type` lists the later key
   as optional.
 - `new Promise((resolve) => … resolve())` (TS2810): `@returns {Promise<void>}` on the function that returns it.
-- protocol / data objects read field by field (`ui/gameLogic/`): `Bag` (`{ [key: string]: any }`), `Pub`, `PubPlayer`,
+- protocol / data objects read field by field (`ui/gameLogic/`): `Bag` (`{ [key: string]: unknown }`), `Pub`, `PubPlayer`,
   `PubField` typedefs in `public/js/ui/gameLogic/shared.js` (`/** @import { Bag } from './shared.js' */`). `isObj` is a
   type guard to `Bag` taking `unknown`: after `isObj(x)` an `any` becomes `Bag`, so a value passed on as a typed pick
   (`DiyPick`) needs a cast. A callback on an `any` value has no contextual type (TS7006): `(/** @type {unknown} */ x) =>`.
 - a table indexed by a string (`TERRAIN_TIPS[key]`): `@type {Readonly<Record<string, Tip>>}` on the `Object.freeze`
   declaration also types the callbacks inside it.
-- `globalThis.PIXI` (TS7017): the script-tag global is declared (`declare var PIXI: any` in
-  `types/page-globals.d.ts`). A library without types (`ws`): a loose stand-in in `types/` (`types/ws.d.ts`, in the
+- `globalThis.PIXI` (TS7017): the script-tag global is declared (`declare var PIXI` in
+  `types/page-globals.d.ts`, typed by the members the code calls; a global with no type at all keeps `any: <why>` on its line). A library without types (`ws`): a loose stand-in in `types/` (`types/ws.d.ts`, in the
   server config's `include`).
 - the data records (`shared/`): `ChessRecord`, `SkillRecord`, `ModuleRecord`, `TalentRecord`, `TraitRecord`, `Stats`,
   `ChessStatus` in `shared/loadoutRecord.js` and `UnitForm`, `BackupUnit`, `Backups` (data/backups.json) in
