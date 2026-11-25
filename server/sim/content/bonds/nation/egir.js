@@ -191,6 +191,9 @@ function installHpAndDevour(battle, pid, bb, members) {
   return start;
 }
 
+/** The exits that take a 5-tier slot (installEgir): a knock-out and every 撤退 — not the 突袭 retreat ('raid'). */
+const EGIR_EXITS = new Set(['killed', 'retreat', 'merchant']);
+
 /** @type {BondInstaller} */
 function installEgir(battle, pid, bb, members) {
   // 5: "前3名【阿戈尔】干员首次被击倒时立刻复活" — the official client (act1autochess_bond_eff_egir ON_OWNER_FINISH; the bond
@@ -211,10 +214,15 @@ function installEgir(battle, pid, bb, members) {
   // used; a 复活 (M3茧甲 13, 埃芒加德 12 — items reviveNow, a knock-out and a free redeploy since 0.2.0) answers the
   // knock-out before this hook and marks it `revivedBy`: that knock-out takes no slot (the owner's decision of
   // 2026-10-05: an operator's own revive uses no slot; [ASSUMED] for 埃芒加德, a band, as for M3茧甲, the item revive the
-  // owner named). Only knock-outs ('killed') count [ASSUMED·미조사: the client's ON_OWNER_FINISH also runs on a withdraw;
-  // no 阿戈尔 withdraws itself in this mode]; an operator entering 联防 down (FORCED_EXIT) is no knock-out but takes a slot
-  // the devour left (the flush below, upstream #882); a 调和 member counts like any other. Each battle (normal, 联防,
-  // boss) counts its own. PRTS: the knocked-out unit's next deployment has 0 redeploy time and 0 cost, i.e. it IS knocked
+  // owner named). A 撤退 takes a slot like a knock-out (EGIR_EXITS: 'retreat' — 史尔特尔's 余烬, 耀骑士临光 S2, 伊内丝 S3's
+  // first placement, 丰川祥子's Fever, 贝洛内 S3 — and 行商's 'merchant' withdrawal, on a member by a 变形同构体 grant or
+  // 调和): the client's Withdraw node finishes the character with WITHDRAW / SILENT_WITHDRAW / DEADLIKE_WITHDRAW
+  // (Character.Withdraw) and the template's ON_OWNER_FINISH filters only MOVE_LIKE_RESPAWN_SELF — the 突袭 jump
+  // ('raid', AutoChessRebuildCharacterOnTile) and 【移动】 (moveRedeploy, no exit here) take none. An operator entering
+  // 联防 down (FORCED_EXIT) is no knock-out but takes a slot the devour left (the flush below, upstream #882); a 调和
+  // member counts like any other. Each battle (normal, 联防, boss) counts its own, per player: the counter is per side
+  // (`free_respawn_cnt_a/b`, the owner's `player_side`) and a battle holds at most one player per side
+  // (AutoChessDataCenter: 联防's second player and each boss pair's second are the right map, SIDE_B). PRTS: the knocked-out unit's next deployment has 0 redeploy time and 0 cost, i.e. it IS knocked
   // out (被击倒 triggers fire) and redeploys where it lies (the engine's rest tile, Battle._layBody: the tile it was
   // knocked out on — a raid-relocated member comes back where it fell —, or its own home when it fell on another board
   // piece's home; PRTS 卫戍协议/帮助 §作战阶段 单位部署) with full HP, SP reset and `deploy` effects (卡西米尔 / 叙拉古).
@@ -244,7 +252,7 @@ function installEgir(battle, pid, bb, members) {
   });
   battle.on('death', (/** @type {DeathEv} */ c) => {
     const u = c.unit;
-    if (c.reason !== 'killed' || c.revivedBy || !memberOps.has(u)) return;
+    if (!EGIR_EXITS.has(c.reason) || c.revivedBy || !memberOps.has(u)) return;
     if (revives >= max || u.alive || u.removed) return;
     revive(u);
   }, { priority: 11 });

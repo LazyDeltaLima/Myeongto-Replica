@@ -513,6 +513,35 @@ test('阿戈尔 5: in the fight the 3 slots go to the first 3 knock-outs, wherev
   assert.ok(!h3.unit('g3_a').alive);
 });
 
+test('阿戈尔 5: a 撤退 takes a slot like a knock-out (行商\'s withdrawal too) — back at once, free, on its tile; the 突袭 retreat takes none', () => {
+  // the client's Withdraw node finishes the member (WITHDRAW / SILENT_WITHDRAW / DEADLIKE_WITHDRAW, Character.Withdraw) and
+  // act1autochess_bond_eff_egir ON_OWNER_FINISH filters only MOVE_LIKE_RESPAWN_SELF (the 突袭 jump, 【移动】) —
+  // docs/rules/sim.md 「에기르(맹약) 부활은 공식 클라대로」
+  const list = [];
+  for (let i = 0; i < 5; i++) list.push([`g${i}_a`, ['egirShip']]);
+  const units = list.map(([id], i) => ({ chessId: id, row: 9 + (i % 4), col: 3 + 2 * Math.floor(i / 4) }));
+  const h = makeBattle({ defs: defsOf(list), units, bonds: { egirShip: bondOn(5, 0, null, [3, 5]) }, hooks: ['death', 'deploy'] });
+  h.step(1);
+  const us = list.map(([id]) => h.unit(id));
+  const redeploys = (u) => h.hooksOf('deploy').filter((c) => c.unit === u && !c.initial).length;
+  const dp0 = h.b.getPlayer('p1').dp;
+  const tile0 = [us[0].tileR, us[0].tileC];
+  h.b.retreat(us[0], { reason: 'retreat' });
+  assert.ok(us[0].alive && us[0].deployed, 'a 撤退 (史尔特尔\'s 余烬, 耀骑士临光 S2 …): back at once');
+  assert.deepEqual([us[0].tileR, us[0].tileC], tile0, 'on its tile');
+  close(h.b.getPlayer('p1').dp, dp0, 1e-9, 'free');
+  h.b.retreat(us[1], { reason: 'merchant' });
+  assert.ok(us[1].alive, '行商\'s withdrawal: back at once');
+  h.b.retreat(us[2], { reason: 'raid' });
+  assert.ok(!us[2].alive && redeploys(us[2]) === 0, 'the 突袭 retreat (MOVE_LIKE_RESPAWN_SELF): no slot — the raid redeploys it itself');
+  h.b.dealDamage(null, us[3], { amount: 1e9, type: 'true' });
+  assert.ok(us[3].alive, 'the third slot is still there for a knock-out');
+  h.b.retreat(us[4], { reason: 'retreat' });
+  assert.ok(!us[4].alive, 'three used: a later 撤退 stays down');
+  assert.equal(h.eventsOf('fx').filter((x) => x[1] === 'revive').length, 3, 'three revives');
+  checkInvariants(h.b);
+});
+
 test('阿戈尔 5 + the devour chain (GitHub #33, #105, #140): the eaten members take the 3 slots (by position once the devour is over — here also the knock-out order), uneaten ones keep none — survivors = uneaten + 3 (normal and 联防)', () => {
   // row 10, all facing right: 浊心斯卡蒂 → 幽灵鲨 → 海霓 → 深巡 → 歌蕾蒂娅 → 隐现; 乌尔比安 on row 12 faces an empty tile.
   // PRTS 盟约记录 阿戈尔 备注 "标记按付与顺序触发【吞噬】效果，目标首次被击倒后解除自身被付与但还未触发的【吞噬】效果". Until 0.1.3

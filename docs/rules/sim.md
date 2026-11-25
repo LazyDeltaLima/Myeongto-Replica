@@ -3367,6 +3367,9 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   무료 재배치된다(가득 찬 HP, SP 처음값). 같은 구성원도 부활한 뒤 다시 쓰러지면 횟수가 남는 한 또 부활한다. 전투 시작 삼키기로 쓰러진 구성원도 **쓰러진 차례**로 바로 횟수를 쓰고
   (남은 삼키기 표식은 취소), 불굴(맹약, 우선순위 10)은 에기르(11)가 이미 세운 구성원에는 굴리지 않는다. 쓰러지지 않은 구성원은 횟수를 안 쓰고, 자기 구원(키트·장비)이 막은 쓰러짐과
   자기 부활(M3 고치 갑옷·에르망가르드)이 받은 쓰러짐(`revivedBy`)도 안 쓴다(관리자 결정 2026-10-05 그대로).
+  **철수(`'retreat'`)와 상인의 자동 철수(`'merchant'`)도 쓰러짐처럼 횟수를 쓰고** 곧바로 무료 재배치된다 — 수르트 재능(余烬)·니어 더 래디언트 나이트 S2·이네스 S3 첫 배치·
+  토가와 사키코 S3의 Fever 끝·벨로네 S3 강제 철수가 그것이고, 본디 에기르가 아닌 그들이 구성원이 되는 길은 에기르 칼날(장비)+변형 구조체(장비, `giveBondId`)나 조화(맹약)다. 기습 착지 철수(`'raid'`)와
+  【移动】은 쓰지 않는다(2026-11-25부터; 그 전에는 쓰러짐만 셈).
   연합 방어에 쓰러진 채 들어온 구성원(`carryState.down`, 강제 퇴장 `FORCED_EXIT`)은 모든 삼키기가 끝난 뒤 남은 횟수로 처음 배치 차례(왼쪽 열부터, 열 안에서 위부터)대로 곧바로 부활하고,
   횟수가 없으면 쓰러진 자리에서 재배치 시간을 센다. 그 강제 퇴장은 쓰러짐이 아니라 쓰러짐 효과(불굴·스펙터 등)·쓰러짐 수는 없다.
   전에는 구성원당 첫 쓰러짐 한 번(관리자 결정 2026-10-05, 문구 「首次被击倒时」), 삼키기 부활은 삼키기가 끝난 뒤 좌하→우상 위치 스캔(커뮤니티 제보 2026-10-07; 0.2.0 전에는 쓰러진 차례),
@@ -3382,9 +3385,14 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   아니라 `ON_OWNER_KILLED`·쓰러짐 수는 없음). upstream #882가 든 공식 일본 서버 녹화(제3자): 앞 전투에서 쓰러진 스펙터·스카디가 연합 방어 시작에 부활.
 - [추정·엔진: 클라는 부활한 카드를 자동 배치가 시작될 때 내놓는다(삼키기 뒤) — 우리는 곧바로 세우고 남은 표식만 취소해 결과가 같게 둠; 삼키기 피해(`[eat_mark]` `ON_BUFF_LATE_ENABLE`)가
   강제 퇴장 제거보다 먼저인 것은 코루틴 yield와 늦은 틱의 차례; 쓰러진 채 든 구성원끼리는 캐릭터 목록(`UnorderedArray`) 차례인데 삼키기로 빠진 유닛이 목록을 섞을 수 있어 배치 차례로 둠]
-- [추정·미조사: 클라의 `ON_OWNER_FINISH`는 철수류 끝남에도 돈다 — 우리는 쓰러짐('killed')과 연합 방어 강제 퇴장만 셈; 이 모드에서 스스로 철수하는 에기르 구성원은 없음. 연합 방어에서 두
-  플레이어가 같은 편이면 클라 횟수(`free_respawn_cnt_a/b`)를 함께 쓸 수 있으나 우리는 플레이어마다 → bundles 줄]
-- 테스트 `test/content/bonds_core.test.js` 「阿戈尔 5: in the fight…」·「…the battle-start devour's knock-outs take the slots at once, in knock-out order…」·「…the slots the devour leaves…」·
+- 철수·편별 횟수의 근거(공식 클라에서 확인, 2026-11-25): 철수 노드 `Nodes.Withdraw`는 `Character.Withdraw`로 끝내는데 끝난 이유가 `_switchToDeadState`면 DEADLIKE_WITHDRAW(5),
+  아니면 수동 WITHDRAW(4)·자동 SILENT_WITHDRAW(6)이다 — 템플릿 `ON_OWNER_FINISH`가 거르는 MOVE_LIKE_RESPAWN_SELF(11, 기습 착지 `AutoChessRebuildCharacterOnTile`·【移动】
+  `MoveLikeRespawnSelf`)가 아니라 횟수를 쓴다. 이 철수를 쓰는 템플릿: `surtr_t_2[withdraw]`·`nearl2_s_2[withdraw]`·`ines_s_3[summon]`(`ON_OWNER_LOCATE`)·
+  `oblvns_s_3[fever_undead]`·`swire2_tr`. 횟수 `free_respawn_cnt_a/b`는 버프 주인의 편(`AutoChessAssignTargetPlayerSideToBlackboard` → `player_side`)마다인데, 전투에 한 편 한 명뿐이다:
+  `AutoChessBattleDataModel._AppendBattlePlayerRunes`가 플레이어마다 맹약 룬을 `GetBattlePlayerSide(rightMapPlayerIndex에 있나)`의 편으로 붙이고, `AutoChessDataCenter`의
+  `LoadSelfBattlePlayer`(혼자, 오른쪽 없음)·`LoadHelpBattlePlayer`(연합 방어: 둘째 플레이어만 오른쪽)·`LoadBossBattlePlayer`(보스 조마다 둘째만 오른쪽)가 그 표를 채운다 — 그래서
+  플레이어마다 세는 우리와 같다.
+- 테스트 `test/content/bonds_core.test.js` 「阿戈尔 5: in the fight…」·「阿戈尔 5: a 撤退 takes a slot like a knock-out…」·「…the battle-start devour's knock-outs take the slots at once, in knock-out order…」·「…the slots the devour leaves…」·
   「阿戈尔 5 slots in 联防…」, `feedback4-egir-unite.test.js` 「联防: a member a teammate's devour knocks out…」, `feedback3-egir-down.test.js`, `bonds_act3.test.js` 「阿戈尔 6 (_2): the devour's
   knock-outs call at once…」, `test/match/unitedown.test.js` 「…a 阿戈尔 member entering down…(upstream #882)」(실제 판 경로).
 
