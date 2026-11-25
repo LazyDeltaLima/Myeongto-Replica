@@ -2,6 +2,8 @@
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
 /** @import { FxSystem } from './system.js' */
+/** @import { BodyView } from './camera.js' */
+/** @typedef {BodyView & { destroyed?: boolean, alive?: boolean, flags: number, [key: string]: unknown }} FxView a unit's view as the effects read it */
 
 import { SHOT_HEIGHT, bodyZ } from './camera.js';
 import { fxSpec, tilesAround, wallTiles } from './kinds.js';
@@ -20,7 +22,7 @@ const num = (v, d) => { const n = typeof v === 'number' ? v : typeof v === 'stri
 export class FxSim {
   // ---- sim fx (b.ev ['fx', kind, x, y, extra]) -------------------------------------------------------------
 
-  /** Unit view of an fx's `id` / `src` / … (null when unknown or gone). @param {unknown} id @returns {any} @this {FxSystem} */
+  /** Unit view of an fx's `id` / `src` / … (null when unknown or gone). @param {unknown} id @returns {FxView | null} @this {FxSystem} */
   _viewOf(id) {
     if (id == null || !this.ctx.view) return null;
     const v = this.ctx.view(id);
@@ -28,11 +30,11 @@ export class FxSim {
   }
 
   /**
-   * Where an fx happens: on its anchor unit `ex.id` (at the unit's rendered position, so it sticks to a moving unit)
+   * Where an fx happens (simFx: not for a `pt` kind or an event on `tiles`, which stay at (x, y)): on its anchor unit `ex.id` (at the unit's rendered position, so it sticks to a moving unit)
    * when the event's (x, y) is that unit's spot (within ANCHOR_SNAP tiles) or has none; otherwise at (x, y) on the ground
    * — the sim often names the caster in `id` of an effect elsewhere ('aoe' at a target or ahead of the caster, 'crit'
    * on the victim, 'zone' where a skill lands), which used to be drawn on the caster.
-   * @param {number} x @param {number} y @param {Record<string, any>} ex
+   * @param {number} x @param {number} y @param {Record<string, unknown>} ex
    * @this {FxSystem}
    */
   _where(x, y, ex) {
@@ -60,7 +62,7 @@ export class FxSim {
    * @this {FxSystem}
    */
   simFx(kind, x, y, extra) {
-    const ex = /** @type {Record<string, any>} */ (extra && typeof extra === 'object' ? extra : {});
+    const ex = /** @type {Record<string, unknown>} */ (extra && typeof extra === 'object' ? extra : {});
     // 2026-10-10: 跃跃 S2's later boomerang (sim kit chess_char_1_09-caper.js, no 'atk' event of its own) — a
     // second boomerang from her to its target, bowing to the other side (client projectile_chr_caper_s2_1 `_inverseParacurve`);
     // render/fxgame.js flies the official trail instead when it can (ownsFx)
@@ -72,7 +74,10 @@ export class FxSim {
     if (kind === 'shotSlow') { this.shotSlow(ex); return; }
     const spec = fxSpec(kind, ex);
     if (spec.a === 'none') return; // an event the screen does not show (hitCap)
-    const at = spec.pt ? this._point(Number(x), Number(y)) : this._where(Number(x), Number(y), ex);
+    // an event on tiles (`tiles`: an enemy area's telegraph / blast) is centred on its own tile (x, y), never moved onto
+    // its `id` unit nearby — 腐败骑士 stands 0.15–0.7 tiles from the tile it strikes (docs/rules/fx.md 「적 범위 공격의 경고 칸」)
+    const onTiles = ex.tiles != null && Number.isFinite(Number(x)) && Number.isFinite(Number(y));
+    const at = spec.pt || onTiles ? this._point(Number(x), Number(y)) : this._where(Number(x), Number(y), ex);
     if (!Number.isFinite(at.x) || !Number.isFinite(at.y)) return;
     // 蕾缪安 S2: the aimed snipe ('crit' on the locked enemy, from her) ends that aim lock
     if (kind === 'crit' && ex.src != null && ex.id != null) {
@@ -83,7 +88,7 @@ export class FxSim {
     const ts = this.ctx.timeScale ? Math.max(0.25, this.ctx.timeScale()) : 2;
     const dur = num(ex.dur ?? ex.duration, spec.dur ?? 0) / ts;
     const cam = this.ctx.cam();
-    /** @param {any} v @param {{ x: number, y: number, s: number, depth: number }} [out] */
+    /** @param {FxView | null} v @param {{ x: number, y: number, s: number, depth: number }} [out] */
     const chest = (v, out = /** @type {FxSystem} */ (/** @type {unknown} */ (this))._p) => (v ? this._chest(v, out) : cam.project(at.x, at.y, at.z + 0.5, out));
     const p = chest(at.v);
     const s = p.s;

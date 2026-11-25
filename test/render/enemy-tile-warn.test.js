@@ -8,6 +8,8 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createFxLayer, TILE_WARN_SKILLS } from '../../public/js/render/fxgame.js';
+import { FxSystem, tilesAround } from '../../public/js/render/fx.js';
+import { presetCamera } from '../../public/js/render/projection.js';
 import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -88,6 +90,35 @@ test('enemy tile area: bound ability → no stand-in tile flash; the marker / sh
     layer.onEvent(ev, views);
     assert.equal(layer.ownsFx(ev), false, `stand-in kept: enemy ${id} ${kind} tiles=${tiles}`);
   }
+});
+
+// the stand-in (low quality, no binding) stays on the event's own tile: 腐败骑士 stands 0.15–0.7 tiles from the tile it
+// strikes and 衰败骑士 0.7 from its arrow's, and the sim names it in `id` of the telegraph — render/fx/simfx.js _where used to
+// move the tiles onto the enemy's side (seen in the golden battles)
+test('enemy tile area stand-in: a telegraph / blast on tiles is drawn round its own (x, y), not on its `id` unit nearby', () => {
+  const cam = presetCamera('normal', { width: 1280, height: 720 });
+  const views = new Map([[3, { id: 3, x: 4.6, y: 2.3, z: 0 }], [6, { id: 6, x: 6, y: 2.7, z: 0 }]]);
+  const flashes = [], blasts = [];
+  const fx = Object.create(FxSystem.prototype);
+  Object.assign(fx, {
+    ctx: { cam: () => cam, heightAt: () => 0, view: (id) => views.get(id), timeScale: () => 2 },
+    _p: { x: 0, y: 0, s: 0, depth: 0 }, _q: { x: 0, y: 0, s: 0, depth: 0 }, locks: [],
+    tileFlash: (tiles) => flashes.push(tiles),
+    explosion: (x, y, z, r, col, o) => blasts.push({ x, y, tiles: o.tiles }),
+    zone() {}, flashScreen() {},
+  });
+  fx.simFx('telegraph', 4, 2, { r: 1, dur: 3, kind: 'chargeAttack', tiles: 'plus', id: 3 });
+  fx.simFx('telegraph', 6, 2, { r: 1, dur: 1, kind: 'blastArrow', tiles: 'plus', id: 6 });
+  fx.simFx('explode', 4, 2, { r: 1, kind: 'chargeAttack', tiles: 'plus', id: 3 });
+  const plus = (x, y) => tilesAround(x, y, 1, 'plus');
+  const msg = 'a tile area\'s stand-in is moved onto its `id` enemy standing near the tile: render/fx/simfx.js simFx keeps an event '
+    + 'with `tiles` at (x, y) (docs/rules/fx.md 「적 범위 공격의 경고 칸」)';
+  assert.deepEqual(flashes, [plus(4, 2), plus(6, 2)], msg);
+  assert.equal(blasts.length, 1);
+  assert.deepEqual([blasts[0].x, blasts[0].y, blasts[0].tiles], [4, 2, plus(4, 2)], msg);
+  // an event without tiles still snaps onto its unit (an 'aoe' on the caster)
+  fx.simFx('explode', 4, 2, { r: 1, kind: 'chargeAttack', id: 3 });
+  assert.deepEqual([blasts[1].x, blasts[1].y], [4.6, 2.3], 'an event without `tiles` stays on its `id` unit nearby');
 });
 
 /** Every sim 'telegraph' kind sent with `tiles` (server/sim/content), from the source. */

@@ -3516,12 +3516,14 @@
   [추정·자료 없음: 시뮬이 그 시전의 끝(`ON_CAST_END`)을 안 실음]. 예전에는 `hit`에 합쳐져 래트킹의 모래 십자가 시전 2초 뒤 맞은 유닛마다 깔렸고, 사제 투석기는 맞은 이펙트 상한(둘)을 조준 둘이 채워 착탄
   `enemy_mnctpt_attack_hit`가 안 나왔다(이제 나옴).
   [화면 미확인]
-- 남은 것: `tiles` 있는 대체 칸을 (x, y)에 고정하기(이 묶음의 fx 줄).
+- 대체 칸의 자리(2026-11-26): 칸을 싣는 사건(`tiles`)의 대체 칸 깜빡임·폭발은 사건의 (x, y) 칸을 중심으로 그린다(`fx/simfx.js simFx`) —
+  `id` 유닛이 0.75칸 안에 서 있어도 그 위로 옮기지 않는다(`_where`는 `tiles` 없는 사건만). 예전에는 부패한 기사 `chargeAttack`(막는 이 칸에서
+  0.15~0.7칸)·쇠퇴한 기사 `blastArrow`(0.7칸)의 'telegraph'가 `id`로 시전한 적을 싣는 탓에 품질 낮음·바인딩 없을 때 십자가 적 쪽 칸에 깔렸다.
 - 재발 방지: `test/content/enemy-cast-target.test.js`(바인딩의 `castTargetEffects`를 가진 능력을 모두 훑어 시전 시작 사건이 대상을 싣는지,
   키트가 제 사건으로 싣는 것은 까닭과 함께 목록), `test/render/enemy-cast-target-fx.test.js`(렌더가 시전 대상 위에 시전 시작에 트는지 — 스킬
   `tgt`·`tgts`·채널, 'swing' 대상, 키트 공격 'beam'; 생성된 `enemy-modes.json`에서 바인딩의 시전 시작 `castTargetEffects`가 모두 `castTgt`이고
   `hit`에 없는지), `test/render/enemy-tile-warn.test.js`(시뮬 콘텐츠의 칸 'telegraph' 종류를 모두 훑어 `TILE_WARN_SKILLS`에 있는지, 그 종류의 'explode'가 적을 `id` 아닌 `caster`로 싣는지(시전 안의 것은 까닭과 함께 목록), 그 적들이 그 능력을
-  추출된 이펙트와 함께 바인딩하는지, '제국의 갑옷' `Appear`의 `tileFx`가 추출되는지); 칸 이펙트 읽기는 원인 제거 — 추출기가 템플릿에서 읽음.
+  추출된 이펙트와 함께 바인딩하는지, `tiles` 있는 대체 칸·폭발이 `id` 유닛 쪽이 아닌 (x, y)에 그려지는지, '제국의 갑옷' `Appear`의 `tileFx`가 추출되는지); 칸 이펙트 읽기는 원인 제거 — 추출기가 템플릿에서 읽음.
 
 ### 추출 누락 보고 — fx_coverage (2026-10-16, 관리자 요청 「이펙트를 추출해 적용할 때마다 공식과 어긋나는 근본 원인」)
 
