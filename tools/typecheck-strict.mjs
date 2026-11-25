@@ -53,6 +53,7 @@ const formatHost = {
 // in `/**`). Add a folder once `--any` reports 0 for it.
 const ANY_FREE = [
   'public/js/debug/**',
+  'public/js/render',
   'server/sim/content/bonds/nation',
   'server/sim/content/items/effects',
 ];

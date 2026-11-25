@@ -260,7 +260,7 @@ export const VARIANT_MODES = Object.freeze(/** @type {Record<string, Readonly<Re
  * CheckFaceDirection DOWN → mode 4 S3_Down (its shots angel2_attack_loop_hit_01 / _trail_01), else 3 S3. The other facing-down
  * modes draw the same effects as their skill's mode and only change clips (anim-keys `downMode`; test/render/mode-switch-list.js).
  */
-export const FACE_DOWN_MODES = Object.freeze({ char_1041_angel2: Object.freeze({ 2: 'S3_Down' }) });
+export const FACE_DOWN_MODES = Object.freeze(/** @type {Readonly<Record<string, Readonly<Record<number, string>> | undefined>>} */ ({ char_1041_angel2: Object.freeze({ 2: 'S3_Down' }) }));
 /**
  * (2026-11-06, official client) Closing modes the effect layer draws as a skill ends (its buff's ON_BUFF_FINISH SwitchMode; their
  * attack ability runs at once): charId → { skill index → { mode, life: the seconds its clip lasts, which ends its looping cast

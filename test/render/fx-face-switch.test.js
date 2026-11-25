@@ -61,7 +61,7 @@ test('FxInstance turns an effect with `rdir` to a random vector of its range (FL
 });
 
 test('FollowTileHeight: the frame loop moves the effect\'s height toward its tile\'s by speed × time, at once as it plays', () => {
-  assert.match(SRC, /if \(l\.inst\.def\?\.tileH > 0\) stepTileHeight\(l, dt \* rate2\);/);
+  assert.match(SRC, /if \((?:\/\*\* @type \{number\} \*\/ \()?l\.inst\.def\?\.tileH\)? > 0\) stepTileHeight\(l, dt \* rate2\);/);
   const body = SRC.slice(SRC.indexOf('function stepTileHeight('), SRC.indexOf('function setPaused('));
   assert.match(body, /const p = l\.inst\.object\.position, h = tileTop\(p\.x, p\.y\);/);
   assert.match(body, /if \(l\.tileZ == null\) l\.tileZ = h;/);

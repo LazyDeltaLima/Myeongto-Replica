@@ -100,9 +100,9 @@ import { whenPlays } from './fx/conds.js';
  *   statusStandIn?(bundle?: string, name?: string): unknown,
  *   statusOnce?(view: object, bundle: string, name: string, src?: object | null): void,
  *   statusLayer?(): unknown,
- *   enemyBuffFx?(view: StatusView, kind: string, tag?: string | null): EnemyBuffs | null,
+ *   enemyBuffFx?(view: object, kind: string, tag?: string | null): EnemyBuffs | null,
  *   plays?(): Plays | null,
- *   readyFx?(view: StatusView): ReadyFx | null,
+ *   readyFx?(view: object): ReadyFx | null,
  * }} StatusFxApi
  */
 

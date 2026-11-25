@@ -126,12 +126,9 @@ the files directly under `server/sim/` (`server/sim/*.js`), the files directly u
 (`server/sim/content/*.js`), the enemy kits `server/sim/content/enemies/` and the operator kits
 `server/sim/content/kits/ops/`, and in the renderer the 3D board `public/js/render/board3d/` and the effect system's parts
 `public/js/render/fx/`, the files directly under `public/js/` (`public/js/*.js`), the screens directly under
-`public/js/screens/` (`public/js/screens/*.js`), the files directly under `public/js/ui/` (`public/js/ui/*.js`) and,
-one by one, 39 of the files directly under `public/js/render/` (the small helpers: drag.js, pick.js, pen.js and the rest;
-the camera, the board, the snapshot buffer and the Spine actor: projection.js, tiles.js, interp.js, spine.js; the drawn
-textures and the unit HUD: textures.js, hud-bars.js; the effect layer's helpers: fxmap.js, fxstatus.js, fxsubmit.js,
-fxpoints.js and 6 more; the field view itself: app.js; the unit, hand item and device views: units.js; the effect
-prefab player: fxplayer.js).
+`public/js/screens/` (`public/js/screens/*.js`), the files directly under `public/js/ui/` (`public/js/ui/*.js`) and
+the files directly under `public/js/render/` (`public/js/render/*.js`: the field view app.js, the unit views units.js,
+the effect layer fxgame.js and its player fxplayer.js, the camera, the board, the Spine actor and the small helpers).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -223,6 +220,13 @@ most strict errors were, and the JSDoc that fixed them:
   an optional-and-required intersection (`Ev & { 4: FxRec }`) still reads `e[4]` as possibly undefined.
 - a frozen table of records of different shapes (fxmap.js `NOTE_FLIGHT`, some with `sine` or `pass`) is a union of
   literal types whose optional fields are errors where one member lacks them: a typedef of the record, cast on the literal.
+- an object literal of methods another file calls through its own interface (render/fxgame.js's layer `api`, called as
+  fxstatus.js `StatusFxApi`): each method's `@param` is what the layer really takes (`View`), and the interface names the
+  parameter `object` where its own view typedef (`StatusView`) and the layer's neither fit the other — a method's
+  parameters are compared both ways, so `object` passes and `StatusView` does not. An event the dispatch reads field by
+  field (`onEvent(e)`, typed `Ev`) keeps `unknown` fields after `Array.isArray(e)` (a `unknown`-typed parameter would
+  narrow to `any[]` there): the field gets its cast where it is read (`/** @type {string} */ (e[3])`), a view tested by a
+  helper after it is taken at its declaration (`const v = /** @type {View} */ (views.get(e[1]));   // (isOp tests it)`).
 - `delete o.f` of a field the type requires (TS2790): `delete /** @type {{ f?: number }} */ (o).f`.
 - a method wrapped on another module's prototype (`Match.prototype.finish = function finish(o) …`, local-console.js,
   local-patch.js): the JSDoc goes on the function expression, `= /** @param {…} o */ function finish(o)`; `this` comes

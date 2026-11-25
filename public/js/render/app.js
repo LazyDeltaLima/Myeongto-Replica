@@ -283,7 +283,8 @@ const HUD_ZOOM_MIN = 0.45;
  * @param {HTMLElement} host
  * `deadline` (epoch ms): the caller's own limit (ui/fieldHost.js); the optional waits stop in time for it.
  * @param {{ data?: { subscribe?: (fn: (name: string) => void) => () => unknown, status?: (name: string) => unknown, [k: string]: unknown },
- *           assets?: unknown, audio?: { spineEvent?(id: UnitId, name: string | null, value: unknown): void } | null,
+ *           assets?: unknown, audio?: { spineEvent?(id: UnitId, name: string | null, value: unknown): void,
+ *             enemyMode?(id: unknown, defId: string, mode: number | null, prev: number | null | undefined): void } | null,
  *           settings?: { damageNumbers?: boolean, quality?: string, eliteBadge?: boolean, otherSkins?: boolean, frameLimit?: number, [k: string]: unknown },
  *           signal?: AbortSignal, deadline?: number, timing?: MountTiming | null, skinGate?: ReturnType<typeof pageSkinGate>, board?: string, antialias?: boolean,
  *           padding?: Padding|((kind:string, size:{width:number,height:number}) => Padding | null | undefined),
@@ -2167,7 +2168,7 @@ export async function createFieldView(host, options = {}) {
     if (t && t !== v) v.turnToward(t.x, t.y);
   }
 
-  /** A 'skill' event on its view: the view's skill state and the procedural start (none over official effects). @param {{ setSkill?: (on: boolean, id: string | null) => void }} v @param {BattleEvent} e */
+  /** A 'skill' event on its view: the view's skill state and the procedural start (none over official effects). @param {AppView} v @param {BattleEvent} e */
   function skillEvent(v, e) {
     v.setSkill?.(!!e[2], typeof e[3] === 'string' ? e[3] : null);
     fx.skill(v, !!e[2], { burst: !fxGame.ownsSkill(v) }); // local patch: no gold pillar over an operator with official effects

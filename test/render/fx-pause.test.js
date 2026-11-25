@@ -280,7 +280,7 @@ test('stepMount (2026-10-27, FollowMountPoint): paused while the point is invali
 });
 
 test('the frame loop: stepMount after stepPauses, `_followScale` after the clips, `maxLife` finishes the effect on real time; FxInstance mirrors a `_followScale` mount', () => {
-  assert.match(SRC, /if \(mount\) stepMount\(l\);[^\n]*\n\s*if \(\(!l\.hidden && !l\.held && !l\.paused\) \|\| l\.inst\.stopping\) l\.inst\.update\([^\n]*\n\s*if \(mount && l\.inst\.def\.mount\.followScale && !l\.view\.invalid\)/);
+  assert.match(SRC, /if \(mount\) stepMount\(l\);[^\n]*\n\s*if \(\(!l\.hidden && !l\.held && !l\.paused\) \|\| l\.inst\.stopping\) l\.inst\.update\([^\n]*\n\s*if \(mount && (?:\/\*\* @type \{NonNullable<FxDef\['mount'\]>\} \*\/ \()?l\.inst\.def\.mount\)?\.followScale && !(?:\/\*\* @type \{Anchor\} \*\/ \()?l\.view\)?\.invalid\)/);
   assert.match(SRC, /\(l\.life = \(l\.life \|\| 0\) \+ dt\) >= l\.inst\.def\.maxLife\) \{\n\s*l\.stopped = true; l\.inst\.finish\(\); l\.finishAt = clockS \+ \(l\.inst\.def\.finish \|\| 0\);/);
   const player = readFileSync(path.join(ROOT, 'public/js/render/fxplayer.js'), 'utf8');
   assert.match(player, /const mirror = turn \? \(def\?\.mount\?\.followScaleSign \|\| def\?\.mount\?\.followScale \? facing : 1\) : facing;/);

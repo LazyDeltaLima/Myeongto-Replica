@@ -49,3 +49,5 @@ declare var __SP__: { store: unknown, net: unknown, data: unknown, version: numb
 declare var __SP_FX_SUBMIT_PLAIN__: unknown;
 declare var __SP_FX_SUBMIT_MATS__: unknown;
 declare var __SP_FX_SUBMIT_REF__: unknown;
+// the effect layer's dev switch (render/fxgame.js update): false draws through three.js, 'check' each pass both ways
+declare var __SP_FX_SUBMIT__: unknown;

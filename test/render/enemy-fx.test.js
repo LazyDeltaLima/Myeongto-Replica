@@ -44,7 +44,7 @@ test('an enemy\'s mount points: HIT / HEAD / MUZZLE / SPECIAL_0 resolve to its t
 test('fxgame: enemy events take their own branch (swing / atk / dmg attacker / skill / fx ability / spawn / die / leak)', () => {
   // (efoe: an enemy, or an ally built from an enemy record — 炎佑, 2026-10-23)
   // (2026-11-11: an ability cast in place of the attack — a walking ally's, inPlaceOfAttack — draws no attack swing)
-  assert.match(SRC, /if \(efoe\(src\)\) \{ if \(eOn\(src\) && !src\._fxESkill\?\.inPlace\) eswingFx\(src, Number\(e\[2\]\) \|\| 0, e\[3\]\); return; \}/);
+  assert.match(SRC, /if \(efoe\(src\)\) \{ if \(eOn\(src\) && !(?:\/\*\* @type \{View\} \*\/ \()?src\)?\._fxESkill\?\.inPlace\) eswingFx\((?:\/\*\* @type \{View\} \*\/ \()?src\)?, Number\(e\[2\]\) \|\| 0, e\[3\]\); return; \}/);
   assert.match(SRC, /const p = estrikeFx\(src, e\[3\]\);/);
   assert.match(SRC, /etrailShot\(e, src, tgt, p\.part\);/);
   // contract 1: the attacker is the 6th field of 'dmg'
@@ -55,7 +55,7 @@ test('fxgame: enemy events take their own branch (swing / atk / dmg attacker / s
   assert.match(SRC, /const k = o\.ability \?\? o\.prefabKey \?\? \(typeof o\.skill === 'string' \? o\.skill : null\);/);
   assert.match(SRC, /eskillFx\(v, k, \{ on: !!e\[2\], loop: true \}\)/);
   assert.match(SRC, /views\.get\(o\.caster \?\? o\.id \?\? o\.src \?\? o\.by\)/);
-  assert.match(SRC, /if \(e\[1\]\?\.side === 'enemy' && e\[1\]\.id != null\) eborn\.set\(e\[1\]\.id, clockS\);/);
+  assert.match(SRC, /if \((?:\/\*\* @type \{Rec\} \*\/ \()?e\[1\]\)?\?\.side === 'enemy' && (?:\/\*\* @type \{Rec\} \*\/ \()?e\[1\]\)?\.id != null\) eborn\.set\((?:\/\*\* @type \{Rec\} \*\/ \()?e\[1\]\)?\.id, clockS\);/);
   assert.match(SRC, /if \(v\?\.info\?\.side === 'enemy' && e\[2\] !== 'forcedExit'\) edeathFx\(v\);/);
   assert.match(SRC, /case 'leak': stopOwned\(e\[1\]\); return;/);
   // the shot leaves its _mountPointType point; its flight takes the official speed
@@ -67,7 +67,7 @@ test('fxgame: enemy events take their own branch (swing / atk / dmg attacker / s
 
 test('fxgame: cast effects at their ability\'s speed, hits at 1.0; a hit with _useOwnerToTargetDirection aims along attacker → target', () => {
   assert.match(SRC, /until: end, speed: c\.speed, cast: c \}\)/);
-  assert.match(SRC, /l\.inst\.update\(dt \* rate2 \* \(l\.speed > 0 \? l\.speed : 1\)\)/);
+  assert.match(SRC, /l\.inst\.update\(dt \* rate2 \* \((?:\/\*\* @type \{number\} \*\/ \()?l\.speed\)? > 0 \? (?:\/\*\* @type \{number\} \*\/ \()?l\.speed\)? : 1\)\)/);
   assert.match(SRC, /if \(land\.length\) hitFx\(a\.src, shellLand\(tgt\), land, c\);\n\s+if \(on\.length\) hitFx\(a\.src, tgt, on, c\);/);
   assert.match(SRC, /if \(plain\.length\) play\(src, 'attackHit', 0, \{ at: tgt, names: plain, aim: src \}\);/);
   assert.match(SRC, /const aimSet = \(v\) => new Set\(bindOf\(v\)\?\.hitAim \|\| \[\]\);/);

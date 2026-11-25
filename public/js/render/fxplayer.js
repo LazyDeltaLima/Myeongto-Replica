@@ -121,7 +121,7 @@ import { effectTurn } from './fx/face.js';
  *   [key: string]: unknown },
  *   back?: { effect?: string, beh?: boolean, force?: boolean, sync?: boolean, oneShot?: boolean, predict?: unknown } | null,
  *   three?: { up?: string, [key: string]: unknown } | null, right?: string, rightOnce?: boolean, rightRev?: boolean,
- *   follow?: { once?: boolean, src?: string, left?: number, vflip?: number, [key: string]: unknown } | null, tileH?: number,
+ *   follow?: { once?: boolean, src?: string, left?: number, vflip?: number, [key: string]: unknown } | null, tileH?: number, maxLife?: number,
  *   spawn?: number, rootTile?: boolean, height?: number, lineDyn?: Record<string, unknown>, lineEm?: Record<string, unknown>,
  *   followOwner?: boolean, posCap?: boolean, rgroup?: { pick?: string[], self?: boolean, noOwner?: boolean, mainPos?: boolean },
  *   equipFx?: { hooks?: [string, unknown, string][], pause?: boolean }, fly?: { loc: number, inv?: boolean, dur?: unknown,
