@@ -100,6 +100,8 @@ declare module '../public/js/render/fxplayer.js' {
     kids?: FxInstance[];
     /** buff key → its progress 0–1 or null (setBuffProgress; made on the first one) */
     buffProg?: Map<string, number | null>;
+    /** its depth along the camera, set by FlightBatch.sync before it sorts the copies it merges */
+    flightDepth?: number;
   }
 }
 

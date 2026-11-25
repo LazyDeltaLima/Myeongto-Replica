@@ -48,5 +48,5 @@ test('fxgame trims with liveOverCap everywhere; the player keeps only a backstop
   assert.match(PLAYER, /export const MAX_LASTING = \d+;/);
   assert.match(PLAYER, /const PLAYER_CAP = MAX_INSTANCES \+ MAX_LASTING \+ \d+;/);
   // 2026-11-12: the pinned instances (fxgame's `pinned` entries) are counted apart (PINNED_CAP; test/render/tile-batch.test.js)
-  assert.match(PLAYER, /while \(live\.length - livePinned > PLAYER_CAP\) live\.find\(\(x\) => !x\.pinned\)\.dispose\(\);/);
+  assert.match(PLAYER, /while \(live\.length - livePinned > PLAYER_CAP\) (\/\*\* @type \{FxInstance\} \*\/ \()?live\.find\(\(x\) => !x\.pinned\)\)?\.dispose\(\);/);
 });

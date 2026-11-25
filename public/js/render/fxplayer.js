@@ -31,6 +31,129 @@
 import * as THREE from '../../vendor/three.module.js';
 import { effectTurn } from './fx/face.js';
 
+/**
+ * The prefab records fx_extract.py writes (FxLibrary.load reads them as JSON), typed by the fields this file reads; a
+ * record's other fields are `unknown` (render/fxgame.js reads some of them). A field a mode or switch needs is typed as
+ * present (a MinMaxGradient's `g` for its gradient modes): the extract writes what its mode reads.
+ * @typedef {{ [key: string]: unknown }} Bag a record read by key
+ * @typedef {number[]} CurveKey an AnimationCurve key [t, v, in, out] (a missing or null tangent: a stepped key)
+ * @typedef {{ m: number, s: number, n: number, c?: CurveKey[], d?: CurveKey[], cf?: Float64Array, df?: Float64Array }} MinMax
+ *   a MinMaxCurve (`m` 0 constant `s`, 1 curve `c` × `s`, 2 between the curves `d` and `c` × `s`, 3 between `n` and `s`;
+ *   `cf` / `df` the flat forms prepareCurves attaches)
+ * @typedef {{ c: number[][], a: number[][], mode?: number, cf?: Float64Array, af?: Float64Array }} Gradient colour keys
+ *   [[t, r, g, b]…] and alpha keys [[t, a]…] (`mode` 1 fixed), their flat forms `cf` / `af`
+ * @typedef {Gradient & { cf: Float64Array, af: Float64Array }} FlatGradient a Gradient with its flat forms
+ * @typedef {{ m?: number, g: Gradient, h: Gradient, a: number[], b: number[] }} MinMaxGradient `m` 0 the colour `a`, 1 the
+ *   gradient `g`, 2 between the colours `b` and `a`, 3 between the gradients `h` and `g`, 4 `g` at the particle's random
+ * @typedef {{ t: number, n: MinMax, cycles?: number, interval?: number, p?: number }} Burst an emission burst
+ * @typedef {{ type: number, mesh?: string, radius: number, arc?: number, arcMode?: number, arcSpread?: number, arcSpeed?: MinMax,
+ *   radMode?: number, radSpread?: number, radSpeed?: MinMax, thick?: number, angle?: number, length?: number, scale?: number[],
+ *   box?: number[], donut?: number, meshCol?: boolean, place?: number, randDir?: number, sphDir?: number, randPos?: number,
+ *   rotE?: number[], pos?: number[] }} PsShape a ShapeModule
+ * @typedef {{ mode: number, align: number, mat?: string, trailMat?: string, mesh?: string, meshes?: string[], lengthScale?: number,
+ *   velScale?: number, free?: boolean, rotw?: boolean, pivot?: unknown, sortMode?: number, flip?: number[], layer?: number,
+ *   order?: number, fudge?: number, ownStreams?: number | boolean | null, streams?: number[] }} PsRender a ParticleSystemRenderer
+ * @typedef {{ x: MinMax, y: MinMax, z: MinMax }} Axes3 a module's curve per axis
+ * @typedef {{ x?: MinMax, y?: MinMax, z: MinMax }} RotAxes a rotation module's curves (x / y with separate axes)
+ * @typedef {{ x: MinMax, y?: MinMax, z?: MinMax }} SizeAxes a size module's curves (y / z with separate axes)
+ * @typedef {Axes3 & { on?: number | boolean, orbX?: MinMax, orbY?: MinMax, orbZ?: MinMax, radial?: MinMax, orbOff?: MinMax[],
+ *   speedMul?: MinMax }} VelocityModule VelocityOverLifetime with its orbit, radial and speed modifier
+ * @typedef {{ str: MinMax, strY?: MinMax, strZ?: MinMax, freq?: number, damping?: boolean, posAmt?: MinMax, rotAmt?: MinMax,
+ *   sizeAmt?: MinMax, scroll?: MinMax, oct?: number, octMul?: number, octScale?: number, qual?: number }} NoiseModule
+ * @typedef {{ mode?: number, life: MinMax, world?: boolean, die?: boolean, split?: boolean, texMode?: number, inherit?: boolean,
+ *   width?: MinMax, sizeWidth?: boolean, colorOT: MinMaxGradient, colorOL?: MinMaxGradient, ratio?: number,
+ *   minDist: number }} TrailModule
+ * @typedef {{ dampen: MinMax, bounce: MinMax, lifeLoss: MinMax, radius?: number, minKill?: number, maxKill?: number,
+ *   planes?: number[] }} CollisionModule
+ * @typedef {{ frame: MinMax, start: MinMax, tx?: number, ty?: number, anim?: number, cycles?: number, rowMode?: number,
+ *   row?: number }} SheetModule TextureSheetAnimation
+ * @typedef {{ node: number, type?: number, props?: number, p?: number }} SubEmitter a sub emitter entry
+ * @typedef {{ inherit?: { mode?: number, k: MinMax }, velOL?: VelocityModule, noise?: NoiseModule, rotOL?: RotAxes,
+ *   rotBySpeed?: RotAxes & { range?: number[] }, sizeOL?: SizeAxes, sizeBySpeed?: SizeAxes & { range?: number[] },
+ *   force?: Axes3, limit?: { mag: MinMax, drag: MinMax, dampen?: number }, collide?: CollisionModule,
+ *   colorOL?: MinMaxGradient, custom?: ({ v?: MinMax[], col?: MinMaxGradient } | null)[], uv?: SheetModule,
+ *   trail?: TrailModule, sub?: SubEmitter[] }} PsModules a system's modules (absent: off)
+ * @typedef {{ render: PsRender, mods: PsModules, shape?: PsShape, space?: number, max?: number, dur: number, loop?: boolean,
+ *   prewarm?: boolean, delay?: MinMax, life: MinMax, speed: MinMax, size: MinMax, sizeY?: MinMax, sizeZ?: MinMax,
+ *   rot: MinMax, rotX?: MinMax, rotY?: MinMax, flipRot?: number, color: MinMaxGradient, rate: MinMax, dist?: MinMax,
+ *   bursts?: Burst[], gravity: MinMax, speedMul?: number, scaling?: number }} PsRec a ParticleSystem (node `ps`)
+ * @typedef {{ mat: string, width: number, time: number, minDist: number, grad: Gradient, widthCurve?: CurveKey[],
+ *   wf?: Float64Array, texMode?: number, align?: number, layer?: number, order?: number }} TrailRec a TrailRenderer (`trailR`)
+ * @typedef {{ mat: string, width: number, pts: number[][], grad: Gradient, widthCurve?: CurveKey[], loop?: boolean,
+ *   world?: boolean, texMode?: number, layer?: number, order?: number }} LineRec a LineRenderer (`lineR`)
+ * @typedef {{ mesh: string, mat: string, more?: string[], off?: boolean, bones: number[], layer?: number,
+ *   order?: number }} MeshRec a MeshRenderer (`mesh`) or SkinnedMeshRenderer (`skin`, its `bones`)
+ * @typedef {{ maps: [string, number, number, number?][], shared?: boolean, keep?: boolean, until?: number }} UvTweenRec
+ *   a node's FxUVTweener (`uvt`)
+ * @typedef {{ effects?: unknown[], [key: string]: unknown }} EmitRec an OnPlayEmitter / OnFinishEmitter record
+ *   (render/fxgame.js plays it)
+ * @typedef {{ name: string, parent: number, pos?: number[], rot?: number[], scale?: number[], active?: boolean, ps?: PsRec,
+ *   trailR?: TrailRec, lineR?: LineRec, mesh?: MeshRec, skin?: MeshRec, uvt?: UvTweenRec, uvr?: number[], delay?: number,
+ *   sdelay?: number, emit?: { effect?: string, count?: number, [key: string]: unknown }, onPlay?: EmitRec,
+ *   onFinish?: EmitRec, onPlayIf?: EmitRec[], [key: string]: unknown }} FxNode a node of the prefab tree (`parent` −1: the
+ *   root); the pause keys (PAUSE_KEYS) are among the rest
+ * @typedef {{ pos: number[], idx: number[], uv?: number[], col?: number[], sub?: number[][], bi?: number[], bw?: number[],
+ *   bind?: number[][] }} MeshFile a mesh file (mesh/<key>.json: positions, indices, uvs, vertex colours 0–255, sub-meshes, skin)
+ * @typedef {{ img: string, tiling: number[], offset: number[] }} MatTex a material texture slot
+ * @typedef {{ shader?: string, floats?: Record<string, number>, colors?: Record<string, number[]>,
+ *   tex?: Record<string, MatTex>, keywords?: string[], queue?: number }} MatRec a material
+ * @typedef {{ node: number, prop: string, type?: number, curves: number[][][] }} ClipTrack a clip track: its streamed keys
+ *   [[t, c0, c1, c2, c3]…] per component
+ * @typedef {{ tracks: ClipTrack[], len?: number, loop?: boolean, sm?: number }} FxClip a Mecanim clip (`sm`: its state machine)
+ * @typedef {{ from: number, to: number, dur: number, exit?: number | null, norm?: boolean, offset?: number,
+ *   cond?: [string, string, number][] }} SmTransition a transition (`from` −1: any state)
+ * @typedef {{ node: number, states: ({ clip?: number, speed?: number } | undefined)[], def?: number,
+ *   params?: Record<string, [string, unknown]>, trans?: SmTransition[] }} SmDef a state machine (`params`: name → [type, default])
+ * @typedef {{ sm: number, p: string, buff: string, int?: boolean, fin?: number, def?: number, curve?: CurveKey[] }} AnimSource
+ *   a parameter fed by a buff's progress (`animSrc`)
+ * @typedef {{ sm: number, pairs?: [string, string][], def?: string | null }} AnimBuff a trigger by the owner's buffs (`animBuff`)
+ * @typedef {{ sm: number, rec?: boolean, play?: number, p?: string, v?: unknown }} AnimFinish what the finish sets (`animFin`)
+ * @typedef {{ fxDelay?: number, delay?: number, rnd?: boolean, bodyNode?: number, [key: string]: unknown }} FaceRec the root's
+ *   effect component (render/fx/face.js)
+ * @typedef {{ nodes: FxNode[], materials: Record<string, MatRec | undefined>, geoms: Record<string, THREE.BufferGeometry | null>,
+ *   lib: FxLibrary, bundle?: string, face?: FaceRec, mount?: { followScaleSign?: boolean, followScale?: boolean },
+ *   jitter?: unknown[], rdir?: unknown[], lod?: { off?: number[], ps?: [number, number][] }, clips?: FxClip[], sms?: SmDef[],
+ *   animSrc?: AnimSource[], animBuff?: AnimBuff[], animFin?: AnimFinish[], mainPs?: number, offFinish?: number[],
+ *   finish?: number, [key: string]: unknown }} FxDef a loaded prefab (FxLibrary.load: its meshes in `geoms`, its library `lib`)
+ */
+/**
+ * The player's own records.
+ * @typedef {{ value: any }} Uniform a material uniform (any: the loose three.js stand-in's value — a number, a vector, a texture)
+ * @typedef {{ budget: number, emission: number }} Quality a QUALITY entry
+ * @typedef {{ o: THREE.Object3D, tr: ClipTrack, len: number, off?: number, loop?: boolean, ci?: number, also?: TrackBind[] }} TrackBase
+ * @typedef {TrackBase & ({ kind: 'pos' | 'scale' | 'quat' | 'euler' | 'active' } | { kind: 'width', ln: LineRenderer }
+ *   | { kind: 'set', at: Bag, key: string | number, bool?: boolean, k?: number } | { kind: 'visible', m: THREE.Mesh }
+ *   | { kind: 'matComp', u: Uniform, axis: string, k: number } | { kind: 'mat', u: Uniform })} TrackBind what a clip track
+ *   drives (FxInstance.bindTrack0)
+ * @typedef {{ u: Uniform, z0: number, w0: number, vx: number, vy: number, until: number, frac: boolean, dyn?: boolean,
+ *   s1?: number, zs?: number, ws?: number }} UvTweenMap a texture offset an FxUVTweener moves (uvTween; `dyn`: a clip moves its speed)
+ * @typedef {{ e: SubEmitter, sys: ParticleSystemLinks }} SubLink a sub emitter and its target system (ParticleSystem.setSubs)
+ * @typedef {{ at: THREE.Vector3, t01: number, col?: number[] | null, size?: number[] | null, rot?: number | null, lifeK?: number,
+ *   parent?: number }} SubBirth a sub emitter's emission at a parent particle (ParticleSystem.emit)
+ * @typedef {{ pts: Float32Array, cnt: number, born: number, tl: number, r0: number, r1: number, r2: number, a: number,
+ *   col: Float32Array, size: number }} Ghost a dead particle's trail kept (ParticleSystem.ghost)
+ * @typedef {{ mesh: THREE.Mesh, g: THREE.InstancedBufferGeometry, ib: THREE.InstancedInterleavedBuffer,
+ *   src: THREE.BufferGeometry }} MoreMesh a mesh renderer's further mesh (ParticleSystem `more`)
+ * @typedef {{ place: number, cum: Float64Array | null, total: number, I: ArrayLike<number>, P: ArrayLike<number>,
+ *   N: ArrayLike<number>, C: ArrayLike<number> | null, nv: number, c: number[] }} MeshShapeData a Mesh shape (meshShape)
+ * @typedef {{ k: number, count: number, time: number, t01: number, arcLaps: number, radLaps: number }} ShapeCtx an emission's
+ *   place in its frame (shapeSample)
+ * @typedef {{ to: number, dur: number, t: number, dt: number }} SmFade a running transition
+ * @typedef {{ d: SmDef, k: number, cur: number, t: number, fresh: boolean, tr: SmFade | null, p: Record<string, unknown>,
+ *   fin: boolean, bt?: string | null }} SmRun a state machine's state (FxInstance.newSm)
+ * @typedef {{ m: SmRun, b: TrackBind, def: number[], tracks: TrackBind[], v: number[] }} SmSlot what a state machine's clips
+ *   drive at one place (FxInstance.smSlots)
+ * @typedef {StripBatch & { vb: THREE.InterleavedBuffer, index: THREE.BufferAttribute, room: number, geometry: THREE.BufferGeometry }} StripBatchBuf
+ *   a StripBatch with its buffers (its constructor builds them: StripBatch.build)
+ * @typedef {{ pick: (x: FxInstance) => ParticleSystem | StripBatch, id: number, strip: boolean, batch: StripRows | RowBatch | null,
+ *   material: THREE.ShaderMaterial }} FlightSlot a renderer FlightBatch merges across the copies of one prefab
+ * @typedef {{ begin(): void, add(x: ParticleSystem | StripBatch, ox: number, oy: number, oz: number): boolean,
+ *   end(material: THREE.ShaderMaterial | undefined, order: number | undefined, x: number, y: number, z: number): void,
+ *   dispose(): void }} MergeBatch
+ *   what FlightBatch.merge calls on a slot's batch (a RowBatch for particles, a StripRows for ribbons)
+ */
+
+/** @type {Readonly<Record<string, Quality>>} */
 export const QUALITY = Object.freeze({
   high: { budget: 6000, emission: 1 },
   medium: { budget: 2500, emission: 0.6 },
@@ -61,7 +184,11 @@ let liveParticles = 0;
 
 // ---------------------------------------------------------------- curves
 
-/** Hermite AnimationCurve [[t, v, in, out]…] at t. */
+/**
+ * Hermite AnimationCurve [[t, v, in, out]…] at t.
+ * @param {CurveKey[] | null | undefined} keys
+ * @param {number} t
+ */
 export function evalCurve(keys, t) {
   if (!keys || !keys.length) return 0;
   if (t <= keys[0][0]) return keys[0][1];
@@ -83,7 +210,10 @@ export function evalCurve(keys, t) {
 // evaluations read one typed array instead of nested key arrays. The arithmetic and its order are the ones of evalCurve /
 // evalGradient, so the results are the same numbers.
 
-/** Keys [[t, v, in, out]…] → [n, t0, v0, in0, out0, t1, …]; a missing or non-finite tangent becomes NaN (a stepped key). */
+/**
+ * Keys [[t, v, in, out]…] → [n, t0, v0, in0, out0, t1, …]; a missing or non-finite tangent becomes NaN (a stepped key).
+ * @param {CurveKey[]} keys
+ */
 function flatKeys(keys) {
   const f = new Float64Array(1 + keys.length * 4);
   f[0] = keys.length;
@@ -95,7 +225,11 @@ function flatKeys(keys) {
   return f;
 }
 
-/** evalCurve over flatKeys data. */
+/**
+ * evalCurve over flatKeys data.
+ * @param {Float64Array} f
+ * @param {number} t
+ */
 function evalFlat(f, t) {
   const n = f[0];
   if (!n) return 0;
@@ -114,7 +248,11 @@ function evalFlat(f, t) {
   return (2 * s3 - 3 * s2 + 1) * f[a + 1] + (s3 - 2 * s2 + s) * dt * out + (-2 * s3 + 3 * s2) * f[b + 1] + (s3 - s2) * dt * inn;
 }
 
-/** Gradient keys [[t, …w values]…] → [n, t0, …, t1, …]. */
+/**
+ * Gradient keys [[t, …w values]…] → [n, t0, …, t1, …].
+ * @param {number[][]} keys
+ * @param {number} w
+ */
 function flatGradKeys(keys, w) {
   const f = new Float64Array(1 + keys.length * w);
   f[0] = keys.length;
@@ -122,12 +260,15 @@ function flatGradKeys(keys, w) {
   return f;
 }
 
+/** @type {(a: unknown) => a is number[][]} */
 const isKeyList = (a) => Array.isArray(a) && Array.isArray(a[0]);
 
 /**
  * A MinMaxCurve in one object shape ({m, s, n, c, d, cf, df}, absent fields undefined, the flat forms attached): the
  * extracted ones come in four ({m, s}, {m, s, n}, {m, s, c}, {m, s, c, d}), and evalMM, read per particle and module,
  * looked their fields up through all of them (load study F, 2026-11-15). Same fields, same values.
+ * @param {MinMax} o
+ * @returns {MinMax}
  */
 function curveOf(o) {
   return { m: o.m, s: o.s, n: o.n, c: o.c, d: o.d, cf: Array.isArray(o.c) ? flatKeys(o.c) : undefined, df: Array.isArray(o.d) ? flatKeys(o.d) : undefined };
@@ -136,21 +277,27 @@ function curveOf(o) {
 /**
  * Attach the flat forms to every MinMaxCurve ({m, s, c?, d?}: cf / df — each replaced by its curveOf copy) and Gradient
  * ({c, a, mode}: cf / af) below o. @returns o, or its copy when o is a MinMaxCurve itself.
+ * @param {Bag} o
  */
 export function prepareCurves(o) {
   if (!o || typeof o !== 'object' || ArrayBuffer.isView(o)) return o;
   if (Array.isArray(o)) { for (let i = 0; i < o.length; i++) o[i] = prepareCurves(o[i]); return o; }
-  if (typeof o.m === 'number' && 's' in o) return curveOf(o);
+  if (typeof o.m === 'number' && 's' in o) return curveOf(/** @type {MinMax} */ (o));
   if (isKeyList(o.c) && isKeyList(o.a) && 'mode' in o) { o.cf = flatGradKeys(o.c, 4); o.af = flatGradKeys(o.a, 2); }
   for (const k in o) {
     if (k === 'cf' || k === 'df' || k === 'af') continue;
     const v = o[k];
-    if (v && typeof v === 'object') o[k] = prepareCurves(v);
+    if (v && typeof v === 'object') o[k] = prepareCurves(/** @type {Bag} */ (v));
   }
   return o;
 }
 
-/** MinMaxCurve {m, s, n?, c?, d?} at normalized time t with the particle's random r. */
+/**
+ * MinMaxCurve {m, s, n?, c?, d?} at normalized time t with the particle's random r.
+ * @param {MinMax | null | undefined} mm
+ * @param {number} t
+ * @param {number} r
+ */
 export function evalMM(mm, t, r) {
   if (!mm) return 0;
   switch (mm.m) {
@@ -164,7 +311,12 @@ export function evalMM(mm, t, r) {
   }
 }
 
-/** evalGradient over the flat colour / alpha keys. */
+/**
+ * evalGradient over the flat colour / alpha keys.
+ * @param {FlatGradient} g
+ * @param {number} t
+ * @param {number[]} out
+ */
 function evalGradientFlat(g, t, out) {
   const c = g.cf, a = g.af, nc = c[0], na = a[0];
   if (t <= c[1]) { out[0] = c[2]; out[1] = c[3]; out[2] = c[4]; } else {
@@ -188,8 +340,14 @@ function evalGradientFlat(g, t, out) {
   return out;
 }
 
+/**
+ * @param {Gradient} g
+ * @param {number} t
+ * @param {number[]} out
+ * @returns {number[]}
+ */
 function evalGradient(g, t, out) {
-  if (g.cf) return evalGradientFlat(g, t, out);
+  if (g.cf) return evalGradientFlat(/** @type {FlatGradient} */ (g), t, out);
   const c = g.c, a = g.a;
   let i = 1;
   if (t <= c[0][0]) { out[0] = c[0][1]; out[1] = c[0][2]; out[2] = c[0][3]; } else if (t >= c[c.length - 1][0]) {
@@ -210,7 +368,13 @@ function evalGradient(g, t, out) {
 
 const gradA = [0, 0, 0, 0], gradB = [0, 0, 0, 0];   // evalMG mode 3 (random between two gradients)
 
-/** MinMaxGradient at t with random r → out [r, g, b, a]. */
+/**
+ * MinMaxGradient at t with random r → out [r, g, b, a].
+ * @param {MinMaxGradient | null | undefined} mg
+ * @param {number} t
+ * @param {number} r
+ * @param {number[]} out
+ */
 export function evalMG(mg, t, r, out) {
   if (!mg) { out[0] = out[1] = out[2] = out[3] = 1; return out; }
   switch (mg.m) {
@@ -226,7 +390,11 @@ export function evalMG(mg, t, r, out) {
   }
 }
 
-/** Mecanim streamed key list [[t, c0, c1, c2, c3]…] at t. */
+/**
+ * Mecanim streamed key list [[t, c0, c1, c2, c3]…] at t.
+ * @param {number[][] | null | undefined} keys
+ * @param {number} t
+ */
 function evalClipCurve(keys, t) {
   if (!keys || !keys.length) return 0;
   let k = keys[0];
@@ -235,7 +403,11 @@ function evalClipCurve(keys, t) {
   return ((k[1] * dt + k[2]) * dt + k[3]) * dt + k[4];
 }
 
-/** Write a clip track's value `v` to what it drives (FxInstance.bindTrack0). */
+/**
+ * Write a clip track's value `v` to what it drives (FxInstance.bindTrack0).
+ * @param {TrackBind} b
+ * @param {number[]} v
+ */
 function writeTrack(b, v) {
   const o = b.o;
   switch (b.kind) {
@@ -257,6 +429,7 @@ function writeTrack(b, v) {
  * 2026-10-22 (effect bundle J): whether an exit time `exit` (normalized) was passed between state times `t0` and `t1` of a
  * state `len` s long — a looping state's below 1 on the frame it is passed in each loop (Mecanim evaluates it every loop),
  * else from then on [ASSUMED for a non-looping state: Unity's manual describes the looping case only].
+ * @param {number} t0 @param {number} t1 @param {number} len @param {boolean} loop @param {number} exit
  */
 function exitPassed(t0, t1, len, loop, exit) {
   if (!(len > 0)) return true;
@@ -266,7 +439,12 @@ function exitPassed(t0, t1, len, loop, exit) {
   return n1 >= exit;
 }
 
-/** A Mecanim transition condition (fx_extract.py COND_MODES) on parameter value `v`. */
+/**
+ * A Mecanim transition condition (fx_extract.py COND_MODES) on parameter value `v`.
+ * @param {unknown} v
+ * @param {string} mode
+ * @param {number} x
+ */
 function condOk(v, mode, x) {
   switch (mode) {
     case 'if': return !!v;
@@ -279,7 +457,11 @@ function condOk(v, mode, x) {
   }
 }
 
-/** A Unity AnimationCurve [[time, value, inSlope, outSlope]] at `t` (Hermite; a null tangent = a step), clamped at its ends. */
+/**
+ * A Unity AnimationCurve [[time, value, inSlope, outSlope]] at `t` (Hermite; a null tangent = a step), clamped at its ends.
+ * @param {CurveKey[] | null | undefined} keys
+ * @param {number} t
+ */
 function keyCurve(keys, t) {
   if (!keys?.length) return 0;
   if (t <= keys[0][0]) return keys[0][1];
@@ -295,6 +477,7 @@ function keyCurve(keys, t) {
 
 // ---------------------------------------------------------------- shader
 
+/** @type {Readonly<Record<number, number>>} */
 const BLEND = { 0: THREE.ZeroFactor, 1: THREE.OneFactor, 2: THREE.DstColorFactor, 3: THREE.SrcColorFactor,
   4: THREE.OneMinusDstColorFactor, 5: THREE.SrcAlphaFactor, 6: THREE.OneMinusSrcColorFactor, 7: THREE.DstAlphaFactor,
   8: THREE.OneMinusDstAlphaFactor, 9: THREE.SrcAlphaSaturateFactor, 10: THREE.OneMinusSrcAlphaFactor };
@@ -319,17 +502,24 @@ const PACKED_GLSL = [
 ].join('\n');
 /** A switch of uPFlags under its old name: `value` reads and writes its bit (a boolean, as the bool uniform it was). */
 class PackedFlag {
+  /** @param {{ value: number }} u @param {number} bit */
   constructor(u, bit) { this.u = u; this.bit = bit; }
   get value() { return (this.u.value & this.bit) !== 0; }
+  /** @param {boolean} v */
   set value(v) { this.u.value = v ? this.u.value | this.bit : this.u.value & ~this.bit; }
 }
 /** A component of a packed vector under its old name. */
 class PackedNum {
+  /** @param {THREE.Vector4} v @param {string} axis */
   constructor(v, axis) { this.v = v; this.axis = axis; }
   get value() { return this.v[this.axis]; }
+  /** @param {number} x */
   set value(x) { this.v[this.axis] = x; }
 }
-/** The material's scalar uniforms → the packed ones, each old name an accessor onto its place (initial values kept). */
+/**
+ * The material's scalar uniforms → the packed ones, each old name an accessor onto its place (initial values kept).
+ * @param {Record<string, Uniform>} u
+ */
 function packUniforms(u) {
   const flags = { value: 0 }, ints = { value: new THREE.Vector4() }, floats = [0, 1, 2, 3, 4].map(() => ({ value: new THREE.Vector4() }));
   PACKED_FLAGS.forEach((n, k) => { const v = u[n].value; u[n] = new PackedFlag(flags, 1 << k); u[n].value = v; });
@@ -718,14 +908,30 @@ const PREMUL_READ = /^Torappu\/Particles(-L2D)?\/(AlphaBlend|Ram\/(Vertex)?Distu
 // `_RamTexChannel` only the Ram/Disturb(CustomData) pair. ZDistort's copies have no selector (makeMaterial)
 const MAIN_CHAN_READ = /^Torappu\/Particles(-L2D)?\/(Additive|AlphaBlend|Dissolve\/Dissolve\(CustomData\)|(Ram|Disturb)\/Disturb\(CustomData\))$/;
 const RAM_CHAN_READ = /^Torappu\/Particles(-L2D)?\/Ram\/Disturb\(CustomData\)$/;
-/** 2026-11-16 (client shader): AlphaBlend(ZWrite)'s rim — `_UseRim` > 0 (the pixel stage's own test). */
+/**
+ * 2026-11-16 (client shader): AlphaBlend(ZWrite)'s rim — `_UseRim` > 0 (the pixel stage's own test).
+ * @type {(shader: string, f: Record<string, number>) => boolean}
+ */
 const rimAdd = (shader, f) => /^Torappu\/Particles\/AlphaBlend\(ZWrite\)$/.test(shader) && (f._UseRim ?? 0) > 0;
-/** Whether a material on mesh geometry needs the mesh's normals (a Rim shader, AlphaBlend(ZWrite)'s rim): useMeshAttrs, PROGRAM_VARIANTS. */
+/**
+ * Whether a material on mesh geometry needs the mesh's normals (a Rim shader, AlphaBlend(ZWrite)'s rim): useMeshAttrs, PROGRAM_VARIANTS.
+ * @type {(shader: string, f?: Record<string, number>) => boolean}
+ */
 export const meshNormals = (shader, f = {}) => /\/Rim\//.test(shader) || rimAdd(shader, f);
-/** The pass premultiplies: `_PremultiplyAlpha` One (below 1.5, the pixel stage's own test) where the pass reads it. */
+/**
+ * The pass premultiplies: `_PremultiplyAlpha` One (below 1.5, the pixel stage's own test) where the pass reads it.
+ * @type {(shader: string, f: Record<string, number>) => boolean}
+ */
 const premulX2 = (shader, f) => PREMUL_READ.test(shader) && (f._PremultiplyAlpha ?? 5) < 1.5;
-/** three.js side for a Unity CullMode on mesh geometry (the Unity frame's z flip turns three's winding with it). */
+/**
+ * three.js side for a Unity CullMode on mesh geometry (the Unity frame's z flip turns three's winding with it).
+ * @type {Readonly<Record<number, number>>}
+ */
 const SIDE = { 0: THREE.DoubleSide, 1: THREE.BackSide, 2: THREE.FrontSide };
+/**
+ * @param {string} shader
+ * @param {Record<string, number>} [f]
+ */
 export function renderState(shader, f = {}) {
   return {
     cull: CULL_READ.test(shader) ? f._CullMode ?? 0 : CULL_BACK.test(shader) ? 2 : 0,
@@ -737,10 +943,17 @@ export function renderState(shader, f = {}) {
 const WHITE = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
 WHITE.needsUpdate = true;
 
+/**
+ * @param {MatRec | null | undefined} m
+ * @param {FxLibrary | null} lib
+ * @returns {THREE.ShaderMaterial}
+ */
 function makeMaterial(m, lib) {
   const f = m?.floats || {}, c = m?.colors || {}, t = m?.tex || {};
   const shader = String(m?.shader || '');
-  const tex = (k) => (t[k] ? lib.texture(t[k].img) : null);
+  /** @type {(k: string) => THREE.Texture | null | undefined} */
+  const tex = (k) => (t[k] ? /** @type {FxLibrary} */ (lib).texture(t[k].img) : null);
+  /** @type {(k: string) => THREE.Vector4} */
   const st = (k) => (t[k] ? new THREE.Vector4(t[k].tiling[0], t[k].tiling[1], t[k].offset[0], t[k].offset[1]) : new THREE.Vector4(1, 1, 0, 0));
   // the Torappu particle shaders' neutral colour is 0.5 (shader property defaults): colour = 2 · tint · vertex · texture
   // 2026-10-22: Unity's Default-Particle (Legacy Particles/Alpha Blended Premultiply) has no tint: vertex colour × texture × vertex alpha
@@ -783,6 +996,7 @@ function makeMaterial(m, lib) {
   const add = /\/Mask\//.test(shader) ? tex('_AddTex') : null;
   // 2026-10-14 (client shader properties): only the (CustomData) family declares _Main / _Dissolve / _DisturbU·VSpeed —
   // Additive, AlphaBlend, the Dissolve and Disturb Origin / Anchor materials carry them left from another shader (they scrolled before)
+  /** @type {(v: number | undefined) => number} */
   const sp = (v) => (/CustomData/.test(shader) && v) || 0;
   const disturb2 = disMode === 2 && (f._ToggleUseDisturb2 || 0) > 0 ? tex('_DisturTex_02') : null;
   const weight = disMode === 2 && (m?.keywords || []).includes('_WEIGHT_ON') ? tex('_WeightTex') : null;
@@ -798,7 +1012,9 @@ function makeMaterial(m, lib) {
   // (.zw), `_TexSpeed2` the second (.xy) and third (.zw), by 2 · _Time.y (the constant slots by name: the variants'
   // parameter tables); `_MainTexSpeed` is declared but read by no variant
   const multi = /Dissolve AB MultiTex/.test(shader) ? Math.min(3, Math.max(1, Math.round(f._Dissolve ?? 0) + 1)) : 0;
+  /** @type {(a: unknown, i: number) => number} */
   const vec = (a, i) => (Array.isArray(a) ? +a[i] || 0 : 0);
+  /** @type {(a: unknown) => THREE.Vector4} */
   const tintOf = (a) => (Array.isArray(a) ? new THREE.Vector4(a[0] * 2, a[1] * 2, a[2] * 2, a[3] * 2) : new THREE.Vector4(1, 1, 1, 1));
   const rot = [0, 1, 2, 3].map(() => new THREE.Vector4(1, 0, 0, 1));
   const mat = new THREE.ShaderMaterial({
@@ -884,7 +1100,10 @@ function makeMaterial(m, lib) {
   return mat;
 }
 
-/** 2026-10-22: a material drawn on mesh geometry (a MeshRenderer / skinned mesh, a mesh particle) takes its pass's culling. */
+/**
+ * 2026-10-22: a material drawn on mesh geometry (a MeshRenderer / skinned mesh, a mesh particle) takes its pass's culling.
+ * @param {THREE.ShaderMaterial} mat
+ */
 function meshSide(mat) {
   mat.side = SIDE[mat.userData.cull] ?? THREE.DoubleSide;
   return mat;
@@ -918,7 +1137,10 @@ export function programVariants() {
   });
 }
 
-/** 2026-10-14: the uniform holding a texture's tiling / offset, by the material's texture name. */
+/**
+ * 2026-10-14: the uniform holding a texture's tiling / offset, by the material's texture name.
+ * @type {Readonly<Record<string, string>>}
+ */
 const TEX_ST = { _MainTex: 'uMainST', _AddTex: 'uAddST', _DisturbTex: 'uDisturbST', _NoiseTex: 'uDisturbST', _DisturTex: 'uDisturbST', _DisturTex_02: 'uDisturb2ST',
   _DissolveTex: 'uDissolveST', _DissolveTex_01: 'uDissolveST', _DissolveTex_02: 'uDissolve2ST', _RamTex: 'uRamST', _WeightTex: 'uWeightST' };
 
@@ -936,20 +1158,32 @@ const TEX_ST = { _MainTex: 'uMainST', _AddTex: 'uAddST', _DisturbTex: 'uDisturbS
  * each instance writes as it steps — the newest last [추정·엔진: Unity's Update order of the tweeners].
  */
 const UV_SHARED = new Map();   // `${material key} ${uniform}` → its shared Vector4
+/**
+ * @param {Uniform} u
+ * @param {string} key
+ * @param {string} uname
+ */
 function uvShared(u, key, uname) {
   const k = `${key} ${uname}`;
   let v = UV_SHARED.get(k);
   if (!v) UV_SHARED.set(k, (v = u.value.clone()));
   u.value = v;
 }
+/**
+ * @param {THREE.ShaderMaterial | null | undefined} mat
+ * @param {UvTweenRec | null | undefined} uvt
+ * @param {MatRec | null | undefined} m
+ * @param {string | null} [key]
+ */
 function uvTween(mat, uvt, m, key = null) {
   if (!mat || !uvt || !Array.isArray(uvt.maps)) return;
+  /** @type {UvTweenMap[]} */
   const list = [];
   for (const [name, vx, vy, fr] of uvt.maps) {
     const u = TEX_ST[name] && m?.tex?.[name] ? mat.uniforms[TEX_ST[name]] : null;
     if (!u || list.some((e) => e.u === u)) continue;
     if (uvt.shared && key) uvShared(u, key, TEX_ST[name]);
-    list.push({ u, z0: uvt.keep ? u.value.z : 0, w0: uvt.keep ? u.value.w : 0, vx: +vx || 0, vy: +vy || 0, until: uvt.until > 0 ? uvt.until : Infinity, frac: fr === 1 });
+    list.push({ u, z0: uvt.keep ? u.value.z : 0, w0: uvt.keep ? u.value.w : 0, vx: +vx || 0, vy: +vy || 0, until: /** @type {number} */ (uvt.until) > 0 ? /** @type {number} */ (uvt.until) : Infinity, frac: fr === 1 });
   }
   if (list.length) mat.userData.uvt = list;
 }
@@ -962,6 +1196,8 @@ function uvTween(mat, uvt, m, key = null) {
  * texture k's tiled uv (+ the custom offset for the main one) about (0.5, 0.5), u' = x·u + z·v, v' = y·u + w·v, then scrolls:
  * 0 main, 1 dissolve, 2 the third texture (_RamTex / _WeightTex), 3 the noise [ASSUMED: _Rotation2 / 3 in the order of their
  * constant slots — the shader's names are stripped].
+ * @param {THREE.ShaderMaterial | null | undefined} mat
+ * @param {unknown} uvr
  */
 function uvRotation(mat, uvr) {
   if (!mat?.userData.uvRot || !Array.isArray(uvr)) return;
@@ -980,6 +1216,8 @@ if (AXES[TIME_K & 3] !== 'x') throw new Error('[fx] uTime must be its packed vec
  * The renderer's time (seconds since its branch started) into its material: the shader clock and the uvTween offsets.
  * (load study F, 2026-11-15) The clock goes straight into its packed vector (`fxTime`, which the material keeps from its making — the accessors write the same vector), not
  * through the `uTime` accessor — one call per system a frame, the same value.
+ * @param {THREE.ShaderMaterial} mat
+ * @param {number} t
  */
 function setTime(mat, t) {
   const tv = mat.fxTime;
@@ -1005,6 +1243,9 @@ function setTime(mat, t) {
 /**
  * local patch: a mesh's own attributes on the instanced geometry `g` of `src` — its vertex colours (most slash / ring meshes
  * fade their edges by vertex alpha) and, for a Rim material, its normals (computed once on the shared geometry).
+ * @param {THREE.BufferGeometry} g
+ * @param {THREE.BufferGeometry} src
+ * @param {THREE.ShaderMaterial} mat
  */
 function useMeshAttrs(g, src, mat) {
   if (src.getAttribute('vcol')) { g.setAttribute('vcol', src.getAttribute('vcol')); mat.uniforms.uVCol.value = true; }
@@ -1020,12 +1261,19 @@ function useMeshAttrs(g, src, mat) {
 /**
  * A Unity TextureWrapMode as three.js wrapping: 1 Clamp → ClampToEdge, 2 Mirror → MirroredRepeat, 3 MirrorOnce →
  * MirroredRepeat [ASSUMED: three.js has no mirror-once; it differs only beyond one mirrored copy], else Repeat.
+ * @type {(m: number | undefined) => number}
  */
 const wrapMode = (m) => (m === 1 ? THREE.ClampToEdgeWrapping : m === 2 || m === 3 ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping);
 
-/** A file name in a URL: names can hold '#' (skin texture names, e.g. `…_sale#10_…`) that would end the path. */
+/**
+ * A file name in a URL: names can hold '#' (skin texture names, e.g. `…_sale#10_…`) that would end the path.
+ * @type {(name: string) => string}
+ */
 const seg = (name) => encodeURIComponent(name);
-/** A bundle folder in a URL, each part of it encoded: a skin effect's is `skin/<bundle>` (docs/rules/render.md 「스킨 모델 소재」). */
+/**
+ * A bundle folder in a URL, each part of it encoded: a skin effect's is `skin/<bundle>` (docs/rules/render.md 「스킨 모델 소재」).
+ * @type {(bundle: string) => string}
+ */
 const folder = (bundle) => String(bundle).split('/').map(seg).join('/');
 /** The skin effects' folder under the library's base (fx_extract.py SKIN_DIR): `skin/<bundle>/` prefabs, `skin/tex/`, `skin/mesh/`. */
 export const SKIN_FX_DIR = 'skin/';
@@ -1033,14 +1281,20 @@ export const SKIN_FX_DIR = 'skin/';
 export class FxLibrary {
   constructor(base = '/assets/local/fx/') {
     this.base = base;
+    /** @type {Map<string, Promise<FxDef | null>>} */
     this.defs = new Map();
+    /** @type {Map<string, THREE.Texture>} */
     this.textures = new Map();
+    /** @type {Map<string, Promise<THREE.BufferGeometry | null>>} */
     this.meshes = new Map();
     this.loader = new THREE.TextureLoader();
     // 2026-11-17: the textures / meshes only skin effects use (skin/index.json `tex` / `mesh`, their wraps skin/tex/wrap.json) —
     // read before the first skin prefab is built (skinFiles); any other name is in the shared tex/ and mesh/
+    /** @type {Set<string> | null} */
     this.skinTex = null;
+    /** @type {Set<string> | null} */
     this.skinMesh = null;
+    /** @type {Record<string, number[]> | null} */
     this.skinWrap = null;
   }
 
@@ -1048,14 +1302,16 @@ export class FxLibrary {
    * 2026-11-17 (docs/rules/render.md 「스킨 모델 소재」 「스킨 이펙트 프리팹」): which textures and meshes live in the skin folder,
    * fetched once before the first prefab of a `skin/<bundle>` folder is built. fx_extract.py place_skin_files keeps the two
    * folders apart (a file a default effect uses is shared), so a name decides its folder whichever prefab names it.
+   * @returns {Promise<void>}
    */
   skinFiles() {
     if (!this._skin) {
+      /** @type {(u: string, d: Bag) => Promise<Bag>} */
       const json = (u, d) => fetch(u).then((r) => (r.ok ? r.json() : d)).catch(() => d);
       this._skin = Promise.all([json(this.base + SKIN_FX_DIR + 'index.json', {}), json(this.base + SKIN_FX_DIR + 'tex/wrap.json', {})]).then(([ix, w]) => {
         this.skinTex = new Set(Array.isArray(ix?.tex) ? ix.tex : []);
         this.skinMesh = new Set(Array.isArray(ix?.mesh) ? ix.mesh : []);
-        this.skinWrap = w && typeof w === 'object' ? w : {};
+        this.skinWrap = /** @type {Record<string, number[]>} */ (w && typeof w === 'object' ? w : {});
       });
     }
     return this._skin;
@@ -1066,12 +1322,14 @@ export class FxLibrary {
    * ones that do not repeat; 0 Repeat, 1 Clamp, 2 Mirror, 3 MirrorOnce), fetched once before the first effect is built.
    * Every texture used to repeat: 烛煌 S3's flame (blaze2_02, Clamp, tiled ×4 and scrolled along its mesh) covered the
    * whole pillar for a second instead of passing along it as one streak.
+   * @returns {Promise<Record<string, number[]>>}
    */
   wraps() {
     if (!this._wraps) this._wraps = fetch(this.base + 'tex/wrap.json').then((r) => (r.ok ? r.json() : {})).catch(() => ({})).then((w) => (w && typeof w === 'object' ? w : {}));
-    return this._wraps;
+    return /** @type {Promise<Record<string, number[]>>} */ (this._wraps);
   }
 
+  /** @param {string} name */
   texture(name) {
     if (!this.textures.has(name)) {
       const own = !!this.skinTex?.has(name);   // 2026-11-17: a skin effect's own texture (skinFiles)
@@ -1086,9 +1344,13 @@ export class FxLibrary {
     return this.textures.get(name);
   }
 
+  /**
+   * @param {string} key
+   * @returns {Promise<THREE.BufferGeometry | null>}
+   */
   async mesh(key) {
     if (!this.meshes.has(key)) {
-      this.meshes.set(key, fetch(this.base + (this.skinMesh?.has(key) ? SKIN_FX_DIR : '') + 'mesh/' + seg(key) + '.json').then((r) => (r.ok ? r.json() : null)).then((d) => {
+      this.meshes.set(key, fetch(this.base + (this.skinMesh?.has(key) ? SKIN_FX_DIR : '') + 'mesh/' + seg(key) + '.json').then((r) => (r.ok ? r.json() : null)).then(/** @param {MeshFile | null} d */ (d) => {
         if (!d) return null;
         const g = new THREE.BufferGeometry();
         g.setAttribute('position', new THREE.Float32BufferAttribute(d.pos, 3));
@@ -1101,7 +1363,7 @@ export class FxLibrary {
           g.setAttribute('vcol', new THREE.Float32BufferAttribute(mx > 1.001 ? d.col.map((v) => v / 255) : d.col, 4));
         }
         // 2026-10-14: a skinned mesh's 4 bone indices / weights per vertex and its bones' bind poses (FxInstance n.skin)
-        if (d.sub?.length > 1) g.userData.sub = d.sub;   // (2026-10-26) each sub-mesh's [first index, index count]
+        if (/** @type {number} */ (d.sub?.length) > 1) g.userData.sub = d.sub;   // (2026-10-26) each sub-mesh's [first index, index count]
         if (d.bi?.length === nv * 4 && d.bw?.length === nv * 4 && d.bind?.length) {
           // 2026-10-27: float indices — Uint16 ones (an integer input to three's `vec4 skinIndex`) froze the first draw of a
           // skinned effect 0.14–0.19 s per renderer on Windows (ANGLE / D3D11, Firefox and Chrome), linked program or not
@@ -1112,10 +1374,15 @@ export class FxLibrary {
         return g;
       }).catch(() => null));
     }
-    return this.meshes.get(key);
+    return /** @type {Promise<THREE.BufferGeometry | null>} */ (this.meshes.get(key));
   }
 
-  /** Load an effect definition (+ its meshes); null when the file is missing. */
+  /**
+   * Load an effect definition (+ its meshes); null when the file is missing.
+   * @param {string} bundle
+   * @param {string} prefab
+   * @returns {Promise<FxDef | null>}
+   */
   async load(bundle, prefab) {
     const key = `${bundle}/${prefab}`;
     if (!this.defs.has(key)) {
@@ -1144,7 +1411,7 @@ export class FxLibrary {
         return def;
       })().catch(() => null));
     }
-    return this.defs.get(key);
+    return /** @type {Promise<FxDef | null>} */ (this.defs.get(key));
   }
 
   /**
@@ -1182,6 +1449,11 @@ const STRIP_ATTRS = [['position', 3, 0], ['uv', 2, SV_UV], ['iColor', 4, SV_COL]
 // get the same random numbers as when everything was made at its start
 let uuidN = 0;
 const uuidRandom = () => (uuidN = (Math.imul(uuidN, 1103515245) + 12345) >>> 0) / 4294967296;
+/**
+ * @template T
+ * @param {() => T} make
+ * @returns {T}
+ */
 function besideRandom(make) {
   const r0 = Math.random;
   Math.random = uuidRandom;
@@ -1192,9 +1464,13 @@ function besideRandom(make) {
 // shared by all batches (stripConsts), never deleted with a batch (StripBatch.dispose)
 /** @type {[string, number][]} */
 const STRIP_CONSTS = [['iUV', 4], ['iC1', 4], ['iC2', 4], ['iPos', 3]];
+/** @type {{ nv: number, attrs: [string, THREE.BufferAttribute][] } | null} */
 let stripConst = null;
 
-/** The shared constant attributes for at least `nv` vertices: a larger set when a batch outgrows the last one. */
+/**
+ * The shared constant attributes for at least `nv` vertices: a larger set when a batch outgrows the last one.
+ * @param {number} nv
+ */
 function stripConsts(nv) {
   if (stripConst && stripConst.nv >= nv) return stripConst.attrs;
   const NV = Math.max(nv, 512, (stripConst?.nv || 0) * 2);
@@ -1203,7 +1479,7 @@ function stripConsts(nv) {
   const attrs = STRIP_CONSTS.map(([name, n]) => {
     const arr = new Float32Array(NV * n);
     if (name === 'iUV') for (let o = 2; o < arr.length; o += 4) { arr[o] = 1; arr[o + 1] = 1; }
-    return [name, new THREE.BufferAttribute(arr, n)];
+    return /** @type {[string, THREE.BufferAttribute]} */ ([name, new THREE.BufferAttribute(arr, n)]);
   });
   stripConst = { nv: NV, attrs };
   return attrs;
@@ -1216,6 +1492,8 @@ const capBox = new THREE.Box3(), capV = new THREE.Vector3(), ORIGIN = new THREE.
 /**
  * three.js's bounding sphere of a strip geometry as it was while the buffers held the whole cap: the vertices past the room
  * are 0 there. three.js computes it once, at the geometry's first draw, and sorts the transparent draws by its centre.
+ * @param {THREE.BufferGeometry} g
+ * @param {number} cap
  */
 function capSphere(g, cap) {
   const P = g.getAttribute('position'), short = P.count < cap * 2;
@@ -1234,11 +1512,20 @@ function capSphere(g, cap) {
 const stripView = new THREE.Matrix4();
 let stripViewOn = false;
 let sideQ = new Float64Array(64 * 3), sideN = new Float64Array(64 * 2), sideR = new Float64Array(64), sideO = new Float32Array(64 * 2);
-/** sign(v) · max(|v|, 0.01): the engine's divisor for a point's depth (its sign bit, so +0 counts as +). */
+/**
+ * sign(v) · max(|v|, 0.01): the engine's divisor for a point's depth (its sign bit, so +0 counts as +).
+ * @type {(v: number) => number}
+ */
 const sideSafe = (v) => (v < 0 || Object.is(v, -0) ? -1 : 1) * Math.max(Math.abs(v), 0.01);
-/** The engine's tangent-line slope −x / y of a side, clamped to ±10⁵ (a NaN, 0 / 0, takes −10⁵ as its max / min does). */
+/**
+ * The engine's tangent-line slope −x / y of a side, clamped to ±10⁵ (a NaN, 0 / 0, takes −10⁵ as its max / min does).
+ * @type {(x: number, y: number) => number}
+ */
 const sideSlope = (x, y) => { const s = -x / y; return s !== s ? -1e5 : Math.min(1e5, Math.max(-1e5, s)); };
-/** Normal N[o..o+1] pulled towards the mean (mx, my) by 1 − f and normalised (kept when that is ~0). */
+/**
+ * Normal N[o..o+1] pulled towards the mean (mx, my) by 1 − f and normalised (kept when that is ~0).
+ * @param {Float64Array} N @param {number} o @param {number} mx @param {number} my @param {number} f
+ */
 function sidePull(N, o, mx, my, f) {
   const vx = mx + (N[o] - mx) * f, vy = my + (N[o + 1] - my) * f, v2 = vx * vx + vy * vy;
   if (v2 > 1e-30) { const v = Math.sqrt(v2); N[o] = vx / v; N[o + 1] = vy / v; }
@@ -1257,6 +1544,11 @@ function sidePull(N, o, mx, my, f) {
  * max(1, 3 · clamp(L′ / 2W, 0, 1)) with L′ the length stored for the point before it.
  * `flat` (a TransformZ trail, StripBatch.tz): `e` takes the points into its node's plane frame, where the engine finds the
  * normals with no perspective — every point at z = −1 and the segment's z dropped (d.xy · −1).
+ * @param {ArrayLike<number>} e
+ * @param {ArrayLike<number>} pts
+ * @param {number} m
+ * @param {number} W
+ * @param {boolean} [flat]
  */
 function stripSides(e, pts, m, W, flat = false) {
   if (sideR.length < m) {
@@ -1322,6 +1614,8 @@ function stripSides(e, pts, m, W, flat = false) {
  * x · the node's x + y · its y, scaled with the node. Into `out` the inverse (its translation left out: the sides do not
  * depend on it). False for a degenerate frame (|det| ≤ 10⁻⁶ at unit mean scale, where the engine takes an SVD inverse):
  * then the strip has no width [추정·엔진: the SVD branch not ported — its zero axis drops the width in the cases seen].
+ * @param {ArrayLike<number>} t
+ * @param {THREE.Matrix4} out
  */
 function stripPlane(t, out) {
   out.set(t[0], t[4], -t[8], 0, t[1], t[5], -t[9], 0, t[2], t[6], -t[10], 0, 0, 0, 0, 1);
@@ -1331,7 +1625,10 @@ function stripPlane(t, out) {
   return true;
 }
 
-/** The largest value of a curve's keys [[t, v, …]…] and 0 (the engine's width for the line builder); no keys: 1, as drawn. */
+/**
+ * The largest value of a curve's keys [[t, v, …]…] and 0 (the engine's width for the line builder); no keys: 1, as drawn.
+ * @param {CurveKey[] | null | undefined} keys
+ */
 function keysMax(keys) {
   if (!keys?.length) return 1;
   let a = 0;
@@ -1346,6 +1643,10 @@ function keysMax(keys) {
  *  particle trail's whole cap (up to 4000 points, about 1 MB with the constant attributes) was allocated and sent to the GPU
  *  at each effect's creation, while a sample of 116 effects drew at most 480 of their 54,462 points. */
 class StripBatch {
+  /**
+   * @param {THREE.ShaderMaterial} material
+   * @param {number} [cap]
+   */
   constructor(material, cap = 256) {
     this.cap = cap;
     material.uniforms.uMode.value = 6;
@@ -1356,17 +1657,22 @@ class StripBatch {
     this.n = 0; this.ni = 0;
     // the camera it was last drawn with (stripSides); mv = that view × the batch's frame, for this frame's strips;
     // sides: 0 none (the tangent's perpendicular in the shader), 1 from the view, 2 in a TransformZ node's plane (tz)
+    /** @type {THREE.Matrix4 | null} */
     this.view = null; this.mv = new THREE.Matrix4(); this.sides = 0;
     // (2026-11-17, official engine: TrailRendererGeometryJob.Initialize) a TransformZ trail (`alignment` 1): its node in the
     // batch's frame, set by its owner each frame (TrailRenderer.update); null: the camera's view
+    /** @type {THREE.Matrix4 | null} */
     this.tz = null; this.tzM = new THREE.Matrix4(); this.tzFlat = false;
-    this.mesh.onBeforeRender = (r, sc, camera) => {
+    this.mesh.onBeforeRender = /** @param {unknown} r @param {unknown} sc @param {THREE.PerspectiveCamera} camera */ (r, sc, camera) => {
       (this.view ||= new THREE.Matrix4()).copy(camera.matrixWorldInverse);
       stripView.copy(camera.matrixWorldInverse); stripViewOn = true;
     };
   }
 
-  /** New buffers with room for `room` points, holding what the old ones hold (a frame's strips so far). */
+  /**
+   * New buffers with room for `room` points, holding what the old ones hold (a frame's strips so far).
+   * @param {number} room
+   */
   build(room) {
     const g = new THREE.BufferGeometry();
     const vb = new THREE.InterleavedBuffer(new Float32Array(room * 2 * SV), SV);
@@ -1381,7 +1687,7 @@ class StripBatch {
     g.computeBoundingSphere = () => capSphere(g, this.cap);
     const old = this.geometry;
     if (old) {
-      vb.array.set(this.vb.array); index.array.set(this.index.array);
+      vb.array.set(/** @type {THREE.InterleavedBuffer} */ (this.vb).array); index.array.set(/** @type {THREE.BufferAttribute} */ (this.index).array);
       g.setDrawRange(old.drawRange.start, old.drawRange.count);
       if (old.boundingSphere) g.boundingSphere = old.boundingSphere;
       this.mesh.geometry = g;
@@ -1391,7 +1697,10 @@ class StripBatch {
     return g;
   }
 
-  /** Dispose a geometry of this batch without the shared constant attributes (three.js deletes every attribute's buffer). */
+  /**
+   * Dispose a geometry of this batch without the shared constant attributes (three.js deletes every attribute's buffer).
+   * @param {THREE.BufferGeometry} g
+   */
   drop(g) {
     for (const [name] of STRIP_CONSTS) g.deleteAttribute(name);
     g.dispose();
@@ -1409,11 +1718,13 @@ class StripBatch {
    * One strip: pts = flat [x, y, z, …], per point width w[], colour c[] (4 each), u[] along the trail; W = the width the
    * engine's line builder takes (stripSides) — with a camera seen, the sides come from it, else from the tangent; a
    * TransformZ strip (tz) takes them in its node's plane, written into the tangent's slot (the shader's iSize.y = 2).
+   * @param {Float32Array} pts @param {number} count @param {Float32Array} w @param {Float32Array} c @param {Float32Array} u
+   * @param {number} [W]
    */
   strip(pts, count, w, c, u, W = 0) {
     if (count < 2 || this.n + count > this.cap) return;
-    if (this.n + count > this.room) besideRandom(() => this.build(Math.min(this.cap, Math.max(this.n + count, this.room * 2))));
-    const D = this.vb.array, I = this.index.array, on = this.sides, plane = on === 2, t = this.tz?.elements;
+    if (this.n + count > /** @type {number} */ (this.room)) besideRandom(() => this.build(Math.min(this.cap, Math.max(this.n + count, /** @type {number} */ (this.room) * 2))));
+    const D = /** @type {THREE.InterleavedBuffer} */ (this.vb).array, I = /** @type {THREE.BufferAttribute} */ (this.index).array, on = this.sides, plane = on === 2, t = this.tz?.elements;
     if (on === 1 || (plane && this.tzFlat)) stripSides(this.mv.elements, pts, count, W, plane);
     for (let k = 0; k < count; k++) {
       let tx, ty, tz;
@@ -1446,23 +1757,26 @@ class StripBatch {
 
   end() {
     if (this.ni) {   // an empty batch draws nothing and sends nothing
-      this.vb.clearUpdateRanges(); this.vb.addUpdateRange(0, this.n * 2 * SV); this.vb.needsUpdate = true;
-      this.index.clearUpdateRanges(); this.index.addUpdateRange(0, this.ni); this.index.needsUpdate = true;
+      /** @type {THREE.InterleavedBuffer} */ (this.vb).clearUpdateRanges(); /** @type {THREE.InterleavedBuffer} */ (this.vb).addUpdateRange(0, this.n * 2 * SV); /** @type {THREE.InterleavedBuffer} */ (this.vb).needsUpdate = true;
+      /** @type {THREE.BufferAttribute} */ (this.index).clearUpdateRanges(); /** @type {THREE.BufferAttribute} */ (this.index).addUpdateRange(0, this.ni); /** @type {THREE.BufferAttribute} */ (this.index).needsUpdate = true;
     }
-    this.geometry.setDrawRange(0, this.ni);
+    /** @type {THREE.BufferGeometry} */ (this.geometry).setDrawRange(0, this.ni);
     // an empty batch is not drawn — once three.js has its bounding sphere: the first draw computes it from what the buffer
     // holds then and it sets the draw order, so that draw stays where it always was
-    this.mesh.visible = this.ni > 0 || !this.geometry.boundingSphere;
+    this.mesh.visible = this.ni > 0 || !/** @type {THREE.BufferGeometry} */ (this.geometry).boundingSphere;
   }
 
-  dispose() { this.mesh.removeFromParent(); this.drop(this.geometry); this.material.dispose(); }
+  dispose() { this.mesh.removeFromParent(); this.drop(/** @type {THREE.BufferGeometry} */ (this.geometry)); this.material.dispose(); }
 }
 
 const TRAIL_PTS = 48;
 const TRAIL_KEEP = TRAIL_PTS - 1;   // points a TrailRenderer records (its live head is the last one drawn)
 // one strip being written: points, width, colour, texture coordinate, and t = the share along the strip (particle trails)
 let trailPts = new Float32Array(TRAIL_PTS * 3), trailW = new Float32Array(TRAIL_PTS), trailC = new Float32Array(TRAIL_PTS * 4), trailU = new Float32Array(TRAIL_PTS), trailT = new Float32Array(TRAIL_PTS);
-/** Room for a strip of `m` points: a ribbon has one point per particle. */
+/**
+ * Room for a strip of `m` points: a ribbon has one point per particle.
+ * @param {number} m
+ */
 function trailRoom(m) {
   if (m <= trailU.length) return;
   const n = Math.max(m, trailU.length * 2);
@@ -1475,6 +1789,8 @@ const trailM = new THREE.Matrix4(), trailV = new THREE.Vector3();
 /**
  * Point A[o..o+2] through the affine matrix elements `e` (three's column order) — `lin`: its linear part only (a velocity).
  * FxInstance.followWorld: what a world-space system keeps in the root's frame, from the root's last frame into this one.
+ * @param {Float32Array | Float64Array} A @param {number} o @param {ArrayLike<number>} e
+ * @param {boolean} [lin]
  */
 function remap(A, o, e, lin = false) {
   const x = A[o], y = A[o + 1], z = A[o + 2], t = lin ? 0 : 1;
@@ -1488,6 +1804,7 @@ function remap(A, o, e, lin = false) {
  * @typedef {TrailRenderer & { off?: boolean }} TrailRendererOff `off`: switched off by a clip (FxInstance m_IsActive)
  */
 class TrailRenderer {
+  /** @param {TrailRec} tr @param {THREE.Object3D} node @param {THREE.Object3D} root @param {FxDef} def */
   constructor(tr, node, root, def) {
     this.tr = tr; this.node = node; this.root = root;
     this.def0 = tr;   // 2026-10-22: the shared definition (a clip's `trail:time` drives an own copy)
@@ -1500,7 +1817,10 @@ class TrailRenderer {
     this.time = 0;
   }
 
-  /** @this {TrailRendererOff} */
+  /**
+   * @this {TrailRendererOff}
+   * @param {number} dt @param {number} sinceStart
+   */
   update(dt, sinceStart) {
     this.time += dt;
     setTime(this.batch.material, sinceStart);
@@ -1552,7 +1872,10 @@ class TrailRenderer {
 
   get alive() { return this.count > 0; }
 
-  /** The recorded points through `e` (remap; FxInstance.followWorld: the root moved or turned; Unity trails are world space). */
+  /**
+   * The recorded points through `e` (remap; FxInstance.followWorld: the root moved or turned; Unity trails are world space).
+   * @param {ArrayLike<number>} e
+   */
   shift(e) {
     const R = this.ring;
     for (let k = 0; k < this.count; k++) remap(R, ((this.head + k) % TRAIL_KEEP) * 4, e);
@@ -1573,9 +1896,12 @@ class TrailRenderer {
 // to what it draws, StripBatch.build)
 const LINE_PATH_MAX = 256;
 class LineRenderer {
+  /** @param {LineRec} ln @param {THREE.Object3D} node @param {THREE.Object3D} root @param {FxDef} def */
   constructor(ln, node, root, def) {
     this.tr = ln; this.node = node; this.root = root;
+    /** @type {{ x: number, y: number, z: number }[] | null} */
     this.ends = null;   // 2026-10-10: FxInstance.setLine
+    /** @type {{ x: number, y: number, z: number }[] | null} */
     this.path = null;   // 2026-10-16: FxInstance.setPath
     this.w = ln.width;
     const n = ln.pts.length + (ln.loop ? 1 : 0);
@@ -1585,6 +1911,7 @@ class LineRenderer {
     root.add(this.batch.mesh);
   }
 
+  /** @param {number} dt @param {number} sinceStart */
   update(dt, sinceStart) {
     const ln = this.tr, path = this.path, n = path ? Math.min(path.length, LINE_PATH_MAX) : this.n;
     trailRoom(n);
@@ -1641,7 +1968,10 @@ const subM = new THREE.Matrix4(), subAt = new THREE.Vector3(), subOff = new THRE
 const orbitLocal = new THREE.Matrix4(), orbitM = new THREE.Matrix4(), orbC = new THREE.Vector3(), orbW = new THREE.Vector3();
 const orbP = new THREE.Vector3(), orbQ = new THREE.Quaternion(), noiseV = new THREE.Vector4();
 const shapeCtx = { k: 0, count: 1, time: 0, t01: 0, arcLaps: 0, radLaps: 0 };
-/** A MinMaxCurve that is not zero everywhere (its scalar multiplies a curve). */
+/**
+ * A MinMaxCurve that is not zero everywhere (its scalar multiplies a curve).
+ * @type {(mm: MinMax | null | undefined) => boolean}
+ */
 const mmOn = (mm) => !!mm && !!(mm.s || mm.n);
 
 // (2026-10-26, effect bundle U; official client Perlin3D) the noise module's gradient noise: Ken Perlin's improved noise
@@ -1649,20 +1979,28 @@ const mmOn = (mm) => !!mm && !!(mm.s || mm.n);
 // p × f — what the official client's Perlin3D(p, f) returns (compared on random points: |Δ| < 0.003, float32 rounding)
 const PERM = Uint8Array.from([151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54,65,25,63,161,1,216,80,73,209,76,132,187,208,89,18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180]);
 const GRAD = Int8Array.from([1,1,0,-1,1,0,1,-1,0,-1,-1,0,1,0,1,-1,0,1,1,0,-1,-1,0,-1,0,1,1,0,-1,1,0,1,-1,0,-1,-1,1,1,0,-1,1,0,0,-1,1,0,-1,-1]);
-const fade = (t) => t * t * t * (t * (t * 6 - 15) + 10), dfade = (t) => 30 * t * t * (t * (t - 2) + 1);
+/** @type {(t: number) => number} */
+const fade = (t) => t * t * t * (t * (t * 6 - 15) + 10), dfade = (/** @type {number} */ t) => 30 * t * t * (t * (t - 2) + 1);
 const pdOut = [0, 0];
 // (2026-10-28, mobile perf) perlinD unrolled: it made three arrays and four closures per call and looked the permutation
 // up 24 times (a fifth of the particle update in a boss fight); the corners now share their x and xy lookups (14) and
 // live in locals. The same integer hashes and the same arithmetic in the same order — the same numbers
 // (test/render/fx-cpu-identity.test.js compares it with the earlier form).
-/** The trilinear blend of eight corner values (x fastest) by u, v, w. */
+/**
+ * The trilinear blend of eight corner values (x fastest) by u, v, w.
+ * @param {number} a0 @param {number} a1 @param {number} a2 @param {number} a3 @param {number} a4 @param {number} a5 @param {number} a6 @param {number} a7 @param {number} u @param {number} v @param {number} w
+ */
 function pdTri(a0, a1, a2, a3, a4, a5, a6, a7, u, v, w) {
   const x00 = a0 + u * (a1 - a0), x10 = a2 + u * (a3 - a2), x01 = a4 + u * (a5 - a4), x11 = a6 + u * (a7 - a6);
   const y0 = x00 + v * (x10 - x00), y1 = x01 + v * (x11 - x01);
   return y0 + w * (y1 - y0);
 }
-/** The bilinear blend of a00 a10 a01 a11 by s, t. */
+/**
+ * The bilinear blend of a00 a10 a01 a11 by s, t.
+ * @param {number} a00 @param {number} a10 @param {number} a01 @param {number} a11 @param {number} s @param {number} t
+ */
 function pdBy(a00, a10, a01, a11, s, t) { const p0 = a00 + s * (a10 - a00), p1 = a01 + s * (a11 - a01); return p0 + t * (p1 - p0); }
+/** @param {number} x @param {number} y @param {number} z @param {number} f */
 export function perlinD(x, y, z, f) {
   x *= f; y *= f; z *= f;
   const X = Math.floor(x), Y = Math.floor(y), Z = Math.floor(z);
@@ -1690,11 +2028,13 @@ export function perlinD(x, y, z, f) {
 // directions (the permutation's low three bits, the other four empty), the same fade. Perlin1D gives 2f × dN/dx and 0 at x × f;
 // Perlin2D gives √2 f × its x and y derivatives at (x, y) × f (compared with the client's on random points: test/render/fx-emission-motion.test.js)
 const GRAD2 = [1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0];
+/** @param {number} x @param {number} y @param {number} z @param {number} f */
 export function perlin1(x, y, z, f) {
   const px = x * f, X = Math.floor(px), t = px - X, i = X & 255, g0 = PERM[i] & 1 ? -1 : 1, g1 = PERM[(i + 1) & 255] & 1 ? -1 : 1;
   pdOut[0] = 2 * f * (g0 + (g1 - g0) * fade(t) + (g1 * (t - 1) - g0 * t) * dfade(t)); pdOut[1] = 0;
   return pdOut;
 }
+/** @param {number} x @param {number} y @param {number} z @param {number} f */
 export function perlin2(x, y, z, f) {
   const px = x * f, py = y * f, X = Math.floor(px), Y = Math.floor(py), s = px - X, t = py - Y, xi = X & 255, yi = Y & 255, P = PERM, G = GRAD2;
   const a0 = P[xi], a1 = P[(xi + 1) & 255];
@@ -1710,6 +2050,10 @@ export function perlin2(x, y, z, f) {
 }
 /** (official client: the octave loop round Perlin3D) Σ ampₖ × pn(p, f × scaleᵏ) / Σ ampₖ, ampₖ = mulᵏ. */
 const fbOut = [0, 0];
+/**
+ * @param {number} x @param {number} y @param {number} z @param {number} f @param {number} oct @param {number} mul @param {number} scale
+ * @param {(x: number, y: number, z: number, f: number) => number[]} [pn]
+ */
 function perlinOct(x, y, z, f, oct, mul, scale, pn = perlinD) {
   let sa = 0, sb = 0, amp = 1, sum = 0;
   for (let k = 0; k < oct; k++) { const d = pn(x, y, z, f); sa += d[0] * amp; sb += d[1] * amp; sum += amp; amp *= mul; f *= scale; }
@@ -1724,7 +2068,10 @@ const INSTANCE_ATTRS = [['iPos', 3, IV_POS], ['iSize', 3, IV_SIZE], ['iRot', 3, 
   ['iC2', 4, IV_C2], ['iUV', 4, IV_UV], ['iVel', 3, IV_VEL]];
 
 /** An instanced geometry over `src` (its index, positions, uvs) with its own instance buffer of `max` rows. */
-/** The largest value of a MinMax curve (Unity MinMaxCurve's max: a prewarm's window). */
+/**
+ * The largest value of a MinMax curve (Unity MinMaxCurve's max: a prewarm's window).
+ * @param {MinMax | null | undefined} mm
+ */
 function mmMax(mm) {
   if (!mm) return 0;
   if (mm.m === 3) return Math.max(mm.s, mm.n);
@@ -1734,6 +2081,11 @@ function mmMax(mm) {
   return a;
 }
 
+/**
+ * @param {THREE.BufferGeometry} src
+ * @param {number} max
+ * @returns {{ g: THREE.InstancedBufferGeometry, ib: THREE.InstancedInterleavedBuffer }}
+ */
 function instanced(src, max) {
   const g = new THREE.InstancedBufferGeometry();
   g.index = src.index;
@@ -1752,6 +2104,8 @@ function instanced(src, max) {
  * geometry, so a particle system ending deleted QUAD's buffers under every other live effect: their vertex array objects
  * kept the deleted buffers and each of their draws failed (WebGL `drawElementsInstanced: no buffer is bound to enabled
  * attribute` — the effect not drawn; 르무엔's attack trail on, hundreds during her S3). `src` itself goes with the library.
+ * @param {THREE.BufferGeometry} g
+ * @param {THREE.BufferGeometry | null | undefined} src
  */
 function disposeOwn(g, src) {
   if (src && g.index === src.index) g.setIndex(null);
@@ -1762,6 +2116,8 @@ function disposeOwn(g, src) {
 /**
  * 2026-10-30: `mesh`'s instanced geometry `g` (over `src`, instance buffer `ib`) for `room` rows — a new one holding the old
  * rows and its other attributes (vertex colours, normals); the old one disposed without what it shares (disposeOwn).
+ * @param {THREE.Mesh} mesh @param {THREE.InstancedBufferGeometry} g @param {THREE.InstancedInterleavedBuffer} ib
+ * @param {THREE.BufferGeometry} src @param {number} room
  */
 function regrow(mesh, g, ib, src, room) {
   const { g: g2, ib: ib2 } = instanced(src, room);
@@ -1781,6 +2137,7 @@ const PS_ROOM0 = 16;
  * place: 0 = Default, −2 = two layers before it) before its sortingOrder (`order`) — as a three.js renderOrder.
  */
 export const LAYER_ORDER = 100000;
+/** @type {(r: { layer?: number, order?: number } | null | undefined) => number} */
 export const sortingOrder = (r) => (r?.layer || 0) * LAYER_ORDER + (r?.order || 0);
 
 /**
@@ -1788,9 +2145,11 @@ export const sortingOrder = (r) => (r?.layer || 0) * LAYER_ORDER + (r?.order || 
  * 35–38 Custom2X…XYZW): the floats after the uv, in stream order, are what the shader reads as custom1 then custom2 — for
  * each of those 8 slots the index into (custom1, custom2) that fills it, −1 for none; null when it is custom1 then custom2
  * as they are. Custom streams off (`ownStreams` 0): Unity's default streams carry no custom data, all −1.
+ * @param {PsRender} r
  */
 function customMap(r) {
   if (r.ownStreams == null) return null;   // an extract before 2026-10-27
+  /** @type {number[]} */
   const flat = [];
   if (r.ownStreams) {
     for (const s of r.streams || []) {
@@ -1800,6 +2159,7 @@ function customMap(r) {
   const map = Array.from({ length: 8 }, (_, j) => (j < flat.length ? flat[j] : -1));
   return map.every((v, j) => v === j) ? null : map;
 }
+/** @type {(src: THREE.BufferGeometry) => THREE.Float32BufferAttribute} */
 const whiteVcol = (src) => new THREE.Float32BufferAttribute(new Float32Array(src.getAttribute('position').count * 4).fill(1), 4);
 const sortM = new THREE.Matrix4();
 const velAx = new THREE.Vector3();   // (2026-10-27) ParticleSystem.velFrame
@@ -1809,20 +2169,28 @@ const D2R = Math.PI / 180;
 const sizeK = [1, 1, 1], SIZE_ONE = Object.freeze([1, 1, 1]), tmpM3 = new THREE.Matrix3();
 
 /**
- * @typedef {ParticleSystem & { subOf?: ParticleSystem, trailPath?: any }} ParticleSystemLinks `subOf`: the system it is a sub
+ * @typedef {ParticleSystem & { subOf?: ParticleSystem, trailPath?: THREE.Object3D[] }} ParticleSystemLinks `subOf`: the system it is a sub
  *   emitter of (FxInstance sets it); `trailPath`: its particles' trail path in the effect (FxInstance)
+ * @typedef {ParticleSystemLinks & { tm: TrailModule, histK: number, hist: Float32Array, histN: Uint8Array, trailBatch: StripBatch,
+ *   order: number[] }} ParticleTrails a system with its TrailModule on (its trail methods; ParticleSystem.draw checks `trailBatch`)
+ * @typedef {ParticleSystem & { subs: SubLink[], subAcc: Float32Array }} ParticleSubs a system with Birth sub emitters (setSubs)
  */
 class ParticleSystem {
+  /**
+   * @param {PsRec} ps @param {THREE.Object3D} node @param {THREE.Object3D} root @param {FxDef} def
+   * @param {{ q: Quality, cap?: number, pivot?: boolean, lod?: number | null }} opts
+   */
   constructor(ps, node, root, def, opts) {
     this.ps = ps;
     this.node = node;           // THREE.Object3D of its node
     this.frame = node;          // where its particles live (useLocalScale: a stand-in without the parents' scale)
+    /** @type {THREE.Object3D | null} */
     this.top = null;
     this.root = root;           // effect root (Unity frame)
     this.q = opts.q;
     this.lod = opts.lod ?? null;   // (2026-10-23) its FxLODSetting percentage at quality 'medium' (rateK / burstK)
     this.world = ps.space === 1;
-    this.meshShape = ps.shape?.type === 6 ? meshShape(ps.shape, def.geoms?.[ps.shape.mesh]) : null;   // 2026-10-22
+    this.meshShape = ps.shape?.type === 6 ? meshShape(ps.shape, def.geoms?.[/** @type {string} */ (ps.shape.mesh)]) : null;   // 2026-10-22
     const max = Math.max(1, Math.min(ps.max || 1000, opts.cap || 400));
     this.max = max;
     // 2026-10-30: the per-particle arrays and instance buffers hold `room` particles, grown up to `max` as emission needs
@@ -1842,6 +2210,7 @@ class ParticleSystem {
     const iv = ps.mods.inherit;
     this.inherit = this.world && iv && (iv.mode ?? 0) === 0 ? iv.k : null;
     this.emitV = new THREE.Vector3();
+    /** @type {THREE.Vector3 | null} */
     this.emitAt = null;
     // (2026-10-26, effect bundle U) emission by distance (`dist`): the emitter's move this frame, in the root frame (moved);
     // prewarm: a looping system runs one whole cycle before its first frame (prewarm); the velocity module's orbit / radial /
@@ -1856,7 +2225,9 @@ class ParticleSystem {
     const vo = ps.mods.velOL;
     this.orbit = !!vo && (!!vo.orbX || !!vo.orbY || mmOn(vo.orbZ) || mmOn(vo.radial) || !!vo.orbOff);
     this.speedK = !!vo && !(vo.speedMul?.m === 0 && vo.speedMul.s === 1) && !!vo.speedMul;
+    /** @type {THREE.Object3D[]} */
     this.planes = [];
+    /** @type {Float32Array | null} */
     this.planeAt = null;
     // particle state (SoA)
     this.pos = new Float32Array(room * 3); this.vel = new Float32Array(room * 3); this.age = new Float32Array(room);
@@ -1866,14 +2237,14 @@ class ParticleSystem {
     this.life = new Float32Array(room); this.size0 = new Float32Array(room * 3); this.rot = new Float32Array(room * 3);
     this.rotVel = new Float32Array(room); this.col0 = new Float32Array(room * 4); this.rnd = new Float32Array(room * 4);
     this.nz = ps.mods.noise?.sizeAmt ? new Float32Array(room) : null;
-    const geomSrc = ps.render.mode === 4 && def.geoms[ps.render.mesh] ? def.geoms[ps.render.mesh] : QUAD;
+    const geomSrc = /** @type {THREE.BufferGeometry} */ (ps.render.mode === 4 && def.geoms[/** @type {string} */ (ps.render.mesh)] ? def.geoms[/** @type {string} */ (ps.render.mesh)] : QUAD);
     const { g, ib } = instanced(geomSrc, room);
     this.ib = ib;
     this.geometry = g;
     this.geomSrc = geomSrc;
     // a trail-only system (renderer mode None / no particle material) draws only its trails
     const drawParticles = ps.render.mat && ps.render.mode !== 5;
-    const mat = makeMaterial(def.materials[ps.render.mat] || null, def.lib);
+    const mat = makeMaterial(def.materials[/** @type {string} */ (ps.render.mat)] || null, def.lib);
     mat.uniforms.uMode.value = ps.render.mode;   // (2026-11-16) 3 vertical billboards have their own branch (was drawn as 0)
     mat.uniforms.uLengthScale.value = ps.render.lengthScale ?? 2;
     mat.uniforms.uVelScale.value = ps.render.velScale ?? 0;
@@ -1897,9 +2268,11 @@ class ParticleSystem {
     // do not here (their dispatchers are not read)
     const r = ps.render;
     this.quadScaled = (r.mode === 0 && (r.align === 0 || r.align === 4 || worldOverLocal || (this.world && (r.align === 1 || r.align === 2)))) || (r.mode === 1 && !r.free) || meshAlign === 0 || meshAlign === 1 || meshAlign === 4 || this.sysLocal;
+    /** @type {THREE.Object3D[] | null} */
     this.scalePath = null;   // the nodes whose scale it takes (FxInstance), null for none
     // (official client) a mesh particle turns by its rotation as it is, by all three axes the other way with `rotOL`'s separate axes
     this.meshRotSign = r.mode === 4 && ps.mods?.rotOL?.x ? -1 : 1;
+    /** @type {THREE.Vector3 | null} */
     this.sysS = null;        // the scale last sent
     if (opts.pivot && Array.isArray(ps.render.pivot)) mat.uniforms.uPivot.value.set(+ps.render.pivot[0] || 0, +ps.render.pivot[1] || 0, +ps.render.pivot[2] || 0); // local patch (FxInstance opts.pivot, default on)
     if (geomSrc !== QUAD) { useMeshAttrs(g, geomSrc, mat); meshSide(mat); } // local patch
@@ -1913,6 +2286,7 @@ class ParticleSystem {
     // (2026-10-27, effect bundle V) a mesh renderer's further meshes (m_Mesh1..3, `meshes`): each particle draws one of the
     // set ones, picked at birth uniformly (official engine: GetMeshCount counts the set slots, CalculateRandomMeshIndex takes
     // the particle's random modulo that count) — an instanced mesh per shape under the first, rows split by `mi`
+    /** @type {MoreMesh[]} */
     this.more = [];
     if (geomSrc !== QUAD) {
       for (const k of ps.render.meshes || []) {
@@ -1934,8 +2308,8 @@ class ParticleSystem {
     // 4 depth) — the camera as last drawn, in the particles' frame (orderRows)
     this.sortMode = drawParticles ? ps.render.sortMode || 0 : 0;
     if (this.sortMode) {
-      this.camP = null; this.camF = new THREE.Vector3(); this.sortKey = new Float32Array(room); this.sortIdx = []; this.rowTmp = null;
-      this.mesh.onBeforeRender = (r, sc, camera) => {
+      this.camP = /** @type {THREE.Vector3 | null} */ (null); this.camF = new THREE.Vector3(); this.sortKey = new Float32Array(room); this.sortIdx = /** @type {number[]} */ ([]); this.rowTmp = /** @type {Float32Array | null} */ (null);
+      this.mesh.onBeforeRender = /** @param {unknown} r @param {unknown} sc @param {THREE.PerspectiveCamera} camera */ (r, sc, camera) => {
         sortM.copy(this.mesh.matrixWorld).invert();
         (this.camP ||= new THREE.Vector3()).setFromMatrixPosition(camera.matrixWorld).applyMatrix4(sortM);
         camera.getWorldDirection(this.camF).transformDirection(sortM);
@@ -1958,19 +2332,25 @@ class ParticleSystem {
       // (official client) the trail's worldSpace reaches the per-particle trails only: a ribbon runs through the particles where they are
       this.trailWorld = !this.world && !!tm.world && tm.mode !== 1;   // its points go to the root's frame as they are recorded
       (this.world || this.trailWorld ? root : node).add(this.trailBatch.mesh);
+      /** @type {number[]} */
       this.order = [];                                          // ribbon order, reused
+      /** @type {(x: number, y: number) => number} */
       this.olderFirst = (x, y) => this.age[y] - this.age[x];
       // (2026-10-27, effect bundle V) dieWithParticles off: a dead particle's trail stays until its points expire (ghosts);
       // splitSubEmitterRibbons: a sub emitter's ribbon per parent particle (par = the parent's uid)
+      /** @type {Ghost[] | null} */
       this.ghosts = tm.mode !== 1 && tm.die === false ? [] : null;
-      if (tm.mode === 1 && tm.split) { this.par = new Float64Array(room); this.byParent = (x, y) => this.par[x] - this.par[y] || this.age[y] - this.age[x]; }
+      if (tm.mode === 1 && tm.split) { this.par = new Float64Array(room); this.byParent = /** @type {(x: number, y: number) => number} */ ((x, y) => /** @type {Float64Array} */ (this.par)[x] - /** @type {Float64Array} */ (this.par)[y] || this.age[y] - this.age[x]); }
     }
     this.uid = new Float64Array(room); this.uidN = 0;            // each particle's id (a sub emitter's ribbons split by it)
     this.listed = true;                                         // counted in liveParticles until dispose
     systems.add(this);
   }
 
-  /** @this {ParticleSystemLinks} */
+  /**
+   * @this {ParticleSystemLinks}
+   * @returns {boolean}
+   */
   get alive() {
     if (this.ghosts?.length) return true;
     if (this.subOf) return this.n > 0 || this.subOf.alive;   // a sub emitter lives on its parent's particles
@@ -1984,6 +2364,7 @@ class ParticleSystem {
    * each emission kept with probability `p`. `props` inherits from the particle: 1 colour (× its current colour), 2 size
    * (× its current size), 4 rotation (+ its rotation), 8 lifetime (× its remaining fraction) [ASSUMED: Unity's inherit
    * lifetime by the remaining fraction]. [ASSUMED: the target's start values are evaluated at that age over its duration]
+   * @param {SubLink[]} list
    */
   setSubs(list) {
     for (const x of list) { x.sys.subOf = this; x.sys.emitAcc = 0; }
@@ -1996,18 +2377,20 @@ class ParticleSystem {
    * 2026-10-30: room for `need` particles (at most `max`): every per-particle array and instance buffer, the old contents
    * kept (the rows past `n` too, as the arrays held them); the sort scratch is made again at the new size. The new buffers
    * leave Math.random alone (besideRandom).
+   * @param {number} need
    */
   grow(need) {
     const room = Math.min(this.max, Math.max(need, this.room * 2));
+    /** @type {[string, number][]} */
     const per = [['pos', 3], ['vel', 3], ['age', 1], ['avel', 3], ['life', 1], ['size0', 3], ['rot', 3], ['rotVel', 1], ['col0', 4],
       ['rnd', 4], ['nz', 1], ['mi', 1], ['sortKey', 1], ['hist', (this.histK || 0) * 4], ['histN', 1], ['par', 1], ['uid', 1],
       ['subAcc', this.subs?.length || 0]];
     for (const [k, w] of per) {
-      const a = this[k];
+      const a = /** @type {Record<string, Float32Array | null | undefined>} */ (/** @type {unknown} */ (this))[k];
       if (!a) continue;
-      const b = new a.constructor(room * w);
+      const b = new (/** @type {new (n: number) => Float32Array} */ (a.constructor))(room * w);
       b.set(a);
-      this[k] = b;
+      /** @type {Record<string, Float32Array>} */ (/** @type {unknown} */ (this))[k] = b;
     }
     this.rowTmp = this.ageKey = this.ageKeyW = null;
     besideRandom(() => {
@@ -2020,6 +2403,7 @@ class ParticleSystem {
   /**
    * local patch (m_IsActive, maintainer's decision 2026-10-08 「공식과 동일하게」): its GameObject switched off by a clip — Unity clears
    * the system and stops it; switched on again it plays from its start (playOnAwake).
+   * @param {boolean} on
    */
   setActive(on) {
     if (on) {
@@ -2037,6 +2421,9 @@ class ParticleSystem {
    * system spreads the particles evenly back along it, from where the emitter was to where it is (official client: the
    * engine starts them through StartParticles at intervals of 1 / count inside the frame); a local-space system's move
    * with the emitter.
+   * @param {number} count
+   * @param {SubBirth | null} [sub]
+   * @param {THREE.Vector3 | null} [along]
    */
   emit(count, sub = null, along = null) {
     const ps = this.ps;
@@ -2110,21 +2497,24 @@ class ParticleSystem {
    * 0 s whole.
    */
   rateK() { return this.lod ?? this.q.emission; }
+  /** @param {number} t */
   burstK(t) { return this.lod ?? Math.max(this.q.emission, t === 0 ? 1 : 0); }
 
   /**
    * 2026-10-22: where a clip writes the value at `keys` (PS_ANIM) — [object, key], each object on the way this system's own
    * copy (the extracted definition is shared by every instance); null when the system has no such module.
+   * @param {(string | number)[] | undefined} keys
+   * @returns {[Bag, string | number] | null}
    */
   animPath(keys) {
     if (!keys) return null;
     const own = this.own || (this.own = new Set());
-    let o = this, k = 'ps';
+    let o = /** @type {Bag} */ (/** @type {unknown} */ (this)), /** @type {string | number} */ k = 'ps';
     for (const key of keys) {
       let v = o[k];
       if (!v || typeof v !== 'object') return null;
       if (!own.has(v)) { v = Array.isArray(v) ? v.slice() : { ...v }; o[k] = v; own.add(v); }
-      o = v; k = key;
+      o = /** @type {Bag} */ (v); k = key;
     }
     if (this.tm) this.tm = this.ps.mods.trail;   // the trail module it keeps (a TrailModule colour copied above)
     return [o, k];
@@ -2133,6 +2523,7 @@ class ParticleSystem {
   /**
    * 2026-10-22 (InheritVelocity): the emitter's velocity since the last frame, in the root frame where a world-space system
    * keeps its particles (Unity: the Transform's world velocity) — the root's own move counts (a flying projectile).
+   * @param {number} dt
    */
   emitterVelocity(dt) {
     this.node.updateWorldMatrix(true, false);
@@ -2150,6 +2541,8 @@ class ParticleSystem {
    * Particle i's size multipliers (out, x / y / z) at age fraction a: SizeOverLifetime × (2026-10-22) SizeBySpeed — its curve
    * at the speed's place in `range` (Unity: the particle velocity; here the simulated one, without VelocityOverLifetime /
    * noise offsets [ASSUMED] — a system with a velocity limit keeps VelocityOverLifetime in it, see simulate).
+   * @param {number} i @param {number} a @param {number} r
+   * @param {number[]} out
    */
   sizeOf(i, a, r, out) {
     const m = this.ps.mods;
@@ -2165,7 +2558,7 @@ class ParticleSystem {
       out[0] *= x; out[1] *= sb.y ? evalMM(sb.y, t, r) : x; out[2] *= sb.z ? evalMM(sb.z, t, r) : x;
     }
     if (this.nz) {   // (2026-10-26, official client NoiseModule.UpdateSize) × max(0, 1 + ½ × amount × noise x × strength)
-      const k = Math.max(0, 1 + 0.5 * this.nz[i] * evalMM(m.noise.sizeAmt, a, r));
+      const k = Math.max(0, 1 + 0.5 * this.nz[i] * evalMM(/** @type {NoiseModule} */ (m.noise).sizeAmt, a, r));
       out[0] *= k; out[1] *= k; out[2] *= k;
     }
     return out;
@@ -2176,6 +2569,7 @@ class ParticleSystem {
    * second — drag × the particle's cross-section π (size / 2)² (`multiplyDragByParticleSize`, its largest axis) × its speed²
    * (`…Velocity`); both are on in every extracted system with a drag (the coverage report names one that is off). Before,
    * the player damped the velocity by drag × size × speed.
+   * @param {number} i @param {number} a @param {number} drag @param {number} speed
    */
   dragOf(i, a, drag, speed) {
     const sk = this.sizeOf(i, a, this.rnd[i * 4 + 2], sizeK), o = i * 3;
@@ -2197,9 +2591,12 @@ class ParticleSystem {
     return orbitM;
   }
 
-  /** The orbit's centre (particle frame) for a particle at age fraction a. */
+  /**
+   * The orbit's centre (particle frame) for a particle at age fraction a.
+   * @param {number} a @param {number} r @param {THREE.Matrix4} M
+   */
   orbitC(a, r, M) {
-    const off = this.ps.mods.velOL.orbOff;
+    const off = /** @type {VelocityModule} */ (this.ps.mods.velOL).orbOff;
     orbC.set(off ? evalMM(off[0], a, r) : 0, off ? evalMM(off[1], a, r) : 0, off ? evalMM(off[2], a, r) : 0);
     if (M !== orbitLocal) orbC.applyMatrix4(M);
     return orbC;
@@ -2211,9 +2608,10 @@ class ParticleSystem {
    * velocity ÷ the speed modifier, which the step multiplies back — so h carries it). The position turns, its velocity
    * does not. [Several axes at once: the engine composes three axis turns per step, here one turn about their sum —
    * the same to first order in the step]
+   * @param {number} i @param {number} a @param {number} r @param {THREE.Matrix4} M @param {number} h
    */
   orbitStep(i, a, r, M, h) {
-    const vo = this.ps.mods.velOL;
+    const vo = /** @type {VelocityModule} */ (this.ps.mods.velOL);
     orbW.set(vo.orbX ? evalMM(vo.orbX, a, r) : 0, vo.orbY ? evalMM(vo.orbY, a, r) : 0, evalMM(vo.orbZ, a, r) || 0);
     const w = orbW.length();
     if (w < 1e-9) return;
@@ -2227,9 +2625,10 @@ class ParticleSystem {
   /**
    * (2026-10-26; official client NoiseModule.Update) the field's scroll: each step it moves by the scroll speed at the
    * system's time (the curve's upper value) × dt.
+   * @param {number} dt
    */
   noiseFrame(dt) {
-    const nm = this.ps.mods.noise, dur = this.ps.dur;
+    const nm = /** @type {NoiseModule} */ (this.ps.mods.noise), dur = this.ps.dur;
     const t01 = dur > 0 ? ((Math.max(0, this.time) % dur) / dur) : 0;
     this.nScroll += (evalMM(nm.scroll, t01, 1) || 0) * dt;
     return true;
@@ -2244,14 +2643,16 @@ class ParticleSystem {
    * octaves averaged (perlinOct); × the strength (`strY` / `strZ` per axis when separate; damping divides it by the
    * frequency) × the position amount — a velocity added for this step, not kept. Out: xyz that velocity, w the z noise ×
    * strength (the 2D rotation). [ASSUMED·미조사: the 1D / 2D qualities (Perlin1D / 2D, 62 of the client's systems) as the 3D one]
+   * @param {number} i @param {number} a @param {number} r
+   * @param {THREE.Vector4} out
    */
   noiseAt(i, a, r, out) {
-    const nm = this.ps.mods.noise, f = Math.max(1e-6, nm.freq || 0.5), o = i * 3;
+    const nm = /** @type {NoiseModule} */ (this.ps.mods.noise), f = Math.max(1e-6, nm.freq || 0.5), o = i * 3;
     let s = evalMM(nm.str, a, r);
     let sy = nm.strY ? evalMM(nm.strY, a, r) : s, sz = nm.strZ ? evalMM(nm.strZ, a, r) : s;
     if (nm.damping) { s /= f; sy /= f; sz /= f; }
     const pa = nm.posAmt ? evalMM(nm.posAmt, a, r) : 1;
-    const x = this.pos[o] + this.nOff[0], y = this.pos[o + 1] + this.nOff[1], z = this.pos[o + 2] + this.nOff[2], sc = this.nScroll;
+    const x = this.pos[o] + /** @type {number[]} */ (this.nOff)[0], y = this.pos[o + 1] + /** @type {number[]} */ (this.nOff)[1], z = this.pos[o + 2] + /** @type {number[]} */ (this.nOff)[2], sc = this.nScroll;
     const oct = nm.oct || 1, om = nm.octMul ?? 0.5, os = nm.octScale ?? 2;
     // (official client: the jobs of each quality) the same three points; the scroll runs along the last axis the quality reads
     const q = nm.qual ?? 2, s0 = q === 0 ? sc : 0, s1 = q === 1 ? sc : 0, s2 = q === 2 ? sc : 0, pn = q === 0 ? perlin1 : q === 1 ? perlin2 : perlinD;
@@ -2293,9 +2694,10 @@ class ParticleSystem {
    * particle's velocity takes the result less the animated velocity. `lifeLoss` of its lifetime goes, and it dies by the speed
    * it came in with (below `minKill`, above `maxKill`). The three curves are read at time 0, not at the particle's age.
    * Returns false when it died.
+   * @param {number} i @param {number} a @param {Float32Array} P @param {number} sm
    */
   collide(i, a, P, sm) {
-    const co = this.ps.mods.collide, pos = this.pos, vel = this.vel, avel = this.avel, o = i * 3;
+    const co = /** @type {CollisionModule} */ (this.ps.mods.collide), pos = this.pos, vel = this.vel, avel = this.avel, o = i * 3;
     const sk = this.sizeOf(i, a, this.rnd[i * 4 + 2], sizeK);
     const rad = 0.5 * (co.radius ?? 1) * Math.max(Math.abs(this.size0[o] * sk[0]), Math.abs(this.size0[o + 1] * sk[1]), Math.abs(this.size0[o + 2] * sk[2]));   // the drawn size
     const vx = (vel[o] + avel[o]) * sm, vy = (vel[o + 1] + avel[o + 1]) * sm, vz = (vel[o + 2] + avel[o + 2]) * sm;
@@ -2320,13 +2722,17 @@ class ParticleSystem {
     return true;
   }
 
-  /** Kill the particles whose life ends within the step `dt` (advance: a full system's room before it emits). */
+  /**
+   * Kill the particles whose life ends within the step `dt` (advance: a full system's room before it emits).
+   * @param {number} dt
+   */
   reapDue(dt) {
     for (let i = this.n - 1; i >= 0; i--) if (this.age[i] + dt * (1 + 1e-3) >= this.life[i]) this.kill(i);
   }
 
+  /** @param {number} i */
   kill(i) {
-    if (this.ghosts && this.histN[i]) this.ghost(i);
+    if (this.ghosts && /** @type {Uint8Array} */ (this.histN)[i]) /** @type {ParticleTrails} */ (this).ghost(i);
     const last = --this.n;
     if (this.listed) liveParticles--;
     if (i === last) return;
@@ -2339,11 +2745,11 @@ class ParticleSystem {
     if (this.mi) this.mi[i] = this.mi[last];
     this.uid[i] = this.uid[last];
     if (this.par) this.par[i] = this.par[last];
-    if (this.subAcc) { const J = this.subs.length; this.subAcc.copyWithin(i * J, last * J, last * J + J); }
+    if (this.subAcc) { const J = /** @type {SubLink[]} */ (this.subs).length; this.subAcc.copyWithin(i * J, last * J, last * J + J); }
     if (this.hist) {
-      const K = this.histK * 4;
+      const K = /** @type {number} */ (this.histK) * 4;
       this.hist.copyWithin(i * K, last * K, last * K + K);
-      this.histN[i] = this.histN[last];
+      /** @type {Uint8Array} */ (this.histN)[i] = /** @type {Uint8Array} */ (this.histN)[last];
     }
   }
 
@@ -2353,6 +2759,8 @@ class ParticleSystem {
    * under `top` (the prefab's frame) with the node's place and turn but the node's own scale, kept in step by syncFrame.
    * FxInstance sets it up for a system under a scaled parent: 酒神 S2's hit wave (phatm2_skill_02_hit_range_01
    * music_wave_*, parent ground_01 z ×2.73) stood 2.7 times taller than the official recording's
+   * @param {THREE.Object3D} top
+   * @param {boolean} [shape]
    */
   useLocalScale(top, shape = false) {
     // (2026-10-27, effect bundle V) Shape (`scaling` 2, Unity manual: the scale reaches the shape only, not the particles'
@@ -2369,7 +2777,7 @@ class ParticleSystem {
 
   /** The stand-in `frame` to the node's place, turn (its own and its parents' turns) and own scale; shown while the node is. */
   syncFrame() {
-    const f = this.frame, top = this.top;
+    const f = this.frame, top = /** @type {THREE.Object3D} */ (this.top);
     let on = true;
     frameQ.identity();
     for (let o = this.node; o && o !== top; o = o.parent) { frameQ.premultiply(o.quaternion); if (!o.visible) on = false; }
@@ -2385,7 +2793,10 @@ class ParticleSystem {
     f.updateWorldMatrix(false, false);
   }
 
-  /** @this {ParticleSystemLinks} */
+  /**
+   * @this {ParticleSystemLinks}
+   * @param {number} dt @param {number} sinceStart
+   */
   update(dt, sinceStart) {
     const ps = this.ps;
     if (this.top) this.syncFrame();
@@ -2418,6 +2829,8 @@ class ParticleSystem {
    * One step `dt` (system seconds) of emission and motion. `moved` (emission by distance): the emitter's move this frame
    * in the root frame (emitterVelocity), null in prewarm.
    * @this {ParticleSystemLinks}
+   * @param {number} dt
+   * @param {THREE.Vector3 | null} moved
    */
   advance(dt, moved) {
     const ps = this.ps, m = ps.mods;
@@ -2482,7 +2895,7 @@ class ParticleSystem {
     // simulate
     const grav = evalMM(ps.gravity, 0, 0);
     const velOn = !!m.velOL && m.velOL.on !== 0 && m.velOL.on !== false;
-    const orbit = velOn && this.orbit ? this.orbitFrame() : null, vo = m.velOL;
+    const orbit = velOn && this.orbit ? this.orbitFrame() : null, vo = /** @type {VelocityModule} */ (m.velOL);
     const nzOn = !!m.noise && this.noiseFrame(dt);
     const P = m.collide ? this.planeFrames() : null;
     if ((this.subs || this.subsHit) && !this.world) {   // the node → root transform for the sub emitters' points
@@ -2503,7 +2916,7 @@ class ParticleSystem {
       // under the limit and the particle's own velocity takes the difference (MagnitudeUpdate). 패신저 T2's lightning (start
       // speed 0, 5 u/s over its life, limit 0.7 → 0) flew 1.5–3 tiles off her weapon while the limit only met `vel`
       let ox = 0, oy = 0, oz = 0;
-      if (velOn) { ox = evalMM(m.velOL.x, a, r); oy = evalMM(m.velOL.y, a, r); oz = evalMM(m.velOL.z, a, r); }
+      if (velOn) { ox = evalMM(/** @type {VelocityModule} */ (m.velOL).x, a, r); oy = evalMM(/** @type {VelocityModule} */ (m.velOL).y, a, r); oz = evalMM(/** @type {VelocityModule} */ (m.velOL).z, a, r); }
       // (2026-10-26, effect bundle U; official client SimulateParticles) the velocity module's speed modifier multiplies
       // the particle's velocity and its VelocityOverLifetime / orbit / radial / noise velocity this step
       const sm = this.speedK ? evalMM(vo.speedMul, a, r) : 1;
@@ -2567,12 +2980,15 @@ class ParticleSystem {
         if (rb.y) this.rot[i * 3 + 1] += evalMM(rb.y, t, r) * dt;
       }
       // (official client) the noise turns it by noise z × strength × the rotation amount × dt × π / 360
-      if (nzOn && m.noise.rotAmt) this.rot[i * 3 + 2] += noiseV.w * evalMM(m.noise.rotAmt, a, r) * (Math.PI / 360) * dt;
-      if (this.subs) this.emitSubs(i, age0, this.age[i], dt);
+      if (nzOn && /** @type {NoiseModule} */ (m.noise).rotAmt) this.rot[i * 3 + 2] += noiseV.w * evalMM(/** @type {NoiseModule} */ (m.noise).rotAmt, a, r) * (Math.PI / 360) * dt;
+      if (this.subs) /** @type {ParticleSubs} */ (this).emitSubs(i, age0, this.age[i], dt);
     }
   }
 
-  /** The particles' instance data and trails for this frame (sinceStart: the branch's time, for the trails' ages). */
+  /**
+   * The particles' instance data and trails for this frame (sinceStart: the branch's time, for the trails' ages).
+   * @param {number} sinceStart
+   */
   draw(sinceStart) {
     const m = this.ps.mods;
     if (this.velAlign && this.n) this.velFrame();
@@ -2622,7 +3038,7 @@ class ParticleSystem {
       } else { D[o + IV_UV] = 0; D[o + IV_UV + 1] = 0; D[o + IV_UV + 2] = 1; D[o + IV_UV + 3] = 1; }
     }
     this.mesh.visible = this.draws && n > 0;
-    if (this.trailBatch) this.updateTrails(sinceStart);   // they read the rows by particle: before the order below
+    if (this.trailBatch) /** @type {ParticleTrails} */ (this).updateTrails(sinceStart);   // they read the rows by particle: before the order below
     let n0 = n;
     if (this.mi || (this.sortMode && n > 1)) n0 = this.orderRows(n);
     if (n0) { this.ib.clearUpdateRanges(); this.ib.addUpdateRange(0, n0 * IV); this.ib.needsUpdate = true; }
@@ -2635,13 +3051,15 @@ class ParticleSystem {
    * 2 / 3 the key max(0, 100 − remaining life) / start life, greater first for 1 2 4 and less first for 3; the engine's
    * first is the nearest (1, 4), so its first is the one in front and is drawn last here — far to near, the oldest (2) /
    * youngest (3) last. [추정·엔진: the geometry job drawing the sorted rows from the last — read from the distance modes]
+   * @param {number} n
    */
   orderRows(n) {
     const D = this.ib.array, mode = this.sortMode;
+    /** @type {number[] | null} */
     let idx = null;
     if (mode && (mode === 2 || mode === 3 || this.camP)) {
-      const K = this.sortKey, P = this.pos, c = this.camP, F = this.camF;
-      idx = this.sortIdx;
+      const K = /** @type {Float32Array} */ (this.sortKey), P = this.pos, c = /** @type {THREE.Vector3} */ (this.camP), F = /** @type {THREE.Vector3} */ (this.camF);
+      idx = /** @type {number[]} */ (this.sortIdx);
       idx.length = n;
       for (let i = 0; i < n; i++) {
         idx[i] = i;
@@ -2657,6 +3075,7 @@ class ParticleSystem {
     }
     const T = this.rowTmp || (this.rowTmp = new Float32Array(this.room * IV));
     T.set(D.subarray(0, n * IV));
+    /** @type {(buf: Float32Array, b: number) => number} */
     const fill = (buf, b) => {
       let w = 0;
       for (let k = 0; k < n; k++) {
@@ -2729,11 +3148,12 @@ class ParticleSystem {
    * this system's frame): each one emits there once — its bursts' counts [추정·엔진: a triggered sub emitter emits the sum of its
    * bursts and not its rate over time; every such target of the extracted prefabs has one burst at 0 and no rate], kept with
    * probability `p`, inheriting as emitSubs. 아이린 S3's range_02: the stars and sparks where the shots meet the ground.
+   * @param {number} i @param {number} a @param {number} x @param {number} y @param {number} z
    */
   emitHitSubs(i, a, x, y, z) {
     const at = subAt.set(x, y, z);
     if (!this.world) at.applyMatrix4(subM);
-    for (const { e, sys } of this.subsHit) {
+    for (const { e, sys } of /** @type {SubLink[]} */ (this.subsHit)) {
       let n = 0;
       for (const b of sys.ps.bursts || []) if (Math.random() <= (b.p ?? 1)) n += Math.max(0, Math.round(evalMM(b.n, 0, Math.random()) * sys.burstK(b.t)));
       if (n <= 0 || Math.random() > (e.p ?? 1)) continue;
@@ -2751,7 +3171,11 @@ class ParticleSystem {
     }
   }
 
-  /** setSubs: particle i (age a0 → a1 this frame) runs each sub emitter's emission module. */
+  /**
+   * setSubs: particle i (age a0 → a1 this frame) runs each sub emitter's emission module.
+   * @param {number} i @param {number} a0 @param {number} a1 @param {number} dt
+   * @this {ParticleSubs}
+   */
   emitSubs(i, a0, a1, dt) {
     const m = this.ps.mods, J = this.subs.length, a = a1 / this.life[i], r = this.rnd[i * 4 + 2];
     let at = null, col = null, size = null;
@@ -2800,10 +3224,12 @@ class ParticleSystem {
    * backwards are age descending, then index ascending. False (nothing written) when an age is negative or not finite, or
    * there are too many particles — the caller sorts as before. The comparator sort was a tenth of the particle update in a
    * scene of ribbons.
+   * @param {number[]} order
+   * @param {number} n
    */
   ageOrder(order, n) {
     if (n > LOW_MASK) return false;
-    const K = this.ageKey || (this.ageKey = new Float64Array(this.age.length)), W = this.ageKeyW || (this.ageKeyW = new Uint32Array(K.buffer)), A = this.age;
+    const K = /** @type {Float64Array} */ (this.ageKey || (this.ageKey = new Float64Array(this.age.length))), W = /** @type {Uint32Array} */ (this.ageKeyW || (this.ageKeyW = new Uint32Array(K.buffer))), A = this.age;
     for (let i = 0; i < n; i++) {
       const a = A[i];
       if (!(a >= 0 && a < Infinity)) return false;
@@ -2815,7 +3241,10 @@ class ParticleSystem {
     return true;
   }
 
-  /** (official client) What the size gives a trail's width: the x of a 2D size, √(x·y) of a 3D one, ∛(x·y·z) when the particle is a mesh. */
+  /**
+   * (official client) What the size gives a trail's width: the x of a 2D size, √(x·y) of a 3D one, ∛(x·y·z) when the particle is a mesh.
+   * @param {number} x @param {number} y @param {number} z
+   */
   trailSize(x, y, z) {
     if (x === y && (y === z || this.ps.render.mode !== 4)) return Math.abs(x);
     return this.ps.render.mode === 4 ? Math.cbrt(Math.abs(x * y * z)) : Math.sqrt(Math.abs(x * y));
@@ -2825,6 +3254,8 @@ class ParticleSystem {
    * (official client, TrailModule::CalculateLifetime) How long a point of particle i's trail lasts: the curve read at the particle's
    * age now — a point's time left changes as the particle ages — × its start lifetime. `sizeAffectsLifetime` is off in every system
    * (fx_coverage), and it would multiply by the size.
+   * @param {number} i
+   * @this {ParticleTrails}
    */
   trailLife(i) { return evalMM(this.tm.life, Math.min(1, this.age[i] / this.life[i]), this.rnd[i * 4 + 3]) * this.life[i]; }
 
@@ -2835,6 +3266,8 @@ class ParticleSystem {
    * points is, the material's tiling scales it); 2 DistributePerSegment t = k / (m − 1), once over it; 3 RepeatPerSegment the same t,
    * once per segment. The first point is the particle in a particle's trail and the oldest particle in a ribbon. Before, t was
    * k / (m − 1) in every mode, so unevenly spaced points (a particle slowing down) put the colours and the width elsewhere.
+   * @param {number} m @param {number} tile
+   * @this {ParticleTrails}
    */
   trailTex(m, tile) {
     const mode = this.tm.texMode || 0, T = trailT, U = trailU;
@@ -2855,7 +3288,11 @@ class ParticleSystem {
     for (let k = 0; k < m; k++) { U[k] = mode === 1 ? T[k] * tile : T[k] * inv; T[k] *= inv; }
   }
 
-  /** A dead particle's trail kept (dieWithParticles off): its points, the particle's age then and its width / colour. */
+  /**
+   * A dead particle's trail kept (dieWithParticles off): its points, the particle's age then and its width / colour.
+   * @param {number} i
+   * @this {ParticleTrails}
+   */
   ghost(i) {
     const K = this.histK, cnt = this.histN[i], a = Math.min(1, this.age[i] / this.life[i]);
     const pts = this.hist.slice(i * K * 4, i * K * 4 + cnt * 4);
@@ -2863,16 +3300,20 @@ class ParticleSystem {
     for (let k = 0; k < 4; k++) col[k] = this.col0[i * 4 + k];
     if (this.ps.mods.colorOL) { evalMG(this.ps.mods.colorOL, a, this.rnd[i * 4 + 3], tmpC2); for (let k = 0; k < 4; k++) col[k] *= tmpC2[k]; }
     const sk = this.sizeOf(i, a, this.rnd[i * 4 + 2], sizeK);
-    this.ghosts.push({
+    /** @type {Ghost[]} */ (this.ghosts).push({
       pts, cnt, born: this.time - this.age[i], tl: evalMM(this.tm.life, 1, this.rnd[i * 4 + 3]) * this.life[i],
       r0: this.rnd[i * 4], r1: this.rnd[i * 4 + 1], r2: this.rnd[i * 4 + 2], a, col,
       size: this.trailSize(this.size0[i * 3] * sk[0], this.size0[i * 3 + 1] * sk[1], this.size0[i * 3 + 2] * sk[2]),
     });
   }
 
-  /** The ghosts' strips: their points age on with the system's clock and go once older than the trail's lifetime. */
+  /**
+   * The ghosts' strips: their points age on with the system's clock and go once older than the trail's lifetime.
+   * @param {number} ts @param {number} tile
+   * @this {ParticleTrails}
+   */
   ghostTrails(ts, tile) {
-    const tm = this.tm, G = this.ghosts;
+    const tm = this.tm, G = /** @type {Ghost[]} */ (this.ghosts);
     for (let j = G.length - 1; j >= 0; j--) {
       const g = G[j], now = this.time - g.born, P = g.pts;
       let drop = 0;
@@ -2900,18 +3341,22 @@ class ParticleSystem {
   /**
    * (official client) The last of the m points slides towards the one before it, to where the trail's lifetime ends between their two
    * times (t0 its own, t1 the next one's): the end of a trail moves on smoothly rather than a point at a time. `at` = now − lifetime.
+   * @param {number} m @param {number} at @param {number} t0 @param {number} t1
    */
   trailTail(m, at, t0, t1) {
     const f = t1 > t0 ? Math.min(1, Math.max(0, (at - t0) / (t1 - t0))) : 0, P = trailPts, o = (m - 1) * 3;
     P[o] += (P[o - 3] - P[o]) * f; P[o + 1] += (P[o - 2] - P[o + 1]) * f; P[o + 2] += (P[o - 1] - P[o + 2]) * f;
   }
 
-  /** The trail points kept in the root's frame through `e` (remap): the root moved or turned and a world-space trail stays where it was made (FxInstance.followWorld). */
+  /**
+   * The trail points kept in the root's frame through `e` (remap): the root moved or turned and a world-space trail stays where it was made (FxInstance.followWorld).
+   * @param {ArrayLike<number>} e
+   */
   shiftTrails(e) {
     if (!this.tm || this.tm.mode === 1) return;
-    const H = this.hist, K = this.histK * 4;
+    const H = /** @type {Float32Array} */ (this.hist), K = /** @type {number} */ (this.histK) * 4;
     for (let i = 0; i < this.n; i++) {
-      for (let k = 0, o = i * K; k < this.histN[i]; k++, o += 4) remap(H, o, e);
+      for (let k = 0, o = i * K; k < /** @type {Uint8Array} */ (this.histN)[i]; k++, o += 4) remap(H, o, e);
     }
     if (this.ghosts) for (const g of this.ghosts) for (let k = 0; k < g.cnt; k++) remap(g.pts, k * 4, e);
   }
@@ -2921,7 +3366,8 @@ class ParticleSystem {
    * only once the point after the oldest has expired, and that oldest slides to where the lifetime ends (trailTail); ratio is a choice
    * made once per particle; a point is recorded when the particle has moved more than minVertexDistance. Records come once per drawn
    * frame here rather than once per simulation step.
-   * @this {ParticleSystemLinks}
+   * @this {ParticleTrails}
+   * @param {number} sinceStart
    */
   updateTrails(sinceStart) {
     const tm = this.tm, K = this.histK, H = this.hist, n = this.n, b = this.trailBatch, D = this.ib.array;
@@ -3055,6 +3501,7 @@ const SCALE = new THREE.Vector3(), shapeE = new THREE.Euler(), shapeV = new THRE
  * boxThickness, 0..1 per axis) is the share of the half size inward the point may lie (0 = on the surface, 1 = the whole
  * volume). [추정: the choice by area / length — Unity's own sampling is not public; the client's boxes are flat (one size
  * 0), where a shell is the whole rectangle either way and an edge its outline.] A box without area / length keeps `p`.
+ * @param {number} type @param {number[]} size @param {unknown} thick @param {THREE.Vector3} p
  */
 function boxSurface(type, size, thick, p) {
   const a = size.map(Math.abs), t = Array.isArray(thick) ? thick : [0, 0, 0];
@@ -3063,6 +3510,7 @@ function boxSurface(type, size, thick, p) {
   if (!(sum > 0)) return;
   let r = Math.random() * sum, k = 0;
   while (k < 2 && r >= w[k]) { r -= w[k]; k++; }
+  /** @type {(i: number) => void} */
   const put = (i) => { p.setComponent(i, (Math.random() < 0.5 ? -1 : 1) * (0.5 - Math.random() * 0.5 * Math.min(1, Math.max(0, +t[i] || 0))) * size[i]); };
   if (type === 15) put(k);
   else for (let i = 0; i < 3; i++) if (i !== k) put(i);
@@ -3074,13 +3522,17 @@ function boxSurface(type, size, thick, p) {
  * client's only one); the direction = the surface normal there (three's from the triangles — the mesh files carry none;
  * their winding gives Unity's side). `meshCol` (m_UseMeshColors) tints the particle by the vertex colours there (a mesh
  * without them: white). Official client: triangles weighted by area, edges (each triangle's three) by length, vertices evenly.
+ * @param {PsShape} sh
+ * @param {THREE.BufferGeometry | null | undefined} g
+ * @returns {MeshShapeData | null}
  */
 function meshShape(sh, g) {
   const pos = g?.getAttribute('position'), index = g?.getIndex();
   if (!pos || !index || index.count < 3) return null;
-  if (!g.getAttribute('normal')) g.computeVertexNormals();
-  const I = index.array, P = pos.array, N = g.getAttribute('normal').array, C = sh.meshCol ? g.getAttribute('vcol')?.array || null : null;
-  const nt = Math.floor(I.length / 3), place = sh.place | 0;
+  if (!/** @type {THREE.BufferGeometry} */ (g).getAttribute('normal')) /** @type {THREE.BufferGeometry} */ (g).computeVertexNormals();
+  const I = index.array, P = pos.array, N = /** @type {THREE.BufferGeometry} */ (g).getAttribute('normal').array, C = sh.meshCol ? /** @type {THREE.BufferGeometry} */ (g).getAttribute('vcol')?.array || null : null;
+  const nt = Math.floor(I.length / 3), place = /** @type {number} */ (sh.place) | 0;
+  /** @type {(a: number, b: number) => number} */
   const len = (a, b) => Math.hypot(P[b * 3] - P[a * 3], P[b * 3 + 1] - P[a * 3 + 1], P[b * 3 + 2] - P[a * 3 + 2]);
   let cum = null, total = 0;
   if (place === 1 || place === 2) {
@@ -3098,28 +3550,35 @@ function meshShape(sh, g) {
   }
   return { place, cum, total, I, P, N, C, nv: pos.count, c: [1, 1, 1, 1] };
 }
-/** Binary search: the first index of `cum` above r. */
+/**
+ * Binary search: the first index of `cum` above r.
+ * @param {Float64Array} cum @param {number} r
+ */
 function cumIndex(cum, r) {
   let lo = 0, hi = cum.length - 1;
   while (lo < hi) { const m = (lo + hi) >> 1; if (cum[m] > r) hi = m; else lo = m + 1; }
   return lo;
 }
-/** A point of mesh shape `ms` into p, its normal into d, its vertex colour into ms.c (weights w over vertices a, b, c). */
+/**
+ * A point of mesh shape `ms` into p, its normal into d, its vertex colour into ms.c (weights w over vertices a, b, c).
+ * @param {MeshShapeData} ms @param {THREE.Vector3} p @param {THREE.Vector3} d
+ */
 function meshSample(ms, p, d) {
   const rand = Math.random, { I, P, N, C } = ms;
   let a, b = 0, c = 0, wa = 1, wb = 0, wc = 0;
   if (ms.place === 0) a = Math.floor(rand() * ms.nv) % ms.nv;
   else if (ms.place === 1) {
-    const e = cumIndex(ms.cum, rand() * ms.total), t = (e / 3) | 0, k = e % 3;
+    const e = cumIndex(/** @type {Float64Array} */ (ms.cum), rand() * ms.total), t = (e / 3) | 0, k = e % 3;
     a = I[t * 3 + k]; b = I[t * 3 + (k + 1) % 3];
     wb = rand(); wa = 1 - wb;
   } else {
-    const t = cumIndex(ms.cum, rand() * ms.total);
+    const t = cumIndex(/** @type {Float64Array} */ (ms.cum), rand() * ms.total);
     a = I[t * 3]; b = I[t * 3 + 1]; c = I[t * 3 + 2];
     let u = rand(), v = rand();
     if (u + v > 1) { u = 1 - u; v = 1 - v; }
     wa = 1 - u - v; wb = u; wc = v;
   }
+  /** @type {(A: ArrayLike<number>, n: number, j: number) => number} */
   const mix = (A, n, j) => A[a * n + j] * wa + A[b * n + j] * wb + A[c * n + j] * wc;
   p.set(mix(P, 3, 0), mix(P, 3, 1), mix(P, 3, 2));
   d.set(mix(N, 3, 0), mix(N, 3, 1), mix(N, 3, 2));
@@ -3136,6 +3595,7 @@ function meshSample(ms, p, d) {
  * k / count round a full circle, k / (count − 1) on a part arc or an edge (both ends); a spread snaps the place down to its
  * steps (spread × the arc / edge) before the wrap. The emissions of one step take laps between this step's (the first)
  * and the last step's (emit: ctx.arcLaps / radLaps).
+ * @param {number} mode @param {number} spread @param {number} laps @param {number} span @param {ShapeCtx | null} ctx
  */
 function arcPick(mode, spread, laps, span, ctx) {
   let v;
@@ -3148,12 +3608,20 @@ function arcPick(mode, spread, laps, span, ctx) {
   return Math.min(1, v);
 }
 
-/** A random unit vector (the engine's RandomUnitVector — uniform on the sphere). */
+/**
+ * A random unit vector (the engine's RandomUnitVector — uniform on the sphere).
+ * @param {THREE.Vector3} out
+ */
 function randUnit(out) {
   const z = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, s = Math.sqrt(1 - z * z);
   return out.set(s * Math.cos(th), s * Math.sin(th), z);
 }
 
+/**
+ * @param {PsShape | undefined} sh @param {THREE.Vector3} p @param {THREE.Vector3} d
+ * @param {MeshShapeData | null} [ms]
+ * @param {ShapeCtx | null} [ctx]
+ */
 function shapeSample(sh, p, d, ms = null, ctx = null) {
   if (!sh) return;
   const rand = Math.random;
@@ -3244,9 +3712,13 @@ function shapeSample(sh, p, d, ms = null, ctx = null) {
 
 // ---------------------------------------------------------------- effect instance
 
+/** @type {FxInstance[]} */
 const live = [];
 let livePinned = 0;   // the pinned instances of `live` (PINNED_CAP)
-/** Clip tracks on material properties: the uniform each drives, and a colour component → vector axis. */
+/**
+ * Clip tracks on material properties: the uniform each drives, and a colour component → vector axis.
+ * @type {Readonly<Record<string, string>>}
+ */
 const CLIP_UNIFORM = { _Amount: 'uAmount', _Opacity: 'uOpacity', _BorderWidth: 'uBorder', _TintColor: 'uTint', _MainColor: 'uTint', _Color: 'uTint',
   // local patch: the … Double dissolve's two amounts / borders
   _Amount_01: 'uAmount', _Amount_02: 'uAmount2', _BorderWidth_01: 'uBorder', _BorderWidth_02: 'uBorder2',
@@ -3256,7 +3728,10 @@ const CLIP_UNIFORM = { _Amount: 'uAmount', _Opacity: 'uOpacity', _BorderWidth: '
   _DisturTex_ST: 'uDisturbST', _DisturTex_02_ST: 'uDisturb2ST', _MainColorACtrl: 'uACtrl',
   // 2026-10-14: the tracks no uniform took before — the Double family's second dissolve tiling, Rim's power, Mask's added texture
   _DissolveTex_02_ST: 'uDissolve2ST', _RimPower: 'uRimPower', _AddTex_ST: 'uAddST' };
-/** 2026-10-14: float tracks that drive one axis of a vector uniform (Disturb Origin / Anchor's strengths and anchors). */
+/**
+ * 2026-10-14: float tracks that drive one axis of a vector uniform (Disturb Origin / Anchor's strengths and anchors).
+ * @type {Readonly<Record<string, [string, string]>>}
+ */
 const CLIP_COMP = { _IntensityU: ['uDisturbStr', 'x'], _IntensityV: ['uDisturbStr', 'y'], _AnchorU: ['uDisAnchor', 'x'], _AnchorV: ['uDisAnchor', 'y'],
   _IntensityU_02: ['uDisturb2Str', 'x'], _IntensityV_02: ['uDisturb2Str', 'y'], _AnchorU_02: ['uDisturb2Anchor', 'x'], _AnchorV_02: ['uDisturb2Anchor', 'y'] };
 /** local patch: an order-0 mesh at least this tall (tiles, board height) wraps the unit — drawn in front (FxInstance split). */
@@ -3269,6 +3744,7 @@ const tmpBox = new THREE.Box3();
  * node, in `obj`'s space): taller than WRAP_H and reaching the unit's own tile row. 蛇屠箱 / 마터호른 S2's domes do (front,
  * official video); 赤刃明霄陈 S3's dragon head `longtou` lies 0.8–1.6 rows behind her (back — official capture: the dragon
  * is behind her) [추정: the client sorts order 0 by distance; the Spine's own sort point is not known].
+ * @param {THREE.Mesh} mesh @param {THREE.Object3D} obj
  */
 function wrapsUnit(mesh, obj) {
   const g = mesh.geometry;
@@ -3281,7 +3757,10 @@ function wrapsUnit(mesh, obj) {
 }
 /** local patch (FxInstance opts.ahead): rows in front of the unit (−y, nearer the camera) where an order-0 system counts as ahead. */
 const AHEAD_Y = 0.1;
-/** Whether `node` sits more than AHEAD_Y in front of `obj`'s origin (the unit's feet), in `obj`'s frame. */
+/**
+ * Whether `node` sits more than AHEAD_Y in front of `obj`'s origin (the unit's feet), in `obj`'s frame.
+ * @param {THREE.Object3D} node @param {THREE.Object3D} obj
+ */
 function aheadOf(node, obj) {
   node.getWorldPosition(tmpV);
   obj.worldToLocal(tmpV);
@@ -3289,11 +3768,13 @@ function aheadOf(node, obj) {
 }
 /** local patch: three.js layers of a split instance's renderers (FxInstance opts.split) — behind / in front of the units. */
 export const FX_BACK = 1, FX_FRONT = 2;
+/** @type {Readonly<Record<string, string>>} */
 const CLIP_AXIS = { r: 'x', g: 'y', b: 'z', a: 'w', x: 'x', y: 'y', z: 'z', w: 'w' };
 /**
  * 2026-10-22: a clip's ParticleSystem values (fx_extract.py ANIMATED_VALUES, track `ps:<property path>`) → their place in the
  * extracted system (keys from `ps`; a MinMaxCurve's scalar = `s`, its minScalar `n`, a MinMaxGradient's colour = `a`).
  * The system takes its own copy of each object on the way (ParticleSystem.animPath): the definition is shared.
+ * @type {Readonly<Record<string, (string | number)[]>>}
  */
 const PS_ANIM = {
   'EmissionModule.rateOverTime.scalar': ['rate', 's'], 'EmissionModule.rateOverTime.minScalar': ['rate', 'n'],
@@ -3307,14 +3788,20 @@ const PS_ANIM = {
   ...Object.fromEntries([...'rgba'].flatMap((c, k) => [[`InitialModule.startColor.maxColor.${c}`, ['color', 'a', k]],
     [`TrailModule.colorOverLifetime.maxColor.${c}`, ['mods', 'trail', 'colorOL', 'a', k]]])),
 };
-/** 2026-10-22: a clip's FxUVTweener speeds (track `uvt:<field>`) → [its map (0 `_MainTex`, 1 the second map), the axis]. */
+/**
+ * 2026-10-22: a clip's FxUVTweener speeds (track `uvt:<field>`) → [its map (0 `_MainTex`, 1 the second map), the axis].
+ * @type {Readonly<Record<string, [number, string]>>}
+ */
 const UVT_ANIM = { xspeed: [0, 'vx'], yspeed: [0, 'vy'], secondXSpeed: [1, 'vx'], secondYSpeed: [1, 'vy'] };
 // local patch: a clip's GameObject m_IsActive binding (Mecanim type 1, crc32('m_IsActive'); the extract keeps it as 'attr:…')
 const ACTIVE_PROP = 'attr:2086281974';
 const clipE = new THREE.Euler();
 const IDENTITY16 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
-/** Whether any renderer of the prefab `def` is behind the units (a negative sortingOrder) — a status effect splits only then. */
+/**
+ * Whether any renderer of the prefab `def` is behind the units (a negative sortingOrder) — a status effect splits only then.
+ * @param {FxDef | null | undefined} def
+ */
 export function hasBackOrder(def) {
   // (2026-10-27) or a sorting layer before Default
   return !!def?.nodes?.some((n) => [n.mesh, n.skin, n.ps?.render, n.trailR, n.lineR].some((r) => ((r?.layer || 0) || (r?.order || 0)) < 0));
@@ -3322,7 +3809,7 @@ export function hasBackOrder(def) {
 
 export class FxInstance {
   /**
-   * @param {any} def FxLibrary.load result
+   * @param {FxDef} def FxLibrary.load result
    * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, dir?: {x: number, y: number}|null, body?: string|null, speed?: number, delays?: boolean, scale?: number, floor?: number|null, split?: boolean|'backOnly', atSpawn?: boolean, pivot?: boolean, hold?: number|null, ahead?: boolean, tilt?: number[]|null, pinned?: boolean }} [opts]
    *   tilt (2026-10-22): a Unity quaternion the whole prefab is turned by inside the Unity frame — the `Graphic` rotation of
    *   the unit it is created on (render/fxpoints.js GRAPHIC_TILT / takesGraphicTurn); world-space particles are not turned
@@ -3354,7 +3841,7 @@ export class FxInstance {
     this.moveScale = 1; this.shaderAhead = 0;   // setMoveScale
     this.hold = opts.hold ?? null; // local patch: freeze the effect at this time (s) — a mark that stays once shown
     this.pinned = !!opts.pinned;   // 2026-11-12: counted under PINNED_CAP, not PLAYER_CAP
-    this.q = QUALITY[opts.quality] || QUALITY.high;
+    this.q = QUALITY[/** @type {string} */ (opts.quality)] || QUALITY.high;
     this.time = 0;
     this.object = new THREE.Group();            // placed in board coordinates by the caller
     const unity = new THREE.Group();            // Unity battle frame: mirror z (z = −height)
@@ -3366,6 +3853,7 @@ export class FxInstance {
     // (2026-10-22, official client) the client's RandomDirection (fx_extract.py `rdir` [from x, y, z, to x, y, z]): `OnPlay`
     // turns the effect to RandomUtil.RandomVector3(from, to) — Random.Range per axis, not normalised (锏 S2)
     const rr = Array.isArray(def?.rdir) && def.rdir.length === 6 ? def.rdir.map((v) => Number(v) || 0) : null;
+    /** @type {(a: number, b: number) => number} */
     const span = (a, b) => a + Math.random() * (b - a);
     const rdir = jit ? { x: Math.random() * 2 - 1, y: Math.random() * 2 - 1 } : rr ? { x: span(rr[0], rr[3]), y: span(rr[1], rr[4]) } : null;
     const side = def?.face || opts.facing != null ? { x: facing, y: 0 } : null;   // none given: EFFECT_DIRECTION (base turn)
@@ -3377,6 +3865,7 @@ export class FxInstance {
     const mirror = turn ? (def?.mount?.followScaleSign || def?.mount?.followScale ? facing : 1) : facing;
     unity.scale.set(mirror * (opts.scale || 1), opts.scale || 1, -(opts.scale || 1));
     if (jit) {   // Unity world (x, y, z = −height)
+      /** @type {(a: number) => number} */
       const r = (a) => (a ? (Math.random() * 2 - 1) * a : 0);
       const x = r(jit[0]), y = r(jit[1]), z = r(jit[2]);
       unity.position.set(x, y, z ? -z : 0);
@@ -3390,34 +3879,51 @@ export class FxInstance {
     const tilt = new THREE.Group();
     if (Array.isArray(opts.tilt)) tilt.quaternion.set(opts.tilt[0], opts.tilt[1], opts.tilt[2], opts.tilt[3]);
     unity.add(tilt);
+    /** @type {THREE.Object3D[]} */
     this.nodes = [];
+    /** @type {ParticleSystemLinks[]} */
     this.systems = [];
+    /** @type {THREE.ShaderMaterial[]} */
     this.meshMats = [];
+    /** @type {THREE.Mesh[]} */
     this.meshObjs = [];   // 2026-10-22: a node's MeshRenderer object (a clip's `mr:enabled`)
+    /** @type {[THREE.InstancedBufferGeometry, THREE.BufferGeometry][]} */
     this.meshGeos = [];   // 2026-10-28: their geometries with the library mesh each shares attributes with (disposeOwn)
+    /** @type {THREE.ShaderMaterial[][]} */
     this.meshMore = [];   // (2026-10-26) a node's further MeshRenderer materials (n.mesh.more)
+    /** @type {TrailRendererOff[]} */
     this.trails = [];
+    /** @type {LineRenderer[]} */
     this.lines = [];   // local patch: LineRenderers
+    /** @type {{ o: THREE.Object3D, rec: NonNullable<FxNode['emit']>, next: number }[]} */
     this.emitters = []; // 2026-10-21: RandomEmitter nodes ({ o, rec: node `emit`, next }) — render/fxgame.js plays their copies
+    /** @type {{ o: THREE.Object3D, play: EmitRec | null, finish: EmitRec | null, [key: string]: unknown }[]} */
     this.onEmit = [];   // (2026-10-21) OnPlayEmitter / OnFinishEmitter nodes ({ o, play: node `onPlay` or one of `onPlayIf`, finish: node `onFinish` }) — fxgame.js stepOnEmit
+    /** @type {{ k: string, rec: Bag, [key: string]: unknown }[]} */
     this.pausers = [];  // (2026-10-21) the behaviours that pause / finish the effect ({ k: PAUSE_KEYS, rec: the node's record — each of `pauseOther`'s }) — fxgame.js stepPauses
     if (!def || !this.q.budget) { this.empty = true; return; }
     const speed = Number(opts.speed) > 0 ? Number(opts.speed) : 1;
     const delays = opts.delays !== false;
+    /** @type {FaceRec} */
     const f = def.face || {};
     // the root's wait (effect seconds): FxDelay `_delayTime` ÷ the speed in game time = `_delayTime` here; `_delayToPlay`
     // is game time (`_randomPlayDelay`: a random part of it)
+    /** @type {number} */
     this.wait = delays ? (Number(f.fxDelay) > 0 ? Number(f.fxDelay) : 0)
       + (Number(f.delay) > 0 ? (f.rnd ? Math.random() : 1) * Number(f.delay) * speed : 0) : 0;
     if (this.wait > 0) unity.visible = false;
+    /** @type {number[]} */
     const t0 = [];   // each node's start (effect seconds after the root shows): its own and its parents' branch delays
+    /** @type {{ mesh: THREE.SkinnedMesh, skin: MeshRec, bind: number[][] }[]} */
     const skins = [];
     // (2026-10-23, official client) the root's FxLODSetting (fx_extract.py `lod`): the client's low-detail effects, applied on
     // a device with HIGH_LEVEL_EFFECT graded off (`Effect.OnAllocate` → `ApplyLowDetail`) — here at quality 'medium' [ASSUMED:
     // our 'medium' = that grading]: its `_disableObjects` off, its hooked systems' emission × their percentage
     const lod = this.q === QUALITY.medium ? def.lod : null;
     const lodOff = new Set(lod?.off || []), lodPs = new Map(lod?.ps || []);
+    /** @type {THREE.Skeleton[]} */
     this.skeletons = [];
+    /** @type {{ o: THREE.Object3D, at: number, on: boolean }[]} */
     this.branches = [];
     def.nodes.forEach((n, i) => {
       const o = new THREE.Group();
@@ -3436,11 +3942,11 @@ export class FxInstance {
       o.visible = n.active !== false && !lodOff.has(i);
       (n.parent >= 0 ? this.nodes[n.parent] : tilt).add(o);
       this.nodes[i] = o;
-      if (n.emit?.effect && n.emit.count > 0) this.emitters.push({ o, rec: n.emit, next: 0 });
+      if (n.emit?.effect && /** @type {number} */ (n.emit.count) > 0) this.emitters.push({ o, rec: n.emit, next: 0 });
       if (n.onPlay?.effects?.length || n.onFinish?.effects?.length) this.onEmit.push({ o, play: n.onPlay || null, finish: n.onFinish || null });
       // (2026-11-16) OnPlayEmitterIf: each plays only when its owner passes `if` as it starts (fxgame.js stepOnEmit)
       if (Array.isArray(n.onPlayIf)) for (const rec of n.onPlayIf) if (rec?.effects?.length) this.onEmit.push({ o, play: rec, finish: null });
-      for (const k of PAUSE_KEYS) for (const rec of k === 'pauseOther' ? n[k] || [] : n[k] ? [n[k]] : []) this.pausers.push({ k, rec });
+      for (const k of PAUSE_KEYS) for (const rec of /** @type {Bag[]} */ (k === 'pauseOther' ? n[k] || [] : n[k] ? [n[k]] : [])) this.pausers.push({ k, rec });
       const own = !delays || n.parent < 0 ? 0 : (Number(n.delay) > 0 ? Number(n.delay) * speed : 0) + (Number(n.sdelay) > 0 ? Number(n.sdelay) : 0);
       t0[i] = (n.parent >= 0 ? t0[n.parent] || 0 : 0) + own;
       o.userData.t0 = t0[i];
@@ -3451,6 +3957,7 @@ export class FxInstance {
       if (src && (!n.skin || src.userData.bind)) {
         // (2026-10-26, effect bundle W2a) material j draws sub-mesh min(j, sub-meshes − 1) (the mesh file's `sub`)
         const sub = src.userData.sub;
+        /** @type {(key: string, j: number) => THREE.Mesh} */
         const draw = (key, j) => {
           const mat = meshSide(makeMaterial(def.materials[key], def.lib));
           mat.uniforms.uMode.value = 4;
@@ -3464,6 +3971,7 @@ export class FxInstance {
           if (src.getAttribute('uv')) g.setAttribute('uv', src.getAttribute('uv'));
           if (n.skin) { g.setAttribute('skinIndex', src.getAttribute('skinIndex')); g.setAttribute('skinWeight', src.getAttribute('skinWeight')); }
           useMeshAttrs(g, src, mat); // local patch
+          /** @type {(name: string, v: number[]) => void} */
           const one = (name, v) => g.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(v), v.length));
           one('iPos', [0, 0, 0]); one('iSize', [1, 1, 1]); one('iRot', [0, 0, 0]); one('iColor', [1, 1, 1, 1]);
           one('iC1', [0, 0, 0, 0]); one('iC2', [0, 0, 0, 0]); one('iUV', [0, 0, 1, 1]); one('iVel', [0, 0, 0]);
@@ -3516,10 +4024,10 @@ export class FxInstance {
       if (n.uvt) {
         const o = this.nodes[i];
         const sys = this.systems.find((s) => s.node === o), ln = this.lines.find((t) => t.node === o), tr = this.trails.find((t) => t.node === o);
-        if (this.meshMats[i]) uvTween(this.meshMats[i], n.uvt, def.materials[(n.mesh || n.skin).mat], (n.mesh || n.skin).mat);
-        else if (sys) uvTween(sys.material, n.uvt, def.materials[n.ps.render.mat], n.ps.render.mat);
-        else if (ln) uvTween(ln.batch.material, n.uvt, def.materials[n.lineR.mat], n.lineR.mat);
-        else if (tr) uvTween(tr.batch.material, n.uvt, def.materials[n.trailR.mat], n.trailR.mat);
+        if (this.meshMats[i]) uvTween(this.meshMats[i], n.uvt, def.materials[/** @type {MeshRec} */ (n.mesh || n.skin).mat], /** @type {MeshRec} */ (n.mesh || n.skin).mat);
+        else if (sys) uvTween(sys.material, n.uvt, def.materials[/** @type {string} */ (/** @type {PsRec} */ (n.ps).render.mat)], /** @type {PsRec} */ (n.ps).render.mat);
+        else if (ln) uvTween(ln.batch.material, n.uvt, def.materials[/** @type {LineRec} */ (n.lineR).mat], /** @type {LineRec} */ (n.lineR).mat);
+        else if (tr) uvTween(tr.batch.material, n.uvt, def.materials[/** @type {TrailRec} */ (n.trailR).mat], /** @type {TrailRec} */ (n.trailR).mat);
       }
       if (n.uvr) {   // 2026-10-14: FxUVRotation, the same renderer
         const o = this.nodes[i];
@@ -3537,7 +4045,7 @@ export class FxInstance {
       const list = (Array.isArray(s.ps.mods?.sub) ? s.ps.mods.sub : [])
         .map((e) => ({ e, sys: this.systems.find((x) => x.node === this.nodes[e.node]) }))
         .filter((x) => x.sys && x.sys !== s && !x.sys.subOf && ((x.e.type || 0) === 0 || (x.e.type === 1 && s.ps.mods?.collide)));
-      if (list.length) s.setSubs(list);
+      if (list.length) s.setSubs(/** @type {SubLink[]} */ (list));
       // 2026-10-22: the CollisionModule's planes (fx_extract.py collide_planes: node indices)
       for (const k of s.ps.mods?.collide?.planes || []) if (this.nodes[k]) s.planes.push(this.nodes[k]);
     }
@@ -3545,14 +4053,18 @@ export class FxInstance {
     // its own Animator (缄默德克萨斯 S2's texas2_birth_02_start: the root + 4 slashes; clips[0] alone left the slashes frozen
     // on their material defaults). The extract resolves each clip's nodes into the whole tree; each starts when its branch shows
     // (2026-10-11: the sub-prefabs' own FxDelay 0–0.3 s, node `delay` — bindTrack `off`) and the effect's clip time is the longest
+    /** @type {FxClip[]} */
     this.clips = def.clips || [];
     // 2026-10-22 (effect bundle J): a controller with more states is a state machine (fx_extract.py state_machine, `sms`);
     // its other states' clips play only when it switches to them, so the effect's clip time counts its default state's
+    /** @type {SmRun[]} */
     this.sms = (def.sms || []).map((d, k) => this.newSm(d, k));
     /** @type {((key: string) => boolean|null)|null} the owner's buffs for `animBuff` (render/fxgame.js; unset: taken as held) */
     this.heldBuff = null;
-    const first = new Set(this.sms.map((m) => m.d.states[m.d.def]?.clip));
+    const first = new Set(this.sms.map((m) => m.d.states[/** @type {number} */ (m.d.def)]?.clip));
+    /** @type {number} */
     this.clipLen = this.clips.reduce((m, c, i) => (c.sm == null || first.has(i) ? Math.max(m, c.len || 0) : m), 0);
+    /** @type {THREE.ShaderMaterial[]} */
     this.meshMatList = [...this.meshMats, ...this.meshMore.flat()].filter(Boolean);
     // local patch: the floor cut and the per-renderer layers
     if (opts.floor !== null) {
@@ -3563,15 +4075,19 @@ export class FxInstance {
       this.floor0 = opts.floor || 0;
       this.applyFloor(this.floor0);
     }
+    /** @type {number[]} */
     this.layerN = [0, 0, 0];
     if (opts.split) {
-      const put = (mesh, front) => { const k = front ? FX_FRONT : FX_BACK; mesh.layers.set(k); this.layerN[k]++; };
+      /** @type {(mesh: THREE.Object3D, front: boolean | undefined) => void} */
+      const put = (mesh, front) => { const k = front ? FX_FRONT : FX_BACK; mesh.layers.set(k); /** @type {number[]} */ (this.layerN)[k]++; };
       // backOnly (a status effect, render/fxgame.js playStatus): only sortingOrder < 0 goes behind the unit, the rest stays
       // in front as it was before the split
+      /** @type {((o: number) => boolean) | null} */
       const back = opts.split === 'backOnly' ? (o) => o >= 0 : null;
       // (2026-10-27, effect bundle V) a renderer on a sorting layer after Default is over the units whatever its order, one
       // before it under them (hsguma S2's floor, layer −2); on Default the order decides as before
-      const side = (r, f) => ((r?.layer || 0) ? r.layer > 0 : f(r?.order || 0));
+      /** @type {(r: { layer?: number, order?: number } | null | undefined, f: (o: number) => boolean) => boolean} */
+      const side = (r, f) => ((r?.layer || 0) ? /** @type {{ layer: number }} */ (r).layer > 0 : f(r?.order || 0));
       // 2026-10-22 (docs/rules/fx.md 「캐릭터 그림의 기울기」): the sides are judged in the prefab's own, untilted frame —
       // WRAP_H / AHEAD_Y were set there. Tilted, every order-0 plane in the model's plane (a background quad behind her,
       // 뮤엘시스 S3 bg_wave_01) stood 0.6–0.9 tall and counted as a dome around the unit, drawn over her
@@ -3580,12 +4096,12 @@ export class FxInstance {
       this.object.updateMatrixWorld(true);
       def.nodes.forEach((n, i) => {
         if (this.meshMats[i]) {
-          const mesh = this.nodes[i].children.find((c) => c.isMesh && c.material === this.meshMats[i]);
+          const mesh = this.nodes[i].children.find((/** @type {THREE.Object3D} */ c) => c.isMesh && c.material === this.meshMats[i]);
           // local patch (maintainer report 2026-10-07, video: 蛇屠箱's S2 hex dome covers her): an order-0 mesh that stands up
           // around the unit (a dome / shell, > WRAP_H tall) is in front — the client sorts order 0 by distance; a flat
           // ground decal stays behind
           const front = mesh && side(n.mesh || n.skin, (order) => (back ? back(order) : order > 0 || (!order && wrapsUnit(mesh, this.object))));
-          if (mesh) for (const m of [mesh, ...mesh.children.filter((c) => c.isMesh)]) put(m, front);
+          if (mesh) for (const m of [mesh, ...mesh.children.filter((/** @type {THREE.Object3D} */ c) => c.isMesh)]) put(m, front);
         }
       });
       // local patch (opts.ahead, maintainer report 2026-10-08: the elite glow's gold band covers the legs in the game; every split
@@ -3606,26 +4122,30 @@ export class FxInstance {
     } else this.layerN[0] = 1;
     // (2026-10-10, user report: buff effects that vanish) a clip with Unity's loop flag (fx_extract.py `loop` = the clip's
     // m_LoopTime) repeats — it was held on its last frame, and an effect whose only motion was such a clip ended with it
+    /** @type {TrackBind[]} */
     this.clipTracks = [];
+    /** @type {Map<string, SmSlot>} */
     this.smSlots = new Map();   // a state machine's tracks by `${sm}|${node}|${prop}`: the clips of its states blend there
     this.clips.forEach((c, ci) => {
       for (const tr of c.tracks) {
         const b = this.bindTrack(tr, c.len || 0);
         if (!b) continue;
-        if (c.loop && c.len > 0) b.loop = true;
-        if (!this.sms[c.sm]) { this.clipTracks.push(b); continue; }
+        if (c.loop && /** @type {number} */ (c.len) > 0) b.loop = true;
+        if (!this.sms[/** @type {number} */ (c.sm)]) { this.clipTracks.push(b); continue; }
         b.ci = ci;
         const key = `${c.sm}|${tr.node}|${tr.prop}`;
-        const slot = this.smSlots.get(key) || { m: this.sms[c.sm], b, def: this.trackValue(b), tracks: [], v: [] };
+        const slot = this.smSlots.get(key) || { m: this.sms[/** @type {number} */ (c.sm)], b, def: this.trackValue(b), tracks: [], v: [] };
         slot.tracks.push(b);
         this.smSlots.set(key, slot);
       }
     });
-    this.clipLoops = this.clips.some((c) => c.sm == null && c.loop && c.len > 0);
-    for (const b of this.clipTracks) if (b.off > 0) this.clipLen = Math.max(this.clipLen, b.off + (b.len || 0)); // a delayed branch's clip ends later
+    /** @type {boolean} */
+    this.clipLoops = this.clips.some((c) => c.sm == null && c.loop && /** @type {number} */ (c.len) > 0);
+    for (const b of this.clipTracks) if (/** @type {number} */ (b.off) > 0) this.clipLen = Math.max(this.clipLen, /** @type {number} */ (b.off) + (b.len || 0)); // a delayed branch's clip ends later
     // …and a mesh renderer is drawn while its effect lives (Unity keeps a MeshRenderer on until the effect object goes): a
     // prefab with meshes ends only when it is stopped (a buff with its owner, a one-shot at its caller's `until`) — the skill
     // buffs (浊心斯卡蒂 S2, 寒芒克洛丝 S2, 号角 S3 …: meshes only, no clip, no particles) were done on their first frame
+    /** @type {boolean} */
     this.holdMeshes = this.meshMatList.length > 0;
     // local patch (m_IsActive, maintainer's decision 2026-10-08 「공식과 동일하게」 — report: 缄默德克萨斯 S3's falling blades are
     // switched off as they land): the particle systems / trails under a node a clip switches on and off follow it (meshes and
@@ -3633,11 +4153,14 @@ export class FxInstance {
     // in 164 of the 166 such prefabs nothing in the prefab switches the node on (maintainer's notes 2026-10-08, the
     // workspace root) — 아르케토 S3's stray `smoke` lives on, switched on, in archet_skill_03_start_01
     const switched = new Set([...this.clipTracks, ...[...this.smSlots.values()].map((s) => s.b)].filter((b) => b.kind === 'active').map((b) => b.o));
+    /** @type {(o: THREE.Object3D) => boolean} */
     const under = (o) => { for (let p = o; p && p !== unity; p = p.parent) if (switched.has(p) || !p.visible) return true; return false; };
+    /** @type {{ x: ParticleSystemLinks | TrailRendererOff, on: boolean }[]} */
     this.gated = [...this.systems, ...this.trails].filter((x) => under(x.node)).map((x) => ({ x, on: true }));
     // (2026-10-26) a system in Unity's Local scaling mode under a parent that is scaled, or whose scale a clip drives, drops
     // its parents' scale (ParticleSystem.useLocalScale); 535 systems of 136 prefabs had a scaled parent
     const scaledBy = new Set([...this.clipTracks, ...[...this.smSlots.values()].flatMap((s) => s.tracks)].filter((b) => b.kind === 'scale').map((b) => b.o));
+    /** @type {(o: THREE.Object3D) => boolean} */
     const scaled = (o) => scaledBy.has(o) || Math.abs(o.scale.x - 1) > 1e-4 || Math.abs(o.scale.y - 1) > 1e-4 || Math.abs(o.scale.z - 1) > 1e-4;
     for (const s of this.systems) {
       const mode = s.ps.scaling ?? 1;
@@ -3652,12 +4175,13 @@ export class FxInstance {
       if (s.quadScaled && path.some(scaled)) s.scalePath = path;
       if (s.tm && path.some(scaled)) s.trailPath = path;
     }
+    /** @type {number[]} */
     this.clipV = [];
     live.push(this);
     if (this.pinned) livePinned++;
     // the oldest of its kind goes (dispose removes it from `live`): pinned and other instances have their own caps
-    while (live.length - livePinned > PLAYER_CAP) live.find((x) => !x.pinned).dispose();
-    while (livePinned > PINNED_CAP) live.find((x) => x.pinned).dispose();
+    while (live.length - livePinned > PLAYER_CAP) /** @type {FxInstance} */ (live.find((x) => !x.pinned)).dispose();
+    while (livePinned > PINNED_CAP) /** @type {FxInstance} */ (live.find((x) => x.pinned)).dispose();
   }
 
   /**
@@ -3666,8 +4190,10 @@ export class FxInstance {
    * transform (`face.bodyNode`, else a node named 'body') by `any` degrees about z (ANY_DIR) — or the base Effect.FaceTo's
    * node `turn.node` (`bodyFace`, effectTurn). The first node of the name anywhere in the tree (the prefabs keep them under
    * static_offset).
+   * @param {NonNullable<ReturnType<typeof effectTurn>>} turn
    */
   applyTurn(turn) {
+    /** @type {(name: string) => THREE.Object3D | undefined} */
     const named = (name) => this.nodes.find((o) => o && o.name === name);
     const ry = named('rotation_y'), rz = named('rotation_z');
     if (turn.flip != null) {
@@ -3676,7 +4202,7 @@ export class FxInstance {
     }
     if (turn.z != null && rz) rz.rotation.set(0, 0, (turn.z * Math.PI) / 180);
     if (turn.any != null) {
-      const bn = Number.isInteger(turn.node) ? turn.node : this.def?.face?.bodyNode, b = Number.isInteger(bn) ? this.nodes[bn] : named('body');
+      const bn = Number.isInteger(turn.node) ? turn.node : this.def?.face?.bodyNode, b = Number.isInteger(bn) ? this.nodes[/** @type {number} */ (bn)] : named('body');
       if (b) b.rotation.set(0, 0, (turn.any * Math.PI) / 180);
       // 2026-11-18: a ProjectileEffect root then takes its OnBeforePlay rotation (fx/face.js effectTurn `main` / `roll`) —
       // what render/fx/face.js bodyTurn sets again on a flying shot; a still one (a shell on its spot) has only this
@@ -3687,7 +4213,12 @@ export class FxInstance {
     }
   }
 
-  /** What a clip track drives, resolved once (applyClip runs every frame). */
+  /**
+   * What a clip track drives, resolved once (applyClip runs every frame).
+   * @param {ClipTrack} tr
+   * @param {number} len
+   * @returns {TrackBind | null}
+   */
   bindTrack(tr, len) {
     const o = this.nodes[tr.node];
     if (!o) return null;
@@ -3696,6 +4227,12 @@ export class FxInstance {
     return r;
   }
 
+  /**
+   * @param {ClipTrack} tr
+   * @param {number} len
+   * @param {THREE.Object3D} o
+   * @returns {TrackBind | null}
+   */
   bindTrack0(tr, len, o) {
     if (tr.prop === 'pos' || tr.prop === 'scale' || tr.prop === 'quat' || tr.prop === 'euler') return { tr, o, kind: tr.prop, len };
     if (tr.prop === 'width') { const ln = this.lines.find((t) => t.node === o); return ln ? { tr, o, kind: 'width', ln, len } : null; } // local patch
@@ -3727,27 +4264,33 @@ export class FxInstance {
     if (!mat) return null;
     const [name, comp0] = tr.prop.slice(4).split('.');
     const uname = CLIP_UNIFORM[name] || CLIP_COMP[name]?.[0], comp = comp0 || CLIP_COMP[name]?.[1];
+    /** @type {(m: THREE.ShaderMaterial) => TrackBind | null} */
     const one = (m) => {
       if (/^_Anchor/.test(name) && m.uniforms.uDisMode?.value !== 2) return null;   // only Disturb Anchor declares them
       const u = m.uniforms[uname];
       if (!u) return null;
-      if (m.userData.uvt) m.userData.uvt = m.userData.uvt.filter((e) => e.u !== u); // uvTween: the clip's property block wins
+      if (m.userData.uvt) m.userData.uvt = m.userData.uvt.filter((/** @type {UvTweenMap} */ e) => e.u !== u); // uvTween: the clip's property block wins
       if ([...UV_SHARED.values()].includes(u.value)) u.value = u.value.clone();   // (its own block, not the shared material)
       const k = uname === 'uTint' ? 2 : 1;   // the material tint carries the shaders' ×2 (makeMaterial)
       return comp ? { tr, o, kind: 'matComp', u, axis: CLIP_AXIS[comp], k, len } : { tr, o, kind: 'mat', u, len };
     };
     // (2026-10-26) the renderer's property block reaches each of its materials (n.mesh.more)
-    const all = [mat, ...(mat === this.meshMats[tr.node] ? this.meshMore[tr.node] || [] : [])].map(one).filter(Boolean);
+    const all = /** @type {TrackBind[]} */ ([mat, ...(mat === this.meshMats[tr.node] ? this.meshMore[tr.node] || [] : [])].map(one).filter(Boolean));
     if (all.length > 1) all[0].also = all.slice(1);
     return all[0] || null;
   }
 
-  /** local patch: whether layer k (0, or FX_BACK / FX_FRONT of a split instance) has a renderer of this effect. */
+  /**
+   * local patch: whether layer k (0, or FX_BACK / FX_FRONT of a split instance) has a renderer of this effect.
+   * @param {number} k
+   */
   hasLayer(k) { return !this.empty && (this.layerN?.[k] || 0) > 0; }
 
   /**
    * 2026-10-10: a line effect's two ends (client LineEffectEmitterDynamic, fx_extract.py `lineDyn`): every LineRenderer of it
    * runs from point `a` to `b` ({x, y, z} in the coordinates the effect's object sits in) from now on; null = its authored points.
+   * @param {{ x: number, y: number, z: number } | null | undefined} a
+   * @param {{ x: number, y: number, z: number } | null | undefined} b
    */
   setLine(a, b) {
     const ends = a && b ? [{ x: +a.x || 0, y: +a.y || 0, z: +a.z || 0 }, { x: +b.x || 0, y: +b.y || 0, z: +b.z || 0 }] : null;
@@ -3758,6 +4301,7 @@ export class FxInstance {
    * 2026-10-16: every LineRenderer of the effect runs through `pts` ({x, y, z} in the coordinates the effect's object sits
    * in, in order; at most LINE_PATH_MAX) from now on — client ChainLightningEffectBehaviour.PlayLineEffect:
    * positionCount = the units, SetPosition(i, unit i). Fewer than two points or null: its authored points.
+   * @param {{ x: number, y: number, z: number }[] | null | undefined} pts
    */
   setPath(pts) {
     const path = Array.isArray(pts) && pts.length >= 2 ? pts.map((p) => ({ x: +p.x || 0, y: +p.y || 0, z: +p.z || 0 })) : null;
@@ -3767,7 +4311,10 @@ export class FxInstance {
   /** Game seconds × speed (effect seconds) before the effect and its last delayed branch start (0 when nothing waits). */
   get lead() { return (this.wait || 0) + (this.branches || []).reduce((m, b) => Math.max(m, b.at), 0); }
 
-  /** End emission (looping buffs); `now` also removes the live particles. */
+  /**
+   * End emission (looping buffs); `now` also removes the live particles.
+   * @param {boolean} [now]
+   */
   stop(now = false) {
     if (!this.stopping) this.finishAnim();
     this.stopping = true;
@@ -3805,9 +4352,11 @@ export class FxInstance {
   finishMain() {
     if (this.empty || this.disposed || this.offFinish) return;
     const nodes = this.def.nodes;
+    /** @type {(i: number) => boolean} */
     const activeIn = (i) => { for (let k = i; k >= 0; k = nodes[k].parent) if (nodes[k].active === false) return false; return true; };
+    /** @type {(o: THREE.Object3D, top: THREE.Object3D) => boolean} */
     const within = (o, top) => { for (let p = o; p && p !== this.unity; p = p.parent) if (p === top) return true; return false; };
-    const main = Number.isInteger(this.def.mainPs) && this.def.mainPs >= 0 && this.def.mainPs < nodes.length ? this.def.mainPs : -1;
+    const main = Number.isInteger(this.def.mainPs) && /** @type {number} */ (this.def.mainPs) >= 0 && /** @type {number} */ (this.def.mainPs) < nodes.length ? /** @type {number} */ (this.def.mainPs) : -1;
     const first = main >= 0 ? main : nodes.findIndex((n, i) => n.ps && activeIn(i));
     if (first >= 0) for (const s of this.systems) if (within(s.node, this.nodes[first])) s.stop();
     this.offFinish = (this.def.offFinish || []).map((i) => this.nodes[i]).filter(Boolean);
@@ -3829,6 +4378,7 @@ export class FxInstance {
       && (!this.holdMeshes || !!this.stopping);
   }
 
+  /** @param {number} dt */
   update(dt) {
     // disposed: ended here (PLAYER_CAP) while its owner still holds it — it must not keep simulating unseen
     if (this.empty || this.disposed) return;
@@ -3875,6 +4425,7 @@ export class FxInstance {
    * Animator's `speed` take it, each TrailRenderer's `time` and `minVertexDistance` are divided by it. So the whole effect runs at
    * that share of the time here (the ribbons' ages with it), its ribbons record their points that much farther apart, and only
    * what runs on the engine's clock stays as it was: the shaders' `_Time` and the tweens' scrolls (shaderClock).
+   * @param {number} k
    */
   setMoveScale(k) {
     if (this.empty) return;
@@ -3885,6 +4436,7 @@ export class FxInstance {
   /** The materials' clock goes on at full rate (setMoveScale): ahead of the effect's by `shaderAhead`. */
   shaderClock() {
     const k = this.shaderAhead;
+    /** @type {(m: THREE.ShaderMaterial, n: THREE.Object3D | THREE.ShaderMaterial) => void} */
     const set = (m, n) => setTime(m, this.time - (n.userData.t0 || 0) + k);
     for (const s of this.systems) { set(s.material, s.node); if (s.trailBatch) set(s.trailBatch.material, s.node); }
     for (const t of this.trails) set(t.batch.material, t.node);
@@ -3919,7 +4471,10 @@ export class FxInstance {
     for (const t of this.trails) t.shift(e);
   }
 
-  /** Every clip's tracks at effect time t, each held on its own clip's last frame. */
+  /**
+   * Every clip's tracks at effect time t, each held on its own clip's last frame.
+   * @param {number} t
+   */
   applyClip(t) {
     const v = this.clipV;
     for (const b of this.clipTracks) {
@@ -3931,7 +4486,11 @@ export class FxInstance {
     }
   }
 
-  /** What track `b` drives holds now, in the clip's units (the default a state machine blends towards). */
+  /**
+   * What track `b` drives holds now, in the clip's units (the default a state machine blends towards).
+   * @param {TrackBind} b
+   * @returns {number[]}
+   */
   trackValue(b) {
     const o = b.o;
     switch (b.kind) {
@@ -3956,15 +4515,24 @@ export class FxInstance {
    * when its transition starts); a transition blends the two states over its duration (seconds, or of the source state's
    * length with `norm`), both clips running, then the new state goes on from where it got to. Its parameters start at
    * their defaults; the effect's finish (`animFin`), code (setParam) and a buff progress source (`animSrc`) set them.
+   * @param {SmDef} d
+   * @param {number} k
+   * @returns {SmRun}
    */
   newSm(d, k) {
+    /** @type {Record<string, unknown>} */
     const p = {};
     for (const [n, [, v]] of Object.entries(d.params || {})) p[n] = v;
     return { d, k, cur: d.def || 0, t: 0, fresh: true, tr: null, p, fin: false };
   }
 
-  smClip(m, s) { return this.clips[m.d.states[s]?.clip] || null; }
+  /**
+   * @param {SmRun} m @param {number} s
+   * @returns {FxClip | null}
+   */
+  smClip(m, s) { return this.clips[/** @type {number} */ (m.d.states[s]?.clip)] || null; }
 
+  /** @param {SmRun} m @param {number} dt */
   stepSm(m, dt) {
     // a nested sub-prefab's Animator starts when its branch shows
     const off = this.nodes[m.d.node]?.userData.t0 || 0;
@@ -3973,7 +4541,7 @@ export class FxInstance {
     for (const s of this.def.animSrc || []) {
       if (s.sm !== m.k) continue;
       const v = this.srcValue(s);
-      m.p[s.p] = s.int ? Math.trunc(v) : v;
+      m.p[s.p] = s.int ? Math.trunc(/** @type {number} */ (v)) : v;
     }
     // 2026-11-16 (official client SetAnimatorTriggerByCondition + BuffsKeyAnimatorTrigger, fx_extract.py `animBuff`): the
     // trigger of the first pair whose buff the owner holds, else the default — set as it plays and again when it changes
@@ -4008,6 +4576,10 @@ export class FxInstance {
     }
   }
 
+  /**
+   * @param {SmRun} m @param {number} s
+   * @param {number} [t]
+   */
   enterState(m, s, t = 0) {
     m.cur = s;
     m.t = t;
@@ -4020,6 +4592,7 @@ export class FxInstance {
     for (const slot of this.smSlots.values()) {
       const m = slot.m, v = slot.v, n = slot.def.length;
       const w = m.tr ? Math.min(1, m.tr.t / m.tr.dur) : 0;
+      /** @type {[number | undefined, number, number][]} */
       const play = m.tr ? [[m.d.states[m.cur]?.clip, m.t, 1 - w], [m.d.states[m.tr.to]?.clip, m.tr.dt, w]] : [[m.d.states[m.cur]?.clip, m.t, 1]];
       v.length = n;
       v.fill(0);
@@ -4043,10 +4616,14 @@ export class FxInstance {
     }
   }
 
-  /** Whether state machine `m` keeps the effect alive: running a clip, a transition, or one about to start by itself. */
+  /**
+   * Whether state machine `m` keeps the effect alive: running a clip, a transition, or one about to start by itself.
+   * @param {SmRun} m
+   * @returns {boolean}
+   */
   smSettled(m) {
     const c = this.smClip(m, m.cur);
-    const played = !m.tr && (!c || (!c.loop && m.t >= c.len));
+    const played = !m.tr && (!c || (!c.loop && m.t >= /** @type {number} */ (c.len)));
     // finished: a state its finish switched to plays out unless it loops (the pool recycles it `finish` s later)
     if (this.stopping) return !m.fin || played || (!m.tr && !!c?.loop);
     return played && !(m.d.trans || []).some((t) => (t.from === m.cur || t.from === -1) && !t.cond);
@@ -4057,7 +4634,7 @@ export class FxInstance {
     const m = this.sms.find((x) => x.d.node === 0);
     if (m) {
       const c = this.smClip(m, m.cur);
-      return !m.tr && !!c && !c.loop && m.t >= c.len;
+      return !m.tr && !!c && !c.loop && m.t >= /** @type {number} */ (c.len);
     }
     return !!this.clips.length && !this.clipLoops && this.time >= this.clipLen;
   }
@@ -4067,10 +4644,14 @@ export class FxInstance {
    * updated, finished and removed with it — the module variant a SwitchableWhenContainsEquipment creates on the owner and
    * finishes at its own finish (render/fxgame.js equipVariant).
    */
-  /** The floor on the depth-tested materials: what lies under it is cut, a ZDistort material's depth lies on it. */
+  /**
+   * The floor on the depth-tested materials: what lies under it is cut, a ZDistort material's depth lies on it.
+   * @param {number} floor
+   */
   applyFloor(floor) {
     this.floor = floor;
     const cut = floor - 0.05;
+    /** @type {(m: THREE.ShaderMaterial) => void} */
     const setFloor = (m) => {
       if (m.userData.zflat) m.uniforms.uBaseH.value = m.userData.baseH + floor;
       else if (m.userData.ztest) m.uniforms.uFloor.value = cut;
@@ -4085,6 +4666,7 @@ export class FxInstance {
    * 深水区 (docs/rules/fx.md 「심해 구역의 바닥 자르기」): `z` < 0 = how deep what this effect is on or flies at has sunk: the
    * floor goes down to it, and back to the floor it was made with when `z` is 0 again. Water hides nothing; the road's
    * height is no ground there. Called per frame: unchanged, it touches nothing. No floor (null): stays uncut.
+   * @param {number} z
    */
   setSink(z) {
     if (this.floor0 == null) return;
@@ -4093,6 +4675,7 @@ export class FxInstance {
     if (this.kids) for (const c of this.kids) c.setSink(z);
   }
 
+  /** @param {FxInstance | null | undefined} c */
   adopt(c) {
     if (!c || c.empty) return;
     (this.kids ||= []).push(c);
@@ -4107,12 +4690,15 @@ export class FxInstance {
       const m = this.sms[f.sm];
       if (!m || (f.rec && !fin)) continue;   // TriggerAnimatorWhenFinish / SwitchAnimatorStateWhenFinish: only with a delayToRecycle
       m.fin = true;
-      if (Number.isInteger(f.play)) this.enterState(m, f.play);
+      if (Number.isInteger(f.play)) this.enterState(m, /** @type {number} */ (f.play));
       else if (f.p) m.p[f.p] = f.v;
     }
   }
 
-  /** Set an Animator parameter of the effect's state machines (the client: Animator.SetInteger / SetTrigger …). */
+  /**
+   * Set an Animator parameter of the effect's state machines (the client: Animator.SetInteger / SetTrigger …).
+   * @param {string} name @param {unknown} v
+   */
   setParam(name, v) {
     for (const m of this.sms) if (m.d.params && name in m.d.params) m.p[name] = v;
   }
@@ -4120,18 +4706,22 @@ export class FxInstance {
   /**
    * The owner's buff `key`'s blackboard progress for a BuffProgressFloatSource (`animSrc`): `r` in [0, 1], null = no
    * such buff. Unset, the buff is taken as full [추정: the buff the effect shows is added with it].
+   * @param {string} key @param {unknown} r
    */
   setBuffProgress(key, r) { (this.buffProg ||= new Map()).set(key, r == null ? null : Math.min(1, Math.max(0, Number(r) || 0))); }
 
   /**
    * BuffsKeyAnimatorTrigger.GetValue for `animBuff` entry `s`: `heldBuff(key)` (set by render/fxgame.js from the owner's
    * view) answers true / false, or null when the view cannot tell — taken as held [추정: the effect plays with its buff].
+   * @param {AnimBuff} s
+   * @returns {string | null | undefined}
    */
   buffTrigger(s) {
     for (const [trigger, key] of s.pairs || []) if (this.heldBuff?.(key) ?? true) return trigger;
     return s.def;
   }
 
+  /** @param {AnimSource} s */
   srcValue(s) {
     if (this.stopping) return s.fin;   // GetValue once finished: `_finishedVal`
     const r = this.buffProg?.has(s.buff) ? this.buffProg.get(s.buff) : 1;
@@ -4156,7 +4746,10 @@ export class FxInstance {
 
 // ---- 2026-11-04: flights of one prefab drawn together --------------------------------------------------------------------
 const SCROLL_UNIFORMS = ['uMainSpeed', 'uDisturbSpeed', 'uDissolveSpeed', 'uSpeedB', 'uSpeedC'];
-/** A material that looks the same at any effect time: no uniform of it depends on which instance it belongs to (clips aside). */
+/**
+ * A material that looks the same at any effect time: no uniform of it depends on which instance it belongs to (clips aside).
+ * @param {THREE.ShaderMaterial} mat
+ */
 function timeless(mat) {
   if (mat.userData.uvt || mat.userData.zflat) return false;
   for (const k of SCROLL_UNIFORMS) {
@@ -4165,17 +4758,26 @@ function timeless(mat) {
   }
   return true;
 }
-const ORDER_FAR_FIRST = (a, b) => b.flightDepth - a.flightDepth;
+/** @type {(a: FxInstance, b: FxInstance) => number} */
+const ORDER_FAR_FIRST = (a, b) => /** @type {number} */ (b.flightDepth) - /** @type {number} */ (a.flightDepth);
 const NODE_TRACKS = new Set(['pos', 'scale', 'quat', 'euler', 'active', 'visible']);   // clip tracks a merge keeps: transforms are baked per frame
 const FLIGHT_STRIP_CAP = 32000;   // points of a merged ribbon draw: two vertices each, in 16-bit indices
 
-/** Is `o` drawn as far as the nodes of its instance go? */
+/**
+ * Is `o` drawn as far as the nodes of its instance go?
+ * @param {THREE.Object3D} o @param {THREE.Object3D | null} top
+ */
 function shown(o, top) {
   for (let p = o; p && p !== top; p = p.parent) if (!p.visible) return false;
   return true;
 }
 
-/** A merged draw shows what was added, with the material and order of the renderers it stands for, at the group's origin. */
+/**
+ * A merged draw shows what was added, with the material and order of the renderers it stands for, at the group's origin.
+ * @param {THREE.Mesh} mesh @param {boolean} on
+ * @param {THREE.ShaderMaterial | undefined} material @param {number | undefined} order
+ * @param {number} x @param {number} y @param {number} z
+ */
 function showMerged(mesh, on, material, order, x, y, z) {
   mesh.visible = on;
   if (!on) return;
@@ -4186,10 +4788,13 @@ function showMerged(mesh, on, material, order, x, y, z) {
 
 /**
  * Particle rows of several systems in one instanced draw, positions baked to the scene.
- * @typedef {RowBatch & { g: any, ib: any }} RowBatchMesh with its geometry `g` and instance buffer `ib` (set by destructuring)
+ * @typedef {RowBatch & { g: THREE.InstancedBufferGeometry, ib: THREE.InstancedInterleavedBuffer }} RowBatchMesh with its geometry `g` and instance buffer `ib` (set by destructuring)
  */
 class RowBatch {
-  /** @this {RowBatchMesh} */
+  /**
+   * @this {RowBatchMesh}
+   * @param {THREE.Object3D} scene
+   */
   constructor(scene) {
     this.room = PS_ROOM0;
     ({ g: this.g, ib: this.ib } = instanced(QUAD, this.room));
@@ -4202,7 +4807,11 @@ class RowBatch {
 
   begin() { this.n = 0; }
 
-  /** @this {RowBatchMesh} */
+  /**
+   * @this {RowBatchMesh}
+   * @param {ParticleSystem} s
+   * @param {number} ox @param {number} oy @param {number} oz
+   */
   add(s, ox, oy, oz) {
     const count = s.geometry.instanceCount, n = this.n;
     if (n + count > this.room) {
@@ -4227,7 +4836,11 @@ class RowBatch {
     return true;
   }
 
-  /** @this {RowBatchMesh} */
+  /**
+   * @this {RowBatchMesh}
+   * @param {THREE.ShaderMaterial | undefined} material @param {number | undefined} order
+   * @param {number} x @param {number} y @param {number} z
+   */
   end(material, order, x, y, z) {
     if (this.n) { this.ib.clearUpdateRanges(); this.ib.addUpdateRange(0, this.n * IV); this.ib.needsUpdate = true; }
     this.g.instanceCount = this.n;
@@ -4240,8 +4853,9 @@ class RowBatch {
 
 /** Ribbons of several renderers in one strip draw (a StripBatch of its own), points baked to the scene. */
 class StripRows {
+  /** @param {THREE.Object3D} scene @param {THREE.ShaderMaterial} material */
   constructor(scene, material) {
-    this.b = new StripBatch(material, FLIGHT_STRIP_CAP);
+    this.b = /** @type {StripBatchBuf} */ (new StripBatch(material, FLIGHT_STRIP_CAP));
     this.b.geometry.boundingSphere = new THREE.Sphere();   // its origin sets the draw order, as a particle system's
     this.mesh = this.b.mesh;
     this.mesh.visible = false;
@@ -4250,7 +4864,11 @@ class StripRows {
 
   begin() { this.b.begin(); }
 
-  /** @returns false when the cap leaves no room: the renderer keeps its own draw. */
+  /**
+   * @returns false when the cap leaves no room: the renderer keeps its own draw.
+   * @param {StripBatchBuf} src
+   * @param {number} ox @param {number} oy @param {number} oz
+   */
   add(src, ox, oy, oz) {
     const b = this.b, base = b.n, need = base + src.n;
     if (need > b.cap) return false;
@@ -4273,6 +4891,10 @@ class StripRows {
     return true;
   }
 
+  /**
+   * @param {THREE.ShaderMaterial | undefined} material @param {number | undefined} order
+   * @param {number} x @param {number} y @param {number} z
+   */
   end(material, order, x, y, z) {
     this.b.end();
     showMerged(this.mesh, this.b.ni > 0, material, order, x, y, z);
@@ -4291,8 +4913,10 @@ class StripRows {
  * The look is compared pixel by pixel with the separate draws: test/render/flight-batch.browser.test.js.
  */
 export class FlightBatch {
+  /** @param {THREE.Object3D} scene */
   constructor(scene) {
     this.scene = scene;
+    /** @type {Map<FxDef, { sig: number, slots: FlightSlot[], members: FxInstance[] }>} */
     this.groups = new Map();   // def → { sig, slots: [{ pick, batch }], members }
     this.fw = new THREE.Vector3();
     this.cp = new THREE.Vector3();
@@ -4302,16 +4926,20 @@ export class FlightBatch {
    * Which renderers of this prefab merge: read from the first instance, the same for every instance of a prefab and size. Merging
    * moves a renderer's draw past the other instances' renderers of the same sorting order, which only additive ones do not see:
    * a renderer sharing its order merges only when all of that order are additive (the frame's sum is the same in any order).
+   * @param {FxInstance} inst
+   * @returns {FlightSlot[]}
    */
   slotsOf(inst) {
     const allAdd = new Map(), seen = new Map();   // per renderOrder: every renderer of it additive? how many?
-    inst.object.traverse((o) => {
+    inst.object.traverse((/** @type {THREE.Mesh} */ o) => {
       if (!o.isMesh) return;
       const add = !!o.material?.uniforms?.uAdditive?.value;
       allAdd.set(o.renderOrder, (allAdd.get(o.renderOrder) ?? true) && add);
       seen.set(o.renderOrder, (seen.get(o.renderOrder) ?? 0) + 1);
     });
+    /** @type {(mesh: THREE.Mesh) => boolean | undefined} */
     const free = (mesh) => seen.get(mesh.renderOrder) === 1 || allAdd.get(mesh.renderOrder);
+    /** @type {FlightSlot[]} */
     const slots = [];
     inst.systems.forEach((s, i) => {
       const u = s.material.uniforms, mode = u.uMode.value, al = u.uAlign.value;
@@ -4319,7 +4947,7 @@ export class FlightBatch {
         slots.push({ pick: (x) => x.systems[i], id: s.mesh.id, strip: false, batch: null, material: s.material });
       }
       if (s.trailBatch && free(s.trailBatch.mesh) && timeless(s.trailBatch.material)) {
-        slots.push({ pick: (x) => x.systems[i].trailBatch, id: s.trailBatch.mesh.id, strip: true, batch: null, material: s.trailBatch.material });
+        slots.push({ pick: (x) => /** @type {StripBatch} */ (x.systems[i].trailBatch), id: s.trailBatch.mesh.id, strip: true, batch: null, material: s.trailBatch.material });
       }
     });
     inst.trails.forEach((t, i) => {
@@ -4330,7 +4958,10 @@ export class FlightBatch {
     return slots.sort((a, b) => a.id - b.id);   // three.js's last tie-break between renderers of one depth and order
   }
 
-  /** `flights`: the live instances to draw together, whichever of them are in this scene. @returns the instances merged. */
+  /**
+   * `flights`: the live instances to draw together, whichever of them are in this scene. @returns the instances merged.
+   * @param {FxInstance[]} flights @param {THREE.PerspectiveCamera} camera
+   */
   sync(flights, camera) {
     const groups = this.groups;
     if (!flights.length) { if (groups.size) this.dispose(); return 0; }
@@ -4363,56 +4994,75 @@ export class FlightBatch {
     return merged;
   }
 
+  /**
+   * @param {FlightSlot} sl @param {FxInstance[]} M
+   * @param {number} ox @param {number} oy @param {number} oz
+   */
   merge(sl, M, ox, oy, oz) {
     sl.batch ||= besideRandom(() => (sl.strip ? new StripRows(this.scene, sl.material) : new RowBatch(this.scene)));
-    const b = sl.batch;
+    const b = /** @type {MergeBatch} */ (sl.batch);
     b.begin();
+    /** @type {ParticleSystem | StripBatch | null} */
     let lead = null;
     for (const m of M) {
       const x = sl.pick(m);
       if (!x.mesh.visible || !shown(x.mesh, m.object)) continue;
       const u = x.material.uniforms;
       if (u.uSysOn.value || (lead && u.uFloor.value !== lead.material.uniforms.uFloor.value)) continue;
-      if (sl.strip && !x.ni) continue;
+      if (sl.strip && !/** @type {StripBatch} */ (x).ni) continue;
       if (b.add(x, ox, oy, oz)) { x.mesh.visible = false; lead ||= x; }
     }
     b.end(lead?.material, lead?.mesh.renderOrder, ox, oy, oz);
   }
 
   dispose() {
-    for (const g of this.groups.values()) for (const sl of g.slots) sl.batch?.dispose();
+    for (const g of this.groups.values()) for (const sl of g.slots) /** @type {MergeBatch | null} */ (sl.batch)?.dispose();
     this.groups.clear();
   }
 }
 
 // ---- 2026-11-12: one prefab laid on many tiles drawn together ----------------------------------------------------------
 const LINEAR = [0, 1, 2, 4, 5, 6, 8, 9, 10];
-/** Do two world matrices (their elements) turn and scale alike — differ by their translation only? */
+/**
+ * Do two world matrices (their elements) turn and scale alike — differ by their translation only?
+ * @param {ArrayLike<number>} a @param {ArrayLike<number>} b
+ */
 function sameLinear(a, b) {
   for (const k of LINEAR) if (Math.abs(a[k] - b[k]) > 1e-6 * (1 + Math.abs(a[k]))) return false;
   return true;
 }
 const INSTANCE_NAMES = new Set(INSTANCE_ATTRS.map(([name]) => name));
-/** The meshes of an instance drawn from rows (particle systems, MeshRenderers), in its nodes' order: alike in every copy. */
+/**
+ * The meshes of an instance drawn from rows (particle systems, MeshRenderers), in its nodes' order: alike in every copy.
+ * @param {FxInstance} inst
+ * @returns {THREE.Mesh[]}
+ */
 function rowMeshes(inst) {
+  /** @type {THREE.Mesh[]} */
   const out = [];
-  inst.object.traverse((o) => {
+  inst.object.traverse((/** @type {THREE.Mesh} */ o) => {
     const g = o.geometry;
     if (o.isMesh && !o.isSkinnedMesh && g?.isInstancedBufferGeometry && g.getAttribute('iPos')) out.push(o);
   });
   return out;
 }
-/** Is `o` drawn as far as its scene goes? */
+/**
+ * Is `o` drawn as far as its scene goes?
+ * @type {(o: THREE.Object3D) => boolean}
+ */
 const shownAll = (o) => shown(o, null);
 const tileM3 = new THREE.Matrix3(), tileV = new THREE.Vector3();
+/** @type {WeakMap<FxInstance, THREE.Mesh[]>} */
 const rowsOf = new WeakMap();   // instance → its row meshes (rowMeshes)
+/** @type {(a: THREE.Object3D, b: THREE.Object3D) => number} */
 const TILE_FAR_FIRST = (a, b) => b.userData.tileDepth - a.userData.tileDepth;
 
 /** The rows of several copies of one renderer in one instanced draw, in the frame of the first copy's renderer. */
 class TileRows {
+  /** @param {THREE.Object3D} scene */
   constructor(scene) {
     this.room = PS_ROOM0;
-    this.ib = null; this.g = null; this.src = null;
+    this.ib = /** @type {THREE.InstancedInterleavedBuffer | null} */ (null); this.g = /** @type {THREE.InstancedBufferGeometry | null} */ (null); this.src = /** @type {THREE.BufferGeometry | null} */ (null);
     this.mesh = new THREE.Mesh(new THREE.InstancedBufferGeometry());
     this.mesh.frustumCulled = false;
     this.mesh.matrixAutoUpdate = false;
@@ -4421,7 +5071,10 @@ class TileRows {
     this.n = 0;
   }
 
-  /** A geometry over `src`'s shape (its index, draw range and every attribute but the rows, shared) with `room` rows. */
+  /**
+   * A geometry over `src`'s shape (its index, draw range and every attribute but the rows, shared) with `room` rows.
+   * @param {THREE.BufferGeometry} src @param {number} room
+   */
   build(src, room) {
     const g = new THREE.InstancedBufferGeometry();
     g.index = src.index;
@@ -4436,26 +5089,34 @@ class TileRows {
     this.g = g; this.ib = ib; this.src = src; this.room = room;
   }
 
-  /** Dispose a geometry of this batch without what it shares with its renderers (three.js deletes every attribute's buffer). */
+  /**
+   * Dispose a geometry of this batch without what it shares with its renderers (three.js deletes every attribute's buffer).
+   * @param {THREE.BufferGeometry} g
+   */
   drop(g) {
     for (const name of Object.keys(g.attributes)) if (!INSTANCE_NAMES.has(name)) g.deleteAttribute(name);
     g.setIndex(null);
     g.dispose();
   }
 
+  /** @param {THREE.BufferGeometry} src */
   begin(src) {
     this.n = 0;
     if (src !== this.src) besideRandom(() => this.build(src, this.room));   // its shape's geometry: the first copy's
   }
 
-  /** The rows of renderer `x`, moved by (dx, dy, dz) in its own frame. */
+  /**
+   * The rows of renderer `x`, moved by (dx, dy, dz) in its own frame.
+   * @param {THREE.Mesh} x
+   * @param {number} dx @param {number} dy @param {number} dz
+   */
   add(x, dx, dy, dz) {
     const g = x.geometry, a = g.getAttribute('iPos'), rows = a.isInterleavedBufferAttribute;
     if (rows && a.data.stride !== IV) return false;
     const count = rows ? g.instanceCount : 1, n = this.n;
     if (!count) return false;
-    if (n + count > this.room) { const room = Math.max(n + count, this.room * 2); besideRandom(() => this.build(this.src, room)); }
-    const D = this.ib.array;
+    if (n + count > this.room) { const room = Math.max(n + count, this.room * 2); besideRandom(() => this.build(/** @type {THREE.BufferGeometry} */ (this.src), room)); }
+    const D = /** @type {THREE.InstancedInterleavedBuffer} */ (this.ib).array;
     if (rows) D.set(a.data.array.subarray(0, count * IV), n * IV);
     else {   // a MeshRenderer: one row, an attribute each (FxInstance)
       for (const [name, size, offset] of INSTANCE_ATTRS) {
@@ -4468,10 +5129,13 @@ class TileRows {
     return true;
   }
 
-  /** Drawn with renderer `x`'s material, order, layers and world matrix. */
+  /**
+   * Drawn with renderer `x`'s material, order, layers and world matrix.
+   * @param {THREE.Mesh | null} x
+   */
   end(x) {
     const on = this.n > 0 && !!x;
-    if (on) { this.ib.clearUpdateRanges(); this.ib.addUpdateRange(0, this.n * IV); this.ib.needsUpdate = true; }
+    if (on) { /** @type {THREE.InstancedInterleavedBuffer} */ (this.ib).clearUpdateRanges(); /** @type {THREE.InstancedInterleavedBuffer} */ (this.ib).addUpdateRange(0, this.n * IV); /** @type {THREE.InstancedInterleavedBuffer} */ (this.ib).needsUpdate = true; }
     this.g && (this.g.instanceCount = this.n);
     this.mesh.visible = on;
     if (!on) return;
@@ -4501,7 +5165,9 @@ export class TileBatch {
   constructor() {
     this.fw = new THREE.Vector3();
     this.cp = new THREE.Vector3();
+    /** @type {Map<FxDef, { slots: number[] | null, n: number, sets: { scene: THREE.Object3D, rows: TileRows[] }[] }>} */
     this.pools = new Map();   // def → { slots: [its mergeable row meshes' indices], n: row meshes, sets: [{ scene, rows: [TileRows per slot] }] }
+    /** @type {THREE.Object3D[]} */
     this.hidden = [];
   }
 
@@ -4510,8 +5176,11 @@ export class TileBatch {
    * which orders its rows by the camera itself. Unlike FlightBatch, renderers sharing a sorting order merge too: the copies
    * lie on distinct tiles, so one draws over another only at their edges, and within each copy those renderers keep their
    * order (the first copy's, the same in each: they are placed alike).
+   * @param {THREE.Object3D[]} meshes
+   * @returns {number[]}
    */
   slotsOf(meshes) {
+    /** @type {number[]} */
     const out = [];
     meshes.forEach((o, i) => { if (!Object.hasOwn(o, 'onBeforeRender')) out.push(i); });
     return out;
@@ -4520,9 +5189,12 @@ export class TileBatch {
   /**
    * `insts`: the live instances laid on tiles, in any scenes; `camera` the one they are drawn with (each renderer's copies
    * farthest first, as three.js orders them apart). @returns the copies merged.
+   * @param {FxInstance[]} insts
+   * @param {THREE.PerspectiveCamera | null} [camera]
    */
   sync(insts, camera = null) {
     if (camera) { camera.getWorldDirection(this.fw); this.cp.setFromMatrixPosition(camera.matrixWorld); } else this.fw.set(0, 0, 0);
+    /** @type {Map<FxDef, Map<string, { scene: THREE.Object3D, members: FxInstance[] }>>} */
     const groups = new Map();   // `${def name} ${scene} ${time …}` → { def, scene, members }
     for (const inst of insts) {
       if (inst.empty || inst.disposed || inst.wait > 0 || inst.kids) continue;
@@ -4535,11 +5207,11 @@ export class TileBatch {
       let turn = '';
       for (const k of LINEAR) turn += `${Math.round(e[k] * 1e5)},`;
       const key = `${scene.id} ${inst.time} ${inst.floor} ${inst.stopping ? 1 : 0} ${inst.moveScale} ${inst.shaderAhead} ${sms} ${turn}`;
-      const pool = this.pools.get(inst.def) || this.pools.set(inst.def, { slots: null, n: 0, sets: [] }).get(inst.def);
+      const pool = /** @type {{ slots: number[] | null, n: number, sets: { scene: THREE.Object3D, rows: TileRows[] }[] }} */ (this.pools.get(inst.def) || this.pools.set(inst.def, { slots: null, n: 0, sets: [] }).get(inst.def));
       let g = groups.get(inst.def)?.get(key);
       if (!g) {
         if (!groups.has(inst.def)) groups.set(inst.def, new Map());
-        groups.get(inst.def).set(key, (g = { scene, members: [] }));
+        /** @type {Map<string, { scene: THREE.Object3D, members: FxInstance[] }>} */ (groups.get(inst.def)).set(key, (g = { scene, members: [] }));
       }
       let rm = rowsOf.get(inst);
       if (!rm) rowsOf.set(inst, (rm = rowMeshes(inst)));
@@ -4552,24 +5224,30 @@ export class TileBatch {
     for (const [def, pool] of this.pools) {
       const keyed = [...(groups.get(def)?.values() || [])].filter((g) => g.members.length > 1);
       // a set of batches per group of copies, kept for the next frames (in the scene of its group)
-      while (pool.sets.length > keyed.length) for (const b of pool.sets.pop().rows) b.dispose();
+      while (pool.sets.length > keyed.length) for (const b of /** @type {{ rows: TileRows[] }} */ (pool.sets.pop()).rows) b.dispose();
       keyed.forEach((g, k) => {
+        /** @type {{ scene: THREE.Object3D, rows: TileRows[] } | null | undefined} */
         let set = pool.sets[k];
         if (set && set.scene !== g.scene) { for (const b of set.rows) b.dispose(); set = null; }
-        if (!set) pool.sets[k] = set = { scene: g.scene, rows: pool.slots.map(() => besideRandom(() => new TileRows(g.scene))) };
-        pool.slots.forEach((i, j) => { merged += this.merge(set.rows[j], g.members, i); });
+        if (!set) pool.sets[k] = set = { scene: g.scene, rows: /** @type {number[]} */ (pool.slots).map(() => besideRandom(() => new TileRows(g.scene))) };
+        /** @type {number[]} */ (pool.slots).forEach((i, j) => { merged += this.merge(set.rows[j], g.members, i); });
       });
       if (!pool.sets.length && !groups.has(def)) this.pools.delete(def);
     }
     return merged;
   }
 
-  /** Row mesh `i` of each copy in batch `b`: drawn there when two or more show it alike. @returns the copies merged. */
+  /**
+   * Row mesh `i` of each copy in batch `b`: drawn there when two or more show it alike. @returns the copies merged.
+   * @param {TileRows} b @param {FxInstance[]} members @param {number} i
+   */
   merge(b, members, i) {
+    /** @type {THREE.Mesh | null} */
     let lead = null, c = 0;
+    /** @type {THREE.Mesh[]} */
     const take = [];
     for (const m of members) {
-      const x = rowsOf.get(m)[i];
+      const x = /** @type {THREE.Mesh[]} */ (rowsOf.get(m))[i];
       if (!x.visible || !shownAll(x)) continue;
       if (lead && (x.material.uniforms.uFloor?.value !== lead.material.uniforms.uFloor?.value || !sameLinear(x.matrixWorld.elements, lead.matrixWorld.elements))) continue;
       if (!lead) lead = x;
@@ -4580,9 +5258,9 @@ export class TileBatch {
     }
     if (c < 2) { b.n = 0; b.end(null); return 0; }
     take.sort(TILE_FAR_FIRST);
-    b.begin(lead.geometry);
-    const e = lead.matrixWorld.elements;
-    tileM3.setFromMatrix4(lead.matrixWorld).invert();
+    b.begin(/** @type {THREE.Mesh} */ (lead).geometry);
+    const e = /** @type {THREE.Mesh} */ (lead).matrixWorld.elements;
+    tileM3.setFromMatrix4(/** @type {THREE.Mesh} */ (lead).matrixWorld).invert();
     let n = 0;
     for (const x of take) {
       const f = x.matrixWorld.elements;

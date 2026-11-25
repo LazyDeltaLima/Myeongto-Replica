@@ -48,6 +48,7 @@
     "public/js/render/fxband.js",
     "public/js/render/fxgolden.js",
     "public/js/render/fxmap.js",
+    "public/js/render/fxplayer.js",
     "public/js/render/fxpoints.js",
     "public/js/render/fxroute.js",
     "public/js/render/fxskin.js",
