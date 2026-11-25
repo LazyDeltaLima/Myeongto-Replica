@@ -127,10 +127,10 @@ the files directly under `server/sim/` (`server/sim/*.js`), the files directly u
 `server/sim/content/kits/ops/`, and in the renderer the 3D board `public/js/render/board3d/` and the effect system's parts
 `public/js/render/fx/`, the files directly under `public/js/` (`public/js/*.js`), the screens directly under
 `public/js/screens/` (`public/js/screens/*.js`), the files directly under `public/js/ui/` (`public/js/ui/*.js`) and,
-one by one, 36 of the files directly under `public/js/render/` (the small helpers: drag.js, pick.js, pen.js and the rest;
+one by one, 37 of the files directly under `public/js/render/` (the small helpers: drag.js, pick.js, pen.js and the rest;
 the camera, the board, the snapshot buffer and the Spine actor: projection.js, tiles.js, interp.js, spine.js; the drawn
 textures and the unit HUD: textures.js, hud-bars.js; the effect layer's helpers: fxmap.js, fxstatus.js, fxsubmit.js,
-fxpoints.js and 6 more).
+fxpoints.js and 6 more; the field view itself: app.js).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -650,6 +650,20 @@ most strict errors were, and the JSDoc that fixed them:
   `ThreeObj` (board3d/materials.js) but its context is `WebGL2RenderingContext`, cast where it is taken; a lookup the
   context may answer with `null` (`getActiveUniform`, `getShaderSource`, `createShader`) is cast where it is read; its
   test switches on `globalThis` join `types/page-globals.d.ts`.
+- the field view `public/js/render/app.js` (one closure, `createFieldView`): its public API is a typedef of method
+  signatures (`FieldView`) on `let view = null` — the literal assigned later takes its parameter types from it, and
+  the function's result is that type (a `@type` naming the literal's own type is circular). The wire records it reads
+  (an m.private piece and state, the m.field meta, a stage, a camera request, a drag event) are typedefs of the fields
+  read; a b.ev entry the event switch reads is a union of tuples by kind (`Ev`: an fx's fifth element is its extra
+  record, a `die` event's third its reason), cast from `BattleEvent` where it is handed in, so `switch (e[0])` narrows it.
+  Many tests match app.js lines as text (`spineEvent: (id, name, value) => {`, `const waitStep = async (name, p, ms)`,
+  the `onSwing` call, the `fxForm` block within a few hundred characters): there the types go into a JSDoc line above or
+  into the typedefs, never into the line (`o.turnMs` read as a value: `camTurnMs` is `number | undefined`); where only
+  a cast fits, the test's pattern allows it (feedback3-leader-prep: `layoutPen(stand ? /** @type {PenItem[]} */ (list)`).
+  The context handed to the unit views is units.js `ViewCtx`: its `[k: string]: any` gives no parameter types, so the
+  arrow entries keep their own. The view map (`views`) is an untyped `new Map()` until units.js is
+  strict (its views take fields app.js sets: `_sig`, `_home`, `_tween`); a parameter fed from it is the fields read
+  (`PenFigure`). A flag stored on a function (`handleEvent.warned`) is a cast to `typeof f & { warned?: boolean }`.
 
 
 ## Split classes

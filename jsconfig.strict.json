@@ -37,6 +37,7 @@
     "server/sim/content/kits/ops/**/*.js",
     "public/js/render/board3d/**/*.js",
     "public/js/render/fx/**/*.js",
+    "public/js/render/app.js",
     "public/js/render/auto-quality.js",
     "public/js/render/boardArt.js",
     "public/js/render/drag.js",
