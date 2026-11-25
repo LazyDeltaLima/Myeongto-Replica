@@ -198,6 +198,13 @@ most strict errors were, and the JSDoc that fixed them:
   (`ParticleTrails`, `@this {ParticleTrails}` on the trail methods; their callers cast `this`) instead of a cast at
   every read.
 - `Array.isArray` does not narrow a `readonly string[]` out of `string | readonly string[]`: cast the one-clip branch.
+- a battle event read at one field as a record (render/fxgame.js: an 'fx' event's `e[4]`): `unknown[] & { 4?: FxRec }`
+  (`Ev`) — a `BattleEvent` (`unknown[]`) is assignable to it, and `e[4]` reads as `FxRec | undefined`; a handler that
+  reads it after its dispatch tested it casts once, `const o = /** @type {FxRec} */ (e[4])`. A view map of mixed classes
+  read by fields only one class has: the field in that class's `Lacks<…>` list (types/page-members.d.ts) and the fields
+  one file keeps on the views in an interface the three extend (`FxViewFields`).
+- a module-level field that is null only while the layer is down and never read then (render/fxgame.js `layers`,
+  `camera`, `lib`, made together with `mod`): its type without `null`, `/** @type {never} */ (null)` where it is emptied.
 - `delete o.f` of a field the type requires (TS2790): `delete /** @type {{ f?: number }} */ (o).f`.
 - a method wrapped on another module's prototype (`Match.prototype.finish = function finish(o) …`, local-console.js,
   local-patch.js): the JSDoc goes on the function expression, `= /** @param {…} o */ function finish(o)`; `this` comes

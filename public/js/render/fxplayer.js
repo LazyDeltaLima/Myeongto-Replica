@@ -108,13 +108,18 @@ import { effectTurn } from './fx/face.js';
  *   a parameter fed by a buff's progress (`animSrc`)
  * @typedef {{ sm: number, pairs?: [string, string][], def?: string | null }} AnimBuff a trigger by the owner's buffs (`animBuff`)
  * @typedef {{ sm: number, rec?: boolean, play?: number, p?: string, v?: unknown }} AnimFinish what the finish sets (`animFin`)
- * @typedef {{ fxDelay?: number, delay?: number, rnd?: boolean, bodyNode?: number, [key: string]: unknown }} FaceRec the root's
+ * @typedef {{ fxDelay?: number, delay?: number, rnd?: boolean, bodyNode?: number, speed?: number, limit?: number, hold?: unknown,
+ *   [key: string]: unknown }} FaceRec the root's
  *   effect component (render/fx/face.js)
  * @typedef {{ nodes: FxNode[], materials: Record<string, MatRec | undefined>, geoms: Record<string, THREE.BufferGeometry | null>,
  *   lib: FxLibrary, bundle?: string, face?: FaceRec, mount?: { followScaleSign?: boolean, followScale?: boolean },
  *   jitter?: unknown[], rdir?: unknown[], lod?: { off?: number[], ps?: [number, number][] }, clips?: FxClip[], sms?: SmDef[],
  *   animSrc?: AnimSource[], animBuff?: AnimBuff[], animFin?: AnimFinish[], mainPs?: number, offFinish?: number[],
- *   finish?: number, [key: string]: unknown }} FxDef a loaded prefab (FxLibrary.load: its meshes in `geoms`, its library `lib`)
+ *   finish?: number, name?: string, duration?: number, swFace?: { oneShot?: boolean, [key: string]: unknown },
+ *   back?: { effect?: string, beh?: boolean, force?: boolean, sync?: boolean, oneShot?: boolean, predict?: unknown } | null,
+ *   three?: { up?: string, [key: string]: unknown } | null, right?: string, rightOnce?: boolean, rightRev?: boolean,
+ *   follow?: { once?: boolean, [key: string]: unknown } | null, tileH?: number,
+ *   [key: string]: unknown }} FxDef a loaded prefab (FxLibrary.load: its meshes in `geoms`, its library `lib`)
  */
 /**
  * The player's own records.
@@ -3810,7 +3815,7 @@ export function hasBackOrder(def) {
 export class FxInstance {
   /**
    * @param {FxDef} def FxLibrary.load result
-   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, dir?: {x: number, y: number}|null, body?: string|null, speed?: number, delays?: boolean, scale?: number, floor?: number|null, split?: boolean|'backOnly', atSpawn?: boolean, pivot?: boolean, hold?: number|null, ahead?: boolean, tilt?: number[]|null, pinned?: boolean }} [opts]
+   * @param {{ quality?: 'high'|'medium'|'low', facing?: 1|-1, dir?: {x: number, y: number}|null, body?: string|null, speed?: number, delays?: boolean, scale?: number, floor?: number|null, split?: boolean|'backOnly', atSpawn?: boolean, pivot?: boolean, hold?: number|null, ahead?: boolean, tilt?: readonly number[]|null, pinned?: boolean }} [opts]
    *   tilt (2026-10-22): a Unity quaternion the whole prefab is turned by inside the Unity frame — the `Graphic` rotation of
    *   the unit it is created on (render/fxpoints.js GRAPHIC_TILT / takesGraphicTurn); world-space particles are not turned
    *   facing / dir / body (maintainer decision 2026-10-11 「공식대로」): the effect turns as the client's `ParticleEffect.FaceTo`

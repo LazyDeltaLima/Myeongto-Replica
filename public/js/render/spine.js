@@ -92,13 +92,16 @@
  *   addListener(listener: { event: (entry: unknown, ev: { data?: { name?: string }, stringValue?: string } | null) => void }): void
  * }} SpState
  * @typedef {{ slots: SpSlot[], drawOrder: SpSlot[], skin: unknown, data?: { findSkin?: (name: string) => HeldSkin | null },
- *   setSkin(skin: unknown): void, setSlotsToSetupPose(): void }} SpSkeleton
+ *   setSkin(skin: unknown): void, setSlotsToSetupPose(): void,
+ *   findBone(name: string): (SpBone & SpBoneWorld) | null }} SpSkeleton
+ * @typedef {{ scaleX: number, scaleY: number, getWorldRotationX(): number, getWorldScaleX(): number,
+ *   getWorldScaleY(): number }} SpBoneWorld a bone's turn and scale (the model points read them: render/fxpoints.js)
  * @typedef {{ getAttachments?: () => Array<{ attachment?: SpAttachment | null } | null> }} SpSkin
  * @typedef {{ animations?: Array<{ name: string }>, skins?: SpSkin[] }} SpData PIXI.spine skeleton data
  * @typedef {{ autoUpdate: boolean, state: SpState, stateData: { defaultMix: number }, skeleton: SpSkeleton,
  *   slotContainers: Array<{ visible: boolean } | undefined>, spineData: { findAnimation(name: string): { duration: number } | null },
  *   createGraphics?: (slot: SpSlot, att: SpAttachment) => SpGraphics, tint: number, alpha: number, visible: boolean,
- *   scale: { set(x: number, y?: number): void }, position: { set(x: number, y?: number): void },
+ *   scale: { x: number, y: number, set(x: number, y?: number): void }, position: { set(x: number, y?: number): void },
  *   parent: PIXI.Container | null, getLocalBounds(): { x: number, y: number, width: number, height: number },
  *   update(dt: number): void, destroy(options: object): void }} SpSpine a PIXI.spine.Spine
  * @typedef {{ v: Float32Array, poly: Float32Array, w: Float32Array, a: Float64Array, b: Float64Array }} ClipBuf

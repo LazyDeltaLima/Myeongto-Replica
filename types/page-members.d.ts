@@ -17,6 +17,7 @@ import type { FxArrivals } from '../public/js/render/fx/arrivals.js';
 import type { FxSim } from '../public/js/render/fx/simfx.js';
 import type { FxZones } from '../public/js/render/fx/zones.js';
 import type { StatusFrom } from '../public/js/render/units.js';
+import type { AuraRec, BountyMark, DroneRec, ESkillRec, FoeRec, FxCast, Mode0Rec, View } from '../public/js/render/fxgame.js';
 
 declare module '../public/js/render/fx/system.js' {
   interface FxSystem extends FxParticles, FxProjectiles, FxBeams, FxLocks, FxNumbers, FxRings, FxArrivals, FxSim,
@@ -61,7 +62,77 @@ declare module '../public/js/render/units.js' {
     /** a board piece shows its facing wedge (app.js; bench pieces leave it unset) */
     _showFacing?: boolean;
   }
-  interface UnitView extends AppViewFields {
+  /** What render/fxgame.js keeps on each view (a unit's; the elite glow of a hand item, a device's status effects). */
+  interface FxViewFields {
+    /** the cast its attack's swing began (beginCast), its effects' clock */
+    _fxCast?: FxCast | null;
+    /** the variant a skill's cast was started with ('skill' e[3]) */
+    _fxCastVariant?: string | null;
+    /** a skill is on (its loops play) */
+    _fxSkillOn?: boolean;
+    /** the skill was started by its 'skill' event / by its view's skill flag (skillByFlag) */
+    _fxSkillByEvent?: boolean;
+    _fxSkillFlag?: boolean;
+    /** the kit plans' skill flags held while the skill runs */
+    _fxSkillFlags?: Set<string>;
+    /** when its skill last ended (battle clock) */
+    _fxSkillOffT?: number;
+    /** the mode a cast's variant or facing picked (fxmap.js VARIANT_MODES / FACE_DOWN_MODES) */
+    _fxSub?: string | null;
+    /** the mode buff effects its skill holds on enemies (foeFx) */
+    _fxFoe?: FoeRec | null;
+    /** a mode-less skill's own shot, not taken yet (takeShot) */
+    _fxShot?: { t: number | null } | null;
+    /** where its skill shot's reach effects stand (shotAimOf) */
+    _fxShotAim?: { tgt: View, t: number } | null;
+    /** the targets its marks sit on (pendingHit) */
+    _fxMarked?: Set<unknown> | null;
+    /** the mode it was in as its skill ended (unitModeOf) */
+    _fxEndMode?: { at: number, m: number };
+    /** when a channel's next strike is due (channelFx) */
+    _fxChannelAt?: number | null;
+    /** its attack is at an enemy it blocks ('swing' e[6]) */
+    _fxCombat?: boolean;
+    /** a deploy that plays no deploy effect / a 【返回】 deploy (flushDeploys) */
+    _fxQuietDeploy?: boolean;
+    _fxReturn?: boolean;
+    /** its drones (droneIdle) and this moment's shots of them */
+    _fxDrone?: DroneRec | null;
+    _fxDroneAt?: { t: number, i: number, used: Set<unknown> };
+    _fxAtkAt?: { t: number, n: number };
+    /** the stages of a stacking talent / buff (alpha wolves, souls) */
+    _fxAlpha?: number;
+    _fxSouls?: number;
+    /** the clip groups it last played (castGroup, altGroup) */
+    _fxClipLast?: number;
+    _fxAltLast?: number;
+    /** an enemy's official mode, clip and form as last seen (stepEnemies) */
+    _fxEMode?: number | null;
+    _fxEClip?: string;
+    _fxEForm?: unknown;
+    /** an enemy's rebirth seen (its reborn form) */
+    _fxRebSeen?: boolean;
+    /** an enemy's held skill (eskillFx) */
+    _fxESkill?: ESkillRec | null;
+    /** an aura / bounty mark / Default-mode record it shows (auraFx, bountyFx, defaultModeFx) */
+    _fxAura?: AuraRec | null;
+    _fxBounty?: BountyMark | null;
+    _fxMode0?: Mode0Rec | null;
+    /** a held effect's wait, an orbit's start, a storm's turn (battle clock / count) */
+    _fxHeldWait?: number;
+    _fxOrbitT0?: number;
+    _fxStormN?: number;
+    /** a target's tag set by a kit plan (its target's id, its mode, its owner's view) */
+    _fxTgt?: unknown;
+    _fxTmode?: string;
+    _fxTowner?: View | null;
+    /** a kit mark's end (battle clock) */
+    _clemntMark?: number;
+    /** a status effect's ready state and sources (fxstatus.js) */
+    _fxReady?: boolean;
+    _fxStatusBy?: Map<string, unknown>;
+  }
+  interface UnitView extends AppViewFields, FxViewFields {
     /** status key → its source (onStatus; made on the first one) */
     statusFrom?: Map<string, StatusFrom>;
     /** the status effects fxgame.js statusOn started on it, by key */
@@ -75,23 +146,29 @@ declare module '../public/js/render/units.js' {
   // the class has a listed member (its own member wins, checked): take a member out of the list when the class gains it.
   /** UnitView members the class lacks, each as `?: undefined`. */
   type Lacks<K extends PropertyKey> = { [P in K]?: undefined };
-  interface ItemView extends AppViewFields, Lacks<'setDir' | 'onDeploy' | 'setSkill' | 'setCount' | 'setItems' | 'setEquip'
+  interface ItemView extends AppViewFields, FxViewFields, Lacks<'setDir' | 'onDeploy' | 'setSkill' | 'setCount' | 'setItems' | 'setEquip'
     | 'clearHome' | 'setOverlap' | 'markHome' | 'hover' | 'setTokenMode' | 'windUp' | 'face' | 'faceDeploy' | 'dir'
     | 'turnTo' | 'turnToward' | 'onSwing' | 'onAttack' | 'die' | 'dying' | 'dieDur' | 'onStatus' | 'onStatusHit'
     | 'onStatusCount' | 'slideTo' | 'onEnemySkill' | 'onEnemySkillEnd' | 'onSignal' | 'glide' | 'setForm' | 'fadeIn'
-    | 'setDown' | 'down' | 'actor' | 'spineReady' | 'culled' | 'isBoss' | 'imp' | '_spineBusy'> {
+    | 'setDown' | 'down' | 'actor' | 'spineReady' | 'culled' | 'isBoss' | 'imp' | '_spineBusy' | 'spec' | 'flags' | 'form'
+    | 'visFacing' | 'facing' | 'entryBack' | 'modelDX' | 'modelSX' | 'modelSY' | 'glideS' | 'skinKey' | 'knowsForm' | 'flying'
+    | 'body' | 'statuses' | 'sp' | 'spMax' | 'charge' | '_formSpec' | 'faceDX' | 'modelDY' | 'modelDZ' | 'liftoff' | '_headTiles'
+    | 'statusFrom' | 'drawnByFx' | '_wantsBack'> {
     /** the status effects fxgame.js statusOn started on it, by key (the elite glow of a hand item) */
     _fxStatusOn?: Set<string>;
   }
-  interface DeviceView extends AppViewFields, Lacks<'shadow' | 'setDir' | 'lift' | 'dimmed' | 'setIcon' | 'setCount'
+  interface DeviceView extends AppViewFields, FxViewFields, Lacks<'shadow' | 'setDir' | 'lift' | 'dimmed' | 'setIcon' | 'setCount'
     | 'setItems' | 'setEquip' | 'clearHome' | 'setOverlap' | 'markHome' | 'hover' | 'setTokenMode' | 'face'
     | 'faceDeploy' | 'dir' | 'turnTo' | 'turnToward' | 'onSwing' | 'dieDur' | 'onStatusHit' | 'onStatusCount'
     | 'slideTo' | 'onEnemySkill' | 'onEnemySkillEnd' | 'onSignal' | 'glide' | 'setForm' | 'fadeIn' | 'setDown' | 'down'
-    | 'root' | 'actor' | 'spineReady' | 'culled' | 'isBoss' | 'imp' | '_spineBusy' | 'retryAssets'> {
+    | 'root' | 'actor' | 'spineReady' | 'culled' | 'isBoss' | 'imp' | '_spineBusy' | 'retryAssets' | 'form' | 'visFacing'
+    | 'entryBack' | 'modelDX' | 'modelSX' | 'modelSY' | 'glideS' | 'skinKey' | 'knowsForm' | 'flying' | 'body' | 'statuses'
+    | 'sp' | 'spMax' | 'charge' | '_formSpec' | 'faceDX' | 'modelDY' | 'modelDZ' | 'liftoff' | 'statusFrom' | 'drawnByFx'
+    | '_wantsBack'> {
     /** the status effects fxgame.js statusOn started on it, by key */
     _fxStatusOn?: Set<string>;
   }
-  interface UnitView extends Lacks<'setIcon'> {}
+  interface UnitView extends Lacks<'setIcon' | 'spec'> {}
 }
 
 declare module '../public/js/render/fxplayer.js' {
@@ -102,6 +179,8 @@ declare module '../public/js/render/fxplayer.js' {
     buffProg?: Map<string, number | null>;
     /** its depth along the camera, set by FlightBatch.sync before it sorts the copies it merges */
     flightDepth?: number;
+    /** the place cells it counts in (render/fxgame.js posCapped) */
+    posCell?: number[] | null;
   }
 }
 
