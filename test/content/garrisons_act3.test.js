@@ -200,6 +200,13 @@ test('浊心斯卡蒂 garrison_64: each deployment of another operator in her at
     h.run(1);
     assert.ok(a.alive && a.deployed);
     assert.equal(gains(h).egirShip, 2 * n, `${q}: the redeploy`);
+    // a 【移动】 is a new character on the spawn path (Character.MoveLikeRespawnSelf): it locates again — into the range
+    // counts, out of it does not
+    assert.ok(h.b.moveRedeploy(a, 10, 5));
+    assert.equal(gains(h).egirShip, 3 * n, `${q}: a 【移动】 inside the range`);
+    const o = h.unit('o');
+    assert.ok(h.b.moveRedeploy(o, 12, 5));
+    assert.equal(gains(h).egirShip, 3 * n, `${q}: a 【移动】 outside the range`);
     done(h);
   }
 });
