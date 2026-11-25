@@ -3387,10 +3387,18 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   다시 안 돎, 「버프 덮어쓰기 그룹」) · 주인이 끝나면 `Entity.OnFinish` → `BuffContainer.Clear` → `Buff.OnFinish`가 `ON_BUFF_FINISH`를 돌려 `RemoveGlobalBuffByAlias` →
   `BattleController.RemoveGlobalBuffByAlias`가 별칭이 같은 전역 버프마다 `GlobalBuff.OnRemoved`(붙인 유닛마다 그 버프를 뗌) · 프리팹 `_options`의 직업 마스크가 소환물·장치를 뺀다
   (오퍼레이터만). 규정 빅토리아 6(락락 전략)도 같은 `lendItemEffects`라 장비 하나·빌려 주는 이마다 겹친다 — 아래 「규정」 빅토리아 줄.
-- 테스트 `test/content/items.test.js` 「two advanced 源石溶剂 on one operator…」·「override-grouped item buffs…」·「lendItemEffects: an item the receiver carries too stacks…」,
+- 빌린 장비는 짝 장비 검사에서 「가진 것」이 아니다(2026-11-26, `items/shared.js carries`): 짝 장비(`equip_chess_id`)가 있어야 켜지는 효과(페가수스의 투구·랜스, 총기사의 위엄,
+  해구 실험체, 쉐라간드의 눈물, 사막 나침반, 패밀리 배지)는 그 효과를 가진 오퍼레이터가 **자기가 든** 짝 장비만 센다. 그래서 빌린 짝 장비로는 안 켜지고(패밀리 배지를 든 이가 시라쿠사 정장을
+  빌려도 추가 피해 없음), 빌린 짝 효과 장비는 받는 쪽이 자기가 든 짝 장비를 보고 켜진다(페가수스의 랜스를 든 이가 투구를 빌리면 투구의 재생은 켜지고 자기 랜스의 추가 피해는 안 켜짐).
+  전에는 빌린 짝 장비도 셌다. 근거(공식 클라에서 확인): 그 장비들의 버프 템플릿(EN) 짝 검사는 모두 `AutoChessCheckHasEquip`(`_equipChessIdBlackboardKey` `equip_chess_id`,
+  대상 `BUFF_OWNER`·`TARGET`·`BUFF_SOURCE` — 모두 효과를 가진 오퍼레이터)이고, `_CheckHasEquip`은 그 기물 인스턴스의 장비(`AutoChessBattleUtil.GetEquipInstIds` → 장비마다
+  `GetChessId`가 그 ID로 시작하는지)만 본다 — 빌려 주기는 인스턴스를 옮기지 않고 전역 버프만 만든다(위). 규정 빅토리아 6의 빌려 주기도 같은 `carries`를 거친다
+  [추정·CN: 규정 판 공유 노드는 못 읽음 — 끝내는 노드 이름(`AutoChessRemoveEquipEffectByAlias`)이 효과만 옮김을 말함].
+- 테스트 `test/content/items.test.js` 「two advanced 源石溶剂 on one operator…」·「override-grouped item buffs…」·「lendItemEffects: an item the receiver carries too stacks…」·
+  「lendItemEffects: a lent partner does not count in a combo item’s partner check…」,
   `test/content/bonds_core.test.js` 「萨尔贡 × 娜仁图亚 lending: each item instance and each lender stacks…」·「…an operator deployed in the ring meanwhile gets it…」·
   「萨尔贡 × 娜仁图亚 lending and 【移动】…」.
-- 재발 방지: `test/content/bonds_core.test.js` 「萨尔贡 × 娜仁图亚 lending…」 셋.
+- 재발 방지: `test/content/bonds_core.test.js` 「萨尔贡 × 娜仁图亚 lending…」 셋, `test/content/items.test.js` 「lendItemEffects: a lent partner does not count…」(빌린 짝 장비).
 
 ### 에기르(맹약) 부활은 공식 클라대로 — 쓰러질 때마다·쓰러진 차례로, 연합 방어에 쓰러진 채 든 구성원도 (upstream #882, 관리자 결정 2026-11-13)
 

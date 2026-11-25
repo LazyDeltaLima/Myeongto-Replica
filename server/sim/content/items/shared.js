@@ -21,11 +21,14 @@ import { mitigate, hasHp } from '../../damage.js';
  */
 /**
  * A buff's params `{ ...bb, ...bbStr }` (support buffsOf) and an item record (data/items.json), read field by field.
- * @typedef {Record<string, any>} ItemParams
- * @typedef {Record<string, any>} ItemRec
+ * @typedef {Record<string, unknown>} ItemParams
+ * @typedef {Record<string, unknown>} ItemRec
  * A buff-key behaviour, fn(battle, u, p, S, rec) (header), and its table entry.
  * @typedef {(battle: Battle, u: Unit, p: ItemParams, S: ItemScope, rec: ItemRec) => void} ItemFn
  * @typedef {Readonly<{ run: ItemFn, late: boolean }>} ItemEntry
+ * A DamageInfo as the helpers below read it: its tags, the type and amount, the ignore stats.
+ * @typedef {{ tags?: readonly string[] | null, type?: string, amount?: number, defIgnorePct?: number, defIgnoreFlat?: number,
+ *   resIgnorePct?: number, resIgnoreFlat?: number, [key: string]: unknown }} DmgLike
  * The hooks an item behaviour registers through its Scope (`S.on(name, fn)`), with their payloads.
  * @typedef {{ deploy: DeployEv, death: DeathEv, kill: KillEv, skillStart: SkillEv, skillEnd: SkillEv, ammoUsed: SkillEv & { left: number },
  *   statusApplied: StatusEv, beforeStatus: BeforeStatusEv, hit: HitEv, damaged: DamagedEv, attack: AttackEv,
@@ -47,19 +50,19 @@ export function partnerOf(p, scope) {
   if (typeof p.other_equip === 'string' && p.other_equip) return itemKeyOf(p.other_equip.split(',')[0].trim(), scope);
   return null;
 }
-export const isProc = (/** @type {Record<string, any> | null | undefined} */ dmg) => !!(dmg && dmg.tags && dmg.tags.indexOf('item') >= 0);
+export const isProc = (/** @type {DmgLike | null | undefined} */ dmg) => !!(dmg && dmg.tags && dmg.tags.indexOf('item') >= 0);
 export const procTags = (/** @type {string} */ k) => ['item', `item:${k}`];
 export const chance = (/** @type {Battle} */ battle, /** @type {number} */ p) => p > 0 && (p >= 1 || battle.rng() < p);
 /**
  * 附加伤害 — the client's attack type ADDITION: tag 'addition' (a module's / talent's rider, a drone's addition, 叙拉古 6's
  * true damage, 卡西米尔 [ex]'s), and an item's proc (this fork's rule: procs never re-trigger item procs).
  */
-export const isAddition = (/** @type {Record<string, any> | null | undefined} */ dmg) => !!(dmg && dmg.tags && (dmg.tags.indexOf('addition') >= 0 || isProc(dmg)));
+export const isAddition = (/** @type {DmgLike | null | undefined} */ dmg) => !!(dmg && dmg.tags && (dmg.tags.indexOf('addition') >= 0 || isProc(dmg)));
 /**
  * 持续伤害 — the client's shared flag IS_CONTINUOUS that the 规程 item graphs filter out of ON_OUTPUT_DAMAGE
  * (FilterDamageModifer `_sharedFlag` IS_CONTINUOUS): damage over time, tag 'dot' / 'periodic'.
  */
-export const isContinuous = (/** @type {Record<string, any> | null | undefined} */ dmg) => !!(dmg && dmg.tags && (dmg.tags.indexOf('dot') >= 0 || dmg.tags.indexOf('periodic') >= 0));
+export const isContinuous = (/** @type {DmgLike | null | undefined} */ dmg) => !!(dmg && dmg.tags && (dmg.tags.indexOf('dot') >= 0 || dmg.tags.indexOf('periodic') >= 0));
 /** An ally built from an enemy record — PRTS's 敌人类我方单位 (炎佑 enemy_9012_acloon). */
 export const ENEMY_RECORD = /^enemy_/;
 
@@ -109,14 +112,17 @@ export function grantsOf(rt, u) {
   return m;
 }
 /**
- * Does `u` carry an item of this key (own equipment or a lent grant)?
+ * Does `u` carry an item of this key — its own equipment only, the partner check of a combo item (equip_chess_id)?
+ * A lent item never counts: the client's check (AutoChessCheckHasEquip) reads the chess instance's equipment
+ * (AutoChessBattleUtil.GetEquipInstIds → GetChessId), and lending (AutoChessShareEquipEffect) moves no instance — it
+ * makes a global buff of the item's effect on the receiver (공식 클라에서 확인; docs/rules/sim.md 「같은 장비 둘은 둘 다
+ * 효과가 있다」 빌려 주기의 생애). A lent combo item still checks its receiver's own equipment. Until 2026-11-26 a lent
+ * partner counted.
  * @param {Battle} battle @param {Unit | null | undefined} u @param {string | null | undefined} key
  */
 export function carries(battle, u, key) {
   if (!key || !u) return false;
   for (const id of itemsOf(u)) if (itemKeyOf(id, battle) === key) return true;
-  const g = runtime(battle).grants.get(u);
-  if (g) for (const x of g.values()) if (x.lent && x.key === key) return true;
   return false;
 }
 
@@ -143,7 +149,7 @@ export function reviveNow(battle, c, by) {
 /**
  * Damage mitigation estimate for flat DR / weakness damage (same formula as damage.js).
  * @param {number} amount @param {string} type @param {Unit} target @param {Unit | null | undefined} source
- * @param {Record<string, any>} dmg
+ * @param {DmgLike} dmg
  */
 export function mitigated(amount, type, target, source, dmg) {
   const ss = source && source.s ? source.s : null;
@@ -184,13 +190,14 @@ export function onDamageEnemies(S, u, fn) {
 /**
  * 弱点伤害 (双模机械臂, band 陈 以己之长): a physical or arts DamageInfo from `source` becomes whichever of the two types
  * `target` resists less (same mitigation formula as damage.js, incl. the source's ignore stats). Mutates `dmg.type`.
- * @param {Record<string, any> | null | undefined} dmg @param {Unit | null | undefined} source
+ * @param {DmgLike | null | undefined} dmg @param {Unit | null | undefined} source
  * @param {Unit | null | undefined} target
  */
 export function weaknessRetype(dmg, source, target) {
   if (!dmg || !target || !target.s || (dmg.type !== 'phys' && dmg.type !== 'arts')) return;
-  const ph = mitigated(dmg.amount, 'phys', target, source, dmg);
-  const ar = mitigated(dmg.amount, 'arts', target, source, dmg);
+  const amount = dmg.amount ?? 0;
+  const ph = mitigated(amount, 'phys', target, source, dmg);
+  const ar = mitigated(amount, 'arts', target, source, dmg);
   const best = ar > ph + 1e-9 ? 'arts' : ph > ar + 1e-9 ? 'phys' : dmg.type;
   if (best !== dmg.type) dmg.type = best;
 }

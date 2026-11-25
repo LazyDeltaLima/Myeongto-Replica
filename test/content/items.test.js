@@ -945,6 +945,37 @@ test('lendItemEffects: an item the receiver carries too stacks, except the overr
   checkInvariants(h.b);
 });
 
+// A combo item's partner check (AutoChessCheckHasEquip) reads the carrier's own equipment instances, and a lent item is
+// no instance — only a global buff of its effect (공식 클라에서 확인): a lent partner never counts, a lent combo item checks
+// the receiver's own equipment (items/shared.js carries; docs/rules/sim.md 「같은 장비 둘은 둘 다 효과가 있다」 빌려 주기의 생애)
+test('lendItemEffects: a lent partner does not count in a combo item’s partner check; a lent combo item checks the receiver’s own', () => {
+  const ops = { t_op: op('t_op'), t_a: op('t_a'), t_b: op('t_b') };
+  const h = fight({ ops, units: [
+    { chessId: 't_op', row: 10, col: 3, items: [A('5_09'), A('6_01')] },
+    { chessId: 't_a', row: 11, col: 3, items: [A('6_01')] },
+    { chessId: 't_b', row: 12, col: 3, items: [A('5_09')] },
+  ], foes: [[11, 9]] });
+  h.step(1);
+  const [from, a, b] = [h.unit('t_op'), h.unit('t_a'), h.unit('t_b')];
+  const msg = (s) => `${s} — the partner check reads own equipment only (items/shared.js carries, docs/rules/sim.md 「같은 장비 둘은 둘 다 효과가 있다」 빌려 주기의 생애)`;
+  // t_a owns the lance and borrows the helm (and a lance); t_b owns the helm and borrows the lance (and a helm)
+  assert.equal(lendItemEffects(h.b, from, a, { maxTier: Infinity, duration: 30 }), 2);
+  assert.equal(lendItemEffects(h.b, from, b, { maxTier: Infinity, duration: 30 }), 2);
+  const e = foe(h);
+  let before = e.hp;
+  hitTrue(h, a, e, 1000);
+  close(before - e.hp, 1000, msg('t_a: its own lance and the lent one see no own helm — no proc'));
+  before = e.hp;
+  hitTrue(h, b, e, 1000);
+  close(before - e.hp, 1000 + 0.3 * 1000, msg('t_b: the lent lance sees t_b’s own helm — one proc'));
+  for (const u of [a, b]) h.b.loseHp(u, 1000);
+  const hpA = a.hp, hpB = b.hp, t0 = h.b.time;
+  h.run(1.02);
+  close(a.hp - hpA, 0.08 * a.s.maxHp * (h.b.time - t0), msg('t_a: the lent helm sees t_a’s own lance — regen'), 2);
+  close(b.hp, hpB, msg('t_b: its own helm and the lent one see no own lance — no regen'));
+  checkInvariants(h.b);
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 // prep side
 

@@ -249,7 +249,6 @@
  "server/sim/content/index.js": 20,
  "server/sim/content/items/battle.js": 3,
  "server/sim/content/items/meta.js": 4,
- "server/sim/content/items/shared.js": 7,
  "server/sim/content/kits/index.js": 2,
  "server/sim/content/kits/ops/chess_char_2_06-papyrs.js": 1,
  "server/sim/content/kits/ops/chess_char_3_19-vigil.js": 2,
