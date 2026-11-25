@@ -10,27 +10,69 @@ import { skillModeIndex, FORM_HELD_MODES } from '../../../shared/skill-modes.js'
 import { cite } from './fx/cite.js';
 import { whenPlays } from './fx/conds.js';
 
-/** Effect bundle of an operator (charId without its numeric prefix). */
+/** @import { FxSpec, Plays, ReadyFx } from './fxstatus.js' */
+/**
+ * The fields of a modes.json entry (tools/local-extract/char_modes.py; the header of the attack-mode bindings below) these
+ * lookups read — the lists are per attack mode (index into `modes`).
+ * @typedef {{ cast?: string[], hit?: string[], trail?: string[] }} RoleLists
+ * @typedef {{ s: number, e: number, o: number, d?: number, once?: number, t?: number, p?: number }} CastOpt
+ * @typedef {{ anim?: string, cast?: string[], hit?: string[], start?: string[] }} AltGroup
+ * @typedef {{ groups?: AltGroup[], combat?: unknown, pick?: string, from?: unknown }} AltFx
+ * @typedef {{ cast?: string[], castLoop?: string[], buff?: string[], target?: string[], castTgt?: string[], targetBuff?: string[],
+ *   end?: { cast?: string[], hit?: string[] }, zone?: { fx?: string[], aura?: string[] }, ready?: { fx?: string[], stop?: unknown },
+ *   channel?: string[], shot?: string[] }} SkillFx
+ * @typedef {object} ModeBind
+ * @property {string[]} [modes]
+ * @property {number} [base]
+ * @property {(number | null)[] | null} [skillMode]
+ * @property {string[][]} [cast]
+ * @property {string[][]} [hit]
+ * @property {string[][]} [trail]
+ * @property {string[][]} [attach]
+ * @property {string[][]} [input]
+ * @property {string[][]} [tgtStart]
+ * @property {string[][]} [attachFoe]
+ * @property {(Record<string, CastOpt> | null)[]} [castOpt]
+ * @property {({ melee?: RoleLists, ranged?: RoleLists } | null)[]} [fortress]
+ * @property {({ combat?: RoleLists, attack?: RoleLists } | null)[]} [combatSplit]
+ * @property {(Record<string, RoleLists> | null)[]} [talentAtk]
+ * @property {({ ally?: RoleLists, foe?: RoleLists } | null)[]} [sideFx]
+ * @property {(AltFx | null)[]} [altFx]
+ * @property {(SkillFx | null)[]} [skills]
+ * @property {Record<string, number>} [hitLoop]
+ * @property {(string | null)[]} [modeStart]
+ * @property {string} [start]
+ * @property {string} [dead]
+ * @property {string[]} [common]
+ * @property {({ idle?: string[], back?: string[] } | null)[][]} [funnels]
+ */
+/** @typedef {Readonly<Record<string, Readonly<Record<number, { forms: Readonly<Record<string, string>>, also: readonly string[] }>>>>} HeldModeTable */
+/** @typedef {Readonly<{ tpl: string | readonly string[], face?: boolean }>} HeldKey a client key (or keys) */
+/** @typedef {Readonly<{ tpl: string, born?: readonly string[], bySkill?: boolean }>} TalentKey */
+
+/** Effect bundle of an operator (charId without its numeric prefix). @param {unknown} charId */
 export const fxBundleOf = (charId) => String(charId || '').replace(/^char_\d+_/, '');
 
-/** A skin / collab variant of a prefab (not the default skin). */
+/** A skin / collab variant of a prefab (not the default skin). @param {string} name */
 export const isVariant = (name) => /#\d+|_sale|_iteration|_avemujica|_cn_topolect/i.test(name);
 
 /**
  * Prefabs of a bundle grouped by use: attack, skill1..3, birth, other (variants dropped).
  * @param {string[]} prefabs
  */
-/** The name after the operator key (whitw2_… : the key itself must not match "hit"). */
+/** The name after the operator key (whitw2_… : the key itself must not match "hit"). @param {string} p */
 const tail = (p) => p.slice(p.indexOf('_'));
-/** A mode variant (_combat_: 仇白's other attack) only when the plain attack effect is missing. */
+/** A mode variant (_combat_: 仇白's other attack) only when the plain attack effect is missing. @param {string[]} list */
 const plainFirst = (list) => { const plain = list.filter((p) => !/_combat_/i.test(p)); return plain.length ? plain : list; };
 /** A second / third alternative version of an attack effect (_b, _c, _B; the first one is kept). */
 const ALT_RE = /_[bcBC](_|$)/;
 
-/** A copy of an effect for an up / down / left / back facing (the remake draws units facing left or right). */
+/** A copy of an effect for an up / down / left / back facing (the remake draws units facing left or right). @param {string} name */
 export const isDirectional = (name) => /_(up|down|left|back)(_|$)/i.test(name);
 
+/** @param {readonly string[] | null | undefined} prefabs @returns {Record<string, string[]>} */
 export function effectGroups(prefabs) {
+  /** @type {Record<string, string[]>} */
   const g = { attack: [], skill1: [], skill2: [], skill3: [], birth: [], other: [] };
   for (const p of prefabs || []) {
     if (isVariant(p) || isDirectional(p)) continue;
@@ -48,6 +90,9 @@ export function effectGroups(prefabs) {
  * Effects of a battle event for an operator, from its bundle's prefab list:
  *   'attackStart' (on the attacker), 'attackHit' (on the target), 'skillStart' / 'skillBuff' (looping while the skill
  *   is active) / 'skillHit' (on the target, during the skill) of skill index `skillIndex` (0-based), 'birth'.
+ * @param {readonly string[] | null | undefined} prefabs
+ * @param {string} kind
+ * @param {number} [skillIndex]
  * @returns {string[]} prefab names (several play together: e.g. _start_01 and _start_02)
  */
 export function effectsFor(prefabs, kind, skillIndex = 0) {
@@ -77,8 +122,9 @@ export function effectsFor(prefabs, kind, skillIndex = 0) {
 // `trail` / `hit`; tools/build-fx-plays.mjs) —, and their flight (a copy of the sim's NOTE — test/local-patch.test.js keeps
 // them equal; `sine` the 扩张正弦 amplitude of the free flight, drawn here only; `pass` the piano note's 【已命中】 flight on
 // through its target: PRTS "固定3.0速度当前方向移动，持续0.5s").
+/** @param {string | string[]} keys */
 const note = (keys) => Object.freeze(cite(keys, { shots: Object.freeze([keys].flat()) }));
-export const NOTE_FX = Object.freeze({
+export const NOTE_FX = Object.freeze(/** @type {Record<string, Readonly<{ shots: readonly string[] }>>} */ ({
   base: note('projectile_chr_oblvns'),
   talent: note('projectile_chr_oblvns_talent'),   // 持续攻击, no skill
   s1: note([1, 2, 3, 4, 5, 6, 7, 8].map((i) => `projectile_chr_oblvns_s1_${i}`)),   // the fan's own (1–8)
@@ -86,7 +132,7 @@ export const NOTE_FX = Object.freeze({
   organ: note(['projectile_chr_oblvns_s2_slow', 'projectile_chr_oblvns_s2_slow_t']),
   s3: note('projectile_chr_oblvns_s3_phy'),
   s3m: note('projectile_chr_oblvns_s3_mag'),
-});
+}));
 export const NOTE_FLIGHT = Object.freeze({
   base: { free: 2.0, track: 2.0, turn: 5 },
   talent: { free: 1.3, sine: 0.3, track: 2.0, turn: 7 },
@@ -99,6 +145,10 @@ export const NOTE_FLIGHT = Object.freeze({
 /**
  * Trail / hit prefab of a note (`fan` 1–8: the S1 note's own projectile) from `plays` (the loaded plays.json). null for an
  * unknown mode, without the file, or when its projectile has not one trail and a hit.
+ * @param {string} mode
+ * @param {number} [fan]
+ * @param {Plays | null} [plays]
+ * @returns {{ trail: string, hit: string } | null}
  */
 export function noteEffects(mode, fan = 0, plays = null) {
   const fx = NOTE_FX[mode];
@@ -115,14 +165,32 @@ export function noteEffects(mode, fan = 0, plays = null) {
 /**
  * The attack mode an operator's attack uses: the running skill's mode (shared/skill-modes.js) or Default 0 (a summon's `base`); -1 for a
  * running skill that switches no mode; null without bindings.
- * @param {any} bind modes.json entry
+ * @overload
+ * @param {ModeBind & { modes: string[] }} bind modes.json entry with its modes
  * @param {boolean} skillOn
  * @param {number} skillIndex 0-based
+ * @param {string | null} [sub]
+ * @returns {number}
+ */
+/**
+ * @overload
+ * @param {ModeBind | null | undefined} bind modes.json entry
+ * @param {boolean} skillOn
+ * @param {number} skillIndex 0-based
+ * @param {string | null} [sub]
+ * @returns {number | null}
+ */
+/**
+ * @param {ModeBind | null | undefined} bind
+ * @param {boolean} skillOn
+ * @param {number} skillIndex
+ * @param {string | null} [sub]
+ * @returns {number | null}
  */
 export function attackMode(bind, skillOn, skillIndex, sub = null) {
   if (!bind || !Array.isArray(bind.modes)) return null;
   // (2026-11-07) a summon whose mode 0 is not its attacking one (char_modes.py token_modes `base`: 樱桃三号 Reborn, 流形 Recharge)
-  if (!skillOn) return Number.isInteger(bind.base) ? bind.base : 0;
+  if (!skillOn) return Number.isInteger(bind.base) ? /** @type {number} */ (bind.base) : 0;
   const k = typeof sub === 'string' ? bind.modes.indexOf(sub) : -1;
   return k > 0 ? k : skillModeIndex(bind.modes, skillIndex, bind.skillMode);
 }
@@ -150,18 +218,31 @@ export const DOLL_SWITCH_FX = Object.freeze({
     swap: Object.freeze({ fx: Object.freeze([{ n: 'makoto_talent_finish_01', at: 0 }, { n: 'makoto_change_01', at: 0.3 }, { n: 'makoto_talent_chance_01', at: 0.3 }]) }),
   })),
 });
-/** The mode index FORM_HELD_MODES holds `charId` in for skill `skillIndex` (0-based) and sim form `form`, else −1. */
+/**
+ * The mode index FORM_HELD_MODES holds `charId` in for skill `skillIndex` (0-based) and sim form `form`, else −1.
+ * @param {ModeBind | null | undefined} bind
+ * @param {string | null | undefined} charId
+ * @param {number} skillIndex
+ * @param {unknown} form
+ * @returns {number}
+ */
 export function heldMode(bind, charId, skillIndex, form) {
-  const t = charId ? FORM_HELD_MODES[charId]?.[skillIndex] : null;
+  const t = charId ? /** @type {HeldModeTable} */ (FORM_HELD_MODES)[charId]?.[skillIndex] : null;
   if (!t || !Array.isArray(bind?.modes)) return -1;
   const i = bind.modes.indexOf(t.forms[typeof form === 'string' ? form : ''] ?? t.forms['']);
   return i > 0 ? i : -1;
 }
-/** Every mode index of that entry (its forms' and `also`), for what a cast of the skill must not play again. */
+/**
+ * Every mode index of that entry (its forms' and `also`), for what a cast of the skill must not play again.
+ * @param {ModeBind | null | undefined} bind
+ * @param {string | null | undefined} charId
+ * @param {number} skillIndex
+ * @returns {number[]}
+ */
 export function heldModes(bind, charId, skillIndex) {
-  const t = charId ? FORM_HELD_MODES[charId]?.[skillIndex] : null;
+  const t = charId ? /** @type {HeldModeTable} */ (FORM_HELD_MODES)[charId]?.[skillIndex] : null;
   if (!t || !Array.isArray(bind?.modes)) return [];
-  return [...Object.values(t.forms), ...t.also].map((n) => bind.modes.indexOf(n)).filter((i) => i > 0);
+  return [...Object.values(t.forms), ...t.also].map((n) => /** @type {string[]} */ (/** @type {ModeBind} */ (bind).modes).indexOf(n)).filter((i) => i > 0);
 }
 /**
  * (2026-11-03, official client) A skill whose cast picks one of its modes, by the cast's variant (the 'skill' event's 4th
@@ -169,7 +250,7 @@ export function heldModes(bind, charId, skillIndex) {
  * 薇薇安娜 S3: vvana_s_3 switches to mode 4 S3_2 while vvana_s_3[check] left vvana_s_3_enhance_mark (from her second cast
  * of a deployment), else to 3 S3_1.
  */
-export const VARIANT_MODES = Object.freeze({ char_4098_vvana: Object.freeze({ 2: Object.freeze({ later: 'S3_2' }) }) });
+export const VARIANT_MODES = Object.freeze(/** @type {Record<string, Readonly<Record<number, Readonly<Record<string, string>>>>>} */ ({ char_4098_vvana: Object.freeze({ 2: Object.freeze({ later: 'S3_2' }) }) }));
 /**
  * (2026-11-06, official client) A skill whose own buff picks its mode by the way the unit faces as it starts: charId → { skill
  * index → the mode when it faces down } — attackMode's `sub` for that cast. 新约能天使 S3: angel2_s_3[switch_mode]
@@ -184,19 +265,27 @@ export const FACE_DOWN_MODES = Object.freeze({ char_1041_angel2: Object.freeze({
  * (tippi_s_1[swtich_mode], tippi_s_2[switch_mode]; Skill_End, Skill_2_End). The others are a kit's event: 琳琅诗怀雅 'coin', 逻各斯
  * 'bulletClear', 风絮 'taraxaFly' …; test/render/mode-switch-list.js says which.
  */
-export const SKILL_END_CAST = Object.freeze({
+export const SKILL_END_CAST = Object.freeze(/** @type {Record<string, Readonly<Record<number, Readonly<{ mode: string, life: number }>>>>} */ ({
   char_1032_excu2: Object.freeze({ 2: Object.freeze({ mode: 'S3_End', life: 1 }) }),
   char_4191_tippi: Object.freeze({ 0: Object.freeze({ mode: 'S1_Landing', life: 1 }), 1: Object.freeze({ mode: 'S2_Landing', life: 1 }) }),
   char_4165_ctrail: Object.freeze({ 0: Object.freeze({ mode: 'S1_Landing', life: 1 }), 1: Object.freeze({ mode: 'S2_Landing', life: 1 }) }),
-});
-/** What `charId`'s skill `skillIndex` draws as it ends: { names: the closing mode's cast effects and one-shot `attach` that are extracted, life }, or null. */
+}));
+/**
+ * What `charId`'s skill `skillIndex` draws as it ends: { names: the closing mode's cast effects and one-shot `attach` that are extracted, life }, or null.
+ * @param {string | null | undefined} charId
+ * @param {number} skillIndex
+ * @param {ModeBind | null | undefined} bind
+ * @param {readonly string[] | null | undefined} prefabs
+ * @returns {{ names: string[], life: number } | null}
+ */
 export function skillEndCast(charId, skillIndex, bind, prefabs) {
-  const end = SKILL_END_CAST[charId]?.[skillIndex];
+  const end = SKILL_END_CAST[/** @type {string} */ (charId)]?.[skillIndex];
   const n = end && Array.isArray(bind?.modes) ? bind.modes.indexOf(end.mode) : -1;
   if (n <= 0) return null;
-  const skillAttach = bind.attach?.[skillModeIndex(bind.modes, skillIndex, bind.skillMode)] || [];
+  // (n > 0: `bind` has its modes)
+  const skillAttach = /** @type {ModeBind} */ (bind).attach?.[/** @type {number} */ (skillModeIndex(/** @type {string[]} */ (/** @type {ModeBind} */ (bind).modes), skillIndex, /** @type {ModeBind} */ (bind).skillMode))] || [];
   // (what its attach list adds to the skill's: 蒂比's common_land_ground; her lines end with the skill's)
-  const names = [...new Set([...(bind.cast?.[n] || []), ...(bind.attach?.[n] || []).filter((x) => !skillAttach.includes(x))])];
+  const names = [...new Set([...(/** @type {ModeBind} */ (bind).cast?.[n] || []), ...(/** @type {ModeBind} */ (bind).attach?.[n] || []).filter((x) => !skillAttach.includes(x))])];
   return { names: names.filter((x) => !prefabs || prefabs.includes(x)), life: end.life };
 }
 /**
@@ -204,19 +293,24 @@ export function skillEndCast(charId, skillIndex, bind, prefabs) {
  * 4th field; '' none): charId → { skill index → { variant: { cast, hits } } } — what the group's other children hold is not this cast's. 薇薇安娜 S1:
  * skchr_vvana_1 picks S1_Attack (three strikes) while vvana_s_1_enhance_mark is on (a 蓄力 cast), else S1_Attack2 (two).
  */
-export const VARIANT_FX = Object.freeze({ char_4098_vvana: Object.freeze({ 0: Object.freeze({
+export const VARIANT_FX = Object.freeze(/** @type {Record<string, Readonly<Record<number, Readonly<Record<string, Readonly<{ cast: string[], hits: string[][] }>>>>>>} */ ({ char_4098_vvana: Object.freeze({ 0: Object.freeze({
   '': Object.freeze({ cast: ['vvana_skill_01_L_start_01', 'vvana_skill_01_L_start_02'], hits: [['vvana_skill_01_L_hit_01'], ['vvana_skill_01_L_hit_02']] }),
   charged: Object.freeze({ cast: ['vvana_skill_01_S_start_01'], hits: [['vvana_skill_01_S_hit_01'], ['vvana_skill_01_S_hit_02'], ['vvana_skill_01_S_hit_03']] }),
-}) }) });
-/** The VARIANT_FX entry of this cast: { cast, hits, others: the cast effects of the other variants }, or null. */
+}) }) }));
+/**
+ * The VARIANT_FX entry of this cast: { cast, hits, others: the cast effects of the other variants }, or null.
+ * @param {string | null | undefined} charId
+ * @param {number} skillIndex
+ * @param {string | null | undefined} variant
+ */
 export function variantFx(charId, skillIndex, variant) {
-  const by = VARIANT_FX[charId]?.[skillIndex];
+  const by = VARIANT_FX[/** @type {string} */ (charId)]?.[skillIndex];
   const own = by?.[variant ?? ''];
   if (!own) return null;
-  return { cast: own.cast, hits: own.hits, others: Object.values(by).filter((x) => x !== own).flatMap((x) => x.cast) };
+  return { cast: own.cast, hits: own.hits, others: Object.values(/** @type {NonNullable<typeof by>} */ (by)).filter((x) => x !== own).flatMap((x) => x.cast) };
 }
-/** The mode names VARIANT_MODES gives skill `skillIndex` of `charId` (its casts' other modes), or []. */
-export const variantModes = (charId, skillIndex) => Object.values(VARIANT_MODES[charId]?.[skillIndex] || {});
+/** The mode names VARIANT_MODES gives skill `skillIndex` of `charId` (its casts' other modes), or []. @param {string | null | undefined} charId @param {number} skillIndex */
+export const variantModes = (charId, skillIndex) => Object.values(VARIANT_MODES[/** @type {string} */ (charId)]?.[skillIndex] || {});
 
 /**
  * Cast effects a mode's list holds for a child ability that fires only on a condition and is the kit's event, not every
@@ -230,14 +324,14 @@ export const KIT_HIT = Object.freeze(new Set(['swire2_skill_01_hit']));
 /**
  * The extracted prefabs mode `n` binds for `role` ('cast' on the attacker, 'hit' on the target, 'trail'), in order; [] for
  * no mode / nothing extracted.
- * @param {any} bind modes.json entry
- * @param {string[]|null|undefined} prefabs the operator's extracted prefabs (index.json bundles[bundle])
+ * @param {ModeBind | null | undefined} bind modes.json entry
+ * @param {readonly string[]|null|undefined} prefabs the operator's extracted prefabs (index.json bundles[bundle])
  * @param {number|null} n
  * @param {'cast'|'hit'|'trail'|'attach'} role
  */
 export function boundEffects(bind, prefabs, n, role) {
-  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || n < 0) return [];
-  const list = bind[role]?.[n];
+  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || /** @type {number} */ (n) < 0) return [];
+  const list = bind[role]?.[/** @type {number} */ (n)];
   return Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
 }
 
@@ -245,15 +339,15 @@ export function boundEffects(bind, prefabs, n, role) {
  * (2026-10-16) The trail of an attack in a running skill that switches no attack mode (attackMode −1): the skill's own
  * shot (modes.json `skills[i].shot`, char_modes.py — kept for a skill without duration) while `pending` (the first attack
  * after its start, render/fxgame.js takeShot), else the Default mode's trail. `shot` = it is the skill's.
- * @param {any} bind modes.json entry
- * @param {string[]|null|undefined} prefabs
+ * @param {ModeBind | null | undefined} bind modes.json entry
+ * @param {readonly string[]|null|undefined} prefabs
  * @param {number} skillIndex 0-based
  * @param {boolean} pending
  * @returns {{ name: string|null, mode: number, shot: boolean }}
  */
 export function modelessTrail(bind, prefabs, skillIndex, pending) {
   const list = pending && Array.isArray(prefabs) ? bind?.skills?.[skillIndex]?.shot : null;
-  const shot = Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
+  const shot = Array.isArray(list) ? list.filter((x) => /** @type {readonly string[]} */ (prefabs).includes(x)) : [];
   if (shot.length) return { name: shot[0], mode: -1, shot: true };
   return { name: boundEffects(bind, prefabs, 0, 'trail')[0] ?? null, mode: 0, shot: false };
 }
@@ -264,15 +358,15 @@ export function modelessTrail(bind, prefabs, skillIndex, pending) {
  * BlockedMeleeAttack abilities vs its RangedAttack, + that one's projectile hit) — the melee list for an attack of
  * projectile kind 'none' (the sim's 'swing' / 'atk' while the operator blocks), the ranged one for any other kind.
  * null when mode `n` has no such split (or the kind is unknown): the caller uses the mode's whole list (boundEffects).
- * @param {any} bind modes.json entry
- * @param {string[]|null|undefined} prefabs
+ * @param {ModeBind | null | undefined} bind modes.json entry
+ * @param {readonly string[]|null|undefined} prefabs
  * @param {number|null} n
  * @param {'cast'|'hit'} role
  * @param {string|null|undefined} kind
  */
 export function fortressEffects(bind, prefabs, n, role, kind) {
-  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || n < 0 || typeof kind !== 'string' || !kind) return null;
-  const f = bind.fortress?.[n];
+  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || /** @type {number} */ (n) < 0 || typeof kind !== 'string' || !kind) return null;
+  const f = bind.fortress?.[/** @type {number} */ (n)];
   if (!f) return null;
   const list = f[kind === 'none' ? 'melee' : 'ranged']?.[role];
   return Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
@@ -282,13 +376,13 @@ export function fortressEffects(bind, prefabs, n, role, kind) {
  * (2026-10-10, official client): the effects of mode `n`'s own buffs that sit on enemies (modes.json `attachFoe`:
  * the buff's ability targets enemies — `_targetOptions.targetSide` 2 or a `_selector` whose range selectors pick side 2), in
  * order, extracted only. A buff effect's owner is the unit holding the buff (client `Effect.Behaviour.owner`).
- * @param {any} bind modes.json entry
- * @param {string[]|null|undefined} prefabs
+ * @param {ModeBind | null | undefined} bind modes.json entry
+ * @param {readonly string[]|null|undefined} prefabs
  * @param {number|null} n
  */
 export function foeEffects(bind, prefabs, n) {
-  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || n < 0) return [];
-  const list = bind.attachFoe?.[n];
+  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || /** @type {number} */ (n) < 0) return [];
+  const list = bind.attachFoe?.[/** @type {number} */ (n)];
   return Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
 }
 
@@ -303,13 +397,13 @@ export const CAST_EVENT = Object.freeze({ ATTACHED: 0, DETACHED: 1, CAST_START: 
 /**
  * The timing of cast effect `name` of mode `n` (modes.json castOpt), or null when the entry carries none (an older
  * modes.json: every cast effect then plays at the strike, as before).
- * @param {any} bind
+ * @param {ModeBind | null | undefined} bind
  * @param {number|null} n
  * @param {string} name
  * @returns {{ s: number, e: number, o: number, d?: number, once?: number, t?: number, p?: number }|null}
  */
 export function castTiming(bind, n, name) {
-  const m = Number.isInteger(n) && n >= 0 ? bind?.castOpt?.[n] : null;
+  const m = Number.isInteger(n) && /** @type {number} */ (n) >= 0 ? bind?.castOpt?.[/** @type {number} */ (n)] : null;
   const o = m && typeof m === 'object' ? m[name] : null;
   return o && typeof o === 'object' && Number.isInteger(o.s) ? o : null;
 }
@@ -344,7 +438,7 @@ export function clipGroup(cf, clip, last = -1, rnd = 0) {
   if (!g || !g.length) return null;
   const c = typeof clip === 'string' ? clip.toLowerCase() : null;
   let i = c ? g.findIndex((x) => String(x?.anim || '').toLowerCase() === c) : -1;
-  if (i < 0) i = cf.loop === 1 ? Math.min(g.length - 1, Math.floor(Math.max(0, rnd) * g.length)) : (last + 1) % g.length;
+  if (i < 0) i = /** @type {{ loop?: number }} */ (cf).loop === 1 ? Math.min(g.length - 1, Math.floor(Math.max(0, rnd) * g.length)) : (last + 1) % g.length;
   return { index: i, ...g[i] };
 }
 
@@ -355,7 +449,7 @@ export function clipGroup(cf, clip, last = -1, rnd = 0) {
  * after `last` (from `from` when none: the client reads `m_loopIndex` + 1), 'other' any but `last`, 'random' any (`rnd` in
  * [0, 1)). A COMBAT state group (`combat`: Body/Combat) only on a swing at an enemy the unit blocks (`combatNow`, the sim's
  * 'swing' 7th field); another group not on such a swing when the mode has a combatSplit. `{ index, cast, hit, start }` or null.
- * @param {any} bind modes.json entry
+ * @param {ModeBind | null | undefined} bind modes.json entry
  * @param {number|null} n the mode
  * @param {string|null|undefined} clip
  * @param {boolean} combatNow
@@ -363,15 +457,16 @@ export function clipGroup(cf, clip, last = -1, rnd = 0) {
  * @param {number} rnd
  */
 export function altGroup(bind, n, clip, combatNow, last = -1, rnd = 0) {
-  const af = Number.isInteger(n) && n >= 0 ? bind?.altFx?.[n] : null;
+  const af = Number.isInteger(n) && /** @type {number} */ (n) >= 0 ? bind?.altFx?.[/** @type {number} */ (n)] : null;
   const g = Array.isArray(af?.groups) ? af.groups : null;
   if (!g || !g.length) return null;
-  if (af.combat ? !combatNow : combatNow && bind?.combatSplit?.[n]) return null;
+  // (`g`: `af` is there)
+  if (/** @type {AltFx} */ (af).combat ? !combatNow : combatNow && bind?.combatSplit?.[/** @type {number} */ (n)]) return null;
   const c = typeof clip === 'string' ? clip.toLowerCase() : null;
   let i = c ? g.findIndex((x) => String(x?.anim || '').toLowerCase() === c) : -1;
   if (i < 0) {
-    const pool = af.pick === 'other' && last >= 0 && g.length > 1 ? g.map((_, k) => k).filter((k) => k !== last) : g.map((_, k) => k);
-    i = af.pick === 'loop' ? (last < 0 ? Number(af.from) || 0 : last + 1) % g.length
+    const pool = /** @type {AltFx} */ (af).pick === 'other' && last >= 0 && g.length > 1 ? g.map((_, k) => k).filter((k) => k !== last) : g.map((_, k) => k);
+    i = /** @type {AltFx} */ (af).pick === 'loop' ? (last < 0 ? Number(/** @type {AltFx} */ (af).from) || 0 : last + 1) % g.length
       : pool[Math.min(pool.length - 1, Math.floor(Math.max(0, rnd) * pool.length))];
   }
   return { index: i, cast: g[i].cast || [], hit: g[i].hit || [], start: g[i].start || [] };
@@ -381,15 +476,15 @@ export function altGroup(bind, n, clip, combatNow, last = -1, rnd = 0) {
  * 2026-10-21: a mode's `role` ('cast' / 'hit') effects of one attack when it has a COMBAT state ability (modes.json
  * combatSplit[n], char_modes.py — charpack Body/Combat vs Body/Attack): the combat list on a swing at an enemy the unit
  * blocks (`combatNow`), the attack list otherwise; extracted only. null without a split (the caller uses the whole list).
- * @param {any} bind
- * @param {string[]|null|undefined} prefabs
+ * @param {ModeBind | null | undefined} bind
+ * @param {readonly string[]|null|undefined} prefabs
  * @param {number|null} n
  * @param {'cast'|'hit'} role
  * @param {boolean} combatNow
  */
 export function combatEffects(bind, prefabs, n, role, combatNow) {
-  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || n < 0) return null;
-  const f = bind.combatSplit?.[n];
+  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || /** @type {number} */ (n) < 0) return null;
+  const f = bind.combatSplit?.[/** @type {number} */ (n)];
   if (!f) return null;
   const list = f[combatNow ? 'combat' : 'attack']?.[role];
   return Array.isArray(list) ? list.filter((x) => prefabs.includes(x)) : [];
@@ -403,26 +498,27 @@ export function combatEffects(bind, prefabs, n, role, combatNow) {
  *     does not play with it.
  *   - else `ally` (the target is an ally: true, an enemy: false, unknown: null): the child of the mode's attack whose
  *     Trigger picks that side (sideFx[n] — 凯尔希·思衡托 S2 HealAlly / AttackEnemy), added to the mode's list.
- * @param {any} bind modes.json entry
- * @param {string[]|null|undefined} prefabs
+ * @param {ModeBind | null | undefined} bind modes.json entry
+ * @param {readonly string[]|null|undefined} prefabs
  * @param {number|null} n
  * @param {string|null|undefined} sig
  * @param {boolean|null} ally
  * @returns {{ replace: boolean, cast?: string[], trail?: string[], hit?: string[] } | null} (all three lists are there)
  */
 export function modePart(bind, prefabs, n, sig, ally) {
-  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || n < 0) return null;
-  const pick = (p, replace) => (p ? { replace, ...Object.fromEntries(['cast', 'trail', 'hit'].map((r) => [r, (Array.isArray(p[r]) ? p[r] : []).filter((x) => prefabs.includes(x))])) } : null);
+  if (!bind || !Array.isArray(prefabs) || !Number.isInteger(n) || /** @type {number} */ (n) < 0) return null;
+  /** @param {RoleLists | null | undefined} p @param {boolean} replace */
+  const pick = (p, replace) => (p ? { replace, ...Object.fromEntries(/** @type {('cast' | 'trail' | 'hit')[]} */ (['cast', 'trail', 'hit']).map((r) => [r, (Array.isArray(p[r]) ? p[r] : []).filter((x) => prefabs.includes(x))])) } : null);
   if (typeof sig === 'string' && sig) {
-    const t = bind.talentAtk?.[n]?.[sig];
+    const t = bind.talentAtk?.[/** @type {number} */ (n)]?.[sig];
     if (t) return pick(t, true);
   }
-  const s = bind.sideFx?.[n];
+  const s = bind.sideFx?.[/** @type {number} */ (n)];
   return s && ally != null ? pick(s[ally ? 'ally' : 'foe'], false) : null;
 }
 
-/** The end event of a looping hit effect (modes.json hitLoop), or null for a one-shot. */
-export const hitLoopEnd = (bind, name) => (Number.isInteger(bind?.hitLoop?.[name]) ? bind.hitLoop[name] : null);
+/** The end event of a looping hit effect (modes.json hitLoop), or null for a one-shot. @param {ModeBind | null | undefined} bind @param {string} name @returns {number | null} */
+export const hitLoopEnd = (bind, name) => (Number.isInteger(bind?.hitLoop?.[name]) ? /** @type {Record<string, number>} */ (/** @type {ModeBind} */ (bind).hitLoop)[name] : null);
 
 /** Default deploy effects (client `DefaultEffects.CHARACTER_BORN` / `TOKEN_BORN`) and dead effect (`common_char_die_01`). */
 export const DEPLOY_FX = Object.freeze(cite(['DefaultEffects.CHARACTER_BORN', 'DefaultEffects.TOKEN_BORN', 'DefaultEffects.CHARACTER_DEAD'], { op: 'common_char_birth_01', token: 'common_call_start_01', dead: 'common_char_die_01' }));
@@ -431,22 +527,23 @@ export const DEPLOY_FX = Object.freeze(cite(['DefaultEffects.CHARACTER_BORN', 'D
  * the default for its kind (`Character.get_startEffect` / `GetStartEffect`). With a skill mode on, a
  * `<mode>_…` mode with an override counts as that mode's (乌尔比安 S3 → S3_Respawn_A ulpia_skill_03_bith_01: the client
  * switches to it as she redeploys) [추정: by the name]. `{ name, override }`.
- * @param {any} bind modes.json entry (null for a token or an unlisted operator)
+ * @param {ModeBind | null | undefined} bind modes.json entry (null for a token or an unlisted operator)
  * @param {boolean} token
  * @param {number} [mode] the mode index now (0 Default)
+ * @returns {{ name: string, override: boolean }}
  */
 export function deployEffect(bind, token, mode = 0) {
   const ms = Array.isArray(bind?.modeStart) ? bind.modeStart : [];
   let o = Number.isInteger(mode) && mode >= 0 ? ms[mode] : null;
   if (!o && mode > 0 && Array.isArray(bind?.modes)) {
     const pre = `${bind.modes[mode]}_`;
-    o = ms.find((x, i) => x && String(bind.modes[i] || '').startsWith(pre)) || null;
+    o = ms.find((x, i) => x && String(/** @type {string[]} */ (/** @type {ModeBind} */ (bind).modes)[i] || '').startsWith(pre)) || null;
   }
   if (o) return { name: o, override: true };
   // `start` '': a `Trap` token without one of its own (Trap.get_startEffect has no default)
   return { name: bind?.start ?? (token ? DEPLOY_FX.token : DEPLOY_FX.op), override: false };
 }
-/** The dead effect of an operator / token: the root's `_deadEffect`, else common_char_die_01; '' none (a `Trap` token: `Trap.get_deadEffect` has no default). */
+/** The dead effect of an operator / token: the root's `_deadEffect`, else common_char_die_01; '' none (a `Trap` token: `Trap.get_deadEffect` has no default). @param {ModeBind | null | undefined} bind */
 export const deadEffect = (bind) => bind?.dead ?? DEPLOY_FX.dead;
 /**
  * 2026-10-16 (이펙트 연결 전수 묶음 3, docs/rules/fx.md 「재능 버프·시전 이펙트」): talents whose effect is on the operator for
@@ -455,11 +552,15 @@ export const deadEffect = (bind) => bind?.dead ?? DEPLOY_FX.dead;
  * prefabs the key creates once as the operator is deployed (a template's ON_OWNER_BORN CreateEffect) that loop and stay
  * with it — their prefab's own life (`_maxLifetime` −1, `_holdByOwner`), not a held row, so they are named. `bySkill`
  * (2026-10-24, 묶음 S6): the key's held rows behind CheckSkillIndex join them by the operator's skill (conds.js `skill`).
+ * @param {string} key
+ * @param {string[] | null} [born]
+ * @param {boolean} [bySkill]
+ * @returns {TalentKey}
  */
 const talentKey = (key, born, bySkill = false) => Object.freeze(cite(key, {
   tpl: key, ...(born ? { born: Object.freeze(born) } : {}), ...(bySkill ? { bySkill: true } : {}),
 }));
-export const TALENT_ALWAYS = Object.freeze({
+export const TALENT_ALWAYS = Object.freeze(/** @type {Record<string, TalentKey>} */ ({
   char_423_blemsh: talentKey('blemsh_t_2'),   // Talents/2 (仁慈)
   // (2026-11-15) 能天使 T2 天使的祝福: Talents/2 gives angel_t_2 (INFINITY, overrideEffectKey angle_buff_00_start — looping
   // feathers) to her (`_selfOption`) and one ally (`_maxNum` 1); the ally's copy is the sim's 'talent:angel_bless_ally' (fxstatus.js)
@@ -477,7 +578,7 @@ export const TALENT_ALWAYS = Object.freeze({
   // 望 wang_born_effect ON_OWNER_BORN: with S2 (CheckSkillIndex(1)) the derived INFINITY buff wang_born_effect_s2 (wang_birth_02),
   // else wang_born_effect_default (wang_birth_01) (2026-10-24, 묶음 S6)
   char_2027_wang: talentKey('wang_born_effect', null, true),
-});
+}));
 
 /**
  * 2026-10-24 (묶음 S2): buffs a client template puts on the operator itself for the run of a skill — created as it starts,
@@ -486,10 +587,12 @@ export const TALENT_ALWAYS = Object.freeze({
  * the keys' held rows behind CheckCharacterDefaultDirection join them by the operator's deployed facing (conds.js `back`) —
  * the skill-buff name rule's copy of them is the kit's then (fxgame.js KIT_OWNED).
  */
+/** @param {string[]} keys @returns {HeldKey} */
 const heldKeys = (keys) => Object.freeze(cite(keys, { tpl: Object.freeze(keys) }));
 const ROCKR_HELD = heldKeys(['rockr_s_effetct_1', 'rockr_s_effetct_2']);
+/** @param {string[]} keys @returns {HeldKey} */
 const faceKeys = (keys) => Object.freeze(cite(keys, { tpl: Object.freeze(keys), face: true }));
-export const SKILL_HELD = Object.freeze({
+export const SKILL_HELD = Object.freeze(/** @type {Record<string, Readonly<Record<string, HeldKey>>>} */ ({
   // 圣约送葬人 Talents/1 excu2_passive[effect]: ON_SKILL_START creates [effect][skill] (excu2_cherub_buff_01), ON_SKILL_FINISH ends it
   char_1032_excu2: Object.freeze({ '*': talentKey('excu2_passive[effect]'),
     // S3 excu2_s_3[trait]: [effect][f] buff_01, or [effect][b] buff_01_back when deployed facing UP (2026-10-24, 묶음 S7)
@@ -507,24 +610,37 @@ export const SKILL_HELD = Object.freeze({
   // (2026-11-16) 怒潮凛冬 T2 万众巨潮: Talents/2's toggle (CheckContainsBuff headb2_t_2[student], which headb2_skill_judge gives at
   // ON_SKILL_START and finishes at ON_SKILL_FINISH) attaches the aura, whose `_passiveBuffs` headb2_t_2[fx] holds headb2_buff on her
   char_1051_headb2: Object.freeze({ '*': talentKey('headb2_t_2[fx]') }),
-});
+}));
 
 /**
  * 2026-11-06: a skill's ReadySkillEffect (modes.json `skills[i].ready`: { fx, stop }) as status specs: { stop, specs: [[key, [bundle, prefab, 'own']]] }, or
  * null when it has none extracted. A prefab may sit in another operator's bundle (矩 S1 uses totter_skill_01_*): the name's first word says which.
  * The specs' last field `kept`: the client creates them once (`m_effectsCreated`), so one its own behaviours end (薇薇安娜's L_buff, finished by the attack clip's
  * pause rule) is not started again as a status's effect would be: that restarted it every frame of the clip.
+ * @param {{ fx?: string[], stop?: unknown } | null | undefined} ready
+ * @param {string} bundle
+ * @param {Record<string, readonly string[] | undefined>} bundles
+ * @returns {ReadyFx | null}
  */
 export function readySpecs(ready, bundle, bundles) {
+  /** @type {[string, FxSpec][]} */
   const specs = [];
   for (const n of ready?.fx || []) {
     const b = bundles[bundle]?.includes(n) ? bundle : n.split('_')[0];
-    if (bundles[b]?.includes(n)) specs.push([`${b}/${n}`, Object.freeze([b, n, 'own', null, true])]);
+    if (bundles[b]?.includes(n)) specs.push([`${b}/${n}`, Object.freeze(/** @type {FxSpec} */ ([b, n, 'own', null, true]))]);
   }
-  return specs.length ? Object.freeze({ stop: !!ready.stop, specs: Object.freeze(specs) }) : null;
+  return specs.length ? Object.freeze({ stop: !!/** @type {{ stop?: unknown }} */ (ready).stop, specs: Object.freeze(specs) }) : null;
 }
 
-/** The SKILL_HELD prefabs of `charId`'s skill `skillIndex` that are extracted (`prefabs`), from `plays`; `back`: deployed facing UP. */
+/**
+ * The SKILL_HELD prefabs of `charId`'s skill `skillIndex` that are extracted (`prefabs`), from `plays`; `back`: deployed facing UP.
+ * @param {string | null | undefined} charId
+ * @param {number} skillIndex
+ * @param {readonly string[] | null | undefined} prefabs
+ * @param {Plays | null | undefined} plays
+ * @param {boolean} [back]
+ * @returns {string[]}
+ */
 export function skillHeld(charId, skillIndex, prefabs, plays, back = false) {
   const by = charId ? SKILL_HELD[charId] : null;
   const k = by ? by[skillIndex] ?? by['*'] : null;
@@ -539,8 +655,15 @@ export function skillHeld(charId, skillIndex, prefabs, plays, back = false) {
  * the skill's buff) that no skill binding names. charId → skill index 0–2 → { start?, end? } client keys. Each lives by its
  * prefab (fxgame.js skillEdge: a looping one stays with the operator).
  */
-const edgeKeys = (start, end, opt = {}) => Object.freeze(cite([start, end].filter(Boolean), { start, end, ...opt }));
-export const SKILL_EDGE = Object.freeze({
+/**
+ * @typedef {Readonly<{ start: string | null, end: string | null, if?: string }>} EdgeKeys
+ * @param {string | null} start
+ * @param {string | null} end
+ * @param {{ if?: string }} [opt]
+ * @returns {EdgeKeys}
+ */
+const edgeKeys = (start, end, opt = {}) => Object.freeze(cite(/** @type {string[]} */ ([start, end].filter(Boolean)), { start, end, ...opt }));
+export const SKILL_EDGE = Object.freeze(/** @type {Record<string, Readonly<Record<number, EdgeKeys>>>} */ ({
   // 凛御银灰 S3: skchr_svash2_3 gives svash2_s_3[bird_eff], whose start sends the 战鹰 off his arm (eagle_flyToHand_01 + the
   // eagle_sit_showAndHide_01 flash); svash2_s_3's finish sets it back on his arm (eagle_sit_01, a loop held by him)
   char_1045_svash2: Object.freeze({ 2: edgeKeys('svash2_s_3[bird_eff]', 'svash2_s_3') }),
@@ -548,31 +671,46 @@ export const SKILL_EDGE = Object.freeze({
   // its finish stuns her as long as it lasted and creates rockr_stun_01 / _02 on her. `if`: only a skill that overloaded (the
   // plan's skill flag, kitofficial.js 'overload'); its rows' IfTarget the sim decided (`all`)
   char_4040_rockr: Object.freeze({ 1: edgeKeys(null, 'rockr_s_2[overload]', { if: 'overDrones' }) }),
-});
+}));
 
 /**
  * 2026-10-24 (묶음 S7, official client EndAnimEffectEmitter on an attack ability): effects created on the operator one fixed
  * frame after its cast ends (ON_CAST_END), unless it is casting again by then — 伺夜 S3's vigil_skill_03_ABC_idle_into, the
  * only one in the client data. charId → mode name (modes.json `modes`) → prefabs.
  */
-export const CAST_END = Object.freeze({
+export const CAST_END = Object.freeze(/** @type {Record<string, Readonly<Record<string, readonly string[]>>>} */ ({
   char_427_vigil: Object.freeze({ S3: Object.freeze(cite('char_427_vigil/Modes/S3/Body/Attack', ['vigil_skill_03_ABC_idle_into'])) }),
-});
-/** The CAST_END prefabs of `charId`'s mode `mode` (an index into `bind.modes`) that are extracted (`prefabs`). */
+}));
+/**
+ * The CAST_END prefabs of `charId`'s mode `mode` (an index into `bind.modes`) that are extracted (`prefabs`).
+ * @param {string | null | undefined} charId
+ * @param {ModeBind | null | undefined} bind
+ * @param {number} mode
+ * @param {readonly string[] | null | undefined} prefabs
+ * @returns {string[]}
+ */
 export function castEnd(charId, bind, mode, prefabs) {
-  const names = (charId && CAST_END[charId]?.[bind?.modes?.[mode]]) || [];
+  const names = (charId && CAST_END[charId]?.[/** @type {string} */ (bind?.modes?.[mode])]) || [];
   return names.filter((n) => !prefabs || prefabs.includes(n));
 }
 
 /**
  * The SKILL_EDGE prefabs of `charId`'s skill `skillIndex` at its `edge` ('start' | 'end') that are extracted, from `plays`. An
  * entry with `if` (a kit plan's skill flag) plays only when `flags` holds it — then its key's rows behind conditions too.
+ * @param {string | null | undefined} charId
+ * @param {number} skillIndex
+ * @param {'start' | 'end'} edge
+ * @param {readonly string[] | null | undefined} prefabs
+ * @param {Plays | null | undefined} plays
+ * @param {Set<string> | null} [flags]
+ * @returns {string[]}
  */
 export function skillEdge(charId, skillIndex, edge, prefabs, plays, flags = null) {
   const e = charId ? SKILL_EDGE[charId]?.[skillIndex] : null, k = e?.[edge];
-  if (!k || (e.if && !flags?.has(e.if))) return [];
+  // (`k`: `e` is there)
+  if (!k || (/** @type {EdgeKeys} */ (e).if && !flags?.has(/** @type {string} */ (/** @type {EdgeKeys} */ (e).if)))) return [];
   const role = edge === 'start' ? 'once' : 'end', key = plays?.keys?.[k];
-  const names = [...(key?.[role] || []), ...(e.if ? whenPlays(key, { all: true }).filter((r) => r.role === role).map((r) => r.n) : [])];
+  const names = [...(key?.[role] || []), ...(/** @type {EdgeKeys} */ (e).if ? whenPlays(key, { all: true }).filter((r) => r.role === role).map((r) => r.n) : [])];
   return [...new Set(names)].filter((n) => !prefabs || prefabs.includes(n));
 }
 
@@ -581,9 +719,16 @@ export function skillEdge(charId, skillIndex, edge, prefabs, plays, flags = null
  * prefab root's common abilities put on it for good (modes.json `common`, char_modes.py: 新约能天使's wings and halo,
  * 引星棘刺's weapon glow) and its always-on talents (TALENT_ALWAYS, by `charId`, from `plays`; its `born` prefabs too) —
  * that are extracted, minus `kitOwned` (prefabs a kit event draws instead). `skill`: its skill index 0–2 (a `bySkill` talent).
+ * @param {ModeBind | null | undefined} bind
+ * @param {readonly string[] | null | undefined} prefabs
+ * @param {Set<string> | null} [kitOwned]
+ * @param {string | null} [charId]
+ * @param {Plays | null} [plays]
+ * @param {number} [skill]
+ * @returns {string[]}
  */
 export function commonEffects(bind, prefabs, kitOwned = null, charId = null, plays = null, skill = 0) {
-  const talent = charId && TALENT_ALWAYS[charId];
+  const talent = /** @type {TalentKey | null | undefined} */ (charId && TALENT_ALWAYS[charId]);
   const bySkill = talent?.bySkill ? whenPlays(plays?.keys?.[talent.tpl], { skill }).filter((r) => r.role === 'held').map((r) => r.n) : [];
   const list = [...(Array.isArray(bind?.common) ? bind.common : []), ...((talent && plays?.keys?.[talent.tpl]?.held) || []), ...(talent?.born || []), ...bySkill];
   return list.filter((n) => typeof n === 'string' && (!prefabs || prefabs.includes(n)) && !kitOwned?.has(n));
@@ -595,8 +740,8 @@ export function commonEffects(bind, prefabs, kitOwned = null, charId = null, pla
  * aura mint_buff_01_range, the 阵法术师 trait buffs of 卡涅利安 / 蜜蜡), shown while the operator stands in that mode
  * (fxgame.js defaultModeFx). Minus its drones' looks (`funnels[0]` idle / back: fxgame.js droneIdle), the always-on ones
  * (`common`: alwaysOn), the ones on enemies (`attachFoe[0]`) and `kitOwned`; extracted only.
- * @param {any} bind modes.json entry
- * @param {string[]|null|undefined} prefabs
+ * @param {ModeBind | null | undefined} bind modes.json entry
+ * @param {readonly string[]|null|undefined} prefabs
  * @param {Set<string>|null} [kitOwned]
  */
 export function defaultModeEffects(bind, prefabs, kitOwned = null) {
@@ -621,22 +766,25 @@ export function defaultModeEffects(bind, prefabs, kitOwned = null) {
  *  - `kitOwned`: prefabs a kit event draws instead (余 S3's wall piece);
  * a prefab the skill itself casts plays once (start), not as a loop.
  * A skill mode with bound cast effects plays those on every attack, not here.
- * @param {any} bind modes.json entry (or null)
- * @param {string[]} prefabs the operator's extracted prefabs
+ * @param {ModeBind | null | undefined} bind modes.json entry (or null)
+ * @param {readonly string[] | null | undefined} prefabs the operator's extracted prefabs
  * @param {number} skillIndex 0-based
  * @param {Set<string>} [kitOwned]
+ * @param {string | null} [sub]
+ * @param {readonly string[]} [others]
+ * @param {boolean} [nameRules]
  */
 export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(), sub = null, others = [], nameRules = true) {
   const pre = prefabs || [];
   // (2026-11-07) `nameRules` false: a summon's bundle (fxgame.js summonBundle) — only what its bindings name
-  const named = (kind) => (nameRules ? effectsFor(pre, kind, skillIndex) : []);
+  const named = (/** @type {string} */ kind) => (nameRules ? effectsFor(pre, kind, skillIndex) : []);
   const n = attackMode(bind, true, skillIndex, sub) ?? -1;
   const sk = bind?.skills?.[skillIndex] || null;
-  const has = (list) => (Array.isArray(list) ? list.filter((x) => pre.includes(x)) : []);
+  const has = (/** @type {readonly string[] | null | undefined} */ list) => (Array.isArray(list) ? list.filter((x) => pre.includes(x)) : []);
   // (2026-10-16: `tgtStart`, a shot's effects on its target as it leaves — 迷迭香 S2's rosmon_skill_02_range looped on her)
   // (2026-10-21) a skill that switches no mode (−1) attacks in the Default mode: only mode 0's are its attacks' — 能天使 S1's
   // castLoop angle_skill_01_start is S2 / S3's mode cast too, never drawn during S1
-  const modeOwn = new Set(['cast', 'hit', 'trail', 'input', 'tgtStart'].flatMap((r) => (n === -1 ? [(bind?.[r] || [])[0] || []] : bind?.[r] || []).flat()));
+  const modeOwn = new Set(/** @type {('cast' | 'hit' | 'trail' | 'input' | 'tgtStart')[]} */ (['cast', 'hit', 'trail', 'input', 'tgtStart']).flatMap((r) => (n === -1 ? [(bind?.[r] || [])[0] || []] : bind?.[r] || []).flat()));
   // (2026-10-21) and the own effects of an ability group's children (altFx), which left those lists
   for (const a of n === -1 ? [bind?.altFx?.[0]] : bind?.altFx || []) for (const g of a?.groups || []) for (const x of [...(g.cast || []), ...(g.hit || []), ...(g.start || [])]) modeOwn.add(x);
   // (2026-10-10) the effects of its projectile's lasting reach / aura (`zone`: 쏜즈 더 로드스타's token / range) sit at that
@@ -654,10 +802,10 @@ export function activationEffects(bind, prefabs, skillIndex, kitOwned = new Set(
     if (k > 0 && k !== n) for (const x of boundEffects(bind, pre, k, 'attach')) modeOwn.add(x);
   }
   if (others.length && n > 0 && Array.isArray(bind?.modes)) {   // and the cast's own base mode when a variant picked another
-    const base = skillModeIndex(bind.modes, skillIndex, bind.skillMode);
+    const base = /** @type {number} */ (skillModeIndex(bind.modes, skillIndex, bind.skillMode));
     if (base > 0 && base !== n) for (const x of boundEffects(bind, pre, base, 'attach')) modeOwn.add(x);
   }
-  const keep = (x) => !modeOwn.has(x) && !notCaster.has(x) && !kitOwned.has(x) && !foe.has(x);
+  const keep = (/** @type {string} */ x) => !modeOwn.has(x) && !notCaster.has(x) && !kitOwned.has(x) && !foe.has(x);
   // a prefab the skill casts (`_castEffects`, ending with its cast) is not a loop for the whole skill even if named _buff / _range
   const cast = new Set([...(sk?.cast || []), ...(sk?.castLoop || [])]);
   // (2026-10-24, 묶음 S4: its `buff` holds its aura abilities' `_effects` too — 纯烬艾雅法拉 S2's barrier is the kit's)

@@ -127,9 +127,10 @@ the files directly under `server/sim/` (`server/sim/*.js`), the files directly u
 `server/sim/content/kits/ops/`, and in the renderer the 3D board `public/js/render/board3d/` and the effect system's parts
 `public/js/render/fx/`, the files directly under `public/js/` (`public/js/*.js`), the screens directly under
 `public/js/screens/` (`public/js/screens/*.js`), the files directly under `public/js/ui/` (`public/js/ui/*.js`) and,
-one by one, 26 of the files directly under `public/js/render/` (the small helpers: drag.js, pick.js, pen.js and the rest;
+one by one, 36 of the files directly under `public/js/render/` (the small helpers: drag.js, pick.js, pen.js and the rest;
 the camera, the board, the snapshot buffer and the Spine actor: projection.js, tiles.js, interp.js, spine.js; the drawn
-textures and the unit HUD: textures.js, hud-bars.js).
+textures and the unit HUD: textures.js, hud-bars.js; the effect layer's helpers: fxmap.js, fxstatus.js, fxsubmit.js,
+fxpoints.js and 6 more).
 
 Add a folder: `node tools/typecheck-strict.mjs --count` prints the strict errors of every folder not listed yet (its
 subfolders apart, the larger count of the two configs); fix the JSDoc of one until it reports nothing, then add its
@@ -636,6 +637,19 @@ most strict errors were, and the JSDoc that fixed them:
   a row object built in two steps is cast to its typedef where it is made (`BarRow`). In textures.js the module's own
   `const PIXI = () => globalThis.PIXI` shadows the global's value, so the namespace it takes is `ReturnType<typeof
   PIXI>` (`Pixi`); `PIXI.BaseTexture` and `PIXI.Text` join `types/page-globals.d.ts`.
+- the effect layer's helpers directly under `public/js/render/` (fxmap.js, fxstatus.js, fxsubmit.js, fxpoints.js,
+  fxroute.js and 5 more): a frozen table is typed by a cast of its literal inside `Object.freeze` (`Object.freeze(/**
+  @type {Record<string, FxSpec>} */ ({ … }))`) — a `@type` on the declaration does not reach through `Object.freeze`, so
+  its arrays stay `string[]` and its arrow entries untyped; a frozen spec array is cast the same way
+  (`Object.freeze(/** @type {FxSpec} */ ([…]))`), which makes it a tuple. The modes.json entry and plays.json are
+  typedefs of the fields read (fxmap.js `ModeBind`, fxstatus.js `Plays`); the effect layer's calls these helpers make
+  are a typedef of method signatures (fxstatus.js `StatusFxApi`, fxroute.js `CursorFx`), so fxgame.js's object fits it
+  as it is. A `number | null` the code tests with `Number.isInteger` is cast where it is compared or used as an index
+  (`/** @type {number} */ (n)`); a function whose result is `null` only without a modes list takes `@overload` blocks
+  (fxmap.js `attackMode`: `number` for an entry with `modes`, as debug.js uses it). fxsubmit.js keeps three.js's objects
+  `ThreeObj` (board3d/materials.js) but its context is `WebGL2RenderingContext`, cast where it is taken; a lookup the
+  context may answer with `null` (`getActiveUniform`, `getShaderSource`, `createShader`) is cast where it is read; its
+  test switches on `globalThis` join `types/page-globals.d.ts`.
 
 
 ## Split classes

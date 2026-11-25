@@ -41,23 +41,100 @@ import { UF_CAMOU } from '../../../shared/local.js';
 import { cite } from './fx/cite.js';
 import { whenPlays } from './fx/conds.js';
 
+/** @import { WhenRow } from './fx/conds.js' */
+/**
+ * A status effect spec: [bundle, prefab — or `{ tpl, when? }`, the client key of a `keyed` spec —, height share (0 feet,
+ * .5 body, HEAD head) or OWN, hold (s: frozen there), kept]; a PlaySpec names its prefab.
+ * @typedef {{ readonly tpl: string, readonly when?: { readonly all: boolean } }} KeyRef
+ * @typedef {readonly [bundle: string, prefab: string | KeyRef, frac: number | string, hold?: number | null, kept?: boolean]} FxSpec
+ * @typedef {readonly [bundle: string, prefab: string, frac: number | string, hold?: number | null, kept?: boolean]} PlaySpec
+ */
+/**
+ * What the client needs of a status (statusSource; `max` / `mid` with a kit's fx 'stacks').
+ * @typedef {{ src?: string | null, id?: unknown, fx?: unknown, n?: number, max?: unknown, mid?: unknown }} StatusFrom
+ */
+/**
+ * The loaded plays.json (tools/build-fx-plays.mjs): client key → what its buffs hold (`held`), create once (`once`) and as
+ * they end (`end`), a projectile's trail and hit, what they hold behind conditions (`when`), its bundle (`b`) and whether a
+ * kit's buff wears it (`worn`).
+ * @typedef {{ held?: string[], end?: string[], once?: string[], trail?: string[], hit?: string[], when?: WhenRow[], b?: string,
+ *   worn?: unknown }} PlaysKey
+ * @typedef {{ keys?: Record<string, PlaysKey> }} Plays
+ */
+/**
+ * What these syncs read and set on a unit view (render/units.js UnitView).
+ * @typedef {object} StatusView
+ * @property {number} flags UF bits
+ * @property {number} charge
+ * @property {number} sp
+ * @property {number} spMax
+ * @property {unknown} [isEnemy]
+ * @property {unknown} [alive]
+ * @property {unknown} [prep]
+ * @property {unknown} [remove]
+ * @property {{ spine?: string, defId?: string, skillIndex?: number }} [info]
+ * @property {Set<string>} [statuses]
+ * @property {Map<string, StatusFrom | null>} [statusFrom] status key → statusSource()
+ * @property {number} [visFacing]
+ * @property {number} [facing]
+ * @property {unknown} [_fxSkillOn]
+ * @property {boolean} [_fxReady]
+ * @property {number} [_fxSouls]
+ * @property {unknown} [_statusIcons]
+ * @property {Set<string>} [_fxStatusOn]
+ * @property {Map<string, unknown>} [_fxStatusBy]
+ */
+/**
+ * An enemy's own buff effects (fxgame.js enemyBuffFx).
+ * @typedef {{ on: readonly PlaySpec[], ends?: Map<string, readonly PlaySpec[]>, once?: Set<string> }} EnemyBuffs
+ * @typedef {(view: StatusView, kind: string, tag?: string | null) => EnemyBuffs | null} EnemyBuffFn
+ */
+/** A skill's ReadySkillEffect (fxmap.js readySpecs). @typedef {{ stop: boolean, specs: readonly (readonly [string, FxSpec])[] }} ReadyFx */
+/**
+ * The effect layer's status calls these syncs use (render/fxgame.js).
+ * @typedef {{
+ *   statusOn(view: object, bundle: string, name: string, key: string, frac?: number | string, hold?: number | null,
+ *     under?: boolean, once?: boolean, kept?: boolean, src?: object | null): void,
+ *   statusOff(view: object, key: string, now?: boolean): void,
+ *   statusReady(bundle: string, name: string): boolean,
+ *   statusStandIn?(bundle?: string, name?: string): unknown,
+ *   statusOnce?(view: object, bundle: string, name: string, src?: object | null): void,
+ *   statusLayer?(): unknown,
+ *   enemyBuffFx?(view: StatusView, kind: string, tag?: string | null): EnemyBuffs | null,
+ *   plays?(): Plays | null,
+ *   readyFx?(view: StatusView): ReadyFx | null,
+ * }} StatusFxApi
+ */
+
 /** The client's HEAD_POINT sits a little over the drawn head (the 战栗 fist of capture 10 floats above it) [추정 share]. */
 const HEAD = 1.1;
 /**
  * 2026-10-23 (묶음 K2, docs/rules/fx.md 「바인딩 표」 「클라 키로 재생」): a spec naming the client key `key` in its prefab slot —
  * `[bundle, { tpl: key }, height, hold?]`: the prefabs that key's buff holds with no condition (tools/build-fx-plays.mjs
  * `held`, public/assets/local/fx/plays.json; specsOf), and what it creates as it ends (`end`: as END_FX). None without the file.
+ * @param {string} key
+ * @param {string} bundle
+ * @param {number | string} frac
+ * @param {[hold?: number]} rest
+ * @returns {FxSpec}
  */
-const keyed = (key, bundle, frac, ...rest) => Object.freeze(cite(key, [bundle, Object.freeze({ tpl: key }), frac, ...rest]));
+const keyed = (key, bundle, frac, ...rest) => Object.freeze(cite(key, /** @type {FxSpec} */ ([bundle, Object.freeze({ tpl: key }), frac, ...rest])));
 /**
  * 2026-10-23 (묶음 K3): a `keyed` spec whose buff stands for every condition of its key's rows (`{ all: true }`, render/fx/conds.js):
  * the status is the buff those rows create, so their conditions (a dice roll, a damage filter, a stack count …) held — the key
  * holds one prefab or one condition set, never a choice between prefabs (test/render/fx-bindings.test.js).
+ * @param {string} key
+ * @param {string} bundle
+ * @param {number | string} frac
+ * @param {[hold?: number]} rest
+ * @returns {FxSpec}
  */
-const keyedAll = (key, bundle, frac, ...rest) => Object.freeze(cite(key, [bundle, Object.freeze({ tpl: key, when: ALL }), frac, ...rest]));
+const keyedAll = (key, bundle, frac, ...rest) => Object.freeze(cite(key, /** @type {FxSpec} */ ([bundle, Object.freeze({ tpl: key, when: ALL }), frac, ...rest])));
 const ALL = Object.freeze({ all: true });
-/** status → [bundle, prefab, height share (0 feet, .5 body, HEAD head), hold (s: frozen there — local patch)]; `stealth` takes the side's prefab. */
-export const STATUS_FX = Object.freeze({
+/**
+ * status → [bundle, prefab, height share (0 feet, .5 body, HEAD head), hold (s: frozen there — local patch)]; `stealth` takes the side's prefab.
+ */
+export const STATUS_FX = Object.freeze(/** @type {Record<string, FxSpec>} */ ({
   stun: ['buff', 'buff_stun', HEAD], freeze: ['buff', 'buff_frozen', 0], cold: ['buff', 'buff_cold', HEAD],
   sleep: ['buff', 'buff_sleep', 0.5], silence: ['buff', 'buff_silence', HEAD], fear: ['common', 'common_buff_fear', HEAD],
   tremble: ['common', 'common_buff_thrill', HEAD], disarm: ['common', 'common_disarm_icon', HEAD],
@@ -76,7 +153,8 @@ export const STATUS_FX = Object.freeze({
   // char_332_archet Talents/2), a looping mesh at the feet (_spawnLocation 1) while the layer holds. Other 护盾 layers have
   // no buff effect (凯尔希·思衡托's kalts2_t_2[shield]: effectKey "", overrideEffectKey null — CN client)
   archet_shield: keyed('archet_t_2', 'archet', 0),
-});
+}));
+/** @type {Readonly<Record<string, string>>} */
 const ALIAS = Object.freeze({ artsFragile: 'fragile', physFragile: 'fragile', elemFragile: 'fragile' });
 /**
  * 2026-10-31: 冻结 is a BuffDB buff (gamedata buff_table, loadFromDB) whose row names its effect. On an operator (an enemy's
@@ -86,6 +164,7 @@ const ALIAS = Object.freeze({ artsFragile: 'fragile', physFragile: 'fragile', el
  * fxgame.js stepOnEmit picks, each child at its own `_spawnLocation`. Until 2026-10-31 every 冻结 drew buff_autochess_frozen by
  * its name, which no buff of the client tables names.
  */
+/** @param {{ isEnemy?: unknown }} v @returns {FxSpec} */
 const frozenFx = (v) => (v.isEnemy ? FROZEN_ENEMY : STATUS_FX.freeze);
 
 // ---- buff effects (docs/rules/ui.md ⑤ 「버프 이펙트」; EN buff templates, charpacks, [uc]skills.ab, 2026-10-14) ----------
@@ -97,14 +176,14 @@ const frozenFx = (v) => (v.isEnemy ? FROZEN_ENEMY : STATUS_FX.freeze);
 /** A spec height: where the prefab's own `_spawnLocation` puts it (fxgame.js playStatus → lifted). */
 export const OWN = 'own';
 // (冻结 on an enemy: frozenFx above)
-const FROZEN_ENEMY = Object.freeze(['buff', 'buff_frozen_to_enemy', OWN]);
+const FROZEN_ENEMY = Object.freeze(/** @type {FxSpec} */ (['buff', 'buff_frozen_to_enemy', OWN]));
 
 /**
  * A catalogue status whose official buff depends on who applies it: status key → the applier's fx code (render/fxmap.js
  * fxBundleOf of its charId — the holder's own when the buff has no source) → spec, or { [buff `fx` hint]: spec } when only
  * one of the applier's buffs has an effect. An applier missing here draws nothing (the client's buff has no effect).
  */
-export const SOURCE_FX = Object.freeze({
+export const SOURCE_FX = Object.freeze(/** @type {Record<string, Readonly<Record<string, FxSpec | Readonly<Record<string, FxSpec>>>>>} */ ({
   bind: Object.freeze({
     indigo: keyed('indigo_t[unmovable]', 'indigo', 0),   // charpack S2_T1/Talents/1
     billro: keyed('billro_s_2[enhance][root]', 'billro', 0),
@@ -132,7 +211,7 @@ export const SOURCE_FX = Object.freeze({
   // heyak_cyclone_01 ends 0.2 s after it), in place of the common one; both keys hold the same prefab
   levitate: Object.freeze({
     aglna2: keyedAll('aglna2_s_2[enemy][levitate]', 'aglna2', 0),
-    heyak: Object.freeze(cite(['heyak_s_1[levitate]', 'heyak_s[levitate]'], ['heyak', Object.freeze({ tpl: 'heyak_s[levitate]', when: ALL }), OWN])),
+    heyak: Object.freeze(cite(['heyak_s_1[levitate]', 'heyak_s[levitate]'], /** @type {FxSpec} */ (['heyak', Object.freeze({ tpl: 'heyak_s[levitate]', when: ALL }), OWN]))),
   }),
   // 诱导 from 圣聆初雪 S3: sbell2_s3[attract_core] creates sbell2_s3[attract_effect] (sbell2_skill_03_hint) on the enemy once its
   // pull to her (AddAttractToTargetNearestTileUseAbilitySelector) is set — the sim's 'attract' status, given only then
@@ -141,7 +220,7 @@ export const SOURCE_FX = Object.freeze({
   // CreateBuffInRange, overrideEffectKey wisdel_camouflage_buff_01); 忍冬's S3 迷彩 vulpis_s_3[cam] carries none — its effect is
   // KEY_FX 'vulpis:camouShown', only while she blocks no one. Another applier keeps STATUS_FX's (STATUS_FALLBACK)
   camou: Object.freeze({ token_10035_wisdel_wward: keyed('token_wisdel_host[Camouflage]', 'wisdel', OWN), vulpis: Object.freeze(cite('vulpis_s_3[cam]', {})) }),
-});
+}));
 /** SOURCE_FX statuses whose other appliers draw STATUS_FX's common effect (the client's buff without an override). */
 const STATUS_FALLBACK = new Set(['levitate', 'camou']);
 
@@ -149,39 +228,40 @@ const BURN_BURST = keyed('ep_fire_magic_res_down', 'buff', 0.5);
 // 2026-10-31: the client buff weak[limit] (脆弱 ×damage_scale for weak[limit] s), whose BuffDB row (gamedata buff_table:
 // loadFromDB) names overrideEffectKey buff_weak[limit] — a loop over the head (spawn 4). Its users here: 坚守's thorn
 // (act1autochess_bond_eff_stead[ex] CreateBuffById), 重装侦察兵 / 远眺 (enemy_tgshd_t, enemy_hummbd_t[expose] CreateBuff)
-const WEAK_LIMIT = Object.freeze(cite('weak[limit]', ['buff', 'buff_weak[limit]', OWN]));
+const WEAK_LIMIT = Object.freeze(cite('weak[limit]', /** @type {FxSpec} */ (['buff', 'buff_weak[limit]', OWN])));
 const EROSION_DOWN = keyed('ep_water_def_down', 'buff', HEAD);
 // (each of the two keys' rows holds both prefabs: the holder picks — not by key)
-const ANGEL2_SELF = Object.freeze(['angel2', 'angel2_skill_2_buff_01', 0]);
-const ANGEL2_OTHER = Object.freeze(['angel2', 'angel2_skill_2_buff_02', 0]);
-const CETSYR_HEAL = Object.freeze(['cetsyr', 'cetsyr_buff_02', OWN]);
-const TOCKA_VISIT = Object.freeze(['tocka_skill_03_buff_01', 'tocka_skill_03_buff_02', 'tocka_skill_03_buff_03'].map((n) => Object.freeze(['tocka', n, OWN])));
-const HUMUS_PEAK = Object.freeze([Object.freeze(['humus', 'humus_buff_01', OWN]), Object.freeze(['humus', 'humus_buff_02', OWN])]);
+const ANGEL2_SELF = Object.freeze(/** @type {FxSpec} */ (['angel2', 'angel2_skill_2_buff_01', 0]));
+const ANGEL2_OTHER = Object.freeze(/** @type {FxSpec} */ (['angel2', 'angel2_skill_2_buff_02', 0]));
+const CETSYR_HEAL = Object.freeze(/** @type {FxSpec} */ (['cetsyr', 'cetsyr_buff_02', OWN]));
+const TOCKA_VISIT = Object.freeze(['tocka_skill_03_buff_01', 'tocka_skill_03_buff_02', 'tocka_skill_03_buff_03'].map((n) => Object.freeze(/** @type {FxSpec} */ (['tocka', n, OWN]))));
+const HUMUS_PEAK = Object.freeze([Object.freeze(/** @type {FxSpec} */ (['humus', 'humus_buff_01', OWN])), Object.freeze(/** @type {FxSpec} */ (['humus', 'humus_buff_02', OWN]))]);
 /** 帕拉斯 精力充沛 by the sim buff's `fxTag` bit (op-pallas.js PEAK_T1 1, PEAK_S3 2): T1's effect, S3's. */
-const PALLAS_PEAK = Object.freeze([Object.freeze(['pallas', 'pallas_buff_01_start', OWN]), Object.freeze(['pallas', 'pallas_skill_03_buff_03', OWN])]);
+const PALLAS_PEAK = Object.freeze([Object.freeze(/** @type {FxSpec} */ (['pallas', 'pallas_buff_01_start', OWN])), Object.freeze(/** @type {FxSpec} */ (['pallas', 'pallas_skill_03_buff_03', OWN]))]);
 /**
  * Mon3tr T2 战术协同 on an ally (2026-11-03): monstr_t_2[atk_spd_up][effect] holds [eff_1] token_monstr_prosts_buff_01_2 /
  * [eff_1][r] _01 (the ASPD buff monstr_t_2[atk_spd_up]) or, while her S2 one [m2] holds, [eff_2] _02_2 / [eff_2][r] _02 —
  * the [r] ones while the ally faces right (CheckFaceLOrR RIGHT). [given under S1 / other, under S2][right, left].
  */
 const MONSTR_T2 = Object.freeze([['token_monstr_prosts_buff_01', 'token_monstr_prosts_buff_01_2'], ['token_monstr_prosts_buff_02', 'token_monstr_prosts_buff_02_2']]
-  .map((p) => Object.freeze(p.map((n) => Object.freeze(['monstr_token', n, OWN])))));
+  .map((p) => Object.freeze(p.map((n) => Object.freeze(/** @type {FxSpec} */ (['monstr_token', n, OWN]))))));
 /**
  * blower_s[atk]'s two effects: [ATK up, ATK down]. Their `_spawnLocation` is 4 HEAD_POINT, which the client reads from the
  * model's `FaceSwitcher/HeadPoint` — 400 skeleton units up on 219 of 222 operators whatever the model's height, so OWN drew
  * them about a tile over a short model's head (베토치키, on the next row's operator). Drawn over the drawn head as the other
  * head marks (HEAD) — maintainer decision 2026-11-18 (docs/rules/fx.md 「전장 #05 오리지늄 기류 발생 장치의 바람·기류 표식」).
  */
-const WIND_BUFF = Object.freeze([Object.freeze(['wind', 'wind_buff_02', HEAD]), Object.freeze(['wind', 'wind_buff_01', HEAD])]);
-/** Whether `st` (a view's statuses) holds a tile 隐匿 (KEY_FX below): a 隐匿 it explains is drawn by it alone. */
+const WIND_BUFF = Object.freeze([Object.freeze(/** @type {FxSpec} */ (['wind', 'wind_buff_02', HEAD])), Object.freeze(/** @type {FxSpec} */ (['wind', 'wind_buff_01', HEAD]))]);
+/** Whether `st` (a view's statuses) holds a tile 隐匿 (KEY_FX below): a 隐匿 it explains is drawn by it alone. @param {Set<string> | null | undefined} st */
 const tileStealth = (st) => !!st?.has?.('terrain:smog') || !!st?.has?.('terrain:grassland');
 /** The tile 隐匿 effects (`bundle/prefab`, a view's `_fxStatusOn`): no ColorModifier — units.js leaves the model's colour. */
 export const TILE_STEALTH_FX = Object.freeze(['common/common_invisible_02', 'common/common_079_stealth_01']);
 /**
  * A kit buff → the official buff's effect: by its key; a list of specs when the buff stands for several; a function picks by
  * the holder (`view`) and its statusSource() (`from`) or returns null for none.
+ * @typedef {(view: StatusView, from: StatusFrom | null) => FxSpec | readonly FxSpec[] | null} KeyFxFn
  */
-export const KEY_FX = Object.freeze({
+export const KEY_FX = Object.freeze(/** @type {Record<string, FxSpec | readonly FxSpec[] | KeyFxFn>} */ ({
   // (2026-11-17) a tile's 隐匿 (content/devices.js enterTerrain, a `visible` buff): 排气格栅 tile_smog's buff tile_smog (EN·CN
   // battle/prefabs/[uc]tiles.ab, the tile's BuffTile `_buffs`: overrideEffectKey common_invisible_02 — on the ground, paused
   // while the holder is immune to 隐匿) and 规程 草地's dule_grassland[invisible] (CN buff template tile_duel_grassland, on an
@@ -314,6 +394,7 @@ export const KEY_FX = Object.freeze({
   // [recast_effect_02]'s trigger (every 0.1 s) finishes the effect while it is there unless STUNNED (EN buff templates)
   'texas2:recast': cite(['texas2_t_1[recast_effect]', 'texas2_t_1[recast_effect_02]'], (v) => {
     const s3 = !!v?._fxSkillOn && v.info?.skillIndex === 2 && !((v.flags | 0) & UF.STUNNED);
+    /** @type {FxSpec} */
     const first = ['texas2', 'texas2_buff_02_start', OWN];
     return s3 ? [first] : [first, ['texas2', 'texas2_buff_02_start_02', OWN]];
   }),
@@ -385,30 +466,30 @@ export const KEY_FX = Object.freeze({
   // 战场#06's 沙尘暴 on an unsheltered operator (EN template sand_storm[ally], ON_BUFF_TRIGGER): storm[attr_to_ally] — its
   // SwitchDirection on the storm's direction (the buff's `fx`, devices.js tickStorm) creates map_desert_03_<the side the
   // wind comes from> (DOWN → _up) at the HIT point — and storm[attr_to_ally_mark] buff_desert_01 over the head
-  'terrain:sandstorm': cite('sand_storm[ally]', (v, from) => [['map', `map_desert_03_${STORM_FROM[from?.fx] || 'up'}`, OWN], ['buff', 'buff_desert_01', OWN]]),
+  'terrain:sandstorm': cite('sand_storm[ally]', (v, from) => [['map', `map_desert_03_${STORM_FROM[/** @type {string} */ (from?.fx)] || 'up'}`, OWN], ['buff', 'buff_desert_01', OWN]]),
   // … and on an enemy: sand_storm[enemy] creates sand_storm[slow_down], which names no effect (not the 'slow' fallback)
   'terrain:sandstormSlow': cite('sand_storm[enemy]', () => null),
-});
+}));
 /**
  * A catalogue status whose buff names the client buff it is (its `fxTag`, sent as the status's `fx` hint) → that buff's
  * effect, before the status's common one (STATUS_FX): the client draws each buff's own effect key.
  */
-export const HINT_FX = Object.freeze({
+export const HINT_FX = Object.freeze(/** @type {Record<string, FxSpec>} */ ({
   // 坚守's thorn: the 脆弱 is weak[limit] (content/bonds/addon/battle.js) — any other 脆弱 draws none
   'weak[limit]': WEAK_LIMIT,
   // (2026-11-14) 萨尔贡 6's 流沙 on an enemy (content/bonds/nation/sargon.js SAND_SLOW_FX / SAND_BIND_FX): its 迟钝 is the shared
   // slow_down template, whose `{0}[internal]` names common_slow_01 (CN common.ab, spawn 4 head — the maintainer's official
   // capture: the »⌛« over the enemy), not the 减速 buff_slowdown; its 束缚 [tile_buff][unmovable] common_unmovable_01 (spawn 1)
-  'act3autochess_bond_eff_sargon_power[tile_buff][slow_down][internal]': Object.freeze(cite('act3autochess_bond_eff_sargon_power[tile_buff][slow_down][internal]', ['common', 'common_slow_01', OWN])),
-  'act3autochess_bond_eff_sargon_power[tile_buff][unmovable]': Object.freeze(cite('act3autochess_bond_eff_sargon_power[tile_buff][unmovable]', ['common', 'common_unmovable_01', OWN])),
-});
+  'act3autochess_bond_eff_sargon_power[tile_buff][slow_down][internal]': Object.freeze(cite('act3autochess_bond_eff_sargon_power[tile_buff][slow_down][internal]', /** @type {FxSpec} */ (['common', 'common_slow_01', OWN]))),
+  'act3autochess_bond_eff_sargon_power[tile_buff][unmovable]': Object.freeze(cite('act3autochess_bond_eff_sargon_power[tile_buff][unmovable]', /** @type {FxSpec} */ (['common', 'common_unmovable_01', OWN]))),
+}));
 /**
  * 2026-10-25 (묶음 U): KEY_FX buffs the client finishes and makes again on each stack (FinishDerivedBuff + CreateBuff): the
  * effect starts over each time — keyed by the count of the sim's fx 'stacks' (UnitView.onStatusCount), so a new count ends
  * the old effect (statusOff, as Effect.FinishMe) and starts a new one.
  */
 const RENEWED = new Set(['item:accel']);
-/** A storm direction → the suffix of its map_desert_03 operator effect (sand_storm[ally]: RIGHT → _left …). */
+/** A storm direction → the suffix of its map_desert_03 operator effect (sand_storm[ally]: RIGHT → _left …). @type {Readonly<Record<string, string>>} */
 const STORM_FROM = Object.freeze({ DOWN: 'up', UP: 'down', LEFT: 'right', RIGHT: 'left' });
 
 /**
@@ -418,10 +499,10 @@ const STORM_FROM = Object.freeze({ DOWN: 'up', UP: 'down', LEFT: 'right', RIGHT:
  * The count comes with the status (app.js `n`), drops with each fx 'parry' of the buff (UnitView.onStatusHit) and is set
  * by a kit's fx 'stacks' (UnitView.onStatusCount: 泥岩's layer gains).
  */
-export const LAYER_FX = Object.freeze({
-  'nearl2:shield': Object.freeze(cite('nearl2_s_2', [2, 3, 4, 5].map((i) => Object.freeze(['nearl2', `nearl2_skill_02_buff_0${i}`, 0])))),
-  'mudrok:layers': Object.freeze(cite(['mudrok_t_1[init]', 'mudrok_t_1[recharge]'], [3, 2, 1].map((i) => Object.freeze(['mudrok', `mudrok_buff_0${i}_start`, 0])))),
-});
+export const LAYER_FX = Object.freeze(/** @type {Record<string, readonly FxSpec[]>} */ ({
+  'nearl2:shield': Object.freeze(cite('nearl2_s_2', [2, 3, 4, 5].map((i) => Object.freeze(/** @type {FxSpec} */ (['nearl2', `nearl2_skill_02_buff_0${i}`, 0]))))),
+  'mudrok:layers': Object.freeze(cite(['mudrok_t_1[init]', 'mudrok_t_1[recharge]'], [3, 2, 1].map((i) => Object.freeze(/** @type {FxSpec} */ (['mudrok', `mudrok_buff_0${i}_start`, 0]))))),
+}));
 
 /**
  * A kit buff whose official effects come with its stack count (a kit's fx 'stacks', UnitView.onStatusCount): [from stacks,
@@ -434,8 +515,14 @@ export const LAYER_FX = Object.freeze({
  * at the count (卡涅利安's mark, 阿斯卡纶, 夕, 洛洛, 玛恩纳); the arrays left are the ones the rows cannot pick by the count
  * alone (信仰搅拌机's swap is its prefab's SwitchableEffectByBuffStackCnt, 琳琅诗怀雅's [max] sits behind CheckCost, 妮芙's
  * behind the 凋亡 burst type).
+ * @typedef {number | 'max' | 'mid'} StackBound
+ * @typedef {readonly [from: StackBound, spec: FxSpec, below?: StackBound]} StackRow
+ * @typedef {{ readonly tpl: string, readonly counted: string, readonly bundle: string, readonly frac: number | string }} StackedFx
+ * @param {string} bundle
+ * @param {string} name
+ * @returns {FxSpec}
  */
-const st = (bundle, name) => Object.freeze([bundle, name, OWN]);
+const st = (bundle, name) => Object.freeze(/** @type {FxSpec} */ ([bundle, name, OWN]));
 /**
  * 2026-10-23 (묶음 K3): a STACK_FX entry by the client key `key` — the prefabs its buffs hold at the count of `counted`
  * (its FilterByBuffStackCount buff; the rows creating it hold while it has a stack), the count info's `max` / `mid` as the
@@ -446,22 +533,22 @@ const st = (bundle, name) => Object.freeze([bundle, name, OWN]);
  * @param {number | string} [frac] a share of the height, or OWN
  */
 const stacked = (key, counted, bundle, frac = OWN) => Object.freeze(cite(key, { tpl: key, counted, bundle, frac }));
-export const STACK_FX = Object.freeze({
+export const STACK_FX = Object.freeze(/** @type {Record<string, StackedFx | readonly StackRow[]>} */ ({
   'billro:mark': stacked('billro_s_3[mark_effect]', 'billro_s_3[charge][enhance]', 'billro', HEAD),
   // 信仰搅拌机 T1 rmixer_t1[attr_stack] rmixer_buff_01, whose SwitchableEffectByBuffStackCnt (`_stackCnt` 3, GE) swaps it for
   // rmixer_buff_02 at 3 stacks (the first paused — official client)
-  'rmixer:t1': Object.freeze(cite('rmixer_t1', [[1, st('rmixer', 'rmixer_buff_01'), 3], [3, st('rmixer', 'rmixer_buff_02')]])),
+  'rmixer:t1': Object.freeze(cite('rmixer_t1', /** @type {readonly StackRow[]} */ ([[1, st('rmixer', 'rmixer_buff_01'), 3], [3, st('rmixer', 'rmixer_buff_02')]]))),
   // 琳琅诗怀雅 T1 大买家: swire2_tr's swire2_t_1[atk] swire2_buff_01_start, at max_stack_cnt also [max] _01_start_02
-  'talent:swire2_buyer': Object.freeze(cite('swire2_tr', [[1, st('swire2', 'swire2_buff_01_start')], ['max', st('swire2', 'swire2_buff_01_start_02')]])),
+  'talent:swire2_buyer': Object.freeze(cite('swire2_tr', /** @type {readonly StackRow[]} */ ([[1, st('swire2', 'swire2_buff_01_start')], ['max', st('swire2', 'swire2_buff_01_start_02')]]))),
   // 阿斯卡纶 T1 on the enemy: ascln_t_1[debuff] ascln_buff_01; at max_stack_cnt [max_eff] ascln_buff_02, ended when the
   // stacks drop below (its 1 s ON_BUFF_TRIGGER FinishDerivedBuff)
   'ascln:judg': stacked('ascln_t_1', 'ascln_t_1[debuff]', 'ascln'),
   // 夕 T1 化境: dusk_t_1[atk] dusk_buff_03_start; at max_stack_cnt (EQUALS) [effect] dusk_buff_03_start_02
   'dusk:realm': stacked('dusk_t_1', 'dusk_t_1[atk]', 'dusk'),
   // 塞雷娅 T1 莱茵充能护服: demkni_t_1[stack] demkni_buff_01_self
-  'saria:suit': Object.freeze(cite('demkni_t_1', [[1, keyed('demkni_t_1', 'demkni', OWN)]])),
+  'saria:suit': Object.freeze(cite('demkni_t_1', /** @type {readonly StackRow[]} */ ([[1, keyed('demkni_t_1', 'demkni', OWN)]]))),
   // 妮芙 T2 窥心钥: at max_stack_cnt (the module's stack_cnt_check) nymph_t_2[atk][effect] nymph_talent_buff_02
-  'nymph:key': Object.freeze(cite('nymph_t_2', [['max', st('nymph', 'nymph_talent_buff_02')]])),
+  'nymph:key': Object.freeze(cite('nymph_t_2', /** @type {readonly StackRow[]} */ ([['max', st('nymph', 'nymph_talent_buff_02')]]))),
   // 洛洛 T1: at max_stack_cnt (EQUALS) rockr_t_1[effect_1] rockr_buff_01
   'rockr:rock': stacked('rockr_t_1', 'rockr_t_1[atk]', 'rockr'),
   // 玛恩纳 解放者 trait: mlynar_tr's stack per second — [a] _L_01 from the first, [b] _L_02 from mid_stack_cnt, [c] _L_03 at
@@ -470,13 +557,16 @@ export const STACK_FX = Object.freeze({
   // 2026-10-31: 麻痹 (the sim's 'palsy' stacks) is the BuffDB buff palsy[stack] (gamedata buff_table), overrideEffectKey
   // common_061_numb_01 over the head, whose SwitchableMultiEffectByBuffStackCnt on palsy[stack] creates common_061_numb_02 at
   // 2 stacks (EQUALS) and _03 from 3 (GE), pausing itself — a paused particle effect is inactive (official client)
-  palsy: Object.freeze(cite('palsy[stack]', [[1, st('common', 'common_061_numb_01'), 2], [2, st('common', 'common_061_numb_02'), 3],
-    [3, st('common', 'common_061_numb_03')]])),
-});
-/** A STACK_FX bound: a number, or the count info's `max` / `mid`. */
+  palsy: Object.freeze(cite('palsy[stack]', /** @type {readonly StackRow[]} */ ([[1, st('common', 'common_061_numb_01'), 2], [2, st('common', 'common_061_numb_02'), 3],
+    [3, st('common', 'common_061_numb_03')]]))),
+}));
+/** A STACK_FX bound: a number, or the count info's `max` / `mid`. @param {StackBound} b @param {StatusFrom | null} from */
 const bound = (b, from) => (typeof b === 'number' ? b : Number(from?.[b]) || Infinity);
 
-/** The fx code of a view's character (fxmap.js fxBundleOf: 'char_469_indigo' → 'indigo'), or ''. */
+/**
+ * The fx code of a view's character (fxmap.js fxBundleOf: 'char_469_indigo' → 'indigo'), or ''.
+ * @param {{ info?: { spine?: string, defId?: string } } | null | undefined} v
+ */
 function fxCode(v) {
   const id = v && v.info && (v.info.spine || v.info.defId);
   return id ? String(id).replace(/^char_\d+_/, '') : '';
@@ -486,17 +576,18 @@ function fxCode(v) {
  * What the client needs of a 'status' on-event `e` (['status', id, key, 1, sourceId?, { fx?, n? }?], sim
  * battle/status.js): the applier's fx code (resolved now: the applier may be gone by the next frame), the buff's `fx`
  * hint and its layer count. null when the event carries none.
- * @param {Map<any, any>} views
- * @param {any[]} e
+ * @param {Map<unknown, StatusView | null | undefined>} views
+ * @param {readonly unknown[]} e
+ * @returns {StatusFrom | null}
  */
 export function statusSource(views, e) {
-  const info = e[5] && typeof e[5] === 'object' ? e[5] : null;
+  const info = /** @type {{ fx?: unknown, n?: unknown } | null} */ (e[5] && typeof e[5] === 'object' ? e[5] : null);
   if (e[4] == null && !info) return null;
   // `id`: the applier's unit id (2026-11-11 — wantedStatusFx's bySrc finds an enemy applier's view by it; `src` is its fx code)
   return { src: e[4] != null ? fxCode(views.get(e[4])) || null : null, id: e[4] ?? null, fx: info?.fx ?? null, n: Number(info?.n) || 0 };
 }
 
-/** The STATUS_FX key of a sim 'status' key ('tremble', 'skill:haini_slow', 'talent:weak_fragile' …), or null. */
+/** The STATUS_FX key of a sim 'status' key ('tremble', 'skill:haini_slow', 'talent:weak_fragile' …), or null. @param {unknown} key @returns {string | null} */
 export function statusFxKey(key) {
   if (typeof key !== 'string' || !key) return null;
   if (STATUS_FX[key] && key !== 'stealthAlly') return key;
@@ -520,30 +611,38 @@ export function statusFxKey(key) {
   return null;
 }
 
+/** @type {Map<string, FxSpec>} */
 const WANT = new Map();
 /**
  * 2026-10-21 (docs/rules/fx.md 「적 상태의 버프 이펙트」): what a buff's end creates (its template's ON_BUFF_FINISH CreateEffect,
  * once — Nodes.CreateEffect.Execute), by the effect key of the buff's own effect: played as that effect ends
  * on a living unit (syncStatusFx), not as the unit dies or leaves.
  */
-export const END_FX = Object.freeze({
+export const END_FX = Object.freeze(/** @type {Record<string, readonly PlaySpec[]>} */ ({
   // (a `keyed` spec's end comes with its key: specsOf) 泥岩 T1: mudrok_t_1[shield_c] (her last layer, LAYER_FX's first) — a hit with neither [shield_a] nor [shield_b] left creates
   // mudrok_buff_01_end on her (ON_TAKE_DAMAGE CreateEffect TARGET) as it breaks
-  'mudrok/mudrok_buff_03_start': Object.freeze(cite('mudrok_t_1[shield_c]', [Object.freeze(['mudrok', 'mudrok_buff_01_end', 'own'])])),
-});
+  'mudrok/mudrok_buff_03_start': Object.freeze(cite('mudrok_t_1[shield_c]', [Object.freeze(/** @type {PlaySpec} */ (['mudrok', 'mudrok_buff_01_end', 'own']))])),
+}));
+/** @type {Map<string, readonly PlaySpec[]>} */
 const END_OF = new Map();   // effect key → its end specs: an enemy buff's (wantedStatusFx, from fxgame.js enemyBuffFx), a keyed spec's (specsOf)
+/** @type {Set<string>} */
 const ONCE_OF = new Set();  // 2026-10-23: effect keys of an enemy's IMMEDIATELY buffs (enemyBuffFx `once`): flashed once as the status comes on
 /** Every effect key syncStatusFx turns on (and so may turn off): not the prep 'golden' glow of fxgolden.js. */
 const MINE = new Set(Object.keys(STATUS_FX));
 
+/** @type {readonly FxSpec[]} */
 const NO_SPECS = Object.freeze([]);
+/** @type {WeakMap<Plays, Map<FxSpec, readonly FxSpec[]>>} */
 const KEYED = new WeakMap();   // plays document → keyed spec → its specs
 /**
  * The concrete specs of a `keyed` spec: the prefabs its key holds in `plays` (the loaded plays.json) — none without it —,
  * each ending into the key's `end` prefabs (END_OF). Memoised per plays document.
+ * @param {FxSpec} spec
+ * @param {Plays | null} plays
+ * @returns {readonly FxSpec[]}
  */
 function specsOf(spec, plays) {
-  const t = spec[1];
+  const t = /** @type {KeyRef} */ (spec[1]);
   if (!plays) return NO_SPECS;
   let memo = KEYED.get(plays);
   if (!memo) KEYED.set(plays, (memo = new Map()));
@@ -551,16 +650,25 @@ function specsOf(spec, plays) {
   if (!out) {
     const k = plays.keys?.[t.tpl];
     const held = [...new Set([...(k?.held || []), ...whenPlays(k, t.when).filter((r) => r.role === 'held').map((r) => r.n)])];
-    out = Object.freeze(held.map((n) => Object.freeze([spec[0], n, ...spec.slice(2)])));
-    const ends = (k?.end || []).map((n) => Object.freeze([spec[0], n, OWN]));
+    out = /** @type {readonly FxSpec[]} */ (Object.freeze(held.map((n) => Object.freeze([spec[0], n, ...spec.slice(2)]))));
+    /** @type {readonly PlaySpec[]} */
+    const ends = (k?.end || []).map((n) => Object.freeze(/** @type {PlaySpec} */ ([spec[0], n, OWN])));
     if (ends.length) for (const s of out) END_OF.set(`${s[0]}/${s[1]}`, ends);
     memo.set(spec, out);
   }
   return out;
 }
 
+/** @type {WeakMap<Plays, Map<string, readonly FxSpec[]>>} */
 const STACKED = new WeakMap();   // plays document → `stacked` entry|count|max|mid → its specs
-/** The specs of a `stacked` STACK_FX entry at count `n` (`from`: the count info's max / mid) — none without `plays`. */
+/**
+ * The specs of a `stacked` STACK_FX entry at count `n` (`from`: the count info's max / mid) — none without `plays`.
+ * @param {StackedFx} e
+ * @param {number} n
+ * @param {StatusFrom | null} from
+ * @param {Plays | null} plays
+ * @returns {readonly FxSpec[]}
+ */
 function stackedSpecs(e, n, from, plays) {
   if (!plays) return NO_SPECS;
   let memo = STACKED.get(plays);
@@ -572,17 +680,21 @@ function stackedSpecs(e, n, from, plays) {
     const k = plays.keys?.[e.tpl];
     const bb = { ...(max ? { max_stack_cnt: max } : {}), ...(mid ? { mid_stack_cnt: mid } : {}) };
     const on = whenPlays(k, { stacks: { [e.counted]: n }, bb, buffs: [] }).filter((r) => r.role === 'held').map((r) => r.n);
-    out = Object.freeze([...new Set([...(k?.held || []), ...on])].map((name) => Object.freeze([e.bundle, name, e.frac])));
+    out = Object.freeze([...new Set([...(k?.held || []), ...on])].map((name) => Object.freeze(/** @type {FxSpec} */ ([e.bundle, name, e.frac]))));
     memo.set(id, out);
   }
   return out;
 }
 
+/** @type {WeakMap<Plays, Map<string, FxSpec>>} */
 const NAMED = new WeakMap();   // plays document → client key → its spec
 /**
  * 2026-11-05: a status named after its client key, `:<id>` aside (a kit's buff, tools/build-fx-plays.mjs `b`), needs no KEY_FX
  * row: what that buff holds, from the prefab's own `_spawnLocation`, in the key's bundle. A key that only holds behind
  * conditions stands for them, as `keyedAll`: the sim gave the buff. null for every other status.
+ * @param {string} status
+ * @param {Plays | null} plays
+ * @returns {FxSpec | null}
  */
 function namedSpec(status, plays) {
   const keys = plays?.keys;
@@ -594,15 +706,19 @@ function namedSpec(status, plays) {
   let memo = NAMED.get(plays);
   if (!memo) NAMED.set(plays, (memo = new Map()));
   let spec = memo.get(key);
-  if (!spec) memo.set(key, (spec = Object.freeze([k.b, Object.freeze(k.held?.length ? { tpl: key } : { tpl: key, when: ALL }), OWN])));
+  if (!spec) memo.set(key, (spec = Object.freeze(/** @type {FxSpec} */ ([k.b, Object.freeze(k.held?.length ? { tpl: key } : { tpl: key, when: ALL }), OWN]))));
   return spec;
 }
 
+/** @type {WeakMap<Plays, Set<string>>} */
 const WORN = new WeakMap();   // plays document → its worn prefabs
+/** @type {Set<string>} */
 const NOT_WORN = new Set();
 /**
  * 2026-11-06: the prefabs a kit's buff holds as a status (tools/build-fx-plays.mjs `worn`). namedSpec draws them on whoever wears
  * the buff, so a skill's name rule does not (fxgame.js ownedNow): 바이슨 S2's own buff started twice, his allies' on him.
+ * @param {Plays | null | undefined} plays
+ * @returns {Set<string>}
  */
 export function wornPrefabs(plays) {
   const keys = plays?.keys;
@@ -620,15 +736,19 @@ export function wornPrefabs(plays) {
   return set;
 }
 
+/** @param {Map<string, FxSpec>} out @param {string} k @param {FxSpec | null | undefined} spec */
 function put(out, k, spec) { if (spec && !out.has(k)) { out.set(k, spec); if (byNow != null) WANT_BY.set(k, byNow); } }
 /**
  * 2026-11-17 (docs/rules/render.md 「스킨 모델 소재」): who applied the status each wanted effect key comes from (its applier's
  * unit id, statusSource `id`) — the client hooks a buff's effect by the buff's source (Entity.AddBuffEffect →
  * BattleController.CreateEffect → source TryHookEffect), so an applier drawn in a skin shows its skin's effect on the holder.
  * A key without one (the flag statuses, a status the sim sends without an applier, the ready effects) is the holder's own.
+ * @type {Map<string, unknown>}
  */
 const WANT_BY = new Map();
+/** @type {unknown} */
 let byNow = null;
+/** @type {Plays | null} */
 let playsNow = null;   // wantedStatusFx's `plays` (byName, keyed specs)
 /**
  * 2026-11-11 (docs/rules/fx.md 「규정 살카즈 후예 무리」): an enemy's own status whose official effect follows a count on the
@@ -639,20 +759,21 @@ let playsNow = null;   // wantedStatusFx's `plays` (byName, keyed specs)
  * from 5, ON_BUFF_FINISH ends [effect_2] under 5 and [effect_1] at 2 or fewer — the count is the 重生造物 on its field
  * (the stack count is uncapped, maxStackCnt −1; the sim caps only the ATK at max_valid_stack_cnt).
  */
+/** @type {Set<unknown>} */
 const BLOODSUCKER_MARK = new Set(['enemy_1220_dzoms', 'enemy_1220_dzoms_2', 'enemy_1221_dzomg', 'enemy_1221_dzomg_2']);   // their CommonAbility/mark
-const COUNTED_TAGS = Object.freeze({
+const COUNTED_TAGS = Object.freeze(/** @type {Record<string, { count: (v: StatusView) => unknown, tag: (n: number) => string | null }>} */ ({
   'ab:dklord': Object.freeze({ count: (v) => v.isEnemy && BLOODSUCKER_MARK.has(v.info?.defId),
     tag: (n) => (n >= 5 ? 'ememy_dklord_atk[effect_1]|ememy_dklord_atk[effect_2]' : n > 2 ? 'ememy_dklord_atk[effect_1]' : null) }),
-});
+}));
 const COUNTED = Object.entries(COUNTED_TAGS);
 /**
  * 2026-11-12 (docs/rules/fx.md 「규정 영혼의 유해 무리」): enemy_lrmzrd[fx_ctrl] / enemy_lrwzrd[fx_ctrl] by the souls held
  * (soulBuff ≥ 1 / 2 / 3: enemy_v050[fx][stack_1] / _2 / _3, each kept once created, finished as the count drops below it).
  */
 const SOUL_TAGS = Object.freeze([null, 1, 2, 3].map((n) => (n ? Array.from({ length: n }, (_, i) => `enemy_v050[fx][stack_${i + 1}]`).join('|') : null)));
-/** Live views on the field that each COUNTED_TAGS entry counts (syncStatusFx sets them once per frame). */
+/** Live views on the field that each COUNTED_TAGS entry counts (syncStatusFx sets them once per frame). @type {Map<string, number>} */
 const countedNow = new Map();
-/** Count the views COUNTED_TAGS counts (`views`: the field's views; alive, not leaving). */
+/** Count the views COUNTED_TAGS counts (`views`: the field's views; alive, not leaving). @param {Map<unknown, StatusView | null | undefined>} views */
 export function countForStatus(views) {
   countedNow.clear();
   for (const [k, c] of COUNTED) {
@@ -661,6 +782,7 @@ export function countForStatus(views) {
     countedNow.set(k, n);
   }
 }
+/** @param {Map<string, FxSpec>} out @param {FxSpec | null | undefined} spec */
 const byName = (out, spec) => {
   if (!spec) return;
   if (typeof spec[1] === 'string') put(out, `${spec[0]}/${spec[1]}`, spec);
@@ -674,6 +796,7 @@ const byName = (out, spec) => {
  * skill: the client ends and recreates it the next tick.
  */
 const NO_SKILL = UF.STUNNED | UF.FROZEN | UF.SLEEP;
+/** @param {StatusView} v @param {unknown} stop @param {number} [f] @returns {boolean} */
 export function readyHolds(v, stop, f = v.flags | 0) {
   const active = !!(f & UF.SKILL);
   const avail = v.charge > 0 || (!active && v.spMax > 0 && v.sp / v.spMax >= 0.999);
@@ -686,6 +809,13 @@ export function readyHolds(v, stop, f = v.flags | 0) {
  * The effects `v` should show now: effect key → spec. STATUS_FX keys for the catalogue statuses (`stealth` already
  * resolved to the side's prefab key), `bundle/prefab` for the buff effects (SOURCE_FX / KEY_FX / LAYER_FX / STACK_FX).
  * `v.statusFrom` (UnitView.onStatus): status key → statusSource(). `plays`: the loaded plays.json (`keyed` specs).
+ * @param {StatusView} v
+ * @param {Map<string, FxSpec>} [out]
+ * @param {EnemyBuffFn | null} [ebuff]
+ * @param {Plays | null} [plays]
+ * @param {((view: StatusView) => ReadyFx | null) | null} [readyOf]
+ * @param {((id: unknown) => StatusView | null | undefined) | null} [viewOf]
+ * @returns {Map<string, FxSpec>}
  */
 export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyOf = null, viewOf = null) {
   out.clear();
@@ -694,12 +824,15 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
   playsNow = plays;
   const f = v.flags | 0;
   // 2026-10-21: an enemy's own buff effects (fxgame.js enemyBuffFx — its prefab's buffs; ebuff(view, kind, tag) → { on, ends })
+  /** @type {((kind: string, tag?: string | null) => EnemyBuffs | null) | null} */
   const own = v.isEnemy && typeof ebuff === 'function' ? (kind, tag) => ebuff(v, kind, tag) : null;
   // 2026-11-10: a buff an enemy's ability puts on an ally (its `fxTag` 'buff:…', the status's applier `src`) — that enemy's
   // binding of the buff, drawn on the ally: 淤困之茧's acweb[vfx], which its acweb[bundling] creates on the operator it binds
   // (`viewOf`: the field's views by id)
+  /** @type {((src: unknown, tag: string) => EnemyBuffs | null) | null} */
   const bySrc = !v.isEnemy && typeof ebuff === 'function' && typeof viewOf === 'function'
     ? (src, tag) => { const s = src != null ? viewOf(src) : null; return s && s.isEnemy ? ebuff(s, 'key', tag) : null; } : null;
+  /** @param {EnemyBuffs} r */
   const byOwn = (r) => {
     for (const s of r.on) {
       byName(out, s);
@@ -712,7 +845,7 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
   // 逐火 ember …) — held while the mode is on; one a status names too is the same `bundle/prefab` key, drawn once
   if (own) { const r = own('mode'); if (r) byOwn(r); }
   // 2026-11-12: the souls a 魂灵法骸 / 魂灵残迹 holds (fxgame.js soulFx counts them) — its [fx_ctrl]'s stack buffs, 1 … n together
-  if (own && v._fxSouls > 0) { const r = own('key', SOUL_TAGS[Math.min(SOUL_TAGS.length - 1, v._fxSouls)]); if (r) byOwn(r); }
+  if (own && /** @type {number} */ (v._fxSouls) > 0) { const r = own('key', SOUL_TAGS[Math.min(SOUL_TAGS.length - 1, /** @type {number} */ (v._fxSouls))]); if (r) byOwn(r); }
   if (f & UF.STUNNED) put(out, 'stun', STATUS_FX.stun);
   if (f & UF.FROZEN) put(out, 'freeze', frozenFx(v));
   if (f & UF.COLD) put(out, 'cold', STATUS_FX.cold);
@@ -735,7 +868,7 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
       byNow = from?.id ?? null;
       const counted = own ? COUNTED_TAGS[k] : null;
       if (counted) {
-        const tag = counted.tag(countedNow.get(k) || 0), r = tag ? own('key', tag) : null;
+        const tag = counted.tag(countedNow.get(k) || 0), r = tag ? /** @type {NonNullable<typeof own>} */ (own)('key', tag) : null;
         if (r) byOwn(r);
         continue;
       }
@@ -754,14 +887,15 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
       const per = SOURCE_FX[k];
       const e = per ? per[from?.src || fxCode(v)] : null;
       if (per && (e || !STATUS_FALLBACK.has(k))) {
-        byName(out, Array.isArray(e) ? e : e && from?.fx != null ? e[from.fx] : null);
+        byName(out, Array.isArray(e) ? /** @type {FxSpec} */ (e) : e && from?.fx != null ? /** @type {Readonly<Record<string, FxSpec>>} */ (e)[/** @type {string} */ (from.fx)] : null);
         continue;
       }
       const kf = KEY_FX[k] ?? KEY_FX[k.replace(/:\d+$/, '')];
-      if (kf && RENEWED.has(k)) { if (kf[0]) put(out, `${kf[0]}/${kf[1]}#${from?.n || 0}`, kf); continue; }
+      // (a RENEWED key's row is a spec)
+      if (kf && RENEWED.has(k)) { if (/** @type {FxSpec} */ (kf)[0]) put(out, `${/** @type {FxSpec} */ (kf)[0]}/${/** @type {FxSpec} */ (kf)[1]}#${from?.n || 0}`, /** @type {FxSpec} */ (kf)); continue; }
       if (kf) {
         const spec = typeof kf === 'function' ? kf(v, from) : kf;
-        if (spec && Array.isArray(spec[0])) for (const s of spec) byName(out, s); else byName(out, spec);
+        if (spec && Array.isArray(spec[0])) for (const s of /** @type {readonly FxSpec[]} */ (spec)) byName(out, s); else byName(out, /** @type {FxSpec | null} */ (spec));
         continue;
       }
       const layers = LAYER_FX[k];
@@ -769,8 +903,8 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
       const stacks = STACK_FX[k] ?? STACK_FX[k.replace(/:\d+$/, '')];
       if (stacks) {
         const n = from?.n || 1;
-        if (stacks.tpl) for (const s of stackedSpecs(stacks, n, from, plays)) put(out, `${s[0]}/${s[1]}`, s);
-        else for (const [min, spec, below] of stacks) if (n >= bound(min, from) && (below == null || n < bound(below, from))) byName(out, spec);
+        if (/** @type {StackedFx} */ (stacks).tpl) for (const s of stackedSpecs(/** @type {StackedFx} */ (stacks), n, from, plays)) put(out, `${s[0]}/${s[1]}`, s);
+        else for (const [min, spec, below] of /** @type {readonly StackRow[]} */ (stacks)) if (n >= bound(min, from) && (below == null || n < bound(below, from))) byName(out, spec);
         continue;
       }
       const named = namedSpec(k, plays);
@@ -787,11 +921,12 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
   return out;
 }
 
-/** Whether the effect layer draws status effects now (fxgame.js statusLayer). */
+/** Whether the effect layer draws status effects now (fxgame.js statusLayer). @param {StatusFxApi} fxGame */
 function layerOn(fxGame) { return typeof fxGame.statusLayer === 'function' ? !!fxGame.statusLayer() : true; }
 /**
  * Whether the drawn icons stand in (fxgame.js statusStandIn: only where the effects cannot play — while the effect index
  * loads neither shows; 2026-11-15, the icons used to flash first). A layer without the question: while it is off.
+ * @param {StatusFxApi} fxGame
  */
 function iconsOn(fxGame) { return typeof fxGame.statusStandIn === 'function' ? !!fxGame.statusStandIn() : !layerOn(fxGame); }
 
@@ -799,6 +934,9 @@ function iconsOn(fxGame) { return typeof fxGame.statusStandIn === 'function' ? !
  * Sync every live unit's status effects with `fxGame` (render/fxgame.js statusOn / statusOff). `views`: the field's
  * views (Map). Units not in battle (prep), dead or culled show none. Sets `view._statusIcons` (units.js): the drawn icons
  * only while the layer is off.
+ * @param {Map<unknown, StatusView | null | undefined>} views
+ * @param {StatusFxApi | null | undefined} fxGame
+ * @param {unknown} battle
  */
 export function syncStatusFx(views, fxGame, battle) {
   if (!fxGame || typeof fxGame.statusOn !== 'function') return;
@@ -806,7 +944,7 @@ export function syncStatusFx(views, fxGame, battle) {
   const ebuff = typeof fxGame.enemyBuffFx === 'function' ? fxGame.enemyBuffFx : null;
   const plays = typeof fxGame.plays === 'function' ? fxGame.plays() : null;
   const readyOf = typeof fxGame.readyFx === 'function' ? fxGame.readyFx : null;
-  const viewOf = (id) => views.get(id);
+  const viewOf = (/** @type {unknown} */ id) => views.get(id);
   countForStatus(views);
   for (const v of views.values()) {
     if (!v || typeof v.flags !== 'number') continue;
@@ -819,11 +957,12 @@ export function syncStatusFx(views, fxGame, battle) {
       const [bundle, name, frac, hold, kept] = spec;
       // (an IMMEDIATELY buff's effect, ONCE_OF: finished as it starts — kept in `on` till the status ends, so not again)
       // (2026-11-17) `src`: the unit whose skin it shows — its applier (WANT_BY; null once gone from the field), else the holder
-      if (fxGame.statusReady(bundle, name)) {
+      // (a wanted spec names its prefab: byName resolved the keyed ones)
+      if (fxGame.statusReady(bundle, /** @type {string} */ (name))) {
         const by = WANT_BY.get(k);
         if (by != null) (v._fxStatusBy ||= new Map()).set(k, by);
         MINE.add(k);
-        fxGame.statusOn(v, bundle, name, k, frac, hold, false, ONCE_OF.has(k), !!kept, by == null ? v : views.get(by) ?? null);
+        fxGame.statusOn(v, bundle, /** @type {string} */ (name), k, frac, hold, false, ONCE_OF.has(k), !!kept, by == null ? v : views.get(by) ?? null);
       }
     }
     // local patch: not the prep 'golden' glow (fxgolden.js); local patch (maintainer report 2026-10-08): `now` — an ended
@@ -834,7 +973,7 @@ export function syncStatusFx(views, fxGame, battle) {
         if (want.has(k) || !MINE.has(k)) continue;
         fxGame.statusOff(v, k, true);
         const by = v._fxStatusBy?.get(k);
-        if (by != null) v._fxStatusBy.delete(k);
+        if (by != null) /** @type {Map<string, unknown>} */ (v._fxStatusBy).delete(k);
         // 2026-10-21: a buff's end effect, once, when the buff ends on a living unit (END_FX, an enemy buff's `buffEnd`)
         const end = live ? END_FX[k] || END_OF.get(k) : null;
         if (end && typeof fxGame.statusOnce === 'function') for (const [b, n] of end) fxGame.statusOnce(v, b, n, by == null ? v : views.get(by) ?? null);

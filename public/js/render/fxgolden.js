@@ -14,12 +14,33 @@
 // it plays the same goldenEffectId whenever the chess' ChessBasicInfo.isGolden — no type test; the elite items share
 // their base item's trapId, so the glow is what tells them apart (render/units.js ItemView).
 
+/** @import { StatusFxApi } from './fxstatus.js' */
+
+/**
+ * What syncGoldenFx reads and sets on a view (render/units.js UnitView; ItemView, `isItem`).
+ * @typedef {object} GoldenView
+ * @property {unknown} [flags]
+ * @property {unknown} [isItem]
+ * @property {unknown} [prep]
+ * @property {unknown} [golden]
+ * @property {unknown} [isEnemy]
+ * @property {unknown} [isToken]
+ * @property {unknown} [alive]
+ * @property {unknown} [remove]
+ * @property {unknown} [destroyed]
+ * @property {unknown} [goldenFallback]
+ * @property {Set<string>} [_fxStatusOn]
+ */
+
 /** [bundle, prefab] of the elite glow. */
 export const GOLDEN_FX = Object.freeze(['trap', 'trap_acgarm_buff_loop_01']);
 
 /**
  * Sync the elite glow on the field's views (Map): on for a live elite ally operator or hand item (ItemView, `isItem`) in
  * the prep, off otherwise; such a piece whose glow cannot play gets `goldenFallback` (the ground ring).
+ * @param {Map<unknown, GoldenView | null | undefined>} views
+ * @param {StatusFxApi | null | undefined} fxGame
+ * @param {unknown} prep
  */
 export function syncGoldenFx(views, fxGame, prep) {
   const fx = fxGame && typeof fxGame.statusOn === 'function' ? fxGame : null;

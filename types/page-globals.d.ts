@@ -44,3 +44,8 @@ declare var __SP_RENDER__: string | undefined;
 // a screen check sets it before the page loads to see the entry film under automation (ui/entryFilm.js playEntryFilm)
 declare var __SP_ENTRY_FILM__: boolean | undefined;
 declare var __SP__: { store: unknown, net: unknown, data: unknown, version: number, import: (p: string) => Promise<unknown> } | undefined;
+// the effect layer's own draw path (render/fxsubmit.js): its test switches — three.js's source unchanged with every uniform set
+// per draw, the mat4s that go into the block too, and the dev pixel check's three.js-against-itself reference
+declare var __SP_FX_SUBMIT_PLAIN__: unknown;
+declare var __SP_FX_SUBMIT_MATS__: unknown;
+declare var __SP_FX_SUBMIT_REF__: unknown;

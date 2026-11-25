@@ -6,6 +6,16 @@
 // them per operator is tools/local-extract/char_points.py's public/assets/local/fx/points.json:
 //   { charId: { muzzle | hit | head | sp<N>: { F?: { bone?, rot?, at: [x, y] }, B?: … } } }   (`at` skeleton units, y up)
 
+/** @import { Projected } from './projection.js' */
+/**
+ * The camera the model points are placed through (render/projection.js Camera).
+ * @typedef {{ project(x: number, y: number, z?: number, out?: Projected): Projected,
+ *   liftFor(x: number, y: number, z: number, px: number): number, tilt: number, yaw?: number }} PointCam
+ * @typedef {{ x: number, y: number, z: number }} WorldPt
+ * @typedef {{ face: readonly number[], scale: number, graphic?: readonly number[],
+ *   shadow: { at: readonly number[], sx: number, sy: number } | null }} ModelPlaceRec a places.json row (STANDARD_PLACE)
+ */
+
 export const POINTS_URL = '/assets/local/fx/points.json';
 let pointsPromise = null;
 /** The points table (fetched once), or null without one (no extracted effects: every effect keeps its old place). */
@@ -27,9 +37,9 @@ export function pointKey(spawn) {
   if (spawn === 2) return 'hit';
   if (spawn === 4) return 'head';
   if (spawn === 3 || spawn === 6) return 'muzzle';
-  if (spawn >= 8 && spawn <= 11) return `sp${spawn - 8}`;
-  if (spawn >= 13 && spawn <= 16) return `sp${spawn - 9}`;
-  if (spawn >= 18 && spawn <= 25) return `sp${spawn - 10}`;
+  if (/** @type {number} */ (spawn) >= 8 && /** @type {number} */ (spawn) <= 11) return `sp${/** @type {number} */ (spawn) - 8}`;
+  if (/** @type {number} */ (spawn) >= 13 && /** @type {number} */ (spawn) <= 16) return `sp${/** @type {number} */ (spawn) - 9}`;
+  if (/** @type {number} */ (spawn) >= 18 && /** @type {number} */ (spawn) <= 25) return `sp${/** @type {number} */ (spawn) - 10}`;
   return null;
 }
 
@@ -43,7 +53,7 @@ export function pointKey(spawn) {
  * @returns {number|null}
  */
 export function mountSpawn(mount) {
-  const t = mount?.type;
+  const t = /** @type {number} */ (mount?.type);   // (no integer: null below)
   if (!Number.isInteger(t) || t < 0 || t === 4 || t === 7 || t > 21) return null;
   if (t <= 3) return t + 1;
   const k = t <= 6 ? t - 5 : t - 6; // SPECIAL_k
@@ -92,7 +102,7 @@ export function pointTurn(entry, sk, back) {
   const other = mine === entry.F ? entry.B : entry.F;
   for (const p of [mine, other]) {
     const b = p?.bone ? sk.findBone(p.bone) : null;
-    if (b) return p.rot === 1 && typeof b.getWorldRotationX === 'function' ? (-b.getWorldRotationX() * Math.PI) / 180 : null;
+    if (b) return /** @type {{rot?: number}} */ (p).rot === 1 && typeof b.getWorldRotationX === 'function' ? (-b.getWorldRotationX() * Math.PI) / 180 : null;
   }
   return null;
 }
@@ -116,8 +126,8 @@ export function pointScale(entry, sk, back) {
   for (const p of [mine, other]) {
     const b = p?.bone ? sk.findBone(p.bone) : null;
     if (!b) continue;
-    if (p.ls === 2 && typeof b.getWorldScaleX === 'function') return [b.getWorldScaleX(), b.getWorldScaleY()];
-    return p.ls ? [Number(b.scaleX), Number(b.scaleY)] : [1, 1];
+    if (/** @type {{ls?: number}} */ (p).ls === 2 && typeof b.getWorldScaleX === 'function') return [b.getWorldScaleX(), /** @type {() => number} */ (b.getWorldScaleY)()];
+    return /** @type {{ls?: number}} */ (p).ls ? [Number(b.scaleX), Number(b.scaleY)] : [1, 1];
   }
   return null;
 }
@@ -197,12 +207,13 @@ export const SHADOW_SPRITE = Object.freeze([5.07, 1.62]);
  * prefab draws none — 凛御银灰's 风雪之眼). `placesVersion` counts the loads, so a view built before it came re-reads.
  */
 export const PLACES_URL = '/assets/local/fx/places.json';
+/** @type {Record<string, ModelPlaceRec | undefined> | null} */
 let places = null, placesPromise = null;
 export let placesVersion = 0;
 export const loadPlaces = () => (placesPromise ||= (typeof fetch !== 'function' ? Promise.resolve(null)
   : fetch(PLACES_URL).then((r) => (r.ok ? r.json() : null)).then((p) => (p && typeof p === 'object' ? p : null), () => null))
   .then((p) => { if (p) setPlaces(p); return p; }));
-/** Installs the per-unit table (loadPlaces; tests). */
+/** Installs the per-unit table (loadPlaces; tests). @param {Record<string, ModelPlaceRec | undefined> | null | undefined} p */
 export function setPlaces(p) { places = p || null; placesVersion++; }
 
 /**
@@ -216,7 +227,7 @@ export function setPlaces(p) { places = p || null; placesVersion++; }
  */
 export function modelPlace(keys, kind, fly = false) {
   if (kind !== 'op' && kind !== 'token' && kind !== 'enemy') return null;
-  const std = kind === 'enemy' ? (fly ? ENEMY_PLACE.fly : ENEMY_PLACE.walk) : STANDARD_PLACE;
+  const std = /** @type {ModelPlaceRec} */ (kind === 'enemy' ? (fly ? ENEMY_PLACE.fly : ENEMY_PLACE.walk) : STANDARD_PLACE);
   const e = keys.map((k) => (k && places ? places[k] : null)).find((x) => x && Array.isArray(x.face)) || std;
   const sh = e.shadow;
   return {
@@ -232,6 +243,8 @@ export function modelPlace(keys, kind, fly = false) {
  * { dx: columns, dy: rows, dz: height }. The Graphic's X −30° turns Unity (y, z) into (y cos 30° + z sin 30°,
  * z cos 30° − y sin 30°), and Unity's z points into the board (the height is its negative): (0, −0.16, −0.1) → 0.189 rows
  * toward the camera and 0.007 up, about 0.16 tile lower on screen.
+ * @param {readonly number[]} face
+ * @param {readonly number[] | null} [graphic]
  */
 export function modelOffset(face, graphic = null) {
   const c = Math.cos(Math.PI / 6), s = Math.sin(Math.PI / 6);
@@ -265,7 +278,7 @@ export function takesGraphicTurn(def) {
  * @param {{findBone: (name: string) => object|null}|null|undefined} sk
  */
 export function boneMissing(entry, sk) {
-  const bones = [entry?.F?.bone, entry?.B?.bone].filter(Boolean);
+  const bones = /** @type {string[]} */ ([entry?.F?.bone, entry?.B?.bone].filter(Boolean));
   return !!sk && bones.length > 0 && bones.every((b) => !sk.findBone(b));
 }
 
@@ -278,9 +291,15 @@ export function boneMissing(entry, sk) {
  * screen offset is converted at the lifted point's own projection and scale, not at the root's (maintainer report
  * 2026-10-12: 안젤리나 더 멜로우 위시's S2 weapon glow sat on her face near the screen edge in a match, on her staff in the
  * arena's centre). Exact for render/projection.js Camera: at a fixed row and height the screen x is linear in the column.
- * @param {{liftFor: Function, project: Function}} cam
- * @param {{x: number, y: number, z: number}} out
- * @param {{x: number, y: number, s: number, depth: number}} [tmp]
+ * @param {PointCam} cam
+ * @param {number} x
+ * @param {number} y
+ * @param {number} z
+ * @param {number} rootY
+ * @param {number} gx
+ * @param {number} gy
+ * @param {WorldPt} out
+ * @param {Projected} [tmp]
  */
 export function liftedPoint(cam, x, y, z, rootY, gx, gy, out, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
   const dz = cam.liftFor(x, y, z, rootY - gy);
@@ -299,9 +318,13 @@ export function liftedPoint(cam, x, y, z, rootY, gx, gy, out, tmp = { x: 0, y: 0
  * liftedPoint keeps the unit's row, so the same drawn point stood h / sin 30° up — four times as high — and a lob's fall
  * from the muzzle to the hit point (render/fx/projectiles.js lobZ: D = start + raise − target) four times as deep. The
  * plane is at the root's depth, so this is exact for render/projection.js Camera (the drawn point does not move).
- * @param {{project: Function, liftFor: Function, tilt: number, yaw?: number}} cam
- * @param {{x: number, y: number, z: number}} p
- * @param {{x: number, y: number, z: number}} out
+ * @param {PointCam} cam
+ * @param {number} x
+ * @param {number} y
+ * @param {number} z
+ * @param {WorldPt} p
+ * @param {WorldPt} out
+ * @param {Projected} [tmp]
  */
 export function onModelPlane(cam, x, y, z, p, out, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
   const q = cam.project(p.x, p.y, p.z, tmp), qx = q.x, qy = q.y;
@@ -313,8 +336,15 @@ export function onModelPlane(cam, x, y, z, p, out, tmp = { x: 0, y: 0, s: 0, dep
  * The world point of a model point drawn at screen (gx, gy) on a unit whose model stands at world (x, y, z), projecting to
  * screen y `rootY` — on the model's plane (onModelPlane: the official mount point's place), liftedPoint's arguments.
  * 2026-10-31 (maintainer request after the shots: the cast and hit effects at model points too).
- * @param {{project: Function, liftFor: Function, tilt: number, yaw?: number}} cam (liftFor: the liftedPoint fallback)
- * @param {{x: number, y: number, z: number}} out
+ * @param {PointCam} cam (liftFor: the liftedPoint fallback)
+ * @param {number} x
+ * @param {number} y
+ * @param {number} z
+ * @param {number} rootY
+ * @param {number} gx
+ * @param {number} gy
+ * @param {WorldPt} out
+ * @param {Projected} [tmp]
  */
 export function planePoint(cam, x, y, z, rootY, gx, gy, out, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
   const r = cam.project(x, y, z, tmp);
@@ -329,7 +359,10 @@ export function planePoint(cam, x, y, z, rootY, gx, gy, out, tmp = { x: 0, y: 0,
 /**
  * The screen offset of world point `p` from a unit's base `b` (its entity point, height included), in tiles of the base's
  * own scale: { du, dv }. A held effect keeps it (heldAt).
- * @param {{project: Function}} cam
+ * @param {Pick<PointCam, 'project'>} cam
+ * @param {WorldPt} b
+ * @param {WorldPt} p
+ * @param {Projected} [tmp]
  */
 export function screenOffset(cam, b, p, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
   const r = cam.project(b.x, b.y, b.z, tmp), rx = r.x, ry = r.y, rs = r.s;
@@ -344,7 +377,11 @@ export function screenOffset(cam, b, p, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
  * stays on its model. Here the model is drawn straight up on screen from its root, so the world offset taken at the
  * creation (its column and height lifted through the camera there) drifted off the model as the unit walked across the
  * board; the screen offset, scaled with the base's depth, stays on it.
- * @param {{liftFor: Function, project: Function, tilt: number, yaw?: number}} cam
+ * @param {PointCam} cam
+ * @param {WorldPt} b
+ * @param {{ du: number, dv: number }} off
+ * @param {WorldPt} out
+ * @param {Projected} [tmp]
  */
 export function heldAt(cam, b, off, out, tmp = { x: 0, y: 0, s: 0, depth: 0 }) {
   const r = cam.project(b.x, b.y, b.z, tmp);

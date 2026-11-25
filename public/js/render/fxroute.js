@@ -15,21 +15,39 @@
 // (walk) / 1.2 (fly) over the ground, `_times` 1 run, then `_delayToRecycle` 0.5 s for the trail to fade. Without the
 // official effect (quality low, not extracted, no WebP) a trail of red motes (render/fx.js) runs the same way.
 
+/**
+ * A cursor effect playing (fxgame.js playFree), the layer that plays it, a path of [row, col] points.
+ * @typedef {{ stop(now?: boolean): void, alive(): boolean }} CursorHandle
+ * @typedef {{ x: number, y: number, z: number }} CursorAt
+ * @typedef {{ playFree?(bundle: string, name: string, at: CursorAt): Promise<CursorHandle | null | undefined> }} CursorFx
+ * @typedef {readonly (readonly number[])[]} RoutePts
+ * @typedef {{ pts: RoutePts, acc: number[], d: number, wait: number, at: CursorAt, h: number, handle: CursorHandle | null,
+ *   pending: boolean, off: boolean, gone: boolean }} RouteRun
+ * @typedef {{ t: number, motion: 'WALK' | 'FLY', pts: RoutePts, acc: number[], len: number, h: number, at: CursorAt,
+ *   state: 'wait' | 'run' | 'done', handle: CursorHandle | null, pending: boolean, off: boolean, gone: boolean }} BattleCursor
+ */
+
 /** [bundle, prefab] of the cursors (fx_extract.py --bundle route_cursor --pack 'battle/[pack]common.ab'). */
-export const ROUTE_FX = Object.freeze({ WALK: ['route_cursor', 'WalkPreviewCursor'], FLY: ['route_cursor', 'FlyPreviewCursor'] });
+export const ROUTE_FX = Object.freeze(/** @type {Record<string, readonly [string, string]>} */ ({ WALK: ['route_cursor', 'WalkPreviewCursor'], FLY: ['route_cursor', 'FlyPreviewCursor'] }));
 /** Cursor controller values of the prefabs (`_moveSpeed` tiles/s, `_height` tiles, `_delayToRecycle` s). */
-export const CURSOR = Object.freeze({ speed: 8, height: { WALK: 0.3, FLY: 1.2 }, recycle: 0.5 });
+export const CURSOR = Object.freeze(/** @type {{ speed: number, height: Readonly<Record<string, number>>, recycle: number }} */ ({ speed: 8, height: { WALK: 0.3, FLY: 1.2 }, recycle: 0.5 }));
 /** Pause between two runs of one path of the boss-prep preview (s) — our own value: the feature is not official. */
 export const ROUTE_GAP_S = 1.5;
 
-/** Cumulative lengths of a [row, col] polyline. */
+/** Cumulative lengths of a [row, col] polyline. @param {RoutePts} pts @returns {number[]} */
 export function pathLengths(pts) {
   const acc = [0];
   for (let i = 1; i < pts.length; i++) acc.push(acc[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   return acc;
 }
 
-/** The point at distance `d` along a polyline (acc = pathLengths(pts)) → { row, col }. */
+/**
+ * The point at distance `d` along a polyline (acc = pathLengths(pts)) → { row, col }.
+ * @param {RoutePts} pts
+ * @param {readonly number[]} acc
+ * @param {number} d
+ * @returns {{ row: number, col: number }}
+ */
 export function pointAt(pts, acc, d) {
   const n = pts.length;
   if (!n) return { row: 0, col: 0 };
@@ -41,18 +59,21 @@ export function pointAt(pts, acc, d) {
   return { row: pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * k, col: pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * k };
 }
 
+/** @param {unknown} p @returns {p is number[][]} */
 const validPath = (p) => Array.isArray(p) && p.length >= 2 && p.every((q) => Array.isArray(q) && Number.isFinite(q[0]) && Number.isFinite(q[1]));
 
 /**
  * The boss-prep cursors of the shown paths (our feature, see the header).
- * @param {{ fxGame: object, heightAt: (r: number, c: number) => number, fallback?: (x: number, y: number, z: number) => void }} o
+ * @param {{ fxGame: CursorFx | null | undefined, heightAt: (r: number, c: number) => number, fallback?: ((x: number, y: number, z: number) => void) | null }} o
  *   fxGame = render/fxgame.js layer (playFree); fallback draws one mote of the stand-in trail at a board point
  * @returns {{ sync(paths: number[][][]|null, motion: string, dt: number): void, clear(): void }}
  */
 export function createRouteCursors({ fxGame, heightAt, fallback = null }) {
   let sig = '';
+  /** @type {RouteRun[]} */
   let runs = [];   // { pts, acc, d, wait, at, handle, pending, off }
 
+  /** @param {RouteRun} r @param {boolean} [now] */
   function stopRun(r, now = false) {
     if (r.handle) { try { r.handle.stop(now); } catch { /* ignore */ } }
     r.handle = null;
@@ -62,11 +83,13 @@ export function createRouteCursors({ fxGame, heightAt, fallback = null }) {
     runs = [];
     sig = '';
   }
+  /** @param {RouteRun} r */
   function place(r) {
     const p = pointAt(r.pts, r.acc, r.d);
     r.at.x = p.col; r.at.y = p.row;
     r.at.z = (heightAt(Math.round(p.row), Math.round(p.col)) || 0) + r.h;
   }
+  /** @param {RouteRun} r @param {string} motion */
   function start(r, motion) {
     r.d = 0;
     place(r);
@@ -121,16 +144,19 @@ const JOIN_SLACK_S = 0.25;
  * `routeCursors` (/sim/routePreview.js). Each cursor runs ONCE at `_moveSpeed` in game time (the battle speed scales it
  * like the client's), then its trail fades (`_delayToRecycle`). A cursor whose run is already over when the plan
  * arrives (a field watched mid-battle, a re-entered view) is skipped, one under way joins where it is.
- * @param {{ fxGame: object, heightAt: (r: number, c: number) => number, fallback?: (x: number, y: number, z: number) => void,
- *   onSpawn?: (c: { t: number, motion: string }) => void }} o
+ * @param {{ fxGame: CursorFx | null | undefined, heightAt: (r: number, c: number) => number,
+ *   fallback?: ((x: number, y: number, z: number) => void) | null, onSpawn?: ((c: { t: number, motion: string }) => void) | null }} o
  *   onSpawn: a cursor appears on the battle clock (not one joined late) — the client's ON_PREVIEW_CURSOR_SPAWND
  *   (VoicePlayer._OnPreviewCursorSpawn's 行动开始 never plays in 卫戍协议: public/js/voice.js voiceForRoutePreview)
- * @returns {{ load(plan: object[]|null): void, update(renderT: number): void, clear(): void }}
+ * @returns {{ load(plan: readonly ({ t?: unknown, motion?: unknown, pts?: unknown } | null)[] | null): void, update(renderT: number): void, clear(): void }}
  */
 export function createBattleCursors({ fxGame, heightAt, fallback = null, onSpawn = null }) {
+  /** @type {BattleCursor[]} */
   let list = [];   // { t, motion, pts, acc, len, h, at, state: 'wait'|'run'|'done', handle, pending, off, gone }
+  /** @type {number | null} */
   let lastT = null;
 
+  /** @param {BattleCursor} c @param {boolean} [now] */
   function stop(c, now = false) {
     if (c.handle) { try { c.handle.stop(now); } catch { /* ignore */ } }
     c.handle = null;
@@ -140,11 +166,13 @@ export function createBattleCursors({ fxGame, heightAt, fallback = null, onSpawn
     list = [];
     lastT = null;
   }
+  /** @param {BattleCursor} c @param {number} d */
   function place(c, d) {
     const p = pointAt(c.pts, c.acc, d);
     c.at.x = p.col; c.at.y = p.row;
     c.at.z = (heightAt(Math.round(p.row), Math.round(p.col)) || 0) + c.h;
   }
+  /** @param {BattleCursor} c */
   function spawn(c) {
     if (!fxGame || typeof fxGame.playFree !== 'function') { c.off = true; return; }
     const [bundle, name] = ROUTE_FX[c.motion] || ROUTE_FX.WALK;
@@ -165,7 +193,7 @@ export function createBattleCursors({ fxGame, heightAt, fallback = null, onSpawn
         if (!p || !Number.isFinite(p.t) || !validPath(p.pts)) continue;
         const motion = p.motion === 'FLY' ? 'FLY' : 'WALK';
         const acc = pathLengths(p.pts);
-        list.push({ t: p.t, motion, pts: p.pts, acc, len: acc[acc.length - 1], h: CURSOR.height[motion] ?? CURSOR.height.WALK,
+        list.push({ t: /** @type {number} */ (p.t), motion, pts: p.pts, acc, len: acc[acc.length - 1], h: CURSOR.height[motion] ?? CURSOR.height.WALK,
           at: { x: 0, y: 0, z: 0 }, state: 'wait', handle: null, pending: false, off: false, gone: false });
       }
     },

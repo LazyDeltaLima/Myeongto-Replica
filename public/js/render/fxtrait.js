@@ -9,15 +9,23 @@
 
 import { TRAIT_FX_BUNDLE } from '../../../shared/traitFx.js';
 
+/** @import { StatusFxApi } from './fxstatus.js' */
+/** @typedef {{ alive?: unknown, remove?: unknown, destroyed?: unknown }} TraitView what drainTraitFx reads on a prep view */
+
 /** How long a queued effect waits for its piece's view (ms). */
 export const WAIT_MS = 2000;
 const MAX = 32;
+/** @type {{ uid: number, fx: string, at: number }[]} */
 const queue = [];
 
-/** Queue m.trait `msg` ({ uid, fx }) at `now` (ms); a malformed one is ignored. */
+/**
+ * Queue m.trait `msg` ({ uid, fx }) at `now` (ms); a malformed one is ignored.
+ * @param {{ uid?: unknown, fx?: unknown } | null | undefined} msg
+ * @param {number} [now]
+ */
 export function pushTraitFx(msg, now = Date.now()) {
   if (!msg || !Number.isInteger(msg.uid) || typeof msg.fx !== 'string' || !/^map_v079_buff0\d$/.test(msg.fx)) return;
-  queue.push({ uid: msg.uid, fx: msg.fx, at: now });
+  queue.push({ uid: /** @type {number} */ (msg.uid), fx: msg.fx, at: now });
   if (queue.length > MAX) queue.splice(0, queue.length - MAX);
 }
 
@@ -27,6 +35,10 @@ export const traitFxPending = () => queue.length > 0;
 /**
  * Play the queued effects whose piece has a prep view (views: Map 'p:<uid>' → view) and drop the stale ones. `prep`
  * false (a battle on screen): nothing plays, the queue only ages.
+ * @param {Map<unknown, TraitView | null | undefined> | null | undefined} views
+ * @param {StatusFxApi | null | undefined} fxGame
+ * @param {unknown} prep
+ * @param {number} [now]
  */
 export function drainTraitFx(views, fxGame, prep, now = Date.now()) {
   for (let i = queue.length - 1; i >= 0; i--) {

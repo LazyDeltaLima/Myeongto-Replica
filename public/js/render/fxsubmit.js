@@ -20,20 +20,70 @@
  * three.js call first resets three.js's state cache (resetState: it does not know the vertex array bound here).
  */
 
+/**
+ * @import { Three, ThreeObj } from './board3d/materials.js'
+ * @typedef {{ vs: string, fs: string, members: string[] | null, plain?: boolean }} ProgSrc a program's two stages and its block members
+ * @typedef {{ loc: WebGLUniformLocation | null, m3: boolean, obj: number, name: string, last: Float64Array }} ProgMat a matrix uniform set per draw
+ * @typedef {object} ProgRec a linked program (link) and, once `ready`, its layout (poll)
+ * @property {string} key
+ * @property {WebGLProgram} prog
+ * @property {WebGLShader} vs
+ * @property {WebGLShader} fs
+ * @property {string[] | null} members
+ * @property {boolean} plain
+ * @property {boolean} ready
+ * @property {ProgSrc} src
+ * @property {(WebGLUniformLocation | null)[]} cam
+ * @property {WebGLUniformLocation | null} mv
+ * @property {string[]} samplers
+ * @property {number[]} units
+ * @property {number[]} layout [writer, word offset, matrix column stride in words, member index] per member
+ * @property {(WebGLUniformLocation | number)[]} locs the plain program's [location, type] per member
+ * @property {number} size
+ * @property {number} stride
+ * @property {number[]} obj
+ * @property {ProgMat[]} mats
+ * @property {{ name: string, loc: number, ls: number }[]} attrs
+ * @typedef {{ buf: WebGLBuffer, type: number, bpe: number, version: number, size: number }} BufRec
+ * @typedef {{ vao: WebGLVertexArrayObject, src: ThreeObj[], buf: (WebGLBuffer | null)[], index: ThreeObj | null,
+ *   ibuf: WebGLBuffer | null, stamp: number, gen: number, defaults: (number | Float32List)[] | null }} VaoRec
+ *   defaults: [location, value] of the attributes the geometry lacks
+ * @typedef {{ mat: ThreeObj, prog: ProgRec, u: ThreeObj, refs: (ThreeObj | null)[], holes: boolean }} PackRec
+ * @typedef {object} DrawItem one mesh of the pass (collect)
+ * @property {ThreeObj} object
+ * @property {ThreeObj} material
+ * @property {number} groupOrder
+ * @property {number} renderOrder
+ * @property {number} z
+ * @property {number} id
+ * @property {string} key
+ * @property {ProgRec | null} prog
+ * @property {number} variant
+ * @property {number} off its block's byte offset in the uniform buffer (drawList)
+ * @typedef {{ passes: number, own: number, diffPx: number, maxDiff: number, draws: number,
+ *   first: { px: number, mx: number, items: number, calls: number } | null }} CheckStats
+ */
+
 const CAMERA = ['projectionMatrix', 'viewMatrix', 'cameraPosition', 'isOrthographic'];
 const OBJECT = ['modelMatrix', 'modelViewMatrix', 'normalMatrix'];
 const DECL = /\buniform\s+(?:(?:highp|mediump|lowp)\s+)?(\w+)\s+(\w+)\s*;/g;
 const MARK = '/*@FxDraw@*/';
 const BLOCK = 'FxDraw';
+/** @type {readonly ThreeObj[]} */
 const NO_CHILDREN = Object.freeze([]);
 
 /**
  * A program's two stages with the plain uniforms `take(name, type)` accepts moved into one std140 block, declared where
  * the first of them was in each stage (the same members in the same order in both, as linking requires).
+ * @param {string} vs
+ * @param {string} fs
+ * @param {(name: string, type: string) => boolean} take
  * @returns {{ vs: string, fs: string, members: string[] }}
  */
 export function blockSource(vs, fs, take) {
+  /** @type {Map<string, string>} */
   const types = new Map();
+  /** @param {string} src */
   const cut = (src) => {
     let first = true;
     return src.replace(DECL, (m, type, name) => {
@@ -56,6 +106,7 @@ const GL = {
   BOOL: 0x8b56, BVEC2: 0x8b57, BVEC3: 0x8b58, BVEC4: 0x8b59, MAT2: 0x8b5a, MAT3: 0x8b5b, MAT4: 0x8b5c,
 };
 const W_F = 1, W_V2 = 2, W_V3 = 3, W_V4 = 4, W_I = 5, W_IV4 = 6, W_M3 = 7, W_M4 = 8, W_IV2 = 9, W_IV3 = 10;
+/** @type {Record<number, number>} */
 const WRITER = {
   [GL.FLOAT]: W_F, [GL.VEC2]: W_V2, [GL.VEC3]: W_V3, [GL.VEC4]: W_V4, [GL.INT]: W_I, [GL.BOOL]: W_I,
   [GL.IVEC2]: W_IV2, [GL.BVEC2]: W_IV2, [GL.IVEC3]: W_IV3, [GL.BVEC3]: W_IV3, [GL.IVEC4]: W_IV4, [GL.BVEC4]: W_IV4,
@@ -64,9 +115,11 @@ const WRITER = {
 
 // three.js's render-list order (WebGLRenderList painterSortStable / reversePainterSortStable, r186): the opaque list also
 // orders one material's skinned / instanced draws apart (materialVariant)
+/** @param {DrawItem} a @param {DrawItem} b */
 function opaqueSort(a, b) {
   return a.groupOrder - b.groupOrder || a.renderOrder - b.renderOrder || a.material.id - b.material.id || a.variant - b.variant || a.z - b.z || a.id - b.id;
 }
+/** @param {DrawItem} a @param {DrawItem} b */
 function transparentSort(a, b) {
   return a.groupOrder - b.groupOrder || a.renderOrder - b.renderOrder || b.z - a.z || a.id - b.id;
 }
@@ -83,27 +136,35 @@ void main() { pc_fragColor = vec4(1.0); }`;
 
 export class FxSubmit {
   /**
-   * @param {any} THREE the three.js module
-   * @param {any} renderer the layer's WebGLRenderer
-   * @param {{ probes: any[], occMaterial?: any }} o probes: the PROGRAM_VARIANTS scenes (fxplayer.js programVariants), whose
+   * @param {Three} THREE the three.js module
+   * @param {ThreeObj} renderer the layer's WebGLRenderer
+   * @param {{ probes: ThreeObj[], occMaterial?: ThreeObj | null }} o probes: the PROGRAM_VARIANTS scenes (fxplayer.js programVariants), whose
    *   first mesh's material is an effect material three.js compiles for this renderer (fxgame.js ensure / prewarm)
    */
   constructor(THREE, renderer, o) {
-    this.THREE = THREE; this.r = renderer; this.gl = renderer.getContext(); this.state = renderer.state;
+    this.THREE = THREE; this.r = renderer; this.gl = /** @type {WebGL2RenderingContext} */ (renderer.getContext()); this.state = renderer.state;
     this.props = renderer.properties;
     this.probes = o.probes; this.occMaterial = o.occMaterial || null;
     this.frag = o.probes[0]?.children[0]?.material?.fragmentShader;
     this.matNames = new Set(Object.keys(o.probes[0]?.children[0]?.material?.uniforms || {}));
     this.enabled = true;
     this.dirty = false;        // three.js's state cache needs a reset before its next call
+    /** @type {Set<string>} */
     this.failed = new Set();   // program keys that did not link
+    /** @type {Map<string, ProgRec>} */
     this.progs = new Map();    // 'n0' / 'n1' (normals) / 'occ' → program record
+    /** @type {WeakMap<object, BufRec>} */
     this.bufs = new WeakMap(); // BufferAttribute / InterleavedBuffer → { buf, type, bpe, version, size }
+    /** @type {WeakMap<object, Map<ProgRec, VaoRec>>} */
     this.vaos = new WeakMap(); // geometry → Map(program record → vao record)
+    /** @type {WeakMap<object, PackRec>} */
     this.recs = new WeakMap(); // mesh → { mat, prog, refs }
-    this.disposeGeo = (e) => this.dropGeometry(e.target);
-    this.items = []; this.pool = [];
-    this.ubo = null; this.uboCap = 0; this.uboData = null; this.f32 = null; this.i32 = null;
+    this.disposeGeo = (/** @type {{ target: ThreeObj }} */ e) => this.dropGeometry(e.target);
+    /** @type {DrawItem[]} */
+    this.items = [];
+    /** @type {DrawItem[]} */
+    this.pool = [];
+    /** @type {WebGLBuffer | null} */ this.ubo = null; this.uboCap = 0; this.uboData = null; /** @type {Float32Array | null} */ this.f32 = null; /** @type {Int32Array | null} */ this.i32 = null;
     this.stamp = 0; this.bufGen = 0;   // bufGen: buffers made or dropped (a vertex array checks its buffers only then)
     this.v4 = new THREE.Vector4(); this.proj = new THREE.Matrix4(); this.frustum = new THREE.Frustum();
     this.clearColor = new THREE.Color();
@@ -111,12 +172,22 @@ export class FxSubmit {
     this.align = gl.getParameter(gl.UNIFORM_BUFFER_OFFSET_ALIGNMENT) || 256;
     this.bindPoint = Math.max(0, (gl.getParameter(gl.MAX_UNIFORM_BUFFER_BINDINGS) || 24) - 1);
     this.parallel = gl.getExtension('KHR_parallel_shader_compile');
+    /** @type {unknown[]} the textures bound on units 0–31 by this module (undefined: not known) */
     this.units = new Array(32).fill(undefined);
     this.calls = 0;
+    /** @type {{ own: number, three: number, why: string, whys?: Record<string, number>, objects?: number }} */
     this.stats = { own: 0, three: 0, why: '' };
-    /** @type {any} */ this.scene = null; this.why = ''; this.nPool = 0;
-    /** @type {any} */ this.vao = null; /** @type {any} */ this.progCam = null;
-    /** @type {any} */ this.checks = null; /** @type {Uint8Array|null} */ this.pa = null; /** @type {Uint8Array|null} */ this.pb = null;   // passes drawn here / by three.js this frame, the last fallback's reason
+    /** @type {ThreeObj | null} */ this.scene = null; this.why = ''; this.nPool = 0;
+    /** @type {WebGLVertexArrayObject | null | undefined} */
+    this.vao = null;
+    /** @type {ProgRec | null} */
+    this.progCam = null;
+    /** @type {CheckStats | null} */
+    this.checks = null;
+    /** @type {Uint8Array|null} */
+    this.pa = null;
+    /** @type {Uint8Array|null} */
+    this.pb = null;   // passes drawn here / by three.js this frame, the last fallback's reason
   }
 
   /**
@@ -141,7 +212,7 @@ export class FxSubmit {
     if (this.dirty) { this.r.resetState(); this.dirty = false; }
   }
 
-  /** The pass through three.js itself. */
+  /** The pass through three.js itself. @param {ThreeObj} scene @param {ThreeObj} camera @param {boolean} clear @param {string} why @returns {number} */
   three(scene, camera, clear, why) {
     this.yieldToThree();
     this.stats.three++; this.stats.why = why; (this.stats.whys ||= {})[why] = (this.stats.whys[why] || 0) + 1;
@@ -152,6 +223,9 @@ export class FxSubmit {
 
   /**
    * Draw `scene` like `renderer.render(scene, camera)` with `renderer.autoClear = clear`.
+   * @param {ThreeObj} scene
+   * @param {ThreeObj} camera
+   * @param {boolean} clear
    * @returns {number} the draw calls
    */
   render(scene, camera, clear) {
@@ -174,7 +248,7 @@ export class FxSubmit {
     this.scene = scene;
     this.stamp++;
     // three.js's two lists, each in its order
-    const opaque = [], transparent = [];
+    const opaque = /** @type {DrawItem[]} */ ([]), transparent = /** @type {DrawItem[]} */ ([]);
     for (const it of items) (it.material.transparent === true ? transparent : opaque).push(it);
     if (opaque.length > 1) opaque.sort(opaqueSort);
     if (transparent.length > 1) transparent.sort(transparentSort);
@@ -200,7 +274,11 @@ export class FxSubmit {
     return this.calls;
   }
 
-  /** three.js's projectObject: the meshes it would draw, or false (and `why`) for one this module cannot draw. */
+  /**
+   * three.js's projectObject: the meshes it would draw, or false (and `why`) for one this module cannot draw.
+   * @param {ThreeObj} o @param {ThreeObj} camera @param {number} groupOrder
+   * @returns {boolean}
+   */
   collect(o, camera, groupOrder) {
     if (o.visible === false) return true;
     if (o.layers.test(camera.layers)) {
@@ -222,7 +300,7 @@ export class FxSubmit {
             if (o.boundingSphere !== undefined) { if (o.boundingSphere === null) o.computeBoundingSphere(); sphere = o.boundingSphere; }
             else { const g = o.geometry; if (g.boundingSphere === null) g.computeBoundingSphere(); sphere = g.boundingSphere; }
             this.v4.copy(sphere.center).applyMatrix4(o.matrixWorld).applyMatrix4(this.proj);
-            const it = this.pool[this.nPool] ||= {};
+            const it = this.pool[this.nPool] ||= /** @type {DrawItem} */ ({});
             this.nPool++;
             it.object = o; it.material = m; it.groupOrder = groupOrder; it.renderOrder = o.renderOrder; it.z = this.v4.z; it.id = o.id; it.key = key; it.prog = null;
             it.variant = (o.isInstancedMesh ? 2 : 0) + (o.isSkinnedMesh ? 1 : 0);   // WebGLRenderList materialVariant
@@ -240,11 +318,15 @@ export class FxSubmit {
    * The program record for a key, or null while it is not linked (or never will be). Its source is three.js's program for
    * that variant on this renderer — the material's own, else the PROGRAM_VARIANTS probe's (a double-sided quad, 0; a
    * one-sided mesh with normals, 4); with neither compiled yet, three.js draws the pass and compiles it.
+   * @param {string} key
+   * @param {ThreeObj} material
+   * @returns {ProgRec | null}
    */
   program(key, material) {
     let p = this.progs.get(key);
     if (p) return p.ready ? p : this.poll(p);
     if (this.failed.has(key)) return null;
+    /** @type {ProgSrc} */
     let src;
     if (key === 'occ') src = { vs: OCC_VS, fs: OCC_FS, members: null };
     else {
@@ -252,15 +334,16 @@ export class FxSubmit {
       if (!prog?.program) prog = this.props.get(this.probes[key === 'n1' ? 4 : 0]?.children[0]?.material ?? material).currentProgram;
       if (!prog?.program) return null;
       const gl = this.gl;
-      const vs = gl.getShaderSource(prog.vertexShader), fs = gl.getShaderSource(prog.fragmentShader);
+      const vs = /** @type {string} */ (gl.getShaderSource(prog.vertexShader)), fs = /** @type {string} */ (gl.getShaderSource(prog.fragmentShader));
       // one program serves every side: the variants differ only by three.js's FLIP_SIDED / DOUBLE_SIDED defines, which
       // nothing in the effect shader reads (checked here, so a change of the shader cannot make it wrong unseen)
       if (/gl_FrontFacing|(ifdef|defined\s*\()\s*(FLIP|DOUBLE)_SIDED/.test(vs + fs)) {
         console.warn('[fx] submit: the effect shader reads the face side; drawn by three.js'); this.failed.add(key); return null;
       }
-      const take = (name) => OBJECT.includes(name) || this.matNames.has(name);
+      const take = (/** @type {string} */ name) => OBJECT.includes(name) || this.matNames.has(name);
       // (test switch globalThis.__SP_FX_SUBMIT_PLAIN__: three.js's source unchanged, every uniform set per draw — no block)
       if (globalThis.__SP_FX_SUBMIT_PLAIN__) {
+        /** @type {Set<string>} */
         const names = new Set();
         for (const m of (vs + fs).matchAll(DECL)) if (!m[1].startsWith('sampler') && take(m[2])) names.add(m[2]);
         src = { vs, fs, members: [...names], plain: true };
@@ -277,17 +360,20 @@ export class FxSubmit {
     return p.ready ? p : this.poll(p);
   }
 
+  /** @param {string} key @param {ProgSrc} src @returns {ProgRec} */
   link(key, src) {
     const gl = this.gl;
-    const sh = (type, text) => { const s = gl.createShader(type); gl.shaderSource(s, text); gl.compileShader(s); return s; };
+    /** @param {number} type @param {string} text */
+    const sh = (type, text) => { const s = /** @type {WebGLShader} */ (gl.createShader(type)); gl.shaderSource(s, text); gl.compileShader(s); return s; };
     const vs = sh(gl.VERTEX_SHADER, src.vs), fs = sh(gl.FRAGMENT_SHADER, src.fs);
     const prog = gl.createProgram();
     gl.attachShader(prog, vs); gl.attachShader(prog, fs);
     gl.linkProgram(prog);
-    return { key, prog, vs, fs, members: src.members, plain: !!src.plain, ready: false, src };
+    // (the layout fields come with poll, before `ready`)
+    return /** @type {ProgRec} */ ({ key, prog, vs, fs, members: src.members, plain: !!src.plain, ready: false, src });
   }
 
-  /** A linked program's layout (once): block offsets and writers, sampler units, attribute locations. */
+  /** A linked program's layout (once): block offsets and writers, sampler units, attribute locations. @param {ProgRec} p @returns {ProgRec | null} */
   poll(p) {
     const gl = this.gl;
     if (this.parallel && !gl.getProgramParameter(p.prog, this.parallel.COMPLETION_STATUS_KHR)) return null;
@@ -304,7 +390,7 @@ export class FxSubmit {
     p.samplers = []; p.units = [];
     const nu = gl.getProgramParameter(p.prog, gl.ACTIVE_UNIFORMS);
     for (let i = 0; i < nu; i++) {
-      const info = gl.getActiveUniform(p.prog, i);
+      const info = /** @type {WebGLActiveInfo} */ (gl.getActiveUniform(p.prog, i));
       if (info.type !== gl.SAMPLER_2D) continue;
       const loc = gl.getUniformLocation(p.prog, info.name);
       gl.uniform1i(loc, p.samplers.length);
@@ -312,21 +398,22 @@ export class FxSubmit {
     }
     if (p.plain) {
       p.layout = []; p.locs = [];
-      p.members.forEach((n, i) => {
+      // (a plain program has its members)
+      /** @type {string[]} */ (p.members).forEach((n, i) => {
         const loc = gl.getUniformLocation(p.prog, n);
         if (!loc) return;
         let type = 0;
-        for (let k = 0; k < nu; k++) { const info = gl.getActiveUniform(p.prog, k); if (info.name === n) type = info.type; }
+        for (let k = 0; k < nu; k++) { const info = /** @type {WebGLActiveInfo} */ (gl.getActiveUniform(p.prog, k)); if (info.name === n) type = info.type; }
         p.layout.push(WRITER[type], i * 16, type === GL.MAT3 ? 3 : 4, i); p.locs.push(loc, type);
       });
-      p.size = p.stride = Math.ceil((p.members.length * 64) / this.align) * this.align;
-      p.obj = OBJECT.map((n) => p.members.indexOf(n));
+      p.size = p.stride = Math.ceil((/** @type {string[]} */ (p.members).length * 64) / this.align) * this.align;
+      p.obj = OBJECT.map((n) => /** @type {string[]} */ (p.members).indexOf(n));
     } else if (p.members) {   // the block
       const bi = gl.getUniformBlockIndex(p.prog, BLOCK);
       gl.uniformBlockBinding(p.prog, bi, this.bindPoint);
       p.size = gl.getActiveUniformBlockParameter(p.prog, bi, gl.UNIFORM_BLOCK_DATA_SIZE);
       p.stride = Math.ceil(p.size / this.align) * this.align;
-      const idx = gl.getUniformIndices(p.prog, p.members);
+      const idx = /** @type {number[]} */ (gl.getUniformIndices(p.prog, p.members));
       const offs = gl.getActiveUniforms(p.prog, idx, gl.UNIFORM_OFFSET), types = gl.getActiveUniforms(p.prog, idx, gl.UNIFORM_TYPE);
       const mstr = gl.getActiveUniforms(p.prog, idx, gl.UNIFORM_MATRIX_STRIDE);
       p.layout = [];   // [writer, word offset, matrix column stride in words, member index]
@@ -336,14 +423,14 @@ export class FxSubmit {
         if (!w) throw new Error(`[fx] submit: block member ${n} type 0x${types[i].toString(16)}`);
         p.layout.push(w, offs[i] >> 2, mstr[i] >> 2, i);
       });
-      p.obj = OBJECT.map((n) => p.members.indexOf(n));
+      p.obj = OBJECT.map((n) => /** @type {string[]} */ (p.members).indexOf(n));
     }
     // the matrices stay plain uniforms, set per draw: in a block they changed what the effect shader computes (ANGLE / D3D11:
     // 1–4 / 255 on a few pixels a frame, the same source with plain uniforms 0)
     p.mats = [];
     if (!p.plain && p.members) {
       for (let i = 0; i < nu; i++) {
-        const info = gl.getActiveUniform(p.prog, i);
+        const info = /** @type {WebGLActiveInfo} */ (gl.getActiveUniform(p.prog, i));
         if (info.type !== gl.FLOAT_MAT4 && info.type !== gl.FLOAT_MAT3) continue;
         const n = info.name, k = OBJECT.indexOf(n);
         if ((k < 0 && !this.matNames.has(n)) || p.members.includes(n)) continue;
@@ -356,7 +443,7 @@ export class FxSubmit {
     p.attrs = [];
     const na = gl.getProgramParameter(p.prog, gl.ACTIVE_ATTRIBUTES);
     for (let i = 0; i < na; i++) {
-      const info = gl.getActiveAttrib(p.prog, i);
+      const info = /** @type {WebGLActiveInfo} */ (gl.getActiveAttrib(p.prog, i));
       const loc = gl.getAttribLocation(p.prog, info.name);
       if (loc < 0) continue;
       const ls = info.type === gl.FLOAT_MAT4 ? 4 : info.type === gl.FLOAT_MAT3 ? 3 : info.type === gl.FLOAT_MAT2 ? 2 : 1;
@@ -366,7 +453,11 @@ export class FxSubmit {
     return p;
   }
 
-  /** WebGLAttributes.update: this module's buffer for an attribute (its InterleavedBuffer when interleaved). */
+  /**
+   * WebGLAttributes.update: this module's buffer for an attribute (its InterleavedBuffer when interleaved).
+   * @param {ThreeObj} a @param {number} target
+   * @returns {BufRec}
+   */
   buffer(a, target) {
     const src = a.isInterleavedBufferAttribute ? a.data : a;
     const gl = this.gl;
@@ -385,7 +476,7 @@ export class FxSubmit {
       return b;
     }
     gl.bindBuffer(target, b.buf);
-    const ranges = src.updateRanges;
+    const ranges = /** @type {{ start: number, count: number }[] | undefined} */ (src.updateRanges);
     if (!ranges || ranges.length === 0) gl.bufferSubData(target, 0, array);
     else {
       ranges.sort((x, y) => x.start - y.start);
@@ -404,13 +495,18 @@ export class FxSubmit {
     return b;
   }
 
+  /** @param {ThreeObj} g @param {ProgRec} p */
   upload(g, p) {
     const gl = this.gl;
     for (const a of p.attrs) { const ga = g.attributes[a.name]; if (ga) this.buffer(ga, gl.ARRAY_BUFFER); }
     if (g.index) this.buffer(g.index, gl.ELEMENT_ARRAY_BUFFER);
   }
 
-  /** The vertex array of a geometry for a program, made again when an attribute, the index or a buffer changed. */
+  /**
+   * The vertex array of a geometry for a program, made again when an attribute, the index or a buffer changed.
+   * @param {ThreeObj} g @param {ProgRec} p @param {ThreeObj} object @param {ThreeObj} material
+   * @returns {VaoRec}
+   */
   vertexArray(g, p, object, material) {
     let m = this.vaos.get(g);
     if (!m) { m = new Map(); this.vaos.set(g, m); g.addEventListener('dispose', this.disposeGeo); }
@@ -465,22 +561,23 @@ export class FxSubmit {
         else gl.vertexAttribPointer(loc, size, b.type, ga.normalized, stride, offset + size * i * b.bpe);
       }
     }
-    if (g.index) { const b = this.bufs.get(g.index); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b.buf); v.ibuf = b.buf; }
+    if (g.index) { const b = /** @type {BufRec} */ (this.bufs.get(g.index)); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b.buf); v.ibuf = b.buf; }
     m.set(p, v);
     return v;
   }
 
+  /** @param {ThreeObj} g */
   dropGeometry(g) {
     g.removeEventListener('dispose', this.disposeGeo);
     const m = this.vaos.get(g), gl = this.gl;
     if (m) { for (const v of m.values()) gl.deleteVertexArray(v.vao); this.vaos.delete(g); this.vao = undefined; }
     // as three.js does on a geometry's dispose: its attributes' buffers go (a shared one is made again by the next user)
-    const drop = (a) => { const src = a.isInterleavedBufferAttribute ? a.data : a; const b = this.bufs.get(src); if (b) { gl.deleteBuffer(b.buf); this.bufs.delete(src); this.bufGen++; } };
+    const drop = (/** @type {ThreeObj} */ a) => { const src = a.isInterleavedBufferAttribute ? a.data : a; const b = this.bufs.get(src); if (b) { gl.deleteBuffer(b.buf); this.bufs.delete(src); this.bufGen++; } };
     for (const k in g.attributes) drop(g.attributes[k]);
     if (g.index) drop(g.index);
   }
 
-  /** Pack the blocks of a list's effect draws into the uniform buffer, then draw the list. */
+  /** Pack the blocks of a list's effect draws into the uniform buffer, then draw the list. @param {DrawItem[]} list @param {ThreeObj} camera */
   drawList(list, camera) {
     if (!list.length) return;
     const gl = this.gl, state = this.state;
@@ -498,7 +595,7 @@ export class FxSubmit {
       this.ensureUbo(bytes);
       for (const it of list) if (it.prog?.members) this.pack(it);
       gl.bindBuffer(gl.UNIFORM_BUFFER, this.ubo);
-      gl.bufferData(gl.UNIFORM_BUFFER, this.f32, gl.DYNAMIC_DRAW, 0, bytes >> 2);   // new storage: the last pass's draws may still read the old
+      gl.bufferData(gl.UNIFORM_BUFFER, /** @type {Float32Array} */ (this.f32), gl.DYNAMIC_DRAW, 0, bytes >> 2);   // new storage: the last pass's draws may still read the old
     }
     for (const it of list) {
       const o = it.object, m = it.material, g = o.geometry, p = it.prog;
@@ -522,7 +619,7 @@ export class FxSubmit {
       const inst = g.isInstancedBufferGeometry ? Math.min(g.instanceCount, g._maxInstanceCount !== undefined ? g._maxInstanceCount : Infinity) : -1;
       if (count === 0 || inst === 0) continue;   // three.js draws nothing either (renderInstances / a zero count)
       if (this.vao !== v.vao) { gl.bindVertexArray(v.vao); this.vao = v.vao; }
-      if (v.defaults) for (let i = 0; i < v.defaults.length; i += 2) { const d = v.defaults[i + 1]; (d.length === 2 ? gl.vertexAttrib2fv : d.length === 3 ? gl.vertexAttrib3fv : gl.vertexAttrib4fv).call(gl, v.defaults[i], d); }
+      if (v.defaults) for (let i = 0; i < v.defaults.length; i += 2) { const d = /** @type {Float32List} */ (v.defaults[i + 1]); (d.length === 2 ? gl.vertexAttrib2fv : d.length === 3 ? gl.vertexAttrib3fv : gl.vertexAttrib4fv).call(gl, /** @type {number} */ (v.defaults[i]), d); }
       if (p.plain) { this.setPlain(it, p); this.textures(it, p); }
       else if (p.members) {
         gl.bindBufferRange(gl.UNIFORM_BUFFER, this.bindPoint, this.ubo, it.off, p.size);
@@ -555,11 +652,11 @@ export class FxSubmit {
     }
   }
 
-  /** The plain test program's uniforms, from the draw's packed block (no cache: every one, every draw). */
+  /** The plain test program's uniforms, from the draw's packed block (no cache: every one, every draw). @param {DrawItem} it @param {ProgRec} p */
   setPlain(it, p) {
-    const gl = this.gl, f = this.f32, I = this.i32, base = it.off >> 2, L = p.layout;
+    const gl = this.gl, f = /** @type {Float32Array} */ (this.f32), I = /** @type {Int32Array} */ (this.i32), base = it.off >> 2, L = p.layout;
     for (let k = 0, j = 0; k < L.length; k += 4, j += 2) {
-      const at = base + L[k + 1], loc = p.locs[j], t = p.locs[j + 1];
+      const at = base + L[k + 1], loc = /** @type {WebGLUniformLocation} */ (p.locs[j]), t = /** @type {number} */ (p.locs[j + 1]);
       switch (t) {
         case GL.FLOAT: gl.uniform1f(loc, f[at]); break;
         case GL.VEC2: gl.uniform2f(loc, f[at], f[at + 1]); break;
@@ -578,6 +675,7 @@ export class FxSubmit {
    * One object through three.js at its place in the order (a skinned mesh: its bones, its program): renderer.render(object)
    * draws it alone, its children taken off for the moment (they are this pass's own items). three.js's state cache is reset
    * before (it does not know what was bound here), this module's after.
+   * @param {ThreeObj} o @param {ThreeObj} camera
    */
   drawThree(o, camera) {
     this.r.resetState();
@@ -589,6 +687,7 @@ export class FxSubmit {
     this.stats.objects = (this.stats.objects || 0) + 1;
   }
 
+  /** @param {number} bytes */
   ensureUbo(bytes) {
     if (this.uboCap >= bytes) return;
     let cap = Math.max(this.uboCap || 65536, 65536);
@@ -600,16 +699,17 @@ export class FxSubmit {
     this.f32 = new Float32Array(ab); this.i32 = new Int32Array(ab);
   }
 
-  /** One draw's block: the material's uniforms by name, the object's matrices. */
+  /** One draw's block: the material's uniforms by name, the object's matrices. @param {DrawItem} it */
   pack(it) {
-    const o = it.object, m = it.material, p = it.prog;
+    // (drawList packs only a block program's items)
+    const o = it.object, m = it.material, p = /** @type {ProgRec & { members: string[] }} */ (it.prog);
     let rec = this.recs.get(o);
     if (!rec || rec.mat !== m || rec.prog !== p || rec.u !== m.uniforms) {
       const refs = p.members.map((n) => (OBJECT.includes(n) ? null : m.uniforms[n] || null));
       rec = { mat: m, prog: p, u: m.uniforms, refs, holes: refs.some((r, i) => !r && !OBJECT.includes(p.members[i])) };
       this.recs.set(o, rec);
     }
-    const refs = rec.refs, L = p.layout, f = this.f32, I = this.i32, base = it.off >> 2;
+    const refs = rec.refs, L = p.layout, f = /** @type {Float32Array} */ (this.f32), I = /** @type {Int32Array} */ (this.i32), base = it.off >> 2;
     if (rec.holes) f.fill(0, base, base + (p.stride >> 2));   // a member the material lacks reads 0
     const obj = p.obj;
     for (let k = 0; k < L.length; k += 4) {
@@ -640,7 +740,7 @@ export class FxSubmit {
     }
   }
 
-  /** The draw's textures on the program's units (three.js's setTexture2D: upload when its version moved, else bind). */
+  /** The draw's textures on the program's units (three.js's setTexture2D: upload when its version moved, else bind). @param {DrawItem} it @param {ProgRec} p */
   textures(it, p) {
     const u = it.material.uniforms, gl = this.gl, state = this.state, units = this.units;
     for (let k = 0; k < p.samplers.length; k++) {
@@ -662,6 +762,8 @@ export class FxSubmit {
    * Dev check (globalThis.__SP_FX_SUBMIT__ = 'check'): the pass through three.js, then here, each on a cleared canvas, and
    * their pixels compared (`checks`: passes, those drawn here and compared, pixels that differ, the largest channel
    * difference). The frame then shows this module's picture of that pass alone.
+   * @param {ThreeObj} scene @param {ThreeObj} camera
+   * @returns {number}
    */
   check(scene, camera) {
     const gl = this.gl, w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, n = w * h * 4;
@@ -675,7 +777,7 @@ export class FxSubmit {
     c.passes++;
     if (this.stats.own === own0) return calls;   // three.js drew it: nothing to compare
     gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, this.pb);
-    const a = this.pa, b = this.pb;
+    const a = /** @type {Uint8Array} */ (this.pa), b = /** @type {Uint8Array} */ (this.pb);
     let px = 0, mx = 0;
     for (let i = 0; i < n; i += 4) {
       const d = Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]), Math.abs(a[i + 3] - b[i + 3]));
@@ -696,9 +798,11 @@ export class FxSubmit {
   }
 }
 
+/** @param {WebGL2RenderingContext} gl @param {ArrayBufferView} array @param {ThreeObj} src @returns {number} */
 function glType(gl, array, src) {
   if (array instanceof Float32Array) return gl.FLOAT;
-  if (typeof globalThis.Float16Array !== 'undefined' && array instanceof globalThis.Float16Array) return gl.HALF_FLOAT;
+  // (Float16Array: not in every browser, nor in this checker's library)
+  if (typeof /** @type {{ Float16Array?: unknown }} */ (globalThis).Float16Array !== 'undefined' && array instanceof /** @type {Function} */ (/** @type {{ Float16Array?: unknown }} */ (globalThis).Float16Array)) return gl.HALF_FLOAT;
   if (array instanceof Uint16Array) return src.isFloat16BufferAttribute ? gl.HALF_FLOAT : gl.UNSIGNED_SHORT;
   if (array instanceof Int16Array) return gl.SHORT;
   if (array instanceof Uint32Array) return gl.UNSIGNED_INT;
