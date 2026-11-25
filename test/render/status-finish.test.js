@@ -54,7 +54,7 @@ test('fxgame.js stopBuffs (2026-10-23): a skill\'s loops end as the client finis
   const s = src('../../public/js/render/fxgame.js');
   const fn = s.slice(s.indexOf('function stopBuffs('), s.indexOf('function stopOwned('));
   assert.match(fn, /const fin = now \? Number\(l\.inst\.def\?\.finish\) : 0;/);
-  assert.match(fn, /if \(fin > 0\) \{ l\.inst\.finish\(\); if \(!\(l\.finishAt <= clockS \+ fin\)\) l\.finishAt = clockS \+ fin; \} else l\.inst\.stop\(now\);/);
+  assert.match(fn, /if \(fin > 0\) \{ l\.inst\.finish\(\); if \(!\((?:\/\*\* @type \{number\} \*\/ \()?l\.finishAt\)? <= clockS \+ fin\)\) l\.finishAt = clockS \+ fin; \} else l\.inst\.stop\(now\);/);
   // the skill's end calls it with `now` (the client's end, not emission only)
   assert.match(s, /stopBuffs\(v\.id \?\? v\.info\.id, true\)/);
 });

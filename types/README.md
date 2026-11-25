@@ -212,6 +212,9 @@ most strict errors were, and the JSDoc that fixed them:
   `never` fields on the point's own typedef do not work: a view then no longer passes as a point.
 - a source line a test reads as text (render/fxgame.js lines pinned by `test/render/*-fx.test.js`): a cast there breaks
   the test; type the declaration the value comes from instead (`const sv = /** @type {View} */ (views.get(o.id))`).
+  When nothing before the line can carry the type (`let p0 = null, …` read in a closure, `l.finishAt <=` of an optional
+  field), the cast goes on the line and the test's pattern takes it as optional, the pinned text otherwise as it was:
+  `(?:\/\*\* @type \{number\} \*\/ \()?l\.finishAt\)?` (owner-follow-fx, status-finish, fx-face-switch and others).
 - `delete o.f` of a field the type requires (TS2790): `delete /** @type {{ f?: number }} */ (o).f`.
 - a method wrapped on another module's prototype (`Match.prototype.finish = function finish(o) …`, local-console.js,
   local-patch.js): the JSDoc goes on the function expression, `= /** @param {…} o */ function finish(o)`; `this` comes

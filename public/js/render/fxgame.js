@@ -1277,7 +1277,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (copy) {
         const c = await lib.load(b.bundle, copy);
         if (!mod) return;
-        if (c) { own = !!def.swFace.oneShot; n = copy; def = c; }
+        if (c) { own = !!/** @type {NonNullable<FxDef['swFace']>} */ (def.swFace).oneShot; n = copy; def = c; }
       }
       // 2026-10-22: its random group's pick, its owner's module variant (randomPick / equipVariant)
       const pick = await randomPick(def, b.bundle, true);
@@ -1513,7 +1513,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function stepTileHeight(l, g) {
     const p = l.inst.object.position, h = tileTop(p.x, p.y);
     if (l.tileZ == null) l.tileZ = h;
-    else { const d = h - l.tileZ; l.tileZ += Math.sign(d) * Math.min(Math.abs(d), l.inst.def.tileH * g); }
+    else { const d = h - l.tileZ; l.tileZ += Math.sign(d) * Math.min(Math.abs(d), /** @type {number} */ (l.inst.def.tileH) * g); }
     p.z = l.tileZ;
   }
   /** @param {LiveEntry} l */
@@ -1815,7 +1815,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function finishMe(l) {
     const fin = Number(l.inst.def?.finish);
-    if (fin > 0) { l.inst.finish(); if (!(l.finishAt <= clockS + fin)) l.finishAt = clockS + fin; } else l.inst.stop(true);
+    if (fin > 0) { l.inst.finish(); if (!(/** @type {number} */ (l.finishAt) <= clockS + fin)) l.finishAt = clockS + fin; } else l.inst.stop(true);
   }
   /** Play a live effect's OnPlayEmitter prefabs when their time comes and its OnFinishEmitter prefabs when it finishes. @param {LiveEntry} l */
   function stepOnEmit(l) {
@@ -1964,7 +1964,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const l of live) {
       if (!l.buff || l.status || l.owner !== ownerId) continue;
       const fin = now ? Number(l.inst.def?.finish) : 0;
-      if (fin > 0) { l.inst.finish(); if (!(l.finishAt <= clockS + fin)) l.finishAt = clockS + fin; } else l.inst.stop(now);
+      if (fin > 0) { l.inst.finish(); if (!(/** @type {number} */ (l.finishAt) <= clockS + fin)) l.finishAt = clockS + fin; } else l.inst.stop(now);
     }
   }
   /**
@@ -2378,7 +2378,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   function placedAt(v, def, key, spawn, at, buff = false) {
     const hold = !!def?.face?.hold || buff;   // 2026-10-22: a buff's effect is always held (lifted)
     const follow = !!def?.followOwner;   // 2026-10-25: FollowOwner — its point (and a muzzle's turn) again every frame
-    let p0 = null, b0 = null, r0 = null, f0 = null, off = null;
+    let p0 = /** @type {Pt | null} */ (null), b0 = /** @type {Pt | null} */ (null), r0 = /** @type {number | null} */ (null), f0 = /** @type {number | null} */ (null), off = /** @type {{ du: number, dv: number } | null} */ (null);
     const h = { x: 0, y: 0, z: 0 };
     const first = () => {
       if (p0 && !follow) return;
@@ -2392,11 +2392,11 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
         f0 = r0 != null && pointFlips(ptsOf(v)?.[key], v.actor?.spine?.skeleton, !!v.entryBack) ? drawnSide(v) : null;
       }
     };
-    const held = () => heldAt(/** @type {Camera} */ (camRef), { x: ex(v), y: ey(v), z: (v.z || 0) + (v.hover || 0) }, off, h);
+    const held = () => heldAt(/** @type {Camera} */ (camRef), { x: ex(v), y: ey(v), z: (v.z || 0) + (v.hover || 0) }, /** @type {{ du: number, dv: number }} */ (off), h);
     return {
-      get x() { first(); return off ? held().x : hold ? ex(v) + p0.x - b0.x : p0.x; },
-      get y() { first(); return off ? held().y : hold ? ey(v) + p0.y - b0.y : p0.y; },
-      get z() { first(); return off ? held().z : hold ? (v.z || 0) + (v.hover || 0) + p0.z - b0.z : p0.z; },
+      get x() { first(); return off ? held().x : hold ? ex(v) + /** @type {Pt} */ (p0).x - /** @type {Pt} */ (b0).x : /** @type {Pt} */ (p0).x; },
+      get y() { first(); return off ? held().y : hold ? ey(v) + /** @type {Pt} */ (p0).y - /** @type {Pt} */ (b0).y : /** @type {Pt} */ (p0).y; },
+      get z() { first(); return off ? held().z : hold ? (v.z || 0) + (v.hover || 0) + /** @type {Pt} */ (p0).z - /** @type {Pt} */ (b0).z : /** @type {Pt} */ (p0).z; },
       get rot() { first(); return r0; },
       get flip() { first(); return f0; },
       get alive() { return v.alive; }, get remove() { return v.remove; },

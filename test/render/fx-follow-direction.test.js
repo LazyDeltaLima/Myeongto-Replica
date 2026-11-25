@@ -69,7 +69,8 @@ test('a model-point effect without a mount is placed once; held ones ride with t
   assert.match(body, /const hold = !!def\?\.face\?\.hold \|\| buff;/);
   assert.match(body, /if \(spawn === 3\) \{\s*r0 = pointTurn\([^;]*\);\s*f0 = r0 != null && pointFlips\([^;]*\) \? drawnSide\(v\) : null;/);
   // held: its screen offset from the unit (fxpoints.js heldAt — lift-drift.test.js), the world offset without a camera
-  assert.match(body, /get x\(\) \{ first\(\); return off \? held\(\)\.x : hold \? ex\(v\) \+ p0\.x - b0\.x : p0\.x; \}/);
+  const pt = (n) => String.raw`(?:\/\*\* @type \{Pt\} \*\/ \()?${n}\)?`;   // the point, or the point with its JSDoc type cast
+  assert.match(body, new RegExp(String.raw`get x\(\) \{ first\(\); return off \? held\(\)\.x : hold \? ex\(v\) \+ ${pt('p0')}\.x - ${pt('b0')}\.x : ${pt('p0')}\.x; \}`));
 });
 
 test('the extracts carry `_holdByOwner` as face `hold` (skipped without public/assets)', { skip: !existsSync(path.join(FX, 'angel')) && 'no extracted fx' }, () => {

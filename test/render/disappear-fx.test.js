@@ -100,7 +100,7 @@ test('fxgame.js SwitchableEffectByBlackboardValue: the root draws nothing, the e
   const s = fn('function stepSwitchBB()', '\n  }\n');
   assert.match(s, /const v = bbValue\(x\.view, x\.sw\.buff\);/);
   assert.match(s, /if \(l\.bbSw !== x \|\| l\.inst\.stopping\) continue;\n\s+finishMe\(l\);/, 'the last one: FinishMe');
-  assert.match(fn('function finishMe(l)', '\n  }\n'), /if \(fin > 0\) \{ l\.inst\.finish\(\); if \(!\(l\.finishAt <= clockS \+ fin\)\) l\.finishAt = clockS \+ fin; \} else l\.inst\.stop\(true\);/);
+  assert.match(fn('function finishMe(l)', '\n  }\n'), /if \(fin > 0\) \{ l\.inst\.finish\(\); if \(!\((?:\/\*\* @type \{number\} \*\/ \()?l\.finishAt\)? <= clockS \+ fin\)\) l\.finishAt = clockS \+ fin; \} else l\.inst\.stop\(true\);/);
   assert.match(s, /const n = v >= 1 && v <= x\.sw\.fx\.length \? x\.sw\.fx\[v - 1\] : null;/);
   assert.match(SRC, /if \(bbSwitches\.length\) stepSwitchBB\(\);/);
 });

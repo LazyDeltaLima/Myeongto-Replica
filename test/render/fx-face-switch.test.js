@@ -37,7 +37,7 @@ test('faceSwitchCopy: the copy for the owner\'s faceDirection, none for RIGHT or
 test('play() swaps in the copy with the owner\'s faceVector; a _oneShot copy runs its own course, else it ends with this one', () => {
   const body = SRC.slice(SRC.indexOf('async function play('), SRC.indexOf('// ---- SwitchableEffectByFaceDirection'));
   assert.match(body, /const copy = faceCopy\(def, ground\.info \? ground : view, b\.bundle\);/);
-  assert.match(body, /if \(c\) \{ own = !!def\.swFace\.oneShot; n = copy; def = c; \}/);
+  assert.match(body, /if \(c\) \{ own = !!(?:\/\*\* @type \{NonNullable<FxDef\['swFace'\]>\} \*\/ \()?def\.swFace\)?\.oneShot; n = copy; def = c; \}/);
   // (2026-11-17) a unit drawn in a skin plays its skin's name (`shown`); the binding sets keep the default name (`names`)
   assert.match(body, /const fourWay = !copy && turns\(view\)\.has\(n === shown\[i\] \? names\[i\] : n\);/);
   assert.match(body, /const aimed = !copy && /);
@@ -65,7 +65,7 @@ test('FollowTileHeight: the frame loop moves the effect\'s height toward its til
   const body = SRC.slice(SRC.indexOf('function stepTileHeight('), SRC.indexOf('function setPaused('));
   assert.match(body, /const p = l\.inst\.object\.position, h = tileTop\(p\.x, p\.y\);/);
   assert.match(body, /if \(l\.tileZ == null\) l\.tileZ = h;/);
-  assert.match(body, /l\.tileZ \+= Math\.sign\(d\) \* Math\.min\(Math\.abs\(d\), l\.inst\.def\.tileH \* g\);/);
+  assert.match(body, /l\.tileZ \+= Math\.sign\(d\) \* Math\.min\(Math\.abs\(d\), (?:\/\*\* @type \{number\} \*\/ \()?l\.inst\.def\.tileH\)? \* g\);/);
 });
 
 test('placement: a buff\'s effect is held by its unit; an unheld cast / hit is put once where it was made', () => {
