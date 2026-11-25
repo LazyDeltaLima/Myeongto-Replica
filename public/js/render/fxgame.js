@@ -168,7 +168,7 @@ import { animPause, backSide, viewHoldsBuff, clipOf, facesBack, idlePause, immun
  *   opt?: Record<string, CastOpt | undefined>, dirs?: { t: number, s: string[] }[], buff?: string[], attach?: string[],
  *   tile?: string[], hitBuff?: string[], hitBuffLife?: Record<string, number | undefined>, ready?: string[], readyEarly?: number,
  *   anim?: string, aim?: string[], dying?: string[], blink?: { from?: string[], to?: string[] }, line?: { fx?: string, life?: number }[],
- *   [key: string]: unknown }} EPart an enemy attack or ability's effects (enemy-modes.json)
+ *   tileFx?: { fx: string, at: number }[], [key: string]: unknown }} EPart an enemy attack or ability's effects (enemy-modes.json)
  * @typedef {{ name?: string, ranged?: EPart | null, melee?: EPart | null, aura?: string[], skills?: Record<string, EPart | undefined>,
  *   anim?: string[], dead?: string, [key: string]: unknown }} EMode an
  *   enemy mode
@@ -6926,9 +6926,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!src || !eOn(src)) return false;
     const part = eskillPart(src, TILE_WARN_SKILLS[/** @type {string} */ (o.kind)]);
     const pr = part?.proj || {};
-    if (!part || ![...(part.cast || []), ...(part.hit || []), ...(part.hitBuff || []), ...(pr.trail || []), ...(pr.hit || []),
+    const tileFx = (part?.tileFx || []).filter((t) => efx(t.fx));
+    if (!part || !tileFx.length && ![...(part.cast || []), ...(part.hit || []), ...(part.hitBuff || []), ...(pr.trail || []), ...(pr.hit || []),
       ...(pr.reached || []), ...(pr.targetStart || [])].some(efx)) return false;   // nothing of it extracted: the stand-in stays
     const x = Number(e[2]), y = Number(e[3]);
+    // the official tile warning: its buff's tile effects on the tile, `at` s after it goes on (Nodes.CreateTileEffect: no source,
+    // its own length — '제국의 갑옷' enemy_vtsk_skill_01_range_01, 0.8 s after the marker)
+    for (const t of tileFx.slice(0, MAX_HIT_FX)) {
+      const run = () => eplay(src, [t.fx], { at: { x: Math.round(x), y: Math.round(y), z: 0 }, over: false });
+      if (t.at > 0) castsDelayed.push({ t: clockS + t.at, run }); else run();
+    }
     /** @type {View | null} */
     let on = null;
     for (const v of views.values()) {

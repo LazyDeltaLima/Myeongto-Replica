@@ -692,7 +692,24 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
                     lst.append(o['_buffKey'])
             # (2026-10-21) a buff its nodes create on the owner (Nodes.CreateBuff `_buff`): its key → its own effect
             # (overrideEffectKey, else its template's effectKey) — 泥岩's shield layers, the springs' regenerated shields
+            # (2026-11-26) a tile effect (Nodes.CreateTileEffect: the effect on the map position of the event's tile, no
+            # source, `_holdIt` false = its own length) as the buff starts, or as a LIMITED buff its start creates ends
+            # (`at`: that buff's lifeTime) — '제국의 갑옷' Appear's marker enemy_vtsk_skillRange_start creates
+            # enemy_vtsk_skillRange (0.8 s), whose ON_BUFF_FINISH lays enemy_vtsk_skill_01_range_01 on the marked unit's tile
+            if depth == 0 and ev == '0' and typ.endswith('+CreateTileEffect') and isinstance(o.get('_effectKey'), str) \
+                    and o['_effectKey'].lower() in FX:
+                if all(x['fx'] != o['_effectKey'] for x in out.get('tileFx', [])):
+                    out.setdefault('tileFx', []).append({'fx': o['_effectKey'], 'at': 0})
             b = o.get('_buff')
+            if depth == 0 and ev == '0' and typ.endswith('+CreateBuff') and isinstance(b, dict):
+                sub = BT.get(b.get('templateKey') or '') or {}
+                life = b.get('lifeTime') if b.get('lifeTimeType') in ('LIMITED', 1) else None
+                for ev2, at in (('0', 0), ('1', life)):
+                    for n in ((sub.get('eventToActions') or {}).get(ev2) or []) if at is not None else []:
+                        fx = n.get('_effectKey') if isinstance(n, dict) else None
+                        if str(n.get('$type') or '').endswith('+CreateTileEffect') and isinstance(fx, str) and fx.lower() in FX \
+                                and all(x['fx'] != fx for x in out.get('tileFx', [])):
+                            out.setdefault('tileFx', []).append({'fx': fx, 'at': round(float(at), 3)})
             if typ.endswith('+CreateBuff') and isinstance(b, dict) and b.get('buffKey'):
                 eff = b.get('overrideEffectKey') or (BT.get(b.get('templateKey') or '') or {}).get('effectKey')
                 if isinstance(eff, str) and eff and eff.lower() in FX:
@@ -856,7 +873,7 @@ def uniq(lst):
 
 def emit_part(abilities, projs):
     """{cast, opt, hit, aim?, dirs?, proj?, hitBuff?, attach?, tile?} of the abilities of one attack (or one skill)."""
-    cast, opt, hit, aim, dirs, attach, hit_buff, lines, hopt, tile = [], {}, [], [], [], [], [], [], {}, []
+    cast, opt, hit, aim, dirs, attach, hit_buff, lines, hopt, tile, tile_fx = [], {}, [], [], [], [], [], [], {}, [], []
     buff_life = {}
     proj = None
     for a in abilities:
@@ -902,6 +919,11 @@ def emit_part(abilities, projs):
             for n in (b.get('template') or {}).get('line') or []:
                 if all(x['fx'] != n for x in lines):
                     lines.append({'fx': n, **({'life': b['life']} if 'life' in b else {})})
+            # (2026-11-26) its template's tile effects (template_info `tileFx`): on the tile of the unit it goes on, `at` s
+            # after it starts
+            for x in (b.get('template') or {}).get('tileFx') or []:
+                if all(y['fx'] != x['fx'] for y in tile_fx):
+                    tile_fx.append(x)
         # 2026-10-31: a talent's buff that fires a projectile (its blackboard `valueStr`: template projectile_on_killed —
         # 萨卡兹枯朽战士's PollutedDie projectile_enemy_nhpbr_polluted, the 源石虫 blasts) counts as the ability's own
         # projectile — its effects were left out of the table and of the extraction
@@ -952,6 +974,8 @@ def emit_part(abilities, projs):
             part['hitBuffLife'] = life
     if lines:
         part['line'] = lines
+    if tile_fx:
+        part['tileFx'] = tile_fx
     if proj:
         part['proj'] = proj
     return part
@@ -959,7 +983,7 @@ def emit_part(abilities, projs):
 
 def names_of_part(p):
     out = list(p.get('cast', [])) + list(p.get('hit', [])) + list(p.get('attach', [])) + list(p.get('hitBuff', [])) + list(p.get('tile', []))
-    out += [x['fx'] for x in p.get('line', [])]
+    out += [x['fx'] for x in p.get('line', []) + p.get('tileFx', [])]
     pr = p.get('proj') or {}
     for f in ('trail', 'hit', 'reached', 'targetStart', 'start', 'tileStart', 'stop'):
         out += pr.get(f, [])

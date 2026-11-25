@@ -11,12 +11,13 @@ import { createFxLayer, TILE_WARN_SKILLS } from '../../public/js/render/fxgame.j
 import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
-const NAMES = ['vt_marker', 'vt_trail', 'li_start', 'li_lock', 'li_tstart', 'dk_hit', 'dk_range'];
+const NAMES = ['vt_marker', 'vt_range', 'vt_trail', 'li_start', 'li_lock', 'li_tstart', 'dk_hit', 'dk_range'];
 const EMODES = {
   $fx: Object.fromEntries(NAMES.map((n) => [n, ['b', n]])),
   // 帝国的甲胄-like: Appear's empty shot puts a 5.8 s marker buff on its target
   enemy_vt: { modes: [{ name: 'Default', anim: ['Attack'] }], skills: { appear: { cast: ['vt_trail'], opt: { vt_trail: { s: 4, e: 3, o: 1 } }, hit: [],
-    hitBuff: ['vt_marker'], hitBuffLife: { vt_marker: 5.8 }, proj: { key: 'p_vt_empty', mount: 2 }, anim: 'Skill_1' } } },
+    hitBuff: ['vt_marker'], hitBuffLife: { vt_marker: 5.8 }, tileFx: [{ fx: 'vt_range', at: 0.8 }], proj: { key: 'p_vt_empty', mount: 2 },
+    anim: 'Skill_1' } } },
   // 阿利斯泰尔-like: equip's shot plays its start effect on its target
   enemy_li: { modes: [{ name: 'Default', anim: ['Attack'] }], skills: { equip: { cast: ['li_start'], opt: { li_start: { s: 2, e: 3, o: 0 } }, hit: ['li_lock'],
     proj: { key: 'p_li', mount: 2, targetStart: ['li_tstart'] }, anim: 'Skill_1' } } },
@@ -51,6 +52,14 @@ test('enemy tile area: bound ability → no stand-in tile flash; the marker / sh
   let got = spawned();
   const mk = got.find((p) => p.names[0] === 'vt_marker');
   assert.ok(mk && mk.on === 10 && mk.tag === 'debuff', `the Appear marker on its target: ${JSON.stringify(got)}`);
+  // its official tile warning: the marker buff's tile effect (CreateTileEffect as its 0.8 s child buff ends) on that tile, 0.8 s later
+  assert.ok(!got.some((p) => p.names[0] === 'vt_range'), 'the tile effect waits for its buff');
+  for (let i = 0; i < 30; i++) layer.update(1 / 60, { dist: 20 }, { width: 100, height: 100 });
+  assert.ok(!spawned().some((p) => p.names[0] === 'vt_range'), 'not before 0.8 s');
+  for (let i = 0; i < 24; i++) layer.update(1 / 60, { dist: 20 }, { width: 100, height: 100 });
+  got = spawned();
+  const rg = got.find((p) => p.names[0] === 'vt_range');
+  assert.ok(rg && Array.isArray(rg.pt) && rg.pt[0] === 2 && rg.pt[1] === 3, `the tile warning on the marked tile after 0.8 s: ${JSON.stringify(got)}`);
 
   // 王权号令 at the ally on (4, 2): the shot's start effect on it
   const dec = fxEvent('telegraph', { x: 4, y: 2, r: 1, kind: 'royalDecree', tiles: 'plus', id: 2 });
@@ -120,7 +129,13 @@ test('the enemies that send them bind those abilities with extracted effects (en
     assert.ok(id, `a known enemy for '${kind}'`);
     const part = em[id]?.skills?.[String(ab).toLowerCase()];
     assert.ok(part, `${id} binds '${ab}' (TILE_WARN_SKILLS.${kind})`);
-    const names = [...(part.cast || []), ...(part.hit || []), ...(part.hitBuff || []), ...(part.proj?.targetStart || [])];
+    const names = [...(part.cast || []), ...(part.hit || []), ...(part.hitBuff || []), ...(part.proj?.targetStart || []),
+      ...(part.tileFx || []).map((t) => t.fx)];
     assert.ok(names.some((n) => em.$fx[String(n).toLowerCase()]), `${id} '${ab}' has an extracted effect: ${names}`);
   }
+  // the official tile warning of 回忆里的誓死 (buff template enemy_vtsk_skillRange_start → enemy_vtsk_skillRange's ON_BUFF_FINISH
+  // CreateTileEffect), read by tools/local-extract/enemy_bindings.py template_info `tileFx`
+  const ap = em.enemy_10027_vtsk?.skills?.appear;
+  assert.deepEqual(ap?.tileFx, [{ fx: 'enemy_vtsk_skill_01_range_01', at: 0.8 }], `'제국의 갑옷' Appear's tile warning: ${JSON.stringify(ap)}`);
+  assert.ok(em.$fx.enemy_vtsk_skill_01_range_01, 'enemy_vtsk_skill_01_range_01 extracted');
 });

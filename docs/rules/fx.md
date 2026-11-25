@@ -3458,21 +3458,36 @@
 - 예전: 시뮬이 칸을 실어 보내는 적 범위 공격 fx 'telegraph' { `tiles`, `kind` }('제국의 갑옷' 등장 폭격 `barrage`, 알리스테어, 제국의 여광의
   장비 투척 `royalDecree`, 래트킹 십자 모래 `driftSand`, '즈자이' 십자 공격 `xiCross`, 부패한 기사 모아 치기 `chargeAttack`, 쇠퇴한 기사 폭발 화살 `blastArrow`)를
   `fx/zones.js tileFlash`가 빨간 칸 깜빡임으로 그렸다. 공식 이펙트는 그 위에 따로 나왔다.
-- 공식에는 적 공격용 칸 경고가 없다. 후보였던 `map.ab` `map_act1autochess_warning_01`은 위수 협의 판 설정의 준비 단계 이펙트다: 공개 표
-  `battle_misc_table` `miscConfig.AUTOCHESS.effectConfig.tempChessRegionClearWarningEffect`(클래스 `AutoChessBattleMiscConfig.EffectConfig`,
-  `AutoChessEffectManager`의 `m_invalidHandTileWarningEffectList` 칸별 이펙트) — 대기 칸이 비워질 것을 알리는 표시. 같은 설정의 `buildableTileHintEffect`가
-  `map_act1autochess_place_01`, `maskEffectWhenGainChess` `_gainchess_01`, `deckRegionEffect` `_target_01`. `common_trap_warning_01`은 트래퍼 특성 토큰의 버프
-  (`trapper_e_trait[token]`)라 이것도 아니다. 그 순간은 각 적 능력의 자기 이펙트가 보여 준다(`enemy-modes.json`): 래트킹 `driftsand`의 타격 범위
-  `mousek_skill_01_range`·`_range_02`, '즈자이' `crossattack` 투사체 타격 `enemy_xi_skill_01_hit`, 부패한 기사 `chargeattack` 타격 `dekght_skill_01_hit`·`_range`
-  (모으는 동안은 자기 몸의 `dekght_skill_01_gather` 등뿐), 쇠퇴한 기사 `tripleattack`이 대상에 거는 `dekght_2_skill_01_buff`(폭발까지의 범위 표시), 알리스테어 `equip`
-  타격 `enemy_vtlionk_skill_01_lock_01`과 투사체 `projectile_enemy_vtlionk_s1`의 `_effectsToTargetWhenStart` `enemy_vtlionk_skill_01_hit_01`, '제국의 갑옷'
-  `Appear`의 빈 탄이 대상에 거는 표식 `hitBuff` `enemy_vtsk_skill_01_marker_01`(5.8초).
-- 지금(`fxgame.js TILE_WARN_SKILLS`·`etileWarn`): 그 능력을 바인딩한 적의 칸 'telegraph'는 빨간 칸을 안 그린다(`ownFx`). 다른 이벤트가 안 그리는 그 순간의
-  이펙트 둘은 여기서 튼다 — '제국의 갑옷'의 표식은 그 칸에 선 아군에게 버프로 5.8초(`eholdBuff`), 알리스테어 탄의 시작 이펙트는 그 칸의 아군에게(없으면 그 자리).
-  시뮬 이벤트가 능력도 대상도 안 실어서 렌더가 `kind`로 능력을 찾는다. 바인딩이 없거나 그 능력이 추출되지 않은 적, 품질 낮음은 빨간 칸 그대로.
+- 공식의 칸 경고는 우리 빨간 깜빡임과 다른 길로 그려진다 — 이펙트 프리팹 이름(warning 등)이 아니라 버프 템플릿의 칸 이펙트 노드다
+  (2026-11-26 정정: 같은 날 앞 판은 「공식에는 적 공격용 칸 경고가 없다」고 적었으나, 프리팹 이름만 찾은 결론이라 틀렸다. 관리자 제보 2026-11-26:
+  공식에는 주로 보스급 적에게 달린 빨간 칸 경고가 있다). `Nodes.CreateTileEffect`는 사건 문맥의 칸(`snapshot.tile`, 또는 블랙보드 열·행)의 지도 위치에
+  이펙트를 시전자 없이 한 번 만든다(`BattleController.CreateEffectAtMapPos`, `_holdIt` 거짓이면 제 길이대로; `_verifyBeforeCreate`면 그 칸에 같은 이펙트가
+  있을 때 안 만듦). 여섯 능력 중 이것을 붙이는 것은 '제국의 갑옷' `Appear`다: 빈 탄이 대상에 거는 표식 버프 `enemy_vtsk_skillRange`(템플릿
+  `enemy_vtsk_skillRange_start`, 표식 `enemy_vtsk_skill_01_marker_01`, 5.8초)가 시작할 때 0.8초짜리 버프(템플릿 `enemy_vtsk_skillRange`)를 만들고,
+  그 버프가 끝날 때(`ON_BUFF_FINISH`) 표식 받은 칸에 `enemy_vtsk_skill_01_range_01`을 깐다(소리 `enemy_vtsk_skillRange`). 그 꼴은 프리팹이 정한다:
+  주황 빛 줄 텍스처(`stmkgt_08`)의 네모 테두리 메시 둘(약 3.09칸 = 3×3 칸)과, 0.42초 동안 0.93에서 3.05로 커지는 안쪽 테두리, 클립 4.4초
+  (알파 0.1~0.42초에 켜지고 3.92~4.4초에 꺼짐) + 끝 0.5초. 클립 이름이 같은(`stmkgt_skill_02_range_01_animation`) 템플릿 `enemy_stmkgt_s[range_effect]`의 `stmkgt_skill_02_range_01`은
+  같은 꼴로 보이지만 이 모드의 적에는 안 붙는다. 다른 다섯 능력은 칸 이펙트 노드가 없다(EN 템플릿 전수 `CreateTileEffect` 11개 중 이 모드 적의 것은 위 하나,
+  다섯 적 프리팹에 `SelectTileEffectEmitter` 없음). 그 순간은 각 능력의 자기 이펙트가 보여 준다(`enemy-modes.json`): 래트킹 `driftsand`의
+  `_castTargetEffects` `mousek_skill_01_range`·`_range_02`(시전 시작 `ON_CAST_START`에 대상에게 — 모래빛, 빨강 아님), '즈자이' `crossattack` 투사체 타격
+  `enemy_xi_skill_01_hit`, 부패한 기사 `chargeattack` 타격 `dekght_skill_01_hit`·`_range`(모으는 동안은 자기 몸의 `dekght_skill_01_gather` 등뿐), 쇠퇴한 기사
+  `tripleattack`이 대상에 거는 `dekght_2_skill_01_buff`(폭발까지의 범위 표시), 알리스테어 `equip` 타격 `enemy_vtlionk_skill_01_lock_01`과 투사체
+  `projectile_enemy_vtlionk_s1`의 `_effectsToTargetWhenStart` `enemy_vtlionk_skill_01_hit_01`, '제국의 갑옷' `Appear`의 표식과 위 칸 경고.
+  `map.ab` `map_act1autochess_warning_01`은 적 공격 경고가 아니라 위수 협의 판 설정의 준비 단계 이펙트다: 공개 표 `battle_misc_table`
+  `miscConfig.AUTOCHESS.effectConfig.tempChessRegionClearWarningEffect`(클래스 `AutoChessBattleMiscConfig.EffectConfig`, `AutoChessEffectManager`의
+  `m_invalidHandTileWarningEffectList` 칸별 이펙트) — 대기 칸이 비워질 것을 알리는 표시. 같은 설정의 `buildableTileHintEffect`가 `map_act1autochess_place_01`,
+  `maskEffectWhenGainChess` `_gainchess_01`, `deckRegionEffect` `_target_01`. `common_trap_warning_01`은 트래퍼 특성 토큰의 버프(`trapper_e_trait[token]`)다.
+- 지금(`fxgame.js TILE_WARN_SKILLS`·`etileWarn`): 그 능력을 바인딩한 적의 칸 'telegraph'는 빨간 칸을 안 그리고(`ownFx`), 그 능력이 거는 버프의 칸
+  이펙트(`enemy-modes.json` 부분 `tileFx` { fx, at }, 추출기 `enemy_bindings.py template_info`가 버프 시작의 `CreateTileEffect`와 시작이 만드는
+  LIMITED 버프의 `ON_BUFF_FINISH` 것을 그 버프 길이 `at`과 함께 읽음)를 그 칸에 `at`초 뒤 튼다 — '제국의 갑옷'의 3×3 칸 경고. 다른 이벤트가 안 그리는
+  그 순간의 이펙트 둘도 여기서 튼다 — '제국의 갑옷'의 표식은 그 칸에 선 아군에게 버프로 5.8초(`eholdBuff`), 알리스테어 탄의 시작 이펙트는 그 칸의
+  아군에게(없으면 그 자리). 시뮬 이벤트가 능력도 대상도 안 실어서 렌더가 `kind`로 능력을 찾는다. 바인딩이 없거나 그 능력이 추출되지 않은 적,
+  품질 낮음은 빨간 칸 그대로.
+  [추정·미조사: 표식 버프와 0.8초 버프가 같은 `buffKey`(`enemy_vtsk_skillRange`, `maxStackCnt` 1)라 뒤 것이 표식을 갈아 끼우는지 — 표식은 5.8초로 둠]
+  [화면 미확인]
 - 남은 것: 이 공격들의 'explode'(`chargeAttack`·`blastArrow`·`barrage`)는 시뮬이 적 `id`를 안 실어 대체 폭발 칸이 공식 범위 이펙트 위에 그대로 그려진다.
 - 재발 방지: `test/render/enemy-tile-warn.test.js`(시뮬 콘텐츠의 칸 'telegraph' 종류를 모두 훑어 `TILE_WARN_SKILLS`에 있는지, 그 적들이 그 능력을
-  추출된 이펙트와 함께 바인딩하는지).
+  추출된 이펙트와 함께 바인딩하는지, '제국의 갑옷' `Appear`의 `tileFx`가 추출되는지); 칸 이펙트 읽기는 원인 제거 — 추출기가 템플릿에서 읽음.
 
 ### 추출 누락 보고 — fx_coverage (2026-10-16, 관리자 요청 「이펙트를 추출해 적용할 때마다 공식과 어긋나는 근본 원인」)
 

@@ -6336,7 +6336,6 @@
    "token_10065_demetr_dmtpos spawn:tokAura demetr_skill3_token_01 → self"
   ],
   "diy-033": [
-   "- spawn demetr_skill1_hit_01 → enemy",
    "- spawn demetr_skill3_restart_begin_01 → ally",
    "- spawn enemy_darmy_attack_hit_01 → ally",
    "- spawn:dead common_char_die_01",
@@ -6359,9 +6358,7 @@
    "char_4037_demetr spawn:born common_char_birth_01 → self",
    "char_4037_demetr spawn:born demetr_skill3_back_01 → self",
    "char_4037_demetr spawn:born demetr_skill3_restart_end_01 → self",
-   "char_4037_demetr spawn:born equipment_system_fighter_buff_y → self",
-   "token_10065_demetr_dmtpos spawn:born common_call_start_01 → self",
-   "token_10065_demetr_dmtpos spawn:tokAura demetr_skill3_token_01 → self"
+   "char_4037_demetr spawn:born equipment_system_fighter_buff_y → self"
   ],
   "diy-034": [
    "- spawn common_enemy_hit_01 → ally",
@@ -9032,6 +9029,7 @@
    "- spawn enemy_acstmr_explode_range",
    "- spawn enemy_darmy_attack_hit_01 → ally",
    "- spawn enemy_vtsk_skill_01_hit_01 → ally",
+   "- spawn enemy_vtsk_skill_01_range_01",
    "- spawn glady_skill_03_line",
    "- spawn glady_skill_03_range",
    "- spawn glady_skill_03_range_02",
@@ -9261,6 +9259,7 @@
    "- spawn enemy_acstmr_explode → ally",
    "- spawn enemy_acstmr_explode_range",
    "- spawn enemy_vtsk_skill_01_hit_01 → ally",
+   "- spawn enemy_vtsk_skill_01_range_01",
    "- spawn flamtl_flash_01 → ally",
    "- spawn mudrok_buff_01_begin → ally",
    "- spawn mudrok_buff_01_end → ally",
@@ -10208,6 +10207,7 @@
    "- spawn enemy_tgshd_attack_hit → ally",
    "- spawn enemy_uacann_attack_hit_01 → ally",
    "- spawn enemy_vtsk_skill_01_hit_01 → ally",
+   "- spawn enemy_vtsk_skill_01_range_01",
    "- spawn mousek_attack_01_hit → ally",
    "- spawn mousek_skill_01_range → ally",
    "- spawn mousek_skill_01_range_02 → ally",
@@ -15777,6 +15777,7 @@
    "- spawn enemy_csphts_attack_01_hit → ally",
    "- spawn enemy_sfji_attack_02_hit_01 → ally",
    "- spawn enemy_vtsk_skill_01_hit_01 → ally",
+   "- spawn enemy_vtsk_skill_01_range_01",
    "- spawn hammer_attack_01_hit → ally",
    "- spawn horn_buff_01_convert_start → ally",
    "- spawn horn_buff_01_convert_start_02 → ally",
@@ -15973,6 +15974,7 @@
    "- spawn enemy_sgrobh_attack_01",
    "- spawn enemy_sgrobh_attack_hit_01 → ally",
    "- spawn enemy_vtsk_skill_01_hit_01 → ally",
+   "- spawn enemy_vtsk_skill_01_range_01",
    "- spawn enemy_winman_hit_01 → ally",
    "- spawn enemy_winshd_attack_01_hit → ally",
    "- spawn:dead common_char_die_01",
