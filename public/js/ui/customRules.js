@@ -854,12 +854,12 @@ function FlowPane({ work, set, readonly, solo, mode, base, size, config }) {
         <${Switch} on=${work.flow.lpShared} disabled=${readonly || solo} onChange=${(/** @type {boolean} */ v) => set('flow', 'lpShared', v)} />
       <//>
     <//>
-    <${Sec} title=${t('策略')} sub=${t('仅同盟')}>
+    ${solo ? null : html`<${Sec} title=${t('策略')}>
       <${Row} label=${t('允许重复选择策略')} note=${t('队友已选的策略也可以选择 — 全队只生效一次的策略（如外勤医疗）多人选择也不会叠加')}
-          official=${t('官方：不能重复')} locked=${solo}>
-        <${Switch} on=${work.flow.bandDup} disabled=${readonly || solo} onChange=${(/** @type {boolean} */ v) => set('flow', 'bandDup', v)} />
+          official=${t('官方：不能重复')}>
+        <${Switch} on=${work.flow.bandDup} disabled=${readonly} onChange=${(/** @type {boolean} */ v) => set('flow', 'bandDup', v)} />
       <//>
-    <//>
+    <//>`}
     <${PoolSec} work=${work} set=${set} readonly=${readonly} solo=${solo} size=${size} config=${config} />
     <${Sec} title=${t('其他便利功能')} sub=${t('休闲规则的项目')}>
       <${Row} label=${t('移动型领袖路线预览')} note=${t('最终攻势休整期中敌方领袖将要走的路线')} official=${t('官方：没有')}>

@@ -191,6 +191,12 @@ test('the dialog has its six tabs and no 「后续更新生效」 tag (a match r
   }
 });
 
+test('the 「策略」 section (flow.bandDup) is not drawn for a solo simulation and has no 「仅同盟」 tag (maintainer request 2026-11-25)', () => {
+  const src = read('public/js/ui/customRules.js');
+  assert.match(src, /\$\{solo \? null : html`<\$\{Sec\} title=\$\{t\('策略'\)\}>/);
+  assert.doesNotMatch(src, /title=\$\{t\('策略'\)\} sub=/);
+});
+
 test('the stat curve chart leaves out the custom line while it is the official one (maintainer request 2026-10-18)', async () => {
   const { CurveChart } = await import('../../public/js/ui/customRules.js');
   const mode = JSON.parse(read('data/config.json')).modes.mode_multi_hard;
