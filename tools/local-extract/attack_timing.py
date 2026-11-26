@@ -306,13 +306,33 @@ def anim_table(sub, root):
     None when it has none. The client plays a clip by key only: the table turns the key into the model's clip name, and a
     key the table lacks plays nothing and has no length (`SpineAnimator.GetAnimationData` → null,
     `Unit.GetAnimationTime` false — docs/rules/sim.md 「일반 공격 타이밍」)."""
+    rows = anim_rows(sub, root)
+    if not rows:
+        return None
+    return {r['animKey']: r.get('animName') or '' for r in rows}
+
+
+def anim_rows(sub, root):
+    """The rows of an enemy prefab's animator key table (the root unit's `_animator` `_animations`), [] without one."""
     by_pid = {pid: d for _, d, pid in sub}
     unit = next((d for gp, d, _ in sub if gp == root and isinstance(d.get('_animator'), dict)), None)
     an = by_pid.get(((unit or {}).get('_animator') or {}).get('m_PathID'))
     rows = (an or {}).get('_animations')
-    if not isinstance(rows, list) or not rows:
-        return None
-    return {r['animKey']: r.get('animName') or '' for r in rows if isinstance(r, dict) and r.get('animKey')}
+    return [r for r in rows if isinstance(r, dict) and r.get('animKey')] if isinstance(rows, list) else []
+
+
+def anim_speeds(sub, root):
+    """{animKey: {clip, speed}} of the key table's rows whose `speed` is not 1, or None. The client plays a key's clip at
+    that speed on top of the one it asks for (`SpineAnimator.PlayAnimation`: the skeleton's timeScale = speed × the row's
+    `speed`), and an ability's clip length is the clip ÷ that speed (`GetAnimationTimeInternal`) — the attack abilities
+    then ask for it once more (`AbstractAnimatedAbility.UpdatePlaybackSpeed` hands the row's speed back as
+    `m_spineAnimSpeed`): docs/rules/render.md 「적 키 표의 재생 배율」."""
+    out = {}
+    for r in anim_rows(sub, root):
+        s = r.get('speed')
+        if isinstance(s, (int, float)) and abs(s - 1) > 1e-6:
+            out[r['animKey']] = {'clip': r.get('animName') or '', 'speed': round(float(s), 4)}
+    return out or None
 
 
 def with_clips(o, table):
@@ -379,6 +399,11 @@ def enemy_entries(path, wanted):
         sk = enemy_skills(sub, modes)
         if sk:
             e['skills'] = sk
+        # the key table's playback speeds that are not 1 (anim_speeds; tools/build-data.mjs enemyKeySpeed reads them) — also
+        # of an enemy without abilities, whose walk the view plays at it
+        sp = anim_speeds(sub, root)
+        if sp:
+            e['animSpeed'] = sp
         if e:
             out[root] = with_clips(e, anim_table(sub, root))
     return out

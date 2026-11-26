@@ -128,7 +128,8 @@ describe('#8 深池逐火: a knock-out is a walking 隐匿 ember that a blocker 
           // (its blocker lets go at the next enemy update)
           check(u.s.flags.invulnerable && u.s.flags.unblockable && (b.time - m.at < 0.05 || !u.blockedBy), '重生: 无敌 + 无法阻挡');
           check(u.x === m.x && u.y === m.y, '重生: immobile');
-        } else {
+        } else if (b.time >= m.at + HUSK_REBIRTH - 1e-6) {
+          // (the tick between is either: the 重生 ends one tick early or on time, by who knocked it out)
           check(u.s.flags.stealth && u.s.flags.disarm && !u.s.flags.unblockable, '余烬: 隐匿 + 缴械, blockable');
           walked = Math.max(walked, Math.hypot(u.x - m.x, u.y - m.y));
         }

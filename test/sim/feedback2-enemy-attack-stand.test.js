@@ -60,9 +60,12 @@ test('data: every enemy with a real attack clip carries it as attackAnim (the cl
     const clip = named && sp.animations[named] > 0 ? named : a.loop;
     if (clip !== a.loop) own++;
     assert.equal(e.attackAnim.clip, clip, k);
-    assert.equal(e.attackAnim.dur, sp.animations[clip], k);
+    // (a key the prefab's key table plays at another speed: the clip ÷ it, the strike frame ÷ its square — docs/rules/render.md
+    // 「적 키 표의 재생 배율」, test/render/enemy-key-speed.test.js)
+    const s = e.attackAnim.speed ?? 1, r3 = (x) => Math.round(x * 1000) / 1000;
+    assert.equal(e.attackAnim.dur, s === 1 ? sp.animations[clip] : r3(sp.animations[clip] / s), k);
     const h = sp.hits?.[clip];
-    if (Array.isArray(h) && h.length) assert.equal(e.attackAnim.hit, h[0], k);
+    if (Array.isArray(h) && h.length) assert.equal(e.attackAnim.hit, s === 1 ? h[0] : r3(h[0] / (s * s)), k);
     assert.equal(e.attackMoves, undefined, `${k}: no enemy of the mode attacks on the move`);
   }
   assert.ok(n > 200, `${n} enemies`);

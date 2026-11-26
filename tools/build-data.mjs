@@ -2766,7 +2766,7 @@ function enemySpine(manifest, spineId) {
  * committed data/assets.json (written by tools/fetch-assets.mjs from the Spine skeletons; docs/ASSETS.md), so the sim
  * never reads client files; an enemy whose model the manifest lacks gets none (the sim falls back to ATTACK_PAUSE).
  */
-function enemyAttackAnim(manifest, spineId, timing = null, own = false) {
+function enemyAttackAnim(manifest, spineId, timing = null, own = false, row = null) {
   const sp = enemySpine(manifest, spineId);
   const a = sp?.anims?.attack;
   if (!a || typeof a.loop !== 'string' || a.via === 'idle') return null;
@@ -2774,13 +2774,19 @@ function enemyAttackAnim(manifest, spineId, timing = null, own = false) {
   // animator's key table (`clip`, attack_timing.py anim_table: 가상적: 기계 `Attack` → `A_Attack`)
   const named = enemyClipName(timing);
   const clip = own && typeof sp.animations?.[named] === 'number' ? named : a.loop;
-  const dur = sp.animations?.[clip];
-  if (!(typeof dur === 'number' && dur > 0)) return null;
+  const len = sp.animations?.[clip];
+  if (!(typeof len === 'number' && len > 0)) return null;
   const h = sp.hits?.[clip];
-  const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
+  const at = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(len, Math.max(0, h[0])) : null;
+  // the key table's playback speed of the ability's key (enemyKeySpeed): the ability's clip length is the clip ÷ it, and
+  // its clip plays at it twice over — the strike (the OnAttack frame) comes at the frame ÷ its square (docs/rules/render.md
+  // 「적 키 표의 재생 배율」)
+  const speed = clip === named ? enemyKeySpeed(row, timing?.anim) : 1;
+  const dur = speed === 1 ? len : r3(len / speed);
+  const hit = at == null ? null : speed === 1 ? at : Math.min(dur, r3(at / (speed * speed)));
   // (`det` 1: a mode switch that detaches this ability cuts its swing — `_interruptAbilityOnDetach`, ai.js enemyMode)
   return {
-    clip, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(timing), ...(timing?.det === 1 ? { det: 1 } : {}),
+    clip, dur, ...(hit != null ? { hit } : {}), ...(speed !== 1 ? { speed } : {}), ...abilityTiming(timing), ...(timing?.det === 1 ? { det: 1 } : {}),
     // a normal attack that is a three-part channel (attack_timing.py `chan`, its ability's name `ab`: “喷射罐”'s Flame) —
     // `chan` { ability, begin, loop, end, down?, up? }, played as the kit's fx 'enemySkill' names that ability
     // (render/units.js onEnemySkill)
@@ -2806,9 +2812,9 @@ function enemyModeAnims(ctx, spineId, key, applyWay, base) {
   const strip = (r) => r && (({ combat, modes, ...rest }) => rest)(r);
   for (const [name, m] of Object.entries(t.modes)) {
     const ab = pick(m);
-    let rec = ab ? enemyAttackAnim(ctx.manifest, spineId, ab, true) : null;
+    let rec = ab ? enemyAttackAnim(ctx.manifest, spineId, ab, true, t) : null;
     if (rec && applyWay !== 'MELEE' && m.attack && m.combat) {
-      const c = enemyAttackAnim(ctx.manifest, spineId, m.combat, true);
+      const c = enemyAttackAnim(ctx.manifest, spineId, m.combat, true, t);
       if (c) rec.combat = c;
     }
     // (a mode whose ability names no clip the model has, or no ability at all where the first mode has one, keeps
@@ -2993,6 +2999,49 @@ function enemySkillCast(ctx, manifest, spineId, key) {
 function enemyClipName(t) {
   if (!t || typeof t.anim !== 'string' || !t.anim) return '';
   return typeof t.clip === 'string' ? t.clip : t.anim;
+}
+
+const r3 = (x) => Math.round(x * 1000) / 1000;
+
+/**
+ * The playback speed of key `anim` in an enemy's prefab animator key table (local-attack-timing.json row `animSpeed`,
+ * attack_timing.py anim_speeds; 1 when the row lists none): `SpineAnimator.PlayAnimation` plays the key's clip at the speed
+ * asked × this, `GetAnimationTimeInternal` gives its length as the clip ÷ this (docs/rules/render.md 「적 키 표의 재생 배율」).
+ */
+function enemyKeySpeed(row, anim) {
+  const s = typeof anim === 'string' && anim ? row?.animSpeed?.[anim]?.speed : null;
+  return Number.isFinite(s) && s > 0 ? s : 1;
+}
+
+/**
+ * Stops on a key-table speed this build does not apply: it scales the clips of the attack and blocked abilities (each mode's,
+ * enemyAttackAnim) and hands the walk key's to the view (`moveAnim`); a skill's or a channel's clip at another speed — the
+ * cast and the channel time their clips their own ways — and a speed on any other key (Idle, Die, Start …) are not read.
+ */
+function checkEnemyKeySpeeds(row, key) {
+  const sp = row?.animSpeed;
+  if (!sp) return;
+  const used = new Set(['Move']);
+  const ab = (a) => { if (a && typeof a.anim === 'string') used.add(a.anim); };
+  for (const m of [row, ...Object.values(row.modes || {})]) { ab(m?.attack); ab(m?.combat); }
+  const cast = new Set();
+  const walk = (o) => {
+    if (!o || typeof o !== 'object') return;
+    if (typeof o.anim === 'string') cast.add(o.anim);
+    for (const v of Object.values(o.chan || {})) {
+      if (typeof v === 'string') cast.add(v);
+      else if (v && typeof v === 'object') for (const x of Object.values(v)) if (typeof x === 'string') cast.add(x);
+    }
+    for (const c of o.subs || []) walk(c);
+  };
+  for (const s of Object.values(row.skills || {})) walk(s);
+  for (const m of [row, ...Object.values(row.modes || {})]) for (const a of [m?.attack, m?.combat]) if (a?.chan) walk({ chan: a.chan });
+  for (const k of Object.keys(sp)) {
+    if (!used.has(k) || cast.has(k)) {
+      throw new Error(`enemy ${key}: its key table plays ${k} at speed ${sp[k].speed}, which only the attack / blocked clips and the walk `
+        + 'take (tools/build-data.mjs enemyAttackAnim, moveAnim): read how the client times that clip and apply it — docs/rules/render.md 「적 키 표의 재생 배율」');
+    }
+  }
 }
 
 /** An enemy's row of local-attack-timing.json `enemies` (by its prefab, else its key), or undefined. */
@@ -3517,10 +3566,12 @@ function buildEnemies(ctx) {
     const modelScale = MODEL_SCALE_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
     const modelScaleY = MODEL_STRETCH_Y_BY_PREFAB.get(mv(data.prefabKey) || key) ?? null;
     // (the clip its attack ability names, renamed by its first mode's `_replaceAnimPairs`, when the model has it)
-    const attackAnim = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key, enemyAbility(ctx, mv(data.prefabKey) || key, key, applyWay), true);
+    const timingRow = enemyTiming(ctx, mv(data.prefabKey) || key, key);
+    checkEnemyKeySpeeds(timingRow, key);
+    const attackAnim = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key, enemyAbility(ctx, mv(data.prefabKey) || key, key, applyWay), true, timingRow);
     // an enemy that shoots unblocked and has a `_combat` ability too: that ability holds its own cooldown while it is blocked (ai.js syncCombat)
     const enemyCombat = attackAnim && applyWay !== 'MELEE' ? enemyTiming(ctx, mv(data.prefabKey) || key, key)?.combat : null;
-    if (enemyCombat && enemyTiming(ctx, mv(data.prefabKey) || key, key)?.attack) attackAnim.combat = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key, enemyCombat, true);
+    if (enemyCombat && enemyTiming(ctx, mv(data.prefabKey) || key, key)?.attack) attackAnim.combat = enemyAttackAnim(ctx.manifest, mv(data.prefabKey) || key, enemyCombat, true, timingRow);
     const attackModes = attackAnim ? enemyModeAnims(ctx, mv(data.prefabKey) || key, key, applyWay, attackAnim) : null;
     if (attackModes) { attackAnim.mode0 = enemyTiming(ctx, mv(data.prefabKey) || key, key).mode0; attackAnim.modes = attackModes; }
     const shots = enemyProjectiles(ctx, mv(data.prefabKey) || key, key);
@@ -3533,6 +3584,9 @@ function buildEnemies(ctx) {
       talents: { bb: talents.bb, bbStr: talents.bbStr },
       skills: withSkillProjectiles(enemySkills(data.skills, `enemy ${key}`), shots),
       ...(skillCast ? { skillCast } : {}),
+      // the walk clip's key-table speed when it is not 1 (display only: tools/assets/spine.mjs overlayEnemyAttackKeys puts it
+      // on the model's move role, render/spine.js plays the walk at it — docs/rules/render.md 「적 키 표의 재생 배율」)
+      ...(timingRow?.animSpeed?.Move ? { moveAnim: { clip: timingRow.animSpeed.Move.clip, speed: timingRow.animSpeed.Move.speed } } : {}),
       // an enemy without a normal attack of its own (applyWay NONE / ATK 0) whose prefab's mode still has an Attack ability:
       // its attack slot comes round for its skills (the client's `Enemy.AttackWrapper.SearchTarget` asks `Unit.hasAttack`
       // = the mode's `_attack`, not the table, then whether that ability `isReady`) — content/enemies.js skillSlot

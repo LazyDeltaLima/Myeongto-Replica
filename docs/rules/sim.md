@@ -1494,6 +1494,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
   키가 표에 없는 넷(디펜더-4·프로스트·배리어 둘)은 공격하지 않는 적이다. 채널 클립(`skillCast.chan`, 화면용)도 같은 표로 푼다: 자로, '늑대 군주' `FearCage`
   `Skill_Begin`/`_Loop`/`_End` → `A_Skill_*`, '즈자이' `ShieldBurst`·`ShieldBurstReborn`의 시작 키 `Skill_02`는 표에 없다(공식은 시작 클립을 안 틀 것이나 화면이 그 자리에 시작 이펙트를 묶어 두어 키를 그대로 둠 — 묶음 fx-F 채널 클립 줄). 화면의 공격 클립도 이 표를 따른다(2026-11-14, render.md
   「적 공격 클립은 키 표로」: 빅 밥·스컬슈레더 막힘·'단현지음' `Depression` 등 14종). 재발 방지: `test/content/enemy-clip-keys.test.js`, 화면 쪽 `test/render/enemy-attack-clip-keys.test.js`.
+  표의 줄마다 있는 재생 배율 `speed`(2026-11-27, 공식 클라에서 확인)는 공격·막힘 능력의 휘두름을 클립 ÷ `speed`, 타격을 OnAttack 프레임 ÷ `speed`²로 만든다(능력이 받은 배율을 한 번 더 요청함). 더블린 불꽃 전사·가디언, 블레이드헬멧 견습 기사단원의 `Attack` 1.4 → `render.md` 「적 키 표의 재생 배율」.
   **스킬 시전도 끊긴다**(2026-11-14, 공식 클라에서 확인): `AttackWrapper.Cast`는 시전한 능력(스킬을 골랐으면 그 스킬의 능력)을 돌려주고 공격 상태가 그것을
   `attackAbilityCasted`로 둔다(`AttackState.OnEnter`). 그래서 상태 기계를 다시 시작하는 전환(`_restartFSM`)은 시전 중인 적 스킬도 끊는다 — 끊긴 시전(`interruptEnemyCast`)이라 서 있던 것이
   풀리고 스킬 쿨이 그때 다시 돈다(`ai.js enemyMode`). 재시작이 없는 전환은 떼어지는 스킬 능력의 `_interruptAbilityOnDetach`가 정한다. 스킬이 어느 모드의 것인지는 데이터에 없어 키트가

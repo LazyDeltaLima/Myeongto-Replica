@@ -48,6 +48,16 @@ const AC_OWN = ['enemy_9024_acsgnt', 'enemy_9025_aclts', 'enemy_9026_acltm', 'en
 const AC_BASE = { enemy_9029_acfnc_2: 'enemy_9029_acfnc', enemy_9037_aceel_2: 'enemy_9037_aceel' };
 const COMMITTED = readJson(LOCAL_ENEMY_SPINES_FILE).models;
 const MANIFEST = readJson('data/assets.json');
+/**
+ * The plain 源石虫's web entry as the model pipeline makes it: without the walk speed its own key table puts on its move role
+ * (`Move` 1.2, tools/assets/anim-overrides.mjs putEnemyAttackKeys — a stand-in for another enemy draws the model with that
+ * enemy's table, the slugs' has no speed; docs/rules/render.md 「적 키 표의 재생 배율」).
+ */
+const SLIME_WEB = (() => {
+  const e = structuredClone(MANIFEST.enemies.enemy_1007_slime.spine);
+  if (e.anims?.move) delete e.anims.move.speed;
+  return e;
+})();
 
 /** The real research inputs; Ark-Models carries the plain slug only (its index lists the special ones empty). */
 function plan(localEnemySpines) {
@@ -132,7 +142,7 @@ describe('D3: the official slug models are an optional overlay of the web alias'
       assert.deepEqual(e.spineLocal, { group: `spine/enemy/${id}`, ...COMMITTED[id] }, `${id}: the committed metadata`);
       assert.ok(validSpine(spineEntry(MANIFEST, id)), `${id}: a web model without the local client`);
       assert.equal(MANIFEST.enemies[id].spineAliasOf, 'enemy_1007_slime');
-      assert.deepEqual(spineEntry(MANIFEST, id), MANIFEST.enemies.enemy_1007_slime.spine, `${id}: the plain 源石虫 on the web`);
+      assert.deepEqual(spineEntry(MANIFEST, id), SLIME_WEB, `${id}: the plain 源石虫 on the web`);
     }
     for (const id of [...SLUGS, ...AC_OWN, ...Object.keys(AC_BASE)]) assert.ok(MANIFEST.enemies[id].spineLocal, `${id} has its overlay`);
   });
@@ -170,7 +180,7 @@ describe('D3: the official slug models are an optional overlay of the web alias'
       const mtime = statSync(path.join(dst, 'enemy_1007_slime.atlas')).mtimeMs;
       const { meta, problems } = await localEnemySpineMeta(dir, await findLocalEnemyModels(dir));
       assert.deepEqual(problems, []);
-      const web = MANIFEST.enemies.enemy_1007_slime.spine;
+      const web = SLIME_WEB;
       assert.deepEqual(meta.enemy_9999_slime, {
         skel: 'enemy_1007_slime.skel', atlas: 'enemy_1007_slime.atlas', textures: ['enemy_1007_slime.png'], pma: true,
         anims: web.anims, animations: web.animations, events: web.events, hits: web.hits, bounds: web.bounds,

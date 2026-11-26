@@ -64,7 +64,7 @@
  *   plainAttack?: unknown, via?: string, modeAttack?: unknown, firstAttackBegin?: string | null, firstBegin?: unknown,
  *   attackBegin?: string | null, attackEnd?: string | null, variants?: Record<string, SpineRole>,
  *   downMode?: SpineRole & { by?: string }, beginDown?: string | null, endDown?: string | null, endProj?: number,
- *   stun?: string | null, die?: string | null, deploy?: string | null, deploys?: Record<string, string>,
+ *   stun?: string | null, die?: string | null, deploy?: string | null, deploys?: Record<string, string>, speed?: number,
  *   [key: string]: unknown }} SpineRole
  * @typedef {{ idle?: string | readonly string[] | null, deploy?: string | null, die?: string | null, attack?: SpineRole | null,
  *   skill?: SpineRole | null, move?: SpineRole | null, stun?: SpineRole | null, run?: SpineRole | null,
@@ -652,7 +652,7 @@ export class SpineActor {
     const st = this.spine.state;
     const e = st.setAnimation(track, name, loop);
     if (e) {
-      e.timeScale = timeScale;
+      e.timeScale = timeScale * this._walkSpeed(name, loop);
       if (mix != null) e.mixDuration = mix;
       if (start) e.trackTime = start;
     }
@@ -665,9 +665,19 @@ export class SpineActor {
   _queue(name, loop, timeScale = 1) {
     if (!this.has(name)) return false;
     const e = this.spine.state.addAnimation(0, name, loop, 0);
-    if (e) e.timeScale = timeScale;
+    if (e) e.timeScale = timeScale * this._walkSpeed(name, loop);
     this._applied = false;
     return true;
+  }
+
+  /**
+   * The walk loop's key-table speed (the move role's `speed`, an enemy's `Move` key: tools/assets/anim-overrides.mjs
+   * putEnemyAttackKeys — the client's `SpineAnimator.PlayAnimation` plays a key's clip at its `_animations` row's `speed`;
+   * docs/rules/render.md 「적 키 표의 재생 배율」), 1 for any other clip. @param {string} name @param {boolean} loop
+   */
+  _walkSpeed(name, loop) {
+    const mv = this.roles.move;
+    return loop && mv && mv.loop === name && typeof mv.speed === 'number' && mv.speed > 0 ? mv.speed : 1;
   }
 
   /**

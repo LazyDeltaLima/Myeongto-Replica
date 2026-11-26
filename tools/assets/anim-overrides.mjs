@@ -353,9 +353,9 @@ export function putCombat(anims, map, names = null) {
  * dropped — the table names one clip), and the
  * blocked clip as the role's `combat` (render/spine.js _swingClip: the sim's enemy 'swing' 7th field) where it differs.
  * `entry` = one model of the enemy (data/assets.json `enemies[id].spine` / `.spineLocal`, its `anims` / `animations`);
- * `rec` = { clip, combat? }. Returns the roles it changed ([] when none); a clip the skeleton lacks is left out.
+ * `rec` = { clip?, combat?, move? }. Returns the roles it changed ([] when none); a clip the skeleton lacks is left out.
  * @param {{ anims?: any, animations?: Record<string, number> }} entry
- * @param {{ clip?: string, combat?: { clip?: string } | null } | null | undefined} rec
+ * @param {{ clip?: string, combat?: { clip?: string } | null, move?: { clip: string, speed: number } } | null | undefined} rec
  * @returns {string[]}
  */
 export function putEnemyAttackKeys(entry, rec) {
@@ -373,6 +373,14 @@ export function putEnemyAttackKeys(entry, rec) {
   if (a.attack && has(c)) {
     if (c === a.attack.loop) { if (a.attack.combat) { delete a.attack.combat; done.push('combat (the attack clip)'); } }
     else if (a.attack.combat?.loop !== c) { a.attack.combat = { loop: c }; done.push(`combat ${c}`); }
+  }
+  // the walk: the clip of the `Move` key at its key-table speed (`move` { clip, speed }; render/spine.js plays the walk
+  // loop at it — docs/rules/render.md 「적 키 표의 재생 배율」)
+  const mv = rec.move;
+  if (mv && has(mv.clip) && Number.isFinite(mv.speed) && mv.speed > 0 && mv.speed !== 1
+    && (a.move?.loop !== mv.clip || a.move?.speed !== mv.speed)) {
+    a.move = { ...(a.move?.loop === mv.clip ? a.move : { begin: null, loop: mv.clip, end: null }), speed: mv.speed };
+    done.push(`move ${mv.clip} ×${mv.speed}`);
   }
   return done;
 }

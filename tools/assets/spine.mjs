@@ -32,10 +32,10 @@ export function loadAttackTiming(repo) {
 
 /**
  * The enemies' attack clips by their prefab animator's key table (anim-overrides.mjs putEnemyAttackKeys): enemy id →
- * data/enemies.json `attackAnim` { clip, combat }, the seasons' data/seasons/<id>/enemies.json after it for the enemies the
+ * data/enemies.json `attackAnim` { clip, combat } (+ `move`: its `moveAnim` { clip, speed }, the walk's key-table speed), the seasons' data/seasons/<id>/enemies.json after it for the enemies the
  * base data lacks ({} when none is readable).
  * @param {string} repo the repository root
- * @returns {Record<string, { clip?: string, combat?: { clip?: string } | null }>}
+ * @returns {Record<string, { clip?: string, combat?: { clip?: string } | null, move?: { clip: string, speed: number } }>}
  */
 export function loadEnemyAttackClips(repo) {
   const out = {};
@@ -48,7 +48,11 @@ export function loadEnemyAttackClips(repo) {
     try { j = JSON.parse(readFileSync(f, 'utf8')); } catch { continue; }
     for (const [id, e] of Object.entries(j?.enemies ?? j ?? {})) {
       const a = e?.attackAnim;
-      if (!Object.hasOwn(out, id) && a && typeof a.clip === 'string') out[id] = { clip: a.clip, combat: a.combat ?? null };
+      if (Object.hasOwn(out, id)) continue;
+      // (the walk's key-table speed, `moveAnim`, comes with the attack clips — also for an enemy without an attack)
+      const mv = e?.moveAnim && typeof e.moveAnim.clip === 'string' ? { move: e.moveAnim } : null;
+      if (a && typeof a.clip === 'string') out[id] = { clip: a.clip, combat: a.combat ?? null, ...mv };
+      else if (mv) out[id] = mv;
     }
   }
   return out;

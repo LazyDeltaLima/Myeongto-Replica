@@ -9924,7 +9924,6 @@
    "char_4100_caper skillBuff caper_skill_02_buff",
    "char_4100_caper spawn:born common_char_birth_01 → self",
    "char_4100_caper spawn:born equipment_system_loopshooter_buff_x → self",
-   "char_4137_udflow skillBuff udflow_skill_02_buff_01",
    "char_4137_udflow spawn:born common_char_birth_01 → self",
    "char_4137_udflow spawn:born equipment_system_shotprotector_buff_x → self",
    "char_469_indigo attackStart indigo_attack_charge_01_start",
@@ -12895,10 +12894,10 @@
    "enemy_1535_wlfmster spawn:cast enemy_wlfmster_A_Skill_End_start_02 → self"
   ],
   "roster-025": [
-   "- spawn ayer_skill_01_hit → enemy",
    "- spawn branch_talent_01 → ally",
    "- spawn common_enemy_hit_01 → ally",
    "- spawn enemy_crvln_attack_hit_01 → ally",
+   "- spawn enemy_dsbasi_attack_hit → ally",
    "- spawn enemy_dumage_2_attack_01_hit → ally",
    "- spawn enemy_duskls_attack_hit → ally",
    "- spawn enemy_sfji_02_attack_02_hit_02 → ally",
@@ -12986,7 +12985,8 @@
    "enemy_1207_sfji_2 spawn:castLoop enemy_sfji_02_attack_02_weapon_02 → self",
    "enemy_1288_duskls spawn:castLoop enemy_duskls_attack_start → self",
    "enemy_1288_duskls_2 spawn:castLoop enemy_duskls_attack_start → self",
-   "enemy_1299_ymkilr spawn:cast enemy_ymkilr_attack_start_01 → self"
+   "enemy_1299_ymkilr spawn:cast enemy_ymkilr_attack_start_01 → self",
+   "enemy_2021_syfish spawn:cast enemy_syfish_attack_start → self"
   ],
   "roster-026": [
    "- spawn common_enemy_hit_01 → ally",
