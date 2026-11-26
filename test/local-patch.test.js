@@ -25,7 +25,7 @@ import * as simPatch from '../server/sim/content/local-patch.js';
 import * as bossesMod from '../server/sim/content/bosses.js';
 import { BOSS_HIT_LIMIT } from '../shared/constants.js';
 import { COLS } from '../server/sim/constants.js';
-import { cacheStorageOver } from './helpers/fake-cache-storage.js';
+import { fakeIndexedDB } from './helpers/fake-indexeddb.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mod = (rel) => import(pathToFileURL(path.join(ROOT, 'public', 'js', rel)).href);
@@ -322,15 +322,12 @@ describe('client helpers', () => {
     const vm = await import('node:vm');
     const sha = (s) => createHash('sha256').update(s).digest('hex');
     let list = { files: [{ p: '/assets/local/fx/a.json', s: 3, h: sha('new') }] }, listTag = '"1"', listFetches = 0;
-    const store = new Map([['/assets/local/fx/a.json', { body: 'old', hash: sha('old') }]]);
-    const cached = (path) => {
-      const e = store.get(path);
-      return e ? new Response(e.body, { headers: { 'Content-Type': 'application/json', 'X-SP-Hash': e.hash } }) : undefined;
-    };
+    const idb = fakeIndexedDB();
+    idb.seed('/assets/local/fx/a.json', 'old', sha('old'), 'application/json');
     const handlers = {};
     const ctx = {
       self: { location: { origin: 'https://x.test' }, addEventListener: (k, f) => { handlers[k] = f; }, skipWaiting: async () => {}, clients: { claim: async () => {} } },
-      caches: { match: async (p) => cached(p), open: async () => ({ put: async (p, r) => { const b = await r.text(); store.set(p, { body: b, hash: r.headers.get('X-SP-Hash') }); } }) },
+      indexedDB: idb.indexedDB, caches: { match: async () => undefined },
       fetch: async (url) => {
         const u = typeof url === 'string' ? url : url.url;
         if (u === '/assets/browser-resources.json') { listFetches++; return new Response(JSON.stringify(list), { headers: { ETag: listTag } }); }
@@ -351,7 +348,7 @@ describe('client helpers', () => {
     assert.equal(await get('/assets/bundles/text-local-0123456789ab.pack'), null,
       'a bundle (a type the cache never answers) is left to the network, not passed through respondWith — docs/rules/render.md 「리소스 묶음 받기」');
     assert.equal(await get('/assets/local/fx/a.json'), 'new', 'the old deploy\'s copy is fetched again, not served');
-    assert.equal(store.get('/assets/local/fx/a.json').body, 'new', 'and the cache holds the listed version');
+    assert.deepEqual(idb.files().get('/assets/local/fx/a.json'), { h: sha('new'), body: 'new' }, 'and the store holds the listed version, with its hash');
     assert.equal(await get('/assets/local/fx/a.json'), 'new');
     assert.equal(listFetches, 1);
     // the next deploy changes the file again: a page load (a reload) revalidates the list before the cache answers
@@ -366,7 +363,7 @@ describe('client helpers', () => {
     // the page's report asks for the answer counts (resources.js askWorker)
     let counts = null;
     handlers.message({ data: { t: 'sp-res-stats' }, ports: [{ postMessage: (d) => { counts = d; } }] });
-    assert.deepEqual({ ...counts }, { hit: 3, stale: 2, fetched: 2, bytes: 8, server: 0, inflight: 0 });
+    assert.deepEqual({ ...counts }, { hit: 3, stale: 2, fetched: 2, bytes: 8, server: 0, unstored: 0, inflight: 0, db: 'open' });
   });
 
   test('resources: reconcile lists the stale entries; the cleanup deletes them outside a match and keeps what was replaced since', async () => {
@@ -374,125 +371,41 @@ describe('client helpers', () => {
     const { store } = await mod('store.js');
     const h = (c) => c.repeat(64);
     const origin = 'https://x.test';
-    const entries = new Map();   // url → hash (X-SP-Hash)
-    const put = (p, hash) => entries.set(origin + p, hash);
-    put('/assets/a.json', h('1'));     // changed by the deploy
-    put('/assets/gone.png', h('2'));   // left the list
-    put('/assets/b.json', h('3'));     // the state says old, the worker since stored the listed one
-    put('/assets/keep.png', h('4'));
-    let stateJson = { '/assets/a.json': h('1'), '/assets/gone.png': h('2'), '/assets/b.json': h('0'), '/assets/keep.png': h('4') };
-    const urlOf = (r) => (typeof r === 'string' ? origin + r : r.url);
-    const cache = {
-      keys: async () => [...entries.keys()].map((url) => ({ url })),
-      match: async (r) => {
-        const u = urlOf(r);
-        if (u === origin + '/__sp_res_state__') return new Response(JSON.stringify(stateJson));
-        return entries.has(u) ? new Response('x', { headers: { 'X-SP-Hash': entries.get(u) } }) : undefined;
-      },
-      delete: async (r) => entries.delete(urlOf(r)),
-      put: async (r, res) => { if (urlOf(r) === origin + '/__sp_res_state__') stateJson = await res.json(); },
-    };
-    const list = { files: [{ p: '/assets/a.json', s: 1, h: h('5') }, { p: '/assets/b.json', s: 1, h: h('3') }, { p: '/assets/keep.png', s: 1, h: h('4') }] };
-    const fakeCaches = cacheStorageOver(cache);
-    const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch,
+    const idb = fakeIndexedDB();
+    idb.seed('/assets/a.json', 'x', h('1'));     // changed by the deploy; the worker stores the new one during the match
+    idb.seed('/assets/gone.png', 'x', h('2'));   // left the list
+    idb.seed('/assets/old.json', 'x', h('0'));   // changed by the deploy
+    idb.seed('/assets/keep.png', 'x', h('4'));
+    const stored = () => [...idb.files().keys()].sort();
+    const list = { files: [{ p: '/assets/a.json', s: 1, h: h('5') }, { p: '/assets/old.json', s: 1, h: h('3') }, { p: '/assets/keep.png', s: 1, h: h('4') }] };
+    const saved = { window: globalThis.window, location: globalThis.location, indexedDB: globalThis.indexedDB, fetch: globalThis.fetch,
       navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
     const before = store.get();
     try {
-      globalThis.window = { isSecureContext: true, caches: fakeCaches };
+      globalThis.window = { isSecureContext: true };
       globalThis.location = { origin };
-      globalThis.caches = fakeCaches;
+      globalThis.indexedDB = idb.indexedDB;
       Object.defineProperty(globalThis, 'navigator', { value: { serviceWorker: { register: async () => {} } }, configurable: true });
       globalThis.fetch = async (u) => (u === '/assets/browser-resources.json' ? new Response(JSON.stringify(list)) : new Response('', { status: 404 }));
       store.set({ session: { entered: true }, room: { inMatch: true } });   // a match is on screen
       await installResources();
       const s0 = resourceStatus();
-      assert.deepEqual([s0.reconcile.keys, s0.reconcile.stale, s0.reconcile.adopted], [4, 3, 0]);
-      assert.equal(entries.size, 4, 'reconcile deletes nothing itself');
-      assert.equal(s0.download.queued, 2, 'a.json and b.json (b is adopted by the download\'s own check)');
+      assert.deepEqual([s0.reconcile.keys, s0.reconcile.stale], [4, 3]);
+      assert.equal(stored().length, 4, 'reconcile deletes nothing itself');
+      assert.equal(s0.download.queued, 2, 'a.json and old.json');
       await new Promise((r) => setTimeout(r, 300));
       assert.equal(resourceStatus().cleanup.held, true);
-      assert.equal(entries.size, 4, 'no deletion while a match is on screen');
+      assert.equal(stored().length, 4, 'no deletion while a match is on screen');
+      idb.seed('/assets/a.json', 'y', h('5')); // the worker stored the listed file on demand meanwhile
       store.set({ session: { entered: true }, room: null });
-      for (let i = 0; i < 60 && resourceStatus().cleanup.left + (stateJson['/assets/b.json'] === h('3') ? 0 : 1) > 0; i++) await new Promise((r) => setTimeout(r, 50));
-      assert.deepEqual([...entries.keys()].map((u) => u.slice(origin.length)).sort(), ['/assets/b.json', '/assets/keep.png'],
-        'the changed and the unlisted entries are deleted; the one the worker replaced is kept');
-      assert.equal(stateJson['/assets/b.json'], h('3'), 'and adopted');
+      for (let i = 0; i < 60 && resourceStatus().cleanup.left > 0; i++) await new Promise((r) => setTimeout(r, 50));
+      assert.deepEqual(stored(), ['/assets/a.json', '/assets/keep.png'],
+        'the changed and the unlisted entries are deleted; the one the worker replaced since is kept');
       assert.equal(resourceStatus().cleanup.deleted, 2);
+      assert.equal(resourceStatus().download.queued, 1, 'and taken as stored: old.json alone is still to download');
     } finally {
       store.set(before);
-      for (const k of ['window', 'location', 'caches', 'fetch']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
-      if (saved.navigator) Object.defineProperty(globalThis, 'navigator', saved.navigator); else delete globalThis.navigator;
-    }
-  });
-
-  test('resources: a load with the list and voice language of a scan whose stale entries are all gone skips the key scan', async () => {
-    const { installResources, resourceStatus } = await mod('resources.js');
-    const { store } = await mod('store.js');
-    const { voiceStore } = await mod('voice.js');
-    const h = (c) => c.repeat(64);
-    const origin = 'https://x.test';
-    const entries = new Map([[origin + '/assets/a.json', h('1')], [origin + '/assets/gone.png', h('2')]]);
-    let stateJson = { '/assets/a.json': h('1'), '/assets/gone.png': h('2') };
-    let clean = null, keyScans = 0;
-    const urlOf = (r) => (typeof r === 'string' ? origin + r : r.url);
-    const cache = {
-      keys: async () => [...entries.keys(), ...(clean ? [origin + '/__sp_res_clean__'] : [])].map((url) => ({ url })),
-      match: async (r) => {
-        const u = urlOf(r);
-        if (u === origin + '/__sp_res_state__') return new Response(JSON.stringify(stateJson));
-        if (u === origin + '/__sp_res_clean__') return clean == null ? undefined : new Response(clean);
-        return entries.has(u) ? new Response('x', { headers: { 'X-SP-Hash': entries.get(u) } }) : undefined;
-      },
-      delete: async (r) => { const u = urlOf(r); if (u === origin + '/__sp_res_clean__') { const had = clean != null; clean = null; return had; } return entries.delete(u); },
-      put: async (r, res) => {
-        const u = urlOf(r);
-        if (u === origin + '/__sp_res_state__') stateJson = await res.json();
-        else if (u === origin + '/__sp_res_clean__') clean = await res.text();
-      },
-    };
-    let list = { version: 'v1', files: [{ p: '/assets/a.json', s: 1, h: h('1') }] };
-    const fakeCaches = cacheStorageOver(cache, { onKeys: (name) => { if (name === 'sp-res-0') keyScans++; } }); // one scan = every shard once
-    const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch,
-      navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
-    const before = store.get();
-    const settle = async () => { for (let i = 0; i < 60 && (resourceStatus().cleanup.left || clean == null); i++) await new Promise((r) => setTimeout(r, 50)); };
-    try {
-      globalThis.window = { isSecureContext: true, caches: fakeCaches };
-      globalThis.location = { origin };
-      globalThis.caches = fakeCaches;
-      Object.defineProperty(globalThis, 'navigator', { value: { serviceWorker: { register: async () => {} } }, configurable: true });
-      globalThis.fetch = async (u) => (u === '/assets/browser-resources.json' ? new Response(JSON.stringify(list)) : new Response('', { status: 404 }));
-      store.set({ session: { entered: true }, room: null });
-      await installResources();
-      assert.equal(keyScans, 1);
-      assert.equal(resourceStatus().reconcile.stale, 1, 'gone.png left the list');
-      await settle();
-      assert.equal(clean, `v1|${voiceStore.get().lang}`, 'the cleanup marks the scan clean once its stale entries are gone');
-      assert.deepEqual([...entries.keys()], [origin + '/assets/a.json']);
-      // the next load, same list: no key scan
-      await installResources();
-      assert.equal(keyScans, 1, 'the unchanged list is not scanned again');
-      assert.equal(resourceStatus().reconcile.skipped, true);
-      // a deploy changes the list: the scan runs, and the mark is dropped until its stale entries are gone
-      list = { version: 'v2', files: [{ p: '/assets/a.json', s: 1, h: h('9') }] };
-      store.set({ session: { entered: true }, room: { inMatch: true } });   // a match holds the cleanup
-      await installResources();
-      assert.equal(keyScans, 2);
-      assert.equal(clean, null, 'no mark while a stale entry waits');
-      await installResources();
-      assert.equal(keyScans, 3, 'a load before the cleanup finished scans again');
-      store.set({ session: { entered: true }, room: null });
-      await settle();
-      assert.equal(clean, `v2|${voiceStore.get().lang}`);
-      await installResources();
-      assert.equal(keyScans, 3);
-      // a list without a version (an older server) always scans
-      list = { files: list.files };
-      await installResources();
-      assert.equal(keyScans, 4);
-    } finally {
-      store.set(before);
-      for (const k of ['window', 'location', 'caches', 'fetch']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
+      for (const k of ['window', 'location', 'indexedDB', 'fetch']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
       if (saved.navigator) Object.defineProperty(globalThis, 'navigator', saved.navigator); else delete globalThis.navigator;
     }
   });
@@ -504,14 +417,7 @@ describe('client helpers', () => {
     const sha = (s) => createHash('sha256').update(s).digest('hex');
     const origin = 'https://x.test';
     const raw = (n) => `https://raw.githubusercontent.com/o/r/main/${n}`;
-    const store_ = new Map();
-    const urlOf = (r) => (typeof r === 'string' ? origin + r : r.url);
-    const cache = {
-      keys: async () => [...store_.keys()].map((url) => ({ url })),
-      match: async (r) => { const v = store_.get(urlOf(r)); return v ? new Response(v.body, { headers: v.headers }) : undefined; },
-      delete: async (r) => store_.delete(urlOf(r)),
-      put: async (r, res) => { store_.set(urlOf(r), { body: await res.arrayBuffer(), headers: Object.fromEntries(res.headers) }); },
-    };
+    const idb = fakeIndexedDB();
     // drift.png: both sources serve other bytes; down.png: one source fails on the network; local.json: this server's file differs
     let list = { version: 'v1', files: [
       { p: '/assets/drift.png', s: 3, h: sha('old'), u: raw('drift.png') },
@@ -519,8 +425,7 @@ describe('client helpers', () => {
       { p: '/assets/local.json', s: 3, h: sha('old') },
     ] };
     const asked = [];
-    const fakeCaches = cacheStorageOver(cache);
-    const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch,
+    const saved = { window: globalThis.window, location: globalThis.location, indexedDB: globalThis.indexedDB, fetch: globalThis.fetch,
       navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator'), warn: console.warn };
     const before = store.get();
     const run = async () => {
@@ -530,9 +435,9 @@ describe('client helpers', () => {
       for (let i = 0; i < 100 && resStore.get().phase !== 'done'; i++) await new Promise((r) => setTimeout(r, 20));
     };
     try {
-      globalThis.window = { isSecureContext: true, caches: fakeCaches };
+      globalThis.window = { isSecureContext: true };
       globalThis.location = { origin };
-      globalThis.caches = fakeCaches;
+      globalThis.indexedDB = idb.indexedDB;
       Object.defineProperty(globalThis, 'navigator', { value: { serviceWorker: { register: async () => {} } }, configurable: true });
       console.warn = () => {};
       globalThis.fetch = async (u) => {
@@ -547,7 +452,7 @@ describe('client helpers', () => {
       assert.deepEqual(asked.filter((u) => u.startsWith('/')), ['/assets/local.json' + PAST_WORKER],
         'this server\'s file is requested past the resource worker (a query string), else the worker hashes and stores it and the page does it again'
         + ' — docs/rules/render.md 「서버 출처 파일은 미리 받기만 받아 씀」');
-      const differ = JSON.parse(new TextDecoder().decode(store_.get(origin + '/__sp_res_differ__').body));
+      const differ = idb.storeOf('meta').get('differ');
       assert.deepEqual(Object.keys(differ), ['/assets/drift.png'],
         'only the upstream file every source answered with other bytes is recorded (a network failure or this server\'s file is tried again)');
       assert.equal(resourceStatus().download.queued, 2, 'the recorded file leaves the queue');
@@ -561,12 +466,12 @@ describe('client helpers', () => {
       asked.length = 0;
       await run();
       assert.ok(asked.some((u) => u.includes('drift.png')), 'a changed list entry is downloaded again');
-      assert.equal(new TextDecoder().decode(store_.get(origin + '/assets/drift.png').body), 'new');
+      assert.equal(idb.files().get('/assets/drift.png').body, 'new');
       assert.equal(resourceStatus().reconcile.differ, 0, 'and its record is dropped');
     } finally {
       store.set(before);
       console.warn = saved.warn;
-      for (const k of ['window', 'location', 'caches', 'fetch']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
+      for (const k of ['window', 'location', 'indexedDB', 'fetch']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
       if (saved.navigator) Object.defineProperty(globalThis, 'navigator', saved.navigator); else delete globalThis.navigator;
     }
   });

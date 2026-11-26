@@ -1,4 +1,5 @@
-// Resource service worker (local patch): answers game art requests from the Cache Storage (the shards sp-res-0…f), and fetches
+// Resource service worker (local patch): answers game art requests from the resource database (IndexedDB `sp-res`,
+// public/js/resource-entries.js DB_NAME — the files and their hashes, written by the page and by this worker), and fetches
 // what is not there yet on demand — upstream art from jsDelivr / GitHub raw rather than from this server — so the
 // server's upload carries little of the art, and a picture seen once never pops in late again (no round trip, no revalidation).
 //
@@ -7,8 +8,8 @@
 // then this server — and kept (and answered) only when its size and SHA-256 match the list; a file that no source
 // delivers intact is answered by this server as before, uncached. Every player gets this, with or without the
 // pre-download consent (public/js/resources.js, which also downloads the rest of the list in the background after it).
-// A cached file carries its hash in X-SP-Hash, so the page's reconcile can adopt what this worker stored, and this worker
-// answers from the cache only when that hash is the listed one: after a deploy changed a file, the old copy is fetched
+// A stored file carries its hash (`h`, and the same in the hashes store the page's reconcile reads), and this worker
+// answers from the store only when that hash is the listed one: after a deploy changed a file, the old copy is fetched
 // again instead of served until the page's cleanup deletes it (2026-10-28). A page load revalidates the list first.
 //
 // Only same-origin GET /assets/…, /img/emotes/… and /media/… (extension-less audio, shared/media.js) are looked at;
@@ -20,21 +21,31 @@
 // Defence in depth (security review 2026-10-04): page loads (navigations) are never answered from the cache, only the
 // asset file types below are, and every cached answer carries nosniff and a sandboxing CSP — so even a planted cache
 // entry could never run as a page of this origin.
-// The files are spread over CACHE_SHARDS caches by a hash of their path (Chrome refuses Cache.keys() on a cache with too
-// many entries, and the page's reconcile walks every key — public/js/resource-entries.js shardOf): a file is stored in
-// its shard and looked up there, then in the single cache of the versions before (LEGACY), which the page empties into
-// the shards and then deletes.
-// Classic script (no import): module service workers are not available everywhere yet. Path / source / shard rules are
-// kept in sync with public/js/resource-entries.js (validEntry, sourcesOf, shardOf; test/local-patch.test.js compares them).
+// Not the Cache Storage any more (2026-11-26): code a filter puts in front of this script (an ad blocker's) can delete
+// every cache of the site, and did on each of its restarts. A file not in the database is looked up in the caches of the
+// versions before (the shards sp-res-0…f by OLD_SHARDS, then the single cache sp-res), which the page moves into the
+// database and then deletes. Where the worker cannot open the database (a browser that gives a service worker woken in
+// the background no indexedDB), it answers from those caches or the network and stores nothing.
+// Classic script (no import): module service workers are not available everywhere yet. Path / source / schema / shard
+// rules are kept in sync with public/js/resource-entries.js (validEntry, sourcesOf, upgradeResourceDb, oldShardOf;
+// test/local-patch.test.js and test/resource-store.test.js compare them).
 
-const CACHE_SHARDS = 16;
-const LEGACY = 'sp-res';
-function shardOf(p) {
+const DB_NAME = 'sp-res';
+const DB_VERSION = 1;
+const FILES_STORE = 'files';
+const HASHES_STORE = 'hashes';
+const META_STORE = 'meta';
+function upgradeResourceDb(db) {
+  for (const name of [FILES_STORE, HASHES_STORE, META_STORE]) if (!db.objectStoreNames.contains(name)) db.createObjectStore(name);
+}
+const OLD_SHARDS = 16;
+const OLD_SINGLE_CACHE = 'sp-res';
+function oldShardOf(p) {
   let h = 0x811c9dc5;
   for (let i = 0; i < p.length; i++) h = Math.imul(h ^ p.charCodeAt(i), 0x01000193);
-  return (h >>> 0) % CACHE_SHARDS;
+  return (h >>> 0) % OLD_SHARDS;
 }
-const cacheOf = (p) => `sp-res-${shardOf(p).toString(16)}`;
+const oldCacheOf = (p) => `sp-res-${oldShardOf(p).toString(16)}`;
 const INDEX = '/assets/browser-resources.json';
 const INDEX_TTL_MS = 5 * 60e3;    // revalidate the list this often (a cheap 304 when unchanged)
 const TIMEOUT_MS = 30000;
@@ -50,26 +61,84 @@ const TYPES = { png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg', jpeg: '
   atlas: 'text/plain', mp3: 'audio/mpeg', ogg: 'audio/ogg', oga: 'audio/ogg', opus: 'audio/ogg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac' };
 const typeOf = (p) => TYPES[p.slice(p.lastIndexOf('.') + 1).toLowerCase()] || 'application/octet-stream';
 
-/** A cached file, re-wrapped with the safety headers (keeps its Content-Type). */
+/** A stored file ({ h, t, b } of the database, or an old cache's response), answered with the safety headers. */
 function safe(hit) {
-  const headers = new Headers(hit.headers);
+  const headers = new Headers(hit.res ? hit.res.headers : { 'Content-Type': hit.t, 'Content-Length': String(hit.b.byteLength) });
   for (const [k, v] of Object.entries(SAFE_HEADERS)) headers.set(k, v);
-  return new Response(hit.body, { status: 200, headers });
+  return new Response(hit.res ? hit.res.body : hit.b, { status: 200, headers });
+}
+
+// ---- the database ---------------------------------------------------------------------------------------------------
+
+let dbOpening = null;   // Promise<IDBDatabase>, dropped when the connection closes (the page deleted the database) or failed
+let dbState = 'unopened'; // for the page's report (sp-res-stats): 'open', or the last error opening it
+function openDb() {
+  if (!dbOpening) {
+    dbOpening = new Promise((resolve, reject) => {
+      if (typeof indexedDB === 'undefined') { reject(new Error('no indexedDB')); return; }
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => upgradeResourceDb(req.result);
+      req.onsuccess = () => {
+        const db = req.result;
+        db.onversionchange = () => { db.close(); dbOpening = null; };
+        db.onclose = () => { dbOpening = null; };
+        dbState = 'open';
+        resolve(db);
+      };
+      req.onerror = () => reject(req.error);
+    }).catch((err) => { dbOpening = null; dbState = String(err?.name || err); throw err; });
+  }
+  return dbOpening;
+}
+
+/** A stored file { h, t, b } by its path, or null (none, or no database). */
+async function stored(path) {
+  try {
+    const db = await openDb();
+    return await new Promise((resolve, reject) => {
+      const req = db.transaction(FILES_STORE, 'readonly').objectStore(FILES_STORE).get(path);
+      req.onsuccess = () => resolve(req.result && typeof req.result.h === 'string' ? req.result : null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch { return null; }
+}
+
+/** Store a file with its hash, in one transaction (as the page's resource-db.js putFiles). */
+async function store(path, h, t, b) {
+  const db = await openDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction([FILES_STORE, HASHES_STORE], 'readwrite', { durability: 'relaxed' });
+    tx.objectStore(FILES_STORE).put({ h, t, b }, path);
+    tx.objectStore(HASHES_STORE).put(h, path);
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error);
+  });
 }
 
 self.addEventListener('install', (event) => event.waitUntil(self.skipWaiting()));
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
-// caches.match with cacheName never creates the cache (caches.open would recreate it after the page dropped it); a path
-// the shard lacks may still be in the old single cache while the page moves it
-const lookup = async (path) => (await caches.match(path, { cacheName: cacheOf(decode(path)) }))
-  || caches.match(path, { cacheName: LEGACY });
+// the database first, then the old caches while the page moves them: { h, t, b } or { h, res }, or null. caches.match
+// with cacheName never creates the cache (caches.open would recreate it after the page dropped it)
+async function lookup(path) {
+  const key = decode(path);
+  const hit = await stored(key);
+  if (hit) return hit;
+  if (typeof caches === 'undefined') return null;
+  for (const cacheName of [oldCacheOf(key), OLD_SINGLE_CACHE]) {
+    try {
+      const res = await caches.match(path, { cacheName });
+      if (res) return { h: res.headers.get('X-SP-Hash'), res };
+    } catch { /* none */ }
+  }
+  return null;
+}
 
 // answers since the worker started: from the cache / a cached copy of another hash / fetched from the sources (and bytes)
 // / left to the server
-const stats = { hit: 0, stale: 0, fetched: 0, bytes: 0, server: 0 };
+const stats = { hit: 0, stale: 0, fetched: 0, bytes: 0, server: 0, unstored: 0 };
 self.addEventListener('message', (event) => {
-  if (event.data?.t === 'sp-res-stats' && event.ports?.[0]) event.ports[0].postMessage({ ...stats, inflight: inflight.size });
+  if (event.data?.t === 'sp-res-stats' && event.ports?.[0]) event.ports[0].postMessage({ ...stats, inflight: inflight.size, db: dbState });
 });
 
 // ---- the list ------------------------------------------------------------------------------------------------------
@@ -133,8 +202,8 @@ async function fetchListed(f) {
       if (!res.ok) continue;
       const buf = await res.arrayBuffer();
       if (buf.byteLength !== f.s || (await sha256(buf)) !== f.h) continue;
-      const headers = { 'Content-Type': typeOf(f.p), 'Content-Length': String(buf.byteLength), 'X-SP-Hash': f.h };
-      try { await (await caches.open(cacheOf(f.p))).put(f.p, new Response(buf, { headers })); } catch { /* quota: answer anyway */ }
+      const headers = { 'Content-Type': typeOf(f.p), 'Content-Length': String(buf.byteLength) };
+      try { await store(f.p, f.h, headers['Content-Type'], buf); } catch (err) { stats.unstored++; dbState = `store: ${err?.name || err}`; } // answered anyway
       stats.fetched++;
       stats.bytes += buf.byteLength;
       return new Response(buf, { status: 200, headers });
@@ -149,7 +218,7 @@ async function fromListed(f) {
   let p = inflight.get(f.p);
   if (!p) { p = fetchListed(f).finally(() => inflight.delete(f.p)); inflight.set(f.p, p); }
   const res = await p;
-  return res ? safe(res.clone()) : null;
+  return res ? safe({ res: res.clone() }) : null;
 }
 
 const decode = (p) => { try { return decodeURIComponent(p); } catch { return p; } };
@@ -167,7 +236,7 @@ async function answer(request, candidates) {
     if (!hit) continue;
     // without a list (offline, none on the server) what is cached is served; with one, only the listed version
     const f = list && list.get(decode(c));
-    if (!list || (f && hit.headers.get('X-SP-Hash') === f.h)) { stats.hit++; return safe(hit); }
+    if (!list || (f && hit.h === f.h)) { stats.hit++; return safe(hit); }
     staleHit = true;
   }
   if (staleHit) stats.stale++;

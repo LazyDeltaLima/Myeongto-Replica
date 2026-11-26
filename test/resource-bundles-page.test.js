@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { cacheStorageOver } from './helpers/fake-cache-storage.js';
+import { fakeIndexedDB } from './helpers/fake-indexeddb.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const RULE = 'docs/rules/render.md 「리소스 묶음 받기」';
@@ -39,45 +39,31 @@ function chunked(text, size, { stall = Infinity, signal } = {}) {
   }));
 }
 
-/** The browser globals installResources needs, a cache in a Map, and `fetch` answered by `serve(u, opts)`. */
+/** The browser globals installResources needs, a fake IndexedDB, and `fetch` answered by `serve(u, opts)`. */
 async function withPage(serve, run, { cached = new Map(), prefs = new Map([['sp.pref.resources', JSON.stringify({ consent: 'yes', at: Date.now() })]]) } = {}) {
   const { store } = await import(pathToFileURL(path.join(ROOT, 'public/js/store.js')).href);
-  const entries = new Map(cached); // url → { h, body }
-  let stateJson = {};
-  const urlOf = (r) => (typeof r === 'string' ? ORIGIN + r : r.url);
-  const cache = {
-    keys: async () => [...entries.keys()].map((url) => ({ url })),
-    match: async (r) => {
-      const u = urlOf(r);
-      if (u === ORIGIN + '/__sp_res_state__') return new Response(JSON.stringify(stateJson));
-      return entries.has(u) ? new Response(entries.get(u).body, { headers: { 'X-SP-Hash': entries.get(u).h } }) : undefined;
-    },
-    delete: async (r) => entries.delete(urlOf(r)),
-    put: async (r, resp) => {
-      const u = urlOf(r);
-      if (u === ORIGIN + '/__sp_res_state__') stateJson = await resp.json();
-      else if (u.startsWith(ORIGIN + '/assets/')) entries.set(u, { h: resp.headers.get('X-SP-Hash'), body: await resp.text() });
-    },
-  };
-  const fakeCaches = cacheStorageOver(cache);
-  const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch, localStorage: globalThis.localStorage,
+  const idb = fakeIndexedDB();
+  for (const [u, e] of cached) idb.seed(new URL(u).pathname, e.body, e.h);
+  /** path → { h, body } of the stored files */
+  const entries = { get: (p) => idb.files().get(p), has: (p) => idb.files().has(p) };
+  const saved = { window: globalThis.window, location: globalThis.location, indexedDB: globalThis.indexedDB, fetch: globalThis.fetch, localStorage: globalThis.localStorage,
     navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
   const before = store.get();
   const fetched = [];
   try {
-    globalThis.window = { isSecureContext: true, caches: fakeCaches };
+    globalThis.window = { isSecureContext: true };
     globalThis.location = { origin: ORIGIN };
-    globalThis.caches = fakeCaches;
+    globalThis.indexedDB = idb.indexedDB;
     globalThis.localStorage = { getItem: (k) => prefs.get(k) ?? null, setItem: (k, v) => prefs.set(k, String(v)) };
     Object.defineProperty(globalThis, 'navigator', { value: { serviceWorker: { register: async () => {} } }, configurable: true });
     globalThis.fetch = async (u, opts) => { if (u !== '/assets/browser-resources.json') fetched.push(u); return serve(u, opts); };
     store.set({ session: { entered: true }, room: null });
     const res = await fresh();
     const idle = async (ms = 15000) => { for (let t = 0; t < ms && res.resStore.get().phase === 'running'; t += 30) await new Promise((r) => setTimeout(r, 30)); };
-    await run({ res, store, fetched, entries, idle });
+    await run({ res, store, fetched, entries, idle, idb });
   } finally {
     store.set(before);
-    for (const k of ['window', 'location', 'caches', 'fetch', 'localStorage']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
+    for (const k of ['window', 'location', 'indexedDB', 'fetch', 'localStorage']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
     if (saved.navigator) Object.defineProperty(globalThis, 'navigator', saved.navigator); else delete globalThis.navigator;
   }
 }
@@ -119,13 +105,14 @@ describe('resource bundles in the page', () => {
     const list = listOf(files, [bundleOf(P, files, [0, 1, 2, 3])]);
     // the bundle serves other bytes for member 4 (same length): only that member is fetched again, as a file
     const body = files[0].b + files[1].b + files[2].b + 'FOURTH';
-    await withPage(server(list, files, { bundleBody: body, chunk: 4 }), async ({ res, fetched, entries, idle }) => {
+    await withPage(server(list, files, { bundleBody: body, chunk: 4 }), async ({ res, fetched, entries, idle, idb }) => {
       await res.installResources();
       await idle();
       assert.equal(fetched.filter((u) => u === P).length, 1, `the bundle is read once (${RULE})`);
       assert.deepEqual(fetched.filter((u) => u !== P).sort(), ['/assets/local/fx/a/4.json' + res.PAST_WORKER, '/assets/local/ui/lone.png' + res.PAST_WORKER, 'https://cdn.jsdelivr.net/gh/o/r@b/x.png'].sort(),
         'no member of the bundle is fetched as a file but the one whose bytes did not match');
-      for (const f of files) assert.deepEqual(entries.get(ORIGIN + f.p), { h: f.h, body: f.b }, `${f.p}: stored under its own path with the listed hash`);
+      for (const f of files) assert.deepEqual(entries.get(f.p), { h: f.h, body: f.b }, `${f.p}: stored under its own path with the listed hash`);
+      for (const f of files) assert.equal(idb.storeOf('files').get(f.p).b.byteLength, f.s, `${f.p}: its own bytes stored, not the bundle's whole buffer (resource-db.js putFiles)`);
       const st = res.resourceStatus();
       assert.equal(st.download.failed, 0);
       assert.deepEqual(st.download.bundles, { listed: 1, fetched: 1, stopped: 0, failed: 0, members: 3 });
@@ -146,7 +133,7 @@ describe('resource bundles in the page', () => {
       assert.ok(!fetched.includes(B), `a bundle with under half its bytes missing is not read (${RULE})`);
       assert.deepEqual(fetched.filter((u) => u !== A).sort(), [files[0].p, files[1].p, files[3].p, files[4].p].map((p) => p + res.PAST_WORKER).sort(),
         'the failed bundle\'s files and the other bundle\'s missing ones as files');
-      for (const f of files) assert.equal(entries.get(ORIGIN + f.p)?.h, f.h);
+      for (const f of files) assert.equal(entries.get(f.p)?.h, f.h);
       assert.equal(res.resourceStatus().download.bundles.failed, 1);
     }, { cached });
   });
@@ -158,13 +145,13 @@ describe('resource bundles in the page', () => {
     // 2 chunks of 5 bytes, then nothing until the read is aborted: member 1 (6 bytes) is whole, member 2 not
     await withPage(server(list, files, { chunk: 5, stall: 2 }), async ({ res, store, fetched, entries, idle }) => {
       await res.installResources();
-      for (let t = 0; t < 2000 && !entries.has(ORIGIN + files[0].p); t += 20) await new Promise((r) => setTimeout(r, 20));
-      assert.ok(entries.has(ORIGIN + files[0].p), 'the first member is stored as soon as its bytes are in');
+      for (let t = 0; t < 2000 && !entries.has(files[0].p); t += 20) await new Promise((r) => setTimeout(r, 20));
+      assert.ok(entries.has(files[0].p), 'the first member is stored as soon as its bytes are in');
       store.set({ session: { entered: true }, room: { inMatch: true } }); // a match starts
       await idle();
       assert.equal(fetched.filter((u) => u === P).length, 1, `the bundle is not read again during the match (${RULE})`);
       assert.deepEqual(fetched.filter((u) => u !== P).sort(), files.slice(1).map((f) => f.p + res.PAST_WORKER).sort(), 'its files left go as files');
-      for (const f of files) assert.equal(entries.get(ORIGIN + f.p)?.h, f.h);
+      for (const f of files) assert.equal(entries.get(f.p)?.h, f.h);
       assert.deepEqual(res.resourceStatus().download.bundles, { listed: 1, fetched: 0, stopped: 1, failed: 0, members: 1 });
     });
   });
@@ -192,7 +179,7 @@ describe('resource bundles in the page', () => {
       await idle();
       assert.ok(peak <= 1, `one file at a time during a match, ${peak} seen (${RULE})`);
       assert.equal(fetched.length, files.length, 'every file was fetched once');
-      for (const f of files) assert.equal(entries.get(ORIGIN + f.p)?.h, f.h);
+      for (const f of files) assert.equal(entries.get(f.p)?.h, f.h);
     });
   });
 });

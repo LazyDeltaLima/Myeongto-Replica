@@ -12,7 +12,7 @@ import { phoneScreen, illustEntry, illustListed, illustFull, setIllustFull, save
   from '../../public/js/illust-res.js';
 import { buildSkinCatalog, loadSkinCatalog, skinsStore } from '../../public/js/ui/skins.js';
 import { illustDiff, illustNote } from '../../public/js/resources.js';
-import { cacheStorageOver } from '../helpers/fake-cache-storage.js';
+import { fakeIndexedDB } from '../helpers/fake-indexeddb.js';
 
 const RULE = 'docs/rules/ui.md 「정비 화면 HUD」 (the 立绘 copies)';
 const win = (w, h, coarse) => ({ screen: { width: w, height: h }, matchMedia: (q) => ({ matches: q === '(pointer: coarse)' && coarse }) });
@@ -141,33 +141,17 @@ describe('the player chooses the copy (立绘画质, maintainer decision 2026-11
       { p: '/assets/local/chararts/c.webp', s: 2, h: sha('lo'), r: 'lo' },
       { p: '/assets/local/chararts/full/c.webp', s: 7, h: sha('hi'), r: 'hi' },
     ] };
-    const entries = new Map([[origin + '/assets/local/chararts/full/c.webp', sha('hi')]]); // the game fetched the 高清 copy on demand
-    let stateJson = {};
-    const urlOf = (r) => (typeof r === 'string' ? origin + r : r.url);
-    const cache = {
-      keys: async () => [...entries.keys()].map((url) => ({ url })),
-      match: async (r) => {
-        const u = urlOf(r);
-        if (u === origin + '/__sp_res_state__') return new Response(JSON.stringify(stateJson));
-        return entries.has(u) ? new Response('x', { headers: { 'X-SP-Hash': entries.get(u) } }) : undefined;
-      },
-      delete: async (r) => entries.delete(urlOf(r)),
-      put: async (r, resp) => {
-        const u = urlOf(r);
-        if (u === origin + '/__sp_res_state__') stateJson = await resp.json();
-        else if (u.startsWith(origin + '/assets/')) entries.set(u, resp.headers.get('X-SP-Hash'));
-      },
-    };
-    const fakeCaches = cacheStorageOver(cache);
-    const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch,
+    const idb = fakeIndexedDB();
+    idb.seed('/assets/local/chararts/full/c.webp', 'x', sha('hi')); // the game fetched the 高清 copy on demand
+    const saved = { window: globalThis.window, location: globalThis.location, indexedDB: globalThis.indexedDB, fetch: globalThis.fetch,
       navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
     const { store } = await import('../../public/js/store.js');
     const before = store.get();
     await withPrefs(new Map(), async () => {
       try {
-        globalThis.window = { isSecureContext: true, caches: fakeCaches };
+        globalThis.window = { isSecureContext: true };
         globalThis.location = { origin };
-        globalThis.caches = fakeCaches;
+        globalThis.indexedDB = idb.indexedDB;
         Object.defineProperty(globalThis, 'navigator', { value: { serviceWorker: { register: async () => {} } }, configurable: true });
         globalThis.fetch = async (u) => (u === '/assets/browser-resources.json' ? new Response(JSON.stringify(list)) : new Response('', { status: 404 }));
         store.set({ session: { entered: true }, room: null });
@@ -181,12 +165,12 @@ describe('the player chooses the copy (立绘画质, maintainer decision 2026-11
         setIllustFull(false);
         await settle();
         assert.equal(res.resStore.get().bytesTotal, 3, `标准: the card's size now counts the 1024 copy (${RULE})`);
-        assert.deepEqual([...entries.keys()], [], 'the 高清 copy left the cache');
+        assert.deepEqual([...idb.files().keys()], [], 'the 高清 copy left the store');
         setIllustFull(true); // back while the fakes are in place (the resync it starts runs against them)
         await settle();
       } finally {
         store.set(before);
-        for (const k of ['window', 'location', 'caches', 'fetch']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
+        for (const k of ['window', 'location', 'indexedDB', 'fetch']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
         if (saved.navigator) Object.defineProperty(globalThis, 'navigator', saved.navigator); else delete globalThis.navigator;
       }
     });

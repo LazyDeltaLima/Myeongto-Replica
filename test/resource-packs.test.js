@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { cacheStorageOver } from './helpers/fake-cache-storage.js';
+import { fakeIndexedDB } from './helpers/fake-indexeddb.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mod = (rel) => import(pathToFileURL(path.join(ROOT, rel)).href);
@@ -49,35 +49,20 @@ describe('resource packs', () => {
         { p: '/assets/local/spine/skin/o/o_s_1/illust/o_s_1.webp', s: 4, h: sha('webp') },
       ],
     };
-    const entries = new Map([[origin + SK + 'o_s_1.skel', sha('skel')]]); // the game fetched it on demand once
-    let stateJson = {};
-    const urlOf = (r) => (typeof r === 'string' ? origin + r : r.url);
-    const cache = {
-      keys: async () => [...entries.keys()].map((url) => ({ url })),
-      match: async (r) => {
-        const u = urlOf(r);
-        if (u === origin + '/__sp_res_state__') return new Response(JSON.stringify(stateJson));
-        return entries.has(u) ? new Response('x', { headers: { 'X-SP-Hash': entries.get(u) } }) : undefined;
-      },
-      delete: async (r) => entries.delete(urlOf(r)),
-      put: async (r, resp) => {
-        const u = urlOf(r);
-        if (u === origin + '/__sp_res_state__') stateJson = await resp.json();
-        else if (u.startsWith(origin + '/assets/')) entries.set(u, resp.headers.get('X-SP-Hash'));
-      },
-    };
+    const idb = fakeIndexedDB();
+    idb.seed(SK + 'o_s_1.skel', 'x', sha('skel')); // the game fetched it on demand once
+    const stored = () => [...idb.files().keys()];
     const fetched = [];
     const bodies = { [`https://cdn.jsdelivr.net/gh/fexli/ArknightsResource@${'a'.repeat(40)}/spine/o/o_s_1/Front/o_s_1.png`]: 'png', '/assets/local/spine/skin/o/o_s_1/illust/o_s_1.webp': 'webp', '/assets/ui/a.png': 'a' };
-    const fakeCaches = cacheStorageOver(cache);
     const prefs = new Map();
-    const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch, localStorage: globalThis.localStorage,
+    const saved = { window: globalThis.window, location: globalThis.location, indexedDB: globalThis.indexedDB, fetch: globalThis.fetch, localStorage: globalThis.localStorage,
       navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
     const before = store.get();
     const idle = async () => { for (let i = 0; i < 100 && (res.resStore.get().phase === 'running' || res.resourceStatus().cleanup.left); i++) await new Promise((r) => setTimeout(r, 30)); };
     try {
-      globalThis.window = { isSecureContext: true, caches: fakeCaches };
+      globalThis.window = { isSecureContext: true };
       globalThis.location = { origin };
-      globalThis.caches = fakeCaches;
+      globalThis.indexedDB = idb.indexedDB;
       globalThis.localStorage = { getItem: (k) => prefs.get(k) ?? null, setItem: (k, v) => prefs.set(k, String(v)) };
       Object.defineProperty(globalThis, 'navigator', { value: { serviceWorker: { register: async () => {} } }, configurable: true });
       globalThis.fetch = async (u) => {
@@ -95,14 +80,14 @@ describe('resource packs', () => {
       await idle();
       assert.deepEqual(fetched.sort(), ['/assets/local/spine/skin/o/o_s_1/illust/o_s_1.webp' + res.PAST_WORKER, `https://cdn.jsdelivr.net/gh/fexli/ArknightsResource@${'a'.repeat(40)}/spine/o/o_s_1/Front/o_s_1.png`].sort(),
         'choosing the pack downloads its files (this server\'s past the worker, the model from jsDelivr as it is), without the general consent and without the file in no pack');
-      assert.equal(entries.size, 3);
+      assert.equal(stored().length, 3);
       assert.deepEqual(JSON.parse(prefs.get('sp.pref.resourcePacks')), { skin: true });
       await res.setResourcePack('skin', false);
       await idle();
-      assert.deepEqual([...entries.keys()], [], 'turned off: every cached file of the pack is deleted');
+      assert.deepEqual(stored(), [], 'turned off: every cached file of the pack is deleted');
     } finally {
       store.set(before);
-      for (const k of ['window', 'location', 'caches', 'fetch', 'localStorage']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
+      for (const k of ['window', 'location', 'indexedDB', 'fetch', 'localStorage']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
       if (saved.navigator) Object.defineProperty(globalThis, 'navigator', saved.navigator); else delete globalThis.navigator;
     }
   });
@@ -120,33 +105,17 @@ describe('resource packs', () => {
       ],
     };
     const bodies = { '/assets/ui/a.png': 'a', '/assets/ui/b.png': 'bb', [SK + 'one.webp']: 'one', [SK + 'two.webp']: 'twoxx' };
-    const entries = new Map([[origin + '/assets/ui/a.png', sha('a')]]); // one general file the game fetched on demand
-    let stateJson = {};
-    const urlOf = (r) => (typeof r === 'string' ? origin + r : r.url);
-    const cache = {
-      keys: async () => [...entries.keys()].map((url) => ({ url })),
-      match: async (r) => {
-        const u = urlOf(r);
-        if (u === origin + '/__sp_res_state__') return new Response(JSON.stringify(stateJson));
-        return entries.has(u) ? new Response('x', { headers: { 'X-SP-Hash': entries.get(u) } }) : undefined;
-      },
-      delete: async (r) => entries.delete(urlOf(r)),
-      put: async (r, resp) => {
-        const u = urlOf(r);
-        if (u === origin + '/__sp_res_state__') stateJson = await resp.json();
-        else if (u.startsWith(origin + '/assets/')) entries.set(u, resp.headers.get('X-SP-Hash'));
-      },
-    };
+    const idb = fakeIndexedDB();
+    idb.seed('/assets/ui/a.png', 'x', sha('a')); // one general file the game fetched on demand
     const fetched = [];
-    const fakeCaches = cacheStorageOver(cache);
     const prefs = new Map([['sp.pref.resourcePacks', JSON.stringify({ skin: true })]]); // chosen on an earlier visit
-    const saved = { window: globalThis.window, location: globalThis.location, caches: globalThis.caches, fetch: globalThis.fetch, localStorage: globalThis.localStorage,
+    const saved = { window: globalThis.window, location: globalThis.location, indexedDB: globalThis.indexedDB, fetch: globalThis.fetch, localStorage: globalThis.localStorage,
       navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
     const before = store.get();
     try {
-      globalThis.window = { isSecureContext: true, caches: fakeCaches };
+      globalThis.window = { isSecureContext: true };
       globalThis.location = { origin };
-      globalThis.caches = fakeCaches;
+      globalThis.indexedDB = idb.indexedDB;
       globalThis.localStorage = { getItem: (k) => prefs.get(k) ?? null, setItem: (k, v) => prefs.set(k, String(v)) };
       Object.defineProperty(globalThis, 'navigator', { value: { serviceWorker: { register: async () => {} } }, configurable: true });
       globalThis.fetch = async (u) => {
@@ -180,7 +149,7 @@ describe('resource packs', () => {
       assert.ok(fetched.includes('/assets/ui/b.png' + res.PAST_WORKER));
     } finally {
       store.set(before);
-      for (const k of ['window', 'location', 'caches', 'fetch', 'localStorage']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
+      for (const k of ['window', 'location', 'indexedDB', 'fetch', 'localStorage']) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; }
       if (saved.navigator) Object.defineProperty(globalThis, 'navigator', saved.navigator); else delete globalThis.navigator;
     }
   });

@@ -27,28 +27,51 @@ const PATH_RE = /^\/(assets|img\/emotes)\/[^?#%\\]+$/;
 export const validPath = (/** @type {unknown} */ p) => typeof p === 'string' && PATH_RE.test(p) && !p.split('/').some((seg) => seg === '.' || seg === '..');
 
 /**
- * The caches the files are kept in. Chrome refuses `Cache.keys()` on a cache that holds too many entries
- * ("Operation too large", by the size of the answer: 18,000 of the list's paths passed and 20,000 failed, 10,000 paths of
- * 400 characters passed and 14,000 failed; the responses' headers hardly count — 2026-11-17), and the page's reconcile walks
- * every key, so one cache for the whole list (36 thousand files once the skin pack came) stopped the resource download
- * and hid the settings' 资源 tab for good. The files are spread over CACHE_SHARDS caches by a hash of their path
- * (shardOf: the page and public/resource-worker.js agree on it), and tools/build-browser-resources.mjs stops when a
- * cache would get more than SHARD_MAX_FILES. The records (state, clean, differ) live in META_CACHE. LEGACY_CACHE is the
- * single cache of the versions before: the page moves its files into the shards and then deletes it.
+ * Where the files are kept: the IndexedDB database DB_NAME (version DB_VERSION) of this origin, three object stores keyed
+ * by the file's path — FILES_STORE `{ h: sha256, t: Content-Type, b: ArrayBuffer }` (the bytes), HASHES_STORE the same
+ * path's hash alone (the reconcile reads every hash at once without the bytes; both are written and deleted in one
+ * transaction), META_STORE the page's records (DIFFER). The page (resource-db.js) and public/resource-worker.js (a classic
+ * script with its own copy of these) both create the stores on first open (upgradeResourceDb; test/resource-store.test.js
+ * compares them). Not the Cache Storage: code a filter puts into a site's service worker can call `caches.delete()` on
+ * every cache of the site (an ad blocker's, on each of its restarts), which made every player who runs it download the
+ * whole list again (2026-11-26, docs/rules/render.md 「리소스 저장소는 IndexedDB」).
  */
-export const CACHE_SHARDS = 16;
-export const SHARD_MAX_FILES = 8000;
-export const META_CACHE = 'sp-res-meta';
-export const LEGACY_CACHE = 'sp-res';
-/** The shard of a path: FNV-1a over its UTF-16 code units, CACHE_SHARDS buckets. @param {string} p */
-export function shardOf(p) {
+export const DB_NAME = 'sp-res';
+export const DB_VERSION = 1;
+export const FILES_STORE = 'files';
+export const HASHES_STORE = 'hashes';
+export const META_STORE = 'meta';
+/** Create the stores a database of an older version (or a new one) lacks. @param {IDBDatabase} db */
+export function upgradeResourceDb(db) {
+  for (const name of [FILES_STORE, HASHES_STORE, META_STORE]) if (!db.objectStoreNames.contains(name)) db.createObjectStore(name);
+}
+
+/**
+ * The Cache Storage of the versions before (until 2026-11-26), read only to move its files into the database: the files
+ * in OLD_SHARD_NAMES by oldShardOf of the path (Chrome refused `Cache.keys()` on one cache with too many entries,
+ * 2026-11-17), the records in OLD_META_CACHE, and before that one cache, OLD_SINGLE_CACHE. Each file there carries its
+ * hash in the X-SP-Hash header. The page moves what the list still names and deletes the caches (resources.js migrate);
+ * the worker serves from them meanwhile.
+ */
+export const OLD_SHARDS = 16;
+export const OLD_META_CACHE = 'sp-res-meta';
+export const OLD_SINGLE_CACHE = 'sp-res';
+/** The old shard of a path: FNV-1a over its UTF-16 code units, OLD_SHARDS buckets. @param {string} p */
+export function oldShardOf(p) {
   let h = 0x811c9dc5;
   for (let i = 0; i < p.length; i++) h = Math.imul(h ^ p.charCodeAt(i), 0x01000193);
-  return (h >>> 0) % CACHE_SHARDS;
+  return (h >>> 0) % OLD_SHARDS;
 }
-/** Every shard's cache name, by shard. */
-export const SHARD_NAMES = Array.from({ length: CACHE_SHARDS }, (_, i) => `sp-res-${i.toString(16)}`);
+/** Every old shard's cache name, by shard. */
+export const OLD_SHARD_NAMES = Array.from({ length: OLD_SHARDS }, (_, i) => `sp-res-${i.toString(16)}`);
+/** Every cache name of the versions before. */
+export const OLD_CACHES = [...OLD_SHARD_NAMES, OLD_META_CACHE, OLD_SINGLE_CACHE];
 
-/** List entries the page will act on: a valid path, a size and a sha256 (anything else is ignored). */
-export const validEntry = (/** @type {any} */ f) => !!f && validPath(f.p) && Number.isInteger(f.s) && f.s >= 0 && typeof f.h === 'string' && /^[0-9a-f]{64}$/.test(f.h)
-  && (f.u === undefined || (typeof f.u === 'string' && sourcesOf(f).length > 0));
+/** List entries the page will act on: a valid path, a size and a sha256 (anything else is ignored).
+ *  @returns {f is { p: string, s: number, h: string, u?: string, r?: string }} */
+export function validEntry(/** @type {unknown} */ f) {
+  if (!f || typeof f !== 'object') return false;
+  const e = /** @type {{ p?: unknown, s?: unknown, h?: unknown, u?: unknown }} */ (f);
+  return validPath(e.p) && typeof e.s === 'number' && Number.isInteger(e.s) && e.s >= 0 && typeof e.h === 'string' && /^[0-9a-f]{64}$/.test(e.h)
+    && (e.u === undefined || (typeof e.u === 'string' && sourcesOf({ p: /** @type {string} */ (e.p), u: e.u }).length > 0));
+}
