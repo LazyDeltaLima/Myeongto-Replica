@@ -11,7 +11,7 @@ import { interruptEnemyCast } from '../../ai.js';
 /** @import { Unit } from '../../units.js' */
 /** @import { AttackProfile } from '../../ai.js' */
 /** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
-/** @import { BuffTick, EnemyShot } from './helpers.js' */
+/** @import { BuffTick } from './helpers.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -76,7 +76,7 @@ function kitCrossbow(ab) {
     const dx = aim.x - e.x, dy = aim.y - e.y;
     const ways = [dy, dx, -dy, -dx];
     const m = CROSS_MUZZLE[['UP', 'side', 'DOWN', 'side'][ways.indexOf(Math.max(...ways))]], face = dx < 0 ? -1 : 1;
-    lineShot(b, e, aim, s.proj || /** @type {EnemyShot} */ ({ key: 'projectile_enemy_msnip', move: 'FIXED_DIRECTION', speed: CROSS_BOLT_SPEED, life: 10 }), (u) => {
+    lineShot(b, e, aim, s.proj || { key: 'projectile_enemy_msnip', move: 'FIXED_DIRECTION', speed: CROSS_BOLT_SPEED, delay: 0, life: 10 }, (u) => {
       if (!u || !u.alive) return;
       hurt(b, e, u, e.s.atk * (bb.atk_scale ?? 1), 'arts');
       if (bb.stun > 0 && u.alive) b.applyStatus(u, 'stun', { duration: bb.stun, source: e });
