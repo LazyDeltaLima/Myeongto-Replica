@@ -893,7 +893,9 @@
   틱마다 착탄음은 안 냄 [추정·엔진: 링크 투사체 HIT는 연결될 때 한 번]. 확인: `test/local-patch-attack-signals.test.js` 「炎佑」.
   [브라우저 미확인 — 실제 판에서 휘두름·발사음, 분사 시작·반복·끝을 들어 볼 것]
 - 스킬: `sfx.units[id].sk[능력 이름 소문자]` = 그 능력(`Skills/<이름>`) 뱅크 + 투사체 소리. sim이 적 스킬 시전에 `fx 'enemySkill' { id, ability }`를 내면
-  START·ON·BORN을 내고, 3초 안의 그 적의 공격 없는 피해에 HIT·REACH(`_skillImpact`).
+  START·ON·BORN을 내고, 3초 안의 그 적의 공격 없는 피해에 HIT·REACH(`_skillImpact`). (2026-11-26) 반복 뱅크(`loop`)의 START는 `<id>:esk` 반복으로
+  붙잡아 그 능력의 `enemySkillEnd`·쓰러짐에 끊고, `swing: 1`인 시전은 다음 타격 'atk'에 일반 공격 소리를 안 내 그 피해가 스킬 피해 길로 간다 —
+  수둔 닌자 회전·액젓 추천자 내려찍기, render.md 「적 프리팹 모드의 클립 — 액젓 추천자·수둔 닌자」 두 적의 스킬 이펙트·소리.
 - 모드 전환 (2026-10-10 저녁): 공식 `Unit.SwitchMode`는 이전 모드 `InactiveMode`·새 모드 `ActivateMode`(능력 Detach/Attach)뿐 자기 소리가
   없다(적 뱅크에 모드 전환 이벤트도 없음). 바뀌는 것은 그 모드 능력의 신호(`<능력>.<모드 번호>`, `UnitMode.GenerateSignalId`)와 전환 클립의 스파인 이벤트다.
   → plan이 적의 모드 1 이후 공격 신호를 `sfx.units[id].em[n] = { cues, sel? }`로(모드 0과 같으면 생략, 뱅크 없으면 `cues: []` = 그 모드 공격은 무음 — 37종),

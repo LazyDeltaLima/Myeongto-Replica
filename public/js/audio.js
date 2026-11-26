@@ -2621,6 +2621,9 @@ export class AudioManager {
           if (!src) continue;
           // 2026-11-12: a shot of an enemy skill (ENEMY_SHOT_SKILLS — 破城者's missiles): that skill's ON, not the normal attack's
           // cues; its impact is the skill's (_skillImpact, the cast's eskill)
+          // 2026-11-26: the strike of a skill cast as this swing ('enemySkill' `swing`: 咸鳞汁推荐者's BlockedBoom) — none of the normal
+          // attack's cues and no attack impact: its damage sounds the skill's (_skillImpact — its projectile's REACH)
+          if (src.eskill?.swing && now - src.eskill.at <= 3000) { src.eskill.swing = false; src.eskill.at = now; this.lastAttacker.delete(e[2]); continue; }
           const shot = ENEMY_SHOT_SKILLS[e[3]];
           if (shot) {
             const cues = this.getManifest()?.audio?.sfx?.units?.[src.def]?.sk?.[shot];
@@ -2865,9 +2868,21 @@ export class AudioManager {
             if (eu && Array.isArray(cues)) {
               // (2026-11-12: a skill whose ON sounds per shot — ENEMY_SHOT_SKILLS — sounds it on each shot's 'atk')
               const perShot = !!ENEMY_SHOT_OF[e[4].ability.toLowerCase()];
-              for (const c of cues) if (c.at !== 'd' && !(perShot && c.at === 'a')) this._playCue(eu.def, c, true);
-              eu.eskill = { name: e[4].ability.toLowerCase(), at: now };
+              // (2026-11-26) a looping bank (`loop`: 水遁忍者's SwitchModeTrigger START) is held as the unit's skill loop until
+              // that ability's 'enemySkillEnd' (its ctrlStop, 0.2 s) or the unit's death
+              for (const c of cues) {
+                if (c.at === 'd' || (perShot && c.at === 'a')) continue;
+                const f = c.loop ? cueFile(c, this.random) : null;
+                if (f) startSkillLoop(this, `${e[4].id}:esk`, f.url, groupGain(c.g) * (f.vol > 0 ? f.vol : 1), { fade: 0.2 });
+                else this._playCue(eu.def, c, true);
+              }
+              // (2026-11-26) `swing`: the cast is its swing now (咸鳞汁推荐者's BlockedBoom) — its strike is the cast's (the 'atk' below)
+              eu.eskill = { name: e[4].ability.toLowerCase(), at: now, ...(e[4].swing ? { swing: true } : null), ...(cues.some((c) => c.loop) ? { loop: true } : null) };
             }
+          }
+          if (e[1] === 'enemySkillEnd' && e[4]?.id != null && typeof e[4].ability === 'string') {
+            const eu = this.units.get(e[4].id);
+            if (eu?.eskill?.loop && eu.eskill.name === e[4].ability.toLowerCase()) { stopSkillLoop(this, `${e[4].id}:esk`); eu.eskill.loop = false; }
           }
           if (e[1] === 'telegraph' && e[4]?.caster != null) { const eu = this.units.get(e[4].caster); if (eu?.eskill) eu.eskill.held = true; }
           // local patch (maintainer report): a dollkeeper's form switch (归溟幽灵鲨: to the 替身 and back, audioOfficial.js)

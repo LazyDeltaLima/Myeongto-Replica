@@ -1377,8 +1377,8 @@
         "enemy_9025_aclts": [1,1,0,0,20041]
       },
       "hooks": [1,147,6900,1389,1389,7169,7310,3791,127,128,46,43,0,25535,2820,170,125,0,1,145,14,18,0],
-      "events": {"atk":2065,"bounty":7,"castHit":21,"deploy":22,"die":128,"dmg":7305,"engage":11,"face":106,"fx":723,"heal":401,"layer":14,"skill":89,"spawn":138,"status":1953,"swing":1484,"tplfx":1445},
-      "fx": {"anchor":3,"aoe":349,"burst":18,"camouflage":2,"displace":27,"enemyShot":2,"enemySkill":8,"explode":1,"garrison":52,"garrisonGrant":1,"healField":2,"kitHit":90,"lure":3,"phase":3,"pull":2,"rangeMax":1,"shield":18,"shieldBreak":17,"snow":75,"stacks":25,"summon":4,"telegraph":1,"teleport":2,"tornado":2,"tornadoPulse":10,"vvanaS3Later":3,"zone":2},
+      "events": {"atk":2065,"bounty":7,"castHit":21,"deploy":22,"die":128,"dmg":7305,"engage":11,"face":106,"fx":724,"heal":401,"layer":14,"skill":89,"spawn":138,"status":1956,"swing":1484,"tplfx":1445},
+      "fx": {"anchor":3,"aoe":349,"burst":18,"camouflage":2,"displace":27,"enemyShot":2,"enemySkill":9,"explode":1,"garrison":52,"garrisonGrant":1,"healField":2,"kitHit":90,"lure":3,"phase":3,"pull":2,"rangeMax":1,"shield":18,"shieldBreak":17,"snow":75,"stacks":25,"summon":4,"telegraph":1,"teleport":2,"tornado":2,"tornadoPulse":10,"vvanaS3Later":3,"zone":2},
       "snaps": "169c79a7 c8e5a36d b89c6711 bffa74d6 9ebe519e 4991368a 31a2823d 4796ad1c 971d2782 e04c9ac6 d325d486 9008967b 2a045379 09046871 d4b83910 31646803 90125020 6c3e53fe 01cff957 71e17b32 f093ed2f e55adc10 a2a6fac2"
     },
     "roster-020": {
@@ -3709,8 +3709,8 @@
         "enemy_9027_acfnca": [1,0,0,0,0]
       },
       "hooks": [1,80,5700,935,935,2417,2470,8184,60,63,33,31,0,28929,334,65,56,3,1,84,0,3,0],
-      "events": {"atk":1134,"bounty":4,"castHit":6,"deploy":21,"die":60,"dmg":2470,"engage":11,"face":49,"fx":274,"heal":464,"leak":3,"skill":64,"spawn":72,"status":376,"swing":979,"tplfx":11},
-      "fx": {"aoe":5,"buffProgress":2,"burst":3,"displace":15,"ember":1,"enemyShot":9,"enemySkill":2,"explode":18,"garrison":5,"healField":2,"kitHit":134,"phase":3,"revive":1,"shield":4,"slash":2,"snow":37,"summon":21,"telegraph":3,"thorns":3,"wake":4},
+      "events": {"atk":1134,"bounty":4,"castHit":6,"deploy":21,"die":60,"dmg":2470,"engage":11,"face":49,"fx":275,"heal":464,"leak":3,"skill":64,"spawn":72,"status":377,"swing":979,"tplfx":11},
+      "fx": {"aoe":5,"buffProgress":2,"burst":3,"displace":15,"ember":1,"enemyShot":9,"enemySkill":3,"explode":18,"garrison":5,"healField":2,"kitHit":134,"phase":3,"revive":1,"shield":4,"slash":2,"snow":37,"summon":21,"telegraph":3,"thorns":3,"wake":4},
       "snaps": "0bf7f6cf 67942286 a77431f1 950fb1d1 7ac00a5d 1720b1ac 56d3cace 0062633f 294246e6 3f78d4af 6d2134f6 301d56cd 0f8d7633 ce108abf bd21ea8b ec528cab 468456cc 4528980c dee12530"
     },
     "roster-054": {
@@ -3767,8 +3767,8 @@
         "enemy_2002_bearmi_2": [1,0,1,0,14128]
       },
       "hooks": [1,145,5183,498,496,1750,1649,139,48,134,15,17,0,11155,559,71,110,81,1,65,1,0,90],
-      "events": {"atk":597,"bounty":2,"deploy":32,"die":53,"dmg":1649,"engage":10,"face":8,"fx":358,"heal":110,"hide":10,"layer":1,"leak":81,"skill":34,"spawn":127,"status":231,"swing":541,"tplfx":3},
-      "fx": {"aoe":2,"disappear":1,"displace":146,"dodge":90,"dp":2,"explode":2,"garrison":1,"kitHit":74,"phase":5,"reborn":1,"shield":5,"shieldBreak":11,"stacks":2,"summon":3,"telegraph":2,"teleport":7,"undying":3,"zone":1},
+      "events": {"atk":597,"bounty":2,"deploy":32,"die":53,"dmg":1649,"engage":10,"face":8,"fx":359,"heal":110,"hide":10,"layer":1,"leak":81,"skill":34,"spawn":127,"status":231,"swing":541,"tplfx":3},
+      "fx": {"aoe":2,"disappear":1,"displace":146,"dodge":90,"dp":2,"enemySkill":1,"explode":2,"garrison":1,"kitHit":74,"phase":5,"reborn":1,"shield":5,"shieldBreak":11,"stacks":2,"summon":3,"telegraph":2,"teleport":7,"undying":3,"zone":1},
       "snaps": "c80d9b27 b1f31a7e c2204ddf 8bb90047 d434ad12 83fba18c ed132d4a 26417751 533a00b4 0a0d9667 90730785 6627e071 ce09a76f 6c0e8d4b 764a44b3 d5bdb402 6f1f62f4 e27508f9"
     },
     "roster-055": {

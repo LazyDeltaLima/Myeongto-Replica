@@ -3,7 +3,7 @@
 
 import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import { canTargetAlly, areaSelectable } from '../../targeting.js';
-import { periodicDamage } from '../../damage.js';
+import { periodicDamage, hitFx } from '../../damage.js';
 import {
   nthOf, stOf, T, elem, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, byPriority,
   stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, mode, setForm, atCastEvent, castLength,
@@ -48,6 +48,8 @@ const TORTURER_RADIUS = 1;
 
 /** Barrel zone radius of 咸鳞汁推荐者 [ASSUMED]. */
 const BARREL_RADIUS = 1.5;
+/** 水遁忍者's spin effect: s into the spin (its Talents/RotateEffect `timer_threshold` 0.5 at `timer_addition` 0.1 per 0.1 s). */
+const SPIN_FX_AFTER = 0.5;
 
 /** 伊利昂的木驮兽 passengers (client prefab `Talents/bus`, a DurbusAbility): the boarding circle (its Selector's
  *  CircleCollider2D, radius in tiles) and the drop-off scatter (`_randomOffsetBound`, ± per axis). The stacked −20 % per
@@ -706,8 +708,14 @@ export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (O
         if (a.done) return;
         a.done = true;
         b.removeBuff(e, 'ab:barrel');
+        // 2026-11-26 (공식 클라에서 확인): the smash's damage on its blocker is wintun_m1_s1[damage_to_blockee] (BuffToOwner at
+        // ON_SPELL_ON) → CreateBuffToBlockee wintun_m1_s1[real_damage], whose CreateEffect puts enemy_wintun_attack_1_hit on
+        // that unit — the moment of this strike's damage (render: the binding's buffFx of that key)
+        for (const t of c.targets || []) hitFx(b, t, 'buff:wintun_m1_s1[real_damage]', e);
         const x = e.x, y = e.y, life = s.fixed_duration ?? 0;
-        b.fx('zone', { x, y, r: BARREL_RADIUS, dur: life, kind: 'barrel' });
+        // its projectile_enemy_wintun_range stays as the zone: its reach effect enemy_wintun_range stands there (render
+        // eprojAreaFx, by `id` + `ability`)
+        b.fx('zone', { x, y, r: BARREL_RADIUS, dur: life, kind: 'barrel', id: e.id, ability: 'BlockedBoom' });
         let left = life;
         const h = b.every(0.5, () => {
           // projectile_enemy_wintun_range's AuraHitBehaviour: its own side's ground units (`targetMotion` 1) — no flying
@@ -727,7 +735,19 @@ export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (O
       // 2026-11-14 (공식 클라에서 확인 — data skillCast.blockedboom: Skills/BlockedBoom, ATTACK | COMBAT family, `_timeMode` 1,
       // clip `Attack` 1.467 s with its OnAttack at 0.7 s): the swing that smashes the barrel is that skill's cast at the attack
       // slot, timed by its clip — not by the Combat's B_Attack (1.2 s, 0.467 s); ai.js attackClipOf `swingClip`
-      tick(b, e) {
+      tick(b, e, a) {
+        // 2026-11-26 (공식 클라에서 확인): the swing that started with BlockedBoom's clip is that skill's cast — fx 'enemySkill' as
+        // it starts (its cast effect enemy_wintun_attack_1_start, its START bank e_atk_bales_n), `swing`: its strike is that
+        // cast's, none of the Combat's attack (render: no enemy_wintun_attack_2_hit; audio: no attack impact). (The kit ticks
+        // after the units, so a swing begun this step is seen in the same step.)
+        const sw = e.swing;
+        if (sw && sw !== a.sw) {
+          a.sw = sw;
+          if (boomClip && /** @type {AttackProfile} */ (e.profile).swingClip === boomClip) {
+            const t = sw.targets?.[0];
+            b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: 'BlockedBoom', n: 1, swing: 1, ...(t ? { tgt: t.id } : null) });
+          }
+        }
         if (e.blockedBy) mode(b, e, 'M2');
         if (e.mode !== 'M2') { if (/** @type {AttackProfile} */ (e.profile).swingClip) /** @type {AttackProfile} */ (e.profile).swingClip = null; return; }
         const f = boom.done || e.s.flags.silence ? 'M2' : 'M2boom';
@@ -764,7 +784,14 @@ export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (O
       // spins again `cd` s after it comes back (from a 失衡 too). Until 2026-11-14 the cooldown ran on through the spin —
       // `cd` 60 = `rotate_duration` 60: it spun again the moment it stopped
       pause: (b, e) => e.mode === 'M1',
-      fire(b, e, a) { a.until = b.time + (T(ab, 'EndRotate.rotate_duration') ?? 0); b.fx('telegraph', { x: e.x, y: e.y, r: 1, kind: 'spin', id: e.id }); },
+      // (2026-11-26) the cast names its ability (fx 'enemySkill' SwitchModeTrigger: its START bank e_atk_spngtptrnd, a loop the
+      // spin's end stops — ymgtop_m1_a[end_loop_audio]'s ymgtop_rotate_finish is its ctrlStop, 공식 클라에서 확인)
+      fire(b, e, a) {
+        a.until = b.time + (T(ab, 'EndRotate.rotate_duration') ?? 0);
+        a.from = b.time;
+        b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: 'SwitchModeTrigger', n: 1 });
+        b.fx('telegraph', { x: e.x, y: e.y, r: 1, kind: 'spin', id: e.id });
+      },
       iv: T(ab, 'RotateDamage.interval') ?? 1,
       // "每秒对半径1.0范围内的所有我方单位造成…（无视迷彩，不可对空），自身受阻止攻击类异常效果影响期间无法造成此伤害": an area
       // selection, skipped while 晕眩 / 冻结 / 浮空 (flag stun), 沉睡 or 缴械 hold it (PRTS 异常效果 §阻止攻击; until 0.1.3 it spun on);
@@ -772,7 +799,9 @@ export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (O
       tick(b, e, a) {
         if (!(/** @type {number} */ (a.until) > b.time) || e.s.flags.stun || e.s.flags.sleep || e.s.flags.disarm) return;
         let n = 0;
-        for (const u of areaAllies(b, e, e.x, e.y, T(ab, 'RotateDamage.attack@range_radius') ?? 1)) if (!u.isFlying) { hurt(b, e, u, e.s.atk * (T(ab, 'RotateDamage.attack@atk_scale') ?? 1), 'phys'); n++; }
+        // (2026-11-26, 공식 클라에서 확인) each unit hit takes ymgtop_m1_t[rotate_attack], whose CreateEffect puts
+        // enemy_ymgtop_attack_hit_01 on it — the moment of that damage (render: the binding's buffFx of that key)
+        for (const u of areaAllies(b, e, e.x, e.y, T(ab, 'RotateDamage.attack@range_radius') ?? 1)) if (!u.isFlying) { hurt(b, e, u, e.s.atk * (T(ab, 'RotateDamage.attack@atk_scale') ?? 1), 'phys'); hitFx(b, u, 'buff:ymgtop_m1_t[rotate_attack]', e); n++; }
         // ymgtop_m1_t[rotate_attack]'s PlayAudio on each unit it hits (audio)
         if (n) b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'ymgtop:hit', n });
       },
@@ -785,8 +814,19 @@ export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (O
     /** @type {EnemyAbility} */
     const noAtk = {
       tick(b, e) {
-        /** @type {AttackProfile} */ (e.profile).noAttack = /** @type {number} */ (spin.until) > b.time;
-        if (mode(b, e, /** @type {AttackProfile} */ (e.profile).noAttack ? 'M1' : null)) setForm(b, e, /** @type {AttackProfile} */ (e.profile).noAttack ? 'M1' : null);
+        const on = /** @type {number} */ (spin.until) > b.time;
+        /** @type {AttackProfile} */ (e.profile).noAttack = on;
+        if (mode(b, e, on ? 'M1' : null)) {
+          setForm(b, e, on ? 'M1' : null);
+          if (!on) b.fx('enemySkillEnd', { x: e.x, y: e.y, id: e.id, ability: 'SwitchModeTrigger' });   // (its loop's ctrlStop)
+        }
+        // 2026-11-26 (공식 클라에서 확인 — M1's Talents/RotateEffect ymgtop_m1_t[rotate_effect]: every 0.1 s `timer_count` +0.1,
+        // from `timer_threshold` 0.5 in M1 — CheckCanUseAtkOrCbt — it holds ymgtop_m1_t[rotate_effect_core], whose
+        // overrideEffectKey enemy_ymgtop_skill_01_buff_01 is the spin's effect; it finishes that buff while the enemy cannot
+        // attack, and it goes with the mode): a status the view draws by that key (fxTag)
+        const fx = on && b.time - /** @type {number} */ (spin.from ?? b.time) >= SPIN_FX_AFTER - 1e-9 && !e.s.flags.stun && !e.s.flags.sleep && !e.s.flags.disarm;
+        if (fx && !e.findBuff('ab:spinFx')) b.addBuff(e, { key: 'ab:spinFx', persist: true, visible: true, fxTag: 'buff:ymgtop_m1_t[rotate_effect_core]' });
+        else if (!fx && e.findBuff('ab:spinFx')) b.removeBuff(e, 'ab:spinFx');
       },
     };
     return [spin, noAtk, unbalanced((b, e) => { if (/** @type {number} */ (spin.until) > b.time) { spin.until = 0; b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'spinStop' }); } })];

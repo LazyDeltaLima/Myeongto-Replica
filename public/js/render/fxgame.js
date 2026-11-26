@@ -158,7 +158,7 @@ import { animPause, backSide, viewHoldsBuff, clipOf, facesBack, idlePause, immun
  *   inputLate?: string[] | null, ctLate?: string[] | null, spell?: number, part?: EPart, [key: string]: unknown }} FxCast an attack's cast
  *   (beginCast)
  * @typedef {{ part: EPart, t: number, hold: unknown, until: number | null, held: Set<unknown> | null, inPlace: boolean, late?: number,
- *   tgtStart?: Set<unknown> }} ESkillRec
+ *   tgtStart?: Set<unknown>, swing?: boolean }} ESkillRec
  *   an enemy's held skill (eskillFx)
  * @typedef {{ key?: string, reached?: string[], hit?: string[], trail?: string[], stop?: string[], targetStart?: string[],
  *   move?: string, hook?: unknown, mount?: unknown, link?: number, speed?: number, raise?: number, noRaise?: number,
@@ -521,6 +521,8 @@ const FORM_MODES = Object.freeze({
   enemy_1172_dugago: STATUE_MODES, enemy_1172_dugago_2: STATUE_MODES,
   enemy_1288_duskls: EMBER_MODES, enemy_1288_duskls_2: EMBER_MODES, enemy_1292_duskld: EMBER_MODES, enemy_9010_acpupp: EMBER_MODES,
   enemy_2025_syufo: Object.freeze({ crawl: 'Normal' }),
+  // 2026-11-26: 咸鳞汁推荐者 with the smash to come swings BlockedBoom's Attack, no clip of a mode — it is in M2 all the same
+  enemy_10044_wintun: Object.freeze({ M2boom: 'M2', M2: 'M2' }),
   enemy_1438_dspred: Object.freeze({ 1: '1' }),   // 2026-11-12: its B_Attack is the binding's mode-1 Attack (the hooker's pair)
   enemy_1439_dslntf: Object.freeze({ 1: '1' }), enemy_1439_dslntf_2: Object.freeze({ 1: '1' }),
   enemy_1509_mousek: Object.freeze({ noShield: 'NoShield' }),   // its last barrier layer's end (archetypes.js artsBarrier brokeForm)
@@ -8229,9 +8231,12 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * @param {View} v
    * @param {string} key
    * `targets`: its cast's targets (the sim's 'enemySkill' `tgts`, else [`target`]) — its cast-target effects (ecastTgtFx).
-   * @param {{ on?: boolean, loop?: boolean, target?: View | null, targets?: (View | null)[] | null, hold?: boolean, holdFor?: number, cap?: number, start?: boolean }} [opts]
+   * `swing` (2026-11-26, the sim's 'enemySkill' `swing`): the cast is the enemy's swing now (its kit's `swingClip`: 咸鳞汁推荐者's
+   * BlockedBoom) — that swing's strike draws nothing of the plain attack, and its damage none of the ability's hits (what the
+   * struck unit shows is the damage's own moment, 'buff:<key>', hitMoments).
+   * @param {{ on?: boolean, loop?: boolean, target?: View | null, targets?: (View | null)[] | null, hold?: boolean, holdFor?: number, cap?: number, start?: boolean, swing?: boolean }} [opts]
    */
-  function eskillFx(v, key, { on = true, loop = false, target = null, targets = null, hold = false, holdFor = ESKILL_HOLD_CAP, cap = 20, start = true } = {}) {
+  function eskillFx(v, key, { on = true, loop = false, target = null, targets = null, hold = false, holdFor = ESKILL_HOLD_CAP, cap = 20, start = true, swing = false } = {}) {
     const part = eskillPart(v, key);
     if (!part || !eOn(v)) return false;
     const pr0 = part.proj || {};
@@ -8257,7 +8262,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const l of live) if (l.owner === id && l.tag === `aura:${key.toLowerCase()}`) l.inst.stop();
     // 2026-11-12: its ready mark, when it goes as the cast starts (ReadyEnemySkillEffect `_stopBeforeCast`, ereadyFx)
     if (part.readyEarly) for (const l of live) if (l.owner === id && l.tag === `ready:${key.toLowerCase()}`) l.inst.stop();
-    const rec = /** @type {ESkillRec} */ ({ part, t: clockS, hold, until: hold ? clockS + holdFor : null, held: hold ? new Set() : null, inPlace: inPlaceOfAttack(v, part) });
+    const rec = /** @type {ESkillRec} */ ({ part, t: clockS, hold, until: hold ? clockS + holdFor : null, held: hold ? new Set() : null, inPlace: swing || inPlaceOfAttack(v, part), ...(swing ? { swing: true } : null) });
     v._fxESkill = rec;
     if (clockS - (eskillSeen.get(k) ?? -9) < 1) return true;
     eskillSeen.set(k, clockS);
@@ -9413,7 +9418,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-10-10: an enemy's attack — its strike's cast effects, its shot's official trail, its hit to come
           if (efoe(src)) {
             if (!eOn(src)) return;
-            if (src._fxESkill?.inPlace) { src._fxESkill.inPlace = false; return; }   // the ability's strike (inPlaceOfAttack)
+            // the ability's strike (inPlaceOfAttack); a cast that is the swing (`swing`) leaves its damage to that damage's moments
+            // (a swing cast cut before its strike — a stun — leaves the next attack to itself: 3 s)
+            if (src._fxESkill?.inPlace && !(src._fxESkill.swing && clockS - src._fxESkill.t > 3)) { src._fxESkill.inPlace = false; if (src._fxESkill.swing) src._fxESkill.t = -99; return; }
             if (ABILITY_SHOT_ATKS.has(/** @type {string} */ (e[3]))) return;   // 2026-11-12: its ability's shot (破城者's missiles), drawn at its burst
             const tgt = views.get(e[2]);
             const p = estrikeFx(src, e[3], tgt || null);
@@ -9626,7 +9633,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
               if (held) elassoStart(v, eskillPart(v, /** @type {string} */ (k)), tv, chan || ESKILL_HOLD_CAP);
               // (2026-11-26) the cast's other fx ('explode' of 腐败骑士's hammer …) are no new cast (`start`)
               const start = e[1] === 'enemySkill';
-              if (eskillFx(v, /** @type {string} */ (k), { target: tv, targets: tvs, hold: held, holdFor: chan || ESKILL_HOLD_CAP, start }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
+              if (eskillFx(v, /** @type {string} */ (k), { target: tv, targets: tvs, hold: held, holdFor: chan || ESKILL_HOLD_CAP, start, swing: start && !!o.swing }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
               return;
             }
           }

@@ -716,6 +716,16 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
                     lst = out.setdefault('derived', {}).setdefault(b['buffKey'], [])
                     if eff not in lst:
                         lst.append(eff)
+            # (2026-11-26) a buff its nodes hand to other units — Nodes.CreateBuffToBlockee (the owner's blockees: 咸鳞汁推荐者's
+            # wintun_m1_s1[real_damage]), CreateBuffUseAbilitySelector (the units an ability's selector picks: 水遁忍者's
+            # ymgtop_m1_t[rotate_attack]): its own effect and its template's start effects, created on each unit it goes on —
+            # `given` { buff key: [effects] }, bound by that key (the record's buffFx; the sim names the moment on that hit)
+            if typ.endswith(('+CreateBuffToBlockee', '+CreateBuffUseAbilitySelector')) and isinstance(b, dict) and b.get('buffKey'):
+                sub = template_info(b.get('templateKey'), BT, FX, proj_keys, depth + 1, set(seen)) or {}
+                names = list(dict.fromkeys(n for n in [b.get('overrideEffectKey')] + list(sub.get('fx') or []) if isinstance(n, str) and n and n.lower() in FX))
+                if names:
+                    lst = out.setdefault('given', {}).setdefault(b['buffKey'], [])
+                    lst += [n for n in names if n not in lst]
             for k, v in o.items():
                 if isinstance(v, str) and v:
                     # (2026-11-10) a camera effect (Nodes.CreateCameraEffect / ActiveCameraEffect: 假想敌：鳍's
@@ -735,9 +745,9 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
                                 tgt = out.setdefault('kills', [])
                                 tgt += [x for x in lst if x not in tgt]
                                 continue
-                            if f == 'derived':
+                            if f in ('derived', 'given'):
                                 for dk, dl in lst.items():
-                                    tgt = out.setdefault('derived', {}).setdefault(dk, [])
+                                    tgt = out.setdefault(f, {}).setdefault(dk, [])
                                     tgt += [x for x in dl if x not in tgt]
                                 continue
                             if not isinstance(lst, list):
@@ -1264,6 +1274,15 @@ def render_entry(r, projs):
                 if ev and b.get('key'):
                     lst = buff_blocked.setdefault(b['key'], [])
                     lst += [x for x in ev if x not in lst]
+    # (2026-11-26) the buffs its buffs' nodes hand to other units (template `given`): their effects, once on each unit they go
+    # on — the sim names that moment on its damage ('buff:<key>', damage.js hitFx): 咸鳞汁推荐者's BlockedBoom on its blocker,
+    # 水遁忍者's spin on each unit it hits
+    for a in r['abilities']:
+        for kk in ('buffs', 'activeBuffs', 'passiveBuffs'):
+            for b in a.get(kk) or []:
+                for gk, gl in ((b.get('template') or {}).get('given') or {}).items():
+                    lst = buff_fx.setdefault(gk, [])
+                    lst += [x for x in gl if x not in STATUS_DRAWN and x not in lst]
     if buff_fx:
         out['buffFx'] = buff_fx
     if buff_blocked:

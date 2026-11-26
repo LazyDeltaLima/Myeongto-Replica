@@ -124,8 +124,8 @@
         "enemy_9010_acpupp": [12,0,11,6147,61311]
       },
       "hooks": [1,101,5700,565,565,2002,2006,0,42,94,10,10,0,16858,0,39,77,52,1,42,1,0,14],
-      "events": {"atk":578,"deploy":24,"die":42,"dmg":2006,"engage":11,"face":12,"fx":84,"layer":1,"leak":52,"skill":20,"spawn":89,"status":1,"swing":577},
-      "fx": {"aoe":5,"dodge":14,"dp":6,"explode":26,"garrison":1,"garrisonGrant":1,"phase":2,"stacks":1,"summon":27,"zone":1},
+      "events": {"atk":578,"deploy":24,"die":42,"dmg":2006,"engage":11,"face":12,"fx":85,"layer":1,"leak":52,"skill":20,"spawn":89,"status":1,"swing":577},
+      "fx": {"aoe":5,"dodge":14,"dp":6,"enemySkill":1,"explode":26,"garrison":1,"garrisonGrant":1,"phase":2,"stacks":1,"summon":27,"zone":1},
       "snaps": "b5955afa 77d313d8 0a317bca 54290426 0af23748 d3338db1 ef2bce38 31e0d485 028a3bb9 13a0014b fd4ea02a 550383ed 6a15b149 75f7cfbc 9e8a476c f02aaf59 520ce9e5 2f9c7c9e bf317e24"
     },
     "standin-03": {
@@ -242,8 +242,8 @@
         "enemy_1121_lifbos_2": [24,10,14,24787,608285]
       },
       "hooks": [1,121,6141,1018,1018,2326,2324,1989,81,109,26,25,0,35512,4149,50,98,28,1,83,2,0,14],
-      "events": {"atk":1236,"bounty":4,"deploy":21,"die":81,"dmg":2324,"engage":11,"face":51,"fx":123,"heal":44,"layer":2,"leak":28,"skill":51,"spawn":112,"status":573,"swing":1063,"tplfx":11},
-      "fx": {"aoe":8,"dodge":16,"dp":11,"garrison":2,"kitHit":5,"liberate":17,"phase":9,"revive":1,"slash":40,"sp":9,"spGain":3,"telegraph":2},
+      "events": {"atk":1236,"bounty":4,"deploy":21,"die":81,"dmg":2324,"engage":11,"face":51,"fx":124,"heal":44,"layer":2,"leak":28,"skill":51,"spawn":112,"status":574,"swing":1063,"tplfx":11},
+      "fx": {"aoe":8,"dodge":16,"dp":11,"enemySkill":1,"garrison":2,"kitHit":5,"liberate":17,"phase":9,"revive":1,"slash":40,"sp":9,"spGain":3,"telegraph":2},
       "snaps": "0d757d17 18010f18 46db7467 0865e471 0a9be825 de09f305 ba26bb5d 60849620 d1cd4fcc 79b1891f 00ff42a8 3917feb0 b7266b70 c04296d7 74d71951 d845bc79 42ad3305 32f646d6 2a4f7eb3 ae68c929 9ac48ce0"
     },
     "standin-05": {
