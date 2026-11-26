@@ -9,7 +9,7 @@ import { normShot } from '../../simdata.js';
 /** @import { Unit } from '../../units.js' */
 /** @import { AttackProfile } from '../../ai.js' */
 /** @import { AbState, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
-/** @import { BuffTick, EnemyShot } from './helpers.js' */
+/** @import { BuffTick } from './helpers.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -146,8 +146,9 @@ export const DOT_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Objec
       // (the zone names talent `1` for the render: its projectile's reach effect enemy_actoxi_idle is the cloud)
       const cloud = (/** @type {number} */ x, /** @type {number} */ y) => dmgZone(b, null, x, y, T(ab, '1.projectile_range') ?? 0.8, T(ab, '1.projectile_life_time') ?? 0, T(ab, '1.interval') ?? 1, atk * (T(ab, '1.damage_atk_scale') ?? 0), 'arts', 'poison', null, 0, { by: e, ability: '1' });
       // the cloud flies as its talent's official projectile (data/enemies.json talentProj['1'] — projectile_enemy_actoxi, a
-      // PARACURVE at 5 tiles/s; until 2026-10-10 8); since 2026-10-31 its fx 'enemyShot' draws the official flight
-      if (k) shoot(b, e, k, /** @type {EnemyShot} */ (normShot(e.def?.raw?.talentProj?.['1']) ?? { key: null, move: 'PARACURVE', speed: 5 }), (_t, h) => cloud(h ? h.x : k.x, h ? h.y : k.y), { hitDead: true, zone: true });
+      // PARACURVE at 5 tiles/s; until 2026-10-10 8); since 2026-10-31 its fx 'enemyShot' draws the official flight;
+      // the stand-in for data without it names the same projectile
+      if (k) shoot(b, e, k, normShot(e.def?.raw?.talentProj?.['1']) ?? { key: 'projectile_enemy_actoxi', move: 'PARACURVE', speed: 5, delay: 0 }, (_t, h) => cloud(h ? h.x : k.x, h ? h.y : k.y), { hitDead: true, zone: true });
       else cloud(e.x, e.y);
     },
   }],

@@ -101,7 +101,6 @@ import { isNormalDamage } from '../damage.js';
 /** @import { AttackProfile } from '../ai.js' */
 /** @import { AbState, AbSkill, AbList, EnemyAbility, EnemyKit, DamageRec } from './enemies.js' */
 /** @import { Buff } from '../battle/status.js' */
-/** @import { EnemyShot } from './enemies/helpers.js' */
 /** @import { EnemyMods } from '../battle/spawns.js' */
 /**
  * A spawn of a wave template (data/waves.json `spawns`, a branch phase's entries), read field by field.
@@ -2340,7 +2339,7 @@ function kitMachine(ab, e, b, tpl) {
     const others = ground(b2).filter((u) => u !== from);
     const nx = others.length ? b2.rng.pick(others) : (from.alive ? from : null);
     if (!nx) return;
-    shoot(b2, from, nx, /** @type {EnemyShot} */ ({ key: 'projectile_enemy_acfnc_2', move: 'TRACE_TARGET_WITH_SPEED', speed: FNC_BOUNCE_SPEED }), (/** @type {Unit | null} */ t) => {
+    shoot(b2, from, nx, { key: 'projectile_enemy_acfnc_2', move: 'TRACE_TARGET_WITH_SPEED', speed: FNC_BOUNCE_SPEED, delay: 0 }, (/** @type {Unit | null} */ t) => {
       if (!t || !t.alive || !e2.alive) return;   // `_dontHitWhenTargetDead`
       b2.dealDamage(e2, t, { amount: e2.s.atk * powi(FNC_BOUNCE_FALLOFF, k), type: 'phys', isAttack: true, tags: ['fncBounce'] });
       bounce(b2, e2, t, k + 1);
@@ -2527,7 +2526,7 @@ function kitArmor(ab, e) {
 
 const WEB_KEY = 'enemy_9036_acweb';
 /** projectile_enemy_acspider_web: TRACE_TARGET_WITH_SPEED (`_moveType` 1) at `_speed` 10 — as the normal attack's two shots. */
-const WEB_SHOT = Object.freeze({ key: 'projectile_enemy_acspider_web', move: 'TRACE_TARGET_WITH_SPEED', speed: 10 });
+const WEB_SHOT = Object.freeze({ key: 'projectile_enemy_acspider_web', move: 'TRACE_TARGET_WITH_SPEED', speed: 10, delay: 0 });
 /** The normal attack reaches the whole field (table rangeRadius −1). */
 const SPIDER_FIELD = 99;
 /** acspider[sk-poison-area]: the tile listener's buff triggers every `triggerInterval` 0.5 s (its damage: the skill's `interval`). */
@@ -2654,7 +2653,7 @@ function kitSpider(ab, e) {
       cond: (b2, e2) => ground(b2, e2).some((u) => u.kind === 'op'),
       fire(b2, e2) { // 【淤困捕食】
         for (const t of netTargets(b2, e2)) {
-          shoot(b2, e2, t, /** @type {EnemyShot} */ (WEB_SHOT), (/** @type {Unit | null} */ t2) => {
+          shoot(b2, e2, t, WEB_SHOT, (/** @type {Unit | null} */ t2) => {
             if (!t2 || !t2.alive || !t2.deployed) return;
             const tile = [t2.tileR, t2.tileC];
             const w = b2.spawnEnemy(WEB_KEY, { route: { motion: 'WALK', start: tile, end: tile, checkpoints: [] }, pos: tile, countInTotal: false, mods: summonMods(b2, null, WEB_KEY) });
