@@ -1810,6 +1810,10 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     동작은 능력의 `SwitchDynamicBuffTileMode`(갈대 칸의 晦明(밝음·어둠) 속성 뒤집기)이고 이 모드에는 그런 칸이 없다. 코드 `enemies/leaders.js` `uniqueBuff`·`kitXi`(표식 키 `ab:xiMark`,
     `ab:xiMark2[a]`·`[b]`, `fxTag` `buff:enemy_xi_mark[a]`·`[b]`). 재발 방지: `test/content/enemies_bosses.test.js` 「casts its 纬地经天 mark」,
     `test/content/xi-post-reborn.test.js` 「real match path: 自在 marks the operator」.
+    화면(2026-11-26; 이전: 바인딩에 그 버프가 없어 표식 이펙트가 안 그려짐): 표식 상태는 `fxTag`와 출처('즈자이')를 실어, `render/fxstatus.js`가 그 출처 적의 바인딩
+    `buffFx`로 유닛 위에 버프가 있는 동안 그린다. 바인딩 추출 `enemy_bindings.py`가 능력의 `_uniqueBuff`(버프 하나, 목록 아님)를 `uniqueBuffs`로 읽어 그 키로 묶는다
+    (`enemy_xi_mark[a]#0`·`#1`·`[b]` → `enemy_xi_skill_01_buff_02`; 두 시즌 348종 중 '즈자이'·래트킹 둘만 늘어남). [화면 미확인]
+    재발 방지: 원인 제거 — `enemy_bindings.py`가 `_uniqueBuff`를 읽음; `test/render/xi-mark-fx.test.js`(실제 키트의 상태 → 출처 바인딩 렌더, 추출 바인딩).
     **래트킹의 표식**(2026-11-21, 공식 클라에서 확인 — 적 프리팹 `enemy_1509_mousek`·`enemy_database`; 이전: 키트가 `Skills/Mark`를 안 써 표식도 그 시전도 없었다): `Skills/Mark`는
     `AbilityParallelGroup`(`_timeMode` 1, `_finishAllAbilitiesIfOneFinish` 없음)에 '즈자이'와 같은 `GloballUniqueBuffAbility` 둘이다 — `MaxHpAsc`(선택자 `_postFilter` 20 = 최대 HP가
     가장 낮은 유닛, 필드 전체)가 `mousek_mark[a]`(이펙트 `mousek_skill_02_buff`)를, `MaxHpDes`(`_postFilter` 19 = 가장 높은 유닛)가 `mousek_mark[b]`(`mousek_skill_01_buff`)를 건다.
@@ -1820,6 +1824,8 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     '즈자이'와 달리 `_resetMainAbilityCdWhenCastEnd`가 없어 일반 공격 간격은 시전 시작부터 돈다. 표식은 모드 밖(`Skills`)에 있어 방벽이 깨진 모드 전환에도 남고 퇴장 때 지워진다.
     코드 `enemies/leaders.js` `kitLeaderMisc` `enemy_1509_mousek`(`uniqueBuff`, 표식 키 `ab:mousekMark[a]`·`[b]`, `fxTag` `buff:mousek_mark[a]`·`[b]`). 재발 방지:
     `test/content/enemies_bosses.test.js` 「casts Skills/Mark once」·「real match path: 鼠王 casts Skills/Mark」.
+    화면은 위 '즈자이'와 같은 길(2026-11-26): `mousek_mark[a]` → `mousek_skill_02_buff`, `[b]` → `mousek_skill_01_buff`가 출처 바인딩으로 표식받은 유닛 위에. [화면 미확인]
+    재발 방지: `test/render/xi-mark-fx.test.js`.
     데이터: `build-data.mjs enemySkillCast`가 `wait` 0·`pre`(`_preDelay`, 채널도)와 채널 클립의 `chanBegin`·`chanLoop`·`chanEnd`(`dur`·`hit`)를 싣는다(`attack_timing.py cast_fields`가
     채널 능력의 `_waitForAttackEvent`·`_preDelay`를 읽음). 재발 방지:
     `test/content/enemy-skill-strike.test.js`(두 시즌 공격 차례 스킬 전부 — 프레임이 0보다 늦은데 `atStrike`가 아니면 예외 목록의 이유가 있어야 함).

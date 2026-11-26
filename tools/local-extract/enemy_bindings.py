@@ -580,6 +580,13 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
                     x['ev'] = d['_runActionOnEvent']
             if lst:
                 a.setdefault(k.strip('_'), []).extend(lst)
+        # (2026-11-26) a GloballUniqueBuffAbility's `_uniqueBuff` (one BuffData, not a list): `_DoUpdateTarget` keeps it on the
+        # unit its selector picks first and moves it as that changes (“自在”'s enemy_xi_mark[a] / [b], 鼠王's mousek_mark[a] / [b])
+        # — its effect is held on that unit while the buff stays: `uniqueBuffs`, bound by its key like a buff of its own (buffFx;
+        # the sim's status names it, `fxTag`, with the enemy as its source)
+        u = d.get('_uniqueBuff')
+        if isinstance(u, dict) and (u.get('buffKey') or u.get('templateKey')):
+            a.setdefault('uniqueBuffs', []).append(buff(u))
         # (2026-10-21) an AuraAbility's own `_effects`: created on its owner as it attaches, finished as it detaches (DoAttach
         # → BattleController.CreateEffect; `_createEffectOnDummy` aside) — its range drawn round the enemy
         if BUFF_CLASSES.get((d.get('m_Script') or {}).get('m_PathID')) == 'aura' and strs(d.get('_effects')):
@@ -1221,12 +1228,12 @@ def render_entry(r, projs):
     # a key used in several modes (杰斯顿's jakill_enhance: 狱警 and 杀手) is told apart by the mode: `<key>#<mode index>`
     modes_of = defaultdict(set)
     for a in r['abilities']:
-        for kk in ('buffs', 'activeBuffs', 'passiveBuffs'):
+        for kk in ('buffs', 'activeBuffs', 'passiveBuffs', 'uniqueBuffs'):
             for b in a.get(kk) or []:
                 if b.get('key') and own(b):
                     modes_of[b['key']].add(a.get('mode'))
     for a in r['abilities']:
-        for kk in ('buffs', 'activeBuffs', 'passiveBuffs'):
+        for kk in ('buffs', 'activeBuffs', 'passiveBuffs', 'uniqueBuffs'):
             for b in a.get(kk) or []:
                 names = [x for x in own(b) if x not in STATUS_DRAWN]
                 if names and b.get('key') and not (held(b) and set(names) <= held_names):
@@ -1472,7 +1479,7 @@ def main():
             for p in ab.get('projectiles') or []:
                 pk += [p['key']] + p.get('extra', []) + ([p['duo']] if p.get('duo') else [])
             pk += [x['key'] for x in ab.get('otherProjectiles') or []]
-            for kk in ('buffs', 'activeBuffs', 'passiveBuffs', 'projectileBuffs', 'buffsWhenReachedTarget', 'buffsToBlockee'):
+            for kk in ('buffs', 'activeBuffs', 'passiveBuffs', 'projectileBuffs', 'buffsWhenReachedTarget', 'buffsToBlockee', 'uniqueBuffs'):
                 for b in ab.get(kk) or []:
                     t = template_info(b.get('tmpl') or b.get('key'), BT, FX, proj_keys)
                     if t:
