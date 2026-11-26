@@ -84,6 +84,9 @@ export const FX_KINDS = Object.freeze({
   // 2026-11-12: 规程 m10's 盐坨子炮 (sim content/devices.js) boards / drops a passenger, fires — state for its official
   // effects (render/fxgame.js cannonFx); nothing in the fallback (its landing is the 'explode' cnnonShell blast)
   cannon: { a: 'none', c: 0xffb070 },
+  // “越长尘”'s passenger count (sim content/enemies/special.js kitBus): its official passenger mark only (render/fxgame.js
+  // epaxFx); nothing in the fallback
+  passengers: { a: 'none', c: 0xffb070 },
   roadTiles: { a: 'none', c: 0x9fd8ff }, // 引星棘刺 T2's straight-road tiles (render/fx/kitofficial.js; nothing in the fallback)
   seaArea: { a: 'none', c: 0x9fd8ff }, // 引星棘刺 S3's area line (render/fx/kitofficial.js; the fallback has the 'zone' rings)
   // 予愿安洁莉娜 S3's flight on / off (sim kit op-aglna2.js): her body flies there itself — render/fxgame.js plays the official
@@ -177,12 +180,12 @@ const SILENT_PHASES = new Set(['bombed', 'warning', 'larva', 'grown', 'feed', 'f
 
 /**
  * Visual spec of an fx kind (see FX_KINDS); `extra.kind` / `extra.element` may pick a better colour.
- * @param {unknown} kind @param {Record<string, any> | null} [extra]
+ * @param {unknown} kind @param {Record<string, unknown> | null} [extra]
  * @returns {FxSpec}
  */
 export function fxSpec(kind, extra = {}) {
   const k = typeof kind === 'string' ? kind : '';
-  if (k === 'phase' && SILENT_PHASES.has(extra && extra.kind)) return { a: 'none', c: 0xffffff };
+  if (k === 'phase' && typeof extra?.kind === 'string' && SILENT_PHASES.has(extra.kind)) return { a: 'none', c: 0xffffff };
   if (k === 'teleport' && extra && extra.kind === 'parasite') return { a: 'none', c: 0xffffff };
   // 圣聆初雪's snow map changes that lay no talent layer (S1's line, an enemy clearing a tile): the tiles' own effects
   // only (render/fx/kitofficial.js), no stand-in zone on her

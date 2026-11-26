@@ -433,8 +433,8 @@
         "enemy_2050_smsha": [1,0,1,3935,0]
       },
       "hooks": [1,178,4200,671,671,1198,1188,308,95,161,92,91,0,25658,82,23,162,66,1,95,3,0,0],
-      "events": {"atk":810,"bounty":1,"castHit":19,"deploy":14,"die":95,"dmg":1170,"engage":10,"face":138,"fx":310,"heal":262,"hide":18,"layer":3,"leak":66,"skill":183,"spawn":176,"status":346,"swing":731,"tplfx":18},
-      "fx": {"aoe":9,"buff":2,"counter":50,"enemySkill":26,"explode":8,"garrison":3,"hunterReload":38,"hunterRound":12,"kitHit":31,"parry":1,"phase":6,"strike":13,"summon":98,"telegraph":1,"volley":11,"zone":1},
+      "events": {"atk":810,"bounty":1,"castHit":19,"deploy":14,"die":95,"dmg":1170,"engage":10,"face":138,"fx":315,"heal":262,"hide":18,"layer":3,"leak":66,"skill":183,"spawn":176,"status":346,"swing":731,"tplfx":18},
+      "fx": {"aoe":9,"buff":2,"counter":50,"enemySkill":26,"explode":8,"garrison":3,"hunterReload":38,"hunterRound":12,"kitHit":31,"parry":1,"passengers":5,"phase":6,"strike":13,"summon":98,"telegraph":1,"volley":11,"zone":1},
       "snaps": "c7023dec 73d6a005 eabb2535 d6f793ba 9bd13ab5 5f1b7177 e69fbe1f d8892208 7e8ba092 623d8282 6409026b 4c77a134 b96e7fc2 89eeeff4"
     },
     "roster-007": {
@@ -2649,8 +2649,8 @@
         "enemy_9031_acrefd": [1,1,0,0,3600]
       },
       "hooks": [1,79,5100,752,752,2079,2082,1630,61,62,99,98,0,22300,107,43,57,0,1,74,32,0,0],
-      "events": {"atk":759,"bounty":4,"deploy":20,"die":62,"dmg":2079,"engage":11,"face":88,"fx":244,"heal":967,"hide":8,"layer":32,"skill":199,"spawn":74,"status":239,"swing":789,"tplfx":7},
-      "fx": {"aoe":1,"displace":18,"dp":2,"ebnhlzVolley":7,"emergency":1,"enemyShot":24,"enemySkill":4,"explode":11,"frostNova":9,"garrison":2,"healField":11,"kitHit":33,"mysticHeld":7,"mysticStore":50,"palsy":5,"phase":1,"revive":1,"stacks":7,"substitute":1,"swap":1,"telegraph":1,"veenVolley":8,"zone":39},
+      "events": {"atk":759,"bounty":4,"deploy":20,"die":62,"dmg":2079,"engage":11,"face":88,"fx":249,"heal":967,"hide":8,"layer":32,"skill":199,"spawn":74,"status":239,"swing":789,"tplfx":7},
+      "fx": {"aoe":1,"displace":18,"dp":2,"ebnhlzVolley":7,"emergency":1,"enemyShot":24,"enemySkill":4,"explode":11,"frostNova":9,"garrison":2,"healField":11,"kitHit":33,"mysticHeld":7,"mysticStore":50,"palsy":5,"passengers":5,"phase":1,"revive":1,"stacks":7,"substitute":1,"swap":1,"telegraph":1,"veenVolley":8,"zone":39},
       "snaps": "6c20cdf3 36530c98 01e4151d a7a406e6 f3eab25e 18a8d938 8c43af3a b84ef287 8fffd94e dd79e799 c7c617db 3de92d16 d1f281e6 681931ed 73e51936 93e92c2a 3d3b284d"
     },
     "roster-037": {

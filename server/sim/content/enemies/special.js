@@ -304,8 +304,11 @@ function kitExposeOnHit(ab) {
  * “越长尘” (`enemy_1302_ymtro_2`, `camel` false; PRTS 天赋&能力 as upstream 18cb28fe reads it): the same boarding, up to
  * `Bus.max_cnt` (4, its talent blackboard), no slow and no model form; each passenger gets off on the centre of the
  * carrier's tile (rounded half to even, as body.js) and walks on along its OWN remaining route from where it boarded
- * [ASSUMED, upstream: PRTS names no route replacement for this one]. Its block weight stays (blockWeight 4).
- * @typedef {EnemyAbility & { pax: Unit[], stacks: number }} BusAb
+ * [ASSUMED, upstream: PRTS names no route replacement for this one]. Its block weight stays (blockWeight 4). Its bus's
+ * `_passengerEffects` (enemy_ymtro_buff_01 … _04) show on it the n-th while it carries n, none with none
+ * (`DurbusAbility._UpdatePassengerEffect` / `_FinishPassengerEffect`): every change of the count is the fx 'passengers'
+ * { id, n } (render/fxgame.js epaxFx; docs/rules/fx.md 「규정 대포 「염괴포」」 승객 표시).
+ * @typedef {EnemyAbility & { pax: Unit[], stacks: number, shown: number }} BusAb
  * @param {AbState} ab @param {{ camel?: boolean }} [opts] @returns {AbList}
  */
 function kitBus(ab, { camel = true } = {}) {
@@ -327,11 +330,18 @@ function kitBus(ab, { camel = true } = {}) {
     if ((o.def && Array.isArray(o.def.tags) && o.def.tags.includes('machine')) || o.s.flags.untargetable) return false;
     return true;
   };
+  // “越长尘”: its passenger mark follows the count (a passenger lost on board too: `_SearchPassengers` drops it first)
+  const mark = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {BusAb} */ a) => {
+    if (camel || a.shown === a.pax.length) return;
+    a.shown = a.pax.length;
+    b.fx('passengers', { x: e.x, y: e.y, id: e.id, n: a.shown });
+  };
   /** @type {EnemyAbility} */
   const bus = {
-    spawn(b, e, a) { a.pax = []; a.stacks = 0; },
+    spawn(b, e, a) { a.pax = []; a.stacks = 0; a.shown = 0; },
     tick(b, e, /** @type {BusAb} */ a) {
       a.pax = a.pax.filter((/** @type {Unit} */ p) => p.alive);
+      mark(b, e, a);
       if (e.hidden || e.s.flags.stun || a.pax.length >= max) return;
       const near = b.enemiesInRadius(e.x, e.y, BUS_RADIUS).filter((o) => board(b, e, o))
         .map((o) => ({ o, d: hypot(o.x - e.x, o.y - e.y) })).sort((p, q) => p.d - q.d || p.o.spawnSeq - q.o.spawnSeq);
@@ -346,7 +356,7 @@ function kitBus(ab, { camel = true } = {}) {
         a.stacks++;
         n++;
       }
-      if (n) slow(b, e, a);
+      if (n) { slow(b, e, a); mark(b, e, a); }
       // enemy_mntrjn_add's PlayAudio for each passenger taken on (audio; “越长尘”'s bus has none)
       if (n && camel) b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'mntrjn:add', n });
     },
@@ -372,6 +382,7 @@ function kitBus(ab, { camel = true } = {}) {
       }
       a.pax = [];
       slow(b, e, a);
+      mark(b, e, a);
     },
   };
   return camel ? [unblockable(), bus] : [bus];

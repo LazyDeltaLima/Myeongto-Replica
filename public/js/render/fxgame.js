@@ -8887,6 +8887,27 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     return true;
   }
   /**
+   * 2026-11-26 (docs/rules/fx.md 「규정 대포 「염괴포」」 승객 표시): a carrier's passenger mark — sim fx 'passengers' { id, n }
+   * (special.js kitBus: “越长尘” at each change of its count). DurbusAbility `_UpdatePassengerEffect`: the n-th of its
+   * `_passengerEffects` (enemy-modes.json `passenger`: enemy_ymtro_buff_01 … _04) on the carrier, made again only when n
+   * changes; none with none (`_FinishPassengerEffect`). A knock-out stops it with the owner's held effects (stopOwned).
+   * true = drawn here.
+   * @param {FxRec} o
+   * @param {Views} views
+   */
+  function epaxFx(o, views) {
+    const v = /** @type {View} */ (views.get(o.id));   // (eOn tests it)
+    if (!eOn(v)) return false;
+    const names = /** @type {ERow} */ (ebindOf(v)).passenger;
+    if (!names?.some(efx)) return false;
+    const id = ownerOf(v), n = Math.floor(Number(o.n)) || 0;
+    for (const l of live) if (l.owner === id && l.tag === 'pax') l.inst.stop();
+    const name = n > 0 ? names[n - 1] : null;
+    if (name) eplay(v, [name], { buff: true, tag: 'pax' });
+    else if (trace) trace({ kind: 'paxEnd', names: [], by: id, at: null });   // tests: its mark stopped
+    return true;
+  }
+  /**
    * The 'explode' of a skill's strike (SPELL_BLASTS): its ON_SPELL_ON cast effects on the caster now.
    * @param {Ev} e
    * @param {Views} views
@@ -9583,6 +9604,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           }
           if (e[1] === 'teleport' && e[4]?.id != null && typeof e[4].ability === 'string' && eblinkFx(e, views)) { ownFx.add(e); return; }   // 2026-11-12: 聆风猎手
           if (e[1] === 'enemySkillReady' && e[4]?.id != null) { if (ereadyFx(e[4], views)) ownFx.add(e); return; }   // 2026-11-12: a skill's ready mark
+          if (e[1] === 'passengers' && e[4]?.id != null) { if (epaxFx(e[4], views)) ownFx.add(e); return; }   // 2026-11-26: “越长尘”'s passenger mark
           // 2026-10-10: an enemy's skill / special action naming its ability (fx 'enemySkill' and the fx of its cast) — that ability's official
           // effects, and no procedural stand-in for it (standInOff's kinds) when the enemy binds it
           if (e[4] && typeof e[4] === 'object') {

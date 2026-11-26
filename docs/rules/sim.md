@@ -2652,6 +2652,7 @@ upstream v0.2.4 뒤 버그 수정 커밋 중 우리에게도 같은 버그가 �
   云梯가 없어 넣지 않음(upstream도 없음).
 - 테스트 `test/content/enemies_bosses.test.js` 「enemy_1302_ymtro_2 …」 2건(최대 4명·감속 없음·형태 없음, 격파 하차 칸 중심·자기 경로). golden: roster-006·roster-039
   (이 적이 나오는 판).
+- 승객 표시 신호(2026-11-26): 승객 수가 바뀔 때마다 fx `passengers` `{ id, n }` — 그림은 rules/fx.md 「규정 대포 「염괴포」」 승객 표시. 시험 같은 파일 「… fx 'passengers'」.
 
 ## 님프 정예 모듈 판 窥心钥 공격 속도 = 10층부터 (2026-10-17, 관리자 지시)
 

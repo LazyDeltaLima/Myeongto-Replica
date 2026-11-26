@@ -366,8 +366,8 @@
         "enemy_2017_csphts": [1,1,0,1261,9600]
       },
       "hooks": [1,105,4200,400,400,1555,1520,9809,77,90,27,25,0,21142,57,30,78,0,1,77,0,0,4],
-      "events": {"atk":412,"bounty":5,"castHit":4,"deploy":27,"die":90,"dmg":1520,"engage":7,"face":59,"fx":135,"heal":15,"hide":4,"skill":54,"spawn":105,"status":161,"swing":426,"tplfx":663},
-      "fx": {"buff":1,"coin":18,"dodge":4,"enemyShot":1,"enemySkill":4,"explode":15,"parry":41,"phase":2,"shieldBreak":1,"stacks":9,"summon":15,"swire2Throw":15,"takeoff":5,"zone":4},
+      "events": {"atk":412,"bounty":5,"castHit":4,"deploy":27,"die":90,"dmg":1520,"engage":7,"face":59,"fx":138,"heal":15,"hide":4,"skill":54,"spawn":105,"status":161,"swing":426,"tplfx":663},
+      "fx": {"buff":1,"coin":18,"dodge":4,"enemyShot":1,"enemySkill":4,"explode":15,"parry":41,"passengers":3,"phase":2,"shieldBreak":1,"stacks":9,"summon":15,"swire2Throw":15,"takeoff":5,"zone":4},
       "snaps": "e06698a3 44b771cc c40855d3 82b2ab26 1229f37a 1a098a83 8387e8d0 57711887 a6947d5e f684124e 5807847e e72fae9e 2ebbe26b bd4c7621"
     },
     "roster-007": {
@@ -2553,8 +2553,8 @@
         "enemy_2034_sythef": [1,1,0,25,8640]
       },
       "hooks": [1,75,5100,1116,1116,1465,1465,2182,49,59,56,54,0,13150,69,84,53,0,1,52,11,0,0],
-      "events": {"atk":1116,"bounty":3,"castHit":28,"deploy":22,"die":59,"dmg":1465,"engage":12,"face":99,"fx":236,"heal":10,"hide":8,"layer":11,"skill":110,"spawn":66,"status":108,"swing":1185},
-      "fx": {"aoe":24,"blink":5,"bondMilestone":1,"buff":2,"coin":25,"dp":11,"garrison":11,"shield":1,"stacks":98,"volley":56,"wolfCount":1,"wolfShadow":1},
+      "events": {"atk":1116,"bounty":3,"castHit":28,"deploy":22,"die":59,"dmg":1465,"engage":12,"face":99,"fx":240,"heal":10,"hide":8,"layer":11,"skill":110,"spawn":66,"status":108,"swing":1185},
+      "fx": {"aoe":24,"blink":5,"bondMilestone":1,"buff":2,"coin":25,"dp":11,"garrison":11,"passengers":4,"shield":1,"stacks":98,"volley":56,"wolfCount":1,"wolfShadow":1},
       "snaps": "e1adf314 fc7ab1c1 ad079128 8ed2f759 fdd2cde1 2eae31d4 d955d9ed 86abb5d9 9afa9827 3663f94e be18510d 6894b617 9810d372 4f0635ce 53f4973d a0d33ba2 b1f1a08c"
     },
     "roster-040": {

@@ -2051,6 +2051,34 @@ test(`${nm(YMTRO)}: carries at most ${tb(YMTRO, 'Bus.max_cnt')} passengers, no s
   assert.equal(bus.form ?? null, null);
 });
 
+// docs/rules/fx.md 「규정 대포 「염괴포」」 승객 표시: DurbusAbility `_UpdatePassengerEffect` shows the n-th `_passengerEffects`
+test(`${nm(YMTRO)}: fx 'passengers' { id, n } at every change of its passenger count — boarding, one lost on board, the drop at its knock-out`, () => {
+  const h = arena();
+  h.step();
+  const bus = put(h, YMTRO, [10, 7], { move: true });
+  const pax = () => h.eventsOf('fx').filter((f) => f[1] === 'passengers' && f[4].id === bus.id).map((f) => f[4].n);
+  h.step();
+  assert.deepEqual(pax(), [], 'none while it carries none');
+  const a = put(h, 'enemy_1007_slime', [10, 7]);
+  h.step();
+  for (let i = 0; i < 2; i++) put(h, 'enemy_1007_slime', [10, 7]);
+  h.step();
+  h.step();
+  assert.deepEqual(pax(), [1, 3], 'one, then two more in one tick: one signal each tick it changes');
+  killed(h, a);
+  h.step();
+  assert.deepEqual(pax(), [1, 3, 2], 'a passenger lost on board');
+  killed(h, bus);
+  assert.deepEqual(pax(), [1, 3, 2, 0], 'they get off as it is knocked out');
+  const h2 = arena();
+  h2.step();
+  put(h2, BUS, [10, 7]);
+  const rider = put(h2, 'enemy_1007_slime', [10, 7]);
+  h2.step();
+  assert.ok(rider.hidden, 'on board');
+  assert.ok(!h2.eventsOf('fx').some((f) => f[1] === 'passengers'), '伊利昂的木驮兽 has no passenger mark (its riders are a skin)');
+});
+
 test(`${nm(YMTRO)}: knocked out, it drops its passengers on the centre of its tile and each walks on along its own route`, () => {
   const h = arena();
   h.step();
