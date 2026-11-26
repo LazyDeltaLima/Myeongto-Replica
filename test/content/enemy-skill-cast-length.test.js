@@ -42,8 +42,8 @@ test('skillCast records the class of each skill\'s ability (attack_timing.py cas
   assert.deepEqual(c('enemy_9009_acfort', 'fireweapon').subs.map((s) => s.kind ?? s.clip), ['buff', 'Skill_2']);
   assert.equal(c('enemy_1275_dwlock_2', 'deatheye').kind, 'seq');
   // + its ThreePartChannelingAnimation (`_waitForAttachFinishEvent`), its clips, and `_preDelay` for a spell that does not wait
-  // for an attack event (`wait` 0)
-  assert.deepEqual(c('enemy_1275_dwlock_2', 'deatheye').subs[0], { time: 0, proj: 1, chan: { begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End', wait: 1 },
+  // for an attack event (`wait` 0); `projFin` = `_fireAttackFinishWhenProjectileInvalid` (the attack-finish event as its line goes)
+  assert.deepEqual(c('enemy_1275_dwlock_2', 'deatheye').subs[0], { time: 0, proj: 1, projFin: 1, chan: { begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End', wait: 1 },
     chanBegin: { dur: 0.667 }, chanEnd: { dur: 1.167 }, wait: 0, pre: 0.6 });
   assert.equal(c('enemy_1272_nhtank', 'pollutedrangedatk').kind, 'par');
   assert.equal(c('enemy_1272_nhtank', 'pollutedrangedatk').one, 1, '`_finishAllAbilitiesIfOneFinish`');

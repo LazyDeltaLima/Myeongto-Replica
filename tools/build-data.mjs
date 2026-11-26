@@ -848,7 +848,7 @@ function moduleAttr(modulePhase) {
  * restate (blackboard keys merged, module values win; name/text/range/token kept when absent).
  * `modPhase`/`modLevel` select module candidates (tokens: the owner's phase/level); `potRank` every candidate (tokens:
  * the owner's potential rank, ctx.potRank).
- * @returns {Array<{index:number,name:string|null,desc:string|null,descRaw:string|null,bb:object,bbStr:object,rangeGrid:any,tokenKey:string|null,hidden:boolean,fromModule:boolean}>}
+ * @returns {Array<{index:number,name:string|null,desc:string|null,descRaw:string|null,bb:object,bbStr:object,rangeGrid:unknown,tokenKey:string|null,hidden:boolean,fromModule:boolean}>}
  */
 function buildTalents(ctx, char, phase, level, moduleParts, label, modPhase = phase, modLevel = level, potRank = 0) {
   return mergeTalentChanges(baseTalentList(ctx, char, phase, level, label, potRank),
@@ -987,7 +987,7 @@ function hasE2Art(ctx, charId, kind) {
  * choices (DESIGN §16: `skills[]`; golden `modules[]` + `statsBase`/`traitBase`/`talentsBase`).
  * `tokenOwners` entries carry `skillAlts` ({index, count, sources} per non-default skill) and `moduleAlts`
  * ({id, modulePhase, moduleTokenParts} per non-default module + 'none') for the token variants.
- * @returns {{ chess: object, tokenOwners: Map<string, Array<{chessId:string, charId:string, phase:number, level:number, skillIndex:number, skillLevel:number, potRank:number, count:number|null, golden:boolean, modulePhase:any, skillAlts:object[], moduleAlts:object[]}>> }}
+ * @returns {{ chess: object, tokenOwners: Map<string, Array<{chessId:string, charId:string, phase:number, level:number, skillIndex:number, skillLevel:number, potRank:number, count:number|null, golden:boolean, modulePhase:unknown, skillAlts:object[], moduleAlts:object[]}>> }}
  */
 function buildChess(ctx) {
   const { act, charTable, uniequip, battleEquip } = ctx;
@@ -2952,7 +2952,9 @@ function enemySkillCast(ctx, manifest, spineId, key) {
       ...(dur > 0 && s.wait === 0 ? { wait: 0, ...(s.pre > 0 ? { pre: s.pre } : {}) } : {}),
       ...(Number.isFinite(s.time) ? { time: s.time } : {}),
       ...(s.time === 2 ? { cd: s.cd || 0 } : s.time === 3 ? { cdKey: s.cdKey || 'duration' } : {}),
-      ...(s.proj ? { proj: 1 } : {}),
+      // it waits for its projectile (`_waitForProjectileInvalid`) and, `projFin`, sends the attack-finish event as that is
+      // gone (`_fireAttackFinishWhenProjectileInvalid` — what a held channel's loop waits for: content/enemies.js projCastOver)
+      ...(s.proj ? { proj: 1, ...(s.projFin ? { projFin: 1 } : {}) } : {}),
       // its ThreePartChannelingAnimation clips ({ begin, loop, end, down?, up?, wait? } — the view plays them as the engine's
       // cast tells it: render/units.js onEnemySkill, server/sim/content/enemies.js castSkill)
       ...(s.chan && typeof s.chan === 'object' ? { chan: s.chan } : {}),
@@ -4079,7 +4081,7 @@ function buildStages(ctx, modesById) {
  * 每日防卫目标 (act2autochess constData dailyMission*): earn `need` 卫戍认证 in a day and the settlement adds `bonus`
  * more, once a day; the day turns over at `resetHour`. The bonus and the hour are only in the rule text
  * (「…即可在结算时领取【卫戍认证】x300的额外奖励。*奖励每日一次，每天04:00重置」), so they are read from it.
- * @param {any} c constData @returns {{name:string, need:number, bonus:number, resetHour:number, rule:string}|null}
+ * @param {Record<string, unknown>} c constData @returns {{name:string, need:number, bonus:number, resetHour:number, rule:string}|null}
  */
 function dailyMission(c) {
   if (!c?.dailyMissionParam) return null;
@@ -4101,7 +4103,7 @@ const HANDBOOK_STATS = Object.freeze({
  * `handbookLevels`, weakest first: per grade the official [min, max) of each stat (max null: open-ended). `interval`
  * runs the other way (a shorter attack interval is the higher grade). The 敌方图鉴 (screens/sweep.js enemyGrade) grades
  * a stat by the band its value falls in.
- * @returns {{ level: string, [stat: string]: any }[]}
+ * @returns {{ level: string, [stat: string]: unknown }[]}
  */
 function buildHandbookLevels(ctx) {
   const list = ctx.handbook?.levelInfoList;
@@ -5228,7 +5230,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
 /**
  * The avatar badge constants of a season's autoChessData (constData.playerAvatarWinStreakThresholds,
  * playerAvatarBossDamageThresholds, bossDamageStatsShowDelayTime; bossDamageStatsStyleList) — only those its table has.
- * @param {any} ac
+ * @param {Record<string, unknown>} ac
  */
 function avatarBadgeConstants(ac) {
   const c = ac.constData || {};
@@ -5578,7 +5580,7 @@ function attachHandlerKeys(items, garrisons) {
  * chess / backups, the other seasons' as written in data/ (a season's file, else the default's; a season with no folder
  * yet is left out) — plus CARD_EXTRA_OPERATORS, from this run's character_table (cardExtra). Written beside data/ (or
  * into --out when it is not the season's own folder).
- * @param {any} chess @param {any} backups @param {any} charTable
+ * @param {Record<string, unknown>} chess @param {Record<string, unknown>} backups @param {Record<string, unknown>} charTable
  */
 async function writeCards(chess, backups, charTable) {
   const readSeason = (id, name) => {

@@ -123,6 +123,9 @@ export const FX_KINDS = Object.freeze({
   enemySkill: { a: 'none', c: 0xffffff },
   // the end of a held enemy skill (an 'enemySkill' with `hold`: 子代's 摄食 — bosses.js kitBrood): { id, ability }
   enemySkillEnd: { a: 'none', c: 0xffffff },
+  // a held enemy channel's attack-finish event while its cast goes on (sim content/enemies.js projCastOver: { id, ability }
+  // — the view's end clip, render/units.js onEnemyAttackFinish)
+  enemyAttackFinish: { a: 'none', c: 0xffffff },
   // an enemy skill's ready hint on / off (the prefab's ReadyEnemySkillEffect — 萨卡兹子裔责罚者: enemies/reborn.js kitPunisher):
   // { id, ability, on }
   enemySkillReady: { a: 'none', c: 0xffffff },

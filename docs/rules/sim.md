@@ -3340,13 +3340,25 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   엔진이 이것을 그대로 알린다(`content/enemies.js castSkill`): 시전하는 스킬의 시전 기록(`skillCast.*`, 순차 묶음이면 그 자식)에 `chan`이 있으면 fx `enemySkill`에 `dur` = 그 능력의
   시전 길이(`castLength` — `_timeMode` 2·3이면 정한 값·블랙보드 값) 또는 `wait`이면 `hold` 1을 싣고, 키트의 `fire`가 대상 유닛을 돌려주면 그것을 `tgt`로(줄 투사체, 아래·위 세트 — 재즈 연주가·정예 캐스터만 돌려준다: `tgt`가 있으면 `fxgame.js eskillFx`가 시전 시작에 스킬 투사체의 꼬리도 띄우므로, 볼트를 1.4초 뒤에 쏘는 강화 석궁 기습자는 안 돌려주고 아래·위 세트를 걸어온 쪽으로 고른다 [추정·미조사: 공식은 `_faceToTarget`으로 대상 쪽]).
   시전이 끝나면 — 끊김, 투사체를 기다리는 시전의 끝(위 `projCastOver`), `hold` 시전의 시간 끝 — fx `enemySkillEnd`를 한 번 낸다(`chanEnd`). 렌더는 적 기록의 `chan`을 읽어 그
-  길이에(`hold`면 끝 신호까지) 세 클립을 틀고(`units.js onEnemySkill` → `SpineActor.chant`/`chantCut`), 기절·쓰러짐은 전처럼 클립을 끊는다. 재즈 연주가는 채널(21틱 × 0.5 s =
-  10.5 s)이 끝나 투사체가 사라질 때, 일찍 끝나면(대상이 사라짐·침묵·끊긴 시전) 그때와 능력 시간(공격 간격) 중 늦은 때에 `Skill_End`로 닫는다. 정예 캐스터도 같다(`dur` 8, 대상이
-  쓰러지면 다음 1초 틱에 채널이 멈추고 능력 시간 4초에 끝). [추정·미조사: 공격 끝 신호를 시전 끝으로 봄 — `_fireAttackFinishWhenProjectileInvalid`가 없는 투사체 기다림 `RangedAttack`(재즈
-  연주가·정예 캐스터)에서 그 신호를 무엇이 내는지 안 읽음] 전에는 키트 `castFx` 둘이 `dur`·`tgt`를 싣고 렌더의 손 표 `ESKILL_CLIPS`가 클립을
+  길이에(`hold`면 끝 신호까지) 세 클립을 틀고(`units.js onEnemySkill` → `SpineActor.chant`), 기절·쓰러짐은 전처럼 클립을 끊는다.
+  - **채널의 끝**(2026-11-26, 공식 클라에서 확인): 시전이 끝나면 `ThreePartChannelingAnimation.OnCastFinish`는 코루틴만 지운다 — 아직 닿지 않은 끝 클립은 안 나오고, 다음 틱
+    적 `AttackState`가 MOVE로 돌아가 걷기(`Enemy.PlayMoveAnim`, 멈춰 있으면 `Idle`)를 튼다. 그래서 `enemySkillEnd`에 렌더는 끝 클립 없이 채널을 멈춘다(`onEnemySkillEnd` →
+    `chantStop`; 시간 채널의 끝 클립은 제 `dur` 안에서 나온다). `hold` 채널의 끝 클립은 주인의 공격 끝 신호(엔티티 이벤트 `ON_ATTACK_FINISHED_EVENT`)에만 나오는데, 이 신호를 내는 곳은
+    Spine 이벤트 `OnAttackFinished`(`SpineAnimator._OnEvent`)·`RangedAttack`·`ProjectileToTileAbility`의 `_fireAttackFinish…` 플래그·`ThreePartChannelingAnimation`
+    `_fireAttackFinishEvent`·행동 노드 `InterruptAbility` `_emitAttackFinishOnly`뿐이다. `hold` 채널 넷 중 그 신호를 받는 것은 투사체가 사라질 때 내는
+    (`_fireAttackFinishWhenProjectileInvalid`, 데이터 `skillCast.*.projFin`) 정예 캐스터 `LineAttack`·'사미의 의지' `Lasso`·살카즈 후예 기술자(·리더) `charge_gunctrl`(이 모드에선
+    시전 안 함)이고, 재즈 연주가 `fire`에는 없다(클립에 `OnAttackFinished` 없음, 버프 `enemy_cnvsax[cd]`에 그 노드 없음) — 재즈 연주가는 시전 끝까지 `Skill_Loop`, `Skill_End` 없음.
+    신호를 받아도 그 틱에 시전이 끝나면(능력 시간이 이미 지남: `RangedAttack.<OnWaitForPostDelay>`가 남은 시간 0이면 바로 끝나고, `CoroutineSimulator`는 끝난 안쪽 루틴의 바깥을 같은
+    틱에 잇는다) 채널 코루틴이 신호를 보기 전에 지워져 끝 클립이 없다. 그래서 정예 캐스터는 줄이 능력 시간(공격 간격, 기본 4초 — 공격 간격이 늘어 8초 줄보다 길면 줄을 다 채워도)
+    전에 사라질 때만(대상이 쓰러져 다음 1초 틱에 멈춤 등) 그때 `Skill_End`가 나오고, 아니면 `Skill_End` 없이 쉰다 — 시뮬 `projCastOver`가 그때 fx `enemyAttackFinish` { id, ability }를 내고 렌더가 끝 클립을 튼다(`onEnemyAttackFinish` →
+    `chantCut`), 시전 끝의 `enemySkillEnd`가 아직 나오는 그 클립을 끊는다. 투사체가 떠나기 전(주문 전)은 보지 않는다(클라는 주문 뒤에야 투사체를 기다림 — '사미의 의지' 올가미는 1초 뒤에 떠남). 확인:
+    `test/render/eskill-clip.test.js` 재즈 연주가·정예 캐스터 시험(끝 클립을 틀게 되돌리면, 시뮬의 신호를 끄면 실패). golden: fx 수만 —
+    `standins` standin-08, `diy` diy-038·074, `act3-roster` roster-022, `act3-bonds` bond-visiShip-high(`enemyAttackFinish`, 모두 정예 캐스터).
+  전에는 키트 `castFx` 둘이 `dur`·`tgt`를 싣고 렌더의 손 표 `ESKILL_CLIPS`가 클립을
   되적었으며, 처음엔 그 표에 없어 채널 동안 루프 클립을 틀지 않았다(관리자 제보 2026-11-14: 한 번만 재생). 이 길로 손 표 없이 이어진 것(2026-11-15): 강화 석궁 기습자 `CrossAttack`(아래·위
-  세트는 걸어온 쪽, `_timeMode` 2 → 2.5초)·부패한 기사 `ChargeAttack`·'즈자이' `ShieldBurst` 둘(시작 키 `Skill_02`는 모델에 없어 시작 클립 없이 루프부터 [추정·미조사: 공식이 시작을 건너뛰는지 안 읽음
- ])·'늑대 군주' 자로 `FearCage`·가상적: 흑운 `KillOthers`·가상적: 총 `2`·'사미의 의지' `Lasso`·검은 뿔의 루울 `skill`·응집된/분산된 영혼의 잔해 `Laser`.
+  세트는 걸어온 쪽, `_timeMode` 2 → 2.5초)·부패한 기사 `ChargeAttack`·'즈자이' `ShieldBurst` 둘(시작 키 `Skill_02`는 키 표에 없어(표의 것은 `Skill_02_Begin`) 시작 클립 없이 루프부터 — 공식과 같다, 공식 클라에서 확인 2026-11-26:
+  `UpdatePlaybackSpeed`가 `m_hasBeginAnim` = `GetAnimationTime(시작 키)`로, 키 표에 없으면 거짓·길이 0이라 `DoPlayAnimation`이 시작 클립을 건너뛰고 루프 = 능력 시간 − 끝 클립;
+  시전 이펙트 `enemy_xi_skill_02_buff_04`는 능력 사건 `ON_CAST_START`에 붙어 클립과 무관)·'늑대 군주' 자로 `FearCage`·가상적: 흑운 `KillOthers`·가상적: 총 `2`·'사미의 의지' `Lasso`·검은 뿔의 루울 `skill`·응집된/분산된 영혼의 잔해 `Laser`.
   확인: `test/render/eskill-clip.test.js` 「节日爵士乐手 (real kit)…」·「萨卡兹王庭军精锐术师 (real kit)…」·「重弩突袭者 (real kit)…」·「“喷射罐” (real kit)…」. [화면 미확인]
   재발 방지: 원인 제거 — 채널 클립은 추출 `tools/local-extract/attack_timing.py`(`chan`, `wait`)가 데이터 `skillCast.*.chan`에 두고 엔진 시전과 렌더가 그것만 읽는다(채널 손 표·키트 `castFx`·
   커버리지 시험과 예외 목록을 지움). 일반 공격이 채널인 적(제트 캐니스터·붐 캐니스터 `Flame`, 2026-11-26)도 같다: 그 능력은 `Body/Attack`·`Body/Combat`이 아니라

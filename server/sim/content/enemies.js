@@ -169,14 +169,14 @@ export { HOVER_KEYS, blinkForward } from './enemies/archetypes.js';
  * castLength reads the kinds): a group's `kind` and `subs`, an animated ability's clip `dur` and times.
  * @typedef {{ [key: string]: unknown, family?: number, kind?: string, subs?: AbCastRec[], one?: boolean, main?: number,
  *   miss?: boolean, dur?: number, time?: number, cd?: number, cdKey?: string, max?: number, wait?: number, pre?: number,
- *   hit?: number, proj?: boolean, chan?: ChanRec | null, chanBegin?: CastClip | null, chanLoop?: CastClip | null,
+ *   hit?: number, proj?: boolean, projFin?: boolean, chan?: ChanRec | null, chanBegin?: CastClip | null, chanLoop?: CastClip | null,
  *   chanEnd?: CastClip | null, resetMain?: boolean, waitFirst?: boolean }} AbCastRec
  * @typedef {{ dur: number, hit?: number }} CastClip
  * A three-part channel (ThreePartChannelingAnimation: its loop clip, `wait` = `_waitForAttachFinishEvent`).
  * @typedef {{ [key: string]: unknown, loop?: unknown, wait?: boolean | number }} ChanRec
  * The cast an attack slot opened (onSkillSlot `ab.casting`).
  * @typedef {{ a: EnemyAbility, cast: AbCastRec, until: number, open: boolean, min?: number, chan?: boolean,
- *   hold?: boolean }} AbCast
+ *   hold?: boolean, fin?: boolean, live?: boolean }} AbCast
  * An enemy's ability state `e.mem.ab` (enemies/helpers.js abOf), plus the fields its kit keeps there.
  * @typedef {{ [key: string]: unknown, key: string, t: Record<string, number>, tS: Record<string, string>,
  *   sk: Record<string, AbSkill>, list: EnemyAbility[], hitShield: number, atkType: string | null,
@@ -455,10 +455,12 @@ function chanCast(cast) {
  * How long the view plays a skill's three-part channel (ThreePartChannelingAnimation, `skillCast.*.chan`; render/units.js
  * onEnemySkill reads its clips from the same record): `UpdatePlaybackSpeed` fits begin, loop and end into the ability's
  * time (`get_cooldown` — castLength of the channel's record) → `dur`; with `_waitForAttachFinishEvent` (`chan.wait`) the
- * loop lasts until the ability's attack-finish event instead (`DoPlayAnimation`, at most 360 s) → `hold` 1, and the cast's
- * end sends 'enemySkillEnd' (onSkillCut, onTick) [ASSUMED·미조사: that event is taken to come as the cast ends — what fires
- * it for a RangedAttack waiting for its projectile without `_fireAttackFinishWhenProjectileInvalid` (节日爵士乐手,
- * 萨卡兹王庭军精锐术师) was not read]. 공식 클라에서 확인 (both paths of DoPlayAnimation).
+ * loop lasts until the owner's attack-finish event instead (`DoPlayAnimation`, at most 360 s) → `hold` 1: its end clip
+ * comes on that event ('enemyAttackFinish', projCastOver), and the cast's end sends 'enemySkillEnd' (onSkillCut, onTick),
+ * which stops the channel without its end clip (`OnCastFinish` only clears the coroutine). Of the held channels only a
+ * RangedAttack with `_fireAttackFinishWhenProjectileInvalid` (`projFin`) sends that event, as its projectile is gone; no
+ * clip of theirs has an OnAttackFinished Spine event and no buff of theirs an InterruptAbility `_emitAttackFinishOnly`, so
+ * 节日爵士乐手's `fire` (no such flag) loops to its cast's end and plays no end clip. 공식 클라에서 확인.
  * @param {Unit} e @param {AbCastRec & { chan: ChanRec }} ch @param {Record<string, number>} bb
  */
 function chanView(e, ch, bb) {
@@ -468,8 +470,11 @@ function chanView(e, ch, bb) {
 }
 
 /**
- * The channel of cast record `k` (castSkill marked it `chan`) is over — cut, an open cast's projectile gone, or a held
- * channel's (`hold`) time run: the view closes it on its end clip ('enemySkillEnd'; once).
+ * The cast of cast record `k` (castSkill marked it `chan`) is over — cut, an open cast's projectile gone, or a held
+ * channel's (`hold`) time run: 'enemySkillEnd' (once). The view stops the channel there: the client's
+ * ThreePartChannelingAnimation.OnCastFinish clears its coroutine, so an end clip it had not reached is not played (a timed
+ * channel's comes inside its `dur`, a held one's on its attack-finish event — projCastOver) and the enemy's next state
+ * plays its own clip (Enemy AttackState → MOVE: its walk, or Idle). 공식 클라에서 확인.
  * @param {Battle} b @param {Unit} e @param {AbCast} k
  */
 function chanEnd(b, e, k) {
@@ -574,7 +579,25 @@ const PROJ_WAIT_MAX = 60;
  */
 function projCastOver(b, e, ab) {
   const k = ab.casting;
-  if (!k || !k.open || b.time < /** @type {number} */ (k.min) - 1e-9 || safe(b, e, () => /** @type {AbFn} */ (k.a.projAlive)(b, e, k.a))) return;
+  if (!k || !k.open) return;
+  const early = b.time < /** @type {number} */ (k.min) - 1e-9;
+  // (a held channel whose ability sends the attack-finish event as its projectile goes is watched before its own time too —
+  // from its projectile's leaving: the client waits for it only after the spell, `live`)
+  const fin = !!(k.chan && k.hold && !k.fin && chanCast(k.cast)?.projFin);
+  if (early && !fin) return;
+  if (safe(b, e, () => /** @type {AbFn} */ (k.a.projAlive)(b, e, k.a))) { k.live = true; return; }
+  if (fin && early && !k.live) return;
+  if (fin) {
+    // `_fireAttackFinishWhenProjectileInvalid`: the event comes as the projectile is gone (RangedAttack.<OnWaitForPostDelay>);
+    // the channel's loop ends on it and its end clip plays while the cast waits out the rest of its time — when nothing
+    // is left the cast finishes in the same tick and the channel's coroutine is cleared before it sees the event: no end
+    // clip (CoroutineSimulator: a nested routine that ends resumes its parent at once). 공식 클라에서 확인.
+    k.fin = true;
+    if (early) {
+      if (e.alive && k.a.name) b.fx('enemyAttackFinish', { x: e.x, y: e.y, id: e.id, ability: k.a.name });
+      return;
+    }
+  }
   interruptEnemyCast(b, e);
   if (ab.casting === k) ab.casting = null;   // the cast was no longer playing (castLeft cut elsewhere)
 }

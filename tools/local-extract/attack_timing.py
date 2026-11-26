@@ -346,7 +346,8 @@ def chan_clips(ch, table):
                 out[k] = sub
         elif isinstance(v, str) and v:
             # (a key the table lacks stays as it is: the view binds effects to the channel's parts — “自在”'s ShieldBurst
-            # begin `Skill_02`, not in its table, is the fx-F line)
+            # begin `Skill_02`, not in its table, plays nothing: the client's UpdatePlaybackSpeed finds no length for it
+            # and DoPlayAnimation goes straight to the loop, as the view does for a clip the model lacks)
             out[k] = table.get(v) or v
         elif k == 'wait':
             out[k] = v
@@ -432,7 +433,8 @@ def cast_fields(d, by_pid, depth=0, by_go=None):
       an animated ability — its clip (`anim`, `max`, `wait`, `pre`), `time` = `_timeMode` (the attack time it plays to, the
         client's `AbstractAnimatedAbility.get_cooldown`: 0 the enemy's attack time, 1 the clip, 2 `_cooldown` → `cd`, 3 the
         blackboard's `_cooldownKey` → `cdKey`), `proj` 1 when it waits for its projectile to vanish (RangedAttack
-        `_waitForProjectileInvalid`);
+        `_waitForProjectileInvalid`; `projFin` 1 when it then sends the attack-finish event,
+        `_fireAttackFinishWhenProjectileInvalid`);
       `kind` 'buff' — an ActiveBuffAbility (`wfc` 1 with `_waitForCasting`: it waits out its life time, else one tick before
         and one after its spell);
       `kind` 'seq' / 'par' / 'sel' — a group, `subs` = its children's records in `_abilities` order (a selectable
@@ -469,6 +471,11 @@ def cast_fields(d, by_pid, depth=0, by_go=None):
             rec['cdKey'] = d.get('_cooldownKey') or 'duration'
     if d.get('_waitForProjectileInvalid'):
         rec['proj'] = 1
+        # `_fireAttackFinishWhenProjectileInvalid`: as its projectile is gone it sends its owner the attack-finish event
+        # (RangedAttack.<OnWaitForPostDelay>, entity event ON_ATTACK_FINISHED_EVENT) — the one a channel with
+        # `_waitForAttachFinishEvent` holds its loop for (死亡之眼 LineAttack; 节日爵士乐手 fire has none)
+        if d.get('_fireAttackFinishWhenProjectileInvalid'):
+            rec['projFin'] = 1
     # its three-part channel clips (a ThreePartChannelingAnimation on the same GameObject: 节日爵士乐手 fire, 死亡之眼 LineAttack)
     ch = chan_fields(by_go.get((d.get('m_GameObject') or {}).get('m_PathID'), [])) if by_go is not None else None
     if ch:

@@ -465,8 +465,8 @@
         "enemy_1275_dwlock_2": [18,0,18,52882,86334]
       },
       "hooks": [1,136,6182,495,495,812,946,37,37,131,17,24,0,5976,7284,32,104,94,1,49,0,7,10],
-      "events": {"atk":553,"bounty":1,"deploy":29,"die":37,"dmg":840,"engage":11,"face":4,"fx":161,"heal":31,"leak":94,"skill":48,"spawn":119,"status":430,"swing":525},
-      "fx": {"aoe":11,"beam":37,"burst":7,"displace":16,"dodge":17,"dp":3,"enemySkill":19,"enemySkillEnd":19,"explode":1,"liberate":2,"phase":2,"slash":16,"spGain":11},
+      "events": {"atk":553,"bounty":1,"deploy":29,"die":37,"dmg":840,"engage":11,"face":4,"fx":172,"heal":31,"leak":94,"skill":48,"spawn":119,"status":430,"swing":525},
+      "fx": {"aoe":11,"beam":37,"burst":7,"displace":16,"dodge":17,"dp":3,"enemyAttackFinish":11,"enemySkill":19,"enemySkillEnd":19,"explode":1,"liberate":2,"phase":2,"slash":16,"spGain":11},
       "snaps": "71543c20 2055f089 3d0300c2 6aeebc4f acd09169 8f08228c dc34e51f 26a384fd 68a00666 a664e929 ecb2dbc7 9a518736 8e439d5b b0ece004 dbe60a51 50374351 da595e23 b6b18045 2931e43c c9ff4fcf dc6fe3a6"
     },
     "standin-09": {

@@ -1518,7 +1518,9 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   cast whose fire returns the unit it casts on — or the units, `tgts` then lists them all, the main one first: `tgt` = that unit, the client's cast
   target that its `_castTargetEffects` play on as the cast starts, docs/rules/fx.md 「적 범위 공격의 경고 칸」; a
   skill whose ability plays a three-part channel, `skillCast.*.chan`: `dur` = its ability's time or `hold: 1`,
-  and the cast's end sends `enemySkillEnd` — `content/enemies.js castSkill` / `chanEnd`, docs/rules/sim.md 「투사체 채널 스킬은 채널 동안 시전이다」);
+  and the cast's end sends `enemySkillEnd` — `content/enemies.js castSkill` / `chanEnd`, docs/rules/sim.md 「투사체 채널 스킬은 채널 동안 시전이다」;
+  `enemyAttackFinish` `{ id, ability }`: a held channel's attack-finish event while its cast goes on — its ability's projectile gone
+  before the ability's time, `_fireAttackFinishWhenProjectileInvalid`, data `skillCast.*.projFin` — the view's end clip, `projCastOver`);
   nothing procedural is drawn; every fx the cast makes in the same call carries `extra.ability` (the same name) and `extra.caster` (the enemy's id)
   unless it names an ability itself — fx scheduled for later (`battle.after`) carry none; the client binds the enemy's official cast / hit effects and
   `ON_ABILITY_*` sounds by it; `hold: 1` marks a cast that lasts until its `enemySkillEnd` `{ id, ability }` (子代's 摄食, `bosses.js kitBrood`: the

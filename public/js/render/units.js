@@ -2032,13 +2032,27 @@ export class UnitView {
   }
 
   /**
-   * 2026-11-14: the channel of enemy ability `ability` ended before its `dur` (the sim's fx 'enemySkillEnd': 节日爵士乐手's
-   * target gone or a silence): the channel's end clip now (SpineActor.chantCut). True when it closed one.
+   * 2026-11-14: the cast of enemy ability `ability` is over before its channel's `dur`, or a held channel's cast is over
+   * (the sim's fx 'enemySkillEnd': a cut, the projectile gone, its time run): the channel stops now with no end clip it
+   * has not reached — the client's ThreePartChannelingAnimation.OnCastFinish only clears its coroutine, and the enemy's
+   * next state plays its own clip (SpineActor.chantStop; 2026-11-26, docs/rules/sim.md 「투사체 채널 스킬은 채널 동안
+   * 시전이다」). True when it stopped one.
    * @param {unknown} ability
    */
   onEnemySkillEnd(ability) {
     if (!this.actor || this._eskill !== ability) return false;
     this._eskill = null;
+    return this.actor.chantStop();
+  }
+
+  /**
+   * 2026-11-26: the attack-finish event of enemy ability `ability` while its cast goes on (the sim's fx
+   * 'enemyAttackFinish': 萨卡兹王庭军精锐术师's line gone before the ability's time): a held channel's loop ends on its end
+   * clip (SpineActor.chantCut) — its cast's 'enemySkillEnd' cuts that clip if it still plays. True when it closed one.
+   * @param {unknown} ability
+   */
+  onEnemyAttackFinish(ability) {
+    if (!this.actor || this._eskill !== ability) return false;
     return this.actor.chantCut();
   }
 

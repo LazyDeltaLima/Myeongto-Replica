@@ -1303,7 +1303,7 @@ export class SpineActor {
     return true;
   }
 
-  /** The 吟唱 ends early (an enemy channel cut short, UnitView.onEnemySkillEnd): its end clip now, unless it already plays. */
+  /** The 吟唱's loop ends early (a held enemy channel's attack-finish event, UnitView.onEnemyAttackFinish): its end clip now, unless it already plays. */
   chantCut() {
     if (this.dead || this.mode !== 'chant') return false;
     if (this.chantEnd) {
@@ -1311,6 +1311,18 @@ export class SpineActor {
       this.chantUntil = Math.min(this.chantUntil, this.clock + this.dur(this.chantEnd));
       this.chantEnd = null;
     } else if (!(this.clock >= /** @type {number} */ (this.chantEndAt))) this.chantUntil = this.clock;   // no end clip: rest now
+    return true;
+  }
+
+  /**
+   * The 吟唱 stops now without its end clip, or cuts the end clip that plays (an enemy channel's cast over,
+   * UnitView.onEnemySkillEnd: the client's ThreePartChannelingAnimation.OnCastFinish only clears its coroutine and the
+   * enemy's next state plays its own clip). True when it stopped one.
+   */
+  chantStop() {
+    if (this.dead || this.mode !== 'chant') return false;
+    this.chantEnd = null;
+    this.chantUntil = this.clock;
     return true;
   }
 

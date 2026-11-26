@@ -1648,7 +1648,7 @@
         "enemy_9028_acfncb": [1,1,0,0,16124]
       },
       "hooks": [1,170,6900,743,743,3557,4543,13868,82,158,21,20,144,28684,186,60,128,73,1,146,7,42,0],
-      "events": {"atk":801,"bounty":5,"castHit":2,"deploy":42,"die":85,"dmg":3933,"engage":18,"face":36,"fx":1043,"heal":68,"layer":7,"leak":73,"skill":41,"spawn":148,"status":693,"swing":783,"tplfx":12},
+      "events": {"atk":801,"bounty":5,"castHit":2,"deploy":42,"die":85,"dmg":3933,"engage":18,"face":36,"fx":1044,"heal":68,"layer":7,"leak":73,"skill":41,"spawn":148,"status":693,"swing":783,"tplfx":12},
       "fx": {
         "aoe": 36,
         "beam": 3,
@@ -1662,6 +1662,7 @@
         "downed": 3,
         "dp": 1,
         "ember": 1,
+        "enemyAttackFinish": 1,
         "enemySkill": 4,
         "enemySkillEnd": 2,
         "explode": 12,

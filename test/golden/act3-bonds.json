@@ -2261,8 +2261,8 @@
       ],
       "enemies": {"enemy_1229_darmy":[10,10,0,0,104509],"enemy_1229_darmy_2":[7,7,0,1281,95800],"enemy_1275_dwlock_2":[3,3,0,12207,104509]},
       "hooks": [1,39,2453,147,147,418,441,1566,24,34,12,12,0,3642,21,3,20,0,1,24,16,3,2],
-      "events": {"atk":192,"deploy":19,"die":34,"dmg":440,"engage":7,"face":15,"fx":120,"heal":22,"layer":16,"skill":24,"spawn":38,"status":68,"swing":159,"tplfx":18},
-      "fx": {"aoe":6,"beam":4,"burst":3,"cannon":6,"displace":10,"dodge":2,"dp":11,"ebnhlzVolley":1,"enemySkill":3,"enemySkillEnd":2,"explode":7,"flame":1,"garrison":16,"kitHit":7,"mitmReborn":1,"mitmSkill":1,"mysticHeld":4,"mysticStore":7,"parry":1,"pull":10,"shield":1,"shieldBreak":1,"sp":1,"summon":10,"tockaFx":3,"tockaMove":1},
+      "events": {"atk":192,"deploy":19,"die":34,"dmg":440,"engage":7,"face":15,"fx":121,"heal":22,"layer":16,"skill":24,"spawn":38,"status":68,"swing":159,"tplfx":18},
+      "fx": {"aoe":6,"beam":4,"burst":3,"cannon":6,"displace":10,"dodge":2,"dp":11,"ebnhlzVolley":1,"enemyAttackFinish":1,"enemySkill":3,"enemySkillEnd":2,"explode":7,"flame":1,"garrison":16,"kitHit":7,"mitmReborn":1,"mitmSkill":1,"mysticHeld":4,"mysticStore":7,"parry":1,"pull":10,"shield":1,"shieldBreak":1,"sp":1,"summon":10,"tockaFx":3,"tockaMove":1},
       "snaps": "f9b8aad0 29f5ce25 12a462f1 1475be4b c803246c 06cf39c6 bc474e72 acca6c4b 44efe0d6"
     },
     "bond-yanShip-low": {

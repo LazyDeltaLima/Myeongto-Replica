@@ -1622,8 +1622,8 @@
       ],
       "enemies": {"enemy_1229_darmy":[27,3,23,47690,90865],"enemy_1229_darmy_2":[57,8,44,142744,232813],"enemy_1275_dwlock_2":[21,1,16,294581,129379]},
       "hooks": [1,122,6900,2016,2016,7247,7454,23404,19,102,45,45,0,8240,0,41,105,83,1,19,0,65,0],
-      "events": {"atk":2911,"deploy":17,"die":19,"dmg":7454,"engage":6,"face":54,"fx":275,"heal":1013,"leak":83,"skill":90,"spawn":117,"status":216,"swing":2031},
-      "fx": {"beam":49,"burst":65,"enemySkill":42,"enemySkillEnd":42,"explode":35,"healField":14,"kitHit":25,"teleport":3},
+      "events": {"atk":2911,"deploy":17,"die":19,"dmg":7454,"engage":6,"face":54,"fx":311,"heal":1013,"leak":83,"skill":90,"spawn":117,"status":216,"swing":2031},
+      "fx": {"beam":49,"burst":65,"enemyAttackFinish":36,"enemySkill":42,"enemySkillEnd":42,"explode":35,"healField":14,"kitHit":25,"teleport":3},
       "snaps": "107f6d01 6822fe39 5a3df2c6 0d963ba7 a515a2ea 8697f212 15d54afc 7f0abafa 793b54ee bb10af83 ab27af82 1a337f84 95a36b4b 57993f0a 88b5a999 d2a0d3e6 b270bfed 9282d060 2cd5e370 f01ecc68 b40a12c3 8649f65f ff0806e4"
     },
     "diy-039": {
@@ -3216,8 +3216,8 @@
       ],
       "enemies": {"enemy_1229_darmy":[27,5,22,3833,78159],"enemy_1229_darmy_2":[57,5,52,17316,141419],"enemy_1275_dwlock_2":[21,0,21,36720,90816]},
       "hooks": [1,122,6667,197,197,492,559,0,26,121,5,5,13,2864,47,52,105,95,1,26,0,14,0],
-      "events": {"atk":197,"deploy":17,"die":26,"dmg":505,"engage":6,"face":6,"fx":113,"leak":95,"skill":10,"spawn":111,"status":100,"swing":222},
-      "fx": {"aoe":14,"beam":24,"burst":14,"enemySkill":14,"enemySkillEnd":14,"shield":25,"shieldBreak":8},
+      "events": {"atk":197,"deploy":17,"die":26,"dmg":505,"engage":6,"face":6,"fx":125,"leak":95,"skill":10,"spawn":111,"status":100,"swing":222},
+      "fx": {"aoe":14,"beam":24,"burst":14,"enemyAttackFinish":12,"enemySkill":14,"enemySkillEnd":14,"shield":25,"shieldBreak":8},
       "snaps": "ba04824d 1b919e82 1c8da75a fa413ed7 f4e6004c 2db225ad 0d9d746f ee24da4b 35fbbaf9 5f23662a 0bc77ad2 533b5084 a10addbd ac26c817 4c03967a 47bd62f7 84c43dbf 2ca30692 6db4104e 05eb5856 3b5aa7b4 4072885f 69862ade"
     },
     "diy-summon-wang": {

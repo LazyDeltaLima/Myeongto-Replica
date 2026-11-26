@@ -178,8 +178,9 @@ function kitDeathEye(ab, e) {
     // burst with the last hit)
     eye.projAlive = (b, e2) => !!e2.mem.deathEye;
     // the view: LineAttack's ThreePartChannelingAnimation (data skillCast.deatheye's LineAttack `chan`,
-    // `_waitForAttachFinishEvent`; ChargeAttack after it plays no clip) loops until the cast ends — content/enemies.js
-    // castSkill / chanEnd
+    // `_waitForAttachFinishEvent`; ChargeAttack after it plays no clip) loops until the line is gone (LineAttack's
+    // `_fireAttackFinishWhenProjectileInvalid`: its end clip then, when the cast still waits out the ability's time) or
+    // the cast ends — content/enemies.js castSkill / projCastOver / chanEnd
     eye.onCut = (b, e2) => { if (e2.mem.deathEye) e2.mem.deathEye.stop(true); };
   }
   return [ep('apoptosis', T(ab, 'empty.attack@ep_damage_ratio') ?? 0), eye];

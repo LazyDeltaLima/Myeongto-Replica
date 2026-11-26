@@ -5,8 +5,9 @@
 // “喷射罐”'s Flame — its normal attack, the ability its mode's `_attack` points at — is a three-part channel over the fx's `dur`,
 // in the way it faces its target `tgt`, from the data's `attackAnim.chan` (tools/local-extract/attack_timing.py
 // mode_channels; no hand table). A skill's three-part channel comes from the data (2026-11-15, docs/rules/sim.md 「투사체 채널 스킬은 채널 동안 시전이다」): the engine's cast
-// (content/enemies.js castSkill) sends `dur` = the ability's time or `hold` (`_waitForAttachFinishEvent`, closed by the
-// cast's 'enemySkillEnd'), the view plays `skillCast.*.chan` of the enemy's record.
+// (content/enemies.js castSkill) sends `dur` = the ability's time or `hold` (`_waitForAttachFinishEvent`: its end clip on the
+// ability's attack-finish event 'enemyAttackFinish', 2026-11-26), the view plays `skillCast.*.chan` of the enemy's record;
+// the cast's 'enemySkillEnd' stops the channel with no end clip it has not reached (ThreePartChannelingAnimation.OnCastFinish).
 // Real kits and real manifest entries, headless fake PIXI.
 
 import { test, before, after } from 'node:test';
@@ -228,13 +229,15 @@ function field2(key, walls, pos) {
 
 /** The sim's 'enemySkillEnd' of enemy `id`'s `ability` in log `rec` ([time, event]), or undefined. */
 const endOf = (rec, id, ability) => rec.find(([, x]) => x[0] === 'fx' && x[1] === 'enemySkillEnd' && x[4]?.id === id && x[4]?.ability === ability);
+/** The sim's 'enemyAttackFinish' of enemy `id`'s `ability` in log `rec`, or undefined. */
+const finOf = (rec, id, ability) => rec.find(([, x]) => x[0] === 'fx' && x[1] === 'enemyAttackFinish' && x[4]?.id === id && x[4]?.ability === ability);
 
-test('节日爵士乐手 (real kit): 狂欢式演奏 is held — Skill_Begin → Skill_Loop until the cast ends as its 10.5 s channel does (\'enemySkillEnd\') → Skill_End; a silence ends it sooner', async () => {
+test('节日爵士乐手 (real kit): 狂欢式演奏 is held — Skill_Begin → Skill_Loop until the cast ends as its 10.5 s channel does (\'enemySkillEnd\'), then rest with no Skill_End (nothing sends its attack-finish event); a silence ends it sooner', async () => {
   const JAZZ = 'enemy_10034_cnvsax';
   const D = getData({ log: quiet });
-  const A = assets.enemies[JAZZ].spine.animations;
   const isCast = ([, x]) => x[0] === 'fx' && x[1] === 'enemySkill' && x[4]?.ability === 'fire';
   assert.deepEqual(D.enemies[JAZZ].skillCast.fire.chan, { begin: 'Skill_Begin', loop: 'Skill_Loop', end: 'Skill_End', wait: 1 }, 'the data\'s channel, `_waitForAttachFinishEvent`');
+  assert.equal(D.enemies[JAZZ].skillCast.fire.projFin, undefined, 'its RangedAttack sends no attack-finish event (no `_fireAttackFinishWhenProjectileInvalid`)');
   // the full channel (blocked: revealed, it casts on its blocker)
   {
     const { h, e, rec } = field2(JAZZ, [[10, 5]], [10, 5]);
@@ -257,10 +260,11 @@ test('节日爵士乐手 (real kit): 狂欢式演奏 is held — Skill_Begin →
     frames(v, t1 - at);
     assert.deepEqual(v.log.slice(-2), ['Skill_Begin', 'queue Skill_Loop'], `the loop to the cast's end (${v.log.join(' ')})`);
     assert.equal(v.actor.mode, 'chant', 'still channelling');
+    assert.ok(!finOf(rec, e.id, 'fire'), 'no attack-finish event');
     assert.equal(v.onEnemySkillEnd('fire'), true);
-    assert.equal(v.actor.current, 'Skill_End', 'its end clip as the cast ends');
-    frames(v, A.Skill_End + 0.05);
-    assert.equal(v.actor.mode, 'base', 'back at rest');
+    frames(v, 0.05);
+    assert.equal(v.actor.mode, 'base', 'at rest as the cast ends');
+    assert.ok(!v.log.includes('Skill_End'), `no end clip (ThreePartChannelingAnimation.OnCastFinish clears its coroutine): ${v.log.join(' ')}`);
     assert.ok(!v.log.includes('Attack'), 'no attack clip during the channel');
   }
   // a channel a silence ends 3 s in: its cast ends then ('enemySkillEnd' — the ability's own time, the attack interval, is
@@ -280,14 +284,14 @@ test('节日爵士乐手 (real kit): 狂欢式演奏 is held — Skill_Begin →
     frames(v, cut[0] - t0);
     assert.equal(v.actor.mode, 'chant');
     assert.equal(v.onEnemySkillEnd('fire'), true);
-    assert.equal(v.actor.current, 'Skill_End', 'closes on its end clip');
-    frames(v, A.Skill_End + 0.05);
-    assert.equal(v.actor.mode, 'base', 'then rests');
+    frames(v, 0.05);
+    assert.equal(v.actor.mode, 'base', 'rests at once');
+    assert.ok(!v.log.includes('Skill_End'), 'no end clip');
     assert.equal(v.onEnemySkillEnd('fire'), false, 'a second end does nothing');
   }
 });
 
-test('萨卡兹王庭军精锐术师 (real kit): 死亡之眼 is held over its 8 s channel to the cast\'s end; its target falling ends it sooner', async () => {
+test('萨卡兹王庭军精锐术师 (real kit): 死亡之眼 is held over its 8 s channel to the cast\'s end with no Skill_End (the line\'s attack-finish event comes as the cast ends); its target falling ends the line before the ability\'s time: Skill_End then', async () => {
   const DW = 'enemy_1275_dwlock_2';
   const D = getData({ log: quiet });
   const A = assets.enemies[DW].spine.animations;
@@ -297,6 +301,7 @@ test('萨卡兹王庭军精锐术师 (real kit): 死亡之眼 is held over its 8
     h.runUntil(() => rec.some(isCast), 40);
     const [t0, cast] = rec.find(isCast);
     assert.equal(cast[4].hold, 1, 'its LineAttack\'s channel waits for its attack-finish event');
+    assert.equal(D.enemies[DW].skillCast.deatheye.subs[0].projFin, 1, 'LineAttack sends it as its line is gone (`_fireAttackFinishWhenProjectileInvalid`)');
     assert.equal(cast[4].tgt, h.allies()[0].id, 'its fire\'s target');
     h.runUntil(() => endOf(rec, e.id, 'DeathEye'), 10);
     const [t1] = endOf(rec, e.id, 'DeathEye');
@@ -307,10 +312,11 @@ test('萨卡兹王庭军精锐术师 (real kit): 死亡之眼 is held over its 8
     assert.equal(v.actor.current, 'Skill_Begin');
     frames(v, t1 - t0);
     assert.deepEqual(v.log.slice(-2), ['Skill_Begin', 'queue Skill_Loop'], 'the loop to the cast\'s end');
+    assert.ok(!finOf(rec, e.id, 'DeathEye'), 'the line outlasts the ability\'s time: the cast ends in the same tick, no event of its own');
     assert.equal(v.onEnemySkillEnd('DeathEye'), true);
-    assert.equal(v.actor.current, 'Skill_End');
-    frames(v, A.Skill_End + 0.05);
-    assert.equal(v.actor.mode, 'base', 'back at rest');
+    frames(v, 0.05);
+    assert.equal(v.actor.mode, 'base', 'at rest');
+    assert.ok(!v.log.includes('Skill_End'), 'no end clip');
   }
   {
     const { h, e, rec } = field2(DW, [[10, 5]], [10, 5]);
@@ -321,8 +327,21 @@ test('萨卡兹王庭军精锐术师 (real kit): 死亡之眼 is held over its 8
     h.run(2);
     // the channel stops at its next 1 s tick; the cast then waits out what is left of the ability's own time (its attack
     // interval, 4 s — RangedAttack's post-delay) and ends: 'enemySkillEnd' then
-    const cut = endOf(rec, e.id, 'DeathEye');
+    const cut = endOf(rec, e.id, 'DeathEye'), fin = finOf(rec, e.id, 'DeathEye');
     assert.ok(cut && Math.abs(cut[0] - t0 - 4) < 0.1, `the sim sends the early end at the ability's 4 s (${cut && (cut[0] - t0).toFixed(3)})`);
+    assert.ok(fin && fin[0] > t0 + 2.5 && fin[0] < cut[0] - 0.1, `the attack-finish event as the line goes, before the cast's end (${fin && (fin[0] - t0).toFixed(3)})`);
+    assert.equal(rec.filter(([, x]) => x[0] === 'fx' && x[1] === 'enemyAttackFinish').length, 1, 'once');
+    const v = await view(DW, e.id, e.x, e.y, D.enemies[DW]);
+    v.onEnemySkill('DeathEye', 0, { hold: true, aim: null });
+    frames(v, fin[0] - t0);
+    assert.equal(v.onEnemyAttackFinish('DeathEye'), true);
+    assert.equal(v.actor.current, 'Skill_End', 'its end clip on the event');
+    // (the line stops at the 1 s tick after the fall, 2.6 s in: Skill_End's 1.167 s is over before the ability's 4 s)
+    frames(v, A.Skill_End - 0.1);
+    assert.equal(v.actor.current, 'Skill_End', 'it plays out while the cast waits');
+    assert.equal(v.onEnemySkillEnd('DeathEye'), true, 'a cast ending sooner cuts it');
+    frames(v, 0.05);
+    assert.equal(v.actor.mode, 'base');
   }
 });
 
@@ -354,7 +373,8 @@ test('重弩突袭者 (real kit): CrossAttack plays the data\'s channel over its
   assert.equal(w.onEnemySkill('CrossAttack', 0, { dur: 2.5 }), false, 'without its record nothing plays');
 });
 
-test('render/app.js hands each fx \'enemySkillEnd\' to its view', () => {
+test('render/app.js hands each fx \'enemySkillEnd\' and \'enemyAttackFinish\' to its view', () => {
   const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
   assert.match(app, /if \(e\[1\] === 'enemySkillEnd' && e\[4\] && typeof e\[4\]\.ability === 'string' && e\[4\]\.id != null\) views\.get\(e\[4\]\.id\)\?\.onEnemySkillEnd\?\.\(e\[4\]\.ability\);/);
+  assert.match(app, /if \(e\[1\] === 'enemyAttackFinish' && e\[4\] && typeof e\[4\]\.ability === 'string' && e\[4\]\.id != null\) views\.get\(e\[4\]\.id\)\?\.onEnemyAttackFinish\?\.\(e\[4\]\.ability\);/);
 });
