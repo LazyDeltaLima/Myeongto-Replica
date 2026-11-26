@@ -750,6 +750,38 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
             need = owner_needs((c.get('_trigger') or {}).get('m_PathID')) if child and isinstance(c.get('_trigger'), dict) else set()
             if need and child in abil:
                 abil[child]['needBuffs'] = sorted(need)
+    # (2026-11-26, same section) the group's children with their own cast / cast-target effects, in config order: `pick` on
+    # the group = [{ path, sel: { side, keys? }, castEffects?, castTargetEffects? }] when they differ. Read per child GameObject
+    # (`m_GameObject`), not per path — 假想敌：弦's two children are both named AbilityName; `sel` = the selector its config
+    # trigger searches (the trigger's own GameObject's, SelectorTrigger), else the child's `_selector`. 假想敌：管's AttackEnemy
+    # (a “余音” of its form: enemy_acduml_attack_start) / AbilityName (an operator: enemy_acduml_skill_start, the lock-on on it)
+    # were one part and drew neither (render_entry → `pick`, fxgame.js ekitAttackFx)
+    def sel_side(s):
+        return {'side': s.get('_targetSide') or 0, **({'keys': strs(s.get('_enemyKey'))} if s.get('_filterByEnemiesKey') else {})}
+    for _gp, d, gpid in [x for x in tree] + [x for st in (skills or {}).values() for x in st]:
+        cfg = d.get('_abilityConfigs') if isinstance(d.get('_abilityConfigs'), list) else []
+        kids = []
+        for c in cfg:
+            apid = (c.get('_ability') or {}).get('m_PathID') if isinstance(c, dict) else None
+            if apid not in mb_of:
+                continue
+            comps = on_go.get(go_of.get(apid)) or []
+            k = {'path': rel_of.get(apid)}
+            for key in ('_castEffects', '_castTargetEffects'):
+                lst = [x for x in (emitter(e) for s in comps for e in s.get(key) or [] if isinstance(e, dict)) if x]
+                if lst:
+                    k[key.strip('_')] = lst
+            tpid = (c.get('_trigger') or {}).get('m_PathID') if isinstance(c.get('_trigger'), dict) else None
+            sel = next((s for s in on_go.get(go_of.get(tpid)) or [] if '_targetSide' in s), None) if tpid else None
+            if sel is None and isinstance(mb_of[apid].get('_selector'), dict):
+                sel = mb_of.get(mb_of[apid]['_selector'].get('m_PathID'))
+            if isinstance(sel, dict):
+                k['sel'] = sel_side(sel)
+            kids.append(k)
+        sig = {(tuple(sorted(x for e in k.get('castEffects') or [] for x in e['fx'])),
+                tuple(sorted(x for e in k.get('castTargetEffects') or [] for x in e['fx']))) for k in kids}
+        if len(kids) > 1 and len(sig) > 1 and rel_of.get(gpid) in abil:
+            abil[rel_of[gpid]]['pick'] = kids
     for _rel, a in abil.items():
         # (an ability with nothing to draw but a tile selector stays: the sim check reads it)
         if len(a) > 1 and (not (set(a) <= {'path', 'mode', 'anim', 'common', 'sel', 'needBuffs'}) or (a.get('sel') or {}).get('tile')):
@@ -1143,8 +1175,37 @@ def emit_part(abilities, projs):
     return part
 
 
+def emit_pick(part, abilities, never):
+    """(2026-11-26, docs/rules/fx.md 「능력 묶음의 자식·COMBAT 상태 공격」) `pick` of a part whose selectable group's children
+    (enemy_record `pick`, the ones this mode casts) differ: [{ side, keys?, cast, castTgt }] in config order — the cast /
+    cast-target (ON_CAST_START) effects only that child has, which leave the part's own `cast` / `castTgt` (their timings stay
+    in `opt` / `castTgtOpt`). The renderer plays the first child whose selector takes the attack's target."""
+    for a in abilities:
+        kids = [k for k in a.get('pick') or [] if k.get('path') not in never]
+        if len(kids) < 2:
+            continue
+        sets = [(uniq(x for em in k.get('castEffects') or [] for x in em['fx']),
+                 uniq(x for em in k.get('castTargetEffects') or [] if em.get('start', 2) == 2 for x in em['fx'])) for k in kids]
+        if len({(tuple(sorted(c)), tuple(sorted(t))) for c, t in sets}) < 2:
+            continue
+        every_c = set.intersection(*[set(c) for c, _ in sets])
+        every_t = set.intersection(*[set(t) for _, t in sets])
+        own_c = {n for c, _ in sets for n in c} - every_c
+        own_t = {n for _, t in sets for n in t} - every_t
+        part['pick'] = [{**{kk: v for kk, v in (k.get('sel') or {'side': 0}).items()},
+                         'cast': [n for n in c if n in own_c], 'castTgt': [n for n in t if n in own_t]} for k, (c, t) in zip(kids, sets)]
+        part['cast'] = [n for n in part['cast'] if n not in own_c]
+        if part.get('castTgt'):
+            part['castTgt'] = [n for n in part['castTgt'] if n not in own_t]
+            if not part['castTgt']:
+                del part['castTgt']
+        break
+    return part
+
+
 def names_of_part(p):
     out = list(p.get('cast', [])) + list(p.get('hit', [])) + list(p.get('castTgt', [])) + list(p.get('attach', [])) + list(p.get('hitBuff', []))
+    out += [x for k in p.get('pick', []) for x in k.get('cast', []) + k.get('castTgt', [])]
     out += list(p.get('tile', []))
     out += [x['fx'] for x in p.get('line', []) + p.get('tileFx', [])]
     pr = p.get('proj') or {}
@@ -1182,6 +1243,7 @@ def skill_keys(path):
 def render_entry(r, projs):
     """enemy-bindings record → the render table entry."""
     # a selectable group's child this mode never casts (mark_never) draws nothing
+    never = {a['path'] for a in r['abilities'] if a.get('never')}
     r = dict(r, abilities=[a for a in r['abilities'] if not a.get('never')])
     modes = []
     for m in r['modes']:
@@ -1191,9 +1253,9 @@ def render_entry(r, projs):
         ranged = [a for a in ab if re.match(r'^(Body/)?Attack(/|$)', rel(a))]
         e = {'name': m['name'], 'anim': uniq(a.get('anim') for a in melee + ranged)}
         if melee:
-            e['melee'] = emit_part(melee, projs)
+            e['melee'] = emit_pick(emit_part(melee, projs), melee, never)
         if ranged:
-            e['ranged'] = emit_part(ranged, projs)
+            e['ranged'] = emit_pick(emit_part(ranged, projs), ranged, never)
         for k in ('overrideStartEffect', 'overrideDeadEffect'):
             if m.get(k):
                 e['start' if k == 'overrideStartEffect' else 'dead'] = m[k]

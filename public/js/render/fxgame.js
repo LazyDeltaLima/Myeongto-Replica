@@ -170,7 +170,7 @@ import { animPause, backSide, viewHoldsBuff, clipOf, facesBack, idlePause, immun
  *   tile?: string[], hitBuff?: string[], hitBuffLife?: Record<string, number | undefined>, ready?: string[], readyEarly?: number,
  *   anim?: string, aim?: string[], dying?: string[], blink?: { from?: string[], to?: string[] }, line?: { fx?: string, life?: number }[],
  *   tileFx?: { fx: string, at: number }[], castTgt?: string[], castTgtOpt?: Record<string, CastOpt | undefined>,
- *   [key: string]: unknown }} EPart an enemy attack or ability's effects (enemy-modes.json)
+ *   pick?: { side?: number, keys?: string[], cast?: string[], castTgt?: string[] }[], [key: string]: unknown }} EPart an enemy attack or ability's effects (enemy-modes.json)
  * @typedef {{ name?: string, ranged?: EPart | null, melee?: EPart | null, aura?: string[], skills?: Record<string, EPart | undefined>,
  *   anim?: string[], dead?: string, [key: string]: unknown }} EMode an
  *   enemy mode
@@ -6612,6 +6612,40 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
   /**
+   * 2026-11-26, official client (docs/rules/fx.md 「능력 묶음의 자식·COMBAT 상태 공격」): the child of a part's selectable group
+   * (enemy-modes.json `pick`, enemy_bindings.py emit_pick) the official casts at `tgt` — AbilitySelectableGroup tries its
+   * children in order and casts the first whose trigger's selector takes a unit, so the first whose side (SideType bits
+   * from the caster: ALLY 1, ENEMY 2) and enemy keys (`_filterByEnemiesKey`) take `tgt`; null without `pick` or a match.
+   * @param {EPart | null | undefined} part
+   * @param {View} v
+   * @param {View | null | undefined} tgt
+   * @returns {{ cast?: string[], castTgt?: string[] } | null}
+   */
+  function epick(part, v, tgt) {
+    const kids = part?.pick;
+    if (!Array.isArray(kids) || !tgt?.info) return null;
+    const bit = tgt.info.side === v.info?.side ? 1 : 2;
+    return kids.find((k) => (Number(k.side) & bit) && (!Array.isArray(k.keys) || k.keys.includes(/** @type {string} */ (tgt.info?.defId)))) || null;
+  }
+  /**
+   * 2026-11-26: a kit's own normal attack (KIT_ATTACK_BEAMS — 假想敌：管 / 弦, no 'swing' / 'atk') as its 'beam' starts: the
+   * attack mode's ON_CAST_START cast effects on the caster and cast-target effects on `tgt`, of the child its group casts at
+   * `tgt` (epick: 管 at a “余音” enemy_acduml_attack_start, at an operator enemy_acduml_skill_start and the lock-on there;
+   * 弦 at a “余音” enemy_acdumm_attack_start). The sim sends no end for it: a loop one runs its prefab's own length
+   * [추정·자료 없음: 시뮬이 그 시전의 끝을 안 실음].
+   * @param {View} v
+   * @param {View | null | undefined} tgt
+   */
+  function ekitAttackFx(v, tgt) {
+    const part = epart(v, 'enemy')?.part;
+    if (!part) return;
+    const k = epick(part, v, tgt);
+    const cast = [...(part.cast || []), ...(k?.cast || [])].filter((n) => castPhase(part.opt?.[n] || null) === 'swing');
+    eplay(v, edirs(v, part, cast), { tag: 'cast' });
+    const ct = [...(part.castTgt || []), ...(k?.castTgt || [])];
+    if (ct.length) ecastTgtFx(v, { ...part, castTgt: ct }, [tgt], null, 'cast');
+  }
+  /**
    * @param {EPart} part
    * @param {string} phase
    */
@@ -7838,7 +7872,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     acdumlStrike: 'projectile_enemy_acduml', acdummStrike: 'projectile_enemy_acdumm', chainBuff: 'projectile_enemy_smsha_s',
   };
   // (2026-11-26) the ones of them that are the enemy's normal attack, driven by its kit (bosses.js pipeCore: 假想敌：管 / 弦 —
-  // profile.noAttack, no 'swing' / 'atk'): the attack mode's cast-target effects go on `to` then (ecastTgtFx)
+  // profile.noAttack, no 'swing' / 'atk'): the attack mode's cast effects and cast-target effects then (ekitAttackFx)
   const KIT_ATTACK_BEAMS = new Set(['acdumlStrike', 'acdummStrike']);
   /**
    * Damage by `by` on `tid` around the landing of its official shot: the projectile's own hit effects are the shot's.
@@ -9733,8 +9767,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           }
           if (e[1] === 'beam' && e[4] && SHOT_BEAMS[/** @type {string} */ (e[4].kind)]) {
             const o = /** @type {FxRec} */ (e[4]), from = views.get(o.from ?? o.id);
-            // 2026-11-26: a kit's own normal attack (KIT_ATTACK_BEAMS, no 'swing'): its cast-target effects on `to` as it starts
-            if (from && KIT_ATTACK_BEAMS.has(/** @type {string} */ (o.kind)) && efoe(from) && eOn(from)) ecastTgtFx(from, epart(from, 'enemy')?.part, [views.get(o.to)], null, 'cast');
+            // 2026-11-26: a kit's own normal attack (KIT_ATTACK_BEAMS, no 'swing'): its cast and cast-target effects as it starts
+            if (from && KIT_ATTACK_BEAMS.has(/** @type {string} */ (o.kind)) && efoe(from) && eOn(from)) ekitAttackFx(from, views.get(o.to));
             const pr = from && views.get(o.to) ? eshotDrawable(views.get(o.caster) || from, /** @type {string} */ (SHOT_BEAMS[/** @type {string} */ (o.kind)])) : null;
             if (pr && !pr.link && efx(Array.isArray(pr.trail) ? pr.trail[0] : null)) { ownFx.add(e); return; } // its trail flies instead
           }

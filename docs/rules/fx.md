@@ -3055,6 +3055,20 @@
   없고 이 모드 적이 그 키의 버프를 지니지 않음)이면 `never`(장치 id)를 달아 렌더 표에서 뺀다 — 조준은 `lockon_1`만, 클립 목록은 `Attack`만.
   지금 이 모드 적의 `needBuffs`는 투석기의 두 `Special`(`Combat`·`Attack`)뿐. 주인 버프 조건이 이 모드에서 채워질 수 있는 자식은 전처럼 합쳐지므로 시뮬이 자식을 알려야 한다.
   재발 방지: `test/render/enemy-cond-child-fx.test.js`(`needBuffs` 자식 전수: `never`이거나 사유와 함께 목록에; `never` 자식의 이펙트가 렌더 표에 없음).
+- 가상적: 관·현의 공격 자식(2026-11-26, 공식 클라에서 확인): 관(`enemy_9021_acduml`·`_2`)의 `Attack`은 `AbilitySelectableGroup` [`AttackEnemy`(설정
+  트리거의 선택자: 쪽 7, `_filterByEnemiesKey` `enemy_9023_acdums`('열관지음'/'단현지음', 아래 '지음')·`_enemyMode` 1 — 제 형태의 '지음'), `AbilityName`(쪽 2 = 오퍼레이터)]이고, 둘의
+  이펙트가 다르다 — `AttackEnemy`는 시전 `enemy_acduml_attack_start`만, `AbilityName`은 시전 `enemy_acduml_skill_start`와 대상 위 조준
+  `enemy_acduml_lockon`(`_castTargetEffects`). 현(`enemy_9022_acdumm`)도 같은 꼴로 두 자식이 다 `AbilityName`이라는 같은 이름이고, '지음' 쪽만
+  `enemy_acdumm_attack_start`를 가진다(오퍼레이터 쪽은 이펙트 없음). 시뮬 `bosses.js pipeCore`도 같은 고르기(제 형태의 '지음', 없으면 오퍼레이터)를 한다.
+  예전에는 `enemy_bindings.py`가 자식을 경로로 묶어 한 부분으로 합쳤고(현은 같은 이름이라 합쳐진 것이 안 보였음), 렌더는 키트 공격 'beam'에서 조준만
+  틀어 '지음'에게도 조준이 나오고 시전 이펙트는 하나도 안 나왔다. 이제 `enemy_record`가 선택 묶음 자식을 게임 오브젝트(`m_GameObject`)마다 읽어
+  자식들의 시전·시전 대상 이펙트가 다르면 묶음에 `pick`(설정 순서, 자식마다 설정 트리거의 선택자 쪽·적 키)을 적고, `render_entry`(`emit_pick`)가 렌더
+  부분에 `pick` [{ side, keys?, cast, castTgt }]로 자식만의 이름을 옮겨 부분의 `cast`·`castTgt`에서 뺀다(`never` 자식은 빼고 셈 — 사제 투석기는 `pick`
+  없음). 렌더 `ekitAttackFx`가 'beam' `to`에 대해 `epick`으로 첫 자식(쪽 비트: 시전자와 같은 편 1·다른 편 2, 적 키)을 골라 그 시전 이펙트를 관 위에,
+  시전 대상 이펙트를 `to` 위에 튼다. 키트 공격의 끝은 시뮬이 안 실어 반복 이펙트는 프리팹 제 길이 [추정·자료 없음: 시뮬이 그 시전의 끝을 안 실음].
+  `pick`은 키트 공격 'beam'만 읽으므로 다른 적에 생기면 시험이 막는다. [화면 미확인]
+  재발 방지: `test/render/enemy-cast-target-fx.test.js`(관·현 모양의 'beam'이 '지음'·오퍼레이터마다 제 자식의 이펙트만 트는지; 생성된 `enemy-modes.json`의
+  `pick`이 키트 공격 적 셋에만 있는지).
 - 확인: 단위 `test/render/skill-shot-alt-fx.test.js`(추출값, `altGroup`, 迷迭香 B 클립 → B 시전·`rosmon_attack_B_hit_01`, 仇白 저지 → 검 B만·원거리 →
   화살만), `test/render/attack-alts.test.js`. 이벤트 기록 골든: 위 다섯 명의 B/C 시전·명중이 더해지고 拉普兰德·银灰·断崖·伊内丝의 COMBAT 시전이
   저지 없는 판에서 빠짐(维娜·维多利亚 한 줄은 시나리오 난수 순서가 밀린 것). [화면 미확인: 실제 판에서 클립과 시전 이펙트가 같은 자식인지]
@@ -3526,7 +3540,7 @@
   스킬은 'enemySkill'의 `tgt`(여럿이면 `tgts`) 위에 — 래트킹 `DriftSand`의 `mousek_skill_01_range_02`(십자 7칸 모래빛)·`_range`, `SandStorm`의
   `mousek_skill_02_range`, 검은 뿔의 루울 `skill`의 `enemy_xdelk_buff_03`(채널 `dur` 동안, 'enemySkillEnd'에 멈춤), 가상적: 기계 `SommonSquad`의
   `enemy_acfnc_skill_01_locked_01`(두 대상); 일반 공격은 'swing' 6번째 칸의 대상 위에 시전 끝까지 — 사제 투석기 `enemy_mnctpt_lockon_1`(`_2`는 이 모드에서 안 쓰는 자식 `Special`의 것 —
-  아래 「능력 묶음의 자식·COMBAT 상태 공격」)('swing'에 대상이 없으면 타격 'atk'의 대상에); 가상적: 관은 키트 공격의 'beam' `to` 위에 `enemy_acduml_lockon`. 반복(`o` 0)인 것의 끝은
+  아래 「능력 묶음의 자식·COMBAT 상태 공격」)('swing'에 대상이 없으면 타격 'atk'의 대상에); 가상적: 관은 키트 공격의 'beam' `to`가 오퍼레이터일 때 그 위에 `enemy_acduml_lockon`('지음'을 칠 때는 없음 — 아래 「능력 묶음의 자식·COMBAT 상태 공격」 관·현 불릿). 반복(`o` 0)인 것의 끝은
   일반 공격은 시전 끝(공격 클립 길이), 채널 스킬은 그 길이; 시뮬이 끝을 안 싣는 시전(채널 아닌 스킬, 관의 키트 공격)은 프리팹 제 길이
   [추정·자료 없음: 시뮬이 그 시전의 끝(`ON_CAST_END`)을 안 실음]. 예전에는 `hit`에 합쳐져 래트킹의 모래 십자가 시전 2초 뒤 맞은 유닛마다 깔렸고, 사제 투석기는 맞은 이펙트 상한(둘)을 조준 둘이 채워 착탄
   `enemy_mnctpt_attack_hit`가 안 나왔다(이제 나옴).

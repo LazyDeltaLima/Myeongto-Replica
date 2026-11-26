@@ -13,7 +13,8 @@ import { createFxLayer } from '../../public/js/render/fxgame.js';
 import { fxEvent } from '../helpers/fxEvent.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
-const NAMES = ['mk_start', 'mk_hit', 'mk_range', 'fc_lock', 'el_buff', 'el_hit', 'mn_start', 'mn_lock', 'mn_hit', 'pc_lock', 'pc_trail'];
+const NAMES = ['mk_start', 'mk_hit', 'mk_range', 'fc_lock', 'el_buff', 'el_hit', 'mn_start', 'mn_lock', 'mn_hit', 'pc_lock', 'pc_trail',
+  'pc_echo', 'pc_op', 'st_echo'];
 const LOOP = { s: 2, e: 3, o: 0 }, ONCE = { s: 2, e: 3, o: 1 };
 const EMODES = {
   $fx: Object.fromEntries(NAMES.map((n) => [n, ['b', n]])),
@@ -29,9 +30,14 @@ const EMODES = {
   // 自制投石机-like: its attack's lock-on on the swing's target
   enemy_mn: { modes: [{ name: 'Default', anim: ['Attack'], ranged: { cast: ['mn_start'], opt: { mn_start: ONCE }, hit: ['mn_hit'], castTgt: ['mn_lock'],
     castTgtOpt: { mn_lock: LOOP } } }] },
-  // 假想敌：管-like: its kit's attack ('beam' acdumlStrike, no swing)
-  enemy_pc: { modes: [{ name: 'Default', anim: ['Attack'], ranged: { cast: [], opt: {}, hit: [], castTgt: ['pc_lock'], castTgtOpt: { pc_lock: LOOP },
+  // 假想敌：管-like: its kit's attack ('beam' acdumlStrike, no swing), a selectable group (`pick`): at a “余音” AttackEnemy's
+  // cast, at an operator AbilityName's cast and its lock-on there
+  enemy_pc: { modes: [{ name: 'Default', anim: ['Attack'], ranged: { cast: [], opt: { pc_echo: ONCE, pc_op: ONCE }, hit: [], castTgtOpt: { pc_lock: LOOP },
+    pick: [{ side: 7, keys: ['enemy_9023_acdums'], cast: ['pc_echo'], castTgt: [] }, { side: 2, cast: ['pc_op'], castTgt: ['pc_lock'] }],
     proj: { key: 'projectile_enemy_acduml', mount: 2, trail: ['pc_trail'], speed: 10 } } }] },
+  // 假想敌：弦-like: its cast effect only at a “余音”
+  enemy_st: { modes: [{ name: 'Default', anim: ['Attack'], ranged: { cast: [], opt: { st_echo: ONCE }, hit: [],
+    pick: [{ side: 7, keys: ['enemy_9023_acdums'], cast: ['st_echo'], castTgt: [] }, { side: 2, cast: [], castTgt: [] }] } }] },
 };
 const files = {
   '/assets/local/fx/index.json': { bundles: { b: NAMES } },
@@ -53,7 +59,7 @@ test('enemy cast-target effects: on the cast\'s targets as it starts, not on the
   const layer = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, trace: (p) => plays.push(p) });
   await settle();
   const views = new Map([[1, enemy(1, 'enemy_mk')], [2, enemy(2, 'enemy_fc')], [3, enemy(3, 'enemy_el')], [4, clipped(4, 'enemy_mn')],
-    [5, enemy(5, 'enemy_pc')], [10, ally(10, 2, 3)], [11, ally(11, 4, 2)]]);
+    [5, enemy(5, 'enemy_pc')], [6, enemy(6, 'enemy_st')], [7, { ...enemy(7, 'enemy_9023_acdums'), x: 3, y: 2 }], [10, ally(10, 2, 3)], [11, ally(11, 4, 2)]]);
   layer.onEvent(['tick'], views);
   const spawned = () => plays.splice(0).filter((p) => p.kind === 'spawn');
   const tick = (n = 1) => { for (let i = 0; i < n; i++) layer.update(1 / 60, { dist: 20 }, { width: 100, height: 100 }); };
@@ -105,10 +111,22 @@ test('enemy cast-target effects: on the cast\'s targets as it starts, not on the
   got = spawned();
   assert.ok(got.some((p) => p.names[0] === 'mn_lock' && p.on === 10), `the lock-on at the strike: ${JSON.stringify(got)}`);
 
-  // 假想敌：管's kit attack ('beam' from → to): the lock-on on `to`
+  // 假想敌：管's kit attack ('beam' from → to) at an operator: AbilityName's cast on it, the lock-on on `to`
   layer.onEvent(fxEvent('beam', { x: 6, y: 1, from: 5, to: 10, kind: 'acdumlStrike' }), views);
   got = spawned();
   assert.ok(got.some((p) => p.names[0] === 'pc_lock' && p.on === 10 && p.by === 5), `the lock-on on the beam's target: ${JSON.stringify(got)}`);
+  assert.ok(got.some((p) => p.names[0] === 'pc_op' && p.by === 5 && p.on === 5), `the operator child's cast effect on it (docs/rules/fx.md 「능력 묶음의 자식·COMBAT 상태 공격」): ${JSON.stringify(got)}`);
+  assert.ok(!got.some((p) => p.names[0] === 'pc_echo'), `not the “余音” child's: ${JSON.stringify(got)}`);
+  // … at a “余音”: AttackEnemy's cast only, no lock-on (the official selectable group casts that child alone)
+  layer.onEvent(fxEvent('beam', { x: 6, y: 1, from: 5, to: 7, kind: 'acdumlStrike' }), views);
+  got = spawned();
+  assert.ok(got.some((p) => p.names[0] === 'pc_echo' && p.on === 5), `the “余音” child's cast effect: ${JSON.stringify(got)}`);
+  assert.ok(!got.some((p) => p.names[0] === 'pc_op' || p.names[0] === 'pc_lock'), `not the operator child's cast or lock-on: ${JSON.stringify(got)}`);
+  // 假想敌：弦: its cast effect at a “余音”, none at an operator
+  layer.onEvent(fxEvent('beam', { x: 6, y: 1, from: 6, to: 7, kind: 'acdummStrike' }), views);
+  assert.ok(spawned().some((p) => p.names[0] === 'st_echo' && p.on === 6), '弦 at a “余音”: its cast effect');
+  layer.onEvent(fxEvent('beam', { x: 6, y: 1, from: 6, to: 11, kind: 'acdummStrike' }), views);
+  assert.ok(!spawned().some((p) => p.names[0] === 'st_echo'), '弦 at an operator: no cast effect');
 
   // low quality: none
   const low = createFxLayer({ host: null, above: null, quality: () => 'low', dry: true, trace: (p) => plays.push(p) });
@@ -136,10 +154,36 @@ test('enemy-modes.json: every ON_CAST_START `_castTargetEffects` of the bindings
     const ps = parts(em[id]);
     for (const n of names) {
       seen++;
-      assert.ok(ps.some((p) => p.castTgt?.includes(n) && p.castTgtOpt?.[n]), `${id}: ${n} is no castTgt (tools/local-extract/enemy_bindings.py emit_part; docs/rules/fx.md 「적 범위 공격의 경고 칸」)`);
+      // (a selectable group's child's own: in its `pick` entry — enemy_bindings.py emit_pick)
+      const inPick = (/** @type {{ pick?: { castTgt?: string[] }[] }} */ p) => (p.pick || []).some((k) => k.castTgt?.includes(n));
+      assert.ok(ps.some((p) => (p.castTgt?.includes(n) || inPick(p)) && p.castTgtOpt?.[n]), `${id}: ${n} is no castTgt (tools/local-extract/enemy_bindings.py emit_part; docs/rules/fx.md 「적 범위 공격의 경고 칸」)`);
       assert.ok(!ps.some((p) => p.hit?.includes(n)), `${id}: ${n} sits in \`hit\` — it would play on each unit the damage hits, not on the cast's target as the cast starts (tools/local-extract/enemy_bindings.py emit_part; docs/rules/fx.md 「적 범위 공격의 경고 칸」)`);
     }
   }
   assert.ok(seen >= 8, `the sweep saw the known cases (鼠王, 乌顶巨角卢鲁, 假想敌：械 / 管, 自制投石机): ${seen}`);
   assert.deepEqual(em.enemy_1509_mousek?.skills?.driftsand?.castTgt, ['mousek_skill_01_range_02', 'mousek_skill_01_range'], '鼠王 DriftSand');
+});
+
+// 2026-11-26 (docs/rules/fx.md 「능력 묶음의 자식·COMBAT 상태 공격」): a selectable group whose children differ gets `pick`
+// (enemy_bindings.py emit_pick) and its children's own effects leave the part's `cast` / `castTgt` — only the kit attack's
+// 'beam' (fxgame.js ekitAttackFx) reads `pick`, so a `pick` on any other enemy would lose those effects
+const PICK_READ = { enemy_9021_acduml: 'kit attack beam acdumlStrike', enemy_9021_acduml_2: 'kit attack beam acdumlStrike', enemy_9022_acdumm: 'kit attack beam acdummStrike' };
+test('enemy-modes.json: a selectable group\'s `pick` sits only on enemies whose attack the renderer picks a child for', { skip: !existsSync(REAL) && 'no extracted effects' }, () => {
+  const em = JSON.parse(readFileSync(REAL, 'utf8'));
+  const seen = [];
+  for (const [id, e] of Object.entries(em)) {
+    if (id[0] === '$') continue;
+    for (const m of /** @type {{ modes?: ({ melee?: { pick?: unknown }, ranged?: { pick?: unknown } } | null)[] }} */ (e).modes || []) {
+      for (const p of [m?.melee, m?.ranged]) {
+        if (!p?.pick) continue;
+        seen.push(id);
+        assert.ok(PICK_READ[/** @type {keyof typeof PICK_READ} */ (id)], `${id}: a \`pick\` the renderer does not read — its children's own cast effects would not play (fxgame.js ekitAttackFx / epick read it only for a kit attack; docs/rules/fx.md 「능력 묶음의 자식·COMBAT 상태 공격」)`);
+      }
+    }
+  }
+  assert.deepEqual([...new Set(seen)].sort(), Object.keys(PICK_READ).sort(), '假想敌：管 (two) and 弦 pick a child per attack');
+  const r = em.enemy_9021_acduml.modes[0].ranged;
+  assert.deepEqual(r.cast, [], '管: no cast effect on every attack');
+  assert.deepEqual(r.pick.map((/** @type {{ cast: string[], castTgt: string[] }} */ k) => [k.cast, k.castTgt]),
+    [[['enemy_acduml_attack_start'], []], [['enemy_acduml_skill_start'], ['enemy_acduml_lockon']]], '管: AttackEnemy at a “余音”, AbilityName at an operator');
 });
