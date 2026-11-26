@@ -147,6 +147,7 @@ export { HOVER_KEYS, blinkForward } from './enemies/archetypes.js';
 /** @import { AttackProfile } from '../ai.js' */
 /** @import { Buff } from '../battle/status.js' */
 /** @import { EnemyShot } from './enemies/helpers.js' */
+/** @import { Tpl } from './bosses.js' */
 /**
  * The runtime model of the header, as the kits (enemies/*.js, bosses.js) build and read it. A hook gets the engine's
  * payload of its event (support/index.js HitEv, DamagedEv …; the two below are ai.js's and battle/blocking.js's).
@@ -208,8 +209,8 @@ export { HOVER_KEYS, blinkForward } from './enemies/archetypes.js';
 /**
  * What a kit returns: its abilities, a falsy entry for one it leaves out (`s1 && { … }`).
  * @typedef {Array<EnemyAbility | null | undefined | false | 0 | ''>} AbList
- * The wave template bosses.js passes a leader's kit (data/waves.json; null in tests and tools).
- * @typedef {{ [key: string]: unknown, extraRoutes?: unknown[] } | null} KitTpl
+ * The wave template bosses.js passes a leader's kit (data/waves.json, read field by field there; null in tests and tools).
+ * @typedef {Tpl} KitTpl
  * A kit: enemyKey → (ab, e, battle) => its abilities (bosses.js passes the wave template as well).
  * @typedef {(ab: AbState, e: Unit, b: Battle, tpl?: KitTpl) => AbList} EnemyKit
  * A kit that reads only the ability state: another kit can call it with that alone (`kitDeathSpawn()(ab)`).

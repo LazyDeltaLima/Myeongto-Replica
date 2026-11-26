@@ -99,7 +99,7 @@ import { isNormalDamage } from '../damage.js';
 /** @import { Battle } from '../Battle.js' */
 /** @import { Unit } from '../units.js' */
 /** @import { AttackProfile } from '../ai.js' */
-/** @import { AbState, AbSkill, AbList, EnemyAbility, EnemyKit, DamageRec } from './enemies.js' */
+/** @import { AbState, AbSkill, AbList, EnemyAbility, DamageRec } from './enemies.js' */
 /** @import { Buff } from '../battle/status.js' */
 /** @import { EnemyMods } from '../battle/spawns.js' */
 /**
@@ -117,6 +117,8 @@ import { isNormalDamage } from '../damage.js';
  * A wave template (data/waves.json) read field by field, or null without one.
  * @typedef {{ [key: string]: unknown, spawns?: WaveSpawn[], routes?: WaveRoute[], extraRoutes?: WaveRoute[],
  *   branches?: Record<string, WaveSpawn[][]>, devices?: WaveDevice[] } | null} Tpl
+ * A leader's or a stage token's kit: an enemy kit (content/enemies.js EnemyKit) that is always given the wave template.
+ * @typedef {(ab: AbState, e: Unit, b: Battle, tpl: Tpl) => AbList} BossKit
  * The time SP of a leader's skill (skillSp): its SP, cap and cost, and the ability that fills it.
  * @typedef {{ sp: number, max: number, cost: number, ready: () => boolean, spend: (e2: Unit) => void, ab: EnemyAbility }} SkillSp
  * What a buff's `onTick` is called with (battle/status.js).
@@ -3000,7 +3002,8 @@ function kitJu(ab) {
 
 // ---------------------------------------------------------------------------------------------------------------
 
-export const BOSS_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Object.freeze({
+/** @type {Readonly<Record<string, BossKit>>} */
+export const BOSS_KITS = Object.freeze({
   enemy_9013_acstmk: kitHelm,          // boss_1 假想敌：胄
   enemy_9013_acstmk_2: kitHelm,        // boss_8 假想敌：胄 (隐秘核心)
   enemy_9014_acstma: kitBlade,         // “斩胄之剑”
@@ -3034,10 +3037,11 @@ export const BOSS_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Obje
   enemy_9037_aceel: kitEel,            // boss_13 假想敌：鳍
   enemy_9037_aceel_2: kitEel,          // boss_16 假想敌：鳍 (隐秘核心)
   enemy_2124_dyjsfg: kitJu,            // boss_17 矩兽
-}));
+});
 export const BOSS_KEYS = Object.freeze(Object.keys(BOSS_KITS));
 /** Stage tokens a leader switches on (template `devices`, not in data/enemies.json), spawned as enemies with an inline record. */
-export const DEVICE_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Object.freeze({
+/** @type {Readonly<Record<string, BossKit>>} */
+export const DEVICE_KITS = Object.freeze({
   trap_039_dstnta: kitBrood,           // 子代 (盐风主教昆图斯's 断裂生殖)
   trap_185_vtlntw: kitGolden,          // 黄金回响 (阿利斯泰尔's 莫非王土 on a 冲击式施术单元)
-}));
+});
