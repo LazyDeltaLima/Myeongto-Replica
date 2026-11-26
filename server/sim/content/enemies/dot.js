@@ -8,7 +8,7 @@ import { normShot } from '../../simdata.js';
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
 /** @import { AttackProfile } from '../../ai.js' */
-/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { AbState, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
 /** @import { BuffTick, EnemyShot } from './helpers.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -115,7 +115,7 @@ function kitTank(ab, e) {
       // the attack itself
       const x = t.x, y = t.y;
       const zone = () => pollution(b, e2, x, y, TANK_ZONE_RADIUS, s.projectile_life_time ?? 0, s.polluted_damage_low ?? 0, s.polluted_damage_high ?? 0, sk?.name ?? null);
-      const v = /** @type {number} */ (sk?.proj?.speed) > 0 ? /** @type {{ speed: number }} */ (/** @type {AbSkill} */ (sk).proj).speed : 0;
+      const v = sk?.proj && sk.proj.speed > 0 ? sk.proj.speed : 0;
       const d = hypot(x - e2.x, y - e2.y);
       if (v > 0 && d > 0.75) b.after(d / v, zone); else zone();
     },

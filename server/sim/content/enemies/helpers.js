@@ -123,8 +123,9 @@ export function abOf(b, e) {
     // `_lifeTime`: a FIXED_DIRECTION shot's flight, lineShot), null when it has none; `pri`: its table priority and `cast`:
     // how the client casts it (data/enemies.json `skillCast`, by its name case aside) — an attack-slot skill
     // (content/enemies.js skillSlot), null when the prefab was not read
+    /** @type {EnemyShot | null} */
     const proj = normShot(s.proj);
-    if (proj && s.proj.life > 0) /** @type {EnemyShot} */ (proj).life = s.proj.life;
+    if (proj && s.proj.life > 0) proj.life = s.proj.life;
     const cast = (casts && casts[String(s.prefabKey).toLowerCase()]) || null;
     sk[s.prefabKey] = { name: s.prefabKey, cd: num(s.cooldown, 0), icd: num(s.initCooldown, 0), sp: num(s.spCost, 0), pri: num(s.priority, 0), bb: s.bb || {}, bs: s.bbStr || {}, proj, cast };
   }

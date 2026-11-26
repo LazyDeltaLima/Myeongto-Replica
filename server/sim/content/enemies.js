@@ -146,6 +146,7 @@ export { HOVER_KEYS, blinkForward } from './enemies/archetypes.js';
 /** @import { HitEv, DamagedEv, AttackEv, KillEv, DeathEv, StatusEv, HealEv, BurstEv } from './support/index.js' */
 /** @import { AttackProfile } from '../ai.js' */
 /** @import { Buff } from '../battle/status.js' */
+/** @import { EnemyShot } from './enemies/helpers.js' */
 /**
  * The runtime model of the header, as the kits (enemies/*.js, bosses.js) build and read it. A hook gets the engine's
  * payload of its event (support/index.js HitEv, DamagedEv …; the two below are ai.js's and battle/blocking.js's).
@@ -162,9 +163,7 @@ export { HOVER_KEYS, blinkForward } from './enemies/archetypes.js';
  * One skill of the enemy's table (enemies/helpers.js abOf): its prefab key, cooldowns, SP cost, priority, blackboards,
  * projectile and cast record.
  * @typedef {{ name: string, cd: number, icd: number, sp: number, pri: number, bb: Record<string, number>,
- *   bs: Record<string, string>, proj: AbProj | null, cast: AbCastRec | null }} AbSkill
- * A skill's projectile (enemies/helpers.js normShot of data/enemies.json `skills[].proj`).
- * @typedef {{ [key: string]: unknown, life?: number }} AbProj
+ *   bs: Record<string, string>, proj: EnemyShot | null, cast: AbCastRec | null }} AbSkill
  * A skill's cast record (data/enemies.json `skillCast[prefabKey]`, tools/build-data.mjs enemySkillCast; helpers.js
  * castLength reads the kinds): a group's `kind` and `subs`, an animated ability's clip `dur` and times.
  * @typedef {{ [key: string]: unknown, family?: number, kind?: string, subs?: AbCastRec[], one?: boolean, main?: number,

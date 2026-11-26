@@ -14,7 +14,7 @@ import { hitFx } from '../../damage.js';
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
 /** @import { AttackProfile } from '../../ai.js' */
-/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit, AbProj, DamageRec } from '../enemies.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit, DamageRec } from '../enemies.js' */
 /** @import { BuffTick, EnemyShot } from './helpers.js' */
 /**
  * A soul holder's state (soulHolder: `souls`, `setSouls`), plus the kit's own fields.
@@ -84,12 +84,12 @@ function bothSidesAt(b, src, x, y, r) {
  * `_emitToInputPosWhenTargetIsInvalid`), along the nearest map axis (helpers.js lineShot); `onHit(u)` on the first ally it
  * touches.
  * @param {Battle} b @param {Unit} e @param {Unit | null} t @param {{ x: number, y: number }} aim
- * @param {AbProj | null} proj @param {(u: Unit, spot: { x: number, y: number }) => unknown} onHit
+ * @param {EnemyShot | null} proj @param {(u: Unit, spot: { x: number, y: number }) => unknown} onHit
  * @param {number} [radius] @param {{ x: number, y: number }} [from]
  */
 function crossShot(b, e, t, aim, proj, onHit, radius = undefined, from = undefined) {
   const at = t && t.alive && t.deployed ? { x: t.x, y: t.y } : aim;
-  return lineShot(b, e, at, /** @type {EnemyShot | null} */ (proj), (u, spot) => { if (u && u.alive) onHit(u, spot); }, { source: e, ...(radius != null ? { radius } : {}), ...(from ? { at: from } : {}) });
+  return lineShot(b, e, at, proj, (u, spot) => { if (u && u.alive) onHit(u, spot); }, { source: e, ...(radius != null ? { radius } : {}), ...(from ? { at: from } : {}) });
 }
 
 /**
@@ -289,7 +289,7 @@ function kitGrenadier(ab) {
       a.fired = true;
       atCastEvent(b, e, s, () => {
         for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
-          lineShot(b, e, { x: e.x + dx, y: e.y + dy }, /** @type {EnemyShot | null} */ (s.proj), (u, spot) => { if (u && u.alive) bombBlast(b, e, spot ?? u, r, scale); }, { source: e, radius: BOMB_TOUCH });
+          lineShot(b, e, { x: e.x + dx, y: e.y + dy }, s.proj, (u, spot) => { if (u && u.alive) bombBlast(b, e, spot ?? u, r, scale); }, { source: e, radius: BOMB_TOUCH });
         }
       });
       const c = s.cast, end = c && /** @type {number} */ (c.dur) > 0 ? /** @type {number} */ (c.dur) : 0;
@@ -539,7 +539,7 @@ function kitBandHorn(ab) {
     atCastEvent(b, e, s, () => {
       for (const t of ts) {
         if (!t.alive || !t.deployed) continue;
-        shoot(b, e, t, /** @type {EnemyShot | null} */ (s.proj), (u) => { if (u && u.alive && u.deployed) b.dealDamage(e, u, { amount: e.s.atk * scale, type: 'phys', isAttack: true, isProjectile: true }); });
+        shoot(b, e, t, s.proj, (u) => { if (u && u.alive && u.deployed) b.dealDamage(e, u, { amount: e.s.atk * scale, type: 'phys', isAttack: true, isProjectile: true }); });
       }
     });
   }, { sil: true, cond: (b, e) => sp.ready() && pick(b, e).length > 0 })];

@@ -1087,7 +1087,7 @@ function kitSpring(ab, e) {
     const fly = (/** @type {Unit} */ from, /** @type {Unit | null} */ t, /** @type {number} */ k) => {
       if (!t || k >= times) return;
       b.fx('beam', { x: from.x, y: from.y, from: from.id, to: t.id, kind: 'springBullet' });
-      shoot(b, from, t, k ? /** @type {EnemyShot} */ ({ .../** @type {AbSkill} */ (sk).proj, speed: SPRING_BOUNCE_SPEED }) : /** @type {EnemyShot | null} */ (/** @type {AbSkill} */ (sk).proj), (/** @type {Unit} */ tt) => {
+      shoot(b, from, t, k ? /** @type {EnemyShot} */ ({ .../** @type {AbSkill} */ (sk).proj, speed: SPRING_BOUNCE_SPEED }) : /** @type {AbSkill} */ (sk).proj, (/** @type {Unit} */ tt) => {
         if (!tt || !tt.alive) return;
         lastHit.set(tt, b.time);
         hurt(b, e2, tt, e2.s.atk * powi(SPRING_BOUNCE_FALLOFF, k), 'phys', { tags: ['springBullet'] });
@@ -1107,7 +1107,7 @@ function kitSpring(ab, e) {
     const shot = () => {
       if (!e2.alive || !t.alive) return;
       b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'springCombo' });
-      shoot(b, e2, t, /** @type {EnemyShot | null} */ (/** @type {AbSkill} */ (sk).proj), (/** @type {Unit} */ tt) => hurt(b, e2, tt, e2.s.atk * (/** @type {AbSkill} */ (sk).bb.atk_scale || 0), 'phys', { tags: ['springCombo'] }), { source: e2 });
+      shoot(b, e2, t, /** @type {AbSkill} */ (sk).proj, (/** @type {Unit} */ tt) => hurt(b, e2, tt, e2.s.atk * (/** @type {AbSkill} */ (sk).bb.atk_scale || 0), 'phys', { tags: ['springCombo'] }), { source: e2 });
     };
     for (let k = 0; k < SPRING_COMBO_HITS; k++) if (k === 0) shot(); else b.after(k * SPRING_COMBO_GAP, shot, { owner: e2 });
   };
@@ -1422,7 +1422,7 @@ function kitPipe(ab, e, b, tpl) {
           // ApplyElementDamage `ep_damage_ratio` on it, the echo too (the node checks no side; until 2026-10-15 the echo took none).
           const strike = (/** @type {Unit} */ echo) => {
             if (!e2.alive || !echo.alive) return;
-            shoot(b2, e2, echo, /** @type {EnemyShot | null} */ (s.proj), (/** @type {Unit | null} */ o) => {
+            shoot(b2, e2, echo, s.proj, (/** @type {Unit | null} */ o) => {
               if (!o || !o.alive) return;
               const hit = pipeBurst(b2, e2, o, PIPE_SHOT_RADIUS.acduml, 'pipeStrike');
               for (const u of hit) {
@@ -1464,7 +1464,7 @@ function kitString(ab, e, b, tpl) {
           // (CheckEnemyId → SwitchMode 1); as 管's, the echo takes the 凋亡 too (until 2026-10-15 it did not).
           for (const echo of echoes) {
             if (!echo.alive) continue;
-            shoot(b2, e2, echo, /** @type {EnemyShot | null} */ (s.proj), (/** @type {Unit | null} */ o) => {
+            shoot(b2, e2, echo, s.proj, (/** @type {Unit | null} */ o) => {
               if (!o || !o.alive) return;   // a shot in flight lands even if its shooter fell meanwhile
               for (const u of pipeBurst(b2, e2, o, PIPE_SHOT_RADIUS.acdumm, 'stringStrike')) {
                 elem(b2, e2, u, 'apoptosis', e2.s.atk * ep);

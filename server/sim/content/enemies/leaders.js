@@ -18,7 +18,7 @@ import { ENEMY_RECORD } from '../items/shared.js';
 /** @import { Unit } from '../../units.js' */
 /** @import { AttackProfile } from '../../ai.js' */
 /** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit, DamageRec } from '../enemies.js' */
-/** @import { BuffTick, EnemyShot } from './helpers.js' */
+/** @import { BuffTick } from './helpers.js' */
 /** @import { DamagedEv } from '../support/index.js' */
 /** @import { Scheduled } from '../../battle/hooks.js' */
 /** @import { BuffRec } from '../bonds/shared.js' */
@@ -182,7 +182,7 @@ function kitLeaderMisc(key, ab, e) {
       // cast begins (the RangedAttack's `_selectTargetTiming` 0: AbilityStandard.CastToTarget → UpdateTargets) and the spell
       // goes to those still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20 taken again at the spell.
       const s = ab.sk.C4;
-      const fuse = /** @type {number} */ (s?.proj?.life) > 0 ? /** @type {{ life: number }} */ (s.proj).life : 0;
+      const life = s?.proj?.life ?? 0, fuse = life > 0 ? life : 0;
       const r = s?.bb.range_radius ?? e.base.rangeRadius;
       const T1 = (/** @type {Unit} */ e2) => e2.mode === 'T1';
       const picks = (/** @type {Battle} */ b, /** @type {Unit} */ e2) => T1(e2) ? byPriority(e2, targetsNear(b, e2, r)).slice(0, C4_LOW_TARGETS)
@@ -376,7 +376,7 @@ function kitLeaderMisc(key, ab, e) {
         // arrow's arrival — the interval buff `dekght_2[aoe]` goes on the hit target]
         for (const t of l) {
           if (!t.alive || !t.deployed) continue;
-          shoot(b, e2, t, /** @type {EnemyShot | null} */ (s.proj), (tt) => {
+          shoot(b, e2, t, s.proj, (tt) => {
             if (!e2.alive || !tt) return;
             const r = tt.tileR, cc = tt.tileC;
             b.fx('telegraph', { x: cc, y: r, r: 1, dur: delay, kind: 'blastArrow', tiles: 'plus', id: e2.id });
@@ -573,7 +573,7 @@ function kitLeaderMisc(key, ab, e) {
           if (!cur || seen.size >= max) return;
           seen.add(cur);
           b.fx('beam', { x: prev.x, y: prev.y, from: prev.id, to: cur.id, kind: 'chainBuff' });
-          const flight = shoot(b, prev, cur, /** @type {EnemyShot | null} */ (cb.proj), (o) => {
+          const flight = shoot(b, prev, cur, cb.proj, (o) => {
             if (ch.cut || !o || !o.alive) return;
             b.addBuff(o, { key: 'ab:chainBuff', duration: bb.duration ?? 0, refresh: 'replace', visible: true, mods: { moveMul: 1 + (bb.move_speed ?? 0), aspd: bb.attack_speed ?? 0 } });
             hop(o, near(b, e2, o.x, o.y, jump, seen));
@@ -721,7 +721,7 @@ function kitWarden(ab) {
       // each stun rides the skill's official projectile (skills ironsandstorm.proj — projectile_enemy_jakill_s1, TRACE 10
       // tiles/s; enemies/helpers.js shoot), landing as it arrives (until 2026-10-10 at the attack)
       for (const u of l.slice(0, iron.bb.max_target ?? 1)) {
-        if (u.alive) shoot(b, e, u, /** @type {EnemyShot | null} */ (iron.proj), (t) => { if (t && t.alive) b.applyStatus(t, 'stun', { duration: iron.bb.stun ?? 0, source: e }); });
+        if (u.alive) shoot(b, e, u, iron.proj, (t) => { if (t && t.alive) b.applyStatus(t, 'stun', { duration: iron.bb.stun ?? 0, source: e }); });
       }
     },
   }, reborn({

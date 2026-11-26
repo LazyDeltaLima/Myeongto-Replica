@@ -14,7 +14,7 @@ import { taunt, ep, deathBoom, setFloat, float, skill, kitEp, kitStun3 } from '.
 /** @import { Unit } from '../../units.js' */
 /** @import { AttackProfile } from '../../ai.js' */
 /** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
-/** @import { BuffTick, EnemyShot } from './helpers.js' */
+/** @import { BuffTick } from './helpers.js' */
 /** @import { Scheduled } from '../../battle/hooks.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -123,7 +123,7 @@ function kitDeathEye(ab, e) {
     if (!t) return;
     const dur = s.bb.hit_duration ?? 0;
     const pre = line ? castStrikeAt(e2, line, s.bb) ?? 0 : 0;
-    const v = shotSpeed(/** @type {EnemyShot | null} */ (s.proj));
+    const v = shotSpeed(s.proj);
     const fly = v > 0 ? hypot(t.x - e2.x, t.y - e2.y) / v : 0;
     b.addBuff(e2, { key: 'ab:channel', duration: pre + fly + dur, flags: { disarm: true } });
     let n = 0, /** @type {Scheduled | null} */ h = null, linked = false;
