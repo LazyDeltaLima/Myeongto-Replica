@@ -619,7 +619,7 @@ function kitHelm(ab, e, b, tpl) {
       // "描述与游戏实际表现不符合": "【灭顶之灾】不会额外发射") and no blackboard holds a second shell (skill 1 has none)
       fire(b2, e2) {
         const t = shellTargets(b2).sort((p, q) => q.s.atk - p.s.atk || aggroCmp(p, q))[0];
-        if (t) fireShell(b2, e2, t, s1.name, /** @type {number} */ (s1.proj && s1.proj.speed));
+        if (t) fireShell(b2, e2, t, s1.name, s1.proj ? s1.proj.speed : 0);
       },
     },
     s2 && {
@@ -1083,11 +1083,13 @@ function kitSpring(ab, e) {
   const skillReady = (/** @type {Unit} */ e2) => !!sk && P.up && P.sp >= sk.sp && !e2.s.flags.silence;
   const elementBullet = (/** @type {Battle} */ b, /** @type {Unit} */ e2, /** @type {Unit} */ t0) => { // `times` hits, ATK 100 % phys × 0.8 per bounce + erosion `ep_damage_ratio` each
     const times = /** @type {AbSkill} */ (sk).bb.times || 1, ratio = /** @type {AbSkill} */ (sk).bb.ep_damage_ratio || 0;
+    // the bounces fly at SPRING_BOUNCE_SPEED; without a projectile every hit lands at once, as the first one
+    const proj = /** @type {AbSkill} */ (sk).proj, bounce = proj && { ...proj, speed: SPRING_BOUNCE_SPEED };
     const lastHit = new Map();
     const fly = (/** @type {Unit} */ from, /** @type {Unit | null} */ t, /** @type {number} */ k) => {
       if (!t || k >= times) return;
       b.fx('beam', { x: from.x, y: from.y, from: from.id, to: t.id, kind: 'springBullet' });
-      shoot(b, from, t, k ? /** @type {EnemyShot} */ ({ .../** @type {AbSkill} */ (sk).proj, speed: SPRING_BOUNCE_SPEED }) : /** @type {AbSkill} */ (sk).proj, (/** @type {Unit} */ tt) => {
+      shoot(b, from, t, k ? bounce : proj, (/** @type {Unit} */ tt) => {
         if (!tt || !tt.alive) return;
         lastHit.set(tt, b.time);
         hurt(b, e2, tt, e2.s.atk * powi(SPRING_BOUNCE_FALLOFF, k), 'phys', { tags: ['springBullet'] });
