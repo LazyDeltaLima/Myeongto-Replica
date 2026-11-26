@@ -1419,6 +1419,11 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
   b: ArrayBuffer }`), `hashes`(같은 경로의 해시만), `meta`(페이지 기록 `differ`). 파일과 해시는 한 트랜잭션으로 같이 쓰고 같이 지운다. 페이지의 호출은
   `resource-db.js`, 워커(모듈이 아닌 스크립트)는 같은 스키마(`upgradeResourceDb`)와 몇 호출을 따로 가진다. 본문은 `Blob`이 아니라 `ArrayBuffer`로 둔다 —
   iOS Safari에 IndexedDB의 Blob을 읽으면 프로세스가 죽는 회귀가 보고돼 있고, Chrome·Firefox는 큰 값을 어차피 따로 파일로 둔다. [화면 미확인: 아이폰 Safari·Android Chrome — 이 저장소로 받기·판 진입]
+  Windows Chrome에서 같은 파일을 두 방식으로 재 보았다(2026-11-27, 같은 커밋의 서버 둘): 판 진입은 같다(필드가 보이기까지 둘 다 0.32–0.43 s, 워커가
+  67개를 내줌). `Blob`은 파일마다 디스크 파일 하나라 23,412개가 23,412개 파일·할당량 942 MB, `ArrayBuffer`는 큰 값 2,685개만 파일로 빠지고 747 MB.
+  16 KB 미만 3,000개 쓰기가 `ArrayBuffer` 0.55 s, `Blob` 4.0–4.2 s, 그 170개 읽기도 11 ms 대 37–40 ms. `Blob`이 나은 것은 1 MB 넘는 파일(쓰기·읽기
+  15–25% 빠름)과 워커 메모리 정점(판 진입 동안 `ArrayBuffer` 본문이 약 11 MB 더 — 18–19.5 MB 대 7.4 MB)뿐이라, 1 MB 넘는 것만 `Blob`으로 섞지도
+  않는다(iOS 위험을 들일 만큼이 아님). 바꾼다면 쓰는 쪽(`putFiles`·워커 `store`)과 함께 워커 `safe()`의 `Content-Length`(`byteLength`만 읽음)를 고친다.
 - **대조는 해시만 한 번에**: `hashes`를 `getAllKeys`+`getAll`로 읽어 목록과 다른 것을 지울 목록에 넣는다. 워커가 받은 파일도 해시와 함께 들어가므로
   예전의 「받아들이기」(`X-SP-Hash`를 보려고 항목마다 열기)와 `state` 기록, 「목록이 그대로면 대조 건너뜀」 표시는 없앴다. Windows Chrome에서 23,412개
   대조 0.18–0.23 s. 지우기는 50개씩 한 트랜잭션, 트랜잭션 안에서 해시를 다시 보고 그새 목록 해시로 바뀐 것은 남긴다(`dropFiles`). 보고서 `reconcile`의
