@@ -1834,7 +1834,7 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     `LineAttack`은 이벤트를 기다리지 않아 `_preDelay` 0.6초 뒤 줄(`projectile_enemy_dwlock_line`, `HarpoonMovement` 속도 8 — 중심 사이 거리 ÷ 8)을 쏘고, 닿으면 연결(`LassoProjectile.DoLink`:
     고정 틱마다 치되 같은 대상은 `_keepAlreadyHitTime` 1초 뒤에 다시 — 닿을 때 첫 타격, 그 뒤 1초마다, 타격 수는 전처럼 `hit_duration` 8)이 연결 수명 8초 동안 이어지고, 그 끝에
     `ChargeAttack`(`_timeMode` 2·`_cooldown` 0)이 바로 군체 凋亡을 낸다(이전: 시작부터 1초째 첫 타격, 마지막 타격과 같은 때 폭발). 그 전에 시전이 끊기면 줄도 폭발도 없다.
-    화면의 줄은 아직 시전 시작에 뜬다(키트가 시작에 대상을 돌려줌 → `fxgame.js` `elassoStart`; 공식은 줄이 나가는 0.6초 뒤 — 묶음 fx-F 줄 「정예 캐스터 줄이 뜨는 때」). `atCastEvent`의 기본 때도 `castStrikeAt`이다(2026-11-20 — 이전: 클립 그대로의 `hit`, 없으면 클립 길이라
+    화면의 줄도 그 0.6초에 나가 속도 8로 뻗어 연결 때 닿는다(2026-11-26, fx.md 「적 채널 스킬의 줄 투사체」 `elinkLead` — 이전: 키트가 시작에 돌려준 대상으로 시전 시작에 떴다). `atCastEvent`의 기본 때도 `castStrikeAt`이다(2026-11-20 — 이전: 클립 그대로의 `hit`, 없으면 클립 길이라
     `_timeMode` 0 시전이 공격 간격에 맞춰 줄어든 배율·`wait` 0·순차 묶음의 앞 자식을 안 봄): 공격 속도가 올라 클립보다 짧게 도는 속사 경량 석궁병·잔당 악단 드러머·전선 개척자 등은
     줄어든 프레임에, 포트브레이커(`enemy_10123_uareap`) `SkyProjectile` 첫 발은 버프 능력 2틱 + `F_Skill` 0.833초 = 0.9초(키트가 따로 들고 있던 2틱을 지움), 마테오의 근위병 둘째 폭탄은
     첫 폭탄 + (2.033 − 1.867) × 배율. 용맹한 팔라둘리스 `rush`는 `wait` 0이라 주문이 바로지만 `Run` 전환은 `ActionToOwner`의 `_runActionOnEvent` 3(ON_CAST_END)이라

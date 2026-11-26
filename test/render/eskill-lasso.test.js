@@ -4,7 +4,8 @@
 // its target for the channel — on the caster when the projectile has `_spawnOnSource` (`proj.onSrc`: the jazz player's flame),
 // else on the line's head (the 死亡之眼's) — and the sim's stand-in beams of the channel ('beam' jazzFire / deathEye /
 // deathEyeEnd) are not drawn meanwhile; the cast's end ('enemySkillEnd' — content/enemies.js chanEnd, as the channel ends or
-// sooner) or a cut 'deathEyeEnd' ends the line; the channel's
+// sooner) or a cut 'deathEyeEnd' ends the line; (2026-11-26) the 死亡之眼's line leaves with LineAttack's projectile 0.6 s in
+// (fxgame.js elinkLead), not as the cast starts; the channel's
 // hits keep its hit effects to its end (eskillHit, not only the first 3 s). Until then the jazz player's flame was the
 // stand-in beam (maintainer report 2026-11-14).
 // The sim's events come from the real kits (content/enemies/invisible.js kitJazz, element.js kitDeathEye); the render runs on
@@ -69,7 +70,9 @@ async function layer(without = []) {
   const files = { '/assets/local/fx/index.json': { bundles: { b: names } }, '/assets/local/fx/enemy-modes.json': m };
   globalThis.fetch = async (url) => (files[url] ? { ok: true, json: async () => files[url] } : { ok: false, json: async () => null });
   const seen = [];
-  const L = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, enemyDef: (id) => D.enemies[id] || null, trace: (p) => seen.push(p) });
+  // (unitDef: the enemies' data records — `skillCast`, the line's lead, elinkLead)
+  const L = createFxLayer({ host: null, above: null, quality: () => 'high', dry: true, enemyDef: (id) => D.enemies[id] || null,
+    unitDef: (info) => D.enemies[/** @type {{ defId: string }} */ (info).defId] || null, trace: (p) => seen.push(p) });
   await new Promise((r) => setTimeout(r, 10));
   return { L, seen };
 }
@@ -78,18 +81,19 @@ const viewOf = (u) => ({ id: u.id, x: u.x, y: u.y, alive: true, isEnemy: u.side 
 const CAM = { dist: 20 }, VP = { width: 100, height: 100 };
 /**
  * Plays the logged events `rec` (from battle time t0) into layer `L`, the layer's clock following the battle's; `on(e, t)`
- * sees each event after the layer took it.
+ * sees each event after the layer took it, `step(t)` each step of the clock after the layer's update (on to t1).
  */
-function play(L, views, rec, t0, t1, on = () => {}) {
+function play(L, views, rec, t0, t1, on = () => {}, step = () => {}) {
   let at = t0;
   L.update(0, CAM, VP);
   for (const [t, e] of rec) {
     if (t < t0 - 1e-9) continue;
     if (t > t1 + 1e-9) break;
-    while (t - at > 1e-9) { const d = Math.min(0.05, t - at); L.update(d, CAM, VP); at += d; }
+    while (t - at > 1e-9) { const d = Math.min(0.05, t - at); L.update(d, CAM, VP); at += d; step(at); }
     L.onEvent(e, views);
     on(e, t);
   }
+  while (t1 - at > 1e-9) { const d = Math.min(0.05, t1 - at); L.update(d, CAM, VP); at += d; step(at); }   // (the clock on to t1)
 }
 const fxIs = (e, kind, k) => e[0] === 'fx' && e[1] === kind && (k == null || e[4]?.kind === k || e[4]?.ability === k);
 
@@ -141,7 +145,7 @@ test('节日爵士乐手 (real kit): a silence ends the channel — the line end
   } finally { globalThis.fetch = fetch0; }
 });
 
-test('萨卡兹王庭军精锐术师 (real kit): 死亡之眼 draws its line on the line\'s head (no `_spawnOnSource`); its target falling cuts it', async () => {
+test('萨卡兹王庭军精锐术师 (real kit): 死亡之眼 draws its line on the line\'s head (no `_spawnOnSource`), leaving with LineAttack\'s projectile 0.6 s in and reaching the target as the sim links; its target falling cuts it', async () => {
   const fetch0 = globalThis.fetch;
   try {
     const { h, e, rec } = field(DW, [[10, 5]], [10, 5]);
@@ -152,16 +156,43 @@ test('萨卡兹王庭军精锐术师 (real kit): 死亡之眼 draws its line on 
     h.battle.kill(wall, null);
     h.run(1.2);
     const [t1, cut] = rec.find(([, x]) => fxIs(x, 'beam', 'deathEyeEnd'));
-    const start = rec.find(([t, x]) => t >= t0 && fxIs(x, 'beam', 'deathEye'))[1];
+    const [tLink, start] = rec.find(([t, x]) => t >= t0 && fxIs(x, 'beam', 'deathEye'));
     const { L, seen } = await layer();
     const views = new Map([[e.id, viewOf(e)], [wall.id, viewOf(wall)]]);
-    play(L, views, rec, t0, t1);
-    const lines = seen.filter((p) => p.kind === 'spawn' && p.names[0] === 'enemy_dwlock_skill_line_01');
+    const isLine = (p) => p.kind === 'spawn' && p.names[0] === 'enemy_dwlock_skill_line_01';
+    let tLine = null;
+    const mark = (t) => { if (tLine == null && seen.some(isLine)) tLine = t; };
+    play(L, views, rec, t0, t1, (x, t) => mark(t), mark);
+    // (docs/rules/fx.md 「적 채널 스킬의 줄 투사체」: until 2026-11-26 the line left as the cast started — the fire's target)
+    assert.ok(tLine != null && Math.abs(tLine - t0 - 0.6) <= 0.05 + 1e-6, `the line leaves 0.6 s into the cast (LineAttack's _preDelay, data skillCast.deatheye pre), not as it starts (${tLine == null ? 'none' : (tLine - t0).toFixed(3)} s)`);
+    const reach = tLine - t0 + Math.hypot(wall.x - e.x, wall.y - e.y) / 8;
+    assert.ok(Math.abs(t0 + reach - tLink) <= 0.06, `it reaches the target at its speed 8 as the sim links ('beam' deathEye ${(tLink - t0).toFixed(3)} s, the line ${reach.toFixed(3)} s)`);
+    const lines = seen.filter(isLine);
     assert.equal(lines.length, 1, 'one line');
     assert.equal(lines[0].on, null, 'made on the line\'s head (a moving point), not on a unit');
     assert.equal(L.ownsFx(start), true, 'its start beam is not drawn');
     assert.equal(L.ownsFx(cut), true, 'nor the cut');
     assert.deepEqual(seen.filter((p) => p.kind === 'lassoEnd').map((p) => p.names[0]), ['enemy_dwlock_skill_line_01'], 'the cut ends the line');
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('萨卡兹王庭军精锐术师 (real kit): a stun before LineAttack\'s projectile leaves (0.6 s) cuts the cast — no line', async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    const { h, e, rec } = field(DW, [[10, 5]], [10, 5]);
+    h.runUntil(() => rec.some(([, x]) => fxIs(x, 'enemySkill', 'DeathEye')), 40);
+    const [t0, cast] = rec.find(([, x]) => fxIs(x, 'enemySkill', 'DeathEye'));
+    h.run(0.3);
+    h.battle.applyStatus(e, 'stun', { duration: 2 });
+    h.run(2);
+    const [t1] = rec.find(([t, x]) => t >= t0 && fxIs(x, 'enemySkillEnd', 'DeathEye'));
+    assert.ok(t1 - t0 < 0.6, `the stun ends the cast before the line (${(t1 - t0).toFixed(3)} s)`);
+    assert.ok(!rec.some(([t, x]) => t >= t0 && fxIs(x, 'beam', 'deathEye')), 'the sim links nothing');
+    const wall = h.allies().find((u) => u.id === cast[4].tgt);
+    const { L, seen } = await layer();
+    const views = new Map([[e.id, viewOf(e)], [wall.id, viewOf(wall)]]);
+    play(L, views, rec, t0, t0 + 2.2);
+    assert.ok(!seen.some((p) => p.kind === 'spawn' && p.names[0] === 'enemy_dwlock_skill_line_01'), 'no line leaves');
   } finally { globalThis.fetch = fetch0; }
 });
 

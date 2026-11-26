@@ -8063,6 +8063,26 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   /** @type {Map<unknown, { rec: ELine, tgt: View, name: string }>} */
   const elassos = new Map();   // caster id → { rec: its elines record, tgt, name: its prefab }
+  /** @type {Map<unknown, object>} */
+  const elassoDue = new Map();   // caster id → the token of its line still to leave (elinkLead)
+  /**
+   * 2026-11-26, official client (docs/rules/fx.md 「적 채널 스킬의 줄 투사체」): s after the cast's start that the link
+   * projectile of enemy `v`'s channel ability `key` leaves — the `_preDelay` (data `skillCast.*` `pre`) of the channel's
+   * record when that record shoots it (`proj`) without waiting for an attack event (`wait` 0) and is the cast itself or the
+   * first child of its sequence (萨卡兹王庭军精锐术师's 死亡之眼: LineAttack 0.6 s — the sim's castStrikeAt, element.js
+   * kitDeathEye; its line then reaches the target at `proj.speed` as the sim links). 0 otherwise: the line leaves as the
+   * cast starts (节日爵士乐手's `fire`).
+   * @param {View} v @param {string} key
+   */
+  function elinkLead(v, key) {
+    const c = /** @type {Record<string, unknown> | null | undefined} */ (unitDef(v.info)?.skillCast?.[key.toLowerCase()]);
+    /** @param {unknown} x @returns {Record<string, unknown> | null} */
+    const chanOf = (x) => (x && typeof x === 'object' && typeof /** @type {{ chan?: { loop?: unknown } }} */ (x).chan?.loop === 'string' ? /** @type {Record<string, unknown>} */ (x) : null);
+    const r = chanOf(c) || (c?.kind === 'seq' && Array.isArray(c.subs) ? chanOf(c.subs[0]) : null);
+    if (!r || r.wait !== 0 || !r.proj) return 0;
+    const p = Number(r.pre);
+    return p > 0 ? p : 0;
+  }
   /**
    * A link projectile's line prefab: its HarpoonRenderer's `_mainEffect` (`proj.rope`), else its first trail.
    * @param {EProj | null | undefined} pr
@@ -8171,6 +8191,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function elassoEnd(v) {
     const id = ownerOf(v), l = elassos.get(id);
+    elassoDue.delete(id);   // (a line still to leave never does)
     if (!l) return;
     elassos.delete(id);
     if (l.rec.until <= clockS) return;   // it already ended at its length
@@ -9600,7 +9621,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           // 2026-11-14: an enemy channel's stand-in beams while its link line shows (elassoStart); a cut ends that line
           if (e[1] === 'beam' && LASSO_BEAMS.has(/** @type {string} */ (e[4]?.kind))) {
             const v = /** @type {View} */ (views.get(/** @type {FxRec} */ (e[4]).from ?? /** @type {FxRec} */ (e[4]).id));   // (elassoOn tests it)
-            if (elassoOn(v)) { if (/** @type {FxRec} */ (e[4]).kind === 'deathEyeEnd') elassoEnd(v); ownFx.add(e); return; }
+            if (elassoOn(v) || (v && elassoDue.has(ownerOf(v)))) { if (/** @type {FxRec} */ (e[4]).kind === 'deathEyeEnd') elassoEnd(v); ownFx.add(e); return; }
           }
           if (e[1] === 'beam' && e[4] && SHOT_BEAMS[/** @type {string} */ (e[4].kind)]) {
             const o = /** @type {FxRec} */ (e[4]), from = views.get(o.from ?? o.id);
@@ -9630,7 +9651,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
               // line shows; (2026-11-15) a `hold` one to that end (at most ESKILL_HOLD_CAP)
               const chan = e[1] === 'enemySkill' && Number(o.dur) > 0 ? Number(o.dur) : 0;
               const held = e[1] === 'enemySkill' && (!!o.hold || chan > 0);
-              if (held) elassoStart(v, eskillPart(v, /** @type {string} */ (k)), tv, chan || ESKILL_HOLD_CAP);
+              // (2026-11-26) the line leaves with its projectile (elinkLead: 死亡之眼's 0.6 s), not as the cast starts — unless the
+              // cast ends, the enemy falls or casts again before that
+              if (held) {
+                const part = eskillPart(v, /** @type {string} */ (k)), lead = elinkLead(v, /** @type {string} */ (k)), hf = chan || ESKILL_HOLD_CAP;
+                if (lead > 0 && lead < hf) {
+                  const id = ownerOf(v), tok = {};
+                  elassoEnd(v);
+                  elassoDue.set(id, tok);
+                  castsDelayed.push({ t: clockS + lead, run: () => {
+                    if (elassoDue.get(id) !== tok) return;
+                    elassoDue.delete(id);
+                    if (v.alive !== false && !v.remove) elassoStart(v, part, tv, hf - lead);
+                  } });
+                } else elassoStart(v, part, tv, hf);
+              }
               // (2026-11-26) the cast's other fx ('explode' of 腐败骑士's hammer …) are no new cast (`start`)
               const start = e[1] === 'enemySkill';
               if (eskillFx(v, /** @type {string} */ (k), { target: tv, targets: tvs, hold: held, holdFor: chan || ESKILL_HOLD_CAP, start, swing: start && !!o.swing }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);

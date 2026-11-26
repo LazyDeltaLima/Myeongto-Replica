@@ -636,7 +636,6 @@
   ],
   "bond-investShip-high": [
    "- spawn enemy_dwlock_attack_hit_01 → ally",
-   "- spawn enemy_dwlock_skill_line_01",
    "- spawn etlchi_skill_03_ghosting_01 → enemy",
    "- spawn etlchi_skill_03_line_01 → enemy",
    "- spawn ulpia_skill_03_range_01 → enemy",

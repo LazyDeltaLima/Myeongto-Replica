@@ -4677,6 +4677,11 @@ CN 11-08 갱신으로 바뀐 이펙트 번들 중 우리 추출물(EN)이 있는
   `RangedAttack.OnCastEnd`가 투사체를 지움) 이펙트를 `FinishMe`로 끝낸다(서서히 사라짐). 재즈 연주가는 `_spawnOnSource` 1, 정예 캐스터는 0.
 - 우리: 시뮬의 채널 시작 fx `enemySkill` { `tgt`, `dur` 또는 `hold` }에서 `fxgame.js elassoStart`가 그 줄을 그리고(`startLine`: 첫 점
   = 적의 `proj.mount` 점, 둘째 점 = `proj.speed`로 뻗는 머리 → 대상의 HIT 점), 시전이 끝나면(`enemySkillEnd`, 끊긴 `deathEyeEnd`) 그때 사라지게 한다.
+  줄은 투사체가 나갈 때 뜬다(2026-11-26, `fxgame.js elinkLead`): 채널 기록(데이터 `skillCast.*`, 시전 자신 또는 순차 묶음의 첫 자식)이 공격 이벤트를 안
+  기다리고(`wait` 0) 투사체를 쏘면 그 `_preDelay`(`pre`) 뒤 — 정예 캐스터 `LineAttack` 0.6초, 시뮬 `castStrikeAt`과 같은 값이라 줄 머리가 속도 8로 대상에
+  닿는 때가 시뮬의 연결(`beam` `deathEye`)이다. 그 전에 시전이 끝나거나(기절 등 → `enemySkillEnd`) 적이 쓰러지면 줄은 안 나간다. 재즈 연주가 `fire`는
+  `wait`가 없어 시전 시작 그대로. 이전: 키트 `fire`가 시작에 대상을 돌려줘 정예 캐스터 줄도 시전 시작에 떴다. 재발 방지: `test/render/eskill-lasso.test.js`
+  「萨卡兹王庭军精锐术师」 두 경우(0.6초에 나가 연결 때 닿음, 0.6초 전 기절이면 줄 없음).
   두 스킬은 엔진의 시전이 알린다(2026-11-15, `content/enemies.js castSkill`: 채널이 `_waitForAttachFinishEvent`라 `hold` 1, 대상은 키트 `fire`가 돌려준 것,
   끝은 투사체가 사라져 시전이 끝날 때 `chanEnd` — sim.md 「투사체 채널 스킬은 채널 동안 시전이다」; 전에는 키트 `castFx`가 `dur`·`tgt`를 실었다). `hold`인
   줄의 상한은 `ESKILL_HOLD_CAP`(40초). 추출기
