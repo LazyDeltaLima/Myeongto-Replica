@@ -684,8 +684,10 @@
 .btn.exitm__restart:not(:disabled) { border-color: rgba(255, 198, 0, .55); color: var(--gold); }
 
 /* ---- the in-match 重新开始 vote (ui/restartVote.js): one line under the bond strip, the briefing's 「…提议重新抽取」 gold;
-   a person per voter in the official stage-info icons painted gold (masks of img_player_bg / img_player_confirmed) -- */
-.gm__hud > .rvote { position: absolute; z-index: 6; top: 1.98rem; left: 50%; transform: translateX(-50%); display: flex; align-items: center;
+   a person per voter in the official stage-info icons painted gold (masks of img_player_bg / img_player_confirmed).
+   The start steps' 返回等待室 vote hangs under their header (css/screens/briefing.css .stephead > .rvote) -- */
+.gm__hud > .rvote { position: absolute; z-index: 6; top: 1.98rem; left: 50%; transform: translateX(-50%); }
+.rvote { display: flex; align-items: center;
   gap: .12rem; height: max(.46rem, 30px); max-width: calc(100% - .4rem); padding: 0 .06rem 0 .14rem; overflow: hidden;
   background: linear-gradient(var(--gold-a20), var(--gold-a20)), rgba(12, 15, 14, .94); border: 1px solid rgba(255, 198, 0, .45);
   color: var(--text-hi); box-shadow: 0 .06rem .24rem rgba(0, 0, 0, .55); white-space: nowrap; }

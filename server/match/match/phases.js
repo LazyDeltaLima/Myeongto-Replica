@@ -58,7 +58,8 @@ export class MatchPhases {
    * @this {Match}
    */
   maybeEndInfo(timeout = false) {
-    if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome) return;
+    // a passed waiting-room vote (restart.js) ends the match on the next tick: no reroll, no draft before it
+    if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome || this.restartOutcome) return;
     const voters = this.order.filter((p) => !p.isBot && !p.left && !p.botControlled);
     if (voters.length && voters.every((p) => p.infoReroll)) {
       this.setDeadline(0);
@@ -83,7 +84,7 @@ export class MatchPhases {
    */
   voteReroll(ps, cancel = false) {
     if (!this.ruleset.options.infoReroll) return fail(ERR.BAD_TARGET, 'the ruleset has no reroll vote');
-    if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome) return fail(ERR.WRONG_PHASE);
+    if (this.phase !== PHASE.INFO_CHECK || this.ended || this.infoOutcome || this.restartOutcome) return fail(ERR.WRONG_PHASE);
     if (!Array.isArray(this.infoRerollers)) this.infoRerollers = [];
     if (cancel) {
       if (!ps.infoReroll) return OK;

@@ -108,4 +108,43 @@ describe('the restart vote banner', { skip: !ENABLED && 'set SP_E2E=1 and CHROME
     } finally { await page.close(); }
   });
 
+  // the start steps offer 返回等待室 only (maintainer decision 2026-11-26): the vote's banner hangs under the step header,
+  // inside the screen, over the step's content and clear of the header's own row
+  test('the briefing and the strategy draft: 대기실 복귀 투표 without 재시작, its banner under the step header', async () => {
+    const page = await browser.newPage();
+    const problems = [];
+    page.on('pageerror', (e) => problems.push(e.message));
+    try {
+      for (const viewport of [
+        { width: 1280, height: 720 },
+        { width: 844, height: 390, isMobile: true, hasTouch: true, isLandscape: true },
+      ]) {
+        for (const [phase, screen] of [['INFO_CHECK', '.brief'], ['BAND_DRAFT', '.stephead']]) {
+          await page.setViewport(viewport);
+          await page.goto(`${srv.url}/dev/game-mock.html?shot=1&render=fallback&phase=${phase}&lang=ko`, { waitUntil: 'domcontentloaded' });
+          await page.waitForSelector(`${screen} .exit-tile__btn`);
+          await page.click('.stephead .exit-tile__btn');
+          await page.waitForSelector('[data-testid="restart-room"]');
+          const where = `${phase} ${viewport.width}×${viewport.height}`;
+          assert.equal(await page.$('[data-testid="restart-propose"]'), null, `${where}: no 재시작 before the first round`);
+          assert.equal(await page.$eval('[data-testid="restart-room"]', (el) => el.textContent.trim()), '대기실 복귀 투표', where);
+          await page.click('[data-testid="restart-room"]');
+          await page.waitForSelector(`.stephead > ${BANNER}`);
+          await page.waitForFunction(() => !document.querySelector('.exit-modal'), { timeout: 5000 });
+          assert.equal(await page.evaluate(() => globalThis.__MOCK__.S().pub.restartVote.target), 'room', where);
+          assert.match(await page.$eval(BANNER, (el) => el.textContent), /대기실 복귀를 제안했습니다/, where);
+          const placed = await page.$eval(BANNER, (el) => {
+            const b = el.getBoundingClientRect();
+            const head = /** @type {Element} */ (el.parentElement).getBoundingClientRect();
+            const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+            return { inside: b.left >= 0 && b.right <= innerWidth && b.bottom <= innerHeight, below: b.top >= head.bottom - 0.5,
+              onTop: !!hit && el.contains(hit) };
+          });
+          assert.deepEqual(placed, { inside: true, below: true, onTop: true }, `${where}: the banner sits under the header, on top`);
+        }
+      }
+      assert.deepEqual(problems, []);
+    } finally { await page.close(); }
+  });
+
 });

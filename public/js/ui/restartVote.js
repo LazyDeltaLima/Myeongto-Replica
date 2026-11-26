@@ -1,6 +1,7 @@
 // The in-match 重新开始 vote (feat, maintainer decisions 2026-10-31; server/match/match/restart.js): proposed from the exit
 // dialog (ui/matchChrome.js ExitModal — from the first round on; the briefing has its 重新抽取, the strategy draft
-// nothing), answered on a one-line banner under the bond strip (screens/game.js): the proposer's name, a person per
+// nothing; its 返回等待室 target in the start steps too, maintainer decision 2026-11-26), answered on a one-line banner
+// under the bond strip (screens/game.js) or under the start steps' header (ui/matchChrome.js StepHeader): the proposer's name, a person per
 // voter in the official stage-info icons (ui/outer img_player_bg / img_player_confirmed, painted in the vote's gold —
 // maintainer requests 2026-10-31), the count, the seconds left, and 反对 / 同意 for a voter or 取消投票 for the proposer.
 // A seat that has answered sees the banner without buttons. The outcome comes as the server's m.toast (反对, withdrawn,
@@ -26,6 +27,9 @@ const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ')
 const RESTART_PHASES = new Set([PHASE.BATTLE_CHECK, PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.PREP, PHASE.COMBAT, PHASE.UNITE,
   PHASE.SETTLE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
 
+/** The start steps, where only the 返回等待室 vote opens (server restart.js ROOM_VOTE_START_PHASES). @type {Set<string | undefined>} */
+const ROOM_VOTE_START_PHASES = new Set([PHASE.INFO_CHECK, PHASE.BAND_DRAFT, PHASE.DIY_CHOOSE]);
+
 /**
  * The seats a restart needs (server restartVoters): humans still in and not under AI 托管, the eliminated included.
  * @param {Pub | null | undefined} pub m.public
@@ -40,6 +44,15 @@ export const restartVoters = (pub) => (Array.isArray(pub?.players) ? pub.players
  */
 export const canProposeRestart = (pub, myId) => !!pub && RESTART_PHASES.has(pub.phase) && !pub.restarted
   && restartVoters(pub).some((p) => p.playerId === myId);
+
+/**
+ * Whether the exit dialog offers 返回等待室 to `myId`: wherever 重新开始 is offered, and in the start steps as well
+ * (确认本局信息, 选择策略, 确定自选编队 — not once the briefing's 重新抽取 passed).
+ * @param {Pub | null | undefined} pub @param {string|null} myId
+ */
+export const canProposeRoomReturn = (pub, myId) => canProposeRestart(pub, myId)
+  || (!!pub && ROOM_VOTE_START_PHASES.has(pub.phase) && !pub.restarted && !pub.infoOutcome
+    && restartVoters(pub).some((p) => p.playerId === myId));
 
 /** The banner of an open vote (null without one). @param {{ pub: Pub | null | undefined, myId: string | null }} props */
 export function RestartVoteBanner({ pub, myId }) {

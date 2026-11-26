@@ -1,5 +1,6 @@
 // The in-match 重新开始 vote (feat, maintainer decisions 2026-10-31; server/match/match/restart.js): from the first round
-// on — never in the briefing (its 重新抽取) or the strategy draft — a seat proposes, every human still in and not under AI
+// on — never in the briefing (its 重新抽取) or the strategy draft; its 返回等待室 target in those start steps too, maintainer
+// decision 2026-11-26 — a seat proposes, every human still in and not under AI
 // 托管 must agree (the eliminated ones too) within RESTART_VOTE_MS; one 反对, the proposer leaving or the time running out
 // ends the vote, and the proposer waits RESTART_RETRY_MS. A passed vote ends the match with reason 'restart' and no
 // m.result (the lobby starts a new one). Any 规则 mode.
@@ -8,6 +9,7 @@ import assert from 'node:assert/strict';
 import { makeMatch } from './harness.js';
 import { PHASE, ERR } from '../../shared/constants.js';
 import { RESTART_VOTE_MS, RESTART_RETRY_MS } from '../../server/match/match/restart.js';
+import { INFO_REROLL_MIN_MS } from '../../server/match/match/phases.js';
 
 const results = (h) => [...h.sent.map(([, m]) => m), ...h.bc].filter((m) => m.t === 'm.result');
 const lastPublic = (h) => [...h.bc].reverse().find((m) => m.t === 'm.public');
@@ -145,4 +147,62 @@ test('solo room destination ends immediately without settlement; a rejected room
   assert.equal(toasts(coop, 'p_0').at(-1).msgid, '{name}反对返回等待室');
   assert.equal(restart(coop.m, 'p_0', 'propose').error, ERR.RATE);
   coop.m.dispose();
+});
+
+test('the start steps open only the waiting-room vote: 确认本局信息, 选择策略, 确定自选编队', () => {
+  const room = (m, id) => m.handle(id, { t: 'g.restart', op: 'propose', target: 'room' });
+  const h = makeMatch({ mode: 'coop', humans: 2, seed: 31 }).start();
+  const m = h.m;
+  assert.equal(m.phase, PHASE.INFO_CHECK);
+  assert.equal(restart(m, 'p_0', 'propose').error, ERR.WRONG_PHASE, '重新开始 still waits for the first round');
+  assert.deepEqual(room(m, 'p_0'), { ok: true });
+  m.flush(true);
+  assert.equal(lastPublic(h).restartVote.target, 'room');
+  assert.deepEqual(restart(m, 'p_1', 'no'), { ok: true });
+  assert.equal(h.endedCount, 0);
+  // the vote outlives a step change: proposed in the briefing, answered in the draft
+  assert.deepEqual(room(m, 'p_1'), { ok: true });
+  h.drive(() => m.phase === PHASE.BAND_DRAFT);
+  assert.equal(h.endedCount, 0);
+  assert.deepEqual(restart(m, 'p_0', 'yes'), { ok: true });
+  h.sched.advance(1);
+  assert.equal(h.endedCount, 1);
+  assert.equal(h.ended.reason, 'restart');
+  assert.equal(h.ended.target, 'room');
+  assert.equal(results(h).length, 0, 'no settlement');
+  m.dispose();
+
+  const d = makeMatch({ mode: 'solo', seed: 32 }).start();
+  d.drive(() => d.m.phase === PHASE.DIY_CHOOSE);
+  assert.equal(d.m.phase, PHASE.DIY_CHOOSE);
+  assert.equal(restart(d.m, 'p_0', 'propose').error, ERR.WRONG_PHASE);
+  assert.deepEqual(room(d.m, 'p_0'), { ok: true }, 'a single human goes back at once');
+  d.sched.advance(1);
+  assert.equal(d.ended.target, 'room');
+  assert.equal(d.m.phase, PHASE.DIY_CHOOSE, 'the round never started');
+  d.m.dispose();
+});
+
+test('the briefing: a passed 重新抽取 refuses the waiting-room vote, a passed waiting-room vote refuses 重新抽取 and the draft', () => {
+  const room = (m, id) => m.handle(id, { t: 'g.restart', op: 'propose', target: 'room' });
+  const a = makeMatch({ ruleset: 'casual', mode: 'coop', humans: 2, seed: 33 }).start();
+  a.sched.advance(INFO_REROLL_MIN_MS);
+  assert.deepEqual(a.m.handle('p_0', { t: 'g.infoReroll' }), { ok: true });
+  assert.deepEqual(a.m.handle('p_1', { t: 'g.infoReroll' }), { ok: true });
+  assert.equal(room(a.m, 'p_0').error, ERR.WRONG_PHASE);
+  a.sched.advance(1);
+  assert.equal(a.ended.reason, 'reroll');
+  a.m.dispose();
+
+  const b = makeMatch({ ruleset: 'casual', mode: 'coop', humans: 2, seed: 34 }).start();
+  b.sched.advance(INFO_REROLL_MIN_MS);
+  for (const id of ['p_0', 'p_1']) b.m.handle(id, { t: 'g.infoReady' });
+  assert.equal(b.m.phase, PHASE.INFO_CHECK, 'the draft starts on the next tick');
+  assert.deepEqual(room(b.m, 'p_0'), { ok: true });
+  assert.deepEqual(restart(b.m, 'p_1', 'yes'), { ok: true });
+  assert.equal(b.m.handle('p_1', { t: 'g.infoReroll' }).error, ERR.WRONG_PHASE);
+  b.sched.advance(1);
+  assert.equal(b.endedCount, 1);
+  assert.equal(b.ended.target, 'room');
+  b.m.dispose();
 });

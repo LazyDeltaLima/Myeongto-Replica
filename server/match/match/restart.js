@@ -1,6 +1,7 @@
 // server/match/match/restart.js — Match methods: the in-match 重新开始 vote (feat, maintainer decision 2026-10-31; the
 // official mode has none): a seat proposes, every voter must agree within RESTART_VOTE_MS, and the match ends for a new
-// one that starts at the briefing with a new seed, or returns to the waiting room (maintainer decision 2026-11-18).
+// one that starts at the briefing with a new seed, or returns to the waiting room (maintainer decision 2026-11-18). The
+// waiting-room vote also opens in the start steps — 确认本局信息, 选择策略, 确定自选编队 (maintainer decision 2026-11-26).
 // Restart uses the lobby path of the briefing's 重新抽取 (phases.js _endInfo,
 // server/lobby.js onMatchEnd).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
@@ -19,8 +20,14 @@ export const RESTART_RETRY_MS = 60000;
 
 /** The phases a restart can be proposed in: from the first round on — never the briefing (重新抽取) or the draft. */
 /** @type {Set<string>} */
-const RESTART_PHASES = new Set([PHASE.BATTLE_CHECK, PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.PREP, PHASE.COMBAT, PHASE.UNITE,
+export const RESTART_PHASES = new Set([PHASE.BATTLE_CHECK, PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.PREP, PHASE.COMBAT, PHASE.UNITE,
   PHASE.SETTLE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE]);
+/**
+ * The start steps, where only the waiting-room vote opens (maintainer decision 2026-11-26): the way back to the room
+ * before the first round; a new match there stays the briefing's 重新抽取.
+ * @type {Set<string>}
+ */
+export const ROOM_VOTE_START_PHASES = new Set([PHASE.INFO_CHECK, PHASE.BAND_DRAFT, PHASE.DIY_CHOOSE]);
 
 export class MatchRestart {
   /**
@@ -38,16 +45,19 @@ export class MatchRestart {
    * 'yes' / 'no' answer it, 'cancel' takes the
    * proposer's back. One 'no' ends the vote at once; so do the proposer leaving and the time running out. Every voter
    * agreeing ends the match (_endRestart) — at once when the proposer is the only voter (solo, or AI teammates only).
-   * Any 规则 mode (maintainer decision 2026-10-31: a convenience, unlike the 休闲-only 重新抽取).
+   * Any 规则 mode (maintainer decision 2026-10-31: a convenience, unlike the 休闲-only 重新抽取). Target 'room' opens in
+   * the start steps too (ROOM_VOTE_START_PHASES), not while the briefing's 重新抽取 has passed (infoOutcome).
    * @param {PlayerState} ps @param {'propose' | 'yes' | 'no' | 'cancel'} op @param {'restart' | 'room'} [target]
    * @this {Match}
    */
   voteRestart(ps, op, target = 'restart') {
-    if (this.ended || this.restartOutcome) return fail(ERR.WRONG_PHASE);
+    if (this.ended || this.restartOutcome || this.infoOutcome) return fail(ERR.WRONG_PHASE);
     if (ps.isBot || ps.left || ps.botControlled) return fail(ERR.BAD_TARGET, 'not a voter');
     const v = this.restartVote;
     if (op === 'propose') {
-      if (!RESTART_PHASES.has(this.phase)) return fail(ERR.WRONG_PHASE, 'restart opens from the first round');
+      if (!RESTART_PHASES.has(this.phase) && !(target === 'room' && ROOM_VOTE_START_PHASES.has(this.phase))) {
+        return fail(ERR.WRONG_PHASE, target === 'room' ? 'no waiting-room vote in this phase' : 'restart opens from the first round');
+      }
       if (v) return fail(ERR.WRONG_PHASE, 'a restart vote is open');
       const until = this.restartRetryAt?.get(ps.playerId) ?? 0;
       if (this.sched.now() < until) return fail(ERR.RATE, 'restart proposed too recently');

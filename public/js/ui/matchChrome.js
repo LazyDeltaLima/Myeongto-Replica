@@ -4,7 +4,8 @@
 // 暂离 (co-op): turns on AI 托管 (g.autoplay on) so the seat keeps playing; the overlay's 返回模拟 turns it
 // off. 放弃模拟: g.leave then room.leave (the platform treats it as a quit), back to the lobby. 重新开始 (from the first
 // round on, any 规则 mode — maintainer decisions 2026-10-31): a single human restarts at once, co-op opens the vote
-// (发起重新开始投票; ui/restartVote.js, server/match/match/restart.js).
+// (发起重新开始投票; ui/restartVote.js, server/match/match/restart.js). 返回等待室 the same way, and in the start steps
+// too (maintainer decision 2026-11-26): there the vote's banner sits under StepHeader.
 
 import { useState } from '../../vendor/hooks.module.js';
 import { html, Button, Modal, PingPill, DifficultyTag, Countdown, MicroLabel, Icon, gradeName } from './components.js';
@@ -19,7 +20,7 @@ import { GuideButton } from './guide.js';
 import { countdownWarnAt } from './gameLogic.js';
 import { audio } from '../audio.js';
 import { recordQuit } from './stats.js';
-import { canProposeRestart, restartVoters } from './restartVote.js';
+import { canProposeRestart, canProposeRoomReturn, restartVoters, RestartVoteBanner } from './restartVote.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 import { resolveRuleset, PRESET_LABELS } from '../../../shared/ruleset.js';
 import { DEFAULT_SEASON, seasonOf, modeGrade } from '../../../shared/seasons.js';
@@ -39,6 +40,12 @@ export const EXIT_TEXT = Object.freeze({
 /** Local patch: no 暂离（AI 托管） in the exit dialog — a player who leaves gives up the seat (放弃模拟 only). */
 const AWAY_OPTION = false;
 
+/** @import { Pub } from './gameLogic/shared.js' */
+/** @typedef {{ match?: { public?: unknown, result?: unknown } | null } | null | undefined} AwayState the store fields awayEnds reads */
+
+/** A request error's code (net.request rejects with `{ code }`). @param {unknown} err */
+const errCode = (err) => (err && typeof err === 'object' && 'code' in err ? err.code : undefined);
+
 /** Local "暂离 / AI 托管" flag (the server keeps no per-client autoplay view). */
 export const awayStore = createStore({ away: false });
 
@@ -46,8 +53,8 @@ export const awayStore = createStore({ away: false });
  * Whether a store change ends the match the 暂离 flag belongs to: its state was cleared (result → 返回同盟, 放弃模拟, a
  * new match starting, the room closing, a new server session) or its settlement arrived. The next match must never
  * open under the previous one's "AI 托管中" overlay (the server starts every match with autoplay off).
- * @param {any} s store state
- * @param {any} prev previous store state
+ * @param {AwayState} s store state
+ * @param {AwayState} prev previous store state
  */
 export const awayEnds = (s, prev) => (!!prev?.match?.public && !s?.match?.public) || (!!s?.match?.result && !prev?.match?.result);
 store.subscribe((s, prev) => { if (awayStore.get().away && awayEnds(s, prev)) awayStore.set({ away: false }); });
@@ -63,14 +70,14 @@ export async function quitMatch() {
   const before = store.get();
   let left = false;
   try {
-    try { await net.request('g.leave', {}); left = true; } catch (/** @type {any} */ err) {
-      if (err?.code === 'NOT_IN_ROOM') left = true;
-      else if (err?.code !== 'WRONG_PHASE') throw err;
+    try { await net.request('g.leave', {}); left = true; } catch (err) {
+      if (errCode(err) === 'NOT_IN_ROOM') left = true;
+      else if (errCode(err) !== 'WRONG_PHASE') throw err;
     }
     // g.leave already removes the member (server/lobby.js routeGame); only a room without a running match
     // (WRONG_PHASE) needs room.leave, and a redundant request cannot revoke an acknowledged departure (upstream PR #879)
     if (!left) {
-      try { await net.request('room.leave', {}); } catch (/** @type {any} */ err) { if (err?.code !== 'NOT_IN_ROOM') throw err; }
+      try { await net.request('room.leave', {}); } catch (err) { if (errCode(err) !== 'NOT_IN_ROOM') throw err; }
       left = true;
     }
   } catch (err) {
@@ -114,6 +121,8 @@ export function ExitModal({ open, onClose, solo, onAway }) {
   const pub = useStore((s) => s.match.public);
   const myId = useStore((s) => s.me.playerId);
   const restartOn = !spectator && canProposeRestart(pub, myId);
+  // 返回等待室 also in the start steps, where 重新开始 is not offered (maintainer decision 2026-11-26)
+  const roomOn = !spectator && canProposeRoomReturn(pub, myId);
   // a single human (solo, or AI teammates only) restarts at once; co-op proposes the vote
   const alone = restartVoters(pub).length <= 1;
   const voteOpen = !!pub?.restartVote;
@@ -151,13 +160,13 @@ export function ExitModal({ open, onClose, solo, onAway }) {
     actions=${html`
       <${Button} variant="secondary" onClick=${onClose}>${t('取消')}<//>
       ${!solo && AWAY_OPTION ? html`<${Button} variant="ice" icon="robot" loading=${busy === 'away'} onClick=${away}>${t('暂离（AI 托管）')}<//>` : null}
-      ${restartOn ? html`<${Button} variant="secondary" data-testid="restart-room" loading=${busy === 'room'}
+      ${roomOn ? html`<${Button} variant="secondary" data-testid="restart-room" loading=${busy === 'room'}
         disabled=${voteOpen} onClick=${restart('room')}>${alone ? t('返回等待室') : t('发起返回等待室投票')}<//>` : null}
       ${restartOn ? html`<${Button} variant="secondary" icon="refresh" class="exitm__restart" data-testid="restart-propose" loading=${busy === 'restart'}
         disabled=${voteOpen} title=${voteOpen ? t('重新开始投票进行中') : null} onClick=${restart('restart')}>${alone ? t('重新开始') : t('发起重新开始投票')}<//>` : null}
       <${Button} variant="danger" icon="exit" loading=${busy === 'quit'} onClick=${quit}>${t('放弃模拟')}<//>`}>
     <div class="exitm">
-      ${restartOn ? html`<p>${alone ? t('返回等待室：结束本局，保留房间与席位，不进行结算。') : t('返回等待室：全员同意后结束本局，保留房间与席位，不进行结算。')}</p>` : null}
+      ${roomOn ? html`<p>${alone ? t('返回等待室：结束本局，保留房间与席位，不进行结算。') : t('返回等待室：全员同意后结束本局，保留房间与席位，不进行结算。')}</p>` : null}
       ${solo
         ? html`<p>${t(EXIT_TEXT.soloRest)}</p>
                ${restartOn ? html`<p>${tParts(EXIT_TEXT.restartAlone, { restart: html`<b class="t-gold">${t('重新开始')}</b>` })}</p>` : null}
@@ -255,7 +264,7 @@ export function stepHeadArt(step, difficulty, season) {
  * the divider | (规程) the theme's character and the speech bubble 「n/N title」 / (盟约) 「n/N title」. The 本局信息
  * button the official bars put between the plate and the divider is left out (maintainer decision 2026-11-18). Without
  * the plate's picture, the difficulty tag. Positions and sizes in prefab units (css/screens/briefing.css .stephead__chain).
- * @param {{ step: number, of: number, title: string, pub: any, season?: unknown }} props
+ * @param {{ step: number, of: number, title: string, pub: Pub | null | undefined, season?: unknown }} props
  */
 export function StepChain({ step, of, title, pub, season = data.season() }) {
   const rules = resolveRuleset(pub?.ruleset);
@@ -286,11 +295,13 @@ export function StepChain({ step, of, title, pub, season = data.season() }) {
  * Pre-game step header: the exit tile, the left chain (StepChain), the 玩法说明 button and the countdown. The countdown
  * turns orange at the step's official warning time and plays the countdown cue then (gameLogic countdownWarnAt:
  * 确认本局信息 5 s, 选择策略 15 s; maintainer decision 2026-10-14).
- * @param {{ step: number, of: number, title: string, pub: any, total?: number|null, config?: any,
+ * An open 返回等待室 vote (ui/restartVote.js) hangs under the header, centred (maintainer decision 2026-11-26).
+ * @param {{ step: number, of: number, title: string, pub: Pub | null | undefined, total?: number|null, config?: unknown,
  *   onExit: Function }} props config: data/config.json (the steps' warning times)
  */
 export function StepHeader({ step, of, title, pub, total, config = null, onExit }) {
   const conn = useStore((s) => s.connection, shallowEqual);
+  const myId = useStore((s) => s.me.playerId);
   return html`<header class="stephead">
     <div class="stephead__left">
       <${ExitTile} onClick=${onExit} label=${t('离开')} ping=${conn.ping} online=${conn.status === 'online'} />
@@ -300,5 +311,6 @@ export function StepHeader({ step, of, title, pub, total, config = null, onExit 
       <${GuideButton} class="stephead__guide" variant="secondary" />
       <${Countdown} deadline=${pub?.deadline} total=${total ?? undefined} warnAt=${countdownWarnAt(pub, config)} onWarn=${timerCue} size="md" />
     </div>
+    <${RestartVoteBanner} pub=${pub} myId=${myId} />
   </header>`;
 }

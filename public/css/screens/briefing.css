@@ -24,6 +24,9 @@
 .stephead__left { align-self: stretch; display: flex; align-items: center; min-width: 0; }
 .stephead__right { justify-self: end; display: flex; align-items: center; gap: .24rem; }
 .stephead__right .countdown { --cd-h: .64rem; }
+/* the start steps' 返回等待室 vote (ui/restartVote.js; its look: css/screens/game.css .rvote): under the header, centred,
+   over the step's content (maintainer decision 2026-11-26) */
+.stephead > .rvote { position: absolute; z-index: 8; top: calc(100% + .1rem); left: 50%; transform: translateX(-50%); }
 
 /* The left chain after the exit tile (js/ui/matchChrome.js StepChain; the official stage-info panel_top and the 选择策略 /
    3/3 bars' group_game_info, 1280×720 prefab units times --eu, the exit tile's unit). It spans the header's height and
