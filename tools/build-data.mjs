@@ -2779,7 +2779,13 @@ function enemyAttackAnim(manifest, spineId, timing = null, own = false) {
   const h = sp.hits?.[clip];
   const hit = Array.isArray(h) && Number.isFinite(h[0]) ? Math.min(dur, Math.max(0, h[0])) : null;
   // (`det` 1: a mode switch that detaches this ability cuts its swing — `_interruptAbilityOnDetach`, ai.js enemyMode)
-  return { clip, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(timing), ...(timing?.det === 1 ? { det: 1 } : {}) };
+  return {
+    clip, dur, ...(hit != null ? { hit } : {}), ...abilityTiming(timing), ...(timing?.det === 1 ? { det: 1 } : {}),
+    // a normal attack that is a three-part channel (attack_timing.py `chan`, its ability's name `ab`: “喷射罐”'s Flame) —
+    // `chan` { ability, begin, loop, end, down?, up? }, played as the kit's fx 'enemySkill' names that ability
+    // (render/units.js onEnemySkill)
+    ...(timing?.chan && typeof timing.chan === 'object' && typeof timing.ab === 'string' && timing.ab ? { chan: { ability: timing.ab, ...timing.chan } } : {}),
+  };
 }
 
 /**

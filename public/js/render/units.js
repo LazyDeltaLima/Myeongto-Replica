@@ -509,32 +509,22 @@ export const SKIN_FORMS = Object.freeze({ enemy_10159_mntrjn: Object.freeze({ ha
 /**
  * 2026-11-12 (docs/rules/fx.md 「규정 수배 카드 적」·「규정 살카즈 후예 무리」): the enemy ability clips the data does not give the
  * view yet, per Spine id: ability (the sim's fx 'enemySkill' { id, ability }) → clip (the prefab's Skills/<ability> clip, the
- * effect binding's `anim` in enemy-modes.json). A skill's three-part channel is not here: the view plays its data record
- * (data/enemies.json `skillCast.*.chan`, UnitView.onEnemySkill — 2026-11-15). What stays:
- * - one clip once from the cast (SpineActor.chant: the attacks meanwhile play no attack clip; a stun or death cuts it):
- *   破城者's SkyProjectile fires its three missiles inside its one F_Skill, not an attack clip each; 萨卡兹子裔责罚者 / 惩戒者
- *   strike their StunAttack in Skill. The other one-clip skills of `skillCast.*.clip` play none yet (a sweep of whether the
- *   sim casts each and whether FORMS or the attack clip already draws it is the open line of 묶음 fx-F, 「한 클립 전수」);
- * - a channel that is the enemy's normal attack, sent by its kit with its `dur` (“喷射罐” / “喷爆罐”'s Flame, 4 s ≥ 0.6 +
- *   0.267): the attack ability sits at `Body/Flame`, which tools/local-extract/attack_timing.py does not read (it looks
- *   for Body/Attack and Body/Combat), so the data has no `chan` for it.
- * An object is a channel as the data's: `_default` begin / loop / end, `_down` / `_up` when the enemy faces DOWN / UP as it
- * casts (`_GetAnimBundle`).
+ * effect binding's `anim` in enemy-modes.json) — one clip once from the cast (SpineActor.chant: the attacks meanwhile play no
+ * attack clip; a stun or death cuts it): 破城者's SkyProjectile fires its three missiles inside its one F_Skill, not an
+ * attack clip each; 萨卡兹子裔责罚者 / 惩戒者 strike their StunAttack in Skill. The other one-clip skills of
+ * `skillCast.*.clip` play none yet (a sweep of whether the sim casts each and whether FORMS or the attack clip already draws
+ * it is the open line of the enemy mode clips work, 「한 클립 전수」). A three-part channel is not here: the view plays the
+ * data's (UnitView.onEnemySkill) — a skill's `skillCast.*.chan` (2026-11-15), a normal attack's `attackAnim.chan` (“喷射罐” /
+ * “喷爆罐”'s Flame, sent by its kit with its `dur`: the ability its mode's `_attack` points at, tools/local-extract/
+ * attack_timing.py mode_channels).
  */
-const WINBOM_FLAME = Object.freeze({
-  begin: 'Attack_Begin', loop: 'Attack_Loop', end: 'Attack_End',
-  down: Object.freeze({ begin: 'Skill_Down_Begin', loop: 'Skill_Down_Loop', end: 'Skill_Down_End' }),
-  up: Object.freeze({ begin: 'Skill_Up_Begin', loop: 'Skill_Up_Loop', end: 'Skill_Up_End' }),
-});
 /** @type {Readonly<Record<string, Readonly<Record<string, EnemySkillClip>>>>} */
 export const ESKILL_CLIPS = Object.freeze({
   enemy_10123_uareap: Object.freeze({ SkyProjectile: 'F_Skill' }),
   enemy_1362_dfat: Object.freeze({ StunAttack: 'Skill' }),
   enemy_1362_dfat_2: Object.freeze({ StunAttack: 'Skill' }),
-  enemy_1385_winbom: Object.freeze({ Flame: WINBOM_FLAME }),
   // 复核洋流使者's skill 1 (eating a 赘生甲壳): AnimatedActionToTargetAbility `_animKey` Skill, `_timeMode` 1 (the clip, 2.6 s)
   enemy_1438_dspred: Object.freeze({ 1: 'Skill' }),
-  enemy_1385_winbom_2: Object.freeze({ Flame: WINBOM_FLAME }),
 });
 /**
  * The longest a channel waiting for its ability's attack-finish event loops (ThreePartChannelingAnimation
@@ -993,6 +983,7 @@ function bar(P, parent, color, alpha = 1) {
  *   [key: string]: unknown }} UnitInfo a view's unit as app.js hands it (UnitInfo, a prep piece's info, a pen figure)
  * @typedef {{ modelScale?: unknown, modelScaleY?: unknown, mirrorX?: unknown, giantBoss?: { sx?: unknown, off?: unknown } | null,
  *   stats?: { moveSpeed?: unknown, bat?: number, aspd?: number } | null, skillCast?: Record<string, SkillCast | undefined> | null,
+ *   attackAnim?: { chan?: EnemySkillChan | null, [key: string]: unknown } | null,
  *   [key: string]: unknown }} UnitDef a unit's data record (app.js lookupDef: data/enemies.json, the chess / token tables)
  * @typedef {SpineEntry & { fallback?: unknown, local?: unknown }} ViewEntry a manifest Spine entry as a view loads it:
  *   `fallback` the optional local-client model's entry, `local` from it
@@ -1050,7 +1041,8 @@ function bar(P, parent, color, alpha = 1) {
  * @typedef {{ change?: string | null, roles: SpineRoles }} TokenMode a manifest token mode (anims `tmodes[name]`)
  * @typedef {{ lift: number, high?: number, highSkill?: number }} LiftHeight
  * @typedef {{ begin?: string | null, loop?: string | null, end?: string | null }} ChanPart
- * @typedef {ChanPart & { down?: ChanPart | null, up?: ChanPart | null }} EnemySkillChan an enemy ability's three-part channel
+ * @typedef {ChanPart & { down?: ChanPart | null, up?: ChanPart | null, ability?: string }} EnemySkillChan an enemy ability's three-part channel
+ *   (`ability`: the ability it is, on a normal attack's `attackAnim.chan`)
  * @typedef {string | EnemySkillChan} EnemySkillClip an ability's clip once, or its channel (ESKILL_CLIPS)
  * @typedef {{ chan?: EnemySkillChan | null, subs?: unknown, [key: string]: unknown }} SkillCast a data `skillCast.*` record
  */
@@ -2005,7 +1997,8 @@ export class UnitView {
   /**
    * 2026-11-12: an enemy ability cast now (the sim's fx 'enemySkill' { id, ability, dur?, hold? }; `late` = game s the fx is
    * shown late; `o`: { dur: its channel's game s, hold: it lasts until its 'enemySkillEnd', aim: { x, y } of its target }):
-   * its three-part channel — the data's (`skillCast.*.chan` of the enemy's record, 2026-11-15), else ESKILL_CLIPS' — over
+   * its three-part channel — the data's (`skillCast.*.chan` of the enemy's record, 2026-11-15; `attackAnim.chan` when the
+   * ability is its normal attack) — over
    * `dur` (or held) in the way it faces `aim` (within 0.2 tiles of `aim`, the way it last walked), or its own clip once
    * (ESKILL_CLIPS), unless that would have ended already. True when it plays.
    * @param {unknown} ability @param {number} [late] @param {{ dur?: unknown, hold?: unknown, aim?: { x: number, y: number } | null } | null} [o]
@@ -2013,7 +2006,10 @@ export class UnitView {
   onEnemySkill(ability, late = 0, o = null) {
     if (!this.isEnemy || !this.alive || !this.actor) return false;
     const def = this.ctx.lookupDef ? this.ctx.lookupDef(this.info) : null;
-    const spec = chanOf(def?.skillCast?.[String(ability).toLowerCase()]) || ESKILL_CLIPS[this.info.spine || this.info.defId]?.[/** @type {string} */ (ability)];
+    // (a normal attack that is a channel: the data's `attackAnim.chan`, named by its ability — “喷射罐”'s Flame)
+    const ac = def?.attackAnim?.chan;
+    const spec = chanOf(def?.skillCast?.[String(ability).toLowerCase()]) || (ac && ac.ability === ability && typeof ac.loop === 'string' ? ac : null)
+      || ESKILL_CLIPS[this.info.spine || this.info.defId]?.[/** @type {string} */ (ability)];
     if (!spec) return false;
     if (typeof spec === 'string') {
       if (!this.actor.has(spec)) return false;

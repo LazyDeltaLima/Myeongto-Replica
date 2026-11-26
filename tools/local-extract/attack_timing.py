@@ -234,15 +234,45 @@ def mode_renamer(tree, p):
     return lambda ab: {**ab, 'anim': ren(ab['anim']), **({'turn': ren(ab['turn'])} if isinstance(ab.get('turn'), str) else {})} if ab and ab.get('anim') else ab
 
 
-def enemy_mode_abilities(cands, renamed=lambda ab: ab):
+def mode_channels(sub, base):
+    """{'attack' / 'combat': (path relative to mode GameObject `base`, its channel)} of the abilities its UnitMode's
+    `_attack` / `_combat` point at (the abilities the client attaches as the mode's attacks) when such an ability sits below
+    `base` in the same file with a three-part channel on its GameObject (chan_fields) — “喷射罐”'s normal attack is
+    `Body/Flame`, a channel, which the names `Body/Attack` / `Body/Combat` do not find. Both pointing at the same ability:
+    'attack' only (one ability, one cooldown — two records would be a separate `combat` ability).
+    Only channels for now: following the pointers for every enemy adds or changes the rows of about 80 more (a `_combat`
+    that is the attack ability, abilities under other names) — the open line of the sim work, not read here."""
+    by_pid = {pid: gp for gp, _, pid in sub}
+    um = next((d for gp, d, _ in sub if gp == base and (isinstance(d.get('_attack'), dict) or isinstance(d.get('_combat'), dict))), None)
+    out, seen = {}, set()
+    for key in ('attack', 'combat'):
+        ref = (um or {}).get('_' + key) or {}
+        pid = ref.get('m_PathID') if not ref.get('m_FileID') else None
+        gp = by_pid.get(pid) if pid else None
+        if not gp or not gp.startswith(base + '/') or pid in seen:
+            continue
+        seen.add(pid)
+        ch = chan_fields([d for g, d, _ in sub if g == gp])
+        if ch:
+            out[key] = (gp[len(base) + 1:], ch)
+    return out
+
+
+def enemy_mode_abilities(cands, renamed=lambda ab: ab, chans=None):
     """{combat, attack} of an enemy mode's animated abilities (under(): `Body/Combat`, `Body/Attack`, else the first child of
-    either), their clips renamed by the mode's `_replaceAnimPairs` (`renamed`: mode_renamer)."""
+    either; else the channel ability the mode's `_combat` / `_attack` points at — `chans`, mode_channels), their clips renamed
+    by the mode's `_replaceAnimPairs` (`renamed`: mode_renamer). An ability found through its pointer carries its channel
+    (`chan`, the clips; with `wait` 1 its loop lasts until the attack-finish event) and its GameObject's name (`ab`: the
+    ability its kit names in the fx 'enemySkill' it sends the view — “喷射罐” `Flame`)."""
     e = {}
-    for key, names in (('combat', ('Body/Combat', 'Combat')), ('attack', ('Body/Attack', 'Attack'))):
-        a = next((cands[n] for n in names if n in cands), None)
-        if a is None:
-            sub_names = sorted(r for r in cands if any(r.startswith(n + '/') and '/' not in r[len(n) + 1:] for n in names))
-            a = cands[sub_names[0]] if sub_names else None
+    found = lambda names: next((cands[n] for n in names if n in cands), None) or next(
+        (cands[r] for r in sorted(cands) if any(r.startswith(n + '/') and '/' not in r[len(n) + 1:] for n in names)), None)
+    by_name = {key: found(names) for key, names in (('combat', ('Body/Combat', 'Combat')), ('attack', ('Body/Attack', 'Attack')))}
+    for key in ('combat', 'attack'):
+        a = by_name[key]
+        if a is None and not any(by_name.values()) and key in (chans or {}) and chans[key][0] in cands:
+            rel, ch = chans[key]
+            a = {**cands[rel], 'chan': ch, 'ab': rel.rsplit('/', 1)[-1]}
         if a is not None:
             e[key] = renamed(a)
     return e
@@ -335,7 +365,7 @@ def enemy_entries(path, wanted):
             # no `_modes` list: the first GameObject holding a Body (enemy_1001_bigbo/Default/Body/Combat)
             bodies = sorted({gp.rsplit('/Body/', 1)[0] for gp, _, _ in sub if '/Body/' in gp})
             base = bodies[0] if bodies else root
-        e = enemy_mode_abilities(under(sub, base), mode_renamer(sub, base))
+        e = enemy_mode_abilities(under(sub, base), mode_renamer(sub, base), mode_channels(sub, base))
         empty = empty_attack(sub, base)
         if empty:
             e['emptyAttack'] = empty
@@ -344,7 +374,7 @@ def enemy_entries(path, wanted):
         # abilities as the first mode's, {} = none}
         if modes and len(modes) > 1:
             e['mode0'] = modes[0].split('/')[-1] if modes[0] else '?'
-            e['modes'] = {p.split('/')[-1]: enemy_mode_abilities(under(sub, p), mode_renamer(sub, p)) for p in modes[1:] if p}
+            e['modes'] = {p.split('/')[-1]: enemy_mode_abilities(under(sub, p), mode_renamer(sub, p), mode_channels(sub, p)) for p in modes[1:] if p}
         sk = enemy_skills(sub, modes)
         if sk:
             e['skills'] = sk

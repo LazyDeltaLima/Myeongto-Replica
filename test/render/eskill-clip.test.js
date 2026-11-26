@@ -2,8 +2,9 @@
 // 「규정 살카즈 후예 무리」): the sim's fx 'enemySkill' { id, ability } plays the ability's clip once (render/units.js ESKILL_CLIPS
 // → SpineActor.chant), and the attacks meanwhile play no attack clip — 破城者's SkyProjectile fires its three missiles ('atk'
 // uareapMissile) inside its one F_Skill (it played F_Attack for each); 萨卡兹子裔责罚者 / 惩戒者 strike StunAttack in Skill;
-// “喷射罐”'s Flame is a three-part channel over the fx's `dur`, in the way it faces its target `tgt`. A skill's three-part
-// channel comes from the data (2026-11-15, docs/rules/sim.md 「투사체 채널 스킬은 채널 동안 시전이다」): the engine's cast
+// “喷射罐”'s Flame — its normal attack, the ability its mode's `_attack` points at — is a three-part channel over the fx's `dur`,
+// in the way it faces its target `tgt`, from the data's `attackAnim.chan` (tools/local-extract/attack_timing.py
+// mode_channels; no hand table). A skill's three-part channel comes from the data (2026-11-15, docs/rules/sim.md 「투사체 채널 스킬은 채널 동안 시전이다」): the engine's cast
 // (content/enemies.js castSkill) sends `dur` = the ability's time or `hold` (`_waitForAttachFinishEvent`, closed by the
 // cast's 'enemySkillEnd'), the view plays `skillCast.*.chan` of the enemy's record.
 // Real kits and real manifest entries, headless fake PIXI.
@@ -151,6 +152,9 @@ function field(key, walls, pos) {
 test('“喷射罐” (real kit): its Flame channel over the fx\'s `dur` — Attack_Begin → Attack_Loop → Attack_End, Skill_Down_* at a target below; its hits play no attack clip', async () => {
   const WINBOM = 'enemy_1385_winbom';
   const A = assets.enemies[WINBOM].spine.animations;
+  const def = getData({ log: quiet, season: 'act3autochess' }).enemies[WINBOM];
+  assert.equal(def.attackAnim?.chan?.ability, 'Flame', 'data: its normal attack is the Flame channel (attackAnim.chan, attack_timing.py mode_channels)');
+  assert.ok(!ESKILL_CLIPS[WINBOM], 'no hand-table row: the view plays the data\'s channel');
   for (const [walls, pos, set] of [[[[10, 7]], [10, 6], 'Attack'], [[[9, 6]], [10, 6], 'Skill_Down']]) {
     const { h, e, rec } = field(WINBOM, walls, pos);
     h.runUntil(() => rec.some(([, x]) => x[0] === 'fx' && x[1] === 'enemySkill' && x[4]?.ability === 'Flame'), 12);
@@ -159,7 +163,7 @@ test('“喷射罐” (real kit): its Flame channel over the fx\'s `dur` — Att
     assert.ok(cast[4].tgt != null, 'the sim names its target');
     h.run(4.2);
     const tgt = h.allies().find((u) => u.id === cast[4].tgt);
-    const v = await view(WINBOM, e.id, e.x, e.y);
+    const v = await view(WINBOM, e.id, e.x, e.y, def);
     assert.equal(v.onEnemySkill('Flame', 0, { dur: cast[4].dur, aim: { x: tgt.x, y: tgt.y } }), true);
     assert.equal(v.actor.current, `${set}_Begin`, `${set}: its begin`);
     let at = t0;
@@ -184,8 +188,9 @@ test('render/app.js hands each fx \'enemySkill\' to its view', () => {
 
 test('“喷射罐”: the set follows its body direction — the target\'s FOUR_WAYS axis beyond 0.2 tiles, nearer the way it last walked (or last faced)', async () => {
   const WINBOM = 'enemy_1385_winbom';
+  const def = getData({ log: quiet, season: 'act3autochess' }).enemies[WINBOM];
   const cast = async (walk, aim, uid) => {
-    const v = await view(WINBOM, uid, 8, 9);
+    const v = await view(WINBOM, uid, 8, 9, def);
     if (walk) v.sync({ x: 8, y: 9, hp: 1000, maxHp: 1000, sp: 0, spMax: 0, flags: 0, anim: 0, vx: walk[0], vy: walk[1] }, 0);
     v.sync({ x: 8, y: 9, hp: 1000, maxHp: 1000, sp: 0, spMax: 0, flags: 0, anim: 0, vx: 0, vy: 0 }, 0);   // it stops, blocked
     assert.equal(v.onEnemySkill('Flame', 0, { dur: 4, aim: aim && { x: 8 + aim[0], y: 9 + aim[1] } }), true);
