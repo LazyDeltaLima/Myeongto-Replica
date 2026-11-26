@@ -2288,9 +2288,10 @@ export async function createFieldView(host, options = {}) {
         // → its role's `signals` clip, UnitView.onSignal
         // 2026-11-12: an enemy ability cast in a clip of its own (fx 'enemySkill' { id, ability } — UnitView.onEnemySkill: a
         // skill's three-part channel from the data, render/units.js ESKILL_CLIPS for the rest) — its channel over `dur` or held
-        // (`hold`) to its 'enemySkillEnd', in the way it faces its target `tgt`
+        // (`hold`) to its 'enemySkillEnd', in the way it faces its target `tgt` — or `face`, the unit it only turns to
+        // (2026-11-26, content/enemies.js castSkill: 重弩突袭者's CrossAttack)
         if (e[1] === 'enemySkill' && e[4] && typeof e[4].ability === 'string' && e[4].id != null) {
-          const t = e[4].tgt != null ? views.get(e[4].tgt) : null;
+          const ft = e[4].face ?? e[4].tgt, t = ft != null ? views.get(ft) : null;
           views.get(e[4].id)?.onEnemySkill?.(e[4].ability, LATE.get(e) || 0, { dur: Number(e[4].dur) || 0, hold: !!e[4].hold, aim: t ? { x: t.x, y: t.y } : null });
         }
         // 2026-11-14: a channel's cast over before its `dur`, or a held one's (节日爵士乐手's 狂欢式演奏), stops it — no end clip;

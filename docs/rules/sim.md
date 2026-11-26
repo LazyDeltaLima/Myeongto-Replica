@@ -3338,7 +3338,7 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
   확인). 공식은 이 동작의 세 클립을 능력 시간(`get_cooldown`)에 맞추고(`UpdatePlaybackSpeed`: 시간 ≥ 시작+끝이면 시작·끝은 제 속도, 루프가 나머지), `_waitForAttachFinishEvent`이면 루프가
   능력의 공격 끝 신호까지(최대 360초) 이어진다(`DoPlayAnimation`; 둘 다 공식 클라에서 확인 — 민트 S2가 같은 동작). 재즈 연주가·정예 캐스터·'사미의 의지'·살카즈 후예 기술자의 채널이 그 표시를 가졌다.
   엔진이 이것을 그대로 알린다(`content/enemies.js castSkill`): 시전하는 스킬의 시전 기록(`skillCast.*`, 순차 묶음이면 그 자식)에 `chan`이 있으면 fx `enemySkill`에 `dur` = 그 능력의
-  시전 길이(`castLength` — `_timeMode` 2·3이면 정한 값·블랙보드 값) 또는 `wait`이면 `hold` 1을 싣고, 키트의 `fire`가 대상 유닛을 돌려주면 그것을 `tgt`로(줄 투사체, 아래·위 세트 — 재즈 연주가·정예 캐스터만 돌려준다: `tgt`가 있으면 `fxgame.js eskillFx`가 시전 시작에 스킬 투사체의 꼬리도 띄우므로, 볼트를 1.4초 뒤에 쏘는 강화 석궁 기습자는 안 돌려주고 아래·위 세트를 걸어온 쪽으로 고른다 [추정·미조사: 공식은 `_faceToTarget`으로 대상 쪽]).
+  시전 길이(`castLength` — `_timeMode` 2·3이면 정한 값·블랙보드 값) 또는 `wait`이면 `hold` 1을 싣고, 키트의 `fire`가 대상 유닛을 돌려주면 그것을 `tgt`로(줄 투사체, 아래·위 세트 — 재즈 연주가·정예 캐스터). 강화 석궁 기습자(`enemy_1404_msnip`) `CrossAttack`은 `{ faceTo: 대상 }`을 돌려주어 `face`로만 싣는다(2026-11-26): `tgt`가 있으면 `fxgame.js eskillFx`가 시전 시작에 스킬 투사체의 꼬리를 띄우는데 이 볼트는 주문 때 키트 `lineShot`의 `enemyShot`으로 나가고, 시전 대상 이펙트도 없다. 렌더는 `face`(없으면 `tgt`) 쪽으로 아래·위 세트를 고른다(`render/app.js`). 근거(공식 클라에서 확인): 프리팹 `Skills/CrossAttack`의 `RangedAttack` `_faceToTarget` 1, 적 스킬은 `AttackWrapper.Cast` → `EnemySkill.CastToTarget`으로 찾은 대상에 시전, `Ability.StartCastingInternal`의 `AbstractAnimatedAbility.OnCastStart`가 `DealWithFaceDirection` → `Entity.FaceToTarget`(0.2칸 넘으면) → `Enemy.OnFaceChanged` → 몸 방향(FOUR_WAYS)을 먼저 바꾸고, 그 뒤 `_DoCast` 코루틴 첫 단계가 능력의 동작들 `OnCastStart`를 부르며 `ThreePartChannelingAnimation.OnCastStart` → `_GetAnimBundle`이 그 몸 방향으로 `_down`·`_up`을 고른다 — 전에는 아무것도 안 돌려줘 걸어온 쪽 세트였다. 재발 방지: `test/render/eskill-clip.test.js` 강화 석궁 기습자 시험(키트가 `face`를 안 실으면 실패).
   시전이 끝나면 — 끊김, 투사체를 기다리는 시전의 끝(위 `projCastOver`), `hold` 시전의 시간 끝 — fx `enemySkillEnd`를 한 번 낸다(`chanEnd`). 렌더는 적 기록의 `chan`을 읽어 그
   길이에(`hold`면 끝 신호까지) 세 클립을 틀고(`units.js onEnemySkill` → `SpineActor.chant`), 기절·쓰러짐은 전처럼 클립을 끊는다.
   - **채널의 끝**(2026-11-26, 공식 클라에서 확인): 시전이 끝나면 `ThreePartChannelingAnimation.OnCastFinish`는 코루틴만 지운다 — 아직 닿지 않은 끝 클립은 안 나오고, 다음 틱
@@ -3356,7 +3356,7 @@ upstream 개발 브랜치(0.3.4 개발분)의 버그 수정 중 판정에서 받
     `standins` standin-08, `diy` diy-038·074, `act3-roster` roster-022, `act3-bonds` bond-visiShip-high(`enemyAttackFinish`, 모두 정예 캐스터).
   전에는 키트 `castFx` 둘이 `dur`·`tgt`를 싣고 렌더의 손 표 `ESKILL_CLIPS`가 클립을
   되적었으며, 처음엔 그 표에 없어 채널 동안 루프 클립을 틀지 않았다(관리자 제보 2026-11-14: 한 번만 재생). 이 길로 손 표 없이 이어진 것(2026-11-15): 강화 석궁 기습자 `CrossAttack`(아래·위
-  세트는 걸어온 쪽, `_timeMode` 2 → 2.5초)·부패한 기사 `ChargeAttack`·'즈자이' `ShieldBurst` 둘(시작 키 `Skill_02`는 키 표에 없어(표의 것은 `Skill_02_Begin`) 시작 클립 없이 루프부터 — 공식과 같다, 공식 클라에서 확인 2026-11-26:
+  세트는 2026-11-26부터 대상 쪽(위 `face`), `_timeMode` 2 → 2.5초)·부패한 기사 `ChargeAttack`·'즈자이' `ShieldBurst` 둘(시작 키 `Skill_02`는 키 표에 없어(표의 것은 `Skill_02_Begin`) 시작 클립 없이 루프부터 — 공식과 같다, 공식 클라에서 확인 2026-11-26:
   `UpdatePlaybackSpeed`가 `m_hasBeginAnim` = `GetAnimationTime(시작 키)`로, 키 표에 없으면 거짓·길이 0이라 `DoPlayAnimation`이 시작 클립을 건너뛰고 루프 = 능력 시간 − 끝 클립;
   시전 이펙트 `enemy_xi_skill_02_buff_04`는 능력 사건 `ON_CAST_START`에 붙어 클립과 무관)·'늑대 군주' 자로 `FearCage`·가상적: 흑운 `KillOthers`·가상적: 총 `2`·'사미의 의지' `Lasso`·검은 뿔의 루울 `skill`·응집된/분산된 영혼의 잔해 `Laser`.
   확인: `test/render/eskill-clip.test.js` 「节日爵士乐手 (real kit)…」·「萨卡兹王庭军精锐术师 (real kit)…」·「重弩突袭者 (real kit)…」·「“喷射罐” (real kit)…」. [화면 미확인]

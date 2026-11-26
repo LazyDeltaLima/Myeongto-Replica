@@ -182,9 +182,9 @@ test('“喷射罐” (real kit): its Flame channel over the fx\'s `dur` — Att
   }
 });
 
-test('render/app.js hands each fx \'enemySkill\' to its view', () => {
+test('render/app.js hands each fx \'enemySkill\' to its view, aimed at `face` (the unit it only turns to) or else `tgt`', () => {
   const app = readFileSync(path.join(ROOT, 'public/js/render/app.js'), 'utf8');
-  assert.match(app, /if \(e\[1\] === 'enemySkill' && e\[4\] && typeof e\[4\]\.ability === 'string' && e\[4\]\.id != null\) \{\n {10}const t = e\[4\]\.tgt != null \? views\.get\(e\[4\]\.tgt\) : null;\n {10}views\.get\(e\[4\]\.id\)\?\.onEnemySkill\?\.\(e\[4\]\.ability, LATE\.get\(e\) \|\| 0, \{ dur: Number\(e\[4\]\.dur\) \|\| 0, hold: !!e\[4\]\.hold, aim: t \? \{ x: t\.x, y: t\.y \} : null \}\);/);
+  assert.match(app, /if \(e\[1\] === 'enemySkill' && e\[4\] && typeof e\[4\]\.ability === 'string' && e\[4\]\.id != null\) \{\n {10}const ft = e\[4\]\.face \?\? e\[4\]\.tgt, t = ft != null \? views\.get\(ft\) : null;\n {10}views\.get\(e\[4\]\.id\)\?\.onEnemySkill\?\.\(e\[4\]\.ability, LATE\.get\(e\) \|\| 0, \{ dur: Number\(e\[4\]\.dur\) \|\| 0, hold: !!e\[4\]\.hold, aim: t \? \{ x: t\.x, y: t\.y \} : null \}\);/);
 });
 
 test('“喷射罐”: the set follows its body direction — the target\'s FOUR_WAYS axis beyond 0.2 tiles, nearer the way it last walked (or last faced)', async () => {
@@ -356,13 +356,16 @@ test('重弩突袭者 (real kit): CrossAttack plays the data\'s channel over its
   h.runUntil(() => rec.some(isCast), 40);
   const [, cast] = rec.find(isCast);
   assert.equal(cast[4].dur, 2.5, 'the ability\'s time');
-  // (its fire names no `tgt`: render/fxgame.js would fly the skill's bolt from the cast's start — the kit shoots it 1.4 s
-  // later; the view's set then follows the way it last walked, here given as its target's)
-  assert.equal(cast[4].tgt, undefined);
+  // 2026-11-26: its ability turns it to the unit it aims at (`_faceToTarget`) — its fire names that unit as `face`, not
+  // `tgt` (render/fxgame.js would fly the skill's bolt from the cast's start; the kit shoots it at the spell, 'enemyShot')
   const tgt = h.allies()[0];
+  assert.equal(cast[4].tgt, undefined, 'no cast target for the effects');
+  assert.equal(cast[4].face, tgt.id, 'the unit it turns to');
   const v = await view(KEY, e.id, e.x, e.y, D.enemies[KEY]);
+  assert.equal(v.moveWay, 'side', 'it has not walked up or down');
   const way = { DOWN: 'Down', UP: 'Up' }[faceWay(tgt.x - e.x, tgt.y - e.y)];
   assert.ok(way, 'a target in its column: above or below');
+  // (render/app.js: aim = the view of `face ?? tgt`)
   assert.equal(v.onEnemySkill('CrossAttack', 0, { dur: cast[4].dur, aim: { x: tgt.x, y: tgt.y } }), true);
   assert.equal(v.actor.current, `Skill_Begin_${way}`, `the ${way} set`);
   frames(v, 2.5 - A[`Skill_End_${way}`] + 0.05);

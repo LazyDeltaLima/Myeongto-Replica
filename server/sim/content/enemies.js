@@ -400,7 +400,9 @@ function castSkill(b, e, a, k = null) {
   // its fire (the cast's start) returns the unit it casts on — or the units, first the main one — that target is `tgt`
   // (and all of them `tgts` when there are more): the channel's link line and the way it faces, the effects the
   // client plays on the cast's targets as it starts (`_castTargetEffects`, ON_CAST_START — 鼠王's DriftSand / SandStorm,
-  // 乌顶巨角卢鲁's skill, 假想敌：械's SommonSquad)
+  // 乌顶巨角卢鲁's skill, 假想敌：械's SommonSquad). A fire that returns `{ faceTo: unit }` names only the unit its ability
+  // turns to (`_faceToTarget`): `face` — the way its channel's set is chosen, none of the cast's effects (重弩突袭者's
+  // CrossAttack, whose bolt leaves at the spell: the view would fly a target's trail from the cast's start)
   const s = a.name ? e.mem.ab.sk[a.name] : null;
   const ch = chanCast(s && s.cast);
   const p = a.name ? b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: a.name, n: a.casts, ...(ch ? chanView(e, ch, s.bb) : null) }) : null;
@@ -430,10 +432,16 @@ function castSkill(b, e, a, k = null) {
 
 /**
  * Put the target(s) a cast's fire returned on its 'enemySkill' payload `p`: `tgt` the first unit other than the caster, `tgts`
- * every one when there are more (a fire's other return values — an fx payload, a flag — name no target).
+ * every one when there are more (a fire's other return values — an fx payload, a flag — name no target); `{ faceTo: unit }`
+ * puts that unit on `face` alone (castSkill).
  * @param {Record<string, unknown>} p @param {Unit} e @param {unknown} t
  */
 function castTargets(p, e, t) {
+  if (t && typeof t === 'object' && !Array.isArray(t) && 'faceTo' in t) {
+    const f = /** @type {{ faceTo: unknown }} */ (t).faceTo;
+    if (isUnit(f) && f !== e) p.face = f.id;
+    return;
+  }
   const ids = (Array.isArray(t) ? t : [t]).filter((u) => isUnit(u) && u !== e).map((u) => /** @type {Unit} */ (u).id);
   if (!ids.length) return;
   p.tgt = ids[0];

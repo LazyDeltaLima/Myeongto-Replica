@@ -57,11 +57,16 @@ function kitCrossbow(ab) {
   // bolt at once.
   // Never begun while blocked: its `_familyMask` is ATTACK only (content/enemies.js onSkillSlot; until 2026-10-22 it shot
   // its blocker too); a shot begun before the block still leaves.
+  // The cast turns it to that unit (CrossAttack `_faceToTarget` 1: the ability's DealWithFaceDirection at its start, before
+  // its ThreePartChannelingAnimation picks the _Down / _Up set by the body's way — 공식 클라에서 확인 2026-11-26): its fire
+  // returns `{ faceTo }` — the 'enemySkill' `face`, not `tgt` (whose trail the view would fly from the cast's start; the
+  // bolt is the 'enemyShot' at the spell). Until 2026-11-26 it returned nothing and the set followed its walk.
   return [stealth(), skill(s, (b, e, a) => {
     const t = crossTargets(b, e)[0];
     a.aim = t ? { x: t.x, y: t.y } : null;
     if (!t) return;
     b.addBuff(e, { key: 'ab:revealed', duration: CROSS_SKILL, flags: { reveal: true } });
+    return { faceTo: t };
   }, { sil: true, cond: (b, e) => crossTargets(b, e).length > 0, atStrike: (b, e, a) => {
     const aim = /** @type {{ x: number, y: number } | null} */ (a.aim), bb = s.bb;
     a.aim = null;

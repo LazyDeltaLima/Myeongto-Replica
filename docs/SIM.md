@@ -1516,7 +1516,9 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   ability name, the data skill's `prefabKey` (the client prefab's `Skills/<name>` — compare case-insensitively: `boomb` ↔ `Boomb`), `n` the cast count,
   `dur` (when given) the cast's length in s and `tgt` its target's id (“喷射罐”'s Flame channel, `content/enemies/critic.js kitJetCanister`; any
   cast whose fire returns the unit it casts on — or the units, `tgts` then lists them all, the main one first: `tgt` = that unit, the client's cast
-  target that its `_castTargetEffects` play on as the cast starts, docs/rules/fx.md 「적 범위 공격의 경고 칸」; a
+  target that its `_castTargetEffects` play on as the cast starts, docs/rules/fx.md 「적 범위 공격의 경고 칸」; a fire
+  that returns `{ faceTo: unit }` gives `face` = that unit's id instead, the unit its ability only turns to — 重弩突袭者's
+  CrossAttack, whose bolt is its later `enemyShot`: the view picks the channel's set by it and plays no cast-target effect; a
   skill whose ability plays a three-part channel, `skillCast.*.chan`: `dur` = its ability's time or `hold: 1`,
   and the cast's end sends `enemySkillEnd` — `content/enemies.js castSkill` / `chanEnd`, docs/rules/sim.md 「투사체 채널 스킬은 채널 동안 시전이다」;
   `enemyAttackFinish` `{ id, ability }`: a held channel's attack-finish event while its cast goes on — its ability's projectile gone
