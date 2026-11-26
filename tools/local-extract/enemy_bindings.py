@@ -210,6 +210,59 @@ def device_keys():
     return acc
 
 
+CHAR_TABLE = ROOT / '.cache/gamedata/excel/character_table.json'
+
+
+def fielded_devices():
+    """The stage-device ids (`trap_<n>_<name>`, without `#…`) any data file of this mode names: stages, waves, enemies."""
+    acc = set()
+
+    def walk(o):
+        if isinstance(o, dict):
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+        elif isinstance(o, str):
+            for part in o.split('|'):
+                m = re.match(r'^(trap_\d+_[a-z0-9]+)(#|$)', part)
+                if m:
+                    acc.add(m.group(1))
+    for name in ('stages.json', 'waves.json', 'enemies.json'):
+        for p in data_files(name):
+            walk(json.loads(p.read_text(encoding='utf-8')))
+    return acc
+
+
+def mark_never(res):
+    """(2026-11-26) `never` on a selectable group's child (`needBuffs`) that this mode never casts: a buff it needs is a stage
+    device's (`trap_<name>_…`, the device `trap_<n>_<name>` of character_table) that no stage of this mode fields, and no
+    enemy here holds a buff of that key — 自制投石机's Special needs 入戏 trap_pirene_func[enemy][real], given only by
+    喷泉水池 trap_279_pirene. Any other needed buff stays (its child is merged with the others, as before)."""
+    need = {k for r in res.values() for a in r.get('abilities') or [] for k in a.get('needBuffs') or []}
+    if not need:
+        return
+    if not CHAR_TABLE.exists():
+        sys.exit(f'{CHAR_TABLE.relative_to(ROOT)} is missing (node tools/build-data.mjs): needed to tell a stage device\'s buff')
+    traps = defaultdict(set)
+    for k in json.loads(CHAR_TABLE.read_text(encoding='utf-8')):
+        m = re.match(r'^trap_\d+_([a-z0-9]+)$', k)
+        if m:
+            traps[m.group(1)].add(k)
+    here = fielded_devices()
+    held = {b.get('key') for r in res.values() for a in r.get('abilities') or [] for kk in BUFF_KEYS + ('_uniqueBuffs',)
+            for b in a.get(kk.strip('_')) or []}
+    for r in res.values():
+        for a in r.get('abilities') or []:
+            for k in a.get('needBuffs') or []:
+                m = re.match(r'^trap_([a-z0-9]+)_', k)
+                devs = traps.get(m.group(1)) if m else None
+                if devs and not devs & here and k not in held:
+                    a['never'] = sorted(devs)[0]
+                    break
+
+
 def read_projectiles(game):
     roots = {}
     for f in (Path(game) / 'PersistentData/Bundles/battle/prefabs/[uc]projectiles.ab',
@@ -666,9 +719,40 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
                 a.setdefault('otherFx', []).append({'field': k, 'fx': v})
             elif v in proj_keys and not k.startswith('_extraProjectileKeys'):
                 a.setdefault('otherProjectiles', []).append({'field': k, 'key': v})
+    # (2026-11-26, docs/rules/fx.md 「능력 묶음의 자식·COMBAT 상태 공격」) an AbilitySelectableGroup (`_abilityConfigs`) casts the
+    # first child whose config trigger passes (AbilityConfigs.TryCastToTarget). A child whose trigger needs its owner to hold
+    # buffs gets `needBuffs`: a SelfSelectorInCertainCondition (`_checkContainBuffs`: the owner holds every `_buffKeys`) on the
+    # trigger's own GameObject, through a GroupTrigger (`_triggers`; `_checkType` ALL 1 = every one passes, AT_LEAST_ONE 0 =
+    # any one). main() marks a child whose buff nothing in this mode gives `never` and render_entry leaves it out — 自制投石机's
+    # Special (入戏 from a fountain device) played its lock-on beside the Normal attack's on every attack
+    rel_of = {pid: gp[len(root) + 1:] for gp, _d, pid in tree if gp != root}
+    for sk, st in (skills or {}).items():
+        rel_of.update({pid: f'Skills/{sk}' + (gp[len(sk):] if gp != sk else '') for gp, _d, pid in st})
+    go_of = {pid: (d.get('m_GameObject') or {}).get('m_PathID') for pid, d in mb_of.items()}
+    on_go = defaultdict(list)
+    for pid, g in go_of.items():
+        on_go[g].append(mb_of[pid])
+
+    def owner_needs(tpid, depth=0):
+        t = mb_of.get(tpid)
+        if not isinstance(t, dict) or depth > 8:
+            return set()
+        if isinstance(t.get('_triggers'), list):
+            subs = [owner_needs(x.get('m_PathID'), depth + 1) for x in t['_triggers'] if isinstance(x, dict)]
+            if not subs:
+                return set()
+            return set().union(*subs) if t.get('_checkType') == 1 else set.intersection(*subs)
+        return {k for s in on_go.get(go_of.get(tpid)) or [] if '_checkHpRatioCondition' in s and s.get('_checkContainBuffs')
+                and not s.get('_checkNotContainBuffs') for k in strs(s.get('_buffKeys'))}
+    for _gp, d, _pid in [x for x in tree] + [x for st in (skills or {}).values() for x in st]:
+        for c in d.get('_abilityConfigs') or [] if isinstance(d.get('_abilityConfigs'), list) else []:
+            child = rel_of.get((c.get('_ability') or {}).get('m_PathID')) if isinstance(c, dict) else None
+            need = owner_needs((c.get('_trigger') or {}).get('m_PathID')) if child and isinstance(c.get('_trigger'), dict) else set()
+            if need and child in abil:
+                abil[child]['needBuffs'] = sorted(need)
     for _rel, a in abil.items():
         # (an ability with nothing to draw but a tile selector stays: the sim check reads it)
-        if len(a) > 1 and (not (set(a) <= {'path', 'mode', 'anim', 'common', 'sel'}) or (a.get('sel') or {}).get('tile')):
+        if len(a) > 1 and (not (set(a) <= {'path', 'mode', 'anim', 'common', 'sel', 'needBuffs'}) or (a.get('sel') or {}).get('tile')):
             rec['abilities'].append(a)
     return rec
 
@@ -1097,6 +1181,8 @@ def skill_keys(path):
 
 def render_entry(r, projs):
     """enemy-bindings record → the render table entry."""
+    # a selectable group's child this mode never casts (mark_never) draws nothing
+    r = dict(r, abilities=[a for a in r['abilities'] if not a.get('never')])
     modes = []
     for m in r['modes']:
         ab = [a for a in r['abilities'] if a.get('mode') == m['i']]
@@ -1565,6 +1651,7 @@ def main():
             todo += [s for s in (pr or {}).get('sub', []) if s not in projs]
         r['projectileKeys'] = list(dict.fromkeys(pk))
         res[eid] = r
+    mark_never(res)
     doc = {'$comment': 'Official enemy effect bindings (EN client battle/enm_pfb_*.ab, [uc]projectiles.ab, config/buff_template_holder.ab; '
                        'what it lacks from the CN client, `client: other`). '
                        'Per enemy id of data/enemies.json and the seasons\' enemies.json: prefab root + bundle, modes (UnitMode: _overrideStart/DeadEffect), '

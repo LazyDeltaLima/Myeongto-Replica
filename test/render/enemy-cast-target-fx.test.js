@@ -129,7 +129,8 @@ test('enemy-modes.json: every ON_CAST_START `_castTargetEffects` of the bindings
   let seen = 0;
   for (const [id, b] of Object.entries(bind)) {
     if (id[0] === '$' || !em[id]) continue;
-    const names = new Set(Object.values(/** @type {any} */ (b).abilities || {}).flatMap((/** @type {any} */ a) => (a?.castTargetEffects || [])
+    // (a selectable group's child this mode never casts draws nothing: test/render/enemy-cond-child-fx.test.js)
+    const names = new Set(Object.values(/** @type {any} */ (b).abilities || {}).filter((/** @type {any} */ a) => !a?.never).flatMap((/** @type {any} */ a) => (a?.castTargetEffects || [])
       .filter((/** @type {any} */ x) => (x.start ?? 2) === 2).flatMap((/** @type {any} */ x) => x.fx)));
     if (!names.size) continue;
     const ps = parts(em[id]);

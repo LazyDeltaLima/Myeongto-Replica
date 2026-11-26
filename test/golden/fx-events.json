@@ -11492,7 +11492,6 @@
    "enemy_10124_uashld_2 spawn:cast enemy_uashld_attack_start_A_01 → self",
    "enemy_10162_mnctpt spawn:cast enemy_mnctpt_attack_start → self",
    "enemy_10162_mnctpt spawn:cast enemy_mnctpt_lockon_1 → foe",
-   "enemy_10162_mnctpt spawn:cast enemy_mnctpt_lockon_2 → foe",
    "enemy_1161_tidmag spawn:cast enemy_tidmag_attack_01_start_01 → self",
    "enemy_1427_lrnazg spawn:castLoop enemy_lrnazg_attack_start_01 → self",
    "enemy_2052_smgia spawn:aura enemy_smgia_idle → self",
@@ -14798,7 +14797,6 @@
    "enemy_10065_ftzlc spawn:emit buff_frozen_to_walk → self",
    "enemy_10162_mnctpt spawn:cast enemy_mnctpt_attack_start → self",
    "enemy_10162_mnctpt spawn:cast enemy_mnctpt_lockon_1 → foe",
-   "enemy_10162_mnctpt spawn:cast enemy_mnctpt_lockon_2 → foe",
    "enemy_10162_mnctpt spawn:emit buff_frozen_to_walk → self",
    "enemy_1119_vofsd spawn:castLoop enemy_vofsd_attack_01_start → self",
    "enemy_1119_vofsd spawn:emit buff_frozen_to_walk → self",
@@ -16172,7 +16170,6 @@
    "char_617_sharp2 spawn:born common_char_birth_01 → self",
    "enemy_10162_mnctpt spawn:cast enemy_mnctpt_attack_start → self",
    "enemy_10162_mnctpt spawn:cast enemy_mnctpt_lockon_1 → foe",
-   "enemy_10162_mnctpt spawn:cast enemy_mnctpt_lockon_2 → foe",
    "enemy_1252_lysytb_2 spawn:castLoop enemy_lysytb_attack_start → self",
    "enemy_1329_cbshld_2 spawn:cast enemy_cbshld_attack_start_01 → self",
    "enemy_1329_cbshld_2 spawn:cast enemy_cbshld_attack_start_02 → self"

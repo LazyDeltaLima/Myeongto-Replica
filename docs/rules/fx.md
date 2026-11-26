@@ -3042,6 +3042,19 @@
     명중은 그 공격의 표시로). COMBAT 묶음(仇白 `Combat_A/B`, `combat: 1`)은 그런 휘두름에만. 대상: 拉普兰德(기본·S2)·银灰·断崖·伊内丝(기본·S2·S3)·
     丰川祥子(기본·음색 모드)·仇白(기본·S2)·予愿安洁莉娜 S3(CN).
 - 렌더 클립도 같은 규칙으로 고침(render.md 「Spine 클립 커버리지」 B): 维什戴尔·迷迭香 `other`, 阿斯卡纶·隐德来希 S3 Loop는 두 번째 클립부터.
+- 적의 선택 묶음(2026-11-26, 공식 클라에서 확인): 사제 투석기(`enemy_10162_mnctpt`)의 `Combat`·`Attack`은
+  `AbilitySelectableGroup`으로 자식 `Special`(클립 `Attack_2`, `projectile_enemy_mnctpt_offset`, 조준 `enemy_mnctpt_lockon_2`)과 `Normal`(클립
+  `Attack`, `projectile_enemy_mnctpt`, 조준 `enemy_mnctpt_lockon_1`)을 차례로 시험해 첫 성공 하나를 시전한다
+  (`AbilitySelectableGroup._DoCastInternal`·`AbilityConfigs.TryCastToTarget`). `Special`의 트리거는 `GroupTrigger`(`_checkType` 1 = ALL: 모든
+  하위 트리거가 통과)로, 하나가 같은 게임 오브젝트의 `SelfSelectorInCertainCondition`(`_checkContainBuffs`: 주인이 `_buffKeys`를 모두 지님) — 투석기 자신이
+  몰입(入戏, `trap_pirene_func[enemy][real]`)을 지닐 때만이다. 그 버프는 스테이지 장치 분수대(喷泉水池 `trap_279_pirene`)의 버프 템플릿
+  (`trap_pirene_func[enemy]`)만 주고, 이 모드의 어느 스테이지에도 그 장치가 없다 — 공식도 이 모드에서는 매 공격이 `Normal`이다(시뮬
+  `special.js`가 몰입의 무작위 착탄을 안 옮긴 것과 같은 이유). 예전에는 `enemy_bindings.py emit_part`가 두 자식을 한 부분으로 합쳐 공격마다
+  조준 둘이 함께 나왔다. 이제 `enemy_record`가 선택 묶음 자식의 트리거를 읽어 주인 버프 조건을 `needBuffs`로 적고, `mark_never`가 그 버프가
+  안 나오는 장치의 것(버프 키 `trap_<이름>_…` ↔ character_table `trap_<n>_<이름>`, 이 모드 데이터의 스테이지·웨이브·적 어디에도 그 장치가
+  없고 이 모드 적이 그 키의 버프를 지니지 않음)이면 `never`(장치 id)를 달아 렌더 표에서 뺀다 — 조준은 `lockon_1`만, 클립 목록은 `Attack`만.
+  지금 이 모드 적의 `needBuffs`는 투석기의 두 `Special`(`Combat`·`Attack`)뿐. 주인 버프 조건이 이 모드에서 채워질 수 있는 자식은 전처럼 합쳐지므로 시뮬이 자식을 알려야 한다.
+  재발 방지: `test/render/enemy-cond-child-fx.test.js`(`needBuffs` 자식 전수: `never`이거나 사유와 함께 목록에; `never` 자식의 이펙트가 렌더 표에 없음).
 - 확인: 단위 `test/render/skill-shot-alt-fx.test.js`(추출값, `altGroup`, 迷迭香 B 클립 → B 시전·`rosmon_attack_B_hit_01`, 仇白 저지 → 검 B만·원거리 →
   화살만), `test/render/attack-alts.test.js`. 이벤트 기록 골든: 위 다섯 명의 B/C 시전·명중이 더해지고 拉普兰德·银灰·断崖·伊内丝의 COMBAT 시전이
   저지 없는 판에서 빠짐(维娜·维多利亚 한 줄은 시나리오 난수 순서가 밀린 것). [화면 미확인: 실제 판에서 클립과 시전 이펙트가 같은 자식인지]
@@ -3512,8 +3525,8 @@
   `castTgt`(타이밍 `castTgtOpt`)로 싣고(오퍼레이터 `char_modes.py`와 같은 나눔; 다른 시점의 것은 `hit`에 남음), 렌더 `ecastTgtFx`가 튼다:
   스킬은 'enemySkill'의 `tgt`(여럿이면 `tgts`) 위에 — 래트킹 `DriftSand`의 `mousek_skill_01_range_02`(십자 7칸 모래빛)·`_range`, `SandStorm`의
   `mousek_skill_02_range`, 검은 뿔의 루울 `skill`의 `enemy_xdelk_buff_03`(채널 `dur` 동안, 'enemySkillEnd'에 멈춤), 가상적: 기계 `SommonSquad`의
-  `enemy_acfnc_skill_01_locked_01`(두 대상); 일반 공격은 'swing' 6번째 칸의 대상 위에 시전 끝까지 — 사제 투석기 `enemy_mnctpt_lockon_1`·`_2`
-  ('swing'에 대상이 없으면 타격 'atk'의 대상에); 가상적: 관은 키트 공격의 'beam' `to` 위에 `enemy_acduml_lockon`. 반복(`o` 0)인 것의 끝은
+  `enemy_acfnc_skill_01_locked_01`(두 대상); 일반 공격은 'swing' 6번째 칸의 대상 위에 시전 끝까지 — 사제 투석기 `enemy_mnctpt_lockon_1`(`_2`는 이 모드에서 안 쓰는 자식 `Special`의 것 —
+  아래 「능력 묶음의 자식·COMBAT 상태 공격」)('swing'에 대상이 없으면 타격 'atk'의 대상에); 가상적: 관은 키트 공격의 'beam' `to` 위에 `enemy_acduml_lockon`. 반복(`o` 0)인 것의 끝은
   일반 공격은 시전 끝(공격 클립 길이), 채널 스킬은 그 길이; 시뮬이 끝을 안 싣는 시전(채널 아닌 스킬, 관의 키트 공격)은 프리팹 제 길이
   [추정·자료 없음: 시뮬이 그 시전의 끝(`ON_CAST_END`)을 안 실음]. 예전에는 `hit`에 합쳐져 래트킹의 모래 십자가 시전 2초 뒤 맞은 유닛마다 깔렸고, 사제 투석기는 맞은 이펙트 상한(둘)을 조준 둘이 채워 착탄
   `enemy_mnctpt_attack_hit`가 안 나왔다(이제 나옴).
