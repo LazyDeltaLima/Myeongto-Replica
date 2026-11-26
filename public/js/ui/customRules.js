@@ -29,7 +29,7 @@ import {
   sanitizeCustom, customDiffs, customRoundPlan, customPrepSeconds, customStagePool, customPoolCount, CUSTOM_OFFICIAL, CUSTOM_CASUAL,
   CUSTOM_LIMITS, CUSTOM_FIRST_HALF_STAGES, OFFICIAL_TYPE_COUNT, officialBans, customBanLimits, seasonOfficialOptions, officialStep, stepScale, stepPreset, CUSTOM_STEP_PRESETS,
 } from '../../../shared/ruleset.js';
-import { borrowSeasons, fitCustomToSeason, lendableStage, lendableType, sameField } from '../../../shared/seasonBorrow.js';
+import { borrowSeasons, fitCustomToSeason, lendableBoss, lendableStage, lendableType, sameField } from '../../../shared/seasonBorrow.js';
 import { seasonInfo } from '../../../shared/seasons.js';
 import { modeIdFor, DIFFICULTIES, LARGE_SEATS, isGrade, gradeDifficulty } from '../../../shared/constants.js';
 import { t, N_ } from '../../../shared/i18n.js';
@@ -167,10 +167,10 @@ const Sec = ({ title, sub, children }) => html`<section class="crx-sec">
 async function fitToSeason(rules, from) {
   const season = data.season();
   const lenders = borrowSeasons(season).map((sid) => [sid, data.seasonStore(sid)]).filter(([, st]) => st);
-  await Promise.all(lenders.flatMap(([, st]) => ['stages', 'factions'].map((n) => st.load(n))));
+  await Promise.all(lenders.flatMap(([, st]) => ['stages', 'factions', 'bosses'].map((n) => st.load(n))));
   const own = Object.fromEntries(['bonds', 'bosses', 'stages', 'factions', 'config'].map((n) => [n, data.getRaw(n)]));
-  /** @type {[string, { stages?: unknown, factions?: unknown }][]} */
-  const foreign = lenders.map(([sid, st]) => [sid, { stages: st.getRaw('stages'), factions: st.getRaw('factions') }]);
+  /** @type {[string, { stages?: unknown, factions?: unknown, bosses?: unknown }][]} */
+  const foreign = lenders.map(([sid, st]) => [sid, { stages: st.getRaw('stages'), factions: st.getRaw('factions'), bosses: st.getRaw('bosses') }]);
   return fitCustomToSeason(rules, own, foreign, { season, from });
 }
 
@@ -595,25 +595,60 @@ function TypesPane({ work, set, readonly }) {
     <//>`)}`;
 }
 
+/** @param {Bag} a @param {Bag} b */
+const bossOrder = (a, b) => (a.sortId ?? 99) - (b.sortId ?? 99) || String(a.bossId).localeCompare(String(b.bossId));
+
 /** @param {PaneProps} p */
 function BossesPane({ work, set, setWork, readonly, mode }) {
   const m = data.get('assets');
-  const all = data.list('bosses') || [];
+  // the season's own leaders (a leader the room borrows is in the data too: `borrowed`, listed below with its season)
+  const all = (data.list('bosses') || []).filter((/** @type {Bag} */ b) => !b.borrowed);
   const ban = new Set(work.bosses.ban);
+  const extra = new Set(work.bosses.extra);
   /** @param {boolean} hidden */
   const weights = (hidden) => (hidden ? mode?.hiddenBossWeights : mode?.bossWeights) || {};
   /** @param {Bag} b */
   const inMode = (b) => (weights(b.hidden)[b.bossId] ?? 0) > 0;
+  /** whether the difficulty draws the group at all (no 隐秘核心 in some) @param {boolean} hidden */
+  const groupOn = (hidden) => Object.values(weights(hidden)).some((v) => Number(v) > 0);
+  // other seasons' leaders (maintainer request 2026-11-25, shared/seasonBorrow.js): a click adds one to its group's draw
+  const ownIds = new Set(all.map((b) => b.bossId));
+  const lenders = borrowSeasons(data.season()).map((sid) => {
+    const st = data.seasonStore(sid);
+    st?.load('bosses');
+    return { sid, list: (st?.list('bosses') || []).filter((/** @type {Bag} */ b) => lendableBoss(b) && !ownIds.has(b.bossId)).sort(bossOrder) };
+  }).filter((x) => x.list.length);
+  const lentHidden = new Map(lenders.flatMap((x) => x.list.map((/** @type {Bag} */ b) => /** @type {[string, boolean]} */ ([b.bossId, !!b.hidden]))));
+  /** the leaders a group still draws: its own in the difficulty not banned, and the borrowed ones added @param {boolean} hidden */
+  const left = (hidden) => all.filter((x) => !!x.hidden === hidden && inMode(x) && !ban.has(x.bossId)).length
+    + (groupOn(hidden) ? [...extra].filter((id) => lentHidden.get(id) === hidden).length : 0);
   /** @param {Bag} b */
   const toggle = (b) => {
-    const group = all.filter((x) => !!x.hidden === !!b.hidden && inMode(x));
-    if (!ban.has(b.bossId) && inMode(b) && group.filter((x) => !ban.has(x.bossId)).length <= 1) {
+    if (!ban.has(b.bossId) && inMode(b) && left(!!b.hidden) <= 1) {
       toast(t('至少要保留一名敌方领袖'), 'warn');
       return;
     }
     const next = new Set(ban);
     if (next.has(b.bossId)) next.delete(b.bossId); else next.add(b.bossId);
     set('bosses', 'ban', [...next]);
+  };
+  /** @param {Bag} b */
+  const toggleExtra = (b) => {
+    if (extra.has(b.bossId) && groupOn(!!b.hidden) && left(!!b.hidden) <= 1) { toast(t('至少要保留一名敌方领袖'), 'warn'); return; }
+    const next = new Set(extra);
+    if (next.has(b.bossId)) next.delete(b.bossId); else next.add(b.bossId);
+    set('bosses', 'extra', [...next]);
+  };
+  /** @param {Bag} b */
+  const lentCard = (b) => {
+    const on = extra.has(b.bossId);
+    const off = !groupOn(!!b.hidden);
+    return html`<button key=${b.bossId} type="button" class=${cx('crx-boss', (!on || off) && 'is-off')} disabled=${readonly}
+        data-boss=${b.bossId} aria-pressed=${on ? 'true' : 'false'} onClick=${() => toggleExtra(b)}>
+      <${Img} src=${enemyIconUrl(m, b.enemyKey)} class="crx-boss__i" />
+      <span class="crx-boss__n">${b.name}</span>
+      <span class="crx-boss__s">${off ? t('本难度没有') : on ? t('加入') : t('不加入')}</span>
+    </button>`;
   };
   /** @param {Bag} b */
   const card = (b) => {
@@ -637,6 +672,14 @@ function BossesPane({ work, set, setWork, readonly, mode }) {
     <${Sec} title=${t('隐秘核心领袖')} sub=${hasHidden ? t('同样的规则') : t('本难度没有隐秘核心')}>
       <div class="crx-bosses">${hiddens.map(card)}</div>
     <//>
+    ${lenders.map(({ sid, list }) => html`<${Sec} key=${sid} title=${t('其他赛季的敌方领袖 · {season}', { season: t(seasonInfo(sid).name) })}
+        sub=${t('点击加入同组的抽取 — 按本赛季该组最高的权重抽取 · 官方：没有')}>
+      ${[[false, t('最终攻势敌方领袖')], [true, t('隐秘核心领袖')]].map(([hidden, label]) => {
+        const group = list.filter((/** @type {Bag} */ b) => !!b.hidden === hidden);
+        return group.length ? html`<div key=${String(hidden)} class="crx-note">${label}</div>
+          <div class="crx-bosses" data-testid=${`custom-lent-bosses-${sid}-${hidden ? 'hidden' : 'final'}`}>${group.map(lentCard)}</div>` : null;
+      })}
+    <//>`)}
     <${Sec} title=${t('领袖限伤')} sub=${t('对敌方领袖单次造成的伤害')}>
       <${Row} label=${t('超过上限的一击')} note=${t('官方：达到上限的一击整个无效 · 按上限计算：只计上限的伤害（与休闲规则相同）')}>
         <${Seg} options=${modes} value=${work.bosses.hitMode} disabled=${readonly} onChange=${(/** @type {string} */ v) => setWork((w) => sanitizeCustom({ ...w, bosses: { ...w.bosses, hitMode: v } }))} />

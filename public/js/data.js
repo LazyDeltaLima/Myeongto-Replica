@@ -36,6 +36,11 @@ import { CUSTOM_FIRST_HALF_STAGES } from '../../shared/ruleset.js';
 import { withSeasonArt, withLentTypeIcons } from './ui/assetUrls.js';
 
 /**
+ * A data/*.json file's JSON (or one of its records) as the store hands it out.
+ * @typedef {any} DataJson any: every screen, hook and the browser sim read these files' records field by field (a typed record per file is types/ work)
+ */
+
+/**
  * Known data files (name → URL basename). Unknown names are allowed too (`/data/<name>.json`).
  * @type {Readonly<Record<string, string>>}
  */
@@ -77,8 +82,8 @@ function idOf(rec) {
 /**
  * Build an id → record Map from a data file's JSON, tolerating the shapes listed in the header.
  * @param {string} name file name (used to unwrap `{ [name]: … }`)
- * @param {any} json
- * @returns {Map<string, any>}
+ * @param {DataJson} json
+ * @returns {Map<string, DataJson>}
  */
 export function buildIndex(name, json) {
   const map = new Map();
@@ -121,11 +126,15 @@ const SEASON_ART_INPUTS = new Set(['local', 'bands', 'bonds']);
  * A failed load worth retrying: the request itself failed (network error) or the server answered 5xx / 408 / 429 — not a
  * definite 4xx (the file is not there) nor a delivered file that is not valid JSON (`badJson`).
  */
-const transientFailure = (/** @type {any} */ err) => {
-  if (!err || err.badJson) return false;
-  const s = err.status;
-  return !(Number.isInteger(s) && s >= 400 && s < 500 && s !== 408 && s !== 429);
+const transientFailure = (/** @type {unknown} */ err) => {
+  if (!err || typeof err !== 'object') return !!err;
+  const { badJson, status: s } = /** @type {{ badJson?: unknown, status?: unknown }} */ (err);
+  if (badJson) return false;
+  return !(typeof s === 'number' && Number.isInteger(s) && s >= 400 && s < 500 && s !== 408 && s !== 429);
 };
+
+/** A failure's message for a log line (its `message`, else the value itself). @param {unknown} err */
+const errText = (err) => { const m = err && typeof err === 'object' ? /** @type {{ message?: unknown }} */ (err).message : null; return m ? String(m) : String(err); };
 
 /**
  * Create a data store bound to a fetch implementation (injectable for tests).
@@ -145,7 +154,7 @@ export function createDataStore(opts = {}) {
   const timeoutMs = opts.timeoutMs === undefined ? ART_MANIFEST_TIMEOUT_MS : Number(opts.timeoutMs);
   const armTimer = opts.setTimeout || ((fn, ms) => setTimeout(fn, ms));
   const disarmTimer = opts.clearTimeout || ((id) => clearTimeout(id));
-  /** @type {Map<string, { status: 'loading'|'ready'|'missing', promise: Promise<any>, value: any, index: Map<string, any>|null }>} */
+  /** @type {Map<string, { status: 'loading'|'ready'|'missing', promise: Promise<DataJson>, value: DataJson, index: Map<string, DataJson>|null }>} */
   const entries = new Map();
   const listeners = new Set();
   const warned = new Set();
@@ -158,13 +167,13 @@ export function createDataStore(opts = {}) {
   let chain = [];
   /** setLocale calls so far: a slower earlier call never overrides a later one. */
   let switches = 0;
-  /** @type {Map<string, Promise<any>>} */
+  /** @type {Map<string, Promise<DataJson>>} */
   const overlayLoads = new Map();
-  /** @type {Map<string, any>} */
+  /** @type {Map<string, DataJson>} */
   const overlays = new Map();
   /** `<lang>@<season>` → that season's own overlay (null: none), loaded only while the season's files are read */
   const seasonOverlays = new Map();
-  /** @type {Map<string, Promise<any>>} */
+  /** @type {Map<string, Promise<DataJson>>} */
   const seasonOverlayLoads = new Map();
   /** The URL of each language's overlay as the last setLocale got it (its season files sit beside it). */
   const overlayUrls = new Map();
@@ -175,9 +184,10 @@ export function createDataStore(opts = {}) {
   /** The last setSeason's work (resolves once its files have settled; seasonSettled). */
   let seasonWork = Promise.resolve();
   /**
-   * What the room's custom ruleset borrows from other seasons (setBorrow; shared/seasonBorrow.js): its stages /
-   * enemies / factions read with the borrowed records, as the server's match reads them. Null = nothing.
-   * @type {{ stages: string[], types: string[] } | null}
+   * What the room's custom ruleset borrows from other seasons (setBorrow; shared/seasonBorrow.js): its BORROW_FILES
+   * (stages / enemies / factions / bosses / waves) read with the borrowed records, as the server's match reads them.
+   * Null = nothing.
+   * @type {import('../../shared/seasonBorrow.js').BorrowIds | null}
    */
   let borrowIds = null;
   /** The last setBorrow's work (its peers' files settled). */
@@ -202,7 +212,7 @@ export function createDataStore(opts = {}) {
     if (SEASON_ART_INPUTS.has(name) && season !== DEFAULT_SEASON) tell('assets');
   };
 
-  /** @type {{ m: any, local: any, bands: any, bonds: any, season: string, value: any } | null} */
+  /** @type {{ m: DataJson, local: DataJson, bands: DataJson, bonds: DataJson, season: string, value: DataJson } | null} */
   let seasonArtMemo = null;
   /**
    * data/assets.json as the season on screen reads it: a later season's own icons over 盟约's (ui/assetUrls.js
@@ -226,7 +236,7 @@ export function createDataStore(opts = {}) {
     seasonArtMemo = { m, local, bands, bonds, season, value };
     return value;
   }
-  /** @type {{ m: any, local: any, key: string, value: any } | null} */
+  /** @type {{ m: DataJson, local: DataJson, key: string, value: DataJson } | null} */
   let lentArtMemo = null;
   /** ownSeasonAssets with the icons of the 特训敌人 types the room borrows (their season's extract: withLentTypeIcons). */
   function seasonAssets() {
@@ -290,8 +300,8 @@ export function createDataStore(opts = {}) {
     if (typeof name !== 'string' || !/^[A-Za-z0-9_-]+$/.test(name)) return Promise.resolve(null);
     const cur = entries.get(name);
     if (cur) return cur.promise;
-    /** @type {{ status: 'loading'|'ready'|'missing', promise: Promise<any>, value: any, index: Map<string, any>|null }} */
-    const entry = { status: 'loading', promise: /** @type {Promise<any>} */ (/** @type {unknown} */ (null)), value: null, index: null };
+    /** @type {{ status: 'loading'|'ready'|'missing', promise: Promise<DataJson>, value: DataJson, index: Map<string, DataJson>|null }} */
+    const entry = { status: 'loading', promise: /** @type {Promise<DataJson>} */ (/** @type {unknown} */ (null)), value: null, index: null };
     const art = ART_MANIFESTS.has(name);
     entry.promise = (async () => {
       let toldMissing = false;
@@ -300,7 +310,7 @@ export function createDataStore(opts = {}) {
           entry.value = await readJson(name);
           entry.status = 'ready';
           break;
-        } catch (/** @type {any} */ err) {
+        } catch (err) {
           const current = entries.get(name) === entry;
           // Decided before notify. Invalidating inside that notify leaves `again` true; the wait then sees
           // the superseded entry and stops, so this attempt does not fetch again.
@@ -321,7 +331,7 @@ export function createDataStore(opts = {}) {
           if (current) {
             if (!warned.has(name)) {
               warned.add(name);
-              console.warn(`[data] ${urlFor(name)} unavailable (${err?.message || err}); continuing without it`);
+              console.warn(`[data] ${urlFor(name)} unavailable (${errText(err)}); continuing without it`);
             }
             entry.value = null;
             entry.index = null;
@@ -393,7 +403,7 @@ export function createDataStore(opts = {}) {
 
   /**
    * name|raw → { inputs, value } — the borrowed view of a file, built again when an input changes
-   * @type {Map<string, { inputs: unknown[], value: any }>}
+   * @type {Map<string, { inputs: unknown[], value: DataJson }>}
    */
   const borrowMemo = new Map();
   /** a file value → its record index (the borrowed views) */
@@ -401,20 +411,20 @@ export function createDataStore(opts = {}) {
   /**
    * A file as read with what the room's custom ruleset borrows (shared/seasonBorrow.js borrowFile; `own` itself when
    * nothing is, or while a file the plan needs has not arrived). `raw`: the Chinese texts (getRaw), else the locale's.
-   * @param {string} name @param {any} own @param {boolean} raw
+   * @param {string} name @param {DataJson} own @param {boolean} raw
    */
   function borrowedView(name, own, raw) {
     if (!borrowIds || !own || !BORROW_SET.has(name)) return own;
     const seasons = borrowSeasons(season);
     const stores = seasons.map(seasonStore).filter(Boolean);
     const rawOf = (/** @type {string} */ n) => entries.get(n)?.value ?? null;
-    const inputs = [own, rawOf('stages'), rawOf('factions'), borrowKey(borrowIds), season,
-      ...stores.flatMap((st) => [st.getRaw('stages'), st.getRaw('factions'), raw ? st.getRaw(name) : st.get(name)])];
+    const inputs = [own, rawOf('stages'), rawOf('factions'), rawOf('bosses'), borrowKey(borrowIds), season,
+      ...stores.flatMap((st) => [st.getRaw('stages'), st.getRaw('factions'), st.getRaw('bosses'), raw ? st.getRaw(name) : st.get(name)])];
     const key = `${name}|${raw ? 1 : 0}`;
     const memo = borrowMemo.get(key);
     if (memo && memo.inputs.length === inputs.length && memo.inputs.every((v, i) => v === inputs[i])) return memo.value;
-    const plan = borrowPlan({ stages: rawOf('stages'), factions: rawOf('factions') },
-      stores.map((st, i) => [seasons[i], { stages: st.getRaw('stages'), factions: st.getRaw('factions') }]), borrowIds, CUSTOM_FIRST_HALF_STAGES);
+    const plan = borrowPlan({ stages: rawOf('stages'), factions: rawOf('factions'), bosses: rawOf('bosses') },
+      stores.map((st, i) => [seasons[i], { stages: st.getRaw('stages'), factions: st.getRaw('factions'), bosses: st.getRaw('bosses') }]), borrowIds, CUSTOM_FIRST_HALF_STAGES);
     const value = borrowFile(name, own, stores.map((st, i) => [seasons[i], raw ? st.getRaw(name) : st.get(name)]), plan);
     borrowMemo.set(key, { inputs, value });
     return value;
@@ -423,7 +433,7 @@ export function createDataStore(opts = {}) {
   const viewOf = (name) => borrowedView(name, localizedEntry(name)?.value ?? entries.get(name)?.value ?? null, false);
   /** The file as getRaw() reads it. @param {string} name */
   const rawViewOf = (name) => borrowedView(name, entries.get(name)?.value ?? null, true);
-  /** @param {string} name @param {any} value */
+  /** @param {string} name @param {DataJson} value */
   const indexOfView = (name, value) => {
     let ix = viewIndex.get(value);
     if (!ix) { ix = buildIndex(name, value); viewIndex.set(value, ix); }
@@ -462,7 +472,7 @@ export function createDataStore(opts = {}) {
           return json;
         } catch (err) {
           if (transientFailure(err) && attempt < retryDelays.length) { await wait(retryDelays[attempt]); continue; }
-          console.warn(`[data] ${url} unavailable (${/** @type {any} */ (err)?.message || err}); its game texts are not applied`);
+          console.warn(`[data] ${url} unavailable (${errText(err)}); its game texts are not applied`);
           overlayLoads.delete(lang); // a later switch may try again
           return null;
         }
@@ -493,7 +503,7 @@ export function createDataStore(opts = {}) {
         } catch (err) {
           if (transientFailure(err) && attempt < retryDelays.length) { await wait(retryDelays[attempt]); continue; }
           // a 404 is the usual case for a language without season texts: keep it, ask again only after a transient failure
-          if (transientFailure(err)) { console.warn(`[data] ${url} unavailable (${/** @type {any} */ (err)?.message || err})`); seasonOverlayLoads.delete(key); }
+          if (transientFailure(err)) { console.warn(`[data] ${url} unavailable (${errText(err)})`); seasonOverlayLoads.delete(key); }
           seasonOverlays.set(key, null);
           return null;
         }
@@ -570,13 +580,14 @@ export function createDataStore(opts = {}) {
       return seasonWork;
     },
     /**
-     * Read the stages / enemies / factions with what a custom ruleset borrows from other seasons (the room's:
-     * shared/seasonBorrow.js customBorrowIds; null = nothing): the lending seasons' files are fetched, and their
-     * subscribers told as they arrive. Resolves when they have settled.
-     * @param {{ stages: string[], types: string[] } | null} ids
+     * Read the BORROW_FILES with what a custom ruleset borrows from other seasons (the room's: shared/seasonBorrow.js
+     * customBorrowIds; null = nothing): the lending seasons' files are fetched, and their subscribers told as they
+     * arrive. Resolves when they have settled.
+     * @param {import('../../shared/seasonBorrow.js').BorrowIds | null} ids
      */
     setBorrow(ids) {
-      const next = ids && (ids.stages?.length || ids.types?.length) ? { stages: [...ids.stages].sort(), types: [...ids.types].sort() } : null;
+      const next = ids && (ids.stages?.length || ids.types?.length || ids.bosses?.length)
+        ? { stages: [...ids.stages].sort(), types: [...ids.types].sort(), bosses: [...(ids.bosses ?? [])].sort() } : null;
       if (borrowKey(next) === borrowKey(borrowIds)) return borrowWork;
       borrowIds = next;
       loadBorrowed();
@@ -590,26 +601,27 @@ export function createDataStore(opts = {}) {
     /**
      * A file as the simulation reads it: `file` (the season's own, as load() gave it) with what setBorrow borrows —
      * the battle runner's data, the same merge as the server's match (server/match/borrow.js).
-     * @param {string} name @param {any} file
+     * @param {string} name @param {DataJson} file
      */
     borrowRaw: (name, file) => borrowedView(name, file, true),
     /** Another season's store (its files and texts in this store's language): the custom dialog's lists. */
     seasonStore,
     /**
-     * What a custom ruleset may borrow, in the current locale: a stage record (`'stages'`) or a 特训敌人 type
-     * (`'types'`, factions.json types) of this season, else of the first other public season that has it (its files
-     * are fetched; the subscribers are told when they arrive) — the names of other seasons' battlefields and types
-     * outside a room that borrows them. Null while unknown.
-     * @param {'stages'|'types'} kind @param {string} id
+     * What a custom ruleset may borrow, in the current locale: a stage record (`'stages'`), a 特训敌人 type (`'types'`,
+     * factions.json types) or a leader (`'bosses'`) of this season, else of the first other public season that has it
+     * (its files are fetched; the subscribers are told when they arrive) — the names of other seasons' battlefields,
+     * types and leaders outside a room that borrows them. Null while unknown.
+     * @param {'stages'|'types'|'bosses'} kind @param {string} id
      */
     lendable(kind, id) {
-      const pickOf = (/** @type {{ get: (n: string) => any, lookup: (n: string, id: string) => any }} */ st) => (kind === 'types' ? st.get('factions')?.types?.[id] : st.lookup('stages', id)) ?? null;
-      const own = kind === 'types' ? viewOf('factions')?.types?.[id] : index('stages')?.get(String(id));
+      const file = kind === 'types' ? 'factions' : kind;
+      const pickOf = (/** @type {{ get: (n: string) => DataJson, lookup: (n: string, id: string) => DataJson }} */ st) => (kind === 'types' ? st.get('factions')?.types?.[id] : st.lookup(kind, id)) ?? null;
+      const own = kind === 'types' ? viewOf('factions')?.types?.[id] : index(kind)?.get(String(id));
       if (own) return own;
       for (const sid of borrowSeasons(season)) {
         const st = seasonStore(sid);
         if (!st) continue;
-        st.load(kind === 'types' ? 'factions' : 'stages');
+        st.load(file);
         const rec = pickOf(st);
         if (rec) return rec;
       }
@@ -697,7 +709,7 @@ export function createDataStore(opts = {}) {
 /** Browser data store singleton. */
 export const data = createDataStore();
 
-/** @param {...string} names @returns {Promise<any[]>} */
+/** @param {...string} names @returns {Promise<DataJson[]>} */
 export const loadData = (...names) => data.loadAll(...names);
 
 /** @param {string} id chess id (normal or elite) */
@@ -716,7 +728,7 @@ export const getBoss = (id) => data.lookup('bosses', id);
 export const getStage = (id) => data.lookup('stages', id);
 /** @param {string} id token id */
 export const getToken = (id) => data.lookup('tokens', id);
-/** @returns {any|null} data/config.json */
+/** @returns {DataJson | null} data/config.json */
 export const getConfig = () => data.get('config');
 
 /**
@@ -767,7 +779,7 @@ export function nextArtUrl(urls, failed) {
 /**
  * Mode record from config.json (`modes[modeId]`), or null.
  * @param {string} modeId e.g. 'mode_multi_hard'
- * @param {any} [cfg] the config.json to read (default: this store's; another season's: data.seasonStore(id).get('config'))
+ * @param {DataJson} [cfg] the config.json to read (default: this store's; another season's: data.seasonStore(id).get('config'))
  */
 export function getMode(modeId, cfg = getConfig()) {
   const modes = cfg && typeof cfg === 'object' ? (cfg.modes || cfg.modeDataDict) : null;

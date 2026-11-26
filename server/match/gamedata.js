@@ -31,9 +31,9 @@ import { customRoundPlan, customPrepSeconds, keepUnbanned, customPoolCount, cust
 import { BOND_LAYER_CAP, LARGE_SEATS, MAX_SEATS } from '../../shared/constants.js';
 
 /**
- * @param {Readonly<Record<string, any>> | null | undefined} map
+ * @param {Readonly<Record<string, any>> | null | undefined} map any: a data file — its records are read field by field by ~190 callers of the accessors below (a typed record per file is types/ work)
  * @param {unknown} id
- * @returns {Record<string, any> | null}
+ * @returns {Record<string, any> | null} any: as `map`
  */
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 /**
@@ -96,27 +96,31 @@ export const COMBAT_TIME_SCALE = 2;
  *          at most `aliveFull` (4); a count left out means a full team;
  *          `perPlayer` false: the fixed pool of 0.1.x (「保持固定血量」, restorable with `solo` 0.25): `coop` whatever the
  *          count, × min(alive, aliveFull) / aliveFull with `aliveScaling`.
-* @param {Record<string, any> | null | undefined} modeScale config.modes[modeId].bossHpScale
-* @param {Record<string, any> | null | undefined} cfgScale config.bossHpScale
+* @param {Record<string, unknown> | null | undefined} modeScale config.modes[modeId].bossHpScale
+* @param {Record<string, unknown> | null | undefined} cfgScale config.bossHpScale
  * @param {boolean} isSolo
  * @param {number} [aliveCount] alive players at the Final Assault / Hidden Core start (co-op)
  * @returns {number}
  */
 export function bossPoolShareOf(modeScale, cfgScale, isSolo, aliveCount) {
-  /** @type {Record<string, any>} */
+  /** @type {Record<string, unknown>} */
   const ms = modeScale && typeof modeScale === 'object' ? modeScale : {};
-  /** @type {Record<string, any>} */
+  /** @type {Record<string, unknown>} */
   const cs = cfgScale && typeof cfgScale === 'object' ? cfgScale : {};
+  /** @param {unknown} v */
+  const pos = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
+  /** @param {unknown} v */
+  const yesNo = (v) => (typeof v === 'boolean' ? v : null);
   /**
    * @param {string} k
    * @param {number} d
    */
-  const pick = (k, d) => (Number.isFinite(ms[k]) && ms[k] > 0 ? ms[k] : Number.isFinite(cs[k]) && cs[k] > 0 ? cs[k] : d);
+  const pick = (k, d) => pos(ms[k]) ?? pos(cs[k]) ?? d;
   /**
    * @param {string} k
    * @param {boolean} d
    */
-  const flag = (k, d) => (typeof ms[k] === 'boolean' ? ms[k] : typeof cs[k] === 'boolean' ? cs[k] : d);
+  const flag = (k, d) => yesNo(ms[k]) ?? yesNo(cs[k]) ?? d;
   if (isSolo) return pick('solo', 1);
   const full = Math.max(1, Math.floor(pick('aliveFull', 4)));
   const n = Number(aliveCount);
@@ -130,35 +134,43 @@ export function bossPoolShareOf(modeScale, cfgScale, isSolo, aliveCount) {
  * Registry key of an item id (`_a` / `_b` dropped). With a season's data, the record's `handlerKey` (another season
  * reuses the default season's ids for other items: tools/build-data.mjs attachHandlerKeys, sim/content/support itemKeyOf).
  * @param {unknown} id
- * @param {Readonly<Record<string, any>> | null} [data]
+ * @param {Readonly<{ items?: unknown }> | null} [data]
  */
 export function itemKey(id, data = null) {
   if (typeof id !== 'string') return '';
   const bare = id.replace(/_[ab]$/, '');
-  const items = data && data.items;
+  const items = data && data.items && typeof data.items === 'object' ? /** @type {Record<string, unknown>} */ (data.items) : null;
   const rec = items ? (Object.hasOwn(items, id) ? items[id] : Object.hasOwn(items, `${bare}_a`) ? items[`${bare}_a`] : null) : null;
-  return rec && typeof rec.handlerKey === 'string' ? rec.handlerKey : bare;
+  const key = rec && typeof rec === 'object' ? /** @type {{ handlerKey?: unknown }} */ (rec).handlerKey : null;
+  return typeof key === 'string' ? key : bare;
 }
 
 /**
  * A leader's table HP for one player (DESIGN §25.13.4): its mode's value (bosses.json `bloodByMode`, a season whose table
- * gives one per mode), else its difficulty's (`bloodPoint`), else the first one it has; null when it has none.
- * @param {any} boss bosses.json record
+ * gives one per mode), else its difficulty's (`bloodPoint`), else — a leader another season lends (shared/seasonBorrow.js)
+ * in a mode its season lacks — its season's co-op mode of that difficulty (`mode_multi_<difficulty>`: 规程's
+ * `bloodByMode` gives the 盟约 single modes none) [ASSUMED·자료 없음: the official game never mixed two seasons], else the
+ * first one it has; null when it has none.
+ * @param {unknown} boss bosses.json record
  * @param {string} modeId
  * @param {string} difficulty
  * @returns {number | null}
  */
 export function bossBloodPoint(boss, modeId, difficulty) {
-  if (!boss) return null;
-  const byMode = boss.bloodByMode && Number.isFinite(boss.bloodByMode[modeId]) ? boss.bloodByMode[modeId] : null;
-  if (byMode != null) return byMode;
-  if (boss.bloodPoint && Number.isFinite(boss.bloodPoint[difficulty])) return boss.bloodPoint[difficulty];
-  return boss.bloodPoint ? Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null : null;
+  if (!boss || typeof boss !== 'object') return null;
+  const { bloodByMode, bloodPoint } = /** @type {{ bloodByMode?: unknown, bloodPoint?: unknown }} */ (boss);
+  /** @param {unknown} table @param {string} k @returns {number | null} */
+  const at = (table, k) => { const v = table && typeof table === 'object' ? /** @type {Record<string, unknown>} */ (table)[k] : null; return typeof v === 'number' && Number.isFinite(v) ? v : null; };
+  const multi = typeof difficulty === 'string' ? `mode_multi_${difficulty.toLowerCase()}` : '';
+  const hit = at(bloodByMode, modeId) ?? at(bloodPoint, difficulty) ?? (multi ? at(bloodByMode, multi) : null);
+  if (hit != null) return hit;
+  const first = bloodPoint && typeof bloodPoint === 'object' ? Object.values(bloodPoint).find((v) => typeof v === 'number' && Number.isFinite(v)) : undefined;
+  return typeof first === 'number' ? first : null;
 }
 
 export class GameData {
   /**
-   * @param {Readonly<Record<string, any>>} data server/data.js getData() (may be partial)
+   * @param {Readonly<Record<string, any>>} data server/data.js getData() (may be partial) — any: `this.raw`'s files are read field by field across the class and its callers (as `own` above)
    * @param {string} modeId e.g. 'mode_multi_hard'
    * @param {Readonly<import('../../shared/ruleset.js').CustomSettings> | null} [custom] a custom ruleset's settings
    *   (sanitizeCustom), null = the official rules
@@ -207,6 +219,12 @@ export class GameData {
     this.tuning = this.raw.tuning && typeof this.raw.tuning === 'object' ? this.raw.tuning : {};
     /** standIn memo: chess id → composed 补位 record | null */
     this._standIns = new Map();
+    /** _lentBosses memo (the leaders borrowed from other seasons) */
+    /** @type {{ bossId: string, hidden?: unknown, templates?: unknown }[] | null} */
+    this._lent = null;
+    /** roundCfg memo of the rounds whose bossTemplates name the borrowed leaders: source round → entry */
+    /** @type {Map<string, object> | null} */
+    this._lentRounds = null;
     /** the custom settings (header), null = official */
     this.custom = custom && typeof custom === 'object' ? custom : null;
     const n = this.custom?.flow?.rounds;
@@ -284,7 +302,7 @@ export class GameData {
 
   /** config.titles with the tuning overrides (stat / rule per title id) merged in. */
   get titles() {
-    const list = /** @type {Record<string, any>[]} */ (Array.isArray(this.config.titles) ? this.config.titles : []);
+    const list = /** @type {Record<string, unknown>[]} */ (Array.isArray(this.config.titles) ? this.config.titles : []);
     const ov = this.tuning.titles && typeof this.tuning.titles === 'object' ? this.tuning.titles : {};
     return list.map((t) => {
       if (!t || typeof t.id !== 'string' || !Object.hasOwn(ov, t.id) || !ov[t.id] || typeof ov[t.id] !== 'object') return t;
@@ -441,7 +459,7 @@ export class GameData {
    * Equipment slots of chess `id`: the season record's `equipSlots` (规程 equipSlotNum — 机械 acrbot 4 / elite 6), else equipPerChess.
    * @param {string} id
    */
-  equipSlotsOf(id) { const c = this.chess(id); return Number.isInteger(c?.equipSlots) && /** @type {Record<string, any>} */ (c).equipSlots > 0 ? /** @type {Record<string, any>} */ (c).equipSlots : this.equipPerChess; }
+  equipSlotsOf(id) { const n = this.chess(id)?.equipSlots; return typeof n === 'number' && Number.isInteger(n) && n > 0 ? n : this.equipPerChess; }
   /**
    * 规程's 组合 partner and result of item `id` (items.json fuseWith / fuseResult), or null.
    * @param {string} id
@@ -514,9 +532,9 @@ export class GameData {
       this._traitFixed = new Set();
       for (const g of Object.values(this.raw.garrisons || {})) {
         if (g?.effectKey === 'SERVER_GAIN_EQUIP' && this.item(g.bbStr?.chess)) {
-          const rec = /** @type {Record<string, any>} */ (this.item(g.bbStr.chess));
+          const golden = this.item(g.bbStr.chess)?.goldenId;
           this._traitFixed.add(g.bbStr.chess);
-          if (rec.goldenId) this._traitFixed.add(rec.goldenId);
+          if (golden) this._traitFixed.add(golden);
         }
       }
     }
@@ -555,11 +573,51 @@ export class GameData {
   get hiddenRound() { return this.plan ? (this.plan.hidden ? this.plan.rounds.length + 1 : null) : this._hiddenRound0; }
   get maxShopLevel() { return posIntOr(this.mode.maxShopLevel, DEFAULTS.maxShopLevel); }
 
-  /** @param {number} r */
+  /**
+   * The config entry of round r (its source round's: srcRound). In a match that borrows leaders from another season
+   * (shared/seasonBorrow.js, `borrowed` bosses.json records) a 最终攻势 / 隐秘核心 round's `bossTemplates` also names each
+   * borrowed leader of its group with its own season's template of it (borrowedTemplate).
+   * @param {number} r
+   */
   roundCfg(r) {
     const rounds = this.mode.rounds;
     const k = String(this.srcRound(r));
-    return rounds && typeof rounds === 'object' && rounds[k] && typeof rounds[k] === 'object' ? rounds[k] : null;
+    const rc = rounds && typeof rounds === 'object' && rounds[k] && typeof rounds[k] === 'object' ? rounds[k] : null;
+    const lent = this._lentBosses();
+    if (!rc || !lent.length || !rc.bossTemplates || typeof rc.bossTemplates !== 'object') return rc;
+    const memo = (this._lentRounds ??= new Map());
+    const hit = memo.get(k);
+    if (hit) return hit;
+    const add = lent.filter((b) => !!b.hidden === !!rc.isHidden && !Object.hasOwn(rc.bossTemplates, b.bossId))
+      .map((b) => [b.bossId, this.borrowedTemplate(b)]).filter(([, t]) => t);
+    const out = add.length ? { ...rc, bossTemplates: { ...rc.bossTemplates, ...Object.fromEntries(add) } } : rc;
+    memo.set(k, out);
+    return out;
+  }
+
+  /**
+   * The leaders this match borrows from other seasons (bosses.json records marked `borrowed`: shared/seasonBorrow.js),
+   * in id order; none in a match that borrows none.
+   * @returns {{ bossId: string, hidden?: unknown, templates?: unknown }[]}
+   */
+  _lentBosses() {
+    if (!this._lent) {
+      const all = this.raw.bosses && typeof this.raw.bosses === 'object' ? Object.values(this.raw.bosses) : [];
+      this._lent = all.filter((b) => b && typeof b === 'object' && b.borrowed && typeof b.bossId === 'string').sort((a, b) => (a.bossId < b.bossId ? -1 : 1));
+    }
+    return this._lent;
+  }
+
+  /**
+   * A borrowed leader's wave template in this match: its season's template for this mode (bosses.json `templates`), else
+   * — a mode its season lacks (the 规程等级 modes, 盟约's single difficulties) — the first one it has; buildBossWave
+   * picks its `_s` (solo) or pair form either way [ASSUMED·자료 없음: the official game never mixed two seasons].
+   * @param {{ templates?: unknown }} boss @returns {string | null}
+   */
+  borrowedTemplate(boss) {
+    const tpl = boss.templates && typeof boss.templates === 'object' ? /** @type {Record<string, { template?: unknown } | null>} */ (boss.templates) : {};
+    const ids = [tpl[this.modeId], ...Object.values(tpl)].map((x) => x?.template).filter((t) => typeof t === 'string' && this.wave(t));
+    return /** @type {string | undefined} */ (ids[0]) ?? null;
   }
 
   spRounds() {
@@ -739,7 +797,7 @@ export class GameData {
    */
   get diyChoose() {
     const lim = this.economy.diyCharLimitForLevels;
-    /** @type {Record<string, any>[]} */
+    /** @type {{ step?: unknown, time?: unknown }[]} */
     const steps = Array.isArray(this.config.timers?.enterSteps) ? this.config.timers.enterSteps : [];
     const step = steps.find((x) => x && x.step === 'CUSTOM_CHECK');
     if (!lim || typeof lim !== 'object' || !step) return null;
@@ -902,10 +960,22 @@ export class GameData {
     };
   }
 
-  /** Bosses weights for the boss round / hidden round, the custom leader bans left out (one of the group stays). */
+  /**
+   * Bosses weights for the boss round / hidden round, the custom leader bans left out (one of the group stays). The
+   * leaders a custom match borrows from other seasons (bosses.json `borrowed`, shared/seasonBorrow.js: `bosses.extra`)
+   * join their group after the own ones, at the group's largest own weight — a mode without the group (no 隐秘核心) draws
+   * none of them [ASSUMED·자료 없음: the official game never mixed two seasons; the borrowed battlefields' rule].
+   * @returns {[string, number][]}
+   */
   bossWeights(hidden = false) {
     const w = hidden ? this.mode.hiddenBossWeights : this.mode.bossWeights;
-    const all = w && typeof w === 'object' ? Object.entries(w).filter(([id, v]) => this.boss(id) && Number(v) > 0) : [];
+    /** @type {[string, number][]} */
+    const all = w && typeof w === 'object' ? Object.entries(w).filter(([id, v]) => this.boss(id) && Number(v) > 0).map(([id, v]) => [id, Number(v)]) : [];
+    const lent = this._lentBosses().filter((b) => !!b.hidden === hidden && this.wave(this.borrowedTemplate(b)));
+    if (all.length && lent.length) {
+      const top = Math.max(...all.map(([, v]) => v));
+      for (const b of lent) if (!all.some(([id]) => id === b.bossId)) all.push([b.bossId, top]);
+    }
     return keepUnbanned(all, ([id]) => id, this.custom?.bosses?.ban);
   }
 

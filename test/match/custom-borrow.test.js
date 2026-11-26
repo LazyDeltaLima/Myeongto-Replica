@@ -43,7 +43,7 @@ function fight(h, r, band) {
 test('the settings: stages.extra and the type picks name what is borrowed; one diff each', () => {
   const c = sanitizeCustom({ stages: { extra: ['act3autochess_m10', 'bad id!'] }, types: { pick: { CRITIC: 'allow', REBORN: 'force', FLY: 'ban' } } });
   assert.deepEqual(c.stages.extra, ['act3autochess_m10']);
-  assert.deepEqual(customBorrowIds(c), { stages: ['act3autochess_m10'], types: ['CRITIC', 'REBORN'] });
+  assert.deepEqual(customBorrowIds(c), { stages: ['act3autochess_m10'], types: ['CRITIC', 'REBORN'], bosses: [] });
   assert.equal(customBorrowIds(sanitizeCustom({})), null);
   assert.deepEqual(customDiffs(c), ['types.pick.CRITIC', 'types.pick.FLY', 'types.pick.REBORN', 'stages.extra.act3autochess_m10']);
   assert.deepEqual(borrowSeasons('act2autochess'), [ACT3_ID]);

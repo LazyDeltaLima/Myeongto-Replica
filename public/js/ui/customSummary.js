@@ -89,6 +89,11 @@ export function customSummary(raw, { solo = false, bans = null, rounds = null, n
   const hiddens = c.bosses.ban.filter((id) => hidden(id));
   if (finals.length) add('bosses.ban.final', t('禁用最终攻势领袖 {names}', { names: quoted('boss', finals) }));
   if (hiddens.length) add('bosses.ban.hidden', t('禁用隐秘核心领袖 {names}', { names: quoted('boss', hiddens) }));
+  // other seasons' leaders joining a group's draw (shared/seasonBorrow.js)
+  const lentFinals = c.bosses.extra.filter((id) => !hidden(id));
+  const lentHiddens = c.bosses.extra.filter((id) => hidden(id));
+  if (lentFinals.length) add('bosses.extra.final', t('加入其他赛季的最终攻势领袖 {names}', { names: quoted('boss', lentFinals) }));
+  if (lentHiddens.length) add('bosses.extra.hidden', t('加入其他赛季的隐秘核心领袖 {names}', { names: quoted('boss', lentHiddens) }));
   if (c.bosses.hitMode === 'none') add('bosses.hit', t('领袖限伤：不限制'));
   else if (c.bosses.hitMode === 'clamp') add('bosses.hit', t('领袖限伤：{n}（按上限计算）', { n: fmt(c.bosses.hitLimit) }));
   else if (c.bosses.hitLimit !== O.bosses.hitLimit) add('bosses.hit', t('领袖限伤：{n}', { n: fmt(c.bosses.hitLimit) }));

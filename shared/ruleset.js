@@ -123,7 +123,8 @@ export const OFFICIAL_TYPE_COUNT = 3;
  *   types    the 特训敌人 types of the match (factions.json types with involveRandom): count — how many are drawn (null =
  *            the official 3) · pick: { type: 'ban'|'force'|'allow' } — never / always drawn, another season's
  *            type joining the draw (customEnemyTypes, shared/seasonBorrow.js)
- *   bosses   ban: leader ids never drawn (one of each group stays) · hitMode / hitLimit: 限伤
+ *   bosses   ban: leader ids never drawn (one of each group stays) · hitMode / hitLimit: 限伤 · extra: other seasons'
+ *            leaders joining the draw of their group (shared/seasonBorrow.js)
  *   stages   info: the briefing's battlefield card · reroll: its 重新抽取 vote · firstHalf: the 上半 stages of
  *            CUSTOM_FIRST_HALF_STAGES join the pool · ban: stage ids never drawn (one stays) · extra: other
  *            seasons' stages joining the pool (shared/seasonBorrow.js)
@@ -139,7 +140,7 @@ export const CUSTOM_OFFICIAL = deepFreeze({
   enemies: { hp: 100, atk: 100, def: 100, res: 100, speed: 100, stepHp: null, stepAtk: null },
   leaders: { hp: 100, atk: 100, def: 100, res: 100 },
   types: { count: null, pick: {} },
-  bosses: { ban: [], hitMode: 'void', hitLimit: BOSS_HIT_LIMIT },
+  bosses: { ban: [], hitMode: 'void', hitLimit: BOSS_HIT_LIMIT, extra: [] },
   stages: { info: false, reroll: false, firstHalf: false, ban: [], extra: [] },
   flow: { rounds: null, prep: 'official', prepSec: 90, lpCapOff: false, lpShared: false, routePreview: false, bandDup: false },
   pool: { chess: 100, items: 100 },
@@ -153,7 +154,7 @@ export const CUSTOM_OFFICIAL = deepFreeze({
  *   enemies: { hp: number, atk: number, def: number, res: number, speed: number, stepHp: number|null, stepAtk: number|null },
  *   leaders: { hp: number, atk: number, def: number, res: number },
  *   types: { count: number|null, pick: Record<string, string> },
- *   bosses: { ban: string[], hitMode: string, hitLimit: number },
+ *   bosses: { ban: string[], hitMode: string, hitLimit: number, extra: string[] },
  *   stages: { info: boolean, reroll: boolean, firstHalf: boolean, ban: string[], extra: string[] },
  *   flow: { rounds: number|null, prep: string, prepSec: number, lpCapOff: boolean, lpShared: boolean, routePreview: boolean, bandDup: boolean },
  *   pool: { chess: number, items: number },
@@ -245,6 +246,7 @@ export function sanitizeCustom(raw) {
       ban: idList(bo.ban),
       hitMode: oneOf(bo.hitMode, CUSTOM_HIT_MODES, O.bosses.hitMode),
       hitLimit: intIn(bo.hitLimit, CUSTOM_LIMITS.hitLimit, O.bosses.hitLimit),
+      extra: idList(bo.extra),
     },
     stages: {
       info: bool(s.info, O.stages.info), reroll: bool(s.reroll, O.stages.reroll), firstHalf: bool(s.firstHalf, O.stages.firstHalf),
@@ -418,6 +420,7 @@ export function customDiffs(raw, base = {}) {
   for (const id of c.bosses.ban) out.push(`bosses.ban.${id}`);
   if (c.bosses.hitMode !== O.bosses.hitMode) out.push('bosses.hitMode');
   if (c.bosses.hitMode !== 'none' && c.bosses.hitLimit !== O.bosses.hitLimit) out.push('bosses.hitLimit');
+  for (const id of c.bosses.extra) out.push(`bosses.extra.${id}`);
   if (c.stages.info !== O.stages.info) out.push('stages.info');
   if (c.stages.reroll !== O.stages.reroll) out.push('stages.reroll');
   if (c.stages.firstHalf !== O.stages.firstHalf) out.push('stages.firstHalf');
