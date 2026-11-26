@@ -369,11 +369,16 @@ function toGoal(b, x, y, motion = 'WALK') {
   return { motion, start: [y, x], end: best, checkpoints: [] };
 }
 
+/** A template's extra route `i` (data/waves.json `extraRoutes`: a spawn's `routeIndex`), or null. @param {Tpl} tpl @param {number} i @returns {WaveRoute | null} */
+function extraRoute(tpl, i) {
+  return (tpl && tpl.extraRoutes && tpl.extraRoutes[i]) || null;
+}
+
 /** The extra route of a template branch's first spawn (or null). @param {Tpl} tpl @param {string} name */
 function branchRoute(tpl, name) {
   const br = tpl && tpl.branches && tpl.branches[name];
   const s = Array.isArray(br) && Array.isArray(br[0]) ? br[0][0] : null;
-  return (s && /** @type {NonNullable<Tpl>} */ (tpl).extraRoutes && /** @type {WaveRoute[]} */ (/** @type {NonNullable<Tpl>} */ (tpl).extraRoutes)[s.routeIndex]) || null;
+  return s ? extraRoute(tpl, s.routeIndex) : null;
 }
 
 /**
@@ -392,7 +397,7 @@ function branchSpawn(b, tpl, name, phaseIdx, { fallback = null, mods = null, at 
     // placeholder slots (NF/N…) of branch spawns: the match may pass the round's replacements as opts.slotKeys
     const key = (s.slot && b.opts && b.opts.slotKeys && b.opts.slotKeys[s.slot]) || s.key || s.enemyKey;
     if (!key || !String(key).startsWith('enemy_')) continue;
-    const route = /** @type {NonNullable<Tpl>} */ (tpl).extraRoutes && /** @type {WaveRoute[]} */ (/** @type {NonNullable<Tpl>} */ (tpl).extraRoutes)[s.routeIndex];
+    const route = extraRoute(tpl, s.routeIndex);
     for (let i = 0; i < Math.max(1, s.count ?? 1); i++) {
       const u = b.spawnEnemy(key, { route: route || (at ? toGoal(b, at.x, at.y) : undefined), pos: route ? undefined : at ? [at.y, at.x] : undefined, tag: s.tag ?? null, countInTotal: s.unharmful ? false : undefined, mods });
       if (u) out.push(u);
@@ -488,7 +493,7 @@ function mirror(b, e, tpl) {
     if (key !== e.defId) continue;
     b.after(Math.max(0, (s.time ?? 0) - b.time), () => {
       if (b.aliveEnemies().filter((o) => o.defId === key && o.isBoss).length >= 2) return; // the match already did it
-      const route = /** @type {NonNullable<Tpl>} */ (tpl).extraRoutes && /** @type {WaveRoute[]} */ (/** @type {NonNullable<Tpl>} */ (tpl).extraRoutes)[s.routeIndex];
+      const route = extraRoute(tpl, s.routeIndex);
       const u = b.spawnEnemy(key, { route: route || undefined, tag: 'boss', mods: e.mods });
       if (u) u.mem.mirror = true;
     });
@@ -2314,7 +2319,7 @@ function kitMachine(ab, e, b, tpl) {
     const br = tpl && tpl.branches && tpl.branches.acfnca;
     const phase = Array.isArray(br) && Array.isArray(br[0]) ? br[0] : [];
     const r0 = Math.round(e2.y) + 1, c0 = Math.round(e2.x);
-    const list = phase.length ? /** @type {WaveRoute[]} the routes it has */ (phase.map((s) => /** @type {NonNullable<Tpl>} */ (tpl).extraRoutes && /** @type {WaveRoute[]} */ (/** @type {NonNullable<Tpl>} */ (tpl).extraRoutes)[s.routeIndex]).filter(Boolean))
+    const list = phase.length ? phase.map((s) => extraRoute(tpl, s.routeIndex)).filter((rt) => rt != null)
       : [{ start: [r0, c0 - 2], end: [r0, b2.rect.c0 + 1] }, { start: [r0, c0 + 2], end: [r0, b2.rect.c1 - 1] }];
     for (const rt of list) {
       const o = b2.spawnEnemy(FNC_ARMOR, { route: { motion: 'FLY', start: rt.start, end: rt.start, checkpoints: [] }, pos: rt.start, countInTotal: false, mods: summonMods(b2, null, FNC_ARMOR) });
