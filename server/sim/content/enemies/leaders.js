@@ -30,6 +30,21 @@ import { ENEMY_RECORD } from '../items/shared.js';
  *  immunities ("免疫晕眩/沉睡/寒冷/冻结/浮空/恐惧", plus 失衡免疫). */
 export const TRANSLATOR_CHANGE = 2;
 
+/** “邪魔的利刃”'s 【国度】: the official tile-binding global buff its talent creates (CreateTileBindingGlobalBuff `_globalBuffPrefabKey`). */
+const BLACKFOG_GLOBAL_BUFF = 'rogue_3_blackfog[random_tile]';
+/** @param {number} k a tile key (r × COLS + c) @returns {[number, number]} [x, y] */
+const tileXY = (k) => [k % COLS, Math.floor(k / COLS)];
+/**
+ * The tile-binding global buffs of `battle` and their tiles so far ([{ key, by, tiles: [[x, y]] }] — “邪魔的利刃”'s 【国度】, the
+ * battle's one list), or null for none: Battle.fieldMeta's `tileBind`, so a view entering the battle late (a re-entry, a
+ * watched field) lays their tile effects again — the 'tileBind' fx names only the tiles each step adds.
+ * @param {Battle} battle
+ */
+export function tileBindView(battle) {
+  const fog = /** @type {{ tiles: Set<number> } | undefined} */ (stOf(battle).blackFog);
+  return fog && fog.tiles.size ? [{ key: BLACKFOG_GLOBAL_BUFF, by: 'enemy_2048_smgrd', tiles: [...fog.tiles].map(tileXY) }] : null;
+}
+
 const TRANSLATOR_IMMUNE = Object.freeze(['stun', 'sleep', 'cold', 'freeze', 'levitate', 'fear']);
 
 /** 碎骨's grenade (PRTS 碎骨 天赋 "未被阻挡时发射榴弹对目标及其周围八格的我方单位造成相当于攻击力26%的物理伤害，并令其在5秒内
@@ -546,7 +561,12 @@ function kitLeaderMisc(key, ab, e) {
               (added ??= new Set()).add(k);
             }
           }
-          if (added) for (const u of b.allies()) if (added.has(u.tileR * COLS + u.tileC)) giveFog(b, u, fog.aspd);
+          if (!added) return;
+          for (const u of b.allies()) if (added.has(u.tileR * COLS + u.tileC)) giveFog(b, u, fog.aspd);
+          // the global buff's `_tileEffect` (enemy_smgrd_buff_03_range) is created on each tile it adds and held to the battle's
+          // end (TryAddBindingTiles → CreateEffect): the browser lays it on these tiles (render/fxgame.js tileBindFx; a view
+          // entering later gets the whole list from Battle.fieldMeta's `tileBind` — tileBindView)
+          b.fx('tileBind', { x: e2.x, y: e2.y, id: e2.id, by: 'enemy_2048_smgrd', key: BLACKFOG_GLOBAL_BUFF, tiles: [...added].map(tileXY) });
         },
         hitOut(c, b, e2) {
           const t = c.target;

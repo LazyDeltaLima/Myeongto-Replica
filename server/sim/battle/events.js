@@ -16,6 +16,7 @@ import { unitInfo, snapshotUnits } from '../snapshot.js';
 import { hudLists } from '../local-hud.js'; // local patch
 import { stormView } from '../content/devices.js'; // 战场#06's 沙尘暴 for the client (fieldMeta)
 import { sandView } from '../content/bonds/nation/sargon.js'; // 规程 萨尔贡 6's 流沙 tiles for the client (fieldMeta)
+import { tileBindView } from '../content/enemies/leaders.js'; // “邪魔的利刃”'s 【国度】 tiles for the client (fieldMeta)
 
 export class BattleEvents {
   /**
@@ -141,17 +142,21 @@ export class BattleEvents {
    * knocked-out operators waiting to redeploy included (a client joining mid-battle shows them down); `storm`: 战场#06's
    * 沙尘暴 spans (content/devices.js stormView), only on a stage with one; `wide`: the halves (3 | 4) of an 8-player
    * mode's wide 联防 field (the browser draws the stage widened: wideStage.js widenStageData), only there; `sand`: 规程
-   * 萨尔贡 6's 流沙 tiles laid so far ([[x, y]], content/bonds/nation/sargon.js sandView), only once one is.
+   * 萨尔贡 6's 流沙 tiles laid so far ([[x, y]], content/bonds/nation/sargon.js sandView), only once one is; `tileBind`: the
+   * tile-binding global buffs' tiles so far ([{ key, by, tiles: [[x, y]] }] — “邪魔的利刃”'s 【国度】, content/enemies/leaders.js
+   * tileBindView), only once one has a tile.
    * @this {Battle}
    */
   fieldMeta() {
     const storm = stormView(this);
     const sand = sandView(this);
+    const tileBind = tileBindView(this);
     return {
       fieldId: this.fieldId, kind: this.kind, rect: { ...this.rect }, stageId: this.stageId,
       units: this.units.filter((u) => (u.alive && u.deployed && !u.hidden) || this.isDown(u)).map(unitInfo),
       ...(storm ? { storm } : {}),
       ...(sand ? { sand } : {}),
+      ...(tileBind ? { tileBind } : {}),
       ...(this.wide ? { wide: this.wide } : {}),
     };
   }

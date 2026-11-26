@@ -182,7 +182,7 @@ const NO_HOOK = {
   moduleFx: [1, OWNER], alwaysOn: [1, OWNER], defaultModeFx: [1, OWNER],
   exposeFx: [1, ENEMY], eplay: [1, ENEMY], emortarFx: [2, ENEMY], emortarLand: [1, ENEMY], dshellFx: [1, ENEMY],
   dshellBlast: [1, ENEMY], eprojTelegraph: [1, ENEMY], eshotBlast: [1, ENEMY], cannonBlast: [1, ENEMY], eprojAreaFx: [2, ENEMY],
-  stepSand: [1, ENEMY], acRainFx: [1, ENEMY], soulFx: [2, ENEMY], ecolumnFx: [1, ENEMY], eholdBuff: [1, ENEMY], efaithFx: [1, ENEMY],
+  stepSand: [1, ENEMY], stepBindTiles: [1, ENEMY], acRainFx: [1, ENEMY], soulFx: [2, ENEMY], ecolumnFx: [1, ENEMY], eholdBuff: [1, ENEMY], efaithFx: [1, ENEMY],
   stepBountyMarks: [1, ENEMY], stepStageTiles: [1, ENEMY], erebornAbility: [1, ENEMY], eblinkFx: [1, `${ENEMY} (the band tiles below it)`],
 };
 test('every spawn() of the effect layer names the unit that makes its effect, or is listed with why not', () => {

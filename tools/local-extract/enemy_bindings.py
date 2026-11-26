@@ -226,6 +226,26 @@ def read_projectiles(game):
     return roots
 
 
+def read_global_buffs(game):
+    """{global buff prefab: {'tileEffect': name}} of battle/prefabs/[uc]globalbuffs.ab (2026-11-26) — a tile-binding global
+    buff (SharedRandomTileGlobalBuff …, its `_tileEffect`) that an enemy's buff template creates (Nodes.CreateTileBindingGlobalBuff
+    `_globalBuffPrefabKey`: '데몬의 칼날''s rogue_3_blackfog[random_tile]). PersistentData (the hot update) wins."""
+    out = {}
+    for f in (Path(game) / 'PersistentData/Bundles/battle/prefabs/[uc]globalbuffs.ab',
+              Path(game) / 'StreamingAssets/AB/Windows/battle/prefabs/[uc]globalbuffs.ab'):
+        if not f.exists():
+            continue
+        seen = set()
+        for gp, d, _ in load_tree(f)[0]:
+            r = gp.split('/')[0]
+            if r in out and r not in seen:
+                continue
+            seen.add(r)
+            if isinstance(d.get('_tileEffect'), str) and d['_tileEffect']:
+                out.setdefault(r, {})['tileEffect'] = d['_tileEffect']
+    return out
+
+
 def read_fx_index(game):
     """{effect name (lower case): {bundle, path}} of every effect bundle (battle/prefabs/effects, pkgrps/btl_pfb_fx_*)."""
     import aklz4  # noqa: F401
@@ -653,14 +673,16 @@ def enemy_record(root, tree, fx_index, proj_keys, skills=None):
     return rec
 
 
-def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
+def template_info(key, BT, FX, proj_keys, depth=0, seen=None, GB=None):
     """A buff template's effects: `fx` (its effectKey + the CreateEffect-like nodes of ON_BUFF_START), `line`
     (CreateLineEffect of ON_BUFF_START: from the buff's source to its owner — not drawn here), `onEvent` { Buff.Event
     number: [effects] } (the nodes of the other events — ON_BUFF_FINISH 1, ON_BUFF_TRIGGER 2, ON_OWNER_KILLED 3,
     ON_TAKE_DAMAGE 10 …: played once when that event runs, `Nodes.CreateEffect.Execute` — not the buff's own
     effect; official client, 2026-10-11: they used to be mixed into `fx`, 머드락's shield heal common_heal_hit_01
     (ON_TAKE_DAMAGE) and 티티's sleeping hit titi_attack_hit_01 (ON_BUFF_TRIGGER) among them), projectiles; nested templates
-    followed to depth 3 (a nested template's start effects count for the event that adds it)."""
+    followed to depth 3 (a nested template's start effects count for the event that adds it); `tileBind` { global buff prefab:
+    [effects] } (Nodes.CreateTileBindingGlobalBuff: the global buff of `GB`, read_global_buffs, puts its `_tileEffect` on
+    every tile it adds — SharedRandomTileGlobalBuff.TryAddBindingTiles)."""
     seen = seen if seen is not None else set()
     if not key or key in seen or key not in BT or depth > 3:
         return None
@@ -707,6 +729,17 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
                     and o['_effectKey'].lower() in FX:
                 if all(x['fx'] != o['_effectKey'] for x in out.get('tileFx', [])):
                     out.setdefault('tileFx', []).append({'fx': o['_effectKey'], 'at': 0})
+            # (2026-11-26) a tile-binding global buff its nodes create (Nodes.CreateTileBindingGlobalBuff: one per key in the
+            # battle, the tiles the ability's selector finds added to it): its prefab's `_tileEffect`, created on each tile as
+            # it is added and held to the battle's end (TryAddBindingTiles → CreateEffect; AbstractBindingTileGlobalBuff.OnReset
+            # finishes them) — '데몬의 칼날''s 【国度】 enemy_smgrd_buff_03_range
+            gk = o.get('_globalBuffPrefabKey')
+            if typ.endswith('+CreateTileBindingGlobalBuff') and isinstance(gk, str) and gk:
+                fx = ((GB or {}).get(gk) or {}).get('tileEffect')
+                if isinstance(fx, str) and fx.lower() in FX:
+                    lst = out.setdefault('tileBind', {}).setdefault(gk, [])
+                    if fx not in lst:
+                        lst.append(fx)
             b = o.get('_buff')
             if depth == 0 and ev == '0' and typ.endswith('+CreateBuff') and isinstance(b, dict):
                 sub = BT.get(b.get('templateKey') or '') or {}
@@ -728,7 +761,7 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
             # ymgtop_m1_t[rotate_attack]): its own effect and its template's start effects, created on each unit it goes on —
             # `given` { buff key: [effects] }, bound by that key (the record's buffFx; the sim names the moment on that hit)
             if typ.endswith(('+CreateBuffToBlockee', '+CreateBuffUseAbilitySelector')) and isinstance(b, dict) and b.get('buffKey'):
-                sub = template_info(b.get('templateKey'), BT, FX, proj_keys, depth + 1, set(seen)) or {}
+                sub = template_info(b.get('templateKey'), BT, FX, proj_keys, depth + 1, set(seen), GB) or {}
                 names = list(dict.fromkeys(n for n in [b.get('overrideEffectKey')] + list(sub.get('fx') or []) if isinstance(n, str) and n and n.lower() in FX))
                 if names:
                     lst = out.setdefault('given', {}).setdefault(b['buffKey'], [])
@@ -746,13 +779,13 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None):
                     elif v in proj_keys:
                         add('projectiles', v)
                     elif v in BT and v != key:
-                        sub = template_info(v, BT, FX, proj_keys, depth + 1, seen)
+                        sub = template_info(v, BT, FX, proj_keys, depth + 1, seen, GB)
                         for f, lst in (sub or {}).items():
                             if f == 'kills':
                                 tgt = out.setdefault('kills', [])
                                 tgt += [x for x in lst if x not in tgt]
                                 continue
-                            if f in ('derived', 'given'):
+                            if f in ('derived', 'given', 'tileBind'):
                                 for dk, dl in lst.items():
                                     tgt = out.setdefault(f, {}).setdefault(dk, [])
                                     tgt += [x for x in dl if x not in tgt]
@@ -1145,6 +1178,17 @@ def render_entry(r, projs):
                 for o in a.get('otherFx') or [] if o.get('field') == '_buffs.blackboard.valueStr')
     if born:
         out['born'] = born
+    # (2026-11-26) the tile-binding global buffs its buffs create (template_info `tileBind`): { global buff prefab: [its
+    # `_tileEffect`] } — on each tile the sim adds to that global buff (fx 'tileBind'), held to the battle's end
+    tb = {}
+    for a in r['abilities']:
+        for kk in BUFF_KEYS + ('_uniqueBuffs',):
+            for b in a.get(kk.strip('_')) or []:
+                for gk, lst in ((b.get('template') or {}).get('tileBind') or {}).items():
+                    tgt = tb.setdefault(gk, [])
+                    tgt += [x for x in lst if x not in tgt]
+    if tb:
+        out['tileBind'] = tb
     # an enemy's own buff held while the ability that holds it is attached (2026-10-21, client classes — BUFF_CLASSES): the
     # passive buffs of a PassiveBuffAbility that last (INFINITY, no node of their own that finishes them) — outside the modes
     # for its whole life (`aura`; a talent / common ability, the root's `_commonAbilities` wherever they sit: 黄金回响's
@@ -1363,6 +1407,7 @@ def render_entry(r, projs):
 def entry_names(e):
     out = [e.get('start'), e.get('dead')] + list(e.get('aura', [])) + list(e.get('handed', [])) + list(e.get('auraNested', []))
     out += list(e.get('camera', [])) + list(e.get('born', [])) + list(e.get('passenger', []))
+    out += [x for lst in (e.get('tileBind') or {}).values() for x in lst]
     out += [x for rb in e.get('reborn') or [] for x in rb['fx']]
     out += [x for ra in e.get('rebornAbility') or [] for x in ra['cast'] + [b['fx'] for b in ra['buffs']]]
     for k in ('buffFx', 'buffEnd', 'buffBlocked'):
@@ -1421,14 +1466,15 @@ def main():
         SKP = cached(cache, 'skill_prefabs.pkl', lambda: read_skill_prefabs(game, {k for v in DEV.values() for k in v}))
         PTS = dict(PTS, **cached(cache, 'token_points.pkl', lambda: read_points(game, 'pkgrps/btl_pfb_tokens_*.ab', set(DEV))))
         BOX = cached(cache, 'root_colliders.pkl', lambda: read_root_colliders(game))
-        return P, PR, PTS, FX, BT, TOK, SKP, BOX
-    P, PR, PTS, FX, BT, TOK, SKP, BOX = reads(game, cache)
+        GB = cached(cache, 'global_buffs.pkl', lambda: read_global_buffs(game))
+        return P, PR, PTS, FX, BT, TOK, SKP, BOX, GB
+    P, PR, PTS, FX, BT, TOK, SKP, BOX, GB = reads(game, cache)
     from_other = set()   # prefab roots read from --other-game
     if a.other_game:
         ocache = cache / 'other' if cache else None
         if ocache:
             ocache.mkdir(parents=True, exist_ok=True)
-        oP, oPR, oPTS, oFX, oBT, oTOK, oSKP, oBOX = reads(a.other_game, ocache)
+        oP, oPR, oPTS, oFX, oBT, oTOK, oSKP, oBOX, oGB = reads(a.other_game, ocache)
         for mine, theirs in ((P, oP), (TOK, oTOK)):   # whole prefabs: only roots --game lacks
             for r, tree in theirs['trees'].items():
                 if r not in mine['trees']:
@@ -1436,7 +1482,7 @@ def main():
                     from_other.add(r)
                     if r in oBOX:
                         BOX[r] = oBOX[r]
-        for mine, theirs in ((PR, oPR), (PTS, oPTS), (BT, oBT), (SKP, oSKP)):
+        for mine, theirs in ((PR, oPR), (PTS, oPTS), (BT, oBT), (SKP, oSKP), (GB, oGB)):
             for k, v in theirs.items():
                 mine.setdefault(k, v)
         for k, v in oFX.items():
@@ -1481,7 +1527,7 @@ def main():
             pk += [x['key'] for x in ab.get('otherProjectiles') or []]
             for kk in ('buffs', 'activeBuffs', 'passiveBuffs', 'projectileBuffs', 'buffsWhenReachedTarget', 'buffsToBlockee', 'uniqueBuffs'):
                 for b in ab.get(kk) or []:
-                    t = template_info(b.get('tmpl') or b.get('key'), BT, FX, proj_keys)
+                    t = template_info(b.get('tmpl') or b.get('key'), BT, FX, proj_keys, GB=GB)
                     if t:
                         b['template'] = t
                         pk += t.get('projectiles', [])

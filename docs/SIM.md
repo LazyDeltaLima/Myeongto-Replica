@@ -1544,6 +1544,9 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   `column` `{ c, id, key, sub, r0, dir, speed, dist, life }` (“萨米的意志”'s 冰凌, `content/bosses.js kitDeer`): projectile `key` appears at its
   strike on the stage's top tile (row `r0`) of column `c` and runs `dir` [0, −1] at `speed` tiles/s, leaving projectile `sub` on every `dist`-th
   tile as it reaches it; each `sub` hits the one ally on its tile `life` s after it appears (the 'dmg' then, attacker = the boss);
+  `tileBind` `{ id, by, key, tiles }` (“邪魔的利刃”'s 【国度】, `content/enemies/leaders.js`): the tiles ([[x, y]]) a step adds to the
+  tile-binding global buff `key` (`rogue_3_blackfog[random_tile]`, one list per battle) — the view lays the global buff's tile effect that
+  enemy `by`'s binding names on each, held to the battle's end; `fieldMeta()` `tileBind` lists every tile so far for a view entering later;
   `extra.form` = the unit's model form from then on — an enemy's `content/enemies/helpers.js setForm`, a 傀儡师's 替身 — `shared/protocol.js fxForm`),
   `['layer', playerId, bondId, n]` (n = the layers actually added, capped at 999), `['bounty', playerId, coins]`,
   `['tplfx', targetId | null, effectKey, sourceId | null]` (a 卫戍协议 bond / equipment / band template effect: the client buff

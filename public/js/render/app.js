@@ -1977,6 +1977,8 @@ export async function createFieldView(host, options = {}) {
     fxGame.setCannons(battleMeta.prep ? [] : stageCannons(stageRec, rect).map((k) => ({ ...k, z: tiles.grid[k.r]?.[k.c]?.h || 0 })));
     // 2026-11-16: 萨尔贡 6's 流沙 tiles laid before this entry (m.field `sand`; the clear() above dropped their floors)
     if (!battleMeta.prep) fxGame.setSargonSand(meta.sand);
+    // 2026-11-26: the tile-binding global buffs' tiles added before this entry (m.field `tileBind`: “邪魔的利刃”'s 【国度】)
+    if (!battleMeta.prep) fxGame.setTileBinds(meta.tileBind);
     return true;
   }
 

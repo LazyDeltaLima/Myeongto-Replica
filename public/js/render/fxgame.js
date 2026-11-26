@@ -177,7 +177,7 @@ import { animPause, backSide, viewHoldsBuff, clipOf, facesBack, idlePause, immun
  * @typedef {{ modes?: (EMode | null)[], skills?: Record<string, EPart | undefined>, aura?: string[], camera?: string[],
  *   points?: PtsTable, _buffMemo?: Map<string, EnemyBuffs | null>, buffFx?: Record<string, string[] | undefined>,
  *   buffEnd?: Record<string, string[] | undefined>, buffOnce?: string[],
- *   passenger?: string[], born?: string[], start?: string, dead?: string, _animSkill?: Map<string, string>, buffBlocked?: Record<string, string[] | undefined>,
+ *   passenger?: string[], tileBind?: Record<string, string[] | undefined>, born?: string[], start?: string, dead?: string, _animSkill?: Map<string, string>, buffBlocked?: Record<string, string[] | undefined>,
  *   auraEnd?: Record<string, string | undefined>, reborn?: { fx: string[], mode?: number | null, to?: number, clear?: number }[],
  *   rebornAbility?: (EPart & { mode?: number | null, to?: number, buffs?: { fx: string, ev: number, once?: unknown }[] })[],
  *   [key: string]: unknown }} ERow an enemy's
@@ -245,6 +245,8 @@ import { animPause, backSide, viewHoldsBuff, clipOf, facesBack, idlePause, immun
  * @typedef {{ tgt: View, l: LiveEntry | null, until: number, done: boolean }} BreathRec 炎佑's 祛恶之焰 on its target (`ebreath`)
  * @typedef {{ x: number, y: number, l: LiveEntry | null, loading: boolean, none: boolean, stood: boolean, key: string }}
  *   SandFloor a 流沙 tile's floor (`sandFloors`)
+ * @typedef {{ x: number, y: number, by: string, key: string, l: LiveEntry | null, loading: boolean, none: boolean }}
+ *   BindTile a tile-binding global buff's tile (`bindTiles`): enemy `by`'s binding names its effect (`tileBind[key]`)
  * @typedef {{ fx: string[], iv?: unknown, buff: string, [key: string]: unknown }} SwBB a blackboard switch (fx_extract.py `swBB`)
  * @typedef {{ view: View, bundle: string, key: string, frac: number | 'own', sw: SwBB, cur: number | null, next: number }}
  *   BbSwitch a status effect switched by its blackboard value (`bbSwitches`)
@@ -1202,7 +1204,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    */
   function teardown() {
     const sand = sandFloors.splice(0);   // 2026-11-16: the battle's 流沙 tiles outlive the layer (their stand-ins, a later layer's floors)
+    const binds = [...bindTiles];   // 2026-11-26: so do a tile-binding global buff's tiles (bindTiles)
     api.clear();
+    for (const [k, rec] of binds) { rec.l = null; rec.loading = false; rec.none = false; bindTiles.set(k, rec); }
     for (const rec of sand) { rec.l = null; rec.loading = false; sandFloors.push(rec); }   // (their stand-ins stay: another layer)
     sandWait = sandFloors.length > 0;
     flightBatch?.dispose(); flightBatch = null;
@@ -7517,6 +7521,55 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     }
   }
   /**
+   * 2026-11-26 (docs/rules/fx.md 「적 이펙트 바인딩」 칸 묶음 전역 버프): a tile-binding global buff's tiles — sim fx 'tileBind'
+   * { id, by, key, tiles: [[x, y]] } (content/enemies/leaders.js: “邪魔的利刃”'s 【国度】, global buff rogue_3_blackfog[random_tile],
+   * the tiles each step adds). SharedRandomTileGlobalBuff.TryAddBindingTiles creates the global buff's `_tileEffect`
+   * (enemy-modes.json `tileBind[key]` of enemy `by`: enemy_smgrd_buff_03_range) on each tile as it adds it, and only
+   * AbstractBindingTileGlobalBuff.OnReset (the battle's end) finishes them — they stay through the boss's knock-out. One
+   * record per tile, laid like the 流沙 floors: pinned (never ended by the caps), laid on tiles (`tiled`: one step's tiles
+   * share an effect time and merge in TileBatch), kept through a teardown, given again on a re-entry (m.field `tileBind`,
+   * setTileBinds — the fx comes once per tile). No stand-in without the effect: none was drawn for it before.
+   */
+  /** @type {Map<string, BindTile>} */
+  const bindTiles = new Map();   // `${key}@${x},${y}` → its record
+  /**
+   * @param {unknown} by
+   * @param {unknown} key
+   * @param {unknown} tiles [[x, y]]
+   */
+  function addBindTiles(by, key, tiles) {
+    if (typeof by !== 'string' || typeof key !== 'string' || !Array.isArray(tiles)) return;
+    for (const t of tiles) {
+      const x = Math.round(Number(t?.[0])), y = Math.round(Number(t?.[1]));
+      if (!Number.isFinite(x) || !Number.isFinite(y) || bindTiles.has(`${key}@${x},${y}`)) continue;
+      bindTiles.set(`${key}@${x},${y}`, { x, y, by, key, l: null, loading: false, none: false });
+    }
+  }
+  function stepBindTiles() {
+    if (!bindTiles.size || failed || q() === 'low') return;
+    if (!index || !emodes) { if (!dry) ensure(); return; }
+    let g = null;
+    try { g = grid(); } catch { /* the board's floor */ }
+    for (const rec of bindTiles.values()) {
+      if (rec.loading || rec.none || (rec.l && live.includes(rec.l))) continue;
+      rec.l = null;
+      const r = efx(emodes[rec.by]?.tileBind?.[rec.key]?.[0]);
+      if (!r) { rec.none = true; continue; }
+      const cell = Array.isArray(g) ? g[rec.y]?.[rec.x] : null;
+      rec.loading = true;
+      const g0 = gen;   // the layer it is laid on (teardown: the records wait for the next one)
+      spawn(r[0], r[1], { x: rec.x, y: rec.y, z: cell ? (cell.h || 0) + (cell.devH || 0) : 0 },
+        { owner: null, buff: true, keep: true, pinned: true, tiled: true, until: Infinity, tag: 'tileBind' }, { over: false })
+        .then((l) => {
+          if (g0 !== gen) return;
+          rec.loading = false;
+          if (!l) { rec.none = true; return; }
+          if (bindTiles.get(`${rec.key}@${rec.x},${rec.y}`) !== rec) { l.keep = false; l.inst.stop(true); return; }   // its battle was cleared while it loaded
+          rec.l = l;
+        }, () => { rec.loading = false; });
+    }
+  }
+  /**
    * 2026-11-11 (docs/rules/fx.md 「규정 보스 고치·지느러미의 이펙트」): 假想敌：茧 (隐秘核心)'s 【悲惨之雨】 — sim fx 'zone'
    * { kind: 'acspiderRain', id, ability, field, dur, tiles: [r0, r1, c0, c1] }. Its `Left` / `Right` tile listeners
    * (AttachListenerToTileAbility) put their `_effectSettings` effect (enemy-modes.json skills[ability].tile:
@@ -9252,6 +9305,16 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       stepSand();
     },
     /**
+     * 2026-11-26: the tile-binding global buffs' tiles a battle already has when the view enters it (m.field `tileBind`:
+     * [{ key, by, tiles: [[x, y]] }] — Battle.fieldMeta), after enterBattle's clear(); the ones added later come as 'tileBind'
+     * fx. See bindTiles.
+     * @param {unknown} list m.field `tileBind`
+     */
+    setTileBinds(list) {
+      for (const t of Array.isArray(list) ? list : []) addBindTiles(t?.by, t?.key, t?.tiles);
+      stepBindTiles();
+    },
+    /**
      * 2026-11-12: the stage's tile effects ([{ bundle, name, x, y }] — stageTileFx of the stage on the board; [] none), held
      * until a list without them, laid again after a clear() — see stageTiles.
      * @param {readonly TileFx[] | null | undefined} list
@@ -9380,6 +9443,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if (Array.isArray(e) && e[0] === 'fx' && e[1] === 'column' && e[4]?.r0 != null) { ecolumnFx(e, views); return; }
       // 2026-11-16: 萨尔贡 6's 流沙 — recorded at any quality and before the index (its stand-in is drawn from the records)
       if (Array.isArray(e) && e[0] === 'fx' && e[1] === 'zone' && e[4]?.kind === 'sargonSand') { ownFx.add(e); sargonSandFx(e); return; }
+      // 2026-11-26: a tile-binding global buff's tiles (“邪魔的利刃”'s 【国度】) — recorded at any quality and before the index
+      if (Array.isArray(e) && e[0] === 'fx' && e[1] === 'tileBind') { ownFx.add(e); addBindTiles(e[4]?.by, e[4]?.key, e[4]?.tiles); stepBindTiles(); return; }
       if (!index || q() === 'low' || !Array.isArray(e)) return;
       if (e[0] === 'atk' && !CHAIN_KINDS.has(/** @type {string} */ (e[3]))) countSkip(views.get(e[1]));
       switch (e[0]) {
@@ -9795,6 +9860,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       flushEnemyBirths(lastViews); stepEnemies(lastViews); // 2026-10-10: the enemies' born effects, modes, skill clips
       stepStageTiles(); // 2026-11-12: the stage's tile effects (setStageTiles)
       if (sandFloors.length) stepSand(); // 2026-11-16: 萨尔贡 6's 流沙 floors / stand-ins (sandFloors)
+      if (bindTiles.size) stepBindTiles(); // 2026-11-26: the tile-binding global buffs' tiles (bindTiles)
       stepCannons(); // 2026-11-12: 规程 m10's 盐坨子炮 (setCannons)
       if (lastViews && (soulBalls.size || soulLines.size)) stepSouls(lastViews, dt * gameRate()); // 2026-11-12: 魂灵法骸's fireballs
       if (index) flushDeploys(lastViews); // 2026-10-11: the operators' / tokens' deploy effects
@@ -9983,6 +10049,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       for (const rec of bandTiles.values()) rec.off = true;   // 2026-11-12: the prep's tile 指令 floors (dropped with `live`)
       bandTiles.clear();
       sandFloors.length = 0; sandWait = false; sandMode = null;   // 2026-11-16: 流沙's floors (dropped with `live`; a re-entry's setSargonSand lays them again)
+      bindTiles.clear();   // 2026-11-26: the tile-binding global buffs' tiles (dropped with `live`; a re-entry's setTileBinds lays them again)
       for (const rec of stageTiles.values()) { rec.l = null; rec.none = false; }   // 2026-11-12: the stage's tile effects (dropped with `live`; laid again next frame)
       if (mod) showLayers();
     },

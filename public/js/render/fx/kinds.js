@@ -87,6 +87,9 @@ export const FX_KINDS = Object.freeze({
   // “越长尘”'s passenger count (sim content/enemies/special.js kitBus): its official passenger mark only (render/fxgame.js
   // epaxFx); nothing in the fallback
   passengers: { a: 'none', c: 0xffb070 },
+  // a tile-binding global buff's new tiles (sim content/enemies/leaders.js: “邪魔的利刃”'s 【国度】): its official tile effect only
+  // (render/fxgame.js bindTiles); nothing in the fallback
+  tileBind: { a: 'none', c: 0x8a5cff },
   roadTiles: { a: 'none', c: 0x9fd8ff }, // 引星棘刺 T2's straight-road tiles (render/fx/kitofficial.js; nothing in the fallback)
   seaArea: { a: 'none', c: 0x9fd8ff }, // 引星棘刺 S3's area line (render/fx/kitofficial.js; the fallback has the 'zone' rings)
   // 予愿安洁莉娜 S3's flight on / off (sim kit op-aglna2.js): her body flies there itself — render/fxgame.js plays the official

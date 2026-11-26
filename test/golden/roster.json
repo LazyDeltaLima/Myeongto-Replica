@@ -726,7 +726,7 @@
         "enemy_9011_acrefr": [12,9,0,10270,321064]
       },
       "hooks": [1,102,5700,927,927,2152,2552,1246,85,85,57,53,21,30330,383,37,82,0,1,85,1,0,0],
-      "events": {"atk":1526,"bounty":5,"deploy":18,"die":85,"dmg":2116,"engage":9,"face":49,"fx":440,"heal":58,"layer":1,"skill":110,"spawn":96,"status":992,"swing":944},
+      "events": {"atk":1526,"bounty":5,"deploy":18,"die":85,"dmg":2116,"engage":9,"face":49,"fx":449,"heal":58,"layer":1,"skill":110,"spawn":96,"status":992,"swing":944},
       "fx": {
         "bandage": 2,
         "camouflage": 4,
@@ -761,6 +761,7 @@
         "summon": 4,
         "talent": 14,
         "telegraph": 6,
+        "tileBind": 9,
         "truesilver": 2
       },
       "snaps": "624837d9 d9b7685f 03cbc990 b335ffc1 1f300cdf 6d069249 3ede0e26 5c055cdb 68eb2135 11d4561b 18cdcbb9 e4b8dd00 102a9fec ff4138f9 5a7ba737 c8b33fea 89caa797 a6753ae2 0c22b869"
@@ -1608,8 +1609,8 @@
         "enemy_2048_smgrd": [1,0,0,9042,3685]
       },
       "hooks": [1,52,3300,341,341,736,801,2496,37,37,23,21,0,10783,56,39,36,0,1,37,0,1,0],
-      "events": {"atk":523,"bounty":3,"deploy":13,"die":37,"dmg":725,"engage":8,"face":20,"fx":67,"heal":93,"skill":44,"spawn":51,"status":164,"swing":357,"tplfx":239},
-      "fx": {"beam":21,"buff":3,"burst":1,"enemySkill":5,"enemySkillEnd":1,"explode":1,"kitHit":24,"phase":1,"stacks":3,"summon":1,"takeoff":1,"telegraph":5},
+      "events": {"atk":523,"bounty":3,"deploy":13,"die":37,"dmg":725,"engage":8,"face":20,"fx":75,"heal":93,"skill":44,"spawn":51,"status":164,"swing":357,"tplfx":239},
+      "fx": {"beam":21,"buff":3,"burst":1,"enemySkill":5,"enemySkillEnd":1,"explode":1,"kitHit":24,"phase":1,"stacks":3,"summon":1,"takeoff":1,"telegraph":5,"tileBind":8},
       "snaps": "9d6eb1d3 5d1a32c0 3b993060 36402965 97491b25 b9dd50a9 654fc747 d4e246d4 52a617e8 6d211ea1 78328c19"
     },
     "roster-024": {

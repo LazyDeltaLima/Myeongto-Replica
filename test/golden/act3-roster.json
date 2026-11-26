@@ -371,8 +371,8 @@
         "enemy_9040_accrit": [1,1,0,1573,12672]
       },
       "hooks": [1,71,3300,680,680,1302,1350,3760,58,60,20,20,0,20433,170,24,51,0,1,65,2,0,0],
-      "events": {"atk":732,"bounty":5,"castHit":8,"deploy":20,"die":60,"dmg":1301,"engage":10,"face":21,"fx":162,"heal":38,"layer":2,"skill":40,"spawn":66,"status":135,"swing":718,"tplfx":3},
-      "fx": {"aoe":2,"camouflage":1,"disappear":2,"dp":24,"enemySkill":6,"explode":1,"garrison":1,"juExtra":22,"kitHit":54,"mitmReborn":2,"mitmSkill":2,"parry":1,"phase":1,"revive":2,"saltWard":2,"summon":10,"takeoff":1,"telegraph":1,"zone":27},
+      "events": {"atk":732,"bounty":5,"castHit":8,"deploy":20,"die":60,"dmg":1301,"engage":10,"face":21,"fx":167,"heal":38,"layer":2,"skill":40,"spawn":66,"status":135,"swing":718,"tplfx":3},
+      "fx": {"aoe":2,"camouflage":1,"disappear":2,"dp":24,"enemySkill":6,"explode":1,"garrison":1,"juExtra":22,"kitHit":54,"mitmReborn":2,"mitmSkill":2,"parry":1,"phase":1,"revive":2,"saltWard":2,"summon":10,"takeoff":1,"telegraph":1,"tileBind":5,"zone":27},
       "snaps": "e39e8b75 23c5ca15 6550982d bf80d7a7 5df3fb1c 125581dc ecb89a6c f906a9e7 29853bdd f6269bc7 79c6f8d2"
     },
     "roster-006": {
@@ -3833,8 +3833,8 @@
         "enemy_9006_actoxi": [42,42,0,39176,5372809]
       },
       "hooks": [1,126,5743,1154,1154,9003,9004,11675,114,114,205,201,0,30322,338,112,113,0,1,159,19,0,7],
-      "events": {"atk":1838,"bounty":4,"castHit":130,"deploy":13,"die":114,"dmg":8996,"engage":7,"face":216,"fx":1140,"heal":458,"layer":19,"skill":405,"spawn":125,"status":919,"swing":1252,"tplfx":1173},
-      "fx": {"aoe":141,"displace":53,"dodge":7,"enemyShot":42,"garrison":17,"healField":5,"kitHit":385,"shield":26,"slash":40,"snow":39,"sp":125,"thorns":120,"tockaFx":56,"wake":6,"zone":78},
+      "events": {"atk":1838,"bounty":4,"castHit":130,"deploy":13,"die":114,"dmg":8996,"engage":7,"face":216,"fx":1144,"heal":458,"layer":19,"skill":405,"spawn":125,"status":919,"swing":1252,"tplfx":1173},
+      "fx": {"aoe":141,"displace":53,"dodge":7,"enemyShot":42,"garrison":17,"healField":5,"kitHit":385,"shield":26,"slash":40,"snow":39,"sp":125,"thorns":120,"tileBind":4,"tockaFx":56,"wake":6,"zone":78},
       "snaps": "2a472a66 e99a74e7 dbc389fa 3b757b58 b61415e9 899977f9 ea59a036 891f0f18 b1a02c1c 6e74401e 30c464bb 7743a6ea 17db6655 07dd4c9a 01642bc4 072ac6d0 171439e9 4a82db55 f8c2cb40 e9c38f31"
     },
     "roster-056": {
