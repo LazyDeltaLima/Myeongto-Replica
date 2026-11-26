@@ -680,7 +680,8 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None, GB=None):
     ON_TAKE_DAMAGE 10 …: played once when that event runs, `Nodes.CreateEffect.Execute` — not the buff's own
     effect; official client, 2026-10-11: they used to be mixed into `fx`, 머드락's shield heal common_heal_hit_01
     (ON_TAKE_DAMAGE) and 티티's sleeping hit titi_attack_hit_01 (ON_BUFF_TRIGGER) among them), projectiles; nested templates
-    followed to depth 3 (a nested template's start effects count for the event that adds it); `tileBind` { global buff prefab:
+    followed to depth 3 (the start effects of a buff its nodes create count for the event that creates it, that buff's other
+    events go under its key in `subEvent` { buff key: { event: [effects] } }); `tileBind` { global buff prefab:
     [effects] } (Nodes.CreateTileBindingGlobalBuff: the global buff of `GB`, read_global_buffs, puts its `_tileEffect` on
     every tile it adds — SharedRandomTileGlobalBuff.TryAddBindingTiles)."""
     seen = seen if seen is not None else set()
@@ -775,11 +776,22 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None, GB=None):
                         if ev == '0':
                             add('camera', v)
                     elif v.lower() in FX:
-                        add('line' if 'LineEffect' in typ else 'fx', v, ev)
+                        # (2026-11-26) a tile effect (Nodes.CreateTileEffect) is on a tile, not on the buff's owner: only `tileFx`
+                        if not typ.endswith('+CreateTileEffect'):
+                            add('line' if 'LineEffect' in typ else 'fx', v, ev)
                     elif v in proj_keys:
                         add('projectiles', v)
                     elif v in BT and v != key:
-                        sub = template_info(v, BT, FX, proj_keys, depth + 1, seen, GB)
+                        sub = template_info(v, BT, FX, proj_keys, depth + 1, set(seen), GB)
+                        # (2026-11-26) which nested template runs here: the template of a buff these nodes create (a `_buff`
+                        # spec's templateKey; CreateBuffById's `_buffKey`); a template only named by another node
+                        # (FinishBuffsById, AssignBuffBlackboard, a spec's buffKey naming some other template) is not created
+                        # here, so its effects do not count for this event (a buff FinishBuffsById ends plays its own end, its
+                        # own buffEnd) — only what is bound by a buff key (`derived` / `given` / `tileBind`, drawn as the sim
+                        # names that buff) and its projectiles and kills. They used to: '갑주를 베는 검''s / '갑주를 부수는
+                        # 해머''s acstmb_s_1[stun_back] ends by finishing special_stun, and that read special_stun's start
+                        # effects (its held stun) as an effect of stun_back's end
+                        bk = o.get('buffKey') if k == 'templateKey' else v if k == '_buffKey' and typ.endswith('+CreateBuffById') else None
                         for f, lst in (sub or {}).items():
                             if f == 'kills':
                                 tgt = out.setdefault('kills', [])
@@ -790,16 +802,19 @@ def template_info(key, BT, FX, proj_keys, depth=0, seen=None, GB=None):
                                     tgt = out.setdefault(f, {}).setdefault(dk, [])
                                     tgt += [x for x in dl if x not in tgt]
                                 continue
-                            if not isinstance(lst, list):
-                                continue
-                            if f == 'onEvent':
-                                for e2, l2 in lst.items():
-                                    for x in l2:
-                                        add('fx', x, e2)
-                                continue
-                            for x in lst:
-                                if f != 'key':
+                            if f == 'projectiles' or (bk and f in ('fx', 'line', 'camera')):
+                                for x in lst:
                                     add(f, x, ev)
+                                continue
+                            # (2026-11-26) a nested buff's other events run at its own moments, not at this buff's event of
+                            # the same number (enemy_vtsk_skillRange's end is 0.8 s after its marker starts, 제트맨's
+                            # balloon_s[trigger] ticks every 0.33 s): `subEvent` { the nested buff's key: { event: [effects] } },
+                            # bound by that key (render_entry: its end → buffEnd)
+                            if bk and f in ('onEvent', 'subEvent'):
+                                for sk, evs in ({bk: lst} if f == 'onEvent' else lst).items():
+                                    for e2, l2 in evs.items():
+                                        tgt = out.setdefault('subEvent', {}).setdefault(sk, {}).setdefault(e2, [])
+                                        tgt += [x for x in l2 if x not in tgt]
                 else:
                     walk(v, ev)
         elif isinstance(o, list):
@@ -1313,6 +1328,15 @@ def render_entry(r, projs):
                 if fin and b.get('key') in buff_fx:
                     lst = buff_end.setdefault(b['key'], [])
                     lst += [x for x in fin if x not in lst]
+    # (2026-11-26) the end of a buff its buffs' nodes create (template `subEvent`): by that buff's own key, as for its effect
+    for a in r['abilities']:
+        for kk in ('buffs', 'activeBuffs', 'passiveBuffs'):
+            for b in a.get(kk) or []:
+                for sk, evs in ((b.get('template') or {}).get('subEvent') or {}).items():
+                    fin = [x for x in evs.get('1', []) if x not in STATUS_DRAWN]
+                    if fin and sk in buff_fx:
+                        lst = buff_end.setdefault(sk, [])
+                        lst += [x for x in fin if x not in lst]
     # (2026-11-10) what a buff's ON_OWNER_BLOCKEE_CHANGED (Buff.Event 37) creates on its owner once — 假想敌：鳍's aceel[shield]:
     # CheckBlocked → enemy_aceel_skill_01_shield_end as it is blocked (`buffBlocked`; render/fxgame.js acBossFx); not the
     # effects of the buffs those nodes create (theirs are `buffFx`, held with the sim's status)
