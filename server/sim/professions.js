@@ -42,6 +42,8 @@
 //                             store one energy, false when full; the energies leaving with an attack — installMystic)
 //   dollNoAttack bool (傀儡师: its <替身> makes no normal attack and casts no skill — 归溟幽灵鲨, kit trait)
 //   dollHitsFly bool (傀儡师: its <替身> state targets flyers — 风丸, kit trait; read by targeting.js canTargetEnemy)
+//   dollRangeGrid grid | null (傀儡师: the <替身> mode's attack range, the trait's own when its blackboard flags
+//                   talent_override_rangeid_flag — 风丸; TUNE.dollkeeper, installDollkeeper)
 //   tb — the unit's trait blackboard (data `trait.bb`), used for tunables (module upgrades included on elites)
 // Behaviour per subprofession is documented in docs/SIM.md §Professions. Front / side tests use the unit's direction
 // (`dir`, sim/dir.js): offsets are compared in its facing-RIGHT frame.
@@ -253,7 +255,13 @@ const installCharger = (battle, unit) => {
  * the protection buff (`*_switchbegin`, INFINITY), then a death clip and a birth clip each last their clip (`_timeMode` 1,
  * `_maxAnimScale` 1: 风丸 Die_2 → Start_B, back Die_B → Born; 归溟幽灵鲨 Die → Start_B, back Die_B → Start_2, all 1 s), and
  * the birth step's `BuffAfterAffecting` puts on `*_switchend` once that clip has ended, which clears the protection and
- * switches the mode. [ASSUMED]: "清除自身一切Buff" ends the running skill and removes the statuses
+ * switches the mode.
+ * The 替身's attack range is the trait's own range when its blackboard sets `talent_override_rangeid_flag` (风丸 x-4, the 8
+ * tiles around her; also 维荻, 双月, 若叶睦 in the official tables): official client `Character.GetModeRangeId` takes, after a
+ * skill range, the rangeId of a talent valid in the current mode (`BasicTalent.CheckValidModeTalent`: its parent mode) whose
+ * `GetOverrideAttackRangeID` reads that flag; the trait's parent mode is the 替身's, as the 本体 keeps its own range (1-1). It
+ * comes with the mode, at the end of the switch animation, and goes at the end of the switch back or the knock-out
+ * (profile `dollRangeGrid`, TUNE.dollkeeper). [ASSUMED]: "清除自身一切Buff" ends the running skill and removes the statuses
  * (buffs with a catalogue `status`) — every other buff stays, the remake's bond / item / talent effects (buffs too)
  * and other units' timed buffs and shields alike; 无敌 is damage immunity only (as for every ally 无敌 here — PRTS's
  * "无法被不同阵营选中" is not modelled for it).
@@ -271,6 +279,18 @@ const installDollkeeper = (battle, unit) => {
     return tok && tok.stats.maxHp > 0 ? Math.max(0.05, tok.stats.maxHp / Math.max(1, unit.base.maxHp)) : 1;
   };
   const at = (/** @type {Record<string, unknown>} */ extra) => ({ x: unit.x, y: unit.y, id: unit.id, ...extra });
+  // the 替身 mode's range (header): put on as the mode comes, the 本体's grid put back as it goes — unless content changed
+  // `unit.rangeGrid` meanwhile (then that grid stays)
+  const dollGrid = unit.profile.dollRangeGrid ?? null;
+  /** @type {ReadonlyArray<ReadonlyArray<number>> | undefined} */
+  let ownGrid;
+  let dollRanged = false;
+  const dollRange = (/** @type {boolean} */ on) => {
+    if (!dollGrid || on === dollRanged) return;
+    dollRanged = on;
+    if (on) { ownGrid = unit.rangeGrid; unit.rangeGrid = dollGrid; } else if (unit.rangeGrid === dollGrid) unit.rangeGrid = ownGrid;
+    if (unit.deployed) battle.refreshRange(unit);
+  };
   // a switch animation: "切换动画开始时会清除自身一切Buff" (header: the running skill and the statuses), then 2 s of 不死
   // (the fatal hook below) 无敌 阻回 禁疗 孤立 强制缴械 and 眩晕 / 冻结 / 睡眠 immunity (beforeStatus below). "切换途中重设自身
   // 生命至最大值": the HP is set to the max at the start (enter / leave) and again when the switch ends, so she always
@@ -290,6 +310,7 @@ const installDollkeeper = (battle, unit) => {
     const ended = () => {
       done();
       if (!unit.alive || !unit.deployed) return;
+      dollRange(!!unit.trait.doll); // `*_switchend` switches the mode, and its range with it
       unit.markDirty();
       unit.hp = unit.s.maxHp;
     };
@@ -348,6 +369,7 @@ const installDollkeeper = (battle, unit) => {
     if (ctx.unit !== unit) return;
     unit.trait.doll = false;
     unit.trait.dollSwitching = false;
+    dollRange(false);
     // knocked out as the 替身: its death clip has played (the 'die' event came first); the redeploy is the 本体 again
     if (unit.form) { unit.form = null; battle.fx('dollEnd', at({ form: null })); }
   }, { owner: unit });
@@ -754,6 +776,16 @@ export const SUB = Object.freeze({
  * Trait tunables per subprofession, read from the trait text and the trait blackboard (`def.traitBb`, data
  * `trait.bb`; elites include their module upgrade). Returns profile overrides.
  */
+/**
+ * A trait's own range (data `trait.rangeGrid`, the trait candidate's rangeId) that its blackboard says replaces the
+ * attack range: a flagged trait without one is a data error (tools/build-data.mjs writes the grid), never a silent default.
+ * @param {unknown} grid @param {ProfileDef} def @returns {ReadonlyArray<ReadonlyArray<number>>}
+ */
+const traitRangeGrid = (grid, def) => {
+  if (Array.isArray(grid) && grid.length && grid.every((p) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite))) return grid;
+  throw new Error(`${def.charId ?? def.raw?.charId ?? '?'}: the trait sets talent_override_rangeid_flag but its data has no trait.rangeGrid (professions.js installDollkeeper)`);
+};
+
 /** @type {Record<string, (tb: TraitBb, def: ProfileDef, p: Profile) => Profile>} */
 const TUNE = {
   fastshot: (tb) => ({ flyScale: num(tb.atk_scale, 1) }),
@@ -801,7 +833,11 @@ const TUNE = {
   reaper: (tb) => ({ selfHeal: num(tb.value, 50) }),
   charger: (tb) => ({ dpOnKill: num(tb.cost, 1) }),
   tactician: (tb) => ({ reinforceScale: num(tb.atk_scale, 1.5) }),
-  dollkeeper: (tb) => ({ dollDuration: num(tb.duration, 20) }),
+  // the trait's own range for the 替身 mode when the blackboard flags it (installDollkeeper header)
+  dollkeeper: (tb, def) => ({
+    dollDuration: num(tb.duration, 20),
+    dollRangeGrid: num(tb.talent_override_rangeid_flag, 0) > 0 ? traitRangeGrid(def.raw?.trait?.rangeGrid, def) : null,
+  }),
   geek: (tb) => ({ hpDrain: num(tb.hp_ratio, 0.03) }),
   merchant: (tb) => ({ merchantInterval: num(tb.interval, 3), merchantCost: Math.abs(num(tb.cost, -3)) }),
   stalker: (tb) => ({ dodge: num(tb.prob, 0.5) }),

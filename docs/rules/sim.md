@@ -1191,6 +1191,12 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
 - **웨이브 캐스터 쾌속정**(`enemy_1162_magmot`, 2026-11-21, 공식 클라에서 확인): 재능 `DeathRattle`의 템플릿 `enemy_magmot_summon`은 같은 `SummonEnemiesFollowMyRoute`지만 `_onlySummonOneInTheSamePlace` 1이라 다른 길을 탄다 — `enemy_key` 하나를 본체의 그 순간 자리(`mapPosition`)에 `ignoreOffset`을 켠 채 넘겨, 흔들림이 없다. 이 길에서는 가장 가까운 걸을 수 있는 칸의 중심(`_useMapPosition` 0)도 `_randomOffsetBound` 0.1도 쓰이지 않는다. 지연은 블랙보드 `delay`(프리팹의 재능 버프 `magmot_deathrattle` 블랙보드 0.8; `enemy_database`의 재능 블랙보드에는 없음)이고 `_useRandomDelay` 0, 웨이브는 기다린다. 그래서 웨이브 캐스터(`enemy_1161_tidmag`) 하나가 쓰러진 지 0.8초 뒤 쾌속정이 쓰러진 바로 그 점에, 그때의 남은 경로로 생긴다(벽을 스친 몸이면 위와 같이 `groundSpot`). 우리: `content/enemies/element.js` `magmotSummon`. 전에는 쓰러지는 순간 생겼다. 재발 방지: `test/content/enemies_bosses.test.js` 「its 控潮术师 comes 0.8 s after」.
 - 전에는 벽에 붙어 죽은 본체의 소환물이 0.1 옆 벽 칸에 생겨 위 「적이 걷는 법」 벽 칸의 옛 걸음으로 벽을 뚫었다. 재발 방지: `test/sim/wall-tile-walk.test.js`(두 시즌 모든 지상 적을 벽에 붙여 쓰러뜨려 소환물이 걸을 수 있는 칸에 서는지 훑음, 제보 판 재현).
 
+## 인형사 <대역>의 공격 범위 (2026-11-26, 공식 클라에서 확인)
+- 문제(관리자 제보): 카제마루(`char_4016_kazema`)가 치명상으로 <대역>(替身)이 되면 주변 8칸을 쳐야 하는데, 본체 범위(1-1, 자기 칸과 정면 1칸) 그대로라 배치 방향 정면만 쳤다. 처음 가져온 upstream 코드부터 범위를 바꾸는 곳이 없었다(회귀 아님). S2 「종이 공예 쌍영」이 소환하는 대역 토큰(`token_10022_kazema_shadow`)은 자기 범위(3×3)라 원래 맞았다.
+- 공식: 인형사 특성 블랙보드의 `talent_override_rangeid_flag` 1과 특성 자체의 `rangeId`(카제마루 x-4 = 자기 칸과 주변 8칸; 공식 표에서는 이 모드에 없는 维荻(`char_4107_vrdant`) x-4, 双月(`char_4124_iana`) x-1, 若叶睦(`char_4183_mortis`) 1-1도 같음, 스펙터 디 언체인드는 플래그 없음). 공식 클라에서 확인: `Character.GetModeRangeId`가 스킬 범위 다음으로, 지금 모드에서 유효한 재능(`BasicTalent.CheckValidModeTalent` — 재능의 부모 모드가 지금 모드)의 `GetOverrideAttackRangeID`(플래그 > 0이면 그 재능의 `rangeId`)를 쓴다. 본체 범위가 1-1이니 특성의 부모 모드는 <대역> 모드다.
+- 동작: `professions.js` `TUNE.dollkeeper`가 플래그가 있으면 데이터의 `trait.rangeGrid`를 프로필 `dollRangeGrid`로 읽고(플래그가 있는데 범위가 없으면 오류로 멈춤), `installDollkeeper`가 모드가 바뀌는 때 — 전환 애니메이션(2초)이 끝날 때(`*_switchend`) — 그 범위로 바꾸고, 되돌아가는 전환이 끝날 때나 <대역>이 쓰러질 때 본체 범위로 돌린다. 전환 중에는 강제 무장 해제라 공격 범위가 상관없다. 유닛의 `liveRangeGrid`(상세 정보 카드가 읽는 범위)도 같이 바뀐다 [화면 미확인]. 다른 인형사가 이 모드에 들어와도 같은 길을 탄다.
+- 재발 방지: `test/sim/dollkeeper-range.test.js`(두 시즌 모든 인형사 말 훑기 + 하네스의 뒤·대각선 적 + 실제 판 경로).
+
 ## 盟约·특질·장비·생성기 2라운드 (2026-10-11, 관리자 결정 「동작 변경 모두 공식이랑 동일하게」)
 출처: EN 클라(2026-08) 버프 템플릿 그래프와 공식 클라(EN 판; 레포에는 클래스·메서드 이름만). 핫픽스(DefinedFix.lua en/zh)에 아래 클래스 없음.
 이때 관리자 결정이 필요했던 세 가지(阿戈尔 吞噬가 팀원 오퍼를 먹는가, 특질 `attrByBond`의 배치 때 고정, 桑葚 미러 판 「가장 오른쪽」)는 관리자 결정 2026-10-11로 정했다(아래 「阿戈尔 吞噬 팀원」·「特质 attrByBond」·「桑葚」).
