@@ -150,9 +150,9 @@ function kitLeaderMisc(key, ab, e) {
       // splash is an area selection: a 隐匿 operator is spared, the one blocking this enemy included (GitHub #97; #32
       // item 6, DESIGN §22.12). Community report #14 (0.1.2): the grenade used to be a full attack + 100 % on 4 neighbours.
       // The half-HP buff skulsr_t_1 is a `switch_mode_restart_fsm` too: the prefab's mode Ignite (the same attacks; its
-      // Move clip Move_Ignite) with a state-machine restart (lowHpMode, 공식 클라에서 확인 2026-11-20).
+      // Move clip Move_Ignite) with a state-machine restart (lowHpMode, 공식 클라에서 확인 2026-11-20), the view told (form).
       const dd = -(T(ab, 'defdown.def') ?? 0), half = T(ab, 'atkup.hp_ratio') ?? 0.5;
-      return [lowHpBuff(half, { atkPct: T(ab, 'atkup.atk') ?? 0 }, 'ab:lowhp', 'buff:skulsr_t_1'), lowHpMode(half, 'Ignite'), noAirTargets(),
+      return [lowHpBuff(half, { atkPct: T(ab, 'atkup.atk') ?? 0 }, 'ab:lowhp', 'buff:skulsr_t_1'), lowHpMode(half, 'Ignite', true), noAirTargets(),
         splashAttack({ scale: SKULSR_GRENADE_SCALE, tiles: 1, fxKind: 'grenade',
           onEach: (b, e2, u) => { if (dd) b.applyStatus(u, 'defDown', { duration: SKULSR_DEFDOWN_DUR, source: e2, value: dd }); } })];
     }
@@ -410,10 +410,18 @@ function kitLeaderMisc(key, ab, e) {
         skill(rush, (b, e2) => {
           // the rush runs in the prefab's *_Rush mode of its form and ends back in that form (enemy_reid_switch_mode /
           // [reborn] SwitchMode at its start and finish): each switch attaches that mode's attack ready
+          // (2026-11-26) and the view walks it on that mode's hooker clip (Move → Skill_Loop; render/units.js FORMS), back
+          // in its form after: the reborn's 'form2', else none
           const reb = e2.mode === 'Reborn' || e2.mode === 'Reborn_Rush';
-          mode(b, e2, reb ? 'Reborn_Rush' : 'Default_Rush');
+          const into = reb ? 'Reborn_Rush' : 'Default_Rush';
+          if (mode(b, e2, into)) setForm(b, e2, into);
           b.addBuff(e2, { key: 'ab:rush', duration: rush.bb.duration ?? 0, refresh: 'replace', visible: true, mods: { moveMul: 1 + (rush.bb.move_speed ?? 0) },
-            onExpire: (/** @type {BuffTick} */ { battle }) => { if (e2.alive && (e2.mode === 'Reborn_Rush' || e2.mode === 'Default_Rush')) mode(battle, e2, e2.mode === 'Reborn_Rush' ? 'Reborn' : null); } });
+            onExpire: (/** @type {BuffTick} */ { battle }) => {
+              if (!e2.alive || (e2.mode !== 'Reborn_Rush' && e2.mode !== 'Default_Rush')) return;
+              const back = e2.mode === 'Reborn_Rush';
+              mode(battle, e2, back ? 'Reborn' : null);
+              setForm(battle, e2, back ? 'form2' : null);
+            } });
           b.fx('charge', { x: e2.x, y: e2.y, id: e2.id, kind: 'avengerRush' });
         }, { atStrike: true, cond: (b, e2) => !e2.blockedBy && prey(b, e2).length > 0 })];
     }
@@ -1149,6 +1157,7 @@ function kitElk(ab) {
     P.fail = null;
     b.removeBuff(e, 'ab:elkFail');
     mode(b, e, null);
+    if (e.form) setForm(b, e, null);
   };
   const k = skill(s, (b, e) => {
     const dur = s.bb.duration ?? 0;
@@ -1188,7 +1197,11 @@ function kitElk(ab) {
       if (!f) return;
       const busy = e.s.flags.stun || e.hidden || unbalancedNow(b, e);
       if (f.until == null) {
-        if (!busy) f.until = b.time + f.dur;                         // the channel starts once it can act
+        if (busy) return;
+        f.until = b.time + f.dur;                                      // the channel starts once it can act
+        // (2026-11-26) the view plays that channel (render/units.js FORMS): Fail's Skill_Break → Stun → Stun_End, Fail_stun's
+        // Stun → Stun_End, the end clip ending with it — the mode's hooker excludes Idle / Move / Attack (they play nothing)
+        setForm(b, e, /** @type {string} */ (e.mode), 'phase', { dur: f.dur });
         return;
       }
       // a stun / freeze / 浮空 / 失衡 cuts the channel (`_ignorePalsyInterrupt`: not 麻痹) — its end all the same

@@ -233,9 +233,13 @@ const lowHpBuff = (ratio, mods, key = 'ab:lowhp', fxTag = null) => hpToggle(rati
  * template `switch_mode_restart_fsm` (blackboard mode 1) — ON_BUFF_START SwitchMode with a state-machine restart, so the
  * swing or skill cast running is cut and the new mode's attack is ready (ai.js enemyMode); ON_BUFF_FINISH (healed back
  * above the ratio) `_restoreDefault`, restarting again. 碎骨 / “墓碑” `Ignite`, W `T1`. Until 2026-11-20 the mode stayed.
- * @param {number} ratio @param {string} name @returns {EnemyAbility}
+ * `form`: the mode has clips of its own (its UnitMode's `_animatorHooker`) — the view is told (setForm, render/units.js
+ * FORMS): 碎骨's Ignite walks on Move_Ignite. “墓碑”'s Ignite and W's T1 point at no hooker (2026-11-26, 공식 클라에서 확인).
+ * @param {number} ratio @param {string} name @param {boolean} [form] @returns {EnemyAbility}
  */
-const lowHpMode = (ratio, name) => hpToggle(ratio, (b, e) => mode(b, e, name), (b, e) => mode(b, e, null));
+const lowHpMode = (ratio, name, form = false) => hpToggle(ratio,
+  (b, e) => { if (mode(b, e, name) && form) setForm(b, e, name); },
+  (b, e) => { if (mode(b, e, null) && form) setForm(b, e, null); });
 
 /** Death spawn ("被击倒后生成N个<X>"). @param {string | null | undefined} key @param {number} cnt @param {SpawnChildOpts} [extra] @returns {EnemyAbility} */
 const deathSpawn = (key, cnt, extra = {}) => ({

@@ -1007,8 +1007,8 @@
         "enemy_9009_acfort": [1,0,0,21534,24814]
       },
       "hooks": [1,150,5700,1103,1113,2352,2660,16751,105,140,36,34,0,20506,289,88,115,30,1,128,5,0,20],
-      "events": {"atk":1371,"bounty":6,"deploy":32,"die":110,"dmg":2366,"engage":10,"face":123,"fx":266,"heal":351,"layer":5,"leak":30,"skill":70,"spawn":135,"status":678,"swing":1151,"tplfx":5},
-      "fx": {"aoe":3,"bandage":8,"blink":2,"bondMilestone":1,"charge":5,"crit":28,"displace":42,"dodge":20,"ebnhlzVolley":6,"enemyShot":3,"enemySkill":8,"explode":2,"garrison":5,"garrisonGrant":1,"iceSpike":21,"kitHit":20,"mysticHeld":6,"mysticStore":11,"phase":3,"pull":2,"revive":1,"shieldBreak":21,"spGift":33,"stacks":5,"summon":3,"telegraph":2,"undying":1,"weightless":2,"zone":1},
+      "events": {"atk":1371,"bounty":6,"deploy":32,"die":110,"dmg":2366,"engage":10,"face":123,"fx":276,"heal":351,"layer":5,"leak":30,"skill":70,"spawn":135,"status":678,"swing":1151,"tplfx":5},
+      "fx": {"aoe":3,"bandage":8,"blink":2,"bondMilestone":1,"charge":5,"crit":28,"displace":42,"dodge":20,"ebnhlzVolley":6,"enemyShot":3,"enemySkill":8,"explode":2,"garrison":5,"garrisonGrant":1,"iceSpike":21,"kitHit":20,"mysticHeld":6,"mysticStore":11,"phase":13,"pull":2,"revive":1,"shieldBreak":21,"spGift":33,"stacks":5,"summon":3,"telegraph":2,"undying":1,"weightless":2,"zone":1},
       "snaps": "0167c4dd bbfce1a4 39dbd73c 8ca1dca8 9c8d78fa 64f42f72 f4d63f3a 6954cc80 7fc931e9 6772ffad 7be10de3 4d364fc9 f2ed849c 0ef576ec f330d449 a8af6a2e c8e1b134 8cff6ff5 d9acb935"
     },
     "roster-015": {
@@ -3450,8 +3450,8 @@
         "enemy_9039_acrefm": [9,6,0,14642,152861]
       },
       "hooks": [1,73,5100,557,557,3198,3351,876,55,59,39,37,0,28766,2147,36,47,1,1,61,18,11,1],
-      "events": {"atk":763,"bounty":4,"castHit":10,"deploy":26,"die":58,"dmg":3338,"engage":10,"face":26,"fx":261,"heal":208,"layer":18,"leak":1,"skill":76,"spawn":60,"status":531,"swing":591,"tplfx":37},
-      "fx": {"burst":11,"charges":24,"coldWind":4,"displace":9,"dodge":1,"ebnhlzVolley":6,"ember":1,"enemyShot":11,"enemySkill":8,"explode":37,"frostNova":11,"garrison":18,"heal":8,"iceSpike":4,"kitHit":28,"mysticHeld":10,"mysticStore":37,"pull":2,"revive":4,"ripple":2,"shieldBreak":4,"substitute":3,"swap":3,"telegraph":5,"teleport":7,"veenVolley":3},
+      "events": {"atk":763,"bounty":4,"castHit":10,"deploy":26,"die":58,"dmg":3338,"engage":10,"face":26,"fx":262,"heal":208,"layer":18,"leak":1,"skill":76,"spawn":60,"status":531,"swing":591,"tplfx":37},
+      "fx": {"burst":11,"charges":24,"coldWind":4,"displace":9,"dodge":1,"ebnhlzVolley":6,"ember":1,"enemyShot":11,"enemySkill":8,"explode":37,"frostNova":11,"garrison":18,"heal":8,"iceSpike":4,"kitHit":28,"mysticHeld":10,"mysticStore":37,"phase":1,"pull":2,"revive":4,"ripple":2,"shieldBreak":4,"substitute":3,"swap":3,"telegraph":5,"teleport":7,"veenVolley":3},
       "snaps": "39ddee66 bb515c09 2916f090 b7f338b5 783e86f7 bee43fd5 e6e1e0f7 89ce421f 2e1fa0cb bb668755 c0faa980 8f113ac1 7c046584 efbff7d2 4ea3df81 3d1b11b9 fc640608"
     },
     "roster-050": {

@@ -705,6 +705,9 @@ const MACH = Object.freeze({
 const WINGNT_NORMAL = Object.freeze({ Normal: Object.freeze({ change: null, roles: clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack') }) });
 const CHIMERA_ORIGINIUM = Object.freeze({ Originium: Object.freeze({ change: 'Skill', roles: clipSet('Idle_2', 'Move_2', 'Die_2', 'Attack_2') }) });
 const DSLNTF_AWAKE = Object.freeze({ 1: Object.freeze({ change: null, roles: clipSet('Skill_Idle', 'Skill_Move', 'Die', 'Skill_Attack') }) });
+/** 乌顶巨角卢鲁's Fail / Fail_stun stand: the channel's loop (its hooker leaves Idle / Move / Attack nothing to play). */
+const XDELK_FAIL = Object.freeze({ idle: 'Stun', deploy: 'Stun', move: loop('Stun'), attack: null, skill: null });
+const AVENGER_RUSH = Object.freeze({ change: null, roles: Object.freeze({ move: loop('Skill_Loop') }) });
 const BLADE_BACK = Object.freeze({ backEnd: Object.freeze({ change: 'Back_End', roles: Object.freeze({ idle: 'Idle_B', deploy: 'Idle_B', move: loop('Idle_B') }) }) });
 /** A manifest token mode (anims `tmodes[name]`) → its FORMS-shaped specs (UnitView._tmodeSpec). */
 /** @type {WeakMap<TokenMode, { loud: FormMode, quiet: FormMode }>} */
@@ -862,6 +865,20 @@ export const FORMS = Object.freeze({
   enemy_2001_duckmi: Object.freeze({ Run: Object.freeze({ change: null, roles: Object.freeze({ move: loop('Run') }) }) }),
   // 枯朽之种 killing itself as its attack ends (fly.js → form 'DieMode' right before the kill): mode DieMode Die → Die_2
   enemy_1269_nhfly: Object.freeze({ DieMode: Object.freeze({ change: null, roles: Object.freeze({ die: 'Die_2' }) }) }),
+  // 2026-11-26: 碎骨 at half HP (archetypes.js lowHpMode → form 'Ignite', null when healed back): its mode Ignite's hooker
+  // (on the Graphic, the mode's `_animatorHooker`) Move → Move_Ignite, the key table's Move_01 (Default's Move is Move_02)
+  enemy_1500_skulsr: Object.freeze({ Ignite: Object.freeze({ change: null, roles: Object.freeze({ move: loop('Move_01') }) }) }),
+  // 2026-11-26: 乌顶巨角卢鲁 after a cut charge (leaders.js kitElk → form 'Fail' / 'Fail_stun' as its stand starts, `dur` its
+  // length, null as it ends): that mode's attack and combat ability, an always-on ThreePartChannelingAnimation —
+  // Fail Skill_Break → Stun → Stun_End, Fail_stun Stun → Stun_End, the end clip closing with the stand; the mode's
+  // hooker excludes Idle / Move / Attack (UnitAnimator.PlayAnimation plays nothing for them), so the channel is all it shows
+  enemy_10144_xdelk_2: Object.freeze({
+    Fail: Object.freeze({ change: 'Skill_Break', end: 'Stun_End', roles: XDELK_FAIL }),
+    Fail_stun: Object.freeze({ change: null, end: 'Stun_End', roles: XDELK_FAIL }),
+  }),
+  // 2026-11-26: 复仇者 on its 【冲锋】 (leaders.js → form 'Default_Rush' / 'Reborn_Rush', back to none / the reborn's
+  // 'form2'): each rush mode's hooker Move → Skill_Loop
+  enemy_1539_reid: Object.freeze({ ...rebirth('Revive_Begin', 'Revive_Loop', 'Revive_End'), Default_Rush: AVENGER_RUSH, Reborn_Rush: AVENGER_RUSH }),
   // 简饲源石虫 below half HP (special.js → form 'Run' for good): its Skills/StartRun (the switch itself) plays Skill_Begin,
   // then mode Run Idle_B / Move_B / Die_B / Attack_B
   enemy_10001_trslim: Object.freeze({ Run: Object.freeze({ change: 'Skill_Begin', roles: clipSet('Idle_B', 'Move_B', 'Die_B', 'Attack_B') }) }),
@@ -902,7 +919,6 @@ export const FORMS = Object.freeze({
   }),
   enemy_1525_blkswb: rebirth('Revive1', 'Revive2', 'Revive3', clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack')),
   enemy_1535_wlfmster: rebirth('A_revive_1', 'A_revive_2', 'A_revive_3', clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack')),
-  enemy_1539_reid: rebirth('Revive_Begin', 'Revive_Loop', 'Revive_End'),
   // 重生 on the skeleton's own Revive clip (PR #275 by @xcdoge; content/enemies/leaders.js kitUglyThing / kitXi): 巨大的丑东西
   // — Revive 8.67 s of the 10 s 重生 (its self-destruct 2.17 s in), then the fleeing 大祭司 (Idle_2 / Move_2 / Stun_2;
   // 不进行攻击) holding its idle while the sim still holds the 重生 (reported as a stun); 自在 — Revive_01 5.33 s for the

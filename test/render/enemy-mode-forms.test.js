@@ -365,3 +365,75 @@ modelTest('吉兆飞鳞 grounded by a stun: mode Stun\'s Stun_Die while it lies 
   v.die();
   assert.equal(v.actor.current, 'Stun_Die', 'it falls on Stun_Die');
 });
+
+// 2026-11-26: modes the sim switched without telling the view (each mode's UnitMode `_animatorHooker`, the channel of
+// its attack ability): 碎骨's Ignite, 乌顶巨角卢鲁's Fail / Fail_stun stand, 复仇者's rush modes
+modelTest('碎骨 at half HP: mode Ignite\'s hooker walks it on Move_Ignite (Move_01); healed back above, its first mode', 'enemy_1500_skulsr', async () => {
+  const ID = 'enemy_1500_skulsr';
+  const h = arena(null);
+  h.step();
+  const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  play(h, e, v, 0.1);
+  h.b.loseHp(e, e.s.maxHp * 0.52);
+  const r = play(h, e, v, 0.1);
+  assert.deepEqual(r.forms.map((f) => f[0]), ['Ignite'], 'mode Ignite below half');
+  assert.equal(e.mode, 'Ignite', 'the sim\'s mode');
+  assert.equal(e.form, 'Ignite', 'the snapshot\'s form (a view built later)');
+  assert.equal(v.form, 'Ignite', 'the view draws that mode (FORMS)');
+  // (the manifest's walk is Move_01 too: its guess by name, not Default's key Move → Move_02)
+  assert.deepEqual([v.actor.roles.move.loop, v.actor.roles.idle, v.actor.roles.die], ['Move_01', 'Idle', 'Die'], 'Move → Move_Ignite only');
+  h.b.heal(null, e, e.s.maxHp * 0.1, { ignoreSelect: true });
+  assert.deepEqual(play(h, e, v, 0.1).forms.map((f) => f[0]), [null], 'healed above half: back');
+  assert.equal(v.form, null);
+});
+
+modelTest('“墓碑”\'s Ignite points at no hooker: no form', 'enemy_2008_flking', async () => {
+  const ID = 'enemy_2008_flking';
+  const h = arena(null);
+  h.step();
+  const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  h.b.loseHp(e, e.s.maxHp * 0.2);
+  assert.deepEqual(play(h, e, v, 0.2).forms, [], 'no form signal');
+  assert.equal(e.mode, 'Ignite', 'the sim still switches');
+});
+
+modelTest('乌顶巨角卢鲁 cut short: Fail_stun stands on Stun → Stun_End, Fail opens on Skill_Break; the end clip closes the stand', 'enemy_10144_xdelk_2', async () => {
+  const ID = 'enemy_10144_xdelk_2';
+  for (const [status, want, change, key] of [['stun', 'Fail_stun', 'Stun', 'fail_duration2'], ['freeze', 'Fail', 'Skill_Break', 'fail_duration']]) {
+    const dur = E[ID].talents.bb[`data.attack@${key}`];
+    assert.ok(dur > 0, key);
+    const h = arena([9, 5]);
+    h.step();
+    const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+    const v = await view(ID, e.x, e.y);
+    assert.ok(play(h, e, v, 1.2) && e.findBuff('ab:elkCharge'), `${status}: charging`);
+    h.b.applyStatus(e, status, { duration: 1 });
+    const r = play(h, e, v, 1.2);
+    assert.equal(e.mode, want, `${status} ⇒ ${want}`);
+    assert.deepEqual(r.forms, [[want, change]], `${want} as the stand starts, on ${change}`);
+    assert.deepEqual([v.actor.roles.idle, v.actor.roles.move.loop, v.actor.roles.attack], ['Stun', 'Stun', null], 'the channel loop only');
+    play(h, e, v, dur - 0.5);   // (the stand began as the 1 s status ended, ~0.2 s ago)
+    assert.equal(v.actor.current, 'Stun_End', `${want}: Stun_End closes the stand`);
+    const back = play(h, e, v, 0.6);
+    assert.deepEqual(back.forms.map((f) => f[0]), [null], `${want} ⇒ Default`);
+    assert.equal(e.mode ?? null, null);
+    assert.equal(e.form, null);
+  }
+});
+
+modelTest('复仇者\'s 【冲锋】: the rush mode\'s hooker walks it on Skill_Loop; its first mode back as the rush ends', 'enemy_1539_reid', async () => {
+  const ID = 'enemy_1539_reid';
+  const h = arena([9, 3]);   // (an operator ahead on its path, not yet blocking it)
+  h.step();
+  const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0 });
+  const v = await view(ID, e.x, e.y);
+  const r = play(h, e, v, 1.5);
+  assert.deepEqual(r.forms.map((f) => f[0]), ['Default_Rush'], 'mode Default_Rush on the rush');
+  assert.equal(e.mode, 'Default_Rush', 'the sim\'s mode');
+  assert.deepEqual([v.actor.roles.move.loop, v.actor.roles.idle, v.actor.roles.attack.loop], ['Skill_Loop', 'Idle', 'Attack'], 'Move → Skill_Loop only');
+  const back = play(h, e, v, 5);
+  assert.deepEqual(back.forms.map((f) => f[0]), [null], 'back as the rush ends');
+  assert.equal(v.actor.roles.move.loop, 'Move');
+});
