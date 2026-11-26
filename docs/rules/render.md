@@ -1418,7 +1418,8 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
 - **파일은 IndexedDB `sp-res`**(`resource-entries.js` `DB_NAME`, 버전 1): 저장소 셋, 키는 모두 파일 경로 — `files`(`{ h: sha256, t: Content-Type,
   b: ArrayBuffer }`), `hashes`(같은 경로의 해시만), `meta`(페이지 기록 `differ`). 파일과 해시는 한 트랜잭션으로 같이 쓰고 같이 지운다. 페이지의 호출은
   `resource-db.js`, 워커(모듈이 아닌 스크립트)는 같은 스키마(`upgradeResourceDb`)와 몇 호출을 따로 가진다. 본문은 `Blob`이 아니라 `ArrayBuffer`로 둔다 —
-  iOS Safari에 IndexedDB의 Blob을 읽으면 프로세스가 죽는 회귀가 보고돼 있고, Chrome·Firefox는 큰 값을 어차피 따로 파일로 둔다. [화면 미확인: 아이폰 Safari·Android Chrome — 이 저장소로 받기·판 진입]
+  iOS Safari에 IndexedDB의 Blob을 읽으면 프로세스가 죽는 회귀가 보고돼 있고, Chrome·Firefox는 큰 값을 어차피 따로 파일로 둔다. 아이폰(iOS 18.7, 홈 화면 앱)과 Windows Firefox는 2026-11-27 배포 전 시험 서버에서 옛 판으로 일부 받은 뒤
+  새 판으로 바꿔 옛 캐시 옮기기·받기·판 진입을 관리자가 확인했다(아이폰은 한 페이지에서 4,408개를 옮김). [화면 미확인: Android Chrome]
   Windows Chrome에서 같은 파일을 두 방식으로 재 보았다(2026-11-27, 같은 커밋의 서버 둘): 판 진입은 같다(필드가 보이기까지 둘 다 0.32–0.43 s, 워커가
   67개를 내줌). `Blob`은 파일마다 디스크 파일 하나라 23,412개가 23,412개 파일·할당량 942 MB, `ArrayBuffer`는 큰 값 2,685개만 파일로 빠지고 747 MB.
   16 KB 미만 3,000개 쓰기가 `ArrayBuffer` 0.55 s, `Blob` 4.0–4.2 s, 그 170개 읽기도 11 ms 대 37–40 ms. `Blob`이 나은 것은 1 MB 넘는 파일(쓰기·읽기
@@ -1427,7 +1428,9 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
 - **대조는 해시만 한 번에**: `hashes`를 `getAllKeys`+`getAll`로 읽어 목록과 다른 것을 지울 목록에 넣는다. 워커가 받은 파일도 해시와 함께 들어가므로
   예전의 「받아들이기」(`X-SP-Hash`를 보려고 항목마다 열기)와 `state` 기록, 「목록이 그대로면 대조 건너뜀」 표시는 없앴다. Windows Chrome에서 23,412개
   대조 0.18–0.23 s. 지우기는 50개씩 한 트랜잭션, 트랜잭션 안에서 해시를 다시 보고 그새 목록 해시로 바뀐 것은 남긴다(`dropFiles`). 보고서 `reconcile`의
-  `keys`는 저장된 파일 수, `adopted`는 늘 0.
+  `keys`는 대조를 시작할 때 저장돼 있던 파일 수(그 페이지가 옮긴 것은 다음 로드부터), `adopted`는 늘 0. 대조가 1초 이상이면 시간이 어디서 들었는지를
+  붙인다(`; open … s, read … s, old caches … s` — 데이터베이스 열기, 해시 읽기, 옛 캐시 보기), 도는 중이면 그 단계(`running (open)`). 아이폰의 새 판 첫
+  대조가 저장된 것 0개에 12.7 s였는데(바로 앞 페이지가 데이터베이스를 처음 여는 도중에 앱 종료로 닫힘) 보고서로는 어느 단계인지 가를 수 없었다.
 - **옛 캐시 옮기기**: 옛 판의 캐시(`sp-res-0`…`f`, `sp-res-meta`, 그 전의 `sp-res`)가 있으면 대조 뒤 백그라운드에서 캐시마다 키(거절하면 목록 경로)를 50개씩
   읽어 목록 해시와 같은 것을 한 트랜잭션으로 옮기고 옛 항목을 바로 지운다 — 저장 공간에 목록이 두 벌 있는 순간이 없다. 필드를 불러오거나 판 화면인
   동안은 멈추고, 그동안 워커는 IndexedDB → 옛 캐시 순으로 찾는다. 옛 기록(`/__sp_res_state__`)에 목록 해시로 적힌 파일은 받을 목록에서 빠지고(옮겨질
@@ -1437,12 +1440,14 @@ iOS에서 그 경합이 얼마인지는 이 로그로 못 가른다 — 그래�
 - **묶음 구성원은 자기 바이트만**: 묶음에서 자른 구성원은 묶음 버퍼의 뷰(`subarray`)라 그대로 넣으면 구조화 복제가 묶음 전체(약 8 MB)를 구성원마다
   저장한다 — `bytes.slice().buffer`로 넣는다.
 - **워커가 데이터베이스를 못 열 때**(백그라운드에서 깨어난 iOS 서비스 워커에 `indexedDB`가 없는 버그가 보고돼 있음): 옛 캐시나 네트워크로 답하고 저장은
-  하지 않는다. 워커의 `sp-res-stats` 답에 `db`(`open` 또는 마지막 오류)와 `unstored`(받았지만 못 넣은 수)가 있다. 페이지가 IndexedDB를 못 열면 미리 받기는
+  하지 않는다. 워커의 `sp-res-stats` 답에 `db`(`open`, 아직 안 엶 `unopened`, 또는 마지막 오류)와 `unstored`(받았지만 못 넣은 수)가 있고, 보고서의 `worker` 부분이
+  보인다(`worker db open, …`, 못 넣은 것이 있으면 `, N not stored`). 보고서는 복사하는 순간 한 번에 만들어지므로 페이지가 대조 뒤·받기가 끝난 뒤·옛 캐시를
+  다 옮긴 뒤 워커에 미리 물어 둔다(`resources.js noteWorker`) — 2026-11-27 전에는 판 진입 때만 물어 필드를 안 연 페이지의 보고서에 `worker`가 없었다. 페이지가 IndexedDB를 못 열면 미리 받기는
   꺼진 채(`phase off`)다.
 - 목록 생성기의 `SHARD_MAX_FILES` 멈춤은 없앴다(나눌 캐시가 없음).
 재발 방지: `test/resource-store.test.js`(페이지·워커 스키마와 옛 캐시 규칙 일치, 워커의 찾는 차례와 IndexedDB에만 저장, `indexedDB` 없는 워커, 옛 캐시
 옮기기 두 경우, 바깥 코드가 모든 캐시를 지워도 다음 로드가 아무것도 다시 받지 않음 — 그 시험의 Cache Storage는 옛 캐시 정리 말고는 쓰기를 거절한다),
-`test/resource-bundles-page.test.js`(구성원이 자기 바이트만 저장). 가짜 IndexedDB는 `test/helpers/fake-indexeddb.js`.
+`test/resource-bundles-page.test.js`(구성원이 자기 바이트만 저장), `test/diag.test.js` 「the resource cache」(보고서의 대조 단계·워커 `db`·`not stored`). 가짜 IndexedDB는 `test/helpers/fake-indexeddb.js`.
 
 ## 적응 부하 단계 (2026-10-30, 관리자 제보: PC Firefox 「높음」 협동 보스전에서 이펙트가 기본 이펙트로, 유닛 움직임이 끊김)
 필드 보기가 프레임을 못 따라갈 때 일을 줄이는 단계 0–3(`render/app.js adaptLoad`, 판정은 `render/load-level.js`). 단계 ≥ 1: 작고 먼 유닛 2프레임에 한 번,

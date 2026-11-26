@@ -57,9 +57,23 @@ let perfSource = null;
 export function setPerfSource(fn) { perfSource = typeof fn === 'function' ? fn : null; }
 const perfLines = () => { try { return perfSource ? perfSource() : []; } catch { return []; } };
 
-/** @type {{ status: () => any, snap?: () => Promise<any> } | null} */
+/**
+ * What resources.js resourceStatus() reports (the `resources:` line).
+ * @typedef {{ at: number, ms: number|null, keys?: number, stale?: number, adopted?: number, differ?: number, skipped?: boolean,
+ *   refused?: number, step?: string, open?: number, read?: number, old?: number }} ReconcileStatus `step`: the stage a running
+ *   reconcile is in; `open` / `read` / `old`: ms spent opening the database, reading its hashes, looking at the old caches
+ * @typedef {{ phase: string, done?: number, total?: number, failed?: number, queued?: number, slowed?: string|null,
+ *   bundles?: { listed?: number, fetched?: number, stopped?: number, failed?: number, members?: number } }} DownloadStatus
+ * @typedef {{ left?: number, deleted?: number, held?: boolean, legacyLeft?: number, moved?: number }} CleanupStatus
+ * @typedef {WorkerCounts & { at?: number, db?: string, unstored?: number, inflight?: number }} WorkerStatus `db`: 'open',
+ *   'unopened' or why the worker could not open or write the database; `unstored`: files it fetched but could not store
+ * @typedef {{ reconcile?: ReconcileStatus | null, download?: DownloadStatus | null, cleanup?: CleanupStatus | null,
+ *   worker?: WorkerStatus | null }} ResStatus
+ * @typedef {{ status: () => ResStatus | null, snap?: () => Promise<ResSnap> }} ResSource
+ */
+/** @type {ResSource | null} */
 let resSource = null;
-/** @param {{ status: () => any, snap?: () => Promise<any> } | null} src */
+/** @param {ResSource | null} src */
 export function setResourceSource(src) { resSource = src && typeof src.status === 'function' ? src : null; }
 const resStatus = () => { try { return resSource ? resSource.status() : null; } catch { return null; } };
 
@@ -96,21 +110,23 @@ const watched = new WeakSet();
  * Report a lost / restored 2D context of a canvas textures are uploaded from (render/app/pixi.js: the canvases PIXI
  * creates; render/textures.js makeCanvas). A restored canvas is blank: what is uploaded from it later is transparent.
  * Once per canvas; a canvas without the events (other browsers) is left alone.
- * @param {any} canvas @param {string} name
+ * @param {unknown} canvas @param {string} name
  */
 export function watchCanvas(canvas, name) {
-  if (!canvas || typeof canvas.addEventListener !== 'function' || watched.has(canvas)) return;
+  if (!canvas || typeof canvas !== 'object' || typeof (/** @type {{ addEventListener?: unknown }} */ (canvas)).addEventListener !== 'function'
+    || watched.has(canvas)) return;
   watched.add(canvas);
+  const c = /** @type {EventTarget} */ (canvas);
   try {
-    canvas.addEventListener('contextlost', () => noteRender('canvas lost', name));
-    canvas.addEventListener('contextrestored', () => noteRender('canvas restored', name));
+    c.addEventListener('contextlost', () => noteRender('canvas lost', name));
+    c.addEventListener('contextrestored', () => noteRender('canvas restored', name));
   } catch { /* ignore */ }
 }
 
 /**
  * @typedef {{ name: string, ms: number, cut: boolean, parts?: { name: string, ms: number }[] }} MountStep
  * @typedef {{ hit?: number, stale?: number, fetched?: number, bytes?: number, server?: number }} WorkerCounts
- * @typedef {{ reconciling?: boolean, queued?: number, cleanup?: number, sw?: WorkerCounts }} ResSnap the resource
+ * @typedef {{ reconciling?: boolean, queued?: number, cleanup?: number, sw?: WorkerCounts | null }} ResSnap the resource
  *   cache's state at a mount's start and when its field was shown (resources.js resourceSnap)
  * @typedef {{ at: number, t0: number, kind: string|null, total: number|null, steps: MountStep[],
  *   late: { name: string, ms: number, detail?: string }[], res0: ResSnap | null, res1: ResSnap | null }} MountRecord
@@ -191,6 +207,11 @@ const sec = (/** @type {number} */ ms) => (ms / 1000).toFixed(1);
 const mbOf = (/** @type {number} */ bytes) => (bytes / 1048576).toFixed(1);
 /** The worker's answers: from the cache, fetched again over a stale copy, fetched (MB), left to the server. */
 const workerCounts = (/** @type {WorkerCounts} */ w) => `${w.hit ?? 0} cached, ${w.stale ?? 0} stale, ${w.fetched ?? 0} fetched (${mbOf(w.bytes ?? 0)} MB), ${w.server ?? 0} to server`;
+/** The `worker` part: its database state (a worker before 2026-11-27 sends none), its answers, the files it could not store. @param {WorkerStatus} w */
+const workerPart = (w) => `worker ${w.db ? `db ${w.db}, ` : ''}${workerCounts(w)}${w.unstored ? `, ${w.unstored} not stored` : ''}${w.at ? ` by ${clockOf(w.at)}` : ''}`;
+/** A reconcile of a second or more: where its time went (database open, hash read, old caches). @param {ReconcileStatus} r */
+const reconcileSplit = (r) => (r.ms != null && r.ms >= 1000 && r.open != null
+  ? `; open ${sec(r.open)} s, read ${sec(r.read ?? 0)} s, old caches ${sec(r.old ?? 0)} s` : '');
 /** A mount's `res` part: the resource cache's queue at its start and the worker's answers until the field was shown. @param {MountRecord} m */
 function mountRes(m) {
   const a = m.res0, b = m.res1;
@@ -211,23 +232,25 @@ function bundlesPart(b) {
   if (!b?.listed) return null;
   return `bundles ${b.fetched ?? 0}/${b.listed} read${b.stopped ? `, ${b.stopped} cut short` : ''}${b.failed ? `, ${b.failed} failed` : ''}, ${b.members ?? 0} files`;
 }
-/** The `resources:` line (resources.js resourceStatus), or null. @param {Record<string, any> | null} s */
+/** The `resources:` line (resources.js resourceStatus), or null. @param {ResStatus | null | undefined} s */
 function resourcesLine(s) {
   if (!s) return null;
   const r = s.reconcile, d = s.download, c = s.cleanup, w = s.worker;
   return `resources: ${join(
-    r ? `reconcile ${clockOf(r.at)} ${r.ms == null ? 'running' : r.skipped ? `${sec(r.ms)} s (list unchanged)` : `${sec(r.ms)} s (${r.keys} keys, ${r.stale} stale, ${r.adopted} adopted${r.refused ? `, ${r.refused} caches refused their keys` : ''})`}` : 'no reconcile',
+    r ? `reconcile ${clockOf(r.at)} ${r.ms == null ? `running${r.step ? ` (${r.step})` : ''}` : r.skipped ? `${sec(r.ms)} s (list unchanged)` : `${sec(r.ms)} s (${r.keys} keys, ${r.stale} stale, ${r.adopted} adopted${r.refused ? `, ${r.refused} caches refused their keys` : ''}${reconcileSplit(r)})`}` : 'no reconcile',
     d ? `download ${d.phase}${d.phase === 'running' ? ` ${d.done}/${d.total}` : d.queued ? ` (${d.queued} queued)` : ''}${d.failed ? `, ${d.failed} failed` : ''}${d.slowed === 'field' ? ', held (field loading)' : d.slowed === 'match' ? ', 1 at a time (match)' : ''}` : null,
     bundlesPart(d?.bundles),
     r?.differ ? `${r.differ} changed in asset repo (skipped)` : null,
     c && (c.left || c.deleted) ? `cleanup ${c.deleted} deleted, ${c.left} left${c.held ? ', held (match)' : ''}` : null,
     c && (c.legacyLeft || c.moved) ? `old cache ${c.moved || 0} moved${c.legacyLeft ? `, ${c.legacyLeft} left` : ''}` : null,
-    w ? `worker ${workerCounts(w)} by ${clockOf(w.at)}` : null)}`;
+    w ? workerPart(w) : null)}`;
 }
 /**
  * The downloads of one mount, from its start to its last late arrival (or 60 s after it began, still loading):
  * Resource Timing entries → files, MB over the network, files with no transfer (browser / service worker cache).
- * @param {{ t0: number, total: number|null, late: { ms: number }[] }} m @param {any[]} resources
+ * @typedef {{ startTime: number, transferSize?: number, decodedBodySize?: number, encodedBodySize?: number }} NetEntry a
+ *   Resource Timing entry (the sizes are on PerformanceResourceTiming)
+ * @param {{ t0: number, total: number|null, late: { ms: number }[] }} m @param {NetEntry[]} resources
  */
 export function mountNet(m, resources) {
   const end = m.t0 + Math.max(m.total ?? 60000, ...m.late.map((e) => e.ms));
@@ -235,32 +258,34 @@ export function mountNet(m, resources) {
   for (const r of resources) {
     if (!(r.startTime >= m.t0 && r.startTime <= end)) continue;
     files++;
-    if (r.transferSize > 0) bytes += r.transferSize; else if (r.decodedBodySize > 0 || r.encodedBodySize > 0) cached++;
+    const sent = r.transferSize ?? 0;
+    if (sent > 0) bytes += sent; else if ((r.decodedBodySize ?? 0) > 0 || (r.encodedBodySize ?? 0) > 0) cached++;
   }
   return { files, mb: bytes / 1048576, cached };
 }
 
-/** `name: message (code)` of an Error, a NetError, a {code, msg} push, a string or anything else. @param {any} err */
-export function messageOf(err) {
+/** `name: message (code)` of an Error, a NetError, a {code, msg} push, a string or anything else. @param {unknown} e */
+export function messageOf(e) {
   let s;
-  if (err == null) s = String(err);
-  else if (typeof err === 'string') s = err;
-  else if (typeof err === 'object') {
+  if (e == null) s = String(e);
+  else if (typeof e === 'string') s = e;
+  else if (typeof e === 'object') {
+    const err = /** @type {{ name?: unknown, message?: unknown, msg?: unknown, code?: unknown }} */ (e);
     const name = typeof err.name === 'string' && err.name && err.name !== 'Error' ? `${err.name}: ` : '';
     const text = typeof err.message === 'string' && err.message ? err.message : typeof err.msg === 'string' ? err.msg : '';
     const code = typeof err.code === 'string' || typeof err.code === 'number' ? String(err.code) : '';
     if (text) s = `${name}${text}${code && !text.includes(code) ? ` (${code})` : ''}`;
     else if (code) s = `${name}${code}`;
     else { try { s = JSON.stringify(err); } catch { s = Object.prototype.toString.call(err); } }
-  } else s = String(err);
+  } else s = String(e);
   s = s.replace(/\s+/g, ' ').trim();
   return s.length > MESSAGE_MAX ? `${s.slice(0, MESSAGE_MAX - 1)}…` : s;
 }
 
-/** The first STACK_LINES frames of `err.stack`, each without the page's scheme and host (`/js/ui/x.js:12:5`). @param {any} err */
+/** The first STACK_LINES frames of `err.stack`, each without the page's scheme and host (`/js/ui/x.js:12:5`). @param {unknown} err */
 export function stackOf(err) {
-  /** @type {string} */
-  const raw = err && typeof err === 'object' && typeof err.stack === 'string' ? err.stack : '';
+  const st = err && typeof err === 'object' ? (/** @type {{ stack?: unknown }} */ (err)).stack : null;
+  const raw = typeof st === 'string' ? st : '';
   if (!raw) return null;
   const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
   // V8 starts with "Name: message"; Firefox / Safari list frames only
@@ -278,7 +303,7 @@ export const stripHosts = (/** @type {unknown} */ s) => String(s).replace(/\b[a-
 /**
  * Record an error. An entry identical to the newest one (same source, message and stack) raises its count instead.
  * The battle on screen when it happened is noted (`battleId`): the feedback counts each battle's errors.
- * @param {string} source @param {any} err @param {string|null} [detail] @param {number} [at] epoch ms
+ * @param {string} source @param {unknown} err @param {string|null} [detail] @param {number} [at] epoch ms
  */
 export function recordError(source, err, detail = null, at = Date.now()) {
   const message = stripHosts(messageOf(err));
@@ -340,7 +365,7 @@ export const battleCount = () => battles.length;
 /**
  * This match's battles as the feedback attaches them, oldest first: b.start payloads (the dev tools replay them) with
  * the secrets of `state` replaced as exact values, each with the errors recorded while it was on screen (`errors`).
- * @param {any} state the store state
+ * @param {DiagState} state the store state
  * @returns {{ match: string, list: object[] }}
  */
 export function matchBattles(state) {
@@ -388,26 +413,42 @@ export function redact(text, pairs) {
  * Copy `value`, replacing a string only when it is exactly a secret (object keys included). A longer string that
  * merely contains the secret, such as a chess id or a note, is kept. This is what the attached battle JSON uses;
  * token replacement would still rewrite `"charge the char"` when the name is `char`.
- * @param {any} value @param {[string, string][]} pairs
+ * @template T
+ * @param {T} value @param {[string, string][]} pairs
+ * @returns {T} the same shape (a secret string becomes its placeholder)
  */
 export function redactValues(value, pairs) {
   const map = secretMap(pairs);
-  /** @type {(v: any) => any} */
+  /** @type {(v: unknown) => unknown} */
   const walk = (v) => {
     if (typeof v === 'string') return map.has(v) ? map.get(v) : v;
     if (Array.isArray(v)) return v.map(walk);
     if (v && typeof v === 'object') {
-      /** @type {Record<string, any>} */
+      /** @type {Record<string, unknown>} */
       const out = {};
       for (const [k, val] of Object.entries(v)) out[map.has(k) ? /** @type {string} */ (map.get(k)) : k] = walk(val);
       return out;
     }
     return v;
   };
-  return walk(value);
+  return /** @type {T} */ (walk(value));
 }
 
-/** [value, placeholder] pairs of what a report must not show: player names, the room code, the reconnect token. @param {any} state */
+/**
+ * The store state as the report reads it (store.js AppState; a test passes a part of it).
+ * @typedef {{ name?: unknown }} Named
+ * @typedef {{
+ *   me?: { name?: unknown, token?: unknown } | null,
+ *   room?: { code?: unknown, mode?: string, difficulty?: string, seats?: (Named | null)[], spectators?: (Named | null)[] } | null,
+ *   match?: { public?: { phase?: string, round?: number, players?: (Named | null)[] } | null,
+ *     battle?: { kind?: string, fieldId?: string, authoritative?: boolean, watch?: boolean, done?: boolean, loading?: boolean,
+ *       paused?: boolean, speed?: number } | null } | null,
+ *   session?: { entered?: boolean } | null,
+ *   connection?: { status?: string, ping?: number | null, attempt?: number, lastError?: unknown } | null,
+ *   [key: string]: unknown }} DiagState
+ * @typedef {{ quality: string, damageNumbers?: boolean, muted?: boolean }} DiagSettings
+ */
+/** [value, placeholder] pairs of what a report must not show: player names, the room code, the reconnect token. @param {DiagState} state */
 export function secretsOf(state) {
   /** @type {[string, string][]} */
   const pairs = [];
@@ -439,7 +480,7 @@ function renderEventsLine(rev) {
   return rev.length ? `render events: ${rev.map((e) => `${clockOf(e.at)} ${e.event}${e.detail ? ` (${e.detail})` : ''}`
     + (/** @type {number} */ (e.count) > 1 ? ` x${e.count}, last ${clockOf(/** @type {number} */ (e.lastAt))}` : '')).join('; ')}` : null;
 }
-/** One `mount:` line per mount; a stage with parts lists those of 0.05 s or more. @param {MountRecord[]} mounts @param {any[] | null} resources */
+/** One `mount:` line per mount; a stage with parts lists those of 0.05 s or more. @param {MountRecord[]} mounts @param {NetEntry[] | null} resources */
 function mountLines(mounts, resources) {
   return mounts.map((m) => {
     const head = m.kind ? `${m.kind} in ${sec(/** @type {number} */ (m.total))} s` : 'loading';
@@ -544,7 +585,7 @@ export function installPageRecord() {
   g.addEventListener?.('pagehide', () => { pageEnded = true; savePage(); });
   g.addEventListener?.('pageshow', (ev) => { if (ev.persisted && pageEnded) { pageEnded = false; savePage(); } });
   const beat = setInterval(() => { if (pageVis === 'visible') savePage(); }, PAGE_BEAT_MS);
-  /** @type {any} */ (beat)?.unref?.(); // Node (tests): the beat never holds the process
+  /** @type {{ unref?: () => void }} */ (/** @type {unknown} */ (beat)).unref?.(); // Node (tests): the beat never holds the process
   savePage();
 }
 
@@ -569,9 +610,13 @@ function previousLines(p) {
  * (setPerfSource; empty unless `?perf=1`), `resourceStatus` the resource cache's state (setResourceSource; null: no
  * line), `previous` the page before this one (previousPage(); default: the record installPageRecord read, null in tests
  * that do not install it).
- * @param {{ state: any, env?: any, settings?: any, battle?: any, entries?: any[], dropped?: number, total?: number,
- *   now?: number, pageStart?: number, version?: string, render?: any, renderEvents?: any[], mounts?: any[], resources?: any[] | null,
- *   perf?: string[], resourceStatus?: any, previous?: any, hides?: { count: number, from: number|null, to: number|null } }} input
+ * @typedef {{ kind?: string | null, board3d?: { on?: boolean, textures?: number, pref?: string, error?: string | null,
+ *   recovering?: boolean, waiting?: boolean, losses?: number } | null, pixi?: { losses?: number } | null }} RenderView
+ * @param {{ state: DiagState, env?: Partial<ReturnType<typeof browserEnv>>, settings?: DiagSettings | null,
+ *   battle?: BattleOnScreen | null, entries?: LogEntry[], dropped?: number, total?: number,
+ *   now?: number, pageStart?: number, version?: string, render?: RenderView | null, renderEvents?: RenderEvent[],
+ *   mounts?: MountRecord[], resources?: NetEntry[] | null, perf?: string[], resourceStatus?: ResStatus | null,
+ *   previous?: PageRecord | null, hides?: { count: number, from: number|null, to: number|null } }} input
  */
 export function buildDiagnostics(input) {
   const { state = {}, env = {}, settings = null, battle = null } = input;
@@ -588,12 +633,12 @@ export function buildDiagnostics(input) {
     env.memoryGB ? `${env.memoryGB} GB` : null, env.lang ? `lang ${env.lang}` : null, env.uiLang ? `ui ${env.uiLang}` : null,
     env.standalone ? 'home-screen app' : null, env.sw ? 'resource worker' : null) || 'unknown'}`);
   const c = state.connection || {};
-  lines.push(`connection: ${join(c.status || 'unknown', Number.isFinite(c.ping) ? `ping ${Math.round(c.ping)} ms` : null,
+  lines.push(`connection: ${join(c.status || 'unknown', typeof c.ping === 'number' && Number.isFinite(c.ping) ? `ping ${Math.round(c.ping)} ms` : null,
     c.attempt ? `retry ${c.attempt}` : null, c.lastError ? `last error ${messageOf(c.lastError)}` : null)}`);
   const pub = state.match?.public || null;
   const room = state.room || null;
   lines.push(`where: ${join(pub?.phase ? `phase ${pub.phase}` : room ? 'room' : state.session?.entered ? 'lobby' : 'title',
-    Number.isFinite(pub?.round) ? `round ${pub.round}` : null, room?.mode ? `mode ${room.mode}` : null,
+    Number.isFinite(pub?.round) ? `round ${pub?.round}` : null, room?.mode ? `mode ${room.mode}` : null,
     room?.difficulty ? `difficulty ${room.difficulty}` : null,
     Array.isArray(pub?.players) ? `players ${pub.players.length}` : Array.isArray(room?.seats) ? `seats ${room.seats.filter(Boolean).length}` : null)}`);
   const b = state.match?.battle || null;
@@ -626,8 +671,9 @@ export function buildDiagnostics(input) {
   const pairs = secretsOf(state);
   let text = redact(`\`\`\`text\n${lines.join('\n')}\n\`\`\``, pairs);
   if (battle && battle.spec) {
-    const head = join(`battle ${battle.battleId}`, battle.kind, Number.isFinite(battle.spec.round) ? `round ${battle.spec.round}` : null,
-      Number.isFinite(battle.time) ? `copied at ${battle.time.toFixed(2)} s` : null);
+    const round = (/** @type {{ round?: unknown }} */ (battle.spec)).round;
+    const head = join(`battle ${battle.battleId}`, battle.kind, Number.isFinite(round) ? `round ${round}` : null,
+      typeof battle.time === 'number' && Number.isFinite(battle.time) ? `copied at ${battle.time.toFixed(2)} s` : null);
     const payload = redactValues({
       t: 'b.start', battleId: battle.battleId, fieldId: battle.fieldId, kind: battle.kind, spec: battle.spec,
     }, pairs);
@@ -650,11 +696,11 @@ export function browserEnv() {
     dpr: g.devicePixelRatio ?? null,
     touch: !!(g.matchMedia && g.matchMedia('(pointer: coarse)').matches),
     cores: g.navigator?.hardwareConcurrency ?? null,
-    memoryGB: /** @type {any} */ (g.navigator)?.deviceMemory ?? null,
+    memoryGB: g.navigator?.deviceMemory ?? null,
     lang: g.navigator?.language ?? null,
     uiLang,
     // an iPhone's home-screen app and its Safari tab keep separate caches (the field's first load differs)
-    standalone: !!(/** @type {any} */ (g.navigator)?.standalone || (g.matchMedia && g.matchMedia('(display-mode: standalone)').matches)),
+    standalone: !!(g.navigator?.standalone || (g.matchMedia && g.matchMedia('(display-mode: standalone)').matches)),
     sw: !!g.navigator?.serviceWorker?.controller,
   };
 }
@@ -662,7 +708,7 @@ export function browserEnv() {
 /**
  * The report of this page: the given store state and settings, this browser, the log and, with `attachBattle`, the
  * battle on screen.
- * @param {{ state: any, settings?: any, attachBattle?: boolean }} opts
+ * @param {{ state: DiagState, settings?: DiagSettings | null, attachBattle?: boolean }} opts
  */
 export function diagnosticsText({ state, settings = null, attachBattle = false }) {
   let resources;
@@ -674,7 +720,7 @@ export function diagnosticsText({ state, settings = null, attachBattle = false }
 export function renderStatus(g = globalThis) {
   const v = g.__SP_VIEW__;
   if (!v) return null;
-  /** @param {() => any} f */
+  /** @template T @param {() => T} f @returns {T | null} */
   const safe = (f) => { try { return f() ?? null; } catch { return null; } };
   return { kind: typeof v.kind === 'string' ? v.kind : null, board3d: safe(() => v.raw?.stats?.()?.board3d), pixi: safe(() => v.raw?.uploadCheck?.()) };
 }

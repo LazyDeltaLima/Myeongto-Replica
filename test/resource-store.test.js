@@ -174,7 +174,11 @@ describe('resource store (IndexedDB)', () => {
     try {
       assert.deepEqual(again.fetched, [], `the files are still stored — ${RULE}`);
       assert.equal(again.res.resStore.get().phase, 'done');
-      assert.equal(again.res.resourceStatus().reconcile.keys, 6);
+      const r = again.res.resourceStatus().reconcile;
+      assert.equal(r.keys, 6);
+      for (const k of ['open', 'read', 'old']) assert.ok(r[k] >= 0, `the report splits the reconcile's time: ${k}`);
+      assert.ok(Math.abs(r.open + r.read + r.old - r.ms) < 1, 'the three stages are the whole reconcile');
+      assert.equal(r.step, undefined, 'a finished reconcile names no running stage');
     } finally { again.restore(); }
   });
 });

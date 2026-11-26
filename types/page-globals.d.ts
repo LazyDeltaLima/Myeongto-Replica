@@ -28,6 +28,11 @@ interface HTMLElement {
 interface ScreenOrientation {
   lock?: (orientation: string) => Promise<void>;
 }
+// read by the report (diag.js browserEnv): Chrome's device memory class, an iPhone home-screen app
+interface Navigator {
+  deviceMemory?: number;
+  standalone?: boolean;
+}
 interface Performance {
   memory?: { usedJSHeapSize: number, totalJSHeapSize: number, jsHeapSizeLimit: number };
 }

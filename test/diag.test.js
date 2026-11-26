@@ -323,6 +323,18 @@ describe('the resource cache (resources: line, a mount\'s res part, fieldLoading
       'resources: reconcile 04:14:33 0.0 s (list unchanged) | download done', 'a list naming no bundles: no bundles part');
     assert.equal(line({ reconcile: { at, ms: 4, skipped: true, differ: 9 }, download: { phase: 'done', queued: 0, failed: 0 }, cleanup: { left: 0, deleted: 0 }, worker: null }),
       'resources: reconcile 04:14:33 0.0 s (list unchanged) | download done | 9 changed in asset repo (skipped)', 'files their asset repo changed');
+    assert.equal(line({ reconcile: { at, ms: null, step: 'open' }, download: { phase: 'off', queued: 0, failed: 0 }, worker: null }),
+      'resources: reconcile 04:14:33 running (open) | download off', 'a running reconcile names its stage (a page closed while the database opened)');
+    assert.equal(line({ reconcile: { at, ms: 12700, keys: 0, stale: 0, adopted: 0, open: 12100, read: 20, old: 580 }, download: { phase: 'done', queued: 0, failed: 0 }, worker: null }),
+      'resources: reconcile 04:14:33 12.7 s (0 keys, 0 stale, 0 adopted; open 12.1 s, read 0.0 s, old caches 0.6 s) | download done',
+      'a reconcile of a second or more says where its time went');
+    assert.equal(line({ reconcile: { at, ms: 180, keys: 23412, stale: 0, adopted: 0, open: 20, read: 150, old: 10 }, download: { phase: 'done', queued: 0, failed: 0 }, worker: null }),
+      'resources: reconcile 04:14:33 0.2 s (23412 keys, 0 stale, 0 adopted) | download done', 'a quick one does not');
+    assert.equal(line({ download: { phase: 'done', queued: 0, failed: 0 }, worker: { at, db: 'open', hit: 11, stale: 0, fetched: 3, bytes: 0, server: 0, unstored: 0 } }),
+      'resources: no reconcile | download done | worker db open, 11 cached, 0 stale, 3 fetched (0.0 MB), 0 to server by 04:14:33');
+    assert.equal(line({ download: { phase: 'done', queued: 0, failed: 0 }, worker: { at, db: 'store: QuotaExceededError', hit: 0, stale: 0, fetched: 4, bytes: 0, server: 0, unstored: 4 } }),
+      'resources: no reconcile | download done | worker db store: QuotaExceededError, 0 cached, 0 stale, 4 fetched (0.0 MB), 0 to server, 4 not stored by 04:14:33',
+      'a worker that cannot write the database says why and how many it fetched but could not store');
     setResourceSource({ status: () => status });
     assert.match(buildDiagnostics({ state: {} }), /^resources: reconcile 04:14:33 3\.2 s/m, 'the registered source');
     setResourceSource({ status: () => { throw new Error('x'); } });

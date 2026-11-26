@@ -253,12 +253,13 @@ let want = new Map();  // path → listed hash of the files the store keeps (res
 let pending = [];
 /** @type {string[]} */
 let stale = [];        // stored paths to delete (cleanup)
-/** @type {{ at: number, ms: number|null, keys: number, stale: number, adopted: number, differ?: number } | null} */
-let reconciled = null; // the last reconcile, for the report (diag.js): { at, ms, keys: stored files, stale, adopted } (running: no ms).
+/** @type {import('./diag.js').ReconcileStatus | null} */
+let reconciled = null; // the last reconcile, for the report (diag.js): { at, ms, keys: stored files, stale, adopted } (running: no ms,
+                       // `step` the stage it is in), and where its time went: `open` the database, `read` its hashes, `old` caches
                        // adopted stays 0: the database records each file with its hash, the worker's too, so none is adopted
 let deleted = 0;
-/** @type {{ at: number, [key: string]: unknown } | null} */
-let worker = null;     // the worker's answer counts the report last read: { at, hit, stale, fetched, bytes, server }
+/** @type {import('./diag.js').WorkerStatus | null} */
+let worker = null;     // the worker's answer the report last read: { at, hit, stale, fetched, bytes, server, unstored, db }
 
 async function saveDiffer() {
   if (!differChanged) return;
@@ -316,8 +317,11 @@ function choose() {
  *  hashes), so there is no mark that skips it. */
 async function reconcile() {
   const t0 = now();
-  reconciled = { at: Date.now(), ms: null, keys: 0, stale: 0, adopted: 0 };
+  const at = Date.now();
+  reconciled = { at, ms: null, keys: 0, stale: 0, adopted: 0, step: 'open' };
   const db = await getDb();
+  const tOpen = now();
+  reconciled.step = 'read';
   const stored = await readHashes(db);
   want = new Map(choose().map((f) => [f.p, f.h]));
   const d = await readMeta(db, DIFFER);
@@ -326,14 +330,17 @@ async function reconcile() {
     if (want.get(p) !== x?.h || !(Date.now() - x.at < DIFFER_RETRY_MS)) { delete differ[p]; differChanged = true; }
   }
   await saveDiffer();
-  reconciled.differ = Object.keys(differ).length;
+  const nDiffer = Object.keys(differ).length;
+  const tRead = now();
+  reconciled.step = 'old caches';
   state = {};
   /** @type {string[]} */
   const found = [];
   for (const [p, h] of stored) { if (want.get(p) === h) state[p] = h; else found.push(p); }
   stale = found;
   await findOld();
-  reconciled = { ...reconciled, ms: now() - t0, keys: stored.size, stale: found.length };
+  const t1 = now();
+  reconciled = { at, ms: t1 - t0, keys: stored.size, stale: found.length, adopted: 0, differ: nDiffer, open: tOpen - t0, read: tRead - tOpen, old: t1 - tRead };
   housekeep();
   return todo();
 }
@@ -363,7 +370,7 @@ let housekeeping = false;
 async function housekeep() {
   if (housekeeping) return;
   housekeeping = true;
-  try { await migrate(); await cleanup(); } finally { housekeeping = false; }
+  try { await migrate(); noteWorker(); await cleanup(); } finally { housekeeping = false; }
 }
 
 /** The old caches' files that the list names with their listed hash, moved into the database, CLEAN_CHUNK at a time —
@@ -683,6 +690,7 @@ async function download(files = pending) {
     resStore.set({ phase: 'error', error: errName(err) === 'QuotaExceededError' ? 'quota' : 'failed', runGroups: [] });
   } finally {
     running = false;
+    noteWorker();
     if (again) { again = false; resync(); }
   }
 }
@@ -716,7 +724,7 @@ async function switchOff() {
   try { for (const r of await navigator.serviceWorker.getRegistrations()) if (r.active?.scriptURL?.endsWith('/resource-worker.js')) await r.unregister(); } catch { /* ignore */ }
 }
 
-/** @type {(value?: any) => void} */
+/** @type {(value?: unknown) => void} */
 let markKnown = () => {};
 /** Settles once installResources has read the list and the cache record, or found there is none (resourceCached is
  *  then as good as it gets on this visit): render/skin-gate.js waits for it before a field's first scene. */
@@ -743,6 +751,7 @@ async function install() {
     resStore.set({ illust: illustDiff(listed, packs) });
     pending = await reconcile();
     setPending();
+    noteWorker();
     if (!pending.length) { resStore.set({ phase: 'done', total: 0 }); return; }
     const pref = /** @type {ResConsent | null} */ (loadPref(PREF, null));
     if (pref?.consent === 'yes') download();
@@ -819,6 +828,9 @@ function askWorker(timeout = 2000) {
     sw.postMessage({ t: 'sp-res-stats' }, [ch.port2]);
   });
 }
+/** Read the worker's counts for the report (after a reconcile, a download, the move of the old caches): the report is
+ *  built at once when the player copies it, so the worker's database state is read ahead. */
+function noteWorker() { askWorker().catch(() => { /* no answer: the report keeps the last one */ }); }
 
 /** What the report says (diag.js): the last reconcile, the download, the cleanup and the worker's counts. */
 export function resourceStatus() {
