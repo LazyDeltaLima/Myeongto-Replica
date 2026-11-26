@@ -15,6 +15,11 @@ import { blockWeight, skill } from './archetypes.js';
 /** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
 /** @import { BuffTick } from './helpers.js' */
 /** @import { BuffRec } from '../bonds/shared.js' */
+/**
+ * A kit's own ability fields (the ability's counter, its cooldown end, its next check).
+ * @typedef {EnemyAbility & { n: number }} CountAb
+ * @typedef {EnemyAbility & { until: number, next: number }} TimedAb
+ */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -62,7 +67,7 @@ function kitNscola(ab) {
   }, {
     iv,
     spawn(b, e, a) { a.n = 0; },
-    tick(b, e, a) {
+    tick(b, e, /** @type {CountAb} */ a) {
       if (held(e) || e.blockedBy) a.n = 0;
       else if (a.n < max) a.n++;
       if (e.blockedBy) return;
@@ -221,7 +226,7 @@ function kitShkrbt(ab) {
     spawn(b, e, a) { a.until = -Infinity; },
     taken(c, b, e, a) {
       const src = c.source;
-      if (!e.alive || !src || src.side !== 'ally' || !src.alive || e.blockedBy || b.time < a.until - 1e-9 || !canCast(e, false, b)) return;
+      if (!e.alive || !src || src.side !== 'ally' || !src.alive || e.blockedBy || b.time < /** @type {number} */ (a.until) - 1e-9 || !canCast(e, false, b)) return;
       const tile = blinkTile(b, src);
       if (!tile) return;
       a.until = b.time + cool;
@@ -269,7 +274,7 @@ function kitTrwlpl(ab, e0) {
   };
   return [{
     spawn(b, e, a, abx) { a.state = null; a.next = 0; abx.baseImmune = abx.immune ? [...abx.immune] : null; },
-    tick(b, e, a) {
+    tick(b, e, /** @type {TimedAb} */ a) {
       if (a.state === 'eat') { if (b.time >= a.until - 1e-9) done(b, e, a); return; }
       if (a.state || b.time < a.next - 1e-9 || e.hidden || !canCast(e, false, b) || e.s.flags.fear) return;
       const t = byPriority(e, b.alliesInRadius(e.x, e.y, reach, null).filter((u) => canTargetAlly(e, u, true)))[0];

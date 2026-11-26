@@ -11,8 +11,9 @@ import { aggroCmp } from '../../targeting.js';
 import { hypot } from '../../detmath.js';
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
+/** @import { AttackProfile } from '../../ai.js' */
 /** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
-/** @import { BuffTick } from './helpers.js' */
+/** @import { BuffTick, EnemyShot } from './helpers.js' */
 /** @import { Scheduled } from '../../battle/hooks.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -84,7 +85,7 @@ function kitBlackCloud(ab, e) {
       b.addBuff(e2, { key: 'ab:grabbing', duration: dur, flags: { bind: true, noMove: true } });   // 技能持续4秒，期间持有束缚
       b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: list[0].id, kind: 'devour' });
     }, { sil: true, cond: (b, e2) => prey(b, e2).length > 0, atStrike: (b, e2, a) => {
-      const list = a.prey || [];
+      const list = /** @type {Unit[] | null} */ (a.prey) || [];
       a.prey = null;
       for (const o of list) {
         if (!o.alive) continue;
@@ -107,7 +108,7 @@ function kitBlackCloud(ab, e) {
         const t = b.rng.pick(allTargets(b, e2));
         if (!t) break;
         b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'fireWeapon' });
-        shoot(b, e2, t, f.proj, (tt) => { if (tt && tt.alive) hurt(b, e2, tt, e2.s.atk * num(f.bb.atk_scale, 1), 'phys'); });
+        shoot(b, e2, t, /** @type {EnemyShot | null} */ (f.proj), (tt) => { if (tt && tt.alive) hurt(b, e2, tt, e2.s.atk * num(f.bb.atk_scale, 1), 'phys'); });
       }
     }, { sil: true, atStrike: true, cond: (b, e2) => (e2.mem.ab.ammo ?? 0) >= Math.max(1, num(f.sp, 1)) && allTargets(b, e2).length > 0 }),
   ];
@@ -119,7 +120,7 @@ function kitSteal(ab) {
   return [selfFear(ab), {
     // PRTS “萨科塔之眼” 天赋: "不会攻击飞行单位" (the 炎佑 dragon is one) — a candidate filter (ai.js enemyAttack): its next
     // ground target in range instead
-    spawn(b, e) { /** @type {Record<string, any>} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying; },
+    spawn(b, e) { /** @type {AttackProfile} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying; },
     hitOut(c, b, e) {
       if (!c.dmg.isAttack) return;
       const t = c.target;
@@ -127,8 +128,8 @@ function kitSteal(ab) {
       if (t.skill && t.skill.active && t.skill.kind === 'ammo' && t.skill.ammoLeft > 0) {
         t.skill.ammoLeft = Math.max(0, t.skill.ammoLeft - n);
         if (t.skill.ammoLeft <= 0) t.skill.end('ammo');
-      } else if ((t.trait && t.trait.ammo) > 0) {
-        t.trait.ammo = Math.max(0, t.trait.ammo - n);
+      } else if (/** @type {number} */ (t.trait && t.trait.ammo) > 0) {
+        t.trait.ammo = Math.max(0, /** @type {number} */ (t.trait.ammo) - n);
       } else return;
       c.dmg.cancel = true;
       b.fx('steal', { x: t.x, y: t.y, id: t.id, from: e.id });
@@ -145,7 +146,7 @@ function kitRoar(ab) {
   // its units are taken as the cast begins (the ability's `_selectTargetTiming` 0 — UpdateTargets in CastToTarget) and get
   // the buff at the spell if still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20 taken at the spell
   return [selfFear(ab), skill(s, (b, e, a) => { a.picks = fieldAllies(b, e).filter((u) => !u.isFlying); }, { sil: true, atStrike: (b, e, a) => {
-    const picks = a.picks || [];
+    const picks = /** @type {Unit[] | null} */ (a.picks) || [];
     a.picks = null;
     b.fx('telegraph', { x: e.x, y: e.y, r: 99, kind: 'roar', id: e.id });
     for (const u of picks) if (u.alive && u.deployed) b.addBuff(u, { key: 'ab:roar', duration: s.bb.duration ?? 0, refresh: 'extend', mods: { aspd: s.bb.attack_speed ?? 0 }, visible: true });
@@ -204,7 +205,7 @@ function kitBombd(ab) {
     a.left = Math.max(TICK, num(s.cd, 1));
   };
   return [
-    { spawn(b, e) { /** @type {Record<string, any>} */ (e.profile).noAttack = true; },
+    { spawn(b, e) { /** @type {AttackProfile} */ (e.profile).noAttack = true; },
       tick(b, e) { if (pending && e.s.flags.stun) interrupt(b, e); } },
     skill(s, (b, e, a) => {
       const t = byPriority(e, targetsNear(b, e, reach(e)))[0];
@@ -243,9 +244,9 @@ function kitBombd(ab) {
  */
 function kitShell() {
   return [{
-    spawn(b, e) { /** @type {Record<string, any>} */ (e.profile).deferHit = true; /** @type {Record<string, any>} */ (e.profile).shot = 'mortar'; },
+    spawn(b, e) { /** @type {AttackProfile} */ (e.profile).deferHit = true; /** @type {AttackProfile} */ (e.profile).shot = 'mortar'; },
     attack(c, b, e) {
-      const atk = e.s.atk * (/** @type {Record<string, any>} */ (e.profile).atkScale ?? 1);
+      const atk = e.s.atk * (/** @type {AttackProfile} */ (e.profile).atkScale ?? 1);
       for (const t of c.targets) {
         const x = t.x, y = t.y;
         // (the telegraph and the blast are drawn at the reach: every ally whose centre lies in the circle is hit)

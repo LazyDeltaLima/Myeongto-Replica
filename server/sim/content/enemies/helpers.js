@@ -11,18 +11,23 @@ import { normShot } from '../../simdata.js';
 import { enemyMode } from '../../ai.js';
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
-/** @import { AbState, AbSkill, AbCtx, AbList } from '../enemies.js' */
+/** @import { AbState, AbSkill, AbList, AbHook, AbHookName, AbCastRec, DamageRec } from '../enemies.js' */
+/** @import { Buff } from '../../battle/status.js' */
+/** @import { HitEv } from '../support/index.js' */
 /**
  * The enemy kits' per-battle state (stOf): the match's LP loss, the 解放 flag, the units watching every death, plus the
  * fields content/enemies.js and the kits keep there (`installed`, 黑雾, the chalices …).
- * @typedef {{ [key: string]: any, lpLoss: number, freedAll: boolean, deathWatch: Set<Unit> }} EnemyBattleState
+ * @typedef {{ [key: string]: unknown, lpLoss: number, freedAll: boolean, deathWatch: Set<Unit>, installed?: boolean,
+ *   chalices?: number }} EnemyBattleState
  * A route a summon or a held enemy takes (remainingRoute, stayRoute): spawnEnemy's `route`.
  * @typedef {{ motion: string, start: number[], end: number[], checkpoints?: unknown[], steps?: Record<string, unknown>[] }} ChildRoute
  * spawnChildren's options (see there).
- * @typedef {{ route?: ChildRoute | null, mods?: Record<string, any> | null, spot?: { bound?: number, walk?: boolean,
+ * @typedef {{ route?: ChildRoute | null, mods?: Record<string, unknown> | null, spot?: { bound?: number, walk?: boolean,
  *   map?: boolean, delay?: number } | null, pos?: number[], tag?: string | null, countInTotal?: boolean }} SpawnChildOpts
  * A buff's `onTick` / `onExpire` argument (battle/status.js).
- * @typedef {{ battle: Battle, unit: Unit, buff: Record<string, any> }} BuffTick
+ * @typedef {{ battle: Battle, unit: Unit, buff: Buff }} BuffTick
+ * An enemy's projectile record (simdata.js normShot of data/enemies.json `proj` / `skills[].proj`, plus a skill's `life`).
+ * @typedef {{ [key: string]: unknown, key: string, move: string, speed: number, delay: number, life?: number }} EnemyShot
  */
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -119,7 +124,7 @@ export function abOf(b, e) {
     // how the client casts it (data/enemies.json `skillCast`, by its name case aside) — an attack-slot skill
     // (content/enemies.js skillSlot), null when the prefab was not read
     const proj = normShot(s.proj);
-    if (proj && s.proj.life > 0) /** @type {Record<string, any>} */ (proj).life = s.proj.life;
+    if (proj && s.proj.life > 0) /** @type {EnemyShot} */ (proj).life = s.proj.life;
     const cast = (casts && casts[String(s.prefabKey).toLowerCase()]) || null;
     sk[s.prefabKey] = { name: s.prefabKey, cd: num(s.cooldown, 0), icd: num(s.initCooldown, 0), sp: num(s.spCost, 0), pri: num(s.priority, 0), bb: s.bb || {}, bs: s.bbStr || {}, proj, cast };
   }
@@ -139,18 +144,21 @@ export function attach(b, e, list) {
   return ab;
 }
 
-/** @param {Battle} b @param {Unit | null} e @param {() => any} fn what the handler returns (a kit's `fire` its target …) @returns {any} */
+/**
+ * @template T
+ * @param {Battle} b @param {Unit | null} e @param {() => T} fn what the handler returns (a kit's `fire` its target …) @returns {T | undefined}
+ */
 function safe(b, e, fn) {
   try { return fn(); } catch (err) { b._handlerError('content:enemies', e, err); return undefined; }
 }
 
-/** @param {Battle} b @param {Unit | null | undefined} e @param {string} name @param {AbCtx} c @returns {boolean} */
+/** @param {Battle} b @param {Unit | null | undefined} e @param {AbHookName} name @param {object} c the event's payload (EnemyAbility's hook of that name) @returns {boolean} */
 function dispatch(b, e, name, c) {
   const ab = e && e.mem && e.mem.ab;
   if (!ab) return false;
   let any = false;
   for (const a of ab.list) {
-    const f = a[name];
+    const f = /** @type {AbHook<object> | undefined} */ (a[name]);
     if (!f) continue;
     if (a.sil && e.s.flags.silence) continue;
     try { if (f.call(a, c, b, e, a, ab)) any = true; } catch (err) { b._handlerError(`enemies:${name}`, e, err); }
@@ -280,7 +288,7 @@ export function byPriority(e, list) { return sortAllyTargets(e, list.slice()); }
  * their area selection (areaAllies). `src` + `ability`: the enemy whose official ability leaves it (the prefab's
  * `Skills/<name>` / `Talent/<name>`) — the fx 'zone' names them, so the render draws that ability's projectile effects there.
  * @param {Battle} b @param {{ x: number, y: number, r: number, life: number, iv?: number, kind?: string, tick: (units: Unit[]) => void,
- *   pick?: ((x: number, y: number, r: number) => Unit[]) | null, src?: Record<string, any> | null,
+ *   pick?: ((x: number, y: number, r: number) => Unit[]) | null, src?: { id?: number | null } | null,
  *   ability?: string | null }} opts
  */
 export function zone(b, { x, y, r, life, iv = 1, kind = 'zone', tick, pick = null, src = null, ability = null }) {
@@ -326,7 +334,7 @@ export function stayRoute(e, secs = 99999) {
  * Mods copied onto a split or summoned child. The parent's stat multipliers travel; a kill bounty does not
  * (owner 2026-10-04: the main body alone carries it — GitHub #67, #89-2). `bountyId` is the 悬赏 card and
  * `bountyCoins` is the coin copy the match writes for 联防. The parent object is left as it is.
- * @param {Record<string, any> | null | undefined} mods
+ * @param {Record<string, unknown> | null | undefined} mods
  */
 function modsWithoutBounty(mods) {
   if (!mods || typeof mods !== 'object') return mods ?? null;
@@ -496,7 +504,7 @@ export const isHitCount = (e) => !!e.findBuff(HIT_COUNT_KEY);
  * 毒雾). `onHit` also gets the projectile's arrival point ({ x, y }; none when it lands at once). Returns the flight time
  * in seconds.
  * @param {Battle} b @param {{ x: number, y: number, id?: number }} from @param {Unit} t
- * @param {Record<string, any> | null | undefined} shot @param {(target: Unit, at?: { x: number, y: number }) => unknown} onHit
+ * @param {EnemyShot | null | undefined} shot @param {(target: Unit, at?: { x: number, y: number }) => unknown} onHit
  * @param {{ source?: Unit | null, zone?: boolean, visual?: string, hitDead?: boolean }} [opts] @returns {number}
  */
 export function shoot(b, from, t, shot, onHit, opts = {}) {
@@ -544,7 +552,7 @@ export function crossTargets(b, e) {
  * `dir` [dx, dy] the axis (stage grid: +x = right, +y = up a row), `range` the tiles it covers (to that hit, else speed ×
  * life). `opts.at` ({ x, y }): where it leaves — its mount point, from which the axis is taken too (the client's start
  * position; default `from`). Returns the projectile.
- * @param {Battle} b @param {Unit} unit @param {{ x: number, y: number }} aim @param {Record<string, any> | null | undefined} shot
+ * @param {Battle} b @param {Unit} unit @param {{ x: number, y: number }} aim @param {EnemyShot | null | undefined} shot
  * @param {(target: Unit, at: { x: number, y: number }) => unknown} onHit
  * @param {{ source?: Unit | null, at?: { x: number, y: number }, radius?: number, canHit?: (u: Unit) => boolean,
  *   visual?: string, onExpire?: () => unknown }} [opts]
@@ -555,7 +563,7 @@ export function lineShot(b, unit, aim, shot, onHit, opts = {}) {
   const ax = aim.x - from.x, ay = aim.y - from.y;
   const dir = Math.abs(ax) >= Math.abs(ay) ? [Math.sign(ax) || 1, 0] : [0, Math.sign(ay)];
   const speed = shot && shot.speed > 0 ? shot.speed : 5;
-  const life = shot && shot.life > 0 ? shot.life : 10;
+  const life = shot && shot.life != null && shot.life > 0 ? shot.life : 10;
   const reach = (opts.radius ?? 0.3) + ALLY_COLLIDER_RADIUS;
   const canHit = opts.canHit ?? ((/** @type {Unit} */ u) => areaSelectable(src, u));
   /** @param {number} x @param {number} y */
@@ -583,7 +591,7 @@ export function lineShot(b, unit, aim, shot, onHit, opts = {}) {
       t: Math.round((at / speed) * 1000) / 1000, dir, range: Math.round(at * 1000) / 1000 });
   }
   return b.addProjectile({ from: { x: from.x, y: from.y }, dir: { x: dir[0], y: dir[1] }, speed, maxAge: life, visual: opts.visual ?? 'enemy', source: src, fixed: shot?.adjust === 0, noWipe: shot?.elim === 0,
-    sweep: (/** @type {{ x: number, y: number }} */ p) => touching(p.x, p.y), onHit: (/** @type {Record<string, any>} */ c) => onHit(c.target, { x: c.x, y: c.y }), onExpire: () => opts.onExpire?.() });
+    sweep: (/** @type {{ x: number, y: number }} */ p) => touching(p.x, p.y), onHit: (/** @type {{ target: Unit, x: number, y: number }} */ c) => onHit(c.target, { x: c.x, y: c.y }), onExpire: () => opts.onExpire?.() });
 }
 
 /**
@@ -610,27 +618,27 @@ export function lineShot(b, unit, aim, shot, onHit, opts = {}) {
  * A RangedAttack with `_waitForProjectileInvalid` (`proj`) casts until its projectile is gone (onSkillSlot's open cast) and
  * at least this: its `m_cachedDuration` is the same `GetDuration` — with no clip the attack time too (`RangedAttack.
  * OnCastStart` → … → `EasyToStartAbility.OnCastStart` after `AbilityStandard.OnCastStart` updated the playback speed).
- * @param {Unit} e @param {Record<string, any> | null | undefined} cast @param {Record<string, any> | null | undefined} bb @returns {number}
+ * @param {Unit} e @param {AbCastRec | null | undefined} cast @param {Record<string, number> | null | undefined} bb @returns {number}
  */
 export function castLength(e, cast, bb) {
   if (!cast) return 0;
   if (cast.kind === 'buff') return 2 * TICK;
   const subs = cast.subs || [];
-  if (cast.kind === 'seq') return subs.reduce((/** @type {number} */ t, /** @type {Record<string, any>} */ c) => t + castLength(e, c, bb), 0);
+  if (cast.kind === 'seq') return subs.reduce((/** @type {number} */ t, /** @type {AbCastRec} */ c) => t + castLength(e, c, bb), 0);
   if (cast.kind === 'par') {
     if (!subs.length) return 0;
-    const lens = subs.map((/** @type {Record<string, any>} */ c) => castLength(e, c, bb));
+    const lens = subs.map((/** @type {AbCastRec} */ c) => castLength(e, c, bb));
     if (!cast.one) return Math.max(...lens);
     return cast.main != null && lens[cast.main] != null ? lens[cast.main] : Math.min(...lens);
   }
   if (cast.kind === 'sel') return subs.length ? castLength(e, subs[0], bb) : 0;
   if (cast.kind || cast.miss) return 0;
-  const dur = cast.dur > 0 ? cast.dur : 0;
+  const dur = cast.dur != null && cast.dur > 0 ? cast.dur : 0;
   const time = cast.time ?? 0;
-  const at = time === 1 ? dur : time === 2 ? (cast.cd > 0 ? cast.cd : 0)
+  const at = time === 1 ? dur : time === 2 ? (cast.cd != null && cast.cd > 0 ? cast.cd : 0)
     : time === 3 ? Math.max(0, Number((bb && bb[cast.cdKey || 'duration']) ?? 0) || 0) : e.s.interval;
   if (!dur) return at;
-  const hi = cast.max > 0 ? cast.max : cast.max < 0 ? Infinity : 1;
+  const hi = cast.max == null ? 1 : cast.max > 0 ? cast.max : cast.max < 0 ? Infinity : 1;
   const k = Math.min(hi, Math.max(0.1, at / dur));
   return dur * k;
 }
@@ -652,7 +660,7 @@ export function castLength(e, cast, bb) {
  *   the attack slot through this path).
  * A kit whose skill fires at that frame says `atStrike` (archetypes.js skill); one with a part at the cast's start keeps
  * `fire` and times its effect itself (atCastEvent, whose default is this frame). Exported by content/enemies.js too.
- * @param {Unit} e @param {Record<string, any> | null | undefined} cast @param {Record<string, any> | null | undefined} bb @returns {number | null}
+ * @param {Unit} e @param {AbCastRec | null | undefined} cast @param {Record<string, number> | null | undefined} bb @returns {number | null}
  */
 export function castStrikeAt(e, cast, bb) {
   if (!cast) return 0;
@@ -669,10 +677,10 @@ export function castStrikeAt(e, cast, bb) {
   if (cast.kind === 'par') return null;
   const len = castLength(e, cast, bb);
   if (cast.chan) return chanStrikeAt(cast, len);
-  if (!(cast.dur > 0)) return len;
+  if (!(cast.dur != null && cast.dur > 0)) return len;
   const scale = len / cast.dur;
-  if (cast.wait === 0) return Math.min(len, (cast.pre > 0 ? cast.pre : 0) * scale);
-  return Number.isFinite(cast.hit) ? Math.min(len, cast.hit * scale) : len;
+  if (cast.wait === 0) return Math.min(len, (cast.pre != null && cast.pre > 0 ? cast.pre : 0) * scale);
+  return cast.hit != null && Number.isFinite(cast.hit) ? Math.min(len, cast.hit * scale) : len;
 }
 
 /**
@@ -686,17 +694,17 @@ export function castStrikeAt(e, cast, bb) {
  * 1 s + its 0.367 s frame = 4.367 s), else the whole cast. One that does not wait (`wait` 0) casts its spell after
  * `_preDelay` (假想敌：铳 (隐秘核心) 【末日布道】 at once, 魂灵残迹 `Laser` 0.2 s). Data: `skillCast` `chanBegin` / `chanLoop` /
  * `chanEnd` ({ dur, hit? }, tools/build-data.mjs enemySkillCast).
- * @param {Record<string, any>} cast @param {number} len @returns {number}
+ * @param {AbCastRec} cast @param {number} len @returns {number}
  */
 function chanStrikeAt(cast, len) {
-  if (cast.wait === 0) return Math.min(len, cast.pre > 0 ? cast.pre : 0);
-  const bg = cast.chanBegin, lp = cast.chanLoop, en = cast.chanEnd;
+  if (cast.wait === 0) return Math.min(len, cast.pre != null && cast.pre > 0 ? cast.pre : 0);
+  const bg = cast.chanBegin, lp = cast.chanLoop, en = cast.chanEnd, waitEnd = !!cast.chan?.wait;
   const bd = bg && bg.dur > 0 ? bg.dur : 0, ed = en && en.dur > 0 ? en.dur : 0;
   const k = bd + ed > len && bd + ed > 0 ? len / (bd + ed) : 1;
-  if (bg && Number.isFinite(bg.hit)) return Math.min(len, bg.hit * k);
-  const loop = cast.chan.wait ? Infinity : Math.max(0, len - (bd + ed) * k);
-  if (lp && Number.isFinite(lp.hit) && lp.hit < loop) return Math.min(len, bd * k + lp.hit);
-  if (en && Number.isFinite(en.hit) && !cast.chan.wait) return Math.max(0, len - ed * k + en.hit * k);
+  if (bg && bg.hit != null && Number.isFinite(bg.hit)) return Math.min(len, bg.hit * k);
+  const loop = waitEnd ? Infinity : Math.max(0, len - (bd + ed) * k);
+  if (lp && lp.hit != null && Number.isFinite(lp.hit) && lp.hit < loop) return Math.min(len, bd * k + lp.hit);
+  if (en && en.hit != null && Number.isFinite(en.hit) && !waitEnd) return Math.max(0, len - ed * k + en.hit * k);
   return len;
 }
 
@@ -727,7 +735,7 @@ export function mode(b, e, name, fsm = true) {
   return enemyMode(b, e, name, fsm);
 }
 
-/** @param {Record<string, any> | null} [params] @param {Battle} b @param {Unit} e @param {string | null} form @param {string} [fxKind] */
+/** @param {Record<string, unknown> | null} [params] @param {Battle} b @param {Unit} e @param {string | null} form @param {string} [fxKind] */
 export function setForm(b, e, form, fxKind = 'phase', params = null) {
   e.form = form;
   b.fx(fxKind, fxKind === 'phase' ? { ...params, x: e.x, y: e.y, id: e.id, kind: form, form } : { ...params, x: e.x, y: e.y, id: e.id, form });
@@ -753,7 +761,7 @@ export function expose(b, u, dur, scale) {
 /**
  * Final HP damage the pipeline would deal for a phys/arts/true/elemental `dmg` before shields (mitigation is linear in
  * the amount) — the same terms as damage.js dealDamage (元素伤害: 元素抗性 + elementalTakenMul, no dmgTakenMul).
- * @param {Unit | null | undefined} src @param {Unit} tgt @param {Record<string, any>} dmg @returns {number}
+ * @param {Unit | null | undefined} src @param {Unit} tgt @param {DamageRec} dmg @returns {number}
  */
 export function expectedFinal(src, tgt, dmg) {
   const ts = tgt.s, ss = src && src.s && !dmg.sourceless ? src.s : null, ty = dmg.type; // 无来源 (bursts): no source stats
@@ -772,11 +780,11 @@ export function expectedFinal(src, tgt, dmg) {
 /**
  * "吸收法术伤害的屏障": absorb up to `left` of an arts instance in a `hit` handler (after RES, like a shield) by scaling
  * the instance down (cancelled when fully absorbed). Returns the amount absorbed.
- * @param {AbCtx | null | undefined} c @param {number} left @returns {number}
+ * @param {HitEv | null | undefined} c @param {number} left @returns {number}
  */
 export function absorbArts(c, left) {
   if (!c || c.dmg.type !== 'arts' || !(left > 0) || c.dmg.cancel) return 0;
-  const f = expectedFinal(c.source, c.target, c.dmg);
+  const f = expectedFinal(c.source, c.target, /** @type {DamageRec} */ (c.dmg));
   if (!(f > 0)) return 0;
   const take = Math.min(left, f);
   if (take >= f - 1e-9) c.dmg.cancel = true;
@@ -784,7 +792,7 @@ export function absorbArts(c, left) {
   return take;
 }
 
-/** Timed buff on each unit (same key never stacks: aura semantics). @param {Battle} b @param {Unit} u @param {string} key @param {number} iv @param {Record<string, any>} mods @param {Record<string, boolean> | null} [flags] @param {boolean} [visible] */
+/** Timed buff on each unit (same key never stacks: aura semantics). @param {Battle} b @param {Unit} u @param {string} key @param {number} iv @param {Record<string, number>} mods @param {Record<string, boolean> | null} [flags] @param {boolean} [visible] */
 function auraBuff(b, u, key, iv, mods, flags = null, visible = false) {
   b.addBuff(u, { key, duration: iv + 0.1, refresh: 'replace', mods, flags, visible });
 }

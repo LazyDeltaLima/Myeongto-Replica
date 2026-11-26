@@ -13,11 +13,12 @@ import { hypot, sin, cos } from '../../detmath.js';
 import { hitFx } from '../../damage.js';
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
-/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
-/** @import { BuffTick } from './helpers.js' */
+/** @import { AttackProfile } from '../../ai.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit, AbProj, DamageRec } from '../enemies.js' */
+/** @import { BuffTick, EnemyShot } from './helpers.js' */
 /**
  * A soul holder's state (soulHolder: `souls`, `setSouls`), plus the kit's own fields.
- * @typedef {{ [key: string]: any, souls: number, setSouls: (b: Battle, e: Unit, n: number) => void }} SoulState
+ * @typedef {{ [key: string]: unknown, souls: number, setSouls: (b: Battle, e: Unit, n: number) => void }} SoulState
  * A fireball orbiting a 魂灵法骸 (kitSoulMage).
  * @typedef {{ n: number, ang: number }} Orb
  */
@@ -83,12 +84,12 @@ function bothSidesAt(b, src, x, y, r) {
  * `_emitToInputPosWhenTargetIsInvalid`), along the nearest map axis (helpers.js lineShot); `onHit(u)` on the first ally it
  * touches.
  * @param {Battle} b @param {Unit} e @param {Unit | null} t @param {{ x: number, y: number }} aim
- * @param {Record<string, any> | null} proj @param {(u: Unit, spot: { x: number, y: number }) => unknown} onHit
+ * @param {AbProj | null} proj @param {(u: Unit, spot: { x: number, y: number }) => unknown} onHit
  * @param {number} [radius] @param {{ x: number, y: number }} [from]
  */
 function crossShot(b, e, t, aim, proj, onHit, radius = undefined, from = undefined) {
   const at = t && t.alive && t.deployed ? { x: t.x, y: t.y } : aim;
-  return lineShot(b, e, at, proj, (u, spot) => { if (u && u.alive) onHit(u, spot); }, { source: e, ...(radius != null ? { radius } : {}), ...(from ? { at: from } : {}) });
+  return lineShot(b, e, at, /** @type {EnemyShot | null} */ (proj), (u, spot) => { if (u && u.alive) onHit(u, spot); }, { source: e, ...(radius != null ? { radius } : {}), ...(from ? { at: from } : {}) });
 }
 
 /**
@@ -238,13 +239,13 @@ function kitMatteoGuard(ab) {
   }];
   if (s) {
     const r = s.bb.projectile_range ?? 1, scale = s.bb.atk_scale ?? 1;
-    const hit = s.cast && Number.isFinite(s.cast.hit) ? s.cast.hit : 0, n = Math.max(1, s.bb.times ?? 1);
+    const hit = s.cast && Number.isFinite(s.cast.hit) ? /** @type {number} */ (s.cast.hit) : 0, n = Math.max(1, s.bb.times ?? 1);
     out.push(skill(s, (b, e) => {
       const t = crossTargets(b, e)[0];
       if (!t) return;
       const aim = { x: t.x, y: t.y };
       // the clip's two events at the scale the cast plays at (castStrikeAt: its first; a quicker attack time squeezes both)
-      const k = s.cast && s.cast.dur > 0 ? castLength(e, s.cast, s.bb) / s.cast.dur : 1;
+      const k = s.cast && /** @type {number} */ (s.cast.dur) > 0 ? castLength(e, s.cast, s.bb) / /** @type {number} */ (s.cast.dur) : 1;
       const first = castStrikeAt(e, s.cast, s.bb) ?? hit * k;
       const times = [first, first + (BDGUAD_SECOND_BOMB - hit) * k].slice(0, n);
       times.forEach((at, i) => atCastEvent(b, e, s, () => crossShot(b, e, t, aim, s.proj, (u, spot) => bombBlast(b, e, spot ?? u, r, scale), BOMB_TOUCH,
@@ -288,10 +289,10 @@ function kitGrenadier(ab) {
       a.fired = true;
       atCastEvent(b, e, s, () => {
         for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
-          lineShot(b, e, { x: e.x + dx, y: e.y + dy }, s.proj, (u, spot) => { if (u && u.alive) bombBlast(b, e, spot ?? u, r, scale); }, { source: e, radius: BOMB_TOUCH });
+          lineShot(b, e, { x: e.x + dx, y: e.y + dy }, /** @type {EnemyShot | null} */ (s.proj), (u, spot) => { if (u && u.alive) bombBlast(b, e, spot ?? u, r, scale); }, { source: e, radius: BOMB_TOUCH });
         }
       });
-      const c = s.cast, end = c && c.dur > 0 ? c.dur : 0;
+      const c = s.cast, end = c && /** @type {number} */ (c.dur) > 0 ? /** @type {number} */ (c.dur) : 0;
       b.after(end, () => { if (e.alive) light(b, e); }, { owner: e });
     }, { cond: (b, e, a) => e.mode === 'D2L' && !a.fired }),
     onCut(b, e) { if (e.alive) light(b, e); },
@@ -318,7 +319,7 @@ function inAttackState(b, e) {
   if (e.swing || e.castLeft > 0) return true;
   if (!(e.atkCd > 0)) return false;
   if (e.blockedBy) return true;
-  const r = /** @type {Record<string, any>} */ (e.profile).melee ? 0 : e.base.rangeRadius;
+  const r = /** @type {AttackProfile} */ (e.profile).melee ? 0 : e.base.rangeRadius;
   return r > 0 && targetsNear(b, e, r + ALLY_COLLIDER_RADIUS).length > 0;
 }
 
@@ -354,18 +355,18 @@ function pathfinder(ab, e, { meleeDefault = false, idle = false, hit, pick = nul
     if ((e2.mode === HEAD) === on) return;
     mode(b, e2, on ? HEAD : null, false);
     setForm(b, e2, on ? HEAD : null);
-    /** @type {Record<string, any>} */ (e2.profile).deferHit = on;
-    if (meleeDefault) /** @type {Record<string, any>} */ (e2.profile).melee = !on;
+    /** @type {AttackProfile} */ (e2.profile).deferHit = on;
+    if (meleeDefault) /** @type {AttackProfile} */ (e2.profile).melee = !on;
   };
   return [{
     iv: idle ? 0.1 : undefined,
     spawn(b, e2, a) {
       a.sp = init;
       a.head = false;
-      if (meleeDefault) /** @type {Record<string, any>} */ (e2.profile).melee = true;
-      /** @type {Record<string, any>} */ (e2.profile).shot = 'none';
+      if (meleeDefault) /** @type {AttackProfile} */ (e2.profile).melee = true;
+      /** @type {AttackProfile} */ (e2.profile).shot = 'none';
     },
-    tick(b, e2, a) {
+    tick(b, e2, /** @type {EnemyAbility & { sp: number }} */ a) {
       if (!idle || e2.blockedBy || inAttackState(b, e2)) return;
       if (a.sp >= 1 && e2.mode !== HEAD) set(b, e2, true);
       else if (a.sp < 1 && e2.mode === HEAD) set(b, e2, false);
@@ -373,13 +374,14 @@ function pathfinder(ab, e, { meleeDefault = false, idle = false, hit, pick = nul
     // the attack about to be made is HeadShot's (its mode as it began: the switches below come after its strike)
     before(c, b, e2, a) {
       a.head = e2.mode === HEAD;
-      /** @type {Record<string, any>} */ (e2.profile).deferHit = a.head;
+      /** @type {AttackProfile} */ (e2.profile).deferHit = a.head;
       if (a.head && pick && c.targets.length) {
         const t = pick(b, e2, c.targets);
         if (t) c.targets = [t];
       }
     },
-    attack(c, b, e2, a) {
+    attack(c, b, e2, a0) {
+      const a = /** @type {EnemyAbility & { sp: number }} */ (a0);
       const was = a.head, sp = a.sp;
       a.head = false;
       if (was) {
@@ -451,7 +453,7 @@ function kitPfHerald(ab, e) {
       if (!targets[0].s.flags.disarm) return null;
       const r = e2.base.rangeRadius + ALLY_COLLIDER_RADIUS;
       // (its selector's _targetMotion 1: no flyer — local-patch.js sets the canTarget from data attackMotion)
-      const ok = typeof /** @type {Record<string, any>} */ (e2.profile).canTarget === 'function' ? /** @type {Record<string, any>} */ (e2.profile).canTarget : () => true;
+      const ok = typeof /** @type {AttackProfile} */ (e2.profile).canTarget === 'function' ? /** @type {AttackProfile} */ (e2.profile).canTarget : () => true;
       const l = byPriority(e2, targetsNear(b, e2, r)).filter((u) => !u.s.flags.disarm && ok(u));
       return l[0] || null;
     },
@@ -537,7 +539,7 @@ function kitBandHorn(ab) {
     atCastEvent(b, e, s, () => {
       for (const t of ts) {
         if (!t.alive || !t.deployed) continue;
-        shoot(b, e, t, s.proj, (u) => { if (u && u.alive && u.deployed) b.dealDamage(e, u, { amount: e.s.atk * scale, type: 'phys', isAttack: true, isProjectile: true }); });
+        shoot(b, e, t, /** @type {EnemyShot | null} */ (s.proj), (u) => { if (u && u.alive && u.deployed) b.dealDamage(e, u, { amount: e.s.atk * scale, type: 'phys', isAttack: true, isProjectile: true }); });
       }
     });
   }, { sil: true, cond: (b, e) => sp.ready() && pick(b, e).length > 0 })];
@@ -639,16 +641,16 @@ function kitSnowballer(ab, e) {
   const melee = (/** @type {Battle} */ b, /** @type {Unit} */ e2) => {
     mode(b, e2, 'Normal', false);
     setForm(b, e2, 'Normal');   // the view's B_* clips (fx 'phase')
-    /** @type {Record<string, any>} */ (e2.profile).melee = true;
-    /** @type {Record<string, any>} */ (e2.profile).deferHit = false;
+    /** @type {AttackProfile} */ (e2.profile).melee = true;
+    /** @type {AttackProfile} */ (e2.profile).deferHit = false;
   };
   return [{
     spawn(b, e2, a) {
       a.thrown = false;
       e2.base.rangeRadius = Math.max(e2.base.rangeRadius || 0, range);
-      /** @type {Record<string, any>} */ (e2.profile).melee = false;
-      /** @type {Record<string, any>} */ (e2.profile).deferHit = true;
-      /** @type {Record<string, any>} */ (e2.profile).shot = 'none';
+      /** @type {AttackProfile} */ (e2.profile).melee = false;
+      /** @type {AttackProfile} */ (e2.profile).deferHit = true;
+      /** @type {AttackProfile} */ (e2.profile).shot = 'none';
     },
     // the cast's end (its clip played out, or cut): enemy_wingnt_t[check_mode]
     tick(b, e2, a) {
@@ -710,8 +712,8 @@ function kitJetCanister(ab) {
   const CD = 'ab:winbomAttackCd';
   return [{
     spawn(b, e) {
-      /** @type {Record<string, any>} */ (e.profile).deferHit = true;
-      /** @type {Record<string, any>} */ (e.profile).shot = 'none';
+      /** @type {AttackProfile} */ (e.profile).deferHit = true;
+      /** @type {AttackProfile} */ (e.profile).shot = 'none';
     },
     // the channel's end, played out or cut: enemy_winbom_attack_cd
     tick(b, e, a) {
@@ -726,7 +728,7 @@ function kitJetCanister(ab) {
       // the view: its Flame ability's channel (Attack_Begin → Attack_Loop → Attack_End over `dur` s; the clip set by its
       // direction to `tgt` — ThreePartChannelingAnimation._GetAnimBundle) — fx 'enemySkill' { id, ability: 'Flame', n, dur,
       // tgt } as it starts (no skill sound: the binding has no `sk` cues for it)
-      a.n = (a.n ?? 0) + 1;
+      a.n = (/** @type {number | undefined} */ (a.n) ?? 0) + 1;
       b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: 'Flame', n: a.n, dur: chan, tgt: t.id });
       // the ability's cooldown, its attack time, runs from the cast's start; one frame more, so the frame the channel ends
       // (ai.js counts castLeft and atkCd down before it looks for a swing, the content's tick after) starts no swing
@@ -908,6 +910,9 @@ function kitSoulMage(ab) {
  * walls) for arts ATK × the skill's `atk_scale`, a unit again LRWZRD_REHIT s after its last hit, and ends with the cast
  * (OnCastEnd interrupts it, a cut cast too) or after LRWZRD_LIFE s. fx 'laser' { id, x, y, to: [x, y], key, w, tgt } as it
  * leaves, 'laserEnd' { id } as it ends.
+ * @typedef {EnemyAbility & { boost: { v: number, cap: number, next: number, until: number } | null,
+ *   laser: { x: number, y: number, to: number[], dir: number[], last: Map<number, number> } | null,
+ *   aim: { at: { x: number, y: number }, id: number } | null }} LaserAb
  * @type {AbKit}
  */
 function kitSoulWizard(ab) {
@@ -938,7 +943,7 @@ function kitSoulWizard(ab) {
       a.aim = { at, id: t.id };
     }, { cond: (b, e) => P.souls > 0 && !!pick(b, e), atStrike: (b, e, a) => {
       // the spell after `_preDelay` (data skillCast laser.pre; content/enemies.js castStrikeAt)
-      const aim = a.aim;
+      const aim = /** @type {LaserAb} */ (a).aim;
       a.aim = null;
       if (!a.boost || !aim) return;
       P.setSouls(b, e, 0);
@@ -948,7 +953,7 @@ function kitSoulWizard(ab) {
       a.laser = { x: e.x, y: e.y, to, dir, last: new Map() };
       b.fx('laser', { x: e.x, y: e.y, id: e.id, to, key, w: LRWZRD_WIDTH, tgt: aim.id });
     } }),
-    tick(b, e, a) {
+    tick(b, e, /** @type {LaserAb} */ a) {
       if (!a.boost) return;
       if (!(e.castLeft > 0) || b.time >= a.boost.until - 1e-9) { stop(b, e, a); return; }
       if (b.time >= a.boost.next - 1e-9) {   // enemy_lrwzrd[atk_boost] ON_BUFF_TRIGGER
@@ -1017,7 +1022,7 @@ function kitRagingBoar(ab) {
   const stop = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {EnemyAbility} */ a) => { a.rush = null; b.removeBuff(e, KEY); };
   return [{
     spawn(b, e, a) { e.blockWeight = MHBOAR_BLOCK_VOLUME; a.rush = null; a.listen = 0; a.inside = new Set(); },
-    tick(b, e, a, dt) {
+    tick(b, e, /** @type {EnemyAbility & { listen: number, rush: { start: number, n: number, stacks: number, next: number } | null, inside: Set<Unit> }} */ a, dt) {
       a.listen += dt;
       if (a.listen >= MHBOAR_LISTEN - 1e-9) {
         a.listen -= MHBOAR_LISTEN;
@@ -1040,7 +1045,7 @@ function kitRagingBoar(ab) {
       a.inside = now;
     },
     dealt(c, b, e, a) {
-      if (!a.rush || !c.dmg.isAttack || !c.target || !c.target.alive) return;
+      if (!a.rush || !/** @type {DamageRec} */ (c.dmg).isAttack || !c.target || !c.target.alive) return;
       const v = e.s.moveSpeed * first;
       stop(b, e, a);
       hurt(b, e, c.target, v, 'phys', { tags: ['mhboarFirst'] });

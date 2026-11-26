@@ -50,11 +50,12 @@ import { shotEnds } from '../../shared/shotFlight.js';
 /** @import { LegPoint } from './walk.js' */
 /** @import { DamageIn } from './damage.js' */
 /** @import { Buff } from './battle/status.js' */
+/** @import { Profile, ProfiledUnit } from './professions.js' */
 
 /**
  * An attack profile as this file reads it (effectiveProfile: the profession profile with the running skill's attack and
  * targeting overrides), field by field — the profession table's keys, a skill's override keys, a kit's callbacks.
- * @typedef {Record<string, any>} AttackProfile
+ * @typedef {Profile} AttackProfile
  * One hit of an attack (performAttack → resolveHit): its place in the attack and what the shot carries.
  * @typedef {{ isSkill?: boolean, index?: number, attackId?: number, energy?: number, signal?: string, spot?: boolean,
  *   cachedAtk?: { atk?: number, atkScaleMul?: number } }} HitInfo
@@ -237,7 +238,7 @@ function tickAlly(b, u, dt) {
   // a 'replace' cast (skills.js): this attack goes out as the skill, with or without a target of the attack's own
   if (sk && sk.replacing) { startReplacement(b, u, sk); return; }
   // (a 秘术师's `canAttack` is its own target rule: false = no valid target — 深靛's bound enemies, 维伊's marked ones)
-  if (prof.canAttack && !prof.canAttack(b, u)) { endSpell(b, u); faceIdle(b, u); if (prof.storeEnergy) { u.trait.hadTarget = false; storeEnergy(b, u, prof); } return; }
+  if (prof.canAttack && !prof.canAttack(b, /** @type {ProfiledUnit} */ (u))) { endSpell(b, u); faceIdle(b, u); if (prof.storeEnergy) { u.trait.hadTarget = false; storeEnergy(b, u, prof); } return; }
   // (a heal of the ally rule — 塞雷娅 S1 急救, trigger.allies — cast by its tick (skills.js) makes this attack its heal: the
   // profile above is the skill's, with or without an enemy; upstream e86c7c83, GitHub #406)
   let targets = acquireTargets(b, u, prof);
@@ -693,7 +694,7 @@ function endSpell(b, u) {
  * @param {Battle} b @param {Unit} u @param {AttackProfile} prof
  */
 function storeEnergy(b, u, prof) {
-  if (prof.storeEnergy && prof.storeEnergy(b, u)) u.atkCd = Math.max(u.atkCd, u.s.interval);
+  if (prof.storeEnergy && prof.storeEnergy(b, /** @type {ProfiledUnit} */ (u))) u.atkCd = Math.max(u.atkCd, u.s.interval);
 }
 
 /**
@@ -818,7 +819,7 @@ const NO_FLIGHT = Object.freeze({ key: null, move: 'NONE', speed: 0, delay: 0 })
  * The ends of `u`'s flying shot `shot` (opShot) at `t` — its muzzle and `t`'s hit point in the attack mode it is in now
  * (shared/shotFlight.js shotEnds; docs/rules/sim.md 「투사체의 출발·도착 점」) — or null when the data has no muzzle (unit
  * to unit, as before).
- * @param {Unit} u @param {Unit} t @param {Record<string, any> | null | undefined} shot
+ * @param {Unit} u @param {Unit} t @param {Parameters<typeof shotEnds>[0]} shot
  */
 function shotEndsOf(u, t, shot) {
   if (!shot || !shot.from) return null;
@@ -855,7 +856,7 @@ export function performAttack(b, u, prof, targets, opts = null) {
   const ranged = !prof._fortressMelee && prof.attack === 'ranged' && prof.projectile && prof.projectile !== 'none' && prof.projectile !== 'beam';
   const vis = prof._fortressMelee ? 'none' : (prof.projectile || 'none');
   // 秘术师: the stored energies leave with this attack, at its main target (professions.js installMystic)
-  const energy = !isHeal && prof.releaseEnergy ? prof.releaseEnergy(b, u) : 0;
+  const energy = !isHeal && prof.releaseEnergy ? prof.releaseEnergy(b, /** @type {ProfiledUnit} */ (u)) : 0;
   for (let i = 0; i < targets.length; i++) {
     const t = targets[i];
     // opts.signal (Battle.forceAttack): the client's ability this attack is — a talent's own attack ('T.1'), for its sound;
@@ -918,7 +919,8 @@ export function performAttack(b, u, prof, targets, opts = null) {
   }
   if (b._hooks.attack) b.emit('attack', { attacker: u, targets, isSkill });
   if (u.skill) u.skill.onAttackPerformed(targets, isSkill, !!(opts && opts.noAmmo));
-  if (prof.afterAttack) b._safe(() => prof.afterAttack(b, u, targets), 'profile.afterAttack', u);
+  const afterAttack = prof.afterAttack;
+  if (afterAttack) b._safe(() => afterAttack(b, /** @type {ProfiledUnit} */ (u), targets), 'profile.afterAttack', u);
 }
 
 /**
@@ -993,8 +995,8 @@ export function resolveHit(b, u, prof, target, info, x, y) {
   } : null;
   if (target && target.alive) {
     let mulT = skillMul;
-    if (prof.dmgMul) { const m = typeof prof.dmgMul === 'function' ? prof.dmgMul(b, u, target) : prof.dmgMul; if (Number.isFinite(m)) mulT *= m; }
-    const funnelMul = prof.funnelMul ? prof.funnelMul(b, u, target, info) : 1;
+    if (prof.dmgMul) { const m = typeof prof.dmgMul === 'function' ? prof.dmgMul(b, /** @type {ProfiledUnit} */ (u), target) : prof.dmgMul; if (Number.isFinite(m)) mulT *= /** @type {number} */ (m); }
+    const funnelMul = prof.funnelMul ? prof.funnelMul(b, /** @type {ProfiledUnit} */ (u), target, info) : 1;
     // Unreleased drones are additional damage on the caster's attack (PRTS 分支特性信息 驭械术师 「额外伤害」), including a
     // skill that only buffs or retargets that attack — `info.isSkill` is set for every attack or targeting override, so it
     // does not decide this. `funnelBodyHits === 0` is the drone-only opt-out (the ramp stays inside the hits, no body).
@@ -1002,7 +1004,7 @@ export function resolveHit(b, u, prof, target, info, x, y) {
     // [ASSUMED] Body instances precede additions at the existing projectile impact; a multi-hit volley keeps one ramp.
     const attachedFunnel = !!prof.funnelMul && prof.funnelBodyHits !== 0;
     if (!attachedFunnel) mulT *= funnelMul;
-    const hits = prof.hitsFn ? prof.hitsFn(b, u, info) : Math.max(1, prof.hits || 1);
+    const hits = prof.hitsFn ? prof.hitsFn(b, /** @type {ProfiledUnit} */ (u), info) : Math.max(1, prof.hits || 1);
     // `hitDmgMul` (professions.js header): each instance's 伤害倍率 — the DamageInfo `mul`, after DEF / RES — and only the
     // first instance may give 受击回复 (砾's two 50 % hits, PRTS 砾 特性备注)
     const split = Number.isFinite(prof.hitDmgMul) && prof.hitDmgMul > 0 ? prof.hitDmgMul : null;
@@ -1065,7 +1067,9 @@ export function resolveHit(b, u, prof, target, info, x, y) {
     if (prof.chain.sluggish && target.alive) b.applyStatus(target, 'sluggish', { duration: prof.chain.sluggish, source: u });
   }
   const hctx = { dealt: dealtTotal, x, y, isSkill: info.isSkill, profile: prof };
-  if (prof.afterHit) b._safe(() => prof.afterHit(b, u, target, hctx), 'profile.afterHit', u);
+  const afterHit = prof.afterHit;
+  // (`target` null for a shot without one: the callbacks are typed with the unit they get otherwise)
+  if (afterHit) b._safe(() => afterHit(b, /** @type {ProfiledUnit} */ (u), /** @type {Unit} */ (target), hctx), 'profile.afterHit', u);
   if (prof.skillOnHit && u.skill) {
     const fn = prof.skillOnHit;
     b._safe(() => fn({ battle: b, unit: u, skill: u.skill, bb: /** @type {SkillRuntime} */ (u.skill).bb, target, dealt: dealtTotal, x, y }), 'skill.attack.onHit', u);
@@ -1110,7 +1114,8 @@ export function chainHealNext(b, healer, prev, seen, opts = null) {
  * decay; `h.up(unit)`: the rate is × `h.upScale` from that unit on — the rate carries from jump to jump, the unit's own heal decays as usual
  * (乌啾 T1). `each(unit)`: every unit of the chain as it is healed, whether or not it lost HP.
  * @param {Battle} b @param {Unit} u @param {Unit} main @param {number} base the main unit's heal
- * @param {Record<string, any>} h the heal record (profile `heal`) @param {{ isSkill?: boolean } | undefined} hopts
+ * @param {{ falloff?: number, count?: number, upScale?: number, free?: ((u: Unit) => unknown) | null, up?: ((u: Unit) => unknown) | null }} h
+ *   the heal record (profile `heal`) @param {{ isSkill?: boolean } | undefined} hopts
  * @param {((unit: Unit) => void) | null} [each]
  */
 export function chainHealWalk(b, u, main, base, h, hopts, each = null) {
@@ -1180,7 +1185,8 @@ function doHeal(b, u, prof, t, skillOn = !!(u.skill && u.skill.active)) {
  * Compile a RouteSpec into legs. With `rect`, positional legs are clamped onto the field: a checkpoint outside the
  * rect (e.g. h07_01's extra fly route along row 6) could never be reached because positions are clamped to the rect
  * every tick — the enemy would hover at the border forever instead of finishing its route.
- * @param {Record<string, any>} route @param {{ r0: number, r1: number, c0: number, c1: number } | null} [rect]
+ * @param {{ checkpoints?: { type: string, pos: number[], off?: number[] | null, time?: unknown }[] | null, end?: number[] | null }} route
+ * @param {{ r0: number, r1: number, c0: number, c1: number } | null} [rect]
  */
 export function compileRoute(route, rect = null) {
   /** @type {RouteLeg[]} */
@@ -1190,7 +1196,7 @@ export function compileRoute(route, rect = null) {
   for (const cp of route.checkpoints || []) {
     if (cp.type === 'MOVE') legs.push({ t: 'move', r: cr(cp.pos[0]), c: cc(cp.pos[1]), ...(cp.off ? { dr: cp.off[0], dc: cp.off[1] } : {}) });
     else if (cp.type === 'PATROL') legs.push({ t: 'move', r: cr(cp.pos[0]), c: cc(cp.pos[1]), patrol: true });
-    else if (cp.type === 'WAIT') legs.push({ t: 'wait', time: Number.isFinite(cp.time) ? Math.max(0, cp.time) : 0 });
+    else if (cp.type === 'WAIT') legs.push({ t: 'wait', time: Number.isFinite(cp.time) ? Math.max(0, /** @type {number} */ (cp.time)) : 0 });
     else if (cp.type === 'DISAPPEAR') legs.push({ t: 'disappear' });
     else if (cp.type === 'APPEAR') legs.push({ t: 'appear', r: cr(cp.pos[0]), c: cc(cp.pos[1]) });
   }
@@ -1790,12 +1796,12 @@ export function enemyShot(e) {
  * height only draws the arc); a HARPOON line (HarpoonMovement) extends to it at `_speed`; FIXED_DIRECTION is flown at
  * its speed towards the target it was aimed at [추정: no enemy normal attack in the mode flies one but 萨米的意志's, which
  * its kit resolves]. 0 = it does not fly: ATTACH (AttachToTarget — on the target, after `_delayToStart`) and NONE.
- * @param {Record<string, any> | null | undefined} shot
+ * @param {{ move?: string, speed?: number } | null | undefined} shot
  */
 export function shotSpeed(shot) {
   if (shot === undefined) return PROJECTILE_SPEEDS.enemy;
   if (!shot || shot.move === 'ATTACH' || shot.move === 'NONE') return 0;
-  return shot.speed > 0 ? shot.speed : 0;
+  return shot.speed != null && shot.speed > 0 ? shot.speed : 0;
 }
 
 /**

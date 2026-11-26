@@ -16,6 +16,7 @@ import { hypot, roundHalfEven } from '../../detmath.js';
 import { enemyShot, shotSpeed } from '../../ai.js';
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
+/** @import { AttackProfile } from '../../ai.js' */
 /** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
 /** @import { BuffTick } from './helpers.js' */
 /** @import { BuffRec } from '../bonds/shared.js' */
@@ -88,7 +89,7 @@ function onOriginium(b, u) {
 function originiumMode() {
   return {
     spawn(b, e, a) { a.next = b.time + ORIGINIUM_CHECK; },
-    tick(b, e, a) {
+    tick(b, e, /** @type {EnemyAbility & { next?: number | null }} */ a) {
       if (a.next == null || b.time + 1e-9 < a.next) return;
       a.next += ORIGINIUM_CHECK;
       mode(b, e, onOriginium(b, e) ? 'Originium' : null);
@@ -110,7 +111,7 @@ function kitChimera(ab) {
   return [{
     hitOut(c, b, e, a) { if (c.dmg.isAttack && !a.on) { activate(b, e, a); if (a.on) c.dmg.type = 'arts'; } },
     iv: 0.25,
-    tick(b, e, a) {
+    tick(b, e, /** @type {EnemyAbility & { acc?: number }} */ a) {
       activate(b, e, a);
       if (!a.on) return;
       a.acc = (a.acc ?? 0) + 0.25;
@@ -212,6 +213,7 @@ const RUSH_LISTEN = 0.1;
  * (CheckAbnormalFlags) where 穿刺手 has one listener each, its speed layers ended with the trigger
  * (`_finishDerivedBuffIfParentFinish`, as here for both), and its bonus hit MAGICAL: `Rush.enemy_mmstck_t[trigger].*`,
  * `FirstAttack.atk_scale` 550, arts). Its RopeTriggerAbility answers a stage rope no 规程 stage has.
+ * @typedef {EnemyAbility & { on: boolean, n: number, tries: number, acc: number }} RushAb
  * @param {AbState} ab @param {{ prefix?: string, scaleKey?: string, type?: string }} [opts] @returns {AbList}
  */
 function kitRush(ab, { prefix = 'rush.dlancer_t[trigger]', scaleKey = 'firstattack.atk_scale', type = 'phys' } = {}) {
@@ -224,7 +226,7 @@ function kitRush(ab, { prefix = 'rush.dlancer_t[trigger]', scaleKey = 'firstatta
     iv: RUSH_LISTEN,
     // the listeners first look at once (waitFirstTriggerInterval 0): a walker spawned unblocked starts at t = 0
     spawn(b, e, a) { a.on = !e.blockedBy && !held(e); a.n = 0; a.tries = 0; a.acc = 0; },
-    tick(b, e, a, dt) {
+    tick(b, e, /** @type {RushAb} */ a, dt) {
       if (held(e)) { if (a.on) stop(b, e, a); return; }
       if (!a.on) {
         if (!e.blockedBy) { a.on = true; a.tries = 0; a.acc = 0; }
@@ -303,12 +305,13 @@ function kitExposeOnHit(ab) {
  * `Bus.max_cnt` (4, its talent blackboard), no slow and no model form; each passenger gets off on the centre of the
  * carrier's tile (rounded half to even, as body.js) and walks on along its OWN remaining route from where it boarded
  * [ASSUMED, upstream: PRTS names no route replacement for this one]. Its block weight stays (blockWeight 4).
+ * @typedef {EnemyAbility & { pax: Unit[], stacks: number }} BusAb
  * @param {AbState} ab @param {{ camel?: boolean }} [opts] @returns {AbList}
  */
 function kitBus(ab, { camel = true } = {}) {
   const max = (camel ? T(ab, 'bus.max_cnt') : T(ab, 'Bus.max_cnt')) ?? 0;
   const per = camel ? (T(ab, 'bus.move_speed') ?? 0) : 0, half = T(ab, 'bus.half_cnt') ?? Infinity;
-  const slow = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {EnemyAbility} */ a) => {
+  const slow = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {BusAb} */ a) => {
     if (!camel) return;
     if (a.stacks <= 0) b.removeBuff(e, 'ab:bus');
     else b.addBuff(e, { key: 'ab:bus', persist: true, mods: { moveMul: Math.min(1, Math.max(0, 1 + a.stacks * per)) } });
@@ -327,7 +330,7 @@ function kitBus(ab, { camel = true } = {}) {
   /** @type {EnemyAbility} */
   const bus = {
     spawn(b, e, a) { a.pax = []; a.stacks = 0; },
-    tick(b, e, a) {
+    tick(b, e, /** @type {BusAb} */ a) {
       a.pax = a.pax.filter((/** @type {Unit} */ p) => p.alive);
       if (e.hidden || e.s.flags.stun || a.pax.length >= max) return;
       const near = b.enemiesInRadius(e.x, e.y, BUS_RADIUS).filter((o) => board(b, e, o))
@@ -347,7 +350,8 @@ function kitBus(ab, { camel = true } = {}) {
       // enemy_mntrjn_add's PlayAudio for each passenger taken on (audio; “越长尘”'s bus has none)
       if (n && camel) b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'mntrjn:add', n });
     },
-    death(c, b, e, a) {
+    death(c, b, e, a0) {
+      const a = /** @type {BusAb} */ (a0);
       for (const p of a.pax) {
         if (!p.alive) continue;
         if (camel) {
@@ -629,9 +633,10 @@ export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (O
   enemy_2009_csaudc: kitEp('neural', 'combat.attack@ep_damage_ratio'), // 骇笑看客 · neural on hit
   enemy_2010_csdcr: (ab) => [ep('neural', T(ab, 'attack.attack@ep_damage_ratio') ?? 0), { // 绯红歌伶 · neural on hit; every 20 hits taken: global enemy ASPD up
     taken(c, b, e, a) {
-      a.n = (a.n ?? 0) + 1;
-      if (a.n < (T(ab, 'AttackSpeedUp.stack_cnt') ?? Infinity)) return;
-      a.n = 0;
+      const A = /** @type {EnemyAbility & { n?: number }} */ (a);
+      A.n = (A.n ?? 0) + 1;
+      if (A.n < (T(ab, 'AttackSpeedUp.stack_cnt') ?? Infinity)) return;
+      A.n = 0;
       b.fx('telegraph', { x: e.x, y: e.y, r: 99, kind: 'songOfWar', id: e.id });
       for (const o of b.aliveEnemies()) b.addBuff(o, { key: 'ab:songOfWar', duration: T(ab, 'AttackSpeedUp.duration') ?? 0, refresh: 'extend', mods: { aspd: T(ab, 'AttackSpeedUp.attack_speed') ?? 0 }, visible: true });
     },
@@ -680,7 +685,7 @@ export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (O
   enemy_10044_wintun: (ab) => {                                      // 咸鳞汁推荐者 · fast with the barrel; first attack (SILENCE): big hit + buff zone for enemies
     const s = ab.sk.BlockedBoom ? ab.sk.BlockedBoom.bb : {};
     const bc = ab.sk.BlockedBoom?.cast;
-    const boomClip = bc && bc.dur > 0 ? { clip: bc.clip, dur: bc.dur, hit: bc.hit, max: bc.max ?? 1 } : null;
+    const boomClip = bc && /** @type {number} */ (bc.dur) > 0 ? { clip: bc.clip, dur: bc.dur, hit: bc.hit, max: bc.max ?? 1 } : null;
     /** @type {EnemyAbility} */
     const boom = {
       sil: true,                                                     // silenced: the barrel is kept (and its speed) until an unsilenced attack
@@ -713,9 +718,9 @@ export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (O
       // slot, timed by its clip — not by the Combat's B_Attack (1.2 s, 0.467 s); ai.js attackClipOf `swingClip`
       tick(b, e) {
         if (e.blockedBy) mode(b, e, 'M2');
-        if (e.mode !== 'M2') { if (/** @type {Record<string, any>} */ (e.profile).swingClip) /** @type {Record<string, any>} */ (e.profile).swingClip = null; return; }
+        if (e.mode !== 'M2') { if (/** @type {AttackProfile} */ (e.profile).swingClip) /** @type {AttackProfile} */ (e.profile).swingClip = null; return; }
         const f = boom.done || e.s.flags.silence ? 'M2' : 'M2boom';
-        /** @type {Record<string, any>} */ (e.profile).swingClip = f === 'M2boom' ? boomClip : null;
+        /** @type {AttackProfile} */ (e.profile).swingClip = f === 'M2boom' ? boomClip : null;
         if (e.form !== f) setForm(b, e, f);
       },
     }];
@@ -723,7 +728,7 @@ export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (O
   enemy_10045_parrot: kitParrot,                                     // 吉兆飞鳞 · 近地悬浮 (grounded 8 s when stunned); sprints when first hit
   enemy_10087_hlchgr: (ab) => [{                                     // 圣堂剑士 · spends ammo (every 6 s, max 5) for permanent speed/ATK
     iv: T(ab, 'SkillTrigger.interval') ?? 6,
-    tick(b, e, a) {
+    tick(b, e, /** @type {EnemyAbility & { n?: number }} */ a) {
       a.n = (a.n ?? 0) + 1;
       if (a.n > 5) return;
       const s = ab.sk.ForeverEnhance ? ab.sk.ForeverEnhance.bb : {};
@@ -754,7 +759,7 @@ export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (O
       // selection, skipped while 晕眩 / 冻结 / 浮空 (flag stun), 沉睡 or 缴械 hold it (PRTS 异常效果 §阻止攻击; until 0.1.3 it spun on);
       // 不可对空: never a flying ally (the 炎佑 dragon — until 0.2.1 it was hit)
       tick(b, e, a) {
-        if (!(a.until > b.time) || e.s.flags.stun || e.s.flags.sleep || e.s.flags.disarm) return;
+        if (!(/** @type {number} */ (a.until) > b.time) || e.s.flags.stun || e.s.flags.sleep || e.s.flags.disarm) return;
         let n = 0;
         for (const u of areaAllies(b, e, e.x, e.y, T(ab, 'RotateDamage.attack@range_radius') ?? 1)) if (!u.isFlying) { hurt(b, e, u, e.s.atk * (T(ab, 'RotateDamage.attack@atk_scale') ?? 1), 'phys'); n++; }
         // ymgtop_m1_t[rotate_attack]'s PlayAudio on each unit it hits (audio)
@@ -769,11 +774,11 @@ export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (O
     /** @type {EnemyAbility} */
     const noAtk = {
       tick(b, e) {
-        /** @type {Record<string, any>} */ (e.profile).noAttack = spin.until > b.time;
-        if (mode(b, e, /** @type {Record<string, any>} */ (e.profile).noAttack ? 'M1' : null)) setForm(b, e, /** @type {Record<string, any>} */ (e.profile).noAttack ? 'M1' : null);
+        /** @type {AttackProfile} */ (e.profile).noAttack = /** @type {number} */ (spin.until) > b.time;
+        if (mode(b, e, /** @type {AttackProfile} */ (e.profile).noAttack ? 'M1' : null)) setForm(b, e, /** @type {AttackProfile} */ (e.profile).noAttack ? 'M1' : null);
       },
     };
-    return [spin, noAtk, unbalanced((b, e) => { if (spin.until > b.time) { spin.until = 0; b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'spinStop' }); } })];
+    return [spin, noAtk, unbalanced((b, e) => { if (/** @type {number} */ (spin.until) > b.time) { spin.until = 0; b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'spinStop' }); } })];
   },
   enemy_10118_ymgprc: (ab) => {                                      // 澪 · double hits; 寒晖: every 4th attack (spCost 3) is a ×1.5 double hit
     const scale = (ab.sk.PowerAttack && ab.sk.PowerAttack.bb.atk_scale) || 1;
@@ -800,7 +805,7 @@ export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (O
     // operator on the 排气格栅) is no target, so with nobody else in range it does not attack (the official game, community
     // report of 2026-10-06, item 24); it picks by 仇恨值, not its blocker first. The volley itself is the kit's
     // (profile.deferHit): `times` physical attacks `hit_interval` apart, each splashing, also after the target is lost.
-    spawn(b, e) { /** @type {Record<string, any>} */ (e.profile).blockFree = true; /** @type {Record<string, any>} */ (e.profile).deferHit = true; /** @type {Record<string, any>} */ (e.profile).shot = 'enemy'; },
+    spawn(b, e) { /** @type {AttackProfile} */ (e.profile).blockFree = true; /** @type {AttackProfile} */ (e.profile).deferHit = true; /** @type {AttackProfile} */ (e.profile).shot = 'enemy'; },
     attack(c, b, e) {
       const t = c.targets && c.targets[0];
       catapultVolley(ab, b, e, t ? { target: t, x: t.x, y: t.y } : { target: null, x: e.x, y: e.y });

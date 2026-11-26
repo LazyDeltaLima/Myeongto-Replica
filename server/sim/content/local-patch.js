@@ -37,6 +37,7 @@ import { abOf, attach, hurt, allTargets, areaAlliesInTiles, canCast, T } from '.
 import { attackMotionOf, motionTakes } from '../targeting.js';
 /** @import { Battle } from '../Battle.js' */
 /** @import { Unit } from '../units.js' */
+/** @import { AttackProfile } from '../ai.js' */
 /** @import { AbState, AbSkill, EnemyAbility } from './enemies.js' */
 
 export const VTSK = 'enemy_10027_vtsk';
@@ -55,8 +56,8 @@ export function install(battle) {
   // (targeting.js evadesGround).
   battle.on('enemySpawn', (/** @type {{ enemy: Unit }} */ { enemy: e }) => {
     if (!enemy0(e) || !motionFiltered(e.def)) return;
-    const own = /** @type {Record<string, any>} */ (e.profile).canTarget;
-    /** @type {Record<string, any>} */ (e.profile).canTarget = typeof own === 'function'
+    const own = /** @type {AttackProfile} */ (e.profile).canTarget;
+    /** @type {AttackProfile} */ (e.profile).canTarget = typeof own === 'function'
       ? (/** @type {Unit} */ u) => motionTakes(attackMotionOf(e.def, e.form), u) && own(u)
       : (/** @type {Unit} */ u) => motionTakes(attackMotionOf(e.def, e.form), u);
   }, { priority: 99 });
@@ -75,8 +76,8 @@ export function install(battle) {
 
 export const HLCHGR = 'enemy_10087_hlchgr';
 /** Has the enemy def a normal attack whose motion leaves some unit out in a mode (data `attackMotion`)? */
-/** @param {Record<string, any> | null | undefined} d */
-const motionFiltered = (d) => !!d && d.attackMotion > 0 && (d.attackMotion !== 3 || Object.values(d.attackMotionModes || {}).some((v) => v !== 3));
+/** @param {{ attackMotion?: number, attackMotionModes?: Record<string, number> | null } | null | undefined} d */
+const motionFiltered = (d) => !!d && /** @type {number} */ (d.attackMotion) > 0 && (d.attackMotion !== 3 || Object.values(d.attackMotionModes || {}).some((v) => v !== 3));
 // skill target picks, client _targetMotion 1: 鼠王 DriftSand / SandStorm / Mark Trigger, 杰斯顿 IronSandStorm Trigger (its
 // stuns — PRTS 「禁锢装置/飞行单位以外」), “自在” CrossAttack / Mark Selector. Their area parts: enemies.js (“自在” 破桎而出 and
 // “巨大的丑东西”'s 重生 bomb skip flyers there; 唱沙 / 沙狱 / 纬地经天 projectiles keep collision 3 — PRTS 「弹道可对空」)
@@ -98,6 +99,7 @@ function patchHlchgr(b, e) {
 }
 
 /** 赐我力量！: every SkillTrigger.interval s try one cast (≤ max_stack_cnt successes, 1 bullet each). */
+/** The ability's own field: the casts so far. @typedef {EnemyAbility & { n?: number }} EnhanceAb */
 /** @param {AbState} ab @param {AbSkill} sk @returns {EnemyAbility} */
 function foreverEnhance(ab, sk) {
   const maxCasts = T(ab, 'SkillTrigger.max_stack_cnt') ?? Infinity;
@@ -106,7 +108,7 @@ function foreverEnhance(ab, sk) {
   return {
     lpAmmo: true,
     iv: T(ab, 'SkillTrigger.interval') ?? 6,
-    tick(b, e, a) {
+    tick(b, e, /** @type {EnhanceAb} */ a) {
       const n = a.n ?? 0;
       if (n >= maxCasts || !(/** @type {{ left: number, max: number }} */ (e.lpAmmo).left >= cost) || !canCast(e, false)) return;
       /** @type {{ left: number, max: number }} */ (e.lpAmmo).left -= cost;
@@ -152,16 +154,17 @@ function barrage(times) {
 }
 
 /** 回忆里的怒守: ready on the data cooldown, cast only while blocked; that melee attack lands as three 100 % hits. */
+/** The ability's own field: the hits the next blocked attack lands. @typedef {EnemyAbility & { ready?: number }} TripleAb */
 /** @param {AbSkill} mc @returns {EnemyAbility} */
 function chargedTriple(mc) {
   const n = mc.bb.times ?? 1;
   return {
     name: mc.name, cd: mc.cd, icd: mc.icd,
     cond: (b, e) => !!e.blockedBy,
-    fire(b, e, a) { a.ready = n; },
-    dealt(c, b, e, a) {
-      if (!(a.ready > 1) || c.target !== e.blockedBy) return;
-      const m = a.ready;
+    fire(b, e, /** @type {TripleAb} */ a) { a.ready = n; },
+    dealt(c, b, e, /** @type {TripleAb} */ a) {
+      if (!(/** @type {number} */ (a.ready) > 1) || c.target !== e.blockedBy) return;
+      const m = /** @type {number} */ (a.ready);
       a.ready = 0;
       for (let i = 1; i < m; i++) hurt(b, e, c.target, e.s.atk, 'phys');
     },

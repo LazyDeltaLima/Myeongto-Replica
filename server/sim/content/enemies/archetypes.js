@@ -16,7 +16,8 @@ import { mitigate, periodicDamage } from '../../damage.js'; // local patch: bloc
 import { damageNumberFlag, blockedEvent } from '../../local-hud.js'; // local patch: blocked numbers
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
-/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { AttackProfile } from '../../ai.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit, DamageRec } from '../enemies.js' */
 /** @import { SpawnChildOpts, BuffTick } from './helpers.js' */
 /** @import { BuffRec } from '../bonds/shared.js' */
 
@@ -80,7 +81,7 @@ const blockWeight = (n) => ({ spawn(b, e) { e.blockWeight = n; } });
 const taunt = (n) => ({ spawn(b, e) { if (n) b.addBuff(e, { key: 'ab:taunt', mods: { taunt: n }, persist: true }); } });
 
 /** @param {number} n @returns {EnemyAbility} */
-const maxTargets = (n) => ({ spawn(b, e) { if (n > 1) /** @type {Record<string, any>} */ (e.profile).maxTargets = n; } });
+const maxTargets = (n) => ({ spawn(b, e) { if (n > 1) /** @type {AttackProfile} */ (e.profile).maxTargets = n; } });
 
 /** Element damage on every attack hit: ATK × ratio. @param {string} el @param {number} ratio @param {boolean} [sil] @returns {EnemyAbility} */
 const ep = (el, ratio, sil = false) => ({ sil, dealt(c, b, e) { if (ratio > 0) elem(b, e, c.target, el, e.s.atk * ratio); } });
@@ -104,7 +105,7 @@ const onHitStatus = (key, dur, value) => ({ dealt(c, b, e) { if (/** @type {numb
  */
 function splashAttack({ scale = 1, meleeScale = 1, unblocked = true, tiles = 0, radius = 0, noAir = false, dodge = false, fxKind = 'splash', onEach = null } = {}) {
   return {
-    before(c, b, e, a) { a.splash = !unblocked || !e.blockedBy; /** @type {Record<string, any>} */ (e.profile).atkScale = a.splash ? scale : meleeScale; },
+    before(c, b, e, a) { a.splash = !unblocked || !e.blockedBy; /** @type {AttackProfile} */ (e.profile).atkScale = a.splash ? scale : meleeScale; },
     hitOut(c, b, e, a) {
       const t = c.target;
       if (!a.splash || !c.dmg.isAttack || !t) return;
@@ -140,7 +141,7 @@ function pathKeysAhead(e) {
 }
 
 /** "不会攻击飞行单位" (an engine candidate filter, ai.js enemyAttack: the 炎佑 dragon is a flying ally). @returns {EnemyAbility} */
-const noAirTargets = () => ({ spawn(b, e) { /** @type {Record<string, any>} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying; } });
+const noAirTargets = () => ({ spawn(b, e) { /** @type {AttackProfile} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying; } });
 
 /**
  * 抵抗 (ba.buffres, the engine `resist` status: control durations halved, 麻痹 loses 1 stack every 5 s) + optional
@@ -162,7 +163,8 @@ const immuneTo = (...keys) => ({ spawn(b, e, a, ab) { ab.immune = new Set([...(a
 const nthAttackStatus = (n, key, dur, sil = true) => ({
   sil,
   spawn(b, e, a) { a.n = 0; },
-  attack(c, b, e, a) {
+  attack(c, b, e, a0) {
+    const a = /** @type {EnemyAbility & { n: number }} */ (a0);
     a.n++;
     if (a.n % n) return;
     for (const t of c.targets) {
@@ -175,13 +177,13 @@ const nthAttackStatus = (n, key, dur, sil = true) => ({
 /** Every Nth attack deals ×scale (+ optional element). @param {number} n @param {number} scale @param {string | null} [el] @param {number} [ratio] @returns {EnemyAbility} */
 const nthAttackPower = (n, scale, el = null, ratio = 0) => ({
   spawn(b, e, a) { a.n = 0; a.power = false; },
-  before(c, b, e, a) { a.power = (a.n + 1) % n === 0; },
+  before(c, b, e, a) { a.power = (/** @type {number} */ (a.n) + 1) % n === 0; },
   hitOut(c, b, e, a) { if (a.power && c.dmg.isAttack) c.dmg.amount *= scale; },
   dealt(c, b, e, a) { if (a.power && el && ratio > 0) elem(b, e, c.target, el, e.s.atk * ratio); },
-  attack(c, b, e, a) { a.n++; },
+  attack(c, b, e, a) { /** @type {number} */ (a.n)++; },
 });
 
-/** Aura on other enemies within r: timed buff refreshed every iv s. @param {number} r @param {string} key @param {Record<string, any>} mods @param {boolean} [sil] @param {number} [iv] @returns {EnemyAbility} */
+/** Aura on other enemies within r: timed buff refreshed every iv s. @param {number} r @param {string} key @param {Record<string, number>} mods @param {boolean} [sil] @param {number} [iv] @returns {EnemyAbility} */
 const enemyAura = (r, key, mods, sil = true, iv = 0.5) => ({
   sil, iv,
   tick(b, e) { for (const o of b.enemiesInRadius(e.x, e.y, r)) if (o !== e) auraBuff(b, o, key, iv, mods); },
@@ -190,7 +192,7 @@ const enemyAura = (r, key, mods, sil = true, iv = 0.5) => ({
 /**
  * Aura on allies within r — every ally there, 隐匿 ones included: its one user, 寒霜, is PRTS's own example of an enemy
  * debuff that "无视隐匿状态起作用" (PRTS 作战机制 §隐匿与Buff的关系: "敌方寒霜的攻速下降Debuff").
- * @param {number} r @param {string} key @param {Record<string, any>} mods @param {boolean} [sil] @param {number} [iv] @param {Record<string, boolean> | null} [flags] @returns {EnemyAbility}
+ * @param {number} r @param {string} key @param {Record<string, number>} mods @param {boolean} [sil] @param {number} [iv] @param {Record<string, boolean> | null} [flags] @returns {EnemyAbility}
  */
 const allyAura = (r, key, mods, sil = true, iv = 0.5, flags = null) => ({
   sil, iv,
@@ -218,7 +220,7 @@ const hpToggle = (ratio, on, off) => ({
  *  effect the render draws for it (render/fxstatus.js; its prefab's toggled half-HP buff, 2026-10-21). Until 2026-11-20 it
  *  came on at the first hit below the ratio (not by a 流失) and stayed. Not silence-gated: of its users only 鼠王's mousek_t is
  *  isSilenceable, and 鼠王 is silence-immune (docs/rules/sim.md 「적의 모드 전환」).
- * @param {number} ratio @param {Record<string, any>} mods @param {string} [key] @param {string | null} [fxTag] @returns {EnemyAbility} */
+ * @param {number} ratio @param {Record<string, number>} mods @param {string} [key] @param {string | null} [fxTag] @returns {EnemyAbility} */
 const lowHpBuff = (ratio, mods, key = 'ab:lowhp', fxTag = null) => hpToggle(ratio,
   (b, e) => b.addBuff(e, { key, mods, persist: true, visible: true, fxTag }),
   (b, e) => b.removeBuff(e, key));
@@ -287,7 +289,7 @@ const BLEED_CHECK = 1;
 const unbalancedBleed = (ab) => {
   const v = T(ab, 'unbalanced_bleed.damage') ?? 0, iv = T(ab, 'unbalanced_bleed.interval') ?? 0;
   return [{
-    tick(b, e, a, dt) {
+    tick(b, e, /** @type {EnemyAbility & { clk?: number, bleed: number }} */ a, dt) {
       if (!(v > 0 && iv > 0)) return;
       a.clk = (a.clk ?? 0) + dt;
       const due = () => {
@@ -414,7 +416,8 @@ function prisoner(ab, { freeAll = false } = {}) {
       a.n = 0; a.free = false;
       b.addBuff(e, { key: 'ab:confined', persist: true, visible: true, mods: { aspd: t('confinement.attack_speed'), defFlat: t('confinement.def') } });
     },
-    before(c, b, e, a) {
+    before(c, b, e, a0) {
+      const a = /** @type {EnemyAbility & { n: number }} */ (a0);
       if (a.free) return;
       if (++a.n >= times) liberate(b, e, a);
       else if (a.n === times - 1) { setForm(b, e, 'warning'); mode(b, e, 'R', false); }   // (enemy_confinement[atk_cnt], no restart)
@@ -480,7 +483,7 @@ function reborn({ dur = 0, hpRatio = 1, invincible = 0, invincibleUntargetable =
     if (!e.alive || a.state !== 'reborn') return;
     a.state = 'form2';
     b.removeBuff(e, key);
-    /** @type {Record<string, any>} */ (e.profile).noAttack = a.noAtk;
+    /** @type {AttackProfile} */ (e.profile).noAttack = a.noAtk;
     if (onReborn) safe(b, e, () => onReborn(b, e, a));
     e.hp = Math.max(1, e.s.maxHp * Math.max(0, Math.min(1, hpRatio)));
     if (invincible > 0) b.addBuff(e, { key: `${key}:inv`, duration: invincible, visible: true,
@@ -497,17 +500,17 @@ function reborn({ dur = 0, hpRatio = 1, invincible = 0, invincibleUntargetable =
       if (a.state) return false;
       a.state = 'reborn';
       a.t0 = b.time;
-      a.noAtk = /** @type {Record<string, any>} */ (e.profile).noAttack;
+      a.noAtk = /** @type {AttackProfile} */ (e.profile).noAttack;
       e.unbalanceUntil = -Infinity;   // a 重生 is a forced state change: it ends a 失衡 (PRTS 失衡位移机制 「例如复活」)
       rebirthCleanse(b, e);
       e.hp = Math.min(1, e.s.maxHp);
       if (onKo) safe(b, e, () => onKo(b, e, a));
       if (!(dur > 0)) { finish(b, e, a); return true; }
-      /** @type {Record<string, any>} */ (e.profile).noAttack = true;
+      /** @type {AttackProfile} */ (e.profile).noAttack = true;
       b.addBuff(e, {
         key, duration: dur, visible: true, persist: true,
         flags: { invulnerable: true, untargetable: true, unblockable: true, noMove: true, stun: true },
-        onTick: during ? (/** @type {BuffTick} */ { battle }) => during(battle, e, a, battle.time - a.t0) : null,
+        onTick: during ? (/** @type {BuffTick} */ { battle }) => during(battle, e, a, battle.time - /** @type {number} */ (a.t0)) : null,
         onExpire: (/** @type {BuffTick} */ { battle }) => finish(battle, e, a),
       });
       setForm(b, e, 'reborn', 'telegraph', { r: 1, dur, kind: 'reborn' });
@@ -531,13 +534,13 @@ function frontGuard(cut, face) {
     hitIn(c, b, e, a) {
       const s = c.source, ty = c.dmg.type;
       if (!s || s.side !== 'ally' || (ty !== 'phys' && ty !== 'arts') || !(cut > 0)) return;
-      if ((Math.round(s.x) - Math.round(e.x)) * a.facing > 0) c.dmg.mul *= Math.max(0, 1 - cut);
+      if ((Math.round(s.x) - Math.round(e.x)) * /** @type {number} */ (a.facing) > 0) c.dmg.mul *= Math.max(0, 1 - cut);
     },
   };
 }
 
 /** Faces its walking direction (horizontal component; keeps the last one while standing). @param {Battle} b @param {Unit} e @param {EnemyAbility} a */
-const faceMove = (b, e, a) => { const dx = e.x - a.px; if (Math.abs(dx) > 1e-6) a.facing = dx > 0 ? 1 : -1; a.px = e.x; };
+const faceMove = (b, e, a) => { const dx = e.x - /** @type {number} */ (a.px); if (Math.abs(dx) > 1e-6) a.facing = dx > 0 ? 1 : -1; a.px = e.x; };
 
 /** "始终面向我方干员数量较多的方向": the side with more deployed operators (ties keep the current facing; PRTS 圆仔 "无视其可选性":
  *  隐匿 operators count).
@@ -555,7 +558,7 @@ const faceCrowd = (b, e, a) => {
  */
 function unbalanced(onMove) {
   return {
-    tick(b, e, a, dt) {
+    tick(b, e, /** @type {EnemyAbility & { px?: number | null, py: number }} */ a, dt) {
       const px = a.px, py = a.py, hid = a.hid;
       a.px = e.x; a.py = e.y; a.hid = e.hidden;
       if (px == null || hid || e.hidden) return;
@@ -582,7 +585,7 @@ function unbalanced(onMove) {
  *  `brokeForm` (2026-10-23): the form its whole break puts the enemy in (`brokeMode`: its prefab mode, ai.js enemyMode), carried by the 'shieldBreak' fx — 鼠王's last layer
  *  mousek_shield[c] (template mousek_shield_end) switches it to its prefab mode NoShield as it ends (render/fxgame.js
  *  FORM_MODES: that mode's buff effects).
- * @param {number} amount @param {{ key?: string, whileUp?: Record<string, any> | null, fxTag?: string | null, layers?: string[] | null, blockFx?: boolean, brokeForm?: string | null, brokeMode?: string | null }} [opts] @returns {EnemyAbility} */
+ * @param {number} amount @param {{ key?: string, whileUp?: Record<string, number> | null, fxTag?: string | null, layers?: string[] | null, blockFx?: boolean, brokeForm?: string | null, brokeMode?: string | null }} [opts] @returns {EnemyAbility} */
 function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = null, layers = null, blockFx = false, brokeForm = null, brokeMode = null } = {}) {
   const n = layers ? layers.length : 1;
   /** @param {number} i */
@@ -596,9 +599,10 @@ function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = n
       if (layers) layers.forEach((t, i) => b.addBuff(e, { key: layerKey(i), persist: true, visible: true, fxTag: `buff:${t}` }));
     },
     spawn(b, e, a) { if (amount > 0) /** @type {NonNullable<EnemyAbility['refresh']>} */ (a.refresh)(b, e, a); },   // (its own `refresh`, above)
-    hitIn(c, b, e, a) {
+    hitIn(c, b, e, a0) {
+      const a = /** @type {EnemyAbility & { left: number, layers: number[] | null }} */ (a0);
       if (!(/** @type {number} */ (a.left) > 0)) return;
-      const lpF = expectedFinal(c.source, e, c.dmg); // local patch: a red number it stops → blue (local-hud.js)
+      const lpF = expectedFinal(c.source, e, /** @type {DamageRec} */ (c.dmg)); // local patch: a red number it stops → blue (local-hud.js)
       const take = absorbArts(c, /** @type {number} */ (a.left));
       /** @type {number} */ (a.left) -= take;
       if (a.layers) {
@@ -616,7 +620,7 @@ function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null, fxTag = n
       if (c.dmg.cancel) blockedEvent(b, e, lpF, damageNumberFlag(c.dmg, c.source && c.source.s, mitigate(c.dmg.amount, c.dmg.type, e.s, {}), lpF), key); // local patch
       if (/** @type {number} */ (a.left) > 1e-6) return;
       a.left = 0;
-      if (a.layers) a.layers.forEach((/** @type {number} */ x, /** @type {number} */ i) => { a.layers[i] = 0; b.removeBuff(e, layerKey(i)); });
+      if (a.layers) a.layers.forEach((/** @type {number} */ x, /** @type {number} */ i) => { /** @type {number[]} */ (a.layers)[i] = 0; b.removeBuff(e, layerKey(i)); });
       if (brokeForm) e.form = brokeForm;
       if (brokeMode) mode(b, e, brokeMode, false);   // the prefab's mode after the break (鼠王 NoShield: mousek_shield_end SwitchMode, no restart)
       b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id, ...(brokeForm ? { form: brokeForm } : {}) });
@@ -655,7 +659,7 @@ function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, ke
     e.markDirty();
     void e.s;
     e.hp = e.s.maxHp;
-    /** @type {Record<string, any>} */ (e.profile).noAttack = a.noAtk;
+    /** @type {AttackProfile} */ (e.profile).noAttack = a.noAtk;
     b.removeBuff(e, key);
     b.removeBuff(e, `${key}:inv`);
     if (e.route) e.route.pts = null;
@@ -666,12 +670,12 @@ function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, ke
   return {
     killed(c, b, e, a) {
       // an HP loss (流失 bypasses 无敌) during the 1 s 重生 cannot cut it short
-      if (a.state === 'husk' && b.time < a.rebornUntil) { e.hp = e.s.maxHp; return true; }
+      if (a.state === 'husk' && b.time < /** @type {number} */ (a.rebornUntil)) { e.hp = e.s.maxHp; return true; }
       if (a.state === 'husk' || !(/** @type {number} */ (hits) > 0) || !(/** @type {number} */ (delay) > 0)) return false;   // the husk's knock-out is the real death
       a.state = 'husk';
       a.rebornUntil = b.time + HUSK_REBIRTH;
       e.unbalanceUntil = -Infinity;   // a 重生 is a forced state change: it ends a 失衡 (PRTS 失衡位移机制 「例如复活」)
-      a.noAtk = /** @type {Record<string, any>} */ (e.profile).noAttack;
+      a.noAtk = /** @type {AttackProfile} */ (e.profile).noAttack;
       a.max = a.max ?? e.base.maxHp;
       rebirthCleanse(b, e);
       // the warrior's block ends before the ember gains its 隐匿 (upstream PR #465). The client: `Enemy.DoFakeDeath` calls
@@ -679,7 +683,7 @@ function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, ke
       // attach, off while blocked, back `_restoreDelay` 3 s after a block) — comes later, at `Unit.DoReborn` → `SwitchMode`.
       // So a fresh ember is 隐匿 unless something blocks it again; only its own block opens the 3 s window.
       b._unblock(e);
-      /** @type {Record<string, any>} */ (e.profile).noAttack = true;
+      /** @type {AttackProfile} */ (e.profile).noAttack = true;
       e.lastAttackAt = -Infinity;                         // the snapshot shows no attack of the fallen warrior
       setHits(e, /** @type {number} */ (hits));
       hitCount(b, e, true);
@@ -711,14 +715,14 @@ function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, ke
 function statue(ab) {
   const dur = T(ab, 'stone.duration') ?? 0;
   return {
-    spawn(b, e) { /** @type {Record<string, any>} */ (e.profile).melee = true; },
+    spawn(b, e) { /** @type {AttackProfile} */ (e.profile).melee = true; },
     killed(c, b, e, a, ab2) {
       if (a.done || !(dur > 0)) return false;
       a.done = true;
-      a.noAtk = /** @type {Record<string, any>} */ (e.profile).noAttack;
+      a.noAtk = /** @type {AttackProfile} */ (e.profile).noAttack;
       rebirthCleanse(b, e);                                 // "进行重生。重生瞬间完成"
       rebirthCooldowns(e);
-      /** @type {Record<string, any>} */ (e.profile).noAttack = true;
+      /** @type {AttackProfile} */ (e.profile).noAttack = true;
       e.hp = e.s.maxHp;
       ab2.immune = new Set([...(ab2.immune || []), 'levitate']);
       setForm(b, e, 'stone', 'stone', { dur });
@@ -729,7 +733,7 @@ function statue(ab) {
         onExpire: (/** @type {BuffTick} */ { battle }) => {
           if (!e.alive) return;
           e.motion = 'FLY';
-          Object.assign(/** @type {Record<string, any>} */ (e.profile), { noAttack: a.noAtk, melee: false, dmgType: 'arts', canTarget: (/** @type {Unit} */ u) => !u.isFlying });
+          Object.assign(/** @type {AttackProfile} */ (e.profile), { noAttack: a.noAtk, melee: false, dmgType: 'arts', canTarget: (/** @type {Unit} */ u) => !u.isFlying });
           battle.addBuff(e, { key: 'ab:flight', persist: true, flags: { noDisplace: true } });
           if (e.route) e.route.pts = null;
           mode(battle, e, 'Fly');   // enemy_dugago_t[fly] SwitchMode 2: its ranged Attack

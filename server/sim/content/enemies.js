@@ -143,23 +143,46 @@ export { HOVER_KEYS, blinkForward } from './enemies/archetypes.js';
 
 /** @import { Battle } from '../Battle.js' */
 /** @import { Unit } from '../units.js' */
+/** @import { HitEv, DamagedEv, AttackEv, KillEv, DeathEv, StatusEv, HealEv, BurstEv } from './support/index.js' */
+/** @import { AttackProfile } from '../ai.js' */
+/** @import { Buff } from '../battle/status.js' */
 /**
- * The runtime model of the header, as the kits (enemies/*.js, bosses.js) build and read it. A hook's payload `c` is the
- * engine's (support/index.js HitEv, DamagedEv …) or a kit's own, read field by field.
- * @typedef {Record<string, any>} AbCtx
+ * The runtime model of the header, as the kits (enemies/*.js, bosses.js) build and read it. A hook gets the engine's
+ * payload of its event (support/index.js HitEv, DamagedEv …; the two below are ai.js's and battle/blocking.js's).
+ * @typedef {{ attacker: Unit, targets: Unit[], isSkill: boolean, profile: AttackProfile | null, signal?: string | null }} BeforeAttackEv
+ * @typedef {{ blocker: Unit, enemy: Unit }} BlockedEv
+ * `killed`: a handler that revives the enemy returns true and the dispatcher stops the event (`stopPropagation`).
+ * @typedef {KillEv & { stopPropagation?: boolean }} KilledEv
+ * A damage instance as the kits read and change it (damage.js dealDamage's record, the `dmg` of 'hit' / 'damaged').
+ * @typedef {{ [key: string]: unknown, type: string, amount: number, cancel?: boolean, isAttack?: boolean, isSkill?: boolean,
+ *   sourceless?: boolean, tags?: string[], mul?: number, defIgnorePct?: number, defIgnoreFlat?: number, resIgnorePct?: number,
+ *   resIgnoreFlat?: number }} DamageRec
+ * A payload a kit builds for a part it shares between hooks, read field by field.
+ * @typedef {{ [key: string]: unknown, source?: Unit | null, target?: Unit | null, dmg?: DamageRec | null }} AbCtx
  * One skill of the enemy's table (enemies/helpers.js abOf): its prefab key, cooldowns, SP cost, priority, blackboards,
  * projectile and cast record.
- * @typedef {{ name: string, cd: number, icd: number, sp: number, pri: number, bb: Record<string, any>,
- *   bs: Record<string, any>, proj: Record<string, any> | null, cast: Record<string, any> | null }} AbSkill
+ * @typedef {{ name: string, cd: number, icd: number, sp: number, pri: number, bb: Record<string, number>,
+ *   bs: Record<string, string>, proj: AbProj | null, cast: AbCastRec | null }} AbSkill
+ * A skill's projectile (enemies/helpers.js normShot of data/enemies.json `skills[].proj`).
+ * @typedef {{ [key: string]: unknown, life?: number }} AbProj
+ * A skill's cast record (data/enemies.json `skillCast[prefabKey]`, tools/build-data.mjs enemySkillCast; helpers.js
+ * castLength reads the kinds): a group's `kind` and `subs`, an animated ability's clip `dur` and times.
+ * @typedef {{ [key: string]: unknown, family?: number, kind?: string, subs?: AbCastRec[], one?: boolean, main?: number,
+ *   miss?: boolean, dur?: number, time?: number, cd?: number, cdKey?: string, max?: number, wait?: number, pre?: number,
+ *   hit?: number, proj?: boolean, chan?: ChanRec | null, chanBegin?: CastClip | null, chanLoop?: CastClip | null,
+ *   chanEnd?: CastClip | null, resetMain?: boolean, waitFirst?: boolean }} AbCastRec
+ * @typedef {{ dur: number, hit?: number }} CastClip
+ * A three-part channel (ThreePartChannelingAnimation: its loop clip, `wait` = `_waitForAttachFinishEvent`).
+ * @typedef {{ [key: string]: unknown, loop?: unknown, wait?: boolean | number }} ChanRec
  * The cast an attack slot opened (onSkillSlot `ab.casting`).
- * @typedef {{ a: EnemyAbility, cast: Record<string, any>, until: number, open: boolean, min?: number, chan?: boolean,
+ * @typedef {{ a: EnemyAbility, cast: AbCastRec, until: number, open: boolean, min?: number, chan?: boolean,
  *   hold?: boolean }} AbCast
  * An enemy's ability state `e.mem.ab` (enemies/helpers.js abOf), plus the fields its kit keeps there.
- * @typedef {{ [key: string]: any, key: string, t: Record<string, any>, tS: Record<string, any>,
+ * @typedef {{ [key: string]: unknown, key: string, t: Record<string, number>, tS: Record<string, string>,
  *   sk: Record<string, AbSkill>, list: EnemyAbility[], hitShield: number, atkType: string | null,
  *   immune: Set<string> | null, casting?: AbCast | null, ownAttack?: boolean }} AbState
  * An ability (the header's methods; the kit's own fields beside them).
- * @typedef {{ [key: string]: any, name?: string | null, cd?: number, icd?: number, left?: number, iv?: number, sil?: boolean,
+ * @typedef {{ [key: string]: unknown, name?: string | null, cd?: number, icd?: number, left?: number, iv?: number, sil?: boolean,
  *   atStrike?: boolean | ((b: Battle, e: Unit, a: EnemyAbility) => unknown),
  *   spawn?(b: Battle, e: Unit, a: EnemyAbility, ab: AbState): unknown,
  *   tick?(b: Battle, e: Unit, a: EnemyAbility, dt: number): unknown,
@@ -170,15 +193,26 @@ export { HOVER_KEYS, blinkForward } from './enemies/archetypes.js';
  *   pause?(b: Battle, e: Unit): unknown,
  *   projAlive?(b: Battle, e: Unit, a: EnemyAbility): unknown,
  *   onCut?(b: Battle, e: Unit, a: EnemyAbility): unknown,
- *   dealt?: AbHook, taken?: AbHook, gauge?: AbHook, healed?: AbHook, hitIn?: AbHook, hitOut?: AbHook,
- *   before?: AbHook, attack?: AbHook, blocked?: AbHook, killed?: AbHook, death?: AbHook, otherDeath?: AbHook,
- *   status?: AbHook, burst?: AbHook }} EnemyAbility
+ *   dealt?: AbHook<DamagedEv>, taken?: AbHook<DamagedEv>, gauge?: AbHook<DamagedEv>, healed?: AbHook<HealEv>,
+ *   hitIn?: AbHook<HitEv>, hitOut?: AbHook<HitEv>, before?: AbHook<BeforeAttackEv>, attack?: AbHook<AttackEv>,
+ *   blocked?: AbHook<BlockedEv>, killed?: AbHook<KilledEv>, death?: AbHook<DeathEv>, otherDeath?: AbHook<DeathEv>,
+ *   status?: AbHook<StatusEv>, burst?: AbHook<BurstEv>, _acc?: number, casts?: number }} EnemyAbility
+ * The hooks an ability may have (dispatch's `name`).
+ * @typedef {'dealt' | 'taken' | 'gauge' | 'healed' | 'hitIn' | 'hitOut' | 'before' | 'attack' | 'blocked' | 'killed'
+ *   | 'death' | 'otherDeath' | 'status' | 'burst'} AbHookName
+ */
+/**
  * A hook method of an ability (dispatch: the payload, then the battle, the enemy, the ability and its state).
- * @typedef {(c: AbCtx, b: Battle, e: Unit, a: EnemyAbility, ab: AbState) => unknown} AbHook
+ * @template C
+ * @typedef {(c: C, b: Battle, e: Unit, a: EnemyAbility, ab: AbState) => unknown} AbHook
+ */
+/**
  * What a kit returns: its abilities, a falsy entry for one it leaves out (`s1 && { … }`).
  * @typedef {Array<EnemyAbility | null | undefined | false | 0 | ''>} AbList
+ * The wave template bosses.js passes a leader's kit (data/waves.json; null in tests and tools).
+ * @typedef {{ [key: string]: unknown, extraRoutes?: unknown[] } | null} KitTpl
  * A kit: enemyKey → (ab, e, battle) => its abilities (bosses.js passes the wave template as well).
- * @typedef {(ab: AbState, e: Unit, b: Battle, tpl?: any) => AbList} EnemyKit
+ * @typedef {(ab: AbState, e: Unit, b: Battle, tpl?: KitTpl) => AbList} EnemyKit
  * A kit that reads only the ability state: another kit can call it with that alone (`kitDeathSpawn()(ab)`).
  * @typedef {(ab: AbState) => AbList} AbKit
  * A part of an ability called with the battle, the enemy and the ability (fire, cond, a split `atStrike` …).
@@ -242,7 +276,7 @@ function onSpawn(b, e) {
   attach(b, e, list);
 }
 
-/** @param {Battle} b @param {AbCtx} c */
+/** @param {Battle} b @param {HitEv} c */
 function onHitOut(b, c) {
   const s = c.source;
   if (!s || s.side !== 'enemy' || !s.mem.ab || c.dmg.cancel) return;
@@ -251,7 +285,7 @@ function onHitOut(b, c) {
   dispatch(b, s, 'hitOut', c);
 }
 
-/** @param {Battle} b @param {AbCtx} c */
+/** @param {Battle} b @param {HitEv} c */
 function onHitIn(b, c) {
   const t = c.target;
   if (!t || t.side !== 'enemy' || !t.mem.ab || c.dmg.cancel) return;
@@ -267,7 +301,7 @@ function onHitIn(b, c) {
   }
 }
 
-/** @param {Battle} b @param {AbCtx} c */
+/** @param {Battle} b @param {DamagedEv} c */
 function onDamaged(b, c) {
   const { source: s, target: t, dmg } = c;
   if (!dmg) return;
@@ -276,20 +310,20 @@ function onDamaged(b, c) {
   if (s && s.side === 'enemy' && s.mem.ab && dmg.isAttack && t && t.side === 'ally') dispatch(b, s, 'dealt', c);
 }
 
-/** @param {Battle} b @param {AbCtx} c */
+/** @param {Battle} b @param {BeforeAttackEv} c */
 function onBeforeAttack(b, c) {
   const a = c.attacker;
   if (a && a.side === 'enemy' && a.mem.ab) dispatch(b, a, 'before', c);
 }
 
-/** @param {Battle} b @param {AbCtx} c */
+/** @param {Battle} b @param {KilledEv} c */
 function onKill(b, c) {
   const v = c.victim;
   if (!v || v.side !== 'enemy' || !v.mem.ab) return;
   if (dispatch(b, v, 'killed', c) && v.hp > 0) c.stopPropagation = true; // revived: not a kill for anyone else
 }
 
-/** @param {Battle} b @param {AbCtx} c */
+/** @param {Battle} b @param {DeathEv} c */
 function onDeath(b, c) {
   const u = c.unit;
   const st = stOf(b);
@@ -297,14 +331,14 @@ function onDeath(b, c) {
   if (st.deathWatch.size) for (const w of [...st.deathWatch]) { if (!w.alive) { st.deathWatch.delete(w); continue; } dispatch(b, w, 'otherDeath', c); }
 }
 
-/** @param {Battle} b @param {AbCtx} c */
+/** @param {Battle} b @param {BurstEv} c */
 function onBurst(b, c) {
   const t = c.target;
   if (!t) return;
   if (t.side === 'enemy') { if (t.mem.ab) dispatch(b, t, 'burst', c); return; }
   // 假想敌：淤困 parasite: the host's burst spreads the same element to the 4 neighbouring allies — PRTS 天赋 "（中点判定，
   // 无视目标可选性，不受迷彩制约）": every ally there, 隐匿 / untargetable / airborne 起飞 ones included (`ignoreSelect`)
-  const par = t.findBuff('ab:parasite');
+  const par = /** @type {Buff | null} */ (t.findBuff('ab:parasite'));
   if (par && par.data && par.data.src) {
     const src = par.data.src;
     for (const o of alliesInTiles(b, t.tileR, t.tileC, 'plus', 1)) if (o !== t) elem(b, src, o, c.element, par.data.spread, { ignoreSelect: true });
@@ -409,10 +443,10 @@ function castTargets(p, e, t) {
 /** Whether `u` is a unit of the battle (an operator, a summon, an enemy). @param {unknown} u @returns {u is Unit} */
 const isUnit = (u) => !!u && typeof u === 'object' && 'side' in u && (u.side === 'ally' || u.side === 'enemy') && 'id' in u && u.id != null;
 
-/** The cast record of `cast` that plays a three-part channel — itself, else a child of its sequence (死亡之眼's LineAttack) — or null. @param {Record<string, any> | null | undefined} cast @returns {Record<string, any> | null} */
+/** The cast record of `cast` that plays a three-part channel — itself, else a child of its sequence (死亡之眼's LineAttack) — or null. @param {AbCastRec | null | undefined} cast @returns {AbCastRec & { chan: ChanRec } | null} */
 function chanCast(cast) {
   if (!cast) return null;
-  if (cast.chan && cast.chan.loop) return cast;
+  if (cast.chan && cast.chan.loop) return /** @type {AbCastRec & { chan: ChanRec }} */ (cast);
   for (const c of cast.subs || []) { const r = chanCast(c); if (r) return r; }
   return null;
 }
@@ -425,7 +459,7 @@ function chanCast(cast) {
  * end sends 'enemySkillEnd' (onSkillCut, onTick) [ASSUMED·미조사: that event is taken to come as the cast ends — what fires
  * it for a RangedAttack waiting for its projectile without `_fireAttackFinishWhenProjectileInvalid` (节日爵士乐手,
  * 萨卡兹王庭军精锐术师) was not read]. 공식 클라에서 확인 (both paths of DoPlayAnimation).
- * @param {Unit} e @param {Record<string, any>} ch @param {Record<string, any>} bb
+ * @param {Unit} e @param {AbCastRec & { chan: ChanRec }} ch @param {Record<string, number>} bb
  */
 function chanView(e, ch, bb) {
   if (ch.chan.wait) return { hold: 1 };
@@ -477,7 +511,7 @@ function slotSkill(e, ab, a) {
  * `CombatWrapper._PickAbility` takes only the COMBAT family, an unblocked one only the ATTACK family (`skillCast.family`
  * = `_familyMask`: bit 1 ATTACK, bit 2 COMBAT; `EnemySkill.CheckFamilyMask`). A cast already started goes on when a block
  * comes (`AttackState.OnTick` does not look at the blocker).
- * @param {Battle} b @param {AbCtx} c
+ * @param {Battle} b @param {{ enemy: Unit, cast: { dur: number, atkCd?: number } | null }} c
  */
 function onSkillSlot(b, c) {
   const e = c.enemy;
@@ -508,7 +542,7 @@ function onSkillSlot(b, c) {
   castSkill(b, e, a, ab.casting);
   // a skill whose spell casts another one at once (TriggerEnemySkill with `_interruptCurAbility`, e.g. 复核洋流使者's
   // `0` → `1`): its fire hands that cast back (`a.next` = { dur }) and the slot plays it instead, cut like any skill cast
-  const nx = a.next;
+  const nx = /** @type {{ dur: number, a?: EnemyAbility, cast?: AbCastRec } | null | undefined} */ (a.next);
   if (nx) {
     a.next = null;
     c.cast = { dur: nx.dur, atkCd: e.s.interval };
@@ -517,7 +551,7 @@ function onSkillSlot(b, c) {
 }
 
 /** Does cast record `cast` wait for a projectile — itself, or a child of its sequence (死亡之眼's LineAttack)? */
-/** @param {Record<string, any> | null | undefined} cast @returns {boolean} */
+/** @param {AbCastRec | null | undefined} cast @returns {boolean} */
 const waitsProj = (cast) => !!cast && (!!cast.proj || (cast.kind === 'seq' && (cast.subs || []).some(waitsProj)));
 
 /**
@@ -551,7 +585,7 @@ function projCastOver(b, e, ab) {
  * `EnemySkill._OnCastFinish` runs for any reason: the skill's cooldown restarts now (`m_cooldownTimer.Reset`, paused while
  * it cast), the main attack's too with `resetMain` (`ResetCooldown(_resetCdWaitFirstPeriod)`); the ability's `onCut` ends
  * what lasted only while it cast (BuffDuringCasting's buffs).
- * @param {Battle} b @param {AbCtx} c
+ * @param {Battle} b @param {{ enemy: Unit }} c
  */
 function onSkillCut(b, c) {
   const e = c.enemy;
@@ -614,10 +648,10 @@ export const STATS_ONLY = Object.freeze({
 // range takes it. Until upstream 0f88afbb the enemy kept 95 % and the chalice took 5 % of the same type.
 // [추정·엔진: the split is on the 'hit' amount, before DEF / RES — the stage of the other ON_TAKE_DAMAGE nodes here
 // (Evade, DamageScale), PRTS's priority −3000 not modelled]
-/** @param {Battle} b @param {AbCtx} c */
+/** @param {Battle} b @param {HitEv} c */
 function chaliceShare(b, c) {
   const st = stOf(b);
-  if (!(st.chalices > 0)) return;
+  if (!(st.chalices != null && st.chalices > 0)) return;
   const t = c.target;
   if (!t || t.side !== 'enemy' || t.isFlying || c.dmg.cancel || c.dmg.type === 'element') return;
   if (c.dmg.tags && (c.dmg.tags.includes('chalice') || c.dmg.tags.includes('execute'))) return; // (斩杀: 洛格斯 S1)
@@ -629,7 +663,7 @@ function chaliceShare(b, c) {
     const part = c.dmg.amount - kept;
     c.dmg.amount = kept;
     // a 无来源 burst's share stays 无来源, credited like the burst (damage.js)
-    b.dealDamage(c.dmg.sourceless ? c.credit : c.source, o, { amount: part, type: 'true', canDodge: false, sourceless: c.dmg.sourceless, tags: [...(c.dmg.tags || []), 'chalice'] });
+    b.dealDamage(c.dmg.sourceless ? /** @type {Unit | null} */ (c.credit) : c.source, o, { amount: part, type: 'true', canDodge: false, sourceless: c.dmg.sourceless, tags: [...(c.dmg.tags || []), 'chalice'] });
     // enemy_lrrook[dmgCore] gives the hurt enemy enemy_lrrook[audio] (audioSignal enemy_lrrook_take_dmg) — a sound only
     b.fx('kitHit', { x: t.x, y: t.y, id: o.id, k: 'lrrook:share' });
     break;

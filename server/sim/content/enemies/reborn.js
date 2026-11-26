@@ -91,14 +91,14 @@ function kitConstruct(ab) {
     },
   }, {
     iv: AURA_EVERY,
-    tick(b, e, a) {
+    tick(b, e, /** @type {EnemyAbility & { ep: number }} */ a) {
       a.ep = 0;
       const atk = supply(b);
       let pct = 0;
       for (const s of atk) { pct += s.atk * s.n; a.ep += s.ep * s.n; }
       if (pct > 0) auraBuff(b, e, 'ab:dsuply', AURA_EVERY, { atkPct: pct }, null, true);
     },
-    dealt(c, b, e, a) { if (a.ep > 0) elem(b, e, c.target, 'apoptosis', e.s.atk * a.ep); },
+    dealt(c, b, e, a) { if (/** @type {number} */ (a.ep) > 0) elem(b, e, c.target, 'apoptosis', e.s.atk * /** @type {number} */ (a.ep)); },
   }];
 }
 
@@ -434,7 +434,7 @@ function shellNear(b, x, y, r) {
 function kitShellEater(ab) {
   const s0 = ab.sk['0'], s1 = ab.sk['1'];
   if (!s0 || !s1) return [];
-  const reach = DSPRED_RANGE * (s0.bb.range_radius ?? 0), atk = s1.bb.atk ?? 0, len = s1.cast && s1.cast.dur > 0 ? s1.cast.dur : 0;   // `_timeMode` 1: the clip as it is
+  const reach = DSPRED_RANGE * (s0.bb.range_radius ?? 0), atk = s1.bb.atk ?? 0, len = s1.cast && /** @type {number} */ (s1.cast.dur) > 0 ? /** @type {number} */ (s1.cast.dur) : 0;   // `_timeMode` 1: the clip as it is
   return [{
     // its handbook line is SILENCE-flagged: silenced, no cast (EnemySkill.CheckAvailable)
     sil: true, name: s0.name, cd: s0.cd, icd: s0.icd,
@@ -475,7 +475,7 @@ function kitBreeder(ab) {
     },
     death(c, b, e, a) {
       if (c.reason !== 'killed' || !a.pick) return;
-      const key = keys[a.pick - 1];
+      const key = keys[/** @type {number} */ (a.pick) - 1];
       if (!key) return;
       // dsfull_tr_1[derived]: `_passableMask` NONE (any tile), `_randomOffsetBound` 0
       for (const o of spawnChildren(b, e, key, n, { route: remainingRoute(e), pos: [e.y, e.x], spot: { bound: 0, walk: false } })) {
@@ -538,14 +538,14 @@ function kitBloodKnight(ab) {
   return [{
     spawn(b, e, a) { a.n = 0; watchDeaths(b, e); },
     otherDeath(c, b, e, a) {
-      const u = c.unit;
-      if (c.reason !== 'killed' || !u || u === e || u.side !== 'enemy' || !(a.n < cap)) return;
-      a.n++;
-      b.addBuff(e, { key: 'ab:wdkght', persist: true, visible: true, refresh: 'replace', mods: { atkPct: atk * a.n, aspd: as * a.n }, fxTag: 'buff:wdkght_t[enhance]' });
-      if (a.n >= cap) b.addBuff(e, { key: 'ab:wdkghtFull', persist: true, visible: true, fxTag: 'buff:wdkght_t[effect]' });
+      const u = c.unit, A = /** @type {EnemyAbility & { n: number }} */ (a);
+      if (c.reason !== 'killed' || !u || u === e || u.side !== 'enemy' || !(A.n < cap)) return;
+      A.n++;
+      b.addBuff(e, { key: 'ab:wdkght', persist: true, visible: true, refresh: 'replace', mods: { atkPct: atk * A.n, aspd: as * A.n }, fxTag: 'buff:wdkght_t[enhance]' });
+      if (A.n >= cap) b.addBuff(e, { key: 'ab:wdkghtFull', persist: true, visible: true, fxTag: 'buff:wdkght_t[effect]' });
     },
     // mode Rage's Combat swings Skill: the view's attack clip follows (render/units.js FORMS 'Rage')
-    before(_c, b, e, a) { if (a.n >= cap && !a.rage) { a.rage = true; mode(b, e, 'Rage', false); setForm(b, e, 'Rage'); } },
+    before(_c, b, e, a) { if (/** @type {number} */ (a.n) >= cap && !a.rage) { a.rage = true; mode(b, e, 'Rage', false); setForm(b, e, 'Rage'); } },
   }];
 }
 

@@ -7,8 +7,9 @@ import { hypot } from '../../detmath.js';
 import { normShot } from '../../simdata.js';
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
+/** @import { AttackProfile } from '../../ai.js' */
 /** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
-/** @import { BuffTick } from './helpers.js' */
+/** @import { BuffTick, EnemyShot } from './helpers.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -49,7 +50,7 @@ function kitDsubrl(ab, e) {
   const ratio = T(ab, 'EpDamage.ep_damage_ratio') ?? 0;
   return [resist(['sluggish']), {
     spawn(b, e2) {
-      /** @type {Record<string, any>} */ (e2.profile).noAttack = true;
+      /** @type {AttackProfile} */ (e2.profile).noAttack = true;
       // 每次输出伤害时: every pulse that reaches the unit (not dodged, not cancelled — the old attack's `dealt` rule)
       if (ratio > 0) b.on('damaged', (c) => { if (c.source === e2 && c.dmg && c.dmg.tags.includes(NEST_PULSE_TAG)) elem(b, e2, c.target, 'neural', e2.s.atk * ratio); }, { owner: e2 });
     },
@@ -80,6 +81,7 @@ function kitDsubrl(ab, e) {
  * Its skill is ready (SP full) while it carries the client buff `nhtank_s_effect` (effect enemy_nhtank_attack_buff_01): the
  * passive buff of its Talent/Empty (template enemy_nhtank_s_effect[buff], `triggerInterval` 0.1 s, the first check 0.1 s
  * after it comes) adds it on a trigger with SP = 2 and finishes it on one without — TANK_READY_KEY, synced on that cadence.
+ * @typedef {EnemyAbility & { sp: number, skill: boolean }} TankAb
  * @type {EnemyKit}
  */
 function kitTank(ab, e) {
@@ -90,20 +92,21 @@ function kitTank(ab, e) {
   const max = Math.max(1, num(spd && spd.maxSp, 0) || (sk && sk.sp) || (T(ab, 'Empty.sp') ?? 2));
   const init = Math.min(max, Math.max(0, num(spd && spd.initSp, 0)));
   return [{
-    spawn(b, e2, a) { a.sp = init; a.skill = false; /** @type {Record<string, any>} */ (e2.profile).canTarget = (/** @type {Unit} */ u) => !!u.ground && !u.isFlying; },
+    spawn(b, e2, /** @type {TankAb} */ a) { a.sp = init; a.skill = false; /** @type {AttackProfile} */ (e2.profile).canTarget = (/** @type {Unit} */ u) => !!u.ground && !u.isFlying; },
     iv: TANK_READY_CHECK,
-    tick(b, e2, a) {
+    tick(b, e2, /** @type {TankAb} */ a) {
       const on = !!e2.findBuff(TANK_READY_KEY);
       if (a.sp >= max && !on) b.addBuff(e2, { key: TANK_READY_KEY, persist: true, visible: true, fxTag: 'buff:nhtank_s_effect' });
       else if (a.sp < max && on) b.removeBuff(e2, TANK_READY_KEY);
     },
     // SP full: this attack is 秽蚀轰击 (a blocked hit lands at once, inside this attack, while `a.skill` is set)
-    before(c, b, e2, a) { a.skill = a.sp >= max; },
+    before(c, b, e2, a) { const A = /** @type {TankAb} */ (a); A.skill = A.sp >= max; },
     hitOut(c, b, e2, a) { if (c.dmg.isAttack && !a.skill && c.target === e2.blockedBy) c.dmg.amount *= melee; },
     attack(c, b, e2, a) {
-      if (!a.skill) { a.sp = Math.min(max, a.sp + 1); return; }
-      a.skill = false;
-      a.sp = 0;
+      const A = /** @type {TankAb} */ (a);
+      if (!A.skill) { A.sp = Math.min(max, A.sp + 1); return; }
+      A.skill = false;
+      A.sp = 0;
       const t = c.targets[0];
       if (!t) return;
       // the zone comes where the skill's shell lands: its official projectile (data/enemies.json skills PollutedRangedAtk.proj
@@ -112,7 +115,7 @@ function kitTank(ab, e) {
       // the attack itself
       const x = t.x, y = t.y;
       const zone = () => pollution(b, e2, x, y, TANK_ZONE_RADIUS, s.projectile_life_time ?? 0, s.polluted_damage_low ?? 0, s.polluted_damage_high ?? 0, sk?.name ?? null);
-      const v = sk?.proj?.speed > 0 ? /** @type {Record<string, any>} */ (sk.proj).speed : 0;
+      const v = /** @type {number} */ (sk?.proj?.speed) > 0 ? /** @type {{ speed: number }} */ (/** @type {AbSkill} */ (sk).proj).speed : 0;
       const d = hypot(x - e2.x, y - e2.y);
       if (v > 0 && d > 0.75) b.after(d / v, zone); else zone();
     },
@@ -144,7 +147,7 @@ export const DOT_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Objec
       const cloud = (/** @type {number} */ x, /** @type {number} */ y) => dmgZone(b, null, x, y, T(ab, '1.projectile_range') ?? 0.8, T(ab, '1.projectile_life_time') ?? 0, T(ab, '1.interval') ?? 1, atk * (T(ab, '1.damage_atk_scale') ?? 0), 'arts', 'poison', null, 0, { by: e, ability: '1' });
       // the cloud flies as its talent's official projectile (data/enemies.json talentProj['1'] — projectile_enemy_actoxi, a
       // PARACURVE at 5 tiles/s; until 2026-10-10 8); since 2026-10-31 its fx 'enemyShot' draws the official flight
-      if (k) shoot(b, e, k, normShot(e.def?.raw?.talentProj?.['1']) ?? { key: null, move: 'PARACURVE', speed: 5 }, (_t, h) => cloud(h ? h.x : k.x, h ? h.y : k.y), { hitDead: true, zone: true });
+      if (k) shoot(b, e, k, /** @type {EnemyShot} */ (normShot(e.def?.raw?.talentProj?.['1']) ?? { key: null, move: 'PARACURVE', speed: 5 }), (_t, h) => cloud(h ? h.x : k.x, h ? h.y : k.y), { hitDead: true, zone: true });
       else cloud(e.x, e.y);
     },
   }],

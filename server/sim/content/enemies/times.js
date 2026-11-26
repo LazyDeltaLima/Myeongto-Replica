@@ -35,10 +35,11 @@ const TEA_BOOM_RADIUS = 1.25;
  * @type {AbKit}
  */
 function kitBlades(ab) {
+  /** The ability's own field: the blades spent. @typedef {EnemyAbility & { used: number }} BladesAb */
   const cnt = T(ab, 'DeadSpawn.cnt') ?? 0, add = T(ab, 'DeadSpawn.cnt_add') ?? 0, atk = T(ab, 'Atkup.atk', 'AtkUp.atk') ?? 0;
   const key = ab.tS['DeadSpawn.enemy_key'];
   return [{
-    spawn(b, e, a) {
+    spawn(b, e, /** @type {BladesAb} */ a) {
       a.used = 0;
       if (cnt > 0 && atk) b.addBuff(e, { key: 'ab:blade', mods: { atkPct: atk }, persist: true, visible: true });
     },
@@ -46,12 +47,12 @@ function kitBlades(ab) {
     // enemy_sfji_atkup and runs SwitchMode 1, no restart — 공식 클라에서 확인 2026-11-20): the prefab's second mode Default
     // (无断刃模式, the same attack) attaches its attack ready, so the next swing follows as this one ends (ai.js enemyMode)
     attack(c, b, e, a) {
-      if (a.used >= cnt) return;
-      if (++a.used < cnt) return;
+      if (/** @type {BladesAb} */ (a).used >= cnt) return;
+      if (++(/** @type {BladesAb} */ (a)).used < cnt) return;
       b.removeBuff(e, 'ab:blade');
       mode(b, e, 'Default', false);
     },
-    death(c, b, e, a) { if (c.reason === 'killed' && key) spawnChildren(b, e, key, Math.max(1, cnt + add * a.used), { spot: deadSpawnSpot(ab) }); },
+    death(c, b, e, a) { if (c.reason === 'killed' && key) spawnChildren(b, e, key, Math.max(1, cnt + add * /** @type {BladesAb} */ (a).used), { spot: deadSpawnSpot(ab) }); },
   }];
 }
 

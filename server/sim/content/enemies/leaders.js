@@ -16,8 +16,11 @@ import { interruptEnemyCast } from '../../ai.js';
 import { ENEMY_RECORD } from '../items/shared.js';
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
-/** @import { AbState, AbSkill, AbCtx, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
-/** @import { BuffTick } from './helpers.js' */
+/** @import { AttackProfile } from '../../ai.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit, DamageRec } from '../enemies.js' */
+/** @import { BuffTick, EnemyShot } from './helpers.js' */
+/** @import { DamagedEv } from '../support/index.js' */
+/** @import { Scheduled } from '../../battle/hooks.js' */
 /** @import { BuffRec } from '../bonds/shared.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -129,7 +132,7 @@ function kitLeaderMisc(key, ab, e) {
         // 半径1.4范围内的所有我方单位造成1000预计算的无途径法术溅射伤害（不可对空）": the clock runs only while it is blocked and can
         // act, and restarts at 0 on every new block (until 0.1.3: a fixed 10 s clock from its spawn, radius 1, flyers hit)
         iv: 0,
-        tick(b, e2, a, dt) {
+        tick(b, e2, /** @type {EnemyAbility & { held?: number }} */ a, dt) {
           if (!e2.blockedBy) { a.held = 0; return; }
           if (!e2.canAct) return;
           a.held = (a.held || 0) + dt;
@@ -179,20 +182,20 @@ function kitLeaderMisc(key, ab, e) {
       // cast begins (the RangedAttack's `_selectTargetTiming` 0: AbilityStandard.CastToTarget → UpdateTargets) and the spell
       // goes to those still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20 taken again at the spell.
       const s = ab.sk.C4;
-      const fuse = s?.proj?.life > 0 ? /** @type {Record<string, any>} */ (s.proj).life : 0;
+      const fuse = /** @type {number} */ (s?.proj?.life) > 0 ? /** @type {{ life: number }} */ (s.proj).life : 0;
       const r = s?.bb.range_radius ?? e.base.rangeRadius;
       const T1 = (/** @type {Unit} */ e2) => e2.mode === 'T1';
       const picks = (/** @type {Battle} */ b, /** @type {Unit} */ e2) => T1(e2) ? byPriority(e2, targetsNear(b, e2, r)).slice(0, C4_LOW_TARGETS)
         : byPriority(e2, targetsNear(b, e2, r).filter((u) => !u.isFlying)).slice(0, 1);
-      /** @type {Set<Record<string, any>>} */
+      /** A charge on its target: its blast and the scheduled call. @typedef {{ blow: () => void, h: Scheduled }} C4Charge */
+      /** @type {Set<C4Charge>} */
       const live = new Set();
       const mk = (/** @type {boolean} */ t1) => skill(s, (b, e2, a) => { a.picks = picks(b, e2); }, { cond: (b, e2) => T1(e2) === t1 && picks(b, e2).length > 0, atStrike: (b, e2, a) => {
-        const l = a.picks || [];
+        const l = /** @type {Unit[] | null} */ (a.picks) || [];
         a.picks = null;
         for (const t of l) {
           if (!t.alive || !t.deployed) continue;
-          /** @type {Record<string, any>} */
-          const ch = {};
+          const ch = /** @type {C4Charge} */ ({});
           ch.blow = () => {
             if (!live.delete(ch)) return;
             ch.h.cancel();
@@ -261,7 +264,7 @@ function kitLeaderMisc(key, ab, e) {
           a.at = t ? { t, x: t.x, y: t.y, r: t.tileR, c: t.tileC } : null;
           return t;   // the cast's target as it begins ('enemySkill' tgt): its `_castTargetEffects` go there
         }, { cond: (b, e2) => allTargets(b, e2).length > 0, atStrike: (b, e2, a) => {
-          const at0 = a.at;
+          const at0 = /** @type {{ t: Unit, x: number, y: number, r: number, c: number } | null} */ (a.at);
           a.at = null;
           if (!at0) return;
           const on = at0.t.alive && at0.t.deployed;
@@ -281,7 +284,7 @@ function kitLeaderMisc(key, ab, e) {
           a.at = t ? { t, x: t.x, y: t.y } : null;
           return t;   // (as DriftSand's)
         }, { cond: (b, e2) => allTargets(b, e2).length > 0, atStrike: (b, e2, a) => {
-          const at0 = a.at;
+          const at0 = /** @type {{ t: Unit, x: number, y: number } | null} */ (a.at);
           a.at = null;
           if (!at0) return;
           const at = at0.t.alive && at0.t.deployed ? at0.t : at0;
@@ -349,7 +352,7 @@ function kitLeaderMisc(key, ab, e) {
           b.addBuff(e2, { key: 'ab:charging', duration: dur, visible: true, flags: { disarm: true } });
           b.fx('telegraph', { x: cc, y: r, r: 1, dur, kind: 'chargeAttack', tiles: 'plus', id: e2.id });
         }, { cond: (b, e2) => !!(e2.blockedBy && e2.blockedBy.alive), atStrike: (b, e2, a) => {
-          const at = a.at;
+          const at = /** @type {{ r: number, cc: number } | null} */ (a.at);
           a.at = null;
           if (!at) return;
           b.fx('explode', { x: at.cc, y: at.r, r: 1, kind: 'chargeAttack', tiles: 'plus' });   // (its `caster` / `ability`: the cast's)
@@ -364,7 +367,7 @@ function kitLeaderMisc(key, ab, e) {
       // the arrows leave at the spell for those still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20
       // taken again at the spell
       return [kitDekght(ab), maxTargets(2), skill(s, (b, e2, a) => { a.picks = cands(b, e2).slice(0, 3); }, { cond: (b, e2) => cands(b, e2).length > 0, atStrike: (b, e2, a) => {
-        const l = a.picks || [];
+        const l = /** @type {Unit[] | null} */ (a.picks) || [];
         a.picks = null;
         const delay = s.bb['dekght_2[aoe].interval'] ?? 0, scale = s.bb['dekght_2[aoe].atk_scale'] ?? 1;
         // each arrow is the skill's official projectile (skills TripleAttack.proj — projectile_enemy_dekght_s, TRACE 10
@@ -373,7 +376,7 @@ function kitLeaderMisc(key, ab, e) {
         // arrow's arrival — the interval buff `dekght_2[aoe]` goes on the hit target]
         for (const t of l) {
           if (!t.alive || !t.deployed) continue;
-          shoot(b, e2, t, s.proj, (tt) => {
+          shoot(b, e2, t, /** @type {EnemyShot | null} */ (s.proj), (tt) => {
             if (!e2.alive || !tt) return;
             const r = tt.tileR, cc = tt.tileC;
             b.fx('telegraph', { x: cc, y: r, r: 1, dur: delay, kind: 'blastArrow', tiles: 'plus', id: e2.id });
@@ -421,7 +424,7 @@ function kitLeaderMisc(key, ab, e) {
       // 0) and the stone leaves at the spell if it is still alive on the field (DoCastOnTargets: ValidAndAlive); until 2026-11-20
       // taken again at the spell
       return [skill(s, (b, e2, a) => { a.aim = byPriority(e2, cands(b, e2))[0] || null; }, { cond: (b, e2) => cands(b, e2).length > 0, atStrike: (b, e2, a) => {
-        const t = a.aim;
+        const t = /** @type {Unit | null} */ (a.aim);
         a.aim = null;
         if (!t || !t.alive || !t.deployed) return;
         // its official projectile (data/enemies.json skills StunAttack.proj — projectile_enemy_rockman, TRACE_TARGET_WITH_SPEED
@@ -458,7 +461,7 @@ function kitLeaderMisc(key, ab, e) {
           b.addBuff(e2, { key: 'ab:axeStack', refresh: 'stack', stacks: 1, maxStacks: T(ab, 'atkup.max_stack_cnt') ?? 1, persist: true, mods: { atkPct: T(ab, 'atkup.atk') ?? 0, aspd: T(ab, 'atkup.attack_speed') ?? 0 } });
         },
         iv: 0.5,
-        tick(b, e2, a) { if (a.last != null && b.time - a.last >= (T(ab, 'checker.delay') ?? 4)) { a.last = null; b.removeBuff(e2, 'ab:axeStack'); } },
+        tick(b, e2, /** @type {EnemyAbility & { last?: number | null }} */ a) { if (a.last != null && b.time - a.last >= (T(ab, 'checker.delay') ?? 4)) { a.last = null; b.removeBuff(e2, 'ab:axeStack'); } },
       }];
     case 'enemy_2008_flking': {
       // 使全战场我方所有单位攻击力、防御力减半 (text; the blackboard's atkdown.atk_scale is not the halving),
@@ -503,9 +506,9 @@ function kitLeaderMisc(key, ab, e) {
       const giveFog = (/** @type {Battle} */ b, /** @type {Unit} */ u, /** @type {number} */ aspd) => { if (!u.hidden && u.kind !== 'device' && inFog(u)) b.addBuff(u, { key: 'ab:blackFog', refresh: 'keep', mods: { aspd }, visible: true }); };
       const fogOf = (/** @type {Battle} */ b) => {
         const st = stOf(b);
-        if (st.blackFog) return st.blackFog;
+        if (st.blackFog) return /** @type {{ tiles: Set<number>, aspd: number }} */ (st.blackFog);
         // the global buff is made once, with the first boss's ability values
-        const fog = st.blackFog = { tiles: new Set(), aspd: T(ab, 'BlackFog.attack_speed') ?? 0 };
+        const fog = st.blackFog = { tiles: /** @type {Set<number>} */ (new Set()), aspd: T(ab, 'BlackFog.attack_speed') ?? 0 };
         // a character deployed later gets it by its root tile (AbstractBindingTileGlobalBuff.VerifyUnitTile) — after a 【移动】
         // too: the mover is a new character, its buff ended with the old one (Battle.moveRedeploy; until 2026-11-26 a move
         // kept the old buff and skipped this, so a move off the 国度 kept the cut)
@@ -558,7 +561,7 @@ function kitLeaderMisc(key, ab, e) {
       // the first enemy is taken as the cast begins (the RangedAttack's `_selectTargetTiming` 0 — UpdateTargets in CastToTarget;
       // until 2026-11-20 at the spell); the chain leaves for it at the spell if it is still alive (DoCastOnTargets: ValidAndAlive)
       const chainBuff = skill(cb, (b, e2, a) => { a.first = near(b, e2, e2.x, e2.y, e2.base.rangeRadius || 3.5, new Set()) || null; }, { sil: true, atStrike: (b, e2, a) => {
-        const first = a.first;
+        const first = /** @type {Unit | null} */ (a.first);
         a.first = null;
         const bb = cb.bb, jump = bb.projectile_range ?? jr, max = bb['chain.max_target'] ?? 3;
         // the chain flies as the skill's official projectile (skills ChainBuff.proj — projectile_enemy_smsha_s, TRACE 15
@@ -570,7 +573,7 @@ function kitLeaderMisc(key, ab, e) {
           if (!cur || seen.size >= max) return;
           seen.add(cur);
           b.fx('beam', { x: prev.x, y: prev.y, from: prev.id, to: cur.id, kind: 'chainBuff' });
-          const flight = shoot(b, prev, cur, cb.proj, (o) => {
+          const flight = shoot(b, prev, cur, /** @type {EnemyShot | null} */ (cb.proj), (o) => {
             if (ch.cut || !o || !o.alive) return;
             b.addBuff(o, { key: 'ab:chainBuff', duration: bb.duration ?? 0, refresh: 'replace', visible: true, mods: { moveMul: 1 + (bb.move_speed ?? 0), aspd: bb.attack_speed ?? 0 } });
             hop(o, near(b, e2, o.x, o.y, jump, seen));
@@ -613,7 +616,7 @@ function kitLeaderMisc(key, ab, e) {
       const lim = T(ab, 'Weak.weak[limit]') ?? 0, scale = T(ab, 'Weak.damage_scale') ?? 1;
       return [nthAttackStatus(nthOf(ab.sk.StunAttack), 'stun', (ab.sk.StunAttack && ab.sk.StunAttack.bb.stun) || 0, false), {
         taken(c, b, e2) {
-          if (!(lim > 0) || !(c.amount > 0) || !(c.dmg.tags && c.dmg.tags.includes('terrain'))) return;
+          if (!(lim > 0) || !(c.amount > 0) || !(/** @type {DamageRec} */ (c.dmg).tags && /** @type {string[]} */ (/** @type {DamageRec} */ (c.dmg).tags).includes('terrain'))) return;
           b.addBuff(e2, { key: 'ab:natureWeak', duration: lim, refresh: 'replace', visible: true, mods: { dmgTakenMul: scale } });
         },
       }];
@@ -636,13 +639,13 @@ function segDist(px, py, ax, ay, bx, by) {
 /**
  * A second normal hit on the same target ("二连击"): same damage type, no further on-hit procs.
  * @param {(b: Battle, e: Unit, a: EnemyAbility) => boolean} [on] whether this hit gets its second one
- * @param {((c: AbCtx, b: Battle, e: Unit) => Record<string, any>) | null} [extra] more damage options for the second hit
+ * @param {((c: DamagedEv, b: Battle, e: Unit) => Record<string, unknown>) | null} [extra] more damage options for the second hit
  * @returns {EnemyAbility}
  */
 const doubleHit = (on = () => true, extra = null) => ({
   dealt(c, b, e, a) {
     if (!on(b, e, a) || !c.target.alive) return;
-    b.dealDamage(e, c.target, { amount: e.s.atk, type: c.dmg.type, canDodge: true, tags: ['enemyAbility', 'secondHit'], ...(extra ? extra(c, b, e) : {}) });
+    b.dealDamage(e, c.target, { amount: e.s.atk, type: /** @type {DamageRec} */ (c.dmg).type, canDodge: true, tags: ['enemyAbility', 'secondHit'], ...(extra ? extra(c, b, e) : {}) });
   },
 });
 
@@ -658,7 +661,7 @@ function kitUglyThing(ab) {
   return [
     // 远程攻击造成溅射伤害，近战攻击造成更高伤害 — PRTS 天赋: unblocked, a ranged attack on 1 non-flying unit within 2.5 hitting it
     // and its 8 surrounding tiles for 100 % ATK ("可溅射飞行单位"); blocked, a melee hit at mcmstr_rage_attack.atk_scale
-    { spawn(b, e) { e.base.rangeRadius = Math.max(e.base.rangeRadius || 0, MCM_RANGE); /** @type {Record<string, any>} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying; } },
+    { spawn(b, e) { e.base.rangeRadius = Math.max(e.base.rangeRadius || 0, MCM_RANGE); /** @type {AttackProfile} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying; } },
     splashAttack({ scale: 1, meleeScale: rage, tiles: 1 }),
     reborn({
       dur: T(ab, 'reborn.duration') ?? 0, mode: 'Bird',   // (the 大祭司's mode: no attack ability)
@@ -677,7 +680,7 @@ function kitUglyThing(ab) {
       },
       onReborn(b, e) {                              // 大祭司形态: 不进行攻击，无法被阻挡，每秒受到真实伤害
         P.pilot = true;
-        /** @type {Record<string, any>} */ (e.profile).noAttack = true;
+        /** @type {AttackProfile} */ (e.profile).noAttack = true;
         b.addBuff(e, {
           key: 'ab:pilot', persist: true, visible: true, flags: { unblockable: true }, interval: 1,
           mods: { moveMul: 1 + run.spd, defFlat: run.def != null ? run.def - e.base.def : 0, resFlat: run.res != null ? run.res - e.base.res : 0 },
@@ -699,7 +702,7 @@ function kitWarden(ab) {
   return [{
     spawn(b, e, a, ab2) {
       ab2.atkType = 'arts';                                    // 攻击造成远程法术伤害
-      /** @type {Record<string, any>} */ (e.profile).melee = false;
+      /** @type {AttackProfile} */ (e.profile).melee = false;
       // 法术抗性大幅提升 — the client's Modes/Default/Talents/Enhance jakill_enhance (enemy_jakill_buff_01_start)
       b.addBuff(e, { key: 'ab:warden', persist: true, visible: true, mods: { resFlat: en('magic_resistance') }, fxTag: 'buff:jakill_enhance#0' });
     },
@@ -718,7 +721,7 @@ function kitWarden(ab) {
       // each stun rides the skill's official projectile (skills ironsandstorm.proj — projectile_enemy_jakill_s1, TRACE 10
       // tiles/s; enemies/helpers.js shoot), landing as it arrives (until 2026-10-10 at the attack)
       for (const u of l.slice(0, iron.bb.max_target ?? 1)) {
-        if (u.alive) shoot(b, e, u, iron.proj, (t) => { if (t && t.alive) b.applyStatus(t, 'stun', { duration: iron.bb.stun ?? 0, source: e }); });
+        if (u.alive) shoot(b, e, u, /** @type {EnemyShot | null} */ (iron.proj), (t) => { if (t && t.alive) b.applyStatus(t, 'stun', { duration: iron.bb.stun ?? 0, source: e }); });
       }
     },
   }, reborn({
@@ -727,7 +730,7 @@ function kitWarden(ab) {
     onReborn(b, e) {
       P.killer = true; P.n = 0;
       e.mem.ab.atkType = null;                                 // 攻击造成近战物理伤害
-      /** @type {Record<string, any>} */ (e.profile).melee = true;
+      /** @type {AttackProfile} */ (e.profile).melee = true;
       b.removeBuff(e, 'ab:warden');
       // Modes/R/Talents/Enhance: jakill_enhance and its [eff1] / [eff2]
       b.addBuff(e, { key: 'ab:killer', persist: true, visible: true, fxTag: 'buff:jakill_enhance#1|jakill_enhance[eff1]|jakill_enhance[eff2]',
@@ -862,7 +865,7 @@ function kitXi(ab) {
       const at = (/** @type {Unit} */ t) => ({ t, x: t.x, y: t.y, r: t.tileR, c: t.tileC });
       a.picks = !l.length ? [] : P.form2 && l.length > 1 ? [at(l[0]), at(l[l.length - 1])] : [at(l[0])];   // 额外对最远目标释放
     }, { cond: (b, e) => allTargets(b, e).length > 0, atStrike: (b, e, a) => {
-      const l = a.picks || [];
+      const l = /** @type {Array<{ t: Unit, x: number, y: number, r: number, c: number }> | null} */ (a.picks) || [];
       a.picks = null;
       for (const p of l) crossAt(b, e, p);
     } })];
@@ -876,9 +879,9 @@ function kitMace(ab) {
   const pen1 = T(ab, 'DefPenetrate.enemy_blkswb_t_2.def_penetrate') ?? 0, pen2 = T(ab, 'DefPenetrate.enemy_blkswb_t_2[reborn].def_penetrate') ?? pen1;
   const cs = { ratio: T(ab, 'ClearSp.hp_ratio') ?? 0, dur: T(ab, 'ClearSp.duration') ?? 0, r: T(ab, 'ClearSp.range_radius') ?? 0 };
   const P = { form2: false, next: 1 };
-  const penOn = (/** @type {AbCtx} */ c, /** @type {Unit} */ e) => (c.target === e.blockedBy ? (P.form2 ? pen2 : pen1) : 0);
+  const penOn = (/** @type {{ target?: Unit | null }} */ c, /** @type {Unit} */ e) => (c.target === e.blockedBy ? (P.form2 ? pen2 : pen1) : 0);
   // its blocker is hit (PRTS 技能 "对之前阻挡自身的单位造成…"); the others on the way are an area selection (areaSelectable)
-  /** @param {{ bb: Record<string, any> }} s @returns {AbFn} */
+  /** @param {{ bb: Record<string, number> }} s @returns {AbFn} */
   const blink = (s) => (b, e) => {
     const bl = e.blockedBy;
     const from = blinkForward(b, e, s.bb.dist ?? 1.5);
@@ -888,7 +891,7 @@ function kitMace(ab) {
       hurt(b, e, u, e.s.atk * (s.bb.atk_scale ?? 1), 'phys');
     }
   };
-  /** @param {{ bb: Record<string, any> }} s @returns {AbFn} */
+  /** @param {{ bb: Record<string, number> }} s @returns {AbFn} */
   const circle = (s) => (b, e) => {
     const r = s.bb.range_radius ?? 0;
     b.fx('explode', { x: e.x, y: e.y, r, kind: 'blizzard', id: e.id });
@@ -1012,7 +1015,7 @@ function kitWolfLord(ab) {
     },
     onReborn(b, e) {
       P.form2 = true;
-      /** @type {Record<string, any>} */ (e.profile).melee = false;
+      /** @type {AttackProfile} */ (e.profile).melee = false;
       e.base.rangeRadius = Math.max(e.base.rangeRadius || 0, WOLF_RANGE);
       // the form-2 look enemy_wlfmster_m2_eff (enemy_wlfmster_B_buff_01) from the rebirth's end — the client's BuffToOwner
       // adds it 3 s earlier, as the rebirth's closing clip A_revive_3 starts, which the render draws from its rebirth ability
@@ -1070,8 +1073,8 @@ function kitTranslator(ab, e) {
     b.addBuff(e2, { key: 'ab:form', persist: true, visible: true, mods: mods(PRE[/** @type {string} */ (P.form)]), flags: P.form === 'youling' ? { unblockable: true } : null });
     if (P.form !== 'youling') {
       const melee = P.form === 'fuchou';
-      Object.assign(/** @type {Record<string, any>} */ (e2.profile), { noAttack: false, melee, dmgType: melee ? 'phys' : 'arts', maxTargets: melee ? 1 : 2 });
-      if (!melee) /** @type {Record<string, any>} */ (e2.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying;
+      Object.assign(/** @type {AttackProfile} */ (e2.profile), { noAttack: false, melee, dmgType: melee ? 'phys' : 'arts', maxTargets: melee ? 1 : 2 });
+      if (!melee) /** @type {AttackProfile} */ (e2.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying;
       e2.atkCd = 0;
     }
     // the prefab's mode of the form (its ChangeTo* skill): ModeB's melee Combat, ModeD's ranged Attack, MoveC none
@@ -1240,7 +1243,7 @@ export const LEADER_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Ob
     // (the way back restarts nothing); the view's death clip follows (render/units.js FORMS 'Unbalanced': Die_2)
     tick(b, e) { const on = unbalancedNow(b, e); if (mode(b, e, on ? 'Unbalanced' : null, on)) setForm(b, e, on ? 'Unbalanced' : null); },
   }, unbalanced((b, e, a) => {             // 雪孩子 · pushed / pulled into high ground ⇒ hitWall.value damage
-    const dx = e.x - a.lx, dy = e.y - a.ly, d = hypot(dx, dy);
+    const dx = e.x - /** @type {number} */ (a.lx), dy = e.y - /** @type {number} */ (a.ly), d = hypot(dx, dy);   // (unbalanced: where the move started)
     if (!(d > 0)) return;
     const r = Math.round(e.y + (dy / d) * 0.6), c = Math.round(e.x + (dx / d) * 0.6);
     if (b.grid.isLow(r, c) && b.grid.groundPassable(r, c)) return;   // stopped by nothing: no collision
@@ -1252,7 +1255,7 @@ export const LEADER_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Ob
   enemy_10141_xdpeng_2: (ab) => [noAirTargets(), unbalanced((b, e, a) => {
     if (a.done) return;
     a.done = true;
-    /** @type {Record<string, any>} */ (e.profile).noAttack = true;
+    /** @type {AttackProfile} */ (e.profile).noAttack = true;
     mode(b, e, 'Speed');   // enemy_xdpeng_t[switch] SwitchMode 1: no attack ability
     setForm(b, e, 'Speed');   // Skills/switch's Die_3 (the egg breaks), then Idle_2 / Move_2 / Die_2 (render/units.js FORMS)
     b.addBuff(e, { key: 'ab:noEgg', persist: true, visible: true, flags: { unblockable: true }, mods: { moveMul: 1 + (T(ab, 'speed.move_speed') ?? 0) } });

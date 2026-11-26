@@ -49,6 +49,7 @@ import { hypot, atan2, sin, cos } from '../../../detmath.js';
 /** @import { KitFns, KitFn, KitSkill, KitChess, KitDef } from '../shared/tier1.js' */
 /** @import { Battle } from '../../../Battle.js' */
 /** @import { Unit } from '../../../units.js' */
+/** @import { ProfiledUnit } from '../../../professions.js' */
 /** @import { BuffRec } from '../../bonds/shared.js' */
 /** @import { Projectile } from '../../../projectiles.js' */
 
@@ -332,7 +333,7 @@ function sakiko(bb, chess, def) {
           const type = prof.dmgType === 'arts' ? 'arts' : 'phys', hits = Math.max(1, num(prof.hits, 1));
           spawnNote(battle, unit, { mode: modeOf(unit, true), w: hits, hit: (t) => {
             const dm = prof.dmgMul;
-            const cut = skillNoRangedCut && unit.skill?.active ? 1 : num(typeof dm === 'function' ? dm(battle, unit, t) : dm, 1);
+            const cut = skillNoRangedCut && unit.skill?.active ? 1 : num(typeof dm === 'function' ? dm(battle, /** @type {ProfiledUnit} */ (unit), t) : dm, 1);
             for (let h = 0; h < hits && t.alive; h++) battle.dealDamage(unit, t, { amount: atk * cut, type, isAttack: true, tags: ['note', 'blankNote'] });
           } });
           if (s3On(unit)) s3Organ(battle, unit, null);   // S3: + 2 organ notes (_s3_mag)

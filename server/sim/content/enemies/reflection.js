@@ -6,7 +6,7 @@ import { refraction, statue, kitRefraction } from './archetypes.js';
 import { hypot } from '../../detmath.js';
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
-/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
+/** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit, DamageRec } from '../enemies.js' */
 /** @import { BuffTick } from './helpers.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -55,7 +55,7 @@ function kitMirrorEye(ab) {
     sil: true,
     taken(c, b) {
       const s = c.source;
-      if (c.dmg.type !== 'arts' || !s || !s.alive || !(dur > 0)) return;
+      if (/** @type {DamageRec} */ (c.dmg).type !== 'arts' || !s || !s.alive || !(dur > 0)) return;
       // (`source`: 镜眼 — the status's applier, whose binding draws the buff's enemy_acrefm_buff on the operator; display only)
       b.addBuff(s, { key: 'ab:acrefmSlow', duration: dur, refresh: 'replace', visible: true, mods: { aspd }, source: c.target, fxTag: 'buff:acrefm[atk-spd-down]' });
     },

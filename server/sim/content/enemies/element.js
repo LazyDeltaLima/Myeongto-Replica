@@ -12,8 +12,9 @@ import { shotSpeed } from '../../ai.js';
 import { taunt, ep, deathBoom, setFloat, float, skill, kitEp, kitStun3 } from './archetypes.js';
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
+/** @import { AttackProfile } from '../../ai.js' */
 /** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
-/** @import { BuffTick } from './helpers.js' */
+/** @import { BuffTick, EnemyShot } from './helpers.js' */
 /** @import { Scheduled } from '../../battle/hooks.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -95,12 +96,12 @@ const SYUFO_CRAWL_STUN = 0.5;
  */
 function kitSyufo(ab) {
   return [float(), ep('erosion', T(ab, 'EpDamage.attack@ep_damage_ratio') ?? 0), {
-    spawn(b, e) { /** @type {Record<string, any>} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying; },
+    spawn(b, e) { /** @type {AttackProfile} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying; },
     status(c, b, e, a) {
       if (a.crawl || !(c.status === 'stun' || c.status === 'freeze' || c.status === 'sleep' || c.status === 'groundbind')) return;
       a.crawl = true;
       setFloat(b, e, false);
-      /** @type {Record<string, any>} */ (e.profile).melee = true;
+      /** @type {AttackProfile} */ (e.profile).melee = true;
       b.applyStatus(e, 'stun', { duration: SYUFO_CRAWL_STUN, source: null });
       setForm(b, e, 'crawl');
       mode(b, e, 'Normal', false);   // enemy_syufo_fly's ON_BUFF_DISABLE SwitchMode (no restart): its blocked attack Attack_02
@@ -122,7 +123,7 @@ function kitDeathEye(ab, e) {
     if (!t) return;
     const dur = s.bb.hit_duration ?? 0;
     const pre = line ? castStrikeAt(e2, line, s.bb) ?? 0 : 0;
-    const v = shotSpeed(s.proj);
+    const v = shotSpeed(/** @type {EnemyShot | null} */ (s.proj));
     const fly = v > 0 ? hypot(t.x - e2.x, t.y - e2.y) / v : 0;
     b.addBuff(e2, { key: 'ab:channel', duration: pre + fly + dur, flags: { disarm: true } });
     let n = 0, /** @type {Scheduled | null} */ h = null, linked = false;
@@ -212,11 +213,12 @@ function ensureParasiteHook(b) {
  * (`CombatState.OnEnter`); while it runs the state waits (`OnTick` returns while the ability casts), so losing the block does
  * not cut it — it lands on the operator it started on, who must still be on the field; a stun switches the state and
  * `OnExit` interrupts it (so does a freeze, a levitation or the palsy halt).
+ * @typedef {EnemyAbility & { host: Unit | null, next: number, checkBlock: boolean, castOn: Unit | null, castEnd: number }} ParasiteAb
  * @type {AbKit}
  */
 function kitParasite(ab) {
   const scale = T(ab, '1.atk_scale') ?? 0, elMul = T(ab, '1.ep_damage_scale') ?? 1;
-  const attach = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {EnemyAbility} */ a, /** @type {Unit} */ host) => {
+  const attach = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {ParasiteAb} */ a, /** @type {Unit} */ host) => {
     a.host = host;
     a.next = b.time + CHECK_BLOCK_INTERVAL;
     ensureParasiteHook(b);
@@ -246,7 +248,7 @@ function kitParasite(ab) {
       onTick: (/** @type {BuffTick} */ { battle, unit }) => { if (e.alive) battle.dealDamage(e, unit, { amount: e.s.atk * scale, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'parasite'] }); },
     });
   };
-  const detach = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {EnemyAbility} */ a) => {
+  const detach = (/** @type {Battle} */ b, /** @type {Unit} */ e, /** @type {ParasiteAb} */ a) => {
     b.removeBuff(a.host, 'ab:parasite');
     b.removeBuff(e, 'ab:parasiteAttached');
     a.host = null;
@@ -255,7 +257,7 @@ function kitParasite(ab) {
     b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'detached', form: null });
   };
   return [taunt(-1), {
-    tick(b, e, a) {
+    tick(b, e, /** @type {ParasiteAb} */ a) {
       // the host leaving the field ends to_parasitic (INFINITY, on the host) at once: Entity.OnFinish → BuffContainer.Clear
       // finishes each of its buffs, and the finish switches this enemy back
       if (a.host && !(a.host.alive && a.host.deployed)) detach(b, e, a);
@@ -277,7 +279,7 @@ function kitParasite(ab) {
       // the view plays the Combat's clip Parasitic while it casts (render/units.js FORMS 'cast'; null if the cast is cut)
       if (bl) { a.castOn = bl; a.castEnd = b.time + PARASITIC_CLIP; setForm(b, e, 'cast'); }
     },
-    death(c, b, e, a) { if (a.host) b.removeBuff(a.host, 'ab:parasite'); b.removeBuff(e, 'ab:parasiteAttached'); },
+    death(c, b, e, a) { if (a.host) b.removeBuff(/** @type {Unit} */ (a.host), 'ab:parasite'); b.removeBuff(e, 'ab:parasiteAttached'); },
   }];
 }
 
@@ -305,7 +307,7 @@ function kitFlameVine(ab) {
   return [{
     iv: 0.5,
     spawn(b, e, a) { a.t0 = b.time; a.first = true; },
-    tick(b, e, a) {
+    tick(b, e, /** @type {EnemyAbility & { t0: number }} */ a) {
       if (!a.first || !(time > 0)) return;
       const k = Math.min(1, (b.time - a.t0) / time);
       // the status stands for enemy_ftsjc[first_attack] (its effect: render/fxgame.js stepSwitchBB); its count is the stage

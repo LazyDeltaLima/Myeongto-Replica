@@ -9,8 +9,9 @@ import { hypot } from '../../detmath.js';
 import { interruptEnemyCast } from '../../ai.js';
 /** @import { Battle } from '../../Battle.js' */
 /** @import { Unit } from '../../units.js' */
+/** @import { AttackProfile } from '../../ai.js' */
 /** @import { AbState, AbSkill, AbList, AbFn, AbKit, EnemyAbility, EnemyKit } from '../enemies.js' */
-/** @import { BuffTick } from './helpers.js' */
+/** @import { BuffTick, EnemyShot } from './helpers.js' */
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -62,7 +63,7 @@ function kitCrossbow(ab) {
     if (!t) return;
     b.addBuff(e, { key: 'ab:revealed', duration: CROSS_SKILL, flags: { reveal: true } });
   }, { sil: true, cond: (b, e) => crossTargets(b, e).length > 0, atStrike: (b, e, a) => {
-    const aim = a.aim, bb = s.bb;
+    const aim = /** @type {{ x: number, y: number } | null} */ (a.aim), bb = s.bb;
     a.aim = null;
     if (!aim) return;
     // the bolt: its official projectile (data/enemies.json skills CrossAttack.proj — projectile_enemy_msnip, FIXED_DIRECTION
@@ -75,7 +76,7 @@ function kitCrossbow(ab) {
     const dx = aim.x - e.x, dy = aim.y - e.y;
     const ways = [dy, dx, -dy, -dx];
     const m = CROSS_MUZZLE[['UP', 'side', 'DOWN', 'side'][ways.indexOf(Math.max(...ways))]], face = dx < 0 ? -1 : 1;
-    lineShot(b, e, aim, s.proj || { key: 'projectile_enemy_msnip', move: 'FIXED_DIRECTION', speed: CROSS_BOLT_SPEED, life: 10 }, (u) => {
+    lineShot(b, e, aim, /** @type {EnemyShot | null} */ (s.proj) || /** @type {EnemyShot} */ ({ key: 'projectile_enemy_msnip', move: 'FIXED_DIRECTION', speed: CROSS_BOLT_SPEED, life: 10 }), (u) => {
       if (!u || !u.alive) return;
       hurt(b, e, u, e.s.atk * (bb.atk_scale ?? 1), 'arts');
       if (bb.stun > 0 && u.alive) b.applyStatus(u, 'stun', { duration: bb.stun, source: e });
@@ -115,7 +116,7 @@ function kitJazz(ab, e) {
     // PRTS 天赋 "隐匿期间不进行普通攻击；未受隐匿影响时进入反击模式：仅进行阻挡攻击，造成100%物理伤害": its normal attack only ever
     // hits its blocker (`melee`), so a revealed (反隐) unblocked one neither shoots nor stands for its attack clip (until
     // 0.1.3 it shot everyone within its 2.5 range and stood still while it had a target — ai.js attackStand)
-    spawn(b, e2) { /** @type {Record<string, any>} */ (e2.profile).noAttack = true; /** @type {Record<string, any>} */ (e2.profile).melee = true; },
+    spawn(b, e2) { /** @type {AttackProfile} */ (e2.profile).noAttack = true; /** @type {AttackProfile} */ (e2.profile).melee = true; },
     // 平时不攻击，失去隐匿时反击: its first mode has no attack ability, the counter is the mode Attack's (attached ready as it
     // is revealed, ai.js enemyMode)
     // 2026-11-14 (공식 클라에서 확인): the talent's buff `enemy_act38side[mode]` switches to mode 0 (Default) while 隐匿 holds
@@ -126,8 +127,8 @@ function kitJazz(ab, e) {
     // (EnemySkill._OnCastFinish). Until 2026-11-14 the channel ran on under 隐匿 and the enemy then stood up to a minute
     // (an open cast's stand, content/enemies.js PROJ_WAIT_MAX) where its blocker had been
     tick(b, e2) {
-      /** @type {Record<string, any>} */ (e2.profile).noAttack = !revealed(e2);
-      if (mode(b, e2, /** @type {Record<string, any>} */ (e2.profile).noAttack ? null : 'Attack', false) && /** @type {Record<string, any>} */ (e2.profile).noAttack && e2.castLeft > 0 && !e2.castSwing) interruptEnemyCast(b, e2);
+      /** @type {AttackProfile} */ (e2.profile).noAttack = !revealed(e2);
+      if (mode(b, e2, /** @type {AttackProfile} */ (e2.profile).noAttack ? null : 'Attack', false) && /** @type {AttackProfile} */ (e2.profile).noAttack && e2.castLeft > 0 && !e2.castSwing) interruptEnemyCast(b, e2);
     },
   }, s ? {
     // 狂欢式演奏 (PRTS 节日爵士乐手, 反击模式): "仅攻击范围内存在我方单位时可触发：锁定目标持续施法，最多持续10.6s，每0.5s对目标
@@ -195,16 +196,17 @@ function kitShadowBlade(ab) {
  * @type {AbKit}
  */
 function kitBoneSpike() {
+  /** The ability's own fields: its mode, the next switch check. @typedef {EnemyAbility & { mode: number, next: number }} BunnAb */
   return [stealth(), {
-    spawn(b, e, a) {
-      /** @type {Record<string, any>} */ (e.profile).blockFree = true;
-      /** @type {Record<string, any>} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying;
+    spawn(b, e, /** @type {BunnAb} */ a) {
+      /** @type {AttackProfile} */ (e.profile).blockFree = true;
+      /** @type {AttackProfile} */ (e.profile).canTarget = (/** @type {Unit} */ u) => !u.isFlying;
       // its Horror mode is attached as it spawns (sound only, docs/rules/audio.md 「적 버프·커스텀 트리거 소리」)
       a.mode = 0;
       a.next = b.time + ACBUNN_SWITCH_IV;
       b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'acbunn:horror' });
     },
-    tick(b, e, a) {
+    tick(b, e, /** @type {BunnAb} */ a) {
       if (b.time + 1e-9 < a.next) return;
       a.next = b.time + ACBUNN_SWITCH_IV;
       const m = enemyStealthed(e) ? 0 : 1;
@@ -215,7 +217,7 @@ function kitBoneSpike() {
     },
     before(c, b, e) {
       if (!enemyStealthed(e)) return;
-      const l = byPriority(e, targetsNear(b, e, e.base.rangeRadius + ALLY_COLLIDER_RADIUS).filter(/** @type {Record<string, any>} */ (e.profile).canTarget));
+      const l = byPriority(e, targetsNear(b, e, e.base.rangeRadius + ALLY_COLLIDER_RADIUS).filter(/** @type {AttackProfile} */ (e.profile).canTarget));
       if (l.length) c.targets = l.slice(0, ACBUNN_TARGETS);
     },
   }];
