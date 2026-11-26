@@ -1798,7 +1798,18 @@ upstream 버그 수정 커밋 중 우리에게도 있던 매치(상점·맹약·
     `Projectile.CheckTargetAlreadyHit`는 기록한 시각이 지금보다 뒤일 때만 참)에게 능력의 활성 버프 둘을 건다 — `mousek_s_2[damage]`(`instant_damage_magic[buff]`, 아츠
     `damage` 한 번)와 `mousek_s_2[debuff]`(공격력 `atk`, `duration` 15초, `overrideType` 2 UNIQUE라 지니는 동안은 새로 걸리지도 갱신되지도 않음). 그래서 뒤에 들어온 유닛도
     맞고, 나간 유닛은 더 맞지 않으며, 맞는 것이 선택이라 그동안 이륙한 아군은 건너뛴다. 래트킹이 쓰러져도 계속된다(`_stopWhenSourceInvalid` 꺼짐). 코드
-    `enemies/leaders.js` `alliesInBoxes`(충돌체가 상자에 닿는 아군). 렌더 쪽 그림은 그대로다(`enemySkill`·`dmg`가 투사체의 맞는 이펙트를 냄).
+    `enemies/leaders.js` `alliesInBoxes`(충돌체가 상자에 닿는 아군).
+    화면(2026-11-26, 공식 클라에서 확인 — `[uc]projectiles`의 `projectile_mousek_s2`, 래트킹 프리팹, 이펙트 프리팹 `mousek_skill_02_range`): [모래 지옥]
+    투사체는 머무는 동안 제 이펙트가 없다(`_mainEffect` 빔, 시작·도착·멈춤 이펙트 없음) — 맞힐 때마다 `_effectsWhenHit` `mousek_attack_01_hit`를 맞은 유닛에
+    만들 뿐이다(`_onlyPlayHitEffectOnce` 꺼짐, 15초 동안 주기마다). 구역으로 보이는 둥근 모래 폭풍은 능력의 시전 대상 이펙트 `mousek_skill_02_range`
+    (`_castTargetEffects`, 시전 시작에 대상 위에 — fx.md 「시전 대상 이펙트」)다: 반지름 약 1.37칸의 반구, 약 1.46칸의 원기둥, 4×4칸 바닥 판이 돌아
+    3×3 상자보다 조금 넓은 원으로 보인다. 그래서 시뮬의 'zone'(`kind` sandStorm, r 1.5)은 키트가 능력 이름 `SandStorm`을 직접 실어 투사체의 구역으로
+    보내고(시전자 `caster`가 없음 — 전에는 `Battle.fx`가 시전 중의 fx로 능력과 시전자를 붙여 적 스킬 길로 갔다), 렌더 `fxgame.js eprojAreaFx`는
+    그 투사체에 이펙트가 없고 시전 대상 이펙트가 추출돼 있으면 대체 원을 안 그리며(전과 같음), 제자리에 선 구역의 맞은 이펙트를 구역이 끝날 때까지
+    그 구역 안 유닛의 'dmg'마다 튼다(`ezoneHit`; 전에는 시전 3초 안의 것만 — 15번 중 4번). 이펙트가 없을 때(품질 낮음·미추출)의 대체 원 r 1.5는 공식의
+    둥근 폭풍과 크기가 같아 그대로 둔다. 래트킹이 쓰러진 뒤의 맞은 이펙트는 그 뷰가 없어 안 나온다(공식은 `_stopWhenSourceInvalid` 꺼짐이라 계속 [추정·화면: 출처 없이
+    `CreateEffect`가 만드는지 안 봄]). 시전 대상 이펙트의 길이는 추출(`fx_extract.py`의 `duration` 상한 10초)이 잘라, 입자 14초짜리가 렌더에서 10.5초에 멈춘다(남은 일, 관리자 노트). [화면 미확인]
+    재발 방지: `test/render/mousek-sandstorm-fx.test.js`(실제 키트의 사건 → 렌더: 대체 원 없음, 15초 동안 맞은 이펙트, 추출 바인딩).
     재발 방지: `test/content/enemies_bosses.test.js` 「enemy_1509_mousek」(자료의 ATTACH·`land` 0을 단언하므로 투사체가 날아가게 바뀌면 여기서 멈춤 — 그때 `shoot`으로),
     `test/sim/feedback1f-liftoff.test.js` 「F3 review 2」.
     **'즈자이'의 표식**(2026-11-21, 공식 클라에서 확인 — 적 프리팹 `enemy_1517_xi`·`enemy_database`; 이전: 키트가 이 스킬을 안 써 표식도 그 시전도 없었다): 모드마다

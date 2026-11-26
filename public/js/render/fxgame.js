@@ -6755,6 +6755,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   const eshotLand = new Map();   // `${shooter id}:${target id}` → battle clock its official shot lands (eskillHit)
   const eshotLast = new Map();   // shooter id → { tgt, t } of its latest official shot at a unit (eshotBlast: a dead target)
   const ezoneShots = new Map();  // enemy id → the projectile record of its shot that lands as an area (eshotFx `zone`, eprojAreaFx)
+  /** @type {Map<unknown, { x: number, y: number, r: number, until: number, part: EPart }[]>} */
+  const ezoneHits = new Map();   // enemy id → its areas standing in place whose hits show their projectile's hit effects (ezoneHit)
   /**
    * 2026-10-22 (maintainer request): an enemy's shell fired at a spot (content/enemies/fly.js kitShell — 帝国炮火先兆者 /
    * 中枢先兆者: fx 'bombardShell' { id, t } as it fires, 'bombard' at the spot `t` s later) with its projectile's official
@@ -7339,8 +7341,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     if (!pr) return false;
     const flew = Array.isArray(pr.trail) && pr.trail.length > 0;
     const names = [...new Set([...(flew ? [] : [...(pr.start || []), ...(pr.targetStart || []), ...(pr.tileStart || [])]), ...(pr.reached || [])])].filter((n) => efx(n));
-    if (!names.length) return false;
     const at = { x: Number(e[2]), y: Number(e[3]), z: 0 };
+    // 2026-11-26 (docs/rules/sim.md 「래트킹·'즈자이'의 투사체」 화면): an area that stays where it was put (not flown there) hits
+    // the units in it each period with its projectile's `_effectsWhenHit` (EffectBehaviour.OnHitTarget, every hit) — on each
+    // unit its 'dmg' hits until it ends (ezoneHit), not only within eskillHit's 3 s of the cast: 鼠王's 沙狱 (projectile_mousek_s2
+    // → mousek_attack_01_hit, 15 s)
+    const zdur = Math.max(0, Number(o.dur ?? o.duration) || 0);
+    if (e[1] === 'zone' && !flew && v && (pr.hit || []).some(efx)) {
+      const list = ezoneHits.get(o.id) || [];
+      list.push({ x: at.x, y: at.y, r: Math.max(0.5, Number(o.r) || 0) + 0.5, until: clockS + (zdur > 0 ? zdur : 3), part: { proj: { hit: pr.hit } } });
+      ezoneHits.set(o.id, list.filter((z) => z.until >= clockS).slice(-8));
+      if (ezoneHits.size > 64) ezoneHits.delete(ezoneHits.keys().next().value);
+    }
+    if (!names.length) {
+      // (2026-11-26) a projectile with no effect of its own while it lasts (no start / reach effects) whose ability's cast-target
+      // effect is extracted: that effect, played at the cast's start (ecastTgtFx), is the area the client shows — 鼠王's 沙狱
+      // (mousek_skill_02_range, a round sandstorm of about 1.4 tiles' radius over the 3 × 3 box it hits): no stand-in zone
+      const part = e[1] === 'zone' && eOn(v) ? eskillPart(v, o.ability) : null;
+      return !!part && (part.castTgt || []).some(efx);
+    }
     if (e[1] !== 'zone') {
       for (const n of names.slice(0, MAX_HIT_FX)) { const r = /** @type {string[]} */ (efx(n)); spawn(r[0], r[1], at, { owner: null, buff: false }, { over: false }); }
       // 2026-11-12: its burst's damage of this tick — the projectile's own hit effects on each unit (AREA_SHOT_BLASTS)
@@ -7350,8 +7369,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       }
       return true;
     }
-    const dur = Math.max(0, Number(o.dur ?? o.duration) || 0);
-    const until = clockS + (dur > 0 ? dur : 3);
+    const until = clockS + (zdur > 0 ? zdur : 3);
     for (const n of names.slice(0, MAX_HIT_FX)) {
       const r = /** @type {string[]} */ (efx(n));   // (names: the extracted ones)
       spawn(r[0], r[1], at, { owner: null, buff: false, until }, { over: false }).then((l) => { if (l) zoneEnd(l, until, true); });
@@ -8442,6 +8460,25 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       eplay(v, [n], { at: tgt, owner: ownerOf(v), on: tid, buff: true, tag: 'eskill', until: s.until ?? clockS + ESKILL_HOLD_CAP });
     }
     ehitFx(v, once.length ? { ...s.part, hit: /** @type {string[]} */ (s.part.hit).filter((n) => !once.includes(n)) } : s.part, tgt, eshotHitDone(by, tid));
+    return true;
+  }
+  /**
+   * 2026-11-26: a 'dmg' on `tid` by enemy `by` that no attack or cast of it explains, on a unit inside one of its areas still
+   * standing (ezoneHits, eprojAreaFx) — that area's projectile hit effects (鼠王's 沙狱 each second of its 15 s). true = drawn.
+   * @param {unknown} tid
+   * @param {unknown} by
+   * @param {Views} views
+   */
+  function ezoneHit(tid, by, views) {
+    const list = ezoneHits.get(by);
+    if (!list) return false;
+    const v = /** @type {View} */ (views.get(by)), tgt = views.get(tid);
+    const z = tgt && v && eOn(v) ? list.find((a) => a.until >= clockS && Math.hypot(tgt.x - a.x, tgt.y - a.y) <= a.r) : null;
+    if (!z) { if (!list.some((a) => a.until >= clockS)) ezoneHits.delete(by); return false; }
+    const key = `${by}:${tid}`;
+    if (clockS - (lastHit.get(key) ?? -9) < HIT_GAP_S) return true;
+    lastHit.set(key, clockS);
+    ehitFx(v, z.part, /** @type {View} */ (tgt));
     return true;
   }
   /**
@@ -9591,7 +9628,8 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
           const strike = Number.isInteger(e[7]) ? /** @type {number} */ (e[7]) : null;
           const later = !!a && a.hitT != null && strike != null && strike > (a.n ?? -1) && clockS - a.t <= 2.5;
           if (a && a.hitT != null && !later && (a.hitT !== clockS || e[6] === 1 || (e.length >= 8 && e[7] == null))) { if (a.hitT !== clockS) { if (lastAtk.get(tid) === a) lastAtk.delete(tid); ownAtk.delete(`${by}:${tid}`); } a = null; }
-          if (!a || clockS - a.t > 2.5) { if (by != null) eskillHit(tid, by, views); return; } // an enemy ability's hit (2026-10-10)
+          // an enemy ability's hit (2026-10-10); (2026-11-26) else a hit of an area of it still standing (ezoneHit)
+          if (!a || clockS - a.t > 2.5) { if (by != null && !eskillHit(tid, by, views)) ezoneHit(tid, by, views); return; }
           const tgt = views.get(tid);
           if (!tgt) return;
           if (a.epart) { // 2026-10-10: an enemy attack's hit effects
@@ -10037,7 +10075,7 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       lastAtk.clear(); healAtk.clear(); aimed.clear(); chainLines.clear(); strikes.clear(); lastHit.clear(); lastAttackFx.clear(); movers.clear(); notes.clear(); gone.clear(); disappeared.clear(); bbSwitches.length = 0; wolves.clear(); packs.clear(); lemMarks.clear(); lemMarkFx.clear();
       for (const r of trails) if (r.back) boomerangCaught(r.src); // local patch: back in hand for the next battle
       trails.length = 0; pending.length = 0; // local patch
-      castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); ebreath.clear(); eshotLand.clear(); eshotLast.clear(); emortars.length = 0; dshells.length = 0; dblasts.clear();
+      castsDelayed.length = 0; zones.clear(); eborn.clear(); eskillSeen.clear(); elines.clear(); ebreath.clear(); eshotLand.clear(); eshotLast.clear(); emortars.length = 0; dshells.length = 0; dblasts.clear(); ezoneHits.clear();
       deployed.clear(); onField.clear(); moved.clear(); startedOnce.clear(); opDead.clear(); ebuffs.clear(); // 2026-10-11
       linkAxes.clear(); linkRuns.clear(); // 2026-10-22
       brokeOwn.clear(); // 2026-10-23

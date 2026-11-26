@@ -304,7 +304,11 @@ function kitLeaderMisc(key, ab, e) {
           if (!at0) return;
           const at = at0.t.alive && at0.t.deployed ? at0.t : at0;
           const dur = ss.bb.duration ?? 0, life = ss.proj?.life ?? dur, x = at.x, y = at.y;
-          b.fx('zone', { x, y, r: SANDSTORM_BOXES[0][0], dur: life, kind: 'sandStorm', id: e2.id });
+          // the area of its projectile (render/fxgame.js eprojAreaFx — named here, not by Battle.fx as one more fx of the cast
+          // with its caster): that projectile has no effect of its own while it lasts — the round sandstorm the client shows is
+          // the ability's cast-target effect mousek_skill_02_range, played on its target as the cast starts — and its hit
+          // effect plays on each unit each period hits, for the 15 s
+          b.fx('zone', { x, y, r: SANDSTORM_BOXES[0][0], dur: life, kind: 'sandStorm', id: e2.id, ability: ss.name });
           // the 沙狱弹道 "击中…范围内的所有我方单位（弹道可对空）" selects: an airborne 起飞 ally and an unblocking 隐匿 one
           // are skipped (no 无视无法选择 — areaAllies)
           const hit = () => {
