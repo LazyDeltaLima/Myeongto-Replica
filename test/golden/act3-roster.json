@@ -3768,7 +3768,7 @@
         "enemy_2002_bearmi_2": [1,0,1,0,14128]
       },
       "hooks": [1,145,5183,498,496,1750,1649,139,48,134,15,17,0,11155,559,71,110,81,1,65,1,0,90],
-      "events": {"atk":597,"bounty":2,"deploy":32,"die":53,"dmg":1649,"engage":10,"face":8,"fx":359,"heal":110,"hide":10,"layer":1,"leak":81,"skill":34,"spawn":127,"status":231,"swing":541,"tplfx":3},
+      "events": {"atk":597,"bounty":2,"deploy":32,"die":53,"dmg":1649,"engage":10,"face":8,"fx":359,"heal":110,"hide":10,"layer":1,"leak":81,"skill":34,"spawn":127,"status":267,"swing":541,"tplfx":3},
       "fx": {"aoe":2,"disappear":1,"displace":146,"dodge":90,"dp":2,"enemySkill":1,"explode":2,"garrison":1,"kitHit":74,"phase":5,"reborn":1,"shield":5,"shieldBreak":11,"stacks":2,"summon":3,"telegraph":2,"teleport":7,"undying":3,"zone":1},
       "snaps": "c80d9b27 b1f31a7e c2204ddf 8bb90047 d434ad12 83fba18c ed132d4a 26417751 533a00b4 0a0d9667 90730785 6627e071 ce09a76f 6c0e8d4b 764a44b3 d5bdb402 6f1f62f4 e27508f9"
     },

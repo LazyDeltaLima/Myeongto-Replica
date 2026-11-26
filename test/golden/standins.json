@@ -124,7 +124,7 @@
         "enemy_9010_acpupp": [12,0,11,6147,61311]
       },
       "hooks": [1,101,5700,565,565,2002,2006,0,42,94,10,10,0,16858,0,39,77,52,1,42,1,0,14],
-      "events": {"atk":578,"deploy":24,"die":42,"dmg":2006,"engage":11,"face":12,"fx":85,"layer":1,"leak":52,"skill":20,"spawn":89,"status":1,"swing":577},
+      "events": {"atk":578,"deploy":24,"die":42,"dmg":2006,"engage":11,"face":12,"fx":85,"layer":1,"leak":52,"skill":20,"spawn":89,"status":48,"swing":577},
       "fx": {"aoe":5,"dodge":14,"dp":6,"enemySkill":1,"explode":26,"garrison":1,"garrisonGrant":1,"phase":2,"stacks":1,"summon":27,"zone":1},
       "snaps": "b5955afa 77d313d8 0a317bca 54290426 0af23748 d3338db1 ef2bce38 31e0d485 028a3bb9 13a0014b fd4ea02a 550383ed 6a15b149 75f7cfbc 9e8a476c f02aaf59 520ce9e5 2f9c7c9e bf317e24"
     },

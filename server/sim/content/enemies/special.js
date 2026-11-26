@@ -722,8 +722,14 @@ export const SPECIAL_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (O
         let left = life;
         const h = b.every(0.5, () => {
           // projectile_enemy_wintun_range's AuraHitBehaviour: its own side's ground units (`targetMotion` 1) — no flying
-          // enemy (until 2026-11-20 they were buffed too)
-          for (const o of b.enemiesInRadius(x, y, BARREL_RADIUS)) if (!o.isFlying) auraBuff(b, o, 'ab:barrelZone', 0.5, { aspd: s.attack_speed ?? 0, dodgePhys: s.prob ?? 0 });
+          // enemy (until 2026-11-20 they were buffed too). 2026-11-27 (공식 클라에서 확인): BlockedBoom's `_activeBuffs`
+          // wintun_t[evade_physical] and wintun_t[attack_speed] — the latter's `fx` enemy_wintun_range_buff on each unit while
+          // it holds it: a status naming that buff (`fxTag`), from this enemy (render/fxstatus.js finds the effect in its binding)
+          for (const o of b.enemiesInRadius(x, y, BARREL_RADIUS)) {
+            if (o.isFlying) continue;
+            b.addBuff(o, { key: 'ab:barrelZone', duration: 0.6, refresh: 'replace', mods: { aspd: s.attack_speed ?? 0, dodgePhys: s.prob ?? 0 },
+              visible: true, source: e, fxTag: 'buff:wintun_t[attack_speed]' });
+          }
           left -= 0.5;
           if (left <= 0) h.cancel();
         });

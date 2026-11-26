@@ -78,7 +78,10 @@ test('“自在”: its 纬地经天 mark draws enemy_xi_skill_01_buff_02 on the
     assert.deepEqual(want(L, vs, near), [`b/${XI_FX}`], 'the mark on the nearest');
     assert.deepEqual(want(L, vs, far), [], 'nothing on the other');
     vs.delete(e.id);
-    assert.deepEqual(want(L, vs, near), [], 'drawn by its source\'s binding: none without its view');
+    assert.deepEqual(want(L, vs, near), [`b/${XI_FX}`], 'its view gone: its binding by the defId the status kept (2026-11-27)');
+    const kept = vs.get(near.id).statusFrom.get('ab:xiMark');
+    vs.get(near.id).statusFrom.set('ab:xiMark', { fx: kept.fx, n: 0 });
+    assert.deepEqual(want(L, vs, near), [], 'drawn by its source\'s binding: none without one');
     h.b.kill(e, null);
     assert.ok(h.runUntil(() => on(h, 'ab:xiMark2[a]').length > 0 && on(h, 'ab:xiMark2[b]').length > 0, 30), 'the second form marks [a] and [b]');
     vs = views(h, e);

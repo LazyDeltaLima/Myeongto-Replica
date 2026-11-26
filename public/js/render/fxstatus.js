@@ -51,7 +51,7 @@ import { whenPlays } from './fx/conds.js';
  */
 /**
  * What the client needs of a status (statusSource; `max` / `mid` with a kit's fx 'stacks').
- * @typedef {{ src?: string | null, id?: unknown, fx?: unknown, n?: number, max?: unknown, mid?: unknown }} StatusFrom
+ * @typedef {{ src?: string | null, id?: unknown, def?: string | null, fx?: unknown, n?: number, max?: unknown, mid?: unknown }} StatusFrom
  */
 /**
  * The loaded plays.json (tools/build-fx-plays.mjs): client key → what its buffs hold (`held`), create once (`once`) and as
@@ -72,7 +72,7 @@ import { whenPlays } from './fx/conds.js';
  * @property {unknown} [alive]
  * @property {unknown} [prep]
  * @property {unknown} [remove]
- * @property {{ spine?: string, defId?: string, skillIndex?: number }} [info]
+ * @property {{ spine?: string, defId?: string, skillIndex?: number, side?: string }} [info]
  * @property {Set<string>} [statuses]
  * @property {Map<string, StatusFrom | null>} [statusFrom] status key → statusSource()
  * @property {number} [visFacing]
@@ -573,6 +573,13 @@ function fxCode(v) {
 }
 
 /**
+ * An enemy applier's defId by its unit id, as statusSource last saw its view (kept past the view; only read for an id
+ * with no view, so an id a later battle reuses is read as its own view). Bounded: cleared at 512.
+ * @type {Map<unknown, string>}
+ */
+const APPLIER_DEF = new Map();
+
+/**
  * What the client needs of a 'status' on-event `e` (['status', id, key, 1, sourceId?, { fx?, n? }?], sim
  * battle/status.js): the applier's fx code (resolved now: the applier may be gone by the next frame), the buff's `fx`
  * hint and its layer count. null when the event carries none.
@@ -583,8 +590,14 @@ function fxCode(v) {
 export function statusSource(views, e) {
   const info = /** @type {{ fx?: unknown, n?: unknown } | null} */ (e[5] && typeof e[5] === 'object' ? e[5] : null);
   if (e[4] == null && !info) return null;
-  // `id`: the applier's unit id (2026-11-11 — wantedStatusFx's bySrc finds an enemy applier's view by it; `src` is its fx code)
-  return { src: e[4] != null ? fxCode(views.get(e[4])) || null : null, id: e[4] ?? null, fx: info?.fx ?? null, n: Number(info?.n) || 0 };
+  // `id`: the applier's unit id (2026-11-11 — wantedStatusFx's bySrc finds an enemy applier's view by it; `src` is its fx code);
+  // `def` (2026-11-27): an enemy applier's defId, its binding once its view has left the field — what it left behind outlives
+  // it (咸鳞汁推荐者's barrel zone buffs the enemies walking in after it died: APPLIER_DEF, the defId last seen for that id)
+  const a = e[4] != null ? views.get(e[4]) : null;
+  let def = a && a.isEnemy && typeof a.info?.defId === 'string' ? a.info.defId : null;
+  if (def) { if (APPLIER_DEF.get(e[4]) !== def) { if (APPLIER_DEF.size >= 512) APPLIER_DEF.clear(); APPLIER_DEF.set(e[4], def); } }
+  else if (!a && e[4] != null) def = APPLIER_DEF.get(e[4]) ?? null;
+  return { src: a ? fxCode(a) || null : null, id: e[4] ?? null, ...(def ? { def } : null), fx: info?.fx ?? null, n: Number(info?.n) || 0 };
 }
 
 /** The STATUS_FX key of a sim 'status' key ('tremble', 'skill:haini_slow', 'talent:weak_fragile' …), or null. @param {unknown} key @returns {string | null} */
@@ -828,10 +841,17 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
   const own = v.isEnemy && typeof ebuff === 'function' ? (kind, tag) => ebuff(v, kind, tag) : null;
   // 2026-11-10: a buff an enemy's ability puts on an ally (its `fxTag` 'buff:…', the status's applier `src`) — that enemy's
   // binding of the buff, drawn on the ally: 淤困之茧's acweb[vfx], which its acweb[bundling] creates on the operator it binds
-  // (`viewOf`: the field's views by id)
-  /** @type {((src: unknown, tag: string) => EnemyBuffs | null) | null} */
-  const bySrc = !v.isEnemy && typeof ebuff === 'function' && typeof viewOf === 'function'
-    ? (src, tag) => { const s = src != null ? viewOf(src) : null; return s && s.isEnemy ? ebuff(s, 'key', tag) : null; } : null;
+  // (`viewOf`: the field's views by id). 2026-11-27 (docs/rules/render.md 「적 프리팹 모드의 클립 — 액젓 추천자·수둔 닌자」):
+  // on an enemy too, when its own binding lacks the key — 咸鳞汁推荐者's barrel zone puts wintun_t[attack_speed] on the
+  // enemies in it; an applier whose view has left is found by its defId (statusSource `def`)
+  /** @type {((from: StatusFrom | null, tag: string) => EnemyBuffs | null) | null} */
+  const bySrc = typeof ebuff === 'function' && typeof viewOf === 'function'
+    ? (from, tag) => {
+      if (from?.id == null || from.id === /** @type {{ id?: unknown }} */ (v).id) return null;
+      const s = viewOf(from.id);
+      if (s) return s.isEnemy ? ebuff(s, 'key', tag) : null;
+      return from.def ? ebuff({ flags: 0, charge: 0, sp: 0, spMax: 0, isEnemy: true, info: { side: 'enemy', defId: from.def } }, 'key', tag) : null;
+    } : null;
   /** @param {EnemyBuffs} r */
   const byOwn = (r) => {
     for (const s of r.on) {
@@ -876,7 +896,7 @@ export function wantedStatusFx(v, out = WANT, ebuff = null, plays = null, readyO
       // reborn() in server/sim/content/enemies/archetypes.js): the enemy's own buff effects — none bound, nothing drawn
       const tag = typeof from?.fx === 'string' && from.fx.startsWith('buff:') ? from.fx.slice(5) : null;
       if (tag != null || /^ab:.*:inv$/.test(k)) {
-        const r = own ? (tag != null ? own('key', tag) : own('inv')) : bySrc && tag != null ? bySrc(from?.id ?? null, tag) : null;
+        const r = (own ? (tag != null ? own('key', tag) : own('inv')) : null) ?? (bySrc && tag != null ? bySrc(from, tag) : null);
         if (r) byOwn(r);
         continue;
       }

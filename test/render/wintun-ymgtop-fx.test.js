@@ -13,13 +13,14 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { createFxLayer } from '../../public/js/render/fxgame.js';
 import { AudioManager } from '../../public/js/audio.js';
+import { wantedStatusFx, statusSource } from '../../public/js/render/fxstatus.js';
 import { makeBattle, chessRec } from '../helpers/battleHarness.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
 
 const MODES = new URL('../../public/assets/local/fx/enemy-modes.json', import.meta.url);
 const NO_FX = !existsSync(MODES) && 'no extracted enemy effects';
-const WINTUN = 'enemy_10044_wintun', YMGTOP = 'enemy_10116_ymgtop';
+const WINTUN = 'enemy_10044_wintun', YMGTOP = 'enemy_10116_ymgtop', SLIME = 'enemy_1007_slime';
 const WALL = chessRec({ id: 't_wall', profession: 'TANK', stats: { atk: 0, maxHp: 1e7, def: 0, res: 0, blockCnt: 3 }, rangeGrid: [[0, 0]], skill: null });
 function arena(wall) {
   return makeBattle({ content: 'generic', extraContent: [enemiesMod, bossesMod], seed: 7, autoFinish: false, timeLimit: 600,
@@ -35,6 +36,16 @@ function smash() {
   const from = h.events.length;
   for (let i = 0; i < 150; i++) h.step();
   return { h, e, w: h.b.allyUnits[0], ev: h.events.slice(from) };
+}
+/** 咸鳞汁推荐者 blocked by a wall with a 源石虫 beside it (in its barrel zone), 3 s past the smash. */
+function zone() {
+  const h = arena([9, 5]);
+  h.step();
+  const e = h.spawn(WINTUN, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const o = h.spawn(SLIME, { pos: [9, 6], routeIndex: 0, mods: { speedMul: 0 } });
+  const from = h.events.length;
+  for (let i = 0; i < 120; i++) h.step();
+  return { h, e, o, ev: h.events.slice(from) };
 }
 /** 水遁忍者 beside a wall: its spin (10 s in) cut by a 失衡 3 s later. */
 function spin() {
@@ -81,7 +92,7 @@ test('水遁忍者 (sim): SwitchModeTrigger named as it spins and ended as it st
 });
 
 /** A dry effect layer on the extracted bindings of both (one table for the module: its index is fetched once). */
-async function layer(ids = [WINTUN, YMGTOP]) {
+async function layer(ids = [WINTUN, YMGTOP, SLIME]) {
   const M = JSON.parse(readFileSync(MODES, 'utf8'));
   const m = { $fx: {} }, bundles = {};
   for (const id of ids) {
@@ -138,6 +149,41 @@ test('水遁忍者 (render): enemy_ymgtop_attack_hit_01 on each unit its spin hi
     assert.ok(hits.length >= 2 && hits.every((o) => o.names.includes('enemy_ymgtop_attack_hit_01')), `on the wall (${JSON.stringify(hits.map((o) => o.names))})`);
     const r = L.enemyBuffFx(views.get(e.id), 'key', 'ymgtop_m1_t[rotate_effect_core]');
     assert.deepEqual(r?.on.map((s) => s[1]), ['enemy_ymgtop_skill_01_buff_01'], 'the status ab:spinFx (fxTag) draws it');
+  } finally { globalThis.fetch = fetch0; }
+});
+
+test('咸鳞汁推荐者 (sim): its barrel zone\'s buff on the ground enemies in it names wintun_t[attack_speed], from it', () => {
+  const { e, o, ev } = zone();
+  const on = ev.filter((x) => x[0] === 'status' && x[2] === 'ab:barrelZone' && x[3]);
+  assert.deepEqual(on.map((x) => [x[1], x[4], x[5]?.fx]).sort(), [[e.id, e.id, 'buff:wintun_t[attack_speed]'], [o.id, e.id, 'buff:wintun_t[attack_speed]']].sort(),
+    'once on each (refreshed while inside, no new event)');
+  assert.ok(!ev.some((x) => x[0] === 'status' && x[2] === 'ab:barrelZone' && !x[3]), 'held while inside');
+  assert.ok(o.findBuff('ab:barrelZone'), 'the zone\'s buff (attack speed, physical dodge) on the 源石虫');
+});
+
+test('咸鳞汁推荐者 (render): enemy_wintun_range_buff on the enemies in its zone — by its binding, also once its view has left', { skip: NO_FX }, async () => {
+  const fetch0 = globalThis.fetch;
+  try {
+    const { e, o, ev } = zone();
+    const { L } = await layer();
+    const vs = new Map([[e.id, viewOf(e)], [o.id, viewOf(o)]]);
+    for (const v of vs.values()) v.statusFrom = new Map();
+    for (const x of ev) {
+      const v = x[0] === 'status' ? vs.get(x[1]) : null;
+      if (v) { if (x[3]) { v.statuses.add(x[2]); v.statusFrom.set(x[2], statusSource(vs, x) || {}); } else { v.statuses.delete(x[2]); v.statusFrom.delete(x[2]); } }
+    }
+    const want = (u) => [...wantedStatusFx(vs.get(u.id), new Map(), L.enemyBuffFx, null, null, (id) => vs.get(id)).keys()].filter((k) => k.includes('wintun'));
+    const FX = 'pfx_enemy_14/enemy_wintun_range_buff';
+    const on0 = (list, id) => list.find((x) => x[0] === 'status' && x[1] === id && x[2] === 'ab:barrelZone' && x[3]);
+    assert.deepEqual(want(o), [FX], 'on the 源石虫: the applier\'s binding (its own has no such buff)');
+    assert.ok(want(e).includes(FX), 'on 咸鳞汁推荐者 itself');
+    vs.delete(e.id);
+    assert.deepEqual(want(o), [FX], 'its view gone (dead, the zone stays): found by the defId the status kept');
+    const late = on0(ev, o.id);
+    vs.get(o.id).statusFrom.set('ab:barrelZone', statusSource(vs, late) || {});
+    assert.deepEqual(want(o), [FX], 'a unit walking in after its view left: the defId last seen for its id');
+    vs.get(o.id).statusFrom.set('ab:barrelZone', { fx: 'buff:wintun_t[attack_speed]', n: 0 });
+    assert.deepEqual(want(o), [], 'no applier: none (the key is not the 源石虫\'s)');
   } finally { globalThis.fetch = fetch0; }
 });
 
