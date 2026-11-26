@@ -3560,10 +3560,20 @@
   시계(`_fxESkill.late`: 그 뒤 3초)와, 탄이 처음 향하는 대상의 시작 이펙트(`proj.targetStart` — '사미의 의지' 올가미)만 움직인다. 예전에는
   1초 넘게 뒤에 온 그 fx가 시전 이펙트를 모두 다시 틀었다(부패한 기사 다섯, 강화 석궁 기습자, 검은 뿔의 루울 `skill`), 붙잡힌 시전을 풀어
   버리기도 했다. 붙잡힌 시전의 `_onlyOnce` 맞은 이펙트를 시전 끝까지 잡는 것은 끝 사건이 시전 끝(`e` 3)인 것만이다 — 강화 석궁 기습자 등의
-  `enemy_hummbd_buff_01`(`e` 4)은 예전처럼 맞을 때마다 제 길이. 남은 것: 적 스킬의 `ON_SPELL_ON`·`ON_CAST_END`에 켜지는 시전 이펙트
-  ('즈자이' `ShieldBurst`의 `enemy_xi_skill_02_hit`, 검은 뿔의 루울 `skill`의 `enemy_xdelk_skill_start_01` 등)는 `SPELL_BLASTS` 둘 말고는
-  아직 시전 시작에 틀린다. [화면 미확인]
-- 재발 방지: `test/render/eskill-attack-finish.test.js`(실제 키트의 부패한 기사 시전을 렌더에 넣어 다섯 이펙트가 제 때 한 번씩인지, 타격의 맞은
+  `enemy_hummbd_buff_01`(`e` 4)은 예전처럼 맞을 때마다 제 길이.
+  주문·시전 끝(2026-11-27, 공식 클라에서 확인): `ON_SPELL_ON`(`s` 4)에 켜지는 시전 이펙트는 능력의 주문 때 — 능력이 주문 전에 기다리는 프레임
+  (시뮬 `castStrikeAt`) — 에, `ON_CAST_END`(`s` 3)에 켜지는 것은 시전이 끝날 때 켜진다. 시뮬이 시전 시작의 'enemySkill'에 두 때를 싣고
+  (`spell` = `castStrikeAt`, `len` = 채널 아닌 시전의 `castLength`; `content/enemies.js castView`), 렌더 `eskillFx`가 그때 튼다: '즈자이'
+  `ShieldBurst`의 `enemy_xi_skill_02_hit`(15초 채널의 14.7초, `Skill_02_End`의 공격 사건), 검은 뿔의 루울 `skill`의 `enemy_xdelk_skill_start_01`
+  (주문 7.1초부터 시전 끝까지 반복), 자로 '늑대 군주' `FearCage`의 시작 이펙트 둘(4.367초), 가상적: 지느러미 `Discharge`(2.433초), 포트브레이커
+  `SkyProjectile`(0.9초), 루시안, '블러드 다이아몬드' `blink`의 `enemy_csphtm_skill_01_start`(시전 끝 2틱 — 순간이동 뒤). 그 전에 시전이 끝나거나
+  (`enemySkillEnd`) 쓰러지거나 새 시전이 오면 주문 이펙트는 안 나온다; 끝 사건이 따로 없는 채널 아닌 시전은 그 사이 뷰 플래그의 기절·빙결·수면
+  (`UF.STUNNED`·`FROZEN`·`SLEEP` — 시뮬 `cutEnemySwing`이 시전을 끊는 상태)을 보고 끊는다(`stepEnemies`; 부양·불균형·공포·키트의 끊기는
+  플래그에 없어 못 봄). 시전 끝 이펙트는 끊겨도 나온다: 붙잡힌 시전의 'enemySkillEnd'가 그때 튼다. 채널 아닌 시전의 뒤 fx(지느러미의 'explode')도
+  그 시전의 `len` 안이면 새 시전이 아니다(시전 이펙트를 다시 안 틂). 때를 모르면(병렬 묶음, 키트가 직접 낸 'enemySkill') 예전처럼 시전 시작.
+  다른 길: 살카즈 후예 처벌자·징벌자 `StunAttack`(`SPELL_BLASTS`, 타격 'explode'에), 재생 능력(`erebornAbility`), 일반 공격(`playCast` 단계).
+  '제국의 갑옷' 등장 `Appear`는 시뮬이 시전으로 내지 않아(`content/local-patch.js` 등장 폭격, 'enemySkill' 없음) 그 시전 이펙트가 아직 없다. [화면 미확인]
+- 재발 방지: `test/render/eskill-spell-fx.test.js`(실제 키트의 '즈자이' `ShieldBurst`·루시안 `blink`을 렌더에 넣어 주문·시전 끝 이펙트가 그때 한 번인지, 채널 아닌 시전이 기절로 끊기면 주문 이펙트가 없는지·뒤 fx에 다시 안 트는지; `ON_SPELL_ON`·`ON_CAST_END` 시전 이펙트를 가진 적 능력을 모두 훑어 데이터 `skillCast`로 그 때를 셀 수 있는지, 다른 길은 까닭과 함께 목록), `test/render/eskill-attack-finish.test.js`(실제 키트의 부패한 기사 시전을 렌더에 넣어 다섯 이펙트가 제 때 한 번씩인지, 타격의 맞은
   이펙트가 나오는지; `ON_ATTACK_FINISH` 시전 이펙트를 가진 적 능력을 모두 훑어 렌더가 셀 채널이 있는지, 다른 길이 세는 것은 까닭과 함께 목록),
   `test/content/enemy-cast-target.test.js`(바인딩의 `castTargetEffects`를 가진 능력을 모두 훑어 시전 시작 사건이 대상을 싣는지,
   키트가 제 사건으로 싣는 것은 까닭과 함께 목록), `test/render/enemy-cast-target-fx.test.js`(렌더가 시전 대상 위에 시전 시작에 트는지 — 스킬

@@ -1521,6 +1521,9 @@ Unknown subprofessions fall back to the profession default (test `professions.te
   CrossAttack, whose bolt is its later `enemyShot`: the view picks the channel's set by it and plays no cast-target effect; a
   skill whose ability plays a three-part channel, `skillCast.*.chan`: `dur` = its ability's time or `hold: 1`,
   and the cast's end sends `enemySkillEnd` — `content/enemies.js castSkill` / `chanEnd`, docs/rules/sim.md 「투사체 채널 스킬은 채널 동안 시전이다」;
+  `spell` = s from the cast's start to its spell (the frame its ability waits for, `castStrikeAt`: the client's ON_SPELL_ON) and `len` = the
+  length of a cast that is no channel (`castLength`: ON_CAST_END), each when known and > 0 — `content/enemies.js castView`; the view plays the
+  cast effects of those moments then, docs/rules/fx.md 「적 범위 공격의 경고 칸」;
   `enemyAttackFinish` `{ id, ability }`: a held channel's attack-finish event while its cast goes on — its ability's projectile gone
   before the ability's time, `_fireAttackFinishWhenProjectileInvalid`, data `skillCast.*.projFin` — the view's end clip, `projCastOver`);
   nothing procedural is drawn; every fx the cast makes in the same call carries `extra.ability` (the same name) and `extra.caster` (the enemy's id)

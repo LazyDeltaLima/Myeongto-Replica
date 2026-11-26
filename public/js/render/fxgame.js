@@ -158,8 +158,9 @@ import { animPause, backSide, viewHoldsBuff, clipOf, facesBack, idlePause, immun
  *   inputLate?: string[] | null, ctLate?: string[] | null, spell?: number, part?: EPart, [key: string]: unknown }} FxCast an attack's cast
  *   (beginCast)
  * @typedef {{ part: EPart, t: number, hold: unknown, until: number | null, held: Set<unknown> | null, inPlace: boolean, late?: number,
- *   tgtStart?: Set<unknown>, swing?: boolean }} ESkillRec
- *   an enemy's held skill (eskillFx)
+ *   tgtStart?: Set<unknown>, swing?: boolean, castEnd?: number | null, endDue?: string[] | null, due?: number, cut?: boolean }} ESkillRec
+ *   an enemy's skill cast (eskillFx): `castEnd` its end, `endDue` its ON_CAST_END effects still to come, `due` the last of
+ *   its spell's effects still to come and `cut` a stun / freeze / sleep seen before it (stepEnemies)
  * @typedef {{ key?: string, reached?: string[], hit?: string[], trail?: string[], stop?: string[], targetStart?: string[],
  *   move?: string, hook?: unknown, mount?: unknown, link?: number, speed?: number, raise?: number, noRaise?: number,
  *   start?: string[], tileStart?: string[], ground?: string[], sub?: (EProj | null)[], rope?: string, onSrc?: number,
@@ -508,6 +509,8 @@ const AREA_SHOT_BLASTS = new Set(['uareap']);
 const DFAT_STUN = Object.freeze({ StunAttack: 'dfatStun' });
 /** @type {Readonly<Record<string, Readonly<Record<string, string>> | undefined>>} */
 const SPELL_BLASTS = Object.freeze({ enemy_1362_dfat: DFAT_STUN, enemy_1362_dfat_2: DFAT_STUN });
+/** The view flags of a status that cuts an enemy's cast (server/sim/ai.js: a stun, freeze or sleep — cutEnemySwing). */
+const ESKILL_CUT_FLAGS = UF.STUNNED | UF.FROZEN | UF.SLEEP;
 /**
  * 2026-11-12 (docs/rules/fx.md 「규정 재생 무리」): an enemy kit's moment (the sim's fx 'kitHit' { id, k }) whose client buff
  * creates an effect once on that enemy — k → the buff key in the enemy's binding `buffFx` (ekitHitFx): 元核孽生者 / 异形孽生者
@@ -8365,23 +8368,33 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
    * `swing` (2026-11-26, the sim's 'enemySkill' `swing`): the cast is the enemy's swing now (its kit's `swingClip`: 咸鳞汁推荐者's
    * BlockedBoom) — that swing's strike draws nothing of the plain attack, and its damage none of the ability's hits (what the
    * struck unit shows is the damage's own moment, 'buff:<key>', hitMoments).
-   * @param {{ on?: boolean, loop?: boolean, target?: View | null, targets?: (View | null)[] | null, hold?: boolean, holdFor?: number, cap?: number, start?: boolean, swing?: boolean }} [opts]
+   * `spell` / `len` (2026-11-27, the sim's 'enemySkill' `spell` / `len`: content/enemies.js castView): s after the cast's start
+   * that its spell comes (ON_SPELL_ON — castStrikeAt) and that a cast that is no channel ends (ON_CAST_END; a held one's is
+   * `holdFor` or its 'enemySkillEnd') — the cast effects bound to those moments (opt `s` 4 / 3) wait for them. Unknown, they
+   * keep the cast's start as before.
+   * @param {{ on?: boolean, loop?: boolean, target?: View | null, targets?: (View | null)[] | null, hold?: boolean, holdFor?: number, cap?: number, start?: boolean, swing?: boolean, spell?: number | null, len?: number | null }} [opts]
    */
-  function eskillFx(v, key, { on = true, loop = false, target = null, targets = null, hold = false, holdFor = ESKILL_HOLD_CAP, cap = 20, start = true, swing = false } = {}) {
+  function eskillFx(v, key, { on = true, loop = false, target = null, targets = null, hold = false, holdFor = ESKILL_HOLD_CAP, cap = 20, start = true, swing = false, spell = null, len = null } = {}) {
     const part = eskillPart(v, key);
     if (!part || !eOn(v)) return false;
     const pr0 = part.proj || {};
     if (![...(part.cast || []), ...(part.hit || []), ...(part.castTgt || []), ...(part.buff || []), ...(part.attach || []), ...(pr0.trail || []), ...(pr0.hit || []),
       ...(pr0.reached || []), ...(pr0.targetStart || [])].some(efx)) return false; // nothing of it extracted: the procedural stand-ins stay
     const id = ownerOf(v);
+    const cur = /** @type {ESkillRec | undefined} */ (v._fxESkill);
     if (!on) {
       for (const l of live) if (l.tag === 'eskill' && l.owner === id) l.inst.stop();
       if (trace) trace({ kind: 'eskillEnd', names: [key], by: id, at: null });   // tests: its held effects stopped
+      // (2026-11-27) its cast effects of the cast's end (ON_CAST_END) not played yet come now — a held cast cut or ended early
+      const due = cur && cur.part === part ? cur.endDue : null;
+      if (cur) cur.endDue = null;
+      if (due && v.alive !== false) eplay(v, edirs(v, part, due), { tag: 'cast' });
       if (v._fxESkill) { v._fxESkill.hold = false; v._fxESkill.t = -99; v._fxESkill.late = undefined; }   // a held skill's end: its later damage is no hit of it
       return true;
     }
-    const cur = /** @type {ESkillRec | undefined} */ (v._fxESkill);
-    if (!start && cur && cur.part === part && cur.hold && clockS <= (cur.until ?? -Infinity)) {
+    // (2026-11-27) a cast that is no channel lasts its `len` too: its later fx are no new cast either (假想敌：鳍's 离子环波
+    // 'explode' at its spell, 2.4 s in)
+    if (!start && cur && cur.part === part && (cur.hold ? clockS <= (cur.until ?? -Infinity) : clockS <= (cur.castEnd ?? -Infinity) + FIXED_FRAME_S)) {
       cur.t = cur.late = clockS;
       // its projectile's start effects on each unit it leaves for (`_effectsToTargetWhenStart`: '萨米的意志''s lassos, 'beam' `to`)
       const ts = part.proj?.targetStart;
@@ -8393,34 +8406,63 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
     for (const l of live) if (l.owner === id && l.tag === `aura:${key.toLowerCase()}`) l.inst.stop();
     // 2026-11-12: its ready mark, when it goes as the cast starts (ReadyEnemySkillEffect `_stopBeforeCast`, ereadyFx)
     if (part.readyEarly) for (const l of live) if (l.owner === id && l.tag === `ready:${key.toLowerCase()}`) l.inst.stop();
-    const rec = /** @type {ESkillRec} */ ({ part, t: clockS, hold, until: hold ? clockS + holdFor : null, held: hold ? new Set() : null, inPlace: swing || inPlaceOfAttack(v, part), ...(swing ? { swing: true } : null) });
+    const dup = clockS - (eskillSeen.get(k) ?? -9) < 1;
+    // (2026-11-27) the same cast told again without its times (the model's skill clip starting, after its 'enemySkill'): the
+    // cast's record stays, with its effects still to come
+    if (dup && cur && cur.part === part && !hold && spell == null && len == null) { cur.t = clockS; return true; }
+    const endT = hold ? holdFor : len;
+    const rec = /** @type {ESkillRec} */ ({ part, t: clockS, hold, until: hold ? clockS + holdFor : null, held: hold ? new Set() : null, inPlace: swing || inPlaceOfAttack(v, part),
+      castEnd: endT != null && endT > 0 ? clockS + endT : null, ...(swing ? { swing: true } : null) });
     v._fxESkill = rec;
-    if (clockS - (eskillSeen.get(k) ?? -9) < 1) return true;
+    if (dup) return true;
     eskillSeen.set(k, clockS);
-    if (hold) {
-      // 2026-10-15: a held skill (the sim's fx 'enemySkill' `hold` until its 'enemySkillEnd' — 子代's 摄食): its loop cast
-      // effects (opt `o` 0, to ON_CAST_END) last until that end, cut at ESKILL_HOLD_CAP s [추정: a lost end]; (2026-11-14) a
-      // channel of known length (`holdFor`: its `dur`, content/enemies.js chanView) to that length. (2026-11-26) Each at its
-      // own events (opt `s` / `e`): ON_ATTACK_FINISH (echanFinishAt) starts or ends the ones bound to it — 腐败骑士's
-      // gather to it, its three start effects from it —; without that moment they keep the cast's start and end
-      const t0 = clockS, af = echanFinishAt(v, key, holdFor);
-      const at = (/** @type {string} */ n, /** @type {'s' | 'e'} */ w) => af != null && part.opt?.[n]?.[w] === CAST_EVENT.ATTACK_FINISH;
-      const playHeld = (/** @type {string[]} */ base) => {
-        const names = edirs(v, part, base), loops = names.filter((n) => part.opt?.[n]?.o === 0);
-        eplay(v, names.filter((n) => !loops.includes(n)), { tag: 'cast' });
-        const toEnd = loops.filter((n) => !at(n, 'e')), toAf = loops.filter((n) => at(n, 'e'));
-        if (toEnd.length) eplay(v, toEnd, { buff: true, tag: 'eskill', until: t0 + holdFor });
-        if (toAf.length) eplay(v, toAf, { buff: true, tag: 'eskill', until: t0 + /** @type {number} */ (af) });
-      };
-      const later = (part.cast || []).filter((n) => at(n, 's'));
-      playHeld((part.cast || []).filter((n) => !later.includes(n)));
-      // its end ('enemySkillEnd': hold off), the enemy's death or a new cast before that moment play none of them
-      if (later.length) castsDelayed.push({ t: t0 + /** @type {number} */ (af), run: () => { if (v._fxESkill === rec && rec.hold && v.alive !== false && eOn(v)) playHeld(later); } });
-    } else {
-      // (2026-11-12) the strike's own cast effects wait for the strike when the sim signals it (SPELL_BLASTS)
-      const atBlast = !!SPELL_BLASTS[v.info?.defId]?.[key];
-      const names = atBlast ? (part.cast || []).filter((n) => part.opt?.[n]?.s !== CAST_EVENT.SPELL_ON) : part.cast;
-      eplay(v, edirs(v, part, names), { tag: 'cast' });
+    // Each cast effect at its own events (opt `s` / `e`): (2026-11-26) ON_ATTACK_FINISH (echanFinishAt) starts or ends the
+    // ones bound to it — 腐败骑士's gather to it, its three start effects from it —; (2026-11-27) ON_SPELL_ON the ones of the
+    // spell (`spell`: '自在''s ShieldBurst enemy_xi_skill_02_hit 14.7 s into its 15 s, 乌顶巨角卢鲁's start loop from its
+    // spell to the cast's end, 扎罗's FearCage), ON_CAST_END the ones of the cast's end (`endT`: 卢西恩's blink start, after
+    // the blink). Without a moment's time they keep the cast's start and end.
+    const t0 = clockS, af = hold ? echanFinishAt(v, key, holdFor) : null;
+    const evAt = (/** @type {unknown} */ ev) => ev === CAST_EVENT.ATTACK_FINISH ? af
+      : ev === CAST_EVENT.SPELL_ON ? (spell != null && spell > 0 && (endT == null || spell <= endT) ? spell : null)
+        : ev === CAST_EVENT.CAST_END ? (endT != null && endT > 0 ? endT : null) : null;
+    // a held cast's loops (opt `o` 0) last to their end event, else to the channel's end (ESKILL_HOLD_CAP s at most
+    // [추정: a lost end]) — 子代's 摄食 (2026-10-15), a channel of known length (`holdFor`, 2026-11-14)
+    const playNow = (/** @type {string[]} */ base) => {
+      const names = edirs(v, part, base);
+      if (!hold) { eplay(v, names, { tag: 'cast' }); return; }
+      const loops = names.filter((n) => part.opt?.[n]?.o === 0);
+      eplay(v, names.filter((n) => !loops.includes(n)), { tag: 'cast' });
+      /** @type {Map<number, string[]>} */
+      const byEnd = new Map();
+      for (const n of loops) { const e = evAt(part.opt?.[n]?.e) ?? holdFor; byEnd.set(e, [...(byEnd.get(e) || []), n]); }
+      for (const [e, ns] of byEnd) eplay(v, ns, { buff: true, tag: 'eskill', until: t0 + e });
+    };
+    // (2026-11-12) the strike's own cast effects wait for the strike when the sim signals it (SPELL_BLASTS)
+    const atBlast = !hold && !!SPELL_BLASTS[v.info?.defId]?.[key];
+    const names0 = atBlast ? (part.cast || []).filter((n) => part.opt?.[n]?.s !== CAST_EVENT.SPELL_ON) : (part.cast || []);
+    /** @type {Map<number, string[]>} */
+    const later = new Map();
+    /** @type {string[]} */
+    const now = [];
+    /** @type {string[]} */
+    const atEnd = [];
+    for (const n of names0) {
+      const s = part.opt?.[n]?.s, t = s == null || s === CAST_EVENT.CAST_START ? null : evAt(s);
+      if (!(t != null && t > 0)) now.push(n);
+      else if (s === CAST_EVENT.CAST_END) atEnd.push(n);
+      else later.set(t, [...(later.get(t) || []), n]);
+    }
+    playNow(now);
+    // its end ('enemySkillEnd': hold off), the enemy's death, a new cast or — a cast that is no channel — a stun, freeze or
+    // sleep (rec.cut, stepEnemies: the sim cuts the cast and its spell never comes) before that moment play none of them
+    for (const [t, base] of later) {
+      if (!hold && (rec.due == null || t0 + t > rec.due)) rec.due = t0 + t;
+      castsDelayed.push({ t: t0 + t, run: () => { if (v._fxESkill === rec && (hold ? rec.hold : !rec.cut) && v.alive !== false && eOn(v)) playNow(base); } });
+    }
+    // the cast's end comes cut or not (ON_CAST_END: a held cast's 'enemySkillEnd' plays them, above)
+    if (atEnd.length) {
+      rec.endDue = atEnd;
+      castsDelayed.push({ t: t0 + /** @type {number} */ (endT), run: () => { if (v._fxESkill === rec && rec.endDue === atEnd && v.alive !== false && eOn(v)) { rec.endDue = null; playNow(atEnd); } } });
     }
     const own = [...(part.buff || []), ...(part.attach || [])];
     if (own.length) eplay(v, own, loop ? { buff: true, tag: 'eskill', until: clockS + cap } : { tag: 'cast' });
@@ -8791,6 +8833,10 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
       if ((v?.info?.side !== 'enemy' && !v?.info?.walks) || v.alive === false || !ebindOf(v)) continue;
       const cams = !v.remove && eOn(v) ? /** @type {ERow} */ (ebindOf(v)).camera : null;
       if (cams) for (const n of cams) camWant.add(n);
+      // 2026-11-27: a skill cast that is no channel cut before its spell (a stun, freeze or sleep — the sim's cutEnemySwing;
+      // a held one's cut is its 'enemySkillEnd'): its spell's cast effects never come (eskillFx)
+      const sk = /** @type {ESkillRec | undefined} */ (v._fxESkill);
+      if (sk && sk.due != null && !sk.cut && clockS < sk.due && ((/** @type {number} */ (v.flags) | 0) & ESKILL_CUT_FLAGS)) sk.cut = true;
       if (v._fxEMode === undefined) { v._fxEMode = emodeOf(v); v._fxEClip = v.actor?.current; v._fxEForm = v.form ?? null; v._fxRebSeen = v.form === 'reborn'; continue; } // on the field before this layer
       // 2026-10-23: a rebirth starting — the 重生 form coming on (a leader's reborn()) — plays its RebornTalent `_effects`;
       // 2026-10-31: and the ability that handles it starts (ON_CAST_START) / ends with the rebirth (ON_CAST_END)
@@ -9810,7 +9856,9 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
               }
               // (2026-11-26) the cast's other fx ('explode' of 腐败骑士's hammer …) are no new cast (`start`)
               const start = e[1] === 'enemySkill';
-              if (eskillFx(v, /** @type {string} */ (k), { target: tv, targets: tvs, hold: held, holdFor: chan || ESKILL_HOLD_CAP, start, swing: start && !!o.swing }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
+              // (2026-11-27) and when its spell and its end come (content/enemies.js castView): the cast effects of those moments
+              const spell = start && Number(o.spell) > 0 ? Number(o.spell) : null, len = start && Number(o.len) > 0 ? Number(o.len) : null;
+              if (eskillFx(v, /** @type {string} */ (k), { target: tv, targets: tvs, hold: held, holdFor: chan || ESKILL_HOLD_CAP, start, swing: start && !!o.swing, spell, len }) && STAND_IN.has(fxSpec(e[1], o).a)) ownFx.add(e);
               return;
             }
           }

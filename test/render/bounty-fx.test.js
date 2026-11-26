@@ -122,7 +122,12 @@ test('破城者: SkyProjectile casts its skill effect; its missiles draw no plai
     seen.length = 0;
     L.onEvent(cast, views);
     tick(L);
-    assert.deepEqual(spawned(seen), [`enemy_uareap_skill_start_01>${e.id}`], 'the skill\'s cast effect');
+    // (2026-11-27) its cast effect is bound to ON_SPELL_ON: at the sequence's spell (the 'enemySkill' `spell`, 0.9 s), not as
+    // the cast starts (docs/rules/fx.md 「적 범위 공격의 경고 칸」 주문·시전 끝)
+    assert.ok(Math.abs(cast[4].spell - 0.9) < 1e-6, `the spell 0.9 s in: two fixed updates, then F_Skill's event (${cast[4].spell})`);
+    assert.deepEqual(spawned(seen), [], 'no cast effect as the cast starts');
+    for (let k = 0; k < 18; k++) tick(L);
+    assert.deepEqual(spawned(seen), [`enemy_uareap_skill_start_01>${e.id}`], 'the skill\'s cast effect at its spell');
     L.onEvent(missile, views);
     tick(L);
     assert.deepEqual(spawned(seen), [], 'no plain attack effect for a missile');

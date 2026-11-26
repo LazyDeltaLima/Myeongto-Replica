@@ -405,7 +405,7 @@ function castSkill(b, e, a, k = null) {
   // CrossAttack, whose bolt leaves at the spell: the view would fly a target's trail from the cast's start)
   const s = a.name ? e.mem.ab.sk[a.name] : null;
   const ch = chanCast(s && s.cast);
-  const p = a.name ? b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: a.name, n: a.casts, ...(ch ? chanView(e, ch, s.bb) : null) }) : null;
+  const p = a.name ? b.fx('enemySkill', { x: e.x, y: e.y, id: e.id, ability: a.name, n: a.casts, ...(ch ? chanView(e, ch, s.bb) : null), ...(s ? castView(e, s, !ch) : null) }) : null;
   if (ch && k) { k.chan = true; k.hold = !!ch.chan.wait; }
   // `atStrike`: its effect waits for the frame its ability waits for (castStrikeAt) — nothing when the cast is cut, the enemy
   // gone or another cast begun before it. As a function it is that effect, and `fire` the cast's start (what lasts while
@@ -475,6 +475,21 @@ function chanView(e, ch, bb) {
   if (ch.chan.wait) return { hold: 1 };
   const dur = castLength(e, ch, bb);
   return dur > 0 ? { dur: Math.round(dur * 1000) / 1000 } : null;
+}
+
+/**
+ * When a skill's cast effects bound to its spell and to its end come (2026-11-27, docs/rules/fx.md 「적 범위 공격의 경고 칸」
+ * 「시전 이펙트의 때」): `spell` = the frame the ability waits for before its spell (castStrikeAt — the client raises
+ * ON_SPELL_ON there), `len` = how long a cast that is no channel lasts (castLength — ON_CAST_END; a channel's is its `dur`),
+ * s from the cast's start, each when known and > 0 (a parallel group's, a sequence's after a projectile: none). The view
+ * plays the effects of those two moments then (render/fxgame.js eskillFx), not as the cast starts.
+ * @param {Unit} e @param {AbSkill} s @param {boolean} plain whether the cast is no three-part channel
+ */
+function castView(e, s, plain) {
+  if (!s.cast) return null;
+  const sp = castStrikeAt(e, s.cast, s.bb), ln = plain ? castLength(e, s.cast, s.bb) : 0;
+  const r3 = (/** @type {number} */ x) => Math.round(x * 1000) / 1000;
+  return { ...(sp != null && sp > 1e-9 ? { spell: r3(sp) } : null), ...(ln > 1e-9 ? { len: r3(ln) } : null) };
 }
 
 /**
