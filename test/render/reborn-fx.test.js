@@ -141,6 +141,16 @@ test('a 重生造物 summoned on a knock-out: its own birth effect on it, no sta
     const plain = ['fx', 'summon', 0, 0, { id: e.id, key: 'enemy_none', n: 1 }];
     L.onEvent(plain, views);
     assert.equal(L.ownsFx(plain), false, 'a summoned enemy with no birth effect: the stand-in');
+    // the summon comes `delay` (1 s) after the knock-out: the summoner's view is normally still lying there (its Die clip),
+    // but one gone already (a field just entered) must not bring the stand-in back over the child's own birth effect
+    assert.ok(summon[4].id === e.id && evs.indexOf(summon) > evs.findIndex((x) => x[0] === 'die' && x[1] === e.id), 'it comes after the knock-out, by the summoner');
+    const late = ['fx', 'summon', summon[2], summon[3], { ...summon[4] }];
+    const noParent = new Map([[child.id, viewOf(child)]]);
+    L.onEvent(late, noParent);
+    assert.equal(L.ownsFx(late), true, 'its view gone: still no stand-in puff (esummonBorn reads the child\'s own birth effect, docs/rules/fx.md 「규정 살카즈 후예 무리」)');
+    const latePlain = ['fx', 'summon', 0, 0, { id: e.id, key: 'enemy_none', n: 1 }];
+    L.onEvent(latePlain, noParent);
+    assert.equal(L.ownsFx(latePlain), false, 'its view gone, a child with no birth effect: the stand-in');
   } finally { globalThis.fetch = fetch0; }
 });
 

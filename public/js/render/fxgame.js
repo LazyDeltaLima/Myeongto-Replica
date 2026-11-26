@@ -6828,16 +6828,21 @@ export function createFxLayer({ host, above, quality, load = () => 0, under = ()
   /**
    * Whether the enemy `o.key` an enemy (`o.id`) summons has its own extracted birth effect (enemy-modes.json `start`, or its
    * born_effect buff's `born`); and a split on death (the summoner's skill part with `summon`: deathrattle_sum[walk_only])
-   * plays its effects now — 2026-11-11.
+   * plays its effects now — 2026-11-11. A summon that comes after its parent fell (the sim's delayed death summons:
+   * enemy_dead_spawn's Range(0, 0.7) s, 子裔's `delay` 1 s, 术师快艇's 0.8 s, the split's 0.2 s) finds the parent's view
+   * still lying there (its Die clip, 0.733–1.333 s, and the fade after it run at the same rate); one whose view is gone
+   * all the same (a field just entered) still leaves the stand-in out by the child's own birth effect — only the split's
+   * effects need the parent's binding (2026-11-26, docs/rules/fx.md 「규정 살카즈 후예 무리」).
    * @param {Ev} e
    * @param {Views} views
    */
   function esummonBorn(e, views) {
     const o = /** @type {FxRec} */ (e[4]), parent = o.id != null ? views.get(o.id) : null;
-    if (!parent?.info || parent.info.side !== 'enemy' || !eOn(parent)) return false;
-    const split = esplitFx(e, parent, views);
     const c = emodes?.[/** @type {string} */ (o.key)];
-    return split || (typeof c?.start === 'string' && !!efx(c.start)) || (Array.isArray(c?.born) && c.born.some(efx));
+    const born = () => (typeof c?.start === 'string' && !!efx(c.start)) || (Array.isArray(c?.born) && c.born.some(efx));
+    if (!parent) return !!(c && index && !failed && q() !== 'low') && born();
+    if (!parent.info || parent.info.side !== 'enemy' || !eOn(parent)) return false;
+    return esplitFx(e, parent, views) || born();
   }
   /**
    * 2026-11-11 (docs/rules/fx.md 「규정 재생 무리」): 变异沙地兽 / 变异岩蛛 / 变异巨岩蛛 splitting where they fell — the sim's fx
