@@ -963,8 +963,9 @@ export class GameData {
   /**
    * Bosses weights for the boss round / hidden round, the custom leader bans left out (one of the group stays). The
    * leaders a custom match borrows from other seasons (bosses.json `borrowed`, shared/seasonBorrow.js: `bosses.extra`)
-   * join their group after the own ones, at the group's largest own weight — a mode without the group (no 隐秘核心) draws
-   * none of them [ASSUMED·자료 없음: the official game never mixed two seasons; the borrowed battlefields' rule].
+   * join their group after the own ones, at the mean of the group's own weights (unrounded: weightedPick takes any
+   * number) — a mode without the group (no 隐秘核心) draws none of them [ASSUMED·자료 없음: the official game never mixed
+   * two seasons; the mean is a maintainer decision 2026-11-26].
    * @returns {[string, number][]}
    */
   bossWeights(hidden = false) {
@@ -973,8 +974,8 @@ export class GameData {
     const all = w && typeof w === 'object' ? Object.entries(w).filter(([id, v]) => this.boss(id) && Number(v) > 0).map(([id, v]) => [id, Number(v)]) : [];
     const lent = this._lentBosses().filter((b) => !!b.hidden === hidden && this.wave(this.borrowedTemplate(b)));
     if (all.length && lent.length) {
-      const top = Math.max(...all.map(([, v]) => v));
-      for (const b of lent) if (!all.some(([id]) => id === b.bossId)) all.push([b.bossId, top]);
+      const mean = all.reduce((t, [, v]) => t + v, 0) / all.length;
+      for (const b of lent) if (!all.some(([id]) => id === b.bossId)) all.push([b.bossId, mean]);
     }
     return keepUnbanned(all, ([id]) => id, this.custom?.bosses?.ban);
   }

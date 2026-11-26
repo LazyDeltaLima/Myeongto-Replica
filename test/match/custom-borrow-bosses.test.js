@@ -59,12 +59,21 @@ test('withBorrowed: the leader, its season\'s wave templates and enemies; an own
   assert.deepEqual(lent2, ['boss_5']);
 });
 
-test('GameData: a borrowed leader joins its group at the group\'s top weight; its template in the round config; nothing moves without one', { skip }, () => {
+test('GameData: a borrowed leader joins its group at the mean of the group\'s own weights; its template in the round config; nothing moves without one', { skip }, () => {
   const c = sanitizeCustom({ bosses: { extra: ['boss_11', 'boss_14'] } });
   const gd = new GameData(borrowedData(DATA, ACT2_ID, c), 'mode_multi_hard', c);
   const off = new GameData(DATA, 'mode_multi_hard', sanitizeCustom({}));
-  assert.deepEqual(gd.bossWeights(false), [...off.bossWeights(false), ['boss_11', 10]]);
-  assert.deepEqual(gd.bossWeights(true), [...off.bossWeights(true), ['boss_14', 50]]);
+  // 盟约 下半 co-op hard: 最终攻势 6·6·6·5·10·5·5, 隐秘核心 50·40·40 (activity_table bossInfoDict) — the mean, unrounded
+  // (docs/rules/ui.md 「규칙 모드 — 커스텀」 「다른 시즌 리더 적」, maintainer decision 2026-11-26)
+  const mean = (/** @type {[string, number][]} */ w) => w.reduce((t, [, v]) => t + v, 0) / w.length;
+  assert.equal(mean(off.bossWeights(false)), 43 / 7);
+  assert.equal(mean(off.bossWeights(true)), 130 / 3);
+  assert.deepEqual(gd.bossWeights(false), [...off.bossWeights(false), ['boss_11', 43 / 7]]);
+  assert.deepEqual(gd.bossWeights(true), [...off.bossWeights(true), ['boss_14', 130 / 3]]);
+  // two borrowed leaders of one group both take the own mean (a borrowed one does not count toward it)
+  const c2 = sanitizeCustom({ bosses: { extra: ['boss_11', 'boss_12'] } });
+  const gd2 = new GameData(borrowedData(DATA, ACT2_ID, c2), 'mode_multi_hard', c2);
+  assert.deepEqual(gd2.bossWeights(false), [...off.bossWeights(false), ['boss_11', 43 / 7], ['boss_12', 43 / 7]]);
   assert.equal(gd.roundCfg(14).bossTemplates.boss_11, 'act3autochess_h07_08');
   assert.equal(gd.roundCfg(15).bossTemplates.boss_14, 'act3autochess_h08_04');
   assert.equal(gd.roundCfg(14).bossTemplates.boss_14, undefined, 'a hidden leader only in the 隐秘核心 round');
