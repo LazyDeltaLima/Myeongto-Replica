@@ -80,7 +80,7 @@ export function leftText(msg) {
   return text ? t(text) : null;
 }
 
-const setQueue = (/** @type {Record<string, any> | null} */ queue) => store.patch('ui', { queue });
+const setQueue = (/** @type {Record<string, unknown> | null} */ queue) => store.patch('ui', { queue });
 
 /**
  * The sound of a queue message (sfx.ui key), from the official matching view (client AutoChessMatchingView: a SUCCESS
@@ -92,7 +92,7 @@ const setQueue = (/** @type {Record<string, any> | null} */ queue) => store.patc
  * - matchCancel: the player's own cancel or decline [ASSUMED: the client data has the MATCH_CANCEL bank, but no client
  *   code plays it];
  * - null: nothing (a queue update, or a message for a page that was not queued).
- * @param {'room.queueState'|'room.matchFound'} kind @param {any} prev ui.queue before the message @param {any} msg
+ * @param {'room.queueState'|'room.matchFound'} kind @param {{ found?: unknown } | null | undefined} prev ui.queue before the message @param {{ queued?: boolean, reason?: string } | null | undefined} msg
  * @returns {'matchSucceed'|'matchFail'|'matchCancel'|null}
  */
 export function queueCue(kind, prev, msg) {
@@ -128,7 +128,7 @@ const timerCue = () => audio.sfx('timer');
 
 /** Wire the queue messages into the store (main.js, once). @param {{ net?: { on: Function } }} [deps] */
 export function installMatchQueue({ net: n = net } = {}) {
-  n.on('room.queueState', (/** @type {Record<string, any>} */ msg) => {
+  n.on('room.queueState', (/** @type {Record<string, any>} */ msg) => { // any: a server message, read field by field
     const prev = store.get().ui.queue;
     cue(queueCue('room.queueState', prev, msg));
     if (!msg.queued) {
@@ -145,7 +145,7 @@ export function installMatchQueue({ net: n = net } = {}) {
     setQueue({ difficulty: msg.difficulty, ruleset: msg.ruleset ?? null, size: seatsOf(msg.size), quick: msg.quick === true, season: seasonOf(msg.season),
       anySeason: msg.anySeason === true, count: msg.count ?? 1, since: Date.now() - (msg.waitedMs ?? 0), found: null });
   });
-  n.on('room.matchFound', (/** @type {Record<string, any>} */ msg) => {
+  n.on('room.matchFound', (/** @type {Record<string, any>} */ msg) => { // any: a server message, read field by field
     const prev = store.get().ui.queue;
     cue(queueCue('room.matchFound', prev, msg));
     if (!prev?.found) flashTitle(msg.vote ? t('提前开始投票') : t('匹配成功'));
@@ -186,7 +186,7 @@ export function installMatchQueue({ net: n = net } = {}) {
  * public rooms are candidates — the list's drop-down on 所有赛季, ui/publicRooms.js queueTarget).
  * @param {string} difficulty @param {string | null | undefined} ruleset @param {number} [size] @param {string | null} [season]
  * @param {boolean} [anySeason]
- * @returns {Promise<any>}
+ * @returns {Promise<unknown>}
  */
 export const joinQueue = (difficulty, ruleset, size = MAX_SEATS, season = null, anySeason = false) =>
   net.request('room.queue', { difficulty, ...(ruleset ? { ruleset } : {}), ...(size !== MAX_SEATS ? { size } : {}), ...(season ? seasonFields(season) : {}),
@@ -194,15 +194,15 @@ export const joinQueue = (difficulty, ruleset, size = MAX_SEATS, season = null, 
 
 /**
  * room.queue for 快速匹配: the difficulty (and season, anySeason as joinQueue) alone.
- * @param {string} difficulty @param {string | null} [season] @param {boolean} [anySeason] @returns {Promise<any>}
+ * @param {string} difficulty @param {string | null} [season] @param {boolean} [anySeason] @returns {Promise<unknown>}
  */
 export const joinQuickQueue = (difficulty, season = null, anySeason = false) =>
   net.request('room.queue', { difficulty, quick: true, ...(season ? seasonFields(season) : {}), ...(anySeason ? { anySeason: true } : {}) });
 
-/** room.queueVote: propose 「바로 시작」 in the 8-player queue the player waits in (header). @returns {Promise<any>} */
+/** room.queueVote: propose 「바로 시작」 in the 8-player queue the player waits in (header). @returns {Promise<unknown>} */
 export const proposeStart = () => net.request('room.queueVote', {});
 
-/** Whether a queue offers 「바로 시작」: an 8-player queue with LARGE_MIN_PLAYERS or more waiting, no group pending. @param {any} queue */
+/** Whether a queue offers 「바로 시작」: an 8-player queue with LARGE_MIN_PLAYERS or more waiting, no group pending. @param {{ found?: unknown, size?: unknown, count?: number } | null | undefined} queue */
 export const canProposeStart = (queue) => !!queue && !queue.found && seatsOf(queue.size) > MAX_SEATS && (queue.count ?? 0) >= LARGE_MIN_PLAYERS;
 
 /** How long a queue waits before the dialog offers 以公开联合等待 (header; maintainer decision 2026-11-20: a minute). */
@@ -230,10 +230,10 @@ export function customFound(custom, difficulty, size, season) {
   const mode = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor('coop', difficulty), cfg) : null;
   const rounds = Number.isInteger(mode?.lastRound) ? mode.lastRound : null;
   const bans = officialBans(cfg, difficulty, size);
-  // stages and 特训敌人 types: the room's season first, then whichever public season lends it (data.lendable)
+  // stages, 特训敌人 types and leaders: the room's season first, then whichever public season lends it (data.lendable)
   const own = { stage: (/** @type {string} */ id) => st.lookup('stages', id), type: (/** @type {string} */ id) => st.get('factions')?.types?.[id] };
-  /** @type {Record<string, (id: string) => any>} */
-  const lookup = { bond: (id) => st.lookup('bonds', id), boss: (id) => st.lookup('bosses', id),
+  /** @type {Record<string, (id: string) => { name?: string, hidden?: boolean } | null | undefined>} */
+  const lookup = { bond: (id) => st.lookup('bonds', id), boss: (id) => st.lookup('bosses', id) ?? data.lendable('bosses', id),
     stage: (id) => own.stage(id) ?? data.lendable('stages', id), type: (id) => own.type(id) ?? data.lendable('types', id) };
   const lines = customSummary(custom, { bans, rounds, name: (kind, id) => lookup[kind](id)?.name || id, hidden: (id) => !!lookup.boss(id)?.hidden });
   return { n: customDiffs(custom, { bans, rounds }).length, lines: lines.map((l) => l.text), items: lines };
@@ -267,7 +267,7 @@ export function useCustomNames(season) {
 /**
  * The queue dialog (rendered by the lobby and room screens while ui.queue is set): the waiting dialog for a player
  * queued alone, the confirmation for everyone once a group formed (a queued room's waiting state is in its room bar).
- * @param {{ onPublic?: ((queue: any) => unknown) | null, inline?: boolean }} props
+ * @param {{ onPublic?: ((queue: Record<string, unknown>) => unknown) | null, inline?: boolean }} props
  */
 export function MatchQueueDialog({ onPublic = null, inline = false }) {
   const queue = useStore((s) => s.ui.queue);
@@ -358,7 +358,7 @@ export function MatchQueueDialog({ onPublic = null, inline = false }) {
  * 所有赛季 or the queue's season, its ruleset or 快速匹配, the difficulty, the size), and in the start button's box the
  * clock, 正在寻找博士 with the count, and 取消匹配. After the minute the box holds 以公开联合等待 (`onPublic`) with 取消匹配
  * as its icon alone; an 8-player queue's 提议提前开始 (canProposeStart) takes that place first.
- * @param {{ onPublic?: ((queue: any) => unknown) | null }} props
+ * @param {{ onPublic?: ((queue: Record<string, unknown>) => unknown) | null }} props
  */
 export function QueueWait({ onPublic = null }) {
   const queue = useStore((s) => s.ui.queue);
@@ -402,7 +402,7 @@ export function QueueWait({ onPublic = null }) {
  * capsule and seats, as the public room list draws them (ui/modeCapsule.js); the host starts the match. The capsule
  * always has the room's season part (maintainer decision 2026-11-20: with 所有赛季 the season always matters), and a
  * room of another season than the page's says that accepting switches to it (ui/season.js installSeasons does).
- * @param {{ room: Record<string, any>, season: unknown, difficulty: string }} props
+ * @param {{ room: Record<string, any>, season: unknown, difficulty: string }} props (any: a server room record)
  */
 function FoundRoom({ room, season, difficulty }) {
   const size = seatsOf(room.size);

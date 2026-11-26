@@ -253,9 +253,40 @@ test('customFound: the public list names a 规程 room\'s bonds and leaders from
     assert.ok(!/preciShip|boss_16/.test(text), `names, not ids (the summary must read the room's season's files: docs/rules/ui.md 「공개방」 커스텀 요약의 이름):\n${text}`);
     assert.ok(text.includes(st.lookup('bonds', 'preciShip').name) && text.includes(st.lookup('bosses', 'boss_16').name), text);
     assert.ok(room.some((l) => l.key === 'bosses.ban.hidden'), 'boss_16 is banned as a 隐秘核心 leader');
-    // the page's own (默认赛季) files lack the 规程 leader: what the list showed before it read the room's season
-    const page = customFound(custom, 'NORMAL', 4).items.map((l) => l.text).join('\n');
-    assert.ok(page.includes('boss_16'), 'the default season has no boss_16 (else this test no longer tells the seasons apart)');
+    // the page's own (默认赛季) files lack the 规程 leader (it can only lend it by name, below)
+    assert.ok(!data.lookup('bosses', 'boss_16'), 'the default season has no boss_16 (else this test no longer tells the seasons apart)');
+  } finally {
+    globalThis.fetch = saved;
+  }
+});
+
+test('customFound: a leader borrowed from another season (bosses.extra) is named, not shown by its id', async () => {
+  const { existsSync } = await import('node:fs');
+  const { data } = await load('public/js/data.js');
+  const { customFound, CUSTOM_NAME_FILES } = await load('public/js/ui/matchQueue.js');
+  const fileOf = (url) => {
+    const m = /^\/data\/(?:s\/([^/]+)\/)?([a-z-]+\.json)$/.exec(url);
+    if (!m) return null;
+    const own = path.join(ROOT, m[1] ? `data/seasons/${m[1]}/${m[2]}` : `data/${m[2]}`);
+    const p = existsSync(own) ? own : path.join(ROOT, `data/${m[2]}`);
+    return existsSync(p) ? readFileSync(p, 'utf8') : null;
+  };
+  const saved = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const body = fileOf(String(url));
+    return body == null ? { ok: false, status: 404 } : { ok: true, status: 200, json: async () => JSON.parse(body) };
+  };
+  try {
+    await data.loadAll(...CUSTOM_NAME_FILES);
+    // boss_11 (假想敌：械) is only in 规程's bosses.json; the page's own (默认赛季) lacks it, and lends it from that season
+    const custom = { bosses: { extra: ['boss_11'] } };
+    const first = customFound(custom, 'NORMAL', 4);
+    assert.ok(first.n >= 1);
+    for (let i = 0; i < 50 && !data.lendable('bosses', 'boss_11'); i++) await new Promise((r) => setTimeout(r, 20));
+    const lent = data.lendable('bosses', 'boss_11');
+    assert.ok(lent?.name, 'the lending season has loaded');
+    const text = customFound(custom, 'NORMAL', 4).items.map((l) => l.text).join('\n');
+    assert.ok(!text.includes('boss_11') && text.includes(lent.name), `the borrowed leader by name (docs/rules/ui.md 「다른 시즌 리더 적」):\n${text}`);
   } finally {
     globalThis.fetch = saved;
   }
