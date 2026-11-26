@@ -48,11 +48,14 @@ const unblockable = () => ({ spawn(b, e) { b.addBuff(e, { key: 'ab:unblockable',
  * "受到伤害时开始奔跑，移动速度+N%" (鸭爵 `run.attack@move_speed`): the first damage it takes ⇒ move speed ×(1 + v) for good —
  * PRTS 鸭爵 天赋 "移动速度+400%" for v 4, PRTS 卫戍协议：盟约 下半/PRTS盟约记录 鸭爵 备注 "受伤后移动速度+300%" for the act2 v 3.
  */
-// (鸭爵's Run mode: its passive duckmi_speed_up carries an audioSignal — a sound-only kitHit as it starts)
+// (鸭爵's Run mode: its passive duckmi_speed_up carries an audioSignal — a sound-only kitHit as it starts). The switch is
+// enemy_duckmi_t's ON_TAKE_DAMAGE SwitchMode 1 (`_restartFSM`): mode Run, whose hooker plays Run for Move (render/units.js
+// FORMS 'Run')
 /** @param {number} v @returns {EnemyAbility} */
 const runWhenHit = (v) => ({ taken(c, b, e, a) {
   if (a.on || !(v > 0)) return;
   a.on = true;
+  if (mode(b, e, 'Run')) setForm(b, e, 'Run');
   b.addBuff(e, { key: 'ab:duckRun', persist: true, mods: { moveMul: 1 + v } });
   b.fx('kitHit', { x: e.x, y: e.y, id: e.id, k: 'duckmi:run' });
 } });

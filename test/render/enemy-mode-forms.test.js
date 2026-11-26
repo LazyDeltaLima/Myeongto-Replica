@@ -42,8 +42,8 @@ function store(id) {
   const names = Object.keys(entry.animations || {});
   return { picture: () => null, image: async () => null, spineEntry: () => entry, spine: { acquire: async () => ({ animations: names.map((name) => ({ name })) }), release() {} } };
 }
-async function view(id, x, y) {
-  const v = new UnitView(fakeViewCtx(fake.P, { assets: store(id), cam }), { id: 7, side: 'enemy', kind: 'enemy', defId: id, spine: id, tier: 1, x, y, maxHp: 1000, facing: -1 });
+async function view(id, x, y, spine = id) {
+  const v = new UnitView(fakeViewCtx(fake.P, { assets: store(id), cam }), { id: 7, side: 'enemy', kind: 'enemy', defId: id, spine, tier: 1, x, y, maxHp: 1000, facing: -1 });
   await new Promise((r) => setImmediate(r)); await new Promise((r) => setImmediate(r));
   assert.ok(v.actor, 'Spine model built');
   v.sync({ x, y, hp: 1000, maxHp: 1000, sp: 0, spMax: 0, flags: 0, anim: 0, vx: 0 }, 0);
@@ -296,3 +296,45 @@ for (const ID of ['enemy_1425_lrcmra', 'enemy_1425_lrcmra_2']) {
     assert.deepEqual([v.actor.roles.move.loop, v.actor.roles.die, v.actor.roles.attack.loop], ['Move_2', 'Die_2', 'Attack_2']);
   });
 }
+
+modelTest('鸭爵 hurt once: mode Run\'s Run walk for good (both of its records)', 'enemy_2001_duckmi', async () => {
+  for (const ID of ['enemy_2001_duckmi', 'enemy_2001_duckmi_2']) {
+    const h = arena(null);
+    h.step();
+    const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+    const v = await view(ID, e.x, e.y, E[ID].spine);   // the record's model, as render/app.js names it (神秘顾客: 鸭爵's)
+    play(h, e, v, 0.1);
+    assert.equal(v.actor.roles.move.loop, 'Move', `${ID}: its plain walk first`);
+    h.b.dealDamage(null, e, { amount: 1, type: 'true' });
+    const r = play(h, e, v, 0.2);
+    assert.deepEqual(r.forms.map((f) => f[0]), ['Run'], `${ID}: mode Run once hurt`);
+    assert.equal(e.mode, 'Run', `${ID}: the sim's mode`);
+    assert.deepEqual([v.actor.roles.move.loop, v.actor.roles.idle, v.actor.roles.die], ['Run', 'Idle', 'Die'], `${ID}: Move → Run only`);
+    h.b.dealDamage(null, e, { amount: 1, type: 'true' });
+    assert.deepEqual(play(h, e, v, 0.2).forms, [], `${ID}: hurt again, nothing more`);
+  }
+});
+
+modelTest('枯朽之种 killing itself as its attack ends: mode DieMode\'s Die_2; knocked out before it, Die', 'enemy_1269_nhfly', async () => {
+  const ID = 'enemy_1269_nhfly';
+  const h = arena([9, 5]);
+  h.step();
+  const e = h.spawn(ID, { pos: [9, 6], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  const r = play(h, e, v, 3);
+  assert.equal(e.alive, false, 'its attack ended it');
+  assert.deepEqual(r.forms.map((f) => f[0]), ['DieMode'], 'mode DieMode right before the kill');
+  assert.equal(e.mode, 'DieMode', 'the sim\'s mode');
+  v.die();
+  assert.equal(v.actor.current, 'Die_2', 'it falls on Die_2');
+  // killed by something else before its attack: its first mode's Die
+  const h2 = arena(null);
+  h2.step();
+  const e2 = h2.spawn(ID, { pos: [9, 6], routeIndex: 0, mods: { speedMul: 0 } });
+  const v2 = await view(ID, e2.x, e2.y);
+  play(h2, e2, v2, 0.1);
+  h2.b.kill(e2, null);
+  assert.deepEqual(play(h2, e2, v2, 0.1).forms, [], 'no switch');
+  v2.die();
+  assert.equal(v2.actor.current, 'Die');
+});

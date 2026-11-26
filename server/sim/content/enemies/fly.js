@@ -303,11 +303,14 @@ export const FLY_KITS = /** @type {Readonly<Record<string, EnemyKit>>} */ (Objec
   // 枯朽之种 · its 自毁 is its normal attack (PRTS 枯朽之种 天赋 「普通攻击结束时，若自身未持有晕眩/冻结/浮空/沉睡，强制击杀自身」·
   // 「攻击弹道飞行速度10」; data: attack radius 2, attackAnim 0.367 s, proj projectile_enemy_nhfly TRACE 10): the engine's ranged
   // attack (wind-up, enemy target order, the official projectile, physical damage on impact even with the seed gone), and
-  // the seed dies as the attack ends — nothing is left to target while the shot flies (upstream #611)
+  // the seed dies as the attack ends — nothing is left to target while the shot flies (upstream #611). enemy_nhfly_t
+  // [switch_to_die] first switches it to mode DieMode (SwitchMode 1), whose hooker plays Die_2 for Die (render/units.js
+  // FORMS 'DieMode'), then InstantKill — killed in its first mode it falls on Die
   enemy_1269_nhfly: () => [{
     attack(c, b, e) {
       const f = e.s.flags;
       if (!e.alive || f.stun || f.freeze || f.levitate || f.sleep) return;
+      if (mode(b, e, 'DieMode')) setForm(b, e, 'DieMode');
       b.kill(e, null);
     },
   }],

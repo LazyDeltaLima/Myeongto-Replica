@@ -771,8 +771,8 @@
         "enemy_9006_actoxi": [1,0,1,0,7459]
       },
       "hooks": [1,161,5100,1019,1019,2587,2553,611,92,148,32,30,0,10398,708,67,129,48,1,90,7,0,39],
-      "events": {"atk":1573,"bounty":2,"deploy":29,"die":100,"dmg":2552,"engage":12,"face":64,"fx":504,"heal":331,"layer":7,"leak":48,"skill":63,"spawn":146,"status":1045,"swing":1067,"tplfx":9},
-      "fx": {"blink":4,"camouflage":2,"dodge":39,"dp":6,"enemySkill":19,"explode":1,"garrison":7,"kitHit":401,"machRun":2,"parry":1,"revive":1,"shield":2,"shieldBreak":1,"summon":12,"telegraph":3,"undying":3},
+      "events": {"atk":1573,"bounty":2,"deploy":29,"die":100,"dmg":2552,"engage":12,"face":64,"fx":528,"heal":331,"layer":7,"leak":48,"skill":63,"spawn":146,"status":1045,"swing":1067,"tplfx":9},
+      "fx": {"blink":4,"camouflage":2,"dodge":39,"dp":6,"enemySkill":19,"explode":1,"garrison":7,"kitHit":401,"machRun":2,"parry":1,"phase":24,"revive":1,"shield":2,"shieldBreak":1,"summon":12,"telegraph":3,"undying":3},
       "snaps": "010911a1 6ba37766 e48a807f a2f09403 ba081e3d 93aa8160 83c74047 a3912aef 6944a771 6cc2b46a 622d0fde 75e3aa01 9b31c376 e8847550 dbab0b31 e1ba4a5e 04abbd6c"
     },
     "roster-012": {
@@ -1081,8 +1081,8 @@
         "enemy_9010_acpupp": [1,1,0,1666,65617]
       },
       "hooks": [1,140,5700,1099,1098,9034,9538,2140,119,126,113,107,90,34077,1314,85,118,1,1,143,8,21,23],
-      "events": {"atk":1538,"bounty":7,"castHit":41,"deploy":22,"die":125,"dmg":9142,"engage":11,"face":85,"fx":712,"heal":140,"layer":8,"leak":1,"skill":220,"spawn":133,"status":518,"swing":1178,"tplfx":820},
-      "fx": {"aoe":22,"burst":21,"charges":85,"dilemma":6,"displace":181,"dodge":23,"ember":1,"enemySkill":3,"firewall":3,"frostNova":65,"garrison":8,"kitHit":25,"link":4,"mysticStore":57,"revive":3,"shieldBreak":22,"stacks":111,"substitute":2,"summon":5,"swap":2,"telegraph":2,"veenBounce":46,"veenVolley":14,"zone":1},
+      "events": {"atk":1538,"bounty":7,"castHit":41,"deploy":22,"die":125,"dmg":9142,"engage":11,"face":85,"fx":713,"heal":140,"layer":8,"leak":1,"skill":220,"spawn":133,"status":518,"swing":1178,"tplfx":820},
+      "fx": {"aoe":22,"burst":21,"charges":85,"dilemma":6,"displace":181,"dodge":23,"ember":1,"enemySkill":3,"firewall":3,"frostNova":65,"garrison":8,"kitHit":25,"link":4,"mysticStore":57,"phase":1,"revive":3,"shieldBreak":22,"stacks":111,"substitute":2,"summon":5,"swap":2,"telegraph":2,"veenBounce":46,"veenVolley":14,"zone":1},
       "snaps": "4037332a 662e75a3 0fc05d32 fab30d25 668cbe6c 698d1e56 050ec3bd 5242dcf9 5a0c1ea8 57e45b61 b315e28c 37c083c8 71d39a9e 7eb6c952 a7d2abc1 0d749205 0d194e35 9a77c84f 6fad1fb4"
     },
     "roster-016": {
@@ -1167,8 +1167,8 @@
         "enemy_9011_acrefr": [1,1,0,0,28800]
       },
       "hooks": [1,138,5421,578,590,1395,2011,6968,114,123,50,58,0,32176,134,7,110,0,1,140,3,0,1],
-      "events": {"atk":669,"bounty":7,"deploy":25,"die":123,"dmg":1747,"engage":8,"face":177,"fx":257,"heal":371,"layer":3,"skill":117,"spawn":136,"status":366,"swing":525,"tplfx":3},
-      "fx": {"aoe":60,"buff":1,"crit":22,"displace":11,"dodge":1,"enemySkill":3,"expose":19,"garrison":3,"iceSpike":22,"kitHit":41,"parry":39,"phase":6,"revive":1,"shield":1,"spGift":8,"summon":13,"telegraph":1,"weightless":5},
+      "events": {"atk":669,"bounty":7,"deploy":25,"die":123,"dmg":1747,"engage":8,"face":177,"fx":259,"heal":371,"layer":3,"skill":117,"spawn":136,"status":366,"swing":525,"tplfx":3},
+      "fx": {"aoe":60,"buff":1,"crit":22,"displace":11,"dodge":1,"enemySkill":3,"expose":19,"garrison":3,"iceSpike":22,"kitHit":41,"parry":39,"phase":8,"revive":1,"shield":1,"spGift":8,"summon":13,"telegraph":1,"weightless":5},
       "snaps": "b543b94b ff772b25 5d28c777 90f30303 ea504a83 a0befd2d d2e37bc9 a61d0eeb d5bbd11e d6a01fc5 e3fc8155 d75b65ff e36bddd3 db4563a1 f32b33fb 6f8728db ed1a7d16 2d3a9caa"
     },
     "roster-017": {
@@ -2463,8 +2463,8 @@
         "enemy_9040_accrit": [1,1,0,1629,12672]
       },
       "hooks": [1,154,4200,769,769,929,1234,734,127,136,46,47,0,14045,7,54,121,3,1,136,3,9,0],
-      "events": {"atk":802,"bounty":4,"deploy":30,"die":133,"dmg":1147,"engage":11,"face":67,"fx":84,"heal":434,"layer":3,"leak":3,"skill":98,"spawn":141,"status":76,"swing":834,"tplfx":62},
-      "fx": {"blink":1,"bombard":10,"bombardShell":10,"burst":9,"dp":8,"enemySkill":7,"garrison":3,"kitHit":1,"parry":2,"revive":3,"shield":2,"shieldBreak":2,"summon":13,"undying":1,"volley":2,"wolfCount":1,"wolfShadow":4,"wolfShadowLost":5},
+      "events": {"atk":802,"bounty":4,"deploy":30,"die":133,"dmg":1147,"engage":11,"face":67,"fx":106,"heal":434,"layer":3,"leak":3,"skill":98,"spawn":141,"status":76,"swing":834,"tplfx":62},
+      "fx": {"blink":1,"bombard":10,"bombardShell":10,"burst":9,"dp":8,"enemySkill":7,"garrison":3,"kitHit":1,"parry":2,"phase":22,"revive":3,"shield":2,"shieldBreak":2,"summon":13,"undying":1,"volley":2,"wolfCount":1,"wolfShadow":4,"wolfShadowLost":5},
       "snaps": "c1fb8b85 c36b6159 a740bc92 e3ba512c c7e0a865 99015350 b6b7a979 ddffc400 0183b931 099d3738 db708dac 87c94229 bd46eee1 cf786c3b"
     },
     "roster-034": {
@@ -2887,8 +2887,8 @@
         "enemy_9011_acrefr": [12,12,0,12109,333543]
       },
       "hooks": [1,92,5615,771,771,1252,1667,11117,78,78,90,89,0,26308,342,56,78,0,1,85,3,0,15],
-      "events": {"atk":958,"bounty":4,"castHit":8,"deploy":14,"die":78,"dmg":1239,"engage":10,"face":152,"fx":117,"heal":35,"layer":3,"skill":179,"spawn":92,"status":659,"swing":815,"tplfx":3},
-      "fx": {"aoe":20,"bloodBattle":4,"bombard":4,"bombardShell":4,"buff":1,"crit":32,"dodge":15,"explode":6,"garrison":3,"kitHit":13,"phase":2,"shield":6,"summon":1,"telegraph":6},
+      "events": {"atk":958,"bounty":4,"castHit":8,"deploy":14,"die":78,"dmg":1239,"engage":10,"face":152,"fx":118,"heal":35,"layer":3,"skill":179,"spawn":92,"status":659,"swing":815,"tplfx":3},
+      "fx": {"aoe":20,"bloodBattle":4,"bombard":4,"bombardShell":4,"buff":1,"crit":32,"dodge":15,"explode":6,"garrison":3,"kitHit":13,"phase":3,"shield":6,"summon":1,"telegraph":6},
       "snaps": "22ed4dd0 48c104ab 935ced73 d8da11e0 5cf3f820 8a3cdf6f 62af6a15 40d8e54e be7dbd8d 5673c65c 28d8fff0 6483e72e 00e914d1 bbab40cd 41ed9952 8ce9555d 510d557f ddf477c7 7deb1e95"
     },
     "roster-041": {

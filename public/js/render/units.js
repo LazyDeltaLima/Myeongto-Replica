@@ -865,6 +865,10 @@ export const FORMS = Object.freeze({
   enemy_2004_balloon: Object.freeze({ Fly: Object.freeze({ change: null, roles: Object.freeze({ move: loop('Move_02'), die: 'Die_02' }) }) }),
   // 雪孩子 while 失衡 holds (leaders.js → form 'Unbalanced'): mode Unbalanced Die → Die_2
   enemy_10138_xdsnow: Object.freeze({ Unbalanced: Object.freeze({ change: null, roles: Object.freeze({ die: 'Die_2' }) }) }),
+  // 鸭爵 (and its 神秘顾客 form, the same model) once hurt (archetypes.js runWhenHit → form 'Run' for good): mode Run Move → Run
+  enemy_2001_duckmi: Object.freeze({ Run: Object.freeze({ change: null, roles: Object.freeze({ move: loop('Run') }) }) }),
+  // 枯朽之种 killing itself as its attack ends (fly.js → form 'DieMode' right before the kill): mode DieMode Die → Die_2
+  enemy_1269_nhfly: Object.freeze({ DieMode: Object.freeze({ change: null, roles: Object.freeze({ die: 'Die_2' }) }) }),
   // 简饲源石虫 below half HP (special.js → form 'Run' for good): its Skills/StartRun (the switch itself) plays Skill_Begin,
   // then mode Run Idle_B / Move_B / Die_B / Attack_B
   enemy_10001_trslim: Object.freeze({ Run: Object.freeze({ change: 'Skill_Begin', roles: clipSet('Idle_B', 'Move_B', 'Die_B', 'Attack_B') }) }),
