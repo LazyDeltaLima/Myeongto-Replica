@@ -855,6 +855,9 @@ export const FORMS = Object.freeze({
   enemy_2004_balloon: Object.freeze({ Fly: Object.freeze({ change: null, roles: Object.freeze({ move: loop('Move_02'), die: 'Die_02' }) }) }),
   // 雪孩子 while 失衡 holds (leaders.js → form 'Unbalanced'): mode Unbalanced Die → Die_2
   enemy_10138_xdsnow: Object.freeze({ Unbalanced: Object.freeze({ change: null, roles: Object.freeze({ die: 'Die_2' }) }) }),
+  // 吉兆飞鳞 grounded (special.js kitParrot → form 'Stun' until it floats again): mode Stun Die → Stun_Die (its idle, move and
+  // Default keys are excluded from the hooker: kept)
+  enemy_10045_parrot: Object.freeze({ Stun: Object.freeze({ change: null, roles: Object.freeze({ die: 'Stun_Die' }) }) }),
   // 鸭爵 (and its 神秘顾客 form, the same model) once hurt (archetypes.js runWhenHit → form 'Run' for good): mode Run Move → Run
   enemy_2001_duckmi: Object.freeze({ Run: Object.freeze({ change: null, roles: Object.freeze({ move: loop('Run') }) }) }),
   // 枯朽之种 killing itself as its attack ends (fly.js → form 'DieMode' right before the kill): mode DieMode Die → Die_2

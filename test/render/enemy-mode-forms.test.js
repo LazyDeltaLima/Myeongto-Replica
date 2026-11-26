@@ -338,3 +338,30 @@ modelTest('枯朽之种 killing itself as its attack ends: mode DieMode\'s Die_2
   v2.die();
   assert.equal(v2.actor.current, 'Die');
 });
+
+modelTest('吉兆飞鳞 grounded by a stun: mode Stun\'s Stun_Die while it lies there; floating again, its Die', 'enemy_10045_parrot', async () => {
+  const ID = 'enemy_10045_parrot';
+  const h = arena(null);
+  h.step();
+  const e = h.spawn(ID, { pos: [9, 5], routeIndex: 0, mods: { speedMul: 0 } });
+  const v = await view(ID, e.x, e.y);
+  play(h, e, v, 0.1);
+  h.b.applyStatus(e, 'stun', { duration: 0.5, source: null });
+  const r = play(h, e, v, 0.2);
+  assert.deepEqual(r.forms.map((f) => f[0]), ['Stun'], 'mode Stun as it lands');
+  assert.equal(e.mode, 'Stun', 'the sim\'s mode');
+  assert.equal(e.form, 'Stun', 'the snapshot\'s form (a view built later)');
+  assert.deepEqual([v.actor.roles.die, v.actor.roles.idle, v.actor.roles.move.loop], ['Stun_Die', 'Idle_A', 'Move_A'], 'Die → Stun_Die only');
+  // the mode's 8 s stun over: it floats again in its first mode
+  const back = play(h, e, v, 9);
+  assert.deepEqual(back.forms.map((f) => f[0]), [null], 'back to its first mode');
+  assert.equal(e.form, null);
+  assert.equal(v.actor.roles.die, 'Die_A', 'its first mode\'s Die');
+  // grounded again and killed there: Stun_Die
+  h.b.applyStatus(e, 'stun', { duration: 0.5, source: null });
+  play(h, e, v, 0.2);
+  h.b.kill(e, null);
+  play(h, e, v, 0.1);
+  v.die();
+  assert.equal(v.actor.current, 'Stun_Die', 'it falls on Stun_Die');
+});

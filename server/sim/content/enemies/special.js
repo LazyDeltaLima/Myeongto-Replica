@@ -176,7 +176,9 @@ function kitParrot(ab) {
       b.addBuff(e, { key: 'ab:parrotDown', flags: { unblockable: true }, persist: true });
       mode(b, e, 'Stun', false);   // parrot_a[fly] ON_BUFF_DISABLE SwitchMode 2 (no restart): no attack ability there
       if (down > 0) b.applyStatus(e, 'stun', { duration: down, source: null });
-      b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'grounded' });
+      // the model's mode Stun (its hooker: Die → Stun_Die; idle / move / Default excluded, so kept): render/units.js FORMS
+      e.form = 'Stun';
+      b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'grounded', form: 'Stun' });
     },
     tick(b, e, a) {
       if (a.chill && !e.s.flags.freeze) { a.chill = false; b.applyStatus(e, 'stun', { duration: PARROT_CHILL_STUN, source: null }); }
@@ -188,7 +190,8 @@ function kitParrot(ab) {
         b.removeBuff(e, 'ab:parrotRun');
         setFloat(b, e, true);
         mode(b, e, null);   // parrot_a[fly] ON_BUFF_ENABLE SwitchMode 0
-        b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'float' });
+        e.form = null;
+        b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'float', form: null });
       }
     },
   }];
