@@ -308,6 +308,7 @@ export class MatchClientCombat {
     this._clearFieldTimers(f);
     if (!f.result) f.result = syntheticResult(f.players, { bossBy: f.bossBy });
     f.progress.done = true;
+    this.fieldEnded(f, f.result); // 完美作战 when the player's own battle ends (settle.js)
     this.markPublic();
     this._maybeFieldsDone();
   }

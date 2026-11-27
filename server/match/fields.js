@@ -107,6 +107,8 @@ export class FieldRunner {
   constructor(m, fields, { onTick = null, onDone, emit = true }) {
     this.m = m;
     this.fields = fields;
+    /** the fields whose end the match has heard (_ended) */
+    this._endedSeen = new WeakSet();
     this.emit = emit !== false;
     for (const f of fields) f.live = !f.battle.finished;
     this.onTick = onTick;
@@ -180,13 +182,24 @@ export class FieldRunner {
         this.m.reportError(`field ${f.fieldId} step`, e);
         this._forceField(f, 'timeout');
       }
-      if (b.finished) { f.live = false; this.m.markPublic(); }
+      if (b.finished) { f.live = false; this.m.markPublic(); this._ended(f); }
       if (this.ticks % SNAP_EVERY === 0 || !f.live) this._emit(f);
     }
     if (this.onTick) {
       try { this.onTick(this); } catch (e) { this.m.reportError('field onTick', e); }
     }
-    for (const f of this.fields) if (f.live && f.battle.finished) { f.live = false; this.m.markPublic(); this._emit(f); }
+    for (const f of this.fields) if (f.live && f.battle.finished) { f.live = false; this.m.markPublic(); this._emit(f); this._ended(f); }
+  }
+
+  /**
+   * A field's battle is over: the match hears it once, with its result (Match.fieldEnded — 完美作战 when the player's
+   * own battle ends, server/match/match/settle.js).
+   * @param {RunnerField} f
+   */
+  _ended(f) {
+    if (this._endedSeen.has(f)) return;
+    this._endedSeen.add(f);
+    try { if (typeof this.m.fieldEnded === 'function') this.m.fieldEnded(f, this.resultOf(f)); } catch (e) { this.m.reportError(`field ${f.fieldId} ended`, e); }
   }
 
   /** @param {RunnerField} f @param {string} reason */
@@ -203,6 +216,7 @@ export class FieldRunner {
     }
     f.live = false;
     this.m.markPublic();
+    this._ended(f);
   }
 
   /** Force-end every live field (team LP 0, hard cap). @param {string} reason */

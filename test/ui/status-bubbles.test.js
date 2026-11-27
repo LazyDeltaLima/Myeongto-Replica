@@ -14,20 +14,32 @@ const quiet = { warn() {}, error() {}, info() {}, debug() {} };
 const ACT3 = hasGeneratedData() ? getData({ log: quiet, season: 'act3autochess' }) : null;
 const tickers = (h, type) => h.bc.filter((x) => x.t === 'm.ticker' && x.type === type);
 
-test('规程: a perfect round announces 完美作战 for its player, a departure names the player who left', { skip: !ACT3 }, () => {
-  const h = makeMatch({ mode: 'coop', modeId: 'mode_multi_normal', humans: 2, seed: 5, data: ACT3, season: 'act3autochess', fake: true }).start();
-  h.drive(() => h.m.phase === 'PREP' && h.m.round >= 2);
-  const perfect = tickers(h, 'PERFECT_BATTLE');
-  const streaks = [...h.m.players.values()].filter((p) => p.winStreak > 0).map((p) => p.playerId);
-  assert.ok(streaks.length > 0, 'a fake battle is a perfect round (the case under test ran)');
-  assert.deepEqual([...new Set(perfect.map((x) => x.playerId))].sort(), streaks.sort(), 'each perfect player has its line');
-  assert.ok(perfect.every((x) => x.id === 'comment_perfect_battle'), 'the table\'s broadcast');
-  h.m.onLeave('p_1');
-  const left = tickers(h, 'PLAYER_LEFT');
-  assert.equal(left.length, 1);
-  assert.equal(left[0].playerId, 'p_1', 'the departure line names its player (the strip leaves it out in 规程)');
-  h.m.dispose();
-});
+for (const clientCombat of [false, true]) {
+  test(`规程: 完美作战 comes when the player's own battle ends, before the settle (${clientCombat ? 'browser' : 'server'}-run fields); a departure names its player`, { skip: !ACT3 }, () => {
+    const h = makeMatch({ mode: 'coop', modeId: 'mode_multi_normal', humans: 2, seed: 5, data: ACT3, season: 'act3autochess', fake: true,
+      clientCombat, instant: !clientCombat }).start();
+    /** @type {{ playerId: string, phase: string, live: boolean }[]} */
+    const seen = [];
+    h.onBroadcast.push((msg) => {
+      if (msg.t !== 'm.ticker' || msg.type !== 'PERFECT_BATTLE') return;
+      const f = h.m.fields.find((x) => x.players.includes(msg.playerId));
+      seen.push({ playerId: msg.playerId, phase: h.m.phase, live: !!(f && f.live) });
+    });
+    if (clientCombat) h.autoHumans();
+    h.drive(() => h.m.phase === 'PREP' && h.m.round >= 2);
+    const streaks = [...h.m.players.values()].filter((p) => p.winStreak > 0).map((p) => p.playerId);
+    assert.ok(streaks.length > 0, 'a fake battle is a perfect round (the case under test ran)');
+    assert.deepEqual([...new Set(seen.map((x) => x.playerId))].sort(), streaks.sort(), 'each perfect player has its line');
+    assert.equal(seen.length, new Set(seen.map((x) => x.playerId)).size, 'once per player and round');
+    assert.ok(seen.every((x) => x.phase === 'COMBAT' && !x.live), `sent in COMBAT as the player's field ends, not at the settle: ${JSON.stringify(seen)}`);
+    assert.ok(tickers(h, 'PERFECT_BATTLE').every((x) => x.id === 'comment_perfect_battle'), 'the table\'s broadcast');
+    h.m.onLeave('p_1');
+    const left = tickers(h, 'PLAYER_LEFT');
+    assert.equal(left.length, 1);
+    assert.equal(left[0].playerId, 'p_1', 'the departure line names its player (the strip leaves it out in 规程)');
+    h.m.dispose();
+  });
+}
 
 test('盟约 has no 完美作战 broadcast: nothing is sent, and it shows no bubbles', () => {
   const h = makeMatch({ mode: 'coop', humans: 2, seed: 5, fake: true }).start();

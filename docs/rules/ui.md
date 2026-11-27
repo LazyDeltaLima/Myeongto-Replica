@@ -2709,10 +2709,11 @@ CN 11-01부터 들어온 전투 HUD 요소 넷(EN 10-14 클라에는 없음). �
 - **다섯 가지**: 완벽 작전(`PERFECT_BATTLE` → `player_status_perfect_battle_bubble`), 정예 기물(`GOLDEN_CHAR` → `_golden_char_bubble`: 합치기 화살표 셋이 모인 뒤 그 오퍼레이터 초상 — 선발·보충 대리는 결산·순위 창처럼 고른 오퍼레이터·대체 그림, `PlayerState.fieldedAs`), 상점 레벨(`SHOP_LEVEL` → `_shop_level_bubble`, 새 레벨 숫자 15 #6fe6ca), 탈락(우리 줄 `PLAYER_OUT` → `_dead_bubble`), 보스 타격(`BOSS_HIT` → `_boss_hit_bubble` / `autochess_system_emoji_damage_1|2|3`: ✗ 20 / 50 / 80 % — 넘은 단계의 값, 8인은 줄인 단계 값). 보스 타격은 단계를 넘은 **모든 플레이어**에게(사용자가 본 공식 영상: 팀원이 먼저 20 %를 넘으면 그 사람에게도 떴음).
 - **띠에서 뺌**: 그 다섯과 중도 퇴장 줄(`PLAYER_LEFT` — 나간 자리는 카드의 `mask_quit`이 말함). `CHAR_DAMAGE`·`CHAR_GIFT`·나머지 우리 줄은 띠에 남는다. 말풍선은 목록이 보일 때(플레이어 둘 이상 — 1인은 목록을 숨김)와 말풍선 그림이 있을 때만이고, 아니면 띠가 모든 줄을 그대로 보인다.
 - **크기·시간**: 말풍선 루트 112×100을 초상(80) 왼쪽 위 (69, −8)에(`player_status_item`·말풍선 layout, 1280×720), 안쪽 부품은 각 layout 상자, 시간은 말풍선 클립(알파 0.167초에 들어와 2.0초까지, 2.5초에 0; 얼굴 1.252 → 1, 정예 화살표 0.48초에 초상으로, 상점 아이콘 1.3 → 1, 탈락 눈 세 번 깜빡임·입 0.5초마다). 그림 `season/act3autochess/statusbubble`(`season_ui.py` `statusbubble`). 말풍선은 우리 목록의 HP·상태 칸 위를 2.5초 덮는다(공식 목록엔 그 칸이 없음).
-- **서버가 싣는 것**: 정예 줄에 `chess`와 `diy`/`standInFor`, 보스 타격 줄에 `step`·`pct`, 탈락·퇴장 줄에 `playerId`와 종류(`tickerText`의 `type`), 완벽 작전 줄(`settle.js`, 규정 표에만 있는 방송 — 맹약 판은 보내지 않음).
-- [추정·CN] 완벽 작전 방송을 보내는 때 — 셈하는 누수가 없는 판마다 그 플레이어에게(공식이 띄우는 코드는 CN 본문이라 못 읽음). 한 플레이어의 말풍선이 겹치면 차례로 2.5초씩, 같은 판의 새 보스 타격 단계가 차례를 기다리는 이전 단계를 대신하고 판이 바뀌면 남은 보스 타격 말풍선은 버림. 감정 표현 말풍선과 같은 자리에 겹치면 이 말풍선이 위.
+- **서버가 싣는 것**: 정예 줄에 `chess`와 `diy`/`standInFor`, 보스 타격 줄에 `step`·`pct`, 탈락·퇴장 줄에 `playerId`와 종류(`tickerText`의 `type`), 완벽 작전 줄(규정 표에만 있는 방송 — 맹약 판은 보내지 않음).
+- **완벽 작전은 매 판, 그 플레이어의 전투가 끝날 때**(관리자 2026-11-27, 공식 게임에서): 정산 때가 아니라 그 플레이어 필드의 결과가 나오는 순간 — 서버 전투는 `FieldRunner._ended`, 브라우저 전투는 `_fieldDone`이 `Match.fieldEnded`(`settle.js`)를 부른다. 셈하는 누수가 없을 때(정산의 완벽 연승과 같은 판정), 일반 라운드(`COMBAT`)만.
+- [추정·CN] 한 플레이어의 말풍선이 겹치면 차례로 2.5초씩, 같은 판의 새 보스 타격 단계가 차례를 기다리는 이전 단계를 대신하고 판이 바뀌면 남은 보스 타격 말풍선은 버림. 감정 표현 말풍선과 같은 자리에 겹치면 이 말풍선이 위.
 
-재발 방지: `test/ui/status-bubbles.test.js`(규정 실제 판 경로의 완벽 작전·탈락·퇴장 줄, 맹약은 없음, 차례), `test/match/bosshit-ticker.test.js`(단계·퍼센트), `test/match/standin-ownership.test.js`(정예 줄의 기물·대체).
+재발 방지: `test/ui/status-bubbles.test.js`(규정 실제 판 경로의 완벽 작전 — 서버·브라우저 전투 둘 다 그 필드가 끝날 때, 정산 전 —·탈락·퇴장 줄, 맹약은 없음, 차례), `test/match/bosshit-ticker.test.js`(단계·퍼센트), `test/match/standin-ownership.test.js`(정예 줄의 기물·대체).
 
 ## 규정 모드 — 규정 등급 1~20·고속 시뮬레이션, 해금 없음, 8인, 커스텀 (2026-11-12, 관리자 결정 2026-11-08·2026-11-11·2026-11-15·2026-11-16)
 

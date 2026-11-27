@@ -1,7 +1,8 @@
 // 规程's avatar bubbles (docs/rules/ui.md 「규정 아바타 말풍선」; maintainer decision 2026-11-27): in a season with the
 // avatarBubbles switch (shared/seasons.js) a player's news shows beside its avatar in the team list for 2.5 s, once,
 // instead of as a broadcast strip line — the official player_status_item's bubble_cont and its five bubbles:
-//   * 完美作战 (PERFECT_BATTLE → player_status_perfect_battle_bubble / autochess_system_emoji_perfect),
+//   * 完美作战 (PERFECT_BATTLE → player_status_perfect_battle_bubble / autochess_system_emoji_perfect) — every round,
+//     when the player's own battle ends (server Match.fieldEnded),
 //   * an elite (GOLDEN_CHAR → _golden_char_bubble / _operator_gold: three merge arrows close in, then the operator's
 //     avatar in its frame),
 //   * a 调度中心 level (SHOP_LEVEL → _shop_level_bubble / _shop_upgrade: the shop icon with the new level),

@@ -80,9 +80,6 @@ export class MatchSettle {
       if (r.perfect !== false && counted === 0) ps.stats.perfectRounds++;
       // 完美连胜 (规程's avatar badge, views.js winStreak): perfect rounds in a row, a round with a counted leak starts over
       ps.winStreak = r.perfect !== false && counted === 0 ? ps.winStreak + 1 : 0;
-      // 「{0}博士完美作战！」 (PERFECT_BATTLE: 规程's table has it, 盟约's not — tickerFor sends nothing then), shown in 规程 as the
-      // player's 完美作战 avatar bubble: every perfect round of each player [ASSUMED·CN: when the client announces it]
-      if (ps.winStreak > 0) this.tickerFor('PERFECT_BATTLE', [ps.name], { playerId: ps.playerId });
       // bounty coins (own battle + unite kills) are credited to the next prep
       let coins = Math.max(0, Math.trunc(Number(r.coins) || 0));
       const up = uniteResult && uniteResult.perPlayer && uniteResult.perPlayer[ps.playerId];
@@ -161,6 +158,26 @@ export class MatchSettle {
     this.dispatch(ps, 'onBattleResult', ev);
     ps.tempLayers = null;
     ps.recompute();
+  }
+
+  /**
+   * A normal round's field has its result (its battle is over — FieldRunner for a server-run field, _fieldDone for a
+   * browser-run one; once per field): each of its players without a counted leak hears 「{0}博士完美作战！」 now, when its
+   * own battle ends, not at the settle (PERFECT_BATTLE: 规程's table has it, 盟约's not — tickerFor sends nothing then;
+   * 规程 shows it as the player's 完美作战 avatar bubble, every perfect round — maintainer, from the official game,
+   * 2026-11-27). The same test as the settle's 完美连胜.
+   * @param {{ players: string[] }} f @param {Record<string, any> | null | undefined} res the field's result
+   * @this {Match}
+   */
+  fieldEnded(f, res) {
+    if (this.phase !== PHASE.COMBAT || !res || !res.perPlayer) return;
+    for (const pid of f.players) {
+      const pp = res.perPlayer[pid];
+      const ps = this.players.get(pid);
+      if (!pp || !ps || !ps.alive) continue;
+      const counted = (pp.leaked || []).filter((/** @type {{ counted?: boolean } | null} */ l) => l && l.counted !== false).length;
+      if (pp.perfect !== false && counted === 0) this.tickerFor('PERFECT_BATTLE', [ps.name], { playerId: pid });
+    }
   }
 
   /** @param {PlayerState} ps @param {Record<string, any>} r the player's part of the result @this {Match} */
