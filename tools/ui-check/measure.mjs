@@ -339,8 +339,10 @@ export async function collect(plan) {
       let ox = 0, oy = 0, sx = 1, sy = 1;
       if (cb) {
         const q = cb.getBoundingClientRect();
-        sx = cb.offsetWidth ? q.width / cb.offsetWidth : 1;
-        sy = cb.offsetHeight ? q.height / cb.offsetHeight : 1;
+        // offsetWidth / offsetHeight are rounded to whole px: a box of 13.59 px read as scaled ×0.971 and its 44 px hit
+        // area as 42.7. A difference under 1 px is that rounding, not a scale.
+        sx = cb.offsetWidth && Math.abs(q.width - cb.offsetWidth) >= 1 ? q.width / cb.offsetWidth : 1;
+        sy = cb.offsetHeight && Math.abs(q.height - cb.offsetHeight) >= 1 ? q.height / cb.offsetHeight : 1;
         ox = q.left + (cb.clientLeft - cb.scrollLeft) * sx;
         oy = q.top + (cb.clientTop - cb.scrollTop) * sy;
       }

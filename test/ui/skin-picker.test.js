@@ -366,7 +366,7 @@ describe('operator pictures in the chosen skin (shop card, icons)', () => {
   test('the leader ranking, the result\'s lineups and a teammate\'s bond popup draw others\' operators in their published skins', () => {
     assert.match(read('public/js/ui/gameComponents.js'), /skinPic\(c, 'avatar', sk, \{ skin, own: ownSkin, of: skinsOf \}\)/);
     const badges = read('public/js/ui/avatarBadges.js');
-    assert.match(badges, /ownSkin=\$\{r\.pid === myId\} skinsOf=\$\{r\.pid === myId \? null : playerSkins\(pub\.players, r\.pid, others\)\}/);
+    assert.match(badges, /ownSkin=\$\{r\.pid === myId\} skinsOf=\$\{r\.pid === myId \? null : playerSkins\(pub\?\.players \|\| \[\], r\.pid, others\)\}/);
     assert.match(read('public/js/screens/game.js'), /<\$\{BossDamagePanel\} pub=\$\{pub\} myId=\$\{myId\} \/>/);
     const result = read('public/js/screens/result.js');
     assert.match(result, /const skinsOf = own \? null : playerSkins\(store\.get\(\)\.match\?\.public\?\.players, pid, settingsStore\.get\(\)\.otherSkins !== false\);/);

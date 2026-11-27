@@ -30,14 +30,19 @@ function coop(data, season, script = undefined) {
 }
 const rowOf = (h, id) => h.m.publicView().players.find((p) => p.playerId === id);
 
-test('the constants come from the season\'s table: 规程 has them, 盟约 none', REAL, () => {
+test('the constants come from the season\'s table: 规程 has them, 盟约 only the leader ranking\'s, borrowed from 规程', REAL, () => {
   const c = ACT3.config.constants;
   assert.deepEqual(c.winStreakThresholds, [3, 5]);
   assert.deepEqual(c.bossDamageThresholds, [0.2, 0.5, 0.8]);
   assert.deepEqual(c.bossDamageRowThresholds, [30, 60, 100]);
   assert.equal(c.bossDamageStatsDelay, 5);
-  for (const k of ['winStreakThresholds', 'bossDamageThresholds', 'bossDamageRowThresholds', 'bossDamageStatsDelay']) {
+  for (const k of ['winStreakThresholds', 'bossDamageThresholds']) {
     assert.equal(BASE.config.constants[k], undefined, `盟约 has no ${k}`);
+  }
+  // maintainer decision 2026-11-27 (docs/rules/ui.md 「규정 HUD 새 요소」): tools/build-data.mjs borrowedBossListConstants
+  // copies them at build time — differing values mean 规程 was rebuilt and 盟约 was not (node tools/build-data.mjs --offline)
+  for (const k of ['bossDamageRowThresholds', 'bossDamageStatsDelay']) {
+    assert.deepEqual(BASE.config.constants[k], c[k], `盟约's ${k} is 规程's: rebuild the default season's data`);
   }
 });
 
@@ -98,9 +103,10 @@ test('a boss round: the share of the leader in whole percent, floored, and the l
   assert.equal(m._leaderTopView(), null);
 });
 
-test('the leader ranking on the real match path: a client-run boss field\'s b.progress `top` reaches m.public leaderTop', REAL, () => {
+// both seasons: 盟约 shows 规程's ranking too (maintainer decision 2026-11-27)
+for (const [label, season] of [['规程', 'act3autochess'], ['盟约', undefined]]) test(`the leader ranking on the real match path (${label}): a client-run boss field's b.progress \`top\` reaches m.public leaderTop`, REAL, () => {
   const h = makeMatch({
-    mode: 'coop', modeId: 'mode_multi_normal', difficulty: 'NORMAL', seed: 7, fake: true, data: ACT3, season: 'act3autochess',
+    mode: 'coop', modeId: 'mode_multi_normal', difficulty: 'NORMAL', seed: 7, fake: true, data: season ? ACT3 : BASE, season,
     clientCombat: true, instant: false, script: (b) => (b.kind === 'boss' ? { bossDps: 0 } : { duration: 2 }),
     seats: [
       { seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true },
@@ -165,14 +171,19 @@ test('the leader ranking: a 自选 slot\'s row carries its pick (the page draws 
   m.dispose?.();
 });
 
-test('盟约 sends no leader ranking (its table has no thresholds)', REAL, () => {
+// maintainer decision 2026-11-27: 盟约's boss rounds show 规程's leader ranking too (its official HUD has none); the
+// avatar glow and the 完美连胜 badge stay 规程's
+test('盟约 sends the leader ranking but no avatar glow share', REAL, () => {
   const h = coop(BASE, undefined).start();
   h.toPrep(2);
   const { m } = h;
   m.phase = PHASE.FINAL_ASSAULT;
   m.bossPool = { maxHp: 1000, byPlayer: new Map([['p_0', 500]]) };
-  m.fields = [{ fieldId: 'f0', kind: 'boss', players: ['p_0', 'p_1'], cc: true, bossTop: { p_0: { s: 500, r: [['chess_a', 500]] } } }];
-  assert.equal(m._leaderTopView(), null);
+  m.fields = [{ fieldId: 'f0', kind: 'boss', players: ['p_0', 'p_1'], cc: true, bossTop: { p_0: { s: 500, r: [['chess_a', 300], ['chess_b', 200]] } } }];
+  assert.deepEqual(m._leaderTopView(), [{ pid: 'p_0', chess: 'chess_a', pct: 30 }, { pid: 'p_0', chess: 'chess_b', pct: 20 }]);
+  assert.equal(m._badgeView(h.ps('p_0')).bossPct, undefined, 'no glow share: its table has no glow steps');
+  m.phase = PHASE.PREP;
+  assert.equal(m._leaderTopView(), null, 'only in a boss round');
 });
 
 test('the operators against the leader: summons count for their board piece, top 3 per player; b.progress carries them', () => {

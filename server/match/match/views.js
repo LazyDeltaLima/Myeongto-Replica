@@ -9,6 +9,7 @@
 /** @import { Piece } from '../player/pieces.js' */
 /** @import { PublicFrame } from './messaging.js' */
 /** @import { MatchField } from './common.js' */
+/** @typedef {{ x: number, y: number, dir?: string, [key: string]: unknown }} PrepUnit a prep UnitInfo: its tile (x col, y row) and facing, the rest as sent */
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
@@ -96,7 +97,8 @@ export class MatchViews {
    * come from their field's battle (spec.js bossTopUnits — the authority's b.progress `top`, a server-run field's own
    * battle) and are scaled so they never add up past what the pool credited that player (SharedBossPool.byPlayer): the
    * page's report splits the damage, it does not add any. Ties: the lower seat, then the player's own order.
-   * Alive players only; null outside a boss round or in a season without the badges (config.constants).
+   * Alive players only; null outside a boss round or in a season without the ranking's constants (config.constants
+   * bossDamageRowThresholds: 规程's table, 盟约 borrowing them — tools/build-data.mjs borrowedBossListConstants).
    * A row carries what the operator fielded as, the way the settlement's rows do (unitTally.js rowOf): `diy` = a 自选
    * slot's pick (the chess id is the slot, the page draws the picked operator), `standInFor` = the replaced operator's
    * charId of a 补位 stand-in — without them the page could only draw the slot record (its glyph 「선」).
@@ -106,7 +108,7 @@ export class MatchViews {
   _leaderTopView() {
     const c = this.gd.config.constants || {};
     const pool = this.bossPool;
-    if (!Array.isArray(c.bossDamageThresholds) || !pool || !(pool.maxHp > 0)) return null;
+    if (!Array.isArray(c.bossDamageRowThresholds) || !pool || !(pool.maxHp > 0)) return null;
     if (this.phase !== PHASE.FINAL_ASSAULT && this.phase !== PHASE.HIDDEN_CORE) return null;
     /** @type {{ pid: string, chess: string, d: number, seat: number, i: number }[]} */
     const rows = [];
@@ -255,7 +257,7 @@ export class MatchViews {
         ...(ps.skins && Object.keys(ps.skins).length ? { skins: ps.skins } : {}),
       })),
       fields: this.fields.map((f) => {
-        /** @type {{ fieldId: string, kind: string, players: string[], live: boolean, battleId?: string | null, surrendering?: true, surrenderVote?: Record<string, any>, progress?: Record<string, any> }} */
+        /** @type {{ fieldId: string, kind: string, players: string[], live: boolean, battleId?: string | null, surrendering?: true, surrenderVote?: Record<string, unknown>, progress?: Record<string, unknown> }} */
         const v = { fieldId: f.fieldId, kind: f.kind, players: f.players.slice(), live: !!f.live };
         v.battleId = this.surrenderToken(f);
         if (f.surrendering) v.surrendering = true;
@@ -461,7 +463,7 @@ export class MatchViews {
    * battleStart, so the prep view always uses the reserve medic, regardless of the current elite count. The stage's
    * normal-board slot is transformed to the correct half of a boss field by _onBossHalf / the client prep camera.
    * @param {PlayerState | null | undefined} ps
-   * @returns {Array<Record<string, any>>}
+   * @returns {PrepUnit[]}
    * @this {Match}
    */
   prepMapChars(ps) {
@@ -483,6 +485,7 @@ export class MatchViews {
   /** UnitInfo of a player's board pieces on their (board) tiles — a prep scout's board, the boss partner's (bossMateView).
    *  `area: 'board'` (a bench unit says 'hand' / 'temp': prepFieldMeta).
    * @param {PlayerState} ps
+   * @returns {PrepUnit[]}
    * @this {Match}
    */
   _prepBoardUnits(ps) {
@@ -554,7 +557,7 @@ export class MatchViews {
    * @this {Match}
    */
   prepFieldMeta(ps) {
-    /** @type {Array<Record<string, any>>} the board's units, then the bench's (no `dir`) */
+    /** @type {PrepUnit[]} the board's units, then the bench's (no `dir`) */
     const units = this._prepBoardUnits(ps);
     // the hand (整备区) and the 临时整备区 scout exactly like the own prep bench renders them: pieces as units on
     // their rows (hand row 7, col = hand slot; temp row 8, cols 4..8 = temp slots; no dir — bench pieces face right),
@@ -598,6 +601,7 @@ export class MatchViews {
   /**
    * UnitInfo of a held piece (a hand or temp slot): the prep scout's bench (prepFieldMeta) and a battle's (battleBench).
    * @param {PlayerState} ps @param {Piece} piece @param {number} i @param {number} y @param {string} area
+   * @returns {PrepUnit}
    * @this {Match}
    */
   _benchUnit(ps, piece, i, y, area) {
@@ -640,7 +644,7 @@ export class MatchViews {
     if (!f || !seasonFeature(this.season, 'benchInBattle') || f.kind === 'unite') return [];
     if (Array.isArray(f.bench)) return f.bench;
     const boss = f.kind === 'boss' || f.kind === 'hidden';
-    /** @type {Array<Record<string, any>>} */
+    /** @type {PrepUnit[]} */
     const out = [];
     for (const p of (f.spec && Array.isArray(f.spec.players) ? f.spec.players : [])) {
       const ps = /** @type {PlayerState | undefined} */ (p && this.players.get(p.playerId));
@@ -657,12 +661,12 @@ export class MatchViews {
 
   /**
    * A prep UnitInfo (board, bench or temp row) placed on side 'L' | 'R' of the boss field (bossFieldPlacement).
-   * @param {Record<string, any>} u @param {'L'|'R'} side
+   * @param {PrepUnit} u @param {'L'|'R'} side
    * @this {Match}
    */
   _onBossHalf(u, side) {
     const p = bossFieldPlacement(side, u.y, u.x, u.dir || 'RIGHT');
-    /** @type {Record<string, any>} */
+    /** @type {PrepUnit} */
     const v = { ...u, x: p.col, y: p.row };
     // a board piece keeps facing the same way relative to the leader (mirrored on the right half); a bench piece has no
     // stored facing (it faces right, as the own prep bench draws it)

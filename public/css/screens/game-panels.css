@@ -981,6 +981,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bdmg__row.is-r2 { box-shadow: inset -.03rem 0 0 rgba(255, 174, 81, .8); }
 .bdmg__row.is-r3 { box-shadow: inset -.04rem 0 0 #ff9a5e; }
 @media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
-  .bdmg { top: 1.25rem; transform: none; width: 2rem; }
+  /* under the top-right 放弃战斗 (the ready slot), which covered the first row at 1.25rem */
+  .bdmg { top: 2.1rem; transform: none; width: 2rem; }
   .bdmg__row { width: 2rem; min-height: .6rem; }
 }

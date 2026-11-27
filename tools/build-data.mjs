@@ -5348,8 +5348,29 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       // the 完美连胜 count's two badge steps, the boss-damage share's three glow steps (the BOSS_HIT broadcasts' 20 / 50 /
       // 80 %), the boss-damage list's row styles by percent (styleStatusId bg_1…) and its delay after the boss fight starts
       ...avatarBadgeConstants(ac),
+      ...borrowedBossListConstants(ac),
     },
   };
+}
+
+/** The season whose leader ranking the 盟约 build borrows (borrowedBossListConstants). */
+const BOSS_LIST_SEASON = 'act3autochess';
+
+/**
+ * The leader ranking's constants for a season whose table has none (盟约: its official HUD has no ranking; maintainer
+ * decision 2026-11-27 shows 规程's there too): the row styles and the delay, read from 规程's generated config
+ * (data/seasons/act3autochess/config.json, its table's bossDamageStatsStyleList / bossDamageStatsShowDelayTime). The
+ * avatar glow and the 完美连胜 badge stay 规程's own. Stops when that config lacks them.
+ * @param {Record<string, unknown>} ac
+ */
+function borrowedBossListConstants(ac) {
+  if (SEASON !== DEFAULT_SEASON || avatarBadgeConstants(ac).bossDamageRowThresholds) return {};
+  const file = join(ROOT, 'data', seasonDataDir(BOSS_LIST_SEASON), 'config.json');
+  const c = JSON.parse(readFileSync(file, 'utf8')).constants || {};
+  if (!Array.isArray(c.bossDamageRowThresholds) || !Number.isFinite(c.bossDamageStatsDelay)) {
+    throw new Error(`${file} has no bossDamageRowThresholds / bossDamageStatsDelay to borrow for the leader ranking (build --season ${BOSS_LIST_SEASON} first)`);
+  }
+  return { bossDamageRowThresholds: c.bossDamageRowThresholds.slice(), bossDamageStatsDelay: c.bossDamageStatsDelay };
 }
 
 /**

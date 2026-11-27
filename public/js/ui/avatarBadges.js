@@ -1,6 +1,7 @@
 // 规程's avatar badges and the boss-damage list (the official 规程 HUD; docs/rules/ui.md 「규정 HUD 새 요소」).
-// Shown only by a season whose table has them (config.constants winStreakThresholds / bossDamageThresholds — tools/
-// build-data.mjs avatarBadgeConstants); the numbers are the server's (m.public players[] winStreak / bossPct and
+// Shown only by a season whose table has them (config.constants winStreakThresholds / bossDamageThresholds /
+// bossDamageRowThresholds — tools/build-data.mjs avatarBadgeConstants); 盟约 shows the list alone, its constants borrowed
+// from 规程 (build-data.mjs borrowedBossListConstants; maintainer decision 2026-11-27); the numbers are the server's (m.public players[] winStreak / bossPct and
 // leaderTop, server/match/match/views.js _badgeView / _leaderTopView).
 //   * 完美连胜 (panel_win_streak, player_win_streak_view): the perfect rounds in a row — from the first threshold the
 //     theme's triangle win_streak_1_base with the count in black, from the second its star win_streak_2_base with the
@@ -31,10 +32,13 @@ import { playerName } from '../../../shared/botNames.js';
 
 /** @import { Bag } from './gameLogic/shared.js' */
 
-/** The season's avatar badge constants (config.constants), or null when its table has none. */
+/**
+ * The season's avatar badge and leader ranking constants (config.constants), or null when it has none. 盟约 has only the
+ * ranking's (borrowed from 规程, tools/build-data.mjs borrowedBossListConstants; maintainer decision 2026-11-27).
+ */
 export function badgeConstants(config = data.get('config')) {
   const c = config?.constants;
-  if (!c || (!Array.isArray(c.winStreakThresholds) && !Array.isArray(c.bossDamageThresholds))) return null;
+  if (!c || (!Array.isArray(c.winStreakThresholds) && !Array.isArray(c.bossDamageThresholds) && !Array.isArray(c.bossDamageRowThresholds))) return null;
   return c;
 }
 
@@ -72,7 +76,7 @@ function Pct({ pct, cls = '' }) {
 
 /**
  * The badges on one team-panel avatar (inside its button; css positions them on the portrait).
- * @param {{ player: any, self?: boolean, phase?: string|null }} props
+ * @param {{ player: { alive?: boolean, winStreak?: number, bossPct?: number, [key: string]: unknown } | null, self?: boolean, phase?: string|null }} props
  */
 export function AvatarBadges({ player, self = false, phase = null }) {
   const c = badgeConstants();
@@ -85,7 +89,8 @@ export function AvatarBadges({ player, self = false, phase = null }) {
     out.push(html`<span key="s" class=${`abadge is-r${s}${sprite ? ' has-sprite' : ''}`} style=${sprite ? `--abadge:url("${sprite}")` : undefined}
       title=${t('完美连胜 {n}', { n: player.winStreak })}><b class="num">${player.winStreak}</b></span>`);
   }
-  if (isBoss(phase) && Number.isFinite(player.bossPct)) {
+  // the glow and the own share are 规程's (its table's steps); 盟约 has the ranking alone
+  if (isBoss(phase) && Array.isArray(c.bossDamageThresholds) && Number.isFinite(player.bossPct)) {
     const b = bossStep(player.bossPct, c.bossDamageThresholds);
     if (b > 0) {
       /** @param {string} n */
@@ -107,12 +112,12 @@ export function AvatarBadges({ player, self = false, phase = null }) {
  * 规程 recording; maintainer decision 2026-11-15) — each with its player's name, the operator's share of the leader and
  * its portrait (FieldedThumb: a 自选 slot's row its picked operator, a 补位 row its stand-in) — the viewer's own operator in this browser's chosen skin, another player's in the one they published
  * (m.public players[].skins) while 其他玩家的皮肤 is on (docs/rules/ui.md 「스킨 고르기」).
- * @param {{ pub: any, myId?: string|null }} props
+ * @param {{ pub: { phase?: string, round?: number, players?: Bag[], leaderTop?: unknown, [key: string]: unknown } | null, myId?: string|null }} props
  */
 export function BossDamagePanel({ pub, myId = null }) {
   const c = badgeConstants();
   const phase = pub?.phase;
-  const live = !!c && Array.isArray(c.bossDamageThresholds) && isBoss(phase);
+  const live = !!c && Array.isArray(c.bossDamageRowThresholds) && isBoss(phase);
   const key = `${phase}:${pub?.round}`;
   const [shown, setShown] = useState(/** @type {string | null} */ (null));
   const [hidden, setHidden] = useState(false);
@@ -123,9 +128,9 @@ export function BossDamagePanel({ pub, myId = null }) {
     return () => clearTimeout(id);
   }, [live, key]);
   if (!live || shown !== key) return null;
-  const names = new Map((pub.players || []).map((/** @type {Bag | null} */ p) => [p?.playerId, p?.name]));
+  const names = new Map((pub?.players || []).map((/** @type {Bag | null} */ p) => [p?.playerId, p?.name]));
   const others = settingsStore.get().otherSkins !== false;
-  const rows = (Array.isArray(pub.leaderTop) ? pub.leaderTop : []).filter((/** @type {Bag | null} */ r) => r && typeof r.chess === 'string' && Number.isFinite(r.pct)).slice(0, 3);
+  const rows = (Array.isArray(pub?.leaderTop) ? pub.leaderTop : []).filter((/** @type {Bag | null} */ r) => r && typeof r.chess === 'string' && Number.isFinite(r.pct)).slice(0, 3);
   if (!rows.length) return null;
   return html`<aside class=${hidden ? 'bdmg is-hidden' : 'bdmg'} aria-label=${t('领袖伤害')}>
     <button type="button" class="bdmg__toggle" aria-expanded=${!hidden} onClick=${() => setHidden((h) => !h)}
@@ -141,7 +146,7 @@ export function BossDamagePanel({ pub, myId = null }) {
         <span class="bdmg__name">${playerName(names.get(r.pid)) || t('博士')}</span>
         <${Pct} pct=${r.pct} />
         <span class="bdmg__op"><${FieldedThumb} u=${u}
-          ownSkin=${r.pid === myId} skinsOf=${r.pid === myId ? null : playerSkins(pub.players, r.pid, others)} /></span>
+          ownSkin=${r.pid === myId} skinsOf=${r.pid === myId ? null : playerSkins(pub?.players || [], r.pid, others)} /></span>
       </li>`;
     })}</ol>`}
   </aside>`;
