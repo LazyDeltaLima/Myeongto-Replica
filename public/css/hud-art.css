@@ -832,12 +832,14 @@
 
 /* ---- battle HUD (KR capture, 2000×1125, in battle): the round bar's pill is bg_battle + icon_battle with the kills
    "6/9" (the killed number amber) — already above; the DP counter is the base game's battle cost panel (not in the
-   autochess bundles — from the capture, [추정]): no box, a white diamond "C" icon, the number ≈ .8rem white, a white
-   underline across, on a faint dark plate, at the right edge about three quarters down (its baseline ≈ 2.3rem above the
-   bottom). Upstream's COST label is not on it. ---- */
+   autochess bundles — from the capture, [추정·화면]): no box, a white diamond "C" icon, the number ≈ .8rem white, a white
+   underline across, on a faint dark plate, at the right edge. Its height is the official CN 规程 battle screen's
+   (1920 × 1080, maintainer capture 2026-11-27): level with the bottom bar of whose field is shown (panel_ob_info,
+   css/battle-art.css .obinfo__bar: 84 units up, 40 high), so its centre is at 104 units — the 2.3rem read from the KR
+   capture sat it ~120 px too high, and the 指令 portrait above it with it. Upstream's COST label is not on it. ---- */
 .gm.has-hud-art .capsule__kills b { color: #f7a43b; }
 .gm.has-hud-art .dpbox {
-  top: auto; bottom: 2.3rem; right: .1rem; transform: none; flex-direction: row; align-items: center; gap: .16rem;
+  top: auto; bottom: calc(var(--ui-u, .015rem) * 104 + var(--sa-b, 0px)); right: .1rem; transform: translateY(50%); flex-direction: row; align-items: center; gap: .16rem;
   padding: .02rem .1rem .04rem .16rem; border: 0; border-bottom: .05rem solid #fff;
   background: linear-gradient(90deg, rgba(20, 20, 20, 0), rgba(20, 20, 20, .5) 25%, rgba(20, 20, 20, .5));
 }

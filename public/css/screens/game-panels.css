@@ -857,10 +857,9 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
    steps down under it then too, or the 伤害 chip sat on the portrait through the banner (2026-11-13) */
 .gm--prep.has-bskill .gm__effects, .gm--settle.has-bskill .gm__effects { top: calc(max(2.4rem, calc(1.31rem + var(--ui-u, .015rem) * 114)) + var(--ui-u, .015rem) * 108); }
 .gm--prep.has-bskill.has-readywhy .gm__effects, .gm--settle.has-bskill.has-readywhy .gm__effects { top: calc(max(2.4rem, calc(1.31rem + var(--ui-u, .015rem) * 114)) + var(--ui-u, .015rem) * 108 + max(.3rem, 16px)); }
+/* the view's centre 180 up, its bottom 130, with the official HUD too: the official CN battle screen (2026-11-27) has the
+   portrait there, over the cost counter, and the boss rounds' leader ranking clear above it */
 .bskill.is-battle { top: auto; bottom: calc(var(--u) * 130); }
-/* the official HUD's battle cost counter sits at the right edge 2.3rem up (css/hud-art.css .dpbox): the portrait right
-   above it, as the official battle screen shows it (2026-11-12) */
-.gm.has-hud-art .bskill.is-battle { bottom: calc(2.3rem + .95rem); }
 .bskill__look {
   position: absolute; right: calc(var(--u) * -12); top: calc(50% - var(--u) * 25); width: calc(var(--u) * 168); height: calc(var(--u) * 60);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 2);
@@ -1011,7 +1010,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bdmg__row.is-r2 { box-shadow: inset -.03rem 0 0 rgba(255, 174, 81, .8); }
 .bdmg__row.is-r3 { box-shadow: inset -.04rem 0 0 #ff9a5e; }
 @media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
-  /* under the top-right 放弃战斗 (the ready slot), which covered the first row at 1.25rem */
-  .bdmg { top: 2.1rem; transform: none; width: 2rem; }
+  /* under the top-right 放弃战斗 (the ready slot): its box ends 2.2rem down and its 44 px touch area ~5 px past that —
+     at 2.1rem the 隐藏 switch sat under both (2026-11-27), at 1.25rem the button covered the first row */
+  .bdmg { top: calc(2.2rem + 8px); transform: none; width: 2rem; }
   .bdmg__row { width: 2rem; min-height: .6rem; }
 }
