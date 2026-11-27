@@ -77,7 +77,10 @@ async function load({ idb, caches }, list, bodies, tag) {
   try {
     const res = await import(pathToFileURL(path.join(ROOT, 'public/js/resources.js')).href + '?' + tag);
     await res.installResources();
-    const busy = () => res.resStore.get().phase === 'running' || res.resourceStatus().cleanup.legacyLeft !== undefined || res.resourceStatus().cleanup.left;
+    // busy: a download, the old caches' move, a cleanup, or a reconcile (the move's end starts a resync that downloads
+    // what no old cache still held; left running, it would fetch through the next test's globals)
+    const busy = () => res.resStore.get().phase === 'running' || res.resourceStatus().cleanup.legacyLeft !== undefined || res.resourceStatus().cleanup.left
+      || res.resourceStatus().reconcile?.ms === null;
     for (let i = 0; i < 300 && busy(); i++) await new Promise((r) => setTimeout(r, 20));
     return { res, fetched, restore };
   } catch (err) { restore(); throw err; }

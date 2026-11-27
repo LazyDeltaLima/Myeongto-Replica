@@ -428,11 +428,13 @@ describe('client helpers', () => {
     const saved = { window: globalThis.window, location: globalThis.location, indexedDB: globalThis.indexedDB, fetch: globalThis.fetch,
       navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator'), warn: console.warn };
     const before = store.get();
+    // settled: the download is done and no reconcile runs (the end of a download may start a resync, whose reconcile
+    // the report reads as running until it ends)
+    const settled = () => resStore.get().phase === 'done' && resourceStatus().reconcile?.ms !== null;
     const run = async () => {
       await installResources();
-      if (resStore.get().phase === 'done') return;
-      await acceptResources();
-      for (let i = 0; i < 100 && resStore.get().phase !== 'done'; i++) await new Promise((r) => setTimeout(r, 20));
+      if (resStore.get().phase !== 'done') await acceptResources();
+      for (let i = 0; i < 100 && !settled(); i++) await new Promise((r) => setTimeout(r, 20));
     };
     try {
       globalThis.window = { isSecureContext: true };
