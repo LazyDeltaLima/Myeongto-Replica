@@ -2,7 +2,7 @@
 // connect_status/mask_quit — #303030 80 % + icon_lost_connect), not the eliminated one (mask_dead). Leaving eliminates the
 // seat, so m.public sends alive false together with status 'left'; the card used to read alive first and drew mask_dead.
 // docs/rules/ui.md 「정비 화면 HUD」 (왼쪽 플레이어 카드 상태). Real match path: test/match/harness.js → onLeave → the
-// m.public the browser merges.
+// m.public the browser merges, in 规程 and 盟约.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { getData } from '../../server/data.js';
@@ -25,6 +25,17 @@ test('a 规程 co-op player who leaves gets the quit mask, the others none', { s
   assert.equal(gone.status, 'left');
   assert.equal(cardState(gone).mask, 'quit', 'a player who left wears mask_quit, not mask_dead (docs/rules/ui.md 「정비 화면 HUD」)');
   assert.equal(cardState(stays).mask, null);
+});
+
+test('a 盟约 co-op player who leaves gets the quit mask too (the card reads no season)', () => {
+  const h = makeMatch({ mode: 'coop', humans: 2, seed: 5, fake: true }).start();
+  h.runToPhase('PREP');
+  h.m.onLeave('p_1');
+  h.flushAll();
+  const gone = h.lastBc('m.public').players.find((p) => p.playerId === 'p_1');
+  assert.equal(gone.alive, false);
+  assert.equal(gone.status, 'left');
+  assert.equal(cardState(gone).mask, 'quit', 'a player who left wears mask_quit, not mask_dead (docs/rules/ui.md 「정비 화면 HUD」)');
 });
 
 test('an eliminated player still gets the dead mask', () => {
