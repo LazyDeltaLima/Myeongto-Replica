@@ -22,9 +22,15 @@ export const GAME_FILES = ['config', 'assets', 'chess', 'bonds', 'items', 'bands
   'choices', 'effects', 'garrisons', 'factions', 'local', 'backups', 'cards'];
 
 /**
- * @typedef {{ ready: boolean, m: any, config: any, chess: (id:string)=>any, bond: (id:string)=>any, item: (id:string)=>any,
- *   band: (id:string)=>any, enemy: (k:string)=>any, boss: (id:string)=>any, stage: (id:string)=>any, token: (id:string)=>any,
- *   effect: (id:string)=>any, garrison: (id:string)=>any, factions: any, choices: any, backups: any, list: (name:string)=>any[] }} GameLookups
+ * @typedef {{ ready: boolean, m: DataJson, config: DataJson, chess: (id:string)=>DataJson, bond: (id:string)=>DataJson, item: (id:string)=>DataJson,
+ *   band: (id:string)=>DataJson, enemy: (k:string)=>DataJson, boss: (id:string)=>DataJson, stage: (id:string)=>DataJson, token: (id:string)=>DataJson,
+ *   effect: (id:string)=>DataJson, garrison: (id:string)=>DataJson, factions: DataJson, choices: DataJson, backups: DataJson, list: (name:string)=>DataJson[] }} GameLookups
+ */
+/** @import { DataJson } from '../data.js' */
+/** @import { Bag } from './gameLogic/shared.js' */
+/**
+ * A piece as the thumbnails read it (an m.private Piece, a hand / board / bench entry).
+ * @typedef {{ id?: unknown, kind?: unknown, golden?: unknown, tier?: number, skin?: string|null, [key: string]: unknown }} PieceLike
  */
 
 /**
@@ -69,7 +75,7 @@ export function makeLookups(ready = true) {
 
 /**
  * <img> that swaps to a fallback node when the URL is missing or fails.
- * @param {{ src?: string|null, class?: string, alt?: string, fallback?: any, style?: string, onLoad?: (e: Event) => void }} props
+ * @param {{ src?: string|null, class?: string, alt?: string, fallback?: unknown, style?: string, onLoad?: (e: Event) => void }} props
  */
 export function Img({ src, class: cls, alt = '', fallback = null, style, onLoad }) {
   const [bad, setBad] = useState(/** @type {string | null} */ (null));
@@ -77,14 +83,14 @@ export function Img({ src, class: cls, alt = '', fallback = null, style, onLoad 
   return html`<img class=${cls} src=${src} alt=${alt} draggable=${false} loading="lazy" style=${style} onLoad=${onLoad /* local patch */} onError=${() => setBad(src)} />`;
 }
 
-/** Official UI sprite by 'group/key' with a fallback. @param {{ k: string, class?: string, fallback?: any }} props */
+/** Official UI sprite by 'group/key' with a fallback. @param {{ k: string, class?: string, fallback?: unknown }} props */
 export function Sprite({ k, class: cls, fallback = null }) {
   return html`<${Img} src=${uiUrl(data.get('assets'), k)} class=${cx('sprite', cls)} fallback=${fallback} />`;
 }
 
 /**
  * Official promotion phase from the resolved record's status (not its shop tier or normal / golden form).
- * @param {{ m: any, phase: number, class?: string }} props
+ * @param {{ m: DataJson, phase: number, class?: string }} props
  */
 export function PromotionIcon({ m, phase, class: cls }) {
   if (!Number.isInteger(phase) || phase < 0 || phase > 2) return null;
@@ -95,7 +101,7 @@ export function PromotionIcon({ m, phase, class: cls }) {
 /**
  * Official sprite from the local-client extraction (data/local-assets.json, DESIGN §13) with a fallback node when the
  * manifest / entry is missing or the image fails.
- * @param {{ group?: string, name: string, class?: string, fallback?: any }} props
+ * @param {{ group?: string, name: string, class?: string, fallback?: unknown }} props
  */
 export function LocalSprite({ group = 'ui/battle', name, class: cls, fallback = null }) {
   return html`<${Img} src=${localAsset(group, name)} class=${cx('lsprite', cls)} fallback=${fallback} />`;
@@ -103,7 +109,7 @@ export function LocalSprite({ group = 'ui/battle', name, class: cls, fallback = 
 
 /**
  * Rich text (official markup) → spans. Newlines become <br>.
- * @param {{ text: any, class?: string, as?: string }} props
+ * @param {{ text: unknown, class?: string, as?: string }} props
  */
 export function RichText({ text, class: cls, as = 'span' }) {
   const segs = useMemo(() => parseRichText(text), [text]);
@@ -115,14 +121,14 @@ export function RichText({ text, class: cls, as = 'span' }) {
       : s.text))}<//>`;
 }
 
-/** Golden (elite) chess? @param {any} piece @param {any} [chess] */
+/** Golden (elite) chess? @param {PieceLike | null | undefined} piece @param {{ isGolden?: unknown } | null} [chess] */
 export const isGoldenPiece = (piece, chess) => !!(piece?.golden || chess?.isGolden || (typeof piece?.id === 'string' && /_b$/.test(piece.id) && piece.kind !== 'item'));
 
 /**
  * Square unit thumbnail for a piece / chess / item / token / enemy: art + tier chip + elite frame.
  * @param {{ kind?: 'chess'|'item'|'token'|'enemy', id: string, golden?: boolean, size?: 'xs'|'sm'|'md'|'lg', tier?: number,
- *   showTier?: boolean, class?: string, dim?: boolean, badge?: any, title?: string, rec?: any, skin?: string|null,
- *   ownSkin?: boolean, skinsOf?: any }} props
+ *   showTier?: boolean, class?: string, dim?: boolean, badge?: unknown, title?: string, rec?: DataJson, skin?: string|null,
+ *   ownSkin?: boolean, skinsOf?: Record<string, string>|null }} props
  *   `rec`: the chess record to draw instead of the data's (a 自选 piece's composed record — 0.2.0, gameLogic/diy.js; a
  *   补位 stand-in's — gameLogic/standIn.js: drawn with a small 「替补」 mark in the corner)
  *   `skin` / `ownSkin`: an operator drawn in a skin's avatar (ui/skins.js skinPic) — `skin` the one it wears, `ownSkin`
@@ -177,8 +183,8 @@ export function UnitThumb({ kind = 'chess', id, golden, size = 'md', tier, showT
  * the title names the chess it fielded for; a summon row (`u.kind` 'token') its summon. The result screen's lineup and
  * charts (m.result rows) and 规程's leader ranking (m.public leaderTop rows) draw through it: a bare UnitThumb of a 自选
  * slot id draws the slot record, whose art is none (its glyph 「선」). `ownSkin` / `skinsOf` as UnitThumb.
- * @param {{ u: { id: string, kind?: string, diy?: any, golden?: boolean, tier?: number, [key: string]: any }, size?: string,
- *   ownSkin?: boolean, skinsOf?: any }} props
+ * @param {{ u: { id: string, kind?: string, diy?: Bag | null, golden?: boolean, tier?: number, [key: string]: unknown }, size?: string,
+ *   ownSkin?: boolean, skinsOf?: Record<string, string>|null }} props
  */
 export function FieldedThumb({ u, size = 'sm', ownSkin = false, skinsOf = null }) {
   const chess = u.kind === 'token' ? null : data.lookup('chess', u.id);
@@ -189,7 +195,7 @@ export function FieldedThumb({ u, size = 'sm', ownSkin = false, skinsOf = null }
     ownSkin=${ownSkin} skinsOf=${skinsOf} title=${si ? tr('{name}（{note}）', { name: si.name, note: standInForText(chess.name) }) : undefined} />`;
 }
 
-/** Thumbnail for an m.private Piece. @param {{ piece: any, size?: string, class?: string, badge?: any }} props */
+/** Thumbnail for an m.private Piece. @param {{ piece: PieceLike | null | undefined, size?: string, class?: string, badge?: unknown }} props */
 export function PieceThumb({ piece, size = 'md', class: cls, badge }) {
   if (!piece) return null;
   return html`<${UnitThumb} kind=${piece.kind === 'item' ? 'item' : piece.kind === 'token' ? 'token' : 'chess'} id=${piece.id}
@@ -249,18 +255,18 @@ export function GIcon({ name, class: cls, title }) {
  * `note` a small tag after it (联防中); `tip` the title text. `plate: false` keeps the pending state (`is-pending`, the
  * tint) without the −N tick (a 联防 team row whose ×N tag already reads the same number); `tint` draws the icon as a mask
  * of icon_hp so CSS can colour it (the team rows: the official player_status_item's normal / tweening HP colours).
- * @param {{ value: any, size?: 'sm'|'md'|'lg', class?: string, tone?: string|null, pending?: number, note?: string|null, tip?: string|null,
+ * @param {{ value: unknown, size?: 'sm'|'md'|'lg', class?: string, tone?: string|null, pending?: number, note?: string|null, tip?: string|null,
  *   plate?: boolean, tint?: boolean }} props
  */
 export function LpTower({ value, size = 'md', class: cls, tone, pending = 0, note = null, tip = null, plate = true, tint = false }) {
-  const ok = Number.isFinite(value);
-  const p = ok && Number(pending) > 0 ? Math.min(value, Math.trunc(Number(pending))) : 0;
+  const lp = typeof value === 'number' && Number.isFinite(value) ? value : null;
+  const p = lp != null && Number(pending) > 0 ? Math.min(lp, Math.trunc(Number(pending))) : 0;
   const mask = tint ? uiUrl(data.get('assets'), 'hudPanel/icon_hp') : null;
   return html`<span class=${cx('lp', `lp--${size}`, tone && `lp--${tone}`, p > 0 && 'is-pending', p > 0 && plate && 'has-pend', cls)} title=${tip || tr('目标生命值')}
       data-pending=${p > 0 ? p : null}>
     ${mask ? html`<span class="lp__icon lp__icon--tint" style=${`--lp-icon:url("${mask}")`} aria-hidden="true"></span>`
       : html`<${Sprite} k="hudPanel/icon_hp" class="lp__icon" fallback=${html`<${Icon} name="rook" class="lp__icon" />`} />`}
-    <b class="num lp__val">${ok ? Math.max(0, value) : '--'}</b>
+    <b class="num lp__val">${lp != null ? Math.max(0, lp) : '--'}</b>
     ${p > 0 && plate ? html`<span key=${p} class="lp__pend num" aria-label=${tr('结算时扣除 {p}', { p })}>−${p}</span>` : null}
     ${note ? html`<span class="lp__note">${note}</span>` : null}
   </span>`;
@@ -295,23 +301,25 @@ export function ItemIcon({ itemId, class: cls, size = 'md', showTier = true }) {
   return html`<${UnitThumb} kind="item" id=${itemId} size=${size} class=${cls} showTier=${showTier} />`;
 }
 
-/** Tooltip-wrapped help text with rich markup. @param {{ text: any, children?: any, placement?: string }} props */
+/** Tooltip-wrapped help text with rich markup. @param {{ text: unknown, children?: unknown, placement?: string }} props */
 export function RichTip({ text, children, placement = 'top' }) {
   return html`<${Tooltip} text=${text ? html`<${RichText} text=${text} />` : null} placement=${placement}>${children}<//>`;
 }
 
 /**
  * Seat-coloured player avatar: band icon when a band is picked, else glyph/robot.
- * @param {{ player: any, size?: 'sm'|'md', self?: boolean, class?: string }} props
+ * @param {{ player: { bandId?: string|null, name?: string, isBot?: boolean, playerId?: string, alive?: boolean, status?: string, seat?: number,
+ *   connected?: boolean, [key: string]: unknown } | null | undefined, size?: 'sm'|'md', self?: boolean, class?: string }} props
  */
 export function PlayerAvatar({ player, size = 'md', self = false, class: cls }) {
   const src = player?.bandId ? bandIconUrl(data.get('assets'), player.bandId) : null;
   const glyph = [...(player?.name || '').trim()][0] || '?';
   // chat faction (local patch): replaces the letter; with a strategy icon, a small badge in its bottom-right corner
   const faction = useSeatFaction(player?.isBot ? null : player?.playerId);
-  const dead = player?.alive === false || player?.status === 'dead';
+  // a player who left is eliminated too (alive false): the door, not the cross over it
   const left = player?.status === 'left';
-  const hue = seatHue(player?.seat);
+  const dead = !left && (player?.alive === false || player?.status === 'dead');
+  const hue = seatHue(player?.seat ?? 0);
   return html`<span class=${cx('pavatar', `pavatar--${size}`, self && 'is-self', dead && 'is-dead', left && 'is-left', player?.isBot && 'is-bot',
       player?.connected === false && !player?.isBot && 'is-offline', cls)} style=${`--seat-hue:${hue}`}>
     <span class="pavatar__img">

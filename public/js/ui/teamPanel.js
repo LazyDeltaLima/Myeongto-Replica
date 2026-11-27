@@ -53,13 +53,14 @@ const cx = (/** @type {unknown[]} */ ...p) => p.flat().filter(Boolean).join(' ')
  * null otherwise. And its action_status: 'done' (complete_part ✓ — ready, done) or 'doing' (moving_part, three dots —
  * a battle still running: fighting, or helping in a 联防); null otherwise — the dead, the departed, and a player still
  * deciding or not yet ready shows nothing (maintainer report 2026-10-10: the dots are the battle phase's, for the
- * players whose battle has not ended).
+ * players whose battle has not ended). A player who left is eliminated too (the server sends alive false with status
+ * 'left'): the quit mask, not the dead one.
  * @param {{ alive?: boolean, status?: string, connected?: boolean, isBot?: boolean } | null | undefined} p m.public players[] entry
  * @returns {{ mask: 'dead'|'quit'|'reconnect'|null, action: 'done'|'doing'|null }}
  */
 export function cardState(p) {
+  if (p?.status === 'left') return { mask: 'quit', action: null };
   const status = p?.alive === false ? 'dead' : p?.status;
-  if (status === 'left') return { mask: 'quit', action: null };
   if (status === 'dead') return { mask: 'dead', action: null };
   const mask = p?.connected === false && !p?.isBot ? 'reconnect' : null;
   if (status === 'ready' || status === 'done') return { mask, action: 'done' };

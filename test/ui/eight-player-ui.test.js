@@ -91,7 +91,7 @@ test('seat colours: eight distinct hues for the 8-player seats, the first four u
   assert.equal(new Set(Array.from({ length: 8 }, (_, i) => seatHue(i))).size, 8);
   assert.equal(seatHue(8), seatHue(0));
   assert.equal(seatHue(-1), seatHue(7));
-  assert.match(read('public/js/ui/gameComponents.js'), /const hue = seatHue\(player\?\.seat\)/);
+  assert.match(read('public/js/ui/gameComponents.js'), /const hue = seatHue\(player\?\.seat(?: \?\? 0)?\)/);
 });
 
 test('result charts: eight players without a faction get eight distinct colours; with factions no two share one', async () => {

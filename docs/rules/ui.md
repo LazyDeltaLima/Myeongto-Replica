@@ -1441,7 +1441,7 @@ upstream UI 12건 + `66297106`의 테스트 조각(관리자 결정 2026-10-09).
   때)에 맹약 줄 가운데. upstream의 툴팁 「层数叠加已禁用」은 그대로. 규정의 보스 라운드는 층이 쌓이므로(sim.md 「규정 맹약」) 표시도 툴팁도
   없다 — 공식 규정 보스 영상의 맹약 줄에 이 표시가 없다(관리자 확인 2026-11-13; `gameLogic` `bondLayersPaused`, 연합 방어는 그대로).
 - 왼쪽 플레이어 카드 상태(`player_status_item`, `has-hud-card`): 탈락 = `mask_dead`(#565656 80 % + `icon_dead`), 나감(`status` 'left') = `mask_quit`(#303030 80 % +
-  `icon_lost_connect`), 연결 끊김(`connected` false) = `mask_reconnect`(#303030 80 % + `icon_reconnect` — 예전에는 끊김에 `icon_lost_connect`를 잘못 씀), 내가 보고 있는 팀원
+  `icon_lost_connect`; 나가면 탈락도 되어 `alive` false가 같이 오므로 카드는 'left'를 먼저 본다 — 2026-11-27 전에는 나간 유저에게 탈락 덮개가 그려졌다, 재발 방지: `test/ui/quit-card-mask.test.js`), 연결 끊김(`connected` false) = `mask_reconnect`(#303030 80 % + `icon_reconnect` — 예전에는 끊김에 `icon_lost_connect`를 잘못 씀), 내가 보고 있는 팀원
   카드 오른쪽 위 `icon_observing`(upstream 눈 표시 대신), 카드 오른쪽 아래 밖 `icon_complete`(준비·완료 — 준비도 공식처럼 체크) 또는 `icon_doing` 점 셋(깜빡임
   [추정·화면: `moving_part`의 Animation이 깜빡임인지]), 「返回战场」은 초상 위 공식 사각 버튼(`btn_return_self` 98×98; 「前往查看」은 2026-11-19부터 팀원 정보 창에서 팀원 아바타를 덮는 공식 틀 — 아래 「팀원 정보 창」). 점 셋은 전투(联防 포함)가 아직 진행 중인 플레이어에게만
   (`status` combat / helping), 휴식·机变 중 아직 준비 안 한 플레이어(결정·행동 중)는 아무것도 없음, 점에는 테두리·받침 없음 — 관리자 제보 2026-10-10(공식 카드의
