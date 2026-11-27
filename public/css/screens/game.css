@@ -552,7 +552,10 @@
 }
 .dpbox__icon { width: .26rem; height: .26rem; color: var(--mint-500); }
 .dpbox b { font-size: .34rem; line-height: 1; color: #fff; }
-.chud__bottom { position: absolute; left: 50%; bottom: .3rem; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: .12rem; pointer-events: none; }
+/* centred without a transform: a transform makes this box the containing block of the official caption's fixed parts
+   (css/battle-art.css .obinfo__bar / __self / __lost), which then sat .3rem higher than the viewport place they are
+   measured from and the 离开 panel fell below the screen (2026-11-27) */
+.chud__bottom { position: absolute; left: 0; right: 0; bottom: .3rem; width: fit-content; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: .12rem; pointer-events: none; }
 .chud__bottom > * { pointer-events: auto; }
 .chud__msg {
   display: flex; align-items: center; gap: .1rem; padding: .1rem .3rem; font-size: .19rem; color: var(--text-hi);

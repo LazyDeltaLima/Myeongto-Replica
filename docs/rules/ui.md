@@ -331,6 +331,11 @@ UI를 만들거나 고치는 사람이 모두 같은 기준으로 만들게 하�
   오른쪽 끝. 높이는 공식 CN 규정 전투 화면(1920×1080, 관리자 캡처 2026-11-27)대로 아래 가운데 「누구의 전장」 막대(`panel_ob_info`,
   `.obinfo__bar`: 아래 84·높이 40 단위)와 같은 높이 — 칸 가운데를 104 단위에 둔다. 전에 KR 캡처에서 읽은 2.3rem은 약 120 px 높았고,
   그 위에 얹은 지령 초상도 같이 높아 보스전 순위 창 셋째 줄과 겹쳤다. 원본 「COST」 글자는 숨김.
+  막대와 코스트는 둘 다 화면 아래에서 잰다: 관전 막대(`ObInfo`)는 클라 전투 HUD의 `.chud__bottom` 안에 그려지는데, 그 상자가 가운데 맞춤을
+  `transform`으로 하면 막대의 `position: fixed` 부품(`.obinfo__bar`·`__self`·`__lost`)이 화면 대신 그 상자를 기준으로 놓여 막대가 .3rem 높아지고
+  (코스트 숫자가 막대보다 낮아 보임, 관리자 로컬 확인 2026-11-27) 「이 박사는 시뮬레이션을 떠났습니다」 창(`ob_player_lost`)이 화면 아래로 빠졌다 — `.chud`·`.chud__bottom`에는
+  transform·filter·contain·will-change를 쓰지 않는다. 고친 뒤 1920×1080에서 숫자 가운데가 막대 가운데보다 2.4 px 아래(공식 캡처 2.5 px).
+  재발 방지: `test/ui/obinfo-fixed-place.test.js`
 - 왼쪽 플레이어 목록: 솔로 모드에서는 **숨긴다** — `teamPanel.js` 훅에 `is-solo`(플레이어 한 명). 공식 클라에서 확인(2026-11-16): 목록 패널
   (`AutoChessBattlePlayerStatusPanel`)은 `AutoChessBattlePlayerStatusGroupModel.isAvatarListVisible` = `canDisplayAvatar`(로딩 중이 아님 등)이고
   모드 종류(`ActAutoChessModeData.modeType`)가 `SINGLE`이 아닐 때만 보인다 — 멀티(AI 팀원이 있는 협동 포함)는 그대로 보임, KR 솔로 캡처(정비·전투)와 같음.
