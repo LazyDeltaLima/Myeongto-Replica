@@ -64,9 +64,9 @@ import { seasonFeature } from '../../shared/seasons.js';
  * @typedef {Record<string, any>} WaveFactions
  */
 /**
- * A round's enemy multipliers (GameData.enemyScale / leaderScale: `supplyHpMul` only when the round has one, `defMul` /
- * `resMul` only when a custom 规则 match sets them).
- * @typedef {{ hpMul: number, atkMul: number, speedMul: number, supplyHpMul?: number, defMul?: number, resMul?: number }} ScaleMods
+ * A round's enemy multipliers (GameData.enemyScale / leaderScale: `supplyHpMul` and `aspdAdd` only when the round has
+ * them, `defMul` / `resMul` only when a custom 规则 match sets them).
+ * @typedef {{ hpMul: number, atkMul: number, speedMul: number, supplyHpMul?: number, aspdAdd?: number, defMul?: number, resMul?: number }} ScaleMods
  */
 
 const ACLOON = 'enemy_9012_acloon';
@@ -307,28 +307,31 @@ export function scaleFor(gd, r) {
 }
 
 /**
- * The spawn mods of a round's scale for a non-leader enemy: HP / ATK / speed, plus `supplyHpMul` when the round has
- * one and `defMul` / `resMul` when a custom 规则 match sets them (GameData.enemyScale).
+ * The spawn mods of a round's scale for a non-leader enemy: HP / ATK / speed, plus `supplyHpMul` / `aspdAdd` when the
+ * round has them and `defMul` / `resMul` when a custom 规则 match sets them (GameData.enemyScale).
  * @param {ScaleMods} scale
  */
 export function roundMods(scale) {
   /** @type {ScaleMods} */
   const m = { hpMul: scale.hpMul, atkMul: scale.atkMul, speedMul: scale.speedMul };
   if (scale.supplyHpMul != null) m.supplyHpMul = scale.supplyHpMul;
+  if (scale.aspdAdd != null) m.aspdAdd = scale.aspdAdd;
   if (scale.defMul != null) m.defMul = scale.defMul;
   if (scale.resMul != null) m.resMul = scale.resMul;
   return m;
 }
 
 /**
- * The spawn mods of a leader (tag 'boss') in round r: the round's ATK / speed but not its HP (the shared pool) —
+ * The spawn mods of a leader (tag 'boss') in round r: the round's ATK / speed / added attack speed but not its HP (the
+ * shared pool; the round's effects reach it like any enemy, 规程 co-op 终极's attack speed too) —
  * GameData.leaderScale, which a custom 规则 match shapes with its 敌方领袖 percents (DEF / RES only when it sets them).
  * @param {GameData} gd @param {number} r
  */
 export function leaderMods(gd, r) {
   const s = /** @type {ScaleMods} */ (gd.leaderScale(r));
-  /** @type {{ atkMul: number, speedMul: number, defMul?: number, resMul?: number }} */
+  /** @type {{ atkMul: number, speedMul: number, aspdAdd?: number, defMul?: number, resMul?: number }} */
   const m = { atkMul: s.atkMul, speedMul: s.speedMul };
+  if (s.aspdAdd != null) m.aspdAdd = s.aspdAdd;
   if (s.defMul != null) m.defMul = s.defMul;
   if (s.resMul != null) m.resMul = s.resMul;
   return m;

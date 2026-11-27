@@ -13,8 +13,9 @@
  *   tag?: string | null, ownerPlayerId?: string | null, pos?: number[] | null, countInTotal?: boolean }} SpawnInput
  * A kill bounty (a 悬赏 card's enemy, a 鸭爵 swap): its coins and the card's owner (economy.js _bountyPayee).
  * @typedef {{ coins: number, ownerPlayerId?: string | null }} Bounty
- * An enemy's stat multipliers (spawnEnemy `mods`).
- * @typedef {{ hpMul?: number, atkMul?: number, defMul?: number, resMul?: number, speedMul?: number }} EnemyMods
+ * An enemy's stat multipliers (spawnEnemy `mods`); `aspdAdd` = attack speed added to the data's (a round's
+ * `enemy_attribute_add` attack_speed, config enemyScale `aspdAdd`).
+ * @typedef {{ hpMul?: number, atkMul?: number, defMul?: number, resMul?: number, speedMul?: number, aspdAdd?: number }} EnemyMods
  * A queued spawn (`_pending`, in time order).
  * @typedef {{ time: number, enemyKey: string, routeIndex: number, route: object | null, mods: EnemyMods | null,
  *   sourcePlayerId: string | null, bounty: Bounty | null, tag: string | null, ownerPlayerId: string | null,
@@ -122,7 +123,7 @@ export class BattleSpawns {
   }
 
   /**
-   * Spawn an enemy now. opts: { routeIndex, route, pos:[r,c], mods:{hpMul,atkMul,defMul,resMul,speedMul}, tag,
+   * Spawn an enemy now. opts: { routeIndex, route, pos:[r,c], mods:{hpMul,atkMul,defMul,resMul,speedMul,aspdAdd}, tag,
    * sourcePlayerId, ownerPlayerId, bounty:{coins,ownerPlayerId}, countInTotal, inTotal }
    * @param {string} enemyKey @param {SpawnOpts} [opts] @returns {import('../units.js').Unit | null}
    * @this {Battle}
@@ -164,7 +165,7 @@ export class BattleSpawns {
       x: start[1], y: start[0], motion: def.motion,
       base: {
         maxHp: def.maxHp * (m.hpMul ?? 1), atk: def.atk * (m.atkMul ?? 1), def: def.def * (m.defMul ?? 1), res: def.res * (m.resMul ?? 1),
-        aspd: def.aspd, bat: def.bat, blockCnt: 0, moveSpeed: def.moveSpeed * (m.speedMul ?? 1), spRecovery: 0,
+        aspd: def.aspd + fin(m0.aspdAdd, 0), bat: def.bat, blockCnt: 0, moveSpeed: def.moveSpeed * (m.speedMul ?? 1), spRecovery: 0,
         tauntLevel: def.tauntLevel, massLevel: def.massLevel, hpRecoveryPerSec: def.hpRecoveryPerSec, rangeRadius: def.rangeRadius,
       },
     });

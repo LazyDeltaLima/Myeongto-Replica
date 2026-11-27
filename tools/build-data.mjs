@@ -4955,7 +4955,8 @@ function seasonEnemyMultipliers(base, season) {
  * The steps of the enemy effects (activity_table effectInfoDataDict / effectBuffInfoDataDict, data/effects.json): 攻坚装备
  * (aceffect_enemy_3) ATK and HP, 补给线II (aceffect_enemy_2_2) HP, 补给线 (aceffect_enemy_2) HP, 急行军 (aceffect_enemy_1)
  * speed. 盟约: 1.1 / 1.2 / 1.2 / 1.08 / +0.15; 规程 gives 1.11 / 1.2 / 1.3 / 1.08 / +0.3 under the same ids.
- * [ASSUMED·서버] 规程's rounds take the 盟约 per-round step counts (research 01 A3, by modeType × modeDifficulty; the
+ * [ASSUMED·서버] 规程's rounds (all but co-op 终极, which folds its measured order: SEASON_ENEMY_ROUND_EFFECTS) take the
+ * 盟约 per-round step counts (research 01 A3, by modeType × modeDifficulty; the
  * single rows moved to official play, SEASON_ENEMY_MULTIPLIERS) with these steps: which enemy effects a round carries
  * is the server's, and 规程's 34 new ENEMY effects (攻坚装备XIII–LVII,
  * 补给线VI–VIII, some with attack speed +5 / +10) are named by no client table (modeDataDict has eventIds and the
@@ -4970,6 +4971,64 @@ function enemySteps(effects) {
     atk: bb('aceffect_enemy_3', 'atk', 1.1), hp: bb('aceffect_enemy_3', 'max_hp', 1.2), supply: bb('aceffect_enemy_2_2', 'max_hp', 1.2),
     extra: bb('aceffect_enemy_2', 'max_hp', 1.08), speed: 1 + bb('aceffect_enemy_1', 'move_speed', 0.15),
   };
+}
+
+/**
+ * Measured round effects: the ENEMY effect each round adds, in order, for the modes where an official match was read
+ * round by round. 规程 co-op 终极 (mode_multi_abyss): the server's `global_effects` of two CN matches on 2026-11-25
+ * (stages m06 and m11), the same in both — one new effect per round (upstream PR #1013, hand-ported). Only this
+ * difficulty moved to the measurement (maintainer decision 2026-11-27); 规程's other co-op difficulties and the single
+ * grades keep the stack table above. [ASSUMED·서버: the same order on every stage of the mode — two of its stages read]
+ */
+const SEASON_ENEMY_ROUND_EFFECTS = {
+  act3autochess: {
+    mode_multi_abyss: ['8', '6', '1', '7', '2_2', '7', '7', '9', '16', '2_2', '8', '10', '15', '7', '2_2'].map((id) => `aceffect_enemy_${id}`),
+  },
+};
+
+/**
+ * Fold a measured round-effect order (SEASON_ENEMY_ROUND_EFFECTS) into the round rows, from ×1 with no base multiplier:
+ * each effect's buffs (data/effects.json) multiply in — `enemy_attribute_mul` atk / max_hp, `env_gbuff_new`
+ * enemy_move_speed_mul (×(1 + move_speed)) — and `enemy_attribute_add` attack_speed adds up (`aspdAdd`). `kAtk` /
+ * `kHp` count the ATK / HP buffs (the custom-step rules read them). `supplyHp` = the share of `hp` from the HP-only
+ * buffs, whose `enemy_exclude` leaves out the 器物 hit-count keys and two leader summons — the engine takes it back out
+ * of those (archetypes.js `times`, bosses.js supplyExcluded, which read the 补给线 effects' lists). The generator stops on
+ * an id the season lacks, a buff or field it does not know, or an exclusion list the engine would not honour: an
+ * HP-only buff must leave out exactly the 补给线II keys, any other exactly the 攻坚装备 keys (all of them our side's units).
+ * @param {Record<string, { buffs?: { key: string, bb?: Record<string, number>, bbStr?: Record<string, string> }[] }>} effects
+ * @param {string[]} order @param {string} modeId
+ */
+function measuredEnemyScale(effects, order, modeId) {
+  const excl = (/** @type {{ bbStr?: Record<string, string> }} */ b) => [...new Set(String(b.bbStr?.enemy_exclude ?? '').split('|').filter(Boolean))].sort().join('|');
+  const ref = (/** @type {string} */ id) => {
+    const lists = new Set((effects[id]?.buffs || []).map(excl));
+    if (lists.size !== 1) throw new Error(`enemy round effects: ${id} has no single enemy_exclude list to compare with`);
+    return [...lists][0];
+  };
+  const supplyList = ref('aceffect_enemy_2_2'), plainList = ref('aceffect_enemy_3');
+  let atk = 1, hp = 1, speed = 1, kAtk = 0, kHp = 0, aspdAdd = 0, supplyHp = 1;
+  return order.map((id, i) => {
+    const buffs = effects[id]?.buffs;
+    if (!Array.isArray(buffs) || !buffs.length) throw new Error(`enemy round effects ${modeId} R${i + 1}: ${id} is not an enemy effect of this season`);
+    for (const b of buffs) {
+      const bb = b.bb || {}, keys = Object.keys(bb);
+      const hpOnly = b.key === 'enemy_attribute_mul' && bb.max_hp != null && bb.atk == null;
+      const known = b.key === 'enemy_attribute_mul' ? keys.every((k) => k === 'atk' || k === 'max_hp')
+        : b.key === 'enemy_attribute_add' ? keys.every((k) => k === 'attack_speed')
+          : b.key === 'env_gbuff_new' ? b.bbStr?.key === 'enemy_move_speed_mul' && keys.every((k) => k === 'move_speed') : false;
+      if (!known || !keys.length) throw new Error(`enemy round effects ${modeId} R${i + 1}: ${id} buff ${b.key} ${JSON.stringify(bb)} is not one the round scale knows`);
+      if (excl(b) !== (hpOnly ? supplyList : plainList)) throw new Error(`enemy round effects ${modeId} R${i + 1}: ${id} buff ${b.key} leaves out other enemies than the engine does`);
+      if (b.key === 'enemy_attribute_mul') {
+        if (bb.atk != null) { atk *= bb.atk; kAtk++; }
+        if (bb.max_hp != null) { hp *= bb.max_hp; kHp++; if (hpOnly) supplyHp *= bb.max_hp; }
+      } else if (b.key === 'enemy_attribute_add') aspdAdd += bb.attack_speed;
+      else speed *= 1 + bb.move_speed;
+    }
+    return {
+      atk: cleanNum(atk), hp: cleanNum(hp), speed: cleanNum(speed), kAtk, kHp,
+      ...(aspdAdd ? { aspdAdd: cleanNum(aspdAdd) } : {}), ...(cleanNum(supplyHp) !== 1 ? { supplyHp: cleanNum(supplyHp) } : {}),
+    };
+  });
 }
 
 function enemyScaleFor(table, type, difficulty, round, isHidden, steps = enemySteps({})) {
@@ -5063,6 +5122,9 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
 
   const modes = {};
   const enemyStep = enemySteps(ctx.effects ?? {});
+  for (const id of Object.keys(SEASON_ENEMY_ROUND_EFFECTS[SEASON] ?? {})) {
+    if (!act.modeDataDict[id]) throw new Error(`enemy round effects: ${SEASON} has no mode ${id}`);
+  }
   for (const modeId of Object.keys(act.modeDataDict)) {
     const m = act.modeDataDict[modeId];
     const battle = act.battleDataDict[modeId] || {};
@@ -5071,6 +5133,9 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
     const type = m.modeType;
     const rounds = {};
     const enemyScale = {};
+    const order = SEASON_ENEMY_ROUND_EFFECTS[SEASON]?.[modeId];
+    if (order && order.length !== roundNums.length) throw new Error(`enemy round effects ${modeId}: ${order.length} effects for ${roundNums.length} rounds`);
+    const measured = order ? measuredEnemyScale(ctx.effects ?? {}, order, modeId) : null;
     const combatTimeLimit = {};
     let lastRound = 0, bossRound = null, hiddenRound = null;
     for (const r of roundNums) {
@@ -5093,7 +5158,7 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
         isSpPrepare: entries.some((e) => e.isSpPrepare), isBoss, isHidden,
         bossOvertimeAfter: isBoss ? turn.bossTurnHpReduceTime || 150 : null,
       };
-      enemyScale[r] = enemyScaleFor(multipliers, type, m.modeDifficulty, r, isHidden, enemyStep);
+      enemyScale[r] = measured ? measured[roundNums.indexOf(r)] : enemyScaleFor(multipliers, type, m.modeDifficulty, r, isHidden, enemyStep);
       combatTimeLimit[r] = rounds[r].combatTimeLimit;
       if (isHidden) hiddenRound = r; else { lastRound = r; if (isBoss) bossRound = r; }
     }

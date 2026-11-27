@@ -271,6 +271,8 @@ upstream 팩에만 있고 `public/i18n/en.json`에 없는 키(우리 코드가 �
     대기실 좌석 카드는 `ui.md` 「스킨 고르기」.
   - 재발 방지: `test/skins.test.js`(실제 판 경로에서 유닛·소환물의 스킨, 스킨 유무로 같은 `Battle.result()`), `test/lobby-skins.test.js`.
 
+- **규정 다인 초월의 적 강화 실측** (upstream PR #1013 by @bmryggdrasil, `168110281`·합침 `9c045cf78`·보스 공속 수정, 관리자 결정 2026-11-27: 초월만): 라운드별 실측 적 효과 순서를 효과 블랙보드로 쌓고 적 공격 속도 가산을 일반 적·리더·리더 소환물에. 우리 판의 시즌 구조(`SEASON_ENEMY_ROUND_EFFECTS`, 엔진의 `supplyHp` 길)에 맞춰 손으로 옮김 — upstream의 `roundEnemyExcludeEffect`(첫 효과의 제외 목록을 모두에 씀)는 넣지 않았다: 그 목록의 적은 우리 판에서 모두 우리 편 단위라 적으로 나오지 않고, 체력만 올리는 효과의 제외는 효과마다 자기 목록을 생성기가 대조한다. 규칙과 근거는 `sim.md` 「라운드 적 효과」 다인 초월.
+
 ## upstream에서 이식할 때 비교할 우리 패치
 upstream이 같은 곳을 고치면 비교해서 정리한다.
 - 제국의 갑주 폭격·3연타 → `server/sim/content/local-patch.js`의 `patchVtsk`(`sim.md` 「“帝国的甲胄”」).

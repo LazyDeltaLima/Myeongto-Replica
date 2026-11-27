@@ -236,7 +236,8 @@ test('the step multipliers: each official step after round 1 at the set multipli
   const mode = DATA.config.modes.mode_multi_hard;
   assert.equal(officialStep(mode, 'hp'), 1.2);
   assert.equal(officialStep(mode, 'atk'), 1.1);
-  if (ACT3) assert.equal(officialStep(ACT3.config.modes.mode_multi_abyss, 'atk'), 1.11);
+  // 规程 co-op 终极 folds its measured round effects (攻坚装备 XIII / XIV / XVII / XIX: ATK ×1.1 each), not 攻坚装备 ×1.11
+  if (ACT3) assert.equal(officialStep(ACT3.config.modes.mode_multi_abyss, 'atk'), 1.1);
   if (ACT3) assert.equal(officialStep(ACT3.config.modes.mode_multi_abyss, 'hp'), 1.2, 'the 补给线 share left out');
   assert.equal(stepScale(2, 3, 1, 1.2, 1.2), 2);
   const gd = new GameData(DATA, 'mode_multi_hard', sanitizeCustom({ enemies: { stepHp: 130, stepAtk: 100 } }));

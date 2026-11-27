@@ -428,6 +428,7 @@ function summonMods(b, hpRatio = null, key = null) {
   /** @type {EnemyMods & { supplyHpMul?: number }} */
   const m = { hpMul: (Number.isFinite(s.hpMul) && s.hpMul > 0 ? s.hpMul : 1) * (hpRatio || 1) / (out ? supply : 1), atkMul: s.atkMul, speedMul: s.speedMul };
   if (s.supplyHpMul != null && !out) m.supplyHpMul = s.supplyHpMul;
+  if (s.aspdAdd != null) m.aspdAdd = s.aspdAdd;
   if (s.defMul != null) m.defMul = s.defMul;
   if (s.resMul != null) m.resMul = s.resMul;
   return m;
@@ -511,11 +512,19 @@ const nearestOf = (b, e, pred) => {
   for (const o of b.enemies) { if (!o.alive || o === e || !pred(o)) continue; const d = hypot(o.x - e.x, o.y - e.y); if (d < bd) { bd = d; best = o; } }
   return best;
 };
-/** Apply a floor to an enemy whose data attack speed is 0 (skill-driven leaders: 铳/管/弦). @param {Battle} b @param {Unit} e @param {number} [extra] */
+/**
+ * Apply a floor to an enemy whose data attack speed is 0 (skill-driven leaders: 铳/管/弦): the floor (or the talent
+ * stacks in `extra`, whichever is higher) is its attack speed. A round's added attack speed (`aspdAdd`, 规程 co-op 终极's
+ * round effects: spawns.js sets `base.aspd` = data + aspdAdd) stays on top, so the buff counts from the data's value,
+ * not the whole base — counted from the base, the round's bonus cancelled out (upstream PR #1013's merge fix)
+ * [ASSUMED·자료 없음: how the official client scales these skill-driven attacks under a global attack-speed effect].
+ * @param {Battle} b @param {Unit} e @param {number} [extra]
+ */
 function aspdFloor(b, e, extra = 0) {
   const rawAspd = e.def.raw && e.def.raw.stats ? Number(e.def.raw.stats.aspd) : NaN;
   if (!(rawAspd === 0)) return;
-  b.addBuff(e, { key: 'boss:aspd', persist: true, mods: { aspd: Math.max(ASPD_FLOOR, rawAspd + extra) - e.base.aspd } });
+  const dataAspd = Number.isFinite(e.def.aspd) ? e.def.aspd : e.base.aspd;
+  b.addBuff(e, { key: 'boss:aspd', persist: true, mods: { aspd: Math.max(ASPD_FLOOR, rawAspd + extra) - dataAspd } });
 }
 /**
  * Engine target priority (blocker → taunt → latest deployed), made fair for two players on one boss field: within the top

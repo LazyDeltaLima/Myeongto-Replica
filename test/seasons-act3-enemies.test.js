@@ -2490,7 +2490,8 @@ test('规程 补给线 leaves the leaders\' summons 刺胄之弹 and “裂管�
   }
   // co-op 终极's boss round carries a 补给线 share (config enemyScale supplyHp)
   assert.ok(ACT3.config.modes.mode_multi_abyss.enemyScale['14'].supplyHp > 1);
-  const enemyScale = { hpMul: 2.6, atkMul: 1.5, speedMul: 1.3, supplyHpMul: 1.3 };
+  // aspdAdd: co-op 终极's round attack speed (its measured round effects), which the summons take like any enemy
+  const enemyScale = { hpMul: 2.6, atkMul: 1.5, speedMul: 1.3, supplyHpMul: 1.3, aspdAdd: 30 };
   // the season's level (its branches: 死亡集群's boss_summon_enemy, 管's summon_enemy — the spawns go through branchSpawn)
   const field = (season, keys, tpl) => {
     const id = `${season === ACT3 ? 'act3autochess' : 'act1autochess'}_${tpl}`;
@@ -2514,6 +2515,7 @@ test('规程 补给线 leaves the leaders\' summons 刺胄之弹 and “裂管�
     near(shell.base.atk, E[SHELL].stats.atk * 1.5, `${name} 刺胄之弹 ATK (攻坚装备 kept)`);
     const ratio = E.enemy_9013_acstmk.skills.find((s) => s.prefabKey === '2').bb['summon.hp_ratio'] ?? 1;
     near(yokai.s.maxHp, E[YOKAI].stats.maxHp * 2.6 * ratio, `${name} 妖怪 HP: the whole round (not excluded)`);
+    assert.ok(shell.base.aspd === shell.def.aspd + 30 && yokai.base.aspd === yokai.def.aspd + 30, `${name}: the summons take the round's attack speed`);
     const p = field(season, ['enemy_9021_acduml', ECHO], 'h07_03');
     put(p, 'enemy_9021_acduml', [3, 10], { tag: 'boss' });
     assert.ok(p.runUntil(() => alive(p, ECHO).length > 0, 120), `${name}: 假想敌：管 summons`);

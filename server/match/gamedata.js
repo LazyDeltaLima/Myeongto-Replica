@@ -706,6 +706,7 @@ export class GameData {
    * Official enemy multipliers of round r (config enemyScale: the PRTS table + 终极 speed ×1.15 from R3). `supplyHpMul`
    * (only when ≠ 1: co-op 终极 R5–R15) = the share of hpMul from 补给线 / 补给线II (config `supplyHp`), effects whose
    * `enemy_exclude` leaves out the 14 器物 hit-count keys — they take hpMul / supplyHpMul (archetypes.js `times`).
+   * `aspdAdd` (only when ≠ 0: 规程 co-op 终极, its measured round effects) = attack speed added to every enemy's.
    * A custom round plan's round reads its source round's entry with the plan's HP / ATK (an added round's rise on).
    * @param {number} r
    */
@@ -713,12 +714,14 @@ export class GameData {
     const e = this.mode.enemyScale && this.mode.enemyScale[String(this.srcRound(r))];
     if (!e || typeof e !== 'object') return { hpMul: 1, atkMul: 1, speedMul: 1 };
     const supply = numOr(e.supplyHp, 1);
+    const aspdAdd = numOr(e.aspdAdd, 0);
     const pr = this._planRound(r);
     return {
       hpMul: Math.max(0.01, numOr(pr ? pr.hp : e.hp, 1)),
       atkMul: Math.max(0, numOr(pr ? pr.atk : e.atk, 1)),
       speedMul: Math.max(0.01, numOr(e.speed, 1)),
       ...(supply > 0 && supply !== 1 ? { supplyHpMul: supply } : {}),
+      ...(aspdAdd !== 0 ? { aspdAdd } : {}),
     };
   }
 
@@ -775,7 +778,7 @@ export class GameData {
       hpMul = stepScale(hpMul, k.kHp, k1.kHp, Number.isFinite(pct.stepHp) ? /** @type {number} */ (pct.stepHp) / 100 : oHp, oHp);
       atkMul = stepScale(atkMul, k.kAtk, k1.kAtk, Number.isFinite(pct.stepAtk) ? /** @type {number} */ (pct.stepAtk) / 100 : oAtk, oAtk);
     }
-    /** @type {{ hpMul: number, atkMul: number, speedMul: number, supplyHpMul?: number, defMul?: number, resMul?: number }} */
+    /** @type {{ hpMul: number, atkMul: number, speedMul: number, supplyHpMul?: number, aspdAdd?: number, defMul?: number, resMul?: number }} */
     const out = { ...base, hpMul: hpMul * p(pct.hp), atkMul: atkMul * p(pct.atk), speedMul: base.speedMul * p(pct.speed) };
     if (p(pct.def) !== 1) out.defMul = p(pct.def);
     if (p(pct.res) !== 1) out.resMul = p(pct.res);
