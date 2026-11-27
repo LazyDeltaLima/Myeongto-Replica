@@ -126,6 +126,12 @@ SEASONS = {
             ('ui/autochess/[uc]autochessbattle.ab', 'playerdetail', ['autochess_player_detail_dialog', 'autochess_player_detail_row',
                                                                  'autochess_player_detail_bond_item', 'autochess_player_detail_chess_item',
                                                                  'player_status_item']),
+            # the system bubbles a 规程 avatar shows to its right (player_status_item's bubble_cont): 完美作战, a 精英
+            # (golden) operator, a shop level and 淘汰 — each a 112 × 100 bubble holding its autochess_system_emoji_*
+            ('ui/autochess/[uc]autochessbattle.ab', 'statusbubble', ['player_status_perfect_battle_bubble',
+                                                                     'player_status_golden_char_bubble',
+                                                                     'player_status_shop_level_bubble',
+                                                                     'player_status_dead_bubble']),
             # the 自选编队 tab (public/js/screens/diy.js): the lineup window's tier rows (its tags and the diy_icon) and its
             # empty slot pop_diy_item_add — the slot holds the 3/3 card (auto_chess_deploy_char_item_view, in diychoose)
             ('ui/autochess/[uc]autochessouter.ab', 'diylineup', ['auto_chess_deploy_diy_lineup_state', 'auto_chess_deploy_diy_lineup_slot_view']),
