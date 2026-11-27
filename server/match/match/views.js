@@ -132,13 +132,7 @@ export class MatchViews {
       /** @type {{ pid: string, chess: string, pct: number, diy?: { charId: string, skillIndex: number, uniEquipId: string|null }, standInFor?: string }} */
       const out = { pid: r.pid, chess: r.chess, pct: Math.max(1, Math.min(100, Math.floor((r.d * 100) / pool.maxHp + 1e-9))) };
       const ps = byPid.get(r.pid);
-      const pick = ps && typeof ps.diyPickOf === 'function' ? ps.diyPickOf(r.chess) : null;
-      if (pick) out.diy = { charId: pick.charId, skillIndex: pick.skillIndex, uniEquipId: pick.uniEquipId };
-      else if (ps && typeof ps.fieldsStandIn === 'function' && ps.fieldsStandIn(r.chess)) {
-        const si = this.gd.standIn(r.chess);
-        if (si && typeof si.standInFor === 'string') out.standInFor = si.standInFor;
-      }
-      return out;
+      return ps && typeof ps.fieldedAs === 'function' ? Object.assign(out, ps.fieldedAs(r.chess)) : out;
     });
   }
 

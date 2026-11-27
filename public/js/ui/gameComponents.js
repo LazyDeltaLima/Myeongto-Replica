@@ -11,7 +11,7 @@ import { skinArt, skinPic } from './skins.js';
 import { diyRecordFor } from './gameLogic/diy.js';
 import { cardStandIn, standInForText } from './gameLogic/standIn.js';
 import {
-  uiUrl, chessAvatarUrl, chessPortraitUrl, itemIconUrl, tokenAvatarUrl, enemyIconUrl, bondIconUrl, bandIconUrl,
+  uiUrl, chessAvatarUrl, itemIconUrl, tokenAvatarUrl, enemyIconUrl, bondIconUrl, bandIconUrl,
 } from './assetUrls.js';
 
 /** @param {...unknown} p */
@@ -193,6 +193,23 @@ export function FieldedThumb({ u, size = 'sm', ownSkin = false, skinsOf = null }
   const si = !dr && chess ? cardStandIn(chess, { unit: u, backups }) : null;
   return html`<${UnitThumb} kind=${u.kind === 'token' ? 'token' : 'chess'} id=${u.id} golden=${u.golden} tier=${u.tier} size=${size} rec=${dr || si}
     ownSkin=${ownSkin} skinsOf=${skinsOf} title=${si ? tr('{name}（{note}）', { name: si.name, note: standInForText(chess.name) }) : undefined} />`;
+}
+
+/**
+ * The avatar picture of a fielded unit drawn by id (FieldedThumb's `u`: a 自选 slot's pick, a 补位 stand-in, else the
+ * chess), in the skin the viewer's settings give it — for a picture without the thumb's frame and tier (规程's elite
+ * bubble, ui/statusBubbles.js). Null without art.
+ * @param {{ id: string, diy?: { charId: string, skillIndex?: number, uniEquipId?: string|null } | null, standInFor?: string|null }} u
+ * @param {{ ownSkin?: boolean, skinsOf?: Record<string, string> | null }} [worn]
+ * @returns {string|null}
+ */
+export function fieldedAvatarUrl(u, { ownSkin = false, skinsOf = null } = {}) {
+  const chess = data.lookup('chess', u.id);
+  if (!chess) return null;
+  const backups = data.get('backups');
+  const dr = u.diy ? diyRecordFor(chess, u.diy, { chess: data.get('chess'), backups }) : null;
+  const rec = dr || cardStandIn(chess, { unit: u, backups }) || chess;
+  return skinPic(rec, 'avatar', skinArt(), { own: ownSkin, of: skinsOf }) || chessAvatarUrl(data.get('assets'), rec);
 }
 
 /** Thumbnail for an m.private Piece. @param {{ piece: PieceLike | null | undefined, size?: string, class?: string, badge?: unknown }} props */

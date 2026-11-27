@@ -63,6 +63,11 @@ export const SEASON_FEATURES = Object.freeze({
    * instead of the core count (server/match/pool.js drawDisabledBonds, match/phases.js pickBondGroup; the season's
    * official briefing, docs/rules/sim.md 「1인 규정 핵심 맹약 두 묶음」). The 盟约 solo draws its absent core bonds. */
   soloBondGroups: false,
+  /** A player's news shows as a bubble beside its avatar in the team list, not as a broadcast strip line: 完美作战, an
+   * elite, a 调度中心 level, out, the leader-damage steps (the season's player_status_item bubbles; the 盟约 client has the
+   * strip). The strip leaves those lines out, and a player who left the match keeps only its quit mask
+   * (public/js/ui/statusBubbles.js; docs/rules/ui.md 「규정 아바타 말풍선」, maintainer decision 2026-11-27). */
+  avatarBubbles: false,
 });
 
 /**
@@ -91,7 +96,7 @@ export const SEASONS = {
   // from 2.0.0
   act3autochess: Object.freeze({ id: 'act3autochess', public: true, name: N_('规程'), mark: 'REGULATION',
     features: Object.freeze({ ...SEASON_FEATURES, noSideCamera: true, bondPhase: true, soloGrades: true, benchInBattle: true, stagePreview: true, bossLayerGains: true, coreBondBan: true, bountyMark: true, equipReport: true,
-      uniteKeepsRedeploy: true, soloBondGroups: true }) }),
+      uniteKeepsRedeploy: true, soloBondGroups: true, avatarBubbles: true }) }),
 };
 
 /**

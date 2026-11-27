@@ -80,6 +80,9 @@ export class MatchSettle {
       if (r.perfect !== false && counted === 0) ps.stats.perfectRounds++;
       // 完美连胜 (规程's avatar badge, views.js winStreak): perfect rounds in a row, a round with a counted leak starts over
       ps.winStreak = r.perfect !== false && counted === 0 ? ps.winStreak + 1 : 0;
+      // 「{0}博士完美作战！」 (PERFECT_BATTLE: 规程's table has it, 盟约's not — tickerFor sends nothing then), shown in 规程 as the
+      // player's 完美作战 avatar bubble: every perfect round of each player [ASSUMED·CN: when the client announces it]
+      if (ps.winStreak > 0) this.tickerFor('PERFECT_BATTLE', [ps.name], { playerId: ps.playerId });
       // bounty coins (own battle + unite kills) are credited to the next prep
       let coins = Math.max(0, Math.trunc(Number(r.coins) || 0));
       const up = uniteResult && uniteResult.perPlayer && uniteResult.perPlayer[ps.playerId];
@@ -118,7 +121,7 @@ export class MatchSettle {
         ps.lp = 0;
         ps.eliminate(this.round);
         this.toast(ps, 'error', '你的目标生命值耗尽，已被淘汰');
-        this.tickerText(msg('{name}博士的目标生命值已耗尽', { name: nameParam(ps.name) }), FLOW_TICKER_PRIORITY);
+        this.tickerText(msg('{name}博士的目标生命值已耗尽', { name: nameParam(ps.name) }), FLOW_TICKER_PRIORITY, { type: 'PLAYER_OUT', playerId: ps.playerId });
       }
     }
     this.fields = [];

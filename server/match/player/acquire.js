@@ -148,7 +148,8 @@ export class PlayerAcquire {
     // the owner's recall of the official mode, 2026-10-06 [ASSUMED for the ticker])
     const rec = this.gd.chess(goldenId);
     const shown = rec ? this.fieldRecord(rec) || rec : null;
-    this.m.tickerFor('GOLDEN_CHAR', [this.name, shown ? shown.name : goldenId], { playerId: this.playerId });
+    // the chess id and what it fields as ride along for 规程's elite bubble (its operator's avatar; ui/statusBubbles.js)
+    this.m.tickerFor('GOLDEN_CHAR', [this.name, shown ? shown.name : goldenId], { playerId: this.playerId, extra: { chess: goldenId, ...this.fieldedAs(goldenId) } });
     this.m.dispatch(this, 'onMerge', { kind: 'chess', piece: elite, baseId, consumed: consumed.map((l) => l.piece.uid), area: where });
     onMerge(this.m, this, { kind: 'chess' }); // AI bot says "害怕" on its 3rd chess merge of a round (enabled by default; SP_BOT_EMOTES=0 silences it)
     return elite;

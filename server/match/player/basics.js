@@ -266,6 +266,24 @@ export class PlayerBasics {
   }
 
   /**
+   * What this player's chess id fields as, for a page that draws it by id (the settlement's rows, unitTally.js rowOf;
+   * the leader ranking, views.js _leaderTopView; the elite's bubble, acquire.js): `diy` = a 自选 slot's pick (the id is
+   * the slot), `standInFor` = the replaced operator's charId of a 补位 stand-in; {} when the id draws itself.
+   * @param {string} chessId
+   * @returns {{ diy?: { charId: string, skillIndex: number, uniEquipId: string|null }, standInFor?: string }}
+   * @this {PlayerState}
+   */
+  fieldedAs(chessId) {
+    const pick = typeof this.diyPickOf === 'function' ? this.diyPickOf(chessId) : null;
+    if (pick) return { diy: { charId: pick.charId, skillIndex: pick.skillIndex, uniEquipId: pick.uniEquipId } };
+    if (this.fieldsStandIn(chessId)) {
+      const si = this.gd.standIn(chessId);
+      if (si && typeof si.standInFor === 'string') return { standInFor: si.standInFor };
+    }
+    return {};
+  }
+
+  /**
    * Operator skins (docs/rules/upstream.md 「오퍼레이터 스킨」): replace this player's outfits `{ [charId]: skinId }`. A
    * malformed map (shared/protocol.js isSkinSelection) is refused whole and leaves `this.skins` as it was; a charId this
    * match's content does not have is dropped; an empty map clears. Bots wear the default models. No dirty() here: the

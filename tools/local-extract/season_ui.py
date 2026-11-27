@@ -30,7 +30,8 @@ id of shared/seasons.js:
   season/<id>/<dir>/<sprite>      every sprite of the icon folders the season's tables point at (SEASONS[id]['icons']),
                                   by folder: one name can be in two folders with two pictures (modeicon / modeselecticon)
   season/<id>/skin/<sprite>       the sprites of the season's default UI theme bundle (SEASONS[id]['skin']), each at its
-                                  sprite rect: a texture packed tight is put back where it sits in the rect
+                                  sprite rect: a texture packed tight is put back where it sits in the rect; and the
+                                  textures its materials draw that no sprite wraps, by texture name (damage_fx_scan_light)
   season/<id>/<group>/<sprite>    every sprite the images of a few screen prefabs show (SEASONS[id]['prefabs']), at its
                                   rect: a plain Image's Sprite, or an atlas image's picture cut from its atlas (the
                                   client's own atlas component: `_initAtlas` + `_initSpriteId`) — the prefab's own
@@ -969,6 +970,21 @@ def main(argv=None):
                 d = o.read()
                 if d.m_Name not in skin:
                     skin[d.m_Name] = full_rect(d)
+                    save('skin', d.m_Name, skin[d.m_Name])
+        # the textures the theme's materials draw that no Sprite wraps (the boss-damage glow's scan_light is an Image
+        # without a sprite whose material damage_rank_scan_light draws damage_fx_scan_light), by the texture's name
+        local = {o.path_id: o for o in senv.objects}
+        for o in senv.objects:
+            if o.type.name != 'Material':
+                continue
+            for _key, env_ in o.read_typetree()['m_SavedProperties']['m_TexEnvs']:
+                ref = env_['m_Texture']
+                tex = local.get(ref['m_PathID']) if ref['m_FileID'] == 0 else None
+                if tex is None or tex.type.name != 'Texture2D':
+                    continue
+                d = tex.read()
+                if d.m_Name not in skin:
+                    skin[d.m_Name] = d.image.convert('RGBA')
                     save('skin', d.m_Name, skin[d.m_Name])
         if spec.get('bondboard'):
             rel, folder = spec['bondboard']['pieces']

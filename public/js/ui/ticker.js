@@ -7,7 +7,8 @@
 // 就出了造成50%伤害播报"). A player's newer BOSS_HIT line of the same round supersedes their older one, queued or on
 // screen (it names a higher threshold: the server announces each player's thresholds once each, rising), so a burst
 // finish shows its highest milestone before the round ends. Lines carry `type`, `playerId` and `round` from main.js
-// (the m.ticker handler). The queue rules are the pure helpers below (test/ui/bosshit-ticker.test.js).
+// (the m.ticker handler). The queue rules are the pure helpers below (test/ui/bosshit-ticker.test.js). In a season with
+// avatar bubbles the strip leaves a player's bubble lines and departures out (ui/statusBubbles.js stripHides).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html } from './components.js';
@@ -15,6 +16,7 @@ import { GIcon, RichText } from './gameComponents.js';
 import { useStore } from '../store.js';
 import { audio } from '../audio.js';
 import { localAsset } from '../data.js';
+import { bubblesOn, stripHides } from './statusBubbles.js';
 
 const TICKER_MS = 5200;
 /** auto_chess_broadcast (the official line: in over .08 s, rising 34 units by .67 s, out from 2.0 to 2.33 s). */
@@ -114,6 +116,8 @@ export function nextTickerLine(queue, round) {
 export function Ticker() {
   const items = useStore((s) => s.ticker);
   const round = useStore((s) => s.match?.public?.round ?? null);
+  // 规程: the avatar bubbles carry a player's lines (ui/statusBubbles.js) — the strip leaves them out
+  const bubbles = useStore((s) => bubblesOn(s.room?.season, Array.isArray(s.match?.public?.players) ? s.match.public.players.length : 0));
   const seen = useRef(/** @type {number | null} */ (null));
   const queue = useRef(/** @type {TickerLine[]} */ ([]));
   const roundRef = useRef(round);
@@ -131,7 +135,9 @@ export function Ticker() {
     const fresh = list.filter((/** @type {TickerLine | null} */ t) => t && t.id > /** @type {number} */ (seen.current) && Date.now() - /** @type {number} */ (t.at) < 30000);
     if (!fresh.length) return;
     seen.current = fresh[fresh.length - 1].id;
-    const r = enqueueTickerLines(queue.current, cur, fresh);
+    const news = fresh.filter((/** @type {TickerLine} */ t) => !stripHides(t, bubbles));
+    if (!news.length) return;
+    const r = enqueueTickerLines(queue.current, cur, news);
     queue.current = r.queue;
     if (r.cur !== cur) show(r.cur); // a player's newer leader-damage line replaces their older one on screen
     else if (!cur) next();

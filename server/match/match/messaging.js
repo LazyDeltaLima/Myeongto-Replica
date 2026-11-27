@@ -117,11 +117,13 @@ export class MatchMessaging {
    * Broadcast ticker from config.broadcasts by type; `param` picks the variant (SHOP_LEVEL level, BOSS_HIT share…).
    * `own` (a msg()): the remake's own text in place of the broadcast's, keeping its type and priority (no `id`, so the
    * client translates the msgid — the 8-player BOSS_HIT lines name their scaled share).
+   * `extra`: fields the line carries for the page beside its text (GOLDEN_CHAR's chess, BOSS_HIT's step and pct — 规程's
+   * avatar bubbles, public/js/ui/statusBubbles.js).
    * @param {string} type @param {unknown[]} [args]
-   * @param {{ playerId?: string | null, to?: string | null, param?: string | null, own?: unknown }} [opts]
+   * @param {{ playerId?: string | null, to?: string | null, param?: string | null, own?: unknown, extra?: Record<string, unknown> | null }} [opts]
    * @this {Match}
    */
-  tickerFor(type, args = [], { playerId = null, to = null, param = null, own = null } = {}) {
+  tickerFor(type, args = [], { playerId = null, to = null, param = null, own = null, extra = null } = {}) {
     const list = Array.isArray(this.gd.config.broadcasts) ? this.gd.config.broadcasts.filter((/** @type {BroadcastLine} */ b) => b && b.type === type) : [];
     let b = list[0];
     if (param != null) b = list.find((/** @type {BroadcastLine} */ x) => Array.isArray(x.params) && x.params.includes(String(param))) || b;
@@ -130,22 +132,25 @@ export class MatchMessaging {
     const text = tpl.replace(/\{(\d)\}/g, (/** @type {string} */ _, /** @type {string} */ i) => (args[Number(i)] != null ? String(args[Number(i)]) : ''));
     const w = own ? wireMessage(own) : null;
     const msg = w
-      ? { t: 'm.ticker', ...w, text: w.text.slice(0, 200), id: null, type, priority: Number(b.priority) || 0, playerId, args: args.map((a) => String(a ?? '')) }
-      : { t: 'm.ticker', text, id: b.id, type, priority: Number(b.priority) || 0, playerId, args: args.map((a) => String(a ?? '')) };
+      ? { ...extra, t: 'm.ticker', ...w, text: w.text.slice(0, 200), id: null, type, priority: Number(b.priority) || 0, playerId, args: args.map((a) => String(a ?? '')) }
+      : { ...extra, t: 'm.ticker', text, id: b.id, type, priority: Number(b.priority) || 0, playerId, args: args.map((a) => String(a ?? '')) };
     if (to) this.sendTo(to, msg);
     else this.broadcast(msg);
   }
 
   /**
    * A ticker line of the remake's own (type CUSTOM). `priority`: the match-flow notices (隐秘核心已解锁, 联防阶段, a player out
-   * or gone) take FLOW_TICKER_PRIORITY so the strip does not hold them behind shop-level lines; other lines 0.
+   * or gone) take FLOW_TICKER_PRIORITY so the strip does not hold them behind shop-level lines; other lines 0. A line
+   * about one player names it (`playerId`) and its kind (`type`: PLAYER_OUT — eliminated —, PLAYER_LEFT — left the
+   * match), so 规程 can show it as that player's avatar bubble instead (public/js/ui/statusBubbles.js).
    * @param {unknown} text a string or msg() (shared/i18n.js) @param {number} [priority]
+   * @param {{ type?: string, playerId?: string | null }} [opts]
    * @this {Match}
    */
-  tickerText(text, priority = 0) {
+  tickerText(text, priority = 0, { type = 'CUSTOM', playerId = null } = {}) {
     if (!text) return;
     const w = wireMessage(text);
-    this.broadcast({ t: 'm.ticker', ...w, text: w.text.slice(0, 200), id: null, type: 'CUSTOM', priority: Number(priority) || 0, playerId: null });
+    this.broadcast({ t: 'm.ticker', ...w, text: w.text.slice(0, 200), id: null, type, priority: Number(priority) || 0, playerId });
   }
 
   /** @this {Match} */

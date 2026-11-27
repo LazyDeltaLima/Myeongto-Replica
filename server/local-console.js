@@ -570,9 +570,9 @@ Match.prototype.toast = /** @param {PlayerState | null} ps @param {string} kind 
 };
 
 const upstreamTickerText = Match.prototype.tickerText;
-Match.prototype.tickerText = /** @param {string | { msgid: string, params?: object } | null | undefined} text @param {number} [priority] */ function tickerText(text, priority) {
+Match.prototype.tickerText = /** @param {string | { msgid: string, params?: object } | null | undefined} text @param {number} [priority] @param {{ type?: string, playerId?: string | null }} [opts] */ function tickerText(text, priority, opts) {
   if (this.console === true && MUTED_TICKERS.has(/** @type {string} */ (typeof text === 'string' ? text : text?.msgid))) return;
-  return upstreamTickerText.call(this, text, priority);
+  return upstreamTickerText.call(this, text, priority, opts);
 };
 
 const upstreamPublicView = Match.prototype.publicView;

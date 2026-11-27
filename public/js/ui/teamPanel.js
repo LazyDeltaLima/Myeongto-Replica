@@ -24,16 +24,19 @@
 // shrinks every row (css/hud-art.css: a smaller --u; css/screens/game.css: smaller portraits and gaps) so eight fit
 // between the top bar and the shop bar [추정: the official list has four].
 // 规程 (ui/avatarBadges.js): the 完美连胜 badge on a portrait's corner, and in a boss round each portrait's glow by its
-// player's share of the leader, the own share beside the own portrait.
+// player's share of the leader; its avatar bubbles (ui/statusBubbles.js): a player's 完美作战, elite, 调度中心 level, out and
+// leader-damage steps beside its avatar, 2.5 s each, in place of the broadcast strip's lines.
 
 import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { PHASE } from '../../../shared/constants.js';
-import { html, Icon, Tooltip } from './components.js';
+import { html, Icon, Tooltip, useTicker } from './components.js';
 import { PlayerAvatar, LpTower, GIcon, LocalSprite } from './gameComponents.js';
 import { EmoteBubble } from './emotes.js';
 import { STATUS_META, sortedPlayers, teamFrameIds } from './gameLogic.js';
 import { MissTag, uniteRemaining } from './hud.js';
 import { AvatarBadges } from './avatarBadges.js';
+import { StatusBubble, bubbleArt, scheduleBubbles } from './statusBubbles.js';
+import { useStore } from '../store.js';
 import { PlayerDetail, measureDetail, goFrameStyle, streakTopStyle } from './playerDetail.js';
 import { localAsset } from '../data.js';
 import { t } from '../../../shared/i18n.js';
@@ -140,6 +143,12 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
   useEffect(() => { setDetail(false); }, [phaseKey, watching, observe?.observing]);
   const players = sortedPlayers(pub);
   const open = detail && players.length > 1;
+  // 规程's avatar bubbles from the broadcast lines (re-rendered while one shows or waits its turn)
+  const season = useStore((s) => s.room?.season);
+  const lines = useStore((s) => s.ticker);
+  const art = players.length > 1 ? bubbleArt(season) : null;
+  const sched = art ? scheduleBubbles(lines, Date.now(), pub?.round ?? null) : null;
+  useTicker(sched && (sched.shown.size || sched.pending) ? 250 : 0);
   // the dialog's place follows the list's rows (measured after each render while open: m.public, a resize)
   useLayoutEffect(() => {
     const aside = asideRef.current;
@@ -195,6 +204,7 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
       const lp = rowLp(p, pub, self ? selfLive : null, { uniteLocal, cap });
       const inTeam = team.has(p.playerId);
       const card = cardState(p);
+      const sb = sched?.shown.get(p.playerId);
       return html`<div key=${p.playerId} class=${cx('team__row', self && 'is-self', inTeam && 'is-team', watched && 'is-watched', p.alive === false && 'is-dead', goTag && 'has-go')}>
         <button type="button" class="team__btn" onClick=${() => setDetail((d) => !d)} title=${inTeam && !self ? `${title} · ${t('与你在同一战场')}` : title} aria-expanded=${players.length > 1 ? String(open) : undefined}>
           <${PlayerAvatar} player=${p} self=${self} />
@@ -205,7 +215,8 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
           ${card.mask ? html`<span class=${`team__mask is-${card.mask}`} aria-hidden="true"><i></i></span>` : null}
           ${watched && !self ? html`<span class="team__watch" aria-hidden="true"></span>` : null}
           ${lp.left != null ? html`<${MissTag} n=${lp.left} name=${self ? null : playerName(p.name) || t('博士')} />` : null}
-          <${AvatarBadges} player=${p} self=${self} phase=${pub?.phase} />
+          <${AvatarBadges} player=${p} phase=${pub?.phase} />
+          ${sb && art ? html`<${StatusBubble} key=${sb.id} b=${sb} art=${art} self=${self} players=${pub?.players || []} />` : null}
         </button>
         <div class="team__info">
           <span class="team__name">${playerName(p.name) || t('博士')}</span>
@@ -227,7 +238,7 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
         </div>
         ${goTag ? html`<button type="button" class="team__ob pdetail__go" style=${goFrameStyle(av)} title=${t('查看 {name} 的战场', { name: title })}
           onClick=${() => go(p)}><span class="pdetail__gobar"><i class="pdetail__goarrow" aria-hidden="true"></i><span class="btn__label">${t('前往查看')}</span></span></button>` : null}
-        ${bt ? html`<span class="pdetail__streak" style=${streakTopStyle(bt)} aria-hidden="true"><${AvatarBadges} player=${p} self=${self} /></span>` : null}
+        ${bt ? html`<span class="pdetail__streak" style=${streakTopStyle(bt)} aria-hidden="true"><${AvatarBadges} player=${p} /></span>` : null}
         ${bubble ? html`<${EmoteBubble} key=${bubble.seq} id=${bubble.id} set=${bubble.set} class="team__bubble" />` : null}
       </div>`;
     })}

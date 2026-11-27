@@ -280,7 +280,7 @@ export class MatchPlatform {
     }
     ps.lp = 0;
     ps.eliminate(passedRound);
-    this.tickerText(msg('{name}博士中途退出了模拟', { name: nameParam(ps.name) }), FLOW_TICKER_PRIORITY);
+    this.tickerText(msg('{name}博士中途退出了模拟', { name: nameParam(ps.name) }), FLOW_TICKER_PRIORITY, { type: 'PLAYER_LEFT', playerId: ps.playerId });
     if (this.bossWaves && (phase === PHASE.ROUND_START || phase === PHASE.SP_DRAFT || phase === PHASE.PREP)) {
       // before the boss fight: pair the players left again (the prep preview shows the new partner / template); a
       // player moved to the other half re-checks its board there at once (recompute → deployMap, marks it private)

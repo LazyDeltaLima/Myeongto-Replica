@@ -332,6 +332,81 @@
    edge (the placing code is not in the dump). The row's width (the hidden name, the LP, upstream's tags) used to push
    it ~50 units further out (maintainer report). The tip is .09rem into the bubble (css/emotes.css). */
 .gm.has-hud-art.has-hud-team .team__bubble { left: calc(var(--u) * 83.5 - .09rem); top: calc(var(--u) * 40); transform: translateY(-48%); }
+/* ---- 规程's avatar bubbles (ui/statusBubbles.js; docs/rules/ui.md 「규정 아바타 말풍선」, maintainer decision 2026-11-27):
+   player_status_item's bubble_cont, the bubble root 112 × 100 at the avatar's (69, −8) (layout at 1280 × 720; its anchor
+   the cont's left middle, pivot (0.08, 0.52)), the parts at their layout boxes, the clips' timelines (2.5 s, once); the art
+   comes as --sb-* (season/<id>/statusbubble). Every part runs from the bubble's start (--sb-t: a bubble drawn late picks
+   up where it is). ---- */
+.gm.has-hud-art .sbub { position: absolute; z-index: 5; left: calc(var(--u) * 69); top: calc(var(--u) * -8); width: calc(var(--u) * 112); height: calc(var(--u) * 100); pointer-events: none; animation: sb-root 2.5s linear both; }
+.gm.has-hud-art .sbub, .gm.has-hud-art .sbub * { animation-delay: var(--sb-t, 0s) !important; } /* over each part's animation shorthand */
+.gm.has-hud-art .sbub i, .gm.has-hud-art .sbub b { position: absolute; display: block; }
+@keyframes sb-root { 0% { opacity: 0; } 6.68% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+.gm.has-hud-art .sbub .sbub__shadow { left: calc(var(--u) * -2); top: calc(var(--u) * 10); width: calc(var(--u) * 116); height: calc(var(--u) * 80); background: var(--sb-shadow) 0 0 / 100% 100%, #fff; background-blend-mode: multiply; -webkit-mask: var(--sb-shadow) 0 0 / 100% 100%; mask: var(--sb-shadow) 0 0 / 100% 100%; opacity: 1; }
+.gm.has-hud-art .sbub .sbub__light { left: calc(var(--u) * 2); top: calc(var(--u) * 12); width: calc(var(--u) * 108); height: calc(var(--u) * 76); }
+.gm.has-hud-art .sbub--perfect .sbub__shadow, .gm.has-hud-art .sbub--boss .sbub__shadow { background: var(--sb-shadow) 0 0 / 100% 100%, #98ddc7; background-blend-mode: multiply; -webkit-mask: var(--sb-shadow) 0 0 / 100% 100%; mask: var(--sb-shadow) 0 0 / 100% 100%; opacity: 1; }
+.gm.has-hud-art .sbub--perfect .sbub__light, .gm.has-hud-art .sbub--shop .sbub__light { background: var(--sb-light) 0 0 / 100% 100%, #4ad9b3; background-blend-mode: multiply; -webkit-mask: var(--sb-light) 0 0 / 100% 100%; mask: var(--sb-light) 0 0 / 100% 100%; opacity: 0.4; }
+.gm.has-hud-art .sbub--gold .sbub__light { background: var(--sb-light) 0 0 / 100% 100%, #e9691f; background-blend-mode: multiply; -webkit-mask: var(--sb-light) 0 0 / 100% 100%; mask: var(--sb-light) 0 0 / 100% 100%; opacity: 0.4; }
+.gm.has-hud-art .sbub--dead .sbub__light { background: var(--sb-light) 0 0 / 100% 100%, #d94a4a; background-blend-mode: multiply; -webkit-mask: var(--sb-light) 0 0 / 100% 100%; mask: var(--sb-light) 0 0 / 100% 100%; opacity: 0.4; }
+/* the face group (ctrl_face): 1.252 → 1.05 (0.183 s) → 1 (0.5 s); 完美作战's rises 7.44 into place (0.167–0.75 s) */
+.gm.has-hud-art .sbub .sbub__cf { left: calc(var(--u) * 18.5); top: calc(var(--u) * 23.4); width: calc(var(--u) * 74.9); height: calc(var(--u) * 53.1); transform-origin: 50% 50%; animation: sb-pop 2.5s linear both; }
+@keyframes sb-pop { 0% { transform: scale(1.252); } 7.32% { transform: scale(1.05); } 20%, 100% { transform: scale(1); } }
+.gm.has-hud-art .sbub--perfect .sbub__cf { animation: sb-pop 2.5s linear both, sb-rise 2.5s linear both; }
+@keyframes sb-rise { 0%, 6.68% { translate: 0 calc(var(--u) * 7.44); } 14% { translate: 0 calc(var(--u) * 6.91); } 21.32% { translate: 0 calc(var(--u) * 0.86); } 30%, 100% { translate: 0 0; } }
+/* 完美作战: from 0.5 s the face and the sword bob 3.5 in turn every 0.5 s and the spark blinks; the word comes in at 0.38–0.55 s */
+.gm.has-hud-art .sbub .sbub__face { left: calc(var(--u) * 13.1); top: calc(var(--u) * 7.9); width: calc(var(--u) * 32); height: calc(var(--u) * 28); background: var(--sb-face) 0 0 / 100% 100% no-repeat; animation: sb-face 2.5s step-end both; }
+.gm.has-hud-art .sbub .sbub__spark { left: calc(var(--u) * 38.7); top: calc(var(--u) * 4.5); width: calc(var(--u) * 8); height: calc(var(--u) * 8); background: var(--sb-spark) 0 0 / 100% 100% no-repeat; animation: sb-spark 2.5s step-end both; }
+.gm.has-hud-art .sbub .sbub__sword { left: calc(var(--u) * 41.9); top: calc(var(--u) * 7.9); width: calc(var(--u) * 28); height: calc(var(--u) * 28); background: var(--sb-sword) 0 0 / 100% 100% no-repeat; animation: sb-sword 2.5s step-end both; }
+@keyframes sb-face { 0% { translate: 0 0; } 20.68% { translate: 0 calc(var(--u) * -3.5); } 40.68% { translate: 0 0; } 60.68% { translate: 0 calc(var(--u) * -3.5); } 80.68% { translate: 0 0; } }
+@keyframes sb-sword { 0% { translate: 0 calc(var(--u) * -3.4); } 20.68% { translate: 0 0; } 40.68% { translate: 0 calc(var(--u) * -3.4); } 60.68% { translate: 0 0; } 80.68% { translate: 0 calc(var(--u) * -3.4); } }
+@keyframes sb-spark { 0% { opacity: 1; } 20.68% { opacity: 0; } 40.68% { opacity: 1; } 60.68% { opacity: 0; } 80.68% { opacity: 1; } }
+.gm.has-hud-art .sbub .sbub__text { left: calc(var(--u) * 28); top: calc(var(--u) * 60.8); width: calc(var(--u) * 56); height: calc(var(--u) * 12); background: var(--sb-text) 0 0 / 100% 100% no-repeat; animation: sb-text 2.5s linear both; }
+@keyframes sb-text { 0%, 15.32% { opacity: 0; translate: 0 calc(var(--u) * -5.44); } 21.32% { translate: 0 calc(var(--u) * -0.92); } 22% { opacity: 1; } 30%, 100% { opacity: 1; translate: 0 0; } }
+/* an elite: three merge arrows rise from 9.6 below one after another (0.033 s apart) and close in (0.2–0.55 s), go at
+   0.483 s, and the operator's avatar (46.5) in char_frame comes in at 1.083 → 1 (0.483–0.817 s) */
+.gm.has-hud-art .sbub .sbub__merge { left: 0; top: 0; width: 100%; height: 100%; animation: sb-merge 2.5s linear both; }
+@keyframes sb-merge { 0% { opacity: 0; } 6.68%, 19.32% { opacity: 1; } 20%, 100% { opacity: 0; } }
+.gm.has-hud-art .sbub .sbub__m { width: calc(var(--u) * 24); height: calc(var(--u) * 32); top: calc(var(--u) * 34); background: var(--sb-merge) 0 0 / 100% 100% no-repeat; }
+.gm.has-hud-art .sbub .sbub__m1 { left: calc(var(--u) * 30.5); animation: sb-m1y 2.5s linear both, sb-m1x 2.5s linear both; }
+.gm.has-hud-art .sbub .sbub__m2 { left: calc(var(--u) * 44); animation: sb-m2y 2.5s linear both; }
+.gm.has-hud-art .sbub .sbub__m3 { left: calc(var(--u) * 57.8); animation: sb-m3y 2.5s linear both, sb-m3x 2.5s linear both; }
+@keyframes sb-m1y { 0% { translate: 0 calc(var(--u) * 9.6); } 6% { translate: 0 calc(var(--u) * 1.45); } 15.32%, 100% { translate: 0 0; } }
+@keyframes sb-m2y { 0%, 1.32% { translate: 0 calc(var(--u) * 9.6); } 7.32% { translate: 0 calc(var(--u) * 1.45); } 16.68%, 100% { translate: 0 0; } }
+@keyframes sb-m3y { 0%, 2.68% { translate: 0 calc(var(--u) * 9.6); } 8.68% { translate: 0 calc(var(--u) * 1.45); } 18%, 100% { translate: 0 0; } }
+@keyframes sb-m1x { 0%, 8% { left: calc(var(--u) * 30.5); } 15.32% { left: calc(var(--u) * 32.58); } 22%, 100% { left: calc(var(--u) * 40); } }
+@keyframes sb-m3x { 0%, 8% { left: calc(var(--u) * 57.8); } 15.32% { left: calc(var(--u) * 55.95); } 22%, 100% { left: calc(var(--u) * 48); } }
+.gm.has-hud-art .sbub .sbub__ga { left: 0; top: 0; width: 100%; height: 100%; transform-origin: calc(var(--u) * 56) calc(var(--u) * 50); animation: sb-ga 2.5s linear both; }
+@keyframes sb-ga { 0%, 19.3% { opacity: 0; transform: scale(1.083); } 19.32% { opacity: 1; transform: scale(1.083); } 23.32% { transform: scale(1.025); } 32.68%, 100% { opacity: 1; transform: scale(1); } }
+.gm.has-hud-art .sbub .sbub__gshadow { left: calc(var(--u) * -12); top: calc(var(--u) * -14); width: calc(var(--u) * 136); height: calc(var(--u) * 128); background: var(--sb-cshadow) 0 0 / 100% 100% no-repeat; }
+.gm.has-hud-art .sbub .sbub__gav { left: calc(var(--u) * 32); top: calc(var(--u) * 25.8); width: calc(var(--u) * 46.5); height: calc(var(--u) * 46.5); background: var(--sb-av, none) center / cover no-repeat; }
+.gm.has-hud-art .sbub .sbub__gframe { left: calc(var(--u) * 30); top: calc(var(--u) * 24); width: calc(var(--u) * 52); height: calc(var(--u) * 52); background: var(--sb-cframe) 0 0 / 100% 100% no-repeat; }
+/* a 调度中心 level: shop_icon 1.3 → 1.06 → 1 (0.5 s) with the level (15, #6fe6ca), the arrow rising in at 0.167–0.667 s */
+.gm.has-hud-art .sbub .sbub__shop { left: calc(var(--u) * -5.6); top: calc(var(--u) * -9.3); width: calc(var(--u) * 128); height: calc(var(--u) * 124); background: var(--sb-shop) 0 0 / 100% 100% no-repeat; transform-origin: 48% 50%; animation: sb-shop 2.5s linear both; }
+@keyframes sb-shop { 0% { transform: scale(1.3); } 7.32% { transform: scale(1.06); } 20%, 100% { transform: scale(1); } }
+.gm.has-hud-art .sbub .sbub__lv { left: calc(var(--u) * 45.2); top: calc(var(--u) * 57.3); width: calc(var(--u) * 30.2); height: calc(var(--u) * 18.4); display: grid; place-items: center; font: 500 calc(var(--u) * 15) / 1 var(--font-num); color: #6fe6ca; }
+.gm.has-hud-art .sbub .sbub__arrow { left: calc(var(--u) * 58.7); top: calc(var(--u) * 44.1); width: calc(var(--u) * 28); height: calc(var(--u) * 28); background: var(--sb-arrow) 0 0 / 100% 100% no-repeat; animation: sb-arrow 2.5s linear both; }
+@keyframes sb-arrow { 0%, 6.68% { opacity: 0; translate: 0 calc(var(--u) * 18.3); } 14% { opacity: 1; translate: 0 calc(var(--u) * 3.66); } 26.68%, 100% { opacity: 1; translate: 0 0; } }
+/* out: the face 1.252 → 1, the eyes blink three times (0.067–0.267 s), the mouth (0.77, 0.84) ↔ 1 every 0.5 s */
+.gm.has-hud-art .sbub .sbub__ff { left: calc(var(--u) * 18.1); top: calc(var(--u) * 5.5); width: calc(var(--u) * 40); height: calc(var(--u) * 40); background: var(--sb-fface) 0 0 / 100% 100% no-repeat; }
+.gm.has-hud-art .sbub .sbub__eye { left: calc(var(--u) * 28.1); top: calc(var(--u) * 14.6); width: calc(var(--u) * 20); height: calc(var(--u) * 12); background: var(--sb-eye) 0 0 / 100% 100% no-repeat; animation: sb-eye 2.5s step-end both; }
+@keyframes sb-eye { 0% { opacity: 1; } 4% { opacity: 0; } 5.32% { opacity: 1; } 6.68% { opacity: 0; } 8% { opacity: 1; } 9.32% { opacity: 0; } 10.68% { opacity: 1; } }
+.gm.has-hud-art .sbub .sbub__mouth { left: calc(var(--u) * 32.1); top: calc(var(--u) * 26.6); width: calc(var(--u) * 12); height: calc(var(--u) * 12); background: var(--sb-mouth) 0 0 / 100% 100% no-repeat; transform-origin: 50% 60%; animation: sb-mouth 2.5s linear both; }
+@keyframes sb-mouth { 0%, 40%, 80% { transform: scale(.77, .842); } 20%, 60%, 100% { transform: scale(1); } }
+/* a leader-damage step (autochess_system_emoji_damage_1|2|3): glow_light #dd6e30 (70 % 92 × 56 / 100 × 62.68 / 107.04 × 68.03)
+   behind ✗ n% (icon_damage 18 × 22, the number 20 white, icon_percent 17 × 15) — the third with damage_super (36 × 44 in a
+   22 box) and high_damage_dec 52 × 43 — the line 1.3 → 1.06 → 1 */
+.gm.has-hud-art .sbub .sbub__glow { left: calc(var(--u) * 56); top: calc(var(--u) * 50); translate: -50% -50%; }
+.gm.has-hud-art .sbub.is-r1 .sbub__glow { width: calc(var(--u) * 92); height: calc(var(--u) * 56); background: var(--sb-glow) 0 0 / 100% 100%, #dd6e30; background-blend-mode: multiply; -webkit-mask: var(--sb-glow) 0 0 / 100% 100%; mask: var(--sb-glow) 0 0 / 100% 100%; opacity: 0.7; }
+.gm.has-hud-art .sbub.is-r2 .sbub__glow { width: calc(var(--u) * 100); height: calc(var(--u) * 62.68); background: var(--sb-glow) 0 0 / 100% 100%, #dd6e30; background-blend-mode: multiply; -webkit-mask: var(--sb-glow) 0 0 / 100% 100%; mask: var(--sb-glow) 0 0 / 100% 100%; opacity: 1; }
+.gm.has-hud-art .sbub.is-r3 .sbub__glow { width: calc(var(--u) * 107.04); height: calc(var(--u) * 68.03); background: var(--sb-glow) 0 0 / 100% 100%, #dd6e30; background-blend-mode: multiply; -webkit-mask: var(--sb-glow) 0 0 / 100% 100%; mask: var(--sb-glow) 0 0 / 100% 100%; opacity: 1; }
+.gm.has-hud-art .sbub .sbub__hdec { left: calc(var(--u) * 30); top: calc(var(--u) * 28.5); width: calc(var(--u) * 52); height: calc(var(--u) * 43); background: var(--sb-hdec) 0 0 / 100% 100% no-repeat; }
+.gm.has-hud-art .sbub .sbub__row { left: calc(var(--u) * 56); top: calc(var(--u) * 50); height: calc(var(--u) * 29.9); translate: -50% -50%; display: flex; align-items: center; white-space: nowrap;
+  transform-origin: 50% 50%; animation: sb-shop 2.5s linear both; }
+.gm.has-hud-art .sbub .sbub__row > i, .gm.has-hud-art .sbub .sbub__row > b { position: relative; flex: none; }
+.gm.has-hud-art .sbub .sbub__dmg { width: calc(var(--u) * 18); height: calc(var(--u) * 22); background: var(--sb-dmg) 0 0 / 100% 100% no-repeat; }
+.gm.has-hud-art .sbub .sbub__holder { width: calc(var(--u) * 22); height: calc(var(--u) * 22); }
+.gm.has-hud-art .sbub .sbub__holder .sbub__super { left: 50%; top: 50%; width: calc(var(--u) * 36); height: calc(var(--u) * 44); translate: -50% -50%; background: var(--sb-super) 0 0 / 100% 100% no-repeat; }
+.gm.has-hud-art .sbub .sbub__num { font: 500 calc(var(--u) * 20) / 1 var(--font-num); color: #fff; }
+.gm.has-hud-art .sbub .sbub__pc { width: calc(var(--u) * 17); height: calc(var(--u) * 15); background: var(--sb-pc) 0 0 / 100% 100% no-repeat; }
 /* 最终攻势 / 隐秘核心: the viewer's pair (upstream ef101647 .team__frame, a second bg_team_border over this one — two frames
    on each portrait) wears this frame alone, in the green of the board shown (docs/LOCAL-PATCH.md 「0.2.0 병합」 
    [추정]: no capture of a boss round's player list) */
@@ -378,7 +453,7 @@
    (#565656 · 80 % + icon_dead 57, 6 below the middle), a departed seat (#303030 · 80 % + icon_lost_connect 58 × 57,
    4 below), a dropped connection (#303030 · 80 % + icon_reconnect 49 × 55); icon_watch_other (40 × 35) at the top-right
    of the card shown; action_status at the card's bottom-right outside: icon_complete 21 (ready / done) or three
-   icon_doing dots 12 apart 13 (deciding, acting, fighting) [추정: their blink — moving_part has an Animation]; the
+   icon_doing dots 12 apart 13 (deciding, acting, fighting), blinking by player_status_moving_part_loop; the
    前往查看 / 返回战场 buttons as the official squares over the portrait (btn_ob_other / btn_return_self 98 × 98, the
    caption in their lower third, white / #4f4f4f) */
 .gm.has-hud-art.has-hud-card .team__btn { position: relative; }
@@ -400,10 +475,11 @@
 .team__dots { display: none; }
 .gm.has-hud-art.has-hud-card .team__status.is-act-doing { width: calc(var(--u) * 50); height: calc(var(--u) * 12); top: calc(var(--u) * 68); left: calc(var(--u) * 89); }
 .gm.has-hud-art.has-hud-card .team__status.is-act-doing .team__dots { display: flex; gap: calc(var(--u) * 1); }
+/* player_status_moving_part_loop (1 s loop): each dot's alpha 1 → 0 → 1, the next one 0.25 s later */
 .gm.has-hud-art.has-hud-card .team__dots i { width: calc(var(--u) * 12); height: calc(var(--u) * 12); background: var(--ha-doing) center / 100% 100% no-repeat;
-  animation: team-doing 1.2s steps(1) infinite; }
-.gm.has-hud-art.has-hud-card .team__dots i:nth-child(2) { animation-delay: .4s; } .gm.has-hud-art.has-hud-card .team__dots i:nth-child(3) { animation-delay: .8s; }
-@keyframes team-doing { 0% { opacity: 1; } 33% { opacity: .35; } }
+  animation: team-doing 1s linear infinite; }
+.gm.has-hud-art.has-hud-card .team__dots i:nth-child(2) { animation-delay: .25s; } .gm.has-hud-art.has-hud-card .team__dots i:nth-child(3) { animation-delay: .5s; }
+@keyframes team-doing { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 .gm.has-hud-art.has-hud-card .team__ob, .gm.has-hud-art.has-hud-card .team__back { position: absolute; z-index: 3; margin: 0; padding: 0 0 calc(var(--u) * 12); min-width: 0;
   left: calc(var(--u) * -9); top: calc(var(--u) * -9); width: calc(var(--u) * 98); height: calc(var(--u) * 98); align-items: flex-end; justify-content: center;
   border: 0; border-radius: 0; box-shadow: none; background: var(--ha-ob-btn) center / 100% 100% no-repeat; color: #fff; font-size: calc(var(--u) * 15); }

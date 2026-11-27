@@ -7,9 +7,12 @@
 //     theme's triangle win_streak_1_base with the count in black, from the second its star win_streak_2_base with the
 //     count in #F68A25 (thresholds [3, 5]), at the avatar's top-right corner.
 //   * 领袖伤害 (panel_boss_damage, player_boss_damage_view): in a boss round each avatar glows by its player's share of
-//     the leader — step 1 / 2 / 3 from 20 / 50 / 80 % (the BOSS_HIT broadcasts' steps): scan_light #FFC500 / #FFAE51 /
-//     #FF9A5E, damage_fx_middle_light through it, the third with the damage_fx_frame_cross frame and damage_fx_dec above
-//     and below; the own avatar says its share beside it (✗ n%).
+//     the leader — step 1 / 2 / 3 from 20 / 50 / 80 % (the BOSS_HIT broadcasts' steps), as the rank's clip moves it
+//     (autochess_player_damage_rank_N, a 6 s loop): scan_light (#FFC500 69 % / #FFAE51 55 % / #FF9A5E, its material
+//     drawing damage_fx_scan_light — the scan lines flowing, the bright left and right edges, a soft band) and
+//     damage_fx_middle_light going down the portrait together over the first 3 s, the third step with the
+//     damage_fx_frame_cross frame pulsing and damage_fx_dec above and below (css/screens/game-panels.css .aglow). The
+//     share's number is the leader-damage bubble's, once per step (ui/statusBubbles.js; maintainer decision 2026-11-27).
 //   * the list (boss_damage_stats_panel / _item): the match's top 3 operators against the leader, any player (one may
 //     hold two rows), each row the player's name (#5AF2C2), the operator's ✗ n% and its portrait with its tier; a
 //     隐藏 / 显示 switch above; it comes
@@ -69,16 +72,16 @@ export const streakStep = (n, thresholds) => Math.min(2, stepOf(n, thresholds));
 /** @param {unknown} phase */
 const isBoss = (phase) => phase === PHASE.FINAL_ASSAULT || phase === PHASE.HIDDEN_CORE;
 
-/** ✗ n% (icon_damage, the percent, icon_percent). @param {{ pct: number, cls?: string }} p */
+/** ✗ n% (icon_damage, the percent, icon_percent) — the ranking's rows. @param {{ pct: number, cls?: string }} p */
 function Pct({ pct, cls = '' }) {
   return html`<span class=${`bdmg__pct ${cls}`}><i class="bdmg__x" aria-hidden="true"></i><b class="num">${pct}</b><small>%</small></span>`;
 }
 
 /**
  * The badges on one team-panel avatar (inside its button; css positions them on the portrait).
- * @param {{ player: { alive?: boolean, winStreak?: number, bossPct?: number, [key: string]: unknown } | null, self?: boolean, phase?: string|null }} props
+ * @param {{ player: { alive?: boolean, winStreak?: number, bossPct?: number, [key: string]: unknown } | null, phase?: string|null }} props
  */
-export function AvatarBadges({ player, self = false, phase = null }) {
+export function AvatarBadges({ player, phase = null }) {
   const c = badgeConstants();
   if (!c || !player || player.alive === false) return null;
   const m = data.get('assets');
@@ -89,19 +92,19 @@ export function AvatarBadges({ player, self = false, phase = null }) {
     out.push(html`<span key="s" class=${`abadge is-r${s}${sprite ? ' has-sprite' : ''}`} style=${sprite ? `--abadge:url("${sprite}")` : undefined}
       title=${t('完美连胜 {n}', { n: player.winStreak })}><b class="num">${player.winStreak}</b></span>`);
   }
-  // the glow and the own share are 规程's (its table's steps); 盟约 has the ranking alone
+  // the glow is 规程's (its table's steps); 盟约 has the ranking alone
   if (isBoss(phase) && Array.isArray(c.bossDamageThresholds) && Number.isFinite(player.bossPct)) {
     const b = bossStep(player.bossPct, c.bossDamageThresholds);
     if (b > 0) {
       /** @param {string} n */
       const art = (n) => uiUrl(m, `seasonSkin/${n}`);
-      const ml = art('damage_fx_middle_light'), cr = art('damage_fx_frame_cross'), dec = art('damage_fx_dec');
-      const vars = [ml && `--aglow-mid:url("${ml}")`, cr && `--aglow-cross:url("${cr}");--aglow-cross-line:none`, dec && `--aglow-dec:url("${dec}")`].filter(Boolean).join(';');
-      out.push(html`<span key="g" class=${`aglow is-r${b}`} style=${vars || undefined} aria-hidden="true">
+      const ml = art('damage_fx_middle_light'), cr = art('damage_fx_frame_cross'), dec = art('damage_fx_dec'), sc = art('damage_fx_scan_light');
+      const vars = [ml && `--aglow-mid:url("${ml}")`, cr && `--aglow-cross:url("${cr}");--aglow-cross-line:none`, dec && `--aglow-dec:url("${dec}")`,
+        sc && `--aglow-scan:url("${sc}")`].filter(Boolean).join(';');
+      out.push(html`<span key="g" class=${`aglow is-r${b}${sc ? ' has-scan' : ''}`} style=${vars || undefined} aria-hidden="true">
         <i class="aglow__scan"></i><i class="aglow__mid"></i>${b >= 3 ? html`<i class="aglow__cross"></i><i class="aglow__dec"></i><i class="aglow__dec is-down"></i>` : null}
       </span>`);
     }
-    if (self) out.push(html`<${Pct} key="p" pct=${player.bossPct} cls="abadge__pct" />`);
   }
   return out.length ? out : null;
 }

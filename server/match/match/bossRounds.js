@@ -73,7 +73,8 @@ export class MatchBoss {
         if (reached > done) {
           hitSteps.set(pid, reached);
           const own = scaled ? msg('{name}博士对敌方领袖造成的伤害超过{pct}%!', { name: nameParam(ps.name), pct: Math.round(steps[reached - 1] * 100) }) : null;
-          this.tickerFor('BOSS_HIT', [ps.name], { playerId: pid, param: String(BOSS_HIT_STEPS[reached - 1]), own });
+          // the step and the percent it names ride along for 规程's leader-damage bubble (ui/statusBubbles.js)
+          this.tickerFor('BOSS_HIT', [ps.name], { playerId: pid, param: String(BOSS_HIT_STEPS[reached - 1]), own, extra: { step: reached, pct: Math.round(steps[reached - 1] * 100) } });
         }
       },
     });

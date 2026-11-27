@@ -78,6 +78,7 @@ import { installResources, ResourceHost, resStore } from './resources.js';
 import { useSkinArt } from './ui/skins.js';
 import { emoteSet } from '../../shared/emote-art.js';
 import { initLang, useLang, tickerText } from './ui/lang.js';
+import { statusBubbleFields } from './ui/statusBubbles.js';
 import { t, N_, translateWire } from '../../shared/i18n.js';
 import { PHASE } from '../../shared/constants.js';
 import { mergePublic } from '../../shared/protocol.js';
@@ -381,7 +382,10 @@ function wireNet() {
     const playerId = typeof msg.playerId === 'string' ? msg.playerId : null;
     // its broadcast priority: the strip plays the highest first (ui/ticker.js enqueueTickerLines)
     const priority = Number.isFinite(msg.priority) ? msg.priority : 0;
-    store.set((s) => ({ ticker: [...s.ticker.slice(-(TICKER_KEEP - 1)), { id: ++seq, text, at: Date.now(), type, playerId, round: s.match?.public?.round ?? null, priority }] }));
+    // what 规程's avatar bubbles draw (ui/statusBubbles.js): the line's args (SHOP_LEVEL's level), an elite's chess and
+    // what it fields as, a leader-damage line's step and percent
+    const bubble = statusBubbleFields(msg);
+    store.set((s) => ({ ticker: [...s.ticker.slice(-(TICKER_KEEP - 1)), { id: ++seq, text, at: Date.now(), type, playerId, round: s.match?.public?.round ?? null, priority, ...bubble }] }));
   });
   net.on('m.emote', (msg) => {
     store.set((s) => ({ emotes: [...s.emotes.slice(-(EMOTE_KEEP - 1)), { seq: ++seq, playerId: msg.playerId, id: msg.id, set: emoteSet(msg.set), at: Date.now() }] }));

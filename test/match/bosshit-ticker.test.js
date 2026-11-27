@@ -30,7 +30,7 @@ function toHiddenCore({ mode = 'coop', size, difficulty = 'NORMAL', humans = 1, 
   h.onBroadcast.push((msg) => {
     if (msg.t !== 'm.ticker' || msg.type !== 'BOSS_HIT') return;
     const pool = m.bossPool;
-    hits.push({ phase: m.phase, playerId: msg.playerId, text: msg.text, id: msg.id, msgid: msg.msgid ?? null, priority: msg.priority,
+    hits.push({ phase: m.phase, playerId: msg.playerId, text: msg.text, id: msg.id, msgid: msg.msgid ?? null, priority: msg.priority, step: msg.step, pct: msg.pct,
       share: pool ? (pool.byPlayer.get(msg.playerId) || 0) / pool.maxHp : null,
       leaderHpPct: pool ? pool.hp / pool.maxHp : null });
   });
@@ -138,6 +138,9 @@ test('the 8-player mode: thresholds × 4 / alive (8 alive: 10 / 25 / 40 %), our 
     assert.equal(x.id, null, 'no official broadcast id: its text says 20 / 50 / 80 %');
     assert.equal(x.msgid, '{name}博士对敌方领袖造成的伤害超过{pct}%!');
     assert.equal(x.priority, 30, 'the BOSS_HIT priority');
+    // 规程's leader-damage bubble draws the step and the percent the line names (ui/statusBubbles.js)
+    assert.ok([1, 2, 3].includes(x.step), 'the line carries its step');
+    assert.equal(x.pct, Math.round(bossHitSteps(8)[x.step - 1] * 100), 'and the scaled percent it names');
   }
   const fa = assertTruthful(hits, PHASE.FINAL_ASSAULT, players);
   assert.ok(fa.every((x) => stepOf(x) === 0.4), 'one hit cleared the Final Assault: the highest scaled step');
@@ -154,6 +157,7 @@ test('four players keep the official lines (the broadcast id, its 20 / 50 / 80 %
   for (const x of hits) {
     assert.match(String(x.id), /^comment_boss_hit_[123]$/);
     assert.equal(x.msgid, null);
+    assert.equal(x.pct, [20, 50, 80][x.step - 1], 'the bubble\'s number: the official step');
   }
   m.dispose();
 });

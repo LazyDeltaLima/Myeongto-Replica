@@ -943,18 +943,48 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .abadge.has-sprite { clip-path: none; background: var(--abadge) center / contain no-repeat; filter: drop-shadow(0 0 .04rem rgba(255, 200, 60, .8)); }
 .aglow { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .aglow i { position: absolute; display: block; }
-.aglow__scan { inset: 0; box-shadow: 0 0 .16rem .05rem var(--aglow-c, #ffc500), inset 0 0 .12rem .02rem var(--aglow-c, #ffc500); opacity: .8; }
-.aglow__mid { left: -42%; right: -42%; top: 50%; height: 27%; transform: translateY(-50%); background: var(--aglow-mid, linear-gradient(90deg, transparent, rgba(243, 173, 113, .8), transparent)) center / 100% 100% no-repeat; opacity: .78; }
-.aglow.is-r1 { --aglow-c: #ffc500; }
-.aglow.is-r2 { --aglow-c: #ffae51; }
-.aglow.is-r3 { --aglow-c: #ff9a5e; }
-.aglow__cross { inset: -4%; background: var(--aglow-cross, none) center / 100% 100% no-repeat; outline: var(--aglow-cross-line, 2px solid rgba(255, 154, 94, .75)); }
-.aglow__dec { left: 50%; top: 0; width: 72%; height: 21%; transform: translate(-50%, -70%); background: var(--aglow-dec, linear-gradient(#ff9a5e, #ff9a5e) center / 60% 30% no-repeat) center / contain no-repeat; }
-.aglow__dec.is-down { top: auto; bottom: 0; transform: translate(-50%, 70%) scaleY(-1); }
+.aglow { --gu: var(--u, .015rem); }
+/* the rank clip (autochess_player_damage_rank_N, a 6 s loop — maintainer decision 2026-11-27): scan_light (80.04 × 82.48)
+   and mid_light (162.69 × 25.5, #f3ad71 78 %) go down together from 30.2 above the card's centre to 32.5 below over the
+   first 3 s, in and out by the rank's alpha keys; nothing moves in the last 3 s. scan_light's material
+   (damage_rank_scan_light) draws damage_fx_scan_light — its rows flowing up (V −0.25 / s), its bright left and right
+   edges — under a soft band (its first dissolve mask, img_uifx_basicmask_09: dark at the top and bottom) [ASSUMED·엔진:
+   the dissolve's exact edge — the band is drawn as a gradient] */
+.aglow__scan { left: 0; top: -1.55%; width: 100%; height: 103.1%; opacity: 0; background: var(--aglow-c);
+  -webkit-mask: linear-gradient(transparent 15%, #000 40% 60%, transparent 85%); mask: linear-gradient(transparent 15%, #000 40% 60%, transparent 85%);
+  animation: aglow-a1 6s linear infinite, aglow-down 6s linear infinite; }
+.aglow.has-scan .aglow__scan { background: var(--aglow-scan) 0 0 / 100% calc(var(--gu) * 82.48) repeat-y, var(--aglow-c); background-blend-mode: multiply;
+  -webkit-mask: var(--aglow-scan) 0 0 / 100% 100%, linear-gradient(transparent 15%, #000 40% 60%, transparent 85%); -webkit-mask-composite: source-in;
+  mask: var(--aglow-scan) 0 0 / 100% 100%, linear-gradient(transparent 15%, #000 40% 60%, transparent 85%); mask-composite: intersect;
+  animation: aglow-a1 6s linear infinite, aglow-down 6s linear infinite, aglow-flow 4s linear infinite; }
+@keyframes aglow-flow { to { background-position: 0 calc(var(--gu) * -82.48), 0 0; } }
+@keyframes aglow-down { 0% { translate: 0 calc(var(--gu) * -30.2); } 50%, 100% { translate: 0 calc(var(--gu) * 32.5); } }
+/* the rank's alpha keys: step 1 in 0.083–0.833 s, out 2.2–2.9 s; steps 2 and 3 in 0.233–0.983 s, out 2.017–2.717 s */
+@keyframes aglow-a1 { 0%, 1.38% { opacity: 0; } 13.88%, 36.67% { opacity: var(--aglow-a); } 48.33%, 100% { opacity: 0; } }
+@keyframes aglow-a2 { 0%, 3.88% { opacity: 0; } 16.38%, 33.62% { opacity: var(--aglow-a); } 45.28%, 100% { opacity: 0; } }
+.aglow__mid { left: 50%; top: 50%; width: calc(var(--gu) * 162.69); height: calc(var(--gu) * 25.5); margin: calc(var(--gu) * -12.75) 0 0 calc(var(--gu) * -81.35);
+  background: var(--aglow-mid, linear-gradient(90deg, transparent, rgba(243, 173, 113, .8), transparent)) center / 100% 100% no-repeat; opacity: 0;
+  --aglow-a: .78; animation: aglow-a1 6s linear infinite, aglow-down 6s linear infinite, aglow-wide 6s linear infinite; }
+/* its width wavers between 155 and 198 (the clip's keys, rounded) */
+@keyframes aglow-wide { 0% { scale: 1 1; } 12% { scale: 1.12 1; } 25% { scale: .99 1; } 37% { scale: 1.2 1; } 50%, 100% { scale: 1.05 1; } }
+.aglow.is-r1 { --aglow-c: #ffc500; } .aglow.is-r1 .aglow__scan { --aglow-a: .69; }
+.aglow.is-r2 { --aglow-c: #ffae51; } .aglow.is-r2 .aglow__scan { --aglow-a: .55; }
+.aglow.is-r3 { --aglow-c: #ff9a5e; } .aglow.is-r3 .aglow__scan { --aglow-a: 1; }
+.aglow.is-r2 .aglow__scan, .aglow.is-r3 .aglow__scan, .aglow.is-r2 .aglow__mid, .aglow.is-r3 .aglow__mid { animation-name: aglow-a2, aglow-down, aglow-flow; }
+.aglow.is-r2 .aglow__mid, .aglow.is-r3 .aglow__mid { animation-name: aglow-a2, aglow-down, aglow-wide; }
+.aglow:not(.has-scan) .aglow__scan { animation-name: aglow-a1, aglow-down; }
+.aglow.is-r2:not(.has-scan) .aglow__scan, .aglow.is-r3:not(.has-scan) .aglow__scan { animation-name: aglow-a2, aglow-down; }
+/* step 3: cross_frame 81.54 ↔ 88 and blinking (0.75 s), damage_fx_dec 68 × 20 at ±41.3 */
+.aglow__cross { left: 50%; top: 50%; width: calc(var(--gu) * 81.54); height: calc(var(--gu) * 81.54); translate: -50% -50%;
+  background: var(--aglow-cross, none) center / 100% 100% no-repeat; outline: var(--aglow-cross-line, 2px solid rgba(255, 154, 94, .75));
+  animation: aglow-cross .75s ease-in-out infinite alternate; }
+@keyframes aglow-cross { to { width: calc(var(--gu) * 88); height: calc(var(--gu) * 88); opacity: .55; } }
+.aglow__dec { left: 50%; top: 50%; width: calc(var(--gu) * 68); height: calc(var(--gu) * 20); translate: -50% calc(-50% - var(--gu) * 41.3);
+  background: var(--aglow-dec, linear-gradient(#ff9a5e, #ff9a5e) center / 60% 30% no-repeat) center / 100% 100% no-repeat; }
+.aglow__dec.is-down { translate: -50% calc(-50% + var(--gu) * 41.3); transform: scaleY(-1); }
 .bdmg__pct { display: inline-flex; align-items: baseline; gap: .02rem; color: #fff; white-space: nowrap; text-shadow: 0 1px 3px #000; }
 .bdmg__pct b { font-size: .2rem; font-weight: 700; }
 .bdmg__pct small { font-size: .15rem; font-weight: 700; }
-.abadge__pct { position: absolute; z-index: 4; left: calc(100% + .08rem); top: 50%; transform: translateY(-50%); pointer-events: none; }
 /* ✗ (icon_damage): two strokes */
 .bdmg__x { width: .14rem; height: .14rem; align-self: center; background: #fff;
   -webkit-mask: linear-gradient(45deg, transparent 40%, #000 40% 60%, transparent 60%), linear-gradient(-45deg, transparent 40%, #000 40% 60%, transparent 60%);

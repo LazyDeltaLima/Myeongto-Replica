@@ -269,6 +269,9 @@ test('what shows the piece shows the stand-in: the m.result lineup carries stand
     const line = h.bc.slice(before).find((x) => x.t === 'm.ticker' && x.type === 'GOLDEN_CHAR');
     assert.ok(line, `${ps.playerId}: a GOLDEN_CHAR line`);
     assert.ok([...ps.hand, ...ps.temp].some((x) => x && x.id === chess(SILVER).goldenId), 'merged by the chess\'s rule');
+    // 规程's elite bubble draws the elite by id and what it fields as (ui/statusBubbles.js)
+    assert.equal(line.chess, chess(SILVER).goldenId, 'the line carries the elite\'s chess id');
+    assert.equal(line.standInFor, ps.playerId === 'p_0' ? chess(SILVER).charId : undefined, 'and its stand-in, when it fields one');
     return line.args[1];
   };
   assert.equal(goldName(p0), 'Sharp');
