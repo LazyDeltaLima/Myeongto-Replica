@@ -22,32 +22,54 @@ const quiet = { warn() {}, error() {}, info() {}, debug() {} };
 const ACT3 = hasGeneratedData() ? getData({ log: quiet, season: 'act3autochess' }) : null;
 const MODE = 'mode_multi_abyss';
 const ORDER = ['8', '6', '1', '7', '2_2', '7', '7', '9', '16', '2_2', '8', '10', '15', '7', '2_2'].map((id) => `aceffect_enemy_${id}`);
+// co-op 标准 / 险境 / 绝境: the community tool's orders (null: no new effect that round)
+const OTHER_ORDERS = Object.fromEntries(Object.entries({
+  mode_multi_funny: ['4', '2', '-', '-', '-', '2', '-', '-', '-', '-', '-', '3', '-', '-'],
+  mode_multi_normal: ['4', '7', '-', '7', '2', '2', '12', '14', '13', '2', '13', '13', '20', '-', '2'],
+  mode_multi_hard: ['7', '7', '-', '7', '2_2', '7', '7', '-', '2_2', '2_2', '7', '2_3', '21', '21', '2'],
+}).map(([m, ids]) => [m, ids.map((id) => (id === '-' ? null : `aceffect_enemy_${id}`))]));
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(b)), `${msg}: ${a} ≈ ${b}`);
 
-test('规程 co-op 终极: each round row is the measured effects folded from the season\'s blackboards; other modes keep no ASPD bonus', REAL, () => {
-  const rows = ACT3.config.modes[MODE].enemyScale;
-  assert.equal(Object.keys(rows).length, ORDER.length, 'one effect per round');
-  // an independent fold of the season's effect records
+/**
+ * An independent fold of the season's effect records along `order` (null: no new effect), checked against the rows.
+ * @param {Record<string, { atk: number, hp: number, speed: number, aspdAdd?: number, supplyHp?: number }>} rows @param {(string | null)[]} order @param {string} mode
+ */
+function foldCheck(rows, order, mode) {
+  assert.equal(Object.keys(rows).length, order.length, `${mode}: one entry per round`);
   let atk = 1, hp = 1, speed = 1, aspd = 0, supply = 1;
-  for (const [i, id] of ORDER.entries()) {
-    for (const b of ACT3.effects[id].buffs) {
+  for (const [i, id] of order.entries()) {
+    for (const b of id ? ACT3.effects[id].buffs : []) {
       if (b.key === 'enemy_attribute_mul') {
         if (b.bb.atk != null) atk *= b.bb.atk;
         if (b.bb.max_hp != null) { hp *= b.bb.max_hp; if (b.bb.atk == null) supply *= b.bb.max_hp; }
       } else if (b.key === 'enemy_attribute_add') aspd += b.bb.attack_speed;
       else speed *= 1 + b.bb.move_speed;
     }
-    const r = rows[i + 1];
-    near(r.atk, atk, `R${i + 1} atk`);
-    near(r.hp, hp, `R${i + 1} hp`);
-    near(r.speed, speed, `R${i + 1} speed`);
-    assert.equal(r.aspdAdd, aspd, `R${i + 1} aspdAdd`);
-    near(r.supplyHp ?? 1, supply, `R${i + 1} supplyHp`);
+    const r = rows[i + 1], at = `${mode} R${i + 1}`;
+    near(r.atk, atk, `${at} atk`);
+    near(r.hp, hp, `${at} hp`);
+    near(r.speed, speed, `${at} speed`);
+    assert.equal(r.aspdAdd, aspd || undefined, `${at} aspdAdd`);
+    near(r.supplyHp ?? 1, supply, `${at} supplyHp`);
   }
+  return rows;
+}
+
+test('规程 co-op: each round row is its order\'s effects folded from the season\'s blackboards (终极 measured, 标准 / 险境 / 绝境 the tool\'s); only 终极 has an ASPD bonus', REAL, () => {
+  for (const [mode, order] of [[MODE, ORDER], ...Object.entries(OTHER_ORDERS)]) {
+    const r = foldCheck(ACT3.config.modes[mode].enemyScale, order, mode);
+    if (mode !== MODE) assert.ok(Object.values(r).every((row) => row.aspdAdd === undefined && row.speed === 1), `${mode}: no speed effects`);
+  }
+  const rows = ACT3.config.modes[MODE].enemyScale;
   // the numbers upstream PR #1013 and the research table give (8 R: 3.88, 14 R: 12.28; attack speed +10 → +30)
   near(rows[8].hp, 3.881779, 'R8 hp');
   near(rows[14].hp, 12.280707, 'R14 hp');
   near(rows[14].atk, 1.1 ** 8, 'R14 atk: eight ×1.1 effects, no 攻坚装备 ×1.11');
+  // the community tool's values; 绝境 R8 agrees with an official health-bar measurement (×2.91 / ×3.05)
+  near(ACT3.config.modes.mode_multi_hard.enemyScale[8].hp, 3.234816, '绝境 R8 hp');
+  near(ACT3.config.modes.mode_multi_hard.enemyScale[14].hp, 9.52542, '绝境 R14 hp');
+  near(ACT3.config.modes.mode_multi_normal.enemyScale[14].hp, 3.899902, '险境 R14 hp');
+  near(ACT3.config.modes.mode_multi_funny.enemyScale[14].hp, 1.119744, '标准 R14 hp');
   assert.deepEqual(Object.values(rows).map((r) => r.aspdAdd), [10, 15, 15, 15, 15, 15, 15, 15, 15, 15, 25, 25, 30, 30, 30]);
   assert.deepEqual(Object.values(rows).map((r) => r.speed), [1, 1, ...Array(13).fill(1.3)], '急行军 from round 3');
   for (const [D, name] of [[ACT3, '规程'], [DATA, '盟约']]) {
