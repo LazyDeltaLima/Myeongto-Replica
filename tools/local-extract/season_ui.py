@@ -135,6 +135,10 @@ SEASONS = {
                                                                      'player_status_shop_level_bubble',
                                                                      'player_status_dead_bubble',
                                                                      'player_status_boss_hit_bubble']),
+            # the in-match enemy dialog beside the 本局信息 one (public/js/ui/enemyDrawer.js): its frame, the enemy row's
+            # avatar frame and the ability rows' title tag and bullets
+            ('ui/autochess/[uc]autochessbattle.ab', 'enemydialog', ['autochess_hud_enemy_dialog', 'autochess_hud_enemy_item',
+                                                                    'autochess_hud_enemy_ability_item']),
             # the 自选编队 tab (public/js/screens/diy.js): the lineup window's tier rows (its tags and the diy_icon) and its
             # empty slot pop_diy_item_add — the slot holds the 3/3 card (auto_chess_deploy_char_item_view, in diychoose)
             ('ui/autochess/[uc]autochessouter.ab', 'diylineup', ['auto_chess_deploy_diy_lineup_state', 'auto_chess_deploy_diy_lineup_slot_view']),
